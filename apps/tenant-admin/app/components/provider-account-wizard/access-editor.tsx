@@ -34,6 +34,7 @@ export const AccessEditor = memo(function AccessEditor(props: {
   effectiveModels: EffectiveModelView[];
   isLoadingEffective: boolean;
   onLoadEffective: () => void;
+  showSaveAction?: boolean;
 }) {
   const ux = useTranslations("providerAccounts.ux");
   const hasEffectivePrincipal = Boolean((props.effectivePrincipal?.principal_id ?? "").trim());
@@ -45,10 +46,12 @@ export const AccessEditor = memo(function AccessEditor(props: {
           <h3 className="text-base font-semibold">{ux("tabs.access")}</h3>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">{ux("access.description")}</p>
         </div>
-        <Button type="button" onClick={props.onSave} disabled={!props.canManage || props.isSaving} className="shrink-0">
-          <ShieldCheck className="h-4 w-4" />
-          {props.isSaving ? props.t("saving") : props.t("saveAccessControl")}
-        </Button>
+        {props.showSaveAction ?? true ? (
+          <Button type="button" onClick={props.onSave} disabled={!props.canManage || props.isSaving} className="shrink-0">
+            <ShieldCheck data-icon="inline-start" />
+            {props.isSaving ? props.t("saving") : props.t("saveAccessControl")}
+          </Button>
+        ) : null}
       </div>
 
       <div className="grid items-stretch gap-4">
@@ -61,8 +64,11 @@ export const AccessEditor = memo(function AccessEditor(props: {
           setSelected={props.setManagers}
           disabled={!props.canManage}
           allowEveryone={false}
-          addLabel={props.t("principal.add")}
+          addLabel={ux("access.addManager")}
           removeLabel={props.t("principal.remove")}
+          description={ux("access.managerRequiredHint")}
+          searchLabel={ux("access.searchManager")}
+          getRemoveLabel={(item) => ux("access.removeManager", { identity: item.display_name || item.principal_id || item.type })}
         />
 
         <PrincipalPicker
@@ -74,14 +80,23 @@ export const AccessEditor = memo(function AccessEditor(props: {
           setSelected={props.setUsers}
           disabled={!props.canManage}
           allowEveryone
-          addLabel={props.t("principal.add")}
+          addLabel={ux("access.addUser")}
           removeLabel={props.t("principal.remove")}
+          description={ux("access.usersOptionalHint")}
+          searchLabel={ux("access.searchUser")}
+          getRemoveLabel={(item) => ux("access.removeUser", { identity: item.display_name || item.principal_id || item.type })}
+          everyoneConfirmation={{
+            title: ux("access.everyoneConfirmTitle"),
+            description: ux("access.everyoneConfirmDescription"),
+            confirmLabel: ux("access.everyoneConfirmAction"),
+            cancelLabel: ux("actions.cancelDelete"),
+          }}
         />
       </div>
 
       <div className="space-y-4 rounded-lg border border-border/70 bg-muted/10 p-4">
         <h4 className="text-base font-semibold">{ux("access.effectivePreviewTitle")}</h4>
-        <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)_auto]">
+        <div className="grid gap-3 lg:grid-cols-4">
           <AppSelectField
             id="previewKeyType"
             label={ux("access.keyTypeLabel")}
@@ -92,9 +107,9 @@ export const AccessEditor = memo(function AccessEditor(props: {
               { value: "vat", label: ux("access.vat") },
             ]}
           />
-          <Field>
+          <Field className="lg:col-span-2">
             <FieldLabel htmlFor="previewPrincipal">{`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`}</FieldLabel>
-            <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
+            <div className="flex min-w-0 gap-2">
               <PrincipalEntitySelect
                 id="previewPrincipal"
                 selected={props.effectivePrincipal}
@@ -102,7 +117,8 @@ export const AccessEditor = memo(function AccessEditor(props: {
                 onSearch={props.onSearchPrincipal}
                 labels={props.principalSelectorLabels}
                 kinds={["user", "team"]}
-                className="min-w-0"
+                className="min-w-0 flex-1"
+                ariaLabel={ux("access.previewPrincipalSearch")}
               />
               <Button
                 type="button"
@@ -130,7 +146,13 @@ export const AccessEditor = memo(function AccessEditor(props: {
             </Button>
           </div>
         </div>
-        <EffectiveModelsTable models={props.effectiveModels} />
+        {hasEffectivePrincipal ? (
+          <EffectiveModelsTable models={props.effectiveModels} />
+        ) : (
+          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+            {ux("access.previewEmptyHint")}
+          </p>
+        )}
       </div>
     </section>
   );

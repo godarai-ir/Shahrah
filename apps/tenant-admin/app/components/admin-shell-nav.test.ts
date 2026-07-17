@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems } from "./admin-shell-nav";
+import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick } from "./admin-shell-nav";
 
 function t(key: string) {
   const dictionary: Record<string, string> = {
@@ -20,6 +20,11 @@ function getVisibleTitles(permissions: string[]) {
 }
 
 describe("admin access navigation items", () => {
+  it("handles a plain active-item click so stale detail query parameters are cleared", () => {
+    expect(shouldHandleActiveNavClick({ button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false })).toBe(true);
+    expect(shouldHandleActiveNavClick({ button: 0, metaKey: false, ctrlKey: true, shiftKey: false, altKey: false })).toBe(false);
+  });
+
   it("orders access items by common administrative workflow", () => {
     expect(ACCESS_NAV_ITEM_KEYS).toEqual([
       "users",

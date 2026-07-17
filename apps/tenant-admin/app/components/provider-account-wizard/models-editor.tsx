@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatTokenCount, ModelCard, type ModelCardData } from "@/app/components/model-card";
 import {
   clearVisibleModelSelection,
@@ -37,6 +38,8 @@ import {
   getActiveModelFilterChips,
   getBestCompareMarkers,
   getCompareKpis,
+  getModelFamily,
+  getRecommendedModel,
   hasInvalidModelPriceRange,
   normalizeProviderScopedModelName,
   sortComparedModels,
@@ -175,6 +178,18 @@ type ModelListItemProps = {
 
 const ALL_FILTER_OPTIONS = "__all__";
 
+function formatCapabilityLabel(value: string, ux: ReturnType<typeof useTranslations>): string {
+  const normalized = value.trim().toLowerCase().replaceAll("-", "_");
+  if (normalized === "function_calling" || normalized === "tool_calling" || normalized === "tools") {
+    return ux("models.capabilityLabels.toolCalling");
+  }
+  if (normalized === "reasoning") return ux("models.capabilityLabels.reasoning");
+  if (normalized === "vision" || normalized === "image") return ux("models.capabilityLabels.vision");
+  if (normalized === "audio") return ux("models.capabilityLabels.audio");
+  if (normalized === "streaming") return ux("models.capabilityLabels.streaming");
+  return value.replaceAll("_", " ");
+}
+
 type CompactTableRowProps = {
   canManage: boolean;
   draft?: ModelDraft;
@@ -185,6 +200,7 @@ type CompactTableRowProps = {
   displayScale: "PER_MILLION_TOKENS" | "PER_TOKEN";
   usdToIrr: number;
   ux: ReturnType<typeof useTranslations>;
+  recommended: boolean;
 };
 
 const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProps) {
@@ -198,6 +214,7 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
     displayScale,
     usdToIrr,
     ux,
+    recommended,
   } = props;
   const draft = useMemo(
     () => draftProp ?? buildFallbackDraft(model, selectableOptions),
@@ -228,7 +245,7 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
 
   return (
     <tr className={cn("border-b border-border/60 align-top", draft.enabled && "bg-[var(--success-soft)]/45")}>
-      <td className="px-3 py-3 text-center">
+      <td className="px-2 py-3 text-center">
         <Checkbox
           checked={draft.enabled}
           onCheckedChange={(checked) => setModelEnabled(model, draft, selectableOptions, checked === true)}
@@ -238,10 +255,11 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
         />
       </td>
       <td className="px-3 py-3">
-        <div className="min-w-[11rem] space-y-1">
+        <div className="min-w-0 space-y-1">
           <p className="line-clamp-2 text-sm font-semibold text-foreground" dir="ltr" title={model.display_name || model.model}>
             {model.display_name || model.model}
           </p>
+          {recommended ? <Badge className="mt-1" variant="secondary">{ux("models.card.recommended")}</Badge> : null}
           <p className="truncate text-[11px] text-muted-foreground" dir="ltr" title={model.model}>
             {normalizeProviderScopedModelName(model.provider, model.model)}
           </p>
@@ -253,20 +271,20 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
         </span>
       </td>
       <td className="px-3 py-3">
-        <div className="min-w-[8rem] text-xs font-medium" dir="ltr">
+        <div className="truncate whitespace-nowrap text-xs font-medium" dir="ltr">
           {priceLabel}
         </div>
       </td>
       <td className="px-3 py-3">
-        <div className="min-w-[8rem] text-xs font-medium" dir="ltr">
+        <div className="truncate whitespace-nowrap text-xs font-medium" dir="ltr">
           {outputPriceLabel}
         </div>
       </td>
-      <td className="px-3 py-3">
-        <div className="flex min-w-[10rem] flex-wrap gap-1">
+      <td className="hidden px-3 py-3 md:table-cell">
+        <div className="flex min-w-0 flex-wrap gap-1">
           {capabilities.map((capability) => (
-            <Badge key={`${model.model}-cap-${capability}`} variant="outline" className="px-2 py-0 text-[11px]">
-              {capability}
+            <Badge key={`${model.model}-cap-${capability}`} variant="outline" className="px-2 py-0 text-[11px]" title={capability}>
+              {formatCapabilityLabel(capability, ux)}
             </Badge>
           ))}
           {modes.map((mode) => (
@@ -290,7 +308,8 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
     prev.displayCurrency === next.displayCurrency &&
     prev.displayScale === next.displayScale &&
     prev.usdToIrr === next.usdToIrr &&
-    prev.ux === next.ux
+    prev.ux === next.ux &&
+    prev.recommended === next.recommended
   );
 });
 
@@ -352,6 +371,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           mobileDensity={mobileDensity}
           detailsHref={buildModelDiscoveryDetailsHref(model)}
           pricingDisplay={pricingDisplay}
+          formatCapabilityLabel={(value) => formatCapabilityLabel(value, ux)}
           isSelected={draft.enabled}
           onSelectedChange={(checked) => setModelEnabled(model, draft, selectableOptions, checked)}
           selectedCheckboxLabel={ux("common.enabled")}
@@ -364,19 +384,20 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           compareCheckboxLabel={compact ? undefined : ux("models.actions.compareToggle")}
           pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
           hasCustomPricing={draft.pricingMode === "private"}
+          showCopyAction
           className={
             compact
               ? draft.enabled
-                ? "border-[var(--success-soft-border)] self-start"
+                ? "border-success/40 self-start"
                 : "self-start"
               : draft.enabled
-                ? "border-[var(--success-soft-border)]"
+                ? "border-success/40"
                 : undefined
           }
           footerActions={
-            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => openCurlGuide(model)}>
-              <Code2 className="h-3.5 w-3.5" />
-              {ux("models.card.curlGuide")}
+            <Button type="button" variant="outline" size="sm" onClick={() => openCurlGuide(model)}>
+                <Code2 data-icon="inline-start" />
+                {ux("models.card.curlGuide")}
             </Button>
           }
           pricingAction={
@@ -384,13 +405,12 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
-                className="size-7"
+                size="icon-sm"
                 disabled={!canManage}
                 aria-label={`${ux("models.actions.editPricing")} ${model.display_name || model.model}`}
                 onClick={() => openPricingEditor(model)}
               >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <SlidersHorizontal aria-hidden="true" />
               </Button>
             </PopoverTrigger>
           }
@@ -467,7 +487,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   const [curlGuide, setCurlGuide] = useState<CurlGuide | null>(null);
   const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
-  const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("table");
+  const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("card");
   const [pricingEditor, setPricingEditor] = useState<PricingEditorState>({
     open: false,
     modelKey: "",
@@ -589,6 +609,11 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     () => Array.from(new Set(providerModels.flatMap((model) => getModelCapabilities(model)))),
     [providerModels],
   );
+  const allFamilies = useMemo(
+    () => Array.from(new Set(providerModels.map(getModelFamily))).sort((a, b) => a.localeCompare(b)),
+    [providerModels],
+  );
+  const recommendedModel = useMemo(() => getRecommendedModel(providerModels), [providerModels]);
 
   const visibleModels = useMemo(
     () =>
@@ -625,6 +650,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         allInputModalities: ux("models.filters.allInputModalities"),
         allOutputModalities: ux("models.filters.allOutputModalities"),
         allFeatures: ux("models.filters.allFeatures"),
+        allFamilies: ux("models.filters.allFamilies"),
       }),
     [filters, ux],
   );
@@ -877,6 +903,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       description: `${ux("models.columns.modalities")}: ${inputModalities.join(", ") || ux("models.na")} / ${outputModalities.join(", ") || ux("models.na")}`,
       category: categories,
       status: "stable",
+      recommended: recommendedModel?.model === model.model,
       contextWindow: model.context_window,
       maxOutputTokens: undefined,
       pricing: {
@@ -896,7 +923,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         mode: modes.join(", ") || undefined,
       },
     };
-  }, [buildModelFqn, ux]);
+  }, [buildModelFqn, recommendedModel?.model, ux]);
 
   const getSelectableOptions = useCallback((model: ProviderCatalogModel) => {
     const modes = getModelModes(model);
@@ -990,6 +1017,47 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                 />
               </div>
             </div>
+            {recommendedModel ? (
+              <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm">
+                <span className="font-medium">{ux("models.recommendation.title")}: </span>
+                <bdi dir="ltr">{recommendedModel.display_name || recommendedModel.model}</bdi>
+                <span className="text-muted-foreground"> — {ux("models.recommendation.reason")}</span>
+              </div>
+            ) : null}
+            <div className="grid gap-2 sm:grid-cols-3">
+              <AppSelectField
+                ariaLabel={ux("models.filters.allFamilies")}
+                size="sm"
+                value={filters.familyFilter || ALL_FILTER_OPTIONS}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, familyFilter: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                options={[
+                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allFamilies") },
+                  ...allFamilies.map((item) => ({ value: item, label: item })),
+                ]}
+              />
+              <AppSelectField
+                ariaLabel={ux("models.filters.allFeatures")}
+                size="sm"
+                value={filters.featureFilter || ALL_FILTER_OPTIONS}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, featureFilter: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                options={[
+                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allFeatures") },
+                  ...allFeatures.map((item) => ({ value: item, label: formatCapabilityLabel(item, ux) })),
+                ]}
+              />
+              <AppSelectField
+                ariaLabel={ux("models.sort.priceAsc")}
+                size="sm"
+                value={filters.sortBy}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, sortBy: value as ModelFilterState["sortBy"] }))}
+                options={[
+                  { value: "price_asc", label: ux("models.sort.priceAsc") },
+                  { value: "price_desc", label: ux("models.sort.priceDesc") },
+                  { value: "context_desc", label: ux("models.sort.contextDesc") },
+                  { value: "context_asc", label: ux("models.sort.contextAsc") },
+                ]}
+              />
+            </div>
             <div
               dir="rtl"
               className="flex flex-col gap-2 px-1 py-1 text-right text-sm sm:flex-row sm:items-center sm:justify-between"
@@ -1001,26 +1069,22 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                     total: props.providerModels.length,
                   })}
                 </Badge>
-                <div className="inline-flex rounded-full border border-border/70 bg-muted/30 p-1">
-                  <Button
-                    type="button"
-                    variant={mobileViewMode === "table" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-8 rounded-full px-3 text-[12px]"
-                    onClick={() => setMobileViewMode("table")}
-                  >
+                <ToggleGroup
+                  type="single"
+                  value={mobileViewMode}
+                  onValueChange={(value) => {
+                    if (value === "table" || value === "card") setMobileViewMode(value);
+                  }}
+                  aria-label={ux("integrations.wizard.viewMode")}
+                  className="inline-flex rounded-full border border-border/70 bg-muted/30 p-1"
+                >
+                  <ToggleGroupItem value="table" className="h-8 rounded-full px-3 text-xs data-[state=on]:bg-secondary">
                     {ux("integrations.wizard.tableView")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={mobileViewMode === "card" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-8 rounded-full px-3 text-[12px]"
-                    onClick={() => setMobileViewMode("card")}
-                  >
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="card" className="h-8 rounded-full px-3 text-xs data-[state=on]:bg-secondary">
                     {ux("integrations.wizard.cardView")}
-                  </Button>
-                </div>
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[13px]">
                 <label
@@ -1053,7 +1117,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         </div>
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 pt-3 sm:px-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3 sm:px-5">
             <div className="flex min-h-full min-w-0 flex-col gap-2 pe-2">
               {props.isLoadingModels ? (
                 <>
@@ -1066,15 +1130,23 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               ) : mobileViewMode === "table" ? (
                 <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[42rem] table-fixed border-collapse text-right">
+                    <table className="w-full table-fixed border-collapse text-right">
+                      <colgroup>
+                        <col className="w-12" />
+                        <col />
+                        <col className="w-20" />
+                        <col className="w-20" />
+                        <col className="w-20" />
+                        <col className="hidden w-36 md:table-column" />
+                      </colgroup>
                       <thead className="bg-muted/35 text-[11px] text-muted-foreground">
                         <tr>
-                          <th className="px-3 py-2 text-center font-medium">{ux("common.enabled")}</th>
+                          <th className="px-2 py-2 text-center font-medium">{ux("common.enabled")}</th>
                           <th className="px-3 py-2 text-right font-medium">{ux("models.card.modelId")}</th>
                           <th className="px-3 py-2 text-center font-medium">{ux("models.card.context")}</th>
                           <th className="px-3 py-2 text-right font-medium">{ux("models.labels.input")}</th>
                           <th className="px-3 py-2 text-right font-medium">{ux("models.labels.output")}</th>
-                          <th className="px-3 py-2 text-right font-medium">{ux("models.card.capabilities")}</th>
+                          <th className="hidden px-3 py-2 text-right font-medium md:table-cell">{ux("models.card.capabilities")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1090,6 +1162,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                             displayScale={displayScale}
                             usdToIrr={usdToIrr}
                             ux={ux}
+                            recommended={recommendedModel?.model === model.model}
                           />
                         ))}
                       </tbody>

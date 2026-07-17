@@ -35,7 +35,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, type AdminNavItem } from "@/app/components/admin-shell-nav";
+import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick, type AdminNavItem } from "@/app/components/admin-shell-nav";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
 import { ShellPageHeading, type ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
 import { PermissionsProvider } from "@/app/components/permissions-context";
@@ -119,6 +119,7 @@ export default function AdminShellClient({
   pageHeader,
 }: AdminShellClientProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations("shell");
 
   const userIdentity =
@@ -140,6 +141,10 @@ export default function AdminShellClient({
           navItems={visibleNavItems}
           subscriptionSummary={subscriptionSummary}
           appVersion={appVersion}
+          onNavigate={(href) => {
+            router.replace(href);
+            router.refresh();
+          }}
         />
 
         <SidebarInset className="min-w-0 rounded-none bg-background">
@@ -255,6 +260,7 @@ type SidebarContentProps = {
     periodEnd: string | null;
   };
   appVersion: string;
+  onNavigate: (href: string) => void;
 };
 
 function AdminSidebar({
@@ -262,6 +268,7 @@ function AdminSidebar({
   navItems,
   subscriptionSummary,
   appVersion,
+  onNavigate,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
   const navItemsByKey = useMemo(() => {
@@ -337,7 +344,14 @@ function AdminSidebar({
                             tooltip={item.title}
                             asChild
                           >
-                            <Link href={item.href}>
+                            <Link
+                              href={item.href}
+                              onClick={(event) => {
+                                if (!item.isActive || !shouldHandleActiveNavClick(event.nativeEvent)) return;
+                                event.preventDefault();
+                                onNavigate(item.href);
+                              }}
+                            >
                               <Icon aria-hidden="true" />
                               <span>{item.title}</span>
                             </Link>
@@ -403,7 +417,7 @@ function DocsLink({ href }: { href: string }) {
 
   return (
     <Button type="button" variant="outline" size="icon" className="shrink-0" asChild>
-      <Link href={href} aria-label={t("docs.open")}>
+      <Link href={href} target="_blank" rel="noopener noreferrer" aria-label={t("docs.open")}>
         <BookOpen data-icon="inline-start" aria-hidden="true" />
       </Link>
     </Button>

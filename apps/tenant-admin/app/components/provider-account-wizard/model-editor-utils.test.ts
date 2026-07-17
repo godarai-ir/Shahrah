@@ -6,6 +6,8 @@ import {
   getActiveModelFilterChips,
   getBestCompareMarkers,
   getCompareKpis,
+  getModelFamily,
+  getRecommendedModel,
   hasInvalidModelPriceRange,
   normalizeProviderScopedModelName,
   sortComparedModels,
@@ -90,6 +92,7 @@ describe("model-editor-utils", () => {
         allInputModalities: "Input",
         allOutputModalities: "Output",
         allFeatures: "Feature",
+        allFamilies: "Family",
       },
     );
 
@@ -97,6 +100,16 @@ describe("model-editor-utils", () => {
       { key: "minPrice", label: "Min: 1" },
       { key: "featureFilter", label: "Feature: vision" },
     ]);
+  });
+
+  it("prefers a stable chat alias over a dated model version", () => {
+    const recommended = getRecommendedModel([
+      { ...models[0], model: "claude-sonnet-4-20250514", display_name: "Claude Sonnet 4 (2025-05-14)" },
+      { ...models[0], model: "claude-sonnet-4", display_name: "Claude Sonnet 4" },
+    ]);
+
+    expect(recommended?.model).toBe("claude-sonnet-4");
+    expect(getModelFamily(recommended!)).toBe("Claude Sonnet");
   });
 
   it("detects invalid price ranges", () => {

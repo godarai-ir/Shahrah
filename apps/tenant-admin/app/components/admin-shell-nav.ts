@@ -70,6 +70,10 @@ export const ACCESS_NAV_ITEM_KEYS: AdminNavItem["key"][] = [
   "virtualUsers",
 ];
 
+export function shouldHandleActiveNavClick(event: Pick<MouseEvent, "button" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey">): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
 export function buildAdminNavItems(pathname: string, t: (key: string) => string): AdminNavItem[] {
   return [
     {

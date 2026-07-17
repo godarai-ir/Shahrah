@@ -714,10 +714,6 @@ func (s *Store) ListUserRoleNamesByUserIDs(ctx context.Context, tenantID string,
 }
 
 func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID string, userID string, fallbackRole string) ([]string, []string, error) {
-	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
-		return nil, nil, err
-	}
-
 	tenantID = strings.TrimSpace(tenantID)
 	userID = strings.TrimSpace(userID)
 
@@ -830,7 +826,14 @@ func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
 	}
 	defer rollbackTxBestEffort(ctx, tx)
 
-	for roleName, permissions := range systemRolePermissions {
+	roleNames := make([]string, 0, len(systemRolePermissions))
+	for roleName := range systemRolePermissions {
+		roleNames = append(roleNames, roleName)
+	}
+	sort.Strings(roleNames)
+
+	for _, roleName := range roleNames {
+		permissions := systemRolePermissions[roleName]
 		var roleID string
 
 		displayName := systemRoleDisplayName(roleName)

@@ -8,6 +8,7 @@ import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
+import { ModelCardExampleGrid } from "@/app/components/model-card.example";
 import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 
 const tokens = [
@@ -104,6 +106,14 @@ export default function DesignSystemPage() {
         <MetricCard label="Requests" value={<CompactValue display={requestsDisplay} />} description="Current billing period" trend={<StatusBadge status="success">+12%</StatusBadge>} icon={Activity} />
         <MetricCard label="Provider accounts" value="8" description="Active connections" icon={Database} />
         <MetricCard label="Monthly spend" value={<CompactValue display={spendDisplay} />} description="Exact value stays in tooltip" icon={KeyRound} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Model information card"
+          description="RTL-first model identity, selection, pricing, modality, capability, and invocation-mode pattern."
+        />
+        <ModelCardExampleGrid />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
@@ -419,6 +429,12 @@ export default function DesignSystemPage() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="Status badges and states" />
+        <div className="flex flex-wrap gap-2" aria-label="Semantic metadata chips">
+          <Badge variant="info">Informational capability</Badge>
+          <Badge variant="success">Recommended choice</Badge>
+          <Badge variant="warning">Usage consideration</Badge>
+          <Badge variant="secondary">Neutral metadata</Badge>
+        </div>
         <div className="flex flex-wrap gap-2">
           <StatusBadge status="active">active</StatusBadge>
           <StatusBadge status="inactive">inactive</StatusBadge>

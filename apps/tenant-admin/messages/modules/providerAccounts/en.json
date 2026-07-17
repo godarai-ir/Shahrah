@@ -43,7 +43,7 @@
   },
   "fields": {
     "provider": "Model provider",
-    "accountName": "Account display name",
+    "accountName": "Connection technical identifier",
     "authMode": "Connection auth mode",
     "virtualKeysMode": "Virtual key policy",
     "allowVirtualOnly": "Tenant virtual keys only",
@@ -154,7 +154,8 @@
       "loading": "Loading...",
       "deleteAccount": "Delete",
       "cancelDelete": "Cancel",
-      "confirmDelete": "Delete account"
+      "confirmDelete": "Delete account",
+      "edit": "Edit"
     },
     "setup": {
       "stepLabel": "Step {number}",
@@ -166,7 +167,19 @@
     },
     "review": {
       "title": "Review & Activate",
-      "activationCheckTitle": "Activation check"
+      "activationCheckTitle": "Activation check",
+      "connectionTitle": "Connection details",
+      "provider": "Provider",
+      "accountName": "Account name",
+      "authMode": "Authentication method",
+      "credentialSource": "Key source",
+      "godarKey": "GodarAI key",
+      "providerKey": "Provider key",
+      "modelsTitle": "Selected models",
+      "accessTitle": "Access",
+      "managers": "Managers",
+      "users": "Consumers",
+      "noUsers": "No consumer selected"
     },
     "kpi": {
       "credentialStatus": "Credential status",
@@ -249,7 +262,19 @@
         "minContext": "Min context",
         "allInputModalities": "All input modalities",
         "allOutputModalities": "All output modalities",
-        "allFeatures": "All features"
+        "allFeatures": "All features",
+        "allFamilies": "All families"
+      },
+      "recommendation": {
+        "title": "Suggested starting model",
+        "reason": "a stable alias with the lowest published input price among chat models"
+      },
+      "capabilityLabels": {
+        "toolCalling": "Tool calling",
+        "reasoning": "Reasoning",
+        "vision": "Vision",
+        "audio": "Audio",
+        "streaming": "Streaming"
       },
       "displayUnit": {
         "currencyUsd": "USD",
@@ -414,6 +439,21 @@
       "teamIdLabel": "team_id",
       "optional": "optional",
       "previewAction": "Preview",
+      "managerRequiredHint": "At least one manager is required.",
+      "usersOptionalHint": "Consumers are optional and can be changed later.",
+      "searchManager": "Search managers",
+      "searchUser": "Search consumers",
+      "addManager": "Add manager",
+      "addUser": "Add consumer",
+      "removeManager": "Remove {identity} from managers",
+      "removeUser": "Remove {identity} from consumers",
+      "minSearchHint": "Enter at least two characters to search.",
+      "everyoneWarning": "Broad access for every user",
+      "everyoneConfirmTitle": "Grant access to everyone?",
+      "everyoneConfirmDescription": "Every current and future user will be able to consume the enabled models on this connection.",
+      "everyoneConfirmAction": "Confirm broad access",
+      "previewPrincipalSearch": "Search principal for effective access preview",
+      "previewEmptyHint": "Select a user or team to preview their effective access.",
       "pat": "pat",
       "vat": "vat"
     },
@@ -456,7 +496,7 @@
         "nextStep": "Next Step",
         "grabApiKey": "Grab API Key",
         "useOwnApiKeyQuestion": "Do you want to use your own API key?",
-        "useOwnApiKeyDescription": "When enabled, this connection stores and validates the provider credential you supply.",
+        "useOwnApiKeyDescription": "If you need help, see <guideLink>this guide</guideLink>.",
         "useOwnApiKeyYes": "Yes, use my API key",
         "useOwnApiKeyNo": "No",
         "useOwnApiKeyNoDescription": "An API key is not required. You can use the Godar AI key instead.",
@@ -473,9 +513,9 @@
         "optionalFields": "Optional Fields",
         "advancedOptions": "Advanced Options",
         "modelsHeaderTitle": "Model selection",
-        "modelsHeaderDescription": "Pick the provider models that should be enabled for this connection. You can change them later.",
-        "accessPermissionsDescription": "Access policy configuration will be added in the next iteration.",
-        "reviewConfirmDescription": "Final review and confirmation will be added in the next iteration.",
+        "modelsHeaderDescription": "Select the models available from this provider that you want to enable for this connection. You can change them later.",
+        "accessPermissionsDescription": "Choose at least one manager and optionally add allowed consumers.",
+        "reviewConfirmDescription": "Review the connection name, models, authentication, and access scope before activation.",
         "requestModel": "Request a Model",
         "addModel": "Add Model",
         "modelsTitle": "Models ({count})",
@@ -485,6 +525,10 @@
         "selectedOnly": "Selected only",
         "tableView": "Table view",
         "cardView": "Card view",
+        "viewMode": "Model view",
+        "modelSelectionRequired": "Select at least one model to continue.",
+        "draftSavedTitle": "Connection draft saved",
+        "draftSavedDescription": "Testing a provider key created a server draft. The connection name stays fixed, while models and access are saved on activation.",
         "deselectAll": "Deselect All",
         "autoEnableTitle": "Automatically enable new models from this provider",
         "autoEnableDescription": "If you enable this option, new models from this provider will be available on this integration by default. You can disable them later.",
@@ -515,15 +559,14 @@
       "activeAccountCount": "connection",
       "noConnection": "No connection",
       "connectionRequired": "New connection required",
-      "credentialModeLabel": "Connection mode",
-      "authModeLabel": "Auth method",
-      "providerCredential": "Provider credential",
-      "virtualKeyOnly": "Virtual keys only",
+      "credentialTypeLabel": "Credential type",
+      "dedicatedCredential": "Dedicated",
+      "platformCredential": "GodarAI platform",
       "createConnection": "Create new connection"
     },
     "actions": {
       "connect": "Connect",
-      "connectProvider": "Connect Provider",
+      "connectProvider": "Browse providers",
       "manageConnections": "Manage connections",
       "copyIdentifier": "Copy slug",
       "editIntegration": "Edit Integration",
@@ -532,12 +575,16 @@
       "disconnect": "Disconnect",
       "disconnecting": "Disconnecting...",
       "cancel": "Cancel",
-      "readDocs": "Learn more",
-      "reload": "Reload"
+      "readDocs": "Connection guide",
+      "reload": "Reload",
+      "refresh": "Refresh provider list",
+      "refreshing": "Refreshing provider list",
+      "viewConnection": "View connection",
+      "backToList": "Back to list"
     },
     "empty": {
-      "connectedTitle": "No LLM integrations connected yet",
-      "connectedDescription": "Connect your first provider to start routing requests through Godar.",
+      "connectedTitle": "No provider accounts are connected yet",
+      "connectedDescription": "Connect a provider account to route model requests through GodarAI.",
       "providersTitle": "No providers found",
       "providersDescription": "Adjust search and filters, or reload the provider catalog."
     },
@@ -548,7 +595,8 @@
       "disconnectConfirm": "Disconnecting \"{name}\" prevents dependent routes from using this connection's credential for requests.",
       "disconnectConfirmInput": "Type the connection name to confirm: {name}",
       "disconnectSuccess": "Integration disconnected.",
-      "disconnectFailed": "Failed to disconnect integration."
+      "disconnectFailed": "Failed to disconnect integration.",
+      "connectionCreated": "Connection \"{name}\" was activated successfully."
     }
   }
 }

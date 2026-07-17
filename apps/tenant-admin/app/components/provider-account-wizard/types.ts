@@ -33,6 +33,7 @@ export type ProviderCatalogProvider = {
   docs_url?: string;
   docsUrl?: string;
   logo_url?: string;
+  model_count?: number;
   enabled: boolean;
   auth_modes: ProviderAuthMode[];
   supports_bring_your_own_key: boolean;

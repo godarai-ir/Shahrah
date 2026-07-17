@@ -230,6 +230,18 @@ func TestDiscoveryProviderExists_NormalizesLegacyProviderSlug(t *testing.T) {
 	assert.True(t, exists)
 }
 
+func TestMapDiscoveryProviders_PreservesModelCount(t *testing.T) {
+	items := mapDiscoveryProviders([]discoveryProvider{{
+		Slug:       "anthropic",
+		Name:       "Anthropic",
+		ModelCount: 12,
+		Enabled:    true,
+	}})
+
+	require.Len(t, items, 1)
+	assert.Equal(t, 12, items[0].ModelCount)
+}
+
 func TestDiscoveryProviderModels_NormalizesLegacyProviderSlug(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {

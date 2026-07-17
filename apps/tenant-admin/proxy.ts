@@ -105,7 +105,10 @@ function isExpectedOrigin(
 function hasSupportedMutationContentType(request: NextRequest): boolean {
   const rawContentType = request.headers.get("content-type");
   if (!rawContentType) {
-    return request.body === null;
+    // Content-Type describes a representation, so bodyless mutations such as
+    // DELETE and logout legitimately omit it. Same-origin validation above is
+    // the CSRF boundary; only validate the media type when one is declared.
+    return true;
   }
 
   const mediaType = rawContentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";

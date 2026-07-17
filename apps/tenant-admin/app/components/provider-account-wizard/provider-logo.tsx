@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 
 import { getProviderFallbackLogoPath, getProviderLogoSrc } from "./utils";
-export function ProviderLogo(props: { provider: string; displayName: string; logoURL?: string; size?: number }) {
+export function ProviderLogo(props: { provider: string; displayName: string; logoURL?: string; size?: number; decorative?: boolean }) {
   const size = props.size ?? 18;
   const fallbackSrc = getProviderFallbackLogoPath(props.provider);
   const [hasError, setHasError] = useState(false);
@@ -13,7 +13,8 @@ export function ProviderLogo(props: { provider: string; displayName: string; log
   return (
     <Image
       src={src}
-      alt={props.displayName}
+      alt={props.decorative ? "" : props.displayName}
+      aria-hidden={props.decorative || undefined}
       width={size}
       height={size}
       className="shrink-0 rounded-sm object-contain"

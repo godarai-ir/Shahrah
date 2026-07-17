@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import {
   PrincipalEntitySelect,
@@ -33,8 +34,18 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
   disabled?: boolean;
   variant?: "default" | "filter";
   className?: string;
+  description?: string;
+  searchLabel?: string;
+  getRemoveLabel?: (item: TItem) => string;
+  everyoneConfirmation?: {
+    title: string;
+    description: string;
+    confirmLabel: string;
+    cancelLabel: string;
+  };
 }) {
   const [candidate, setCandidate] = useState<PrincipalEntitySelection | null>(null);
+  const [everyoneConfirmOpen, setEveryoneConfirmOpen] = useState(false);
   const isFilterVariant = props.variant === "filter";
 
   function addPrincipal(item: TItem) {
@@ -63,10 +74,19 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
     if (!candidate) return;
     if (candidate.type === "external_identity") return;
     if (candidate.type !== "user" && candidate.type !== "team" && candidate.type !== "org_unit" && candidate.type !== "virtual_account" && candidate.type !== "everyone") return;
+    if (candidate.type === "everyone" && props.everyoneConfirmation) {
+      setEveryoneConfirmOpen(true);
+      return;
+    }
+    commitCandidate(candidate);
+  }
+
+  function commitCandidate(nextCandidate: PrincipalEntitySelection) {
+    if (nextCandidate.type === "external_identity") return;
     addPrincipal({
-      type: candidate.type,
-      principal_id: candidate.principal_id,
-      display_name: candidate.display_name,
+      type: nextCandidate.type,
+      principal_id: nextCandidate.principal_id,
+      display_name: nextCandidate.display_name,
     } as TItem);
     setCandidate(null);
   }
@@ -82,7 +102,10 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
       )}
     >
       <div className={cn("flex items-start justify-between gap-3", isFilterVariant && "md:min-w-32")}>
-        <h4 className={cn(isFilterVariant ? "text-xs font-normal leading-8 text-muted-foreground" : "text-base font-semibold")}>{props.title}</h4>
+        <div>
+          <h4 className={cn(isFilterVariant ? "text-xs font-normal leading-8 text-muted-foreground" : "text-base font-semibold")}>{props.title}</h4>
+          {props.description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{props.description}</p> : null}
+        </div>
       </div>
 
       <div className={cn(isFilterVariant ? "flex min-w-0 flex-row-reverse items-start gap-2" : "grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]")}>
@@ -97,7 +120,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
             aria-label={props.addLabel}
             title={props.addLabel}
           >
-            <Plus className="h-4 w-4" />
+            <Plus data-icon="inline-start" />
             <span className="sr-only">{props.addLabel}</span>
           </Button>
         ) : null}
@@ -111,6 +134,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
           includeEveryone={props.allowEveryone}
           className={cn("min-w-0", isFilterVariant && "flex-1")}
           compact={isFilterVariant}
+          ariaLabel={props.searchLabel}
         />
         {isFilterVariant ? null : (
           <Button
@@ -120,7 +144,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
             disabled={props.disabled || !candidate || candidate.type === "external_identity"}
             className="w-full sm:w-auto"
           >
-            <Plus className="h-4 w-4" />
+            <Plus data-icon="inline-start" />
             {props.addLabel}
           </Button>
         )}
@@ -136,14 +160,29 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
               if (props.disabled) return;
               removePrincipal(item);
             }}
-            title={props.removeLabel}
+            title={props.getRemoveLabel?.(item) ?? props.removeLabel}
+            aria-label={props.getRemoveLabel?.(item) ?? props.removeLabel}
             disabled={props.disabled}
           >
             <span className="max-w-[240px] truncate">{item.display_name || item.principal_id || item.type}</span>
-            <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <X aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
         ))}
       </div>
+      {props.everyoneConfirmation ? (
+        <ConfirmDialog
+          open={everyoneConfirmOpen}
+          onOpenChange={setEveryoneConfirmOpen}
+          title={props.everyoneConfirmation.title}
+          description={props.everyoneConfirmation.description}
+          confirmLabel={props.everyoneConfirmation.confirmLabel}
+          cancelLabel={props.everyoneConfirmation.cancelLabel}
+          destructive={false}
+          onConfirm={() => {
+            if (candidate?.type === "everyone") commitCandidate(candidate);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

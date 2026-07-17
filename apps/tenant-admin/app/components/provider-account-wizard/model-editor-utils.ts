@@ -14,6 +14,7 @@ export type ModelFilterState = {
   inputModality: string;
   outputModality: string;
   featureFilter: string;
+  familyFilter: string;
   sortBy: "price_asc" | "price_desc" | "context_asc" | "context_desc";
 };
 
@@ -26,6 +27,7 @@ export type ModelFilterLabels = {
   allInputModalities: string;
   allOutputModalities: string;
   allFeatures: string;
+  allFamilies: string;
 };
 
 export type DisplayPriceOptions = {
@@ -44,6 +46,7 @@ export function createInitialModelFilters(search = ""): ModelFilterState {
     inputModality: "",
     outputModality: "",
     featureFilter: "",
+    familyFilter: "",
     sortBy: "price_asc",
   };
 }
@@ -91,6 +94,7 @@ export function filterAndSortProviderModels({
     if (filters.inputModality && !(model.input_modalities ?? []).includes(filters.inputModality)) return false;
     if (filters.outputModality && !(model.output_modalities ?? []).includes(filters.outputModality)) return false;
     if (filters.featureFilter && !getModelCapabilities(model).includes(filters.featureFilter)) return false;
+    if (filters.familyFilter && getModelFamily(model) !== filters.familyFilter) return false;
     return true;
   });
 
@@ -123,7 +127,33 @@ export function getActiveModelFilterChips(filters: ModelFilterState, labels: Mod
   if (filters.inputModality.trim()) chips.push({ key: "inputModality", label: `${labels.allInputModalities}: ${filters.inputModality}` });
   if (filters.outputModality.trim()) chips.push({ key: "outputModality", label: `${labels.allOutputModalities}: ${filters.outputModality}` });
   if (filters.featureFilter.trim()) chips.push({ key: "featureFilter", label: `${labels.allFeatures}: ${filters.featureFilter}` });
+  if (filters.familyFilter.trim()) chips.push({ key: "familyFilter", label: `${labels.allFamilies}: ${filters.familyFilter}` });
   return chips;
+}
+
+export function getModelFamily(model: ProviderCatalogModel): string {
+  const raw = (model.display_name || model.model.split("/").at(-1) || model.model).replaceAll(/[_-]+/g, " ");
+  const words = raw.split(/\s+/).filter(Boolean);
+  const familyWords = words.filter((word) => !/^v?\d+(?:\.\d+)*$/.test(word)).slice(0, 2);
+  return familyWords.join(" ") || words[0] || model.provider;
+}
+
+export function getRecommendedModel(models: ProviderCatalogModel[]): ProviderCatalogModel | null {
+  if (models.length === 0) return null;
+  const chatModels = models.filter((model) => {
+    const values = [...(model.types ?? []), ...(model.mode ?? []), ...(model.modes ?? [])];
+    return values.some((value) => value.toLowerCase().includes("chat"));
+  });
+  const candidates = chatModels.length > 0 ? chatModels : models;
+  return [...candidates].sort((a, b) => {
+    const datedA = /(?:^|[-_/])20\d{2}[-_]?\d{2}[-_]?\d{2}(?:$|[-_/])/.test(a.model) ? 1 : 0;
+    const datedB = /(?:^|[-_/])20\d{2}[-_]?\d{2}[-_]?\d{2}(?:$|[-_/])/.test(b.model) ? 1 : 0;
+    if (datedA !== datedB) return datedA - datedB;
+    const priceA = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
+    const priceB = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
+    if (priceA !== priceB) return priceA - priceB;
+    return (b.context_window ?? 0) - (a.context_window ?? 0);
+  })[0] ?? null;
 }
 
 export function hasInvalidModelPriceRange(filters: Pick<ModelFilterState, "minPrice" | "maxPrice">): boolean {

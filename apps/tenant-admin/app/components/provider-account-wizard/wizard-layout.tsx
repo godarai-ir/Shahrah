@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Check } from "lucide-react";
+
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,7 +76,9 @@ export function CreateFlowStepIndicator(props: {
       onClick={props.onClick}
       disabled={props.disabled}
       dir="rtl"
-      className="group flex min-w-[7rem] flex-1 flex-row items-center justify-start gap-2 rounded-lg px-2 py-2 text-right transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent lg:min-w-0 lg:w-full lg:flex-none lg:px-1"
+      aria-current={props.state === "active" ? "step" : undefined}
+      aria-label={`${props.number}. ${props.title}`}
+      className="group flex min-w-14 flex-1 flex-row items-center justify-center gap-2 rounded-lg px-2 py-2 text-right transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent sm:min-w-28 sm:justify-start lg:w-full lg:min-w-0 lg:flex-none lg:px-1"
     >
       <div
         className={
@@ -83,9 +87,9 @@ export function CreateFlowStepIndicator(props: {
             : "flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground ring-8 ring-primary/10"
         }
       >
-        {props.number}
+        {props.state === "complete" ? <Check aria-hidden="true" className="size-4" /> : props.number}
       </div>
-      <span className={props.state === "idle" ? "min-w-0 flex-1 text-right text-sm font-medium text-muted-foreground" : "min-w-0 flex-1 text-right text-sm font-semibold text-primary"}>
+      <span className={props.state === "idle" ? "hidden min-w-0 flex-1 text-right text-sm font-medium text-muted-foreground sm:block" : "hidden min-w-0 flex-1 text-right text-sm font-semibold text-primary sm:block"}>
         {props.title}
       </span>
     </button>
@@ -105,7 +109,7 @@ export function WizardPanel({
   contentClassName,
 }: {
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
   footer?: ReactNode;
   actions?: ReactNode;
@@ -132,14 +136,14 @@ export function WizardPanel({
       <header dir="rtl" className="flex flex-col gap-3 px-1 text-right sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}
       </header>
       <div className={fillHeight ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm" : "flex flex-col rounded-lg border border-border bg-card shadow-sm"}>
         {content}
         {footer ? (
-          <footer className="flex shrink-0 flex-wrap justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 shadow-[0_-8px_18px_rgba(15,23,42,0.04)]">
+          <footer className="sticky bottom-0 z-10 flex shrink-0 flex-wrap justify-between gap-2 border-t border-border bg-card/95 px-5 py-3 shadow-lg">
             {footer}
           </footer>
         ) : null}

@@ -7,16 +7,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, Pencil, ShieldCheck, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 
-import { AppSelectField, TypedConfirmDialog } from "@/components/app-ui";
+import { AppSelectField, DefinitionList, DefinitionListItem, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -32,6 +30,7 @@ import {
   mergeAccountIntoList,
 } from "@/app/components/provider-account-wizard/account-readiness";
 import { CredentialFields } from "@/app/components/provider-account-wizard/credential-fields";
+import { buildCreatedConnectionHref, getCreateStepState, shouldPersistCreateAccount } from "@/app/components/provider-account-wizard/create-flow";
 import { EffectiveModelsTable } from "@/app/components/provider-account-wizard/effective-models-table";
 import { ModelsEditor } from "@/app/components/provider-account-wizard/models-editor";
 import { EmptyOverview, ReadinessBadge, SummaryKPI } from "@/app/components/provider-account-wizard/overview";
@@ -155,7 +154,7 @@ export default function ProviderAccountWizard(props?: {
   const [modelDrafts, setModelDrafts] = useState<Record<string, ModelDraft>>({});
 
   const [managers, setManagers] = useState<AccessPrincipal[]>([]);
-  const [users, setUsers] = useState<AccessPrincipal[]>([{ type: "everyone", display_name: t("principal.everyone") }]);
+  const [users, setUsers] = useState<AccessPrincipal[]>([]);
 
   const [effectiveKeyType, setEffectiveKeyType] = useState<"pat" | "vat">("pat");
   const [effectiveUserID, setEffectiveUserID] = useState("");
@@ -165,13 +164,7 @@ export default function ProviderAccountWizard(props?: {
   const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
   const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
   const [activeCreateSection, setActiveCreateSection] = useState<CreateWizardSectionID>("details");
-
-  useEffect(() => {
-    if (!isCreateMode || banner?.kind !== "success") return;
-    toast.success(banner.message, { duration: 3500 });
-    const timeout = window.setTimeout(() => setBanner(null), 0);
-    return () => window.clearTimeout(timeout);
-  }, [banner, isCreateMode]);
+  const [furthestCreateStepIndex, setFurthestCreateStepIndex] = useState(0);
 
   const handleEffectivePrincipalChange = useCallback((selection: PrincipalEntitySelection | null) => {
     setEffectivePrincipalSelection(selection);
@@ -233,6 +226,10 @@ export default function ProviderAccountWizard(props?: {
   const selectedModelCount = useMemo(
     () => Object.values(modelDrafts).filter((draft) => draft.enabled).length,
     [modelDrafts],
+  );
+  const selectedModels = useMemo(
+    () => providerModels.filter((model) => modelDrafts[model.model]?.enabled),
+    [modelDrafts, providerModels],
   );
 
   const unresolvedPricingCount = useMemo(() => {
@@ -337,7 +334,7 @@ export default function ProviderAccountWizard(props?: {
         setWorkspaceMode("setup");
         setSetupStep(currentProviderID ? 2 : 1);
         setManagers([]);
-        setUsers([{ type: "everyone", display_name: t("principal.everyone") }]);
+        setUsers([]);
         if (initialProvider) {
           const providerItem = createProviders.find((item) => stringsEqualFold(item.provider, initialProvider));
           setProvider(initialProvider);
@@ -552,7 +549,10 @@ export default function ProviderAccountWizard(props?: {
     [accounts, canDeleteProviderAccount, normalizeDeleteAccountError, selectedAccountID, t],
   );
 
-  async function handleSaveCredentials(accountID = selectedAccountID) {
+  async function handleSaveCredentials(
+    accountID = selectedAccountID,
+    options: { reload?: boolean; announce?: boolean } = {},
+  ) {
     if (!canManageProviderAccount) {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
       return false;
@@ -598,8 +598,12 @@ export default function ProviderAccountWizard(props?: {
           }),
         },
       );
-      setBanner({ kind: "success", message: t("messages.accountLoadSuccess") });
-      await handleLoadAccount(accountID);
+      if (options.announce ?? true) {
+        setBanner({ kind: "success", message: t("messages.accountLoadSuccess") });
+      }
+      if (options.reload ?? true) {
+        await handleLoadAccount(accountID);
+      }
       setAPIKeyTouched(false);
       setAPIKeyTestSucceeded(false);
       return true;
@@ -707,8 +711,11 @@ export default function ProviderAccountWizard(props?: {
       setSelectedAccountID(newAccount.id);
       setSelectedProviderID(newAccount.provider);
       setAccount(newAccount);
-      await loadInitial();
-      await handleLoadAccount(newAccount.id);
+      setAccounts((current) => mergeAccountIntoList(current, newAccount));
+      if (!isCreateMode) {
+        await loadInitial();
+        await handleLoadAccount(newAccount.id);
+      }
       if (advanceToModels) {
         setSetupStep(3);
         setActiveCreateSection("models");
@@ -737,7 +744,7 @@ export default function ProviderAccountWizard(props?: {
 
     let accountID = selectedAccountID;
     if (accountID) {
-      const saved = await handleSaveCredentials(accountID);
+      const saved = await handleSaveCredentials(accountID, { reload: !isCreateMode, announce: false });
       if (!saved) return;
     } else {
       const createdID = await handleCreateAccount({
@@ -777,18 +784,20 @@ export default function ProviderAccountWizard(props?: {
   }
 
   async function handleContinueFromCreateDetails() {
-    if (!selectedAccountID) {
-      await handleCreateAccount();
+    if (!provider || !name.trim()) {
+      setBanner({ kind: "error", message: t("messages.validationProviderName") });
       return;
     }
-
-    const saved = await handleSaveCredentials(selectedAccountID);
-    if (!saved) return;
+    if (shouldPersistCreateAccount("continue-details")) return;
     setSetupStep(3);
+    setFurthestCreateStepIndex((current) => Math.max(current, 1));
     setActiveCreateSection("models");
   }
 
-  const handleSaveModels = useCallback(async (accountID = selectedAccountID): Promise<boolean> => {
+  const handleSaveModels = useCallback(async (
+    accountID = selectedAccountID,
+    options: { reload?: boolean; announce?: boolean } = {},
+  ): Promise<boolean> => {
     if (!canManageProviderAccount) {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
       return false;
@@ -820,8 +829,12 @@ export default function ProviderAccountWizard(props?: {
         `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/models`,
         { method: "PUT", body: JSON.stringify({ models: payloadModels }) },
       );
-      setBanner({ kind: "success", message: t("messages.modelsSaveSuccess") });
-      await handleLoadAccount(accountID);
+      if (options.announce ?? true) {
+        setBanner({ kind: "success", message: t("messages.modelsSaveSuccess") });
+      }
+      if (options.reload ?? true) {
+        await handleLoadAccount(accountID);
+      }
       return true;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.modelsSaveFailed")) });
@@ -836,18 +849,38 @@ export default function ProviderAccountWizard(props?: {
   }
 
   async function handleContinueFromCreateModels() {
-    const saved = await handleSaveModels(selectedAccountID);
-    if (!saved) return;
+    const { models: payloadModels, validationErrors } = buildSelectedModelPayload(modelDrafts);
+    if (payloadModels.length === 0) {
+      setBanner({ kind: "error", message: t("messages.selectAtLeastOneModel") });
+      return;
+    }
+    if (validationErrors.length > 0) {
+      const firstError = validationErrors[0];
+      const reasonMessage = firstError.reason === "effective_capabilities_required"
+        ? ux("messages.modelTypeRequired")
+        : ux("messages.privatePricingRequired");
+      setBanner({ kind: "error", message: `${firstError.model}: ${reasonMessage}` });
+      return;
+    }
+    if (shouldPersistCreateAccount("continue-models")) return;
+    setFurthestCreateStepIndex((current) => Math.max(current, 2));
     setActiveCreateSection("access");
   }
 
   async function handleContinueFromCreateAccess() {
-    const saved = await handleSaveAccess(selectedAccountID);
-    if (!saved) return;
+    if (managers.length === 0) {
+      setBanner({ kind: "error", message: t("messages.managerRequired") });
+      return;
+    }
+    if (shouldPersistCreateAccount("continue-access")) return;
+    setFurthestCreateStepIndex((current) => Math.max(current, 3));
     setActiveCreateSection("review");
   }
 
-  const handleSaveAccess = useCallback(async (accountID = selectedAccountID): Promise<boolean> => {
+  const handleSaveAccess = useCallback(async (
+    accountID = selectedAccountID,
+    options: { reload?: boolean; announce?: boolean } = {},
+  ): Promise<boolean> => {
     if (!canManageProviderAccount) {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
       return false;
@@ -867,8 +900,12 @@ export default function ProviderAccountWizard(props?: {
         `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/access`,
         { method: "PUT", body: JSON.stringify({ access: { managers, users } }) },
       );
-      setBanner({ kind: "success", message: t("messages.accessSaveSuccess") });
-      await handleLoadAccount(accountID);
+      if (options.announce ?? true) {
+        setBanner({ kind: "success", message: t("messages.accessSaveSuccess") });
+      }
+      if (options.reload ?? true) {
+        await handleLoadAccount(accountID);
+      }
       return true;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.accessSaveFailed")) });
@@ -918,19 +955,25 @@ export default function ProviderAccountWizard(props?: {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
       return;
     }
-    if (!selectedAccountID) {
-      setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
-      return;
-    }
     setIsActivating(true);
     try {
-      const modelsOK = await handleSaveModels(selectedAccountID);
+      if (!shouldPersistCreateAccount("activate")) return;
+      const confirmedName = name.trim();
+      let accountID: string | null = selectedAccountID;
+      if (!accountID) {
+        accountID = await handleCreateAccount({ advanceToModels: false });
+        if (!accountID) return;
+      } else {
+        const credentialsOK = await handleSaveCredentials(accountID, { reload: false, announce: false });
+        if (!credentialsOK) return;
+      }
+      const modelsOK = await handleSaveModels(accountID, { reload: false, announce: false });
       if (!modelsOK) return;
-      const accessOK = await handleSaveAccess(selectedAccountID);
+      const accessOK = await handleSaveAccess(accountID, { reload: false, announce: false });
       if (!accessOK) return;
       setSetupStep(5);
       if (isCreateMode) {
-        router.push("/provider-accounts");
+        router.replace(buildCreatedConnectionHref(provider, confirmedName));
         return;
       }
       setWorkspaceMode("workspace");
@@ -1027,10 +1070,6 @@ export default function ProviderAccountWizard(props?: {
   ];
   const principalSelectorLabels = useMemo(() => buildPrincipalSelectorLabels(t, ux), [t, ux]);
   const providerDocsURL = PROVIDER_DOCS_URLS[normalizeProviderSlug(provider)] ?? "";
-  const createProviderDescription =
-    activeProvider && "description" in activeProvider && typeof activeProvider.description === "string"
-      ? activeProvider.description
-      : ux("integrations.providerDescriptionFallback");
   const createHeaderProviderName = activeProvider?.display_name ?? provider;
   const createWizardSteps: Array<{ id: CreateWizardSectionID; number: number; title: string }> = [
     { id: "details", number: 1, title: ux("integrations.wizard.integrationDetails") },
@@ -1041,22 +1080,22 @@ export default function ProviderAccountWizard(props?: {
   const activeCreateStepIndex = createWizardSteps.findIndex((step) => step.id === activeCreateSection);
   const isModelsCreateSection = activeCreateSection === "models";
   const createStepState = (stepID: CreateWizardSectionID) => {
-    if (activeCreateSection === stepID) return "active";
-    if (stepID === "details" && !!selectedAccountID) return "complete";
-    if (stepID === "models" && selectedModelCount > 0) return "complete";
-    if (stepID === "access" && managers.length > 0) return "complete";
-    return "idle";
+    return getCreateStepState({
+      activeStep: activeCreateSection,
+      step: stepID,
+      completedThrough: furthestCreateStepIndex,
+    });
   };
   const canOpenCreateStep = (stepID: CreateWizardSectionID) => {
     const stepIndex = createWizardSteps.findIndex((step) => step.id === stepID);
-    return stepIndex >= 0 && stepIndex <= activeCreateStepIndex;
+    return stepIndex >= 0 && stepIndex <= Math.max(activeCreateStepIndex, furthestCreateStepIndex);
   };
 
   if (isCreateMode) {
     return (
-      <main className="-m-4 flex min-h-[calc(100dvh-4rem)] md:-m-6 lg:h-[calc(100dvh-5.25rem)] lg:min-h-[560px]">
-        <section className="flex w-full flex-col overflow-hidden rounded-xl border border-border bg-background">
-          <header className="flex h-14 shrink-0 items-center border-b border-border px-4">
+      <main className="flex min-w-0 flex-1">
+        <section className="flex min-w-0 w-full flex-col rounded-xl border border-border bg-background">
+          <header className="flex min-h-14 shrink-0 items-center border-b border-border px-4 py-3">
             <div className="flex min-w-0 items-center gap-2 text-xl">
               <span className="text-muted-foreground">{ux("integrations.pageTitle")}</span>
               <ChevronRight className="size-4 text-muted-foreground rtl:rotate-180" />
@@ -1067,6 +1106,7 @@ export default function ProviderAccountWizard(props?: {
                     displayName={createHeaderProviderName}
                     logoURL={activeProvider?.logo_url}
                     size={18}
+                    decorative
                   />
                   <span className="truncate">{createHeaderProviderName}</span>
                 </span>
@@ -1085,10 +1125,19 @@ export default function ProviderAccountWizard(props?: {
             </div>
           ) : null}
 
-          <div className="grid flex-1 gap-y-6 overflow-hidden px-4 py-6 lg:min-h-0 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-x-10 xl:gap-x-12">
-            <aside className="min-h-0 lg:self-stretch">
-              <ScrollArea className="min-h-[5.5rem] lg:h-full [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
-                <div className="flex flex-row-reverse gap-3 py-2 lg:flex-col lg:gap-5">
+          {selectedAccountID ? (
+            <div className="shrink-0 px-4 pt-3">
+              <Alert variant="info">
+                <AlertTitle>{ux("integrations.wizard.draftSavedTitle")}</AlertTitle>
+                <AlertDescription>{ux("integrations.wizard.draftSavedDescription")}</AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
+
+          <div className="grid min-w-0 flex-1 gap-6 px-4 py-6 lg:grid-cols-4 xl:gap-10">
+            <aside className="min-w-0 lg:col-span-1">
+              <div className="overflow-x-auto pb-2 lg:overflow-visible">
+                <div dir="rtl" className="flex min-w-max flex-row gap-3 py-2 lg:min-w-0 lg:flex-col lg:gap-5">
                 {createWizardSteps.map((step) => {
                   const stepState = createStepState(step.id);
                   const isStepOpenable = canOpenCreateStep(step.id);
@@ -1106,11 +1155,11 @@ export default function ProviderAccountWizard(props?: {
                   );
                 })}
                 </div>
-              </ScrollArea>
+              </div>
             </aside>
 
-            <div className={isModelsCreateSection ? "min-h-[640px] min-w-0 lg:ms-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col" : "min-h-[640px] min-w-0 overflow-y-auto lg:ms-2 lg:h-full lg:min-h-0"}>
-              <div className={isModelsCreateSection ? "mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col gap-4 pb-2" : "mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2"}>
+            <div className={isModelsCreateSection ? "min-w-0 lg:col-span-3 lg:flex lg:flex-col" : "min-w-0 lg:col-span-3"}>
+              <div className={isModelsCreateSection ? "mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 pb-2" : "mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2"}>
                 {!provider ? (
                   <WizardPanel
                     title={ux("setup.selectProviderTitle")}
@@ -1164,7 +1213,6 @@ export default function ProviderAccountWizard(props?: {
                       <WizardPanel
                     id="connection-details"
                     title={ux("integrations.wizard.detailsTitle")}
-                    description={ux("integrations.wizard.detailsDescription")}
                     fillHeight={false}
                     footer={
                       <>
@@ -1188,29 +1236,40 @@ export default function ProviderAccountWizard(props?: {
                         </div>
                         <div className="min-w-0">
                           <h3 className="truncate text-base font-semibold" dir="auto">{activeProvider?.display_name ?? provider}</h3>
-                          <p className="mt-1 text-sm leading-6 text-muted-foreground">{createProviderDescription}</p>
                         </div>
                       </div>
 
                       <div className="grid gap-5">
-                        <Field>
-                          <FieldLabel htmlFor="accountName">{t("fields.accountName")}</FieldLabel>
-                          <Input
-                            id="accountName"
-                            value={name}
-                            onChange={(event) => {
-                              setName(event.target.value);
-                              setIsNameAutoGenerated(false);
-                            }}
-                            placeholder={ux("placeholders.accountName")}
-                          />
-                        </Field>
+                        <IdentifierField
+                          id="accountName"
+                          label={t("fields.accountName")}
+                          value={name}
+                          onChange={(event) => {
+                            setName(event.target.value);
+                            setIsNameAutoGenerated(false);
+                          }}
+                          placeholder={ux("placeholders.accountName")}
+                          disabled={Boolean(selectedAccountID)}
+                        />
                       </div>
 
                       <div dir="rtl" className="text-right">
                         <div className="space-y-1">
                           <h3 className="text-base font-semibold">{ux("integrations.wizard.useOwnApiKeyQuestion")}</h3>
-                          <p className="text-sm leading-6 text-muted-foreground">{ux("integrations.wizard.useOwnApiKeyDescription")}</p>
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            {ux.rich("integrations.wizard.useOwnApiKeyDescription", {
+                              guideLink: (chunks) => (
+                                <a
+                                  href="/docs/quick-start"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-medium text-primary underline-offset-4 hover:underline"
+                                >
+                                  {chunks}
+                                </a>
+                              ),
+                            })}
+                          </p>
                         </div>
 
                         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -1342,13 +1401,20 @@ export default function ProviderAccountWizard(props?: {
                         <Button type="button" variant="outline" onClick={() => setActiveCreateSection("details")}>
                           {ux("actions.back")}
                         </Button>
-                        <Button
-                          type="button"
-                          onClick={() => void handleContinueFromCreateModels()}
-                          disabled={!canManageProviderAccount || !selectedAccountID || selectedModelCount === 0 || isSavingModels}
-                        >
-                          {isSavingModels ? t("saving") : ux("actions.continue")}
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                          <span className={selectedModelCount > 0 ? "text-sm text-muted-foreground" : "text-sm text-destructive"}>
+                            {selectedModelCount > 0
+                              ? ux("integrations.wizard.selectedCount", { count: selectedModelCount })
+                              : ux("integrations.wizard.modelSelectionRequired")}
+                          </span>
+                          <Button
+                            type="button"
+                            onClick={() => void handleContinueFromCreateModels()}
+                            disabled={!canManageProviderAccount || selectedModelCount === 0 || isSavingModels}
+                          >
+                            {isSavingModels ? t("saving") : ux("actions.continue")}
+                          </Button>
+                        </div>
                       </>
                     }
                   >
@@ -1379,13 +1445,16 @@ export default function ProviderAccountWizard(props?: {
                         <Button type="button" variant="outline" onClick={() => setActiveCreateSection("models")}>
                           {ux("actions.back")}
                         </Button>
-                        <Button
-                          type="button"
-                          onClick={() => void handleContinueFromCreateAccess()}
-                          disabled={!canManageProviderAccount || !selectedAccountID || managers.length === 0 || isSavingAccess}
-                        >
-                          {isSavingAccess ? t("saving") : ux("actions.continue")}
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                          {managers.length === 0 ? <span className="text-sm text-destructive">{ux("access.managerRequiredHint")}</span> : null}
+                          <Button
+                            type="button"
+                            onClick={() => void handleContinueFromCreateAccess()}
+                            disabled={!canManageProviderAccount || managers.length === 0 || isSavingAccess}
+                          >
+                            {isSavingAccess ? t("saving") : ux("actions.continue")}
+                          </Button>
+                        </div>
                       </>
                     }
                   >
@@ -1407,6 +1476,7 @@ export default function ProviderAccountWizard(props?: {
                       effectiveModels={effectiveModels}
                       isLoadingEffective={isLoadingEffective}
                       onLoadEffective={handleLoadEffectiveModelsAction}
+                      showSaveAction={false}
                     />
                   </WizardPanel>
                   ) : null}
@@ -1430,11 +1500,77 @@ export default function ProviderAccountWizard(props?: {
                   >
                     <div className="space-y-4">
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                        <SummaryKPI label={ux("kpi.credentialStatus")} value={account?.has_credential || allowVirtualOnly ? ux("readiness.ready") : ux("readiness.needsCredentials")} />
+                        <SummaryKPI label={ux("kpi.credentialStatus")} value={account?.has_credential || allowVirtualOnly || apiKey.trim() ? ux("readiness.ready") : ux("readiness.needsCredentials")} />
                         <SummaryKPI label={ux("kpi.enabledModels")} value={selectedModelCount.toString()} />
                         <SummaryKPI label={ux("kpi.unresolvedPricing")} value={unresolvedPricingCount.toString()} />
                         <SummaryKPI label={ux("kpi.managersUsers")} value={`${managers.length} / ${users.length}`} />
                       </div>
+                      <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="font-semibold">{ux("review.connectionTitle")}</h3>
+                          <Button type="button" variant="link" size="sm" onClick={() => setActiveCreateSection("details")}>
+                            {ux("actions.edit")}
+                          </Button>
+                        </div>
+                        <DefinitionList columns={2}>
+                          <DefinitionListItem label={ux("review.provider")} value={createHeaderProviderName} valueDir="ltr" surface />
+                          <DefinitionListItem label={ux("review.accountName")} value={name} valueDir="ltr" mono surface />
+                          <DefinitionListItem label={ux("review.authMode")} value={authMode.replaceAll("_", " ")} valueDir="ltr" surface />
+                          <DefinitionListItem
+                            label={ux("review.credentialSource")}
+                            value={allowVirtualOnly ? ux("review.godarKey") : ux("review.providerKey")}
+                            surface
+                          />
+                        </DefinitionList>
+                      </section>
+
+                      <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="font-semibold">{ux("review.modelsTitle")}</h3>
+                          <Button type="button" variant="link" size="sm" onClick={() => setActiveCreateSection("models")}>
+                            {ux("actions.edit")}
+                          </Button>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {selectedModels.map((model) => (
+                            <div key={model.model} className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                              <p className="truncate text-sm font-medium" dir="ltr" title={model.display_name || model.model}>
+                                {model.display_name || model.model}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {ux("models.card.context")}: <bdi>{model.context_window?.toLocaleString() ?? ux("models.na")}</bdi>
+                                {" · "}{ux("models.labels.input")}: <bdi dir="ltr">{model.public_pricing?.input_usd_per_1m ?? ux("models.na")} USD</bdi>
+                                {" · "}{ux("models.labels.output")}: <bdi dir="ltr">{model.public_pricing?.output_usd_per_1m ?? ux("models.na")} USD</bdi>
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="font-semibold">{ux("review.accessTitle")}</h3>
+                          <Button type="button" variant="link" size="sm" onClick={() => setActiveCreateSection("access")}>
+                            {ux("actions.edit")}
+                          </Button>
+                        </div>
+                        <DefinitionList columns={2}>
+                          <DefinitionListItem
+                            label={ux("review.managers")}
+                            value={managers.map((item) => item.display_name || item.principal_id || item.type).join("، ")}
+                            wrap
+                            surface
+                          />
+                          <DefinitionListItem
+                            label={ux("review.users")}
+                            value={users.length > 0
+                              ? users.map((item) => item.display_name || item.principal_id || item.type).join("، ")
+                              : ux("review.noUsers")}
+                            wrap
+                            surface
+                          />
+                        </DefinitionList>
+                      </section>
                       <Alert>
                         <AlertTitle>{ux("review.activationCheckTitle")}</AlertTitle>
                         <AlertDescription>
@@ -1665,18 +1801,16 @@ export default function ProviderAccountWizard(props?: {
                               </div>
                             </div>
                           </Field>
-                          <Field>
-                            <FieldLabel htmlFor="accountName">{t("fields.accountName")}</FieldLabel>
-                            <Input
-                              id="accountName"
-                              value={name}
-                              onChange={(event) => {
-                                setName(event.target.value);
-                                setIsNameAutoGenerated(false);
-                              }}
-                              placeholder={ux("placeholders.accountName")}
-                            />
-                          </Field>
+                          <IdentifierField
+                            id="accountName"
+                            label={t("fields.accountName")}
+                            value={name}
+                            onChange={(event) => {
+                              setName(event.target.value);
+                              setIsNameAutoGenerated(false);
+                            }}
+                            placeholder={ux("placeholders.accountName")}
+                          />
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-2">

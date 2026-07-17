@@ -18,8 +18,8 @@ export class ProvidersService {
     private readonly indexing: IndexingService,
   ) {}
 
-  list() {
-    return this.prisma.provider.findMany({
+  async list() {
+    const providers = await this.prisma.provider.findMany({
       where: { enabled: true },
       orderBy: { name: 'asc' },
       include: {
@@ -27,6 +27,11 @@ export class ProvidersService {
         connectionProfile: true,
       },
     });
+
+    return providers.map((provider) => ({
+      ...provider,
+      modelCount: provider.models.length,
+    }));
   }
 
   listAllForAdmin() {

@@ -17,6 +17,8 @@ export function buildPrincipalSelectorLabels(
     triggerPlaceholder: t("principal.searchPlaceholder"),
     loading: ux("actions.loading"),
     empty: t("principal.searchHint"),
+    minSearchHint: ux("access.minSearchHint"),
+    everyoneWarning: ux("access.everyoneWarning"),
   };
 }
 

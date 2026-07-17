@@ -13,6 +13,7 @@ type ProviderAccountsPageProps = {
     account?: string;
     provider?: string;
     tab?: string;
+    created?: string;
   }>;
 };
 
@@ -43,7 +44,7 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
       currentUser={currentUser}
       pageHeader={params.account
         ? { title: t("ux.panel.workspaceTitle"), description: t("ux.panel.workspaceHint"), helpHref: providerAccountsDocsHref }
-        : { title: t("integrations.pageTitle"), description: t("integrations.pageDescription"), helpHref: providerAccountsDocsHref }}
+        : { title: t("integrations.pageTitle"), description: t("integrations.pageDescription"), helpHref: docsBaseHref }}
     >
       {params.account ? (
         <ProviderAccountWizard initialAccountID={params.account} />
@@ -52,6 +53,7 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
           initialProvider={params.provider}
           initialTab={params.tab === "connected" ? "connected" : "all"}
           docsHref={providerAccountsDocsHref}
+          initialCreatedAccount={params.created}
         />
       )}
     </AdminShell>

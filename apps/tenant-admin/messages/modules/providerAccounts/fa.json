@@ -44,7 +44,7 @@
   },
   "fields": {
     "provider": "ارائه‌دهنده مدل",
-    "accountName": "نام نمایشی حساب",
+    "accountName": "شناسه فنی اتصال",
     "authMode": "روش احراز هویت اتصال",
     "virtualKeysMode": "سیاست کلید مجازی",
     "allowVirtualOnly": "فقط کلیدهای مجازی فضای کاری",
@@ -155,7 +155,8 @@
       "refreshingCatalog": "در حال بازآوری کاتالوگ...",
       "deleteAccount": "حذف",
       "cancelDelete": "انصراف",
-      "confirmDelete": "حذف حساب"
+      "confirmDelete": "حذف حساب",
+      "edit": "ویرایش"
     },
     "setup": {
       "stepLabel": "گام {number}",
@@ -167,7 +168,19 @@
     },
     "review": {
       "title": "مرور و فعال‌سازی",
-      "activationCheckTitle": "بررسی پیش از فعال‌سازی"
+      "activationCheckTitle": "بررسی پیش از فعال‌سازی",
+      "connectionTitle": "مشخصات اتصال",
+      "provider": "ارائه‌دهنده",
+      "accountName": "نام حساب",
+      "authMode": "روش احراز هویت",
+      "credentialSource": "منبع کلید",
+      "godarKey": "کلید گُدارAI",
+      "providerKey": "کلید اختصاصی ارائه‌دهنده",
+      "modelsTitle": "مدل‌های انتخاب‌شده",
+      "accessTitle": "دسترسی‌ها",
+      "managers": "مدیران",
+      "users": "مصرف‌کنندگان",
+      "noUsers": "مصرف‌کننده‌ای انتخاب نشده است"
     },
     "kpi": {
       "credentialStatus": "وضعیت اعتبارنامه",
@@ -264,7 +277,19 @@
         "minContext": "حداقل کانتکست",
         "allInputModalities": "همه ورودی‌ها",
         "allOutputModalities": "همه خروجی‌ها",
-        "allFeatures": "همه قابلیت‌ها"
+        "allFeatures": "همه قابلیت‌ها",
+        "allFamilies": "همه خانواده‌ها"
+      },
+      "recommendation": {
+        "title": "پیشنهاد برای شروع",
+        "reason": "alias پایدار و کم‌هزینه‌ترین ورودی منتشرشده در میان مدل‌های گفت‌وگویی"
+      },
+      "capabilityLabels": {
+        "toolCalling": "فراخوانی ابزار",
+        "reasoning": "استدلال",
+        "vision": "درک تصویر",
+        "audio": "صوت",
+        "streaming": "پاسخ جریانی"
       },
       "sort": {
         "priceAsc": "قیمت صعودی",
@@ -415,6 +440,21 @@
       "teamIdLabel": "تیم",
       "optional": "اختیاری",
       "previewAction": "پیش‌نمایش",
+      "managerRequiredHint": "انتخاب حداقل یک مدیر الزامی است.",
+      "usersOptionalHint": "انتخاب مصرف‌کننده اختیاری است و بعداً هم قابل تغییر است.",
+      "searchManager": "جستجوی مدیر",
+      "searchUser": "جستجوی مصرف‌کننده",
+      "addManager": "افزودن مدیر",
+      "addUser": "افزودن مصرف‌کننده",
+      "removeManager": "حذف {identity} از مدیران",
+      "removeUser": "حذف {identity} از مصرف‌کنندگان",
+      "minSearchHint": "برای جستجو حداقل دو نویسه وارد کنید.",
+      "everyoneWarning": "دسترسی گسترده به همه کاربران",
+      "everyoneConfirmTitle": "اعطای دسترسی به همه کاربران؟",
+      "everyoneConfirmDescription": "با این انتخاب، همه کاربران فعلی و آینده می‌توانند مدل‌های فعال این اتصال را مصرف کنند.",
+      "everyoneConfirmAction": "تأیید دسترسی گسترده",
+      "previewPrincipalSearch": "جستجوی هویت برای پیش‌نمایش دسترسی",
+      "previewEmptyHint": "یک کاربر یا تیم را انتخاب کنید تا دسترسی مؤثر آن نمایش داده شود.",
       "pat": "pat",
       "vat": "vat"
     },
@@ -457,7 +497,7 @@
         "nextStep": "مرحله بعد",
         "grabApiKey": "دریافت API Key",
         "useOwnApiKeyQuestion": "آیا مایل هستید از کلید اختصاصی خودتان استفاده کنید؟",
-        "useOwnApiKeyDescription": "در صورت استفاده از کلید اختصاصی، اتصال با اعتبارنامه Provider شما ساخته و قابل تست می‌شود.",
+        "useOwnApiKeyDescription": "در صورت نیاز به راهنمایی، <guideLink>این لینک</guideLink> را ببینید.",
         "useOwnApiKeyYes": "بله، از API Key خودم استفاده می‌کنم",
         "useOwnApiKeyNo": "خیر",
         "useOwnApiKeyNoDescription": "داشتن API Key الزامی نیست و می‌توانید از کلید گدار AI استفاده کنید.",
@@ -474,9 +514,9 @@
         "optionalFields": "فیلدهای اختیاری",
         "advancedOptions": "تنظیمات پیشرفته",
         "modelsHeaderTitle": "گزینش مدل‌ها",
-        "modelsHeaderDescription": "مدل‌های Provider را که باید برای این اتصال فعال شوند انتخاب کنید. بعدا هم می‌توانید تغییرشان دهید.",
-        "accessPermissionsDescription": "پیکربندی سیاست دسترسی در مرحله بعدی تکمیل می‌شود.",
-        "reviewConfirmDescription": "مرور نهایی و تایید در مرحله بعدی تکمیل می‌شود.",
+        "modelsHeaderDescription": "از بین مدل‌هایی که توسط این ارائه‌دهنده قابل دسترسی هستند، آنهایی را که می‌خواهید در این اتصال فعال شوند را انتخاب کنید. بعدا هم می‌توانید تغییرشان دهید.",
+        "accessPermissionsDescription": "حداقل یک مدیر تعیین کنید و در صورت نیاز مصرف‌کنندگان مجاز را اضافه کنید.",
+        "reviewConfirmDescription": "نام اتصال، مدل‌ها، روش احراز هویت و دامنه دسترسی را پیش از فعال‌سازی بررسی کنید.",
         "requestModel": "درخواست مدل",
         "addModel": "افزودن مدل",
         "modelsTitle": "مدل‌ها ({count})",
@@ -486,6 +526,10 @@
         "selectedOnly": "فقط منتخب‌ها",
         "tableView": "نمای جدولی",
         "cardView": "نمای کارتی",
+        "viewMode": "نوع نمایش مدل‌ها",
+        "modelSelectionRequired": "برای ادامه حداقل یک مدل انتخاب کنید.",
+        "draftSavedTitle": "پیش‌نویس اتصال ذخیره شده است",
+        "draftSavedDescription": "برای تست کلید اختصاصی یک رکورد پیش‌نویس ساخته شد. نام اتصال تا پایان ثابت می‌ماند و مدل‌ها و دسترسی‌ها هنگام فعال‌سازی ذخیره می‌شوند.",
         "deselectAll": "لغو انتخاب همه",
         "autoEnableTitle": "مدل‌های جدید این Provider به‌صورت خودکار فعال شوند",
         "autoEnableDescription": "اگر این گزینه فعال باشد، مدل‌های جدید این Provider به‌صورت پیش‌فرض روی این Integration در دسترس می‌شوند و بعدا می‌توانید غیرفعالشان کنید.",
@@ -494,7 +538,7 @@
     }
   },
   "integrations": {
-    "pageTitle": "اتصال به ارائه‌دهندگان مدل‌های هوشواره",
+    "pageTitle": "اتصال به ارائه‌دهندگان مدل‌های هوشواره (AI)",
     "pageDescription": "در این جا می‌توانید تنظیم کنید که چه مدلی از چه ارائه‌دهنده‌ای برای چه فرد/تیم/واحدسازمانی قابل دسترس و استفاده باشد.",
     "tabs": {
       "all": "همه",
@@ -516,15 +560,14 @@
       "activeAccountCount": "اتصال",
       "noConnection": "بدون اتصال",
       "connectionRequired": "اتصال جدید مورد نیاز است",
-      "credentialModeLabel": "حالت اتصال",
-      "authModeLabel": "روش احراز هویت",
-      "providerCredential": "اعتبارنامه ارائه‌دهنده",
-      "virtualKeyOnly": "فقط کلید مجازی",
+      "credentialTypeLabel": "نوع اعتبارنامه",
+      "dedicatedCredential": "اختصاصی",
+      "platformCredential": "پلتفرم گُدارAI",
       "createConnection": "ایجاد اتصال جدید"
     },
     "actions": {
       "connect": "اتصال",
-      "connectProvider": "اتصال Provider",
+      "connectProvider": "مشاهده ارائه‌دهندگان",
       "manageConnections": "مدیریت اتصال‌ها",
       "copyIdentifier": "کپی slug",
       "editIntegration": "ویرایش اتصال",
@@ -533,12 +576,16 @@
       "disconnect": "قطع اتصال",
       "disconnecting": "در حال قطع اتصال...",
       "cancel": "انصراف",
-      "readDocs": "اطلاعات بیشتر",
-      "reload": "بارگیری دوباره"
+      "readDocs": "راهنمای اتصال",
+      "reload": "بارگیری دوباره",
+      "refresh": "تازه‌سازی فهرست ارائه‌دهندگان",
+      "refreshing": "در حال تازه‌سازی فهرست ارائه‌دهندگان",
+      "viewConnection": "مشاهده اتصال",
+      "backToList": "بازگشت به فهرست"
     },
     "empty": {
-      "connectedTitle": "هنوز هیچ LLM integrationای متصل نیست",
-      "connectedDescription": "اولین Provider را وصل کنید تا requestها از مسیر Godar route شوند.",
+      "connectedTitle": "هنوز حساب ارائه‌دهنده‌ای متصل نشده است",
+      "connectedDescription": "برای مسیریابی درخواست‌های مدل از طریق گدارAI، یک حساب ارائه‌دهنده متصل کنید.",
       "providersTitle": "ارائه‌دهنده‌ای پیدا نشد",
       "providersDescription": "جست‌وجو و فیلترها را تغییر دهید یا کاتالوگ ارائه‌دهنده‌ها را دوباره بارگیری کنید."
     },
@@ -549,7 +596,8 @@
       "disconnectConfirm": "با قطع اتصال «{name}»، مسیرهای وابسته به این اتصال دیگر نمی‌توانند از اعتبارنامه آن برای ارسال درخواست استفاده کنند.",
       "disconnectConfirmInput": "برای تایید، نام اتصال را وارد کنید: {name}",
       "disconnectSuccess": "Integration قطع شد.",
-      "disconnectFailed": "قطع Integration ناموفق بود."
+      "disconnectFailed": "قطع Integration ناموفق بود.",
+      "connectionCreated": "اتصال «{name}» با موفقیت فعال شد."
     }
   }
 }

@@ -1,17 +1,15 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, Copy, ExternalLink, Link2, Plus, Plug, Search, Settings, Trash2, Unplug, UserCog } from "lucide-react";
+import { BookOpen, ChevronDown, ExternalLink, Link2, Plus, Plug, Search, Settings, Trash2, UserCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
 import type {
   AccountsResponse,
   ProviderCatalogProvider,
-  ProviderModelsResponse,
   ProvidersResponse,
   TenantProviderAccount,
 } from "@/app/components/provider-account-wizard/types";
@@ -24,10 +22,10 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { EmptyState, RowActionsMenu, TypedConfirmDialog } from "@/components/app-ui";
+import { EmptyState, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -67,10 +65,6 @@ const PROVIDER_DOCS_URLS: Record<string, string> = {
   xai: "https://docs.x.ai/",
 };
 
-const INITIAL_PROVIDER_BATCH = 9;
-const PROVIDER_BATCH_SIZE = 6;
-const MODEL_COUNT_REQUEST_TIMEOUT_MS = 4000;
-
 function readPageDirection(): PageDirection {
   if (typeof document === "undefined") return "rtl";
   return document.documentElement.getAttribute("dir") === "ltr" ? "ltr" : "rtl";
@@ -104,6 +98,7 @@ export default function LLMIntegrationsManagement(props: {
   initialProvider?: string;
   initialTab?: "all" | "connected";
   docsHref?: string;
+  initialCreatedAccount?: string;
 }) {
   const t = useTranslations("providerAccounts");
   const copy = useTranslations("providerAccounts.integrations");
@@ -115,36 +110,29 @@ export default function LLMIntegrationsManagement(props: {
   const [activeTab, setActiveTab] = useState<"all" | "connected">(props.initialTab ?? (initialProviderFilters.length > 0 ? "connected" : "all"));
   const [providers, setProviders] = useState<ProviderView[]>([]);
   const [accounts, setAccounts] = useState<TenantProviderAccount[]>([]);
-  const [modelCounts, setModelCounts] = useState<Record<string, number | null>>({});
   const [query, setQuery] = useState("");
   const [pendingDisconnectAccount, setPendingDisconnectAccount] = useState<TenantProviderAccount | null>(null);
   const [providerFilters, setProviderFilters] = useState<string[]>(initialProviderFilters);
-  const [providerPagination, setProviderPagination] = useState<{ signature: string; count: number }>({
-    signature: "",
-    count: INITIAL_PROVIDER_BATCH,
-  });
   const [isLoading, setIsLoading] = useState(true);
   const [banner, setBanner] = useState<Banner | null>(null);
+  const [successCreatedName, setSuccessCreatedName] = useState(props.initialCreatedAccount?.trim() ?? "");
   const [deletingAccountID, setDeletingAccountID] = useState("");
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const pendingModelCountSlugsRef = useRef<Set<string>>(new Set());
+  const didHandleCreatedAccountRef = useRef(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (refreshCatalog = false) => {
     setIsLoading(true);
     setBanner(null);
     try {
+      if (refreshCatalog) {
+        await requestJSON("/api/provider-catalog/refresh", { method: "POST" });
+      }
       const [providersPayload, accountsPayload] = await Promise.all([
         requestJSON<ProvidersResponse>("/api/provider-catalog/providers"),
         requestJSON<AccountsResponse>("/api/tenant-provider-accounts"),
       ]);
       const nextProviders = (unwrapData<ProviderView[]>(providersPayload) ?? []).filter((item) => item.enabled);
-      const nextProviderSlugs = new Set(nextProviders.map((item) => normalizeProviderSlug(item.provider)));
-      pendingModelCountSlugsRef.current.clear();
       setProviders(nextProviders);
       setAccounts(unwrapData<TenantProviderAccount[]>(accountsPayload) ?? []);
-      setModelCounts((current) =>
-        Object.fromEntries(Object.entries(current).filter(([slug]) => nextProviderSlugs.has(slug))),
-      );
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, copy("messages.loadFailed")) });
     } finally {
@@ -159,10 +147,17 @@ export default function LLMIntegrationsManagement(props: {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  const providerPaginationSignature = useMemo(
-    () => `${activeTab}:${query.trim().toLowerCase()}:${providers.map((item) => normalizeProviderSlug(item.provider)).join("|")}`,
-    [activeTab, providers, query],
-  );
+  useEffect(() => {
+    const createdName = props.initialCreatedAccount?.trim();
+    if (!createdName || isLoading || didHandleCreatedAccountRef.current) return;
+    didHandleCreatedAccountRef.current = true;
+    setSuccessCreatedName(createdName);
+    setBanner({ kind: "success", message: copy("messages.connectionCreated", { name: createdName }) });
+    const params = new URLSearchParams(window.location.search);
+    params.delete("created");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [copy, isLoading, pathname, props.initialCreatedAccount, router]);
 
   const providerOptions = useMemo(
     () => providers.map((item) => ({ slug: normalizeProviderSlug(item.provider), label: item.display_name })),
@@ -191,16 +186,6 @@ export default function LLMIntegrationsManagement(props: {
     });
   }, [providers, query]);
 
-  const visibleProviderCount =
-    providerPagination.signature === providerPaginationSignature ? providerPagination.count : INITIAL_PROVIDER_BATCH;
-
-  const visibleProviders = useMemo(
-    () => filteredProviders.slice(0, visibleProviderCount),
-    [filteredProviders, visibleProviderCount],
-  );
-
-  const hasMoreProviders = visibleProviders.length < filteredProviders.length;
-
   const filteredAccounts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return accounts.filter((account) => {
@@ -215,55 +200,10 @@ export default function LLMIntegrationsManagement(props: {
       );
     });
   }, [accounts, providerFilters, query]);
-
-  useEffect(() => {
-    if (activeTab !== "all" || !hasMoreProviders) return undefined;
-    const target = loadMoreRef.current;
-    if (!target || typeof IntersectionObserver === "undefined") return undefined;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setProviderPagination((current) => {
-            const baseCount = current.signature === providerPaginationSignature ? current.count : INITIAL_PROVIDER_BATCH;
-            return {
-              signature: providerPaginationSignature,
-              count: Math.min(baseCount + PROVIDER_BATCH_SIZE, filteredProviders.length),
-            };
-          });
-        }
-      },
-      { rootMargin: "160px 0px" },
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [activeTab, filteredProviders.length, hasMoreProviders, providerPaginationSignature, visibleProviderCount]);
-
-  useEffect(() => {
-    if (visibleProviders.length === 0) return undefined;
-
-    for (const provider of visibleProviders) {
-      const slug = normalizeProviderSlug(provider.provider);
-      if (!slug || modelCounts[slug] !== undefined || pendingModelCountSlugsRef.current.has(slug)) continue;
-
-      pendingModelCountSlugsRef.current.add(slug);
-      void loadProviderModelCount(slug)
-        .then((count) => {
-          setModelCounts((current) => (current[slug] === undefined ? { ...current, [slug]: count } : current));
-        })
-        .finally(() => {
-          pendingModelCountSlugsRef.current.delete(slug);
-        });
-    }
-    return undefined;
-  }, [modelCounts, visibleProviders]);
-
-  async function copyIdentifier(account: TenantProviderAccount) {
-    const value = `${account.provider}:${account.name}`;
-    await copyTextToClipboard(value);
-    setBanner({ kind: "success", message: copy("messages.identifierCopied") });
-  }
+  const createdAccount = useMemo(
+    () => accounts.find((item) => item.name === successCreatedName) ?? null,
+    [accounts, successCreatedName],
+  );
 
   async function disconnectAccount(account: TenantProviderAccount) {
     setDeletingAccountID(account.id);
@@ -283,6 +223,7 @@ export default function LLMIntegrationsManagement(props: {
   function syncAddress(nextTab: "all" | "connected", nextProviderFilters: string[]) {
     const params = new URLSearchParams(window.location.search);
     params.delete("account");
+    params.delete("created");
 
     if (nextTab === "connected") {
       params.set("tab", "connected");
@@ -322,6 +263,10 @@ export default function LLMIntegrationsManagement(props: {
     syncAddress("connected", nextProviderFilters);
   }
 
+  function openCreateProvider(providerSlug: string) {
+    router.push(`/provider-accounts/new?provider=${encodeURIComponent(normalizeProviderSlug(providerSlug))}`);
+  }
+
   return (
     <>
     <main className="flex flex-1 px-3 py-3 sm:px-4">
@@ -330,7 +275,24 @@ export default function LLMIntegrationsManagement(props: {
           <div className="px-4 pt-3">
             <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
               <AlertTitle>{banner.kind === "error" ? t("errorTitle") : t("successTitle")}</AlertTitle>
-              <AlertDescription>{banner.message}</AlertDescription>
+              <AlertDescription>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span>{banner.message}</span>
+                  {banner.kind === "success" && createdAccount ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" asChild>
+                        <Link href={`/provider-accounts?account=${encodeURIComponent(createdAccount.id)}`}>{copy("actions.viewConnection")}</Link>
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" asChild>
+                        <Link href={`/provider-accounts?account=${encodeURIComponent(createdAccount.id)}`}>{copy("actions.manageModels")}</Link>
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" asChild>
+                        <Link href="/provider-accounts">{copy("actions.backToList")}</Link>
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </AlertDescription>
             </Alert>
           </div>
         ) : null}
@@ -348,6 +310,12 @@ export default function LLMIntegrationsManagement(props: {
                   {copy("tabs.connected")}
                 </TabsTrigger>
               </TabsList>
+              <RefreshButton
+                label={copy("actions.refresh")}
+                loadingLabel={copy("actions.refreshing")}
+                isLoading={isLoading}
+                onClick={() => void loadData(true)}
+              />
               <div className="min-w-0 flex-1">
                 <FilterRow
                   activeTab={activeTab}
@@ -368,9 +336,8 @@ export default function LLMIntegrationsManagement(props: {
             {isLoading ? (
               <ProviderGridSkeleton direction={pageDirection} />
             ) : filteredProviders.length > 0 ? (
-              <div className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir={pageDirection}>
-                  {visibleProviders.map((provider) => (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir={pageDirection}>
+                {filteredProviders.map((provider) => (
                     <ProviderCard
                       key={provider.provider}
                       provider={provider}
@@ -379,18 +346,15 @@ export default function LLMIntegrationsManagement(props: {
                       modelUnitLabel={copy("card.modelUnit")}
                       modelMetricLabel={copy("card.modelMetricLabel")}
                       connectionMetricLabel={copy("card.connectionMetricLabel")}
-                      activeAccountCountLabel={copy("card.activeAccountCount", {
-                        count: accountCountsByProvider.get(normalizeProviderSlug(provider.provider)) ?? 0,
-                      })}
                       noConnectionLabel={copy("card.noConnection")}
                       createConnectionLabel={copy("card.createConnection")}
                       accountCount={accountCountsByProvider.get(normalizeProviderSlug(provider.provider)) ?? 0}
-                      modelCount={modelCounts[normalizeProviderSlug(provider.provider)]}
+                      modelCount={provider.model_count}
                       onManageConnections={openConnectedProvider}
+                      onConnect={openCreateProvider}
+                      connectedStatusLabel={copy("card.activeStatus")}
                     />
-                  ))}
-                </div>
-                {hasMoreProviders ? <div ref={loadMoreRef} className="h-4 w-full" aria-hidden="true" /> : null}
+                ))}
               </div>
             ) : (
               <EmptyState
@@ -406,7 +370,7 @@ export default function LLMIntegrationsManagement(props: {
             {isLoading ? (
               <ProviderGridSkeleton direction={pageDirection} />
             ) : filteredAccounts.length > 0 ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir={pageDirection}>
+              <div className="flex flex-wrap items-stretch gap-3" dir={pageDirection} id="connected-integrations">
                 {filteredAccounts.map((account) => {
                   const provider = providers.find((item) => stringsEqualFold(item.provider, account.provider));
                   return (
@@ -415,22 +379,14 @@ export default function LLMIntegrationsManagement(props: {
                       account={account}
                       provider={provider}
                       fqn={`${account.provider}:${account.name}`}
-                      copyLabel={copy("actions.copyIdentifier")}
                       editLabel={copy("actions.editIntegration")}
                       manageModelsLabel={copy("actions.manageModels")}
                       viewDocsLabel={copy("actions.viewDocs")}
                       disconnectLabel={copy("actions.disconnect")}
                       disconnectingLabel={copy("actions.disconnecting")}
-                      credentialModeLabel={copy("card.credentialModeLabel")}
-                      authModeLabel={copy("card.authModeLabel")}
-                      providerCredentialLabel={copy("card.providerCredential")}
-                      virtualKeyOnlyLabel={copy("card.virtualKeyOnly")}
-                      description={copy("integrationDescription", {
-                        name: account.name,
-                        provider: provider?.display_name ?? account.provider,
-                        authMode: formatAuthMode(account.auth_mode),
-                      })}
-                      onCopy={() => void copyIdentifier(account)}
+                      credentialTypeLabel={copy("card.credentialTypeLabel")}
+                      dedicatedCredentialLabel={copy("card.dedicatedCredential")}
+                      platformCredentialLabel={copy("card.platformCredential")}
                       onDisconnect={() => setPendingDisconnectAccount(account)}
                       isDisconnecting={deletingAccountID === account.id}
                     />
@@ -438,13 +394,15 @@ export default function LLMIntegrationsManagement(props: {
                 })}
               </div>
             ) : (
-              <EmptyState
-                title={copy("empty.connectedTitle")}
-                description={copy("empty.connectedDescription")}
-                icon={Plug}
-                primaryAction={<Button type="button" asChild><Link href="/provider-accounts/new">{copy("actions.connectProvider")}</Link></Button>}
-                secondaryAction={<Button type="button" variant="outline" asChild><a href={PROVIDER_DOCS_URLS.openai} target="_blank" rel="noreferrer"><BookOpen data-icon="inline-start" />{copy("actions.readDocs")}</a></Button>}
-              />
+              <div dir={pageDirection}>
+                <EmptyState
+                  title={copy("empty.connectedTitle")}
+                  description={copy("empty.connectedDescription")}
+                  icon={Plug}
+                  primaryAction={<Button type="button" asChild><Link href="/provider-accounts">{copy("actions.connectProvider")}</Link></Button>}
+                  secondaryAction={<Button type="button" variant="outline" asChild><a href="/docs/intro-to-gateway" target="_blank" rel="noreferrer"><BookOpen data-icon="inline-start" />{copy("actions.readDocs")}</a></Button>}
+                />
+              </div>
             )}
           </TabsContent>
         </Tabs>
@@ -558,19 +516,19 @@ function ProviderCard(props: {
   modelUnitLabel: string;
   modelMetricLabel: string;
   connectionMetricLabel: string;
-  activeAccountCountLabel: string;
   noConnectionLabel: string;
   createConnectionLabel: string;
   accountCount: number;
   modelCount?: number | null;
   onManageConnections: (providerSlug: string) => void;
+  onConnect: (providerSlug: string) => void;
+  connectedStatusLabel: string;
 }) {
   const providerSlug = normalizeProviderSlug(props.provider.provider);
   const manageHref = `/provider-accounts?tab=connected&provider=${encodeURIComponent(providerSlug)}`;
   const connectHref = `/provider-accounts/new?provider=${encodeURIComponent(providerSlug)}`;
   const providerHref = `${getModelDiscoveryCatalogBaseURL()}/providers/${encodeURIComponent(providerSlug)}`;
   const providerModelsHref = `${getModelDiscoveryCatalogBaseURL()}/models?provider=${encodeURIComponent(providerSlug)}`;
-  const isModelCountLoading = props.modelCount === undefined;
   const resolvedModelCount = typeof props.modelCount === "number" ? props.modelCount : null;
   const formattedModelCount =
     resolvedModelCount === null ? "-" : new Intl.NumberFormat("fa-IR").format(resolvedModelCount);
@@ -579,8 +537,8 @@ function ProviderCard(props: {
 
   return (
     <TooltipProvider delayDuration={120}>
-      <Card className="surface-elevated min-h-[13.75rem] overflow-hidden rounded-xl border shadow-none transition-colors hover:border-primary/35">
-        <CardContent className="flex h-full flex-col gap-3 !p-4">
+      <Card className="flex min-h-56 flex-col overflow-hidden rounded-xl border border-card-border bg-card text-card-foreground shadow-none transition-colors hover:border-primary/35">
+        <CardContent className="flex flex-1 flex-col gap-3 px-6 pb-4 pt-6 md:pt-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
               <ProviderLogo
@@ -588,6 +546,7 @@ function ProviderCard(props: {
                 displayName={props.provider.display_name}
                 logoURL={props.provider.logo_url}
                 size={32}
+                decorative
               />
             </div>
             <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
@@ -620,16 +579,6 @@ function ProviderCard(props: {
                   </TooltipTrigger>
                   <TooltipContent>{props.manageConnectionsLabel}</TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button type="button" size="icon" asChild className="size-8 rounded-lg bg-primary text-primary-foreground shadow-none hover:bg-primary-hover">
-                      <Link href={connectHref} aria-label={props.createConnectionLabel || props.connectLabel}>
-                        <Plus className="size-4" />
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{props.createConnectionLabel || props.connectLabel}</TooltipContent>
-                </Tooltip>
               </div>
             </div>
           </div>
@@ -638,9 +587,7 @@ function ProviderCard(props: {
             <div className="text-center">
               <p className="text-xs text-muted-foreground">{props.modelMetricLabel}</p>
               <p className="mt-1 text-base font-bold leading-none" dir="rtl">
-                {isModelCountLoading ? (
-                  <span className="inline-block h-5 w-14 animate-pulse rounded bg-muted align-middle" aria-label="loading" />
-                ) : resolvedModelCount !== null ? (
+                {resolvedModelCount !== null ? (
                   <a
                     href={providerModelsHref}
                     target="_blank"
@@ -660,17 +607,30 @@ function ProviderCard(props: {
             <div className="text-center">
               <p className="text-xs text-muted-foreground">{props.connectionMetricLabel}</p>
               <p className={props.accountCount > 0 ? "mt-1 text-base font-bold leading-none text-[var(--success-soft-foreground)]" : "mt-1 text-base font-bold leading-none text-muted-foreground"} dir="rtl">
-                {props.accountCount > 0 ? (
-                  `${formattedAccountCount} ${props.activeAccountCountLabel.replace(/[0-9۰-۹٠-٩,٬]+/g, "").trim()}`
-                ) : (
-                  <span className="inline-flex size-6 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground" aria-label={props.noConnectionLabel} title={props.noConnectionLabel}>
-                    <Unplug className="size-3.5" />
-                  </span>
-                )}
+                <StatusBadge status={hasConnections ? "active" : "inactive"}>
+                  {hasConnections
+                    ? `${formattedAccountCount} ${props.connectedStatusLabel}`
+                    : props.noConnectionLabel}
+                </StatusBadge>
               </p>
             </div>
           </div>
         </CardContent>
+        <CardFooter className="bg-card px-6 pb-6 pt-0">
+          <Button type="button" className="w-full" asChild>
+            <Link
+              href={connectHref}
+              onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                props.onConnect(providerSlug);
+              }}
+            >
+              <Plus data-icon="inline-start" />
+              {props.createConnectionLabel || props.connectLabel}
+            </Link>
+          </Button>
+        </CardFooter>
       </Card>
     </TooltipProvider>
   );
@@ -680,18 +640,14 @@ function ConnectedIntegrationCard(props: {
   account: TenantProviderAccount;
   provider?: ProviderView;
   fqn: string;
-  copyLabel: string;
   editLabel: string;
   manageModelsLabel: string;
   viewDocsLabel: string;
   disconnectLabel: string;
   disconnectingLabel: string;
-  credentialModeLabel: string;
-  authModeLabel: string;
-  providerCredentialLabel: string;
-  virtualKeyOnlyLabel: string;
-  description: string;
-  onCopy: () => void;
+  credentialTypeLabel: string;
+  dedicatedCredentialLabel: string;
+  platformCredentialLabel: string;
   onDisconnect: () => void;
   isDisconnecting: boolean;
 }) {
@@ -701,81 +657,69 @@ function ConnectedIntegrationCard(props: {
   const providerHref = buildModelDiscoveryProviderHref(props.account.provider);
 
   return (
-    <Card className="surface-elevated group overflow-hidden rounded-xl border border-card-border shadow-none transition-colors hover:border-primary/35">
-      <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
+    <Card className="group flex min-h-56 w-full max-w-full flex-col overflow-hidden rounded-xl border border-card-border bg-card text-card-foreground shadow-none transition-colors hover:border-primary/35 sm:w-96">
+      <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 pt-4 sm:px-6 sm:pt-6 md:pt-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
             <ProviderLogo
               provider={props.account.provider}
               displayName={providerDisplayName}
               logoURL={props.provider?.logo_url}
-              size={28}
+              size={32}
+              decorative
             />
           </div>
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <a
-                href={providerHref}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-w-0 items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
-              >
-                <span className="truncate" dir="ltr">{providerDisplayName}</span>
-                <ExternalLink aria-hidden="true" />
-              </a>
+          <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-1">
+                <a
+                  href={providerHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-w-0 items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  <span className="truncate" dir="ltr">{providerDisplayName}</span>
+                  <ExternalLink aria-hidden="true" />
+                </a>
+              </div>
+              <CardTitle className="mt-2 truncate text-base" dir="ltr" title={props.account.name}>{props.account.name}</CardTitle>
             </div>
-            <CardTitle className="mt-2 truncate text-base">{props.account.name}</CardTitle>
-            <CardDescription className="mt-2 line-clamp-3 leading-6">
-              {props.description}
-            </CardDescription>
+            <RowActionsMenu
+              label={props.manageModelsLabel}
+              triggerSize="icon-sm"
+              actions={[
+                { key: "edit-integration", label: props.editLabel, href: workspaceHref, icon: <Settings /> },
+                { key: "manage-models", label: props.manageModelsLabel, href: workspaceHref, icon: <Plug /> },
+                ...(docsURL ? [{ key: "view-docs", label: props.viewDocsLabel, href: docsURL, external: true, icon: <ExternalLink /> }] : []),
+                {
+                  key: "disconnect",
+                  label: props.disconnectLabel,
+                  pendingLabel: props.disconnectingLabel,
+                  pending: props.isDisconnecting,
+                  destructive: true,
+                  separatorBefore: true,
+                  icon: <Trash2 />,
+                  onSelect: props.onDisconnect,
+                },
+              ]}
+            />
           </div>
         </div>
-        <RowActionsMenu
-          label={props.manageModelsLabel}
-          triggerSize="icon-sm"
-          actions={[
-            { key: "edit-integration", label: props.editLabel, href: workspaceHref, icon: <Settings /> },
-            { key: "manage-models", label: props.manageModelsLabel, href: workspaceHref, icon: <Plug /> },
-            ...(docsURL ? [{ key: "view-docs", label: props.viewDocsLabel, href: docsURL, external: true, icon: <ExternalLink /> }] : []),
-            {
-              key: "disconnect",
-              label: props.disconnectLabel,
-              pendingLabel: props.disconnectingLabel,
-              pending: props.isDisconnecting,
-              destructive: true,
-              separatorBefore: true,
-              icon: <Trash2 />,
-              onSelect: props.onDisconnect,
-            },
-          ]}
-        />
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-3 pt-0">
-        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-            <span className="block">{props.credentialModeLabel}</span>
-            <span className="mt-1 block truncate font-medium text-foreground">
-              {props.account.allows_virtual_keys_only ? props.virtualKeyOnlyLabel : props.providerCredentialLabel}
-            </span>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-            <span className="block">{props.authModeLabel}</span>
-            <span className="mt-1 block truncate font-mono text-foreground" dir="ltr">{props.account.auth_mode}</span>
-          </div>
+
+        <div className="flex min-h-20 flex-col justify-center border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          <span>{props.credentialTypeLabel}</span>
+          <span className="mt-1 text-sm font-semibold text-foreground">
+            {props.account.has_credential ? props.dedicatedCredentialLabel : props.platformCredentialLabel}
+          </span>
         </div>
       </CardContent>
-      <CardFooter className="border-t border-border/70 bg-muted/20 p-3">
-        <Button type="button" size="sm" variant="outline" onClick={props.onCopy} className="min-w-0 flex-1 justify-between font-mono" dir="ltr">
-          <span className="truncate" dir="ltr">{props.fqn}</span>
-          <Copy data-icon="inline-end" />
-        </Button>
+      <CardFooter className="bg-card px-4 pb-4 pt-0 sm:px-6 sm:pb-6">
+        <div className="min-w-0 w-full overflow-x-auto rounded-md border border-border bg-background px-3 py-2">
+          <ModelNameValue value={props.fqn} />
+        </div>
       </CardFooter>
     </Card>
   );
-}
-
-function formatAuthMode(value: string): string {
-  return value.replaceAll("_", " ");
 }
 
 function ProviderGridSkeleton(props: { direction: PageDirection }) {
@@ -805,20 +749,4 @@ function getProviderDocsURL(provider: Pick<ProviderView, "provider" | "docs_url"
   if (direct) return direct;
   const slug = normalizeProviderSlug(provider.provider);
   return PROVIDER_DOCS_URLS[slug] ?? "";
-}
-
-async function loadProviderModelCount(providerSlug: string): Promise<number | null> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), MODEL_COUNT_REQUEST_TIMEOUT_MS);
-  try {
-    const payload = await requestJSON<ProviderModelsResponse>(
-      `/api/provider-catalog/providers/${encodeURIComponent(providerSlug)}/models`,
-      { signal: controller.signal },
-    );
-    return unwrapData<ProviderModelsResponse["data"]>(payload)?.length ?? 0;
-  } catch {
-    return null;
-  } finally {
-    window.clearTimeout(timeout);
-  }
 }

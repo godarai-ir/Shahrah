@@ -58,6 +58,7 @@ type discoveryProvider struct {
 	Description             string `json:"description"`
 	DocsURL                 string `json:"docsUrl"`
 	LogoURL                 string `json:"logoUrl"`
+	ModelCount              int    `json:"modelCount"`
 	Enabled                 bool   `json:"enabled"`
 	SupportsByok            bool   `json:"supportsByok"`
 	SupportsRegionalRouting bool   `json:"supportsRegionalRouting"`
@@ -646,6 +647,7 @@ func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalog
 			Description:             strings.TrimSpace(item.Description),
 			DocsURL:                 strings.TrimSpace(item.DocsURL),
 			LogoURL:                 strings.TrimSpace(item.LogoURL),
+			ModelCount:              item.ModelCount,
 			Enabled:                 item.Enabled,
 			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
 			SupportsBringYourOwnKey: item.SupportsByok,

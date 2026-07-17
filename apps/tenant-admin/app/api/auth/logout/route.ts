@@ -7,11 +7,23 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   const sessionID = request.cookies.get(TENANT_ADMIN_SESSION_COOKIE)?.value;
+  let revocationError: unknown = null;
+
   if (sessionID) {
-    await getAuthService().revokeSession(sessionID);
+    try {
+      await getAuthService().revokeSession(sessionID);
+    } catch (error) {
+      revocationError = error;
+      console.error("[tenant-admin][auth] session revocation failed during logout", error);
+    }
   }
 
-  const response = NextResponse.json({ success: true });
+  const response = NextResponse.json(
+    revocationError
+      ? { success: false, error: { message: "Session revocation failed." } }
+      : { success: true },
+    { status: revocationError ? 502 : 200 },
+  );
   response.cookies.set({
     name: TENANT_ADMIN_SESSION_COOKIE,
     value: "",

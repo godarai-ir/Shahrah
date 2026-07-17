@@ -77,6 +77,7 @@ type ProviderCatalogProvider struct {
 	Description             string             `json:"description,omitempty"`
 	DocsURL                 string             `json:"docs_url,omitempty"`
 	LogoURL                 string             `json:"logo_url,omitempty"`
+	ModelCount              int                `json:"model_count"`
 	Enabled                 bool               `json:"enabled"`
 	AuthModes               []ProviderAuthMode `json:"auth_modes"`
 	SupportsBringYourOwnKey bool               `json:"supports_bring_your_own_key"`

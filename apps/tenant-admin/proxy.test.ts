@@ -104,6 +104,45 @@ describe("tenant-admin proxy CSRF protection", () => {
     ).toBe("acme");
   });
 
+  it("allows the same-origin bodyless logout request", () => {
+    const request = new NextRequest("https://acme.shahrah.ir/api/auth/logout", {
+      method: "POST",
+      headers: {
+        host: "acme.shahrah.ir",
+        origin: "https://acme.shahrah.ir",
+        "sec-fetch-site": "same-origin",
+      },
+    });
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+    expect(
+      response.headers.get("x-middleware-request-x-godarai-tenant-resolved"),
+    ).toBe("acme");
+  });
+
+  it("allows a same-origin bodyless delete request", () => {
+    const request = new NextRequest(
+      "https://acme.shahrah.ir/api/tenant-provider-accounts/account-1",
+      {
+        method: "DELETE",
+        headers: {
+          host: "acme.shahrah.ir",
+          origin: "https://acme.shahrah.ir",
+          "sec-fetch-site": "same-origin",
+        },
+      },
+    );
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+    expect(
+      response.headers.get("x-middleware-request-x-godarai-tenant-resolved"),
+    ).toBe("acme");
+  });
+
   it("rejects a state-changing request without origin or Fetch Metadata", () => {
     const request = new NextRequest("https://acme.shahrah.ir/api/keys/123", {
       method: "DELETE",

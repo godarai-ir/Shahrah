@@ -1,6 +1,36 @@
 import { ProvidersService } from './providers.service';
 
 describe('ProvidersService', () => {
+  it('returns the enabled model count with each provider', async () => {
+    const prisma = {
+      provider: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'provider-1',
+            slug: 'anthropic',
+            name: 'Anthropic',
+            enabled: true,
+            models: [{ id: 'model-1' }, { id: 'model-2' }],
+            connectionProfile: null,
+          },
+        ]),
+      },
+    } as any;
+    const service = new ProvidersService(prisma, {} as any);
+
+    await expect(service.list()).resolves.toEqual([
+      expect.objectContaining({ slug: 'anthropic', modelCount: 2 }),
+    ]);
+    expect(prisma.provider.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { enabled: true },
+        include: expect.objectContaining({
+          models: { where: { enabled: true } },
+        }),
+      }),
+    );
+  });
+
   it('lists enabled provider models in the control-plane catalog shape', async () => {
     const prisma = {
       model: {

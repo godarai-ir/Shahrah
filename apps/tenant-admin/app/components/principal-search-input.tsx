@@ -36,6 +36,8 @@ export type PrincipalEntitySelectLabels = {
   triggerPlaceholder: string;
   loading: string;
   empty: string;
+  minSearchHint?: string;
+  everyoneWarning?: string;
 };
 
 export function PrincipalEntitySelect(props: {
@@ -50,6 +52,7 @@ export function PrincipalEntitySelect(props: {
   className?: string;
   triggerClassName?: string;
   compact?: boolean;
+  ariaLabel?: string;
 }) {
   const kinds = useMemo(() => props.kinds?.length ? props.kinds : (["user", "team"] as PrincipalSearchKind[]), [props.kinds]);
   const [open, setOpen] = useState(false);
@@ -130,6 +133,7 @@ export function PrincipalEntitySelect(props: {
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            aria-label={props.ariaLabel}
             disabled={props.disabled}
             className={cn(
               "w-full justify-between rounded-md px-3 font-normal",
@@ -163,6 +167,7 @@ export function PrincipalEntitySelect(props: {
                 value={query}
                 onChange={(event) => handleQueryChange(event.target.value)}
                 placeholder={props.labels.searchPlaceholder}
+                aria-label={props.ariaLabel ?? props.labels.searchPlaceholder}
                 className="h-10 ps-9"
               />
             </div>
@@ -193,6 +198,7 @@ export function PrincipalEntitySelect(props: {
                   option={{
                     type: "everyone",
                     display_name: props.labels.everyone,
+                    secondary: props.labels.everyoneWarning,
                   }}
                   selected={selected}
                   labels={props.labels}
@@ -203,7 +209,9 @@ export function PrincipalEntitySelect(props: {
               {isSearching ? (
                 <p className="px-3 py-8 text-center text-sm text-muted-foreground">{props.labels.loading}</p>
               ) : results.length === 0 && !filteredEveryoneVisible ? (
-                <p className="px-3 py-8 text-center text-sm text-muted-foreground">{props.labels.empty}</p>
+                <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  {query.trim().length < 2 ? props.labels.minSearchHint ?? props.labels.empty : props.labels.empty}
+                </p>
               ) : (
                 results.map((item) => (
                   <PrincipalOptionRow
