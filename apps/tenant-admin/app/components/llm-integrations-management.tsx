@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, ExternalLink, Link2, Plus, Plug, Search, Settings, Trash2, UserCog } from "lucide-react";
+import { Activity, BookOpen, ChevronDown, ExternalLink, Link2, Plus, Plug, Search, Settings, Trash2, UserCog } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { EffectiveAccessTester } from "@/app/components/provider-account-wizard/effective-access-tester";
+import { ProviderConnectionTestDialog } from "@/app/components/provider-account-wizard/provider-connection-test-dialog";
+import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
+import type { PrincipalSearchKind } from "@/app/components/principal-search-input";
 import type {
+  AccessPrincipalCandidate,
+  AccessPrincipalResponse,
   AccountsResponse,
   ProviderCatalogProvider,
   ProvidersResponse,
@@ -22,7 +28,7 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { EmptyState, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { EmptyState, FormSheet, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
@@ -101,6 +107,7 @@ export default function LLMIntegrationsManagement(props: {
   initialCreatedAccount?: string;
 }) {
   const t = useTranslations("providerAccounts");
+  const ux = useTranslations("providerAccounts.ux");
   const copy = useTranslations("providerAccounts.integrations");
   const pathname = usePathname();
   const router = useRouter();
@@ -112,6 +119,8 @@ export default function LLMIntegrationsManagement(props: {
   const [accounts, setAccounts] = useState<TenantProviderAccount[]>([]);
   const [query, setQuery] = useState("");
   const [pendingDisconnectAccount, setPendingDisconnectAccount] = useState<TenantProviderAccount | null>(null);
+  const [connectionTestAccount, setConnectionTestAccount] = useState<TenantProviderAccount | null>(null);
+  const [effectiveAccessAccount, setEffectiveAccessAccount] = useState<TenantProviderAccount | null>(null);
   const [providerFilters, setProviderFilters] = useState<string[]>(initialProviderFilters);
   const [isLoading, setIsLoading] = useState(true);
   const [banner, setBanner] = useState<Banner | null>(null);
@@ -163,6 +172,26 @@ export default function LLMIntegrationsManagement(props: {
     () => providers.map((item) => ({ slug: normalizeProviderSlug(item.provider), label: item.display_name })),
     [providers],
   );
+  const principalSelectorLabels = useMemo(() => buildPrincipalSelectorLabels(t, ux), [t, ux]);
+
+  const searchPrincipalCandidates = useCallback(async (kind: PrincipalSearchKind, searchQuery: string) => {
+    if (kind === "external_identity") return [];
+    try {
+      const response = await requestJSON<AccessPrincipalResponse>(
+        `/api/access-principals?kind=${kind}&q=${encodeURIComponent(searchQuery.trim())}&limit=20`,
+      );
+      return unwrapData<AccessPrincipalCandidate[]>(response) ?? [];
+    } catch (error) {
+      setBanner({
+        kind: "error",
+        message: normalizeError(
+          error,
+          kind === "user" ? t("messages.userSearchFailed") : t("messages.managerSearchFailed"),
+        ),
+      });
+      return [];
+    }
+  }, [t]);
 
   const accountCountsByProvider = useMemo(() => {
     const counts = new Map<string, number>();
@@ -381,12 +410,16 @@ export default function LLMIntegrationsManagement(props: {
                       fqn={`${account.provider}:${account.name}`}
                       editLabel={copy("actions.editIntegration")}
                       manageModelsLabel={copy("actions.manageModels")}
+                      testConnectionLabel={copy("actions.testConnection")}
+                      testAllowedAccessLabel={copy("actions.testAllowedAccess")}
                       viewDocsLabel={copy("actions.viewDocs")}
                       disconnectLabel={copy("actions.disconnect")}
                       disconnectingLabel={copy("actions.disconnecting")}
                       credentialTypeLabel={copy("card.credentialTypeLabel")}
                       dedicatedCredentialLabel={copy("card.dedicatedCredential")}
                       platformCredentialLabel={copy("card.platformCredential")}
+                      onTestConnection={() => setConnectionTestAccount(account)}
+                      onTestAllowedAccess={() => setEffectiveAccessAccount(account)}
                       onDisconnect={() => setPendingDisconnectAccount(account)}
                       isDisconnecting={deletingAccountID === account.id}
                     />
@@ -424,6 +457,34 @@ export default function LLMIntegrationsManagement(props: {
       disabled={!pendingDisconnectAccount}
       inputDir="auto"
     />
+    <ProviderConnectionTestDialog
+      open={connectionTestAccount !== null}
+      onOpenChange={(open) => {
+        if (!open) setConnectionTestAccount(null);
+      }}
+      account={connectionTestAccount}
+    />
+    <FormSheet
+      open={effectiveAccessAccount !== null}
+      onOpenChange={(open) => {
+        if (!open) setEffectiveAccessAccount(null);
+      }}
+      title={ux("accessTester.title")}
+      description={ux("accessTester.description", {
+        name: effectiveAccessAccount?.name ?? "",
+        provider: effectiveAccessAccount?.provider ?? "",
+      })}
+      side="left"
+      size="lg"
+    >
+      {effectiveAccessAccount ? (
+        <EffectiveAccessTester
+          account={effectiveAccessAccount}
+          onSearchPrincipal={searchPrincipalCandidates}
+          principalSelectorLabels={principalSelectorLabels}
+        />
+      ) : null}
+    </FormSheet>
     </>
   );
 }
@@ -642,12 +703,16 @@ function ConnectedIntegrationCard(props: {
   fqn: string;
   editLabel: string;
   manageModelsLabel: string;
+  testConnectionLabel: string;
+  testAllowedAccessLabel: string;
   viewDocsLabel: string;
   disconnectLabel: string;
   disconnectingLabel: string;
   credentialTypeLabel: string;
   dedicatedCredentialLabel: string;
   platformCredentialLabel: string;
+  onTestConnection: () => void;
+  onTestAllowedAccess: () => void;
   onDisconnect: () => void;
   isDisconnecting: boolean;
 }) {
@@ -655,6 +720,10 @@ function ConnectedIntegrationCard(props: {
   const workspaceHref = `/provider-accounts?account=${encodeURIComponent(props.account.id)}`;
   const providerDisplayName = props.provider?.display_name ?? props.account.provider;
   const providerHref = buildModelDiscoveryProviderHref(props.account.provider);
+  const canTestStoredCredential =
+    props.account.has_credential &&
+    props.account.auth_mode !== "no_credential" &&
+    !props.account.allows_virtual_keys_only;
 
   return (
     <Card className="group flex min-h-56 w-full max-w-full flex-col overflow-hidden rounded-xl border border-card-border bg-card text-card-foreground shadow-none transition-colors hover:border-primary/35 sm:w-96">
@@ -690,6 +759,10 @@ function ConnectedIntegrationCard(props: {
               actions={[
                 { key: "edit-integration", label: props.editLabel, href: workspaceHref, icon: <Settings /> },
                 { key: "manage-models", label: props.manageModelsLabel, href: workspaceHref, icon: <Plug /> },
+                { key: "test-allowed-access", label: props.testAllowedAccessLabel, onSelect: props.onTestAllowedAccess, icon: <UserCog /> },
+                ...(canTestStoredCredential
+                  ? [{ key: "test-connection", label: props.testConnectionLabel, onSelect: props.onTestConnection, icon: <Activity /> }]
+                  : []),
                 ...(docsURL ? [{ key: "view-docs", label: props.viewDocsLabel, href: docsURL, external: true, icon: <ExternalLink /> }] : []),
                 {
                   key: "disconnect",

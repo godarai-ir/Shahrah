@@ -34,6 +34,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const keyType = query.get("key_type")?.trim() ?? "";
   const userID = query.get("user_id")?.trim() ?? "";
   const teamID = query.get("team_id")?.trim() ?? "";
+  if (keyType !== "pat" && keyType !== "vat") {
+    return NextResponse.json(
+      { error: { message: "key_type باید pat یا vat باشد." } },
+      { status: 400 },
+    );
+  }
+  if (Boolean(userID) === Boolean(teamID)) {
+    return NextResponse.json(
+      { error: { message: "ارسال دقیقاً یکی از user_id یا team_id الزامی است." } },
+      { status: 400 },
+    );
+  }
   if (keyType) params.set("key_type", keyType);
   if (userID) params.set("user_id", userID);
   if (teamID) params.set("team_id", teamID);

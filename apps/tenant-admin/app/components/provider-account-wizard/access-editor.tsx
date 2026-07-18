@@ -1,21 +1,16 @@
 ﻿"use client";
 
 import { memo } from "react";
-import { ShieldCheck, X } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
 import {
-  PrincipalEntitySelect,
-  type PrincipalEntitySelection,
   type PrincipalEntitySelectLabels,
   type PrincipalSearchKind,
 } from "@/app/components/principal-search-input";
 import { PrincipalPicker } from "@/app/components/principal-picker";
-import type { AccessPrincipal, AccessPrincipalCandidate, EffectiveModelView } from "./types";
-import { EffectiveModelsTable } from "./effective-models-table";
+import type { AccessPrincipal, AccessPrincipalCandidate } from "./types";
 export const AccessEditor = memo(function AccessEditor(props: {
   t: ReturnType<typeof useTranslations>;
   managers: AccessPrincipal[];
@@ -27,17 +22,9 @@ export const AccessEditor = memo(function AccessEditor(props: {
   onSave: () => void;
   isSaving: boolean;
   canManage: boolean;
-  effectiveKeyType: "pat" | "vat";
-  setEffectiveKeyType: (value: "pat" | "vat") => void;
-  effectivePrincipal: PrincipalEntitySelection | null;
-  setEffectivePrincipal: (value: PrincipalEntitySelection | null) => void;
-  effectiveModels: EffectiveModelView[];
-  isLoadingEffective: boolean;
-  onLoadEffective: () => void;
   showSaveAction?: boolean;
 }) {
   const ux = useTranslations("providerAccounts.ux");
-  const hasEffectivePrincipal = Boolean((props.effectivePrincipal?.principal_id ?? "").trim());
 
   return (
     <section className="space-y-5 rounded-lg border border-border/70 bg-background p-4 sm:p-5">
@@ -92,67 +79,6 @@ export const AccessEditor = memo(function AccessEditor(props: {
             cancelLabel: ux("actions.cancelDelete"),
           }}
         />
-      </div>
-
-      <div className="space-y-4 rounded-lg border border-border/70 bg-muted/10 p-4">
-        <h4 className="text-base font-semibold">{ux("access.effectivePreviewTitle")}</h4>
-        <div className="grid gap-3 lg:grid-cols-4">
-          <AppSelectField
-            id="previewKeyType"
-            label={ux("access.keyTypeLabel")}
-            value={props.effectiveKeyType}
-            onValueChange={(value) => props.setEffectiveKeyType(value as "pat" | "vat")}
-            options={[
-              { value: "pat", label: ux("access.pat") },
-              { value: "vat", label: ux("access.vat") },
-            ]}
-          />
-          <Field className="lg:col-span-2">
-            <FieldLabel htmlFor="previewPrincipal">{`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`}</FieldLabel>
-            <div className="flex min-w-0 gap-2">
-              <PrincipalEntitySelect
-                id="previewPrincipal"
-                selected={props.effectivePrincipal}
-                onSelectedChange={props.setEffectivePrincipal}
-                onSearch={props.onSearchPrincipal}
-                labels={props.principalSelectorLabels}
-                kinds={["user", "team"]}
-                className="min-w-0 flex-1"
-                ariaLabel={ux("access.previewPrincipalSearch")}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => props.setEffectivePrincipal(null)}
-                disabled={!hasEffectivePrincipal}
-                title={ux("actions.clear")}
-                aria-label={ux("actions.clear")}
-                className="mt-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </Field>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={props.onLoadEffective}
-              disabled={props.isLoadingEffective || !hasEffectivePrincipal}
-              className="h-10 w-full xl:w-auto"
-            >
-              {props.isLoadingEffective ? ux("actions.loading") : ux("access.previewAction")}
-            </Button>
-          </div>
-        </div>
-        {hasEffectivePrincipal ? (
-          <EffectiveModelsTable models={props.effectiveModels} />
-        ) : (
-          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-            {ux("access.previewEmptyHint")}
-          </p>
-        )}
       </div>
     </section>
   );

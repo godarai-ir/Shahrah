@@ -41,8 +41,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     request,
     method: "POST",
     path: `/api/v1/tenant-provider-accounts/${encodeURIComponent(normalizedAccountID)}/test-credentials`,
-    body: {
-      model_hint: modelHint,
-    },
+    body: modelHint ? { model_hint: modelHint } : {},
   });
 }

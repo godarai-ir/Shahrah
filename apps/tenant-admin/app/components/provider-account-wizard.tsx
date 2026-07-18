@@ -25,8 +25,6 @@ import {
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-  PrincipalEntitySelect,
-  type PrincipalEntitySelection,
   type PrincipalSearchKind,
 } from "@/app/components/principal-search-input";
 import {
@@ -46,7 +44,6 @@ import {
   type ProviderCredentialValues,
 } from "@/app/components/provider-account-wizard/credential-schema";
 import { buildCreatedConnectionHref, getCreateStepState, shouldPersistCreateAccount } from "@/app/components/provider-account-wizard/create-flow";
-import { EffectiveModelsTable } from "@/app/components/provider-account-wizard/effective-models-table";
 import { ModelsEditor } from "@/app/components/provider-account-wizard/models-editor";
 import { EmptyOverview, ReadinessBadge, SummaryKPI } from "@/app/components/provider-account-wizard/overview";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
@@ -59,8 +56,6 @@ import type {
   AccountDetailsResponse,
   AccountsResponse,
   Banner,
-  EffectiveModelsResponse,
-  EffectiveModelView,
   ModelDraft,
   ProviderAccountWizardMode,
   ProviderAuthMode,
@@ -132,7 +127,6 @@ export default function ProviderAccountWizard(props?: {
   const [deletingAccountID, setDeletingAccountID] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTargetAccount, setDeleteTargetAccount] = useState<TenantProviderAccount | null>(null);
-  const [isLoadingEffective, setIsLoadingEffective] = useState(false);
   const [isLoadingProviderModels, setIsLoadingProviderModels] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(null);
@@ -179,32 +173,10 @@ export default function ProviderAccountWizard(props?: {
   const [managers, setManagers] = useState<AccessPrincipal[]>([]);
   const [users, setUsers] = useState<AccessPrincipal[]>([]);
 
-  const [effectiveKeyType, setEffectiveKeyType] = useState<"pat" | "vat">("pat");
-  const [effectiveUserID, setEffectiveUserID] = useState("");
-  const [effectiveTeamID, setEffectiveTeamID] = useState("");
-  const [effectivePrincipalSelection, setEffectivePrincipalSelection] = useState<PrincipalEntitySelection | null>(null);
-  const [effectiveModels, setEffectiveModels] = useState<EffectiveModelView[]>([]);
   const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
   const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
   const [activeCreateSection, setActiveCreateSection] = useState<CreateWizardSectionID>("details");
   const [furthestCreateStepIndex, setFurthestCreateStepIndex] = useState(0);
-
-  const handleEffectivePrincipalChange = useCallback((selection: PrincipalEntitySelection | null) => {
-    setEffectivePrincipalSelection(selection);
-    if (selection?.type === "user") {
-      setEffectiveUserID((selection.principal_id ?? "").trim());
-      setEffectiveTeamID("");
-      return;
-    }
-    if (selection?.type === "team") {
-      setEffectiveUserID("");
-      setEffectiveTeamID((selection.principal_id ?? "").trim());
-      return;
-    }
-    setEffectiveUserID("");
-    setEffectiveTeamID("");
-    setEffectiveModels([]);
-  }, []);
 
   const visibleProviders = useMemo(
     () => providers.filter((item) => item.enabled && stringsEqualFold(item.provider, "azure") === false),
@@ -736,7 +708,6 @@ export default function ProviderAccountWizard(props?: {
     resetCredentialInputs();
     setManagers([]);
     setUsers([]);
-    setEffectiveModels([]);
     setLastCredentialTestMessage("");
     setModelDrafts({});
     setWorkspaceMode("workspace");
@@ -1098,38 +1069,6 @@ export default function ProviderAccountWizard(props?: {
     }
   }, [t]);
 
-  const loadEffectiveModelsPreview = useCallback(async (accountID = selectedAccountID) => {
-    if (!accountID) {
-      setEffectiveModels([]);
-      return;
-    }
-    if (!effectiveUserID.trim() && !effectiveTeamID.trim()) {
-      setEffectiveModels([]);
-      return;
-    }
-    setIsLoadingEffective(true);
-    try {
-      const query = new URLSearchParams();
-      query.set("key_type", effectiveKeyType);
-      if (effectiveUserID.trim()) query.set("user_id", effectiveUserID.trim());
-      if (effectiveTeamID.trim()) query.set("team_id", effectiveTeamID.trim());
-      const response = await requestJSON<EffectiveModelsResponse>(
-        `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/effective-models?${query.toString()}`,
-      );
-      const payload = unwrapData<EffectiveModelView[]>(response) ?? [];
-      setEffectiveModels(
-        payload.map((item) => ({
-          ...item,
-          types: item.types ?? item.effective_capabilities ?? [],
-        })),
-      );
-    } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, "Failed to load effective models.") });
-    } finally {
-      setIsLoadingEffective(false);
-    }
-  }, [effectiveKeyType, effectiveTeamID, effectiveUserID, selectedAccountID]);
-
   const handleSaveModelsAction = useCallback(() => {
     void handleSaveModels();
   }, [handleSaveModels]);
@@ -1137,10 +1076,6 @@ export default function ProviderAccountWizard(props?: {
   const handleSaveAccessAction = useCallback(() => {
     void handleSaveAccess();
   }, [handleSaveAccess]);
-
-  const handleLoadEffectiveModelsAction = useCallback(() => {
-    void loadEffectiveModelsPreview();
-  }, [loadEffectiveModelsPreview]);
 
   const panelTitle =
     workspaceMode === "setup"
@@ -1576,13 +1511,6 @@ export default function ProviderAccountWizard(props?: {
                       onSave={handleSaveAccessAction}
                       isSaving={isSavingAccess}
                       canManage={canManageProviderAccount}
-                      effectiveKeyType={effectiveKeyType}
-                      setEffectiveKeyType={setEffectiveKeyType}
-                      effectivePrincipal={effectivePrincipalSelection}
-                      setEffectivePrincipal={handleEffectivePrincipalChange}
-                      effectiveModels={effectiveModels}
-                      isLoadingEffective={isLoadingEffective}
-                      onLoadEffective={handleLoadEffectiveModelsAction}
                       showSaveAction={false}
                     />
                   </WizardPanel>
@@ -2018,13 +1946,6 @@ export default function ProviderAccountWizard(props?: {
                           onSave={handleSaveAccessAction}
                           isSaving={isSavingAccess}
                           canManage={canManageProviderAccount}
-                          effectiveKeyType={effectiveKeyType}
-                          setEffectiveKeyType={setEffectiveKeyType}
-                          effectivePrincipal={effectivePrincipalSelection}
-                          setEffectivePrincipal={handleEffectivePrincipalChange}
-                          effectiveModels={effectiveModels}
-                          isLoadingEffective={isLoadingEffective}
-                          onLoadEffective={handleLoadEffectiveModelsAction}
                         />
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(3)}>{ux("actions.back")}</Button>
@@ -2113,13 +2034,6 @@ export default function ProviderAccountWizard(props?: {
                         onSave={handleSaveAccessAction}
                         isSaving={isSavingAccess}
                         canManage={canManageProviderAccount}
-                        effectiveKeyType={effectiveKeyType}
-                        setEffectiveKeyType={setEffectiveKeyType}
-                        effectivePrincipal={effectivePrincipalSelection}
-                        setEffectivePrincipal={handleEffectivePrincipalChange}
-                        effectiveModels={effectiveModels}
-                        isLoadingEffective={isLoadingEffective}
-                        onLoadEffective={handleLoadEffectiveModelsAction}
                       />
                     ) : null}
 
@@ -2237,33 +2151,6 @@ export default function ProviderAccountWizard(props?: {
                             value={`${catalogStats.counters.discovery_fallback ?? 0}`}
                           />
                         </div>
-                        <div className="flex flex-wrap items-end gap-2">
-                          <AppSelectField
-                            id="obsKeyType"
-                            label={ux("access.keyTypeLabel")}
-                            value={effectiveKeyType}
-                            onValueChange={(value) => setEffectiveKeyType(value as "pat" | "vat")}
-                            options={[
-                              { value: "pat", label: ux("access.pat") },
-                              { value: "vat", label: ux("access.vat") },
-                            ]}
-                          />
-                          <Field>
-                            <FieldLabel htmlFor="obsPrincipal">{`${ux("access.userIdLabel")} / ${ux("access.teamIdLabel")}`}</FieldLabel>
-                            <PrincipalEntitySelect
-                              id="obsPrincipal"
-                              selected={effectivePrincipalSelection}
-                              onSelectedChange={handleEffectivePrincipalChange}
-                              onSearch={searchPrincipalCandidates}
-                              labels={principalSelectorLabels}
-                              kinds={["user", "team"]}
-                            />
-                          </Field>
-                          <Button type="button" variant="outline" onClick={() => void loadEffectiveModelsPreview()} disabled={isLoadingEffective}>
-                            {isLoadingEffective ? ux("actions.loading") : ux("actions.loadEffectiveModels")}
-                          </Button>
-                        </div>
-                        <EffectiveModelsTable models={effectiveModels} />
                       </section>
                     ) : null}
                   </>

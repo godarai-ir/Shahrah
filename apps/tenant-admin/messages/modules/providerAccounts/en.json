@@ -155,7 +155,9 @@
       "deleteAccount": "Delete",
       "cancelDelete": "Cancel",
       "confirmDelete": "Delete account",
-      "edit": "Edit"
+      "edit": "Edit",
+      "testConnection": "Test connection",
+      "testAllowedAccess": "Test allowed access"
     },
     "setup": {
       "stepLabel": "Step {number}",
@@ -234,6 +236,30 @@
       "no": "No",
       "enabled": "Enabled",
       "disabled": "Disabled"
+    },
+    "connectionTest": {
+      "title": "Test connection",
+      "description": "Validate the saved credential for \"{name}\" on {provider}.",
+      "modelHintLabel": "Model hint",
+      "modelHintPlaceholder": "Optional model name, e.g. gpt-4o-mini",
+      "run": "Run connection test",
+      "running": "Testing connection...",
+      "successTitle": "Connection is valid",
+      "errorTitle": "Connection test failed",
+      "warningTitle": "Connection warning",
+      "infoTitle": "Connection test",
+      "credentialHint": "Stored credential"
+    },
+    "accessTester": {
+      "title": "Test allowed access",
+      "description": "Preview the effective model access for \"{name}\" on {provider}.",
+      "run": "Run access test",
+      "readyHint": "Run the access test to see the effective models for the selected identity.",
+      "error": "Failed to load effective model access.",
+      "successTitle": "Access test complete",
+      "errorTitle": "Access test failed",
+      "warningTitle": "Access test warning",
+      "infoTitle": "Access test"
     },
     "models": {
       "description": "Select models, capabilities, and pricing mode.",
@@ -582,6 +608,8 @@
       "copyIdentifier": "Copy slug",
       "editIntegration": "Edit Integration",
       "manageModels": "Manage Models",
+      "testConnection": "Test connection",
+      "testAllowedAccess": "Test allowed access",
       "viewDocs": "View Docs",
       "disconnect": "Disconnect",
       "disconnecting": "Disconnecting...",

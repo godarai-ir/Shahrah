@@ -156,7 +156,9 @@
       "deleteAccount": "حذف",
       "cancelDelete": "انصراف",
       "confirmDelete": "حذف حساب",
-      "edit": "ویرایش"
+      "edit": "ویرایش",
+      "testConnection": "تست اتصال",
+      "testAllowedAccess": "تست دسترسی‌های مجاز"
     },
     "setup": {
       "stepLabel": "گام {number}",
@@ -235,6 +237,30 @@
       "no": "خیر",
       "enabled": "فعال",
       "disabled": "غیرفعال"
+    },
+    "connectionTest": {
+      "title": "تست اتصال",
+      "description": "اعتبارنامه ذخیره‌شده اتصال «{name}» روی {provider} را اعتبارسنجی کنید.",
+      "modelHintLabel": "مدل پیشنهادی",
+      "modelHintPlaceholder": "نام مدل اختیاری، مثلا gpt-4o-mini",
+      "run": "اجرای تست اتصال",
+      "running": "در حال تست اتصال...",
+      "successTitle": "اتصال معتبر است",
+      "errorTitle": "تست اتصال ناموفق بود",
+      "warningTitle": "هشدار اتصال",
+      "infoTitle": "تست اتصال",
+      "credentialHint": "اعتبارنامه ذخیره‌شده"
+    },
+    "accessTester": {
+      "title": "تست دسترسی‌های مجاز",
+      "description": "دسترسی مؤثر مدل‌ها برای اتصال «{name}» روی {provider} را بررسی کنید.",
+      "run": "اجرای تست دسترسی",
+      "readyHint": "تست دسترسی را اجرا کنید تا مدل‌های مؤثر برای هویت انتخاب‌شده نمایش داده شود.",
+      "error": "بارگذاری دسترسی مؤثر مدل‌ها ناموفق بود.",
+      "successTitle": "تست دسترسی کامل شد",
+      "errorTitle": "تست دسترسی ناموفق بود",
+      "warningTitle": "هشدار تست دسترسی",
+      "infoTitle": "تست دسترسی"
     },
     "models": {
       "description": "مدل‌ها، قابلیت‌ها و حالت قیمت‌گذاری را انتخاب کنید.",
@@ -583,6 +609,8 @@
       "copyIdentifier": "کپی slug",
       "editIntegration": "ویرایش اتصال",
       "manageModels": "مدیریت مدل‌ها",
+      "testConnection": "تست اتصال",
+      "testAllowedAccess": "تست دسترسی‌های مجاز",
       "viewDocs": "مشاهده Docs",
       "disconnect": "قطع اتصال",
       "disconnecting": "در حال قطع اتصال...",
