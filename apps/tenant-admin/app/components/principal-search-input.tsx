@@ -159,8 +159,12 @@ export function PrincipalEntitySelect(props: {
             <ChevronsUpDown className={cn("ms-2 shrink-0 opacity-60", props.compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[min(640px,calc(100vw-2rem))] overflow-hidden p-0">
-          <div className="border-b p-3">
+        <PopoverContent
+          align="start"
+          sideOffset={4}
+          className="w-[var(--radix-popover-trigger-width)] min-w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden p-0 sm:w-[min(36rem,calc(100vw-2rem))]"
+        >
+          <div className="border-b p-2 sm:p-3">
             <div className="relative">
               <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -168,19 +172,19 @@ export function PrincipalEntitySelect(props: {
                 onChange={(event) => handleQueryChange(event.target.value)}
                 placeholder={props.labels.searchPlaceholder}
                 aria-label={props.ariaLabel ?? props.labels.searchPlaceholder}
-                className="h-10 ps-9"
+                className="h-9 ps-9 text-sm sm:h-10"
               />
             </div>
           </div>
 
-          <div className="grid min-h-[230px] sm:grid-cols-[168px_minmax(0,1fr)]">
-            <div className="flex gap-1 overflow-x-auto border-b bg-muted/30 p-2 sm:block sm:space-y-1 sm:border-b-0 sm:border-e">
+          <div className="grid min-h-[190px] grid-rows-[auto_minmax(0,1fr)] sm:min-h-[230px] sm:grid-cols-[168px_minmax(0,1fr)] sm:grid-rows-none">
+            <div className="grid auto-cols-fr grid-flow-col gap-1 overflow-x-auto border-b bg-muted/30 p-2 sm:block sm:space-y-1 sm:border-b-0 sm:border-e">
               {kinds.map((kind) => (
                 <button
                   key={kind}
                   type="button"
                   className={cn(
-                    "w-full whitespace-nowrap rounded-md px-3 py-2 text-start text-sm font-medium transition",
+                    "min-w-0 whitespace-nowrap rounded-md px-2.5 py-2 text-center text-xs font-medium transition sm:w-full sm:px-3 sm:text-start sm:text-sm",
                     activeKind === kind
                       ? "bg-primary/10 text-primary ring-1 ring-primary/30"
                       : "text-muted-foreground hover:bg-background hover:text-foreground",
@@ -192,7 +196,7 @@ export function PrincipalEntitySelect(props: {
               ))}
             </div>
 
-            <div className="max-h-[300px] overflow-y-auto p-2">
+            <div className="max-h-[260px] overflow-y-auto p-2 sm:max-h-[300px]">
               {filteredEveryoneVisible ? (
                 <PrincipalOptionRow
                   option={{

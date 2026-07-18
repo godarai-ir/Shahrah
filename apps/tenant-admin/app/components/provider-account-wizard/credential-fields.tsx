@@ -4,9 +4,9 @@ import { useTranslations } from "next-intl";
 import { Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import type { ProviderAuthMode } from "./types";
 export function CredentialFields(props: {
   authMode: ProviderAuthMode;
@@ -30,6 +30,7 @@ export function CredentialFields(props: {
   googleServiceAccountJSON: string;
   setGoogleServiceAccountJSON: (value: string) => void;
   t: ReturnType<typeof useTranslations>;
+  surface?: boolean;
 }) {
   const ux = useTranslations("providerAccounts.ux");
   const hasStoredAPIKey = props.authMode === "api_key" && !props.apiKeyTouched && !!props.apiKeyHint;
@@ -46,12 +47,12 @@ export function CredentialFields(props: {
   }
 
   return (
-    <Card className="border-border/70">
-      <CardHeader>
-        <CardTitle className="text-base">{ux("setupSteps.accountCredentials")}</CardTitle>
-        <CardDescription>{props.t("step2.connectionDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <section className={cn("space-y-4", props.surface === false ? "pt-1" : "rounded-lg border border-border/70 bg-background p-4 sm:p-5")}>
+      <div className="space-y-1">
+        <h4 className="text-base font-semibold">{ux("setupSteps.accountCredentials")}</h4>
+        <p className="text-sm leading-6 text-muted-foreground">{props.t("step2.connectionDescription")}</p>
+      </div>
+      <div className="space-y-4">
         {props.authMode === "api_key" ? (
           <div className="grid gap-3 md:grid-cols-2">
             <Field>
@@ -140,8 +141,8 @@ export function CredentialFields(props: {
             </Field>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 

@@ -4,6 +4,7 @@ import { memo } from "react";
 import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   type PrincipalEntitySelectLabels,
@@ -29,10 +30,9 @@ export const AccessEditor = memo(function AccessEditor(props: {
   return (
     <section className="space-y-5 rounded-lg border border-border/70 bg-background p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h3 className="text-base font-semibold">{ux("tabs.access")}</h3>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">{ux("access.description")}</p>
-        </div>
+        <Alert variant="info" className="min-w-0 flex-1">
+          <AlertDescription>{ux("access.description")}</AlertDescription>
+        </Alert>
         {props.showSaveAction ?? true ? (
           <Button type="button" onClick={props.onSave} disabled={!props.canManage || props.isSaving} className="shrink-0">
             <ShieldCheck data-icon="inline-start" />

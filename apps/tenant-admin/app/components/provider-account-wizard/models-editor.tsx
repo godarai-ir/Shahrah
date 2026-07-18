@@ -3,7 +3,7 @@
 import type React from "react";
 import { CopyAction } from "@/components/app-ui";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, CheckSquare, Code2, ExternalLink, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Code2, ExternalLink, RotateCcw, Search, Settings, SlidersHorizontal, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { AppSelectField, EmptyState } from "@/components/app-ui";
@@ -21,11 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatTokenCount, ModelCard, type ModelCardData } from "@/app/components/model-card";
 import {
@@ -75,7 +77,7 @@ import {
 
 function ModelCardsSkeleton() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {Array.from({ length: 4 }).map((_, index) => (
         <Card key={`model-card-skeleton-${index}`} className="overflow-hidden">
           <CardHeader className="pb-3">
@@ -393,7 +395,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           footerActions={
             <Button type="button" variant="outline" size="sm" onClick={() => openCurlGuide(model)}>
                 <Code2 data-icon="inline-start" />
-                {ux("models.card.curlGuide")}
+                {ux("models.card.code")}
             </Button>
           }
           pricingAction={canUseCustomPricing ? (
@@ -484,6 +486,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const [priceDisplayOpen, setPriceDisplayOpen] = useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("card");
   const [pricingEditor, setPricingEditor] = useState<PricingEditorState>({
     open: false,
@@ -530,7 +533,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       rateLimitNotes: ux("models.card.rateLimitNotes"),
       license: ux("models.card.license"),
       viewDetails: ux("models.card.viewDetails"),
-      copyId: ux("models.card.copyFqn"),
+      copyId: "FQN",
       copied: ux("models.card.copied"),
       lowerCost: ux("models.card.lowerCost"),
       recommended: ux("models.card.recommended"),
@@ -1143,110 +1146,156 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   }
 
   return (
-    <section className="space-y-3 rounded-lg border p-4">
+    <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={filters.search}
-            onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
-            placeholder={props.t("step3.searchPlaceholder")}
-            className="h-9 ps-9 pe-9 text-xs sm:text-sm"
-          />
-          {filters.search.trim() ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute end-1 top-1/2 size-7 -translate-y-1/2"
-              onClick={() => setFilters((prev) => ({ ...prev, search: "" }))}
-              aria-label={ux("actions.clear")}
-              title={ux("actions.clear")}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          ) : null}
-        </div>
-
         <Collapsible open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen} className="flex flex-col gap-2">
-          <CollapsibleTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="w-fit">
-              <SlidersHorizontal data-icon="inline-start" />
-              {ux("models.filters.more")}
-            </Button>
-          </CollapsibleTrigger>
+          <div className="flex items-stretch gap-2">
+            <InputGroup className="min-w-0 flex-1 has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+              <InputGroupAddon align="inline-start" className="ps-3 pe-1">
+                <Search aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
+                value={filters.search}
+                onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                placeholder={props.t("step3.searchPlaceholder")}
+                className="!border-0 text-xs shadow-none focus-visible:!border-0 focus-visible:!ring-0 focus-visible:!shadow-none sm:text-sm"
+              />
+              {filters.search.trim() ? (
+                <InputGroupAddon align="inline-end" className="ps-1 pe-1">
+                  <InputGroupButton
+                    size="icon-xs"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setFilters((prev) => ({ ...prev, search: "" }))}
+                    aria-label={ux("actions.clear")}
+                    title={ux("actions.clear")}
+                  >
+                    <X aria-hidden="true" />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              ) : null}
+            </InputGroup>
+
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="h-9 shrink-0 whitespace-nowrap">
+                <SlidersHorizontal data-icon="inline-start" />
+                {ux("models.filters.more")}
+              </Button>
+            </CollapsibleTrigger>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={priceDisplayOpen ? "secondary" : "outline"}
+                    size="icon-sm"
+                    className="h-9 shrink-0"
+                    onClick={() => setPriceDisplayOpen((open) => !open)}
+                    aria-label={ux("models.actions.priceDisplaySettings")}
+                  >
+                    <Settings aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{ux("models.actions.priceDisplaySettings")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <CollapsibleContent>
-            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/70 bg-muted/20 p-2 md:grid-cols-3 xl:grid-cols-4">
-              <Input
-                value={filters.minPrice}
-                onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: event.target.value }))}
-                placeholder={ux("models.filters.minPrice")}
-                inputMode="decimal"
-                className="h-8 text-xs sm:h-10 sm:text-sm"
-              />
-              <Input
-                value={filters.maxPrice}
-                onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: event.target.value }))}
-                placeholder={ux("models.filters.maxPrice")}
-                inputMode="decimal"
-                className="h-8 text-xs sm:h-10 sm:text-sm"
-              />
-              <Input
-                value={filters.minContext}
-                onChange={(event) => setFilters((prev) => ({ ...prev, minContext: event.target.value }))}
-                placeholder={ux("models.filters.minContext")}
-                inputMode="numeric"
-                className="h-8 text-xs sm:h-10 sm:text-sm"
-              />
-              <AppSelectField
-                ariaLabel={ux("models.filters.allInputModalities")}
-                value={filters.inputModality || ALL_FILTER_OPTIONS}
-                onValueChange={(value) => setFilters((prev) => ({ ...prev, inputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
-                optionTextDir="ltr"
-                size="sm"
-                triggerClassName="min-w-0"
-                options={[
-                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allInputModalities") },
-                  ...allInputModalities.map((item) => ({ value: item, label: item })),
-                ]}
-              />
-              <AppSelectField
-                ariaLabel={ux("models.filters.allOutputModalities")}
-                value={filters.outputModality || ALL_FILTER_OPTIONS}
-                onValueChange={(value) => setFilters((prev) => ({ ...prev, outputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
-                optionTextDir="ltr"
-                size="sm"
-                triggerClassName="min-w-0"
-                options={[
-                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allOutputModalities") },
-                  ...allOutputModalities.map((item) => ({ value: item, label: item })),
-                ]}
-              />
-              <AppSelectField
-                ariaLabel={ux("models.filters.allFeatures")}
-                value={filters.featureFilter || ALL_FILTER_OPTIONS}
-                onValueChange={(value) => setFilters((prev) => ({ ...prev, featureFilter: value === ALL_FILTER_OPTIONS ? "" : value }))}
-                optionTextDir="ltr"
-                size="sm"
-                triggerClassName="min-w-0"
-                options={[
-                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allFeatures") },
-                  ...allFeatures.map((item) => ({ value: item, label: item })),
-                ]}
-              />
-              <AppSelectField
-                ariaLabel={ux("models.sort.priceAsc")}
-                value={filters.sortBy}
-                onValueChange={(value) => setFilters((prev) => ({ ...prev, sortBy: value as ModelFilterState["sortBy"] }))}
-                size="sm"
-                triggerClassName="min-w-0"
-                options={[
-                  { value: "price_asc", label: ux("models.sort.priceAsc") },
-                  { value: "price_desc", label: ux("models.sort.priceDesc") },
-                  { value: "context_asc", label: ux("models.sort.contextAsc") },
-                  { value: "context_desc", label: ux("models.sort.contextDesc") },
-                ]}
-              />
+            <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/20 p-2">
+              <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
+                <Input
+                  value={filters.minPrice}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: event.target.value }))}
+                  placeholder={ux("models.filters.minPrice")}
+                  inputMode="decimal"
+                  className="h-8 text-xs sm:h-10 sm:text-sm"
+                />
+                <Input
+                  value={filters.maxPrice}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: event.target.value }))}
+                  placeholder={ux("models.filters.maxPrice")}
+                  inputMode="decimal"
+                  className="h-8 text-xs sm:h-10 sm:text-sm"
+                />
+                <Input
+                  value={filters.minContext}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, minContext: event.target.value }))}
+                  placeholder={ux("models.filters.minContext")}
+                  inputMode="numeric"
+                  className="h-8 text-xs sm:h-10 sm:text-sm"
+                />
+                <AppSelectField
+                  ariaLabel={ux("models.filters.allInputModalities")}
+                  value={filters.inputModality || ALL_FILTER_OPTIONS}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, inputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                  optionTextDir="ltr"
+                  size="sm"
+                  triggerClassName="min-w-0"
+                  options={[
+                    { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allInputModalities") },
+                    ...allInputModalities.map((item) => ({ value: item, label: item })),
+                  ]}
+                />
+                <AppSelectField
+                  ariaLabel={ux("models.filters.allOutputModalities")}
+                  value={filters.outputModality || ALL_FILTER_OPTIONS}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, outputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                  optionTextDir="ltr"
+                  size="sm"
+                  triggerClassName="min-w-0"
+                  options={[
+                    { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allOutputModalities") },
+                    ...allOutputModalities.map((item) => ({ value: item, label: item })),
+                  ]}
+                />
+                <AppSelectField
+                  ariaLabel={ux("models.filters.allFeatures")}
+                  value={filters.featureFilter || ALL_FILTER_OPTIONS}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, featureFilter: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                  optionTextDir="ltr"
+                  size="sm"
+                  triggerClassName="min-w-0"
+                  options={[
+                    { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allFeatures") },
+                    ...allFeatures.map((item) => ({ value: item, label: item })),
+                  ]}
+                />
+                <AppSelectField
+                  ariaLabel={ux("models.sort.priceAsc")}
+                  value={filters.sortBy}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, sortBy: value as ModelFilterState["sortBy"] }))}
+                  size="sm"
+                  triggerClassName="min-w-0"
+                  options={[
+                    { value: "price_asc", label: ux("models.sort.priceAsc") },
+                    { value: "price_desc", label: ux("models.sort.priceDesc") },
+                    { value: "context_asc", label: ux("models.sort.contextAsc") },
+                    { value: "context_desc", label: ux("models.sort.contextDesc") },
+                  ]}
+                />
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={resetFilters}
+                      aria-label={ux("models.actions.clearFilters")}
+                    >
+                      <RotateCcw aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{ux("models.actions.clearFilters")}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {priceDisplayOpen ? (
+          <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/20 p-2">
+            <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
               <AppSelectField
                 ariaLabel={ux("models.displayUnit.currencyUsd")}
                 value={displayCurrency}
@@ -1270,8 +1319,18 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                 ]}
               />
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setPriceDisplayOpen(false)}
+              aria-label={ux("models.curlGuide.close")}
+              title={ux("models.curlGuide.close")}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </div>
+        ) : null}
 
         {hasInvalidPriceRange ? (
           <p className="text-xs text-destructive">{ux("models.validation.invalidInputPrice")}</p>
@@ -1297,41 +1356,12 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => handleVisibleSelectionChange(renderedVisibleModels, true)}
-          disabled={!props.canManage || props.isSaving || renderedVisibleModels.length === 0}
-        >
-          <CheckSquare className="h-4 w-4" />
-          {props.t("step3.toggleSelectAll")}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => handleVisibleSelectionChange(renderedVisibleModels, false)}
-          disabled={!props.canManage || props.isSaving || renderedVisibleModels.length === 0}
-        >
-          <X className="h-4 w-4" />
-          {ux("actions.clear")}
-        </Button>
-        <Button type="button" variant="outline" onClick={resetFilters}>
-          <RotateCcw className="h-4 w-4" />
-          {ux("models.actions.clearFilters")}
-        </Button>
-        <div className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <ArrowUpDown className="h-4 w-4" />
-          <span>{renderedVisibleModels.length}</span>
-        </div>
-      </div>
-
       {props.isLoadingModels ? (
         <ModelCardsSkeleton />
       ) : renderedVisibleModels.length === 0 ? (
         <EmptyState variant="inline" density="compact" title={props.t("step3.empty")} />
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {renderedVisibleModels.map((model) => (
             <ModelListItem
               key={model.model}

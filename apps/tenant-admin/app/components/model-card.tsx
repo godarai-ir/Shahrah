@@ -32,7 +32,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -230,7 +231,8 @@ export function ModelCard(props: ModelCardProps) {
   const remainingCapabilityCount = Math.max(0, model.capabilities.length - visibleCapabilities.length);
   const remainingModeCount = Math.max(0, invocationModes.length - visibleModes.length);
   const showCopyAction = props.showCopyAction ?? true;
-  const showUtilityRow = props.hasCustomPricing || (isCompactMobile && model.popular) || showCopyAction || props.footerActions;
+  const showSelectedControl = typeof props.isSelected === "boolean" && Boolean(props.onSelectedChange);
+  const hasUtilityActions = showSelectedControl || showCopyAction || Boolean(props.footerActions);
 
   async function handleCopyModelId() {
     try {
@@ -243,8 +245,11 @@ export function ModelCard(props: ModelCardProps) {
   }
 
   function renderUtilityActions() {
+    if (!hasUtilityActions) return null;
+
     return (
-      <>
+      <ButtonGroup aria-label={`${model.name} ${labels.copyId}`}>
+        {renderSelectedControl("min-h-8 shrink-0 rounded-md border border-border bg-background px-3 text-xs sm:text-sm")}
         {showCopyAction ? (
           <Button variant="outline" size="sm" onClick={handleCopyModelId}>
             {copied ? <CheckCircle2 className="text-success" data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
@@ -252,14 +257,49 @@ export function ModelCard(props: ModelCardProps) {
           </Button>
         ) : null}
         {props.footerActions}
+      </ButtonGroup>
+    );
+  }
+
+  function renderSelectedControl(className?: string) {
+    if (!showSelectedControl) return null;
+
+    return (
+      <label className={cn("inline-flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium", className)}>
+        <span>{props.selectedCheckboxLabel ?? "Enabled"}</span>
+        <Switch
+          checked={props.isSelected === true}
+          onCheckedChange={(checked) => props.onSelectedChange?.(checked)}
+          aria-label={props.selectedCheckboxLabel ?? "Enabled"}
+        />
+      </label>
+    );
+  }
+
+  function renderCategoryBadges() {
+    return (
+      <>
+        {visibleCategories.map((category) => (
+          <Badge key={category} variant={categoryBadgeVariant(category)}>
+            {labelCategory(category, labels)}
+          </Badge>
+        ))}
+        {props.pricingModeBadge ? <Badge variant="secondary">{props.pricingModeBadge}</Badge> : null}
+        {model.recommended ? (
+          <Badge className="gap-1" variant="success">
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            {labels.recommended}
+          </Badge>
+        ) : null}
+        {model.popular ? <Badge variant="info">{labels.popular}</Badge> : null}
       </>
     );
   }
 
   return (
-    <Card
+    <article
       className={cn(
-        "group w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md",
+        "group w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-border/70 bg-card text-card-foreground",
         model.recommended && "ring-1 ring-primary/30",
         isDeprecated && "border-warning/40 bg-warning/5",
         props.stateBadge?.tone === "active" && "border-success/40",
@@ -267,51 +307,41 @@ export function ModelCard(props: ModelCardProps) {
         props.className,
       )}
     >
-      <CardHeader className="space-y-4 p-4 sm:p-5">
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <Avatar className="size-12 shrink-0 border border-border bg-muted">
-              <AvatarImage src={model.provider.logoUrl} alt="" aria-hidden="true" />
-              <AvatarFallback className="text-base font-semibold">{initials(model.provider.name)}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <CardTitle className="min-w-0 truncate text-lg font-semibold" title={model.name} dir="ltr">
-                  {model.name}
-                </CardTitle>
-                {props.detailsHref ? (
-                  <Button asChild variant="ghost" size="icon-sm" className="shrink-0" aria-label={labels.viewDetails} title={labels.viewDetails}>
-                    <Link href={props.detailsHref} target="_blank" rel="noreferrer">
-                      <ExternalLink aria-hidden="true" />
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => props.onViewDetails?.(model)} aria-label={labels.viewDetails} title={labels.viewDetails}>
-                    <ExternalLink aria-hidden="true" />
-                  </Button>
-                )}
-              </div>
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                {visibleCategories.map((category) => (
-                  <Badge key={category} variant={categoryBadgeVariant(category)}>
-                    {labelCategory(category, labels)}
-                  </Badge>
-                ))}
-                {props.pricingModeBadge ? <Badge variant="secondary">{props.pricingModeBadge}</Badge> : null}
-                {model.recommended ? (
-                  <Badge className="gap-1" variant="success">
-                    <Sparkles className="size-3.5" aria-hidden="true" />
-                    {labels.recommended}
-                  </Badge>
-                ) : null}
-                {model.popular ? <Badge variant="info">{labels.popular}</Badge> : null}
-              </div>
-            </div>
+      <CardHeader className="flex flex-col gap-3 px-3 pb-1 pt-3 sm:px-4">
+        <div className="flex min-h-16 w-full min-w-0 items-center gap-3">
+          <Avatar className="size-12 shrink-0 border border-border bg-muted">
+            <AvatarImage src={model.provider.logoUrl} alt="" aria-hidden="true" />
+            <AvatarFallback className="text-base font-semibold">{initials(model.provider.name)}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <CardTitle className="min-w-0 truncate text-xl font-semibold sm:text-2xl" title={model.name} dir="ltr">
+              {model.name}
+            </CardTitle>
+            {props.detailsHref ? (
+              <Button asChild variant="ghost" size="icon-sm" className="shrink-0" aria-label={labels.viewDetails} title={labels.viewDetails}>
+                <Link href={props.detailsHref} target="_blank" rel="noreferrer">
+                  <ExternalLink aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => props.onViewDetails?.(model)} aria-label={labels.viewDetails} title={labels.viewDetails}>
+                <ExternalLink aria-hidden="true" />
+              </Button>
+            )}
           </div>
+        </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
+        <div className="flex min-h-8 w-full min-w-0 flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {renderCategoryBadges()}
+            {props.hasCustomPricing ? (
+              <Badge className="gap-1" variant="warning">
+                <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                {labels.customPricing}
+              </Badge>
+            ) : null}
             {typeof props.isCompared === "boolean" && props.onComparedChange ? (
-              <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 text-sm">
+              <label className="inline-flex min-h-8 cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={props.isCompared}
@@ -321,48 +351,17 @@ export function ModelCard(props: ModelCardProps) {
                 {props.compareCheckboxLabel ?? "Compare"}
               </label>
             ) : null}
-            <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex">
-              {renderUtilityActions()}
-              {props.hasCustomPricing ? (
-                <Badge className="gap-1" variant="warning">
-                  <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                  {labels.customPricing}
-                </Badge>
-              ) : null}
-            </div>
-            {typeof props.isSelected === "boolean" && props.onSelectedChange ? (
-              <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium">
-                <span>{props.selectedCheckboxLabel ?? "Enabled"}</span>
-                <Switch
-                  checked={props.isSelected}
-                  onCheckedChange={(checked) => props.onSelectedChange?.(checked)}
-                  aria-label={props.selectedCheckboxLabel ?? "Enabled"}
-                />
-              </label>
-            ) : null}
+          </div>
+          <div className="shrink-0">
+            {renderUtilityActions()}
           </div>
         </div>
-
-        {showUtilityRow ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 md:hidden">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              {renderUtilityActions()}
-            </div>
-            {props.hasCustomPricing ? (
-              <Badge className="gap-1" variant="warning">
-                <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                {labels.customPricing}
-              </Badge>
-            ) : null}
-          </div>
-        ) : null}
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-0 sm:px-5 sm:pb-5">
-        <div className="grid min-w-0 gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <CardContent className="flex flex-col gap-2.5 px-3 pb-3 pt-0 sm:px-4">
+        <div className="grid min-w-0 grid-cols-2 gap-2.5">
           <MetricPanel label={labels.context} value={formatTokenCount(model.contextWindow)} />
           <PricePanel
-            className="lg:col-span-3"
             label={pricingDisplay.scale === "PER_TOKEN" ? labels.pricingPerToken : labels.pricingPerMillion}
             inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, pricingDisplay)}
             outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, pricingDisplay)}
@@ -372,7 +371,7 @@ export function ModelCard(props: ModelCardProps) {
           />
         </div>
 
-        <div className="grid min-w-0 gap-3 grid-cols-2 md:grid-cols-4">
+        <div className="grid min-w-0 grid-cols-2 gap-2.5">
           <BadgePanel label={labels.inputFormats} values={model.inputModalities} kind="modality" tone="info" />
           <BadgePanel label={labels.outputFormats} values={model.outputModalities} kind="modality" tone="success" />
           <BadgePanel
@@ -406,7 +405,7 @@ export function ModelCard(props: ModelCardProps) {
 
         {props.extraContent}
       </CardContent>
-    </Card>
+    </article>
   );
 }
 
@@ -424,8 +423,8 @@ function BadgePanel(props: {
     <section
       aria-label={props.label}
       className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-xl p-4",
-        tone === "neutral" && "bg-muted/20",
+        "flex min-w-0 flex-col gap-2.5 rounded-lg p-3",
+        tone === "neutral" && "bg-muted/15",
         tone === "info" && "bg-info/5",
         tone === "success" && "bg-success/5",
       )}
@@ -463,7 +462,7 @@ function PricePanel(props: {
   className?: string;
 }) {
   return (
-    <section aria-label={props.label} className={cn("min-w-0 rounded-xl bg-muted/20 p-4", props.className)}>
+    <section aria-label={props.label} className={cn("min-w-0 rounded-lg bg-muted/15 p-3", props.className)}>
       <p className="text-center text-sm font-medium text-muted-foreground">{props.label}</p>
       <div className="mt-3 grid min-w-0 items-center gap-4 sm:grid-cols-3">
         <div className="min-w-0 text-center">
@@ -484,7 +483,7 @@ function PricePanel(props: {
 
 function MetricPanel(props: { label: string; value: string }) {
   return (
-    <section aria-label={props.label} className="flex min-h-28 min-w-0 flex-col items-center justify-center rounded-xl bg-muted/20 p-4 text-center">
+    <section aria-label={props.label} className="flex min-h-24 min-w-0 flex-col items-center justify-center rounded-lg bg-muted/15 p-3 text-center">
       <p className="text-sm font-medium text-muted-foreground">{props.label}</p>
       <p className="mt-3 truncate text-2xl font-semibold" dir="ltr" title={props.value}>{props.value}</p>
     </section>

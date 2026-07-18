@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { ChevronRight, Copy, ExternalLink, KeyRound, Layers3, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, ExternalLink, KeyRound, Layers3, ShieldCheck } from "lucide-react";
 
 import { AppSelectField, DefinitionList, DefinitionListItem, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Field,
   FieldContent,
@@ -124,7 +124,6 @@ export default function ProviderAccountWizard(props?: {
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSavingCredentials, setIsSavingCredentials] = useState(false);
-  const [deletingAccountID, setDeletingAccountID] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTargetAccount, setDeleteTargetAccount] = useState<TenantProviderAccount | null>(null);
   const [isLoadingProviderModels, setIsLoadingProviderModels] = useState(false);
@@ -168,6 +167,7 @@ export default function ProviderAccountWizard(props?: {
 
   const [managers, setManagers] = useState<AccessPrincipal[]>([]);
   const [users, setUsers] = useState<AccessPrincipal[]>([]);
+  const accessAutosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
   const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
@@ -520,15 +520,6 @@ export default function ProviderAccountWizard(props?: {
     [t],
   );
 
-  const openDeleteAccountDialog = useCallback((target: TenantProviderAccount) => {
-    if (!canDeleteProviderAccount) {
-      setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
-      return;
-    }
-    setDeleteTargetAccount(target);
-    setDeleteDialogOpen(true);
-  }, [canDeleteProviderAccount, t]);
-
   const handleDeleteAccount = useCallback(
     async (target: TenantProviderAccount) => {
       if (!canDeleteProviderAccount) {
@@ -536,7 +527,6 @@ export default function ProviderAccountWizard(props?: {
         return;
       }
       if (!target?.id) return;
-      setDeletingAccountID(target.id);
       try {
         const response = await fetch(`/api/tenant-provider-accounts/${encodeURIComponent(target.id)}`, {
           method: "DELETE",
@@ -575,8 +565,6 @@ export default function ProviderAccountWizard(props?: {
       } catch (error) {
         setBanner({ kind: "error", message: normalizeError(error, t("messages.accountDeleteFailed")) });
         throw error;
-      } finally {
-        setDeletingAccountID("");
       }
     },
     [accounts, canDeleteProviderAccount, normalizeDeleteAccountError, selectedAccountID, t],
@@ -927,7 +915,11 @@ export default function ProviderAccountWizard(props?: {
   const handleSaveAccess = useCallback(async (
     accountID = selectedAccountID,
     options: { reload?: boolean; announce?: boolean } = {},
+    accessOverride?: { managers: AccessPrincipal[]; users: AccessPrincipal[] },
   ): Promise<boolean> => {
+    const nextManagers = accessOverride?.managers ?? managers;
+    const nextUsers = accessOverride?.users ?? users;
+
     if (!canManageProviderAccount) {
       setBanner({ kind: "error", message: t("messages.insufficientPermissions") });
       return false;
@@ -936,7 +928,7 @@ export default function ProviderAccountWizard(props?: {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return false;
     }
-    if (managers.length === 0) {
+    if (nextManagers.length === 0) {
       setBanner({ kind: "error", message: t("messages.managerRequired") });
       return false;
     }
@@ -945,7 +937,7 @@ export default function ProviderAccountWizard(props?: {
     try {
       await requestJSON(
         `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/access`,
-        { method: "PUT", body: JSON.stringify({ access: { managers, users } }) },
+        { method: "PUT", body: JSON.stringify({ access: { managers: nextManagers, users: nextUsers } }) },
       );
       if (options.announce ?? true) {
         setBanner({ kind: "success", message: t("messages.accessSaveSuccess") });
@@ -1057,6 +1049,26 @@ export default function ProviderAccountWizard(props?: {
   const handleSaveAccessAction = useCallback(() => {
     void handleSaveAccess();
   }, [handleSaveAccess]);
+
+  const handleAccessAutosave = useCallback((nextAccess: { managers: AccessPrincipal[]; users: AccessPrincipal[] }) => {
+    if (!selectedAccountID) return;
+
+    accessAutosaveQueueRef.current = accessAutosaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await handleSaveAccess(selectedAccountID, { reload: false, announce: false }, nextAccess);
+      });
+  }, [handleSaveAccess, selectedAccountID]);
+
+  const handleManagersChange = useCallback((nextManagers: AccessPrincipal[]) => {
+    setManagers(nextManagers);
+    handleAccessAutosave({ managers: nextManagers, users });
+  }, [handleAccessAutosave, users]);
+
+  const handleUsersChange = useCallback((nextUsers: AccessPrincipal[]) => {
+    setUsers(nextUsers);
+    handleAccessAutosave({ managers, users: nextUsers });
+  }, [handleAccessAutosave, managers]);
 
   const panelTitle =
     workspaceMode === "setup"
@@ -1482,9 +1494,9 @@ export default function ProviderAccountWizard(props?: {
                     <AccessEditor
                       t={t}
                       managers={managers}
-                      setManagers={setManagers}
+                      setManagers={handleManagersChange}
                       users={users}
-                      setUsers={setUsers}
+                      setUsers={handleUsersChange}
                       onSearchPrincipal={searchPrincipalCandidates}
                       principalSelectorLabels={principalSelectorLabels}
                       onSave={handleSaveAccessAction}
@@ -1605,13 +1617,8 @@ export default function ProviderAccountWizard(props?: {
   }
 
   return (
-    <Card id="tenant-provider-accounts" className="border-0 bg-transparent shadow-none">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-2xl">{t("title")}</CardTitle>
-        <CardDescription className="text-base">{t("description")}</CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-4 px-0 pt-4">
+    <div id="tenant-provider-accounts" className="min-w-0">
+      <div className="flex min-w-0 flex-col gap-4">
         {banner ? (
           <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
             <AlertTitle>{banner.kind === "error" ? t("errorTitle") : t("successTitle")}</AlertTitle>
@@ -1619,59 +1626,20 @@ export default function ProviderAccountWizard(props?: {
           </Alert>
         ) : null}
 
-        <div className="space-y-4">
-          <section className="space-y-4">
-            <Card className="border-0 bg-transparent shadow-none">
-              <CardHeader className="px-0 pb-3 pt-0">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-xl">{panelTitle}</CardTitle>
-                    <CardDescription>
-                      {workspaceMode === "setup"
-                        ? ux("panel.setupHint")
-                        : workspaceMode === "workspace"
-                          ? ux("panel.workspaceHint")
-                          : ux("panel.overviewHint")}
-                    </CardDescription>
-                  </div>
-                  {workspaceMode === "workspace" && account ? (
-                    <div className="flex items-center gap-2">
-                      <ReadinessBadge
-                        readiness={readiness}
-                        labels={{
-                          ready: ux("readiness.ready"),
-                          needs_credentials: ux("readiness.needsCredentials"),
-                          needs_access: ux("readiness.needsAccess"),
-                          pricing_incomplete: ux("readiness.pricingIncomplete"),
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          void copyTextToClipboard(`${account.provider}:${account.name}`);
-                          setBanner({ kind: "success", message: ux("messages.fqnCopied") });
-                        }}
-                      >
-                        <Copy className="me-2 h-4 w-4" />
-                        {ux("actions.copyFqn")}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => openDeleteAccountDialog(account)}
-                        disabled={deletingAccountID === account.id || !canDeleteProviderAccount}
-                      >
-                        <Trash2 className="me-2 h-4 w-4" />
-                        {deletingAccountID === account.id ? ux("actions.loading") : ux("actions.deleteAccount")}
-                      </Button>
-                    </div>
-                  ) : null}
+        <section className="space-y-5">
+          {workspaceMode === "workspace" ? null : (
+            <CardHeader className="px-0 pb-4 pt-0">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-xl">{panelTitle}</CardTitle>
+                  <CardDescription>
+                    {workspaceMode === "setup" ? ux("panel.setupHint") : ux("panel.overviewHint")}
+                  </CardDescription>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4 px-0 pb-0">
+              </div>
+            </CardHeader>
+          )}
+          <div className="space-y-5">
                 {workspaceMode === "overview" ? (
                   <EmptyOverview
                     title={ux("overview.title")}
@@ -1917,14 +1885,15 @@ export default function ProviderAccountWizard(props?: {
                         <AccessEditor
                           t={t}
                           managers={managers}
-                          setManagers={setManagers}
+                          setManagers={handleManagersChange}
                           users={users}
-                          setUsers={setUsers}
+                          setUsers={handleUsersChange}
                           onSearchPrincipal={searchPrincipalCandidates}
                           principalSelectorLabels={principalSelectorLabels}
                           onSave={handleSaveAccessAction}
                           isSaving={isSavingAccess}
                           canManage={canManageProviderAccount}
+                          showSaveAction={false}
                         />
                         <div className="flex justify-between">
                           <Button type="button" variant="outline" onClick={() => setSetupStep(3)}>{ux("actions.back")}</Button>
@@ -1961,29 +1930,47 @@ export default function ProviderAccountWizard(props?: {
 
                 {workspaceMode === "workspace" && account ? (
                   <>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <SummaryKPI label={ux("kpi.provider")} value={account.provider} />
-                      <SummaryKPI label={ux("kpi.enabledModels")} value={selectedModelCount.toString()} />
-                      <SummaryKPI label={ux("kpi.unresolvedPricing")} value={unresolvedPricingCount.toString()} />
-                      <SummaryKPI label={ux("kpi.managersUsers")} value={`${managers.length} / ${users.length}`} />
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-center gap-2 rounded-lg bg-muted/20 p-2">
-                      {workspaceTabs.map((tab) => {
-                        const Icon = tab.icon;
-                        return (
-                          <Button
-                            key={tab.id}
-                            type="button"
-                            variant={activeTab === tab.id ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setActiveTab(tab.id)}
-                          >
-                            <Icon className="me-2 h-4 w-4" />
-                            {tab.label}
-                          </Button>
-                        );
-                      })}
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/20 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {workspaceTabs.map((tab) => {
+                          const Icon = tab.icon;
+                          return (
+                            <Button
+                              key={tab.id}
+                              type="button"
+                              variant={activeTab === tab.id ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setActiveTab(tab.id)}
+                            >
+                              <Icon className="me-2 h-4 w-4" />
+                              {tab.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ReadinessBadge
+                          readiness={readiness}
+                          labels={{
+                            ready: ux("readiness.ready"),
+                            needs_credentials: ux("readiness.needsCredentials"),
+                            needs_access: ux("readiness.needsAccess"),
+                            pricing_incomplete: ux("readiness.pricingIncomplete"),
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            void copyTextToClipboard(`${account.provider}:${account.name}`);
+                            setBanner({ kind: "success", message: ux("messages.fqnCopied") });
+                          }}
+                        >
+                          <Copy className="me-2 h-4 w-4" />
+                          {ux("actions.copyFqn")}
+                        </Button>
+                      </div>
                     </div>
 
                     {activeTab === "models" ? (
@@ -2005,23 +1992,24 @@ export default function ProviderAccountWizard(props?: {
                       <AccessEditor
                         t={t}
                         managers={managers}
-                        setManagers={setManagers}
+                        setManagers={handleManagersChange}
                         users={users}
-                        setUsers={setUsers}
+                        setUsers={handleUsersChange}
                         onSearchPrincipal={searchPrincipalCandidates}
                         principalSelectorLabels={principalSelectorLabels}
                         onSave={handleSaveAccessAction}
                         isSaving={isSavingAccess}
                         canManage={canManageProviderAccount}
+                        showSaveAction={false}
                       />
                     ) : null}
 
                     {activeTab === "credentials" ? (
-                      <section className="space-y-4">
-                        <div className="flex items-center justify-between">
+                      <section className="space-y-5 rounded-lg border border-border/70 bg-background p-4 sm:p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <h3 className="text-base font-semibold">{ux("tabs.credentials")}</h3>
-                            <p className="text-sm text-muted-foreground">{ux("credentials.desc")}</p>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">{ux("credentials.desc")}</p>
                           </div>
                           <Badge variant="secondary">{account.auth_mode}</Badge>
                         </div>
@@ -2030,61 +2018,66 @@ export default function ProviderAccountWizard(props?: {
                           <SummaryKPI label={ux("credentials.platformManagedCredentials")} value={account.use_platform_managed_credentials ? ux("common.enabled") : ux("common.disabled")} />
                           <SummaryKPI label={ux("credentials.lastTest")} value={lastCredentialTestMessage || ux("credentials.notTested")} />
                         </div>
-                        <AppSelectField
-                          id="credentialAuthMode"
-                          label={t("fields.authMode")}
-                          value={authMode}
-                          disabled={!canManageProviderAccount}
-                          onValueChange={(value) => setAuthMode(value as ProviderAuthMode)}
-                          optionTextDir="ltr"
-                          options={(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => ({ value: mode, label: mode }))}
-                        />
-                        <Field>
-                          <FieldLabel htmlFor="credentialPlatformManaged">{t("fields.usePlatformManagedCredentials")}</FieldLabel>
-                          <label className="inline-flex items-center gap-2 text-sm">
-                            <input
-                              id="credentialPlatformManaged"
-                              type="checkbox"
-                              checked={usePlatformManagedCredentials}
+                        <div className="space-y-4 rounded-lg border border-border/70 bg-card p-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <AppSelectField
+                              id="credentialAuthMode"
+                              label={t("fields.authMode")}
+                              value={authMode}
                               disabled={!canManageProviderAccount}
-                              onChange={(event) => setUsePlatformManagedCredentials(event.target.checked)}
+                              onValueChange={(value) => setAuthMode(value as ProviderAuthMode)}
+                              optionTextDir="ltr"
+                              options={(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => ({ value: mode, label: mode }))}
                             />
-                            {t("fields.usePlatformManagedCredentials")}
-                          </label>
-                        </Field>
-                        {!usePlatformManagedCredentials ? (
-                          <CredentialFields
-                            authMode={authMode}
-                            apiKey={apiKey}
-                            setAPIKey={setAPIKey}
-                            apiKeyTouched={apiKeyTouched}
-                            setAPIKeyTouched={(value) => {
-                              setAPIKeyTouched(value);
-                              if (value) {
-                                setAPIKeyTestSucceeded(false);
-                                setLastCredentialTestMessage("");
-                                setCreateCredentialTestResult(null);
-                              }
-                            }}
-                            apiKeyHint={apiKeyTestSucceeded ? account.credential_hint : undefined}
-                            secretRef={secretRef}
-                            setSecretRef={setSecretRef}
-                            azureTenantID={azureTenantID}
-                            setAzureTenantID={setAzureTenantID}
-                            azureClientID={azureClientID}
-                            setAzureClientID={setAzureClientID}
-                            awsAccessKeyID={awsAccessKeyID}
-                            setAWSAccessKeyID={setAWSAccessKeyID}
-                            awsSecretAccessKey={awsSecretAccessKey}
-                            setAWSSecretAccessKey={setAWSSecretAccessKey}
-                            awsRegion={awsRegion}
-                            setAWSRegion={setAWSRegion}
-                            googleServiceAccountJSON={googleServiceAccountJSON}
-                            setGoogleServiceAccountJSON={setGoogleServiceAccountJSON}
-                            t={t}
-                          />
-                        ) : null}
-                        <div className="flex flex-wrap gap-2">
+                            <Field>
+                              <FieldLabel htmlFor="credentialPlatformManaged">{t("fields.usePlatformManagedCredentials")}</FieldLabel>
+                              <label className="inline-flex min-h-10 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
+                                <input
+                                  id="credentialPlatformManaged"
+                                  type="checkbox"
+                                  checked={usePlatformManagedCredentials}
+                                  disabled={!canManageProviderAccount}
+                                  onChange={(event) => setUsePlatformManagedCredentials(event.target.checked)}
+                                />
+                                {t("fields.usePlatformManagedCredentials")}
+                              </label>
+                            </Field>
+                          </div>
+                          {!usePlatformManagedCredentials ? (
+                            <CredentialFields
+                              authMode={authMode}
+                              apiKey={apiKey}
+                              setAPIKey={setAPIKey}
+                              apiKeyTouched={apiKeyTouched}
+                              setAPIKeyTouched={(value) => {
+                                setAPIKeyTouched(value);
+                                if (value) {
+                                  setAPIKeyTestSucceeded(false);
+                                  setLastCredentialTestMessage("");
+                                  setCreateCredentialTestResult(null);
+                                }
+                              }}
+                              apiKeyHint={apiKeyTestSucceeded ? account.credential_hint : undefined}
+                              secretRef={secretRef}
+                              setSecretRef={setSecretRef}
+                              azureTenantID={azureTenantID}
+                              setAzureTenantID={setAzureTenantID}
+                              azureClientID={azureClientID}
+                              setAzureClientID={setAzureClientID}
+                              awsAccessKeyID={awsAccessKeyID}
+                              setAWSAccessKeyID={setAWSAccessKeyID}
+                              awsSecretAccessKey={awsSecretAccessKey}
+                              setAWSSecretAccessKey={setAWSSecretAccessKey}
+                              awsRegion={awsRegion}
+                              setAWSRegion={setAWSRegion}
+                              googleServiceAccountJSON={googleServiceAccountJSON}
+                              setGoogleServiceAccountJSON={setGoogleServiceAccountJSON}
+                              t={t}
+                              surface={false}
+                            />
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
                           <Button type="button" onClick={() => void handleSaveCredentials()} disabled={!canManageProviderAccount || isSavingCredentials}>
                             {isSavingCredentials ? t("saving") : t("save")}
                           </Button>
@@ -2096,10 +2089,8 @@ export default function ProviderAccountWizard(props?: {
                     ) : null}
                   </>
                 ) : null}
-              </CardContent>
-            </Card>
-          </section>
-        </div>
+          </div>
+        </section>
         <TypedConfirmDialog
           open={deleteDialogOpen}
           onOpenChange={(open) => {
@@ -2117,8 +2108,8 @@ export default function ProviderAccountWizard(props?: {
           disabled={!deleteTargetAccount}
           inputDir="auto"
         />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

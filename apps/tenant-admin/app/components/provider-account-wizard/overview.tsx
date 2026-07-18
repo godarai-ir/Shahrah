@@ -33,7 +33,7 @@ export function EmptyOverview(props: {
 
 export function SummaryKPI(props: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-muted/20 p-3">
+    <div className="min-w-0 rounded-lg border bg-muted/20 p-3">
       <div className="text-xs text-muted-foreground">{props.label}</div>
       <div className="truncate text-sm font-semibold">{props.value}</div>
     </div>

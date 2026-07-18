@@ -108,7 +108,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
         </div>
       </div>
 
-      <div className={cn(isFilterVariant ? "flex min-w-0 flex-row-reverse items-start gap-2" : "grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]")}>
+      <div className={cn(isFilterVariant ? "flex min-w-0 flex-row-reverse items-start gap-2" : "flex w-full min-w-0 items-start gap-2")}>
         {isFilterVariant ? (
           <Button
             type="button"
@@ -132,7 +132,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
           labels={props.principalSelectorLabels}
           kinds={props.kinds ?? ["user", "team", "org_unit"]}
           includeEveryone={props.allowEveryone}
-          className={cn("min-w-0", isFilterVariant && "flex-1")}
+          className={cn("min-w-0 flex-1", isFilterVariant && "flex-1")}
           compact={isFilterVariant}
           ariaLabel={props.searchLabel}
         />
@@ -140,12 +140,15 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
           <Button
             type="button"
             variant="outline"
+            size="icon-sm"
             onClick={addSelectedCandidate}
             disabled={props.disabled || !candidate || candidate.type === "external_identity"}
-            className="w-full sm:w-auto"
+            className="shrink-0"
+            aria-label={props.addLabel}
+            title={props.addLabel}
           >
             <Plus data-icon="inline-start" />
-            {props.addLabel}
+            <span className="sr-only">{props.addLabel}</span>
           </Button>
         )}
       </div>

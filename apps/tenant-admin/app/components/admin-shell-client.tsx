@@ -169,7 +169,7 @@ export default function AdminShellClient({
             </div>
           </header>
 
-          <div className="min-w-0 flex-1 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:p-3 md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <PageHeaderInShellProvider enabled={Boolean(pageHeader)}>
               <div className="w-full animate-fade-in">{children}</div>
             </PageHeaderInShellProvider>
