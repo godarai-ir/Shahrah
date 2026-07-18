@@ -429,14 +429,14 @@ function BadgePanel(props: {
         tone === "success" && "bg-success/5",
       )}
     >
-      <p className="text-sm font-medium text-muted-foreground">{props.label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{props.label}</p>
       <div className="flex min-h-7 flex-wrap gap-2">
         {props.values?.length ? (
           props.values.map((value) => (
             <Badge
               key={`${props.label}-${value}`}
               variant={badgeVariantForValue(props.kind, tone, value)}
-              className="gap-1.5 px-3 py-1"
+              className="gap-1.5 px-3 py-1 text-xs"
               title={value}
             >
               {props.kind === "capability" ? iconForCapability(value) : props.kind === "mode" ? iconForMode(value) : iconForModality(value)}
@@ -444,9 +444,9 @@ function BadgePanel(props: {
             </Badge>
           ))
         ) : (
-          <span className="text-sm text-muted-foreground">N/A</span>
+          <span className="text-xs text-muted-foreground">N/A</span>
         )}
-        {props.moreCount ? <Badge variant="secondary">{`+${props.moreCount}`}</Badge> : null}
+        {props.moreCount ? <Badge variant="secondary" className="text-xs">{`+${props.moreCount}`}</Badge> : null}
       </div>
     </section>
   );
@@ -462,19 +462,21 @@ function PricePanel(props: {
   className?: string;
 }) {
   return (
-    <section aria-label={props.label} className={cn("min-w-0 rounded-lg bg-muted/15 p-3", props.className)}>
-      <p className="text-center text-sm font-medium text-muted-foreground">{props.label}</p>
-      <div className="mt-3 grid min-w-0 items-center gap-4 sm:grid-cols-3">
-        <div className="min-w-0 text-center">
-          <p className="text-sm text-muted-foreground">{props.inputLabel}</p>
-          <p className="mt-1 truncate text-base font-semibold" dir="ltr" title={props.inputValue}>{props.inputValue}</p>
-        </div>
-        <div className="min-w-0 border-t border-border pt-4 text-center sm:border-s sm:border-t-0 sm:pt-0">
-          <p className="text-sm text-muted-foreground">{props.outputLabel}</p>
-          <p className="mt-1 truncate text-base font-semibold" dir="ltr" title={props.outputValue}>{props.outputValue}</p>
-        </div>
-        <div className="flex items-center justify-center border-t border-border pt-4 sm:border-s sm:border-t-0 sm:pt-0">
+    <section aria-label={props.label} className={cn("flex min-w-0 flex-col gap-3 rounded-lg bg-muted/15 p-3", props.className)}>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <p className="min-w-0 text-xs font-medium leading-5 text-muted-foreground">{props.label}</p>
+        <div className="flex shrink-0 items-center justify-center">
           {props.action ?? <SlidersHorizontal className="size-5 text-muted-foreground" aria-hidden="true" />}
+        </div>
+      </div>
+      <div className="grid min-w-0 grid-cols-2 gap-2">
+        <div className="min-w-0 rounded-md bg-background/50 px-2 py-1.5 text-center">
+          <p className="text-xs text-muted-foreground">{props.inputLabel}</p>
+          <p className="mt-1 truncate text-sm font-semibold" dir="ltr" title={props.inputValue}>{props.inputValue}</p>
+        </div>
+        <div className="min-w-0 rounded-md bg-background/50 px-2 py-1.5 text-center">
+          <p className="text-xs text-muted-foreground">{props.outputLabel}</p>
+          <p className="mt-1 truncate text-sm font-semibold" dir="ltr" title={props.outputValue}>{props.outputValue}</p>
         </div>
       </div>
     </section>
@@ -484,8 +486,8 @@ function PricePanel(props: {
 function MetricPanel(props: { label: string; value: string }) {
   return (
     <section aria-label={props.label} className="flex min-h-24 min-w-0 flex-col items-center justify-center rounded-lg bg-muted/15 p-3 text-center">
-      <p className="text-sm font-medium text-muted-foreground">{props.label}</p>
-      <p className="mt-3 truncate text-2xl font-semibold" dir="ltr" title={props.value}>{props.value}</p>
+      <p className="text-xs font-medium text-muted-foreground">{props.label}</p>
+      <p className="mt-3 truncate text-xl font-semibold" dir="ltr" title={props.value}>{props.value}</p>
     </section>
   );
 }

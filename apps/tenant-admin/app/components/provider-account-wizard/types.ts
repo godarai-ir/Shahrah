@@ -172,7 +172,7 @@ export type ModelDraft = {
   outputPrice: string;
 };
 
-export type Readiness = "ready" | "needs_credentials" | "needs_access" | "pricing_incomplete";
+export type Readiness = "ready" | "connection_failed" | "needs_credentials" | "needs_access" | "pricing_incomplete";
 
 export type ProviderAccountWizardMode = "manage" | "create";
 

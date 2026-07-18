@@ -46,6 +46,7 @@ export function ReadinessBadge(props: {
 }) {
   const mapping: Record<Readiness, { label: string; className: string }> = {
     ready: { label: props.labels.ready, className: "tone-success border" },
+    connection_failed: { label: props.labels.connection_failed, className: "tone-danger border" },
     needs_credentials: { label: props.labels.needs_credentials, className: "tone-warning border" },
     needs_access: { label: props.labels.needs_access, className: "tone-warning border" },
     pricing_incomplete: { label: props.labels.pricing_incomplete, className: "tone-info border" },

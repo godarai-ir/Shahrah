@@ -10,7 +10,6 @@ import { ChevronRight, Copy, ExternalLink, KeyRound, Layers3, ShieldCheck } from
 
 import { AppSelectField, DefinitionList, DefinitionListItem, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -42,6 +41,7 @@ import {
   buildProviderCredentialPayload,
   defaultProviderCredentialValues,
   missingRequiredProviderFields,
+  providerCredentialValuesForSchema,
   type ProviderCredentialValues,
 } from "@/app/components/provider-account-wizard/credential-schema";
 import { buildCreatedConnectionHref, getCreateStepState, shouldPersistCreateAccount } from "@/app/components/provider-account-wizard/create-flow";
@@ -169,7 +169,6 @@ export default function ProviderAccountWizard(props?: {
   const [users, setUsers] = useState<AccessPrincipal[]>([]);
   const accessAutosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const [lastCredentialTestMessage, setLastCredentialTestMessage] = useState("");
   const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
   const [activeCreateSection, setActiveCreateSection] = useState<CreateWizardSectionID>("details");
   const [furthestCreateStepIndex, setFurthestCreateStepIndex] = useState(0);
@@ -201,6 +200,26 @@ export default function ProviderAccountWizard(props?: {
     && !!selectedConnectionSchema
     && missingRequiredCredentialFields.length === 0
   );
+  const missingRequiredCredentialFieldsForSave = useMemo(() => {
+    if (usePlatformManagedCredentials) return [];
+    const mustReplaceSecret = !account?.has_credential || !stringsEqualFold(authMode, account.auth_mode);
+
+    return (selectedConnectionSchema?.fields ?? []).filter((field) => {
+      if (!field.required) return false;
+      if (field.secret && !mustReplaceSecret) return false;
+      return !providerCredentialValues[field.key]?.trim();
+    });
+  }, [account, authMode, providerCredentialValues, selectedConnectionSchema, usePlatformManagedCredentials]);
+  const canEditCredentialSettings = isCreateMode || (!!account && !account.use_platform_managed_credentials);
+  const canSaveCredentialSettings = canEditCredentialSettings && (
+    usePlatformManagedCredentials
+    || (
+      !isLoadingConnectionSchemas
+      && !connectionSchemaError
+      && !!selectedConnectionSchema
+      && missingRequiredCredentialFieldsForSave.length === 0
+    )
+  );
 
   const selectedProviderAccounts = useMemo(
     () => accounts.filter((item) => stringsEqualFold(item.provider, selectedProviderID)),
@@ -225,7 +244,7 @@ export default function ProviderAccountWizard(props?: {
     async function loadConnectionSchemas() {
       await Promise.resolve();
       if (cancelled) return;
-      if (!isCreateMode || !provider) {
+      if (!provider) {
         setConnectionSchemas([]);
         setProviderCredentialValues({});
         setConnectionSchemaError("");
@@ -249,10 +268,17 @@ export default function ProviderAccountWizard(props?: {
           gcTime: 1000 * 60 * 60 * 2,
         });
         if (cancelled) return;
-        const nextSchema = items.find((item) => item.runtime_ready) ?? items[0] ?? null;
+        const preferredAuthMode = isCreateMode ? undefined : account?.auth_mode;
+        const nextSchema = preferredAuthMode
+          ? items.find((item) => stringsEqualFold(item.auth_mode, preferredAuthMode)) ?? items.find((item) => item.runtime_ready) ?? items[0] ?? null
+          : items.find((item) => item.runtime_ready) ?? items[0] ?? null;
         setConnectionSchemas(items);
         setAuthMode(nextSchema?.auth_mode ?? "api_key");
-        setProviderCredentialValues(defaultProviderCredentialValues(nextSchema));
+        setProviderCredentialValues(
+          isCreateMode
+            ? defaultProviderCredentialValues(nextSchema)
+            : providerCredentialValuesForSchema(nextSchema, account?.provider_config),
+        );
         if (!nextSchema) setConnectionSchemaError(ux("integrations.wizard.connectionSchemaUnavailable"));
       } catch (error) {
         if (cancelled) return;
@@ -268,7 +294,7 @@ export default function ProviderAccountWizard(props?: {
     return () => {
       cancelled = true;
     };
-  }, [isCreateMode, provider, queryClient, ux]);
+  }, [account?.auth_mode, account?.provider_config, isCreateMode, provider, queryClient, ux]);
 
   useEffect(() => {
     selectedProviderRef.current = selectedProviderID;
@@ -313,10 +339,11 @@ export default function ProviderAccountWizard(props?: {
       !account.use_platform_managed_credentials &&
       account.auth_mode !== "no_credential";
     if (needsCredential) return "needs_credentials";
+    if (createCredentialTestResult?.kind === "error") return "connection_failed";
     if (managers.length === 0) return "needs_access";
     if (selectedModelCount > 0 && unresolvedPricingCount > 0) return "pricing_incomplete";
     return "ready";
-  }, [account, managers.length, selectedModelCount, unresolvedPricingCount]);
+  }, [account, createCredentialTestResult?.kind, managers.length, selectedModelCount, unresolvedPricingCount]);
 
   const fetchProviderModels = useCallback(async (nextProvider: string) => {
     const normalized = nextProvider.trim().toLowerCase();
@@ -487,6 +514,7 @@ export default function ProviderAccountWizard(props?: {
         setAPIKey("");
         setAPIKeyTouched(false);
         setAPIKeyTestSucceeded(false);
+        setCreateCredentialTestResult(null);
         setSecretRef("");
         setManagers(payload.access?.managers ?? []);
         setUsers(payload.access?.users ?? []);
@@ -582,26 +610,45 @@ export default function ProviderAccountWizard(props?: {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return false;
     }
+    if (!isCreateMode && account?.use_platform_managed_credentials) {
+      setBanner({ kind: "error", message: ux("credentials.managedCredentialLockedDescription") });
+      return false;
+    }
+    if (account?.use_platform_managed_credentials && !usePlatformManagedCredentials) {
+      setBanner({ kind: "error", message: ux("credentials.managedCredentialLockedDescription") });
+      return false;
+    }
+    if (account && !account.use_platform_managed_credentials && usePlatformManagedCredentials) {
+      setBanner({ kind: "error", message: ux("credentials.privateCredentialLockedTitle") });
+      return false;
+    }
+
+    const savingPlatformManagedCredentials = account?.use_platform_managed_credentials ?? usePlatformManagedCredentials;
 
     const providerConfig: Record<string, unknown> = {};
     const credentials: Record<string, unknown> = {};
 
-    if (isCreateMode && selectedConnectionSchema) {
+    if (!savingPlatformManagedCredentials && (!selectedConnectionSchema || missingRequiredCredentialFieldsForSave.length > 0)) {
+      setBanner({ kind: "error", message: connectionSchemaError || ux("integrations.wizard.requiredCredentialFields") });
+      return false;
+    }
+
+    if (!savingPlatformManagedCredentials && selectedConnectionSchema) {
       const schemaPayload = buildProviderCredentialPayload(selectedConnectionSchema, providerCredentialValues);
       Object.assign(providerConfig, schemaPayload.providerConfig);
       Object.assign(credentials, schemaPayload.credentials);
-    } else if (authMode === "api_key") {
-      if (!usePlatformManagedCredentials && apiKey.trim()) credentials.api_key = apiKey.trim();
+    } else if (!savingPlatformManagedCredentials && authMode === "api_key") {
+      if (apiKey.trim()) credentials.api_key = apiKey.trim();
       if (!isCreateMode && secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    } else if (authMode === "azure_entra_cert") {
+    } else if (!savingPlatformManagedCredentials && authMode === "azure_entra_cert") {
       providerConfig.azure_tenant_id = azureTenantID.trim() || undefined;
       providerConfig.azure_client_id = azureClientID.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    } else if (authMode === "aws_sigv4") {
+    } else if (!savingPlatformManagedCredentials && authMode === "aws_sigv4") {
       providerConfig.aws_region = awsRegion.trim() || undefined;
       providerConfig.aws_access_key_id = awsAccessKeyID.trim() || undefined;
       providerConfig.aws_secret_access_key = awsSecretAccessKey.trim() || undefined;
-    } else if (authMode === "google_service_account") {
+    } else if (!savingPlatformManagedCredentials && authMode === "google_service_account") {
       providerConfig.google_service_account_json = googleServiceAccountJSON.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
     }
@@ -614,7 +661,7 @@ export default function ProviderAccountWizard(props?: {
           method: "PUT",
           body: JSON.stringify({
             auth_mode: authMode,
-            use_platform_managed_credentials: usePlatformManagedCredentials,
+            use_platform_managed_credentials: savingPlatformManagedCredentials,
             provider_config: providerConfig,
             credentials: Object.keys(credentials).length > 0 ? credentials : undefined,
           }),
@@ -649,6 +696,7 @@ export default function ProviderAccountWizard(props?: {
     setAPIKey("");
     setAPIKeyTouched(false);
     setAPIKeyTestSucceeded(false);
+    setCreateCredentialTestResult(null);
     setSecretRef("");
     setAzureTenantID("");
     setAzureClientID("");
@@ -672,7 +720,6 @@ export default function ProviderAccountWizard(props?: {
     resetCredentialInputs();
     setManagers([]);
     setUsers([]);
-    setLastCredentialTestMessage("");
     setModelDrafts({});
     setWorkspaceMode("workspace");
     setActiveTab("models");
@@ -698,22 +745,22 @@ export default function ProviderAccountWizard(props?: {
     const providerConfig: Record<string, unknown> = {};
     const credentials: Record<string, unknown> = {};
 
-    if (isCreateMode && selectedConnectionSchema) {
+    if (!usePlatformManagedCredentials && selectedConnectionSchema) {
       const schemaPayload = buildProviderCredentialPayload(selectedConnectionSchema, providerCredentialValues);
       Object.assign(providerConfig, schemaPayload.providerConfig);
       Object.assign(credentials, schemaPayload.credentials);
-    } else if (authMode === "api_key") {
-      if (!usePlatformManagedCredentials && apiKey.trim()) credentials.api_key = apiKey.trim();
+    } else if (!usePlatformManagedCredentials && authMode === "api_key") {
+      if (apiKey.trim()) credentials.api_key = apiKey.trim();
       if (!isCreateMode && secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    } else if (authMode === "azure_entra_cert") {
+    } else if (!usePlatformManagedCredentials && authMode === "azure_entra_cert") {
       providerConfig.azure_tenant_id = azureTenantID.trim() || undefined;
       providerConfig.azure_client_id = azureClientID.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    } else if (authMode === "aws_sigv4") {
+    } else if (!usePlatformManagedCredentials && authMode === "aws_sigv4") {
       providerConfig.aws_region = awsRegion.trim() || undefined;
       providerConfig.aws_access_key_id = awsAccessKeyID.trim() || undefined;
       providerConfig.aws_secret_access_key = awsSecretAccessKey.trim() || undefined;
-    } else if (authMode === "google_service_account") {
+    } else if (!usePlatformManagedCredentials && authMode === "google_service_account") {
       providerConfig.google_service_account_json = googleServiceAccountJSON.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
     }
@@ -793,7 +840,6 @@ export default function ProviderAccountWizard(props?: {
       const message = payload.success
         ? ux("integrations.wizard.connectionTestSuccess", { message: rawMessage })
         : ux("integrations.wizard.connectionTestFailed", { message: rawMessage });
-      setLastCredentialTestMessage(rawMessage);
       setCreateCredentialTestResult({ kind: payload.success ? "success" : "error", message });
       setAPIKeyTouched(!payload.success);
       setAPIKeyTestSucceeded(payload.success);
@@ -955,16 +1001,13 @@ export default function ProviderAccountWizard(props?: {
   }, [canManageProviderAccount, handleLoadAccount, managers, selectedAccountID, t, users]);
 
   async function handleTestCredentials() {
+    setCreateCredentialTestResult(null);
     if (!selectedAccountID) {
       setBanner({ kind: "error", message: t("messages.selectAccountFirst") });
       return;
     }
-    if (!usePlatformManagedCredentials && apiKeyTouched) {
-      if (!apiKey.trim()) {
-        setBanner({ kind: "error", message: t("messages.credentialInvalid") });
-        return;
-      }
-      const saved = await handleSaveCredentials(selectedAccountID);
+    if (!usePlatformManagedCredentials) {
+      const saved = await handleSaveCredentials(selectedAccountID, { reload: false, announce: false });
       if (!saved) return;
     }
     setIsTesting(true);
@@ -976,14 +1019,21 @@ export default function ProviderAccountWizard(props?: {
       const payload = unwrapData<{ success: boolean; message?: string }>(result) ?? result;
       const nextMessage =
         payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
-      setLastCredentialTestMessage(nextMessage);
-      setBanner({ kind: payload.success ? "success" : "error", message: nextMessage });
+      setCreateCredentialTestResult({
+        kind: payload.success ? "success" : "error",
+        message: payload.success
+          ? ux("integrations.wizard.connectionTestSuccess", { message: nextMessage })
+          : ux("integrations.wizard.connectionTestFailed", { message: nextMessage }),
+      });
       setAPIKeyTouched(!payload.success);
       setAPIKeyTestSucceeded(payload.success);
-      await loadInitial();
     } catch (error) {
       setAPIKeyTestSucceeded(false);
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.credentialTestFailed")) });
+      const message = normalizeError(error, t("messages.credentialTestFailed"));
+      setCreateCredentialTestResult({
+        kind: "error",
+        message: ux("integrations.wizard.connectionTestFailed", { message }),
+      });
     } finally {
       setIsTesting(false);
     }
@@ -1088,8 +1138,12 @@ export default function ProviderAccountWizard(props?: {
   const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Layers3 }> = [
     { id: "models", label: ux("tabs.models"), icon: Layers3 },
     { id: "access", label: ux("tabs.access"), icon: ShieldCheck },
-    { id: "credentials", label: ux("tabs.credentials"), icon: KeyRound },
   ];
+  if (!account?.use_platform_managed_credentials) {
+    workspaceTabs.push({ id: "credentials", label: ux("tabs.credentials"), icon: KeyRound });
+  }
+  const visibleActiveTab: WorkspaceTab =
+    account?.use_platform_managed_credentials && activeTab === "credentials" ? "models" : activeTab;
   const principalSelectorLabels = useMemo(() => buildPrincipalSelectorLabels(t, ux), [t, ux]);
   const createHeaderProviderName = activeProvider?.display_name ?? provider;
   const createWizardSteps: Array<{ id: CreateWizardSectionID; number: number; title: string }> = [
@@ -1301,9 +1355,11 @@ export default function ProviderAccountWizard(props?: {
                             name="create-own-api-key"
                             value={usePlatformManagedCredentials ? "platform-managed" : "byok"}
                             onValueChange={(nextValue) => {
+                              if (account) return;
                               setUsePlatformManagedCredentials(nextValue === "platform-managed");
                               setCreateCredentialTestResult(null);
                             }}
+                            disabled={!!account}
                             className="mt-4 grid gap-3 md:grid-cols-2"
                           >
                             <FieldLabel htmlFor="create-own-api-key-byok" className="order-1 cursor-pointer">
@@ -1938,7 +1994,7 @@ export default function ProviderAccountWizard(props?: {
                             <Button
                               key={tab.id}
                               type="button"
-                              variant={activeTab === tab.id ? "default" : "outline"}
+                              variant={visibleActiveTab === tab.id ? "default" : "outline"}
                               size="sm"
                               onClick={() => setActiveTab(tab.id)}
                             >
@@ -1953,6 +2009,7 @@ export default function ProviderAccountWizard(props?: {
                           readiness={readiness}
                           labels={{
                             ready: ux("readiness.ready"),
+                            connection_failed: ux("readiness.connectionFailed"),
                             needs_credentials: ux("readiness.needsCredentials"),
                             needs_access: ux("readiness.needsAccess"),
                             pricing_incomplete: ux("readiness.pricingIncomplete"),
@@ -1973,7 +2030,7 @@ export default function ProviderAccountWizard(props?: {
                       </div>
                     </div>
 
-                    {activeTab === "models" ? (
+                    {visibleActiveTab === "models" ? (
                       <ModelsEditor
                         t={t}
                         account={account}
@@ -1988,7 +2045,7 @@ export default function ProviderAccountWizard(props?: {
                       />
                     ) : null}
 
-                    {activeTab === "access" ? (
+                    {visibleActiveTab === "access" ? (
                       <AccessEditor
                         t={t}
                         managers={managers}
@@ -2004,86 +2061,121 @@ export default function ProviderAccountWizard(props?: {
                       />
                     ) : null}
 
-                    {activeTab === "credentials" ? (
-                      <section className="space-y-5 rounded-lg border border-border/70 bg-background p-4 sm:p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-base font-semibold">{ux("tabs.credentials")}</h3>
-                            <p className="mt-1 text-sm leading-6 text-muted-foreground">{ux("credentials.desc")}</p>
-                          </div>
-                          <Badge variant="secondary">{account.auth_mode}</Badge>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          <SummaryKPI label={ux("credentials.hasCredential")} value={account.has_credential ? ux("common.yes") : ux("common.no")} />
-                          <SummaryKPI label={ux("credentials.platformManagedCredentials")} value={account.use_platform_managed_credentials ? ux("common.enabled") : ux("common.disabled")} />
-                          <SummaryKPI label={ux("credentials.lastTest")} value={lastCredentialTestMessage || ux("credentials.notTested")} />
-                        </div>
-                        <div className="space-y-4 rounded-lg border border-border/70 bg-card p-4">
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <AppSelectField
-                              id="credentialAuthMode"
-                              label={t("fields.authMode")}
-                              value={authMode}
-                              disabled={!canManageProviderAccount}
-                              onValueChange={(value) => setAuthMode(value as ProviderAuthMode)}
-                              optionTextDir="ltr"
-                              options={(selectedProvider?.auth_modes ?? ["api_key"]).map((mode) => ({ value: mode, label: mode }))}
-                            />
-                            <Field>
-                              <FieldLabel htmlFor="credentialPlatformManaged">{t("fields.usePlatformManagedCredentials")}</FieldLabel>
-                              <label className="inline-flex min-h-10 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
-                                <input
-                                  id="credentialPlatformManaged"
-                                  type="checkbox"
-                                  checked={usePlatformManagedCredentials}
-                                  disabled={!canManageProviderAccount}
-                                  onChange={(event) => setUsePlatformManagedCredentials(event.target.checked)}
-                                />
-                                {t("fields.usePlatformManagedCredentials")}
-                              </label>
-                            </Field>
-                          </div>
-                          {!usePlatformManagedCredentials ? (
-                            <CredentialFields
-                              authMode={authMode}
-                              apiKey={apiKey}
-                              setAPIKey={setAPIKey}
-                              apiKeyTouched={apiKeyTouched}
-                              setAPIKeyTouched={(value) => {
-                                setAPIKeyTouched(value);
-                                if (value) {
-                                  setAPIKeyTestSucceeded(false);
-                                  setLastCredentialTestMessage("");
-                                  setCreateCredentialTestResult(null);
-                                }
-                              }}
-                              apiKeyHint={apiKeyTestSucceeded ? account.credential_hint : undefined}
-                              secretRef={secretRef}
-                              setSecretRef={setSecretRef}
-                              azureTenantID={azureTenantID}
-                              setAzureTenantID={setAzureTenantID}
-                              azureClientID={azureClientID}
-                              setAzureClientID={setAzureClientID}
-                              awsAccessKeyID={awsAccessKeyID}
-                              setAWSAccessKeyID={setAWSAccessKeyID}
-                              awsSecretAccessKey={awsSecretAccessKey}
-                              setAWSSecretAccessKey={setAWSSecretAccessKey}
-                              awsRegion={awsRegion}
-                              setAWSRegion={setAWSRegion}
-                              googleServiceAccountJSON={googleServiceAccountJSON}
-                              setGoogleServiceAccountJSON={setGoogleServiceAccountJSON}
-                              t={t}
-                              surface={false}
-                            />
-                          ) : null}
-                        </div>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          <Button type="button" onClick={() => void handleSaveCredentials()} disabled={!canManageProviderAccount || isSavingCredentials}>
-                            {isSavingCredentials ? t("saving") : t("save")}
-                          </Button>
-                          <Button type="button" variant="outline" onClick={() => void handleTestCredentials()} disabled={isTesting}>
-                            {isTesting ? t("testing") : t("testCredentials")}
-                          </Button>
+                    {visibleActiveTab === "credentials" ? (
+                      <section className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
+                        <div className="flex flex-col gap-4 p-4 sm:p-5">
+                          {account.use_platform_managed_credentials ? (
+                            <Alert>
+                              <AlertTitle>{ux("credentials.managedCredentialLockedTitle")}</AlertTitle>
+                              <AlertDescription>{ux("credentials.managedCredentialLockedDescription")}</AlertDescription>
+                            </Alert>
+                          ) : (
+                            <>
+                              <div className="rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm leading-6 text-foreground">
+                                <p>
+                                  {ux.rich("credentials.privateCredentialLockedDescription", {
+                                    byokLink: (chunks) => (
+                                      <a
+                                        href={`${docsBaseHref}/guides/byok`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="font-medium text-primary underline-offset-4 hover:underline"
+                                      >
+                                        {chunks}
+                                      </a>
+                                    ),
+                                  })}
+                                </p>
+                              </div>
+
+                              <div className="text-start">
+                                <FieldGroup className="rounded-lg border border-border/70 bg-background p-4">
+                                  {isLoadingConnectionSchemas ? (
+                                    <p className="text-sm text-muted-foreground" role="status">
+                                      {ux("integrations.wizard.loadingConnectionSchema")}
+                                    </p>
+                                  ) : null}
+                                  {connectionSchemaError ? (
+                                    <Alert variant="destructive">
+                                      <AlertTitle>{ux("integrations.wizard.connectionSchemaErrorTitle")}</AlertTitle>
+                                      <AlertDescription>{connectionSchemaError}</AlertDescription>
+                                    </Alert>
+                                  ) : null}
+                                  {connectionSchemas.length > 1 ? (
+                                    <AppSelectField
+                                      id="credentialAuthMode"
+                                      label={t("fields.authMode")}
+                                      value={authMode}
+                                      disabled={!canManageProviderAccount || !canEditCredentialSettings || isSavingCredentials || isTesting}
+                                      optionTextDir="ltr"
+                                      options={connectionSchemas.map((schema) => ({
+                                        value: schema.auth_mode,
+                                        label: schema.auth_mode,
+                                      }))}
+                                      onValueChange={(value) => {
+                                        const nextSchema = connectionSchemas.find((schema) => schema.auth_mode === value) ?? null;
+                                        setAuthMode(value as ProviderAuthMode);
+                                        setProviderCredentialValues(providerCredentialValuesForSchema(nextSchema, account.provider_config));
+                                        setAPIKeyTestSucceeded(false);
+                                        setCreateCredentialTestResult(null);
+                                      }}
+                                    />
+                                  ) : null}
+                                  {selectedConnectionSchema ? (
+                                    <ProviderCredentialSchemaFields
+                                      schema={selectedConnectionSchema}
+                                      values={providerCredentialValues}
+                                      onValueChange={(key, value) => {
+                                        setProviderCredentialValues((current) => ({ ...current, [key]: value }));
+                                        setAPIKeyTestSucceeded(false);
+                                        setCreateCredentialTestResult(null);
+                                      }}
+                                      disabled={!canManageProviderAccount || !canEditCredentialSettings || isSavingCredentials || isTesting}
+                                      connectionFieldsTitle={ux("integrations.wizard.connectionFieldsTitle")}
+                                      credentialFieldsTitle={ux("integrations.wizard.credentialFieldsTitle")}
+                                      writeOnlyLabel={ux("integrations.wizard.writeOnlyCredential")}
+                                      documentationLabel={ux("integrations.wizard.providerDocumentation")}
+                                    />
+                                  ) : null}
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <p className="text-sm leading-6 text-muted-foreground">
+                                      {ux("integrations.wizard.testConnectionDescription")}
+                                    </p>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => void handleTestCredentials()}
+                                      disabled={!canManageProviderAccount || !canSaveCredentialSettings || isSavingCredentials || isTesting}
+                                    >
+                                      {isTesting || isSavingCredentials
+                                        ? ux("integrations.wizard.testingConnection")
+                                        : ux("integrations.wizard.testConnection")}
+                                    </Button>
+                                  </div>
+                                  {createCredentialTestResult ? (
+                                    <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : "default"}>
+                                      <AlertTitle>
+                                        {createCredentialTestResult.kind === "error"
+                                          ? ux("integrations.wizard.connectionTestFailedTitle")
+                                          : ux("integrations.wizard.connectionTestSuccessTitle")}
+                                      </AlertTitle>
+                                      <AlertDescription>{createCredentialTestResult.message}</AlertDescription>
+                                    </Alert>
+                                  ) : null}
+                                </FieldGroup>
+                              </div>
+
+                              <div className="flex flex-wrap justify-end gap-2 pt-1">
+                                <Button
+                                  type="button"
+                                  onClick={() => void handleSaveCredentials()}
+                                  disabled={!canManageProviderAccount || !canSaveCredentialSettings || isSavingCredentials || isTesting}
+                                >
+                                  {isSavingCredentials ? t("saving") : t("save")}
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </section>
                     ) : null}

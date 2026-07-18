@@ -190,6 +190,7 @@
     },
     "readiness": {
       "ready": "Ready",
+      "connectionFailed": "Connection Failed",
       "needsCredentials": "Needs Credentials",
       "needsAccess": "Needs Access",
       "pricingIncomplete": "Pricing Incomplete"
@@ -208,7 +209,13 @@
       "platformManagedCredentials": "GodarAI-managed credential",
       "lastTest": "Last test",
       "notTested": "Not tested in this session",
-      "editStoredApiKey": "Replace stored API key"
+      "editStoredApiKey": "Replace stored API key",
+      "managedCredentialDescription": "This account uses GodarAI-managed credentials.",
+      "managedCredentialLockedTitle": "This account uses GodarAI credentials",
+      "managedCredentialLockedDescription": "Private credential editing is not available for accounts that use GodarAI-managed credentials.",
+      "privateCredentialLockedTitle": "This account's BYOK policy is fixed",
+      "privateCredentialLockedDescription": "This account was created with a dedicated provider credential. You can update the connection details. Learn more about the <byokLink>BYOK policy</byokLink>.",
+      "privateCredentialEditDescription": "Update the dedicated {providerName} connection information and credential."
     },
     "messages": {
       "fqnCopied": "Account FQN copied.",
@@ -554,13 +561,13 @@
       "connectProvider": "Browse providers",
       "manageConnections": "Manage connections",
       "copyIdentifier": "Copy slug",
-      "editIntegration": "Edit Integration",
-      "manageModels": "Manage Models",
+      "editIntegration": "Connection settings",
+      "manageModels": "Active models",
       "testConnection": "Test connection",
       "testAllowedAccess": "Test allowed access",
       "viewDocs": "View Docs",
-      "disconnect": "Disconnect",
-      "disconnecting": "Disconnecting...",
+      "disconnect": "Delete",
+      "disconnecting": "Deleting...",
       "cancel": "Cancel",
       "readDocs": "Connection guide",
       "reload": "Reload",

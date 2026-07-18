@@ -28,9 +28,10 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { EmptyState, FormSheet, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { EmptyState, FormSheet, HelpLink, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -40,7 +41,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type ProviderView = ProviderCatalogProvider & {
@@ -69,6 +69,16 @@ const PROVIDER_DOCS_URLS: Record<string, string> = {
   vertex: "https://cloud.google.com/vertex-ai/generative-ai/docs",
   xai: "https://docs.x.ai/",
 };
+
+function buildDocsGuideHref(docsHref: string | undefined, guideSlug: string) {
+  const fallback = `/docs/guides/${guideSlug}`;
+  if (!docsHref) return fallback;
+
+  const normalizedHref = docsHref.replace(/\/$/, "");
+  const guidesIndex = normalizedHref.indexOf("/guides/");
+  if (guidesIndex >= 0) return `${normalizedHref.slice(0, guidesIndex)}/guides/${guideSlug}`;
+  return `${normalizedHref}/guides/${guideSlug}`;
+}
 
 function readPageDirection(): PageDirection {
   if (typeof document === "undefined") return "rtl";
@@ -112,6 +122,7 @@ export default function LLMIntegrationsManagement(props: {
   const router = useRouter();
   const initialProviderFilters = parseProviderFilters(props.initialProvider);
   const pageDirection = usePageDirection();
+  const byokDocsHref = buildDocsGuideHref(props.docsHref, "byok");
 
   const [activeTab, setActiveTab] = useState<"all" | "connected">(props.initialTab ?? (initialProviderFilters.length > 0 ? "connected" : "all"));
   const [providers, setProviders] = useState<ProviderView[]>([]);
@@ -325,26 +336,54 @@ export default function LLMIntegrationsManagement(props: {
           </div>
         ) : null}
 
-        <Tabs value={activeTab} onValueChange={changeTab} className="gap-0">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="border-b border-border px-5 py-4 sm:px-6" dir={pageDirection}>
-            <div className="flex items-center gap-3">
-              <TabsList dir={pageDirection} className="shrink-0 justify-start gap-2">
-                <TabsTrigger value="all">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <ButtonGroup
+                role="tablist"
+                aria-label={copy("pageTitle")}
+                dir={pageDirection}
+                className="shrink-0"
+              >
+                <Button
+                  id="provider-accounts-all-tab"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  role="tab"
+                  aria-selected={activeTab === "all"}
+                  aria-controls="provider-accounts-all-panel"
+                  data-state={activeTab === "all" ? "active" : "inactive"}
+                  className="h-9 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                  onClick={() => changeTab("all")}
+                >
                   <Plug data-icon="inline-start" />
                   {copy("tabs.all")}
-                </TabsTrigger>
-                <TabsTrigger value="connected">
+                </Button>
+                <Button
+                  id="provider-accounts-connected-tab"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  role="tab"
+                  aria-selected={activeTab === "connected"}
+                  aria-controls="provider-accounts-connected-panel"
+                  data-state={activeTab === "connected" ? "active" : "inactive"}
+                  className="h-9 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                  onClick={() => changeTab("connected")}
+                >
                   <Link2 data-icon="inline-start" />
                   {copy("tabs.connected")}
-                </TabsTrigger>
-              </TabsList>
+                </Button>
+              </ButtonGroup>
               <RefreshButton
                 label={copy("actions.refresh")}
                 loadingLabel={copy("actions.refreshing")}
                 isLoading={isLoading}
+                className="size-8 min-w-0 rounded-md"
                 onClick={() => void loadData(true)}
               />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-full sm:basis-0">
                 <FilterRow
                   activeTab={activeTab}
                   query={query}
@@ -360,7 +399,13 @@ export default function LLMIntegrationsManagement(props: {
             </div>
           </div>
 
-          <TabsContent value="all" className="px-5 pb-5 pt-4 sm:px-6">
+          {activeTab === "all" ? (
+          <div
+            id="provider-accounts-all-panel"
+            role="tabpanel"
+            aria-labelledby="provider-accounts-all-tab"
+            className="px-5 pb-5 pt-4 sm:px-6"
+          >
             {isLoading ? (
               <ProviderGridSkeleton direction={pageDirection} />
             ) : filteredProviders.length > 0 ? (
@@ -392,13 +437,20 @@ export default function LLMIntegrationsManagement(props: {
                 primaryAction={<Button type="button" onClick={() => void loadData()}>{copy("actions.reload")}</Button>}
               />
             )}
-          </TabsContent>
+          </div>
+          ) : null}
 
-          <TabsContent value="connected" className="px-5 pb-5 pt-4 sm:px-6">
+          {activeTab === "connected" ? (
+          <div
+            id="provider-accounts-connected-panel"
+            role="tabpanel"
+            aria-labelledby="provider-accounts-connected-tab"
+            className="px-5 pb-5 pt-4 sm:px-6"
+          >
             {isLoading ? (
               <ProviderGridSkeleton direction={pageDirection} />
             ) : filteredAccounts.length > 0 ? (
-              <div className="flex flex-wrap items-stretch gap-3" dir={pageDirection} id="connected-integrations">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir={pageDirection} id="connected-integrations">
                 {filteredAccounts.map((account) => {
                   const provider = providers.find((item) => stringsEqualFold(item.provider, account.provider));
                   return (
@@ -408,12 +460,12 @@ export default function LLMIntegrationsManagement(props: {
                       provider={provider}
                       fqn={`${account.provider}:${account.name}`}
                       editLabel={copy("actions.editIntegration")}
-                      manageModelsLabel={copy("actions.manageModels")}
                       testConnectionLabel={copy("actions.testConnection")}
                       testAllowedAccessLabel={copy("actions.testAllowedAccess")}
                       viewDocsLabel={copy("actions.viewDocs")}
                       disconnectLabel={copy("actions.disconnect")}
                       disconnectingLabel={copy("actions.disconnecting")}
+                      byokDocsHref={byokDocsHref}
                       credentialTypeLabel={copy("card.credentialTypeLabel")}
                       dedicatedCredentialLabel={copy("card.dedicatedCredential")}
                       platformCredentialLabel={copy("card.platformCredential")}
@@ -431,13 +483,14 @@ export default function LLMIntegrationsManagement(props: {
                   title={copy("empty.connectedTitle")}
                   description={copy("empty.connectedDescription")}
                   icon={Plug}
-                  primaryAction={<Button type="button" asChild><Link href="/provider-accounts">{copy("actions.connectProvider")}</Link></Button>}
+                  primaryAction={<Button type="button" onClick={() => changeTab("all")}>{copy("actions.connectProvider")}</Button>}
                   secondaryAction={<Button type="button" variant="outline" asChild><a href="/docs/intro-to-gateway" target="_blank" rel="noreferrer"><BookOpen data-icon="inline-start" />{copy("actions.readDocs")}</a></Button>}
                 />
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+          ) : null}
+        </div>
       </section>
     </main>
     <TypedConfirmDialog
@@ -518,14 +571,14 @@ function FilterRow(props: {
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-2" dir={props.direction}>
+    <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center" dir={props.direction}>
       {props.activeTab === "connected" ? (
         <DropdownMenu dir={props.direction}>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
               variant="outline"
-              className="h-9 shrink-0 justify-between gap-2 px-3 text-sm font-normal lg:w-72"
+              className="h-9 w-full justify-between gap-2 px-3 text-sm font-normal sm:w-auto lg:w-72"
               aria-label={props.providerFilterLabel}
             >
               <span className="truncate">{providerFilterText}</span>
@@ -701,12 +754,12 @@ function ConnectedIntegrationCard(props: {
   provider?: ProviderView;
   fqn: string;
   editLabel: string;
-  manageModelsLabel: string;
   testConnectionLabel: string;
   testAllowedAccessLabel: string;
   viewDocsLabel: string;
   disconnectLabel: string;
   disconnectingLabel: string;
+  byokDocsHref: string;
   credentialTypeLabel: string;
   dedicatedCredentialLabel: string;
   platformCredentialLabel: string;
@@ -725,7 +778,7 @@ function ConnectedIntegrationCard(props: {
     !props.account.use_platform_managed_credentials;
 
   return (
-    <Card className="group flex min-h-56 w-full max-w-full flex-col overflow-hidden rounded-xl border border-card-border bg-card text-card-foreground shadow-none transition-colors hover:border-primary/35 sm:w-96">
+    <Card className="group flex min-h-56 w-full max-w-full flex-col overflow-hidden rounded-xl border border-card-border bg-card text-card-foreground shadow-none transition-colors hover:border-primary/35">
       <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 pt-4 sm:px-6 sm:pt-6 md:pt-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 shadow-sm">
@@ -753,16 +806,30 @@ function ConnectedIntegrationCard(props: {
               <CardTitle className="mt-2 truncate text-base" dir="ltr" title={props.account.name}>{props.account.name}</CardTitle>
             </div>
             <RowActionsMenu
-              label={props.manageModelsLabel}
+              label={props.editLabel}
               triggerSize="icon-sm"
               actions={[
                 { key: "edit-integration", label: props.editLabel, href: workspaceHref, icon: <Settings /> },
-                { key: "manage-models", label: props.manageModelsLabel, href: workspaceHref, icon: <Plug /> },
-                { key: "test-allowed-access", label: props.testAllowedAccessLabel, onSelect: props.onTestAllowedAccess, icon: <UserCog /> },
+                {
+                  key: "test-allowed-access",
+                  label: props.testAllowedAccessLabel,
+                  onSelect: props.onTestAllowedAccess,
+                  icon: <UserCog />,
+                  separatorBefore: true,
+                },
                 ...(canTestStoredCredential
                   ? [{ key: "test-connection", label: props.testConnectionLabel, onSelect: props.onTestConnection, icon: <Activity /> }]
                   : []),
-                ...(docsURL ? [{ key: "view-docs", label: props.viewDocsLabel, href: docsURL, external: true, icon: <ExternalLink /> }] : []),
+                ...(docsURL
+                  ? [{
+                    key: "view-docs",
+                    label: props.viewDocsLabel,
+                    href: docsURL,
+                    external: true,
+                    icon: <ExternalLink />,
+                    separatorBefore: true,
+                  }]
+                  : []),
                 {
                   key: "disconnect",
                   label: props.disconnectLabel,
@@ -778,11 +845,16 @@ function ConnectedIntegrationCard(props: {
           </div>
         </div>
 
-        <div className="flex min-h-20 flex-col justify-center border-t border-border/70 pt-3 text-xs text-muted-foreground">
-          <span>{props.credentialTypeLabel}</span>
-          <span className="mt-1 text-sm font-semibold text-foreground">
-            {props.account.has_credential ? props.dedicatedCredentialLabel : props.platformCredentialLabel}
-          </span>
+        <div className="flex min-h-20 items-center justify-between gap-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
+          <div className="min-w-0">
+            <span>{props.credentialTypeLabel}</span>
+            <span className="mt-1 block text-sm font-semibold text-foreground">
+              {props.account.has_credential ? props.dedicatedCredentialLabel : props.platformCredentialLabel}
+            </span>
+          </div>
+          {props.account.has_credential ? (
+            <HelpLink href={props.byokDocsHref} className="h-7 px-2 text-xs" />
+          ) : null}
         </div>
       </CardContent>
       <CardFooter className="bg-card px-4 pb-4 pt-0 sm:px-6 sm:pb-6">

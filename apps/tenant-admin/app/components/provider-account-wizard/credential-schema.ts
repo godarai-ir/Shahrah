@@ -11,6 +11,22 @@ export function defaultProviderCredentialValues(schema: ProviderConnectionSchema
   );
 }
 
+export function providerCredentialValuesForSchema(
+  schema: ProviderConnectionSchema | null,
+  providerConfig?: Record<string, unknown>,
+): ProviderCredentialValues {
+  const values = defaultProviderCredentialValues(schema);
+
+  for (const field of schema?.fields ?? []) {
+    if (field.scope !== "connection") continue;
+    const value = providerConfig?.[field.key];
+    if (typeof value === "string") values[field.key] = value;
+    else if (typeof value === "number" || typeof value === "boolean") values[field.key] = String(value);
+  }
+
+  return values;
+}
+
 export function missingRequiredProviderFields(
   schema: ProviderConnectionSchema | null,
   values: ProviderCredentialValues,
