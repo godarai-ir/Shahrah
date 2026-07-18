@@ -68,28 +68,28 @@
   --accent-foreground: oklch(0.3 0.04 258);
   --accent-hover: oklch(0.88 0.04 252);
 
-  --destructive: oklch(0.62 0.23 27);
-  --destructive-hover: oklch(0.55 0.23 27);
+  --destructive: oklch(0.52 0.19 27);
+  --destructive-hover: oklch(0.46 0.18 27);
   --destructive-foreground: #ffffff;
   --destructive-soft: color-mix(in oklab, var(--destructive) 14%, white);
   --destructive-soft-foreground: oklch(0.5 0.12 27);
   --destructive-soft-border: color-mix(in oklab, var(--destructive) 36%, transparent);
 
-  --success: oklch(0.62 0.18 155);
+  --success: oklch(0.50 0.14 155);
   --success-foreground: #ffffff;
   --success-muted: oklch(0.96 0.04 155);
   --success-soft: color-mix(in oklab, var(--success) 14%, white);
   --success-soft-foreground: oklch(0.46 0.12 155);
   --success-soft-border: color-mix(in oklab, var(--success) 36%, transparent);
 
-  --warning: oklch(0.78 0.16 80);
+  --warning: oklch(0.48 0.11 80);
   --warning-foreground: #ffffff;
   --warning-muted: oklch(0.97 0.04 80);
   --warning-soft: color-mix(in oklab, var(--warning) 16%, white);
-  --warning-soft-foreground: oklch(0.52 0.11 80);
+  --warning-soft-foreground: oklch(0.48 0.11 80);
   --warning-soft-border: color-mix(in oklab, var(--warning) 38%, transparent);
 
-  --info: oklch(0.68 0.17 254);
+  --info: oklch(0.50 0.15 254);
   --info-foreground: #ffffff;
   --info-muted: oklch(0.96 0.04 254);
   --info-soft: color-mix(in oklab, var(--info) 14%, white);
@@ -118,7 +118,7 @@
   --code-border: oklch(0.88 0.02 255);
   --code-muted-foreground: oklch(0.58 0.02 255);
 
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.24 0.04 255);
   --ring-offset: #ffffff;
 
   /* Sidebar tokens — website-aligned */
@@ -129,7 +129,7 @@
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: var(--ring);
 
   /* Chart tokens — website-aligned */
   --chart-1: oklch(0.68 0.17 254);  /* indigo */
@@ -172,29 +172,29 @@
   --accent-foreground: oklch(0.985 0 0);
   --accent-hover: oklch(0.32 0 0);
 
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-hover: oklch(0.44 0.14 25);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --destructive: oklch(0.74 0.16 27);
+  --destructive-hover: oklch(0.78 0.14 27);
+  --destructive-foreground: oklch(0.205 0 0);
   --destructive-soft: color-mix(in oklab, var(--destructive) 16%, transparent);
   --destructive-soft-foreground: oklch(0.82 0.07 27);
   --destructive-soft-border: color-mix(in oklab, var(--destructive) 34%, transparent);
 
-  --success: oklch(0.55 0.16 155);
-  --success-foreground: #ffffff;
+  --success: oklch(0.72 0.14 155);
+  --success-foreground: oklch(0.205 0 0);
   --success-muted: oklch(0.22 0.06 155);
   --success-soft: color-mix(in oklab, var(--success) 16%, transparent);
   --success-soft-foreground: oklch(0.82 0.08 155);
   --success-soft-border: color-mix(in oklab, var(--success) 34%, transparent);
 
-  --warning: oklch(0.65 0.15 80);
-  --warning-foreground: #ffffff;
+  --warning: oklch(0.76 0.14 80);
+  --warning-foreground: oklch(0.205 0 0);
   --warning-muted: oklch(0.22 0.06 80);
   --warning-soft: color-mix(in oklab, var(--warning) 16%, transparent);
   --warning-soft-foreground: oklch(0.84 0.07 80);
   --warning-soft-border: color-mix(in oklab, var(--warning) 34%, transparent);
 
-  --info: oklch(0.58 0.17 254);
-  --info-foreground: #ffffff;
+  --info: oklch(0.72 0.14 254);
+  --info-foreground: oklch(0.205 0 0);
   --info-muted: oklch(0.22 0.06 254);
   --info-soft: color-mix(in oklab, var(--info) 16%, transparent);
   --info-soft-foreground: oklch(0.82 0.08 254);
@@ -221,7 +221,7 @@
   --code-border: oklch(0.28 0.03 255);
   --code-muted-foreground: oklch(0.62 0.03 255);
 
-  --ring: oklch(0.439 0 0);
+  --ring: oklch(0.90 0.03 254);
   --ring-offset: oklch(0.145 0 0);
 
   /* Sidebar tokens — dark */
@@ -232,7 +232,7 @@
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --sidebar-ring: var(--ring);
 
   /* Chart tokens — dark */
   --chart-1: oklch(0.488 0.243 264.376);
