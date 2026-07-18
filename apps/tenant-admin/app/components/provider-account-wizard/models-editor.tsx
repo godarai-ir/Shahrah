@@ -260,13 +260,13 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
             {model.display_name || model.model}
           </p>
           {recommended ? <Badge className="mt-1" variant="secondary">{ux("models.card.recommended")}</Badge> : null}
-          <p className="truncate text-[11px] text-muted-foreground" dir="ltr" title={model.model}>
+          <p className="truncate text-xs text-muted-foreground" dir="ltr" title={model.model}>
             {normalizeProviderScopedModelName(model.provider, model.model)}
           </p>
         </div>
       </td>
       <td className="px-3 py-3 text-center">
-        <span className="inline-flex rounded-full bg-muted/35 px-2.5 py-1 text-[12px] font-medium" dir="ltr">
+        <span className="inline-flex rounded-full bg-muted/35 px-2.5 py-1 text-xs font-medium" dir="ltr">
           {formatTokenCount(model.context_window)}
         </span>
       </td>
@@ -283,12 +283,12 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
       <td className="hidden px-3 py-3 md:table-cell">
         <div className="flex min-w-0 flex-wrap gap-1">
           {capabilities.map((capability) => (
-            <Badge key={`${model.model}-cap-${capability}`} variant="outline" className="px-2 py-0 text-[11px]" title={capability}>
+            <Badge key={`${model.model}-cap-${capability}`} variant="outline" className="px-2 py-0 text-xs" title={capability}>
               {formatCapabilityLabel(capability, ux)}
             </Badge>
           ))}
           {modes.map((mode) => (
-            <Badge key={`${model.model}-mode-${mode}`} variant="secondary" className="px-2 py-0 text-[11px]">
+            <Badge key={`${model.model}-mode-${mode}`} variant="secondary" className="px-2 py-0 text-xs">
               {mode}
             </Badge>
           ))}
@@ -1005,15 +1005,14 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       <>
         <div className="sticky top-0 z-10 shrink-0 bg-card px-4 py-3 shadow-sm sm:px-5">
           <div className="flex flex-col gap-2.5">
-            <div dir="rtl" className="flex justify-end">
+            <div className="flex justify-end">
               <div className="relative w-full">
                 <Search className="pointer-events-none absolute end-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  dir="rtl"
                   value={filters.search}
                   onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
                   placeholder={props.t("step3.searchPlaceholder")}
-                  className="h-9 pe-9 text-sm text-right placeholder:text-right"
+                  className="h-9 pe-9 text-start text-sm placeholder:text-start"
                 />
               </div>
             </div>
@@ -1059,11 +1058,10 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               />
             </div>
             <div
-              dir="rtl"
-              className="flex flex-col gap-2 px-1 py-1 text-right text-sm sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 px-1 py-1 text-start text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={enabledModelCount > 0 ? "default" : "outline"} className="px-2 py-0 text-[11px]">
+                <Badge variant={enabledModelCount > 0 ? "default" : "outline"} className="px-2 py-0 text-xs">
                   {ux("integrations.wizard.selectedCountDetailed", {
                     count: enabledModelCount,
                     total: props.providerModels.length,
@@ -1086,7 +1084,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-[13px]">
+              <div className="flex flex-wrap items-center gap-3 text-sm">
                 <label
                   htmlFor="compact-select-all-models"
                   className="inline-flex cursor-pointer flex-row items-center gap-1.5 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
@@ -1130,7 +1128,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               ) : mobileViewMode === "table" ? (
                 <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full table-fixed border-collapse text-right">
+                    <table className="w-full table-fixed border-collapse text-start">
                       <colgroup>
                         <col className="w-12" />
                         <col />
@@ -1139,14 +1137,14 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                         <col className="w-20" />
                         <col className="hidden w-36 md:table-column" />
                       </colgroup>
-                      <thead className="bg-muted/35 text-[11px] text-muted-foreground">
+                      <thead className="bg-muted/35 text-xs text-muted-foreground">
                         <tr>
                           <th className="px-2 py-2 text-center font-medium">{ux("common.enabled")}</th>
-                          <th className="px-3 py-2 text-right font-medium">{ux("models.card.modelId")}</th>
+                          <th className="px-3 py-2 text-start font-medium">{ux("models.card.modelId")}</th>
                           <th className="px-3 py-2 text-center font-medium">{ux("models.card.context")}</th>
-                          <th className="px-3 py-2 text-right font-medium">{ux("models.labels.input")}</th>
-                          <th className="px-3 py-2 text-right font-medium">{ux("models.labels.output")}</th>
-                          <th className="hidden px-3 py-2 text-right font-medium md:table-cell">{ux("models.card.capabilities")}</th>
+                          <th className="px-3 py-2 text-start font-medium">{ux("models.labels.input")}</th>
+                          <th className="px-3 py-2 text-start font-medium">{ux("models.labels.output")}</th>
+                          <th className="hidden px-3 py-2 text-start font-medium md:table-cell">{ux("models.card.capabilities")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1618,7 +1616,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             <div className="mt-4 grid min-w-0 gap-3 md:mt-5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
               <div className="min-w-0 rounded-lg border border-border/70 bg-background/80 p-3 shadow-sm backdrop-blur sm:p-4">
                 <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.modelFqnLabel")}</div>
-                <div dir="ltr" className="mt-2 break-all text-left font-mono text-sm text-foreground">{curlGuide?.modelFqn}</div>
+                <div dir="ltr" className="mt-2 break-all text-start font-mono text-sm text-foreground">{curlGuide?.modelFqn}</div>
               </div>
               <div className="min-w-0 rounded-lg border border-border/70 bg-background/80 p-3 shadow-sm backdrop-blur sm:p-4">
                 <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.instructionsLabel")}</div>

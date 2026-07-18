@@ -28,7 +28,7 @@ export function CodeExampleBlock(props: {
             <span className="tone-warning size-2 rounded-full border sm:size-2.5" />
             <span className="tone-success size-2 rounded-full border sm:size-2.5" />
           </div>
-          <Badge variant="secondary" className="border border-[var(--surface-demo-border)] bg-[color-mix(in_oklab,var(--surface-demo)_76%,white)] px-2.5 py-0.5 font-mono text-[11px] text-[var(--surface-demo-foreground)]">
+          <Badge variant="secondary" className="border border-[var(--surface-demo-border)] bg-[color-mix(in_oklab,var(--surface-demo)_76%,white)] px-2.5 py-0.5 font-mono text-xs text-[var(--surface-demo-foreground)]">
             {props.shellLabel}
           </Badge>
         </div>
@@ -42,7 +42,7 @@ export function CodeExampleBlock(props: {
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
           <pre
             dir="ltr"
-            className={cn("custom-scrollbar max-h-[min(22rem,42dvh)] min-w-0 overflow-auto p-3 text-left text-[12px] leading-6 sm:p-4 sm:text-[13px] sm:leading-7", className)}
+            className={cn("custom-scrollbar max-h-[min(22rem,42dvh)] min-w-0 overflow-auto p-3 text-start text-xs leading-6 sm:p-4 sm:text-sm sm:leading-7", className)}
             style={{
               ...style,
               margin: 0,
@@ -57,7 +57,7 @@ export function CodeExampleBlock(props: {
                   {...lineProps}
                   className={cn("table w-full table-fixed", lineProps.className)}
                 >
-                  <span className="table-cell w-8 select-none pe-3 text-right text-[color-mix(in_oklab,var(--surface-demo-foreground)_45%,transparent)] sm:w-10 sm:pe-4">
+                  <span className="table-cell w-8 select-none pe-3 text-end text-[color-mix(in_oklab,var(--surface-demo-foreground)_45%,transparent)] sm:w-10 sm:pe-4">
                     {lineIndex + 1}
                   </span>
                   <span className="table-cell w-full">

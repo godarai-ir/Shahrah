@@ -286,7 +286,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                         dir="ltr"
                         aria-invalid={Boolean(fieldErrors.identifier)}
                         aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
-                        className="h-11 text-left"
+                        className="h-11 text-start"
                       />
                       {fieldErrors.identifier && (
                         <p id="identifier-error" className="text-sm leading-6 text-destructive">
@@ -317,7 +317,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                             aria-describedby={
                               fieldErrors.captchaAnswer ? "captcha-answer-error" : undefined
                             }
-                            className="h-11 min-w-0 flex-1 text-left"
+                            className="h-11 min-w-0 flex-1 text-start"
                           />
                           {captchaImage ? (
                             <Image
@@ -461,7 +461,7 @@ function AnimatedHeroText({
   }, [words.length]);
 
   return (
-    <p className="flex max-w-full items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap text-[clamp(0.875rem,3.2vw,1.25rem)] font-semibold leading-8 text-foreground sm:gap-2">
+    <p className="flex max-w-full items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap text-sm font-semibold leading-8 text-foreground sm:gap-2 sm:text-xl">
       <span>{prefix}</span>
       <span
         className={cn(

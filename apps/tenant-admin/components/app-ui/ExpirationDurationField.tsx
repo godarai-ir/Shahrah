@@ -59,7 +59,7 @@ export function ExpirationDurationField({
         aria-describedby={describedBy}
         autoComplete="off"
         spellCheck={false}
-        className={cn("font-mono text-left", className)}
+        className={cn("font-mono text-start", className)}
       />
       {description ? <FieldDescription id={descriptionID}>{description}</FieldDescription> : null}
       <FieldDescription id={examplesID}>

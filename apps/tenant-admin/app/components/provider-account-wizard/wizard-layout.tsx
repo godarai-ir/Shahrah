@@ -75,10 +75,9 @@ export function CreateFlowStepIndicator(props: {
       type="button"
       onClick={props.onClick}
       disabled={props.disabled}
-      dir="rtl"
       aria-current={props.state === "active" ? "step" : undefined}
       aria-label={`${props.number}. ${props.title}`}
-      className="group flex min-w-14 flex-1 flex-row items-center justify-center gap-2 rounded-lg px-2 py-2 text-right transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent sm:min-w-28 sm:justify-start lg:w-full lg:min-w-0 lg:flex-none lg:px-1"
+      className="group flex min-w-14 flex-1 flex-row items-center justify-center gap-2 rounded-lg px-2 py-2 text-start transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent sm:min-w-28 sm:justify-start lg:w-full lg:min-w-0 lg:flex-none lg:px-1"
     >
       <div
         className={
@@ -89,7 +88,7 @@ export function CreateFlowStepIndicator(props: {
       >
         {props.state === "complete" ? <Check aria-hidden="true" className="size-4" /> : props.number}
       </div>
-      <span className={props.state === "idle" ? "hidden min-w-0 flex-1 text-right text-sm font-medium text-muted-foreground sm:block" : "hidden min-w-0 flex-1 text-right text-sm font-semibold text-primary sm:block"}>
+      <span className={props.state === "idle" ? "hidden min-w-0 flex-1 text-start text-sm font-medium text-muted-foreground sm:block" : "hidden min-w-0 flex-1 text-start text-sm font-semibold text-primary sm:block"}>
         {props.title}
       </span>
     </button>
@@ -133,7 +132,7 @@ export function WizardPanel({
       ref={setSectionNode}
       className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3" : "flex flex-col gap-3"}
     >
-      <header dir="rtl" className="flex flex-col gap-3 px-1 text-right sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-3 px-1 text-start sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">{title}</h2>
           {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}

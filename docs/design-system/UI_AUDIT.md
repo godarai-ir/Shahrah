@@ -7,7 +7,7 @@
 - shadcn/ui setup: `apps/tenant-admin/components.json`, `new-york`, RSC enabled, CSS variables enabled, lucide icons, RTL enabled.
 - Global CSS location: `apps/tenant-admin/app/globals.css`, importing `apps/tenant-admin/design-system/tokens.css`.
 - Component directories: `apps/tenant-admin/components/ui` for shadcn primitives, `apps/tenant-admin/app/components` and `apps/tenant-admin/features` for product and feature UI, new `apps/tenant-admin/components/app-ui` for product-level reusable UI.
-- RTL status: `html dir="rtl"`, body direction RTL, `components.json` has `rtl: true`. Some components still use physical left/right spacing that requires review.
+- RTL status: document and Radix direction are derived from locale, `components.json` has `rtl: true`, and reusable components use logical utilities.
 
 ## Observed Design Issues
 
@@ -38,9 +38,19 @@ Standardize page headers, section headers, cards, metric cards, empty states, st
 - `app/components/profile-settings.tsx` now uses `PageHeader`, `SettingsCard`, and `FormSection` for account settings layout while preserving form behavior.
 - `app/components/personal-access-token-management.tsx` now uses `AppCard`, `SectionHeader`, `EmptyState`, and `StatusBadge` for a representative list/table page.
 
-## Guardrail Search Findings
+## Migration Closure
 
-Searched `apps/tenant-admin/app`, `apps/tenant-admin/components`, and `apps/tenant-admin/features` for raw gray/slate/zinc colors, arbitrary values, and physical RTL utilities. Safe replacements were limited in this pass to new components and representative migrations. Remaining debt includes shadcn primitive physical offsets, feature search inputs using `left-*`/`pl-*`, dense model cards with arbitrary text sizes, trace timeline physical positioning, and code blocks with raw slate colors.
+The documented Design System migration debt is closed for production sources under `apps/tenant-admin/app`, `apps/tenant-admin/components`, and `apps/tenant-admin/features`:
+
+- Raw Tailwind palette colors are replaced by semantic tokens.
+- Product select fields route through `AppSelectField`; native selects and direct feature imports of the Select primitive are removed.
+- Dropdown, select, command, search, timeline, table, and technical-value layouts use logical spacing and alignment utilities.
+- Arbitrary pixel/rem/clamp font sizes are replaced by the documented typography scale.
+- Fixed RTL overrides are removed from production UI; document and Radix primitive direction now follow locale.
+- The duplicate metrics combobox was replaced by the shared `FilterCombobox` pattern.
+- `design-system/migration-guardrails.test.ts` prevents these migration categories from returning.
+
+Physical `left`/`right` positioning remains only where the public API explicitly describes a physical side, such as `Sheet side="left"` and the collapsible sidebar. These are intentional behaviors, not migration debt.
 
 ## Review Classification
 
@@ -55,11 +65,11 @@ Searched `apps/tenant-admin/app`, `apps/tenant-admin/components`, and `apps/tena
 - Code display components use slate tones for syntax/code surfaces; migrate them only when a semantic code-surface token is introduced.
 - Dense trace and model cards use compact arbitrary text sizes for highly constrained data displays.
 
-### Should be migrated later
+### Ongoing application rules
 
-- Feature search inputs using physical `left-*`/`pl-*` should move to logical `start-*`/`ps-*` after visual verification.
-- Table/list pages should converge on shared toolbar, empty, error, and pagination patterns.
-- Form-heavy pages should move gradually toward `FormSection` or shadcn field primitives without changing validation behavior.
+- New table/list pages use shared toolbar, empty, error, loading, and pagination patterns.
+- New form sections use `FormSection`, app field wrappers, or shadcn field primitives without bypassing validation semantics.
+- Side-specific primitives may use physical positioning only when the component API explicitly promises a physical side.
 
 ## Review Follow-up Completed
 
@@ -75,8 +85,8 @@ Searched `apps/tenant-admin/app`, `apps/tenant-admin/components`, and `apps/tena
 - Routed trace filter combobox rendering through `FilterCombobox`.
 - Updated `/design-system` with static examples for select, filter combobox, and row actions.
 
-## Remaining Dropdown/List Debt
+## Dropdown/List Migration Status
 
-- `components/ui/dropdown-menu.tsx` and `components/ui/select.tsx` still contain physical RTL classes such as `right-*`, `pr-*`, `pl-*`, and `mr-auto`; update primitives carefully in a separate pass with visual checks.
-- Several feature forms still use raw `Select` directly. Migrate them gradually when touching those forms.
-- Destructive row actions now have a common visual pattern, but not every destructive action is wrapped in a confirmation dialog yet.
+- Dropdown and select indicators, inset items, shortcuts, and submenus use logical utilities.
+- Feature forms use `AppSelectField`; direct Select primitive imports are confined to that wrapper.
+- Destructive row actions use the shared visual pattern; confirmation remains mandatory whenever the action is not immediately reversible.

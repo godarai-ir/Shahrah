@@ -51,7 +51,7 @@ export function ReadinessBadge(props: {
     pricing_incomplete: { label: props.labels.pricing_incomplete, className: "tone-info border" },
   };
   const view = mapping[props.readiness];
-  return <span className={cn("rounded-full px-2 py-1 text-[10px] font-semibold", view.className)}>{view.label}</span>;
+  return <span className={cn("rounded-full px-2 py-1 text-xs font-semibold", view.className)}>{view.label}</span>;
 }
 
 

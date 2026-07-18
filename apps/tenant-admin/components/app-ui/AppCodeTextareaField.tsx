@@ -10,7 +10,7 @@ export function AppCodeTextareaField({ className, dir = "ltr", spellCheck = fals
     <AppTextareaField
       dir={dir}
       spellCheck={spellCheck}
-      className={cn("min-h-40 text-left font-mono text-xs leading-6", className)}
+      className={cn("min-h-40 text-start font-mono text-xs leading-6", className)}
       {...props}
     />
   );

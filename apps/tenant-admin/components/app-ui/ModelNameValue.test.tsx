@@ -8,7 +8,7 @@ vi.mock("next-intl", () => ({
 }));
 
 describe("ModelNameValue", () => {
-  it("renders LTR, left-aligned model text and copies the full value", async () => {
+  it("renders LTR, start-aligned model text and copies the full value", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
 
@@ -16,7 +16,7 @@ describe("ModelNameValue", () => {
 
     const model = screen.getByText("openai:gpt-5-nano +2");
     expect(model.parentElement).toHaveAttribute("dir", "ltr");
-    expect(model.parentElement).toHaveClass("text-left");
+    expect(model.parentElement).toHaveClass("text-start");
     expect(model).toHaveClass("whitespace-nowrap");
 
     fireEvent.click(screen.getByRole("button", { name: "modelName.copy" }));

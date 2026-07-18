@@ -29,7 +29,7 @@ export function IdentifierField({ id, label, description = DEFAULT_IDENTIFIER_DE
   return (
     <Field className={containerClassName} data-invalid={invalid || undefined} data-disabled={disabled || undefined}>
       {label ? <FieldLabel htmlFor={inputID}>{label}</FieldLabel> : null}
-      <Input {...props} id={inputID} type="text" dir="ltr" pattern={props.pattern ?? IDENTIFIER_PATTERN} required={required} disabled={disabled} aria-describedby={describedBy} aria-invalid={invalid || undefined} className={cn("font-mono text-left", className)} />
+      <Input {...props} id={inputID} type="text" dir="ltr" pattern={props.pattern ?? IDENTIFIER_PATTERN} required={required} disabled={disabled} aria-describedby={describedBy} aria-invalid={invalid || undefined} className={cn("font-mono text-start", className)} />
       {description ? <FieldDescription id={descriptionID}>{description}</FieldDescription> : null}
       {error ? <FieldError id={errorID}>{error}</FieldError> : null}
     </Field>

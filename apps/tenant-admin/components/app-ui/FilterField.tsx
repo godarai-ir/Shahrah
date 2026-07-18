@@ -23,7 +23,7 @@ export function DebouncedTextFilter({ label, value, onValueChange, debounceMs = 
   const onValueChangeRef = React.useRef(onValueChange);
   React.useEffect(() => { onValueChangeRef.current = onValueChange; }, [onValueChange]);
   React.useEffect(() => { if (draft === value) return; const timer = window.setTimeout(() => onValueChangeRef.current(draft), debounceMs); return () => window.clearTimeout(timer); }, [debounceMs, draft, value]);
-  return <FilterField label={label} htmlFor={controlID}><Input id={controlID} value={draft} onChange={(event) => setDraftState({ source: value, draft: event.target.value })} dir={mono ? "ltr" : props.dir} className={cn("h-8 text-xs", mono && "text-left font-mono", className)} {...props} /></FilterField>;
+  return <FilterField label={label} htmlFor={controlID}><Input id={controlID} value={draft} onChange={(event) => setDraftState({ source: value, draft: event.target.value })} dir={mono ? "ltr" : props.dir} className={cn("h-8 text-xs", mono && "text-start font-mono", className)} {...props} /></FilterField>;
 }
 
 export type RangeFilterFieldProps = { label: React.ReactNode; value: [number, number]; min: number; max: number; step?: number; disabled?: boolean; minLabel: string; maxLabel: string; formatValue: (value: number) => React.ReactNode; onValueChange?: (value: [number, number]) => void; onValueCommit: (value: [number, number]) => void };

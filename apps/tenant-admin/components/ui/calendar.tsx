@@ -18,7 +18,6 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      dir="rtl"
       className={cn("p-3", className)}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
@@ -59,9 +58,9 @@ function Calendar({
       components={{
         Chevron: ({ orientation, className: iconClassName, ...iconProps }) =>
           orientation === "left" ? (
-            <ChevronRight className={cn("size-4", iconClassName)} {...iconProps} />
-          ) : (
             <ChevronLeft className={cn("size-4", iconClassName)} {...iconProps} />
+          ) : (
+            <ChevronRight className={cn("size-4", iconClassName)} {...iconProps} />
           ),
       }}
       {...props}

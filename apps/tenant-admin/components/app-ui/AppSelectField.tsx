@@ -69,7 +69,7 @@ export function AppSelectField({
   triggerClassName,
   ariaLabel,
   disabled,
-  dir = "rtl",
+  dir,
   optionTextDir = "auto",
   size = "default",
   contentClassName,

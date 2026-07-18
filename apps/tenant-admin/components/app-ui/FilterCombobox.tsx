@@ -53,7 +53,6 @@ export function FilterCombobox({
     >
       <ComboboxInput
         id={id}
-        dir="rtl"
         placeholder={placeholder}
         readOnly={!searchable}
         className={cn(
@@ -62,11 +61,11 @@ export function FilterCombobox({
           className,
         )}
       />
-      <ComboboxContent align="start" className="text-start" dir="rtl">
+      <ComboboxContent align="start" className="text-start">
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
         <ComboboxList>
           {(option) => (
-            <ComboboxItem key={option.value} value={option} className={cn("text-start", mono && "font-mono")} dir="rtl">
+            <ComboboxItem key={option.value} value={option} className={cn("text-start", mono && "font-mono")}>
               <span className="min-w-0 truncate" dir="auto">
                 {option.label}
               </span>

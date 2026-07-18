@@ -1,10 +1,9 @@
 ﻿import type { Metadata } from "next";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
-import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 
+import AppProviders from "@/app/components/app-providers";
 import { QueryProvider } from "@/app/components/query-provider";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { getLocaleDirection } from "@/lib/locale-direction";
 
@@ -48,14 +47,12 @@ export default async function RootLayout({
       className={`${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        <NextIntlClientProvider locale={locale} messages={messages}>
+        <AppProviders locale={locale} messages={messages}>
           <QueryProvider>
-            <ThemeProvider defaultTheme="light" disableTransitionOnChange>
-              {children}
-              <Toaster position="top-center" richColors />
-            </ThemeProvider>
+            {children}
+            <Toaster position="top-center" richColors />
           </QueryProvider>
-        </NextIntlClientProvider>
+        </AppProviders>
       </body>
     </html>
   );

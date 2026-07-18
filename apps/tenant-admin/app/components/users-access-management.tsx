@@ -388,7 +388,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               <TableHead>{t("table.emailMobile")}</TableHead>
               <TableHead>{t("table.displayName")}</TableHead>
               <TableHead>{t("table.role")}</TableHead>
-              <TableHead className="w-16 text-right"> </TableHead>
+              <TableHead className="w-16 text-start"> </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

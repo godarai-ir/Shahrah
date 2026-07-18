@@ -42,7 +42,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 type ProviderView = ProviderCatalogProvider & {
   description?: string;
@@ -563,7 +562,7 @@ function FilterRow(props: {
           onChange={(event) => props.setQuery(event.target.value)}
           placeholder={props.searchPlaceholder}
           dir={props.direction}
-          className={cn("h-9 ps-9", props.direction === "rtl" ? "text-right" : "text-left")}
+          className="h-9 ps-9 text-start"
         />
       </div>
     </div>
@@ -647,7 +646,7 @@ function ProviderCard(props: {
           <div className="grid min-h-[4.875rem] grid-cols-2 items-center border-t border-border/70 pt-2.5">
             <div className="text-center">
               <p className="text-xs text-muted-foreground">{props.modelMetricLabel}</p>
-              <p className="mt-1 text-base font-bold leading-none" dir="rtl">
+              <p className="mt-1 text-base font-bold leading-none">
                 {resolvedModelCount !== null ? (
                   <a
                     href={providerModelsHref}
@@ -667,7 +666,7 @@ function ProviderCard(props: {
             </div>
             <div className="text-center">
               <p className="text-xs text-muted-foreground">{props.connectionMetricLabel}</p>
-              <p className={props.accountCount > 0 ? "mt-1 text-base font-bold leading-none text-[var(--success-soft-foreground)]" : "mt-1 text-base font-bold leading-none text-muted-foreground"} dir="rtl">
+              <p className={props.accountCount > 0 ? "mt-1 text-base font-bold leading-none text-[var(--success-soft-foreground)]" : "mt-1 text-base font-bold leading-none text-muted-foreground"}>
                 <StatusBadge status={hasConnections ? "active" : "inactive"}>
                   {hasConnections
                     ? `${formattedAccountCount} ${props.connectedStatusLabel}`

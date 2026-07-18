@@ -712,7 +712,7 @@ function PromptVersionHistorySheet(props: {
               {props.t("actions.createVersion")}
             </Button>
           </div>
-          <ScrollArea className="h-[min(60dvh,28rem)] pr-3">
+          <ScrollArea className="h-[min(60dvh,28rem)] ps-3">
             <div className="flex flex-col gap-2">
               {props.versions.map((version) => (
                 <button
@@ -785,7 +785,7 @@ function PromptCompareDialog(props: {
 
           <div className="overflow-hidden rounded-xl border">
             <div className="grid grid-cols-2 border-b bg-muted/30">
-              <div className="border-r px-4 py-3 text-center font-medium">
+              <div className="border-e px-4 py-3 text-center font-medium">
                 {props.baseVersion ? props.t("versions.versionValue", { version: props.baseVersion.version }) : "-"}
               </div>
               <div className="px-4 py-3 text-center font-medium">
@@ -793,7 +793,7 @@ function PromptCompareDialog(props: {
               </div>
             </div>
             <div className="grid grid-cols-2" dir="ltr">
-              <div className="border-r">
+              <div className="border-e">
                 {props.rows.map((row, index) => (
                   <DiffLine key={`left-${index}`} side="left" row={row} />
                 ))}
@@ -833,7 +833,7 @@ function DiffLine(props: {
 
   return (
     <div className={cn("grid min-h-8 grid-cols-[48px_24px_minmax(0,1fr)] font-mono text-xs", toneClassName)}>
-      <div className="border-b px-2 py-1 text-right text-muted-foreground">{lineNumber ?? ""}</div>
+      <div className="border-b px-2 py-1 text-end text-muted-foreground">{lineNumber ?? ""}</div>
       <div className="border-b px-1 py-1 text-center text-muted-foreground">{marker}</div>
       <div className="border-b px-3 py-1 whitespace-pre-wrap break-words">{text || " "}</div>
     </div>

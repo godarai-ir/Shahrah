@@ -152,7 +152,7 @@ export function GatewayPolicyRulesList({
           side="left"
           closeLabel={ruleSheet.closeLabel}
           className="w-full overflow-y-auto p-0 sm:max-w-3xl"
-          dir={ruleSheet.dir ?? "rtl"}
+          dir={ruleSheet.dir}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{ruleSheet.title}</SheetTitle>

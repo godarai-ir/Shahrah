@@ -531,7 +531,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
             </SheetTitle>
             <SheetDescription className="leading-7">{t("lab.description")}</SheetDescription>
           </SheetHeader>
-          <div id="test_bench" className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5" dir="rtl">
+          <div id="test_bench" className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5">
             <div className="flex flex-col gap-4">
               {labBanner ? (
                 <Alert variant={labBanner.kind === "error" ? "destructive" : "default"}>
@@ -579,14 +579,13 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                 <Tabs value={effectiveSelectedTokenType} onValueChange={(value) => setSelectedTokenType(value as TokenType)} className="mt-4 gap-3">
                   {journey.testBench.availableTokenTypes.map((tokenType) => (
                     <TabsContent key={tokenType} value={tokenType} className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-2 text-right">
-                        <Label htmlFor={`quick-start-token-${tokenType}`} className="text-right">
+                      <div className="flex flex-col gap-2 text-start">
+                        <Label htmlFor={`quick-start-token-${tokenType}`} className="text-start">
                           {t(`lab.tokenInputLabel.${tokenType}`)}
                         </Label>
                         <Input
                           id={`quick-start-token-${tokenType}`}
-                          dir="rtl"
-                          className="text-right"
+                          className="text-start"
                           value={tokenType === "pat" ? manualTokens.pat : manualTokens.vat}
                           onChange={(event) =>
                             setManualTokens((current) => ({
@@ -623,7 +622,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <div className="flex flex-col gap-2 text-start">
                   <Label htmlFor="quick-start-model">{t("lab.modelLabel")}</Label>
-                  <Input id="quick-start-model" dir="ltr" readOnly value={suggestedModel} className="text-left font-mono" />
+                  <Input id="quick-start-model" dir="ltr" readOnly value={suggestedModel} className="text-start font-mono" />
                 </div>
                 <div className="flex gap-2">
                   <Button type="button" onClick={() => void runSampleRequest()} disabled={!journey.testBench.ready || !effectiveToken || isRunningSample}>

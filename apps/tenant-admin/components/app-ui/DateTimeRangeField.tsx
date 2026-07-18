@@ -30,7 +30,7 @@ export function DateTimeField({ id, label, value, onValueChange, description, er
       <FieldLabel htmlFor={controlID}>{label}</FieldLabel>
       <InputGroup data-disabled={disabled || undefined}>
         <InputGroupAddon><Calendar aria-hidden="true" /></InputGroupAddon>
-        <InputGroupInput id={controlID} type="datetime-local" dir="ltr" value={toDateTimeLocalValue(value)} onChange={(event) => onValueChange(fromDateTimeLocalValue(event.target.value))} disabled={disabled} aria-invalid={Boolean(error) || undefined} aria-describedby={describedBy} className={cn("text-left font-mono text-xs", inputClassName)} />
+        <InputGroupInput id={controlID} type="datetime-local" dir="ltr" value={toDateTimeLocalValue(value)} onChange={(event) => onValueChange(fromDateTimeLocalValue(event.target.value))} disabled={disabled} aria-invalid={Boolean(error) || undefined} aria-describedby={describedBy} className={cn("text-start font-mono text-xs", inputClassName)} />
       </InputGroup>
       {description ? <FieldDescription id={descriptionID}>{description}</FieldDescription> : null}
       {error ? <FieldError id={errorID}>{error}</FieldError> : null}

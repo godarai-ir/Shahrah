@@ -485,7 +485,7 @@ export default async function TraceDetailPage({ params }: Params) {
                               />
                               {row.widthPct >= 12 ? (
                                 <span
-                                  className="absolute top-1/2 -translate-y-1/2 truncate px-2 text-[11px] font-medium text-primary-foreground"
+                                  className="absolute top-1/2 -translate-y-1/2 truncate px-2 text-xs font-medium text-primary-foreground"
                                   style={{
                                     left: `${row.leftPct}%`,
                                     width: `${row.widthPct}%`,
@@ -778,9 +778,9 @@ function TimelineStepMarker({
   return (
     <span className="relative flex shrink-0 items-center gap-1.5">
       {index < total - 1 ? (
-        <span className="absolute right-3 top-6 h-7 border-r border-border" aria-hidden="true" />
+        <span className="absolute start-3 top-6 h-7 border-s border-border" aria-hidden="true" />
       ) : null}
-      <span className="flex size-6 items-center justify-center rounded-full border bg-background text-[11px] font-semibold">
+      <span className="flex size-6 items-center justify-center rounded-full border bg-background text-xs font-semibold">
         {formatNumber(index + 1, locale)}
       </span>
       <Badge variant={spanKindBadgeVariant(kind)}>{kind}</Badge>
@@ -805,10 +805,10 @@ function TimelineAxis({ totalMS, msLabel, locale }: { totalMS: number; msLabel: 
           <span
             key={tick}
             className={cn(
-              "absolute top-0 text-[11px] text-muted-foreground",
+              "absolute top-0 text-xs text-muted-foreground",
               tick === 0 ? "translate-x-0" : tick === 100 ? "-translate-x-full" : "-translate-x-1/2",
             )}
-            style={{ left: `${tick}%` }}
+            style={{ insetInlineStart: `${tick}%` }}
           >
             {formatDuration((totalMS * tick) / 100, msLabel, locale)}
           </span>
@@ -824,8 +824,8 @@ function TimelineGridLines() {
       {[25, 50, 75].map((tick) => (
         <span
           key={tick}
-          className="absolute top-0 h-full border-l border-background/80"
-          style={{ left: `${tick}%` }}
+          className="absolute top-0 h-full border-s border-background/80"
+          style={{ insetInlineStart: `${tick}%` }}
           aria-hidden="true"
         />
       ))}

@@ -564,7 +564,7 @@ export default function TraceManagement(props: TraceManagementProps) {
                   {compactID(item.trace_id)}
                 </Link>
                 {item.request_id ? (
-                  <span className="truncate font-mono text-[11px] text-muted-foreground" title={item.request_id}>
+                  <span className="truncate font-mono text-xs text-muted-foreground" title={item.request_id}>
                     {t("list.meta.requestId", { id: compactID(item.request_id) })}
                   </span>
                 ) : null}
@@ -601,7 +601,7 @@ export default function TraceManagement(props: TraceManagementProps) {
           size: 192,
           header: () => <span className="block min-w-48">{t("list.columns.route")}</span>,
           cell: ({ row }) => (
-            <span className="block max-w-64 truncate font-mono text-[11px]" dir="ltr" title={row.original.route}>
+            <span className="block max-w-64 truncate font-mono text-xs" dir="ltr" title={row.original.route}>
               {row.original.route}
             </span>
           ),
@@ -616,7 +616,7 @@ export default function TraceManagement(props: TraceManagementProps) {
           cell: ({ row }) =>
             row.original.error_code ? (
               <Badge variant="outline" className="max-w-48">
-                <span className="truncate font-mono text-[11px]" dir="auto" title={row.original.error_code}>
+                <span className="truncate font-mono text-xs" dir="auto" title={row.original.error_code}>
                   {row.original.error_code}
                 </span>
               </Badge>
@@ -1041,7 +1041,7 @@ function BreakdownCard({
                   </span>
                   <CompactValue
                     display={formatCompactNumber(item.count, { locale })}
-                    className="font-mono text-[11px] text-muted-foreground"
+                    className="font-mono text-xs text-muted-foreground"
                     dir="ltr"
                   />
                 </span>
@@ -1090,7 +1090,7 @@ function CompactTraceCard({
               </Link>
             </CardTitle>
             {item.request_id ? (
-              <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={item.request_id}>
+              <p className="mt-1 truncate font-mono text-xs text-muted-foreground" title={item.request_id}>
                 {t("list.meta.requestId", { id: compactID(item.request_id) })}
               </p>
             ) : null}
@@ -1142,7 +1142,7 @@ function CompactTraceCard({
             inline
             value={item.error_code ? (
               <Badge variant="outline" className="max-w-full">
-                <span className="truncate font-mono text-[11px]" dir="auto" title={item.error_code}>
+                <span className="truncate font-mono text-xs" dir="auto" title={item.error_code}>
                   {item.error_code}
                 </span>
               </Badge>
@@ -1210,7 +1210,7 @@ function SortButton({
   return (
     <button type="button" className="inline-flex items-center gap-1 text-start hover:underline" aria-label={sortLabel} onClick={onClick}>
       {label}
-      <span className="font-mono text-[10px] text-muted-foreground" aria-hidden="true">
+      <span className="font-mono text-xs text-muted-foreground" aria-hidden="true">
         {isActive ? (sortOrder === "asc" ? "^" : "v") : ""}
       </span>
     </button>

@@ -1691,9 +1691,9 @@ function ExpandedChartSummaryRow({ items }: { items: Array<{ label: string; valu
     <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
-          <div className="truncate text-[11px] font-medium leading-4 text-muted-foreground">{item.label}</div>
+          <div className="truncate text-xs font-medium leading-4 text-muted-foreground">{item.label}</div>
           <div className="mt-1 truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">{item.value}</div>
-          {item.description ? <div className="mt-0.5 truncate text-[10px] leading-4 text-muted-foreground">{item.description}</div> : null}
+          {item.description ? <div className="mt-0.5 truncate text-xs leading-4 text-muted-foreground">{item.description}</div> : null}
         </div>
       ))}
     </div>
@@ -1815,7 +1815,7 @@ const LogDetailSheet = memo(function LogDetailSheet({
             </div>
             {replayDraft ? <ReplayDraftPanel draft={replayDraft} t={t} /> : null}
             <Tabs defaultValue="summary">
-              <TabsList className="ml-auto">
+              <TabsList className="ms-auto">
                 <TabsTrigger value="metadata">{t("tabs.metadata")}</TabsTrigger>
                 <TabsTrigger value="response">{t("content.response")}</TabsTrigger>
                 <TabsTrigger value="request">{t("content.request")}</TabsTrigger>
@@ -1907,11 +1907,11 @@ function RoutingValue({ value, description }: { value: string; description: stri
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="max-w-28 cursor-help truncate text-[11px]">
+        <Badge variant="outline" className="max-w-28 cursor-help truncate text-xs">
           <span dir="auto">{muted ? "-" : value}</span>
         </Badge>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-64 text-right leading-5" dir="rtl">
+      <TooltipContent side="top" className="max-w-64 text-start leading-5">
         {description}
       </TooltipContent>
     </Tooltip>
@@ -1935,18 +1935,18 @@ function ColumnMenu({
           <span className="hidden sm:inline">{t("actions.columns")}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 text-right">
-        <div dir="rtl">
+      <DropdownMenuContent align="end" className="w-48 text-start">
+        <div>
           {COLUMN_CHOICES.map((column) => (
             <DropdownMenuCheckboxItem
               key={column}
               checked={visibleColumns.includes(column)}
-              className="text-right"
+              className="text-start"
               onCheckedChange={(checked) => {
                 setVisibleColumns((current) => checked ? [...current, column] : current.filter((item) => item !== column));
               }}
             >
-              <span className="w-full text-right">{t(`columns.${column}`)}</span>
+              <span className="w-full text-start">{t(`columns.${column}`)}</span>
             </DropdownMenuCheckboxItem>
           ))}
         </div>
@@ -1978,7 +1978,7 @@ function AnalyticsMetric({
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
             <p className="mt-1 truncate text-lg font-bold tracking-tight text-foreground sm:mt-2 sm:text-2xl xl:text-3xl">{value}</p>
-            {description ? <p className="mt-0.5 truncate text-[11px] leading-5 text-muted-foreground sm:mt-1 sm:text-xs">{description}</p> : null}
+            {description ? <p className="mt-0.5 truncate text-xs leading-5 text-muted-foreground sm:mt-1">{description}</p> : null}
           </div>
           {Icon ? (
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:size-10 sm:rounded-xl">
@@ -1994,7 +1994,7 @@ function AnalyticsMetric({
     <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 opacity-70 sm:p-4">
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="pt-1 text-base font-semibold text-muted-foreground sm:pt-2 sm:text-lg">{t("analyticsUnavailableShort")}</div>
-      <div className="pt-1 text-[11px] text-muted-foreground sm:text-xs">{t("analyticsUnavailable")}</div>
+      <div className="pt-1 text-xs text-muted-foreground">{t("analyticsUnavailable")}</div>
     </div>
   );
 }

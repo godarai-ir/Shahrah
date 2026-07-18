@@ -867,7 +867,7 @@ export default function OrgUnitManagement({
                     <DefinitionListItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
                     <DefinitionListItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
                   </DefinitionList>
-                  <pre dir="ltr" className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-left text-xs text-muted-foreground">
+                  <pre dir="ltr" className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-start text-xs text-muted-foreground">
                     {JSON.stringify(selectedOrgUnit.metadata ?? {}, null, 2)}
                   </pre>
               </AppCard>

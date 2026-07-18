@@ -198,7 +198,7 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
   }
 
   return (
-    <DropdownMenu dir="rtl">
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
@@ -210,7 +210,7 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
           <User data-icon="inline-start" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 text-right">
+      <DropdownMenuContent align="start" className="w-64 text-start">
         <DropdownMenuLabel className="flex items-center gap-3 p-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
             <User aria-hidden="true" />

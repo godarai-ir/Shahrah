@@ -117,7 +117,7 @@ const attachmentDescriptionVariants = cva("text-muted-foreground", {
     size: {
       default: "text-xs",
       sm: "text-xs",
-      xs: "text-[11px]",
+      xs: "text-xs",
     },
     state: {
       idle: "",

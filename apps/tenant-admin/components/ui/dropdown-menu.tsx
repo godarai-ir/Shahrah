@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronLeft, Circle } from "lucide-react";
+import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -56,7 +56,7 @@ function DropdownMenuItem({
       data-slot="dropdown-menu-item"
       className={cn(
         "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground",
-        inset && "pr-8",
+        inset && "ps-8",
         className,
       )}
       {...props}
@@ -74,13 +74,13 @@ function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground",
+        "relative flex cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground",
         className,
       )}
       checked={checked}
       {...props}
     >
-      <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <Check className="h-4 w-4" />
         </DropdownMenuPrimitive.ItemIndicator>
@@ -105,12 +105,12 @@ function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground",
+        "relative flex cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground",
         className,
       )}
       {...props}
     >
-      <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <Circle className="h-2 w-2 fill-current" />
         </DropdownMenuPrimitive.ItemIndicator>
@@ -130,7 +130,7 @@ function DropdownMenuLabel({
   return (
     <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
-      className={cn("px-2 py-1.5 text-sm font-semibold", inset && "pr-8", className)}
+      className={cn("px-2 py-1.5 text-sm font-semibold", inset && "ps-8", className)}
       {...props}
     />
   );
@@ -156,7 +156,7 @@ function DropdownMenuShortcut({
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn("mr-auto text-xs tracking-widest opacity-60", className)}
+      className={cn("ms-auto text-xs tracking-widest opacity-60", className)}
       {...props}
     />
   );
@@ -181,13 +181,13 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
         "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent",
-        inset && "pr-8",
+        inset && "ps-8",
         className,
       )}
       {...props}
     >
       {children}
-      <ChevronLeft className="mr-auto h-4 w-4" />
+      <ChevronRight className="ms-auto h-4 w-4 rtl:rotate-180" />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }

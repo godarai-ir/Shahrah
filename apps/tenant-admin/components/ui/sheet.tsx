@@ -58,8 +58,8 @@ function SheetContent({
         data-slot="sheet-content"
         className={cn(
           "fixed z-50 gap-4 bg-background p-6 shadow-lg",
-          side === "right" && "inset-y-0 right-0 h-full w-4/5 border-r sm:max-w-sm",
-          side === "left" && "inset-y-0 left-0 h-full w-4/5 border-l sm:max-w-sm",
+          side === "right" && "inset-y-0 right-0 h-full w-4/5 border-l sm:max-w-sm",
+          side === "left" && "inset-y-0 left-0 h-full w-4/5 border-r sm:max-w-sm",
           side === "top" && "inset-x-0 top-0 border-b",
           side === "bottom" && "inset-x-0 bottom-0 border-t",
           className,
@@ -67,7 +67,7 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="absolute top-4 left-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
+        <SheetPrimitive.Close className="absolute top-4 end-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
           <X className="h-4 w-4" />
           <span className="sr-only">{closeLabel}</span>
         </SheetPrimitive.Close>

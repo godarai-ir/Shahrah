@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { AppCard, CatalogFilterCombobox, CompactValue, DateTimeRangeField, EmptyState, MetricCard, PageHeader } from "@/components/app-ui";
+import { AppCard, CatalogFilterCombobox, CompactValue, DateTimeRangeField, EmptyState, FilterCombobox, MetricCard, PageHeader } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,19 +24,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
-import { cn } from "@/lib/utils";
 import {
   buildCacheBreakdown,
   buildChartData,
@@ -58,10 +49,6 @@ const ALL_PROVIDERS_VALUE = "__all_providers__";
 type ViewBy = (typeof VIEW_BY)[number];
 type Pct = (typeof PCTS)[number];
 type RangePreset = (typeof RANGE_PRESETS)[number];
-type MetricComboboxOption = {
-  value: string;
-  label: string;
-};
 
 type ModelMetricsDashboardProps = {
   initialFrom?: string;
@@ -425,7 +412,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
       >
           <Field className="min-w-0 gap-1">
             <FieldLabel htmlFor="metrics-range-preset" className="text-xs text-muted-foreground">{t("filters.timeRange")}</FieldLabel>
-            <MetricCombobox
+            <FilterCombobox
               id="metrics-range-preset"
               options={rangeOptions}
               value={rangePreset}
@@ -473,7 +460,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           </Field>
           <Field className="min-w-0 gap-1">
             <FieldLabel htmlFor="metrics-view-by" className="text-xs text-muted-foreground">{t("filters.viewBy")}</FieldLabel>
-            <MetricCombobox
+            <FilterCombobox
               id="metrics-view-by"
               options={viewByOptions}
               value={viewBy}
@@ -548,7 +535,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           action={
             <Field className="w-32 gap-1">
               <FieldLabel htmlFor="metrics-percentile" className="text-xs text-muted-foreground">{t("filters.percentile")}</FieldLabel>
-              <MetricCombobox
+              <FilterCombobox
                 id="metrics-percentile"
                 options={pctOptions}
                 value={pct}
@@ -652,65 +639,6 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           </Table>
       </AppCard>
     </div>
-  );
-}
-
-function MetricCombobox({
-  id,
-  options,
-  value,
-  onValueChange,
-  placeholder,
-  emptyText,
-  searchable = true,
-  className,
-  mono = false,
-}: {
-  id: string;
-  options: MetricComboboxOption[];
-  value: string;
-  onValueChange: (value: string) => void;
-  placeholder: string;
-  emptyText: string;
-  searchable?: boolean;
-  className?: string;
-  mono?: boolean;
-}) {
-  const selectedOption = options.find((option) => option.value === value) ?? null;
-
-  return (
-    <Combobox
-      items={options}
-      value={selectedOption}
-      onValueChange={(option) => {
-        if (option) onValueChange(option.value);
-      }}
-      itemToStringValue={(option) => option.label}
-    >
-      <ComboboxInput
-        id={id}
-        dir="rtl"
-        placeholder={placeholder}
-        readOnly={!searchable}
-        className={cn(
-          "h-8 w-full bg-background [&_[data-slot=input-group-control]]:min-w-0 [&_[data-slot=input-group-control]]:text-start [&_[data-slot=input-group-control]]:text-xs",
-          mono && "[&_[data-slot=input-group-control]]:font-mono",
-          className,
-        )}
-      />
-      <ComboboxContent align="start" className="text-start" dir="rtl">
-        <ComboboxEmpty>{emptyText}</ComboboxEmpty>
-        <ComboboxList>
-          {(option) => (
-            <ComboboxItem key={option.value} value={option} className={cn("text-start", mono && "font-mono")} dir="rtl">
-              <span className="min-w-0 truncate" dir="auto">
-                {option.label}
-              </span>
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
   );
 }
 

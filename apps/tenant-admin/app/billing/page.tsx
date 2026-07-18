@@ -93,9 +93,9 @@ export default async function BillingDashboardPage() {
 function QuickAction({ href, icon: Icon, label }: { href: string; icon: ComponentType<{ className?: string }>; label: string }) {
   return (
     <Button asChild variant="outline" size="sm" className="h-9 justify-start px-3 text-xs sm:h-10 sm:text-sm">
-      <Link href={href} className="flex w-full items-center justify-between text-right lg:justify-start">
+      <Link href={href} className="flex w-full items-center justify-between text-start lg:justify-start">
         <Icon className="me-2 size-4 shrink-0" />
-        <span className="flex-1 text-right">{label}</span>
+        <span className="flex-1 text-start">{label}</span>
       </Link>
     </Button>
   );

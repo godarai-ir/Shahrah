@@ -423,7 +423,7 @@ export function ReportsPanel({ initialSummary, initialMonthly, initialError }: R
           description={`تجمیع مصرف، توکن و هزینه نهایی به تفکیک ارائه‌دهنده برای ${formatSelectedJalaliMonth(monthKey)}`}
           className="max-w-none"
         >
-          <DataTable columns={columns} data={monthly?.providers ?? []} emptyLabel="داده‌ای برای این ماه وجود ندارد." dir="rtl" />
+          <DataTable columns={columns} data={monthly?.providers ?? []} emptyLabel="داده‌ای برای این ماه وجود ندارد." />
         </SettingsCard>
         <AppCard title="سهم ارائه‌دهنده‌ها" description="بر اساس هزینه نهایی">
           <div className="h-64">
@@ -707,7 +707,7 @@ export function BillingDocumentsPanel({ invoices, transactions, discounts }: Doc
           >
             <Download className="size-4" />
           </Button>
-          <TabsList className="self-end" dir="rtl">
+          <TabsList className="self-end">
             <TabsTrigger value="invoices"><FileText className="me-2 size-4" />فاکتورها</TabsTrigger>
             <TabsTrigger value="transactions"><ReceiptText className="me-2 size-4" />تراکنش‌ها</TabsTrigger>
             <TabsTrigger value="discounts"><Tag className="me-2 size-4" />تخفیف‌ها</TabsTrigger>
@@ -843,7 +843,7 @@ function DocumentTableSection<T>({
           </div>
         </div>
       </div>
-      <DataTable columns={columns} data={paginatedRows} emptyLabel={emptyLabel} dir="rtl" />
+      <DataTable columns={columns} data={paginatedRows} emptyLabel={emptyLabel} />
       <div className="flex flex-col gap-3 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="text-muted-foreground">
           نمایش {toPersianNumber(pageStart + 1)} تا {toPersianNumber(pageEnd)} از {toPersianNumber(rows.length)} ردیف
@@ -880,7 +880,6 @@ function ProfileTypeField({
     <div className="flex flex-col gap-2">
       <Label>نوع</Label>
       <RadioGroup
-        dir="rtl"
         value={value}
         onValueChange={(nextValue) => onValueChange(nextValue as "individual" | "legal")}
         className="grid grid-cols-2 gap-2"

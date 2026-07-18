@@ -274,7 +274,6 @@ export function PromptBuilder(props: PromptBuilderProps) {
                 onChange={(event) => props.onBuilderChange((current) => ({ ...current, composerText: event.target.value }))}
                 placeholder={props.t("builder.conversation.composerPlaceholder")}
                 className="min-h-28"
-                dir="rtl"
               />
             </div>
           </CardContent>

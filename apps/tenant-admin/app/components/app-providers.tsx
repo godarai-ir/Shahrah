@@ -1,8 +1,10 @@
 "use client";
 
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
+import { Direction } from "radix-ui";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 type AppProvidersProps = {
   children: React.ReactNode;
@@ -17,9 +19,11 @@ export default function AppProviders({
 }: AppProvidersProps) {
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <ThemeProvider defaultTheme="light" disableTransitionOnChange>
-        {children}
-      </ThemeProvider>
+      <Direction.Provider dir={getLocaleDirection(locale)}>
+        <ThemeProvider defaultTheme="light" disableTransitionOnChange>
+          {children}
+        </ThemeProvider>
+      </Direction.Provider>
     </NextIntlClientProvider>
   );
 }

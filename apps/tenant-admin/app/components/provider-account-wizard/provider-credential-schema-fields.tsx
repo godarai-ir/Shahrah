@@ -80,7 +80,7 @@ export function ProviderCredentialSchemaFields({
                     type={field.secret || field.type === "password" ? "password" : field.type === "url" ? "url" : "text"}
                     dir="ltr"
                     autoComplete={field.secret ? "new-password" : "off"}
-                    className="text-left"
+                    className="text-start"
                   />
                 );
               })}

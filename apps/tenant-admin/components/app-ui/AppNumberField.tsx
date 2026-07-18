@@ -4,5 +4,5 @@ import { cn } from "@/lib/utils";
 export type AppNumberFieldProps = Omit<AppTextFieldProps, "type">;
 
 export function AppNumberField({ inputMode = "decimal", dir = "ltr", className, ...props }: AppNumberFieldProps) {
-  return <AppTextField type="number" inputMode={inputMode} dir={dir} className={cn("text-left tabular-nums", className)} {...props} />;
+  return <AppTextField type="number" inputMode={inputMode} dir={dir} className={cn("text-start tabular-nums", className)} {...props} />;
 }

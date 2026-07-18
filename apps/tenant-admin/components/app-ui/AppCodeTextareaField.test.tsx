@@ -10,7 +10,7 @@ describe("AppCodeTextareaField", () => {
     const textarea = screen.getByRole("textbox", { name: "JSON schema" });
     expect(textarea).toHaveAttribute("dir", "ltr");
     expect(textarea).toHaveAttribute("spellcheck", "false");
-    expect(textarea).toHaveClass("font-mono", "text-left");
+    expect(textarea).toHaveClass("font-mono", "text-start");
     expect(textarea).toHaveAccessibleDescription("Enter a valid schema.");
   });
 });

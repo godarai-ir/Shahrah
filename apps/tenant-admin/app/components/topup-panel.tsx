@@ -166,7 +166,6 @@ export default function TopUpPanel(props: Props) {
               {t("providerLabel")}
             </span>
             <RadioGroup
-              dir="rtl"
               value={provider}
               onValueChange={setProvider}
               className="grid grid-cols-3 gap-3"

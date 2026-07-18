@@ -1129,7 +1129,7 @@ export default function ProviderAccountWizard(props?: {
               <span className="text-muted-foreground">{ux("integrations.pageTitle")}</span>
               <ChevronRight className="size-4 text-muted-foreground rtl:rotate-180" />
               {provider ? (
-                <span className="flex min-w-0 items-center gap-2 font-semibold" dir="rtl">
+                <span className="flex min-w-0 items-center gap-2 font-semibold">
                   <ProviderLogo
                     provider={activeProvider?.provider ?? provider}
                     displayName={createHeaderProviderName}
@@ -1166,7 +1166,7 @@ export default function ProviderAccountWizard(props?: {
           <div className="grid min-w-0 flex-1 gap-6 px-4 py-6 lg:grid-cols-4 xl:gap-10">
             <aside className="min-w-0 lg:col-span-1">
               <div className="overflow-x-auto pb-2 lg:overflow-visible">
-                <div dir="rtl" className="flex min-w-max flex-row gap-3 py-2 lg:min-w-0 lg:flex-col lg:gap-5">
+                <div className="flex min-w-max flex-row gap-3 py-2 lg:min-w-0 lg:flex-col lg:gap-5">
                 {createWizardSteps.map((step) => {
                   const stepState = createStepState(step.id);
                   const isStepOpenable = canOpenCreateStep(step.id);
@@ -1255,7 +1255,7 @@ export default function ProviderAccountWizard(props?: {
                     }
                   >
                     <div className="flex flex-col gap-8">
-                      <div dir="rtl" className="flex items-center gap-3 text-right">
+                      <div className="flex items-center gap-3 text-start">
                         <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-card">
                           <ProviderLogo
                             provider={activeProvider?.provider ?? provider}
@@ -1282,7 +1282,7 @@ export default function ProviderAccountWizard(props?: {
                         />
                       </div>
 
-                      <div dir="rtl" className="text-right">
+                      <div className="text-start">
                         <FieldSet className="gap-0">
                           <FieldLegend className="mb-0">
                             <span className="block">{ux("integrations.wizard.connectionMethodTitle")}</span>
@@ -1306,7 +1306,6 @@ export default function ProviderAccountWizard(props?: {
                           </FieldDescription>
 
                           <RadioGroup
-                            dir="rtl"
                             name="create-own-api-key"
                             value={allowVirtualOnly ? "platform-managed" : "byok"}
                             onValueChange={(nextValue) => {

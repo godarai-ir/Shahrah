@@ -246,7 +246,6 @@ export function ModelCard(props: ModelCardProps) {
 
   return (
     <Card
-      dir="rtl"
       className={cn(
         "group w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md",
         model.recommended && "ring-1 ring-primary/30",
