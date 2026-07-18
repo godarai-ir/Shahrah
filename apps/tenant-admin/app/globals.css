@@ -79,8 +79,7 @@ body {
 
 body {
   margin: 0;
-  direction: rtl;
-  text-align: right;
+  text-align: start;
   background: var(--background);
   font-family: var(--font-sans);
   color: var(--foreground);

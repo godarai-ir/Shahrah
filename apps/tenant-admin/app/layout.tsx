@@ -6,6 +6,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import { QueryProvider } from "@/app/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 import "./globals.css";
 
@@ -42,7 +43,7 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      dir="rtl"
+      dir={getLocaleDirection(locale)}
       suppressHydrationWarning
       className={`${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
