@@ -6,15 +6,24 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, Pencil, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, ExternalLink, Eye, KeyRound, Layers3, ShieldCheck, Trash2 } from "lucide-react";
 
 import { AppSelectField, DefinitionList, DefinitionListItem, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
@@ -30,13 +39,19 @@ import {
   mergeAccountIntoList,
 } from "@/app/components/provider-account-wizard/account-readiness";
 import { CredentialFields } from "@/app/components/provider-account-wizard/credential-fields";
+import {
+  buildProviderCredentialPayload,
+  defaultProviderCredentialValues,
+  missingRequiredProviderFields,
+  type ProviderCredentialValues,
+} from "@/app/components/provider-account-wizard/credential-schema";
 import { buildCreatedConnectionHref, getCreateStepState, shouldPersistCreateAccount } from "@/app/components/provider-account-wizard/create-flow";
 import { EffectiveModelsTable } from "@/app/components/provider-account-wizard/effective-models-table";
 import { ModelsEditor } from "@/app/components/provider-account-wizard/models-editor";
 import { EmptyOverview, ReadinessBadge, SummaryKPI } from "@/app/components/provider-account-wizard/overview";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
-import { PROVIDER_DOCS_URLS } from "@/app/components/provider-account-wizard/provider-docs";
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
+import { ProviderCredentialSchemaFields } from "@/app/components/provider-account-wizard/provider-credential-schema-fields";
 import type {
   AccessPrincipal,
   AccessPrincipalCandidate,
@@ -52,6 +67,8 @@ import type {
   ProviderCatalogModel,
   ProviderCatalogProvider,
   ProviderCatalogStatsResponse,
+  ProviderConnectionSchema,
+  ProviderConnectionSchemasResponse,
   ProviderModelsResponse,
   ProvidersResponse,
   Readiness,
@@ -85,11 +102,13 @@ export default function ProviderAccountWizard(props?: {
   mode?: ProviderAccountWizardMode;
   initialProvider?: string;
   initialAccountID?: string;
+  docsBaseHref?: string;
 }) {
   const mode = props?.mode ?? "manage";
   const isCreateMode = mode === "create";
   const initialProvider = normalizeProviderSlug(props?.initialProvider ?? "");
   const initialAccountID = props?.initialAccountID?.trim() ?? "";
+  const docsBaseHref = props?.docsBaseHref?.replace(/\/$/, "") || "/docs";
   const t = useTranslations("providerAccounts");
   const ux = useTranslations("providerAccounts.ux");
   const router = useRouter();
@@ -150,6 +169,10 @@ export default function ProviderAccountWizard(props?: {
   const [awsSecretAccessKey, setAWSSecretAccessKey] = useState("");
   const [awsRegion, setAWSRegion] = useState("us-east-1");
   const [googleServiceAccountJSON, setGoogleServiceAccountJSON] = useState("");
+  const [connectionSchemas, setConnectionSchemas] = useState<ProviderConnectionSchema[]>([]);
+  const [providerCredentialValues, setProviderCredentialValues] = useState<ProviderCredentialValues>({});
+  const [isLoadingConnectionSchemas, setIsLoadingConnectionSchemas] = useState(false);
+  const [connectionSchemaError, setConnectionSchemaError] = useState("");
 
   const [modelDrafts, setModelDrafts] = useState<Record<string, ModelDraft>>({});
 
@@ -196,6 +219,20 @@ export default function ProviderAccountWizard(props?: {
     () => providers.find((item) => stringsEqualFold(item.provider, provider)) ?? selectedProvider,
     [providers, provider, selectedProvider],
   );
+  const selectedConnectionSchema = useMemo(
+    () => connectionSchemas.find((item) => stringsEqualFold(item.auth_mode, authMode)) ?? null,
+    [authMode, connectionSchemas],
+  );
+  const missingRequiredCredentialFields = useMemo(
+    () => allowVirtualOnly ? [] : missingRequiredProviderFields(selectedConnectionSchema, providerCredentialValues),
+    [allowVirtualOnly, providerCredentialValues, selectedConnectionSchema],
+  );
+  const canContinueCreateDetails = allowVirtualOnly || (
+    !isLoadingConnectionSchemas
+    && !connectionSchemaError
+    && !!selectedConnectionSchema
+    && missingRequiredCredentialFields.length === 0
+  );
 
   const selectedProviderAccounts = useMemo(
     () => accounts.filter((item) => stringsEqualFold(item.provider, selectedProviderID)),
@@ -214,6 +251,56 @@ export default function ProviderAccountWizard(props?: {
       gcTime: 1000 * 60 * 60 * 2,
     });
   }, [queryClient]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadConnectionSchemas() {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!isCreateMode || !provider) {
+        setConnectionSchemas([]);
+        setProviderCredentialValues({});
+        setConnectionSchemaError("");
+        return;
+      }
+
+      setIsLoadingConnectionSchemas(true);
+      setConnectionSchemas([]);
+      setProviderCredentialValues({});
+      setConnectionSchemaError("");
+      try {
+        const items = await queryClient.fetchQuery({
+          queryKey: ["tenant-admin", "provider-connection-schemas", provider],
+          queryFn: async () => {
+            const response = await requestJSON<ProviderConnectionSchemasResponse>(
+              `/api/provider-catalog/providers/${encodeURIComponent(provider)}/connection-schemas`,
+            );
+            return unwrapData<ProviderConnectionSchema[]>(response) ?? [];
+          },
+          staleTime: 1000 * 60 * 30,
+          gcTime: 1000 * 60 * 60 * 2,
+        });
+        if (cancelled) return;
+        const nextSchema = items.find((item) => item.runtime_ready) ?? items[0] ?? null;
+        setConnectionSchemas(items);
+        setAuthMode(nextSchema?.auth_mode ?? "api_key");
+        setProviderCredentialValues(defaultProviderCredentialValues(nextSchema));
+        if (!nextSchema) setConnectionSchemaError(ux("integrations.wizard.connectionSchemaUnavailable"));
+      } catch (error) {
+        if (cancelled) return;
+        setConnectionSchemas([]);
+        setProviderCredentialValues({});
+        setConnectionSchemaError(normalizeError(error, ux("integrations.wizard.connectionSchemaUnavailable")));
+      } finally {
+        if (!cancelled) setIsLoadingConnectionSchemas(false);
+      }
+    }
+    void loadConnectionSchemas();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreateMode, provider, queryClient, ux]);
 
   useEffect(() => {
     selectedProviderRef.current = selectedProviderID;
@@ -262,8 +349,6 @@ export default function ProviderAccountWizard(props?: {
     if (selectedModelCount > 0 && unresolvedPricingCount > 0) return "pricing_incomplete";
     return "ready";
   }, [account, managers.length, selectedModelCount, unresolvedPricingCount]);
-  const storedAPIKeyHint = account?.credential_hint ?? "";
-  const shouldShowStoredAPIKey = authMode === "api_key" && apiKeyTestSucceeded && !apiKeyTouched && !!storedAPIKeyHint;
 
   const fetchProviderModels = useCallback(async (nextProvider: string) => {
     const normalized = nextProvider.trim().toLowerCase();
@@ -565,21 +650,22 @@ export default function ProviderAccountWizard(props?: {
     const providerConfig: Record<string, unknown> = {};
     const credentials: Record<string, unknown> = {};
 
-    if (authMode === "api_key") {
+    if (isCreateMode && selectedConnectionSchema) {
+      const schemaPayload = buildProviderCredentialPayload(selectedConnectionSchema, providerCredentialValues);
+      Object.assign(providerConfig, schemaPayload.providerConfig);
+      Object.assign(credentials, schemaPayload.credentials);
+    } else if (authMode === "api_key") {
       if (!allowVirtualOnly && apiKey.trim()) credentials.api_key = apiKey.trim();
       if (!isCreateMode && secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    }
-    if (authMode === "azure_entra_cert") {
+    } else if (authMode === "azure_entra_cert") {
       providerConfig.azure_tenant_id = azureTenantID.trim() || undefined;
       providerConfig.azure_client_id = azureClientID.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    }
-    if (authMode === "aws_sigv4") {
+    } else if (authMode === "aws_sigv4") {
       providerConfig.aws_region = awsRegion.trim() || undefined;
       providerConfig.aws_access_key_id = awsAccessKeyID.trim() || undefined;
       providerConfig.aws_secret_access_key = awsSecretAccessKey.trim() || undefined;
-    }
-    if (authMode === "google_service_account") {
+    } else if (authMode === "google_service_account") {
       providerConfig.google_service_account_json = googleServiceAccountJSON.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
     }
@@ -669,25 +755,30 @@ export default function ProviderAccountWizard(props?: {
       setBanner({ kind: "error", message: t("messages.validationProviderName") });
       return null;
     }
+    if (isCreateMode && !canContinueCreateDetails) {
+      setBanner({ kind: "error", message: connectionSchemaError || ux("integrations.wizard.requiredCredentialFields") });
+      return null;
+    }
 
     const providerConfig: Record<string, unknown> = {};
     const credentials: Record<string, unknown> = {};
 
-    if (authMode === "api_key") {
+    if (isCreateMode && selectedConnectionSchema) {
+      const schemaPayload = buildProviderCredentialPayload(selectedConnectionSchema, providerCredentialValues);
+      Object.assign(providerConfig, schemaPayload.providerConfig);
+      Object.assign(credentials, schemaPayload.credentials);
+    } else if (authMode === "api_key") {
       if (!allowVirtualOnly && apiKey.trim()) credentials.api_key = apiKey.trim();
       if (!isCreateMode && secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    }
-    if (authMode === "azure_entra_cert") {
+    } else if (authMode === "azure_entra_cert") {
       providerConfig.azure_tenant_id = azureTenantID.trim() || undefined;
       providerConfig.azure_client_id = azureClientID.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
-    }
-    if (authMode === "aws_sigv4") {
+    } else if (authMode === "aws_sigv4") {
       providerConfig.aws_region = awsRegion.trim() || undefined;
       providerConfig.aws_access_key_id = awsAccessKeyID.trim() || undefined;
       providerConfig.aws_secret_access_key = awsSecretAccessKey.trim() || undefined;
-    }
-    if (authMode === "google_service_account") {
+    } else if (authMode === "google_service_account") {
       providerConfig.google_service_account_json = googleServiceAccountJSON.trim() || undefined;
       if (secretRef.trim()) credentials.secret_ref = secretRef.trim();
     }
@@ -734,10 +825,10 @@ export default function ProviderAccountWizard(props?: {
     setCreateCredentialTestResult(null);
     setAPIKeyTestSucceeded(false);
     if (allowVirtualOnly) return;
-    if (!apiKey.trim()) {
+    if (!selectedConnectionSchema || missingRequiredCredentialFields.length > 0) {
       setCreateCredentialTestResult({
         kind: "error",
-        message: ux("integrations.wizard.apiKeyRequiredForTest"),
+        message: ux("integrations.wizard.credentialsRequiredForTest"),
       });
       return;
     }
@@ -786,6 +877,10 @@ export default function ProviderAccountWizard(props?: {
   async function handleContinueFromCreateDetails() {
     if (!provider || !name.trim()) {
       setBanner({ kind: "error", message: t("messages.validationProviderName") });
+      return;
+    }
+    if (!canContinueCreateDetails) {
+      setBanner({ kind: "error", message: connectionSchemaError || ux("integrations.wizard.requiredCredentialFields") });
       return;
     }
     if (shouldPersistCreateAccount("continue-details")) return;
@@ -1069,7 +1164,6 @@ export default function ProviderAccountWizard(props?: {
     { id: "observability", label: ux("tabs.observability"), icon: Eye },
   ];
   const principalSelectorLabels = useMemo(() => buildPrincipalSelectorLabels(t, ux), [t, ux]);
-  const providerDocsURL = PROVIDER_DOCS_URLS[normalizeProviderSlug(provider)] ?? "";
   const createHeaderProviderName = activeProvider?.display_name ?? provider;
   const createWizardSteps: Array<{ id: CreateWizardSectionID; number: number; title: string }> = [
     { id: "details", number: 1, title: ux("integrations.wizard.integrationDetails") },
@@ -1100,7 +1194,7 @@ export default function ProviderAccountWizard(props?: {
               <span className="text-muted-foreground">{ux("integrations.pageTitle")}</span>
               <ChevronRight className="size-4 text-muted-foreground rtl:rotate-180" />
               {provider ? (
-                <span className="flex min-w-0 items-center gap-2 font-semibold" dir="ltr">
+                <span className="flex min-w-0 items-center gap-2 font-semibold" dir="rtl">
                   <ProviderLogo
                     provider={activeProvider?.provider ?? provider}
                     displayName={createHeaderProviderName}
@@ -1108,7 +1202,7 @@ export default function ProviderAccountWizard(props?: {
                     size={18}
                     decorative
                   />
-                  <span className="truncate">{createHeaderProviderName}</span>
+                  <span className="truncate" dir="ltr">{createHeaderProviderName}</span>
                 </span>
               ) : (
                 <span className="font-semibold">{ux("setup.selectProviderTitle")}</span>
@@ -1219,14 +1313,14 @@ export default function ProviderAccountWizard(props?: {
                         <Button type="button" variant="outline" asChild>
                           <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
                         </Button>
-                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || isLoading || isSavingCredentials || !provider || !name.trim()}>
+                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || !canContinueCreateDetails || isLoading || isSavingCredentials || !provider || !name.trim()}>
                           {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
                         </Button>
                       </>
                     }
                   >
                     <div className="flex flex-col gap-8">
-                      <div dir="rtl" className="flex items-start gap-3 text-right">
+                      <div dir="rtl" className="flex items-center gap-3 text-right">
                         <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-card">
                           <ProviderLogo
                             provider={activeProvider?.provider ?? provider}
@@ -1234,8 +1328,8 @@ export default function ProviderAccountWizard(props?: {
                             logoURL={activeProvider?.logo_url}
                           />
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="truncate text-base font-semibold" dir="auto">{activeProvider?.display_name ?? provider}</h3>
+                        <div className="flex min-h-12 min-w-0 items-center">
+                          <h3 className="truncate text-xl font-semibold" dir="auto">{activeProvider?.display_name ?? provider}</h3>
                         </div>
                       </div>
 
@@ -1254,13 +1348,18 @@ export default function ProviderAccountWizard(props?: {
                       </div>
 
                       <div dir="rtl" className="text-right">
-                        <div className="space-y-1">
-                          <h3 className="text-base font-semibold">{ux("integrations.wizard.useOwnApiKeyQuestion")}</h3>
-                          <p className="text-sm leading-6 text-muted-foreground">
+                        <FieldSet className="gap-0">
+                          <FieldLegend className="mb-0">
+                            <span className="block">{ux("integrations.wizard.connectionMethodTitle")}</span>
+                            <span className="mt-1 block">
+                              {ux("integrations.wizard.useOwnApiKeyQuestion", { providerName: createHeaderProviderName })}
+                            </span>
+                          </FieldLegend>
+                          <FieldDescription className="mt-1 text-sm leading-6">
                             {ux.rich("integrations.wizard.useOwnApiKeyDescription", {
                               guideLink: (chunks) => (
                                 <a
-                                  href="/docs/quick-start"
+                                  href={`${docsBaseHref}/quick-start`}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="font-medium text-primary underline-offset-4 hover:underline"
@@ -1269,121 +1368,129 @@ export default function ProviderAccountWizard(props?: {
                                 </a>
                               ),
                             })}
-                          </p>
-                        </div>
+                          </FieldDescription>
 
-                        <div className="mt-4 grid gap-3 md:grid-cols-2">
-                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 text-right transition ${!allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
-                            <input
-                              type="radio"
-                              name="create-own-api-key"
-                              className="mt-1"
-                              checked={!allowVirtualOnly}
-                              onChange={() => {
-                                setAllowVirtualOnly(false);
-                                setCreateCredentialTestResult(null);
-                              }}
-                            />
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium">{ux("integrations.wizard.useOwnApiKeyYes")}</span>
-                            </span>
-                          </label>
-                          <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 text-right transition ${allowVirtualOnly ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}>
-                            <input
-                              type="radio"
-                              name="create-own-api-key"
-                              className="mt-1"
-                              checked={allowVirtualOnly}
-                              onChange={() => {
-                                setAllowVirtualOnly(true);
-                                setCreateCredentialTestResult(null);
-                              }}
-                            />
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium">{ux("integrations.wizard.useOwnApiKeyNo")}</span>
-                              <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                                {ux("integrations.wizard.useOwnApiKeyNoDescription")}
-                              </span>
-                            </span>
-                          </label>
-                        </div>
+                          <RadioGroup
+                            dir="rtl"
+                            name="create-own-api-key"
+                            value={allowVirtualOnly ? "platform-managed" : "byok"}
+                            onValueChange={(nextValue) => {
+                              setAllowVirtualOnly(nextValue === "platform-managed");
+                              setCreateCredentialTestResult(null);
+                            }}
+                            className="mt-4 grid gap-3 md:grid-cols-2"
+                          >
+                            <FieldLabel htmlFor="create-own-api-key-byok" className="order-1 cursor-pointer">
+                              <Field orientation="horizontal" className="items-start">
+                                <RadioGroupItem id="create-own-api-key-byok" value="byok" className="mt-1" />
+                                <FieldContent className="min-w-0">
+                                  <FieldTitle>{ux("integrations.wizard.useOwnApiKeyYes")}</FieldTitle>
+                                  <FieldDescription className="text-sm leading-6">
+                                    {ux.rich("integrations.wizard.useOwnApiKeyYesDescription", {
+                                      byokLink: (chunks) => (
+                                        <a
+                                          href={`${docsBaseHref}/guides/byok`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="font-medium text-primary underline-offset-4 hover:underline"
+                                        >
+                                          {chunks}
+                                        </a>
+                                      ),
+                                    })}
+                                  </FieldDescription>
+                                </FieldContent>
+                              </Field>
+                            </FieldLabel>
 
-                        {!allowVirtualOnly ? (
-                          <div className="mt-5 space-y-4">
-                            {providerDocsURL ? (
-                              <div className="flex justify-end">
-                                <Button type="button" variant="link" asChild className="h-auto px-0">
-                                  <a href={providerDocsURL} target="_blank" rel="noreferrer">
-                                    {ux("integrations.wizard.grabApiKey")}
-                                    <ExternalLink data-icon="inline-end" />
-                                  </a>
-                                </Button>
-                              </div>
-                            ) : null}
-                            <Field>
-                              <FieldLabel htmlFor="providerApiKey">{ux("integrations.wizard.apiKeyLabel")}</FieldLabel>
-                              {shouldShowStoredAPIKey ? (
-                                <div className="flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-3">
-                                  <span className="min-w-0 truncate font-mono text-sm text-foreground" dir="ltr">
-                                    {storedAPIKeyHint}
-                                  </span>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 shrink-0"
-                                    onClick={() => {
-                                      setAPIKeyTouched(true);
-                                      setAPIKeyTestSucceeded(false);
-                                      setAPIKey("");
+                            <FieldLabel htmlFor="create-own-api-key-platform" className="order-3 cursor-pointer md:order-2">
+                              <Field orientation="horizontal" className="items-start">
+                                <RadioGroupItem id="create-own-api-key-platform" value="platform-managed" className="mt-1" />
+                                <FieldContent className="min-w-0">
+                                  <FieldTitle>{ux("integrations.wizard.useOwnApiKeyNo")}</FieldTitle>
+                                  <FieldDescription className="text-sm leading-6">
+                                    {ux("integrations.wizard.useOwnApiKeyNoDescription", { providerName: createHeaderProviderName })}
+                                  </FieldDescription>
+                                </FieldContent>
+                              </Field>
+                            </FieldLabel>
+
+                            {!allowVirtualOnly ? (
+                              <FieldGroup className="order-2 rounded-e-lg border-s-2 border-primary/40 bg-muted/20 p-4 md:order-3 md:col-span-2 md:rounded-none md:border-s-0 md:bg-transparent md:p-0">
+                                {isLoadingConnectionSchemas ? (
+                                  <p className="text-sm text-muted-foreground" role="status">
+                                    {ux("integrations.wizard.loadingConnectionSchema")}
+                                  </p>
+                                ) : null}
+                                {connectionSchemaError ? (
+                                  <Alert variant="destructive">
+                                    <AlertTitle>{ux("integrations.wizard.connectionSchemaErrorTitle")}</AlertTitle>
+                                    <AlertDescription>{connectionSchemaError}</AlertDescription>
+                                  </Alert>
+                                ) : null}
+                                {connectionSchemas.length > 1 ? (
+                                  <AppSelectField
+                                    id="createProviderAuthMode"
+                                    label={t("fields.authMode")}
+                                    value={authMode}
+                                    optionTextDir="ltr"
+                                    options={connectionSchemas.map((schema) => ({
+                                      value: schema.auth_mode,
+                                      label: schema.auth_mode,
+                                    }))}
+                                    onValueChange={(value) => {
+                                      const nextSchema = connectionSchemas.find((schema) => schema.auth_mode === value) ?? null;
+                                      setAuthMode(value as ProviderAuthMode);
+                                      setProviderCredentialValues(defaultProviderCredentialValues(nextSchema));
                                       setCreateCredentialTestResult(null);
                                     }}
-                                    aria-label={ux("credentials.editStoredApiKey")}
+                                  />
+                                ) : null}
+                                {selectedConnectionSchema ? (
+                                  <ProviderCredentialSchemaFields
+                                    schema={selectedConnectionSchema}
+                                    values={providerCredentialValues}
+                                    onValueChange={(key, value) => {
+                                      setProviderCredentialValues((current) => ({ ...current, [key]: value }));
+                                      setAPIKeyTestSucceeded(false);
+                                      setCreateCredentialTestResult(null);
+                                    }}
+                                    disabled={isLoading || isSavingCredentials || isTesting}
+                                    connectionFieldsTitle={ux("integrations.wizard.connectionFieldsTitle")}
+                                    credentialFieldsTitle={ux("integrations.wizard.credentialFieldsTitle")}
+                                    writeOnlyLabel={ux("integrations.wizard.writeOnlyCredential")}
+                                    documentationLabel={ux("integrations.wizard.providerDocumentation")}
+                                  />
+                                ) : null}
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <p className="text-sm leading-6 text-muted-foreground">
+                                    {ux("integrations.wizard.testConnectionDescription")}
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => void handleCreateCredentialTest()}
+                                    disabled={!canCreateProviderAccount || !canContinueCreateDetails || isLoading || isSavingCredentials || isTesting}
                                   >
-                                    <Pencil className="h-4 w-4" />
+                                    {isTesting || isSavingCredentials || isLoading
+                                      ? ux("integrations.wizard.testingConnection")
+                                      : ux("integrations.wizard.testConnection")}
                                   </Button>
                                 </div>
-                              ) : (
-                                <Input
-                                  id="providerApiKey"
-                                  value={apiKey}
-                                  onChange={(event) => {
-                                    setAPIKey(event.target.value);
-                                    setAPIKeyTouched(true);
-                                    setAPIKeyTestSucceeded(false);
-                                    setCreateCredentialTestResult(null);
-                                  }}
-                                  placeholder={ux("placeholders.apiKey")}
-                                />
-                              )}
-                            </Field>
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <p className="text-sm leading-6 text-muted-foreground">
-                                {ux("integrations.wizard.testConnectionDescription")}
-                              </p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => void handleCreateCredentialTest()}
-                                disabled={!canCreateProviderAccount || isLoading || isSavingCredentials || isTesting}
-                              >
-                                {isTesting || isSavingCredentials || isLoading
-                                  ? ux("integrations.wizard.testingConnection")
-                                  : ux("integrations.wizard.testConnection")}
-                              </Button>
-                            </div>
-                            {createCredentialTestResult ? (
-                              <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : "default"}>
-                                <AlertTitle>
-                                  {createCredentialTestResult.kind === "error"
-                                    ? ux("integrations.wizard.connectionTestFailedTitle")
-                                    : ux("integrations.wizard.connectionTestSuccessTitle")}
-                                </AlertTitle>
-                                <AlertDescription>{createCredentialTestResult.message}</AlertDescription>
-                              </Alert>
+                                {createCredentialTestResult ? (
+                                  <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : "default"}>
+                                    <AlertTitle>
+                                      {createCredentialTestResult.kind === "error"
+                                        ? ux("integrations.wizard.connectionTestFailedTitle")
+                                        : ux("integrations.wizard.connectionTestSuccessTitle")}
+                                    </AlertTitle>
+                                    <AlertDescription>{createCredentialTestResult.message}</AlertDescription>
+                                  </Alert>
+                                ) : null}
+                              </FieldGroup>
                             ) : null}
-                          </div>
-                        ) : null}
+                          </RadioGroup>
+                        </FieldSet>
                       </div>
                     </div>
                   </WizardPanel>

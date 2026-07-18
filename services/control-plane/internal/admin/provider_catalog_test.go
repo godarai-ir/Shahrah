@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -231,10 +232,11 @@ func TestDiscoveryProviderExists_NormalizesLegacyProviderSlug(t *testing.T) {
 }
 
 func TestMapDiscoveryProviders_PreservesModelCount(t *testing.T) {
+	modelCount := 12
 	items := mapDiscoveryProviders([]discoveryProvider{{
 		Slug:       "anthropic",
 		Name:       "Anthropic",
-		ModelCount: 12,
+		ModelCount: &modelCount,
 		Enabled:    true,
 	}})
 
@@ -275,6 +277,21 @@ func TestDecodeProvidersPayload_UsesDiscoveryShapeWhenCanonicalFieldsMissing(t *
 	assert.Equal(t, "cerebras", items[0].Provider)
 	assert.Equal(t, "Cerebras", items[0].DisplayName)
 	assert.Equal(t, "/api/v1/providers/assets/provider-logos/cerebras.png", items[0].LogoURL)
+	assert.Equal(t, 1, items[0].ModelCount)
+}
+
+func TestMapDiscoveryProviders_ExplicitZeroOverridesLegacyModels(t *testing.T) {
+	modelCount := 0
+	items := mapDiscoveryProviders([]discoveryProvider{{
+		Slug:       "openai",
+		Name:       "OpenAI",
+		ModelCount: &modelCount,
+		Models:     []json.RawMessage{json.RawMessage(`{"canonicalId":"gpt-4.1"}`)},
+		Enabled:    true,
+	}})
+
+	require.Len(t, items, 1)
+	assert.Zero(t, items[0].ModelCount)
 }
 
 func TestDecodeProvidersPayload_AllowsEmptyArrays(t *testing.T) {

@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
         'virtual-model',
         'making-llm-requests-via-gateway',
         'authentication',
+        'guides/byok',
         'request-headers',
         'native-sdk-support',
       ],

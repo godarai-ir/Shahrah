@@ -53,15 +53,16 @@ type discoveryTelemetryCounters struct {
 var discoveryTelemetry discoveryTelemetryCounters
 
 type discoveryProvider struct {
-	Slug                    string `json:"slug"`
-	Name                    string `json:"name"`
-	Description             string `json:"description"`
-	DocsURL                 string `json:"docsUrl"`
-	LogoURL                 string `json:"logoUrl"`
-	ModelCount              int    `json:"modelCount"`
-	Enabled                 bool   `json:"enabled"`
-	SupportsByok            bool   `json:"supportsByok"`
-	SupportsRegionalRouting bool   `json:"supportsRegionalRouting"`
+	Slug                    string            `json:"slug"`
+	Name                    string            `json:"name"`
+	Description             string            `json:"description"`
+	DocsURL                 string            `json:"docsUrl"`
+	LogoURL                 string            `json:"logoUrl"`
+	ModelCount              *int              `json:"modelCount"`
+	Models                  []json.RawMessage `json:"models"`
+	Enabled                 bool              `json:"enabled"`
+	SupportsByok            bool              `json:"supportsByok"`
+	SupportsRegionalRouting bool              `json:"supportsRegionalRouting"`
 }
 
 type modelDiscoveryPricing struct {
@@ -641,13 +642,18 @@ func mapDiscoveryProviders(items []discoveryProvider) []platform.ProviderCatalog
 			displayName = provider
 		}
 
+		modelCount := len(item.Models)
+		if item.ModelCount != nil {
+			modelCount = *item.ModelCount
+		}
+
 		out = append(out, platform.ProviderCatalogProvider{
 			Provider:                provider,
 			DisplayName:             displayName,
 			Description:             strings.TrimSpace(item.Description),
 			DocsURL:                 strings.TrimSpace(item.DocsURL),
 			LogoURL:                 strings.TrimSpace(item.LogoURL),
-			ModelCount:              item.ModelCount,
+			ModelCount:              modelCount,
 			Enabled:                 item.Enabled,
 			AuthModes:               []platform.ProviderAuthMode{platform.ProviderAuthModeAPIKey},
 			SupportsBringYourOwnKey: item.SupportsByok,

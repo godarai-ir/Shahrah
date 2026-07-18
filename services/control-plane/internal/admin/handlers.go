@@ -272,6 +272,7 @@ type Dependencies struct {
 	Models              modelStore
 	Wallets             walletStore
 	ProviderAccounts    providerAccountStore
+	ProviderSchemas     platformcredentials.SchemaCatalog
 	OrgUnits            orgUnitStore
 	Memberships         membershipStore
 	Users               userStore
@@ -298,6 +299,7 @@ type Handlers struct {
 	models              modelStore
 	wallets             walletStore
 	providerAccounts    providerAccountStore
+	providerSchemas     platformcredentials.SchemaCatalog
 	orgUnits            orgUnitStore
 	memberships         membershipStore
 	users               userStore
@@ -325,6 +327,7 @@ func New(deps Dependencies) *Handlers {
 		models:              deps.Models,
 		wallets:             deps.Wallets,
 		providerAccounts:    deps.ProviderAccounts,
+		providerSchemas:     deps.ProviderSchemas,
 		orgUnits:            deps.OrgUnits,
 		memberships:         deps.Memberships,
 		users:               deps.Users,

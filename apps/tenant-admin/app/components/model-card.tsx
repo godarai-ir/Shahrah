@@ -349,7 +349,7 @@ export function ModelCard(props: ModelCardProps) {
           <MetricPanel label={labels.context} value={formatTokenCount(model.contextWindow)} />
           <PricePanel
             className="lg:col-span-3"
-            label={labels.priceInputOutput}
+            label={labels.pricingPerMillion}
             inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, perMillionPricingDisplay)}
             outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, perMillionPricingDisplay)}
             inputLabel={labels.input}
@@ -564,7 +564,17 @@ function formatPriceValueOnly(
   usdPerMillion: number | undefined,
   display: { currency: "USD" | "TOMAN"; scale: "PER_MILLION_TOKENS" | "PER_TOKEN"; usdToIrr: number },
 ) {
-  return formatPriceWithDisplay(usdPerMillion, display);
+  if (typeof usdPerMillion !== "number" || !Number.isFinite(usdPerMillion)) return "N/A";
+
+  const value = display.scale === "PER_TOKEN" ? usdPerMillion / 1_000_000 : usdPerMillion;
+  if (display.currency === "TOMAN") {
+    const toman = (value * display.usdToIrr) / 10;
+    return `${new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: display.scale === "PER_TOKEN" ? 2 : 0,
+    }).format(toman)} toman`;
+  }
+
+  return `$${trimZeros(value)}`;
 }
 
 function trimZeros(value: number) {

@@ -98,6 +98,7 @@ func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/provider-catalog/display-settings", deps.AdminHandlers.GetProviderCatalogDisplaySettings)
 	api.Get("/provider-catalog/assets/:bucket/:fileName", deps.AdminHandlers.GetProviderCatalogAsset)
 	api.Get("/provider-catalog/providers/:provider/models", deps.AdminHandlers.ListProviderModelsCatalog)
+	api.Get("/provider-catalog/providers/:provider/connection-schemas", deps.AdminHandlers.ListTenantProviderConnectionSchemas)
 	api.Get("/access-principals", deps.AdminHandlers.ListAccessPrincipals)
 	api.Get("/roles", deps.AdminHandlers.ListRoles)
 	api.Post("/roles", deps.AdminHandlers.CreateRole)

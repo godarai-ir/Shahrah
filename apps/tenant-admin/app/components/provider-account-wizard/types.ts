@@ -4,7 +4,31 @@ export type ProviderAuthMode =
   | "azure_entra_cert"
   | "aws_sigv4"
   | "google_service_account"
-  | "no_credential";
+  | "no_credential"
+  | (string & {});
+
+export type ProviderConnectionSchemaField = {
+  key: string;
+  label: string;
+  type: "text" | "url" | "password" | "textarea" | string;
+  secret: boolean;
+  required?: boolean;
+  required_when?: Record<string, unknown>;
+  validation?: { default?: unknown } & Record<string, unknown>;
+  scope: "connection" | "credential";
+  runtime_mapping?: string;
+  help_text?: string;
+  documentation_url?: string;
+  redaction_policy?: string;
+};
+
+export type ProviderConnectionSchema = {
+  provider_slug: string;
+  auth_mode: ProviderAuthMode;
+  version: number;
+  runtime_ready: boolean;
+  fields: ProviderConnectionSchemaField[];
+};
 
 export type ModelType = string;
 
@@ -112,6 +136,7 @@ export type EffectiveModelsResponse = {
 
 export type ProvidersResponse = { data?: ProviderCatalogProvider[] };
 export type ProviderModelsResponse = { data?: ProviderCatalogModel[] };
+export type ProviderConnectionSchemasResponse = { data?: ProviderConnectionSchema[] };
 export type AccountsResponse = { data?: TenantProviderAccount[] };
 export type AccessPrincipalResponse = { data?: AccessPrincipalCandidate[] };
 export type ProviderCatalogStatsResponse = {

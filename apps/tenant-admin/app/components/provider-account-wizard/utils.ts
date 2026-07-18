@@ -538,20 +538,20 @@ export function formatDisplayPrice(
     value = value / 1_000_000;
   }
 
-  let suffix = options.scale === "PER_TOKEN" ? "/ token" : "/ 1M";
   if (options.currency === "TOMAN") {
     const tomanValue = (value * options.usdToIrr) / 10;
     const formatted = new Intl.NumberFormat("en-US", {
       maximumFractionDigits: options.scale === "PER_TOKEN" ? 2 : 0,
     }).format(tomanValue);
-    suffix = options.scale === "PER_TOKEN" ? " toman / token" : " toman / 1M";
-    return `${formatted} ${suffix}`;
+    const scaleSuffix = options.scale === "PER_TOKEN" ? " / token" : "";
+    return `${formatted} toman${scaleSuffix}`;
   }
 
   const formattedUsd = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: options.scale === "PER_TOKEN" ? 8 : 6,
   }).format(value);
-  return `$${formattedUsd} ${suffix}`;
+  const scaleSuffix = options.scale === "PER_TOKEN" ? " / token" : "";
+  return `$${formattedUsd}${scaleSuffix}`;
 }
 
 

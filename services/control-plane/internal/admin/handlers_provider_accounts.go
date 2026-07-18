@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
@@ -115,6 +116,37 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(platform.ProviderModelCatalogListResponse{Data: items})
+}
+
+// ListTenantProviderConnectionSchemas returns the documented provider-specific
+// connection and write-only credential fields used by tenant onboarding.
+func (h *Handlers) ListTenantProviderConnectionSchemas(c *fiber.Ctx) error {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
+		"provider_account:read",
+		"provider_account:manage",
+		"provider_account:create",
+	}); err != nil {
+		return err
+	}
+
+	provider := normalizeProviderSlug(c.Params("provider"))
+	if provider == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "provider is required")
+	}
+
+	if h.providerSchemas == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "provider connection schema catalog is unavailable")
+	}
+
+	items, err := h.providerSchemas.Schemas(c.Context(), provider)
+	if err != nil {
+		if errors.Is(err, platformcredentials.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "provider connection schema not found")
+		}
+		return fiber.NewError(fiber.StatusBadGateway, "provider connection schema is unavailable")
+	}
+
+	return c.JSON(fiber.Map{"data": items})
 }
 
 // GetProviderCatalogAsset proxies provider logo assets from model-discovery.

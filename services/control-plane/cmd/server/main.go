@@ -100,7 +100,12 @@ func main() {
 		platformCredentialManager *platformcredentials.Manager
 		platformCredentialService *platformcredentials.Service
 		platformCredentialBus     *platformcredentials.RedisInvalidationBus
+		providerSchemaCatalog     platformcredentials.SchemaCatalog
 	)
+	providerSchemaCatalog, schemaCatalogErr := platformcredentials.NewModelDiscoverySchemaCatalogFromEnv(nil)
+	if schemaCatalogErr != nil {
+		logger.Warn("Provider connection schema catalog is unavailable", zap.Error(schemaCatalogErr))
+	}
 	if credentialMode != "env" || strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON")) != "" {
 		keks, kekErr := platformcredentials.NewEnvironmentKEKProviderFromEnv()
 		fingerprintKey, fingerprintErr := platformcredentials.FingerprintKeyFromEnv()
@@ -124,11 +129,7 @@ func main() {
 			if redisCache, ok := dualCache.(*cache.DualCache); ok {
 				platformCredentialBus = platformcredentials.NewRedisInvalidationBus(redisCache)
 			}
-			schemaCatalog, schemaCatalogErr := platformcredentials.NewModelDiscoverySchemaCatalogFromEnv(nil)
-			if schemaCatalogErr != nil {
-				logger.Warn("Platform credential schema catalog is unavailable", zap.Error(schemaCatalogErr))
-			}
-			platformCredentialService = platformcredentials.NewService(store, secretStore, platformCredentialManager, platformCredentialBus, schemaCatalog, nil)
+			platformCredentialService = platformcredentials.NewService(store, secretStore, platformCredentialManager, platformCredentialBus, providerSchemaCatalog, nil)
 			credentialRunCtx, cancelCredentials := context.WithCancel(ctx)
 			defer cancelCredentials()
 			go platformCredentialManager.Reconcile(credentialRunCtx, 30*time.Second)
@@ -222,6 +223,7 @@ func main() {
 		Models:              store,
 		Wallets:             store,
 		ProviderAccounts:    store,
+		ProviderSchemas:     providerSchemaCatalog,
 		OrgUnits:            store,
 		Memberships:         store,
 		Users:               store,
