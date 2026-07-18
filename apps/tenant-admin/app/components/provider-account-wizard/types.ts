@@ -181,7 +181,15 @@ export const CURL_GUIDE_LANGUAGE: Record<CurlGuideShell, "powershell" | "bash"> 
   bash: "bash",
 };
 
-export type SupportedCurlGuideMode = "chat" | "completion" | "embedding" | "responses" | "moderation" | "image_generation";
+export type SupportedCurlGuideMode =
+  | "chat"
+  | "completion"
+  | "embedding"
+  | "responses"
+  | "moderation"
+  | "image_generation"
+  | "audio_transcription"
+  | "text_to_speech";
 
 export const SUPPORTED_CURL_GUIDE_MODES: SupportedCurlGuideMode[] = [
   "chat",
@@ -190,6 +198,8 @@ export const SUPPORTED_CURL_GUIDE_MODES: SupportedCurlGuideMode[] = [
   "embedding",
   "moderation",
   "image_generation",
+  "audio_transcription",
+  "text_to_speech",
 ];
 
 

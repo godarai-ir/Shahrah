@@ -105,6 +105,7 @@ type ProviderEndpointConfig struct {
 	AuthMode      string            `mapstructure:"auth_mode"`      // api_key, azure_ad, aws_sigv4, bearer
 	ProjectID     string            `mapstructure:"project_id"`     // For Vertex AI
 	EndpointID    string            `mapstructure:"endpoint_id"`    // For Azure OpenAI
+	RecognizerID  string            `mapstructure:"recognizer_id"`  // For Google Speech-to-Text
 	CustomHeaders map[string]string `mapstructure:"custom_headers"` // Provider-specific headers
 	// AWS-specific
 	AWSRegion    string `mapstructure:"aws_region"`

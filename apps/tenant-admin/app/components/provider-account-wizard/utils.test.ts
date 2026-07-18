@@ -136,6 +136,120 @@ describe("provider account curl guide helpers", () => {
     })).toBe("image_generation");
   });
 
+  it("builds multipart speech-to-text samples for audio transcription models", () => {
+    const modelFqn = "openai:default:gpt-4o-transcribe";
+    const mode = resolveCurlGuideMode({
+      provider: "openai",
+      model: "gpt-4o-transcribe",
+      display_name: "GPT-4o Transcribe",
+      mode: ["audio_transcription"],
+      types: ["audio_transcription"],
+      input_modalities: ["audio"],
+      output_modalities: ["text"],
+    });
+    const payload = buildCurlGuidePayload(mode, modelFqn);
+    const command = buildBashCurlGuideCommand({
+      baseUrl: "http://tenant1.localhost:4000",
+      endpoint: getCurlGuideEndpoint(mode),
+      payload,
+    });
+    const response = buildCurlGuideSampleResponse(mode, "gpt-4o-transcribe");
+
+    expect(mode).toBe("audio_transcription");
+    expect(getCurlGuideEndpoint(mode)).toBe("/v1/audio/transcriptions");
+    expect(payload).toEqual({
+      model: modelFqn,
+      language: "fa",
+      response_format: "json",
+    });
+    expect(command).toContain("/v1/audio/transcriptions");
+    expect(command).toContain("Authorization: Bearer <PAT_TOKEN>");
+    expect(command).not.toContain("Content-Type: application/json");
+    expect(command).toContain(`--form 'model=${modelFqn}'`);
+    expect(command).toContain("--form 'language=fa'");
+    expect(command).toContain("--form 'response_format=json'");
+    expect(command).toContain("--form 'file=@sample.wav;type=audio/wav'");
+    expect(response).toContain('"text"');
+  });
+
+  it("detects STT and transcription aliases for the transcription sample", () => {
+    expect(resolveCurlGuideMode({
+      provider: "deepgram",
+      model: "nova-3-general",
+      display_name: "Nova 3",
+      types: ["stt"],
+    })).toBe("audio_transcription");
+
+    expect(resolveCurlGuideMode({
+      provider: "cohere",
+      model: "cohere-transcribe-03-2026",
+      display_name: "Cohere Transcribe",
+      mode: ["transcription"],
+      types: [],
+    })).toBe("audio_transcription");
+  });
+
+  it("builds JSON text-to-speech samples for TTS models", () => {
+    const modelFqn = "openai:default:gpt-4o-mini-tts";
+    const mode = resolveCurlGuideMode({
+      provider: "openai",
+      model: "gpt-4o-mini-tts",
+      display_name: "GPT-4o mini TTS",
+      mode: ["text_to_speech"],
+      types: ["tts"],
+      input_modalities: ["text"],
+      output_modalities: ["audio"],
+    });
+    const payload = buildCurlGuidePayload(mode, modelFqn);
+    const bashCommand = buildBashCurlGuideCommand({
+      baseUrl: "http://tenant1.localhost:4000",
+      endpoint: getCurlGuideEndpoint(mode),
+      payload,
+    });
+    const powershellCommand = buildPowerShellCurlGuideCommand({
+      baseUrl: "http://tenant1.localhost:4000",
+      endpoint: getCurlGuideEndpoint(mode),
+      mode,
+      modelFqn,
+    });
+
+    expect(mode).toBe("text_to_speech");
+    expect(getCurlGuideEndpoint(mode)).toBe("/v1/audio/speech");
+    expect(payload).toEqual({
+      model: modelFqn,
+      input: "سلام، به گدارAI خوش آمدید.",
+      voice: "alloy",
+      response_format: "mp3",
+    });
+    expect(bashCommand).toContain("/v1/audio/speech");
+    expect(bashCommand).toContain("Content-Type: application/json");
+    expect(bashCommand).toContain('"voice": "alloy"');
+    expect(bashCommand).toContain("--output speech.mp3");
+    expect(powershellCommand).toContain("/v1/audio/speech");
+    expect(powershellCommand).toContain("Invoke-WebRequest");
+    expect(powershellCommand).toContain('voice = "alloy"');
+    expect(powershellCommand).toContain('response_format = "mp3"');
+    expect(powershellCommand).toContain('-OutFile ".\\speech.mp3"');
+  });
+
+  it("builds PowerShell transcription samples as multipart form requests", () => {
+    const command = buildPowerShellCurlGuideCommand({
+      baseUrl: "http://tenant1.localhost:4000",
+      endpoint: getCurlGuideEndpoint("audio_transcription"),
+      mode: "audio_transcription",
+      modelFqn: "openai:default:gpt-4o-transcribe",
+    });
+
+    expect(command).toContain("/v1/audio/transcriptions");
+    expect(command).toContain('Authorization = "Bearer <PAT_TOKEN>"');
+    expect(command).not.toContain('"Content-Type" = "application/json"');
+    expect(command).toContain("$form = @{");
+    expect(command).toContain('model = "openai:default:gpt-4o-transcribe"');
+    expect(command).toContain('language = "fa"');
+    expect(command).toContain('file = Get-Item ".\\sample.wav"');
+    expect(command).toContain("-Form $form");
+  });
+
   it("builds PowerShell image generation samples with the selected model", () => {
     const command = buildPowerShellCurlGuideCommand({
       baseUrl: "http://tenant1.localhost:4000",

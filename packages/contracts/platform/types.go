@@ -231,6 +231,9 @@ type Deployment struct {
 	APIBase             string                 `json:"api_base,omitempty"`
 	APIKey              string                 `json:"api_key,omitempty"`
 	APIVersion          string                 `json:"api_version,omitempty"`
+	ProjectID           string                 `json:"project_id,omitempty"`
+	EndpointID          string                 `json:"endpoint_id,omitempty"`
+	RecognizerID        string                 `json:"recognizer_id,omitempty"`
 	ProviderHeaders     map[string]string      `json:"provider_headers,omitempty"`
 	RegionName          string                 `json:"region_name,omitempty"`
 	RPM                 int64                  `json:"rpm,omitempty"`

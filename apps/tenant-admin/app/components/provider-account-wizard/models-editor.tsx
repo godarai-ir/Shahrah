@@ -493,11 +493,10 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     outputPrice: "",
     error: "",
   });
-  useEffect(() => {
-    if (!canUseCustomPricing) {
-      setPricingEditor((prev) => (prev.open ? { ...prev, open: false, error: "" } : prev));
-    }
-  }, [canUseCustomPricing]);
+  const pricingEditorView = useMemo<PricingEditorState>(() => {
+    if (canUseCustomPricing) return pricingEditor;
+    return { ...pricingEditor, open: false, error: "" };
+  }, [canUseCustomPricing, pricingEditor]);
   const deferredFilters = useDeferredValue(filters);
   const tenantBaseUrl = useMemo(() => {
     return getTenantApiBaseURL();
@@ -1101,7 +1100,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                       openCurlGuide={openCurlGuide}
                       openPricingEditor={openPricingEditor}
                       closePricingEditor={closePricingEditor}
-                      pricingEditor={pricingEditor}
+                      pricingEditor={pricingEditorView}
                       renderPricingEditorContent={renderPricingEditorContent}
                       setModelEnabled={setModelEnabled}
                       toModelCardData={toModelCardData}
@@ -1349,7 +1348,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               openCurlGuide={openCurlGuide}
               openPricingEditor={openPricingEditor}
               closePricingEditor={closePricingEditor}
-              pricingEditor={pricingEditor}
+              pricingEditor={pricingEditorView}
               renderPricingEditorContent={renderPricingEditorContent}
               setModelEnabled={setModelEnabled}
               toModelCardData={toModelCardData}

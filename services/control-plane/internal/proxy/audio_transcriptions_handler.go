@@ -181,8 +181,12 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
 
-	if !supportsAudioTranscriptionsProvider(dep.Provider) {
-		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Audio transcriptions API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
+	providerSupport := audioTranscriptionsProviderSupport(dep.Provider)
+	if !providerSupport.Supported {
+		return writeAPIError(c, fiber.StatusNotImplemented, providerSupport.Message, "invalid_request_error")
+	}
+	if reqMeta.Stream && !providerSupport.Streaming {
+		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Streaming audio transcriptions are not supported for provider: %s", dep.Provider), "invalid_request_error")
 	}
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
@@ -197,6 +201,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		"tenant_slug":               apiheaders.GetTenant(c),
 		"model":                     requestedModel,
 		"provider_endpoint_path":    audioTranscriptionsPath,
+		"provider_adapter_kind":     providerSupport.Kind,
 		"operation":                 "transcriptions",
 		"usage_reconciliation_mode": "audio_usage_reconciliation",
 	}
@@ -859,11 +864,34 @@ func responseContentType(headers map[string]string) string {
 	return ""
 }
 
-func supportsAudioTranscriptionsProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "groq", "togetherai", "together-ai", "openrouter", "sambanova", "deepinfra", "fireworks", "mock":
-		return true
-	default:
-		return false
+type audioTranscriptionsProviderSupportInfo struct {
+	Supported bool
+	Streaming bool
+	Message   string
+	Kind      string
+}
+
+func audioTranscriptionsProviderSupport(provider string) audioTranscriptionsProviderSupportInfo {
+	normalized := strings.ToLower(strings.TrimSpace(provider))
+	info := audioTranscriptionsProviderSupportInfo{
+		Message: fmt.Sprintf("Audio transcriptions API is not enabled for provider: %s", provider),
 	}
+
+	switch normalized {
+	case "", "openai", "azure", "azure-open-ai", "groq", "mistral", "mistral-ai", "togetherai", "together-ai", "openrouter", "sambanova", "deepinfra", "fireworks", "mock":
+		info.Supported = true
+		info.Streaming = true
+		info.Kind = "openai_compatible"
+	case "deepgram", "cohere", "google-vertex", "vertex", "vertex-ai", "vertexai":
+		info.Supported = true
+		info.Kind = "native"
+	case "aws-bedrock", "bedrock":
+		info.Message = "Audio transcriptions API is not enabled for provider: aws-bedrock; Nova Sonic is a realtime speech-to-speech model, not uploaded-file transcription"
+	}
+
+	return info
+}
+
+func supportsAudioTranscriptionsProvider(provider string) bool {
+	return audioTranscriptionsProviderSupport(provider).Supported
 }

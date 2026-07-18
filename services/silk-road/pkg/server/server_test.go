@@ -2,7 +2,9 @@ package server
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -540,6 +542,280 @@ func TestDispatchOpenAICompatibleForwardsAudioTranscriptionsMultipart(t *testing
 		if !strings.Contains(gotBody, want) {
 			t.Fatalf("forwarded body missing %s: %s", want, gotBody)
 		}
+	}
+}
+
+func TestDispatchDeepgramAudioTranscriptionsAdapter(t *testing.T) {
+	t.Parallel()
+
+	var gotAuth string
+	var gotContentType string
+	var gotPath string
+	var gotModel string
+	var gotBody string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotContentType = r.Header.Get("Content-Type")
+		gotPath = r.URL.Path
+		gotModel = r.URL.Query().Get("model")
+		defer r.Body.Close()
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		gotBody = string(bodyBytes)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results":{"channels":[{"alternatives":[{"transcript":"سلام از دیپ‌گرام"}]}]}}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "deepgram", APIBase: upstream.URL, APIKey: "deepgram-secret", Model: "deepgram/nova-3-general"},
+		Headers:    map[string]string{"Content-Type": "multipart/form-data; boundary=shahrah-audio-boundary"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/transcriptions",
+		},
+		Body: audioMultipartPayloadBody("shahrah-audio-boundary", map[string]string{"language": "fa"}, "sample.wav", "audio/wav", "fake-audio"),
+	}
+	req := dispatchRequest(t, payload)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/v1/listen" {
+		t.Fatalf("expected Deepgram listen path, got %q", gotPath)
+	}
+	if gotModel != "nova-3-general" {
+		t.Fatalf("expected stripped Deepgram model, got %q", gotModel)
+	}
+	if gotAuth != "Token deepgram-secret" {
+		t.Fatalf("unexpected Authorization header: %q", gotAuth)
+	}
+	if gotContentType != "audio/wav" {
+		t.Fatalf("unexpected content type: %q", gotContentType)
+	}
+	if gotBody != "fake-audio" {
+		t.Fatalf("unexpected body: %q", gotBody)
+	}
+	if !strings.Contains(rec.Body.String(), `"text":"سلام از دیپ‌گرام"`) {
+		t.Fatalf("expected normalized transcript response, got %s", rec.Body.String())
+	}
+}
+
+func TestDispatchCohereAudioTranscriptionsAdapter(t *testing.T) {
+	t.Parallel()
+
+	var gotAuth string
+	var gotPath string
+	var gotModel string
+	var gotLanguage string
+	var gotFile string
+	var gotFileContentType string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotPath = r.URL.Path
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatalf("parse multipart: %v", err)
+		}
+		gotModel = r.FormValue("model")
+		gotLanguage = r.FormValue("language")
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			t.Fatalf("read file: %v", err)
+		}
+		gotFileContentType = header.Header.Get("Content-Type")
+		defer file.Close()
+		bodyBytes, err := io.ReadAll(file)
+		if err != nil {
+			t.Fatalf("read file body: %v", err)
+		}
+		gotFile = string(bodyBytes)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"text":"cohere ok"}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "cohere", APIBase: upstream.URL, APIKey: "cohere-secret", Model: "cohere/cohere-transcribe-03-2026"},
+		Headers:    map[string]string{"Content-Type": "multipart/form-data; boundary=shahrah-cohere-boundary"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/transcriptions",
+		},
+		Body: audioMultipartPayloadBody("shahrah-cohere-boundary", map[string]string{"language": "fa"}, "sample.wav", "audio/wav", "fake-audio"),
+	}
+	req := dispatchRequest(t, payload)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/v2/audio/transcriptions" {
+		t.Fatalf("expected Cohere transcription path, got %q", gotPath)
+	}
+	if gotAuth != "Bearer cohere-secret" {
+		t.Fatalf("unexpected Authorization header: %q", gotAuth)
+	}
+	if gotModel != "cohere-transcribe-03-2026" {
+		t.Fatalf("expected stripped Cohere model, got %q", gotModel)
+	}
+	if gotLanguage != "fa" {
+		t.Fatalf("expected language fa, got %q", gotLanguage)
+	}
+	if gotFile != "fake-audio" {
+		t.Fatalf("unexpected file body: %q", gotFile)
+	}
+	if gotFileContentType != "audio/wav" {
+		t.Fatalf("unexpected file content type: %q", gotFileContentType)
+	}
+	if !strings.Contains(rec.Body.String(), `"text":"cohere ok"`) {
+		t.Fatalf("expected Cohere body passthrough, got %s", rec.Body.String())
+	}
+}
+
+func TestDispatchGoogleVertexAudioTranscriptionsAdapter(t *testing.T) {
+	t.Parallel()
+
+	var gotAuth string
+	var gotPath string
+	var gotModel string
+	var gotLanguage []interface{}
+	var gotContent string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotPath = r.URL.Path
+		defer r.Body.Close()
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		config, _ := body["config"].(map[string]interface{})
+		gotModel, _ = config["model"].(string)
+		gotLanguage, _ = config["languageCodes"].([]interface{})
+		gotContent, _ = body["content"].(string)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results":[{"alternatives":[{"transcript":"سلام"}]},{"alternatives":[{"transcript":"دنیا"}]}]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider:     "google-vertex",
+			APIBase:      upstream.URL,
+			APIKey:       "google-token",
+			Model:        "google-vertex/google/chirp-3",
+			ProjectID:    "project-1",
+			RegionName:   "global",
+			RecognizerID: "recognizer-1",
+		},
+		Headers: map[string]string{"Content-Type": "multipart/form-data; boundary=shahrah-google-boundary"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/transcriptions",
+		},
+		Body: audioMultipartPayloadBody("shahrah-google-boundary", map[string]string{"language": "fa-IR"}, "sample.wav", "audio/wav", "fake-audio"),
+	}
+	req := dispatchRequest(t, payload)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/projects/project-1/locations/global/recognizers/recognizer-1:recognize" {
+		t.Fatalf("expected Google recognize path, got %q", gotPath)
+	}
+	if gotAuth != "Bearer google-token" {
+		t.Fatalf("unexpected Authorization header: %q", gotAuth)
+	}
+	if gotModel != "google/chirp-3" {
+		t.Fatalf("expected Google model, got %q", gotModel)
+	}
+	if len(gotLanguage) != 1 || gotLanguage[0] != "fa-IR" {
+		t.Fatalf("expected languageCodes [fa-IR], got %#v", gotLanguage)
+	}
+	if gotContent != base64.StdEncoding.EncodeToString([]byte("fake-audio")) {
+		t.Fatalf("unexpected base64 content: %q", gotContent)
+	}
+	if !strings.Contains(rec.Body.String(), `"text":"سلام\nدنیا"`) {
+		t.Fatalf("expected normalized Google transcript response, got %s", rec.Body.String())
+	}
+}
+
+func TestDispatchGoogleVertexAudioTranscriptionsAdapterAcceptsRecognizerResourceName(t *testing.T) {
+	t.Parallel()
+
+	var gotPath string
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results":[{"alternatives":[{"transcript":"ok"}]}]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider:     "google-vertex",
+			APIBase:      upstream.URL,
+			APIKey:       "google-token",
+			Model:        "google-vertex/google/chirp-3",
+			RecognizerID: "projects/project-1/locations/global/recognizers/recognizer-1",
+		},
+		Headers: map[string]string{"Content-Type": "multipart/form-data; boundary=shahrah-google-boundary"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/transcriptions",
+		},
+		Body: audioMultipartPayloadBody("shahrah-google-boundary", map[string]string{"language": "fa-IR"}, "sample.wav", "audio/wav", "fake-audio"),
+	}
+	req := dispatchRequest(t, payload)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if gotPath != "/projects/project-1/locations/global/recognizers/recognizer-1:recognize" {
+		t.Fatalf("expected Google recognize path, got %q", gotPath)
+	}
+}
+
+func TestDispatchCohereAudioTranscriptionsRequiresLanguage(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(nil)
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{Provider: "cohere", APIKey: "cohere-secret", Model: "cohere/cohere-transcribe-03-2026"},
+		Headers:    map[string]string{"Content-Type": "multipart/form-data; boundary=shahrah-cohere-boundary"},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/transcriptions",
+		},
+		Body: audioMultipartPayloadBody("shahrah-cohere-boundary", nil, "sample.wav", "audio/wav", "fake-audio"),
+	}
+	req := dispatchRequest(t, payload)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "language is required") {
+		t.Fatalf("expected language validation error, got %s", rec.Body.String())
 	}
 }
 
@@ -1198,4 +1474,40 @@ func TestCanonicalAnthropicModel(t *testing.T) {
 			t.Fatalf("canonicalAnthropicModel(%q) = %q, want %q", input, got, want)
 		}
 	}
+}
+
+func dispatchRequest(t *testing.T, payload platform.TunnelRequest) *http.Request {
+	t.Helper()
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+
+	return req
+}
+
+func audioMultipartPayloadBody(boundary string, fields map[string]string, filename string, contentType string, fileBody string) []byte {
+	lines := make([]string, 0, 12+len(fields)*4)
+	for key, value := range fields {
+		lines = append(lines,
+			"--"+boundary,
+			fmt.Sprintf(`Content-Disposition: form-data; name="%s"`, key),
+			"",
+			value,
+		)
+	}
+	lines = append(lines,
+		"--"+boundary,
+		fmt.Sprintf(`Content-Disposition: form-data; name="file"; filename="%s"`, filename),
+		"Content-Type: "+contentType,
+		"",
+		fileBody,
+		"--"+boundary+"--",
+		"",
+	)
+
+	return []byte(strings.Join(lines, "\r\n"))
 }

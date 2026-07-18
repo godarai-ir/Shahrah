@@ -18,8 +18,11 @@ func newCohereAdapter() providerAdapter {
 
 func (a *cohereAdapter) Dispatch(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
 	path := openAICompatiblePath(payload)
+	if path == audioTranscriptionsPath {
+		return cohereAudioTranscriptionsDispatch(ctx, client, payload)
+	}
 	if path != "/v2/rerank" && path != "/rerank" {
-		return nil, fmt.Errorf("cohere adapter only supports rerank")
+		return nil, fmt.Errorf("cohere adapter only supports rerank and audio transcriptions")
 	}
 
 	target, err := resolveBaseURL(payload.Deployment.APIBase, "https://api.cohere.com")

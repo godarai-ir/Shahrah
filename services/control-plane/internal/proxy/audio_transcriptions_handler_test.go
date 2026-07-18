@@ -130,6 +130,85 @@ func TestAudioTranscriptionsHandlerMultipartSuccess(t *testing.T) {
 	assert.Contains(t, string(rawEntry), "text_length")
 }
 
+func TestAudioTranscriptionsHandlerSupportedProviderRouting(t *testing.T) {
+	cases := []struct {
+		name            string
+		provider        string
+		modelName       string
+		deploymentModel string
+		wantKind        string
+	}{
+		{name: "azure openai", provider: "azure-open-ai", modelName: "azure-open-ai:acct:whisper-1", deploymentModel: "whisper-1", wantKind: "openai_compatible"},
+		{name: "groq", provider: "groq", modelName: "groq:acct:whisper-large-v3", deploymentModel: "whisper-large-v3", wantKind: "openai_compatible"},
+		{name: "mistral", provider: "mistral-ai", modelName: "mistral-ai:acct:voxtral-mini-transcribe-2507", deploymentModel: "voxtral-mini-transcribe-2507", wantKind: "openai_compatible"},
+		{name: "together", provider: "together-ai", modelName: "together-ai:acct:openai/whisper-large-v3", deploymentModel: "openai/whisper-large-v3", wantKind: "openai_compatible"},
+		{name: "deepgram", provider: "deepgram", modelName: "deepgram:acct:nova-3-general", deploymentModel: "deepgram/nova-3-general", wantKind: "native"},
+		{name: "cohere", provider: "cohere", modelName: "cohere:acct:cohere-transcribe-03-2026", deploymentModel: "cohere/cohere-transcribe-03-2026", wantKind: "native"},
+		{name: "google vertex", provider: "google-vertex", modelName: "google-vertex:acct:google/chirp-3", deploymentModel: "google/chirp-3", wantKind: "native"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body, contentType := buildMultipartBody(t, map[string]string{"model": tc.modelName}, map[string][]byte{"file": []byte("audio")})
+			tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+				StatusCode: fiber.StatusOK,
+				Headers:    map[string]string{"content-type": "application/json"},
+				Body:       []byte(`{"text":"ok"}`),
+			}}
+			app, _ := newAudioTranscriptionsTestApp(t, tc.modelName, tc.provider, tc.deploymentModel, tunnel, nil, nil)
+
+			req := httptest.NewRequest("POST", "/v1/audio/transcriptions", bytes.NewReader(body))
+			req.Header.Set("Content-Type", contentType)
+
+			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+
+			require.NoError(t, err)
+			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+			assert.Equal(t, tc.wantKind, tunnel.lastReq.RequestMetadata["provider_adapter_kind"])
+			assert.Equal(t, "/audio/transcriptions", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
+		})
+	}
+}
+
+func TestAudioTranscriptionsHandlerGatesBedrockNovaSonic(t *testing.T) {
+	body, contentType := buildMultipartBody(t, map[string]string{"model": "aws-bedrock:acct:amazon.nova-2-sonic-v1:0"}, map[string][]byte{"file": []byte("audio")})
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
+	app, _ := newAudioTranscriptionsTestApp(t, "aws-bedrock:acct:amazon.nova-2-sonic-v1:0", "aws-bedrock", "amazon.nova-2-sonic-v1:0", tunnel, nil, nil)
+
+	req := httptest.NewRequest("POST", "/v1/audio/transcriptions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNotImplemented, resp.StatusCode)
+	assert.Empty(t, tunnel.lastReq.RequestID)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(bodyBytes), "Nova Sonic")
+}
+
+func TestAudioTranscriptionsHandlerRejectsNativeProviderStreaming(t *testing.T) {
+	body, contentType := buildMultipartBody(t, map[string]string{"model": "deepgram:acct:nova-3-general", "stream": "true"}, map[string][]byte{"file": []byte("audio")})
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
+	app, _ := newAudioTranscriptionsTestApp(t, "deepgram:acct:nova-3-general", "deepgram", "deepgram/nova-3-general", tunnel, nil, nil)
+
+	req := httptest.NewRequest("POST", "/v1/audio/transcriptions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Empty(t, tunnel.lastReq.RequestID)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(bodyBytes), "Streaming audio transcriptions are not supported")
+}
+
 func TestAudioTranscriptionsHandlerValidationErrors(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
 	app, _ := newAudioTranscriptionsTestApp(t, "gpt-4o-transcribe", "openai", "gpt-4o-transcribe", tunnel, nil, nil)

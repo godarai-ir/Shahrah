@@ -540,6 +540,9 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		APIKey:        dep.APIKey,
 		APIBase:       dep.APIBase,
 		APIVersion:    dep.APIVersion,
+		ProjectID:     dep.ProjectID,
+		EndpointID:    dep.EndpointID,
+		RecognizerID:  dep.RecognizerID,
 		CustomHeaders: dep.ProviderHeaders,
 		RPM:           dep.RPM,
 		TPM:           dep.TPM,
@@ -562,6 +565,18 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 
 			if strings.TrimSpace(params.APIVersion) == "" {
 				params.APIVersion = shared.Params.APIVersion
+			}
+
+			if strings.TrimSpace(params.ProjectID) == "" {
+				params.ProjectID = shared.Params.ProjectID
+			}
+
+			if strings.TrimSpace(params.EndpointID) == "" {
+				params.EndpointID = shared.Params.EndpointID
+			}
+
+			if strings.TrimSpace(params.RecognizerID) == "" {
+				params.RecognizerID = shared.Params.RecognizerID
 			}
 
 			if strings.TrimSpace(params.RegionName) == "" {
@@ -603,6 +618,9 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		APIBase:             params.APIBase,
 		APIKey:              params.APIKey,
 		APIVersion:          params.APIVersion,
+		ProjectID:           params.ProjectID,
+		EndpointID:          params.EndpointID,
+		RecognizerID:        params.RecognizerID,
 		ProviderHeaders:     params.CustomHeaders,
 		RegionName:          params.RegionName,
 		RPM:                 params.RPM,

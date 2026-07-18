@@ -68,7 +68,7 @@ export function getModelModes(model: Pick<ProviderCatalogModel, "mode" | "modes"
 export function resolveCurlGuideMode(
   model: Pick<
     ProviderCatalogModel,
-    "provider" | "model" | "display_name" | "mode" | "modes" | "types" | "capabilities" | "features" | "output_modalities"
+    "provider" | "model" | "display_name" | "mode" | "modes" | "types" | "capabilities" | "features" | "input_modalities" | "output_modalities"
   >,
 ): SupportedCurlGuideMode {
   const modes = [
@@ -77,8 +77,14 @@ export function resolveCurlGuideMode(
     ...normalizeCapabilityList(model.capabilities),
     ...normalizeCapabilityList(model.features),
   ];
+  const inputModalities = normalizeCapabilityList(model.input_modalities);
+  const outputModalities = normalizeCapabilityList(model.output_modalities);
   if (modes.some(isModerationCapability)) return "moderation";
-  if ([...modes, ...normalizeCapabilityList(model.output_modalities)].some(isImageGenerationCapability)) {
+  if (modes.some(isTextToSpeechCapability)) return "text_to_speech";
+  if (modes.some(isAudioTranscriptionCapability)) return "audio_transcription";
+  if (inputModalities.includes("text") && outputModalities.includes("audio")) return "text_to_speech";
+  if (inputModalities.includes("audio") && outputModalities.includes("text")) return "audio_transcription";
+  if ([...modes, ...outputModalities].some(isImageGenerationCapability)) {
     return "image_generation";
   }
   for (const mode of modes) {
@@ -101,6 +107,23 @@ export function isImageGenerationCapability(value: string): boolean {
   return normalized === "image" || normalized === "image_generation" || normalized === "image_generation_api";
 }
 
+export function isTextToSpeechCapability(value: string): boolean {
+  const normalized = normalizeCurlGuideCapability(value);
+  return normalized === "text_to_speech" || normalized === "tts" || normalized === "audio_speech" || normalized === "speech_synthesis";
+}
+
+export function isAudioTranscriptionCapability(value: string): boolean {
+  const normalized = normalizeCurlGuideCapability(value);
+  return (
+    normalized === "audio_transcription" ||
+    normalized === "audio_transcriptions" ||
+    normalized === "speech_to_text" ||
+    normalized === "stt" ||
+    normalized === "transcription" ||
+    normalized === "transcribe"
+  );
+}
+
 export function getCurlGuideEndpoint(mode: SupportedCurlGuideMode): string {
   switch (mode) {
     case "completion":
@@ -113,6 +136,10 @@ export function getCurlGuideEndpoint(mode: SupportedCurlGuideMode): string {
       return "/v1/moderations";
     case "image_generation":
       return "/v1/images/generations";
+    case "audio_transcription":
+      return "/v1/audio/transcriptions";
+    case "text_to_speech":
+      return "/v1/audio/speech";
     case "chat":
     default:
       return "/v1/chat/completions";
@@ -151,6 +178,19 @@ export function buildCurlGuidePayload(mode: SupportedCurlGuideMode, modelFqn: st
         quality: "standard",
         response_format: "url",
       };
+    case "audio_transcription":
+      return {
+        model: modelFqn,
+        language: "fa",
+        response_format: "json",
+      };
+    case "text_to_speech":
+      return {
+        model: modelFqn,
+        input: "سلام، به گدارAI خوش آمدید.",
+        voice: "alloy",
+        response_format: "mp3",
+      };
     case "chat":
     default:
       return {
@@ -170,7 +210,31 @@ export function buildBashCurlGuideCommand(input: {
   endpoint: string;
   payload: Record<string, unknown>;
 }): string {
+  if (input.endpoint === "/v1/audio/transcriptions") {
+    const model = escapeShellSingleQuoted(String(input.payload.model ?? ""));
+    const language = escapeShellSingleQuoted(String(input.payload.language ?? "fa"));
+    const responseFormat = escapeShellSingleQuoted(String(input.payload.response_format ?? "json"));
+    return [
+      `curl --location '${input.baseUrl}${input.endpoint}' \\`,
+      `  --header 'Authorization: Bearer <PAT_TOKEN>' \\`,
+      `  --form 'model=${model}' \\`,
+      `  --form 'language=${language}' \\`,
+      `  --form 'response_format=${responseFormat}' \\`,
+      `  --form 'file=@sample.wav;type=audio/wav'`,
+    ].join("\n");
+  }
+
   const payload = JSON.stringify(input.payload, null, 2).replaceAll("'", "'\\''");
+  if (input.endpoint === "/v1/audio/speech") {
+    return [
+      `curl --location '${input.baseUrl}${input.endpoint}' \\`,
+      `  --header 'Authorization: Bearer <PAT_TOKEN>' \\`,
+      `  --header 'Content-Type: application/json' \\`,
+      `  --data '${payload}' \\`,
+      `  --output speech.mp3`,
+    ].join("\n");
+  }
+
   return [
     `curl --location '${input.baseUrl}${input.endpoint}' \\`,
     `  --header 'Authorization: Bearer <PAT_TOKEN>' \\`,
@@ -190,6 +254,7 @@ export function buildPowerShellCurlGuideCommand(input: {
   const embeddingInput = "سلام، این متن را برای جستجو برداری کن";
   const moderationInput = "I want to check this text for policy violations.";
   const imagePrompt = "A cinematic photo of Tehran at sunrise";
+  const speechInput = "سلام، به گدارAI خوش آمدید.";
   const bodyLines = (() => {
     switch (input.mode) {
       case "completion":
@@ -232,6 +297,24 @@ export function buildPowerShellCurlGuideCommand(input: {
           '  response_format = "url"',
           "} | ConvertTo-Json -Depth 5",
         ];
+      case "audio_transcription":
+        return [
+          "$form = @{",
+          `  model = "${modelFqn}"`,
+          '  language = "fa"',
+          '  response_format = "json"',
+          '  file = Get-Item ".\\sample.wav"',
+          "}",
+        ];
+      case "text_to_speech":
+        return [
+          "$body = @{",
+          `  model = "${modelFqn}"`,
+          `  input = "${speechInput}"`,
+          '  voice = "alloy"',
+          '  response_format = "mp3"',
+          "} | ConvertTo-Json -Depth 5",
+        ];
       case "chat":
       default:
         return [
@@ -248,22 +331,41 @@ export function buildPowerShellCurlGuideCommand(input: {
     }
   })();
 
-  return [
+  const requestLines = [
     "$headers = @{",
     '  Authorization = "Bearer <PAT_TOKEN>"',
-    '  "Content-Type" = "application/json"',
+    ...(input.mode === "audio_transcription" ? [] : ['  "Content-Type" = "application/json"']),
     "}",
     "",
     ...bodyLines,
     "",
-    "Invoke-RestMethod -Method Post `",
+    input.mode === "text_to_speech" ? "Invoke-WebRequest -Method Post `" : "Invoke-RestMethod -Method Post `",
     `  -Uri "${input.baseUrl}${input.endpoint}" \``,
     "  -Headers $headers `",
-    "  -Body $body",
-  ].join("\n");
+  ];
+
+  if (input.mode === "audio_transcription") {
+    return [...requestLines, "  -Form $form"].join("\n");
+  }
+
+  if (input.mode === "text_to_speech") {
+    return [...requestLines, "  -Body $body `", '  -OutFile ".\\speech.mp3"'].join("\n");
+  }
+
+  return [...requestLines, "  -Body $body"].join("\n");
 }
 
 export function buildCurlGuideSampleResponse(mode: SupportedCurlGuideMode, modelName: string): string | undefined {
+  if (mode === "audio_transcription") {
+    return JSON.stringify(
+      {
+        text: "سلام، این یک نمونه تبدیل گفتار به متن است.",
+      },
+      null,
+      2,
+    );
+  }
+
   if (mode !== "moderation") return undefined;
 
   return JSON.stringify(
@@ -293,6 +395,14 @@ export function buildCurlGuideSampleResponse(mode: SupportedCurlGuideMode, model
     null,
     2,
   );
+}
+
+function normalizeCurlGuideCapability(value: string): string {
+  return value.trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
+}
+
+function escapeShellSingleQuoted(value: string): string {
+  return value.replaceAll("'", "'\\''");
 }
 
 export function getModelCapabilities(model: Pick<ProviderCatalogModel, "capabilities" | "features">): string[] {
