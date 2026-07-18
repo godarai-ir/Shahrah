@@ -20,7 +20,6 @@ export type WizardAccountModel = {
 
 export type WizardModelDraft = {
   enabled: boolean;
-  compared: boolean;
   selectedCapabilities: string[];
   pricingMode: "public" | "private";
   inputPrice: string;
@@ -48,6 +47,21 @@ export type WizardModelValidationError = {
   reason: WizardModelValidationErrorReason;
 };
 
+export type WizardProviderAccountPricingPolicy = {
+  auth_mode?: string;
+  has_credential?: boolean;
+  use_platform_managed_credentials?: boolean;
+} | null | undefined;
+
+export function canUseCustomModelPricing(account: WizardProviderAccountPricingPolicy): boolean {
+  return Boolean(
+    account &&
+    account.has_credential &&
+    !account.use_platform_managed_credentials &&
+    account.auth_mode !== "no_credential",
+  );
+}
+
 function normalizeCapabilities(values: string[] | undefined): string[] {
   if (!Array.isArray(values)) return [];
   const seen = new Set<string>();
@@ -65,7 +79,6 @@ function createDefaultDraft(model: WizardCatalogModel): WizardModelDraft {
   const capabilities = normalizeCapabilities(model.types);
   return {
     enabled: false,
-    compared: false,
     selectedCapabilities: capabilities.length === 1 ? capabilities : [],
     pricingMode: "public",
     inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
@@ -92,7 +105,6 @@ export function buildDraftsForAccount(
   for (const item of models) {
     next[item.model] = {
       enabled: item.enabled,
-      compared: false,
       selectedCapabilities: normalizeCapabilities(item.types),
       pricingMode: item.pricing_mode ?? "public",
       inputPrice: item.private_pricing?.input_usd_per_1m?.toString() ?? "",
@@ -137,21 +149,26 @@ export function clearVisibleModelSelection(
 
 export function buildSelectedModelPayload(
   drafts: Record<string, WizardModelDraft>,
+  options: { canUseCustomPricing?: boolean } = {},
 ): { models: WizardModelSavePayload[]; validationErrors: WizardModelValidationError[] } {
+  const canUseCustomPricing = options.canUseCustomPricing ?? true;
   const models = Object.entries(drafts)
     .filter(([, draft]) => draft.enabled)
-    .map(([model, draft]) => ({
-      model,
-      effective_capabilities: normalizeCapabilities(draft.selectedCapabilities),
-      pricing_mode: draft.pricingMode,
-      private_pricing:
-        draft.pricingMode === "private"
-          ? {
-              input_usd_per_1m: toNumberOrUndefined(draft.inputPrice),
-              output_usd_per_1m: toNumberOrUndefined(draft.outputPrice),
-            }
-          : undefined,
-    }));
+    .map(([model, draft]) => {
+      const pricingMode = canUseCustomPricing ? draft.pricingMode : "public";
+      return {
+        model,
+        effective_capabilities: normalizeCapabilities(draft.selectedCapabilities),
+        pricing_mode: pricingMode,
+        private_pricing:
+          pricingMode === "private"
+            ? {
+                input_usd_per_1m: toNumberOrUndefined(draft.inputPrice),
+                output_usd_per_1m: toNumberOrUndefined(draft.outputPrice),
+              }
+            : undefined,
+      };
+    });
 
   const validationErrors: WizardModelValidationError[] = [];
   for (const item of models) {

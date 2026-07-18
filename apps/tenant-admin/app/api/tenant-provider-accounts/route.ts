@@ -11,7 +11,7 @@ type CreateAccountPayload = {
   auth_mode?: unknown;
   provider_config?: unknown;
   credentials?: unknown;
-  allow_virtual_keys_only?: unknown;
+  use_platform_managed_credentials?: unknown;
 };
 
 export async function GET(request: NextRequest) {
@@ -59,9 +59,9 @@ export async function POST(request: NextRequest) {
 
   const providerConfig = isPlainObject(body.provider_config) ? body.provider_config : {};
   const credentials = isPlainObject(body.credentials) ? body.credentials : undefined;
-  const allowVirtualKeysOnly =
-    typeof body.allow_virtual_keys_only === "boolean"
-      ? body.allow_virtual_keys_only
+  const usePlatformManagedCredentials =
+    typeof body.use_platform_managed_credentials === "boolean"
+      ? body.use_platform_managed_credentials
       : false;
 
   return proxyToControlPlane({
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       auth_mode: authMode,
       provider_config: providerConfig,
       credentials,
-      allow_virtual_keys_only: allowVirtualKeysOnly,
+      use_platform_managed_credentials: usePlatformManagedCredentials,
     },
   });
 }

@@ -26,7 +26,6 @@ const visibleModels: WizardCatalogModel[] = [
 function makeDraft(partial: Partial<WizardModelDraft>): WizardModelDraft {
   return {
     enabled: false,
-    compared: false,
     selectedCapabilities: [],
     pricingMode: "public",
     inputPrice: "",
@@ -36,41 +35,36 @@ function makeDraft(partial: Partial<WizardModelDraft>): WizardModelDraft {
 }
 
 describe("provider-account-wizard model helpers", () => {
-  it("toggleVisibleModelSelection changes enabled state without touching compared state", () => {
+  it("toggleVisibleModelSelection changes enabled state", () => {
     const drafts = {
-      "gpt-4.1": makeDraft({ enabled: false, compared: true }),
-      "gpt-4.1-mini": makeDraft({ enabled: false, compared: false }),
+      "gpt-4.1": makeDraft({ enabled: false }),
+      "gpt-4.1-mini": makeDraft({ enabled: false }),
     };
 
     const next = toggleVisibleModelSelection(visibleModels, drafts);
 
     expect(next["gpt-4.1"].enabled).toBe(true);
     expect(next["gpt-4.1-mini"].enabled).toBe(true);
-    expect(next["gpt-4.1"].compared).toBe(true);
-    expect(next["gpt-4.1-mini"].compared).toBe(false);
     expect(next["gpt-4.1"].selectedCapabilities).toEqual(["chat"]);
     expect(next["gpt-4.1-mini"].selectedCapabilities).toEqual([]);
   });
 
   it("clearVisibleModelSelection clears only enabled state", () => {
     const drafts = {
-      "gpt-4.1": makeDraft({ enabled: true, compared: true }),
-      "gpt-4.1-mini": makeDraft({ enabled: true, compared: false }),
+      "gpt-4.1": makeDraft({ enabled: true }),
+      "gpt-4.1-mini": makeDraft({ enabled: true }),
     };
 
     const next = clearVisibleModelSelection(visibleModels, drafts);
 
     expect(next["gpt-4.1"].enabled).toBe(false);
     expect(next["gpt-4.1-mini"].enabled).toBe(false);
-    expect(next["gpt-4.1"].compared).toBe(true);
-    expect(next["gpt-4.1-mini"].compared).toBe(false);
   });
 
-  it("buildSelectedModelPayload saves enabled models only and ignores compare-only state", () => {
+  it("buildSelectedModelPayload saves enabled models only", () => {
     const drafts = {
       "gpt-4.1": makeDraft({
         enabled: true,
-        compared: false,
         selectedCapabilities: ["chat", "embedding"],
         pricingMode: "private",
         inputPrice: "1.25",
@@ -78,7 +72,6 @@ describe("provider-account-wizard model helpers", () => {
       }),
       "gpt-4.1-mini": makeDraft({
         enabled: false,
-        compared: true,
         pricingMode: "public",
       }),
     };
@@ -114,6 +107,30 @@ describe("provider-account-wizard model helpers", () => {
 
     expect(result.models).toHaveLength(1);
     expect(result.validationErrors).toEqual([{ model: "gpt-4.1", reason: "private_pricing_required" }]);
+  });
+
+  it("buildSelectedModelPayload strips private pricing when policy disallows custom pricing", () => {
+    const drafts = {
+      "gpt-4.1": makeDraft({
+        enabled: true,
+        selectedCapabilities: ["chat"],
+        pricingMode: "private",
+        inputPrice: "1.25",
+        outputPrice: "2.5",
+      }),
+    };
+
+    const result = buildSelectedModelPayload(drafts, { canUseCustomPricing: false });
+
+    expect(result.validationErrors).toEqual([]);
+    expect(result.models).toEqual([
+      {
+        model: "gpt-4.1",
+        effective_capabilities: ["chat"],
+        pricing_mode: "public",
+        private_pricing: undefined,
+      },
+    ]);
   });
 
   it("buildSelectedModelPayload reports capability validation errors for enabled models", () => {

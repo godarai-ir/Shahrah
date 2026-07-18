@@ -1,4 +1,4 @@
-﻿import type { PrincipalSearchKind } from "@/app/components/principal-search-input";
+import type { PrincipalSearchKind } from "@/app/components/principal-search-input";
 export type ProviderAuthMode =
   | "api_key"
   | "azure_entra_cert"
@@ -34,7 +34,7 @@ export type ModelType = string;
 
 export type PrincipalType = "user" | "team" | "org_unit" | "everyone";
 export type SetupStep = 1 | 2 | 3 | 4 | 5;
-export type WorkspaceTab = "models" | "access" | "credentials" | "observability";
+export type WorkspaceTab = "models" | "access" | "credentials";
 export type WorkspaceMode = "overview" | "setup" | "workspace";
 
 export type AccessPrincipal = {
@@ -90,7 +90,7 @@ export type TenantProviderAccount = {
   provider_config?: Record<string, unknown>;
   has_credential: boolean;
   credential_hint?: string;
-  allows_virtual_keys_only: boolean;
+  use_platform_managed_credentials: boolean;
 };
 
 export type TenantProviderAccountModel = {
@@ -139,12 +139,6 @@ export type ProviderModelsResponse = { data?: ProviderCatalogModel[] };
 export type ProviderConnectionSchemasResponse = { data?: ProviderConnectionSchema[] };
 export type AccountsResponse = { data?: TenantProviderAccount[] };
 export type AccessPrincipalResponse = { data?: AccessPrincipalCandidate[] };
-export type ProviderCatalogStatsResponse = {
-  data?: {
-    cache_ttl_sec?: number;
-    counters?: Record<string, number>;
-  };
-};
 export type DisplaySettingsResponse = {
   data?: {
     currencyUnit?: "USD" | "IRR" | "TOMAN";
@@ -172,7 +166,6 @@ export type CurlGuide = {
 
 export type ModelDraft = {
   enabled: boolean;
-  compared: boolean;
   selectedCapabilities: string[];
   pricingMode: "public" | "private";
   inputPrice: string;

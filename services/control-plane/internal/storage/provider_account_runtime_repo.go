@@ -24,7 +24,7 @@ func (s *Store) ResolveProviderAccountAPIKey(ctx context.Context, tenantID, mode
 		  AND a.name = $3
 		  AND a.auth_mode <> $4
 		  AND a.has_credential = true
-		  AND a.allow_virtual_keys_only = false
+		  AND a.use_platform_managed_credentials = false
 		  AND COALESCE(a.credential_data->>'api_key', '') <> ''
 		  AND m.enabled = true
 		ORDER BY a.updated_at DESC

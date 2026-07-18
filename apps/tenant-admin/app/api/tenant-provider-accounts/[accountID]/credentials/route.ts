@@ -13,7 +13,7 @@ type RouteContext = {
 
 type CredentialsPayload = {
   auth_mode?: unknown;
-  allow_virtual_keys_only?: unknown;
+  use_platform_managed_credentials?: unknown;
   provider_config?: unknown;
   credentials?: unknown;
 };
@@ -49,7 +49,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 
   const authMode = typeof body.auth_mode === "string" ? body.auth_mode.trim().toLowerCase() : undefined;
-  const allowVirtualKeysOnly = typeof body.allow_virtual_keys_only === "boolean" ? body.allow_virtual_keys_only : undefined;
+  const usePlatformManagedCredentials =
+    typeof body.use_platform_managed_credentials === "boolean"
+      ? body.use_platform_managed_credentials
+      : undefined;
   const providerConfig = isPlainObject(body.provider_config) ? body.provider_config : undefined;
   const credentials = isPlainObject(body.credentials) ? body.credentials : undefined;
 
@@ -59,7 +62,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     path: `/api/v1/tenant-provider-accounts/${encodeURIComponent(normalizedAccountID)}/credentials`,
     body: {
       auth_mode: authMode,
-      allow_virtual_keys_only: allowVirtualKeysOnly,
+      use_platform_managed_credentials: usePlatformManagedCredentials,
       provider_config: providerConfig,
       credentials,
     },

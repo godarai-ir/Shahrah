@@ -532,7 +532,11 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		})
 	}
 
+	allowsPrivatePricing := tenantProviderAccountAllowsPrivatePricing(details.Account)
 	for _, item := range normalizedModels {
+		if !allowsPrivatePricing && (item.PricingMode == platform.PricingModePrivate || item.PrivatePricing != nil) {
+			return fiber.NewError(fiber.StatusBadRequest, "private pricing requires a provider account with user-owned credentials")
+		}
 		if item.PricingMode == platform.PricingModePrivate && (item.PrivatePricing == nil || (item.PrivatePricing.InputUSDPer1M == nil && item.PrivatePricing.OutputUSDPer1M == nil)) {
 			return fiber.NewError(fiber.StatusBadRequest, "private pricing mode requires private_pricing input/output values")
 		}
@@ -560,6 +564,12 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(platform.TenantProviderAccountModelsUpsertResponse{Data: out})
+}
+
+func tenantProviderAccountAllowsPrivatePricing(account platform.TenantProviderAccount) bool {
+	return account.HasCredential &&
+		!account.UsePlatformManagedCredentials &&
+		account.AuthMode != platform.ProviderAuthModeNoCredential
 }
 
 // UpdateTenantProviderAccountAccess replaces access control entries for one provider account.
@@ -670,7 +680,7 @@ func enrichTenantProviderAccountModels(ctx context.Context, provider string, mod
 	return out, nil
 }
 
-// TestTenantProviderAccountCredentials validates configured credentials (or virtual-key-only mode).
+// TestTenantProviderAccountCredentials validates configured credentials (or platform-managed credentials).
 func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
 		"provider_account:manage",

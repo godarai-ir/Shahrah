@@ -1,21 +1,23 @@
 ﻿"use client";
 
 import type React from "react";
-import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
+import { CopyAction } from "@/components/app-ui";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, CheckSquare, Code2, Copy, GitCompare, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ArrowUpDown, CheckSquare, Code2, ExternalLink, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { AppSelectField, EmptyState } from "@/components/app-ui";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -27,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatTokenCount, ModelCard, type ModelCardData } from "@/app/components/model-card";
 import {
+  canUseCustomModelPricing,
   clearVisibleModelSelection,
 } from "@/app/components/provider-account-wizard.models";
 import { cn } from "@/lib/utils";
@@ -36,14 +39,10 @@ import {
   createInitialModelFilters,
   filterAndSortProviderModels,
   getActiveModelFilterChips,
-  getBestCompareMarkers,
-  getCompareKpis,
   getModelFamily,
   getRecommendedModel,
   hasInvalidModelPriceRange,
   normalizeProviderScopedModelName,
-  sortComparedModels,
-  type CompareSortMode,
   type ModelFilterState,
 } from "./model-editor-utils";
 import type {
@@ -145,7 +144,6 @@ const DEFAULT_ROW_STYLE = {
 function buildFallbackDraft(model: ProviderCatalogModel, selectableOptions: string[]): ModelDraft {
   return {
     enabled: false,
-    compared: false,
     selectedCapabilities: selectableOptions,
     pricingMode: "public",
     inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
@@ -155,6 +153,7 @@ function buildFallbackDraft(model: ProviderCatalogModel, selectableOptions: stri
 
 type ModelListItemProps = {
   account: TenantProviderAccount | null;
+  canUseCustomPricing: boolean;
   canManage: boolean;
   compact: boolean;
   mobileDensity: "compact" | "detailed";
@@ -168,7 +167,6 @@ type ModelListItemProps = {
   closePricingEditor: () => void;
   pricingEditor: PricingEditorState;
   renderPricingEditorContent: (model: ProviderCatalogModel) => React.ReactNode;
-  setModelCompared: (model: ProviderCatalogModel, draft: ModelDraft, compared: boolean) => void;
   setModelEnabled: (model: ProviderCatalogModel, draft: ModelDraft, selectableOptions: string[], enabled: boolean) => void;
   toModelCardData: (model: ProviderCatalogModel, draft: ModelDraft) => ModelCardData;
   ux: ReturnType<typeof useTranslations>;
@@ -316,6 +314,7 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
 const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
   const {
     canManage,
+    canUseCustomPricing,
     compact,
     mobileDensity,
     displayCurrency,
@@ -329,7 +328,6 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
     closePricingEditor,
     pricingEditor,
     renderPricingEditorContent,
-    setModelCompared,
     setModelEnabled,
     toModelCardData,
     usdToIrr,
@@ -343,7 +341,11 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
     () => draftProp ?? buildFallbackDraft(model, selectableOptions),
     [draftProp, model, selectableOptions],
   );
-  const cardData = useMemo(() => toModelCardData(model, draft), [draft, model, toModelCardData]);
+  const displayDraft = useMemo(
+    () => (canUseCustomPricing ? draft : { ...draft, pricingMode: "public" as const }),
+    [canUseCustomPricing, draft],
+  );
+  const cardData = useMemo(() => toModelCardData(model, displayDraft), [displayDraft, model, toModelCardData]);
   const pricingDisplay = useMemo(
     () => ({
       currency: displayCurrency,
@@ -359,6 +361,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
       open={isPricingEditorOpen}
       onOpenChange={(open) => {
         if (open) {
+          if (!canUseCustomPricing) return;
           openPricingEditor(model);
           return;
         }
@@ -372,25 +375,18 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           detailsHref={buildModelDiscoveryDetailsHref(model)}
           pricingDisplay={pricingDisplay}
           formatCapabilityLabel={(value) => formatCapabilityLabel(value, ux)}
-          isSelected={draft.enabled}
-          onSelectedChange={(checked) => setModelEnabled(model, draft, selectableOptions, checked)}
+          isSelected={displayDraft.enabled}
+          onSelectedChange={(checked) => setModelEnabled(model, displayDraft, selectableOptions, checked)}
           selectedCheckboxLabel={ux("common.enabled")}
-          isCompared={compact ? undefined : draft.compared}
-          onComparedChange={
-            compact
-              ? undefined
-              : (checked) => setModelCompared(model, draft, checked)
-          }
-          compareCheckboxLabel={compact ? undefined : ux("models.actions.compareToggle")}
-          pricingModeBadge={draft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
-          hasCustomPricing={draft.pricingMode === "private"}
+          pricingModeBadge={displayDraft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
+          hasCustomPricing={displayDraft.pricingMode === "private"}
           showCopyAction
           className={
             compact
-              ? draft.enabled
+              ? displayDraft.enabled
                 ? "border-success/40 self-start"
                 : "self-start"
-              : draft.enabled
+              : displayDraft.enabled
                 ? "border-success/40"
                 : undefined
           }
@@ -400,7 +396,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
                 {ux("models.card.curlGuide")}
             </Button>
           }
-          pricingAction={
+          pricingAction={canUseCustomPricing ? (
             <PopoverTrigger asChild>
               <Button
                 type="button"
@@ -413,7 +409,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
                 <SlidersHorizontal aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-          }
+          ) : undefined}
           labels={labels}
         />
       </div>
@@ -423,6 +419,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
 }, (prev, next) => {
   if (
     prev.account !== next.account ||
+    prev.canUseCustomPricing !== next.canUseCustomPricing ||
     prev.canManage !== next.canManage ||
     prev.compact !== next.compact ||
     prev.mobileDensity !== next.mobileDensity ||
@@ -466,27 +463,27 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   isSaving: boolean;
   isLoadingModels: boolean;
   canManage: boolean;
-  onSave: () => void;
+  onSave: (draftOverride?: Record<string, ModelDraft>) => void;
   variant?: "default" | "compact";
 }) {
   const ux = useTranslations("providerAccounts.ux");
   const {
+    account,
     modelDrafts,
+    onSave,
     providerModels,
     setModelDrafts,
   } = props;
+  const canUseCustomPricing = canUseCustomModelPricing(account);
   const initialFilters = useMemo(() => createInitialModelFilters(""), []);
   const [filters, setFilters] = useState<ModelFilterState>(() => createInitialModelFilters(""));
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [compareSortBy, setCompareSortBy] = useState<CompareSortMode>("input_asc");
-  const [compareDiffOnly, setCompareDiffOnly] = useState(false);
-  const [compareNormalizedPricing, setCompareNormalizedPricing] = useState(true);
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "TOMAN">("USD");
   const [displayScale, setDisplayScale] = useState<"PER_MILLION_TOKENS" | "PER_TOKEN">("PER_MILLION_TOKENS");
   const [usdToIrr, setUsdToIrr] = useState(0);
   const [curlGuide, setCurlGuide] = useState<CurlGuide | null>(null);
   const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("card");
   const [pricingEditor, setPricingEditor] = useState<PricingEditorState>({
     open: false,
@@ -496,6 +493,11 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     outputPrice: "",
     error: "",
   });
+  useEffect(() => {
+    if (!canUseCustomPricing) {
+      setPricingEditor((prev) => (prev.open ? { ...prev, open: false, error: "" } : prev));
+    }
+  }, [canUseCustomPricing]);
   const deferredFilters = useDeferredValue(filters);
   const tenantBaseUrl = useMemo(() => {
     return getTenantApiBaseURL();
@@ -519,6 +521,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       fqn: ux("models.card.fqn"),
       customPricing: ux("models.card.customPricing"),
       pricingPerMillion: ux("models.card.pricingPerMillion"),
+      pricingPerToken: ux("models.displayUnit.perToken"),
       modelId: ux("models.card.modelId"),
       providerId: ux("models.card.providerId"),
       apiMode: ux("models.card.apiMode"),
@@ -587,10 +590,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     });
   }, [buildModelFqn, tenantBaseUrl]);
 
-  const comparedModels = useMemo(
-    () => providerModels.filter((model) => modelDrafts[model.model]?.compared),
-    [modelDrafts, providerModels],
-  );
   const enabledModelCount = useMemo(
     () => Object.values(modelDrafts).filter((draft) => draft.enabled).length,
     [modelDrafts],
@@ -632,7 +631,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   );
   const allVisibleModelsSelected =
     renderedVisibleModels.length > 0 && visibleSelectedModelsCount === renderedVisibleModels.length;
-  const availableVisibleModelsCount = Math.max(renderedVisibleModels.length - visibleSelectedModelsCount, 0);
 
   const resetFilters = () => {
     setFilters((prev) => ({
@@ -657,86 +655,8 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
 
   const hasInvalidPriceRange = useMemo(() => hasInvalidModelPriceRange(filters), [filters]);
 
-  const compareModels = useMemo(() => sortComparedModels(comparedModels, compareSortBy), [compareSortBy, comparedModels]);
-
-  const compareKpis = useMemo(() => getCompareKpis(compareModels), [compareModels]);
-
-  const bestMarkers = useMemo(() => getBestCompareMarkers(compareModels), [compareModels]);
-
-  const compareRows = useMemo(() => {
-    const rows = [
-      {
-        section: "pricing",
-        key: "input",
-        label: ux("models.compare.rows.inputPrice"),
-        values: compareModels.map((item) => item.public_pricing?.input_usd_per_1m),
-        render: (value: unknown) => formatDisplayPrice(typeof value === "number" ? value : undefined, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") }),
-      },
-      {
-        section: "pricing",
-        key: "output",
-        label: ux("models.compare.rows.outputPrice"),
-        values: compareModels.map((item) => item.public_pricing?.output_usd_per_1m),
-        render: (value: unknown) => formatDisplayPrice(typeof value === "number" ? value : undefined, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") }),
-      },
-      {
-        section: "capacity",
-        key: "context",
-        label: ux("models.compare.rows.context"),
-        values: compareModels.map((item) => item.context_window),
-        render: (value: unknown) => (typeof value === "number" ? value.toLocaleString() : ux("models.na")),
-      },
-      {
-        section: "modalities",
-        key: "inputModality",
-        label: ux("models.compare.rows.inputModality"),
-        values: compareModels.map((item) => (item.input_modalities ?? []).slice().sort().join(", ")),
-        render: (value: unknown) => (typeof value === "string" && value ? value : ux("models.na")),
-      },
-      {
-        section: "modalities",
-        key: "outputModality",
-        label: ux("models.compare.rows.outputModality"),
-        values: compareModels.map((item) => (item.output_modalities ?? []).slice().sort().join(", ")),
-        render: (value: unknown) => (typeof value === "string" && value ? value : ux("models.na")),
-      },
-      {
-        section: "capabilities",
-        key: "features",
-        label: ux("models.compare.rows.features"),
-        values: compareModels.map((item) => getModelCapabilities(item).slice().sort().join(", ")),
-        render: (value: unknown) => (typeof value === "string" && value ? value : ux("models.na")),
-      },
-    ] as const;
-
-    return rows.map((row) => {
-      const uniqueCount = new Set(row.values.map((value) => `${value ?? ""}`)).size;
-      return { ...row, isDifferent: uniqueCount > 1 };
-    });
-  }, [compareModels, displayCurrency, displayScale, usdToIrr, ux]);
-
-  const visibleCompareRows = useMemo(
-    () => (compareDiffOnly ? compareRows.filter((row) => row.isDifferent) : compareRows),
-    [compareDiffOnly, compareRows],
-  );
-
-  const removeComparedModel = useCallback((modelKey: string) => {
-    setModelDrafts((prev) => {
-      const draft = prev[modelKey];
-      if (!draft) return prev;
-      return { ...prev, [modelKey]: { ...draft, compared: false } };
-    });
-  }, [setModelDrafts]);
-
-  const renderCompareValue = useCallback((rowKey: string, value: unknown, render: (value: unknown) => string): string => {
-    if (!compareNormalizedPricing && (rowKey === "input" || rowKey === "output")) {
-      if (typeof value !== "number") return render(value);
-      return render(value / 1_000_000);
-    }
-    return render(value);
-  }, [compareNormalizedPricing]);
-
   const openPricingEditor = useCallback((model: ProviderCatalogModel) => {
+    if (!canUseCustomPricing) return;
     const draft = modelDrafts[model.model] ?? buildFallbackDraft(model, []);
     setPricingEditor({
       open: true,
@@ -746,13 +666,17 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       outputPrice: draft.outputPrice,
       error: "",
     });
-  }, [modelDrafts]);
+  }, [canUseCustomPricing, modelDrafts]);
 
   const closePricingEditor = useCallback(() => {
     setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
   }, []);
 
   const applyPricingEditor = useCallback(() => {
+    if (!canUseCustomPricing) {
+      setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
+      return;
+    }
     const inputNumber = toNumberOrUndefined(pricingEditor.inputPrice);
     const outputNumber = toNumberOrUndefined(pricingEditor.outputPrice);
     if (pricingEditor.pricingMode === "private") {
@@ -766,25 +690,25 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       }
     }
 
-    setModelDrafts((prev) => {
-      const current = prev[pricingEditor.modelKey];
-      if (!current) return prev;
-      return {
-        ...prev,
-        [pricingEditor.modelKey]: {
-          ...current,
-          enabled: true,
-          pricingMode: pricingEditor.pricingMode,
-          inputPrice: pricingEditor.inputPrice.trim(),
-          outputPrice: pricingEditor.outputPrice.trim(),
-        },
-      };
-    });
+    const current = modelDrafts[pricingEditor.modelKey];
+    if (!current) return;
+    const nextDrafts = {
+      ...modelDrafts,
+      [pricingEditor.modelKey]: {
+        ...current,
+        enabled: true,
+        pricingMode: pricingEditor.pricingMode,
+        inputPrice: pricingEditor.inputPrice.trim(),
+        outputPrice: pricingEditor.outputPrice.trim(),
+      },
+    };
+    setModelDrafts(nextDrafts);
+    if (account) onSave(nextDrafts);
     setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
-  }, [pricingEditor, setModelDrafts, ux]);
+  }, [account, canUseCustomPricing, modelDrafts, onSave, pricingEditor, setModelDrafts, ux]);
 
   const renderPricingEditorContent = (model: ProviderCatalogModel) => (
-    <PopoverContent align="start" className="w-72 p-3">
+    canUseCustomPricing ? <PopoverContent align="start" className="w-72 p-3">
       <div className="flex flex-col gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium">{ux("models.actions.editPricing")}</p>
@@ -866,7 +790,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           </Button>
         </div>
       </div>
-    </PopoverContent>
+    </PopoverContent> : null
   );
 
   const toModelCardData = useCallback((model: ProviderCatalogModel, draft?: ModelDraft): ModelCardData => {
@@ -935,47 +859,39 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
 
   const setModelEnabled = useCallback(
     (model: ProviderCatalogModel, draft: ModelDraft, selectableOptions: string[], enabled: boolean) => {
-      setModelDrafts((prev) => ({
-        ...prev,
+      const nextDrafts = {
+        ...modelDrafts,
         [model.model]: {
           ...draft,
           enabled,
           selectedCapabilities: enabled ? selectableOptions : draft.selectedCapabilities,
         },
-      }));
+      };
+      setModelDrafts(nextDrafts);
+      if (account) onSave(nextDrafts);
     },
-    [setModelDrafts],
-  );
-
-  const setModelCompared = useCallback(
-    (model: ProviderCatalogModel, draft: ModelDraft, compared: boolean) => {
-      setModelDrafts((prev) => ({
-        ...prev,
-        [model.model]: {
-          ...draft,
-          compared,
-        },
-      }));
-    },
-    [setModelDrafts],
+    [account, modelDrafts, onSave, setModelDrafts],
   );
 
   const handleVisibleSelectionChange = useCallback((models: ProviderCatalogModel[], checked: boolean) => {
-    setModelDrafts((prev) => {
-      if (!checked) return clearVisibleModelSelection(models, prev);
-      const next = { ...prev };
+    let nextDrafts: Record<string, ModelDraft>;
+    if (!checked) {
+      nextDrafts = clearVisibleModelSelection(models, modelDrafts);
+    } else {
+      nextDrafts = { ...modelDrafts };
       for (const model of models) {
         const selectableOptions = getSelectableOptions(model);
-        const draft = next[model.model] ?? buildFallbackDraft(model, selectableOptions);
-        next[model.model] = {
+        const draft = nextDrafts[model.model] ?? buildFallbackDraft(model, selectableOptions);
+        nextDrafts[model.model] = {
           ...draft,
           enabled: true,
           selectedCapabilities: selectableOptions,
         };
       }
-      return next;
-    });
-  }, [getSelectableOptions, setModelDrafts]);
+    }
+    setModelDrafts(nextDrafts);
+    if (account) onSave(nextDrafts);
+  }, [account, getSelectableOptions, modelDrafts, onSave, setModelDrafts]);
 
   useEffect(() => {
     let canceled = false;
@@ -1092,7 +1008,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                   <Checkbox
                     id="compact-select-all-models"
                     checked={allVisibleModelsSelected}
-                    disabled={!props.canManage || renderedVisibleModels.length === 0}
+                    disabled={!props.canManage || props.isSaving || renderedVisibleModels.length === 0}
                     onCheckedChange={(checked) => handleVisibleSelectionChange(renderedVisibleModels, checked === true)}
                   />
                   <span>{ux("integrations.wizard.selectAll")}</span>
@@ -1151,7 +1067,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                         {renderedVisibleModels.map((model) => (
                           <CompactTableRow
                             key={model.model}
-                            canManage={props.canManage}
+                            canManage={props.canManage && !props.isSaving}
                             draft={props.modelDrafts[model.model]}
                             model={model}
                             selectableOptions={getSelectableOptions(model)}
@@ -1173,7 +1089,8 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                     <ModelListItem
                       key={model.model}
                       account={props.account}
-                      canManage={props.canManage}
+                      canUseCustomPricing={canUseCustomPricing}
+                      canManage={props.canManage && !props.isSaving}
                       compact
                       mobileDensity="detailed"
                       displayCurrency={displayCurrency}
@@ -1186,7 +1103,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                       closePricingEditor={closePricingEditor}
                       pricingEditor={pricingEditor}
                       renderPricingEditorContent={renderPricingEditorContent}
-                      setModelCompared={setModelCompared}
                       setModelEnabled={setModelEnabled}
                       toModelCardData={toModelCardData}
                       ux={ux}
@@ -1203,45 +1119,47 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     );
   }
 
+  function renderCurlGuideHeaderActions() {
+    return (
+      <div dir="rtl" className="flex min-w-0 shrink-0 justify-end">
+        <TabsList className="h-8 w-auto justify-start overflow-x-auto rounded-xl bg-muted/70 p-1">
+          <TabsTrigger value="powershell" className="min-w-24 rounded-lg px-2.5 text-xs font-semibold sm:min-w-28 sm:px-3">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
+          <TabsTrigger value="bash" className="min-w-16 rounded-lg px-2.5 text-xs sm:min-w-20 sm:px-3">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
+        </TabsList>
+      </div>
+    );
+  }
+
+  function renderCurlGuideDocsFooter() {
+    return (
+      <p dir="rtl" className="text-right text-xs leading-5 text-muted-foreground">
+        {ux("models.curlGuide.docsDescriptionPrefix")}{" "}
+        <a href="/quick-start" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+          {ux("models.curlGuide.docsLabel")}
+          <ExternalLink data-icon="inline-end" />
+        </a>{" "}
+        {ux("models.curlGuide.docsDescriptionSuffix")}
+      </p>
+    );
+  }
+
   return (
     <section className="space-y-3 rounded-lg border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-base font-semibold">{ux("tabs.models")}</h3>
-          <p className="text-sm text-muted-foreground">{ux("models.description")}</p>
-        </div>
-        <Button type="button" onClick={props.onSave} disabled={!props.canManage || props.isSaving}>
-          {props.isSaving ? props.t("saving") : props.t("saveSelectedModels")}
-        </Button>
-      </div>
-
-      <div className="surface-elevated rounded-lg border p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{ux("models.summary.catalog", { count: props.providerModels.length })}</Badge>
-          <Badge className="border-[var(--success-soft-border)] bg-[var(--success-soft)] text-[var(--success-soft-foreground)] hover:bg-[color-mix(in_oklab,var(--success-soft)_88%,black)]" variant="outline">
-            {ux("models.summary.enabled", { count: enabledModelCount })}
-          </Badge>
-          <Badge variant="secondary">{ux("models.summary.available", { count: availableVisibleModelsCount })}</Badge>
-          <Badge variant="secondary">{ux("models.summary.showing", { visible: renderedVisibleModels.length, total: props.providerModels.length })}</Badge>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">{ux("models.catalogScopeHint")}</p>
-      </div>
-
-      <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+      <div className="flex flex-col gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={filters.search}
             onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
             placeholder={props.t("step3.searchPlaceholder")}
-            className="ps-9 pe-9"
+            className="h-9 ps-9 pe-9 text-xs sm:text-sm"
           />
           {filters.search.trim() ? (
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute end-1 top-1/2 h-8 w-8 -translate-y-1/2"
+              className="absolute end-1 top-1/2 size-7 -translate-y-1/2"
               onClick={() => setFilters((prev) => ({ ...prev, search: "" }))}
               aria-label={ux("actions.clear")}
               title={ux("actions.clear")}
@@ -1251,95 +1169,120 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           ) : null}
         </div>
 
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-          <Input
-            value={filters.minPrice}
-            onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: event.target.value }))}
-            placeholder={ux("models.filters.minPrice")}
-            inputMode="decimal"
-          />
-          <Input
-            value={filters.maxPrice}
-            onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: event.target.value }))}
-            placeholder={ux("models.filters.maxPrice")}
-            inputMode="decimal"
-          />
-          <Input
-            value={filters.minContext}
-            onChange={(event) => setFilters((prev) => ({ ...prev, minContext: event.target.value }))}
-            placeholder={ux("models.filters.minContext")}
-            inputMode="numeric"
-          />
-          <AppSelectField
-            ariaLabel={ux("models.filters.allInputModalities")}
-            value={filters.inputModality || ALL_FILTER_OPTIONS}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, inputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
-            optionTextDir="ltr"
-            options={[
-              { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allInputModalities") },
-              ...allInputModalities.map((item) => ({ value: item, label: item })),
-            ]}
-          />
-          <AppSelectField
-            ariaLabel={ux("models.filters.allOutputModalities")}
-            value={filters.outputModality || ALL_FILTER_OPTIONS}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, outputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
-            optionTextDir="ltr"
-            options={[
-              { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allOutputModalities") },
-              ...allOutputModalities.map((item) => ({ value: item, label: item })),
-            ]}
-          />
-          <AppSelectField
-            ariaLabel={ux("models.filters.allFeatures")}
-            value={filters.featureFilter || ALL_FILTER_OPTIONS}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, featureFilter: value === ALL_FILTER_OPTIONS ? "" : value }))}
-            optionTextDir="ltr"
-            options={[
-              { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allFeatures") },
-              ...allFeatures.map((item) => ({ value: item, label: item })),
-            ]}
-          />
-          <AppSelectField
-            ariaLabel={ux("models.sort.priceAsc")}
-            value={filters.sortBy}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, sortBy: value as ModelFilterState["sortBy"] }))}
-            options={[
-              { value: "price_asc", label: ux("models.sort.priceAsc") },
-              { value: "price_desc", label: ux("models.sort.priceDesc") },
-              { value: "context_asc", label: ux("models.sort.contextAsc") },
-              { value: "context_desc", label: ux("models.sort.contextDesc") },
-            ]}
-          />
-          <AppSelectField
-            ariaLabel={ux("models.displayUnit.currencyUsd")}
-            value={displayCurrency}
-            onValueChange={(value) => setDisplayCurrency(value as "USD" | "TOMAN")}
-            options={[
-              { value: "USD", label: ux("models.displayUnit.currencyUsd") },
-              { value: "TOMAN", label: ux("models.displayUnit.currencyToman") },
-            ]}
-          />
-          <AppSelectField
-            ariaLabel={ux("models.displayUnit.perMillionTokens")}
-            value={displayScale}
-            onValueChange={(value) => setDisplayScale(value as "PER_MILLION_TOKENS" | "PER_TOKEN")}
-            options={[
-              { value: "PER_MILLION_TOKENS", label: ux("models.displayUnit.perMillionTokens") },
-              { value: "PER_TOKEN", label: ux("models.displayUnit.perToken") },
-            ]}
-          />
-        </div>
+        <Collapsible open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen} className="flex flex-col gap-2">
+          <CollapsibleTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="w-fit">
+              <SlidersHorizontal data-icon="inline-start" />
+              {ux("models.filters.more")}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/70 bg-muted/20 p-2 md:grid-cols-3 xl:grid-cols-4">
+              <Input
+                value={filters.minPrice}
+                onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: event.target.value }))}
+                placeholder={ux("models.filters.minPrice")}
+                inputMode="decimal"
+                className="h-8 text-xs sm:h-10 sm:text-sm"
+              />
+              <Input
+                value={filters.maxPrice}
+                onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: event.target.value }))}
+                placeholder={ux("models.filters.maxPrice")}
+                inputMode="decimal"
+                className="h-8 text-xs sm:h-10 sm:text-sm"
+              />
+              <Input
+                value={filters.minContext}
+                onChange={(event) => setFilters((prev) => ({ ...prev, minContext: event.target.value }))}
+                placeholder={ux("models.filters.minContext")}
+                inputMode="numeric"
+                className="h-8 text-xs sm:h-10 sm:text-sm"
+              />
+              <AppSelectField
+                ariaLabel={ux("models.filters.allInputModalities")}
+                value={filters.inputModality || ALL_FILTER_OPTIONS}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, inputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                optionTextDir="ltr"
+                size="sm"
+                triggerClassName="min-w-0"
+                options={[
+                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allInputModalities") },
+                  ...allInputModalities.map((item) => ({ value: item, label: item })),
+                ]}
+              />
+              <AppSelectField
+                ariaLabel={ux("models.filters.allOutputModalities")}
+                value={filters.outputModality || ALL_FILTER_OPTIONS}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, outputModality: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                optionTextDir="ltr"
+                size="sm"
+                triggerClassName="min-w-0"
+                options={[
+                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allOutputModalities") },
+                  ...allOutputModalities.map((item) => ({ value: item, label: item })),
+                ]}
+              />
+              <AppSelectField
+                ariaLabel={ux("models.filters.allFeatures")}
+                value={filters.featureFilter || ALL_FILTER_OPTIONS}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, featureFilter: value === ALL_FILTER_OPTIONS ? "" : value }))}
+                optionTextDir="ltr"
+                size="sm"
+                triggerClassName="min-w-0"
+                options={[
+                  { value: ALL_FILTER_OPTIONS, label: ux("models.filters.allFeatures") },
+                  ...allFeatures.map((item) => ({ value: item, label: item })),
+                ]}
+              />
+              <AppSelectField
+                ariaLabel={ux("models.sort.priceAsc")}
+                value={filters.sortBy}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, sortBy: value as ModelFilterState["sortBy"] }))}
+                size="sm"
+                triggerClassName="min-w-0"
+                options={[
+                  { value: "price_asc", label: ux("models.sort.priceAsc") },
+                  { value: "price_desc", label: ux("models.sort.priceDesc") },
+                  { value: "context_asc", label: ux("models.sort.contextAsc") },
+                  { value: "context_desc", label: ux("models.sort.contextDesc") },
+                ]}
+              />
+              <AppSelectField
+                ariaLabel={ux("models.displayUnit.currencyUsd")}
+                value={displayCurrency}
+                onValueChange={(value) => setDisplayCurrency(value as "USD" | "TOMAN")}
+                size="sm"
+                triggerClassName="min-w-0"
+                options={[
+                  { value: "USD", label: ux("models.displayUnit.currencyUsd") },
+                  { value: "TOMAN", label: ux("models.displayUnit.currencyToman") },
+                ]}
+              />
+              <AppSelectField
+                ariaLabel={ux("models.displayUnit.perMillionTokens")}
+                value={displayScale}
+                onValueChange={(value) => setDisplayScale(value as "PER_MILLION_TOKENS" | "PER_TOKEN")}
+                size="sm"
+                triggerClassName="min-w-0"
+                options={[
+                  { value: "PER_MILLION_TOKENS", label: ux("models.displayUnit.perMillionTokens") },
+                  { value: "PER_TOKEN", label: ux("models.displayUnit.perToken") },
+                ]}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {hasInvalidPriceRange ? (
           <p className="text-xs text-destructive">{ux("models.validation.invalidInputPrice")}</p>
         ) : null}
 
         {activeFilters.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {activeFilters.map((item) => (
-              <Badge key={item.key} variant="secondary" className="flex items-center gap-1 pe-1">
-                <span className="max-w-56 truncate">{item.label}</span>
+              <Badge key={item.key} variant="secondary" className="flex items-center gap-1 pe-1 text-xs">
+                <span className="max-w-44 truncate sm:max-w-56">{item.label}</span>
                 <button
                   type="button"
                   className="rounded p-0.5 hover:bg-muted"
@@ -1360,7 +1303,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           type="button"
           variant="outline"
           onClick={() => handleVisibleSelectionChange(renderedVisibleModels, true)}
-          disabled={!props.canManage || renderedVisibleModels.length === 0}
+          disabled={!props.canManage || props.isSaving || renderedVisibleModels.length === 0}
         >
           <CheckSquare className="h-4 w-4" />
           {props.t("step3.toggleSelectAll")}
@@ -1369,7 +1312,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           type="button"
           variant="outline"
           onClick={() => handleVisibleSelectionChange(renderedVisibleModels, false)}
-          disabled={!props.canManage || renderedVisibleModels.length === 0}
+          disabled={!props.canManage || props.isSaving || renderedVisibleModels.length === 0}
         >
           <X className="h-4 w-4" />
           {ux("actions.clear")}
@@ -1377,10 +1320,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         <Button type="button" variant="outline" onClick={resetFilters}>
           <RotateCcw className="h-4 w-4" />
           {ux("models.actions.clearFilters")}
-        </Button>
-        <Button type="button" variant="outline" disabled={comparedModels.length < 2} onClick={() => setCompareOpen(true)}>
-          <GitCompare className="h-4 w-4" />
-          {ux("models.actions.compare", { count: comparedModels.length })}
         </Button>
         <div className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
           <ArrowUpDown className="h-4 w-4" />
@@ -1398,7 +1337,8 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             <ModelListItem
               key={model.model}
               account={props.account}
-              canManage={props.canManage}
+              canUseCustomPricing={canUseCustomPricing}
+              canManage={props.canManage && !props.isSaving}
               compact={false}
               mobileDensity="detailed"
               displayCurrency={displayCurrency}
@@ -1411,7 +1351,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               closePricingEditor={closePricingEditor}
               pricingEditor={pricingEditor}
               renderPricingEditorContent={renderPricingEditorContent}
-              setModelCompared={setModelCompared}
               setModelEnabled={setModelEnabled}
               toModelCardData={toModelCardData}
               ux={ux}
@@ -1421,262 +1360,109 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           ))}
         </div>
       )}
-      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
-        <DialogContent className="max-h-[90vh] max-w-7xl overflow-hidden p-0">
-          <DialogHeader>
-            <div className="space-y-1 px-6 pt-6">
-              <DialogTitle>{ux("models.compare.title")}</DialogTitle>
-              <DialogDescription>{ux("models.compare.description")}</DialogDescription>
-            </div>
-          </DialogHeader>
-          <div className="space-y-4 overflow-y-auto px-6 pb-6">
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <Card className="border-[var(--success-soft-border)] bg-[var(--success-soft)]">
-                <CardHeader className="pb-2">
-                  <CardDescription>{ux("models.compare.kpis.bestInput")}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-sm font-medium">{compareKpis.cheapestInput ? compareKpis.cheapestInput.display_name || compareKpis.cheapestInput.model : ux("models.na")}</CardContent>
-              </Card>
-              <Card className="border-[var(--success-soft-border)] bg-[var(--success-soft)]">
-                <CardHeader className="pb-2">
-                  <CardDescription>{ux("models.compare.kpis.bestOutput")}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-sm font-medium">{compareKpis.cheapestOutput ? compareKpis.cheapestOutput.display_name || compareKpis.cheapestOutput.model : ux("models.na")}</CardContent>
-              </Card>
-              <Card className="border-[var(--info-soft-border)] bg-[var(--info-soft)]">
-                <CardHeader className="pb-2">
-                  <CardDescription>{ux("models.compare.kpis.largestContext")}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-sm font-medium">{compareKpis.largestContext ? compareKpis.largestContext.display_name || compareKpis.largestContext.model : ux("models.na")}</CardContent>
-              </Card>
-              <Card className="surface-primary-soft border">
-                <CardHeader className="pb-2">
-                  <CardDescription>{ux("models.compare.kpis.richestFeatures")}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-sm font-medium">{compareKpis.mostFeatures ? compareKpis.mostFeatures.display_name || compareKpis.mostFeatures.model : ux("models.na")}</CardContent>
-              </Card>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 rounded-md border p-3">
-              <AppSelectField
-                id="compare-sort"
-                label={ux("models.compare.sort.label")}
-                value={compareSortBy}
-                onValueChange={(value) => setCompareSortBy(value as typeof compareSortBy)}
-                size="sm"
-                className="w-auto"
-                options={[
-                  { value: "input_asc", label: ux("models.compare.sort.inputAsc") },
-                  { value: "output_asc", label: ux("models.compare.sort.outputAsc") },
-                  { value: "context_desc", label: ux("models.compare.sort.contextDesc") },
-                  { value: "name_asc", label: ux("models.compare.sort.nameAsc") },
-                ]}
-              />
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={compareDiffOnly} onChange={(event) => setCompareDiffOnly(event.target.checked)} />
-                {ux("models.compare.toggles.differencesOnly")}
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={compareNormalizedPricing} onChange={(event) => setCompareNormalizedPricing(event.target.checked)} />
-                {ux("models.compare.toggles.normalizedPricing")}
-              </label>
-            </div>
-
-            <div className="hidden md:block overflow-x-auto rounded-md border">
-              <div className="min-w-[980px]">
-                <div
-                  className="sticky top-0 z-10 grid border-b bg-background"
-                  style={{ gridTemplateColumns: `240px repeat(${compareModels.length}, minmax(220px, 1fr))` }}
-                >
-                  <div className="sticky start-0 z-20 border-e bg-background p-3 text-sm font-semibold">{ux("models.compare.columns.attribute")}</div>
-                  {compareModels.map((model) => (
-                    <div key={`compare-head-${model.model}`} className="border-s px-3 py-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{model.display_name || model.model}</p>
-                          <p className="truncate text-xs text-muted-foreground">{model.provider}</p>
-                        </div>
-                        <Button type="button" size="icon" variant="ghost" onClick={() => removeComparedModel(model.model)} aria-label={ux("models.compare.actions.removeModel")}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {[
-                  ["pricing", ux("models.compare.sections.pricing")],
-                  ["capacity", ux("models.compare.sections.capacity")],
-                  ["modalities", ux("models.compare.sections.modalities")],
-                  ["capabilities", ux("models.compare.sections.capabilities")],
-                ].map(([sectionKey, sectionLabel]) => (
-                  <div key={sectionKey}>
-                    <div
-                      className="grid border-b bg-muted/40"
-                      style={{ gridTemplateColumns: `240px repeat(${compareModels.length}, minmax(220px, 1fr))` }}
-                    >
-                      <div className="sticky start-0 z-[1] border-e bg-muted/50 p-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{sectionLabel}</div>
-                      {compareModels.map((model) => <div key={`${sectionKey}-${model.model}`} className="border-s p-2" />)}
-                    </div>
-                    {visibleCompareRows.filter((row) => row.section === sectionKey).map((row) => (
-                      <div key={row.key} className="grid border-b" style={{ gridTemplateColumns: `240px repeat(${compareModels.length}, minmax(220px, 1fr))` }}>
-                        <div className="sticky start-0 z-[1] border-e bg-background p-3 text-sm font-medium">{row.label}</div>
-                        {row.values.map((value, index) => {
-                          const model = compareModels[index];
-                          const isBestInput = row.key === "input" && typeof value === "number" && value === bestMarkers.input;
-                          const isBestOutput = row.key === "output" && typeof value === "number" && value === bestMarkers.output;
-                          const isBestContext = row.key === "context" && typeof value === "number" && value === bestMarkers.context;
-                          return (
-                            <div
-                              key={`${row.key}-${model.model}`}
-                              className={cn(
-                                "border-s p-3 text-sm",
-                                row.isDifferent && "bg-[var(--warning-soft)]",
-                                (isBestInput || isBestOutput || isBestContext) && "bg-[var(--success-soft)]",
-                              )}
-                            >
-                              {row.key === "features" || row.key === "inputModality" || row.key === "outputModality" ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {`${value ?? ""}`.split(",").map((item) => item.trim()).filter(Boolean).length > 0 ? (
-                                    `${value ?? ""}`.split(",").map((item) => item.trim()).filter(Boolean).map((item) => (
-                                      <Badge key={`${row.key}-${model.model}-${item}`} variant="secondary">{item}</Badge>
-                                    ))
-                                  ) : (
-                                    <span className="text-muted-foreground">{ux("models.na")}</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span>
-                                  {renderCompareValue(row.key, value, row.render)}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3 md:hidden">
-              {compareModels.map((model) => (
-                <Card key={`compare-mobile-${model.model}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <CardTitle className="truncate text-sm">{model.display_name || model.model}</CardTitle>
-                        <CardDescription className="truncate">{model.provider}</CardDescription>
-                      </div>
-                      <Button type="button" size="icon" variant="ghost" onClick={() => removeComparedModel(model.model)} aria-label={ux("models.compare.actions.removeModel")}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    {visibleCompareRows.map((row) => {
-                      const rowIndex = compareModels.findIndex((item) => item.model === model.model);
-                      const value = row.values[rowIndex];
-                      return (
-                        <div key={`mobile-${model.model}-${row.key}`} className="rounded border p-2">
-                          <div className="text-xs text-muted-foreground">{row.label}</div>
-                          <div className="mt-1">
-                            {row.key === "features" || row.key === "inputModality" || row.key === "outputModality"
-                              ? (`${value ?? ""}` || ux("models.na"))
-                              : row.key === "input" || row.key === "output"
-                                ? renderCompareValue(row.key, value, row.render)
-                                : row.render(value)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={curlGuide !== null} onOpenChange={(open) => { if (!open) setCurlGuide(null); }}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)]">
-          <div className="shrink-0 border-b border-border/70 bg-[linear-gradient(135deg,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_58%),linear-gradient(180deg,color-mix(in_oklab,var(--muted)_65%,transparent),transparent)] px-4 py-4 sm:px-6 sm:py-6">
-            <DialogHeader className="space-y-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 space-y-2">
-                  <DialogTitle>{ux("models.curlGuide.title")}</DialogTitle>
-                  <DialogDescription>{ux("models.curlGuide.description", { model: curlGuide?.modelName ?? "" })}</DialogDescription>
+        <DialogContent
+          showCloseButton={false}
+          className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-xl border border-border bg-background p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl"
+        >
+          <div className="custom-scrollbar max-h-[calc(100dvh-1rem)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100dvh-2rem)] sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+            <div dir="rtl" className="flex items-start justify-between gap-3">
+              <DialogHeader dir="rtl" className="min-w-0 flex-1 items-end gap-1 text-right">
+                <div className="flex min-w-0 items-center justify-end gap-2">
+                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                    <Code2 aria-hidden="true" />
+                  </span>
+                  <DialogTitle dir="rtl" className="min-w-0 text-right text-xl font-bold leading-7 tracking-normal text-foreground sm:text-2xl sm:leading-8">
+                    {ux("models.curlGuide.title")}
+                  </DialogTitle>
                 </div>
-                <Badge className="w-fit shrink-0 border border-primary/20 bg-primary/10 text-primary">
-                  <Code2 className="me-1 h-3.5 w-3.5" />
-                  {ux("models.curlGuide.readyBadge")}
-                </Badge>
-              </div>
-            </DialogHeader>
-            <div className="mt-4 grid min-w-0 gap-3 md:mt-5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-              <div className="min-w-0 rounded-lg border border-border/70 bg-background/80 p-3 shadow-sm backdrop-blur sm:p-4">
-                <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.modelFqnLabel")}</div>
-                <div dir="ltr" className="mt-2 break-all text-start font-mono text-sm text-foreground">{curlGuide?.modelFqn}</div>
-              </div>
-              <div className="min-w-0 rounded-lg border border-border/70 bg-background/80 p-3 shadow-sm backdrop-blur sm:p-4">
-                <div className="text-xs font-medium text-muted-foreground">{ux("models.curlGuide.instructionsLabel")}</div>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{ux("models.curlGuide.instructions")}</p>
-              </div>
-            </div>
-          </div>
-          <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0 space-y-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-lg bg-muted/70 p-1 md:w-auto">
-                  <TabsTrigger value="powershell" className="min-w-28 sm:min-w-32">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
-                  <TabsTrigger value="bash" className="min-w-20 sm:min-w-24">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
-                </TabsList>
+                <DialogDescription className="max-w-3xl text-right text-sm leading-6 text-muted-foreground">
+                  {ux("models.curlGuide.descriptionPrefix")}{" "}
+                  <span dir="ltr" className="font-medium text-primary">{curlGuide?.modelName ?? ""}</span>{" "}
+                  {ux("models.curlGuide.descriptionSuffix")}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogClose asChild>
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full md:w-auto"
-                  onClick={() => {
-                    const command = curlGuide?.commands[curlGuideShell];
-                    if (!command) return;
-                    void copyTextToClipboard(command);
-                    props.setBanner({ kind: "success", message: ux("messages.curlCopied") });
-                  }}
+                  size="icon"
+                  className="size-10 shrink-0 rounded-xl bg-background shadow-sm"
                 >
-                  <Copy className="me-2 h-4 w-4" />
-                  {ux("models.curlGuide.copyCommand")}
+                  <X />
+                  <span className="sr-only">{ux("models.curlGuide.close")}</span>
                 </Button>
+              </DialogClose>
+            </div>
+
+            <div dir="rtl" className="mt-3 flex min-w-0 items-center gap-2 sm:mt-4">
+              <div
+                dir="ltr"
+                title={curlGuide?.modelFqn ?? ""}
+                className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted/30 px-3 py-2 text-start font-mono text-xs font-semibold text-primary sm:rounded-xl sm:px-4 sm:py-2.5"
+              >
+                {curlGuide?.modelFqn}
               </div>
-              <TabsContent value="powershell">
-                <CodeExampleBlock
-                  code={curlGuide?.commands.powershell ?? ""}
-                  language={CURL_GUIDE_LANGUAGE.powershell}
-                  shellLabel={ux("models.curlGuide.shells.powershell")}
-                />
-              </TabsContent>
-              <TabsContent value="bash">
-                <CodeExampleBlock
-                  code={curlGuide?.commands.bash ?? ""}
-                  language={CURL_GUIDE_LANGUAGE.bash}
-                  shellLabel={ux("models.curlGuide.shells.bash")}
-                />
-              </TabsContent>
-            </Tabs>
-            {curlGuide?.sampleResponse ? (
-              <div className="flex flex-col gap-3">
-                <div className="text-start text-sm font-medium text-foreground">{ux("models.curlGuide.sampleResponse")}</div>
-                <CodeExampleBlock
-                  code={curlGuide.sampleResponse}
-                  language="json"
-                  shellLabel="JSON"
-                />
-              </div>
-            ) : null}
+              <CopyAction
+                value={curlGuide?.modelFqn ?? ""}
+                copyLabel={ux("models.card.copyFqn")}
+                copiedLabel={ux("models.card.copied")}
+                showLabel
+                variant="outline"
+                size="sm"
+                className="h-9 shrink-0 rounded-lg bg-background px-3 text-muted-foreground shadow-none sm:rounded-xl"
+                onCopied={() => props.setBanner({ kind: "success", message: ux("messages.fqnCopied") })}
+              />
+            </div>
+
+            <Alert dir="rtl" variant="info" className="mt-3 rounded-xl bg-muted/30 px-3 py-2 text-right text-muted-foreground sm:mt-4">
+              <AlertDescription className="text-xs leading-5">
+                <span className="font-medium text-foreground">{ux("models.curlGuide.instructionsLabel")}: </span>
+                {ux("models.curlGuide.instructions")}
+              </AlertDescription>
+            </Alert>
+
+            <div className="mt-4 sm:mt-5">
+              <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0">
+                <TabsContent value="powershell" className="mt-0">
+                  <CodeExampleBlock
+                    title={ux("models.curlGuide.requestTitle")}
+                    code={curlGuide?.commands.powershell ?? ""}
+                    language={CURL_GUIDE_LANGUAGE.powershell}
+                    shellLabel={ux("models.curlGuide.shells.powershell")}
+                    headerActions={renderCurlGuideHeaderActions()}
+                    copyLabel={ux("models.curlGuide.copySample")}
+                    copiedLabel={ux("models.card.copied")}
+                    onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                    footer={renderCurlGuideDocsFooter()}
+                  />
+                </TabsContent>
+                <TabsContent value="bash" className="mt-0">
+                  <CodeExampleBlock
+                    title={ux("models.curlGuide.requestTitle")}
+                    code={curlGuide?.commands.bash ?? ""}
+                    language={CURL_GUIDE_LANGUAGE.bash}
+                    shellLabel={ux("models.curlGuide.shells.bash")}
+                    headerActions={renderCurlGuideHeaderActions()}
+                    copyLabel={ux("models.curlGuide.copySample")}
+                    copiedLabel={ux("models.card.copied")}
+                    onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                    footer={renderCurlGuideDocsFooter()}
+                  />
+                </TabsContent>
+              </Tabs>
+              {curlGuide?.sampleResponse ? (
+                <div className="mt-5">
+                  <CodeExampleBlock
+                    title={ux("models.curlGuide.sampleResponse")}
+                    code={curlGuide.sampleResponse}
+                    language="json"
+                    shellLabel="JSON"
+                  />
+                </div>
+              ) : null}
+            </div>
           </div>
-          <DialogFooter className="shrink-0 border-t border-border/70 bg-muted/20 px-4 py-3 sm:px-6 sm:py-4">
-            <Button type="button" onClick={() => setCurlGuide(null)}>
-              {ux("models.curlGuide.close")}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>

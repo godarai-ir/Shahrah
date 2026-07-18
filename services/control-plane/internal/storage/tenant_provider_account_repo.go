@@ -15,6 +15,7 @@ import (
 var (
 	ErrInvalidAccessPrincipal            = errors.New("invalid access principal")
 	ErrModelNotAllowedForProviderAccount = errors.New("model is not allowed for provider account")
+	ErrPrivatePricingRequiresCredential  = errors.New("private pricing requires a provider account with user-owned credentials")
 	ErrProviderAccountDependencyConflict = errors.New("provider account has active dependencies")
 )
 
@@ -29,7 +30,8 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		return nil, err
 	}
 
-	if shouldClearProviderAccountCredentials(string(req.AuthMode), req.AllowVirtualKeysOnly, req.Credentials) {
+	usePlatformManagedCredentials := req.UsePlatformManagedCredentials
+	if shouldClearProviderAccountCredentials(string(req.AuthMode), usePlatformManagedCredentials, req.Credentials) {
 		req.Credentials = nil
 	}
 
@@ -46,11 +48,11 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO tenant_provider_accounts (
-			tenant_id, provider, name, auth_mode, provider_config, credential_data, has_credential, allow_virtual_keys_only
+			tenant_id, provider, name, auth_mode, provider_config, credential_data, has_credential, use_platform_managed_credentials
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only, created_at, updated_at
-	`, tenantID, req.Provider, req.Name, string(req.AuthMode), providerCfg, credentialData, hasCredential, req.AllowVirtualKeysOnly).Scan(
+		RETURNING account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, use_platform_managed_credentials, created_at, updated_at
+	`, tenantID, req.Provider, req.Name, string(req.AuthMode), providerCfg, credentialData, hasCredential, usePlatformManagedCredentials).Scan(
 		&account.ID,
 		&account.TenantID,
 		&account.Provider,
@@ -59,7 +61,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		&providerCfgRaw,
 		&credentialRaw,
 		&account.HasCredential,
-		&account.AllowsVirtualKeysOnly,
+		&account.UsePlatformManagedCredentials,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -90,7 +92,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string) ([]platform.TenantProviderAccount, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb),
-		       has_credential, allow_virtual_keys_only, created_at, updated_at
+		       has_credential, use_platform_managed_credentials, created_at, updated_at
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1
 		ORDER BY created_at DESC
@@ -117,7 +119,7 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 			&providerCfgRaw,
 			&credentialRaw,
 			&account.HasCredential,
-			&account.AllowsVirtualKeysOnly,
+			&account.UsePlatformManagedCredentials,
 			&account.CreatedAt,
 			&account.UpdatedAt,
 		); err != nil {
@@ -165,19 +167,19 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
-		currentAuthMode      string
-		currentProvider      string
-		currentProviderCfg   []byte
-		currentCredentialRaw []byte
-		currentHasCredential bool
-		currentVirtualOnly   bool
+		currentAuthMode                   string
+		currentProvider                   string
+		currentProviderCfg                []byte
+		currentCredentialRaw              []byte
+		currentHasCredential              bool
+		currentPlatformManagedCredentials bool
 	)
 
 	queryErr := tx.QueryRow(ctx, `
-		SELECT auth_mode, provider, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only
+		SELECT auth_mode, provider, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, use_platform_managed_credentials
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&currentAuthMode, &currentProvider, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentVirtualOnly)
+	`, tenantID, accountID).Scan(&currentAuthMode, &currentProvider, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentPlatformManagedCredentials)
 	if queryErr != nil {
 		return nil, queryErr
 	}
@@ -201,13 +203,13 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		return nil, err
 	}
 
-	nextVirtualOnly := currentVirtualOnly
-	if req.AllowVirtualKeysOnly != nil {
-		nextVirtualOnly = *req.AllowVirtualKeysOnly
+	nextPlatformManagedCredentials := currentPlatformManagedCredentials
+	if req.UsePlatformManagedCredentials != nil {
+		nextPlatformManagedCredentials = *req.UsePlatformManagedCredentials
 	}
 
 	nextCredentialMap := parseJSONObject(currentCredentialRaw)
-	if shouldClearProviderAccountCredentials(nextAuthMode, nextVirtualOnly, req.Credentials) {
+	if shouldClearProviderAccountCredentials(nextAuthMode, nextPlatformManagedCredentials, req.Credentials) {
 		nextCredentialMap = map[string]interface{}{}
 	} else if req.Credentials != nil {
 		if req.Credentials.APIKey != "" {
@@ -235,12 +237,12 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		nextCredentialRaw = currentCredentialRaw
 	}
 
-	if req.Credentials == nil && (currentVirtualOnly || strings.EqualFold(currentAuthMode, string(platform.ProviderAuthModeNoCredential))) && !nextVirtualOnly && !strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
+	if req.Credentials == nil && (currentPlatformManagedCredentials || strings.EqualFold(currentAuthMode, string(platform.ProviderAuthModeNoCredential))) && !nextPlatformManagedCredentials && !strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
 		nextHasCredential = false
 		nextCredentialRaw = []byte("{}")
 	}
 
-	if nextVirtualOnly || strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
+	if nextPlatformManagedCredentials || strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
 		nextHasCredential = false
 		nextCredentialRaw = []byte("{}")
 	}
@@ -251,10 +253,10 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		    provider_config = $4,
 		    credential_data = $5,
 		    has_credential = $6,
-		    allow_virtual_keys_only = $7,
+		    use_platform_managed_credentials = $7,
 		    updated_at = NOW()
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextCredentialRaw, nextHasCredential, nextVirtualOnly)
+	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextCredentialRaw, nextHasCredential, nextPlatformManagedCredentials)
 	if execErr != nil {
 		return nil, execErr
 	}
@@ -284,14 +286,20 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		return nil, existsErr
 	}
 
-	var provider string
+	var (
+		provider                   string
+		authMode                   string
+		hasCredential              bool
+		platformManagedCredentials bool
+	)
 	if err := tx.QueryRow(ctx, `
-		SELECT provider
+		SELECT provider, auth_mode, has_credential, use_platform_managed_credentials
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&provider); err != nil {
+	`, tenantID, accountID).Scan(&provider, &authMode, &hasCredential, &platformManagedCredentials); err != nil {
 		return nil, err
 	}
+	allowsPrivatePricing := tenantProviderAccountAllowsPrivatePricing(authMode, hasCredential, platformManagedCredentials)
 
 	_, deleteErr := tx.Exec(ctx, `DELETE FROM tenant_provider_account_models WHERE account_id = $1`, accountID)
 	if deleteErr != nil {
@@ -335,6 +343,9 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		pricingMode := item.PricingMode
 		if pricingMode == "" {
 			pricingMode = platform.PricingModePublic
+		}
+		if !allowsPrivatePricing && (pricingMode == platform.PricingModePrivate || item.PrivatePricing != nil) {
+			return nil, ErrPrivatePricingRequiresCredential
 		}
 
 		types := modelTypesToStrings(item.Types)
@@ -489,34 +500,34 @@ func insertAccessRules(ctx context.Context, tx pgx.Tx, tenantID string, accountI
 // TestTenantProviderAccountCredentials validates whether the account can reach its upstream provider.
 func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
 	var (
-		provider         string
-		authMode         string
-		providerCfgRaw   []byte
-		credentialRaw    []byte
-		hasCredential    bool
-		allowVirtualOnly bool
+		provider                      string
+		authMode                      string
+		providerCfgRaw                []byte
+		credentialRaw                 []byte
+		hasCredential                 bool
+		usePlatformManagedCredentials bool
 	)
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT provider, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, allow_virtual_keys_only
+		SELECT provider, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, use_platform_managed_credentials
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&provider, &authMode, &providerCfgRaw, &credentialRaw, &hasCredential, &allowVirtualOnly)
+	`, tenantID, accountID).Scan(&provider, &authMode, &providerCfgRaw, &credentialRaw, &hasCredential, &usePlatformManagedCredentials)
 	if err != nil {
 		return nil, err
 	}
 
-	if allowVirtualOnly {
+	if usePlatformManagedCredentials {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
-			Message: "virtual-key-only mode is enabled; no provider credential is required",
+			Message: "platform-managed credentials are enabled; no tenant provider credential is required",
 		}, nil
 	}
 
 	if !hasCredential {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: false,
-			Message: "credential is missing; provide an API key or enable virtual-key-only mode",
+			Message: "credential is missing; provide a provider credential or enable platform-managed credentials",
 		}, nil
 	}
 
@@ -559,7 +570,7 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 
 	err := s.pool.QueryRow(ctx, `
 		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb),
-		       has_credential, allow_virtual_keys_only, created_at, updated_at
+		       has_credential, use_platform_managed_credentials, created_at, updated_at
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
 	`, tenantID, accountID).Scan(
@@ -571,7 +582,7 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 		&providerCfgRaw,
 		&credentialRaw,
 		&account.HasCredential,
-		&account.AllowsVirtualKeysOnly,
+		&account.UsePlatformManagedCredentials,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -1147,8 +1158,8 @@ func marshalCredentialData(input *platform.ProviderAccountCredentials) ([]byte, 
 	return raw, hasAPIKey || hasSecretRef || hasRaw, nil
 }
 
-func shouldClearProviderAccountCredentials(authMode string, allowVirtualKeysOnly bool, input *platform.ProviderAccountCredentials) bool {
-	if allowVirtualKeysOnly || strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+func shouldClearProviderAccountCredentials(authMode string, usePlatformManagedCredentials bool, input *platform.ProviderAccountCredentials) bool {
+	if usePlatformManagedCredentials || strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
 		return true
 	}
 
@@ -1169,6 +1180,12 @@ func providerAccountCredentialMapHasCredential(input map[string]interface{}) boo
 	}
 
 	return false
+}
+
+func tenantProviderAccountAllowsPrivatePricing(authMode string, hasCredential bool, usePlatformManagedCredentials bool) bool {
+	return hasCredential &&
+		!usePlatformManagedCredentials &&
+		!strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential))
 }
 
 func marshalJSONObject(input map[string]interface{}) ([]byte, error) {

@@ -139,17 +139,17 @@ type ProviderAccountCredentials struct {
 
 // TenantProviderAccount stores tenant-level provider account configuration.
 type TenantProviderAccount struct {
-	ID                    string                 `json:"id"`
-	TenantID              string                 `json:"tenant_id"`
-	Provider              string                 `json:"provider"`
-	Name                  string                 `json:"name"`
-	AuthMode              ProviderAuthMode       `json:"auth_mode"`
-	ProviderConfig        map[string]interface{} `json:"provider_config,omitempty"`
-	HasCredential         bool                   `json:"has_credential"`
-	CredentialHint        string                 `json:"credential_hint,omitempty"`
-	AllowsVirtualKeysOnly bool                   `json:"allows_virtual_keys_only"`
-	CreatedAt             time.Time              `json:"created_at"`
-	UpdatedAt             time.Time              `json:"updated_at"`
+	ID                            string                 `json:"id"`
+	TenantID                      string                 `json:"tenant_id"`
+	Provider                      string                 `json:"provider"`
+	Name                          string                 `json:"name"`
+	AuthMode                      ProviderAuthMode       `json:"auth_mode"`
+	ProviderConfig                map[string]interface{} `json:"provider_config,omitempty"`
+	HasCredential                 bool                   `json:"has_credential"`
+	CredentialHint                string                 `json:"credential_hint,omitempty"`
+	UsePlatformManagedCredentials bool                   `json:"use_platform_managed_credentials"`
+	CreatedAt                     time.Time              `json:"created_at"`
+	UpdatedAt                     time.Time              `json:"updated_at"`
 }
 
 // TenantProviderAccountModel is tenant-selected model config inside one account.
@@ -198,12 +198,12 @@ type TenantProviderAccountAccessControl struct {
 
 // CreateTenantProviderAccountRequest creates step-1 provider account.
 type CreateTenantProviderAccountRequest struct {
-	Provider             string                      `json:"provider"`
-	Name                 string                      `json:"name"`
-	AuthMode             ProviderAuthMode            `json:"auth_mode"`
-	ProviderConfig       map[string]interface{}      `json:"provider_config,omitempty"`
-	Credentials          *ProviderAccountCredentials `json:"credentials,omitempty"`
-	AllowVirtualKeysOnly bool                        `json:"allow_virtual_keys_only"`
+	Provider                      string                      `json:"provider"`
+	Name                          string                      `json:"name"`
+	AuthMode                      ProviderAuthMode            `json:"auth_mode"`
+	ProviderConfig                map[string]interface{}      `json:"provider_config,omitempty"`
+	Credentials                   *ProviderAccountCredentials `json:"credentials,omitempty"`
+	UsePlatformManagedCredentials bool                        `json:"use_platform_managed_credentials"`
 }
 
 // UpsertTenantProviderAccountModelSelection contains client-editable selection fields.
@@ -257,10 +257,10 @@ type TestTenantProviderAccountCredentialsRequest struct {
 
 // UpdateTenantProviderAccountCredentialsRequest updates auth/credential settings for an existing account.
 type UpdateTenantProviderAccountCredentialsRequest struct {
-	AuthMode             ProviderAuthMode            `json:"auth_mode,omitempty"`
-	ProviderConfig       map[string]interface{}      `json:"provider_config,omitempty"`
-	Credentials          *ProviderAccountCredentials `json:"credentials,omitempty"`
-	AllowVirtualKeysOnly *bool                       `json:"allow_virtual_keys_only,omitempty"`
+	AuthMode                      ProviderAuthMode            `json:"auth_mode,omitempty"`
+	ProviderConfig                map[string]interface{}      `json:"provider_config,omitempty"`
+	Credentials                   *ProviderAccountCredentials `json:"credentials,omitempty"`
+	UsePlatformManagedCredentials *bool                       `json:"use_platform_managed_credentials,omitempty"`
 }
 
 // TestTenantProviderAccountCredentialsResponse returns test execution result.

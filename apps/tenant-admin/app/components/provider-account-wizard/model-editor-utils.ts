@@ -18,8 +18,6 @@ export type ModelFilterState = {
   sortBy: "price_asc" | "price_desc" | "context_asc" | "context_desc";
 };
 
-export type CompareSortMode = "input_asc" | "output_asc" | "context_desc" | "name_asc";
-
 export type ModelFilterLabels = {
   minPrice: string;
   maxPrice: string;
@@ -161,60 +159,6 @@ export function hasInvalidModelPriceRange(filters: Pick<ModelFilterState, "minPr
   const max = toNumberOrUndefined(filters.maxPrice);
   if (typeof min !== "number" || typeof max !== "number") return false;
   return min > max;
-}
-
-export function sortComparedModels(models: ProviderCatalogModel[], sortBy: CompareSortMode): ProviderCatalogModel[] {
-  const items = [...models];
-  items.sort((a, b) => {
-    const aInput = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-    const bInput = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-    const aOutput = a.public_pricing?.output_usd_per_1m ?? Number.POSITIVE_INFINITY;
-    const bOutput = b.public_pricing?.output_usd_per_1m ?? Number.POSITIVE_INFINITY;
-    const aContext = a.context_window ?? 0;
-    const bContext = b.context_window ?? 0;
-    const aName = (a.display_name || a.model).toLowerCase();
-    const bName = (b.display_name || b.model).toLowerCase();
-    switch (sortBy) {
-      case "output_asc":
-        return aOutput - bOutput;
-      case "context_desc":
-        return bContext - aContext;
-      case "name_asc":
-        return aName.localeCompare(bName);
-      case "input_asc":
-      default:
-        return aInput - bInput;
-    }
-  });
-  return items;
-}
-
-export function getCompareKpis(compareModels: ProviderCatalogModel[]) {
-  const validInput = compareModels.filter((item) => typeof item.public_pricing?.input_usd_per_1m === "number");
-  const validOutput = compareModels.filter((item) => typeof item.public_pricing?.output_usd_per_1m === "number");
-  const validContext = compareModels.filter((item) => typeof item.context_window === "number");
-  const cheapestInput = validInput.sort((a, b) => (a.public_pricing?.input_usd_per_1m ?? 0) - (b.public_pricing?.input_usd_per_1m ?? 0))[0];
-  const cheapestOutput = validOutput.sort((a, b) => (a.public_pricing?.output_usd_per_1m ?? 0) - (b.public_pricing?.output_usd_per_1m ?? 0))[0];
-  const largestContext = validContext.sort((a, b) => (b.context_window ?? 0) - (a.context_window ?? 0))[0];
-  const maxFeatures = compareModels.reduce(
-    (best, item) => {
-      const count = getModelCapabilities(item).length;
-      return count > best.count ? { model: item, count } : best;
-    },
-    { model: null as ProviderCatalogModel | null, count: -1 },
-  );
-  return { cheapestInput, cheapestOutput, largestContext, mostFeatures: maxFeatures.model };
-}
-
-export function getBestCompareMarkers(compareModels: ProviderCatalogModel[]) {
-  const minInput = Math.min(...compareModels.map((item) => item.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY));
-  const minOutput = Math.min(...compareModels.map((item) => item.public_pricing?.output_usd_per_1m ?? Number.POSITIVE_INFINITY));
-  const maxContext = Math.max(...compareModels.map((item) => item.context_window ?? 0));
-  return {
-    input: Number.isFinite(minInput) ? minInput : null,
-    output: Number.isFinite(minOutput) ? minOutput : null,
-    context: maxContext > 0 ? maxContext : null,
-  };
 }
 
 export function normalizeProviderScopedModelName(provider: string, modelName: string) {

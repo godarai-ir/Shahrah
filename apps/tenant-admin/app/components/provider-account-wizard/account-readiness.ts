@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   AccountDetailsResponse,
   ProviderCatalogModel,
   Readiness,
@@ -6,7 +6,7 @@
   TenantProviderAccountModel,
 } from "./types";
 export function deriveAccountListReadiness(account: TenantProviderAccount): Readiness {
-  if (!account.has_credential && !account.allows_virtual_keys_only && account.auth_mode !== "no_credential") {
+  if (!account.has_credential && !account.use_platform_managed_credentials && account.auth_mode !== "no_credential") {
     return "needs_credentials";
   }
   return "ready";
@@ -18,7 +18,7 @@ export function deriveAccountDetailsReadiness(
   access: AccountDetailsResponse["access"] | undefined,
   catalogModels: ProviderCatalogModel[],
 ): Readiness {
-  if (!account.has_credential && !account.allows_virtual_keys_only && account.auth_mode !== "no_credential") {
+  if (!account.has_credential && !account.use_platform_managed_credentials && account.auth_mode !== "no_credential") {
     return "needs_credentials";
   }
   if ((access?.managers ?? []).length === 0) {

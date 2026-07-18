@@ -4,13 +4,10 @@ import {
   createInitialModelFilters,
   filterAndSortProviderModels,
   getActiveModelFilterChips,
-  getBestCompareMarkers,
-  getCompareKpis,
   getModelFamily,
   getRecommendedModel,
   hasInvalidModelPriceRange,
   normalizeProviderScopedModelName,
-  sortComparedModels,
 } from "./model-editor-utils";
 import type { ProviderCatalogModel } from "./types";
 
@@ -115,15 +112,6 @@ describe("model-editor-utils", () => {
   it("detects invalid price ranges", () => {
     expect(hasInvalidModelPriceRange({ minPrice: "10", maxPrice: "2" })).toBe(true);
     expect(hasInvalidModelPriceRange({ minPrice: "2", maxPrice: "10" })).toBe(false);
-  });
-
-  it("sorts compared models and computes compare summaries", () => {
-    const compared = sortComparedModels(models, "context_desc");
-    expect(compared.map((model) => model.model)).toEqual(["gpt-long", "openai/gpt-fast", "gpt-vision"]);
-
-    expect(getCompareKpis(models).cheapestInput?.model).toBe("openai/gpt-fast");
-    expect(getCompareKpis(models).largestContext?.model).toBe("gpt-long");
-    expect(getBestCompareMarkers(models)).toEqual({ input: 1, output: 4, context: 1_000_000 });
   });
 
   it("normalizes provider-scoped model names", () => {

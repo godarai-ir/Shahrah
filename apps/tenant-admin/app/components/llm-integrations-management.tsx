@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -722,7 +722,7 @@ function ConnectedIntegrationCard(props: {
   const canTestStoredCredential =
     props.account.has_credential &&
     props.account.auth_mode !== "no_credential" &&
-    !props.account.allows_virtual_keys_only;
+    !props.account.use_platform_managed_credentials;
 
   return (
     <Card className="group flex min-h-56 w-full max-w-full flex-col overflow-hidden rounded-xl border border-card-border bg-card text-card-foreground shadow-none transition-colors hover:border-primary/35 sm:w-96">

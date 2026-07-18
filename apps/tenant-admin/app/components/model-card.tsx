@@ -123,6 +123,7 @@ type ModelCardProps = {
     fqn?: string;
     customPricing?: string;
     pricingPerMillion?: string;
+    pricingPerToken?: string;
     modelId?: string;
     providerId?: string;
     apiMode?: string;
@@ -183,6 +184,7 @@ export function ModelCard(props: ModelCardProps) {
     fqn: "Model FQN",
     customPricing: "Custom pricing",
     pricingPerMillion: "Cost (1M tokens)",
+    pricingPerToken: "Cost per token",
     modelId: "Model ID",
     providerId: "Provider ID",
     apiMode: "API mode",
@@ -222,10 +224,6 @@ export function ModelCard(props: ModelCardProps) {
     ? model.invocationModes
     : model.metadata?.mode?.split(",").map((item) => item.trim()).filter(Boolean) ?? [];
 
-  const perMillionPricingDisplay = {
-    ...pricingDisplay,
-    scale: "PER_MILLION_TOKENS" as const,
-  };
   const visibleCategories = isCompactMobile ? model.category.slice(0, 2) : model.category;
   const visibleCapabilities = isCompactMobile ? model.capabilities.slice(0, 3) : model.capabilities;
   const visibleModes = isCompactMobile ? invocationModes.slice(0, 2) : invocationModes;
@@ -242,6 +240,20 @@ export function ModelCard(props: ModelCardProps) {
     } catch {
       setCopied(false);
     }
+  }
+
+  function renderUtilityActions() {
+    return (
+      <>
+        {showCopyAction ? (
+          <Button variant="outline" size="sm" onClick={handleCopyModelId}>
+            {copied ? <CheckCircle2 className="text-success" data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
+            {copied ? labels.copied : labels.copyId}
+          </Button>
+        ) : null}
+        {props.footerActions}
+      </>
+    );
   }
 
   return (
@@ -299,7 +311,7 @@ export function ModelCard(props: ModelCardProps) {
 
           <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
             {typeof props.isCompared === "boolean" && props.onComparedChange ? (
-              <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 text-sm">
+              <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={props.isCompared}
@@ -309,6 +321,15 @@ export function ModelCard(props: ModelCardProps) {
                 {props.compareCheckboxLabel ?? "Compare"}
               </label>
             ) : null}
+            <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex">
+              {renderUtilityActions()}
+              {props.hasCustomPricing ? (
+                <Badge className="gap-1" variant="warning">
+                  <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                  {labels.customPricing}
+                </Badge>
+              ) : null}
+            </div>
             {typeof props.isSelected === "boolean" && props.onSelectedChange ? (
               <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium">
                 <span>{props.selectedCheckboxLabel ?? "Enabled"}</span>
@@ -323,15 +344,9 @@ export function ModelCard(props: ModelCardProps) {
         </div>
 
         {showUtilityRow ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 md:hidden">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              {showCopyAction ? (
-                <Button variant="outline" size="sm" onClick={handleCopyModelId}>
-                  {copied ? <CheckCircle2 className="text-success" data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
-                  {copied ? labels.copied : labels.copyId}
-                </Button>
-              ) : null}
-              {props.footerActions}
+              {renderUtilityActions()}
             </div>
             {props.hasCustomPricing ? (
               <Badge className="gap-1" variant="warning">
@@ -344,37 +359,36 @@ export function ModelCard(props: ModelCardProps) {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-0 sm:px-5 sm:pb-5">
-        <div className="grid min-w-0 gap-3 lg:grid-cols-4">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <MetricPanel label={labels.context} value={formatTokenCount(model.contextWindow)} />
           <PricePanel
             className="lg:col-span-3"
-            label={labels.pricingPerMillion}
-            inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, perMillionPricingDisplay)}
-            outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, perMillionPricingDisplay)}
+            label={pricingDisplay.scale === "PER_TOKEN" ? labels.pricingPerToken : labels.pricingPerMillion}
+            inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, pricingDisplay)}
+            outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, pricingDisplay)}
             inputLabel={labels.input}
             outputLabel={labels.output}
             action={props.pricingAction}
           />
         </div>
 
-        <div className="grid min-w-0 gap-3 md:grid-cols-2">
+        <div className="grid min-w-0 gap-3 grid-cols-2 md:grid-cols-4">
           <BadgePanel label={labels.inputFormats} values={model.inputModalities} kind="modality" tone="info" />
           <BadgePanel label={labels.outputFormats} values={model.outputModalities} kind="modality" tone="success" />
+          <BadgePanel
+            label={labels.capabilities}
+            values={visibleCapabilities}
+            kind="capability"
+            moreCount={remainingCapabilityCount}
+            formatValue={props.formatCapabilityLabel}
+          />
+          <BadgePanel
+            label={labels.invocationModes}
+            values={visibleModes}
+            kind="mode"
+            moreCount={remainingModeCount}
+          />
         </div>
-
-        <BadgePanel
-          label={labels.capabilities}
-          values={visibleCapabilities}
-          kind="capability"
-          moreCount={remainingCapabilityCount}
-          formatValue={props.formatCapabilityLabel}
-        />
-        <BadgePanel
-          label={labels.invocationModes}
-          values={visibleModes}
-          kind="mode"
-          moreCount={remainingModeCount}
-        />
 
         {model.tradeoffs && model.tradeoffs.length > 0 ? (
           <section className="rounded-xl border border-warning/40 bg-warning/10 p-3">
@@ -410,10 +424,10 @@ function BadgePanel(props: {
     <section
       aria-label={props.label}
       className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-xl border p-4",
-        tone === "neutral" && "border-border bg-muted/20",
-        tone === "info" && "border-info/20 bg-info/5",
-        tone === "success" && "border-success/20 bg-success/5",
+        "flex min-w-0 flex-col gap-3 rounded-xl p-4",
+        tone === "neutral" && "bg-muted/20",
+        tone === "info" && "bg-info/5",
+        tone === "success" && "bg-success/5",
       )}
     >
       <p className="text-sm font-medium text-muted-foreground">{props.label}</p>
@@ -449,7 +463,7 @@ function PricePanel(props: {
   className?: string;
 }) {
   return (
-    <section aria-label={props.label} className={cn("min-w-0 rounded-xl border border-border bg-muted/20 p-4", props.className)}>
+    <section aria-label={props.label} className={cn("min-w-0 rounded-xl bg-muted/20 p-4", props.className)}>
       <p className="text-center text-sm font-medium text-muted-foreground">{props.label}</p>
       <div className="mt-3 grid min-w-0 items-center gap-4 sm:grid-cols-3">
         <div className="min-w-0 text-center">
@@ -470,7 +484,7 @@ function PricePanel(props: {
 
 function MetricPanel(props: { label: string; value: string }) {
   return (
-    <section aria-label={props.label} className="flex min-h-28 min-w-0 flex-col items-center justify-center rounded-xl border border-border bg-muted/20 p-4 text-center">
+    <section aria-label={props.label} className="flex min-h-28 min-w-0 flex-col items-center justify-center rounded-xl bg-muted/20 p-4 text-center">
       <p className="text-sm font-medium text-muted-foreground">{props.label}</p>
       <p className="mt-3 truncate text-2xl font-semibold" dir="ltr" title={props.value}>{props.value}</p>
     </section>

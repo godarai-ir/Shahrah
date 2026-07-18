@@ -14,7 +14,6 @@
   "creating": "Creating account...",
   "createProviderAccount": "Create new account",
   "saving": "Saving...",
-  "saveSelectedModels": "Save enabled models",
   "saveAccessControl": "Save access policy",
   "step1": {
     "title": "Step 1: Choose provider",
@@ -45,8 +44,8 @@
     "provider": "Model provider",
     "accountName": "Connection technical identifier",
     "authMode": "Connection auth mode",
-    "virtualKeysMode": "Virtual key policy",
-    "allowVirtualOnly": "Tenant virtual keys only",
+    "credentialSourceMode": "Connection credential source",
+    "usePlatformManagedCredentials": "Use GodarAI-managed credentials",
     "apiKeyOptional": "API Key (optional)",
     "secretRefOptional": "Secret reference (optional)",
     "pricingMode": "Pricing basis",
@@ -135,8 +134,7 @@
     "tabs": {
       "models": "Models",
       "access": "Access",
-      "credentials": "Credentials",
-      "observability": "Observability"
+      "credentials": "Credentials"
     },
     "actions": {
       "addProviderAccount": "Add Provider Account",
@@ -201,25 +199,16 @@
       "description": "Build a runtime-ready account: configure credentials, enable models, assign access, and verify effective policy."
     },
     "microcopy": {
-      "virtualOnly": "Virtual-key-only mode: applications can use platform keys without storing provider credential.",
+      "platformManagedCredentials": "Managed-credential mode: applications can use GodarAI-managed provider credentials without storing a dedicated provider credential.",
       "pricingPolicy": "Public pricing uses catalog rates and may change over time. Private pricing overrides catalog rates for this account."
     },
     "credentials": {
       "desc": "Rotate credentials and run connection test.",
       "hasCredential": "Has credential",
-      "virtualOnly": "Virtual-key-only",
+      "platformManagedCredentials": "GodarAI-managed credential",
       "lastTest": "Last test",
       "notTested": "Not tested in this session",
       "editStoredApiKey": "Replace stored API key"
-    },
-    "observability": {
-      "desc": "Inspect effective model resolution and runtime deny reasons before real traffic.",
-      "deniedReasons": "Denied reasons taxonomy: `not in allowlist`, `capability mismatch`, `unknown model`.",
-      "cacheTTL": "Cache TTL (sec)",
-      "providersCache": "Providers cache (hit/miss)",
-      "modelsCache": "Models cache (hit/miss)",
-      "discoveryErrors": "Discovery errors",
-      "discoveryFallback": "Discovery fallback"
     },
     "messages": {
       "fqnCopied": "Account FQN copied.",
@@ -270,9 +259,7 @@
       },
       "summary": {
         "catalog": "Catalog: {count}",
-        "enabled": "Enabled: {count}",
-        "available": "Available: {count}",
-        "showing": "Showing {visible} of {total}"
+        "enabled": "Enabled: {count}"
       },
       "columns": {
         "model": "Model",
@@ -289,7 +276,8 @@
         "allInputModalities": "All input modalities",
         "allOutputModalities": "All output modalities",
         "allFeatures": "All features",
-        "allFamilies": "All families"
+        "allFamilies": "All families",
+        "more": "More filters"
       },
       "recommendation": {
         "title": "Suggested starting model",
@@ -316,8 +304,6 @@
       },
       "actions": {
         "clearFilters": "Clear filters",
-        "compare": "Compare ({count})",
-        "compareToggle": "Compare",
         "editPricing": "Edit pricing",
         "apply": "Apply",
         "cancel": "Cancel",
@@ -375,12 +361,20 @@
       "curlGuide": {
         "title": "Connect With cURL",
         "description": "Use this example to call {model} through GodarAI.",
+        "descriptionPrefix": "Use this example to call",
+        "descriptionSuffix": "through GodarAI.",
         "readyBadge": "Ready to Run",
         "modelFqnLabel": "Model FQN",
         "instructionsLabel": "Execution notes",
         "instructions": "Replace PAT_TOKEN with the user's PAT, then send the request to the tenant gateway.",
         "copyCommand": "Copy active example",
+        "copySample": "Copy example",
+        "requestTitle": "Request example",
         "sampleResponse": "Sample response",
+        "docsLabel": "Docs",
+        "docsDescriptionPrefix": "For more information about API usage and input parameters, see the",
+        "docsDescriptionSuffix": ".",
+        "docsDescription": "For more information about API usage and input parameters, see the documentation.",
         "shells": {
           "powershell": "PowerShell",
           "bash": "bash"
@@ -393,54 +387,6 @@
       "validation": {
         "invalidInputPrice": "Input price must be a non-negative number.",
         "invalidOutputPrice": "Output price must be a non-negative number."
-      },
-      "compare": {
-        "title": "Model Comparison",
-        "description": "Side-by-side comparison of selected models.",
-        "columns": {
-          "model": "Model",
-          "provider": "Provider",
-          "price": "Price (input/output)",
-          "context": "Context",
-          "inputModality": "Input",
-          "outputModality": "Output",
-          "features": "Features",
-          "attribute": "Attribute"
-        },
-        "rows": {
-          "inputPrice": "Input price",
-          "outputPrice": "Output price",
-          "context": "Context window",
-          "inputModality": "Input modalities",
-          "outputModality": "Output modalities",
-          "features": "Capabilities"
-        },
-        "sections": {
-          "pricing": "Pricing",
-          "capacity": "Capacity",
-          "modalities": "Modalities",
-          "capabilities": "Capabilities"
-        },
-        "kpis": {
-          "bestInput": "Best input price",
-          "bestOutput": "Best output price",
-          "largestContext": "Largest context",
-          "richestFeatures": "Most capabilities"
-        },
-        "sort": {
-          "label": "Sort by",
-          "inputAsc": "Input price: low to high",
-          "outputAsc": "Output price: low to high",
-          "contextDesc": "Context: high to low",
-          "nameAsc": "Model name: A-Z"
-        },
-        "toggles": {
-          "differencesOnly": "Show only differences",
-          "normalizedPricing": "Normalize pricing view"
-        },
-        "actions": {
-          "removeModel": "Remove from comparison"
-        }
       },
       "pricing": {
         "public": "Public",

@@ -1,6 +1,6 @@
 {
-  "title": "LLM Integrations",
-  "description": "Providerهای هوش مصنوعی را وصل کنید، مدل‌ها را provision کنید و دسترسی tenant را برای routing از مسیر Godar مدیریت کنید.",
+  "title": "اتصال‌های مدل زبانی",
+  "description": "ارائه‌دهنده‌های هوش مصنوعی را به گدارAI وصل کنید، مدل‌های قابل استفاده را فعال کنید و دسترسی فضای کاری را مدیریت کنید.",
   "errorTitle": "خطا",
   "successTitle": "موفق",
   "existingAccount": "حساب ارائه‌دهنده",
@@ -8,14 +8,13 @@
   "loadAccount": "بارگذاری تنظیمات حساب",
   "refresh": "بازآوری داده‌ها",
   "refreshing": "در حال بازآوری...",
-  "testing": "در حال اعتبارسنجی...",
-  "testCredentials": "اعتبارسنجی اتصال",
+  "testing": "در حال بررسی اتصال...",
+  "testCredentials": "بررسی اتصال",
   "selectProvider": "انتخاب ارائه‌دهنده",
   "creating": "در حال ایجاد حساب...",
   "createProviderAccount": "ایجاد حساب جدید",
   "save": "ذخیره",
   "saving": "در حال ذخیره...",
-  "saveSelectedModels": "ذخیره مدل‌های فعال",
   "saveAccessControl": "ذخیره سطح دسترسی",
   "step1": {
     "title": "گام ۱: انتخاب ارائه‌دهنده",
@@ -23,36 +22,36 @@
   },
   "step2": {
     "title": "گام ۲: پیکربندی اتصال",
-    "description": "فهرست مدل‌ها از Discovery ارائه‌دهنده دریافت می‌شود.",
-    "empty": "مدل قابلی از این ارائه‌دهنده یافت نشد.",
+    "description": "فهرست مدل‌ها از کاتالوگ ارائه‌دهنده دریافت می‌شود.",
+    "empty": "مدل قابل استفاده‌ای برای این ارائه‌دهنده یافت نشد.",
     "connectionDescription": "اطلاعات اتصال حساب را متناسب با روش احراز هویت ارائه‌دهنده تکمیل کنید."
   },
   "step3": {
     "title": "گام ۳: مدل‌ها و دسترسی",
     "managersTitle": "مدیران حساب (کاربر/تیم)",
     "usersTitle": "کاربران مجاز به مصرف مدل",
-    "description": "مدل‌های قابل مصرف را فعال کنید و دسترسی کاربران را تنظیم کنید.",
+    "description": "مدل‌های قابل استفاده را فعال کنید و دسترسی کاربران را تنظیم کنید.",
     "accessTitle": "کنترل دسترسی مصرف",
     "empty": "مدلی برای این ارائه‌دهنده یافت نشد.",
-    "searchPlaceholder": "جستجو در نام مدل",
+    "searchPlaceholder": "جست‌وجو در نام مدل",
     "toggleSelectAll": "انتخاب/لغو انتخاب همه",
     "columns": {
       "model": "مدل",
-      "inputCost": "هزینه ورودی (دلار / 1M)",
-      "outputCost": "هزینه خروجی (دلار / 1M)"
+      "inputCost": "هزینه ورودی (دلار / ۱ میلیون)",
+      "outputCost": "هزینه خروجی (دلار / ۱ میلیون)"
     }
   },
   "fields": {
     "provider": "ارائه‌دهنده مدل",
-    "accountName": "شناسه فنی اتصال",
+    "accountName": "نام فنی اتصال",
     "authMode": "روش احراز هویت اتصال",
-    "virtualKeysMode": "سیاست کلید مجازی",
-    "allowVirtualOnly": "فقط کلیدهای مجازی فضای کاری",
-    "apiKeyOptional": "API Key (اختیاری)",
-    "secretRefOptional": "مرجع Secret (اختیاری)",
+    "credentialSourceMode": "منبع اعتبارنامه اتصال",
+    "usePlatformManagedCredentials": "استفاده از اعتبارنامه مدیریت‌شده گدارAI",
+    "apiKeyOptional": "کلید دسترسی اختیاری",
+    "secretRefOptional": "مرجع Secret اختیاری",
     "pricingMode": "مبنای قیمت‌گذاری",
-    "inputPrice": "هزینه ورودی (دلار / ۱M توکن)",
-    "outputPrice": "هزینه خروجی (دلار / ۱M توکن)",
+    "inputPrice": "هزینه ورودی (دلار / ۱ میلیون توکن)",
+    "outputPrice": "هزینه خروجی (دلار / ۱ میلیون توکن)",
     "publicPricing": "قیمت عمومی",
     "privatePricing": "قیمت اختصاصی",
     "azureTenantID": "Azure Tenant ID",
@@ -66,16 +65,16 @@
     "user": "کاربر",
     "team": "تیم",
     "searchPlaceholder": "نام کاربر یا تیم...",
-    "searchHint": "بخشی از نام هدف را برای جستجو وارد کنید.",
-    "search": "جستجو",
+    "searchHint": "برای جست‌وجو، بخشی از نام را وارد کنید.",
+    "search": "جست‌وجو",
     "add": "افزودن",
     "addEveryone": "اعطای دسترسی به همه کاربران",
     "remove": "حذف",
     "everyone": "همه کاربران"
   },
   "messages": {
-    "initialLoadFailed": "بارگیری کاتالوگ پروایدر انجام نشد. بعد از در دسترس شدن model-discovery دوباره تلاش کنید.",
-    "providerModelsLoadFailed": "دریافت لیست مدل‌ها از model-discovery ناموفق بود. بعد از در دسترس شدن سرویس دوباره تلاش کنید.",
+    "initialLoadFailed": "کاتالوگ ارائه‌دهنده‌ها بارگیری نشد. پس از در دسترس شدن سرویس model-discovery دوباره تلاش کنید.",
+    "providerModelsLoadFailed": "فهرست مدل‌ها از سرویس model-discovery دریافت نشد. پس از در دسترس شدن سرویس دوباره تلاش کنید.",
     "validationProviderName": "انتخاب ارائه‌دهنده و وارد کردن نام حساب الزامی است.",
     "accountCreateSuccess": "حساب ارائه‌دهنده با موفقیت ایجاد شد.",
     "accountCreateFailed": "ایجاد حساب ارائه‌دهنده انجام نشد.",
@@ -88,14 +87,14 @@
     "managerRequired": "حداقل یک مدیر حساب باید تعریف شود.",
     "accessSaveSuccess": "سطح دسترسی با موفقیت ذخیره شد.",
     "accessSaveFailed": "ذخیره سطح دسترسی ناموفق بود.",
-    "credentialValid": "اعتبارنامه‌های اتصال معتبر است.",
-    "credentialInvalid": "اعتبارسنجی اتصال ناموفق بود.",
-    "credentialTestFailed": "تست اعتبارنامه‌های اتصال انجام نشد.",
-    "managerSearchFailed": "جستجوی مدیران ناموفق بود.",
-    "userSearchFailed": "جستجوی کاربران/تیم‌ها ناموفق بود.",
-    "accountDeleteConfirmInput": "حذف حساب ارائه‌دهنده \"{name}\".\nبرای تایید، نام دقیق حساب را وارد کنید:",
+    "credentialValid": "اعتبارنامه اتصال معتبر است.",
+    "credentialInvalid": "بررسی اتصال ناموفق بود.",
+    "credentialTestFailed": "بررسی اعتبارنامه اتصال انجام نشد.",
+    "managerSearchFailed": "جست‌وجوی مدیران ناموفق بود.",
+    "userSearchFailed": "جست‌وجوی کاربران و تیم‌ها ناموفق بود.",
+    "accountDeleteConfirmInput": "حذف حساب ارائه‌دهنده «{name}».\nبرای تأیید، نام دقیق حساب را وارد کنید:",
     "accountDeleteConfirmTitle": "حذف حساب ارائه‌دهنده",
-    "accountDeleteConfirmBody": "این عملیات حساب \"{name}\" را به‌صورت دائمی حذف می‌کند. برای تایید، نام حساب را دقیقاً وارد کنید.",
+    "accountDeleteConfirmBody": "این عملیات حساب «{name}» را به‌صورت دائمی حذف می‌کند. برای تأیید، نام حساب را دقیقاً وارد کنید.",
     "accountDeleteConfirmLabel": "نام حساب",
     "accountDeleteNameMismatch": "نام حساب با مقدار مورد نظر یکسان نیست. عملیات حذف لغو شد.",
     "accountDeleteSuccess": "حساب ارائه‌دهنده با موفقیت حذف شد.",
@@ -116,12 +115,12 @@
       "workspaceTitle": "محیط کاری حساب",
       "overviewTitle": "نمای کلی ارائه‌دهنده",
       "setupHint": "جریان راه‌اندازی: ارائه‌دهنده، حساب، مدل‌ها، دسترسی و مرور نهایی.",
-      "workspaceHint": "مرجع اصلی برای مدیریت مدل، دسترسی، اعتبارنامه و اثر سیاست‌ها در Runtime.",
+      "workspaceHint": "محل مدیریت مدل‌ها، دسترسی‌ها و اعتبارنامه‌های این حساب.",
       "overviewHint": "یک حساب موجود را باز کنید یا حساب جدید بسازید."
     },
     "sidebar": {
       "catalogProviders": "کاتالوگ ارائه‌دهندگان",
-      "catalogProvidersHint": "کل کاتالوگ discovery نمایش داده می‌شود و ارائه‌دهنده‌هایی که حساب دارند همچنان متمایز می‌مانند.",
+      "catalogProvidersHint": "کاتالوگ ارائه‌دهنده‌ها را ببینید و ارائه‌دهنده‌هایی را که حساب فعال دارند سریع تشخیص دهید.",
       "providerAccounts": "حساب‌های ارائه‌دهنده",
       "selectProviderPrompt": "ارائه‌دهنده را انتخاب کنید",
       "noAccountYet": "هنوز حسابی برای این ارائه‌دهنده ثبت نشده است."
@@ -136,8 +135,7 @@
     "tabs": {
       "models": "مدل‌ها",
       "access": "دسترسی",
-      "credentials": "اعتبارنامه",
-      "observability": "مشاهده‌پذیری"
+      "credentials": "اعتبارنامه"
     },
     "actions": {
       "addProviderAccount": "افزودن حساب ارائه‌دهنده",
@@ -149,7 +147,7 @@
       "activating": "در حال فعال‌سازی...",
       "setupNewAccount": "راه‌اندازی حساب جدید",
       "openExisting": "باز کردن حساب موجود",
-      "loadEffectiveModels": "بارگذاری مدل‌های مؤثر",
+      "loadEffectiveModels": "بارگیری مدل‌های مجاز",
       "loading": "در حال بارگذاری...",
       "refreshCatalog": "بازآوری کاتالوگ",
       "refreshingCatalog": "در حال بازآوری کاتالوگ...",
@@ -176,7 +174,7 @@
       "accountName": "نام حساب",
       "authMode": "روش احراز هویت",
       "credentialSource": "منبع کلید",
-      "godarKey": "کلید گُدارAI",
+      "godarKey": "کلید گدارAI",
       "providerKey": "کلید اختصاصی ارائه‌دهنده",
       "modelsTitle": "مدل‌های انتخاب‌شده",
       "accessTitle": "دسترسی‌ها",
@@ -199,36 +197,27 @@
     },
     "overview": {
       "title": "مدیریت حساب ارائه‌دهنده و دسترسی مدل",
-      "description": "یک حساب آماده برای Runtime بسازید: اعتبارنامه را تنظیم کنید، مدل‌ها را فعال کنید، دسترسی‌ها را تخصیص دهید و سیاست مؤثر را بررسی کنید."
+      "description": "یک حساب آماده استفاده بسازید: اعتبارنامه را تنظیم کنید، مدل‌ها را فعال کنید و دسترسی‌ها را مشخص کنید."
     },
     "microcopy": {
-      "virtualOnly": "حالت فقط Virtual-Key: برنامه‌ها می‌توانند بدون ذخیره اعتبارنامه ارائه‌دهنده، از کلیدهای پلتفرم استفاده کنند.",
+      "platformManagedCredentials": "در حالت اعتبارنامه مدیریت‌شده، برنامه‌ها بدون ذخیره اعتبارنامه اختصاصی ارائه‌دهنده از اعتبارنامه‌های گدارAI استفاده می‌کنند.",
       "pricingPolicy": "قیمت‌گذاری عمومی از نرخ‌های کاتالوگ استفاده می‌کند و ممکن است در زمان تغییر کند. قیمت‌گذاری خصوصی، نرخ‌های کاتالوگ را برای این حساب بازنویسی می‌کند."
     },
     "credentials": {
       "desc": "اعتبارنامه را به‌روزرسانی کنید و آزمون اتصال اجرا کنید.",
       "hasCredential": "دارای اعتبارنامه",
-      "virtualOnly": "فقط Virtual-Key",
+      "platformManagedCredentials": "اعتبارنامه مدیریت‌شده گدارAI",
       "lastTest": "آخرین آزمون",
       "notTested": "در این نشست هنوز آزمونی اجرا نشده است",
-      "editStoredApiKey": "جایگزینی API Key ذخیره‌شده"
-    },
-    "observability": {
-      "desc": "پیش از ترافیک واقعی، نتیجه سیاست مؤثر و دلایل رد شدن درخواست را بررسی کنید.",
-      "deniedReasons": "دسته‌بندی دلایل رد: `not in allowlist`، `capability mismatch`، `unknown model`.",
-      "cacheTTL": "مدت زنده‌ماندن کش (ثانیه)",
-      "providersCache": "کش ارائه‌دهنده‌ها (hit/miss)",
-      "modelsCache": "کش مدل‌ها (hit/miss)",
-      "discoveryErrors": "خطاهای Discovery",
-      "discoveryFallback": "Fallback های Discovery"
+      "editStoredApiKey": "جایگزینی کلید دسترسی ذخیره‌شده"
     },
     "messages": {
-      "fqnCopied": "FQN حساب کپی شد.",
+      "fqnCopied": "شناسه کامل حساب کپی شد.",
       "curlCopied": "نمونه کد کپی شد.",
-      "accountActivated": "حساب فعال شد و برای اعمال سیاست‌های Runtime آماده است.",
+      "accountActivated": "حساب فعال شد و برای استفاده آماده است.",
       "catalogRefreshSuccess": "کش کاتالوگ ارائه‌دهنده با موفقیت بازآوری شد.",
       "catalogRefreshFailed": "بازآوری کاتالوگ ارائه‌دهنده ناموفق بود.",
-      "integrationCreated": "Integration با موفقیت ایجاد شد. اکنون می‌توانید PAT یا VAT بسازید.",
+      "integrationCreated": "اتصال با موفقیت ایجاد شد. اکنون می‌توانید توکن کاربر یا توکن تیم بسازید.",
       "modelTypeRequired": "حداقل یک نوع مدل الزامی است",
       "privatePricingRequired": "برای قیمت‌گذاری خصوصی، هزینه ورودی یا خروجی الزامی است"
     },
@@ -240,9 +229,9 @@
     },
     "connectionTest": {
       "title": "تست اتصال",
-      "description": "اعتبارنامه ذخیره‌شده اتصال «{name}» روی {provider} را اعتبارسنجی کنید.",
+      "description": "اعتبارنامه ذخیره‌شده اتصال «{name}» روی {provider} را بررسی کنید.",
       "modelHintLabel": "مدل پیشنهادی",
-      "modelHintPlaceholder": "نام مدل اختیاری، مثلا gpt-4o-mini",
+      "modelHintPlaceholder": "نام مدل اختیاری، مانند gpt-4o-mini",
       "run": "اجرای تست اتصال",
       "running": "در حال تست اتصال...",
       "successTitle": "اتصال معتبر است",
@@ -253,10 +242,10 @@
     },
     "accessTester": {
       "title": "تست دسترسی‌های مجاز",
-      "description": "دسترسی مؤثر مدل‌ها برای اتصال «{name}» روی {provider} را بررسی کنید.",
+      "description": "مدل‌های مجاز برای اتصال «{name}» روی {provider} را بررسی کنید.",
       "run": "اجرای تست دسترسی",
-      "readyHint": "تست دسترسی را اجرا کنید تا مدل‌های مؤثر برای هویت انتخاب‌شده نمایش داده شود.",
-      "error": "بارگذاری دسترسی مؤثر مدل‌ها ناموفق بود.",
+      "readyHint": "تست دسترسی را اجرا کنید تا مدل‌های مجاز برای کاربر یا تیم انتخاب‌شده نمایش داده شود.",
+      "error": "بارگیری مدل‌های مجاز ناموفق بود.",
       "successTitle": "تست دسترسی کامل شد",
       "errorTitle": "تست دسترسی ناموفق بود",
       "warningTitle": "هشدار تست دسترسی",
@@ -264,16 +253,14 @@
     },
     "models": {
       "description": "مدل‌ها، قابلیت‌ها و حالت قیمت‌گذاری را انتخاب کنید.",
-      "catalogScopeHint": "در این بخش کل کاتالوگ پروایدر نمایش داده می‌شود. مدل‌هایی که قبلاً روی این حساب فعال شده‌اند هایلایت می‌مانند و بقیه مدل‌ها همچنان برای افزودن در دسترس هستند.",
+      "catalogScopeHint": "در این بخش، کاتالوگ کامل ارائه‌دهنده نمایش داده می‌شود. مدل‌های فعال این حساب مشخص هستند و مدل‌های دیگر را می‌توانید اضافه کنید.",
       "state": {
         "enabledOnAccount": "فعال روی حساب",
         "availableToAdd": "قابل افزودن"
       },
       "summary": {
         "catalog": "کاتالوگ: {count}",
-        "enabled": "فعال: {count}",
-        "available": "قابل افزودن: {count}",
-        "showing": "نمایش {visible} از {total}"
+        "enabled": "فعال: {count}"
       },
       "columns": {
         "model": "مدل",
@@ -281,7 +268,7 @@
         "pricingMode": "حالت قیمت‌گذاری",
         "costConfig": "پیکربندی هزینه",
         "modalities": "مودالیتی‌ها",
-        "context": "کانتکست"
+        "context": "پنجره زمینه"
       },
       "pricing": {
         "public": "عمومی",
@@ -300,15 +287,16 @@
       "filters": {
         "minPrice": "حداقل قیمت",
         "maxPrice": "حداکثر قیمت",
-        "minContext": "حداقل کانتکست",
+        "minContext": "حداقل پنجره زمینه",
         "allInputModalities": "همه ورودی‌ها",
         "allOutputModalities": "همه خروجی‌ها",
         "allFeatures": "همه قابلیت‌ها",
-        "allFamilies": "همه خانواده‌ها"
+        "allFamilies": "همه خانواده‌ها",
+        "more": "فیلترهای بیشتر"
       },
       "recommendation": {
         "title": "پیشنهاد برای شروع",
-        "reason": "alias پایدار و کم‌هزینه‌ترین ورودی منتشرشده در میان مدل‌های گفت‌وگویی"
+        "reason": "نام مستعار پایدار با کمترین هزینه ورودی منتشرشده در میان مدل‌های گفت‌وگویی"
       },
       "capabilityLabels": {
         "toolCalling": "فراخوانی ابزار",
@@ -320,13 +308,11 @@
       "sort": {
         "priceAsc": "قیمت صعودی",
         "priceDesc": "قیمت نزولی",
-        "contextAsc": "کانتکست صعودی",
-        "contextDesc": "کانتکست نزولی"
+        "contextAsc": "پنجره زمینه صعودی",
+        "contextDesc": "پنجره زمینه نزولی"
       },
       "actions": {
         "clearFilters": "پاک کردن فیلترها",
-        "compare": "مقایسه ({count})",
-        "compareToggle": "مقایسه",
         "editPricing": "ویرایش قیمت",
         "apply": "اعمال",
         "cancel": "انصراف",
@@ -334,7 +320,7 @@
         "showLess": "نمایش کمتر"
       },
       "card": {
-        "context": "کانتکست",
+        "context": "پنجره زمینه",
         "maxOutput": "حداکثر خروجی",
         "latency": "تأخیر",
         "quality": "کیفیت",
@@ -348,7 +334,7 @@
         "invocationModes": "حالت‌های فراخوانی",
         "fqn": "FQN مدل",
         "customPricing": "قیمت تعدیلی",
-        "pricingPerMillion": "هزینه (1 M Token)",
+        "pricingPerMillion": "هزینه به ازای ۱ میلیون توکن",
         "modelId": "شناسه مدل",
         "providerId": "شناسه ارائه‌دهنده",
         "apiMode": "حالت API",
@@ -360,7 +346,7 @@
         "viewDetails": "مشاهده جزئیات",
         "copyId": "کپی شناسه",
         "copyFqn": "کپی FQN",
-        "curlGuide": "راهنمای cURL",
+        "curlGuide": "نمونه کد آماده",
         "copied": "کپی شد",
         "lowerCost": "هزینه کمتر",
         "recommended": "پیشنهادی",
@@ -381,63 +367,23 @@
         "categoryCode": "کدنویسی",
         "categoryMultimodal": "چندرسانه‌ای"
       },
-      "compare": {
-        "title": "مقایسه مدل‌ها",
-        "description": "مقایسه کنارهم مدل‌های انتخاب‌شده.",
-        "columns": {
-          "model": "مدل",
-          "provider": "ارائه‌دهنده",
-          "price": "قیمت (ورودی/خروجی)",
-          "context": "کانتکست",
-          "inputModality": "ورودی",
-          "outputModality": "خروجی",
-          "features": "قابلیت‌ها",
-          "attribute": "\u0648\u06cc\u0698\u06af\u06cc"
-        },
-        "rows": {
-          "inputPrice": "\u0642\u06cc\u0645\u062a \u0648\u0631\u0648\u062f\u06cc",
-          "outputPrice": "\u0642\u06cc\u0645\u062a \u062e\u0631\u0648\u062c\u06cc",
-          "context": "\u06a9\u0627\u0646\u062a\u06a9\u0633\u062a",
-          "inputModality": "\u0645\u0648\u062f\u0627\u0644\u06cc\u062a\u06cc \u0648\u0631\u0648\u062f\u06cc",
-          "outputModality": "\u0645\u0648\u062f\u0627\u0644\u06cc\u062a\u06cc \u062e\u0631\u0648\u062c\u06cc",
-          "features": "\u0642\u0627\u0628\u0644\u06cc\u062a\u200c\u0647\u0627"
-        },
-        "sections": {
-          "pricing": "\u0642\u06cc\u0645\u062a\u200c\u06af\u0630\u0627\u0631\u06cc",
-          "capacity": "\u0638\u0631\u0641\u06cc\u062a",
-          "modalities": "\u0645\u0648\u062f\u0627\u0644\u06cc\u062a\u06cc\u200c\u0647\u0627",
-          "capabilities": "\u0642\u0627\u0628\u0644\u06cc\u062a\u200c\u0647\u0627"
-        },
-        "kpis": {
-          "bestInput": "\u0628\u0647\u062a\u0631\u06cc\u0646 \u0642\u06cc\u0645\u062a \u0648\u0631\u0648\u062f\u06cc",
-          "bestOutput": "\u0628\u0647\u062a\u0631\u06cc\u0646 \u0642\u06cc\u0645\u062a \u062e\u0631\u0648\u062c\u06cc",
-          "largestContext": "\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646 \u06a9\u0627\u0646\u062a\u06a9\u0633\u062a",
-          "richestFeatures": "\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646 \u0642\u0627\u0628\u0644\u06cc\u062a"
-        },
-        "sort": {
-          "label": "\u0645\u0631\u062a\u0628\u200c\u0633\u0627\u0632\u06cc",
-          "inputAsc": "\u0648\u0631\u0648\u062f\u06cc: \u06a9\u0645 \u0628\u0647 \u0632\u06cc\u0627\u062f",
-          "outputAsc": "\u062e\u0631\u0648\u062c\u06cc: \u06a9\u0645 \u0628\u0647 \u0632\u06cc\u0627\u062f",
-          "contextDesc": "\u06a9\u0627\u0646\u062a\u06a9\u0633\u062a: \u0632\u06cc\u0627\u062f \u0628\u0647 \u06a9\u0645",
-          "nameAsc": "\u0646\u0627\u0645 \u0645\u062f\u0644: \u0627\u0644\u0641\u0628\u0627"
-        },
-        "toggles": {
-          "differencesOnly": "\u0641\u0642\u0637 \u062a\u0641\u0627\u0648\u062a\u200c\u0647\u0627",
-          "normalizedPricing": "\u0646\u0645\u0627\u06cc\u0634 \u0646\u0631\u0645\u0627\u0644\u200c\u0634\u062f\u0647 \u0642\u06cc\u0645\u062a"
-        },
-        "actions": {
-          "removeModel": "\u062d\u0630\u0641 \u0627\u0632 \u0645\u0642\u0627\u06cc\u0633\u0647"
-        }
-      },
       "curlGuide": {
         "title": "اتصال با cURL",
-        "description": "از این نمونه برای فراخوانی {model} از طریق گُدارAI استفاده کنید.",
+        "description": "از این نمونه برای فراخوانی {model} از طریق گدارAI استفاده کنید.",
+        "descriptionPrefix": "از این نمونه برای فراخوانی",
+        "descriptionSuffix": "از طریق GodarAI استفاده کنید.",
         "readyBadge": "آماده اجرا",
         "modelFqnLabel": "FQN مدل",
         "instructionsLabel": "نکات اجرا",
-        "instructions": "مقدار PAT_TOKEN را با PAT کاربر جایگزین کنید و سپس درخواست را به درگاه tenant بفرستید.",
+        "instructions": "مقدار PAT_TOKEN را با توکن کاربر جایگزین کنید و سپس درخواست را به درگاه فضای کاری بفرستید.",
         "copyCommand": "کپی نمونه فعال",
+        "copySample": "کپی نمونه",
+        "requestTitle": "نمونه درخواست",
         "sampleResponse": "نمونه پاسخ",
+        "docsLabel": "مستندات",
+        "docsDescriptionPrefix": "برای اطلاعات بیشتر درباره استفاده از API و پارامترهای ورودی، به",
+        "docsDescriptionSuffix": "مراجعه کنید.",
+        "docsDescription": "برای اطلاعات بیشتر درباره استفاده از API و پارامترهای ورودی، به مستندات مراجعه کنید.",
         "shells": {
           "powershell": "PowerShell",
           "bash": "bash"
@@ -460,7 +406,7 @@
     },
     "access": {
       "description": "مدیران می‌توانند تنظیمات حساب را تغییر دهند و کاربران می‌توانند مدل‌های فعال را مصرف کنند.",
-      "effectivePreviewTitle": "پیش‌نمایش دسترسی مؤثر",
+      "effectivePreviewTitle": "پیش‌نمایش مدل‌های مجاز",
       "keyTypeLabel": "نوع کلید",
       "userIdLabel": "کاربر",
       "teamIdLabel": "تیم",
@@ -468,21 +414,21 @@
       "previewAction": "پیش‌نمایش",
       "managerRequiredHint": "انتخاب حداقل یک مدیر الزامی است.",
       "usersOptionalHint": "انتخاب مصرف‌کننده اختیاری است و بعداً هم قابل تغییر است.",
-      "searchManager": "جستجوی مدیر",
-      "searchUser": "جستجوی مصرف‌کننده",
+      "searchManager": "جست‌وجوی مدیر",
+      "searchUser": "جست‌وجوی مصرف‌کننده",
       "addManager": "افزودن مدیر",
       "addUser": "افزودن مصرف‌کننده",
       "removeManager": "حذف {identity} از مدیران",
       "removeUser": "حذف {identity} از مصرف‌کنندگان",
-      "minSearchHint": "برای جستجو حداقل دو نویسه وارد کنید.",
+      "minSearchHint": "برای جست‌وجو حداقل دو نویسه وارد کنید.",
       "everyoneWarning": "دسترسی گسترده به همه کاربران",
       "everyoneConfirmTitle": "اعطای دسترسی به همه کاربران؟",
       "everyoneConfirmDescription": "با این انتخاب، همه کاربران فعلی و آینده می‌توانند مدل‌های فعال این اتصال را مصرف کنند.",
       "everyoneConfirmAction": "تأیید دسترسی گسترده",
-      "previewPrincipalSearch": "جستجوی هویت برای پیش‌نمایش دسترسی",
-      "previewEmptyHint": "یک کاربر یا تیم را انتخاب کنید تا دسترسی مؤثر آن نمایش داده شود.",
-      "pat": "pat",
-      "vat": "vat"
+      "previewPrincipalSearch": "جست‌وجوی کاربر یا تیم برای پیش‌نمایش دسترسی",
+      "previewEmptyHint": "یک کاربر یا تیم را انتخاب کنید تا مدل‌های مجاز او نمایش داده شود.",
+      "pat": "توکن کاربر",
+      "vat": "توکن تیم"
     },
     "effectiveModels": {
       "columns": {
@@ -491,7 +437,7 @@
         "pricing": "قیمت‌گذاری",
         "status": "وضعیت"
       },
-      "empty": "برای محدوده انتخاب‌شده، مدل مؤثری برنگشت.",
+      "empty": "برای محدوده انتخاب‌شده، مدلی برنگشت.",
       "resolved": "حل‌شده",
       "unresolved": "حل‌نشده",
       "allowed": "مجاز",
@@ -501,36 +447,36 @@
       "accountName": "مثال: openai-production",
       "apiKey": "مثال: sk-...",
       "secretRefProvider": "مثال: vault://provider-key",
-      "tenantId": "شناسه tenant",
-      "clientId": "شناسه client",
+      "tenantId": "شناسه Tenant",
+      "clientId": "شناسه Client",
       "secretRefAzure": "مثال: vault://azure-cert",
       "awsAccessKey": "مثال: AKIA...",
-      "secret": "مقدار secret",
+      "secret": "مقدار Secret",
       "awsRegion": "مثال: us-east-1",
       "secretRefGoogle": "مثال: vault://gcp-service-account",
       "googleServiceJson": "{\"type\":\"service_account\", ...}"
     },
     "integrations": {
       "pageTitle": "اتصال جدید به",
-      "providerDescriptionFallback": "این Provider را وصل کنید تا ترافیک tenant از مسیر Godar با credential، مدل و دسترسی مدیریت‌شده route شود.",
+      "providerDescriptionFallback": "این ارائه‌دهنده را وصل کنید تا درخواست‌های فضای کاری از مسیر گدارAI و با اعتبارنامه، مدل و دسترسی مدیریت‌شده ارسال شوند.",
       "wizard": {
         "integrationDetails": "تنظیمات پایه اتصال",
         "modelProvisioning": "گزینش مدل‌ها",
         "accessPermissions": "مجوزهای دسترسی",
-        "reviewConfirm": "مرور و تایید",
+        "reviewConfirm": "مرور و تأیید",
         "detailsTitle": "تنظیمات پایه اتصال",
-        "detailsDescription": "نام حساب، روش احراز هویت و اعتبارنامه‌های Provider را برای این اتصال تنظیم کنید.",
+        "detailsDescription": "نام حساب، روش احراز هویت و اعتبارنامه‌های ارائه‌دهنده را برای این اتصال تنظیم کنید.",
         "nextStep": "مرحله بعد",
-        "grabApiKey": "دریافت API Key",
+        "grabApiKey": "دریافت کلید دسترسی",
         "connectionMethodTitle": "روش اتصال:",
-        "useOwnApiKeyQuestion": "آیا در پلتفرم {providerName} حساب کاربری و تنظیمات اتصال به آن (Credential, API Key,...) را دارید؟",
+        "useOwnApiKeyQuestion": "آیا در پلتفرم {providerName} حساب کاربری و اطلاعات اتصال مانند اعتبارنامه یا کلید دسترسی دارید؟",
         "useOwnApiKeyDescription": "برای آشنایی با مراحل ساخت اتصال، <guideLink>راهنمای شروع سریع</guideLink> را ببینید.",
-        "useOwnApiKeyYes": "بله دارم.",
-        "useOwnApiKeyYesDescription": "مایلم از حساب کاربری موجودم استفاده کنم. (درباره <byokLink>سیاست BYOK</byokLink> بیشتر بدانید.)",
-        "useOwnApiKeyNo": "خیر ندارم.",
+        "useOwnApiKeyYes": "بله، دارم.",
+        "useOwnApiKeyYesDescription": "می‌خواهم از حساب کاربری موجودم استفاده کنم. درباره <byokLink>سیاست استفاده از کلید اختصاصی</byokLink> بیشتر بدانید.",
+        "useOwnApiKeyNo": "خیر، ندارم.",
         "useOwnApiKeyNoDescription": "داشتن اعتبارنامه از {providerName} ضروری نیست و گدارAI می‌تواند آن را فراهم کند.",
-        "apiKeyLabel": "API Key",
-        "apiKeyRequiredForTest": "برای تست اتصال، ابتدا API Key اختصاصی خود را وارد کنید.",
+        "apiKeyLabel": "کلید دسترسی",
+        "apiKeyRequiredForTest": "برای تست اتصال، ابتدا کلید دسترسی اختصاصی خود را وارد کنید.",
         "credentialsRequiredForTest": "برای تست اتصال، ابتدا تمام اطلاعات الزامی اتصال و اعتبارنامه را وارد کنید.",
         "loadingConnectionSchema": "در حال دریافت فرم اختصاصی اتصال این ارائه‌دهنده...",
         "connectionSchemaErrorTitle": "فرم اتصال در دسترس نیست",
@@ -547,18 +493,18 @@
         "connectionTestSuccessTitle": "اتصال معتبر است",
         "connectionTestFailedTitle": "تست اتصال ناموفق بود",
         "connectionTestSuccess": "کلید واردشده معتبر است. پیام سرویس: {message}",
-        "connectionTestFailed": "کلید واردشده تایید نشد یا اتصال برقرار نشد. پیام سرویس: {message}",
+        "connectionTestFailed": "کلید واردشده تأیید نشد یا اتصال برقرار نشد. پیام سرویس: {message}",
         "optionalFields": "فیلدهای اختیاری",
         "advancedOptions": "تنظیمات پیشرفته",
         "modelsHeaderTitle": "گزینش مدل‌ها",
-        "modelsHeaderDescription": "از بین مدل‌هایی که توسط این ارائه‌دهنده قابل دسترسی هستند، آنهایی را که می‌خواهید در این اتصال فعال شوند را انتخاب کنید. بعدا هم می‌توانید تغییرشان دهید.",
+        "modelsHeaderDescription": "از میان مدل‌های در دسترس این ارائه‌دهنده، مدل‌هایی را انتخاب کنید که باید در این اتصال فعال شوند. بعداً هم می‌توانید آن‌ها را تغییر دهید.",
         "accessPermissionsDescription": "حداقل یک مدیر تعیین کنید و در صورت نیاز مصرف‌کنندگان مجاز را اضافه کنید.",
         "reviewConfirmDescription": "نام اتصال، مدل‌ها، روش احراز هویت و دامنه دسترسی را پیش از فعال‌سازی بررسی کنید.",
         "requestModel": "درخواست مدل",
         "addModel": "افزودن مدل",
         "modelsTitle": "مدل‌ها ({count})",
         "selectedCount": "منتخب: {count}",
-        "selectedCountDetailed": "انتخاب شده: {count} از {total}",
+        "selectedCountDetailed": "انتخاب‌شده: {count} از {total}",
         "selectAll": "انتخاب همه",
         "selectedOnly": "فقط منتخب‌ها",
         "tableView": "نمای جدولی",
@@ -568,23 +514,23 @@
         "draftSavedTitle": "پیش‌نویس اتصال ذخیره شده است",
         "draftSavedDescription": "برای تست کلید اختصاصی یک رکورد پیش‌نویس ساخته شد. نام اتصال تا پایان ثابت می‌ماند و مدل‌ها و دسترسی‌ها هنگام فعال‌سازی ذخیره می‌شوند.",
         "deselectAll": "لغو انتخاب همه",
-        "autoEnableTitle": "مدل‌های جدید این Provider به‌صورت خودکار فعال شوند",
-        "autoEnableDescription": "اگر این گزینه فعال باشد، مدل‌های جدید این Provider به‌صورت پیش‌فرض روی این Integration در دسترس می‌شوند و بعدا می‌توانید غیرفعالشان کنید.",
-        "createIntegration": "ایجاد Integration"
+        "autoEnableTitle": "مدل‌های جدید این ارائه‌دهنده به‌صورت خودکار فعال شوند",
+        "autoEnableDescription": "اگر این گزینه فعال باشد، مدل‌های جدید این ارائه‌دهنده به‌صورت پیش‌فرض روی این اتصال در دسترس می‌شوند و بعداً می‌توانید آن‌ها را غیرفعال کنید.",
+        "createIntegration": "ایجاد اتصال"
       }
     }
   },
   "integrations": {
-    "pageTitle": "اتصال به ارائه‌دهندگان مدل‌های هوشواره (AI)",
-    "pageDescription": "در این جا می‌توانید تنظیم کنید که چه مدلی از چه ارائه‌دهنده‌ای برای چه فرد/تیم/واحدسازمانی قابل دسترس و استفاده باشد.",
+    "pageTitle": "اتصال به ارائه‌دهندگان مدل‌های هوش مصنوعی",
+    "pageDescription": "در این بخش تعیین می‌کنید هر مدل از هر ارائه‌دهنده برای کدام کاربر، تیم یا واحد سازمانی قابل استفاده باشد.",
     "tabs": {
       "all": "همه",
       "connected": "متصل"
     },
-    "searchPlaceholder": "جستجو در بین ارائه‌دهندگان مدل‌های هوشواره",
+    "searchPlaceholder": "جست‌وجو در ارائه‌دهندگان مدل‌های هوش مصنوعی",
     "providerFilter": "ارائه‌دهنده‌ها",
-    "workspaceFilter": "Workspaces",
-    "providerDescriptionFallback": "برای اتصال این Provider، ترافیک tenant از مسیر Godar با credential، مدل و دسترسی مدیریت‌شده route می‌شود.",
+    "workspaceFilter": "فضاهای کاری",
+    "providerDescriptionFallback": "با اتصال این ارائه‌دهنده، درخواست‌های فضای کاری از مسیر گدارAI و با اعتبارنامه، مدل و دسترسی مدیریت‌شده ارسال می‌شوند.",
     "integrationDescriptionFallback": "این اتصال درخواست‌های فضای کاری را از مسیر ارائه‌دهنده مدل عبور می‌دهد.",
     "integrationDescription": "اتصال «{name}» درخواست‌های این فضای کاری را با روش احراز هویت {authMode} به مدل‌های فعال {provider} وصل می‌کند.",
     "connectedCount": "{count} متصل",
@@ -599,19 +545,19 @@
       "connectionRequired": "اتصال جدید مورد نیاز است",
       "credentialTypeLabel": "نوع اعتبارنامه",
       "dedicatedCredential": "اختصاصی",
-      "platformCredential": "پلتفرم گُدارAI",
+      "platformCredential": "پلتفرم گدارAI",
       "createConnection": "ایجاد اتصال جدید"
     },
     "actions": {
       "connect": "اتصال",
       "connectProvider": "مشاهده ارائه‌دهندگان",
       "manageConnections": "مدیریت اتصال‌ها",
-      "copyIdentifier": "کپی slug",
+      "copyIdentifier": "کپی شناسه",
       "editIntegration": "ویرایش اتصال",
       "manageModels": "مدیریت مدل‌ها",
       "testConnection": "تست اتصال",
       "testAllowedAccess": "تست دسترسی‌های مجاز",
-      "viewDocs": "مشاهده Docs",
+      "viewDocs": "مشاهده مستندات",
       "disconnect": "قطع اتصال",
       "disconnecting": "در حال قطع اتصال...",
       "cancel": "انصراف",
@@ -624,18 +570,18 @@
     },
     "empty": {
       "connectedTitle": "هنوز حساب ارائه‌دهنده‌ای متصل نشده است",
-      "connectedDescription": "برای مسیریابی درخواست‌های مدل از طریق گدارAI، یک حساب ارائه‌دهنده متصل کنید.",
+      "connectedDescription": "برای مسیریابی درخواست‌های مدل از طریق گدارAI، یک حساب ارائه‌دهنده وصل کنید.",
       "providersTitle": "ارائه‌دهنده‌ای پیدا نشد",
       "providersDescription": "جست‌وجو و فیلترها را تغییر دهید یا کاتالوگ ارائه‌دهنده‌ها را دوباره بارگیری کنید."
     },
     "messages": {
-      "loadFailed": "بارگیری LLM Integrationها ناموفق بود.",
-      "identifierCopied": "شناسه Integration کپی شد.",
+      "loadFailed": "بارگیری اتصال‌های مدل زبانی ناموفق بود.",
+      "identifierCopied": "شناسه اتصال کپی شد.",
       "disconnectTitle": "قطع اتصال ارائه‌دهنده",
       "disconnectConfirm": "با قطع اتصال «{name}»، مسیرهای وابسته به این اتصال دیگر نمی‌توانند از اعتبارنامه آن برای ارسال درخواست استفاده کنند.",
-      "disconnectConfirmInput": "برای تایید، نام اتصال را وارد کنید: {name}",
-      "disconnectSuccess": "Integration قطع شد.",
-      "disconnectFailed": "قطع Integration ناموفق بود.",
+      "disconnectConfirmInput": "برای تأیید، نام اتصال را وارد کنید: {name}",
+      "disconnectSuccess": "اتصال قطع شد.",
+      "disconnectFailed": "قطع اتصال ناموفق بود.",
       "connectionCreated": "اتصال «{name}» با موفقیت فعال شد."
     }
   }

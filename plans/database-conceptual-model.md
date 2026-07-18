@@ -171,7 +171,7 @@ erDiagram
     string name
     string auth_mode
     bool has_credential
-    bool allow_virtual_keys_only
+    bool use_platform_managed_credentials
   }
 
   TenantProviderAccountModel {

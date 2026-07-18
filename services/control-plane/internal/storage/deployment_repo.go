@@ -173,7 +173,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		       COALESCE(a.provider_config, '{}'::jsonb),
 		       COALESCE(a.credential_data, '{}'::jsonb),
 		       a.has_credential,
-		       a.allow_virtual_keys_only,
+		       a.use_platform_managed_credentials,
 		       m.model,
 		       COALESCE(m.settings, '{}'::jsonb)
 		FROM tenant_provider_accounts a
@@ -192,19 +192,19 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 
 	for rows.Next() {
 		var (
-			accountID     string
-			accountTenant string
-			provider      string
-			accountName   string
-			authMode      string
-			providerRaw   []byte
-			credentialRaw []byte
-			hasCredential bool
-			virtualOnly   bool
-			model         string
-			settingsRaw   []byte
+			accountID                  string
+			accountTenant              string
+			provider                   string
+			accountName                string
+			authMode                   string
+			providerRaw                []byte
+			credentialRaw              []byte
+			hasCredential              bool
+			platformManagedCredentials bool
+			model                      string
+			settingsRaw                []byte
 		)
-		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &virtualOnly, &model, &settingsRaw); err != nil {
+		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &platformManagedCredentials, &model, &settingsRaw); err != nil {
 			return nil, err
 		}
 
@@ -223,7 +223,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		runtimeAPIKey := ""
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
-		if apiKey != "" && hasCredential && !virtualOnly && !strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+		if apiKey != "" && hasCredential && !platformManagedCredentials && !strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
 			runtimeAPIKey = apiKey
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled

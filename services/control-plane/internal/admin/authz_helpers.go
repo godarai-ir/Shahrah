@@ -267,6 +267,10 @@ func mapProviderAccountStoreError(err error) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
+	if errors.Is(err, storage.ErrPrivatePricingRequiresCredential) {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
 	if errors.Is(err, storage.ErrProviderAccountDependencyConflict) {
 		return fiber.NewError(fiber.StatusConflict, "provider account is referenced by active keys; revoke or update keys first")
 	}
