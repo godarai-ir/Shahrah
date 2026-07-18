@@ -158,14 +158,24 @@ const docGroups: DocGroup[] = [
     ],
   },
   {
-    title: 'کنترل مصرف و هزینه',
-    description: 'حافظه نهان، محدودیت نرخ درخواست، محدودیت بودجه و رهگیری هزینه.',
+    title: 'کنترل مصرف',
+    description: 'حافظه نهان، محدودیت نرخ درخواست و محدودیت بودجه.',
     icon: CreditCard,
     links: [
       {label: 'حافظه نهان', to: '/guides/caching'},
       {label: 'محدودیت نرخ درخواست', to: '/guides/rate-limiting'},
       {label: 'محدودیت بودجه', to: '/guides/budget-limiting'},
+    ],
+  },
+  {
+    title: 'مالی',
+    description: 'کیف پول، BYOK، قیمت‌گذاری سفارشی، تسویه، فاکتور و رهگیری هزینه.',
+    icon: CreditCard,
+    links: [
+      {label: 'مالی، کیف پول و صورتحساب', to: '/financial/overview'},
       {label: 'رهگیری هزینه', to: '/cost-tracking'},
+      {label: 'سیاست BYOK', to: '/guides/byok'},
+      {label: 'مقایسه مدل‌ها و هزینه', to: '/provider-models-compare'},
     ],
   },
   {

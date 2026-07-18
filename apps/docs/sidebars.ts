@@ -17,9 +17,11 @@ const sidebars: SidebarsConfig = {
       items: [
         'intro-to-gateway',
         'virtual-model',
+        'model-identifiers',
         'making-llm-requests-via-gateway',
         'authentication',
         'guides/byok',
+        'guides/byok-security',
         'request-headers',
         'native-sdk-support',
       ],
@@ -90,6 +92,13 @@ const sidebars: SidebarsConfig = {
         'guides/caching',
         'guides/rate-limiting',
         'guides/budget-limiting',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'مالی',
+      items: [
+        'financial/overview',
         'cost-tracking',
       ],
     },
