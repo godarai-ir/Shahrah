@@ -90,7 +90,8 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
-	req, err := parseModerationRequest(c.Body())
+	originalBody := append([]byte(nil), c.Body()...)
+	req, err := parseModerationRequest(originalBody)
 	if err != nil {
 		if vErr, ok := err.(*moderationValidationError); ok {
 			return writeAPIErrorDetail(c, fiber.StatusBadRequest, vErr.Message, "invalid_request_error", vErr.Param, vErr.Code)
@@ -234,14 +235,14 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
 	return err
 }
 
-func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ModerationRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ModerationRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -295,8 +296,8 @@ func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Modera
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
-	logEntry.RequestBody = map[string]interface{}{"model": req.Model, "input_count": moderationInputCount(req.Input)}
-	logEntry.ResponseBody = map[string]interface{}{"id": response.ID, "result_count": len(response.Results), "flagged_count": moderationFlaggedCount(response)}
+	logEntry.RequestBody = buildModerationRequestLogPayload(req, originalBody)
+	logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, response)
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
@@ -354,6 +355,13 @@ func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Modera
 	})
 
 	return err
+}
+
+func buildModerationRequestLogPayload(req contractsopenai.ModerationRequest, originalBody []byte) map[string]interface{} {
+	return buildJSONRequestLogPayload(originalBody, map[string]interface{}{
+		"model": req.Model,
+		"input": req.Input,
+	})
 }
 
 func (h *ModerationsHandler) emitModelMetric(input metricsobs.BuildInput) {

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -136,4 +137,29 @@ func logPreProviderRejection(
 	}
 
 	logRequestBestEffort(logger, logs, c.Context(), entry)
+}
+
+func buildJSONRequestLogPayload(body []byte, overrides map[string]interface{}) map[string]interface{} {
+	payload := map[string]interface{}{}
+	_ = json.Unmarshal(body, &payload)
+	for key, value := range overrides {
+		payload[key] = value
+	}
+	return payload
+}
+
+func buildJSONResponseLogPayload(body []byte, fallback interface{}) map[string]interface{} {
+	payload := map[string]interface{}{}
+	if err := json.Unmarshal(body, &payload); err == nil {
+		return payload
+	}
+	if fallback == nil {
+		return payload
+	}
+	encoded, err := json.Marshal(fallback)
+	if err != nil {
+		return payload
+	}
+	_ = json.Unmarshal(encoded, &payload)
+	return payload
 }

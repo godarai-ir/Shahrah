@@ -119,6 +119,17 @@ func TestRerankHandlerSuccessRoutesToCohereV2Rerank(t *testing.T) {
 
 	require.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, "/v2/rerank", logs.loggedSpends[0].RequestMetadata["provider_endpoint_path"])
+	require.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, "cohere:acct:rerank-multilingual-v3.0", logs.loggedEntries[0].RequestBody["model"])
+	assert.Equal(t, "تهران پایتخت کدام کشور است؟", logs.loggedEntries[0].RequestBody["query"])
+	requestDocuments, ok := logs.loggedEntries[0].RequestBody["documents"].([]string)
+	require.True(t, ok)
+	require.Len(t, requestDocuments, 3)
+	assert.Equal(t, "rerank_123", logs.loggedEntries[0].ResponseBody["id"])
+	responseResults, ok := logs.loggedEntries[0].ResponseBody["results"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, responseResults, 2)
+	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
 
 	events := q.DequeueBatch(20)
 	var sawProvider bool

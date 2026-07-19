@@ -408,7 +408,7 @@ func (s *Store) RevokePlatformProviderCredential(ctx context.Context, connection
 	defer tx.Rollback(ctx)
 	var versionID string
 	var isActive bool
-	err = tx.QueryRow(ctx, `SELECT v.credential_version_id,(c.active_credential_version_id=v.credential_version_id) FROM platform_provider_connections c JOIN platform_provider_credential_versions v ON v.connection_id=c.connection_id WHERE c.connection_id=$1 AND c.revision=$2 AND v.version=$3 FOR UPDATE OF c,v`, connectionID, revision, version).Scan(&versionID, &isActive)
+	err = tx.QueryRow(ctx, `SELECT v.credential_version_id,COALESCE(c.active_credential_version_id=v.credential_version_id,false) FROM platform_provider_connections c JOIN platform_provider_credential_versions v ON v.connection_id=c.connection_id WHERE c.connection_id=$1 AND c.revision=$2 AND v.version=$3 FOR UPDATE OF c,v`, connectionID, revision, version).Scan(&versionID, &isActive)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, platformcredentials.ErrRevisionConflict
 	} else if err != nil {

@@ -146,8 +146,9 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
+	originalBody := append([]byte(nil), c.Body()...)
 	var req contractsopenai.ChatCompletionRequest
-	if err := c.BodyParser(&req); err != nil {
+	if err := json.Unmarshal(originalBody, &req); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 	}
 
@@ -251,7 +252,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
-	cachePending, cacheRelease, cacheHandled, cacheErr := h.handleResponseCacheLookup(c, req, authInfo, currentTenant.ID, requestedModel, cacheConfig, startTime, tenantSlug)
+	cachePending, cacheRelease, cacheHandled, cacheErr := h.handleResponseCacheLookup(c, req, originalBody, authInfo, currentTenant.ID, requestedModel, cacheConfig, startTime, tenantSlug)
 	if cacheRelease != nil {
 		defer cacheRelease()
 	}
@@ -381,7 +382,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return h.handleStream(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	}
 
-	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, cachePending, guardrailSelection)
+	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, cachePending, guardrailSelection)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -401,6 +402,13 @@ func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deplo
 	outboundReq.PromptVariables = nil
 
 	return json.Marshal(outboundReq)
+}
+
+func buildChatRequestLogPayload(req contractsopenai.ChatCompletionRequest, originalBody []byte) map[string]interface{} {
+	return buildJSONRequestLogPayload(originalBody, map[string]interface{}{
+		"model":    req.Model,
+		"messages": req.Messages,
+	})
 }
 
 func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest) (bool, error) {
@@ -483,6 +491,7 @@ func (h *ChatCompletionHandler) applyPromptVersion(c *fiber.Ctx, tenantID string
 func (h *ChatCompletionHandler) handleResponseCacheLookup(
 	c *fiber.Ctx,
 	req contractsopenai.ChatCompletionRequest,
+	originalBody []byte,
 	authInfo *platform.AuthContext,
 	tenantID string,
 	requestedModel string,
@@ -515,7 +524,7 @@ func (h *ChatCompletionHandler) handleResponseCacheLookup(
 	if lookupErr != nil {
 		h.logger.Warn("Response cache lookup failed", zap.String("cache_type", cacheConfig.Type), zap.Error(lookupErr))
 	} else if cacheResult.Entry != nil {
-		return cachePending, nil, true, h.handleCacheHit(c, req, authInfo, cacheResult, startTime, tenantSlug)
+		return cachePending, nil, true, h.handleCacheHit(c, req, originalBody, authInfo, cacheResult, startTime, tenantSlug)
 	}
 
 	if cacheResult.Status == "bypass" {
@@ -536,7 +545,7 @@ func (h *ChatCompletionHandler) handleResponseCacheLookup(
 
 	if secondErr == nil && secondResult.Entry != nil {
 		c.Set(apiheaders.HeaderCacheStatus, "hit")
-		return cachePending, release, true, h.handleCacheHit(c, req, authInfo, secondResult, startTime, tenantSlug)
+		return cachePending, release, true, h.handleCacheHit(c, req, originalBody, authInfo, secondResult, startTime, tenantSlug)
 	}
 
 	return cachePending, release, false, nil
@@ -733,6 +742,7 @@ func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, te
 func (h *ChatCompletionHandler) handleSync(
 	c *fiber.Ctx,
 	req contractsopenai.ChatCompletionRequest,
+	originalBody []byte,
 	authInfo *platform.AuthContext,
 	estimated platform.UsageCostBreakdown,
 	tunnelReq platform.TunnelRequest,
@@ -814,7 +824,7 @@ func (h *ChatCompletionHandler) handleSync(
 			logEntry.InputTokens = finalCost.InputTokens
 			logEntry.OutputTokens = finalCost.OutputTokens
 			logEntry.TotalTokens = finalCost.TotalTokens
-			logEntry.RequestBody = map[string]interface{}{"model": req.Model}
+			logEntry.RequestBody = buildChatRequestLogPayload(req, originalBody)
 			logEntry.ResponseBody = map[string]interface{}{"guardrail_status": "blocked"}
 			logEntry.ErrorType = "guardrail_blocked"
 			logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
@@ -863,8 +873,8 @@ func (h *ChatCompletionHandler) handleSync(
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
-	logEntry.RequestBody = map[string]interface{}{"model": req.Model}
-	logEntry.ResponseBody = map[string]interface{}{"id": completion.ID}
+	logEntry.RequestBody = buildChatRequestLogPayload(req, originalBody)
+	logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, completion)
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
@@ -929,7 +939,7 @@ func (h *ChatCompletionHandler) handleSync(
 	return err
 }
 
-func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, result responsecache.Result, start time.Time, tenantSlug string) error {
+func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, result responsecache.Result, start time.Time, tenantSlug string) error {
 	entry := result.Entry
 
 	requestID := tracing.TraceIDFromContext(c)
@@ -946,8 +956,8 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	logEntry := buildRequestLogEntry(c, authInfo, platform.Deployment{Provider: entry.Provider, Model: entry.ProviderModel}, req.Model, "/v1/chat/completions", "chat_completions", "success", fiber.StatusOK, start, responseTimeMS)
 	logEntry.RequestID = requestID
 	logEntry.TraceID = entry.TraceID
-	logEntry.RequestBody = map[string]interface{}{"model": req.Model}
-	logEntry.ResponseBody = map[string]interface{}{"cache_status": "hit"}
+	logEntry.RequestBody = buildChatRequestLogPayload(req, originalBody)
+	logEntry.ResponseBody = buildJSONResponseLogPayload(entry.Response, map[string]interface{}{"cache_status": "hit"})
 	logEntry.CacheStatus = "hit"
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{

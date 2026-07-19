@@ -82,8 +82,9 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
+	originalBody := append([]byte(nil), c.Body()...)
 	var req contractsopenai.ResponseRequest
-	if err := c.BodyParser(&req); err != nil {
+	if err := json.Unmarshal(originalBody, &req); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 	}
 
@@ -244,14 +245,14 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		return h.handleStream(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	}
 
-	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
 	return err
 }
 
-func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.ResponseRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.ResponseRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -305,8 +306,8 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
-	logEntry.RequestBody = map[string]interface{}{"model": req.Model}
-	logEntry.ResponseBody = map[string]interface{}{"id": response.ID}
+	logEntry.RequestBody = buildResponseRequestLogPayload(req, originalBody)
+	logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, response)
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
@@ -363,6 +364,13 @@ func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.Response
 	})
 
 	return err
+}
+
+func buildResponseRequestLogPayload(req contractsopenai.ResponseRequest, originalBody []byte) map[string]interface{} {
+	return buildJSONRequestLogPayload(originalBody, map[string]interface{}{
+		"model": req.Model,
+		"input": req.Input,
+	})
 }
 
 func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.ResponseRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {

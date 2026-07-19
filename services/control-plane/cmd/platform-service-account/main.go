@@ -101,6 +101,11 @@ func parseScopes(raw string) ([]string, error) {
 	allowed := map[string]struct{}{
 		auth.PlatformScopeRead: {}, auth.PlatformScopeCatalogWrite: {},
 		auth.PlatformScopeTenantWrite: {}, auth.PlatformScopeAll: {},
+		auth.PlatformScopeProviderCredentialRead:          {},
+		auth.PlatformScopeProviderCredentialCreateVersion: {},
+		auth.PlatformScopeProviderCredentialTest:          {},
+		auth.PlatformScopeProviderCredentialActivate:      {},
+		auth.PlatformScopeProviderCredentialDisable:       {},
 	}
 	seen := map[string]struct{}{}
 

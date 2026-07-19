@@ -113,6 +113,13 @@ func TestModerationsHandlerSingleStringInput(t *testing.T) {
 	assert.Equal(t, "omni-moderation-latest", outbound.Model)
 	assert.Equal(t, "hello", outbound.Input)
 
+	require.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, map[string]interface{}{"model": "openai:acct:omni-moderation-latest", "input": "hello"}, logs.loggedEntries[0].RequestBody)
+	assert.Equal(t, "modr_1", logs.loggedEntries[0].ResponseBody["id"])
+	assert.Equal(t, "omni-moderation-latest", logs.loggedEntries[0].ResponseBody["model"])
+	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
+	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "flagged_count")
+
 	require.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, "/moderations", logs.loggedSpends[0].RequestMetadata["provider_endpoint_path"])
 	assert.Equal(t, 1, logs.loggedSpends[0].RequestMetadata["input_count"])

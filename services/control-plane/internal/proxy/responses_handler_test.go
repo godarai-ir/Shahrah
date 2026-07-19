@@ -48,7 +48,7 @@ func (t *captureTunnel) Stream(_ context.Context, req platform.TunnelRequest) (p
 
 func (t *captureTunnel) Healthy(_ context.Context) error { return nil }
 
-func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel) (*fiber.App, *tracing.Queue) {
+func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, logsOpt ...*testLogs) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
 	mem, err := cache.NewMemoryCache(zap.NewNop())
@@ -63,7 +63,11 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel) (
 	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
 	require.NoError(t, err)
 
-	h := NewResponsesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, &testLogs{}, zap.NewNop())
+	logs := &testLogs{}
+	if len(logsOpt) > 0 && logsOpt[0] != nil {
+		logs = logsOpt[0]
+	}
+	h := NewResponsesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -121,7 +125,8 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 		Headers:    map[string]string{"content-type": "application/json"},
 		Body:       body,
 	}}
-	app, q := newResponsesTestApp(t, "openai", tunnel)
+	logs := &testLogs{}
+	app, q := newResponsesTestApp(t, "openai", tunnel, logs)
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -143,6 +148,11 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	assert.Contains(t, names, "gateway.request")
 	assert.Contains(t, names, "provider.call")
 	assert.Contains(t, names, "response.write")
+	require.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, map[string]interface{}{"model": "gpt-4o", "input": "hello"}, logs.loggedEntries[0].RequestBody)
+	assert.Equal(t, "resp_1", logs.loggedEntries[0].ResponseBody["id"])
+	assert.Equal(t, "response", logs.loggedEntries[0].ResponseBody["object"])
+	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
 }
 
 func TestResponsesHandlerForwardsTextFormat(t *testing.T) {

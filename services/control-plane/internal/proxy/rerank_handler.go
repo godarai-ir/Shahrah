@@ -90,7 +90,8 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
-	req, err := parseRerankRequest(c.Body())
+	originalBody := append([]byte(nil), c.Body()...)
+	req, err := parseRerankRequest(originalBody)
 	if err != nil {
 		if vErr, ok := err.(*rerankValidationError); ok {
 			return writeAPIErrorDetail(c, fiber.StatusBadRequest, vErr.Message, "invalid_request_error", vErr.Param, vErr.Code)
@@ -232,14 +233,14 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
 	return err
 }
 
-func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -291,8 +292,8 @@ func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankReque
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
-	logEntry.RequestBody = map[string]interface{}{"model": req.Model, "document_count": len(req.Documents)}
-	logEntry.ResponseBody = map[string]interface{}{"id": response.ID, "result_count": len(response.Results)}
+	logEntry.RequestBody = buildRerankRequestLogPayload(req, originalBody)
+	logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, response)
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
@@ -351,6 +352,14 @@ func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankReque
 	})
 
 	return err
+}
+
+func buildRerankRequestLogPayload(req contractsopenai.RerankRequest, originalBody []byte) map[string]interface{} {
+	return buildJSONRequestLogPayload(originalBody, map[string]interface{}{
+		"model":     req.Model,
+		"query":     req.Query,
+		"documents": req.Documents,
+	})
 }
 
 func (h *RerankHandler) emitModelMetric(input metricsobs.BuildInput) {

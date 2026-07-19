@@ -108,6 +108,29 @@ func TestEmbeddingsHandlerSingleStringInput(t *testing.T) {
 	assert.Equal(t, "text-embedding-3-small", outbound.Model)
 	assert.Equal(t, "hello", outbound.Input)
 
+	require.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, map[string]interface{}{
+		"model":      "openai:acct:text-embedding-3-small",
+		"input":      "hello",
+		"dimensions": float64(1536),
+	}, logs.loggedEntries[0].RequestBody)
+	assert.NotContains(t, logs.loggedEntries[0].RequestBody, "encoding_format")
+	assert.Equal(t, "list", logs.loggedEntries[0].ResponseBody["object"])
+	assert.Equal(t, "text-embedding-3-small", logs.loggedEntries[0].ResponseBody["model"])
+	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "embedding_count")
+	responseData, ok := logs.loggedEntries[0].ResponseBody["data"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, responseData, 1)
+	responseItem, ok := responseData[0].(map[string]interface{})
+	require.True(t, ok)
+	embedding, ok := responseItem["embedding"].([]interface{})
+	require.True(t, ok)
+	assert.Len(t, embedding, 3)
+	usage, ok := logs.loggedEntries[0].ResponseBody["usage"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, float64(8), usage["prompt_tokens"])
+	assert.Equal(t, float64(8), usage["total_tokens"])
+
 	require.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, "/embeddings", logs.loggedSpends[0].RequestMetadata["provider_endpoint_path"])
 

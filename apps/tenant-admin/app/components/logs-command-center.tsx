@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Columns3,
   Download,
+  Eye,
   FileJson,
   Filter,
   FolderOpen,
@@ -16,7 +17,6 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
-  Search,
   Settings2,
   ShieldCheck,
   Trash2,
@@ -25,10 +25,11 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CodeBlock, CodePanel, CompactValue, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CodeBlock, CodePanel, CompactValue, CopyAction, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Spinner } from "@/components/ui/spinner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -655,15 +656,15 @@ export default function LogsCommandCenter({
       {
         id: "payload",
         header: t("table.payload"),
-        cell: ({ row }) => <StatusBadge status={payloadStatus(row.original.payload_mode)}>{row.original.payload_mode || "-"}</StatusBadge>,
+        cell: ({ row }) => <StatusBadge status={payloadStatus(row.original.payload_mode)} className="whitespace-nowrap">{row.original.payload_mode || "-"}</StatusBadge>,
       },
       {
         id: "actions",
         header: "",
         cell: ({ row }) => (
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={() => void openDetail(row.original)} title={t("actions.inspect")}>
-              <Search className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={() => void openDetail(row.original)} aria-label={t("actions.inspect")} title={t("actions.inspect")}>
+              <Eye aria-hidden="true" />
             </Button>
           </div>
         ),
@@ -1797,7 +1798,20 @@ const LogDetailSheet = memo(function LogDetailSheet({
       <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>{t("detailTitle")}</SheetTitle>
-          <SheetDescription>{selectedLog?.log_id}</SheetDescription>
+          <SheetDescription asChild>
+            <span className="flex min-w-0 items-center justify-end gap-1" dir="ltr">
+              <span className="truncate font-mono">{selectedLog?.log_id}</span>
+              {selectedLog?.log_id ? (
+                <CopyAction
+                  value={selectedLog.log_id}
+                  copyLabel={t("actions.copyLogId")}
+                  copyingLabel={t("actions.copyingLogId")}
+                  copiedLabel={t("actions.copiedLogId")}
+                  size="icon-xs"
+                />
+              ) : null}
+            </span>
+          </SheetDescription>
         </SheetHeader>
         {detail ? (
           <div className="flex flex-col gap-4 pt-4">
@@ -1815,11 +1829,13 @@ const LogDetailSheet = memo(function LogDetailSheet({
             </div>
             {replayDraft ? <ReplayDraftPanel draft={replayDraft} t={t} /> : null}
             <Tabs defaultValue="summary">
-              <TabsList className="ms-auto">
-                <TabsTrigger value="metadata">{t("tabs.metadata")}</TabsTrigger>
-                <TabsTrigger value="response">{t("content.response")}</TabsTrigger>
-                <TabsTrigger value="request">{t("content.request")}</TabsTrigger>
-                <TabsTrigger value="summary">{t("tabs.summary")}</TabsTrigger>
+              <TabsList asChild className="ms-auto">
+                <ButtonGroup aria-label={t("detailTitle")}>
+                  <TabsTrigger value="summary">{t("tabs.summary")}</TabsTrigger>
+                  <TabsTrigger value="request">{t("content.request")}</TabsTrigger>
+                  <TabsTrigger value="response">{t("content.response")}</TabsTrigger>
+                  <TabsTrigger value="metadata">{t("tabs.metadata")}</TabsTrigger>
+                </ButtonGroup>
               </TabsList>
               <TabsContent value="summary"><JSONBlock value={{ log: detail.log, actor: detail.actor, scope: detail.scope, content_visibility: detail.content_visibility }} /></TabsContent>
               <TabsContent value="request"><PayloadBlock available={detail.content_visibility.request_available} value={detail.request_payload} reason={detail.content_visibility.request_reason} hidden={t("content.hidden")} /></TabsContent>

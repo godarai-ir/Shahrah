@@ -24,7 +24,7 @@ Create the control-plane workload credential from the repository root:
 
 ```powershell
 $env:DATABASE_URL = "postgresql://.../sharah_db"
-go run ./services/control-plane/cmd/platform-service-account --name support-admin --scopes platform:read,platform:catalog:write,platform:tenant:write
+go run ./services/control-plane/cmd/platform-service-account --name support-admin --scopes platform:read,platform:catalog:write,platform:tenant:write,platform:provider-credentials:read-metadata,platform:provider-credentials:create-version,platform:provider-credentials:test,platform:provider-credentials:activate,platform:provider-credentials:disable
 ```
 
 The command prints `CONTROL_PLANE_SERVICE_TOKEN` once. Rotate by creating a second credential, deploying it, then revoke the old key ID:
@@ -61,4 +61,4 @@ To revoke a human session, rerun `admin:user:create` for that user (which resets
 | `catalog_admin` | Catalog, provider, import, indexing, and display settings |
 | `support_agent` | Read-only catalog administration |
 
-Service scopes are independently enforced by model-discovery: `catalog:read`, `catalog:write`, `provider:write`, `import:execute`, `indexing:execute`, and `display-settings:write`.
+Service scopes are independently enforced by model-discovery and control-plane. Model-discovery scopes include `catalog:read`, `catalog:write`, `provider:write`, `import:execute`, `indexing:execute`, and `display-settings:write`. Control-plane scopes include `platform:read`, `platform:catalog:write`, `platform:tenant:write`, and the provider credential scopes `platform:provider-credentials:read-metadata`, `platform:provider-credentials:create-version`, `platform:provider-credentials:test`, `platform:provider-credentials:activate`, and `platform:provider-credentials:disable`.

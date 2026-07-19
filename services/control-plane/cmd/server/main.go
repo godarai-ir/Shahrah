@@ -218,31 +218,34 @@ func main() {
 		defer reconciler.Stop()
 	}
 
-	adminHandlers := admin.New(admin.Dependencies{
-		Keys:                store,
-		Models:              store,
-		Wallets:             store,
-		ProviderAccounts:    store,
-		ProviderSchemas:     providerSchemaCatalog,
-		OrgUnits:            store,
-		Memberships:         store,
-		Users:               store,
-		VirtualUsers:        store,
-		Teams:               store,
-		Onboarding:          store,
-		LoginDiscovery:      store,
-		Traces:              store,
-		Logs:                store,
-		Metrics:             store,
-		TracePrivacy:        store,
-		RequestLogging:      store,
-		Prompts:             store,
-		Roles:               store,
-		Plans:               store,
-		Entitlements:        store,
-		SupportTenants:      store,
-		ProviderCredentials: platformCredentialService,
-	})
+	adminDeps := admin.Dependencies{
+		Keys:             store,
+		Models:           store,
+		Wallets:          store,
+		ProviderAccounts: store,
+		ProviderSchemas:  providerSchemaCatalog,
+		OrgUnits:         store,
+		Memberships:      store,
+		Users:            store,
+		VirtualUsers:     store,
+		Teams:            store,
+		Onboarding:       store,
+		LoginDiscovery:   store,
+		Traces:           store,
+		Logs:             store,
+		Metrics:          store,
+		TracePrivacy:     store,
+		RequestLogging:   store,
+		Prompts:          store,
+		Roles:            store,
+		Plans:            store,
+		Entitlements:     store,
+		SupportTenants:   store,
+	}
+	if platformCredentialService != nil {
+		adminDeps.ProviderCredentials = platformCredentialService
+	}
+	adminHandlers := admin.New(adminDeps)
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
 	var requestLogger proxy.RequestLogger = store
 	if cfg.RequestLogs.AsyncEnabled {

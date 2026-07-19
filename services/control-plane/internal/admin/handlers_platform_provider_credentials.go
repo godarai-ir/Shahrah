@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -183,10 +184,20 @@ func (h *Handlers) platformCredentialVersionParams(c *fiber.Ctx) (platformProvid
 }
 
 func (h *Handlers) requirePlatformProviderCredentials() (platformProviderCredentialService, error) {
-	if h.providerCredentials == nil {
+	if h.providerCredentials == nil || isNilPlatformProviderCredentialService(h.providerCredentials) {
 		return nil, fiber.NewError(fiber.StatusServiceUnavailable, "platform provider credential service is not configured")
 	}
 	return h.providerCredentials, nil
+}
+
+func isNilPlatformProviderCredentialService(service platformProviderCredentialService) bool {
+	value := reflect.ValueOf(service)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func platformCredentialActor(c *fiber.Ctx) platformcredentials.Actor {

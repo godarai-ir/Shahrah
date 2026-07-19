@@ -153,7 +153,7 @@ func (t *testTunnel) Stream(_ context.Context, _ platform.TunnelRequest) (platfo
 }
 func (t *testTunnel) Healthy(_ context.Context) error { return nil }
 
-func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse) (*fiber.App, *tracing.Queue) {
+func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, logsOpt ...*testLogs) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
 	mem, err := cache.NewMemoryCache(zap.NewNop())
@@ -168,7 +168,11 @@ func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse) (*
 	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
 	require.NoError(t, err)
 
-	h := NewCompletionsHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, &testWallets{}, &testLogs{}, zap.NewNop())
+	logs := &testLogs{}
+	if len(logsOpt) > 0 && logsOpt[0] != nil {
+		logs = logsOpt[0]
+	}
+	h := NewCompletionsHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -195,6 +199,97 @@ func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse) (*
 	return app, q
 }
 
+func newChatCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, logs *testLogs) (*fiber.App, *tracing.Queue) {
+	t.Helper()
+
+	mem, err := cache.NewMemoryCache(zap.NewNop())
+	require.NoError(t, err)
+	rt, err := router.NewRouter([]config.ModelDeployment{{
+		ModelName: "gpt-4",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "openai",
+			Model:    "gpt-4",
+			APIKey:   "test-key",
+		},
+	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	require.NoError(t, err)
+
+	if logs == nil {
+		logs = &testLogs{}
+	}
+	h := NewChatCompletionHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
+	q := tracing.NewQueue(64)
+	s := tracing.NewSampler(1.0, 1500)
+
+	app := fiber.New()
+	app.Use(tracing.Middleware(q, s, 1500))
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+			AllowedModelTypes: map[string][]string{
+				"gpt-4": {"chat"},
+			},
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{
+			ID:     "tenant_a",
+			Slug:   "a",
+			Status: "active",
+		})
+
+		return c.Next()
+	})
+	app.Post("/v1/chat/completions", h.Handle)
+
+	return app, q
+}
+
+func TestChatCompletionsLogsFullRequestAndResponsePayload(t *testing.T) {
+	payload := contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl_log",
+		Object:  "chat.completion",
+		Created: time.Now().Unix(),
+		Model:   "gpt-4",
+		Choices: []contractsopenai.Choice{{
+			Index:        0,
+			Message:      &contractsopenai.ChatMessage{Role: "assistant", Content: "سلام"},
+			FinishReason: "stop",
+		}},
+		Usage: &contractsopenai.Usage{PromptTokens: 4, CompletionTokens: 3, TotalTokens: 7},
+	}
+	body, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	logs := &testLogs{}
+	app, _ := newChatCompletionsTestApp(t, &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       body,
+	}, logs)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewBufferString(`{"model":"gpt-4","messages":[{"role":"user","content":"سلام"}],"temperature":0.2}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, "gpt-4", logs.loggedEntries[0].RequestBody["model"])
+	assert.Equal(t, float64(0.2), logs.loggedEntries[0].RequestBody["temperature"])
+	requestMessages, ok := logs.loggedEntries[0].RequestBody["messages"].([]contractsopenai.ChatMessage)
+	require.True(t, ok)
+	require.Len(t, requestMessages, 1)
+	assert.Equal(t, "سلام", requestMessages[0].Content)
+	assert.Equal(t, "chatcmpl_log", logs.loggedEntries[0].ResponseBody["id"])
+	assert.Equal(t, "chat.completion", logs.loggedEntries[0].ResponseBody["object"])
+	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "embedding_count")
+}
+
 func TestCompletionsTracingLifecycle_SyncSuccess(t *testing.T) {
 	payload := contractsopenai.ChatCompletionResponse{
 		ID:      "chatcmpl_1",
@@ -208,11 +303,12 @@ func TestCompletionsTracingLifecycle_SyncSuccess(t *testing.T) {
 	}
 	body, err := json.Marshal(payload)
 	require.NoError(t, err)
+	logs := &testLogs{}
 	app, q := newCompletionsTestApp(t, &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
 		Headers:    map[string]string{"content-type": "application/json"},
 		Body:       body,
-	})
+	}, logs)
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -236,6 +332,12 @@ func TestCompletionsTracingLifecycle_SyncSuccess(t *testing.T) {
 	assert.Contains(t, names, "router.select_model")
 	assert.Contains(t, names, "provider.call")
 	assert.Contains(t, names, "response.write")
+
+	require.Eventually(t, func() bool { return len(logs.loggedEntries) == 1 }, time.Second, 10*time.Millisecond)
+	assert.Equal(t, map[string]interface{}{"model": "gpt-4", "prompt": "hello"}, logs.loggedEntries[0].RequestBody)
+	assert.Equal(t, "chatcmpl_1", logs.loggedEntries[0].ResponseBody["id"])
+	assert.Equal(t, "text_completion", logs.loggedEntries[0].ResponseBody["object"])
+	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
 }
 
 func TestCompletionsTracingLifecycle_ProviderErrorIncludesProviderSpan(t *testing.T) {

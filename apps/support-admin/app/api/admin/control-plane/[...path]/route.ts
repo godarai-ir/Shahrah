@@ -20,6 +20,7 @@ export async function POST(request: Request, context: RouteContext) {
     method: 'POST',
     body: await request.text(),
     contentType: request.headers.get('content-type') ?? 'application/json',
+    idempotencyKey: request.headers.get('idempotency-key') ?? undefined,
   });
 }
 

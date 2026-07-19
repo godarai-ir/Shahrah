@@ -90,7 +90,8 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
-	req, err := parseEmbeddingRequest(c.Body())
+	originalBody := append([]byte(nil), c.Body()...)
+	req, err := parseEmbeddingRequest(originalBody)
 	if err != nil {
 		if vErr, ok := err.(*embeddingValidationError); ok {
 			return writeAPIErrorDetail(c, fiber.StatusBadRequest, vErr.Message, "invalid_request_error", vErr.Param, vErr.Code)
@@ -236,14 +237,14 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	err = h.handleSync(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
 	return err
 }
 
-func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.EmbeddingRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.EmbeddingRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -298,8 +299,8 @@ func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.Embeddi
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
-	logEntry.RequestBody = map[string]interface{}{"model": req.Model, "input_count": embeddingInputCount(req.Input)}
-	logEntry.ResponseBody = map[string]interface{}{"model": response.Model, "embedding_count": len(response.Data)}
+	logEntry.RequestBody = buildEmbeddingRequestLogPayload(req, originalBody)
+	logEntry.ResponseBody = buildEmbeddingResponseLogPayload(response, resp.Body)
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
@@ -368,6 +369,17 @@ func (h *EmbeddingsHandler) emitModelMetric(input metricsobs.BuildInput) {
 	}
 
 	h.emitMetric(input)
+}
+
+func buildEmbeddingRequestLogPayload(req contractsopenai.EmbeddingRequest, originalBody []byte) map[string]interface{} {
+	return buildJSONRequestLogPayload(originalBody, map[string]interface{}{
+		"model": req.Model,
+		"input": req.Input,
+	})
+}
+
+func buildEmbeddingResponseLogPayload(resp contractsopenai.EmbeddingResponse, body []byte) map[string]interface{} {
+	return buildJSONResponseLogPayload(body, resp)
 }
 
 func parseEmbeddingRequest(body []byte) (contractsopenai.EmbeddingRequest, error) {
