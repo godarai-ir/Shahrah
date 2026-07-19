@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { BadgeCheck, BookOpen, Building2, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -191,6 +192,7 @@ type UserProfileMenuProps = {
 function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
   const router = useRouter();
   const t = useTranslations("shell");
+  const userInitials = getUserInitials(userIdentity);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -211,23 +213,29 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
           <User data-icon="inline-start" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 text-start">
-        <DropdownMenuLabel className="flex items-center gap-3 p-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-            <User aria-hidden="true" />
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span dir="ltr" className="truncate text-sm font-semibold text-popover-foreground">
-              {userIdentity}
-            </span>
-            <Badge variant="secondary" className="w-fit text-xs" dir="ltr">
-              {currentUser.role}
-            </Badge>
-          </span>
-        </DropdownMenuLabel>
+      <DropdownMenuContent align="start" sideOffset={8} className="w-72 p-2 text-start">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="p-0 font-normal">
+            <div className="flex items-start gap-3 rounded-md bg-muted/50 p-3">
+              <Avatar className="size-11 rounded-lg">
+                <AvatarFallback className="rounded-lg" dir="ltr">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span dir="ltr" className="truncate text-sm font-semibold text-popover-foreground">
+                  {userIdentity}
+                </span>
+                <Badge variant="secondary" className="w-fit max-w-full truncate text-xs" dir="ltr">
+                  {currentUser.role}
+                </Badge>
+              </span>
+            </div>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild className="justify-start">
+          <DropdownMenuItem asChild className="min-h-10 justify-start gap-3 rounded-md px-3">
             <Link href="/settings/account">
               <User aria-hidden="true" />
               <span>{t("profile.account")}</span>
@@ -237,7 +245,7 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem
-            className="justify-start text-destructive focus:text-destructive"
+            className="min-h-10 justify-start gap-3 rounded-md px-3 text-destructive focus:text-destructive"
             onSelect={(event) => {
               event.preventDefault();
               void handleLogout();
@@ -431,6 +439,24 @@ function DocsLink({ href }: { href: string }) {
       </Tooltip>
     </TooltipProvider>
   );
+}
+
+function getUserInitials(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "؟";
+
+  const [localPart] = trimmed.split("@");
+  const source = localPart || trimmed;
+  const parts = source
+    .split(/[._\s-]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }
+
+  return source.slice(0, 2).toUpperCase();
 }
 
 function SidebarPlanSummary({

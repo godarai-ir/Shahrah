@@ -43,6 +43,7 @@ export default async function RootLayout({
     <html
       lang={locale}
       dir={getLocaleDirection(locale)}
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
