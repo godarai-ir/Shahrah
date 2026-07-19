@@ -12,7 +12,7 @@
 | Retry + status-based fallback | include now | Required resilience behavior |
 | Admin CRUD | include now | Needed operability |
 | Virtual alias in `/v1/models` | include now | Discoverability + compatibility |
-| Weighted routing | defer | Higher complexity, not P0 |
+| Weighted routing | include now | Higher complexity |
 | Latency routing | defer | Requires metrics feedback loop |
 | Sticky routing | defer | Session-state behavior not required for P0 |
 | Metadata filtering | defer | Additional policy surface |
