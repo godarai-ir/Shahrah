@@ -199,6 +199,19 @@ exports.Prisma.ProviderConnectionSchemaScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.ProviderLogoAssetScalarFieldEnum = {
+  id: 'id',
+  providerId: 'providerId',
+  fileName: 'fileName',
+  contentHash: 'contentHash',
+  contentType: 'contentType',
+  width: 'width',
+  height: 'height',
+  sizeBytes: 'sizeBytes',
+  data: 'data',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.ModelVersionScalarFieldEnum = {
   id: 'id',
   modelId: 'modelId',
@@ -437,6 +450,7 @@ exports.Prisma.ModelName = {
   ModelSeries: 'ModelSeries',
   ProviderConnectionProfile: 'ProviderConnectionProfile',
   ProviderConnectionSchema: 'ProviderConnectionSchema',
+  ProviderLogoAsset: 'ProviderLogoAsset',
   ModelVersion: 'ModelVersion',
   ModelPricing: 'ModelPricing',
   Capability: 'Capability',

@@ -47,6 +47,7 @@ model Provider {
   updatedAt               DateTime       @updatedAt
 
   models                  Model[]
+  logoAssets              ProviderLogoAsset[]
   // Legacy value-bearing records are retained only for the redacted migration
   // audit. They are never selected by an API.
   legacyConnectionProfile ProviderConnectionProfile?
@@ -145,6 +146,24 @@ model ProviderConnectionSchema {
 
   @@unique([providerId, authMode, version])
   @@index([providerId, authMode, version])
+}
+
+model ProviderLogoAsset {
+  id          String   @id @default(cuid())
+  providerId  String
+  fileName    String   @unique
+  contentHash String
+  contentType String   @default("image/png")
+  width       Int      @default(64)
+  height      Int      @default(64)
+  sizeBytes   Int
+  data        Bytes
+  createdAt   DateTime @default(now())
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([contentHash])
 }
 
 model ModelVersion {

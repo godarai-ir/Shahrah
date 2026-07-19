@@ -45,9 +45,25 @@ export async function adminProxy(path: string, init?: RequestInit) {
     cache: 'no-store',
   });
 
-  const text = await res.text();
-  return new NextResponse(text, {
+  const body = await res.arrayBuffer();
+  const headers = new Headers();
+  headers.set('content-type', res.headers.get('content-type') || 'application/json');
+  copyResponseHeader(res.headers, headers, 'cache-control');
+  copyResponseHeader(res.headers, headers, 'content-disposition');
+  copyResponseHeader(res.headers, headers, 'etag');
+  copyResponseHeader(res.headers, headers, 'last-modified');
+
+  return new NextResponse(statusAllowsBody(res.status) ? body : null, {
     status: res.status,
-    headers: { 'content-type': res.headers.get('content-type') || 'application/json' },
+    headers,
   });
+}
+
+function copyResponseHeader(source: Headers, target: Headers, name: string) {
+  const value = source.get(name);
+  if (value) target.set(name, value);
+}
+
+function statusAllowsBody(status: number) {
+  return status !== 204 && status !== 205 && status !== 304;
 }

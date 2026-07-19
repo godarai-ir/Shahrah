@@ -15,6 +15,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const providerCatalogAssetCacheControl = "public, max-age=31536000, immutable"
+
 // ListProviderCatalog returns providers available for tenant model onboarding.
 func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
@@ -199,7 +201,7 @@ func (h *Handlers) GetProviderCatalogAsset(c *fiber.Ctx) error {
 	}
 
 	c.Set(fiber.HeaderContentType, contentType)
-	c.Set(fiber.HeaderCacheControl, "public, max-age=3600")
+	c.Set(fiber.HeaderCacheControl, providerCatalogAssetCacheControl)
 
 	return c.Status(status).Send(body)
 }

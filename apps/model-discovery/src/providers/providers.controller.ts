@@ -25,6 +25,10 @@ import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { UpsertProviderDto } from './dto/upsert-provider.dto';
 import { ProvidersService } from './providers.service';
 import { UpsertProviderConnectionSchemaDto } from './dto/upsert-provider-connection-schema.dto';
+import {
+  isAllowedProviderLogoMimeType,
+  PROVIDER_LOGO_CACHE_CONTROL,
+} from './provider-logo-image';
 
 @ApiTags('providers')
 @Controller({ path: 'providers', version: '1' })
@@ -133,8 +137,12 @@ export class ProvidersController {
     @Req() request: AuthenticatedRequest,
   ) {
     if (!file) throw new BadRequestException('file is required');
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('only image files are allowed');
+    const rawMimeType = (file as { mimetype?: unknown }).mimetype;
+    const mimeType = typeof rawMimeType === 'string' ? rawMimeType : undefined;
+    if (!isAllowedProviderLogoMimeType(mimeType)) {
+      throw new BadRequestException(
+        'only PNG, JPEG, and WebP images are allowed',
+      );
     }
     if (file.size > 2 * 1024 * 1024) {
       throw new BadRequestException('file size must be <= 2MB');
@@ -153,11 +161,26 @@ export class ProvidersController {
     }
     if (fileName.includes('..'))
       throw new BadRequestException('invalid file name');
+
+    if (bucket === 'provider-logos') {
+      return this.sendProviderLogoAsset(fileName, res);
+    }
+
     const base = resolve(process.cwd(), 'uploads', bucket);
     const filePath = resolve(join(base, fileName));
     if (!filePath.startsWith(base) || !existsSync(filePath)) {
       return res.status(404).send('Not found');
     }
+    res.setHeader('Cache-Control', PROVIDER_LOGO_CACHE_CONTROL);
     return res.sendFile(filePath);
+  }
+
+  private async sendProviderLogoAsset(fileName: string, res: Response) {
+    const asset = await this.providers.getProviderLogoAsset(fileName);
+    if (!asset) return res.status(404).send('Not found');
+
+    res.setHeader('Content-Type', asset.contentType);
+    res.setHeader('Cache-Control', PROVIDER_LOGO_CACHE_CONTROL);
+    return res.status(200).send(asset.body);
   }
 }

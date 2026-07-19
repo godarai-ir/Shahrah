@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { mkdirSync, writeFileSync } from 'fs';
-import { extname, join } from 'path';
 import { PrismaService } from '../database/prisma.service';
 import {
   auditPrincipal,
@@ -11,6 +9,12 @@ import { IndexingService } from '../indexing/indexing.service';
 import { UpsertProviderDto } from './dto/upsert-provider.dto';
 import { validateConnectionSchemaFields } from './connection-schema-validation';
 import { UpsertProviderConnectionSchemaDto } from './dto/upsert-provider-connection-schema.dto';
+import { processProviderLogoImage } from './provider-logo-image';
+
+type ProviderLogoAssetResult = {
+  body: Buffer;
+  contentType: string;
+};
 
 @Injectable()
 export class ProvidersService {
@@ -29,17 +33,11 @@ export class ProvidersService {
     });
 
     return providers.map((provider) => {
-      // Explicitly strip both the legacy relation name and its historical API
-      // name so a future include cannot reintroduce credential-bearing JSON.
-      const {
-        models,
-        legacyConnectionProfile: _legacyConnectionProfile,
-        connectionProfile: _connectionProfile,
-        ...safeProvider
-      } = provider as typeof provider & {
-        legacyConnectionProfile?: unknown;
-        connectionProfile?: unknown;
-      };
+      const safeProvider = { ...provider } as Record<string, unknown>;
+      const models = provider.models;
+      delete safeProvider.models;
+      delete safeProvider.legacyConnectionProfile;
+      delete safeProvider.connectionProfile;
       return { ...safeProvider, modelCount: models.length };
     });
   }
@@ -235,14 +233,29 @@ export class ProvidersService {
     file: any,
     principal: ServicePrincipal,
   ) {
-    const uploadsDir = join(process.cwd(), 'uploads', 'provider-logos');
-    mkdirSync(uploadsDir, { recursive: true });
-    const ext = extname(file.originalname || '').toLowerCase() || '.png';
-    const fileName = `${providerSlug}-${randomUUID()}${ext}`;
-    const absPath = join(uploadsDir, fileName);
-    writeFileSync(absPath, file.buffer);
+    const rawBuffer = (file as { buffer?: unknown }).buffer;
+    const uploadBuffer = Buffer.isBuffer(rawBuffer)
+      ? rawBuffer
+      : Buffer.from(rawBuffer as Uint8Array);
+    const processed = await processProviderLogoImage(uploadBuffer);
+    const fileName = providerLogoFileName(providerSlug, processed.contentHash);
     const logoUrl = `/api/v1/providers/assets/provider-logos/${fileName}`;
     const provider = await this.prisma.$transaction(async (tx) => {
+      const before = await tx.provider.findUniqueOrThrow({
+        where: { slug: providerSlug },
+      });
+      await tx.providerLogoAsset.create({
+        data: {
+          providerId: before.id,
+          fileName,
+          contentHash: processed.contentHash,
+          contentType: processed.contentType,
+          width: processed.width,
+          height: processed.height,
+          sizeBytes: processed.sizeBytes,
+          data: toPrismaBytes(processed.data),
+        },
+      });
       const provider = await tx.provider.update({
         where: { slug: providerSlug },
         data: { logoUrl },
@@ -252,6 +265,7 @@ export class ProvidersService {
           entityType: 'provider',
           entityId: provider.id,
           action: 'logo_update',
+          beforeJson: before as any,
           afterJson: provider as any,
           ...auditPrincipal(principal),
         },
@@ -261,4 +275,43 @@ export class ProvidersService {
     await this.indexing.enqueueProviderModelsReindex(provider.slug);
     return provider;
   }
+
+  async getProviderLogoAsset(
+    fileName: string,
+  ): Promise<ProviderLogoAssetResult | null> {
+    const asset = await this.prisma.providerLogoAsset.findUnique({
+      where: { fileName },
+      select: {
+        data: true,
+        contentType: true,
+      },
+    });
+    if (!asset) return null;
+
+    return {
+      body: Buffer.from(asset.data),
+      contentType: asset.contentType,
+    };
+  }
+}
+
+function providerLogoFileName(
+  providerSlug: string,
+  contentHash: string,
+): string {
+  const safeSlug =
+    providerSlug
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'provider';
+  return `${safeSlug}-${contentHash.slice(0, 16)}-${randomUUID()}.png`;
+}
+
+function toPrismaBytes(buffer: Buffer): Uint8Array<ArrayBuffer> {
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  ) as ArrayBuffer;
+  return new Uint8Array(arrayBuffer);
 }
