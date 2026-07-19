@@ -25,6 +25,12 @@ type CompactCurrencyOptions = ExactCurrencyOptions & {
   compactThreshold?: number;
 };
 
+type IrrDisplayOptions = {
+  locale: string;
+  compactThreshold?: number;
+  suffix?: string;
+};
+
 const COMPACT_UNITS = [
   { value: 1_000_000_000_000, suffix: "T" },
   { value: 1_000_000_000, suffix: "B" },
@@ -33,6 +39,7 @@ const COMPACT_UNITS = [
 ] as const;
 
 const NUMERIC_PART_TYPES = new Set(["integer", "group", "decimal", "fraction"]);
+const ZERO_FRACTION_CURRENCIES = new Set(["IRR"]);
 
 export function formatExactNumber(
   value: number,
@@ -54,20 +61,22 @@ export function formatCompactNumber(
     locale,
     compactThreshold = 10_000,
     minimumFractionDigits = 0,
-    maximumFractionDigits = Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits,
   }: CompactNumberOptions,
 ): CompactDisplayValue {
+  const exactMaximumFractionDigits = maximumFractionDigits ?? (Number.isInteger(value) ? 0 : 2);
+  const compactMaximumFractionDigits = maximumFractionDigits ?? 1;
   const fullValue = formatExactNumber(value, {
     locale,
     minimumFractionDigits,
-    maximumFractionDigits,
+    maximumFractionDigits: exactMaximumFractionDigits,
   });
 
   if (!Number.isFinite(value) || Math.abs(value) < compactThreshold) {
     return { value: fullValue, fullValue, isCompact: false };
   }
 
-  const compactValue = buildCompactMagnitude(value, locale);
+  const compactValue = buildCompactMagnitude(value, locale, compactMaximumFractionDigits);
   return {
     value: compactValue,
     fullValue,
@@ -84,11 +93,16 @@ export function formatExactCurrency(
     maximumFractionDigits = 2,
   }: ExactCurrencyOptions,
 ) {
+  const fractionDigits = resolveCurrencyFractionDigits(currency, {
+    minimumFractionDigits,
+    maximumFractionDigits,
+  });
+
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
-    minimumFractionDigits,
-    maximumFractionDigits,
+    minimumFractionDigits: fractionDigits.minimumFractionDigits,
+    maximumFractionDigits: fractionDigits.maximumFractionDigits,
   }).format(value);
 }
 
@@ -102,11 +116,15 @@ export function formatCompactCurrency(
     maximumFractionDigits = 2,
   }: CompactCurrencyOptions,
 ): CompactDisplayValue {
+  const fractionDigits = resolveCurrencyFractionDigits(currency, {
+    minimumFractionDigits,
+    maximumFractionDigits,
+  });
   const currencyFormatter = new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
-    minimumFractionDigits,
-    maximumFractionDigits,
+    minimumFractionDigits: fractionDigits.minimumFractionDigits,
+    maximumFractionDigits: fractionDigits.maximumFractionDigits,
   });
   const fullValue = currencyFormatter.format(value);
 
@@ -114,7 +132,7 @@ export function formatCompactCurrency(
     return { value: fullValue, fullValue, isCompact: false };
   }
 
-  const compactNumber = buildCompactMagnitude(value, locale);
+  const compactNumber = buildCompactMagnitude(value, locale, fractionDigits.maximumFractionDigits);
   const compactValue = injectCurrencyAroundNumber(currencyFormatter, value, compactNumber);
 
   return {
@@ -122,6 +140,29 @@ export function formatCompactCurrency(
     fullValue,
     isCompact: compactValue !== fullValue,
   };
+}
+
+export function formatExactIrr(value: number, { locale, suffix = " IRR" }: IrrDisplayOptions) {
+  return `${formatExactNumber(value, {
+    locale,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}${suffix}`;
+}
+
+export function formatCompactIrr(
+  value: number,
+  { locale, compactThreshold = 10_000, suffix = " IRR" }: IrrDisplayOptions,
+): CompactDisplayValue {
+  return appendDisplaySuffix(
+    formatCompactNumber(value, {
+      locale,
+      compactThreshold,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }),
+    suffix,
+  );
 }
 
 export function appendDisplaySuffix(display: CompactDisplayValue, suffix: string): CompactDisplayValue {
@@ -132,7 +173,7 @@ export function appendDisplaySuffix(display: CompactDisplayValue, suffix: string
   };
 }
 
-function buildCompactMagnitude(value: number, locale: string) {
+function buildCompactMagnitude(value: number, locale: string, maximumFractionDigits = 1) {
   const absoluteValue = Math.abs(value);
   const sign = value < 0 ? -1 : 1;
   let unitIndex = COMPACT_UNITS.findIndex((unit) => absoluteValue >= unit.value);
@@ -142,13 +183,13 @@ function buildCompactMagnitude(value: number, locale: string) {
   }
 
   let scaledValue = absoluteValue / COMPACT_UNITS[unitIndex].value;
-  let fractionDigits = compactFractionDigits(scaledValue);
+  let fractionDigits = compactFractionDigits(scaledValue, maximumFractionDigits);
   let roundedValue = roundTo(scaledValue, fractionDigits);
 
   while (roundedValue >= 1000 && unitIndex > 0) {
     unitIndex -= 1;
     scaledValue = absoluteValue / COMPACT_UNITS[unitIndex].value;
-    fractionDigits = compactFractionDigits(scaledValue);
+    fractionDigits = compactFractionDigits(scaledValue, maximumFractionDigits);
     roundedValue = roundTo(scaledValue, fractionDigits);
   }
 
@@ -160,9 +201,9 @@ function buildCompactMagnitude(value: number, locale: string) {
   return `${formattedValue}${COMPACT_UNITS[unitIndex].suffix}`;
 }
 
-function compactFractionDigits(value: number) {
+function compactFractionDigits(value: number, maximumFractionDigits: number) {
   if (value >= 100) return 0;
-  return 1;
+  return Math.min(1, Math.max(0, maximumFractionDigits));
 }
 
 function roundTo(value: number, fractionDigits: number) {
@@ -187,4 +228,18 @@ function injectCurrencyAroundNumber(formatter: Intl.NumberFormat, value: number,
   }
 
   return `${prefix}${compactNumber}${suffix}`;
+}
+
+function resolveCurrencyFractionDigits(
+  currency: string,
+  fractionDigits: { minimumFractionDigits: number; maximumFractionDigits: number },
+) {
+  if (ZERO_FRACTION_CURRENCIES.has(currency.toUpperCase())) {
+    return {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    };
+  }
+
+  return fractionDigits;
 }

@@ -18,7 +18,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
 import { ModelCardExampleGrid } from "@/app/components/model-card.example";
-import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
+import { formatCompactCurrency, formatCompactIrr, formatCompactNumber } from "@/lib/compact-number";
 
 const tokens = [
   ["background", "bg-background text-foreground"],
@@ -59,7 +59,7 @@ export default function DesignSystemPage() {
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
-  const irrDisplay = appendDisplaySuffix(formatCompactNumber(845_000, { locale: "fa-IR" }), " IRR");
+  const irrDisplay = formatCompactIrr(845_000, { locale: "fa-IR" });
 
   return (
     <PageContainer as="main" spacing="relaxed">

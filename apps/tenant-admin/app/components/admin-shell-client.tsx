@@ -68,7 +68,7 @@ type AdminShellClientProps = {
   pageHeader?: ShellPageMetadata;
 };
 
-const moneyFormatter = new Intl.NumberFormat("fa-IR");
+const moneyFormatter = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
 
 const SIDEBAR_NAV_GROUPS: Array<{
   labelKey: string;

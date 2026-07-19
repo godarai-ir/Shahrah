@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { appendDisplaySuffix, formatCompactNumber } from "@/lib/compact-number";
+import { formatCompactIrr, formatCompactNumber } from "@/lib/compact-number";
 import { getCurrentJalaliMonthRange } from "@/app/billing/_shared";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
@@ -791,7 +791,7 @@ export default function OrgUnitManagement({
                           <dd className="mt-2 text-2xl font-bold tracking-tight">
                             <CompactValue
                               dir="ltr"
-                              display={appendDisplaySuffix(formatCompactNumber(usageSummary.cost_irr, { locale }), t("usage.currencySuffix"))}
+                              display={formatCompactIrr(usageSummary.cost_irr, { locale, suffix: t("usage.currencySuffix") })}
                             />
                           </dd>
                         </div>

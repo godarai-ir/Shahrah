@@ -29,7 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
-import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
+import { formatCompactCurrency, formatCompactIrr, formatCompactNumber } from "@/lib/compact-number";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { cn } from "@/lib/utils";
 
@@ -329,7 +329,7 @@ export default async function TraceDetailPage({ params }: Params) {
                       icon={Coins}
                       label={t("detail.usage.costIrr")}
                       value={typeof detail.usage?.cost_irr === "number"
-                        ? <CompactValue display={appendDisplaySuffix(formatCompactNumber(detail.usage.cost_irr, { locale }), " IRR")} />
+                        ? <CompactValue display={formatCompactIrr(detail.usage.cost_irr, { locale })} />
                         : emptyLabel}
                     />
                     <CompactField

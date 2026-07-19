@@ -57,7 +57,7 @@ import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-
 import RequestLoggingSettingsPanel from "@/app/components/request-logging-settings";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
-import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber, formatExactNumber, type CompactDisplayValue } from "@/lib/compact-number";
+import { formatCompactCurrency, formatCompactIrr, formatCompactNumber, formatExactIrr, type CompactDisplayValue } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
 
 type RequestLog = {
@@ -2300,8 +2300,8 @@ function createLogFormatters(locale: string): LogsFormatter {
     percent: (value) => percent.format(value),
     usd: (value) => formatExactCurrencyValue(value, locale),
     usdDisplay: (value) => formatCompactCurrency(value, { locale, currency: "USD", maximumFractionDigits: 4 }),
-    irr: (value) => `${formatExactNumber(value, { locale })} IRR`,
-    irrDisplay: (value) => appendDisplaySuffix(formatCompactNumber(value, { locale }), " IRR"),
+    irr: (value) => formatExactIrr(value, { locale }),
+    irrDisplay: (value) => formatCompactIrr(value, { locale }),
     ms: (value) => `${number.format(Math.round(value))} ms`,
     msValue: (value) => number.format(Math.round(value)),
     timeLabel: (value) => (value ? shortTime.format(new Date(value)) : undefined),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { appendDisplaySuffix, formatCompactCurrency, formatCompactNumber } from "./compact-number";
+import { appendDisplaySuffix, formatCompactCurrency, formatCompactIrr, formatCompactNumber } from "./compact-number";
 
 describe("formatCompactNumber", () => {
   it("keeps smaller values exact", () => {
@@ -38,6 +38,29 @@ describe("formatCompactCurrency", () => {
   it("formats large currency values compactly", () => {
     expect(formatCompactCurrency(12_340, { locale: "en-US", currency: "USD", maximumFractionDigits: 2 }).value).toBe("$12.3K");
   });
+
+  it("rounds IRR values without fractional digits", () => {
+    expect(formatCompactCurrency(852.85, { locale: "fa-IR", currency: "IRR" }).fullValue).not.toMatch(/[٫.]/);
+    expect(formatCompactCurrency(12_340, { locale: "en-US", currency: "IRR" }).value).not.toMatch(/[٫.]/);
+  });
+});
+
+describe("formatCompactIrr", () => {
+  it("keeps IRR exact displays rounded to whole rials", () => {
+    expect(formatCompactIrr(852.85, { locale: "fa-IR" })).toEqual({
+      value: "۸۵۳ IRR",
+      fullValue: "۸۵۳ IRR",
+      isCompact: false,
+    });
+  });
+
+  it("keeps IRR compact displays free of fractional digits", () => {
+    expect(formatCompactIrr(12_340, { locale: "en-US" })).toEqual({
+      value: "12K IRR",
+      fullValue: "12,340 IRR",
+      isCompact: true,
+    });
+  });
 });
 
 describe("appendDisplaySuffix", () => {
@@ -45,11 +68,11 @@ describe("appendDisplaySuffix", () => {
     expect(
       appendDisplaySuffix(
         { value: "12.3K", fullValue: "12,340", isCompact: true },
-        " IRR",
+        " requests",
       ),
     ).toEqual({
-      value: "12.3K IRR",
-      fullValue: "12,340 IRR",
+      value: "12.3K requests",
+      fullValue: "12,340 requests",
       isCompact: true,
     });
   });
