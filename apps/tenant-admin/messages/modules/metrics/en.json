@@ -72,13 +72,13 @@
     "totalCost": "Total cost",
     "totalCostHint": "Estimated provider cost in USD.",
     "avoidedCost": "Estimated cost avoided",
-    "avoidedCostHint": "Gross provider cost avoided using the original pricing snapshot; embedding and infrastructure costs are excluded.",
+    "avoidedCostHint": "Gross provider cost calculated from the original response pricing snapshot; infrastructure costs are excluded.",
     "costWithoutCache": "Cost without caching",
     "savingsRate": "Savings rate",
     "cacheHits": "Cache hits",
     "cacheHitRate": "Cache hit rate",
     "cachedTokens": "Tokens served from cache",
-    "cachedTokensHint": "Original input and output tokens represented by cache hits."
+    "cachedTokensHint": "Original input and output tokens served through cache."
   },
   "charts": {
     "requests": {

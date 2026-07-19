@@ -34,6 +34,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick, type AdminNavItem } from "@/app/components/admin-shell-nav";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
@@ -414,13 +415,21 @@ function WalletBalanceLink({
 
 function DocsLink({ href }: { href: string }) {
   const t = useTranslations("shell");
+  const label = t("docs.open");
 
   return (
-    <Button type="button" variant="outline" size="icon" className="shrink-0" asChild>
-      <Link href={href} target="_blank" rel="noopener noreferrer" aria-label={t("docs.open")}>
-        <BookOpen data-icon="inline-start" aria-hidden="true" />
-      </Link>
-    </Button>
+    <TooltipProvider delayDuration={120}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button type="button" variant="outline" size="icon" className="shrink-0" asChild>
+            <Link href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
+              <BookOpen data-icon="inline-start" aria-hidden="true" />
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

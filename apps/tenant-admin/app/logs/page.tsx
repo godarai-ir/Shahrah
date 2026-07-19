@@ -47,7 +47,7 @@ export default async function LogsPage() {
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={currentUser}
-      pageHeader={{ title: t("title"), description: t("subtitle") }}
+      pageHeader={{ title: t("title"), description: t("subtitle"), helpHref: "/docs/observability-logs" }}
     >
       <LogsCommandCenter
         initialLogs={logsResult.ok ? logsResult.payload : undefined}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { Info, RotateCcw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Area,
@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
 import {
   buildCacheBreakdown,
@@ -499,12 +500,12 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         <MetricCard label={t("cards.inputTokens")} value={<CompactValue display={formatCompactNumber(summary.inputTokens, { locale })} />} density="compact" className="shadow-none" />
         <MetricCard label={t("cards.outputTokens")} value={<CompactValue display={formatCompactNumber(summary.outputTokens, { locale })} />} density="compact" className="shadow-none" />
         <MetricCard label={t("cards.totalCost")} value={<CompactValue display={formatCompactCurrency(summary.cost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} density="compact" className="shadow-none" />
-        <MetricCard label={t("cards.avoidedCost")} value={<CompactValue display={formatCompactCurrency(summary.avoidedCost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} description={t("cards.avoidedCostHint")} density="compact" className="shadow-none" />
+        <MetricCard label={<InfoMetricLabel label={t("cards.avoidedCost")} tooltip={t("cards.avoidedCostHint")} />} value={<CompactValue display={formatCompactCurrency(summary.avoidedCost, { locale, currency: "USD", maximumFractionDigits: 6 })} />} density="compact" className="shadow-none" />
         <MetricCard label={t("cards.costWithoutCache")} value={<CompactValue display={formatCompactCurrency(summary.costWithoutCache, { locale, currency: "USD", maximumFractionDigits: 6 })} />} density="compact" className="shadow-none" />
         <MetricCard label={t("cards.savingsRate")} value={formatPercent(summary.savingsRate, locale)} density="compact" className="shadow-none" />
         <MetricCard label={t("cards.cacheHits")} value={<CompactValue display={formatCompactNumber(summary.cacheHits, { locale })} />} density="compact" className="shadow-none" />
         <MetricCard label={t("cards.cacheHitRate")} value={formatPercent(summary.cacheHitRate, locale)} density="compact" className="shadow-none" />
-        <MetricCard label={t("cards.cachedTokens")} value={<CompactValue display={formatCompactNumber(summary.avoidedTokens, { locale })} />} description={t("cards.cachedTokensHint")} density="compact" className="shadow-none" />
+        <MetricCard label={<InfoMetricLabel label={t("cards.cachedTokens")} tooltip={t("cards.cachedTokensHint")} />} value={<CompactValue display={formatCompactNumber(summary.avoidedTokens, { locale })} />} density="compact" className="shadow-none" />
       </section>
 
       <section aria-label={t("sections.charts")} className="grid gap-3 xl:grid-cols-2">
@@ -660,6 +661,30 @@ function ChartCard({
     >
       {children}
     </AppCard>
+  );
+}
+
+function InfoMetricLabel({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 align-middle">
+      <span>{label}</span>
+      <TooltipProvider delayDuration={120}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              aria-label={tooltip}
+            >
+              <Info className="size-3.5" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-72 text-start leading-5">
+            {tooltip}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </span>
   );
 }
 

@@ -32,7 +32,7 @@ export default async function MetricsPage({ searchParams }: MetricsPageProps) {
     <AdminShell
       tenantSlug={auth.tenantSlug}
       currentUser={currentUser}
-      pageHeader={{ title: t("title"), description: t("description") }}
+      pageHeader={{ title: t("title"), description: t("description"), helpHref: "/docs/observability-model-metrics" }}
     >
       <ModelMetricsDashboard
         initialFrom={params.from}

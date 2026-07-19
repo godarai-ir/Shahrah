@@ -1,8 +1,10 @@
 {
   "eyebrow": "Billing",
-  "title": "Plan",
+  "title": "Plan Features and Limits",
+  "subtitle": "Review the current plan features and effective limits for this workspace.",
   "badges": {
-    "current": "Current"
+    "current": "Current plan",
+    "override": "Custom override"
   },
   "status": {
     "active": "Active",
@@ -10,56 +12,72 @@
     "past_due": "Past due",
     "other": "Unknown"
   },
-  "trial": {
-    "title": "Trial is active",
-    "description": "Your {plan} trial is active until {date}. Choose the same plan below to continue with a paid subscription without changing your tenant."
+  "currentPlan": {
+    "description": "This list is based on the workspace's effective plan features and limits."
   },
-  "currentSubscription": {
-    "title": "Current subscription",
-    "plan": "Plan",
-    "interval": "Interval",
-    "periodEnd": "Period end",
-    "trialEnds": "Trial ends"
-  },
-  "limits": {
-    "title": "Effective limits",
-    "requests": "Monthly gateway requests",
-    "users": "Users",
-    "vat": "VAT",
-    "overrides": "Overrides"
+  "table": {
+    "caption": "Effective features and limits for the current plan",
+    "feature": "Feature",
+    "value": "Value or status",
+    "empty": "No features are registered for this plan."
   },
   "features": {
-    "requests": "Requests",
-    "users": "Users",
-    "vat": "VAT",
-    "ratePolicies": "Rate policies",
-    "budgetPolicies": "Budget policies"
-  },
-  "intervals": {
-    "monthly": "Monthly",
-    "quarterly": "Quarterly",
-    "yearly": "Yearly"
+    "gatewayRequestsMonthly": "Monthly gateway requests",
+    "usersMax": "Active users",
+    "teamsEnabled": "Team management",
+    "cacheSimpleEnabled": "Exact request cache",
+    "cacheSimpleTtlDays": "Exact request cache retention",
+    "cacheSemanticEnabled": "Semantic cache",
+    "routingWeightedEnabled": "Weighted routing",
+    "routingLatencyEnabled": "Latency-based routing",
+    "rateLimitRulesEnabled": "Rate limit rules",
+    "budgetLimitRulesEnabled": "Budget limit rules",
+    "logsRetentionDays": "Log retention",
+    "tracesRetentionDays": "Trace retention",
+    "metadataCustomEnabled": "Custom metadata",
+    "llmPricingCustomEnabled": "Custom model pricing",
+    "analyticsEnabled": "Operational and cost metrics",
+    "alertsEnabled": "Operational and management alerts",
+    "otelExportEnabled": "OpenTelemetry-compatible export",
+    "promptTemplatesMax": "Prompt templates",
+    "promptVersionsEnabled": "Prompt versioning and variables",
+    "guardrailsThirdPartyEnabled": "Third-party guardrail integration",
+    "guardrailsWebhookEnabled": "Custom guardrail webhook",
+    "authPatEnabled": "Personal access token",
+    "authVatEnabled": "Virtual access token",
+    "rbacEnabled": "Role-based access control",
+    "ssoEnabled": "Single sign-on",
+    "orgUnitsEnabled": "Organization unit management",
+    "adminAuditEnabled": "Administrative audit log",
+    "deploymentSaasEnabled": "Cloud deployment",
+    "deploymentVpcEnabled": "On-premise or private cloud deployment",
+    "supportTier": "Support type",
+    "supportSla": "Service-level agreement"
   },
   "values": {
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "none": "None",
+    "enabled": "Available",
+    "disabled": "Unavailable",
+    "none": "No items",
     "unknown": "Unknown",
-    "usage": "{used} / {limit}",
-    "price": "{amount} {currency}",
-    "priceWithDiscount": "{amount} {currency} -{discount}%",
-    "custom": "Custom"
+    "usage": "{used} of {limit}",
+    "custom": "Custom agreement",
+    "unlimited": "Unlimited",
+    "days": "{count} days",
+    "noSla": "No SLA"
+  },
+  "support": {
+    "chatbot": "Chatbot",
+    "product": "Production support",
+    "priority": "Priority support",
+    "standardSla": "Standard SLA",
+    "enterpriseSla": "Enterprise SLA"
   },
   "messages": {
-    "errorTitle": "Error",
-    "successTitle": "Success",
-    "changeFailed": "Plan change failed.",
-    "changeSaved": "Plan change saved."
+    "errorTitle": "Error"
   },
   "errors": {
-    "loadPlans": "Failed to load commercial plans.",
     "loadSubscription": "Failed to load subscription.",
-    "loadEntitlements": "Failed to load entitlements.",
-    "loadPage": "Failed to load plan data."
+    "loadEntitlements": "Failed to load plan limits and access.",
+    "loadPage": "Failed to load plan page data."
   }
 }

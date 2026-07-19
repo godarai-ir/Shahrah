@@ -1,39 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowUpRight, Check } from "lucide-react";
 
-import { DateTimeValue, DefinitionList, DefinitionListItem, EntityIdentityHeader } from "@/components/app-ui";
-import { formatDateTime } from "@/lib/date-time";
+import { EntityIdentityHeader, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-type PlanPrice = {
-  billing_interval: string;
-  currency: string;
-  amount_minor?: number | null;
-  discount_percent?: number;
-};
-
-type CommercialPlan = {
-  slug: string;
-  display_name: string;
-  description?: string;
-  prices?: PlanPrice[];
-  features?: Record<string, unknown>;
-};
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type TenantSubscription = {
   plan_slug?: string;
   plan_display_name?: string;
   status: string;
-  billing_interval: string;
-  current_period_end?: string;
-	trial_ends_at?: string;
 };
 
 type EffectiveEntitlements = {
@@ -49,15 +28,55 @@ type UsageCounter = {
   window_end?: string;
 };
 
+type EntitlementRow = {
+  key: string;
+  title: string;
+  value: unknown;
+  usageCounter?: UsageCounter | null;
+  overridden: boolean;
+};
+
 type PlanManagementProps = {
-  plans: CommercialPlan[];
   subscription: TenantSubscription | null;
   entitlements: EffectiveEntitlements | null;
   initialError?: string | null;
 };
 
+const featureOrder = [
+  "gateway.requests.monthly",
+  "users.max",
+  "teams.enabled",
+  "cache.simple.enabled",
+  "cache.simple.ttl_days",
+  "cache.semantic.enabled",
+  "routing.weighted.enabled",
+  "routing.latency.enabled",
+  "rate_limit_rules.enabled",
+  "budget_limit_rules.enabled",
+  "logs.retention_days",
+  "traces.retention_days",
+  "metadata.custom.enabled",
+  "llm_pricing.custom.enabled",
+  "analytics.enabled",
+  "alerts.enabled",
+  "otel_export.enabled",
+  "prompt_templates.max",
+  "prompt_versions.enabled",
+  "guardrails.third_party.enabled",
+  "guardrails.webhook.enabled",
+  "auth.pat.enabled",
+  "auth.vat.enabled",
+  "rbac.enabled",
+  "sso.enabled",
+  "org_units.enabled",
+  "admin_audit.enabled",
+  "deployment.saas.enabled",
+  "deployment.vpc.enabled",
+  "support.tier",
+  "support.sla",
+] as const;
+
 export default function PlanManagement({
-  plans,
   subscription,
   entitlements,
   initialError,
@@ -65,190 +84,87 @@ export default function PlanManagement({
   const t = useTranslations("billingPlan");
   const common = useTranslations("common");
   const locale = useLocale();
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(initialError ?? null);
-  const [target, setTarget] = useState("");
 
   const currentSlug = subscription?.plan_slug ?? "";
   const features = entitlements?.features ?? {};
   const overrides = entitlements?.overrides ?? {};
-  const requestUsage = findUsageCounter(entitlements, "gateway.requests.monthly");
-
-  function changePlan(planSlug: string, billingInterval: string) {
-    const nextTarget = `${planSlug}:${billingInterval}`;
-    setTarget(nextTarget);
-    setError(null);
-    setMessage(null);
-    startTransition(async () => {
-      const response = await fetch("/api/subscription/change", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan_slug: planSlug, billing_interval: billingInterval }),
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-        mode?: string;
-        payment_intent?: { payment_url?: string };
-      } | null;
-      if (!response.ok) {
-        setError(payload?.error?.message ?? t("messages.changeFailed"));
-        return;
-      }
-      if (payload?.mode === "payment_required" && payload.payment_intent?.payment_url) {
-        window.location.assign(payload.payment_intent.payment_url);
-        return;
-      }
-      setMessage(t("messages.changeSaved"));
-      window.location.reload();
-    });
-  }
+  const currentPlanTitle = subscription?.plan_display_name ?? currentSlug;
+  const rows = buildEntitlementRows(features, overrides, entitlements?.usage_counters ?? [], t);
 
   return (
     <div className="flex flex-col gap-6">
-      {subscription ? (
-        <div className="flex justify-end">
-          <Badge variant={subscription.status === "active" ? "success" : "warning"}>
-            {t(`status.${normalizeStatus(subscription.status)}`)}
-          </Badge>
-        </div>
-      ) : null}
-
-      {error ? (
+      {initialError ? (
         <Alert variant="destructive">
           <AlertTitle>{t("messages.errorTitle")}</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-      {message ? (
-        <Alert variant="success">
-          <AlertTitle>{t("messages.successTitle")}</AlertTitle>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      ) : null}
-      {subscription?.status === "trialing" ? (
-        <Alert>
-          <AlertTitle>{t("trial.title")}</AlertTitle>
-          <AlertDescription>
-            {t("trial.description", {
-              plan: subscription.plan_display_name ?? subscription.plan_slug ?? common("notSet"),
-              date: formatDateTime(subscription.trial_ends_at, { locale, format: { dateStyle: "medium" } }),
-            })}
-          </AlertDescription>
+          <AlertDescription>{initialError}</AlertDescription>
         </Alert>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section>
         <Card className="rounded-lg">
           <CardHeader>
-            <CardTitle>{t("currentSubscription.title")}</CardTitle>
+            <EntityIdentityHeader
+              title={currentPlanTitle || common("notSet")}
+              identifier={currentSlug || undefined}
+              description={t("currentPlan.description")}
+              status={
+                subscription ? (
+                  <>
+                    <Badge variant="secondary">{t("badges.current")}</Badge>
+                    <Badge variant={subscription.status === "active" ? "success" : "warning"}>
+                      {t(`status.${normalizeStatus(subscription.status)}`)}
+                    </Badge>
+                  </>
+                ) : null
+              }
+            />
           </CardHeader>
           <CardContent>
-            <DefinitionList>
-            <DefinitionListItem surface label={t("currentSubscription.plan")} value={subscription?.plan_display_name ?? subscription?.plan_slug ?? common("notSet")} />
-            <DefinitionListItem surface label={t("currentSubscription.interval")} value={intervalLabel(subscription?.billing_interval, t)} />
-            <DefinitionListItem surface label={t("currentSubscription.periodEnd")} value={<DateTimeValue value={subscription?.current_period_end} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
-            {subscription?.status === "trialing" ? (
-              <DefinitionListItem surface label={t("currentSubscription.trialEnds")} value={<DateTimeValue value={subscription.trial_ends_at} locale={locale} fallback={common("notSet")} format={{ dateStyle: "medium" }} />} />
-            ) : null}
-            </DefinitionList>
+            <Table>
+              <TableCaption className="sr-only">{t("table.caption")}</TableCaption>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead scope="col">{t("table.feature")}</TableHead>
+                  <TableHead scope="col">{t("table.value")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.length ? (
+                  rows.map((row) => (
+                    <TableRow key={row.key}>
+                      <TableCell className="min-w-52 font-medium">
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <span>{row.title}</span>
+                          {row.overridden ? (
+                            <span className="text-xs font-normal text-muted-foreground">{t("badges.override")}</span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatEntitlementValue(row, locale, t, common)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={2} className="py-8 text-center text-muted-foreground">
+                      {t("table.empty")}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
-        <Card className="rounded-lg">
-          <CardHeader>
-            <CardTitle>{t("limits.title")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DefinitionList>
-            <DefinitionListItem surface label={t("limits.requests")} value={formatUsage(requestUsage, features["gateway.requests.monthly"], locale, t, common)} />
-            <DefinitionListItem surface label={t("limits.users")} value={formatLimit(features["users.max"], locale, common, t)} />
-            <DefinitionListItem surface label={t("limits.vat")} value={formatEnabled(features["auth.vat.enabled"], t)} />
-            <DefinitionListItem surface label={t("limits.overrides")} value={Object.keys(overrides).length ? formatCount(Object.keys(overrides).length, locale) : t("values.none")} />
-            </DefinitionList>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-        {plans.map((plan) => {
-          const isCurrent = plan.slug === currentSlug;
-          const prices = orderedPrices(plan.prices ?? []);
-          return (
-            <Card key={plan.slug} className="rounded-lg">
-              <CardHeader>
-                <EntityIdentityHeader title={plan.display_name} identifier={plan.slug} description={plan.description} status={isCurrent ? <Badge variant="secondary">{t("badges.current")}</Badge> : null} />
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2 text-sm">
-                  <Feature label={t("features.requests")} value={formatLimit(plan.features?.["gateway.requests.monthly"], locale, common, t)} />
-                  <Feature label={t("features.users")} value={formatLimit(plan.features?.["users.max"], locale, common, t)} />
-                  <Feature label={t("features.vat")} value={formatEnabled(plan.features?.["auth.vat.enabled"], t)} />
-                  <Feature label={t("features.ratePolicies")} value={formatEnabled(plan.features?.["rate_limit_rules.enabled"], t)} />
-                  <Feature label={t("features.budgetPolicies")} value={formatEnabled(plan.features?.["budget_limit_rules.enabled"], t)} />
-                </div>
-                <div className="grid gap-2">
-                  {prices.map((price) => {
-                    const key = `${plan.slug}:${price.billing_interval}`;
-                    const activeInterval = isCurrent && price.billing_interval === subscription?.billing_interval;
-                    return (
-                      <Button
-                        key={price.billing_interval}
-                        type="button"
-                        variant={activeInterval ? "secondary" : "outline"}
-                        className="justify-between rounded-lg"
-                        disabled={pending || activeInterval}
-                        onClick={() => changePlan(plan.slug, price.billing_interval)}
-                      >
-                        <span>{intervalLabel(price.billing_interval, t)}</span>
-                        <span className="inline-flex items-center gap-2 text-xs">
-                          {formatPrice(price, locale, t)}
-                          {pending && target === key ? (
-                            <Spinner size="sm" />
-                          ) : activeInterval ? (
-                            <Check className="size-3" />
-                          ) : (
-                            <ArrowUpRight className="size-3" />
-                          )}
-                        </span>
-                      </Button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
       </section>
     </div>
   );
 }
 
-function Feature({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function orderedPrices(prices: PlanPrice[]) {
-  const order = new Map([
-    ["monthly", 0],
-    ["quarterly", 1],
-    ["yearly", 2],
-  ]);
-  return [...prices].sort((a, b) => (order.get(a.billing_interval) ?? 99) - (order.get(b.billing_interval) ?? 99));
-}
-
-function formatLimit(
-  value: unknown,
-  locale: string,
-  common: ReturnType<typeof useTranslations>,
-  t: ReturnType<typeof useTranslations>,
-): string {
+function formatLimit(value: unknown, locale: string, common: ReturnType<typeof useTranslations>, t: ReturnType<typeof useTranslations>): string {
   if (value === null || value === undefined || value === "custom") {
     return t("values.custom");
+  }
+  if (value === -1 || value === "-1") {
+    return t("values.unlimited");
   }
   if (typeof value === "number") {
     return formatCount(value, locale);
@@ -260,52 +176,166 @@ function formatLimit(
   return common("notSet");
 }
 
-function findUsageCounter(entitlements: EffectiveEntitlements | null, featureKey: string): UsageCounter | null {
-  return entitlements?.usage_counters?.find((item) => item.feature_key === featureKey) ?? null;
+function buildEntitlementRows(
+  features: Record<string, unknown>,
+  overrides: Record<string, unknown>,
+  usageCounters: UsageCounter[],
+  t: ReturnType<typeof useTranslations>,
+): EntitlementRow[] {
+  const usageByKey = new Map(usageCounters.map((counter) => [counter.feature_key, counter]));
+  const orderedKeys = [
+    ...featureOrder.filter((key) => Object.prototype.hasOwnProperty.call(features, key)),
+    ...Object.keys(features)
+      .filter((key) => !(featureOrder as readonly string[]).includes(key))
+      .sort((a, b) => a.localeCompare(b)),
+  ];
+
+  return orderedKeys.map((key) => ({
+    key,
+    title: getFeatureTitle(key, t),
+    value: features[key],
+    usageCounter: usageByKey.get(key),
+    overridden: Object.prototype.hasOwnProperty.call(overrides, key),
+  }));
 }
 
-function formatUsage(
-  counter: UsageCounter | null,
-  fallbackLimit: unknown,
+function formatEntitlementValue(
+  row: EntitlementRow,
   locale: string,
   t: ReturnType<typeof useTranslations>,
   common: ReturnType<typeof useTranslations>,
-): string {
-  const used = counter ? formatCount(counter.used, locale) : formatCount(0, locale);
-  const limit = counter?.limit ?? fallbackLimit;
-  return t("values.usage", { used, limit: formatLimit(limit, locale, common, t) });
-}
-
-function formatEnabled(value: unknown, t: ReturnType<typeof useTranslations>): string {
-  return value === true ? t("values.enabled") : t("values.disabled");
-}
-
-function intervalLabel(interval: string | undefined, t: ReturnType<typeof useTranslations>): string {
-  switch (interval) {
-    case "monthly":
-      return t("intervals.monthly");
-    case "quarterly":
-      return t("intervals.quarterly");
-    case "yearly":
-      return t("intervals.yearly");
-    default:
-      return interval || t("values.unknown");
+): ReactNode {
+  if (typeof row.value === "boolean") {
+    return (
+      <StatusBadge status={row.value ? "active" : "inactive"}>
+        {row.value ? t("values.enabled") : t("values.disabled")}
+      </StatusBadge>
+    );
   }
+  if (row.key === "support.tier" || row.key === "support.sla") {
+    return formatSupportValue(row.key, row.value, t, common);
+  }
+  if (row.usageCounter) {
+    const used = formatCount(row.usageCounter.used, locale);
+    const limit = row.usageCounter.limit ?? row.value;
+    return t("values.usage", { used, limit: formatLimit(limit, locale, common, t) });
+  }
+  if (row.key.endsWith(".ttl_days") || row.key.endsWith(".retention_days")) {
+    return formatDayLimit(row.value, locale, common, t);
+  }
+  return formatLimit(row.value, locale, common, t);
 }
 
-function formatPrice(price: PlanPrice, locale: string, t: ReturnType<typeof useTranslations>): string {
-  if (price.amount_minor === null || price.amount_minor === undefined) {
+function formatDayLimit(
+  value: unknown,
+  locale: string,
+  common: ReturnType<typeof useTranslations>,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  if (value === null || value === undefined || value === "custom") {
     return t("values.custom");
   }
-  const formatted = formatCount(price.amount_minor, locale);
-  if (price.discount_percent && price.discount_percent > 0) {
-    return t("values.priceWithDiscount", {
-      amount: formatted,
-      currency: price.currency,
-      discount: formatCount(price.discount_percent, locale),
-    });
+  if (value === -1 || value === "-1") {
+    return t("values.unlimited");
   }
-  return t("values.price", { amount: formatted, currency: price.currency });
+  return t("values.days", { count: formatLimit(value, locale, common, t) });
+}
+
+function formatSupportValue(
+  key: string,
+  value: unknown,
+  t: ReturnType<typeof useTranslations>,
+  common: ReturnType<typeof useTranslations>,
+): string {
+  if (value === null || value === undefined || value === "") {
+    return key === "support.sla" ? t("values.noSla") : common("notSet");
+  }
+  if (typeof value !== "string") {
+    return String(value);
+  }
+  switch (value) {
+    case "chatbot":
+      return t("support.chatbot");
+    case "product":
+      return t("support.product");
+    case "priority":
+      return t("support.priority");
+    case "standard":
+      return t("support.standardSla");
+    case "enterprise":
+      return t("support.enterpriseSla");
+    default:
+      return value;
+  }
+}
+
+function getFeatureTitle(key: string, t: ReturnType<typeof useTranslations>): string {
+  switch (key) {
+    case "gateway.requests.monthly":
+      return t("features.gatewayRequestsMonthly");
+    case "users.max":
+      return t("features.usersMax");
+    case "teams.enabled":
+      return t("features.teamsEnabled");
+    case "cache.simple.enabled":
+      return t("features.cacheSimpleEnabled");
+    case "cache.simple.ttl_days":
+      return t("features.cacheSimpleTtlDays");
+    case "cache.semantic.enabled":
+      return t("features.cacheSemanticEnabled");
+    case "routing.weighted.enabled":
+      return t("features.routingWeightedEnabled");
+    case "routing.latency.enabled":
+      return t("features.routingLatencyEnabled");
+    case "rate_limit_rules.enabled":
+      return t("features.rateLimitRulesEnabled");
+    case "budget_limit_rules.enabled":
+      return t("features.budgetLimitRulesEnabled");
+    case "logs.retention_days":
+      return t("features.logsRetentionDays");
+    case "traces.retention_days":
+      return t("features.tracesRetentionDays");
+    case "metadata.custom.enabled":
+      return t("features.metadataCustomEnabled");
+    case "llm_pricing.custom.enabled":
+      return t("features.llmPricingCustomEnabled");
+    case "analytics.enabled":
+      return t("features.analyticsEnabled");
+    case "alerts.enabled":
+      return t("features.alertsEnabled");
+    case "otel_export.enabled":
+      return t("features.otelExportEnabled");
+    case "prompt_templates.max":
+      return t("features.promptTemplatesMax");
+    case "prompt_versions.enabled":
+      return t("features.promptVersionsEnabled");
+    case "guardrails.third_party.enabled":
+      return t("features.guardrailsThirdPartyEnabled");
+    case "guardrails.webhook.enabled":
+      return t("features.guardrailsWebhookEnabled");
+    case "auth.pat.enabled":
+      return t("features.authPatEnabled");
+    case "auth.vat.enabled":
+      return t("features.authVatEnabled");
+    case "rbac.enabled":
+      return t("features.rbacEnabled");
+    case "sso.enabled":
+      return t("features.ssoEnabled");
+    case "org_units.enabled":
+      return t("features.orgUnitsEnabled");
+    case "admin_audit.enabled":
+      return t("features.adminAuditEnabled");
+    case "deployment.saas.enabled":
+      return t("features.deploymentSaasEnabled");
+    case "deployment.vpc.enabled":
+      return t("features.deploymentVpcEnabled");
+    case "support.tier":
+      return t("features.supportTier");
+    case "support.sla":
+      return t("features.supportSla");
+    default:
+      return key;
+  }
 }
 
 function normalizeStatus(status: string): "active" | "trialing" | "past_due" | "other" {

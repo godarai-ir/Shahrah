@@ -53,10 +53,6 @@ type TenantAdminUserListResponse = {
   total?: number;
 };
 
-type MetricsQueryResponse = {
-  data?: Array<Record<string, unknown>>;
-};
-
 type Banner = {
   kind: "error";
   message: string;
@@ -66,7 +62,6 @@ type TenantAdminDashboardProps = {
   initialSubscription: TenantSubscription | null;
   initialEntitlements: EffectiveEntitlements | null;
   initialUsersTotal: number | null;
-  initialPlanRequestsUsed: number | null;
   initialError: string | null;
 };
 
@@ -83,7 +78,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   );
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements | null>(props.initialEntitlements);
   const [usersTotal, setUsersTotal] = useState<number | null>(props.initialUsersTotal);
-  const [planRequestsUsed, setPlanRequestsUsed] = useState<number | null>(props.initialPlanRequestsUsed);
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError
       ? {
@@ -118,13 +112,13 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     () => entitlements?.usage_counters?.find((item) => item.feature_key === REQUESTS_FEATURE_KEY) ?? null,
     [entitlements?.usage_counters],
   );
-  const totalPlanRequestLimit = requestsPerMonthLimit === null ? null : requestsPerMonthLimit * planMonths;
-  const requestUsageValue =
-    typeof planRequestsUsed === "number"
-      ? planRequestsUsed
-      : planMonths === 1
-        ? currentRequestCounter?.used ?? null
-        : null;
+  const totalPlanRequestLimit =
+    typeof currentRequestCounter?.limit === "number"
+      ? currentRequestCounter.limit
+      : requestsPerMonthLimit === null
+        ? null
+        : requestsPerMonthLimit * planMonths;
+  const requestUsageValue = currentRequestCounter?.used ?? null;
   const requestUsageRatio =
     totalPlanRequestLimit && typeof requestUsageValue === "number"
       ? clampUsageRatio(requestUsageValue / totalPlanRequestLimit)
@@ -150,12 +144,10 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       ]);
 
       const nextSubscription = subscriptionData ?? entitlementsData.subscription ?? null;
-      const nextPlanRequestsUsed = await loadPlanRequestUsage(nextSubscription, planRequestsUsed);
 
       setSubscription(nextSubscription);
       setEntitlements(entitlementsData);
       setUsersTotal(usersData.total ?? 0);
-      setPlanRequestsUsed(nextPlanRequestsUsed);
       setBanner(null);
     } catch (error) {
       setBanner({
@@ -165,7 +157,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [common, planRequestsUsed]);
+  }, [common]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -357,48 +349,6 @@ function formatDateTime(value: string): string {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(timestamp));
-}
-
-async function loadPlanRequestUsage(
-  subscription: TenantSubscription | null,
-  fallback: number | null,
-): Promise<number | null> {
-  const planPeriodStart = getPlanPeriodStart(subscription);
-  if (!planPeriodStart) return null;
-
-  try {
-    const response = await requestJSON<MetricsQueryResponse>("/api/metrics/query", {
-      method: "POST",
-      body: JSON.stringify({
-        startTs: planPeriodStart,
-        endTs: new Date().toISOString(),
-        datasource: "modelMetrics",
-        type: "distribution",
-      }),
-    });
-
-    return extractMetricsCount(response) ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getPlanPeriodStart(subscription: TenantSubscription | null): string {
-  return subscription?.current_period_start?.trim() || subscription?.trial_started_at?.trim() || "";
-}
-
-function extractMetricsCount(response: MetricsQueryResponse): number | null {
-  const row = response.data?.[0] ?? null;
-  if (!row || typeof row !== "object") return null;
-
-  const rawCount = row.countAll;
-  if (typeof rawCount === "number" && Number.isFinite(rawCount)) return rawCount;
-  if (typeof rawCount === "string") {
-    const parsed = Number(rawCount);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
 }
 
 function calculateDaysRemaining(deadlineISO?: string): number | null {

@@ -30,10 +30,6 @@ type TenantAdminUserListResponse = {
   total?: number;
 };
 
-type MetricsQueryResponse = {
-  data?: Array<Record<string, unknown>>;
-};
-
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
@@ -65,41 +61,6 @@ export default async function Home() {
   const initialEntitlements = entitlementsResult.ok ? (entitlementsResult.payload as EffectiveEntitlements) : null;
   const initialUsersTotal = usersResult.ok ? ((usersResult.payload as TenantAdminUserListResponse).total ?? 0) : null;
 
-  let initialPlanRequestsUsed: number | null = null;
-  const planPeriodStart =
-    initialSubscription?.current_period_start?.trim() ||
-    initialSubscription?.trial_started_at?.trim() ||
-    "";
-
-  if (planPeriodStart) {
-    const metricsResult = await fetchControlPlaneJSON({
-      tenantSlug,
-      method: "POST",
-      path: "/api/v1/metrics/query",
-      userID: auth.user.id,
-      body: {
-        startTs: planPeriodStart,
-        endTs: new Date().toISOString(),
-        datasource: "modelMetrics",
-        type: "distribution",
-      },
-    });
-
-    if (metricsResult.ok) {
-      const row = ((metricsResult.payload as MetricsQueryResponse).data ?? [])[0] ?? null;
-      const rawCount = row && typeof row === "object" ? row.countAll : null;
-      const parsedCount =
-        typeof rawCount === "number"
-          ? rawCount
-          : typeof rawCount === "string"
-            ? Number(rawCount)
-            : Number.NaN;
-      if (Number.isFinite(parsedCount)) {
-        initialPlanRequestsUsed = parsedCount;
-      }
-    }
-  }
-
   const errorMessage =
     subscriptionResult.errorMessage ??
     entitlementsResult.errorMessage ??
@@ -123,7 +84,6 @@ export default async function Home() {
         initialSubscription={initialSubscription}
         initialEntitlements={initialEntitlements}
         initialUsersTotal={initialUsersTotal}
-        initialPlanRequestsUsed={initialPlanRequestsUsed}
         initialError={errorMessage}
       />
     </AdminShell>

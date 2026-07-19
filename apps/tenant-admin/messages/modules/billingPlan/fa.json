@@ -1,65 +1,83 @@
 {
   "eyebrow": "صورتحساب",
-  "title": "پلن",
+  "title": "قابلیت‌ها و محدودیت‌های پلن",
+  "subtitle": "قابلیت‌های پلن جاری و سقف‌های موثر فضای کاری را بررسی کنید.",
   "badges": {
-    "current": "فعلی"
+    "current": "پلن فعلی",
+    "override": "با استثنای اختصاصی"
   },
   "status": {
     "active": "فعال",
     "trialing": "آزمایشی",
-    "past_due": "سررسید گذشته",
-    "other": "نامشخص"
+    "past_due": "نیازمند پرداخت",
+    "other": "وضعیت نامشخص"
   },
-  "trial": {
-    "title": "دوره آزمایشی فعال است",
-    "description": "دوره آزمایشی پلن {plan} تا {date} فعال است. برای ادامه بدون تغییر در فضای کاری، همین پلن را از پایین به نسخه پولی تبدیل کنید."
+  "currentPlan": {
+    "description": "این فهرست بر اساس قابلیت‌ها و محدودیت‌های موثر فضای کاری نمایش داده می‌شود."
   },
-  "currentSubscription": {
-    "title": "اشتراک فعلی",
-    "plan": "پلن",
-    "interval": "بازه",
-    "periodEnd": "پایان دوره",
-    "trialEnds": "پایان آزمایشی"
-  },
-  "limits": {
-    "title": "محدودیت‌های موثر",
-    "requests": "درخواست‌های ماهانه گیت‌وی",
-    "users": "کاربران",
-    "vat": "VAT",
-    "overrides": "Overrideها"
+  "table": {
+    "caption": "قابلیت‌ها و محدودیت‌های موثر پلن جاری",
+    "feature": "قابلیت",
+    "value": "مقدار یا وضعیت",
+    "empty": "برای این پلن قابلیتی ثبت نشده است."
   },
   "features": {
-    "requests": "درخواست‌ها",
-    "users": "کاربران",
-    "vat": "VAT",
-    "ratePolicies": "سیاست‌های نرخ",
-    "budgetPolicies": "سیاست‌های بودجه"
-  },
-  "intervals": {
-    "monthly": "ماهانه",
-    "quarterly": "سه‌ماهه",
-    "yearly": "سالانه"
+    "gatewayRequestsMonthly": "درخواست‌های ماهانه درگاه",
+    "usersMax": "کاربران فعال",
+    "teamsEnabled": "مدیریت تیم‌ها",
+    "cacheSimpleEnabled": "حافظه نهان درخواست‌های یکسان",
+    "cacheSimpleTtlDays": "ماندگاری حافظه نهان درخواست‌های یکسان",
+    "cacheSemanticEnabled": "حافظه نهان معنایی",
+    "routingWeightedEnabled": "مسیریابی وزنی",
+    "routingLatencyEnabled": "مسیریابی بر اساس مهلت پاسخ",
+    "rateLimitRulesEnabled": "قواعد محدودیت نرخ درخواست",
+    "budgetLimitRulesEnabled": "قواعد سقف هزینه",
+    "logsRetentionDays": "نگهداری گزارش رخدادها",
+    "tracesRetentionDays": "نگهداری رد درخواست‌ها",
+    "metadataCustomEnabled": "فراداده سفارشی",
+    "llmPricingCustomEnabled": "قیمت‌گذاری سفارشی مدل‌ها",
+    "analyticsEnabled": "سنجه‌های عملیاتی و هزینه‌ای",
+    "alertsEnabled": "هشدارهای نظارتی و مدیریتی",
+    "otelExportEnabled": "خروجی سازگار با OpenTelemetry",
+    "promptTemplatesMax": "قالب‌های پرامپت",
+    "promptVersionsEnabled": "نسخه‌بندی پرامپت و متغیرها",
+    "guardrailsThirdPartyEnabled": "اتصال سرویس حفاظت هوشمند ثالث",
+    "guardrailsWebhookEnabled": "وب‌هوک حفاظت هوشمند اختصاصی",
+    "authPatEnabled": "کلید دسترسی شخصی",
+    "authVatEnabled": "کلید دسترسی مجازی",
+    "rbacEnabled": "کنترل دسترسی مبتنی بر نقش",
+    "ssoEnabled": "ورود یکپارچه",
+    "orgUnitsEnabled": "مدیریت واحدهای سازمان",
+    "adminAuditEnabled": "ثبت وقایع مدیریتی",
+    "deploymentSaasEnabled": "استقرار ابری",
+    "deploymentVpcEnabled": "استقرار در محل یا ابر خصوصی",
+    "supportTier": "نوع پشتیبانی",
+    "supportSla": "توافقنامه سطح خدمات"
   },
   "values": {
-    "enabled": "فعال",
-    "disabled": "غیرفعال",
-    "none": "ندارد",
+    "enabled": "در دسترس",
+    "disabled": "در دسترس نیست",
+    "none": "بدون مورد",
     "unknown": "نامشخص",
-    "usage": "{used} / {limit}",
-    "price": "{amount} {currency}",
-    "priceWithDiscount": "{amount} {currency} -{discount}%",
-    "custom": "سفارشی"
+    "usage": "{used} از {limit}",
+    "custom": "طبق قرارداد",
+    "unlimited": "نامحدود",
+    "days": "{count} روز",
+    "noSla": "بدون SLA"
+  },
+  "support": {
+    "chatbot": "چت‌بات",
+    "product": "پشتیبانی محصول عملیاتی",
+    "priority": "پشتیبانی با اولویت بالا",
+    "standardSla": "SLA استاندارد",
+    "enterpriseSla": "SLA سازمانی"
   },
   "messages": {
-    "errorTitle": "خطا",
-    "successTitle": "موفق",
-    "changeFailed": "تغییر پلن انجام نشد.",
-    "changeSaved": "تغییر پلن ذخیره شد."
+    "errorTitle": "خطا"
   },
   "errors": {
-    "loadPlans": "بارگذاری پلن‌های تجاری انجام نشد.",
-    "loadSubscription": "بارگذاری اشتراک انجام نشد.",
-    "loadEntitlements": "بارگذاری entitlementها انجام نشد.",
-    "loadPage": "بارگذاری اطلاعات پلن انجام نشد."
+    "loadSubscription": "اطلاعات اشتراک بارگذاری نشد.",
+    "loadEntitlements": "محدودیت‌ها و دسترسی‌های پلن بارگذاری نشد.",
+    "loadPage": "اطلاعات صفحه پلن بارگذاری نشد."
   }
 }

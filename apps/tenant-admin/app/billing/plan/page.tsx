@@ -7,10 +7,6 @@ import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
 
-type DataList<T> = {
-  data?: T[];
-};
-
 export default async function BillingPlanPage() {
   const t = await getTranslations("billingPlan");
   const auth = await requireAuth("/login?next=/billing/plan");
@@ -18,18 +14,11 @@ export default async function BillingPlanPage() {
   await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
   let initialError: string | null = null;
-  let plans: unknown[] = [];
   let subscription: unknown = null;
   let entitlements: unknown = null;
 
   try {
-    const [plansResponse, subscriptionResponse, entitlementResponse] = await Promise.all([
-      fetchControlPlaneJSON({
-        tenantSlug,
-        method: "GET",
-        path: "/api/v1/commercial-plans",
-        userID: auth.user.id,
-      }),
+    const [subscriptionResponse, entitlementResponse] = await Promise.all([
       fetchControlPlaneJSON({
         tenantSlug,
         method: "GET",
@@ -44,9 +33,6 @@ export default async function BillingPlanPage() {
       }),
     ]);
 
-    if (!plansResponse.ok) {
-      throw new Error(plansResponse.errorMessage ?? t("errors.loadPlans"));
-    }
     if (!subscriptionResponse.ok) {
       throw new Error(subscriptionResponse.errorMessage ?? t("errors.loadSubscription"));
     }
@@ -54,7 +40,6 @@ export default async function BillingPlanPage() {
       throw new Error(entitlementResponse.errorMessage ?? t("errors.loadEntitlements"));
     }
 
-    plans = ((plansResponse.payload ?? {}) as DataList<unknown>).data ?? [];
     subscription = subscriptionResponse.payload;
     entitlements = entitlementResponse.payload;
   } catch (error) {
@@ -69,9 +54,8 @@ export default async function BillingPlanPage() {
   };
 
   return (
-    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser} pageHeader={{ title: t("title") }}>
+    <AdminShell tenantSlug={tenantSlug} currentUser={currentUser} pageHeader={{ title: t("title"), description: t("subtitle") }}>
       <PlanManagement
-        plans={plans as never}
         subscription={subscription as never}
         entitlements={entitlements as never}
         initialError={initialError}

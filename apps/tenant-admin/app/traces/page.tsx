@@ -59,7 +59,7 @@ export default async function TracesPage({
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={currentUser}
-      pageHeader={{ title: t("title"), description: t("description") }}
+      pageHeader={{ title: t("title"), description: t("description"), helpHref: "/docs/observability-traces" }}
     >
       <TraceManagement
         initialData={tracesResult.ok ? payload.data ?? [] : []}
