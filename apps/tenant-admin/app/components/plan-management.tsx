@@ -1,5 +1,6 @@
 "use client";
 
+import { BookOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -34,11 +35,13 @@ type EntitlementRow = {
   value: unknown;
   usageCounter?: UsageCounter | null;
   overridden: boolean;
+  docsHref?: string | null;
 };
 
 type PlanManagementProps = {
   subscription: TenantSubscription | null;
   entitlements: EffectiveEntitlements | null;
+  docsBaseHref: string;
   initialError?: string | null;
 };
 
@@ -76,9 +79,38 @@ const featureOrder = [
   "support.sla",
 ] as const;
 
+const docsPathByFeature: Record<string, string> = {
+  "gateway.requests.monthly": "/making-llm-requests-via-gateway",
+  "users.max": "/guides/users-access-overview",
+  "teams.enabled": "/guides/team-management",
+  "cache.simple.enabled": "/guides/caching",
+  "cache.simple.ttl_days": "/guides/caching",
+  "cache.semantic.enabled": "/guides/caching",
+  "routing.weighted.enabled": "/virtual-model",
+  "routing.latency.enabled": "/virtual-model",
+  "rate_limit_rules.enabled": "/guides/rate-limiting",
+  "budget_limit_rules.enabled": "/guides/budget-limiting",
+  "logs.retention_days": "/observability-logs",
+  "traces.retention_days": "/observability-traces",
+  "metadata.custom.enabled": "/observability-logs",
+  "llm_pricing.custom.enabled": "/financial/overview",
+  "analytics.enabled": "/observability-model-metrics",
+  "alerts.enabled": "/observability-overview",
+  "otel_export.enabled": "/observability-opentelemetry",
+  "prompt_templates.max": "/prompt-registry",
+  "prompt_versions.enabled": "/prompt-registry",
+  "guardrails.third_party.enabled": "/guardrails",
+  "guardrails.webhook.enabled": "/guardrails",
+  "auth.pat.enabled": "/guides/api-keys",
+  "auth.vat.enabled": "/guides/virtual-account-management",
+  "rbac.enabled": "/guides/roles-and-permissions",
+  "org_units.enabled": "/guides/org-unit-management",
+};
+
 export default function PlanManagement({
   subscription,
   entitlements,
+  docsBaseHref,
   initialError,
 }: PlanManagementProps) {
   const t = useTranslations("billingPlan");
@@ -89,7 +121,7 @@ export default function PlanManagement({
   const features = entitlements?.features ?? {};
   const overrides = entitlements?.overrides ?? {};
   const currentPlanTitle = subscription?.plan_display_name ?? currentSlug;
-  const rows = buildEntitlementRows(features, overrides, entitlements?.usage_counters ?? [], t);
+  const rows = buildEntitlementRows(features, overrides, entitlements?.usage_counters ?? [], t, docsBaseHref);
 
   return (
     <div className="flex flex-col gap-6">
@@ -134,7 +166,7 @@ export default function PlanManagement({
                     <TableRow key={row.key}>
                       <TableCell className="min-w-52 font-medium">
                         <div className="flex min-w-0 flex-col gap-1">
-                          <span>{row.title}</span>
+                          <FeatureTitle row={row} t={t} />
                           {row.overridden ? (
                             <span className="text-xs font-normal text-muted-foreground">{t("badges.override")}</span>
                           ) : null}
@@ -181,6 +213,7 @@ function buildEntitlementRows(
   overrides: Record<string, unknown>,
   usageCounters: UsageCounter[],
   t: ReturnType<typeof useTranslations>,
+  docsBaseHref: string,
 ): EntitlementRow[] {
   const usageByKey = new Map(usageCounters.map((counter) => [counter.feature_key, counter]));
   const orderedKeys = [
@@ -196,7 +229,42 @@ function buildEntitlementRows(
     value: features[key],
     usageCounter: usageByKey.get(key),
     overridden: Object.prototype.hasOwnProperty.call(overrides, key),
+    docsHref: getFeatureDocsHref(key, docsBaseHref),
   }));
+}
+
+function FeatureTitle({
+  row,
+  t,
+}: {
+  row: EntitlementRow;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const docsLabel = row.docsHref ? t("table.openDocs", { feature: row.title }) : "";
+
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5 align-middle">
+      <span className="min-w-0">{row.title}</span>
+      {row.docsHref ? (
+        <a
+          href={row.docsHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={docsLabel}
+          title={docsLabel}
+          className="inline-flex shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <BookOpen className="size-3.5" aria-hidden="true" />
+        </a>
+      ) : null}
+    </span>
+  );
+}
+
+function getFeatureDocsHref(key: string, docsBaseHref: string): string | null {
+  const docsPath = docsPathByFeature[key];
+
+  return docsPath ? `${docsBaseHref.replace(/\/$/, "")}${docsPath}` : null;
 }
 
 function formatEntitlementValue(

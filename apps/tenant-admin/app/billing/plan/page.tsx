@@ -1,9 +1,10 @@
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell, { buildDocsHref } from "@/app/components/admin-shell";
 import PlanManagement from "@/app/components/plan-management";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ export default async function BillingPlanPage() {
   const t = await getTranslations("billingPlan");
   const auth = await requireAuth("/login?next=/billing/plan");
   const tenantSlug = auth.tenantSlug;
+  const requestHeaders = await headers();
+  const docsBaseHref = buildDocsHref(requestHeaders, tenantSlug);
   await requirePermissionOr403(tenantSlug, auth.user.id, ["settings:list"]);
 
   let initialError: string | null = null;
@@ -58,6 +61,7 @@ export default async function BillingPlanPage() {
       <PlanManagement
         subscription={subscription as never}
         entitlements={entitlements as never}
+        docsBaseHref={docsBaseHref}
         initialError={initialError}
       />
     </AdminShell>

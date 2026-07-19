@@ -67,7 +67,7 @@ function getAppVersion(): string {
   return process.env.NEXT_PUBLIC_APP_VERSION?.replace(/^v/, "") || "0.0.0-dev";
 }
 
-function buildDocsHref(headersList: Headers, tenantSlug: string): string {
+export function buildDocsHref(headersList: Headers, tenantSlug: string): string {
   const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const proto = forwardedProto || (headersList.get("host")?.includes("localhost") ? "http" : "https");
   const host = headersList.get("x-forwarded-host")?.split(",")[0]?.trim() || headersList.get("host") || "";

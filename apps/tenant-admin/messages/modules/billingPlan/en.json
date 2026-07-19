@@ -19,6 +19,7 @@
     "caption": "Effective features and limits for the current plan",
     "feature": "Feature",
     "value": "Value or status",
+    "openDocs": "Open documentation for {feature}",
     "empty": "No features are registered for this plan."
   },
   "features": {
