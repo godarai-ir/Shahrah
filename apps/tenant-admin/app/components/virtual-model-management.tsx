@@ -5,13 +5,15 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ChipInput, ConfirmDialog, DateTimeValue, FormSheet, HelpLink, IdentifierField, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { AppNumberField, ChipInput, ConfirmDialog, DateTimeValue, FormSheet, IdentifierField, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet, FieldTitle } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -575,7 +577,6 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                 <Plus data-icon="inline-start" />
                 {t("actions.new")}
               </Button>
-              <HelpLink href={docsHref} />
             </div>
           </div>
         </CardHeader>
@@ -589,7 +590,17 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
           ) : filtered.length === 0 ? (
             <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">{t("empty.title")}</p>
-              <p className="mt-1">{t("empty.description")}</p>
+              <p className="mt-1">
+                {t("empty.description")}{" "}
+                <a
+                  href={docsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {t("empty.guide")}
+                </a>
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
@@ -709,29 +720,37 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                 </Alert>
               ) : null}
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 lg:grid-cols-2">
                 <IdentifierField id="vm-alias" label={t("form.alias")} value={form.alias} onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))} placeholder={t("form.aliasPlaceholder")} />
-                <div className="space-y-1.5">
-                  <Label htmlFor="vm-strategy">{t("form.strategy")}</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={form.routing_strategy === "priority" ? "default" : "outline"}
-                      className="flex-1"
-                      onClick={() => changeRoutingStrategy("priority")}
-                    >
-                      {t("form.priorityValue")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={form.routing_strategy === "weighted" ? "default" : "outline"}
-                      className="flex-1"
-                      onClick={() => changeRoutingStrategy("weighted")}
-                    >
-                      {t("form.weightedValue")}
-                    </Button>
-                  </div>
-                </div>
+                <FieldSet className="gap-2">
+                  <FieldLegend variant="label">{t("form.strategy")}</FieldLegend>
+                  <RadioGroup
+                    value={form.routing_strategy}
+                    onValueChange={(value) => changeRoutingStrategy(value as FormState["routing_strategy"])}
+                    aria-label={t("form.strategy")}
+                    dir={locale.startsWith("fa") ? "rtl" : "ltr"}
+                    className="grid gap-2 sm:grid-cols-2"
+                  >
+                    <FieldLabel htmlFor="vm-strategy-priority" className="cursor-pointer">
+                      <Field orientation="horizontal">
+                        <RadioGroupItem id="vm-strategy-priority" value="priority" />
+                        <FieldContent>
+                          <FieldTitle>{t("form.priorityValue")}</FieldTitle>
+                          <FieldDescription>{t("form.priorityDescription")}</FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    </FieldLabel>
+                    <FieldLabel htmlFor="vm-strategy-weighted" className="cursor-pointer">
+                      <Field orientation="horizontal">
+                        <RadioGroupItem id="vm-strategy-weighted" value="weighted" />
+                        <FieldContent>
+                          <FieldTitle>{t("form.weightedValue")}</FieldTitle>
+                          <FieldDescription>{t("form.weightedDescription")}</FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    </FieldLabel>
+                  </RadioGroup>
+                </FieldSet>
               </div>
 
               <div className="flex items-center justify-between rounded-2xl bg-muted/35 px-4 py-3">
@@ -791,25 +810,22 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                     </div>
 
                     {form.routing_strategy === "weighted" ? (
-                      <div className="space-y-1.5">
-                        <Label htmlFor={`vm-target-${index}-weight`}>{t("targets.weight")}</Label>
-                        <Input
-                          id={`vm-target-${index}-weight`}
-                          type="number"
-                          min={1}
-                          max={100}
-                          step="0.01"
-                          value={target.weight ?? 0}
-                          onChange={(event) =>
-                            updateTarget(index, {
-                              weight: Number(event.target.value),
-                            })
-                          }
-                        />
-                      </div>
+                      <AppNumberField
+                        id={`vm-target-${index}-weight`}
+                        label={t("targets.weight")}
+                        min={1}
+                        max={100}
+                        step="0.01"
+                        value={target.weight ?? 0}
+                        onChange={(event) =>
+                          updateTarget(index, {
+                            weight: Number(event.target.value),
+                          })
+                        }
+                      />
                     ) : null}
 
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-3 lg:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label>{t("targets.provider")}</Label>
                         <ModelEntitySelect
@@ -840,69 +856,60 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor={`vm-target-${index}-retry-attempts`}>{t("targets.retryAttempts")}</Label>
-                        <Input
-                          id={`vm-target-${index}-retry-attempts`}
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={10}
-                          value={target.policy.retry.attempts}
-                          onChange={(event) =>
-                            updateTarget(index, {
-                              policy: {
-                                ...target.policy,
-                                retry: {
-                                  ...target.policy.retry,
-                                  attempts: Number(event.target.value),
-                                },
+                      <AppNumberField
+                        id={`vm-target-${index}-retry-attempts`}
+                        label={t("targets.retryAttempts")}
+                        inputMode="numeric"
+                        min={0}
+                        max={10}
+                        value={target.policy.retry.attempts}
+                        onChange={(event) =>
+                          updateTarget(index, {
+                            policy: {
+                              ...target.policy,
+                              retry: {
+                                ...target.policy.retry,
+                                attempts: Number(event.target.value),
                               },
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor={`vm-target-${index}-retry-delay`}>{t("targets.retryDelay")}</Label>
-                        <Input
-                          id={`vm-target-${index}-retry-delay`}
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={10000}
-                          value={target.policy.retry.delay_ms}
-                          onChange={(event) =>
-                            updateTarget(index, {
-                              policy: {
-                                ...target.policy,
-                                retry: {
-                                  ...target.policy.retry,
-                                  delay_ms: Number(event.target.value),
-                                },
+                            },
+                          })
+                        }
+                      />
+                      <AppNumberField
+                        id={`vm-target-${index}-retry-delay`}
+                        label={t("targets.retryDelay")}
+                        inputMode="numeric"
+                        min={0}
+                        max={10000}
+                        value={target.policy.retry.delay_ms}
+                        onChange={(event) =>
+                          updateTarget(index, {
+                            policy: {
+                              ...target.policy,
+                              retry: {
+                                ...target.policy.retry,
+                                delay_ms: Number(event.target.value),
                               },
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor={`vm-target-${index}-timeout`}>{t("targets.timeout")}</Label>
-                        <Input
-                          id={`vm-target-${index}-timeout`}
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          max={600}
-                          value={target.policy.timeout_sec ?? 60}
-                          onChange={(event) =>
-                            updateTarget(index, {
-                              policy: {
-                                ...target.policy,
-                                timeout_sec: Number(event.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </div>
+                            },
+                          })
+                        }
+                      />
+                      <AppNumberField
+                        id={`vm-target-${index}-timeout`}
+                        label={t("targets.timeout")}
+                        inputMode="numeric"
+                        min={1}
+                        max={600}
+                        value={target.policy.timeout_sec ?? 60}
+                        onChange={(event) =>
+                          updateTarget(index, {
+                            policy: {
+                              ...target.policy,
+                              timeout_sec: Number(event.target.value),
+                            },
+                          })
+                        }
+                      />
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
