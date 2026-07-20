@@ -1,7 +1,10 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
-import { renderInvitationEmailTemplate } from "@/lib/email-templates";
+import {
+  renderInvitationEmailTemplate,
+  renderOTPEmailTemplate,
+} from "@/lib/email-templates";
 
 type SendEmailInput = {
   to: string;
@@ -114,27 +117,20 @@ export async function sendOTPEmail(input: {
   expiresInMinutes: number;
   tenantSlug: string;
 }) {
-  const subject = "GodarAI OTP Code";
-  const text = [
-    `Your one-time code for tenant "${input.tenantSlug}" is: ${input.otpCode}`,
-    `This code expires in ${input.expiresInMinutes} minutes.`,
-    "If you did not request this code, ignore this email.",
-  ].join("\n");
-
-  const html = `
-<div style="font-family: sans-serif; line-height: 1.6;">
-  <h2>GodarAI OTP Code</h2>
-  <p>Your one-time code for tenant <strong>${input.tenantSlug}</strong> is:</p>
-  <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">${input.otpCode}</p>
-  <p>This code expires in ${input.expiresInMinutes} minutes.</p>
-  <p>If you did not request this code, ignore this email.</p>
-</div>`;
+  const workspaceURL = resolveWorkspaceURL(input.tenantSlug);
+  const template = renderOTPEmailTemplate({
+    tenantSlug: input.tenantSlug,
+    otpCode: input.otpCode,
+    expiresInMinutes: input.expiresInMinutes,
+    workspaceURL,
+    logoURL: resolveEmailLogoURL(workspaceURL),
+  });
 
   await sendEmail({
     to: input.to,
-    subject,
-    text,
-    html,
+    subject: template.subject,
+    text: template.text,
+    html: template.html,
     tags: [
       { name: "app", value: "tenant-admin" },
       { name: "flow", value: "login-otp" },
@@ -149,10 +145,13 @@ export async function sendInvitationEmail(input: {
   tenantSlug: string;
   tenantName?: string;
 }) {
+  const workspaceURL = resolveWorkspaceURL(input.tenantSlug, input.link);
   const template = renderInvitationEmailTemplate({
     tenantName: input.tenantName?.trim() || input.tenantSlug,
     tenantSlug: input.tenantSlug,
     invitationLink: input.link,
+    workspaceURL,
+    logoURL: resolveEmailLogoURL(workspaceURL),
   });
 
   await sendEmail({
@@ -166,4 +165,64 @@ export async function sendInvitationEmail(input: {
       { name: "tenant", value: input.tenantSlug },
     ],
   });
+}
+
+function resolveEmailLogoURL(baseURL?: string) {
+  const configured =
+    process.env.GODARAI_EMAIL_LOGO_URL?.trim() ||
+    process.env.SHAHRAH_EMAIL_LOGO_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  return resolvePublicAssetURL("/brand/mini_logo.png", baseURL);
+}
+
+function resolveWorkspaceURL(tenantSlug: string, fallbackURL?: string) {
+  const fallbackOrigin = originFromURL(fallbackURL);
+  if (fallbackOrigin) {
+    return fallbackOrigin;
+  }
+
+  const configuredAppURL =
+    process.env.NEXT_PUBLIC_TENANT_ADMIN_URL?.trim() ||
+    process.env.SHAHRAH_TENANT_ADMIN_URL?.trim();
+  if (configuredAppURL) {
+    return configuredAppURL;
+  }
+
+  const baseDomain =
+    process.env.SHAHRAH_TENANT_BASE_DOMAIN?.trim() ||
+    process.env.TENANT_BASE_DOMAIN?.trim() ||
+    "godarai.ir";
+  const normalizedDomain = baseDomain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  const normalizedTenant = tenantSlug.trim().toLowerCase();
+
+  return normalizedTenant
+    ? `https://${normalizedTenant}.${normalizedDomain}`
+    : `https://${normalizedDomain}`;
+}
+
+function resolvePublicAssetURL(path: string, baseURL?: string) {
+  if (!baseURL) {
+    return undefined;
+  }
+
+  try {
+    return new URL(path, baseURL).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function originFromURL(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return undefined;
+  }
 }

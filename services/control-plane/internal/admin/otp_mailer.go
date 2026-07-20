@@ -2,6 +2,8 @@ package admin
 
 import (
 	"fmt"
+	"html"
+	"mime"
 	"net/http"
 	"net/smtp"
 	"os"
@@ -33,6 +35,16 @@ type resendOTPEmailSender struct {
 	replyTo   string
 	client    *resend.Client
 }
+
+type tenantAdminOTPEmail struct {
+	subject string
+	text    string
+	html    string
+}
+
+const tenantAdminEmailBrandName = "گدارAI"
+const tenantAdminEmailProductURL = "https://godarai.ir"
+const tenantAdminEmailSupportEmail = "support@godarai.ir"
 
 func NewOTPEmailSenderFromEnv() OTPEmailSender {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("NODE_ENV")), "production") {
@@ -94,21 +106,27 @@ func (s *smtpOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, ot
 		return nil
 	}
 
-	subject := "GodarAI OTP Code"
-	body := strings.Join([]string{
-		fmt.Sprintf("Your one-time code for tenant %q is: %s", tenantSlug, otpCode),
-		fmt.Sprintf("This code expires in %d minutes.", expiresInMinutes),
-		"If you did not request this code, ignore this email.",
-	}, "\r\n")
+	email := renderTenantAdminOTPEmail(tenantSlug, otpCode, expiresInMinutes)
+	boundary := fmt.Sprintf("tenant-admin-otp-%d", time.Now().UnixNano())
 
 	message := strings.Join([]string{
 		fmt.Sprintf("From: %s", s.from),
 		fmt.Sprintf("To: %s", to),
-		fmt.Sprintf("Subject: %s", subject),
+		fmt.Sprintf("Subject: %s", mime.BEncoding.Encode("UTF-8", email.subject)),
 		"MIME-Version: 1.0",
-		`Content-Type: text/plain; charset="UTF-8"`,
+		fmt.Sprintf(`Content-Type: multipart/alternative; boundary="%s"`, boundary),
 		"",
-		body,
+		fmt.Sprintf("--%s", boundary),
+		`Content-Type: text/plain; charset="UTF-8"`,
+		"Content-Transfer-Encoding: 8bit",
+		"",
+		email.text,
+		fmt.Sprintf("--%s", boundary),
+		`Content-Type: text/html; charset="UTF-8"`,
+		"Content-Transfer-Encoding: 8bit",
+		"",
+		email.html,
+		fmt.Sprintf("--%s--", boundary),
 	}, "\r\n")
 
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
@@ -135,27 +153,14 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 		return fmt.Errorf("RESEND_API_KEY and RESEND_FROM_EMAIL are required when NODE_ENV=production")
 	}
 
-	subject := "GodarAI OTP Code"
-	text := strings.Join([]string{
-		fmt.Sprintf("Your one-time code for tenant %q is: %s", tenantSlug, otpCode),
-		fmt.Sprintf("This code expires in %d minutes.", expiresInMinutes),
-		"If you did not request this code, ignore this email.",
-	}, "\n")
-	html := fmt.Sprintf(`
-<div style="font-family: sans-serif; line-height: 1.6;">
-  <h2>GodarAI OTP Code</h2>
-  <p>Your one-time code for tenant <strong>%s</strong> is:</p>
-  <p style="font-size: 24px; font-weight: bold; letter-spacing: 3px;">%s</p>
-  <p>This code expires in %d minutes.</p>
-  <p>If you did not request this code, ignore this email.</p>
-</div>`, tenantSlug, otpCode, expiresInMinutes)
+	email := renderTenantAdminOTPEmail(tenantSlug, otpCode, expiresInMinutes)
 
 	payload := &resend.SendEmailRequest{
 		From:    fmt.Sprintf("%s <%s>", s.fromName, s.fromEmail),
 		To:      []string{to},
-		Subject: subject,
-		Text:    text,
-		Html:    html,
+		Subject: email.subject,
+		Text:    email.text,
+		Html:    email.html,
 		ReplyTo: s.replyTo,
 		Tags: []resend.Tag{
 			{Name: "app", Value: "control-plane"},
@@ -170,6 +175,154 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 	}
 
 	return nil
+}
+
+func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinutes int) tenantAdminOTPEmail {
+	tenantSlug = normalizeEmailTextLine(tenantSlug)
+	otpCode = normalizeEmailTextLine(otpCode)
+	workspaceURL := resolveTenantAdminWorkspaceURL(tenantSlug)
+	logoURL := resolveTenantAdminEmailLogoURL(workspaceURL)
+	subject := fmt.Sprintf("کد ورود یک‌بارمصرف %s", tenantAdminEmailBrandName)
+	text := strings.Join([]string{
+		fmt.Sprintf("کد ورود یک‌بارمصرف شما برای فضای کاری «%s»: %s", tenantSlug, otpCode),
+		fmt.Sprintf("این کد تا %d دقیقه معتبر است.", expiresInMinutes),
+		"برای امنیت حساب، این کد را در اختیار هیچ‌کس قرار ندهید.",
+		fmt.Sprintf("ورود به فضای کاری: %s", workspaceURL),
+		"",
+		"اگر شما درخواست ورود نداده‌اید، این ایمیل را نادیده بگیرید.",
+		"",
+		fmt.Sprintf("تیم %s", tenantAdminEmailBrandName),
+		tenantAdminEmailSupportEmail,
+	}, "\n")
+
+	logoHTML := fmt.Sprintf(`<div style="display: inline-block; border-radius: 16px; background: #ffffff; border: 1px solid #d6e2f0; padding: 10px 14px; color: #0238e1; font-size: 18px; font-weight: 800;">%s</div>`, tenantAdminEmailBrandName)
+	if logoURL != "" {
+		logoHTML = fmt.Sprintf(`<img src="%s" width="52" height="52" alt="%s" style="display: block; width: 52px; height: 52px; border: 0;" />`, html.EscapeString(logoURL), tenantAdminEmailBrandName)
+	}
+
+	htmlBody := fmt.Sprintf(`<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>%s</title>
+  </head>
+  <body dir="rtl" style="margin: 0; padding: 0; background: #f3f7fb; color: #0b1220; font-family: Tahoma, Arial, sans-serif;">
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: transparent;">
+      کد ورود شما به فضای کاری %s تا %d دقیقه معتبر است.
+    </div>
+    <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="width: 100%%; border-collapse: collapse; background: #f3f7fb;">
+      <tr>
+        <td align="center" style="padding: 32px 16px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width: 100%%; max-width: 640px; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 0 0 14px; text-align: right;">%s</td>
+            </tr>
+            <tr>
+              <td style="overflow: hidden; border: 1px solid #d6e2f0; border-radius: 20px; background: #ffffff; box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);">
+                <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+                  <tr>
+                    <td style="height: 5px; background: linear-gradient(90deg, #04b8a9 0%%, #0238e1 100%%); font-size: 0; line-height: 0;">&nbsp;</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 34px 34px 28px;">
+                      <p style="margin: 0 0 10px; color: #0238e1; font-size: 13px; font-weight: 700;">ورود امن</p>
+                      <h1 style="margin: 0; color: #0b1220; font-size: 25px; line-height: 1.6; font-weight: 800;">کد ورود یک‌بارمصرف</h1>
+                      <p style="margin: 10px 0 0; color: #475569; font-size: 15px; line-height: 1.9;">این کد فقط برای همین درخواست ورود صادر شده است.</p>
+                      <div style="margin-top: 26px;">
+                        <p style="margin: 0 0 14px; color: #334155; font-size: 15px; line-height: 2;">
+                          از کد زیر برای ورود به فضای کاری <strong dir="ltr">%s</strong> استفاده کنید.
+                        </p>
+                        <div dir="ltr" style="margin: 22px 0; border-radius: 14px; border: 1px solid #d6e2f0; background: #f8fbff; padding: 18px 20px; text-align: center; color: #0b1220; font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace; font-size: 30px; font-weight: 800; letter-spacing: 8px;">%s</div>
+                        <div style="margin: 16px 0 0; border-radius: 12px; border: 1px solid #d6e2f0; background: #ffffff; padding: 13px 16px;">
+                          <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.7;">اعتبار کد</p>
+                          <p style="margin: 3px 0 0; color: #0b1220; font-size: 14px; font-weight: 700; line-height: 1.7;">%d دقیقه</p>
+                        </div>
+                        <div style="margin: 18px 0 0; border-radius: 12px; border: 1px solid #d6e2f0; background: #f8fbff; padding: 14px 16px;">
+                          <p style="margin: 0 0 6px; color: #64748b; font-size: 12px; font-weight: 700;">ورود به فضای کاری</p>
+                          <a dir="ltr" href="%s" style="display: block; color: #0238e1; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.7; text-align: left; text-decoration: none; word-break: break-all;">%s</a>
+                        </div>
+                        <p style="margin: 22px 0 0; border-right: 3px solid #04b8a9; padding: 10px 14px 10px 0; color: #475569; font-size: 13px; line-height: 1.9; background: #f8fbff;">
+                          برای امنیت حساب، این کد را در اختیار هیچ‌کس قرار ندهید. اگر شما درخواست ورود نداده‌اید، این پیام را نادیده بگیرید.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="border-top: 1px solid #e2e8f0; padding: 22px 34px 28px; background: #fbfdff;">
+                      <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.9;">این پیام به درخواست شما برای ورود به پنل tenant-admin ارسال شده است.</p>
+                      <p style="margin: 8px 0 0; color: #64748b; font-size: 12px; line-height: 1.9;">
+                        <a href="%s" style="color: #0238e1; text-decoration: none;">%s</a>
+                        <span style="padding: 0 6px; color: #cbd5e1;">|</span>
+                        <a href="mailto:%s" style="color: #0238e1; text-decoration: none;">%s</a>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`,
+		html.EscapeString(subject),
+		html.EscapeString(tenantSlug),
+		expiresInMinutes,
+		logoHTML,
+		html.EscapeString(tenantSlug),
+		html.EscapeString(otpCode),
+		expiresInMinutes,
+		html.EscapeString(workspaceURL),
+		html.EscapeString(workspaceURL),
+		tenantAdminEmailProductURL,
+		tenantAdminEmailProductURL,
+		tenantAdminEmailSupportEmail,
+		tenantAdminEmailSupportEmail,
+	)
+
+	return tenantAdminOTPEmail{subject: subject, text: text, html: htmlBody}
+}
+
+func resolveTenantAdminEmailLogoURL(workspaceURL string) string {
+	if value := strings.TrimSpace(os.Getenv("GODARAI_EMAIL_LOGO_URL")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(os.Getenv("SHAHRAH_EMAIL_LOGO_URL")); value != "" {
+		return value
+	}
+	if workspaceURL == "" {
+		return ""
+	}
+	return strings.TrimRight(workspaceURL, "/") + "/brand/mini_logo.png"
+}
+
+func resolveTenantAdminWorkspaceURL(tenantSlug string) string {
+	if value := strings.TrimSpace(os.Getenv("NEXT_PUBLIC_TENANT_ADMIN_URL")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(os.Getenv("SHAHRAH_TENANT_ADMIN_URL")); value != "" {
+		return value
+	}
+
+	baseDomain := strings.TrimSpace(os.Getenv("SHAHRAH_TENANT_BASE_DOMAIN"))
+	if baseDomain == "" {
+		baseDomain = strings.TrimSpace(os.Getenv("TENANT_BASE_DOMAIN"))
+	}
+	if baseDomain == "" {
+		baseDomain = "godarai.ir"
+	}
+	baseDomain = strings.TrimRight(strings.TrimPrefix(strings.TrimPrefix(baseDomain, "https://"), "http://"), "/")
+
+	if tenantSlug == "" {
+		return "https://" + baseDomain
+	}
+	return "https://" + tenantSlug + "." + baseDomain
+}
+
+func normalizeEmailTextLine(value string) string {
+	return strings.Join(strings.Fields(strings.ReplaceAll(strings.ReplaceAll(value, "\r", " "), "\n", " ")), " ")
 }
 
 func sanitizeResendTagValue(value string) string {
