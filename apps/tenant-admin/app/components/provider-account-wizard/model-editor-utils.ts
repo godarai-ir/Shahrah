@@ -172,6 +172,29 @@ export function normalizeProviderScopedModelName(provider: string, modelName: st
   return normalizedModelName;
 }
 
+export function buildProviderAccountModelFqn(input: {
+  account?: { provider: string; name: string } | null;
+  pendingProvider?: string;
+  pendingAccountName?: string;
+  model: Pick<ProviderCatalogModel, "provider" | "model">;
+}): string {
+  const provider = (
+    input.account?.provider
+    || input.pendingProvider
+    || input.model.provider
+  ).trim().toLowerCase();
+  const accountName = (
+    input.account?.name
+    || input.pendingAccountName
+    || ""
+  ).trim();
+
+  if (!provider || !accountName) return input.model.model;
+
+  const officialModel = normalizeProviderScopedModelName(provider, input.model.model);
+  return `${provider}:${accountName}:${officialModel}`;
+}
+
 export function buildModelDiscoveryDetailsHref(model: ProviderCatalogModel): string {
   const base = process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL
     ? normalizeModelDiscoveryCatalogBaseURL(process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL)

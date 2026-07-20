@@ -250,7 +250,7 @@ func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinut
                   </tr>
                   <tr>
                     <td style="border-top: 1px solid #e2e8f0; padding: 22px 34px 28px; background: #fbfdff;">
-                      <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.9;">این پیام به درخواست شما برای ورود به پنل tenant-admin ارسال شده است.</p>
+                      <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.9;">این پیام به درخواست شما برای ورود به پنل کاربری گدارAI ارسال شده است.</p>
                       <p style="margin: 8px 0 0; color: #64748b; font-size: 12px; line-height: 1.9;">
                         <a href="%s" style="color: #0238e1; text-decoration: none;">%s</a>
                         <span style="padding: 0 6px; color: #cbd5e1;">|</span>

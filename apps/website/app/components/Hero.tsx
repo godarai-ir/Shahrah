@@ -13,14 +13,14 @@ export function Hero() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-8 items-center">
+        <div className="grid min-w-0 items-center gap-10 lg:grid-cols-2 lg:gap-8">
           
           {/* Text Content */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="max-w-2xl text-center lg:text-right"
+            className="min-w-0 max-w-2xl text-center lg:text-right"
           >
             <div className="inline-flex max-w-full items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] sm:text-sm font-medium mb-4 sm:mb-8 border border-indigo-100 dark:border-indigo-500/20 whitespace-normal leading-6">
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
@@ -30,12 +30,12 @@ export function Hero() {
             <p className="mx-auto max-w-xl text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-8 sm:leading-relaxed lg:mx-0">
               به‌جای مدیریت ده‌ها API و ارائه‌دهنده مختلف، تنها یک API را فراخوانی کنید. گدارAI با مسیریابی هوشمند، مدیریت هزینه، پایش مصرف، کش پاسخ‌ها و قابلیت‌های کنترل دسترسی، زیرساختی یکپارچه برای استفاده از مدل‌های هوش مصنوعی در مقیاس سازمانی فراهم می‌کند.
             </p>
-            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap sm:gap-4 lg:justify-start">
-              <Link href="/pricing" className="flex min-h-12 w-auto items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3.5 font-medium text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all hover:bg-indigo-600 hover:shadow-[0_0_30px_rgba(99,102,241,0.6)]">
+            <div className="flex min-w-0 flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 lg:justify-start">
+              <Link href="/pricing" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3.5 font-medium text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all hover:bg-indigo-600 hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] sm:w-auto">
                 ۱۵ روز رایگان شروع کنید
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              <Link href="/docs" className="flex min-h-12 w-auto items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-medium text-slate-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+              <Link href="/docs" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-medium text-slate-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:w-auto">
                 مشاهده مستندات
                 <Terminal className="w-5 h-5" />
               </Link>
@@ -47,10 +47,10 @@ export function Hero() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="relative flex items-center justify-center lg:h-[500px]"
+            className="relative flex min-w-0 items-center justify-center lg:h-[500px]"
           >
             {/* Dashboard / Code Mockup */}
-            <div className="relative w-full max-w-lg rounded-2xl bg-slate-900 shadow-2xl border border-gray-800 overflow-hidden" dir="ltr">
+            <div className="relative min-w-0 w-full max-w-lg overflow-hidden rounded-2xl border border-gray-800 bg-slate-900 shadow-2xl" dir="ltr">
               <div className="flex items-center px-4 py-3 border-b border-gray-800 bg-slate-900/50">
                 <div className="flex space-x-2">
                   <div className="w-3 h-3 rounded-full bg-red-500"></div>

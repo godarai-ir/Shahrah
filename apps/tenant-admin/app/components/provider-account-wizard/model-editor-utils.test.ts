@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildProviderAccountModelFqn,
   createInitialModelFilters,
   filterAndSortProviderModels,
   getActiveModelFilterChips,
@@ -48,6 +49,30 @@ const models: ProviderCatalogModel[] = [
 ];
 
 describe("model-editor-utils", () => {
+  it("builds a three-part model FQN from the pending account identity", () => {
+    expect(buildProviderAccountModelFqn({
+      account: null,
+      pendingProvider: "AI21",
+      pendingAccountName: "ai21-brisk-orbit",
+      model: {
+        provider: "ai21",
+        model: "ai21/jamba-large-1.7",
+      },
+    })).toBe("ai21:ai21-brisk-orbit:jamba-large-1.7");
+  });
+
+  it("prefers the persisted account identity when one is available", () => {
+    expect(buildProviderAccountModelFqn({
+      account: { provider: "openai", name: "production" },
+      pendingProvider: "ai21",
+      pendingAccountName: "draft",
+      model: {
+        provider: "openai",
+        model: "openai/gpt-4o-mini",
+      },
+    })).toBe("openai:production:gpt-4o-mini");
+  });
+
   it("filters models by free-text search across model metadata", () => {
     const result = filterAndSortProviderModels({
       models,

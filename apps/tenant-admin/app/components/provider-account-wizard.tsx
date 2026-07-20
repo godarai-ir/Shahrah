@@ -1510,6 +1510,8 @@ export default function ProviderAccountWizard(props?: {
                     <ModelsEditor
                       t={t}
                       account={account}
+                      pendingAccountName={name}
+                      pendingProvider={provider}
                       setBanner={setBanner}
                       providerModels={providerModels}
                       modelDrafts={modelDrafts}

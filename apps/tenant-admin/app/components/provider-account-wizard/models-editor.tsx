@@ -37,6 +37,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CodeExampleBlock } from "./code-example-block";
 import {
+  buildProviderAccountModelFqn,
   buildModelDiscoveryDetailsHref,
   createInitialModelFilters,
   filterAndSortProviderModels,
@@ -458,6 +459,8 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
 export const ModelsEditor = memo(function ModelsEditor(props: {
   t: ReturnType<typeof useTranslations>;
   account: TenantProviderAccount | null;
+  pendingAccountName?: string;
+  pendingProvider?: string;
   setBanner: React.Dispatch<React.SetStateAction<Banner | null>>;
   providerModels: ProviderCatalogModel[];
   modelDrafts: Record<string, ModelDraft>;
@@ -558,10 +561,13 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   );
 
   const buildModelFqn = useCallback((modelValue: ProviderCatalogModel) => {
-    if (!props.account) return modelValue.model;
-    const officialModel = normalizeProviderScopedModelName(props.account.provider, modelValue.model);
-    return `${props.account.provider}:${props.account.name}:${officialModel}`;
-  }, [props.account]);
+    return buildProviderAccountModelFqn({
+      account: props.account,
+      pendingAccountName: props.pendingAccountName,
+      pendingProvider: props.pendingProvider,
+      model: modelValue,
+    });
+  }, [props.account, props.pendingAccountName, props.pendingProvider]);
 
   const openCurlGuide = useCallback((modelValue: ProviderCatalogModel) => {
     const modelFqn = buildModelFqn(modelValue);
@@ -918,6 +924,114 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     };
   }, []);
 
+  const curlGuideDialog = (
+    <Dialog open={curlGuide !== null} onOpenChange={(open) => { if (!open) setCurlGuide(null); }}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-xl border border-border bg-background p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl"
+      >
+        <div className="custom-scrollbar max-h-[calc(100dvh-1rem)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100dvh-2rem)] sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+          <div dir="rtl" className="flex items-start justify-between gap-3">
+            <DialogHeader dir="rtl" className="min-w-0 flex-1 items-end gap-1 text-right">
+              <div className="flex min-w-0 items-center justify-end gap-2">
+                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                  <Code2 aria-hidden="true" />
+                </span>
+                <DialogTitle dir="rtl" className="min-w-0 text-right text-xl font-bold leading-7 tracking-normal text-foreground sm:text-2xl sm:leading-8">
+                  {ux("models.curlGuide.title")}
+                </DialogTitle>
+              </div>
+              <DialogDescription className="max-w-3xl text-right text-sm leading-6 text-muted-foreground">
+                {ux("models.curlGuide.descriptionPrefix")}{" "}
+                <span dir="ltr" className="font-medium text-primary">{curlGuide?.modelName ?? ""}</span>{" "}
+                {ux("models.curlGuide.descriptionSuffix")}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-10 shrink-0 rounded-xl bg-background shadow-sm"
+              >
+                <X />
+                <span className="sr-only">{ux("models.curlGuide.close")}</span>
+              </Button>
+            </DialogClose>
+          </div>
+
+          <div dir="rtl" className="mt-3 flex min-w-0 items-center gap-2 sm:mt-4">
+            <div
+              dir="ltr"
+              title={curlGuide?.modelFqn ?? ""}
+              className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted/30 px-3 py-2 text-start font-mono text-xs font-semibold text-primary sm:rounded-xl sm:px-4 sm:py-2.5"
+            >
+              {curlGuide?.modelFqn}
+            </div>
+            <CopyAction
+              value={curlGuide?.modelFqn ?? ""}
+              copyLabel={ux("models.card.copyFqn")}
+              copiedLabel={ux("models.card.copied")}
+              showLabel
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 rounded-lg bg-background px-3 text-muted-foreground shadow-none sm:rounded-xl"
+              onCopied={() => props.setBanner({ kind: "success", message: ux("messages.fqnCopied") })}
+            />
+          </div>
+
+          <Alert dir="rtl" variant="info" className="mt-3 rounded-xl bg-muted/30 px-3 py-2 text-right text-muted-foreground sm:mt-4">
+            <AlertDescription className="text-xs leading-5">
+              <span className="font-medium text-foreground">{ux("models.curlGuide.instructionsLabel")}: </span>
+              {ux("models.curlGuide.instructions")}
+            </AlertDescription>
+          </Alert>
+
+          <div className="mt-4 sm:mt-5">
+            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0">
+              <TabsContent value="powershell" className="mt-0">
+                <CodeExampleBlock
+                  title={ux("models.curlGuide.requestTitle")}
+                  code={curlGuide?.commands.powershell ?? ""}
+                  language={CURL_GUIDE_LANGUAGE.powershell}
+                  shellLabel={ux("models.curlGuide.shells.powershell")}
+                  headerActions={renderCurlGuideHeaderActions()}
+                  copyLabel={ux("models.curlGuide.copySample")}
+                  copiedLabel={ux("models.card.copied")}
+                  onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                  footer={renderCurlGuideDocsFooter()}
+                />
+              </TabsContent>
+              <TabsContent value="bash" className="mt-0">
+                <CodeExampleBlock
+                  title={ux("models.curlGuide.requestTitle")}
+                  code={curlGuide?.commands.bash ?? ""}
+                  language={CURL_GUIDE_LANGUAGE.bash}
+                  shellLabel={ux("models.curlGuide.shells.bash")}
+                  headerActions={renderCurlGuideHeaderActions()}
+                  copyLabel={ux("models.curlGuide.copySample")}
+                  copiedLabel={ux("models.card.copied")}
+                  onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                  footer={renderCurlGuideDocsFooter()}
+                />
+              </TabsContent>
+            </Tabs>
+            {curlGuide?.sampleResponse ? (
+              <div className="mt-5">
+                <CodeExampleBlock
+                  title={ux("models.curlGuide.sampleResponse")}
+                  code={curlGuide.sampleResponse}
+                  language="json"
+                  shellLabel="JSON"
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (props.variant === "compact") {
     return (
       <>
@@ -1117,6 +1231,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             </div>
           </div>
         </section>
+        {curlGuideDialog}
       </>
     );
   }
@@ -1389,115 +1504,13 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           ))}
         </div>
       )}
-      <Dialog open={curlGuide !== null} onOpenChange={(open) => { if (!open) setCurlGuide(null); }}>
-        <DialogContent
-          showCloseButton={false}
-          className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-xl border border-border bg-background p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl"
-        >
-          <div className="custom-scrollbar max-h-[calc(100dvh-1rem)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100dvh-2rem)] sm:px-6 sm:py-5 lg:px-8 lg:py-6">
-            <div dir="rtl" className="flex items-start justify-between gap-3">
-              <DialogHeader dir="rtl" className="min-w-0 flex-1 items-end gap-1 text-right">
-                <div className="flex min-w-0 items-center justify-end gap-2">
-                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                    <Code2 aria-hidden="true" />
-                  </span>
-                  <DialogTitle dir="rtl" className="min-w-0 text-right text-xl font-bold leading-7 tracking-normal text-foreground sm:text-2xl sm:leading-8">
-                    {ux("models.curlGuide.title")}
-                  </DialogTitle>
-                </div>
-                <DialogDescription className="max-w-3xl text-right text-sm leading-6 text-muted-foreground">
-                  {ux("models.curlGuide.descriptionPrefix")}{" "}
-                  <span dir="ltr" className="font-medium text-primary">{curlGuide?.modelName ?? ""}</span>{" "}
-                  {ux("models.curlGuide.descriptionSuffix")}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogClose asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-10 shrink-0 rounded-xl bg-background shadow-sm"
-                >
-                  <X />
-                  <span className="sr-only">{ux("models.curlGuide.close")}</span>
-                </Button>
-              </DialogClose>
-            </div>
-
-            <div dir="rtl" className="mt-3 flex min-w-0 items-center gap-2 sm:mt-4">
-              <div
-                dir="ltr"
-                title={curlGuide?.modelFqn ?? ""}
-                className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted/30 px-3 py-2 text-start font-mono text-xs font-semibold text-primary sm:rounded-xl sm:px-4 sm:py-2.5"
-              >
-                {curlGuide?.modelFqn}
-              </div>
-              <CopyAction
-                value={curlGuide?.modelFqn ?? ""}
-                copyLabel={ux("models.card.copyFqn")}
-                copiedLabel={ux("models.card.copied")}
-                showLabel
-                variant="outline"
-                size="sm"
-                className="h-9 shrink-0 rounded-lg bg-background px-3 text-muted-foreground shadow-none sm:rounded-xl"
-                onCopied={() => props.setBanner({ kind: "success", message: ux("messages.fqnCopied") })}
-              />
-            </div>
-
-            <Alert dir="rtl" variant="info" className="mt-3 rounded-xl bg-muted/30 px-3 py-2 text-right text-muted-foreground sm:mt-4">
-              <AlertDescription className="text-xs leading-5">
-                <span className="font-medium text-foreground">{ux("models.curlGuide.instructionsLabel")}: </span>
-                {ux("models.curlGuide.instructions")}
-              </AlertDescription>
-            </Alert>
-
-            <div className="mt-4 sm:mt-5">
-              <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0">
-                <TabsContent value="powershell" className="mt-0">
-                  <CodeExampleBlock
-                    title={ux("models.curlGuide.requestTitle")}
-                    code={curlGuide?.commands.powershell ?? ""}
-                    language={CURL_GUIDE_LANGUAGE.powershell}
-                    shellLabel={ux("models.curlGuide.shells.powershell")}
-                    headerActions={renderCurlGuideHeaderActions()}
-                    copyLabel={ux("models.curlGuide.copySample")}
-                    copiedLabel={ux("models.card.copied")}
-                    onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
-                    footer={renderCurlGuideDocsFooter()}
-                  />
-                </TabsContent>
-                <TabsContent value="bash" className="mt-0">
-                  <CodeExampleBlock
-                    title={ux("models.curlGuide.requestTitle")}
-                    code={curlGuide?.commands.bash ?? ""}
-                    language={CURL_GUIDE_LANGUAGE.bash}
-                    shellLabel={ux("models.curlGuide.shells.bash")}
-                    headerActions={renderCurlGuideHeaderActions()}
-                    copyLabel={ux("models.curlGuide.copySample")}
-                    copiedLabel={ux("models.card.copied")}
-                    onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
-                    footer={renderCurlGuideDocsFooter()}
-                  />
-                </TabsContent>
-              </Tabs>
-              {curlGuide?.sampleResponse ? (
-                <div className="mt-5">
-                  <CodeExampleBlock
-                    title={ux("models.curlGuide.sampleResponse")}
-                    code={curlGuide.sampleResponse}
-                    language="json"
-                    shellLabel="JSON"
-                  />
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {curlGuideDialog}
     </section>
   );
 }, (prev, next) => (
   prev.account === next.account &&
+  prev.pendingAccountName === next.pendingAccountName &&
+  prev.pendingProvider === next.pendingProvider &&
   prev.canManage === next.canManage &&
   prev.isLoadingModels === next.isLoadingModels &&
   prev.isSaving === next.isSaving &&

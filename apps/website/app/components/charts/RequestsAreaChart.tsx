@@ -12,9 +12,11 @@ const data = [
   { name: '7', requests: 3490, cost: 43 },
 ];
 
+const INITIAL_DIMENSION = { width: 320, height: 224 } as const;
+
 export function RequestsAreaChart() {
   return (
-    <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={200}>
+    <ResponsiveContainer width="100%" height="100%" initialDimension={INITIAL_DIMENSION}>
       <AreaChart data={data}>
         <defs key="defs">
           <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">

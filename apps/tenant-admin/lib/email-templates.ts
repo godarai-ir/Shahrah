@@ -130,7 +130,7 @@ export function renderOTPEmailTemplate(input: OTPTemplateInput) {
       intro: "این کد فقط برای همین درخواست ورود صادر شده است.",
       logoURL: input.logoURL,
       contentHTML,
-      footerDetail: "این پیام به درخواست شما برای ورود به پنل tenant-admin ارسال شده است.",
+      footerDetail: "این پیام به درخواست شما برای ورود به پنل کاربری گدارAI ارسال شده است.",
     }),
   };
 }
