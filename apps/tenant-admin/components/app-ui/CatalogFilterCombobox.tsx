@@ -35,7 +35,7 @@ export function CatalogFilterCombobox({
       placeholder={placeholder}
       emptyText={emptyText}
       searchable={searchable}
-      className="h-8 [&_[data-slot=input-group-control]]:text-xs"
+      className="h-9 bg-background text-foreground transition-colors hover:bg-accent/40 [&_[data-slot=input-group-control]]:text-sm"
     />
   );
 }

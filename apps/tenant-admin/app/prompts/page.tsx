@@ -11,7 +11,7 @@ export default async function PromptsPage() {
   const auth = await requireAuth("/login?next=/prompts");
   const t = await getTranslations("prompts");
   const requestHeaders = await headers();
-  const docsHref = `${buildDocsBaseHref(requestHeaders, auth.tenantSlug)}/quick-start#prompts`;
+  const docsHref = `${buildDocsBaseHref(requestHeaders, auth.tenantSlug)}/prompt-registry`;
   await requirePermissionOr403(auth.tenantSlug, auth.user.id, ["policy:list", "policy:manage"]);
 
   const currentUser = {

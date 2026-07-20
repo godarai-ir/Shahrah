@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell, { buildDocsHref } from "@/app/components/admin-shell";
 import LogsCommandCenter from "@/app/components/logs-command-center";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
@@ -12,6 +13,8 @@ export default async function LogsPage() {
   const auth = await requireAuth("/login?next=/logs");
   const tenantSlug = auth.tenantSlug;
   const t = await getTranslations("logs");
+  const requestHeaders = await headers();
+  const docsHref = `${buildDocsHref(requestHeaders, tenantSlug)}observability-logs`;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["logs:read_metadata", "logs:read_content"]);
 
   const [logsResult, summaryResult, facetsResult, viewsResult] = await Promise.all([
@@ -47,7 +50,7 @@ export default async function LogsPage() {
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={currentUser}
-      pageHeader={{ title: t("title"), description: t("subtitle"), helpHref: "/docs/observability-logs" }}
+      pageHeader={{ title: t("title"), description: t("subtitle"), helpHref: docsHref }}
     >
       <LogsCommandCenter
         initialLogs={logsResult.ok ? logsResult.payload : undefined}

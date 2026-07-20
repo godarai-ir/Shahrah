@@ -277,6 +277,8 @@ func clickHouseTraceRetentionDaysValue(days *int) uint16 {
 	return uint16(*days)
 }
 
+const tenantVisibleGatewayRouteWhere = "startsWith(route, '/v1/')"
+
 func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params platform.ListRequestTracesParams) ([]platform.RequestTrace, int, error) {
 	if params.Limit <= 0 {
 		params.Limit = 50
@@ -290,7 +292,7 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 		params.Offset = 0
 	}
 
-	where := []string{"tenant_id = ?"}
+	where := []string{"tenant_id = ?", tenantVisibleGatewayRouteWhere}
 
 	args := []interface{}{params.TenantID}
 	if params.TraceID != "" {
@@ -388,7 +390,7 @@ func (s *Store) getRequestTraceFromClickHouse(ctx context.Context, tenantID, tra
 
 	err := s.clickhouse.QueryRowContext(ctx, `
 		SELECT trace_id, tenant_id, request_id, model, route, status_code, started_at, duration_ms, error_code, sampled
-		FROM (`+buildTraceDedupeSubquery("tenant_id = ? AND trace_id = ?")+`)
+		FROM (`+buildTraceDedupeSubquery("tenant_id = ? AND trace_id = ? AND "+tenantVisibleGatewayRouteWhere)+`)
 		LIMIT 1
 	`, tenantID, traceID).Scan(
 		&item.TraceID,
@@ -1066,7 +1068,7 @@ func queryFacetStatusRows(ctx context.Context, db *sql.DB, query string, args ..
 }
 
 func buildTraceV2BaseWhere(params platform.ListRequestTracesV2Params) (string, []interface{}) {
-	where := []string{"tenant_id = ?"}
+	where := []string{"tenant_id = ?", tenantVisibleGatewayRouteWhere}
 
 	args := []interface{}{params.TenantID}
 	if params.TraceID != "" {

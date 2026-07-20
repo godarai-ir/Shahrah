@@ -6,7 +6,7 @@
 
 در این گزارش:
 
-- **مشاهده‌شده** یعنی در بررسی زنده 2026-07-19 مستقیماً اندازه‌گیری شده است.
+- **مشاهده‌شده** یعنی در بررسی‌های زنده 2026-07-19 و 2026-07-20 مستقیماً اندازه‌گیری شده است.
 - **اعلام‌شده از پنل** یعنی از اطلاعات یا تصویر پنل ابرآروان که مالک زیرساخت ارائه کرده استفاده شده است.
 - **استنباط** یعنی نتیجه فنی حاصل از چند مشاهده است، نه مشاهده مستقیم control plane ارائه‌دهنده.
 - **نامشخص** یعنی برای نتیجه قطعی به Neutron/OpenStack API یا تیم ارائه‌دهنده نیاز است.
@@ -57,6 +57,11 @@
 - **2026-07-20:** imageهای بلااستفاده و journalهای حجیم روی هر سه node پاک‌سازی شد. Longhorn همه پنج volume را rebuild کرد و وضعیت نهایی همه آن‌ها `attached/healthy` است.
 - **2026-07-20:** CoreDNS با HPA دارای `minReplicas: 2` و PDB دارای `minAvailable: 1` پایدار شد. مقدار cache حافظه Loki از پیش‌فرض غیرقابل‌زمان‌بندی ۸ GiB به ۱ GiB کاهش یافت و تمام Podها Running شدند.
 - **2026-07-20:** drift پیکربندی Prometheus و Grafana در GitOps اصلاح و تمام Applicationهای Argo CD به `Synced/Healthy` رسیدند.
+- **2026-07-20:** پیش از resize دیسک `node-2`، snapshot تازه etcd با نام `pre-node2-disk-resize-20260720T141338Z-node-1-1784544222` گرفته شد. node بدون force cordon/drain و سپس Boot Disk آن از ۷۵GiB اسمی به ۱۲۰GB افزایش یافت.
+- **2026-07-20:** Cloud-Init پارتیشن root و ext4 را خودکار تا انتهای دیسک توسعه داد. GPT با `sgdisk -v` سالم، root برابر ۱۱۲٫۲GiB usable با مصرف ۳۱٪ و boot بدون خطای I/O تأیید شد؛ سپس node uncordon و تمام replicaهای Longhorn بازسازی شدند.
+- **2026-07-20:** پیش از resize دیسک `node-3`، snapshot تازه etcd با نام `pre-node3-disk-resize-20260720T144437Z-node-1-1784546081` و snapshot سازگار با برنامه از Typesense در مسیر `/data/pre-node3-resize-20260720T111100Z` گرفته شد. آرشیو Typesense با نام `typesense-pre-node3-resize-20260720T111100Z.tar.gz` و SHA-256 برابر `4c6a79ee3a9bd8ed3f6109cd88c8f8db2caaeba202bd628390eeaa65b2c77aba` روی `node-1:/var/backups/typesense/` نگهداری می‌شود.
+- **2026-07-20:** `node-3` بدون force cordon/drain و Boot Disk آن به ۱۱۰GB افزایش یافت. Cloud-Init پارتیشن و ext4 را خودکار توسعه داد؛ GPT سالم، root برابر ۱۰۲٫۸GiB usable با مصرف ۳۲٪ و boot بدون خطای I/O تأیید شد. Typesense از local PV همان node با health برابر `{"ok":true}` برگشت و node uncordon شد.
+- **2026-07-20:** هنگام rebuild هم‌زمان replicaهای Longhorn، etcd روی `node-2` و سپس `node-1` چند ثانیه latency و timeout شدید داشت. هر دو K3s به‌دلیل از دست‌رفتن leader-election با status 1 خارج و طبق `Restart=always` خودکار بازگشتند؛ OOM، kernel I/O error یا از دست‌رفتن quorum مشاهده نشد. پس از پایان rebuild، هر پنج volume `attached/healthy`، هر سه node `Ready` و تمام Applicationهای Argo CD `Synced/Healthy` شدند.
 
 ## فهرست ماشین‌ها و آدرس‌ها
 
@@ -86,8 +91,8 @@ Floating IPهای قبلی LBها داخل Netplan یا interfaceهای guest ت
 | `lb-1` | 24.04.1 LTS | `6.8.0-134-generic` | 1 | 961 MiB | 23 GiB، مصرف 8% | ندارد |
 | `lb-2` | 24.04.4 LTS | `6.8.0-134-generic` | 1 | 961 MiB | 23 GiB، مصرف 9% | ندارد |
 | `node-1` | 24.04.1 LTS | `6.8.0-134-generic` | 4 | 11 GiB | 70 GiB، مصرف 53% | ندارد |
-| `node-2` | 24.04.1 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 52% | ندارد |
-| `node-3` | 24.04.4 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 45% | ندارد |
+| `node-2` | 24.04.1 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 120 GB اسمی / 112.2 GiB usable، مصرف 31% | ندارد |
+| `node-3` | 24.04.4 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 110 GB اسمی / 102.8 GiB usable، مصرف 32% | ندارد |
 | `nat-gw-1` | 24.04.1 LTS | `6.8.0-45-generic` | 1 | 961 MiB | 23 GiB، مصرف 6% | ندارد |
 
 ## شبکه خصوصی و وضعیت OpenStack قابل مشاهده
@@ -298,12 +303,13 @@ NSهای authoritative:
 
 1. **رفع‌شده با workaround — public edge روی Floating IPها timeout می‌شد.** مسیر production اکنون از public NICهای مستقیم استفاده می‌کند؛ Floating IPهای خراب detached و برای rollback حفظ شده‌اند.
 2. **بالا — metadata شبکه OpenStack stale است.** MACهای public NIC حذف‌شده هنوز به nodeها اعلام می‌شوند و بدون marker `upgraded-network` می‌توانند Cloud-Init را در boot دچار خطا کنند.
-3. **بالا — reboot اعتبارسنجی `node-2` با I/O error هنگام shutdown متوقف شد.** boot پس از power-cycle پاک بود و Longhorn اکنون سالم است، اما سلامت disk و block deviceهای transient باید پیش از reboot بعدی بررسی شود.
+3. **متوسط — یک reboot قدیمی `node-2` با I/O error هنگام shutdown متوقف شده بود.** Stop/resize و boot بعدی در 2026-07-20 بدون خطای I/O انجام شد، GPT/filesystem سالم و Longhorn کامل بازسازی شد؛ بااین‌حال خطاهای block deviceهای transient در نگهداری‌های بعدی نیز باید پایش شوند.
 4. **متوسط — HA عمومی DNS-level است، نه یک public VIP مشترک.** هر دو origin سالم‌اند، اما authoritative DNS از مبدأ تست فقط IP `lb-2` را انتخاب کرد؛ failover خودکار باید جداگانه با قابلیت health-check/load-balancing ارائه‌دهنده اثبات شود.
 5. **متوسط — health check Keepalived سطحی است.** فقط وجود process HAProxy را می‌سنجد، نه سلامت VIP/API/backend.
 6. **متوسط — OS firewall روی بیشتر ماشین‌ها غیرفعال گزارش شده است.** روی هر دو LB اکنون nftables عمومی فعال است و فقط 80/443 را باز می‌گذارد؛ سایر ماشین‌ها همچنان به policy پنل وابسته‌اند.
 7. **متوسط — ظرفیت CPU درخواستی روی `node-1` و `node-2` محدود است.** مصرف واقعی پایدار است، اما requests زمان‌بندی‌شده به‌ترتیب حدود ۹۰٪ و ۸۷٪ CPU بود؛ workloadهای جدید باید با ظرفیت‌سنجی اضافه شوند.
 8. **متوسط — swap روی هیچ ماشین فعال نیست.** LBها و `nat-gw-1` فقط 1 GiB RAM دارند.
+9. **بالا — rebuild هم‌زمان Longhorn می‌تواند etcd را روی دیسک مشترک تحت فشار بگذارد.** در resize `node-3`، setting برابر `concurrent-replica-rebuild-per-node-limit=5` با timeoutهای etcd و خروج K3s روی دو control-plane هم‌زمان شد. رابطه زمانی مشاهده شده، اما نبود storage telemetry مستقل به این معنی است که سهم دقیق I/O در این رخداد استنباطی است. تا پیش از تعیین limit محافظه‌کارانه و آزمون آن، نگهداری node بعدی نباید شروع شود.
 
 ## گام‌های پیشنهادی بعدی
 
@@ -314,6 +320,7 @@ NSهای authoritative:
 5. health-check و failover واقعی رکوردهای چندمقداری DNS آروان جداگانه بررسی شود؛ صرف ثبت دو A record تضمین public VIP یا failover سریع نیست.
 6. Floating IPهای detached فقط پس از یک پنجره پایداری و تصمیم صریح درباره rollback release شوند.
 7. alert برای egress Gateway، DNS خارجی از کلاستر، NAT/conntrack counters، سلامت هر دو IP مستقیم، CoreDNS replica count و disk usage nodeها اضافه شود.
+8. پیش از resize یا drain بعدی، concurrency و bandwidth بازسازی Longhorn با توجه به اشتراک دیسک آن با etcd محدود و در یک پنجره نگهداری آزمون شود؛ تنظیم فعلی rebuild-per-node برابر ۵ است.
 
 ## شواهد خوانده‌شده
 

@@ -656,13 +656,14 @@ export default function TraceManagement(props: TraceManagementProps) {
 
       <Card className="rounded-lg">
         <CardContent className="flex flex-col gap-3 px-3 pb-3 pt-2 md:px-4 md:pb-4 md:pt-3">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-3">
             <AppSelectField
               label={t("filters.timeRange")}
               value={draftRangePreset}
               onValueChange={(value) => handleRangePresetChange(value as RangePreset)}
               options={rangeOptions}
               ariaLabel={t("filters.timeRange")}
+              className="gap-1 [&_[data-slot=field-label]]:text-xs [&_[data-slot=field-label]]:text-muted-foreground"
               triggerClassName="h-9"
             />
             <FilterField htmlFor="provider-filter" label={t("filters.provider")}>
@@ -688,21 +689,31 @@ export default function TraceManagement(props: TraceManagementProps) {
           </div>
 
           {draftRangePreset === "custom" ? (
-            <DateTimeRangeField fromID="from-filter" toID="to-filter" from={draft.from} to={draft.to} fromLabel={t("filters.from")} toLabel={t("filters.to")} onFromChange={(from) => setDraft((prev) => ({ ...prev, from }))} onToChange={(to) => setDraft((prev) => ({ ...prev, to }))} />
+            <DateTimeRangeField
+              fromID="from-filter"
+              toID="to-filter"
+              from={draft.from}
+              to={draft.to}
+              fromLabel={t("filters.from")}
+              toLabel={t("filters.to")}
+              onFromChange={(from) => setDraft((prev) => ({ ...prev, from }))}
+              onToChange={(to) => setDraft((prev) => ({ ...prev, to }))}
+              className="[&_[data-slot=field]]:gap-1 [&_[data-slot=field-label]]:text-xs [&_[data-slot=field-label]]:text-muted-foreground"
+            />
           ) : null}
 
           {isCompactLayout ? (
             <>
-              <div className="grid gap-2 border-t border-card-border/70 pt-3 sm:grid-cols-2">
-                <Button type="button" variant="outline" size="sm" className="sm:col-span-2" onClick={() => setAdvancedSheetOpen(true)}>
+              <div className="grid gap-2 border-t border-card-border/70 pt-3 sm:grid-cols-2 md:grid-cols-3">
+                <Button type="button" variant="outline" size="sm" className="h-9 text-sm sm:col-span-2 md:col-span-1" onClick={() => setAdvancedSheetOpen(true)}>
                   <ChevronDown data-icon="inline-start" aria-hidden="true" />
                   {advancedFilterLabel}
                 </Button>
-                <Button type="button" size="sm" onClick={applyFilters} disabled={loading}>
+                <Button type="button" size="sm" className="h-9 text-sm" onClick={applyFilters} disabled={loading}>
                   <Filter data-icon="inline-start" aria-hidden="true" />
                   {t("actions.apply")}
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
+                <Button type="button" variant="outline" size="sm" className="h-9 text-sm" onClick={clearFilters} disabled={loading}>
                   <RotateCcw data-icon="inline-start" aria-hidden="true" />
                   {t("actions.clear")}
                 </Button>
@@ -736,17 +747,17 @@ export default function TraceManagement(props: TraceManagementProps) {
             <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-card-border/70 pt-3">
                 <CollapsibleTrigger asChild>
-                  <Button type="button" variant="outline" size="sm" aria-expanded={advancedOpen}>
+                  <Button type="button" variant="outline" size="sm" className="h-9 text-sm" aria-expanded={advancedOpen}>
                     <ChevronDown data-icon="inline-start" className={cn("transition-transform", advancedOpen && "rotate-180")} aria-hidden="true" />
                     {advancedFilterLabel}
                   </Button>
                 </CollapsibleTrigger>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" size="sm" onClick={applyFilters} disabled={loading}>
+                  <Button type="button" size="sm" className="h-9 text-sm" onClick={applyFilters} disabled={loading}>
                     <Filter data-icon="inline-start" aria-hidden="true" />
                     {t("actions.apply")}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={clearFilters} disabled={loading}>
+                  <Button type="button" variant="outline" size="sm" className="h-9 text-sm" onClick={clearFilters} disabled={loading}>
                     <RotateCcw data-icon="inline-start" aria-hidden="true" />
                     {t("actions.clear")}
                   </Button>
@@ -823,7 +834,7 @@ export default function TraceManagement(props: TraceManagementProps) {
       </section>
 
       <Card className="rounded-lg">
-        <CardHeader className="flex flex-col gap-3 p-3 md:p-4 lg:flex-row lg:items-start lg:justify-between">
+        <CardHeader className="flex flex-col gap-2 p-3 md:flex-row md:items-end md:justify-between md:p-3 lg:items-start">
           <div className="min-w-0">
             <CardTitle className="text-sm md:text-base">{t("list.title")}</CardTitle>
             <CardDescription className="mt-1 text-xs">
@@ -831,9 +842,8 @@ export default function TraceManagement(props: TraceManagementProps) {
             </CardDescription>
           </div>
           {isCompactLayout ? (
-            <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-auto">
+            <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] md:w-auto md:min-w-80 lg:w-auto">
               <AppSelectField
-                label={t("list.sort.field")}
                 value={applied.sortBy}
                 onValueChange={(value) => setSort(value, value === applied.sortBy ? applied.sortOrder : "desc")}
                 options={compactSortOptions}
@@ -845,7 +855,7 @@ export default function TraceManagement(props: TraceManagementProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="sm:self-end"
+                className="h-9 text-sm sm:self-end"
                 aria-label={t("list.sort.directionLabel", {
                   direction: applied.sortOrder === "asc" ? t("list.sort.directionAsc") : t("list.sort.directionDesc"),
                 })}
@@ -869,7 +879,7 @@ export default function TraceManagement(props: TraceManagementProps) {
         <CardContent className="px-3 pb-3 md:px-3 md:pb-3">
           {isCompactLayout ? (
             items.length > 0 ? (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-2 md:grid-cols-2">
                 {items.map((item) => (
                   <CompactTraceCard key={item.trace_id} item={item} locale={locale} maxDuration={maxDuration} t={t} common={common} />
                 ))}
@@ -1075,11 +1085,11 @@ function CompactTraceCard({
 }) {
   return (
     <Card className="rounded-lg">
-      <CardHeader className="gap-1.5 p-3 pb-2">
+      <CardHeader className="gap-1 p-3 pb-2 md:p-3 md:pb-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <CardDescription className="text-xs">{formatLocalDateTime(item.started_at, locale)}</CardDescription>
-            <CardTitle className="mt-1 min-w-0 text-sm">
+            <CardDescription className="text-xs leading-5">{formatLocalDateTime(item.started_at, locale)}</CardDescription>
+            <CardTitle className="mt-1 min-w-0 text-sm md:text-sm">
               <Link
                 className="block truncate font-mono text-primary underline-offset-2 hover:underline"
                 href={`/traces/${encodeURIComponent(item.trace_id)}`}
@@ -1090,7 +1100,7 @@ function CompactTraceCard({
               </Link>
             </CardTitle>
             {item.request_id ? (
-              <p className="mt-1 truncate font-mono text-xs text-muted-foreground" title={item.request_id}>
+              <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground" title={item.request_id}>
                 {t("list.meta.requestId", { id: compactID(item.request_id) })}
               </p>
             ) : null}
@@ -1103,8 +1113,8 @@ function CompactTraceCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2 px-3 pb-3 pt-0">
-        <div className="grid grid-cols-3 gap-x-3 gap-y-2">
+      <CardContent className="flex flex-col gap-1.5 px-3 pb-3 pt-0 md:px-3 md:pb-3 md:pt-0">
+        <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
           <CompactListField
             label={t("list.columns.model")}
             value={
@@ -1127,7 +1137,7 @@ function CompactTraceCard({
             inline
           />
         </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
           <CompactListField
             label={t("list.columns.route")}
             inline

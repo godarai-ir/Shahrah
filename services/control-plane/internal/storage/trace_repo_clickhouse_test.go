@@ -56,6 +56,7 @@ func TestBuildTraceV2BaseWhere(t *testing.T) {
 	})
 	normalized := strings.ToLower(strings.Join(strings.Fields(where), " "))
 	assert.Contains(t, normalized, "tenant_id = ?")
+	assert.Contains(t, normalized, "startswith(route, '/v1/')")
 	assert.Contains(t, normalized, "trace_id = ?")
 	assert.Contains(t, normalized, "request_id = ?")
 	assert.Contains(t, normalized, "route = ?")
