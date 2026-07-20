@@ -1,0 +1,12 @@
+table inet lb_public_filter {
+    chain input {
+        type filter hook input priority filter; policy accept;
+
+        iifname "eth1" ct state invalid counter drop comment "drop invalid public input"
+        iifname "eth1" ct state established,related counter accept comment "allow established public input"
+        iifname "eth1" udp sport 67 udp dport 68 counter accept comment "allow public DHCP"
+        iifname "eth1" ip protocol icmp icmp type { destination-unreachable, time-exceeded, parameter-problem, echo-request } counter accept comment "allow essential public ICMP"
+        iifname "eth1" tcp dport { 80, 443 } ct state new counter accept comment "allow public HTTP and HTTPS"
+        iifname "eth1" counter drop comment "drop all other public input"
+    }
+}

@@ -1,258 +1,339 @@
 # گزارش بررسی استقرار VPSهای Production
 
-تاریخ بررسی: 2026-07-16
+تاریخ آخرین بررسی زنده: 2026-07-20
 
-دامنه بررسی اولیه: اتصال SSH فقط خواندنی به VPSها، بررسی DNS، و چند تست HTTP/HTTPS از ماشین محلی.
+دامنه بررسی: اتصال SSH به هفت VPS، تطبیق interface/MAC/IP داخل guest، بررسی route و Netplan، وضعیت سرویس‌های LB، ruleهای NAT، تست تفکیک‌شده egress، وضعیت K3s و تست‌های DNS و TCP/HTTP/HTTPS در سطح host و Pod. در 2026-07-20 آماده‌سازی و Cutover کامل `nat-gw-1` روی هر سه node نیز انجام شد. وضعیت Fixed IP و فایروال دیتابیس از پنل ابرآروان مشاهده شد؛ دسترسی مستقیم به Neutron API یا control plane داخلی ارائه‌دهنده وجود ندارد.
 
-به‌روزرسانی عملیاتی 2026-07-16: پس از غیرفعال شدن Port Security شبکه خصوصی روی `lb-1` و `lb-2`، HAProxy روی هر دو Load Balancer به VIP خصوصی `10.10.0.6:6443` منتقل شد و failover کنترل‌شده Keepalived با موفقیت تست شد. سپس Public IPهای `node-1`، `node-2` و `node-3` از پنل provider حذف شدند و خروجی اینترنت این نودها از مسیر VIP/NAT روی Load Balancerها تأمین شد.
+در این گزارش:
+
+- **مشاهده‌شده** یعنی در بررسی زنده 2026-07-19 مستقیماً اندازه‌گیری شده است.
+- **اعلام‌شده از پنل** یعنی از اطلاعات یا تصویر پنل ابرآروان که مالک زیرساخت ارائه کرده استفاده شده است.
+- **استنباط** یعنی نتیجه فنی حاصل از چند مشاهده است، نه مشاهده مستقیم control plane ارائه‌دهنده.
+- **نامشخص** یعنی برای نتیجه قطعی به Neutron/OpenStack API یا تیم ارائه‌دهنده نیاز است.
 
 ## خلاصه اجرایی
 
-استقرار فعلی از یک کلاستر سه‌نودی K3s، دو Load Balancer عمومی، و یک Bastion تشکیل شده است. ترافیک عمومی روی `80` و `443` وارد `lb-1` و `lb-2` می‌شود، توسط HAProxy در حالت TCP عبور داده می‌شود، و به NodePortهای `ingress-nginx` روی هر سه نود K3s می‌رسد.
+استقرار فعلی شامل یک کلاستر سه‌نودی K3s، دو Load Balancer، یک Bastion و Gateway اختصاصی production با hostname برابر `nat-gw-1` است. مسیر داخلی HAProxy + Keepalived و VIP خصوصی `10.10.0.6:6443` برای Kubernetes API فعال مانده است، اما دیگر مسیر خروجی nodeها نیست. default route هر سه node اکنون `10.10.0.190` است و خروجی آن‌ها روی اینترنت با source IP برابر `188.121.120.198` دیده می‌شود.
 
-وضعیت زنده با فرض اولیه تفاوت دارد: روی `lb-1` و `lb-2`، `nginx` نصب/فعال نیست و لایه edge فعلی عملا HAProxy + Keepalived است.
+در 2026-07-20 Gateway با یک default route عمومی، forwarding، nftables و MASQUERADE محدود به سه node آماده شد و persistence آن پس از reboot تأیید شد. Port Security دقیقاً روی پورت خصوصی `10.10.0.190` غیرفعال و پورت اضافی `.181` حذف شد. Rollout به ترتیب `node-2`، `node-3` و `node-1` انجام شد؛ هر سه node و Podهای pinned روی آن‌ها DNS، HTTPS، Docker Registry و TCP دیتابیس را با موفقیت گذراندند.
 
-پس از cutover تاریخ 2026-07-16، مسیر عمومی از fixed public IPهای قدیمی به Floating IPها منتقل شد: `37.32.31.230` برای `lb-1` و `37.32.31.139` برای `lb-2`. هر دو Floating IP روی `80` و `443` پاسخ سالم دادند.
+نتیجه نهایی egress:
 
-HA خصوصی Kubernetes API اکنون از طریق VIP خصوصی `10.10.0.6:6443` فعال است. از Bastion اتصال TCP به VIP برقرار شد و Kubernetes API برای درخواست بدون credential پاسخ `401 Unauthorized` داد. در تست failover، VIP از `lb-1` به `lb-2` منتقل شد و پس از بازگشت `lb-1` دوباره روی نود با priority بالاتر نشست.
+- **مشاهده‌شده:** هر سه node فقط default route برابر `10.10.0.190` روی `eth1` دارند.
+- **مشاهده‌شده:** resolverهای هر سه node برابر `1.1.1.1` و `1.0.0.1` هستند و hostname دیتابیس را به `185.231.181.201` resolve می‌کنند.
+- **مشاهده‌شده:** HTTPS، Docker Registry با پاسخ مورد انتظار `401` و TCP دیتابیس روی `5432` از host و Podهای pinned موفق است.
+- **مشاهده‌شده:** CoreDNS پس از rollout بدون upstream timeout جدید فعال است و `kubernetes.default` و hostname دیتابیس را resolve می‌کند.
+- **مشاهده‌شده:** LBها دیگر ترافیک production egress nodeها را حمل نمی‌کنند؛ سرویس NAT قدیمی آن‌ها فقط برای پنجره rollback فعال مانده است.
+- **استنباط:** ایجاد Gateway دارای NIC عمومی، محدودیت private egress/SNAT شبکه ارائه‌دهنده را بدون تغییر subnet-wide route دور زده است.
 
-نودهای K3s اکنون private-only هستند. هیچ‌کدام Public IPv4 ندارند؛ SSH و Kubernetes API فقط از شبکه خصوصی و از طریق Bastion/Load Balancer قابل دسترسی است.
+خرابی public edge مربوط به Floating IPها در 2026-07-20 با افزودن NIC و IPv4 عمومی مستقیم به هر دو LB دور زده شد. `godarai.ir` اکنون روی HTTPS پاسخ `200` می‌دهد و تست مستقیم با SNI روی هر دو IP جدید موفق است. Floating IPهای قبلی detach شده‌اند، ولی برای rollback حذف یا release نشده‌اند.
 
-## فهرست ماشین‌ها
+## تاریخچه تغییرات مهم
 
-| نقش | Hostname | اینترفیس خصوصی | IP خصوصی | اینترفیس عمومی | IP عمومی |
+- **2026-07-16:** Port Security روی پورت‌های خصوصی `lb-1` و `lb-2` از پنل غیرفعال شد؛ HAProxy روی VIP `10.10.0.6:6443` قرار گرفت و failover کنترل‌شده Keepalived موفق بود.
+- **2026-07-16:** Public IPهای nodeهای K3s حذف شدند و default route آن‌ها به VIP `10.10.0.6` منتقل شد. در همان روز egress از مسیر NAT روی LBها سالم تست شده بود.
+- **2026-07-17:** Job مربوط به `migrate-main-db` با خطای DNS/عدم resolve دیتابیس شکست خورد.
+- **2026-07-18:** DHCP شبکه خصوصی در پنل فعال شد. قفل Cloud-Init شبکه روی `lb-2` برداشته شد، ولی پورت قدیمی `lb-2` DHCP Offer نگرفت؛ static IP آن حفظ شد.
+- **2026-07-19:** VPS جدید `test` به شبکه خصوصی افزوده شد و DHCP روی پورت جدید با موفقیت `10.10.0.190` را اختصاص داد. مقایسه forced-interface روی این VPS نشان داد private egress خراب و public egress سالم است.
+- **2026-07-20:** نام guest به `nat-gw-1` تغییر کرد؛ `10.10.0.190/24` در Netplan استاتیک شد، تنها default route عمومی حفظ شد و Cloud-Init network/hostname قفل شد.
+- **2026-07-20:** forwarding، nftables با forward policy برابر drop، MASQUERADE محدود به سه node و `conntrack` فعال شد. reboot و public source برابر `188.121.120.198` موفق بود.
+- **2026-07-20:** آزمایش runtime روی `node-2` به‌دلیل نرسیدن packetهای routed به guest Gateway rollback شد؛ route پایدار nodeها تغییر نکرد.
+- **2026-07-20:** پورت اضافی `.181` حذف و Port Security روی پورت‌های خصوصی `nat-gw-1`، `lb-1` و `lb-2` با confirmation پنل غیرفعال شد. listenerهای خصوصی LB/VIP دوباره در دسترس قرار گرفتند.
+- **2026-07-20:** hotplug ابرآروان یک `50-cloud-init.yaml` جدید ساخت و DHCP خصوصی را برگرداند؛ hotplug network در override نهایی Cloud-Init غیرفعال، rule udev حذف و Netplan واحد دوباره اعمال شد.
+- **2026-07-20:** آزمایش دوم `node-2` مسیر NAT را اثبات کرد، ولی DNS دیتابیس با resolverهای فعلی شکست خورد. query مستقیم به `1.1.1.1` و `8.8.8.8` موفق بود و node rollback شد.
+- **2026-07-20:** `netplan try` روی `node-2` تنها interface کلاستر را موقتاً پایین آورد و node را NotReady کرد؛ از این نقطه route و DNS به‌صورت runtime اعمال و فایل‌ها بدون restart شبکه persist شدند.
+- **2026-07-20:** metadata ابرآروان همچنان MAC مربوط به public NIC حذف‌شده nodeها را اعلام می‌کرد. override شبکه Cloud-Init، حذف hotplug rule و marker برابر `/var/lib/cloud/data/upgraded-network` روی هر سه node نصب شد.
+- **2026-07-20:** در reboot اعتبارسنجی `node-2`، shutdown با خطاهای I/O روی block deviceهای transient Longhorn متوقف شد و یک Stop/Start از پنل لازم بود. boot بعدی بدون خطای I/O انجام شد و K3s/Longhorn بازیابی شدند.
+- **2026-07-20:** `8.8.8.8` پس از یک timeout در پنج query مستقیم کنار گذاشته شد؛ زوج نهایی `1.1.1.1` و `1.0.0.1` در تست‌های تکراری پایدار بود.
+- **2026-07-20:** Cutover به ترتیب `node-2`، `node-3` و `node-1` کامل شد. هر node حداقل ده دقیقه Ready و زیر بار مشاهده شد و rollback timerها لغو شدند.
+- **2026-07-20:** CoreDNS rollout شد و تست‌های واقعی ClusterFirst روی هر سه node، DNS دیتابیس، TCP/5432 و public source برابر `188.121.120.198` را تأیید کردند.
+- **2026-07-20:** reboot نهایی `nat-gw-1` hostname، Netplan واحد، default route عمومی، nftables و sysctlها را حفظ کرد؛ هیچ unit ناموفق مشاهده نشد.
+- **2026-07-20:** برای رفع timeout دامنه، به `lb-1` و `lb-2` NIC عمومی مستقیم اضافه شد؛ Netplan هر دو ماشین یکپارچه، Cloud-Init network قفل و default route فقط روی NIC عمومی قرار گرفت. فایروال nftables ورودی عمومی را به HTTP/HTTPS محدود کرد.
+- **2026-07-20:** Floating IPهای `37.32.31.230` و `37.32.31.139` detach ولی برای rollback حفظ شدند. رکوردهای A مربوط به `@` و `*` در پنل به IPهای مستقیم `185.231.180.132` و `37.152.187.55` تغییر کردند؛ سایت و هر دو origin پاسخ HTTPS `200` دادند.
+
+## فهرست ماشین‌ها و آدرس‌ها
+
+| نقش | Hostname | interface / MAC خصوصی | IP خصوصی فعال | public address | وضعیت |
 | --- | --- | --- | --- | --- | --- |
-| Bastion | `bastion` | `private0` / `fa:16:3e:e4:0c:1b` | `10.10.0.5/24` | `public0` / `fa:16:3e:19:75:91` | `37.152.191.92/22` |
-| Load balancer | `lb-1` | `eth0` / `fa:16:3e:d8:b2:72` | `10.10.0.7/24` + VIP `10.10.0.6/24` | Floating IP | `37.32.31.230` |
-| Load balancer | `lb-2` | `eth0` / `fa:16:3e:cc:41:ab` | `10.10.0.8/24` | Floating IP | `37.32.31.139` |
-| K3s node | `node-1` | `eth1` / `fa:16:3e:3a:7d:ce` | `10.10.0.21/24` | حذف‌شده | ندارد |
-| K3s node | `node-2` | `eth1` / `fa:16:3e:a7:91:15` | `10.10.0.22/24` | حذف‌شده | ندارد |
-| K3s node | `node-3` | `eth1` / `fa:16:3e:1a:14:bd` | `10.10.0.23/24` | حذف‌شده | ندارد |
+| Bastion | `bastion` | `private0` / `fa:16:3e:e4:0c:1b` | `10.10.0.5/24` | `public0`: `37.152.191.92/22` | فعال |
+| Load balancer | `lb-1` | `eth0` / `fa:16:3e:d8:b2:72` | `10.10.0.7/24` + VIP `10.10.0.6/24` | `eth1`: `185.231.180.132/22` | MASTER فعلی؛ public ingress فعال |
+| Load balancer | `lb-2` | `eth0` / `fa:16:3e:cc:41:ab` | `10.10.0.8/24` | `eth1`: `37.152.187.55/23` | BACKUP فعلی؛ public ingress فعال |
+| K3s node | `node-1` | `eth1` / `fa:16:3e:3a:7d:ce` | `10.10.0.21/24` | ندارد | Ready |
+| K3s node | `node-2` | `eth1` / `fa:16:3e:a7:91:15` | `10.10.0.22/24` | ندارد | Ready |
+| K3s node | `node-3` | `eth1` / `fa:16:3e:1a:14:bd` | `10.10.0.23/24` | ندارد | Ready |
+| NAT gateway | `nat-gw-1` | `eth0` / `fa:16:3e:5a:d5:79` | static: `10.10.0.190/24` | `eth1`: `188.121.120.198/22` | production egress فعال |
 
-همه ماشین‌ها Ubuntu 24.04 با kernel `6.8.0-134-generic` هستند.
+آدرس‌های اولیه پنل برای VPS جدید `10.10.0.181`، `10.10.0.190` و `188.121.120.198` بودند. وضعیت نهایی:
 
-## وضعیت منابع
+- `10.10.0.190` روی `eth0` با MAC برابر `fa:16:3e:5a:d5:79` فعال است. Fixed IP بودن این پورت در پنل تأیید و آدرس داخل guest استاتیک شده است.
+- `188.121.120.198` روی `eth1` با MAC برابر `fa:16:3e:5f:7f:a3` فعال و از DHCP شبکه عمومی دریافت شده است.
+- پورت اضافی `10.10.0.181` با MAC برابر `fa:16:3e:fd:65:58` در 2026-07-20 detach شد.
 
-| ماشین | vCPU | RAM | دیسک root | نکته |
-| --- | ---: | ---: | ---: | --- |
-| `bastion` | 1 | 961 MiB | 23 GiB، مصرف 29% | Squid و listenerهای local Xray دیده شد |
-| `lb-1` | 1 | 961 MiB | 23 GiB، مصرف 8% | HAProxy و Keepalived فعال |
-| `lb-2` | 1 | 961 MiB | 23 GiB، مصرف 9% | HAProxy و Keepalived فعال |
-| `node-1` | 4 | 11 GiB | 70 GiB، مصرف 77% | K3s فعال |
-| `node-2` | 2 | 3.8 GiB | 70 GiB، مصرف 66% | K3s فعال |
-| `node-3` | 2 | 3.8 GiB | 70 GiB، مصرف 78% | K3s فعال |
+Floating IPهای قبلی LBها داخل Netplan یا interfaceهای guest تنظیم نشده‌اند و در پنل detached مانده‌اند. مسیر فعال ingress از NIC عمومی مستقیم هر LB است؛ این تصمیم dependency خراب Floating-IP mapping را از مسیر production حذف کرده و امکان rollback را حفظ کرده است.
 
-روی ماشین‌ها swap فعال نیست.
+## نسخه سیستم‌عامل و منابع
 
-## شبکه و Netplan
+| ماشین | Ubuntu | Kernel | vCPU | RAM | root disk | Swap |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| `bastion` | 24.04.1 LTS | `6.8.0-136-generic` | 1 | 961 MiB | 23 GiB، مصرف 23% | ندارد |
+| `lb-1` | 24.04.1 LTS | `6.8.0-134-generic` | 1 | 961 MiB | 23 GiB، مصرف 8% | ندارد |
+| `lb-2` | 24.04.4 LTS | `6.8.0-134-generic` | 1 | 961 MiB | 23 GiB، مصرف 9% | ندارد |
+| `node-1` | 24.04.1 LTS | `6.8.0-134-generic` | 4 | 11 GiB | 70 GiB، مصرف 80% | ندارد |
+| `node-2` | 24.04.1 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 74% | ندارد |
+| `node-3` | 24.04.4 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 79% | ندارد |
+| `nat-gw-1` | 24.04.1 LTS | `6.8.0-45-generic` | 1 | 961 MiB | 23 GiB، مصرف 6% | ندارد |
 
-شبکه خصوصی `10.10.0.0/24` است و gateway آن `10.10.0.1` است.
+## شبکه خصوصی و وضعیت OpenStack قابل مشاهده
 
-روی Bastion، اینترفیس عمومی و خصوصی با netplan استاتیک تعریف شده است. روی دو LB پس از cutover، public fixed interface از guest OS حذف شد و route پیش‌فرض روی `eth0` از طریق gateway خصوصی `10.10.0.1` تنظیم شد.
+تنظیمات فعلی شبکه خصوصی که از پنل اعلام شده است:
 
-روی نودهای K3s مدل شبکه اکنون private-only است:
+- CIDR: `10.10.0.0/24`
+- Gateway: فعال، `10.10.0.1`
+- DHCP: فعال
+- DHCP allocation pool: `10.10.0.100` تا `10.10.0.199`
+- Static Route پنل: خالی
+- Port Security روی پورت‌های `lb-1` و `lb-2`: غیرفعال، طبق اعلام مالک پنل
 
-- `eth1` اینترفیس خصوصی static داخل `10.10.0.0/24` است.
-- `eth0` عمومی از guest OS و پنل provider حذف شده است.
-- default route روی هر سه node به VIP خصوصی `10.10.0.6` اشاره می‌کند.
-- policy routing مربوط به Public IPها حذف شده است.
+در baseline، DHCP جدید روی ماشینی که آن زمان `test` نام داشت به‌صورت عملی کار کرد: `systemd-networkd` دریافت `10.10.0.190/24`، gateway برابر `10.10.0.1` و DNSهای `1.1.1.1` و `8.8.8.8` را از `10.10.0.1` ثبت کرد. بنابراین DHCP subnet برای پورت‌های جدید فعال است.
 
-نتیجه عملی: خروجی اینترنت nodeها از مسیر `node -> 10.10.0.6 -> lb-1/lb-2 NAT -> internet` انجام می‌شود. این مسیر با پاسخ `200` از `1.1.1.1`، پاسخ `401` از Docker Registry و پاسخ `200` از GitHub روی نودها تست شد.
+کارکرد DHCP به‌تنهایی به معنی وجود Internet Gateway یا SNAT سالم نیست. تست interface-specific پیش از آماده‌سازی `nat-gw-1` نتیجه زیر را داد:
 
-## Bastion
+| مسیر تست | نتیجه HTTPS به `1.1.1.1` |
+| --- | --- |
+| `nat-gw-1` از `eth0` خصوصی / source `10.10.0.190` | timeout، HTTP code `000` |
+| `nat-gw-1` از `eth1` عمومی / source `188.121.120.198` | موفق، HTTP code `200` |
 
-`bastion` نقطه ورود SSH عمومی با IP `37.152.191.92` است. listenerهای مهم:
+این paired test ثابت می‌کند که DHCP و اتصال لایه 2/3 شبکه خصوصی تا gateway برقرار است، اما خروجی اینترنت private path کار نمی‌کند.
 
-- `0.0.0.0:22` و `[::]:22` برای SSH.
-- `10.10.0.5:3128` برای Squid.
-- `127.0.0.1:10808` و `127.0.0.1:10809` برای Xray local.
+## Netplan و routeها
 
-UFW غیرفعال است. سرویس `ufw` در systemd وجود دارد، اما `ufw status verbose` مقدار `Status: inactive` برگرداند. این با توضیح شما درباره استفاده از Firewall پنل سازگار است.
+### Bastion
 
-## لایه Load Balancer
+- `public0`: `37.152.191.92/22`
+- `private0`: `10.10.0.5/24`
+- default route: `37.152.188.1` روی `public0`
+- egress، DNS دیتابیس و HTTPS در 2026-07-19 سالم بود.
 
-### وضعیت سرویس‌ها
+listenerها و سرویس‌های مشاهده‌شده روی Bastion:
 
-روی هر دو LB:
+- SSH روی `0.0.0.0:22` و `[::]:22`
+- Squid روی `10.10.0.5:3128`، active و enabled
+- Xray روی `127.0.0.1:10808` و `127.0.0.1:10809`، active و enabled
+- UFW: `inactive`؛ کنترل دسترسی اصلی به policyهای پنل وابسته است.
 
-- `haproxy.service`: فعال و enabled.
-- `keepalived.service`: فعال و enabled.
-- `k3s-egress-nat.service`: فعال و enabled.
-- `nginx`: نصب/شناخته‌شده نیست.
+### Load Balancerها
 
-بنابراین runbookها و مستندات عملیاتی باید وضعیت زنده HAProxy + Keepalived را منبع اصلی بدانند.
+هر LB یک NIC خصوصی استاتیک و یک NIC عمومی DHCP دارد:
 
-### مسیر عمومی HTTP/HTTPS
+- `lb-1`: `eth0=10.10.0.7/24` به‌همراه VIP `10.10.0.6/24`؛ `eth1=185.231.180.132/22` و تنها default route از `185.231.180.1`
+- `lb-2`: `eth0=10.10.0.8/24`؛ `eth1=37.152.187.55/23` و تنها default route از `37.152.186.1`
+- Cloud-Init network روی هر دو LB غیرفعال است و Netplan فعال هر ماشین در `/etc/netplan/01-lb-public.yaml` یکپارچه شده است. DNSهای استاتیک `1.1.1.1` و `8.8.8.8` روی تعریف `eth0` حفظ شده‌اند و DHCP عمومی نیز مجاز به ارائه resolver است.
+- `haproxy`، `keepalived` و `lb-public-filter.service` روی هر دو ماشین active هستند. فایروال میزبان روی `eth1` فقط DHCP، ICMP ضروری، connectionهای established و TCP/80/443 را می‌پذیرد؛ SSH عمومی در تست خارجی timeout شد.
 
-HAProxy روی هر دو LB این پورت‌ها را گوش می‌دهد:
+### Nodeهای K3s
+
+- `node-1`: default via `10.10.0.190` روی `eth1`
+- `node-2`: default via `10.10.0.190` روی `eth1`
+- `node-3`: default via `10.10.0.190` روی `eth1`
+- DNS هر سه node: `1.1.1.1` و `1.0.0.1`
+- Netplan هر node فقط `eth1` را تعریف می‌کند؛ public NIC قدیمی حذف شده است.
+- Cloud-Init network روی هر سه node غیرفعال، hotplug rule حذف و marker `upgraded-network` نصب شده است.
+- Public IPv4 ندارند.
+
+### NAT Gateway `nat-gw-1`
+
+Cloud-Init با `DataSourceOpenStackLocal` کامل شده و اکنون network config و hostname آن با فایل‌های `99-disable-network-config.cfg` و `99-preserve-hostname.cfg` قفل شده است.
+
+- `eth0`: استاتیک `10.10.0.190/24`، بدون gateway و DNS
+- `eth1`: DHCP عمومی `188.121.120.198/22` و تنها default route از `188.121.120.1`
+- پورت/اینترفیس سابق `eth2`: از control plane detach شده است
+- `net.ipv4.ip_forward=1`، `rp_filter=2` و redirectهای IPv4 خاموش
+- `nftables.service`: active و enabled؛ input/output برابر accept و forward policy برابر drop
+- MASQUERADE فقط برای `10.10.0.21/32`، `.22/32` و `.23/32` هنگام خروج از `eth1`
+- `conntrack`: نصب‌شده؛ شمارش نهایی `71/8192` بود
+
+پس از reboot، hostname، تنها route عمومی، nftables و source IP عمومی `188.121.120.198` حفظ شدند. خود Gateway به GitHub پاسخ `200`، از Docker Registry پاسخ `401` و به IP دیتابیس روی TCP/5432 اتصال موفق داشت.
+
+Gateway مسیر فعال production هر سه node است. پس از Cutover، public source برابر `.198`، GitHub=`200`، Registry=`401`، DNS hostname دیتابیس و TCP/5432 هم از host و هم از Podهای pinned تأیید شدند. counterهای نهایی Gateway پس از تست‌ها شامل `allow new=75`، `MASQUERADE=75` و `established=2182` بود؛ counter ترافیک جدید public-to-private و catch-drop صفر باقی ماند.
+
+## Bastion و دسترسی PuTTY
+
+پروفایل PuTTY با نام `nat-gw-1` وجود دارد و اتصال آن در 2026-07-20 موفق بود:
+
+- Host: `127.0.0.1`
+- Port: `22190`
+- User: `ubuntu`
+- مقصد واقعی: `10.10.0.190:22`
+
+forwarding پورت `22190` اکنون مستقیماً از saved profile مربوط به Bastion به Gateway می‌رود:
+
+```text
+Bastion -> 10.10.0.190:22
+```
+
+ورودی `L22190=10.10.0.190:22` به saved profile `Bastion` افزوده شد و process وابسته به `node-1` حذف شد. بنابراین تغییر default route روی `node-1` دیگر مسیر مدیریتی Gateway را قطع نمی‌کند.
+
+یک listener قدیمی روی local port `22181` هنوز متعلق به session جاری PuTTY/Bastion بود و با پورت غیرفعال `10.10.0.181` مرتبط است؛ پروفایل `nat-gw-1` از آن استفاده نمی‌کند.
+
+## لایه Load Balancer و VIP
+
+روی هر دو LB در 2026-07-19:
+
+- `haproxy.service`: active و enabled
+- `keepalived.service`: active و enabled
+- `k3s-egress-nat.service`: active و enabled
+- `systemd-networkd`: active و enabled
+- `net.ipv4.ip_forward=1`
+- `net.ipv4.ip_nonlocal_bind=1`
+- `net.ipv4.conf.eth0.send_redirects=0`
+
+Listenerهای HAProxy روی هر دو LB:
 
 - `0.0.0.0:80`
 - `0.0.0.0:443`
+- `10.10.0.6:6443`
 
-Frontendها TCP passthrough هستند:
+HAProxy در `mode tcp` و با `roundrobin` کار می‌کند. TLS روی LB terminate نمی‌شود. backendهای زنده و یکسان روی هر دو LB:
 
-- `public_http` به backend `ingress_http`
-- `public_https` به backend `ingress_https`
+| Frontend | Backendها |
+| --- | --- |
+| HTTP `:80` | `10.10.0.21:30081`، `10.10.0.22:30081`، `10.10.0.23:30081` |
+| HTTPS `:443` | `10.10.0.21:30444`، `10.10.0.22:30444`، `10.10.0.23:30444` |
+| Kubernetes API `10.10.0.6:6443` | `10.10.0.21:6443`، `10.10.0.22:6443`، `10.10.0.23:6443` |
 
-Backendها:
+`nginx.service` روی هیچ‌کدام از LBها وجود ندارد؛ edge واقعی HAProxy + Keepalived است.
 
-- HTTP: `10.10.0.21:30081`، `10.10.0.22:30081`، `10.10.0.23:30081`
-- HTTPS: `10.10.0.21:30444`، `10.10.0.22:30444`، `10.10.0.23:30444`
+VIP `10.10.0.6/24` هنگام بررسی روی `lb-1` قرار داشت. از Bastion اتصال TCP به این مسیرها موفق بود:
 
-HAProxy در mode `tcp` و با `roundrobin` کار می‌کند. TLS روی LB terminate نمی‌شود؛ ترافیک HTTPS به `ingress-nginx` داخل Kubernetes پاس داده می‌شود.
+- `10.10.0.7:80` و `10.10.0.7:443`
+- `10.10.0.8:80` و `10.10.0.8:443`
+- `10.10.0.6:6443`
 
-### مسیر خصوصی Kubernetes API
+Keepalived همچنان `lb-1` را با priority `200` و `lb-2` را با priority `150` مدیریت می‌کند. failover کنترل‌شده در 2026-07-16 موفق بود، اما در audit جدید عمداً تکرار نشد.
 
-طراحی مورد انتظار:
+health script فعلی فقط `pidof haproxy` را کنترل می‌کند؛ سلامت bind روی VIP، API و backendها را به‌صورت end-to-end بررسی نمی‌کند. health checkهای HAProxy نیز TCP-only هستند.
 
-- VIP خصوصی `10.10.0.6/24` روی `eth0`
+## NAT قدیمی روی LBها و مسیر فعال egress
 
-وضعیت Keepalived:
+روی هر دو LB ruleهای زیر همچنان وجود دارند:
 
-- `lb-1`: حالت `MASTER`، priority `200`، peer برابر `10.10.0.8`
-- `lb-2`: حالت `BACKUP`، priority `150`، peer برابر `10.10.0.7`
-- health script فقط `pidof haproxy` را چک می‌کند.
+- `MASQUERADE` برای `10.10.0.21/32`
+- `MASQUERADE` برای `10.10.0.22/32`
+- `MASQUERADE` برای `10.10.0.23/32`
+- مستثنی‌کردن مقصدهای داخل `10.10.0.0/24`
 
-وضعیت فعلی پس از اصلاح 2026-07-16:
+این ruleها و سرویس `k3s-egress-nat` موقتاً برای rollback فعال و enabled مانده‌اند، اما هر سه node اکنون default route خود را به `nat-gw-1` می‌فرستند و این LBها ترافیک production egress را حمل نمی‌کنند. آن‌ها فقط پس از حداقل ۲۴ ساعت پایداری Gateway پاک‌سازی می‌شوند.
 
-- HAProxy روی هر دو LB به `10.10.0.6:6443` bind شده است.
-- `net.ipv4.ip_nonlocal_bind=1` روی هر دو LB فعال است تا نود BACKUP هم بتواند پیش از مالک شدن VIP روی آن bind کند.
-- از Bastion، `10.10.0.6:6443` باز است.
-- درخواست بدون credential به `https://10.10.0.6:6443/version` پاسخ `401 Unauthorized` از Kubernetes API برمی‌گرداند.
-- گواهی Kubernetes API شامل `10.10.0.6` و `k3s-api.internal` در SAN است.
-- در تست کنترل‌شده، با توقف موقت Keepalived روی `lb-1`، VIP روی `lb-2` نشست و اتصال API برقرار ماند.
-- پس از بازگرداندن `lb-1`، VIP به دلیل priority بالاتر به `lb-1` برگشت.
+| ماشین | route انتخاب‌شده | نتیجه خروجی نهایی |
+| --- | --- | --- |
+| `lb-1` | `1.1.1.1 via 10.10.0.1` | timeout |
+| `lb-2` | `1.1.1.1 via 10.10.0.1` | timeout |
+| `node-1` | `1.1.1.1 via 10.10.0.190` | موفق؛ source `.198` |
+| `node-2` | `1.1.1.1 via 10.10.0.190` | موفق؛ source `.198` |
+| `node-3` | `1.1.1.1 via 10.10.0.190` | موفق؛ source `.198` |
+| `bastion` | public gateway روی `public0` | `200` |
 
-نتیجه: مسیر رسمی API خصوصی اکنون VIP `10.10.0.6:6443` است.
-
-### مسیر خروجی نودهای K3s
-
-پس از حذف Public IP از nodeها، خروجی اینترنت آن‌ها از NAT روی Load Balancerها انجام می‌شود.
-
-روی هر دو LB:
-
-- `net.ipv4.ip_forward=1`
-- `net.ipv4.conf.eth0.send_redirects=0`
-- سرویس `k3s-egress-nat.service` فعال است.
-- ruleهای `MASQUERADE` فقط برای sourceهای زیر تعریف شده‌اند:
-  - `10.10.0.21/32`
-  - `10.10.0.22/32`
-  - `10.10.0.23/32`
-- مقصدهای داخل `10.10.0.0/24` از NAT مستثنی هستند.
-
-فایل‌های live روی LBها:
-
-- `/usr/local/sbin/k3s-egress-nat.sh`
-- `/etc/sysctl.d/70-k3s-egress-nat.conf`
-- `/etc/systemd/system/k3s-egress-nat.service`
+timeout خروجی خود LBها از private gateway همچنان توضیح می‌دهد چرا طراحی NAT قدیمی شکست خورد؛ مسیر جدید این وابستگی را با public NIC اختصاصی Gateway حذف کرده است.
 
 ## Kubernetes
 
-K3s روی هر سه node فعال است:
+هر سه node در بررسی نهایی 2026-07-20 `Ready` هستند:
 
-| Node | Status | Role | Internal IP | Version |
-| --- | --- | --- | --- | --- |
-| `node-1` | Ready | control-plane, etcd | `10.10.0.21` | `v1.35.5+k3s1` |
-| `node-2` | Ready | control-plane, etcd | `10.10.0.22` | `v1.35.5+k3s1` |
-| `node-3` | Ready | control-plane, etcd | `10.10.0.23` | `v1.35.5+k3s1` |
+| Node | Role | Internal IP | Version |
+| --- | --- | --- | --- |
+| `node-1` | control-plane, etcd | `10.10.0.21` | `v1.35.5+k3s1` |
+| `node-2` | control-plane, etcd | `10.10.0.22` | `v1.35.5+k3s1` |
+| `node-3` | control-plane, etcd | `10.10.0.23` | `v1.35.5+k3s1` |
 
-Service اصلی ingress:
+Service ورودی همچنان `ingress-nginx/ingress-nginx-controller` از نوع NodePort است:
 
-- `ingress-nginx/ingress-nginx-controller`
-- نوع: `NodePort`
-- پورت‌ها: `80:30081/TCP` و `443:30444/TCP`
+- HTTP: `30081/TCP`
+- HTTPS: `30444/TCP`
 
-Ingress hostهای مهم:
+Ingress hostهای مشاهده‌شده:
 
 - `godarai.ir`
 - `*.godarai.ir`
 - `admin.godarai.ir`
 
-Podهای غیرسالم در آخرین چک Kubernetes:
+تنها Pod غیرRunning مشاهده‌شده در بررسی نهایی `observability/loki-chunks-cache-0` با وضعیت `Pending` و عمر حدود هفت روز بود. CrashLoopBackOffهای قدیمی `control-plane` و `tenant-admin` دیگر در فهرست نهایی دیده نشدند. CoreDNS جدید روی `node-2` Running و بدون restart است؛ log آن upstream timeout جدیدی نشان نداد.
 
-- `observability/loki-chunks-cache-0`: وضعیت `Pending`
-- `observability/prometheus-kube-prometheus-stack-prometheus-0`: وضعیت `ImagePullBackOff`
+### Job مهاجرت دیتابیس
 
-در یک خروجی گسترده‌تر، یک pod مربوط به `docs` هم موقتا `CrashLoopBackOff` دیده شد، اما در چک نهایی non-running نبود؛ آن مورد را فعلا transient در نظر بگیرید مگر دوباره تکرار شود.
+وضعیت فعلی:
+
+- Job: `shahrah-production/migrate-main-db`
+- Status: `Failed`
+- Completion: `0/1`
+- Start: `2026-07-17 08:53:32 UTC`
+- Backoff limit: `3`
+- Pod فعلی برای label این job وجود ندارد؛ بنابراین `kubectl logs job/migrate-main-db` دیگر log قابل بازیابی نداد.
+
+خطای ثبت‌شده هنگام وقوع:
+
+```text
+goose run: failed to connect to user=base-user database=default:
+hostname resolving error: lookup c781656f0ab24ceb9040b7f8bdbe5f6c.db.arvandbaas.ir
+on 10.43.0.10:53: server misbehaving
+```
+
+اکنون nodeها و Podهای ClusterFirst همین hostname را به `185.231.181.201` resolve می‌کنند و TCP دیتابیس روی `5432` نیز موفق است. بنابراین پیش‌نیاز شبکه‌ای Job برطرف شده، اما Job قدیمی عمداً در این rollout دوباره اجرا نشد و همچنان `Failed` است؛ اجرای migration باید یک اقدام جداگانه و کنترل‌شده باشد.
 
 ## DNS و دسترسی عمومی
 
-NSهای دامنه:
+NSهای authoritative:
 
 - `c.ns.arvancdn.ir`
 - `p.ns.arvancdn.ir`
 
-نمونه queryهای authoritative در زمان بررسی اولیه:
+رکوردهای A در پنل با TTL دو دقیقه تنظیم شده‌اند:
 
-- `godarai.ir A` مقدار `95.38.235.75` را برگرداند.
-- یک wildcard تصادفی زیر `godarai.ir` مقدار `95.38.233.36` را برگرداند.
-- `www.godarai.ir CNAME` به `godarai.ir` اشاره می‌کند.
+- `@`: `37.152.187.55` و `185.231.180.132`
+- `*`: `37.152.187.55` و `185.231.180.132`
+- `www`: CNAME به `godarai.ir.`
 
-وضعیت پس از cutover Floating IP:
+در پذیرش نهایی، `https://godarai.ir/` پاسخ `200` داد. HTTPS مستقیم با SNI برابر `godarai.ir` روی هر دو IP نیز پاسخ `200` داد و HTTP به HTTPS با `308` redirect شد. authoritative DNS و resolverهای `1.1.1.1` و `8.8.8.8` از مبدأ بررسی فعلاً فقط `37.152.187.55` را برگرداندند، با اینکه هر دو مقدار در پنل ثبت شده‌اند؛ بنابراین توزیع یا failover پاسخ DNS در کنترل سرویس DNS آروان است و از این مشاهده نمی‌توان round-robin قطعی بین دو origin را نتیجه گرفت.
 
-- نمونه query از NSهای Arvan برای `godarai.ir` مقدار `37.32.31.230` را برگرداند.
-- `37.32.31.139` مستقیماً روی `80/443` سالم است، اما باید در DNS/Arvan نیز به‌عنوان رکورد فعال تأیید شود.
+## ریسک‌ها و مسائل باز
 
-این رفتار با تصویر ذهنی «هر دو رکورد `@` و `*` همیشه هر دو IP را برمی‌گردانند» کاملا یکی نبود. ممکن است به تنظیمات Arvan، proxy/CDN، وزن‌دهی، یا وضعیت پنل مربوط باشد؛ قبل از اتکا به DNS برای HA باید در پنل Arvan دقیق بررسی شود.
+1. **رفع‌شده با workaround — public edge روی Floating IPها timeout می‌شد.** مسیر production اکنون از public NICهای مستقیم استفاده می‌کند؛ Floating IPهای خراب detached و برای rollback حفظ شده‌اند.
+2. **بالا — migration دیتابیس همچنان Failed است.** مسیر DNS/TCP آن اکنون سالم است، ولی Job عمداً دوباره اجرا نشده است.
+3. **بالا — metadata شبکه OpenStack stale است.** MACهای public NIC حذف‌شده هنوز به nodeها اعلام می‌شوند و بدون marker `upgraded-network` می‌توانند Cloud-Init را در boot دچار خطا کنند.
+4. **بالا — reboot اعتبارسنجی `node-2` با I/O error هنگام shutdown متوقف شد.** boot پس از power-cycle پاک بود، اما سلامت disk و block deviceهای transient Longhorn باید پیش از reboot بعدی بررسی شود.
+5. **متوسط — HA عمومی DNS-level است، نه یک public VIP مشترک.** هر دو origin سالم‌اند، اما authoritative DNS از مبدأ تست فقط IP `lb-2` را انتخاب کرد؛ failover خودکار باید جداگانه با قابلیت health-check/load-balancing ارائه‌دهنده اثبات شود.
+7. **متوسط — health check Keepalived سطحی است.** فقط وجود process HAProxy را می‌سنجد، نه سلامت VIP/API/backend.
+8. **متوسط — OS firewall روی بیشتر ماشین‌ها غیرفعال گزارش شده است.** روی هر دو LB اکنون nftables عمومی فعال است و فقط 80/443 را باز می‌گذارد؛ سایر ماشین‌ها همچنان به policy پنل وابسته‌اند.
+9. **متوسط — disk nodeها رو به پرشدن است.** `node-1` به 80% و `node-3` به 79% رسیده‌اند.
+10. **متوسط — swap روی هیچ ماشین فعال نیست.** LBها و `nat-gw-1` فقط 1 GiB RAM دارند.
+11. **متوسط — `loki-chunks-cache-0` همچنان Pending است.** این وضعیت از Cutover مستقل است.
 
-تست‌های HTTP/HTTPS:
+## گام‌های پیشنهادی بعدی
 
-- `http://godarai.ir`: پاسخ `308` و redirect به HTTPS.
-- `https://godarai.ir`: پاسخ `200 OK`.
-- HTTP مستقیم به `37.32.31.230` و `37.32.31.139`: پاسخ `308`.
-- HTTPS مستقیم به `37.32.31.230` و `37.32.31.139` با SNI برابر `godarai.ir`: پاسخ `200 OK`.
-
-## نقاط ضعف و ریسک‌ها
-
-1. ریسک قبلی HA خصوصی Kubernetes API از طریق VIP برطرف شد. VIP `10.10.0.6` از Bastion قابل اتصال است، HAProxy هر دو LB روی VIP bind شده‌اند، و failover کنترل‌شده موفق بود.
-
-2. drift قبلی HAProxy بین `lb-1` و `lb-2` جمع شد. هر دو کانفیگ اکنون برای API خصوصی از `bind 10.10.0.6:6443` استفاده می‌کنند. باید مراقب بود تغییرات دستی بعدی دوباره این drift را ایجاد نکند.
-
-3. HA عمومی بیشتر DNS-level به نظر می‌رسد، نه public VIP واقعی. اگر DNS یک LB خراب را برگرداند، کاربر تا پایان cache/TTL ممکن است خطا بگیرد، مگر اینکه Arvan health-check/proxy فعال و درست داشته باشد.
-
-4. هر runbook یا ذهنیتی که Nginx را edge اصلی بداند، با وضعیت زنده سازگار نیست و باید HAProxy + Keepalived را منبع اصلی بداند.
-
-5. OS firewall غیرفعال است. با توجه به استفاده از Firewall پنل، این الزاماً اشتباه نیست، اما defense-in-depth حذف شده و هر خطای پنل می‌تواند listenerهای سیستم‌عامل را مستقیم expose کند.
-
-6. نودهای K3s دیگر Public IP ندارند. این ریسک exposure عمومی SSH و پورت‌های Kubernetes را کاهش داده است، اما سلامت `k3s-egress-nat.service` روی LBها اکنون برای image pull، GitOps، دسترسی به registry و وابستگی‌های بیرونی حیاتی است.
-
-7. health check در Keepalived سطحی است. فقط وجود process HAProxy را چک می‌کند، نه bind بودن به VIP درست، نه reachability پورت `6443`، و نه سلامت backendها.
-
-8. health checkهای HAProxy هم TCP-only هستند. برای passthrough منطقی است، ولی خرابی‌های لایه بالاتر ingress/controller/app را تشخیص نمی‌دهد.
-
-9. LBها فقط 1 GiB RAM دارند و swap ندارند. مصرف فعلی سبک است، اما در شرایط log burst، package operation، یا رشد غیرمنتظره memory حاشیه امن کم است.
-
-10. مصرف دیسک nodeها به 66 تا 78 درصد رسیده است. مخصوصا `node-1` و `node-3` نیاز به threshold هشدار و سیاست cleanup/retention دارند.
-
-11. بخشی از observability خراب یا ناقص است. Prometheus در `ImagePullBackOff` و Loki chunks cache در `Pending` بود؛ این توان تشخیص سریع مشکل HA را ضعیف می‌کند.
-
-12. بخشی از کانفیگ manual و بخشی versioned است. NAT خروجی nodeها فعلاً روی LBها به‌صورت systemd/script live پیاده‌سازی شده و باید در runbookها و automation آینده نگه داشته شود.
-
-## بررسی‌های پیشنهادی بعدی
-
-این‌ها پیشنهاد برای بررسی‌اند، نه تغییر فوری:
-
-1. از ruleهای Firewall پنل برای هر شش VPS export یا screenshot بگیرید و با intent امنیتی تطبیق دهید.
-2. endpoint رسمی Kubernetes API اکنون `10.10.0.6:6443` است. kubeconfigها و tunnelها را به این VIP هم‌راستا نگه دارید.
-3. Port Security شبکه خصوصی را برای `lb-1` و `lb-2` خاموش نگه دارید؛ برای نودهای K3s خاموش کردن آن لازم نیست.
-4. کانفیگ `/etc/haproxy/haproxy.cfg` روی دو LB را با repo مقایسه کنید و هر drift جدید را قبل از reload اصلاح کنید.
-5. سلامت `k3s-egress-nat.service`، `ip_forward` و ruleهای `MASQUERADE` را به monitoring اضافه کنید.
-6. رفتار Arvan DNS/CDN برای `@` و `*` را بررسی کنید: proxy، weight، health check، یا round-robin ساده.
-7. رکورد دوم DNS برای `37.32.31.139` را در Arvan بررسی کنید؛ در نمونه query پس از cutover فقط `37.32.31.230` دیده شد.
-8. قبل از اتکا به alerting، وضعیت podهای مشکل‌دار observability را بررسی کنید.
-9. وضعیت runbookها را پس از هر تغییر عملیاتی با «HAProxy + Keepalived + NAT خروجی nodeها» هم‌راستا نگه دارید.
+1. Gateway و سه node حداقل ۲۴ ساعت monitor شوند؛ conntrack بالاتر از ۷۰٪، packet drop، CoreDNS timeout و NodeNotReady هشدار ایجاد کند.
+2. پس از این پنجره و در صورت پایداری، ruleهای NAT قدیمی، `k3s-egress-nat.service` و `ip_forward` روی هر دو LB حذف/غیرفعال شوند.
+3. Job مایگریشن با artifact و پنجره اجرای جداگانه اجرا شود؛ Job فعلی Failed و Pod آن حذف شده است.
+4. از ارائه‌دهنده خواسته شود metadata/Neutron portهای حذف‌شده nodeها را پاک کند؛ تا آن زمان marker `upgraded-network` نباید حذف شود.
+5. پیش از reboot بعدی nodeها، خطاهای shutdown `node-2` و سلامت volumeهای Longhorn بررسی و snapshot/backup مناسب گرفته شود.
+6. health-check و failover واقعی رکوردهای چندمقداری DNS آروان جداگانه بررسی شود؛ صرف ثبت دو A record تضمین public VIP یا failover سریع نیست.
+7. Floating IPهای detached فقط پس از یک پنجره پایداری و تصمیم صریح درباره rollback release شوند.
+8. مشکل `loki-chunks-cache-0`، disk usage nodeها و نبود swap جداگانه رسیدگی شود.
+9. alert برای egress Gateway، DNS خارجی از کلاستر، NAT/conntrack counters، سلامت هر دو IP مستقیم و disk usage nodeها اضافه شود.
 
 ## شواهد خوانده‌شده
 
-دسته فرمان‌های خوانده‌شده از طریق SSH:
+شواهد 2026-07-19 شامل این موارد بود:
 
-- `hostname`، `date -Is`، نسخه OS/kernel، CPU/RAM/disk.
-- محتوای `/etc/netplan/*`.
-- `ip -br link`، `ip -br addr`، `ip route`، `ip rule`.
-- `ufw status verbose` و وضعیت systemd سرویس‌ها.
-- listenerها با `ss -tulpen`.
-- `/etc/haproxy/haproxy.cfg`.
-- `/etc/keepalived/keepalived.conf` و `check_haproxy.sh`.
-- خروجی‌های `k3s kubectl get nodes/services/ingress/pods`.
-- queryهای authoritative DNS برای `godarai.ir`، `www.godarai.ir` و wildcard.
-- تست‌های HEAD برای HTTP/HTTPS با resolve مستقیم IP.
+- `hostname`، زمان UTC، نسخه Ubuntu/kernel، CPU/RAM/disk/swap روی هر هفت VPS
+- `ip -br link`، `ip -br address`، `ip route` و `ip route get`
+- Netplan، `networkctl`، Cloud-Init datasource و DHCP leaseهای baseline مربوط به `nat-gw-1`
+- وضعیت `haproxy`، `keepalived`، `k3s-egress-nat` و `systemd-networkd`
+- listenerها با `ss -lnt`
+- `sysctl`های forwarding/nonlocal-bind/send-redirects
+- خروجی read-only از `iptables-save` و `nft list ruleset`
+- forced-interface HTTPS از `eth0` و `eth1` روی `nat-gw-1`
+- تست DNS دیتابیس و HTTPS از Bastion، LBها و nodeها
+- وضعیت nodeها، serviceها، ingressها، podهای non-running و Job مایگریشن در K3s
+- تنظیمات saved PuTTY profile `nat-gw-1` و process/listener تونل فعال
+- authoritative DNS و HTTP/HTTPS به دامنه و هر دو Floating IP
+
+در 2026-07-20 پیکربندی `nat-gw-1` و Netplan/Cloud-Init هر سه node تغییر کرد و Cutover production کامل شد. CoreDNS rollout و Podهای تشخیصی موقت پس از تست حذف شدند. سپس public ingress هر دو LB به NIC عمومی مستقیم منتقل، DNS به‌روزرسانی و فایروال محدودکننده میزبان فعال شد. Job مایگریشن دوباره اجرا نشد، NAT روی LBها برای rollback دست‌نخورده باقی ماند و هیچ Static Route سراسری در پنل ساخته نشد.

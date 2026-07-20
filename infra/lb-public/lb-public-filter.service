@@ -1,0 +1,14 @@
+[Unit]
+Description=Restrict inbound traffic on the load balancer public interface
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/apply-lb-public-filter
+ExecReload=/usr/local/sbin/apply-lb-public-filter
+ExecStop=/usr/local/sbin/remove-lb-public-filter
+
+[Install]
+WantedBy=multi-user.target

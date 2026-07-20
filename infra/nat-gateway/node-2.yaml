@@ -1,0 +1,19 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth1:
+      match:
+        macaddress: "fa:16:3e:a7:91:15"
+      addresses:
+        - 10.10.0.22/24
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 1.0.0.1
+        search: []
+      set-name: eth1
+      mtu: 1500
+      routes:
+        - to: 0.0.0.0/0
+          via: 10.10.0.190

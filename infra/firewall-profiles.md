@@ -1,10 +1,10 @@
 # پروفایل‌های پیشنهادی Firewall پنل برای VPSهای Production
 
-تاریخ تدوین: 2026-07-16
+تاریخ آخرین بازبینی: 2026-07-20
 
 این سند پروفایل‌های ریزدانه Firewall پنل را برای استقرار فعلی گدارAI تعریف می‌کند. فرض اصلی این است که ترافیک ورودی به‌صورت پیش‌فرض بسته است و فقط ruleهای لازم باز می‌شوند.
 
-وضعیت فعلی K3s nodeها private-only است. `node-1`، `node-2` و `node-3` Public IP ندارند و خروجی اینترنت آن‌ها از مسیر VIP خصوصی `10.10.0.6` و NAT روی Load Balancerها انجام می‌شود.
+وضعیت فعلی K3s nodeها private-only است. `node-1`، `node-2` و `node-3` Public IP ندارند و خروجی اینترنت آن‌ها از Gateway اختصاصی `10.10.0.190` با public source برابر `188.121.120.198` عبور می‌کند. Port Security پورت خصوصی همین Gateway غیرفعال است. VIP خصوصی `10.10.0.6` فقط endpoint رسمی Kubernetes API است؛ NAT روی LBها صرفاً در پنجره rollback بیست‌وچهارساعته فعال مانده است.
 
 ## متغیرها
 
@@ -16,19 +16,23 @@ PRIVATE_CIDR = 10.10.0.0/24
 BASTION = 10.10.0.5
 LB_1 = 10.10.0.7
 LB_2 = 10.10.0.8
-LB_1_FLOATING_IP = 37.32.31.230
-LB_2_FLOATING_IP = 37.32.31.139
+LB_1_PUBLIC = 185.231.180.132
+LB_2_PUBLIC = 37.152.187.55
+LB_1_DETACHED_FLOATING_IP = 37.32.31.230
+LB_2_DETACHED_FLOATING_IP = 37.32.31.139
 NODE_1 = 10.10.0.21
 NODE_2 = 10.10.0.22
 NODE_3 = 10.10.0.23
 NODES = 10.10.0.21, 10.10.0.22, 10.10.0.23
+NAT_GW_PRIVATE = 10.10.0.190
+NAT_GW_PUBLIC = 188.121.120.198
 ```
 
 ## سیاست پایه
 
 - ورودی: پیش‌فرض بسته باشد.
 - خروجی: در این مرحله باز بماند، مگر اینکه برای outbound نیز سیاست دقیق جداگانه تعریف شود.
-- Firewall سطح سیستم‌عامل فعلاً استفاده نمی‌شود؛ مرز امنیتی فعال، Firewall پنل provider است.
+- روی هر دو LB فایروال nftables میزبان فعال است و ورودی NIC عمومی را محدود می‌کند؛ policy پنل provider همچنان لایه مکمل است.
 - پورت `6443` نباید از اینترنت عمومی باز باشد.
 - برای nodeهای K3s، هیچ rule عمومی لازم نیست؛ دسترسی مدیریتی فقط از Bastion و شبکه خصوصی انجام شود.
 
@@ -84,12 +88,12 @@ NODES = 10.10.0.21, 10.10.0.22, 10.10.0.23
 
 روی `lb-1` و `lb-2` اعمال شود.
 
-پس از cutover تاریخ 2026-07-16، ترافیک عمومی از Floating IPها به private NICهای Load Balancerها تحویل می‌شود:
+پس از cutover تاریخ 2026-07-20، ترافیک عمومی از NIC و IPv4 مستقیم هر Load Balancer تحویل می‌شود:
 
-- `37.32.31.230` برای `lb-1`
-- `37.32.31.139` برای `lb-2`
+- `185.231.180.132` روی `eth1` برای `lb-1`
+- `37.152.187.55` روی `eth1` برای `lb-2`
 
-در پنل provider، ruleهای public `80/443` باید برای همین Floating IPها یا برای VPS مقصد آن‌ها اعمال شوند.
+Floating IPهای قبلی detach و صرفاً برای rollback حفظ شده‌اند. در پنل provider، ruleهای public `80/443` باید برای NICهای عمومی مستقیم یا VPS مقصد آن‌ها اعمال شوند. روی Ubuntu نیز `lb-public-filter.service` فقط 80/443 و ترافیک ضروری شبکه را روی `eth1` می‌پذیرد و SSH عمومی را می‌بندد.
 
 ### `lb-public-web`
 
@@ -130,13 +134,28 @@ NODES = 10.10.0.21, 10.10.0.22, 10.10.0.23
 
 ### `lb-private-node-egress-nat`
 
-برای خروجی اینترنت nodeهای private-only از مسیر NAT روی Load Balancerها. اگر Firewall پنل ترافیک routed/forwarded را هم کنترل می‌کند، این پروفایل یا معادل آن باید روی `lb-1` و `lb-2` اعمال شود.
+این پروفایل legacy فقط برای rollback موقت خروجی nodeها از مسیر Load Balancerهاست. پس از حداقل ۲۴ ساعت پایداری `nat-gw-1` باید همراه سرویس NAT قدیمی حذف شود.
 
 | Direction | Protocol | Port | Source |
 | --- | --- | --- | --- |
 | Inbound | All | All | `10.10.0.21` |
 | Inbound | All | All | `10.10.0.22` |
 | Inbound | All | All | `10.10.0.23` |
+
+## پروفایل NAT Gateway اختصاصی
+
+روی `nat-gw-1` اعمال شود. Port Security فقط روی fixed port خصوصی `10.10.0.190` با MAC برابر `fa:16:3e:5a:d5:79` غیرفعال است؛ پورت عمومی دست‌نخورده مانده و پورت اضافی `.181` حذف شده است.
+
+### `nat-gw-private-admin-and-forwarding`
+
+| Direction | Protocol | Port | Source |
+| --- | --- | --- | --- |
+| Inbound | TCP | `22` | `10.10.0.5` |
+| Inbound | All | All | `10.10.0.21` |
+| Inbound | All | All | `10.10.0.22` |
+| Inbound | All | All | `10.10.0.23` |
+
+داخل Ubuntu، nftables ورودی و خروجی را در rollout اولیه باز نگه می‌دارد، forward policy برابر drop است و فقط سه node بالا به سمت interface عمومی MASQUERADE می‌شوند.
 
 ## پروفایل‌های K3s Node
 
@@ -262,7 +281,7 @@ node-exporter-private
 2. از Bastion اتصال SSH را تست کنید.
 3. از LBها به nodeها پورت‌های `30081` و `30444` را تست کنید.
 4. از Bastion، پورت `6443` روی VIP `10.10.0.6` را تست کنید.
-5. از هر node، دسترسی خروجی به Docker Registry را از مسیر VIP/NAT تست کنید.
+5. از هر node، دسترسی خروجی به Docker Registry را از مسیر `10.10.0.190` تست کنید و public source برابر `188.121.120.198` را تأیید کنید.
 6. `kubectl get nodes` را از مسیر tunnel فعلی اجرا کنید.
 7. پس از موفقیت تست‌ها، پروفایل‌ها را مرحله‌ای روی بقیه ماشین‌ها اعمال کنید.
 

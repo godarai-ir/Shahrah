@@ -10,7 +10,7 @@ These are per-node config templates for the current Shahrah cluster shape.
 - private API endpoint: `10.10.0.6`
 - private API hostname: `k3s-api.internal`
 
-The nodes are private-only. They do not have public IPv4 addresses, and their default route points to the private VIP `10.10.0.6`.
+The nodes are private-only and do not have public IPv4 addresses. Their only default route points to the dedicated gateway `10.10.0.190`; the private VIP `10.10.0.6` is reserved for the Kubernetes API.
 
 ## Before use
 
@@ -24,19 +24,23 @@ Replace:
 
 ## Current egress model
 
-Outbound internet access for all K3s nodes is provided by NAT on `lb-1` and `lb-2`.
+Outbound internet access for all K3s nodes is provided by `nat-gw-1` (`10.10.0.190`) and is SNATed to `188.121.120.198`.
+
+The cutover completed on 2026-07-20 in the order `node-2`, `node-3`, then `node-1`. All three nodes passed host and pinned-Pod checks for CoreDNS, HTTPS, Docker Registry and database TCP/5432. Their resolver pair is `1.1.1.1` and `1.0.0.1`; `8.8.8.8` was excluded after an intermittent direct-query timeout.
 
 Expected node route:
 
 ```bash
-default via 10.10.0.6 dev eth1
+default via 10.10.0.190 dev eth1
 ```
 
-Expected Load Balancer service:
+The legacy LB NAT service remains enabled only during the 24-hour rollback window and should have no production node traffic:
 
 ```bash
 systemctl is-active k3s-egress-nat.service
 ```
+
+Each node keeps `/var/lib/cloud/data/upgraded-network` and a Cloud-Init network-disable override because provider metadata still advertises removed public NIC MACs. Do not run live `netplan apply` or `netplan try` on a K3s node: testing on `node-2` tore down its only interface long enough to make the node NotReady. Apply runtime route/DNS changes first and validate any reboot only in a controlled maintenance window.
 
 ## Install flow
 

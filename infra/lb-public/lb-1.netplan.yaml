@@ -1,0 +1,28 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      match:
+        macaddress: fa:16:3e:d8:b2:72
+      set-name: eth0
+      addresses:
+        - 10.10.0.7/24
+      dhcp4: false
+      dhcp6: false
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 8.8.8.8
+      optional: true
+    eth1:
+      match:
+        macaddress: fa:16:3e:76:51:44
+      set-name: eth1
+      dhcp4: true
+      dhcp4-overrides:
+        route-metric: 100
+        use-routes: true
+        use-dns: true
+      dhcp6: false
+      optional: true
