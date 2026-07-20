@@ -146,6 +146,9 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 		"exchange_rates": {
 			"rate_id", "usd_to_irr", "source", "fetched_at",
 		},
+		"exchange_rate_current": {
+			"rate_id", "source", "symbol", "usd_to_irr", "fetched_at", "updated_at",
+		},
 		"spend_logs": {
 			"request_id", "token_hash", "tenant_id", "organization_id", "team_id", "model",
 			"input_tokens", "output_tokens", "total_tokens", "cost_usd", "cost_irr",
@@ -187,6 +190,45 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 	assertIndexForColumn(t, pool, "wallets", "tenant_id")
 	assertIndexForColumn(t, pool, "tenants", "slug")
 	assertIndexForColumn(t, pool, "model_deployments", "tenant_id")
+}
+
+func TestIntegration_ExchangeRateUpsertMaintainsSingleCurrentRowPerSource(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	logger, _ := zap.NewDevelopment()
+	ctx := context.Background()
+	store, err := storage.NewStore(ctx, databaseURL, logger)
+	require.NoError(t, err)
+	t.Cleanup(store.Close)
+
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	resetPersistentState(t, pool)
+
+	_, err = store.UpsertExchangeRate(ctx, platform.ExchangeRate{USDtoIRR: 1_880_000, Source: "nobitex:USDTIRT"})
+	require.NoError(t, err)
+	_, err = store.UpsertExchangeRate(ctx, platform.ExchangeRate{USDtoIRR: 1_890_000, Source: "nobitex:USDTIRT"})
+	require.NoError(t, err)
+
+	latest, err := store.GetLatestExchangeRate(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "nobitex:USDTIRT", latest.Source)
+	assert.Equal(t, 1_890_000.0, latest.USDtoIRR)
+
+	var currentRows, legacyRows int
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM exchange_rate_current
+		WHERE source = 'nobitex:USDTIRT'
+	`).Scan(&currentRows))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT COUNT(*) FROM exchange_rates`).Scan(&legacyRows))
+	assert.Equal(t, 1, currentRows)
+	assert.Equal(t, 0, legacyRows)
 }
 
 func TestIntegration_OnboardingPendingRequestReusedAndExpiresAfterFiveMinutes(t *testing.T) {
@@ -1624,6 +1666,7 @@ func resetPersistentState(t *testing.T, pool *pgxpool.Pool) {
 			tenant_onboarding_requests,
 			wallet_transactions,
 			wallets,
+			exchange_rate_current,
 			exchange_rates,
 			spend_logs,
 			virtual_users,

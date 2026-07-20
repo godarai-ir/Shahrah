@@ -533,6 +533,18 @@ model ExchangeRate {
   @@map("exchange_rates")
 }
 
+model ExchangeRateCurrent {
+  rate_id    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source     String   @unique @db.VarChar(255)
+  symbol     String?  @db.VarChar(64)
+  usd_to_irr Float
+  fetched_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([fetched_at(sort: Desc)], map: "idx_exchange_rate_current_fetched_at")
+  @@map("exchange_rate_current")
+}
+
 model TenantProviderAccount {
   account_id                     String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                      String                        @db.Uuid
