@@ -124,8 +124,8 @@ export default function PersonalAccessTokenManagement(props: {
     setIsDeleting(true);
     try {
       await requestJSON("/api/personal-access-tokens/revoke-all", { method: "DELETE" });
+      setTokens([]);
       setBanner({ kind: "success", message: t("messages.revokeAllSuccess") });
-      await load();
       return true;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.revokeAllError")) });
@@ -276,13 +276,23 @@ function parsePayload(text: string): unknown {
 }
 
 function extractMessage(payload: unknown): string | null {
-  if (typeof payload === "string") return payload;
+  if (typeof payload === "string") return cleanErrorMessage(payload);
   if (!payload || typeof payload !== "object") return null;
   const candidate = payload as { error?: { message?: string }; message?: string };
-  return candidate.error?.message ?? candidate.message ?? null;
+  return cleanErrorMessage(candidate.error?.message ?? candidate.message);
 }
 
 function normalizeError(error: unknown, fallback: string) {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    const message = cleanErrorMessage(error.message);
+    return message?.startsWith("Request failed (") ? fallback : message ?? fallback;
+  }
   return fallback;
+}
+
+function cleanErrorMessage(message: unknown): string | null {
+  if (typeof message !== "string") return null;
+  const value = message.trim();
+  if (!value || /<(?:!doctype|html|head|body|script|div)\b/i.test(value)) return null;
+  return value.length > 300 ? `${value.slice(0, 300)}...` : value;
 }

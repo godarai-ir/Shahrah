@@ -53,12 +53,12 @@
     "expiresAt": "Expires At",
     "status": "Status",
     "actions": "Actions",
-    "empty": "No personal access tokens found."
+    "empty": "You do not have any personal access tokens yet."
   },
   "create": {
     "title": "Create Personal Access Token",
     "description": "Create and use a personal token to access GodarAI services.",
-    "accessHint": "Model access is controlled by your Provider Account and Virtual Model access settings."
+    "accessHint": "Create a token to get started. Token access to models is controlled by Provider Account and Virtual Model settings."
   },
   "messages": {
     "validation": "Token name is required.",

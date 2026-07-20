@@ -574,8 +574,52 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 	)
 	assert.Equal(t, http.StatusNoContent, revokeResp.StatusCode)
 
-	_, err := keyStore.GetKeyByHash(context.Background(), hashToken(created.Key))
+	revokedAuthInfo, err := keyStore.GetKeyByHash(context.Background(), hashToken(created.Key))
 	require.NoError(t, err)
+	assert.True(t, revokedAuthInfo.Blocked)
+
+	for _, name := range []string{"all-token-a", "all-token-b"} {
+		resp := performJSONRequestWithHeaders(
+			t,
+			app,
+			http.MethodPost,
+			"http://localhost/api/v1/personal-access-tokens",
+			"Bearer sk-master",
+			map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+			fmt.Sprintf(`{"name":%q}`, name),
+		)
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	}
+
+	revokeAllResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodDelete,
+		"http://localhost/api/v1/personal-access-tokens/revoke/all",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		"",
+	)
+	assert.Equal(t, http.StatusOK, revokeAllResp.StatusCode)
+
+	var revokeAll platform.RevokeAllPATResponse
+	decodeJSONBody(t, revokeAllResp, &revokeAll)
+	assert.EqualValues(t, 2, revokeAll.Revoked)
+
+	listAfterAllResp := performJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"http://localhost/api/v1/personal-access-tokens?limit=25&offset=0",
+		"Bearer sk-master",
+		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		"",
+	)
+	assert.Equal(t, http.StatusOK, listAfterAllResp.StatusCode)
+
+	var listedAfterAll platform.ListPATResponse
+	decodeJSONBody(t, listAfterAllResp, &listedAfterAll)
+	assert.Empty(t, listedAfterAll.Data)
 }
 
 func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T) {

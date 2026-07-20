@@ -271,6 +271,32 @@ func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
 	require.NotEqual(t, fiber.StatusNotFound, resp.StatusCode)
 }
 
+func TestTenantAdminPATRevokeAllRouteUsesSpecificHandler(t *testing.T) {
+	t.Parallel()
+
+	app := fiber.New(fiber.Config{ErrorHandler: customErrorHandler})
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(tenantmw.ContextKey{}, &platform.Tenant{ID: "tenant-1", Slug: "tenant1", Domain: "tenant1.localhost", Status: "active"})
+		return c.Next()
+	})
+	registerTenantAdminRoutes(app, Dependencies{
+		AdminHandlers: admin.New(admin.Dependencies{Keys: patRouteStore{}}),
+	})
+
+	req := httptest.NewRequest(fiber.MethodDelete, "/api/v1/personal-access-tokens/revoke/all", http.NoBody)
+	req.Header.Set("x-shahrah-user-id", "user-1")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"revoked":7}`, string(body))
+}
+
 func TestPlatformAdminAuthMiddlewareRequiresMasterKey(t *testing.T) {
 	t.Parallel()
 
@@ -364,6 +390,18 @@ func (tenantLookupAlwaysFails) GetTenantByHost(context.Context, string) (*platfo
 }
 
 type publicLoginDiscoveryStore struct{}
+
+type patRouteStore struct {
+	publicLoginDiscoveryStore
+}
+
+func (patRouteStore) RevokePAT(context.Context, string, string, string, string) (bool, error) {
+	return false, errors.New("single PAT revoke handler should not match revoke/all")
+}
+
+func (patRouteStore) RevokeAllPATs(context.Context, string, string, string) (int64, error) {
+	return 7, nil
+}
 
 func (publicLoginDiscoveryStore) GetTenantBySlug(context.Context, string) (*platform.Tenant, error) {
 	return &platform.Tenant{

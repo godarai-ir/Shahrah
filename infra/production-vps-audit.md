@@ -2,7 +2,7 @@
 
 تاریخ آخرین بررسی زنده: 2026-07-20
 
-دامنه بررسی: اتصال SSH به هفت VPS، تطبیق interface/MAC/IP داخل guest، بررسی route و Netplan، وضعیت سرویس‌های LB، ruleهای NAT، تست تفکیک‌شده egress، وضعیت K3s و تست‌های DNS و TCP/HTTP/HTTPS در سطح host و Pod. در 2026-07-20 آماده‌سازی و Cutover کامل `nat-gw-1` روی هر سه node نیز انجام شد. وضعیت Fixed IP و فایروال دیتابیس از پنل ابرآروان مشاهده شد؛ دسترسی مستقیم به Neutron API یا control plane داخلی ارائه‌دهنده وجود ندارد.
+دامنه بررسی: اتصال SSH به هفت VPS، تطبیق interface/MAC/IP داخل guest، بررسی route و Netplan، وضعیت سرویس‌های LB، ruleهای NAT، تست تفکیک‌شده egress، وضعیت K3s و تست‌های DNS و TCP/HTTP/HTTPS در سطح host و Pod. در 2026-07-20 آماده‌سازی و Cutover کامل `nat-gw-1` روی هر سه node و سپس بازیابی رخداد DNS/etcd/Longhorn نیز انجام شد. وضعیت Fixed IP و فایروال دیتابیس از پنل ابرآروان مشاهده شد؛ دسترسی مستقیم به Neutron API یا control plane داخلی ارائه‌دهنده وجود ندارد.
 
 در این گزارش:
 
@@ -28,6 +28,8 @@
 
 خرابی public edge مربوط به Floating IPها در 2026-07-20 با افزودن NIC و IPv4 عمومی مستقیم به هر دو LB دور زده شد. `godarai.ir` اکنون روی HTTPS پاسخ `200` می‌دهد و تست مستقیم با SNI روی هر دو IP جدید موفق است. Floating IPهای قبلی detach شده‌اند، ولی برای rollback حذف یا release نشده‌اند.
 
+در رخداد بعدی همان روز، توقف heartbeat روی `node-2` باعث از دسترس خارج‌شدن تنها replicaی CoreDNS، شکست DNS داخل Pod و پاسخ `503` برای tenantها شد. هم‌زمان فشار دیسک و I/O مانع rebuild شدن replicaهای Longhorn و پایداری etcd بود. پس از snapshot تازه etcd، بازیابی مرحله‌ای `node-2` و `node-3`، پاک‌سازی imageهای بلااستفاده و journalها، همه nodeها، volumeها و workloadها سالم شدند. CoreDNS اکنون با حداقل دو replica و PDB تحت مدیریت GitOps اجرا می‌شود.
+
 ## تاریخچه تغییرات مهم
 
 - **2026-07-16:** Port Security روی پورت‌های خصوصی `lb-1` و `lb-2` از پنل غیرفعال شد؛ HAProxy روی VIP `10.10.0.6:6443` قرار گرفت و failover کنترل‌شده Keepalived موفق بود.
@@ -50,6 +52,11 @@
 - **2026-07-20:** reboot نهایی `nat-gw-1` hostname، Netplan واحد، default route عمومی، nftables و sysctlها را حفظ کرد؛ هیچ unit ناموفق مشاهده نشد.
 - **2026-07-20:** برای رفع timeout دامنه، به `lb-1` و `lb-2` NIC عمومی مستقیم اضافه شد؛ Netplan هر دو ماشین یکپارچه، Cloud-Init network قفل و default route فقط روی NIC عمومی قرار گرفت. فایروال nftables ورودی عمومی را به HTTP/HTTPS محدود کرد.
 - **2026-07-20:** Floating IPهای `37.32.31.230` و `37.32.31.139` detach ولی برای rollback حفظ شدند. رکوردهای A مربوط به `@` و `*` در پنل به IPهای مستقیم `185.231.180.132` و `37.152.187.55` تغییر کردند؛ سایت و هر دو origin پاسخ HTTPS `200` دادند.
+- **2026-07-20:** از دست‌رفتن heartbeat `node-2` تنها replicaی CoreDNS را از دسترس خارج کرد؛ `tenant-admin` به‌دلیل `EAI_AGAIN` آماده نشد و ingress برای tenantها `503` داد.
+- **2026-07-20:** snapshot پیش از بازیابی با نام `pre-node2-recovery-20260720T083529Z-node-1-1784536531` ذخیره شد. `node-2` و سپس `node-3` به‌صورت مرحله‌ای reboot و پس از تأیید quorum uncordon شدند.
+- **2026-07-20:** imageهای بلااستفاده و journalهای حجیم روی هر سه node پاک‌سازی شد. Longhorn همه پنج volume را rebuild کرد و وضعیت نهایی همه آن‌ها `attached/healthy` است.
+- **2026-07-20:** CoreDNS با HPA دارای `minReplicas: 2` و PDB دارای `minAvailable: 1` پایدار شد. مقدار cache حافظه Loki از پیش‌فرض غیرقابل‌زمان‌بندی ۸ GiB به ۱ GiB کاهش یافت و تمام Podها Running شدند.
+- **2026-07-20:** drift پیکربندی Prometheus و Grafana در GitOps اصلاح و تمام Applicationهای Argo CD به `Synced/Healthy` رسیدند.
 
 ## فهرست ماشین‌ها و آدرس‌ها
 
@@ -78,9 +85,9 @@ Floating IPهای قبلی LBها داخل Netplan یا interfaceهای guest ت
 | `bastion` | 24.04.1 LTS | `6.8.0-136-generic` | 1 | 961 MiB | 23 GiB، مصرف 23% | ندارد |
 | `lb-1` | 24.04.1 LTS | `6.8.0-134-generic` | 1 | 961 MiB | 23 GiB، مصرف 8% | ندارد |
 | `lb-2` | 24.04.4 LTS | `6.8.0-134-generic` | 1 | 961 MiB | 23 GiB، مصرف 9% | ندارد |
-| `node-1` | 24.04.1 LTS | `6.8.0-134-generic` | 4 | 11 GiB | 70 GiB، مصرف 80% | ندارد |
-| `node-2` | 24.04.1 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 74% | ندارد |
-| `node-3` | 24.04.4 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 79% | ندارد |
+| `node-1` | 24.04.1 LTS | `6.8.0-134-generic` | 4 | 11 GiB | 70 GiB، مصرف 53% | ندارد |
+| `node-2` | 24.04.1 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 52% | ندارد |
+| `node-3` | 24.04.4 LTS | `6.8.0-134-generic` | 2 | 3.8 GiB | 70 GiB، مصرف 45% | ندارد |
 | `nat-gw-1` | 24.04.1 LTS | `6.8.0-45-generic` | 1 | 961 MiB | 23 GiB، مصرف 6% | ندارد |
 
 ## شبکه خصوصی و وضعیت OpenStack قابل مشاهده
@@ -256,18 +263,11 @@ Ingress hostهای مشاهده‌شده:
 - `*.godarai.ir`
 - `admin.godarai.ir`
 
-تنها Pod غیرRunning مشاهده‌شده در بررسی نهایی `observability/loki-chunks-cache-0` با وضعیت `Pending` و عمر حدود هفت روز بود. CrashLoopBackOffهای قدیمی `control-plane` و `tenant-admin` دیگر در فهرست نهایی دیده نشدند. CoreDNS جدید روی `node-2` Running و بدون restart است؛ log آن upstream timeout جدیدی نشان نداد.
+در بررسی نهایی هیچ Pod با وضعیت غیر از `Running` یا `Succeeded` و هیچ container ناآماده‌ای وجود نداشت. همه Deploymentها، StatefulSetها و DaemonSetها به تعداد replica مورد انتظار رسیده‌اند. CoreDNS دارای دو Pod آماده روی دو node متفاوت است و HPA آن تعداد replica را بین ۲ و ۳ نگه می‌دارد.
 
 ### Job مهاجرت دیتابیس
 
-وضعیت فعلی:
-
-- Job: `shahrah-production/migrate-main-db`
-- Status: `Failed`
-- Completion: `0/1`
-- Start: `2026-07-17 08:53:32 UTC`
-- Backoff limit: `3`
-- Pod فعلی برای label این job وجود ندارد؛ بنابراین `kubectl logs job/migrate-main-db` دیگر log قابل بازیابی نداد.
+Job شکست‌خورده 2026-07-17 به علت نبود DNS داخلی نتوانسته بود به دیتابیس متصل شود. خطای ثبت‌شده هنگام وقوع:
 
 خطای ثبت‌شده هنگام وقوع:
 
@@ -277,7 +277,7 @@ hostname resolving error: lookup c781656f0ab24ceb9040b7f8bdbe5f6c.db.arvandbaas.
 on 10.43.0.10:53: server misbehaving
 ```
 
-اکنون nodeها و Podهای ClusterFirst همین hostname را به `185.231.181.201` resolve می‌کنند و TCP دیتابیس روی `5432` نیز موفق است. بنابراین پیش‌نیاز شبکه‌ای Job برطرف شده، اما Job قدیمی عمداً در این rollout دوباره اجرا نشد و همچنان `Failed` است؛ اجرای migration باید یک اقدام جداگانه و کنترل‌شده باشد.
+اکنون nodeها و Podهای ClusterFirst همین hostname را به `185.231.181.201` resolve می‌کنند و TCP دیتابیس روی `5432` نیز موفق است. هنگام reconcile کامل Argo CD در بازیابی 2026-07-20، hook مربوط به `migrate-main-db` به‌صورت خودکار اجرا و در ۲۵ ثانیه با `1/1 Complete` تمام شد؛ Argo CD سپس Job را طبق `HookSucceeded` حذف کرد. hookهای `migrate-clickhouse`، `support-admin-migrate` و `model-discovery-migrate` نیز موفق بودند؛ مورد آخر import تعداد ۲۲۹۸ مدل را کامل کرد.
 
 ## DNS و دسترسی عمومی
 
@@ -297,27 +297,23 @@ NSهای authoritative:
 ## ریسک‌ها و مسائل باز
 
 1. **رفع‌شده با workaround — public edge روی Floating IPها timeout می‌شد.** مسیر production اکنون از public NICهای مستقیم استفاده می‌کند؛ Floating IPهای خراب detached و برای rollback حفظ شده‌اند.
-2. **بالا — migration دیتابیس همچنان Failed است.** مسیر DNS/TCP آن اکنون سالم است، ولی Job عمداً دوباره اجرا نشده است.
-3. **بالا — metadata شبکه OpenStack stale است.** MACهای public NIC حذف‌شده هنوز به nodeها اعلام می‌شوند و بدون marker `upgraded-network` می‌توانند Cloud-Init را در boot دچار خطا کنند.
-4. **بالا — reboot اعتبارسنجی `node-2` با I/O error هنگام shutdown متوقف شد.** boot پس از power-cycle پاک بود، اما سلامت disk و block deviceهای transient Longhorn باید پیش از reboot بعدی بررسی شود.
-5. **متوسط — HA عمومی DNS-level است، نه یک public VIP مشترک.** هر دو origin سالم‌اند، اما authoritative DNS از مبدأ تست فقط IP `lb-2` را انتخاب کرد؛ failover خودکار باید جداگانه با قابلیت health-check/load-balancing ارائه‌دهنده اثبات شود.
-7. **متوسط — health check Keepalived سطحی است.** فقط وجود process HAProxy را می‌سنجد، نه سلامت VIP/API/backend.
-8. **متوسط — OS firewall روی بیشتر ماشین‌ها غیرفعال گزارش شده است.** روی هر دو LB اکنون nftables عمومی فعال است و فقط 80/443 را باز می‌گذارد؛ سایر ماشین‌ها همچنان به policy پنل وابسته‌اند.
-9. **متوسط — disk nodeها رو به پرشدن است.** `node-1` به 80% و `node-3` به 79% رسیده‌اند.
-10. **متوسط — swap روی هیچ ماشین فعال نیست.** LBها و `nat-gw-1` فقط 1 GiB RAM دارند.
-11. **متوسط — `loki-chunks-cache-0` همچنان Pending است.** این وضعیت از Cutover مستقل است.
+2. **بالا — metadata شبکه OpenStack stale است.** MACهای public NIC حذف‌شده هنوز به nodeها اعلام می‌شوند و بدون marker `upgraded-network` می‌توانند Cloud-Init را در boot دچار خطا کنند.
+3. **بالا — reboot اعتبارسنجی `node-2` با I/O error هنگام shutdown متوقف شد.** boot پس از power-cycle پاک بود و Longhorn اکنون سالم است، اما سلامت disk و block deviceهای transient باید پیش از reboot بعدی بررسی شود.
+4. **متوسط — HA عمومی DNS-level است، نه یک public VIP مشترک.** هر دو origin سالم‌اند، اما authoritative DNS از مبدأ تست فقط IP `lb-2` را انتخاب کرد؛ failover خودکار باید جداگانه با قابلیت health-check/load-balancing ارائه‌دهنده اثبات شود.
+5. **متوسط — health check Keepalived سطحی است.** فقط وجود process HAProxy را می‌سنجد، نه سلامت VIP/API/backend.
+6. **متوسط — OS firewall روی بیشتر ماشین‌ها غیرفعال گزارش شده است.** روی هر دو LB اکنون nftables عمومی فعال است و فقط 80/443 را باز می‌گذارد؛ سایر ماشین‌ها همچنان به policy پنل وابسته‌اند.
+7. **متوسط — ظرفیت CPU درخواستی روی `node-1` و `node-2` محدود است.** مصرف واقعی پایدار است، اما requests زمان‌بندی‌شده به‌ترتیب حدود ۹۰٪ و ۸۷٪ CPU بود؛ workloadهای جدید باید با ظرفیت‌سنجی اضافه شوند.
+8. **متوسط — swap روی هیچ ماشین فعال نیست.** LBها و `nat-gw-1` فقط 1 GiB RAM دارند.
 
 ## گام‌های پیشنهادی بعدی
 
 1. Gateway و سه node حداقل ۲۴ ساعت monitor شوند؛ conntrack بالاتر از ۷۰٪، packet drop، CoreDNS timeout و NodeNotReady هشدار ایجاد کند.
 2. پس از این پنجره و در صورت پایداری، ruleهای NAT قدیمی، `k3s-egress-nat.service` و `ip_forward` روی هر دو LB حذف/غیرفعال شوند.
-3. Job مایگریشن با artifact و پنجره اجرای جداگانه اجرا شود؛ Job فعلی Failed و Pod آن حذف شده است.
-4. از ارائه‌دهنده خواسته شود metadata/Neutron portهای حذف‌شده nodeها را پاک کند؛ تا آن زمان marker `upgraded-network` نباید حذف شود.
-5. پیش از reboot بعدی nodeها، خطاهای shutdown `node-2` و سلامت volumeهای Longhorn بررسی و snapshot/backup مناسب گرفته شود.
-6. health-check و failover واقعی رکوردهای چندمقداری DNS آروان جداگانه بررسی شود؛ صرف ثبت دو A record تضمین public VIP یا failover سریع نیست.
-7. Floating IPهای detached فقط پس از یک پنجره پایداری و تصمیم صریح درباره rollback release شوند.
-8. مشکل `loki-chunks-cache-0`، disk usage nodeها و نبود swap جداگانه رسیدگی شود.
-9. alert برای egress Gateway، DNS خارجی از کلاستر، NAT/conntrack counters، سلامت هر دو IP مستقیم و disk usage nodeها اضافه شود.
+3. از ارائه‌دهنده خواسته شود metadata/Neutron portهای حذف‌شده nodeها را پاک کند؛ تا آن زمان marker `upgraded-network` نباید حذف شود.
+4. پیش از reboot بعدی nodeها، خطاهای shutdown `node-2` و سلامت volumeهای Longhorn بررسی و snapshot/backup مناسب گرفته شود.
+5. health-check و failover واقعی رکوردهای چندمقداری DNS آروان جداگانه بررسی شود؛ صرف ثبت دو A record تضمین public VIP یا failover سریع نیست.
+6. Floating IPهای detached فقط پس از یک پنجره پایداری و تصمیم صریح درباره rollback release شوند.
+7. alert برای egress Gateway، DNS خارجی از کلاستر، NAT/conntrack counters، سلامت هر دو IP مستقیم، CoreDNS replica count و disk usage nodeها اضافه شود.
 
 ## شواهد خوانده‌شده
 
@@ -336,4 +332,4 @@ NSهای authoritative:
 - تنظیمات saved PuTTY profile `nat-gw-1` و process/listener تونل فعال
 - authoritative DNS و HTTP/HTTPS به دامنه و هر دو Floating IP
 
-در 2026-07-20 پیکربندی `nat-gw-1` و Netplan/Cloud-Init هر سه node تغییر کرد و Cutover production کامل شد. CoreDNS rollout و Podهای تشخیصی موقت پس از تست حذف شدند. سپس public ingress هر دو LB به NIC عمومی مستقیم منتقل، DNS به‌روزرسانی و فایروال محدودکننده میزبان فعال شد. Job مایگریشن دوباره اجرا نشد، NAT روی LBها برای rollback دست‌نخورده باقی ماند و هیچ Static Route سراسری در پنل ساخته نشد.
+در 2026-07-20 پیکربندی `nat-gw-1` و Netplan/Cloud-Init هر سه node تغییر کرد و Cutover production کامل شد. سپس public ingress هر دو LB به NIC عمومی مستقیم منتقل، DNS به‌روزرسانی و فایروال محدودکننده میزبان فعال شد. در بازیابی رخداد بعدی، snapshot تازه etcd گرفته شد، nodeها مرحله‌ای بازیابی و دیسک‌ها پاک‌سازی شدند؛ Podهای تشخیصی موقت پس از تست حذف شدند. reconcile خودکار Argo CD hookهای migration را با موفقیت اجرا کرد. NAT روی LBها برای rollback دست‌نخورده باقی ماند و هیچ Static Route سراسری در پنل ساخته نشد.

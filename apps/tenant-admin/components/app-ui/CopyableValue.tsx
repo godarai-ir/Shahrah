@@ -47,14 +47,21 @@ function CopyableValueControl({
   const [isCopying, setIsCopying] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
   const [isVisible, setIsVisible] = React.useState(!masked);
+  const resetTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+  }, []);
 
   async function handleCopy() {
     if (!value || isCopying || disabled) return;
+    if (resetTimer.current) clearTimeout(resetTimer.current);
     setIsCopying(true);
     try {
       await copyTextToClipboard(value);
       setIsCopied(true);
       onCopied?.();
+      resetTimer.current = setTimeout(() => setIsCopied(false), 1600);
     } catch (error) {
       setIsCopied(false);
       onCopyError?.(error);
@@ -67,7 +74,7 @@ function CopyableValueControl({
 
   return (
     <div className={cn("flex min-w-0 flex-col gap-2", className)}>
-      <InputGroup data-disabled={disabled || undefined}>
+      <InputGroup data-disabled={disabled || undefined} className="bg-background">
         <InputGroupInput
           value={value}
           readOnly
@@ -75,12 +82,12 @@ function CopyableValueControl({
           type={isVisible ? "text" : "password"}
           dir="ltr"
           aria-label={labels.valueAriaLabel}
-          className="font-mono text-xs"
+          className="select-all truncate font-mono text-xs tabular-nums text-start"
         />
-        <InputGroupAddon align="inline-end">
+        <InputGroupAddon align="inline-end" className="gap-1 pe-1">
           {masked && allowReveal && labels.reveal && labels.hide ? (
             <InputGroupButton
-              size="icon-xs"
+              size="icon-sm"
               aria-label={isVisible ? labels.hide : labels.reveal}
               title={isVisible ? labels.hide : labels.reveal}
               disabled={disabled}
@@ -90,14 +97,14 @@ function CopyableValueControl({
             </InputGroupButton>
           ) : null}
           <InputGroupButton
-            size="sm"
+            size="icon-sm"
             aria-label={copyLabel}
+            title={copyLabel}
             aria-busy={isCopying}
             disabled={disabled || isCopying || !value}
             onClick={() => void handleCopy()}
           >
-            {isCopied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
-            {copyLabel}
+            {isCopied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
