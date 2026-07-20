@@ -50,6 +50,11 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `TOKEN_USAGE_DELTA_TTL_SECONDS`: optional, default `86400`
 - `TOKEN_LAST_USED_FLUSH_INTERVAL_SECONDS`: optional, default `60`
 - `TOKEN_LAST_USED_TTL_SECONDS`: optional, default `86400`
+- `NOBITEX_EXCHANGE_RATE_ENABLED`: optional; defaults to `true` when `billing_settings.rate_source` is `nobitex`
+- `NOBITEX_EXCHANGE_RATE_INTERVAL_SECONDS`: optional, default `300`
+- `NOBITEX_EXCHANGE_RATE_SYMBOL`: optional, default `USDTIRT`
+- `NOBITEX_EXCHANGE_RATE_BASE_URL`: optional, default `https://api.nobitex.ir`
+- `NOBITEX_EXCHANGE_RATE_MIN_TRADES`: optional, default `1`
 - `ZARINPAL_MERCHANT_ID`: required when `provider=zarinpal`
 - `ZARINPAL_BASE_URL`: optional, default `https://api.zarinpal.com`
 - `IDPAY_API_KEY`: required when `provider=idpay`

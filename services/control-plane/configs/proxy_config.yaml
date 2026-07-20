@@ -85,7 +85,7 @@ tunnel_settings:
 
 billing_settings:
   default_usd_to_irr: 850000
-  rate_source: "static"
+  rate_source: "nobitex"
 
 general_settings:
   master_key: ${MASTER_KEY}

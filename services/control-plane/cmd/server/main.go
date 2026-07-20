@@ -166,6 +166,11 @@ func main() {
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	billingService.SetRuntimeProfiles(runtimeProfiles)
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
+	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
+		billing.LoadNobitexExchangeRateConfigFromEnv(cfg.BillingSettings.RateSource),
+		store,
+		logger,
+	)
 	var walletSettlementProcessor *billing.WalletSettlementProcessor
 	if liveBudgetCache, ok := dualCache.(cache.BudgetWindowInspector); ok {
 		walletSettlementProcessor = billing.NewWalletSettlementProcessor(
@@ -178,6 +183,8 @@ func main() {
 
 	subscriptionProcessor.Start()
 	defer subscriptionProcessor.Stop()
+	nobitexExchangeRateProcessor.Start()
+	defer nobitexExchangeRateProcessor.Stop()
 	if walletSettlementProcessor != nil {
 		walletSettlementProcessor.Start()
 		defer walletSettlementProcessor.Stop()
