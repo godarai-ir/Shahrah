@@ -9,7 +9,7 @@ This project uses [pressly/goose](https://github.com/pressly/goose) for producti
 ### Directory Structure
 
 ```
-db/main/migrations-new/
+db/main/migrations/
 ├── 001_initial.sql              # Create + drop base schema
 ├── 002_platform_foundations.sql # Add tenants, wallets + rollback
 └── ...
@@ -45,7 +45,7 @@ docker compose -f infra/compose/local.yml run --rm migrate
 #### Manual CLI
 
 ```bash
-cd db/main/migrations-new
+cd db/main/migrations
 goose postgres "postgres://postgres:postgres@localhost:5432/sharah_db?sslmode=disable" up
 ```
 
@@ -67,7 +67,7 @@ goose postgres "postgres://postgres:postgres@localhost:5432/sharah_db?sslmode=di
 make migrate-create name=add_user_avatar
 
 # Manual
-cd db/main/migrations-new
+cd db/main/migrations
 goose postgres "postgres://..." create add_user_avatar sql
 ```
 

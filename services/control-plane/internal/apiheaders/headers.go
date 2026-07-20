@@ -19,6 +19,8 @@ const (
 	HeaderCostIRR         = "x-godarai-cost-irr"
 	HeaderGuardrails      = "x-godarai-guardrails"
 	HeaderGuardrailsScope = "x-godarai-guardrails-scope"
+	HeaderUserID          = "x-godarai-user-id"
+	LegacyHeaderUserID    = "x-shahrah-user-id"
 )
 
 // GetFirst returns the first non-empty header value among the provided keys.
@@ -40,6 +42,11 @@ func GetTraceID(c *fiber.Ctx) string {
 // GetTenant returns the tenant header value.
 func GetTenant(c *fiber.Ctx) string {
 	return GetFirst(c, HeaderTenant)
+}
+
+// GetUserID returns the delegated tenant-admin user id.
+func GetUserID(c *fiber.Ctx) string {
+	return GetFirst(c, HeaderUserID, LegacyHeaderUserID)
 }
 
 // GetCacheConfig returns the cache configuration header value.

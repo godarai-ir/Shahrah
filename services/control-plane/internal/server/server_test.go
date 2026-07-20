@@ -284,7 +284,7 @@ func TestTenantAdminPATRevokeAllRouteUsesSpecificHandler(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(fiber.MethodDelete, "/api/v1/personal-access-tokens/revoke/all", http.NoBody)
-	req.Header.Set("x-shahrah-user-id", "user-1")
+	req.Header.Set("x-godarai-user-id", "user-1")
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)

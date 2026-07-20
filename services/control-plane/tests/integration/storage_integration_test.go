@@ -855,7 +855,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 		http.MethodPost,
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": userID},
+		map[string]string{"x-godarai-user-id": userID},
 		`{"name":"owner-pat"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
@@ -1003,7 +1003,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 			http.MethodPost,
 			"http://localhost/api/v1/personal-access-tokens",
 			"Bearer sk-master",
-			map[string]string{"x-shahrah-user-id": userID},
+			map[string]string{"x-godarai-user-id": userID},
 			fmt.Sprintf(`{"name":%q}`, name),
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -1139,7 +1139,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 		http.MethodPost,
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": userID},
+		map[string]string{"x-godarai-user-id": userID},
 		`{"name":"pat-preview-allowlist"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
@@ -1226,7 +1226,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 		http.MethodPost,
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": userID},
+		map[string]string{"x-godarai-user-id": userID},
 		`{"name":"pat-preview-allowlist-fqn"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
@@ -1378,7 +1378,7 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 		http.MethodPost,
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": nonManagerUserID},
+		map[string]string{"x-godarai-user-id": nonManagerUserID},
 		`{"name":"non-manager-delete"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)
@@ -1456,7 +1456,7 @@ func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveK
 		http.MethodPost,
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": userID},
+		map[string]string{"x-godarai-user-id": userID},
 		`{"name":"key-ref-delete"}`,
 	)
 	assert.Equal(t, http.StatusCreated, patResp.StatusCode)

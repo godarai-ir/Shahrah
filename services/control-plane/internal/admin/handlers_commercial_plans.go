@@ -503,7 +503,7 @@ func platformActor(c *fiber.Ctx) string {
 		return authInfo.UserID
 	}
 
-	if actor := strings.TrimSpace(c.Get("x-shahrah-user-id")); actor != "" {
+	if actor := delegatedUserID(c); actor != "" {
 		return actor
 	}
 

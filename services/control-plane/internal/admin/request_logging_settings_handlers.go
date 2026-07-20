@@ -2,7 +2,6 @@ package admin
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
@@ -68,7 +67,7 @@ func (h *Handlers) UpdateTenantRequestLoggingSettings(c *fiber.Ctx) error {
 		c.Context(),
 		currentTenant.ID,
 		loggingMode,
-		strings.TrimSpace(c.Get("x-shahrah-user-id")),
+		delegatedUserID(c),
 	)
 	if err != nil {
 		return err

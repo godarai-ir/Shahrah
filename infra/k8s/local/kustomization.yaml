@@ -51,3 +51,11 @@ configMapGenerator:
       - migrations/032_subscription_lifecycle_due_index.sql
       - migrations/033_drop_postgres_request_logs.sql
       - migrations/034_control_plane_composite_indexes.sql
+      - migrations/035_tenant_runtime_profiles.sql
+      - migrations/036_log_command_center.sql
+      - migrations/037_financial_management.sql
+      - migrations/038_wallet_budget_window_settlements.sql
+      - migrations/039_expand_tenant_guardrail_types.sql
+      - migrations/040_platform_provider_credentials.sql
+      - migrations/041_tenant_provider_account_auth_modes.sql
+      - migrations/042_rename_provider_account_platform_credentials_flag.sql

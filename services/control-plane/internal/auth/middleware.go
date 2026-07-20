@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -109,11 +110,12 @@ func writeAuthError(c *fiber.Ctx, status int, message, errType string) error {
 
 func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
 	// Clone request header value to avoid retaining mutable fasthttp buffer data.
-	userID := strings.Clone(strings.TrimSpace(c.Get("x-shahrah-user-id")))
+	userID := strings.Clone(apiheaders.GetUserID(c))
 	if userID == "" {
 		c.Locals(AuthContextKey{}, &platform.AuthContext{Role: roleProxyAdmin})
 		return c.Next()
 	}
+	c.Request().Header.Set(apiheaders.HeaderUserID, userID)
 
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil || strings.TrimSpace(currentTenant.ID) == "" {

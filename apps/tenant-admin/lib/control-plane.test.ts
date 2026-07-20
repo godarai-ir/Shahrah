@@ -88,7 +88,7 @@ describe("authenticated control-plane proxy", () => {
 
     expect(response.status).toBe(200);
     const [, init] = fetchMock.mock.calls[0];
-    expect(new Headers(init?.headers).get("x-shahrah-user-id")).toBe("user-1");
+    expect(new Headers(init?.headers).get("x-godarai-user-id")).toBe("user-1");
   });
 
   it("rejects a caller-supplied user identity that differs from the session", async () => {
@@ -145,7 +145,8 @@ describe("authenticated control-plane proxy", () => {
       upstreamHeaders: {
         Authorization: "Bearer attacker-key",
         "x-godarai-tenant": "other-tenant",
-        "x-shahrah-user-id": "user-2",
+        "x-godarai-user-id": "user-2",
+        "x-shahrah-user-id": "legacy-user-2",
       },
     });
 
@@ -153,7 +154,8 @@ describe("authenticated control-plane proxy", () => {
     const headers = new Headers(init?.headers);
     expect(headers.get("authorization")).toBe("Bearer test-master-key");
     expect(headers.get("x-godarai-tenant")).toBe("acme");
-    expect(headers.get("x-shahrah-user-id")).toBe("user-1");
+    expect(headers.get("x-godarai-user-id")).toBe("user-1");
+    expect(headers.has("x-shahrah-user-id")).toBe(false);
   });
 
   it("preserves public invitation acceptance through its fixed allowlisted upstream path", async () => {
@@ -173,6 +175,6 @@ describe("authenticated control-plane proxy", () => {
     expect(String(url)).toBe("http://127.0.0.1:4000/api/v1/users/invitations/accept");
     expect(init?.method).toBe("POST");
     expect(init?.body).toBe(JSON.stringify({ token: "invite-token" }));
-    expect(new Headers(init?.headers).has("x-shahrah-user-id")).toBe(false);
+    expect(new Headers(init?.headers).has("x-godarai-user-id")).toBe(false);
   });
 });

@@ -256,7 +256,7 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 		return mapProviderAccountStoreError(err)
 	}
 
-	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actor := delegatedUserID(c)
 	if actor == "" {
 		actor = "unknown"
 	}

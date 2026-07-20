@@ -61,7 +61,7 @@ func (h *Handlers) CreateTenantGuardrail(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actor := delegatedUserID(c)
 
 	item, err := h.models.CreateTenantGuardrail(c.Context(), currentTenant.ID, req, actor)
 	if err != nil {
@@ -122,7 +122,7 @@ func (h *Handlers) UpdateTenantGuardrail(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actor := delegatedUserID(c)
 
 	item, err := h.models.UpdateTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug, req, actor)
 	if err != nil {

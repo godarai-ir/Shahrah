@@ -80,7 +80,7 @@ Example flow after the stack is running on `http://localhost:4000`:
 ```bash
 curl -s http://localhost:4000/api/v1/personal-access-tokens \
   -H "Authorization: Bearer $MASTER_KEY" \
-  -H "x-shahrah-user-id: <tenant-user-id>" \
+  -H "x-godarai-user-id: <tenant-user-id>" \
   -H "Content-Type: application/json" \
   -d '{"name":"tenant-pat"}'
 

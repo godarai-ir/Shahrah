@@ -65,7 +65,7 @@ func (h *Handlers) CreatePrompt(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actor := delegatedUserID(c)
 
 	item, err := store.CreatePrompt(c.Context(), currentTenant.ID, currentTenant.Slug, req, actor)
 	if err != nil {
@@ -190,7 +190,7 @@ func (h *Handlers) CreatePromptVersion(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actor := delegatedUserID(c)
 
 	item, err := store.CreatePromptVersion(c.Context(), currentTenant.ID, currentTenant.Slug, promptID, req, actor)
 	if err != nil {

@@ -16,7 +16,7 @@ DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-postgres}"
 DB_SSLMODE="${DB_SSLMODE:-disable}"
 
-MIGRATIONS_DIR="${MIGRATIONS_DIR:-$(dirname "$0")/../db/main/migrations-new}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-$(dirname "$0")/../db/main/migrations}"
 ACTION="${1:-up}"
 DBSTRING="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}"
 

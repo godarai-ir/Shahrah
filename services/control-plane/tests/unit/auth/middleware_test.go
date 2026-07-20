@@ -206,6 +206,25 @@ func TestAuthMiddleware_MasterKeyDelegationAllowsResolvedUserOnAuthorizedRoute(t
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
+func TestAuthMiddleware_MasterKeyDelegationAcceptsLegacyUserHeader(t *testing.T) {
+	app := newMasterKeyDelegationTestApp(&delegatedKeyStore{resolved: &platform.AuthContext{
+		TenantID: "tenant-1",
+		UserID:   "user-1",
+		Role:     "member",
+	}})
+
+	req, err := http.NewRequest(http.MethodGet, "/api/v1/me/permissions", http.NoBody)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer test-master-key")
+	req.Header.Set("x-shahrah-user-id", "user-1")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
 func TestAuthMiddleware_MasterKeyDelegationRequiresTenantContext(t *testing.T) {
 	app := fiber.New()
 	app.Use(auth.NewAuthMiddleware(&delegatedKeyStore{resolved: &platform.AuthContext{
@@ -280,7 +299,7 @@ func performMasterKeyDelegationRequest(t *testing.T, app *fiber.App, path string
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer test-master-key")
 	if userID != "" {
-		req.Header.Set("x-shahrah-user-id", userID)
+		req.Header.Set("x-godarai-user-id", userID)
 	}
 
 	resp, err := app.Test(req)

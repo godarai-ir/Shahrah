@@ -152,7 +152,7 @@ func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actor := delegatedUserID(c)
 
 	item, err := h.models.CreateVirtualModel(c.Context(), currentTenant.ID, req, actor)
 	if err != nil {
@@ -261,7 +261,7 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	actor := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actor := delegatedUserID(c)
 
 	item, err := h.models.UpdateVirtualModel(c.Context(), currentTenant.ID, id, req, actor)
 	if err != nil {

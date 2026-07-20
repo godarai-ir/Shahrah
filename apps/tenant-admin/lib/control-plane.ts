@@ -30,6 +30,9 @@ type APIErrorPayload = {
   message?: string;
 };
 
+const CONTROL_PLANE_USER_ID_HEADER = "x-godarai-user-id";
+const LEGACY_CONTROL_PLANE_USER_ID_HEADER = "x-shahrah-user-id";
+
 export type ControlPlaneResponse = {
   ok: boolean;
   status: number;
@@ -211,10 +214,11 @@ export async function fetchControlPlaneJSON(
   upstreamHeaders.set("Accept", "application/json");
   upstreamHeaders.set("Content-Type", "application/json");
   upstreamHeaders.set("x-godarai-tenant", options.tenantSlug);
+  upstreamHeaders.delete(LEGACY_CONTROL_PLANE_USER_ID_HEADER);
   if (options.userID) {
-    upstreamHeaders.set("x-shahrah-user-id", options.userID);
+    upstreamHeaders.set(CONTROL_PLANE_USER_ID_HEADER, options.userID);
   } else {
-    upstreamHeaders.delete("x-shahrah-user-id");
+    upstreamHeaders.delete(CONTROL_PLANE_USER_ID_HEADER);
   }
   if (forwardedHost) {
     upstreamHeaders.set("x-forwarded-host", forwardedHost);
@@ -292,10 +296,11 @@ async function fetchControlPlaneRaw(
   } else {
     upstreamHeaders.delete("Content-Type");
   }
+  upstreamHeaders.delete(LEGACY_CONTROL_PLANE_USER_ID_HEADER);
   if (options.userID) {
-    upstreamHeaders.set("x-shahrah-user-id", options.userID);
+    upstreamHeaders.set(CONTROL_PLANE_USER_ID_HEADER, options.userID);
   } else {
-    upstreamHeaders.delete("x-shahrah-user-id");
+    upstreamHeaders.delete(CONTROL_PLANE_USER_ID_HEADER);
   }
   if (forwardedHost) {
     upstreamHeaders.set("x-forwarded-host", forwardedHost);

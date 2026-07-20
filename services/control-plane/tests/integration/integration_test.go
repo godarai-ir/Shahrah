@@ -537,7 +537,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		http.MethodPost,
 		"http://localhost/api/v1/personal-access-tokens",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		map[string]string{"x-godarai-user-id": "tenant-user-1"},
 		`{"name":"ci-token","expires_in":"30d"}`,
 	)
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
@@ -553,7 +553,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		http.MethodGet,
 		"http://localhost/api/v1/personal-access-tokens?limit=25&offset=0",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		map[string]string{"x-godarai-user-id": "tenant-user-1"},
 		"",
 	)
 	assert.Equal(t, http.StatusOK, listResp.StatusCode)
@@ -569,7 +569,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		http.MethodDelete,
 		"http://localhost/api/v1/personal-access-tokens/"+created.ID,
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		map[string]string{"x-godarai-user-id": "tenant-user-1"},
 		"",
 	)
 	assert.Equal(t, http.StatusNoContent, revokeResp.StatusCode)
@@ -585,7 +585,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 			http.MethodPost,
 			"http://localhost/api/v1/personal-access-tokens",
 			"Bearer sk-master",
-			map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+			map[string]string{"x-godarai-user-id": "tenant-user-1"},
 			fmt.Sprintf(`{"name":%q}`, name),
 		)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -597,7 +597,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		http.MethodDelete,
 		"http://localhost/api/v1/personal-access-tokens/revoke/all",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		map[string]string{"x-godarai-user-id": "tenant-user-1"},
 		"",
 	)
 	assert.Equal(t, http.StatusOK, revokeAllResp.StatusCode)
@@ -612,7 +612,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 		http.MethodGet,
 		"http://localhost/api/v1/personal-access-tokens?limit=25&offset=0",
 		"Bearer sk-master",
-		map[string]string{"x-shahrah-user-id": "tenant-user-1"},
+		map[string]string{"x-godarai-user-id": "tenant-user-1"},
 		"",
 	)
 	assert.Equal(t, http.StatusOK, listAfterAllResp.StatusCode)

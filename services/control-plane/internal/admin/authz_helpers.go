@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/gofiber/fiber/v2"
@@ -54,6 +55,10 @@ func requireTeamAdminOrHigher(c *fiber.Ctx) error {
 	}
 
 	return fiber.NewError(fiber.StatusForbidden, "team admin privileges required")
+}
+
+func delegatedUserID(c *fiber.Ctx) string {
+	return apiheaders.GetUserID(c)
 }
 
 func requireOrgUnitCreate(c *fiber.Ctx) error {

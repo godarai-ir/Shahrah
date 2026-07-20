@@ -200,7 +200,7 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 		req.Models = normalizedModels
 	}
 
-	scopeUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	scopeUserID := delegatedUserID(c)
 	scopeTeamID := ""
 
 	if req.KeyType == platform.KeyTypeVAT {
@@ -479,7 +479,7 @@ func (h *Handlers) RevokeVirtualUserToken(c *fiber.Ctx) error {
 		}
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 
 	revoked, err := h.keys.RevokeVATToken(c.Context(), currentTenant.ID, virtualUserID, tokenID, actorUserID, req.Reason)
 	if err != nil {
@@ -519,7 +519,7 @@ func (h *Handlers) RotateVirtualUserToken(c *fiber.Ctx) error {
 		}
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 
 	created, err := h.keys.RotateVATToken(c.Context(), currentTenant.ID, virtualUserID, tokenID, actorUserID, req.GracePeriod)
 	if err != nil {
@@ -630,9 +630,9 @@ func (h *Handlers) ListPersonalAccessTokens(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 	if actorUserID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+		return fiber.NewError(fiber.StatusUnauthorized, "x-godarai-user-id header is required")
 	}
 
 	query := strings.TrimSpace(c.Query("query"))
@@ -688,9 +688,9 @@ func (h *Handlers) PersonalAccessTokenExists(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 	if actorUserID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+		return fiber.NewError(fiber.StatusUnauthorized, "x-godarai-user-id header is required")
 	}
 
 	name := strings.TrimSpace(c.Query("name"))
@@ -712,9 +712,9 @@ func (h *Handlers) CreatePersonalAccessToken(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 	if actorUserID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+		return fiber.NewError(fiber.StatusUnauthorized, "x-godarai-user-id header is required")
 	}
 
 	var req platform.CreatePATRequest
@@ -771,9 +771,9 @@ func (h *Handlers) ListAllowedModels(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 	if actorUserID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+		return fiber.NewError(fiber.StatusUnauthorized, "x-godarai-user-id header is required")
 	}
 
 	keyType := strings.TrimSpace(strings.ToLower(c.Query("key_type")))
@@ -862,9 +862,9 @@ func (h *Handlers) RevokePersonalAccessToken(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 	if actorUserID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+		return fiber.NewError(fiber.StatusUnauthorized, "x-godarai-user-id header is required")
 	}
 
 	keyID := strings.TrimSpace(c.Params("id"))
@@ -890,9 +890,9 @@ func (h *Handlers) RevokeAllPersonalAccessTokens(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
 
-	actorUserID := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	actorUserID := delegatedUserID(c)
 	if actorUserID == "" {
-		return fiber.NewError(fiber.StatusUnauthorized, "x-shahrah-user-id header is required")
+		return fiber.NewError(fiber.StatusUnauthorized, "x-godarai-user-id header is required")
 	}
 
 	revoked, err := h.keys.RevokeAllPATs(c.Context(), currentTenant.ID, actorUserID, actorUserID)

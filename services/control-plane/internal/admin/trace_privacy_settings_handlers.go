@@ -68,7 +68,7 @@ func (h *Handlers) UpdateTenantTracePrivacySettings(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "capture_policy must be one of: none, metadata-only, sampled-redacted, full-secure")
 	}
 
-	updatedBy := strings.TrimSpace(c.Get("x-shahrah-user-id"))
+	updatedBy := delegatedUserID(c)
 
 	item, err := h.tracePrivacy.UpsertTenantTracePrivacySettings(c.Context(), currentTenant.ID, req.CapturePolicy, updatedBy)
 	if err != nil {

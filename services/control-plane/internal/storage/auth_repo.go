@@ -162,7 +162,7 @@ func runtimePolicyByModel(runtimeModels []runtimeAllowedModelPolicy, model strin
 }
 
 // ResolveTenantUserAuth builds an auth context for a tenant-bound user.
-// This is used when tenant-admin calls control-plane with master key + x-shahrah-user-id.
+// This is used when tenant-admin calls control-plane with master key + x-godarai-user-id.
 func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID, userID string) (*platform.AuthContext, error) {
 	tenantID = strings.TrimSpace(tenantID)
 
