@@ -4,12 +4,34 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"go.uber.org/zap"
 )
+
+func TestLoadNobitexExchangeRateConfigUsesReachableDefaultBaseURL(t *testing.T) {
+	t.Setenv("NOBITEX_EXCHANGE_RATE_BASE_URL", "")
+
+	cfg := LoadNobitexExchangeRateConfigFromEnv("nobitex")
+
+	if !cfg.Enabled {
+		t.Fatal("expected Nobitex exchange rate updater to be enabled")
+	}
+	if cfg.BaseURL != "https://apiv2.nobitex.ir" {
+		t.Fatalf("unexpected default base URL: %s", cfg.BaseURL)
+	}
+
+	endpoint, err := nobitexTradesURL(cfg.BaseURL, cfg.Symbol)
+	if err != nil {
+		t.Fatalf("nobitexTradesURL returned error: %v", err)
+	}
+	if !strings.HasPrefix(endpoint, "https://apiv2.nobitex.ir/v2/trades/") {
+		t.Fatalf("unexpected endpoint: %s", endpoint)
+	}
+}
 
 func TestNobitexExchangeRateProcessorFetchesVWAP(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

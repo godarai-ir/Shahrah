@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultNobitexBaseURL  = "https://api.nobitex.ir"
+	defaultNobitexBaseURL  = "https://apiv2.nobitex.ir"
 	defaultNobitexSymbol   = "USDTIRT"
 	defaultNobitexInterval = 5 * time.Minute
 	defaultNobitexTimeout  = 10 * time.Second
