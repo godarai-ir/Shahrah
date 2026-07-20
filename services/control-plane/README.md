@@ -69,7 +69,13 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: ArvanCloud BGE-M3 OpenAI-compatible base URL ending in `/v1`; treat the complete opaque URL as a secret
 - `SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY`: bearer credential for the Iran-hosted BGE-M3 endpoint
 
-Platform workloads use database-backed service credentials instead of `MASTER_KEY`. Provision `support-admin` with `platform:read`, `platform:catalog:write`, and `platform:tenant:write` using `go run ./services/control-plane/cmd/platform-service-account`.
+Platform workloads use database-backed service credentials instead of `MASTER_KEY`. Provision or rotate the complete, version-controlled `support-admin` scope set with:
+
+```bash
+go -C services/control-plane run ./cmd/platform-service-account --profile=support-admin
+```
+
+Do not spell out this credential's scopes in deployment automation; the profile is kept in sync with the platform endpoints and covered by tests.
 
 ## Local Verification
 

@@ -20,6 +20,7 @@ import (
 func main() {
 	name := flag.String("name", "", "service account name")
 	scopesCSV := flag.String("scopes", "", "comma-separated scopes")
+	profile := flag.String("profile", "", "predefined scope profile (support-admin)")
 	expiresAtValue := flag.String("expires-at", "", "optional RFC3339 expiry")
 	revokeKeyID := flag.String("revoke-key-id", "", "revoke an existing credential instead of creating one")
 
@@ -58,14 +59,13 @@ func main() {
 		return
 	}
 
-	accountName := strings.TrimSpace(*name)
-	if !validName(accountName) {
-		fatal("--name must contain 3-64 lowercase letters, numbers, or hyphens")
-	}
-
-	scopes, err := parseScopes(*scopesCSV)
+	accountName, scopes, err := resolveCredentialConfig(*name, *profile, *scopesCSV)
 	if err != nil {
 		fatal("%v", err)
+	}
+
+	if !validName(accountName) {
+		fatal("--name must contain 3-64 lowercase letters, numbers, or hyphens")
 	}
 
 	var expiresAt *time.Time
@@ -95,6 +95,43 @@ func main() {
 
 	fmt.Printf("CONTROL_PLANE_SERVICE_TOKEN=%s\n", token)
 	fmt.Fprintln(os.Stderr, "Store this credential now; only its hash is persisted. Re-running creates a rotation credential.")
+}
+
+const supportAdminProfile = "support-admin"
+
+var supportAdminScopes = []string{
+	auth.PlatformScopeRead,
+	auth.PlatformScopeCatalogWrite,
+	auth.PlatformScopeTenantWrite,
+	auth.PlatformScopeProviderCredentialRead,
+	auth.PlatformScopeProviderCredentialCreateVersion,
+	auth.PlatformScopeProviderCredentialTest,
+	auth.PlatformScopeProviderCredentialActivate,
+	auth.PlatformScopeProviderCredentialDisable,
+}
+
+func resolveCredentialConfig(name, profile, rawScopes string) (string, []string, error) {
+	accountName := strings.TrimSpace(name)
+	profile = strings.TrimSpace(profile)
+	if profile == "" {
+		if accountName == supportAdminProfile || accountName == "platform-support" {
+			return "", nil, fmt.Errorf("%s credentials must use --profile=%s", accountName, supportAdminProfile)
+		}
+		scopes, err := parseScopes(rawScopes)
+		return accountName, scopes, err
+	}
+	if strings.TrimSpace(rawScopes) != "" {
+		return "", nil, fmt.Errorf("--profile and --scopes cannot be used together")
+	}
+	if profile != supportAdminProfile {
+		return "", nil, fmt.Errorf("unsupported profile %q", profile)
+	}
+	if accountName == "" {
+		accountName = supportAdminProfile
+	}
+
+	scopes, err := parseScopes(strings.Join(supportAdminScopes, ","))
+	return accountName, scopes, err
 }
 
 func parseScopes(raw string) ([]string, error) {

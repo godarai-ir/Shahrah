@@ -59,3 +59,5 @@ configMapGenerator:
       - migrations/040_platform_provider_credentials.sql
       - migrations/041_tenant_provider_account_auth_modes.sql
       - migrations/042_rename_provider_account_platform_credentials_flag.sql
+      - migrations/043_exchange_rate_current.sql
+      - migrations/044_backfill_support_admin_provider_credential_scopes.sql

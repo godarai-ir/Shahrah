@@ -24,13 +24,13 @@ Create the control-plane workload credential from the repository root:
 
 ```powershell
 $env:DATABASE_URL = "postgresql://.../sharah_db"
-go run ./services/control-plane/cmd/platform-service-account --name support-admin --scopes platform:read,platform:catalog:write,platform:tenant:write,platform:provider-credentials:read-metadata,platform:provider-credentials:create-version,platform:provider-credentials:test,platform:provider-credentials:activate,platform:provider-credentials:disable
+go -C services/control-plane run ./cmd/platform-service-account --profile support-admin
 ```
 
-The command prints `CONTROL_PLANE_SERVICE_TOKEN` once. Rotate by creating a second credential, deploying it, then revoke the old key ID:
+The profile owns the complete support-admin scope set in code, so deployment commands cannot silently omit newly required scopes. The command prints `CONTROL_PLANE_SERVICE_TOKEN` once. Rotate by creating a second credential, deploying it, then revoke the old key ID:
 
 ```powershell
-go run ./services/control-plane/cmd/platform-service-account --revoke-key-id <key-id>
+go -C services/control-plane run ./cmd/platform-service-account --revoke-key-id <key-id>
 ```
 
 ## Database ownership and tenant data

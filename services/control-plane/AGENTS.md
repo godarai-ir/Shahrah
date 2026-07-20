@@ -93,7 +93,7 @@ go build ./cmd/server
 For service-account provisioning:
 
 ```bash
-go run ./cmd/platform-service-account --name=platform-support --scopes=platform:read,platform:catalog:write,platform:tenant:write,platform:provider-credentials:read-metadata,platform:provider-credentials:create-version,platform:provider-credentials:test,platform:provider-credentials:activate,platform:provider-credentials:disable
+go run ./cmd/platform-service-account --profile=support-admin
 ```
 
 ## Implementation Checklist
