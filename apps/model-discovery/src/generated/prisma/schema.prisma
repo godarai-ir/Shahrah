@@ -408,6 +408,20 @@ model ServiceAccountCredential {
   @@index([expiresAt])
 }
 
+model ImportSourceState {
+  id             String    @id @default(cuid())
+  sourceKey      String    @unique
+  repoUrl        String
+  ref            String
+  lastCommitSha  String?
+  lastImportedAt DateTime?
+  lastCheckedAt  DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([repoUrl, ref])
+}
+
 model DisplaySetting {
   id           String   @id @default("default")
   currencyUnit String   @default("USD")

@@ -384,6 +384,18 @@ exports.Prisma.ServiceAccountCredentialScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.ImportSourceStateScalarFieldEnum = {
+  id: 'id',
+  sourceKey: 'sourceKey',
+  repoUrl: 'repoUrl',
+  ref: 'ref',
+  lastCommitSha: 'lastCommitSha',
+  lastImportedAt: 'lastImportedAt',
+  lastCheckedAt: 'lastCheckedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.DisplaySettingScalarFieldEnum = {
   id: 'id',
   currencyUnit: 'currencyUnit',
@@ -472,6 +484,7 @@ exports.Prisma.ModelName = {
   AuditLog: 'AuditLog',
   ServiceAccount: 'ServiceAccount',
   ServiceAccountCredential: 'ServiceAccountCredential',
+  ImportSourceState: 'ImportSourceState',
   DisplaySetting: 'DisplaySetting'
 };
 
