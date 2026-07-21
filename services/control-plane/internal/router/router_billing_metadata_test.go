@@ -22,8 +22,10 @@ func (s deploymentStoreStub) ListDeployments(_ context.Context, _ string) ([]pla
 
 func newRouterTestCache(t *testing.T) cache.Cache {
 	t.Helper()
+
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	require.NoError(t, err)
+
 	return mem
 }
 

@@ -199,6 +199,7 @@ func NewHTTPMetrics() *HTTPMetrics {
 		if loadedAt == 0 {
 			return 0
 		}
+
 		return time.Since(time.Unix(0, loadedAt)).Seconds()
 	})
 	keyLastUsedFlushErrors := prom.NewCounter(prom.CounterOpts{
@@ -252,11 +253,13 @@ func (m *HTTPMetrics) ObserveResolve(result string) {
 	if m == nil || m.platformCredentialResolves == nil {
 		return
 	}
+
 	switch result {
 	case "hit", "unavailable", "expired":
 	default:
 		result = "unavailable"
 	}
+
 	m.platformCredentialResolves.WithLabelValues(result).Inc()
 }
 
@@ -266,12 +269,15 @@ func (m *HTTPMetrics) ObserveSnapshotLoad(success bool, duration time.Duration, 
 	if m == nil || m.platformCredentialSnapshotLoads == nil {
 		return
 	}
+
 	result := "failure"
 	if success {
 		result = "success"
+
 		m.platformCredentialSnapshotEntries.Set(float64(entries))
 		m.platformCredentialLastLoadedUnixNano.Store(time.Now().UnixNano())
 	}
+
 	m.platformCredentialSnapshotLoads.WithLabelValues(result).Inc()
 	m.platformCredentialSnapshotDuration.Observe(duration.Seconds())
 }
@@ -281,6 +287,7 @@ func (m *HTTPMetrics) IncBackpressureInFlight() {
 	if m == nil || m.backpressureInFlight == nil {
 		return
 	}
+
 	m.backpressureInFlight.Inc()
 }
 
@@ -289,6 +296,7 @@ func (m *HTTPMetrics) DecBackpressureInFlight() {
 	if m == nil || m.backpressureInFlight == nil {
 		return
 	}
+
 	m.backpressureInFlight.Dec()
 }
 
@@ -297,6 +305,7 @@ func (m *HTTPMetrics) IncBackpressureRejected() {
 	if m == nil || m.backpressureRejectedTotal == nil {
 		return
 	}
+
 	m.backpressureRejectedTotal.Inc()
 }
 
@@ -319,12 +328,15 @@ func (m *HTTPMetrics) ObserveTokenSpendFlush(batchSize int, duration time.Durati
 	if m == nil {
 		return
 	}
+
 	if m.tokenSpendFlushDuration != nil {
 		m.tokenSpendFlushDuration.Observe(duration.Seconds())
 	}
+
 	if m.tokenSpendFlushBatchSize != nil {
 		m.tokenSpendFlushBatchSize.Observe(float64(batchSize))
 	}
+
 	if err != nil && m.tokenSpendFlushErrors != nil {
 		m.tokenSpendFlushErrors.Inc()
 	}
@@ -349,12 +361,15 @@ func (m *HTTPMetrics) ObserveSpendLogFlush(batchSize int, duration time.Duration
 	if m == nil {
 		return
 	}
+
 	if m.spendLogFlushDuration != nil {
 		m.spendLogFlushDuration.Observe(duration.Seconds())
 	}
+
 	if m.spendLogFlushBatchSize != nil {
 		m.spendLogFlushBatchSize.Observe(float64(batchSize))
 	}
+
 	if err != nil && m.spendLogFlushErrors != nil {
 		m.spendLogFlushErrors.Inc()
 	}
@@ -386,12 +401,15 @@ func (m *HTTPMetrics) ObserveKeyLastUsedFlush(batchSize int, duration time.Durat
 	if m == nil {
 		return
 	}
+
 	if m.keyLastUsedFlushDuration != nil {
 		m.keyLastUsedFlushDuration.Observe(duration.Seconds())
 	}
+
 	if m.keyLastUsedFlushBatchSize != nil {
 		m.keyLastUsedFlushBatchSize.Observe(float64(batchSize))
 	}
+
 	if err != nil && m.keyLastUsedFlushErrors != nil {
 		m.keyLastUsedFlushErrors.Inc()
 	}
@@ -403,7 +421,7 @@ func (m *HTTPMetrics) RegisterPgxPool(provider PoolStatsProvider) {
 		return
 	}
 
-	collectors := []prom.Collector{
+	metricsCollectors := []prom.Collector{
 		prom.NewGaugeFunc(prom.GaugeOpts{
 			Namespace: "shahrah", Subsystem: "control_plane", Name: "postgres_pool_acquired_conns",
 			Help: "Current PostgreSQL connections acquired from the pool.",
@@ -450,11 +468,12 @@ func (m *HTTPMetrics) RegisterPgxPool(provider PoolStatsProvider) {
 			if stats == nil {
 				return 0
 			}
+
 			return stats.AcquireDuration().Seconds()
 		}),
 	}
 
-	m.registry.MustRegister(collectors...)
+	m.registry.MustRegister(metricsCollectors...)
 }
 
 // Middleware returns a Fiber middleware that records request metrics.
@@ -505,6 +524,7 @@ func int32Stat(provider PoolStatsProvider, read func(PgxPoolStats) int32) float6
 	if stats == nil {
 		return 0
 	}
+
 	return float64(read(stats))
 }
 
@@ -513,5 +533,6 @@ func int64Stat(provider PoolStatsProvider, read func(PgxPoolStats) int64) float6
 	if stats == nil {
 		return 0
 	}
+
 	return float64(read(stats))
 }

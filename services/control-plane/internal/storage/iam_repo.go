@@ -374,6 +374,7 @@ func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req plat
 	if err == nil {
 		s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.created")
 	}
+
 	return item, err
 }
 
@@ -415,6 +416,7 @@ func (s *Store) GetVirtualUser(ctx context.Context, tenantID string, virtualUser
 	if err == nil {
 		s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.updated")
 	}
+
 	return item, err
 }
 
@@ -495,6 +497,7 @@ func (s *Store) DeleteVirtualUser(ctx context.Context, tenantID string, virtualU
 	if command.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.deleted")
 
 	return nil

@@ -3,7 +3,6 @@ package proxy
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -83,6 +82,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	originalBody := append([]byte(nil), c.Body()...)
+
 	var req contractsopenai.ResponseRequest
 	if err := json.Unmarshal(originalBody, &req); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
@@ -125,6 +125,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 		denyReason := denyReasonForModel(authInfo)
 		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+
 		const message = "Model access denied or unsupported for responses"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/responses", "responses", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
@@ -141,6 +142,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
+
 	estimated.Metadata = req.Metadata
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
@@ -157,14 +159,17 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
+
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
 		if err != nil {
 			return err
 		}
 	}
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -233,7 +238,6 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservationAttempted = true
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil {
 			return err
@@ -249,10 +253,21 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
+
 	return err
 }
 
-func (h *ResponsesHandler) handleSync(c *fiber.Ctx, req contractsopenai.ResponseRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *ResponsesHandler) handleSync(
+	c *fiber.Ctx,
+	req contractsopenai.ResponseRequest,
+	originalBody []byte,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -386,6 +401,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 		})
 
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
 
@@ -404,23 +420,29 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
 		budgetCommitted := false
 		defer func() {
 			if !budgetCommitted {
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
+
 		finalizeAndLogSuccess := func() {
 			if budgetCommitted {
 				return
 			}
+
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
+
 			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, nil, estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+
 				finalCost = estimated
 				finalCost.Model = billingModel
 			}
+
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 			} else {
@@ -472,46 +494,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 			})
 		}
 
-		for {
-			select {
-			case chunk, ok := <-stream.Chunks():
-				if !ok {
-					finalizeAndLogSuccess()
-					return
-				}
-
-				if len(chunk.Data) > 0 {
-					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
-						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-						return
-					}
-				}
-
-				if chunk.IsDone {
-					finalizeAndLogSuccess()
-					return
-				}
-			case err, ok := <-stream.Errors():
-				if ok && err != nil {
-					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
-						Error: contractsopenai.ErrorInfo{
-							Message: err.Error(),
-							Type:    "streaming_error",
-						},
-					})
-					if marshalErr != nil {
-						h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
-						return
-					}
-
-					if writeErr := writeBufferedBytes(w, bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)); writeErr != nil {
-						h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-					}
-				}
-
-				return
-			}
-		}
+		relayTunnelStream(stream, w, finalizeAndLogSuccess, h.logger, tunnelReq.RequestID, "responses")
 	})
 
 	responseStart := time.Now()

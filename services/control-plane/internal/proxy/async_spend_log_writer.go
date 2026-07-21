@@ -46,9 +46,11 @@ type AsyncSpendLogWriter struct {
 
 func NewAsyncSpendLogWriter(underlying SpendLogger, cfg AsyncSpendLogConfig, logger *zap.Logger, metrics SpendLogMetrics) *AsyncSpendLogWriter {
 	cfg = normalizeAsyncSpendLogConfig(cfg)
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	w := &AsyncSpendLogWriter{
 		underlying: underlying,
 		cfg:        cfg,
@@ -59,10 +61,12 @@ func NewAsyncSpendLogWriter(underlying SpendLogger, cfg AsyncSpendLogConfig, log
 	if batch, ok := underlying.(SpendLogBatchWriter); ok {
 		w.batch = batch
 	}
+
 	for i := 0; i < cfg.Workers; i++ {
 		w.wg.Add(1)
 		go w.worker()
 	}
+
 	return w
 }
 
@@ -70,15 +74,19 @@ func normalizeAsyncSpendLogConfig(cfg AsyncSpendLogConfig) AsyncSpendLogConfig {
 	if cfg.QueueSize <= 0 {
 		cfg.QueueSize = 10000
 	}
+
 	if cfg.Workers <= 0 {
 		cfg.Workers = 1
 	}
+
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 500
 	}
+
 	if cfg.FlushInterval <= 0 {
 		cfg.FlushInterval = 500 * time.Millisecond
 	}
+
 	return cfg
 }
 
@@ -86,6 +94,7 @@ func (w *AsyncSpendLogWriter) LogSpend(ctx context.Context, log platform.SpendLo
 	if w == nil || w.underlying == nil {
 		return nil
 	}
+
 	if w.closed.Load() {
 		return w.handleQueueFull()
 	}
@@ -93,6 +102,7 @@ func (w *AsyncSpendLogWriter) LogSpend(ctx context.Context, log platform.SpendLo
 	if w.cfg.EnqueueTimeout > 0 {
 		timer := time.NewTimer(w.cfg.EnqueueTimeout)
 		defer timer.Stop()
+
 		select {
 		case w.queue <- log:
 			w.recordQueued()
@@ -117,9 +127,11 @@ func (w *AsyncSpendLogWriter) Stop(ctx context.Context) error {
 	if w == nil || !w.closed.CompareAndSwap(false, true) {
 		return nil
 	}
+
 	close(w.queue)
 
 	done := make(chan struct{})
+
 	go func() {
 		w.wg.Wait()
 		close(done)
@@ -136,9 +148,11 @@ func (w *AsyncSpendLogWriter) Stop(ctx context.Context) error {
 func (w *AsyncSpendLogWriter) handleQueueFull() error {
 	w.recordDropped()
 	w.logger.Warn("spend log queue full; dropping log")
+
 	if w.cfg.DropOnFull {
 		return nil
 	}
+
 	return ErrSpendLogQueueFull
 }
 
@@ -165,6 +179,7 @@ func (w *AsyncSpendLogWriter) worker() {
 		if len(batch) == 0 {
 			return
 		}
+
 		w.flushBatch(context.Background(), batch)
 		batch = make([]platform.SpendLog, 0, w.cfg.BatchSize)
 	}
@@ -176,6 +191,7 @@ func (w *AsyncSpendLogWriter) worker() {
 				flush()
 				return
 			}
+
 			batch = append(batch, log)
 			if len(batch) >= w.cfg.BatchSize {
 				flush()
@@ -192,6 +208,7 @@ func (w *AsyncSpendLogWriter) flushBatch(ctx context.Context, logs []platform.Sp
 	}
 
 	start := time.Now()
+
 	var err error
 	if w.batch != nil {
 		err = w.batch.LogSpends(ctx, logs)
@@ -203,9 +220,11 @@ func (w *AsyncSpendLogWriter) flushBatch(ctx context.Context, logs []platform.Sp
 			}
 		}
 	}
+
 	if w.metrics != nil {
 		w.metrics.ObserveSpendLogFlush(len(logs), time.Since(start), err)
 	}
+
 	if err != nil {
 		w.logger.Warn("failed to flush spend log batch", zap.Error(err), zap.Int("batch_size", len(logs)))
 	}

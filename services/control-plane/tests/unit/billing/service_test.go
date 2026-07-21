@@ -33,6 +33,7 @@ func (s *walletStoreStub) GetWallet(_ context.Context, tenantID string) (*platfo
 	defer s.mu.Unlock()
 
 	s.walletCalls++
+
 	return s.wallet, nil
 }
 func (s *walletStoreStub) GetLatestExchangeRate(_ context.Context) (*platform.ExchangeRate, error) {
@@ -43,11 +44,13 @@ func (s *walletStoreStub) GetLatestExchangeRate(_ context.Context) (*platform.Ex
 	if s.rateErr != nil {
 		return nil, s.rateErr
 	}
+
 	if len(s.rates) > 0 {
 		rate := s.rates[0]
 		if len(s.rates) > 1 {
 			s.rates = s.rates[1:]
 		}
+
 		return rate, nil
 	}
 
@@ -59,6 +62,7 @@ func (s *walletStoreStub) UpsertExchangeRate(_ context.Context, rate platform.Ex
 
 	s.upsertCalls++
 	s.upsertedRate = &rate
+
 	return &rate, nil
 }
 
@@ -89,6 +93,7 @@ func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlements(_ context.Cont
 	defer s.mu.Unlock()
 
 	s.fullCalls++
+
 	return s.effective, nil
 }
 
@@ -100,6 +105,7 @@ func (s *entitlementWalletStoreStub) ResolveEffectiveEntitlementLimits(_ context
 	if s.effective == nil {
 		return nil, errors.New("not found")
 	}
+
 	return &platform.EffectiveEntitlementLimits{
 		TenantID:     tenantID,
 		Subscription: s.effective.Subscription,
@@ -246,6 +252,7 @@ func TestBillingService_ShouldUseStaleExchangeRateAndRefreshAsync(t *testing.T) 
 	assert.Equal(t, 850000.0, first.ExchangeRate)
 
 	time.Sleep(time.Millisecond)
+
 	stale, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	require.NoError(t, err)
 	assert.Equal(t, 850000.0, stale.ExchangeRate)
@@ -303,6 +310,7 @@ func TestBillingService_ShouldKeepStaleExchangeRateWhenAsyncRefreshFails(t *test
 	store.mu.Unlock()
 
 	time.Sleep(time.Millisecond)
+
 	stale, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	require.NoError(t, err)
 	assert.Equal(t, 850000.0, stale.ExchangeRate)
@@ -330,22 +338,27 @@ func TestBillingService_ShouldCoalesceConcurrentExchangeRateMisses(t *testing.T)
 	})
 
 	const workers = 20
+
 	var wg sync.WaitGroup
 	wg.Add(workers)
+
 	errs := make(chan error, workers)
 	for i := 0; i < workers; i++ {
 		go func() {
 			defer wg.Done()
+
 			_, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 			errs <- err
 		}()
 	}
+
 	wg.Wait()
 	close(errs)
 
 	for err := range errs {
 		require.NoError(t, err)
 	}
+
 	assert.Equal(t, 1, store.rateCallCount())
 }
 
@@ -522,6 +535,7 @@ func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.
 	assert.True(t, res.Allowed)
 	assert.Equal(t, int64(5), res.Current)
 	assert.Equal(t, int64(5), res.Limit)
+
 	fullCalls, limitCalls := store.entitlementCallCounts()
 	assert.Equal(t, 0, fullCalls)
 	assert.Equal(t, 1, limitCalls)

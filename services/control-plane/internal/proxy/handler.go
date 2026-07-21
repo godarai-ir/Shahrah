@@ -147,6 +147,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	originalBody := append([]byte(nil), c.Body()...)
+
 	var req contractsopenai.ChatCompletionRequest
 	if err := json.Unmarshal(originalBody, &req); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
@@ -182,6 +183,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 
 		denyReason := denyReasonForModel(authInfo)
 		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+
 		const message = "Model access denied or unsupported for chat completions"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/chat/completions", "chat_completions", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
@@ -242,6 +244,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
 	}
+
 	estimated.Metadata = req.Metadata
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
@@ -267,15 +270,19 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+
 	budgetReservationAttempted := false
+
 	deferBudgetUntilRoute := shouldDeferBudgetReservationUntilRoute(requestedModel) || h.shouldDeferBudgetForVirtualModel(c.Context(), currentTenant.ID, authInfo, requestedModel)
 	if !deferBudgetUntilRoute {
 		budgetReservationAttempted = true
+
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
 		if err != nil {
 			return err
 		}
 	}
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -312,47 +319,9 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return routeErr
 	}
 
-	if deployment == nil {
-		for _, candidate := range routeCandidates {
-			deployment, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
-			if err == nil {
-				break
-			}
-		}
-	}
-
-	if deployment == nil {
-		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
-		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
-	}
-
-	if chatRequestHasImage(req) && !supportsChatImageProvider(deployment.Provider) {
-		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through GodarAI chat completions", deployment.Provider), "invalid_request_error")
-	}
-
-	if chatRequestHasFile(req) && !supportsChatFileProvider(deployment.Provider) {
-		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support file input through GodarAI chat completions", deployment.Provider), "invalid_request_error")
-	}
-
-	if chatRequestHasTools(req) && !supportsChatToolsProvider(deployment.Provider) {
-		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support tools through GodarAI chat completions", deployment.Provider), "invalid_request_error")
-	}
-
-	if chatRequestHasResponseFormat(req) && !supportsChatResponseFormatProvider(deployment.Provider) {
-		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support response_format through GodarAI chat completions", deployment.Provider), "invalid_request_error")
-	}
-
-	if chatRequestHasExtendedThinking(req) && !supportsChatExtendedThinkingProvider(deployment.Provider) {
-		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support extended thinking through GodarAI chat completions", deployment.Provider), "invalid_request_error")
-	}
-
-	validateErr := validateProviderMediaInput(req, deployment.Provider)
-	if validateErr != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, validateErr.Error(), "invalid_request_error")
-	}
-
-	if validateErr := validateProviderExtendedThinkingInput(req, deployment.Provider); validateErr != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, validateErr.Error(), "invalid_request_error")
+	deployment = h.routeChatCandidates(c.Context(), currentTenant.ID, routeCandidates, deployment)
+	if handled, validationErr := h.validateChatDeployment(c, currentTenant.ID, requestedModel, req, deployment); handled || validationErr != nil {
+		return validationErr
 	}
 
 	if !isVirtual {
@@ -370,7 +339,6 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservationAttempted = true
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil {
 			return err
@@ -386,7 +354,73 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
+
 	return err
+}
+
+func (h *ChatCompletionHandler) routeChatCandidates(
+	ctx context.Context,
+	tenantID string,
+	candidates []string,
+	deployment *router.Deployment,
+) *router.Deployment {
+	if deployment != nil {
+		return deployment
+	}
+
+	for _, candidate := range candidates {
+		resolved, err := h.llmRouter.Route(ctx, tenantID, candidate)
+		if err == nil {
+			return resolved
+		}
+	}
+
+	return nil
+}
+
+func (h *ChatCompletionHandler) validateChatDeployment(
+	c *fiber.Ctx,
+	tenantID string,
+	requestedModel string,
+	req contractsopenai.ChatCompletionRequest,
+	deployment *router.Deployment,
+) (bool, error) {
+	if deployment == nil {
+		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, tenantID)
+
+		return true, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+	}
+
+	provider := deployment.Provider
+	if chatRequestHasImage(req) && !supportsChatImageProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through GodarAI chat completions", provider), "invalid_request_error")
+	}
+
+	if chatRequestHasFile(req) && !supportsChatFileProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support file input through GodarAI chat completions", provider), "invalid_request_error")
+	}
+
+	if chatRequestHasTools(req) && !supportsChatToolsProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support tools through GodarAI chat completions", provider), "invalid_request_error")
+	}
+
+	if chatRequestHasResponseFormat(req) && !supportsChatResponseFormatProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support response_format through GodarAI chat completions", provider), "invalid_request_error")
+	}
+
+	if chatRequestHasExtendedThinking(req) && !supportsChatExtendedThinkingProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support extended thinking through GodarAI chat completions", provider), "invalid_request_error")
+	}
+
+	if err := validateProviderMediaInput(req, provider); err != nil {
+		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
+	if err := validateProviderExtendedThinkingInput(req, provider); err != nil {
+		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
+	return false, nil
 }
 
 func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deploymentModel string, fallbackModel string) ([]byte, error) {
@@ -672,11 +706,13 @@ func (h *ChatCompletionHandler) virtualModelForBudgetDecision(ctx context.Contex
 
 func deploymentFromVirtualTarget(target platform.VirtualModelTarget) *router.Deployment {
 	provider := strings.TrimSpace(target.Provider)
+
 	modelForProvider := strings.TrimSpace(target.Model)
 	if p, _, official, ok := splitModelFQN(target.Model); ok {
 		if provider == "" {
 			provider = p
 		}
+
 		modelForProvider = official
 	}
 
@@ -772,6 +808,13 @@ func (h *ChatCompletionHandler) handleSync(
 
 			return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 		}
+	}
+
+	if resp == nil {
+		providerAttrs["error"] = "tunnel returned an empty response"
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
+		return writeAPIError(c, fiber.StatusBadGateway, "Tunnel returned an empty response", "api_error")
 	}
 
 	if resp.StatusCode >= httpErrorFloor {
@@ -1006,6 +1049,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 		})
 
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
 
@@ -1027,23 +1071,29 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
 		budgetCommitted := false
 		defer func() {
 			if !budgetCommitted {
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
+
 		finalizeAndLogSuccess := func() {
 			if budgetCommitted {
 				return
 			}
+
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
+
 			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, nil, estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+
 				finalCost = estimated
 				finalCost.Model = billingModel
 			}
+
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 			} else {
@@ -1108,6 +1158,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_write_failed")
+
 						return
 					}
 				}
@@ -1119,6 +1170,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 			case err, ok := <-stream.Errors():
 				if ok && err != nil {
 					releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_error")
+
 					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
 						Error: contractsopenai.ErrorInfo{
 							Message: err.Error(),
@@ -1260,6 +1312,7 @@ func billingModelForDeployment(requestedModel string, deployment platform.Deploy
 	if model == "" || model == "*" {
 		model = providerModelID(requestedModel)
 	}
+
 	if model == "" {
 		model = strings.TrimSpace(requestedModel)
 	}
@@ -1295,6 +1348,7 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 	if dep.ProviderAuth != nil {
 		legacyAPIKey = ""
 	}
+
 	return platform.Deployment{
 		ID:                  dep.ID,
 		TenantID:            dep.TenantID,
@@ -1399,11 +1453,13 @@ func setRateLimitHeaders(c *fiber.Ctx, result *cache.RateLimitResult) {
 	c.Set("X-RateLimit-Limit", fmt.Sprintf("%d", result.Limit))
 	c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
 	c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", result.ResetAt.Unix()))
+
 	if result.RetryAfter {
 		retryAfter := time.Until(result.ResetAt)
 		if retryAfter < 0 {
 			retryAfter = 0
 		}
+
 		c.Set("Retry-After", fmt.Sprintf("%d", int64(retryAfter.Seconds())))
 	}
 }
@@ -1461,6 +1517,7 @@ func thinkingConfigEnabled(value *contractsopenai.ThinkingConfig) bool {
 	}
 
 	thinkingType := strings.ToLower(strings.TrimSpace(value.Type))
+
 	return thinkingType == "enabled"
 }
 
@@ -1557,6 +1614,7 @@ func validateChatResponseFormat(value interface{}) error {
 	}
 
 	formatType, ok := format["type"].(string)
+
 	formatType = strings.TrimSpace(formatType)
 	if !ok || formatType == "" {
 		return fmt.Errorf("response_format.type is required")
@@ -1570,9 +1628,11 @@ func validateChatResponseFormat(value interface{}) error {
 		if !ok || rawSchema == nil {
 			return fmt.Errorf("response_format.json_schema is required for json_schema")
 		}
+
 		if _, ok := rawSchema["schema"].(map[string]interface{}); !ok {
 			return fmt.Errorf("response_format.json_schema.schema is required for json_schema")
 		}
+
 		return nil
 	default:
 		return fmt.Errorf("response_format.type %q is not supported", formatType)

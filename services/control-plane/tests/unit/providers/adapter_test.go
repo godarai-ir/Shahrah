@@ -72,6 +72,8 @@ func TestOpenAIAdapter_Complete(t *testing.T) {
 	// Verify response
 	if resp == nil {
 		t.Fatal("Expected response, got nil")
+
+		return
 	}
 
 	if resp.ID != "chatcmpl-test" {

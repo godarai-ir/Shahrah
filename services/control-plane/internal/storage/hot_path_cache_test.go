@@ -29,9 +29,11 @@ func TestListDeploymentsReturnsCachedDefensiveCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected cached deployment list, got error: %v", err)
 	}
+
 	if len(first) != 1 || first[0].ModelName != "gpt-4o" {
 		t.Fatalf("unexpected cached deployments: %#v", first)
 	}
+
 	first[0].ModelName = "mutated"
 	first[0].ModelInfo["family"] = "changed"
 
@@ -39,9 +41,11 @@ func TestListDeploymentsReturnsCachedDefensiveCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected cached deployment list on second read, got error: %v", err)
 	}
+
 	if second[0].ModelName != "gpt-4o" {
 		t.Fatalf("expected cached deployment copy to preserve model name, got %q", second[0].ModelName)
 	}
+
 	if second[0].ModelInfo["family"] != "gpt" {
 		t.Fatalf("expected cached deployment copy to preserve model info, got %#v", second[0].ModelInfo)
 	}
@@ -78,6 +82,7 @@ func TestListVirtualModelsReturnsCachedDefensiveCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected cached virtual model list, got error: %v", err)
 	}
+
 	first[0].Alias = "mutated"
 	first[0].ExposedModes[0] = "responses"
 	first[0].Targets[0].Policy.Retry.StatusCodes[0] = 400
@@ -87,15 +92,19 @@ func TestListVirtualModelsReturnsCachedDefensiveCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected cached virtual model list on second read, got error: %v", err)
 	}
+
 	if second[0].Alias != "smart" {
 		t.Fatalf("expected cached virtual model alias to be preserved, got %q", second[0].Alias)
 	}
+
 	if second[0].ExposedModes[0] != "chat" {
 		t.Fatalf("expected cached exposed modes to be preserved, got %#v", second[0].ExposedModes)
 	}
+
 	if second[0].Targets[0].Policy.Retry.StatusCodes[0] != 429 {
 		t.Fatalf("expected cached target policy to be preserved, got %#v", second[0].Targets[0].Policy.Retry.StatusCodes)
 	}
+
 	if second[0].Access.Users[0].Type != platform.PrincipalTypeEveryone {
 		t.Fatalf("expected cached access to be preserved, got %#v", second[0].Access.Users)
 	}
@@ -112,7 +121,9 @@ func TestHotPathCacheHonorsTTL(t *testing.T) {
 	if _, state := store.getCachedDeployments(key); state != hotPathCacheFresh {
 		t.Fatal("expected deployment cache hit before TTL expiry")
 	}
+
 	time.Sleep(20 * time.Millisecond)
+
 	if _, state := store.getCachedDeployments(key); state != hotPathCacheMiss {
 		t.Fatal("expected deployment cache miss after TTL expiry")
 	}
@@ -140,6 +151,7 @@ func TestListDeploymentsReturnsStaleSnapshotImmediately(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected stale deployment list, got error: %v", err)
 	}
+
 	if len(deps) != 1 || deps[0].ID != "dep-stale" {
 		t.Fatalf("unexpected stale deployments: %#v", deps)
 	}
@@ -167,6 +179,7 @@ func TestListVirtualModelsReturnsStaleSnapshotImmediately(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected stale virtual model list, got error: %v", err)
 	}
+
 	if len(models) != 1 || models[0].ID != "vm-stale" {
 		t.Fatalf("unexpected stale virtual models: %#v", models)
 	}
@@ -188,6 +201,7 @@ func TestHotPathCacheMissesAfterStaleWindow(t *testing.T) {
 	if _, state := store.getCachedDeployments(key); state != hotPathCacheMiss {
 		t.Fatal("expected deployment cache miss after stale window")
 	}
+
 	if _, ok := store.hotPathCache[key]; ok {
 		t.Fatal("expected fully expired cache entry to be deleted")
 	}
@@ -202,12 +216,14 @@ func TestHotPathRefreshAsyncCoalescesRefreshes(t *testing.T) {
 	key := deploymentCacheKey("tenant-1")
 
 	var calls atomic.Int32
+
 	started := make(chan struct{})
 	release := make(chan struct{})
 	refresh := func(ctx context.Context) error {
 		if calls.Add(1) == 1 {
 			close(started)
 		}
+
 		select {
 		case <-release:
 			store.cacheDeployments(key, []platform.Deployment{{ID: "dep-refreshed"}})
@@ -220,6 +236,7 @@ func TestHotPathRefreshAsyncCoalescesRefreshes(t *testing.T) {
 	if ch := store.refreshHotPathCacheAsync(key, refresh); ch == nil {
 		t.Fatal("expected first refresh to start")
 	}
+
 	select {
 	case <-started:
 	case <-time.After(time.Second):
@@ -229,21 +246,27 @@ func TestHotPathRefreshAsyncCoalescesRefreshes(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		store.refreshHotPathCacheAsync(key, refresh)
 	}
+
 	time.Sleep(20 * time.Millisecond)
+
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("expected refresh calls to coalesce while first is running, got %d", got)
 	}
 
 	close(release)
+
 	deadline := time.Now().Add(time.Second)
+
 	for {
 		deps, state := store.getCachedDeployments(key)
 		if state == hotPathCacheFresh && len(deps) == 1 && deps[0].ID == "dep-refreshed" {
 			return
 		}
+
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for refreshed cache entry; state=%v deps=%#v", state, deps)
 		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
 }

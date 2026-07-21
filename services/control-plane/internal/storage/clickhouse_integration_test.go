@@ -30,6 +30,7 @@ func TestClickHouseObservabilityIntegration(t *testing.T) {
 
 	db, err := sql.Open("clickhouse", dsn)
 	require.NoError(t, err)
+
 	defer closeBestEffort(db)
 
 	require.NoError(t, waitForClickHouse(ctx, db))
@@ -76,6 +77,7 @@ func startClickHouseTestContainer(t *testing.T, ctx context.Context) (string, fu
 		"-e", "CLICKHOUSE_SKIP_USER_SETUP=1",
 		"clickhouse/clickhouse-server:24.8-alpine",
 	}
+
 	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("start clickhouse container: %v\n%s", err, string(out))
@@ -93,6 +95,7 @@ func startClickHouseTestContainer(t *testing.T, ctx context.Context) (string, fu
 	}
 
 	port := parseDockerHostPort(t, string(portOut))
+
 	return "clickhouse://127.0.0.1:" + port, cleanup
 }
 
@@ -115,13 +118,16 @@ func parseDockerHostPort(t *testing.T, raw string) string {
 
 func waitForClickHouse(ctx context.Context, db *sql.DB) error {
 	deadline := time.Now().Add(90 * time.Second)
+
 	var lastErr error
+
 	for time.Now().Before(deadline) {
-		if err := db.PingContext(ctx); err == nil {
+		err := db.PingContext(ctx)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+
+		lastErr = err
 
 		select {
 		case <-ctx.Done():
@@ -146,6 +152,7 @@ func applyClickHouseMigrations(ctx context.Context, db *sql.DB) error {
 		"004_observability_runtime_schema.sql",
 	} {
 		path := filepath.Join(root, "infra", "clickhouse", "migrations", name)
+
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -176,12 +183,14 @@ func findRepoRoot() (string, error) {
 		if parent == dir {
 			return "", fmt.Errorf("repo root not found from %s", dir)
 		}
+
 		dir = parent
 	}
 }
 
 func splitSQLStatements(raw string) []string {
 	parts := strings.Split(raw, ";")
+
 	out := make([]string, 0, len(parts))
 	for _, part := range parts {
 		stmt := strings.TrimSpace(part)
@@ -369,6 +378,7 @@ func assertClickHouseTraceRetentionTTL(t *testing.T, ctx context.Context, db *sq
 
 	for _, table := range []string{"request_traces_ch", "request_spans_ch"} {
 		var createSQL string
+
 		err := db.QueryRowContext(ctx, "SHOW CREATE TABLE "+table).Scan(&createSQL)
 		require.NoError(t, err)
 		require.Contains(t, createSQL, "retention_days")

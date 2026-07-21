@@ -21,11 +21,14 @@ func (s *VirtualModelStore) GetVirtualModelByAlias(ctx context.Context, tenantID
 	if err != nil {
 		return nil, err
 	}
+
 	vm, ok := profile.VirtualModels[strings.TrimSpace(alias)]
 	if !ok {
 		return nil, ErrProfileUnavailable
 	}
+
 	out := cloneVirtualModel(vm)
+
 	return &out, nil
 }
 
@@ -42,18 +45,22 @@ func (r *GuardrailResolver) ListEnabledTenantGuardrailsBySlugs(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]platform.TenantGuardrail, 0, len(slugs))
 	seen := map[string]bool{}
+
 	for _, slug := range slugs {
 		slug = strings.TrimSpace(slug)
 		if slug == "" || seen[slug] {
 			continue
 		}
+
 		seen[slug] = true
 		if guardrail, ok := profile.Guardrails[slug]; ok && guardrail.Enabled {
 			out = append(out, cloneGuardrail(guardrail))
 		}
 	}
+
 	return out, nil
 }
 
@@ -70,6 +77,7 @@ func (s *DeploymentStore) ListDeployments(ctx context.Context, tenantID string) 
 	if err != nil {
 		return nil, err
 	}
+
 	return cloneDeployments(profile.Deployments), nil
 }
 
@@ -83,12 +91,15 @@ func (s *DeploymentStore) ListVirtualModels(ctx context.Context, tenantID string
 	for _, vm := range profile.VirtualModels {
 		out = append(out, cloneVirtualModel(vm))
 	}
+
 	sort.Slice(out, func(i, j int) bool {
 		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
 			return out[i].CreatedAt.Before(out[j].CreatedAt)
 		}
+
 		return out[i].Alias < out[j].Alias
 	})
+
 	return out, nil
 }
 
@@ -97,6 +108,7 @@ func (s *DeploymentStore) ResolveProviderAccountAPIKey(ctx context.Context, tena
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(profile.ProviderAPIKeys[strings.TrimSpace(modelFQN)]), nil
 }
 
@@ -113,10 +125,13 @@ func (r *EntitlementResolver) ResolveEffectiveEntitlementLimits(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
+
 	if profile.Entitlements == nil {
 		return nil, ErrProfileUnavailable
 	}
+
 	out := *profile.Entitlements
+
 	out.Features = cloneInterfaceMap(profile.Entitlements.Features)
 	if profile.Entitlements.Subscription != nil {
 		sub := *profile.Entitlements.Subscription
@@ -124,5 +139,6 @@ func (r *EntitlementResolver) ResolveEffectiveEntitlementLimits(ctx context.Cont
 		sub.Metadata = cloneInterfaceMap(sub.Metadata)
 		out.Subscription = &sub
 	}
+
 	return &out, nil
 }

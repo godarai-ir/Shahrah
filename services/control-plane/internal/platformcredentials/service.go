@@ -60,6 +60,7 @@ func NewService(repo Repository, secrets *EncryptedDBSecretStore, manager *Manag
 	if prober == nil {
 		prober = NewHTTPProber(nil)
 	}
+
 	return &Service{repo: repo, secrets: secrets, manager: manager, publisher: publisher, catalog: catalog, prober: prober}
 }
 
@@ -67,6 +68,7 @@ func (s *Service) Schemas(ctx context.Context, providerSlug string) ([]platform.
 	if s.catalog == nil {
 		return nil, ErrNotFound
 	}
+
 	return s.catalog.Schemas(ctx, normalizeProvider(providerSlug))
 }
 
@@ -74,19 +76,25 @@ func (s *Service) CreateConnection(ctx context.Context, request platform.CreateP
 	if strings.TrimSpace(idempotencyKey) == "" {
 		return nil, ErrInvalidRequest
 	}
+
 	request.ProviderSlug = normalizeProvider(request.ProviderSlug)
+
 	request.Environment = strings.ToLower(strings.TrimSpace(request.Environment))
 	if request.Environment == "" {
 		request.Environment = platform.ProviderCredentialEnvironmentProd
 	}
+
 	request.AuthMode = strings.ToLower(strings.TrimSpace(request.AuthMode))
+
 	schema, err := s.schema(ctx, request.ProviderSlug, request.AuthMode, request.SchemaVersion)
 	if err != nil || strings.TrimSpace(request.Name) == "" || hasSecretConfig(request.Config) || !validConnectionConfig(schema, request.Config) {
 		return nil, ErrInvalidRequest
 	}
+
 	if request.Weight == 0 {
 		request.Weight = 1
 	}
+
 	return s.repo.CreatePlatformProviderConnection(ctx, request, actor, idempotencyKey)
 }
 
@@ -94,16 +102,19 @@ func (s *Service) UpdateConnection(ctx context.Context, id string, request platf
 	if request.Revision <= 0 || hasSecretConfig(request.Config) {
 		return nil, ErrInvalidRequest
 	}
+
 	if request.Config != nil {
 		connection, err := s.repo.GetPlatformProviderConnection(ctx, id)
 		if err != nil {
 			return nil, err
 		}
+
 		schema, err := s.schema(ctx, connection.ProviderSlug, connection.AuthMode, connection.SchemaVersion)
 		if err != nil || !validConnectionConfig(schema, request.Config) {
 			return nil, ErrInvalidRequest
 		}
 	}
+
 	return s.repo.UpdatePlatformProviderConnection(ctx, id, request, actor)
 }
 
@@ -119,14 +130,17 @@ func (s *Service) CreateCredentialVersion(ctx context.Context, connectionID stri
 	if strings.TrimSpace(idempotencyKey) == "" {
 		return nil, ErrInvalidRequest
 	}
+
 	connection, err := s.repo.GetPlatformProviderConnection(ctx, connectionID)
 	if err != nil {
 		return nil, err
 	}
+
 	schema, err := s.schema(ctx, connection.ProviderSlug, connection.AuthMode, connection.SchemaVersion)
 	if err != nil || !validCredentialSecrets(schema, request.Secrets) || s.secrets == nil {
 		return nil, ErrInvalidRequest
 	}
+
 	return s.repo.CreatePlatformProviderCredentialVersion(ctx, connectionID, request.Secrets, request.ExpiresAt, actor, idempotencyKey, s.secrets.Encrypt)
 }
 
@@ -135,15 +149,19 @@ func (s *Service) TestCredential(ctx context.Context, connectionID string, versi
 	if err != nil {
 		return nil, err
 	}
+
 	if schema, schemaErr := s.schema(ctx, record.ProviderSlug, record.AuthMode, record.SchemaVersion); schemaErr != nil || !schema.RuntimeReady {
 		return nil, ErrRuntimeUnsupported
 	}
+
 	secrets, err := s.secrets.Decrypt(record)
 	if err != nil {
 		return nil, ErrDecryptFailed
 	}
 	defer clearSecretMap(secrets)
+
 	success, category, summary := s.prober.Probe(ctx, record, secrets)
+
 	return s.repo.SetPlatformProviderCredentialTestResult(ctx, connectionID, version, success, category, summary, actor)
 }
 
@@ -151,18 +169,22 @@ func (s *Service) Activate(ctx context.Context, connectionID string, version, re
 	if strings.TrimSpace(idempotencyKey) == "" {
 		return nil, ErrInvalidRequest
 	}
+
 	connectionBefore, err := s.repo.GetPlatformProviderConnection(ctx, connectionID)
 	if err != nil {
 		return nil, err
 	}
+
 	if schema, schemaErr := s.schema(ctx, connectionBefore.ProviderSlug, connectionBefore.AuthMode, connectionBefore.SchemaVersion); schemaErr != nil || !schema.RuntimeReady {
 		return nil, ErrRuntimeUnsupported
 	}
+
 	connection, err := s.repo.ActivatePlatformProviderCredential(ctx, connectionID, version, revision, actor, idempotencyKey, sanitizeReason(reason))
-	if err == nil {
-		s.afterLifecycleMutation(ctx, connection, "activate")
+	if err != nil {
+		return connection, err
 	}
-	return connection, err
+
+	return connection, s.afterLifecycleMutation(ctx, connection, "activate")
 }
 
 func (s *Service) Rollback(ctx context.Context, connectionID string, version, revision int64, actor Actor, reason string) (*platform.PlatformProviderConnection, error) {
@@ -170,40 +192,55 @@ func (s *Service) Rollback(ctx context.Context, connectionID string, version, re
 	if err != nil {
 		return nil, err
 	}
+
 	if schema, schemaErr := s.schema(ctx, connectionBefore.ProviderSlug, connectionBefore.AuthMode, connectionBefore.SchemaVersion); schemaErr != nil || !schema.RuntimeReady {
 		return nil, ErrRuntimeUnsupported
 	}
+
 	connection, err := s.repo.RollbackPlatformProviderCredential(ctx, connectionID, version, revision, actor, sanitizeReason(reason))
-	if err == nil {
-		s.afterLifecycleMutation(ctx, connection, "rollback")
+	if err != nil {
+		return connection, err
 	}
-	return connection, err
+
+	return connection, s.afterLifecycleMutation(ctx, connection, "rollback")
 }
 
 func (s *Service) Disable(ctx context.Context, connectionID string, revision int64, actor Actor, reason string) (*platform.PlatformProviderConnection, error) {
 	connection, err := s.repo.DisablePlatformProviderConnection(ctx, connectionID, revision, actor, sanitizeReason(reason))
-	if err == nil {
-		s.afterLifecycleMutation(ctx, connection, "disable")
+	if err != nil {
+		return connection, err
 	}
-	return connection, err
+
+	return connection, s.afterLifecycleMutation(ctx, connection, "disable")
 }
 
 func (s *Service) Revoke(ctx context.Context, connectionID string, version, revision int64, actor Actor, reason string) (*platform.PlatformProviderConnection, error) {
 	connection, err := s.repo.RevokePlatformProviderCredential(ctx, connectionID, version, revision, actor, sanitizeReason(reason))
-	if err == nil {
-		s.afterLifecycleMutation(ctx, connection, "revoke")
+	if err != nil {
+		return connection, err
 	}
-	return connection, err
+
+	return connection, s.afterLifecycleMutation(ctx, connection, "revoke")
 }
 
-func (s *Service) afterLifecycleMutation(ctx context.Context, connection *platform.PlatformProviderConnection, action string) {
+func (s *Service) afterLifecycleMutation(ctx context.Context, connection *platform.PlatformProviderConnection, action string) error {
+	var mutationErrors []error
+
 	if s.manager != nil && connection != nil {
 		s.manager.Invalidate(connection.ProviderSlug, connection.Environment)
-		_ = s.manager.Reload(ctx)
+
+		if err := s.manager.Reload(ctx); err != nil {
+			mutationErrors = append(mutationErrors, err)
+		}
 	}
+
 	if s.publisher != nil && connection != nil {
-		_ = s.publisher.PublishPlatformCredentialInvalidation(ctx, InvalidationEvent{ProviderSlug: connection.ProviderSlug, Environment: connection.Environment, ConnectionID: connection.ID, CredentialVersionID: connection.ActiveCredentialVersionID, Action: action})
+		if err := s.publisher.PublishPlatformCredentialInvalidation(ctx, InvalidationEvent{ProviderSlug: connection.ProviderSlug, Environment: connection.Environment, ConnectionID: connection.ID, CredentialVersionID: connection.ActiveCredentialVersionID, Action: action}); err != nil {
+			mutationErrors = append(mutationErrors, err)
+		}
 	}
+
+	return errors.Join(mutationErrors...)
 }
 
 type HTTPProber struct{ client *http.Client }
@@ -212,6 +249,7 @@ func NewHTTPProber(client *http.Client) *HTTPProber {
 	if client == nil {
 		client = &http.Client{Timeout: 6 * time.Second}
 	}
+
 	return &HTTPProber{client: client}
 }
 
@@ -220,20 +258,25 @@ func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secr
 	if !ok {
 		return false, "unsupported", "This provider authentication mode has no implemented non-billable validation probe."
 	}
+
 	if !safeProbeURL(record.ProviderSlug, spec.url) {
 		return false, "configuration", "Provider base URL is not allowed."
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.url, http.NoBody)
 	if err != nil {
 		return false, "configuration", "Provider validation endpoint is invalid."
 	}
+
 	switch spec.auth {
 	case "x-api-key":
 		req.Header.Set("x-api-key", secrets["api_key"])
+
 		version := record.APIVersion
 		if version == "" {
 			version = "2023-06-01"
 		}
+
 		req.Header.Set("anthropic-version", version)
 	case "api-key":
 		req.Header.Set("api-key", secrets["api_key"])
@@ -244,11 +287,16 @@ func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secr
 	case "bearer-api-key":
 		req.Header.Set("Authorization", "Bearer "+secrets["api_key"])
 	}
+
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return false, "network", "Provider validation could not reach the upstream service."
 	}
-	defer resp.Body.Close()
+
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		return false, "network", "Provider validation response could not be closed."
+	}
+
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		return true, "ok", "Provider accepted the credential."
@@ -277,18 +325,22 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		if base == "" {
 			base = "https://api.anthropic.com"
 		}
+
 		return probeSpec{url: base + "/v1/models?limit=1", auth: "x-api-key"}, record.AuthMode == "api_key"
 	case "azure-open-ai":
 		if record.AuthMode != "api_key" || base == "" {
 			return probeSpec{}, false
 		}
+
 		if strings.Contains(strings.ToLower(base), "/openai/v1") {
 			return modelsProbe(base, "", "api-key"), true
 		}
+
 		version := strings.TrimSpace(record.APIVersion)
 		if version == "" {
 			version = "2024-10-21"
 		}
+
 		return probeSpec{url: base + "/openai/models?api-version=" + url.QueryEscape(version), auth: "api-key"}, true
 	case "cerebras":
 		return modelsProbe(base, "https://api.cerebras.ai/v1", "bearer-api-key"), record.AuthMode == "api_key"
@@ -296,17 +348,21 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		if base == "" {
 			base = "https://api.cohere.com"
 		}
+
 		return probeSpec{url: base + "/v1/models", auth: "bearer-api-key"}, record.AuthMode == "api_key"
 	case "databricks":
 		if record.AuthMode != "personal_access_token" || base == "" {
 			return probeSpec{}, false
 		}
+
 		parsed, err := url.Parse(base)
 		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" {
 			return probeSpec{}, false
 		}
+
 		parsed.Path = "/api/2.0/serving-endpoints"
 		parsed.RawPath, parsed.RawQuery, parsed.Fragment = "", "", ""
+
 		return probeSpec{url: parsed.String(), auth: "bearer-access-token"}, true
 	case "deepinfra":
 		return modelsProbe(base, "https://api.deepinfra.com/v1/openai", "bearer-api-key"), record.AuthMode == "api_key"
@@ -314,6 +370,7 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com/v1beta"
 		}
+
 		return probeSpec{url: base + "/models?pageSize=1", auth: "x-goog-api-key"}, record.AuthMode == "api_key"
 	case "groq":
 		return modelsProbe(base, "https://api.groq.com/openai/v1", "bearer-api-key"), record.AuthMode == "api_key"
@@ -336,6 +393,7 @@ func modelsProbe(base, fallback, auth string) probeSpec {
 	if base == "" {
 		base = fallback
 	}
+
 	return probeSpec{url: strings.TrimRight(base, "/") + "/models", auth: auth}
 }
 
@@ -344,10 +402,12 @@ func safeProbeURL(providerSlug, raw string) bool {
 	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
 		return false
 	}
+
 	host := strings.ToLower(parsed.Hostname())
 	if net.ParseIP(host) != nil || host == "localhost" || strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".internal") {
 		return false
 	}
+
 	exact := map[string]string{
 		"ai21": "api.ai21.com", "anthropic": "api.anthropic.com", "cerebras": "api.cerebras.ai",
 		"cohere": "api.cohere.com", "deepinfra": "api.deepinfra.com", "google-gemini": "generativelanguage.googleapis.com",
@@ -357,6 +417,7 @@ func safeProbeURL(providerSlug, raw string) bool {
 	if expected := exact[normalizeProvider(providerSlug)]; expected != "" {
 		return host == expected
 	}
+
 	switch normalizeProvider(providerSlug) {
 	case "azure-ai-foundry", "azure-open-ai":
 		return strings.HasSuffix(host, ".openai.azure.com") || strings.HasSuffix(host, ".services.ai.azure.com")
@@ -376,10 +437,12 @@ func hasSecretConfig(config map[string]interface{}) bool {
 		case "apikey", "clientsecret", "secretaccesskey", "sessiontoken", "serviceaccountjson", "credential", "credentials", "token", "password":
 			return true
 		}
+
 		if nested, ok := value.(map[string]interface{}); ok && hasSecretConfig(nested) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -409,6 +472,7 @@ func sanitizeReason(value string) string {
 	if len(value) > 255 {
 		value = value[:255]
 	}
+
 	return value
 }
 func clearSecretMap(secrets map[string]string) {
@@ -423,60 +487,72 @@ func (s *Service) schema(ctx context.Context, providerSlug, authMode string, ver
 	if err != nil {
 		return platform.ProviderConnectionSchema{}, err
 	}
+
 	authMode = strings.ToLower(strings.TrimSpace(authMode))
 	for _, item := range items {
 		if item.AuthMode == authMode && item.Version == version {
 			return item, nil
 		}
 	}
+
 	return platform.ProviderConnectionSchema{}, ErrNotFound
 }
 
 func validConnectionConfig(schema platform.ProviderConnectionSchema, config map[string]interface{}) bool {
 	allowed := make(map[string]platform.ProviderConnectionField)
+
 	for _, field := range schema.Fields {
 		if field.Scope == "connection" {
 			allowed[field.Key] = field
 		}
 	}
+
 	for key, value := range config {
 		field, ok := allowed[key]
 		if !ok || field.Secret {
 			return false
 		}
+
 		text, ok := value.(string)
 		if !ok || strings.TrimSpace(text) == "" {
 			return false
 		}
 	}
+
 	for key, field := range allowed {
 		if !field.Required {
 			continue
 		}
+
 		value, ok := config[key].(string)
 		if !ok || strings.TrimSpace(value) == "" {
 			return false
 		}
 	}
+
 	return true
 }
 
 func validCredentialSecrets(schema platform.ProviderConnectionSchema, secrets map[string]string) bool {
 	allowed := make(map[string]platform.ProviderConnectionField)
+
 	for _, field := range schema.Fields {
 		if field.Scope == "credential" && field.Secret {
 			allowed[field.Key] = field
 		}
 	}
+
 	for key, value := range secrets {
 		if _, ok := allowed[key]; !ok || strings.TrimSpace(value) == "" {
 			return false
 		}
 	}
+
 	for key, field := range allowed {
 		if field.Required && strings.TrimSpace(secrets[key]) == "" {
 			return false
 		}
 	}
+
 	return len(secrets) > 0
 }

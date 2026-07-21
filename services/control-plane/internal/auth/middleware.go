@@ -115,6 +115,7 @@ func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
 		c.Locals(AuthContextKey{}, &platform.AuthContext{Role: roleProxyAdmin})
 		return c.Next()
 	}
+
 	c.Request().Header.Set(apiheaders.HeaderUserID, userID)
 
 	currentTenant := tenant.FromContext(c)
@@ -125,14 +126,18 @@ func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
 	resolved, err := m.keyStore.ResolveTenantUserAuth(c.Context(), currentTenant.ID, userID)
 	if err != nil {
 		m.logger.Debug("failed to resolve user auth context for master key request", zap.Error(err), zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return writeAuthError(c, fiber.StatusForbidden, "Delegated user is not authorized for this tenant", "authorization_error")
 		}
+
 		return writeAuthError(c, fiber.StatusInternalServerError, "Delegated authentication lookup failed", "server_error")
 	}
+
 	if resolved == nil {
 		return writeAuthError(c, fiber.StatusForbidden, "Delegated user is not authorized for this tenant", "authorization_error")
 	}
+
 	if !strings.EqualFold(strings.TrimSpace(resolved.UserID), userID) ||
 		!strings.EqualFold(strings.TrimSpace(resolved.TenantID), strings.TrimSpace(currentTenant.ID)) {
 		m.logger.Warn("delegated authentication lookup returned a mismatched identity", zap.String("tenant_id", currentTenant.ID), zap.String("user_id", userID))
@@ -140,6 +145,7 @@ func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
 	}
 
 	c.Locals(AuthContextKey{}, resolved)
+
 	if err := CheckRouteAuthorization(c.Method(), c.Path(), resolved); err != nil {
 		return writeAuthError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
 	}
@@ -219,6 +225,7 @@ func (m *AuthMiddleware) lookupRuntimeProfileAuthContext(c *fiber.Ctx, hash stri
 	}
 
 	m.logger.Warn("runtime profile auth lookup unavailable", zap.Error(err), zap.String("tenant_id", currentTenant.ID))
+
 	return nil, true, writeAuthError(c, fiber.StatusServiceUnavailable, "Tenant runtime profile unavailable", "server_error")
 }
 

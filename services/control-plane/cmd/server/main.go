@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -50,6 +51,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to load configuration", zap.Error(err))
 	}
+
 	configureRuntimeProfiling(cfg, logger)
 
 	if strings.TrimSpace(cfg.GeneralSettings.DatabaseURL) == "" {
@@ -63,6 +65,7 @@ func main() {
 		logger.Fatal("Failed to initialize storage", zap.Error(err))
 	}
 	defer store.Close()
+
 	httpMetrics := prommetrics.NewHTTPMetrics()
 
 	var dualCache cache.Cache
@@ -92,60 +95,23 @@ func main() {
 	store.SetEntitlementCache(dualCache)
 	store.SetRequestLoggingModeCacheTTL(time.Duration(cfg.RequestLogs.ModeCacheTTLSeconds) * time.Second)
 
-	credentialMode := strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_MODE"))
-	if credentialMode == "" {
-		credentialMode = "env"
-	}
-	var (
-		platformCredentialManager *platformcredentials.Manager
-		platformCredentialService *platformcredentials.Service
-		platformCredentialBus     *platformcredentials.RedisInvalidationBus
-		providerSchemaCatalog     platformcredentials.SchemaCatalog
-	)
-	providerSchemaCatalog, schemaCatalogErr := platformcredentials.NewModelDiscoverySchemaCatalogFromEnv(nil)
-	if schemaCatalogErr != nil {
-		logger.Warn("Provider connection schema catalog is unavailable", zap.Error(schemaCatalogErr))
-	}
-	if credentialMode != "env" || strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON")) != "" {
-		keks, kekErr := platformcredentials.NewEnvironmentKEKProviderFromEnv()
-		fingerprintKey, fingerprintErr := platformcredentials.FingerprintKeyFromEnv()
-		if kekErr != nil || fingerprintErr != nil {
-			if credentialMode == "platform_store" {
-				logger.Fatal("Platform provider credential bootstrap keys are invalid")
-			}
-			logger.Warn("Platform provider credential store is unavailable; environment break-glass remains active")
-		} else {
-			secretStore, secretErr := platformcredentials.NewEncryptedDBSecretStore(keks, fingerprintKey)
-			if secretErr != nil {
-				logger.Fatal("Failed to initialize platform credential encryption")
-			}
-			platformCredentialManager = platformcredentials.NewManager(store, secretStore, httpMetrics)
-			if loadErr := platformCredentialManager.Reload(ctx); loadErr != nil {
-				if credentialMode == "platform_store" {
-					logger.Fatal("Failed to pre-warm platform provider credential snapshot", zap.Error(loadErr))
-				}
-				logger.Warn("Initial platform credential snapshot load failed; environment break-glass remains active", zap.Error(loadErr))
-			}
-			if redisCache, ok := dualCache.(*cache.DualCache); ok {
-				platformCredentialBus = platformcredentials.NewRedisInvalidationBus(redisCache)
-			}
-			platformCredentialService = platformcredentials.NewService(store, secretStore, platformCredentialManager, platformCredentialBus, providerSchemaCatalog, nil)
-			credentialRunCtx, cancelCredentials := context.WithCancel(ctx)
-			defer cancelCredentials()
-			go platformCredentialManager.Reconcile(credentialRunCtx, 30*time.Second)
-			if platformCredentialBus != nil {
-				go func() { _ = platformCredentialBus.Consume(credentialRunCtx, platformCredentialManager) }()
-			}
-		}
-	}
+	credentialRuntime := initializePlatformCredentialRuntime(ctx, store, dualCache, httpMetrics, logger)
+	defer credentialRuntime.cancel()
+
+	credentialMode := credentialRuntime.mode
+	platformCredentialManager := credentialRuntime.manager
+	platformCredentialService := credentialRuntime.service
+	providerSchemaCatalog := credentialRuntime.schemas
 
 	runtimeProfileCfg := runtimeprofile.LoadConfigFromEnv()
+
 	var distributedRuntimeProfileCache runtimeprofile.DistributedCache
 	if dc, ok := dualCache.(runtimeprofile.DistributedCache); ok {
 		distributedRuntimeProfileCache = dc
 	} else {
 		logger.Warn("Tenant runtime profile L2 disabled because cache does not support distributed operations")
 	}
+
 	runtimeProfiles := runtimeprofile.NewManager(runtimeprofile.NewCompiler(store), store, distributedRuntimeProfileCache, logger, runtimeProfileCfg)
 	store.SetRuntimeProfileManager(runtimeProfiles)
 	runtimeDeploymentStore := runtimeprofile.NewDeploymentStore(runtimeProfiles)
@@ -154,23 +120,28 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to initialize router", zap.Error(err))
 	}
+
 	llmRouter.SetPlatformCredentialResolver(platformCredentialManager, credentialMode, strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_ENVIRONMENT")))
 
 	authMiddleware := auth.NewAuthMiddleware(store, cfg.GeneralSettings.MasterKey, logger)
 	authMiddleware.SetRuntimeProfiles(runtimeProfiles)
+
 	tenantMiddleware := tenant.NewMiddlewareWithCache(store, dualCache, tenant.MiddlewareConfig{
 		AllowHeaderHint: cfg.TenantSettings.AllowHeaderHint,
 		CacheTTL:        5 * time.Minute,
 	})
 	tenantMiddleware.SetRuntimeProfiles(runtimeProfiles)
+
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	billingService.SetRuntimeProfiles(runtimeProfiles)
+
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
 		billing.LoadNobitexExchangeRateConfigFromEnv(cfg.BillingSettings.RateSource),
 		store,
 		logger,
 	)
+
 	var walletSettlementProcessor *billing.WalletSettlementProcessor
 	if liveBudgetCache, ok := dualCache.(cache.BudgetWindowInspector); ok {
 		walletSettlementProcessor = billing.NewWalletSettlementProcessor(
@@ -183,8 +154,10 @@ func main() {
 
 	subscriptionProcessor.Start()
 	defer subscriptionProcessor.Stop()
+
 	nobitexExchangeRateProcessor.Start()
 	defer nobitexExchangeRateProcessor.Stop()
+
 	if walletSettlementProcessor != nil {
 		walletSettlementProcessor.Start()
 		defer walletSettlementProcessor.Stop()
@@ -193,6 +166,7 @@ func main() {
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()
+
 	store.SetTokenUsageMetrics(httpMetrics)
 
 	var (
@@ -252,8 +226,10 @@ func main() {
 	if platformCredentialService != nil {
 		adminDeps.ProviderCredentials = platformCredentialService
 	}
+
 	adminHandlers := admin.New(adminDeps)
 	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
+
 	var requestLogger proxy.RequestLogger = store
 	if cfg.RequestLogs.AsyncEnabled {
 		asyncRequestLogger := proxy.NewAsyncRequestLogWriter(store, proxy.AsyncRequestLogConfig{
@@ -265,18 +241,22 @@ func main() {
 			DropOnFull:     cfg.RequestLogs.DropOnFull,
 		}, logger)
 		requestLogger = asyncRequestLogger
+
 		defer func() {
 			timeout := time.Duration(cfg.RequestLogs.ShutdownDrainTimeoutSeconds) * time.Second
 			if timeout <= 0 {
 				timeout = 5 * time.Second
 			}
+
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			if err := asyncRequestLogger.Stop(shutdownCtx); err != nil {
-				logger.Warn("Failed to drain async request logs", zap.Error(err))
+
+			if stopErr := asyncRequestLogger.Stop(shutdownCtx); stopErr != nil {
+				logger.Warn("Failed to drain async request logs", zap.Error(stopErr))
 			}
 		}()
 	}
+
 	baseProxyDeps := proxy.BaseHandlerDependencies{
 		Router:        llmRouter,
 		Tunnel:        tunnelClient,
@@ -286,6 +266,7 @@ func main() {
 		Logger:        logger,
 		EmitMetric:    emitMetric,
 	}
+
 	var spendLogger proxy.SpendLogger = store
 	if cfg.SpendLogs.AsyncEnabled {
 		asyncSpendLogger := proxy.NewAsyncSpendLogWriter(store, proxy.AsyncSpendLogConfig{
@@ -297,18 +278,22 @@ func main() {
 			DropOnFull:     cfg.SpendLogs.DropOnFull,
 		}, logger, httpMetrics)
 		spendLogger = asyncSpendLogger
+
 		defer func() {
 			timeout := time.Duration(cfg.SpendLogs.ShutdownDrainTimeoutSeconds) * time.Second
 			if timeout <= 0 {
 				timeout = 5 * time.Second
 			}
+
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			if err := asyncSpendLogger.Stop(shutdownCtx); err != nil {
-				logger.Warn("Failed to drain async spend logs", zap.Error(err))
+
+			if stopErr := asyncSpendLogger.Stop(shutdownCtx); stopErr != nil {
+				logger.Warn("Failed to drain async spend logs", zap.Error(stopErr))
 			}
 		}()
 	}
+
 	baseProxyDeps.SpendLogger = spendLogger
 	virtualModelStore := runtimeprofile.NewVirtualModelStore(runtimeProfiles)
 	guardrailResolver := runtimeprofile.NewGuardrailResolver(runtimeProfiles)
@@ -421,6 +406,7 @@ func main() {
 
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	store.StartTokenUsageFlusher(runCtx)
 	store.StartUsageCounterFlusher(runCtx)
 
@@ -448,6 +434,89 @@ func main() {
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
+}
+
+type platformCredentialRuntime struct {
+	mode    string
+	manager *platformcredentials.Manager
+	service *platformcredentials.Service
+	schemas platformcredentials.SchemaCatalog
+	cancel  context.CancelFunc
+}
+
+func initializePlatformCredentialRuntime(
+	ctx context.Context,
+	store *storage.Store,
+	sharedCache cache.Cache,
+	metrics platformcredentials.Metrics,
+	logger *zap.Logger,
+) platformCredentialRuntime {
+	mode := strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_MODE"))
+	if mode == "" {
+		mode = "env"
+	}
+
+	credentialRuntime := platformCredentialRuntime{mode: mode, cancel: func() {}}
+	schemas, schemaErr := platformcredentials.NewModelDiscoverySchemaCatalogFromEnv(nil)
+	credentialRuntime.schemas = schemas
+
+	if schemaErr != nil {
+		logger.Warn("Provider connection schema catalog is unavailable", zap.Error(schemaErr))
+	}
+
+	credentialsConfigured := mode != "env" || strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON")) != ""
+	if !credentialsConfigured {
+		return credentialRuntime
+	}
+
+	keks, kekErr := platformcredentials.NewEnvironmentKEKProviderFromEnv()
+
+	fingerprintKey, fingerprintErr := platformcredentials.FingerprintKeyFromEnv()
+	if kekErr != nil || fingerprintErr != nil {
+		if mode == "platform_store" {
+			logger.Fatal("Platform provider credential bootstrap keys are invalid")
+		}
+
+		logger.Warn("Platform provider credential store is unavailable; environment break-glass remains active")
+
+		return credentialRuntime
+	}
+
+	secretStore, err := platformcredentials.NewEncryptedDBSecretStore(keks, fingerprintKey)
+	if err != nil {
+		logger.Fatal("Failed to initialize platform credential encryption")
+	}
+
+	credentialRuntime.manager = platformcredentials.NewManager(store, secretStore, metrics)
+	if err := credentialRuntime.manager.Reload(ctx); err != nil {
+		if mode == "platform_store" {
+			logger.Fatal("Failed to pre-warm platform provider credential snapshot", zap.Error(err))
+		}
+
+		logger.Warn("Initial platform credential snapshot load failed; environment break-glass remains active", zap.Error(err))
+	}
+
+	var bus *platformcredentials.RedisInvalidationBus
+	if redisCache, ok := sharedCache.(*cache.DualCache); ok {
+		bus = platformcredentials.NewRedisInvalidationBus(redisCache)
+	}
+
+	credentialRuntime.service = platformcredentials.NewService(store, secretStore, credentialRuntime.manager, bus, credentialRuntime.schemas, nil)
+
+	runCtx, cancel := context.WithCancel(ctx)
+	credentialRuntime.cancel = cancel
+
+	go credentialRuntime.manager.Reconcile(runCtx, 30*time.Second)
+
+	if bus != nil {
+		go func() {
+			if err := bus.Consume(runCtx, credentialRuntime.manager); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Warn("Platform credential invalidation consumer stopped", zap.Error(err))
+			}
+		}()
+	}
+
+	return credentialRuntime
 }
 
 func configureRuntimeProfiling(cfg *config.Config, logger *zap.Logger) {

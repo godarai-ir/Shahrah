@@ -20,6 +20,7 @@ func TestPricingCacheKeyNormalizesModel(t *testing.T) {
 
 func TestPricingCacheHitAvoidsLoader(t *testing.T) {
 	ctx := context.Background()
+
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	if err != nil {
 		t.Fatal(err)
@@ -39,6 +40,7 @@ func TestPricingCacheHitAvoidsLoader(t *testing.T) {
 	if got.Input != 0.123 || got.Output != 0.456 {
 		t.Fatalf("unexpected cached price: %+v", got)
 	}
+
 	if loads != 0 {
 		t.Fatalf("expected loader not to run on cache hit, got %d calls", loads)
 	}
@@ -46,6 +48,7 @@ func TestPricingCacheHitAvoidsLoader(t *testing.T) {
 
 func TestPricingCacheConcurrentMissIsCoalesced(t *testing.T) {
 	ctx := context.Background()
+
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	if err != nil {
 		t.Fatal(err)
@@ -56,11 +59,13 @@ func TestPricingCacheConcurrentMissIsCoalesced(t *testing.T) {
 		mu    sync.Mutex
 		loads int
 	)
+
 	prices := newPricingCache(mem, PricingCacheConfig{Enabled: true, TTL: time.Minute}, func(model string) priceInfo {
 		time.Sleep(20 * time.Millisecond)
 		mu.Lock()
 		loads++
 		mu.Unlock()
+
 		return priceInfo{Input: 0.5, Output: 1.5}
 	})
 
@@ -69,16 +74,19 @@ func TestPricingCacheConcurrentMissIsCoalesced(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
 			got := prices.Get(ctx, "openai/gpt-3.5-turbo")
 			if got.Input != 0.5 || got.Output != 1.5 {
 				t.Errorf("unexpected price: %+v", got)
 			}
 		}()
 	}
+
 	wg.Wait()
 
 	mu.Lock()
 	defer mu.Unlock()
+
 	if loads != 1 {
 		t.Fatalf("expected one loader call, got %d", loads)
 	}
@@ -90,9 +98,11 @@ func TestCostBreakdownUsesPureArithmetic(t *testing.T) {
 	if got.TotalTokens != 350 {
 		t.Fatalf("unexpected total tokens: %d", got.TotalTokens)
 	}
+
 	if math.Abs(got.TotalCostUSD-0.000425) > 1e-12 {
 		t.Fatalf("unexpected total usd: %.12f", got.TotalCostUSD)
 	}
+
 	if math.Abs(got.TotalCostIRR-361.25) > 1e-9 {
 		t.Fatalf("unexpected total irr: %.12f", got.TotalCostIRR)
 	}
@@ -104,6 +114,7 @@ func TestModelPriceFromRegistryIncludesDallE2LegacyImagePricing(t *testing.T) {
 	if got.Input != 0 {
 		t.Fatalf("unexpected DALL-E 2 input price: %.12f", got.Input)
 	}
+
 	if math.Abs(got.Output-0.02) > 1e-12 {
 		t.Fatalf("unexpected DALL-E 2 output price: %.12f", got.Output)
 	}

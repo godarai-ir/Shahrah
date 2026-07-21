@@ -234,6 +234,7 @@ func (m *MemoryCache) SeedBudgetWindow(_ context.Context, seed BudgetWindowSeed)
 	if seed.WindowKey == "" {
 		return nil, fmt.Errorf("budget window key is required")
 	}
+
 	if seed.TTL <= 0 {
 		return nil, fmt.Errorf("budget window ttl must be positive")
 	}
@@ -243,15 +244,18 @@ func (m *MemoryCache) SeedBudgetWindow(_ context.Context, seed BudgetWindowSeed)
 
 	now := time.Now().UTC()
 	m.pruneBudgetStateLocked(now)
+
 	window := m.budgetWindows[seed.WindowKey]
 	if window.status == "" {
 		window.status = "active"
 	}
+
 	window.allowanceIRR = seed.AllowanceIRR
 	window.expiresAt = seed.ExpiresAt
 	window.expiresCache = now.Add(seed.TTL)
 	window.version = seed.Version
 	m.budgetWindows[seed.WindowKey] = window
+
 	return memoryBudgetResult(window, true, window.status), nil
 }
 
@@ -260,9 +264,11 @@ func (m *MemoryCache) ReserveBudget(_ context.Context, req BudgetReservationRequ
 	if req.WindowKey == "" || req.ReservationKey == "" {
 		return nil, fmt.Errorf("budget window and reservation keys are required")
 	}
+
 	if req.TTL <= 0 {
 		return nil, fmt.Errorf("budget reservation ttl must be positive")
 	}
+
 	now := req.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -272,10 +278,12 @@ func (m *MemoryCache) ReserveBudget(_ context.Context, req BudgetReservationRequ
 	defer m.mu.Unlock()
 
 	m.pruneBudgetStateLocked(now)
+
 	window, ok := m.budgetWindows[req.WindowKey]
 	if !ok || window.status != "active" || (!window.expiresAt.IsZero() && now.After(window.expiresAt)) {
 		return &BudgetWindowResult{Allowed: false, State: "window_unavailable"}, nil
 	}
+
 	if reservation, ok := m.budgetReservations[req.ReservationKey]; ok {
 		return memoryBudgetResult(window, true, reservation.status), nil
 	}
@@ -284,6 +292,7 @@ func (m *MemoryCache) ReserveBudget(_ context.Context, req BudgetReservationRequ
 	if estimated < 0 {
 		estimated = 0
 	}
+
 	if window.reservedIRR+window.committedIRR+estimated > window.allowanceIRR {
 		return memoryBudgetResult(window, false, "exhausted"), nil
 	}
@@ -296,6 +305,7 @@ func (m *MemoryCache) ReserveBudget(_ context.Context, req BudgetReservationRequ
 		estimatedIRR: estimated,
 		expiresAt:    now.Add(req.TTL),
 	}
+
 	return memoryBudgetResult(window, true, "reserved"), nil
 }
 
@@ -304,6 +314,7 @@ func (m *MemoryCache) CommitBudget(_ context.Context, req BudgetCommitRequest) (
 	if req.WindowKey == "" || req.ReservationKey == "" {
 		return nil, fmt.Errorf("budget window and reservation keys are required")
 	}
+
 	now := req.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -313,14 +324,17 @@ func (m *MemoryCache) CommitBudget(_ context.Context, req BudgetCommitRequest) (
 	defer m.mu.Unlock()
 
 	m.pruneBudgetStateLocked(now)
+
 	window, ok := m.budgetWindows[req.WindowKey]
 	if !ok {
 		return &BudgetWindowResult{Allowed: false, State: "window_unavailable"}, nil
 	}
+
 	reservation, ok := m.budgetReservations[req.ReservationKey]
 	if !ok {
 		return &BudgetWindowResult{Allowed: false, State: "reservation_unavailable"}, nil
 	}
+
 	if reservation.status == "committed" || reservation.status == "released" {
 		return memoryBudgetResult(window, true, reservation.status), nil
 	}
@@ -329,18 +343,22 @@ func (m *MemoryCache) CommitBudget(_ context.Context, req BudgetCommitRequest) (
 	if actual < 0 {
 		actual = 0
 	}
+
 	if window.reservedIRR-reservation.estimatedIRR+window.committedIRR+actual > window.allowanceIRR {
 		return memoryBudgetResult(window, false, "exhausted"), nil
 	}
+
 	window.reservedIRR -= reservation.estimatedIRR
 	if window.reservedIRR < 0 {
 		window.reservedIRR = 0
 	}
+
 	window.committedIRR += actual
 	reservation.status = "committed"
 	reservation.actualIRR = actual
 	m.budgetWindows[req.WindowKey] = window
 	m.budgetReservations[req.ReservationKey] = reservation
+
 	return memoryBudgetResult(window, true, "committed"), nil
 }
 
@@ -349,6 +367,7 @@ func (m *MemoryCache) ReleaseBudget(_ context.Context, req BudgetReleaseRequest)
 	if req.WindowKey == "" || req.ReservationKey == "" {
 		return nil, fmt.Errorf("budget window and reservation keys are required")
 	}
+
 	now := req.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -358,23 +377,28 @@ func (m *MemoryCache) ReleaseBudget(_ context.Context, req BudgetReleaseRequest)
 	defer m.mu.Unlock()
 
 	m.pruneBudgetStateLocked(now)
+
 	window, ok := m.budgetWindows[req.WindowKey]
 	if !ok {
 		return &BudgetWindowResult{Allowed: false, State: "window_unavailable"}, nil
 	}
+
 	reservation, ok := m.budgetReservations[req.ReservationKey]
 	if !ok {
 		return memoryBudgetResult(window, true, "missing"), nil
 	}
+
 	if reservation.status == "reserved" {
 		window.reservedIRR -= reservation.estimatedIRR
 		if window.reservedIRR < 0 {
 			window.reservedIRR = 0
 		}
+
 		reservation.status = "released"
 		m.budgetWindows[req.WindowKey] = window
 		m.budgetReservations[req.ReservationKey] = reservation
 	}
+
 	return memoryBudgetResult(window, true, "released"), nil
 }
 
@@ -384,6 +408,7 @@ func (m *MemoryCache) pruneBudgetStateLocked(now time.Time) {
 			delete(m.budgetWindows, key)
 		}
 	}
+
 	for key, reservation := range m.budgetReservations {
 		if !reservation.expiresAt.IsZero() && now.After(reservation.expiresAt) {
 			delete(m.budgetReservations, key)
@@ -414,6 +439,7 @@ func (m *MemoryCache) GetBudgetWindow(_ context.Context, windowKey string) (*Bud
 
 	now := time.Now().UTC()
 	m.pruneBudgetStateLocked(now)
+
 	window, ok := m.budgetWindows[windowKey]
 	if !ok {
 		return nil, nil
@@ -463,13 +489,6 @@ func (m *MemoryCache) ListActiveBudgetWindows(_ context.Context, batchSize int) 
 	}
 
 	return out, nil
-}
-
-func min(left int, right int) int {
-	if left < right {
-		return left
-	}
-	return right
 }
 
 // Close closes the cache and releases resources.

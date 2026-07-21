@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -21,6 +20,7 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 	if err != nil {
 		return nil, err
 	}
+
 	dep.APIBase = apiBase
 
 	params, err := json.Marshal(map[string]interface{}{
@@ -63,37 +63,15 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 // ListDeployments returns tenant-specific deployments.
 func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	cacheKey := deploymentCacheKey(tenantID)
-	if deps, state := s.getCachedDeployments(cacheKey); state == hotPathCacheFresh {
-		return deps, nil
-	} else if state == hotPathCacheStale {
-		s.refreshDeploymentsCacheAsync(tenantID, cacheKey)
-		return deps, nil
-	}
 
-	value, err, _ := s.hotPathLoadGroup.Do(cacheKey, func() (interface{}, error) {
-		if deps, state := s.getCachedDeployments(cacheKey); state == hotPathCacheFresh {
-			return deps, nil
-		} else if state == hotPathCacheStale {
-			s.refreshDeploymentsCacheAsync(tenantID, cacheKey)
-			return deps, nil
-		}
-
-		deps, err := s.listDeploymentsFromDB(ctx, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		s.cacheDeployments(cacheKey, deps)
-		return cloneDeployments(deps), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	deps, ok := value.([]platform.Deployment)
-	if !ok {
-		return nil, fmt.Errorf("unexpected deployment cache value %T", value)
-	}
-
-	return cloneDeployments(deps), nil
+	return loadHotPathList(
+		&s.hotPathLoadGroup, cacheKey, "deployment",
+		func() ([]platform.Deployment, hotPathCacheState) { return s.getCachedDeployments(cacheKey) },
+		func() { s.refreshDeploymentsCacheAsync(tenantID, cacheKey) },
+		func() ([]platform.Deployment, error) { return s.listDeploymentsFromDB(ctx, tenantID) },
+		func(items []platform.Deployment) { s.cacheDeployments(cacheKey, items) },
+		cloneDeployments,
+	)
 }
 
 func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
@@ -223,11 +201,13 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		runtimeAPIKey := ""
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
+
 		if apiKey != "" && hasCredential && !platformManagedCredentials && !strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
 			runtimeAPIKey = apiKey
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled
 		}
+
 		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "base_url"))
 
 		deps = append(deps, platform.Deployment{

@@ -54,6 +54,7 @@ func ValidateProviderAPIBase(provider string, raw string) (string, error) {
 
 	parsed.Scheme = "https"
 	parsed.Host = strings.ToLower(parsed.Host)
+
 	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
@@ -107,6 +108,7 @@ func hostMatchesAllowed(hostname string, allowed string) bool {
 	if strings.HasPrefix(allowed, ".") {
 		suffix := allowed
 		exact := strings.TrimPrefix(allowed, ".")
+
 		return hostname == exact || strings.HasSuffix(hostname, suffix)
 	}
 

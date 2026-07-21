@@ -50,7 +50,6 @@ func TestMiddlewareGeneratesTraceIDWhenMissing(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderTraceID))
-
 }
 
 func TestMiddleware_DropsRootAndStepWhenUnsampled(t *testing.T) {

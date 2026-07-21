@@ -14,6 +14,7 @@ func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { r
 
 func TestDocumentedProviderProbesUseExactAuthentication(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name       string
 		record     EncryptedCredential
@@ -47,18 +48,23 @@ func TestDocumentedProviderProbesUseExactAuthentication(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			var request *http.Request
+
 			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 				request = req
 				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{}`)), Request: req}, nil
 			})}
+
 			ok, category, _ := NewHTTPProber(client).Probe(context.Background(), test.record, test.secrets)
 			if !ok || category != "ok" {
 				t.Fatalf("probe failed: ok=%v category=%q", ok, category)
 			}
+
 			if request == nil || request.Header.Get(test.headerName) != test.header {
 				t.Fatalf("unexpected %s header", test.headerName)
 			}
+
 			if !strings.Contains(request.URL.String(), test.urlPart) {
 				t.Fatalf("unexpected probe URL %q", request.URL.String())
 			}
@@ -68,11 +74,13 @@ func TestDocumentedProviderProbesUseExactAuthentication(t *testing.T) {
 
 func TestUnsupportedProviderProbeDoesNotPerformNetworkIO(t *testing.T) {
 	t.Parallel()
+
 	calls := 0
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		calls++
 		return nil, nil
 	})}
+
 	ok, category, _ := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
 		Binding: Binding{ProviderSlug: "deepgram", AuthMode: "api_key"},
 	}, map[string]string{"api_key": "secret"})

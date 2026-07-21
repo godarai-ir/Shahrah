@@ -121,42 +121,17 @@ const traceRetentionPolicySQL = `
 
 // ListTraceRetentionPolicies resolves the current effective trace retention for every subscribed tenant.
 func (s *Store) ListTraceRetentionPolicies(ctx context.Context) ([]tracing.TraceRetentionPolicy, error) {
-	rows, err := s.pool.Query(ctx, traceRetentionPoliciesSQL, platform.FeatureTracesRetentionDays)
+	values, err := s.listRetentionPolicyValues(ctx, platform.FeatureTracesRetentionDays, tracing.ParseTraceRetentionDays, "trace")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	out := []tracing.TraceRetentionPolicy{}
-
-	for rows.Next() {
-		var (
-			tenantID string
-			raw      []byte
-		)
-		if err := rows.Scan(&tenantID, &raw); err != nil {
-			return nil, err
-		}
-
-		days, ok := tracing.ParseTraceRetentionDays(parseJSONValue(raw))
-		if !ok {
-			s.logger.Warn(
-				"invalid trace retention entitlement ignored",
-				zap.String("tenant_id", tenantID),
-				zap.String("feature_key", platform.FeatureTracesRetentionDays),
-				zap.ByteString("value_json", raw),
-			)
-
-			continue
-		}
-
-		out = append(out, tracing.TraceRetentionPolicy{
-			TenantID:      tenantID,
-			RetentionDays: days,
-		})
+	out := make([]tracing.TraceRetentionPolicy, 0, len(values))
+	for _, value := range values {
+		out = append(out, tracing.TraceRetentionPolicy{TenantID: value.tenantID, RetentionDays: value.days})
 	}
 
-	return out, rows.Err()
+	return out, nil
 }
 
 // ResolveTraceRetentionDays resolves the current effective trace TTL value for a tenant.
@@ -177,6 +152,7 @@ func (s *Store) ResolveTraceRetentionDays(ctx context.Context, tenantID string) 
 		if logger == nil {
 			logger = zap.NewNop()
 		}
+
 		logger.Warn(
 			"invalid trace retention entitlement ignored",
 			zap.String("tenant_id", tenantID),

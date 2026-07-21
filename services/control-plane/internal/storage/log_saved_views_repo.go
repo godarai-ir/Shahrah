@@ -25,11 +25,13 @@ func (s *Store) ListSavedLogViewsV2(ctx context.Context, tenantID string, userID
 	defer rows.Close()
 
 	items := make([]platform.SavedLogViewV2, 0, 8)
+
 	for rows.Next() {
 		item, err := scanSavedLogView(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, *item)
 	}
 
@@ -41,9 +43,11 @@ func (s *Store) CreateSavedLogViewV2(ctx context.Context, tenantID string, userI
 	if name == "" {
 		return nil, pgx.ErrNoRows
 	}
+
 	scope := normalizeSavedLogViewScope(req.SharedScope)
 	filtersJSON := marshalJSONBestEffort(req.Filters)
 	columnsJSON := marshalJSONBestEffort(req.VisibleColumns)
+
 	var createdBy interface{}
 	if strings.TrimSpace(userID) != "" {
 		createdBy = strings.TrimSpace(userID)
@@ -72,18 +76,22 @@ func (s *Store) UpdateSavedLogViewV2(ctx context.Context, tenantID string, saved
 	if req.Name != nil {
 		name = strings.TrimSpace(*req.Name)
 	}
+
 	description := current.Description
 	if req.Description != nil {
 		description = strings.TrimSpace(*req.Description)
 	}
+
 	filters := current.Filters
 	if req.Filters != nil {
 		filters = req.Filters
 	}
+
 	columns := current.VisibleColumns
 	if req.VisibleColumns != nil {
 		columns = req.VisibleColumns
 	}
+
 	scope := current.SharedScope
 	if req.SharedScope != nil {
 		scope = normalizeSavedLogViewScope(*req.SharedScope)
@@ -113,9 +121,11 @@ func (s *Store) DeleteSavedLogViewV2(ctx context.Context, tenantID string, saved
 	if err != nil {
 		return err
 	}
+
 	if tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	return nil
 }
 
@@ -123,6 +133,7 @@ func (s *Store) ListLogExportsV2(ctx context.Context, tenantID string, limit int
 	if limit <= 0 || limit > 100 {
 		limit = 25
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT export_id, tenant_id, filters_json, format, include_content, status, row_count,
 		       coalesce(created_by_user_id::text, ''), created_at, completed_at
@@ -137,13 +148,16 @@ func (s *Store) ListLogExportsV2(ctx context.Context, tenantID string, limit int
 	defer rows.Close()
 
 	items := make([]platform.LogExportJobV2, 0, limit)
+
 	for rows.Next() {
 		item, err := scanLogExportJob(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, rows.Err()
 }
 
@@ -152,10 +166,12 @@ func (s *Store) CreateLogExportV2(ctx context.Context, tenantID string, userID s
 	if format != "jsonl" && format != "csv" {
 		format = "csv"
 	}
+
 	var createdBy interface{}
 	if strings.TrimSpace(userID) != "" {
 		createdBy = strings.TrimSpace(userID)
 	}
+
 	now := time.Now().UTC()
 
 	row := s.pool.QueryRow(ctx, `
@@ -178,6 +194,7 @@ func (s *Store) GetLogExportV2(ctx context.Context, tenantID string, exportID st
 		FROM tenant_log_export_jobs
 		WHERE tenant_id = $1 AND export_id = $2
 	`, tenantID, strings.TrimSpace(exportID))
+
 	return scanLogExportJob(row)
 }
 
@@ -189,6 +206,7 @@ func (s *Store) CancelLogExportV2(ctx context.Context, tenantID string, exportID
 		RETURNING export_id, tenant_id, filters_json, format, include_content, status, row_count,
 		          coalesce(created_by_user_id::text, ''), created_at, completed_at
 	`, tenantID, strings.TrimSpace(exportID))
+
 	return scanLogExportJob(row)
 }
 
@@ -199,6 +217,7 @@ func (s *Store) getSavedLogViewV2(ctx context.Context, tenantID string, savedVie
 		FROM tenant_log_saved_views
 		WHERE tenant_id = $1 AND saved_view_id = $2
 	`, tenantID, strings.TrimSpace(savedViewID))
+
 	return scanSavedLogView(row)
 }
 
@@ -218,11 +237,19 @@ func scanSavedLogView(row logRowScanner) (*platform.SavedLogViewV2, error) {
 	); err != nil {
 		return nil, err
 	}
-	decodeJSONBytes(filtersJSON, &item.Filters)
-	decodeJSONBytes(columnsJSON, &item.VisibleColumns)
+
+	if err := decodeJSONBytes(filtersJSON, &item.Filters); err != nil {
+		return nil, err
+	}
+
+	if err := decodeJSONBytes(columnsJSON, &item.VisibleColumns); err != nil {
+		return nil, err
+	}
+
 	if item.Filters == nil {
 		item.Filters = map[string]interface{}{}
 	}
+
 	return &item, nil
 }
 
@@ -237,23 +264,30 @@ func scanLogExportJob(row logRowScanner) (*platform.LogExportJobV2, error) {
 	); err != nil {
 		return nil, err
 	}
-	decodeJSONBytes(filtersJSON, &item.Filters)
+
+	if err := decodeJSONBytes(filtersJSON, &item.Filters); err != nil {
+		return nil, err
+	}
+
 	if item.Filters == nil {
 		item.Filters = map[string]interface{}{}
 	}
+
 	return &item, nil
 }
 
-func decodeJSONBytes[T any](raw []byte, target *T) {
+func decodeJSONBytes[T any](raw []byte, target *T) error {
 	if len(raw) == 0 {
-		return
+		return nil
 	}
-	_ = json.Unmarshal(raw, target)
+
+	return json.Unmarshal(raw, target)
 }
 
 func normalizeSavedLogViewScope(scope string) string {
 	if strings.EqualFold(strings.TrimSpace(scope), "private") {
 		return "private"
 	}
+
 	return "tenant"
 }

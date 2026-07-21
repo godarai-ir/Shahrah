@@ -114,7 +114,7 @@ func (s *smtpOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, ot
 		fmt.Sprintf("To: %s", to),
 		fmt.Sprintf("Subject: %s", mime.BEncoding.Encode("UTF-8", email.subject)),
 		"MIME-Version: 1.0",
-		fmt.Sprintf(`Content-Type: multipart/alternative; boundary="%s"`, boundary),
+		fmt.Sprintf("Content-Type: multipart/alternative; boundary=%q", boundary),
 		"",
 		fmt.Sprintf("--%s", boundary),
 		`Content-Type: text/plain; charset="UTF-8"`,
@@ -182,14 +182,14 @@ func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinut
 	otpCode = normalizeEmailTextLine(otpCode)
 	workspaceURL := resolveTenantAdminWorkspaceURL(tenantSlug)
 	logoURL := resolveTenantAdminEmailLogoURL(workspaceURL)
-	subject := fmt.Sprintf("کد ورود یک‌بارمصرف %s", tenantAdminEmailBrandName)
+	subject := fmt.Sprintf("کد ورود یک\u200cبارمصرف %s", tenantAdminEmailBrandName)
 	text := strings.Join([]string{
-		fmt.Sprintf("کد ورود یک‌بارمصرف شما برای فضای کاری «%s»: %s", tenantSlug, otpCode),
+		fmt.Sprintf("کد ورود یک\u200cبارمصرف شما برای فضای کاری «%s»: %s", tenantSlug, otpCode),
 		fmt.Sprintf("این کد تا %d دقیقه معتبر است.", expiresInMinutes),
-		"برای امنیت حساب، این کد را در اختیار هیچ‌کس قرار ندهید.",
+		"برای امنیت حساب، این کد را در اختیار هیچ\u200cکس قرار ندهید.",
 		fmt.Sprintf("ورود به فضای کاری: %s", workspaceURL),
 		"",
-		"اگر شما درخواست ورود نداده‌اید، این ایمیل را نادیده بگیرید.",
+		"اگر شما درخواست ورود نداده\u200cاید، این ایمیل را نادیده بگیرید.",
 		"",
 		fmt.Sprintf("تیم %s", tenantAdminEmailBrandName),
 		tenantAdminEmailSupportEmail,
@@ -197,7 +197,7 @@ func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinut
 
 	logoHTML := fmt.Sprintf(`<div style="display: inline-block; border-radius: 16px; background: #ffffff; border: 1px solid #d6e2f0; padding: 10px 14px; color: #0238e1; font-size: 18px; font-weight: 800;">%s</div>`, tenantAdminEmailBrandName)
 	if logoURL != "" {
-		logoHTML = fmt.Sprintf(`<img src="%s" width="52" height="52" alt="%s" style="display: block; width: 52px; height: 52px; border: 0;" />`, html.EscapeString(logoURL), tenantAdminEmailBrandName)
+		logoHTML = fmt.Sprintf(`<img src=%q width="52" height="52" alt=%q style="display: block; width: 52px; height: 52px; border: 0;" />`, html.EscapeString(logoURL), tenantAdminEmailBrandName)
 	}
 
 	htmlBody := fmt.Sprintf(`<!doctype html>
@@ -227,13 +227,14 @@ func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinut
                   <tr>
                     <td style="padding: 34px 34px 28px;">
                       <p style="margin: 0 0 10px; color: #0238e1; font-size: 13px; font-weight: 700;">ورود امن</p>
-                      <h1 style="margin: 0; color: #0b1220; font-size: 25px; line-height: 1.6; font-weight: 800;">کد ورود یک‌بارمصرف</h1>
+                      <h1 style="margin: 0; color: #0b1220; font-size: 25px; line-height: 1.6; font-weight: 800;">کد ورود یک&#8204;بارمصرف</h1>
                       <p style="margin: 10px 0 0; color: #475569; font-size: 15px; line-height: 1.9;">این کد فقط برای همین درخواست ورود صادر شده است.</p>
                       <div style="margin-top: 26px;">
                         <p style="margin: 0 0 14px; color: #334155; font-size: 15px; line-height: 2;">
                           از کد زیر برای ورود به فضای کاری <strong dir="ltr">%s</strong> استفاده کنید.
                         </p>
-                        <div dir="ltr" style="margin: 22px 0; border-radius: 14px; border: 1px solid #d6e2f0; background: #f8fbff; padding: 18px 20px; text-align: center; color: #0b1220; font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace; font-size: 30px; font-weight: 800; letter-spacing: 8px;">%s</div>
+                        <div dir="ltr" style="margin: 22px 0; border-radius: 14px; border: 1px solid #d6e2f0; background: #f8fbff; padding: 18px 20px; text-align: center; color: #0b1220;
+                          font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace; font-size: 30px; font-weight: 800; letter-spacing: 8px;">%s</div>
                         <div style="margin: 16px 0 0; border-radius: 12px; border: 1px solid #d6e2f0; background: #ffffff; padding: 13px 16px;">
                           <p style="margin: 0; color: #64748b; font-size: 12px; line-height: 1.7;">اعتبار کد</p>
                           <p style="margin: 3px 0 0; color: #0b1220; font-size: 14px; font-weight: 700; line-height: 1.7;">%d دقیقه</p>
@@ -243,7 +244,7 @@ func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinut
                           <a dir="ltr" href="%s" style="display: block; color: #0238e1; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.7; text-align: left; text-decoration: none; word-break: break-all;">%s</a>
                         </div>
                         <p style="margin: 22px 0 0; border-right: 3px solid #04b8a9; padding: 10px 14px 10px 0; color: #475569; font-size: 13px; line-height: 1.9; background: #f8fbff;">
-                          برای امنیت حساب، این کد را در اختیار هیچ‌کس قرار ندهید. اگر شما درخواست ورود نداده‌اید، این پیام را نادیده بگیرید.
+                          برای امنیت حساب، این کد را در اختیار هیچ&#8204;کس قرار ندهید. اگر شما درخواست ورود نداده&#8204;اید، این پیام را نادیده بگیرید.
                         </p>
                       </div>
                     </td>
@@ -289,12 +290,15 @@ func resolveTenantAdminEmailLogoURL(workspaceURL string) string {
 	if value := strings.TrimSpace(os.Getenv("GODARAI_EMAIL_LOGO_URL")); value != "" {
 		return value
 	}
+
 	if value := strings.TrimSpace(os.Getenv("SHAHRAH_EMAIL_LOGO_URL")); value != "" {
 		return value
 	}
+
 	if workspaceURL == "" {
 		return ""
 	}
+
 	return strings.TrimRight(workspaceURL, "/") + "/brand/mini_logo.png"
 }
 
@@ -302,6 +306,7 @@ func resolveTenantAdminWorkspaceURL(tenantSlug string) string {
 	if value := strings.TrimSpace(os.Getenv("NEXT_PUBLIC_TENANT_ADMIN_URL")); value != "" {
 		return value
 	}
+
 	if value := strings.TrimSpace(os.Getenv("SHAHRAH_TENANT_ADMIN_URL")); value != "" {
 		return value
 	}
@@ -310,14 +315,17 @@ func resolveTenantAdminWorkspaceURL(tenantSlug string) string {
 	if baseDomain == "" {
 		baseDomain = strings.TrimSpace(os.Getenv("TENANT_BASE_DOMAIN"))
 	}
+
 	if baseDomain == "" {
 		baseDomain = "godarai.ir"
 	}
+
 	baseDomain = strings.TrimRight(strings.TrimPrefix(strings.TrimPrefix(baseDomain, "https://"), "http://"), "/")
 
 	if tenantSlug == "" {
 		return "https://" + baseDomain
 	}
+
 	return "https://" + tenantSlug + "." + baseDomain
 }
 

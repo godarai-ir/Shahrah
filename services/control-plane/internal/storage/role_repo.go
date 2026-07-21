@@ -830,10 +830,12 @@ func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
 	for roleName := range systemRolePermissions {
 		roleNames = append(roleNames, roleName)
 	}
+
 	sort.Strings(roleNames)
 
 	for _, roleName := range roleNames {
 		permissions := systemRolePermissions[roleName]
+
 		var roleID string
 
 		displayName := systemRoleDisplayName(roleName)

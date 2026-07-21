@@ -161,6 +161,7 @@ func appendWalletTransactionTx(ctx context.Context, tx pgx.Tx, p walletTransacti
 		if err == nil {
 			return existing, nil
 		}
+
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
 		}
@@ -207,6 +208,7 @@ func appendWalletTransactionTx(ctx context.Context, tx pgx.Tx, p walletTransacti
 	}
 
 	metaRaw := marshalJSONBestEffort(p.Metadata)
+
 	completedAt := any(nil)
 	if !p.CompletedAt.IsZero() {
 		completedAt = p.CompletedAt

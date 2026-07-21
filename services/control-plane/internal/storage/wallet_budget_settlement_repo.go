@@ -49,6 +49,7 @@ func (s *Store) ApplyWalletBudgetSettlement(ctx context.Context, snapshot cache.
 
 	deltaIRR := committedIRR - settledIRR
 	now := time.Now().UTC()
+
 	if deltaIRR > 0 {
 		metadata := map[string]interface{}{
 			"budget_window_key":       snapshot.WindowKey,
@@ -89,6 +90,7 @@ func (s *Store) ApplyWalletBudgetSettlement(ctx context.Context, snapshot cache.
 	}
 
 	s.invalidateWalletCache(ctx, tenantID)
+
 	return nil
 }
 
@@ -97,8 +99,10 @@ func parseBudgetWindowIdentity(windowKey string) (tenantID string, windowID stri
 	if len(parts) != 5 || parts[0] != "budget" || parts[1] != "tenant" || parts[3] != "window" {
 		return "", "", fmt.Errorf("invalid budget window key %q", windowKey)
 	}
+
 	if strings.TrimSpace(parts[2]) == "" || strings.TrimSpace(parts[4]) == "" {
 		return "", "", fmt.Errorf("invalid budget window key %q", windowKey)
 	}
+
 	return strings.TrimSpace(parts[2]), strings.TrimSpace(parts[4]), nil
 }

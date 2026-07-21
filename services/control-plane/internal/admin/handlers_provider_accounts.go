@@ -145,6 +145,7 @@ func (h *Handlers) ListTenantProviderConnectionSchemas(c *fiber.Ctx) error {
 		if errors.Is(err, platformcredentials.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider connection schema not found")
 		}
+
 		return fiber.NewError(fiber.StatusBadGateway, "provider connection schema is unavailable")
 	}
 
@@ -539,6 +540,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if !allowsPrivatePricing && (item.PricingMode == platform.PricingModePrivate || item.PrivatePricing != nil) {
 			return fiber.NewError(fiber.StatusBadRequest, "private pricing requires a provider account with user-owned credentials")
 		}
+
 		if item.PricingMode == platform.PricingModePrivate && (item.PrivatePricing == nil || (item.PrivatePricing.InputUSDPer1M == nil && item.PrivatePricing.OutputUSDPer1M == nil)) {
 			return fiber.NewError(fiber.StatusBadRequest, "private pricing mode requires private_pricing input/output values")
 		}

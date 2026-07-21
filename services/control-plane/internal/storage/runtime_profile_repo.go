@@ -18,6 +18,7 @@ func (s *Store) GetTenantByID(ctx context.Context, tenantID string) (*platform.T
 	}
 
 	var tenant platform.Tenant
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT tenant_id::text, slug, domain, status, created_at
 		FROM tenants
@@ -27,6 +28,7 @@ func (s *Store) GetTenantByID(ctx context.Context, tenantID string) (*platform.T
 	if err != nil {
 		return nil, err
 	}
+
 	return &tenant, nil
 }
 
@@ -56,16 +58,19 @@ func (s *Store) ListRuntimeAuthContexts(ctx context.Context, tenantID string) ([
 	defer rows.Close()
 
 	tokenHashes := make([]string, 0)
+
 	for rows.Next() {
 		var tokenHash string
 		if err := rows.Scan(&tokenHash); err != nil {
 			return nil, err
 		}
+
 		tokenHash = strings.TrimSpace(tokenHash)
 		if tokenHash != "" {
 			tokenHashes = append(tokenHashes, tokenHash)
 		}
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -77,13 +82,17 @@ func (s *Store) ListRuntimeAuthContexts(ctx context.Context, tenantID string) ([
 			if errors.Is(err, pgx.ErrNoRows) {
 				continue
 			}
+
 			return nil, err
 		}
+
 		if authContext == nil || strings.TrimSpace(authContext.TokenHash) == "" {
 			continue
 		}
+
 		out = append(out, *authContext)
 	}
+
 	return out, nil
 }
 
@@ -102,23 +111,28 @@ func (s *Store) ListEnabledTenantGuardrails(ctx context.Context, tenantID string
 	defer rows.Close()
 
 	items := make([]platform.TenantGuardrail, 0)
+
 	for rows.Next() {
 		item, err := scanTenantGuardrail(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, *item)
 	}
+
 	return items, rows.Err()
 }
 
 func (s *Store) NextTenantRuntimeProfileVersion(ctx context.Context, tenantID string) (int64, error) {
 	var version int64
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(MAX(version), 0) + 1
 		FROM tenant_runtime_profiles
 		WHERE tenant_id = $1::uuid
 	`, strings.TrimSpace(tenantID)).Scan(&version)
+
 	return version, err
 }
 
@@ -126,9 +140,11 @@ func (s *Store) SaveTenantRuntimeProfile(ctx context.Context, stored runtimeprof
 	if stored.CompiledAt.IsZero() {
 		stored.CompiledAt = time.Now().UTC()
 	}
+
 	if stored.SourceUpdatedAt.IsZero() {
 		stored.SourceUpdatedAt = stored.CompiledAt
 	}
+
 	if strings.TrimSpace(stored.Status) == "" {
 		stored.Status = runtimeprofile.ProfileStatusActive
 	}
@@ -147,11 +163,13 @@ func (s *Store) SaveTenantRuntimeProfile(ctx context.Context, stored runtimeprof
 		    status = EXCLUDED.status,
 		    error = EXCLUDED.error
 	`, strings.TrimSpace(stored.TenantID), stored.Version, stored.ProfileJSON, stored.Checksum, stored.CompiledAt, stored.SourceUpdatedAt, stored.Status, stored.Error)
+
 	return err
 }
 
 func (s *Store) LoadLatestTenantRuntimeProfile(ctx context.Context, tenantID string) (*runtimeprofile.StoredProfile, error) {
 	var stored runtimeprofile.StoredProfile
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT tenant_id::text, version, profile_json, checksum, compiled_at, source_updated_at, status, COALESCE(error, '')
 		FROM tenant_runtime_profiles
@@ -171,5 +189,6 @@ func (s *Store) LoadLatestTenantRuntimeProfile(ctx context.Context, tenantID str
 	if err != nil {
 		return nil, err
 	}
+
 	return &stored, nil
 }

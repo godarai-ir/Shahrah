@@ -38,6 +38,7 @@ func normalizePricingCacheConfig(cfg PricingCacheConfig) PricingCacheConfig {
 	if cfg.TTL <= 0 {
 		cfg.TTL = 300 * time.Second
 	}
+
 	return cfg
 }
 
@@ -45,6 +46,7 @@ func newPricingCache(c cache.Cache, cfg PricingCacheConfig, loader pricingLoader
 	if loader == nil {
 		loader = modelPriceFromRegistry
 	}
+
 	return &pricingCache{
 		cache:  c,
 		cfg:    normalizePricingCacheConfig(cfg),
@@ -67,8 +69,10 @@ func (c *pricingCache) Get(ctx context.Context, model string) priceInfo {
 		if price, ok := c.cachedPrice(ctx, key); ok {
 			return price, nil
 		}
+
 		price := c.load(model)
 		c.store(ctx, key, price)
+
 		return price, nil
 	})
 	if err != nil {
@@ -79,6 +83,7 @@ func (c *pricingCache) Get(ctx context.Context, model string) priceInfo {
 	if !ok {
 		return c.load(model)
 	}
+
 	return price
 }
 
@@ -86,6 +91,7 @@ func (c *pricingCache) Invalidate(ctx context.Context, model string) {
 	if c == nil || c.cache == nil {
 		return
 	}
+
 	c.cache.Delete(ctx, pricingCacheKey(model))
 }
 
@@ -93,6 +99,7 @@ func (c *pricingCache) load(model string) priceInfo {
 	if c == nil || c.loader == nil {
 		return modelPriceFromRegistry(model)
 	}
+
 	return c.loader(model)
 }
 
@@ -103,6 +110,7 @@ func (c *pricingCache) cachedPrice(ctx context.Context, key string) (priceInfo, 
 	}
 
 	var raw []byte
+
 	switch typed := value.(type) {
 	case string:
 		raw = []byte(typed)
@@ -119,6 +127,7 @@ func (c *pricingCache) cachedPrice(ctx context.Context, key string) (priceInfo, 
 		c.cache.Delete(ctx, key)
 		return priceInfo{}, false
 	}
+
 	return price, true
 }
 
@@ -127,6 +136,7 @@ func (c *pricingCache) store(ctx context.Context, key string, price priceInfo) {
 	if err != nil {
 		return
 	}
+
 	c.cache.Set(ctx, key, string(raw), c.cfg.TTL)
 }
 
@@ -135,6 +145,7 @@ func pricingCacheKey(model string) string {
 	if normalized == "" {
 		normalized = "default"
 	}
+
 	return fmt.Sprintf("pricing:%s", normalized)
 }
 
@@ -143,9 +154,11 @@ func boolEnvOrDefault(key string, fallback bool) bool {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.ParseBool(raw)
 	if err != nil {
 		return fallback
 	}
+
 	return value
 }

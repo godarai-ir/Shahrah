@@ -8,6 +8,7 @@ import (
 
 func TestRequiredPlatformScopeForProviderCredentialLifecycle(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		method string
 		path   string

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 	if tenantID == "" {
 		return nil, ErrProfileUnavailable
 	}
+
 	if version <= 0 {
 		version = 1
 	}
@@ -65,9 +67,20 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		return nil, err
 	}
 
-	entitlements, _ := c.repo.ResolveEffectiveEntitlementLimits(ctx, tenantID)
-	rateRules, _, _ := c.repo.ListRateLimitRules(ctx, tenantID, "", 1000, 0)
-	budgetRules, _, _ := c.repo.ListBudgetLimitRules(ctx, tenantID, "", 1000, 0)
+	entitlements, err := c.repo.ResolveEffectiveEntitlementLimits(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve runtime entitlements: %w", err)
+	}
+
+	rateRules, _, err := c.repo.ListRateLimitRules(ctx, tenantID, "", 1000, 0)
+	if err != nil {
+		return nil, fmt.Errorf("list runtime rate-limit rules: %w", err)
+	}
+
+	budgetRules, _, err := c.repo.ListBudgetLimitRules(ctx, tenantID, "", 1000, 0)
+	if err != nil {
+		return nil, fmt.Errorf("list runtime budget-limit rules: %w", err)
+	}
 
 	now := c.now().UTC()
 	profile := &Profile{
@@ -91,6 +104,7 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		if tokenHash == "" {
 			continue
 		}
+
 		profile.AuthByTokenHash[tokenHash] = cloneAuthContext(authContext)
 	}
 
@@ -98,10 +112,12 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		if !vm.Enabled {
 			continue
 		}
+
 		alias := strings.TrimSpace(vm.Alias)
 		if alias == "" {
 			continue
 		}
+
 		profile.VirtualModels[alias] = cloneVirtualModel(vm)
 	}
 
@@ -110,11 +126,14 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		if modelName == "" {
 			continue
 		}
+
 		apiKey := strings.TrimSpace(dep.APIKey)
 		dep.APIKey = ""
+
 		if apiKey != "" {
 			profile.ProviderAPIKeys[modelName] = apiKey
 		}
+
 		profile.Deployments = append(profile.Deployments, dep)
 	}
 
@@ -123,10 +142,12 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		if slug == "" || !guardrail.Enabled {
 			continue
 		}
+
 		profile.Guardrails[slug] = cloneGuardrail(guardrail)
 	}
 
 	profile.Checksum = checksumProfile(profile)
+
 	return profile, nil
 }
 
@@ -134,12 +155,16 @@ func checksumProfile(profile *Profile) string {
 	if profile == nil {
 		return ""
 	}
+
 	redacted := cloneProfile(profile)
 	redacted.ProviderAPIKeys = nil
+
 	raw, err := json.Marshal(redacted)
 	if err != nil {
 		return ""
 	}
+
 	sum := sha256.Sum256(raw)
+
 	return hex.EncodeToString(sum[:])
 }

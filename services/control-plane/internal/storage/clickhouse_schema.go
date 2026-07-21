@@ -22,23 +22,28 @@ func (s *Store) validateClickHouseColumns(ctx context.Context, table string, col
 	defer closeBestEffort(rows)
 
 	found := make(map[string]struct{}, len(columns))
+
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
 			return fmt.Errorf("validate clickhouse table %s: %w", table, err)
 		}
+
 		found[name] = struct{}{}
 	}
+
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("validate clickhouse table %s: %w", table, err)
 	}
 
 	missing := make([]string, 0)
+
 	for _, column := range columns {
 		if _, ok := found[column]; !ok {
 			missing = append(missing, column)
 		}
 	}
+
 	if len(missing) > 0 {
 		return fmt.Errorf("validate clickhouse table %s: missing columns: %s", table, strings.Join(missing, ", "))
 	}
@@ -55,6 +60,7 @@ func (s *Store) validateClickHouseObject(ctx context.Context, name string) error
 	`, name).Scan(&count); err != nil {
 		return fmt.Errorf("validate clickhouse object %s: %w", name, err)
 	}
+
 	if count == 0 {
 		return fmt.Errorf("validate clickhouse object %s: missing", name)
 	}

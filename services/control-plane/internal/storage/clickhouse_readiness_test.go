@@ -11,6 +11,7 @@ import (
 func TestClickHouseReadinessReportSeparatesSubsystems(t *testing.T) {
 	db, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
 	require.NoError(t, err)
+
 	defer closeBestEffort(db)
 
 	store := &Store{

@@ -18,9 +18,11 @@ func TestResolveTenantRequestLoggingModeUsesCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !ok {
 		t.Fatal("expected cached request logging mode")
 	}
+
 	if mode != RequestLoggingModeFullContent {
 		t.Fatalf("unexpected mode: %s", mode)
 	}

@@ -224,6 +224,7 @@ func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req pla
 
 	result.Transaction = *walletTxn
 	result.Transaction.Metadata = metadata
+
 	result.BalanceAfter = walletTxn.BalanceAfter
 	if req.Direction == "debit" {
 		result.BalanceBefore = walletTxn.BalanceAfter + req.AmountMinor
@@ -295,6 +296,7 @@ func (s *Store) ChangeTenantStatus(ctx context.Context, tenantID, target, reason
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, eventType)
 
 	return s.GetSupportTenantSummary(ctx, tenantID)

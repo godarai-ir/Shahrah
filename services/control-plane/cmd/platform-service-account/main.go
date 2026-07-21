@@ -112,25 +112,32 @@ var supportAdminScopes = []string{
 
 func resolveCredentialConfig(name, profile, rawScopes string) (string, []string, error) {
 	accountName := strings.TrimSpace(name)
+
 	profile = strings.TrimSpace(profile)
 	if profile == "" {
 		if accountName == supportAdminProfile || accountName == "platform-support" {
 			return "", nil, fmt.Errorf("%s credentials must use --profile=%s", accountName, supportAdminProfile)
 		}
+
 		scopes, err := parseScopes(rawScopes)
+
 		return accountName, scopes, err
 	}
+
 	if strings.TrimSpace(rawScopes) != "" {
 		return "", nil, fmt.Errorf("--profile and --scopes cannot be used together")
 	}
+
 	if profile != supportAdminProfile {
 		return "", nil, fmt.Errorf("unsupported profile %q", profile)
 	}
+
 	if accountName == "" {
 		accountName = supportAdminProfile
 	}
 
 	scopes, err := parseScopes(strings.Join(supportAdminScopes, ","))
+
 	return accountName, scopes, err
 }
 

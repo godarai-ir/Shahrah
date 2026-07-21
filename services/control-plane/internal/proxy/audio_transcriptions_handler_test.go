@@ -41,6 +41,7 @@ func newAudioTranscriptionsTestApp(t *testing.T, modelName string, provider stri
 	if logs == nil {
 		logs = &testLogs{}
 	}
+
 	if allowedTypes == nil {
 		allowedTypes = []string{string(platform.ModelTypeAudioTranscription)}
 	}
@@ -185,6 +186,7 @@ func TestAudioTranscriptionsHandlerGatesBedrockNovaSonic(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotImplemented, resp.StatusCode)
 	assert.Empty(t, tunnel.lastReq.RequestID)
+
 	bodyBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(bodyBytes), "Nova Sonic")
@@ -204,6 +206,7 @@ func TestAudioTranscriptionsHandlerRejectsNativeProviderStreaming(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	assert.Empty(t, tunnel.lastReq.RequestID)
+
 	bodyBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(bodyBytes), "Streaming audio transcriptions are not supported")
@@ -261,6 +264,7 @@ func TestAudioTranscriptionsHandlerValidationErrors(t *testing.T) {
 			bodyBytes, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 			assert.Contains(t, string(bodyBytes), `"param":"`+tc.wantParam+`"`)
+
 			if tc.wantMessage != "" {
 				assert.Contains(t, string(bodyBytes), tc.wantMessage)
 			}
@@ -326,9 +330,12 @@ func TestAudioTranscriptionsHandlerProviderErrorPassthrough(t *testing.T) {
 
 func TestAudioTranscriptionsHandlerStreamRelaysProviderEvents(t *testing.T) {
 	body, contentType := buildMultipartBody(t, map[string]string{"model": "gpt-4o-transcribe", "stream": "true"}, map[string][]byte{"file": []byte("audio")})
+
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("event: transcript.text.delta\n")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"delta\":\"سلام\"}\n\n"), IsDone: true}
+
 	close(stream.chunks)
 
 	tunnel := &captureTunnel{stream: stream}
@@ -381,6 +388,7 @@ func TestAudioTranscriptionsHandlerTraceRedaction(t *testing.T) {
 	for _, ev := range events {
 		raw, err := json.Marshal(ev.Attributes)
 		require.NoError(t, err)
+
 		text := string(raw)
 		assert.NotContains(t, text, "secret-audio-bytes")
 		assert.NotContains(t, text, "secret speech prompt")

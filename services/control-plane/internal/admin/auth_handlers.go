@@ -89,12 +89,14 @@ func (l *authRateLimiter) allow(policy authRateLimitPolicy) (bool, time.Duration
 
 	now := l.now()
 	l.pruneExpiredLocked(now)
+
 	bucket, exists := l.buckets[policy.key]
 	if !exists || !bucket.resetAt.After(now) {
 		l.buckets[policy.key] = authRateLimitBucket{
 			count:   1,
 			resetAt: now.Add(policy.window),
 		}
+
 		return true, 0
 	}
 
@@ -104,6 +106,7 @@ func (l *authRateLimiter) allow(policy authRateLimitPolicy) (bool, time.Duration
 
 	bucket.count++
 	l.buckets[policy.key] = bucket
+
 	return true, 0
 }
 
@@ -122,6 +125,7 @@ func (l *authRateLimiter) pruneExpiredLocked(now time.Time) {
 		if len(l.buckets) <= tenantAdminOTPMaxRateLimitBuckets {
 			break
 		}
+
 		delete(l.buckets, key)
 	}
 }
@@ -141,6 +145,7 @@ func (h *AuthHandlers) enforceOTPRequestRateLimit(c *fiber.Ctx, tenantSlug, chan
 	}
 
 	var retryAfter time.Duration
+
 	for _, policy := range policies {
 		ok, wait := h.otpLimiter.allow(policy)
 		if !ok && wait > retryAfter {
@@ -156,7 +161,9 @@ func (h *AuthHandlers) enforceOTPRequestRateLimit(c *fiber.Ctx, tenantSlug, chan
 	if retryAfterSeconds < 1 {
 		retryAfterSeconds = 1
 	}
+
 	c.Set("Retry-After", strconv.Itoa(retryAfterSeconds))
+
 	return fiber.NewError(fiber.StatusTooManyRequests, "Too many OTP requests. Please try again later.")
 }
 
@@ -169,12 +176,15 @@ func authRequestClientIP(c *fiber.Ctx) string {
 	if value := strings.TrimSpace(strings.Split(c.Get("X-Forwarded-For"), ",")[0]); value != "" {
 		return value
 	}
+
 	if value := strings.TrimSpace(c.Get("X-Real-IP")); value != "" {
 		return value
 	}
+
 	if value := strings.TrimSpace(c.IP()); value != "" {
 		return value
 	}
+
 	return "unknown"
 }
 
@@ -332,17 +342,17 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		channel = "email"
 	}
 
-	if err := h.enforceOTPRequestRateLimit(c, tenantSlug, channel, body.Identifier); err != nil {
-		return err
+	if rateLimitErr := h.enforceOTPRequestRateLimit(c, tenantSlug, channel, body.Identifier); rateLimitErr != nil {
+		return rateLimitErr
 	}
 
 	if strings.TrimSpace(strings.ToLower(body.Purpose)) == "login" {
-		if _, err := h.store.FindOrCreateTenantAdminUser(c.Context(), storage.FindOrCreateTenantAdminUserParams{
+		if _, userErr := h.store.FindOrCreateTenantAdminUser(c.Context(), storage.FindOrCreateTenantAdminUserParams{
 			TenantSlug: tenantSlug,
 			Channel:    channel,
 			Identifier: body.Identifier,
-		}); err != nil {
-			if strings.Contains(strings.ToLower(err.Error()), "tenant member not found") {
+		}); userErr != nil {
+			if strings.Contains(strings.ToLower(userErr.Error()), "tenant member not found") {
 				return c.JSON(buildGenericTenantAdminOTPResponse(channel, body.Identifier))
 			}
 
@@ -408,6 +418,7 @@ func buildGenericTenantAdminOTPResponse(channel, identifier string) fiber.Map {
 func generateTenantAdminAuthID() string {
 	b := make([]byte, 16)
 	_, _ = crand.Read(b)
+
 	return hex.EncodeToString(b)
 }
 

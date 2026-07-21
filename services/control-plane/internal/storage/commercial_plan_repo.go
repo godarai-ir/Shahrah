@@ -600,6 +600,7 @@ func (s *Store) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID 
 	if err != nil {
 		return nil, err
 	}
+
 	if base == nil {
 		return nil, fmt.Errorf("empty entitlement result for tenant %s", tenantID)
 	}
@@ -738,6 +739,7 @@ func (s *Store) resolveEffectiveEntitlementsFromDB(ctx context.Context, tenantID
 
 func (s *Store) withCurrentUsageCounters(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) (*platform.EffectiveEntitlementsResponse, error) {
 	out := cloneEffectiveEntitlements(resolved)
+
 	usageCounters, err := s.listCurrentUsageCounters(ctx, out.TenantID, out.Features)
 	if err != nil {
 		return nil, err
@@ -803,6 +805,7 @@ func (s *Store) invalidateTenantEntitlements(ctx context.Context, tenantID strin
 	if s.entitlementCache != nil && strings.TrimSpace(tenantID) != "" {
 		s.entitlementCache.Delete(ctx, entitlementCacheKey(tenantID))
 	}
+
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "entitlements.updated")
 }
 
@@ -840,7 +843,9 @@ func cloneEffectiveEntitlements(in *platform.EffectiveEntitlementsResponse) *pla
 	if in.Subscription != nil {
 		out.Subscription = cloneTenantSubscription(in.Subscription)
 	}
+
 	out.Features = cloneStringInterfaceMap(in.Features)
+
 	out.Overrides = cloneStringInterfaceMap(in.Overrides)
 	if len(in.UsageCounters) > 0 {
 		out.UsageCounters = make([]platform.UsageCounter, len(in.UsageCounters))
@@ -864,6 +869,7 @@ func cloneTenantSubscription(in *platform.TenantSubscription) *platform.TenantSu
 	out := *in
 	out.PriceSnapshot = cloneStringInterfaceMap(in.PriceSnapshot)
 	out.Metadata = cloneStringInterfaceMap(in.Metadata)
+
 	return &out
 }
 
@@ -876,6 +882,7 @@ func cloneStringInterfaceMap(in map[string]interface{}) map[string]interface{} {
 	for key, value := range in {
 		out[key] = cloneJSONValue(value)
 	}
+
 	return out
 }
 
@@ -888,6 +895,7 @@ func cloneJSONValue(value interface{}) interface{} {
 		for i, item := range typed {
 			out[i] = cloneJSONValue(item)
 		}
+
 		return out
 	default:
 		return typed
@@ -1013,11 +1021,14 @@ func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantI
 		if err == nil {
 			return counter, allowed, nil
 		}
+
 		if s.logger != nil {
 			s.logger.Warn("redis usage counter unavailable; using fallback", zap.String("feature_key", featureKey), zap.Error(err))
 		}
+
 		if s.usageCountersFailOpen {
 			windowStart, windowEnd := usageCounterMonthWindow(now)
+
 			return &platform.UsageCounter{
 				FeatureKey:  featureKey,
 				WindowStart: windowStart,
@@ -1033,6 +1044,7 @@ func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantI
 
 func (s *Store) checkAndIncrementTenantUsageCounterRedis(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
 	windowStart, windowEnd := usageCounterMonthWindow(now)
+
 	ttl := time.Until(windowEnd) + s.usageCounterTTLBuffer
 	if ttl <= 0 {
 		ttl = s.usageCounterTTLBuffer
@@ -1128,6 +1140,7 @@ func (s *Store) checkAndIncrementTenantUsageCounterDB(ctx context.Context, tenan
 func usageCounterMonthWindow(now time.Time) (time.Time, time.Time) {
 	utc := now.UTC()
 	windowStart := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+
 	return windowStart, windowStart.AddDate(0, 1, 0)
 }
 
@@ -1161,9 +1174,10 @@ func (s *Store) ProcessSubscriptionTransitions(ctx context.Context, now time.Tim
 	defer rollbackTxWithFreshTimeout(tx)
 
 	var lockAcquired bool
-	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext($1))`, "subscription_lifecycle_processor").Scan(&lockAcquired); err != nil {
-		return 0, err
+	if lockErr := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext($1))`, "subscription_lifecycle_processor").Scan(&lockAcquired); lockErr != nil {
+		return 0, lockErr
 	}
+
 	if !lockAcquired {
 		return 0, nil
 	}
@@ -1357,6 +1371,7 @@ func issueHybridInvoiceForSubscriptionTx(ctx context.Context, tx pgx.Tx, subscri
 	invoiceNumber := fmt.Sprintf("INV-%s-%s", periodEnd.UTC().Format("200601"), strings.Split(subscriptionID, "-")[0])
 
 	var insertedID string
+
 	err := tx.QueryRow(ctx, `
 		INSERT INTO invoices (
 			invoice_id, invoice_number, tenant_id, subscription_id, status, issued_at,
@@ -1375,6 +1390,7 @@ func issueHybridInvoiceForSubscriptionTx(ctx context.Context, tx pgx.Tx, subscri
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
@@ -1392,6 +1408,7 @@ func issueHybridInvoiceForSubscriptionTx(ctx context.Context, tx pgx.Tx, subscri
 		if line.amountIRR == 0 {
 			continue
 		}
+
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO invoice_line_items (
 				line_item_id, invoice_id, item_type, provider_name, description, quantity, amount_irr, metadata

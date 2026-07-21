@@ -94,6 +94,7 @@ type rateLimitCountingBudgeter struct {
 func (b *rateLimitCountingBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string, estimatedTokens int) (*cache.RateLimitResult, error) {
 	b.calls++
 	b.lastEstimatedTokens = estimatedTokens
+
 	return &cache.RateLimitResult{Allowed: true, Current: 1, Limit: 100, ResetAt: time.Now().Add(time.Minute)}, nil
 }
 
@@ -413,27 +414,6 @@ func buildMultipartBody(t *testing.T, fields map[string]string, files map[string
 	}
 
 	return buf.Bytes(), w.FormDataContentType()
-}
-
-func assertMultipartBodyEqual(t *testing.T, contentType string, expected []byte, actual []byte) {
-	t.Helper()
-
-	expectedForm := readMultipartForm(t, contentType, expected)
-	actualForm := readMultipartForm(t, contentType, actual)
-
-	require.Equal(t, expectedForm.Value, actualForm.Value)
-	require.Equal(t, len(expectedForm.File), len(actualForm.File))
-
-	for field, expectedFiles := range expectedForm.File {
-		actualFiles := actualForm.File[field]
-		require.Len(t, actualFiles, len(expectedFiles), "multipart file field %q", field)
-
-		for i, expectedFile := range expectedFiles {
-			actualFile := actualFiles[i]
-			require.Equal(t, expectedFile.Filename, actualFile.Filename)
-			require.Equal(t, readMultipartFile(t, expectedFile), readMultipartFile(t, actualFile))
-		}
-	}
 }
 
 func assertMultipartFileBytes(t *testing.T, form *multipart.Form, field string, expected []byte) {

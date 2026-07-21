@@ -12,47 +12,22 @@ import (
 )
 
 func (h *Handlers) ListRequestTracesV2(c *fiber.Ctx) error {
-	if err := requireTeamAdminOrHigher(c); err != nil {
-		return err
-	}
-
-	if h.traces == nil {
-		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
-	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
-	}
-
-	params, err := parseTraceListV2Params(c, currentTenant.ID)
-	if err != nil {
-		return err
-	}
-
-	items, total, err := h.traces.ListRequestTracesV2(c.Context(), params)
-	if err != nil {
-		if errors.Is(err, storage.ErrTraceStoreUnavailable) {
-			return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
-		}
-
-		return err
-	}
-
-	var nextOffset *int
-
-	if params.Offset+len(items) < total {
-		n := params.Offset + len(items)
-		nextOffset = &n
-	}
-
-	return c.JSON(platform.ListRequestTracesV2Response{
-		Data:       items,
-		Total:      total,
-		Limit:      params.Limit,
-		Offset:     params.Offset,
-		NextOffset: nextOffset,
-	})
+	return listObservabilityItems(
+		c, requireTeamAdminOrHigher, h.traces != nil, "trace store not configured",
+		func(tenantID string) (platform.ListRequestTracesV2Params, error) {
+			return parseTraceListV2Params(c, tenantID)
+		},
+		func(params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error) {
+			return h.traces.ListRequestTracesV2(c.Context(), params)
+		},
+		storage.ErrTraceStoreUnavailable,
+		func(params platform.ListRequestTracesV2Params) (int, int) { return params.Limit, params.Offset },
+		func(items []platform.RequestTraceV2, total, limit, offset int, nextOffset *int) error {
+			return c.JSON(platform.ListRequestTracesV2Response{
+				Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset,
+			})
+		},
+	)
 }
 
 func (h *Handlers) GetTraceFacetsV2(c *fiber.Ctx) error {
@@ -144,6 +119,7 @@ func parseTraceListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequest
 	if err != nil {
 		return platform.ListRequestTracesV2Params{}, err
 	}
+
 	from, to, err = applyObservabilityTimeBounds(from, to, time.Now().UTC())
 	if err != nil {
 		return platform.ListRequestTracesV2Params{}, err

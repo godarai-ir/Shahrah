@@ -15,6 +15,7 @@ func TestSupportAdminProfileContainsEveryRequiredScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveCredentialConfig returned error: %v", err)
 	}
+
 	if name != supportAdminProfile {
 		t.Fatalf("got account name %q want %q", name, supportAdminProfile)
 	}
@@ -32,14 +33,17 @@ func TestSupportAdminProfileContainsEveryRequiredScope(t *testing.T) {
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/credential-versions/1/activate"},
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/disable"},
 	}
+
 	requiredScopes := make(map[string]struct{}, len(required))
 	for _, endpoint := range required {
 		scope := auth.RequiredPlatformScope(endpoint.method, endpoint.path)
+
 		requiredScopes[scope] = struct{}{}
 		if !slices.Contains(scopes, scope) {
 			t.Errorf("support-admin profile is missing %q required by %s %s", scope, endpoint.method, endpoint.path)
 		}
 	}
+
 	if len(scopes) != len(requiredScopes) {
 		t.Errorf("support-admin profile has unexpected scopes: got %v", scopes)
 	}
@@ -75,6 +79,7 @@ func TestParseScopesAllowsProviderCredentialScopes(t *testing.T) {
 	if len(scopes) != len(want) {
 		t.Fatalf("got %v want %v", scopes, want)
 	}
+
 	for index := range want {
 		if scopes[index] != want[index] {
 			t.Fatalf("got %v want %v", scopes, want)

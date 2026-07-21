@@ -13,17 +13,18 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
+
 	ctx := context.Background()
 	windowEnd := time.Now().UTC().Add(time.Hour)
 
-	if _, err := mem.SeedBudgetWindow(ctx, BudgetWindowSeed{
+	if _, seedErr := mem.SeedBudgetWindow(ctx, BudgetWindowSeed{
 		WindowKey:    "budget:tenant:t1:window:202607",
 		AllowanceIRR: 100,
 		ExpiresAt:    windowEnd,
 		TTL:          time.Hour,
 		Version:      1,
-	}); err != nil {
-		t.Fatalf("SeedBudgetWindow returned error: %v", err)
+	}); seedErr != nil {
+		t.Fatalf("SeedBudgetWindow returned error: %v", seedErr)
 	}
 
 	reserved, err := mem.ReserveBudget(ctx, BudgetReservationRequest{
@@ -36,6 +37,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReserveBudget returned error: %v", err)
 	}
+
 	if !reserved.Allowed || reserved.ReservedIRR != 60 || reserved.RemainingIRR != 40 {
 		t.Fatalf("unexpected reserve result: %+v", reserved)
 	}
@@ -50,6 +52,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second ReserveBudget returned error: %v", err)
 	}
+
 	if again.ReservedIRR != 60 {
 		t.Fatalf("expected idempotent reserve to keep reserved at 60, got %+v", again)
 	}
@@ -64,6 +67,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("exhausting ReserveBudget returned error: %v", err)
 	}
+
 	if exhausted.Allowed || exhausted.State != "exhausted" {
 		t.Fatalf("expected exhausted reservation, got %+v", exhausted)
 	}
@@ -76,6 +80,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CommitBudget returned error: %v", err)
 	}
+
 	if !committed.Allowed || committed.ReservedIRR != 0 || committed.CommittedIRR != 40 || committed.RemainingIRR != 60 {
 		t.Fatalf("unexpected commit result: %+v", committed)
 	}
@@ -88,6 +93,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second CommitBudget returned error: %v", err)
 	}
+
 	if committedAgain.CommittedIRR != 40 {
 		t.Fatalf("expected idempotent commit to keep committed at 40, got %+v", committedAgain)
 	}
@@ -99,6 +105,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReleaseBudget returned error: %v", err)
 	}
+
 	if !released.Allowed || released.CommittedIRR != 40 {
 		t.Fatalf("unexpected release result: %+v", released)
 	}
@@ -107,6 +114,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetBudgetWindow returned error: %v", err)
 	}
+
 	if snapshot == nil || snapshot.CommittedIRR != 40 || snapshot.ReservedIRR != 0 {
 		t.Fatalf("unexpected snapshot: %+v", snapshot)
 	}
@@ -115,6 +123,7 @@ func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActiveBudgetWindows returned error: %v", err)
 	}
+
 	if len(active) != 1 || active[0].WindowKey != "budget:tenant:t1:window:202607" {
 		t.Fatalf("unexpected active windows: %+v", active)
 	}

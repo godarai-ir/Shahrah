@@ -14,9 +14,11 @@ func TestBudgetCheckErrorResponseMapsBudgetExceededToPaymentRequired(t *testing.
 	if status != fiber.StatusPaymentRequired {
 		t.Fatalf("expected status 402, got %d", status)
 	}
+
 	if message != billing.ErrBudgetExceeded.Error() {
 		t.Fatalf("expected budget message, got %q", message)
 	}
+
 	if code != "budget_exceeded" {
 		t.Fatalf("expected budget_exceeded code, got %q", code)
 	}
@@ -28,9 +30,11 @@ func TestBudgetCheckErrorResponseSanitizesStoreErrorsAsUnavailable(t *testing.T)
 	if status != fiber.StatusServiceUnavailable {
 		t.Fatalf("expected status 503, got %d", status)
 	}
+
 	if message != "Billing budget check unavailable" {
 		t.Fatalf("expected sanitized message, got %q", message)
 	}
+
 	if code != "billing_unavailable" {
 		t.Fatalf("expected billing_unavailable code, got %q", code)
 	}
@@ -42,9 +46,11 @@ func TestBudgetCheckErrorResponseMapsBudgetUnavailableToServiceUnavailable(t *te
 	if status != fiber.StatusServiceUnavailable {
 		t.Fatalf("expected status 503, got %d", status)
 	}
+
 	if message != "Billing budget check unavailable" {
 		t.Fatalf("expected sanitized message, got %q", message)
 	}
+
 	if code != "billing_unavailable" {
 		t.Fatalf("expected billing_unavailable code, got %q", code)
 	}

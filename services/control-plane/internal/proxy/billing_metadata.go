@@ -17,6 +17,7 @@ func deploymentCredentialSource(dep platform.Deployment) string {
 		if strings.TrimSpace(dep.BillingMode) == platform.BillingModeExternalBilled {
 			return platform.CredentialSourceUserBYOK
 		}
+
 		return platform.CredentialSourceGodarManagedKey
 	}
 }
@@ -32,6 +33,7 @@ func deploymentBillingMode(dep platform.Deployment) string {
 		if deploymentCredentialSource(dep) == platform.CredentialSourceUserBYOK {
 			return platform.BillingModeExternalBilled
 		}
+
 		return platform.BillingModeWalletBilled
 	}
 }
@@ -61,12 +63,15 @@ func enrichDeploymentBillingMetadata(input map[string]interface{}, dep platform.
 	if value := strings.TrimSpace(dep.ProviderAccountID); value != "" {
 		out["provider_account_id"] = value
 	}
+
 	if value := strings.TrimSpace(dep.ConnectionID); value != "" {
 		out["connection_id"] = value
 	}
+
 	if value := strings.TrimSpace(dep.CredentialVersionID); value != "" {
 		out["credential_version_id"] = value
 	}
+
 	if value := strings.TrimSpace(dep.ProviderAccountName); value != "" {
 		out["provider_account_name"] = value
 	}
@@ -84,6 +89,7 @@ func enrichMetricMetadataForDeployment(input map[string]interface{}, dep platfor
 		for k, v := range input {
 			out[k] = v
 		}
+
 		return out
 	}
 

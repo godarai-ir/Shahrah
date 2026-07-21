@@ -194,8 +194,8 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		nextProviderCfg = req.ProviderConfig
 	}
 
-	if err := validateProviderConfigAPIBase(currentProvider, nextProviderCfg, "api_base", "base_url"); err != nil {
-		return nil, err
+	if validationErr := validateProviderConfigAPIBase(currentProvider, nextProviderCfg, "api_base", "base_url"); validationErr != nil {
+		return nil, validationErr
 	}
 
 	nextProviderCfgRaw, err := marshalJSONObject(nextProviderCfg)
@@ -292,13 +292,14 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		hasCredential              bool
 		platformManagedCredentials bool
 	)
-	if err := tx.QueryRow(ctx, `
+	if queryErr := tx.QueryRow(ctx, `
 		SELECT provider, auth_mode, has_credential, use_platform_managed_credentials
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&provider, &authMode, &hasCredential, &platformManagedCredentials); err != nil {
-		return nil, err
+	`, tenantID, accountID).Scan(&provider, &authMode, &hasCredential, &platformManagedCredentials); queryErr != nil {
+		return nil, queryErr
 	}
+
 	allowsPrivatePricing := tenantProviderAccountAllowsPrivatePricing(authMode, hasCredential, platformManagedCredentials)
 
 	_, deleteErr := tx.Exec(ctx, `DELETE FROM tenant_provider_account_models WHERE account_id = $1`, accountID)
@@ -319,8 +320,8 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 			continue
 		}
 
-		if err := validateProviderConfigAPIBase(provider, item.Settings, "api_base", "base_url"); err != nil {
-			return nil, err
+		if validationErr := validateProviderConfigAPIBase(provider, item.Settings, "api_base", "base_url"); validationErr != nil {
+			return nil, validationErr
 		}
 
 		seenModel[modelName] = struct{}{}
@@ -344,6 +345,7 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 		if pricingMode == "" {
 			pricingMode = platform.PricingModePublic
 		}
+
 		if !allowsPrivatePricing && (pricingMode == platform.PricingModePrivate || item.PrivatePricing != nil) {
 			return nil, ErrPrivatePricingRequiresCredential
 		}

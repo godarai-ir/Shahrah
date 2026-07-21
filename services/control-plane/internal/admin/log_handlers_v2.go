@@ -19,50 +19,36 @@ import (
 )
 
 func (h *Handlers) ListRequestLogsV2(c *fiber.Ctx) error {
-	if err := requireLogsMetadataRead(c); err != nil {
-		return err
+	parse := func(tenantID string) (platform.ListRequestLogsV2Params, error) {
+		return parseLogListV2Params(c, tenantID)
 	}
-	if h.logs == nil {
-		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
+	list := func(params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
+		return h.logs.ListRequestLogsV2(c.Context(), params)
 	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
+	pagination := func(params platform.ListRequestLogsV2Params) (int, int) {
+		return params.Limit, params.Offset
 	}
-
-	params, err := parseLogListV2Params(c, currentTenant.ID)
-	if err != nil {
-		return err
+	respond := func(items []platform.RequestLogV2, total, limit, offset int, nextOffset *int) error {
+		return c.JSON(platform.ListRequestLogsV2Response{
+			Data: items, Total: total, Limit: limit, Offset: offset, NextOffset: nextOffset,
+		})
 	}
 
-	items, total, err := h.logs.ListRequestLogsV2(c.Context(), params)
-	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
-			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
-		}
-		return err
-	}
-
-	var nextOffset *int
-	if params.Offset+len(items) < total {
-		n := params.Offset + len(items)
-		nextOffset = &n
-	}
-
-	return c.JSON(platform.ListRequestLogsV2Response{
-		Data:       items,
-		Total:      total,
-		Limit:      params.Limit,
-		Offset:     params.Offset,
-		NextOffset: nextOffset,
-	})
+	return listObservabilityItems(
+		c, requireLogsMetadataRead, h.logs != nil, "log store not configured",
+		parse,
+		list,
+		storage.ErrLogStoreUnavailable,
+		pagination,
+		respond,
+	)
 }
 
 func (h *Handlers) GetRequestLogV2(c *fiber.Ctx) error {
 	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
@@ -84,9 +70,11 @@ func (h *Handlers) GetRequestLogV2(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "log not found")
 		}
+
 		return err
 	}
 
@@ -97,6 +85,7 @@ func (h *Handlers) GetRequestLogFacetsV2(c *fiber.Ctx) error {
 	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
@@ -110,6 +99,7 @@ func (h *Handlers) GetRequestLogFacetsV2(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	params.Limit = 0
 	params.Offset = 0
 
@@ -118,6 +108,7 @@ func (h *Handlers) GetRequestLogFacetsV2(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
+
 		return err
 	}
 
@@ -128,9 +119,11 @@ func (h *Handlers) GetRequestLogSummaryV2(c *fiber.Ctx) error {
 	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -140,6 +133,7 @@ func (h *Handlers) GetRequestLogSummaryV2(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	params.Limit = 0
 	params.Offset = 0
 
@@ -148,6 +142,7 @@ func (h *Handlers) GetRequestLogSummaryV2(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
+
 		return err
 	}
 
@@ -158,9 +153,11 @@ func (h *Handlers) GetRequestLogRangeStatsV2(c *fiber.Ctx) error {
 	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -170,6 +167,7 @@ func (h *Handlers) GetRequestLogRangeStatsV2(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	params.Limit = 0
 	params.Offset = 0
 
@@ -178,6 +176,7 @@ func (h *Handlers) GetRequestLogRangeStatsV2(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
+
 		return err
 	}
 
@@ -188,9 +187,11 @@ func (h *Handlers) GetRequestLogAnalyticsV2(c *fiber.Ctx) error {
 	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
@@ -200,8 +201,10 @@ func (h *Handlers) GetRequestLogAnalyticsV2(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	listParams.Limit = 0
 	listParams.Offset = 0
+
 	interval, err := parsePositiveQueryInt(c, "interval_seconds", 3600, 86400, "interval_seconds must be a positive number")
 	if err != nil {
 		return err
@@ -217,6 +220,7 @@ func (h *Handlers) GetRequestLogAnalyticsV2(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
+
 		return err
 	}
 
@@ -227,17 +231,21 @@ func (h *Handlers) ListSavedLogViewsV2(c *fiber.Ctx) error {
 	if err := requireLogsMetadataRead(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	items, err := h.logs.ListSavedLogViewsV2(c.Context(), currentTenant.ID, currentUserID(c))
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(platform.ListSavedLogViewsV2Response{Data: items})
 }
 
@@ -245,24 +253,30 @@ func (h *Handlers) CreateSavedLogViewV2(c *fiber.Ctx) error {
 	if err := requireLogsManageViews(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	var req platform.CreateSavedLogViewV2Request
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid saved view payload")
 	}
+
 	if strings.TrimSpace(req.Name) == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "saved view name is required")
 	}
+
 	item, err := h.logs.CreateSavedLogViewV2(c.Context(), currentTenant.ID, currentUserID(c), req)
 	if err != nil {
 		return err
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(item)
 }
 
@@ -270,24 +284,30 @@ func (h *Handlers) UpdateSavedLogViewV2(c *fiber.Ctx) error {
 	if err := requireLogsManageViews(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	var req platform.UpdateSavedLogViewV2Request
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid saved view payload")
 	}
+
 	item, err := h.logs.UpdateSavedLogViewV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("viewID")), req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "saved view not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -295,20 +315,25 @@ func (h *Handlers) DeleteSavedLogViewV2(c *fiber.Ctx) error {
 	if err := requireLogsManageViews(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	err := h.logs.DeleteSavedLogViewV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("viewID")))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "saved view not found")
 		}
+
 		return err
 	}
+
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -316,21 +341,26 @@ func (h *Handlers) ListLogExportsV2(c *fiber.Ctx) error {
 	if err := requireLogsExport(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	limit, err := parsePositiveQueryInt(c, "limit", 25, 100, "limit must be a positive number")
 	if err != nil {
 		return err
 	}
+
 	items, err := h.logs.ListLogExportsV2(c.Context(), currentTenant.ID, limit)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(platform.ListLogExportsV2Response{Data: items})
 }
 
@@ -338,26 +368,32 @@ func (h *Handlers) CreateLogExportV2(c *fiber.Ctx) error {
 	if err := requireLogsExport(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	var req platform.CreateLogExportV2Request
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid export payload")
 	}
+
 	if req.IncludeContent {
-		if err := requireLogsContentRead(c); err != nil {
-			return err
+		if authErr := requireLogsContentRead(c); authErr != nil {
+			return authErr
 		}
 	}
+
 	item, err := h.logs.CreateLogExportV2(c.Context(), currentTenant.ID, currentUserID(c), req)
 	if err != nil {
 		return err
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(item)
 }
 
@@ -365,10 +401,12 @@ func (h *Handlers) GetLogExportV2(c *fiber.Ctx) error {
 	if err := requireLogsExport(c); err != nil {
 		return err
 	}
+
 	item, err := h.getLogExportJob(c)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -376,20 +414,25 @@ func (h *Handlers) CancelLogExportV2(c *fiber.Ctx) error {
 	if err := requireLogsExport(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	item, err := h.logs.CancelLogExportV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("exportID")))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "export not found")
 		}
+
 		return err
 	}
+
 	return c.JSON(item)
 }
 
@@ -397,71 +440,99 @@ func (h *Handlers) DownloadLogExportV2(c *fiber.Ctx) error {
 	if err := requireLogsExport(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	job, err := h.getLogExportJob(c)
 	if err != nil {
 		return err
 	}
+
 	if job.IncludeContent {
-		if err := requireLogsContentRead(c); err != nil {
-			return err
+		if authErr := requireLogsContentRead(c); authErr != nil {
+			return authErr
 		}
 	}
+
 	params := logParamsFromFilterMap(currentTenant.ID, job.Filters)
 	if params.Limit <= 0 {
 		params.Limit = 10000
 	}
+
 	if params.Limit > 10000 {
 		params.Limit = 10000
 	}
+
 	items, _, err := h.logs.ListRequestLogsV2(c.Context(), params)
 	if err != nil {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
+
 		return err
 	}
 
 	fileName := fmt.Sprintf("logs-%s.%s", job.ExportID, job.Format)
-	c.Set(fiber.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="%s"`, fileName))
+	c.Set(fiber.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", fileName))
+
 	if job.Format == "jsonl" {
 		c.Set(fiber.HeaderContentType, "application/x-ndjson; charset=utf-8")
-		return c.Send(buildLogExportJSONL(items))
+
+		body, buildErr := buildLogExportJSONL(items)
+		if buildErr != nil {
+			return buildErr
+		}
+
+		return c.Send(body)
 	}
 
 	c.Set(fiber.HeaderContentType, "text/csv; charset=utf-8")
-	return c.Send(buildLogExportCSV(items))
+
+	body, buildErr := buildLogExportCSV(items)
+	if buildErr != nil {
+		return buildErr
+	}
+
+	return c.Send(body)
 }
 
 func (h *Handlers) CreateRequestLogReplayDraftV2(c *fiber.Ctx) error {
 	if err := requireLogsReplay(c); err != nil {
 		return err
 	}
+
 	if err := requireLogsContentRead(c); err != nil {
 		return err
 	}
+
 	if h.logs == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	logID := strings.TrimSpace(c.Params("logID"))
+
 	detail, err := h.logs.GetRequestLogV2(c.Context(), currentTenant.ID, logID, true)
 	if err != nil {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "log not found")
 		}
+
 		return err
 	}
 
@@ -481,6 +552,7 @@ func (h *Handlers) CreateRequestLogReplayDraftV2(c *fiber.Ctx) error {
 		draft.Reason = "unsupported_route"
 		draft.RequestPayload = nil
 	}
+
 	if !detail.ContentVisibility.RequestAvailable || len(detail.RequestPayload) == 0 {
 		draft.Supported = false
 		draft.Reason = "payload_hidden_or_unavailable"
@@ -494,54 +566,67 @@ func parseLogListV2Params(c *fiber.Ctx, tenantID string) (platform.ListRequestLo
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	offset, err := parseNonNegativeQueryInt(c, "offset", 0, "offset must be zero or greater")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	statusCode, err := parseOptionalStatusCode(c)
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	from, err := parseOptionalRFC3339Query(c, "from")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	to, err := parseOptionalRFC3339Query(c, "to")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	from, to, err = applyObservabilityTimeBounds(from, to, time.Now().UTC())
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	durationMin, err := parseOptionalIntQuery(c, "duration_min", "duration_min must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	durationMax, err := parseOptionalIntQuery(c, "duration_max", "duration_max must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	tokensMin, err := parseOptionalIntQuery(c, "tokens_min", "tokens_min must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	tokensMax, err := parseOptionalIntQuery(c, "tokens_max", "tokens_max must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	costUSDMin, err := parseOptionalFloatQuery(c, "cost_usd_min", "cost_usd_min must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	costUSDMax, err := parseOptionalFloatQuery(c, "cost_usd_max", "cost_usd_max must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	costIRRMin, err := parseOptionalFloatQuery(c, "cost_irr_min", "cost_irr_min must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
 	}
+
 	costIRRMax, err := parseOptionalFloatQuery(c, "cost_irr_max", "cost_irr_max must be a number")
 	if err != nil {
 		return platform.ListRequestLogsV2Params{}, err
@@ -589,10 +674,12 @@ func parseOptionalIntQuery(c *fiber.Ctx, key string, message string) (*int, erro
 	if raw == "" {
 		return nil, nil
 	}
+
 	value, err := strconv.Atoi(raw)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, message)
 	}
+
 	return &value, nil
 }
 
@@ -601,10 +688,12 @@ func parseOptionalFloatQuery(c *fiber.Ctx, key string, message string) (*float64
 	if raw == "" {
 		return nil, nil
 	}
+
 	value, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, message)
 	}
+
 	return &value, nil
 }
 
@@ -612,17 +701,21 @@ func (h *Handlers) getLogExportJob(c *fiber.Ctx) (*platform.LogExportJobV2, erro
 	if h.logs == nil {
 		return nil, fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	item, err := h.logs.GetLogExportV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("exportID")))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fiber.NewError(fiber.StatusNotFound, "export not found")
 		}
+
 		return nil, err
 	}
+
 	return item, nil
 }
 
@@ -630,6 +723,7 @@ func currentUserID(c *fiber.Ctx) string {
 	if info := auth.GetAuthInfo(c); info != nil {
 		return strings.TrimSpace(info.UserID)
 	}
+
 	return ""
 }
 
@@ -642,34 +736,50 @@ func isReplaySupportedRoute(route string) bool {
 	}
 }
 
-func buildLogExportCSV(items []platform.RequestLogV2) []byte {
+func buildLogExportCSV(items []platform.RequestLogV2) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	writer := csv.NewWriter(buf)
-	_ = writer.Write([]string{
+
+	if err := writer.Write([]string{
 		"log_id", "request_id", "trace_id", "provider", "model", "virtual_model", "route", "request_type",
 		"status_code", "error_type", "started_at", "duration_ms", "total_tokens", "cost_usd", "cost_irr",
 		"cache_status", "retry_count", "fallback_count", "fallback_status", "load_balance_status", "payload_mode",
-	})
+	}); err != nil {
+		return nil, err
+	}
+
 	for _, item := range items {
-		_ = writer.Write([]string{
+		if err := writer.Write([]string{
 			item.LogID, item.RequestID, item.TraceID, item.Provider, item.Model, item.VirtualModel, item.Route,
 			item.RequestType, strconv.Itoa(item.StatusCode), item.ErrorType, item.StartedAt.Format(time.RFC3339Nano),
 			strconv.Itoa(item.DurationMS), strconv.Itoa(item.TotalTokens), strconv.FormatFloat(item.CostUSD, 'f', -1, 64),
 			strconv.FormatFloat(item.CostIRR, 'f', -1, 64), item.CacheStatus, strconv.Itoa(item.RetryCount),
 			strconv.Itoa(item.FallbackCount), item.FallbackStatus, item.LoadBalanceStatus, item.PayloadMode,
-		})
+		}); err != nil {
+			return nil, err
+		}
 	}
+
 	writer.Flush()
-	return buf.Bytes()
+
+	if err := writer.Error(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
-func buildLogExportJSONL(items []platform.RequestLogV2) []byte {
+func buildLogExportJSONL(items []platform.RequestLogV2) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
+
 	encoder := json.NewEncoder(buf)
 	for _, item := range items {
-		_ = encoder.Encode(item)
+		if err := encoder.Encode(item); err != nil {
+			return nil, err
+		}
 	}
-	return buf.Bytes()
+
+	return buf.Bytes(), nil
 }
 
 func logParamsFromFilterMap(tenantID string, filters map[string]interface{}) platform.ListRequestLogsV2Params {
@@ -682,6 +792,7 @@ func logParamsFromFilterMap(tenantID string, filters map[string]interface{}) pla
 	if filters == nil {
 		return out
 	}
+
 	out.LogID = filterString(filters, "log_id")
 	out.RequestID = filterString(filters, "request_id")
 	out.TraceID = filterString(filters, "trace_id")
@@ -700,13 +811,16 @@ func logParamsFromFilterMap(tenantID string, filters map[string]interface{}) pla
 	out.OrgUnitID = filterString(filters, "org_unit_id")
 	out.TeamID = filterString(filters, "team_id")
 	out.SortBy = defaultString(filterString(filters, "sort_by"), out.SortBy)
+
 	out.SortOrder = defaultString(filterString(filters, "sort_order"), out.SortOrder)
 	if limit := filterInt(filters, "limit"); limit != nil {
 		out.Limit = *limit
 	}
+
 	if offset := filterInt(filters, "offset"); offset != nil {
 		out.Offset = *offset
 	}
+
 	out.StatusCode = filterInt(filters, "status_code")
 	out.DurationMin = filterInt(filters, "duration_min")
 	out.DurationMax = filterInt(filters, "duration_max")
@@ -718,6 +832,7 @@ func logParamsFromFilterMap(tenantID string, filters map[string]interface{}) pla
 	out.CostIRRMax = filterFloat(filters, "cost_irr_max")
 	out.From = filterTime(filters, "from")
 	out.To = filterTime(filters, "to")
+
 	return out
 }
 
@@ -725,6 +840,7 @@ func filterString(values map[string]interface{}, key string) string {
 	if value, ok := values[key]; ok {
 		return strings.TrimSpace(fmt.Sprint(value))
 	}
+
 	return ""
 }
 
@@ -733,9 +849,11 @@ func filterInt(values map[string]interface{}, key string) *int {
 	if raw == "" {
 		return nil
 	}
+
 	if value, err := strconv.Atoi(raw); err == nil {
 		return &value
 	}
+
 	return nil
 }
 
@@ -744,9 +862,11 @@ func filterFloat(values map[string]interface{}, key string) *float64 {
 	if raw == "" {
 		return nil
 	}
+
 	if value, err := strconv.ParseFloat(raw, 64); err == nil {
 		return &value
 	}
+
 	return nil
 }
 
@@ -755,9 +875,11 @@ func filterTime(values map[string]interface{}, key string) *time.Time {
 	if raw == "" {
 		return nil
 	}
+
 	if value, err := time.Parse(time.RFC3339, raw); err == nil {
 		return &value
 	}
+
 	return nil
 }
 
@@ -765,5 +887,6 @@ func defaultString(value string, fallback string) string {
 	if strings.TrimSpace(value) == "" {
 		return fallback
 	}
+
 	return value
 }

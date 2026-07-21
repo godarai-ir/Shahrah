@@ -203,6 +203,7 @@ func (s *staticDeploymentStore) ListDeployments(_ context.Context, _ string) ([]
 	defer s.mu.Unlock()
 
 	s.calls++
+
 	return append([]platform.Deployment(nil), s.deployments...), nil
 }
 
@@ -384,6 +385,7 @@ func TestRouter_CachesTenantDeployments(t *testing.T) {
 	}
 
 	assert.Equal(t, 1, store.callCount())
+
 	cached, ok := memCache.Get(context.Background(), "deployments:tenant:tenant-1")
 	require.True(t, ok)
 	assert.NotContains(t, cached, "tenant-openai-key")

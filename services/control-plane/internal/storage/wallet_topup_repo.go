@@ -274,7 +274,7 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 		dbPayerPhone    *string
 		dbFailureReason *string
 	)
-	if err := tx.QueryRow(ctx, `
+	if queryErr := tx.QueryRow(ctx, `
 		SELECT
 			topup_intent_id::text,
 			public_id::text,
@@ -336,8 +336,8 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 		&completedAt,
 		&intent.CreatedAt,
 		&intent.UpdatedAt,
-	); err != nil {
-		return nil, false, err
+	); queryErr != nil {
+		return nil, false, queryErr
 	}
 
 	intent.Metadata = meta
@@ -370,8 +370,8 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 	intent.CompletedAt = completedAt
 
 	if string(intent.Status) == string(platform.WalletTopUpStatusCompleted) {
-		if err := tx.Commit(ctx); err != nil {
-			return nil, false, err
+		if commitErr := tx.Commit(ctx); commitErr != nil {
+			return nil, false, commitErr
 		}
 
 		return &intent, true, nil
@@ -403,6 +403,7 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 	if err != nil {
 		return nil, false, err
 	}
+
 	walletTxIDOut := walletTxn.ID
 
 	verifyPayload := marshalJSONBestEffort(verifyRaw)

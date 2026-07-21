@@ -21,7 +21,9 @@ type requestLogSink struct {
 func (s *requestLogSink) LogRequest(context.Context, platform.RequestLogEntry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.singles++
+
 	return nil
 }
 
@@ -29,10 +31,14 @@ func (s *requestLogSink) LogRequests(_ context.Context, entries []platform.Reque
 	if s.block != nil {
 		<-s.block
 	}
+
 	copied := append([]platform.RequestLogEntry(nil), entries...)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.batches = append(s.batches, copied)
+
 	return nil
 }
 
@@ -44,6 +50,7 @@ func (s *requestLogSink) count() int {
 	for _, batch := range s.batches {
 		total += len(batch)
 	}
+
 	return total
 }
 
@@ -62,12 +69,14 @@ func TestAsyncRequestLogWriterEnqueuesWithoutSynchronousWrite(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+
 	require.NoError(t, writer.Stop(ctx))
 	require.Equal(t, 1, sink.count())
 }
 
 func TestAsyncRequestLogWriterFlushesByBatchSize(t *testing.T) {
 	sink := &requestLogSink{}
+
 	writer := NewAsyncRequestLogWriter(sink, AsyncRequestLogConfig{
 		QueueSize:     8,
 		Workers:       1,
@@ -87,6 +96,7 @@ func TestAsyncRequestLogWriterFlushesByBatchSize(t *testing.T) {
 
 func TestAsyncRequestLogWriterFlushesByInterval(t *testing.T) {
 	sink := &requestLogSink{}
+
 	writer := NewAsyncRequestLogWriter(sink, AsyncRequestLogConfig{
 		QueueSize:     8,
 		Workers:       1,
@@ -113,8 +123,10 @@ func TestAsyncRequestLogWriterQueueFullBehavior(t *testing.T) {
 		FlushInterval: time.Hour,
 		DropOnFull:    false,
 	}, zap.NewNop())
+
 	defer func() {
 		close(block)
+
 		_ = writer.Stop(context.Background())
 	}()
 

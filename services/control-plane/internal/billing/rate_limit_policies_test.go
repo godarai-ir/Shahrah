@@ -19,6 +19,7 @@ func TestCheckRateLimitAllowsWhenRuntimeProfileHasNoRules(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CheckRateLimit returned error: %v", err)
 	}
+
 	if result != nil {
 		t.Fatalf("expected no rate-limit result without rules, got %+v", result)
 	}
@@ -38,10 +39,12 @@ func TestCheckRateLimitEnforcesRPMPolicy(t *testing.T) {
 			t.Fatalf("request %d should be allowed: %v", i+1, err)
 		}
 	}
+
 	result, err := service.CheckRateLimit(context.Background(), auth, "gpt-test", 10)
 	if !errors.Is(err, ErrRateLimitExceeded) {
 		t.Fatalf("expected ErrRateLimitExceeded, got %v", err)
 	}
+
 	if result == nil || result.Allowed || result.Limit != 2 || !result.RetryAfter {
 		t.Fatalf("unexpected exhausted result: %+v", result)
 	}
@@ -89,6 +92,7 @@ func TestParseRateLimitPolicySupportsTenantAdminRuleShape(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseRateLimitPolicy returned error: %v", err)
 			}
+
 			if policy.rpm != tt.wantRPM || policy.tpm != tt.wantTPM || policy.window != tt.wantWindow {
 				t.Fatalf("unexpected policy: rpm=%d tpm=%d window=%s", policy.rpm, policy.tpm, policy.window)
 			}
@@ -107,10 +111,12 @@ func TestCheckRateLimitEnforcesTPMPolicyWithEstimatedTokens(t *testing.T) {
 	if _, err := service.CheckRateLimit(context.Background(), auth, "gpt-test", 60); err != nil {
 		t.Fatalf("first request should be allowed: %v", err)
 	}
+
 	result, err := service.CheckRateLimit(context.Background(), auth, "gpt-test", 50)
 	if !errors.Is(err, ErrRateLimitExceeded) {
 		t.Fatalf("expected ErrRateLimitExceeded, got %v", err)
 	}
+
 	if result == nil || result.Allowed || result.Current != 60 || result.Limit != 100 {
 		t.Fatalf("unexpected TPM result: %+v", result)
 	}
@@ -129,6 +135,7 @@ func TestCheckRateLimitSkipsNonMatchingPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nonmatching model should be allowed: %v", err)
 	}
+
 	if result != nil {
 		t.Fatalf("expected no result for nonmatching policy, got %+v", result)
 	}
@@ -136,6 +143,7 @@ func TestCheckRateLimitSkipsNonMatchingPolicy(t *testing.T) {
 	if _, err = service.CheckRateLimit(context.Background(), auth, "gpt-4", 10); err != nil {
 		t.Fatalf("first matching request should be allowed: %v", err)
 	}
+
 	_, err = service.CheckRateLimit(context.Background(), auth, "gpt-4", 10)
 	if !errors.Is(err, ErrRateLimitExceeded) {
 		t.Fatalf("expected matching model to exhaust policy, got %v", err)
@@ -169,10 +177,12 @@ func TestCheckRateLimitSoftLimitDoesNotBlock(t *testing.T) {
 	if _, err := service.CheckRateLimit(context.Background(), auth, "gpt-test", 10); err != nil {
 		t.Fatalf("first request should be allowed: %v", err)
 	}
+
 	result, err := service.CheckRateLimit(context.Background(), auth, "gpt-test", 10)
 	if err != nil {
 		t.Fatalf("soft limit should not block: %v", err)
 	}
+
 	if result == nil || !result.Allowed || result.Limit != 1 {
 		t.Fatalf("unexpected soft-limit result: %+v", result)
 	}
@@ -189,6 +199,7 @@ func TestCheckRateLimitMostRestrictiveResultWins(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first request should be allowed: %v", err)
 	}
+
 	if result == nil || result.Limit != 2 {
 		t.Fatalf("expected strict policy result, got %+v", result)
 	}
@@ -222,20 +233,24 @@ func TestCheckRateLimitCacheErrorCanFailOpen(t *testing.T) {
 
 func newRateLimitPolicyTestService(t *testing.T, rules []platform.RateLimitRule) *Service {
 	t.Helper()
+
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
+
 	return newRateLimitPolicyTestServiceWithCache(t, mem, rules)
 }
 
 func newRateLimitPolicyTestServiceWithCache(t *testing.T, c cache.Cache, rules []platform.RateLimitRule) *Service {
 	t.Helper()
+
 	service := NewService(c, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
 	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID:       "tenant-1",
 		RateLimitRules: rules,
 	}})
+
 	return service
 }
 

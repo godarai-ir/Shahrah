@@ -39,17 +39,20 @@ func (s *Store) LogRequests(ctx context.Context, entries []platform.RequestLogEn
 	if !s.clickHouseLogsReady() {
 		return ErrLogStoreUnavailable
 	}
+
 	if len(entries) == 0 {
 		return nil
 	}
 
 	values := make([]string, 0, len(entries))
+
 	args := make([]interface{}, 0, len(entries)*requestLogInsertColumnCount)
 	for _, entry := range entries {
 		rowArgs, err := s.requestLogInsertArgs(ctx, entry)
 		if err != nil {
 			return err
 		}
+
 		values = append(values, requestLogInsertPlaceholders(requestLogInsertColumnCount))
 		args = append(args, rowArgs...)
 	}
@@ -80,6 +83,7 @@ func (s *Store) requestLogInsertArgs(ctx context.Context, entry platform.Request
 	}
 
 	loggingMode := RequestLoggingModeMetadataOnly
+
 	if mode, ok, err := s.ResolveTenantRequestLoggingMode(ctx, entry.TenantID); err != nil {
 		if s.logger != nil {
 			s.logger.Warn("failed to resolve tenant request logging mode; using metadata-only", zap.Error(err), zap.String("tenant_id", entry.TenantID))
@@ -99,6 +103,7 @@ func (s *Store) requestLogInsertArgs(ctx context.Context, entry platform.Request
 	if entry.Metadata == nil {
 		entry.Metadata = map[string]interface{}{}
 	}
+
 	entry.Metadata["payload_mode"] = loggingMode
 
 	return []interface{}{
@@ -150,6 +155,7 @@ func requestLogInsertPlaceholders(columns int) string {
 	for i := range parts {
 		parts[i] = "?"
 	}
+
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
@@ -157,9 +163,11 @@ func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params plat
 	if params.Limit <= 0 {
 		params.Limit = 50
 	}
+
 	if params.Limit > 200 {
 		params.Limit = 200
 	}
+
 	if params.Offset < 0 {
 		params.Offset = 0
 	}
@@ -180,6 +188,7 @@ func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params plat
 
 	pageLimit := params.Limit + 1
 	args = append(args, pageLimit, params.Offset)
+
 	rows, err := s.clickhouse.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
@@ -187,6 +196,7 @@ func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params plat
 	defer closeBestEffort(rows)
 
 	items := make([]platform.RequestLogV2, 0, pageLimit)
+
 	for rows.Next() {
 		var (
 			item          platform.RequestLogV2
@@ -278,6 +288,7 @@ func (s *Store) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, log
 		if errorsIsNoRows(err) {
 			return nil, pgx.ErrNoRows
 		}
+
 		return nil, err
 	}
 
@@ -299,25 +310,28 @@ func (s *Store) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, log
 	if requestTruncated == 1 {
 		item.ContentVisibility.RequestReason = "payload_truncated"
 	}
+
 	if responseTruncated == 1 {
 		item.ContentVisibility.ResponseReason = "payload_truncated"
 	}
+
 	if !includeContent {
 		if item.ContentVisibility.RequestAvailable {
 			item.ContentVisibility.RequestReason = "content_permission_required"
 		}
+
 		if item.ContentVisibility.ResponseAvailable {
 			item.ContentVisibility.ResponseReason = "content_permission_required"
 		}
 	}
 
-	decodeJSONMap(requestMetaJSON, &item.RequestPayloadMeta)
-	decodeJSONMap(responseMetaJSON, &item.ResponsePayloadMeta)
-	decodeJSONMap(metadataJSON, &item.Metadata)
+	item.RequestPayloadMeta = decodeJSONMap(requestMetaJSON)
+	item.ResponsePayloadMeta = decodeJSONMap(responseMetaJSON)
+	item.Metadata = decodeJSONMap(metadataJSON)
 
 	if includeContent {
-		decodeJSONMap(requestPayloadJSON, &item.RequestPayload)
-		decodeJSONMap(responsePayloadJSON, &item.ResponsePayload)
+		item.RequestPayload = decodeJSONMap(requestPayloadJSON)
+		item.ResponsePayload = decodeJSONMap(responsePayloadJSON)
 	}
 
 	return &item, nil
@@ -330,42 +344,52 @@ func (s *Store) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params 
 	if err != nil {
 		return nil, err
 	}
+
 	models, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "model"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	virtualModels, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "virtual_model"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	routes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "route"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	requestTypes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "request_type"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	errorTypes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "error_type"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	cacheStatuses, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "cache_status"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	fallbackStatuses, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "fallback_status"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	loadBalanceStatuses, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "load_balance_status"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	payloadModes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "payload_mode"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	statusCodes, err := queryLogFacetStatusRows(ctx, s.clickhouse, whereSQL, args...)
 	if err != nil {
 		return nil, err
@@ -439,18 +463,22 @@ func (s *Store) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params
 	if err != nil {
 		return nil, err
 	}
+
 	statusCodes, err := queryLogFacetStatusRows(ctx, s.clickhouse, whereSQL, args...)
 	if err != nil {
 		return nil, err
 	}
+
 	providers, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "provider"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	models, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "model"), args...)
 	if err != nil {
 		return nil, err
 	}
+
 	routes, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "route"), args...)
 	if err != nil {
 		return nil, err
@@ -528,6 +556,7 @@ func (s *Store) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, par
 	if err != nil {
 		return nil, err
 	}
+
 	if rowCount == 0 {
 		return &platform.LogRangeStatsV2{}, nil
 	}
@@ -543,13 +572,16 @@ func (s *Store) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, par
 func (s *Store) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params.ListRequestLogsV2Params)
 	groupColumn := normalizeLogAnalyticsGroupBy(params.GroupBy)
+
 	intervalSeconds := params.IntervalSeconds
 	if intervalSeconds <= 0 {
 		intervalSeconds = 3600
 	}
+
 	if intervalSeconds < 60 {
 		intervalSeconds = 60
 	}
+
 	if intervalSeconds > 86400 {
 		intervalSeconds = 86400
 	}
@@ -558,6 +590,7 @@ func (s *Store) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, para
 		if groupColumn == "" {
 			groupColumn = "provider"
 		}
+
 		return s.queryRequestLogAnalyticsBreakdown(ctx, whereSQL, groupColumn, args...)
 	}
 
@@ -567,6 +600,7 @@ func (s *Store) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, para
 func (s *Store) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL, groupColumn string, intervalSeconds int, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
 	groupSelect := "''"
 	groupBy := "bucket"
+
 	if groupColumn != "" {
 		groupSelect = fmt.Sprintf("ifNull(nullIf(%s, ''), '')", groupColumn)
 		groupBy = "bucket, analytics_group"
@@ -599,6 +633,7 @@ func (s *Store) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL
 	defer closeBestEffort(rows)
 
 	out := make([]platform.LogAnalyticsPointV2, 0, 64)
+
 	for rows.Next() {
 		var (
 			point            platform.LogAnalyticsPointV2
@@ -618,6 +653,7 @@ func (s *Store) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL
 		); err != nil {
 			return nil, err
 		}
+
 		point.Timestamp = &ts
 		point.Group = strings.TrimSpace(group)
 		point.RequestCount = int(requestCount)
@@ -626,10 +662,12 @@ func (s *Store) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL
 		point.CacheHitCount = int(cacheHitCount)
 		point.RetryCount = int(retryCount)
 		point.FallbackCount = int(fallbackCount)
+
 		point.LoadBalanceCount = int(loadBalanceCount)
 		if requestCount > 0 {
 			point.ErrorRate = float64(errorCount) / float64(requestCount)
 		}
+
 		out = append(out, point)
 	}
 
@@ -663,6 +701,7 @@ func (s *Store) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL,
 	defer closeBestEffort(rows)
 
 	out := make([]platform.LogAnalyticsPointV2, 0, 16)
+
 	for rows.Next() {
 		var (
 			point            platform.LogAnalyticsPointV2
@@ -681,6 +720,7 @@ func (s *Store) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL,
 		); err != nil {
 			return nil, err
 		}
+
 		point.Group = strings.TrimSpace(group)
 		point.RequestCount = int(requestCount)
 		point.ErrorCount = int(errorCount)
@@ -688,10 +728,12 @@ func (s *Store) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL,
 		point.CacheHitCount = int(cacheHitCount)
 		point.RetryCount = int(retryCount)
 		point.FallbackCount = int(fallbackCount)
+
 		point.LoadBalanceCount = int(loadBalanceCount)
 		if requestCount > 0 {
 			point.ErrorRate = float64(errorCount) / float64(requestCount)
 		}
+
 		out = append(out, point)
 	}
 
@@ -754,17 +796,21 @@ func redactPayloadMap(payload map[string]interface{}) map[string]interface{} {
 					items = append(items, redactPayloadMap(child))
 					continue
 				}
+
 				if _, ok := item.(string); ok {
 					items = append(items, "[redacted]")
 					continue
 				}
+
 				items = append(items, item)
 			}
+
 			out[k] = items
 		default:
 			out[k] = value
 		}
 	}
+
 	return out
 }
 
@@ -776,6 +822,7 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 		if strings.TrimSpace(value) == "" {
 			return
 		}
+
 		where = append(where, clause)
 		args = append(args, strings.TrimSpace(value))
 	}
@@ -784,16 +831,20 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 		if len(values) == 0 {
 			return
 		}
+
 		if len(values) == 1 {
 			where = append(where, field+" = ?")
 			args = append(args, values[0])
+
 			return
 		}
+
 		placeholders := make([]string, 0, len(values))
 		for _, item := range values {
 			placeholders = append(placeholders, "?")
 			args = append(args, item)
 		}
+
 		where = append(where, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", ")))
 	}
 
@@ -819,42 +870,52 @@ func buildRequestLogsWhere(params platform.ListRequestLogsV2Params) (string, []i
 		where = append(where, "status_code = ?")
 		args = append(args, int32(*params.StatusCode))
 	}
+
 	if params.DurationMin != nil {
 		where = append(where, "duration_ms >= ?")
 		args = append(args, int32(*params.DurationMin))
 	}
+
 	if params.DurationMax != nil {
 		where = append(where, "duration_ms <= ?")
 		args = append(args, int32(*params.DurationMax))
 	}
+
 	if params.TokensMin != nil {
 		where = append(where, "total_tokens >= ?")
 		args = append(args, uint32(*params.TokensMin))
 	}
+
 	if params.TokensMax != nil {
 		where = append(where, "total_tokens <= ?")
 		args = append(args, uint32(*params.TokensMax))
 	}
+
 	if params.CostUSDMin != nil {
 		where = append(where, "cost_usd >= ?")
 		args = append(args, *params.CostUSDMin)
 	}
+
 	if params.CostUSDMax != nil {
 		where = append(where, "cost_usd <= ?")
 		args = append(args, *params.CostUSDMax)
 	}
+
 	if params.CostIRRMin != nil {
 		where = append(where, "cost_irr >= ?")
 		args = append(args, *params.CostIRRMin)
 	}
+
 	if params.CostIRRMax != nil {
 		where = append(where, "cost_irr <= ?")
 		args = append(args, *params.CostIRRMax)
 	}
+
 	if params.From != nil {
 		where = append(where, "started_at >= ?")
 		args = append(args, params.From.UTC())
 	}
+
 	if params.To != nil {
 		where = append(where, "started_at <= ?")
 		args = append(args, params.To.UTC())
@@ -875,18 +936,22 @@ func approximateWindowedTotal(offset, itemCount int, hasMore bool) int {
 func splitLogFilterValues(value string) []string {
 	parts := strings.Split(value, ",")
 	out := make([]string, 0, len(parts))
+
 	seen := make(map[string]struct{}, len(parts))
 	for _, part := range parts {
 		normalized := strings.TrimSpace(part)
 		if normalized == "" {
 			continue
 		}
+
 		if _, exists := seen[normalized]; exists {
 			continue
 		}
+
 		seen[normalized] = struct{}{}
 		out = append(out, normalized)
 	}
+
 	return out
 }
 
@@ -957,12 +1022,16 @@ func queryLogFacetStringRows(ctx context.Context, db *sql.DB, query string, args
 	defer closeBestEffort(rows)
 
 	out := make([]platform.LogFacetBucketV2, 0, 8)
+
 	for rows.Next() {
-		var value string
-		var count uint64
+		var (
+			value string
+			count uint64
+		)
 		if err := rows.Scan(&value, &count); err != nil {
 			return nil, err
 		}
+
 		out = append(out, platform.LogFacetBucketV2{Value: strings.TrimSpace(value), Count: int(count)})
 	}
 
@@ -984,26 +1053,33 @@ func queryLogFacetStatusRows(ctx context.Context, db *sql.DB, whereSQL string, a
 	defer closeBestEffort(rows)
 
 	out := make([]platform.LogStatusFacetBucketV2, 0, 8)
+
 	for rows.Next() {
-		var statusCode int32
-		var count uint64
+		var (
+			statusCode int32
+			count      uint64
+		)
 		if err := rows.Scan(&statusCode, &count); err != nil {
 			return nil, err
 		}
+
 		out = append(out, platform.LogStatusFacetBucketV2{StatusCode: int(statusCode), Count: int(count)})
 	}
 
 	return out, rows.Err()
 }
 
-func decodeJSONMap(raw string, target *map[string]interface{}) {
+func decodeJSONMap(raw string) map[string]interface{} {
 	if strings.TrimSpace(raw) == "" || raw == "null" {
-		return
+		return nil
 	}
+
 	out := map[string]interface{}{}
-	if err := json.Unmarshal([]byte(raw), &out); err == nil {
-		*target = out
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
 	}
+
+	return out
 }
 
 func deriveFallbackStatus(current string, count int) string {
@@ -1011,9 +1087,11 @@ func deriveFallbackStatus(current string, count int) string {
 	if current != "" {
 		return current
 	}
+
 	if count > 0 {
 		return "active"
 	}
+
 	return "inactive"
 }
 
@@ -1022,6 +1100,7 @@ func deriveLoadBalanceStatus(current string) string {
 	if current == "" {
 		return "inactive"
 	}
+
 	return current
 }
 
@@ -1029,5 +1108,6 @@ func maxInt(value int, floor int) int {
 	if value < floor {
 		return floor
 	}
+
 	return value
 }

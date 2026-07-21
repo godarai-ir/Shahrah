@@ -37,21 +37,26 @@ func NewEnvironmentKEKProviderFromEnv() (*EnvironmentKEKProvider, error) {
 
 func NewEnvironmentKEKProvider(active, encodedJSON string) (*EnvironmentKEKProvider, error) {
 	active = strings.TrimSpace(active)
+
 	var encoded map[string]string
 	if active == "" || json.Unmarshal([]byte(encodedJSON), &encoded) != nil || len(encoded) == 0 {
 		return nil, ErrInvalidKEK
 	}
+
 	keys := make(map[string][]byte, len(encoded))
 	for version, value := range encoded {
 		key, err := base64.StdEncoding.DecodeString(value)
 		if err != nil || len(key) != 32 || strings.TrimSpace(version) == "" {
 			return nil, ErrInvalidKEK
 		}
+
 		keys[version] = append([]byte(nil), key...)
 	}
+
 	if _, ok := keys[active]; !ok {
 		return nil, ErrInvalidKEK
 	}
+
 	return &EnvironmentKEKProvider{active: active, keys: keys}, nil
 }
 
@@ -65,6 +70,7 @@ func (p *EnvironmentKEKProvider) Key(version string) ([]byte, error) {
 	if !ok {
 		return nil, ErrInvalidKEK
 	}
+
 	return append([]byte(nil), key...), nil
 }
 
@@ -78,6 +84,7 @@ func NewEncryptedDBSecretStore(keks KeyEncryptionKeyProvider, fingerprintKey []b
 	if keks == nil || len(fingerprintKey) < 32 {
 		return nil, ErrInvalidKEK
 	}
+
 	return &EncryptedDBSecretStore{keks: keks, fingerprintKey: append([]byte(nil), fingerprintKey...), random: rand.Reader}, nil
 }
 
@@ -86,6 +93,7 @@ func FingerprintKeyFromEnv() ([]byte, error) {
 	if err != nil || len(key) < 32 {
 		return nil, ErrInvalidKEK
 	}
+
 	return key, nil
 }
 
@@ -97,10 +105,11 @@ func (s *EncryptedDBSecretStore) Encrypt(binding Binding, secrets map[string]str
 	defer clear(plaintext)
 
 	dek := make([]byte, 32)
-	if _, err := io.ReadFull(s.random, dek); err != nil {
+	if _, readErr := io.ReadFull(s.random, dek); readErr != nil {
 		return EncryptedCredential{}, ErrDecryptFailed
 	}
 	defer clear(dek)
+
 	dataCipher, dataNonce, err := seal(dek, plaintext, additionalData(binding), s.random)
 	if err != nil {
 		return EncryptedCredential{}, ErrDecryptFailed
@@ -111,6 +120,7 @@ func (s *EncryptedDBSecretStore) Encrypt(binding Binding, secrets map[string]str
 		return EncryptedCredential{}, ErrInvalidKEK
 	}
 	defer clear(kek)
+
 	wrappedDEK, wrapNonce, err := seal(kek, dek, additionalData(binding), s.random)
 	if err != nil {
 		return EncryptedCredential{}, ErrDecryptFailed
@@ -119,6 +129,7 @@ func (s *EncryptedDBSecretStore) Encrypt(binding Binding, secrets map[string]str
 	mac := hmac.New(sha256.New, s.fingerprintKey)
 	_, _ = mac.Write([]byte(fingerprintDomain))
 	_, _ = mac.Write(plaintext)
+
 	return EncryptedCredential{
 		Binding:     binding,
 		Ciphertext:  dataCipher,
@@ -137,20 +148,24 @@ func (s *EncryptedDBSecretStore) Decrypt(record EncryptedCredential) (map[string
 		return nil, ErrDecryptFailed
 	}
 	defer clear(kek)
+
 	dek, err := open(kek, record.WrappedDEK, record.WrapNonce, additionalData(record.Binding))
 	if err != nil || len(dek) != 32 {
 		return nil, ErrDecryptFailed
 	}
 	defer clear(dek)
+
 	plaintext, err := open(dek, record.Ciphertext, record.DataNonce, additionalData(record.Binding))
 	if err != nil {
 		return nil, ErrDecryptFailed
 	}
 	defer clear(plaintext)
+
 	var secrets map[string]string
 	if json.Unmarshal(plaintext, &secrets) != nil {
 		return nil, ErrDecryptFailed
 	}
+
 	return secrets, nil
 }
 
@@ -163,14 +178,17 @@ func seal(key, plaintext, aad []byte, random io.Reader) ([]byte, []byte, error) 
 	if err != nil {
 		return nil, nil, err
 	}
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(random, nonce); err != nil {
 		return nil, nil, err
 	}
+
 	return gcm.Seal(nil, nonce, plaintext, aad), nonce, nil
 }
 
@@ -179,10 +197,12 @@ func open(key, ciphertext, nonce, aad []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil || len(nonce) != gcm.NonceSize() {
 		return nil, ErrDecryptFailed
 	}
+
 	return gcm.Open(nil, nonce, ciphertext, aad)
 }
 
@@ -203,6 +223,7 @@ func marshalSecrets(secrets map[string]string) ([]byte, error) {
 			return nil, errorsNew("empty credential field")
 		}
 	}
+
 	return json.Marshal(secrets)
 }
 
@@ -211,12 +232,15 @@ func displayHint(secrets map[string]string) string {
 	for key := range secrets {
 		keys = append(keys, key)
 	}
+
 	sort.Strings(keys)
 	value := secrets[keys[0]]
+
 	runes := []rune(value)
 	if len(runes) > 4 {
 		return "configured ••••" + string(runes[len(runes)-4:])
 	}
+
 	return "configured"
 }
 

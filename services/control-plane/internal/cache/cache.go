@@ -3,6 +3,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -187,6 +188,7 @@ func (d *DualCache) Get(ctx context.Context, key string) (interface{}, bool) {
 		if err != nil {
 			return nil, false
 		}
+
 		return val, true
 	}
 
@@ -209,6 +211,7 @@ func (d *DualCache) Set(ctx context.Context, key string, value interface{}, ttl 
 	if isDistributedHotPathKey(key) {
 		d.memory.Delete(ctx, key)
 		d.redis.Set(ctx, key, value, ttl)
+
 		return
 	}
 
@@ -239,14 +242,20 @@ func (d *DualCache) Publish(ctx context.Context, channel string, message string)
 func (d *DualCache) Subscribe(ctx context.Context, channel string) (<-chan string, error) {
 	subscription := d.redis.Subscribe(ctx, channel)
 	if _, err := subscription.Receive(ctx); err != nil {
-		_ = subscription.Close()
-		return nil, err
+		return nil, errors.Join(err, subscription.Close())
 	}
+
 	out := make(chan string, 32)
 	go func() {
 		defer close(out)
-		defer subscription.Close()
+		defer func() {
+			if err := subscription.Close(); err != nil && d.logger != nil {
+				d.logger.Warn("failed to close Redis subscription", zap.Error(err), zap.String("channel", channel))
+			}
+		}()
+
 		messages := subscription.Channel()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -255,6 +264,7 @@ func (d *DualCache) Subscribe(ctx context.Context, channel string) (<-chan strin
 				if !ok {
 					return
 				}
+
 				select {
 				case out <- message.Payload:
 				case <-ctx.Done():
@@ -263,6 +273,7 @@ func (d *DualCache) Subscribe(ctx context.Context, channel string) (<-chan strin
 			}
 		}
 	}()
+
 	return out, nil
 }
 
@@ -274,6 +285,7 @@ func (d *DualCache) Delete(ctx context.Context, key string) {
 
 func isDistributedHotPathKey(key string) bool {
 	key = strings.TrimSpace(key)
+
 	return strings.HasPrefix(key, "deployments:tenant:") ||
 		strings.HasPrefix(key, "wallet:tenant:") ||
 		strings.HasPrefix(key, "tenant:host:")
@@ -718,6 +730,7 @@ func (d *DualCache) CheckUsageCounter(ctx context.Context, req UsageCounterReque
 	if req.Key == "" || req.DirtySetKey == "" {
 		return nil, fmt.Errorf("usage counter key and dirty set key are required")
 	}
+
 	if req.TTL <= 0 {
 		return nil, fmt.Errorf("usage counter ttl must be positive")
 	}
@@ -736,6 +749,7 @@ func (d *DualCache) CheckUsageCounter(ctx context.Context, req UsageCounterReque
 	if err != nil {
 		return nil, err
 	}
+
 	used, err := redisFloat(values[1])
 	if err != nil {
 		return nil, err
@@ -757,29 +771,35 @@ func (d *DualCache) ListDirtyUsageCounters(ctx context.Context, dirtySetKey stri
 	if err != nil {
 		return nil, err
 	}
+
 	if len(keys) == 0 {
 		return nil, nil
 	}
 
 	pipe := d.redis.Pipeline()
+
 	cmds := make([]*redis.StringCmd, 0, len(keys))
 	for _, key := range keys {
 		cmds = append(cmds, pipe.Get(ctx, key))
 	}
+
 	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
 		return nil, err
 	}
 
 	snapshots := make([]UsageCounterSnapshot, 0, len(keys))
+
 	for i, cmd := range cmds {
 		value, err := cmd.Float64()
 		if err == redis.Nil {
 			snapshots = append(snapshots, UsageCounterSnapshot{Key: keys[i]})
 			continue
 		}
+
 		if err != nil {
 			return nil, err
 		}
+
 		snapshots = append(snapshots, UsageCounterSnapshot{Key: keys[i], Used: value})
 	}
 
@@ -791,10 +811,12 @@ func (d *DualCache) AckDirtyUsageCounters(ctx context.Context, dirtySetKey strin
 	if len(keys) == 0 {
 		return
 	}
+
 	args := make([]interface{}, len(keys))
 	for i, key := range keys {
 		args[i] = key
 	}
+
 	d.redis.ZRem(ctx, dirtySetKey, args...)
 }
 
@@ -803,6 +825,7 @@ func (d *DualCache) QueueTokenSpendDelta(ctx context.Context, deltaKey string, d
 	if deltaKey == "" || dirtySetKey == "" {
 		return fmt.Errorf("token spend delta key and dirty set key are required")
 	}
+
 	if ttl <= 0 {
 		return fmt.Errorf("token spend delta ttl must be positive")
 	}
@@ -823,12 +846,15 @@ func (d *DualCache) DrainTokenSpendDeltas(ctx context.Context, dirtySetKey strin
 		if err != nil {
 			return nil, err
 		}
+
 		delta, err := redisFloat(values[i+1])
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, TokenSpendDelta{Key: key, DeltaUSD: delta})
 	}
+
 	return out, nil
 }
 
@@ -837,6 +863,7 @@ func (d *DualCache) QueueKeyLastUsed(ctx context.Context, lastUsedKey string, di
 	if lastUsedKey == "" || dirtySetKey == "" {
 		return false, fmt.Errorf("last-used key and dirty set key are required")
 	}
+
 	if ttl <= 0 {
 		return false, fmt.Errorf("last-used ttl must be positive")
 	}
@@ -845,6 +872,7 @@ func (d *DualCache) QueueKeyLastUsed(ctx context.Context, lastUsedKey string, di
 	if err != nil {
 		return false, err
 	}
+
 	return updated == 1, nil
 }
 
@@ -853,15 +881,18 @@ func (d *DualCache) SeedBudgetWindow(ctx context.Context, seed BudgetWindowSeed)
 	if seed.WindowKey == "" {
 		return nil, fmt.Errorf("budget window key is required")
 	}
+
 	if seed.TTL <= 0 {
 		return nil, fmt.Errorf("budget window ttl must be positive")
 	}
 
 	now := time.Now().UTC()
+
 	values, err := d.redis.Eval(ctx, seedBudgetWindowScript, []string{seed.WindowKey, activeBudgetWindowsKey}, seed.AllowanceIRR, seed.ExpiresAt.Unix(), seed.TTL.Milliseconds(), seed.Version, now.Unix()).Result()
 	if err != nil {
 		return nil, err
 	}
+
 	return parseBudgetWindowResult(values)
 }
 
@@ -870,9 +901,11 @@ func (d *DualCache) ReserveBudget(ctx context.Context, req BudgetReservationRequ
 	if req.WindowKey == "" || req.ReservationKey == "" {
 		return nil, fmt.Errorf("budget window and reservation keys are required")
 	}
+
 	if req.TTL <= 0 {
 		return nil, fmt.Errorf("budget reservation ttl must be positive")
 	}
+
 	now := req.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -882,6 +915,7 @@ func (d *DualCache) ReserveBudget(ctx context.Context, req BudgetReservationRequ
 	if err != nil {
 		return nil, err
 	}
+
 	return parseBudgetWindowResult(values)
 }
 
@@ -890,6 +924,7 @@ func (d *DualCache) CommitBudget(ctx context.Context, req BudgetCommitRequest) (
 	if req.WindowKey == "" || req.ReservationKey == "" {
 		return nil, fmt.Errorf("budget window and reservation keys are required")
 	}
+
 	now := req.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -899,6 +934,7 @@ func (d *DualCache) CommitBudget(ctx context.Context, req BudgetCommitRequest) (
 	if err != nil {
 		return nil, err
 	}
+
 	return parseBudgetWindowResult(values)
 }
 
@@ -907,6 +943,7 @@ func (d *DualCache) ReleaseBudget(ctx context.Context, req BudgetReleaseRequest)
 	if req.WindowKey == "" || req.ReservationKey == "" {
 		return nil, fmt.Errorf("budget window and reservation keys are required")
 	}
+
 	now := req.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -916,6 +953,7 @@ func (d *DualCache) ReleaseBudget(ctx context.Context, req BudgetReleaseRequest)
 	if err != nil {
 		return nil, err
 	}
+
 	return parseBudgetWindowResult(values)
 }
 
@@ -932,12 +970,15 @@ func (d *DualCache) DrainKeyLastUsed(ctx context.Context, dirtySetKey string, ba
 		if err != nil {
 			return nil, err
 		}
+
 		usedAt, err := redisInt(values[i+1])
 		if err != nil {
 			return nil, err
 		}
+
 		out = append(out, KeyLastUsedSnapshot{Key: key, UsedAtUnixMS: usedAt})
 	}
+
 	return out, nil
 }
 
@@ -946,34 +987,42 @@ func parseBudgetWindowResult(result interface{}) (*BudgetWindowResult, error) {
 	if !ok || len(values) < 7 {
 		return nil, fmt.Errorf("unexpected redis budget result: %T", result)
 	}
+
 	allowed, err := redisInt(values[0])
 	if err != nil {
 		return nil, err
 	}
+
 	state, err := redisString(values[1])
 	if err != nil {
 		return nil, err
 	}
+
 	allowance, err := redisFloat(values[2])
 	if err != nil {
 		return nil, err
 	}
+
 	reserved, err := redisFloat(values[3])
 	if err != nil {
 		return nil, err
 	}
+
 	committed, err := redisFloat(values[4])
 	if err != nil {
 		return nil, err
 	}
+
 	remaining, err := redisFloat(values[5])
 	if err != nil {
 		return nil, err
 	}
+
 	overage, err := redisFloat(values[6])
 	if err != nil {
 		return nil, err
 	}
+
 	return &BudgetWindowResult{
 		Allowed:      allowed == 1,
 		State:        state,
@@ -995,9 +1044,11 @@ func (d *DualCache) GetBudgetWindow(ctx context.Context, windowKey string) (*Bud
 	if err != nil {
 		return nil, err
 	}
+
 	if len(values) == 0 {
 		return nil, nil
 	}
+
 	return parseBudgetWindowSnapshot(windowKey, values)
 }
 
@@ -1016,33 +1067,43 @@ func (d *DualCache) ListActiveBudgetWindows(ctx context.Context, batchSize int) 
 	if err != nil {
 		return nil, err
 	}
+
 	if len(keys) == 0 {
 		return nil, nil
 	}
 
 	pipe := d.redis.Pipeline()
+
 	cmds := make([]*redis.MapStringStringCmd, 0, len(keys))
 	for _, key := range keys {
 		cmds = append(cmds, pipe.HGetAll(ctx, key))
 	}
+
 	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
 		return nil, err
 	}
 
 	out := make([]BudgetWindowSnapshot, 0, len(keys))
+
 	for i, cmd := range cmds {
 		values, cmdErr := cmd.Result()
 		if cmdErr == redis.Nil || len(values) == 0 {
-			_, _ = d.redis.ZRem(ctx, activeBudgetWindowsKey, keys[i]).Result()
+			if _, removeErr := d.redis.ZRem(ctx, activeBudgetWindowsKey, keys[i]).Result(); removeErr != nil && d.logger != nil {
+				d.logger.Warn("failed to remove inactive budget window", zap.Error(removeErr), zap.String("window_key", keys[i]))
+			}
+
 			continue
 		}
+
 		if cmdErr != nil {
 			return nil, cmdErr
 		}
+
 		snapshot, parseErr := parseBudgetWindowSnapshot(keys[i], values)
 		if parseErr != nil {
 			return nil, parseErr
 		}
+
 		out = append(out, *snapshot)
 	}
 
@@ -1054,32 +1115,40 @@ func parseBudgetWindowSnapshot(windowKey string, values map[string]string) (*Bud
 	if err != nil {
 		return nil, err
 	}
+
 	reserved, err := strconv.ParseFloat(values["reserved_irr"], 64)
 	if err != nil {
 		return nil, err
 	}
+
 	committed, err := strconv.ParseFloat(values["committed_irr"], 64)
 	if err != nil {
 		return nil, err
 	}
+
 	overage, err := strconv.ParseFloat(values["overage_irr"], 64)
 	if err != nil {
 		return nil, err
 	}
+
 	expiresUnix, err := strconv.ParseInt(values["expires_at"], 10, 64)
 	if err != nil {
 		return nil, err
 	}
+
 	version, err := strconv.ParseInt(values["version"], 10, 64)
 	if err != nil {
 		return nil, err
 	}
+
 	updatedAt := time.Time{}
+
 	if rawUpdated := strings.TrimSpace(values["updated_at"]); rawUpdated != "" {
 		updatedUnix, parseUpdatedErr := strconv.ParseInt(rawUpdated, 10, 64)
 		if parseUpdatedErr != nil {
 			return nil, parseUpdatedErr
 		}
+
 		updatedAt = time.Unix(updatedUnix, 0).UTC()
 	}
 
@@ -1101,6 +1170,7 @@ func drainFlatPairs(ctx context.Context, rdb *redis.Client, script string, dirty
 	if batchSize <= 0 {
 		batchSize = 100
 	}
+
 	if dirtySetKey == "" {
 		return nil, fmt.Errorf("dirty set key is required")
 	}
@@ -1109,6 +1179,7 @@ func drainFlatPairs(ctx context.Context, rdb *redis.Client, script string, dirty
 	if err != nil {
 		return nil, err
 	}
+
 	if result == nil {
 		return nil, nil
 	}
@@ -1117,6 +1188,7 @@ func drainFlatPairs(ctx context.Context, rdb *redis.Client, script string, dirty
 	if !ok {
 		return nil, fmt.Errorf("unexpected redis drain result: %T", result)
 	}
+
 	return values, nil
 }
 

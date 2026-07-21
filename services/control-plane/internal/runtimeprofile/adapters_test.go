@@ -47,13 +47,16 @@ func TestDeploymentStoreListVirtualModelsUsesProfileSortedDefensiveCopy(t *testi
 	})
 
 	store := NewDeploymentStore(manager)
+
 	models, err := store.ListVirtualModels(context.Background(), "tenant-1")
 	if err != nil {
 		t.Fatalf("ListVirtualModels returned error: %v", err)
 	}
+
 	if len(models) != 2 {
 		t.Fatalf("expected 2 virtual models, got %d", len(models))
 	}
+
 	if models[0].Alias != "alpha" || models[1].Alias != "zeta" {
 		t.Fatalf("expected stable created_at ordering, got %q then %q", models[0].Alias, models[1].Alias)
 	}
@@ -66,12 +69,15 @@ func TestDeploymentStoreListVirtualModelsUsesProfileSortedDefensiveCopy(t *testi
 	if err != nil {
 		t.Fatalf("second ListVirtualModels returned error: %v", err)
 	}
+
 	if again[0].Alias != "alpha" {
 		t.Fatalf("expected defensive copy alias, got %q", again[0].Alias)
 	}
+
 	if again[0].ExposedModes[0] != string(platform.ModelTypeEmbedding) {
 		t.Fatalf("expected defensive copy exposed mode, got %q", again[0].ExposedModes[0])
 	}
+
 	if again[0].Targets[0].Policy.Retry.StatusCodes[0] != 429 {
 		t.Fatalf("expected defensive copy retry status, got %d", again[0].Targets[0].Policy.Retry.StatusCodes[0])
 	}

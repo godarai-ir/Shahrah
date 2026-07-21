@@ -31,23 +31,28 @@ func newOperationalLoggerMiddleware(settings config.OperationalLogSettings, logg
 	if !settings.Enabled {
 		return nil
 	}
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
 	settings = normalizeOperationalLogSettings(settings)
 	queue := make(chan operationalLogEvent, settings.QueueSize)
+
 	var successCounter atomic.Uint64
+
 	startOperationalLogWorker(queue, logger)
 
 	return func(c *fiber.Ctx) error {
 		startedAt := time.Now().UTC()
 		err := c.Next()
 		latency := time.Since(startedAt)
+
 		status := c.Response().StatusCode()
 		if status == 0 {
 			status = fiber.StatusOK
 		}
+
 		if err != nil {
 			var fiberErr *fiber.Error
 			if errors.As(err, &fiberErr) {
@@ -78,6 +83,7 @@ func newOperationalLoggerMiddleware(settings config.OperationalLogSettings, logg
 		} else if ctxErr := c.Context().Err(); ctxErr != nil {
 			event.Error = sanitizeLogValue(ctxErr.Error())
 		}
+
 		if settings.IncludeHeaders {
 			event.RequestHeaders = requestHeaders(c)
 			event.ResponseHeaders = responseHeaders(c)
@@ -97,15 +103,19 @@ func normalizeOperationalLogSettings(settings config.OperationalLogSettings) con
 	if settings.QueueSize <= 0 {
 		settings.QueueSize = 4096
 	}
+
 	if settings.SuccessSampleRate < 0 {
 		settings.SuccessSampleRate = 0
 	}
+
 	if settings.SuccessSampleRate > 1 {
 		settings.SuccessSampleRate = 1
 	}
+
 	if settings.SlowRequestMS < 0 {
 		settings.SlowRequestMS = 0
 	}
+
 	return settings
 }
 
@@ -113,12 +123,15 @@ func shouldLogOperationalRequest(settings config.OperationalLogSettings, status 
 	if hasError || status >= fiber.StatusInternalServerError {
 		return true
 	}
+
 	if settings.LogClientErrors && status >= fiber.StatusBadRequest {
 		return true
 	}
+
 	if settings.SlowRequestMS > 0 && latency >= time.Duration(settings.SlowRequestMS)*time.Millisecond {
 		return true
 	}
+
 	return shouldSampleSuccess(settings.SuccessSampleRate, successCounter)
 }
 
@@ -133,6 +146,7 @@ func shouldSampleSuccess(sampleRate float64, counter *atomic.Uint64) bool {
 		if every == 0 {
 			every = 1
 		}
+
 		return counter.Add(1)%every == 0
 	}
 }
@@ -155,9 +169,11 @@ func startOperationalLogWorker(queue <-chan operationalLogEvent, logger *zap.Log
 			if event.Error != "" {
 				fields = append(fields, zap.String("error", event.Error))
 			}
+
 			if len(event.RequestHeaders) > 0 {
 				fields = append(fields, zap.String("request_headers", formatHeaderLogValue(event.RequestHeaders)))
 			}
+
 			if len(event.ResponseHeaders) > 0 {
 				fields = append(fields, zap.String("response_headers", formatHeaderLogValue(event.ResponseHeaders)))
 			}

@@ -74,6 +74,7 @@ func (s *Store) CreateRateLimitRule(ctx context.Context, tenantID string, req pl
 	if err == nil {
 		s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.created")
 	}
+
 	return item, err
 }
 
@@ -119,6 +120,7 @@ func (s *Store) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, r
 	if err == nil {
 		s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.updated")
 	}
+
 	return item, err
 }
 
@@ -201,6 +203,7 @@ func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string
 	if err == nil {
 		s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.status_updated")
 	}
+
 	return item, err
 }
 
@@ -253,6 +256,7 @@ func (s *Store) DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string
 	if result.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
+
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "rate_limit_rule.deleted")
 
 	return nil

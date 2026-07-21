@@ -17,6 +17,7 @@ func (s *Store) GetLatestExchangeRate(ctx context.Context) (*platform.ExchangeRa
 	if err == nil {
 		return rate, nil
 	}
+
 	if !shouldFallbackToLegacyExchangeRates(err) {
 		return nil, err
 	}
@@ -61,6 +62,7 @@ func (s *Store) UpsertExchangeRate(ctx context.Context, rate platform.ExchangeRa
 	if rate.ID == "" {
 		rate.ID = uuid.NewString()
 	}
+
 	source := strings.TrimSpace(rate.Source)
 	if source == "" {
 		source = "default"
@@ -80,6 +82,7 @@ func (s *Store) UpsertExchangeRate(ctx context.Context, rate platform.ExchangeRa
 		if !isUndefinedTableErr(err) {
 			return nil, err
 		}
+
 		return s.insertLegacyExchangeRate(ctx, rate, source)
 	}
 
@@ -104,7 +107,9 @@ func exchangeRateSymbolFromSource(source string) *string {
 	if !ok || strings.TrimSpace(symbol) == "" {
 		return nil
 	}
+
 	normalized := strings.ToUpper(strings.TrimSpace(symbol))
+
 	return &normalized
 }
 

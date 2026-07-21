@@ -66,16 +66,20 @@ func NewManager(compiler *Compiler, store Store, cache DistributedCache, logger 
 	if cfg.VersionCheckInterval <= 0 {
 		cfg.VersionCheckInterval = time.Second
 	}
+
 	if cfg.StaleGrace <= 0 {
 		cfg.StaleGrace = 300 * time.Second
 	}
+
 	if cfg.L2TTL <= 0 {
 		cfg.L2TTL = time.Hour
 	}
+
 	var pub Publisher
 	if p, ok := cache.(Publisher); ok {
 		pub = p
 	}
+
 	return &Manager{
 		compiler: compiler,
 		store:    store,
@@ -91,6 +95,7 @@ func (m *Manager) Get(ctx context.Context, tenantID string) (*Profile, error) {
 	if m == nil {
 		return nil, ErrProfileUnavailable
 	}
+
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return nil, ErrProfileUnavailable
@@ -104,32 +109,43 @@ func (m *Manager) Get(ctx context.Context, tenantID string) (*Profile, error) {
 		if profile, ok := m.getL1(ctx, tenantID); ok {
 			return profile, nil
 		}
+
 		if profile, err := m.loadFromL2(ctx, tenantID); err == nil && profile != nil {
 			profile = m.hydrateL1Secrets(ctx, tenantID, profile)
 			m.setL1(tenantID, profile)
+
 			return profile, nil
 		}
+
 		if profile, err := m.loadFromStore(ctx, tenantID); err == nil && profile != nil {
 			profile = m.hydrateL1Secrets(ctx, tenantID, profile)
 			m.setL1(tenantID, profile)
-			_ = m.writeL2(ctx, profile)
+
+			if writeErr := m.writeL2(ctx, profile); writeErr != nil {
+				m.logger.Warn("failed to refresh runtime profile L2 cache", zap.Error(writeErr), zap.String("tenant_id", tenantID))
+			}
+
 			return profile, nil
 		}
+
 		if m.compiler != nil && m.store != nil {
 			profile, err := m.CompileAndPublish(ctx, tenantID, "cold_miss")
 			if err == nil {
 				return profile, nil
 			}
 		}
+
 		return nil, ErrProfileUnavailable
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	profile, ok := value.(*Profile)
 	if !ok || profile == nil {
 		return nil, ErrProfileUnavailable
 	}
+
 	return cloneProfile(profile), nil
 }
 
@@ -138,11 +154,14 @@ func (m *Manager) GetAuthByTokenHash(ctx context.Context, tenantID, tokenHash st
 	if err != nil {
 		return nil, err
 	}
+
 	authContext, ok := profile.AuthByTokenHash[strings.TrimSpace(tokenHash)]
 	if !ok {
 		return nil, ErrAuthNotFound
 	}
+
 	cloned := cloneAuthContext(authContext)
+
 	return &cloned, nil
 }
 
@@ -150,12 +169,15 @@ func (m *Manager) Invalidate(ctx context.Context, tenantID string, reason string
 	if m == nil {
 		return
 	}
+
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return
 	}
+
 	m.mu.Lock()
 	delete(m.l1, tenantID)
+
 	m.mu.Unlock()
 	go func() {
 		_, err := m.CompileAndPublish(context.Background(), tenantID, reason)
@@ -163,6 +185,7 @@ func (m *Manager) Invalidate(ctx context.Context, tenantID string, reason string
 			m.logger.Warn("tenant runtime profile warm compile failed", zap.String("tenant_id", tenantID), zap.Error(err))
 		}
 	}()
+
 	_ = ctx
 }
 
@@ -170,21 +193,26 @@ func (m *Manager) CompileAndPublish(ctx context.Context, tenantID string, reason
 	if m == nil {
 		return nil, ErrProfileUnavailable
 	}
+
 	if m.compiler == nil || m.store == nil {
 		return nil, ErrProfileUnavailable
 	}
+
 	version, err := m.store.NextTenantRuntimeProfileVersion(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
+
 	profile, err := m.compiler.Compile(ctx, tenantID, version)
 	if err != nil {
 		return nil, err
 	}
+
 	raw, err := json.Marshal(profile)
 	if err != nil {
 		return nil, err
 	}
+
 	if err := m.store.SaveTenantRuntimeProfile(ctx, StoredProfile{
 		TenantID:        tenantID,
 		Version:         profile.Version,
@@ -196,9 +224,17 @@ func (m *Manager) CompileAndPublish(ctx context.Context, tenantID string, reason
 	}); err != nil {
 		return nil, err
 	}
+
 	m.setL1(tenantID, profile)
-	_ = m.writeL2(ctx, profile)
-	_ = m.publish(ctx, Event{TenantID: tenantID, Version: profile.Version, Reason: reason})
+
+	if err := m.writeL2(ctx, profile); err != nil {
+		m.logger.Warn("failed to update runtime profile L2 cache", zap.Error(err), zap.String("tenant_id", tenantID))
+	}
+
+	if err := m.publish(ctx, Event{TenantID: tenantID, Version: profile.Version, Reason: reason}); err != nil {
+		m.logger.Warn("failed to publish runtime profile update", zap.Error(err), zap.String("tenant_id", tenantID))
+	}
+
 	return cloneProfile(profile), nil
 }
 
@@ -206,23 +242,29 @@ func (m *Manager) getL1(ctx context.Context, tenantID string) (*Profile, bool) {
 	m.mu.RLock()
 	entry, ok := m.l1[tenantID]
 	m.mu.RUnlock()
+
 	if !ok || entry.profile == nil {
 		return nil, false
 	}
+
 	now := time.Now()
 	if !entry.expiresAt.IsZero() && now.After(entry.expiresAt) {
 		m.mu.Lock()
 		delete(m.l1, tenantID)
 		m.mu.Unlock()
+
 		return nil, false
 	}
+
 	if m.cache != nil && time.Since(entry.loadedAt) >= m.cfg.VersionCheckInterval {
 		if active, err := m.activeVersion(ctx, tenantID); err == nil && active > entry.profile.Version {
 			m.mu.Lock()
 			delete(m.l1, tenantID)
 			m.mu.Unlock()
+
 			return nil, false
 		}
+
 		m.mu.Lock()
 		if current, ok := m.l1[tenantID]; ok {
 			current.loadedAt = now
@@ -230,6 +272,7 @@ func (m *Manager) getL1(ctx context.Context, tenantID string) (*Profile, bool) {
 		}
 		m.mu.Unlock()
 	}
+
 	return cloneProfile(entry.profile), true
 }
 
@@ -237,6 +280,7 @@ func (m *Manager) setL1(tenantID string, profile *Profile) {
 	if profile == nil {
 		return
 	}
+
 	m.mu.Lock()
 	m.l1[tenantID] = l1Entry{profile: cloneProfile(profile), loadedAt: time.Now(), expiresAt: time.Now().Add(m.cfg.StaleGrace)}
 	m.mu.Unlock()
@@ -246,10 +290,12 @@ func (m *Manager) activeVersion(ctx context.Context, tenantID string) (int64, er
 	if m.cache == nil {
 		return 0, ErrProfileUnavailable
 	}
+
 	raw, err := m.cache.DistributedGet(ctx, ActiveVersionKey(tenantID))
 	if err != nil {
 		return 0, err
 	}
+
 	return parseVersion(raw)
 }
 
@@ -258,10 +304,12 @@ func (m *Manager) loadFromL2(ctx context.Context, tenantID string) (*Profile, er
 	if err != nil {
 		return nil, err
 	}
+
 	raw, err := m.cache.DistributedGet(ctx, ProfileKey(tenantID, version))
 	if err != nil {
 		return nil, err
 	}
+
 	return decodeProfile([]byte(raw))
 }
 
@@ -269,10 +317,12 @@ func (m *Manager) loadFromStore(ctx context.Context, tenantID string) (*Profile,
 	if m.store == nil {
 		return nil, ErrProfileUnavailable
 	}
+
 	stored, err := m.store.LoadLatestTenantRuntimeProfile(ctx, tenantID)
 	if err != nil || stored == nil {
 		return nil, err
 	}
+
 	return decodeProfile(stored.ProfileJSON)
 }
 
@@ -280,15 +330,19 @@ func (m *Manager) writeL2(ctx context.Context, profile *Profile) error {
 	if m.cache == nil || profile == nil {
 		return nil
 	}
+
 	redacted := cloneProfile(profile)
 	redacted.ProviderAPIKeys = nil
+
 	raw, err := json.Marshal(redacted)
 	if err != nil {
 		return err
 	}
+
 	if err := m.cache.DistributedSet(ctx, ProfileKey(profile.TenantID, profile.Version), string(raw), m.cfg.L2TTL); err != nil {
 		return err
 	}
+
 	return m.cache.DistributedSet(ctx, ActiveVersionKey(profile.TenantID), formatVersion(profile.Version), m.cfg.L2TTL)
 }
 
@@ -296,16 +350,20 @@ func (m *Manager) hydrateL1Secrets(ctx context.Context, tenantID string, profile
 	if profile == nil || m.compiler == nil || len(profile.ProviderAPIKeys) > 0 || len(profile.Deployments) == 0 {
 		return profile
 	}
+
 	hydrated, err := m.compiler.Compile(ctx, tenantID, profile.Version)
 	if err != nil {
 		if m.logger != nil {
 			m.logger.Warn("tenant runtime profile secret hydration failed", zap.String("tenant_id", tenantID), zap.Error(err))
 		}
+
 		return profile
 	}
+
 	hydrated.Checksum = profile.Checksum
 	hydrated.CompiledAt = profile.CompiledAt
 	hydrated.SourceUpdatedAt = profile.SourceUpdatedAt
+
 	return hydrated
 }
 
@@ -313,10 +371,12 @@ func (m *Manager) publish(ctx context.Context, event Event) error {
 	if m.pub == nil {
 		return nil
 	}
+
 	raw, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
+
 	return m.pub.Publish(ctx, RedisChannel, string(raw))
 }
 
@@ -324,13 +384,16 @@ func decodeProfile(raw []byte) (*Profile, error) {
 	if len(raw) == 0 {
 		return nil, ErrProfileUnavailable
 	}
+
 	var profile Profile
 	if err := json.Unmarshal(raw, &profile); err != nil {
 		return nil, err
 	}
+
 	if profile.ProviderAPIKeys == nil {
 		profile.ProviderAPIKeys = map[string]string{}
 	}
+
 	return &profile, nil
 }
 
@@ -339,9 +402,11 @@ func secondsEnv(key string, fallback time.Duration) time.Duration {
 	if raw == "" {
 		return fallback
 	}
+
 	seconds, err := strconv.Atoi(raw)
 	if err != nil || seconds <= 0 {
 		return fallback
 	}
+
 	return time.Duration(seconds) * time.Second
 }

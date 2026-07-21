@@ -270,6 +270,7 @@ func checkBillingRouteAuthorization(method, route string, authInfo *platform.Aut
 		if normalizedMethod == "POST" && hasAnyPermission(authInfo, "billing:codes_redeem", "billing:manage", "settings:manage") {
 			return nil
 		}
+
 		return fmt.Errorf("billing code redemption permission required")
 	}
 
@@ -279,9 +280,11 @@ func checkBillingRouteAuthorization(method, route string, authInfo *platform.Aut
 				return nil
 			}
 		}
+
 		if hasAnyPermission(authInfo, "billing:profile_manage", "billing:manage", "settings:manage") {
 			return nil
 		}
+
 		return fmt.Errorf("billing profile manage permission required")
 	}
 
@@ -289,6 +292,7 @@ func checkBillingRouteAuthorization(method, route string, authInfo *platform.Aut
 		if hasAnyPermission(authInfo, "billing:documents_read", "billing:read", "billing:manage", "settings:list", "settings:manage") {
 			return nil
 		}
+
 		return fmt.Errorf("billing documents permission required")
 	}
 

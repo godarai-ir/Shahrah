@@ -22,6 +22,7 @@ var (
 
 func BillingReportWindow(now time.Time, preset string) (time.Time, time.Time, string, error) {
 	localNow := now.In(financialTehranLocation)
+
 	jy, jm, _, err := jalaali.ToJalaali(localNow.Year(), localNow.Month(), localNow.Day())
 	if err != nil {
 		return time.Time{}, time.Time{}, "", err
@@ -35,6 +36,7 @@ func BillingReportWindow(now time.Time, preset string) (time.Time, time.Time, st
 	case "current_quarter":
 		quarterMonth := ((int(jm)-1)/3)*3 + 1
 		start, err := jalaliStartOfDayUTC(jy, quarterMonth, 1)
+
 		return start, now.UTC(), "current_quarter", err
 	case "current_year":
 		start, err := jalaliStartOfDayUTC(jy, 1, 1)
@@ -42,14 +44,17 @@ func BillingReportWindow(now time.Time, preset string) (time.Time, time.Time, st
 	case "last_3_months":
 		startYear, startMonth := shiftJalaliMonth(jy, int(jm), -2)
 		start, err := jalaliStartOfDayUTC(startYear, startMonth, 1)
+
 		return start, now.UTC(), "last_3_months", err
 	case "last_6_months":
 		startYear, startMonth := shiftJalaliMonth(jy, int(jm), -5)
 		start, err := jalaliStartOfDayUTC(startYear, startMonth, 1)
+
 		return start, now.UTC(), "last_6_months", err
 	case "last_12_months":
 		startYear, startMonth := shiftJalaliMonth(jy, int(jm), -11)
 		start, err := jalaliStartOfDayUTC(startYear, startMonth, 1)
+
 		return start, now.UTC(), "last_12_months", err
 	default:
 		return time.Time{}, time.Time{}, "", ErrBillingReportPresetInvalid
@@ -67,6 +72,7 @@ func JalaliMonthWindow(jalaliYear int, jalaliMonth int) (time.Time, time.Time, e
 	}
 
 	nextYear, nextMonth := shiftJalaliMonth(jalaliYear, jalaliMonth, 1)
+
 	end, err := jalaliStartOfDayUTC(nextYear, nextMonth, 1)
 	if err != nil {
 		return time.Time{}, time.Time{}, err
@@ -80,6 +86,7 @@ func ParseJalaliDateAtTehranMidday(value string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
+
 	if !jalaali.IsValidDate(year, month, day) {
 		return time.Time{}, ErrBillingJalaliDateInvalid
 	}
@@ -124,10 +131,12 @@ func parseJalaliDateParts(value string) (int, int, int, error) {
 	if err != nil {
 		return 0, 0, 0, ErrBillingJalaliDateInvalid
 	}
+
 	month, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return 0, 0, 0, ErrBillingJalaliDateInvalid
 	}
+
 	day, err := strconv.Atoi(parts[2])
 	if err != nil {
 		return 0, 0, 0, ErrBillingJalaliDateInvalid

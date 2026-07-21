@@ -71,6 +71,7 @@ func (s *Store) SetEntitlementCache(c cache.Cache) {
 	if usageCounterCache, ok := c.(cache.UsageCounterCache); ok {
 		s.usageCounterCache = usageCounterCache
 	}
+
 	if tokenUsageCache, ok := c.(cache.TokenUsageCache); ok {
 		s.tokenUsageCache = tokenUsageCache
 	}
@@ -98,6 +99,7 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
+
 	applyPostgresPoolEnv(cfg)
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -142,6 +144,7 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 			pool.Close()
 			return nil, fmt.Errorf("initialize clickhouse observability backend: %w", err)
 		}
+
 		logger.Warn("clickhouse observability backend unavailable; continuing without clickhouse-backed traces, metrics, and logs", zap.Error(err))
 	}
 

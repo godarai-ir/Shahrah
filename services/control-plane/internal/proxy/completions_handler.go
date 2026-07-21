@@ -69,6 +69,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
 
 	originalBody := append([]byte(nil), c.Body()...)
+
 	var req contractsopenai.CompletionRequest
 	if err := json.Unmarshal(originalBody, &req); err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "invalid request body", "invalid_request_error")
@@ -117,6 +118,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 		denyReason := denyReasonForModel(authInfo)
 		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+
 		const message = "model access denied or unsupported for completions"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/completions", "completions", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
@@ -165,14 +167,17 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
+
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
 		if err != nil {
 			return err
 		}
 	}
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -226,7 +231,6 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservationAttempted = true
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil {
 			return err
@@ -243,10 +247,22 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
+
 	return err
 }
 
-func (h *CompletionsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, clientReq contractsopenai.CompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *CompletionsHandler) handleSync(
+	c *fiber.Ctx,
+	req contractsopenai.ChatCompletionRequest,
+	originalBody []byte,
+	clientReq contractsopenai.CompletionRequest,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -408,6 +424,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 		})
 
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
+
 		return writeAPIError(c, fiber.StatusBadGateway, "stream failed", "bad_gateway")
 	}
 
@@ -429,22 +446,27 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
 		budgetCommitted := false
 		defer func() {
 			if !budgetCommitted {
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
+
 		finalizeAndLogSuccess := func() {
 			if budgetCommitted {
 				return
 			}
+
 			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, req.Model, nil, estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+
 				finalCost = estimated
 				finalCost.Model = req.Model
 			}
+
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 			} else {
@@ -509,6 +531,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 						}
 
 						finalizeAndLogSuccess()
+
 						return
 					}
 
@@ -570,6 +593,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 						}
 
 						finalizeAndLogSuccess()
+
 						return
 					}
 				}

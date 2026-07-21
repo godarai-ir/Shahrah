@@ -82,6 +82,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	if httpMetrics == nil {
 		httpMetrics = prommetrics.NewHTTPMetrics()
 	}
+
 	httpMetrics.RegisterPgxPool(deps.PoolStats)
 
 	if cfg != nil && cfg.OperationalLogs.UseFiberAccessLogger {
@@ -89,6 +90,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	} else if operationalLogger := newOperationalLoggerMiddleware(cfg.OperationalLogs, deps.Logger); operationalLogger != nil {
 		app.Use(operationalLogger)
 	}
+
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
@@ -245,6 +247,7 @@ func readyHandler(deps Dependencies) fiber.Handler {
 		if deps.TraceHealth != nil {
 			resp["tracing"] = deps.TraceHealth.ReadinessReport()
 		}
+
 		if deps.ClickHouseHealth != nil {
 			resp["clickhouse"] = deps.ClickHouseHealth.ClickHouseReadinessReport()
 		}

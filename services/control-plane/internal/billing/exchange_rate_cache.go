@@ -50,14 +50,17 @@ func normalizeExchangeRateCacheConfig(cfg ExchangeRateCacheConfig) ExchangeRateC
 	if cfg.FreshTTL <= 0 {
 		cfg.FreshTTL = 60 * time.Second
 	}
+
 	if cfg.MaxStale < cfg.FreshTTL {
 		cfg.MaxStale = 10 * cfg.FreshTTL
 	}
+
 	return cfg
 }
 
 func newExchangeRateCache(store walletStore, c cache.Cache, defaultRate platform.ExchangeRate, cfg ExchangeRateCacheConfig) *exchangeRateCache {
 	defaultRate = cloneExchangeRate(defaultRate)
+
 	return &exchangeRateCache{
 		store:       store,
 		cache:       c,
@@ -76,6 +79,7 @@ func (c *exchangeRateCache) Get(ctx context.Context) *platform.ExchangeRate {
 		if state == exchangeRateCacheStateStale {
 			c.refreshAsync()
 		}
+
 		return rate
 	}
 
@@ -113,6 +117,7 @@ func (c *exchangeRateCache) cachedRate(ctx context.Context) (*platform.ExchangeR
 		rate := cloneExchangeRate(entry.Rate)
 		return &rate, exchangeRateCacheStateFresh
 	}
+
 	if age <= c.cfg.MaxStale {
 		rate := cloneExchangeRate(entry.Rate)
 		return &rate, exchangeRateCacheStateStale
@@ -138,6 +143,7 @@ func (c *exchangeRateCache) refreshAsync() {
 		c.mu.Unlock()
 		return
 	}
+
 	c.refreshing = true
 	c.mu.Unlock()
 
@@ -165,7 +171,10 @@ func (c *exchangeRateCache) loadAndStoreLocked(ctx context.Context, fallbackDefa
 			return nil
 		}
 
-		c.persistDefaultExchangeRate(ctx)
+		if err := c.persistDefaultExchangeRate(ctx); err != nil {
+			return nil
+		}
+
 		rate = &c.defaultRate
 	}
 
@@ -181,6 +190,7 @@ func (c *exchangeRateCache) storeEntry(entry *exchangeRateCacheEntry) {
 	if entry == nil {
 		return
 	}
+
 	c.mu.Lock()
 	cloned := *entry
 	cloned.Rate = cloneExchangeRate(entry.Rate)
@@ -199,6 +209,7 @@ func (c *exchangeRateCache) distributedEntry(ctx context.Context) *exchangeRateC
 	}
 
 	var raw []byte
+
 	switch v := value.(type) {
 	case string:
 		raw = []byte(v)
@@ -211,7 +222,9 @@ func (c *exchangeRateCache) distributedEntry(ctx context.Context) *exchangeRateC
 		if v == nil {
 			return nil
 		}
+
 		entry := *v
+
 		return &entry
 	default:
 		return nil
@@ -221,6 +234,7 @@ func (c *exchangeRateCache) distributedEntry(ctx context.Context) *exchangeRateC
 	if err := json.Unmarshal(raw, &entry); err != nil {
 		return nil
 	}
+
 	return &entry
 }
 
@@ -237,8 +251,10 @@ func (c *exchangeRateCache) storeDistributed(ctx context.Context, entry *exchang
 	c.cache.Set(ctx, exchangeRateCacheKey, string(raw), c.cfg.MaxStale)
 }
 
-func (c *exchangeRateCache) persistDefaultExchangeRate(ctx context.Context) {
-	_, _ = c.store.UpsertExchangeRate(ctx, c.defaultRate)
+func (c *exchangeRateCache) persistDefaultExchangeRate(ctx context.Context) error {
+	_, err := c.store.UpsertExchangeRate(ctx, c.defaultRate)
+
+	return err
 }
 
 func cloneExchangeRate(rate platform.ExchangeRate) platform.ExchangeRate {
@@ -255,9 +271,11 @@ func secondsEnvOrDefault(key string, fallback time.Duration) time.Duration {
 	if raw == "" {
 		return fallback
 	}
+
 	seconds, err := strconv.Atoi(raw)
 	if err != nil || seconds <= 0 {
 		return fallback
 	}
+
 	return time.Duration(seconds) * time.Second
 }

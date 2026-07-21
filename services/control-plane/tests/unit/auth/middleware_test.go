@@ -219,6 +219,7 @@ func TestAuthMiddleware_MasterKeyDelegationAcceptsLegacyUserHeader(t *testing.T)
 	req.Header.Set("x-shahrah-user-id", "user-1")
 
 	resp, err := app.Test(req)
+
 	require.NoError(t, err)
 	defer closeResponseBody(t, resp)
 
@@ -290,20 +291,24 @@ func newMasterKeyDelegationTestApp(store auth.KeyStore) *fiber.App {
 	app.Get("/api/v1/me/permissions", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
+
 	return app
 }
 
 func performMasterKeyDelegationRequest(t *testing.T, app *fiber.App, path string, userID string) *http.Response {
 	t.Helper()
+
 	req, err := http.NewRequest(http.MethodGet, path, http.NoBody)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer test-master-key")
+
 	if userID != "" {
 		req.Header.Set("x-godarai-user-id", userID)
 	}
 
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+
 	return resp
 }
 

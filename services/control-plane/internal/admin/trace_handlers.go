@@ -50,6 +50,7 @@ func (h *Handlers) ListRequestTraces(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	from, to, err = applyObservabilityTimeBounds(from, to, time.Now().UTC())
 	if err != nil {
 		return err

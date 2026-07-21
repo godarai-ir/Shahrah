@@ -17,10 +17,12 @@ func (h *Handlers) GetTenantRequestLoggingSettings(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.requestLogging == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "request logging store not configured")
 	}
@@ -33,6 +35,7 @@ func (h *Handlers) GetTenantRequestLoggingSettings(c *fiber.Ctx) error {
 				"logging_mode": storage.RequestLoggingModeMetadataOnly,
 			})
 		}
+
 		return err
 	}
 
@@ -43,10 +46,12 @@ func (h *Handlers) UpdateTenantRequestLoggingSettings(c *fiber.Ctx) error {
 	if err := requireTeamAdminOrHigher(c); err != nil {
 		return err
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return fiber.NewError(fiber.StatusBadRequest, "tenant context missing")
 	}
+
 	if h.requestLogging == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "request logging store not configured")
 	}

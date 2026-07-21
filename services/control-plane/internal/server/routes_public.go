@@ -18,6 +18,7 @@ func registerObservabilityRoutes(app *fiber.App, cfg *config.Config, deps Depend
 	app.Get("/health", healthHandler)
 	app.Get("/ready", readyHandler(deps))
 	app.Get("/metrics", httpMetrics.Handler())
+
 	if cfg != nil && cfg.Profiling.EnablePprof {
 		profiling.RegisterPprofRoutes(app)
 	}

@@ -39,6 +39,7 @@ func TestCompilerBuildsProfileAndRedactsProviderSecrets(t *testing.T) {
 	}
 
 	compiler := NewCompiler(repo)
+
 	profile, err := compiler.Compile(context.Background(), "tenant-1", 7)
 	if err != nil {
 		t.Fatalf("Compile returned error: %v", err)
@@ -47,25 +48,32 @@ func TestCompilerBuildsProfileAndRedactsProviderSecrets(t *testing.T) {
 	if profile.Version != 7 || profile.Tenant.Slug != "acme" {
 		t.Fatalf("unexpected profile metadata: %+v", profile)
 	}
+
 	if _, ok := profile.AuthByTokenHash["hash-1"]; !ok {
 		t.Fatal("expected auth context by token hash")
 	}
+
 	if vm := profile.VirtualModels["fast-chat"]; vm.Version != 3 {
 		t.Fatalf("expected virtual model version 3, got %+v", vm)
 	}
+
 	if len(profile.Deployments) != 1 || profile.Deployments[0].APIKey != "" {
 		t.Fatalf("expected deployment api key to be redacted, got %+v", profile.Deployments)
 	}
+
 	if got := profile.ProviderAPIKeys["openai:main:gpt-4o"]; got != "sk-secret" {
 		t.Fatalf("expected in-memory provider secret, got %q", got)
 	}
+
 	raw, err := json.Marshal(profile)
 	if err != nil {
 		t.Fatalf("Marshal returned error: %v", err)
 	}
+
 	if strings.Contains(string(raw), "sk-secret") {
 		t.Fatalf("profile JSON leaked provider secret: %s", raw)
 	}
+
 	if profile.Checksum == "" {
 		t.Fatal("expected checksum")
 	}

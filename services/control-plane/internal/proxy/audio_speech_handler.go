@@ -3,7 +3,6 @@ package proxy
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -106,6 +105,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	requestedModel := normalizeModelIdentifier(reqMeta.Model)
+
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "model is required", "invalid_request_error", "model", "invalid_model")
@@ -121,6 +121,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 		denyReason := denyReasonForModel(authInfo)
 		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+
 		const message = "Model access denied or unsupported for text to speech"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1"+audioSpeechPath, audioSpeechRequestType, fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
@@ -136,6 +137,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)
+
 	if err != nil {
 		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1"+audioSpeechPath, audioSpeechRequestType, startTime, quotaStart, rateLimit, err)
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
@@ -147,14 +149,17 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
+
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
 		if err != nil {
 			return err
 		}
 	}
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -164,11 +169,12 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	if healthErr := h.tunnel.Healthy(c.Context()); healthErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
 	routeStart := time.Now()
+
 	var dep *router.Deployment
 	for _, candidate := range routeCandidates {
 		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
@@ -189,6 +195,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := providerOutboundModel(requestedModel, dep)
+
 	outboundBody, err := rewriteJSONModel(body, outboundModel)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid JSON request body", "invalid_request_error")
@@ -220,7 +227,6 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservationAttempted = true
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil {
 			return err
@@ -236,10 +242,22 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	if err == nil && c.Response().StatusCode() < httpErrorFloor {
 		releaseBudgetOnExit = false
 	}
+
 	return err
 }
 
-func (h *AudioSpeechHandler) handleSync(c *fiber.Ctx, requestedModel string, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string, originalBody []byte, originalContentType string) error {
+func (h *AudioSpeechHandler) handleSync(
+	c *fiber.Ctx,
+	requestedModel string,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+	originalBody []byte,
+	originalContentType string,
+) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -266,6 +284,7 @@ func (h *AudioSpeechHandler) handleSync(c *fiber.Ctx, requestedModel string, aut
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
 	responseMetadata := withAudioSpeechResponseMetadata(tunnelReq.RequestMetadata, resp.Body, resp.Headers)
+
 	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), audioSpeechUsageToOpenAI(resp.Body), estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech usage", "billing_error")
@@ -334,9 +353,11 @@ func (h *AudioSpeechHandler) handleSync(c *fiber.Ctx, requestedModel string, aut
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
+
 	if contentType := responseContentType(resp.Headers); contentType != "" {
 		c.Set(fiber.HeaderContentType, contentType)
 	}
+
 	setTraceHeaders(c, tunnelReq.TraceID)
 	setCostHeaders(c, finalCost)
 
@@ -349,8 +370,20 @@ func (h *AudioSpeechHandler) handleSync(c *fiber.Ctx, requestedModel string, aut
 	return err
 }
 
-func (h *AudioSpeechHandler) handleStream(c *fiber.Ctx, requestedModel string, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string, originalBody []byte, originalContentType string) error {
+func (h *AudioSpeechHandler) handleStream(
+	c *fiber.Ctx,
+	requestedModel string,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+	originalBody []byte,
+	originalContentType string,
+) error {
 	providerStart := time.Now()
+
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
@@ -361,6 +394,7 @@ func (h *AudioSpeechHandler) handleStream(c *fiber.Ctx, requestedModel string, a
 		})
 
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
 
@@ -379,6 +413,7 @@ func (h *AudioSpeechHandler) handleStream(c *fiber.Ctx, requestedModel string, a
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
 		budgetCommitted := false
 		defer func() {
 			if !budgetCommitted {
@@ -390,12 +425,15 @@ func (h *AudioSpeechHandler) handleStream(c *fiber.Ctx, requestedModel string, a
 			if budgetCommitted {
 				return
 			}
+
 			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModelForDeployment(requestedModel, tunnelReq.Deployment), nil, estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming text to speech usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+
 				finalCost = estimated
 				finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
 			}
+
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming text to speech request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 				return
@@ -446,49 +484,11 @@ func (h *AudioSpeechHandler) handleStream(c *fiber.Ctx, requestedModel string, a
 					"stream_format": "sse",
 				}, tunnelReq.Deployment),
 			})
+
 			budgetCommitted = true
 		}
 
-		for {
-			select {
-			case chunk, ok := <-stream.Chunks():
-				if !ok {
-					commitEstimatedBudget()
-					return
-				}
-
-				if len(chunk.Data) > 0 {
-					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
-						h.logger.Warn("failed to write streaming text to speech chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-						return
-					}
-				}
-
-				if chunk.IsDone {
-					commitEstimatedBudget()
-					return
-				}
-			case err, ok := <-stream.Errors():
-				if ok && err != nil {
-					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
-						Error: contractsopenai.ErrorInfo{
-							Message: err.Error(),
-							Type:    "streaming_error",
-						},
-					})
-					if marshalErr != nil {
-						h.logger.Warn("failed to encode streaming text to speech error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
-						return
-					}
-
-					if writeErr := writeBufferedBytes(w, bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)); writeErr != nil {
-						h.logger.Warn("failed to write streaming text to speech error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-					}
-				}
-
-				return
-			}
-		}
+		relayTunnelStream(stream, w, commitEstimatedBudget, h.logger, tunnelReq.RequestID, "text_to_speech")
 	})
 
 	responseStart := time.Now()
@@ -526,17 +526,21 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 	if model == "" {
 		return metadata, fmt.Errorf("model is required")
 	}
+
 	metadata.Model = model
 
 	input, ok := raw["input"].(string)
+
 	input = strings.TrimSpace(input)
 	if !ok || input == "" {
 		return metadata, fmt.Errorf("input is required")
 	}
+
 	inputLength := utf8.RuneCountInString(input)
 	if inputLength > 4096 {
 		return metadata, fmt.Errorf("input must be at most 4096 characters")
 	}
+
 	metadata.Metadata["input_length"] = inputLength
 	metadata.Metadata["input_hash"] = hashTracePreview(input)
 
@@ -549,6 +553,7 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		if instructionsLength > 4096 {
 			return metadata, fmt.Errorf("instructions must be at most 4096 characters")
 		}
+
 		metadata.Metadata["instructions_length"] = instructionsLength
 		metadata.Metadata["instructions_hash"] = hashTracePreview(instructions)
 	}
@@ -557,9 +562,11 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 	if responseFormat == "" {
 		responseFormat = "mp3"
 	}
+
 	if !validAudioSpeechResponseFormat(responseFormat) {
 		return metadata, fmt.Errorf("response_format must be one of mp3, opus, aac, flac, wav, or pcm")
 	}
+
 	metadata.ResponseFormat = responseFormat
 	metadata.Metadata["response_format"] = responseFormat
 
@@ -569,6 +576,7 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		if speed < 0.25 || speed > 4 {
 			return metadata, fmt.Errorf("speed must be between 0.25 and 4")
 		}
+
 		metadata.Metadata["speed"] = speed
 	}
 
@@ -577,6 +585,7 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		if streamFormat != "sse" && streamFormat != "audio" {
 			return metadata, fmt.Errorf("stream_format must be sse or audio")
 		}
+
 		metadata.StreamFormat = streamFormat
 		metadata.Stream = streamFormat == "sse"
 		metadata.Metadata["stream_format"] = streamFormat
@@ -593,16 +602,20 @@ func fillAudioSpeechVoiceMetadata(metadata map[string]interface{}, value interfa
 		if voice == "" {
 			return fmt.Errorf("voice is required")
 		}
+
 		metadata["voice_type"] = "builtin"
 		metadata["voice"] = voice
+
 		return nil
 	case map[string]interface{}:
 		id := strings.TrimSpace(stringFromMap(v, "id"))
 		if id == "" {
 			return fmt.Errorf("voice.id is required")
 		}
+
 		metadata["voice_type"] = "custom"
 		metadata["voice_id_hash"] = hashTracePreview(id)
+
 		return nil
 	default:
 		return fmt.Errorf("voice is required")
@@ -613,10 +626,12 @@ func stringFromMap(values map[string]interface{}, key string) string {
 	if len(values) == 0 {
 		return ""
 	}
+
 	value, ok := values[key].(string)
 	if !ok {
 		return ""
 	}
+
 	return value
 }
 
@@ -625,6 +640,7 @@ func numberFromMap(values map[string]interface{}, key string) (float64, bool, er
 	if !exists || value == nil {
 		return 0, false, nil
 	}
+
 	switch v := value.(type) {
 	case float64:
 		return v, true, nil
@@ -654,6 +670,7 @@ func audioSpeechValidationErrorDetail(err error) (string, string) {
 	if err != nil {
 		message = strings.ToLower(strings.TrimSpace(err.Error()))
 	}
+
 	switch {
 	case strings.Contains(message, "content type"):
 		return "content_type", "unsupported_content_type"
@@ -683,6 +700,7 @@ func estimateAudioSpeechCostFallback(model string, metadata map[string]interface
 	if inputLength, ok := metadata["input_length"]; ok {
 		inputTokens += estimateTextTokensFromLength(inputLength)
 	}
+
 	if instructionsLength, ok := metadata["instructions_length"]; ok {
 		inputTokens += estimateTextTokensFromLength(instructionsLength)
 	}
@@ -701,6 +719,7 @@ func audioSpeechUsageToOpenAI(body []byte) *contractsopenai.Usage {
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil
 	}
+
 	usage, ok := raw["usage"].(map[string]interface{})
 	if !ok {
 		return nil
@@ -710,14 +729,17 @@ func audioSpeechUsageToOpenAI(body []byte) *contractsopenai.Usage {
 	if inputTokens == 0 {
 		inputTokens = intFromAudioUsage(usage, "prompt_tokens")
 	}
+
 	outputTokens := intFromAudioUsage(usage, "output_tokens")
 	if outputTokens == 0 {
 		outputTokens = intFromAudioUsage(usage, "completion_tokens")
 	}
+
 	totalTokens := intFromAudioUsage(usage, "total_tokens")
 	if totalTokens == 0 {
 		totalTokens = inputTokens + outputTokens
 	}
+
 	if inputTokens == 0 && outputTokens == 0 && totalTokens == 0 {
 		return nil
 	}
@@ -734,10 +756,13 @@ func withAudioSpeechResponseMetadata(input map[string]interface{}, body []byte, 
 	for k, v := range input {
 		out[k] = v
 	}
+
 	if contentType := responseContentType(headers); contentType != "" {
 		out["response_content_type"] = safeContentTypeFamily(contentType)
 	}
+
 	out["response_summary"] = buildTraceAudioSpeechResponsePayload(body, headers)
+
 	return out
 }
 

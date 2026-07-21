@@ -31,6 +31,7 @@ func TestCreateOTPRequestHidesUnknownLoginAccountBeforeCreatingOTP(t *testing.T)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
+
 	t.Cleanup(func() { _ = resp.Body.Close() })
 
 	var payload map[string]interface{}
@@ -41,15 +42,19 @@ func TestCreateOTPRequestHidesUnknownLoginAccountBeforeCreatingOTP(t *testing.T)
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("status = %d, want %d", resp.StatusCode, fiber.StatusOK)
 	}
+
 	if store.createOTPCalled {
 		t.Fatal("CreateTenantAdminOTPRequest was called for an unknown login account")
 	}
+
 	if payload["request_id"] == "" {
 		t.Fatal("generic OTP response did not include request_id")
 	}
+
 	if payload["destination_masked"] != "mi***@example.com" {
 		t.Fatalf("destination_masked = %v, want mi***@example.com", payload["destination_masked"])
 	}
+
 	if _, exists := payload["debug_otp"]; exists {
 		t.Fatal("debug_otp was exposed for a synthetic OTP response")
 	}
@@ -68,6 +73,7 @@ func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
 	app.Post("/auth/otp/request", handler.CreateOTPRequest)
 
 	var lastStatus int
+
 	for attempt := 1; attempt <= 6; attempt++ {
 		req := httptest.NewRequest("POST", "/auth/otp/request", bytes.NewBufferString(`{
 			"tenant_slug": "tenant1",
@@ -82,6 +88,7 @@ func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request %d failed: %v", attempt, err)
 		}
+
 		lastStatus = resp.StatusCode
 		_ = resp.Body.Close()
 	}
@@ -89,6 +96,7 @@ func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
 	if lastStatus != fiber.StatusTooManyRequests {
 		t.Fatalf("last status = %d, want %d", lastStatus, fiber.StatusTooManyRequests)
 	}
+
 	if store.createOTPCalls != 5 {
 		t.Fatalf("CreateTenantAdminOTPRequest calls = %d, want 5", store.createOTPCalls)
 	}
@@ -102,9 +110,11 @@ func TestCreateOTPRequestDoesNotExposeDebugOTPWhenNodeEnvIsEmpty(t *testing.T) {
 	if status != fiber.StatusOK {
 		t.Fatalf("status = %d, want %d", status, fiber.StatusOK)
 	}
+
 	if _, exists := payload["debug_otp"]; exists {
 		t.Fatal("debug_otp was exposed when NODE_ENV was empty")
 	}
+
 	if _, exists := payload["otp_code"]; exists {
 		t.Fatal("otp_code was exposed in the response")
 	}
@@ -166,6 +176,7 @@ func performCreateOTPRequest(t *testing.T) (int, map[string]interface{}) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
+
 	t.Cleanup(func() { _ = resp.Body.Close() })
 
 	var payload map[string]interface{}
@@ -193,10 +204,12 @@ func (s *authHandlerTestStore) ConsumeTenantAdminCaptcha(context.Context, string
 
 func (s *authHandlerTestStore) CreateTenantAdminOTPRequest(context.Context, storage.TenantAdminOTPRequestParams) (map[string]interface{}, error) {
 	s.createOTPCalled = true
+
 	s.createOTPCalls++
 	if s.createOTPResult != nil {
 		return s.createOTPResult, nil
 	}
+
 	return map[string]interface{}{}, nil
 }
 
@@ -220,6 +233,7 @@ func (s *authHandlerTestStore) FindOrCreateTenantAdminUser(context.Context, stor
 	if s.findUserErr != nil {
 		return nil, s.findUserErr
 	}
+
 	return map[string]interface{}{"id": "user-1"}, nil
 }
 

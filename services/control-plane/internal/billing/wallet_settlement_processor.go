@@ -55,12 +55,15 @@ func NewWalletSettlementProcessor(cfg WalletSettlementConfig, liveCache walletBu
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	if cfg.Interval <= 0 {
 		cfg.Interval = 300 * time.Second
 	}
+
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 30 * time.Second
 	}
+
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 200
 	}
@@ -81,6 +84,7 @@ func (p *WalletSettlementProcessor) Start() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
 	p.cancel = cancel
 	go p.run(ctx)
 }
@@ -95,8 +99,10 @@ func (p *WalletSettlementProcessor) Stop() {
 		if p.cancel != nil {
 			p.cancel()
 			<-p.done
+
 			return
 		}
+
 		close(p.done)
 	})
 }
@@ -124,24 +130,31 @@ func (p *WalletSettlementProcessor) processWithTimeout(ctx context.Context) {
 	defer cancel()
 
 	started := time.Now()
+
 	snapshots, err := p.cache.ListActiveBudgetWindows(workCtx, p.cfg.BatchSize)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return
 		}
+
 		p.logger.Warn("wallet budget settlement scan failed", zap.Error(err))
+
 		return
 	}
 
 	settled := 0
+
 	for _, snapshot := range snapshots {
 		if err := p.store.ApplyWalletBudgetSettlement(workCtx, snapshot); err != nil {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
+
 			p.logger.Warn("wallet budget settlement apply failed", zap.Error(err), zap.String("window_key", snapshot.WindowKey))
+
 			continue
 		}
+
 		settled++
 	}
 
@@ -155,10 +168,12 @@ func boolEnv(key string, fallback bool) bool {
 	if raw == "" {
 		return fallback
 	}
+
 	parsed, err := strconv.ParseBool(raw)
 	if err != nil {
 		return fallback
 	}
+
 	return parsed
 }
 
@@ -167,10 +182,12 @@ func secondsEnv(key string, fallback time.Duration) time.Duration {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.Atoi(raw)
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return time.Duration(value) * time.Second
 }
 
@@ -179,9 +196,11 @@ func intEnv(key string, fallback int) int {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.Atoi(raw)
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return value
 }

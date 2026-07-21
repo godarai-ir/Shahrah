@@ -16,20 +16,24 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 	if err := requireBillingManage(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	if h.wallets == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "wallet store not configured")
 	}
 
 	var req platform.CreateBankTransferRequest
-	if err := c.BodyParser(&req); err != nil {
+	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	req.TrackingNumber = strings.TrimSpace(req.TrackingNumber)
 	req.ReceiptFileURL = strings.TrimSpace(req.ReceiptFileURL)
+
 	req.BankTransactionDateJalali = strings.TrimSpace(req.BankTransactionDateJalali)
 	if req.AmountIRR <= 0 || req.TrackingNumber == "" || req.BankTransactionDateJalali == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "amount_irr, tracking_number, and bank_transaction_date_jalali are required")
@@ -39,6 +43,7 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bank_transaction_date_jalali must be a valid Jalali date in YYYY-MM-DD format")
 	}
+
 	req.BankTransactionAt = bankTransactionAt
 
 	item, err := h.wallets.CreateBankTransferRequest(c.Context(), currentTenant.ID, req, billingActorID(c))
@@ -53,10 +58,12 @@ func (h *Handlers) ListBankTransfers(c *fiber.Ctx) error {
 	if err := requireBillingRead(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	if h.wallets == nil {
 		return fiber.NewError(fiber.StatusNotImplemented, "wallet store not configured")
 	}
@@ -83,7 +90,7 @@ func (h *Handlers) reviewPlatformBankTransfer(c *fiber.Ctx, approve bool) error 
 	}
 
 	var req platform.ReviewBankTransferRequest
-	if err := c.BodyParser(&req); err != nil {
+	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
@@ -96,6 +103,7 @@ func (h *Handlers) reviewPlatformBankTransfer(c *fiber.Ctx, approve bool) error 
 	} else {
 		item, err = h.wallets.RejectBankTransferRequest(c.Context(), c.Params("tenantID"), c.Params("requestID"), req, supportActor(c))
 	}
+
 	if err != nil {
 		return mapBillingError(err)
 	}
@@ -107,14 +115,17 @@ func (h *Handlers) RedeemGiftCode(c *fiber.Ctx) error {
 	if err := requireBillingCodesRedeem(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	var req platform.RedeemCodeRequest
-	if err := c.BodyParser(&req); err != nil {
+	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	item, err := h.wallets.RedeemGiftCode(c.Context(), currentTenant.ID, req.Code, billingActorID(c))
 	if err != nil {
 		return mapBillingError(err)
@@ -127,14 +138,17 @@ func (h *Handlers) RedeemDiscountCode(c *fiber.Ctx) error {
 	if err := requireBillingCodesRedeem(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	var req platform.RedeemCodeRequest
-	if err := c.BodyParser(&req); err != nil {
+	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	item, err := h.wallets.RedeemDiscountCode(c.Context(), currentTenant.ID, req.Code, billingActorID(c))
 	if err != nil {
 		return mapBillingError(err)
@@ -147,15 +161,18 @@ func (h *Handlers) GetBillingProfile(c *fiber.Ctx) error {
 	if err := requireBillingRead(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	item, err := h.wallets.GetBillingProfile(c.Context(), currentTenant.ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c.JSON(fiber.Map{"data": nil})
 		}
+
 		return err
 	}
 
@@ -166,15 +183,17 @@ func (h *Handlers) UpsertBillingProfile(c *fiber.Ctx) error {
 	if err := requireBillingProfileManage(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
 
 	var req platform.UpsertBillingProfileRequest
-	if err := c.BodyParser(&req); err != nil {
+	if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+
 	item, err := h.wallets.UpsertBillingProfile(c.Context(), currentTenant.ID, req, billingActorID(c))
 	if err != nil {
 		return mapBillingError(err)
@@ -187,13 +206,16 @@ func (h *Handlers) GetBillingUsageSummary(c *fiber.Ctx) error {
 	if err := requireBillingRead(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	if strings.TrimSpace(c.Query("range")) != "" {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "range query parameter is no longer supported; use preset")
 	}
+
 	preset := strings.TrimSpace(c.Query("preset"))
 	if preset == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "preset is required")
@@ -204,6 +226,7 @@ func (h *Handlers) GetBillingUsageSummary(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrBillingReportPresetInvalid) {
 			return fiber.NewError(fiber.StatusBadRequest, "preset is invalid")
 		}
+
 		return err
 	}
 
@@ -214,10 +237,12 @@ func (h *Handlers) GetBillingMonthlyUsage(c *fiber.Ctx) error {
 	if err := requireBillingRead(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	if strings.TrimSpace(c.Query("month")) != "" {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "month query parameter is no longer supported; use jalali_year and jalali_month")
 	}
@@ -226,6 +251,7 @@ func (h *Handlers) GetBillingMonthlyUsage(c *fiber.Ctx) error {
 	if err != nil || jalaliYear <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "jalali_year must be a positive integer")
 	}
+
 	jalaliMonth, err := strconv.Atoi(strings.TrimSpace(c.Query("jalali_month")))
 	if err != nil || jalaliMonth <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "jalali_month must be a positive integer")
@@ -236,6 +262,7 @@ func (h *Handlers) GetBillingMonthlyUsage(c *fiber.Ctx) error {
 		if errors.Is(err, storage.ErrBillingJalaliMonthInvalid) {
 			return fiber.NewError(fiber.StatusBadRequest, "jalali_year and jalali_month must describe a valid Jalali month")
 		}
+
 		return err
 	}
 
@@ -246,10 +273,12 @@ func (h *Handlers) ListBillingInvoices(c *fiber.Ctx) error {
 	if err := requireBillingDocumentsRead(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	items, err := h.wallets.ListInvoices(c.Context(), currentTenant.ID, c.QueryInt("limit", 50))
 	if err != nil {
 		return err
@@ -262,10 +291,12 @@ func (h *Handlers) ListBillingTransactions(c *fiber.Ctx) error {
 	if err := requireBillingDocumentsRead(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	items, err := h.wallets.ListWalletTransactions(c.Context(), currentTenant.ID, c.QueryInt("limit", 50))
 	if err != nil {
 		return err
@@ -278,10 +309,12 @@ func (h *Handlers) ListBillingDiscounts(c *fiber.Ctx) error {
 	if err := requireBillingDocumentsRead(c); err != nil {
 		return err
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	items, err := h.wallets.ListDiscountRedemptions(c.Context(), currentTenant.ID, c.QueryInt("limit", 50))
 	if err != nil {
 		return err

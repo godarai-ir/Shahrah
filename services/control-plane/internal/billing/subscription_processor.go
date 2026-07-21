@@ -88,6 +88,7 @@ func (p *SubscriptionProcessor) process(ctx context.Context, now ...time.Time) {
 	}
 
 	started := time.Now()
+
 	processed, err := p.store.ProcessSubscriptionTransitions(ctx, current, subscriptionProcessBatchSize)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -101,6 +102,7 @@ func (p *SubscriptionProcessor) process(ctx context.Context, now ...time.Time) {
 			zap.Int("batch_size", subscriptionProcessBatchSize),
 			zap.Time("now", current),
 		)
+
 		return
 	}
 

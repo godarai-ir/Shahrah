@@ -18,6 +18,7 @@ func NewRedisInvalidationBus(client CoordinationClient) *RedisInvalidationBus {
 	if client == nil {
 		return nil
 	}
+
 	return &RedisInvalidationBus{client: client}
 }
 
@@ -26,6 +27,7 @@ func (b *RedisInvalidationBus) PublishPlatformCredentialInvalidation(ctx context
 	if err != nil {
 		return err
 	}
+
 	return b.client.Publish(ctx, invalidationChannel, string(encoded))
 }
 
@@ -36,6 +38,7 @@ func (b *RedisInvalidationBus) Consume(ctx context.Context, manager *Manager) er
 	if err != nil {
 		return err
 	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -44,12 +47,17 @@ func (b *RedisInvalidationBus) Consume(ctx context.Context, manager *Manager) er
 			if !ok {
 				return nil
 			}
+
 			var event InvalidationEvent
 			if json.Unmarshal([]byte(payload), &event) != nil || event.ConnectionID == "" || event.ProviderSlug == "" || event.Environment == "" {
 				continue
 			}
+
 			manager.Invalidate(event.ProviderSlug, event.Environment)
-			_ = manager.Reload(ctx)
+
+			if err := manager.Reload(ctx); err != nil {
+				return err
+			}
 		}
 	}
 }

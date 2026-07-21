@@ -553,6 +553,7 @@ func decodeDiscoveryPayload[T any, D any](
 		if len(direct) == 0 && strings.HasPrefix(trimmedBody, "[") {
 			return direct, nil
 		}
+
 		if hasCanonical(direct) {
 			return direct, nil
 		}
@@ -563,6 +564,7 @@ func decodeDiscoveryPayload[T any, D any](
 		if len(mdDirect) == 0 && strings.HasPrefix(trimmedBody, "[") {
 			return mapDiscovery(mdDirect), nil
 		}
+
 		if len(mdDirect) > 0 {
 			return mapDiscovery(mdDirect), nil
 		}
@@ -581,6 +583,7 @@ func decodeDiscoveryPayload[T any, D any](
 				if len(wrappedDirect) == 0 {
 					return wrappedDirect, nil
 				}
+
 				if hasCanonical(wrappedDirect) {
 					return wrappedDirect, nil
 				}
@@ -591,6 +594,7 @@ func decodeDiscoveryPayload[T any, D any](
 				if len(wrappedDiscovery) == 0 {
 					return mapDiscovery(wrappedDiscovery), nil
 				}
+
 				if len(wrappedDiscovery) > 0 {
 					return mapDiscovery(wrappedDiscovery), nil
 				}
@@ -862,10 +866,10 @@ func normalizeModelTypes(types []platform.ModelType) []platform.ModelType {
 	seen := make(map[platform.ModelType]struct{}, len(types))
 	for _, item := range types {
 		normalized := platform.ModelType(strings.TrimSpace(strings.ToLower(string(item))))
-		switch normalized {
-		case "responses":
+		if normalized == "responses" {
 			normalized = platform.ModelTypeCompletion
 		}
+
 		if normalized == "" {
 			continue
 		}

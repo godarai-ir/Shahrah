@@ -45,6 +45,7 @@ func buildRequestLogEntry(
 		entry.OrgUnitID = strings.TrimSpace(authInfo.OrgUnitID)
 		entry.TeamID = strings.TrimSpace(authInfo.TeamID)
 		entry.ActorID = strings.TrimSpace(authInfo.UserID)
+
 		entry.ActorType = "user"
 		if entry.ActorID == "" {
 			entry.ActorID = strings.TrimSpace(authInfo.VirtualUserID)
@@ -52,6 +53,7 @@ func buildRequestLogEntry(
 				entry.ActorType = "virtual_user"
 			}
 		}
+
 		if snapshot, ok := authInfo.VirtualModelSnapshots[requestedModel]; ok {
 			entry.VirtualModel = strings.TrimSpace(snapshot.Alias)
 		}
@@ -61,9 +63,11 @@ func buildRequestLogEntry(
 		if value, ok := c.Locals("vm_fallback_count").(int); ok {
 			entry.FallbackCount = value
 		}
+
 		if value, ok := c.Locals("vm_failure_reason").(string); ok {
 			entry.FallbackStatus = fallbackStatusFromReason(value, entry.FallbackCount)
 		}
+
 		entry.CacheStatus = cacheMetricString(c, "response_cache_status")
 		entry.CacheMode = cacheMetricString(c, "response_cache_type")
 	}
@@ -72,6 +76,7 @@ func buildRequestLogEntry(
 	if entry.FallbackStatus == "" {
 		entry.FallbackStatus = fallbackStatusFromReason("", entry.FallbackCount)
 	}
+
 	if hasDeploymentBillingContext(deployment) {
 		entry.Metadata = enrichDeploymentBillingMetadata(entry.Metadata, deployment)
 	}
@@ -83,6 +88,7 @@ func traceIDFromFiber(c *fiber.Ctx) string {
 	if c == nil {
 		return ""
 	}
+
 	return strings.TrimSpace(c.GetRespHeader(apiheaders.HeaderTraceID))
 }
 
@@ -90,6 +96,7 @@ func fallbackStatusFromReason(reason string, count int) string {
 	if strings.TrimSpace(reason) != "" || count > 0 {
 		return "active"
 	}
+
 	return "inactive"
 }
 
@@ -141,10 +148,15 @@ func logPreProviderRejection(
 
 func buildJSONRequestLogPayload(body []byte, overrides map[string]interface{}) map[string]interface{} {
 	payload := map[string]interface{}{}
-	_ = json.Unmarshal(body, &payload)
+
+	if err := json.Unmarshal(body, &payload); err != nil {
+		payload["raw_body"] = string(body)
+	}
+
 	for key, value := range overrides {
 		payload[key] = value
 	}
+
 	return payload
 }
 
@@ -153,13 +165,19 @@ func buildJSONResponseLogPayload(body []byte, fallback interface{}) map[string]i
 	if err := json.Unmarshal(body, &payload); err == nil {
 		return payload
 	}
+
 	if fallback == nil {
 		return payload
 	}
+
 	encoded, err := json.Marshal(fallback)
 	if err != nil {
 		return payload
 	}
-	_ = json.Unmarshal(encoded, &payload)
+
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		return map[string]interface{}{"value": fallback}
+	}
+
 	return payload
 }

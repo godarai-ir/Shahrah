@@ -20,6 +20,7 @@ func TestLoadNobitexExchangeRateConfigUsesReachableDefaultBaseURL(t *testing.T) 
 	if !cfg.Enabled {
 		t.Fatal("expected Nobitex exchange rate updater to be enabled")
 	}
+
 	if cfg.BaseURL != "https://apiv2.nobitex.ir" {
 		t.Fatalf("unexpected default base URL: %s", cfg.BaseURL)
 	}
@@ -28,6 +29,7 @@ func TestLoadNobitexExchangeRateConfigUsesReachableDefaultBaseURL(t *testing.T) 
 	if err != nil {
 		t.Fatalf("nobitexTradesURL returned error: %v", err)
 	}
+
 	if !strings.HasPrefix(endpoint, "https://apiv2.nobitex.ir/v2/trades/") {
 		t.Fatalf("unexpected endpoint: %s", endpoint)
 	}
@@ -38,6 +40,7 @@ func TestNobitexExchangeRateProcessorFetchesVWAP(t *testing.T) {
 		if r.URL.Path != "/v2/trades/USDTIRT" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"status": "ok",
@@ -61,6 +64,7 @@ func TestNobitexExchangeRateProcessorFetchesVWAP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fetchUSDtoIRR returned error: %v", err)
 	}
+
 	if trades != 2 {
 		t.Fatalf("expected 2 valid trades, got %d", trades)
 	}
@@ -100,9 +104,11 @@ func TestNobitexExchangeRateProcessorProcessUpsertsRate(t *testing.T) {
 	if store.calls != 1 {
 		t.Fatalf("expected one upsert call, got %d", store.calls)
 	}
+
 	if store.rate.Source != "nobitex:USDTIRT" {
 		t.Fatalf("unexpected source: %s", store.rate.Source)
 	}
+
 	if store.rate.USDtoIRR != 1883500 {
 		t.Fatalf("expected rate 1883500, got %f", store.rate.USDtoIRR)
 	}
@@ -127,6 +133,7 @@ func TestNobitexExchangeRateProcessorSkipsWhenLockUnavailable(t *testing.T) {
 	if store.lockCalls != 1 {
 		t.Fatalf("expected one lock attempt, got %d", store.lockCalls)
 	}
+
 	if store.calls != 0 {
 		t.Fatalf("expected no upsert calls, got %d", store.calls)
 	}
@@ -140,9 +147,11 @@ func TestVWAPFromNobitexTradesFallsBackToSimpleAverageWithoutVolumes(t *testing.
 	if err != nil {
 		t.Fatalf("vwapFromNobitexTrades returned error: %v", err)
 	}
+
 	if trades != 2 {
 		t.Fatalf("expected 2 valid trades, got %d", trades)
 	}
+
 	if rate != 150 {
 		t.Fatalf("expected simple average 150, got %f", rate)
 	}
@@ -158,6 +167,7 @@ type nobitexRateStoreStub struct {
 func (s *nobitexRateStoreStub) UpsertExchangeRate(_ context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
 	s.calls++
 	s.rate = rate
+
 	return &rate, nil
 }
 

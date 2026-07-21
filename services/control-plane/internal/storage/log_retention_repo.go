@@ -12,13 +12,37 @@ import (
 
 // ListLogRetentionPolicies resolves the current effective request log retention for every tenant.
 func (s *Store) ListLogRetentionPolicies(ctx context.Context) ([]logretention.LogRetentionPolicy, error) {
-	rows, err := s.pool.Query(ctx, traceRetentionPoliciesSQL, platform.FeatureLogsRetentionDays)
+	values, err := s.listRetentionPolicyValues(ctx, platform.FeatureLogsRetentionDays, logretention.ParseLogRetentionDays, "log")
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]logretention.LogRetentionPolicy, 0, len(values))
+	for _, value := range values {
+		out = append(out, logretention.LogRetentionPolicy{TenantID: value.tenantID, RetentionDays: value.days})
+	}
+
+	return out, nil
+}
+
+type retentionPolicyValue struct {
+	tenantID string
+	days     *int
+}
+
+func (s *Store) listRetentionPolicyValues(
+	ctx context.Context,
+	featureKey string,
+	parse func(interface{}) (*int, bool),
+	policyKind string,
+) ([]retentionPolicyValue, error) {
+	rows, err := s.pool.Query(ctx, traceRetentionPoliciesSQL, featureKey)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	out := []logretention.LogRetentionPolicy{}
+	out := []retentionPolicyValue{}
 
 	for rows.Next() {
 		var (
@@ -29,22 +53,20 @@ func (s *Store) ListLogRetentionPolicies(ctx context.Context) ([]logretention.Lo
 			return nil, err
 		}
 
-		days, ok := logretention.ParseLogRetentionDays(parseJSONValue(raw))
+		days, ok := parse(parseJSONValue(raw))
 		if !ok {
 			s.logger.Warn(
-				"invalid log retention entitlement ignored",
+				"invalid retention entitlement ignored",
+				zap.String("policy_kind", policyKind),
 				zap.String("tenant_id", tenantID),
-				zap.String("feature_key", platform.FeatureLogsRetentionDays),
+				zap.String("feature_key", featureKey),
 				zap.ByteString("value_json", raw),
 			)
 
 			continue
 		}
 
-		out = append(out, logretention.LogRetentionPolicy{
-			TenantID:      tenantID,
-			RetentionDays: days,
-		})
+		out = append(out, retentionPolicyValue{tenantID: tenantID, days: days})
 	}
 
 	return out, rows.Err()

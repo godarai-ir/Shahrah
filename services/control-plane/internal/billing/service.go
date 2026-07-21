@@ -112,6 +112,7 @@ func (s *Service) CheckRateLimit(ctx context.Context, auth *platform.AuthContext
 	if err != nil {
 		return policyResult, err
 	}
+
 	if policyResult != nil && !policyResult.Allowed {
 		return policyResult, ErrRateLimitExceeded
 	}
@@ -157,6 +158,7 @@ func (s *Service) resolveEffectiveEntitlementLimits(ctx context.Context, tenantI
 		profile, err := s.runtimeProfiles.Get(ctx, tenantID)
 		if err == nil && profile != nil && profile.Entitlements != nil {
 			out := *profile.Entitlements
+
 			out.Features = cloneInterfaceMap(profile.Entitlements.Features)
 			if profile.Entitlements.Subscription != nil {
 				sub := *profile.Entitlements.Subscription
@@ -164,13 +166,17 @@ func (s *Service) resolveEffectiveEntitlementLimits(ctx context.Context, tenantI
 				sub.Metadata = cloneInterfaceMap(sub.Metadata)
 				out.Subscription = &sub
 			}
+
 			return &out, nil
 		}
+
 		if err != nil {
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("tenant runtime profile entitlements unavailable")
 	}
+
 	return s.entitlements.ResolveEffectiveEntitlementLimits(ctx, tenantID)
 }
 
@@ -181,12 +187,16 @@ func (s *Service) CheckBudget(ctx context.Context, auth *platform.AuthContext, b
 	}
 
 	reservationID := fmt.Sprintf("compat:%s:%d", strings.TrimSpace(auth.TokenHash), time.Now().UnixNano())
+
 	reservation, err := s.ReserveBudget(ctx, auth, breakdown, reservationID)
 	if err != nil {
 		return err
 	}
+
 	if reservation != nil {
-		_ = s.ReleaseBudget(ctx, reservation, "compat_check_only")
+		if err := s.ReleaseBudget(ctx, reservation, "compat_check_only"); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -197,6 +207,7 @@ func (s *Service) ReserveBudget(ctx context.Context, auth *platform.AuthContext,
 	if auth == nil || strings.TrimSpace(auth.TenantID) == "" {
 		return nil, ErrBudgetExceeded
 	}
+
 	budgetCache, ok := s.cache.(budgetWindowCache)
 	if !ok || budgetCache == nil {
 		return nil, ErrBudgetUnavailable
@@ -205,6 +216,7 @@ func (s *Service) ReserveBudget(ctx context.Context, auth *platform.AuthContext,
 	tenantID := strings.TrimSpace(auth.TenantID)
 	now := time.Now().UTC()
 	reservationID := budgetReservationID(requestID)
+
 	targets, err := s.budgetReservationTargets(ctx, auth, breakdown, reservationID, now)
 	if err != nil {
 		return nil, err
@@ -214,29 +226,37 @@ func (s *Service) ReserveBudget(ctx context.Context, auth *platform.AuthContext,
 	for _, target := range targets {
 		result, reserveErr := s.reserveBudgetTarget(ctx, budgetCache, target, reservationID, now)
 		if reserveErr != nil {
-			s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
-			return nil, reserveErr
+			releaseErr := s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
+			return nil, errors.Join(reserveErr, releaseErr)
 		}
+
 		if result == nil {
-			s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
-			return nil, ErrBudgetUnavailable
+			releaseErr := s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
+			return nil, errors.Join(ErrBudgetUnavailable, releaseErr)
 		}
+
 		if !result.Allowed {
-			s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
+			releaseErr := s.releaseBudgetTargetsBestEffort(ctx, budgetCache, reserved, now)
+
 			if result.State == "exhausted" {
-				return nil, ErrBudgetExceeded
+				return nil, errors.Join(ErrBudgetExceeded, releaseErr)
 			}
-			return nil, ErrBudgetUnavailable
+
+			return nil, errors.Join(ErrBudgetUnavailable, releaseErr)
 		}
+
 		reserved = append(reserved, target)
 	}
+
 	if len(reserved) == 0 {
 		return nil, ErrBudgetUnavailable
 	}
+
 	publicTargets := make([]platform.BudgetReservationTarget, 0, len(reserved))
 	for _, target := range reserved {
 		publicTargets = append(publicTargets, target.BudgetReservationTarget)
 	}
+
 	primary := publicTargets[0]
 
 	return &platform.BudgetReservation{
@@ -256,10 +276,12 @@ func (s *Service) CommitBudget(ctx context.Context, reservation *platform.Budget
 	if reservation == nil {
 		return nil
 	}
+
 	budgetCache, ok := s.cache.(budgetWindowCache)
 	if !ok || budgetCache == nil {
 		return ErrBudgetUnavailable
 	}
+
 	targets := reservation.Targets
 	if len(targets) == 0 {
 		targets = []platform.BudgetReservationTarget{{
@@ -267,6 +289,7 @@ func (s *Service) CommitBudget(ctx context.Context, reservation *platform.Budget
 			ReservationKey: reservation.ReservationKey,
 		}}
 	}
+
 	now := time.Now().UTC()
 	for _, target := range targets {
 		result, err := budgetCache.CommitBudget(ctx, cache.BudgetCommitRequest{
@@ -278,13 +301,16 @@ func (s *Service) CommitBudget(ctx context.Context, reservation *platform.Budget
 		if err != nil {
 			return fmt.Errorf("%w: commit failed: %v", ErrBudgetUnavailable, err)
 		}
+
 		if result == nil || !result.Allowed {
 			if result != nil && result.State == "exhausted" {
 				return ErrBudgetExceeded
 			}
+
 			return ErrBudgetUnavailable
 		}
 	}
+
 	return nil
 }
 
@@ -293,10 +319,12 @@ func (s *Service) ReleaseBudget(ctx context.Context, reservation *platform.Budge
 	if reservation == nil {
 		return nil
 	}
+
 	budgetCache, ok := s.cache.(budgetWindowCache)
 	if !ok || budgetCache == nil {
 		return ErrBudgetUnavailable
 	}
+
 	targets := reservation.Targets
 	if len(targets) == 0 {
 		targets = []platform.BudgetReservationTarget{{
@@ -304,6 +332,7 @@ func (s *Service) ReleaseBudget(ctx context.Context, reservation *platform.Budge
 			ReservationKey: reservation.ReservationKey,
 		}}
 	}
+
 	now := time.Now().UTC()
 	for _, target := range targets {
 		result, err := budgetCache.ReleaseBudget(ctx, cache.BudgetReleaseRequest{
@@ -314,10 +343,12 @@ func (s *Service) ReleaseBudget(ctx context.Context, reservation *platform.Budge
 		if err != nil {
 			return fmt.Errorf("%w: release failed: %v", ErrBudgetUnavailable, err)
 		}
+
 		if result == nil || !result.Allowed {
 			return ErrBudgetUnavailable
 		}
 	}
+
 	return nil
 }
 
@@ -326,6 +357,7 @@ func (s *Service) seedBudgetWindow(ctx context.Context, budgetCache budgetWindow
 	if err != nil {
 		return fmt.Errorf("%w: seed failed: %v", ErrBudgetUnavailable, err)
 	}
+
 	result, err := budgetCache.SeedBudgetWindow(ctx, cache.BudgetWindowSeed{
 		WindowKey:    windowKey,
 		AllowanceIRR: float64(wallet.BalanceIRR),
@@ -336,9 +368,11 @@ func (s *Service) seedBudgetWindow(ctx context.Context, budgetCache budgetWindow
 	if err != nil {
 		return fmt.Errorf("%w: seed failed: %v", ErrBudgetUnavailable, err)
 	}
+
 	if result == nil || !result.Allowed {
 		return ErrBudgetUnavailable
 	}
+
 	return nil
 }
 
@@ -363,6 +397,7 @@ func (s *Service) getWallet(ctx context.Context, tenantID string) (*platform.Wal
 	}
 
 	s.storeWallet(ctx, key, wallet)
+
 	return cloneWallet(wallet), nil
 }
 
@@ -405,6 +440,7 @@ func walletFromJSON(raw []byte) (*platform.Wallet, bool) {
 	if err := json.Unmarshal(raw, &wallet); err != nil {
 		return nil, false
 	}
+
 	return &wallet, true
 }
 
@@ -412,7 +448,9 @@ func cloneWallet(in *platform.Wallet) *platform.Wallet {
 	if in == nil {
 		return nil
 	}
+
 	out := *in
+
 	return &out
 }
 
@@ -424,6 +462,7 @@ func budgetWindowForTime(now time.Time) (string, time.Time) {
 	utc := now.UTC()
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
 	end := start.AddDate(0, 1, 0)
+
 	return start.Format("200601"), end
 }
 
@@ -440,6 +479,7 @@ func budgetReservationID(requestID string) string {
 	if requestID == "" {
 		return fmt.Sprintf("reservation:%d", time.Now().UnixNano())
 	}
+
 	return requestID
 }
 
@@ -465,10 +505,12 @@ func cloneInterfaceMap(in map[string]interface{}) map[string]interface{} {
 	if len(in) == 0 {
 		return nil
 	}
+
 	out := make(map[string]interface{}, len(in))
 	for key, value := range in {
 		out[key] = value
 	}
+
 	return out
 }
 
@@ -484,6 +526,7 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 	}
 
 	price := s.modelPrice(ctx, req.Model)
+
 	return costBreakdown(req.Model, promptTokens, outputTokens, price, rate.USDtoIRR), nil
 }
 
@@ -493,6 +536,7 @@ func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.Embeddin
 
 	promptTokens := estimateEmbeddingPromptTokens(req.Input)
 	price := s.modelPrice(ctx, req.Model)
+
 	return costBreakdown(req.Model, promptTokens, 0, price, rate.USDtoIRR), nil
 }
 
@@ -505,6 +549,7 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 	rate := s.exchangeRate(ctx)
 
 	price := s.modelPrice(ctx, model)
+
 	return costBreakdown(model, usage.PromptTokens, usage.CompletionTokens, price, rate.USDtoIRR), nil
 }
 
@@ -556,6 +601,7 @@ func imageUsageTokenBreakdown(usage *openai.Usage, estimated platform.UsageCostB
 
 	inputTokens := usage.PromptTokens
 	outputTokens := usage.CompletionTokens
+
 	totalTokens := usage.TotalTokens
 	if totalTokens <= 0 {
 		totalTokens = inputTokens + outputTokens
@@ -582,6 +628,7 @@ func imageCostBreakdown(model string, inputTokens int, outputTokens int, totalTo
 	if totalTokens > 0 {
 		out.TotalTokens = totalTokens
 	}
+
 	return out
 }
 
@@ -591,11 +638,13 @@ func applyProviderImageCost(breakdown platform.UsageCostBreakdown, totalUSD floa
 		pricedTotal := breakdown.InputCostUSD + breakdown.OutputCostUSD
 		breakdown.InputCostUSD = totalUSD * (breakdown.InputCostUSD / pricedTotal)
 		breakdown.OutputCostUSD = totalUSD - breakdown.InputCostUSD
+
 		return breakdown
 	}
 
 	breakdown.InputCostUSD = 0
 	breakdown.OutputCostUSD = totalUSD
+
 	return breakdown
 }
 
@@ -603,24 +652,15 @@ func (s *Service) modelPrice(ctx context.Context, model string) priceInfo {
 	if s != nil && s.pricingCache != nil {
 		return s.pricingCache.Get(ctx, model)
 	}
+
 	return modelPriceFromRegistry(model)
-}
-
-func (s *Service) persistDefaultExchangeRate(ctx context.Context) {
-	if s == nil || s.store == nil {
-		return
-	}
-
-	_, err := s.store.UpsertExchangeRate(ctx, s.defaultRate)
-	if err != nil {
-		return
-	}
 }
 
 func (s *Service) exchangeRate(ctx context.Context) *platform.ExchangeRate {
 	if s == nil {
 		return nil
 	}
+
 	if s.exchangeRateCache != nil {
 		if rate := s.exchangeRateCache.Get(ctx); rate != nil {
 			return rate

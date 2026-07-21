@@ -557,6 +557,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 
 	amountUSD := req.AmountUSD
 	amountIRR := float64(req.AmountIRR)
+
 	var taxIRR, feeIRR, payable float64
 
 	if req.AmountIRR > 0 {

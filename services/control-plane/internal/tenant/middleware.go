@@ -114,8 +114,10 @@ func (m *Middleware) Handle() fiber.Handler {
 					if !isActiveTenant(tenant) {
 						return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
 					}
+
 					c.Locals(ContextKey{}, tenant)
 					m.attachRuntimeProfile(c, tenant)
+
 					return c.Next()
 				}
 			}
@@ -142,10 +144,12 @@ func (m *Middleware) attachRuntimeProfile(c *fiber.Ctx, tenant *platform.Tenant)
 	if m == nil || m.runtimeProfiles == nil || tenant == nil {
 		return
 	}
+
 	profile, err := m.runtimeProfiles.Get(c.Context(), tenant.ID)
 	if err != nil || profile == nil {
 		return
 	}
+
 	c.Locals(RuntimeProfileContextKey{}, profile)
 }
 
@@ -229,6 +233,7 @@ func cloneTenant(in *platform.Tenant) *platform.Tenant {
 	}
 
 	out := *in
+
 	return &out
 }
 
@@ -269,6 +274,7 @@ func RuntimeProfileFromContext(c *fiber.Ctx) *runtimeprofile.Profile {
 			return profile
 		}
 	}
+
 	return nil
 }
 

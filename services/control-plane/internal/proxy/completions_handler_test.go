@@ -54,11 +54,13 @@ func (b *testBudgeter) FinalizeImageUsage(_ context.Context, _ string, usage *co
 	if usage != nil {
 		estimated.InputTokens = usage.PromptTokens
 		estimated.OutputTokens = usage.CompletionTokens
+
 		estimated.TotalTokens = usage.TotalTokens
 		if estimated.TotalTokens == 0 {
 			estimated.TotalTokens = estimated.InputTokens + estimated.OutputTokens
 		}
 	}
+
 	if providerCostUSDTicks != nil {
 		estimated.TotalCostUSD = float64(*providerCostUSDTicks) / 10_000_000_000.0
 		estimated.TotalCostIRR = estimated.TotalCostUSD * 850000
@@ -190,6 +192,7 @@ func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, lo
 	if len(logsOpt) > 0 && logsOpt[0] != nil {
 		logs = logsOpt[0]
 	}
+
 	h := NewCompletionsHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
@@ -235,6 +238,7 @@ func newChatCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse
 	if logs == nil {
 		logs = &testLogs{}
 	}
+
 	h := NewChatCompletionHandler(rt, &testTunnel{resp: tunnelResp}, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
@@ -321,6 +325,7 @@ func TestCompletionsTracingLifecycle_SyncSuccess(t *testing.T) {
 	}
 	body, err := json.Marshal(payload)
 	require.NoError(t, err)
+
 	logs := &testLogs{}
 	app, q := newCompletionsTestApp(t, &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
@@ -639,6 +644,7 @@ func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testi
 func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":123,\"model\":\"gpt-4o-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n"), IsDone: true}
+
 	close(stream.chunks)
 
 	billing := &budgetDenyingBudgeter{}

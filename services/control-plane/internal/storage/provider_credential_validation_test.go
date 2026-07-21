@@ -16,6 +16,7 @@ func TestValidateProviderAPIKeyCallsProviderModelsEndpoint(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		gotAuth = r.Header.Get("Authorization")
 		assert.Equal(t, "/v1/models", r.URL.Path)
+
 		return jsonResponse(http.StatusOK, `{"data":[]}`), nil
 	})}
 
@@ -34,6 +35,7 @@ func TestValidateProviderAPIKeySupportsSambaNova(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		gotAuth = r.Header.Get("Authorization")
 		assert.Equal(t, "/v1/models", r.URL.Path)
+
 		return jsonResponse(http.StatusOK, `{"data":[]}`), nil
 	})}
 

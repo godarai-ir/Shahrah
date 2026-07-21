@@ -32,6 +32,7 @@ func (c *entitlementTestCache) Get(_ context.Context, key string) (interface{}, 
 	if !ok {
 		return nil, false
 	}
+
 	if !item.expiresAt.IsZero() && time.Now().After(item.expiresAt) {
 		delete(c.items, key)
 		return nil, false
@@ -48,6 +49,7 @@ func (c *entitlementTestCache) Set(_ context.Context, key string, value interfac
 	if ttl > 0 {
 		item.expiresAt = time.Now().Add(ttl)
 	}
+
 	c.items[key] = item
 }
 
@@ -114,21 +116,26 @@ func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 	if !ok {
 		t.Fatal("expected cached entitlements")
 	}
+
 	if len(cached.UsageCounters) != 0 {
 		t.Fatalf("expected usage counters to be omitted from cache, got %d", len(cached.UsageCounters))
 	}
+
 	if cached.Features["requests_per_minute"] != float64(1000) {
 		t.Fatalf("expected cached feature to keep original value, got %v", cached.Features["requests_per_minute"])
 	}
+
 	if cached.Subscription.Metadata["region"] != "ir" {
 		t.Fatalf("expected cached subscription metadata to keep original value, got %v", cached.Subscription.Metadata["region"])
 	}
 
 	cached.Features["requests_per_minute"] = float64(5)
+
 	again, ok := store.getCachedEntitlements(ctx, "tenant-1")
 	if !ok {
 		t.Fatal("expected cached entitlements on second read")
 	}
+
 	if again.Features["requests_per_minute"] != float64(1000) {
 		t.Fatalf("expected defensive copy on read, got %v", again.Features["requests_per_minute"])
 	}
@@ -172,26 +179,26 @@ func TestEffectiveEntitlementsCacheHonorsTTL(t *testing.T) {
 
 func TestInvalidateDeploymentCacheDeletesTenantSnapshot(t *testing.T) {
 	ctx := context.Background()
-	cache := newEntitlementTestCache()
-	store := &Store{entitlementCache: cache}
+	testCache := newEntitlementTestCache()
+	store := &Store{entitlementCache: testCache}
 
-	cache.Set(ctx, deploymentCacheKey("tenant-1"), []platform.Deployment{{ID: "dep-1"}}, time.Minute)
+	testCache.Set(ctx, deploymentCacheKey("tenant-1"), []platform.Deployment{{ID: "dep-1"}}, time.Minute)
 	store.invalidateDeploymentCache(ctx, "tenant-1")
 
-	if _, ok := cache.Get(ctx, deploymentCacheKey("tenant-1")); ok {
+	if _, ok := testCache.Get(ctx, deploymentCacheKey("tenant-1")); ok {
 		t.Fatal("expected deployment cache entry to be invalidated")
 	}
 }
 
 func TestInvalidateWalletCacheDeletesTenantBalance(t *testing.T) {
 	ctx := context.Background()
-	cache := newEntitlementTestCache()
-	store := &Store{entitlementCache: cache}
+	testCache := newEntitlementTestCache()
+	store := &Store{entitlementCache: testCache}
 
-	cache.Set(ctx, walletCacheKey("tenant-1"), &platform.Wallet{TenantID: "tenant-1"}, time.Minute)
+	testCache.Set(ctx, walletCacheKey("tenant-1"), &platform.Wallet{TenantID: "tenant-1"}, time.Minute)
 	store.invalidateWalletCache(ctx, "tenant-1")
 
-	if _, ok := cache.Get(ctx, walletCacheKey("tenant-1")); ok {
+	if _, ok := testCache.Get(ctx, walletCacheKey("tenant-1")); ok {
 		t.Fatal("expected wallet cache entry to be invalidated")
 	}
 }

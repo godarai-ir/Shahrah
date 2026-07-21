@@ -66,7 +66,9 @@ func (s *Store) enableClickHouseSubsystem(ctx context.Context, name string, vali
 		if logger == nil {
 			logger = zap.NewNop()
 		}
+
 		logger.Warn("clickhouse observability subsystem unavailable", zap.String("subsystem", name), zap.Error(err))
+
 		return false
 	}
 
@@ -111,14 +113,10 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.validateClickHouseColumns(ctx, "request_spans_ch", []string{
+	return s.validateClickHouseColumns(ctx, "request_spans_ch", []string{
 		"span_id", "trace_id", "tenant_id", "parent_span_id", "name", "kind", "started_at",
 		"duration_ms", "status", "attributes_json", "retention_days",
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
 func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEvent) error {
@@ -140,11 +138,13 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 	)
 
 	retentionDaysByTenant := map[string]uint16{}
+
 	for _, ev := range batch {
 		tenantID := strings.TrimSpace(ev.TenantID)
 		if strings.TrimSpace(ev.TraceID) == "" || tenantID == "" {
 			continue
 		}
+
 		retentionDays, ok := retentionDaysByTenant[tenantID]
 		if !ok {
 			retentionDays = s.traceRetentionDaysForInsert(ctx, tenantID)
@@ -249,6 +249,7 @@ func (s *Store) traceRetentionDaysForInsert(ctx context.Context, tenantID string
 		if logger == nil {
 			logger = zap.NewNop()
 		}
+
 		logger.Warn("failed to resolve trace retention; writing trace with unlimited ttl", zap.String("tenant_id", tenantID), zap.Error(err))
 
 		return 0
@@ -548,11 +549,14 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 		%s
 		WHERE %s
 	`, baseFrom, strings.Join(outerWhere, " AND "))
+
 	countArgs := append([]interface{}{}, args...)
+
 	var total uint64
 	if err := s.clickhouse.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
+
 	pageLimit := params.Limit + 1
 	args = append(args, pageLimit, params.Offset)
 
@@ -609,19 +613,23 @@ func (s *Store) initClickHouseWithRetry(ctx context.Context) error {
 	if attempts < 1 {
 		attempts = 1
 	}
+
 	delay := secondsEnvOrDefault("CLICKHOUSE_INIT_RETRY_SECONDS", time.Second)
 
 	var lastErr error
+
 	for attempt := 1; attempt <= attempts; attempt++ {
-		if err := s.initClickHouse(ctx); err == nil {
+		initErr := s.initClickHouse(ctx)
+		if initErr == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+
+		lastErr = initErr
 
 		if attempt == attempts {
 			break
 		}
+
 		if s.logger != nil {
 			s.logger.Warn("clickhouse initialization failed; retrying", zap.Int("attempt", attempt), zap.Int("max_attempts", attempts), zap.Duration("retry_in", delay), zap.Error(lastErr))
 		}

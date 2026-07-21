@@ -203,9 +203,11 @@ func TestTenantMiddleware_ConcurrentCacheMissSingleflightsStoreLookup(t *testing
 	})
 
 	const workers = 16
+
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	errs := make(chan error, workers)
+
 	statuses := make(chan int, workers)
 	for i := 0; i < workers; i++ {
 		go func() {
@@ -221,6 +223,7 @@ func TestTenantMiddleware_ConcurrentCacheMissSingleflightsStoreLookup(t *testing
 			if resp != nil && resp.Body != nil {
 				resp.Body.Close()
 			}
+
 			if err != nil {
 				errs <- err
 				return
@@ -229,6 +232,7 @@ func TestTenantMiddleware_ConcurrentCacheMissSingleflightsStoreLookup(t *testing
 			statuses <- resp.StatusCode
 		}()
 	}
+
 	wg.Wait()
 	close(errs)
 	close(statuses)
@@ -236,9 +240,11 @@ func TestTenantMiddleware_ConcurrentCacheMissSingleflightsStoreLookup(t *testing
 	for err := range errs {
 		assert.NoError(t, err)
 	}
+
 	for status := range statuses {
 		assert.Equal(t, fiber.StatusNoContent, status)
 	}
+
 	assert.Equal(t, 1, store.callCount())
 	assert.Equal(t, 1, cache.sets)
 }
@@ -323,10 +329,9 @@ func TestTenantMiddleware_InactiveTenantIsNotCached(t *testing.T) {
 		assert.NoError(t, err)
 
 		resp, err := app.Test(req)
-		defer closeResponseBody(t, resp)
-
 		assert.NoError(t, err)
 		assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+		closeResponseBody(t, resp)
 	}
 
 	assert.Equal(t, 2, store.callCount())

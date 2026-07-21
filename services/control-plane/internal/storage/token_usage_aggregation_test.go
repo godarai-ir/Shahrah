@@ -36,6 +36,7 @@ func (f *fakeTokenUsageCache) QueueTokenSpendDelta(_ context.Context, deltaKey s
 	f.queueSpend.ttl = ttl
 	f.queueSpend.score = score
 	f.queueSpend.called = true
+
 	return f.queueSpendErr
 }
 
@@ -49,6 +50,7 @@ func (f *fakeTokenUsageCache) QueueKeyLastUsed(_ context.Context, lastUsedKey st
 	f.queueLast.usedAt = usedAtUnix
 	f.queueLast.ttl = ttl
 	f.queueLast.called = true
+
 	return true, f.queueLastErr
 }
 
@@ -60,28 +62,35 @@ func TestTokenUsageKeyRoundTrip(t *testing.T) {
 	store := &Store{tokenUsageKeyPrefix: "usage:"}
 
 	spendKey := store.tokenSpendDeltaKey("hash-1")
+
 	tokenHash, err := store.parseTokenSpendDeltaKey(spendKey)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if tokenHash != "hash-1" {
 		t.Fatalf("unexpected token hash: %s", tokenHash)
 	}
+
 	if spendKey != "usage:token_spend_delta:hash-1" {
 		t.Fatalf("unexpected spend key: %s", spendKey)
 	}
+
 	if store.tokenSpendDirtySetKey() != "usage:token_spend_delta:dirty" {
 		t.Fatalf("unexpected spend dirty key: %s", store.tokenSpendDirtySetKey())
 	}
 
 	lastUsedKey := store.keyLastUsedKey("key-1")
+
 	keyID, err := store.parseKeyLastUsedKey(lastUsedKey)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if keyID != "key-1" {
 		t.Fatalf("unexpected key id: %s", keyID)
 	}
+
 	if lastUsedKey != "usage:key_last_used:key-1" {
 		t.Fatalf("unexpected last-used key: %s", lastUsedKey)
 	}
@@ -101,20 +110,25 @@ func TestQueueTokenSpendDeltaUsesRedisAndFailOpen(t *testing.T) {
 	if err := store.queueTokenSpendDelta(ctx, "hash-1", 1.25); err != nil {
 		t.Fatal(err)
 	}
+
 	if !fake.queueSpend.called {
 		t.Fatal("expected redis queue call")
 	}
+
 	if fake.queueSpend.deltaKey != "test-usage:token_spend_delta:hash-1" {
 		t.Fatalf("unexpected delta key: %s", fake.queueSpend.deltaKey)
 	}
+
 	if fake.queueSpend.dirtyKey != "test-usage:token_spend_delta:dirty" {
 		t.Fatalf("unexpected dirty key: %s", fake.queueSpend.dirtyKey)
 	}
+
 	if fake.queueSpend.deltaUSD != 1.25 {
 		t.Fatalf("unexpected delta: %v", fake.queueSpend.deltaUSD)
 	}
 
 	fake.queueSpendErr = errors.New("redis down")
+
 	if err := store.queueTokenSpendDelta(ctx, "hash-1", 1.25); err != nil {
 		t.Fatalf("expected fail-open nil error, got %v", err)
 	}
@@ -140,15 +154,19 @@ func TestQueueKeyLastUsedUsesRedis(t *testing.T) {
 	if err := store.queueKeyLastUsed(ctx, "key-1", usedAt); err != nil {
 		t.Fatal(err)
 	}
+
 	if !fake.queueLast.called {
 		t.Fatal("expected redis queue call")
 	}
+
 	if fake.queueLast.key != "test-usage:key_last_used:key-1" {
 		t.Fatalf("unexpected last-used key: %s", fake.queueLast.key)
 	}
+
 	if fake.queueLast.dirtyKey != "test-usage:key_last_used:dirty" {
 		t.Fatalf("unexpected dirty key: %s", fake.queueLast.dirtyKey)
 	}
+
 	if fake.queueLast.usedAt != usedAt.UnixMilli() {
 		t.Fatalf("unexpected used_at unix: %d", fake.queueLast.usedAt)
 	}

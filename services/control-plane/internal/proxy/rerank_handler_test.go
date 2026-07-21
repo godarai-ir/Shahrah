@@ -132,12 +132,15 @@ func TestRerankHandlerSuccessRoutesToCohereV2Rerank(t *testing.T) {
 	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
 
 	events := q.DequeueBatch(20)
+
 	var sawProvider bool
+
 	for _, ev := range events {
 		if ev.Name == "provider.call" {
 			sawProvider = true
 		}
 	}
+
 	assert.True(t, sawProvider)
 }
 

@@ -1583,6 +1583,7 @@ func TestChatCompletionHandler_RoundTripsOpenAICompatibleTools(t *testing.T) {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	bodyText := string(body)
 	assert.Contains(t, bodyText, `"tool_calls"`)
 	assert.Contains(t, bodyText, `"finish_reason":"tool_calls"`)
@@ -1752,6 +1753,7 @@ func TestChatCompletionHandler_RoundTripsOpenAICompatibleExtendedThinking(t *tes
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+
 	bodyText := string(body)
 	assert.Contains(t, bodyText, `"reasoning_content":"private reasoning"`)
 	assert.Contains(t, bodyText, `"thinking_blocks"`)

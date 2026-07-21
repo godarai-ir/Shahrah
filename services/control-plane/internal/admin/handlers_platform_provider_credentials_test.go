@@ -16,6 +16,7 @@ func TestRequirePlatformProviderCredentialsRejectsTypedNilService(t *testing.T) 
 	if service != nil {
 		t.Fatalf("service = %v, want nil", service)
 	}
+
 	if fiberErr, ok := err.(*fiber.Error); !ok || fiberErr.Code != fiber.StatusServiceUnavailable {
 		t.Fatalf("error = %v, want fiber 503", err)
 	}

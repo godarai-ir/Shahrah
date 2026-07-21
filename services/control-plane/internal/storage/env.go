@@ -31,6 +31,7 @@ func boolEnvOrDefault(key string, fallback bool) bool {
 	if err != nil {
 		return fallback
 	}
+
 	return value
 }
 
@@ -44,6 +45,7 @@ func intEnvOrDefault(key string, fallback int) int {
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return value
 }
 
@@ -52,6 +54,7 @@ func int32EnvOrDefault(key string, fallback int32) int32 {
 	if value <= 0 {
 		return fallback
 	}
+
 	return int32(value)
 }
 
@@ -60,5 +63,6 @@ func stringEnvOrDefault(key string, fallback string) string {
 	if raw == "" {
 		return fallback
 	}
+
 	return raw
 }

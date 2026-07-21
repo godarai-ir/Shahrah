@@ -40,9 +40,11 @@ type AsyncRequestLogWriter struct {
 
 func NewAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger) *AsyncRequestLogWriter {
 	cfg = normalizeAsyncRequestLogConfig(cfg)
+
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
 	w := &AsyncRequestLogWriter{
 		underlying: underlying,
 		cfg:        cfg,
@@ -52,10 +54,12 @@ func NewAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfi
 	if batch, ok := underlying.(RequestLogBatchWriter); ok {
 		w.batch = batch
 	}
+
 	for i := 0; i < cfg.Workers; i++ {
 		w.wg.Add(1)
 		go w.worker()
 	}
+
 	return w
 }
 
@@ -63,15 +67,19 @@ func normalizeAsyncRequestLogConfig(cfg AsyncRequestLogConfig) AsyncRequestLogCo
 	if cfg.QueueSize <= 0 {
 		cfg.QueueSize = 10000
 	}
+
 	if cfg.Workers <= 0 {
 		cfg.Workers = 1
 	}
+
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 500
 	}
+
 	if cfg.FlushInterval <= 0 {
 		cfg.FlushInterval = 500 * time.Millisecond
 	}
+
 	return cfg
 }
 
@@ -79,16 +87,19 @@ func (w *AsyncRequestLogWriter) LogRequest(ctx context.Context, entry platform.R
 	if w == nil || w.underlying == nil {
 		return nil
 	}
+
 	if w.closed.Load() {
 		if w.cfg.DropOnFull {
 			return nil
 		}
+
 		return ErrRequestLogQueueFull
 	}
 
 	if w.cfg.EnqueueTimeout > 0 {
 		timer := time.NewTimer(w.cfg.EnqueueTimeout)
 		defer timer.Stop()
+
 		select {
 		case w.queue <- entry:
 			return nil
@@ -111,9 +122,11 @@ func (w *AsyncRequestLogWriter) Stop(ctx context.Context) error {
 	if w == nil || !w.closed.CompareAndSwap(false, true) {
 		return nil
 	}
+
 	close(w.queue)
 
 	done := make(chan struct{})
+
 	go func() {
 		w.wg.Wait()
 		close(done)
@@ -129,9 +142,11 @@ func (w *AsyncRequestLogWriter) Stop(ctx context.Context) error {
 
 func (w *AsyncRequestLogWriter) handleQueueFull() error {
 	w.logger.Warn("product request log queue full; dropping log")
+
 	if w.cfg.DropOnFull {
 		return nil
 	}
+
 	return ErrRequestLogQueueFull
 }
 
@@ -146,6 +161,7 @@ func (w *AsyncRequestLogWriter) worker() {
 		if len(batch) == 0 {
 			return
 		}
+
 		w.flushBatch(context.Background(), batch)
 		batch = make([]platform.RequestLogEntry, 0, w.cfg.BatchSize)
 	}
@@ -157,6 +173,7 @@ func (w *AsyncRequestLogWriter) worker() {
 				flush()
 				return
 			}
+
 			batch = append(batch, entry)
 			if len(batch) >= w.cfg.BatchSize {
 				flush()
@@ -183,10 +200,12 @@ func (w *AsyncRequestLogWriter) flushBatch(ctx context.Context, entries []platfo
 			}
 		}
 	}
+
 	if err != nil {
 		if errors.Is(err, storage.ErrLogStoreUnavailable) {
 			return
 		}
+
 		w.logger.Warn("failed to flush product request log batch", zap.Error(err), zap.Int("batch_size", len(entries)))
 	}
 }

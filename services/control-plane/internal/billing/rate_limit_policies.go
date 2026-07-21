@@ -38,8 +38,9 @@ func (s *Service) checkRateLimitPolicies(ctx context.Context, auth *platform.Aut
 
 	profile, err := s.runtimeProfiles.Get(ctx, auth.TenantID)
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("load runtime profile for rate limits: %w", err)
 	}
+
 	if profile == nil || len(profile.RateLimitRules) == 0 {
 		return nil, nil
 	}
@@ -49,16 +50,20 @@ func (s *Service) checkRateLimitPolicies(ctx context.Context, auth *platform.Aut
 		if rules[i].Priority == rules[j].Priority {
 			return rateLimitRuleID(rules[i]) < rateLimitRuleID(rules[j])
 		}
+
 		return rules[i].Priority < rules[j].Priority
 	})
 
 	now := time.Now().UTC()
+
 	var result *cache.RateLimitResult
+
 	for _, rule := range rules {
 		policy, ok, err := s.matchRateLimitRule(rule, auth, breakdown, now)
 		if err != nil {
 			return nil, err
 		}
+
 		if !ok {
 			continue
 		}
@@ -68,12 +73,14 @@ func (s *Service) checkRateLimitPolicies(ctx context.Context, auth *platform.Aut
 			if s.rateLimitFailOpen || policy.softLimit {
 				continue
 			}
+
 			return checked, ErrRateLimitExceeded
 		}
 
 		if checked != nil && !checked.Allowed && !policy.softLimit {
 			return checked, ErrRateLimitExceeded
 		}
+
 		if checked != nil && !checked.Allowed && policy.softLimit {
 			checked = &cache.RateLimitResult{
 				Allowed:    true,
@@ -97,9 +104,11 @@ func (s *Service) matchRateLimitRule(rule platform.RateLimitRule, auth *platform
 	if !rule.Enabled {
 		return rateLimitPolicy{}, false, nil
 	}
+
 	if rule.EffectiveFrom != nil && now.Before(rule.EffectiveFrom.UTC()) {
 		return rateLimitPolicy{}, false, nil
 	}
+
 	if rule.ExpiresAt != nil && !now.Before(rule.ExpiresAt.UTC()) {
 		return rateLimitPolicy{}, false, nil
 	}
@@ -113,11 +122,14 @@ func (s *Service) matchRateLimitRule(rule platform.RateLimitRule, auth *platform
 	if err != nil {
 		return rateLimitPolicy{}, false, err
 	}
+
 	if policy.rpm <= 0 && policy.tpm <= 0 {
 		return rateLimitPolicy{}, false, nil
 	}
+
 	policy.scopeFields = rateLimitScopeFields(rule)
 	policy.conditionsKey = rateLimitConditionsKey(rule)
+
 	return policy, true, nil
 }
 
@@ -133,6 +145,7 @@ func parseRateLimitPolicy(rule platform.RateLimitRule) (rateLimitPolicy, error) 
 		if maxValue <= 0 {
 			return rateLimitPolicy{}, fmt.Errorf("rate-limit max must be positive")
 		}
+
 		switch strings.ToLower(strings.TrimSpace(asString(firstPresent(rule.Limit, "dimension")))) {
 		case "requests", "request", "rpm":
 			rpm = maxValue
@@ -147,10 +160,12 @@ func parseRateLimitPolicy(rule platform.RateLimitRule) (rateLimitPolicy, error) 
 	if err != nil {
 		return rateLimitPolicy{}, err
 	}
+
 	conflict := rule.ConflictBehavior
 	if conflict == "" {
 		conflict = platform.RateLimitConflictMostRestrictive
 	}
+
 	response := rule.ResponseBehavior
 	if response == "" {
 		response = platform.RateLimitResponseReturn429
@@ -176,6 +191,7 @@ func parseRateLimitWindow(limit map[string]interface{}) (time.Duration, error) {
 		if seconds <= 0 {
 			return 0, fmt.Errorf("rate-limit window_seconds must be positive")
 		}
+
 		return time.Duration(seconds) * time.Second, nil
 	}
 
@@ -190,6 +206,7 @@ func parseRateLimitWindow(limit map[string]interface{}) (time.Duration, error) {
 		if seconds <= 0 {
 			return 0, fmt.Errorf("rate-limit window must be positive")
 		}
+
 		return time.Duration(seconds) * time.Second, nil
 	}
 
@@ -199,6 +216,7 @@ func parseRateLimitWindow(limit map[string]interface{}) (time.Duration, error) {
 	}
 
 	var unit time.Duration
+
 	switch strings.ToLower(strings.TrimSpace(asString(windowConfig["unit"]))) {
 	case "second", "seconds":
 		unit = time.Second
@@ -224,32 +242,40 @@ func (s *Service) applyRateLimitPolicy(ctx context.Context, auth *platform.AuthC
 		if s.rateLimitFailOpen {
 			return nil, nil
 		}
+
 		return nil, ErrRateLimitExceeded
 	}
 
 	scopeHash := rateLimitScopeHash(auth, breakdown, policy.scopeFields)
+
 	var result *cache.RateLimitResult
+
 	if policy.rpm > 0 {
 		checked, err := s.applyRateLimitCounter(ctx, auth.TenantID, policy, rateLimitKindRPM, scopeHash, 1)
 		if err != nil {
 			return checked, err
 		}
+
 		result = mostRestrictiveRateLimitResult(result, checked)
 		if checked != nil && !checked.Allowed && !policy.softLimit {
 			return checked, nil
 		}
 	}
+
 	if policy.tpm > 0 {
 		weight := int64(breakdown.TotalTokens)
 		if weight <= 0 {
 			weight = 1
 		}
+
 		checked, err := s.applyRateLimitCounter(ctx, auth.TenantID, policy, rateLimitKindTPM, scopeHash, weight)
 		if err != nil {
 			return checked, err
 		}
+
 		result = mostRestrictiveRateLimitResult(result, checked)
 	}
+
 	return result, nil
 }
 
@@ -259,7 +285,9 @@ func (s *Service) applyRateLimitCounter(ctx context.Context, tenantID string, po
 		result, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, key, policyLimit(policy, kind), weight, policy.window)
 		return decoratePolicyRateLimitResult(result, policy, kind), err
 	}
+
 	result, err := s.cache.CheckRateLimit(ctx, key, policyLimit(policy, kind), policy.window)
+
 	return decoratePolicyRateLimitResult(result, policy, kind), err
 }
 
@@ -267,11 +295,13 @@ func decoratePolicyRateLimitResult(result *cache.RateLimitResult, policy rateLim
 	if result == nil {
 		return nil
 	}
+
 	out := *result
 	out.RetryAfter = policy.retryAfter && !policy.softLimit && !out.Allowed
 	out.RuleID = policy.ruleID
 	out.Dimension = kind
 	out.Algorithm = policy.algorithm
+
 	return &out
 }
 
@@ -279,6 +309,7 @@ func policyLimit(policy rateLimitPolicy, kind string) int64 {
 	if kind == rateLimitKindTPM {
 		return policy.tpm
 	}
+
 	return policy.rpm
 }
 
@@ -295,6 +326,7 @@ func rateLimitScopeFields(rule platform.RateLimitRule) []string {
 		if err == nil && len(values) > 0 {
 			return normalizeRateLimitScopeFields(values)
 		}
+
 		value := strings.TrimSpace(asString(rawScope))
 		if value != "" {
 			return normalizeRateLimitScopeFields([]string{value})
@@ -302,19 +334,23 @@ func rateLimitScopeFields(rule platform.RateLimitRule) []string {
 	}
 
 	fields := []string{"tenant_id"}
+
 	for key := range rule.Conditions {
 		key = strings.TrimSpace(key)
 		if key == "" || key == "conditions" || key == "combinator" {
 			continue
 		}
+
 		fields = append(fields, key)
 	}
+
 	if rawConditions, ok := rule.Conditions["conditions"].([]interface{}); ok {
 		for _, raw := range rawConditions {
 			condition, ok := raw.(map[string]interface{})
 			if !ok {
 				continue
 			}
+
 			switch strings.TrimSpace(asString(condition["field"])) {
 			case "model":
 				fields = append(fields, "model")
@@ -337,20 +373,24 @@ func rateLimitScopeFields(rule platform.RateLimitRule) []string {
 			}
 		}
 	}
+
 	return normalizeRateLimitScopeFields(fields)
 }
 
 func normalizeRateLimitScopeFields(fields []string) []string {
 	seen := map[string]bool{}
+
 	out := make([]string, 0, len(fields)+1)
 	for _, field := range append([]string{"tenant_id"}, fields...) {
 		field = strings.TrimSpace(field)
 		if field == "" || seen[field] {
 			continue
 		}
+
 		seen[field] = true
 		out = append(out, field)
 	}
+
 	return out
 }
 
@@ -360,6 +400,7 @@ func rateLimitScopeHash(auth *platform.AuthContext, breakdown platform.UsageCost
 		value, _ := budgetContextValue(field, auth, breakdown)
 		parts = append(parts, field+"="+strings.TrimSpace(value))
 	}
+
 	return shortHash(strings.Join(parts, "|"))
 }
 
@@ -368,7 +409,9 @@ func rateLimitConditionsKey(rule platform.RateLimitRule) string {
 	for key := range rule.Conditions {
 		keys = append(keys, key)
 	}
+
 	sort.Strings(keys)
+
 	return strings.Join(keys, ",")
 }
 
@@ -376,6 +419,7 @@ func rateLimitRuleID(rule platform.RateLimitRule) string {
 	if strings.TrimSpace(rule.RuleID) != "" {
 		return strings.TrimSpace(rule.RuleID)
 	}
+
 	return strings.TrimSpace(rule.ID)
 }
 
@@ -393,10 +437,12 @@ func firstPresent(values map[string]interface{}, keys ...string) interface{} {
 		if values == nil {
 			return nil
 		}
+
 		if value, ok := values[key]; ok {
 			return value
 		}
 	}
+
 	return nil
 }
 
@@ -404,10 +450,12 @@ func int64FromAny(value interface{}, fallback int64) int64 {
 	if value == nil {
 		return fallback
 	}
+
 	parsed, err := parseFloat(asString(value))
 	if err != nil {
 		return fallback
 	}
+
 	return int64(parsed)
 }
 
@@ -415,13 +463,17 @@ func mostRestrictiveRateLimitResult(left, right *cache.RateLimitResult) *cache.R
 	if left == nil {
 		return right
 	}
+
 	if right == nil {
 		return left
 	}
+
 	leftRemaining := left.Limit - left.Current
+
 	rightRemaining := right.Limit - right.Current
 	if rightRemaining < leftRemaining {
 		return right
 	}
+
 	return left
 }

@@ -28,5 +28,6 @@ func budgetCheckErrorResponse(err error) (int, string, string) {
 	if errors.Is(err, billing.ErrBudgetExceeded) || errors.Is(err, storage.ErrInsufficientWalletBalance) {
 		return fiber.StatusPaymentRequired, err.Error(), "budget_exceeded"
 	}
+
 	return fiber.StatusServiceUnavailable, "Billing budget check unavailable", "billing_unavailable"
 }

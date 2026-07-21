@@ -78,10 +78,12 @@ type Router struct {
 
 func (r *Router) SetPlatformCredentialResolver(manager *platformcredentials.Manager, mode, environment string) {
 	r.platformCredentials = manager
+
 	r.platformCredentialMode = strings.TrimSpace(mode)
 	if r.platformCredentialMode == "" {
 		r.platformCredentialMode = platform.ProviderCredentialModeEnv
 	}
+
 	r.platformCredentialEnvironment = strings.TrimSpace(environment)
 	if r.platformCredentialEnvironment == "" {
 		r.platformCredentialEnvironment = platform.ProviderCredentialEnvironmentProd
@@ -250,34 +252,42 @@ func (r *Router) applyCredentials(ctx context.Context, tenantID, modelName strin
 	if selected == nil || selected.CredentialSource == platform.CredentialSourceUserBYOK || r.platformCredentialMode == "" || r.platformCredentialMode == platform.ProviderCredentialModeEnv {
 		return selected, nil
 	}
+
 	if r.platformCredentials != nil {
 		resolved, err := r.platformCredentials.Resolve(selected.Provider, r.platformCredentialEnvironment)
 		if err == nil {
 			cloned := *selected
 			cloned.Params = selected.Params
+
 			cloned.Params.APIKey = resolved.APIKey
 			if resolved.BaseURL != "" {
 				cloned.Params.APIBase = resolved.BaseURL
 			}
+
 			if resolved.APIVersion != "" {
 				cloned.Params.APIVersion = resolved.APIVersion
 			}
+
 			cloned.Params.CustomHeaders = providerConnectionHeaders(resolved)
 			cloned.CredentialSource = platform.CredentialSourcePlatformManaged
 			cloned.BillingMode = platform.BillingModeWalletBilled
 			cloned.ConnectionID = resolved.ConnectionID
 			cloned.CredentialVersionID = resolved.CredentialVersionID
 			cloned.ProviderAuth = &platform.ResolvedProviderAuth{Mode: resolved.AuthMode, APIKey: resolved.APIKey}
+
 			return &cloned, nil
 		}
 	}
+
 	if r.platformCredentialMode == platform.ProviderCredentialModeBreakGlass && strings.TrimSpace(selected.Params.APIKey) != "" {
 		cloned := *selected
 		cloned.CredentialSource = platform.CredentialSourceEnvBreakGlass
 		cloned.BillingMode = platform.BillingModeWalletBilled
 		cloned.ProviderAuth = &platform.ResolvedProviderAuth{Mode: "api_key", APIKey: cloned.Params.APIKey}
+
 		return &cloned, nil
 	}
+
 	return nil, ErrNoPlatformCredential
 }
 
@@ -286,21 +296,27 @@ func providerConnectionHeaders(resolved platformcredentials.ResolvedCredential) 
 	if resolved.Organization != "" {
 		headers["OpenAI-Organization"] = resolved.Organization
 	}
+
 	if resolved.Project != "" {
 		headers["OpenAI-Project"] = resolved.Project
 	}
+
 	if resolved.HTTPReferer != "" {
 		headers["HTTP-Referer"] = resolved.HTTPReferer
 	}
+
 	if resolved.AppTitle != "" {
 		headers["X-OpenRouter-Title"] = resolved.AppTitle
 	}
+
 	if resolved.ClientName != "" {
 		headers["X-Client-Name"] = resolved.ClientName
 	}
+
 	if len(headers) == 0 {
 		return nil
 	}
+
 	return headers
 }
 
@@ -333,6 +349,7 @@ func (r *Router) listCachedDeployments(ctx context.Context, tenantID string) ([]
 		if r.canCacheDeploymentSnapshot(deployments) {
 			storeDeployments(ctx, r.cache, key, sanitizeDeploymentsForCache(deployments), r.dynamicTTL)
 		}
+
 		return deployments, nil
 	})
 	if err != nil {
@@ -383,6 +400,7 @@ func sanitizeDeploymentsForCache(in []platform.Deployment) []platform.Deployment
 	for i := range out {
 		out[i].APIKey = ""
 	}
+
 	return out
 }
 
@@ -411,6 +429,7 @@ func cloneDeployments(in []platform.Deployment) []platform.Deployment {
 
 	out := make([]platform.Deployment, len(in))
 	copy(out, in)
+
 	for i := range out {
 		if in[i].ModelInfo != nil {
 			out[i].ModelInfo = make(map[string]interface{}, len(in[i].ModelInfo))
@@ -419,6 +438,7 @@ func cloneDeployments(in []platform.Deployment) []platform.Deployment {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -596,6 +616,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 			credentialSource = platform.CredentialSourceUserBYOK
 		}
 	}
+
 	providerAuth := dep.ProviderAuth
 	if providerAuth == nil && hasProviderAccountRuntimeCredential {
 		providerAuth = &platform.ResolvedProviderAuth{Mode: "api_key", APIKey: params.APIKey}
@@ -673,6 +694,7 @@ func (r *Router) hasProviderAccountCredentialResolver() bool {
 	}
 
 	_, ok := r.store.(byokCredentialResolver)
+
 	return ok
 }
 

@@ -467,9 +467,11 @@ func TestIntegration_WeightedVirtualModelFallsBackInOrderAfterWeightedPrimary(t 
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
 
 		w.Header().Set("Content-Type", "application/json")
+
 		if req.Model == "gpt-4o-primary" {
 			w.WriteHeader(http.StatusTooManyRequests)
 			_ = json.NewEncoder(w).Encode(map[string]any{"error": "rate limited"})
+
 			return
 		}
 
@@ -508,8 +510,20 @@ func TestIntegration_WeightedVirtualModelFallsBackInOrderAfterWeightedPrimary(t 
 		RoutingStrategy: "weighted",
 		Enabled:         true,
 		Targets: []platform.VirtualModelTarget{
-			{Order: 1, Weight: 100, Provider: "openai", Model: "gpt-4o-primary", Policy: platform.VirtualModelPolicy{Retry: platform.VirtualModelRetryPolicy{Attempts: 1, DelayMS: 0, StatusCodes: []int{429, 500, 502, 503}}, Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429, 500, 502, 503, 504}, Candidate: true}}},
-			{Order: 2, Weight: 0, Provider: "openai", Model: "gpt-4o-backup", Policy: platform.VirtualModelPolicy{Retry: platform.VirtualModelRetryPolicy{Attempts: 1, DelayMS: 0, StatusCodes: []int{429, 500, 502, 503}}, Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429, 500, 502, 503, 504}, Candidate: true}}},
+			{
+				Order: 1, Weight: 100, Provider: "openai", Model: "gpt-4o-primary",
+				Policy: platform.VirtualModelPolicy{
+					Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, DelayMS: 0, StatusCodes: []int{429, 500, 502, 503}},
+					Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429, 500, 502, 503, 504}, Candidate: true},
+				},
+			},
+			{
+				Order: 2, Weight: 0, Provider: "openai", Model: "gpt-4o-backup",
+				Policy: platform.VirtualModelPolicy{
+					Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, DelayMS: 0, StatusCodes: []int{429, 500, 502, 503}},
+					Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429, 500, 502, 503, 504}, Candidate: true},
+				},
+			},
 		},
 	})
 
@@ -1367,6 +1381,7 @@ func (s *integrationWalletStore) DebitWallet(ctx context.Context, tenantID strin
 	if s.wallet.BalanceIRR < amount {
 		return nil, storage.ErrInsufficientWalletBalance
 	}
+
 	s.debits = append(s.debits, breakdown)
 	s.wallet.BalanceIRR -= amount
 	usd := breakdown.TotalCostUSD
@@ -1468,6 +1483,7 @@ func (s *integrationWalletStore) ListWalletTransactions(ctx context.Context, ten
 
 func (s *integrationWalletStore) CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actorID string) (*platform.BankTransferRequest, error) {
 	now := time.Now().UTC()
+
 	return &platform.BankTransferRequest{
 		ID:                "bank-transfer-1",
 		PublicID:          "bank-transfer-public-1",

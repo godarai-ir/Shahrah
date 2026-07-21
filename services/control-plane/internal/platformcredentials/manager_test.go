@@ -18,9 +18,11 @@ type fakeLoader struct {
 
 func (f *fakeLoader) LoadActivePlatformCredentials(context.Context) ([]EncryptedCredential, error) {
 	f.calls.Add(1)
+
 	if f.gate != nil {
 		<-f.gate
 	}
+
 	return append([]EncryptedCredential(nil), f.records...), nil
 }
 
@@ -31,10 +33,12 @@ type fakeDecrypter struct {
 
 func (f *fakeDecrypter) Decrypt(EncryptedCredential) (map[string]string, error) {
 	f.calls.Add(1)
+
 	copyOfSecrets := make(map[string]string, len(f.secrets))
 	for key, value := range f.secrets {
 		copyOfSecrets[key] = value
 	}
+
 	return copyOfSecrets, nil
 }
 
@@ -54,16 +58,20 @@ func TestManagerWarmResolvePerformsNoLoadsOrDecrypts(t *testing.T) {
 	decrypter.calls.Store(0)
 
 	const resolves = 10000
+
 	var group sync.WaitGroup
 	group.Add(resolves)
+
 	for range resolves {
 		go func() {
 			defer group.Done()
+
 			resolved, err := manager.Resolve("openai", "production")
 			require.NoError(t, err)
 			require.Equal(t, "sk-runtime", resolved.APIKey)
 		}()
 	}
+
 	group.Wait()
 	require.Zero(t, loader.calls.Load())
 	require.Zero(t, decrypter.calls.Load())
@@ -76,19 +84,24 @@ func TestManagerCollapsesConcurrentReloadsAndSwapsAtomically(t *testing.T) {
 	manager := NewManager(loader, decrypter, nil)
 
 	const reloads = 50
+
 	var group sync.WaitGroup
 	group.Add(reloads)
+
 	for range reloads {
 		go func() {
 			defer group.Done()
+
 			require.NoError(t, manager.Reload(context.Background()))
 		}()
 	}
+
 	time.Sleep(20 * time.Millisecond)
 	close(gate)
 	group.Wait()
 	require.Equal(t, int64(1), loader.calls.Load())
 	require.Equal(t, int64(1), decrypter.calls.Load())
+
 	resolved, err := manager.Resolve("openai", "production")
 	require.NoError(t, err)
 	require.Equal(t, int64(2), resolved.CredentialVersion)
@@ -102,6 +115,7 @@ func TestManagerReloadRemovesDisabledCredentialImmediately(t *testing.T) {
 	require.NoError(t, manager.Reload(context.Background()))
 
 	loader.records = nil
+
 	require.NoError(t, manager.Reload(context.Background()))
 	_, err := manager.Resolve("openai", "production")
 	require.ErrorIs(t, err, ErrUnavailable)
@@ -139,6 +153,7 @@ func TestManagerRejectsOversizedSnapshotWithoutReplacingWarmState(t *testing.T) 
 	require.NoError(t, manager.Reload(context.Background()))
 
 	loader.records = make([]EncryptedCredential, maxSnapshotEntries+1)
+
 	require.ErrorIs(t, manager.Reload(context.Background()), ErrSnapshotTooLarge)
 
 	resolved, err := manager.Resolve("openai", "production")
@@ -152,6 +167,7 @@ func BenchmarkPlatformCredentialResolve(b *testing.B) {
 	require.NoError(b, manager.Reload(context.Background()))
 	b.ReportAllocs()
 	b.ResetTimer()
+
 	for range b.N {
 		_, err := manager.Resolve("openai", "production")
 		if err != nil {

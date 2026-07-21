@@ -63,6 +63,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	s.invalidateVirtualModelsCache(ctx, tenantID)
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_model.created")
 	s.warmVirtualModelsCacheAsync(tenantID)
@@ -86,37 +87,15 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 
 func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
 	cacheKey := virtualModelsCacheKey(tenantID)
-	if models, state := s.getCachedVirtualModels(cacheKey); state == hotPathCacheFresh {
-		return models, nil
-	} else if state == hotPathCacheStale {
-		s.refreshVirtualModelsCacheAsync(tenantID, cacheKey)
-		return models, nil
-	}
 
-	value, err, _ := s.hotPathLoadGroup.Do(cacheKey, func() (interface{}, error) {
-		if models, state := s.getCachedVirtualModels(cacheKey); state == hotPathCacheFresh {
-			return models, nil
-		} else if state == hotPathCacheStale {
-			s.refreshVirtualModelsCacheAsync(tenantID, cacheKey)
-			return models, nil
-		}
-
-		models, err := s.listVirtualModelsFromDB(ctx, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		s.cacheVirtualModels(cacheKey, models)
-		return cloneVirtualModels(models), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	models, ok := value.([]platform.VirtualModel)
-	if !ok {
-		return nil, fmt.Errorf("unexpected virtual model cache value %T", value)
-	}
-
-	return cloneVirtualModels(models), nil
+	return loadHotPathList(
+		&s.hotPathLoadGroup, cacheKey, "virtual model",
+		func() ([]platform.VirtualModel, hotPathCacheState) { return s.getCachedVirtualModels(cacheKey) },
+		func() { s.refreshVirtualModelsCacheAsync(tenantID, cacheKey) },
+		func() ([]platform.VirtualModel, error) { return s.listVirtualModelsFromDB(ctx, tenantID) },
+		func(items []platform.VirtualModel) { s.cacheVirtualModels(cacheKey, items) },
+		cloneVirtualModels,
+	)
 }
 
 func (s *Store) listVirtualModelsFromDB(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
@@ -300,6 +279,7 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+
 	s.invalidateVirtualModelsCache(ctx, tenantID)
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_model.updated")
 	s.warmVirtualModelsCacheAsync(tenantID)
@@ -336,9 +316,11 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
+
 	s.invalidateVirtualModelsCache(ctx, tenantID)
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_model.deleted")
 	s.warmVirtualModelsCacheAsync(tenantID)
+
 	return nil
 }
 
@@ -470,10 +452,12 @@ func insertVirtualModelTargets(ctx context.Context, tx pgx.Tx, vmID string, targ
 		targetProvider := strings.ToLower(strings.TrimSpace(target.Provider))
 
 		targetModel := normalizeModelFQN(target.Model)
+
 		weight := target.Weight
 		if weight < 0 {
 			weight = 0
 		}
+
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO virtual_model_targets (
 				target_id, virtual_model_id, target_order, weight, provider, model, timeout_sec,

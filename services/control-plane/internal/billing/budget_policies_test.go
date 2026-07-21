@@ -16,6 +16,7 @@ func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
+
 	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
 	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
@@ -30,13 +31,16 @@ func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {
 	}})
 
 	auth := &platform.AuthContext{TenantID: "tenant-1", TeamID: "team-a", TokenHash: "hash-1"}
+
 	first, err := service.ReserveBudget(context.Background(), auth, platform.UsageCostBreakdown{Model: "gpt-test", TotalCostIRR: 40}, "req-1")
 	if err != nil {
 		t.Fatalf("first ReserveBudget returned error: %v", err)
 	}
+
 	if len(first.Targets) != 2 {
 		t.Fatalf("expected tenant credit plus one policy target, got %+v", first.Targets)
 	}
+
 	if first.Targets[1].RuleID != "team-monthly" || first.Targets[1].Scope != string(platform.BudgetAppliesPerTeam) || first.Targets[1].ScopeValue != "team-a" {
 		t.Fatalf("unexpected policy target: %+v", first.Targets[1])
 	}
@@ -52,6 +56,7 @@ func TestReserveBudgetIgnoresNonMatchingPolicyConditions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
+
 	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
 	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
@@ -74,6 +79,7 @@ func TestReserveBudgetIgnoresNonMatchingPolicyConditions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReserveBudget returned error: %v", err)
 	}
+
 	if len(reservation.Targets) != 1 {
 		t.Fatalf("expected only tenant credit target for nonmatching policy, got %+v", reservation.Targets)
 	}
@@ -84,6 +90,7 @@ func TestReserveBudgetMatchesMetadataAndRequestTypeConditions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
+
 	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
 	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
@@ -109,10 +116,12 @@ func TestReserveBudgetMatchesMetadataAndRequestTypeConditions(t *testing.T) {
 		TotalCostIRR: 20,
 		Metadata:     map[string]interface{}{"project_id": "alpha"},
 	}
+
 	reservation, err := service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, breakdown, "req-1")
 	if err != nil {
 		t.Fatalf("ReserveBudget returned error: %v", err)
 	}
+
 	if len(reservation.Targets) != 2 || reservation.Targets[1].Scope != "metadata.project_id" || reservation.Targets[1].ScopeValue != "alpha" {
 		t.Fatalf("unexpected metadata policy target: %+v", reservation.Targets)
 	}
@@ -128,6 +137,7 @@ func TestReserveBudgetRollsBackAlreadyReservedPolicyTargetsOnFailure(t *testing.
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
+
 	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
 	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
@@ -159,6 +169,7 @@ func TestReserveBudgetRollsBackAlreadyReservedPolicyTargetsOnFailure(t *testing.
 	}})
 
 	auth := &platform.AuthContext{TenantID: "tenant-1"}
+
 	_, err = service.ReserveBudget(context.Background(), auth, platform.UsageCostBreakdown{Model: "gpt-expensive", TotalCostIRR: 20}, "req-fail")
 	if !errors.Is(err, ErrBudgetExceeded) {
 		t.Fatalf("expected ErrBudgetExceeded for second policy, got %v", err)
@@ -168,6 +179,7 @@ func TestReserveBudgetRollsBackAlreadyReservedPolicyTargetsOnFailure(t *testing.
 	if err != nil {
 		t.Fatalf("expected rollback to free first policy reservation, got %v", err)
 	}
+
 	if len(reservation.Targets) != 2 {
 		t.Fatalf("expected tenant credit plus monthly model policy, got %+v", reservation.Targets)
 	}

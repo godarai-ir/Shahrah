@@ -35,21 +35,26 @@ func recordRateLimitRejection(
 	requestID := tracing.TraceIDFromContext(c)
 	durationMS := int(time.Since(startedAt).Milliseconds())
 	metadata := map[string]interface{}{"denial_source": "gateway_rate_limit"}
+
 	if result != nil {
 		remaining := result.Limit - result.Current
 		if remaining < 0 {
 			remaining = 0
 		}
+
 		metadata["limit"] = result.Limit
 		metadata["current"] = result.Current
 		metadata["remaining"] = remaining
+
 		metadata["reset_at"] = result.ResetAt.UTC().Format(time.RFC3339Nano)
 		if result.RuleID != "" {
 			metadata["rule_id"] = result.RuleID
 		}
+
 		if result.Dimension != "" {
 			metadata["dimension"] = result.Dimension
 		}
+
 		if result.Algorithm != "" {
 			metadata["algorithm"] = result.Algorithm
 		}
@@ -60,6 +65,7 @@ func recordRateLimitRejection(
 	entry.TraceID = requestID
 	entry.ErrorType = "rate_limit_error"
 	entry.Metadata = metadata
+
 	entry.ResponseBody = map[string]interface{}{"error": map[string]interface{}{"type": "rate_limit_error", "message": err.Error()}}
 	if logs != nil {
 		logRequestBestEffort(logger, logs, c.Context(), entry)

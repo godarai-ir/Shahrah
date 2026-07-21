@@ -1,6 +1,7 @@
 package tracing
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ func TestMiddleware_UsesResolvedTenantContextForRootSpan(t *testing.T) {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	req := httptest.NewRequest("GET", "/admin", nil)
+	req := httptest.NewRequest("GET", "/admin", http.NoBody)
 	req.Header.Set(apiheaders.HeaderTenant, "tenant1")
 
 	resp, err := app.Test(req)
@@ -69,7 +70,7 @@ func TestRecordStepSpan_UsesResolvedTenantContext(t *testing.T) {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	req := httptest.NewRequest("GET", "/admin", nil)
+	req := httptest.NewRequest("GET", "/admin", http.NoBody)
 	req.Header.Set(apiheaders.HeaderTenant, "tenant1")
 
 	resp, err := app.Test(req)

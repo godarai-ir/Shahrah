@@ -20,30 +20,13 @@ type usageCounterKeyParts struct {
 
 // StartUsageCounterFlusher periodically persists dirty Redis usage counters to PostgreSQL.
 func (s *Store) StartUsageCounterFlusher(ctx context.Context) {
-	if !s.usageCountersEnabled || s.usageCounterCache == nil || s.usageCounterFlushInterval <= 0 {
-		return
-	}
-
-	go func() {
-		ticker := time.NewTicker(s.usageCounterFlushInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				flushCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				if err := s.FlushUsageCounters(flushCtx); err != nil && s.logger != nil {
-					s.logger.Warn("usage counter shutdown flush failed", zap.Error(err))
-				}
-				cancel()
-				return
-			case <-ticker.C:
-				if err := s.FlushUsageCounters(ctx); err != nil && s.logger != nil {
-					s.logger.Warn("usage counter flush failed", zap.Error(err))
-				}
-			}
-		}
-	}()
+	s.startPeriodicFlusher(
+		ctx,
+		s.usageCountersEnabled && s.usageCounterCache != nil,
+		s.usageCounterFlushInterval,
+		"usage counter",
+		s.FlushUsageCounters,
+	)
 }
 
 // FlushUsageCounters persists a bounded batch of Redis usage counters to PostgreSQL.
@@ -56,6 +39,7 @@ func (s *Store) FlushUsageCounters(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	if len(snapshots) == 0 {
 		return nil
 	}
@@ -68,8 +52,10 @@ func (s *Store) FlushUsageCounters(ctx context.Context) error {
 			if s.logger != nil {
 				s.logger.Warn("dropping malformed usage counter key", zap.String("key", snapshot.Key), zap.Error(parseErr))
 			}
+
 			continue
 		}
+
 		if snapshot.Used <= 0 {
 			acked = append(acked, snapshot.Key)
 			continue
@@ -78,10 +64,12 @@ func (s *Store) FlushUsageCounters(ctx context.Context) error {
 		if err := s.upsertUsageCounterSnapshot(ctx, parts, snapshot.Used); err != nil {
 			return err
 		}
+
 		acked = append(acked, snapshot.Key)
 	}
 
 	s.usageCounterCache.AckDirtyUsageCounters(ctx, s.usageCounterDirtySetKey(), acked)
+
 	return nil
 }
 
@@ -92,6 +80,7 @@ func (s *Store) upsertUsageCounterSnapshot(ctx context.Context, parts usageCount
 		ON CONFLICT (tenant_id, feature_key, window_start)
 		DO UPDATE SET used = GREATEST(tenant_usage_counters.used, EXCLUDED.used), updated_at = NOW()
 	`, parts.TenantID, parts.FeatureKey, parts.WindowStart, parts.WindowEnd, used)
+
 	return err
 }
 
@@ -110,10 +99,12 @@ func (s *Store) parseUsageCounterKey(key string) (usageCounterKeyParts, error) {
 	}
 
 	remainder := strings.TrimPrefix(key, prefix)
+
 	tenantID, remainder, ok := strings.Cut(remainder, ":feature:")
 	if !ok {
 		return usageCounterKeyParts{}, fmt.Errorf("missing feature segment")
 	}
+
 	featureKey, windowRaw, ok := strings.Cut(remainder, ":window:")
 	if !ok {
 		return usageCounterKeyParts{}, fmt.Errorf("missing window segment")
@@ -125,6 +116,7 @@ func (s *Store) parseUsageCounterKey(key string) (usageCounterKeyParts, error) {
 	}
 
 	windowStart := time.Unix(windowUnix, 0).UTC()
+
 	return usageCounterKeyParts{
 		TenantID:    tenantID,
 		FeatureKey:  featureKey,

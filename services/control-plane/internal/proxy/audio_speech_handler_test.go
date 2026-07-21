@@ -41,6 +41,7 @@ func newAudioSpeechTestApp(t *testing.T, modelName string, provider string, depl
 	if logs == nil {
 		logs = &testLogs{}
 	}
+
 	if allowedTypes == nil {
 		allowedTypes = []string{string(platform.ModelTypeTextToSpeech)}
 	}
@@ -240,7 +241,9 @@ func TestAudioSpeechHandlerProviderErrorPassthrough(t *testing.T) {
 func TestAudioSpeechHandlerStreamRelaysProviderEvents(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("event: speech.audio.delta\n")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"audio\":\"AAAA\"}\n\n"), IsDone: true}
+
 	close(stream.chunks)
 
 	tunnel := &captureTunnel{stream: stream}
@@ -289,6 +292,7 @@ func TestAudioSpeechHandlerTraceRedaction(t *testing.T) {
 	for _, ev := range events {
 		raw, err := json.Marshal(ev.Attributes)
 		require.NoError(t, err)
+
 		text := string(raw)
 		assert.NotContains(t, text, "secret speech input")
 		assert.NotContains(t, text, "secret speaking style")

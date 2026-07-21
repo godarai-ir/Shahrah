@@ -126,6 +126,7 @@ func TestEmbeddingsHandlerSingleStringInput(t *testing.T) {
 	embedding, ok := responseItem["embedding"].([]interface{})
 	require.True(t, ok)
 	assert.Len(t, embedding, 3)
+
 	usage, ok := logs.loggedEntries[0].ResponseBody["usage"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, float64(8), usage["prompt_tokens"])

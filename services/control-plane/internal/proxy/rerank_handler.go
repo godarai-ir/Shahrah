@@ -91,6 +91,7 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	originalBody := append([]byte(nil), c.Body()...)
+
 	req, err := parseRerankRequest(originalBody)
 	if err != nil {
 		if vErr, ok := err.(*rerankValidationError); ok {
@@ -101,6 +102,7 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	requestedModel := normalizeModelIdentifier(req.Model)
+
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "model is required", "invalid_request_error", "model", "invalid_model")
@@ -116,6 +118,7 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 
 		denyReason := denyReasonForModel(authInfo)
 		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+
 		const message = "Model access denied or unsupported for rerank"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/rerank", "rerank", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
@@ -150,14 +153,17 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
+
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
 		if err != nil {
 			return err
 		}
 	}
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -194,10 +200,12 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundReq := req
+
 	outboundModel := strings.TrimSpace(dep.Model)
 	if outboundModel == "" || outboundModel == "*" {
 		outboundModel = providerModelID(requestedModel)
 	}
+
 	outboundReq.Model = providerModelID(outboundModel)
 
 	payload, err := json.Marshal(outboundReq)
@@ -226,7 +234,6 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservationAttempted = true
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil {
 			return err
@@ -237,6 +244,7 @@ func (h *RerankHandler) Handle(c *fiber.Ctx) error {
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
+
 	return err
 }
 
@@ -263,7 +271,7 @@ func (h *RerankHandler) handleSync(c *fiber.Ctx, req contractsopenai.RerankReque
 	}
 
 	var response contractsopenai.RerankResponse
-	if err := json.Unmarshal(resp.Body, &response); err != nil {
+	if decodeErr := json.Unmarshal(resp.Body, &response); decodeErr != nil {
 		providerAttrs["error"] = "failed to decode provider response"
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(fiber.StatusBadGateway, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
@@ -378,6 +386,7 @@ func parseRerankRequest(body []byte) (contractsopenai.RerankRequest, error) {
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return req, fmt.Errorf("invalid request body")
 	}
+
 	if err := json.Unmarshal(body, &req); err != nil {
 		return req, fmt.Errorf("invalid request body")
 	}
@@ -398,31 +407,39 @@ func parseRerankRequest(body []byte) (contractsopenai.RerankRequest, error) {
 	if req.Model == "" {
 		return req, rerankFieldError("model is required", "model", "invalid_model")
 	}
+
 	if req.Query == "" {
 		return req, rerankFieldError("query is required", "query", "invalid_query")
 	}
+
 	if len(req.Documents) == 0 {
 		return req, rerankFieldError("documents must be a non-empty array of strings", "documents", "invalid_documents")
 	}
+
 	if len(req.Documents) > 1000 {
 		return req, rerankFieldError("documents must contain at most 1000 items", "documents", "invalid_documents")
 	}
+
 	for i, doc := range req.Documents {
 		if strings.TrimSpace(doc) == "" {
 			return req, rerankFieldError(fmt.Sprintf("documents[%d] must be a non-empty string", i), "documents", "invalid_documents")
 		}
 	}
+
 	if req.TopN != nil {
 		if *req.TopN < 1 {
 			return req, rerankFieldError("top_n must be greater than or equal to 1", "top_n", "invalid_top_n")
 		}
+
 		if *req.TopN > len(req.Documents) {
 			return req, rerankFieldError("top_n must be less than or equal to the number of documents", "top_n", "invalid_top_n")
 		}
 	}
+
 	if req.MaxTokensPerDoc != nil && *req.MaxTokensPerDoc < 1 {
 		return req, rerankFieldError("max_tokens_per_doc must be greater than or equal to 1", "max_tokens_per_doc", "invalid_max_tokens_per_doc")
 	}
+
 	if req.Priority != nil && (*req.Priority < 0 || *req.Priority > 999) {
 		return req, rerankFieldError("priority must be between 0 and 999", "priority", "invalid_priority")
 	}
@@ -438,6 +455,7 @@ func rerankEstimateInput(req contractsopenai.RerankRequest) []string {
 	out := make([]string, 0, len(req.Documents)+1)
 	out = append(out, req.Query)
 	out = append(out, req.Documents...)
+
 	return out
 }
 

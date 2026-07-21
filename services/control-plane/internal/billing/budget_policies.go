@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -31,23 +32,29 @@ type budgetReservationTarget struct {
 
 func (s *Service) budgetReservationTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
 	tenantTarget := s.tenantCreditTarget(auth.TenantID, reservationID, breakdown.TotalCostIRR, now)
-	targets := []budgetReservationTarget{tenantTarget}
 
 	policyTargets, err := s.budgetPolicyTargets(ctx, auth, breakdown, reservationID, now)
 	if err != nil {
 		return nil, err
 	}
+
+	targets := make([]budgetReservationTarget, 1, 1+len(policyTargets))
+	targets[0] = tenantTarget
 	targets = append(targets, policyTargets...)
+
 	return targets, nil
 }
 
 func (s *Service) tenantCreditTarget(tenantID string, reservationID string, estimatedIRR float64, now time.Time) budgetReservationTarget {
 	windowID, windowEnd := budgetWindowForTime(now)
+
 	ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
 	if ttl <= 0 {
 		ttl = s.budgetWindowTTLGrace
 	}
+
 	windowKey := budgetWindowKey(tenantID, windowID)
+
 	return budgetReservationTarget{
 		tenantID: strings.TrimSpace(tenantID),
 		BudgetReservationTarget: platform.BudgetReservationTarget{
@@ -75,6 +82,7 @@ func (s *Service) budgetPolicyTargets(ctx context.Context, auth *platform.AuthCo
 	if err != nil {
 		return nil, fmt.Errorf("%w: profile budget rules unavailable: %v", ErrBudgetUnavailable, err)
 	}
+
 	if profile == nil || len(profile.BudgetRules) == 0 {
 		return nil, nil
 	}
@@ -84,6 +92,7 @@ func (s *Service) budgetPolicyTargets(ctx context.Context, auth *platform.AuthCo
 		if rules[i].Priority == rules[j].Priority {
 			return rules[i].RuleID < rules[j].RuleID
 		}
+
 		return rules[i].Priority < rules[j].Priority
 	})
 
@@ -92,10 +101,12 @@ func (s *Service) budgetPolicyTargets(ctx context.Context, auth *platform.AuthCo
 		if !rule.Enabled || !rule.BlockOnBudgetExceed || rule.LimitTo <= 0 {
 			continue
 		}
+
 		matches, err := budgetRuleMatches(rule, auth, breakdown)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid budget rule %s: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
 		}
+
 		if !matches {
 			continue
 		}
@@ -104,10 +115,12 @@ func (s *Service) budgetPolicyTargets(ctx context.Context, auth *platform.AuthCo
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid budget rule %s scope: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
 		}
+
 		windowID, windowEnd, err := budgetPolicyWindowForTime(rule.Unit, now)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid budget rule %s unit: %v", ErrBudgetUnavailable, ruleIdentifier(rule), err)
 		}
+
 		ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
 		if ttl <= 0 {
 			ttl = s.budgetWindowTTLGrace
@@ -145,6 +158,7 @@ func (s *Service) reserveBudgetTarget(ctx context.Context, budgetCache budgetWin
 			return nil, seedErr
 		}
 	}
+
 	result, err := budgetCache.ReserveBudget(ctx, cache.BudgetReservationRequest{
 		WindowKey:      target.WindowKey,
 		ReservationKey: target.ReservationKey,
@@ -156,6 +170,7 @@ func (s *Service) reserveBudgetTarget(ctx context.Context, budgetCache budgetWin
 	if err != nil {
 		return nil, fmt.Errorf("%w: reserve failed: %v", ErrBudgetUnavailable, err)
 	}
+
 	if result != nil && result.State != "window_unavailable" {
 		return result, nil
 	}
@@ -163,6 +178,7 @@ func (s *Service) reserveBudgetTarget(ctx context.Context, budgetCache budgetWin
 	if seedErr := s.seedBudgetTarget(ctx, budgetCache, target); seedErr != nil {
 		return nil, seedErr
 	}
+
 	result, err = budgetCache.ReserveBudget(ctx, cache.BudgetReservationRequest{
 		WindowKey:      target.WindowKey,
 		ReservationKey: target.ReservationKey,
@@ -174,6 +190,7 @@ func (s *Service) reserveBudgetTarget(ctx context.Context, budgetCache budgetWin
 	if err != nil {
 		return nil, fmt.Errorf("%w: reserve failed: %v", ErrBudgetUnavailable, err)
 	}
+
 	return result, nil
 }
 
@@ -181,6 +198,7 @@ func (s *Service) seedBudgetTarget(ctx context.Context, budgetCache budgetWindow
 	if target.seedFromWallet {
 		return s.seedBudgetWindow(ctx, budgetCache, target.tenantID, target.WindowID, target.WindowKey, target.expiresAt, target.ttl)
 	}
+
 	result, err := budgetCache.SeedBudgetWindow(ctx, cache.BudgetWindowSeed{
 		WindowKey:    target.WindowKey,
 		AllowanceIRR: target.allowanceIRR,
@@ -191,20 +209,29 @@ func (s *Service) seedBudgetTarget(ctx context.Context, budgetCache budgetWindow
 	if err != nil {
 		return fmt.Errorf("%w: seed failed: %v", ErrBudgetUnavailable, err)
 	}
+
 	if result == nil || !result.Allowed {
 		return ErrBudgetUnavailable
 	}
+
 	return nil
 }
 
-func (s *Service) releaseBudgetTargetsBestEffort(ctx context.Context, budgetCache budgetWindowCache, targets []budgetReservationTarget, now time.Time) {
+func (s *Service) releaseBudgetTargetsBestEffort(ctx context.Context, budgetCache budgetWindowCache, targets []budgetReservationTarget, now time.Time) error {
+	var releaseErrors []error
+
 	for i := len(targets) - 1; i >= 0; i-- {
-		_, _ = budgetCache.ReleaseBudget(ctx, cache.BudgetReleaseRequest{
+		_, err := budgetCache.ReleaseBudget(ctx, cache.BudgetReleaseRequest{
 			WindowKey:      targets[i].WindowKey,
 			ReservationKey: targets[i].ReservationKey,
 			Now:            now,
 		})
+		if err != nil {
+			releaseErrors = append(releaseErrors, err)
+		}
 	}
+
+	return errors.Join(releaseErrors...)
 }
 
 func budgetRuleMatches(rule platform.BudgetLimitRule, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) (bool, error) {
@@ -217,28 +244,34 @@ func budgetRuleMatches(rule platform.BudgetLimitRule, auth *platform.AuthContext
 			if key == "conditions" || key == "combinator" {
 				continue
 			}
+
 			actual, known := budgetContextValue(key, auth, breakdown)
 			if !known {
 				return false, fmt.Errorf("unknown condition %q", key)
 			}
+
 			if !conditionValueMatches(actual, expected) {
 				return false, nil
 			}
 		}
+
 		conditions, ok := rawConditions.([]interface{})
 		if !ok {
 			return false, fmt.Errorf("conditions must be an array")
 		}
+
 		for _, raw := range conditions {
 			condition, ok := raw.(map[string]interface{})
 			if !ok {
 				return false, fmt.Errorf("condition must be an object")
 			}
+
 			matches, err := budgetStructuredConditionMatches(condition, auth, breakdown)
 			if err != nil || !matches {
 				return matches, err
 			}
 		}
+
 		return true, nil
 	}
 
@@ -246,21 +279,26 @@ func budgetRuleMatches(rule platform.BudgetLimitRule, auth *platform.AuthContext
 	for key := range rule.Conditions {
 		keys = append(keys, key)
 	}
+
 	sort.Strings(keys)
+
 	for _, key := range keys {
 		actual, known := budgetContextValue(key, auth, breakdown)
 		if !known {
 			return false, fmt.Errorf("unknown condition %q", key)
 		}
+
 		if !conditionValueMatches(actual, rule.Conditions[key]) {
 			return false, nil
 		}
 	}
+
 	return true, nil
 }
 
 func budgetStructuredConditionMatches(condition map[string]interface{}, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) (bool, error) {
 	field := strings.TrimSpace(asString(condition["field"]))
+
 	operator := strings.TrimSpace(asString(condition["operator"]))
 	if operator == "" {
 		operator = "in"
@@ -269,6 +307,7 @@ func budgetStructuredConditionMatches(condition map[string]interface{}, auth *pl
 	switch field {
 	case "subject":
 		key := "user_id"
+
 		switch strings.TrimSpace(asString(condition["subjectKind"])) {
 		case "team":
 			key = "team_id"
@@ -277,7 +316,9 @@ func budgetStructuredConditionMatches(condition map[string]interface{}, auth *pl
 		case "organization_unit":
 			key = "org_unit_id"
 		}
+
 		actual, _ := budgetContextValue(key, auth, breakdown)
+
 		return stringListOperatorMatches(actual, operator, condition["values"])
 	case "model":
 		actual, _ := budgetContextValue("model", auth, breakdown)
@@ -287,7 +328,9 @@ func budgetStructuredConditionMatches(condition map[string]interface{}, auth *pl
 		if metadataKey == "" {
 			return false, fmt.Errorf("metadata key is required")
 		}
+
 		actual, known := budgetContextValue("metadata."+metadataKey, auth, breakdown)
+
 		switch operator {
 		case "exists":
 			return known && strings.TrimSpace(actual) != "", nil
@@ -318,6 +361,7 @@ func stringListOperatorMatches(actual string, operator string, rawValues interfa
 	if err != nil {
 		return false, err
 	}
+
 	switch operator {
 	case "in":
 		for _, value := range values {
@@ -325,6 +369,7 @@ func stringListOperatorMatches(actual string, operator string, rawValues interfa
 				return true, nil
 			}
 		}
+
 		return false, nil
 	case "not_in":
 		for _, value := range values {
@@ -332,6 +377,7 @@ func stringListOperatorMatches(actual string, operator string, rawValues interfa
 				return false, nil
 			}
 		}
+
 		return true, nil
 	default:
 		return false, fmt.Errorf("unsupported operator %q", operator)
@@ -343,11 +389,13 @@ func conditionValueMatches(actual string, expected interface{}) bool {
 	if err != nil {
 		return actual == strings.TrimSpace(fmt.Sprint(expected))
 	}
+
 	for _, value := range values {
 		if actual == value {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -356,13 +404,16 @@ func budgetRuleScope(rule platform.BudgetLimitRule, auth *platform.AuthContext, 
 	if rule.BudgetAppliesPer != nil && strings.TrimSpace(*rule.BudgetAppliesPer) != "" {
 		scope = strings.TrimSpace(*rule.BudgetAppliesPer)
 	}
+
 	value, known := budgetContextValue(scope, auth, breakdown)
 	if !known {
 		return "", "", fmt.Errorf("unknown applies-per %q", scope)
 	}
+
 	if strings.TrimSpace(value) == "" {
 		return "", "", fmt.Errorf("missing value for applies-per %q", scope)
 	}
+
 	return scope, value, nil
 }
 
@@ -402,12 +453,15 @@ func budgetContextValue(key string, auth *platform.AuthContext, breakdown platfo
 			if breakdown.Metadata == nil {
 				return "", false
 			}
+
 			value, ok := breakdown.Metadata[strings.TrimPrefix(key, "metadata.")]
 			if !ok {
 				return "", false
 			}
+
 			return strings.TrimSpace(asString(value)), true
 		}
+
 		return "", false
 	}
 }
@@ -417,10 +471,12 @@ func numericOperatorMatches(actual string, operator string, expected interface{}
 	if err != nil {
 		return false, err
 	}
+
 	expectedNumber, err := parseFloat(asString(expected))
 	if err != nil {
 		return false, err
 	}
+
 	switch operator {
 	case "gt":
 		return actualNumber > expectedNumber, nil
@@ -437,6 +493,7 @@ func numericOperatorMatches(actual string, operator string, expected interface{}
 
 func budgetPolicyWindowForTime(unit platform.BudgetLimitUnit, now time.Time) (string, time.Time, error) {
 	utc := now.UTC()
+
 	switch unit {
 	case platform.BudgetLimitCostPerDay:
 		start := time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC)
@@ -446,8 +503,10 @@ func budgetPolicyWindowForTime(unit platform.BudgetLimitUnit, now time.Time) (st
 		if weekday == 0 {
 			weekday = 7
 		}
+
 		start := time.Date(utc.Year(), utc.Month(), utc.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, 1-weekday)
 		year, week := start.ISOWeek()
+
 		return fmt.Sprintf("%04dW%02d", year, week), start.AddDate(0, 0, 7), nil
 	case platform.BudgetLimitCostPerMonth:
 		windowID, windowEnd := budgetWindowForTime(utc)
@@ -469,6 +528,7 @@ func ruleIdentifier(rule platform.BudgetLimitRule) string {
 	if strings.TrimSpace(rule.RuleID) != "" {
 		return strings.TrimSpace(rule.RuleID)
 	}
+
 	return strings.TrimSpace(rule.ID)
 }
 
@@ -493,6 +553,7 @@ func parseFloat(value string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid numeric condition value %q", value)
 	}
+
 	return out, nil
 }
 
@@ -505,6 +566,7 @@ func stringSlice(value interface{}) ([]string, error) {
 				out = append(out, trimmed)
 			}
 		}
+
 		return out, nil
 	case []interface{}:
 		out := make([]string, 0, len(typed))
@@ -513,12 +575,14 @@ func stringSlice(value interface{}) ([]string, error) {
 				out = append(out, trimmed)
 			}
 		}
+
 		return out, nil
 	default:
 		trimmed := strings.TrimSpace(asString(value))
 		if trimmed == "" {
 			return nil, fmt.Errorf("empty condition value")
 		}
+
 		return []string{trimmed}, nil
 	}
 }

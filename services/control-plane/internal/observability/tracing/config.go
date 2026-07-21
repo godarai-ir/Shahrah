@@ -82,6 +82,7 @@ func LoadConfigFromEnv() Config {
 	cfg.PayloadBlobDir = stringEnvOrDefault("TRACE_PAYLOAD_BLOB_DIR", cfg.PayloadBlobDir)
 	cfg.PayloadMaxBytes = intMinEnvOrDefault("TRACE_PAYLOAD_MAX_BYTES", cfg.PayloadMaxBytes, 256)
 	cfg.PIIHashSalt = stringEnvOrDefault("TRACE_PII_HASH_SALT", cfg.PIIHashSalt)
+
 	return cfg
 }
 

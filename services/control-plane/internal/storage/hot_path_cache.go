@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -23,6 +24,54 @@ type hotPathCacheEntry struct {
 	staleUntil time.Time
 }
 
+func loadHotPathList[T any](
+	group *singleflight.Group,
+	cacheKey string,
+	valueName string,
+	getCached func() ([]T, hotPathCacheState),
+	refresh func(),
+	load func() ([]T, error),
+	store func([]T),
+	clone func([]T) []T,
+) ([]T, error) {
+	if items, state := getCached(); state == hotPathCacheFresh {
+		return items, nil
+	} else if state == hotPathCacheStale {
+		refresh()
+
+		return items, nil
+	}
+
+	value, err, _ := group.Do(cacheKey, func() (interface{}, error) {
+		if items, state := getCached(); state == hotPathCacheFresh {
+			return items, nil
+		} else if state == hotPathCacheStale {
+			refresh()
+
+			return items, nil
+		}
+
+		items, err := load()
+		if err != nil {
+			return nil, err
+		}
+
+		store(items)
+
+		return clone(items), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	items, ok := value.([]T)
+	if !ok {
+		return nil, fmt.Errorf("unexpected %s cache value %T", valueName, value)
+	}
+
+	return clone(items), nil
+}
+
 func deploymentCacheKey(tenantID string) string {
 	return "deployments:tenant:" + strings.TrimSpace(tenantID)
 }
@@ -37,13 +86,16 @@ func walletCacheKey(tenantID string) string {
 
 func (s *Store) invalidateDeploymentCache(ctx context.Context, tenantID string) {
 	s.deleteLocalHotPathCache(deploymentCacheKey(tenantID))
+
 	if s == nil || s.entitlementCache == nil {
 		return
 	}
+
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return
 	}
+
 	s.entitlementCache.Delete(ctx, deploymentCacheKey(tenantID))
 }
 
@@ -55,10 +107,12 @@ func (s *Store) invalidateWalletCache(ctx context.Context, tenantID string) {
 	if s == nil || s.entitlementCache == nil {
 		return
 	}
+
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return
 	}
+
 	s.entitlementCache.Delete(ctx, walletCacheKey(tenantID))
 	s.syncCurrentBudgetWindowAllowance(ctx, tenantID)
 }
@@ -112,20 +166,24 @@ func (s *Store) getLocalHotPathCache(key string) (interface{}, hotPathCacheState
 	if s.hotPathCache == nil {
 		return nil, hotPathCacheMiss
 	}
+
 	entry, ok := s.hotPathCache[key]
 	if !ok {
 		return nil, hotPathCacheMiss
 	}
 
 	now := time.Now()
+
 	staleUntil := entry.staleUntil
 	if staleUntil.IsZero() {
 		staleUntil = entry.freshUntil
 	}
+
 	if !staleUntil.IsZero() && now.After(staleUntil) {
 		delete(s.hotPathCache, key)
 		return nil, hotPathCacheMiss
 	}
+
 	if !entry.freshUntil.IsZero() && now.After(entry.freshUntil) {
 		return entry.value, hotPathCacheStale
 	}
@@ -144,12 +202,15 @@ func (s *Store) setLocalHotPathCache(key string, value interface{}) {
 	if s.hotPathCache == nil {
 		s.hotPathCache = make(map[string]hotPathCacheEntry)
 	}
+
 	now := time.Now()
 	freshUntil := now.Add(s.hotPathCacheTTL)
+
 	staleUntil := freshUntil
 	if s.hotPathCacheStaleTTL > 0 {
 		staleUntil = freshUntil.Add(s.hotPathCacheStaleTTL)
 	}
+
 	s.hotPathCache[key] = hotPathCacheEntry{
 		value:      value,
 		freshUntil: freshUntil,
@@ -178,6 +239,7 @@ func (s *Store) refreshHotPathCacheAsync(key string, refresh func(context.Contex
 	return s.hotPathRefreshGroup.DoChan(key, func() (interface{}, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), s.hotPathRefreshTimeout())
 		defer cancel()
+
 		return nil, refresh(ctx)
 	})
 }
@@ -191,6 +253,7 @@ func (s *Store) hotPathRefreshTimeout() time.Duration {
 	if timeout < 5*time.Second {
 		return 5 * time.Second
 	}
+
 	if timeout > 30*time.Second {
 		return 30 * time.Second
 	}
@@ -213,7 +276,9 @@ func (s *Store) refreshDeploymentsCacheAsync(tenantID string, cacheKey string) {
 		if err != nil {
 			return err
 		}
+
 		s.cacheDeployments(cacheKey, deps)
+
 		return nil
 	})
 }
@@ -233,7 +298,9 @@ func (s *Store) refreshVirtualModelsCacheAsync(tenantID string, cacheKey string)
 		if err != nil {
 			return err
 		}
+
 		s.cacheVirtualModels(cacheKey, models)
+
 		return nil
 	})
 }

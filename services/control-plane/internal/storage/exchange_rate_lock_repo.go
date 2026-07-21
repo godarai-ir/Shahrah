@@ -28,11 +28,14 @@ func (s *Store) TryExchangeRateUpdateLock(ctx context.Context) (bool, func(), er
 	}
 
 	var released bool
+
 	release := func() {
 		if released {
 			return
 		}
+
 		released = true
+
 		releaseAdvisoryLock(conn, exchangeRateUpdateAdvisoryLockKey)
 	}
 
@@ -44,10 +47,14 @@ func releaseAdvisoryLock(conn *pgxpool.Conn, key string) {
 	defer cancel()
 
 	var unlocked bool
+
 	err := conn.QueryRow(ctx, `SELECT pg_advisory_unlock(hashtext($1))`, key).Scan(&unlocked)
 	if err != nil || !unlocked {
 		raw := conn.Hijack()
-		_ = raw.Close(context.Background())
+		if closeErr := raw.Close(context.Background()); closeErr != nil {
+			return
+		}
+
 		return
 	}
 

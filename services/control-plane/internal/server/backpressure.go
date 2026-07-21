@@ -28,6 +28,7 @@ func newGatewayBackpressureMiddleware(metrics ...backpressureMetrics) fiber.Hand
 	}
 
 	sem := make(chan struct{}, limit)
+
 	return func(c *fiber.Ctx) error {
 		if !isGatewayBackpressurePath(c.Path()) || isBackpressureExemptPath(c.Path()) {
 			return c.Next()
@@ -38,17 +39,21 @@ func newGatewayBackpressureMiddleware(metrics ...backpressureMetrics) fiber.Hand
 			if recorder != nil {
 				recorder.IncBackpressureInFlight()
 			}
+
 			defer func() {
 				<-sem
+
 				if recorder != nil {
 					recorder.DecBackpressureInFlight()
 				}
 			}()
+
 			return c.Next()
 		default:
 			if recorder != nil {
 				recorder.IncBackpressureRejected()
 			}
+
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
 				"error": map[string]interface{}{
 					"message": "gateway overloaded",

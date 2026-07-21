@@ -78,6 +78,7 @@ func NewResolver(repo VirtualModelRepository, opts ...ResolverOption) *Resolver 
 		negativeCacheTTL: secondsEnvOrDefault("VIRTUAL_MODEL_ALIAS_NEGATIVE_CACHE_TTL_SECONDS", 10*time.Second),
 		cache:            make(map[string]aliasCacheEntry),
 	}
+
 	for _, opt := range opts {
 		if opt != nil {
 			opt(r)
@@ -110,6 +111,7 @@ func NewRoutingEngine() *StrategyRoutingEngine {
 func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platform.VirtualModel, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	alias = strings.TrimSpace(alias)
+
 	key := virtualModelAliasCacheKey(tenantID, alias)
 	if entry, ok := r.getCached(key); ok {
 		if entry.notFound {
@@ -129,14 +131,17 @@ func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platfo
 			if r.shouldCacheNotFound(err) {
 				entry := aliasCacheEntry{notFound: true}
 				r.setCached(key, entry, r.negativeCacheTTL)
+
 				return entry, nil
 			}
+
 			return nil, err
 		}
 
 		if vm != nil && vm.Enabled {
 			entry := aliasCacheEntry{vm: cloneVirtualModel(vm)}
 			r.setCached(key, entry, r.cacheTTL)
+
 			return entry, nil
 		}
 
@@ -150,10 +155,12 @@ func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platfo
 		if entry.notFound {
 			return nil, ErrNotVirtualModel
 		}
+
 		vm := cloneVirtualModel(entry.vm)
 		if vm == nil {
 			return nil, ErrNotVirtualModel
 		}
+
 		if !vm.Enabled {
 			return nil, ErrDisabledVirtualModel
 		}
@@ -165,6 +172,7 @@ func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platfo
 	if !ok || vm == nil {
 		return nil, ErrNotVirtualModel
 	}
+
 	if !vm.Enabled {
 		return nil, ErrDisabledVirtualModel
 	}
@@ -192,6 +200,7 @@ func (r *Resolver) getCached(key string) (aliasCacheEntry, bool) {
 	if !ok {
 		return aliasCacheEntry{}, false
 	}
+
 	if !entry.expiresAt.IsZero() && time.Now().After(entry.expiresAt) {
 		delete(r.cache, key)
 		return aliasCacheEntry{}, false
@@ -212,12 +221,14 @@ func (r *Resolver) setCached(key string, entry aliasCacheEntry, ttl time.Duratio
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	r.cache[key] = entry
 }
 
 func virtualModelAliasCacheKey(tenantID, alias string) string {
 	tenantID = strings.TrimSpace(tenantID)
 	alias = strings.TrimSpace(alias)
+
 	return tenantID + "\x00" + alias
 }
 
@@ -276,7 +287,7 @@ func (e *StrategyRoutingEngine) SelectTargets(vm *platform.VirtualModel) ([]plat
 	case "weighted":
 		return e.weighted.SelectTargets(vm)
 	case "", "priority":
-		fallthrough
+		return e.priority.SelectTargets(vm)
 	default:
 		return e.priority.SelectTargets(vm)
 	}
@@ -485,6 +496,7 @@ func normalizedEligibleTargets(vm *platform.VirtualModel) []platform.VirtualMode
 
 func weightedPickIndex(targets []platform.VirtualModelTarget) int {
 	totalWeight := 0.0
+
 	for _, target := range targets {
 		if target.Weight > 0 {
 			totalWeight += target.Weight
@@ -497,6 +509,7 @@ func weightedPickIndex(targets []platform.VirtualModelTarget) int {
 
 	pick := rand.Float64() * totalWeight
 	cumulative := 0.0
+
 	for i, target := range targets {
 		if target.Weight <= 0 {
 			continue

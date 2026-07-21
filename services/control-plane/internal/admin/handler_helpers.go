@@ -86,6 +86,7 @@ func applyObservabilityTimeBounds(from, to *time.Time, now time.Time) (*time.Tim
 	if from == nil && to == nil {
 		resolvedTo := now
 		resolvedFrom := resolvedTo.Add(-observabilityDefaultRange)
+
 		return &resolvedFrom, &resolvedTo, nil
 	}
 
@@ -100,6 +101,7 @@ func applyObservabilityTimeBounds(from, to *time.Time, now time.Time) (*time.Tim
 	}
 
 	resolvedFrom := from.UTC()
+
 	resolvedTo := to.UTC()
 	if !resolvedFrom.Before(resolvedTo) {
 		return nil, nil, fiber.NewError(fiber.StatusBadRequest, "from must be before to")

@@ -19,8 +19,10 @@ type batchExporterStub struct {
 
 func (s *batchExporterStub) InsertModelMetricEvents(_ context.Context, events []platform.ModelMetricEvent) error {
 	copied := append([]platform.ModelMetricEvent(nil), events...)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.batches = append(s.batches, copied)
 
 	return nil

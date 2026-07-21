@@ -23,30 +23,13 @@ type TokenUsageMetrics interface {
 
 // StartTokenUsageFlusher periodically persists Redis token usage aggregates to PostgreSQL.
 func (s *Store) StartTokenUsageFlusher(ctx context.Context) {
-	if !s.tokenUsageEnabled || s.tokenUsageCache == nil || s.tokenUsageFlushInterval <= 0 {
-		return
-	}
-
-	go func() {
-		ticker := time.NewTicker(s.tokenUsageFlushInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				flushCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				if err := s.FlushTokenUsageAggregates(flushCtx); err != nil && s.logger != nil {
-					s.logger.Warn("token usage shutdown flush failed", zap.Error(err))
-				}
-				cancel()
-				return
-			case <-ticker.C:
-				if err := s.FlushTokenUsageAggregates(ctx); err != nil && s.logger != nil {
-					s.logger.Warn("token usage flush failed", zap.Error(err))
-				}
-			}
-		}
-	}()
+	s.startPeriodicFlusher(
+		ctx,
+		s.tokenUsageEnabled && s.tokenUsageCache != nil,
+		s.tokenUsageFlushInterval,
+		"token usage",
+		s.FlushTokenUsageAggregates,
+	)
 }
 
 // FlushTokenUsageAggregates persists one bounded Redis batch for spend and last-used aggregates.
@@ -58,6 +41,7 @@ func (s *Store) FlushTokenUsageAggregates(ctx context.Context) error {
 	if err := s.flushTokenSpendDeltas(ctx); err != nil {
 		return err
 	}
+
 	return s.flushKeyLastUsed(ctx)
 }
 
@@ -66,6 +50,7 @@ func (s *Store) queueTokenSpendDelta(ctx context.Context, tokenHash string, delt
 	if tokenHash == "" || deltaUSD <= 0 {
 		return nil
 	}
+
 	if !s.tokenUsageEnabled || s.tokenUsageCache == nil {
 		return nil
 	}
@@ -75,18 +60,22 @@ func (s *Store) queueTokenSpendDelta(ctx context.Context, tokenHash string, delt
 		if s.tokenUsageMetrics != nil {
 			s.tokenUsageMetrics.IncTokenSpendQueued()
 		}
+
 		return nil
 	}
 
 	if s.tokenUsageMetrics != nil {
 		s.tokenUsageMetrics.IncTokenSpendRedisFallback()
 	}
+
 	if s.logger != nil {
 		s.logger.Warn("redis token spend aggregation unavailable; spend log remains source of truth", zap.Error(err))
 	}
+
 	if s.tokenUsageFailOpen {
 		return nil
 	}
+
 	return err
 }
 
@@ -95,6 +84,7 @@ func (s *Store) queueKeyLastUsed(ctx context.Context, keyID string, usedAt time.
 	if keyID == "" || usedAt.IsZero() {
 		return nil
 	}
+
 	if !s.tokenUsageEnabled || s.tokenUsageCache == nil {
 		return s.touchKeyLastUsedFallback(ctx, keyID, usedAt)
 	}
@@ -108,18 +98,22 @@ func (s *Store) queueKeyLastUsed(ctx context.Context, keyID string, usedAt time.
 				s.tokenUsageMetrics.IncKeyLastUsedSkipped()
 			}
 		}
+
 		return nil
 	}
 
 	if s.tokenUsageMetrics != nil {
 		s.tokenUsageMetrics.IncKeyLastUsedRedisFallback()
 	}
+
 	if s.logger != nil {
 		s.logger.Warn("redis key last-used aggregation unavailable; using throttled db fallback", zap.Error(err))
 	}
+
 	if s.tokenUsageFailOpen {
 		return s.touchKeyLastUsedFallback(ctx, keyID, usedAt)
 	}
+
 	return err
 }
 
@@ -133,14 +127,18 @@ func (s *Store) touchKeyLastUsedFallback(ctx context.Context, keyID string, used
 	if s.lastUsedFallback == nil {
 		s.lastUsedFallback = make(map[string]time.Time)
 	}
+
 	lastWrite := s.lastUsedFallback[keyID]
 	if !lastWrite.IsZero() && usedAt.Sub(lastWrite) < interval {
 		s.lastUsedFallbackMu.Unlock()
+
 		if s.tokenUsageMetrics != nil {
 			s.tokenUsageMetrics.IncKeyLastUsedSkipped()
 		}
+
 		return nil
 	}
+
 	s.lastUsedFallback[keyID] = usedAt
 	s.lastUsedFallbackMu.Unlock()
 
@@ -149,13 +147,16 @@ func (s *Store) touchKeyLastUsedFallback(ctx context.Context, keyID string, used
 
 func (s *Store) flushTokenSpendDeltas(ctx context.Context) error {
 	start := time.Now()
+
 	deltas, err := s.tokenUsageCache.DrainTokenSpendDeltas(ctx, s.tokenSpendDirtySetKey(), s.tokenUsageFlushBatchSize)
 	if err != nil {
 		if s.tokenUsageMetrics != nil {
 			s.tokenUsageMetrics.ObserveTokenSpendFlush(0, time.Since(start), err)
 		}
+
 		return err
 	}
+
 	if len(deltas) == 0 {
 		return nil
 	}
@@ -167,8 +168,10 @@ func (s *Store) flushTokenSpendDeltas(ctx context.Context) error {
 			if s.logger != nil {
 				s.logger.Warn("dropping malformed token spend delta key", zap.String("key", delta.Key), zap.Error(parseErr))
 			}
+
 			continue
 		}
+
 		if delta.DeltaUSD > 0 {
 			updates = append(updates, tokenSpendUpdate{TokenHash: tokenHash, DeltaUSD: delta.DeltaUSD})
 		}
@@ -180,21 +183,26 @@ func (s *Store) flushTokenSpendDeltas(ctx context.Context) error {
 			s.restoreTokenSpendDeltas(ctx, updates)
 		}
 	}
+
 	if s.tokenUsageMetrics != nil {
 		s.tokenUsageMetrics.ObserveTokenSpendFlush(len(updates), time.Since(start), err)
 	}
+
 	return err
 }
 
 func (s *Store) flushKeyLastUsed(ctx context.Context) error {
 	start := time.Now()
+
 	snapshots, err := s.tokenUsageCache.DrainKeyLastUsed(ctx, s.keyLastUsedDirtySetKey(), s.tokenUsageFlushBatchSize)
 	if err != nil {
 		if s.tokenUsageMetrics != nil {
 			s.tokenUsageMetrics.ObserveKeyLastUsedFlush(0, time.Since(start), err)
 		}
+
 		return err
 	}
+
 	if len(snapshots) == 0 {
 		return nil
 	}
@@ -206,8 +214,10 @@ func (s *Store) flushKeyLastUsed(ctx context.Context) error {
 			if s.logger != nil {
 				s.logger.Warn("dropping malformed key last-used key", zap.String("key", snapshot.Key), zap.Error(parseErr))
 			}
+
 			continue
 		}
+
 		if snapshot.UsedAtUnixMS > 0 {
 			updates = append(updates, keyLastUsedUpdate{KeyID: keyID, UsedAt: time.UnixMilli(snapshot.UsedAtUnixMS).UTC()})
 		}
@@ -219,9 +229,11 @@ func (s *Store) flushKeyLastUsed(ctx context.Context) error {
 			s.restoreKeyLastUsed(ctx, updates)
 		}
 	}
+
 	if s.tokenUsageMetrics != nil {
 		s.tokenUsageMetrics.ObserveKeyLastUsedFlush(len(updates), time.Since(start), err)
 	}
+
 	return err
 }
 
@@ -241,6 +253,7 @@ func (s *Store) updateTokenSpendBatch(ctx context.Context, updates []tokenSpendU
 	}
 
 	tokenHashes := make([]string, 0, len(updates))
+
 	deltas := make([]float64, 0, len(updates))
 	for _, update := range updates {
 		tokenHashes = append(tokenHashes, update.TokenHash)
@@ -259,6 +272,7 @@ func (s *Store) updateTokenSpendBatch(ctx context.Context, updates []tokenSpendU
 		FROM delta
 		WHERE vt.token_hash = delta.token_hash
 	`, tokenHashes, deltas)
+
 	return err
 }
 
@@ -268,6 +282,7 @@ func (s *Store) updateKeyLastUsedBatch(ctx context.Context, updates []keyLastUse
 	}
 
 	keyIDs := make([]string, 0, len(updates))
+
 	usedAt := make([]time.Time, 0, len(updates))
 	for _, update := range updates {
 		keyIDs = append(keyIDs, update.KeyID)
@@ -287,6 +302,7 @@ func (s *Store) updateKeyLastUsedBatch(ctx context.Context, updates []keyLastUse
 		WHERE vt.id = latest.id
 		  AND (vt.last_used_at IS NULL OR vt.last_used_at < latest.used_at)
 	`, keyIDs, usedAt)
+
 	return err
 }
 
@@ -319,10 +335,12 @@ func (s *Store) parseTokenSpendDeltaKey(key string) (string, error) {
 	if !strings.HasPrefix(key, prefix) {
 		return "", fmt.Errorf("missing token spend prefix")
 	}
+
 	tokenHash := strings.TrimPrefix(key, prefix)
 	if tokenHash == "" || tokenHash == "dirty" {
 		return "", fmt.Errorf("missing token hash")
 	}
+
 	return tokenHash, nil
 }
 
@@ -339,10 +357,12 @@ func (s *Store) parseKeyLastUsedKey(key string) (string, error) {
 	if !strings.HasPrefix(key, prefix) {
 		return "", fmt.Errorf("missing key last-used prefix")
 	}
+
 	keyID := strings.TrimPrefix(key, prefix)
 	if keyID == "" || keyID == "dirty" {
 		return "", fmt.Errorf("missing key id")
 	}
+
 	return keyID, nil
 }
 

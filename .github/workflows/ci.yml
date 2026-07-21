@@ -48,12 +48,10 @@ jobs:
         with:
           version: v2.12.2
           working-directory: ${{ env.CONTROL_PLANE_DIR }}
-          # The repository has historical lint debt. Fail only for findings
-          # introduced by the pushed commit(s) or pull request.
-          only-new-issues: ${{ github.event_name != 'workflow_dispatch' && github.ref_type != 'tag' }}
           args: >-
             --timeout=5m
-            ${{ (github.event_name == 'workflow_dispatch' || github.ref_type == 'tag') && '--new-from-rev=HEAD^' || '' }}
+            --max-issues-per-linter=0
+            --max-same-issues=0
 
   # =============================================================================
   # Test Job

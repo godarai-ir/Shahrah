@@ -91,6 +91,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	originalBody := append([]byte(nil), c.Body()...)
+
 	req, err := parseModerationRequest(originalBody)
 	if err != nil {
 		if vErr, ok := err.(*moderationValidationError); ok {
@@ -117,6 +118,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 
 		denyReason := denyReasonForModel(authInfo)
 		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+
 		const message = "Model access denied or unsupported for moderations"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/moderations", "moderations", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
@@ -151,14 +153,17 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
+
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
 		if err != nil {
 			return err
 		}
 	}
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -228,7 +233,6 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservationAttempted = true
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil {
 			return err
@@ -239,10 +243,21 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
+
 	return err
 }
 
-func (h *ModerationsHandler) handleSync(c *fiber.Ctx, req contractsopenai.ModerationRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *ModerationsHandler) handleSync(
+	c *fiber.Ctx,
+	req contractsopenai.ModerationRequest,
+	originalBody []byte,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -464,18 +479,6 @@ func moderationInputCount(input interface{}) int {
 	default:
 		return 0
 	}
-}
-
-func moderationFlaggedCount(resp contractsopenai.ModerationResponse) int {
-	count := 0
-
-	for _, result := range resp.Results {
-		if result.Flagged {
-			count++
-		}
-	}
-
-	return count
 }
 
 func supportsModerationsProvider(provider string) bool {

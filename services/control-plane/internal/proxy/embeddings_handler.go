@@ -91,6 +91,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	originalBody := append([]byte(nil), c.Body()...)
+
 	req, err := parseEmbeddingRequest(originalBody)
 	if err != nil {
 		if vErr, ok := err.(*embeddingValidationError); ok {
@@ -117,6 +118,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 
 		denyReason := denyReasonForModel(authInfo)
 		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
+
 		const message = "Model access denied or unsupported for embeddings"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/embeddings", "embeddings", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
 
@@ -149,14 +151,17 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
+
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
 		if err != nil {
 			return err
 		}
 	}
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -227,10 +232,10 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if req.Dimensions != nil {
 		tunnelReq.RequestMetadata["dimensions"] = *req.Dimensions
 	}
+
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservationAttempted = true
 		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil {
 			return err
@@ -241,10 +246,21 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
+
 	return err
 }
 
-func (h *EmbeddingsHandler) handleSync(c *fiber.Ctx, req contractsopenai.EmbeddingRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *EmbeddingsHandler) handleSync(
+	c *fiber.Ctx,
+	req contractsopenai.EmbeddingRequest,
+	originalBody []byte,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,

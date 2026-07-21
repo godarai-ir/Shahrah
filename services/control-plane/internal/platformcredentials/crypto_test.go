@@ -13,6 +13,7 @@ import (
 
 func testSecretStore(t *testing.T) *EncryptedDBSecretStore {
 	t.Helper()
+
 	encoded, err := json.Marshal(map[string]string{
 		"v1": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)),
 		"v2": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{2}, 32)),
@@ -22,6 +23,7 @@ func testSecretStore(t *testing.T) *EncryptedDBSecretStore {
 	require.NoError(t, err)
 	store, err := NewEncryptedDBSecretStore(keks, bytes.Repeat([]byte{3}, 32))
 	require.NoError(t, err)
+
 	return store
 }
 

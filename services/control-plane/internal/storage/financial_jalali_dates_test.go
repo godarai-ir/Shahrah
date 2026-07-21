@@ -31,12 +31,15 @@ func TestBillingReportWindowUsesJalaliBoundaries(t *testing.T) {
 			if err != nil {
 				t.Fatalf("BillingReportWindow returned error: %v", err)
 			}
+
 			if normalized != tc.preset {
 				t.Fatalf("expected normalized preset %q, got %q", tc.preset, normalized)
 			}
+
 			if !start.Equal(mustStartOfJalaliDay(t, tc.expectedYear, tc.expectedMonth, tc.expectedDay)) {
 				t.Fatalf("unexpected start: got %s", start.Format(time.RFC3339))
 			}
+
 			if !end.Equal(now.UTC()) {
 				t.Fatalf("expected end to match now UTC, got %s", end.Format(time.RFC3339))
 			}

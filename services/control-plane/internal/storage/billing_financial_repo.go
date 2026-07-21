@@ -56,11 +56,13 @@ func (s *Store) ListBankTransferRequests(ctx context.Context, tenantID string, l
 	defer rows.Close()
 
 	items := make([]platform.BankTransferRequest, 0, limit)
+
 	for rows.Next() {
 		item, err := scanBankTransferRequest(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, *item)
 	}
 
@@ -87,15 +89,18 @@ func (s *Store) ApproveBankTransferRequest(ctx context.Context, tenantID string,
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrBankTransferNotFound
 		}
+
 		return nil, err
 	}
 
 	if item.Status == "approved" {
-		if err := tx.Commit(ctx); err != nil {
-			return nil, err
+		if commitErr := tx.Commit(ctx); commitErr != nil {
+			return nil, commitErr
 		}
+
 		return item, nil
 	}
+
 	if item.Status != "pending_review" {
 		return nil, ErrInvalidTenantStatusChange
 	}
@@ -166,6 +171,7 @@ func (s *Store) RejectBankTransferRequest(ctx context.Context, tenantID string, 
 		return nil, err
 	}
 	defer rows.Close()
+
 	if !rows.Next() {
 		return nil, ErrBankTransferNotFound
 	}
@@ -201,8 +207,11 @@ func (s *Store) RedeemGiftCode(ctx context.Context, tenantID string, code string
 	}
 	defer rollbackTxBestEffort(ctx, tx)
 
-	var giftID string
-	var amount int64
+	var (
+		giftID string
+		amount int64
+	)
+
 	err = tx.QueryRow(ctx, `
 		SELECT gift_code_id::text, amount_irr::bigint
 		FROM gift_codes
@@ -220,6 +229,7 @@ func (s *Store) RedeemGiftCode(ctx context.Context, tenantID string, code string
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrFinancialCodeInvalid
 		}
+
 		return nil, err
 	}
 
@@ -230,11 +240,13 @@ func (s *Store) RedeemGiftCode(ctx context.Context, tenantID string, code string
 		WHERE gift_code_id::text = $1 AND tenant_id::text = $2
 	`, giftID, tenantID))
 	if err == nil {
-		if err := tx.Commit(ctx); err != nil {
-			return nil, err
+		if commitErr := tx.Commit(ctx); commitErr != nil {
+			return nil, commitErr
 		}
+
 		return existing, nil
 	}
+
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
@@ -283,8 +295,11 @@ func (s *Store) RedeemGiftCode(ctx context.Context, tenantID string, code string
 }
 
 func (s *Store) RedeemDiscountCode(ctx context.Context, tenantID string, code string, actor string) (*platform.DiscountRedemption, error) {
-	var item platform.DiscountRedemption
-	var wasInserted bool
+	var (
+		item        platform.DiscountRedemption
+		wasInserted bool
+	)
+
 	err := s.pool.QueryRow(ctx, `
 		WITH selected AS (
 			SELECT discount_code_id, code, discount_type, value_irr, percent, starts_at, expires_at
@@ -321,15 +336,19 @@ func (s *Store) RedeemDiscountCode(ctx context.Context, tenantID string, code st
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrFinancialCodeInvalid
 		}
+
 		return nil, err
 	}
 
 	if wasInserted {
-		_, _ = s.pool.Exec(ctx, `
+		_, err = s.pool.Exec(ctx, `
 			UPDATE discount_codes
 			SET redeemed_count = redeemed_count + 1, updated_at = NOW()
 			WHERE discount_code_id::text = $1
 		`, item.DiscountCodeID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &item, nil
@@ -388,11 +407,13 @@ func (s *Store) ListInvoices(ctx context.Context, tenantID string, limit int) ([
 	defer rows.Close()
 
 	items := make([]platform.Invoice, 0, limit)
+
 	for rows.Next() {
 		item, err := scanInvoice(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, *item)
 	}
 
@@ -419,11 +440,13 @@ func (s *Store) ListDiscountRedemptions(ctx context.Context, tenantID string, li
 	defer rows.Close()
 
 	items := make([]platform.DiscountRedemption, 0, limit)
+
 	for rows.Next() {
 		item, err := scanDiscountRedemption(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, *item)
 	}
 
@@ -435,6 +458,7 @@ func (s *Store) GetBillingUsageSummary(ctx context.Context, tenantID string, ran
 	if err != nil {
 		return nil, err
 	}
+
 	providers, err := s.queryBillingProviderUsage(ctx, tenantID, start, end)
 	if err != nil {
 		return nil, err
@@ -446,7 +470,11 @@ func (s *Store) GetBillingUsageSummary(ctx context.Context, tenantID string, ran
 		out.DiscountIRR += item.DiscountIRR
 		out.CacheSavingsIRR += item.CacheSavingsIRR
 	}
-	out.GiftCreditIRR, _ = s.sumGiftCredits(ctx, tenantID, start, end)
+
+	out.GiftCreditIRR, err = s.sumGiftCredits(ctx, tenantID, start, end)
+	if err != nil {
+		return nil, err
+	}
 
 	return out, nil
 }
@@ -456,6 +484,7 @@ func (s *Store) GetMonthlyUsageDetail(ctx context.Context, tenantID string, jala
 	if err != nil {
 		return nil, err
 	}
+
 	providers, err := s.queryBillingProviderUsage(ctx, tenantID, start, end)
 	if err != nil {
 		return nil, err
@@ -474,7 +503,11 @@ func (s *Store) GetMonthlyUsageDetail(ctx context.Context, tenantID string, jala
 		out.DiscountIRR += item.DiscountIRR
 		out.CacheSavingsIRR += item.CacheSavingsIRR
 	}
-	out.GiftCreditIRR, _ = s.sumGiftCredits(ctx, tenantID, start, end)
+
+	out.GiftCreditIRR, err = s.sumGiftCredits(ctx, tenantID, start, end)
+	if err != nil {
+		return nil, err
+	}
 
 	return out, nil
 }
@@ -509,25 +542,34 @@ func (s *Store) queryBillingProviderUsage(ctx context.Context, tenantID string, 
 	defer closeBestEffort(rows)
 
 	items := make([]platform.BillingProviderUsage, 0)
+
 	var total int64
+
 	for rows.Next() {
-		var item platform.BillingProviderUsage
-		var rawCostIRR, cacheSavingsIRR any
+		var (
+			item                        platform.BillingProviderUsage
+			rawCostIRR, cacheSavingsIRR any
+		)
 		if err := rows.Scan(&item.ProviderName, &item.RequestCount, &item.InputTokens, &item.OutputTokens, &rawCostIRR, &cacheSavingsIRR); err != nil {
 			return nil, err
 		}
+
 		item.RawCostIRR = billingIRRValue(rawCostIRR)
 		item.CacheSavingsIRR = billingIRRValue(cacheSavingsIRR)
+
 		item.FinalCostIRR = item.RawCostIRR - item.DiscountIRR
 		if item.FinalCostIRR < 0 {
 			item.FinalCostIRR = 0
 		}
+
 		total += item.FinalCostIRR
 		items = append(items, item)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	for i := range items {
 		if total > 0 {
 			items[i].Share = float64(items[i].FinalCostIRR) / float64(total)
@@ -539,7 +581,9 @@ func (s *Store) queryBillingProviderUsage(ctx context.Context, tenantID string, 
 
 func (s *Store) queryBillingUsageFromWallet(ctx context.Context, tenantID string, start time.Time, end time.Time) ([]platform.BillingProviderUsage, error) {
 	var item platform.BillingProviderUsage
+
 	item.ProviderName = "gateway"
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(COUNT(1), 0)::bigint, COALESCE(SUM(amount_irr), 0)::bigint
 		FROM wallet_transactions
@@ -550,6 +594,7 @@ func (s *Store) queryBillingUsageFromWallet(ctx context.Context, tenantID string
 	if err != nil {
 		return nil, err
 	}
+
 	item.FinalCostIRR = item.RawCostIRR
 	if item.FinalCostIRR > 0 {
 		item.Share = 1
@@ -573,11 +618,13 @@ func billingIRRValue(value any) int64 {
 		if v > math.MaxInt64 {
 			return math.MaxInt64
 		}
+
 		return int64(v)
 	case uint:
 		if uint64(v) > math.MaxInt64 {
 			return math.MaxInt64
 		}
+
 		return int64(v)
 	case uint32:
 		return int64(v)
@@ -599,11 +646,13 @@ func billingIRRString(value string) int64 {
 	if err != nil {
 		return 0
 	}
+
 	return int64(math.Round(parsed))
 }
 
 func (s *Store) sumGiftCredits(ctx context.Context, tenantID string, start time.Time, end time.Time) (int64, error) {
 	var out int64
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(SUM(amount_irr), 0)::bigint
 		FROM gift_code_redemptions

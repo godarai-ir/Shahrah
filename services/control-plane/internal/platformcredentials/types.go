@@ -44,7 +44,7 @@ type EncryptedCredential struct {
 }
 
 // ResolvedCredential is immutable after insertion into a Manager snapshot. It
-// is an internal runtime value and must never be JSON-marshalled or logged.
+// is an internal runtime value and must never be JSON-marshaled or logged.
 type ResolvedCredential struct {
 	ProviderSlug        string
 	Environment         string

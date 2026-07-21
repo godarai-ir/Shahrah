@@ -41,10 +41,12 @@ func (r *countingRepo) GetVirtualModelByAlias(ctx context.Context, tenantID, ali
 
 	r.calls++
 	r.aliases = append(r.aliases, alias)
+
 	index := r.calls - 1
 	if index < len(r.errs) && r.errs[index] != nil {
 		return nil, r.errs[index]
 	}
+
 	if index < len(r.vms) {
 		return r.vms[index], nil
 	}
@@ -98,6 +100,7 @@ func TestResolverCachesVirtualModelAliasHits(t *testing.T) {
 
 	first, err := resolver.Resolve(context.Background(), "tenant-1", "gpt-4o-smart")
 	require.NoError(t, err)
+
 	first.Targets[0].Policy.Retry.StatusCodes[0] = 400
 
 	second, err := resolver.Resolve(context.Background(), "tenant-1", "gpt-4o-smart")
@@ -166,6 +169,7 @@ func TestResolverAliasCacheHonorsTTL(t *testing.T) {
 	first, err := resolver.Resolve(context.Background(), "tenant-1", "vm")
 	require.NoError(t, err)
 	time.Sleep(20 * time.Millisecond)
+
 	second, err := resolver.Resolve(context.Background(), "tenant-1", "vm")
 	require.NoError(t, err)
 
@@ -319,6 +323,7 @@ func TestRoutingEngineUsesWeightedStrategy(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, targets)
+
 		if targets[0].Provider == "openai" {
 			highCount++
 		}

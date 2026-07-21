@@ -118,11 +118,13 @@ func TestOperationalLoggerKeepsErrorsAndSlowRequests(t *testing.T) {
 
 	slowResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/slow", http.NoBody))
 	defer closeResponseBody(t, slowResp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, slowResp.StatusCode)
 
 	failResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/fail", http.NoBody))
 	defer closeResponseBody(t, failResp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusServiceUnavailable, failResp.StatusCode)
 
@@ -130,10 +132,13 @@ func TestOperationalLoggerKeepsErrorsAndSlowRequests(t *testing.T) {
 		return observed.Len() >= 2
 	}, time.Second, 10*time.Millisecond)
 
-	messages := []string{}
-	for _, entry := range observed.All() {
+	entries := observed.All()
+	messages := make([]string, 0, len(entries))
+
+	for _, entry := range entries {
 		messages = append(messages, entry.Message)
 	}
+
 	assert.Contains(t, messages, "http request")
 	assert.Contains(t, messages, "http request failed")
 }
@@ -214,10 +219,9 @@ func TestNewFiberAppPrometheusLabelsRemainStableAcrossRequests(t *testing.T) {
 
 	for range 5 {
 		resp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/test", http.NoBody))
-		defer closeResponseBody(t, resp)
-
 		require.NoError(t, err)
 		require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+		closeResponseBody(t, resp)
 	}
 
 	metricsResp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/metrics", http.NoBody))
@@ -238,6 +242,7 @@ func TestNewFiberAppExposesPprofOnlyWhenEnabled(t *testing.T) {
 	t.Parallel()
 
 	disabledApp := NewFiberApp(&config.Config{}, Dependencies{})
+
 	disabledResp, err := disabledApp.Test(httptest.NewRequest(fiber.MethodGet, "/debug/pprof/goroutine?debug=1", http.NoBody))
 	defer closeResponseBody(t, disabledResp)
 
@@ -247,6 +252,7 @@ func TestNewFiberAppExposesPprofOnlyWhenEnabled(t *testing.T) {
 	enabledApp := NewFiberApp(&config.Config{
 		Profiling: config.ProfilingSettings{EnablePprof: true},
 	}, Dependencies{})
+
 	enabledResp, err := enabledApp.Test(httptest.NewRequest(fiber.MethodGet, "/debug/pprof/goroutine?debug=1", http.NoBody))
 	defer closeResponseBody(t, enabledResp)
 

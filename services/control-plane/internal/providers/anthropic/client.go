@@ -280,6 +280,7 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 			if strings.EqualFold(strings.TrimSpace(msg.Role), "assistant") && len(msg.ThinkingBlocks) > 0 {
 				blocks = append(anthropicBlocksFromThinkingBlocks(msg.ThinkingBlocks), blocks...)
 			}
+
 			anthReq.Messages = append(anthReq.Messages, anthropicMessage{
 				Role:    msg.Role,
 				Content: blocks,
@@ -300,7 +301,11 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) anthro
 func anthropicBlocksFromThinkingBlocks(blocks []contractsopenai.ThinkingBlock) []anthropicContentBlock {
 	out := make([]anthropicContentBlock, 0, len(blocks))
 	for _, block := range blocks {
-		blockType, _ := block["type"].(string)
+		blockType, ok := block["type"].(string)
+		if !ok {
+			continue
+		}
+
 		blockType = strings.TrimSpace(blockType)
 		switch blockType {
 		case "thinking":
@@ -308,18 +313,22 @@ func anthropicBlocksFromThinkingBlocks(blocks []contractsopenai.ThinkingBlock) [
 			if thinking, ok := block["thinking"].(string); ok {
 				item.Thinking = thinking
 			}
+
 			if signature, ok := block["signature"].(string); ok {
 				item.Signature = signature
 			}
+
 			out = append(out, item)
 		case "redacted_thinking":
 			item := anthropicContentBlock{Type: "redacted_thinking"}
 			if data, ok := block["data"].(string); ok {
 				item.Data = data
 			}
+
 			out = append(out, item)
 		}
 	}
+
 	return out
 }
 
@@ -328,13 +337,16 @@ func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxToken
 		if strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") {
 			return nil
 		}
+
 		cfg := *req.Thinking
 		if strings.TrimSpace(cfg.Type) == "" {
 			cfg.Type = "enabled"
 		}
+
 		if cfg.BudgetTokens <= 0 {
 			cfg.BudgetTokens = defaultAnthropicThinkingBudget(req.ReasoningEffort, maxTokens)
 		}
+
 		return &cfg
 	}
 
@@ -351,6 +363,7 @@ func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxToken
 
 func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
 	budget := 2048
+
 	switch strings.ToLower(strings.TrimSpace(effort)) {
 	case "minimal", "low":
 		budget = 1024
@@ -361,9 +374,11 @@ func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
 	case "xhigh", "max":
 		budget = 8192
 	}
+
 	if maxTokens > 1024 && budget >= maxTokens {
 		return maxTokens - 1
 	}
+
 	return budget
 }
 
@@ -372,6 +387,7 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	content := ""
 	reasoningContent := ""
 	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
+
 	for _, block := range resp.Content {
 		switch block.Type {
 		case "text":
@@ -382,15 +398,18 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 				thinkingBlock["thinking"] = block.Thinking
 				reasoningContent += block.Thinking
 			}
+
 			if block.Signature != "" {
 				thinkingBlock["signature"] = block.Signature
 			}
+
 			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
 		case "redacted_thinking":
 			thinkingBlock := contractsopenai.ThinkingBlock{"type": block.Type}
 			if block.Data != "" {
 				thinkingBlock["data"] = block.Data
 			}
+
 			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
 		default:
 			content += block.Text
@@ -404,6 +423,7 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	if reasoningContent != "" {
 		message.ReasoningContent = reasoningContent
 	}
+
 	if len(thinkingBlocks) > 0 {
 		message.ThinkingBlocks = thinkingBlocks
 	}

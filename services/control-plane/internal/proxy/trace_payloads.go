@@ -59,15 +59,19 @@ func buildTraceChatResponsePayload(resp contractsopenai.ChatCompletionResponse) 
 		if choice.Message != nil && len(choice.Message.ToolCalls) > 0 {
 			item["tool_calls"] = summarizeToolCalls(choice.Message.ToolCalls)
 		}
+
 		if choice.Message != nil && choice.Message.Refusal != "" {
 			item["refusal"] = true
 		}
+
 		if choice.Message != nil && choice.Message.ReasoningContent != "" {
 			item["reasoning_content"] = reasoningContentSummary(choice.Message.ReasoningContent)
 		}
+
 		if choice.Message != nil && len(choice.Message.ThinkingBlocks) > 0 {
 			item["thinking_blocks"] = summarizeThinkingBlocks(choice.Message.ThinkingBlocks)
 		}
+
 		choices = append(choices, item)
 	}
 
@@ -100,9 +104,11 @@ func summarizeToolDefinitions(tools []contractsopenai.ToolDefinition) []map[stri
 				"strict": tool.Function.Strict,
 			}
 		}
+
 		if tool.Custom != nil {
 			item["custom"] = map[string]interface{}{"name": tool.Custom.Name}
 		}
+
 		out = append(out, item)
 	}
 
@@ -125,12 +131,15 @@ func summarizeResponseFormat(value interface{}) interface{} {
 		if name, ok := rawSchema["name"].(string); ok {
 			schemaSummary["name"] = name
 		}
+
 		if strict, ok := rawSchema["strict"].(bool); ok {
 			schemaSummary["strict"] = strict
 		}
+
 		if _, ok := rawSchema["schema"]; ok {
 			schemaSummary["schema_present"] = true
 		}
+
 		out["json_schema"] = schemaSummary
 	}
 
@@ -171,15 +180,19 @@ func summarizeThinkingBlocks(blocks []contractsopenai.ThinkingBlock) []map[strin
 		if blockType, ok := block["type"].(string); ok {
 			item["type"] = blockType
 		}
+
 		if thinking, ok := block["thinking"].(string); ok {
 			item["thinking_length"] = len(thinking)
 		}
+
 		if data, ok := block["data"].(string); ok {
 			item["data_length"] = len(data)
 		}
+
 		if signature, ok := block["signature"].(string); ok && strings.TrimSpace(signature) != "" {
 			item["signature_present"] = true
 		}
+
 		out = append(out, item)
 	}
 
@@ -203,12 +216,14 @@ func summarizeToolCalls(toolCalls []contractsopenai.ToolCall) []map[string]inter
 				"arguments_length": len(call.Function.Arguments),
 			}
 		}
+
 		if call.Custom != nil {
 			item["custom"] = map[string]interface{}{
 				"name":         call.Custom.Name,
 				"input_length": len(call.Custom.Input),
 			}
 		}
+
 		out = append(out, item)
 	}
 
@@ -419,6 +434,7 @@ func buildTraceModerationResponsePayload(resp contractsopenai.ModerationResponse
 
 func buildTraceRerankRequestPayload(req contractsopenai.RerankRequest) map[string]interface{} {
 	documentLengths := make([]int, 0, len(req.Documents))
+
 	documentHashes := make([]string, 0, len(req.Documents))
 	for _, doc := range req.Documents {
 		documentLengths = append(documentLengths, len(doc))
@@ -449,6 +465,7 @@ func buildTraceRerankResponsePayload(resp contractsopenai.RerankResponse) map[st
 		if result.Document != nil {
 			item["document_present"] = true
 		}
+
 		results = append(results, item)
 	}
 
@@ -555,6 +572,7 @@ func buildTraceAudioTranscriptionRequestPayload(_ []byte, contentType string, me
 		"operation":    "transcriptions",
 		"content_type": safeContentTypeFamily(contentType),
 	}
+
 	for k, v := range metadata {
 		switch k {
 		case "tenant_slug", "provider_endpoint_path", "billing_mode":
@@ -572,6 +590,7 @@ func buildTraceAudioTranscriptionResponsePayload(body []byte, headers map[string
 	if contentType := responseContentType(headers); contentType != "" {
 		out["content_type"] = safeContentTypeFamily(contentType)
 	}
+
 	if len(body) == 0 {
 		return out
 	}
@@ -580,6 +599,7 @@ func buildTraceAudioTranscriptionResponsePayload(body []byte, headers map[string
 	if err := json.Unmarshal(body, &raw); err != nil {
 		out["body_bytes"] = len(body)
 		out["body_hash"] = hashTracePreview(string(body))
+
 		return out
 	}
 
@@ -587,20 +607,25 @@ func buildTraceAudioTranscriptionResponsePayload(body []byte, headers map[string
 		out["text_length"] = len(text)
 		out["text_hash"] = hashTracePreview(text)
 	}
+
 	for _, key := range []string{"task", "language", "duration"} {
 		if value, ok := raw[key]; ok {
 			out[key] = value
 		}
 	}
+
 	if segments, ok := raw["segments"].([]interface{}); ok {
 		out["segment_count"] = len(segments)
 	}
+
 	if words, ok := raw["words"].([]interface{}); ok {
 		out["word_count"] = len(words)
 	}
+
 	if speakers, ok := raw["speakers"].([]interface{}); ok {
 		out["speaker_count"] = len(speakers)
 	}
+
 	if usage, ok := raw["usage"].(map[string]interface{}); ok {
 		out["usage"] = summarizeAudioUsageTrace(usage)
 	}
@@ -610,18 +635,22 @@ func buildTraceAudioTranscriptionResponsePayload(body []byte, headers map[string
 
 func summarizeAudioUsageTrace(usage map[string]interface{}) map[string]interface{} {
 	out := map[string]interface{}{}
+
 	for _, key := range []string{"type", "input_tokens", "output_tokens", "total_tokens", "prompt_tokens", "completion_tokens", "seconds"} {
 		if value, ok := usage[key]; ok {
 			out[key] = value
 		}
 	}
+
 	if details, ok := usage["input_token_details"].(map[string]interface{}); ok {
 		safeDetails := map[string]interface{}{}
+
 		for _, key := range []string{"text_tokens", "audio_tokens"} {
 			if value, exists := details[key]; exists {
 				safeDetails[key] = value
 			}
 		}
+
 		if len(safeDetails) > 0 {
 			out["input_token_details"] = safeDetails
 		}
@@ -635,6 +664,7 @@ func buildTraceAudioSpeechRequestPayload(_ []byte, contentType string, metadata 
 		"operation":    "speech",
 		"content_type": safeContentTypeFamily(contentType),
 	}
+
 	for k, v := range metadata {
 		switch k {
 		case "tenant_slug", "provider_endpoint_path", "billing_mode":
@@ -652,6 +682,7 @@ func buildTraceAudioSpeechResponsePayload(body []byte, headers map[string]string
 	if contentType := responseContentType(headers); contentType != "" {
 		out["content_type"] = safeContentTypeFamily(contentType)
 	}
+
 	if len(body) == 0 {
 		return out
 	}
@@ -661,9 +692,11 @@ func buildTraceAudioSpeechResponsePayload(body []byte, headers map[string]string
 		if usage, ok := raw["usage"].(map[string]interface{}); ok {
 			out["usage"] = summarizeAudioUsageTrace(usage)
 		}
+
 		if eventType, ok := raw["type"].(string); ok && strings.TrimSpace(eventType) != "" {
 			out["event_type"] = strings.TrimSpace(eventType)
 		}
+
 		if text, ok := raw["text"].(string); ok {
 			out["text_length"] = len(text)
 			out["text_hash"] = hashTracePreview(text)
@@ -672,6 +705,7 @@ func buildTraceAudioSpeechResponsePayload(body []byte, headers map[string]string
 
 	out["body_bytes"] = len(body)
 	out["body_hash"] = hashTracePreview(string(body))
+
 	return out
 }
 

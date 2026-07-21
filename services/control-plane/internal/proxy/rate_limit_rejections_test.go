@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -22,7 +23,9 @@ func TestRecordRateLimitRejectionWritesProductLogMetricAndSpan(t *testing.T) {
 	app.Use(tracing.Middleware(queue, tracing.NewSampler(1, 1000), 1000))
 
 	logs := &testLogs{}
+
 	var metric metricsobs.BuildInput
+
 	app.Post("/v1/chat/completions", func(c *fiber.Ctx) error {
 		authInfo := &platform.AuthContext{
 			TenantID: "tenant-1",
@@ -54,12 +57,16 @@ func TestRecordRateLimitRejectionWritesProductLogMetricAndSpan(t *testing.T) {
 			},
 			billing.ErrRateLimitExceeded,
 		)
+
 		return writeAPIError(c, fiber.StatusTooManyRequests, billing.ErrRateLimitExceeded.Error(), "rate_limit_error")
 	})
 
-	request := httptest.NewRequest(fiber.MethodPost, "/v1/chat/completions", nil)
+	request := httptest.NewRequest(fiber.MethodPost, "/v1/chat/completions", http.NoBody)
 	response, err := app.Test(request)
+
 	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
 	require.Equal(t, fiber.StatusTooManyRequests, response.StatusCode)
 
 	require.Len(t, logs.loggedEntries, 1)
@@ -88,6 +95,7 @@ func TestRecordRateLimitRejectionWritesProductLogMetricAndSpan(t *testing.T) {
 				return true
 			}
 		}
+
 		return false
 	}, "expected a 429 quota.check span")
 }

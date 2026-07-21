@@ -244,6 +244,7 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 	}
 
 	currentStrategy := "priority"
+
 	if req.RoutingStrategy == nil && len(req.Targets) > 0 {
 		existing, err := h.models.GetVirtualModel(c.Context(), currentTenant.ID, id)
 		if err != nil {
@@ -363,6 +364,7 @@ func normalizeVirtualModelRoutingStrategy(value string) string {
 func validateVirtualModelTargets(targets []platform.VirtualModelTarget, strategy string) error {
 	seenOrders := make(map[int]struct{}, len(targets))
 	totalWeight := 0.0
+
 	for i := range targets {
 		t := targets[i]
 		if strings.TrimSpace(t.Provider) == "" {

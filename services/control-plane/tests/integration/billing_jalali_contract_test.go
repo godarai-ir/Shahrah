@@ -14,6 +14,7 @@ import (
 func TestIntegration_BillingReportEndpointsUseJalaliContract(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -26,9 +27,11 @@ func TestIntegration_BillingReportEndpointsUseJalaliContract(t *testing.T) {
 
 	var summary platform.BillingUsageSummary
 	decodeJSONBody(t, summaryResp, &summary)
+
 	if summary.Calendar != "jalali" {
 		t.Fatalf("expected calendar jalali, got %q", summary.Calendar)
 	}
+
 	if summary.Preset != "current_month" {
 		t.Fatalf("expected preset current_month, got %q", summary.Preset)
 	}
@@ -45,9 +48,11 @@ func TestIntegration_BillingReportEndpointsUseJalaliContract(t *testing.T) {
 
 	var monthly platform.MonthlyUsageDetail
 	decodeJSONBody(t, monthlyResp, &monthly)
+
 	if monthly.Calendar != "jalali" {
 		t.Fatalf("expected monthly calendar jalali, got %q", monthly.Calendar)
 	}
+
 	if monthly.JalaliYear != 1405 || monthly.JalaliMonth != 4 {
 		t.Fatalf("expected monthly Jalali selection 1405/4, got %d/%d", monthly.JalaliYear, monthly.JalaliMonth)
 	}
@@ -61,6 +66,7 @@ func TestIntegration_BillingReportEndpointsUseJalaliContract(t *testing.T) {
 func TestIntegration_CreateBankTransferAcceptsJalaliDate(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
 
@@ -77,6 +83,7 @@ func TestIntegration_CreateBankTransferAcceptsJalaliDate(t *testing.T) {
 
 	var item platform.BankTransferRequest
 	decodeJSONBody(t, resp, &item)
+
 	expected := time.Date(2026, time.July, 8, 8, 30, 0, 0, time.UTC)
 	if !item.BankTransactionAt.Equal(expected) {
 		t.Fatalf("expected normalized bank transaction time %s, got %s", expected.Format(time.RFC3339), item.BankTransactionAt.Format(time.RFC3339))

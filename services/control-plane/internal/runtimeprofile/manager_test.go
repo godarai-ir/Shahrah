@@ -19,6 +19,7 @@ func TestManagerReturnsL1ProfileWithoutL2OrStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get returned error: %v", err)
 	}
+
 	if profile.Version != 4 {
 		t.Fatalf("expected L1 version 4, got %d", profile.Version)
 	}
@@ -32,13 +33,16 @@ func TestManagerLoadsProfileFromL2(t *testing.T) {
 	cache.values[ProfileKey("tenant-1", 9)] = string(raw)
 
 	manager := NewManager(nil, nil, cache, zap.NewNop(), Config{StaleGrace: time.Minute, VersionCheckInterval: time.Minute})
+
 	loaded, err := manager.Get(context.Background(), "tenant-1")
 	if err != nil {
 		t.Fatalf("Get returned error: %v", err)
 	}
+
 	if loaded.Version != 9 {
 		t.Fatalf("expected L2 version 9, got %d", loaded.Version)
 	}
+
 	if _, ok := manager.getL1(context.Background(), "tenant-1"); !ok {
 		t.Fatal("expected L2 load to populate L1")
 	}
@@ -64,9 +68,11 @@ func TestManagerCompilesAndPublishesOnColdMiss(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get returned error: %v", err)
 	}
+
 	if profile.Version != 1 || store.saved == nil {
 		t.Fatalf("expected cold miss to compile version 1, got profile=%+v saved=%+v", profile, store.saved)
 	}
+
 	if cache.values[ActiveVersionKey("tenant-1")] != "1" {
 		t.Fatalf("expected active version in cache, got %q", cache.values[ActiveVersionKey("tenant-1")])
 	}
@@ -83,12 +89,15 @@ func TestManagerCompileAndPublishPersistsAndPublishes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CompileAndPublish returned error: %v", err)
 	}
+
 	if profile.Version != 1 || store.saved == nil {
 		t.Fatalf("expected version 1 to be saved, got profile=%+v saved=%+v", profile, store.saved)
 	}
+
 	if cache.values[ActiveVersionKey("tenant-1")] != "1" {
 		t.Fatalf("expected active version in cache, got %q", cache.values[ActiveVersionKey("tenant-1")])
 	}
+
 	if cache.published == "" {
 		t.Fatal("expected profile event to be published")
 	}
@@ -106,12 +115,14 @@ func (s *fakeProfileStore) NextTenantRuntimeProfileVersion(context.Context, stri
 	if s.saved == nil {
 		return 1, nil
 	}
+
 	return s.saved.Version + 1, nil
 }
 
 func (s *fakeProfileStore) SaveTenantRuntimeProfile(_ context.Context, stored StoredProfile) error {
-	copy := stored
-	s.saved = &copy
+	storedCopy := stored
+	s.saved = &storedCopy
+
 	return nil
 }
 
@@ -119,6 +130,7 @@ func (s *fakeProfileStore) LoadLatestTenantRuntimeProfile(context.Context, strin
 	if s.saved == nil {
 		return nil, ErrProfileUnavailable
 	}
+
 	return s.saved, nil
 }
 
@@ -136,6 +148,7 @@ func (c *fakeDistributedCache) DistributedGet(_ context.Context, key string) (st
 	if !ok {
 		return "", ErrProfileUnavailable
 	}
+
 	return value, nil
 }
 

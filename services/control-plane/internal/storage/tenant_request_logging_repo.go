@@ -66,6 +66,7 @@ func (s *Store) UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID
 	}
 
 	out.LoggingMode = NormalizeRequestLoggingMode(out.LoggingMode)
+
 	s.invalidateTenantRequestLoggingMode(ctx, tenantID)
 
 	return &out, nil
@@ -76,6 +77,7 @@ func (s *Store) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID st
 	if tenantID == "" {
 		return "", false, nil
 	}
+
 	if mode, ok, found := s.getCachedTenantRequestLoggingMode(ctx, tenantID); found {
 		return mode, ok, nil
 	}
@@ -89,7 +91,9 @@ func (s *Store) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID st
 		if resolveErr != nil {
 			return nil, resolveErr
 		}
+
 		s.cacheTenantRequestLoggingMode(ctx, tenantID, mode, ok)
+
 		return cachedRequestLoggingMode{Mode: mode, OK: ok}, nil
 	})
 	if err != nil {
@@ -148,6 +152,7 @@ func (s *Store) getCachedTenantRequestLoggingMode(ctx context.Context, tenantID 
 	if !ok {
 		return "", false, false
 	}
+
 	if raw == "__unset__" {
 		return "", false, true
 	}
@@ -159,10 +164,12 @@ func (s *Store) cacheTenantRequestLoggingMode(ctx context.Context, tenantID stri
 	if s.entitlementCache == nil {
 		return
 	}
+
 	value := "__unset__"
 	if ok {
 		value = NormalizeRequestLoggingMode(mode)
 	}
+
 	s.entitlementCache.Set(ctx, requestLoggingModeCacheKey(tenantID), value, s.requestLoggingModeTTL)
 }
 

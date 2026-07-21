@@ -36,6 +36,7 @@ type windowsHostSampler struct {
 
 func newHostSampler() hostSampler {
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+
 	return &windowsHostSampler{
 		getSystemTimes:       kernel32.NewProc("GetSystemTimes"),
 		globalMemoryStatusEx: kernel32.NewProc("GlobalMemoryStatusEx"),
@@ -44,6 +45,7 @@ func newHostSampler() hostSampler {
 
 func (s *windowsHostSampler) Sample() (hostSample, error) {
 	var idle, kernel, user filetime
+
 	ok, _, callErr := s.getSystemTimes.Call(
 		uintptr(unsafe.Pointer(&idle)),
 		uintptr(unsafe.Pointer(&kernel)),
@@ -54,6 +56,7 @@ func (s *windowsHostSampler) Sample() (hostSample, error) {
 	}
 
 	memory := memoryStatusEx{Length: uint32(unsafe.Sizeof(memoryStatusEx{}))}
+
 	ok, _, callErr = s.globalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&memory)))
 	if ok == 0 {
 		return hostSample{}, callErr
@@ -68,6 +71,7 @@ func (s *windowsHostSampler) Sample() (hostSample, error) {
 		idleDelta := idleTicks - s.previousIdle
 		kernelDelta := kernelTicks - s.previousKernel
 		userDelta := userTicks - s.previousUser
+
 		total := kernelDelta + userDelta
 		if total > 0 && total >= idleDelta {
 			result.CPUPercent = float64(total-idleDelta) / float64(total) * 100
@@ -79,9 +83,11 @@ func (s *windowsHostSampler) Sample() (hostSample, error) {
 	s.previousKernel = kernelTicks
 	s.previousUser = userTicks
 	s.initialized = true
+
 	if !result.Valid && memory.TotalPhys == 0 {
 		return hostSample{}, errors.New("host resource counters are unavailable")
 	}
+
 	return result, nil
 }
 

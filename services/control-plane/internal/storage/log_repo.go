@@ -20,6 +20,7 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 	}
 
 	values := make([]string, 0, len(logs))
+
 	args := make([]interface{}, 0, len(logs)*spendLogInsertColumnCount)
 	for i, log := range logs {
 		values = append(values, spendLogInsertPlaceholders(i, spendLogInsertColumnCount))
@@ -66,6 +67,7 @@ const spendLogInsertColumnCount = 16
 
 func spendLogInsertPlaceholders(rowIndex, columns int) string {
 	start := rowIndex*columns + 1
+
 	placeholders := make([]string, 0, columns)
 	for i := 0; i < columns; i++ {
 		placeholder := fmt.Sprintf("$%d", start+i)
@@ -73,6 +75,7 @@ func spendLogInsertPlaceholders(rowIndex, columns int) string {
 		case 3, 4:
 			placeholder = fmt.Sprintf("NULLIF(%s, '')::uuid", placeholder)
 		}
+
 		placeholders = append(placeholders, placeholder)
 	}
 

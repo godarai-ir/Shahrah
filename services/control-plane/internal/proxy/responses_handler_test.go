@@ -67,6 +67,7 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, l
 	if len(logsOpt) > 0 && logsOpt[0] != nil {
 		logs = logsOpt[0]
 	}
+
 	h := NewResponsesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)

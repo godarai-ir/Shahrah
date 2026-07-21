@@ -23,7 +23,9 @@ type spendLogSink struct {
 func (s *spendLogSink) LogSpend(context.Context, platform.SpendLog) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.singles++
+
 	return s.err
 }
 
@@ -31,10 +33,14 @@ func (s *spendLogSink) LogSpends(_ context.Context, logs []platform.SpendLog) er
 	if s.block != nil {
 		<-s.block
 	}
+
 	copied := append([]platform.SpendLog(nil), logs...)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.batches = append(s.batches, copied)
+
 	return s.err
 }
 
@@ -46,6 +52,7 @@ func (s *spendLogSink) count() int {
 	for _, batch := range s.batches {
 		total += len(batch)
 	}
+
 	return total
 }
 
@@ -62,20 +69,24 @@ type spendLogMetricsSink struct {
 func (m *spendLogMetricsSink) IncSpendLogQueued() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.queued++
 }
 
 func (m *spendLogMetricsSink) IncSpendLogDropped() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.dropped++
 }
 
 func (m *spendLogMetricsSink) ObserveSpendLogFlush(batchSize int, duration time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.flushes++
 	m.flushBatches = append(m.flushBatches, batchSize)
+
 	m.flushDuration = append(m.flushDuration, duration)
 	if err != nil {
 		m.failures++
@@ -85,6 +96,7 @@ func (m *spendLogMetricsSink) ObserveSpendLogFlush(batchSize int, duration time.
 func (m *spendLogMetricsSink) snapshot() (queued, dropped, flushes, failures int, batches []int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return m.queued, m.dropped, m.flushes, m.failures, append([]int(nil), m.flushBatches...)
 }
 
@@ -104,6 +116,7 @@ func TestAsyncSpendLogWriterEnqueuesWithoutSynchronousWrite(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+
 	require.NoError(t, writer.Stop(ctx))
 	require.Equal(t, 1, sink.count())
 
@@ -118,6 +131,7 @@ func TestAsyncSpendLogWriterEnqueuesWithoutSynchronousWrite(t *testing.T) {
 func TestAsyncSpendLogWriterFlushesByBatchSize(t *testing.T) {
 	sink := &spendLogSink{}
 	metrics := &spendLogMetricsSink{}
+
 	writer := NewAsyncSpendLogWriter(sink, AsyncSpendLogConfig{
 		QueueSize:     8,
 		Workers:       1,
@@ -143,6 +157,7 @@ func TestAsyncSpendLogWriterFlushesByBatchSize(t *testing.T) {
 
 func TestAsyncSpendLogWriterFlushesByInterval(t *testing.T) {
 	sink := &spendLogSink{}
+
 	writer := NewAsyncSpendLogWriter(sink, AsyncSpendLogConfig{
 		QueueSize:     8,
 		Workers:       1,
@@ -170,8 +185,10 @@ func TestAsyncSpendLogWriterQueueFullBehaviorIsNonBlocking(t *testing.T) {
 		FlushInterval: time.Hour,
 		DropOnFull:    false,
 	}, zap.NewNop(), metrics)
+
 	defer func() {
 		close(block)
+
 		_ = writer.Stop(context.Background())
 	}()
 
@@ -182,6 +199,7 @@ func TestAsyncSpendLogWriterQueueFullBehaviorIsNonBlocking(t *testing.T) {
 	require.NoError(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-2"}))
 
 	start := time.Now()
+
 	require.ErrorIs(t, writer.LogSpend(context.Background(), platform.SpendLog{RequestID: "req-3"}), ErrSpendLogQueueFull)
 	require.Less(t, time.Since(start), 100*time.Millisecond)
 
@@ -200,8 +218,10 @@ func TestAsyncSpendLogWriterDropOnFullSuppressesQueueFullError(t *testing.T) {
 		FlushInterval: time.Hour,
 		DropOnFull:    true,
 	}, zap.NewNop(), nil)
+
 	defer func() {
 		close(block)
+
 		_ = writer.Stop(context.Background())
 	}()
 
@@ -217,6 +237,7 @@ func TestAsyncSpendLogWriterRecordsFlushFailures(t *testing.T) {
 	writeErr := errors.New("db unavailable")
 	sink := &spendLogSink{err: writeErr}
 	metrics := &spendLogMetricsSink{}
+
 	writer := NewAsyncSpendLogWriter(sink, AsyncSpendLogConfig{
 		QueueSize:     8,
 		Workers:       1,

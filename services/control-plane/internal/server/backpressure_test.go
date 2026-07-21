@@ -65,7 +65,9 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 		default:
 			close(entered)
 		}
+
 		<-release
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
@@ -75,18 +77,24 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 			firstDone <- err
 			return
 		}
+
 		resp, err := app.Test(req, -1)
 		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
+			if closeErr := resp.Body.Close(); err == nil {
+				err = closeErr
+			}
 		}
+
 		if err != nil {
 			firstDone <- err
 			return
 		}
+
 		if resp.StatusCode != fiber.StatusNoContent {
 			firstDone <- fiber.NewError(resp.StatusCode)
 			return
 		}
+
 		firstDone <- nil
 	}()
 
@@ -94,6 +102,7 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/v1/protected", http.NoBody)
 	require.NoError(t, err)
+
 	resp, err := app.Test(req, -1)
 	defer closeResponseBody(t, resp)
 
@@ -122,6 +131,7 @@ func TestGatewayBackpressureExemptsHealthAndMetrics(t *testing.T) {
 	app.Get("/v1/protected", func(c *fiber.Ctx) error {
 		close(entered)
 		<-release
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -137,10 +147,12 @@ func TestGatewayBackpressureExemptsHealthAndMetrics(t *testing.T) {
 			firstDone <- err
 			return
 		}
+
 		resp, err := app.Test(req, -1)
 		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
 		}
+
 		firstDone <- err
 	}()
 
@@ -149,11 +161,11 @@ func TestGatewayBackpressureExemptsHealthAndMetrics(t *testing.T) {
 	for _, path := range []string{"/health", "/metrics"} {
 		req, err := http.NewRequest(http.MethodGet, "http://example.com"+path, http.NoBody)
 		require.NoError(t, err)
-		resp, err := app.Test(req, -1)
-		defer closeResponseBody(t, resp)
 
+		resp, err := app.Test(req, -1)
 		require.NoError(t, err)
 		assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+		closeResponseBody(t, resp)
 	}
 
 	close(release)
@@ -174,15 +186,19 @@ func TestGatewayBackpressureReleasesAfterHandlerError(t *testing.T) {
 
 	failReq, err := http.NewRequest(http.MethodGet, "http://example.com/v1/fail", http.NoBody)
 	require.NoError(t, err)
+
 	failResp, err := app.Test(failReq, -1)
 	defer closeResponseBody(t, failResp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusInternalServerError, failResp.StatusCode)
 
 	okReq, err := http.NewRequest(http.MethodGet, "http://example.com/v1/ok", http.NoBody)
 	require.NoError(t, err)
+
 	okResp, err := app.Test(okReq, -1)
 	defer closeResponseBody(t, okResp)
+
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, okResp.StatusCode)
 }
@@ -200,6 +216,7 @@ func TestGatewayBackpressureDoesNotThrottleAdminAuth(t *testing.T) {
 	app.Get("/v1/protected", func(c *fiber.Ctx) error {
 		close(entered)
 		<-release
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 	app.Get("/api/v1/auth/session/:id", func(c *fiber.Ctx) error {
@@ -212,10 +229,12 @@ func TestGatewayBackpressureDoesNotThrottleAdminAuth(t *testing.T) {
 			firstDone <- err
 			return
 		}
+
 		resp, err := app.Test(req, -1)
 		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
 		}
+
 		firstDone <- err
 	}()
 
@@ -223,6 +242,7 @@ func TestGatewayBackpressureDoesNotThrottleAdminAuth(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/api/v1/auth/session/sess-1", http.NoBody)
 	require.NoError(t, err)
+
 	resp, err := app.Test(req, -1)
 	defer closeResponseBody(t, resp)
 

@@ -35,11 +35,7 @@ func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.validateClickHouseObject(ctx, "mv_gateway_model_metrics_1m"); err != nil {
-		return err
-	}
-
-	return nil
+	return s.validateClickHouseObject(ctx, "mv_gateway_model_metrics_1m")
 }
 
 const modelMetricInsertColumns = `
@@ -54,16 +50,13 @@ const modelMetricInsertColumns = `
 const modelMetricInsertPlaceholders = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 const modelMetricInsertArgCount = 35
 
-func (s *Store) insertModelMetricEvent(ctx context.Context, ev platform.ModelMetricEvent) error {
-	return s.insertModelMetricEvents(ctx, []platform.ModelMetricEvent{ev})
-}
-
 func (s *Store) insertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error {
 	if len(events) == 0 {
 		return nil
 	}
 
 	values := make([]string, 0, len(events))
+
 	args := make([]interface{}, 0, len(events)*modelMetricInsertArgCount)
 	for _, ev := range events {
 		values = append(values, modelMetricInsertPlaceholders)
@@ -324,6 +317,7 @@ func buildModelMetricsAggregateQuery(tenantID string, req platform.MetricsQueryR
 		if interval <= 0 {
 			interval = 300
 		}
+
 		if interval < 60 || interval%60 != 0 {
 			return "", nil, false, nil
 		}
@@ -354,6 +348,7 @@ func buildModelMetricsAggregateQuery(tenantID string, req platform.MetricsQueryR
 
 	rawWhere := "tenant_id = ? AND ts >= ? AND ts <= ? AND NOT (ts >= ? AND ts < ?)"
 	tableWhere := "tenant_id = ? AND bucket_ts >= ? AND bucket_ts < ?"
+
 	if rawFilter != "" {
 		rawWhere += " AND " + rawFilter
 		tableWhere += " AND " + aggregateFilter
@@ -482,6 +477,7 @@ func buildMetricsAggregateSpec(agg platform.MetricsAggregation) (metricAggregate
 		}
 
 		alias := "count" + pascal
+
 		return metricAggregateSpec{
 			Alias:          alias,
 			StateAlias:     "__" + alias + "_state",
@@ -496,6 +492,7 @@ func buildMetricsAggregateSpec(agg platform.MetricsAggregation) (metricAggregate
 		}
 
 		alias := "sum" + pascal
+
 		return metricAggregateSpec{
 			Alias:          alias,
 			StateAlias:     "__" + alias + "_state",
@@ -510,6 +507,7 @@ func buildMetricsAggregateSpec(agg platform.MetricsAggregation) (metricAggregate
 		}
 
 		alias := agg.Type + pascal
+
 		return metricAggregateSpec{
 			Alias:          alias,
 			StateAlias:     "__" + alias + "_state",
@@ -622,6 +620,7 @@ func buildMetricsAggregateFilters(filters []platform.MetricsFilter) (string, str
 			args = append(args, "%"+fmt.Sprintf("%v", f.Value))
 		case "IS_NULL":
 			isNull := false
+
 			switch v := f.Value.(type) {
 			case bool:
 				isNull = v
@@ -673,6 +672,7 @@ func mapAggregateFilterField(fieldName, metadataKey string) (string, string, boo
 
 func fullMinuteWindow(start, end time.Time) (time.Time, time.Time) {
 	start = start.UTC()
+
 	end = end.UTC()
 	if !start.Before(end) {
 		return time.Time{}, time.Time{}
@@ -734,6 +734,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 		}
 
 		arrayFilter := isMetricsArrayFilterField(f.FieldName, f.MetadataKey)
+
 		op := strings.ToUpper(strings.TrimSpace(f.Operator))
 		switch op {
 		case "EQUAL":
@@ -742,6 +743,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			} else {
 				where = append(where, col+" = ?")
 			}
+
 			args = append(args, f.Value)
 		case "IN":
 			if arrayFilter {
@@ -752,6 +754,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 
 				where = append(where, fmt.Sprintf("hasAny(%s, ?)", col))
 				args = append(args, values)
+
 				continue
 			}
 
@@ -771,6 +774,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 
 				where = append(where, fmt.Sprintf("NOT hasAny(%s, ?)", col))
 				args = append(args, values)
+
 				continue
 			}
 
@@ -787,6 +791,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			} else {
 				where = append(where, col+" LIKE ?")
 			}
+
 			args = append(args, "%"+fmt.Sprintf("%v", f.Value)+"%")
 		case "STRING_STARTS_WITH":
 			if arrayFilter {
@@ -794,6 +799,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			} else {
 				where = append(where, col+" LIKE ?")
 			}
+
 			args = append(args, fmt.Sprintf("%v", f.Value)+"%")
 		case "STRING_ENDS_WITH":
 			if arrayFilter {
@@ -801,6 +807,7 @@ func buildMetricsWhere(tenantID string, req platform.MetricsQueryRequest) (strin
 			} else {
 				where = append(where, col+" LIKE ?")
 			}
+
 			args = append(args, "%"+fmt.Sprintf("%v", f.Value))
 		case "GREATER_THAN":
 			if arrayFilter {
