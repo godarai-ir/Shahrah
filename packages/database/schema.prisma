@@ -7,52 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-model Budget {
-  budget_id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  max_budget            Decimal?         @db.Decimal(10, 4)
-  soft_budget           Decimal?         @db.Decimal(10, 4)
-  tpm_limit             BigInt?
-  rpm_limit             BigInt?
-  max_parallel_requests Int?
-  budget_duration       String?          @db.VarChar(50)
-  budget_reset_at       DateTime?        @db.Timestamptz(6)
-  model_max_budget      Json?
-  created_at            DateTime?        @default(now()) @db.Timestamptz(6)
-  created_by            String?          @db.VarChar(255)
-  updated_at            DateTime?        @default(now()) @db.Timestamptz(6)
-  updated_by            String?          @db.VarChar(255)
-  organizations         Organization[]
-  team_memberships      TeamMembership[]
-
-  @@map("budgets")
-}
-
-model ObjectPermission {
-  object_permission_id String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  permissions          Json?          @default("{}")
-  created_at           DateTime?      @default(now()) @db.Timestamptz(6)
-  created_by           String?        @db.VarChar(255)
-  updated_at           DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_by           String?        @db.VarChar(255)
-  organizations        Organization[]
-  teams                Team[]
-  users                User[]
-
-  @@map("object_permissions")
-}
-
-model ModelAlias {
-  id         Int       @id @default(autoincrement())
-  aliases    Json?
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
-  created_by String?   @db.VarChar(255)
-  updated_at DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by String?   @db.VarChar(255)
-  teams      Team[]
-
-  @@map("model_aliases")
-}
-
 model Tenant {
   tenant_id                  String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug                       String                       @unique @db.VarChar(255)
@@ -82,19 +36,15 @@ model Tenant {
 model Organization {
   organization_id          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organization_alias       String                   @db.VarChar(255)
-  budget_id                String?                  @db.Uuid
   metadata                 Json?                    @default("{}")
   models                   String[]                 @default([])
   spend                    Decimal?                 @default(0.0) @db.Decimal(10, 4)
   model_spend              Json?                    @default("{}")
-  object_permission_id     String?                  @db.Uuid
   created_at               DateTime?                @default(now()) @db.Timestamptz(6)
   created_by               String?                  @db.VarChar(255)
   updated_at               DateTime?                @default(now()) @db.Timestamptz(6)
   updated_by               String?                  @db.VarChar(255)
   organization_memberships OrganizationMembership[]
-  budgets                  Budget?                  @relation(fields: [budget_id], references: [budget_id], onDelete: NoAction, onUpdate: NoAction)
-  object_permissions       ObjectPermission?        @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
   teams                    Team[]
   users                    User[]
   verification_tokens      VerificationToken[]
@@ -107,7 +57,6 @@ model Team {
   team_id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   team_alias                  String?             @db.VarChar(255)
   organization_id             String?             @db.Uuid
-  object_permission_id        String?             @db.Uuid
   admins                      String[]            @default([])
   members                     String[]            @default([])
   members_with_roles          Json?               @default("{}")
@@ -130,13 +79,10 @@ model Team {
   policies                    String[]            @default([])
   default_team_member_models  String[]            @default([])
   budget_limits               Json?
-  model_id                    Int?
   allow_team_guardrail_config Boolean?            @default(false)
   created_at                  DateTime?           @default(now()) @db.Timestamptz(6)
   updated_at                  DateTime?           @default(now()) @db.Timestamptz(6)
   team_memberships            TeamMembership[]
-  model_aliases               ModelAlias?         @relation(fields: [model_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  object_permissions          ObjectPermission?   @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
   organizations               Organization?       @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   users                       User[]
   verification_tokens         VerificationToken[]
@@ -161,12 +107,10 @@ model User {
   tpm_limit                BigInt?
   rpm_limit                BigInt?
   metadata                 Json?                    @default("{}")
-  object_permission_id     String?                  @db.Uuid
   created_at               DateTime?                @default(now()) @db.Timestamptz(6)
   updated_at               DateTime?                @default(now()) @db.Timestamptz(6)
   organization_memberships OrganizationMembership[]
   team_memberships         TeamMembership[]
-  object_permissions       ObjectPermission?        @relation(fields: [object_permission_id], references: [object_permission_id], onDelete: NoAction, onUpdate: NoAction)
   organizations            Organization?            @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   teams                    Team?                    @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
   verification_tokens      VerificationToken[]
@@ -197,12 +141,10 @@ model TeamMembership {
   user_id                 String   @db.Uuid
   role                    String   @default("team_member") @db.VarChar(50)
   team_member_permissions String[] @default([])
-  budget_id               String?  @db.Uuid
   spend                   Decimal? @default(0.0) @db.Decimal(10, 4)
   metadata                Json?    @default("{}")
   created_at              DateTime @default(now()) @db.Timestamptz(6)
   updated_at              DateTime @default(now()) @db.Timestamptz(6)
-  budgets                 Budget?  @relation(fields: [budget_id], references: [budget_id], onDelete: NoAction, onUpdate: NoAction)
   teams                   Team     @relation(fields: [team_id], references: [team_id], onDelete: Cascade, onUpdate: NoAction)
   tenants                 Tenant   @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
   users                   User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
@@ -311,19 +253,6 @@ model ModelDeployment {
   @@map("model_deployments")
 }
 
-model Credential {
-  credential_id     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  credential_name   String    @unique @db.VarChar(255)
-  credential_values Json
-  credential_info   Json?
-  created_at        DateTime? @default(now()) @db.Timestamptz(6)
-  created_by        String?   @db.VarChar(255)
-  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
-  updated_by        String?   @db.VarChar(255)
-
-  @@map("credentials")
-}
-
 model SpendLog {
   id                    BigInt    @id @default(autoincrement())
   token_hash            String?   @db.VarChar(64)
@@ -375,17 +304,6 @@ model RequestLog {
   @@map("request_logs")
 }
 
-model Guardrail {
-  guardrail_name        String    @id @db.VarChar(255)
-  guardrail_type        String?   @db.VarChar(50)
-  event_hook            String?   @db.VarChar(50)
-  guardrail_init_kwargs Json?     @default("{}")
-  created_at            DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime? @default(now()) @db.Timestamptz(6)
-
-  @@map("guardrails")
-}
-
 model TenantGuardrail {
   guardrail_id   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id      String    @db.Uuid
@@ -407,17 +325,6 @@ model TenantGuardrail {
   @@index([tenant_id], map: "idx_tenant_guardrails_tenant")
   @@index([tenant_id, enabled], map: "idx_tenant_guardrails_tenant_enabled")
   @@map("tenant_guardrails")
-}
-
-model Policy {
-  policy_id     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  policy_name   String    @unique @db.VarChar(255)
-  policy_type   String?   @db.VarChar(50)
-  policy_config Json
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
-
-  @@map("policies")
 }
 
 model Wallet {
