@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -87,17 +88,34 @@ func (w *testWallets) DebitWallet(_ context.Context, tenantID string, breakdown 
 }
 
 type testLogs struct {
+	mu            sync.RWMutex
 	loggedEntries []platform.RequestLogEntry
 	loggedSpends  []platform.SpendLog
 }
 
 func (l *testLogs) LogRequest(_ context.Context, entry platform.RequestLogEntry) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	l.loggedEntries = append(l.loggedEntries, entry)
+
 	return nil
 }
+
 func (l *testLogs) LogSpend(_ context.Context, log platform.SpendLog) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	l.loggedSpends = append(l.loggedSpends, log)
+
 	return nil
+}
+
+func (l *testLogs) requestEntries() []platform.RequestLogEntry {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	return append([]platform.RequestLogEntry(nil), l.loggedEntries...)
 }
 
 type fakeTunnelStream struct {
@@ -333,11 +351,13 @@ func TestCompletionsTracingLifecycle_SyncSuccess(t *testing.T) {
 	assert.Contains(t, names, "provider.call")
 	assert.Contains(t, names, "response.write")
 
-	require.Eventually(t, func() bool { return len(logs.loggedEntries) == 1 }, time.Second, 10*time.Millisecond)
-	assert.Equal(t, map[string]interface{}{"model": "gpt-4", "prompt": "hello"}, logs.loggedEntries[0].RequestBody)
-	assert.Equal(t, "chatcmpl_1", logs.loggedEntries[0].ResponseBody["id"])
-	assert.Equal(t, "text_completion", logs.loggedEntries[0].ResponseBody["object"])
-	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
+	require.Eventually(t, func() bool { return len(logs.requestEntries()) == 1 }, time.Second, 10*time.Millisecond)
+
+	entry := logs.requestEntries()[0]
+	assert.Equal(t, map[string]interface{}{"model": "gpt-4", "prompt": "hello"}, entry.RequestBody)
+	assert.Equal(t, "chatcmpl_1", entry.ResponseBody["id"])
+	assert.Equal(t, "text_completion", entry.ResponseBody["object"])
+	assert.NotContains(t, entry.ResponseBody, "result_count")
 }
 
 func TestCompletionsTracingLifecycle_ProviderErrorIncludesProviderSpan(t *testing.T) {

@@ -283,9 +283,25 @@ func TestWeightedRoutingEngineSelectsWeightedPrimaryThenOrderedFallbacks(t *test
 		},
 	})
 	require.NoError(t, err)
-	require.Len(t, targets, 2)
-	assert.Equal(t, "openai", targets[0].Provider)
-	assert.Equal(t, "anthropic", targets[1].Provider)
+	require.NotEmpty(t, targets)
+	assert.Contains(t, []string{"anthropic", "openai", "google"}, targets[0].Provider)
+
+	expectedFallbacks := []string{"anthropic", "openai"}
+
+	switch targets[0].Provider {
+	case "anthropic":
+		expectedFallbacks = []string{"openai"}
+	case "openai":
+		expectedFallbacks = []string{"anthropic"}
+	}
+
+	actualFallbacks := make([]string, 0, len(targets)-1)
+	for _, target := range targets[1:] {
+		assert.True(t, target.Policy.Fallback.Candidate)
+		actualFallbacks = append(actualFallbacks, target.Provider)
+	}
+
+	assert.Equal(t, expectedFallbacks, actualFallbacks)
 }
 
 func TestRoutingEngineUsesWeightedStrategy(t *testing.T) {

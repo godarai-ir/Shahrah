@@ -2088,8 +2088,9 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 	assert.Contains(t, bodyText, `"content":"Salam"`)
 	assert.Contains(t, bodyText, "data: [DONE]")
 	assert.True(t, stream.closed)
-	assert.Empty(t, mWallet.debitCalls)
-	assert.Empty(t, mLogs.loggedSpends)
+	require.Len(t, mWallet.debitCalls, 1)
+	require.Len(t, mLogs.loggedSpends, 1)
+	assert.Equal(t, "success", mLogs.loggedSpends[0].Status)
 }
 
 func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {
