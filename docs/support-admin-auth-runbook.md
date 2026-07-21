@@ -61,7 +61,7 @@ $fingerprintKey = [byte[]]::new(32)
 [Array]::Clear($fingerprintKey, 0, $fingerprintKey.Length)
 ```
 
-The secret-sync workflow validates that both values exist and writes them to `shahrah-secret`. GitOps injects them into control-plane and sets the active version to `prod-v1`. Keep old KEK versions in `PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON` during rotation until every stored DEK has been rewrapped; removing an in-use version makes existing provider credentials undecryptable.
+The secret-sync workflow validates that both values exist and writes them to `shahrah-secret`. It reaches the private Kubernetes API through the production bastion, using the PuTTY private key stored in the `PRODUCTION_BASTION_SSH_PRIVATE_KEY` GitHub Actions secret and a host-key fingerprint pinned in the workflow. GitOps injects the provider keys into control-plane and sets the active version to `prod-v1`. Keep old KEK versions in `PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON` during rotation until every stored DEK has been rewrapped; removing an in-use version makes existing provider credentials undecryptable.
 
 ## Database ownership and tenant data
 
