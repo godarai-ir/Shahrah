@@ -77,6 +77,8 @@ go -C services/control-plane run ./cmd/platform-service-account --profile=suppor
 
 Do not spell out this credential's scopes in deployment automation; the profile is kept in sync with the platform endpoints and covered by tests.
 
+The platform provider credential store also requires `PLATFORM_PROVIDER_CREDENTIAL_MODE=platform_store`, `PLATFORM_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION`, `PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON`, and `PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY`. Production key generation and rotation are documented in `docs/support-admin-auth-runbook.md`; never commit these key values.
+
 ## Local Verification
 
 Apply migrations in this order:

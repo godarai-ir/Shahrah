@@ -15,8 +15,10 @@
 5. Provision a support-admin user using `admin:user:create`.
 6. Provision the model-discovery service key using `service-account:create`.
 7. Provision the control-plane service key using `go run ./services/control-plane/cmd/platform-service-account`.
-8. Inject the keys as `MODEL_DISCOVERY_SERVICE_TOKEN` and `CONTROL_PLANE_SERVICE_TOKEN`, then restart support-admin.
-9. Verify `/api/auth/me` and one read-only admin request on the dedicated support-admin origin before enabling mutations.
+8. Provision the platform provider credential encryption keys described below.
+9. Run the `Sync Production Kubernetes Secrets` workflow.
+10. Deploy the GitOps values that enable `PLATFORM_PROVIDER_CREDENTIAL_MODE=platform_store`.
+11. Verify `/api/auth/me` and one read-only admin request on the dedicated support-admin origin before enabling mutations.
 
 Provisioning never accepts a password or generated service secret on the command line. The user password is read from `SUPPORT_ADMIN_INITIAL_PASSWORD`; workload secrets are randomly generated and displayed once.
 
@@ -32,6 +34,34 @@ The profile owns the complete support-admin scope set in code, so deployment com
 ```powershell
 go -C services/control-plane run ./cmd/platform-service-account --revoke-key-id <key-id>
 ```
+
+## Platform provider credential encryption
+
+Provider API credentials stored by control-plane use envelope encryption and a keyed fingerprint. Production requires two independent, persistent GitHub Actions secrets:
+
+- `PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON`: a JSON object mapping KEK versions to base64-encoded 32-byte AES keys.
+- `PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY`: an independent base64-encoded key of at least 32 bytes.
+
+Generate the initial `prod-v1` keys from PowerShell without writing plaintext secrets to disk or command history:
+
+```powershell
+$kek = [byte[]]::new(32)
+[Security.Cryptography.RandomNumberGenerator]::Fill($kek)
+$fingerprintKey = [byte[]]::new(32)
+[Security.Cryptography.RandomNumberGenerator]::Fill($fingerprintKey)
+
+@{ 'prod-v1' = [Convert]::ToBase64String($kek) } |
+  ConvertTo-Json -Compress |
+  gh secret set PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON --repo Delpak/Shahrah
+
+[Convert]::ToBase64String($fingerprintKey) |
+  gh secret set PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY --repo Delpak/Shahrah
+
+[Array]::Clear($kek, 0, $kek.Length)
+[Array]::Clear($fingerprintKey, 0, $fingerprintKey.Length)
+```
+
+The secret-sync workflow validates that both values exist and writes them to `shahrah-secret`. It reaches the private Kubernetes API through the production bastion, using the PuTTY private key stored in the `PRODUCTION_BASTION_SSH_PRIVATE_KEY` GitHub Actions secret and a host-key fingerprint pinned in the workflow. GitOps injects the provider keys into control-plane and sets the active version to `prod-v1`. Keep old KEK versions in `PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON` during rotation until every stored DEK has been rewrapped; removing an in-use version makes existing provider credentials undecryptable.
 
 ## Database ownership and tenant data
 
