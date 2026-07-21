@@ -87,6 +87,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.variable-placeholder {
+  color: oklch(var(--variable-foreground-lightness) var(--variable-foreground-chroma) var(--variable-hue));
+}
+
 /* ========================================
    ACCESSIBILITY — WCAG 2.2
    ======================================== */

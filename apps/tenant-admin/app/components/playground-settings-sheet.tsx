@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { CircleHelp, Plus, Trash2, Wrench } from "lucide-react";
 
-import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, EmptyState } from "@/components/app-ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, EmptyState, HelpLink } from "@/components/app-ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import {
   createPlaygroundMetadataRow,
@@ -24,6 +26,10 @@ import type { GuardrailItem } from "./prompt-management-shared";
 
 type Translation = (key: string, values?: Record<string, string | number>) => string;
 
+export type PlaygroundCacheEntitlements = {
+  features?: Record<string, unknown>;
+} | null;
+
 type PlaygroundSettingsSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,6 +37,7 @@ type PlaygroundSettingsSheetProps = {
   mode: PlaygroundMode;
   guardrails: GuardrailItem[];
   guardrailsLoading: boolean;
+  cacheEntitlements: PlaygroundCacheEntitlements;
   readOnly: boolean;
   side: "left" | "right";
   onChange: (column: PlaygroundColumnDraft) => void;
@@ -41,6 +48,13 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
   if (!props.column) return null;
   const column = props.column;
   const config = column.config;
+  const cacheLimits = resolveCacheLimits(props.cacheEntitlements);
+  const cacheUnavailable = !cacheLimits.simpleEnabled && !cacheLimits.semanticEnabled;
+  const selectedCacheTypeUnavailable = config.cacheType === "simple" ? !cacheLimits.simpleEnabled : !cacheLimits.semanticEnabled;
+  const cacheConfigDisabled = props.readOnly || cacheUnavailable || selectedCacheTypeUnavailable;
+  const simpleCacheMaxTTL = config.cacheType === "simple" && cacheLimits.simpleTTLDays !== null
+    ? cacheLimits.simpleTTLDays * 86_400
+    : undefined;
 
   function changeConfig(patch: Partial<typeof config>) {
     props.onChange({ ...column, config: { ...config, ...patch }, dirty: true });
@@ -61,12 +75,15 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
         {props.mode === "image_generation" ? (
           <ImageGenerationSettings column={column} readOnly={props.readOnly} onChange={props.onChange} t={props.t} />
         ) : <Tabs defaultValue="model" className="min-h-0 flex-1 gap-0">
-          <div className="overflow-x-auto border-b border-border p-3">
-            <TabsList>
-              <TabsTrigger value="model">{props.t("settings.model")}</TabsTrigger>
-              <TabsTrigger value="tools">{props.t("settings.tools")}</TabsTrigger>
-              <TabsTrigger value="godarai">{props.t("settings.godarai")}</TabsTrigger>
-              <TabsTrigger value="metadata">{props.t("settings.metadata")}</TabsTrigger>
+          <div className="flex justify-center overflow-x-auto border-b border-border p-3">
+            <TabsList asChild className="h-auto bg-transparent p-0">
+              <ButtonGroup aria-label={props.t("settings.title")} className="mx-auto">
+                <TabsTrigger value="model" className="h-8 flex-none rounded-lg border border-border bg-background px-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">{props.t("settings.model")}</TabsTrigger>
+                <TabsTrigger value="tools" className="h-8 flex-none rounded-lg border border-border bg-background px-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">{props.t("settings.tools")}</TabsTrigger>
+                <TabsTrigger value="godarai" className="h-8 flex-none rounded-lg border border-border bg-background px-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">{props.t("settings.godarai")}</TabsTrigger>
+                <TabsTrigger value="guardrails" className="h-8 flex-none rounded-lg border border-border bg-background px-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">{props.t("settings.guardrails")}</TabsTrigger>
+                <TabsTrigger value="metadata" className="h-8 flex-none rounded-lg border border-border bg-background px-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">{props.t("settings.metadata")}</TabsTrigger>
+              </ButtonGroup>
             </TabsList>
           </div>
           <ScrollArea className="min-h-0 flex-1">
@@ -80,7 +97,24 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
                   { value: "default", label: props.t("settings.reasoningNone") }, { value: "low", label: "low" }, { value: "medium", label: "medium" }, { value: "high", label: "high" },
                 ]} optionTextDir="ltr" />
               </div>
-              <AppCodeTextareaField label={props.t("settings.stop")} value={config.stop} disabled={props.readOnly} onChange={(event) => changeConfig({ stop: event.target.value })} className="min-h-28" />
+              <AppCodeTextareaField
+                label={props.t("settings.stop")}
+                description={<span className="flex items-start gap-1">
+                  <span>{props.t("settings.stopDescription")}</span>
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon-xs" aria-label={props.t("settings.stopHelpLabel")}><CircleHelp data-icon="inline-start" /></Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-start">{props.t("settings.stopTooltip")}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </span>}
+                value={config.stop}
+                disabled={props.readOnly}
+                onChange={(event) => changeConfig({ stop: event.target.value })}
+                className="min-h-28"
+              />
               {config.stream && config.outputGuardrails.length ? (
                 <Alert variant="warning"><AlertDescription className="flex flex-wrap items-center justify-between gap-2"><span>{props.t("settings.guardrailConflict")}</span><Button size="sm" variant="outline" onClick={() => changeConfig({ stream: false })}>{props.t("settings.disableStream")}</Button></AlertDescription></Alert>
               ) : null}
@@ -100,7 +134,7 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
 
             <TabsContent value="tools" className="flex flex-col gap-4 p-4">
               <Alert variant="info"><AlertDescription>{props.t("settings.toolSafety")}</AlertDescription></Alert>
-              <div className="flex justify-end"><Button type="button" size="sm" variant="outline" disabled={props.readOnly} onClick={() => props.onChange({ ...column, tools: [...column.tools, createPlaygroundTool()], dirty: true })}><Plus data-icon="inline-start" />{props.t("actions.addTool")}</Button></div>
+              <div className="flex justify-end"><Button type="button" size="sm" variant="outline" disabled={props.readOnly} onClick={() => props.onChange({ ...column, tools: [...column.tools, createPlaygroundTool()], dirty: true })}><Wrench data-icon="inline-start" />{props.t("actions.addTool")}</Button></div>
               {column.tools.length === 0 ? <EmptyState variant="inline" density="compact" title={props.t("settings.tools")} description={props.t("settings.toolSafety")} /> : null}
               {column.tools.map((tool, index) => (
                 <section key={tool.id} className="flex flex-col gap-3 border-b border-border pb-5 last:border-0">
@@ -114,15 +148,26 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
             </TabsContent>
 
             <TabsContent value="godarai" className="flex flex-col gap-5 p-4">
-              <h3 className="text-sm font-semibold">{props.t("settings.cache")}</h3>
-              <AppSwitchField surface={false} label={props.t("settings.cacheEnabled")} checked={config.cacheEnabled} disabled={props.readOnly} onCheckedChange={(cacheEnabled) => changeConfig({ cacheEnabled })} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold">{props.t("settings.cache")}</h3>
+                <HelpLink href="/docs/guides/caching" />
+              </div>
+              {cacheLimits.resolved ? (
+                <Alert variant="info">
+                  <AlertTitle>{props.t("settings.cachePlanLimitTitle")}</AlertTitle>
+                  <AlertDescription>{getCachePlanLimitMessage(cacheLimits, props.t)}</AlertDescription>
+                </Alert>
+              ) : null}
+              <AppSwitchField surface={false} label={props.t("settings.cacheEnabled")} checked={config.cacheEnabled} disabled={props.readOnly || cacheUnavailable} onCheckedChange={(cacheEnabled) => changeConfig({ cacheEnabled })} />
               {config.cacheEnabled ? <div className="grid gap-4 sm:grid-cols-2">
-                <AppSelectField label={props.t("settings.cacheType")} value={config.cacheType} disabled={props.readOnly} onValueChange={(value) => changeConfig({ cacheType: value as "simple" | "smart" })} options={[{ value: "simple", label: props.t("settings.cacheSimple") }, { value: "smart", label: props.t("settings.cacheSmart") }]} />
-                <AppNumberField label={props.t("settings.cacheTTL")} value={config.cacheTTL} min={1} step={1} disabled={props.readOnly} onChange={(event) => changeConfig({ cacheTTL: event.target.value })} />
-                <AppTextField label={props.t("settings.cacheNamespace")} value={config.cacheNamespace} dir="ltr" disabled={props.readOnly} onChange={(event) => changeConfig({ cacheNamespace: event.target.value })} />
-                {config.cacheType === "smart" ? <AppNumberField label={props.t("settings.cacheSimilarity")} value={config.cacheSimilarity} min={0.8} max={1} step={0.01} disabled={props.readOnly} onChange={(event) => changeConfig({ cacheSimilarity: event.target.value })} /> : null}
+                <AppSelectField label={props.t("settings.cacheType")} value={config.cacheType} disabled={props.readOnly || cacheUnavailable} onValueChange={(value) => changeConfig({ cacheType: value as "simple" | "smart" })} options={[{ value: "simple", label: props.t("settings.cacheSimple"), disabled: !cacheLimits.simpleEnabled }, { value: "smart", label: props.t("settings.cacheSmart"), disabled: !cacheLimits.semanticEnabled }]} />
+                <AppNumberField label={props.t("settings.cacheTTL")} value={config.cacheTTL} min={1} max={simpleCacheMaxTTL} step={1} disabled={cacheConfigDisabled} onChange={(event) => changeConfig({ cacheTTL: event.target.value })} />
+                <AppTextField label={props.t("settings.cacheNamespace")} value={config.cacheNamespace} dir="ltr" disabled={cacheConfigDisabled} onChange={(event) => changeConfig({ cacheNamespace: event.target.value })} />
+                {config.cacheType === "smart" ? <AppNumberField label={props.t("settings.cacheSimilarity")} value={config.cacheSimilarity} min={0.8} max={1} step={0.01} disabled={cacheConfigDisabled} onChange={(event) => changeConfig({ cacheSimilarity: event.target.value })} /> : null}
               </div> : null}
-              <Separator />
+            </TabsContent>
+
+            <TabsContent value="guardrails" className="flex flex-col gap-5 p-4">
               <h3 className="text-sm font-semibold">{props.t("settings.guardrails")}</h3>
               <AppSelectField label={props.t("settings.guardrailScope")} value={config.guardrailScope} disabled={props.readOnly} onValueChange={(value) => changeConfig({ guardrailScope: value as "all" | "last" })} options={[{ value: "last", label: props.t("settings.scopeLast") }, { value: "all", label: props.t("settings.scopeAll") }]} />
               {props.guardrailsLoading ? <p className="text-sm text-muted-foreground">{props.t("load.loading")}</p> : null}
@@ -221,6 +266,53 @@ function ImageGenerationSettings(props: {
       </FieldGroup>
     </ScrollArea>
   );
+}
+
+type ResolvedCacheLimits = {
+  resolved: boolean;
+  simpleEnabled: boolean;
+  semanticEnabled: boolean;
+  simpleTTLDays: number | null;
+};
+
+function resolveCacheLimits(entitlements: PlaygroundCacheEntitlements): ResolvedCacheLimits {
+  const features = entitlements?.features;
+  if (!features) {
+    return { resolved: false, simpleEnabled: true, semanticEnabled: true, simpleTTLDays: null };
+  }
+
+  return {
+    resolved: true,
+    simpleEnabled: readBooleanEntitlement(features["cache.simple.enabled"], true),
+    semanticEnabled: readBooleanEntitlement(features["cache.semantic.enabled"], false),
+    simpleTTLDays: readPositiveNumberEntitlement(features["cache.simple.ttl_days"]),
+  };
+}
+
+function getCachePlanLimitMessage(limits: ResolvedCacheLimits, t: Translation): string {
+  if (!limits.simpleEnabled && !limits.semanticEnabled) return t("settings.cachePlanUnavailable");
+  if (limits.simpleEnabled && !limits.semanticEnabled && limits.simpleTTLDays !== null) {
+    return t("settings.cachePlanSimpleOnlyWithTTL", { days: limits.simpleTTLDays });
+  }
+  if (limits.simpleEnabled && !limits.semanticEnabled) return t("settings.cachePlanSimpleOnly");
+  if (!limits.simpleEnabled && limits.semanticEnabled) return t("settings.cachePlanSemanticOnly");
+  if (limits.simpleTTLDays !== null) return t("settings.cachePlanBothWithTTL", { days: limits.simpleTTLDays });
+  return t("settings.cachePlanBoth");
+}
+
+function readBooleanEntitlement(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
+  return fallback;
+}
+
+function readPositiveNumberEntitlement(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function GuardrailChecklist(props: { title: string; emptyLabel: string; guardrails: GuardrailItem[]; selected: string[]; disabled: boolean; onToggle: (selector: string, checked: boolean) => void }) {

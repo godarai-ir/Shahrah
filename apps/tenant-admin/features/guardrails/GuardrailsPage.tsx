@@ -376,14 +376,18 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <SearchField
+              containerClassName="min-w-0 flex-1"
+              placeholder={t("searchPlaceholder")}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
             <Button type="button" onClick={openCreateDialog}>
               <Plus data-icon="inline-start" aria-hidden="true" />
               {t("actions.new")}
             </Button>
-            <HelpLink href={docsHref} />
           </div>
-          <SearchField placeholder={t("searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <OperationNotice notice={notice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
@@ -393,6 +397,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
               variant="inline"
               density="compact"
               title={hasSearchQuery ? t("emptySearch") : t("empty")}
+              secondaryAction={!hasSearchQuery ? <HelpLink href={docsHref} /> : undefined}
             />
           ) : (
             <div className="overflow-x-auto rounded-lg border">

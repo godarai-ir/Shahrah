@@ -4,13 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, Play, Plus, Save, Settings2, Square, Trash2 } from "lucide-react";
 
 import {
-  AppCodeTextareaField,
-  AppTextareaField,
   CopyAction,
   EmptyState,
   PromptMessageEditor,
   RunTelemetryStrip,
   StatusBadge,
+  VariableTextareaField,
   type PromptMessageRole,
   type RunTelemetryItem,
 } from "@/components/app-ui";
@@ -46,6 +45,7 @@ type PlaygroundColumnProps = {
   canLoad: boolean;
   canOpenTrace: boolean;
   comparison: boolean;
+  variables?: string[];
   onChange: (column: PlaygroundColumnDraft) => void;
   onRun: () => void;
   onStop: () => void;
@@ -108,7 +108,7 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
           />
         ) : <h2 className="text-sm font-semibold">{props.t("editor")}</h2>}
         <Button type="button" size="sm" variant="outline" className="min-w-0 max-w-full" disabled={props.readOnly} onClick={props.onOpenModel}>
-          <span className="truncate font-mono" dir="ltr">{column.selectedModel || props.t("model.select")}</span>
+          <span className={column.selectedModel ? "truncate font-mono" : "truncate"} dir={column.selectedModel ? "ltr" : undefined}>{column.selectedModel || props.t("model.select")}</span>
           {column.selectedProvider === "virtual" ? <Badge variant="secondary">{props.t("model.virtual")}</Badge> : null}
         </Button>
         <div className="ms-auto flex items-center gap-1">
@@ -124,9 +124,10 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-4 p-4">
             <Alert variant="info"><AlertDescription>{props.t("image.temporaryNotice")}</AlertDescription></Alert>
-            <AppTextareaField
+            <VariableTextareaField
               label={props.t("image.prompt")}
               description={props.t("image.promptHelp")}
+              variables={props.variables ?? []}
               value={column.imagePrompt}
               placeholder={props.t("image.promptPlaceholder")}
               readOnly={props.readOnly}
@@ -173,6 +174,7 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
                 disableMoveUp={index === 0}
                 disableMoveDown={index === column.messages.length - 1}
                 error={!message.content.trim() ? props.t("message.content") : undefined}
+                highlightedVariables={props.variables ?? []}
                 onRoleChange={(role: PromptMessageRole) => updateMessage(index, { role })}
                 onContentChange={(content) => updateMessage(index, { content })}
                 onToolCallIdChange={(toolCallId) => updateMessage(index, { toolCallId })}
@@ -209,13 +211,15 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
           </ScrollArea>
         </TabsContent>
         <TabsContent value="json" className="min-h-0 overflow-auto p-3">
-          <AppCodeTextareaField
+          <VariableTextareaField
             label={props.t("json")}
+            variables={props.variables ?? []}
             value={column.jsonDraft}
             error={column.jsonError || undefined}
             readOnly={props.readOnly}
             onChange={(event) => props.onChange({ ...column, jsonDraft: event.target.value, jsonError: "", dirty: true })}
-            className="min-h-96"
+            overlayClassName="font-mono text-xs leading-6"
+            className="min-h-96 text-start font-mono text-xs leading-6"
           />
           <div className="mt-3 flex justify-end">
             <Button type="button" size="sm" disabled={props.readOnly} onClick={() => switchMode("visual")}>{props.t("actions.applyJson")}</Button>

@@ -137,6 +137,10 @@
   --chart-3: oklch(0.58 0.20 310);  /* purple */
   --chart-4: oklch(0.78 0.16 80);   /* amber */
   --chart-5: oklch(0.62 0.23 27);   /* red */
+
+  /* Variable placeholders — hue is assigned per prompt variable. */
+  --variable-foreground-lightness: 52%;
+  --variable-foreground-chroma: 0.18;
 }
 
 /* Dark mode — website-aligned */
@@ -240,6 +244,9 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+
+  --variable-foreground-lightness: 76%;
+  --variable-foreground-chroma: 0.16;
 }
 
 /* ========================================

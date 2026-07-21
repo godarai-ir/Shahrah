@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Plus, Save, Square, Variable } from "lucide-react";
+import { AlertTriangle, Columns3, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, Square } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,13 +9,15 @@ import { usePermissions } from "@/app/components/permissions-context";
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import {
   AppTextField,
+  EmptyState,
   FormDialog,
   OperationNotice,
   ResizableSplitPane,
   SearchPickerDialog,
   UnsavedChangesDialog,
+  getVariableColorStyle,
 } from "@/components/app-ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,7 +42,7 @@ import {
   type PlaygroundTelemetry,
 } from "./playground-domain";
 import { PlaygroundComparisonColumn, PlaygroundEditorPanel, PlaygroundOutputPanel } from "./playground-column";
-import { PlaygroundSettingsSheet } from "./playground-settings-sheet";
+import { PlaygroundSettingsSheet, type PlaygroundCacheEntitlements } from "./playground-settings-sheet";
 import { extractPlaygroundText, usePlaygroundStream } from "./use-playground-stream";
 import type {
   GatewayModel,
@@ -76,6 +78,8 @@ export default function PlaygroundPage() {
   const [modelError, setModelError] = useState("");
   const [guardrails, setGuardrails] = useState<GuardrailItem[]>([]);
   const [guardrailsLoading, setGuardrailsLoading] = useState(true);
+  const [cacheEntitlements, setCacheEntitlements] = useState<PlaygroundCacheEntitlements>(null);
+  const [promptTemplateCount, setPromptTemplateCount] = useState<number | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
@@ -95,11 +99,12 @@ export default function PlaygroundPage() {
   const activeColumn = columns.find((column) => column.id === activeColumnID) ?? columns[0];
   const settingsColumn = columns.find((column) => column.id === settingsColumnID) ?? null;
   const modeModels = useMemo(() => models.filter((model) => modelSupportsPlaygroundMode(model, mode)), [models, mode]);
-  const allVariables = useMemo(() => Array.from(new Set(columns.flatMap((column) => getColumnVariables(column, mode)))).sort((a, b) => a.localeCompare(b)), [columns, mode]);
+  const allVariables = useMemo(() => collectPlaygroundVariables(columns, mode), [columns, mode]);
   const anyRunning = Object.values(results).some((result) => result.status === "running");
+  const promptTemplateLimit = resolvePromptTemplateLimit(cacheEntitlements);
 
   useEffect(() => {
-    void Promise.all([loadModels(), loadGuardrails()]);
+    void Promise.all([loadModels(), loadGuardrails(), loadCacheEntitlements(), loadPromptTemplateCount()]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -192,6 +197,24 @@ export default function PlaygroundPage() {
 
   function updateColumn(next: PlaygroundColumnDraft) {
     setColumns((current) => current.map((column) => column.id === next.id ? next : column));
+  }
+
+  async function loadCacheEntitlements() {
+    try {
+      setCacheEntitlements(await requestJSON<PlaygroundCacheEntitlements>("/api/entitlements"));
+    } catch {
+      setCacheEntitlements(null);
+    }
+  }
+
+  async function loadPromptTemplateCount() {
+    if (!canSave) return;
+    try {
+      const payload = await requestJSON<PromptListResponse>("/api/prompts?limit=1");
+      setPromptTemplateCount(typeof payload.total === "number" ? payload.total : null);
+    } catch {
+      setPromptTemplateCount(null);
+    }
   }
 
   function requestModeChange(nextMode: PlaygroundMode) {
@@ -469,6 +492,7 @@ export default function PlaygroundPage() {
     canLoad: mode === "chat" && canLoad,
     canOpenTrace,
     comparison: columns.length > 1,
+    variables: allVariables,
     onChange: updateColumn,
     onRun: () => void runColumn(column),
     onStop: () => stopColumn(column.id),
@@ -489,6 +513,7 @@ export default function PlaygroundPage() {
         <div className="flex items-center gap-2 text-sm font-medium"><FlaskConical className="size-4 text-primary" />{t("newDraft")}</div>
         <ToggleGroup
           type="single"
+          dir={locale === "fa" ? "rtl" : "ltr"}
           value={mode}
           disabled={anyRunning}
           onValueChange={(value) => { if (value === "chat" || value === "image_generation") requestModeChange(value); }}
@@ -504,8 +529,8 @@ export default function PlaygroundPage() {
           </Tabs>
         ) : null}
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => setVariablesOpen(true)}><Variable data-icon="inline-start" />{t("actions.variables", { count: allVariables.length })}</Button>
-          <Button type="button" size="sm" variant="outline" disabled={columns.length >= 3} onClick={addComparison}><Plus data-icon="inline-start" />{t("actions.compare")}</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setVariablesOpen(true)}><span dir="ltr" aria-hidden="true" className="font-mono text-xs leading-none">{"{{x}}"}</span>{t("actions.variables", { count: allVariables.length })}</Button>
+          <Button type="button" size="sm" variant="outline" disabled={columns.length >= 3} onClick={addComparison}><Columns3 data-icon="inline-start" />{t("actions.compare")}</Button>
           {mode === "chat" ? <Button type="button" size="sm" variant="outline" disabled={!canLoad} onClick={() => setLoadOpen(true)}><FolderOpen data-icon="inline-start" />{t("actions.load")}</Button> : null}
         </div>
       </div>
@@ -519,7 +544,7 @@ export default function PlaygroundPage() {
       ) : modelError ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-destructive" /><div><h2 className="font-semibold">{t("errors.loadModels")}</h2><p className="mt-1 text-sm text-muted-foreground">{modelError}</p></div><Button type="button" onClick={() => void loadModels()}>{t("actions.retry")}</Button></div>
       ) : modeModels.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{mode === "image_generation" ? t("model.noImageModelTitle") : t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "image_generation" ? t("model.noImageModelDescription") : t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts/new">{t("model.connect")}</a></Button></div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{mode === "image_generation" ? t("model.noImageModelTitle") : t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "image_generation" ? t("model.noImageModelDescription") : t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts">{t("model.connect")}</a></Button></div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden p-3">
           {columns.length === 1 ? (
@@ -564,7 +589,7 @@ export default function PlaygroundPage() {
       </div>
 
       <ModelPickerDialog open={modelPickerOpen} onOpenChange={setModelPickerOpen} search={modelSearch} onSearchChange={setModelSearch} models={modeModels} selectedModel={activeColumn.selectedModel} onSelect={(model) => { updateColumn({ ...activeColumn, selectedModel: model.id, selectedProvider: model.provider ?? "", dirty: true }); setModelPickerOpen(false); }} t={t} />
-      <PlaygroundSettingsSheet open={Boolean(settingsColumnID)} onOpenChange={(open) => !open && setSettingsColumnID(null)} column={settingsColumn} mode={mode} guardrails={guardrails} guardrailsLoading={guardrailsLoading} readOnly={!canRun} side={locale === "fa" ? "left" : "right"} onChange={updateColumn} t={t} />
+      <PlaygroundSettingsSheet open={Boolean(settingsColumnID)} onOpenChange={(open) => !open && setSettingsColumnID(null)} column={settingsColumn} mode={mode} guardrails={guardrails} guardrailsLoading={guardrailsLoading} cacheEntitlements={cacheEntitlements} readOnly={!canRun} side={locale === "fa" ? "left" : "right"} onChange={updateColumn} t={t} />
       <VariablesSheet
         open={variablesOpen}
         onOpenChange={setVariablesOpen}
@@ -581,7 +606,7 @@ export default function PlaygroundPage() {
         }}
         t={t}
       />
-      <SavePromptDialog key={`save-${saveColumnID ?? "closed"}`} open={Boolean(saveColumnID)} onOpenChange={(open) => !open && setSaveColumnID(null)} column={columns.find((column) => column.id === saveColumnID) ?? null} onSaved={(saved) => { const target = columns.find((column) => column.id === saveColumnID); if (target) updateColumn({ ...target, sourcePromptID: saved.prompt_id, sourceVersionID: saved.id, sourceFQN: saved.fqn, sourcePromptName: saved.name, sourcePromptDescription: saved.description ?? "", dirty: false }); setSaveColumnID(null); setNotice({ kind: "success", message: t("save.success") }); }} t={t} />
+      <SavePromptDialog key={`save-${saveColumnID ?? "closed"}`} open={Boolean(saveColumnID)} onOpenChange={(open) => !open && setSaveColumnID(null)} column={columns.find((column) => column.id === saveColumnID) ?? null} promptTemplateLimit={promptTemplateLimit} promptTemplateCount={promptTemplateCount} onSaved={(saved) => { const target = columns.find((column) => column.id === saveColumnID); if (target) { if (!target.sourcePromptID) setPromptTemplateCount((current) => current === null ? current : current + 1); updateColumn({ ...target, sourcePromptID: saved.prompt_id, sourceVersionID: saved.id, sourceFQN: saved.fqn, sourcePromptName: saved.name, sourcePromptDescription: saved.description ?? "", dirty: false }); } setSaveColumnID(null); setNotice({ kind: "success", message: t("save.success") }); }} t={t} />
       <LoadPromptDialog key={`load-${loadOpen ? "open" : "closed"}`} open={loadOpen} onOpenChange={setLoadOpen} onSelect={(version) => replaceActiveWithVersion(version)} t={t} />
       <UnsavedChangesDialog open={discardOpen} onOpenChange={(open) => { setDiscardOpen(open); if (!open) { setPendingVersion(null); setPendingHref(null); } }} title={t("dirty.title")} description={t("dirty.description")} stayLabel={t("actions.keepEditing")} discardLabel={t("actions.discard")} onDiscard={() => {
         if (pendingVersion) {
@@ -638,7 +663,7 @@ function VariablesSheet(props: { open: boolean; onOpenChange: (open: boolean) =>
             {props.variables.map((name) => (
               <AppTextField
                 key={name}
-                label={name}
+                label={<span dir="ltr" className="variable-placeholder font-mono font-semibold" style={getVariableColorStyle(name, props.variables)}>{`{{${name}}}`}</span>}
                 dir="auto"
                 value={props.columns.find((column) => column.variableValues[name] !== undefined)?.variableValues[name] ?? ""}
                 readOnly={props.readOnly}
@@ -646,7 +671,14 @@ function VariablesSheet(props: { open: boolean; onOpenChange: (open: boolean) =>
                 onChange={(event) => props.onChange(name, event.target.value)}
               />
             ))}
-            {props.variables.length === 0 ? <p className="text-sm text-muted-foreground">{props.t("variables.empty", { placeholder: "{{variable_name}}" })}</p> : null}
+            {props.variables.length === 0 ? (
+              <EmptyState
+                variant="inline"
+                density="compact"
+                title={props.t("variables.emptyTitle")}
+                description={<>{props.t("variables.emptyBefore")} <span dir="ltr" className="variable-placeholder font-mono font-semibold" style={getVariableColorStyle("variable_name", ["variable_name"])}>{"{{variable_name}}"}</span> {props.t("variables.emptyAfter")}</>}
+              />
+            ) : null}
           </div>
         </ScrollArea>
       </SheetContent>
@@ -654,13 +686,15 @@ function VariablesSheet(props: { open: boolean; onOpenChange: (open: boolean) =>
   );
 }
 
-function SavePromptDialog(props: { open: boolean; onOpenChange: (open: boolean) => void; column: PlaygroundColumnDraft | null; onSaved: (version: PromptVersion) => void; t: PlaygroundTranslation }) {
+function SavePromptDialog(props: { open: boolean; onOpenChange: (open: boolean) => void; column: PlaygroundColumnDraft | null; promptTemplateLimit: number | null | undefined; promptTemplateCount: number | null; onSaved: (version: PromptVersion) => void; t: PlaygroundTranslation }) {
   const [name, setName] = useState(() => props.column?.sourcePromptName ?? "");
   const [description, setDescription] = useState(() => props.column?.sourcePromptDescription ?? "");
   const [commit, setCommit] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   if (!props.column) return null;
+  const isNewTemplate = !props.column.sourcePromptID;
+  const capacityReached = isNewTemplate && typeof props.promptTemplateLimit === "number" && (props.promptTemplateLimit === 0 || (props.promptTemplateCount !== null && props.promptTemplateCount >= props.promptTemplateLimit));
   async function save() {
     if (!props.column || !/^[A-Za-z0-9_-]{1,256}$/.test(name.trim())) { setError(props.t("save.nameHelp")); return; }
     const validation = validateAndBuildRunPayload(props.column, "save_validation");
@@ -674,7 +708,14 @@ function SavePromptDialog(props: { open: boolean; onOpenChange: (open: boolean) 
     } catch (error) { setError(normalizeError(error, props.t("errors.save"))); }
     finally { setSaving(false); }
   }
-  return <FormDialog open={props.open} onOpenChange={props.onOpenChange} title={props.column.sourcePromptID ? props.t("save.titleVersion") : props.t("save.titleNew")} description={props.t("save.description")} pending={saving} footer={<><Button variant="outline" onClick={() => props.onOpenChange(false)} disabled={saving}>{props.t("actions.cancel")}</Button><Button onClick={() => void save()} disabled={saving}>{saving ? <Spinner /> : <Save data-icon="inline-start" />}{saving ? props.t("save.saving") : props.column.sourcePromptID ? props.t("actions.saveVersion") : props.t("actions.save")}</Button></>}><AppTextField label={props.t("save.name")} description={props.t("save.nameHelp")} value={name} dir="ltr" disabled={Boolean(props.column.sourcePromptID)} onChange={(event) => setName(event.target.value)} /><AppTextField label={props.t("save.promptDescription")} value={description} onChange={(event) => setDescription(event.target.value)} /><AppTextField label={props.t("save.commit")} value={commit} onChange={(event) => setCommit(event.target.value)} /><p className="text-xs text-muted-foreground">{props.t("save.summary", { messages: props.column.messages.length, variables: getColumnVariables(props.column).length, tools: props.column.tools.length })}</p>{error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}</FormDialog>;
+  return <FormDialog open={props.open} onOpenChange={props.onOpenChange} title={props.column.sourcePromptID ? props.t("save.titleVersion") : props.t("save.titleNew")} description={props.t("save.description")} pending={saving} footer={<><Button variant="outline" onClick={() => props.onOpenChange(false)} disabled={saving}>{props.t("actions.cancel")}</Button><Button onClick={() => void save()} disabled={saving || capacityReached}>{saving ? <Spinner /> : <Save data-icon="inline-start" />}{saving ? props.t("save.saving") : props.column.sourcePromptID ? props.t("actions.saveVersion") : props.t("actions.save")}</Button></>}>
+    {isNewTemplate && props.promptTemplateLimit !== undefined ? <Alert variant={capacityReached ? "warning" : "info"}><AlertTitle>{props.t("save.capacityTitle")}</AlertTitle><AlertDescription>{getPromptCapacityMessage(props.promptTemplateLimit, props.promptTemplateCount, capacityReached, props.t)}</AlertDescription></Alert> : null}
+    <AppTextField label={props.t("save.name")} description={props.t("save.nameHelp")} value={name} dir="ltr" disabled={Boolean(props.column.sourcePromptID)} onChange={(event) => setName(event.target.value)} />
+    <AppTextField label={props.t("save.promptDescription")} value={description} onChange={(event) => setDescription(event.target.value)} />
+    <AppTextField label={props.t("save.commit")} value={commit} onChange={(event) => setCommit(event.target.value)} />
+    <p className="text-xs text-muted-foreground">{props.t("save.summary", { messages: props.column.messages.length, variables: getColumnVariables(props.column).length, tools: props.column.tools.length })}</p>
+    {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+  </FormDialog>;
 }
 
 function LoadPromptDialog(props: { open: boolean; onOpenChange: (open: boolean) => void; onSelect: (version: PromptVersion) => void; t: PlaygroundTranslation }) {
@@ -740,6 +781,39 @@ function LoadPromptDialog(props: { open: boolean; onOpenChange: (open: boolean) 
       </div>
     </SearchPickerDialog>
   );
+}
+
+function resolvePromptTemplateLimit(entitlements: PlaygroundCacheEntitlements): number | null | undefined {
+  const value = entitlements?.features?.["prompt_templates.max"];
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return parsed < 0 ? null : Math.floor(parsed);
+}
+
+function getPromptCapacityMessage(limit: number | null, count: number | null, reached: boolean, t: PlaygroundTranslation): string {
+  if (limit === null) return t("save.capacityUnlimited");
+  if (reached) return t("save.capacityReached", { count: count ?? limit, limit });
+  if (count !== null) return t("save.capacityUsage", { count, limit });
+  return t("save.capacityLimit", { limit });
+}
+
+function collectPlaygroundVariables(columns: PlaygroundColumnDraft[], mode: PlaygroundMode): string[] {
+  const variables = new Set<string>();
+  const pattern = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+
+  for (const column of columns) {
+    const sources = mode === "image_generation" ? [column.imagePrompt] : column.messages.map((message) => message.content);
+    for (const source of sources) {
+      for (const match of source.matchAll(pattern)) {
+        const name = match[1]?.trim();
+        if (name) variables.add(name);
+      }
+    }
+  }
+
+  return [...variables];
 }
 
 function emptyRunResult(): PlaygroundRunResult { return { status: "idle", responseText: "", rawResponse: null, toolCalls: [], generatedImages: [] }; }
