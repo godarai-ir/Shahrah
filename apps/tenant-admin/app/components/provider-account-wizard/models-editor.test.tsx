@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi } from "vitest";
 
 import { ModelsEditor } from "./models-editor";
-import type { ModelDraft, ProviderCatalogModel } from "./types";
+import type { ModelDraft, ProviderCatalogModel, TenantProviderAccount } from "./types";
 
 const tMock = (key: string) => key;
 const copyTextToClipboardMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -57,8 +57,17 @@ const draft: ModelDraft = {
   outputPrice: "8",
 };
 
+const account: TenantProviderAccount = {
+  id: "account-1",
+  provider: "ai21",
+  name: "ai21-brisk-orbit",
+  auth_mode: "api_key",
+  has_credential: true,
+  use_platform_managed_credentials: false,
+};
+
 describe("ModelsEditor", () => {
-  it("copies a valid pending-account FQN and opens its code guide in compact create mode", async () => {
+  it("hides FQN and code actions while the provider account is not created", () => {
     render(
       <ModelsEditor
         t={tMock as never}
@@ -74,6 +83,28 @@ describe("ModelsEditor", () => {
         canManage
         onSave={vi.fn()}
         variant="compact"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "FQN" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "models.card.code" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps FQN and code actions available for an existing provider account", async () => {
+    copyTextToClipboardMock.mockClear();
+    render(
+      <ModelsEditor
+        t={tMock as never}
+        account={account}
+        setBanner={vi.fn()}
+        providerModels={[model]}
+        modelDrafts={{ [model.model]: draft }}
+        setModelDrafts={vi.fn()}
+        isSaving={false}
+        isLoadingModels={false}
+        canManage
+        onSave={vi.fn()}
       />,
     );
 

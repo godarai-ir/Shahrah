@@ -316,6 +316,7 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
 
 const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
   const {
+    account,
     canManage,
     canUseCustomPricing,
     compact,
@@ -383,7 +384,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           selectedCheckboxLabel={ux("common.enabled")}
           pricingModeBadge={displayDraft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
           hasCustomPricing={displayDraft.pricingMode === "private"}
-          showCopyAction
+          showCopyAction={Boolean(account)}
           className={
             compact
               ? displayDraft.enabled
@@ -393,12 +394,12 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
                 ? "border-success/40"
                 : undefined
           }
-          footerActions={
+          footerActions={account ? (
             <Button type="button" variant="outline" size="sm" onClick={() => openCurlGuide(model)}>
-                <Code2 data-icon="inline-start" />
-                {ux("models.card.code")}
+              <Code2 data-icon="inline-start" />
+              {ux("models.card.code")}
             </Button>
-          }
+          ) : undefined}
           pricingAction={canUseCustomPricing ? (
             <PopoverTrigger asChild>
               <Button

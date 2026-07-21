@@ -1301,20 +1301,7 @@ export default function ProviderAccountWizard(props?: {
                     }
                   >
                     <div className="flex flex-col gap-8">
-                      <div className="flex items-center gap-3 text-start">
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-card">
-                          <ProviderLogo
-                            provider={activeProvider?.provider ?? provider}
-                            displayName={activeProvider?.display_name ?? provider}
-                            logoURL={activeProvider?.logo_url}
-                          />
-                        </div>
-                        <div className="flex min-h-12 min-w-0 items-center">
-                          <h3 className="truncate text-xl font-semibold" dir="auto">{activeProvider?.display_name ?? provider}</h3>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-5">
+                      <div className="grid gap-5 md:grid-cols-5 md:items-start">
                         <IdentifierField
                           id="accountName"
                           label={t("fields.accountName")}
@@ -1325,7 +1312,22 @@ export default function ProviderAccountWizard(props?: {
                           }}
                           placeholder={ux("placeholders.accountName")}
                           disabled={Boolean(selectedAccountID)}
+                          containerClassName="md:col-span-4"
                         />
+
+                        <div className="flex items-center gap-2 text-start md:col-span-1 md:justify-end md:pt-6">
+                          <div className="flex min-h-14 min-w-0 items-center">
+                            <h3 className="truncate text-2xl font-semibold" dir="auto">{activeProvider?.display_name ?? provider}</h3>
+                          </div>
+                          <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border bg-card">
+                            <ProviderLogo
+                              provider={activeProvider?.provider ?? provider}
+                              displayName={activeProvider?.display_name ?? provider}
+                              logoURL={activeProvider?.logo_url}
+                              size={30}
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="text-start">

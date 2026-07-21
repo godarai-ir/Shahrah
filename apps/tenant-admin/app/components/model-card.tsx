@@ -232,7 +232,7 @@ export function ModelCard(props: ModelCardProps) {
   const remainingModeCount = Math.max(0, invocationModes.length - visibleModes.length);
   const showCopyAction = props.showCopyAction ?? true;
   const showSelectedControl = typeof props.isSelected === "boolean" && Boolean(props.onSelectedChange);
-  const hasUtilityActions = showSelectedControl || showCopyAction || Boolean(props.footerActions);
+  const hasUtilityActions = showCopyAction || Boolean(props.footerActions);
 
   async function handleCopyModelId() {
     try {
@@ -249,7 +249,6 @@ export function ModelCard(props: ModelCardProps) {
 
     return (
       <ButtonGroup aria-label={`${model.name} ${labels.copyId}`}>
-        {renderSelectedControl("min-h-8 shrink-0 rounded-md border border-border bg-background px-3 text-xs sm:text-sm")}
         {showCopyAction ? (
           <Button variant="outline" size="sm" onClick={handleCopyModelId}>
             {copied ? <CheckCircle2 className="text-success" data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
@@ -308,54 +307,59 @@ export function ModelCard(props: ModelCardProps) {
       )}
     >
       <CardHeader className="flex flex-col gap-3 px-3 pb-1 pt-3 sm:px-4">
-        <div className="flex min-h-16 w-full min-w-0 items-center gap-3">
-          <Avatar className="size-12 shrink-0 border border-border bg-muted">
-            <AvatarImage src={model.provider.logoUrl} alt="" aria-hidden="true" />
-            <AvatarFallback className="text-base font-semibold">{initials(model.provider.name)}</AvatarFallback>
-          </Avatar>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <CardTitle className="min-w-0 truncate text-xl font-semibold sm:text-2xl" title={model.name} dir="ltr">
-              {model.name}
-            </CardTitle>
-            {props.detailsHref ? (
-              <Button asChild variant="ghost" size="icon-sm" className="shrink-0" aria-label={labels.viewDetails} title={labels.viewDetails}>
-                <Link href={props.detailsHref} target="_blank" rel="noreferrer">
-                  <ExternalLink aria-hidden="true" />
-                </Link>
-              </Button>
-            ) : (
-              <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => props.onViewDetails?.(model)} aria-label={labels.viewDetails} title={labels.viewDetails}>
-                <ExternalLink aria-hidden="true" />
-              </Button>
-            )}
+        <div data-slot="model-card-title-row" className="flex min-h-16 w-full min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <Avatar className="size-12 shrink-0 border border-border bg-muted">
+              <AvatarImage src={model.provider.logoUrl} alt="" aria-hidden="true" />
+              <AvatarFallback className="text-base font-semibold">{initials(model.provider.name)}</AvatarFallback>
+            </Avatar>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <CardTitle className="min-w-0 truncate text-3xl font-semibold md:text-3xl" title={model.name} dir="ltr">
+                  {model.name}
+                </CardTitle>
+                {props.detailsHref ? (
+                  <Button asChild variant="ghost" size="icon-sm" className="shrink-0" aria-label={labels.viewDetails} title={labels.viewDetails}>
+                    <Link href={props.detailsHref} target="_blank" rel="noreferrer">
+                      <ExternalLink aria-hidden="true" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => props.onViewDetails?.(model)} aria-label={labels.viewDetails} title={labels.viewDetails}>
+                    <ExternalLink aria-hidden="true" />
+                  </Button>
+                )}
+              </div>
+              <div data-slot="model-card-tag-row" className="flex min-w-0 flex-wrap items-center gap-2">
+                {renderCategoryBadges()}
+                {props.hasCustomPricing ? (
+                  <Badge className="gap-1" variant="warning">
+                    <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                    {labels.customPricing}
+                  </Badge>
+                ) : null}
+                {typeof props.isCompared === "boolean" && props.onComparedChange ? (
+                  <label className="inline-flex min-h-8 cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={props.isCompared}
+                      onChange={(event) => props.onComparedChange?.(event.target.checked)}
+                      className="size-4"
+                    />
+                    {props.compareCheckboxLabel ?? "Compare"}
+                  </label>
+                ) : null}
+              </div>
+            </div>
           </div>
+          {showSelectedControl ? (
+            <div className="shrink-0">
+              {renderSelectedControl("min-h-8 rounded-md border border-border bg-background px-3 text-xs sm:text-sm")}
+            </div>
+          ) : null}
         </div>
 
-        <div className="flex min-h-8 w-full min-w-0 flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {renderCategoryBadges()}
-            {props.hasCustomPricing ? (
-              <Badge className="gap-1" variant="warning">
-                <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                {labels.customPricing}
-              </Badge>
-            ) : null}
-            {typeof props.isCompared === "boolean" && props.onComparedChange ? (
-              <label className="inline-flex min-h-8 cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={props.isCompared}
-                  onChange={(event) => props.onComparedChange?.(event.target.checked)}
-                  className="size-4"
-                />
-                {props.compareCheckboxLabel ?? "Compare"}
-              </label>
-            ) : null}
-          </div>
-          <div className="shrink-0">
-            {renderUtilityActions()}
-          </div>
-        </div>
+        {hasUtilityActions ? <div className="flex justify-end">{renderUtilityActions()}</div> : null}
       </CardHeader>
 
       <CardContent className="flex flex-col gap-2.5 px-3 pb-3 pt-0 sm:px-4">

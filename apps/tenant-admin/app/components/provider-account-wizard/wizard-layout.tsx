@@ -77,18 +77,18 @@ export function CreateFlowStepIndicator(props: {
       disabled={props.disabled}
       aria-current={props.state === "active" ? "step" : undefined}
       aria-label={`${props.number}. ${props.title}`}
-      className="group flex min-w-14 flex-1 flex-row items-center justify-center gap-2 rounded-lg px-2 py-2 text-start transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent sm:min-w-28 sm:justify-start lg:w-full lg:min-w-0 lg:flex-none lg:px-1"
+      className="group flex min-w-14 flex-1 flex-row items-center justify-center gap-2 rounded-lg px-2 py-2 text-start transition hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent sm:min-w-24 sm:justify-start sm:py-1 lg:w-full lg:min-w-0 lg:flex-none lg:px-1 lg:py-2"
     >
       <div
         className={
           props.state === "idle"
-            ? "flex size-11 shrink-0 items-center justify-center rounded-full border bg-background text-sm text-muted-foreground"
-            : "flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground ring-8 ring-primary/10"
+            ? "flex size-11 shrink-0 items-center justify-center rounded-full border bg-background text-sm text-muted-foreground sm:size-9 sm:text-xs lg:size-11 lg:text-sm"
+            : "flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground ring-8 ring-primary/10 sm:size-9 sm:text-xs sm:ring-4 lg:size-11 lg:text-sm lg:ring-8"
         }
       >
         {props.state === "complete" ? <Check aria-hidden="true" className="size-4" /> : props.number}
       </div>
-      <span className={props.state === "idle" ? "hidden min-w-0 flex-1 text-start text-sm font-medium text-muted-foreground sm:block" : "hidden min-w-0 flex-1 text-start text-sm font-semibold text-primary sm:block"}>
+      <span className={props.state === "idle" ? "hidden min-w-0 flex-1 text-start text-xs font-medium text-muted-foreground sm:block lg:text-sm" : "hidden min-w-0 flex-1 text-start text-xs font-semibold text-primary sm:block lg:text-sm"}>
         {props.title}
       </span>
     </button>

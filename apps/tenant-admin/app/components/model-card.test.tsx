@@ -56,6 +56,28 @@ describe("ModelCard", () => {
     expect(screen.queryByRole("button", { name: "Copy ID" })).not.toBeInTheDocument();
   });
 
+  it("places selection in the title row and tags directly below the title", () => {
+    const { container } = render(
+      <ModelCard
+        model={{ ...model, recommended: true }}
+        isSelected={false}
+        onSelectedChange={vi.fn()}
+        selectedCheckboxLabel="Enabled"
+        showCopyAction={false}
+      />,
+    );
+
+    const title = screen.getByRole("heading", { name: "GPT-4.1 Mini" });
+    const titleRow = container.querySelector('[data-slot="model-card-title-row"]');
+    const tagRow = container.querySelector('[data-slot="model-card-tag-row"]');
+
+    expect(title).toHaveClass("text-3xl", "md:text-3xl");
+    expect(titleRow).toContainElement(screen.getByLabelText("Enabled"));
+    expect(titleRow).toContainElement(tagRow);
+    expect(within(tagRow as HTMLElement).getByText("Chat")).toBeInTheDocument();
+    expect(within(tagRow as HTMLElement).getByText("Recommended")).toBeInTheDocument();
+  });
+
   it("groups context, pricing, formats, capabilities, and invocation modes into readable panels", () => {
     render(<ModelCard model={model} />);
 
