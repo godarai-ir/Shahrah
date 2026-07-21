@@ -15,6 +15,8 @@ export type GatewayModel = {
   owned_by: string;
   provider?: string;
   aliases?: string[];
+  supported_modes?: string[];
+  types?: string[];
 };
 
 export type GatewayModelListResponse = {

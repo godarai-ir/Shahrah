@@ -3,6 +3,8 @@ import type { PromptManifest, PromptVersion } from "./prompt-management-shared";
 
 export type PlaygroundRole = "system" | "user" | "assistant" | "tool";
 
+export type PlaygroundMode = "chat" | "image_generation";
+
 export type PlaygroundMessage = {
   id: string;
   role: PlaygroundRole;
@@ -50,6 +52,16 @@ export type PlaygroundConfig = {
   metadata: PlaygroundMetadataRow[];
 };
 
+export type PlaygroundImageConfig = {
+  size: string;
+  quality: string;
+  responseFormat: "url" | "b64_json";
+  outputFormat: "" | "png" | "jpeg" | "webp";
+  outputCompression: string;
+  background: "auto" | "transparent" | "opaque";
+  moderation: "auto" | "low";
+};
+
 export type PlaygroundColumnDraft = {
   id: string;
   label: string;
@@ -58,6 +70,8 @@ export type PlaygroundColumnDraft = {
   messages: PlaygroundMessage[];
   tools: PlaygroundTool[];
   config: PlaygroundConfig;
+  imagePrompt: string;
+  imageConfig: PlaygroundImageConfig;
   variableValues: Record<string, string>;
   editorMode: "visual" | "json";
   jsonDraft: string;
@@ -88,6 +102,10 @@ export type PlaygroundTelemetry = {
   retryCount?: number;
   fallbackCount?: number;
   guardrailStatus?: string;
+  imageCount?: number;
+  requestedImageSize?: string;
+  requestedImageQuality?: string;
+  imageMimeType?: string;
 };
 
 export type PlaygroundRunResult = {
@@ -95,11 +113,20 @@ export type PlaygroundRunResult = {
   responseText: string;
   rawResponse: unknown;
   toolCalls: unknown[];
+  generatedImages: PlaygroundGeneratedImage[];
   finishReason?: string;
   error?: string;
   responseIsPrevious?: boolean;
   telemetry?: PlaygroundTelemetry;
   startedAt?: number;
+};
+
+export type PlaygroundGeneratedImage = {
+  index: number;
+  url?: string;
+  b64Json?: string;
+  revisedPrompt?: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
 };
 
 const DEFAULT_SCHEMA = JSON.stringify({
@@ -126,6 +153,8 @@ export function createPlaygroundColumn(label: string, defaultSystemPrompt: strin
     messages,
     tools: [],
     config: createDefaultConfig(),
+    imagePrompt: "",
+    imageConfig: createDefaultImageConfig(),
     variableValues: {},
     editorMode: "visual",
     jsonDraft: "",
@@ -134,6 +163,18 @@ export function createPlaygroundColumn(label: string, defaultSystemPrompt: strin
   };
   column.jsonDraft = serializeColumnJSON(column);
   return column;
+}
+
+export function createDefaultImageConfig(): PlaygroundImageConfig {
+  return {
+    size: "auto",
+    quality: "auto",
+    responseFormat: "url",
+    outputFormat: "",
+    outputCompression: "",
+    background: "auto",
+    moderation: "auto",
+  };
 }
 
 export function createDefaultConfig(): PlaygroundConfig {
@@ -198,8 +239,8 @@ export function clonePlaygroundColumn(column: PlaygroundColumnDraft, label: stri
   return clone;
 }
 
-export function getColumnVariables(column: PlaygroundColumnDraft): string[] {
-  return extractPromptVariableNames(column.messages.map((message) => message.content));
+export function getColumnVariables(column: PlaygroundColumnDraft, mode: PlaygroundMode = "chat"): string[] {
+  return extractPromptVariableNames(mode === "image_generation" ? [column.imagePrompt] : column.messages.map((message) => message.content));
 }
 
 export function serializeColumnJSON(column: PlaygroundColumnDraft): string {
@@ -264,8 +305,9 @@ export function applyColumnJSON(column: PlaygroundColumnDraft): { ok: true; colu
   return { ok: true, column: next };
 }
 
-export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, comparisonID: string) {
+export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, comparisonID: string, mode: PlaygroundMode = "chat") {
   if (!column.selectedModel.trim()) return failure("validation.modelRequired");
+  if (mode === "image_generation") return validateAndBuildImageRunPayload(column, comparisonID);
   if (column.messages.length === 0 || column.messages.every((message) => !message.content.trim())) return failure("validation.messagesRequired");
   for (let index = 0; index < column.messages.length; index += 1) {
     const message = column.messages[index];
@@ -299,6 +341,7 @@ export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, compar
   return {
     ok: true as const,
     payload: {
+      mode,
       client_run_id: createID("run"),
       comparison_id: comparisonID,
       column_id: column.id,
@@ -314,6 +357,104 @@ export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, compar
       },
     },
   };
+}
+
+function validateAndBuildImageRunPayload(column: PlaygroundColumnDraft, comparisonID: string) {
+  if (!column.imagePrompt.trim()) return failure("validation.imagePromptRequired");
+  if (column.imagePrompt.length > 100_000) return failure("validation.imagePromptTooLong");
+  const variables = getColumnVariables(column, "image_generation");
+  const missing = variables.filter((name) => !(column.variableValues[name] ?? "").trim());
+  if (missing.length) return failure("validation.variablesMissing", { names: missing.join(", ") });
+
+  const compression = optionalNumber(column.imageConfig.outputCompression);
+  if (compression.invalid || (compression.value !== undefined && (!Number.isInteger(compression.value) || compression.value < 0 || compression.value > 100))) {
+    return failure("validation.imageCompressionRange");
+  }
+
+  const renderedPrompt = renderPromptText(column.imagePrompt, column.variableValues).rendered;
+  const request: Record<string, unknown> = {
+    model: column.selectedModel.trim(),
+    prompt: renderedPrompt,
+    n: 1,
+    response_format: column.imageConfig.responseFormat,
+  };
+  if (column.imageConfig.size !== "auto") request.size = column.imageConfig.size;
+  if (column.imageConfig.quality !== "auto") request.quality = column.imageConfig.quality;
+  if (column.imageConfig.outputFormat) request.output_format = column.imageConfig.outputFormat;
+  if (compression.value !== undefined && (column.imageConfig.outputFormat === "jpeg" || column.imageConfig.outputFormat === "webp")) {
+    request.output_compression = compression.value;
+  }
+  if (column.imageConfig.background !== "auto") request.background = column.imageConfig.background;
+  if (column.imageConfig.moderation !== "auto") request.moderation = column.imageConfig.moderation;
+
+  return {
+    ok: true as const,
+    payload: {
+      mode: "image_generation" as const,
+      client_run_id: createID("run"),
+      comparison_id: comparisonID,
+      column_id: column.id,
+      request,
+    },
+  };
+}
+
+export function normalizeImageGenerationResponse(
+  payload: unknown,
+  outputFormat: PlaygroundImageConfig["outputFormat"],
+): { images: PlaygroundGeneratedImage[]; rawResponse: unknown } {
+  const record = isRecord(payload) ? payload : {};
+  const data = Array.isArray(record.data) ? record.data : [];
+  const mimeType = imageMimeType(outputFormat);
+  const images: PlaygroundGeneratedImage[] = [];
+
+  data.forEach((entry, index) => {
+    if (!isRecord(entry)) return;
+    const b64Json = typeof entry.b64_json === "string" && entry.b64_json.trim() ? entry.b64_json.trim() : undefined;
+    const url = !b64Json && typeof entry.url === "string" && isSafeImageURL(entry.url) ? entry.url : undefined;
+    if (!b64Json && !url) return;
+    images.push({
+      index,
+      ...(b64Json ? { b64Json } : { url }),
+      ...(typeof entry.revised_prompt === "string" && entry.revised_prompt.trim() ? { revisedPrompt: entry.revised_prompt } : {}),
+      mimeType,
+    });
+  });
+
+  return { images, rawResponse: redactImageBase64(record) };
+}
+
+function redactImageBase64(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactImageBase64);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
+    if (key === "b64_json" && typeof entry === "string") {
+      const approximateBytes = Math.max(0, Math.floor(entry.length * 0.75));
+      return [key, `[base64 omitted; approximately ${formatByteSize(approximateBytes)}]`];
+    }
+    return [key, redactImageBase64(entry)];
+  }));
+}
+
+function formatByteSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function isSafeImageURL(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function imageMimeType(format: PlaygroundImageConfig["outputFormat"]): PlaygroundGeneratedImage["mimeType"] {
+  if (format === "jpeg") return "image/jpeg";
+  if (format === "webp") return "image/webp";
+  return "image/png";
 }
 
 export function buildPlaygroundManifest(column: PlaygroundColumnDraft, name: string, description: string): PromptManifest {
@@ -380,7 +521,7 @@ export function hydratePlaygroundColumn(version: PromptVersion, label: string): 
   const column: PlaygroundColumnDraft = {
     id: createID("column"), label, selectedModel: manifest.model ?? "", selectedProvider: "",
     messages: manifest.messages.map((message) => ({ id: createID("message"), role: isRole(message.role) ? message.role : "user", content: typeof message.content === "string" ? message.content : JSON.stringify(message.content ?? ""), toolCallId: message.tool_call_id })),
-    tools: tools.ok ? tools.tools : [], config: hydratedConfig, variableValues: { ...(manifest.variables ?? {}) },
+    tools: tools.ok ? tools.tools : [], config: hydratedConfig, imagePrompt: "", imageConfig: createDefaultImageConfig(), variableValues: { ...(manifest.variables ?? {}) },
     editorMode: "visual", jsonDraft: "", jsonError: "", sourcePromptID: version.prompt_id,
     sourceVersionID: version.id, sourceFQN: version.fqn, sourcePromptName: version.name,
     sourcePromptDescription: version.description ?? manifest.description ?? "", dirty: false,

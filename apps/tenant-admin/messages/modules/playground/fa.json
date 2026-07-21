@@ -9,6 +9,14 @@
   "json": "JSON",
   "newDraft": "پیش‌نویس تازه",
   "option": "گزینه {count}",
+  "mode": {
+    "label": "حالت محیط آزمایش",
+    "chat": "گفت‌وگو",
+    "imageGeneration": "تولید تصویر",
+    "changeTitle": "حالت محیط آزمایش تغییر کند؟",
+    "changeDescription": "ورودی و نتیجه گفت‌وگو با تولید تصویر سازگار نیست. با تغییر حالت، همه ستون‌های مقایسه بازنشانی می‌شوند.",
+    "changeConfirm": "تغییر حالت و بازنشانی"
+  },
   "selectOption": "گزینه {current} از {total}",
   "actions": {
     "run": "اجرا",
@@ -53,8 +61,39 @@
     "loading": "در حال بارگذاری مدل‌ها...",
     "unavailableTitle": "مدلی در دسترس نیست",
     "unavailableDescription": "برای اجرای نخست، یک ارائه‌دهنده مدل متصل کنید.",
+    "noImageModelTitle": "مدل تولید تصویر در دسترس نیست",
+    "noImageModelDescription": "در یک حساب ارائه‌دهنده یا مدل مجازی، مدلی با قابلیت image_generation فعال کنید.",
     "connect": "اتصال ارائه‌دهنده مدل",
     "virtual": "مدل مجازی"
+  },
+  "image": {
+    "prompt": "پرامپت تصویر",
+    "promptHelp": "تصویر موردنظر را توصیف کنید. متغیرهای زمان اجرا مانند {{subject}} هم پشتیبانی می‌شوند.",
+    "promptPlaceholder": "یک عکس تحریریه‌ای با جزئیات از...",
+    "temporaryNotice": "پیش‌نویس و فایل‌های تولیدشده در این نسخه موقت‌اند. نتیجه‌ای را که می‌خواهید نگه دارید دانلود کنید؛ ذخیره در مخزن پس از تعریف قرارداد image_prompt اضافه می‌شود.",
+    "settingsHelp": "پارامترهای تصویر به مسیر اختصاصی /v1/images/generations ارسال می‌شوند. ترکیب‌های ناسازگار ممکن است از سمت ارائه‌دهنده رد شوند.",
+    "count": "تعداد تصویر",
+    "countHelp": "نسخه اولیه در هر درخواست هزینه‌زا یک تصویر تولید می‌کند.",
+    "size": "اندازه",
+    "quality": "کیفیت",
+    "responseFormat": "قالب پاسخ",
+    "outputFormat": "قالب خروجی",
+    "outputCompression": "فشرده‌سازی خروجی (۰ تا ۱۰۰)",
+    "background": "پس‌زمینه",
+    "moderation": "اعتدال محتوا",
+    "modelDefault": "پیش‌فرض مدل",
+    "emptyTitle": "هنوز تصویری تولید نشده است",
+    "emptyDescription": "یک مدل دارای قابلیت تصویر انتخاب کنید، پرامپت را بنویسید و درخواست را اجرا کنید.",
+    "result": "تصویر تولیدشده {count}",
+    "alt": "تصویر تولیدشده {count}",
+    "revisedPrompt": "پرامپت بازبینی‌شده",
+    "copyRevisedPrompt": "کپی پرامپت بازبینی‌شده",
+    "download": "دانلود",
+    "open": "بازکردن",
+    "decodeError": "رمزگشایی تصویر تولیدشده انجام نشد.",
+    "tooLarge": "تصویر تولیدشده برای رمزگشایی امن در مرورگر بیش از حد بزرگ است.",
+    "invalidBase64": "داده تصویر تولیدشده معتبر نیست.",
+    "noUsableImage": "پاسخ ارائه‌دهنده شامل نشانی امن یا داده base64 معتبر نبود."
   },
   "empty": {
     "title": "هنوز پاسخی اجرا نشده است",
@@ -116,7 +155,7 @@
   "telemetry": {
     "inputTokens": "توکن ورودی", "outputTokens": "توکن خروجی", "totalTokens": "مجموع توکن",
     "duration": "زمان کل", "ttft": "اولین توکن", "costUSD": "هزینه دلار", "costIRR": "هزینه ریال",
-    "model": "مدل مؤثر", "cache": "کش", "cacheSimilarity": "شباهت کش", "finishReason": "علت پایان", "trace": "شناسه رد", "unavailable": "—"
+    "model": "مدل مؤثر", "cache": "کش", "cacheSimilarity": "شباهت کش", "finishReason": "علت پایان", "imageCount": "تعداد تصویر", "imageSize": "اندازه درخواستی", "imageQuality": "کیفیت درخواستی", "imageMimeType": "نوع MIME تصویر", "trace": "شناسه رد", "unavailable": "—"
   },
   "save": {
     "titleNew": "ذخیره در مخزن پرامپت",
@@ -154,6 +193,9 @@
     "jsonToolUnsupportedFields": "مسیر {path} فیلد پشتیبانی‌نشده دارد: {fields}",
     "jsonToolDescription": "مقدار {path} باید متن باشد.",
     "modelRequired": "یک مدل را انتخاب کنید.",
+    "imagePromptRequired": "پرامپت تصویر را وارد کنید.",
+    "imagePromptTooLong": "پرامپت تصویر بیش از حد طولانی است.",
+    "imageCompressionRange": "فشرده‌سازی خروجی باید عدد صحیحی بین ۰ و ۱۰۰ باشد.",
     "messagesRequired": "حداقل یک پیام غیرخالی لازم است.",
     "messageEmpty": "محتوای پیام {index} خالی است.",
     "messageToolCallId": "شناسه فراخوانی ابزار برای پیام {index} الزامی است.",

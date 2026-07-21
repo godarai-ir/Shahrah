@@ -454,11 +454,12 @@ type ErrorInfo struct {
 
 // Model describes a tenant-visible model alias.
 type Model struct {
-	ID       string   `json:"id"`
-	Object   string   `json:"object"`
-	OwnedBy  string   `json:"owned_by"`
-	Provider string   `json:"provider,omitempty"`
-	Aliases  []string `json:"aliases,omitempty"`
+	ID             string   `json:"id"`
+	Object         string   `json:"object"`
+	OwnedBy        string   `json:"owned_by"`
+	Provider       string   `json:"provider,omitempty"`
+	Aliases        []string `json:"aliases,omitempty"`
+	SupportedModes []string `json:"supported_modes,omitempty"`
 }
 
 // ModelListResponse mirrors OpenAI's models list response.

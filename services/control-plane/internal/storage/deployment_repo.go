@@ -153,6 +153,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		       a.has_credential,
 		       a.use_platform_managed_credentials,
 		       m.model,
+		       COALESCE(m.types, '{}'),
 		       COALESCE(m.settings, '{}'::jsonb)
 		FROM tenant_provider_accounts a
 		JOIN tenant_provider_account_models m
@@ -180,9 +181,10 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			hasCredential              bool
 			platformManagedCredentials bool
 			model                      string
+			modelTypes                 []string
 			settingsRaw                []byte
 		)
-		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &platformManagedCredentials, &model, &settingsRaw); err != nil {
+		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &platformManagedCredentials, &model, &modelTypes, &settingsRaw); err != nil {
 			return nil, err
 		}
 
@@ -234,6 +236,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 				"provider_account_name": accountName,
 				"credential_source":     credentialSource,
 				"billing_mode":          billingMode,
+				"supported_modes":       normalizeStringList(modelTypes),
 			},
 		})
 	}

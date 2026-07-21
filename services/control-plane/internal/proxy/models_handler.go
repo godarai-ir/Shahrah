@@ -66,6 +66,13 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.ModelName)
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.Model)
+		modes := authInfo.AllowedModelTypes[id]
+		if len(modes) == 0 {
+			modes = supportedModesFromDeploymentInfo(dep.ModelInfo)
+		}
+		for _, mode := range modes {
+			model.SupportedModes = appendUniqueModelAlias(model.SupportedModes, mode)
+		}
 		byAlias[id] = model
 	}
 
@@ -75,7 +82,7 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	for _, vm := range virtualModels {
-		if !isModelAllowed(authInfo, vm.Alias) {
+		if !vm.Enabled || !isModelAllowed(authInfo, vm.Alias) {
 			continue
 		}
 
@@ -85,21 +92,49 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 		model.OwnedBy = "shahrah"
 		model.Provider = "virtual"
 		model.Aliases = appendUniqueModelAlias(model.Aliases, vm.Alias)
+		modes := authInfo.AllowedModelTypes[vm.Alias]
+		if len(modes) == 0 {
+			modes = vm.ExposedModes
+		}
+		for _, mode := range modes {
+			model.SupportedModes = appendUniqueModelAlias(model.SupportedModes, mode)
+		}
 		byAlias[vm.Alias] = model
 	}
 
 	data := make([]contractsopenai.Model, 0, len(byAlias))
 	for _, item := range byAlias {
 		data = append(data, contractsopenai.Model{
-			ID:       item.ID,
-			Object:   "model",
-			OwnedBy:  item.OwnedBy,
-			Provider: item.Provider,
-			Aliases:  item.Aliases,
+			ID:             item.ID,
+			Object:         "model",
+			OwnedBy:        item.OwnedBy,
+			Provider:       item.Provider,
+			Aliases:        item.Aliases,
+			SupportedModes: item.SupportedModes,
 		})
 	}
 
 	return c.JSON(contractsopenai.ModelListResponse{Object: "list", Data: data})
+}
+
+func supportedModesFromDeploymentInfo(info map[string]interface{}) []string {
+	if len(info) == 0 {
+		return nil
+	}
+	switch modes := info["supported_modes"].(type) {
+	case []string:
+		return append([]string(nil), modes...)
+	case []interface{}:
+		out := make([]string, 0, len(modes))
+		for _, mode := range modes {
+			if text, ok := mode.(string); ok && strings.TrimSpace(text) != "" {
+				out = append(out, text)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func appendUniqueModelAlias(values []string, candidate string) []string {

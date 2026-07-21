@@ -75,6 +75,8 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 // ListModels lists tenant-visible model aliases.
 func (h *Handlers) ListModels(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "model list permission required", []string{
+		"playground:read",
+		"playground:run",
 		"policy:list",
 		"policy:manage",
 		"provider_account:read",
@@ -114,21 +116,70 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 
 		model.Aliases = appendUnique(model.Aliases, dep.ModelName)
 		model.Aliases = appendUnique(model.Aliases, dep.Model)
+		for _, mode := range supportedModesFromModelInfo(dep.ModelInfo) {
+			model.SupportedModes = appendUnique(model.SupportedModes, mode)
+		}
 		byAlias[id] = model
+	}
+
+	virtualModels, err := h.models.ListVirtualModels(c.Context(), currentTenant.ID)
+	if err != nil {
+		return err
+	}
+	for _, vm := range virtualModels {
+		alias := strings.TrimSpace(vm.Alias)
+		if alias == "" || !vm.Enabled {
+			continue
+		}
+		model := byAlias[alias]
+		model.ID = alias
+		model.Object = "model"
+		model.OwnedBy = "shahrah"
+		model.Provider = "virtual"
+		model.Aliases = appendUnique(model.Aliases, alias)
+		for _, mode := range vm.ExposedModes {
+			model.SupportedModes = appendUnique(model.SupportedModes, mode)
+		}
+		byAlias[alias] = model
 	}
 
 	data := make([]openai.Model, 0, len(byAlias))
 	for _, item := range byAlias {
 		data = append(data, openai.Model{
-			ID:       item.ID,
-			Object:   "model",
-			OwnedBy:  item.OwnedBy,
-			Provider: item.Provider,
-			Aliases:  item.Aliases,
+			ID:             item.ID,
+			Object:         "model",
+			OwnedBy:        item.OwnedBy,
+			Provider:       item.Provider,
+			Aliases:        item.Aliases,
+			SupportedModes: item.SupportedModes,
 		})
 	}
 
 	return c.JSON(openai.ModelListResponse{Object: "list", Data: data})
+}
+
+func supportedModesFromModelInfo(info map[string]interface{}) []string {
+	if len(info) == 0 {
+		return nil
+	}
+	value, ok := info["supported_modes"]
+	if !ok {
+		return nil
+	}
+	switch modes := value.(type) {
+	case []string:
+		return append([]string(nil), modes...)
+	case []interface{}:
+		out := make([]string, 0, len(modes))
+		for _, mode := range modes {
+			if text, ok := mode.(string); ok && strings.TrimSpace(text) != "" {
+				out = append(out, text)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {

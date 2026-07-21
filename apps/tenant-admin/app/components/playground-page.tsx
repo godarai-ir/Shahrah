@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, FlaskConical, FolderOpen, Play, Plus, Save, Square, Variable } from "lucide-react";
+import { AlertTriangle, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Plus, Save, Square, Variable } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
 import {
@@ -30,8 +31,11 @@ import {
   createPlaygroundColumn,
   getColumnVariables,
   hydratePlaygroundColumn,
+  normalizeImageGenerationResponse,
   validateAndBuildRunPayload,
   type PlaygroundColumnDraft,
+  type PlaygroundGeneratedImage,
+  type PlaygroundMode,
   type PlaygroundRunResult,
   type PlaygroundTelemetry,
 } from "./playground-domain";
@@ -62,6 +66,7 @@ export default function PlaygroundPage() {
   const canLoad = permissions.some((item) => item === "prompt:list" || item === "policy:list" || item === "policy:manage");
   const canOpenTrace = permissions.includes("settings:list");
   const consumeStream = usePlaygroundStream();
+  const [mode, setMode] = useState<PlaygroundMode>(() => searchParams.get("mode") === "image_generation" ? "image_generation" : "chat");
 
   const [columns, setColumns] = useState<PlaygroundColumnDraft[]>(() => [createPlaygroundColumn(t("option", { count: 1 }), locale === "fa" ? "شما یک دستیار دقیق و مفید هستید." : "You are a precise and helpful assistant.")]);
   const [results, setResults] = useState<Record<string, PlaygroundRunResult>>(() => ({ [columns[0].id]: emptyRunResult() }));
@@ -81,6 +86,7 @@ export default function PlaygroundPage() {
   const [discardOpen, setDiscardOpen] = useState(false);
   const [pendingVersion, setPendingVersion] = useState<PromptVersion | null>(null);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [pendingMode, setPendingMode] = useState<PlaygroundMode | null>(null);
   const abortControllers = useRef(new Map<string, AbortController>());
   const confirmedNavigation = useRef(false);
   const initialVersionLoaded = useRef(false);
@@ -88,7 +94,8 @@ export default function PlaygroundPage() {
 
   const activeColumn = columns.find((column) => column.id === activeColumnID) ?? columns[0];
   const settingsColumn = columns.find((column) => column.id === settingsColumnID) ?? null;
-  const allVariables = useMemo(() => Array.from(new Set(columns.flatMap(getColumnVariables))).sort((a, b) => a.localeCompare(b)), [columns]);
+  const modeModels = useMemo(() => models.filter((model) => modelSupportsPlaygroundMode(model, mode)), [models, mode]);
+  const allVariables = useMemo(() => Array.from(new Set(columns.flatMap((column) => getColumnVariables(column, mode)))).sort((a, b) => a.localeCompare(b)), [columns, mode]);
   const anyRunning = Object.values(results).some((result) => result.status === "running");
 
   useEffect(() => {
@@ -153,14 +160,15 @@ export default function PlaygroundPage() {
       const payload = await requestJSON<GatewayModelListResponse>("/api/models");
       const nextModels = payload.data ?? [];
       setModels(nextModels);
+      const availableModels = nextModels.filter((model) => modelSupportsPlaygroundMode(model, mode));
       const requestedModel = !initialModelLoaded.current && !searchParams.get("versionID")
-        ? nextModels.find((model) => model.id === searchParams.get("model"))
+        ? availableModels.find((model) => model.id === searchParams.get("model"))
         : undefined;
       initialModelLoaded.current = true;
       setColumns((current) => current.map((column, index) => {
         const selectedModel = index === 0 && requestedModel
           ? requestedModel.id
-          : column.selectedModel || (nextModels.length === 1 ? nextModels[0].id : "");
+          : (availableModels.some((model) => model.id === column.selectedModel) ? column.selectedModel : "") || (availableModels.length === 1 ? availableModels[0].id : "");
         return { ...column, selectedModel, selectedProvider: nextModels.find((model) => model.id === selectedModel)?.provider ?? column.selectedProvider };
       }));
     } catch (error) {
@@ -184,6 +192,37 @@ export default function PlaygroundPage() {
 
   function updateColumn(next: PlaygroundColumnDraft) {
     setColumns((current) => current.map((column) => column.id === next.id ? next : column));
+  }
+
+  function requestModeChange(nextMode: PlaygroundMode) {
+    if (nextMode === mode || anyRunning) return;
+    const hasWork = columns.some((column) => column.dirty) || Object.values(results).some((result) => result.status !== "idle");
+    if (hasWork) {
+      setPendingMode(nextMode);
+      return;
+    }
+    applyMode(nextMode);
+  }
+
+  function applyMode(nextMode: PlaygroundMode) {
+    abortControllers.current.forEach((controller) => controller.abort());
+    abortControllers.current.clear();
+    const nextColumn = createPlaygroundColumn(t("option", { count: 1 }), locale === "fa" ? "شما یک دستیار دقیق و مفید هستید." : "You are a precise and helpful assistant.");
+    const availableModels = models.filter((model) => modelSupportsPlaygroundMode(model, nextMode));
+    if (availableModels.length === 1) {
+      nextColumn.selectedModel = availableModels[0].id;
+      nextColumn.selectedProvider = availableModels[0].provider ?? "";
+    }
+    setMode(nextMode);
+    setColumns([nextColumn]);
+    setResults({ [nextColumn.id]: emptyRunResult() });
+    setActiveColumnID(nextColumn.id);
+    setSettingsColumnID(null);
+    setVariablesOpen(false);
+    setSaveColumnID(null);
+    setLoadOpen(false);
+    setPendingMode(null);
+    setNotice(null);
   }
 
   function addComparison() {
@@ -213,7 +252,7 @@ export default function PlaygroundPage() {
 
   async function runAll() {
     const comparisonID = createClientID("comparison");
-    const invalid = columns.map((column) => ({ column, validation: validateAndBuildRunPayload(column, comparisonID) })).filter((entry) => !entry.validation.ok);
+    const invalid = columns.map((column) => ({ column, validation: validateAndBuildRunPayload(column, comparisonID, mode) })).filter((entry) => !entry.validation.ok);
     if (invalid.length) {
       setNotice({ kind: "error", message: invalid.map((entry) => `${entry.column.label}: ${entry.validation.ok ? "" : t(entry.validation.errorKey, entry.validation.errorValues)}`).join(" • ") });
       return;
@@ -223,7 +262,7 @@ export default function PlaygroundPage() {
   }
 
   async function runColumn(column: PlaygroundColumnDraft, comparisonID = createClientID("comparison")) {
-    const validation = validateAndBuildRunPayload(column, comparisonID);
+    const validation = validateAndBuildRunPayload(column, comparisonID, mode);
     if (!validation.ok) {
       setNotice({ kind: "error", message: t(validation.errorKey, validation.errorValues) });
       return;
@@ -235,6 +274,7 @@ export default function PlaygroundPage() {
     let firstTokenAt: number | undefined;
     let responseText = "";
     let toolCalls: unknown[] = [];
+    let generatedImages: PlaygroundGeneratedImage[] = [];
     let finishReason: string | undefined;
     let usage: Record<string, unknown> | undefined;
     let responseID: string | undefined;
@@ -251,9 +291,10 @@ export default function PlaygroundPage() {
           responseText: previous.responseText,
           rawResponse: previous.rawResponse,
           toolCalls: previous.toolCalls,
+          generatedImages: previous.generatedImages,
           finishReason: previous.finishReason,
           telemetry: previous.telemetry,
-          responseIsPrevious: Boolean(previous.responseText || previous.toolCalls.length),
+          responseIsPrevious: Boolean(previous.responseText || previous.toolCalls.length || previous.generatedImages.length),
           startedAt,
         },
       };
@@ -273,7 +314,7 @@ export default function PlaygroundPage() {
 
       const baseTelemetry = telemetryFromHeaders(response.headers, column.selectedModel, startedAt);
       const contentType = response.headers.get("content-type") ?? "";
-      if (validation.payload.request.stream === true && contentType.includes("text/event-stream")) {
+      if (mode === "chat" && validation.payload.request.stream === true && contentType.includes("text/event-stream")) {
         const streamed = await consumeStream(response, {
           signal: controller.signal,
           disconnectedMessage: t("errors.streamDisconnected"),
@@ -305,15 +346,25 @@ export default function PlaygroundPage() {
         firstTokenAt = streamed.firstTokenAt;
       } else {
         const payload = await response.json() as Record<string, unknown>;
-        const choice = Array.isArray(payload.choices) ? payload.choices[0] as Record<string, unknown> | undefined : undefined;
-        const message = choice?.message && typeof choice.message === "object" ? choice.message as Record<string, unknown> : undefined;
-        responseText = extractPlaygroundText(message?.content);
-        toolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
-        finishReason = typeof choice?.finish_reason === "string" ? choice.finish_reason : undefined;
-        usage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : undefined;
-        responseID = typeof payload.id === "string" ? payload.id : undefined;
-        responseModel = typeof payload.model === "string" ? payload.model : undefined;
-        rawResponse = payload;
+        if (mode === "image_generation") {
+          const normalized = normalizeImageGenerationResponse(payload, column.imageConfig.outputFormat);
+          generatedImages = normalized.images;
+          rawResponse = normalized.rawResponse;
+          usage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : undefined;
+          responseID = typeof payload.id === "string" ? payload.id : undefined;
+          responseModel = typeof payload.model === "string" ? payload.model : undefined;
+          if (generatedImages.length === 0) throw new Error(t("image.noUsableImage"));
+        } else {
+          const choice = Array.isArray(payload.choices) ? payload.choices[0] as Record<string, unknown> | undefined : undefined;
+          const message = choice?.message && typeof choice.message === "object" ? choice.message as Record<string, unknown> : undefined;
+          responseText = extractPlaygroundText(message?.content);
+          toolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+          finishReason = typeof choice?.finish_reason === "string" ? choice.finish_reason : undefined;
+          usage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : undefined;
+          responseID = typeof payload.id === "string" ? payload.id : undefined;
+          responseModel = typeof payload.model === "string" ? payload.model : undefined;
+          rawResponse = payload;
+        }
       }
 
       const durationMs = Math.round(performance.now() - startedAt);
@@ -321,8 +372,20 @@ export default function PlaygroundPage() {
       setResults((current) => ({
         ...current,
         [column.id]: {
-          status: "success", responseText, rawResponse: rawResponse ?? normalizedResponse, toolCalls, finishReason, responseIsPrevious: false,
-          telemetry: { ...telemetryFromHeaders(response.headers, column.selectedModel, startedAt), effectiveModel: responseModel ?? column.selectedModel, durationMs, ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt), ...usageTelemetry(usage) },
+          status: "success", responseText, rawResponse: rawResponse ?? normalizedResponse, toolCalls, generatedImages, finishReason, responseIsPrevious: false,
+          telemetry: {
+            ...telemetryFromHeaders(response.headers, column.selectedModel, startedAt),
+            effectiveModel: responseModel ?? column.selectedModel,
+            durationMs,
+            ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt),
+            ...usageTelemetry(usage),
+            ...(mode === "image_generation" ? {
+              imageCount: generatedImages.length,
+              requestedImageSize: column.imageConfig.size,
+              requestedImageQuality: column.imageConfig.quality,
+              imageMimeType: generatedImages[0]?.mimeType,
+            } : {}),
+          },
         },
       }));
     } catch (error) {
@@ -342,7 +405,7 @@ export default function PlaygroundPage() {
           };
         });
       } else {
-        const hasNewResponse = Boolean(responseText || toolCalls.length);
+        const hasNewResponse = Boolean(responseText || toolCalls.length || generatedImages.length);
         setResults((current) => ({
           ...current,
           [column.id]: {
@@ -351,8 +414,9 @@ export default function PlaygroundPage() {
             responseText: hasNewResponse ? responseText : previousResult.responseText,
             rawResponse: hasNewResponse ? current[column.id]?.rawResponse ?? rawResponse : previousResult.rawResponse,
             toolCalls: hasNewResponse ? toolCalls : previousResult.toolCalls,
+            generatedImages: hasNewResponse ? generatedImages : previousResult.generatedImages,
             finishReason: hasNewResponse ? finishReason : previousResult.finishReason,
-            responseIsPrevious: !hasNewResponse && Boolean(previousResult.responseText || previousResult.toolCalls.length),
+            responseIsPrevious: !hasNewResponse && Boolean(previousResult.responseText || previousResult.toolCalls.length || previousResult.generatedImages.length),
             error: normalizeError(error, t("errors.run")),
             telemetry: hasNewResponse
               ? { ...current[column.id]?.telemetry, requestedModel: column.selectedModel, durationMs: Math.round(performance.now() - startedAt) }
@@ -397,11 +461,12 @@ export default function PlaygroundPage() {
 
   function columnProps(column: PlaygroundColumnDraft) { return {
     column,
+    mode,
     result: results[column.id] ?? emptyRunResult(),
     locale,
     readOnly: !canRun,
-    canSave,
-    canLoad,
+    canSave: mode === "chat" && canSave,
+    canLoad: mode === "chat" && canLoad,
     canOpenTrace,
     comparison: columns.length > 1,
     onChange: updateColumn,
@@ -422,6 +487,17 @@ export default function PlaygroundPage() {
     <div dir={locale === "fa" ? "rtl" : "ltr"} className="flex h-full min-h-0 flex-col bg-muted/20">
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-medium"><FlaskConical className="size-4 text-primary" />{t("newDraft")}</div>
+        <ToggleGroup
+          type="single"
+          value={mode}
+          disabled={anyRunning}
+          onValueChange={(value) => { if (value === "chat" || value === "image_generation") requestModeChange(value); }}
+          aria-label={t("mode.label")}
+          className="rounded-md border border-border bg-muted p-1"
+        >
+          <ToggleGroupItem value="chat" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><MessageSquare />{t("mode.chat")}</ToggleGroupItem>
+          <ToggleGroupItem value="image_generation" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><ImageIcon />{t("mode.imageGeneration")}</ToggleGroupItem>
+        </ToggleGroup>
         {columns.length > 1 ? (
           <Tabs value={activeColumnID} onValueChange={setActiveColumnID} className="min-w-0 md:hidden">
             <TabsList>{columns.map((column) => <TabsTrigger key={column.id} value={column.id}>{column.label}</TabsTrigger>)}</TabsList>
@@ -430,7 +506,7 @@ export default function PlaygroundPage() {
         <div className="ms-auto flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setVariablesOpen(true)}><Variable data-icon="inline-start" />{t("actions.variables", { count: allVariables.length })}</Button>
           <Button type="button" size="sm" variant="outline" disabled={columns.length >= 3} onClick={addComparison}><Plus data-icon="inline-start" />{t("actions.compare")}</Button>
-          <Button type="button" size="sm" variant="outline" disabled={!canLoad} onClick={() => setLoadOpen(true)}><FolderOpen data-icon="inline-start" />{t("actions.load")}</Button>
+          {mode === "chat" ? <Button type="button" size="sm" variant="outline" disabled={!canLoad} onClick={() => setLoadOpen(true)}><FolderOpen data-icon="inline-start" />{t("actions.load")}</Button> : null}
         </div>
       </div>
 
@@ -442,8 +518,8 @@ export default function PlaygroundPage() {
         <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground"><Spinner label={t("model.loading")} />{t("model.loading")}</div>
       ) : modelError ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-destructive" /><div><h2 className="font-semibold">{t("errors.loadModels")}</h2><p className="mt-1 text-sm text-muted-foreground">{modelError}</p></div><Button type="button" onClick={() => void loadModels()}>{t("actions.retry")}</Button></div>
-      ) : models.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts/new">{t("model.connect")}</a></Button></div>
+      ) : modeModels.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{mode === "image_generation" ? t("model.noImageModelTitle") : t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "image_generation" ? t("model.noImageModelDescription") : t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts/new">{t("model.connect")}</a></Button></div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden p-3">
           {columns.length === 1 ? (
@@ -487,8 +563,8 @@ export default function PlaygroundPage() {
         {anyRunning ? <Button type="button" variant="destructive" onClick={columns.length > 1 ? stopAll : () => stopColumn(activeColumn.id)}><Square data-icon="inline-start" />{columns.length > 1 ? t("actions.stopAll") : t("actions.stop")}</Button> : <Button type="button" aria-label={columns.length > 1 ? t("actions.runAllShortcut") : t("actions.runShortcut")} title={columns.length > 1 ? t("actions.runAllShortcut") : t("actions.runShortcut")} disabled={!canRun || !columns.every((column) => column.selectedModel)} onClick={() => columns.length > 1 ? void runAll() : void runColumn(activeColumn)}><Play data-icon="inline-start" />{columns.length > 1 ? t("actions.runAll") : t("actions.run")}</Button>}
       </div>
 
-      <ModelPickerDialog open={modelPickerOpen} onOpenChange={setModelPickerOpen} search={modelSearch} onSearchChange={setModelSearch} models={models} selectedModel={activeColumn.selectedModel} onSelect={(model) => { updateColumn({ ...activeColumn, selectedModel: model.id, selectedProvider: model.provider ?? "", dirty: true }); setModelPickerOpen(false); }} t={t} />
-      <PlaygroundSettingsSheet open={Boolean(settingsColumnID)} onOpenChange={(open) => !open && setSettingsColumnID(null)} column={settingsColumn} guardrails={guardrails} guardrailsLoading={guardrailsLoading} readOnly={!canRun} side={locale === "fa" ? "left" : "right"} onChange={updateColumn} t={t} />
+      <ModelPickerDialog open={modelPickerOpen} onOpenChange={setModelPickerOpen} search={modelSearch} onSearchChange={setModelSearch} models={modeModels} selectedModel={activeColumn.selectedModel} onSelect={(model) => { updateColumn({ ...activeColumn, selectedModel: model.id, selectedProvider: model.provider ?? "", dirty: true }); setModelPickerOpen(false); }} t={t} />
+      <PlaygroundSettingsSheet open={Boolean(settingsColumnID)} onOpenChange={(open) => !open && setSettingsColumnID(null)} column={settingsColumn} mode={mode} guardrails={guardrails} guardrailsLoading={guardrailsLoading} readOnly={!canRun} side={locale === "fa" ? "left" : "right"} onChange={updateColumn} t={t} />
       <VariablesSheet
         open={variablesOpen}
         onOpenChange={setVariablesOpen}
@@ -516,6 +592,15 @@ export default function PlaygroundPage() {
           window.setTimeout(() => { confirmedNavigation.current = false; }, 1000);
         }
       }} />
+      <UnsavedChangesDialog
+        open={Boolean(pendingMode)}
+        onOpenChange={(open) => { if (!open) setPendingMode(null); }}
+        title={t("mode.changeTitle")}
+        description={t("mode.changeDescription")}
+        stayLabel={t("actions.keepEditing")}
+        discardLabel={t("mode.changeConfirm")}
+        onDiscard={() => { if (pendingMode) applyMode(pendingMode); }}
+      />
     </div>
   );
 }
@@ -657,7 +742,15 @@ function LoadPromptDialog(props: { open: boolean; onOpenChange: (open: boolean) 
   );
 }
 
-function emptyRunResult(): PlaygroundRunResult { return { status: "idle", responseText: "", rawResponse: null, toolCalls: [] }; }
+function emptyRunResult(): PlaygroundRunResult { return { status: "idle", responseText: "", rawResponse: null, toolCalls: [], generatedImages: [] }; }
+
+function modelSupportsPlaygroundMode(model: GatewayModel, mode: PlaygroundMode) {
+  const supportedModes = [...(model.supported_modes ?? []), ...(model.types ?? [])]
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (supportedModes.length === 0) return mode === "chat";
+  return supportedModes.includes(mode);
+}
 
 function isAbortError(error: unknown) { return error instanceof Error && error.name === "AbortError"; }
 

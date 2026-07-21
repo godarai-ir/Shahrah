@@ -18,6 +18,7 @@ import {
   createPlaygroundMetadataRow,
   createPlaygroundTool,
   type PlaygroundColumnDraft,
+  type PlaygroundMode,
 } from "./playground-domain";
 import type { GuardrailItem } from "./prompt-management-shared";
 
@@ -27,6 +28,7 @@ type PlaygroundSettingsSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   column: PlaygroundColumnDraft | null;
+  mode: PlaygroundMode;
   guardrails: GuardrailItem[];
   guardrailsLoading: boolean;
   readOnly: boolean;
@@ -56,7 +58,9 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
           <SheetTitle>{props.t("settings.title")}</SheetTitle>
           <SheetDescription>{props.t("settings.description")}</SheetDescription>
         </SheetHeader>
-        <Tabs defaultValue="model" className="min-h-0 flex-1 gap-0">
+        {props.mode === "image_generation" ? (
+          <ImageGenerationSettings column={column} readOnly={props.readOnly} onChange={props.onChange} t={props.t} />
+        ) : <Tabs defaultValue="model" className="min-h-0 flex-1 gap-0">
           <div className="overflow-x-auto border-b border-border p-3">
             <TabsList>
               <TabsTrigger value="model">{props.t("settings.model")}</TabsTrigger>
@@ -138,10 +142,84 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
               ))}
             </TabsContent>
           </ScrollArea>
-        </Tabs>
+        </Tabs>}
         <SheetFooter className="border-t border-border p-4"><Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>{props.t("actions.close")}</Button></SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function ImageGenerationSettings(props: {
+  column: PlaygroundColumnDraft;
+  readOnly: boolean;
+  onChange: (column: PlaygroundColumnDraft) => void;
+  t: Translation;
+}) {
+  const config = props.column.imageConfig;
+  function changeConfig(patch: Partial<typeof config>) {
+    props.onChange({ ...props.column, imageConfig: { ...config, ...patch }, dirty: true });
+  }
+
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <FieldGroup className="p-4">
+        <Alert variant="info"><AlertDescription>{props.t("image.settingsHelp")}</AlertDescription></Alert>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <AppNumberField label={props.t("image.count")} description={props.t("image.countHelp")} value="1" min={1} max={1} disabled />
+          <AppSelectField
+            label={props.t("image.size")}
+            value={config.size}
+            disabled={props.readOnly}
+            onValueChange={(size) => changeConfig({ size })}
+            options={["auto", "1024x1024", "1536x1024", "1024x1536", "1792x1024", "1024x1792"].map((value) => ({ value, label: value }))}
+            optionTextDir="ltr"
+          />
+          <AppSelectField
+            label={props.t("image.quality")}
+            value={config.quality}
+            disabled={props.readOnly}
+            onValueChange={(quality) => changeConfig({ quality })}
+            options={["auto", "low", "medium", "high", "standard", "hd"].map((value) => ({ value, label: value }))}
+            optionTextDir="ltr"
+          />
+          <AppSelectField
+            label={props.t("image.responseFormat")}
+            value={config.responseFormat}
+            disabled={props.readOnly}
+            onValueChange={(value) => changeConfig({ responseFormat: value as "url" | "b64_json" })}
+            options={[{ value: "url", label: "URL" }, { value: "b64_json", label: "Base64 JSON" }]}
+            optionTextDir="ltr"
+          />
+          <AppSelectField
+            label={props.t("image.outputFormat")}
+            value={config.outputFormat || "default"}
+            disabled={props.readOnly}
+            onValueChange={(value) => changeConfig({ outputFormat: value === "default" ? "" : value as "png" | "jpeg" | "webp" })}
+            options={[{ value: "default", label: props.t("image.modelDefault") }, { value: "png", label: "PNG" }, { value: "jpeg", label: "JPEG" }, { value: "webp", label: "WebP" }]}
+            optionTextDir="ltr"
+          />
+          {(config.outputFormat === "jpeg" || config.outputFormat === "webp") ? (
+            <AppNumberField label={props.t("image.outputCompression")} value={config.outputCompression} min={0} max={100} step={1} disabled={props.readOnly} onChange={(event) => changeConfig({ outputCompression: event.target.value })} />
+          ) : null}
+          <AppSelectField
+            label={props.t("image.background")}
+            value={config.background}
+            disabled={props.readOnly}
+            onValueChange={(value) => changeConfig({ background: value as "auto" | "transparent" | "opaque" })}
+            options={["auto", "transparent", "opaque"].map((value) => ({ value, label: value }))}
+            optionTextDir="ltr"
+          />
+          <AppSelectField
+            label={props.t("image.moderation")}
+            value={config.moderation}
+            disabled={props.readOnly}
+            onValueChange={(value) => changeConfig({ moderation: value as "auto" | "low" })}
+            options={["auto", "low"].map((value) => ({ value, label: value }))}
+            optionTextDir="ltr"
+          />
+        </div>
+      </FieldGroup>
+    </ScrollArea>
   );
 }
 

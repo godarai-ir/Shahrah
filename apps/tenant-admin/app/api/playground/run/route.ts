@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
-import { proxyToControlPlane, proxyToControlPlaneStream } from "@/lib/control-plane";
+import { fetchControlPlaneJSON, proxyToControlPlane, proxyToControlPlaneStream } from "@/lib/control-plane";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ const OPERATIONAL_HEADERS = [
   "x-request-id",
 ];
 
-const REQUEST_FIELDS = new Set([
+const CHAT_REQUEST_FIELDS = new Set([
   "model",
   "messages",
   "stream",
@@ -33,7 +33,19 @@ const REQUEST_FIELDS = new Set([
   "parallel_tool_calls",
   "metadata",
 ]);
-const ENVELOPE_FIELDS = new Set(["client_run_id", "comparison_id", "column_id", "request", "godarai"]);
+const IMAGE_REQUEST_FIELDS = new Set([
+  "model",
+  "prompt",
+  "n",
+  "size",
+  "quality",
+  "response_format",
+  "output_format",
+  "output_compression",
+  "background",
+  "moderation",
+]);
+const ENVELOPE_FIELDS = new Set(["mode", "client_run_id", "comparison_id", "column_id", "request", "godarai"]);
 const MESSAGE_FIELDS = new Set(["role", "content", "tool_call_id"]);
 const CACHE_FIELDS = new Set(["type", "ttl", "namespace", "similarity_threshold"]);
 const GODARAI_FIELDS = new Set(["cache_config", "guardrails"]);
@@ -41,6 +53,7 @@ const GUARDRAIL_FIELDS = new Set(["input", "output", "scope"]);
 const RESERVED_METADATA_KEYS = new Set(["source", "client_run_id", "comparison_id", "column_id", "__proto__", "prototype", "constructor"]);
 
 type PlaygroundRunPayload = {
+  mode?: "chat" | "image_generation";
   client_run_id?: string;
   comparison_id?: string;
   column_id?: string;
@@ -73,6 +86,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: { message: validation.message } }, { status: 400 });
   }
 
+  const mode = body?.mode ?? "chat";
+  if (mode === "image_generation") {
+    const modelValidation = await validateImageModelCapability(request, auth.tenantSlug, auth.user.id, body!.request!.model as string);
+    if (!modelValidation.ok) {
+      return NextResponse.json({ error: { message: modelValidation.message } }, { status: modelValidation.status });
+    }
+  }
   const upstreamHeaders = new Headers();
   const cacheConfig = body?.godarai?.cache_config;
   if (cacheConfig && Object.keys(cacheConfig).length > 0) {
@@ -87,21 +107,23 @@ export async function POST(request: NextRequest) {
     if (scope) upstreamHeaders.set("x-godarai-guardrails-scope", scope);
   }
 
-  const upstreamRequest: Record<string, unknown> = {
-    ...(body!.request as Record<string, unknown>),
-    metadata: sanitizeMetadata(body!.request!.metadata, body!),
-  };
+  const upstreamRequest: Record<string, unknown> = mode === "image_generation"
+    ? { ...(body!.request as Record<string, unknown>) }
+    : {
+        ...(body!.request as Record<string, unknown>),
+        metadata: sanitizeMetadata(body!.request!.metadata, body!),
+      };
   const proxyOptions = {
     request,
     method: "POST" as const,
-    path: "/v1/chat/completions",
+    path: mode === "image_generation" ? "/v1/images/generations" : "/v1/chat/completions",
     body: upstreamRequest,
     userID: auth.user.id,
     upstreamHeaders,
     exposeResponseHeaders: OPERATIONAL_HEADERS,
   };
 
-  return upstreamRequest["stream"] === true
+  return mode === "chat" && upstreamRequest["stream"] === true
     ? proxyToControlPlaneStream(proxyOptions)
     : proxyToControlPlane(proxyOptions);
 }
@@ -112,16 +134,20 @@ function validatePayload(body: PlaygroundRunPayload | null): { ok: true } | { ok
   }
   const unknownEnvelopeFields = Object.keys(body).filter((key) => !ENVELOPE_FIELDS.has(key));
   if (unknownEnvelopeFields.length > 0) return { ok: false, message: `Unsupported playground fields: ${unknownEnvelopeFields.join(", ")}` };
+  const mode = body.mode ?? "chat";
+  if (mode !== "chat" && mode !== "image_generation") return { ok: false, message: "Playground mode is invalid." };
   for (const [name, value] of [["client_run_id", body.client_run_id], ["comparison_id", body.comparison_id], ["column_id", body.column_id]] as const) {
     if (value !== undefined && (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(value))) return { ok: false, message: `${name} is invalid.` };
   }
-  const unknownFields = Object.keys(body.request).filter((key) => !REQUEST_FIELDS.has(key));
+  const requestFields = mode === "image_generation" ? IMAGE_REQUEST_FIELDS : CHAT_REQUEST_FIELDS;
+  const unknownFields = Object.keys(body.request).filter((key) => !requestFields.has(key));
   if (unknownFields.length > 0) {
     return { ok: false, message: `Unsupported request fields: ${unknownFields.join(", ")}` };
   }
   if (typeof body.request.model !== "string" || !body.request.model.trim() || body.request.model.length > 512) {
     return { ok: false, message: "A model is required." };
   }
+  if (mode === "image_generation") return validateImagePayload(body);
   if (!Array.isArray(body.request.messages) || body.request.messages.length === 0) {
     return { ok: false, message: "At least one message is required." };
   }
@@ -158,6 +184,60 @@ function validatePayload(body: PlaygroundRunPayload | null): { ok: true } | { ok
   if (metadataError) return { ok: false, message: metadataError };
   const godaraiError = validateGodaraiOptions(body.godarai);
   if (godaraiError) return { ok: false, message: godaraiError };
+  return { ok: true };
+}
+
+async function validateImageModelCapability(request: NextRequest, tenantSlug: string, userID: string, modelID: string) {
+  const upstream = await fetchControlPlaneJSON({
+    tenantSlug,
+    method: "GET",
+    path: "/api/v1/models",
+    userID,
+    requestHeaders: request.headers,
+  });
+  if (!upstream.ok) {
+    return { ok: false as const, status: 502, message: "The model capability list could not be verified." };
+  }
+  const payload = isRecord(upstream.payload) ? upstream.payload : {};
+  const models = Array.isArray(payload.data) ? payload.data : [];
+  const model = models.find((entry) => isRecord(entry) && entry.id === modelID);
+  if (!isRecord(model)) {
+    return { ok: false as const, status: 400, message: "This model is not available in the current workspace." };
+  }
+  const modes = Array.isArray(model.supported_modes) ? model.supported_modes : Array.isArray(model.types) ? model.types : [];
+  if (!modes.some((value) => typeof value === "string" && value.trim().toLowerCase() === "image_generation")) {
+    return { ok: false as const, status: 400, message: "This model is not enabled for image generation in the current workspace." };
+  }
+  return { ok: true as const };
+}
+
+function validateImagePayload(body: PlaygroundRunPayload): { ok: true } | { ok: false; message: string } {
+  const request = body.request!;
+  if (typeof request.prompt !== "string" || !request.prompt.trim()) return { ok: false, message: "An image prompt is required." };
+  if (request.prompt.length > 100_000) return { ok: false, message: "The image prompt is too large." };
+  if (request.n !== undefined && request.n !== 1) return { ok: false, message: "The playground currently supports exactly one image per request." };
+  if (request.response_format !== undefined && request.response_format !== "url" && request.response_format !== "b64_json") {
+    return { ok: false, message: "response_format must be url or b64_json." };
+  }
+  if (request.size !== undefined && (typeof request.size !== "string" || !/^(auto|[1-9][0-9]{1,3}x[1-9][0-9]{1,3})$/.test(request.size))) {
+    return { ok: false, message: "size is invalid." };
+  }
+  if (request.quality !== undefined && (typeof request.quality !== "string" || !["auto", "low", "medium", "high", "standard", "hd"].includes(request.quality))) {
+    return { ok: false, message: "quality is invalid." };
+  }
+  if (request.output_format !== undefined && (typeof request.output_format !== "string" || !["png", "jpeg", "webp"].includes(request.output_format))) {
+    return { ok: false, message: "output_format is invalid." };
+  }
+  if (request.output_compression !== undefined && (typeof request.output_compression !== "number" || !Number.isInteger(request.output_compression) || request.output_compression < 0 || request.output_compression > 100)) {
+    return { ok: false, message: "output_compression must be an integer between 0 and 100." };
+  }
+  if (request.background !== undefined && (typeof request.background !== "string" || !["auto", "transparent", "opaque"].includes(request.background))) {
+    return { ok: false, message: "background is invalid." };
+  }
+  if (request.moderation !== undefined && (typeof request.moderation !== "string" || !["auto", "low"].includes(request.moderation))) {
+    return { ok: false, message: "moderation is invalid." };
+  }
+  if (body.godarai !== undefined) return { ok: false, message: "GodarAI chat cache and guardrails are not supported in image generation mode." };
   return { ok: true };
 }
 

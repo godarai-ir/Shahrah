@@ -34,8 +34,9 @@ func TestModelsHandler_FiltersByAllowedModels(t *testing.T) {
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
-			TenantID:      "tenant-1",
-			AllowedModels: []string{"gpt-4o-mini"},
+			TenantID:          "tenant-1",
+			AllowedModels:     []string{"gpt-4o-mini"},
+			AllowedModelTypes: map[string][]string{"gpt-4o-mini": {"chat"}},
 		})
 
 		return c.Next()
@@ -68,6 +69,7 @@ func TestModelsHandler_FiltersByAllowedModels(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
 	require.Len(t, out.Data, 1)
 	assert.Equal(t, "gpt-4o-mini", out.Data[0].ID)
+	assert.Equal(t, []string{"chat"}, out.Data[0].SupportedModes)
 }
 
 func TestModelsHandler_EnforcedAllowlistEmptyReturnsNoModels(t *testing.T) {

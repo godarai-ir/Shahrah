@@ -425,6 +425,7 @@ func checkModelsRouteAuthorization(method, route string, authInfo *platform.Auth
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	if normalizedMethod == "GET" || normalizedMethod == "HEAD" || normalizedMethod == "OPTIONS" {
 		if hasAnyPermission(authInfo,
+			"playground:read", "playground:run",
 			"policy:list", "policy:manage",
 			"provider_account:read", "provider_account:manage", "provider_account:create",
 			"virtual_account:read", "virtual_account:manage",

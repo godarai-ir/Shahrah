@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef } from "react";
-import { Braces, CopyPlus, FileUp, Play, Plus, Save, Settings2, Square, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, Play, Plus, Save, Settings2, Square, Trash2 } from "lucide-react";
 
 import {
   AppCodeTextareaField,
+  AppTextareaField,
   CopyAction,
   EmptyState,
   PromptMessageEditor,
@@ -16,6 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CodeBlock } from "@/components/app-ui/CodeBlock";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +29,8 @@ import {
   createPlaygroundMessage,
   serializeColumnJSON,
   type PlaygroundColumnDraft,
+  type PlaygroundGeneratedImage,
+  type PlaygroundMode,
   type PlaygroundRunResult,
 } from "./playground-domain";
 
@@ -34,6 +38,7 @@ type Translation = (key: string, values?: Record<string, string | number>) => st
 
 type PlaygroundColumnProps = {
   column: PlaygroundColumnDraft;
+  mode: PlaygroundMode;
   result: PlaygroundRunResult;
   locale: string;
   readOnly: boolean;
@@ -107,15 +112,31 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
           {column.selectedProvider === "virtual" ? <Badge variant="secondary">{props.t("model.virtual")}</Badge> : null}
         </Button>
         <div className="ms-auto flex items-center gap-1">
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={props.t("actions.load")} title={props.t("actions.load")} disabled={!props.canLoad} onClick={props.onOpenLoad}><FileUp data-icon="inline-start" /></Button>
+          {props.mode === "chat" ? <Button type="button" variant="ghost" size="icon-sm" aria-label={props.t("actions.load")} title={props.t("actions.load")} disabled={!props.canLoad} onClick={props.onOpenLoad}><FileUp data-icon="inline-start" /></Button> : null}
           <Button type="button" variant="ghost" size="icon-sm" aria-label={props.t("actions.parameters")} title={props.t("actions.parameters")} onClick={props.onOpenSettings}><Settings2 data-icon="inline-start" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={column.sourceVersionID ? props.t("actions.saveVersion") : props.t("actions.save")} title={props.t("actions.save")} disabled={!props.canSave} onClick={props.onOpenSave}><Save data-icon="inline-start" /></Button>
+          {props.mode === "chat" ? <Button type="button" variant="ghost" size="icon-sm" aria-label={column.sourceVersionID ? props.t("actions.saveVersion") : props.t("actions.save")} title={props.t("actions.save")} disabled={!props.canSave} onClick={props.onOpenSave}><Save data-icon="inline-start" /></Button> : null}
           {props.comparison && props.onDuplicateColumn ? <Button type="button" variant="ghost" size="icon-sm" aria-label={props.t("actions.duplicate")} title={props.t("actions.duplicate")} onClick={props.onDuplicateColumn}><CopyPlus data-icon="inline-start" /></Button> : null}
           {props.comparison && props.onRemoveColumn ? <Button type="button" variant="ghost" size="icon-sm" aria-label={props.t("actions.remove")} title={props.t("actions.remove")} onClick={props.onRemoveColumn}><Trash2 data-icon="inline-start" /></Button> : null}
         </div>
       </div>
 
-      <Tabs value={column.editorMode} onValueChange={switchMode} className="min-h-0 flex-1 gap-0">
+      {props.mode === "image_generation" ? (
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="flex flex-col gap-4 p-4">
+            <Alert variant="info"><AlertDescription>{props.t("image.temporaryNotice")}</AlertDescription></Alert>
+            <AppTextareaField
+              label={props.t("image.prompt")}
+              description={props.t("image.promptHelp")}
+              value={column.imagePrompt}
+              placeholder={props.t("image.promptPlaceholder")}
+              readOnly={props.readOnly}
+              error={!column.imagePrompt.trim() ? props.t("validation.imagePromptRequired") : undefined}
+              className="min-h-56 resize-y"
+              onChange={(event) => props.onChange({ ...column, imagePrompt: event.target.value, dirty: true })}
+            />
+          </div>
+        </ScrollArea>
+      ) : <Tabs value={column.editorMode} onValueChange={switchMode} className="min-h-0 flex-1 gap-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <TabsList>
             <TabsTrigger value="visual">{props.t("visual")}</TabsTrigger>
@@ -200,7 +221,7 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
             <Button type="button" size="sm" disabled={props.readOnly} onClick={() => switchMode("visual")}>{props.t("actions.applyJson")}</Button>
           </div>
         </TabsContent>
-      </Tabs>
+      </Tabs>}
 
       <div className="flex items-center gap-2 border-t border-border p-3 md:hidden">
         {props.result.status === "running" ? (
@@ -226,7 +247,7 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
         {result.responseIsPrevious ? <StatusBadge status="neutral">{props.t("status.previous")}</StatusBadge> : null}
         {result.telemetry?.cacheStatus === "hit" ? <StatusBadge status="neutral">{props.t("status.cacheHit")}</StatusBadge> : null}
         <div className="ms-auto flex items-center gap-1">
-          {result.responseText ? <CopyAction value={result.responseText} copyLabel={props.t("actions.copy")} copiedLabel={props.t("actions.copied")} /> : null}
+          {props.mode === "chat" && result.responseText ? <CopyAction value={result.responseText} copyLabel={props.t("actions.copy")} copiedLabel={props.t("actions.copied")} /> : null}
           {props.canOpenTrace && result.telemetry?.traceId ? (
             <Button type="button" variant="ghost" size="sm" asChild>
               <a href={`/traces/${encodeURIComponent(result.telemetry.traceId)}`}>{props.t("actions.openTrace")}</a>
@@ -237,7 +258,12 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
 
       {result.status === "idle" ? (
         <div className="flex flex-1 items-center justify-center p-6">
-          <EmptyState variant="inline" title={props.t("empty.title")} description={props.t("empty.description")} />
+          <EmptyState
+            variant="inline"
+            icon={props.mode === "image_generation" ? ImageIcon : undefined}
+            title={props.mode === "image_generation" ? props.t("image.emptyTitle") : props.t("empty.title")}
+            description={props.mode === "image_generation" ? props.t("image.emptyDescription") : props.t("empty.description")}
+          />
         </div>
       ) : (
         <Tabs defaultValue="response" className="min-h-0 flex-1 gap-0">
@@ -250,10 +276,13 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
           <TabsContent value="response" className="min-h-0 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="flex flex-col gap-4 p-4">
-                {result.status === "running" && !result.responseText ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />{props.t("status.running")}</div> : null}
+                {result.status === "running" && !result.responseText && result.generatedImages.length === 0 ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />{props.t("status.running")}</div> : null}
                 {result.error ? <Alert variant="destructive"><AlertDescription>{result.error}</AlertDescription></Alert> : null}
-                {result.responseText ? <div className="whitespace-pre-wrap text-sm leading-7" dir="auto">{result.responseText}</div> : null}
-                {result.toolCalls.length ? (
+                {props.mode === "image_generation" && result.generatedImages.length ? (
+                  <GeneratedImageGallery images={result.generatedImages} t={props.t} />
+                ) : null}
+                {props.mode === "chat" && result.responseText ? <div className="whitespace-pre-wrap text-sm leading-7" dir="auto">{result.responseText}</div> : null}
+                {props.mode === "chat" && result.toolCalls.length ? (
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground">{props.t("settings.tools")}</p>
                     <CodeBlock code={JSON.stringify(result.toolCalls, null, 2)} language="json" />
@@ -278,6 +307,98 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
       </div>
     </div>
   );
+}
+
+function GeneratedImageGallery(props: { images: PlaygroundGeneratedImage[]; t: Translation }) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-2">
+      {props.images.map((image) => <GeneratedImageCard key={generatedImageKey(image)} image={image} t={props.t} />)}
+    </div>
+  );
+}
+
+function GeneratedImageCard(props: { image: PlaygroundGeneratedImage; t: Translation }) {
+  const { image, t } = props;
+  const { objectURL, error } = useBase64ObjectURL(image.b64Json, image.mimeType);
+  const source = image.url ?? objectURL;
+  const extension = image.mimeType === "image/jpeg" ? "jpg" : image.mimeType === "image/webp" ? "webp" : "png";
+  const downloadName = `generated-image-${image.index + 1}.${extension}`;
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="flex-row items-center justify-between gap-2 p-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <CardTitle className="text-sm">{t("image.result", { count: image.index + 1 })}</CardTitle>
+          <Badge variant="secondary" className="font-mono">{image.mimeType}</Badge>
+        </div>
+        {image.revisedPrompt ? <CopyAction value={image.revisedPrompt} copyLabel={t("image.copyRevisedPrompt")} copiedLabel={t("actions.copied")} /> : null}
+      </CardHeader>
+      <CardContent className="p-0">
+        {source ? (
+          // A native image element is required for transient blob URLs and provider URLs with unknown dimensions.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={source} alt={t("image.alt", { count: image.index + 1 })} className="aspect-square w-full bg-muted/30 object-contain" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="flex aspect-square items-center justify-center p-6">
+            <Alert variant="destructive"><AlertDescription>{error === "too_large" ? t("image.tooLarge") : error === "invalid" ? t("image.invalidBase64") : t("image.decodeError")}</AlertDescription></Alert>
+          </div>
+        )}
+      </CardContent>
+      {image.revisedPrompt ? (
+        <CardContent className="p-4">
+          <p className="text-xs font-medium text-muted-foreground">{t("image.revisedPrompt")}</p>
+          <p className="mt-2 text-sm leading-6" dir="auto">{image.revisedPrompt}</p>
+        </CardContent>
+      ) : null}
+      {source ? (
+        <CardFooter className="justify-end p-4 pt-0">
+          <Button type="button" size="sm" variant="outline" asChild>
+            <a href={source} download={downloadName} target={image.url ? "_blank" : undefined} rel={image.url ? "noopener noreferrer" : undefined}><Download data-icon="inline-start" />{t("image.download")}</a>
+          </Button>
+          <Button type="button" size="sm" variant="ghost" asChild>
+            <a href={source} target="_blank" rel="noopener noreferrer"><ExternalLink data-icon="inline-start" />{t("image.open")}</a>
+          </Button>
+        </CardFooter>
+      ) : null}
+    </Card>
+  );
+}
+
+function useBase64ObjectURL(base64: string | undefined, mimeType: PlaygroundGeneratedImage["mimeType"]) {
+  const [state, setState] = useState<{ objectURL?: string; error?: "too_large" | "invalid" }>({});
+  useEffect(() => {
+    let objectURL = "";
+    const frame = window.requestAnimationFrame(() => {
+      const next = createBase64ObjectURL(base64, mimeType);
+      objectURL = next.objectURL ?? "";
+      setState(next);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (objectURL) URL.revokeObjectURL(objectURL);
+    };
+  }, [base64, mimeType]);
+  return state;
+}
+
+function createBase64ObjectURL(base64: string | undefined, mimeType: PlaygroundGeneratedImage["mimeType"]) {
+  if (!base64) return {};
+  const maxDecodedBytes = 10 * 1024 * 1024;
+  if (base64.length > Math.ceil(maxDecodedBytes * 4 / 3) + 4) return { error: "too_large" as const };
+  try {
+    const binary = window.atob(base64);
+    if (binary.length > maxDecodedBytes) return { error: "too_large" as const };
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return { objectURL: URL.createObjectURL(new Blob([bytes], { type: mimeType })) };
+  } catch {
+    return { error: "invalid" as const };
+  }
+}
+
+function generatedImageKey(image: PlaygroundGeneratedImage) {
+  const base64Identity = image.b64Json ? `${image.b64Json.length}:${image.b64Json.slice(0, 16)}:${image.b64Json.slice(-16)}` : "";
+  return `${image.index}:${image.mimeType}:${image.url ?? base64Identity}`;
 }
 
 export function PlaygroundComparisonColumn(props: PlaygroundColumnProps) {
@@ -306,6 +427,12 @@ function buildTelemetryItems(result: PlaygroundRunResult, locale: string, t: Tra
     { key: "cache", label: t("telemetry.cache"), value: telemetry.cacheStatus ?? null },
     { key: "cache-similarity", label: t("telemetry.cacheSimilarity"), value: telemetry.cacheSimilarity === undefined ? null : number.format(telemetry.cacheSimilarity) },
     { key: "finish", label: t("telemetry.finishReason"), value: result.finishReason ?? null, technical: true },
+    ...(telemetry.imageCount === undefined ? [] : [
+      { key: "image-count", label: t("telemetry.imageCount"), value: number.format(telemetry.imageCount) },
+      { key: "image-size", label: t("telemetry.imageSize"), value: telemetry.requestedImageSize ?? null, technical: true },
+      { key: "image-quality", label: t("telemetry.imageQuality"), value: telemetry.requestedImageQuality ?? null, technical: true },
+      { key: "image-mime", label: t("telemetry.imageMimeType"), value: telemetry.imageMimeType ?? null, technical: true },
+    ] satisfies RunTelemetryItem[]),
     { key: "trace", label: t("telemetry.trace"), value: telemetry.traceId ?? telemetry.requestId ?? null, rawValue: telemetry.traceId ?? telemetry.requestId, technical: true },
   ];
 }

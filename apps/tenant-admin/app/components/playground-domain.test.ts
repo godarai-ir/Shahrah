@@ -8,6 +8,7 @@ import {
   createPlaygroundTool,
   getColumnVariables,
   hydratePlaygroundColumn,
+  normalizeImageGenerationResponse,
   serializeColumnJSON,
   validateAndBuildRunPayload,
 } from "./playground-domain";
@@ -135,5 +136,54 @@ describe("playground domain", () => {
       errorKey: "validation.toolSchemaInvalid",
       errorValues: { name: "lookup" },
     });
+  });
+
+  it("builds a dedicated non-streaming image generation request", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "openai:images:gpt-image-1";
+    column.imagePrompt = "A {{tone}} portrait";
+    column.variableValues = { tone: "cinematic" };
+    column.imageConfig = {
+      ...column.imageConfig,
+      responseFormat: "b64_json",
+      size: "1024x1024",
+      outputFormat: "webp",
+      outputCompression: "80",
+    };
+
+    const built = validateAndBuildRunPayload(column, "comparison-1", "image_generation");
+
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.payload).toMatchObject({
+      mode: "image_generation",
+      request: {
+        model: "openai:images:gpt-image-1",
+        prompt: "A cinematic portrait",
+        n: 1,
+        response_format: "b64_json",
+        size: "1024x1024",
+        output_format: "webp",
+        output_compression: 80,
+      },
+    });
+    expect(built.payload).not.toHaveProperty("godarai");
+  });
+
+  it("normalizes safe image results and redacts base64 from the raw response", () => {
+    const normalized = normalizeImageGenerationResponse({
+      data: [
+        { b64_json: "YWJj", revised_prompt: "A revised prompt" },
+        { url: "javascript:alert(1)" },
+        { url: "https://cdn.example.test/image.png" },
+      ],
+    }, "png");
+
+    expect(normalized.images).toEqual([
+      { index: 0, b64Json: "YWJj", revisedPrompt: "A revised prompt", mimeType: "image/png" },
+      { index: 2, url: "https://cdn.example.test/image.png", mimeType: "image/png" },
+    ]);
+    expect(JSON.stringify(normalized.rawResponse)).not.toContain("YWJj");
+    expect(JSON.stringify(normalized.rawResponse)).toContain("base64 omitted");
   });
 });

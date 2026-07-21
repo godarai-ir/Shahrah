@@ -8,6 +8,7 @@ const getCurrentMePermissionsMock = vi.hoisted(() => vi.fn());
 const getNormalizedPermissionSetMock = vi.hoisted(() => vi.fn());
 const proxyToControlPlaneMock = vi.hoisted(() => vi.fn());
 const proxyToControlPlaneStreamMock = vi.hoisted(() => vi.fn());
+const fetchControlPlaneJSONMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/request-auth", () => ({ readAuthFromRequest: readAuthFromRequestMock }));
 vi.mock("@/lib/auth/me-permissions", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/lib/auth/me-permissions", () => ({
   getNormalizedPermissionSet: getNormalizedPermissionSetMock,
 }));
 vi.mock("@/lib/control-plane", () => ({
+  fetchControlPlaneJSON: fetchControlPlaneJSONMock,
   proxyToControlPlane: proxyToControlPlaneMock,
   proxyToControlPlaneStream: proxyToControlPlaneStreamMock,
 }));
@@ -27,6 +29,12 @@ describe("playground run route", () => {
     getNormalizedPermissionSetMock.mockReturnValue(new Set(["policy:manage"]));
     proxyToControlPlaneMock.mockResolvedValue(NextResponse.json({ choices: [] }));
     proxyToControlPlaneStreamMock.mockResolvedValue(new NextResponse("data: [DONE]\n\n", { headers: { "Content-Type": "text/event-stream" } }));
+    fetchControlPlaneJSONMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      payload: { data: [{ id: "gpt-image-1", supported_modes: ["image_generation"] }] },
+      responseHeaders: {},
+    });
   });
 
   it("blocks billable execution for a read-only principal", async () => {
@@ -93,6 +101,59 @@ describe("playground run route", () => {
     expect(options.path).toBe("/v1/chat/completions");
     expect(options.body.metadata).toEqual({ source: "tenant_admin_playground", experiment: "a", client_run_id: "run-1", comparison_id: "cmp-1", column_id: "column-1" });
     expect(options.exposeResponseHeaders).toContain("x-godarai-cost-irr");
+  });
+
+  it("routes image generation through the dedicated non-streaming endpoint", async () => {
+    await POST(requestFor({
+      mode: "image_generation",
+      client_run_id: "run-image-1",
+      request: {
+        model: "gpt-image-1",
+        prompt: "A quiet mountain lake",
+        n: 1,
+        response_format: "b64_json",
+        output_format: "png",
+      },
+    }));
+
+    expect(proxyToControlPlaneStreamMock).not.toHaveBeenCalled();
+    expect(proxyToControlPlaneMock).toHaveBeenCalledOnce();
+    const options = proxyToControlPlaneMock.mock.calls[0][0];
+    expect(options.path).toBe("/v1/images/generations");
+    expect(options.body).toEqual({
+      model: "gpt-image-1",
+      prompt: "A quiet mountain lake",
+      n: 1,
+      response_format: "b64_json",
+      output_format: "png",
+    });
+  });
+
+  it("rejects chat-only options in image generation mode", async () => {
+    const response = await POST(requestFor({
+      mode: "image_generation",
+      request: { model: "gpt-image-1", prompt: "A lake", messages: [] },
+    }));
+
+    expect(response.status).toBe(400);
+    expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a tampered image request when the selected model lacks the capability", async () => {
+    fetchControlPlaneJSONMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      payload: { data: [{ id: "chat-only", supported_modes: ["chat"] }] },
+      responseHeaders: {},
+    });
+
+    const response = await POST(requestFor({
+      mode: "image_generation",
+      request: { model: "chat-only", prompt: "A lake", n: 1 },
+    }));
+
+    expect(response.status).toBe(400);
+    expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
   });
 });
 
