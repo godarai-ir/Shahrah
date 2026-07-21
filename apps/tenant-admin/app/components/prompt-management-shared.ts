@@ -68,7 +68,7 @@ export type PromptManifest = {
   type: string;
   name: string;
   description?: string;
-  messages: Array<{ role: string; content?: unknown }>;
+  messages: Array<{ role: string; content?: unknown; tool_call_id?: string }>;
   variables?: PromptVariableMap;
   model?: string;
   parameters?: Record<string, unknown>;
@@ -92,7 +92,7 @@ export type PromptVersion = {
   version_alias?: string;
   name: string;
   description?: string;
-  messages: Array<{ role: string; content?: unknown }>;
+  messages: Array<{ role: string; content?: unknown; tool_call_id?: string }>;
   variables?: PromptVariableMap;
   model?: string;
   parameters?: Record<string, unknown>;

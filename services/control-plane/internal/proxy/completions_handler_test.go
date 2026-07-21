@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -121,10 +122,11 @@ func (l *testLogs) requestEntries() []platform.RequestLogEntry {
 }
 
 type fakeTunnelStream struct {
-	headers map[string]string
-	chunks  chan platform.TunnelChunk
-	errors  chan error
-	closed  bool
+	statusCode int
+	headers    map[string]string
+	chunks     chan platform.TunnelChunk
+	errors     chan error
+	closed     bool
 }
 
 func newFakeTunnelStream(headers map[string]string, chunkBuf int, errorBuf int) *fakeTunnelStream {
@@ -141,15 +143,17 @@ func newFakeTunnelStream(headers map[string]string, chunkBuf int, errorBuf int) 
 	}
 
 	return &fakeTunnelStream{
-		headers: headers,
-		chunks:  make(chan platform.TunnelChunk, chunkBuf),
-		errors:  make(chan error, errorBuf),
+		statusCode: http.StatusOK,
+		headers:    headers,
+		chunks:     make(chan platform.TunnelChunk, chunkBuf),
+		errors:     make(chan error, errorBuf),
 	}
 }
 
 func (s *fakeTunnelStream) Chunks() <-chan platform.TunnelChunk { return s.chunks }
 func (s *fakeTunnelStream) Errors() <-chan error                { return s.errors }
 func (s *fakeTunnelStream) Headers() map[string]string          { return s.headers }
+func (s *fakeTunnelStream) StatusCode() int                     { return s.statusCode }
 func (s *fakeTunnelStream) Close() error {
 	s.closed = true
 	return nil
@@ -468,13 +472,21 @@ func TestCompletionsHandlerStreamTransformsChatChunksAndDone(t *testing.T) {
 	assert.Len(t, wallets.debits, 1)
 	assert.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, "success", logs.loggedSpends[0].Status)
+	require.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, "success", logs.loggedEntries[0].Status)
+	assert.Equal(t, fiber.StatusOK, logs.loggedEntries[0].StatusCode)
+	assert.Equal(t, "/v1/completions", logs.loggedEntries[0].Route)
+	assert.Equal(t, true, logs.loggedEntries[0].RequestBody["stream"])
+	assert.Equal(t, "completed", logs.loggedEntries[0].ResponseBody["outcome"])
+	assert.Contains(t, logs.loggedEntries[0].ResponseBody["raw_stream"], `"object":"text_completion"`)
 }
 
 func TestCompletionsHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 0, 1)
 	stream.errors <- errors.New("provider stream exploded")
 
-	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, &testWallets{}, &testLogs{})
+	logs := &testLogs{}
+	app := newCompletionsStreamingApp(t, &testTunnel{stream: stream}, &testWallets{}, logs)
 
 	req := httptest.NewRequest("POST", "/v1/completions", bytes.NewBufferString(`{"model":"gpt-4","prompt":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -489,6 +501,11 @@ func TestCompletionsHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(body), `"type":"streaming_error"`)
 	assert.True(t, stream.closed)
+	require.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, "failed", logs.loggedEntries[0].Status)
+	assert.Equal(t, fiber.StatusOK, logs.loggedEntries[0].StatusCode)
+	assert.Equal(t, "streaming_error", logs.loggedEntries[0].ErrorType)
+	assert.Equal(t, "failed", logs.loggedEntries[0].ResponseBody["outcome"])
 }
 
 func TestCompletionsHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {

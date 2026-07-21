@@ -15,27 +15,35 @@ type budgetReservationManager interface {
 	ReleaseBudget(ctx context.Context, reservation *platform.BudgetReservation, reason string) error
 }
 
-func reserveBudgetForRequest(c *fiber.Ctx, billing budgeter, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, requestID string, billingMode ...string) (*platform.BudgetReservation, error) {
+func reserveBudgetForRequest(c *fiber.Ctx, billing budgeter, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, requestID string, billingMode ...string) (*platform.BudgetReservation, bool, error) {
 	if firstBillingMode(billingMode) == platform.BillingModeExternalBilled {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	estimated = enrichBudgetEvaluationContext(c, estimated)
 	if manager, ok := billing.(budgetReservationManager); ok {
 		reservation, err := manager.ReserveBudget(c.Context(), authInfo, estimated, requestID)
 		if err != nil {
-			return nil, writeBudgetCheckError(c, err)
+			if writeErr := writeBudgetCheckError(c, err); writeErr != nil {
+				return nil, false, writeErr
+			}
+
+			return nil, true, nil
 		}
 
-		return reservation, nil
+		return reservation, false, nil
 	}
 
 	budgetErr := billing.CheckBudget(c.Context(), authInfo, estimated)
 	if budgetErr != nil {
-		return nil, writeBudgetCheckError(c, budgetErr)
+		if writeErr := writeBudgetCheckError(c, budgetErr); writeErr != nil {
+			return nil, false, writeErr
+		}
+
+		return nil, true, nil
 	}
 
-	return nil, nil
+	return nil, false, nil
 }
 
 func enrichBudgetEvaluationContext(c *fiber.Ctx, estimated platform.UsageCostBreakdown) platform.UsageCostBreakdown {

@@ -140,7 +140,7 @@ describe("PromptDetailPage", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("routes edit actions to the dedicated edit page", async () => {
+  it("routes edit actions to the editor and the selected version to Playground", async () => {
     render(<PromptDetailPage promptID="prompt-1" />);
 
     await screen.findByText("Latest system prompt");
@@ -148,7 +148,7 @@ describe("PromptDetailPage", () => {
     expect(pushMock).toHaveBeenCalledWith("/prompts/prompt-1/edit?intent=edit-latest");
 
     fireEvent.click(screen.getByText("actions.tryPrompt"));
-    expect(pushMock).toHaveBeenCalledWith("/prompts/prompt-1/edit?intent=try");
+    expect(pushMock).toHaveBeenCalledWith("/playground?promptID=prompt-1&versionID=version-2");
   });
 });
 

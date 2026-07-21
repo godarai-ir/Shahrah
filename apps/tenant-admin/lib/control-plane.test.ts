@@ -11,6 +11,7 @@ import {
   proxyPublicInvitationAcceptance,
   proxyToControlPlane,
   proxyToControlPlaneBinary,
+  proxyToControlPlaneStream,
 } from "@/lib/control-plane";
 
 function tenantRequest(path: string) {
@@ -156,6 +157,41 @@ describe("authenticated control-plane proxy", () => {
     expect(headers.get("x-godarai-tenant")).toBe("acme");
     expect(headers.get("x-godarai-user-id")).toBe("user-1");
     expect(headers.has("x-shahrah-user-id")).toBe(false);
+  });
+
+  it("relays SSE bytes without buffering and exposes only allowlisted operational headers", async () => {
+    readAuthFromRequestMock.mockResolvedValueOnce({
+      ok: true,
+      tenantSlug: "acme",
+      user: { id: "user-1" },
+    });
+    const streamBody = "data: {\"choices\":[]}\n\ndata: [DONE]\n\n";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(streamBody, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "x-godarai-cost-irr": "1200",
+          "x-internal-secret": "hidden",
+          "set-cookie": "session=hidden",
+        },
+      }),
+    );
+
+    const response = await proxyToControlPlaneStream({
+      request: tenantRequest("/api/playground/run"),
+      method: "POST",
+      path: "/v1/chat/completions",
+      body: { model: "gpt-test", stream: true },
+      exposeResponseHeaders: ["x-godarai-cost-irr", "x-internal-secret", "set-cookie"],
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe(streamBody);
+    expect(response.headers.get("x-godarai-cost-irr")).toBe("1200");
+    expect(response.headers.has("x-internal-secret")).toBe(false);
+    expect(response.headers.has("set-cookie")).toBe(false);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init?.body).toBe(JSON.stringify({ model: "gpt-test", stream: true }));
   });
 
   it("preserves public invitation acceptance through its fixed allowlisted upstream path", async () => {

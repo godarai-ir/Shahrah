@@ -12,6 +12,7 @@ type AdminShellProps = {
   children: React.ReactNode;
   tenantSlug: string;
   pageHeader?: ShellPageMetadata;
+  contentPadding?: "default" | "none";
   currentUser: {
     id: string;
     email?: string;
@@ -32,6 +33,7 @@ export default async function AdminShell({
   children,
   tenantSlug,
   pageHeader,
+  contentPadding,
   currentUser,
 }: AdminShellProps) {
   const locale = await getLocale();
@@ -56,6 +58,7 @@ export default async function AdminShell({
         docsHref={docsHref}
         appVersion={appVersion}
         pageHeader={pageHeader}
+        contentPadding={contentPadding}
       >
         {children}
       </AdminShellClient>

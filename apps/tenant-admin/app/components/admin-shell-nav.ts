@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileSearch2,
   FileText,
+  FlaskConical,
   Gauge,
   Landmark,
   LayoutDashboard,
@@ -36,6 +37,7 @@ export type AdminNavKey =
   | "providerAccounts"
   | "virtualModels"
   | "prompts"
+  | "playground"
   | "virtualUsers"
   | "accountSettings"
   | "tracePrivacySettings"
@@ -171,6 +173,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: FileText,
       isActive: pathname.startsWith("/prompts"),
       requiredPermissions: ["policy:list", "policy:manage"],
+    },
+    {
+      key: "playground",
+      href: "/playground",
+      title: t("nav.playground"),
+      icon: FlaskConical,
+      isActive: pathname.startsWith("/playground"),
+      requiredPermissions: ["playground:read", "playground:run", "policy:list", "policy:manage"],
     },
     {
       key: "virtualUsers",

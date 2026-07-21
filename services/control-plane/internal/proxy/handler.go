@@ -270,6 +270,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+	var budgetResponseHandled bool
 
 	budgetReservationAttempted := false
 
@@ -277,8 +278,8 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if !deferBudgetUntilRoute {
 		budgetReservationAttempted = true
 
-		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-		if err != nil {
+		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil || budgetResponseHandled {
 			return err
 		}
 	}
@@ -339,15 +340,15 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
-		if err != nil {
+		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil || budgetResponseHandled {
 			return err
 		}
 	}
 
 	if req.Stream {
 		releaseBudgetOnExit = false
-		return h.handleStream(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+		return h.handleStream(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	}
 
 	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, cachePending, guardrailSelection)
@@ -434,6 +435,10 @@ func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deplo
 	outboundReq.Model = outboundModel
 	outboundReq.PromptVersionFQN = ""
 	outboundReq.PromptVariables = nil
+	// Metadata is a Shahrah control-plane concern (policies, billing, and logs).
+	// Do not forward it to providers: OpenAI, for example, only accepts metadata
+	// when provider-side response storage is explicitly enabled.
+	outboundReq.Metadata = nil
 
 	return json.Marshal(outboundReq)
 }
@@ -1036,7 +1041,12 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	return c.Status(fiber.StatusOK).Send(entry.Response)
 }
 
-func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+	requestLogBase := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "failed", 0, start, 0)
+	requestLogBase.RequestID = tunnelReq.RequestID
+	requestLogBase.TraceID = tunnelReq.TraceID
+	requestLogBase.RequestBody = buildChatRequestLogPayload(req, originalBody)
+
 	providerStart := time.Now()
 
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
@@ -1049,8 +1059,33 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 		})
 
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
+		logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", fiber.StatusBadGateway, "stream_open_error", map[string]interface{}{
+			"stream":  true,
+			"outcome": "open_failed",
+			"error":   map[string]interface{}{"message": err.Error(), "type": "stream_open_error"},
+		}, nil)
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
+	}
+	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, map[string]interface{}{
+			"provider":        tunnelReq.Deployment.Provider,
+			"request_payload": buildTraceChatRequestPayload(req),
+			"stream":          true,
+			"status_code":     statusCode,
+		})
+		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
+
+		return writeTunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
+			responsePayload := buildJSONResponseLogPayload(body, map[string]interface{}{"stream": true, "outcome": "provider_http_error"})
+			responsePayload["stream"] = true
+			responsePayload["outcome"] = "provider_http_error"
+			errorType := ErrorTypeMap[statusCode]
+			if strings.TrimSpace(errorType) == "" {
+				errorType = "api_error"
+			}
+			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", statusCode, errorType, responsePayload, nil)
+		})
 	}
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{
@@ -1071,6 +1106,12 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+		responseCapture := &streamResponseLogCapture{}
+		logStreamFailure := func(errorType string, message string) {
+			payload := responseCapture.Payload("failed")
+			payload["error"] = map[string]interface{}{"message": message, "type": errorType}
+			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", fiber.StatusOK, errorType, payload, nil)
+		}
 
 		budgetCommitted := false
 		defer func() {
@@ -1118,6 +1159,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				CompletionStart: start,
 				CompletionEnd:   time.Now(),
 			})
+			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "success", fiber.StatusOK, "", responseCapture.Payload("completed"), &finalCost)
 			h.emitModelMetric(metricsobs.BuildInput{
 				TS:                 time.Now().UTC(),
 				TenantID:           authInfo.TenantID,
@@ -1155,9 +1197,11 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}
 
 				if len(chunk.Data) > 0 {
+					responseCapture.Append(chunk.Data)
 					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_write_failed")
+						logStreamFailure("stream_write_error", writeErr.Error())
 
 						return
 					}
@@ -1179,12 +1223,18 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 					})
 					if marshalErr != nil {
 						h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
+						logStreamFailure("streaming_error", err.Error())
 						return
 					}
 
-					if writeErr := writeBufferedBytes(w, bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)); writeErr != nil {
+					streamErrorEvent := bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)
+					responseCapture.Append(streamErrorEvent)
+					if writeErr := writeBufferedBytes(w, streamErrorEvent); writeErr != nil {
 						h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 					}
+					logStreamFailure("streaming_error", err.Error())
+				} else {
+					logStreamFailure("stream_closed_without_completion", "provider stream closed without a completion marker")
 				}
 
 				return

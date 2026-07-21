@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, RangeFilterField, RefreshButton, RemovableChipList, RowActionsMenu, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -57,6 +57,7 @@ export default function DesignSystemPage() {
   const [searchPickerOpen, setSearchPickerOpen] = useState(false);
   const [searchPickerQuery, setSearchPickerQuery] = useState("");
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [sampleMessage, setSampleMessage] = useState("برای {{topic}} یک توضیح کوتاه بنویس.");
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
   const irrDisplay = formatCompactIrr(845_000, { locale: "fa-IR" });
@@ -611,6 +612,18 @@ export default function DesignSystemPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
+        <AppCard title="Playground composition" description="RTL split pane, compact message editing, and aligned run telemetry.">
+          <div className="h-96 overflow-hidden rounded-lg border border-border" dir="rtl">
+            <ResizableSplitPane
+              direction="rtl"
+              startLabel="قالب پرامپت"
+              endLabel="پاسخ مدل"
+              separatorLabel="تغییر اندازه قالب و پاسخ"
+              start={<div className="h-full overflow-auto p-3"><PromptMessageEditor role="user" content={sampleMessage} roleOptions={[{ value: "system", label: "راهنما" }, { value: "user", label: "کاربر" }, { value: "assistant", label: "دستیار" }, { value: "tool", label: "ابزار" }]} roleLabel="نقش پیام" contentLabel="محتوای پیام" toolCallIdLabel="شناسه فراخوانی ابزار" duplicateLabel="تکثیر" removeLabel="حذف" dragLabel="دستگیره جابه‌جایی پیام" moveUpLabel="بالا" moveDownLabel="پایین" disableMoveUp disableMoveDown onRoleChange={() => undefined} onContentChange={setSampleMessage} onDuplicate={() => undefined} onRemove={() => undefined} onMoveUp={() => undefined} onMoveDown={() => undefined} /></div>}
+              end={<div className="flex h-full flex-col justify-between gap-4 p-3"><p className="text-sm leading-7">این یک پاسخ نمونه برای بررسی چیدمان فارسی و حالت تیره است.</p><RunTelemetryStrip unavailableLabel="—" copyLabel="کپی" copiedLabel="کپی شد" items={[{ key: "tokens", label: "مجموع توکن", value: "۱۸۲" }, { key: "duration", label: "زمان", value: "۸۴۲ ms" }, { key: "cost", label: "هزینه", value: "۹۵ ریال" }, { key: "trace", label: "شناسه رد", value: "trace_demo", rawValue: "trace_demo", technical: true }]} /></div>}
+            />
+          </div>
+        </AppCard>
         <AppCard title="Attachment" description="Use Attachment for file and image selections with inline actions.">
           <Attachment orientation="vertical">
             <AttachmentMedia>

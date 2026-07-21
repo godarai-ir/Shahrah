@@ -209,10 +209,11 @@ func (m *mockLogger) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, ten
 }
 
 type fakeTunnelStream struct {
-	headers map[string]string
-	chunks  chan platform.TunnelChunk
-	errors  chan error
-	closed  bool
+	statusCode int
+	headers    map[string]string
+	chunks     chan platform.TunnelChunk
+	errors     chan error
+	closed     bool
 }
 
 func newFakeTunnelStream(headers map[string]string, chunkBuf int, errorBuf int) *fakeTunnelStream {
@@ -221,15 +222,17 @@ func newFakeTunnelStream(headers map[string]string, chunkBuf int, errorBuf int) 
 	}
 
 	return &fakeTunnelStream{
-		headers: headers,
-		chunks:  make(chan platform.TunnelChunk, chunkBuf),
-		errors:  make(chan error, errorBuf),
+		statusCode: http.StatusOK,
+		headers:    headers,
+		chunks:     make(chan platform.TunnelChunk, chunkBuf),
+		errors:     make(chan error, errorBuf),
 	}
 }
 
 func (s *fakeTunnelStream) Chunks() <-chan platform.TunnelChunk { return s.chunks }
 func (s *fakeTunnelStream) Errors() <-chan error                { return s.errors }
 func (s *fakeTunnelStream) Headers() map[string]string          { return s.headers }
+func (s *fakeTunnelStream) StatusCode() int                     { return s.statusCode }
 func (s *fakeTunnelStream) Close() error {
 	s.closed = true
 	return nil
@@ -2093,6 +2096,63 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 	require.Len(t, mWallet.debitCalls, 1)
 	require.Len(t, mLogs.loggedSpends, 1)
 	assert.Equal(t, "success", mLogs.loggedSpends[0].Status)
+	require.Len(t, mLogs.loggedEntries, 1)
+	assert.Equal(t, "success", mLogs.loggedEntries[0].Status)
+	assert.Equal(t, http.StatusOK, mLogs.loggedEntries[0].StatusCode)
+	assert.Equal(t, "/v1/chat/completions", mLogs.loggedEntries[0].Route)
+	assert.Equal(t, true, mLogs.loggedEntries[0].RequestBody["stream"])
+	assert.Equal(t, "completed", mLogs.loggedEntries[0].ResponseBody["outcome"])
+	assert.Contains(t, mLogs.loggedEntries[0].ResponseBody["raw_stream"], `"content":"Salam"`)
+}
+
+func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	stream := newFakeTunnelStream(map[string]string{
+		"content-type": "application/json",
+		"x-request-id": "provider-request-1",
+	}, 1, 0)
+	stream.statusCode = http.StatusPaymentRequired
+	stream.chunks <- platform.TunnelChunk{
+		Data:   []byte(`{"error":{"message":"Provider streaming payment required"}}`),
+		IsDone: true,
+	}
+	close(stream.chunks)
+
+	mTunnel := &mockTunnelTransport{stream: stream}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
+	mWallet := &mockWalletStore{}
+	mLogs := &mockLogger{}
+
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, mWallet, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"stream":   true,
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusPaymentRequired, resp.StatusCode)
+	assert.Equal(t, "provider-request-1", resp.Header.Get("X-Request-Id"))
+
+	var apiErr contractsopenai.APIError
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
+	assert.Equal(t, "Provider streaming payment required", apiErr.Error.Message)
+	assert.True(t, stream.closed)
+	assert.Empty(t, mWallet.debitCalls)
+	assert.Empty(t, mLogs.loggedSpends)
+	require.Len(t, mLogs.loggedEntries, 1)
+	assert.Equal(t, "failed", mLogs.loggedEntries[0].Status)
+	assert.Equal(t, http.StatusPaymentRequired, mLogs.loggedEntries[0].StatusCode)
+	assert.Equal(t, "provider_http_error", mLogs.loggedEntries[0].ResponseBody["outcome"])
 }
 
 func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {
@@ -2167,6 +2227,11 @@ func TestChatCompletionHandler_StreamErrorWritesStreamingErrorEvent(t *testing.T
 	require.NoError(t, err)
 	assert.Contains(t, string(body), `"type":"streaming_error"`)
 	assert.True(t, stream.closed)
+	require.Len(t, mLogs.loggedEntries, 1)
+	assert.Equal(t, "failed", mLogs.loggedEntries[0].Status)
+	assert.Equal(t, http.StatusOK, mLogs.loggedEntries[0].StatusCode)
+	assert.Equal(t, "streaming_error", mLogs.loggedEntries[0].ErrorType)
+	assert.Equal(t, "failed", mLogs.loggedEntries[0].ResponseBody["outcome"])
 }
 
 // Ensure mock types satisfy interfaces at compile time.

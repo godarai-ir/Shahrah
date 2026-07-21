@@ -193,8 +193,8 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(contractDeployment))
-	if err != nil {
+	budgetReservation, budgetResponseHandled, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(contractDeployment))
+	if err != nil || budgetResponseHandled {
 		return err
 	}
 

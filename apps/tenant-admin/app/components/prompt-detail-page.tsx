@@ -224,7 +224,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
 
             <div className="rounded-xl border bg-background/80 p-4 shadow-sm backdrop-blur">
               <div className="flex flex-col gap-2">
-                <Button type="button" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=try`)}>
+                <Button type="button" onClick={() => router.push(`/playground?promptID=${encodeURIComponent(props.promptID)}${selectedVersion?.id ? `&versionID=${encodeURIComponent(selectedVersion.id)}` : ""}`)}>
                   <Play data-icon="inline-start" />
                   {t("actions.tryPrompt")}
                 </Button>

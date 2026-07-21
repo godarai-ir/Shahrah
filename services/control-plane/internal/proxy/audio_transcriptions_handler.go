@@ -148,13 +148,14 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+	var budgetResponseHandled bool
 
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
 
-		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-		if err != nil {
+		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil || budgetResponseHandled {
 			return err
 		}
 	}
@@ -232,8 +233,8 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
-		if err != nil {
+		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil || budgetResponseHandled {
 			return err
 		}
 	}
@@ -401,6 +402,17 @@ func (h *AudioTranscriptionsHandler) handleStream(
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
+	}
+	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, map[string]interface{}{
+			"provider":        tunnelReq.Deployment.Provider,
+			"request_payload": buildTraceAudioTranscriptionRequestPayload(originalBody, originalContentType, tunnelReq.RequestMetadata),
+			"stream":          true,
+			"status_code":     statusCode,
+		})
+		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
+
+		return writeTunnelStreamHTTPError(c, h.logger, stream)
 	}
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{

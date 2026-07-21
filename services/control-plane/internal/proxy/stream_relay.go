@@ -4,11 +4,74 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
+
+const maxTunnelStreamErrorBodyBytes = 1 << 20
+
+func writeTunnelStreamHTTPError(c *fiber.Ctx, logger *zap.Logger, stream platform.TunnelStream, onProviderError ...func(statusCode int, body []byte)) error {
+	statusCode := stream.StatusCode()
+	defer closeStreamBestEffort(logger, stream)
+
+	body, err := readTunnelStreamErrorBody(stream)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadGateway, "Failed to read provider error response", "api_error")
+	}
+
+	if statusCode < httpErrorFloor {
+		return writeAPIError(c, fiber.StatusBadGateway, "Provider stream returned an invalid status", "api_error")
+	}
+
+	if len(onProviderError) > 0 && onProviderError[0] != nil {
+		onProviderError[0](statusCode, body)
+	}
+
+	return transformProviderError(c, statusCode, body, stream.Headers())
+}
+
+func readTunnelStreamErrorBody(stream platform.TunnelStream) ([]byte, error) {
+	var body bytes.Buffer
+	chunks := stream.Chunks()
+	errors := stream.Errors()
+
+	for chunks != nil || errors != nil {
+		select {
+		case chunk, ok := <-chunks:
+			if !ok {
+				chunks = nil
+				continue
+			}
+
+			remaining := maxTunnelStreamErrorBodyBytes - body.Len()
+			if remaining > 0 && len(chunk.Data) > 0 {
+				data := chunk.Data
+				if len(data) > remaining {
+					data = data[:remaining]
+				}
+				_, _ = body.Write(data)
+			}
+
+			if chunk.IsDone {
+				return body.Bytes(), nil
+			}
+		case streamErr, ok := <-errors:
+			if !ok {
+				errors = nil
+				continue
+			}
+			if streamErr != nil {
+				return body.Bytes(), fmt.Errorf("read provider error stream: %w", streamErr)
+			}
+		}
+	}
+
+	return body.Bytes(), nil
+}
 
 func relayTunnelStream(
 	stream platform.TunnelStream,

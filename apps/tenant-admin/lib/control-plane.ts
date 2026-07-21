@@ -11,6 +11,7 @@ type ProxyOptions = {
   userID?: string;
   tenantSlug?: string;
   upstreamHeaders?: HeadersInit;
+  exposeResponseHeaders?: string[];
 };
 
 type ControlPlaneRequest = {
@@ -21,6 +22,7 @@ type ControlPlaneRequest = {
   userID?: string;
   requestHeaders?: Headers;
   upstreamHeaders?: HeadersInit;
+  signal?: AbortSignal;
 };
 
 type APIErrorPayload = {
@@ -39,7 +41,18 @@ export type ControlPlaneResponse = {
   statusCode?: number;
   payload: unknown;
   errorMessage?: string;
+  responseHeaders: Record<string, string>;
 };
+
+const SAFE_OPERATIONAL_RESPONSE_HEADERS = new Set([
+  "x-godarai-trace-id",
+  "x-godarai-cache-status",
+  "x-godarai-cached-trace-id",
+  "x-godarai-cache-similarity-score",
+  "x-godarai-cost-usd",
+  "x-godarai-cost-irr",
+  "x-request-id",
+]);
 
 type ControlPlaneBinaryResponse = {
   ok: boolean;
@@ -94,7 +107,82 @@ export async function proxyToControlPlane(options: ProxyOptions) {
     upstreamHeaders: options.upstreamHeaders,
   });
 
-  return controlPlaneJSONResponse(upstream);
+  return controlPlaneJSONResponse(upstream, options.exposeResponseHeaders);
+}
+
+/**
+ * Relays a streaming control-plane response without buffering it. Only the
+ * explicitly requested operational headers can be exposed to the browser.
+ */
+export async function proxyToControlPlaneStream(options: ProxyOptions) {
+  const tenantResolution = ensureTenantFromHeaders(options.request.headers, options.tenantSlug);
+  if (!tenantResolution.ok) {
+    return NextResponse.json({ error: { message: tenantResolution.message } }, { status: tenantResolution.status });
+  }
+
+  const auth = await readAuthFromRequest(options.request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
+  }
+
+  if (!assertTenantMatch(tenantResolution.tenantSlug, auth.tenantSlug)) {
+    return NextResponse.json(
+      { error: { message: "Tenant mismatch between host and authenticated session." } },
+      { status: 403 },
+    );
+  }
+
+  const requestedUserID = options.userID?.trim() ?? "";
+  if (requestedUserID && requestedUserID !== auth.user.id) {
+    return NextResponse.json(
+      { error: { message: "Authenticated user does not match the requested user context." } },
+      { status: 403 },
+    );
+  }
+
+  const baseURL = getControlPlaneBaseURL();
+  const masterKey = process.env.SHAHRAH_MASTER_KEY ?? process.env.MASTER_KEY;
+  if (!masterKey) {
+    return NextResponse.json(
+      { error: { message: "برای routeهای tenant-admin باید SHAHRAH_MASTER_KEY یا MASTER_KEY تنظیم شود." } },
+      { status: 500 },
+    );
+  }
+
+  const upstreamHeaders = buildControlPlaneHeaders({
+    tenantSlug: tenantResolution.tenantSlug,
+    userID: auth.user.id,
+    requestHeaders: options.request.headers,
+    upstreamHeaders: options.upstreamHeaders,
+    masterKey,
+    accept: "text/event-stream",
+    hasBody: options.body !== undefined,
+  });
+
+  try {
+    const upstream = await fetch(new URL(normalizePath(options.path), baseURL), {
+      method: options.method,
+      headers: upstreamHeaders,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
+      signal: options.request.signal,
+    });
+
+    const responseHeaders = new Headers({
+      "Content-Type": upstream.headers.get("content-type") || "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    });
+    copySafeOperationalHeaders(upstream.headers, responseHeaders, options.exposeResponseHeaders);
+
+    return new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch (error) {
+    if (options.request.signal.aborted) {
+      return new NextResponse(null, { status: 499 });
+    }
+    const message = error instanceof Error ? error.message : "اتصال به API مدیریت control-plane برقرار نشد.";
+    return NextResponse.json({ error: { message } }, { status: 502 });
+  }
 }
 
 export async function proxyToControlPlaneBinary(options: ProxyOptions) {
@@ -203,6 +291,7 @@ export async function fetchControlPlaneJSON(
       },
       errorMessage:
         "برای routeهای tenant-admin باید SHAHRAH_MASTER_KEY یا MASTER_KEY تنظیم شود.",
+      responseHeaders: {},
     };
   }
 
@@ -233,6 +322,7 @@ export async function fetchControlPlaneJSON(
       headers: upstreamHeaders,
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
+      signal: options.signal,
     });
 
     const responseText = await upstream.text();
@@ -247,6 +337,7 @@ export async function fetchControlPlaneJSON(
       errorMessage: upstream.ok
         ? undefined
         : extractErrorMessage(payload) ?? `خطای سرویس بالادستی: ${upstream.status}`,
+      responseHeaders: collectSafeOperationalHeaders(upstream.headers),
     };
   } catch (error) {
     const message =
@@ -262,6 +353,7 @@ export async function fetchControlPlaneJSON(
         },
       },
       errorMessage: message,
+      responseHeaders: {},
     };
   }
 }
@@ -399,7 +491,9 @@ function extractErrorMessage(payload: unknown): string | undefined {
   return undefined;
 }
 
-function controlPlaneJSONResponse(upstream: ControlPlaneResponse) {
+function controlPlaneJSONResponse(upstream: ControlPlaneResponse, exposedHeaders?: string[]) {
+  const headers = new Headers();
+  copySafeOperationalHeaders(new Headers(upstream.responseHeaders), headers, exposedHeaders);
   if (!upstream.ok) {
     return NextResponse.json(
       {
@@ -410,15 +504,58 @@ function controlPlaneJSONResponse(upstream: ControlPlaneResponse) {
         },
         details: upstream.payload,
       },
-      { status: upstream.status },
+      { status: upstream.status, headers },
     );
   }
 
   if (upstream.status === 204 || upstream.status === 205 || upstream.status === 304) {
-    return new NextResponse(null, { status: upstream.status });
+    return new NextResponse(null, { status: upstream.status, headers });
   }
 
-  return NextResponse.json(upstream.payload, { status: upstream.status });
+  return NextResponse.json(upstream.payload, { status: upstream.status, headers });
+}
+
+function collectSafeOperationalHeaders(source: Headers): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const name of SAFE_OPERATIONAL_RESPONSE_HEADERS) {
+    const value = source.get(name);
+    if (value) result[name] = value;
+  }
+  return result;
+}
+
+function copySafeOperationalHeaders(source: Headers, target: Headers, requested?: string[]) {
+  for (const rawName of requested ?? []) {
+    const name = rawName.trim().toLowerCase();
+    if (!SAFE_OPERATIONAL_RESPONSE_HEADERS.has(name)) continue;
+    const value = source.get(name);
+    if (value) target.set(name, value);
+  }
+}
+
+function buildControlPlaneHeaders(options: {
+  tenantSlug: string;
+  userID?: string;
+  requestHeaders?: Headers;
+  upstreamHeaders?: HeadersInit;
+  masterKey: string;
+  accept: string;
+  hasBody: boolean;
+}) {
+  const upstreamHeaders = new Headers(options.upstreamHeaders ?? {});
+  upstreamHeaders.set("Authorization", `Bearer ${options.masterKey}`);
+  upstreamHeaders.set("Accept", options.accept);
+  upstreamHeaders.set("x-godarai-tenant", options.tenantSlug);
+  upstreamHeaders.delete(LEGACY_CONTROL_PLANE_USER_ID_HEADER);
+  if (options.hasBody) upstreamHeaders.set("Content-Type", "application/json");
+  else upstreamHeaders.delete("Content-Type");
+  if (options.userID) upstreamHeaders.set(CONTROL_PLANE_USER_ID_HEADER, options.userID);
+  else upstreamHeaders.delete(CONTROL_PLANE_USER_ID_HEADER);
+  const forwardedHost = resolveForwardedHost(options.requestHeaders);
+  const forwardedProto = resolveForwardedProto(options.requestHeaders);
+  if (forwardedHost) upstreamHeaders.set("x-forwarded-host", forwardedHost);
+  if (forwardedProto) upstreamHeaders.set("x-forwarded-proto", forwardedProto);
+  return upstreamHeaders;
 }
 
 function resolveForwardedHost(headers?: Headers): string {

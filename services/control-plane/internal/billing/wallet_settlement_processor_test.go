@@ -37,8 +37,9 @@ func TestWalletSettlementProcessorProcessesActiveWindows(t *testing.T) {
 
 	liveCache := walletSettlementListerStub{
 		snapshots: []cache.BudgetWindowSnapshot{
-			{WindowKey: "budget:window:tenant-1:2026-07", CommittedIRR: 4200, LastUpdatedAt: time.Now().UTC()},
-			{WindowKey: "budget:window:tenant-2:2026-07", CommittedIRR: 1800, LastUpdatedAt: time.Now().UTC()},
+			{WindowKey: "budget:tenant:tenant-1:window:2026-07", CommittedIRR: 4200, LastUpdatedAt: time.Now().UTC()},
+			{WindowKey: "budget_policy:tenant-1:rule:daily:scope:tenant:window:20260721", CommittedIRR: 4200, LastUpdatedAt: time.Now().UTC()},
+			{WindowKey: "budget:tenant:tenant-2:window:2026-07", CommittedIRR: 1800, LastUpdatedAt: time.Now().UTC()},
 		},
 	}
 	store := &walletSettlementStoreStub{}
@@ -60,11 +61,11 @@ func TestWalletSettlementProcessorProcessesActiveWindows(t *testing.T) {
 		t.Fatalf("expected 2 settlement applications, got %d", got)
 	}
 
-	if store.applied[0].WindowKey != "budget:window:tenant-1:2026-07" {
+	if store.applied[0].WindowKey != "budget:tenant:tenant-1:window:2026-07" {
 		t.Fatalf("unexpected first window key: %s", store.applied[0].WindowKey)
 	}
 
-	if store.applied[1].WindowKey != "budget:window:tenant-2:2026-07" {
+	if store.applied[1].WindowKey != "budget:tenant:tenant-2:window:2026-07" {
 		t.Fatalf("unexpected second window key: %s", store.applied[1].WindowKey)
 	}
 }

@@ -64,6 +64,7 @@
     "providerAccounts": "Connect Model Provider",
     "virtualModels": "Virtual Models",
     "prompts": "Prompt Registry",
+    "playground": "Playground",
     "virtualUsers": "Virtual Users",
     "accessManagement": "Access Management",
     "roles": "Roles",

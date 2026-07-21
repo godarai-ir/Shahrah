@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"time"
@@ -11,6 +12,89 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
+
+const streamResponseLogCaptureLimit = 32 * 1024
+
+type streamResponseLogCapture struct {
+	data      []byte
+	truncated bool
+}
+
+func (capture *streamResponseLogCapture) Append(data []byte) {
+	if capture == nil || len(data) == 0 {
+		return
+	}
+
+	remaining := streamResponseLogCaptureLimit - len(capture.data)
+	if remaining <= 0 {
+		capture.truncated = true
+		return
+	}
+
+	if len(data) > remaining {
+		capture.data = append(capture.data, data[:remaining]...)
+		capture.truncated = true
+		return
+	}
+
+	capture.data = append(capture.data, data...)
+}
+
+func (capture *streamResponseLogCapture) Payload(outcome string) map[string]interface{} {
+	payload := map[string]interface{}{
+		"stream":  true,
+		"outcome": strings.TrimSpace(outcome),
+	}
+
+	if capture != nil && len(capture.data) > 0 {
+		payload["raw_stream"] = string(capture.data)
+	}
+
+	if capture != nil && capture.truncated {
+		payload["truncated"] = true
+	}
+
+	return payload
+}
+
+func logStreamingRequestBestEffort(
+	logger *zap.Logger,
+	logs usageLogger,
+	ctx context.Context,
+	base platform.RequestLogEntry,
+	status string,
+	statusCode int,
+	errorType string,
+	responseBody map[string]interface{},
+	finalCost *platform.UsageCostBreakdown,
+) {
+	entry := base
+	entry.Status = strings.TrimSpace(status)
+	entry.StatusCode = statusCode
+	entry.ErrorType = strings.TrimSpace(errorType)
+	entry.ResponseTimeMS = int(time.Since(entry.StartedAt).Milliseconds())
+	entry.ResponseBody = responseBody
+
+	if len(base.Metadata) > 0 {
+		entry.Metadata = make(map[string]interface{}, len(base.Metadata)+1)
+		for key, value := range base.Metadata {
+			entry.Metadata[key] = value
+		}
+	} else {
+		entry.Metadata = make(map[string]interface{}, 1)
+	}
+	entry.Metadata["stream"] = true
+
+	if finalCost != nil {
+		entry.CostUSD = finalCost.TotalCostUSD
+		entry.CostIRR = finalCost.TotalCostIRR
+		entry.InputTokens = finalCost.InputTokens
+		entry.OutputTokens = finalCost.OutputTokens
+		entry.TotalTokens = finalCost.TotalTokens
+	}
+
+	logRequestBestEffort(logger, logs, ctx, entry)
+}
 
 func buildRequestLogEntry(
 	c *fiber.Ctx,

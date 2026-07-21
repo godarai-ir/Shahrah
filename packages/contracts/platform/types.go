@@ -475,6 +475,7 @@ type TunnelStream interface {
 	Errors() <-chan error
 	Close() error
 	Headers() map[string]string
+	StatusCode() int
 }
 
 // RequestLogEntry records the normalized request lifecycle.

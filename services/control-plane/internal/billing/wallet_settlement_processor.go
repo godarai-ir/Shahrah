@@ -145,6 +145,12 @@ func (p *WalletSettlementProcessor) processWithTimeout(ctx context.Context) {
 	settled := 0
 
 	for _, snapshot := range snapshots {
+		// Policy windows mirror the same committed spend for enforcement only.
+		// Settling them would charge the tenant wallet once per matching policy.
+		if !strings.HasPrefix(strings.TrimSpace(snapshot.WindowKey), "budget:tenant:") {
+			continue
+		}
+
 		if err := p.store.ApplyWalletBudgetSettlement(workCtx, snapshot); err != nil {
 			if errors.Is(err, context.Canceled) {
 				return

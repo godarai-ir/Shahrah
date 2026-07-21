@@ -153,13 +153,14 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var budgetReservation *platform.BudgetReservation
+	var budgetResponseHandled bool
 
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
 
-		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-		if err != nil {
+		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
+		if err != nil || budgetResponseHandled {
 			return err
 		}
 	}
@@ -233,8 +234,8 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservation, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
-		if err != nil {
+		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
+		if err != nil || budgetResponseHandled {
 			return err
 		}
 	}

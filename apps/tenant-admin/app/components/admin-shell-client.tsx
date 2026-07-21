@@ -68,6 +68,7 @@ type AdminShellClientProps = {
   docsHref: string;
   appVersion: string;
   pageHeader?: ShellPageMetadata;
+  contentPadding?: "default" | "none";
 };
 
 const moneyFormatter = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
@@ -84,7 +85,7 @@ const SIDEBAR_NAV_GROUPS: Array<{
   },
   {
     labelKey: "navGroups.runtime",
-    itemKeys: ["providerAccounts", "virtualModels", "prompts"],
+    itemKeys: ["providerAccounts", "virtualModels", "playground", "prompts"],
     icon: Plug,
   },
   {
@@ -119,6 +120,7 @@ export default function AdminShellClient({
   docsHref,
   appVersion,
   pageHeader,
+  contentPadding = "default",
 }: AdminShellClientProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -171,9 +173,13 @@ export default function AdminShellClient({
             </div>
           </header>
 
-          <div className="min-w-0 flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className={cn(
+            "min-h-0 min-w-0 flex-1",
+            contentPadding === "default" && "p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+            contentPadding === "none" && "overflow-hidden",
+          )}>
             <PageHeaderInShellProvider enabled={Boolean(pageHeader)}>
-              <div className="w-full animate-fade-in">{children}</div>
+              <div className={cn("w-full animate-fade-in", contentPadding === "none" && "h-full")}>{children}</div>
             </PageHeaderInShellProvider>
           </div>
         </SidebarInset>

@@ -102,10 +102,11 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 	}
 
 	stream := &streamRelay{
-		body:    resp.Body,
-		headers: flattenHeaders(resp.Header),
-		chunks:  make(chan platform.TunnelChunk),
-		errors:  make(chan error, 1),
+		body:       resp.Body,
+		statusCode: resp.StatusCode,
+		headers:    flattenHeaders(resp.Header),
+		chunks:     make(chan platform.TunnelChunk),
+		errors:     make(chan error, 1),
 	}
 
 	go func() {
@@ -157,16 +158,18 @@ func (t *HTTPTransport) Healthy(ctx context.Context) error {
 }
 
 type streamRelay struct {
-	body    io.Closer
-	headers map[string]string
-	chunks  chan platform.TunnelChunk
-	errors  chan error
+	body       io.Closer
+	statusCode int
+	headers    map[string]string
+	chunks     chan platform.TunnelChunk
+	errors     chan error
 }
 
 func (s *streamRelay) Chunks() <-chan platform.TunnelChunk { return s.chunks }
 func (s *streamRelay) Errors() <-chan error                { return s.errors }
 func (s *streamRelay) Close() error                        { return s.body.Close() }
 func (s *streamRelay) Headers() map[string]string          { return s.headers }
+func (s *streamRelay) StatusCode() int                     { return s.statusCode }
 
 // errorStream implements TunnelStream for immediate upstream errors.
 type errorStream struct {
@@ -186,6 +189,7 @@ func (e *errorStream) Chunks() <-chan platform.TunnelChunk {
 func (e *errorStream) Errors() <-chan error       { return nil }
 func (e *errorStream) Close() error               { return nil }
 func (e *errorStream) Headers() map[string]string { return e.headers }
+func (e *errorStream) StatusCode() int            { return e.statusCode }
 
 func flattenHeaders(in http.Header) map[string]string {
 	out := make(map[string]string, len(in))

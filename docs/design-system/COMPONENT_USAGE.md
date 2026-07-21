@@ -209,3 +209,11 @@ Use `CheckboxOptionList` for compact, scrollable multi-selection lists such as a
 Use `PermissionSummary` beside the editor when a role workflow needs selected-permission and covered-group counts. It may expose a clear-all action, but submission and validation remain responsibilities of the feature form.
 
 Permission groups use semantic `FieldSet`/`FieldLegend`, and each checkbox uses the Field family. Technical permission keys remain LTR while group and description direction follows the page locale.
+
+## Playground Composition
+
+Use `ResizableSplitPane` for two sibling work surfaces that need a direction-aware desktop resize handle. Pass logical `start` and `end` content, the page direction, and localized accessible labels. The separator supports pointer and keyboard resizing; use a tabbed composition at narrow breakpoints rather than shrinking both panes below a readable width.
+
+Use `PromptMessageEditor` for compact prompt-message rows. The owning feature controls the message role, content, tool-call identifier, ordering, duplication, removal, validation, and focus restoration. Always pass localized labels for every icon action. Technical tool-call identifiers remain LTR.
+
+Use `RunTelemetryStrip` for an aligned set of per-run metrics such as token usage, latency, cost, effective model, cache state, and trace ID. Pass `null` for unavailable values instead of converting missing data to zero, and mark identifiers as technical. The component may expose a copy action when `rawValue` is provided.
