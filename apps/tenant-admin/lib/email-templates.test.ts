@@ -21,6 +21,9 @@ describe("email templates", () => {
     expect(template.html).toContain("پذیرش دعوت‌نامه");
     expect(template.html).toContain("&lt;script&gt;");
     expect(template.html).not.toContain("<script>alert");
+    expect(template.html).toContain('role="presentation"');
+    expect(template.html).toContain('bgcolor="#0238e1"');
+    expectUnsupportedEmailStylesToBeAbsent(template.html);
   });
 
   it("renders OTP email with an LTR code block and Persian text fallback", () => {
@@ -37,5 +40,13 @@ describe("email templates", () => {
     expect(template.html).toContain(`dir="ltr"`);
     expect(template.html).toContain("123456");
     expect(template.html).toContain("برای امنیت حساب");
+    expect(template.html).toContain('bgcolor="#f8fbff"');
+    expectUnsupportedEmailStylesToBeAbsent(template.html);
   });
 });
+
+function expectUnsupportedEmailStylesToBeAbsent(html: string) {
+  expect(html).not.toMatch(
+    /box-shadow|opacity|max-height|overflow|word-break|rgba\(|linear-gradient|border-radius|text-decoration|background:/i,
+  );
+}
