@@ -61,3 +61,6 @@ configMapGenerator:
       - migrations/042_rename_provider_account_platform_credentials_flag.sql
       - migrations/043_exchange_rate_current.sql
       - migrations/044_backfill_support_admin_provider_credential_scopes.sql
+      - migrations/045_drop_legacy_projects.sql
+      - migrations/046_drop_legacy_tags.sql
+      - migrations/047_drop_legacy_end_users.sql
