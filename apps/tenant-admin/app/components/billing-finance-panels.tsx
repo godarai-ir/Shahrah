@@ -6,7 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, BarChart3, Building2, CreditCard, Download, FileImage, FileText, Landmark, ReceiptText, Tag, TicketPercent, Trash2, Upload, WalletCards, type LucideIcon } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-import { AppCard, AppSelectField, AppTextField, CopyableValue, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CopyableValue, DisplayNameField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Attachment,
@@ -531,7 +531,7 @@ export function BillingProfilePanel({ initialProfile, initialError }: ProfilePan
       <form onSubmit={submit} className="flex flex-col gap-4">
         <FormSection title="مشخصات" description="نوع پروفایل و شناسه مالی">
           <ProfileTypeField value={profileType} onValueChange={setProfileType} />
-          <AppTextField id="profile-name" label="نام نمایشی" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          <DisplayNameField id="profile-name" label="نام نمایشی" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
           <AppTextField
             id="profile-national"
             label={profileType === "legal" ? "شناسه ملی" : "کد ملی"}

@@ -6,11 +6,10 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 
-import { FormSection, getPermissionSelectionSummary, PageContainer, PageHeader, PermissionEditor, PermissionSummary } from "@/components/app-ui";
+import { DisplayNameField, FormSection, getPermissionSelectionSummary, IdentifierField, PageContainer, PageHeader, PermissionEditor, PermissionSummary } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -142,20 +141,15 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
             description={isRtl ? "نام نمایشی و توضیحات قابل مشاهده برای مدیران را ویرایش کنید." : "Edit the display name and administrator-facing description."}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="role-slug">{isRtl ? "نام نقش (slug)" : "Role slug"}</Label>
-                <Input id="role-slug" value={initialRole.name} readOnly dir="ltr" className="font-mono" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="role-display-name">{t("rolesPage.form.displayName")}</Label>
-                <Input
-                  id="role-display-name"
-                  value={form.display_name}
-                  required
-                  aria-invalid={Boolean(error && !form.display_name.trim())}
-                  onChange={(event) => setForm((prev) => ({ ...prev, display_name: event.target.value }))}
-                />
-              </div>
+              <IdentifierField id="role-slug" label={isRtl ? "شناسه فنی" : "Technical identifier"} value={initialRole.name} readOnly description={null} />
+              <DisplayNameField
+                id="role-display-name"
+                label={t("rolesPage.form.displayName")}
+                value={form.display_name}
+                required
+                error={error && !form.display_name.trim() ? t("rolesPage.form.displayName") : undefined}
+                onChange={(event) => setForm((prev) => ({ ...prev, display_name: event.target.value }))}
+              />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="role-description">{t("rolesPage.form.description")}</Label>

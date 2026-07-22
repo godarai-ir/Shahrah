@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
-import { AppSelectField, AppSwitchField, FormSection, IdentifierField, PageContainer, PageHeader, RemovableChipList } from "@/components/app-ui";
+import { AppSelectField, AppSwitchField, DisplayNameField, FormSection, IdentifierField, PageContainer, PageHeader, RemovableChipList } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -299,9 +299,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
           <div className="grid gap-4 lg:grid-cols-2">
             <IdentifierField id="rule_id" label={t("form.fields.ruleId")} description={t("form.descriptions.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
 
-            <FormField label={t("form.fields.name")} htmlFor="name" description={t("form.descriptions.name")}>
-              <Input id="name" placeholder={t("form.placeholders.name")} {...form.register("name")} />
-            </FormField>
+            <DisplayNameField id="name" label={t("form.fields.name")} description={t("form.descriptions.name")} placeholder={t("form.placeholders.name")} error={form.formState.errors.name?.message} {...form.register("name")} />
           </div>
 
           <FormField label={t("form.fields.description")} htmlFor="description" description={t("form.descriptions.description")}>

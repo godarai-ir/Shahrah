@@ -196,6 +196,10 @@ Product wrappers such as `IdentifierField` and `AppSelectField` already compose 
 
 Use `AppTextField` and `AppTextareaField` for ordinary labeled text controls. They standardize generated IDs, disabled/invalid semantics, description, and error rendering. Keep specialized inputs such as identifiers, OTP, currency, and search on their dedicated components.
 
+Use `DisplayNameField` whenever a form collects a user-facing display name. It derives the input direction from the first meaningful Unicode letter: Arabic-family and other RTL scripts select RTL, while LTR scripts select LTR. Leading whitespace, punctuation, and digits do not lock the direction. Do not set `dir` manually on display-name inputs.
+
+Use `AppEmailField` for email addresses. It always renders an LTR email control with email input mode, autocomplete, spellcheck disabled, and accessible client-side validation on blur or invalid form submission. Pass localized `invalidMessage` and, for required fields, `requiredMessage`; do not recreate email direction or validation in feature forms.
+
 Use `AppSwitchField` for boolean settings that need a label, optional explanation, validation, and consistent horizontal alignment. Its default surface is suitable for settings rows; pass `surface={false}` when the surrounding card or form section already owns the visual container.
 
 Use `AppCodeTextareaField` for editable JSON, schemas, regular expressions, JWKS documents, and other technical multi-line values. It preserves the Field-family semantics while defaulting the control to LTR, monospace text, disabled spellcheck, and a readable code height.

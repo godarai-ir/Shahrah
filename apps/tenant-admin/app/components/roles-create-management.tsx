@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Plus } from "lucide-react";
 
-import { FormSheet, IdentifierField, PermissionEditor, PermissionSummary } from "@/components/app-ui";
+import { DisplayNameField, FormSheet, IdentifierField, PermissionEditor, PermissionSummary } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -136,10 +135,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
               <section className="flex flex-col gap-3">
                 <FieldGroup className="grid gap-3 md:grid-cols-2">
                   <IdentifierField id="role-name" label={t("rolesPage.form.name")} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="tenant_finance_admin" />
-                  <Field>
-                    <FieldLabel htmlFor="role-display-name">{t("rolesPage.form.displayName")}</FieldLabel>
-                    <Input id="role-display-name" value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={locale.startsWith("fa") ? "مدیر مالی فضای کاری" : "Tenant Finance Admin"} />
-                  </Field>
+                  <DisplayNameField id="role-display-name" label={t("rolesPage.form.displayName")} value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={locale.startsWith("fa") ? "مدیر مالی فضای کاری" : "Tenant Finance Admin"} />
                   <Field className="md:col-span-2">
                     <FieldLabel htmlFor="role-description">{t("rolesPage.form.description")}</FieldLabel>
                     <Textarea id="role-description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="min-h-24" />

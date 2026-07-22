@@ -78,7 +78,22 @@ describe("UsersAccessManagement", () => {
 
     fireEvent.click(screen.getByRole("combobox", { name: "form.role" }));
     expect(await screen.findByRole("option", { name: "Support Agent" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Billing Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "roles.billingManager" })).toBeInTheDocument();
+  });
+
+  it("validates invite email on the client before sending", async () => {
+    render(<UsersAccessManagement initialUsers={users} initialTotal={1} initialError={null} currentUserID="admin" canManageUsers />);
+
+    const inviteButton = screen.getByRole("button", { name: "inviteUser" });
+    await waitFor(() => expect(inviteButton).toBeEnabled());
+    fireEvent.click(inviteButton);
+    const dialog = screen.getByRole("dialog");
+    const emailInput = within(dialog).getByRole("textbox", { name: "form.email" });
+    fireEvent.change(emailInput, { target: { value: "invalid-email" } });
+    fireEvent.blur(emailInput);
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("messages.invalidEmail");
+    expect(emailInput).toHaveAttribute("dir", "ltr");
   });
 
   it("shows invite API errors inside the invite sheet", async () => {

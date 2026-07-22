@@ -83,12 +83,21 @@ describe("RolesPermissionsManagement", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders one page heading and the role list", () => {
+  it("renders the role list without duplicating the route heading", () => {
     renderManagement();
 
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
     expect(screen.getByText("billing_manager")).toBeInTheDocument();
     expect(screen.getByText("support_agent")).toBeInTheDocument();
+  });
+
+  it("places the create action beside the role type filter", () => {
+    renderManagement();
+
+    const roleTypeFilter = screen.getByRole("combobox", { name: "rolesPage.filters.typeLabel" });
+    const createButton = screen.getByRole("button", { name: "rolesPage.form.create" });
+
+    expect(roleTypeFilter.parentElement?.parentElement).toContainElement(createButton);
   });
 
   it("filters roles by their searchable fields", () => {

@@ -48,8 +48,13 @@ describe("RoleEditManagement", () => {
     render(<RoleEditManagement initialRole={role} initialPermissionCatalog={permissionCatalog} />);
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole("textbox", { name: "نام نقش (slug)" })).toHaveValue("org_admin");
-    expect(screen.getByRole("textbox", { name: "rolesPage.form.displayName" })).toHaveValue("Org Admin");
+    const roleSlug = screen.getByRole("textbox", { name: "شناسه فنی" });
+    const displayName = screen.getByRole("textbox", { name: "rolesPage.form.displayName" });
+    expect(roleSlug).toHaveValue("org_admin");
+    expect(roleSlug).toHaveAttribute("dir", "ltr");
+    expect(roleSlug).toHaveAttribute("pattern", "[A-Za-z0-9_-]+");
+    expect(displayName).toHaveValue("Org Admin");
+    expect(displayName).toHaveAttribute("dir", "ltr");
     expect(screen.getByRole("textbox", { name: "rolesPage.form.description" })).toHaveValue("System role");
   });
 
@@ -69,6 +74,7 @@ describe("RoleEditManagement", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "rolesPage.form.displayName" }), {
       target: { value: "مدیر سازمان" },
     });
+    expect(screen.getByRole("textbox", { name: "rolesPage.form.displayName" })).toHaveAttribute("dir", "rtl");
     fireEvent.click(screen.getByRole("button", { name: "rolesPage.actions.save" }));
 
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());

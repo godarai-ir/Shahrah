@@ -13,7 +13,6 @@ import {
   CommercialPlanUpgradeDialog,
   EmptyState,
   PageContainer,
-  PageHeader,
   RowActionsMenu,
   SearchField,
 } from "@/components/app-ui";
@@ -131,12 +130,6 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
 
   return (
     <PageContainer padding="none">
-      <PageHeader
-        title={t("rolesPage.listTitle")}
-        description={t("rolesPage.description")}
-        titleAddon={createRoleAction}
-      />
-
       {props.initialError ? (
         <Alert variant="destructive">
           <AlertTitle>{t("alerts.error")}</AlertTitle>
@@ -159,7 +152,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
           className="min-w-0 shadow-none"
           contentClassName="flex min-w-0 flex-col gap-4"
         >
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(10rem,12rem)] items-center gap-3">
+          <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <SearchField
               containerClassName="min-w-0"
               type="text"
@@ -169,21 +162,24 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
               aria-label={t("rolesPage.filters.searchLabel")}
               dir={direction}
             />
-            <AppSelectField
-              value={roleType}
-              onValueChange={(value) => setRoleType(value as RoleTypeFilter)}
-              options={[
-                { value: "all", label: t("rolesPage.filters.all") },
-                { value: "system", label: t("rolesPage.filters.system") },
-                { value: "custom", label: t("rolesPage.filters.custom") },
-              ]}
-              ariaLabel={t("rolesPage.filters.typeLabel")}
-              className="min-w-0"
-              triggerClassName="h-10 w-full"
-              dir={direction}
-            />
+            <div className="flex min-w-0 items-center gap-2">
+              <AppSelectField
+                value={roleType}
+                onValueChange={(value) => setRoleType(value as RoleTypeFilter)}
+                options={[
+                  { value: "all", label: t("rolesPage.filters.all") },
+                  { value: "system", label: t("rolesPage.filters.system") },
+                  { value: "custom", label: t("rolesPage.filters.custom") },
+                ]}
+                ariaLabel={t("rolesPage.filters.typeLabel")}
+                className="min-w-0 flex-1 sm:w-48 sm:flex-none"
+                triggerClassName="h-10 w-full"
+                dir={direction}
+              />
+              {createRoleAction}
+            </div>
             {hasActiveFilters ? (
-              <Button type="button" size="sm" variant="ghost" className="col-span-2 justify-self-start" onClick={clearFilters}>
+              <Button type="button" size="sm" variant="ghost" className="justify-self-start sm:col-span-2" onClick={clearFilters}>
                 {t("rolesPage.filters.clear")}
               </Button>
             ) : null}

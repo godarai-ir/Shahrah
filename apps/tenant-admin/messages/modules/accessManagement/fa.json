@@ -36,13 +36,16 @@
     "role": "نقش"
   },
   "roles": {
+    "billingManager": "مدیر مالی",
     "member": "عضو",
+    "orgAdmin": "مدیر واحد سازمانی",
     "readOnlyMember": "عضو فقط‌خواندنی",
+    "teamAdmin": "مدیر تیم",
     "tenantAdmin": "مدیر فضای کاری"
   },
   "button": {
-    "createInvite": "ایجاد دعوت‌نامه",
-    "inviting": "در حال دعوت..."
+    "createInvite": "ارسال دعوت‌نامه",
+    "inviting": "در حال ارسال..."
   },
   "table": {
     "loading": "در حال بارگذاری کاربران...",
@@ -80,6 +83,7 @@
   "messages": {
     "loadUsersError": "بارگذاری کاربران ناموفق بود.",
     "provideEmail": "برای دعوت، ایمیل الزامی است.",
+    "invalidEmail": "یک ایمیل معتبر وارد کنید.",
     "invitationSuccess": "دعوت‌نامه با موفقیت ایجاد شد.",
     "inviteError": "دعوت کاربر ناموفق بود.",
     "activateSuccess": "کاربر فعال شد.",

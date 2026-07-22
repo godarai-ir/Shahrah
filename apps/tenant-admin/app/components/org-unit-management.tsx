@@ -18,7 +18,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -999,7 +999,7 @@ function OrgUnitForm({
   return (
     <form className="mt-6 flex flex-col gap-5" onSubmit={onSubmit}>
       <IdentifierField id="org-alias" label={t("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} placeholder={t("form.aliasPlaceholder")} required />
-      <AppTextField
+      <DisplayNameField
         id="org-display-name"
         label={t("form.displayName")}
         value={form.displayName}

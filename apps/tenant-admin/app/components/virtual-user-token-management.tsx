@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, ExpirationDurationField, FormSheet, HelpLink, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FormSheet, HelpLink, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -818,7 +818,7 @@ function VirtualUserFormView({
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
       <IdentifierField id="vu-alias" label={t("fields.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} required />
-      <AppTextField id="vu-display" label={t("fields.displayName")} value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
+      <DisplayNameField id="vu-display" label={t("fields.displayName")} value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
       <AppSelectField
         label={t("fields.team")}
         ariaLabel={t("fields.team")}

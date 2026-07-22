@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -520,7 +520,7 @@ function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel 
   return (
     <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
       <FieldGroup>
-        <Field><FieldLabel htmlFor="team-display">{t("form.displayName")}</FieldLabel><Input id="team-display" value={form.displayName} onChange={(e) => update("displayName", e.target.value)} /></Field>
+        <DisplayNameField id="team-display" label={t("form.displayName")} value={form.displayName} onChange={(e) => update("displayName", e.target.value)} />
         <IdentifierField id="team-alias" label={t("form.alias")} value={form.alias} onChange={(e) => update("alias", e.target.value)} required />
         <AppSelectField label={t("form.orgUnit")} value={form.orgUnitID || "root"} onValueChange={(value) => update("orgUnitID", value === "root" ? "" : value)} triggerClassName="h-10" options={[{ value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
         <AppSelectField label={t("form.workspaceType")} value={form.workspaceType} onValueChange={(value) => update("workspaceType", value)} triggerClassName="h-10" options={WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))} />

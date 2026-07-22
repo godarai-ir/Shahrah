@@ -4,12 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, HelpLink, PageHeader, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
+import { AppCard, AppEmailField, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
@@ -82,7 +81,6 @@ type UsersAccessManagementProps = {
   initialError: string | null;
   currentUserID: string;
   canManageUsers: boolean;
-  docsHref: string;
 };
 
 const PAGE_SIZE = 25;
@@ -314,30 +312,26 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
   function resolveRoleDisplayName(roleName: string) {
     const normalized = roleName.trim().toLowerCase();
+    const localizedRoleKey = {
+      billing_manager: "billingManager",
+      member: "member",
+      org_admin: "orgAdmin",
+      readonly_member: "readOnlyMember",
+      team_admin: "teamAdmin",
+      tenant_admin: "tenantAdmin",
+    }[normalized];
+    if (localizedRoleKey) {
+      return t(`roles.${localizedRoleKey}`);
+    }
     const match = availableRoles.find((item) => item.name.trim().toLowerCase() === normalized);
     if (match?.display_name?.trim()) {
       return match.display_name;
-    }
-    if (normalized === "tenant_admin") return t("roles.tenantAdmin");
-    if (normalized === "member") {
-      return t("roles.member");
     }
     return roleName;
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("usersPage.title")}
-        description={t("usersPage.description")}
-        titleAddon={<HelpLink href={props.docsHref} />}
-        actions={
-          <Button type="button" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
-            <Plus data-icon="inline-start" />
-            {t("inviteUser")}
-          </Button>
-        }
-      />
       {banner ? (
         <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
           <AlertTitle>{banner.kind === "error" ? t("alerts.error") : t("alerts.success")}</AlertTitle>
@@ -364,23 +358,29 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("searchPlaceholder")}
           />
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div tabIndex={0} className="flex min-w-fit items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <UsersRound className="size-4" aria-hidden="true" />
-                  </span>
-                  <span className="text-sm font-semibold">{t("usersPage.usage", { used: total, limit: usersLimit ?? t("usersPage.unlimited") })}</span>
-                  {usersLimit !== null ? <Progress dir="ltr" value={usersUsagePercent} className="w-16" aria-label={t("usersPage.progressLabel", { value: Math.round(usersUsagePercent) })} /> : null}
-                  <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p>{usersLimit === null ? t("usersPage.unlimitedTooltip") : t("usersPage.limitTooltip", { limit: usersLimit })}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-2">
+            <Button type="button" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
+              <Plus data-icon="inline-start" />
+              {t("inviteUser")}
+            </Button>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div tabIndex={0} className="flex min-w-fit items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <UsersRound className="size-4" aria-hidden="true" />
+                    </span>
+                    <span className="text-sm font-semibold">{t("usersPage.usage", { used: total, limit: usersLimit ?? t("usersPage.unlimited") })}</span>
+                    {usersLimit !== null ? <Progress dir="ltr" value={usersUsagePercent} className="w-16" aria-label={t("usersPage.progressLabel", { value: Math.round(usersUsagePercent) })} /> : null}
+                    <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>{usersLimit === null ? t("usersPage.unlimitedTooltip") : t("usersPage.limitTooltip", { limit: usersLimit })}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
 
         <div className="overflow-x-auto"><Table>
@@ -479,10 +479,16 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                 <AlertDescription>{inviteError}</AlertDescription>
               </Alert>
             ) : null}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="invite-email">{t("form.email")}</Label>
-              <Input id="invite-email" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder={t("form.emailPlaceholder")} />
-            </div>
+            <AppEmailField
+              id="invite-email"
+              label={t("form.email")}
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              placeholder={t("form.emailPlaceholder")}
+              invalidMessage={t("messages.invalidEmail")}
+              requiredMessage={t("messages.provideEmail")}
+              required
+            />
             <AppSelectField
               label={t("form.role")}
               ariaLabel={t("form.role")}
@@ -491,7 +497,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               triggerClassName="h-10 w-full"
               options={availableRoles.map((role) => ({
                 value: role.name,
-                label: role.display_name?.trim() || resolveRoleDisplayName(role.name),
+                label: resolveRoleDisplayName(role.name),
               }))}
               disabled={availableRoles.length === 0}
             />
@@ -518,7 +524,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                   <div className="flex items-start gap-3">
                     <RadioGroupItem id={`user-role-${role.id}`} value={role.name} className="mt-1" />
                     <div>
-                      <p className="text-sm font-semibold">{role.display_name || role.name}</p>
+                      <p className="text-sm font-semibold">{resolveRoleDisplayName(role.name)}</p>
                       <p className="text-xs text-muted-foreground">{role.name}</p>
                       {role.description?.trim() ? (
                         <p className="mt-1 text-xs text-muted-foreground">{role.description}</p>

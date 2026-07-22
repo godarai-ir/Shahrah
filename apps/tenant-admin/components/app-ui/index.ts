@@ -1,6 +1,7 @@
 export { AppCard } from "./AppCard";
 export { ActiveFilterChips, type ActiveFilterChip, type ActiveFilterChipsProps } from "./ActiveFilterChips";
 export { AppCodeTextareaField, type AppCodeTextareaFieldProps } from "./AppCodeTextareaField";
+export { AppEmailField, EMAIL_PATTERN, isValidEmail, type AppEmailFieldProps } from "./AppEmailField";
 export { AppNumberField, type AppNumberFieldProps } from "./AppNumberField";
 export { CatalogFilterCombobox } from "./CatalogFilterCombobox";
 export { AppSelectField, type AppSelectFieldProps, type AppSelectGroup, type AppSelectOption } from "./AppSelectField";
@@ -18,6 +19,7 @@ export { CopyAction, type CopyActionProps } from "./CopyAction";
 export { DataListPanel } from "./DataListPanel";
 export { DateTimeValue, type DateTimeValueProps } from "./DateTimeValue";
 export { DateTimeField, DateTimeRangeField, type DateTimeFieldProps, type DateTimeRangeFieldProps } from "./DateTimeRangeField";
+export { DisplayNameField, resolveDisplayNameDirection, type DisplayNameDirection, type DisplayNameFieldProps } from "./DisplayNameField";
 export { DefinitionList, DefinitionListItem, type DefinitionListItemProps, type DefinitionListProps } from "./DefinitionList";
 export { EmptyState, type EmptyStateDensity, type EmptyStateProps, type EmptyStateVariant } from "./EmptyState";
 export { EntityIdentityHeader, type EntityIdentityHeaderProps } from "./EntityIdentityHeader";

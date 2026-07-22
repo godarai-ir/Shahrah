@@ -1,5 +1,6 @@
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell, { buildDocsHref } from "@/app/components/admin-shell";
 import { getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 import RolesPermissionsManagement from "@/app/components/roles-permissions-management";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
@@ -32,6 +33,8 @@ export default async function RolesPage() {
   const auth = await requireAuth("/login?next=/roles");
   const t = await getTranslations("accessManagement");
   const tenantSlug = auth.tenantSlug;
+  const requestHeaders = await headers();
+  const rolesDocsHref = `${buildDocsHref(requestHeaders, tenantSlug)}guides/roles-and-permissions`;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["role:list", "role:manage"]);
 
   const rolesResult = await fetchControlPlaneJSON({
@@ -59,7 +62,7 @@ export default async function RolesPage() {
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={currentUser}
-      pageHeader={{ title: t("rolesPage.listTitle"), description: t("rolesPage.description") }}
+      pageHeader={{ title: t("rolesPage.listTitle"), description: t("rolesPage.description"), helpHref: rolesDocsHref }}
     >
       <RolesPermissionsManagement
         initialRoles={initialRoles}

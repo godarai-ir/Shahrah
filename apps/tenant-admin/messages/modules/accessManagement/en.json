@@ -36,13 +36,16 @@
     "role": "Role"
   },
   "roles": {
+    "billingManager": "Billing Manager",
     "member": "Member",
+    "orgAdmin": "Organization Admin",
     "readOnlyMember": "Read-only member",
+    "teamAdmin": "Team Admin",
     "tenantAdmin": "Tenant Admin"
   },
   "button": {
-    "createInvite": "Create Invite",
-    "inviting": "Inviting..."
+    "createInvite": "Send invitation",
+    "inviting": "Sending..."
   },
   "table": {
     "loading": "Loading users...",
@@ -80,6 +83,7 @@
   "messages": {
     "loadUsersError": "Failed to load users.",
     "provideEmail": "Email is required for invitation.",
+    "invalidEmail": "Enter a valid email address.",
     "invitationSuccess": "Invitation created successfully.",
     "inviteError": "Failed to invite user.",
     "activateSuccess": "User activated.",

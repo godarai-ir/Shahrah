@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -372,11 +372,7 @@ export default function DesignSystemPage() {
       <section className="flex flex-col gap-4">
         <SectionHeader title="Field family" description="Compose labels, controls, helper text, and validation with FieldGroup and Field." />
         <FieldGroup className="grid gap-4 md:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="playground-field-name">Display name</FieldLabel>
-            <Input id="playground-field-name" placeholder="Production workspace" />
-            <FieldDescription>This name is visible to workspace members.</FieldDescription>
-          </Field>
+          <DisplayNameField label="Display name" placeholder="Production workspace" description="Direction follows the first meaningful RTL or LTR letter." />
           <Field data-invalid>
             <FieldLabel htmlFor="playground-field-slug">Technical identifier</FieldLabel>
             <Input id="playground-field-slug" value="invalid identifier" readOnly aria-invalid />
@@ -385,7 +381,8 @@ export default function DesignSystemPage() {
         </FieldGroup>
         <AppCard title="Text fields" description="Use the app field wrappers for consistent labels, helper text, and validation state.">
           <FieldGroup className="grid gap-4 md:grid-cols-2">
-            <AppTextField label="Display name" placeholder="Production team" description="Shown throughout the tenant admin." />
+            <AppTextField label="Resource title" placeholder="Production resource" description="Shown throughout the tenant admin." />
+            <AppEmailField label="Email" placeholder="user@example.com" invalidMessage="Enter a valid email address." requiredMessage="Email is required." required />
             <AppTextareaField label="Description" placeholder="Describe this resource" />
             <AppSwitchField label="Enable caching" description="Cache matching gateway requests." checked />
             <AppCodeTextareaField label="JSON schema" defaultValue={'{\n  "type": "object"\n}'} />
