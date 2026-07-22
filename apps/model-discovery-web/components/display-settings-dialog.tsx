@@ -1,6 +1,7 @@
 "use client";
 
 import { Settings } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,6 +23,7 @@ import { useDisplaySettings } from "@/components/display-settings-provider";
 import { CurrencyUnit, DateCalendar, PriceScale } from "@/lib/display-settings";
 
 export function DisplaySettingsDialog() {
+  const t = useTranslations("DisplaySettings");
   const { settings, updateSettings, resetSettings } = useDisplaySettings();
 
   return (
@@ -29,74 +31,75 @@ export function DisplaySettingsDialog() {
       <DialogTrigger asChild>
         <Button
           type="button"
-          className="h-9 w-9 bg-zinc-900 p-0 text-zinc-100 hover:bg-zinc-800"
-          aria-label="Open display settings"
-          title="Display settings"
+          className="h-9 w-9 bg-muted p-0 text-foreground hover:bg-accent"
+          aria-label={t("openAria")}
+          title={t("title")}
         >
           <Settings className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Display Settings</DialogTitle>
-          <DialogDescription>
-            Personal preferences for this browser. Changes are applied instantly.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="currency-unit">Currency</Label>
+            <Label htmlFor="currency-unit">{t("currency")}</Label>
             <Select
+              dir="rtl"
               value={settings.currencyUnit}
               onValueChange={(value) => updateSettings({ currencyUnit: value as CurrencyUnit })}
             >
               <SelectTrigger id="currency-unit">
-                <SelectValue placeholder="Select currency" />
+                <SelectValue placeholder={t("selectCurrency")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="USD">Dollar (USD)</SelectItem>
-                <SelectItem value="IRR">Rial (IRR)</SelectItem>
-                <SelectItem value="TOMAN">Toman</SelectItem>
+                <SelectItem value="USD">{t("dollar")}</SelectItem>
+                <SelectItem value="IRR">{t("rial")}</SelectItem>
+                <SelectItem value="TOMAN">{t("toman")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="date-calendar">Date Calendar</Label>
+            <Label htmlFor="date-calendar">{t("calendar")}</Label>
             <Select
+              dir="rtl"
               value={settings.dateCalendar}
               onValueChange={(value) => updateSettings({ dateCalendar: value as DateCalendar })}
             >
               <SelectTrigger id="date-calendar">
-                <SelectValue placeholder="Select calendar" />
+                <SelectValue placeholder={t("selectCalendar")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="GREGORIAN">Gregorian</SelectItem>
-                <SelectItem value="SHAMSI">Shamsi</SelectItem>
+                <SelectItem value="GREGORIAN">{t("gregorian")}</SelectItem>
+                <SelectItem value="SHAMSI">{t("shamsi")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="price-scale">Price Unit</Label>
+            <Label htmlFor="price-scale">{t("priceUnit")}</Label>
             <Select
+              dir="rtl"
               value={settings.priceScale}
               onValueChange={(value) => updateSettings({ priceScale: value as PriceScale })}
             >
               <SelectTrigger id="price-scale">
-                <SelectValue placeholder="Select price unit" />
+                <SelectValue placeholder={t("selectPriceUnit")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="PER_MILLION_TOKENS">Per Million Token</SelectItem>
-                <SelectItem value="PER_TOKEN">Per Token</SelectItem>
+                <SelectItem value="PER_MILLION_TOKENS">{t("perMillionTokens")}</SelectItem>
+                <SelectItem value="PER_TOKEN">{t("perToken")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex items-center justify-end">
-            <Button type="button" className="bg-zinc-800 text-zinc-100 hover:bg-zinc-700" onClick={resetSettings}>
-              Reset Defaults
+            <Button type="button" className="bg-muted text-foreground hover:bg-accent" onClick={resetSettings}>
+              {t("resetDefaults")}
             </Button>
           </div>
         </div>

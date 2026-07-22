@@ -8,6 +8,12 @@ export type DisplaySettings = {
   priceScale: PriceScale;
 };
 
+export type DisplayPriceLabels = {
+  currencies: Record<CurrencyUnit, string>;
+  perToken: string;
+  perMillionTokens: string;
+};
+
 export const DISPLAY_SETTINGS_STORAGE_KEY = 'model_discovery_web_display_settings_v1';
 
 export const DISPLAY_SETTINGS_DEFAULTS: DisplaySettings = {
@@ -22,6 +28,7 @@ const DEFAULT_USD_TO_IRR = 650000;
 export function formatDisplayPrice(
   value: number | null | undefined,
   settings: DisplaySettings,
+  labels: DisplayPriceLabels,
 ): string {
   if (value === null || value === undefined) return EMPTY;
 
@@ -37,12 +44,12 @@ export function formatDisplayPrice(
   }
 
   const fractionDigits = settings.priceScale === 'PER_TOKEN' ? 8 : 2;
-  const formatted = new Intl.NumberFormat('en-US', {
+  const formatted = new Intl.NumberFormat('fa-IR', {
     maximumFractionDigits: fractionDigits,
   }).format(transformed);
 
-  const unitLabel = settings.priceScale === 'PER_TOKEN' ? '/token' : '/1M tokens';
-  return `${formatted} ${settings.currencyUnit} ${unitLabel}`;
+  const unitLabel = settings.priceScale === 'PER_TOKEN' ? labels.perToken : labels.perMillionTokens;
+  return `${formatted} ${labels.currencies[settings.currencyUnit]}، ${unitLabel}`;
 }
 
 export function formatDisplayDate(
@@ -53,7 +60,7 @@ export function formatDisplayDate(
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return EMPTY;
 
-  const locale = settings.dateCalendar === 'SHAMSI' ? 'fa-IR-u-ca-persian' : 'en-US';
+  const locale = settings.dateCalendar === 'SHAMSI' ? 'fa-IR-u-ca-persian' : 'fa-IR-u-ca-gregory';
   return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',

@@ -10,7 +10,17 @@ export function CompareCell({
   isDifferent: boolean;
 }) {
   return (
-    <span className={cn("block", isDifferent ? "font-medium text-zinc-100" : "text-zinc-500")}>{value ?? EMPTY}</span>
+    <span
+      dir="auto"
+      className={cn(
+        "block rounded-md px-2 py-1 leading-6",
+        isDifferent
+          ? "bg-primary-soft font-medium text-primary-soft-foreground"
+          : "text-muted-foreground",
+      )}
+    >
+      {value ?? EMPTY}
+    </span>
   );
 }
 

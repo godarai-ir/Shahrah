@@ -3,21 +3,75 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-border: var(--card-border);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-foreground: var(--success-soft-foreground);
 }
 
 :root {
-  --font-sans: "IBM Plex Sans", sans-serif;
-  --font-mono: "IBM Plex Mono", monospace;
-  --background: #09090b;
-  --foreground: #f4f4f5;
-  --muted: #18181b;
-  --muted-foreground: #a1a1aa;
-  --border: #27272a;
-  --primary: #22d3ee;
+  --font-sans: var(--font-vazirmatn), "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.18 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --card-border: oklch(0.28 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.35 0 0);
+  --ring: oklch(0.8 0.12 210);
+  --primary: oklch(0.78 0.13 210);
+  --primary-foreground: oklch(0.18 0 0);
+  --primary-soft: color-mix(in oklab, var(--primary) 15%, transparent);
+  --primary-soft-foreground: oklch(0.88 0.08 210);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.7 0.17 25);
+  --destructive-soft: color-mix(in oklab, var(--destructive) 16%, transparent);
+  --destructive-soft-foreground: oklch(0.84 0.07 25);
+  --warning-soft: color-mix(in oklab, oklch(0.78 0.14 80) 16%, transparent);
+  --warning-soft-foreground: oklch(0.88 0.07 80);
+  --success-soft: color-mix(in oklab, oklch(0.72 0.14 155) 16%, transparent);
+  --success-soft-foreground: oklch(0.84 0.08 155);
 }
 
-body { font-family: var(--font-sans); }
+body {
+  font-family: var(--font-sans);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+code,
+pre,
+[data-technical] {
+  font-family: var(--font-mono);
+}

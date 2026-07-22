@@ -1,70 +1,87 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Fragment } from "react";
-import { Suspense } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { CircleAlert, GitCompareArrows, ListFilter, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useCompareModels } from "@/components/compare/compare-provider";
 import { CompareCell, compareListValues, compareScalarValues } from "@/components/compare/compare-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiGet } from "@/lib/api";
 import { type CompareModel, MAX_COMPARE_MODELS, normalizeNameList, parseCompareIds, serializeCompareIds } from "@/lib/compare-models";
-import { formatDisplayDate, formatDisplayPrice } from "@/lib/display-settings";
-import { useDisplaySettings } from "@/components/display-settings-provider";
+import { cn } from "@/lib/utils";
+import { useDisplayFormatters } from "@/lib/use-display-formatters";
 
 type FieldKind = "scalar" | "list";
+type SectionKey = "identity" | "pricing" | "capabilities" | "limits" | "governance" | "regionsBenchmarks";
 
 type CompareField = {
+  key: string;
   label: string;
-  section: "Identity" | "Pricing" | "Capabilities" | "Limits" | "Governance" | "Regions & Benchmarks";
+  section: SectionKey;
   kind: FieldKind;
   getValue: (model: CompareModel) => string;
   getList?: (model: CompareModel) => string[];
 };
 
+type StatusKey = "active" | "inactive" | "disabled" | "maintenance" | "deprecated" | "preview" | "available" | "unavailable";
+
 const EMPTY = "-";
+const sectionKeys: SectionKey[] = ["identity", "pricing", "capabilities", "limits", "governance", "regionsBenchmarks"];
 
-function yesNo(value: boolean | null | undefined): string {
-  if (value === null || value === undefined) return EMPTY;
-  return value ? "Yes" : "No";
-}
-
-function toNumber(value: number | null | undefined): string {
-  if (value === null || value === undefined) return EMPTY;
-  return new Intl.NumberFormat("en-US").format(value);
+function getStatusKey(status: string): StatusKey | null {
+  const normalized = status.toLowerCase().replaceAll("_", "-");
+  const keys: StatusKey[] = ["active", "inactive", "disabled", "maintenance", "deprecated", "preview", "available", "unavailable"];
+  return keys.includes(normalized as StatusKey) ? (normalized as StatusKey) : null;
 }
 
 function ComparePageContent() {
+  const t = useTranslations("Compare");
+  const tFields = useTranslations("Compare.fields");
+  const tSections = useTranslations("Compare.sections");
+  const tCommon = useTranslations("Common");
+  const tStatus = useTranslations("Statuses");
+  const { formatDate, formatPrice } = useDisplayFormatters();
+  const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const urlIds = parseCompareIds(params.get("ids"));
   const { selectedIds, selectedCount, setFromIds, remove, clear } = useCompareModels();
-  const { settings } = useDisplaySettings();
   const [onlyDiffs, setOnlyDiffs] = useState(false);
   const hydratedRef = useRef(false);
+  const initialUrlIdsRef = useRef(urlIds);
+  const urlSyncReadyRef = useRef(initialUrlIdsRef.current.length === 0);
 
   useEffect(() => {
     if (hydratedRef.current) return;
-    if (urlIds.length > 0) {
-      setFromIds(urlIds);
-    }
+    if (initialUrlIdsRef.current.length > 0) setFromIds(initialUrlIdsRef.current);
     hydratedRef.current = true;
-  }, [setFromIds, urlIds]);
+  }, [setFromIds]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;
+    if (!urlSyncReadyRef.current) {
+      const initialIdsParam = serializeCompareIds(initialUrlIdsRef.current);
+      if (serializeCompareIds(selectedIds) !== initialIdsParam) return;
+      urlSyncReadyRef.current = true;
+    }
+
     const currentIdsParam = params.get("ids");
     const nextIdsParam = selectedIds.length > 0 ? serializeCompareIds(selectedIds) : null;
     if ((currentIdsParam ?? null) === (nextIdsParam ?? null)) return;
     const next = new URLSearchParams(params.toString());
-    if (nextIdsParam) {
-      next.set("ids", nextIdsParam);
-    } else {
-      next.delete("ids");
-    }
+    if (nextIdsParam) next.set("ids", nextIdsParam);
+    else next.delete("ids");
     const nextUrl = next.toString() ? `${pathname}?${next.toString()}` : pathname;
     router.replace(nextUrl);
   }, [params, pathname, router, selectedIds]);
@@ -84,189 +101,332 @@ function ComparePageContent() {
 
   const rows = useMemo(() => selectedIds.map((id) => modelById.get(id) ?? null), [modelById, selectedIds]);
   const missingIds = useMemo(() => selectedIds.filter((id) => !modelById.has(id)), [modelById, selectedIds]);
+  const yesNo = (value: boolean | null | undefined) => value === null || value === undefined ? EMPTY : value ? tCommon("yes") : tCommon("no");
+  const toNumber = (value: number | null | undefined) => value === null || value === undefined ? EMPTY : numberFormatter.format(value);
+  const formatStatus = (status: string | null | undefined) => {
+    if (!status) return EMPTY;
+    const key = getStatusKey(status);
+    return key ? tStatus(key) : status;
+  };
 
-  const fields: CompareField[] = useMemo(
-    () => [
-      { label: "Model name", section: "Identity", kind: "scalar", getValue: (m) => m.displayName || EMPTY },
-      { label: "Provider", section: "Identity", kind: "scalar", getValue: (m) => m.provider?.name || m.provider?.slug || EMPTY },
-      { label: "Series", section: "Identity", kind: "scalar", getValue: (m) => m.modelSeries?.name || m.modelSeries?.slug || EMPTY },
-      { label: "Status", section: "Identity", kind: "scalar", getValue: (m) => m.status || EMPTY },
-      { label: "Release date", section: "Identity", kind: "scalar", getValue: (m) => formatDisplayDate(m.releaseDate, settings) },
+  const fields: CompareField[] = [
+    { key: "modelName", label: tFields("modelName"), section: "identity", kind: "scalar", getValue: (model) => model.displayName || EMPTY },
+    { key: "provider", label: tFields("provider"), section: "identity", kind: "scalar", getValue: (model) => model.provider?.name || model.provider?.slug || EMPTY },
+    { key: "series", label: tFields("series"), section: "identity", kind: "scalar", getValue: (model) => model.modelSeries?.name || model.modelSeries?.slug || EMPTY },
+    { key: "status", label: tFields("status"), section: "identity", kind: "scalar", getValue: (model) => formatStatus(model.status) },
+    { key: "releaseDate", label: tFields("releaseDate"), section: "identity", kind: "scalar", getValue: (model) => formatDate(model.releaseDate) },
+    { key: "inputPrice", label: tFields("inputPrice"), section: "pricing", kind: "scalar", getValue: (model) => formatPrice(model.pricing?.[0]?.inputPricePerMillionTokens) },
+    { key: "outputPrice", label: tFields("outputPrice"), section: "pricing", kind: "scalar", getValue: (model) => formatPrice(model.pricing?.[0]?.outputPricePerMillionTokens) },
+    { key: "cachedInput", label: tFields("cachedInput"), section: "pricing", kind: "scalar", getValue: (model) => formatPrice(model.pricing?.[0]?.cachedInputPricePerMillionTokens) },
+    {
+      key: "inputModalities",
+      label: tFields("inputModalities"),
+      section: "capabilities",
+      kind: "list",
+      getValue: (model) => normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null)).join("، ") || EMPTY,
+      getList: (model) => normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null)),
+    },
+    {
+      key: "outputModalities",
+      label: tFields("outputModalities"),
+      section: "capabilities",
+      kind: "list",
+      getValue: (model) => normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null)).join("، ") || EMPTY,
+      getList: (model) => normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null)),
+    },
+    {
+      key: "capabilities",
+      label: tFields("capabilities"),
+      section: "capabilities",
+      kind: "list",
+      getValue: (model) => normalizeNameList((model.capabilities ?? []).map((item) => item.capability ?? null)).join("، ") || EMPTY,
+      getList: (model) => normalizeNameList((model.capabilities ?? []).map((item) => item.capability ?? null)),
+    },
+    {
+      key: "supportedParams",
+      label: tFields("supportedParams"),
+      section: "capabilities",
+      kind: "list",
+      getValue: (model) => normalizeNameList((model.supportedParams ?? []).map((item) => item.supportedParameter ?? null)).join("، ") || EMPTY,
+      getList: (model) => normalizeNameList((model.supportedParams ?? []).map((item) => item.supportedParameter ?? null)),
+    },
+    { key: "contextWindow", label: tFields("contextWindow"), section: "limits", kind: "scalar", getValue: (model) => toNumber(model.contextWindow) },
+    { key: "maxOutputTokens", label: tFields("maxOutputTokens"), section: "limits", kind: "scalar", getValue: (model) => toNumber(model.maxOutputTokens) },
+    { key: "openSource", label: tFields("openSource"), section: "governance", kind: "scalar", getValue: (model) => yesNo(model.openSource) },
+    { key: "free", label: tFields("free"), section: "governance", kind: "scalar", getValue: (model) => yesNo(model.free) },
+    { key: "license", label: tFields("license"), section: "governance", kind: "scalar", getValue: (model) => model.license || EMPTY },
+    { key: "docsAvailable", label: tFields("docsAvailable"), section: "governance", kind: "scalar", getValue: (model) => yesNo(Boolean(model.officialDocsUrl)) },
+    {
+      key: "regions",
+      label: tFields("regions"),
+      section: "regionsBenchmarks",
+      kind: "list",
+      getValue: (model) => normalizeNameList((model.regions ?? []).map((item) => item.region ?? null)).join("، ") || EMPTY,
+      getList: (model) => normalizeNameList((model.regions ?? []).map((item) => item.region ?? null)),
+    },
+    {
+      key: "benchmarksSummary",
+      label: tFields("benchmarksSummary"),
+      section: "regionsBenchmarks",
+      kind: "list",
+      getValue: (model) => (model.benchmarks ?? []).map((benchmark) => {
+        const name = benchmark.benchmark?.name || benchmark.benchmark?.slug;
+        if (!name) return null;
+        const score = benchmark.score ?? benchmark.percentile;
+        return score === null || score === undefined ? name : `${name}: ${numberFormatter.format(score)}`;
+      }).filter((value): value is string => Boolean(value)).join("، ") || EMPTY,
+      getList: (model) => (model.benchmarks ?? []).map((benchmark) => {
+        const name = benchmark.benchmark?.name || benchmark.benchmark?.slug;
+        if (!name) return null;
+        const score = benchmark.score ?? benchmark.percentile;
+        return score === null || score === undefined ? name : `${name}:${score}`;
+      }).filter((value): value is string => Boolean(value)),
+    },
+  ];
 
-      { label: "Input price", section: "Pricing", kind: "scalar", getValue: (m) => formatDisplayPrice(m.pricing?.[0]?.inputPricePerMillionTokens, settings) },
-      { label: "Output price", section: "Pricing", kind: "scalar", getValue: (m) => formatDisplayPrice(m.pricing?.[0]?.outputPricePerMillionTokens, settings) },
-      { label: "Cached input", section: "Pricing", kind: "scalar", getValue: (m) => formatDisplayPrice(m.pricing?.[0]?.cachedInputPricePerMillionTokens, settings) },
-
-      {
-        label: "Input modalities",
-        section: "Capabilities",
-        kind: "list",
-        getValue: (m) => normalizeNameList((m.inputModalities ?? []).map((x) => x.modality ?? null)).join(", ") || EMPTY,
-        getList: (m) => normalizeNameList((m.inputModalities ?? []).map((x) => x.modality ?? null)),
-      },
-      {
-        label: "Output modalities",
-        section: "Capabilities",
-        kind: "list",
-        getValue: (m) => normalizeNameList((m.outputModalities ?? []).map((x) => x.modality ?? null)).join(", ") || EMPTY,
-        getList: (m) => normalizeNameList((m.outputModalities ?? []).map((x) => x.modality ?? null)),
-      },
-      {
-        label: "Capabilities",
-        section: "Capabilities",
-        kind: "list",
-        getValue: (m) => normalizeNameList((m.capabilities ?? []).map((x) => x.capability ?? null)).join(", ") || EMPTY,
-        getList: (m) => normalizeNameList((m.capabilities ?? []).map((x) => x.capability ?? null)),
-      },
-      {
-        label: "Supported params",
-        section: "Capabilities",
-        kind: "list",
-        getValue: (m) => normalizeNameList((m.supportedParams ?? []).map((x) => x.supportedParameter ?? null)).join(", ") || EMPTY,
-        getList: (m) => normalizeNameList((m.supportedParams ?? []).map((x) => x.supportedParameter ?? null)),
-      },
-
-      { label: "Context window", section: "Limits", kind: "scalar", getValue: (m) => toNumber(m.contextWindow) },
-      { label: "Max output tokens", section: "Limits", kind: "scalar", getValue: (m) => toNumber(m.maxOutputTokens) },
-
-      { label: "Open-source", section: "Governance", kind: "scalar", getValue: (m) => yesNo(m.openSource) },
-      { label: "Free", section: "Governance", kind: "scalar", getValue: (m) => yesNo(m.free) },
-      { label: "License", section: "Governance", kind: "scalar", getValue: (m) => m.license || EMPTY },
-      { label: "Docs available", section: "Governance", kind: "scalar", getValue: (m) => yesNo(Boolean(m.officialDocsUrl)) },
-
-      {
-        label: "Regions",
-        section: "Regions & Benchmarks",
-        kind: "list",
-        getValue: (m) => normalizeNameList((m.regions ?? []).map((x) => x.region ?? null)).join(", ") || EMPTY,
-        getList: (m) => normalizeNameList((m.regions ?? []).map((x) => x.region ?? null)),
-      },
-      {
-        label: "Benchmarks summary",
-        section: "Regions & Benchmarks",
-        kind: "list",
-        getValue: (m) =>
-          (m.benchmarks ?? [])
-            .map((b) => {
-              const name = b.benchmark?.name || b.benchmark?.slug;
-              if (!name) return null;
-              const score = b.score ?? b.percentile;
-              return score === null || score === undefined ? name : `${name}: ${score}`;
-            })
-            .filter((value): value is string => Boolean(value))
-            .join(", ") || EMPTY,
-        getList: (m) =>
-          (m.benchmarks ?? [])
-            .map((b) => {
-              const name = b.benchmark?.name || b.benchmark?.slug;
-              if (!name) return null;
-              const score = b.score ?? b.percentile;
-              return score === null || score === undefined ? name : `${name}:${score}`;
-            })
-            .filter((value): value is string => Boolean(value)),
-      },
-    ],
-    [settings],
-  );
-
-  const sections = ["Identity", "Pricing", "Capabilities", "Limits", "Governance", "Regions & Benchmarks"] as const;
-
-  if (selectedCount === 0) {
-    return (
-      <div className="space-y-3">
-        <h1 className="text-2xl font-semibold">Compare Models</h1>
-        <p className="text-zinc-400">No models selected. Add models from catalog or model detail pages to start comparing.</p>
-      </div>
-    );
-  }
+  const visibleSections = sectionKeys.map((section) => {
+    const sectionFields = fields.filter((field) => field.section === section);
+    const visibleFields = sectionFields.filter((field) => {
+      if (!onlyDiffs) return true;
+      if (field.kind === "list") {
+        return compareListValues(rows.map((model) => model ? field.getList?.(model) ?? [] : []));
+      }
+      return compareScalarValues(rows.map((model) => model ? field.getValue(model) : EMPTY));
+    });
+    return { section, fields: visibleFields };
+  }).filter(({ fields: visibleFields }) => visibleFields.length > 0);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-semibold">Compare Models</h1>
-        <Badge>{selectedCount}/{MAX_COMPARE_MODELS}</Badge>
-        <label className="ml-auto flex items-center gap-2 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            checked={onlyDiffs}
-            onChange={(e) => setOnlyDiffs(e.target.checked)}
-            aria-label="Show only different fields"
-          />
-          Only differences
-        </label>
-        <Button type="button" className="h-8 bg-zinc-800 hover:bg-zinc-700" onClick={clear} aria-label="Clear all selected compare models">Clear all</Button>
-      </div>
+    <div className="flex min-w-0 flex-col gap-6 sm:gap-8">
+      <header className="flex items-start gap-4">
+        <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-foreground sm:flex">
+          <GitCompareArrows className="size-6" aria-hidden="true" />
+        </span>
+        <div className="flex min-w-0 flex-col items-start gap-2">
+          <Badge className="border-primary-soft bg-primary-soft text-primary-soft-foreground">
+            {t("eyebrow")}
+          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t("title")}</h1>
+            {selectedCount > 0 ? (
+              <Badge aria-live="polite">
+                {t("selectionSummary", {
+                  count: numberFormatter.format(selectedCount),
+                  max: numberFormatter.format(MAX_COMPARE_MODELS),
+                })}
+              </Badge>
+            ) : null}
+          </div>
+          <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
+            {t("subtitle")}
+          </p>
+        </div>
+      </header>
 
-      {selectedCount === 1 ? <p className="text-sm text-amber-300">Add at least one more model to see meaningful differences.</p> : null}
-      {missingIds.length > 0 ? <p className="text-sm text-amber-300">Some models were not found or are no longer available: {missingIds.join(", ")}</p> : null}
-      {compareQuery.isError ? <p className="text-sm text-red-400">Failed to load compare data.</p> : null}
-      {compareQuery.isLoading ? <p className="text-sm text-zinc-400">Loading compare data...</p> : null}
+      {selectedCount === 0 ? (
+        <Card role="status" className="p-0">
+          <CardHeader className="items-start sm:flex-row sm:items-center sm:gap-4">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <GitCompareArrows className="size-5" aria-hidden="true" />
+            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <h2 className="text-base font-semibold leading-7">{t("noSelectionTitle")}</h2>
+              <CardDescription>{t("noSelection")}</CardDescription>
+            </div>
+          </CardHeader>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-0">
+            <CardHeader className="sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h2 className="text-base font-semibold leading-7 sm:text-lg">{t("controlsTitle")}</h2>
+                <CardDescription>{t("controlsDescription")}</CardDescription>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button
+                  type="button"
+                  aria-pressed={onlyDiffs}
+                  aria-label={t("onlyDifferencesAria")}
+                  variant={onlyDiffs ? "secondary" : "outline"}
+                  onClick={() => setOnlyDiffs((current) => !current)}
+                >
+                  <ListFilter data-icon="inline-start" aria-hidden="true" />
+                  {t("onlyDifferences")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={clear}
+                  aria-label={t("clearSelection")}
+                >
+                  <Trash2 data-icon="inline-start" aria-hidden="true" />
+                  {t("clearAll")}
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-800">
-        <table className="min-w-[900px] text-sm">
-          <thead className="bg-zinc-900">
-            <tr>
-              <th className="min-w-48 p-2 text-left">Field</th>
-              {selectedIds.map((id) => (
-                <th key={id} className="min-w-64 p-2 text-left align-top">
-                  <div className="space-y-2">
-                    <p className="text-zinc-100">{modelById.get(id)?.displayName || id}</p>
-                    <p className="text-xs text-zinc-500">{id}</p>
-                    <Button type="button" className="h-7 bg-zinc-800 px-2 text-xs hover:bg-zinc-700" onClick={() => remove(id)} aria-label={`Remove ${id} from compare`}>Remove</Button>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sections.map((section) => {
-              const sectionFields = fields.filter((f) => f.section === section);
-              const renderedFields = sectionFields.filter((field) => {
-                if (!onlyDiffs) return true;
-                if (field.kind === "list") {
-                  const values = rows.map((model) => (model ? (field.getList?.(model) ?? []) : []));
-                  return compareListValues(values);
-                }
-                return compareScalarValues(rows.map((model) => (model ? field.getValue(model) : EMPTY)));
-              });
+          <div className="flex flex-col gap-3">
+            {selectedCount === 1 ? (
+              <CompareNotice tone="warning">{t("oneModelHint")}</CompareNotice>
+            ) : null}
+            {!compareQuery.isLoading && !compareQuery.isError && missingIds.length > 0 ? (
+              <CompareNotice tone="warning">
+                {t("missingModels")} {" "}
+                <bdi dir="ltr" data-technical>{missingIds.join(", ")}</bdi>
+              </CompareNotice>
+            ) : null}
+            {compareQuery.isError ? (
+              <CompareNotice tone="error">{t("loadError")}</CompareNotice>
+            ) : null}
+          </div>
 
-              if (renderedFields.length === 0) return null;
+          <Card className="overflow-hidden p-0">
+            <CardHeader className="border-b border-border sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h2 className="text-base font-semibold sm:text-lg">{t("tableTitle")}</h2>
+                <CardDescription>{t("tableDescription")}</CardDescription>
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground lg:hidden">{t("scrollHint")}</p>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-0">
+              {compareQuery.isLoading ? (
+                <CompareTableSkeleton label={t("loading")} />
+              ) : null}
 
-              return (
-                <Fragment key={section}>
-                  <tr key={`${section}-header`} className="border-t border-zinc-800 bg-zinc-900/60">
-                    <td className="p-2 font-semibold text-zinc-200" colSpan={selectedCount + 1}>{section}</td>
-                  </tr>
-                  {renderedFields.map((field) => {
-                    const scalarValues = rows.map((model) => (model ? field.getValue(model) : EMPTY));
-                    const listValues = rows.map((model) => (model ? (field.getList?.(model) ?? []) : []));
-                    const isDifferent = field.kind === "list" ? compareListValues(listValues) : compareScalarValues(scalarValues);
-                    return (
-                      <tr key={`${section}-${field.label}`} className="border-t border-zinc-800">
-                        <td className="p-2 font-medium text-zinc-300">{field.label}</td>
-                        {rows.map((model, index) => (
-                          <td key={`${field.label}-${selectedIds[index]}`} className="p-2 align-top">
-                            <CompareCell value={model ? field.getValue(model) : EMPTY} isDifferent={isDifferent} />
-                          </td>
+              {!compareQuery.isLoading && !compareQuery.isError ? (
+                <div className="overflow-x-auto" role="region" aria-label={t("tableTitle")} tabIndex={0}>
+                  <table
+                    className="w-full table-fixed border-collapse text-sm"
+                    style={{ minWidth: `${11 + selectedCount * 15}rem` }}
+                  >
+                    <caption className="sr-only">{t("tableCaption")}</caption>
+                    <thead className="bg-muted/70">
+                      <tr>
+                        <th scope="col" className="sticky start-0 z-10 w-44 bg-muted p-3 text-start align-top">
+                          {tCommon("field")}
+                        </th>
+                        {selectedIds.map((id) => (
+                          <th key={id} scope="col" className="w-60 p-3 text-start align-top">
+                            <div className="flex min-w-0 flex-col items-start gap-2">
+                              <div className="min-w-0">
+                                <p dir="auto" className="line-clamp-2 font-semibold leading-6">
+                                  {modelById.get(id)?.displayName || id}
+                                </p>
+                                <p className="truncate text-xs font-normal text-muted-foreground" dir="ltr" data-technical title={id}>
+                                  {id}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => remove(id)}
+                                aria-label={t("removeAria", { id })}
+                              >
+                                <Trash2 data-icon="inline-start" aria-hidden="true" />
+                                {t("removeButton")}
+                              </Button>
+                            </div>
+                          </th>
                         ))}
                       </tr>
-                    );
-                  })}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                    </thead>
+                    <tbody>
+                      {visibleSections.length === 0 ? (
+                        <tr className="border-t border-border">
+                          <td colSpan={selectedCount + 1} className="p-6 text-center text-sm text-muted-foreground">
+                            {t("noDifferences")}
+                          </td>
+                        </tr>
+                      ) : null}
+                      {visibleSections.map(({ section, fields: visibleFields }) => (
+                        <Fragment key={section}>
+                          <tr className="border-t border-border bg-muted/50">
+                            <th scope="rowgroup" className="p-3 text-start font-semibold" colSpan={selectedCount + 1}>
+                              {tSections(section)}
+                            </th>
+                          </tr>
+                          {visibleFields.map((field) => {
+                            const scalarValues = rows.map((model) => model ? field.getValue(model) : EMPTY);
+                            const listValues = rows.map((model) => model ? field.getList?.(model) ?? [] : []);
+                            const isDifferent = field.kind === "list"
+                              ? compareListValues(listValues)
+                              : compareScalarValues(scalarValues);
+
+                            return (
+                              <tr key={`${section}-${field.key}`} className="group border-t border-border hover:bg-muted/30">
+                                <th
+                                  scope="row"
+                                  className="sticky start-0 z-10 bg-card p-3 text-start font-medium text-muted-foreground group-hover:bg-muted/30"
+                                >
+                                  {field.label}
+                                </th>
+                                {rows.map((model, index) => (
+                                  <td key={`${field.key}-${selectedIds[index]}`} className="p-2 align-top sm:p-3">
+                                    <CompareCell
+                                      value={model ? field.getValue(model) : EMPTY}
+                                      isDifferent={isDifferent}
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CompareNotice({
+  tone,
+  children,
+}: {
+  tone: "warning" | "error";
+  children: React.ReactNode;
+}) {
+  return (
+    <Card role={tone === "error" ? "alert" : "status"} className="p-0">
+      <CardHeader className="flex-row items-center gap-3 py-3 sm:py-3">
+        <span className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          tone === "warning" && "bg-warning-soft text-warning-soft-foreground",
+          tone === "error" && "bg-destructive-soft text-destructive-soft-foreground",
+        )}>
+          <CircleAlert className="size-4" aria-hidden="true" />
+        </span>
+        <p className="text-sm font-medium leading-6">{children}</p>
+      </CardHeader>
+    </Card>
+  );
+}
+
+function CompareTableSkeleton({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col gap-3 p-4 sm:p-5" role="status" aria-label={label}>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-16" />)}
       </div>
+      {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-10" />)}
     </div>
   );
 }
 
 export default function ComparePage() {
+  const t = useTranslations("Compare");
   return (
-    <Suspense fallback={<p className="text-sm text-zinc-400">Loading compare page...</p>}>
+    <Suspense fallback={<CompareTableSkeleton label={t("pageLoading")} />}>
       <ComparePageContent />
     </Suspense>
   );
 }
-

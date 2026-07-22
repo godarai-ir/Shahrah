@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import {
   dedupeCompareIds,
   getStoredCompareIdsServerSnapshot,
@@ -27,6 +28,7 @@ type CompareContextValue = {
 const CompareContext = createContext<CompareContextValue | null>(null);
 
 export function CompareProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("Compare");
   const selectedIds = useSyncExternalStore(
     subscribeStoredCompareIds,
     getStoredCompareIdsSnapshot,
@@ -45,13 +47,13 @@ export function CompareProvider({ children }: { children: React.ReactNode }) {
     if (!normalized) return false;
     if (selectedIds.includes(normalized)) return true;
     if (selectedIds.length >= MAX_COMPARE_MODELS) {
-      setNotice(`You can compare up to ${MAX_COMPARE_MODELS} models.`);
+      setNotice(t("limitNotice", { count: MAX_COMPARE_MODELS }));
       return false;
     }
     persist([...selectedIds, normalized]);
     setNotice(null);
     return true;
-  }, [persist, selectedIds]);
+  }, [persist, selectedIds, t]);
 
   const remove = useCallback((id: CompareModelId) => {
     persist(selectedIds.filter((x) => x !== id));

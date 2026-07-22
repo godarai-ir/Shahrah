@@ -15,7 +15,7 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100",
+        "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-start text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30",
         className,
       )}
       {...props}
@@ -32,12 +32,16 @@ function SelectValue(props: React.ComponentProps<typeof SelectPrimitive.Value>) 
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
+function SelectGroup(props: React.ComponentProps<typeof SelectPrimitive.Group>) {
+  return <SelectPrimitive.Group data-slot="select-group" {...props} />;
+}
+
 function SelectContent({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
-        className={cn("z-50 min-w-[8rem] rounded-md border border-zinc-700 bg-zinc-950 p-1 text-zinc-100", className)}
+        className={cn("z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg", className)}
         {...props}
       >
         <SelectPrimitive.Viewport>{children}</SelectPrimitive.Viewport>
@@ -51,12 +55,12 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-pointer items-center rounded-sm py-2 pl-8 pr-2 text-sm outline-none hover:bg-zinc-900",
+        "relative flex w-full cursor-pointer items-center rounded-sm py-2 ps-8 pe-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
         className,
       )}
       {...props}
     >
-      <span className="absolute left-2 flex items-center">
+      <span className="absolute start-2 flex items-center">
         <SelectPrimitive.ItemIndicator>
           <Check />
         </SelectPrimitive.ItemIndicator>
@@ -66,5 +70,5 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
   );
 }
 
-export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem };
+export { Select, SelectTrigger, SelectValue, SelectGroup, SelectContent, SelectItem };
 

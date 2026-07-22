@@ -3,21 +3,33 @@
 import { useMemo, useState } from "react";
 import {
   AudioLines,
+  Banknote,
+  BookOpen,
+  Bot,
+  Boxes,
   Code2,
+  Copy,
+  Cpu,
+  ExternalLink,
   FileText,
+  Gauge,
   Image as ImageIcon,
+  Link2,
+  ListTree,
   type LucideIcon,
+  Network,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
   Video,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  formatDisplayDate,
-  formatDisplayPrice,
-} from "@/lib/display-settings";
-import { useDisplaySettings } from "@/components/display-settings-provider";
+import { useTranslations } from "next-intl";
 import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { useDisplayFormatters } from "@/lib/use-display-formatters";
 
 type Provider = {
   slug?: string | null;
@@ -70,94 +82,131 @@ type ModelDetail = {
   benchmarks?: Array<{ id?: string; score?: number | null; percentile?: number | null; evaluatedAt?: string | null; benchmark?: { slug?: string | null; name?: string | null } | null }> | null;
 };
 
+type StatusKey = "active" | "inactive" | "disabled" | "maintenance" | "deprecated" | "preview" | "available" | "unavailable";
+type ModalityMeta = { icon: LucideIcon; className: string };
+
 const EMPTY = "-";
 
-function fmtNumber(value?: number | null): string {
-  if (value === null || value === undefined) return EMPTY;
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+function getStatusKey(status: string): StatusKey | null {
+  const normalized = status.toLowerCase().replaceAll("_", "-");
+  const keys: StatusKey[] = ["active", "inactive", "disabled", "maintenance", "deprecated", "preview", "available", "unavailable"];
+  return keys.includes(normalized as StatusKey) ? (normalized as StatusKey) : null;
 }
 
 function safeUrl(url?: string | null): string | null {
   if (!url) return null;
+
   try {
-    const u = new URL(url);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.toString();
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
   } catch {
     return null;
   }
 }
 
-function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
+function SectionCard({
+  id,
+  label,
+  icon: Icon,
+  children,
+  className,
+}: {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const t = useTranslations("ModelDetail");
+
   return (
-    <div id={id} className="mb-3 flex items-center justify-between">
-      <h2 className="text-base font-semibold text-zinc-100">{children}</h2>
-      <a href={`#${id}`} className="text-xs text-zinc-500 hover:text-zinc-300">
-        #
-      </a>
-    </div>
+    <Card id={id} className={cn("scroll-mt-24 p-0", className)}>
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-soft-foreground">
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+          <h2 className="text-base font-semibold sm:text-lg">{label}</h2>
+        </div>
+        <a
+          href={`#${id}`}
+          aria-label={t("sectionAnchor", { section: label })}
+          className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          #
+        </a>
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </Card>
   );
 }
 
-function KeyValue({ label, value }: { label: string; value: React.ReactNode }) {
+function KeyValue({ label, value, technical = false }: { label: string; value: React.ReactNode; technical?: boolean }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-3 py-1 text-sm">
-      <span className="text-zinc-500">{label}</span>
-      <span className="text-zinc-200 break-all">{value}</span>
+    <div className="grid min-w-0 gap-1 py-2.5 text-sm sm:grid-cols-5 sm:items-start sm:gap-4">
+      <dt className="text-muted-foreground sm:col-span-2">{label}</dt>
+      <dd
+        dir={technical ? "ltr" : "auto"}
+        data-technical={technical || undefined}
+        className={cn("min-w-0 font-medium sm:col-span-3", technical && "break-all text-xs leading-6")}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
 
 function ChipList({ values, emptyLabel, initial = 10 }: { values: string[]; emptyLabel: string; initial?: number }) {
+  const t = useTranslations("ModelDetail");
   const [expanded, setExpanded] = useState(false);
-  if (values.length === 0) return <p className="text-sm text-zinc-500">{emptyLabel}</p>;
+
+  if (values.length === 0) return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
+
   const shown = expanded ? values : values.slice(0, initial);
+
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-col items-start gap-3">
+      <div className="flex flex-wrap gap-2">
         {shown.map((value) => (
-          <Badge key={value} className="border-zinc-700 text-zinc-300">
-            {value}
+          <Badge key={value} className="px-2.5 py-1">
+            <bdi dir="auto">{value}</bdi>
           </Badge>
         ))}
       </div>
       {values.length > initial ? (
-        <Button type="button" className="h-8 bg-zinc-800 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-700" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? "Show less" : `Show more (${values.length - initial})`}
+        <Button
+          type="button"
+          className="h-8 border border-border bg-background px-2.5 py-1 text-xs text-foreground hover:bg-accent"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? t("showLess") : t("showMore", { count: values.length - initial })}
         </Button>
       ) : null}
     </div>
   );
 }
 
-type ModalityMeta = {
-  icon: LucideIcon;
-  className: string;
-};
-
 function getModalityMeta(value: string): ModalityMeta {
   const key = value.toLowerCase();
-  if (key.includes("text")) return { icon: FileText, className: "border-blue-500/40 bg-blue-500/10 text-blue-300" };
-  if (key.includes("image")) return { icon: ImageIcon, className: "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300" };
-  if (key.includes("audio") || key.includes("speech") || key.includes("voice")) {
-    return { icon: AudioLines, className: "border-amber-500/40 bg-amber-500/10 text-amber-300" };
-  }
-  if (key.includes("video")) return { icon: Video, className: "border-rose-500/40 bg-rose-500/10 text-rose-300" };
-  if (key.includes("embedding")) return { icon: Code2, className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" };
-  return { icon: Code2, className: "border-zinc-600 bg-zinc-800/70 text-zinc-300" };
+  if (key.includes("text")) return { icon: FileText, className: "border-primary-soft bg-primary-soft text-primary-soft-foreground" };
+  if (key.includes("image")) return { icon: ImageIcon, className: "border-border bg-accent text-accent-foreground" };
+  if (key.includes("audio") || key.includes("speech") || key.includes("voice")) return { icon: AudioLines, className: "border-warning-soft bg-warning-soft text-warning-soft-foreground" };
+  if (key.includes("video")) return { icon: Video, className: "border-destructive-soft bg-destructive-soft text-destructive-soft-foreground" };
+  if (key.includes("embedding")) return { icon: Code2, className: "border-success-soft bg-success-soft text-success-soft-foreground" };
+  return { icon: Code2, className: "border-border bg-muted text-muted-foreground" };
 }
 
 function ModalityIconList({ values, emptyLabel }: { values: string[]; emptyLabel: string }) {
-  if (values.length === 0) return <p className="text-sm text-zinc-500">{emptyLabel}</p>;
+  if (values.length === 0) return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
 
   return (
     <div className="flex flex-wrap gap-2">
       {values.map((value) => {
         const { icon: Icon, className } = getModalityMeta(value);
         return (
-          <span key={value} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${className}`}>
-            <Icon className="h-3.5 w-3.5" />
-            <span>{value}</span>
+          <span key={value} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", className)}>
+            <Icon className="size-3.5" aria-hidden="true" />
+            <bdi dir="auto">{value}</bdi>
           </span>
         );
       })}
@@ -165,243 +214,344 @@ function ModalityIconList({ values, emptyLabel }: { values: string[]; emptyLabel
   );
 }
 
-export function ModelDetailView({
-  model,
-  requestedCanonicalId,
-  fetchError,
+function TechnicalIdentifier({
+  label,
+  value,
+  copyLabel,
+  copied,
+  copiedLabel,
+  onCopy,
 }: {
-  model: ModelDetail | null;
-  requestedCanonicalId: string;
-  fetchError?: string | null;
+  label: string;
+  value: string;
+  copyLabel: string;
+  copied: boolean;
+  copiedLabel: string;
+  onCopy: () => void;
 }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background/60 p-3 sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <code dir="ltr" data-technical className="mt-1 block break-all text-xs font-medium leading-6 text-foreground">
+          {value}
+        </code>
+      </div>
+      <Button
+        type="button"
+        aria-live="polite"
+        className="h-9 shrink-0 border border-border bg-muted px-3 text-xs text-foreground hover:bg-accent"
+        onClick={onCopy}
+      >
+        <Copy data-icon="inline-start" aria-hidden="true" />
+        {copied ? copiedLabel : copyLabel}
+      </Button>
+    </div>
+  );
+}
+
+export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { model: ModelDetail | null; requestedCanonicalId: string; fetchError?: string | null }) {
+  const t = useTranslations("ModelDetail");
+  const tCommon = useTranslations("Common");
+  const tStatus = useTranslations("Statuses");
+  const { formatDate, formatPrice } = useDisplayFormatters();
+  const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }), []);
   const [copiedField, setCopiedField] = useState<"canonical" | "slug" | null>(null);
-  const { settings } = useDisplaySettings();
 
   const normalized = useMemo(() => {
-    const inputModalities = (model?.inputModalities ?? [])
-      .map((entry) => entry.modality?.name || entry.modality?.slug)
-      .filter((x): x is string => Boolean(x));
-    const outputModalities = (model?.outputModalities ?? [])
-      .map((entry) => entry.modality?.name || entry.modality?.slug)
-      .filter((x): x is string => Boolean(x));
-    const capabilities = (model?.capabilities ?? [])
-      .map((entry) => entry.capability?.name || entry.capability?.slug)
-      .filter((x): x is string => Boolean(x));
-    const supportedParams = (model?.supportedParams ?? [])
-      .map((entry) => {
-        const slug = entry.supportedParameter?.slug;
-        const name = entry.supportedParameter?.name;
-        if (!slug && !name) return null;
-        return slug && name ? `${name} (${slug})` : (name || slug) as string;
-      })
-      .filter((x): x is string => Boolean(x));
-    const sortedPricing = [...(model?.pricing ?? [])].sort((a, b) =>
-      (a.region?.slug || "global").localeCompare(b.region?.slug || "global"),
-    );
-
+    const inputModalities = (model?.inputModalities ?? []).map((entry) => entry.modality?.name || entry.modality?.slug).filter((value): value is string => Boolean(value));
+    const outputModalities = (model?.outputModalities ?? []).map((entry) => entry.modality?.name || entry.modality?.slug).filter((value): value is string => Boolean(value));
+    const capabilities = (model?.capabilities ?? []).map((entry) => entry.capability?.name || entry.capability?.slug).filter((value): value is string => Boolean(value));
+    const supportedParams = (model?.supportedParams ?? []).map((entry) => {
+      const slug = entry.supportedParameter?.slug;
+      const name = entry.supportedParameter?.name;
+      if (!slug && !name) return null;
+      return slug && name ? `${name} (${slug})` : (name || slug) as string;
+    }).filter((value): value is string => Boolean(value));
+    const sortedPricing = [...(model?.pricing ?? [])].sort((a, b) => (a.region?.slug || "global").localeCompare(b.region?.slug || "global"));
     return { inputModalities, outputModalities, capabilities, supportedParams, sortedPricing };
   }, [model]);
 
-  async function copyText(text: string, field: "canonical" | "slug") {
+  const copyText = async (text: string, field: "canonical" | "slug") => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 1200);
+      window.setTimeout(() => setCopiedField(null), 1200);
     } catch {
       setCopiedField(null);
     }
-  }
+  };
+
+  const formatStatus = (status?: string | null) => {
+    if (!status) return EMPTY;
+    const key = getStatusKey(status);
+    return key ? tStatus(key) : status;
+  };
+  const booleanLabel = (value?: boolean | null) => value === null || value === undefined ? EMPTY : value ? tCommon("yes") : tCommon("no");
+  const formatNumber = (value?: number | null) => value === null || value === undefined ? EMPTY : numberFormatter.format(value);
 
   if (!model) {
     const notFound = fetchError?.includes("API 404");
     return (
-      <Card className="space-y-3">
-        <h1 className="text-xl font-semibold">{notFound ? "Model not found" : "Unable to load model details"}</h1>
-        <p className="text-sm text-zinc-300">Requested canonical ID: <code>{requestedCanonicalId}</code></p>
-        {fetchError ? <pre className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-amber-300">{fetchError}</pre> : null}
+      <Card className="mx-auto flex max-w-2xl flex-col items-start gap-4 p-6 sm:p-8">
+        <span className="flex size-11 items-center justify-center rounded-xl bg-destructive-soft text-destructive-soft-foreground">
+          <Bot className="size-5" aria-hidden="true" />
+        </span>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-xl font-semibold sm:text-2xl">{notFound ? t("notFound") : t("loadError")}</h1>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {t("requestedCanonicalId")}: <bdi dir="ltr" data-technical className="break-all">{requestedCanonicalId}</bdi>
+          </p>
+        </div>
       </Card>
     );
   }
 
   const sections = [
-    ["core-specs", "Core Specs"],
-    ["provider-governance", "Provider & Governance"],
-    ["modalities", "Modalities"],
-    ["capabilities", "Capabilities"],
-    ["supported-parameters", "Supported Parameters"],
-    ["pricing", "Pricing"],
-    ["sources", "Sources"],
+    ["core-specs", t("sections.coreSpecs")],
+    ["provider-governance", t("sections.providerGovernance")],
+    ["modalities", t("sections.modalities")],
+    ["capabilities", t("sections.capabilities")],
+    ["supported-parameters", t("sections.supportedParameters")],
+    ["pricing", t("sections.pricing")],
+    ["sources", t("sections.sources")],
   ] as const;
 
+  const modelDocsUrl = safeUrl(model.officialDocsUrl);
+  const providerDocsUrl = safeUrl(model.provider?.docsUrl);
+  const privacyPolicyUrl = safeUrl(model.provider?.privacyPolicyUrl);
+  const modelStatusKey = getStatusKey(model.status);
+  const statusClassName = modelStatusKey === "active" || modelStatusKey === "available"
+    ? "border-success-soft bg-success-soft text-success-soft-foreground"
+    : undefined;
+
+  const metrics = [
+    { label: t("contextWindow"), value: formatNumber(model.contextWindow), icon: Gauge },
+    { label: t("maxOutputTokens"), value: formatNumber(model.maxOutputTokens), icon: Cpu },
+    { label: t("baselineInputPrice"), value: formatPrice(model.pricing?.[0]?.inputPricePerMillionTokens), icon: Banknote },
+    { label: t("baselineOutputPrice"), value: formatPrice(model.pricing?.[0]?.outputPricePerMillionTokens), icon: Banknote },
+    { label: t("modalities"), value: t("modalityCounts", { input: normalized.inputModalities.length, output: normalized.outputModalities.length }), icon: Boxes },
+    { label: t("capabilities"), value: numberFormatter.format(normalized.capabilities.length), icon: Sparkles },
+  ];
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
-      <div className="space-y-4">
-        <Card className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold">{model.displayName}</h1>
-              <p className="mt-1 text-sm text-zinc-400">{model.longDescription || model.shortDescription || "No description available."}</p>
+    <div className="grid min-w-0 gap-5 xl:grid-cols-4 xl:items-start">
+      <div className="flex min-w-0 flex-col gap-5 xl:col-span-3">
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className={statusClassName}>{formatStatus(model.status)}</Badge>
+                  {model.lifecycleStatus ? <Badge>{formatStatus(model.lifecycleStatus)}</Badge> : null}
+                  <Badge>{model.provider?.name || model.provider?.slug || t("unknownProvider")}</Badge>
+                </div>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">
+                    <bdi dir="auto">{model.displayName}</bdi>
+                  </h1>
+                  <p dir="auto" className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
+                    {model.longDescription || model.shortDescription || t("noDescription")}
+                  </p>
+                </div>
+              </div>
+              <div className="w-full shrink-0 sm:w-auto [&>button]:w-full">
+                <CompareToggleButton canonicalId={model.canonicalId} />
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              <Badge className="border-zinc-700 text-zinc-200">{model.status || EMPTY}</Badge>
-              <Badge className="border-zinc-700 text-zinc-200">{model.lifecycleStatus || EMPTY}</Badge>
-              <Badge className="border-zinc-700 text-zinc-200">{model.provider?.name || model.provider?.slug || "Unknown provider"}</Badge>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <TechnicalIdentifier
+                label={t("canonicalId")}
+                value={model.canonicalId}
+                copyLabel={t("copyCanonicalId")}
+                copied={copiedField === "canonical"}
+                copiedLabel={tCommon("copied")}
+                onCopy={() => copyText(model.canonicalId, "canonical")}
+              />
+              <TechnicalIdentifier
+                label={tCommon("slug")}
+                value={model.slug}
+                copyLabel={t("copySlug")}
+                copied={copiedField === "slug"}
+                copiedLabel={tCommon("copied")}
+                onCopy={() => copyText(model.slug, "slug")}
+              />
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-sm text-zinc-300">
-            <span className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1">
-              canonicalId: <code>{model.canonicalId}</code>
-            </span>
-            <CompareToggleButton canonicalId={model.canonicalId} />
-            <Button type="button" className="h-8 bg-zinc-800 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-700" onClick={() => copyText(model.canonicalId, "canonical")}>
-              {copiedField === "canonical" ? "Copied" : "Copy canonicalId"}
-            </Button>
-            <span className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1">
-              slug: <code>{model.slug}</code>
-            </span>
-            <Button type="button" className="h-8 bg-zinc-800 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-700" onClick={() => copyText(model.slug, "slug")}>
-              {copiedField === "slug" ? "Copied" : "Copy slug"}
-            </Button>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-              <p className="text-xs text-zinc-500">Context window</p>
-              <p className="text-base font-medium">{fmtNumber(model.contextWindow)}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-              <p className="text-xs text-zinc-500">Max output tokens</p>
-              <p className="text-base font-medium">{fmtNumber(model.maxOutputTokens)}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-              <p className="text-xs text-zinc-500">Baseline input price / 1M</p>
-              <p className="text-base font-medium">{formatDisplayPrice(model.pricing?.[0]?.inputPricePerMillionTokens, settings)}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-              <p className="text-xs text-zinc-500">Baseline output price / 1M</p>
-              <p className="text-base font-medium">{formatDisplayPrice(model.pricing?.[0]?.outputPricePerMillionTokens, settings)}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-              <p className="text-xs text-zinc-500">Modalities</p>
-              <p className="text-base font-medium">{normalized.inputModalities.length} in / {normalized.outputModalities.length} out</p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-              <p className="text-xs text-zinc-500">Capabilities</p>
-              <p className="text-base font-medium">{normalized.capabilities.length}</p>
-            </div>
-          </div>
+          <dl className="grid grid-cols-2 border-t border-border sm:grid-cols-3">
+            {metrics.map(({ label, value, icon: Icon }, index) => (
+              <div
+                key={label}
+                className={cn(
+                  "flex min-w-0 flex-col gap-2 border-border p-4 sm:p-5",
+                  index % 2 === 0 && "border-e",
+                  index >= 2 && "border-t",
+                  index % 3 !== 2 && "sm:border-e",
+                  index >= 3 && "sm:border-t",
+                  index === 2 && "sm:border-t-0",
+                )}
+              >
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  <dt>{label}</dt>
+                </div>
+                <dd className="min-w-0 text-sm font-semibold leading-6 sm:text-base">{value}</dd>
+              </div>
+            ))}
+          </dl>
         </Card>
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          <Card>
-            <SectionTitle id="core-specs">Core Specs</SectionTitle>
-            <KeyValue label="Canonical ID" value={model.canonicalId} />
-            <KeyValue label="Slug" value={model.slug} />
-            <KeyValue label="Status" value={model.status || EMPTY} />
-            <KeyValue label="Lifecycle" value={model.lifecycleStatus || EMPTY} />
-            <KeyValue label="Release Date" value={formatDisplayDate(model.releaseDate, settings)} />
-            <KeyValue label="Deprecated At" value={formatDisplayDate(model.deprecatedAt, settings)} />
-            <KeyValue label="Knowledge Cutoff" value={formatDisplayDate(model.knowledgeCutoff, settings)} />
-            <KeyValue label="Tokenizer" value={model.tokenizer || EMPTY} />
-            <KeyValue label="License" value={model.license || EMPTY} />
-          </Card>
+        <Card className="p-2 xl:hidden">
+          <nav aria-label={t("onThisPage")} className="scrollbar-none flex min-w-0 items-center gap-1 overflow-x-auto">
+            <span className="shrink-0 px-2 text-xs font-semibold text-foreground">{t("onThisPage")}</span>
+            {sections.map(([id, label]) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                className="shrink-0 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+        </Card>
 
-          <Card>
-            <SectionTitle id="provider-governance">Provider & Governance</SectionTitle>
-            <KeyValue label="Provider Name" value={model.provider?.name || EMPTY} />
-            <KeyValue label="Provider Slug" value={model.provider?.slug || EMPTY} />
-            <KeyValue label="Provider Status" value={model.provider?.status || EMPTY} />
-            <KeyValue label="BYOK Support" value={model.provider?.supportsByok ? "Yes" : "No"} />
-            <KeyValue label="Regional Routing" value={model.provider?.supportsRegionalRouting ? "Yes" : "No"} />
-            <KeyValue
-              label="Model Docs"
-              value={safeUrl(model.officialDocsUrl) ? <a className="text-cyan-400 hover:text-cyan-300" href={safeUrl(model.officialDocsUrl) || "#"} target="_blank" rel="noreferrer">Open</a> : EMPTY}
-            />
-            <KeyValue
-              label="Provider Docs"
-              value={safeUrl(model.provider?.docsUrl) ? <a className="text-cyan-400 hover:text-cyan-300" href={safeUrl(model.provider?.docsUrl) || "#"} target="_blank" rel="noreferrer">Open</a> : EMPTY}
-            />
-            <KeyValue
-              label="Privacy Policy"
-              value={safeUrl(model.provider?.privacyPolicyUrl) ? <a className="text-cyan-400 hover:text-cyan-300" href={safeUrl(model.provider?.privacyPolicyUrl) || "#"} target="_blank" rel="noreferrer">Open</a> : EMPTY}
-            />
-          </Card>
+        <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+          <SectionCard id="core-specs" label={t("sections.coreSpecs")} icon={ListTree}>
+            <dl className="divide-y divide-border">
+              <KeyValue label={t("fields.canonicalId")} value={model.canonicalId} technical />
+              <KeyValue label={t("fields.slug")} value={model.slug} technical />
+              <KeyValue label={t("fields.status")} value={formatStatus(model.status)} />
+              <KeyValue label={t("fields.lifecycle")} value={formatStatus(model.lifecycleStatus)} />
+              <KeyValue label={t("fields.releaseDate")} value={formatDate(model.releaseDate)} />
+              <KeyValue label={t("fields.deprecatedAt")} value={formatDate(model.deprecatedAt)} />
+              <KeyValue label={t("fields.knowledgeCutoff")} value={formatDate(model.knowledgeCutoff)} />
+              <KeyValue label={t("fields.tokenizer")} value={model.tokenizer || EMPTY} technical />
+              <KeyValue label={t("fields.license")} value={model.license || EMPTY} />
+            </dl>
+          </SectionCard>
 
-          <Card>
-            <SectionTitle id="modalities">Modalities</SectionTitle>
-            <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Input</p>
-            <ModalityIconList values={normalized.inputModalities} emptyLabel="No input modalities." />
-            <p className="mb-2 mt-4 text-xs uppercase tracking-wide text-zinc-500">Output</p>
-            <ModalityIconList values={normalized.outputModalities} emptyLabel="No output modalities." />
-          </Card>
+          <SectionCard id="provider-governance" label={t("sections.providerGovernance")} icon={ShieldCheck}>
+            <dl className="divide-y divide-border">
+              <KeyValue label={t("fields.providerName")} value={model.provider?.name || EMPTY} />
+              <KeyValue label={t("fields.providerSlug")} value={model.provider?.slug || EMPTY} technical />
+              <KeyValue label={t("fields.providerStatus")} value={formatStatus(model.provider?.status)} />
+              <KeyValue label={t("fields.byokSupport")} value={booleanLabel(model.provider?.supportsByok)} />
+              <KeyValue label={t("fields.regionalRouting")} value={booleanLabel(model.provider?.supportsRegionalRouting)} />
+              <KeyValue label={t("fields.modelDocs")} value={modelDocsUrl ? <ExternalResource href={modelDocsUrl} label={tCommon("open")} /> : EMPTY} />
+              <KeyValue label={t("fields.providerDocs")} value={providerDocsUrl ? <ExternalResource href={providerDocsUrl} label={tCommon("open")} /> : EMPTY} />
+              <KeyValue label={t("fields.privacyPolicy")} value={privacyPolicyUrl ? <ExternalResource href={privacyPolicyUrl} label={tCommon("open")} /> : EMPTY} />
+            </dl>
+          </SectionCard>
 
-          <Card>
-            <SectionTitle id="capabilities">Capabilities</SectionTitle>
-            <ChipList values={normalized.capabilities} emptyLabel="No capabilities listed." />
-          </Card>
+          <SectionCard id="modalities" label={t("sections.modalities")} icon={Network}>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xs font-medium text-muted-foreground">{t("input")}</h3>
+                <ModalityIconList values={normalized.inputModalities} emptyLabel={t("noInputModalities")} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xs font-medium text-muted-foreground">{t("output")}</h3>
+                <ModalityIconList values={normalized.outputModalities} emptyLabel={t("noOutputModalities")} />
+              </div>
+            </div>
+          </SectionCard>
 
-          <Card className="xl:col-span-2">
-            <SectionTitle id="supported-parameters">Supported Parameters</SectionTitle>
-            <ChipList values={normalized.supportedParams} emptyLabel="No supported parameters listed." initial={14} />
-          </Card>
+          <SectionCard id="capabilities" label={t("sections.capabilities")} icon={Sparkles}>
+            <ChipList values={normalized.capabilities} emptyLabel={t("noCapabilities")} />
+          </SectionCard>
 
-          <Card className="xl:col-span-2">
-            <SectionTitle id="pricing">Pricing</SectionTitle>
+          <SectionCard id="supported-parameters" label={t("sections.supportedParameters")} icon={SlidersHorizontal} className="lg:col-span-2">
+            <ChipList values={normalized.supportedParams} emptyLabel={t("noSupportedParameters")} initial={14} />
+          </SectionCard>
+
+          <SectionCard id="pricing" label={t("sections.pricing")} icon={Banknote} className="lg:col-span-2">
             {normalized.sortedPricing.length === 0 ? (
-              <p className="text-sm text-zinc-500">No pricing entries.</p>
+              <p className="text-sm text-muted-foreground">{t("noPricing")}</p>
             ) : (
-              <div className="space-y-2">
-                {normalized.sortedPricing.map((p) => (
-                  <div key={p.id} className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-sm md:grid-cols-5">
-                    <div><span className="text-zinc-500">Region:</span> {p.region?.name || p.region?.slug || "global"}</div>
-                    <div><span className="text-zinc-500">Input:</span> {formatDisplayPrice(p.inputPricePerMillionTokens, settings)}</div>
-                    <div><span className="text-zinc-500">Output:</span> {formatDisplayPrice(p.outputPricePerMillionTokens, settings)}</div>
-                    <div><span className="text-zinc-500">Cached:</span> {formatDisplayPrice(p.cachedInputPricePerMillionTokens, settings)}</div>
-                    <div><span className="text-zinc-500">Effective:</span> {formatDisplayDate(p.effectiveFrom, settings)}</div>
-                    <div className="md:col-span-5">
-                      <span className="text-zinc-500">Source:</span>{" "}
-                      {safeUrl(p.sourceUrl) ? (
-                        <a href={safeUrl(p.sourceUrl) || "#"} target="_blank" rel="noreferrer" className="text-cyan-400 hover:text-cyan-300">
-                          {p.sourceUrl}
-                        </a>
-                      ) : (
-                        EMPTY
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="grid gap-3">
+                {normalized.sortedPricing.map((price) => {
+                  const sourceUrl = safeUrl(price.sourceUrl);
+                  const priceValues = [
+                    [t("input"), formatPrice(price.inputPricePerMillionTokens)],
+                    [t("output"), formatPrice(price.outputPricePerMillionTokens)],
+                    [t("cachedInput"), formatPrice(price.cachedInputPricePerMillionTokens)],
+                    [t("effectiveFrom"), formatDate(price.effectiveFrom)],
+                  ];
+
+                  return (
+                    <article key={price.id} className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background/60 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            <Network className="size-4" aria-hidden="true" />
+                          </span>
+                          <div>
+                            <p className="text-xs text-muted-foreground">{t("region")}</p>
+                            <p className="text-sm font-semibold"><bdi dir="auto">{price.region?.name || price.region?.slug || tCommon("global")}</bdi></p>
+                          </div>
+                        </div>
+                        {sourceUrl ? <ExternalResource href={sourceUrl} label={t("source")} /> : null}
+                      </div>
+                      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {priceValues.map(([label, value]) => (
+                          <div key={label} className="min-w-0 rounded-md bg-muted/60 p-3">
+                            <dt className="text-xs text-muted-foreground">{label}</dt>
+                            <dd className="mt-1 text-sm font-semibold leading-6">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </article>
+                  );
+                })}
               </div>
             )}
-          </Card>
+          </SectionCard>
 
-          <Card>
-            <SectionTitle id="sources">Sources</SectionTitle>
+          <SectionCard id="sources" label={t("sections.sources")} icon={BookOpen} className="lg:col-span-2">
             {(model.sources ?? []).length === 0 ? (
-              <p className="text-sm text-zinc-500">No sources.</p>
+              <p className="text-sm text-muted-foreground">{t("noSources")}</p>
             ) : (
-              <div className="space-y-2 text-sm">
-                {(model.sources ?? []).map((source, i) => (
-                  <div key={source.id || `${source.url || "source"}-${i}`} className="rounded border border-zinc-800 bg-zinc-950 p-2">
-                    <div className="font-medium">{source.title || "Source"}</div>
-                    <div className="text-zinc-500">{source.sourceType || EMPTY}</div>
-                    {safeUrl(source.url) ? <a href={safeUrl(source.url) || "#"} target="_blank" rel="noreferrer" className="break-all text-cyan-400 hover:text-cyan-300">{source.url}</a> : <div>{EMPTY}</div>}
-                    {source.notes ? <div className="mt-1 text-zinc-400">{source.notes}</div> : null}
-                  </div>
-                ))}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(model.sources ?? []).map((source, index) => {
+                  const sourceUrl = safeUrl(source.url);
+                  return (
+                    <article key={source.id || `${source.url || "source"}-${index}`} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-background/60 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                          <Link2 className="size-4" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <h3 dir="auto" className="font-medium">{source.title || tCommon("source")}</h3>
+                          <p dir="auto" className="text-xs text-muted-foreground">{source.sourceType || EMPTY}</p>
+                        </div>
+                      </div>
+                      {sourceUrl ? <ExternalResource href={sourceUrl} label={tCommon("open")} showUrl /> : <p>{EMPTY}</p>}
+                      {source.notes ? <p dir="auto" className="text-sm leading-6 text-muted-foreground">{source.notes}</p> : null}
+                    </article>
+                  );
+                })}
               </div>
             )}
-          </Card>
-
+          </SectionCard>
         </div>
       </div>
 
-      <aside className="hidden lg:block">
-        <Card className="sticky top-20">
-          <h3 className="mb-2 text-sm font-semibold text-zinc-200">On this page</h3>
-          <nav className="space-y-1 text-sm">
+      <aside className="hidden xl:block">
+        <Card className="sticky top-24 p-3">
+          <div className="flex items-center gap-2 px-2 pb-2">
+            <ListTree className="size-4 text-muted-foreground" aria-hidden="true" />
+            <h2 className="text-sm font-semibold">{t("onThisPage")}</h2>
+          </div>
+          <nav className="flex flex-col gap-1" aria-label={t("onThisPage")}>
             {sections.map(([id, label]) => (
-              <a key={id} href={`#${id}`} className="block rounded px-2 py-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200">
+              <a
+                key={id}
+                href={`#${id}`}
+                className="rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {label}
               </a>
             ))}
@@ -412,3 +562,20 @@ export function ModelDetailView({
   );
 }
 
+function ExternalResource({ href, label, showUrl = false }: { href: string; label: string; showUrl?: boolean }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      dir={showUrl ? "ltr" : undefined}
+      className={cn(
+        "inline-flex min-w-0 items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        showUrl && "break-all text-xs",
+      )}
+    >
+      <span>{showUrl ? href : label}</span>
+      <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
+    </a>
+  );
+}

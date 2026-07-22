@@ -1,0 +1,21 @@
+
+> @shahrah/tenant-admin@0.1.0 dev:server D:\source\Shahrah\apps\tenant-admin
+> next dev --hostname 0.0.0.0 --port 3000
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+- Environments: .env.local, .env
+✓ Ready in 26.9s
+○ Compiling proxy ...
+- Experiments (use with caution):
+  ✓ authInterrupts
+  ✓ turbopackFileSystemCacheForBuild
+
+○ Compiling / ...
+ GET /playground 200 in 64s (next.js: 53s, proxy.ts: 156ms, application-code: 11.2s)
+✓ Finished filesystem cache database compaction in 12.4s
+ GET /api/models 200 in 2.0s (next.js: 1319ms, proxy.ts: 247ms, application-code: 471ms)
+ GET /api/guardrails?limit=200 200 in 397ms (next.js: 204ms, proxy.ts: 13ms, application-code: 179ms)
+ GET /api/entitlements 200 in 300ms (next.js: 150ms, proxy.ts: 14ms, application-code: 136ms)
+ GET /api/prompts?limit=1 200 in 242ms (next.js: 150ms, proxy.ts: 10ms, application-code: 82ms)

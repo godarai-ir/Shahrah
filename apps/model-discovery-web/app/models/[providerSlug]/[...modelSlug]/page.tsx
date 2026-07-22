@@ -93,7 +93,7 @@ export default async function ModelDetailPage({
       `/models/${encodeURIComponent(requestedCanonicalId)}`,
     );
   } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load model';
+    error = err instanceof Error ? err.message : null;
   }
 
   return (

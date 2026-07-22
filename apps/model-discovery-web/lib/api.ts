@@ -17,7 +17,16 @@ export const API_ORIGIN =
 export function resolveAssetUrl(path?: string | null): string | null {
   if (!path) return null;
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  if (path.startsWith('/')) return API_ORIGIN ? `${API_ORIGIN}${path}` : path;
+  if (path.startsWith('/')) {
+    if (API_ORIGIN) return `${API_ORIGIN}${path}`;
+
+    const apiPathIndex = PUBLIC_API_BASE.indexOf('/api/');
+    if (apiPathIndex > 0 && path.startsWith('/api/')) {
+      return `${PUBLIC_API_BASE.slice(0, apiPathIndex)}${path}`;
+    }
+
+    return path;
+  }
   return API_ORIGIN ? `${API_ORIGIN}/${path}` : `/${path}`;
 }
 

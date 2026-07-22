@@ -1,39 +1,38 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 const footerLinkClass =
   'text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
 export function SiteFooter() {
+  const t = useTranslations('Footer');
+
   return (
-    <footer
-      lang="fa"
-      dir="rtl"
-      className="border-t border-border bg-muted/40 py-8 text-right"
-    >
+    <footer className="border-t border-border bg-muted/40 py-8 text-start">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-6 grid grid-cols-3 gap-x-4 gap-y-6 md:grid-cols-4 md:gap-6">
           <div className="col-span-3 md:col-span-1">
             <div className="mb-3 flex items-center gap-2">
               <Image
-                src="/mini_logo.svg"
+                src="/catalog/mini_logo.svg"
                 alt=""
                 aria-hidden="true"
                 width={36}
                 height={36}
                 className="size-9 shrink-0 rounded-lg"
               />
-              <span className="text-xl font-bold text-foreground">گٌدارAI</span>
+              <span className="text-xl font-bold text-foreground">{t('brand')}</span>
             </div>
             <p className="mb-3 max-w-2xl text-xs leading-6 text-muted-foreground md:text-sm">
-              درگاه مدل‌های زبانی برای اتصال، مسیریابی، کنترل هزینه و پایش مصرف مدل‌ها در تیم‌های ایرانی.
+              {t('description')}
             </p>
             <div className="flex items-center gap-3">
               <a
                 href="https://x.com/r_delpak"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="گدارAI در X"
+                aria-label={t('xAria')}
                 className={footerLinkClass}
               >
                 <svg className="size-4 md:size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -44,7 +43,7 @@ export function SiteFooter() {
                 href="https://github.com/delpak/shahrah/"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="گدارAI در گیت‌هاب"
+                aria-label={t('githubAria')}
                 className={footerLinkClass}
               >
                 <svg className="size-4 md:size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -58,52 +57,52 @@ export function SiteFooter() {
             </div>
           </div>
 
-          <FooterSection title="محصول">
-            <li><a href="/" className={footerLinkClass}>گدارAI در یک نگاه</a></li>
-            <li><a href="/features/observability" className={footerLinkClass}>پایش و مشاهده‌پذیری</a></li>
-            <li><a href="/features/ai-gateway" className={footerLinkClass}>درگاه مدل‌های AI</a></li>
-            <li><a href="/features/guardrails" className={footerLinkClass}>گاردریل‌ها</a></li>
-            <li><a href="/features/prompt-engineering" className={footerLinkClass}>رجیستری پرامپت</a></li>
-            <li><a href="/features/security" className={footerLinkClass}>امنیت و تطابق</a></li>
-            <li><a href="/pricing" className={footerLinkClass}>پلن‌های اشتراک</a></li>
+          <FooterSection title={t('product')}>
+            <li><Link href="/" className={footerLinkClass}>{t('overview')}</Link></li>
+            <li><a href="/features/observability" className={footerLinkClass}>{t('observability')}</a></li>
+            <li><a href="/features/ai-gateway" className={footerLinkClass}>{t('aiGateway')}</a></li>
+            <li><a href="/features/guardrails" className={footerLinkClass}>{t('guardrails')}</a></li>
+            <li><a href="/features/prompt-engineering" className={footerLinkClass}>{t('promptRegistry')}</a></li>
+            <li><a href="/features/security" className={footerLinkClass}>{t('security')}</a></li>
+            <li><a href="/pricing" className={footerLinkClass}>{t('plans')}</a></li>
           </FooterSection>
 
-          <FooterSection title="منابع">
-            <li><a href="/docs" className={footerLinkClass}>مستندات</a></li>
-            <li><a href="/blog" className={footerLinkClass}>وبلاگ</a></li>
-            <li><Link href="/" className={footerLinkClass}>کاتالوگ مدل‌ها</Link></li>
+          <FooterSection title={t('resources')}>
+            <li><a href="/docs" className={footerLinkClass}>{t('docs')}</a></li>
+            <li><a href="/blog" className={footerLinkClass}>{t('blog')}</a></li>
+            <li><Link href="/" className={footerLinkClass}>{t('catalog')}</Link></li>
             <li>
               <a href="https://github.com/delpak/shahrah/" target="_blank" rel="noopener noreferrer" className={footerLinkClass}>
-                گیت‌هاب
+                {t('github')}
               </a>
             </li>
           </FooterSection>
 
-          <FooterSection title="شرکت">
-            <li><a href="/about" className={footerLinkClass}>درباره ما</a></li>
-            <li><a href="/contact" className={footerLinkClass}>تماس با ما</a></li>
-            <li><a href="/terms" className={footerLinkClass}>قوانین و مقررات</a></li>
-            <li><a href="/privacy" className={footerLinkClass}>حریم خصوصی</a></li>
+          <FooterSection title={t('company')}>
+            <li><a href="/about" className={footerLinkClass}>{t('about')}</a></li>
+            <li><a href="/contact" className={footerLinkClass}>{t('contact')}</a></li>
+            <li><a href="/terms" className={footerLinkClass}>{t('terms')}</a></li>
+            <li><a href="/privacy" className={footerLinkClass}>{t('privacy')}</a></li>
           </FooterSection>
         </div>
 
         <div className="grid grid-cols-[1fr_auto] items-center gap-3 border-t border-border pt-4 md:pt-6">
           <p className="min-w-0 text-xs leading-5 text-muted-foreground md:text-sm">
-            © ۱۴۰۵ گدارAI. تمامی حقوق محفوظ است.
+            {t('copyright')}
           </p>
           <a
             referrerPolicy="origin"
             target="_blank"
             rel="noopener noreferrer"
             href="https://trustseal.enamad.ir/?id=737580&Code=Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
-            aria-label="مشاهده نماد اعتماد الکترونیکی گدارAI"
+            aria-label={t('trustSealAria')}
             className="inline-flex h-11 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background p-1 md:h-14 md:w-16"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               referrerPolicy="origin"
               src="https://trustseal.enamad.ir/logo.aspx?id=737580&Code=Dc476GaakpMUDp6MG3lSrtPK8uL9943N"
-              alt="نماد اعتماد"
+              alt={t('trustSealAlt')}
               width={56}
               height={48}
               className="max-h-full w-auto object-contain"
