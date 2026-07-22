@@ -4,6 +4,8 @@ import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { ArrowLeft, Building2, Loader2, Mail, Search, UserRound } from "lucide-react";
 
+import { mobileAuthUIEnabled } from "@/app/lib/mobile-auth-ui";
+
 type LoginMethod = "identifier" | "tenant";
 
 type Tenant = {
@@ -53,7 +55,11 @@ export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) 
     setTenants([]);
 
     if (!normalized) {
-      setIdentifierError("لطفاً یک ایمیل یا شماره موبایل معتبر وارد کنید.");
+      setIdentifierError(
+        mobileAuthUIEnabled
+          ? "لطفاً یک ایمیل یا شماره موبایل معتبر وارد کنید."
+          : "لطفاً یک ایمیل معتبر وارد کنید.",
+      );
       return;
     }
 
@@ -73,7 +79,9 @@ export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) 
         return;
       }
       setMessage(
-        "هیچ فضای کاری مرتبط با این ایمیل یا شماره موبایل پیدا نشد. می‌توانید یک فضای کاری جدید بسازید یا از مدیر تیم خود دعوت‌نامه بگیرید.",
+        mobileAuthUIEnabled
+          ? "هیچ فضای کاری مرتبط با این ایمیل یا شماره موبایل پیدا نشد. می‌توانید یک فضای کاری جدید بسازید یا از مدیر تیم خود دعوت‌نامه بگیرید."
+          : "هیچ فضای کاری مرتبط با این ایمیل پیدا نشد. می‌توانید یک فضای کاری جدید بسازید یا از مدیر تیم خود دعوت‌نامه بگیرید.",
       );
     } catch (error) {
       setIdentifierError(getErrorMessage(error));
@@ -120,7 +128,9 @@ export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) 
           <p className="mb-3 text-sm font-semibold text-indigo-600 dark:text-indigo-400">ورود</p>
           <h1 className="text-3xl font-bold tracking-normal sm:text-4xl">فضای کاری خود را پیدا کنید</h1>
           <p className="mt-3 text-base leading-7 text-slate-600 dark:text-slate-300">
-            ورود از طریق فضای کاری سازمان شما انجام می‌شود. اگر نام فضای کاری را نمی‌دانید، ایمیل یا شماره موبایل خود را وارد کنید.
+            {mobileAuthUIEnabled
+              ? "ورود از طریق فضای کاری سازمان شما انجام می‌شود. اگر نام فضای کاری را نمی‌دانید، ایمیل یا شماره موبایل خود را وارد کنید."
+              : "ورود از طریق فضای کاری سازمان شما انجام می‌شود. اگر نام فضای کاری را نمی‌دانید، ایمیل خود را وارد کنید."}
           </p>
         </header>
 
@@ -134,7 +144,7 @@ export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) 
                 aria-pressed={method === "identifier"}
               >
                 <Mail className="h-4 w-4" aria-hidden="true" />
-                ایمیل یا موبایل
+                {mobileAuthUIEnabled ? "ایمیل یا موبایل" : "ایمیل"}
               </button>
               <button
                 type="button"
@@ -151,13 +161,13 @@ export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) 
               <form className="flex flex-col gap-5" onSubmit={handleIdentifierSubmit}>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="identifier" className="text-sm font-medium">
-                    ایمیل یا شماره موبایل
+                    {mobileAuthUIEnabled ? "ایمیل یا شماره موبایل" : "ایمیل"}
                   </label>
                   <input
                     id="identifier"
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
-                    placeholder="name@example.com یا +98912..."
+                    placeholder={mobileAuthUIEnabled ? "name@example.com یا +98912..." : "name@example.com"}
                     autoComplete="username"
                     inputMode="email"
                     aria-invalid={Boolean(identifierError)}
@@ -254,7 +264,9 @@ export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) 
             <Search className="mb-4 h-6 w-6 text-indigo-500" aria-hidden="true" />
             <h2 className="mb-2 text-base font-semibold text-slate-950 dark:text-white">نحوه ورود</h2>
             <p>
-              اگر ایمیل یا شماره شما فقط به یک فضای کاری وصل باشد، مستقیم به صفحه ورود همان فضا می‌روید. اگر به چند فضای کاری دسترسی داشته باشید، ابتدا فضای موردنظر را انتخاب می‌کنید.
+              {mobileAuthUIEnabled
+                ? "اگر ایمیل یا شماره شما فقط به یک فضای کاری وصل باشد، مستقیم به صفحه ورود همان فضا می‌روید. اگر به چند فضای کاری دسترسی داشته باشید، ابتدا فضای موردنظر را انتخاب می‌کنید."
+                : "اگر ایمیل شما فقط به یک فضای کاری وصل باشد، مستقیم به صفحه ورود همان فضا می‌روید. اگر به چند فضای کاری دسترسی داشته باشید، ابتدا فضای موردنظر را انتخاب می‌کنید."}
             </p>
           </aside>
         </section>
@@ -351,7 +363,9 @@ function translateLoginError(message?: string) {
     case "Invalid login discovery request.":
       return "درخواست ورود معتبر نیست.";
     case "Please enter a valid email address or mobile number.":
-      return "لطفاً یک ایمیل یا شماره موبایل معتبر وارد کنید.";
+      return mobileAuthUIEnabled
+        ? "لطفاً یک ایمیل یا شماره موبایل معتبر وارد کنید."
+        : "لطفاً یک ایمیل معتبر وارد کنید.";
     case "Tenant name can only include lowercase letters, numbers, and hyphens.":
       return "نام فضای کاری فقط می‌تواند شامل حروف کوچک انگلیسی، عدد و خط تیره باشد.";
     case "We could not check workspaces right now. Please try again.":

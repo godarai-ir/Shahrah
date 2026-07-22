@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
 type CaptchaChallenge = {
@@ -63,7 +64,11 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
   const t = useTranslations("login");
   const common = useTranslations("common");
 
-  const [identifier, setIdentifier] = useState(initialIdentifier);
+  const [identifier, setIdentifier] = useState(
+    mobileAuthUIEnabled || normalizeIdentifier(initialIdentifier)?.channel === "email"
+      ? initialIdentifier
+      : "",
+  );
   const [captchaID, setCaptchaID] = useState(initialCaptcha.captcha_id);
   const [captchaImage, setCaptchaImage] = useState(initialCaptcha.image_data_url);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
@@ -271,7 +276,9 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                 {!otpRequest ? (
                   <form className="flex flex-col gap-5" onSubmit={handleRequestOTP} noValidate>
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="identifier">{t("identifier")}</Label>
+                      <Label htmlFor="identifier">
+                        {mobileAuthUIEnabled ? t("identifier") : t("identifierEmailOnly")}
+                      </Label>
                       <Input
                         id="identifier"
                         value={identifier}
@@ -279,7 +286,11 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                           setIdentifier(event.target.value);
                           setFieldErrors((current) => ({ ...current, identifier: undefined }));
                         }}
-                        placeholder={t("identifierPlaceholder")}
+                        placeholder={
+                          mobileAuthUIEnabled
+                            ? t("identifierPlaceholder")
+                            : t("identifierEmailOnlyPlaceholder")
+                        }
                         autoComplete="username"
                         autoFocus
                         required
@@ -557,9 +568,13 @@ function validateLoginInput(
   const captchaValue = captchaAnswer.trim();
 
   if (!identifierValue) {
-    errors.identifier = t("errors.identifierRequired");
+    errors.identifier = mobileAuthUIEnabled
+      ? t("errors.identifierRequired")
+      : t("errors.identifierEmailOnlyRequired");
   } else if (!normalizeIdentifier(identifierValue)) {
-    errors.identifier = t("errors.identifierInvalid");
+    errors.identifier = mobileAuthUIEnabled
+      ? t("errors.identifierInvalid")
+      : t("errors.identifierEmailOnlyInvalid");
   }
 
   if (!captchaValue) {
@@ -612,11 +627,15 @@ function normalizeLoginError(
       normalized.includes("do not have access") ||
       message.includes("You do not have access to this tenant")
     ) {
-      return t("errors.identifierNotRegistered");
+      return mobileAuthUIEnabled
+        ? t("errors.identifierNotRegistered")
+        : t("errors.identifierEmailOnlyNotRegistered");
     }
 
     if (message.includes("ایمیل یا شماره همراه")) {
-      return t("errors.identifierInvalid");
+      return mobileAuthUIEnabled
+        ? t("errors.identifierInvalid")
+        : t("errors.identifierEmailOnlyInvalid");
     }
 
     return message;

@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import {
   Table,
   TableBody,
@@ -385,7 +386,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         <div className="overflow-x-auto"><Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("table.emailMobile")}</TableHead>
+              <TableHead>{mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email")}</TableHead>
               <TableHead>{t("table.displayName")}</TableHead>
               <TableHead>{t("table.role")}</TableHead>
               <TableHead className="w-16 text-start"> </TableHead>
@@ -396,7 +397,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               <TableEmptyRow colSpan={4} title={t("table.noUsersFound")} description={t("usersPage.emptyDescription")} />
             ) : (
               users.map((user) => {
-                const identity = user.email || user.mobile || user.id;
+                const identity = user.email || (mobileAuthUIEnabled ? user.mobile : "") || user.id;
                 const displayName = guessDisplayName(identity);
                 const active = user.active && user.role !== "deactivated";
                 const effectiveRole = user.roles?.[0] ?? user.role;
@@ -509,7 +510,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         actionLabel={t("usersPage.upgradeDialog.action")}
       />
 
-      <FormSheet open={roleFormOpen} onOpenChange={setRoleFormOpen} title={t("roleForm.title")} description={selectedUserForRole?.email ?? selectedUserForRole?.mobile ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id}>
+      <FormSheet open={roleFormOpen} onOpenChange={setRoleFormOpen} title={t("roleForm.title")} description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id}>
           <form className="flex flex-col gap-4" onSubmit={submitRoleForm}>
             <RadioGroup value={selectedRoleName} onValueChange={setSelectedRoleName} className="flex max-h-96 flex-col gap-3 overflow-auto pe-1">
               {availableRoles.map((role) => (

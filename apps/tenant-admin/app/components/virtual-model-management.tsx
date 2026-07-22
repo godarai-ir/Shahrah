@@ -22,6 +22,7 @@ import { PrincipalPicker, type PrincipalPickerItem } from "@/app/components/prin
 import { type PrincipalSearchKind } from "@/app/components/principal-search-input";
 import { requestJSON } from "@/app/components/provider-account-wizard/utils";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
 type VirtualModelPolicy = {
@@ -1158,7 +1159,7 @@ function createCopyAlias(alias: string, existingAliases: Set<string>) {
 
 function resolveUserLabel(user: TenantAdminUserLookup | undefined, fallbackID: string) {
   if (!user) return fallbackID;
-  return user.display_name?.trim() || user.email?.trim() || user.mobile?.trim() || user.id || fallbackID;
+  return user.display_name?.trim() || user.email?.trim() || (mobileAuthUIEnabled ? user.mobile?.trim() : "") || user.id || fallbackID;
 }
 
 function normalizeTargets(targets: VirtualModelTarget[] | undefined): VirtualModelTarget[] {

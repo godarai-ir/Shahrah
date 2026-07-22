@@ -6,6 +6,7 @@ import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
 export type PrincipalSearchKind = "user" | "team" | "org_unit" | "virtual_account" | "external_identity";
@@ -112,7 +113,7 @@ export function PrincipalEntitySelect(props: {
   }
 
   const selected = props.selected;
-  const selectedLabel = selected?.display_name || selected?.principal_id || "";
+  const selectedLabel = hideMobileIdentity(selected?.display_name) || selected?.principal_id || "";
   const selectedMeta =
     selected?.type === "everyone"
       ? props.labels.users
@@ -260,9 +261,11 @@ function PrincipalOptionRow(props: {
         {getAvatarText(props.option)}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{props.option.display_name}</span>
+        <span className="block truncate text-sm font-medium">
+          {hideMobileIdentity(props.option.display_name) || props.option.principal_id || getKindLabel(props.option.type, props.labels)}
+        </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {props.option.secondary || getKindLabel(props.option.type, props.labels)}
+          {hideMobileIdentity(props.option.secondary) || getKindLabel(props.option.type, props.labels)}
         </span>
       </span>
       <Check className={cn("h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
@@ -281,6 +284,6 @@ function getKindLabel(kind: PrincipalSelectionType, labels: PrincipalEntitySelec
 
 function getAvatarText(selection: PrincipalEntitySelection): string {
   if (selection.type === "everyone") return "E";
-  const label = selection.display_name || selection.principal_id || selection.type;
+  const label = hideMobileIdentity(selection.display_name) || selection.principal_id || selection.type;
   return label.trim().slice(0, 1).toUpperCase();
 }

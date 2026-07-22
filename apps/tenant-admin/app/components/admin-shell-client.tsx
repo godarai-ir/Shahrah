@@ -41,6 +41,7 @@ import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, should
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
 import { ShellPageHeading, type ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
 import { PermissionsProvider } from "@/app/components/permissions-context";
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
 type AdminShellClientProps = {
@@ -127,7 +128,7 @@ export default function AdminShellClient({
   const t = useTranslations("shell");
 
   const userIdentity =
-    currentUser.email ?? currentUser.mobile ?? currentUser.id;
+    currentUser.email ?? (mobileAuthUIEnabled ? currentUser.mobile : undefined) ?? currentUser.id;
 
   const navItems = useMemo(() => buildAdminNavItems(pathname, t), [pathname, t]);
 

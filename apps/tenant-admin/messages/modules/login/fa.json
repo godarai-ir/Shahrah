@@ -33,6 +33,8 @@
   },
   "identifier": "ایمیل یا شماره همراه",
   "identifierPlaceholder": "name@example.com | +989121234567",
+  "identifierEmailOnly": "ایمیل",
+  "identifierEmailOnlyPlaceholder": "name@example.com",
   "captcha": {
     "label": "کپچای تصویری",
     "answer": "پاسخ کپچا",
@@ -44,6 +46,9 @@
     "identifierRequired": "ایمیل یا شماره همراه را وارد کنید.",
     "identifierInvalid": "فرمت ایمیل یا شماره همراه صحیح نیست.",
     "identifierNotRegistered": "این ایمیل یا شماره همراه در این فضای کار ثبت نشده است.",
+    "identifierEmailOnlyRequired": "ایمیل را وارد کنید.",
+    "identifierEmailOnlyInvalid": "فرمت ایمیل صحیح نیست.",
+    "identifierEmailOnlyNotRegistered": "این ایمیل در این فضای کار ثبت نشده است.",
     "captchaRequired": "متن کپچا را وارد کنید.",
     "captchaInvalidOrExpired": "متن کپچا اشتباه است یا منقضی شده. کپچای جدید را وارد کنید."
   },

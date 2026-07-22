@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
 import {
@@ -149,7 +150,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
         Object.fromEntries(
           uniqueIDs.map((id) => {
             const match = users.find((user) => user.id === id);
-            return [id, match?.display_name?.trim() || match?.email?.trim() || match?.mobile?.trim() || id];
+            return [id, match?.display_name?.trim() || match?.email?.trim() || (mobileAuthUIEnabled ? match?.mobile?.trim() : "") || id];
           }),
         ),
       );

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { normalizeError, requestJSON } from "@/app/components/provider-account-wizard/utils";
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 
 import type {
   PromptListResponse,
@@ -88,5 +89,5 @@ export function usePromptRegistryList(t: PromptTranslationFn) {
 
 function resolveUserLabel(user: TenantAdminUserLookup | undefined, fallbackID: string) {
   if (!user) return fallbackID;
-  return user.display_name?.trim() || user.email?.trim() || user.mobile?.trim() || user.id || fallbackID;
+  return user.display_name?.trim() || user.email?.trim() || (mobileAuthUIEnabled ? user.mobile?.trim() : "") || user.id || fallbackID;
 }

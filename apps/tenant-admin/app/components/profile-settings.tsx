@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
+import { cn } from "@/lib/utils";
 
 type UserProfile = {
   id: string;
@@ -95,7 +97,16 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
 
       setMessage(t("messages.sent", { destination: result.destination_masked }));
     } catch (err) {
-      setError(normalizeError(err, common("requestError")));
+      if (
+        !mobileAuthUIEnabled &&
+        field === "email" &&
+        err instanceof Error &&
+        /mobile|phone|موبایل|همراه/i.test(err.message)
+      ) {
+        setError(t("errors.emailInvalid"));
+      } else {
+        setError(normalizeError(err, common("requestError")));
+      }
     } finally {
       setLoadingField(null);
     }
@@ -168,7 +179,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
         </Alert>
       ) : null}
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className={cn("grid gap-6", mobileAuthUIEnabled && "lg:grid-cols-2")}>
         <ContactChangeCard
           title={t("sections.email")}
           description={t("email.description")}
@@ -210,46 +221,48 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           confirmLabel={t("confirmEmail")}
         />
 
-        <ContactChangeCard
-          title={t("sections.mobile")}
-          description={t("mobile.description")}
-          icon={Smartphone}
-          currentLabel={t("currentValue")}
-          currentValue={user.mobile ?? common("notSet")}
-          fieldLabel={t("newMobile")}
-          fieldDescription={t("mobile.fieldDescription")}
-          inputID="newMobile"
-          inputType="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          value={mobileState.value}
-          placeholder="+98912..."
-          isLoading={loadingField === "mobile"}
-          onValueChange={(value) =>
-            setMobileState((current) => ({
-              ...current,
-              value,
-            }))
-          }
-          onRequestCode={() => void handleRequestChange("mobile")}
-          sendCodeLabel={t("sendCode")}
-          requestID={mobileState.requestID}
-          destinationMasked={mobileState.destinationMasked}
-          debugOTP={mobileState.debugOTP}
-          otpValue={mobileState.otpCode}
-          onOTPChange={(otpCode) =>
-            setMobileState((current) => ({
-              ...current,
-              otpCode,
-            }))
-          }
-          onVerify={(event) => void handleVerifyChange(event, "mobile")}
-          otpSentLabel={t("otpSentTo", { destination: mobileState.destinationMasked })}
-          otpCodeLabel={t("otpCode")}
-          otpCodePlaceholder={t("otpCodePlaceholder")}
-          devCodeLabel={t("devCode")}
-          confirmLabel={t("confirmMobile")}
-        />
+        {mobileAuthUIEnabled ? (
+          <ContactChangeCard
+            title={t("sections.mobile")}
+            description={t("mobile.description")}
+            icon={Smartphone}
+            currentLabel={t("currentValue")}
+            currentValue={user.mobile ?? common("notSet")}
+            fieldLabel={t("newMobile")}
+            fieldDescription={t("mobile.fieldDescription")}
+            inputID="newMobile"
+            inputType="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={mobileState.value}
+            placeholder="+98912..."
+            isLoading={loadingField === "mobile"}
+            onValueChange={(value) =>
+              setMobileState((current) => ({
+                ...current,
+                value,
+              }))
+            }
+            onRequestCode={() => void handleRequestChange("mobile")}
+            sendCodeLabel={t("sendCode")}
+            requestID={mobileState.requestID}
+            destinationMasked={mobileState.destinationMasked}
+            debugOTP={mobileState.debugOTP}
+            otpValue={mobileState.otpCode}
+            onOTPChange={(otpCode) =>
+              setMobileState((current) => ({
+                ...current,
+                otpCode,
+              }))
+            }
+            onVerify={(event) => void handleVerifyChange(event, "mobile")}
+            otpSentLabel={t("otpSentTo", { destination: mobileState.destinationMasked })}
+            otpCodeLabel={t("otpCode")}
+            otpCodePlaceholder={t("otpCodePlaceholder")}
+            devCodeLabel={t("devCode")}
+            confirmLabel={t("confirmMobile")}
+          />
+        ) : null}
       </section>
     </div>
   );

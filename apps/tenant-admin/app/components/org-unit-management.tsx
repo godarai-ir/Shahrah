@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";
 import { formatCompactIrr, formatCompactNumber } from "@/lib/compact-number";
 import { getCurrentJalaliMonthRange } from "@/app/billing/_shared";
 import { usePermissions } from "@/app/components/permissions-context";
@@ -300,14 +301,16 @@ export default function OrgUnitManagement({
   const userNameByID = useMemo(() => {
     const map = new Map<string, string>();
     users.forEach((user) => {
-      map.set(user.principal_id, user.display_name || user.secondary || t("members.user"));
+      map.set(user.principal_id, hideMobileIdentity(user.display_name) || hideMobileIdentity(user.secondary) || t("members.user"));
     });
     return map;
   }, [t, users]);
   const memberUserOptions = useMemo(
     () => users.slice(0, 100).map((user) => ({
       value: user.principal_id,
-      label: user.secondary ? `${user.display_name || t("members.user")} — ${user.secondary}` : user.display_name || t("members.user"),
+      label: hideMobileIdentity(user.secondary)
+        ? `${hideMobileIdentity(user.display_name) || t("members.user")} — ${hideMobileIdentity(user.secondary)}`
+        : hideMobileIdentity(user.display_name) || t("members.user"),
     })),
     [t, users],
   );

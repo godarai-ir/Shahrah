@@ -33,6 +33,8 @@
   },
   "identifier": "Email or mobile",
   "identifierPlaceholder": "name@example.com | +989121234567",
+  "identifierEmailOnly": "Email",
+  "identifierEmailOnlyPlaceholder": "name@example.com",
   "captcha": {
     "label": "Image captcha",
     "answer": "Captcha answer",
@@ -44,6 +46,9 @@
     "identifierRequired": "Enter an email address or mobile number.",
     "identifierInvalid": "The email address or mobile number format is invalid.",
     "identifierNotRegistered": "This email address or mobile number is not registered in this workspace.",
+    "identifierEmailOnlyRequired": "Enter an email address.",
+    "identifierEmailOnlyInvalid": "The email address format is invalid.",
+    "identifierEmailOnlyNotRegistered": "This email address is not registered in this workspace.",
     "captchaRequired": "Enter the captcha text.",
     "captchaInvalidOrExpired": "The captcha text is incorrect or expired. Enter the new captcha."
   },

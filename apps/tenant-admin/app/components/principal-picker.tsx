@@ -13,6 +13,7 @@ import {
   type PrincipalSearchKind,
   type PrincipalSearchOption,
 } from "@/app/components/principal-search-input";
+import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";
 
 export type PrincipalPickerItem = {
   type: "user" | "team" | "org_unit" | "virtual_account" | "everyone";
@@ -167,7 +168,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
             aria-label={props.getRemoveLabel?.(item) ?? props.removeLabel}
             disabled={props.disabled}
           >
-            <span className="max-w-[240px] truncate">{item.display_name || item.principal_id || item.type}</span>
+            <span className="max-w-[240px] truncate">{hideMobileIdentity(item.display_name) || item.principal_id || item.type}</span>
             <X aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
         ))}

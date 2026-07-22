@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { ThemeProvider } from "@/app/components/ThemeProvider";
+import { mobileAuthUIEnabled } from "@/app/lib/mobile-auth-ui";
 import { onboardingMessages as t } from "./messages";
 
 type Step = "details" | "otp" | "done";
@@ -90,7 +91,7 @@ export default function OnboardingPage() {
         tenant_slug: tenantSlug,
         plan_slug: requestedPlanSlug(),
         email,
-        mobile,
+        mobile: mobileAuthUIEnabled ? mobile : undefined,
         metadata: { source: "website-onboarding" },
       });
       if (!otp.ok) {
@@ -237,17 +238,21 @@ export default function OnboardingPage() {
                     />
                   </Field>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className={mobileAuthUIEnabled ? "grid gap-5 sm:grid-cols-2" : "grid gap-5"}>
                     <Field label={t.email} icon={<Mail />}>
-                      <input id="email" value={email} onChange={(event) => setEmail(event.target.value.trim().toLowerCase())} placeholder={t.emailPlaceholder} className={inputClass} dir="ltr" type="email" autoComplete="email" />
+                      <input id="email" value={email} onChange={(event) => setEmail(event.target.value.trim().toLowerCase())} placeholder={t.emailPlaceholder} className={inputClass} dir="ltr" type="email" autoComplete="email" required={!mobileAuthUIEnabled} />
                     </Field>
-                    <Field label={t.mobile} icon={<Smartphone />}>
-                      <input id="mobile" value={mobile} onChange={(event) => setMobile(event.target.value.replace(/[^\d+]/g, ""))} placeholder={t.mobilePlaceholder} className={inputClass} dir="ltr" inputMode="tel" autoComplete="tel" />
-                    </Field>
+                    {mobileAuthUIEnabled ? (
+                      <Field label={t.mobile} icon={<Smartphone />}>
+                        <input id="mobile" value={mobile} onChange={(event) => setMobile(event.target.value.replace(/[^\d+]/g, ""))} placeholder={t.mobilePlaceholder} className={inputClass} dir="ltr" inputMode="tel" autoComplete="tel" />
+                      </Field>
+                    ) : null}
                   </div>
-                  <p className="-mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">{t.contactHint}</p>
+                  <p className="-mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    {mobileAuthUIEnabled ? t.contactHint : t.emailHint}
+                  </p>
 
-                  <button type="submit" disabled={loading || !tenantSlug || (!email && !mobile)} className={primaryButtonClass}>
+                  <button type="submit" disabled={loading || !tenantSlug || (mobileAuthUIEnabled ? !email && !mobile : !email)} className={primaryButtonClass}>
                     {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
                     {loading ? t.sendingCode : t.sendCode}
                   </button>
@@ -368,6 +373,9 @@ async function postOnboarding(body: Record<string, unknown>) {
 }
 
 function normalizeError(payload: OnboardingPayload, fallback: string) {
+  if (!mobileAuthUIEnabled && payload.error && /mobile|phone|موبایل|همراه/i.test(payload.error)) {
+    return t.errors.emailRequired;
+  }
   return payload.error || fallback;
 }
 

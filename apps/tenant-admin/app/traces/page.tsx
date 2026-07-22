@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import TraceManagement from "@/app/components/trace-management";
 import { loadTracePrivacySettings, type TracePrivacySettingsData } from "@/app/settings/_shared";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
+import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
@@ -72,7 +73,7 @@ export default async function TracesPage({
         initialTracePrivacyError={tracePrivacyResult.ok ? null : tracePrivacyResult.errorMessage ?? "Failed to load tracing privacy settings."}
         initialTracePrivacyOpen={params.tracePrivacy === "open"}
         currentUserID={currentUser.id}
-        currentUserLabel={currentUser.email ?? currentUser.mobile ?? currentUser.id}
+        currentUserLabel={currentUser.email ?? (mobileAuthUIEnabled ? currentUser.mobile : undefined) ?? currentUser.id}
       />
     </AdminShell>
   );

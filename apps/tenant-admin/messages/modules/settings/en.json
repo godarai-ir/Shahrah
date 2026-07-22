@@ -29,6 +29,9 @@
     "emailSuccess": "Email updated successfully.",
     "mobileSuccess": "Mobile updated successfully."
   },
+  "errors": {
+    "emailInvalid": "Enter a valid email address."
+  },
   "tracePrivacy": {
     "title": "Tracing Privacy",
     "description": "Configure tenant-level prompt/response trace capture policy. This overrides the global default when set.",

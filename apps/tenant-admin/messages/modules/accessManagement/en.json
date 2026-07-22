@@ -47,6 +47,7 @@
   "table": {
     "loading": "Loading users...",
     "emailMobile": "EMAIL / MOBILE",
+    "email": "EMAIL",
     "displayName": "DISPLAY NAME",
     "role": "ROLE",
     "noUsersFound": "No users found."

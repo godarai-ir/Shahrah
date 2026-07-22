@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { hideMobileIdentity, mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { canAnyPermission } from "@/lib/authz";
 import { cn } from "@/lib/utils";
 
@@ -568,12 +569,12 @@ function formFromTeam(team: Team): TeamForm {
 }
 
 function formatMemberCandidateLabel(candidate: AccessPrincipalCandidate) {
-  const secondary = candidate.secondary?.trim() ?? "";
-  const display = candidate.display_name.trim();
+  const secondary = hideMobileIdentity(candidate.secondary);
+  const display = hideMobileIdentity(candidate.display_name);
   if (secondary && !looksLikeUserID(secondary)) return secondary;
   if (!looksLikeUserID(display)) return display;
   if (secondary) return secondary;
-  return display;
+  return display || candidate.principal_id;
 }
 
 function resolveMemberUserID(input: string, options: MemberCandidateOption[]) {
@@ -592,7 +593,7 @@ function looksLikeUserID(value: string) {
 }
 
 function getMemberDisplayLabel(member: TeamMember, memberLabelByUserID: Map<string, string>, unknownUserLabel: string) {
-  const userLabel = member.user_email?.trim() || member.user_mobile?.trim() || member.user_display_name?.trim() || memberLabelByUserID.get(member.user_id);
+  const userLabel = member.user_email?.trim() || (mobileAuthUIEnabled ? member.user_mobile?.trim() : "") || hideMobileIdentity(member.user_display_name) || memberLabelByUserID.get(member.user_id);
   if (userLabel) return userLabel;
   if (looksLikeUserID(member.user_id)) return unknownUserLabel;
   return member.user_id;

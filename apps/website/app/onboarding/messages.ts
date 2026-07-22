@@ -14,6 +14,7 @@ export const onboardingMessages = {
   mobile: "شماره همراه",
   mobilePlaceholder: "+98912...",
   contactHint: "وارد کردن ایمیل یا شماره همراه الزامی است.",
+  emailHint: "وارد کردن ایمیل الزامی است.",
   sendCode: "ارسال کد تایید",
   sendingCode: "در حال ارسال کد...",
   code: "کد تایید",
@@ -45,5 +46,6 @@ export const onboardingMessages = {
     verifyFailed: "کد تایید نامعتبر است یا مهلت آن تمام شده است.",
     expired: "مهلت کد تایید تمام شده است. دوباره کد دریافت کنید.",
     controlPlane: "ارتباط با سرویس فعال‌سازی برقرار نشد.",
+    emailRequired: "یک ایمیل معتبر وارد کنید.",
   },
 } as const;

@@ -47,6 +47,7 @@
   "table": {
     "loading": "در حال بارگذاری کاربران...",
     "emailMobile": "ایمیل / موبایل",
+    "email": "ایمیل",
     "displayName": "نام نمایشی",
     "role": "نقش",
     "noUsersFound": "کاربری یافت نشد."
