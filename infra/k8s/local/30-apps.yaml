@@ -288,6 +288,21 @@ spec:
                 configMapKeyRef:
                   name: shahrah-config
                   key: SMTP_FROM
+            - name: BALE_OTP_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: BALE_OTP_ENABLED
+            - name: BALE_SAFIR_API_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shahrah-secret
+                  key: BALE_SAFIR_API_ACCESS_KEY
+            - name: BALE_SAFIR_BOT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: BALE_SAFIR_BOT_ID
           readinessProbe:
             tcpSocket:
               port: 4000

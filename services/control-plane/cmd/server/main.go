@@ -228,7 +228,7 @@ func main() {
 	}
 
 	adminHandlers := admin.New(adminDeps)
-	authHandlers := admin.NewAuthHandlers(store, admin.NewOTPEmailSenderFromEnv())
+	authHandlers := admin.NewAuthHandlers(store, admin.NewTenantAdminOTPNotifierFromEnv())
 
 	var requestLogger proxy.RequestLogger = store
 	if cfg.RequestLogs.AsyncEnabled {

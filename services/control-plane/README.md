@@ -66,6 +66,9 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `LOG_RETENTION_CLEANUP_TIMEOUT_MS`: optional, default `30000`
 - `OPENAI_API_KEY`: optional, used by the default OpenAI entries in `configs/proxy_config.yaml`
 - `ANTHROPIC_API_KEY`: optional, used by the default Anthropic entries in `configs/proxy_config.yaml`
+- `BALE_OTP_ENABLED`: optional kill switch for mobile OTP delivery (`true|false`); when unset, delivery is enabled automatically after both Bale credentials below are configured
+- `BALE_SAFIR_API_ACCESS_KEY`: Safir API access key from the Bale business panel; keep it in the deployment secret store
+- `BALE_SAFIR_BOT_ID`: numeric ID of the Bale bot whose name is shown in the OTP message
 - `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: ArvanCloud BGE-M3 OpenAI-compatible base URL ending in `/v1`; treat the complete opaque URL as a secret
 - `SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY`: bearer credential for the Iran-hosted BGE-M3 endpoint
 
@@ -76,6 +79,20 @@ go -C services/control-plane run ./cmd/platform-service-account --profile=suppor
 ```
 
 Do not spell out this credential's scopes in deployment automation; the profile is kept in sync with the platform endpoints and covered by tests.
+
+## Tenant-admin mobile OTP through Bale
+
+Mobile OTPs requested by `tenant-admin` are delivered through Bale Safir's OTP message API. Configure these values on the `control-plane` process (not in browser-visible tenant-admin variables):
+
+```bash
+BALE_OTP_ENABLED=true
+BALE_SAFIR_API_ACCESS_KEY=replace-with-safir-api-access-key
+BALE_SAFIR_BOT_ID=123456789
+```
+
+Safir accepts Iranian destination numbers with country code `98`; the sender normalizes common `09...`, `9...`, `+98...`, and `0098...` inputs before delivery. Email OTP delivery continues to use SMTP outside production and Resend in production.
+
+Create the Safir organization and obtain its API access key and bot ID from the [official Bale business panel and Safir documentation](https://docs.bale.ai/safir). The access key must never be exposed to `tenant-admin` or committed to source control.
 
 The platform provider credential store also requires `PLATFORM_PROVIDER_CREDENTIAL_MODE=platform_store`, `PLATFORM_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION`, `PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON`, and `PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY`. Production key generation and rotation are documented in `docs/support-admin-auth-runbook.md`; never commit these key values.
 

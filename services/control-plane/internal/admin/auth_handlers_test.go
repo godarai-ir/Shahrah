@@ -102,6 +102,41 @@ func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
 	}
 }
 
+func TestCreateOTPRequestSendsMobileOTPThroughNotifier(t *testing.T) {
+	store := &authHandlerTestStore{createOTPResult: map[string]interface{}{
+		"request_id":         "req-mobile-1",
+		"channel":            "mobile",
+		"destination_masked": "091****789",
+		"expires_in_seconds": 300,
+		"otp_code":           "654321",
+	}}
+	notifier := &authHandlerTestOTPNotifier{}
+	handler := NewAuthHandlers(store, notifier)
+	app := fiber.New()
+	app.Post("/auth/otp/request", handler.CreateOTPRequest)
+
+	req := httptest.NewRequest("POST", "/auth/otp/request", bytes.NewBufferString(`{
+		"tenant_slug": "tenant1",
+		"purpose": "login",
+		"channel": "mobile",
+		"identifier": "09123456789"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, fiber.StatusOK)
+	}
+	if notifier.channel != "mobile" || notifier.to != "09123456789" || notifier.otpCode != "654321" {
+		t.Fatalf("notifier call = channel %q, to %q, otp %q", notifier.channel, notifier.to, notifier.otpCode)
+	}
+}
+
 func TestCreateOTPRequestDoesNotExposeDebugOTPWhenNodeEnvIsEmpty(t *testing.T) {
 	t.Setenv("NODE_ENV", "")
 	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "true")
@@ -192,6 +227,20 @@ type authHandlerTestStore struct {
 	createOTPCalled bool
 	createOTPCalls  int
 	createOTPResult map[string]interface{}
+}
+
+type authHandlerTestOTPNotifier struct {
+	channel string
+	to      string
+	otpCode string
+}
+
+func (n *authHandlerTestOTPNotifier) SendTenantAdminOTP(channel string, to string, _ string, otpCode string, _ int) error {
+	n.channel = channel
+	n.to = to
+	n.otpCode = otpCode
+
+	return nil
 }
 
 func (s *authHandlerTestStore) CreateTenantAdminCaptcha(context.Context) (string, string, time.Time, error) {

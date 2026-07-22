@@ -37,4 +37,6 @@ data:
   SMTP_PORT: "1025"
   SMTP_FROM: no-reply@shahrah.local
   EMAIL_SENDING_ENABLED: "true"
+  BALE_OTP_ENABLED: "false"
+  BALE_SAFIR_BOT_ID: ""
   PGADMIN_DEFAULT_EMAIL: admin@example.com

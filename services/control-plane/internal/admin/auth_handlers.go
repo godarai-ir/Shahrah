@@ -39,11 +39,11 @@ type AuthStore interface {
 // AuthHandlers provides HTTP handlers for tenant-admin auth API.
 type AuthHandlers struct {
 	store       AuthStore
-	otpNotifier OTPEmailSender
+	otpNotifier TenantAdminOTPNotifier
 	otpLimiter  *authRateLimiter
 }
 
-func NewAuthHandlers(store AuthStore, otpNotifier OTPEmailSender) *AuthHandlers {
+func NewAuthHandlers(store AuthStore, otpNotifier TenantAdminOTPNotifier) *AuthHandlers {
 	return &AuthHandlers{
 		store:       store,
 		otpNotifier: otpNotifier,
@@ -384,9 +384,9 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 
 	delete(result, "otp_code")
 
-	if h.otpNotifier != nil && channel == "email" && otpCode != "" {
-		if err := h.otpNotifier.SendTenantAdminOTP(body.Identifier, tenantSlug, otpCode, 5); err != nil {
-			log.Printf("[control-plane][auth][otp-email] failed tenant=%s to=%s: %v", tenantSlug, destination, err)
+	if h.otpNotifier != nil && otpCode != "" {
+		if err := h.otpNotifier.SendTenantAdminOTP(channel, body.Identifier, tenantSlug, otpCode, 5); err != nil {
+			log.Printf("[control-plane][auth][otp] failed tenant=%s channel=%s to=%s: %v", tenantSlug, channel, destination, err)
 		}
 	}
 

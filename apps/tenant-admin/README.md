@@ -63,11 +63,16 @@ Trace UX flow in tenant-admin:
 
 ## Environment
 
-Create `apps/tenant-admin/.env.local`:
+Configure the tenant-admin connection in `apps/tenant-admin/.env.local`:
 
 ```bash
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
 SHAHRAH_MASTER_KEY=-sk-dev-master-key-12345
+```
+
+OTP delivery is owned by `control-plane`. Configure local email delivery on that process:
+
+```bash
 EMAIL_SENDING_ENABLED=true
 SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
@@ -75,7 +80,15 @@ SMTP_SECURE=false
 SMTP_FROM=no-reply@shahrah.local
 ```
 
-Production email env:
+For mobile OTP delivery through Bale Safir, configure these server-only variables on `control-plane`:
+
+```bash
+BALE_OTP_ENABLED=true
+BALE_SAFIR_API_ACCESS_KEY=replace-with-safir-api-access-key
+BALE_SAFIR_BOT_ID=123456789
+```
+
+Production email env on `control-plane`:
 
 ```bash
 NODE_ENV=production
