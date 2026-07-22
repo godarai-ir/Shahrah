@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS request_traces_ch
   sampled UInt8,
   retention_days UInt16 DEFAULT 0
 )
-ENGINE = MergeTree
+ENGINE = ReplicatedMergeTree
 PARTITION BY toDate(started_at)
 ORDER BY (tenant_id, started_at, trace_id);
 
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS request_spans_ch
   attributes_json String,
   retention_days UInt16 DEFAULT 0
 )
-ENGINE = MergeTree
+ENGINE = ReplicatedMergeTree
 PARTITION BY toDate(started_at)
 ORDER BY (tenant_id, trace_id, started_at, span_id);
 
@@ -94,6 +94,6 @@ CREATE TABLE IF NOT EXISTS request_logs_ch
   response_payload_truncated UInt8,
   metadata_json String
 )
-ENGINE = MergeTree
+ENGINE = ReplicatedMergeTree
 PARTITION BY toDate(started_at)
 ORDER BY (tenant_id, started_at, log_id);

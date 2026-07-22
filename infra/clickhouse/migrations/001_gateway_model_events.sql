@@ -32,7 +32,7 @@
 
   metadata_json String
 )
-ENGINE = MergeTree
+ENGINE = ReplicatedMergeTree
 PARTITION BY toDate(ts)
 ORDER BY (tenant_id, ts, model_name, ifNull(virtual_model_name, ''))
 TTL toDate(ts) + INTERVAL 90 DAY

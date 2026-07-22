@@ -37,7 +37,7 @@
   tpot_p90 AggregateFunction(quantileTDigest(0.90), UInt32),
   tpot_p99 AggregateFunction(quantileTDigest(0.99), UInt32)
 )
-ENGINE = AggregatingMergeTree
+ENGINE = ReplicatedAggregatingMergeTree
 PARTITION BY toDate(bucket_ts)
 ORDER BY (tenant_id, bucket_ts, view_model_name, ifNull(view_virtual_model_name, ''))
 TTL toDate(bucket_ts) + INTERVAL 540 DAY
