@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { BadgeCheck, BookOpen, Building2, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,7 +33,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -287,6 +289,10 @@ function AdminSidebar({
   onNavigate,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
+  const locale = useLocale();
+  const { setOpenMobile } = useSidebar();
+  const direction = locale === "fa" ? "rtl" : "ltr";
+  const sidebarSide = direction === "rtl" ? "right" : "left";
   const navItemsByKey = useMemo(() => {
     return new Map(navItems.map((item) => [item.key, item]));
   }, [navItems]);
@@ -301,17 +307,24 @@ function AdminSidebar({
   }, [navItemsByKey]);
 
   return (
-    <Sidebar side="right" collapsible="icon">
-      <SidebarHeader>
+    <Sidebar
+      side={sidebarSide}
+      dir={direction}
+      collapsible="icon"
+      mobileTitle={t("menu.title")}
+      mobileDescription={t("menu.description")}
+      mobileCloseLabel={t("menu.close")}
+    >
+      <SidebarHeader className="border-b border-sidebar-border/70 p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
               tooltip={`گُدارAI · ${tenantSlug}`}
-              className="h-12 items-center gap-2 rounded-md bg-transparent"
+              className="items-center gap-3"
               asChild
             >
-              <Link href="/">
+              <Link href="/" onClick={() => setOpenMobile(false)}>
                 <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md">
                   <Image
                     src="/brand/mini_logo.png"
@@ -334,12 +347,12 @@ function AdminSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="custom-scrollbar gap-1 px-2 py-3" role="navigation" aria-label={t("nav.title")}>
         {navGroups.map((group) => (
           <Collapsible key={group.labelKey} defaultOpen={group.items.some((item) => item.isActive)} asChild>
-            <SidebarGroup className="py-1">
+            <SidebarGroup className="p-0 py-1">
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3">
+                <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                   <span className="flex min-w-0 items-center gap-2">
                     <group.icon className="size-4 shrink-0" aria-hidden="true" />
                     <span className="truncate">{t(group.labelKey)}</span>
@@ -349,7 +362,10 @@ function AdminSidebar({
               </SidebarGroupLabel>
               <CollapsibleContent>
                 <SidebarGroupContent>
-                  <SidebarMenu aria-label={t(group.labelKey)}>
+                  <SidebarMenu
+                    aria-label={t(group.labelKey)}
+                    className="border-s border-sidebar-border/80 ps-2 group-data-[collapsible=icon]:border-s-0 group-data-[collapsible=icon]:ps-0"
+                  >
                     {group.items.map((item) => {
                       const Icon = item.icon;
 
@@ -362,7 +378,9 @@ function AdminSidebar({
                           >
                             <Link
                               href={item.href}
+                              aria-current={item.isActive ? "page" : undefined}
                               onClick={(event) => {
+                                setOpenMobile(false);
                                 if (!item.isActive || !shouldHandleActiveNavClick(event.nativeEvent)) return;
                                 event.preventDefault();
                                 onNavigate(item.href);
@@ -383,10 +401,11 @@ function AdminSidebar({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/70 bg-sidebar-accent/30 pt-3 group-data-[collapsible=icon]:hidden">
-        <SidebarPlanSummary summary={subscriptionSummary} />
+      <SidebarFooter className="border-t border-sidebar-border/70 bg-sidebar-accent/30 p-3 group-data-[collapsible=icon]:hidden">
+        <SidebarPlanSummary summary={subscriptionSummary} onNavigate={() => setOpenMobile(false)} />
         <SidebarAppVersion version={appVersion} />
       </SidebarFooter>
+      <SidebarRail aria-label={t("menu.toggle")} title={t("menu.toggle")} />
     </Sidebar>
   );
 }
@@ -468,12 +487,14 @@ function getUserInitials(value: string): string {
 
 function SidebarPlanSummary({
   summary,
+  onNavigate,
 }: {
   summary: {
     planName: string | null;
     status: string | null;
     periodEnd: string | null;
   };
+  onNavigate: () => void;
 }) {
   const t = useTranslations("shell");
   const planName = t("plan.label", { name: summary.planName ?? t("plan.unknown") });
@@ -487,8 +508,8 @@ function SidebarPlanSummary({
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SidebarMenuButton size="lg" tooltip={t("nav.plan")} asChild>
-          <Link href="/billing/plan">
+        <SidebarMenuButton size="lg" variant="outline" tooltip={t("nav.plan")} asChild>
+          <Link href="/billing/plan" onClick={onNavigate}>
             <BadgeCheck aria-hidden="true" />
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="truncate text-sm font-medium">{planName}</span>
@@ -505,7 +526,7 @@ function SidebarAppVersion({ version }: { version: string }) {
   const t = useTranslations("shell");
 
   return (
-    <p className="mt-3 border-t border-sidebar-border/70 pt-3 text-xs text-sidebar-foreground/70">
+    <p className="border-t border-sidebar-border/70 pt-3 text-center text-xs text-sidebar-foreground/70">
       {t("appVersion.label")} <span dir="ltr" className="font-mono">{version}</span>
     </p>
   );

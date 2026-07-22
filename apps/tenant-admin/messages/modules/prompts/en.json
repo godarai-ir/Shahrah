@@ -50,11 +50,12 @@
     "searchPlaceholder": "Search prompts",
     "loadingRows": "Loading prompts",
     "emptyRows": "No rows",
-    "emptyDescription": "Create your first prompt, or read the guide to learn more.",
+    "emptyDescription": "Create your first prompt in the playground.",
     "versionValue": "v{version}",
     "columns": {
       "name": "Name",
       "latestVersion": "Latest Version",
+      "technicalIdentifier": "Prompt Technical ID",
       "model": "Model",
       "description": "Description",
       "updatedAt": "Updated",

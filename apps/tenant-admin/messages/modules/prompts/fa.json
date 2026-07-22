@@ -1,7 +1,7 @@
 {
-  "title": "رجیستری پرامپت",
+  "title": "پرامپت‌ها",
   "header": {
-    "title": "رجیستری پرامپت",
+    "title": "پرامپت‌ها",
     "description": "قالب‌های پرامپت قابل استفاده مجدد بسازید، آن‌ها را نسخه‌بندی کنید و از مسیر گُدارAI Gateway اجرا بگیرید."
   },
   "notice": {
@@ -25,7 +25,7 @@
     "copy": "کپی",
     "download": "دانلود",
     "openMenu": "باز کردن منو",
-    "tryPrompt": "تست آزمایشی",
+    "tryPrompt": "اجرای آزمایشی",
     "createVersion": "ایجاد نسخه جدید",
     "editLatestVersion": "ویرایش نسخه آخر",
     "versionHistory": "تاریخچه نسخه‌ها",
@@ -50,11 +50,12 @@
     "searchPlaceholder": "جست‌وجوی پرامپت‌ها",
     "loadingRows": "در حال بارگذاری پرامپت‌ها",
     "emptyRows": "ردیفی وجود ندارد",
-    "emptyDescription": "برای شروع، نخستین پرامپت را ایجاد کنید و یا برای آشنایی بیشتر، راهنما را بخوانید.",
+    "emptyDescription": "برای شروع، نخستین پرامپت را در محیط آزمایش ایجاد کنید.",
     "versionValue": "نسخه {version}",
     "columns": {
       "name": "نام",
       "latestVersion": "آخرین نسخه",
+      "technicalIdentifier": "شناسه فنی پرامپت",
       "model": "مدل",
       "description": "توضیح",
       "updatedAt": "به‌روزرسانی",

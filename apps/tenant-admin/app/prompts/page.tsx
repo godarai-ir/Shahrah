@@ -27,7 +27,7 @@ export default async function PromptsPage() {
       currentUser={currentUser}
       pageHeader={{ title: t("header.title"), description: t("header.description"), helpHref: docsHref }}
     >
-      <PromptRegistryListPage docsHref={docsHref} />
+      <PromptRegistryListPage />
     </AdminShell>
   );
 }

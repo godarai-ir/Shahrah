@@ -50,7 +50,7 @@ describe("PromptRegistryListPage", () => {
               slug: "booking_greeting",
               description: "Greets a booking customer",
               latest_version: 3,
-              latest_version_detail: { model: "gpt-4.1-mini", fqn: "booking_greeting.v3" },
+              latest_version_detail: { id: "version-3", model: "gpt-4.1-mini", fqn: "booking_greeting.v3" },
               updated_at: "2026-06-26T08:00:00Z",
               created_by: "user-1",
             },
@@ -90,13 +90,20 @@ describe("PromptRegistryListPage", () => {
     expect(screen.queryByText("builder.titleNew")).not.toBeInTheDocument();
   });
 
-  it("navigates to the create page from the CTA", async () => {
+  it("links the create CTA to the playground", async () => {
     render(<PromptRegistryListPage />);
 
     await screen.findByText("booking_greeting");
-    fireEvent.click(screen.getByText("actions.createPrompt"));
+    expect(screen.getByRole("link", { name: "actions.createPrompt" })).toHaveAttribute("href", "/playground");
+  });
 
-    expect(pushMock).toHaveBeenCalledWith("/prompts/new");
+  it("shows the prompt technical identifier instead of the model and omits the card help link", async () => {
+    render(<PromptRegistryListPage />);
+
+    expect(await screen.findByText("booking_greeting.v3")).toBeInTheDocument();
+    expect(screen.getByText("list.columns.technicalIdentifier")).toBeInTheDocument();
+    expect(screen.queryByText("gpt-4.1-mini")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "help" })).not.toBeInTheDocument();
   });
 
   it("navigates to the prompt detail page when a row is clicked", async () => {
@@ -121,5 +128,24 @@ describe("PromptRegistryListPage", () => {
 
     await screen.findByText("Jane Doe");
     expect(screen.getByRole("button", { name: "actions.openMenu" })).toBeInTheDocument();
+  });
+
+  it("links the try action to the playground with the latest prompt version", async () => {
+    render(<PromptRegistryListPage />);
+
+    await screen.findByText("Jane Doe");
+    fireEvent.pointerDown(screen.getByRole("button", { name: "actions.openMenu" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+
+    expect(screen.getByRole("menuitem", { name: "actions.tryPrompt" })).toHaveAttribute(
+      "href",
+      "/playground?promptID=prompt-1&versionID=version-3",
+    );
+    expect(screen.queryByRole("menuitem", { name: "actions.createVersion" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "actions.editLatestVersion" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "actions.copyFqn" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "actions.delete" })).toBeInTheDocument();
   });
 });

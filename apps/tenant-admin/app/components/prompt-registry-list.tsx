@@ -1,13 +1,13 @@
 "use client";
 
 import { Plus, ScrollText } from "lucide-react";
+import Link from "next/link";
 
 import {
   AppCard,
   AppSelectField,
+  CopyAction,
   DateTimeValue,
-  HelpLink,
-  ModelNameValue,
   RefreshButton,
   RowActionsMenu,
   SearchField,
@@ -22,22 +22,16 @@ import { cn } from "@/lib/utils";
 import { type Prompt, type PromptTranslationFn } from "./prompt-management-shared";
 
 type PromptRegistryListProps = {
-  docsHref: string;
   isLoading: boolean;
   locale: string;
   onNextPage: () => void;
   onPreviousPage: () => void;
-  onCopyFqn: (prompt: Prompt) => void;
-  onCreate: () => void;
-  onCreateVersion: (prompt: Prompt) => void;
   onDelete: (prompt: Prompt) => void;
-  onEditLatestVersion: (prompt: Prompt) => void;
   onRefresh: () => void;
   onRowClick: (prompt: Prompt) => void;
   onRowsPerPageChange: (next: number) => void;
   onSearchKeyDown: (key: string) => void;
   onSearchValueChange: (value: string) => void;
-  onTryPrompt: (prompt: Prompt) => void;
   pageOffset: number;
   pageSize: number;
   promptTotal: number;
@@ -66,11 +60,12 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
         />
         <div className="flex items-center gap-2">
           <RefreshButton label={props.t("actions.refresh")} onClick={props.onRefresh} isLoading={props.isLoading} />
-          <Button className="flex-1 sm:flex-none" type="button" onClick={props.onCreate}>
-            <Plus data-icon="inline-start" />
-            {props.t("actions.createPrompt")}
+          <Button asChild className="flex-1 sm:flex-none">
+            <Link href="/playground">
+              <Plus data-icon="inline-start" />
+              {props.t("actions.createPrompt")}
+            </Link>
           </Button>
-          <HelpLink href={props.docsHref} />
         </div>
       </div>
 
@@ -80,7 +75,7 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
             <TableRow>
               <TableHead>{props.t("list.columns.name")}</TableHead>
               <TableHead>{props.t("list.columns.latestVersion")}</TableHead>
-              <TableHead>{props.t("list.columns.model")}</TableHead>
+              <TableHead>{props.t("list.columns.technicalIdentifier")}</TableHead>
               <TableHead>{props.t("list.columns.description")}</TableHead>
               <TableHead>{props.t("list.columns.updatedAt")}</TableHead>
               <TableHead>{props.t("list.columns.createdBy")}</TableHead>
@@ -97,9 +92,11 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                 title={props.t("list.emptyRows")}
                 description={props.t("list.emptyDescription")}
                 primaryAction={
-                  <Button type="button" onClick={props.onCreate}>
-                    <Plus data-icon="inline-start" />
-                    {props.t("actions.createPrompt")}
+                  <Button asChild>
+                    <Link href="/playground">
+                      <Plus data-icon="inline-start" />
+                      {props.t("actions.createPrompt")}
+                    </Link>
                   </Button>
                 }
               />
@@ -112,7 +109,21 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                 >
                   <TableCell className="whitespace-nowrap font-medium">{item.name}</TableCell>
                   <TableCell className="whitespace-nowrap">{props.t("list.versionValue", { version: item.latest_version })}</TableCell>
-                  <TableCell onClick={(event) => event.stopPropagation()}><ModelNameValue value={item.latest_version_detail?.model ?? ""} /></TableCell>
+                  <TableCell onClick={(event) => event.stopPropagation()}>
+                    {item.latest_version_detail?.fqn ? (
+                      <div dir="ltr" className="flex min-w-max items-center justify-start gap-1 text-start">
+                        <code className="whitespace-nowrap font-mono text-xs" title={item.latest_version_detail.fqn}>
+                          {item.latest_version_detail.fqn}
+                        </code>
+                        <CopyAction
+                          value={item.latest_version_detail.fqn}
+                          copyLabel={props.t("actions.copyFqn")}
+                          copiedLabel={props.t("messages.fqnCopied")}
+                          className="shrink-0"
+                        />
+                      </div>
+                    ) : "-"}
+                  </TableCell>
                   <TableCell><span className="block max-w-xs truncate">{item.description || "-"}</span></TableCell>
                   <TableCell className="whitespace-nowrap"><DateTimeValue value={item.updated_at} locale={props.locale} /></TableCell>
                   <TableCell className="whitespace-nowrap">{props.userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
@@ -122,10 +133,10 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                       dir={props.locale === "fa" ? "rtl" : "ltr"}
                       stopPropagation
                       actions={[
-                        { label: props.t("actions.tryPrompt"), onSelect: () => props.onTryPrompt(item) },
-                        { label: props.t("actions.createVersion"), onSelect: () => props.onCreateVersion(item) },
-                        { label: props.t("actions.editLatestVersion"), onSelect: () => props.onEditLatestVersion(item) },
-                        { label: props.t("actions.copyFqn"), onSelect: () => props.onCopyFqn(item) },
+                        {
+                          label: props.t("actions.tryPrompt"),
+                          href: `/playground?promptID=${encodeURIComponent(item.id)}&versionID=${encodeURIComponent(item.latest_version_detail?.id ?? "")}`,
+                        },
                         { label: props.t("actions.delete"), destructive: true, separatorBefore: true, onSelect: () => props.onDelete(item) },
                       ]}
                     />

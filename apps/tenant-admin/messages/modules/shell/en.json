@@ -9,6 +9,9 @@
   },
   "menu": {
     "open": "Open menu",
+    "close": "Close menu",
+    "toggle": "Toggle menu",
+    "title": "Panel navigation",
     "description": "Quick navigation and panel shortcuts"
   },
   "wallet": {

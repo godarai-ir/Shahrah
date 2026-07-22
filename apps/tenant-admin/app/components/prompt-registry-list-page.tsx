@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
@@ -12,7 +11,7 @@ import { PromptRegistryList } from "./prompt-registry-list";
 import type { Notice, Prompt } from "./prompt-management-shared";
 import { usePromptRegistryList } from "./use-prompt-registry-list";
 
-export default function PromptRegistryListPage({ docsHref = "/docs/quick-start#prompts" }: { docsHref?: string }) {
+export default function PromptRegistryListPage() {
   const t = useTranslations("prompts");
   const locale = useLocale();
   const router = useRouter();
@@ -47,14 +46,9 @@ export default function PromptRegistryListPage({ docsHref = "/docs/quick-start#p
       />
 
       <PromptRegistryList
-        docsHref={docsHref}
         isLoading={isLoading}
         locale={locale}
-        onCopyFqn={(prompt) => void copyFqn(prompt)}
-        onCreate={() => router.push("/prompts/new")}
-        onCreateVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=create-version`)}
         onDelete={setPendingDeletePrompt}
-        onEditLatestVersion={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=edit-latest`)}
         onNextPage={() => {
           const nextOffset = pageOffset + pageSize;
           setPageOffset(nextOffset);
@@ -82,7 +76,6 @@ export default function PromptRegistryListPage({ docsHref = "/docs/quick-start#p
           }
         }}
         onSearchValueChange={setQuery}
-        onTryPrompt={(prompt) => router.push(`/prompts/${prompt.id}/edit?intent=try`)}
         pageOffset={pageOffset}
         pageSize={pageSize}
         promptTotal={promptTotal}
@@ -94,16 +87,6 @@ export default function PromptRegistryListPage({ docsHref = "/docs/quick-start#p
       <ConfirmDialog open={pendingDeletePrompt !== null} onOpenChange={(open) => { if (!open) setPendingDeletePrompt(null); }} title={t("actions.delete")} description={t("messages.deletePromptConfirm", { name: pendingDeletePrompt?.name ?? "" })} cancelLabel={t("actions.cancel")} confirmLabel={t("actions.delete")} pendingLabel={t("actions.delete")} onConfirm={() => pendingDeletePrompt ? deletePrompt(pendingDeletePrompt) : undefined} />
     </PageContainer>
   );
-
-  async function copyFqn(prompt: Prompt) {
-    const fqn = prompt.latest_version_detail?.fqn?.trim();
-    if (!fqn) {
-      setNotice({ kind: "error", message: t("messages.fqnUnavailable") });
-      return;
-    }
-    await copyTextToClipboard(fqn);
-    setNotice({ kind: "success", message: t("messages.fqnCopied") });
-  }
 
   async function deletePrompt(prompt: Prompt) {
     try {
