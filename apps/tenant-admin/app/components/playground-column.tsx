@@ -6,6 +6,8 @@ import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, P
 import {
   CopyAction,
   EmptyState,
+  formatJson,
+  JsonEditorField,
   PromptMessageEditor,
   RunTelemetryStrip,
   StatusBadge,
@@ -84,7 +86,7 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
   function switchMode(mode: string) {
     if (mode !== "visual" && mode !== "json") return;
     if (mode === "json") {
-      props.onChange({ ...column, editorMode: "json", jsonDraft: serializeColumnJSON(column), jsonError: "" });
+      props.onChange({ ...column, editorMode: "json", jsonDraft: formatJson(serializeColumnJSON(column)), jsonError: "" });
       return;
     }
     const parsed = applyColumnJSON(column);
@@ -211,15 +213,14 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
           </ScrollArea>
         </TabsContent>
         <TabsContent value="json" className="min-h-0 overflow-auto p-3">
-          <VariableTextareaField
+          <JsonEditorField
             label={props.t("json")}
             variables={props.variables ?? []}
             value={column.jsonDraft}
             error={column.jsonError || undefined}
             readOnly={props.readOnly}
-            onChange={(event) => props.onChange({ ...column, jsonDraft: event.target.value, jsonError: "", dirty: true })}
-            overlayClassName="font-mono text-xs leading-6"
-            className="min-h-96 text-start font-mono text-xs leading-6"
+            onValueChange={(jsonDraft) => props.onChange({ ...column, jsonDraft, jsonError: "", dirty: true })}
+            className="min-h-96"
           />
           <div className="mt-3 flex justify-end">
             <Button type="button" size="sm" disabled={props.readOnly} onClick={() => switchMode("visual")}>{props.t("actions.applyJson")}</Button>

@@ -75,8 +75,14 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 	handler.SetResponseCache(service)
 	app := setupTestApp(t, handler)
 
-	makeRequest := func() *testResponse {
-		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hello"}]}`))
+	makeRequest := func(runID string) *testResponse {
+		body, marshalErr := json.Marshal(map[string]interface{}{
+			"model":    "gpt-4",
+			"messages": []map[string]string{{"role": "user", "content": "hello"}},
+			"metadata": map[string]string{"source": "tenant_admin_playground", "client_run_id": runID},
+		})
+		require.NoError(t, marshalErr)
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
 		resp, requestErr := app.Test(req)
@@ -86,11 +92,11 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 		return &testResponse{Response: resp}
 	}
 
-	first := makeRequest()
+	first := makeRequest("run-1")
 	assert.Equal(t, http.StatusOK, first.StatusCode)
 	assert.Equal(t, "miss", first.Header.Get(apiheaders.HeaderCacheStatus))
 
-	second := makeRequest()
+	second := makeRequest("run-2")
 	assert.Equal(t, http.StatusOK, second.StatusCode)
 	assert.Equal(t, "hit", second.Header.Get(apiheaders.HeaderCacheStatus))
 	assert.NotEmpty(t, second.Header.Get(apiheaders.HeaderCachedTraceID))
@@ -116,12 +122,13 @@ func (m *mockTunnelTransport) Healthy(ctx context.Context) error { return nil }
 
 // mockBilling implements budgeter interface for testing.
 type mockBilling struct {
-	cost          platform.UsageCostBreakdown
-	estimateErr   error
-	rateLimitErr  error
-	rateLimitRes  *mcache.RateLimitResult
-	budgetErr     error
-	estimateModel string
+	cost           platform.UsageCostBreakdown
+	estimateErr    error
+	rateLimitErr   error
+	rateLimitRes   *mcache.RateLimitResult
+	budgetErr      error
+	estimateModel  string
+	finalizedUsage *contractsopenai.Usage
 }
 
 func (m *mockBilling) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
@@ -143,6 +150,10 @@ func (m *mockBilling) CheckBudget(ctx context.Context, authCtx *platform.AuthCon
 }
 
 func (m *mockBilling) FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	if usage != nil {
+		copy := *usage
+		m.finalizedUsage = &copy
+	}
 	return m.cost, nil
 }
 
@@ -2056,15 +2067,17 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 	logger, _ := zap.NewDevelopment()
 	r := newTestRouter(t, logger)
 
-	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 4, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,")}
+	stream.chunks <- platform.TunnelChunk{Data: []byte("\"completion_tokens\":5,\"total_tokens\":15}}\n\n")}
 
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
 
 	close(stream.chunks)
 
 	mTunnel := &mockTunnelTransport{stream: stream}
-	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{InputTokens: 10, OutputTokens: 5, TotalCostUSD: 0.001, TotalCostIRR: 850, TotalTokens: 15}}
 	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
 
@@ -2078,6 +2091,7 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 	})
 	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(apiheaders.HeaderStreamTelemetry, "true")
 
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
 	defer closeResponseBody(t, resp)
@@ -2091,7 +2105,14 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 
 	bodyText := string(body)
 	assert.Contains(t, bodyText, `"content":"Salam"`)
+	assert.Contains(t, bodyText, "event: godarai.telemetry")
+	assert.Contains(t, bodyText, `"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}`)
+	assert.Contains(t, bodyText, `"cost_usd":0.001`)
+	assert.Less(t, strings.Index(bodyText, "event: godarai.telemetry"), strings.Index(bodyText, "data: [DONE]"))
 	assert.Contains(t, bodyText, "data: [DONE]")
+	require.NotNil(t, mBilling.finalizedUsage)
+	assert.Equal(t, 10, mBilling.finalizedUsage.PromptTokens)
+	assert.Equal(t, 5, mBilling.finalizedUsage.CompletionTokens)
 	assert.True(t, stream.closed)
 	require.Len(t, mWallet.debitCalls, 1)
 	require.Len(t, mLogs.loggedSpends, 1)

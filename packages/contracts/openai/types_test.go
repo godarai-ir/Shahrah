@@ -6,6 +6,16 @@ import (
 	"testing"
 )
 
+func TestChatCompletionRequestPreservesStreamUsageOption(t *testing.T) {
+	var req ChatCompletionRequest
+	if err := json.Unmarshal([]byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}],"stream":true,"stream_options":{"include_usage":true}}`), &req); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if req.StreamOptions == nil || !req.StreamOptions.IncludeUsage {
+		t.Fatalf("stream_options.include_usage was not preserved: %#v", req.StreamOptions)
+	}
+}
+
 func TestChatMessageContentUnmarshalString(t *testing.T) {
 	var req ChatCompletionRequest
 	err := json.Unmarshal([]byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`), &req)

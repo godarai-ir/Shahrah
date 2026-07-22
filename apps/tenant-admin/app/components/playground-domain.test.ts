@@ -95,6 +95,7 @@ describe("playground domain", () => {
       { role: "system", content: "Use brief" },
       { role: "user", content: "Hello Ada" },
     ]);
+    expect(built.payload.request.stream_options).toEqual({ include_usage: true });
   });
 
   it("keeps immutable clone identifiers and stores tools in the manifest parameters", () => {

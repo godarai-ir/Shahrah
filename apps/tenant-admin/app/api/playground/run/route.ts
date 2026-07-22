@@ -20,6 +20,7 @@ const CHAT_REQUEST_FIELDS = new Set([
   "model",
   "messages",
   "stream",
+  "stream_options",
   "temperature",
   "top_p",
   "max_tokens",
@@ -94,6 +95,9 @@ export async function POST(request: NextRequest) {
     }
   }
   const upstreamHeaders = new Headers();
+  if (mode === "chat" && body?.request?.stream === true) {
+    upstreamHeaders.set("x-godarai-include-stream-telemetry", "true");
+  }
   const cacheConfig = body?.godarai?.cache_config;
   if (cacheConfig && Object.keys(cacheConfig).length > 0) {
     upstreamHeaders.set("x-godarai-cache-config", JSON.stringify(cacheConfig));
@@ -243,6 +247,12 @@ function validateImagePayload(body: PlaygroundRunPayload): { ok: true } | { ok: 
 
 function validateRequestParameters(request: Record<string, unknown>): string | null {
   if (request.stream !== undefined && typeof request.stream !== "boolean") return "stream must be a boolean.";
+  if (request.stream_options !== undefined) {
+    if (!isRecord(request.stream_options)) return "stream_options must be an object.";
+    const unsupported = Object.keys(request.stream_options).filter((key) => key !== "include_usage");
+    if (unsupported.length) return `Unsupported stream_options fields: ${unsupported.join(", ")}`;
+    if (request.stream_options.include_usage !== undefined && typeof request.stream_options.include_usage !== "boolean") return "stream_options.include_usage must be a boolean.";
+  }
   if (!optionalFiniteNumber(request.temperature, 0, 2)) return "temperature must be between 0 and 2.";
   if (!optionalFiniteNumber(request.top_p, 0, 1)) return "top_p must be between 0 and 1.";
   for (const name of ["max_tokens", "max_output_tokens"] as const) {

@@ -92,7 +92,7 @@ describe("playground run route", () => {
       client_run_id: "run-1",
       comparison_id: "cmp-1",
       column_id: "column-1",
-      request: { model: "gpt-test", messages: [{ role: "user", content: "hi" }], stream: true, metadata: { experiment: "a" } },
+      request: { model: "gpt-test", messages: [{ role: "user", content: "hi" }], stream: true, stream_options: { include_usage: true }, metadata: { experiment: "a" } },
     });
     await POST(request);
 
@@ -100,6 +100,8 @@ describe("playground run route", () => {
     const options = proxyToControlPlaneStreamMock.mock.calls[0][0];
     expect(options.path).toBe("/v1/chat/completions");
     expect(options.body.metadata).toEqual({ source: "tenant_admin_playground", experiment: "a", client_run_id: "run-1", comparison_id: "cmp-1", column_id: "column-1" });
+    expect(options.body.stream_options).toEqual({ include_usage: true });
+    expect(options.upstreamHeaders.get("x-godarai-include-stream-telemetry")).toBe("true");
     expect(options.exposeResponseHeaders).toContain("x-godarai-cost-irr");
   });
 

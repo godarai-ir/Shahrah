@@ -50,6 +50,7 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
   const config = column.config;
   const cacheLimits = resolveCacheLimits(props.cacheEntitlements);
   const cacheUnavailable = !cacheLimits.simpleEnabled && !cacheLimits.semanticEnabled;
+  const showCachePlanLimit = cacheLimits.resolved && (!cacheLimits.simpleEnabled || !cacheLimits.semanticEnabled);
   const selectedCacheTypeUnavailable = config.cacheType === "simple" ? !cacheLimits.simpleEnabled : !cacheLimits.semanticEnabled;
   const cacheConfigDisabled = props.readOnly || cacheUnavailable || selectedCacheTypeUnavailable;
   const simpleCacheMaxTTL = config.cacheType === "simple" && cacheLimits.simpleTTLDays !== null
@@ -152,7 +153,7 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
                 <h3 className="text-sm font-semibold">{props.t("settings.cache")}</h3>
                 <HelpLink href="/docs/guides/caching" />
               </div>
-              {cacheLimits.resolved ? (
+              {showCachePlanLimit ? (
                 <Alert variant="info">
                   <AlertTitle>{props.t("settings.cachePlanLimitTitle")}</AlertTitle>
                   <AlertDescription>{getCachePlanLimitMessage(cacheLimits, props.t)}</AlertDescription>

@@ -302,6 +302,8 @@ export default function PlaygroundPage() {
     let usage: Record<string, unknown> | undefined;
     let responseID: string | undefined;
     let responseModel: string | undefined;
+    let streamedCostUSD: number | undefined;
+    let streamedCostIRR: number | undefined;
     let rawResponse: unknown = null;
     setNotice(null);
     setResults((current) => {
@@ -349,13 +351,15 @@ export default function PlaygroundPage() {
             responseID = snapshot.responseID;
             responseModel = snapshot.responseModel;
             firstTokenAt = snapshot.firstTokenAt;
+            streamedCostUSD = snapshot.costUSD;
+            streamedCostIRR = snapshot.costIRR;
             setResults((current) => ({
               ...current,
               [column.id]: {
                 ...current[column.id], status: "running", responseText, toolCalls, finishReason,
                 rawResponse: { id: responseID, model: responseModel, choices: [{ message: { role: "assistant", content: responseText, tool_calls: toolCalls }, finish_reason: finishReason }], usage },
                 responseIsPrevious: false,
-                telemetry: { ...baseTelemetry, effectiveModel: responseModel ?? baseTelemetry.effectiveModel, ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt), ...usageTelemetry(usage) },
+                telemetry: { ...baseTelemetry, effectiveModel: responseModel ?? baseTelemetry.effectiveModel, ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt), ...usageTelemetry(usage), costUSD: streamedCostUSD ?? baseTelemetry.costUSD, costIRR: streamedCostIRR ?? baseTelemetry.costIRR },
               },
             }));
           },
@@ -367,6 +371,8 @@ export default function PlaygroundPage() {
         responseID = streamed.responseID;
         responseModel = streamed.responseModel;
         firstTokenAt = streamed.firstTokenAt;
+        streamedCostUSD = streamed.costUSD;
+        streamedCostIRR = streamed.costIRR;
       } else {
         const payload = await response.json() as Record<string, unknown>;
         if (mode === "image_generation") {
@@ -397,11 +403,13 @@ export default function PlaygroundPage() {
         [column.id]: {
           status: "success", responseText, rawResponse: rawResponse ?? normalizedResponse, toolCalls, generatedImages, finishReason, responseIsPrevious: false,
           telemetry: {
-            ...telemetryFromHeaders(response.headers, column.selectedModel, startedAt),
+            ...baseTelemetry,
             effectiveModel: responseModel ?? column.selectedModel,
             durationMs,
             ttftMs: firstTokenAt === undefined ? undefined : Math.round(firstTokenAt - startedAt),
             ...usageTelemetry(usage),
+            costUSD: streamedCostUSD ?? baseTelemetry.costUSD,
+            costIRR: streamedCostIRR ?? baseTelemetry.costIRR,
             ...(mode === "image_generation" ? {
               imageCount: generatedImages.length,
               requestedImageSize: column.imageConfig.size,

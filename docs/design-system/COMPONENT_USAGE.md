@@ -92,6 +92,8 @@ Use `ModelNameValue` for model identifiers in tables and compact metadata. It ke
 
 Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared syntax-highlighted `CodeBlock`; use `CodeBlock` alone only inside an existing panel that already supplies this hierarchy.
 
+Use `JsonEditorField` for editable JSON surfaces. It keeps JSON direction LTR, uses the shared Prism-based syntax highlighting, preserves optional prompt-variable decoration, and pretty-formats valid JSON on blur with the shared formatter. Keep read-only JSON on `CodeBlock` or `CodePanel`.
+
 Use `TablePagination` for previous/next pagination. Pass localized summary and button labels from the feature namespace, and provide page/page-size values only when they add useful context.
 
 Use the feature-level `GatewayPolicyRulesList` for the shared Rate Limit and Budget Limit page shell. It composes `PageHeader`, entitlement-aware create actions, notice feedback, `DataListPanel`, the create/edit `Sheet`, `ConfirmDialog`, and the plan-upgrade dialog.

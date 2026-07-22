@@ -66,15 +66,22 @@ func TestParseHeaderValidation(t *testing.T) {
 func TestSimpleCacheExactHitAndIsolation(t *testing.T) {
 	service := newTestService(t, nil)
 	cfg, _ := service.ParseHeader(`{"type":"simple","ttl":60}`)
-	req := contractsopenai.ChatCompletionRequest{Model: "gpt-4", Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "hello"}}}
+	req := contractsopenai.ChatCompletionRequest{
+		Model:    "gpt-4",
+		Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "hello"}},
+		Metadata: map[string]interface{}{"source": "tenant_admin_playground", "client_run_id": "run-1", "comparison_id": "comparison-1"},
+	}
 	scope := Scope{TenantID: "tenant-1", KeyID: "key-1", Model: "gpt-4"}
 	result, pending, err := service.Lookup(context.Background(), scope, req, cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "miss", result.Status)
 	require.NoError(t, service.Store(context.Background(), pending, []byte(`{"id":"cached"}`), "trace-original", "openai", "gpt-4", platform.UsageCostBreakdown{InputTokens: 10, OutputTokens: 5, TotalCostUSD: 0.01, TotalCostIRR: 8500, ExchangeRate: 850000}, "test-pricing-v1"))
-	result, _, err = service.Lookup(context.Background(), scope, req, cfg)
+	secondReq := req
+	secondReq.Metadata = map[string]interface{}{"source": "tenant_admin_playground", "client_run_id": "run-2", "comparison_id": "comparison-2"}
+	result, _, err = service.Lookup(context.Background(), scope, secondReq, cfg)
 	require.NoError(t, err)
 	require.NotNil(t, result.Entry)
+	assert.Equal(t, "run-1", req.Metadata["client_run_id"], "fingerprinting must not mutate request metadata")
 	assert.Equal(t, "trace-original", result.Entry.TraceID)
 	assert.Equal(t, 0.01, result.Entry.CostSnapshot.CostUSD)
 	assert.Equal(t, "test-pricing-v1", result.Entry.CostSnapshot.PricingVersion)

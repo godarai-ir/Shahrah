@@ -10,6 +10,8 @@ export type PlaygroundStreamSnapshot = {
   responseID?: string;
   responseModel?: string;
   firstTokenAt?: number;
+  costUSD?: number;
+  costIRR?: number;
 };
 
 type FrameScheduler = (callback: () => void) => () => void;
@@ -63,6 +65,10 @@ export async function consumePlaygroundStream(response: Response, options: Consu
         snapshot.responseID = typeof chunk.id === "string" ? chunk.id : snapshot.responseID;
         snapshot.responseModel = typeof chunk.model === "string" ? chunk.model : snapshot.responseModel;
         if (chunk.usage && typeof chunk.usage === "object") snapshot.usage = chunk.usage as Record<string, unknown>;
+        if (chunk.object === "godarai.telemetry") {
+          snapshot.costUSD = finiteNumber(chunk.cost_usd) ?? snapshot.costUSD;
+          snapshot.costIRR = finiteNumber(chunk.cost_irr) ?? snapshot.costIRR;
+        }
 
         const choice = Array.isArray(chunk.choices) ? chunk.choices[0] as Record<string, unknown> | undefined : undefined;
         const delta = choice?.delta && typeof choice.delta === "object" ? choice.delta as Record<string, unknown> : undefined;
@@ -76,7 +82,7 @@ export async function consumePlaygroundStream(response: Response, options: Consu
           options.onUpdate(cloneSnapshot(snapshot));
         }
         if (typeof choice?.finish_reason === "string") snapshot.finishReason = choice.finish_reason;
-        if (!text && (chunk.usage || choice?.finish_reason)) options.onUpdate(cloneSnapshot(snapshot));
+        if (!text && (chunk.usage || choice?.finish_reason || chunk.object === "godarai.telemetry")) options.onUpdate(cloneSnapshot(snapshot));
       }
     }
 
@@ -185,6 +191,10 @@ function mergeToolCallDeltas(current: unknown[], deltas: unknown[]): unknown[] {
 
 function cloneSnapshot(snapshot: PlaygroundStreamSnapshot): PlaygroundStreamSnapshot {
   return { ...snapshot, toolCalls: structuredClone(snapshot.toolCalls), usage: snapshot.usage ? { ...snapshot.usage } : undefined };
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function scheduleBrowserFrame(callback: () => void) {

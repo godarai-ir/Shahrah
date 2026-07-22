@@ -7,6 +7,7 @@ import { DisplaySettingsProvider } from '@/components/display-settings-provider'
 import { DisplaySettingsDialog } from '@/components/display-settings-dialog';
 import { CompareProvider } from '@/components/compare/compare-provider';
 import { CompareTray } from '@/components/compare/compare-tray';
+import { SiteFooter } from '@/components/site-footer';
 
 const sans = IBM_Plex_Sans({ subsets: ['latin'], variable: '--font-sans', weight: ['400','500','600','700'] });
 const mono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400','500'] });
@@ -25,7 +26,7 @@ const links = [
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body className="min-h-screen bg-zinc-950 text-zinc-100">
+      <body className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
         <QueryProvider>
           <DisplaySettingsProvider>
             <CompareProvider>
@@ -43,7 +44,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   </div>
                 </nav>
               </header>
-              <main className="mx-auto max-w-7xl px-4 py-6 pb-28">{children}</main>
+              <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-28">{children}</main>
+              <SiteFooter />
               <CompareTray />
             </CompareProvider>
           </DisplaySettingsProvider>

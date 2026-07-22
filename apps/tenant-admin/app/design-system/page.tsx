@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -58,6 +58,7 @@ export default function DesignSystemPage() {
   const [searchPickerQuery, setSearchPickerQuery] = useState("");
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [sampleMessage, setSampleMessage] = useState("برای {{topic}} یک توضیح کوتاه بنویس.");
+  const [sampleJson, setSampleJson] = useState('{"model":"gpt-5-nano","messages":[{"role":"user","content":"برای {{topic}} توضیح بنویس"}]}');
   const requestsDisplay = formatCompactNumber(128_400, { locale: "en-US" });
   const spendDisplay = formatCompactCurrency(12_340, { locale: "en-US", currency: "USD" });
   const irrDisplay = formatCompactIrr(845_000, { locale: "fa-IR" });
@@ -388,6 +389,7 @@ export default function DesignSystemPage() {
             <AppTextareaField label="Description" placeholder="Describe this resource" />
             <AppSwitchField label="Enable caching" description="Cache matching gateway requests." checked />
             <AppCodeTextareaField label="JSON schema" defaultValue={'{\n  "type": "object"\n}'} />
+            <JsonEditorField label="JSON editor" value={sampleJson} variables={["topic"]} onValueChange={setSampleJson} />
             <AppNumberField label="Timeout" defaultValue={30} min={1} step={1} />
             <ExpirationDurationField defaultValue="30d" />
             <ModelNameValue value="openai:gpt-5-nano" />

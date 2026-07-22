@@ -17,6 +17,7 @@ const (
 	HeaderCacheSimilarity = "x-godarai-cache-similarity-score"
 	HeaderCostUSD         = "x-godarai-cost-usd"
 	HeaderCostIRR         = "x-godarai-cost-irr"
+	HeaderStreamTelemetry = "x-godarai-include-stream-telemetry"
 	HeaderGuardrails      = "x-godarai-guardrails"
 	HeaderGuardrailsScope = "x-godarai-guardrails-scope"
 	HeaderUserID          = "x-godarai-user-id"

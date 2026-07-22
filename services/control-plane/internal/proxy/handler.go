@@ -1042,6 +1042,7 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 }
 
 func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+	includeStreamTelemetry := strings.EqualFold(strings.TrimSpace(c.Get(apiheaders.HeaderStreamTelemetry)), "true")
 	requestLogBase := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "failed", 0, start, 0)
 	requestLogBase.RequestID = tunnelReq.RequestID
 	requestLogBase.TraceID = tunnelReq.TraceID
@@ -1114,20 +1115,24 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 		}
 
 		budgetCommitted := false
+		finalized := false
+		var finalizedCost platform.UsageCostBreakdown
+		usageCapture := &streamUsageCapture{}
 		defer func() {
 			if !budgetCommitted {
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
 			}
 		}()
 
-		finalizeAndLogSuccess := func() {
-			if budgetCommitted {
-				return
+		finalizeAndLogSuccess := func() platform.UsageCostBreakdown {
+			if finalized {
+				return finalizedCost
 			}
+			finalized = true
 
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
 
-			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, nil, estimated)
+			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, usageCapture.Usage(), estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
 
@@ -1186,6 +1191,8 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 					"tenant_slug": tenantSlug,
 				}, tunnelReq.Deployment),
 			})
+			finalizedCost = finalCost
+			return finalizedCost
 		}
 
 		for {
@@ -1198,6 +1205,18 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 
 				if len(chunk.Data) > 0 {
 					responseCapture.Append(chunk.Data)
+					usageCapture.Add(chunk.Data)
+					if chunk.IsDone && includeStreamTelemetry && isStreamDoneMarker(chunk.Data) {
+						finalCost := finalizeAndLogSuccess()
+						if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
+							h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+							return
+						}
+						if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
+							h.logger.Warn("failed to write streaming done chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+						}
+						return
+					}
 					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_write_failed")
@@ -1208,7 +1227,12 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}
 
 				if chunk.IsDone {
-					finalizeAndLogSuccess()
+					finalCost := finalizeAndLogSuccess()
+					if includeStreamTelemetry {
+						if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
+							h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+						}
+					}
 					return
 				}
 			case err, ok := <-stream.Errors():
@@ -1246,6 +1270,101 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, fiber.StatusOK, map[string]interface{}{"stream": true})
 
 	return nil
+}
+
+type streamUsageCapture struct {
+	buffer string
+	usage  *contractsopenai.Usage
+}
+
+func (capture *streamUsageCapture) Add(data []byte) {
+	capture.buffer += string(data)
+	for {
+		frame, rest, ok := takeSSEFrame(capture.buffer)
+		if !ok {
+			return
+		}
+		capture.buffer = rest
+		payload := streamFrameData(frame)
+		if payload == "" || payload == "[DONE]" {
+			continue
+		}
+
+		var chunk contractsopenai.StreamChunk
+		if err := json.Unmarshal([]byte(payload), &chunk); err == nil && chunk.Usage != nil {
+			usage := *chunk.Usage
+			capture.usage = &usage
+		}
+	}
+}
+
+func (capture *streamUsageCapture) Usage() *contractsopenai.Usage {
+	if capture == nil || capture.usage == nil {
+		return nil
+	}
+	usage := *capture.usage
+	return &usage
+}
+
+func takeSSEFrame(buffer string) (string, string, bool) {
+	newlineIndex := strings.Index(buffer, "\n\n")
+	carriageReturnIndex := strings.Index(buffer, "\r\n\r\n")
+	index := newlineIndex
+	delimiterLength := 2
+	if carriageReturnIndex >= 0 && (index < 0 || carriageReturnIndex < index) {
+		index = carriageReturnIndex
+		delimiterLength = 4
+	}
+	if index < 0 {
+		return "", buffer, false
+	}
+	return buffer[:index], buffer[index+delimiterLength:], true
+}
+
+func streamFrameData(frame string) string {
+	lines := strings.Split(strings.ReplaceAll(frame, "\r\n", "\n"), "\n")
+	data := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data = append(data, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+	}
+	if len(data) > 0 {
+		return strings.Join(data, "\n")
+	}
+	trimmed := strings.TrimSpace(frame)
+	if strings.HasPrefix(trimmed, "{") || trimmed == "[DONE]" {
+		return trimmed
+	}
+	return ""
+}
+
+func isStreamDoneMarker(data []byte) bool {
+	trimmed := strings.TrimSpace(string(data))
+	return trimmed == "[DONE]" || trimmed == "data: [DONE]"
+}
+
+func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown) error {
+	payload, err := json.Marshal(struct {
+		Object  string                `json:"object"`
+		Usage   contractsopenai.Usage `json:"usage"`
+		CostUSD float64               `json:"cost_usd"`
+		CostIRR float64               `json:"cost_irr"`
+	}{
+		Object: "godarai.telemetry",
+		Usage: contractsopenai.Usage{
+			PromptTokens:     cost.InputTokens,
+			CompletionTokens: cost.OutputTokens,
+			TotalTokens:      cost.TotalTokens,
+		},
+		CostUSD: cost.TotalCostUSD,
+		CostIRR: cost.TotalCostIRR,
+	})
+	if err != nil {
+		return err
+	}
+	return writeBufferedBytes(w, bytes.Join([][]byte{[]byte("event: godarai.telemetry\ndata: "), payload, []byte("\n\n")}, nil))
 }
 
 func (h *ChatCompletionHandler) emitModelMetric(input metricsobs.BuildInput) {

@@ -11,6 +11,7 @@ type ChatCompletionRequest struct {
 	Model             string                 `json:"model"`
 	Messages          []ChatMessage          `json:"messages"`
 	Stream            bool                   `json:"stream,omitempty"`
+	StreamOptions     *StreamOptions         `json:"stream_options,omitempty"`
 	Temperature       *float64               `json:"temperature,omitempty"`
 	TopP              *float64               `json:"top_p,omitempty"`
 	MaxTokens         *int                   `json:"max_tokens,omitempty"`
@@ -24,6 +25,11 @@ type ChatCompletionRequest struct {
 	User              string                 `json:"user,omitempty"`
 	PromptVersionFQN  string                 `json:"prompt_version_fqn,omitempty"`
 	PromptVariables   map[string]string      `json:"prompt_variables,omitempty"`
+}
+
+// StreamOptions configures optional fields emitted by compatible streaming providers.
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage,omitempty"`
 }
 
 // ChatMessage represents a single message in a chat completion request.
@@ -436,6 +442,7 @@ type StreamChunk struct {
 	Created int64    `json:"created"`
 	Model   string   `json:"model"`
 	Choices []Choice `json:"choices"`
+	Usage   *Usage   `json:"usage,omitempty"`
 }
 
 // APIError represents an API error response.

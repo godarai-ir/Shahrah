@@ -212,11 +212,12 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 	if err != nil {
 		return Result{}, nil, err
 	}
+	fingerprintReq := cacheFingerprintRequest(req)
 
 	exactHash, err := hashJSON(struct {
 		Version string
 		Request contractsopenai.ChatCompletionRequest
-	}{schemaVersion, req})
+	}{schemaVersion, fingerprintReq})
 	if err != nil {
 		return Result{}, nil, err
 	}
@@ -234,7 +235,7 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 
 	last := req.Messages[len(req.Messages)-1]
 	text := contractsopenai.ChatContentText(last.Content)
-	parameterReq := req
+	parameterReq := fingerprintReq
 	parameterReq.Messages = append([]contractsopenai.ChatMessage(nil), req.Messages...)
 	parameterReq.Messages[len(parameterReq.Messages)-1].Content = "__semantic_final_user_text__"
 
@@ -288,6 +289,13 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 	}
 
 	return Result{Status: "miss", CacheType: cfg.Type, EmbeddingLatencyMS: embeddingLatencyMS}, pending, nil
+}
+
+func cacheFingerprintRequest(req contractsopenai.ChatCompletionRequest) contractsopenai.ChatCompletionRequest {
+	// Metadata is retained for logs and tracing, but the gateway does not send it
+	// to providers, so it cannot affect the generated response or cache identity.
+	req.Metadata = nil
+	return req
 }
 
 // AcquireMiss serializes provider work for one exact cache key. The returned

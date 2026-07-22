@@ -142,7 +142,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       ? generatedPatSecret ?? manualTokens.pat.trim()
       : manualTokens.vat.trim();
 
-  const tokenPlaceholder = effectiveSelectedTokenType === "pat" ? "YOUR_GodarAI_PAT" : "YOUR_GodarAI_VAT";
+  const tokenPlaceholder = effectiveSelectedTokenType === "pat" ? "YOUR_GODARAI_PAT" : "YOUR_GODARAI_VAT";
   const tokenForSnippet = effectiveToken || tokenPlaceholder;
   const baseUrl = getTenantApiBaseURL();
   const bashSnippet = buildBashCurlGuideCommand({

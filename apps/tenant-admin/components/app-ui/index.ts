@@ -29,6 +29,7 @@ export { FormDialog, type FormDialogProps, type FormDialogSize } from "./FormDia
 export { FormSheet, type FormSheetProps, type FormSheetSize } from "./FormSheet";
 export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";
+export { formatJson, JsonEditor, JsonEditorField, type JsonEditorFieldProps, type JsonEditorProps } from "./JsonEditor";
 export { MetricCard, type MetricCardProps } from "./MetricCard";
 export { ModelNameValue, type ModelNameValueProps } from "./ModelNameValue";
 export { OneTimeSecretDialog, type OneTimeSecretDialogProps } from "./OneTimeSecretDialog";

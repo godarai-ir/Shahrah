@@ -336,6 +336,7 @@ export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, compar
     ...buildParameters(column, true),
     metadata: metadata.value,
   };
+  if (column.config.stream) request.stream_options = { include_usage: true };
   if (toolsResult.tools.length) request.tools = toolsResult.tools;
 
   return {
