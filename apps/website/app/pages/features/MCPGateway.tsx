@@ -51,9 +51,9 @@ function MCPGatewayDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'MCP Server فعال', value: '۲۴', icon: Server, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
-            { label: 'Tool Invocation امروز', value: invocations.toLocaleString('fa-IR'), icon: Wrench, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+            { label: 'فراخوانی ابزار امروز', value: invocations.toLocaleString('fa-IR'), icon: Wrench, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
             { label: 'درخواست Block شده', value: blocked.toLocaleString('fa-IR'), icon: XCircle, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10' },
-            { label: 'Tool ثبت‌شده', value: '۱۸۰', icon: Package, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-500/10' },
+            { label: 'ابزار ثبت‌شده', value: '۱۸۰', icon: Package, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-500/10' },
           ].map((s, i) => (
             <div key={i} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <div className="flex justify-between items-start mb-2">
@@ -137,7 +137,7 @@ function MCPGatewayDashboard() {
               {[
                 { label: 'درخواست‌های Pass', val: '۱,۲۰۸', color: 'text-emerald-600 dark:text-emerald-400' },
                 { label: 'Block شده', val: blocked.toLocaleString('fa-IR'), color: 'text-rose-600 dark:text-rose-400' },
-                { label: 'Audit Logs', val: '۱,۲۴۰', color: 'text-slate-500' },
+                { label: 'رخدادهای ثبت‌شده', val: '۱,۲۴۰', color: 'text-slate-500' },
               ].map((r, i) => (
                 <div key={i} className="flex justify-between items-center py-1 font-sans text-[10px]">
                   <span className="text-slate-500">{r.label}</span>
@@ -151,13 +151,13 @@ function MCPGatewayDashboard() {
         {/* Audit Logs */}
         <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-1.5">
-            <BookOpen className="w-3 h-3 text-slate-500" /> Audit Logs — آخرین رویدادها
+            <BookOpen className="w-3 h-3 text-slate-500" /> رخدادهای اخیر فراخوانی
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-[10px] font-sans text-right">
               <thead>
                 <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
-                  {['زمان', 'Agent', 'Tool', 'Server', 'وضعیت', 'Policy', 'Latency'].map(h => (
+                  {['زمان', 'ایجنت', 'ابزار', 'سرور', 'وضعیت', 'سیاست', 'تأخیر'].map(h => (
                     <th key={h} className="pb-2 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -239,7 +239,7 @@ function ToolRegistryPanel() {
           <Package className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
         </div>
         <span className="font-bold text-slate-800 dark:text-white">Tool Registry</span>
-        <span className="mr-auto text-[10px] text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 px-2 py-0.5 rounded-full font-bold">۱۸۰ Tool</span>
+        <span className="mr-auto text-[10px] text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 px-2 py-0.5 rounded-full font-bold">۱۸۰ ابزار</span>
       </div>
       <div className="space-y-3">
         {tools.map((srv, i) => (
@@ -284,7 +284,7 @@ function AccessControlMatrix() {
         <table className="w-full text-right">
           <thead>
             <tr className="text-slate-500 border-b border-slate-800">
-              {['تیم', 'Workspace', 'MCP Server', 'Toolهای مجاز', 'سطح دسترسی', 'Policy', 'وضعیت'].map(h => (
+              {['تیم', 'فضای کاری', 'سرور MCP', 'ابزارهای مجاز', 'سطح دسترسی', 'سیاست', 'وضعیت'].map(h => (
                 <th key={h} className="pb-2 font-medium text-[9px] px-2">{h}</th>
               ))}
             </tr>
@@ -388,9 +388,9 @@ function MCPAnalyticsDashboard() {
       </div>
       <div className="grid grid-cols-2 gap-2">
         {[
-          { label: 'Request Volume', value: '۱,۲۴۰', bar: 80, color: 'bg-indigo-500', tc: 'text-indigo-600 dark:text-indigo-400' },
+          { label: 'حجم درخواست', value: '۱,۲۴۰', bar: 80, color: 'bg-indigo-500', tc: 'text-indigo-600 dark:text-indigo-400' },
           { label: 'Error Rate', value: '۱.۳٪', bar: 13, color: 'bg-rose-500', tc: 'text-rose-600 dark:text-rose-400' },
-          { label: 'Latency by Tool', value: '۰.۶s', bar: 35, color: 'bg-amber-500', tc: 'text-amber-600 dark:text-amber-400' },
+          { label: 'تأخیر بر اساس ابزار', value: '۰.۶s', bar: 35, color: 'bg-amber-500', tc: 'text-amber-600 dark:text-amber-400' },
           { label: 'Failed Invocations', value: '۱۶', bar: 8, color: 'bg-rose-500', tc: 'text-rose-600 dark:text-rose-400' },
         ].map((m, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5">
@@ -427,10 +427,10 @@ function MCPAnalyticsDashboard() {
 // ─── Runtime Policy Flow ──────────────────────────────────────────────────────
 function RuntimePolicyFlow() {
   const steps = [
-    { num: '۱', label: 'Agent درخواست Tool می‌دهد', icon: Bot, color: 'bg-indigo-500' },
+    { num: '۱', label: 'ایجنت ابزار را فراخوانی می‌کند', icon: Bot, color: 'bg-indigo-500' },
     { num: '۲', label: 'بررسی هویت و دسترسی', icon: Key, color: 'bg-amber-500' },
-    { num: '۳', label: 'اجرای Policy روی ورودی', icon: Shield, color: 'bg-purple-500' },
-    { num: '۴', label: 'اجرای Tool (در صورت Pass)', icon: Wrench, color: 'bg-teal-500' },
+    { num: '۳', label: 'اجرای سیاست روی ورودی', icon: Shield, color: 'bg-purple-500' },
+    { num: '۴', label: 'اجرای ابزار در صورت مجازبودن', icon: Wrench, color: 'bg-teal-500' },
   ];
   return (
     <div className="bg-slate-50 dark:bg-[#121827] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 font-sans text-xs space-y-3">
@@ -498,7 +498,7 @@ function InternalSharingDiagram() {
           ))}
         </div>
         <div className="w-full p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-center text-emerald-700 dark:text-emerald-400 font-bold text-[10px]">
-          ✓ Credential هرگز در Agent یا کد پخش نمی‌شود
+          ✓ اعتبارنامه در ایجنت یا کد پخش نمی‌شود
         </div>
       </div>
     </div>
@@ -513,7 +513,7 @@ function OrgScaleDiagram() {
         <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
           <Building className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
         </div>
-        <span className="font-bold text-slate-800 dark:text-white">مقیاس سازمانی — یک Gateway</span>
+        <span className="font-bold text-slate-800 dark:text-white">مقیاس سازمانی — یک درگاه</span>
       </div>
       <div className="space-y-2">
         {[
@@ -557,7 +557,7 @@ function CTAMiniDashboard() {
     <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 font-sans text-sm text-white">
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
         <Server className="w-4 h-4 text-indigo-300" />
-        <span className="text-xs font-bold text-white/80">MCP Gateway — وضعیت لحظه‌ای</span>
+        <span className="text-xs font-bold text-white/80">درگاه MCP — نمای نمونه</span>
         <span className="mr-auto flex items-center gap-1 text-[10px] text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
           Live
@@ -566,8 +566,8 @@ function CTAMiniDashboard() {
       <div className="grid grid-cols-2 gap-3">
         {[
           { label: '۲۴ MCP Server فعال', icon: Server, color: 'text-indigo-300' },
-          { label: '۱۸۰ Tool ثبت‌شده', icon: Package, color: 'text-purple-300' },
-          { label: `${invocations.toLocaleString('fa-IR')} Tool Invocation امروز`, icon: Wrench, color: 'text-emerald-300' },
+          { label: '۱۸۰ ابزار ثبت‌شده', icon: Package, color: 'text-purple-300' },
+          { label: `${invocations.toLocaleString('fa-IR')} فراخوانی ابزار امروز`, icon: Wrench, color: 'text-emerald-300' },
           { label: '۹۸.۷٪ نرخ موفقیت', icon: CheckCircle, color: 'text-teal-300' },
           { label: `${blocked} درخواست Block شده`, icon: XCircle, color: 'text-rose-300' },
           { label: 'RBAC + Policy Enforcement', icon: Shield, color: 'text-amber-300' },
@@ -585,28 +585,28 @@ function CTAMiniDashboard() {
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 const faqItems = [
   {
-    question: 'MCP Gateway گدارAI دقیقاً چه کاری انجام می‌دهد؟',
-    answer: 'گدارAI یک لایه مرکزی برای دسترسی Agentها به MCP Serverها و Toolها فراهم می‌کند. این لایه Authentication، Access Control، Tool Registry، Observability، Audit Logs، Analytics و Policy Enforcement را مدیریت می‌کند.',
+    question: 'درگاه MCP چه مسئله‌ای را حل می‌کند؟',
+    answer: 'درگاه MCP مسیر دسترسی ایجنت‌ها به سرورها و ابزارها را متمرکز می‌کند تا هویت، مجوز، اعتبارنامه و رخداد هر فراخوانی در چند اتصال پراکنده نماند.',
   },
   {
-    question: 'آیا برای استفاده از MCP Gateway باید Agentها یا MCP Serverها را تغییر دهیم؟',
-    answer: 'هدف MCP Gateway این است که بدون تغییر جدی در Agentها یا Serverها، یک لایه کنترل، امنیت و مشاهده‌پذیری روی مسیر MCP اضافه کند.',
+    question: 'برای اتصال چه چیزهایی باید از قبل مشخص باشد؟',
+    answer: 'نشانی و روش احراز هویت سرور، فهرست ابزارهای مجاز، هویت مصرف‌کننده و سیاست دسترسی هر تیم باید روشن باشد. جزئیات اتصال به نوع سرور و کلاینت MCP شما وابسته است.',
   },
   {
-    question: 'آیا می‌توانیم دسترسی به Toolها را در سطح تیم یا کاربر کنترل کنیم؟',
-    answer: 'بله. با RBAC و Access Control می‌توانید مشخص کنید هر سازمان، Workspace، تیم، کاربر یا Agent به کدام MCP Server و کدام Tool دسترسی دارد.',
+    question: 'چرا دسترسی باید در سطح ابزار محدود شود؟',
+    answer: 'مجوز اتصال به یک سرور نباید خودکار به معنی مجوز اجرای همه ابزارهای آن باشد. هر هویت فقط باید ابزارهای لازم برای وظیفه خود را ببیند و اجرا کند.',
   },
   {
-    question: 'اگر Agent بخواهد Tool غیرمجاز را اجرا کند چه می‌شود؟',
-    answer: 'اگر Tool یا Server در Gateway تأیید نشده باشد یا Policy اجازه ندهد، درخواست می‌تواند قبل از اجرا Block شود و در Audit Logs ثبت شود.',
+    question: 'اگر ایجنت ابزار غیرمجاز را فراخوانی کند چه می‌شود؟',
+    answer: 'درخواست باید پیش از رسیدن به سرور رد شود و رخداد آن با هویت، ابزار، زمان و علت تصمیم ثبت شود تا تیم بتواند سیاست یا رفتار ایجنت را بازبینی کند.',
   },
   {
-    question: 'آیا اجرای Toolها قابل Trace و Debug است؟',
-    answer: 'بله. می‌توانید ببینید هر Agent چه Toolی را چه زمانی، با چه ورودی، چه خروجی، چه Latency، چه خطا و چه Policy Verdictی اجرا کرده است.',
+    question: 'در پایش فراخوانی ابزار چه داده‌ای مهم است؟',
+    answer: 'هویت ایجنت، نام سرور و ابزار، زمان اجرا، نتیجه مجوز، وضعیت، تأخیر و خطا حداقل داده‌های لازم برای عیب‌یابی هستند. ثبت ورودی و خروجی باید تابع سیاست حریم خصوصی باشد.',
   },
   {
-    question: 'آیا می‌توانیم Toolهای داخلی و Vendor Toolها را کنار هم مدیریت کنیم؟',
-    answer: 'بله. گدارAI می‌تواند Toolهای داخلی، Vendor Toolها و Partner Toolها را در یک Registry و تحت یک مدل Governance، Access Control، Observability و Policy مدیریت کند.',
+    question: 'آیا ابزار داخلی و بیرونی به سیاست یکسان نیاز دارند؟',
+    answer: 'اصل کمترین دسترسی و ثبت رخداد برای هر دو لازم است؛ اما روش احراز هویت، محل نگهداری اعتبارنامه و محدودیت داده باید برای هر سرور جداگانه تعریف شود.',
   },
   {
     question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
@@ -632,7 +632,7 @@ export function MCPGateway() {
               style={{ fontFamily: 'var(--font-heading)' }}
             >
               <Server className="w-4 h-4" />
-              MCP Gateway برای تیم‌های ایرانی AI
+              درگاه MCP برای ایجنت‌های سازمانی
             </motion.div>
 
             <motion.h1
@@ -655,7 +655,7 @@ export function MCPGateway() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گدارAI، ایجنت‌ها را به سرورهای MCP و ابزارهای داخلی یا خارجی وصل کنید، بدون اینکه دسترسی‌ها پراکنده شوند یا اعتبارنامه‌ها در تیم‌ها پخش شوند. از یک لایه مرکزی، احراز هویت، کنترل دسترسی، مشاهده‌پذیری، اجرای سیاست و مصرف MCP را مدیریت کنید؛ با کاهش ریسک اتصال مستقیم و پرداخت ارزی.
+              مسیر دسترسی ایجنت‌ها به سرورها و ابزارهای MCP را متمرکز کنید. هویت، ابزارهای مجاز، اعتبارنامه و رخداد هر فراخوانی را در یک لایه مشترک مدیریت کنید.
             </motion.p>
 
             <motion.div
@@ -691,18 +691,18 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-              ساخته‌شده برای تیم‌هایی که Agentها را به Toolهای واقعی متصل می‌کنند
+              برای تیم‌هایی که ایجنت را به ابزارهای واقعی متصل می‌کنند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گدارAI به تیم‌های Backend، Platform، AI و امنیت کمک می‌کند MCP Serverها و Toolها را در یک لایه مرکزی مدیریت کنند؛ با دسترسی کنترل‌شده، رهگیری کامل، Policyهای اجرایی، پایش مصرف و تجربه‌ای مناسب بازار ایران.
+              تیم‌های فنی و امنیت باید بدانند هر ایجنت به کدام سرور و ابزار دسترسی دارد، اعتبارنامه کجا نگهداری می‌شود و نتیجه هر فراخوانی چگونه پیگیری می‌شود.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             {[
-              'استارتاپ‌های AI', 'تیم‌های Backend و Platform', 'تیم‌های امنیت و DevOps',
-              'محصولات SaaS', 'تیم‌های R&D و AI Lab', 'سازمان‌های داده‌محور',
-              'تیم‌هایی که Agentهای متصل به Tool می‌سازند',
-              'شرکت‌هایی که ابزارهای داخلی را به AI متصل می‌کنند',
+              'استارتاپ‌های هوش مصنوعی', 'تیم‌های بک‌اند و زیرساخت', 'تیم‌های امنیت و عملیات',
+              'محصولات SaaS', 'تیم‌های تحقیق و توسعه', 'سازمان‌های داده‌محور',
+              'تیم‌هایی که ایجنت متصل به ابزار می‌سازند',
+              'شرکت‌هایی که ابزارهای داخلی را به هوش مصنوعی متصل می‌کنند',
             ].map((chip, idx) => (
               <div key={idx} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
                 {chip}
@@ -717,10 +717,10 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              لایه کنترل مرکزی برای MCP
+              چهار کنترل پایه در مسیر MCP
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              MCP وقتی در محصول واقعی استفاده می‌شود، فقط یک اتصال ساده بین Agent و Tool نیست. باید بدانید چه Agentی به چه Toolی دسترسی دارد، چه کسی احراز هویت شده، کدام Tool اجرا شده و کدام Policy روی مسیر اعمال شده است.
+              اتصال ایجنت به ابزار فقط یک مسیر فنی نیست. هویت مصرف‌کننده، مجوز ابزار، اعتبارنامه سرور و داده قابل ثبت باید پیش از استفاده عملیاتی روشن باشند.
             </p>
           </div>
 
@@ -732,13 +732,13 @@ export function MCPGateway() {
                   <Key className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  پشتیبانی داخلی از انواع Authentication
+                  احراز هویت متناسب با هر سرور
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  گدارAI می‌تواند مسیر اتصال به MCP Serverها را با روش‌های مختلف Authentication مدیریت کند؛ از OAuth 2.1 و API Token تا Header Auth، JWT Validation، Identity Forwarding و Passthrough Headers. تیم شما می‌تواند ساختار Auth مناسب خود را داشته باشد، بدون اینکه Agentها یا Serverها را پیچیده‌تر کند.
+                  روش اتصال هر سرور را جدا تعریف کنید؛ برای نمونه OAuth، توکن یا سرآیند اختصاصی. اعتبارنامه سرور نباید در پرامپت، کد ایجنت یا میان اعضای تیم پخش شود.
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-6">
-                  اتصال امن به Toolها، بدون پخش شدن Credentialها در کد و تیم‌ها.
+                  اعتبارنامه را در لایه اتصال نگه دارید و به ایجنت فقط مجوز فراخوانی بدهید.
                 </p>
                 <AuthMethodsPanel />
               </div>
@@ -751,13 +751,13 @@ export function MCPGateway() {
                   <Package className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Registry مرکزی برای MCP Serverها و Toolها
+                  فهرست مرکزی سرورها و ابزارها
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  تمام MCP Serverها و Toolهای قابل‌استفاده را در یک Registry واحد ببینید. تیم‌ها می‌توانند Toolهای تأییدشده را پیدا کنند، Serverهای جدید اضافه کنند و دسترسی‌ها را بدون ایجاد پراکندگی در سازمان مدیریت کنند.
+                  نام، مالک، نشانی، روش احراز هویت، ابزارهای ارائه‌شده و وضعیت هر سرور را در یک فهرست مشترک نگه دارید تا اتصال‌های ناشناخته وارد محیط عملیاتی نشوند.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
-                  اگر Tool در Gateway تأیید نشده باشد، Agent اجازه استفاده از آن را ندارد.
+                  هر ابزار باید مالک و محدوده مصرف روشن داشته باشد.
                 </p>
                 <ToolRegistryPanel />
               </div>
@@ -770,13 +770,13 @@ export function MCPGateway() {
                   <Users className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  کنترل دسترسی دقیق برای Serverها و Toolها
+                  کنترل دسترسی در سطح سرور و ابزار
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  با RBAC، دسترسی را در سطح سازمان، Workspace، تیم یا کاربر مشخص کنید. هر تیم فقط به Toolهایی دسترسی داشته باشد که واقعاً نیاز دارد؛ بدون Shadow Tooling و بدون اشتراک‌گذاری مستقیم Credentialها.
+                  مجوز اتصال به سرور را از مجوز اجرای ابزار جدا کنید. هر تیم یا هویت سرویس فقط ابزارهای لازم برای وظیفه خود را دریافت کند.
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-6">
-                  Toolها را بین تیم‌ها به اشتراک بگذارید، نه Credentialها را.
+                  ابزار را به اشتراک بگذارید، نه اعتبارنامه را.
                 </p>
                 <AccessControlMatrix />
               </div>
@@ -789,13 +789,13 @@ export function MCPGateway() {
                   <Eye className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Observability کامل برای Agent Workflowها
+                  مشاهده‌پذیری فراخوانی ابزار
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  برای هر Agent ببینید کدام MCP Tool را صدا زده، با چه ورودی، چه خروجی، چه Latency، چه خطا و چه نتیجه Policy. هر Tool Invocation لاگ، Audit و قابل جست‌وجو باشد تا Debug و بررسی ریسک سریع‌تر انجام شود.
+                  برای هر فراخوانی، هویت ایجنت، سرور، ابزار، نتیجه مجوز، وضعیت، تأخیر و خطا را ثبت کنید. نگهداری ورودی و خروجی را با سیاست حریم خصوصی محدود کنید.
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-6">
-                  Agent فقط پاسخ نمی‌دهد؛ Tool اجرا می‌کند. اجرای Toolها باید قابل‌ردیابی باشد.
+                  ایجنت فقط پاسخ تولید نمی‌کند؛ اجرای ابزار نیز باید قابل پیگیری باشد.
                 </p>
                 <MCPTraceViewer />
               </div>
@@ -811,13 +811,13 @@ export function MCPGateway() {
                   <BarChart3 className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Analytics مصرف و Performance برای MCP
+                  تحلیل مصرف و عملکرد MCP
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  حجم درخواست، Latency، خطاها، Toolهای کند، Serverهای ناپایدار و الگوهای مصرف را در سطح Tool، Server، تیم، کاربر یا Workspace تحلیل کنید. قبل از اینکه مشکل یک Server روی Agentها اثر بگذارد، آن را شناسایی کنید.
+                  حجم فراخوانی، تأخیر و خطا را بر اساس ابزار، سرور یا تیم مقایسه کنید و ابزارهای کند یا سرورهای ناپایدار را پیدا کنید.
                 </p>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-6">
-                  بدانید کدام Tool واقعاً استفاده می‌شود، کدام کند است و کجا خطا زیاد شده است.
+                  بدانید کدام ابزار استفاده می‌شود، کدام کند است و کجا خطا افزایش یافته است.
                 </p>
                 <MCPAnalyticsDashboard />
               </div>
@@ -830,13 +830,13 @@ export function MCPGateway() {
                   <Settings className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Policy Enforcement در زمان اجرا
+                  اجرای سیاست پیش از فراخوانی
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  Policyها فقط برای گزارش نیستند. گدارAI می‌تواند قبل از اجرای Tool، دسترسی غیرمجاز را متوقف کند، PII را Redact کند، محتوای حساس را فیلتر کند یا درخواست‌های مشکوک را Block کند. این Policyها می‌توانند در مسیر LLM و MCP به‌صورت یکپارچه اجرا شوند.
+                  پیش از ارسال فراخوانی به سرور، هویت و مجوز ابزار را بررسی کنید. کنترل متن حساس نیز باید متناسب با داده ورودی و خروجی و سیاست حریم خصوصی همان ابزار تعریف شود.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
-                  قبل از اجرای Tool، تصمیم بگیرید اجازه دارد یا نه.
+                  پیش از اجرای ابزار مشخص کنید چه هویتی چه مجوزی دارد.
                 </p>
                 <RuntimePolicyFlow />
               </div>
@@ -850,10 +850,10 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              یک Interface واحد برای تمام MCP Serverهای شما
+              یک مسیر مشترک برای سرورهای MCP
             </h2>
             <p className="text-lg text-slate-400">
-              MCP Serverها می‌توانند داخلی، Vendor-based یا Partner-based باشند. گدارAI کمک می‌کند همه آن‌ها از یک مسیر امن، قابل‌کنترل و قابل‌مشاهده در اختیار Agentها قرار بگیرند.
+              سرورها ممکن است داخلی یا متعلق به سرویس بیرونی باشند. برای هرکدام، مالک، روش احراز هویت، ابزارهای مجاز و سیاست ثبت داده را جداگانه مشخص کنید.
             </p>
           </div>
 
@@ -864,10 +864,10 @@ export function MCPGateway() {
                 <Lock className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                اشتراک‌گذاری Toolهای داخلی بدون افشای Credentialها
+                اشتراک‌گذاری ابزار بدون افشای اعتبارنامه
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-5 flex-1">
-                Toolها و MCP Serverهای داخلی را برای Agentها و تیم‌ها قابل‌استفاده کنید، اما Credentialها را در Gateway نگه دارید. کاربران و Agentها از مسیر کنترل‌شده احراز هویت می‌شوند و مجوزها در سطح تیم یا کاربر اعمال می‌شوند.
+                ابزار داخلی را از مسیر درگاه در اختیار هویت‌های مجاز قرار دهید و اعتبارنامه سرور را در لایه اتصال نگه دارید، نه در کد یا پرامپت ایجنت.
               </p>
               <InternalSharingDiagram />
             </div>
@@ -878,10 +878,10 @@ export function MCPGateway() {
                 <Building className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                مقیاس‌دادن دسترسی MCP در کل سازمان
+                یکدست‌کردن دسترسی در چند تیم
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-5 flex-1">
-                به‌جای اینکه هر تیم مسیر اتصال جداگانه بسازد، همه MCP Serverها را از طریق گدارAI در اختیار سازمان قرار دهید. کاربران با هویت سازمانی احراز هویت شوند، و تمام ترافیک از Gateway عبور کند.
+                به‌جای اتصال جداگانه هر تیم، سرورها و ابزارهای تأییدشده را در یک فهرست مشترک نگه دارید و محدوده مصرف هر تیم را روشن کنید.
               </p>
               <OrgScaleDiagram />
             </div>
@@ -892,10 +892,10 @@ export function MCPGateway() {
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                Vendor Toolها زیر Governance شما
+                ابزارهای بیرونی زیر سیاست سازمان
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-5 flex-1">
-                Toolهای Vendor یا Partner را با OAuth، API Key یا Custom Auth متصل کنید و آن‌ها را تحت همان مدل Governance، Access Control، Observability و Policy Enforcement ابزارهای داخلی قرار دهید.
+                برای ابزار بیرونی، روش احراز هویت و محدودیت داده را جداگانه تعریف کنید و همان اصول دسترسی حداقلی و ثبت رخداد را اعمال کنید.
               </p>
               <div className="grid grid-cols-2 gap-2 font-sans text-xs">
                 {['Vendor MCP Server', 'Partner Tool', 'External Data Tool', 'SaaS Connector', 'Internal API Tool', 'Knowledge Tool'].map(t => (
@@ -917,43 +917,43 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              با MCP Gateway گدارAI چه چیزی می‌توانید بسازید؟
+              درگاه MCP برای چه جریان‌هایی مناسب است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              MCP Gateway به شما اجازه می‌دهد Toolها را از چند Server مختلف به Agentها متصل کنید، اما دسترسی، امنیت، مصرف و Policyها را در یک لایه مرکزی نگه دارید.
+              وقتی یک یا چند ایجنت باید به ابزارهای داخلی یا بیرونی دسترسی داشته باشند، درگاه MCP مرز اتصال، دسترسی و پایش را روشن می‌کند.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
               {
                 icon: Bot, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'Agentهای متصل به ابزارهای داخلی',
-                desc: 'Agentهایی بسازید که به سیستم‌های داخلی، APIها، دیتابیس‌ها، فایل‌ها یا Knowledge Base سازمان متصل می‌شوند، اما هر Tool Call آن‌ها قابل‌ردیابی و کنترل‌شده است.',
+                title: 'ایجنت‌های متصل به ابزارهای داخلی',
+                desc: 'دسترسی ایجنت به API، پایگاه داده، فایل یا پایگاه دانش را به ابزارهای لازم محدود و رخداد هر فراخوانی را قابل پیگیری کنید.',
               },
               {
                 icon: ShieldCheck, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
                 title: 'دستیارهای سازمانی امن',
-                desc: 'برای تیم‌های Support، Sales، Finance، Product یا Ops دستیارهایی بسازید که فقط به Toolهای مجاز همان تیم دسترسی دارند.',
+                desc: 'برای تیم‌های پشتیبانی، فروش، مالی، محصول یا عملیات دستیارهایی بسازید که فقط ابزارهای مجاز همان تیم را می‌بینند.',
               },
               {
                 icon: LayoutGrid, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                title: 'Tool Marketplace داخلی',
-                desc: 'یک Registry داخلی از Toolهای تأییدشده ایجاد کنید تا تیم‌ها بتوانند ابزارهای قابل‌اعتماد را پیدا، تست و در Agentهای خود استفاده کنند.',
+                title: 'فهرست ابزارهای تأییدشده',
+                desc: 'فهرستی از ابزارهای دارای مالک و کاربرد روشن بسازید تا تیم‌ها برای اتصال تازه، مسیر ناشناخته و پراکنده ایجاد نکنند.',
               },
               {
                 icon: GitBranch, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10',
-                title: 'Multi-agent Workflowهای قابل‌ممیزی',
-                desc: 'وقتی چند Agent به چند Tool متصل هستند، اجرای هر مرحله، هر Tool Invocation و هر Policy Decision را Trace و Audit کنید.',
+                title: 'جریان چندایجنتی قابل پیگیری',
+                desc: 'وقتی چند ایجنت به چند ابزار متصل‌اند، هویت فراخواننده، ابزار، نتیجه مجوز و خطای هر فراخوانی را ثبت کنید.',
               },
               {
                 icon: Network, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
                 title: 'اتصال کنترل‌شده به Vendorها',
-                desc: 'Agentها را به Toolهای بیرونی وصل کنید، اما Credential، سطح دسترسی، Rate Limit و Policyها را در اختیار Gateway نگه دارید.',
+                desc: 'ایجنت را به ابزار بیرونی وصل کنید، اما اعتبارنامه، سطح دسترسی و محدودیت مصرف را در لایه اتصال نگه دارید.',
               },
               {
                 icon: Database, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'AI Context Platform برای سازمان',
-                desc: 'زیرساختی بسازید که Agentها از طریق آن به Context، ابزارها، داده‌ها و MCP Serverهای سازمان دسترسی امن و قابل‌ردیابی داشته باشند.',
+                title: 'دسترسی سازمانی به زمینه و ابزار',
+                desc: 'مسیر مشخصی بسازید تا ایجنت‌ها فقط به زمینه، داده و ابزار لازم برای وظیفه خود دسترسی داشته باشند.',
               },
             ].map((card, i) => (
               <motion.div
@@ -982,10 +982,10 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              پلتفرم Context سازمانی برای AI بسازید
+              دسترسی ایجنت به زمینه سازمان را مدیریت کنید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              وقتی Agentها به داده‌ها و ابزارهای واقعی وصل می‌شوند، MCP به یک لایه کلیدی در AI stack تبدیل می‌شود. گدارAI کمک می‌کند این لایه را امن، قابل‌ممیزی و قابل‌مقیاس اجرا کنید.
+              وقتی ایجنت به داده و ابزار واقعی وصل می‌شود، خطای مجوز یا افشای اعتبارنامه می‌تواند اثر عملیاتی داشته باشد. مرز دسترسی را پیش از توسعه جریان روشن کنید.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -993,19 +993,19 @@ export function MCPGateway() {
               {
                 icon: ShieldCheck, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-200 dark:border-indigo-500/20',
                 title: 'Secure by Design',
-                desc: 'دسترسی به Toolها، Serverها و Credentialها از ابتدا با کنترل امنیتی طراحی می‌شود؛ با مدیریت هویت، سطح دسترسی، Audit Logs و Policyهای Runtime.',
+                desc: 'دسترسی به ابزار، سرور و اعتبارنامه از ابتدا با هویت مشخص، مجوز حداقلی و سیاست ثبت داده طراحی می‌شود.',
                 tags: ['RBAC', 'Audit Logs', 'Runtime Policy', 'Credential Vault'],
               },
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-200 dark:border-purple-500/20',
-                title: 'یک Control Plane برای LLM و MCP',
-                desc: 'مدل‌ها و Toolها را جدا از هم مدیریت نکنید. گدارAI می‌تواند Gateway، Observability و Policy را برای هر دو مسیر LLM و MCP در یک تجربه واحد فراهم کند.',
+                title: 'یک لایه کنترل برای مدل و ابزار',
+                desc: 'هویت سرویس، سیاست دسترسی و داده‌های پایش مدل و ابزار را با واژگان و مالکیت مشترک مدیریت کنید.',
                 tags: ['LLM Gateway', 'MCP Gateway', 'Unified Observability'],
               },
               {
                 icon: Settings, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-200 dark:border-emerald-500/20',
-                title: 'قابل‌استقرار متناسب با نیاز تیم شما',
-                desc: 'بسته به نیاز تیم، معماری گدارAI می‌تواند برای SaaS، Private Cloud، VPC یا Self-hosted در نظر گرفته شود تا کنترل و امنیت بیشتری فراهم شود.',
+                title: 'مرز استقرار روشن',
+                desc: 'پیش از اتصال، مشخص کنید درگاه، سرور MCP، داده و اعتبارنامه در کدام محیط قرار می‌گیرند و مسئولیت هر مرز با کدام تیم است.',
                 tags: ['SaaS', 'Private Cloud', 'VPC', 'Self-hosted'],
               },
             ].map((card, i) => (
@@ -1040,7 +1040,7 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا MCP Gateway گدارAI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا درگاه MCP برای تیم‌های ایرانی مهم است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               برای تیم‌های ایرانی، اتصال Agentها به Toolهای واقعی فقط مسئله فنی نیست؛ دسترسی پایدار، تحریم، پرداخت، امنیت داده، Credential Management و کنترل ابزارهای داخلی هم اهمیت دارد.
@@ -1051,7 +1051,7 @@ export function MCPGateway() {
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
                 title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
-                desc: 'با گدارAI، تیم شما برای اتصال Agentها به مدل‌ها و ابزارهای AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                desc: 'مسیر مشترک اتصال، وابستگی کد ایجنت به سرویس بیرونی را کمتر می‌کند و تغییر سرور یا روش احراز هویت را قابل مدیریت‌تر می‌سازد.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
@@ -1060,13 +1060,13 @@ export function MCPGateway() {
               },
               {
                 icon: Lock, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
-                title: 'کنترل متمرکز روی Toolها، Credentialها و Policyها',
-                desc: 'به‌جای اتصال پراکنده Agentها به چند Server و Tool، گدارAI یک مسیر مرکزی برای MCP Registry، Access Control، Observability، Audit و Policy Enforcement فراهم می‌کند.',
+                title: 'کنترل متمرکز ابزار و اعتبارنامه',
+                desc: 'به‌جای اتصال پراکنده ایجنت‌ها، فهرست سرورها، ابزارهای مجاز، اعتبارنامه و رخداد فراخوانی را در یک مسیر نگه دارید.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
                 title: 'مناسب برای داده فارسی و ابزارهای داخلی ایرانی',
-                desc: 'گدارAI می‌تواند برای سناریوهایی مثل داده فارسی، سیستم‌های داخلی، شماره تماس، کد ملی، منابع سازمانی، APIهای داخلی و Workflowهای تیم‌های ایرانی تنظیم شود.',
+                desc: 'برای ابزارهای داخلی، داده فارسی، APIهای سازمانی و الگوهای حساس خود سیاست دسترسی و ثبت داده مشخص تعریف کنید.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -1094,40 +1094,40 @@ export function MCPGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              MCP Gateway گدارAI برای چه سناریوهایی مناسب است؟
+              درگاه MCP گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
               {
                 icon: Bot, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'Agentهای متصل به ابزارهای سازمانی',
-                desc: 'Agentهایی بسازید که به ابزارهای داخلی، APIها، فایل‌ها، Knowledge Base یا سیستم‌های سازمانی متصل می‌شوند، اما دسترسی و اجرای آن‌ها قابل‌کنترل است.',
+                title: 'ایجنت‌های متصل به ابزارهای سازمانی',
+                desc: 'دسترسی به ابزار داخلی، API، فایل، پایگاه دانش یا سامانه سازمانی را در سطح سرور و ابزار محدود کنید.',
               },
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
                 title: 'تیم‌های Backend و Platform',
-                desc: 'MCP Serverها، Tool Registry، Credentialها، Auth، Policyها و Observability را از یک لایه مرکزی مدیریت کنید.',
+                desc: 'سرورهای MCP، فهرست ابزار، اعتبارنامه، احراز هویت، سیاست دسترسی و پایش را در یک لایه مدیریت کنید.',
               },
               {
                 icon: ShieldCheck, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
                 title: 'تیم‌های امنیت و DevOps',
-                desc: 'دسترسی غیرمجاز به Toolها را متوقف کنید، Audit Logs داشته باشید، Policyهای Runtime اجرا کنید و Credentialها را از کد و تیم‌ها جدا نگه دارید.',
+                desc: 'دسترسی غیرمجاز را پیش از فراخوانی متوقف کنید، رخدادها را ثبت کنید و اعتبارنامه را از کد و تیم‌ها جدا نگه دارید.',
               },
               {
                 icon: Activity, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'تیم‌های محصول و AI',
-                desc: 'Agentهای محصولی را به Toolهای مختلف متصل کنید، اما کیفیت، خطا، Latency، استفاده از Tool و Policy Verdictها را مشاهده کنید.',
+                title: 'تیم‌های محصول و هوش مصنوعی',
+                desc: 'ایجنت محصول را به ابزارهای مختلف وصل کنید و وضعیت، خطا، تأخیر، میزان استفاده و نتیجه مجوز را ببینید.',
               },
               {
                 icon: Building, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                title: 'سازمان‌های دارای چند تیم AI',
-                desc: 'اگر چند تیم در سازمان از Agent و Tool استفاده می‌کنند، با Registry و RBAC از Shadow Tooling، دسترسی‌های پراکنده و Credential Sharing جلوگیری کنید.',
+                title: 'سازمان‌های دارای چند تیم هوش مصنوعی',
+                desc: 'اگر چند تیم از ایجنت و ابزار استفاده می‌کنند، با فهرست تأییدشده و دسترسی مبتنی بر نقش از اتصال و اعتبارنامه پراکنده جلوگیری کنید.',
               },
               {
                 icon: Network, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10',
                 title: 'اتصال کنترل‌شده به Vendor Toolها',
-                desc: 'Toolهای بیرونی را به Agentها متصل کنید، اما Auth، Rate Limit، دسترسی، Policy و گزارش رخدادها را در Gateway مرکزی مدیریت کنید.',
+                desc: 'ابزار بیرونی را به ایجنت وصل کنید، اما احراز هویت، محدودیت مصرف، دسترسی و رخدادها را در درگاه مدیریت کنید.',
               },
             ].map((uc, i) => (
               <motion.div
@@ -1163,18 +1163,18 @@ export function MCPGateway() {
             {[
               {
                 tag: 'راهنما', color: 'text-indigo-600 dark:text-indigo-400', tagBg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'چرا MCP Gateway برای Agentهای Production ضروری است؟',
-                desc: 'وقتی Agentها به Toolهای واقعی متصل می‌شوند، Auth، Access Control، Observability و Policy Enforcement به بخشی حیاتی از زیرساخت تبدیل می‌شوند.',
+                title: 'کنترل‌های لازم برای MCP در محیط عملیاتی',
+                desc: 'وقتی ایجنت به ابزار واقعی متصل می‌شود، احراز هویت، دسترسی، مشاهده‌پذیری و اجرای سیاست به بخشی از مسیر اصلی تبدیل می‌شوند.',
               },
               {
                 tag: 'مقاله', color: 'text-purple-600 dark:text-purple-400', tagBg: 'bg-purple-50 dark:bg-purple-500/10',
-                title: 'چالش پنهان MCP در سازمان‌ها',
-                desc: 'با زیاد شدن MCP Serverها، ابزارها و تیم‌ها، Sprawl، Shadow Tooling و Credential Sharing می‌تواند امنیت و مدیریت را سخت کند.',
+                title: 'ریسک اتصال‌های پراکنده MCP',
+                desc: 'با افزایش سرورها، ابزارها و تیم‌ها، اتصال ناشناخته و اشتراک اعتبارنامه می‌تواند مدیریت و امنیت را دشوار کند.',
               },
               {
                 tag: 'راهنما', color: 'text-emerald-600 dark:text-emerald-400', tagBg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'چطور Tool Registry داخلی برای AI بسازیم؟',
-                desc: 'با Registry مرکزی، تیم‌ها می‌توانند Toolهای تأییدشده را پیدا کنند، دسترسی بگیرند و بدون ساخت اتصال‌های پراکنده از آن‌ها استفاده کنند.',
+                title: 'چطور فهرست ابزار داخلی بسازیم؟',
+                desc: 'با فهرست مرکزی، تیم‌ها ابزارهای تأییدشده را پیدا می‌کنند، دسترسی می‌گیرند و اتصال تازه و پراکنده نمی‌سازند.',
               },
             ].map((res, i) => (
               <div key={i} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer group flex flex-col">
@@ -1198,7 +1198,7 @@ export function MCPGateway() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-              سوالات متداول
+              پرسش‌های پرتکرار
             </h2>
           </div>
           <FAQAccordion items={faqItems} />
@@ -1212,10 +1212,10 @@ export function MCPGateway() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-                MCP-powered Agentهای خود را با اطمینان به محیط عملیاتی ببرید
+                دسترسی ایجنت‌ها به ابزار را متمرکز کنید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گدارAI، MCP Serverها، Toolها، Credentialها، Access Control، Observability، Audit Logs و Policyهای Runtime را از یک لایه مرکزی مدیریت کنید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
+                سرورهای MCP، ابزارها، اعتبارنامه‌ها، کنترل دسترسی و رخدادهای فراخوانی را در یک لایه مشترک مدیریت کنید.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(0,0,0,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 group">
@@ -1228,7 +1228,7 @@ export function MCPGateway() {
               </div>
               <div className="mt-8 flex flex-wrap gap-3">
                 {[
-                  { icon: Shield, label: 'بدون تحریم' },
+                  { icon: Shield, label: 'دسترسی متمرکز' },
                   { icon: CreditCard, label: 'بدون پرداخت ارزی' },
                   { icon: ShieldCheck, label: 'آماده محیط عملیاتی' },
                 ].map((b, i) => (

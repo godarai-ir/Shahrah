@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "درگاه MCP",
   description:
-    "سرورهای MCP را در محیط عملیاتی با کنترل دسترسی، مشاهده‌پذیری و سیاست‌های قابل پیگیری مدیریت کنید.",
+    "دسترسی ایجنت‌ها به سرورها و ابزارهای MCP را با سیاست‌های متمرکز و اجرای قابل پیگیری مدیریت کنید.",
   path: "/features/mcp-gateway",
 });
 

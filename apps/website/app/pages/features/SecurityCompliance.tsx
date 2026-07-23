@@ -61,9 +61,9 @@ function SecurityDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'Virtual Keys فعال', value: '۲۴', icon: Key, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
-            { label: 'Policy Coverage', value: '۹۸٪', icon: ShieldCheck, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-            { label: 'درخواست‌های Redacted', value: redactedCount.toLocaleString('fa-IR'), icon: EyeOff, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-500/10' },
+            { label: 'VAT فعال', value: '۲۴', icon: Key, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
+            { label: 'مدل‌های دسترس‌پذیر', value: '۱۸', icon: ShieldCheck, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+            { label: 'درخواست‌های ماسک‌شده', value: redactedCount.toLocaleString('fa-IR'), icon: EyeOff, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-500/10' },
             { label: 'درخواست‌های مسدودشده', value: blockedCount.toLocaleString('fa-IR'), icon: ShieldAlert, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10' },
           ].map((s, i) => (
             <div key={i} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -113,11 +113,11 @@ function SecurityDashboard() {
             </h3>
             <div className="space-y-2 font-sans text-[10px]">
               {[
-                { rule: 'IP Allowlist فعال', ok: true },
-                { rule: 'Geo Block: خارج از ایران', ok: true },
-                { rule: 'Dev → Prod مسدود', ok: true },
-                { rule: 'درخواست بدون Metadata', ok: false },
-                { rule: 'هشدار ترافیک مشکوک', ok: true },
+                { rule: 'PAT برای توسعه انسانی', ok: true },
+                { rule: 'VAT مستقل برای سرویس', ok: true },
+                { rule: 'دسترسی مدل محدود به تیم', ok: true },
+                { rule: 'توکن بدون انقضا', ok: false },
+                { rule: 'محتوای لاگ محدود به نقش', ok: true },
               ].map((r, i) => (
                 <div key={i} className="flex items-center gap-2 py-1.5 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
                   <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${r.ok ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-rose-100 dark:bg-rose-500/20'}`}>
@@ -229,8 +229,8 @@ function InboundRulesBuilder() {
         {[
           { num: 1, rule: 'فقط IPهای مشخص‌شده اجازه اتصال دارند', type: 'ALLOW', ok: true },
           { num: 2, rule: 'درخواست‌های خارج از کشور مجاز نیستند', type: 'BLOCK', ok: false },
-          { num: 3, rule: 'محیط Dev به مدل‌های Production دسترسی ندارد', type: 'DENY', ok: false },
-          { num: 4, rule: 'درخواست‌های بدون Metadata مسدود شوند', type: 'BLOCK', ok: false },
+          { num: 3, rule: 'محیط توسعه به مدل‌های عملیاتی دسترسی ندارد', type: 'DENY', ok: false },
+          { num: 4, rule: 'درخواست‌های بدون فراداده مسدود شوند', type: 'BLOCK', ok: false },
           { num: 5, rule: 'درخواست‌های مشکوک Flag شوند', type: 'FLAG', ok: true },
         ].map((r) => (
           <div key={r.num} className="flex items-center gap-2 p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -295,12 +295,12 @@ function ComplianceStatusCard() {
       </div>
       <div className="space-y-2">
         {[
-          { label: 'Audit Logs', status: 'فعال', ok: true },
-          { label: 'Access Control', status: 'فعال', ok: true },
-          { label: 'Data Redaction', status: 'فعال', ok: true },
-          { label: 'Key Rotation', status: 'فعال', ok: true },
-          { label: 'Policy Coverage', status: '۹۸٪', ok: true },
-          { label: 'Risk Alerts', status: 'فعال', ok: true },
+          { label: 'فراداده لاگ', status: 'فعال', ok: true },
+          { label: 'کنترل دسترسی', status: 'فعال', ok: true },
+          { label: 'ماسک داده', status: 'فعال', ok: true },
+          { label: 'چرخش توکن', status: 'فعال', ok: true },
+          { label: 'دسترسی مدل', status: 'محدود', ok: true },
+          { label: 'محتوای لاگ', status: 'محدود', ok: true },
         ].map((item, i) => (
           <div key={i} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/50 last:border-0">
             <div className="flex items-center gap-2">
@@ -382,7 +382,7 @@ function PolicyMatrix() {
       <table className="w-full text-[10px] text-right">
         <thead>
           <tr className="bg-slate-800/80 text-slate-400">
-            {['تیم', 'مدل‌های مجاز', 'محیط', 'سقف مصرف', 'سطح دسترسی', 'Policy'].map(h => (
+            {['تیم', 'مدل‌های مجاز', 'محیط', 'سقف مصرف', 'سطح دسترسی', 'سیاست'].map(h => (
               <th key={h} className="px-3 py-2.5 font-medium">{h}</th>
             ))}
           </tr>
@@ -414,7 +414,7 @@ function CTAMiniDashboard() {
     <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 font-sans text-sm text-white">
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
         <Shield className="w-4 h-4 text-indigo-300" />
-        <span className="text-xs font-bold text-white/80">Security & Compliance — وضعیت لحظه‌ای</span>
+        <span className="text-xs font-bold text-white/80">امنیت و کنترل دسترسی — نمای نمونه</span>
         <span className="mr-auto flex items-center gap-1 text-[10px] text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
           Live
@@ -422,12 +422,12 @@ function CTAMiniDashboard() {
       </div>
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: '۲۴ Virtual Key فعال', icon: Key, color: 'text-indigo-300' },
-          { label: '۹۸٪ Policy Coverage', icon: ShieldCheck, color: 'text-emerald-300' },
-          { label: '۱,۲۴۰ درخواست Redacted', icon: EyeOff, color: 'text-purple-300' },
+          { label: '۲۴ VAT فعال', icon: Key, color: 'text-indigo-300' },
+          { label: 'دسترسی مدل بر اساس تیم', icon: ShieldCheck, color: 'text-emerald-300' },
+          { label: '۱,۲۴۰ درخواست ماسک‌شده', icon: EyeOff, color: 'text-purple-300' },
           { label: '۳۲ درخواست مسدودشده', icon: ShieldAlert, color: 'text-rose-300' },
-          { label: '۹۹.۹٪ دسترسی پایدار', icon: CheckCircle, color: 'text-teal-300' },
-          { label: 'Audit Logs — همه رویدادها', icon: ClipboardList, color: 'text-amber-300' },
+          { label: 'PAT و VAT جداگانه', icon: CheckCircle, color: 'text-teal-300' },
+          { label: 'مجوز جدا برای محتوای لاگ', icon: ClipboardList, color: 'text-amber-300' },
         ].map((m, i) => (
           <div key={i} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-2.5">
             <m.icon className={`w-3.5 h-3.5 shrink-0 ${m.color}`} />
@@ -442,24 +442,24 @@ function CTAMiniDashboard() {
 // ─── FAQ Data ────────────────────────────────────────────────────────────────
 const faqItems = [
   {
-    question: 'Security & Compliance گدارAI دقیقاً چه کاری انجام می‌دهد؟',
-    answer: 'گدارAI یک لایه مرکزی برای مدیریت کلیدها، دسترسی‌ها، Policyها، Audit Logs و محافظت از داده‌های حساس در مسیر تعامل با مدل‌های AI فراهم می‌کند.',
+    question: 'گدارAI چگونه دسترسی به مدل‌ها را کنترل می‌کند؟',
+    answer: 'توکن، هویت درخواست‌کننده را مشخص می‌کند و گدارAI دسترسی مؤثر او را از حساب ارائه‌دهنده، مدل مجازی، نقش و محدوده تیمی محاسبه می‌کند.',
   },
   {
-    question: 'Virtual Key چه تفاوتی با API Key اصلی دارد؟',
-    answer: 'API Key اصلی مربوط به تأمین‌کننده مدل است، اما Virtual Key در گدارAI ساخته می‌شود و می‌توان برای آن محدودیت، سطح دسترسی، سقف مصرف، مدل‌های مجاز و وضعیت فعال یا غیرفعال تعریف کرد.',
+    question: 'VAT چه تفاوتی با کلید ارائه‌دهنده دارد؟',
+    answer: 'کلید ارائه‌دهنده داخل حساب ارائه‌دهنده نگهداری می‌شود. کلید دسترسی مجازی (VAT) نماینده یک سرویس در گدارAI است و دسترسی آن از کاربر مجازی، تیم و مدل‌های مجاز به دست می‌آید.',
   },
   {
     question: 'آیا می‌توانم جلوی ارسال داده‌های حساس به مدل را بگیرم؟',
-    answer: 'بله. با Data Redaction می‌توانید داده‌هایی مثل شماره تماس، ایمیل، کد ملی، Token، Secret یا Patternهای سفارشی را قبل از ارسال به مدل یا ذخیره در گزارش رخدادها حذف یا ماسک کنید.',
+    answer: 'بله. گاردریل‌های ورودی می‌توانند PII پایه، Secret یا الگوهای Regex را پیش از ارسال متن به مدل شناسایی و ماسک کنند. پوشش هر قاعده را با داده نمونه خود آزمایش کنید.',
   },
   {
-    question: 'آیا می‌توانم مشخص کنم چه IPهایی اجازه اتصال دارند؟',
-    answer: 'بله. با Inbound Rules می‌توانید دسترسی را بر اساس IP، Geo، محیط، تیم یا سایر Metadataها کنترل کنید.',
+    question: 'برای توسعه و محیط عملیاتی از چه توکنی استفاده کنم؟',
+    answer: 'برای تست انسانی و توسعه محلی از PAT استفاده کنید. برای اپلیکیشن، سرویس و کار زمان‌بندی‌شده یک کاربر مجازی بسازید و VAT مستقل صادر کنید.',
   },
   {
-    question: 'آیا فعالیت کاربران و تغییرات کلیدها قابل رهگیری است؟',
-    answer: 'بله. Audit Logs به شما کمک می‌کند فعالیت‌های مهم مثل ساخت کلید، تغییر دسترسی، درخواست‌های مسدودشده، مصرف مدل‌ها و تغییر Policyها را بررسی کنید.',
+    question: 'چطور دسترسی به محتوای لاگ را محدود کنم؟',
+    answer: 'مجوز مشاهده فراداده لاگ (`logs:read_metadata`) از مشاهده محتوای درخواست و پاسخ (`logs:read_content`) جدا است. دسترسی محتوایی را فقط به نقش‌های ضروری بدهید.',
   },
   {
     question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
@@ -486,7 +486,7 @@ export function SecurityCompliance() {
               style={{ fontFamily: 'var(--font-heading)' }}
             >
               <Shield className="w-4 h-4" />
-              Security & Compliance برای تیم‌های ایرانی AI
+              امنیت و کنترل دسترسی مدل‌ها
             </motion.div>
 
             <motion.h1
@@ -494,11 +494,11 @@ export function SecurityCompliance() {
               style={{ fontFamily: 'var(--font-heading)' }}
               {...fadeIn}
             >
-              امنیت، کنترل دسترسی و{' '}
+              هویت سرویس، دسترسی مدل و{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-l from-indigo-500 to-purple-500">
                 Compliance
               </span>{' '}
-              برای تمام تعاملات LLM
+              برای درخواست‌های مدل زبانی
             </motion.h1>
 
             <motion.p
@@ -507,7 +507,7 @@ export function SecurityCompliance() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گدارAI، کلیدهای دسترسی، داده‌های حساس، دسترسی تیم‌ها و مسیر درخواست‌های AI را از یک لایه مرکزی مدیریت کنید؛ بدون افشای کلیدها، بدون پراکندگی دسترسی‌ها و با کاهش ریسک اتصال مستقیم و پرداخت ارزی مستقیم.
+              کلید خام ارائه‌دهنده را از اپلیکیشن جدا نگه دارید، برای انسان و سرویس توکن مناسب بسازید، دسترسی‌ها را با نقش و تیم محدود کنید و داده حساس را پیش از ارسال به مدل کنترل کنید.
             </motion.p>
 
             <motion.div
@@ -553,17 +553,17 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-              ساخته‌شده برای تیم‌هایی که AI را امن و قابل‌کنترل وارد محصول می‌کنند
+              برای تیم‌هایی که مدل زبانی را با دسترسی حداقلی به کار می‌گیرند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گدارAI به تیم‌های فنی، محصول، امنیت و مدیریت کمک می‌کند استفاده از مدل‌های LLM را با کنترل دسترسی، مدیریت کلیدها، گزارش‌های رخداد قابل‌ردیابی و سیاست‌های امنیتی شفاف به سطح محیط عملیاتی برسانند.
+              تیم‌های فنی و امنیت می‌توانند هویت کاربران و سرویس‌ها، مدل‌های مجاز، مجوزهای مدیریتی و شیوه ثبت محتوای درخواست را جداگانه کنترل کنند.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             {[
-              'استارتاپ‌های AI', 'تیم‌های Backend و Platform', 'تیم‌های امنیت و DevOps',
-              'محصولات SaaS', 'سازمان‌های داده‌محور', 'تیم‌های Customer Support',
-              'تیم‌های R&D و AI Lab', 'شرکت‌هایی که با داده‌های حساس کار می‌کنند',
+              'استارتاپ‌های هوش مصنوعی', 'تیم‌های بک‌اند و زیرساخت', 'تیم‌های امنیت و عملیات',
+              'محصولات SaaS', 'سازمان‌های داده‌محور', 'تیم‌های پشتیبانی مشتری',
+              'تیم‌های تحقیق و توسعه', 'شرکت‌هایی که با داده‌های حساس کار می‌کنند',
             ].map((chip, idx) => (
               <div key={idx} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
                 {chip}
@@ -578,10 +578,10 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              امن بمانید، قابل‌ممیزی بمانید
+              اعتبارنامه‌ها و دسترسی‌ها را از هم جدا کنید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گدارAI کمک می‌کند کلیدها و داده‌های حساس شما در مسیر تعامل با مدل‌های AI افشا نشوند و استفاده از LLMها تحت سیاست‌های مشخص و قابل‌پیگیری انجام شود.
+              اپلیکیشن با توکن گدارAI درخواست می‌فرستد و کلید خام ارائه‌دهنده فقط در حساب مربوط استفاده می‌شود. نقش‌ها و محدوده تیمی نیز اختیار هر هویت را مشخص می‌کنند.
             </p>
           </div>
 
@@ -593,13 +593,13 @@ export function SecurityCompliance() {
                   <Key className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Virtual Keys برای تأمین‌کننده‌های AI
+                  PAT برای انسان، VAT برای سرویس
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  به‌جای اینکه کلید اصلی هر تأمین‌کننده را در چند محصول، چند مخزن کد یا چند محیط توسعه پخش کنید، آن را در گدارAI متصل کنید و برای هر تیم، محصول یا محیط، Virtual Key جداگانه بسازید.
+                  برای تست یک کاربر انسانی PAT بسازید. برای اپلیکیشن یا سرویس محیط عملیاتی، کاربر مجازی تعریف کنید و VAT مستقل صادر کنید تا به حساب شخصی فرد وابسته نباشد.
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-6">
-                  امنیت بیشتر، چرخش ساده‌تر کلیدها، محدودیت‌گذاری دقیق‌تر و رهگیری مصرف در سطح هر کلید.
+                  مقدار خام توکن فقط یک‌بار نمایش داده می‌شود؛ آن را در سامانه مدیریت راز نگه دارید.
                 </p>
                 <VirtualKeysPanel />
               </div>
@@ -612,13 +612,13 @@ export function SecurityCompliance() {
                   <Filter className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  کنترل دسترسی و Inbound Rules
+                  نقش‌ها، مجوزها و محدوده تیمی
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  مشخص کنید چه IPها، کشورها، تیم‌ها یا محیط‌هایی اجازه اتصال به Gateway گدارAI را دارند. با Access Control و قوانین ورودی، ریسک استفاده غیرمجاز یا اتصال مشکوک را کاهش دهید.
+                  نقش، اختیار انجام عملیات را تعیین می‌کند و تیم، محدوده دسترسی را. برای هر کاربر یا سرویس فقط مجوزها و مدل‌های لازم را فعال کنید.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
-                  مناسب برای تیم‌هایی که سیاست‌های امنیتی، محدودیت شبکه یا الزامات داخلی Compliance دارند.
+                  دسترسی مؤثر مدل را پیش از استفاده عملی با ابزار تست دسترسی بررسی کنید.
                 </p>
                 <InboundRulesBuilder />
               </div>
@@ -631,13 +631,13 @@ export function SecurityCompliance() {
                   <EyeOff className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  حذف خودکار داده‌های حساس با Data Redaction
+                  ماسک‌کردن داده حساس با گاردریل
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  گدارAI می‌تواند داده‌های حساس را قبل از ارسال درخواست به مدل شناسایی و حذف یا ماسک کند. اطلاعاتی مثل شماره تماس، ایمیل، کد ملی، توکن‌های داخلی، کلیدها یا داده‌های شخصی می‌توانند از Promptها و گزارش رخدادها پاک‌سازی شوند.
+                  روی متن ورودی مدل، گاردریل PII پایه، تشخیص Secret یا Regex اختصاصی اجرا کنید تا تطابق‌ها پیش از ارسال به ارائه‌دهنده ماسک یا مسدود شوند.
                 </p>
                 <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mb-6">
-                  داده حساس را قبل از اینکه به مدل یا لاگ برسد کنترل کنید.
+                  پوشش الگوهای فارسی و سازمانی را با داده نمونه خودتان آزمایش کنید.
                 </p>
                 <DataRedactionVisual />
               </div>
@@ -650,13 +650,13 @@ export function SecurityCompliance() {
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Compliance با سیاست‌های امنیتی تیم شما
+                  حریم خصوصی لاگ و رد درخواست
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  وقتی AI وارد محصول واقعی می‌شود، تیم‌ها باید بدانند چه کسی، با چه کلیدی، از کدام مدل، در چه زمانی و با چه داده‌ای استفاده کرده است. گدارAI با گزارش‌های رخداد قابل‌ردیابی، سیاست‌های دسترسی و کنترل متمرکز، مسیر استفاده از AI را شفاف‌تر و قابل‌ممیزی‌تر می‌کند.
+                  مشخص کنید فقط فراداده نگهداری شود یا محتوای درخواست و پاسخ نیز ثبت شود. مجوز مشاهده فراداده و مشاهده محتوای لاگ را به نقش‌های جدا بدهید.
                 </p>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-6">
-                  برای Audit، گزارش‌گیری داخلی، کنترل ریسک و آماده‌سازی برای استانداردهای امنیتی.
+                  گدارAI جایگزین سیاست امنیتی یا ممیزی رسمی سازمان شما نیست.
                 </p>
                 <ComplianceStatusCard />
               </div>
@@ -670,10 +670,10 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              یک لایه امنیتی برای AI در مقیاس محیط عملیاتی
+              کنترل‌های پایه برای اتصال عملیاتی مدل‌ها
             </h2>
             <p className="text-lg text-slate-400">
-              اتصال مستقیم به مدل‌ها شاید برای Prototype کافی باشد، اما برای محصول واقعی به کنترل کلیدها، قوانین دسترسی، رهگیری مصرف، محدودیت‌گذاری و محافظت از داده نیاز دارید.
+              در محیط عملیاتی، توکن سرویس، دسترسی مدل، سقف مصرف، مجوز مشاهده لاگ و شیوه نگهداری داده باید جداگانه و قابل بازبینی باشند.
             </p>
           </div>
 
@@ -683,23 +683,23 @@ export function SecurityCompliance() {
               {[
                 {
                   icon: Key, color: 'text-indigo-400', bg: 'bg-indigo-500/20',
-                  title: 'مدیریت متمرکز کلیدهای دسترسی',
-                  desc: 'کلیدهای اصلی تأمین‌کننده‌ها را در یک نقطه امن مدیریت کنید و به‌جای اشتراک‌گذاری مستقیم آن‌ها، از Virtual Keys قابل‌کنترل در تیم‌ها و سرویس‌های مختلف استفاده کنید.',
+                  title: 'جداسازی کلید ارائه‌دهنده از اپلیکیشن',
+                  desc: 'اعتبارنامه ارائه‌دهنده را در حساب همان ارائه‌دهنده نگه دارید و اپلیکیشن را با PAT یا VAT به درگاه متصل کنید.',
                 },
                 {
                   icon: Settings, color: 'text-amber-400', bg: 'bg-amber-500/20',
                   title: 'محدودیت‌گذاری مصرف در سطح تیم و کلید',
-                  desc: 'برای هر تیم، محصول، محیط یا کلید، سقف مصرف، مدل‌های مجاز، Rate Limit و سیاست‌های مشخص تعریف کنید تا هزینه و ریسک امنیتی کنترل شود.',
+                  desc: 'محدودیت نرخ درخواست و سقف هزینه را روی محدوده مناسب تعریف کنید و مدل‌های مجاز هر تیم یا کاربر مجازی را محدود نگه دارید.',
                 },
                 {
                   icon: ClipboardList, color: 'text-emerald-400', bg: 'bg-emerald-500/20',
-                  title: 'Audit Logs برای رهگیری کامل',
-                  desc: 'همه فعالیت‌های مهم مثل ساخت کلید، تغییر دسترسی، مصرف مدل، خطا، درخواست مسدودشده یا تغییر Policy را ثبت کنید تا بعداً قابل بررسی و گزارش‌گیری باشند.',
+                  title: 'لاگ درخواست با دسترسی تفکیک‌شده',
+                  desc: 'فراداده درخواست را برای پایش نگه دارید و مجوز مشاهده محتوای ذخیره‌شده را فقط به نقش‌های دارای نیاز واقعی بدهید.',
                 },
                 {
                   icon: Users, color: 'text-purple-400', bg: 'bg-purple-500/20',
-                  title: 'Policyهای قابل تنظیم برای تیم‌های مختلف',
-                  desc: 'برای تیم‌های Product، Backend، Support، Finance یا R&D سیاست‌های جداگانه تعریف کنید. هر تیم فقط به مدل‌ها، مسیرها و قابلیت‌هایی دسترسی داشته باشد که واقعاً نیاز دارد.',
+                  title: 'نقش و مجوز متناسب با مسئولیت',
+                  desc: 'از نقش‌های سیستمی یا سفارشی استفاده کنید و اصل کمترین دسترسی را برای تیم محصول، فنی، مالی و پشتیبانی رعایت کنید.',
                 },
               ].map((item, i) => (
                 <div key={i} className="flex gap-4">
@@ -730,10 +730,10 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              داده‌های حساس را قبل از رسیدن به مدل کنترل کنید
+              داده حساس را پیش از ارسال به مدل کنترل کنید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              در AI appها، داده‌های کاربران ممکن است ناخواسته وارد Prompt، Response یا Logs شوند. گدارAI کمک می‌کند این داده‌ها قبل از افشا شناسایی، ماسک یا حذف شوند.
+              داده کاربر ممکن است ناخواسته وارد پرامپت یا پاسخ شود. گاردریل‌های متنی و تنظیمات حریم خصوصی لاگ، دو کنترل جدا برای این ریسک هستند.
             </p>
           </div>
 
@@ -742,25 +742,25 @@ export function SecurityCompliance() {
               {
                 icon: EyeOff, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
                 title: 'Redaction برای اطلاعات شخصی',
-                desc: 'اطلاعاتی مثل شماره تماس، ایمیل، نام، کد ملی، آدرس یا شناسه‌های داخلی را قبل از ارسال به مدل یا ذخیره در گزارش رخدادها شناسایی و پاک‌سازی کنید.',
+                desc: 'از گاردریل PII پایه برای الگوهای پشتیبانی‌شده استفاده کنید و پوشش شماره تماس، ایمیل یا شناسه‌های موردنیاز خود را با نمونه واقعی بسنجید.',
                 tags: ['Phone', 'Email', 'National ID', 'Address'],
               },
               {
                 icon: Lock, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                title: 'ماسک کردن Secrets و کلیدها',
-                desc: 'اگر کلید دسترسی، توکن داخلی، Authorization Header یا Secret به‌اشتباه وارد درخواست شود، گدارAI می‌تواند آن را شناسایی و ماسک کند.',
+                title: 'ماسک‌کردن Secret و کلید',
+                desc: 'گاردریل تشخیص Secret چند قالب رایج توکن، JWT و کلید خصوصی را شناسایی می‌کند و می‌تواند مقدار تطبیق‌داده‌شده را ماسک کند.',
                 tags: ['API Key', 'Token', 'Secret', 'Auth Header'],
               },
               {
                 icon: Settings, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
                 title: 'الگوهای سفارشی برای داده‌های سازمانی',
-                desc: 'تیم شما می‌تواند Patternهای اختصاصی برای داده‌های حساس خود تعریف کند؛ مثل شناسه مشتری، شماره قرارداد، کد داخلی یا ساختارهای خاص کسب‌وکار.',
+                desc: 'برای شناسه مشتری، شماره قرارداد یا ساختارهای شناخته‌شده سازمان، Regex اختصاصی تعریف و پیش از اعمال سخت‌گیرانه آزمایش کنید.',
                 tags: ['Customer ID', 'Contract No.', 'Custom Pattern'],
               },
               {
                 icon: FileText, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'کنترل داده در Prompt و Logs',
-                desc: 'داده‌های حساس فقط در مسیر ارسال به مدل مهم نیستند؛ باید در گزارش رخدادها، گزارش‌ها و داشبوردها هم کنترل شوند تا دسترسی داخلی نیز امن بماند.',
+                title: 'کنترل داده در پرامپت و لاگ',
+                desc: 'گاردریل، متن مسیر مدل را کنترل می‌کند. سیاست ثبت داده و مجوزهای لاگ نیز مشخص می‌کنند چه محتوایی ذخیره و برای چه نقشی قابل مشاهده باشد.',
                 tags: ['Prompt', 'Response', 'Logs', 'Dashboard'],
               },
             ].map((card, i) => (
@@ -795,10 +795,10 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Governance برای استفاده تیمی از LLM
+              حاکمیت دسترسی برای استفاده تیمی از مدل‌ها
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              وقتی چند تیم از AI استفاده می‌کنند، باید بدانید چه کسی به چه چیزی دسترسی دارد، چه مصرفی ایجاد می‌کند و کدام Policy روی درخواست‌ها اعمال می‌شود.
+              وقتی چند تیم از مدل‌ها استفاده می‌کنند، محدوده تیمی، نقش، مجوز و مدل‌های مجاز باید روشن و قابل بازبینی باشد.
             </p>
           </div>
 
@@ -807,32 +807,32 @@ export function SecurityCompliance() {
               {
                 icon: Users, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 title: 'دسترسی بر اساس نقش',
-                desc: 'سطح دسترسی کاربران را بر اساس نقش‌هایی مثل Admin، Developer، Viewer، Finance یا Security مشخص کنید.',
+                desc: 'از نقش‌های سیستمی مانند مدیر فضای کاری، مدیر مالی، مدیر تیم، عضو و عضو فقط‌خواندنی یا نقش سفارشی حداقلی استفاده کنید.',
               },
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
                 title: 'جداسازی محیط‌ها',
-                desc: 'کلیدها و Policyهای محیط Development، Staging و Production را جدا نگه دارید تا خطاهای توسعه وارد محصول واقعی نشوند.',
+                desc: 'برای توسعه، آزمایش و محیط عملیاتی حساب ارائه‌دهنده، کاربر مجازی و VAT جدا بسازید تا ابطال یا چرخش مستقل باشد.',
               },
               {
                 icon: Eye, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
                 title: 'دید کامل روی مصرف',
-                desc: 'مصرف AI را در سطح کاربر، تیم، کلید، مدل، تأمین‌کننده و محصول مشاهده کنید.',
+                desc: 'مصرف را در سطح کاربر، تیم، حساب مجازی، مدل و ارائه‌دهنده بررسی کنید.',
               },
               {
                 icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                title: 'هشدارهای امنیتی',
-                desc: 'برای افزایش غیرعادی مصرف، خطاهای زیاد، تلاش‌های دسترسی ناموفق یا درخواست‌های مشکوک هشدار تعریف کنید.',
+                title: 'ابطال و چرخش مستقل توکن',
+                desc: 'برای هر سرویس VAT جدا بسازید تا در صورت افشا یا خروج سرویس از مدار، فقط همان توکن را باطل یا جایگزین کنید.',
               },
               {
                 icon: ToggleRight, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
-                title: 'اجرای خودکار Policy',
-                desc: 'قوانین امنیتی فقط گزارش نمی‌شوند؛ می‌توانند درخواست را محدود، مسدود، ماسک یا به مسیر امن‌تر هدایت کنند.',
+                title: 'سیاست‌های مصرف و گاردریل',
+                desc: 'محدودیت نرخ، سقف هزینه و گاردریل متن را در همان مسیری اعمال کنید که درخواست از آن عبور می‌کند.',
               },
               {
                 icon: ClipboardList, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10',
-                title: 'Audit در سطح سازمان',
-                desc: 'تصمیم‌ها، دسترسی‌ها، تغییرات کلید و مصرف مدل‌ها را در سطح کل سازمان قابل‌ردیابی کنید.',
+                title: 'دسترسی حداقلی به لاگ',
+                desc: 'مشاهده فراداده، محتوای درخواست، خروجی گرفتن و مدیریت نماهای لاگ را با مجوزهای جدا کنترل کنید.',
               },
             ].map((item, i) => (
               <motion.div
@@ -858,7 +858,7 @@ export function SecurityCompliance() {
           <div className="bg-slate-900 rounded-2xl p-6 overflow-hidden">
             <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
               <Users className="w-4 h-4 text-indigo-400" />
-              ماتریس دسترسی تیم‌ها — Policy Matrix
+              نمونه ماتریس دسترسی تیم‌ها
             </h3>
             <PolicyMatrix />
           </div>
@@ -871,10 +871,10 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا Security & Compliance گدارAI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا کنترل متمرکز برای تیم‌های ایرانی مهم است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              برای تیم‌های ایرانی، امنیت AI فقط به محافظت از داده محدود نیست؛ مسئله دسترسی پایدار، پرداخت، ریسک قطع سرویس، کنترل تأمین‌کننده‌ها و مدیریت متمرکز هم مطرح است.
+              برای تیم‌های ایرانی، امنیت هوش مصنوعی فقط به محافظت از داده محدود نیست؛ دسترسی پایدار، پرداخت، کنترل ارائه‌دهنده‌ها و مدیریت متمرکز هم اهمیت دارد.
             </p>
           </div>
 
@@ -883,7 +883,7 @@ export function SecurityCompliance() {
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
                 title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
-                desc: 'با گدارAI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                desc: 'درگاه مشترک، وابستگی کد محصول به اتصال مستقیم هر ارائه‌دهنده را کمتر می‌کند و تغییر مقصد را ساده‌تر می‌سازد.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
@@ -892,13 +892,13 @@ export function SecurityCompliance() {
               },
               {
                 icon: Lock, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
-                title: 'کنترل متمرکز روی کلیدها و دسترسی‌ها',
-                desc: 'گدارAI کمک می‌کند کلیدها، دسترسی‌ها، مصرف، Policyها و گزارش‌های رخداد امنیتی از چند مسیر پراکنده به یک لایه مرکزی منتقل شوند.',
+                title: 'کنترل متمرکز کلیدها و دسترسی‌ها',
+                desc: 'اعتبارنامه ارائه‌دهنده، توکن‌های گدارAI، نقش‌ها، مدل‌های مجاز و سیاست‌های مصرف را در یک فضای کاری مدیریت کنید.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
-                title: 'طراحی‌شده برای تیم‌های فارسی‌زبان',
-                desc: 'داشبوردها، گزارش‌ها و تجربه استفاده در گدارAI برای تیم‌هایی طراحی می‌شود که محصول فارسی، کاربر ایرانی و نیازهای عملیاتی داخل ایران دارند.',
+                title: 'رابط فارسی و هزینه ریالی',
+                desc: 'تیم‌های فنی، مالی و امنیت می‌توانند کنترل‌ها و داده‌های مصرف را در رابط فارسی و با نمایش هزینه ریالی بررسی کنند.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -926,7 +926,7 @@ export function SecurityCompliance() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Security & Compliance گدارAI برای چه سناریوهایی مناسب است؟
+              امنیت و کنترل دسترسی گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -934,27 +934,27 @@ export function SecurityCompliance() {
               {
                 icon: ShoppingCart, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 title: 'محصولات SaaS با داده کاربران',
-                desc: 'اگر کاربران شما اطلاعات شخصی، مکالمه، فایل یا داده حساس وارد محصول می‌کنند، گدارAI کمک می‌کند مسیر تعامل با مدل‌ها امن‌تر و قابل‌کنترل‌تر شود.',
+                desc: 'داده متنی حساس را پیش از ارسال به مدل کنترل کنید و دسترسی به محتوای ذخیره‌شده لاگ را محدود نگه دارید.',
               },
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
                 title: 'تیم‌های Backend و Platform',
-                desc: 'مدیریت API Key، محدودیت مصرف، جداسازی محیط‌ها، Rate Limit و قوانین دسترسی را از یک لایه مرکزی کنترل کنید.',
+                desc: 'توکن، محدودیت مصرف، جداسازی محیط‌ها، محدودیت نرخ و دسترسی مدل را از یک لایه مرکزی کنترل کنید.',
               },
               {
                 icon: ShieldAlert, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
                 title: 'تیم‌های امنیت و DevOps',
-                desc: 'قوانین ورودی، IP Allowlist، Audit Logs، هشدارهای امنیتی و Policyهای اجرایی را برای استفاده امن از AI تعریف کنید.',
+                desc: 'نقش‌ها، مجوزها، سیاست ثبت داده، گاردریل‌های متنی و چرخه چرخش توکن را برای استفاده امن‌تر تعریف کنید.',
               },
               {
                 icon: Briefcase, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
                 title: 'تیم‌های مالی و مدیریت',
-                desc: 'مصرف AI را در سطح کلید، تیم، مدل یا محصول ببینید و مطمئن شوید استفاده از مدل‌ها تحت محدودیت‌های بودجه و Policy انجام می‌شود.',
+                desc: 'مصرف مدل را در سطح توکن، تیم، مدل یا محصول ببینید و مطمئن شوید سقف هزینه و سیاست دسترسی اعمال می‌شود.',
               },
               {
                 icon: Bot, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
-                title: 'AI Agentها و Workflowهای حساس',
-                desc: 'برای Agentها و Workflowهایی که به ابزارها، فایل‌ها یا داده کاربران دسترسی دارند، Policyهای دقیق‌تر و قابل‌ممیزی تعریف کنید.',
+                title: 'ایجنت‌ها و جریان‌های حساس',
+                desc: 'برای هر سرویس هویت مستقل بسازید، دسترسی مدل را محدود کنید و محتوای لاگ را فقط برای نقش‌های ضروری باز کنید.',
               },
             ].map((uc, i) => (
               <motion.div
@@ -983,7 +983,7 @@ export function SecurityCompliance() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-              سوالات متداول
+              پرسش‌های پرتکرار
             </h2>
           </div>
           <FAQAccordion items={faqItems} />
@@ -998,10 +998,10 @@ export function SecurityCompliance() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-                AI stack خود را امن، قابل‌کنترل و قابل‌ممیزی کنید
+                هویت و دسترسی مدل‌ها را متمرکز مدیریت کنید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گدارAI، کلیدهای دسترسی، Virtual Keys، Access Control، Data Redaction، Audit Logs و Policyهای امنیتی را از یک لایه مرکزی مدیریت کنید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
+                کلید ارائه‌دهنده، PAT و VAT، نقش‌ها، مجوزها، گاردریل متن و حریم خصوصی لاگ را در یک فضای کاری مدیریت کنید.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link
@@ -1020,7 +1020,7 @@ export function SecurityCompliance() {
               </div>
               <div className="mt-8 flex flex-wrap gap-3">
                 {[
-                  { icon: Shield, label: 'بدون تحریم' },
+                  { icon: Shield, label: 'دسترسی متمرکز' },
                   { icon: CreditCard, label: 'بدون پرداخت ارزی' },
                   { icon: ShieldCheck, label: 'آماده محیط عملیاتی' },
                 ].map((b, i) => (

@@ -170,6 +170,7 @@ export function Login({ tenantBaseDomain = "" }: { tenantBaseDomain?: string }) 
                     placeholder={mobileAuthUIEnabled ? "name@example.com یا +98912..." : "name@example.com"}
                     autoComplete="username"
                     inputMode="email"
+                    dir="ltr"
                     aria-invalid={Boolean(identifierError)}
                     aria-describedby={identifierError ? "identifier-error" : undefined}
                     className="min-h-12 rounded-lg border border-gray-200 bg-white px-4 py-3 text-start outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-800 dark:bg-[#0B0F19]"

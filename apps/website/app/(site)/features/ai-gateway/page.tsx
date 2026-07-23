@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "درگاه مدل‌های زبانی",
   description:
-    "درخواست‌ها را با مدل مجازی، مسیر جایگزین، مسیریابی و کنترل هزینه بین حساب‌های ارائه‌دهنده مدیریت کنید.",
+    "اتصال به مدل‌ها، مسیریابی، مسیر جایگزین، کنترل مصرف و پایش درخواست‌ها را در یک درگاه مدیریت کنید.",
   path: "/features/ai-gateway",
 });
 

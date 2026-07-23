@@ -58,7 +58,7 @@ function GatewayDashboard() {
             { label: 'درخواست‌های امروز', value: requestCount.toLocaleString('fa-IR'), icon: Network, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
             { label: 'نرخ موفقیت', value: '۹۹.۹٪', icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
             { label: 'میانگین تأخیر', value: '۲.۱s', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-            { label: 'Cache Hit Rate', value: '۳۲٪', icon: Database, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-500/10' },
+            { label: 'نرخ اصابت حافظه نهان', value: '۳۲٪', icon: Database, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-500/10' },
           ].map((stat, i) => (
             <div key={i} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <div className="flex justify-between items-start mb-2">
@@ -77,7 +77,7 @@ function GatewayDashboard() {
           {/* Routing flow */}
           <div className="md:col-span-2 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white">Smart Routing — مسیر فعال</h3>
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white">مسیریابی مدل مجازی — مسیر فعال</h3>
               <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
                 Live
@@ -109,7 +109,7 @@ function GatewayDashboard() {
 
             <div className="mt-4 grid grid-cols-3 gap-2 text-[10px] font-sans">
               {[
-                { label: 'Fallback', val: 'فعال', ok: true },
+                { label: 'مسیر جایگزین', val: 'فعال', ok: true },
                 { label: 'Retry', val: 'x3', ok: true },
                 { label: 'Rate Limit', val: '۱۰k/min', ok: true },
               ].map((b, i) => (
@@ -152,7 +152,7 @@ function GatewayDashboard() {
             <table className="w-full text-[10px] font-sans text-right">
               <thead>
                 <tr className="text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
-                  {['وضعیت', 'مدل', 'تأمین‌کننده', 'تأخیر', 'توکن', 'Cache', 'هزینه'].map(h => (
+                  {['وضعیت', 'مدل', 'ارائه‌دهنده', 'تأخیر', 'توکن', 'حافظه نهان', 'هزینه'].map(h => (
                     <th key={h} className="pb-2 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -186,10 +186,10 @@ function GatewayDashboard() {
 function RoutingFlowVisual() {
   const steps = [
     { label: 'دریافت درخواست', color: 'bg-slate-700 text-white dark:bg-slate-600', dot: 'bg-slate-400' },
-    { label: 'بررسی Routing Rule', color: 'bg-indigo-600 text-white', dot: 'bg-indigo-400' },
+    { label: 'بررسی قاعده مسیریابی', color: 'bg-indigo-600 text-white', dot: 'bg-indigo-400' },
     { label: 'انتخاب مدل اصلی', color: 'bg-purple-600 text-white', dot: 'bg-purple-400' },
     { label: 'بررسی خطا / Rate Limit', color: 'bg-amber-500 text-white', dot: 'bg-amber-400' },
-    { label: 'اجرای Fallback', color: 'bg-orange-500 text-white', dot: 'bg-orange-400' },
+    { label: 'اجرای مسیر جایگزین', color: 'bg-orange-500 text-white', dot: 'bg-orange-400' },
     { label: 'ارسال پاسخ نهایی', color: 'bg-emerald-600 text-white', dot: 'bg-emerald-400' },
   ];
   return (
@@ -219,7 +219,7 @@ function CacheMetricsVisual() {
     <div className="bg-slate-50 dark:bg-[#121827] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 font-sans">
       <div className="grid grid-cols-2 gap-3 mb-4">
         {[
-          { label: 'Cache Hit Rate', value: '۳۲٪', color: 'text-purple-500' },
+          { label: 'نرخ اصابت حافظه نهان', value: '۳۲٪', color: 'text-purple-500' },
           { label: 'هزینه ذخیره‌شده', value: '۱۸٪', color: 'text-emerald-500' },
           { label: 'کاهش تأخیر', value: '~۶۰٪', color: 'text-amber-500' },
           { label: 'پاسخ‌های Cached', value: '۳,۹۸۴', color: 'text-indigo-500' },
@@ -231,7 +231,7 @@ function CacheMetricsVisual() {
         ))}
       </div>
       <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">نرخ Cache در طول روز</div>
+        <div className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">نرخ اصابت حافظه نهان در طول روز</div>
         <div className="flex items-end gap-1 h-12">
           {[20, 35, 28, 45, 32, 50, 42, 58, 47, 62, 55, 68].map((h, i) => (
             <div key={i} className="flex-1 bg-purple-500/20 hover:bg-purple-500/40 rounded-t transition-all" style={{ height: `${h}%` }} />
@@ -331,7 +331,7 @@ function CTAMiniDashboard() {
     <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 font-sans text-sm text-white">
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
         <Network className="w-4 h-4 text-indigo-300" />
-        <span className="text-xs font-bold text-white/80">Gateway — داشبورد لحظه‌ای</span>
+        <span className="text-xs font-bold text-white/80">درگاه — نمای نمونه داشبورد</span>
         <span className="mr-auto flex items-center gap-1 text-[10px] text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
           Live
@@ -342,9 +342,9 @@ function CTAMiniDashboard() {
           { label: '۱۲,۴۵۰ درخواست امروز', icon: Network, color: 'text-indigo-300' },
           { label: '۹۹.۹٪ نرخ موفقیت', icon: CheckCircle, color: 'text-emerald-300' },
           { label: '۲.۱ ثانیه میانگین تأخیر', icon: Clock, color: 'text-amber-300' },
-          { label: '۳۲٪ Cache Hit Rate', icon: Database, color: 'text-purple-300' },
-          { label: '۱۸٪ کاهش هزینه با Routing', icon: DollarSign, color: 'text-teal-300' },
-          { label: 'Fallback فعال — ۳ مسیر', icon: GitBranch, color: 'text-rose-300' },
+          { label: '۳۲٪ نرخ اصابت حافظه نهان', icon: Database, color: 'text-purple-300' },
+          { label: 'مسیریابی بین مقصدهای مدل', icon: DollarSign, color: 'text-teal-300' },
+          { label: 'مسیر جایگزین فعال — ۳ مقصد', icon: GitBranch, color: 'text-rose-300' },
         ].map((m, i) => (
           <div key={i} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-2.5">
             <m.icon className={`w-3.5 h-3.5 shrink-0 ${m.color}`} />
@@ -359,24 +359,24 @@ function CTAMiniDashboard() {
 // ─── FAQ Data ────────────────────────────────────────────────────────────────
 const faqItems = [
   {
-    question: 'AI Gateway گدارAI دقیقاً چه کاری انجام می‌دهد؟',
-    answer: 'گدارAI یک لایه مرکزی بین محصول شما و مدل‌های AI است. درخواست‌ها از طریق این لایه ارسال می‌شوند تا اتصال، Routing، Fallback، Retry، Cache، مدیریت کلیدها، پایش و کنترل هزینه ساده‌تر شود.',
+    question: 'درگاه مدل‌های زبانی گدارAI چه کاری انجام می‌دهد؟',
+    answer: 'گدارAI بین اپلیکیشن و ارائه‌دهنده مدل قرار می‌گیرد و احراز هویت، دسترسی، مسیریابی، کنترل مصرف و پایش درخواست‌ها را در یک نقطه انجام می‌دهد.',
   },
   {
     question: 'آیا گدارAI باعث افزایش تأخیر درخواست‌ها می‌شود؟',
-    answer: 'هدف گدارAI این است که با Routing مناسب، Cache و مدیریت بهتر مسیرها، تأخیر را کنترل کند. در بسیاری از سناریوها، Cache و انتخاب مسیر مناسب می‌تواند پاسخ‌ها را سریع‌تر و پایدارتر کند.',
+    answer: 'هر لایه واسط مقداری سربار دارد. اثر واقعی را با سنجه‌های همان محیط بسنجید؛ حافظه نهان می‌تواند زمان برخی درخواست‌های تکراری را کاهش دهد، اما نتیجه به الگوی مصرف شما وابسته است.',
   },
   {
-    question: 'اگر یک تأمین‌کننده خطا بدهد یا به Rate Limit برسد چه می‌شود؟',
-    answer: 'می‌توانید قانون Fallback تعریف کنید تا درخواست به مدل یا تأمین‌کننده جایگزین منتقل شود. همچنین با Retry خودکار می‌توان خطاهای موقت را بدون دخالت کاربر مدیریت کرد.',
+    question: 'اگر یک ارائه‌دهنده خطا بدهد یا به محدودیت نرخ برسد چه می‌شود؟',
+    answer: 'در مدل مجازی می‌توانید کدهای تلاش دوباره و مسیر جایگزین را مشخص کنید. در این صورت گدارAI مقصد بعدی را مطابق ترتیب و سیاست تعریف‌شده امتحان می‌کند.',
   },
   {
-    question: 'آیا می‌توانیم مشخص کنیم کدام مدل‌ها یا تأمین‌کننده‌ها مجاز هستند؟',
-    answer: 'بله. در ساختار Gateway می‌توانید دسترسی به مدل‌ها، کلیدها و مسیرهای مجاز را کنترل کنید تا تیم‌ها فقط از مسیرهای تعریف‌شده استفاده کنند.',
+    question: 'آیا می‌توانیم مدل‌های مجاز هر مصرف‌کننده را محدود کنیم؟',
+    answer: 'بله. دسترسی را می‌توانید برای کاربران، تیم‌ها و حساب‌های مجازی تعریف کنید تا هر مصرف‌کننده فقط مدل‌ها و مدل‌های مجازی مجاز را فراخوانی کند.',
   },
   {
-    question: 'آیا گدارAI برای اپلیکیشن‌هایی با رشد سریع مناسب است؟',
-    answer: 'بله. گدارAI برای سناریوهایی طراحی می‌شود که مصرف AI به‌مرور زیاد می‌شود و تیم به کنترل متمرکز، پایش، توزیع بار و مدیریت هزینه نیاز دارد.',
+    question: 'برای اتصال اپلیکیشن چه چیزهایی باید تغییر کند؟',
+    answer: 'در مسیرهای سازگار با OpenAI، معمولاً نشانی پایه، توکن دسترسی و شناسه مدل را تغییر می‌دهید. قرارداد اختصاصی هر ارائه‌دهنده را پیش از مهاجرت کامل در محیط خود آزمایش کنید.',
   },
   {
     question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
@@ -403,7 +403,7 @@ export function AIGateway() {
               style={{ fontFamily: 'var(--font-heading)' }}
             >
               <Network className="w-4 h-4" />
-              AI Gateway برای تیم‌های ایرانی
+              درگاه مدل‌های زبانی گدارAI
             </motion.div>
 
             <motion.h1
@@ -411,11 +411,11 @@ export function AIGateway() {
               style={{ fontFamily: 'var(--font-heading)' }}
               {...fadeIn}
             >
-              یک درگاه واحد برای اتصال{' '}
+              یک مسیر مشترک برای اتصال{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-l from-indigo-500 to-purple-500">
-                امن، سریع و پایدار
+                قابل کنترل و قابل پیگیری
               </span>{' '}
-              به مدل‌های AI
+              به مدل‌های هوش مصنوعی
             </motion.h1>
 
             <motion.p
@@ -424,7 +424,7 @@ export function AIGateway() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گدارAI، درخواست‌های مدل زبانی محصول خود را از یک مسیر واحد مدیریت کنید؛ به چند مدل و ارائه‌دهنده وصل شوید، کلیدها را امن نگه دارید، هزینه‌ها را کنترل کنید و با کاهش ریسک اتصال مستقیم و پرداخت ارزی، هوش مصنوعی را وارد محصول واقعی کنید.
+              اپلیکیشن را به یک نقطه پایانی سازگار با OpenAI وصل کنید. حساب‌های ارائه‌دهنده، مدل‌های مجاز، مسیر جایگزین، سقف مصرف و داده‌های پایش را در فضای کاری گدارAI مدیریت کنید.
             </motion.p>
 
             <motion.div
@@ -470,17 +470,17 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-              ساخته‌شده برای تیم‌هایی که AI را در محصول واقعی اجرا می‌کنند
+              برای تیم‌هایی که مدل زبانی را در محصول واقعی به کار می‌گیرند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گدارAI به تیم‌های محصول، فنی و AI کمک می‌کند اتصال به مدل‌های زبانی را از حالت آزمایشی به زیرساخت پایدار محصول تبدیل کنند؛ با مدیریت مرکزی، کنترل هزینه، پایش لحظه‌ای و تجربه‌ای مناسب بازار ایران.
+              گدارAI منطق اتصال، دسترسی، مصرف و پایش مدل‌ها را از سرویس‌های پراکنده به یک لایه مرکزی منتقل می‌کند.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             {[
-              'استارتاپ‌های AI', 'تیم‌های Backend و Platform', 'محصولات SaaS',
-              'تیم‌های Customer Support', 'سازمان‌های داده‌محور', 'تیم‌های R&D و AI Lab',
-              'شرکت‌هایی که چند مدل AI را هم‌زمان تست می‌کنند',
+              'استارتاپ‌های هوش مصنوعی', 'تیم‌های بک‌اند و زیرساخت', 'محصولات SaaS',
+              'تیم‌های پشتیبانی مشتری', 'سازمان‌های داده‌محور', 'تیم‌های تحقیق و توسعه',
+              'شرکت‌هایی که چند مدل را هم‌زمان ارزیابی می‌کنند',
             ].map((chip, idx) => (
               <div key={idx} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
                 {chip}
@@ -495,10 +495,10 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              AI Gateway سریع، پایدار و آماده محیط عملیاتی
+              اجزای لازم برای اتصال عملیاتی مدل‌ها
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گدارAI یک لایه مرکزی بین محصول شما و مدل‌های LLM است؛ تا درخواست‌ها را مدیریت، مسیریابی، مانیتور و بهینه کند.
+              گدارAI درخواست را احراز هویت می‌کند، سیاست‌های دسترسی و مصرف را می‌سنجد، مقصد را انتخاب می‌کند و داده‌های پایش را ثبت می‌کند.
             </p>
           </div>
 
@@ -510,13 +510,13 @@ export function AIGateway() {
                   <Network className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  اتصال به چند مدل از طریق یک API واحد
+                  اتصال به چند مدل از طریق یک رابط برنامه‌نویسی
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  به‌جای پیاده‌سازی جداگانه برای هر تأمین‌کننده، همه درخواست‌های AI را از یک API واحد مدیریت کنید. گدارAI کمک می‌کند مدل‌های مختلف را سریع‌تر تست، جایگزین و در محصول استفاده کنید.
+                  به‌جای نگهداری اتصال جداگانه در هر سرویس، درخواست‌های سازگار را از یک نشانی پایه بفرستید و مدل مقصد را با شناسه مدل انتخاب کنید.
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-6">
-                  کمتر کد بزنید، سریع‌تر مدل عوض کنید، کنترل بیشتری داشته باشید.
+                  جزئیات اتصال ارائه‌دهنده را از قرارداد مصرف اپلیکیشن جدا نگه دارید.
                 </p>
                 <ConnectionDiagram />
               </div>
@@ -529,13 +529,13 @@ export function AIGateway() {
                   <GitBranch className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  پایداری بیشتر با Smart Routing
+                  مسیریابی با مدل مجازی
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  درخواست‌ها را بر اساس قانون‌های قابل تنظیم بین مدل‌ها و تأمین‌کننده‌ها مسیریابی کنید. اگر یک مدل کند شد، خطا داد یا به محدودیت رسید، گدارAI می‌تواند مسیر مناسب‌تری برای ادامه درخواست انتخاب کند.
+                  یک شناسه پایدار برای اپلیکیشن تعریف کنید و پشت آن چند مقصد، ترتیب یا وزن مسیریابی، تلاش دوباره و مسیر جایگزین قرار دهید.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
-                  برای کاهش خطا، افزایش Uptime و کنترل بهتر تجربه کاربر.
+                  تغییر مقصدها بدون تغییر شناسه‌ای که اپلیکیشن فراخوانی می‌کند.
                 </p>
                 <RoutingFlowVisual />
               </div>
@@ -548,13 +548,13 @@ export function AIGateway() {
                   <Database className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  کاهش هزینه و تأخیر با Caching
+                  کاهش فراخوانی تکراری با حافظه نهان
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  درخواست‌های تکراری یا مشابه را با Cache ساده یا معنایی مدیریت کنید تا هزینه مصرف توکن و زمان پاسخ کاهش پیدا کند. این قابلیت برای سناریوهایی مثل تست، پاسخ‌های پرتکرار و Queryهای مشابه بسیار کاربردی است.
+                  برای درخواست‌های واجد شرایط، حافظه نهان را فعال کنید تا پاسخ تکراری بدون فراخوانی دوباره ارائه‌دهنده برگردد. اثربخشی آن را از سنجه نرخ اصابت بررسی کنید.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
-                  پاسخ سریع‌تر، هزینه کمتر، فشار کمتر روی مدل‌ها.
+                  نتیجه به شباهت درخواست‌ها، مدت نگهداری و سیاست حافظه نهان بستگی دارد.
                 </p>
                 <CacheMetricsVisual />
               </div>
@@ -570,10 +570,10 @@ export function AIGateway() {
                   مدیریت امن کلیدهای دسترسی
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  کلیدهای مدل‌ها و تأمین‌کننده‌ها را به‌جای پخش شدن در چند سرویس و چند مخزن کد، در یک محیط مرکزی مدیریت کنید. دسترسی‌ها را کنترل، کلیدها را غیرفعال یا جایگزین کنید و مصرف هر کلید را مانیتور کنید.
+                  اعتبارنامه حساب‌های ارائه‌دهنده را در فضای کاری نگه دارید و برای اپلیکیشن‌ها توکن گدارAI بسازید؛ به این ترتیب کلید خام ارائه‌دهنده در کد مصرف‌کننده پخش نمی‌شود.
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-6">
-                  امنیت بیشتر برای تیم‌هایی که چند توسعه‌دهنده، چند محیط و چند محصول دارند.
+                  توکن هر کاربر یا سرویس را جداگانه بسازید، بچرخانید یا باطل کنید.
                 </p>
                 <KeyVaultVisual />
               </div>
@@ -587,10 +587,10 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              قابلیت‌های پیشرفته، آماده استفاده
+              قابلیت‌های تکمیلی در همان مسیر
             </h2>
             <p className="text-lg text-slate-400">
-              گدارAI فقط یک اتصال ساده به مدل نیست؛ یک لایه عملیاتی برای اجرای پایدار AI در محصول است.
+              بسته به API و ارائه‌دهنده منتخب، از مسیرهای دسته‌ای، چندحالته و مدل‌های سفارشی پشتیبانی‌شده استفاده کنید.
             </p>
           </div>
 
@@ -601,10 +601,10 @@ export function AIGateway() {
                 <Layers className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                Batching هوشمند برای حجم بالای درخواست‌ها
+                پردازش دسته‌ای برای کارهای غیرهمزمان
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                درخواست‌های زیاد را با روش‌های Batch مدیریت کنید تا فشار روی زیرساخت و هزینه پردازش کاهش پیدا کند؛ بدون اینکه عملکرد Real-time محصول آسیب ببیند.
+                کارهایی را که به پاسخ فوری نیاز ندارند از مسیر Batch API ارسال کنید. قالب و محدودیت‌های این مسیر را در مستندات API بررسی کنید.
               </p>
               {/* Mini batch animation */}
               <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 font-sans text-xs">
@@ -638,10 +638,10 @@ export function AIGateway() {
                 <SlidersHorizontal className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                Fine-tuning از مسیر یکپارچه
+                استفاده از مدل‌های سفارشی ارائه‌دهنده
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                اگر تیم شما از Fine-tuning استفاده می‌کند، گدارAI می‌تواند مسیر مدیریت مدل‌های سفارشی و مدل‌های پایه را ساده‌تر کند تا همه چیز از یک لایه مرکزی قابل کنترل باشد.
+                اگر ارائه‌دهنده و نقطه پایانی از مدل تنظیم‌دقیق‌شده پشتیبانی کنند، شناسه آن را مانند دیگر مدل‌های فعال از مسیر درگاه فراخوانی کنید.
               </p>
               <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 font-sans text-xs space-y-2">
                 {[
@@ -670,10 +670,10 @@ export function AIGateway() {
                 <Cpu className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                مدیریت مدل‌های چندحالته
+                مدل‌های چندحالته
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                برای سناریوهای متنی، تصویری، صوتی یا Vision، گدارAI می‌تواند به‌عنوان مسیر مرکزی ارتباط با مدل‌ها و تأمین‌کننده‌های مختلف عمل کند.
+                برای متن، تصویر و صوت از API پشتیبانی‌شده همان حالت استفاده کنید و پیش از مهاجرت، سازگاری مدل و ارائه‌دهنده را بررسی کنید.
               </p>
               <div className="flex flex-wrap gap-2">
                 {[
@@ -698,10 +698,10 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              زیرساختی برای AI در مقیاس محیط عملیاتی
+              کنترل‌هایی که همراه رشد مصرف لازم می‌شوند
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              وقتی AI وارد محصول واقعی می‌شود، فقط پاسخ گرفتن از مدل کافی نیست. باید پایداری، هزینه، سرعت و امنیت را هم‌زمان مدیریت کنید.
+              با افزایش مصرف، باید نرخ درخواست، هزینه، دسترسی و رفتار مقصدهای جایگزین را با سیاست‌های روشن مدیریت کنید.
             </p>
           </div>
 
@@ -709,27 +709,27 @@ export function AIGateway() {
             {[
               {
                 icon: Network, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                value: 'میلیون‌ها', sub: 'درخواست در ماه',
-                label: 'درخواست‌های پردازش‌شده',
-                desc: 'گدارAI باید طوری طراحی شود که بتواند رشد سریع مصرف AI را در محصول‌های واقعی پشتیبانی کند.',
+                value: 'یک', sub: 'نشانی پایه',
+                label: 'قرارداد مشترک اتصال',
+                desc: 'اپلیکیشن درخواست‌های سازگار را از یک نشانی پایه می‌فرستد و مقصد را با شناسه مدل انتخاب می‌کند.',
               },
               {
                 icon: CheckCircle, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                value: '۹۹.۹٪', sub: 'Uptime هدف',
-                label: 'Uptime بالا',
-                desc: 'با Routing، Fallback و Retry، تجربه کاربر حتی هنگام خطای مدل یا تأمین‌کننده پایدارتر می‌ماند.',
+                value: 'چند', sub: 'مقصد',
+                label: 'مسیر جایگزین',
+                desc: 'برای خطاهای مشخص، مقصدهای بعدی را به ترتیب یا با وزن دلخواه در مدل مجازی تعریف کنید.',
               },
               {
                 icon: DollarSign, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                value: '↓۱۸٪', sub: 'کاهش هزینه با Routing',
-                label: 'کاهش هزینه',
-                desc: 'با Caching، انتخاب مدل مناسب و کنترل مصرف، هزینه‌های AI قابل پیش‌بینی‌تر و قابل مدیریت‌تر می‌شود.',
+                value: 'قابل', sub: 'اندازه‌گیری',
+                label: 'مصرف و هزینه',
+                desc: 'مصرف را بر اساس مدل، ارائه‌دهنده، تیم یا حساب مجازی بررسی و با سقف هزینه کنترل کنید.',
               },
               {
                 icon: Zap, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
-                value: '↓۶۰٪', sub: 'کاهش تأخیر با Cache',
-                label: 'Latency کمتر',
-                desc: 'با انتخاب مسیر مناسب و کاهش درخواست‌های غیرضروری، زمان پاسخ برای کاربران نهایی بهتر می‌شود.',
+                value: 'قابل', sub: 'پیگیری',
+                label: 'خطا و تأخیر',
+                desc: 'لاگ و رد درخواست نشان می‌دهند کدام مقصد، تلاش یا مرحله باعث خطا یا تأخیر شده است.',
               },
             ].map((card, i) => (
               <motion.div
@@ -758,10 +758,10 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              از Prototype تا Production، سریع‌تر و امن‌تر
+              از نمونه آزمایشی تا محیط عملیاتی
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گدارAI به تیم‌ها کمک می‌کند AI app خود را با قابلیت‌های عملیاتی مثل Routing، Fallback، Retry، Load Balancing و مدیریت فایل‌ها پایدارتر کنند.
+              با مدل مجازی، سیاست مصرف و داده‌های پایش، رفتار اتصال را بدون پراکنده‌کردن منطق در سرویس‌های مختلف مدیریت کنید.
             </p>
           </div>
 
@@ -769,22 +769,22 @@ export function AIGateway() {
             {[
               {
                 icon: GitBranch, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'Routing شرطی',
-                desc: 'درخواست‌ها را بر اساس شرط‌های مشخص مثل نوع کاربر، هزینه، مدل، تأمین‌کننده، Latency یا نوع فیچر به مسیر مناسب ارسال کنید.',
+                title: 'مسیریابی ترتیبی یا وزنی',
+                desc: 'مقصدهای مدل مجازی را به ترتیب امتحان کنید یا ترافیک را با وزن مشخص بین مقصدهای سازگار تقسیم کنید.',
               },
               {
                 icon: Cpu, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
-                title: 'طراحی‌شده برای مدل‌های چندحالته',
-                desc: 'در کنار مدل‌های متنی، از سناریوهای Vision، صوت، تصویر و سایر مدل‌های AI نیز در یک مسیر واحد پشتیبانی کنید.',
+                title: 'APIهای چندحالته',
+                desc: 'برای متن، تصویر و صوت از نقطه پایانی پشتیبانی‌شده استفاده کنید و سازگاری مدل مقصد را پیش از اتصال بسنجید.',
               },
               {
                 icon: FlipHorizontal, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
-                title: 'Fallback هنگام خطا',
+                title: 'مسیر جایگزین هنگام خطا',
                 desc: 'اگر مدل اصلی خطا داد، کند شد یا به محدودیت رسید، درخواست را به مدل یا تأمین‌کننده جایگزین منتقل کنید تا تجربه کاربر قطع نشود.',
               },
               {
                 icon: RefreshCw, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                title: 'Retry خودکار',
+                title: 'تلاش دوباره کنترل‌شده',
                 desc: 'درخواست‌های ناموفق را با قانون‌های کنترل‌شده دوباره ارسال کنید تا خطاهای موقت باعث شکست تجربه کاربر نشوند.',
               },
               {
@@ -794,23 +794,23 @@ export function AIGateway() {
               },
               {
                 icon: Activity, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'پایش APIهای Real-time',
-                desc: 'درخواست‌های Real-time را همراه با هزینه، وضعیت، خطاها، تأخیر و تخطی از Guardrailها ثبت و بررسی کنید.',
+                title: 'پایش درخواست‌ها',
+                desc: 'وضعیت، خطا، تأخیر، توکن، هزینه و نتیجه گاردریل درخواست‌ها را در لاگ و رد درخواست بررسی کنید.',
               },
               {
                 icon: ToggleRight, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-500/10',
-                title: 'Canary Testing برای مدل‌ها و Promptها',
-                desc: 'مدل‌ها، Promptها یا مسیرهای جدید را روی بخشی از ترافیک تست کنید، بدون اینکه کل کاربران تحت تأثیر قرار بگیرند.',
+                title: 'تقسیم وزنی ترافیک',
+                desc: 'برای مقصدهای سازگار وزن تعیین کنید و نتیجه هر مسیر را در داده‌های پایش مقایسه کنید.',
               },
               {
                 icon: Clock, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-500/10',
-                title: 'مدیریت Timeout درخواست‌ها',
+                title: 'مدیریت مهلت پاسخ',
                 desc: 'برای درخواست‌هایی که بیش از حد طول می‌کشند، قانون توقف تعریف کنید و در صورت نیاز مسیر جایگزین یا درخواست جدید اجرا کنید.',
               },
               {
                 icon: FileText, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-50 dark:bg-sky-500/10',
-                title: 'پشتیبانی از فایل‌ها',
-                desc: 'فایل‌ها را به Gateway متصل کنید و از محتوای آن‌ها در درخواست‌ها و جریان‌های AI استفاده کنید.',
+                title: 'انتخاب API متناسب با ورودی',
+                desc: 'برای متن، تصویر، صوت و فایل، نقطه پایانی و مدل سازگار را از فهرست APIهای پشتیبانی‌شده انتخاب کنید.',
               },
             ].map((feat, i) => (
               <motion.div
@@ -840,7 +840,7 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا AI Gateway گدارAI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا درگاه گدارAI برای تیم‌های ایرانی مهم است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               برای تیم‌های ایرانی، اتصال مستقیم به مدل‌های خارجی فقط یک مسئله فنی نیست؛ مسئله دسترسی، پرداخت، پایداری، هزینه و ریسک قطع سرویس هم هست.
@@ -852,7 +852,7 @@ export function AIGateway() {
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
                 title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
-                desc: 'با گدارAI، تیم شما برای استفاده از مدل‌های AI خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                desc: 'عبور درخواست‌ها از یک مسیر مشترک، وابستگی کد محصول به اتصال مستقیم هر ارائه‌دهنده را کمتر می‌کند و جایگزینی مقصد را ساده‌تر می‌سازد.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
@@ -861,13 +861,13 @@ export function AIGateway() {
               },
               {
                 icon: Network, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
-                title: 'یک لایه مرکزی برای چند مدل و تأمین‌کننده',
-                desc: 'به‌جای اتصال مستقیم و پراکنده به چند سرویس، گدارAI یک مسیر واحد برای مدیریت مدل‌ها، کلیدها، هزینه، Routing و Observability فراهم می‌کند.',
+                title: 'یک لایه مرکزی برای چند مدل و ارائه‌دهنده',
+                desc: 'مدل‌ها، اعتبارنامه‌ها، هزینه، مسیریابی و داده‌های پایش را به‌جای چند اتصال پراکنده از یک فضای کاری مدیریت کنید.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
-                title: 'آماده برای تیم‌های فارسی‌زبان',
-                desc: 'داشبوردها، گزارش‌ها و تجربه استفاده در گدارAI برای تیم‌هایی طراحی می‌شود که محصول فارسی، کاربر ایرانی و نیازهای عملیاتی داخل ایران دارند.',
+                title: 'رابط فارسی و هزینه ریالی',
+                desc: 'تیم‌های فنی و مالی می‌توانند داده‌های مصرف را در رابط فارسی و با نمایش هزینه ریالی بررسی کنند.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -895,7 +895,7 @@ export function AIGateway() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              AI Gateway گدارAI برای چه سناریوهایی مناسب است؟
+              درگاه گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
 
@@ -903,18 +903,18 @@ export function AIGateway() {
             {[
               {
                 icon: ShoppingCart, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'محصولات SaaS با قابلیت AI',
-                desc: 'اگر در محصول خود قابلیت‌هایی مثل چت‌بات، تولید محتوا، تحلیل متن یا دستیار هوشمند دارید، گدارAI کمک می‌کند اتصال به مدل‌ها پایدارتر و قابل‌کنترل‌تر شود.',
+                title: 'محصولات SaaS با قابلیت هوش مصنوعی',
+                desc: 'اتصال قابلیت‌هایی مانند چت‌بات، تولید محتوا، تحلیل متن یا دستیار هوشمند را از یک مسیر مشترک مدیریت کنید.',
               },
               {
                 icon: Layers, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
                 title: 'تیم‌های Backend و Platform',
-                desc: 'زیرساخت AI را از چند اتصال پراکنده به یک Gateway مرکزی تبدیل کنید و مدیریت Routing، Retry، Fallback، کلیدها و پایش را ساده‌تر کنید.',
+                desc: 'اتصال‌های پراکنده را به یک درگاه مرکزی منتقل کنید و مسیریابی، تلاش دوباره، مسیر جایگزین، توکن‌ها و پایش را در یک نقطه نگه دارید.',
               },
               {
                 icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
                 title: 'تیم‌های محصول و رشد',
-                desc: 'مدل‌ها و Promptهای مختلف را سریع‌تر تست کنید، Canary Testing انجام دهید و بفهمید کدام مسیر تجربه بهتری برای کاربران ایجاد می‌کند.',
+                desc: 'مدل‌ها و نسخه‌های پرامپت را با داده یکسان آزمایش کنید و نتیجه مسیرهای مختلف را در لاگ و سنجه‌ها مقایسه کنید.',
               },
               {
                 icon: Briefcase, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
@@ -923,8 +923,8 @@ export function AIGateway() {
               },
               {
                 icon: Bot, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
-                title: 'AI Agentها و Workflowهای چندمرحله‌ای',
-                desc: 'برای Agentها، Tool Callها و Workflowهای پیچیده، یک مسیر عملیاتی پایدار داشته باشید که خطاها، Timeoutها و جایگزینی مدل‌ها را مدیریت کند.',
+                title: 'ایجنت‌ها و جریان‌های چندمرحله‌ای',
+                desc: 'فراخوانی مدل در ایجنت‌ها را از مسیر درگاه بفرستید و خطا، مهلت پاسخ و جایگزینی مدل را قابل پیگیری نگه دارید.',
               },
             ].map((uc, i) => (
               <motion.div
@@ -953,7 +953,7 @@ export function AIGateway() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-              سوالات متداول
+              پرسش‌های پرتکرار
             </h2>
           </div>
           <FAQAccordion items={faqItems} />
@@ -968,10 +968,10 @@ export function AIGateway() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-                AI stack محصول خود را از یک Gateway واحد مدیریت کنید
+                اتصال مدل‌های محصول را از یک درگاه مدیریت کنید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گدارAI، اتصال به مدل‌ها، مدیریت کلیدها، Routing، Fallback، Retry، Cache و پایش را در یک لایه مرکزی داشته باشید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
+                اتصال به مدل‌ها، اعتبارنامه‌ها، مسیریابی، مسیر جایگزین، تلاش دوباره، حافظه نهان و پایش را در یک لایه مرکزی نگه دارید.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link

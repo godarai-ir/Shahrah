@@ -32,8 +32,8 @@ const fadeIn = {
 
 const docsLinks = [
   {
-    title: 'مفاهیم مدل و پروایدر',
-    description: 'تعریف provider، مدل، قابلیت‌ها و داده‌هایی که در کاتالوگ می‌بینید.',
+    title: 'مفاهیم مدل و ارائه‌دهنده',
+    description: 'با تعریف ارائه‌دهنده، مدل، قابلیت‌ها و داده‌های کاتالوگ آشنا شوید.',
     href: '/docs/provider-models-concepts',
   },
   {
@@ -47,8 +47,8 @@ const docsLinks = [
     href: '/docs/provider-models-compare',
   },
   {
-    title: 'مدل مجازی در Gateway',
-    description: 'بعد از انتخاب مدل، آن را در مسیر عملیاتی و مدل‌های مجازی استفاده کنید.',
+    title: 'مدل مجازی در درگاه',
+    description: 'مدل انتخاب‌شده را پشت یک شناسه پایدار در محیط عملیاتی قرار دهید.',
     href: '/docs/virtual-model',
   },
 ];
@@ -68,7 +68,7 @@ const providerGroups = [
   },
   {
     name: 'Azure AI Foundry',
-    description: 'پلتفرم مایکروسافت برای توسعه، ارزیابی و استقرار راهکارهای AI در مقیاس سازمانی.',
+    description: 'پلتفرم مایکروسافت برای توسعه، ارزیابی و استقرار راهکارهای هوش مصنوعی در مقیاس سازمانی.',
   },
   {
     name: 'Azure OpenAI',
@@ -76,15 +76,15 @@ const providerGroups = [
   },
   {
     name: 'Cerebras',
-    description: 'زیرساخت و مدل‌های AI با تمرکز بر سرعت بالا در استنتاج و پردازش مدل‌های بزرگ.',
+    description: 'زیرساخت و مدل‌های هوش مصنوعی با تمرکز بر سرعت استنتاج و پردازش مدل‌های بزرگ.',
   },
   {
     name: 'Cohere',
-    description: 'مدل‌های زبانی سازمانی برای تولید متن، جستجوی معنایی، Embedding و کاربردهای Enterprise.',
+    description: 'مدل‌های زبانی سازمانی برای تولید متن، جست‌وجوی معنایی، امبدینگ و کاربردهای سازمانی.',
   },
   {
     name: 'Databricks',
-    description: 'پلتفرم داده و AI برای ساخت، آموزش و ارائه مدل‌های LLM کنار داده‌های سازمان.',
+    description: 'پلتفرم داده و هوش مصنوعی برای ساخت، آموزش و ارائه مدل‌های زبانی کنار داده‌های سازمان.',
   },
   {
     name: 'Deepgram',
@@ -132,7 +132,7 @@ const providerGroups = [
   },
   {
     name: 'Wafer',
-    description: 'زیرساخت پردازشی AI برای اجرای مدل‌های زبانی و بارهای پردازشی سنگین.',
+    description: 'زیرساخت پردازشی هوش مصنوعی برای اجرای مدل‌های زبانی و بارهای پردازشی سنگین.',
   },
   {
     name: 'xAI',
@@ -143,62 +143,62 @@ const providerGroups = [
 const capabilities = [
   {
     icon: Search,
-    title: 'کشف سریع مدل مناسب',
+    title: 'جست‌وجوی سریع مدل مناسب',
     description:
-      'مدل‌ها را بر اساس نام، provider، توضیح، دسته‌بندی و سناریو جست‌وجو کنید و گزینه‌های مناسب را از همان ابتدا محدود کنید.',
+      'مدل‌ها را بر اساس نام، ارائه‌دهنده، توضیح، دسته‌بندی و کاربرد جست‌وجو کنید و فهرست گزینه‌ها را محدود کنید.',
   },
   {
     icon: Filter,
-    title: 'فیلترهای کاربردی برای تصمیم واقعی',
+    title: 'فیلتر بر اساس معیارهای فنی',
     description:
-      'با فیلتر روی ورودی، خروجی، context window، قیمت، قابلیت‌ها و پارامترهای پشتیبانی‌شده، به انتخابی برسید که با محصول شما هم‌خوان است.',
+      'نوع ورودی و خروجی، پنجره زمینه، قیمت، قابلیت‌ها و پارامترهای پشتیبانی‌شده را برای هر مدل بررسی کنید.',
   },
   {
     icon: GitCompare,
-    title: 'مقایسه کنار هم',
+    title: 'مقایسه مدل‌ها کنار هم',
     description:
-      'چند مدل را در یک نمای قابل اسکن مقایسه کنید؛ از قیمت و ظرفیت context تا modality، capability و داده‌های provider.',
+      'قیمت، پنجره زمینه، نوع ورودی و خروجی و قابلیت‌های چند مدل را در یک نما مقایسه کنید.',
   },
   {
     icon: Database,
-    title: 'پروفایل کامل provider و مدل',
+    title: 'جزئیات ارائه‌دهنده و مدل',
     description:
-      'برای هر provider و هر مدل، جزئیاتی مثل وضعیت، اسناد، سیاست‌های داده، region، قابلیت‌ها و محدودیت‌ها را یک‌جا ببینید.',
+      'وضعیت، مستندات، سیاست داده، منطقه میزبانی، قابلیت‌ها و محدودیت‌های هر مدل را یک‌جا ببینید.',
   },
   {
     icon: ShieldCheck,
-    title: 'انتخاب آماده برای محیط عملیاتی',
+    title: 'ارزیابی پیش از اتصال',
     description:
-      'Model Discovery فقط لیست مدل نیست؛ کمک می‌کند قبل از اتصال به Gateway، ریسک هزینه، قابلیت و سازگاری مدل را شفاف ببینید.',
+      'پیش از اتصال مدل به درگاه، هزینه، قابلیت و سازگاری آن با نیاز محصول را بسنجید.',
   },
   {
     icon: Workflow,
-    title: 'پل مستقیم به AI Gateway',
+    title: 'اتصال به درگاه مدل‌های زبانی',
     description:
-      'وقتی مدل مناسب را پیدا کردید، همان تصمیم را به مسیرهای Gateway، مدل مجازی، routing و کنترل هزینه وصل کنید.',
+      'پس از انتخاب، مدل را در یک حساب ارائه‌دهنده فعال کنید یا پشت مدل مجازی و مسیر جایگزین قرار دهید.',
   },
 ];
 
 const faqItems = [
   {
-    question: 'Model Discovery چه تفاوتی با یک لیست ساده از مدل‌ها دارد؟',
+    question: 'کاتالوگ گدارAI چه تفاوتی با یک فهرست ساده دارد؟',
     answer:
-      'در Model Discovery فقط نام مدل‌ها را نمی‌بینید؛ داده‌های قابل تصمیم‌گیری مثل provider، modality، قیمت، context window، قابلیت‌ها، پارامترهای پشتیبانی‌شده و لینک‌های مستندات کنار هم قرار می‌گیرند.',
+      'کاتالوگ علاوه بر نام مدل، ارائه‌دهنده، نوع ورودی و خروجی، قیمت، پنجره زمینه، قابلیت‌ها، پارامترهای پشتیبانی‌شده و پیوند مستندات را نشان می‌دهد.',
   },
   {
-    question: 'آیا صفحه برای مقایسه مدل‌های چند provider مناسب است؟',
+    question: 'آیا می‌توانم مدل‌های چند ارائه‌دهنده را مقایسه کنم؟',
     answer:
-      'بله. هدف اصلی همین است که مدل‌های چند provider را با یک زبان مشترک ببینید، فیلتر کنید و قبل از اتصال عملیاتی، گزینه‌های مناسب‌تر را جدا کنید.',
+      'بله. داده مدل‌های ارائه‌دهنده‌های مختلف با معیارهای مشترک نمایش داده می‌شود تا بتوانید آن‌ها را فیلتر و مقایسه کنید.',
   },
   {
-    question: 'آیا این قابلیت به AI Gateway وصل می‌شود؟',
+    question: 'بعد از انتخاب مدل چه کاری باید انجام دهم؟',
     answer:
-      'بله. Model Discovery لایه انتخاب و شناخت مدل است و بعد از انتخاب، می‌توانید همان مدل‌ها را در Gateway، مدل‌های مجازی، routing، fallback و کنترل هزینه استفاده کنید.',
+      'مدل را در حساب ارائه‌دهنده فضای کاری فعال کنید. سپس می‌توانید شناسه آن را مستقیم به درگاه بفرستید یا آن را در مدل مجازی و مسیر جایگزین به کار ببرید.',
   },
   {
     question: 'چرا این قابلیت برای تیم‌های ایرانی مهم است؟',
     answer:
-      'چون انتخاب مدل برای تیم‌های ایرانی فقط بحث کیفیت نیست؛ دسترسی، هزینه، ریسک اتصال مستقیم، provider جایگزین و مسیر عملیاتی پایدار هم اهمیت دارد.',
+      'چون علاوه بر کیفیت، باید هزینه، دسترسی، ارائه‌دهنده جایگزین و پایداری مسیر عملیاتی را نیز در تصمیم خود لحاظ کنید.',
   },
 ];
 
@@ -253,7 +253,7 @@ function CatalogHeroVisual() {
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'پروایدر فعال', value: '۲۱', icon: Globe2 },
+                { label: 'ارائه‌دهنده فعال', value: '۲۱', icon: Globe2 },
                 { label: 'مدل قابل جست‌وجو', value: 'صدها', icon: Database },
                 { label: 'فیلتر تصمیم‌ساز', value: '۱۰+', icon: Filter },
               ].map((item) => (
@@ -320,7 +320,7 @@ function ProviderLogoStrip() {
         </div>
       ))}
       <span className="rounded-full border border-dashed border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-600 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
-        و ۱۸ پروایدر دیگر
+        و ۱۸ ارائه‌دهنده دیگر
       </span>
     </div>
   );
@@ -341,7 +341,7 @@ export function ModelDiscovery() {
               style={{ fontFamily: 'var(--font-heading)' }}
             >
               <Database className="h-4 w-4" />
-              Model Discovery برای انتخاب هوشمند مدل
+              کاتالوگ و مقایسه مدل‌ها
             </motion.div>
 
             <motion.h1
@@ -361,8 +361,8 @@ export function ModelDiscovery() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              Model Discovery گدارAI کاتالوگ مدل‌ها و پروایدرها را به یک ابزار تصمیم‌گیری تبدیل می‌کند؛ جست‌وجو،
-              فیلتر، مقایسه و شناخت مدل‌ها قبل از اینکه آن‌ها را وارد Gateway، محصول یا جریان عملیاتی کنید.
+              کاتالوگ گدارAI اطلاعات مدل‌ها و ارائه‌دهنده‌ها را کنار هم قرار می‌دهد تا پیش از اتصال به درگاه،
+              مدل‌ها را جست‌وجو، فیلتر و با معیارهای مشترک مقایسه کنید.
             </motion.p>
 
             <motion.div
@@ -400,7 +400,7 @@ export function ModelDiscovery() {
       <section className="border-y border-slate-100 bg-slate-50/60 py-12 dark:border-slate-800/50 dark:bg-slate-900/20">
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <p className="mb-6 text-sm font-bold text-slate-500 dark:text-slate-400">
-            دسترسی و مقایسه مدل‌ها از ۲۱ پروایدر فعال، در یک نمای قابل جست‌وجو
+            مدل‌های ۲۱ ارائه‌دهنده فعال را در یک نمای قابل جست‌وجو بررسی و مقایسه کنید
           </p>
           <ProviderLogoStrip />
         </div>
@@ -416,8 +416,8 @@ export function ModelDiscovery() {
               از «کدام مدل؟» تا «چطور در محصول استفاده کنیم؟»
             </h2>
             <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-              هر انتخاب مدل روی هزینه، کیفیت پاسخ، latency، ریسک provider و تجربه کاربر اثر می‌گذارد. Model Discovery
-              همین تصمیم را شفاف، قابل مقایسه و قابل اتصال به Gateway می‌کند.
+              انتخاب مدل بر هزینه، کیفیت پاسخ، تأخیر و تجربه کاربر اثر می‌گذارد. کاتالوگ گدارAI داده‌های لازم را
+              برای مقایسه فراهم می‌کند و مسیر اتصال مدل منتخب به درگاه را نشان می‌دهد.
             </p>
           </div>
 
@@ -457,19 +457,19 @@ export function ModelDiscovery() {
               className="mb-5 text-3xl font-bold leading-tight text-slate-900 dark:text-white md:text-4xl"
               style={{ fontFamily: 'var(--font-heading)' }}
             >
-              قبل از انتخاب مدل، trade-offها را ببینید
+              پیش از انتخاب، بده‌بستان‌های هر مدل را بسنجید
             </h2>
             <p className="mb-8 text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-              بعضی مدل‌ها برای reasoning بهترند، بعضی برای latency، بعضی برای صدا یا تصویر، و بعضی برای هزینه کمتر.
-              Model Discovery این تفاوت‌ها را کنار هم می‌گذارد تا تیم محصول، فنی و مالی از یک زبان مشترک استفاده کنند.
+              بعضی مدل‌ها برای استدلال مناسب‌ترند، بعضی تأخیر کمتری دارند و بعضی از صوت یا تصویر پشتیبانی می‌کنند.
+              مقایسه این تفاوت‌ها کمک می‌کند تیم‌های محصول، فنی و مالی با معیارهای مشترک تصمیم بگیرند.
             </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
               {[
                 'مقایسه قیمت ورودی و خروجی',
-                'تشخیص modalityهای ورودی و خروجی',
-                'بررسی context window و قابلیت‌ها',
-                'شناخت providerهای جایگزین برای fallback',
+                'بررسی نوع ورودی و خروجی',
+                'بررسی پنجره زمینه و قابلیت‌ها',
+                'یافتن ارائه‌دهنده جایگزین برای زمان خطا',
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
                   <Check className="h-4 w-4 shrink-0 text-emerald-500" />
@@ -482,7 +482,7 @@ export function ModelDiscovery() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-[#121827]">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Compare Tray</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">مقایسه مدل‌های منتخب</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">سه مدل منتخب برای سناریوی پشتیبانی مشتری</p>
               </div>
               <GitCompare className="h-5 w-5 text-indigo-500" />
@@ -504,16 +504,16 @@ export function ModelDiscovery() {
                   <div className={`mb-4 text-3xl font-black ${item.accent}`}>{item.score}</div>
                   <div className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
                     <div className="flex items-center justify-between">
-                      <span>Latency</span>
-                      <span dir="ltr">Low</span>
+                      <span>تأخیر</span>
+                      <span>کم</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Context</span>
-                      <span dir="ltr">High</span>
+                      <span>پنجره زمینه</span>
+                      <span>زیاد</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Cost</span>
-                      <span dir="ltr">Medium</span>
+                      <span>هزینه</span>
+                      <span>متوسط</span>
                     </div>
                   </div>
                 </div>
@@ -530,11 +530,11 @@ export function ModelDiscovery() {
               className="mb-4 text-3xl font-bold text-slate-900 dark:text-white md:text-4xl"
               style={{ fontFamily: 'var(--font-heading)' }}
             >
-              ۲۱ پروایدر فعال در کاتالوگ گدارAI
+              ۲۱ ارائه‌دهنده فعال در کاتالوگ گدارAI
             </h2>
             <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-              از مدل‌های متنی و چندرسانه‌ای تا صوت، embedding، جست‌وجوی هوشمند و زیرساخت اجرای مدل؛ همه در یک
-              نمای قابل اسکن و قابل اتصال به مسیر عملیاتی.
+              مدل‌های متنی، چندرسانه‌ای، صوتی و امبدینگ را در یک نمای یکدست بررسی کنید و سپس مدل منتخب را به
+              مسیر عملیاتی خود متصل کنید.
             </p>
           </div>
 
@@ -566,10 +566,10 @@ export function ModelDiscovery() {
               className="mb-4 text-3xl font-bold text-slate-900 dark:text-white md:text-4xl"
               style={{ fontFamily: 'var(--font-heading)' }}
             >
-              هرجا نیاز به جزئیات بیشتر بود، مستندات کنار شماست
+              جزئیات فنی هر مرحله را در مستندات بخوانید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              لندینگ مسیر تصمیم را کوتاه می‌کند؛ برای جزئیات فنی، صفحات docs به بخش‌های مرتبط وصل شده‌اند.
+              برای شناخت داده‌های کاتالوگ، مقایسه مدل‌ها و ساخت مدل مجازی، راهنمای مرتبط را دنبال کنید.
             </p>
           </div>
 
@@ -607,12 +607,12 @@ export function ModelDiscovery() {
               {
                 icon: Gauge,
                 title: 'برای تیم فنی',
-                description: 'قبل از اتصال به Gateway، محدودیت‌ها، قابلیت‌ها و گزینه‌های fallback را ببینید.',
+                description: 'پیش از اتصال به درگاه، محدودیت‌ها، قابلیت‌ها و مقصدهای جایگزین را بررسی کنید.',
               },
               {
                 icon: LineChart,
                 title: 'برای تیم مالی',
-                description: 'انتخاب مدل را از همان ابتدا با هزینه، مصرف و provider جایگزین بسنجید.',
+                description: 'هزینه و مصرف مدل منتخب را در کنار ارائه‌دهنده‌های جایگزین بسنجید.',
               },
             ].map((item) => (
               <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-7 dark:border-slate-800 dark:bg-slate-900/60">
@@ -632,7 +632,7 @@ export function ModelDiscovery() {
               className="text-3xl font-bold text-slate-900 dark:text-white"
               style={{ fontFamily: 'var(--font-heading)' }}
             >
-              سوالات متداول
+              پرسش‌های پرتکرار
             </h2>
           </div>
           <FAQAccordion items={faqItems} />
@@ -650,7 +650,7 @@ export function ModelDiscovery() {
             انتخاب مدل را از یک تصمیم مبهم به یک جریان قابل مدیریت تبدیل کنید
           </h2>
           <p className="mx-auto mb-10 max-w-3xl text-lg leading-relaxed text-indigo-100 md:text-xl">
-            با Model Discovery، کاتالوگ مدل‌ها، مقایسه، مستندات و مسیر ورود به Gateway در یک تجربه واحد قرار می‌گیرد.
+            مدل‌ها را با داده‌های یکدست مقایسه کنید و سپس مدل منتخب را به درگاه یا یک مدل مجازی متصل کنید.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link

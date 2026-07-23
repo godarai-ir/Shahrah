@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "رجیستری پرامپت",
   description:
-    "پرامپت‌ها را با نسخه، متغیر، FQN و اجرای قابل‌پیگیری در گدارAI مدیریت کنید.",
+    "پرامپت‌ها را نسخه‌بندی کنید، متغیرها را هنگام اجرا مقدار دهید و نسخه اجراشده را با FQN پیگیری کنید.",
   path: "/features/prompt-engineering",
 });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { AppWindow } from 'lucide-react';
+import { AppWindow, Globe2 } from 'lucide-react';
 import Image from 'next/image';
 
 export function Solution() {
@@ -10,10 +10,13 @@ export function Solution() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
-            یک درگاه واحد برای همه نیازهای شما
+            گدار، جای کم‌عمق رودخانه که می‌توان پهنای آن را بدون شنا کردن پیمود.
+            <cite className="mt-3 block text-sm font-medium not-italic text-indigo-600 dark:text-indigo-400">
+              (فرهنگ معین)
+            </cite>
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            با استراتژی‌های کش، هزینه‌ها را کاهش دهید، دسترسی‌های را قاعده‌مند کنید، پرامپت‌ها را در یکجا مدیریت کنید و از ده‌ها قابلیت ضروری دیگر برخوردار شوید.
+            به بیش از ۲۷۰۰ مدل از ۲۱ ارائه‌دهنده معتبر جهانی دسترسی بی‌دغدغه دارید. از کنترل مصرف و امنیت و پایداری تا نظارت و هشدار و عیب‌یابی.
           </p>
         </div>
 
@@ -47,15 +50,17 @@ export function Solution() {
               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
               className="flex flex-col items-center md:justify-self-center"
             >
-              <div className="w-28 h-28 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-[0_0_30px_rgba(99,102,241,0.4)] flex items-center justify-center relative border-4 border-white dark:border-[#0B0F19]">
-                <Image
-                  src="/mini_logo.svg"
-                  alt="لوگوی گدارAI"
-                  width={56}
-                  height={56}
-                  className="h-14 w-14"
-                />
-                <div className="absolute -bottom-10 whitespace-nowrap font-bold text-indigo-600 dark:text-indigo-400 text-lg">
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl border-4 border-white bg-gradient-to-br from-indigo-500 to-purple-600 shadow-[0_0_30px_rgba(99,102,241,0.4)] dark:border-[#0B0F19]">
+                <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/80 bg-white shadow-lg ring-1 ring-slate-900/10">
+                  <Image
+                    src="/mini_logo.svg"
+                    alt="لوگوی گدارAI"
+                    width={64}
+                    height={64}
+                    className="h-16 w-16"
+                  />
+                </div>
+                <div className="absolute -bottom-10 z-10 whitespace-nowrap text-lg font-bold text-indigo-600 dark:text-indigo-400">
                   درگاه گدارAI
                 </div>
                 
@@ -68,17 +73,17 @@ export function Solution() {
             <div className="flex w-full max-w-sm flex-col gap-4 sm:gap-6 md:w-[420px] md:max-w-none md:items-stretch md:justify-self-center md:gap-5 lg:w-[460px] lg:gap-6">
               <div className="flex items-center justify-between gap-4 bg-white dark:bg-[#111827] p-3 pr-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm md:min-h-16">
                 <Image
-                  src="/providers/openai.svg"
+                  src="/openai-light.png"
                   alt="OpenAI"
                   width={32}
                   height={32}
                   className="h-8 w-8 rounded-lg"
                 />
-                <span className="font-medium text-slate-900 dark:text-white" dir="ltr">OpenAI Models</span>
+                <span className="font-medium text-slate-900 dark:text-white" dir="ltr">Open AI</span>
               </div>
               <div className="flex items-center justify-between gap-4 bg-white dark:bg-[#111827] p-3 pr-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm md:min-h-16">
                 <Image
-                  src="/providers/anthropic.svg"
+                  src="/providers/anthropic.png"
                   alt="Anthropic"
                   width={32}
                   height={32}
@@ -88,13 +93,19 @@ export function Solution() {
               </div>
               <div className="flex items-center justify-between gap-4 bg-white dark:bg-[#111827] p-3 pr-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm md:min-h-16">
                 <Image
-                  src="/providers/google.svg"
+                  src="/Google-Gemini-Logo-Transparent.png"
                   alt="Google Gemini"
                   width={32}
                   height={32}
                   className="h-8 w-8 rounded-lg"
                 />
                 <span className="font-medium text-slate-900 dark:text-white" dir="ltr">Google Gemini</span>
+              </div>
+              <div className="flex items-center justify-between gap-4 bg-white dark:bg-[#111827] p-3 pr-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm md:min-h-16">
+                <Globe2 className="h-8 w-8 shrink-0 text-indigo-500" aria-hidden="true" />
+                <span className="font-medium text-slate-900 dark:text-white">
+                  و بیش از ۲۰ ارائه‌دهنده معتبر جهان
+                </span>
               </div>
             </div>
 

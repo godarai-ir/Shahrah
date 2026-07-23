@@ -52,7 +52,7 @@ export function Features() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
-            امکانات و ویژگی‌های کلیدی
+            امکانات کلیدی
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
             ابزارهای اصلی برای اتصال، مسیریابی، کنترل هزینه و پایش مصرف مدل‌ها در یک مسیر واحد.
@@ -69,12 +69,14 @@ export function Features() {
               transition={{ duration: 0.4, delay: idx * 0.05 }}
               className="bg-white dark:bg-[#0B0F19] p-5 sm:p-6 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-indigo-500/50 dark:hover:border-indigo-500/50 transition-colors group"
             >
-              <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                {feature.icon}
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-transform group-hover:scale-110 dark:bg-indigo-500/10 dark:text-indigo-400">
+                  {feature.icon}
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {feature.title}
+                </h3>
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-                {feature.title}
-              </h3>
               <p className="text-slate-600 dark:text-gray-400 text-sm leading-relaxed">
                 {feature.description}
               </p>

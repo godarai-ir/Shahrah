@@ -3,9 +3,9 @@ import { SecurityCompliance } from '@/app/pages/features/SecurityCompliance';
 import { buildMetadata } from "@/app/lib/seo";
 
 export const metadata: Metadata = buildMetadata({
-  title: "امنیت و تطابق",
+  title: "امنیت و کنترل دسترسی",
   description:
-    "توکن‌ها، دسترسی‌ها، سیاست‌ها و داده حساس را در مسیر مصرف مدل‌های زبانی کنترل کنید.",
+    "توکن‌ها، نقش‌ها، مجوزها، سقف مصرف و داده حساس را در مسیر استفاده از مدل‌های زبانی کنترل کنید.",
   path: "/features/security",
 });
 

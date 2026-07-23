@@ -5,7 +5,7 @@ import { buildMetadata } from "@/app/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "کشف و مقایسه مدل‌ها",
   description:
-    "با Model Discovery گدارAI، مدل‌ها و پروایدرها را جست‌وجو، فیلتر و مقایسه کنید و مدل مناسب را برای Gateway و محصول خود انتخاب کنید.",
+    "مدل‌ها و ارائه‌دهنده‌ها را جست‌وجو، فیلتر و مقایسه کنید و پیش از اتصال به درگاه، هزینه و قابلیت‌های هر مدل را بسنجید.",
   path: "/features/model-discovery",
 });
 

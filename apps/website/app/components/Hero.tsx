@@ -26,9 +26,14 @@ export function Hero() {
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
               بی‌گٌدار به آب نزنید!
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">گدارAI؛ مسیر کنترل‌شده‌ی اتصال محصول به <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">مدل‌های هوش‌مصنوعی</span></h1>
+            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">
+              در کار با مدل‌های هوش مصنوعی، به چشمی بینا، نگهبانی بیدار، راهبری هوشیار و حسابداری خبره نیاز است!
+              <span className="mt-2 block text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">
+                گدارAI، جمع این‌هاست.
+              </span>
+            </h1>
             <p className="mx-auto max-w-xl text-sm sm:text-lg text-slate-600 dark:text-gray-400 mb-6 sm:mb-8 leading-8 sm:leading-relaxed lg:mx-0">
-              به‌جای مدیریت ده‌ها API و ارائه‌دهنده مختلف، تنها یک API را فراخوانی کنید. گدارAI با مسیریابی هوشمند، مدیریت هزینه، پایش مصرف، کش پاسخ‌ها و قابلیت‌های کنترل دسترسی، زیرساختی یکپارچه برای استفاده از مدل‌های هوش مصنوعی در مقیاس سازمانی فراهم می‌کند.
+              هزینه و دردسرهای پرداخت، کمتر؛ امنیت و کنترل مصرف بیشتر!
             </p>
             <div className="flex min-w-0 flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 lg:justify-start">
               <Link href="/pricing" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-6 py-3.5 font-medium text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all hover:bg-indigo-600 hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] sm:w-auto">
@@ -91,7 +96,7 @@ response = client.chat.completions.create({'\n'}
               </div>
               <div>
                 <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">کاهش هزینه</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">قابل‌پیگیری در هر تیم</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">نتیجه‌ی برابر، هزینه‌ی کمتر</p>
               </div>
             </motion.div>
 
@@ -104,8 +109,8 @@ response = client.chat.completions.create({'\n'}
                 <Activity className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">وضعیت سرویس</p>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">پایش وضعیت مسیرها</p>
+                <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">چشم بینا</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">ثبت همه‌ی جزئیات</p>
               </div>
             </motion.div>
 

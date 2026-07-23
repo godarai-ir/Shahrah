@@ -36,7 +36,7 @@ export function Observability() {
               style={{ fontFamily: 'var(--font-heading)' }}
             >
               <Activity className="w-4 h-4" />
-              LLM Observability برای تیم‌های ایرانی
+              مشاهده‌پذیری درخواست‌های مدل زبانی
             </motion.div>
             
             <motion.h1 
@@ -44,7 +44,7 @@ export function Observability() {
               style={{ fontFamily: 'var(--font-heading)' }}
               {...fadeIn}
             >
-              دید کامل روی <span className="text-transparent bg-clip-text bg-gradient-to-l from-indigo-500 to-purple-500">تمام تعاملات AI</span> در محصول شما
+              از روند کلی مصرف تا <span className="text-transparent bg-clip-text bg-gradient-to-l from-indigo-500 to-purple-500">جزئیات هر درخواست</span>
             </motion.h1>
             
             <motion.p 
@@ -52,7 +52,7 @@ export function Observability() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-            >با گدارAI، هر درخواست، پاسخ، هزینه، تأخیر، خطا، مصرف توکن و رفتار مدل‌های زبانی را در یک مسیر پایش کنید؛ با کاهش ریسک اتصال مستقیم، پرداخت ارزی و پیچیدگی اتصال به چند ارائه‌دهنده خارجی.</motion.p>
+            >لاگ، رد درخواست و سنجه‌های تجمیعی گدارAI نشان می‌دهند کدام مدل پاسخ داده، چه میزان توکن و هزینه ثبت شده، چه خطایی رخ داده و هر مرحله چقدر زمان برده است.</motion.p>
             
             <motion.div 
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
@@ -97,7 +97,7 @@ export function Observability() {
                   {[
                     { label: 'حجم درخواست (۲۴ ساعت)', value: '۱۲۴,۵۹۲', change: '+۱۲٪', icon: Network, color: 'text-indigo-500' },
                     { label: 'مصرف توکن', value: '۴۵.۲M', change: '+۵٪', icon: Database, color: 'text-emerald-500' },
-                    { label: 'میانگین تاخیر (Latency)', value: '240ms', change: '-۱۵ms', icon: Clock, color: 'text-amber-500' },
+                    { label: 'میانگین تأخیر', value: '240ms', change: '-۱۵ms', icon: Clock, color: 'text-amber-500' },
                     { label: 'نرخ خطا', value: '۰.۱۲٪', change: '-۰.۱٪', icon: AlertTriangle, color: 'text-rose-500' }
                   ].map((stat, i) => (
                     <div key={i} className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -135,7 +135,7 @@ export function Observability() {
                   
                   {/* Logs Table */}
                   <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">جدول گزارش رخدادها (Live)</h3>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">نمونه لاگ درخواست‌ها</h3>
                     <div className="w-full overflow-x-auto">
                       <table className="w-full text-xs text-right">
                         <thead>
@@ -235,15 +235,15 @@ export function Observability() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-              ساخته‌شده برای تیم‌هایی که با LLM محصول واقعی می‌سازند
+              برای تیم‌هایی که مدل زبانی را در محصول واقعی به کار می‌گیرند
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">گدارAI به تیم‌های محصول، فنی و AI کمک می‌کند مصرف، کیفیت و عملکرد مدل‌های زبانی را در یک محیط واحد مدیریت کنند؛ با تجربه‌ای مناسب بازار ایران و بدون نیاز به پرداخت ارزی مستقیم.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">تیم‌های فنی، محصول و مالی می‌توانند داده‌های درخواست، مصرف و هزینه را از یک منبع مشترک بررسی کنند و سریع‌تر به علت تغییرها برسند.</p>
           </div>
           
           <div className="flex flex-wrap justify-center gap-3">
             {[
-              'استارتاپ‌های AI', 'تیم‌های نرم‌افزاری', 'سازمان‌های داده‌محور', 
-              'محصولات SaaS', 'تیم‌های Customer Support', 'تیم‌های R&D و AI Lab'
+              'استارتاپ‌های هوش مصنوعی', 'تیم‌های نرم‌افزاری', 'سازمان‌های داده‌محور',
+              'محصولات SaaS', 'تیم‌های پشتیبانی مشتری', 'تیم‌های تحقیق و توسعه'
             ].map((chip, idx) => (
               <div key={idx} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
                 {chip}
@@ -258,10 +258,10 @@ export function Observability() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              دید ۳۶۰ درجه روی هر تعامل AI
+              سه نمای مکمل برای بررسی درخواست‌ها
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              با ماژول LLM Observability گدارAI، هزینه، عملکرد، کیفیت پاسخ‌ها و رفتار مدل‌ها را در سطح هر درخواست بررسی کنید.
+              لاگ برای جزئیات یک درخواست، رد درخواست برای مسیر مرحله‌به‌مرحله و سنجه برای تحلیل روندهای کلی به کار می‌رود.
             </p>
           </div>
 
@@ -272,13 +272,13 @@ export function Observability() {
                 <Table className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                ثبت لاگ کامل برای هر درخواست و پاسخ
+                بررسی لاگ هر درخواست
               </h3>
               <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed flex-1">
-                گدارAI تمام جزئیات مهم هر درخواست و پاسخ را ثبت می‌کند؛ از مدل انتخاب‌شده و تعداد توکن‌ها تا تأخیر، هزینه، وضعیت پاسخ، خطاها و Metadata. این یعنی تیم شما همیشه می‌داند در پشت هر تعامل AI چه اتفاقی افتاده است.
+                مدل انتخاب‌شده، توکن، تأخیر، هزینه، وضعیت پاسخ، خطا و فراداده هر درخواست را بررسی کنید. ثبت محتوای درخواست و پاسخ نیز تابع تنظیمات حریم خصوصی فضای کاری است.
               </p>
               <div className="bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/10 rounded-xl p-4 text-xs text-indigo-800 dark:text-indigo-300 font-medium">
-                💡 مناسب برای Debug، گزارش‌گیری، Audit و تحلیل رفتار کاربران.
+                مناسب برای عیب‌یابی، گزارش‌گیری و بررسی یک درخواست مشخص.
               </div>
             </MagicCard>
 
@@ -288,13 +288,13 @@ export function Observability() {
                 <Workflow className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                Debug سریع‌تر با Tracing
+                عیب‌یابی مرحله‌ای با رد درخواست
               </h3>
               <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed flex-1">
-                مسیر کامل اجرای یک درخواست LLM را در یک نمای زمانی و قابل‌فهم ببینید. از Prompt اولیه تا Tool Callها، Retryها، Fallbackها و پاسخ نهایی، همه‌چیز در یک Trace واحد قابل بررسی است.
+                تلاش‌ها، خطاها، مسیر جایگزین و زمان هر مرحله را در یک نمای زمانی ببینید و مشخص کنید کدام بخش باعث کندی یا شکست شده است.
               </p>
               <div className="bg-purple-50/50 dark:bg-purple-500/5 border border-purple-100 dark:border-purple-500/10 rounded-xl p-4 text-xs text-purple-800 dark:text-purple-300 font-medium">
-                💡 برای Agentها، Workflowهای چندمرحله‌ای و Chainهای پیچیده ایده‌آل است.
+                برای درخواست‌هایی که چند تلاش یا مقصد دارند، رد درخواست از لاگ جزئیات بیشتری می‌دهد.
               </div>
             </MagicCard>
 
@@ -304,13 +304,13 @@ export function Observability() {
                 <CheckCircle className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                ارزیابی و بهبود کیفیت پاسخ‌ها
+                تحلیل روند مصرف و عملکرد
               </h3>
               <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed flex-1">
-                بازخورد کاربران یا تیم داخلی را در سطح درخواست یا مکالمه جمع‌آوری کنید و بفهمید کدام مدل، Prompt یا مسیر پاسخ‌دهی کیفیت بهتری دارد.
+                تعداد درخواست، خطا، تأخیر، مصرف توکن، هزینه و اثربخشی حافظه نهان را در بازه زمانی و بر اساس مدل یا ارائه‌دهنده مقایسه کنید.
               </p>
               <div className="bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/10 rounded-xl p-4 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-                💡 کیفیت خروجی LLM را فقط حدس نزنید؛ اندازه‌گیری کنید.
+                برای بررسی کیفیت محتوایی، این داده‌ها را با ارزیابی و بازخورد محصول خود ترکیب کنید.
               </div>
             </MagicCard>
 
@@ -320,13 +320,13 @@ export function Observability() {
                 <DollarSign className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                کنترل هزینه‌ها با نگاه FinOps
+                پیگیری هزینه و مصرف
               </h3>
               <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed flex-1">
-                مصرف AI را در لحظه تحلیل کنید، هزینه‌ها را بر اساس مدل، تأمین‌کننده، کاربر، Workspace یا فیچر محصول ببینید و قبل از اینکه هزینه‌ها از کنترل خارج شوند، نقاط پرمصرف را شناسایی کنید.
+                هزینه را بر اساس مدل، ارائه‌دهنده، تیم یا حساب مجازی بررسی کنید و افزایش مصرف را به درخواست‌های مربوط برسانید.
               </p>
               <div className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-100 dark:border-amber-500/10 rounded-xl p-4 text-xs text-amber-800 dark:text-amber-300 font-medium">
-                💡 مخصوص تیم‌هایی که می‌خواهند AI را مقیاس‌پذیر و اقتصادی در محصول خود استفاده کنند.
+                این داده‌ها مبنای تنظیم سقف هزینه، محدودیت نرخ و انتخاب مدل مناسب‌تر هستند.
               </div>
             </MagicCard>
           </div>
@@ -339,25 +339,25 @@ export function Observability() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-                Observability فوری، بدون سربار فنی
+                یک مسیر مشترک برای داده‌های پایش
               </h2>
               <p className="text-lg text-slate-400 mb-10">
-                گدارAI به شما کمک می‌کند عملکرد AI app خود را در سطح Frameworkها، Promptها، Tool Callها، Agentها و تأمین‌کننده‌ها مانیتور کنید؛ بدون اینکه تیم فنی درگیر پیاده‌سازی پیچیده شود.
+                داده‌های درخواست در همان مسیری ثبت می‌شوند که اپلیکیشن از طریق درگاه به مدل وصل است. برای همبستگی با سرویس‌های دیگر نیز می‌توانید از OpenTelemetry استفاده کنید.
               </p>
               
               <div className="space-y-8">
                 {[
                   {
-                    title: 'اندازه‌گیری Performance-to-Cost ROI در لحظه',
-                    desc: 'با داشبورد Real-time گدارAI، بیش از ۴۰ شاخص مهم را برای سنجش عملکرد، هزینه، نرخ خطا، مصرف توکن و کیفیت پاسخ‌ها مانیتور کنید.'
+                    title: 'مقایسه عملکرد و هزینه',
+                    desc: 'تأخیر، هزینه، نرخ خطا و مصرف توکن را در بازه زمانی و بر اساس مدل یا ارائه‌دهنده مقایسه کنید.'
                   },
                   {
-                    title: 'مشاهده کامل چرخه اجرای Agent',
-                    desc: 'اگر از AI Agentها استفاده می‌کنید، گدارAI مسیر کامل اجرای هر Agent Run را نمایش می‌دهد؛ از تصمیم‌گیری مدل تا Tool Callها، Retryها، Fallbackها و خروجی نهایی.'
+                    title: 'بررسی تلاش‌ها و مسیر جایگزین',
+                    desc: 'در رد درخواست ببینید هر تلاش به کدام مقصد رفته، چه خطایی رخ داده و مسیر جایگزین چگونه انتخاب شده است.'
                   },
                   {
-                    title: 'شناسایی سریع گلوگاه‌ها با Filterهای دقیق',
-                    desc: 'با فیلترهای پیشرفته، داده‌ها را بر اساس مدل، تأمین‌کننده، Status Code، کاربر، تیم، Workspace، زمان، هزینه، تأخیر یا Metadata فیلتر کنید و سریع‌تر به علت مشکل برسید.'
+                    title: 'یافتن سریع درخواست‌های مسئله‌دار',
+                    desc: 'داده‌ها را بر اساس مدل، ارائه‌دهنده، کد وضعیت، تیم، زمان، هزینه، تأخیر یا فراداده فیلتر کنید و نمونه‌های مرتبط را باز کنید.'
                   }
                 ].map((item, idx) => (
                   <div key={idx} className="flex gap-4">
@@ -446,7 +446,7 @@ export function Observability() {
               هر چیزی که برای سنجش عملکرد نیاز دارید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              یک ماژول Observability سازگار با نیاز تیم‌های LLM که دید end-to-end روی عملکرد، هزینه و کیفیت تعاملات AI فراهم می‌کند.
+              لاگ، رد درخواست، سنجه و خروجی داده، هرکدام برای یک سطح از بررسی طراحی شده‌اند.
             </p>
           </div>
 
@@ -454,33 +454,33 @@ export function Observability() {
             {[
               {
                 icon: ListFilter,
-                title: 'گزارش رخدادها و Traces کامل',
-                desc: 'هر درخواست را ثبت کنید و مسیر کامل آن را از ابتدا تا انتها دنبال کنید. داده‌ها را Export کنید.'
+                title: 'لاگ و رد درخواست',
+                desc: 'جزئیات یک درخواست را در لاگ ببینید و در صورت نیاز، مسیر اجرای آن را مرحله‌به‌مرحله دنبال کنید.'
               },
               {
                 icon: Fingerprint,
-                title: 'Metadata قابل‌تحلیل',
-                desc: 'هزینه، عملکرد، Accuracy، کاربر، Workspace، تأمین‌کننده و اطلاعات سفارشی خودتان را روی هر درخواست ذخیره کنید.'
+                title: 'فراداده قابل تحلیل',
+                desc: 'هزینه، تأخیر، کاربر، فضای کاری، ارائه‌دهنده و فراداده سفارشی را برای فیلتر و تحلیل درخواست‌ها به کار ببرید.'
               },
               {
                 icon: Code,
                 title: 'Auto-instrumentation',
-                desc: 'Tracing، ثبت لاگ و شاخص‌ها را برای Frameworkها و Agentهای مختلف با کمترین تغییر در کد فعال کنید.'
+                desc: 'داده گدارAI را با OpenTelemetry در کنار ردیابی و سنجه‌های سرویس‌های خود همبسته کنید.'
               },
               {
                 icon: BarChart3,
-                title: 'تحلیل لحظه‌ای',
-                desc: 'Usage، خطاها، Caching، بازخورد، Metadata و هزینه‌ها را در یک داشبورد Real-time مشاهده کنید.'
+                title: 'تحلیل روندها',
+                desc: 'مصرف، خطا، حافظه نهان، فراداده و هزینه را در بازه زمانی دلخواه مشاهده کنید.'
               },
               {
                 icon: Search,
-                title: 'فیلترهای پیشرفته',
-                desc: 'با بیش از ۱۵ فیلتر کاربردی، Viewهای دقیق و قابل‌اقدام برای تیم فنی، محصول و مدیریت بسازید.'
+                title: 'فیلتر و نمای ذخیره‌شده',
+                desc: 'فیلترهای پرتکرار را برای بررسی‌های عملیاتی نگه دارید و درخواست‌های مرتبط را سریع‌تر پیدا کنید.'
               },
               {
                 icon: HelpCircle,
-                title: 'بازخورد ساختاریافته',
-                desc: 'بازخورد وزنی و قابل‌تحلیل جمع‌آوری کنید تا کیفیت پاسخ‌ها، Promptها و مدل‌ها را به‌مرور بهبود دهید.'
+                title: 'خروجی برای تحلیل بیرونی',
+                desc: 'لاگ‌ها را با قالب CSV یا JSONL برای تحلیل، گزارش‌گیری یا نگهداری در سامانه دیگر دریافت کنید.'
               }
             ].map((feature, idx) => (
               <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-lg transition-all group hover:border-indigo-300 dark:hover:border-indigo-500/50">
@@ -503,7 +503,7 @@ export function Observability() {
               چرا گدارAI؟
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا Observability در گدارAI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا پایش متمرکز برای تیم‌های ایرانی مهم است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               وقتی محصول شما به LLM وابسته است، فقط اتصال به مدل کافی نیست. باید بدانید هر درخواست چقدر هزینه دارد، چقدر طول می‌کشد، چه خطایی می‌دهد و کدام تأمین‌کننده بهترین عملکرد را دارد.
@@ -515,22 +515,22 @@ export function Observability() {
               {
                 icon: ShieldAlert,
                 title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
-                desc: 'با گدارAI، تیم شما برای دسترسی به مدل‌های LLM خارجی درگیر محدودیت‌های تحریم، مسدود شدن حساب یا ریسک قطع دسترسی مستقیم نمی‌شود.'
+                desc: 'عبور درخواست‌ها از یک درگاه، وابستگی کد محصول به اتصال مستقیم هر ارائه‌دهنده را کمتر می‌کند و تغییر مسیر را ساده‌تر می‌سازد.'
               },
               {
                 icon: CreditCard,
                 title: 'بدون پرداخت ارزی مستقیم',
-                desc: 'هزینه‌های AI را بدون نیاز به کارت اعتباری خارجی یا پرداخت دلاری مدیریت کنید. گدارAI تجربه‌ای مناسب کسب‌وکارهای ایرانی فراهم می‌کند.'
+                desc: 'هزینه مدل‌ها را بدون نیاز به کارت اعتباری خارجی یا پرداخت دلاری مستقیم مدیریت و با نمایش ریالی بررسی کنید.'
               },
               {
                 icon: Crosshair,
-                title: 'Observability متناسب با نیاز بازار ایران',
-                desc: 'داشبوردها، گزارش‌ها و جریان‌های پایش گدارAI برای تیم‌هایی طراحی شده‌اند که می‌خواهند AI را در محصول فارسی، بازار ایران و مقیاس واقعی استفاده کنند.'
+                title: 'هزینه قابل مشاهده به ریال',
+                desc: 'نمایش هزینه به ریال کمک می‌کند تیم فنی و مالی درباره مصرف مدل‌ها با واحدی مشترک تصمیم بگیرند.'
               },
               {
                 icon: Globe,
                 title: 'یک نقطه کنترل برای چند مدل و تأمین‌کننده',
-                desc: 'به‌جای اتصال جداگانه به چند تأمین‌کننده، همه تعاملات LLM را از یک مسیر واحد مدیریت، مانیتور و تحلیل کنید.'
+                desc: 'به‌جای بررسی جداگانه چند ارائه‌دهنده، درخواست‌ها، هزینه و خطاها را از یک مسیر مشترک تحلیل کنید.'
               }
             ].map((diff, idx) => (
               <div key={idx} className="flex gap-4 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -560,23 +560,23 @@ export function Observability() {
             {[
               {
                 icon: TerminalSquare,
-                title: 'تیم‌های محصول AI',
-                desc: 'بفهمید کاربران چطور با قابلیت‌های AI تعامل می‌کنند، کدام پاسخ‌ها کیفیت پایین‌تری دارند و کجا باید تجربه محصول را بهبود دهید.'
+                title: 'تیم‌های محصول هوش مصنوعی',
+                desc: 'الگوی استفاده، خطا و زمان پاسخ قابلیت‌های مبتنی بر مدل را بررسی کنید و نقاط اصطکاک محصول را پیدا کنید.'
               },
               {
                 icon: Code,
                 title: 'تیم‌های Backend و Platform',
-                desc: 'تأخیر، خطا، Retry، Timeout و Fallback را در سطح زیرساخت بررسی کنید و پایداری AI app را بالا ببرید.'
+                desc: 'تأخیر، خطا، تلاش دوباره، مهلت پاسخ و مسیر جایگزین را بررسی کنید و علت ناپایداری را پیدا کنید.'
               },
               {
                 icon: Building,
                 title: 'تیم‌های مالی و مدیریت',
-                desc: 'مصرف AI را بر اساس تیم، فیچر، کاربر یا Workspace ببینید و هزینه‌ها را قابل پیش‌بینی‌تر کنید.'
+                desc: 'مصرف مدل را بر اساس تیم، قابلیت محصول، کاربر یا فضای کاری ببینید و هزینه‌ها را قابل پیش‌بینی‌تر کنید.'
               },
               {
                 icon: Users,
-                title: 'تیم‌های Customer Support',
-                desc: 'کیفیت پاسخ‌های AI را در مکالمات واقعی بررسی کنید و موارد خطادار یا کم‌کیفیت را سریع‌تر پیدا کنید.'
+                title: 'تیم‌های پشتیبانی مشتری',
+                desc: 'درخواست‌های خطادار یا کند در مسیر پاسخ‌گویی خودکار را با شناسه درخواست پیدا و برای تیم فنی ارسال کنید.'
               }
             ].map((useCase, idx) => (
               <MagicCard key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center flex flex-col items-center" gradientColor="rgba(99,102,241,0.08)">
@@ -598,34 +598,34 @@ export function Observability() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-              سوالات متداول
+              پرسش‌های پرتکرار
             </h2>
           </div>
 
           <FAQAccordion items={[
               {
-                q: "آیا می‌توانم هر مرحله یا Tool Call داخل یک Agent Flow را ببینم؟",
-                a: "بله. گدارAI مسیر اجرای Agent را به‌صورت Trace نمایش می‌دهد تا بتوانید Promptها، Model Callها، Tool Callها، Retryها و پاسخ نهایی را بررسی کنید."
+                q: "تفاوت لاگ و رد درخواست چیست؟",
+                a: "لاگ، جزئیات یک درخواست مانند مدل، وضعیت، توکن و هزینه را نشان می‌دهد. رد درخواست، تلاش‌ها و مراحل اجرای همان درخواست را در یک خط زمانی نمایش می‌دهد."
               },
               {
-                q: "آیا تأخیر و مصرف توکن را برای مدل‌ها و تیم‌های مختلف نشان می‌دهد؟",
-                a: "بله. می‌توانید شاخص‌هایی مثل تأخیر، مصرف توکن، هزینه، نرخ خطا و تعداد درخواست‌ها را بر اساس مدل، تأمین‌کننده، Workspace، کاربر یا تیم مشاهده کنید."
+                q: "آیا تأخیر و مصرف توکن برای مدل‌ها و تیم‌های مختلف قابل مشاهده است؟",
+                a: "بله. می‌توانید تأخیر، مصرف توکن، هزینه، نرخ خطا و تعداد درخواست‌ها را بر اساس مدل، ارائه‌دهنده، فضای کاری، کاربر یا تیم بررسی کنید."
               },
               {
-                q: "آیا می‌توانم بفهمم کدام تأمین‌کننده یا مدل بیشترین هزینه را ایجاد می‌کند؟",
-                a: "بله. گدارAI مصرف و هزینه را در سطح مدل، تأمین‌کننده، کاربر، Workspace و فیچر محصول نمایش می‌دهد تا بتوانید تصمیم‌های بهینه‌تری بگیرید."
+                q: "چطور مدل یا ارائه‌دهنده پرهزینه را پیدا کنم؟",
+                a: "در سنجه‌های مدل، هزینه را بر اساس مدل یا ارائه‌دهنده مقایسه کنید. سپس از لاگ درخواست‌ها نمونه‌های پرهزینه را باز کنید و جزئیات مصرف آن‌ها را ببینید."
               },
               {
-                q: "آیا Retry، Fallback و Timeoutها قابل مانیتور هستند؟",
-                a: "بله. می‌توانید رفتار درخواست‌ها را در شرایط خطا، Timeout، Retry یا Fallback بررسی کنید و مسیرهای ناپایدار را سریع‌تر شناسایی کنید."
+                q: "آیا تلاش دوباره و مسیر جایگزین قابل پیگیری است؟",
+                a: "بله. رد درخواست نشان می‌دهد هر تلاش به کدام مقصد رفته، چه خطایی رخ داده و مسیر جایگزین چگونه ادامه پیدا کرده است."
               },
               {
                 q: "آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟",
                 a: "خیر. گدارAI برای تیم‌های ایرانی طراحی شده و هدف آن ساده‌کردن دسترسی، مدیریت و پایش LLMها بدون نیاز به پرداخت ارزی مستقیم است."
               },
               {
-                q: "آیا گدارAI فقط برای تیم‌های فنی است؟",
-                a: "خیر. تیم‌های فنی، محصول، مالی، پشتیبانی و مدیریت می‌توانند از داده‌های Observability گدارAI برای تصمیم‌گیری بهتر استفاده کنند."
+                q: "آیا محتوای کامل درخواست و پاسخ همیشه ذخیره می‌شود؟",
+                a: "خیر. شیوه ثبت محتوا به تنظیمات لاگ و حریم خصوصی ردیابی بستگی دارد. برای شروع امن‌تر می‌توانید فقط فراداده را نگه دارید."
               }
             ].map((faq) => ({
               question: faq.q,
@@ -639,9 +639,9 @@ export function Observability() {
         <div className="absolute inset-0 bg-indigo-600 dark:bg-indigo-900/40" />
         
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'var(--font-heading)' }}>از امروز AI Stack خود را مانیتور کنید</h2>
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'var(--font-heading)' }}>رفتار درخواست‌های مدل را با داده بررسی کنید</h2>
           <p className="text-lg md:text-xl text-indigo-100 mb-10 leading-relaxed max-w-3xl mx-auto">
-            با گدارAI، دید کامل روی مصرف، هزینه، عملکرد و کیفیت تعاملات LLM داشته باشید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم، بدون پرداخت ارزی مستقیم و با تجربه‌ای متناسب با تیم‌های ایرانی.
+            از سنجه‌ها برای یافتن روند، از لاگ برای بررسی نمونه واقعی و از رد درخواست برای پیدا کردن علت خطا یا تأخیر استفاده کنید.
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

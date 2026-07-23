@@ -48,9 +48,9 @@ function AgentsDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'Agent Run امروز', value: runs.toLocaleString('fa-IR'), icon: Bot, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
+            { label: 'اجرای ایجنت امروز', value: runs.toLocaleString('fa-IR'), icon: Bot, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
             { label: 'نرخ موفقیت', value: `${successRate}٪`, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-            { label: 'میانگین Latency', value: '۲.۳s', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+            { label: 'میانگین تأخیر', value: '۲.۳s', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
             { label: 'کاهش هزینه', value: '۱۸٪', icon: TrendingDown, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-500/10' },
           ].map((s, i) => (
             <div key={i} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -121,7 +121,7 @@ function AgentsDashboard() {
         {/* Routing path */}
         <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-1.5">
-            <GitBranch className="w-3 h-3 text-indigo-500" /> مسیر Retry / Fallback / Route
+            <GitBranch className="w-3 h-3 text-indigo-500" /> تلاش دوباره و مسیر جایگزین
           </h3>
           <div className="flex flex-wrap items-center gap-2 font-sans text-[10px]">
             {[
@@ -212,16 +212,16 @@ function AgentMetricsDashboard() {
         <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
           <BarChart3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
         </div>
-        <span className="font-bold text-slate-800 dark:text-white">Agent Metrics — امروز</span>
+        <span className="font-bold text-slate-800 dark:text-white">سنجه‌های ایجنت — امروز</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {[
-          { label: 'Agent Success Rate', value: '۹۸.۷٪', bar: 99, color: 'bg-emerald-500', tc: 'text-emerald-600 dark:text-emerald-400' },
-          { label: 'میانگین Latency', value: '۲.۳s', bar: 45, color: 'bg-amber-500', tc: 'text-amber-600 dark:text-amber-400' },
+          { label: 'نرخ موفقیت ایجنت', value: '۹۸.۷٪', bar: 99, color: 'bg-emerald-500', tc: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'میانگین تأخیر', value: '۲.۳s', bar: 45, color: 'bg-amber-500', tc: 'text-amber-600 dark:text-amber-400' },
           { label: 'مصرف توکن', value: '۴.۲M', bar: 70, color: 'bg-indigo-500', tc: 'text-indigo-600 dark:text-indigo-400' },
           { label: 'هزینه امروز', value: '$۱۸.۴', bar: 38, color: 'bg-purple-500', tc: 'text-purple-600 dark:text-purple-400' },
           { label: 'Error Rate', value: '۱.۳٪', bar: 13, color: 'bg-rose-500', tc: 'text-rose-600 dark:text-rose-400' },
-          { label: 'Tool Call Duration', value: '۰.۹s', bar: 30, color: 'bg-teal-500', tc: 'text-teal-600 dark:text-teal-400' },
+          { label: 'زمان فراخوانی ابزار', value: '۰.۹s', bar: 30, color: 'bg-teal-500', tc: 'text-teal-600 dark:text-teal-400' },
         ].map((m, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5">
             <div className="flex justify-between mb-1.5">
@@ -236,8 +236,8 @@ function AgentMetricsDashboard() {
       </div>
       <div className="grid grid-cols-2 gap-2 text-[10px]">
         {[
-          { label: 'Cost by Agent', vals: [{ name: 'Support', pct: '45٪' }, { name: 'Research', pct: '31٪' }, { name: 'Data', pct: '24٪' }] },
-          { label: 'Cost by Model', vals: [{ name: 'gpt-4o', pct: '62٪' }, { name: 'claude-3', pct: '28٪' }, { name: 'gemini', pct: '10٪' }] },
+          { label: 'هزینه بر اساس ایجنت', vals: [{ name: 'Support', pct: '45٪' }, { name: 'Research', pct: '31٪' }, { name: 'Data', pct: '24٪' }] },
+          { label: 'هزینه بر اساس مدل', vals: [{ name: 'gpt-4o', pct: '62٪' }, { name: 'claude-3', pct: '28٪' }, { name: 'gemini', pct: '10٪' }] },
         ].map((g, i) => (
           <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5">
             <div className="font-bold text-slate-600 dark:text-slate-400 mb-1.5">{g.label}</div>
@@ -307,7 +307,7 @@ function GatewayDiagram() {
         <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
           <Network className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <span className="font-bold text-slate-800 dark:text-white">یک Gateway — چند مدل</span>
+        <span className="font-bold text-slate-800 dark:text-white">یک درگاه — چند مدل</span>
       </div>
       <div className="flex flex-col items-center gap-3">
         {/* Agent App */}
@@ -366,7 +366,7 @@ function ToolCallTable() {
       <table className="w-full text-right">
         <thead>
           <tr className="text-slate-500 border-b border-slate-800">
-            {['Tool Name', 'ورودی', 'خروجی', 'وضعیت', 'Latency', 'Step'].map(h => (
+            {['نام ابزار', 'ورودی', 'خروجی', 'وضعیت', 'تأخیر', 'مرحله'].map(h => (
               <th key={h} className="pb-2 font-medium text-[10px]">{h}</th>
             ))}
           </tr>
@@ -432,7 +432,7 @@ function CTAMiniDashboard() {
     <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-5 font-sans text-sm text-white">
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
         <Bot className="w-4 h-4 text-indigo-300" />
-        <span className="text-xs font-bold text-white/80">AI Agents — وضعیت لحظه‌ای</span>
+        <span className="text-xs font-bold text-white/80">ایجنت‌های هوش مصنوعی — نمای نمونه</span>
         <span className="mr-auto flex items-center gap-1 text-[10px] text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
           Live
@@ -440,11 +440,11 @@ function CTAMiniDashboard() {
       </div>
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: `${runs.toLocaleString('fa-IR')} Agent Run امروز`, icon: Bot, color: 'text-indigo-300' },
+          { label: `${runs.toLocaleString('fa-IR')} اجرای ایجنت امروز`, icon: Bot, color: 'text-indigo-300' },
           { label: '۹۸.۷٪ نرخ موفقیت', icon: CheckCircle, color: 'text-emerald-300' },
-          { label: '۴۰+ Metric لحظه‌ای', icon: BarChart3, color: 'text-amber-300' },
-          { label: '۲.۳s میانگین Latency', icon: Zap, color: 'text-teal-300' },
-          { label: '۱۸٪ کاهش هزینه با Routing', icon: TrendingDown, color: 'text-purple-300' },
+          { label: 'سنجه‌های مصرف و عملکرد', icon: BarChart3, color: 'text-amber-300' },
+          { label: '۲.۳s میانگین تأخیر', icon: Zap, color: 'text-teal-300' },
+          { label: 'مسیریابی بین مقصدهای مدل', icon: TrendingDown, color: 'text-purple-300' },
           { label: 'Retry / Fallback / Route / Block', icon: GitBranch, color: 'text-rose-300' },
         ].map((m, i) => (
           <div key={i} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-2.5">
@@ -460,28 +460,28 @@ function CTAMiniDashboard() {
 // FAQ
 const faqItems = [
   {
-    question: 'AI Agents در گدارAI دقیقاً چه کمکی به تیم ما می‌کند؟',
-    answer: 'گدارAI به شما کمک می‌کند Agentها را از حالت Prototype به محیط عملیاتی ببرید؛ با Trace کامل، پایش، Guardrails، Routing، Retry، Fallback، کنترل هزینه و مدیریت دسترسی.',
+    question: 'گدارAI در اجرای ایجنت چه نقشی دارد؟',
+    answer: 'گدارAI لایه اجرای خود ایجنت نیست؛ فراخوانی‌های مدل را از یک درگاه قابل کنترل عبور می‌دهد تا دسترسی، مسیریابی، گاردریل، مصرف، لاگ و رد درخواست متمرکز بمانند.',
   },
   {
-    question: 'آیا می‌توانم اجرای هر Agent را مرحله‌به‌مرحله ببینم؟',
-    answer: 'بله. گدارAI می‌تواند Agent Run را در سطح Step نمایش دهد؛ شامل Prompt، Model Call، Tool Call، خروجی Tool، خطا، Retry، Fallback و پاسخ نهایی.',
+    question: 'آیا می‌توانم مسیر فراخوانی مدل را مرحله‌به‌مرحله ببینم؟',
+    answer: 'بله. رد درخواست تلاش‌ها، مقصدهای مدل، خطا، تلاش دوباره و مسیر جایگزین را نشان می‌دهد. برای مراحل داخلی و فراخوانی ابزار ایجنت، داده ردیابی چارچوب خود را نیز با OpenTelemetry همبسته کنید.',
   },
   {
-    question: 'اگر یک Tool Call خطا بدهد یا کند باشد چه می‌شود؟',
-    answer: 'می‌توانید Timeout، Retry، Fallback یا مسیر جایگزین تعریف کنید. همچنین در Trace مشخص می‌شود کدام Tool، در کدام Step و با چه Latency یا خطایی باعث مشکل شده است.',
+    question: 'اگر فراخوانی مدل خطا بدهد یا کند باشد چه می‌شود؟',
+    answer: 'در مدل مجازی می‌توانید مهلت پاسخ، کدهای تلاش دوباره و مقصدهای جایگزین را تنظیم کنید. نتیجه هر تلاش در رد درخواست قابل پیگیری است.',
   },
   {
-    question: 'آیا می‌توانم برای Agentها Guardrail تعریف کنم؟',
-    answer: 'بله. می‌توانید روی Input، Output، Tool Callها، مدل‌ها، Workspaceها یا مسیرهای خاص Guardrail تعریف کنید و برای هر تخطی Actionهایی مثل Monitor، Block، Retry، Route یا Human Review داشته باشید.',
+    question: 'آیا می‌توانم روی متن ورودی و خروجی ایجنت گاردریل اجرا کنم؟',
+    answer: 'بله. در فراخوانی `Chat Completions` می‌توانید گاردریل ورودی یا خروجی را انتخاب کنید تا متن بررسی، نشانه‌گذاری، متوقف یا در نوع‌های پشتیبانی‌شده اصلاح شود.',
   },
   {
     question: 'چطور هزینه Agentها را کنترل کنم؟',
-    answer: 'با پایش مصرف توکن، Cost by Agent، Budget، Rate Limit، Routing و انتخاب مدل مناسب می‌توانید هزینه Agentها را در سطح تیم، کاربر، Workspace یا محصول کنترل کنید.',
+    answer: 'مصرف توکن و هزینه فراخوانی‌های مدل را بر اساس تیم یا حساب مجازی بررسی کنید و با سقف هزینه، محدودیت نرخ، حافظه نهان و انتخاب مدل مناسب کنترل کنید.',
   },
   {
-    question: 'آیا گدارAI فقط برای Agentهای چت‌محور است؟',
-    answer: 'خیر. گدارAI برای دستیارهای محصول، Customer Support Agentها، Workflow Automation، Research Agentها، Agentهای داخلی سازمان و Multi-agent Systems کاربرد دارد.',
+    question: 'کدام ایجنت‌ها می‌توانند از این لایه استفاده کنند؟',
+    answer: 'هر ایجنتی که فراخوانی مدل خود را از API سازگار گدارAI بفرستد؛ از دستیار محصول و پشتیبانی تا جریان پژوهش یا اتوماسیون داخلی.',
   },
   {
     question: 'آیا برای استفاده از گدارAI نیاز به پرداخت ارزی دارم؟',
@@ -507,7 +507,7 @@ export function Agents() {
               style={{ fontFamily: 'var(--font-heading)' }}
             >
               <Bot className="w-4 h-4" />
-              AI Agents برای تیم‌های ایرانی
+              اجرای ایجنت از مسیر گدارAI
             </motion.div>
 
             <motion.h1
@@ -517,11 +517,11 @@ export function Agents() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              Agentهای AI را از{' '}
+              فراخوانی‌های مدل ایجنت را از{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-l from-indigo-500 to-purple-500">
-                Prototype به Production
+                نمونه آزمایشی تا محیط عملیاتی
               </span>{' '}
-              ببرید
+              قابل کنترل نگه دارید
             </motion.h1>
 
             <motion.p
@@ -530,7 +530,7 @@ export function Agents() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              با گدارAI، ایجنت‌های هوش مصنوعی خود را به یک زیرساخت پایدار، قابل‌ردیابی و قابل‌کنترل وصل کنید؛ درگاه، گاردریل و مشاهده‌پذیری را کنار هم داشته باشید، اجرای هر ایجنت را ردگیری کنید، هزینه و تاخیر را پایش کنید و با کاهش ریسک اتصال مستقیم و پرداخت ارزی، ایجنت‌ها را وارد محصول واقعی کنید.
+              فراخوانی‌های مدل ایجنت را از درگاه گدارAI بفرستید تا مدل مقصد، دسترسی، گاردریل، هزینه و مسیر هر درخواست در یک نقطه مدیریت و بررسی شود.
             </motion.p>
 
             <motion.div
@@ -566,18 +566,18 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-              ساخته‌شده برای تیم‌هایی که Agent را در محصول واقعی اجرا می‌کنند
+              برای تیم‌هایی که ایجنت را در محصول واقعی اجرا می‌کنند
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-              گدارAI به تیم‌های محصول، Backend، Platform و AI کمک می‌کند Agentهای آزمایشی را به سیستم‌های پایدار محیط عملیاتی تبدیل کنند؛ با Trace کامل، کنترل خروجی، پایش لحظه‌ای، Routing هوشمند و مدیریت هزینه.
+              گدارAI مسئولیت اتصال ایجنت به مدل را از منطق خود ایجنت جدا می‌کند. چارچوب ایجنت همچنان گردش کار و ابزارها را اجرا می‌کند و درگاه، فراخوانی مدل را کنترل و پایش می‌کند.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
             {[
-              'استارتاپ‌های AI', 'تیم‌های Backend و Platform', 'محصولات SaaS',
-              'تیم‌های Customer Support', 'سازمان‌های داده‌محور', 'تیم‌های R&D و AI Lab',
-              'تیم‌هایی که با Workflowهای چندمرحله‌ای کار می‌کنند',
-              'شرکت‌هایی که Agentهای داخلی یا محصولی می‌سازند',
+              'استارتاپ‌های هوش مصنوعی', 'تیم‌های بک‌اند و زیرساخت', 'محصولات SaaS',
+              'تیم‌های پشتیبانی مشتری', 'سازمان‌های داده‌محور', 'تیم‌های تحقیق و توسعه',
+              'تیم‌های دارای جریان چندمرحله‌ای',
+              'شرکت‌هایی که ایجنت داخلی یا محصولی می‌سازند',
             ].map((chip, idx) => (
               <div key={idx} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm">
                 {chip}
@@ -592,10 +592,10 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Agentهای AI را آماده محیط عملیاتی کنید
+              کنترل‌های فراخوانی مدل را به ایجنت اضافه کنید
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              گدارAI یک لایه عملیاتی برای اجرای Agentهاست؛ جایی که Gateway، Guardrails و Observability کنار هم قرار می‌گیرند تا Agentها فقط کار نکنند، بلکه قابل‌اعتماد، قابل‌دیباگ و قابل‌مقیاس باشند.
+              درگاه، گاردریل و مشاهده‌پذیری گدارAI روی فراخوانی مدل کار می‌کنند. منطق برنامه‌ریزی، حافظه و اجرای ابزار همچنان در چارچوب ایجنت شما باقی می‌ماند.
             </p>
           </div>
 
@@ -607,13 +607,13 @@ export function Agents() {
                   <Activity className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Trace کامل برای هر Agent Run
+                  رد درخواست برای هر فراخوانی مدل
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  هر Agent Run را از Prompt اولیه تا تصمیم‌های مدل، Tool Callها، Retryها، Fallbackها و پاسخ نهایی دنبال کنید. با Traceهای قابل‌فهم، بفهمید Agent دقیقاً کجا تصمیم اشتباه گرفته، کدام Tool کند بوده یا چه مرحله‌ای باعث خطا شده است.
+                  تلاش‌ها، مدل مقصد، خطا، تلاش دوباره و مسیر جایگزین هر درخواست را ببینید. برای مراحل داخلی و ابزارها، ردیابی چارچوب ایجنت را در کنار این داده‌ها نگه دارید.
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-6">
-                  برای Debug سریع Agentهای چندمرحله‌ای، Tool-using Agents و Workflowهای پیچیده.
+                  برای عیب‌یابی اتصال مدل در جریان‌های چندمرحله‌ای.
                 </p>
                 <AgentTraceTimeline />
               </div>
@@ -626,13 +626,13 @@ export function Agents() {
                   <BarChart3 className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  پایش Performance و هزینه Agentها
+                  پایش عملکرد و هزینه مدل
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  بیش از ۴۰ Metrics مهم را برای Agentها در لحظه مانیتور کنید؛ از Latency و Cost تا Token Usage، Error Rate، Success Rate، Tool Call Duration و کیفیت پاسخ. بفهمید کدام Agent، Tool، مدل یا مسیر بیشترین هزینه یا خطا را ایجاد می‌کند.
+                  تعداد درخواست، تأخیر، توکن، هزینه و نرخ خطا را بر اساس مدل، ارائه‌دهنده، تیم یا حساب مجازی بررسی کنید و مصرف سرویس ایجنت را از دیگر سرویس‌ها جدا نگه دارید.
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-6">
-                  Agentها را فقط اجرا نکنید؛ عملکرد و هزینه آن‌ها را اندازه‌گیری کنید.
+                  برای هر ایجنت یا سرویس، هویت و VAT مستقل در نظر بگیرید.
                 </p>
                 <AgentMetricsDashboard />
               </div>
@@ -645,13 +645,13 @@ export function Agents() {
                   <Shield className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  کنترل کیفیت خروجی با Guardrails
+                  کنترل متن با گاردریل
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  برای Agentها Guardrailهای ورودی و خروجی تعریف کنید تا Prompt Injection، داده حساس، Tool Callهای پرریسک، پاسخ‌های نامعتبر، Hallucination یا خروجی‌های خارج از Policy قبل از رسیدن به کاربر کنترل شوند.
+                  روی متن ورودی و پاسخ کامل مدل، گاردریل‌هایی مانند عبارت مسدود، PII پایه، تشخیص Secret یا اعتبارسنجی JSON اجرا کنید.
                 </p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-6">
-                  Agentها قدرت بیشتری دارند؛ پس کنترل دقیق‌تری هم نیاز دارند.
+                  گاردریل متن جای کنترل مجوز ابزار یا منطق خود ایجنت را نمی‌گیرد.
                 </p>
                 <AgentGuardrailPanel />
               </div>
@@ -664,13 +664,13 @@ export function Agents() {
                   <Network className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                  اتصال Agentها به چند مدل با یک Gateway واحد
+                  اتصال ایجنت به چند مدل با یک درگاه
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-4 leading-relaxed flex-1">
-                  Agentهای خود را به هر مدل LLM متصل کنید و مسیر اجرای آن‌ها را از یک Gateway مرکزی مدیریت کنید. اگر یک مدل کند شد، خطا داد یا خروجی مناسبی نداد، گدارAI می‌تواند با Routing، Retry یا Fallback مسیر بهتری انتخاب کند.
+                  شناسه مدل یا مدل مجازی را در فراخوانی بفرستید. در مدل مجازی می‌توانید چند مقصد سازگار، تلاش دوباره و مسیر جایگزین تعریف کنید.
                 </p>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-6">
-                  مدل را آزادانه تغییر دهید؛ Agent را پایدار نگه دارید.
+                  شناسه مصرف ایجنت را ثابت و جزئیات مقصد را در درگاه نگه دارید.
                 </p>
                 <GatewayDiagram />
               </div>
@@ -684,10 +684,10 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Observability مخصوص Agentها، نه فقط درخواست‌های ساده
+              مشاهده‌پذیری فراخوانی مدل، در کنار ردیابی خود ایجنت
             </h2>
             <p className="text-lg text-slate-400">
-              Agentها فقط یک LLM Call نیستند. آن‌ها تصمیم می‌گیرند، ابزار صدا می‌زنند، مسیر عوض می‌کنند و چند مرحله اجرا می‌شوند. گدارAI این مسیر را کامل قابل‌مشاهده می‌کند.
+              ایجنت فقط یک فراخوانی مدل نیست. رد درخواست گدارAI مسیر داخل درگاه را نشان می‌دهد؛ برای تصمیم‌ها و ابزارهای ایجنت، ردیابی چارچوب یا اپلیکیشن خود را نیز نگه دارید.
             </p>
           </div>
 
@@ -697,23 +697,23 @@ export function Agents() {
               {[
                 {
                   icon: Activity, color: 'text-indigo-400', bg: 'bg-indigo-500/20',
-                  title: 'Trace سطح مرحله',
-                  desc: 'هر مرحله از اجرای Agent را جداگانه ببینید؛ شامل Prompt، مدل، Tool Call، خروجی Tool، تصمیم بعدی، Retry، خطا و پاسخ نهایی.',
+                  title: 'رد درخواست درگاه',
+                  desc: 'مدل مقصد، تلاش‌ها، خطا، تلاش دوباره، مسیر جایگزین و زمان مراحل داخلی درگاه را بررسی کنید.',
                 },
                 {
                   icon: Wrench, color: 'text-amber-400', bg: 'bg-amber-500/20',
-                  title: 'Debug سریع Tool Callها',
-                  desc: 'بفهمید کدام Tool خطا داده، کند بوده، خروجی اشتباه برگردانده یا باعث شده Agent مسیر نادرست انتخاب کند.',
+                  title: 'همبستگی با ردیابی اپلیکیشن',
+                  desc: 'با `request_id` و `trace_id`، فراخوانی مدل را به مرحله مربوط در ردیابی ایجنت یا سرویس خود وصل کنید.',
                 },
                 {
                   icon: BarChart3, color: 'text-emerald-400', bg: 'bg-emerald-500/20',
-                  title: 'تحلیل کیفیت تصمیم‌های Agent',
-                  desc: 'تصمیم‌های Agent را در طول مسیر بررسی کنید و بفهمید کدام Prompt، مدل، Tool یا Policy باعث خروجی بهتر یا ضعیف‌تر شده است.',
+                  title: 'مقایسه مدل و نسخه پرامپت',
+                  desc: 'مدل، شناسه نسخه پرامپت، هزینه و نتیجه درخواست را کنار ارزیابی کیفیت محصول خود مقایسه کنید.',
                 },
                 {
                   icon: Users, color: 'text-purple-400', bg: 'bg-purple-500/20',
-                  title: 'پایش Agent در سطح کاربر و Workspace',
-                  desc: 'مصرف، هزینه، خطا و کیفیت اجرای Agentها را در سطح کاربر، تیم، Workspace، محصول یا فیچر مشاهده کنید.',
+                  title: 'پایش بر اساس هویت سرویس',
+                  desc: 'برای هر ایجنت VAT جدا بسازید تا مصرف، هزینه و خطای فراخوانی‌های آن از دیگر سرویس‌ها تفکیک شود.',
                 },
               ].map((item, i) => (
                 <div key={i} className="flex gap-4">
@@ -744,10 +744,10 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              کنترل‌های Production برای Agentic Workflowها
+              کنترل‌های محیط عملیاتی برای فراخوانی مدل
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              وقتی Agent به ابزارها، فایل‌ها یا داده کاربران دسترسی دارد، باید مسیر اجرا، دسترسی، خروجی و هزینه آن تحت کنترل باشد.
+              وقتی ایجنت به داده و ابزار دسترسی دارد، کنترل مدل فقط بخشی از ایمنی است. مجوز ابزار و داده باید در خود اپلیکیشن یا لایه ابزار نیز اعمال شود.
             </p>
           </div>
 
@@ -755,33 +755,33 @@ export function Agents() {
             {[
               {
                 icon: Wrench, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                title: 'Policy برای Tool Callها',
-                desc: 'مشخص کنید هر Agent به چه Toolهایی دسترسی دارد، چه زمانی اجازه اجرای آن‌ها را دارد و کدام ورودی‌ها یا خروجی‌ها باید قبل از ادامه بررسی شوند.',
+                title: 'هویت مستقل برای هر ایجنت',
+                desc: 'برای هر سرویس یا ایجنت یک کاربر مجازی و VAT جدا بسازید تا دسترسی، ابطال و گزارش مصرف آن مستقل باشد.',
               },
               {
                 icon: Clock, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'Timeout و Retry برای مراحل Agent',
-                desc: 'برای Tool Callها، Model Callها و مراحل طولانی، Timeout تعریف کنید و در صورت خطا، Retry یا مسیر جایگزین داشته باشید.',
+                title: 'مهلت پاسخ و تلاش دوباره مدل',
+                desc: 'در مدل مجازی، مهلت پاسخ و کدهای تلاش دوباره را برای فراخوانی مدل تنظیم کنید. رفتار ابزارها در اختیار چارچوب ایجنت است.',
               },
               {
                 icon: GitBranch, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
-                title: 'Fallback بین مدل‌ها و مسیرها',
-                desc: 'اگر مدل اصلی پاسخ نامناسب داد یا در یک مرحله شکست خورد، Agent را به مدل، Prompt یا مسیر جایگزین منتقل کنید.',
+                title: 'مسیر جایگزین بین مدل‌ها',
+                desc: 'برای خطاهای مشخص، مقصد بعدی مدل مجازی را امتحان کنید. کیفیت نامناسب پاسخ به ارزیابی و تصمیم اپلیکیشن نیاز دارد.',
               },
               {
                 icon: Eye, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10',
-                title: 'Human Review برای موارد حساس',
-                desc: 'برای تصمیم‌های پرریسک یا خروجی‌هایی که Guardrailها آن‌ها را مشکوک تشخیص می‌دهند، مسیر Human Review تعریف کنید.',
+                title: 'بررسی انسانی در منطق محصول',
+                desc: 'برای تصمیم‌های پرریسک، خطا یا نتیجه گاردریل را در اپلیکیشن دریافت کنید و جریان بررسی انسانی خود را اجرا کنید.',
               },
               {
                 icon: DollarSign, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
-                title: 'Budget و Rate Limit برای Agentها',
-                desc: 'برای هر Agent، تیم یا Workspace سقف مصرف، تعداد Run، هزینه روزانه یا محدودیت مدل تعریف کنید تا هزینه‌ها از کنترل خارج نشوند.',
+                title: 'سقف هزینه و محدودیت نرخ',
+                desc: 'برای هویت سرویس یا تیم، سیاست مصرف تعریف کنید تا تعداد درخواست و هزینه فراخوانی مدل قابل کنترل باشد.',
               },
               {
                 icon: BookOpen, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'Audit Logs برای اجرای Agent',
-                desc: 'هر تغییر در Agent، Policy، Tool Access، مدل، کلید یا اجرای حساس را ثبت کنید تا بعداً قابل‌ردیابی و قابل‌ممیزی باشد.',
+                title: 'لاگ درخواست با حریم خصوصی',
+                desc: 'ثبت محتوای درخواست و پاسخ را متناسب با داده ایجنت تنظیم کنید و مجوز مشاهده محتوا را محدود نگه دارید.',
               },
             ].map((card, i) => (
               <motion.div
@@ -810,10 +810,10 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              زیرساخت سازگار با Frameworkهای Agent
+              اتصال مستقل از چارچوب ایجنت
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              Agentهای شما هرجا ساخته شده باشند، گدارAI می‌تواند یک لایه مشترک برای Gateway، Observability و Guardrails روی آن‌ها ایجاد کند.
+              اگر چارچوب شما امکان تغییر نشانی پایه و توکن API سازگار را دارد، فراخوانی مدل را از گدارAI بفرستید و منطق ایجنت را در همان چارچوب نگه دارید.
             </p>
           </div>
 
@@ -825,10 +825,10 @@ export function Agents() {
                   <Layers className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                  سازگار با Agent Frameworkها
+                  سازگار با کلاینت‌های API
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5">
-                  Agentهای ساخته‌شده با Frameworkهای رایج را به گدارAI متصل کنید تا Tracing، پایش، Guardrails و Routing را بدون ساخت زیرساخت جداگانه فعال کنید.
+                  در چارچوب‌های دارای کلاینت سازگار با OpenAI، نشانی پایه، توکن گدارAI و شناسه مدل را تنظیم و مسیر را در محیط خود آزمایش کنید.
                 </p>
                 <div className="grid grid-cols-2 gap-2 font-sans text-xs">
                   {['Agent Framework', 'Workflow Engine', 'Tool Calling SDK', 'Multi-agent System', 'Internal Agent Runtime', 'Custom Python Agent'].map(f => (
@@ -848,10 +848,10 @@ export function Agents() {
                   <Share2 className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                  یکپارچگی با Gateway، Guardrails و Observability
+                  درگاه، گاردریل و مشاهده‌پذیری در یک مسیر
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5">
-                  به‌جای اینکه برای هر Agent ابزار جداگانه بسازید، گدارAI یک مسیر مشترک برای اتصال مدل‌ها، کنترل خروجی و دید کامل روی اجرا فراهم می‌کند.
+                  فراخوانی‌های مدل را از یک مسیر بفرستید تا دسترسی، گاردریل متن، لاگ، رد درخواست و هزینه با قرارداد مشترک مدیریت شوند.
                 </p>
                 <ThreeLayerArch />
               </div>
@@ -864,10 +864,10 @@ export function Agents() {
                   <Building className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                  مناسب برای Agentهای داخلی و محصولی
+                  مناسب برای ایجنت‌های داخلی و محصولی
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5">
-                  چه Agent داخلی برای تیم خود بسازید، چه دستیار AI برای کاربران محصول، گدارAI کمک می‌کند اجرای آن را امن‌تر، قابل‌مشاهده‌تر و قابل‌مدیریت‌تر کنید.
+                  چه ایجنت داخلی بسازید و چه دستیار محصول، می‌توانید فراخوانی مدل آن را با هویت مستقل، مدل‌های مجاز و سیاست مصرف مشخص اجرا کنید.
                 </p>
                 <div className="grid grid-cols-2 gap-3 font-sans text-xs">
                   <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
@@ -900,10 +900,10 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              Agentهایی که در محیط عملیاتی قابل اعتماد می‌مانند
+              داده‌های لازم برای نگهداری ایجنت در محیط عملیاتی
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
-              Agentها وقتی وارد محصول واقعی می‌شوند، فقط به هوشمندی مدل نیاز ندارند؛ به پایداری، کنترل، Debug، هزینه قابل‌پیش‌بینی و کیفیت قابل‌سنجش نیاز دارند.
+              در محیط عملیاتی باید بتوانید اتصال مدل را عیب‌یابی کنید، هزینه را به هویت سرویس نسبت دهید و رفتار مسیر جایگزین را بسنجید.
             </p>
           </div>
 
@@ -911,27 +911,27 @@ export function Agents() {
             {[
               {
                 icon: Activity, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                value: 'هر', unit: 'Agent Run',
-                label: 'Trace کامل',
-                desc: 'مسیر کامل اجرای Agent را در سطح Step، Tool و مدل ببینید.',
+                value: 'هر', unit: 'درخواست مدل',
+                label: 'رد درخواست',
+                desc: 'مقصد، تلاش‌ها، خطا و زمان اجرای درخواست در درگاه را ببینید.',
               },
               {
                 icon: BarChart3, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                value: '۴۰+', unit: 'شاخص',
-                label: 'Metrics لحظه‌ای',
-                desc: 'Latency، Cost، Token Usage، Error Rate، کیفیت خروجی و Tool Performance را مانیتور کنید.',
+                value: 'چند', unit: 'سنجه اصلی',
+                label: 'روند مصرف و عملکرد',
+                desc: 'تعداد درخواست، تأخیر، توکن، هزینه، خطا و اثربخشی حافظه نهان را بررسی کنید.',
               },
               {
                 icon: Network, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                value: '۱۶۰۰+', unit: 'مدل',
-                label: 'مدل‌های قابل اتصال',
-                desc: 'Agentها را با مدل‌های مختلف اجرا، مقایسه و جایگزین کنید.',
+                value: 'چند', unit: 'مقصد',
+                label: 'مدل مجازی',
+                desc: 'چند مقصد سازگار را پشت یک شناسه پایدار برای ایجنت قرار دهید.',
               },
               {
                 icon: GitBranch, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
-                value: '۴', unit: 'Action',
-                label: 'تصمیم‌های عملیاتی',
-                desc: 'Retry / Fallback / Route / Block — برای خطاها و ریسک‌های Agent Action مشخص تعریف کنید.',
+                value: 'مستقل', unit: 'از کاربر',
+                label: 'هویت سرویس با VAT',
+                desc: 'توکن ایجنت را مستقل بسازید تا دسترسی، ابطال و پایش مصرف آن جدا باشد.',
               },
             ].map((m, i) => (
               <motion.div
@@ -961,7 +961,7 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              چرا اجرای Agent در گدارAI برای تیم‌های ایرانی مهم‌تر است؟
+              چرا اجرای ایجنت از گدارAI برای تیم‌های ایرانی مهم است؟
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               برای تیم‌های ایرانی، عملیاتی کردن Agent فقط مسئله فنی نیست؛ دسترسی پایدار به مدل‌ها، پرداخت، تحریم، هزینه، داده فارسی و کنترل ریسک هم اهمیت دارد.
@@ -973,7 +973,7 @@ export function Agents() {
               {
                 icon: Shield, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-100 dark:border-indigo-500/20',
                 title: 'کاهش ریسک محدودیت‌های اتصال مستقیم',
-                desc: 'با گدارAI، تیم شما برای اجرای Agentهای متصل به مدل‌های خارجی کمتر درگیر محدودیت‌های تحریم، مسدود شدن حساب یا قطع دسترسی مستقیم می‌شود.',
+                desc: 'درگاه مشترک، وابستگی کد ایجنت به اتصال مستقیم هر ارائه‌دهنده را کمتر می‌کند و تغییر مدل مقصد را ساده‌تر می‌سازد.',
               },
               {
                 icon: CreditCard, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20',
@@ -982,13 +982,13 @@ export function Agents() {
               },
               {
                 icon: Lock, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-100 dark:border-purple-500/20',
-                title: 'کنترل متمرکز روی مدل، ابزار، هزینه و ریسک',
-                desc: 'به‌جای اتصال پراکنده Agentها به چند مدل و ابزار، گدارAI یک مسیر مرکزی برای Gateway، Observability، Guardrails، Routing و Audit فراهم می‌کند.',
+                title: 'کنترل متمرکز مدل و هزینه',
+                desc: 'اتصال مدل، مشاهده‌پذیری، گاردریل متن، مسیریابی و هزینه را در یک مسیر نگه دارید. کنترل ابزار همچنان باید در لایه ابزار یا ایجنت اعمال شود.',
               },
               {
                 icon: Globe, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20',
-                title: 'مناسب برای متن فارسی و Workflowهای ایرانی',
-                desc: 'گدارAI می‌تواند برای داده فارسی، شماره تماس، کد ملی، الگوهای محتوایی فارسی، نیازهای تیم‌های داخلی و سناریوهای بازار ایران تنظیم شود.',
+                title: 'مناسب برای متن فارسی و جریان‌های داخلی',
+                desc: 'عبارت‌ها و Regex گاردریل را برای متن فارسی و الگوهای سازمانی تنظیم کنید و هزینه مصرف را با نمایش ریالی بررسی کنید.',
               },
             ].map((diff, i) => (
               <MagicCard
@@ -1016,7 +1016,7 @@ export function Agents() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16 max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              AI Agents گدارAI برای چه سناریوهایی مناسب است؟
+              اجرای ایجنت از گدارAI برای چه سناریوهایی مناسب است؟
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1024,32 +1024,32 @@ export function Agents() {
               {
                 icon: Cpu, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10',
                 title: 'دستیارهای هوشمند محصول',
-                desc: 'دستیارهایی بسازید که به کاربران محصول کمک می‌کنند، اما مسیر اجرا، پاسخ‌ها، هزینه و خطاهایشان قابل‌مشاهده و قابل‌کنترل است.',
+                desc: 'فراخوانی مدل دستیار محصول را با هویت مستقل اجرا کنید و هزینه، خطا و مسیر مقصد آن را قابل مشاهده نگه دارید.',
               },
               {
                 icon: MessagesSquare, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10',
-                title: 'Customer Support Agentها',
-                desc: 'Agentهای پشتیبانی را به منابع، ابزارها و مدل‌ها متصل کنید و هم‌زمان کیفیت پاسخ، ریسک داده حساس و هزینه هر مکالمه را کنترل کنید.',
+                title: 'ایجنت‌های پشتیبانی مشتری',
+                desc: 'فراخوانی مدل پشتیبانی را از هویت سرویس مستقل بفرستید و گاردریل متن، هزینه و خطا را برای همان سرویس بررسی کنید.',
               },
               {
                 icon: GitBranch, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'Workflow Automation',
-                desc: 'Agentهایی که چند مرحله تصمیم‌گیری، Tool Call، تحلیل داده یا تولید خروجی انجام می‌دهند را با Trace و Guardrails به محیط عملیاتی ببرید.',
+                title: 'اتوماسیون جریان کار',
+                desc: 'فراخوانی‌های مدل در جریان چندمرحله‌ای را با شناسه درخواست به ردیابی اپلیکیشن وصل کنید و خطا یا مسیر جایگزین را ببینید.',
               },
               {
                 icon: Search, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10',
-                title: 'Data و Research Agentها',
-                desc: 'برای Agentهایی که داده جمع‌آوری، خلاصه‌سازی، تحلیل یا استخراج می‌کنند، کیفیت، منبع خطا، هزینه و خروجی را بهتر بررسی کنید.',
+                title: 'ایجنت‌های داده و پژوهش',
+                desc: 'برای ایجنت‌های خلاصه‌سازی یا تحلیل، مدل، نسخه پرامپت، هزینه و خطا را کنار ارزیابی کیفیت خود نگه دارید.',
               },
               {
                 icon: Building, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10',
-                title: 'Agentهای داخلی سازمان',
-                desc: 'برای تیم‌های Ops، Finance، Sales، Support یا Product، Agentهای داخلی بسازید و دسترسی، مصرف و Audit آن‌ها را مدیریت کنید.',
+                title: 'ایجنت‌های داخلی سازمان',
+                desc: 'برای تیم‌های عملیات، مالی، فروش، پشتیبانی یا محصول، هویت سرویس و مدل‌های مجاز جدا تعریف کنید.',
               },
               {
                 icon: Share2, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10',
-                title: 'Multi-agent Systems',
-                desc: 'وقتی چند Agent با هم کار می‌کنند، Trace، Policy، هزینه و خطاها را در سطح کل سیستم و هر Agent جداگانه مشاهده کنید.',
+                title: 'سامانه‌های چندایجنتی',
+                desc: 'برای هر ایجنت VAT جدا بسازید تا مصرف و خطای فراخوانی‌های مدل در سطح هر هویت قابل تفکیک باشد.',
               },
             ].map((uc, i) => (
               <motion.div
@@ -1085,18 +1085,18 @@ export function Agents() {
             {[
               {
                 tag: 'راهنما', color: 'text-indigo-600 dark:text-indigo-400', tagBg: 'bg-indigo-50 dark:bg-indigo-500/10',
-                title: 'چطور AI Agentها را به Production ببریم؟',
-                desc: 'برای عملیاتی کردن Agentها، فقط Prompt خوب کافی نیست؛ به Trace، Guardrails، Gateway، Routing، پایش و کنترل هزینه نیاز دارید.',
+                title: 'چطور فراخوانی مدل ایجنت را عملیاتی کنیم؟',
+                desc: 'هویت سرویس، مدل مجاز، مهلت پاسخ، مسیر جایگزین، گاردریل متن و داده‌های پایش را پیش از انتشار مشخص کنید.',
               },
               {
                 tag: 'مقاله', color: 'text-purple-600 dark:text-purple-400', tagBg: 'bg-purple-50 dark:bg-purple-500/10',
-                title: 'چرا Agent Observability مهم‌تر از LLM Logs ساده است؟',
-                desc: 'Agentها چندمرحله‌ای هستند و با Toolها تعامل دارند؛ پس باید تصمیم‌ها، مراحل، خطاها و خروجی هر Step را جداگانه ببینید.',
+                title: 'چطور ردیابی ایجنت و درگاه را به هم وصل کنیم؟',
+                desc: 'شناسه درخواست و رد درخواست گدارAI را کنار ردیابی چارچوب ایجنت نگه دارید تا مرز خطای مدل و اپلیکیشن روشن باشد.',
               },
               {
                 tag: 'راهنما', color: 'text-emerald-600 dark:text-emerald-400', tagBg: 'bg-emerald-50 dark:bg-emerald-500/10',
-                title: 'کنترل هزینه در Agentic Workflowها',
-                desc: 'Agentها ممکن است چندین Model Call و Tool Call اجرا کنند. با Budget، Rate Limit، Cache، Routing و Monitoring می‌توان هزینه‌ها را قابل‌پیش‌بینی‌تر کرد.',
+                title: 'کنترل هزینه در جریان‌های ایجنتی',
+                desc: 'برای هر ایجنت VAT جدا بسازید و با سقف هزینه، محدودیت نرخ، حافظه نهان و انتخاب مدل، مصرف فراخوانی‌ها را کنترل کنید.',
               },
             ].map((res, i) => (
               <div key={i} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer group flex flex-col">
@@ -1120,7 +1120,7 @@ export function Agents() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-              سوالات متداول
+              پرسش‌های پرتکرار
             </h2>
           </div>
           <FAQAccordion items={faqItems} />
@@ -1134,10 +1134,10 @@ export function Agents() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-                Agentهای AI خود را با اطمینان به محیط عملیاتی ببرید
+                فراخوانی‌های مدل ایجنت را قابل کنترل کنید
               </h2>
               <p className="text-lg text-indigo-200 mb-10 leading-relaxed">
-                با گدارAI، اجرای Agentها را Trace کنید، Performance و هزینه را مانیتور کنید، Guardrails را فعال کنید و مسیرهای Retry، Fallback و Routing را از یک لایه مرکزی مدیریت کنید؛ با کاهش ریسک محدودیت‌های اتصال مستقیم و بدون نیاز به پرداخت ارزی مستقیم.
+                درگاه، مشاهده‌پذیری، گاردریل متن، مسیریابی، تلاش دوباره، مسیر جایگزین و کنترل هزینه را برای فراخوانی مدل ایجنت در یک مسیر داشته باشید.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(0,0,0,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 group">

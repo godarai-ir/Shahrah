@@ -6,29 +6,29 @@ import { CreditCard, Network, DollarSign, Activity } from 'lucide-react';
 const problems = [
   {
     icon: <CreditCard className="w-6 h-6" />,
-    title: 'پرداخت و حسابداری پیچیده',
-    description: 'مدیریت پرداخت ارزی، شارژ حساب‌های خارجی و تطبیق آن با هزینه ریالی تیم محصول زمان‌بر است.',
+    title: 'چه کاری با چه هزینه‌ای؟',
+    description: 'کنترل هزینه‌ها، بودجه‌بندی، گزارش مصرف ارزی و پرداخت بین‌المللی کارهای ساده‌ای نیستند. هرچه مقیاس بزرگ‌تر، مشکل هم بزرگ‌تر.',
     color: 'text-red-500',
     bg: 'bg-red-50 dark:bg-red-500/10'
   },
   {
     icon: <Network className="w-6 h-6" />,
-    title: 'تنوع ارائه‌دهندگان و مدل‌ها',
-    description: 'هر ارائه‌دهنده مدل، کلید، نشانی و محدودیت خودش را دارد و تغییر مدل در کد محصول پرهزینه می‌شود.',
+    title: 'چه کسی؟ چه مدلی؟ چقدر؟',
+    description: 'افراد و تیم‌ها برای نیازهای متنوع به مدل‌های متنوع با الگوهای مصرف متفاوت نیاز دارند. تنظیم حدود دسترسی ضروری است.',
     color: 'text-orange-500',
     bg: 'bg-orange-50 dark:bg-orange-500/10'
   },
   {
     icon: <DollarSign className="w-6 h-6" />,
-    title: 'مصرف نامشخص در تیم‌ها',
-    description: 'وقتی چند تیم از یک مدل استفاده می‌کنند، بدون سقف هزینه و گزارش مصرف نمی‌توان هزینه هر سرویس را دقیق دید.',
+    title: 'چه مدلی با چه قابلیتی؟',
+    description: 'مدل‌ها و ارائه‌دهندگان متنوع‌اند. شیوه استفاده همیشه یکسان نیست. مدیریت این تنوع هم آسان نیست.',
     color: 'text-rose-500',
     bg: 'bg-rose-50 dark:bg-rose-500/10'
   },
   {
     icon: <Activity className="w-6 h-6" />,
-    title: 'نبود پایش قابل اتکا',
-    description: 'برای عیب‌یابی پاسخ کند یا خطای مدل، تیم به گزارش رخداد، رد درخواست و سنجه‌های مصرف نیاز دارد.',
+    title: 'مسئولیت پایداری با کیست؟',
+    description: 'هوا همیشه آفتابی نیست. برای پایداری در شرایط بحران، از الان باید به زیرساخت قابل اتکا فکر کرد.',
     color: 'text-purple-500',
     bg: 'bg-purple-50 dark:bg-purple-500/10'
   }
@@ -40,10 +40,14 @@ export function Problem() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4 leading-tight">
-            در استفاده از AI بی‌گدار به آب نزنید!
+            در استفاده از AI،{' '}
+            <span className="bg-gradient-to-l from-indigo-500 to-purple-500 bg-clip-text text-transparent">
+              هرگز
+            </span>{' '}
+            بی‌گدار به آب نزنید!
           </h2>
           <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-400 leading-7 sm:leading-relaxed">
-            استفاده از AI در محیط عملیاتی به سطح متفاوتی از مشاهده‌پذیری، کنترل و امنیت نیازمند است. می‌توانید آنها را به گدارAI بسپارید.
+            مدل‌های هوش مصنوعی در محیط عملیاتی؟! بسی افتاده مشکل‌ها!
           </p>
         </div>
 
