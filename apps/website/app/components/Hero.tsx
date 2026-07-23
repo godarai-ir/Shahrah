@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-10 pb-12 sm:pt-16 sm:pb-16 lg:pt-32 lg:pb-40">
+    <section className="relative overflow-hidden pt-10 pb-12 sm:pt-16 sm:pb-16 lg:pt-0 lg:pb-20">
       {/* Background Gradients */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] opacity-30 dark:opacity-20 pointer-events-none">
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen" />
@@ -26,7 +26,7 @@ export function Hero() {
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
               بی‌گٌدار به آب نزنید!
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">
+            <h1 className="text-3xl sm:text-4xl lg:text-4xl 2xl:text-5xl font-bold text-slate-900 dark:text-white leading-[1.35] sm:leading-[1.2] mb-4 sm:mb-6 font-sans text-balance">
               در کار با مدل‌های هوش مصنوعی، به چشمی بینا، نگهبانی بیدار، راهبری هوشیار و حسابداری خبره نیاز است!
               <span className="mt-2 block text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">
                 گدارAI، جمع این‌هاست.

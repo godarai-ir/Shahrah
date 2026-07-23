@@ -3,26 +3,22 @@
 import Link from "next/link";
 import { type ComponentProps, useCallback, useMemo, useState } from "react";
 import {
-  AlertTriangle,
   ArrowUpRight,
   BookOpen,
-  Clock3,
-  Crown,
-  FlaskConical,
   Gauge,
   type LucideIcon,
   RefreshCcw,
-  ShieldCheck,
-  Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { MetricCard } from "@/components/app-ui";
+import { CompactValue, MetricCard } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCompactNumber } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
+import { DashboardAnalytics } from "./dashboard-analytics";
 
 type TenantSubscription = {
   plan_slug?: string;
@@ -49,10 +45,6 @@ type EffectiveEntitlements = {
   usage_counters?: UsageCounter[];
 };
 
-type TenantAdminUserListResponse = {
-  total?: number;
-};
-
 type Banner = {
   kind: "error";
   message: string;
@@ -67,7 +59,6 @@ type TenantAdminDashboardProps = {
 
 const numberFormatter = new Intl.NumberFormat("fa-IR");
 const REQUESTS_FEATURE_KEY = "gateway.requests.monthly";
-const USERS_FEATURE_KEY = "users.max";
 
 export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const t = useTranslations("dashboard");
@@ -77,7 +68,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     props.initialSubscription ?? props.initialEntitlements?.subscription ?? null,
   );
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements | null>(props.initialEntitlements);
-  const [usersTotal, setUsersTotal] = useState<number | null>(props.initialUsersTotal);
   const [banner, setBanner] = useState<Banner | null>(
     props.initialError
       ? {
@@ -87,12 +77,11 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
       : null,
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
 
   const planStatus = subscription?.status?.trim().toLowerCase() ?? "";
   const planVisual = useMemo(() => getPlanVisual(planStatus), [planStatus]);
-  const PlanStatusIcon = planVisual.icon;
   const planStatusLabel = t(`plan.status.${planVisual.statusKey}`);
-  const planDisplayName = subscription?.plan_display_name?.trim() || subscription?.plan_slug?.trim() || common("notSet");
   const planIntervalLabel = t(`plan.interval.${normalizeBillingInterval(subscription?.billing_interval)}`);
   const planDeadlineISO =
     planStatus === "trialing"
@@ -102,10 +91,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const planMonths = useMemo(() => billingIntervalToMonths(subscription?.billing_interval), [subscription?.billing_interval]);
   const requestsPerMonthLimit = useMemo(
     () => coerceNumericEntitlement(entitlements?.features?.[REQUESTS_FEATURE_KEY]),
-    [entitlements?.features],
-  );
-  const usersLimit = useMemo(
-    () => coerceNumericEntitlement(entitlements?.features?.[USERS_FEATURE_KEY]),
     [entitlements?.features],
   );
   const currentRequestCounter = useMemo(
@@ -123,10 +108,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
     totalPlanRequestLimit && typeof requestUsageValue === "number"
       ? clampUsageRatio(requestUsageValue / totalPlanRequestLimit)
       : null;
-  const usersUsageRatio =
-    usersLimit && typeof usersTotal === "number"
-      ? clampUsageRatio(usersTotal / usersLimit)
-      : null;
   const planActionLabel =
     planStatus === "trialing"
       ? t("plan.actions.upgrade")
@@ -137,18 +118,17 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [subscriptionData, entitlementsData, usersData] = await Promise.all([
+      const [subscriptionData, entitlementsData] = await Promise.all([
         requestJSON<TenantSubscription>("/api/subscription"),
         requestJSON<EffectiveEntitlements>("/api/entitlements"),
-        requestJSON<TenantAdminUserListResponse>("/api/users?limit=1&offset=0"),
       ]);
 
       const nextSubscription = subscriptionData ?? entitlementsData.subscription ?? null;
 
       setSubscription(nextSubscription);
       setEntitlements(entitlementsData);
-      setUsersTotal(usersData.total ?? 0);
       setBanner(null);
+      setAnalyticsRefreshKey((current) => current + 1);
     } catch (error) {
       setBanner({
         kind: "error",
@@ -195,32 +175,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-              <MetricCard
-                icon={PlanStatusIcon}
-                label={t("plan.currentPlan")}
-                value={planDisplayName}
-                description={planStatus === "trialing" ? t("plan.trialSubtitle") : planIntervalLabel}
-                tone={planVisual.tone}
-                className="card-hover"
-                valueClassName="break-words"
-              />
-              <MetricCard
-                icon={Clock3}
-                label={t("plan.daysRemaining")}
-                value={daysRemaining === null ? common("notSet") : t("plan.daysValue", { days: numberFormatter.format(daysRemaining) })}
-                description={planDeadlineISO ? formatDateTime(planDeadlineISO) : common("notSet")}
-                tone={daysRemaining !== null && daysRemaining <= 10 ? "warning" : "success"}
-                className="card-hover"
-              />
-              <UsageSummaryCard
-                icon={Users}
-                title={t("plan.userLimit")}
-                used={usersTotal}
-                limit={usersLimit}
-                subtitle={t("plan.userLimitHint")}
-                tone={usersUsageRatio !== null && usersUsageRatio >= 1 ? "warning" : "success"}
-              />
+            <div className="grid gap-4">
               <UsageSummaryCard
                 icon={Gauge}
                 title={t("plan.requestLimit")}
@@ -264,6 +219,14 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         </Alert>
       ) : null}
 
+      <DashboardAnalytics
+        currentPeriodStart={subscription?.current_period_start}
+        currentPeriodEnd={subscription?.current_period_end}
+        currentUsage={requestUsageValue}
+        requestLimit={totalPlanRequestLimit}
+        refreshKey={analyticsRefreshKey}
+      />
+
     </div>
   );
 }
@@ -279,7 +242,7 @@ function UsageSummaryCard(props: {
   return (
     <MetricCard
       label={props.title}
-      value={formatUsageValue(props.used, props.limit)}
+      value={<UsageLimitValue used={props.used} limit={props.limit} />}
       description={props.subtitle}
       icon={props.icon}
       tone={props.tone}
@@ -342,15 +305,6 @@ function normalizeError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function formatDateTime(value: string): string {
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) return value;
-  return new Intl.DateTimeFormat("fa-IR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(timestamp));
-}
-
 function calculateDaysRemaining(deadlineISO?: string): number | null {
   if (!deadlineISO) return null;
   const deadline = Date.parse(deadlineISO);
@@ -389,8 +343,28 @@ function formatUsagePart(value: number | null): string {
   return value === null ? "-" : numberFormatter.format(Math.round(value));
 }
 
-function formatUsageValue(used: number | null, limit: number | null): string {
-  return `${formatUsagePart(used)} / ${formatUsagePart(limit)}`;
+function UsageLimitValue({ used, limit }: { used: number | null; limit: number | null }) {
+  return (
+    <span className="inline-flex items-center gap-1 tabular-nums" dir="ltr">
+      {limit === null ? (
+        <span>-</span>
+      ) : (
+        <CompactValue
+          display={formatCompactNumber(limit, { locale: "en-US", maximumFractionDigits: 0 })}
+          dir="ltr"
+        />
+      )}
+      <span>/</span>
+      {used === null ? (
+        <span>-</span>
+      ) : (
+        <CompactValue
+          display={formatCompactNumber(used, { locale: "en-US", maximumFractionDigits: 0 })}
+          dir="ltr"
+        />
+      )}
+    </span>
+  );
 }
 
 function clampUsageRatio(value: number): number {
@@ -399,19 +373,17 @@ function clampUsageRatio(value: number): number {
 }
 
 function getPlanVisual(status: string): {
-  icon: LucideIcon;
-  tone: "success" | "warning" | "muted";
   badgeVariant: "success" | "warning" | "outline" | "destructive";
   statusKey: "active" | "trialing" | "past_due" | "inactive";
 } {
   switch (status) {
     case "trialing":
-      return { icon: FlaskConical, tone: "warning", badgeVariant: "warning", statusKey: "trialing" };
+      return { badgeVariant: "warning", statusKey: "trialing" };
     case "active":
-      return { icon: Crown, tone: "success", badgeVariant: "success", statusKey: "active" };
+      return { badgeVariant: "success", statusKey: "active" };
     case "past_due":
-      return { icon: AlertTriangle, tone: "warning", badgeVariant: "destructive", statusKey: "past_due" };
+      return { badgeVariant: "destructive", statusKey: "past_due" };
     default:
-      return { icon: ShieldCheck, tone: "muted", badgeVariant: "outline", statusKey: "inactive" };
+      return { badgeVariant: "outline", statusKey: "inactive" };
   }
 }
