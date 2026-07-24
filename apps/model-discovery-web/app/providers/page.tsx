@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Boxes, Building2, CircleAlert } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
+import { PageHero } from "@/components/page-hero";
 import {
   Card,
   CardContent,
@@ -45,20 +46,12 @@ export default async function ProvidersPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6 sm:gap-8">
-      <header className="flex items-start gap-4">
-        <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-foreground sm:flex">
-          <Building2 className="size-6" aria-hidden="true" />
-        </span>
-        <div className="flex min-w-0 flex-col items-start gap-2">
-          <Badge className="border-primary-soft bg-primary-soft text-primary-soft-foreground">
-            {t("eyebrow")}
-          </Badge>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t("title")}</h1>
-          <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-            {t("subtitle")}
-          </p>
-        </div>
-      </header>
+      <PageHero
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("subtitle")}
+        icon={Building2}
+      />
 
       <section aria-labelledby="providers-directory-title" className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -91,8 +84,9 @@ export default async function ProvidersPage() {
               return (
                 <Card
                   key={provider.slug}
-                  className="group flex min-w-0 flex-col overflow-hidden p-0 transition-colors hover:border-primary/60"
+                  className="group relative flex min-w-0 flex-col overflow-hidden p-0 transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg"
                 >
+                  <span className="absolute inset-x-0 top-0 h-1 bg-primary opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
                   <Link
                     href={`/providers/${provider.slug}`}
                     className="flex h-full min-w-0 flex-col rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

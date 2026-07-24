@@ -1,11 +1,13 @@
 export type CurrencyUnit = 'USD' | 'IRR' | 'TOMAN';
 export type DateCalendar = 'GREGORIAN' | 'SHAMSI';
 export type PriceScale = 'PER_MILLION_TOKENS' | 'PER_TOKEN';
+export type ThemeMode = 'LIGHT' | 'DARK' | 'SYSTEM';
 
 export type DisplaySettings = {
   currencyUnit: CurrencyUnit;
   dateCalendar: DateCalendar;
   priceScale: PriceScale;
+  themeMode: ThemeMode;
 };
 
 export type DisplayPriceLabels = {
@@ -20,6 +22,7 @@ export const DISPLAY_SETTINGS_DEFAULTS: DisplaySettings = {
   dateCalendar: 'GREGORIAN',
   currencyUnit: 'USD',
   priceScale: 'PER_MILLION_TOKENS',
+  themeMode: 'LIGHT',
 };
 
 const EMPTY = '-';

@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { Building2, ExternalLink } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { apiGet } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { PageHero } from "@/components/page-hero";
+import { ProviderModelsList } from "@/components/provider-models-list";
 
 type ProviderDetail = {
   slug: string;
@@ -62,38 +65,38 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
   const statusLabel = statusKey ? tStatus(statusKey) : provider.status;
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-2xl border border-card-border bg-card p-5 sm:p-7">
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className={getStatusClasses(provider.status)}>{statusLabel}</Badge>
-              <Badge>{t("modelCount", { count: modelCount })}</Badge>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{provider.name}</h1>
-              <p className="mt-1 text-sm text-muted-foreground"><bdi dir="ltr" data-technical>/{provider.slug}</bdi></p>
-            </div>
-            <p dir="auto" className="max-w-2xl text-sm leading-6 text-muted-foreground">{provider.description || t("noDescription")}</p>
-          </div>
-
-          <div className="grid w-full gap-2 sm:w-auto">
+    <div className="flex flex-col gap-6 sm:gap-8">
+      <PageHero
+        eyebrow={t("eyebrow")}
+        title={provider.name}
+        description={provider.description || t("noDescription")}
+        icon={Building2}
+        afterTitle={
+          <>
+            <Badge className={getStatusClasses(provider.status)}>{statusLabel}</Badge>
+            <Badge>{t("modelCount", { count: modelCount })}</Badge>
+          </>
+        }
+        actions={
+          <>
             {provider.websiteUrl ? (
-              <a href={provider.websiteUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:border-primary hover:text-primary">
+              <a href={provider.websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent">
                 {t("visitWebsite")}
+                <ExternalLink className="size-4" aria-hidden="true" />
               </a>
             ) : null}
             {provider.docsUrl ? (
-              <a href={provider.docsUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:border-primary hover:text-primary">
+              <a href={provider.docsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent">
                 {t("viewApiDocs")}
+                <ExternalLink className="size-4" aria-hidden="true" />
               </a>
             ) : null}
-            <Link href="/providers" className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+            <Link href="/providers" className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
               {t("backToProviders")}
             </Link>
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -110,7 +113,7 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
         </Card>
       </section>
 
-      <section className="space-y-3">
+      <section className="flex flex-col gap-4">
         <div>
           <h2 className="text-base font-semibold md:text-lg">{tCommon("models")}</h2>
           <p className="text-sm leading-6 text-muted-foreground">{t("modelsDescription")}</p>
@@ -119,15 +122,7 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
         {sortedModels.length === 0 ? (
           <Card><p className="text-sm text-muted-foreground">{t("noModels")}</p></Card>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {sortedModels.map((model) => (
-              <Link key={model.id} href={`/models/${provider.slug}/${model.slug}`} className="group rounded-xl border border-card-border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <p className="text-sm font-medium transition-colors group-hover:text-primary">{model.displayName}</p>
-                <p className="mt-1 text-xs text-muted-foreground"><bdi dir="ltr" data-technical>/{model.slug}</bdi></p>
-                <p className="mt-3 text-xs text-primary">{t("viewModelDetails")}</p>
-              </Link>
-            ))}
-          </div>
+          <ProviderModelsList providerSlug={provider.slug} models={sortedModels} />
         )}
       </section>
     </div>

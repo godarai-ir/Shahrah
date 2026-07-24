@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useLayoutEffect, useMemo, useState } from 'react';
 import { DisplaySettings, DISPLAY_SETTINGS_DEFAULTS, DISPLAY_SETTINGS_STORAGE_KEY } from '@/lib/display-settings';
 
 type DisplaySettingsContextValue = {
@@ -50,6 +50,16 @@ export function DisplaySettingsProvider({ children }: { children: React.ReactNod
     () => ({ settings, setSettings, updateSettings, resetSettings }),
     [settings],
   );
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const useDark = settings.themeMode === 'DARK'
+      || (settings.themeMode === 'SYSTEM' && systemPrefersDark);
+
+    root.classList.toggle('dark', useDark);
+    root.style.colorScheme = useDark ? 'dark' : 'light';
+  }, [settings.themeMode]);
 
   return (
     <DisplaySettingsContext.Provider value={value}>

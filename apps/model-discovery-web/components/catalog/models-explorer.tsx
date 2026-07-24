@@ -197,8 +197,8 @@ export function ModelsExplorer() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <Card className="p-0 lg:sticky lg:top-20 lg:z-10">
-        <CardHeader className="border-b border-border sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <Card className="overflow-hidden p-0 shadow-sm lg:sticky lg:top-20 lg:z-10">
+        <CardHeader className="border-b border-border bg-muted/35 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold sm:text-lg">{t("filtersTitle")}</h2>
@@ -291,7 +291,14 @@ export function ModelsExplorer() {
         {!modelsQuery.isLoading && !modelsQuery.isError && modelsQuery.data?.data.length === 0 ? (
           <ResultMessage tone="neutral" title={t("noMatches")} action={activeFilterCount > 0 ? (
             <Button type="button" onClick={clearFilters}>{t("clearFilters", { count: activeFilterCount })}</Button>
-          ) : null} />
+          ) : (
+            <Link
+              href="/providers"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t("browseProviders")}
+            </Link>
+          )} />
         ) : null}
 
         {!modelsQuery.isLoading && !modelsQuery.isError && modelsQuery.data?.data.length ? (
@@ -305,7 +312,8 @@ export function ModelsExplorer() {
               );
 
               return (
-                <Card key={model.canonicalId} className="group relative flex min-w-0 flex-col overflow-hidden p-0 transition-colors hover:border-primary/60">
+                <Card key={model.canonicalId} className="group relative flex min-w-0 flex-col overflow-hidden p-0 transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg">
+                  <span className="absolute inset-x-0 top-0 h-1 bg-primary opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
                   <div className="absolute end-3 top-3 z-10">
                     <CompareToggleButton canonicalId={model.canonicalId} compact iconOnly />
                   </div>

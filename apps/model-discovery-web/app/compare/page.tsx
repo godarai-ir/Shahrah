@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { CircleAlert, GitCompareArrows, ListFilter, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -20,6 +21,7 @@ import { apiGet } from "@/lib/api";
 import { type CompareModel, MAX_COMPARE_MODELS, normalizeNameList, parseCompareIds, serializeCompareIds } from "@/lib/compare-models";
 import { cn } from "@/lib/utils";
 import { useDisplayFormatters } from "@/lib/use-display-formatters";
+import { PageHero } from "@/components/page-hero";
 
 type FieldKind = "scalar" | "list";
 type SectionKey = "identity" | "pricing" | "capabilities" | "limits" | "governance" | "regionsBenchmarks";
@@ -60,7 +62,7 @@ function ComparePageContent() {
   const [onlyDiffs, setOnlyDiffs] = useState(false);
   const hydratedRef = useRef(false);
   const initialUrlIdsRef = useRef(urlIds);
-  const urlSyncReadyRef = useRef(initialUrlIdsRef.current.length === 0);
+  const urlSyncReadyRef = useRef(urlIds.length === 0);
 
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -198,30 +200,20 @@ function ComparePageContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6 sm:gap-8">
-      <header className="flex items-start gap-4">
-        <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-foreground sm:flex">
-          <GitCompareArrows className="size-6" aria-hidden="true" />
-        </span>
-        <div className="flex min-w-0 flex-col items-start gap-2">
-          <Badge className="border-primary-soft bg-primary-soft text-primary-soft-foreground">
-            {t("eyebrow")}
+      <PageHero
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("subtitle")}
+        icon={GitCompareArrows}
+        afterTitle={selectedCount > 0 ? (
+          <Badge aria-live="polite">
+            {t("selectionSummary", {
+              count: numberFormatter.format(selectedCount),
+              max: numberFormatter.format(MAX_COMPARE_MODELS),
+            })}
           </Badge>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t("title")}</h1>
-            {selectedCount > 0 ? (
-              <Badge aria-live="polite">
-                {t("selectionSummary", {
-                  count: numberFormatter.format(selectedCount),
-                  max: numberFormatter.format(MAX_COMPARE_MODELS),
-                })}
-              </Badge>
-            ) : null}
-          </div>
-          <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-            {t("subtitle")}
-          </p>
-        </div>
-      </header>
+        ) : null}
+      />
 
       {selectedCount === 0 ? (
         <Card role="status" className="p-0">
@@ -233,6 +225,12 @@ function ComparePageContent() {
               <h2 className="text-base font-semibold leading-7">{t("noSelectionTitle")}</h2>
               <CardDescription>{t("noSelection")}</CardDescription>
             </div>
+            <Link
+              href="/models"
+              className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:ms-auto"
+            >
+              {t("browseModels")}
+            </Link>
           </CardHeader>
         </Card>
       ) : (

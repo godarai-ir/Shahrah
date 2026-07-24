@@ -30,25 +30,53 @@
 
 :root {
   --font-sans: var(--font-vazirmatn), "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --card-border: oklch(0.28 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.35 0 0);
-  --ring: oklch(0.8 0.12 210);
-  --primary: oklch(0.78 0.13 210);
-  --primary-foreground: oklch(0.18 0 0);
+  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+  --background: oklch(0.975 0.008 245);
+  --foreground: oklch(0.23 0.025 255);
+  --card: oklch(0.995 0.003 245);
+  --card-foreground: oklch(0.23 0.025 255);
+  --card-border: oklch(0.9 0.018 245);
+  --popover: oklch(0.995 0.003 245);
+  --popover-foreground: oklch(0.23 0.025 255);
+  --muted: oklch(0.95 0.014 245);
+  --muted-foreground: oklch(0.5 0.03 250);
+  --border: oklch(0.89 0.02 245);
+  --input: oklch(0.84 0.025 245);
+  --ring: oklch(0.58 0.18 255);
+  --primary: oklch(0.56 0.19 255);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-soft: color-mix(in oklab, var(--primary) 11%, transparent);
+  --primary-soft-foreground: oklch(0.47 0.17 255);
+  --accent: oklch(0.93 0.025 245);
+  --accent-foreground: oklch(0.28 0.04 255);
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-soft: color-mix(in oklab, var(--destructive) 10%, transparent);
+  --destructive-soft-foreground: oklch(0.5 0.16 25);
+  --warning-soft: color-mix(in oklab, oklch(0.7 0.14 80) 13%, transparent);
+  --warning-soft-foreground: oklch(0.5 0.11 75);
+  --success-soft: color-mix(in oklab, oklch(0.6 0.14 155) 12%, transparent);
+  --success-soft-foreground: oklch(0.44 0.12 155);
+}
+
+.dark {
+  --background: oklch(0.145 0.012 255);
+  --foreground: oklch(0.97 0.006 245);
+  --card: oklch(0.19 0.014 255);
+  --card-foreground: oklch(0.97 0.006 245);
+  --card-border: oklch(0.29 0.022 255);
+  --popover: oklch(0.18 0.014 255);
+  --popover-foreground: oklch(0.97 0.006 245);
+  --muted: oklch(0.25 0.02 255);
+  --muted-foreground: oklch(0.72 0.025 245);
+  --border: oklch(0.29 0.022 255);
+  --input: oklch(0.35 0.026 255);
+  --ring: oklch(0.72 0.14 235);
+  --primary: oklch(0.72 0.15 235);
+  --primary-foreground: oklch(0.17 0.02 255);
   --primary-soft: color-mix(in oklab, var(--primary) 15%, transparent);
-  --primary-soft-foreground: oklch(0.88 0.08 210);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --primary-soft-foreground: oklch(0.86 0.08 235);
+  --accent: oklch(0.27 0.025 255);
+  --accent-foreground: oklch(0.97 0.006 245);
   --destructive: oklch(0.7 0.17 25);
   --destructive-soft: color-mix(in oklab, var(--destructive) 16%, transparent);
   --destructive-soft-foreground: oklch(0.84 0.07 25);
@@ -58,8 +86,61 @@
   --success-soft-foreground: oklch(0.84 0.08 155);
 }
 
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   font-family: var(--font-sans);
+}
+
+.site-canvas {
+  background-image:
+    radial-gradient(circle at 8% 3%, color-mix(in oklab, var(--primary) 9%, transparent), transparent 28rem),
+    radial-gradient(circle at 96% 24%, color-mix(in oklab, var(--success-soft-foreground) 7%, transparent), transparent 24rem);
+  background-attachment: fixed;
+}
+
+.page-hero {
+  box-shadow: 0 1.25rem 3rem -2rem color-mix(in oklab, var(--foreground) 20%, transparent);
+  background-image:
+    linear-gradient(135deg, color-mix(in oklab, var(--primary-soft) 70%, transparent), transparent 50%),
+    linear-gradient(var(--card), var(--card));
+}
+
+.page-hero::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  opacity: 0.45;
+  background-image:
+    linear-gradient(to left, color-mix(in oklab, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--border) 45%, transparent) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+  mask-image: linear-gradient(to left, black, transparent 72%);
+}
+
+.hero-orbit::after {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: -0.3rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  content: "";
+  background: var(--primary);
+  box-shadow: 0 0 0 0.35rem var(--primary-soft);
+}
+
+::selection {
+  color: var(--primary-foreground);
+  background: var(--primary);
 }
 
 .scrollbar-none {

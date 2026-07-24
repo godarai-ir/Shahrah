@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings } from "lucide-react";
+import { Monitor, Moon, Settings, Sun } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,12 +15,13 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { useDisplaySettings } from "@/components/display-settings-provider";
-import { CurrencyUnit, DateCalendar, PriceScale } from "@/lib/display-settings";
+import { CurrencyUnit, DateCalendar, PriceScale, ThemeMode } from "@/lib/display-settings";
 
 export function DisplaySettingsDialog() {
   const t = useTranslations("DisplaySettings");
@@ -31,11 +32,12 @@ export function DisplaySettingsDialog() {
       <DialogTrigger asChild>
         <Button
           type="button"
-          className="h-9 w-9 bg-muted p-0 text-foreground hover:bg-accent"
+          variant="outline"
+          size="icon"
           aria-label={t("openAria")}
           title={t("title")}
         >
-          <Settings className="h-4 w-4" />
+          <Settings aria-hidden="true" />
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -45,6 +47,35 @@ export function DisplaySettingsDialog() {
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="theme-mode">{t("theme")}</Label>
+            <Select
+              dir="rtl"
+              value={settings.themeMode}
+              onValueChange={(value) => updateSettings({ themeMode: value as ThemeMode })}
+            >
+              <SelectTrigger id="theme-mode">
+                <SelectValue placeholder={t("selectTheme")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="LIGHT">
+                    <Sun aria-hidden="true" />
+                    {t("light")}
+                  </SelectItem>
+                  <SelectItem value="DARK">
+                    <Moon aria-hidden="true" />
+                    {t("dark")}
+                  </SelectItem>
+                  <SelectItem value="SYSTEM">
+                    <Monitor aria-hidden="true" />
+                    {t("system")}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="currency-unit">{t("currency")}</Label>
             <Select
@@ -56,9 +87,11 @@ export function DisplaySettingsDialog() {
                 <SelectValue placeholder={t("selectCurrency")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="USD">{t("dollar")}</SelectItem>
-                <SelectItem value="IRR">{t("rial")}</SelectItem>
-                <SelectItem value="TOMAN">{t("toman")}</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="USD">{t("dollar")}</SelectItem>
+                  <SelectItem value="IRR">{t("rial")}</SelectItem>
+                  <SelectItem value="TOMAN">{t("toman")}</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
@@ -74,8 +107,10 @@ export function DisplaySettingsDialog() {
                 <SelectValue placeholder={t("selectCalendar")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="GREGORIAN">{t("gregorian")}</SelectItem>
-                <SelectItem value="SHAMSI">{t("shamsi")}</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="GREGORIAN">{t("gregorian")}</SelectItem>
+                  <SelectItem value="SHAMSI">{t("shamsi")}</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
@@ -91,8 +126,10 @@ export function DisplaySettingsDialog() {
                 <SelectValue placeholder={t("selectPriceUnit")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="PER_MILLION_TOKENS">{t("perMillionTokens")}</SelectItem>
-                <SelectItem value="PER_TOKEN">{t("perToken")}</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="PER_MILLION_TOKENS">{t("perMillionTokens")}</SelectItem>
+                  <SelectItem value="PER_TOKEN">{t("perToken")}</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>

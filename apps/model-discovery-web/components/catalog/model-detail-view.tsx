@@ -337,8 +337,14 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
   return (
     <div className="grid min-w-0 gap-5 xl:grid-cols-4 xl:items-start">
       <div className="flex min-w-0 flex-col gap-5 xl:col-span-3">
-        <Card className="overflow-hidden p-0">
-          <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
+        <Card className="page-hero relative isolate overflow-hidden p-0">
+          <div className="pointer-events-none absolute end-8 top-8 hidden sm:block" aria-hidden="true">
+            <div className="hero-orbit relative size-28 rounded-full border border-primary/20" />
+            <div className="absolute inset-8 flex items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+              <Bot className="size-6" />
+            </div>
+          </div>
+          <div className="relative flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
             <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-2">
