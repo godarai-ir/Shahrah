@@ -57,8 +57,14 @@ export async function POST(request: NextRequest) {
   const model = asTrimmedString(body.model);
   const apiBase = asTrimmedString(body.api_base);
   const apiKey = asTrimmedString(body.api_key);
+  const isInternalMock = provider.toLowerCase() === "mock";
 
-  if (!modelName || !provider || !model || !apiBase || !apiKey) {
+  if (
+    !modelName ||
+    !provider ||
+    !model ||
+    (!isInternalMock && (!apiBase || !apiKey))
+  ) {
     return NextResponse.json(
       {
         error: {
@@ -78,8 +84,8 @@ export async function POST(request: NextRequest) {
       model_name: modelName,
       provider,
       model,
-      api_base: apiBase,
-      api_key: apiKey,
+      api_base: isInternalMock ? "" : apiBase,
+      api_key: isInternalMock ? "" : apiKey,
       api_version: asTrimmedString(body.api_version),
       region_name: asTrimmedString(body.region_name),
       rpm: asNumber(body.rpm),
