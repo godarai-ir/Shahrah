@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -19,7 +20,7 @@ func TestForwardProviderHeadersIncludesMockMarker(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	response, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/", nil))
+	response, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/", http.NoBody))
 	if err != nil {
 		t.Fatalf("test request: %v", err)
 	}
