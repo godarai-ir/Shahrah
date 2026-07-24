@@ -31,7 +31,7 @@
     "create": "Create token",
     "creating": "Creating...",
     "revoke": "Revoke",
-    "revokeAll": "Revoke all my tokens"
+    "revokeAll": "Revoke all"
   },
   "deleteDialog": {
     "title": "Confirm deletion",

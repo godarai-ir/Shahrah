@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 
+import { DisplayNameField } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
@@ -168,11 +168,12 @@ export function PrincipalEntitySelect(props: {
           <div className="border-b p-2 sm:p-3">
             <div className="relative">
               <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+              <DisplayNameField
+                label={props.ariaLabel ?? props.labels.searchPlaceholder}
                 value={query}
                 onChange={(event) => handleQueryChange(event.target.value)}
                 placeholder={props.labels.searchPlaceholder}
-                aria-label={props.ariaLabel ?? props.labels.searchPlaceholder}
+                fieldClassName="gap-0 [&>[data-slot=field-label]]:sr-only"
                 className="h-9 ps-9 text-sm sm:h-10"
               />
             </div>

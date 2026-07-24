@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, ConfirmDialog, DateTimeValue, EmptyState, ExpirationDurationField, FormSheet, HelpLink, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
+import { AppCard, ConfirmDialog, DateTimeValue, EmptyState, ExpirationDurationField, FormSheet, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -41,19 +41,18 @@ type DeleteIntent =
   | { type: "all" };
 
 const PAT_COLUMN_CLASS = {
-  name: "w-[42%]",
-  masked: "hidden w-28 @md:table-cell",
-  createdAt: "hidden w-36 @lg:table-cell",
-  lastUsedAt: "hidden w-36 @lg:table-cell",
-  expiresAt: "hidden w-36 @lg:table-cell",
-  status: "w-[30%]",
-  actions: "w-20 text-end",
+  name: "w-52",
+  masked: "hidden w-32 @md:table-cell",
+  createdAt: "hidden w-40 @lg:table-cell",
+  lastUsedAt: "hidden w-40 @lg:table-cell",
+  expiresAt: "hidden w-40 @lg:table-cell",
+  status: "w-24 whitespace-nowrap",
+  actions: "w-24 whitespace-nowrap text-end",
 } as const;
 
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
   initialError: string | null;
-  docsHref: string;
 }) {
   const t = useTranslations("personalAccessTokens");
   const locale = useLocale();
@@ -164,12 +163,6 @@ export default function PersonalAccessTokenManagement(props: {
       <PageHeader
         title={t("title")}
         description={t("create.description")}
-        actions={
-          <>
-            <Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />{t("actions.create")}</Button>
-            <HelpLink href={props.docsHref} />
-          </>
-        }
       />
 
       <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating} closeLabel={t("oneTime.close")}>
@@ -187,11 +180,12 @@ export default function PersonalAccessTokenManagement(props: {
 
       <AppCard>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <SearchField containerClassName="w-full sm:w-72" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} />
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void load()} disabled={isLoading}><RefreshCcw /></Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <SearchField containerClassName="w-full sm:min-w-64 sm:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} />
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
+              <Button onClick={() => setCreateOpen(true)}><Plus data-icon="inline-start" />{t("actions.create")}</Button>
               <Button variant="destructive" className="w-full sm:w-auto" onClick={() => openDeleteDialog({ type: "all" })}><Trash2 data-icon="inline-start" />{t("actions.revokeAll")}</Button>
+              <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void load()} disabled={isLoading}><RefreshCcw /></Button>
             </div>
           </div>
 
@@ -199,7 +193,7 @@ export default function PersonalAccessTokenManagement(props: {
             <EmptyState icon={KeyRound} title={t("table.empty")} description={t("create.accessHint")} />
           ) : (
             <div className="@container/pats overflow-hidden rounded-lg border border-border">
-              <Table className="table-fixed text-xs lg:text-sm">
+              <Table className="w-max min-w-full table-fixed text-xs lg:text-sm">
                 <TableHeader>
                   <TableRow>
                     <TableHead className={PAT_COLUMN_CLASS.name}>{t("table.name")}</TableHead>

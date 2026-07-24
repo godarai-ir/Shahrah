@@ -55,7 +55,6 @@ export default async function PersonalAccessTokensPage() {
       <PersonalAccessTokenManagement
         initialTokens={patsResult.ok ? patPayload.data ?? [] : []}
         initialError={patsResult.ok ? null : patsResult.errorMessage ?? "Request failed."}
-        docsHref={docsHref}
       />
     </AdminShell>
   );

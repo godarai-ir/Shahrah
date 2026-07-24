@@ -3,7 +3,6 @@
   "description": "Define rule-based limits for gateway requests across subjects, models, and metadata.",
   "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
   "empty": "No rate limiting rules have been created yet.",
-  "resultCount": "{count} rules",
   "emptyState": {
     "title": "No rate limiting rules yet",
     "description": "Create the first rule to control request and token capacity over defined time windows."

@@ -61,7 +61,6 @@ export type GatewayPolicyRulesListProps = {
   query: string;
   onQueryChange: (query: string) => void;
   searchPlaceholder: string;
-  resultCountLabel: React.ReactNode;
   itemCount: number;
   loading: boolean;
   loadingLabel: string;
@@ -85,7 +84,6 @@ export function GatewayPolicyRulesList({
   query,
   onQueryChange,
   searchPlaceholder,
-  resultCountLabel,
   itemCount,
   loading,
   loadingLabel,
@@ -125,12 +123,7 @@ export function GatewayPolicyRulesList({
               onChange={(event) => onQueryChange(event.target.value)}
             />
           )}
-          toolbarMeta={(
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-              <span className="whitespace-nowrap text-center sm:text-start">{resultCountLabel}</span>
-              {createAction}
-            </div>
-          )}
+          toolbarMeta={createAction}
           contentClassName="@container/gateway-rules overflow-hidden"
           loading={loading && itemCount === 0}
           loadingLabel={loadingLabel}

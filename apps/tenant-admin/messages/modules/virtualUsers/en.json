@@ -26,7 +26,9 @@
     "loading": "Loading virtual users...",
     "identity": "Identity",
     "team": "Team",
+    "orgUnit": "Org unit",
     "status": "Status",
+    "actions": "Actions",
     "empty": "No virtual users found.",
     "emptyDescription": "Create your first virtual user to give an application or service an independent identity."
   },

@@ -13,7 +13,6 @@ function createProps(overrides: Partial<GatewayPolicyRulesListProps> = {}): Gate
     query: "",
     onQueryChange: vi.fn(),
     searchPlaceholder: "Search rules",
-    resultCountLabel: "0 results",
     itemCount: 0,
     loading: false,
     loadingLabel: "Loading rules",

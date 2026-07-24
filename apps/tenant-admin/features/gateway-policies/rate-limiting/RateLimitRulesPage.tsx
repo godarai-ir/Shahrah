@@ -146,7 +146,6 @@ export function RateLimitRulesPage() {
       query={query}
       onQueryChange={setQuery}
       searchPlaceholder={t("searchPlaceholder")}
-      resultCountLabel={t("resultCount", { count: items.length })}
       itemCount={items.length}
       loading={isLoading}
       loadingLabel={t("messages.loading")}

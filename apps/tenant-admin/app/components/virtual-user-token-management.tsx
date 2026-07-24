@@ -12,10 +12,9 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FormSheet, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, CopyAction, DateTimeValue, DisplayNameField, EmptyState, ExpirationDurationField, FormSheet, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -97,9 +96,11 @@ type EffectiveEntitlements = { features?: Record<string, unknown> } | null;
 const PAGE_SIZE = 25;
 const FEATURE_VAT_ENABLED = "auth.vat.enabled";
 const VIRTUAL_USER_COLUMN_CLASS = {
-  identity: "w-7/12",
-  team: "hidden w-1/3 @md:table-cell",
-  status: "w-1/4",
+  identity: "w-1/3",
+  team: "w-1/6",
+  orgUnit: "w-1/6",
+  status: "w-1/6",
+  actions: "w-1/6 text-end",
 } as const;
 const VAT_COLUMN_CLASS = {
   name: "w-1/5",
@@ -425,14 +426,14 @@ export default function VirtualUserTokenManagement({
     setCreateTokenOpen(true);
   }
 
-  function openEditVirtualUser() {
-    if (!selectedVirtualUser) return;
+  function openEditVirtualUser(virtualUser: VirtualUser | null = selectedVirtualUser) {
+    if (!virtualUser) return;
     setVirtualUserForm({
-      alias: selectedVirtualUser.alias,
-      displayName: selectedVirtualUser.display_name ?? "",
-      teamID: selectedVirtualUser.team_id ?? "",
-      orgUnitID: selectedVirtualUser.org_unit_id ?? "",
-      active: selectedVirtualUser.active,
+      alias: virtualUser.alias,
+      displayName: virtualUser.display_name ?? "",
+      teamID: virtualUser.team_id ?? "",
+      orgUnitID: virtualUser.org_unit_id ?? "",
+      active: virtualUser.active,
     });
     setEditUserOpen(true);
   }
@@ -492,14 +493,16 @@ export default function VirtualUserTokenManagement({
               <TableRow>
                 <TableHead className={VIRTUAL_USER_COLUMN_CLASS.identity}>{t("usersTable.identity")}</TableHead>
                 <TableHead className={VIRTUAL_USER_COLUMN_CLASS.team}>{t("usersTable.team")}</TableHead>
+                <TableHead className={VIRTUAL_USER_COLUMN_CLASS.orgUnit}>{t("usersTable.orgUnit")}</TableHead>
                 <TableHead className={VIRTUAL_USER_COLUMN_CLASS.status}>{t("usersTable.status")}</TableHead>
+                <TableHead className={VIRTUAL_USER_COLUMN_CLASS.actions}>{t("usersTable.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoadingUsers && virtualUsers.length === 0 ? (
-                <TableLoadingRows colSpan={3} label={t("usersTable.loading")} />
+                <TableLoadingRows colSpan={5} label={t("usersTable.loading")} />
               ) : virtualUsers.length === 0 ? (
-                <TableEmptyRow colSpan={3} cellClassName="py-8" title={t("usersTable.empty")} description={t("usersTable.emptyDescription")} primaryAction={<Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.createUser")}</Button>} />
+                <TableEmptyRow colSpan={5} cellClassName="py-8" title={t("usersTable.empty")} description={t("usersTable.emptyDescription")} primaryAction={<Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.createUser")}</Button>} />
               ) : (
                 virtualUsers.map((item) => (
                   <TableRow
@@ -510,12 +513,63 @@ export default function VirtualUserTokenManagement({
                     <TableCell className={VIRTUAL_USER_COLUMN_CLASS.identity}>
                       <div className="flex min-w-0 flex-col gap-1">
                         <span className="truncate font-medium">{item.display_name || item.alias}</span>
-                        <span className="truncate font-mono text-xs text-muted-foreground">{item.alias}</span>
+                        <div
+                          className="flex min-w-0 items-center justify-end gap-1"
+                          dir="ltr"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <code className="truncate font-mono text-xs text-muted-foreground" title={item.alias}>
+                            {item.alias}
+                          </code>
+                          <CopyAction
+                            value={item.alias}
+                            copyLabel={t("actions.copyIdentifier")}
+                            copiedLabel={t("messages.identifierCopied")}
+                            className="shrink-0"
+                          />
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.team}>{getTeamName(item.team_id, teams)}</TableCell>
+                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.team}>
+                      <span className="block truncate">{getTeamName(item.team_id, teams)}</span>
+                    </TableCell>
+                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.orgUnit}>
+                      <span className="block truncate">{getOrgUnitName(item.org_unit_id, orgUnits)}</span>
+                    </TableCell>
                     <TableCell className={VIRTUAL_USER_COLUMN_CLASS.status}>
                       <AppStatusBadge status={item.active ? "active" : "inactive"}>{item.active ? t("status.active") : t("status.inactive")}</AppStatusBadge>
+                    </TableCell>
+                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.actions}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t("actions.editUser")}
+                          title={t("actions.editUser")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedID(item.id);
+                            openEditVirtualUser(item);
+                          }}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t("actions.deleteUser")}
+                          title={t("actions.deleteUser")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedID(item.id);
+                            setDeleteUserOpen(true);
+                          }}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -551,46 +605,18 @@ export default function VirtualUserTokenManagement({
           {!selectedVirtualUser ? (
             <EmptyState title={t("detail.emptyTitle")} description={t("detail.emptyDescription")} />
           ) : (
-            <>
-              <Card>
-                <CardHeader>
-                  <EntityIdentityHeader
-                    title={selectedVirtualUser.display_name || selectedVirtualUser.alias}
-                    status={<AppStatusBadge status={selectedVirtualUser.active ? "active" : "inactive"}>{selectedVirtualUser.active ? t("status.active") : t("status.inactive")}</AppStatusBadge>}
-                    actions={<>
-                    <Button variant="outline" size="icon-sm" aria-label={t("actions.editUser")} title={t("actions.editUser")} onClick={openEditVirtualUser}>
-                      <Pencil />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label={t("actions.deleteUser")}
-                      title={t("actions.deleteUser")}
-                      onClick={() => setDeleteUserOpen(true)}
-                    >
-                      <Trash2 />
-                    </Button>
-                    </>}
-                  />
-                </CardHeader>
-              </Card>
-
-              <DefinitionList columns={3}>
-                <DefinitionListItem surface emphasis className="bg-card shadow-xs" label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
-                <DefinitionListItem surface emphasis className="bg-card shadow-xs" label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
-                <DefinitionListItem surface emphasis className="bg-card shadow-xs" label={t("detail.tokens")} value={String(tokenTotal)} />
-              </DefinitionList>
-
-              <AppCard contentClassName="flex min-w-0 flex-col gap-4">
+            <AppCard contentClassName="flex min-w-0 flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
                     <KeyRound className="text-muted-foreground" />
-                    <h2 className="text-lg font-semibold">{t("tokens.title")}</h2>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <h2 className="text-lg font-semibold">{t("tokens.title")}</h2>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {selectedVirtualUser.display_name || selectedVirtualUser.alias}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void loadTokens(selectedVirtualUser.id)} disabled={isLoadingTokens}>
-                      {isLoadingTokens ? <Spinner /> : <RefreshCcw />}
-                    </Button>
                     <Sheet open={createTokenOpen} onOpenChange={setCreateTokenOpen}>
                       <Button
                         type="button"
@@ -615,6 +641,9 @@ export default function VirtualUserTokenManagement({
                         />
                       </SheetContent>
                     </Sheet>
+                    <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void loadTokens(selectedVirtualUser.id)} disabled={isLoadingTokens}>
+                      {isLoadingTokens ? <Spinner /> : <RefreshCcw />}
+                    </Button>
                   </div>
                 </div>
 
@@ -700,8 +729,7 @@ export default function VirtualUserTokenManagement({
                   </TableBody>
                 </Table>
                 </div>
-              </AppCard>
-            </>
+            </AppCard>
           )}
         </div>
       </section>

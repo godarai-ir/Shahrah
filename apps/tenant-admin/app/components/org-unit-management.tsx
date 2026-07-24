@@ -8,8 +8,6 @@ import {
   Edit3,
   Plus,
   RefreshCw,
-  Search,
-  ShieldCheck,
   Trash2,
   Users,
   WalletCards,
@@ -18,8 +16,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
-import { Input } from "@/components/ui/input";
+import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -155,8 +152,6 @@ export default function OrgUnitManagement({
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>(initialOrgUnits);
   const [total, setTotal] = useState(initialTotal);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("updated_at");
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [teamCountByOrgUnit, setTeamCountByOrgUnit] = useState<Record<string, number>>({});
@@ -282,29 +277,6 @@ export default function OrgUnitManagement({
     return teamsByOrgUnit[orgUnit.id] ?? [];
   }
 
-  const visibleOrgUnits = useMemo(() => {
-    const filtered = orgUnits.filter((orgUnit) => {
-      const teamCount = teamCountByOrgUnit[orgUnit.id] ?? getTeamCount(orgUnit);
-      if (statusFilter === "all") return true;
-      if (statusFilter === "with_teams") return teamCount > 0;
-      if (statusFilter === "empty") return teamCount === 0;
-      return true;
-    });
-
-    return [...filtered].sort((a, b) => {
-      if (sortBy === "name") return getOrgName(a).localeCompare(getOrgName(b));
-      if (sortBy === "teams") {
-        const bCount = teamCountByOrgUnit[b.id] ?? getTeamCount(b);
-        const aCount = teamCountByOrgUnit[a.id] ?? getTeamCount(a);
-        return bCount - aCount;
-      }
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    });
-  }, [orgUnits, sortBy, statusFilter, teamCountByOrgUnit]);
-
-  const selectedSummary = selectedOrgUnit
-    ? { ...buildSummary(selectedOrgUnit, members), teams: resolveTeamCount(selectedOrgUnit) }
-    : null;
   const userNameByID = useMemo(() => {
     const map = new Map<string, string>();
     users.forEach((user) => {
@@ -589,20 +561,6 @@ export default function OrgUnitManagement({
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        actions={
-          <>
-          <RefreshButton
-            label={t("actions.refresh")}
-            loadingLabel={t("actions.refreshing")}
-            onClick={() => void loadOrgUnits(offset, query.trim())}
-            isLoading={isLoading}
-          />
-          <Button type="button" onClick={openCreate} disabled={!canCreateOrgUnit || !hasLoadedEntitlements}>
-              <Plus data-icon="inline-start" />
-              {t("actions.new")}
-          </Button>
-          </>
-        }
       />
 
       <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
@@ -616,38 +574,30 @@ export default function OrgUnitManagement({
           className="min-w-0"
           contentClassName="flex min-w-0 flex-col gap-4"
         >
-          <div className="grid w-full gap-2 sm:grid-cols-[minmax(14rem,1fr)_auto_auto] 2xl:flex 2xl:flex-wrap">
-              <div className="relative min-w-0">
-                <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t("filters.searchPlaceholder")}
-                  className="w-full ps-9 2xl:w-64"
-                />
-              </div>
-              <AppSelectField
-                value={statusFilter}
-                onValueChange={setStatusFilter}
-                ariaLabel={t("filters.filterLabel")}
-                triggerClassName="h-10 w-full min-w-36"
-                options={[
-                  { value: "all", label: t("filters.all") },
-                  { value: "with_teams", label: t("filters.withTeams") },
-                  { value: "empty", label: t("filters.noTeams") },
-                ]}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <SearchField
+              containerClassName="w-full sm:min-w-64 sm:flex-1"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("filters.searchPlaceholder")}
+            />
+            <div className="flex flex-wrap gap-2 sm:shrink-0 sm:flex-nowrap">
+              <Button
+                type="button"
+                onClick={openCreate}
+                disabled={!canCreateOrgUnit || !hasLoadedEntitlements}
+                className="flex-1 sm:flex-none"
+              >
+                <Plus data-icon="inline-start" />
+                {t("actions.new")}
+              </Button>
+              <RefreshButton
+                label={t("actions.refresh")}
+                loadingLabel={t("actions.refreshing")}
+                onClick={() => void loadOrgUnits(offset, query.trim())}
+                isLoading={isLoading}
               />
-              <AppSelectField
-                value={sortBy}
-                onValueChange={setSortBy}
-                ariaLabel={t("filters.sortLabel")}
-                triggerClassName="h-10 w-full min-w-32"
-                options={[
-                  { value: "updated_at", label: t("sort.recent") },
-                  { value: "name", label: t("sort.name") },
-                  { value: "teams", label: t("sort.teams") },
-                ]}
-              />
+            </div>
           </div>
 
           <div className="@container/org-units overflow-hidden rounded-lg border border-border">
@@ -662,7 +612,7 @@ export default function OrgUnitManagement({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibleOrgUnits.length === 0 ? (
+                {orgUnits.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="py-10 text-center">
                       <EmptyState
@@ -680,7 +630,7 @@ export default function OrgUnitManagement({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  visibleOrgUnits.map((orgUnit) => {
+                  orgUnits.map((orgUnit) => {
                     const active = orgUnit.id === selectedOrgUnitID;
                     return (
                       <TableRow
@@ -746,13 +696,8 @@ export default function OrgUnitManagement({
         </AppCard>
 
         <aside className="flex min-w-0 flex-col gap-4">
-          {selectedOrgUnit && selectedSummary ? (
+          {selectedOrgUnit ? (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <MetricCard icon={Building2} label={t("kpi.teams")} value={String(selectedSummary.teams)} />
-                <MetricCard icon={ShieldCheck} label={t("kpi.membersAdmins")} value={`${selectedSummary.members}/${selectedSummary.admins}`} />
-              </div>
-
               <AppCard
                 title={
                   <span className="flex items-center gap-2">
@@ -1109,14 +1054,6 @@ function getTeamMemberCount(team: TeamSummary) {
   return toNumber(team.metadata?.member_count ?? team.metadata?.members_count);
 }
 
-function buildSummary(orgUnit: OrgUnit, members: OrgUnitMember[]) {
-  return {
-    teams: getTeamCount(orgUnit),
-    members: members.length || getMemberCount(orgUnit),
-    admins: members.filter((member) => member.role === "org_admin").length || getAdminCount(orgUnit),
-  };
-}
-
 function getOrgName(orgUnit: OrgUnit) {
   return orgUnit.display_name || toText(orgUnit.metadata?.display_name) || orgUnit.alias;
 }
@@ -1129,10 +1066,6 @@ function getTeamCount(orgUnit: OrgUnit) {
 function getMemberCount(orgUnit: OrgUnit, loadedCount?: number) {
   if (loadedCount !== undefined) return loadedCount;
   return toNumber(orgUnit.metadata?.member_count ?? orgUnit.metadata?.members_count);
-}
-
-function getAdminCount(orgUnit: OrgUnit) {
-  return toNumber(orgUnit.metadata?.admin_count ?? orgUnit.metadata?.admins_count);
 }
 
 function formFromOrgUnit(orgUnit: OrgUnit): FormState {

@@ -4,16 +4,19 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangle,
+  ListFilter,
   Plus,
   Trash2,
   Users,
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, MetricCard, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -66,12 +69,14 @@ const WORKSPACE_TYPES = ["production", "staging", "development", "research", "in
 const WORKSPACE_TYPE_SET = new Set<string>(WORKSPACE_TYPES);
 const PAGE_SIZE = 25;
 const TEAM_COLUMN_CLASS = {
-  team: "w-[48%]",
-  orgUnit: "hidden w-40 @md:table-cell",
-  workspaceType: "hidden w-28 @lg:table-cell",
-  status: "w-[32%]",
-  updated: "hidden w-24 @lg:table-cell",
-  actions: "w-14 text-end",
+  team: "w-1/4",
+  orgUnit: "hidden w-1/6 @md:table-cell",
+  workspaceType: "hidden w-20 @xl:table-cell",
+  membersAdmins: "w-1/6",
+  activeKeys: "w-1/6",
+  status: "w-1/6",
+  updated: "hidden w-20 @3xl:table-cell",
+  actions: "w-12 text-end",
 } as const;
 const FEATURE_TEAMS_ENABLED = "teams.enabled";
 
@@ -106,7 +111,7 @@ export default function TeamManagement({
   const [orgFilter, setOrgFilter] = useState("all");
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("recent");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -181,18 +186,13 @@ export default function TeamManagement({
   }, [selectedTeamID]);
 
   const filtered = useMemo(() => {
-    const list = teams.filter((team) => {
+    return teams.filter((team) => {
       if (orgFilter !== "all" && (team.org_unit_id ?? "root") !== orgFilter) return false;
       if (workspaceFilter !== "all" && getWorkspaceType(team) !== workspaceFilter) return false;
       if (statusFilter !== "all" && getStatus(team) !== statusFilter) return false;
       return true;
     });
-    return [...list].sort((a, b) => {
-      if (sortBy === "name") return getTeamName(a).localeCompare(getTeamName(b));
-      if (sortBy === "members") return getMemberCount(b) - getMemberCount(a);
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    });
-  }, [teams, orgFilter, workspaceFilter, statusFilter, sortBy]);
+  }, [teams, orgFilter, workspaceFilter, statusFilter]);
 
   const memberCandidateOptions = useMemo<MemberCandidateOption[]>(() => {
     const memberIDs = new Set(members.map((member) => member.user_id));
@@ -375,7 +375,6 @@ export default function TeamManagement({
     }
   }
 
-  const summary = selectedTeam ? buildSummary(selectedTeam, members) : null;
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + teams.length, total);
 
@@ -384,46 +383,65 @@ export default function TeamManagement({
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        actions={
-          <>
-            <RefreshButton
-              label={t("actions.refresh")}
-              onClick={() => void loadTeams(offset, query.trim())}
-              isLoading={isLoading}
-            />
-            <Button
-              type="button"
-              onClick={handleCreateTeam}
-              disabled={!canCreateTeam || !hasLoadedEntitlements}
-            >
-              <Plus data-icon="inline-start" />
-              {t("actions.new")}
-            </Button>
-          </>
-        }
       />
 
       <OperationNotice notice={banner} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
 
       <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
         <AppCard className="min-w-0 shadow-none" contentClassName="flex min-w-0 flex-col gap-4">
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_repeat(4,auto)]">
-            <SearchField containerClassName="min-w-0" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} />
-            <AppSelectField ariaLabel={t("filters.orgAll")} value={orgFilter} onValueChange={setOrgFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.orgAll") }, { value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
-            <AppSelectField ariaLabel={t("filters.workspaceAll")} value={workspaceFilter} onValueChange={setWorkspaceFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.workspaceAll") }, ...WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))]} />
-            <AppSelectField ariaLabel={t("filters.statusAll")} value={statusFilter} onValueChange={setStatusFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.statusAll") }, { value: "active", label: t("status.active") }, { value: "blocked", label: t("status.blocked") }]} />
-            <AppSelectField ariaLabel={t("filters.sortLabel")} value={sortBy} onValueChange={setSortBy} triggerClassName="h-10 w-full" options={[{ value: "recent", label: t("sort.recent") }, { value: "name", label: t("sort.name") }, { value: "members", label: t("sort.members") }]} />
-          </div>
+          <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <SearchField containerClassName="w-full sm:min-w-64 sm:flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("filters.search")} />
+              <div className="flex flex-wrap gap-2 sm:shrink-0 sm:flex-nowrap">
+                <Button
+                  type="button"
+                  onClick={handleCreateTeam}
+                  disabled={!canCreateTeam || !hasLoadedEntitlements}
+                  className="flex-1 sm:flex-none"
+                >
+                  <Plus data-icon="inline-start" />
+                  {t("actions.new")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                  aria-expanded={filtersOpen}
+                  aria-controls="team-filters-panel"
+                  onClick={() => setFiltersOpen((open) => !open)}
+                >
+                  <ListFilter data-icon="inline-start" />
+                  {t("actions.filters")}
+                </Button>
+                <RefreshButton
+                  label={t("actions.refresh")}
+                  onClick={() => void loadTeams(offset, query.trim())}
+                  isLoading={isLoading}
+                />
+              </div>
+            </div>
+            <CollapsibleContent id="team-filters-panel" className="pt-2">
+              <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-3">
+                <AppSelectField ariaLabel={t("filters.orgAll")} value={orgFilter} onValueChange={setOrgFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.orgAll") }, { value: "root", label: t("table.tenantRoot") }, ...orgUnits.map((org) => ({ value: org.id, label: org.display_name || org.alias }))]} />
+                <AppSelectField ariaLabel={t("filters.workspaceAll")} value={workspaceFilter} onValueChange={setWorkspaceFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.workspaceAll") }, ...WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))]} />
+                <AppSelectField ariaLabel={t("filters.statusAll")} value={statusFilter} onValueChange={setStatusFilter} triggerClassName="h-10 w-full" options={[{ value: "all", label: t("filters.statusAll") }, { value: "active", label: t("status.active") }, { value: "blocked", label: t("status.blocked") }]} />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <div className="@container/teams overflow-hidden rounded-lg border border-border">
             <Table className="table-fixed text-xs lg:text-sm">
-              <TableHeader><TableRow><TableHead className={TEAM_COLUMN_CLASS.team}>{t("table.team")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.orgUnit}>{t("table.orgUnit")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.workspaceType}>{t("table.workspaceType")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.status}>{t("table.status")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.updated}>{t("table.updated")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.actions}> </TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead className={TEAM_COLUMN_CLASS.team}>{t("table.team")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.orgUnit}>{t("table.orgUnit")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.workspaceType}>{t("table.workspaceType")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.membersAdmins}>{t("table.membersAdmins")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.activeKeys}>{t("table.activeKeys")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.status}>{t("table.status")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.updated}>{t("table.updated")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.actions}> </TableHead></TableRow></TableHeader>
               <TableBody>
-                {isLoading && filtered.length === 0 ? <TableLoadingRows colSpan={6} label={t("table.loading")} /> : filtered.length === 0 ? <TableEmptyRow colSpan={6} icon={Users} title={t("empty.title")} description={t("empty.description")} primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /> : filtered.map((team) => (
+                {isLoading && filtered.length === 0 ? <TableLoadingRows colSpan={8} label={t("table.loading")} /> : filtered.length === 0 ? <TableEmptyRow colSpan={8} icon={Users} title={t("empty.title")} description={t("empty.description")} primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /> : filtered.map((team) => {
+                  const rowSummary = buildSummary(team, team.id === selectedTeamID ? members : []);
+                  return (
                   <TableRow key={team.id} className={cn("cursor-pointer", selectedTeamID === team.id && "bg-muted/50")} onClick={() => setSelectedTeamID(team.id)}>
                     <TableCell className={TEAM_COLUMN_CLASS.team}><div className="min-w-0"><p className="truncate font-medium" title={getTeamName(team)}>{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground" title={team.alias}>{team.alias}</p></div></TableCell>
                     <TableCell className={TEAM_COLUMN_CLASS.orgUnit}>{getOrgUnitName(team, orgUnits, t)}</TableCell>
                     <TableCell className={TEAM_COLUMN_CLASS.workspaceType}><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
+                    <TableCell className={TEAM_COLUMN_CLASS.membersAdmins}>{rowSummary.members}/{rowSummary.admins}</TableCell>
+                    <TableCell className={TEAM_COLUMN_CLASS.activeKeys}>{rowSummary.activeKeys}</TableCell>
                     <TableCell className={TEAM_COLUMN_CLASS.status}>{getStatus(team) === "blocked" ? <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge> : <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>}</TableCell>
                     <TableCell className={TEAM_COLUMN_CLASS.updated}><DateTimeValue value={team.updated_at} locale={locale} format={{ month: "short", day: "numeric" }} /></TableCell>
                     <TableCell className={TEAM_COLUMN_CLASS.actions}>
@@ -437,13 +455,15 @@ export default function TeamManagement({
                       />
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
           <TablePagination
             label={t("title")}
             summary={t("pagination.showing", { from, to, total })}
+            page={Math.floor(offset / PAGE_SIZE) + 1}
             previousLabel={t("pagination.prev")}
             nextLabel={t("pagination.next")}
             canPrevious={offset > 0}
@@ -455,16 +475,56 @@ export default function TeamManagement({
         </AppCard>
 
         <div className="flex min-w-0 flex-col gap-4">
-          {!selectedTeam || !summary ? <EmptyState icon={Users} title={t("detail.empty")} className="min-h-56" /> : <>
-            <div className="grid grid-cols-2 gap-3">
-              <MetricCard label={t("kpi.membersAdmins")} value={`${summary.members}/${summary.admins}`} density="compact" className="shadow-none" />
-              <MetricCard label={t("kpi.activeKeys")} value={String(summary.activeKeys)} density="compact" className="shadow-none" />
-            </div>
+          {!selectedTeam ? <EmptyState icon={Users} title={t("detail.empty")} className="min-h-56" /> : <>
             <AppCard title={t("detail.access")} contentClassName="flex flex-col gap-2 text-sm">
               <p>{t("detail.orgInheritance", { value: getOrgUnitName(selectedTeam, orgUnits, t) })}</p><p>{t("detail.permissions", { value: summarizePermissions(members, t) })}</p>
             </AppCard>
-            <AppCard title={t("detail.members")} contentClassName="flex flex-col gap-2 text-sm">
-              {detailLoading ? <div className="flex flex-col gap-2" aria-label={t("detail.loading")}><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : members.length === 0 ? <p className="text-muted-foreground">{t("detail.noMembers")}</p> : members.map((member) => <div key={member.user_id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2"><span className="truncate" dir="auto">{getMemberDisplayLabel(member, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div>)}
+            <AppCard
+              title={
+                <span className="flex items-center gap-2">
+                  <Users aria-hidden="true" />
+                  <span>{t("detail.members")}</span>
+                  <Badge variant="secondary">{members.length}</Badge>
+                </span>
+              }
+              description={t("detail.membersDescription")}
+              contentClassName="flex flex-col gap-3 text-sm"
+            >
+              {detailLoading ? (
+                <div className="flex flex-col gap-2" aria-label={t("detail.loading")}>
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : members.length === 0 ? (
+                <p className="text-muted-foreground">{t("detail.noMembers")}</p>
+              ) : members.map((member) => {
+                const memberLabel = getMemberDisplayLabel(member, memberLabelByUserID, t("members.unknownUser"));
+                const memberName = getMemberPrimaryLabel(member, memberLabel);
+                const secondaryLabel = memberName !== memberLabel
+                  ? memberLabel
+                  : member.role === "team_admin"
+                    ? t("detail.teamAdminScope")
+                    : t("detail.memberPermissionCount", { count: member.team_member_permissions?.length ?? 0 });
+
+                return (
+                  <div key={member.user_id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar className="size-10">
+                        <AvatarFallback dir="ltr" className="text-xs">
+                          {getAvatarInitials(memberName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium" dir="auto">{memberName}</p>
+                        <p className="truncate text-xs text-muted-foreground" dir="auto">{secondaryLabel}</p>
+                      </div>
+                    </div>
+                    <Badge variant={member.role === "team_admin" ? "default" : "secondary"} className="shrink-0">
+                      {member.role === "team_admin" ? t("members.teamAdmin") : t("members.teamMember")}
+                    </Badge>
+                  </div>
+                );
+              })}
             </AppCard>
           </>}
         </div>
@@ -605,6 +665,18 @@ function getMemberDisplayLabel(member: TeamMember, memberLabelByUserID: Map<stri
   if (userLabel) return userLabel;
   if (looksLikeUserID(member.user_id)) return unknownUserLabel;
   return member.user_id;
+}
+
+function getMemberPrimaryLabel(member: TeamMember, fallback: string) {
+  return hideMobileIdentity(member.user_display_name) || fallback;
+}
+
+function getAvatarInitials(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = Array.from(parts[0])[0] ?? "";
+  const last = parts.length > 1 ? Array.from(parts.at(-1) ?? "")[0] ?? "" : "";
+  return `${first}${last}`.toUpperCase();
 }
 
 function buildSummary(team: Team, members: TeamMember[]) {

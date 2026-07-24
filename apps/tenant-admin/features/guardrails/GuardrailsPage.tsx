@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
-import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, ConfirmDialog, CopyAction, DateTimeValue, EmptyState, FormSheet, HelpLink, IdentifierField, OperationNotice, SearchField } from "@/components/app-ui";
+import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, ConfirmDialog, CopyAction, DateTimeValue, DisplayNameField, EmptyState, FormSheet, HelpLink, IdentifierField, OperationNotice, SearchField } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -478,22 +478,21 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
         closeLabel={t("actions.close")}
         bodyClassName="flex flex-col gap-4"
         footer={(
-          <>
+          <div className="grid w-full grid-cols-2 gap-2">
             <Button type="button" variant="outline" disabled={isSaving} onClick={() => setFormOpen(false)}>
               {t("actions.cancel")}
             </Button>
             <Button type="button" disabled={isSaving} onClick={() => void submitForm()}>
               {isSaving ? t("actions.saving") : t("actions.save")}
             </Button>
-          </>
+          </div>
         )}
       >
             <div className="grid gap-3 md:grid-cols-2">
-              <AppTextField id="guardrail-name" label={t("form.name")} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+              <DisplayNameField id="guardrail-name" label={t("form.name")} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               <IdentifierField
                 id="guardrail-slug"
                 label={t("form.identifier")}
-                description={t("validation.slug")}
                 pattern="[A-Za-z0-9][A-Za-z0-9_-]{1,95}"
                 minLength={2}
                 maxLength={96}
@@ -546,7 +545,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                   label={t("form.terms")}
                   dir="ltr"
                   value={form.terms}
-                  placeholder="ignore previous instructions&#10;drop table"
+                  placeholder={"ignore previous instructions\ndrop table"}
                   onChange={(event) => setForm({ ...form, terms: event.target.value })}
                 />
             ) : null}
@@ -589,7 +588,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
             {form.type === "json_keys" ? (
               <div className="grid gap-3 md:grid-cols-2">
-                <AppTextareaField id="guardrail-keys" label={t("form.keys")} dir="ltr" value={form.keys} placeholder="answer&#10;confidence" onChange={(event) => setForm({ ...form, keys: event.target.value })} />
+                <AppTextareaField id="guardrail-keys" label={t("form.keys")} dir="ltr" value={form.keys} placeholder={"answer\nconfidence"} onChange={(event) => setForm({ ...form, keys: event.target.value })} />
                 <AppSelectField
                   label={t("form.keyMode")}
                   dir={direction}
@@ -606,7 +605,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
             {form.type === "contains_code" ? (
               <div className="grid gap-3 md:grid-cols-2">
-                <AppTextareaField id="guardrail-languages" label={t("form.languages")} dir="ltr" value={form.languages} placeholder="sql&#10;python&#10;typescript" onChange={(event) => setForm({ ...form, languages: event.target.value })} />
+                <AppTextareaField id="guardrail-languages" label={t("form.languages")} dir="ltr" value={form.languages} placeholder={"sql\npython\ntypescript"} onChange={(event) => setForm({ ...form, languages: event.target.value })} />
                 <AppSelectField
                   label={t("form.codeMode")}
                   dir={direction}
@@ -645,7 +644,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                   <AppNumberField id="guardrail-max-bytes" label={t("form.maxBytes")} value={form.maxBytes} onChange={(event) => setForm({ ...form, maxBytes: event.target.value })} />
                   <AppNumberField id="guardrail-timeout" label={t("form.timeoutMs")} value={form.timeoutMs} onChange={(event) => setForm({ ...form, timeoutMs: event.target.value })} />
                 </div>
-                <AppTextareaField id="guardrail-allowed-hosts" label={t("form.allowedHosts")} dir="ltr" value={form.allowedHosts} placeholder="cdn.example.com&#10;images.example.com" onChange={(event) => setForm({ ...form, allowedHosts: event.target.value })} />
+                <AppTextareaField id="guardrail-allowed-hosts" label={t("form.allowedHosts")} dir="ltr" value={form.allowedHosts} placeholder={"cdn.example.com\nimages.example.com"} onChange={(event) => setForm({ ...form, allowedHosts: event.target.value })} />
                 <AppSwitchField id="guardrail-private-networks" label={t("form.allowPrivateNetworks")} checked={form.allowPrivateNetworks} onCheckedChange={(checked) => setForm({ ...form, allowPrivateNetworks: checked })} />
               </div>
             ) : null}

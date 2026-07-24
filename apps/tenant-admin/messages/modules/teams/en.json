@@ -14,6 +14,7 @@
   },
   "actions": {
     "refresh": "Refresh",
+    "filters": "Filters",
     "cancel": "Cancel",
     "new": "New Team",
     "saving": "Saving...",
@@ -53,6 +54,7 @@
     "tenantRoot": "Tenant root",
     "workspaceType": "Workspace type",
     "membersAdmins": "Members/Admins",
+    "activeKeys": "Active keys",
     "status": "Status",
     "updated": "Updated",
     "actions": "Actions"
@@ -76,6 +78,9 @@
     "orgInheritance": "Org unit scope: {value}",
     "permissions": "Permission set size: {value}",
     "members": "Members",
+    "membersDescription": "Members with direct access to this team and their access level.",
+    "memberPermissionCount": "{count} assigned permissions",
+    "teamAdminScope": "Full administrative access to the team",
     "loading": "Loading members...",
     "noMembers": "No team members found."
   },

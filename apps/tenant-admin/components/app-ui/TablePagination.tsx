@@ -37,25 +37,29 @@ export function TablePagination({
   pageSizeLabel,
   className,
 }: TablePaginationProps) {
+  if (!canPrevious && !canNext) return null;
+
   return (
     <div
       data-slot="table-pagination"
-      className={cn("@container flex flex-col gap-3 text-sm text-muted-foreground @md:flex-row @md:items-center @md:justify-between", className)}
+      className={cn("@container text-sm text-muted-foreground", className)}
     >
-      <p>{summary}</p>
-      <nav aria-label={label} className="flex flex-col gap-2 @sm:flex-row @sm:flex-wrap @sm:items-center">
-        {pageSizeLabel ? <span>{pageSizeLabel}</span> : null}
-        <span className="flex items-center justify-between gap-2 @sm:justify-start">
-          {pageSize !== undefined ? <Badge variant="outline">{pageSize}</Badge> : null}
-          <Button type="button" variant="outline" size="sm" onClick={onPrevious} disabled={disabled || !canPrevious}>
-            {previousLabel}
-          </Button>
-          {page !== undefined ? <Badge variant="secondary">{page}</Badge> : null}
-          <Button type="button" variant="outline" size="sm" onClick={onNext} disabled={disabled || !canNext}>
-            {nextLabel}
-          </Button>
-        </span>
-      </nav>
+      <div className="flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
+        <p>{summary}</p>
+        <nav aria-label={label} className="flex flex-col gap-2 @sm:flex-row @sm:flex-wrap @sm:items-center">
+          {pageSizeLabel ? <span>{pageSizeLabel}</span> : null}
+          <span className="flex items-center justify-between gap-2 @sm:justify-start">
+            {pageSize !== undefined ? <Badge variant="outline">{pageSize}</Badge> : null}
+            <Button type="button" variant="outline" size="sm" onClick={onPrevious} disabled={disabled || !canPrevious}>
+              {previousLabel}
+            </Button>
+            {page !== undefined ? <Badge variant="secondary">{page}</Badge> : null}
+            <Button type="button" variant="outline" size="sm" onClick={onNext} disabled={disabled || !canNext}>
+              {nextLabel}
+            </Button>
+          </span>
+        </nav>
+      </div>
     </div>
   );
 }

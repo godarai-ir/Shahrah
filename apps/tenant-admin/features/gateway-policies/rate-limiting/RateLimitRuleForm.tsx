@@ -297,7 +297,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
       <form className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
         <FormSection>
           <div className="grid gap-4 lg:grid-cols-2">
-            <IdentifierField id="rule_id" label={t("form.fields.ruleId")} description={t("form.descriptions.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
+            <IdentifierField id="rule_id" label={t("form.fields.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
 
             <DisplayNameField id="name" label={t("form.fields.name")} description={t("form.descriptions.name")} placeholder={t("form.placeholders.name")} error={form.formState.errors.name?.message} {...form.register("name")} />
           </div>
@@ -376,49 +376,59 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
               const modelValues = (((rowValues as string[] | undefined) ?? []).filter((item) => typeof item === "string" && item.trim().length > 0));
 
               return (
-                <div key={field.id} className="flex flex-col gap-4 rounded-xl bg-muted/30 p-4">
-                  <div className="grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto_auto]">
-                    <InlineSelect
-                      value={rowField}
-                      ariaLabel={t("aria.filterFieldType")}
-                      onValueChange={(value) =>
-                        form.setValue(`conditions.conditions.${index}.field`, value as (typeof fieldOptions)[number], {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        })
-                      }
-                      options={fieldOptions
-                        .filter((option) => option === rowField || !usedByOthers.has(option))
-                        .map((option) => ({ value: option, label: fieldLabel[option] }))}
-                    />
+                <div key={field.id} className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <InlineSelect
+                        value={rowField}
+                        ariaLabel={t("aria.filterFieldType")}
+                        onValueChange={(value) =>
+                          form.setValue(`conditions.conditions.${index}.field`, value as (typeof fieldOptions)[number], {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          })
+                        }
+                        options={fieldOptions
+                          .filter((option) => option === rowField || !usedByOthers.has(option))
+                          .map((option) => ({ value: option, label: fieldLabel[option] }))}
+                      />
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={t("aria.removeFilter")}>
+                      <Trash2 />
+                    </Button>
+                  </div>
 
-                    {rowField === "subject" ? (
-                      <PrincipalEntitySelect
-                        id={`subject-selector-${index}`}
-                        selected={subjectPickerSelection[index] ?? null}
-                        onSelectedChange={(value) => setSubjectPickerSelection((prev) => ({ ...prev, [index]: value }))}
-                        onSearch={searchPrincipals}
-                        labels={principalLabels}
-                        kinds={["user", "team", "org_unit", "virtual_account"]}
-                        triggerClassName="h-10 min-h-10 rounded-lg"
-                      />
-                    ) : (
-                      <ModelEntitySelect
-                        id={`model-selector-${index}`}
-                        selected={modelPickerSelection[index] ?? null}
-                        onSelectedChange={(value) => setModelPickerSelection((prev) => ({ ...prev, [index]: value }))}
-                        providerAllowedModels={providerAllowedModels}
-                        virtualModels={virtualModels}
-                        labels={modelLabels}
-                        triggerClassName="h-10 rounded-lg"
-                      />
-                    )}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      {rowField === "subject" ? (
+                        <PrincipalEntitySelect
+                          id={`subject-selector-${index}`}
+                          selected={subjectPickerSelection[index] ?? null}
+                          onSelectedChange={(value) => setSubjectPickerSelection((prev) => ({ ...prev, [index]: value }))}
+                          onSearch={searchPrincipals}
+                          labels={principalLabels}
+                          kinds={["user", "team", "org_unit", "virtual_account"]}
+                          triggerClassName="h-10 min-h-10 rounded-lg"
+                        />
+                      ) : (
+                        <ModelEntitySelect
+                          id={`model-selector-${index}`}
+                          selected={modelPickerSelection[index] ?? null}
+                          onSelectedChange={(value) => setModelPickerSelection((prev) => ({ ...prev, [index]: value }))}
+                          providerAllowedModels={providerAllowedModels}
+                          virtualModels={virtualModels}
+                          labels={modelLabels}
+                          triggerClassName="h-10 rounded-lg"
+                        />
+                      )}
+                    </div>
 
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      aria-label={t("actions.add")}
+                      size="sm"
+                      className="shrink-0"
+                      disabled={rowField === "subject" ? !subjectPickerSelection[index] : !modelPickerSelection[index]}
                       onClick={() => {
                         if (rowField === "subject") {
                           const selected = subjectPickerSelection[index];
@@ -433,27 +443,30 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                               [token]: selected.display_name || selected.principal_id || token,
                             },
                           }));
+                          setSubjectPickerSelection((prev) => ({ ...prev, [index]: null }));
                           return;
                         }
 
                         const selected = modelPickerSelection[index];
                         if (!selected || modelValues.includes(selected.name)) return;
                         form.setValue(`conditions.conditions.${index}.values`, [...modelValues, selected.name], { shouldValidate: true, shouldDirty: true });
+                        setModelPickerSelection((prev) => ({ ...prev, [index]: null }));
                       }}
                     >
-                      <Plus />
-                    </Button>
-
-                    <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} aria-label={t("aria.removeFilter")}>
-                      <Trash2 />
+                      <Plus data-icon="inline-start" />
+                      {t("actions.add")}
                     </Button>
                   </div>
 
-                  {rowField === "subject" ? (
-                    <RemovableChipList variant="outline" items={subjectTokens.map((token) => { const item = toSubjectSelection(token); const displayName = subjectDisplayNameByRow[index]?.[token] ?? item.display_name ?? item.principal_id ?? token; const label = `${item.type}: ${displayName}`; return { value: token, label, removeLabel: t("aria.removeSelection", { label }) }; })} onRemove={(token) => { form.setValue(`conditions.conditions.${index}.values`, subjectTokens.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true }); setSubjectDisplayNameByRow((prev) => { const nextRow = { ...(prev[index] ?? {}) }; delete nextRow[token]; return { ...prev, [index]: nextRow }; }); }} />
-                  ) : (
-                    <RemovableChipList variant="outline" items={modelValues.map((token) => ({ value: token, label: token, removeLabel: t("aria.removeSelection", { label: token }), textDir: "ltr" as const }))} onRemove={(token) => form.setValue(`conditions.conditions.${index}.values`, modelValues.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true })} />
-                  )}
+                  {subjectTokens.length > 0 || modelValues.length > 0 ? (
+                    <div className="border-t border-border pt-3">
+                      {rowField === "subject" ? (
+                        <RemovableChipList variant="outline" items={subjectTokens.map((token) => { const item = toSubjectSelection(token); const displayName = subjectDisplayNameByRow[index]?.[token] ?? item.display_name ?? item.principal_id ?? token; const label = `${item.type}: ${displayName}`; return { value: token, label, removeLabel: t("aria.removeSelection", { label }) }; })} onRemove={(token) => { form.setValue(`conditions.conditions.${index}.values`, subjectTokens.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true }); setSubjectDisplayNameByRow((prev) => { const nextRow = { ...(prev[index] ?? {}) }; delete nextRow[token]; return { ...prev, [index]: nextRow }; }); }} />
+                      ) : (
+                        <RemovableChipList variant="outline" items={modelValues.map((token) => ({ value: token, label: token, removeLabel: t("aria.removeSelection", { label: token }), textDir: "ltr" as const }))} onRemove={(token) => form.setValue(`conditions.conditions.${index}.values`, modelValues.filter((value) => value !== token), { shouldValidate: true, shouldDirty: true })} />
+                      )}
+                    </div>
+                  ) : null}
 
                   <FormFieldError>{form.formState.errors.conditions?.conditions?.[index]?.values?.message}</FormFieldError>
                 </div>
@@ -540,7 +553,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
           description={t("form.descriptions.limit")}
           className={embedded ? "md:grid-cols-1" : undefined}
         >
-          <div className="grid gap-4 lg:grid-cols-4">
+          <div className={embedded ? "grid gap-3 sm:grid-cols-2" : "grid gap-4 lg:grid-cols-4"}>
             <FormField label={t("form.fields.limitMax")} htmlFor="limit-max">
               <Input
                 id="limit-max"

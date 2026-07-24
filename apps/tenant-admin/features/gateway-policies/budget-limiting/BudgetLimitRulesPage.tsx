@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CircleDollarSign, Copy, Pencil, Power, Trash2 } from "lucide-react";
 
-import { RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { CopyAction, RowActionsMenu, StatusBadge } from "@/components/app-ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
 import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
@@ -22,11 +22,11 @@ import { BudgetLimitRuleForm } from "./BudgetLimitRuleForm";
 const FEATURE_BUDGET_LIMIT_RULES_ENABLED = "budget_limit_rules.enabled";
 const IRR_NUMBER_FORMAT = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
 const BUDGET_RULE_COLUMN_CLASS = {
-  ruleId: "w-[42%]",
-  limit: "w-[30%]",
-  unit: "hidden w-36 @md:table-cell",
-  status: "w-[18%]",
-  updatedAt: "hidden w-40 @lg:table-cell",
+  ruleId: "w-56",
+  limit: "w-36",
+  unit: "hidden w-32 @md:table-cell",
+  status: "w-24 whitespace-nowrap",
+  updatedAt: "hidden w-48 whitespace-nowrap @lg:table-cell",
   actions: "w-12 text-end",
 } as const;
 
@@ -166,7 +166,6 @@ export function BudgetLimitRulesPage() {
       query={query}
       onQueryChange={setQuery}
       searchPlaceholder={t("searchPlaceholder")}
-      resultCountLabel={t("resultCount", { count: items.length })}
       itemCount={items.length}
       loading={isLoading}
       loadingLabel={t("messages.loading")}
@@ -212,7 +211,7 @@ export function BudgetLimitRulesPage() {
         actionLabel: t("upgradeDialog.action"),
       }}
     >
-      <Table className="table-fixed text-xs lg:text-sm">
+      <Table className="w-max min-w-full table-fixed text-xs lg:text-sm">
               <TableHeader>
                 <TableRow>
                   <TableHead className={BUDGET_RULE_COLUMN_CLASS.ruleId}>{t("table.ruleId")}</TableHead>
@@ -227,7 +226,15 @@ export function BudgetLimitRulesPage() {
                 {items.map((rule) => (
                   <TableRow key={rule.id}>
                     <TableCell className={`${BUDGET_RULE_COLUMN_CLASS.ruleId} min-w-0 font-mono font-medium`} dir="ltr">
-                      <span className="block truncate" title={rule.rule_id}>{rule.rule_id}</span>
+                      <div className="flex min-w-0 items-center gap-1">
+                        <span className="block min-w-0 flex-1 truncate" title={rule.rule_id}>{rule.rule_id}</span>
+                        <CopyAction
+                          className="shrink-0"
+                          value={rule.rule_id}
+                          copyLabel={t("actions.copyRuleId", { ruleId: rule.rule_id })}
+                          copiedLabel={t("actions.copied")}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className={BUDGET_RULE_COLUMN_CLASS.limit}>
                       <span className="block truncate" title={formatIRR(rule.limit_to)}>{formatIRR(rule.limit_to)}</span>

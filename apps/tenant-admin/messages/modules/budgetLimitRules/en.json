@@ -3,7 +3,6 @@
   "description": "Define budget guardrails for gateway requests across subjects, models, and metadata.",
   "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
   "empty": "No budget limiting rules have been created yet.",
-  "resultCount": "{count} rules",
   "emptyState": {
     "title": "No budget rules yet",
     "description": "Create the first rule to control spending limits and gateway behavior after the budget is exceeded."
@@ -21,6 +20,8 @@
     "edit": "Edit",
     "duplicate": "Duplicate",
     "copySuffix": "(copy)",
+    "copyRuleId": "Copy rule ID {ruleId}",
+    "copied": "Rule ID copied",
     "delete": "Delete",
     "enable": "Enable",
     "disable": "Disable",

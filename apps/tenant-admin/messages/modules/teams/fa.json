@@ -14,6 +14,7 @@
                },
     "actions":  {
                     "refresh":  "بازآوری",
+                    "filters":  "فیلترها",
                     "cancel":  "انصراف",
                     "new":  "تیم جدید",
                     "saving":  "در حال ذخیره...",
@@ -53,6 +54,7 @@
                   "tenantRoot":  "ریشه فضای کاری",
                   "workspaceType":  "محیط",
                   "membersAdmins":  "اعضا/مدیران",
+                  "activeKeys":  "کلیدهای فعال",
                   "status":  "وضعیت",
                   "updated":  "بروزرسانی",
                   "actions":  "عملیات"
@@ -76,6 +78,9 @@
                    "orgInheritance":  "محدوده واحد سازمانی: {value}",
                    "permissions":  "تعداد مجوزها: {value}",
                    "members":  "اعضا",
+                   "membersDescription":  "اعضای دارای دسترسی مستقیم به این تیم و سطح دسترسی آن‌ها.",
+                   "memberPermissionCount":  "{count} مجوز اختصاصی",
+                   "teamAdminScope":  "دسترسی مدیریتی کامل به تیم",
                    "loading":  "در حال بارگیری اعضا...",
                    "noMembers":  "عضوی برای تیم یافت نشد."
                },
