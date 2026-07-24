@@ -7,11 +7,12 @@ import "prismjs/components/prism-bash";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-markdown";
+import "prismjs/components/prism-powershell";
 import "prismjs/components/prism-python";
 
 import { cn } from "@/lib/utils";
 
-export type CodeLanguage = "bash" | "javascript" | "json" | "markdown" | "python";
+export type CodeLanguage = "bash" | "javascript" | "json" | "markdown" | "powershell" | "python";
 export type CodeBlockProps = {
   code: string;
   language: CodeLanguage;

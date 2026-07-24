@@ -79,4 +79,28 @@ describe("PrincipalPicker", () => {
 
     expect(screen.getByRole("button", { name: "Remove Ada from managers" })).toBeInTheDocument();
   });
+
+  it("renders a locked principal without a removal action", () => {
+    const setSelected = vi.fn();
+    render(
+      <PrincipalPicker
+        id="locked-managers"
+        title="Managers"
+        onSearchPrincipal={async () => []}
+        principalSelectorLabels={labels}
+        selected={[{ type: "user", principal_id: "current-user", display_name: "Ada" }]}
+        setSelected={setSelected}
+        allowEveryone={false}
+        addLabel="Add manager"
+        removeLabel="Remove manager"
+        getRemoveLabel={(item) => `Remove ${item.display_name} from managers`}
+        isItemRemovable={(item) => item.principal_id !== "current-user"}
+        getLockedLabel={(item) => `${item.display_name} is the locked default manager`}
+      />,
+    );
+
+    expect(screen.getByLabelText("Ada is the locked default manager")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove Ada from managers" })).not.toBeInTheDocument();
+    expect(setSelected).not.toHaveBeenCalled();
+  });
 });

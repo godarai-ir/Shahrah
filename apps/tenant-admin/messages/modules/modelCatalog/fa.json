@@ -1,0 +1,234 @@
+{
+  "page": {
+    "title": "کاتالوگ مدل‌ها",
+    "description": "اتصال‌های ارائه‌دهنده و همه مدل‌های در دسترس این مستأجر را مدیریت کنید.",
+    "detailsTitle": "جزئیات ارائه‌دهنده",
+    "detailsDescription": "آمادگی را بررسی و مدل‌ها، دسترسی و اعتبارنامه‌ها را مدیریت کنید.",
+    "addTitle": "افزودن ارائه‌دهنده هوش مصنوعی",
+    "addDescription": "ارائه‌دهنده را انتخاب کنید، اتصال را بسازید، مدل‌ها را آماده و دسترسی را اعطا کنید."
+  },
+  "tabs": {
+    "label": "نماهای کاتالوگ مدل",
+    "providers": "ارائه‌دهندگان هوش مصنوعی",
+    "models": "مدل‌ها"
+  },
+  "loading": "در حال بارگذاری کاتالوگ مدل‌ها",
+  "providers": {
+    "ariaLabel": "حساب‌های ارائه‌دهنده مستأجر",
+    "resultCount": "{count, number} ارائه‌دهنده"
+  },
+  "models": {
+    "ariaLabel": "کاتالوگ مدل‌های مستأجر",
+    "resultCount": "{count, number} مدل"
+  },
+  "filters": {
+    "search": "جست‌وجو",
+    "searchProviders": "جست‌وجوی ارائه‌دهنده یا نام حساب",
+    "searchModels": "جست‌وجوی مدل یا ارائه‌دهنده",
+    "searchProviderPicker": "جست‌وجوی ارائه‌دهندگان هوش مصنوعی",
+    "provider": "ارائه‌دهنده",
+    "account": "حساب",
+    "credential": "اعتبارنامه",
+    "readiness": "آمادگی",
+    "sort": "مرتب‌سازی",
+    "order": "ترتیب",
+    "addProvider": "افزودن فیلتر ارائه‌دهنده",
+    "addAccount": "افزودن فیلتر حساب",
+    "noProvider": "ارائه‌دهنده دیگری وجود ندارد",
+    "noAccount": "حساب دیگری وجود ندارد",
+    "noResult": "گزینه‌ای پیدا نشد",
+    "any": "همه",
+    "remove": "حذف فیلتر {filter}: {value}"
+  },
+  "sort": {
+    "name": "نام مدل",
+    "provider": "ارائه‌دهنده",
+    "availability": "دسترسی‌پذیری",
+    "context": "پنجره متن",
+    "input_price": "قیمت ورودی",
+    "output_price": "قیمت خروجی",
+    "asc": "صعودی",
+    "desc": "نزولی"
+  },
+  "columns": {
+    "name": "نام",
+    "connectionIdentifier": "شناسه اتصال",
+    "models": "مدل‌ها",
+    "credential": "نوع اعتبارنامه",
+    "readiness": "آمادگی",
+    "updated": "آخرین تغییر",
+    "actions": "عملیات",
+    "model": "مدل",
+    "provider": "ارائه‌دهنده",
+    "availability": "دسترسی‌پذیری",
+    "modalities": "ورودی / خروجی",
+    "context": "پنجره متن",
+    "pricing": "قیمت مؤثر"
+  },
+  "credential": {
+    "managed": "مدیریت‌شده",
+    "byok": "کلید شخصی"
+  },
+  "readiness": {
+    "ready": "آماده",
+    "needs_models": "نیازمند مدل",
+    "needs_credentials": "نیازمند اعتبارنامه",
+    "needs_access": "نیازمند دسترسی",
+    "pricing_incomplete": "قیمت‌گذاری ناقص"
+  },
+  "status": {
+    "deprecated": "منسوخ‌شده"
+  },
+  "pricing": {
+    "input": "ورودی",
+    "output": "خروجی"
+  },
+  "modalities": {
+    "text": "متن",
+    "image": "تصویر",
+    "audio": "صوت",
+    "video": "ویدئو",
+    "pdf": "PDF",
+    "textToSpeech": "تبدیل متن به گفتار"
+  },
+  "capabilities": {
+    "chat": "گفت‌وگو",
+    "tools": "فراخوانی ابزار",
+    "vision": "درک تصویر",
+    "embeddings": "بردارسازی",
+    "textToSpeech": "تبدیل متن به گفتار",
+    "moderation": "تعدیل محتوا",
+    "imageGeneration": "تولید تصویر",
+    "audioTranscription": "رونویسی صوت",
+    "audioTranslation": "ترجمه صوت"
+  },
+  "availability": {
+    "count": "{count, number} حساب",
+    "title": "اتصال‌های در دسترس",
+    "description": "برای مشاهده پیکربندی مؤثر، یک مسیر حساب را انتخاب کنید.",
+    "openAccount": "مشاهده پیکربندی حساب {account}",
+    "pricingReady": "قیمت آماده",
+    "pricingMissing": "قیمت نامشخص"
+  },
+  "drawer": {
+    "title": "جزئیات مدل",
+    "description": "فراداده کاتالوگ و پیکربندی مؤثر زمان اجرا برای حساب انتخاب‌شده.",
+    "account": "حساب ارائه‌دهنده",
+    "fqn": "FQN کامل مدل",
+    "inputModalities": "ورودی‌ها",
+    "outputModalities": "خروجی‌ها",
+    "capabilities": "قابلیت‌های مؤثر",
+    "credentialSource": "منبع اعتبارنامه",
+    "publicInputPrice": "قیمت عمومی ورودی",
+    "publicOutputPrice": "قیمت عمومی خروجی",
+    "effectiveInputPrice": "قیمت مؤثر ورودی",
+    "effectiveOutputPrice": "قیمت مؤثر خروجی",
+    "deprecated": "این مدل منسوخ شده است. بارهای کاری را به یک مدل پشتیبانی‌شده منتقل کنید.",
+    "deprecatedWithReplacement": "این مدل منسوخ شده است. جایگزین پیشنهادی: {replacement}.",
+    "bashExample": "نمونه Bash",
+    "powershellExample": "نمونه PowerShell"
+  },
+  "details": {
+    "loading": "در حال بارگذاری جزئیات ارائه‌دهنده",
+    "sectionsLabel": "بخش‌های جزئیات ارائه‌دهنده",
+    "sections": {
+      "overview": "نمای کلی"
+    },
+    "modelCount": "مدل‌های فعال",
+    "managerCount": "مدیران",
+    "userCount": "کاربران",
+    "unresolvedPricing": "قیمت‌های نامشخص",
+    "authMode": "روش احراز هویت",
+    "firstModel": "اولین مدل فعال",
+    "quickCode": "درخواست سریع",
+    "noModelRecovery": "این حساب کامل نیست. برای قابل فراخوانی شدن، حداقل یک مدل را انتخاب و قیمت‌گذاری کنید.",
+    "unsavedTitle": "تغییرات ذخیره‌نشده کنار گذاشته شود؟",
+    "unsavedDescription": "تغییرات مدل، قیمت‌گذاری یا اعتبارنامه هنوز ذخیره نشده است.",
+    "stay": "ادامه ویرایش",
+    "discard": "کنار گذاشتن تغییرات"
+  },
+  "create": {
+    "chooseProvider": "انتخاب ارائه‌دهنده",
+    "configureProvider": "پیکربندی ارائه‌دهنده",
+    "summaryTitle": "خلاصه راه‌اندازی",
+    "ready": "آماده ایجاد",
+    "incomplete": "نیازمند تکمیل",
+    "summaryProvider": "ارائه‌دهنده",
+    "summaryAccount": "نام حساب",
+    "summaryCredential": "اتصال و اعتبارنامه",
+    "summaryModels": "مدل‌های انتخاب‌شده",
+    "summaryPricing": "قیمت‌های نامشخص",
+    "summaryAccess": "مدیر / کاربر",
+    "preflightPassed": "تست اتصال موفق",
+    "preflightUnsupported": "تست خودکار پشتیبانی نمی‌شود",
+    "preflightPending": "در انتظار تست اتصال",
+    "completeRequired": "برای ایجاد اتصال، بخش‌های الزامی را تکمیل کنید."
+  },
+  "actions": {
+    "refresh": "بازخوانی",
+    "addProvider": "افزودن ارائه‌دهنده",
+    "clearFilters": "پاک‌کردن فیلترها",
+    "openMenu": "عملیات {account}",
+    "viewModels": "مشاهده مدل‌ها",
+    "details": "جزئیات",
+    "effectiveAccess": "آزمون دسترسی مؤثر",
+    "connectionTest": "آزمون اتصال",
+    "backToCatalog": "بازگشت به کاتالوگ",
+    "copyConnectionIdentifier": "کپی شناسه اتصال",
+    "copyFqn": "کپی FQN مدل",
+    "retry": "تلاش دوباره",
+    "docs": "مستندات",
+    "delete": "حذف",
+    "deleting": "در حال حذف...",
+    "cancel": "انصراف",
+    "modelDetails": "مشاهده جزئیات {model}",
+    "openPlayground": "بازکردن در Playground",
+    "viewLogs": "مشاهده لاگ‌ها",
+    "manageModel": "مدیریت مدل",
+    "copyCode": "کپی کد",
+    "copying": "در حال کپی...",
+    "copied": "کپی شد",
+    "close": "بستن"
+  },
+  "empty": {
+    "noResultsTitle": "نتیجه‌ای پیدا نشد",
+    "noResultsDescription": "جست‌وجو یا فیلترهای فعلی را تغییر دهید یا پاک کنید.",
+    "noProvidersTitle": "هنوز حساب ارائه‌دهنده‌ای وجود ندارد",
+    "noProvidersDescription": "برای در دسترس قرار دادن مدل‌ها، یک اتصال ارائه‌دهنده اضافه کنید.",
+    "noModelsTitle": "مدلی در دسترس نیست",
+    "noModelsDescription": "حداقل یک مدل را در یک حساب ارائه‌دهنده فعال کنید."
+  },
+  "pagination": {
+    "label": "صفحه‌بندی مدل‌ها",
+    "summary": "{start, number} تا {end, number} از {total, number}",
+    "pageSize": "تعداد در صفحه",
+    "previous": "قبلی",
+    "next": "بعدی"
+  },
+  "delete": {
+    "title": "حذف حساب ارائه‌دهنده",
+    "description": "برای تأیید حذف این حساب، {account} را وارد کنید.",
+    "inputLabel": "نام حساب",
+    "modelCount": "این حساب {count} مدل فعال دارد."
+  },
+  "notices": {
+    "success": "انجام شد",
+    "error": "عملیات ناموفق بود",
+    "warning": "توجه",
+    "info": "اطلاعات",
+    "connectionTestSucceeded": "آزمون اتصال {account} موفق بود.",
+    "deleted": "{account} حذف شد."
+  },
+  "errors": {
+    "loadProviders": "حساب‌های ارائه‌دهنده بارگذاری نشدند.",
+    "loadProviderMetadata": "فراداده ارائه‌دهندگان موقتاً در دسترس نیست.",
+    "loadModelCount": "تعداد تجمیعی مدل‌ها موقتاً در دسترس نیست.",
+    "loadModels": "مدل‌ها بارگذاری نشدند.",
+    "loadDetails": "جزئیات این حساب ارائه‌دهنده بارگذاری نشد.",
+    "connectionTest": "آزمون اتصال ناموفق بود.",
+    "deleteConflict": "این حساب حذف نشد. ابتدا تنظیمات وابسته را حذف و دوباره تلاش کنید."
+  },
+  "values": {
+    "na": "ناموجود"
+  }
+}

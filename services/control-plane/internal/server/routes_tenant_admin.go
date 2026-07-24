@@ -111,6 +111,8 @@ func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	api.Post("/users/invitations/accept", deps.AdminHandlers.AcceptTenantUserInvitation)
 	api.Post("/users/:userID/activate", deps.AdminHandlers.ActivateTenantUser)
 	api.Post("/users/:userID/deactivate", deps.AdminHandlers.DeactivateTenantUser)
+	api.Post("/provider-connections/test", deps.AdminHandlers.TestProviderConnection)
+	api.Get("/tenant-provider-account-models", deps.AdminHandlers.ListTenantProviderAccountModels)
 	api.Post("/tenant-provider-accounts", deps.AdminHandlers.CreateTenantProviderAccount)
 	api.Get("/tenant-provider-accounts", deps.AdminHandlers.ListTenantProviderAccounts)
 	api.Get("/tenant-provider-accounts/:accountID", deps.AdminHandlers.GetTenantProviderAccount)

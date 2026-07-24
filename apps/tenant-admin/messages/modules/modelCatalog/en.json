@@ -1,0 +1,234 @@
+{
+  "page": {
+    "title": "Model Catalog",
+    "description": "Manage provider connections and every model available to this tenant.",
+    "detailsTitle": "Provider details",
+    "detailsDescription": "Review readiness and manage models, access, and credentials.",
+    "addTitle": "Add AI provider",
+    "addDescription": "Choose a provider, configure its connection, provision models, and grant access."
+  },
+  "tabs": {
+    "label": "Model catalog views",
+    "providers": "AI Providers",
+    "models": "Models"
+  },
+  "loading": "Loading model catalog",
+  "providers": {
+    "ariaLabel": "Tenant provider accounts",
+    "resultCount": "{count, plural, =0 {No providers} one {# provider} other {# providers}}"
+  },
+  "models": {
+    "ariaLabel": "Tenant model catalog",
+    "resultCount": "{count, plural, =0 {No models} one {# model} other {# models}}"
+  },
+  "filters": {
+    "search": "Search",
+    "searchProviders": "Search provider or account name",
+    "searchModels": "Search model or provider",
+    "searchProviderPicker": "Search AI providers",
+    "provider": "Provider",
+    "account": "Account",
+    "credential": "Credential",
+    "readiness": "Readiness",
+    "sort": "Sort by",
+    "order": "Order",
+    "addProvider": "Add provider filter",
+    "addAccount": "Add account filter",
+    "noProvider": "No more providers",
+    "noAccount": "No more accounts",
+    "noResult": "No matching option",
+    "any": "Any",
+    "remove": "Remove {filter} filter: {value}"
+  },
+  "sort": {
+    "name": "Model name",
+    "provider": "Provider",
+    "availability": "Availability",
+    "context": "Context window",
+    "input_price": "Input price",
+    "output_price": "Output price",
+    "asc": "Ascending",
+    "desc": "Descending"
+  },
+  "columns": {
+    "name": "Name",
+    "connectionIdentifier": "Connection identifier",
+    "models": "Models",
+    "credential": "Credential type",
+    "readiness": "Readiness",
+    "updated": "Updated",
+    "actions": "Actions",
+    "model": "Model",
+    "provider": "Provider",
+    "availability": "Availability",
+    "modalities": "Modalities",
+    "context": "Context",
+    "pricing": "Effective pricing"
+  },
+  "credential": {
+    "managed": "Managed",
+    "byok": "BYOK"
+  },
+  "readiness": {
+    "ready": "Ready",
+    "needs_models": "Needs models",
+    "needs_credentials": "Needs credentials",
+    "needs_access": "Needs access",
+    "pricing_incomplete": "Pricing incomplete"
+  },
+  "status": {
+    "deprecated": "Deprecated"
+  },
+  "pricing": {
+    "input": "Input",
+    "output": "Output"
+  },
+  "modalities": {
+    "text": "Text",
+    "image": "Image",
+    "audio": "Audio",
+    "video": "Video",
+    "pdf": "PDF",
+    "textToSpeech": "Text to speech"
+  },
+  "capabilities": {
+    "chat": "Chat",
+    "tools": "Tool calling",
+    "vision": "Vision",
+    "embeddings": "Embeddings",
+    "textToSpeech": "Text to speech",
+    "moderation": "Moderation",
+    "imageGeneration": "Image generation",
+    "audioTranscription": "Audio transcription",
+    "audioTranslation": "Audio translation"
+  },
+  "availability": {
+    "count": "{count, plural, one {# account} other {# accounts}}",
+    "title": "Available connections",
+    "description": "Choose an account path to inspect its effective configuration.",
+    "openAccount": "View configuration for {account}",
+    "pricingReady": "Pricing ready",
+    "pricingMissing": "Pricing unresolved"
+  },
+  "drawer": {
+    "title": "Model details",
+    "description": "Catalog metadata and the effective runtime configuration for the selected account.",
+    "account": "Provider account",
+    "fqn": "Full model FQN",
+    "inputModalities": "Input modalities",
+    "outputModalities": "Output modalities",
+    "capabilities": "Effective capabilities",
+    "credentialSource": "Credential source",
+    "publicInputPrice": "Public input price",
+    "publicOutputPrice": "Public output price",
+    "effectiveInputPrice": "Effective input price",
+    "effectiveOutputPrice": "Effective output price",
+    "deprecated": "This model is deprecated. Plan to move workloads to a supported model.",
+    "deprecatedWithReplacement": "This model is deprecated. Recommended replacement: {replacement}.",
+    "bashExample": "Bash example",
+    "powershellExample": "PowerShell example"
+  },
+  "details": {
+    "loading": "Loading provider details",
+    "sectionsLabel": "Provider detail sections",
+    "sections": {
+      "overview": "Overview"
+    },
+    "modelCount": "Enabled models",
+    "managerCount": "Managers",
+    "userCount": "Users",
+    "unresolvedPricing": "Unresolved pricing",
+    "authMode": "Authentication mode",
+    "firstModel": "First active model",
+    "quickCode": "Quick request",
+    "noModelRecovery": "This account is incomplete. Select and price at least one model to make it callable.",
+    "unsavedTitle": "Discard unsaved changes?",
+    "unsavedDescription": "Your model, pricing, or credential changes have not been saved.",
+    "stay": "Keep editing",
+    "discard": "Discard changes"
+  },
+  "create": {
+    "chooseProvider": "Choose provider",
+    "configureProvider": "Configure provider",
+    "summaryTitle": "Setup summary",
+    "ready": "Ready to create",
+    "incomplete": "Needs completion",
+    "summaryProvider": "Provider",
+    "summaryAccount": "Account name",
+    "summaryCredential": "Connection and credential",
+    "summaryModels": "Selected models",
+    "summaryPricing": "Unresolved pricing",
+    "summaryAccess": "Managers / users",
+    "preflightPassed": "Connection test passed",
+    "preflightUnsupported": "Automatic test unsupported",
+    "preflightPending": "Connection test pending",
+    "completeRequired": "Complete the required sections before creating the connection."
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "addProvider": "Add provider",
+    "clearFilters": "Clear filters",
+    "openMenu": "Actions for {account}",
+    "viewModels": "View models",
+    "details": "Details",
+    "effectiveAccess": "Effective access test",
+    "connectionTest": "Connection test",
+    "backToCatalog": "Back to catalog",
+    "copyConnectionIdentifier": "Copy connection identifier",
+    "copyFqn": "Copy model FQN",
+    "retry": "Try again",
+    "docs": "Docs",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "cancel": "Cancel",
+    "modelDetails": "View details for {model}",
+    "openPlayground": "Open in Playground",
+    "viewLogs": "View logs",
+    "manageModel": "Manage model",
+    "copyCode": "Copy code",
+    "copying": "Copying...",
+    "copied": "Copied",
+    "close": "Close"
+  },
+  "empty": {
+    "noResultsTitle": "No matching results",
+    "noResultsDescription": "Change or clear the current search and filters.",
+    "noProvidersTitle": "No provider accounts yet",
+    "noProvidersDescription": "Add a provider connection to make models available to this tenant.",
+    "noModelsTitle": "No models are available",
+    "noModelsDescription": "Select at least one model on a provider account."
+  },
+  "pagination": {
+    "label": "Model pagination",
+    "summary": "{start, number}–{end, number} of {total, number}",
+    "pageSize": "Per page",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "delete": {
+    "title": "Delete provider account",
+    "description": "Type {account} to confirm deleting this provider account.",
+    "inputLabel": "Account name",
+    "modelCount": "{count, plural, =0 {This account has no enabled models.} one {This account has # enabled model.} other {This account has # enabled models.}}"
+  },
+  "notices": {
+    "success": "Completed",
+    "error": "Operation failed",
+    "warning": "Attention",
+    "info": "Information",
+    "connectionTestSucceeded": "Connection test for {account} succeeded.",
+    "deleted": "{account} was deleted."
+  },
+  "errors": {
+    "loadProviders": "Provider accounts could not be loaded.",
+    "loadProviderMetadata": "Provider metadata is temporarily unavailable.",
+    "loadModelCount": "The aggregated model count is temporarily unavailable.",
+    "loadModels": "Models could not be loaded.",
+    "loadDetails": "This provider account could not be loaded.",
+    "connectionTest": "Connection test failed.",
+    "deleteConflict": "This account could not be deleted. Remove dependent configuration and try again."
+  },
+  "values": {
+    "na": "N/A"
+  }
+}

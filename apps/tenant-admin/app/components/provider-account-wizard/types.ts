@@ -34,7 +34,7 @@ export type ModelType = string;
 
 export type PrincipalType = "user" | "team" | "org_unit" | "everyone";
 export type SetupStep = 1 | 2 | 3 | 4 | 5;
-export type WorkspaceTab = "models" | "access" | "credentials";
+export type WorkspaceTab = "overview" | "models" | "access" | "credentials";
 export type WorkspaceMode = "overview" | "setup" | "workspace";
 
 export type AccessPrincipal = {
@@ -91,6 +91,23 @@ export type TenantProviderAccount = {
   has_credential: boolean;
   credential_hint?: string;
   use_platform_managed_credentials: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ProviderAccountReadiness =
+  | "ready"
+  | "needs_models"
+  | "needs_credentials"
+  | "needs_access"
+  | "pricing_incomplete";
+
+export type TenantProviderAccountSummary = {
+  model_count: number;
+  manager_count: number;
+  user_count: number;
+  pricing_unresolved_count: number;
+  readiness: ProviderAccountReadiness;
 };
 
 export type TenantProviderAccountModel = {
@@ -137,7 +154,10 @@ export type EffectiveModelsResponse = {
 export type ProvidersResponse = { data?: ProviderCatalogProvider[] };
 export type ProviderModelsResponse = { data?: ProviderCatalogModel[] };
 export type ProviderConnectionSchemasResponse = { data?: ProviderConnectionSchema[] };
-export type AccountsResponse = { data?: TenantProviderAccount[] };
+export type AccountsResponse = {
+  data?: TenantProviderAccount[];
+  summaries?: Record<string, TenantProviderAccountSummary>;
+};
 export type AccessPrincipalResponse = { data?: AccessPrincipalCandidate[] };
 export type DisplaySettingsResponse = {
   data?: {
@@ -150,7 +170,7 @@ export type DisplaySettingsResponse = {
 };
 
 export type Banner = {
-  kind: "success" | "error";
+  kind: "success" | "error" | "warning";
   message: string;
 };
 

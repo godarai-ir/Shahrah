@@ -68,7 +68,10 @@ Configure the tenant-admin connection in `apps/tenant-admin/.env.local`:
 ```bash
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
 SHAHRAH_MASTER_KEY=-sk-dev-master-key-12345
+MODEL_CATALOG_V2_ENABLED=true
 ```
+
+`MODEL_CATALOG_V2_ENABLED` is a server-side rollout flag. It defaults to `false`; enable it explicitly in local development or staging to use the Providers/Models catalog experience.
 
 OTP delivery is owned by `control-plane`. Configure local email delivery on that process:
 

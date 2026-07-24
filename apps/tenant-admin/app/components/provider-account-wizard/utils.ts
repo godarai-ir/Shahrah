@@ -6,17 +6,31 @@ export async function requestJSON<T = unknown>(path: string, options?: RequestIn
 
   const response = await fetch(path, { ...options, headers, cache: "no-store" });
   const text = await response.text();
-  const data = parseResponsePayload(text);
-  if (!response.ok) throw new Error(extractMessageFromPayload(data) ?? `Request failed (${response.status})`);
-  return data as T;
+  const parsed = tryParseResponsePayload(text);
+  if (!response.ok) {
+    throw new Error(
+      (parsed.ok ? extractMessageFromPayload(parsed.data) : null) ??
+        `Request failed (${response.status})`,
+    );
+  }
+  if (!parsed.ok) {
+    throw new Error(`Unexpected response format (${response.status})`);
+  }
+  return parsed.data as T;
 }
 
 export function parseResponsePayload(text: string): unknown {
-  if (!text.trim()) return {};
+  return tryParseResponsePayload(text).data;
+}
+
+function tryParseResponsePayload(
+  text: string,
+): { ok: true; data: unknown } | { ok: false; data: Record<string, never> } {
+  if (!text.trim()) return { ok: true, data: {} };
   try {
-    return JSON.parse(text) as unknown;
+    return { ok: true, data: JSON.parse(text) as unknown };
   } catch {
-    return { message: text };
+    return { ok: false, data: {} };
   }
 }
 
@@ -630,6 +644,34 @@ export function normalizeProviderSlug(value: string): string {
 
 export function stringsEqualFold(a: string, b: string): boolean {
   return normalizeProviderSlug(a) === normalizeProviderSlug(b);
+}
+
+export function formatProviderDisplayName(provider: string, displayName?: string): string {
+  const normalized = normalizeProviderSlug(provider);
+  const knownNames: Record<string, string> = {
+    openai: "OpenAI",
+    "azure-openai": "Azure OpenAI",
+    "azure-open-ai": "Azure OpenAI",
+    azure_open_ai: "Azure OpenAI",
+    "azure-ai-foundry": "Azure AI Foundry",
+    azure_ai_foundry: "Azure AI Foundry",
+    azure: "Azure OpenAI",
+    ai21: "AI21",
+    xai: "xAI",
+    "aws-bedrock": "AWS Bedrock",
+    bedrock: "AWS Bedrock",
+    "google-vertex-ai": "Google Vertex AI",
+    vertexai: "Google Vertex AI",
+    "mistral-ai": "Mistral AI",
+    mistral_ai: "Mistral AI",
+    deepinfra: "DeepInfra",
+    elevenlabs: "ElevenLabs",
+    openrouter: "OpenRouter",
+    "perplexity-ai": "Perplexity AI",
+    sambanova: "SambaNova",
+    "together-ai": "Together AI",
+  };
+  return knownNames[normalized] ?? displayName?.trim() ?? provider;
 }
 
 export function formatDisplayPrice(

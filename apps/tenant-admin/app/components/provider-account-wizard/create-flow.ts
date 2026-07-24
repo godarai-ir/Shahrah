@@ -1,9 +1,9 @@
 import type { CreateWizardSectionID } from "./wizard-layout";
 
-export type CreatePersistenceReason = "continue-details" | "continue-models" | "continue-access" | "credential-test" | "activate";
+export type CreatePersistenceReason = "continue-details" | "continue-models" | "continue-access" | "activate";
 
 export function shouldPersistCreateAccount(reason: CreatePersistenceReason): boolean {
-  return reason === "credential-test" || reason === "activate";
+  return reason === "activate";
 }
 
 export function getCreateStepState({

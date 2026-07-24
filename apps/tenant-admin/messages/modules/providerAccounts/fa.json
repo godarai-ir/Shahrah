@@ -76,12 +76,14 @@
     "initialLoadFailed": "کاتالوگ ارائه‌دهنده‌ها بارگیری نشد. پس از در دسترس شدن سرویس model-discovery دوباره تلاش کنید.",
     "providerModelsLoadFailed": "فهرست مدل‌ها از سرویس model-discovery دریافت نشد. پس از در دسترس شدن سرویس دوباره تلاش کنید.",
     "validationProviderName": "انتخاب ارائه‌دهنده و وارد کردن نام حساب الزامی است.",
+    "accountNameExists": "این نام حساب قبلاً استفاده شده است. یک نام یکتا وارد کنید.",
     "accountCreateSuccess": "حساب ارائه‌دهنده با موفقیت ایجاد شد.",
     "accountCreateFailed": "ایجاد حساب ارائه‌دهنده انجام نشد.",
     "accountLoadSuccess": "تنظیمات حساب با موفقیت بارگذاری شد.",
     "accountLoadFailed": "بارگذاری تنظیمات حساب ناموفق بود.",
     "selectAccountFirst": "ابتدا یک حساب ارائه‌دهنده انتخاب یا ایجاد کنید.",
     "selectAtLeastOneModel": "حداقل یک مدل را برای فعال‌سازی انتخاب کنید.",
+    "validPricingRequired": "همه مدل‌های انتخاب‌شده باید قیمت‌گذاری معتبر و قابل‌حل داشته باشند.",
     "modelsSaveSuccess": "تنظیمات مدل‌ها با موفقیت ذخیره شد.",
     "modelsSaveFailed": "ذخیره تنظیمات مدل‌ها ناموفق بود.",
     "managerRequired": "حداقل یک مدیر حساب باید تعریف شود.",
@@ -411,6 +413,13 @@
         "currencyToman": "تومان",
         "perMillionTokens": "به ازای ۱ میلیون توکن",
         "perToken": "به ازای یک توکن"
+      },
+      "pagination": {
+        "label": "صفحه‌بندی مدل‌های ارائه‌دهنده",
+        "summary": "{start, number} تا {end, number} از {total, number}",
+        "pageSize": "تعداد در صفحه",
+        "previous": "قبلی",
+        "next": "بعدی"
       }
     },
     "access": {
@@ -428,6 +437,7 @@
       "addManager": "افزودن مدیر",
       "addUser": "افزودن مصرف‌کننده",
       "removeManager": "حذف {identity} از مدیران",
+      "currentUserLocked": "{identity} مدیر پیش‌فرض است و هنگام راه‌اندازی قابل حذف نیست.",
       "removeUser": "حذف {identity} از مصرف‌کنندگان",
       "minSearchHint": "برای جست‌وجو حداقل دو نویسه وارد کنید.",
       "everyoneWarning": "دسترسی گسترده به همه کاربران",
@@ -497,7 +507,7 @@
         "providerDocumentation": "مستندات ارائه‌دهنده",
         "testConnection": "تست اتصال",
         "testingConnection": "در حال تست اتصال...",
-        "testConnectionDescription": "پس از ذخیره اعتبارنامه، اتصال بررسی می‌شود و نتیجه همین‌جا نمایش داده می‌شود.",
+        "testConnectionDescription": "اتصال بدون ذخیره اعتبارنامه بررسی می‌شود و نتیجه همین‌جا نمایش داده می‌شود.",
         "accountSavedBeforeTest": "تنظیمات اتصال ذخیره شد. اکنون تست اتصال انجام می‌شود.",
         "connectionTestSuccessTitle": "اتصال معتبر است",
         "connectionTestFailedTitle": "تست اتصال ناموفق بود",

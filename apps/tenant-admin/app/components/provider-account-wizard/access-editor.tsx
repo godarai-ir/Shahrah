@@ -24,6 +24,8 @@ export const AccessEditor = memo(function AccessEditor(props: {
   isSaving: boolean;
   canManage: boolean;
   showSaveAction?: boolean;
+  isManagerRemovable?: (manager: AccessPrincipal) => boolean;
+  getLockedManagerLabel?: (manager: AccessPrincipal) => string;
 }) {
   const ux = useTranslations("providerAccounts.ux");
 
@@ -56,6 +58,8 @@ export const AccessEditor = memo(function AccessEditor(props: {
           description={ux("access.managerRequiredHint")}
           searchLabel={ux("access.searchManager")}
           getRemoveLabel={(item) => ux("access.removeManager", { identity: item.display_name || item.principal_id || item.type })}
+          isItemRemovable={props.isManagerRemovable}
+          getLockedLabel={props.getLockedManagerLabel}
         />
 
         <PrincipalPicker

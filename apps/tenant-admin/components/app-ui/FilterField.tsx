@@ -18,12 +18,19 @@ export type DebouncedTextFilterProps = Omit<React.ComponentProps<typeof Input>, 
 export function DebouncedTextFilter({ label, value, onValueChange, debounceMs = 350, mono, id, className, ...props }: DebouncedTextFilterProps) {
   const generatedID = React.useId();
   const controlID = id ?? generatedID;
-  const [draftState, setDraftState] = React.useState({ source: value, draft: value });
-  const draft = draftState.source === value ? draftState.draft : value;
+  const [draftState, setDraftState] = React.useState({ confirmed: value, draft: value });
+  const draft = draftState.confirmed === value ? draftState.draft : value;
   const onValueChangeRef = React.useRef(onValueChange);
   React.useEffect(() => { onValueChangeRef.current = onValueChange; }, [onValueChange]);
-  React.useEffect(() => { if (draft === value) return; const timer = window.setTimeout(() => onValueChangeRef.current(draft), debounceMs); return () => window.clearTimeout(timer); }, [debounceMs, draft, value]);
-  return <FilterField label={label} htmlFor={controlID}><Input id={controlID} value={draft} onChange={(event) => setDraftState({ source: value, draft: event.target.value })} dir={mono ? "ltr" : props.dir} className={cn("h-8 text-xs", mono && "text-start font-mono", className)} {...props} /></FilterField>;
+  React.useEffect(() => {
+    if (draft === value) return;
+    const timer = window.setTimeout(() => {
+      setDraftState({ confirmed: draft, draft });
+      onValueChangeRef.current(draft);
+    }, debounceMs);
+    return () => window.clearTimeout(timer);
+  }, [debounceMs, draft, value]);
+  return <FilterField label={label} htmlFor={controlID}><Input id={controlID} value={draft} onChange={(event) => setDraftState({ confirmed: value, draft: event.target.value })} dir={mono ? "ltr" : props.dir} className={cn("h-8 text-xs", mono && "text-start font-mono", className)} {...props} /></FilterField>;
 }
 
 export type RangeFilterFieldProps = { label: React.ReactNode; value: [number, number]; min: number; max: number; step?: number; disabled?: boolean; minLabel: string; maxLabel: string; formatValue: (value: number) => React.ReactNode; onValueChange?: (value: [number, number]) => void; onValueCommit: (value: [number, number]) => void };

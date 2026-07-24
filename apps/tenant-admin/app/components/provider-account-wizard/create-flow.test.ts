@@ -7,7 +7,6 @@ describe("provider connection create flow", () => {
     expect(shouldPersistCreateAccount("continue-details")).toBe(false);
     expect(shouldPersistCreateAccount("continue-models")).toBe(false);
     expect(shouldPersistCreateAccount("continue-access")).toBe(false);
-    expect(shouldPersistCreateAccount("credential-test")).toBe(true);
     expect(shouldPersistCreateAccount("activate")).toBe(true);
   });
 

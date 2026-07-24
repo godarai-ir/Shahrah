@@ -38,6 +38,17 @@ const (
 	PricingModePrivate PricingMode = "private"
 )
 
+// ProviderAccountReadiness is a derived setup state. It is never persisted.
+type ProviderAccountReadiness string
+
+const (
+	ProviderAccountReadinessReady             ProviderAccountReadiness = "ready"
+	ProviderAccountReadinessNeedsModels       ProviderAccountReadiness = "needs_models"
+	ProviderAccountReadinessNeedsCredentials  ProviderAccountReadiness = "needs_credentials"
+	ProviderAccountReadinessNeedsAccess       ProviderAccountReadiness = "needs_access"
+	ProviderAccountReadinessPricingIncomplete ProviderAccountReadiness = "pricing_incomplete"
+)
+
 // PrincipalType identifies who receives a role on a provider account.
 type PrincipalType string
 
@@ -255,6 +266,17 @@ type TestTenantProviderAccountCredentialsRequest struct {
 	ModelHint string `json:"model_hint,omitempty"`
 }
 
+// TestProviderConnectionRequest validates a provider connection without
+// persisting a tenant provider account or its write-only credentials.
+type TestProviderConnectionRequest struct {
+	Provider                      string                      `json:"provider"`
+	AuthMode                      ProviderAuthMode            `json:"auth_mode"`
+	ProviderConfig                map[string]interface{}      `json:"provider_config,omitempty"`
+	Credentials                   *ProviderAccountCredentials `json:"credentials,omitempty"`
+	UsePlatformManagedCredentials bool                        `json:"use_platform_managed_credentials"`
+	ModelHint                     string                      `json:"model_hint,omitempty"`
+}
+
 // UpdateTenantProviderAccountCredentialsRequest updates auth/credential settings for an existing account.
 type UpdateTenantProviderAccountCredentialsRequest struct {
 	AuthMode                      ProviderAuthMode            `json:"auth_mode,omitempty"`
@@ -265,8 +287,9 @@ type UpdateTenantProviderAccountCredentialsRequest struct {
 
 // TestTenantProviderAccountCredentialsResponse returns test execution result.
 type TestTenantProviderAccountCredentialsResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
+	Success     bool   `json:"success"`
+	Unsupported bool   `json:"unsupported,omitempty"`
+	Message     string `json:"message,omitempty"`
 }
 
 // TenantProviderAccountDetailsResponse returns full account data for wizard editing.
@@ -276,9 +299,74 @@ type TenantProviderAccountDetailsResponse struct {
 	Access  TenantProviderAccountAccessControl `json:"access"`
 }
 
+// TenantProviderAccountSummary contains list-level, derived account state.
+type TenantProviderAccountSummary struct {
+	ModelCount             int                      `json:"model_count"`
+	ManagerCount           int                      `json:"manager_count"`
+	UserCount              int                      `json:"user_count"`
+	PricingUnresolvedCount int                      `json:"pricing_unresolved_count"`
+	Readiness              ProviderAccountReadiness `json:"readiness"`
+}
+
+// TenantProviderAccountCatalogRecord is the flat storage projection used to
+// build account summaries and the tenant model catalog without N+1 queries.
+type TenantProviderAccountCatalogRecord struct {
+	Account          TenantProviderAccount
+	ManagerCount     int
+	UserCount        int
+	Model            string
+	Types            []ModelType
+	InputModalities  []string
+	OutputModalities []string
+	PricingMode      PricingMode
+	PublicPricing    *ModelPrice
+	PrivatePricing   *ModelPrice
+}
+
+// TenantProviderAccountModelAvailability describes one callable account path
+// for a catalog model.
+type TenantProviderAccountModelAvailability struct {
+	AccountID             string                   `json:"account_id"`
+	AccountName           string                   `json:"account_name"`
+	FQN                   string                   `json:"fqn"`
+	CredentialSource      string                   `json:"credential_source"`
+	EffectiveCapabilities []ModelType              `json:"effective_capabilities"`
+	PricingMode           PricingMode              `json:"pricing_mode"`
+	EffectivePricing      *ModelPrice              `json:"effective_pricing,omitempty"`
+	PricingResolved       bool                     `json:"pricing_resolved"`
+	Readiness             ProviderAccountReadiness `json:"readiness"`
+}
+
+// TenantProviderAccountModelCatalogItem is a tenant-visible model enriched
+// with model-discovery metadata and all callable account paths.
+type TenantProviderAccountModelCatalogItem struct {
+	Provider         string                                   `json:"provider"`
+	Model            string                                   `json:"model"`
+	DisplayName      string                                   `json:"display_name"`
+	Modes            []string                                 `json:"mode,omitempty"`
+	Types            []ModelType                              `json:"types"`
+	ContextWindow    *int                                     `json:"context_window,omitempty"`
+	InputModalities  []string                                 `json:"input_modalities,omitempty"`
+	OutputModalities []string                                 `json:"output_modalities,omitempty"`
+	Capabilities     []string                                 `json:"capabilities,omitempty"`
+	Features         []string                                 `json:"features,omitempty"`
+	PublicPricing    *ModelPrice                              `json:"public_pricing,omitempty"`
+	IsDeprecated     bool                                     `json:"is_deprecated,omitempty"`
+	ReplacementModel string                                   `json:"replacement_model,omitempty"`
+	Availability     []TenantProviderAccountModelAvailability `json:"availability"`
+}
+
+type TenantProviderAccountModelCatalogResponse struct {
+	Data   []TenantProviderAccountModelCatalogItem `json:"data"`
+	Total  int                                     `json:"total"`
+	Limit  int                                     `json:"limit"`
+	Offset int                                     `json:"offset"`
+}
+
 // TenantProviderAccountListResponse lists provider accounts for the tenant.
 type TenantProviderAccountListResponse struct {
-	Data []TenantProviderAccount `json:"data"`
+	Data      []TenantProviderAccount                 `json:"data"`
+	Summaries map[string]TenantProviderAccountSummary `json:"summaries,omitempty"`
 }
 
 // AccessPrincipalListResponse contains principal picker search results.

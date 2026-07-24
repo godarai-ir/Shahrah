@@ -9,6 +9,7 @@ const copyTextToClipboardMock = vi.hoisted(() => vi.fn().mockResolvedValue(undef
 
 vi.mock("next-intl", () => ({
   useTranslations: () => tMock,
+  useLocale: () => "en",
 }));
 
 vi.mock("./utils", async (importOriginal) => {
@@ -119,5 +120,42 @@ describe("ModelsEditor", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("models.curlGuide.title")).toBeInTheDocument();
     expect(within(dialog).getByText("ai21:ai21-brisk-orbit:jamba-large-1.7")).toBeInTheDocument();
+  });
+
+  it("renders provider models in pages of 25 while preserving accessible model labels", () => {
+    const providerModels = Array.from({ length: 107 }, (_, index) => ({
+      ...model,
+      model: `model-${index}`,
+      display_name: `Model ${index}`,
+    }));
+    const modelDrafts = Object.fromEntries(
+      providerModels.map((item) => [item.model, { ...draft, enabled: false }]),
+    );
+
+    render(
+      <ModelsEditor
+        t={tMock as never}
+        account={null}
+        pendingAccountName="ai21-brisk-orbit"
+        pendingProvider="ai21"
+        setBanner={vi.fn()}
+        providerModels={providerModels}
+        modelDrafts={modelDrafts}
+        setModelDrafts={vi.fn()}
+        isSaving={false}
+        isLoadingModels={false}
+        canManage
+        onSave={vi.fn()}
+        variant="compact"
+      />,
+    );
+
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(25);
+    expect(screen.getByRole("checkbox", { name: "common.enabled Model 0" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "common.enabled Model 25" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "models.pagination.next" }));
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(25);
+    expect(screen.getByRole("checkbox", { name: "common.enabled Model 25" })).toBeInTheDocument();
   });
 });

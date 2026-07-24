@@ -30,7 +30,7 @@ export function CodeExampleBlock(props: {
         props.className,
       )}
     >
-      <div dir="rtl" className="flex min-w-0 flex-row flex-nowrap items-center justify-between gap-2 sm:gap-3">
+      <div className="flex min-w-0 flex-row flex-nowrap items-center justify-between gap-2 sm:gap-3">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm sm:size-10">
             <Code2 aria-hidden="true" />

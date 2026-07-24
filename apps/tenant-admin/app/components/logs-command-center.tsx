@@ -381,10 +381,22 @@ export default function LogsCommandCenter({
   const router = useRouter();
   const searchParams = useSearchParams();
   const permissions = usePermissions();
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<Filters>(() => filtersFromSearchParams(searchParams));
   const [limit, setLimit] = useState(25);
   const [offset, setOffset] = useState(0);
   const [logs, setLogs] = useState<LogsResponse>(() => normalizeLogs(initialLogs));
+
+  useEffect(() => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    for (const key of ["provider", "model"] as const) {
+      const value = filters[key].trim();
+      if (value) nextParams.set(key, value);
+      else nextParams.delete(key);
+    }
+    const nextQuery = nextParams.toString();
+    if (nextQuery === searchParams.toString()) return;
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [filters, pathname, router, searchParams]);
   const [summary, setSummary] = useState<Summary>(() => normalizeData<Summary>(initialSummary));
   const [facets, setFacets] = useState<LogFacets>(() => normalizeData<LogFacets>(initialFacets));
   const [rangeStats, setRangeStats] = useState<LogRangeStats>({});
@@ -2150,6 +2162,14 @@ function serializeFilters(filters: Filters): Record<string, string> {
     out.to = new Date().toISOString();
   }
   return out;
+}
+
+function filtersFromSearchParams(searchParams: Pick<URLSearchParams, "get">): Filters {
+  return {
+    ...DEFAULT_FILTERS,
+    provider: searchParams.get("provider")?.trim() ?? "",
+    model: searchParams.get("model")?.trim() ?? "",
+  };
 }
 
 function normalizeVisibleColumns(columns?: string[]) {

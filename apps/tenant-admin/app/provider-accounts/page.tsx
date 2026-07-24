@@ -1,8 +1,11 @@
 import ProviderAccountWizard from "@/app/components/provider-account-wizard";
 import AdminShell from "@/app/components/admin-shell";
 import LLMIntegrationsManagement from "@/app/components/llm-integrations-management";
+import { ModelCatalogPage } from "@/app/components/model-catalog/model-catalog-page";
+import type { WorkspaceTab } from "@/app/components/provider-account-wizard/types";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
+import { isModelCatalogV2Enabled } from "@/lib/features/model-catalog";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
@@ -13,6 +16,7 @@ type ProviderAccountsPageProps = {
     account?: string;
     provider?: string;
     tab?: string;
+    section?: string;
     created?: string;
   }>;
 };
@@ -21,6 +25,8 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
   const params = (await searchParams) ?? {};
   const auth = await requireAuth("/login?next=/provider-accounts");
   const t = await getTranslations("providerAccounts");
+  const catalogT = await getTranslations("modelCatalog");
+  const modelCatalogV2Enabled = isModelCatalogV2Enabled();
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
@@ -43,11 +49,27 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
       tenantSlug={tenantSlug}
       currentUser={currentUser}
       pageHeader={params.account
-        ? { title: t("ux.panel.workspaceTitle"), description: t("ux.panel.workspaceHint"), helpHref: providerAccountsDocsHref }
-        : { title: t("integrations.pageTitle"), description: t("integrations.pageDescription"), helpHref: docsBaseHref }}
+        ? {
+            title: modelCatalogV2Enabled ? catalogT("page.detailsTitle") : t("ux.panel.workspaceTitle"),
+            description: modelCatalogV2Enabled ? catalogT("page.detailsDescription") : t("ux.panel.workspaceHint"),
+            helpHref: providerAccountsDocsHref,
+          }
+        : {
+            title: modelCatalogV2Enabled ? catalogT("page.title") : t("integrations.pageTitle"),
+            description: modelCatalogV2Enabled ? catalogT("page.description") : t("integrations.pageDescription"),
+            helpHref: docsBaseHref,
+          }}
     >
       {params.account ? (
-        <ProviderAccountWizard initialAccountID={params.account} />
+        <ProviderAccountWizard
+          initialAccountID={params.account}
+          initialSection={normalizeWorkspaceSection(params.section)}
+          catalogExperience={modelCatalogV2Enabled}
+          currentUser={currentUser}
+          docsBaseHref={docsBaseHref}
+        />
+      ) : modelCatalogV2Enabled ? (
+        <ModelCatalogPage docsHref={providerAccountsDocsHref} />
       ) : (
         <LLMIntegrationsManagement
           initialProvider={params.provider}
@@ -58,6 +80,11 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
       )}
     </AdminShell>
   );
+}
+
+function normalizeWorkspaceSection(value?: string): WorkspaceTab {
+  if (value === "models" || value === "access" || value === "credentials") return value;
+  return "overview";
 }
 
 function buildDocsBaseHref(headersList: Headers, tenantSlug: string): string {

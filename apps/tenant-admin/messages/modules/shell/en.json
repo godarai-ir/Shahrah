@@ -64,7 +64,7 @@
     "accountSettings": "Account",
     "requestLoggingSettings": "Request Logging",
     "tracePrivacySettings": "Trace Privacy",
-    "providerAccounts": "Connect Model Provider",
+    "providerAccounts": "Model Catalog",
     "virtualModels": "Virtual Models",
     "prompts": "Prompt Registry",
     "playground": "Playground",

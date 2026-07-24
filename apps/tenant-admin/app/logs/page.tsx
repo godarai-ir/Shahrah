@@ -9,7 +9,12 @@ import { fetchControlPlaneJSON } from "@/lib/control-plane";
 
 export const dynamic = "force-dynamic";
 
-export default async function LogsPage() {
+type LogsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function LogsPage({ searchParams }: LogsPageProps) {
+  const incomingSearchParams = (await searchParams) ?? {};
   const auth = await requireAuth("/login?next=/logs");
   const tenantSlug = auth.tenantSlug;
   const t = await getTranslations("logs");
@@ -17,23 +22,26 @@ export default async function LogsPage() {
   const docsHref = `${buildDocsHref(requestHeaders, tenantSlug)}observability-logs`;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["logs:read_metadata", "logs:read_content"]);
 
+  const initialQuery = buildInitialLogQuery(incomingSearchParams);
+  const querySuffix = initialQuery ? `&${initialQuery}` : "";
+  const summarySuffix = initialQuery ? `?${initialQuery}` : "";
   const [logsResult, summaryResult, facetsResult, viewsResult] = await Promise.all([
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v2/logs?limit=25&offset=0&sort_by=started_at&sort_order=desc",
+      path: `/api/v2/logs?limit=25&offset=0&sort_by=started_at&sort_order=desc${querySuffix}`,
       userID: auth.user.id,
     }),
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v2/logs/summary",
+      path: `/api/v2/logs/summary${summarySuffix}`,
       userID: auth.user.id,
     }),
     fetchControlPlaneJSON({
       tenantSlug,
       method: "GET",
-      path: "/api/v2/logs/facets",
+      path: `/api/v2/logs/facets${summarySuffix}`,
       userID: auth.user.id,
     }),
     fetchControlPlaneJSON({
@@ -61,4 +69,14 @@ export default async function LogsPage() {
       />
     </AdminShell>
   );
+}
+
+function buildInitialLogQuery(searchParams: Record<string, string | string[] | undefined>): string {
+  const params = new URLSearchParams();
+  for (const key of ["provider", "model"] as const) {
+    const raw = searchParams[key];
+    const value = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+    if (value) params.set(key, value);
+  }
+  return params.toString();
 }

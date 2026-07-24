@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslations } from "next-intl";
-import { ChevronRight, Copy, ExternalLink, KeyRound, Layers3, ShieldCheck } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { ChevronRight, Copy, ExternalLink, KeyRound, Layers3, LayoutDashboard, Play, ScrollText, ShieldCheck } from "lucide-react";
 
-import { AppSelectField, DefinitionList, DefinitionListItem, IdentifierField, TypedConfirmDialog } from "@/components/app-ui";
+import { AppSelectField, CodePanel, CopyableValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EntityIdentityHeader, FormSection, IdentifierField, OperationNotice, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,8 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type PrincipalSearchKind,
 } from "@/app/components/principal-search-input";
@@ -37,6 +39,7 @@ import {
   mergeAccountIntoList,
 } from "@/app/components/provider-account-wizard/account-readiness";
 import { CredentialFields } from "@/app/components/provider-account-wizard/credential-fields";
+import { EffectiveAccessTester } from "@/app/components/provider-account-wizard/effective-access-tester";
 import {
   buildProviderCredentialPayload,
   defaultProviderCredentialValues,
@@ -79,12 +82,19 @@ import {
 } from "@/app/components/provider-account-wizard/wizard-layout";
 import {
   buildModelDiscoveryProviderHref,
+  buildBashCurlGuideCommand,
+  buildCurlGuidePayload,
   extractMessageFromPayload,
+  formatDisplayPrice,
+  formatProviderDisplayName,
   generateProviderAccountName,
+  getCurlGuideEndpoint,
+  getTenantApiBaseURL,
   normalizeError,
   normalizeProviderSlug,
   parseResponsePayload,
   requestJSON,
+  resolveCurlGuideMode,
   shouldGenerateProviderAccountName,
   stringsEqualFold,
   toNumberOrUndefined,
@@ -92,12 +102,20 @@ import {
 } from "@/app/components/provider-account-wizard/utils";
 import { usePermissions } from "@/app/components/permissions-context";
 import { canPermission } from "@/lib/authz";
+import { cn } from "@/lib/utils";
 
 export default function ProviderAccountWizard(props?: {
   mode?: ProviderAccountWizardMode;
   initialProvider?: string;
   initialAccountID?: string;
   docsBaseHref?: string;
+  catalogExperience?: boolean;
+  initialSection?: WorkspaceTab;
+  currentUser?: {
+    id: string;
+    email?: string;
+    mobile?: string;
+  };
 }) {
   const mode = props?.mode ?? "manage";
   const isCreateMode = mode === "create";
@@ -106,6 +124,8 @@ export default function ProviderAccountWizard(props?: {
   const docsBaseHref = props?.docsBaseHref?.replace(/\/$/, "") || "/docs";
   const t = useTranslations("providerAccounts");
   const ux = useTranslations("providerAccounts.ux");
+  const catalogT = useTranslations("modelCatalog");
+  const locale = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const permissions = usePermissions();
@@ -117,9 +137,11 @@ export default function ProviderAccountWizard(props?: {
 
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(isCreateMode ? "setup" : "overview");
   const [setupStep, setSetupStep] = useState<SetupStep>(1);
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("models");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(
+    props?.catalogExperience ? (props.initialSection ?? "overview") : "models",
+  );
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(initialAccountID));
   const [isSavingModels, setIsSavingModels] = useState(false);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -139,6 +161,12 @@ export default function ProviderAccountWizard(props?: {
   const selectedProviderRef = useRef(initialProvider);
   const selectedAccountRef = useRef(initialAccountID);
   const accountLoadRequestRef = useRef(0);
+  const modelDraftBaselineRef = useRef("");
+  const credentialDraftBaselineRef = useRef<{
+    authMode: ProviderAuthMode;
+    usePlatformManagedCredentials: boolean;
+    values: ProviderCredentialValues;
+  } | null>(null);
 
   const [account, setAccount] = useState<TenantProviderAccount | null>(null);
 
@@ -165,17 +193,39 @@ export default function ProviderAccountWizard(props?: {
 
   const [modelDrafts, setModelDrafts] = useState<Record<string, ModelDraft>>({});
 
-  const [managers, setManagers] = useState<AccessPrincipal[]>([]);
+  const currentUserManager = useMemo<AccessPrincipal | null>(
+    () => isCreateMode && props?.currentUser?.id
+      ? {
+          type: "user",
+          principal_id: props.currentUser.id,
+          display_name: props.currentUser.email || props.currentUser.mobile || props.currentUser.id,
+        }
+      : null,
+    [isCreateMode, props?.currentUser?.email, props?.currentUser?.id, props?.currentUser?.mobile],
+  );
+  const [managers, setManagers] = useState<AccessPrincipal[]>(currentUserManager ? [currentUserManager] : []);
   const [users, setUsers] = useState<AccessPrincipal[]>([]);
   const accessAutosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
   const [activeCreateSection, setActiveCreateSection] = useState<CreateWizardSectionID>("details");
   const [furthestCreateStepIndex, setFurthestCreateStepIndex] = useState(0);
+  const [providerSearch, setProviderSearch] = useState("");
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+  const [pendingWorkspaceNavigation, setPendingWorkspaceNavigation] = useState<
+    { kind: "tab"; tab: WorkspaceTab } | { kind: "href"; href: string } | null
+  >(null);
 
   const visibleProviders = useMemo(
-    () => providers.filter((item) => item.enabled && stringsEqualFold(item.provider, "azure") === false),
-    [providers],
+    () => {
+      const query = providerSearch.trim().toLocaleLowerCase();
+      return providers.filter((item) => {
+        if (!item.enabled || stringsEqualFold(item.provider, "azure")) return false;
+        if (!query) return true;
+        return `${item.display_name} ${item.provider} ${item.description ?? ""}`.toLocaleLowerCase().includes(query);
+      });
+    },
+    [providerSearch, providers],
   );
 
   const selectedProvider = useMemo(
@@ -200,6 +250,8 @@ export default function ProviderAccountWizard(props?: {
     && !!selectedConnectionSchema
     && missingRequiredCredentialFields.length === 0
   );
+  const requiresSuccessfulCreatePreflight =
+    !usePlatformManagedCredentials && stringsEqualFold(authMode, "api_key");
   const missingRequiredCredentialFieldsForSave = useMemo(() => {
     if (usePlatformManagedCredentials) return [];
     const mustReplaceSecret = !account?.has_credential || !stringsEqualFold(authMode, account.auth_mode);
@@ -272,13 +324,20 @@ export default function ProviderAccountWizard(props?: {
         const nextSchema = preferredAuthMode
           ? items.find((item) => stringsEqualFold(item.auth_mode, preferredAuthMode)) ?? items.find((item) => item.runtime_ready) ?? items[0] ?? null
           : items.find((item) => item.runtime_ready) ?? items[0] ?? null;
+        const nextAuthMode = nextSchema?.auth_mode ?? "api_key";
+        const nextValues = isCreateMode
+          ? defaultProviderCredentialValues(nextSchema)
+          : providerCredentialValuesForSchema(nextSchema, account?.provider_config);
         setConnectionSchemas(items);
-        setAuthMode(nextSchema?.auth_mode ?? "api_key");
-        setProviderCredentialValues(
-          isCreateMode
-            ? defaultProviderCredentialValues(nextSchema)
-            : providerCredentialValuesForSchema(nextSchema, account?.provider_config),
-        );
+        setAuthMode(nextAuthMode);
+        setProviderCredentialValues(nextValues);
+        if (!isCreateMode) {
+          credentialDraftBaselineRef.current = {
+            authMode: nextAuthMode,
+            usePlatformManagedCredentials: account?.use_platform_managed_credentials ?? false,
+            values: nextValues,
+          };
+        }
         if (!nextSchema) setConnectionSchemaError(ux("integrations.wizard.connectionSchemaUnavailable"));
       } catch (error) {
         if (cancelled) return;
@@ -294,7 +353,7 @@ export default function ProviderAccountWizard(props?: {
     return () => {
       cancelled = true;
     };
-  }, [account?.auth_mode, account?.provider_config, isCreateMode, provider, queryClient, ux]);
+  }, [account?.auth_mode, account?.provider_config, account?.use_platform_managed_credentials, isCreateMode, provider, queryClient, ux]);
 
   useEffect(() => {
     selectedProviderRef.current = selectedProviderID;
@@ -312,6 +371,36 @@ export default function ProviderAccountWizard(props?: {
     () => providerModels.filter((model) => modelDrafts[model.model]?.enabled),
     [modelDrafts, providerModels],
   );
+  const overviewQuickCode = useMemo(() => {
+    const model = selectedModels[0];
+    if (!account || !model) return null;
+    const fqn = `${account.provider}:${account.name}:${model.model}`;
+    const mode = resolveCurlGuideMode(model);
+    const endpoint = getCurlGuideEndpoint(mode);
+    return buildBashCurlGuideCommand({
+      baseUrl: getTenantApiBaseURL(),
+      endpoint,
+      payload: buildCurlGuidePayload(mode, fqn),
+    });
+  }, [account, selectedModels]);
+  const hasUnsavedModelChanges = Boolean(
+    props?.catalogExperience
+    && !isCreateMode
+    && modelDraftBaselineRef.current
+    && JSON.stringify(modelDrafts) !== modelDraftBaselineRef.current,
+  );
+  const credentialDraftFingerprint = credentialFingerprint({
+    authMode,
+    usePlatformManagedCredentials,
+    values: providerCredentialValues,
+  });
+  const hasUnsavedCredentialChanges = Boolean(
+    props?.catalogExperience
+    && !isCreateMode
+    && credentialDraftBaselineRef.current
+    && credentialDraftFingerprint !== credentialFingerprint(credentialDraftBaselineRef.current),
+  );
+  const hasUnsavedChanges = hasUnsavedModelChanges || hasUnsavedCredentialChanges;
 
   const unresolvedPricingCount = useMemo(() => {
     let unresolved = 0;
@@ -344,6 +433,22 @@ export default function ProviderAccountWizard(props?: {
     if (selectedModelCount > 0 && unresolvedPricingCount > 0) return "pricing_incomplete";
     return "ready";
   }, [account, createCredentialTestResult?.kind, managers.length, selectedModelCount, unresolvedPricingCount]);
+  const accountNameConflict = useMemo(
+    () => existingAccountNames.some((existingName) => stringsEqualFold(existingName, name.trim())),
+    [existingAccountNames, name],
+  );
+  const createPreflightReady =
+    usePlatformManagedCredentials
+    || !requiresSuccessfulCreatePreflight
+    || apiKeyTestSucceeded;
+  const createReady =
+    Boolean(provider && name.trim())
+    && !accountNameConflict
+    && canContinueCreateDetails
+    && createPreflightReady
+    && selectedModelCount > 0
+    && unresolvedPricingCount === 0
+    && managers.length > 0;
 
   const fetchProviderModels = useCallback(async (nextProvider: string) => {
     const normalized = nextProvider.trim().toLowerCase();
@@ -407,13 +512,14 @@ export default function ProviderAccountWizard(props?: {
         const createProviders = providerItems.filter(
           (item) => item.enabled && stringsEqualFold(item.provider, "azure") === false,
         );
-        const initialProvider = currentProviderID || createProviders[0]?.provider || "";
+        const initialProvider =
+          currentProviderID || (props?.catalogExperience ? "" : createProviders[0]?.provider) || "";
         setSelectedProviderID(initialProvider);
         setSelectedAccountID("");
         setAccount(null);
         setWorkspaceMode("setup");
         setSetupStep(currentProviderID ? 2 : 1);
-        setManagers([]);
+        setManagers(currentUserManager ? [currentUserManager] : []);
         setUsers([]);
         if (initialProvider) {
           const providerItem = createProviders.find((item) => stringsEqualFold(item.provider, initialProvider));
@@ -442,7 +548,7 @@ export default function ProviderAccountWizard(props?: {
         setAuthMode(initialAccount.auth_mode);
         setUsePlatformManagedCredentials(initialAccount.use_platform_managed_credentials);
         setWorkspaceMode("workspace");
-        setActiveTab("models");
+        setActiveTab(props?.catalogExperience ? (props.initialSection ?? "overview") : "models");
         return;
       }
 
@@ -459,7 +565,7 @@ export default function ProviderAccountWizard(props?: {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchProviders, isCreateMode, loadProviderModels, t]);
+  }, [currentUserManager, fetchProviders, isCreateMode, loadProviderModels, props?.catalogExperience, props?.initialSection, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -520,7 +626,9 @@ export default function ProviderAccountWizard(props?: {
         setUsers(payload.access?.users ?? []);
         setSelectedProviderID(normalizeProviderSlug(payload.account.provider));
         setSelectedAccountID(payload.account.id);
-        setModelDrafts(buildDraftsForAccount(payload.models ?? [], catalogModels));
+        const nextDrafts = buildDraftsForAccount(payload.models ?? [], catalogModels);
+        modelDraftBaselineRef.current = JSON.stringify(nextDrafts);
+        setModelDrafts(nextDrafts);
       } catch (error) {
         if (requestID === accountLoadRequestRef.current) {
           setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
@@ -675,6 +783,11 @@ export default function ProviderAccountWizard(props?: {
       }
       setAPIKeyTouched(false);
       setAPIKeyTestSucceeded(false);
+      credentialDraftBaselineRef.current = {
+        authMode,
+        usePlatformManagedCredentials: savingPlatformManagedCredentials,
+        values: { ...providerCredentialValues },
+      };
       return true;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.accountLoadFailed")) });
@@ -691,6 +804,16 @@ export default function ProviderAccountWizard(props?: {
     }, 0);
     return () => clearTimeout(timer);
   }, [selectedAccountID, workspaceMode, handleLoadAccount]);
+
+  useEffect(() => {
+    if (!props?.catalogExperience || isCreateMode) return;
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", preventUnload);
+    return () => window.removeEventListener("beforeunload", preventUnload);
+  }, [hasUnsavedChanges, isCreateMode, props?.catalogExperience]);
 
   function resetCredentialInputs() {
     setAPIKey("");
@@ -815,34 +938,40 @@ export default function ProviderAccountWizard(props?: {
       return;
     }
 
-    let accountID = selectedAccountID;
-    if (accountID) {
-      const saved = await handleSaveCredentials(accountID, { reload: !isCreateMode, announce: false });
-      if (!saved) return;
-    } else {
-      const createdID = await handleCreateAccount({
-        advanceToModels: false,
-        successMessage: ux("integrations.wizard.accountSavedBeforeTest"),
-      });
-      if (!createdID) return;
-      accountID = createdID;
-    }
+    const schemaPayload = buildProviderCredentialPayload(selectedConnectionSchema, providerCredentialValues);
 
     setIsTesting(true);
     try {
-      const result = await requestJSON<{ success: boolean; message?: string }>(
-        `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/test-credentials`,
-        { method: "POST", body: JSON.stringify({}) },
+      const result = await requestJSON<{ success: boolean; unsupported?: boolean; message?: string }>(
+        "/api/provider-connections/test",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            provider,
+            auth_mode: authMode,
+            provider_config: schemaPayload.providerConfig,
+            credentials: Object.keys(schemaPayload.credentials).length > 0
+              ? schemaPayload.credentials
+              : undefined,
+            use_platform_managed_credentials: false,
+            model_hint: providerModels[0]?.model,
+          }),
+        },
       );
-      const payload = unwrapData<{ success: boolean; message?: string }>(result) ?? result;
+      const payload = unwrapData<{ success: boolean; unsupported?: boolean; message?: string }>(result) ?? result;
       const rawMessage =
         payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
-      const message = payload.success
-        ? ux("integrations.wizard.connectionTestSuccess", { message: rawMessage })
+      const message = payload.unsupported
+        ? rawMessage
+        : payload.success
+          ? ux("integrations.wizard.connectionTestSuccess", { message: rawMessage })
         : ux("integrations.wizard.connectionTestFailed", { message: rawMessage });
-      setCreateCredentialTestResult({ kind: payload.success ? "success" : "error", message });
+      setCreateCredentialTestResult({
+        kind: payload.unsupported ? "warning" : payload.success ? "success" : "error",
+        message,
+      });
       setAPIKeyTouched(!payload.success);
-      setAPIKeyTestSucceeded(payload.success);
+      setAPIKeyTestSucceeded(payload.success && !payload.unsupported);
     } catch (error) {
       setAPIKeyTestSucceeded(false);
       const message = normalizeError(error, t("messages.credentialTestFailed"));
@@ -862,6 +991,10 @@ export default function ProviderAccountWizard(props?: {
     }
     if (!canContinueCreateDetails) {
       setBanner({ kind: "error", message: connectionSchemaError || ux("integrations.wizard.requiredCredentialFields") });
+      return;
+    }
+    if (requiresSuccessfulCreatePreflight && !apiKeyTestSucceeded) {
+      setBanner({ kind: "error", message: ux("integrations.wizard.credentialsRequiredForTest") });
       return;
     }
     if (shouldPersistCreateAccount("continue-details")) return;
@@ -908,6 +1041,7 @@ export default function ProviderAccountWizard(props?: {
         `/api/tenant-provider-accounts/${encodeURIComponent(accountID)}/models`,
         { method: "PUT", body: JSON.stringify({ models: payloadModels }) },
       );
+      modelDraftBaselineRef.current = JSON.stringify(draftOverride ?? modelDrafts);
       if (options.announce ?? true) {
         setBanner({ kind: "success", message: t("messages.modelsSaveSuccess") });
       }
@@ -924,6 +1058,37 @@ export default function ProviderAccountWizard(props?: {
   }, [account, canManageProviderAccount, handleLoadAccount, modelDrafts, selectedAccountID, t, ux]);
 
   async function handleFinishCreateFlow() {
+    if (!provider || !name.trim()) {
+      setBanner({ kind: "error", message: t("messages.validationProviderName") });
+      return;
+    }
+    if (accountNameConflict) {
+      setBanner({ kind: "error", message: t("messages.accountNameExists") });
+      return;
+    }
+    if (!canContinueCreateDetails) {
+      setBanner({ kind: "error", message: connectionSchemaError || ux("integrations.wizard.requiredCredentialFields") });
+      return;
+    }
+    if (!createPreflightReady) {
+      setBanner({ kind: "error", message: ux("integrations.wizard.credentialsRequiredForTest") });
+      return;
+    }
+    const { models: payloadModels, validationErrors } = buildSelectedModelPayload(modelDrafts, {
+      canUseCustomPricing: canUseCustomModelPricing(account),
+    });
+    if (payloadModels.length === 0) {
+      setBanner({ kind: "error", message: t("messages.selectAtLeastOneModel") });
+      return;
+    }
+    if (validationErrors.length > 0 || unresolvedPricingCount > 0) {
+      setBanner({ kind: "error", message: t("messages.validPricingRequired") });
+      return;
+    }
+    if (managers.length === 0) {
+      setBanner({ kind: "error", message: t("messages.managerRequired") });
+      return;
+    }
     await handleActivateAccount();
   }
 
@@ -1057,12 +1222,26 @@ export default function ProviderAccountWizard(props?: {
         if (!credentialsOK) return;
       }
       const modelsOK = await handleSaveModels(accountID, { reload: false, announce: false });
-      if (!modelsOK) return;
+      if (!modelsOK) {
+        if (isCreateMode && props?.catalogExperience) {
+          router.replace(`/provider-accounts?${new URLSearchParams({ account: accountID, section: "models" }).toString()}`);
+        }
+        return;
+      }
       const accessOK = await handleSaveAccess(accountID, { reload: false, announce: false });
-      if (!accessOK) return;
+      if (!accessOK) {
+        if (isCreateMode && props?.catalogExperience) {
+          router.replace(`/provider-accounts?${new URLSearchParams({ account: accountID, section: "access" }).toString()}`);
+        }
+        return;
+      }
       setSetupStep(5);
       if (isCreateMode) {
-        router.replace(buildCreatedConnectionHref(provider, confirmedName));
+        router.replace(
+          props?.catalogExperience
+            ? `/provider-accounts?${new URLSearchParams({ account: accountID, section: "overview" }).toString()}`
+            : buildCreatedConnectionHref(provider, confirmedName),
+        );
         return;
       }
       setWorkspaceMode("workspace");
@@ -1111,14 +1290,68 @@ export default function ProviderAccountWizard(props?: {
   }, [handleSaveAccess, selectedAccountID]);
 
   const handleManagersChange = useCallback((nextManagers: AccessPrincipal[]) => {
-    setManagers(nextManagers);
-    handleAccessAutosave({ managers: nextManagers, users });
-  }, [handleAccessAutosave, users]);
+    const mustKeepCurrentUser = isCreateMode && Boolean(props?.catalogExperience) && Boolean(currentUserManager);
+    const hasCurrentUser = !currentUserManager || nextManagers.some(
+      (manager) => manager.type === "user" && manager.principal_id === currentUserManager.principal_id,
+    );
+    const normalizedManagers = mustKeepCurrentUser && currentUserManager && !hasCurrentUser
+      ? [currentUserManager, ...nextManagers]
+      : nextManagers;
+    setManagers(normalizedManagers);
+    handleAccessAutosave({ managers: normalizedManagers, users });
+  }, [currentUserManager, handleAccessAutosave, isCreateMode, props?.catalogExperience, users]);
 
   const handleUsersChange = useCallback((nextUsers: AccessPrincipal[]) => {
     setUsers(nextUsers);
     handleAccessAutosave({ managers, users: nextUsers });
   }, [handleAccessAutosave, managers]);
+
+  function navigateWorkspaceTab(tab: WorkspaceTab) {
+    if (tab === visibleActiveTab) return;
+    if (hasUnsavedChanges) {
+      setPendingWorkspaceNavigation({ kind: "tab", tab });
+      setUnsavedDialogOpen(true);
+      return;
+    }
+    applyWorkspaceTab(tab);
+  }
+
+  function applyWorkspaceTab(tab: WorkspaceTab) {
+    setActiveTab(tab);
+    if (props?.catalogExperience && account) {
+      router.push(
+        `/provider-accounts?${new URLSearchParams({
+          account: account.id,
+          section: tab,
+        }).toString()}`,
+      );
+    }
+  }
+
+  function navigateWorkspaceHref(href: string) {
+    if (hasUnsavedChanges) {
+      setPendingWorkspaceNavigation({ kind: "href", href });
+      setUnsavedDialogOpen(true);
+      return;
+    }
+    router.push(href);
+  }
+
+  function discardWorkspaceChanges() {
+    if (modelDraftBaselineRef.current) {
+      setModelDrafts(JSON.parse(modelDraftBaselineRef.current) as Record<string, ModelDraft>);
+    }
+    const credentialBaseline = credentialDraftBaselineRef.current;
+    if (credentialBaseline) {
+      setAuthMode(credentialBaseline.authMode);
+      setUsePlatformManagedCredentials(credentialBaseline.usePlatformManagedCredentials);
+      setProviderCredentialValues({ ...credentialBaseline.values });
+    }
+    const pending = pendingWorkspaceNavigation;
+    setPendingWorkspaceNavigation(null);
+    if (pending?.kind === "tab") applyWorkspaceTab(pending.tab);
+    if (pending?.kind === "href") router.push(pending.href);
+  }
 
   const panelTitle =
     workspaceMode === "setup"
@@ -1136,16 +1369,24 @@ export default function ProviderAccountWizard(props?: {
   ];
 
   const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Layers3 }> = [
+    ...(props?.catalogExperience
+      ? [{ id: "overview" as const, label: catalogT("details.sections.overview"), icon: LayoutDashboard }]
+      : []),
     { id: "models", label: ux("tabs.models"), icon: Layers3 },
     { id: "access", label: ux("tabs.access"), icon: ShieldCheck },
   ];
-  if (!account?.use_platform_managed_credentials) {
+  if (props?.catalogExperience || !account?.use_platform_managed_credentials) {
     workspaceTabs.push({ id: "credentials", label: ux("tabs.credentials"), icon: KeyRound });
   }
   const visibleActiveTab: WorkspaceTab =
-    account?.use_platform_managed_credentials && activeTab === "credentials" ? "models" : activeTab;
+    account?.use_platform_managed_credentials && activeTab === "credentials" && !props?.catalogExperience
+      ? "models"
+      : activeTab;
   const principalSelectorLabels = useMemo(() => buildPrincipalSelectorLabels(t, ux), [t, ux]);
-  const createHeaderProviderName = activeProvider?.display_name ?? provider;
+  const createHeaderProviderName = formatProviderDisplayName(
+    activeProvider?.provider ?? provider,
+    activeProvider?.display_name,
+  );
   const createWizardSteps: Array<{ id: CreateWizardSectionID; number: number; title: string }> = [
     { id: "details", number: 1, title: ux("integrations.wizard.integrationDetails") },
     { id: "models", number: 2, title: ux("integrations.wizard.modelProvisioning") },
@@ -1153,7 +1394,7 @@ export default function ProviderAccountWizard(props?: {
     { id: "review", number: 4, title: ux("integrations.wizard.reviewConfirm") },
   ];
   const activeCreateStepIndex = createWizardSteps.findIndex((step) => step.id === activeCreateSection);
-  const isModelsCreateSection = activeCreateSection === "models";
+  const isModelsCreateSection = !props?.catalogExperience && activeCreateSection === "models";
   const createStepState = (stepID: CreateWizardSectionID) => {
     return getCreateStepState({
       activeStep: activeCreateSection,
@@ -1165,6 +1406,7 @@ export default function ProviderAccountWizard(props?: {
     const stepIndex = createWizardSteps.findIndex((step) => step.id === stepID);
     return stepIndex >= 0 && stepIndex <= Math.max(activeCreateStepIndex, furthestCreateStepIndex);
   };
+  const CreatePanel = props?.catalogExperience ? CatalogCreateSection : WizardPanel;
 
   if (isCreateMode) {
     return (
@@ -1210,10 +1452,29 @@ export default function ProviderAccountWizard(props?: {
           ) : null}
 
           <div className="grid min-w-0 flex-1 gap-6 px-4 py-6 lg:grid-cols-4 xl:gap-10">
-            <aside className="min-w-0 lg:col-span-1">
+            <aside className="min-w-0 lg:sticky lg:top-4 lg:col-span-1 lg:self-start">
               <div className="overflow-x-auto pb-2 lg:overflow-visible">
                 <div className="flex min-w-max flex-row gap-3 py-2 lg:min-w-0 lg:flex-col lg:gap-5">
-                {createWizardSteps.map((step) => {
+                {props?.catalogExperience ? (
+                  <>
+                    <CreateFlowStepIndicator
+                      number={1}
+                      title={catalogT("create.chooseProvider")}
+                      state="complete"
+                      onClick={() => {
+                        setProvider("");
+                        setSelectedProviderID("");
+                        setActiveCreateSection("details");
+                      }}
+                    />
+                    <CreateFlowStepIndicator
+                      number={2}
+                      title={catalogT("create.configureProvider")}
+                      state="active"
+                      onClick={() => setActiveCreateSection(activeCreateSection)}
+                    />
+                  </>
+                ) : createWizardSteps.map((step) => {
                   const stepState = createStepState(step.id);
                   const isStepOpenable = canOpenCreateStep(step.id);
                   return (
@@ -1231,12 +1492,41 @@ export default function ProviderAccountWizard(props?: {
                 })}
                 </div>
               </div>
+              {props?.catalogExperience && provider ? (
+                <div className="mt-4 hidden lg:block">
+                  <CatalogCreateSummary
+                    title={catalogT("create.summaryTitle")}
+                    readinessLabel={readiness === "ready" && createReady
+                      ? catalogT("create.ready")
+                      : catalogT("create.incomplete")}
+                    ready={createReady}
+                    providerLabel={catalogT("create.summaryProvider")}
+                    provider={createHeaderProviderName}
+                    accountLabel={catalogT("create.summaryAccount")}
+                    account={name}
+                    credentialLabel={catalogT("create.summaryCredential")}
+                    credential={usePlatformManagedCredentials
+                      ? ux("review.godarKey")
+                      : createCredentialTestResult?.kind === "success"
+                        ? catalogT("create.preflightPassed")
+                        : createCredentialTestResult?.kind === "warning"
+                          ? catalogT("create.preflightUnsupported")
+                          : catalogT("create.preflightPending")}
+                    modelsLabel={catalogT("create.summaryModels")}
+                    models={new Intl.NumberFormat(locale).format(selectedModelCount)}
+                    pricingLabel={catalogT("create.summaryPricing")}
+                    pricing={new Intl.NumberFormat(locale).format(unresolvedPricingCount)}
+                    accessLabel={catalogT("create.summaryAccess")}
+                    access={`${new Intl.NumberFormat(locale).format(managers.length)} / ${new Intl.NumberFormat(locale).format(users.length)}`}
+                  />
+                </div>
+              ) : null}
             </aside>
 
             <div className={isModelsCreateSection ? "min-w-0 lg:col-span-3 lg:flex lg:flex-col" : "min-w-0 lg:col-span-3"}>
               <div className={isModelsCreateSection ? "mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 pb-2" : "mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2"}>
                 {!provider ? (
-                  <WizardPanel
+                  <CreatePanel
                     title={ux("setup.selectProviderTitle")}
                     description={ux("setup.selectProviderDesc")}
                     footer={
@@ -1250,8 +1540,22 @@ export default function ProviderAccountWizard(props?: {
                       </>
                     }
                   >
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {visibleProviders.map((item) => {
+                    <div className="flex flex-col gap-4">
+                      {props?.catalogExperience ? (
+                        <DebouncedTextFilter
+                          label={catalogT("filters.search")}
+                          value={providerSearch}
+                          onValueChange={setProviderSearch}
+                          placeholder={catalogT("filters.searchProviderPicker")}
+                        />
+                       ) : null}
+                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                       {isLoading ? Array.from({ length: 6 }).map((_, index) => (
+                         <div key={`provider-picker-skeleton-${index}`} className="flex flex-col gap-4 rounded-xl border border-border p-4">
+                           <Skeleton className="size-8 rounded-lg" />
+                           <Skeleton className="h-5 w-32 max-w-full" />
+                         </div>
+                       )) : visibleProviders.map((item) => {
                         const isSelected = stringsEqualFold(item.provider, provider);
                         return (
                           <button
@@ -1265,40 +1569,44 @@ export default function ProviderAccountWizard(props?: {
                               setName(generateProviderAccountName(nextProvider, existingAccountNames));
                               setIsNameAutoGenerated(true);
                               setSelectedProviderID(nextProvider);
-                              setUsePlatformManagedCredentials(true);
-                              setAPIKey("");
-                              setCreateCredentialTestResult(null);
+                               setUsePlatformManagedCredentials(true);
+                               setAPIKey("");
+                               setAPIKeyTestSucceeded(false);
+                               setCreateCredentialTestResult(null);
                               void loadProviderModels(item.provider);
                             }}
                           >
                             <ProviderLogo
                               provider={item.provider}
-                              displayName={item.display_name}
+                               displayName={formatProviderDisplayName(item.provider, item.display_name)}
                               logoURL={item.logo_url}
                             />
-                            <p className="mt-4 font-medium" dir="ltr">{item.display_name}</p>
+                             <p className="mt-4 font-medium" dir="ltr">
+                               {formatProviderDisplayName(item.provider, item.display_name)}
+                             </p>
                           </button>
                         );
                       })}
+                      </div>
                     </div>
-                  </WizardPanel>
+                  </CreatePanel>
                 ) : (
                   <>
-                    {activeCreateSection === "details" ? (
-                      <WizardPanel
+                    {props?.catalogExperience || activeCreateSection === "details" ? (
+                      <CreatePanel
                     id="connection-details"
                     title={ux("integrations.wizard.detailsTitle")}
                     fillHeight={false}
-                    footer={
+                    footer={props?.catalogExperience ? undefined : (
                       <>
                         <Button type="button" variant="outline" asChild>
                           <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
                         </Button>
-                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || !canContinueCreateDetails || isLoading || isSavingCredentials || !provider || !name.trim()}>
+                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || !canContinueCreateDetails || (requiresSuccessfulCreatePreflight && !apiKeyTestSucceeded) || isLoading || isSavingCredentials || !provider || !name.trim()}>
                           {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
                         </Button>
                       </>
-                    }
+                    )}
                   >
                     <div className="flex flex-col gap-8">
                       <div className="grid gap-5 md:grid-cols-5 md:items-start">
@@ -1310,19 +1618,20 @@ export default function ProviderAccountWizard(props?: {
                             setName(event.target.value);
                             setIsNameAutoGenerated(false);
                           }}
-                          placeholder={ux("placeholders.accountName")}
-                          disabled={Boolean(selectedAccountID)}
-                          containerClassName="md:col-span-4"
+                           placeholder={ux("placeholders.accountName")}
+                           disabled={Boolean(selectedAccountID)}
+                           error={props?.catalogExperience && accountNameConflict ? t("messages.accountNameExists") : undefined}
+                           containerClassName="md:col-span-4"
                         />
 
                         <div className="flex items-center gap-2 text-start md:col-span-1 md:justify-end md:pt-6">
                           <div className="flex min-h-14 min-w-0 items-center">
-                            <h3 className="truncate text-2xl font-semibold" dir="auto">{activeProvider?.display_name ?? provider}</h3>
+                            <h3 className="truncate text-2xl font-semibold" dir="auto">{createHeaderProviderName}</h3>
                           </div>
                           <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border bg-card">
                             <ProviderLogo
                               provider={activeProvider?.provider ?? provider}
-                              displayName={activeProvider?.display_name ?? provider}
+                              displayName={createHeaderProviderName}
                               logoURL={activeProvider?.logo_url}
                               size={30}
                             />
@@ -1357,9 +1666,10 @@ export default function ProviderAccountWizard(props?: {
                             name="create-own-api-key"
                             value={usePlatformManagedCredentials ? "platform-managed" : "byok"}
                             onValueChange={(nextValue) => {
-                              if (account) return;
-                              setUsePlatformManagedCredentials(nextValue === "platform-managed");
-                              setCreateCredentialTestResult(null);
+                               if (account) return;
+                               setUsePlatformManagedCredentials(nextValue === "platform-managed");
+                               setAPIKeyTestSucceeded(false);
+                               setCreateCredentialTestResult(null);
                             }}
                             disabled={!!account}
                             className="mt-4 grid gap-3 md:grid-cols-2"
@@ -1424,9 +1734,10 @@ export default function ProviderAccountWizard(props?: {
                                     }))}
                                     onValueChange={(value) => {
                                       const nextSchema = connectionSchemas.find((schema) => schema.auth_mode === value) ?? null;
-                                      setAuthMode(value as ProviderAuthMode);
-                                      setProviderCredentialValues(defaultProviderCredentialValues(nextSchema));
-                                      setCreateCredentialTestResult(null);
+                                     setAuthMode(value as ProviderAuthMode);
+                                     setProviderCredentialValues(defaultProviderCredentialValues(nextSchema));
+                                     setAPIKeyTestSucceeded(false);
+                                     setCreateCredentialTestResult(null);
                                     }}
                                   />
                                 ) : null}
@@ -1462,9 +1773,11 @@ export default function ProviderAccountWizard(props?: {
                                   </Button>
                                 </div>
                                 {createCredentialTestResult ? (
-                                  <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : "default"}>
+                                  <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : createCredentialTestResult.kind === "warning" ? "warning" : "default"}>
                                     <AlertTitle>
-                                      {createCredentialTestResult.kind === "error"
+                                      {createCredentialTestResult.kind === "warning"
+                                        ? ux("connectionTest.warningTitle")
+                                        : createCredentialTestResult.kind === "error"
                                         ? ux("integrations.wizard.connectionTestFailedTitle")
                                         : ux("integrations.wizard.connectionTestSuccessTitle")}
                                     </AlertTitle>
@@ -1477,17 +1790,17 @@ export default function ProviderAccountWizard(props?: {
                         </FieldSet>
                       </div>
                     </div>
-                  </WizardPanel>
+                  </CreatePanel>
                     ) : null}
 
-                  {activeCreateSection === "models" ? (
-                    <WizardPanel
+                  {props?.catalogExperience || activeCreateSection === "models" ? (
+                    <CreatePanel
                     id="model-provisioning"
                     title={ux("integrations.wizard.modelsHeaderTitle")}
                     description={ux("integrations.wizard.modelsHeaderDescription")}
-                    fillHeight
+                    fillHeight={!props?.catalogExperience}
                     contentClassName="flex min-h-0 flex-1 flex-col p-0"
-                    footer={
+                    footer={props?.catalogExperience ? undefined : (
                       <>
                         <Button type="button" variant="outline" onClick={() => setActiveCreateSection("details")}>
                           {ux("actions.back")}
@@ -1507,7 +1820,7 @@ export default function ProviderAccountWizard(props?: {
                           </Button>
                         </div>
                       </>
-                    }
+                    )}
                   >
                     <ModelsEditor
                       t={t}
@@ -1524,16 +1837,16 @@ export default function ProviderAccountWizard(props?: {
                       onSave={handleSaveModelsAction}
                       variant="compact"
                     />
-                  </WizardPanel>
+                  </CreatePanel>
                   ) : null}
 
-                  {activeCreateSection === "access" ? (
-                    <WizardPanel
+                  {props?.catalogExperience || activeCreateSection === "access" ? (
+                    <CreatePanel
                     id="access-permissions"
                     title={ux("integrations.wizard.accessPermissions")}
                     description={ux("integrations.wizard.accessPermissionsDescription")}
                     fillHeight={false}
-                    footer={
+                    footer={props?.catalogExperience ? undefined : (
                       <>
                         <Button type="button" variant="outline" onClick={() => setActiveCreateSection("models")}>
                           {ux("actions.back")}
@@ -1549,7 +1862,7 @@ export default function ProviderAccountWizard(props?: {
                           </Button>
                         </div>
                       </>
-                    }
+                    )}
                   >
                     <AccessEditor
                       t={t}
@@ -1561,14 +1874,23 @@ export default function ProviderAccountWizard(props?: {
                       principalSelectorLabels={principalSelectorLabels}
                       onSave={handleSaveAccessAction}
                       isSaving={isSavingAccess}
-                      canManage={canManageProviderAccount}
-                      showSaveAction={false}
-                    />
-                  </WizardPanel>
+                       canManage={canManageProviderAccount}
+                       showSaveAction={false}
+                       isManagerRemovable={props?.catalogExperience && currentUserManager
+                         ? (manager) => !(
+                             manager.type === "user"
+                             && manager.principal_id === currentUserManager.principal_id
+                           )
+                         : undefined}
+                       getLockedManagerLabel={(manager) => ux("access.currentUserLocked", {
+                         identity: manager.display_name || manager.principal_id || manager.type,
+                       })}
+                     />
+                  </CreatePanel>
                   ) : null}
 
-                  {activeCreateSection === "review" ? (
-                    <WizardPanel
+                  {!props?.catalogExperience && activeCreateSection === "review" ? (
+                    <CreatePanel
                     id="review-confirm"
                     title={ux("integrations.wizard.reviewConfirm")}
                     description={ux("integrations.wizard.reviewConfirmDescription")}
@@ -1625,8 +1947,18 @@ export default function ProviderAccountWizard(props?: {
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {ux("models.card.context")}: <bdi>{model.context_window?.toLocaleString() ?? ux("models.na")}</bdi>
-                                {" · "}{ux("models.labels.input")}: <bdi dir="ltr">{model.public_pricing?.input_usd_per_1m ?? ux("models.na")} USD</bdi>
-                                {" · "}{ux("models.labels.output")}: <bdi dir="ltr">{model.public_pricing?.output_usd_per_1m ?? ux("models.na")} USD</bdi>
+                                {" · "}{ux("models.labels.input")}: <bdi dir="ltr">{formatDisplayPrice(model.public_pricing?.input_usd_per_1m, {
+                                  currency: "USD",
+                                  scale: "PER_MILLION_TOKENS",
+                                  usdToIrr: 0,
+                                  naLabel: ux("models.na"),
+                                })}</bdi>
+                                {" · "}{ux("models.labels.output")}: <bdi dir="ltr">{formatDisplayPrice(model.public_pricing?.output_usd_per_1m, {
+                                  currency: "USD",
+                                  scale: "PER_MILLION_TOKENS",
+                                  usdToIrr: 0,
+                                  naLabel: ux("models.na"),
+                                })}</bdi>
                               </p>
                             </div>
                           ))}
@@ -1664,7 +1996,56 @@ export default function ProviderAccountWizard(props?: {
                         </AlertDescription>
                       </Alert>
                     </div>
-                  </WizardPanel>
+                  </CreatePanel>
+                  ) : null}
+                  {props?.catalogExperience ? (
+                    <>
+                      <div className="lg:hidden">
+                        <CatalogCreateSummary
+                          title={catalogT("create.summaryTitle")}
+                          readinessLabel={readiness === "ready" && createReady
+                            ? catalogT("create.ready")
+                            : catalogT("create.incomplete")}
+                          ready={createReady}
+                          providerLabel={catalogT("create.summaryProvider")}
+                          provider={createHeaderProviderName}
+                          accountLabel={catalogT("create.summaryAccount")}
+                          account={name}
+                          credentialLabel={catalogT("create.summaryCredential")}
+                          credential={usePlatformManagedCredentials
+                            ? ux("review.godarKey")
+                            : createCredentialTestResult?.kind === "success"
+                              ? catalogT("create.preflightPassed")
+                              : createCredentialTestResult?.kind === "warning"
+                                ? catalogT("create.preflightUnsupported")
+                                : catalogT("create.preflightPending")}
+                          modelsLabel={catalogT("create.summaryModels")}
+                          models={new Intl.NumberFormat(locale).format(selectedModelCount)}
+                          pricingLabel={catalogT("create.summaryPricing")}
+                          pricing={new Intl.NumberFormat(locale).format(unresolvedPricingCount)}
+                          accessLabel={catalogT("create.summaryAccess")}
+                          access={`${new Intl.NumberFormat(locale).format(managers.length)} / ${new Intl.NumberFormat(locale).format(users.length)}`}
+                        />
+                      </div>
+                      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background py-4">
+                        <Button type="button" variant="outline" asChild>
+                          <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
+                        </Button>
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                          {!createReady ? (
+                            <span className="text-sm text-muted-foreground">{catalogT("create.completeRequired")}</span>
+                          ) : null}
+                          <Button
+                            type="button"
+                            onClick={() => void handleFinishCreateFlow()}
+                            disabled={!canCreateProviderAccount || !createReady || isActivating || isTesting || isLoading}
+                            aria-busy={isActivating}
+                          >
+                            {isActivating ? ux("actions.activating") : ux("actions.activateAccount")}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
                   ) : null}
                   </>
                 )}
@@ -1673,6 +2054,33 @@ export default function ProviderAccountWizard(props?: {
           </div>
         </section>
       </main>
+    );
+  }
+
+  if (props?.catalogExperience && initialAccountID && !account) {
+    return (
+      <div id="tenant-provider-accounts" className="min-w-0">
+        {isLoading ? (
+          <ProviderDetailsSkeleton label={catalogT("details.loading")} />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <OperationNotice
+              notice={{ kind: "error", message: banner?.message ?? catalogT("errors.loadDetails") }}
+              labels={{
+                success: catalogT("notices.success"),
+                error: catalogT("notices.error"),
+                warning: catalogT("notices.warning"),
+                info: catalogT("notices.info"),
+              }}
+            />
+            <div>
+              <Button type="button" variant="outline" onClick={() => void loadInitial()}>
+                {catalogT("actions.retry")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -1990,35 +2398,101 @@ export default function ProviderAccountWizard(props?: {
 
                 {workspaceMode === "workspace" && account ? (
                   <>
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/20 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {workspaceTabs.map((tab) => {
-                          const Icon = tab.icon;
-                          return (
-                            <Button
-                              key={tab.id}
-                              type="button"
-                              variant={visibleActiveTab === tab.id ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setActiveTab(tab.id)}
-                            >
-                              <Icon className="me-2 h-4 w-4" />
-                              {tab.label}
+                    {props?.catalogExperience ? (
+                      <EntityIdentityHeader
+                        title={<span dir="ltr">{account.name}</span>}
+                        identifier={`${account.provider}:${account.name}`}
+                        description={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
+                        leading={
+                          <ProviderLogo
+                            provider={account.provider}
+                            displayName={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
+                            logoURL={activeProvider?.logo_url}
+                            size={32}
+                          />
+                        }
+                        status={
+                          <StatusBadge
+                            status={readiness === "ready"
+                              ? "success"
+                              : readiness === "connection_failed" || readiness === "needs_credentials"
+                                ? "error"
+                                : "warning"}
+                          >
+                            {readiness === "ready"
+                              ? ux("readiness.ready")
+                              : readiness === "connection_failed"
+                                ? ux("readiness.connectionFailed")
+                                : readiness === "needs_credentials"
+                                  ? ux("readiness.needsCredentials")
+                                  : readiness === "needs_access"
+                                    ? ux("readiness.needsAccess")
+                                    : ux("readiness.pricingIncomplete")}
+                          </StatusBadge>
+                        }
+                        actions={
+                          <>
+                            <Button type="button" variant="outline" onClick={() => void handleTestCredentials()}>
+                              {catalogT("actions.connectionTest")}
                             </Button>
-                          );
-                        })}
-                      </div>
+                            <Button type="button" variant="outline" onClick={() => navigateWorkspaceHref("/provider-accounts")}>
+                              {catalogT("actions.backToCatalog")}
+                            </Button>
+                          </>
+                        }
+                      />
+                    ) : null}
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/20 p-3">
+                      {props?.catalogExperience ? (
+                        <Tabs
+                          value={visibleActiveTab}
+                          onValueChange={(value) => navigateWorkspaceTab(value as WorkspaceTab)}
+                          className="min-w-0"
+                        >
+                          <TabsList variant="line" aria-label={catalogT("details.sectionsLabel")} className="max-w-full overflow-x-auto">
+                            {workspaceTabs.map((tab) => {
+                              const Icon = tab.icon;
+                              return (
+                                <TabsTrigger key={tab.id} value={tab.id}>
+                                  <Icon data-icon="inline-start" aria-hidden="true" />
+                                  {tab.label}
+                                </TabsTrigger>
+                              );
+                            })}
+                          </TabsList>
+                        </Tabs>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {workspaceTabs.map((tab) => {
+                            const Icon = tab.icon;
+                            return (
+                              <Button
+                                key={tab.id}
+                                type="button"
+                                variant={visibleActiveTab === tab.id ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => navigateWorkspaceTab(tab.id)}
+                              >
+                                <Icon className="me-2 h-4 w-4" />
+                                {tab.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
-                        <ReadinessBadge
-                          readiness={readiness}
-                          labels={{
-                            ready: ux("readiness.ready"),
-                            connection_failed: ux("readiness.connectionFailed"),
-                            needs_credentials: ux("readiness.needsCredentials"),
-                            needs_access: ux("readiness.needsAccess"),
-                            pricing_incomplete: ux("readiness.pricingIncomplete"),
-                          }}
-                        />
+                        {props?.catalogExperience ? null : (
+                          <ReadinessBadge
+                            readiness={readiness}
+                            labels={{
+                              ready: ux("readiness.ready"),
+                              connection_failed: ux("readiness.connectionFailed"),
+                              needs_credentials: ux("readiness.needsCredentials"),
+                              needs_access: ux("readiness.needsAccess"),
+                              pricing_incomplete: ux("readiness.pricingIncomplete"),
+                            }}
+                          />
+                        )}
                         <Button
                           type="button"
                           size="sm"
@@ -2029,10 +2503,99 @@ export default function ProviderAccountWizard(props?: {
                           }}
                         >
                           <Copy className="me-2 h-4 w-4" />
-                          {ux("actions.copyFqn")}
+                          {props?.catalogExperience ? catalogT("actions.copyConnectionIdentifier") : ux("actions.copyFqn")}
                         </Button>
                       </div>
                     </div>
+
+                    {visibleActiveTab === "overview" ? (
+                      <div className="flex flex-col gap-6">
+                        <DefinitionList columns={4}>
+                          <DefinitionListItem label={catalogT("details.modelCount")} value={new Intl.NumberFormat(locale).format(selectedModelCount)} valueDir="ltr" surface />
+                          <DefinitionListItem label={catalogT("details.managerCount")} value={new Intl.NumberFormat(locale).format(managers.length)} valueDir="ltr" surface />
+                          <DefinitionListItem label={catalogT("details.userCount")} value={new Intl.NumberFormat(locale).format(users.length)} valueDir="ltr" surface />
+                          <DefinitionListItem label={catalogT("details.unresolvedPricing")} value={new Intl.NumberFormat(locale).format(unresolvedPricingCount)} valueDir="ltr" surface />
+                        </DefinitionList>
+                        <DefinitionList columns={2}>
+                          <DefinitionListItem label={catalogT("columns.provider")} value={account.provider} valueDir="ltr" mono surface />
+                          <DefinitionListItem label={catalogT("columns.connectionIdentifier")} value={`${account.provider}:${account.name}`} valueDir="ltr" mono surface />
+                          <DefinitionListItem label={catalogT("details.authMode")} value={account.auth_mode} valueDir="ltr" mono surface />
+                          <DefinitionListItem
+                            label={catalogT("drawer.credentialSource")}
+                            value={account.use_platform_managed_credentials ? catalogT("credential.managed") : catalogT("credential.byok")}
+                            surface
+                          />
+                        </DefinitionList>
+                        {selectedModels[0] ? (
+                          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+                            <div>
+                              <h3 className="font-semibold">{catalogT("details.firstModel")}</h3>
+                              <CopyableValue
+                                value={`${account.provider}:${account.name}:${selectedModels[0].model}`}
+                                labels={{
+                                  valueAriaLabel: catalogT("drawer.fqn"),
+                                  copy: catalogT("actions.copyFqn"),
+                                  copying: catalogT("actions.copying"),
+                                  copied: catalogT("actions.copied"),
+                                }}
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button asChild>
+                                <Link
+                                  href={`/playground?${new URLSearchParams({
+                                    model: `${account.provider}:${account.name}:${selectedModels[0].model}`,
+                                    mode: resolveCurlGuideMode(selectedModels[0]),
+                                  }).toString()}`}
+                                >
+                                  <Play data-icon="inline-start" aria-hidden="true" />
+                                  {catalogT("actions.openPlayground")}
+                                </Link>
+                              </Button>
+                              <Button asChild variant="outline">
+                                <Link
+                                  href={`/logs?${new URLSearchParams({
+                                    model: `${account.provider}:${account.name}:${selectedModels[0].model}`,
+                                    provider: account.provider,
+                                  }).toString()}`}
+                                >
+                                  <ScrollText data-icon="inline-start" aria-hidden="true" />
+                                  {catalogT("actions.viewLogs")}
+                                </Link>
+                              </Button>
+                            </div>
+                            {overviewQuickCode ? (
+                              <CodePanel
+                                title={catalogT("details.quickCode")}
+                                displayLanguage="Bash"
+                                language="bash"
+                                code={overviewQuickCode}
+                                copy={{
+                                  copyLabel: catalogT("actions.copyCode"),
+                                  copyingLabel: catalogT("actions.copying"),
+                                  copiedLabel: catalogT("actions.copied"),
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                        ) : (
+                          <OperationNotice
+                            notice={{ kind: "warning", message: catalogT("details.noModelRecovery") }}
+                            labels={{
+                              success: catalogT("notices.success"),
+                              error: catalogT("notices.error"),
+                              warning: catalogT("notices.warning"),
+                              info: catalogT("notices.info"),
+                            }}
+                            action={
+                              <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab("models")}>
+                                {catalogT("actions.manageModel")}
+                              </Button>
+                            }
+                          />
+                        )}
+                      </div>
+                    ) : null}
 
                     {visibleActiveTab === "models" ? (
                       <ModelsEditor
@@ -2050,19 +2613,36 @@ export default function ProviderAccountWizard(props?: {
                     ) : null}
 
                     {visibleActiveTab === "access" ? (
-                      <AccessEditor
-                        t={t}
-                        managers={managers}
-                        setManagers={handleManagersChange}
-                        users={users}
-                        setUsers={handleUsersChange}
-                        onSearchPrincipal={searchPrincipalCandidates}
-                        principalSelectorLabels={principalSelectorLabels}
-                        onSave={handleSaveAccessAction}
-                        isSaving={isSavingAccess}
-                        canManage={canManageProviderAccount}
-                        showSaveAction={false}
-                      />
+                      <div className="flex flex-col gap-6">
+                        <AccessEditor
+                          t={t}
+                          managers={managers}
+                          setManagers={handleManagersChange}
+                          users={users}
+                          setUsers={handleUsersChange}
+                          onSearchPrincipal={searchPrincipalCandidates}
+                          principalSelectorLabels={principalSelectorLabels}
+                          onSave={handleSaveAccessAction}
+                          isSaving={isSavingAccess}
+                          canManage={canManageProviderAccount}
+                          showSaveAction={false}
+                        />
+                        {props?.catalogExperience ? (
+                          <FormSection
+                            title={ux("accessTester.title")}
+                            description={ux("accessTester.description", {
+                              name: account.name,
+                              provider: account.provider,
+                            })}
+                          >
+                            <EffectiveAccessTester
+                              account={account}
+                              onSearchPrincipal={searchPrincipalCandidates}
+                              principalSelectorLabels={principalSelectorLabels}
+                            />
+                          </FormSection>
+                        ) : null}
+                      </div>
                     ) : null}
 
                     {visibleActiveTab === "credentials" ? (
@@ -2157,9 +2737,11 @@ export default function ProviderAccountWizard(props?: {
                                     </Button>
                                   </div>
                                   {createCredentialTestResult ? (
-                                    <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : "default"}>
+                                    <Alert variant={createCredentialTestResult.kind === "error" ? "destructive" : createCredentialTestResult.kind === "warning" ? "warning" : "default"}>
                                       <AlertTitle>
-                                        {createCredentialTestResult.kind === "error"
+                                        {createCredentialTestResult.kind === "warning"
+                                          ? ux("connectionTest.warningTitle")
+                                          : createCredentialTestResult.kind === "error"
                                           ? ux("integrations.wizard.connectionTestFailedTitle")
                                           : ux("integrations.wizard.connectionTestSuccessTitle")}
                                       </AlertTitle>
@@ -2204,9 +2786,136 @@ export default function ProviderAccountWizard(props?: {
           disabled={!deleteTargetAccount}
           inputDir="auto"
         />
+        <UnsavedChangesDialog
+          open={unsavedDialogOpen}
+          onOpenChange={(open) => {
+            setUnsavedDialogOpen(open);
+            if (!open) setPendingWorkspaceNavigation(null);
+          }}
+          title={catalogT("details.unsavedTitle")}
+          description={catalogT("details.unsavedDescription")}
+          stayLabel={catalogT("details.stay")}
+          discardLabel={catalogT("details.discard")}
+          onDiscard={discardWorkspaceChanges}
+        />
       </div>
     </div>
   );
 }
 
+function CatalogCreateSection({
+  title,
+  description,
+  children,
+  footer,
+  actions,
+  id,
+  setSectionNode,
+  fillHeight = false,
+  scrollable = false,
+  contentClassName,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  actions?: ReactNode;
+  id?: string;
+  setSectionNode?: (node: HTMLElement | null) => void;
+  fillHeight?: boolean;
+  scrollable?: boolean;
+  contentClassName?: string;
+}) {
+  return (
+    <section
+      id={id}
+      ref={setSectionNode}
+      className={cn("min-w-0", fillHeight && "flex min-h-0 flex-1 flex-col")}
+    >
+      <FormSection
+        title={title}
+        description={description}
+        actions={actions}
+        footer={footer}
+        className={cn(fillHeight && "min-h-0 flex-1", scrollable && "overflow-y-auto")}
+      >
+        <div className={cn("min-w-0", contentClassName)}>{children}</div>
+      </FormSection>
+    </section>
+  );
+}
 
+function ProviderDetailsSkeleton({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col gap-5" role="status" aria-label={label}>
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <Skeleton className="size-10 shrink-0 rounded-lg" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-48 max-w-full" />
+            <Skeleton className="h-4 w-64 max-w-full" />
+          </div>
+        </div>
+        <Skeleton className="h-9 w-32" />
+      </div>
+      <Skeleton className="h-12 w-full rounded-lg" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={`provider-detail-metric-${index}`} className="h-24 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-64 w-full rounded-xl" />
+    </div>
+  );
+}
+
+function CatalogCreateSummary(props: {
+  title: string;
+  readinessLabel: string;
+  ready: boolean;
+  providerLabel: string;
+  provider: string;
+  accountLabel: string;
+  account: string;
+  credentialLabel: string;
+  credential: string;
+  modelsLabel: string;
+  models: string;
+  pricingLabel: string;
+  pricing: string;
+  accessLabel: string;
+  access: string;
+}) {
+  return (
+    <section className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">{props.title}</h2>
+        <StatusBadge status={props.ready ? "success" : "warning"}>
+          {props.readinessLabel}
+        </StatusBadge>
+      </div>
+      <DefinitionList>
+        <DefinitionListItem label={props.providerLabel} value={props.provider} valueDir="ltr" />
+        <DefinitionListItem label={props.accountLabel} value={props.account || "-"} valueDir="ltr" mono />
+        <DefinitionListItem label={props.credentialLabel} value={props.credential} />
+        <DefinitionListItem label={props.modelsLabel} value={props.models} valueDir="ltr" />
+        <DefinitionListItem label={props.pricingLabel} value={props.pricing} valueDir="ltr" />
+        <DefinitionListItem label={props.accessLabel} value={props.access} valueDir="ltr" />
+      </DefinitionList>
+    </section>
+  );
+}
+
+function credentialFingerprint(input: {
+  authMode: ProviderAuthMode;
+  usePlatformManagedCredentials: boolean;
+  values: ProviderCredentialValues;
+}) {
+  return JSON.stringify({
+    authMode: input.authMode,
+    usePlatformManagedCredentials: input.usePlatformManagedCredentials,
+    values: Object.fromEntries(
+      Object.entries(input.values).sort(([left], [right]) => left.localeCompare(right)),
+    ),
+  });
+}

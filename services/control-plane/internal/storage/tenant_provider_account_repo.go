@@ -134,6 +134,102 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 	return items, rows.Err()
 }
 
+// ListTenantProviderAccountCatalogRecords returns all provider accounts and
+// their enabled models in one tenant-scoped query. Accounts without models
+// still produce one record so callers can derive an actionable readiness.
+func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, tenantID string) ([]platform.TenantProviderAccountCatalogRecord, error) {
+	rows, err := s.pool.Query(ctx, `
+		WITH access_counts AS (
+			SELECT account_id,
+			       COUNT(*) FILTER (WHERE role = 'manager')::int AS manager_count,
+			       COUNT(*) FILTER (WHERE role = 'user')::int AS user_count
+			FROM tenant_provider_account_access
+			GROUP BY account_id
+		)
+		SELECT a.account_id::text,
+		       a.tenant_id::text,
+		       a.provider,
+		       a.name,
+		       a.auth_mode,
+		       COALESCE(a.provider_config, '{}'::jsonb),
+		       COALESCE(a.credential_data, '{}'::jsonb),
+		       a.has_credential,
+		       a.use_platform_managed_credentials,
+		       a.created_at,
+		       a.updated_at,
+		       COALESCE(ac.manager_count, 0),
+		       COALESCE(ac.user_count, 0),
+		       COALESCE(m.model, ''),
+		       COALESCE(m.types, '{}'),
+		       COALESCE(m.input_modalities, '{}'),
+		       COALESCE(m.output_modalities, '{}'),
+		       COALESCE(m.pricing_mode, 'public'),
+		       m.public_pricing::text,
+		       m.private_pricing::text
+		FROM tenant_provider_accounts a
+		LEFT JOIN access_counts ac ON ac.account_id = a.account_id
+		LEFT JOIN tenant_provider_account_models m
+		  ON m.account_id = a.account_id
+		 AND m.enabled = true
+		WHERE a.tenant_id = $1
+		ORDER BY a.created_at DESC, m.created_at ASC, m.model ASC
+	`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]platform.TenantProviderAccountCatalogRecord, 0)
+	for rows.Next() {
+		var (
+			item               platform.TenantProviderAccountCatalogRecord
+			providerConfigRaw  []byte
+			credentialRaw      []byte
+			types              []string
+			inputModalities    []string
+			outputModalities   []string
+			publicPricingText  *string
+			privatePricingText *string
+		)
+
+		if err := rows.Scan(
+			&item.Account.ID,
+			&item.Account.TenantID,
+			&item.Account.Provider,
+			&item.Account.Name,
+			&item.Account.AuthMode,
+			&providerConfigRaw,
+			&credentialRaw,
+			&item.Account.HasCredential,
+			&item.Account.UsePlatformManagedCredentials,
+			&item.Account.CreatedAt,
+			&item.Account.UpdatedAt,
+			&item.ManagerCount,
+			&item.UserCount,
+			&item.Model,
+			&types,
+			&inputModalities,
+			&outputModalities,
+			&item.PricingMode,
+			&publicPricingText,
+			&privatePricingText,
+		); err != nil {
+			return nil, err
+		}
+
+		item.Account.ProviderConfig = parseJSONObject(providerConfigRaw)
+		item.Account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
+		item.Types = stringsToModelTypes(types)
+		item.InputModalities = normalizeStringList(inputModalities)
+		item.OutputModalities = normalizeStringList(outputModalities)
+		item.PublicPricing = parseModelPriceText(publicPricingText)
+		item.PrivatePricing = parseModelPriceText(privatePricingText)
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
 // GetTenantProviderAccountDetails returns account, selected models, and access control.
 func (s *Store) GetTenantProviderAccountDetails(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccountDetailsResponse, error) {
 	account, err := s.getTenantProviderAccount(ctx, tenantID, accountID)
@@ -557,6 +653,57 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 
 	result := validateProviderAPIKey(ctx, provider, apiKey, parseJSONObject(providerCfgRaw), nil)
 
+	return &platform.TestTenantProviderAccountCredentialsResponse{
+		Success: result.Success,
+		Message: result.Message,
+	}, nil
+}
+
+// TestProviderConnection validates write-only credentials without persisting
+// the request or creating a tenant provider account.
+func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestProviderConnectionRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
+	if req.UsePlatformManagedCredentials {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: true,
+			Message: "platform-managed credentials are enabled; no tenant provider credential is required",
+		}, nil
+	}
+
+	if req.AuthMode == platform.ProviderAuthModeNoCredential {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: true,
+			Message: "this provider connection does not require a credential",
+		}, nil
+	}
+
+	if req.AuthMode != platform.ProviderAuthModeAPIKey {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success:     false,
+			Unsupported: true,
+			Message:     "automatic connection validation is not available for this authentication mode",
+		}, nil
+	}
+
+	apiKey := ""
+	if req.Credentials != nil {
+		apiKey = strings.TrimSpace(req.Credentials.APIKey)
+		if apiKey == "" && req.Credentials.Raw != nil {
+			for _, key := range []string{"api_key", "access_token", "token"} {
+				if value, ok := req.Credentials.Raw[key].(string); ok && strings.TrimSpace(value) != "" {
+					apiKey = strings.TrimSpace(value)
+					break
+				}
+			}
+		}
+	}
+	if apiKey == "" || isMaskedCredentialValue(apiKey) {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: false,
+			Message: "API key is missing or masked; enter a provider API key before testing",
+		}, nil
+	}
+
+	result := validateProviderAPIKey(ctx, strings.TrimSpace(req.Provider), apiKey, req.ProviderConfig, nil)
 	return &platform.TestTenantProviderAccountCredentialsResponse{
 		Success: result.Success,
 		Message: result.Message,
@@ -1209,6 +1356,18 @@ func parseJSONObject(raw []byte) map[string]interface{} {
 	}
 
 	return out
+}
+
+func parseModelPriceText(raw *string) *platform.ModelPrice {
+	if raw == nil || strings.TrimSpace(*raw) == "" || strings.TrimSpace(*raw) == "null" {
+		return nil
+	}
+
+	var out platform.ModelPrice
+	if err := json.Unmarshal([]byte(*raw), &out); err != nil {
+		return nil
+	}
+	return &out
 }
 
 func marshalModelPrice(price *platform.ModelPrice) ([]byte, error) {

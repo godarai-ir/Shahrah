@@ -1,10 +1,10 @@
 ﻿"use client";
 
 import type React from "react";
-import { CopyAction } from "@/components/app-ui";
+import { CopyAction, TablePagination } from "@/components/app-ui";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Code2, ExternalLink, RotateCcw, Search, Settings, SlidersHorizontal, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { AppSelectField, EmptyState } from "@/components/app-ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -75,6 +75,8 @@ import {
   toNumberOrUndefined,
   unwrapData,
 } from "./utils";
+
+const COMPACT_MODEL_PAGE_SIZE = 25;
 
 function ModelCardsSkeleton() {
   return (
@@ -381,7 +383,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           formatCapabilityLabel={(value) => formatCapabilityLabel(value, ux)}
           isSelected={displayDraft.enabled}
           onSelectedChange={(checked) => setModelEnabled(model, displayDraft, selectableOptions, checked)}
-          selectedCheckboxLabel={ux("common.enabled")}
+          selectedCheckboxLabel={`${ux("common.enabled")} ${model.display_name || model.model}`}
           pricingModeBadge={displayDraft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
           hasCustomPricing={displayDraft.pricingMode === "private"}
           showCopyAction={Boolean(account)}
@@ -473,6 +475,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   variant?: "default" | "compact";
 }) {
   const ux = useTranslations("providerAccounts.ux");
+  const locale = useLocale();
   const {
     account,
     modelDrafts,
@@ -482,7 +485,12 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   } = props;
   const canUseCustomPricing = canUseCustomModelPricing(account);
   const initialFilters = useMemo(() => createInitialModelFilters(""), []);
-  const [filters, setFilters] = useState<ModelFilterState>(() => createInitialModelFilters(""));
+  const [compactPage, setCompactPage] = useState(0);
+  const [filters, setFiltersState] = useState<ModelFilterState>(() => createInitialModelFilters(""));
+  const setFilters = useCallback<React.Dispatch<React.SetStateAction<ModelFilterState>>>((update) => {
+    setCompactPage(0);
+    setFiltersState(update);
+  }, []);
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "TOMAN">("USD");
   const [displayScale, setDisplayScale] = useState<"PER_MILLION_TOKENS" | "PER_TOKEN">("PER_MILLION_TOKENS");
   const [usdToIrr, setUsdToIrr] = useState(0);
@@ -491,7 +499,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [priceDisplayOpen, setPriceDisplayOpen] = useState(false);
-  const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("card");
+  const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("table");
   const [pricingEditor, setPricingEditor] = useState<PricingEditorState>({
     open: false,
     modelKey: "",
@@ -634,6 +642,14 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     [deferredFilters, modelDrafts, providerModels, selectedOnlyActive],
   );
   const renderedVisibleModels = useDeferredValue(visibleModels);
+  const lastCompactPage = Math.max(0, Math.ceil(renderedVisibleModels.length / COMPACT_MODEL_PAGE_SIZE) - 1);
+  const effectiveCompactPage = Math.min(compactPage, lastCompactPage);
+  const compactPageStart = effectiveCompactPage * COMPACT_MODEL_PAGE_SIZE;
+  const compactPageModels = useMemo(
+    () => renderedVisibleModels.slice(compactPageStart, compactPageStart + COMPACT_MODEL_PAGE_SIZE),
+    [compactPageStart, renderedVisibleModels],
+  );
+  const compactPageEnd = Math.min(compactPageStart + COMPACT_MODEL_PAGE_SIZE, renderedVisibleModels.length);
   const visibleSelectedModelsCount = useMemo(
     () => renderedVisibleModels.filter((model) => modelDrafts[model.model]?.enabled).length,
     [modelDrafts, renderedVisibleModels],
@@ -932,17 +948,17 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-xl border border-border bg-background p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl"
       >
         <div className="custom-scrollbar max-h-[calc(100dvh-1rem)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100dvh-2rem)] sm:px-6 sm:py-5 lg:px-8 lg:py-6">
-          <div dir="rtl" className="flex items-start justify-between gap-3">
-            <DialogHeader dir="rtl" className="min-w-0 flex-1 items-end gap-1 text-right">
+          <div className="flex items-start justify-between gap-3">
+            <DialogHeader className="min-w-0 flex-1 items-end gap-1 text-end">
               <div className="flex min-w-0 items-center justify-end gap-2">
                 <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                   <Code2 aria-hidden="true" />
                 </span>
-                <DialogTitle dir="rtl" className="min-w-0 text-right text-xl font-bold leading-7 tracking-normal text-foreground sm:text-2xl sm:leading-8">
+                <DialogTitle className="min-w-0 text-end text-xl font-bold leading-7 tracking-normal text-foreground sm:text-2xl sm:leading-8">
                   {ux("models.curlGuide.title")}
                 </DialogTitle>
               </div>
-              <DialogDescription className="max-w-3xl text-right text-sm leading-6 text-muted-foreground">
+              <DialogDescription className="max-w-3xl text-end text-sm leading-6 text-muted-foreground">
                 {ux("models.curlGuide.descriptionPrefix")}{" "}
                 <span dir="ltr" className="font-medium text-primary">{curlGuide?.modelName ?? ""}</span>{" "}
                 {ux("models.curlGuide.descriptionSuffix")}
@@ -961,7 +977,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             </DialogClose>
           </div>
 
-          <div dir="rtl" className="mt-3 flex min-w-0 items-center gap-2 sm:mt-4">
+          <div className="mt-3 flex min-w-0 items-center gap-2 sm:mt-4">
             <div
               dir="ltr"
               title={curlGuide?.modelFqn ?? ""}
@@ -981,7 +997,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             />
           </div>
 
-          <Alert dir="rtl" variant="info" className="mt-3 rounded-xl bg-muted/30 px-3 py-2 text-right text-muted-foreground sm:mt-4">
+          <Alert variant="info" className="mt-3 rounded-xl bg-muted/30 px-3 py-2 text-end text-muted-foreground sm:mt-4">
             <AlertDescription className="text-xs leading-5">
               <span className="font-medium text-foreground">{ux("models.curlGuide.instructionsLabel")}: </span>
               {ux("models.curlGuide.instructions")}
@@ -1036,7 +1052,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   if (props.variant === "compact") {
     return (
       <>
-        <div className="sticky top-0 z-10 shrink-0 bg-card px-4 py-3 shadow-sm sm:px-5">
+        <div className="shrink-0 bg-card px-4 py-3 shadow-sm md:sticky md:top-20 sm:px-5">
           <div className="flex flex-col gap-2.5">
             <div className="flex justify-end">
               <div className="relative w-full">
@@ -1138,7 +1154,10 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                     id="compact-selected-only-models"
                     checked={selectedOnlyActive}
                     disabled={enabledModelCount === 0}
-                    onCheckedChange={(checked) => setShowSelectedOnly(checked === true)}
+                    onCheckedChange={(checked) => {
+                      setCompactPage(0);
+                      setShowSelectedOnly(checked === true);
+                    }}
                   />
                   <span>{ux("integrations.wizard.selectedOnly")}</span>
                 </label>
@@ -1181,7 +1200,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                         </tr>
                       </thead>
                       <tbody>
-                        {renderedVisibleModels.map((model) => (
+                        {compactPageModels.map((model) => (
                           <CompactTableRow
                             key={model.model}
                             canManage={props.canManage && !props.isSaving}
@@ -1202,7 +1221,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                 </div>
               ) : (
                 <>
-                  {renderedVisibleModels.map((model) => (
+                  {compactPageModels.map((model) => (
                     <ModelListItem
                       key={model.model}
                       account={props.account}
@@ -1232,6 +1251,28 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
             </div>
           </div>
         </section>
+        {renderedVisibleModels.length > COMPACT_MODEL_PAGE_SIZE ? (
+          <div className="shrink-0 border-t border-border bg-card px-4 py-3 sm:px-5">
+            <TablePagination
+              label={ux("models.pagination.label")}
+              summary={ux("models.pagination.summary", {
+                start: compactPageStart + 1,
+                end: compactPageEnd,
+                total: renderedVisibleModels.length,
+              })}
+              previousLabel={ux("models.pagination.previous")}
+              nextLabel={ux("models.pagination.next")}
+              onPrevious={() => setCompactPage(Math.max(0, effectiveCompactPage - 1))}
+              onNext={() => setCompactPage(effectiveCompactPage + 1)}
+              canPrevious={effectiveCompactPage > 0}
+              canNext={compactPageEnd < renderedVisibleModels.length}
+              disabled={props.isSaving || props.isLoadingModels}
+              page={new Intl.NumberFormat(locale).format(effectiveCompactPage + 1)}
+              pageSize={new Intl.NumberFormat(locale).format(COMPACT_MODEL_PAGE_SIZE)}
+              pageSizeLabel={ux("models.pagination.pageSize")}
+            />
+          </div>
+        ) : null}
         {curlGuideDialog}
       </>
     );
@@ -1239,7 +1280,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
 
   function renderCurlGuideHeaderActions() {
     return (
-      <div dir="rtl" className="flex min-w-0 shrink-0 justify-end">
+      <div className="flex min-w-0 shrink-0 justify-end">
         <TabsList className="h-8 w-auto justify-start overflow-x-auto rounded-xl bg-muted/70 p-1">
           <TabsTrigger value="powershell" className="min-w-24 rounded-lg px-2.5 text-xs font-semibold sm:min-w-28 sm:px-3">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
           <TabsTrigger value="bash" className="min-w-16 rounded-lg px-2.5 text-xs sm:min-w-20 sm:px-3">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
@@ -1250,7 +1291,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
 
   function renderCurlGuideDocsFooter() {
     return (
-      <p dir="rtl" className="text-right text-xs leading-5 text-muted-foreground">
+      <p className="text-end text-xs leading-5 text-muted-foreground">
         {ux("models.curlGuide.docsDescriptionPrefix")}{" "}
         <a href="/quick-start" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
           {ux("models.curlGuide.docsLabel")}

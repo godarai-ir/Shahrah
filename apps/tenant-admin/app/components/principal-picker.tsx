@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { LockKeyhole, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
@@ -38,6 +38,8 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
   description?: string;
   searchLabel?: string;
   getRemoveLabel?: (item: TItem) => string;
+  isItemRemovable?: (item: TItem) => boolean;
+  getLockedLabel?: (item: TItem) => string;
   everyoneConfirmation?: {
     title: string;
     description: string;
@@ -155,23 +157,42 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
       </div>
 
       <div className={cn("flex min-h-9 flex-wrap items-center gap-2", isFilterVariant && "md:justify-end")}>
-        {props.selected.map((item) => (
-          <button
-            key={`${item.type}-${item.principal_id ?? "everyone"}`}
-            type="button"
-            className="inline-flex max-w-full items-center gap-2 rounded-full bg-background px-3 py-1.5 text-xs ring-1 ring-border/35 transition hover:bg-destructive/5 hover:ring-destructive/30"
-            onClick={() => {
-              if (props.disabled) return;
-              removePrincipal(item);
-            }}
-            title={props.getRemoveLabel?.(item) ?? props.removeLabel}
-            aria-label={props.getRemoveLabel?.(item) ?? props.removeLabel}
-            disabled={props.disabled}
-          >
-            <span className="max-w-[240px] truncate">{hideMobileIdentity(item.display_name) || item.principal_id || item.type}</span>
-            <X aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          </button>
-        ))}
+        {props.selected.map((item) => {
+          const key = `${item.type}-${item.principal_id ?? "everyone"}`;
+          const identity = hideMobileIdentity(item.display_name) || item.principal_id || item.type;
+          const removable = props.isItemRemovable?.(item) ?? true;
+          if (!removable) {
+            const lockedLabel = props.getLockedLabel?.(item) ?? identity;
+            return (
+              <span
+                key={key}
+                className="inline-flex max-w-full items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border/35"
+                title={lockedLabel}
+                aria-label={lockedLabel}
+              >
+                <span className="max-w-60 truncate">{identity}</span>
+                <LockKeyhole aria-hidden="true" className="size-3.5 shrink-0" />
+              </span>
+            );
+          }
+          return (
+            <button
+              key={key}
+              type="button"
+              className="inline-flex max-w-full items-center gap-2 rounded-full bg-background px-3 py-1.5 text-xs ring-1 ring-border/35 transition hover:bg-destructive/5 hover:ring-destructive/30"
+              onClick={() => {
+                if (props.disabled) return;
+                removePrincipal(item);
+              }}
+              title={props.getRemoveLabel?.(item) ?? props.removeLabel}
+              aria-label={props.getRemoveLabel?.(item) ?? props.removeLabel}
+              disabled={props.disabled}
+            >
+              <span className="max-w-60 truncate">{identity}</span>
+              <X aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            </button>
+          );
+        })}
       </div>
       {props.everyoneConfirmation ? (
         <ConfirmDialog

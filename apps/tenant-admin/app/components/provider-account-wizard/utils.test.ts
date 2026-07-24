@@ -6,6 +6,7 @@ import {
   buildPowerShellCurlGuideCommand,
   buildCurlGuideSampleResponse,
   buildModelDiscoveryProviderHref,
+  formatProviderDisplayName,
   getCurlGuideEndpoint,
   getModelDiscoveryCatalogBaseURLForOrigin,
   getPublicSiteOrigin,
@@ -15,6 +16,15 @@ import {
 } from "./utils";
 
 describe("provider account curl guide helpers", () => {
+  it("uses official provider casing without title-casing unknown identifiers", () => {
+    expect(formatProviderDisplayName("openai")).toBe("OpenAI");
+    expect(formatProviderDisplayName("azure-openai")).toBe("Azure OpenAI");
+    expect(formatProviderDisplayName("azure_open_ai")).toBe("Azure OpenAI");
+    expect(formatProviderDisplayName("azure-ai-foundry")).toBe("Azure AI Foundry");
+    expect(formatProviderDisplayName("mistral-ai")).toBe("Mistral AI");
+    expect(formatProviderDisplayName("custom_provider")).toBe("custom_provider");
+  });
+
   it("uses the moderation endpoint when a model mode is moderation", () => {
     const mode = resolveCurlGuideMode({
       provider: "openai",
