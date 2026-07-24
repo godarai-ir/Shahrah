@@ -15,6 +15,7 @@ func TestForwardProviderHeadersIncludesMockMarker(t *testing.T) {
 		forwardProviderHeaders(c, map[string]string{
 			"X-Shahrah-Mock-Provider": "true",
 		})
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
@@ -22,6 +23,13 @@ func TestForwardProviderHeadersIncludesMockMarker(t *testing.T) {
 	if err != nil {
 		t.Fatalf("test request: %v", err)
 	}
+
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			t.Errorf("close response body: %v", closeErr)
+		}
+	}()
+
 	if got := response.Header.Get("X-Shahrah-Mock-Provider"); got != "true" {
 		t.Fatalf("expected mock provider marker, got %q", got)
 	}
