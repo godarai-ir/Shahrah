@@ -85,6 +85,12 @@ type UsersAccessManagementProps = {
 
 const PAGE_SIZE = 25;
 const USERS_FEATURE_KEY = "users.max";
+const USERS_COLUMN_CLASS = {
+  identity: "w-[44%]",
+  displayName: "hidden w-[28%] @md:table-cell",
+  role: "w-[36%]",
+  actions: "w-14 text-end",
+} as const;
 
 export default function UsersAccessManagement(props: UsersAccessManagementProps) {
   const t = useTranslations("accessManagement");
@@ -358,8 +364,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("searchPlaceholder")}
           />
-          <div className="flex items-center gap-2">
-            <Button type="button" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button type="button" className="w-full sm:w-auto" onClick={handleOpenInvite} disabled={!props.canManageUsers || !hasLoadedEntitlements}>
               <Plus data-icon="inline-start" />
               {t("inviteUser")}
             </Button>
@@ -383,13 +389,13 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
           </div>
         </div>
 
-        <div className="overflow-x-auto"><Table>
+        <div className="@container/users overflow-hidden rounded-lg border border-border"><Table className="table-fixed text-xs lg:text-sm">
           <TableHeader>
             <TableRow>
-              <TableHead>{mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email")}</TableHead>
-              <TableHead>{t("table.displayName")}</TableHead>
-              <TableHead>{t("table.role")}</TableHead>
-              <TableHead className="w-16 text-start"> </TableHead>
+              <TableHead className={USERS_COLUMN_CLASS.identity}>{mobileAuthUIEnabled ? t("table.emailMobile") : t("table.email")}</TableHead>
+              <TableHead className={USERS_COLUMN_CLASS.displayName}>{t("table.displayName")}</TableHead>
+              <TableHead className={USERS_COLUMN_CLASS.role}>{t("table.role")}</TableHead>
+              <TableHead className={USERS_COLUMN_CLASS.actions}> </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -409,21 +415,23 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
 
                 return (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{identity}</TableCell>
-                    <TableCell>
+                    <TableCell className={`${USERS_COLUMN_CLASS.identity} min-w-0 font-medium`}>
+                      <span className="block truncate" title={identity}>{identity}</span>
+                    </TableCell>
+                    <TableCell className={USERS_COLUMN_CLASS.displayName}>
                       <div className="flex items-center gap-2">
                         <Avatar className="size-8">
                           <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <span>{displayName || "-"}</span>
+                        <span className="truncate">{displayName || "-"}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={USERS_COLUMN_CLASS.role}>
                       <Badge variant={active ? "secondary" : "outline"}>
                         {active ? effectiveRoleLabel : t("status.deactivated")}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-end">
+                    <TableCell className={USERS_COLUMN_CLASS.actions}>
                       <RowActionsMenu
                         label={t("actions.changeRole")}
                         disabled={isSelf || isUpdatingUserID === user.id}
@@ -471,7 +479,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         />
       </AppCard>
 
-      <FormSheet open={inviteOpen} onOpenChange={handleInviteOpenChange} title={t("inviteTitle")} description={t("inviteDescription")} size="sm" pending={isInviting}>
+      <FormSheet open={inviteOpen} onOpenChange={handleInviteOpenChange} title={t("inviteTitle")} description={t("inviteDescription")} size="sm" pending={isInviting} closeLabel={t("actions.close")}>
           <form className="flex flex-col gap-4" onSubmit={handleInvite}>
             {inviteError ? (
               <Alert variant="destructive">
@@ -516,7 +524,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         actionLabel={t("usersPage.upgradeDialog.action")}
       />
 
-      <FormSheet open={roleFormOpen} onOpenChange={setRoleFormOpen} title={t("roleForm.title")} description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id}>
+      <FormSheet open={roleFormOpen} onOpenChange={setRoleFormOpen} title={t("roleForm.title")} description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id} closeLabel={t("actions.close")}>
           <form className="flex flex-col gap-4" onSubmit={submitRoleForm}>
             <RadioGroup value={selectedRoleName} onValueChange={setSelectedRoleName} className="flex max-h-96 flex-col gap-3 overflow-auto pe-1">
               {availableRoles.map((role) => (

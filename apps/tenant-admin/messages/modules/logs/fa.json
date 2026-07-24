@@ -22,7 +22,7 @@
     "copyLogId": "کپی شناسه لاگ",
     "copyingLogId": "در حال کپی شناسه لاگ",
     "copiedLogId": "شناسه لاگ کپی شد",
-    "openTrace": "Trace",
+    "openTrace": "مشاهده ردیابی",
     "copyLink": "کپی لینک",
     "replayDraft": "تکرار این درخواست (آزمایشی)",
     "saveView": "ذخیره نمای سفارشی",
@@ -166,7 +166,7 @@
     "manageDescription": "یک نمای ذخیره‌شده را بارگذاری یا حذف کنید.",
     "nameLabel": "نام نما",
     "namePlaceholder": "نام این نما را وارد کنید",
-    "emptyTitle": "view ذخیره‌شده‌ای نیست",
+    "emptyTitle": "نمای ذخیره‌شده‌ای وجود ندارد",
     "emptyDescription": "فیلترها و ستون‌های فعلی را برای تیم ذخیره کنید.",
     "saveError": "ذخیره نما ناموفق بود.",
     "deleteError": "حذف نما ناموفق بود.",
@@ -231,7 +231,7 @@
     "latency": "تأخیر",
     "tokens": "توکن",
     "cost": "هزینه",
-    "trace": "Trace"
+    "trace": "ردیابی"
   },
   "content": {
     "request": "محتوای درخواست",
@@ -240,7 +240,7 @@
   },
   "tabs": {
     "summary": "خلاصه",
-    "metadata": "Metadata"
+    "metadata": "فراداده"
   },
   "replay": {
     "ready": "پیش‌نویس بازپخش آماده است",

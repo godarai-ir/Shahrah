@@ -591,7 +591,7 @@ export default function PlaygroundPage() {
         </div>
       )}
 
-      <div className="sticky bottom-0 z-10 flex items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur">
+      <div className="sticky bottom-0 z-10 hidden items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:flex">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">{columns.length > 1 ? t("billable") : t("shortcutHint")}</p>
         {anyRunning ? <Button type="button" variant="destructive" onClick={columns.length > 1 ? stopAll : () => stopColumn(activeColumn.id)}><Square data-icon="inline-start" />{columns.length > 1 ? t("actions.stopAll") : t("actions.stop")}</Button> : <Button type="button" aria-label={columns.length > 1 ? t("actions.runAllShortcut") : t("actions.runShortcut")} title={columns.length > 1 ? t("actions.runAllShortcut") : t("actions.runShortcut")} disabled={!canRun || !columns.every((column) => column.selectedModel)} onClick={() => columns.length > 1 ? void runAll() : void runColumn(activeColumn)}><Play data-icon="inline-start" />{columns.length > 1 ? t("actions.runAll") : t("actions.run")}</Button>}
       </div>

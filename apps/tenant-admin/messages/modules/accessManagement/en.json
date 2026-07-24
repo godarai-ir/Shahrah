@@ -61,7 +61,8 @@
   "actions": {
     "changeRole": "Change Role",
     "activate": "Activate",
-    "deactivate": "Deactivate"
+    "deactivate": "Deactivate",
+    "close": "Close"
   },
   "roleForm": {
     "title": "Change User Role",

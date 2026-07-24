@@ -87,7 +87,7 @@ export function BankTransferPanel({ initialItems, initialError }: BankTransferPa
       { accessorKey: "tracking_number", header: "شماره پیگیری" },
       { accessorKey: "amount_irr", header: "مبلغ", cell: ({ row }) => formatToman(row.original.amount_irr) },
       { accessorKey: "bank_transaction_at", header: "تاریخ واریز", cell: ({ row }) => formatDateOnly(row.original.bank_transaction_at) },
-      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{row.original.status}</StatusBadge> },
+      { accessorKey: "status", header: "وضعیت", cell: ({ row }) => <StatusBadge status={statusTone(row.original.status)}>{mapDocumentStatusLabel(row.original.status)}</StatusBadge> },
       { accessorKey: "created_at", header: "ثبت", cell: ({ row }) => formatDate(row.original.created_at) },
     ],
     [],
@@ -417,11 +417,11 @@ export function ReportsPanel({ initialSummary, initialMonthly, initialError }: R
           </div>
         </div>
       </SettingsCard>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <SettingsCard
           title="جزئیات ماهانه"
           description={`تجمیع مصرف، توکن و هزینه نهایی به تفکیک ارائه‌دهنده برای ${formatSelectedJalaliMonth(monthKey)}`}
-          className="max-w-none"
+          className="min-w-0 max-w-none overflow-hidden"
         >
           <DataTable columns={columns} data={monthly?.providers ?? []} emptyLabel="داده‌ای برای این ماه وجود ندارد." />
         </SettingsCard>
@@ -653,14 +653,14 @@ export function BillingDocumentsPanel({ invoices, transactions, discounts }: Doc
   );
 
   return (
-    <AppCard className="max-w-none">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex items-center justify-between gap-3">
+    <AppCard className="min-w-0 max-w-none overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 w-full">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0"
+            className="shrink-0 self-start"
             aria-label="خروجی CSV"
             title="خروجی CSV"
             onClick={() => {
@@ -707,7 +707,7 @@ export function BillingDocumentsPanel({ invoices, transactions, discounts }: Doc
           >
             <Download className="size-4" />
           </Button>
-          <TabsList className="self-end">
+          <TabsList className="w-full justify-start overflow-x-auto sm:w-fit sm:self-end">
             <TabsTrigger value="invoices"><FileText className="me-2 size-4" />فاکتورها</TabsTrigger>
             <TabsTrigger value="transactions"><ReceiptText className="me-2 size-4" />تراکنش‌ها</TabsTrigger>
             <TabsTrigger value="discounts"><Tag className="me-2 size-4" />تخفیف‌ها</TabsTrigger>
@@ -826,7 +826,7 @@ function DocumentTableSection<T>({
   const pageEnd = rows.length === 0 ? 0 : Math.min(pageStart + pageSizeNumber, rows.length);
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3">
         <div className="flex flex-col gap-3">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

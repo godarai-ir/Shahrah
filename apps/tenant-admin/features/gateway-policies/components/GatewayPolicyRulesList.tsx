@@ -99,7 +99,7 @@ export function GatewayPolicyRulesList({
   className,
 }: GatewayPolicyRulesListProps) {
   const createAction = (
-    <Button type="button" onClick={onCreate} disabled={createDisabled}>
+    <Button type="button" className="w-full sm:w-auto" onClick={onCreate} disabled={createDisabled}>
       <Plus data-icon="inline-start" />
       {createLabel}
     </Button>
@@ -126,11 +126,12 @@ export function GatewayPolicyRulesList({
             />
           )}
           toolbarMeta={(
-            <div className="flex items-center gap-3">
-              <span className="whitespace-nowrap">{resultCountLabel}</span>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+              <span className="whitespace-nowrap text-center sm:text-start">{resultCountLabel}</span>
               {createAction}
             </div>
           )}
+          contentClassName="@container/gateway-rules overflow-hidden"
           loading={loading && itemCount === 0}
           loadingLabel={loadingLabel}
           empty={itemCount === 0}

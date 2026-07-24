@@ -128,6 +128,13 @@ type OrgUnitManagementProps = {
 };
 
 const PAGE_SIZE = 25;
+const ORG_UNIT_COLUMN_CLASS = {
+  orgUnit: "w-[52%]",
+  teams: "w-[16%]",
+  members: "hidden w-[16%] @md:table-cell",
+  updated: "hidden w-40 @lg:table-cell",
+  actions: "w-14 text-end",
+} as const;
 const FEATURE_ORG_UNITS_ENABLED = "org_units.enabled";
 
 const emptyForm: FormState = {
@@ -598,7 +605,7 @@ export default function OrgUnitManagement({
         }
       />
 
-      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="md" pending={isSaving}>
+      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
         <OrgUnitForm form={form} setForm={setForm} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
       </FormSheet>
 
@@ -643,15 +650,15 @@ export default function OrgUnitManagement({
               />
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="@container/org-units overflow-hidden rounded-lg border border-border">
+            <Table className="table-fixed text-xs lg:text-sm">
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("table.orgUnit")}</TableHead>
-                  <TableHead>{t("table.teams")}</TableHead>
-                  <TableHead>{t("table.members")}</TableHead>
-                  <TableHead>{t("table.updated")}</TableHead>
-                  <TableHead className="w-12 text-end"> </TableHead>
+                  <TableHead className={ORG_UNIT_COLUMN_CLASS.orgUnit}>{t("table.orgUnit")}</TableHead>
+                  <TableHead className={ORG_UNIT_COLUMN_CLASS.teams}>{t("table.teams")}</TableHead>
+                  <TableHead className={ORG_UNIT_COLUMN_CLASS.members}>{t("table.members")}</TableHead>
+                  <TableHead className={ORG_UNIT_COLUMN_CLASS.updated}>{t("table.updated")}</TableHead>
+                  <TableHead className={ORG_UNIT_COLUMN_CLASS.actions}> </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -681,22 +688,22 @@ export default function OrgUnitManagement({
                         className={cn("cursor-pointer", active && "bg-muted/60")}
                         onClick={() => setSelectedOrgUnitID(orgUnit.id)}
                       >
-                        <TableCell>
-                          <div className="min-w-48">
-                            <p className="font-medium">{getOrgName(orgUnit)}</p>
-                            <p className="text-xs text-muted-foreground">{orgUnit.alias}</p>
+                        <TableCell className={ORG_UNIT_COLUMN_CLASS.orgUnit}>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium" title={getOrgName(orgUnit)}>{getOrgName(orgUnit)}</p>
+                            <p className="truncate text-xs text-muted-foreground" title={orgUnit.alias}>{orgUnit.alias}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{resolveTeamCount(orgUnit)}</TableCell>
-                        <TableCell>{getMemberCount(orgUnit, orgUnit.id === selectedOrgUnitID ? members.length : undefined)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className={ORG_UNIT_COLUMN_CLASS.teams}>{resolveTeamCount(orgUnit)}</TableCell>
+                        <TableCell className={ORG_UNIT_COLUMN_CLASS.members}>{getMemberCount(orgUnit, orgUnit.id === selectedOrgUnitID ? members.length : undefined)}</TableCell>
+                        <TableCell className={`${ORG_UNIT_COLUMN_CLASS.updated} text-muted-foreground`}>
                           <DateTimeValue
                             value={orgUnit.updated_at}
                             locale={locale}
                             format={{ year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }}
                           />
                         </TableCell>
-                        <TableCell className="text-end" onClick={(event) => event.stopPropagation()}>
+                        <TableCell className={ORG_UNIT_COLUMN_CLASS.actions} onClick={(event) => event.stopPropagation()}>
                           <RowActionsMenu
                             label={t("actions.openMenu")}
                             actions={[
@@ -881,11 +888,11 @@ export default function OrgUnitManagement({
         </aside>
       </section>
 
-      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} size="md" pending={isSaving}>
+      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
           <OrgUnitForm form={form} setForm={setForm} onSubmit={handleUpdate} isSaving={isSaving} submitLabel={t("edit.submit")} />
       </FormSheet>
 
-      <FormSheet open={memberOpen} onOpenChange={setMemberOpen} title={t("members.manageTitle")} description={t("members.manageDescription")} size="md" pending={isSaving}>
+      <FormSheet open={memberOpen} onOpenChange={setMemberOpen} title={t("members.manageTitle")} description={t("members.manageDescription")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
           <form className="flex flex-col gap-4" onSubmit={handleAddMember}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="member-user">{t("members.user")}</Label>

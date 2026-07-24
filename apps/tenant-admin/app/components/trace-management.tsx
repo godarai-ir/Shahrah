@@ -720,7 +720,7 @@ export default function TraceManagement(props: TraceManagementProps) {
               </div>
 
               <Sheet open={advancedSheetOpen} onOpenChange={setAdvancedSheetOpen}>
-                <SheetContent side="bottom" className="flex max-h-svh flex-col rounded-t-2xl px-4 py-5 sm:max-w-none">
+                <SheetContent side="bottom" closeLabel={common("cancel")} className="flex max-h-svh flex-col rounded-t-2xl px-4 py-5 sm:max-w-none">
                   <SheetHeader>
                     <SheetTitle>{advancedFilterLabel}</SheetTitle>
                     <SheetDescription>{t("description")}</SheetDescription>
@@ -907,7 +907,7 @@ export default function TraceManagement(props: TraceManagementProps) {
       </Card>
 
       <Sheet open={tracePrivacyOpen} onOpenChange={setTracePrivacyOpen}>
-        <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="left" closeLabel={common("cancel")} className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>{tracePrivacyT("title")}</SheetTitle>
           </SheetHeader>

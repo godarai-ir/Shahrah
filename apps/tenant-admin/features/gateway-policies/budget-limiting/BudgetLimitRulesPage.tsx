@@ -21,6 +21,14 @@ import { BudgetLimitRuleForm } from "./BudgetLimitRuleForm";
 
 const FEATURE_BUDGET_LIMIT_RULES_ENABLED = "budget_limit_rules.enabled";
 const IRR_NUMBER_FORMAT = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
+const BUDGET_RULE_COLUMN_CLASS = {
+  ruleId: "w-[42%]",
+  limit: "w-[30%]",
+  unit: "hidden w-36 @md:table-cell",
+  status: "w-[18%]",
+  updatedAt: "hidden w-40 @lg:table-cell",
+  actions: "w-12 text-end",
+} as const;
 
 type EffectiveEntitlements = {
   features?: Record<string, unknown>;
@@ -204,30 +212,34 @@ export function BudgetLimitRulesPage() {
         actionLabel: t("upgradeDialog.action"),
       }}
     >
-      <Table>
+      <Table className="table-fixed text-xs lg:text-sm">
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("table.ruleId")}</TableHead>
-                  <TableHead>{t("table.limit")}</TableHead>
-                  <TableHead>{t("table.unit")}</TableHead>
-                  <TableHead>{t("table.status")}</TableHead>
-                  <TableHead>{t("table.updatedAt")}</TableHead>
-                  <TableHead>{t("table.actions")}</TableHead>
+                  <TableHead className={BUDGET_RULE_COLUMN_CLASS.ruleId}>{t("table.ruleId")}</TableHead>
+                  <TableHead className={BUDGET_RULE_COLUMN_CLASS.limit}>{t("table.limit")}</TableHead>
+                  <TableHead className={BUDGET_RULE_COLUMN_CLASS.unit}>{t("table.unit")}</TableHead>
+                  <TableHead className={BUDGET_RULE_COLUMN_CLASS.status}>{t("table.status")}</TableHead>
+                  <TableHead className={BUDGET_RULE_COLUMN_CLASS.updatedAt}>{t("table.updatedAt")}</TableHead>
+                  <TableHead className={BUDGET_RULE_COLUMN_CLASS.actions}>{t("table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((rule) => (
                   <TableRow key={rule.id}>
-                    <TableCell className="font-mono font-medium" dir="ltr">{rule.rule_id}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatIRR(rule.limit_to)}</TableCell>
-                    <TableCell>{t(`units.${unitKey(rule.unit)}`)}</TableCell>
-                    <TableCell>
+                    <TableCell className={`${BUDGET_RULE_COLUMN_CLASS.ruleId} min-w-0 font-mono font-medium`} dir="ltr">
+                      <span className="block truncate" title={rule.rule_id}>{rule.rule_id}</span>
+                    </TableCell>
+                    <TableCell className={BUDGET_RULE_COLUMN_CLASS.limit}>
+                      <span className="block truncate" title={formatIRR(rule.limit_to)}>{formatIRR(rule.limit_to)}</span>
+                    </TableCell>
+                    <TableCell className={BUDGET_RULE_COLUMN_CLASS.unit}>{t(`units.${unitKey(rule.unit)}`)}</TableCell>
+                    <TableCell className={BUDGET_RULE_COLUMN_CLASS.status}>
                       <StatusBadge status={rule.enabled ? "active" : "inactive"}>
                         {rule.enabled ? t("status.enabled") : t("status.disabled")}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell>{formatJalaliDateTime(rule.updated_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className={BUDGET_RULE_COLUMN_CLASS.updatedAt}>{formatJalaliDateTime(rule.updated_at)}</TableCell>
+                    <TableCell className={BUDGET_RULE_COLUMN_CLASS.actions}>
                       <RowActionsMenu
                         label={t("table.rowActions", { ruleId: rule.rule_id })}
                         actions={[

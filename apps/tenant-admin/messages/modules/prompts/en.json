@@ -20,6 +20,7 @@
   },
   "actions": {
     "cancel": "Cancel",
+    "clearSearch": "Clear search",
     "createPrompt": "Create Prompt",
     "refresh": "Refresh",
     "copy": "Copy",
@@ -51,6 +52,8 @@
     "loadingRows": "Loading prompts",
     "emptyRows": "No rows",
     "emptyDescription": "Create your first prompt in the playground.",
+    "noResultsTitle": "No matching prompts",
+    "noResultsDescription": "Try a different search term or clear the current search.",
     "versionValue": "v{version}",
     "columns": {
       "name": "Name",

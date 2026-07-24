@@ -7,12 +7,11 @@ import {
   BookOpen,
   Gauge,
   type LucideIcon,
-  RefreshCcw,
   Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { AppCard, CompactValue, MetricCard } from "@/components/app-ui";
+import { AppCard, CompactValue, MetricCard, RefreshButton } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -149,16 +148,12 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         description={planName}
         actions={
           <>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
+            <RefreshButton
               onClick={() => void loadDashboard()}
-              disabled={isLoading}
-              aria-label={isLoading ? t("refreshing") : common("refresh")}
-            >
-              <RefreshCcw data-icon="inline-start" aria-hidden="true" />
-            </Button>
+              isLoading={isLoading}
+              label={common("refresh")}
+              loadingLabel={t("refreshing")}
+            />
             <Button type="button" asChild>
               <Link href="/billing/plan">
                 {planActionLabel}
@@ -169,6 +164,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         }
         className="atlas-accent-line overflow-hidden"
         headerClassName="bg-neutral-soft/45"
+        contentClassName="pt-3 md:pt-3"
       >
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={planVisual.badgeVariant}>{planStatusLabel}</Badge>
@@ -216,15 +212,17 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
             </span>
           }
           description={t("quickStart.description")}
+          actions={
+            <Button type="button" variant="outline" asChild>
+              <Link href="/quick-start">
+                {t("quickStart.action")}
+                <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+              </Link>
+            </Button>
+          }
           className="border-info-soft-border bg-info-soft/35 md:col-span-2 xl:col-span-1"
-        >
-          <Button type="button" variant="outline" asChild>
-            <Link href="/quick-start">
-              {t("quickStart.action")}
-              <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-            </Link>
-          </Button>
-        </AppCard>
+          headerClassName="h-full sm:items-center"
+        />
       </div>
 
       {banner ? (

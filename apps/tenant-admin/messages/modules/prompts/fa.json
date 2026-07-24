@@ -20,6 +20,7 @@
   },
   "actions": {
     "cancel": "انصراف",
+    "clearSearch": "پاک کردن جست‌وجو",
     "createPrompt": "ایجاد پرامپت",
     "refresh": "به‌روزرسانی",
     "copy": "کپی",
@@ -51,6 +52,8 @@
     "loadingRows": "در حال بارگذاری پرامپت‌ها",
     "emptyRows": "ردیفی وجود ندارد",
     "emptyDescription": "برای شروع، نخستین پرامپت را در محیط آزمایش ایجاد کنید.",
+    "noResultsTitle": "پرامپت منطبقی پیدا نشد",
+    "noResultsDescription": "عبارت جست‌وجو را تغییر دهید یا آن را پاک کنید.",
     "versionValue": "نسخه {version}",
     "columns": {
       "name": "نام",

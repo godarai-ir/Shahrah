@@ -61,7 +61,8 @@
   "actions": {
     "changeRole": "تغییر نقش",
     "activate": "فعال‌سازی",
-    "deactivate": "غیرفعال‌سازی"
+    "deactivate": "غیرفعال‌سازی",
+    "close": "بستن"
   },
   "roleForm": {
     "title": "تغییر نقش کاربر",

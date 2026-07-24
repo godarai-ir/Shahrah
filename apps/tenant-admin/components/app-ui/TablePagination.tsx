@@ -40,19 +40,21 @@ export function TablePagination({
   return (
     <div
       data-slot="table-pagination"
-      className={cn("flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground", className)}
+      className={cn("@container flex flex-col gap-3 text-sm text-muted-foreground @md:flex-row @md:items-center @md:justify-between", className)}
     >
       <p>{summary}</p>
-      <nav aria-label={label} className="flex flex-wrap items-center gap-2">
+      <nav aria-label={label} className="flex flex-col gap-2 @sm:flex-row @sm:flex-wrap @sm:items-center">
         {pageSizeLabel ? <span>{pageSizeLabel}</span> : null}
-        {pageSize !== undefined ? <Badge variant="outline">{pageSize}</Badge> : null}
-        <Button type="button" variant="outline" size="sm" onClick={onPrevious} disabled={disabled || !canPrevious}>
-          {previousLabel}
-        </Button>
-        {page !== undefined ? <Badge variant="secondary">{page}</Badge> : null}
-        <Button type="button" variant="outline" size="sm" onClick={onNext} disabled={disabled || !canNext}>
-          {nextLabel}
-        </Button>
+        <span className="flex items-center justify-between gap-2 @sm:justify-start">
+          {pageSize !== undefined ? <Badge variant="outline">{pageSize}</Badge> : null}
+          <Button type="button" variant="outline" size="sm" onClick={onPrevious} disabled={disabled || !canPrevious}>
+            {previousLabel}
+          </Button>
+          {page !== undefined ? <Badge variant="secondary">{page}</Badge> : null}
+          <Button type="button" variant="outline" size="sm" onClick={onNext} disabled={disabled || !canNext}>
+            {nextLabel}
+          </Button>
+        </span>
       </nav>
     </div>
   );

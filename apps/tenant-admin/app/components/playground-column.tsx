@@ -128,7 +128,7 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
             <Alert variant="info"><AlertDescription>{props.t("image.temporaryNotice")}</AlertDescription></Alert>
             <VariableTextareaField
               label={props.t("image.prompt")}
-              description={props.t("image.promptHelp")}
+              description={props.t("image.promptHelp", { subject: "{{subject}}" })}
               variables={props.variables ?? []}
               value={column.imagePrompt}
               placeholder={props.t("image.promptPlaceholder")}

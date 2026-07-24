@@ -19,6 +19,7 @@
     "delete": "Delete Virtual Model",
     "save": "Save",
     "saving": "Saving...",
+    "clearSearch": "Clear search",
     "cancel": "Cancel"
   },
   "deleteDialog": {
@@ -37,6 +38,8 @@
   "empty": {
     "title": "No virtual models yet",
     "description": "Create a virtual model to route traffic across provider targets.",
+    "noResultsTitle": "No matching virtual models",
+    "noResultsDescription": "Try a different search term or clear the current search.",
     "guide": "Guide"
   },
   "list": {

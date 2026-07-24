@@ -309,9 +309,11 @@ function AdminSidebar({
 }: SidebarContentProps) {
   const t = useTranslations("shell");
   const locale = useLocale();
-  const { setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, state } = useSidebar();
   const direction = locale === "fa" ? "rtl" : "ltr";
   const sidebarSide = direction === "rtl" ? "right" : "left";
+  const tooltipSide = direction === "rtl" ? "left" : "right";
+  const showCompactNavigation = !isMobile && state === "collapsed";
   const navItemsByKey = useMemo(() => {
     return new Map(navItems.map((item) => [item.key, item]));
   }, [navItems]);
@@ -334,12 +336,12 @@ function AdminSidebar({
       mobileDescription={t("menu.description")}
       mobileCloseLabel={t("menu.close")}
     >
-      <SidebarHeader className="gap-3 border-b border-sidebar-border/80 p-3">
-        <SidebarMenu>
+      <SidebarHeader className="gap-3 border-b border-sidebar-border/60 p-3">
+        <SidebarMenu className="gap-2">
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip={`گُدارAI · ${tenantSlug}`}
+              tooltip={{ children: `گُدارAI · ${tenantSlug}`, side: tooltipSide }}
               className="items-center gap-3 after:hidden hover:bg-sidebar-accent/70"
               asChild
             >
@@ -365,7 +367,7 @@ function AdminSidebar({
             <SidebarMenuButton
               size="lg"
               variant="outline"
-              tooltip={`${t("tenant")} · ${tenantSlug}`}
+              tooltip={{ children: `${t("tenant")} · ${tenantSlug}`, side: tooltipSide }}
               className="after:hidden"
               asChild
             >
@@ -385,63 +387,105 @@ function AdminSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="custom-scrollbar gap-1 px-1 py-3" role="navigation" aria-label={t("nav.title")}>
-        {navGroups.map((group) => (
-          <Collapsible key={group.labelKey} defaultOpen={group.items.some((item) => item.isActive)} asChild>
-            <SidebarGroup className="py-1">
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <group.icon className="size-4 shrink-0 text-sidebar-foreground/55" aria-hidden="true" />
-                    <span className="truncate">{t(group.labelKey)}</span>
-                  </span>
-                  <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
+      <SidebarContent
+        className="custom-scrollbar gap-1 overflow-x-hidden px-1 py-3 group-data-[collapsible=icon]:overflow-y-auto!"
+        role="navigation"
+        aria-label={t("nav.title")}
+      >
+        {showCompactNavigation
+          ? navGroups.map((group) => (
+              <SidebarGroup key={group.labelKey} className="py-1">
                 <SidebarGroupContent>
-                  <SidebarMenu aria-label={t(group.labelKey)} className="gap-0.5">
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            isActive={item.isActive}
-                            tooltip={item.title}
-                            asChild
-                          >
-                            <Link
-                              href={item.href}
-                              aria-current={item.isActive ? "page" : undefined}
-                              onClick={(event) => {
-                                setOpenMobile(false);
-                                if (!item.isActive || !shouldHandleActiveNavClick(event.nativeEvent)) return;
-                                event.preventDefault();
-                                onNavigate(item.href);
-                              }}
-                            >
-                              <Icon aria-hidden="true" />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
+                  <SidebarMenu aria-label={t(group.labelKey)}>
+                    {group.items.map((item) => (
+                      <AdminSidebarNavItem
+                        key={item.href}
+                        item={item}
+                        tooltipSide={tooltipSide}
+                        onCloseMobile={() => setOpenMobile(false)}
+                        onNavigate={onNavigate}
+                      />
+                    ))}
                   </SidebarMenu>
                 </SidebarGroupContent>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
-        ))}
+              </SidebarGroup>
+            ))
+          : navGroups.map((group) => (
+              <Collapsible key={group.labelKey} defaultOpen={group.items.some((item) => item.isActive)} asChild>
+                <SidebarGroup className="py-1">
+                  <SidebarGroupLabel asChild>
+                    <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <group.icon className="size-4 shrink-0 text-sidebar-foreground/55" aria-hidden="true" />
+                        <span className="truncate">{t(group.labelKey)}</span>
+                      </span>
+                      <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
+                    </CollapsibleTrigger>
+                  </SidebarGroupLabel>
+                  <CollapsibleContent>
+                    <SidebarGroupContent>
+                      <SidebarMenu aria-label={t(group.labelKey)} className="gap-0.5">
+                        {group.items.map((item) => (
+                          <AdminSidebarNavItem
+                            key={item.href}
+                            item={item}
+                            tooltipSide={tooltipSide}
+                            onCloseMobile={() => setOpenMobile(false)}
+                            onNavigate={onNavigate}
+                          />
+                        ))}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </CollapsibleContent>
+                </SidebarGroup>
+              </Collapsible>
+            ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/80 bg-sidebar-accent/25 p-3 group-data-[collapsible=icon]:hidden">
+      <SidebarFooter className="border-t border-sidebar-border/60 bg-sidebar-accent/20 p-3 group-data-[collapsible=icon]:hidden">
         <SidebarPlanSummary summary={subscriptionSummary} onNavigate={() => setOpenMobile(false)} />
         <SidebarAppVersion version={appVersion} />
       </SidebarFooter>
       <SidebarRail aria-label={t("menu.toggle")} title={t("menu.toggle")} />
     </Sidebar>
+  );
+}
+
+function AdminSidebarNavItem({
+  item,
+  tooltipSide,
+  onCloseMobile,
+  onNavigate,
+}: {
+  item: AdminNavItem;
+  tooltipSide: React.ComponentProps<typeof TooltipContent>["side"];
+  onCloseMobile: () => void;
+  onNavigate: (href: string) => void;
+}) {
+  const Icon = item.icon;
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        isActive={item.isActive}
+        tooltip={{ children: item.title, side: tooltipSide }}
+        asChild
+      >
+        <Link
+          href={item.href}
+          aria-current={item.isActive ? "page" : undefined}
+          onClick={(event) => {
+            onCloseMobile();
+            if (!item.isActive || !shouldHandleActiveNavClick(event.nativeEvent)) return;
+            event.preventDefault();
+            onNavigate(item.href);
+          }}
+        >
+          <Icon aria-hidden="true" />
+          <span>{item.title}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 
@@ -566,7 +610,7 @@ function SidebarAppVersion({ version }: { version: string }) {
   const t = useTranslations("shell");
 
   return (
-    <p className="border-t border-sidebar-border/70 pt-3 text-center text-xs text-sidebar-foreground/70">
+    <p className="pt-1 text-center text-xs text-sidebar-foreground/50">
       {t("appVersion.label")} <span dir="ltr" className="font-mono">{version}</span>
     </p>
   );

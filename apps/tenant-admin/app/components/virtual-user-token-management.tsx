@@ -96,6 +96,20 @@ type EffectiveEntitlements = { features?: Record<string, unknown> } | null;
 
 const PAGE_SIZE = 25;
 const FEATURE_VAT_ENABLED = "auth.vat.enabled";
+const VIRTUAL_USER_COLUMN_CLASS = {
+  identity: "w-7/12",
+  team: "hidden w-1/3 @md:table-cell",
+  status: "w-1/4",
+} as const;
+const VAT_COLUMN_CLASS = {
+  name: "w-5/12",
+  masked: "hidden w-40 @md:table-cell",
+  models: "hidden w-1/4 @lg:table-cell",
+  lastUsed: "hidden w-36 @xl:table-cell",
+  expiresAt: "hidden w-36 @lg:table-cell",
+  status: "w-1/4",
+  actions: "w-16 text-end",
+} as const;
 const emptyVirtualUserForm: VirtualUserForm = {
   alias: "",
   displayName: "",
@@ -453,9 +467,9 @@ export default function VirtualUserTokenManagement({
 
       <section className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(22rem,0.9fr)_minmax(0,1.1fr)]">
         <AppCard className="min-w-0" contentClassName="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <SearchField
-              containerClassName="min-w-64 flex-1"
+              containerClassName="w-full sm:min-w-64 sm:flex-1"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("searchPlaceholder")}
@@ -472,13 +486,13 @@ export default function VirtualUserTokenManagement({
             </Button>
           </div>
 
-          <div className="overflow-x-auto">
-          <Table>
+          <div className="@container/virtual-users overflow-hidden rounded-lg border border-border">
+          <Table className="table-fixed text-xs lg:text-sm">
             <TableHeader>
               <TableRow>
-                <TableHead>{t("usersTable.identity")}</TableHead>
-                <TableHead>{t("usersTable.team")}</TableHead>
-                <TableHead>{t("usersTable.status")}</TableHead>
+                <TableHead className={VIRTUAL_USER_COLUMN_CLASS.identity}>{t("usersTable.identity")}</TableHead>
+                <TableHead className={VIRTUAL_USER_COLUMN_CLASS.team}>{t("usersTable.team")}</TableHead>
+                <TableHead className={VIRTUAL_USER_COLUMN_CLASS.status}>{t("usersTable.status")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -493,14 +507,14 @@ export default function VirtualUserTokenManagement({
                     className={cn("cursor-pointer", item.id === selectedID && "bg-muted")}
                     onClick={() => setSelectedID(item.id)}
                   >
-                    <TableCell>
+                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.identity}>
                       <div className="flex min-w-0 flex-col gap-1">
                         <span className="truncate font-medium">{item.display_name || item.alias}</span>
                         <span className="truncate font-mono text-xs text-muted-foreground">{item.alias}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{getTeamName(item.team_id, teams)}</TableCell>
-                    <TableCell>
+                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.team}>{getTeamName(item.team_id, teams)}</TableCell>
+                    <TableCell className={VIRTUAL_USER_COLUMN_CLASS.status}>
                       <AppStatusBadge status={item.active ? "active" : "inactive"}>{item.active ? t("status.active") : t("status.inactive")}</AppStatusBadge>
                     </TableCell>
                   </TableRow>
@@ -510,7 +524,7 @@ export default function VirtualUserTokenManagement({
           </Table>
           </div>
 
-          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>{t("pagination.range", { from, to, total })}</span>
             <div className="flex gap-2">
               <Button
@@ -588,7 +602,7 @@ export default function VirtualUserTokenManagement({
                         <Plus data-icon="inline-start" />
                         {t("actions.createToken")}
                       </Button>
-                      <SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4">
+                      <SheetContent side="left" closeLabel={t("oneTime.close")} className="w-full max-w-xl overflow-y-auto sm:w-3/4">
                         <SheetHeader>
                           <SheetTitle>{t("createToken.title")}</SheetTitle>
                           <SheetDescription>{t("createToken.description")}</SheetDescription>
@@ -614,17 +628,17 @@ export default function VirtualUserTokenManagement({
                   </Alert>
                 ) : null}
 
-                <div className="overflow-x-auto">
-                <Table>
+                <div className="@container/vat-tokens overflow-hidden rounded-lg border border-border">
+                <Table className="table-fixed text-xs lg:text-sm">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t("tokensTable.name")}</TableHead>
-                      <TableHead>{t("tokensTable.masked")}</TableHead>
-                      <TableHead>{t("tokensTable.models")}</TableHead>
-                      <TableHead>{t("tokensTable.lastUsed")}</TableHead>
-                      <TableHead>{t("fields.expiresIn")}</TableHead>
-                      <TableHead>{t("tokensTable.status")}</TableHead>
-                      <TableHead>{t("tokensTable.actions")}</TableHead>
+                      <TableHead className={VAT_COLUMN_CLASS.name}>{t("tokensTable.name")}</TableHead>
+                      <TableHead className={VAT_COLUMN_CLASS.masked}>{t("tokensTable.masked")}</TableHead>
+                      <TableHead className={VAT_COLUMN_CLASS.models}>{t("tokensTable.models")}</TableHead>
+                      <TableHead className={VAT_COLUMN_CLASS.lastUsed}>{t("tokensTable.lastUsed")}</TableHead>
+                      <TableHead className={VAT_COLUMN_CLASS.expiresAt}>{t("fields.expiresIn")}</TableHead>
+                      <TableHead className={VAT_COLUMN_CLASS.status}>{t("tokensTable.status")}</TableHead>
+                      <TableHead className={VAT_COLUMN_CLASS.actions}>{t("tokensTable.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -637,9 +651,9 @@ export default function VirtualUserTokenManagement({
                     ) : (
                       tokens.map((token) => (
                         <TableRow key={token.id}>
-                          <TableCell>{token.key_alias}</TableCell>
-                          <TableCell className="font-mono text-xs">{token.key_name ?? "-"}</TableCell>
-                          <TableCell>
+                          <TableCell className={VAT_COLUMN_CLASS.name}><span className="block truncate" title={token.key_alias}>{token.key_alias}</span></TableCell>
+                          <TableCell className={`${VAT_COLUMN_CLASS.masked} font-mono text-xs`}><span className="block truncate" title={token.key_name ?? "-"}>{token.key_name ?? "-"}</span></TableCell>
+                          <TableCell className={VAT_COLUMN_CLASS.models}>
                             {(token.allowed_models ?? token.models ?? []).length > 0 ? (
                               <ModelNameValue
                                 value={modelSummary(token.allowed_models ?? token.models ?? [], t)}
@@ -647,13 +661,13 @@ export default function VirtualUserTokenManagement({
                               />
                             ) : t("tokens.inheritsAll")}
                           </TableCell>
-                          <TableCell><DateTimeValue value={token.last_used_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
-                          <TableCell><DateTimeValue value={token.expires_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
-                          <TableCell>
+                          <TableCell className={VAT_COLUMN_CLASS.lastUsed}><DateTimeValue value={token.last_used_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                          <TableCell className={VAT_COLUMN_CLASS.expiresAt}><DateTimeValue value={token.expires_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                          <TableCell className={VAT_COLUMN_CLASS.status}>
                             <AppStatusBadge status={token.revoked_at || token.blocked ? "error" : "active"}>{token.revoked_at ? t("status.revoked") : token.blocked ? t("status.blocked") : t("status.active")}</AppStatusBadge>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-2">
+                          <TableCell className={VAT_COLUMN_CLASS.actions}>
+                            <div className="flex flex-wrap justify-end gap-2">
                               <Button
                                 variant="outline"
                                 size="icon-sm"
@@ -694,7 +708,7 @@ export default function VirtualUserTokenManagement({
         </div>
       </section>
 
-      <FormSheet open={createUserOpen} onOpenChange={setCreateUserOpen} title={t("createUser.title")} description={t("createUser.description")} pending={isSaving}>
+      <FormSheet open={createUserOpen} onOpenChange={setCreateUserOpen} title={t("createUser.title")} description={t("createUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
           <VirtualUserFormView
             t={t}
             form={virtualUserForm}
@@ -707,7 +721,7 @@ export default function VirtualUserTokenManagement({
           />
       </FormSheet>
 
-      <FormSheet open={editUserOpen} onOpenChange={setEditUserOpen} title={t("editUser.title")} description={t("editUser.description")} pending={isSaving}>
+      <FormSheet open={editUserOpen} onOpenChange={setEditUserOpen} title={t("editUser.title")} description={t("editUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
           <VirtualUserFormView
             t={t}
             form={virtualUserForm}
@@ -750,7 +764,7 @@ export default function VirtualUserTokenManagement({
           if (!open) setActionIntent(null);
         }}
       >
-        <DialogContent>
+        <DialogContent closeLabel={t("confirm.cancel")}>
           <DialogHeader>
             <DialogTitle>
               {actionIntent?.type === "rotate" ? t("confirm.rotateTitle") : t("confirm.revokeTitle")}

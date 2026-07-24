@@ -63,6 +63,14 @@ const guardrailTypes: GuardrailType[] = [
   "not_null",
   "inline_image_urls",
 ];
+const GUARDRAIL_COLUMN_CLASS = {
+  name: "w-[52%]",
+  type: "hidden w-36 @md:table-cell",
+  execution: "hidden w-48 @lg:table-cell",
+  status: "w-[28%]",
+  updatedAt: "hidden w-40 @lg:table-cell",
+  actions: "w-20 text-end",
+} as const;
 
 function lines(value: string) {
   return value
@@ -374,16 +382,16 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
   return (
     <>
-      <Card>
+      <Card className="@container/guardrails">
         <CardHeader>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-col gap-2 @md:flex-row @md:items-center">
             <SearchField
               containerClassName="min-w-0 flex-1"
               placeholder={t("searchPlaceholder")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
-            <Button type="button" onClick={openCreateDialog}>
+            <Button type="button" className="w-full @md:w-auto" onClick={openCreateDialog}>
               <Plus data-icon="inline-start" aria-hidden="true" />
               {t("actions.new")}
             </Button>
@@ -400,25 +408,25 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
               secondaryAction={!hasSearchQuery ? <HelpLink href={docsHref} /> : undefined}
             />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
+            <div className="overflow-hidden rounded-lg border">
+              <Table className="table-fixed text-xs lg:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("table.name")}</TableHead>
-                    <TableHead>{t("table.type")}</TableHead>
-                    <TableHead>{t("table.execution")}</TableHead>
-                    <TableHead>{t("table.status")}</TableHead>
-                    <TableHead>{t("table.updatedAt")}</TableHead>
-                    <TableHead>{t("table.actions")}</TableHead>
+                    <TableHead className={GUARDRAIL_COLUMN_CLASS.name}>{t("table.name")}</TableHead>
+                    <TableHead className={GUARDRAIL_COLUMN_CLASS.type}>{t("table.type")}</TableHead>
+                    <TableHead className={GUARDRAIL_COLUMN_CLASS.execution}>{t("table.execution")}</TableHead>
+                    <TableHead className={GUARDRAIL_COLUMN_CLASS.status}>{t("table.status")}</TableHead>
+                    <TableHead className={GUARDRAIL_COLUMN_CLASS.updatedAt}>{t("table.updatedAt")}</TableHead>
+                    <TableHead className={GUARDRAIL_COLUMN_CLASS.actions}>{t("table.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tableItems.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="flex min-w-64 flex-col gap-1">
-                          <span className="font-medium">{item.name}</span>
-                          <div className="flex max-w-72 items-center gap-2">
+                      <TableCell className={GUARDRAIL_COLUMN_CLASS.name}>
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <span className="truncate font-medium" title={item.name}>{item.name}</span>
+                          <div className="flex min-w-0 items-center gap-2">
                             <code className="truncate rounded bg-muted px-2 py-1 text-xs text-muted-foreground" dir="ltr">
                               {item.selector}
                             </code>
@@ -426,23 +434,23 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={GUARDRAIL_COLUMN_CLASS.type}>
                         <Badge variant="outline">{labelForType(item.type, t)}</Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={GUARDRAIL_COLUMN_CLASS.execution}>
                         <div className="flex flex-wrap gap-1">
                           <Badge variant="secondary">{labelForOperation(item.operation, t)}</Badge>
                           <Badge variant="secondary">{labelForEnforcement(item.enforcement, t)}</Badge>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={GUARDRAIL_COLUMN_CLASS.status}>
                         <Badge variant={item.enabled ? "default" : "secondary"}>
                           {item.enabled ? t("status.enabled") : t("status.disabled")}
                         </Badge>
                       </TableCell>
-                      <TableCell><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }} /></TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
+                      <TableCell className={GUARDRAIL_COLUMN_CLASS.updatedAt}><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }} /></TableCell>
+                      <TableCell className={GUARDRAIL_COLUMN_CLASS.actions}>
+                        <div className="flex justify-end gap-2">
                           <Button type="button" size="icon" variant="outline" aria-label={t("actions.edit")} onClick={() => openEditDialog(item)}>
                             <Pencil data-icon="inline-start" aria-hidden="true" />
                           </Button>
@@ -467,6 +475,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
         description={t("form.description")}
         size="lg"
         pending={isSaving}
+        closeLabel={t("actions.close")}
         bodyClassName="flex flex-col gap-4"
         footer={(
           <>

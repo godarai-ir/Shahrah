@@ -23,6 +23,7 @@ type ConfirmDialogProps = {
   confirmLabel: React.ReactNode;
   cancelLabel: React.ReactNode;
   pendingLabel?: React.ReactNode;
+  closeLabel?: string;
   onConfirm?: () => void | Promise<void>;
   onConfirmError?: (error: unknown) => void;
   destructive?: boolean;
@@ -41,6 +42,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   pendingLabel,
+  closeLabel,
   onConfirm,
   onConfirmError,
   destructive = true,
@@ -78,6 +80,7 @@ export function ConfirmDialog({
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent
         showCloseButton={!isPending}
+        closeLabel={closeLabel ?? (typeof cancelLabel === "string" ? cancelLabel : undefined)}
         onEscapeKeyDown={(event) => isPending && event.preventDefault()}
         onPointerDownOutside={(event) => isPending && event.preventDefault()}
         {...(!description ? { "aria-describedby": undefined } : {})}

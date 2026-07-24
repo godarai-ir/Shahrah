@@ -15,7 +15,7 @@ type SettingsCardProps = {
 export function SettingsCard({ title, description, actions, footer, children, className }: SettingsCardProps) {
   return (
     <AppCard title={title} description={description} actions={actions} footer={footer} className={cn("max-w-4xl", className)}>
-      <div className="flex flex-col gap-4">{children}</div>
+      <div className="flex min-w-0 flex-col gap-4">{children}</div>
     </AppCard>
   );
 }

@@ -24,7 +24,7 @@
   "model": { "label": "Model", "select": "Select model", "search": "Search name, ID, alias, or provider", "empty": "No matching model was found.", "loading": "Loading models...", "unavailableTitle": "No model is available", "unavailableDescription": "Connect a model provider before your first run.", "noImageModelTitle": "No image-generation model is available", "noImageModelDescription": "Enable a model with the image_generation capability in a provider account or virtual model.", "connect": "Connect model provider", "virtual": "Virtual model" },
   "image": {
     "prompt": "Image prompt",
-    "promptHelp": "Describe the image to generate. Runtime variables such as {{subject}} are supported.",
+    "promptHelp": "Describe the image to generate. Runtime variables such as {subject} are supported.",
     "promptPlaceholder": "A detailed editorial photograph of...",
     "temporaryNotice": "Image drafts and generated assets are temporary in this MVP. Download any result you want to keep; saving to the prompt registry is planned for a future image_prompt contract.",
     "settingsHelp": "Image parameters are sent to the dedicated /v1/images/generations endpoint. Unsupported provider-specific combinations may be rejected upstream.",

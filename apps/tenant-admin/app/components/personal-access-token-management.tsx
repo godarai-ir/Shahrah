@@ -40,6 +40,15 @@ type DeleteIntent =
   | { type: "single"; token: PAT }
   | { type: "all" };
 
+const PAT_COLUMN_CLASS = {
+  name: "w-[42%]",
+  masked: "hidden w-28 @md:table-cell",
+  createdAt: "hidden w-36 @lg:table-cell",
+  lastUsedAt: "hidden w-36 @lg:table-cell",
+  expiresAt: "hidden w-36 @lg:table-cell",
+  status: "w-[30%]",
+  actions: "w-20 text-end",
+} as const;
 
 export default function PersonalAccessTokenManagement(props: {
   initialTokens: PAT[];
@@ -163,7 +172,7 @@ export default function PersonalAccessTokenManagement(props: {
         }
       />
 
-      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating}>
+      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating} closeLabel={t("oneTime.close")}>
         <form className="flex flex-col gap-4" onSubmit={createPAT}>
           <div className="grid gap-2">
             <label className="text-sm font-medium">{t("fields.name")}</label>
@@ -180,38 +189,38 @@ export default function PersonalAccessTokenManagement(props: {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <SearchField containerClassName="w-full sm:w-72" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button variant="outline" size="icon" aria-label={t("actions.refresh")} title={t("actions.refresh")} onClick={() => void load()} disabled={isLoading}><RefreshCcw /></Button>
-              <Button variant="destructive" onClick={() => openDeleteDialog({ type: "all" })}><Trash2 data-icon="inline-start" />{t("actions.revokeAll")}</Button>
+              <Button variant="destructive" className="w-full sm:w-auto" onClick={() => openDeleteDialog({ type: "all" })}><Trash2 data-icon="inline-start" />{t("actions.revokeAll")}</Button>
             </div>
           </div>
 
           {tokens.length === 0 ? (
             <EmptyState icon={KeyRound} title={t("table.empty")} description={t("create.accessHint")} />
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="@container/pats overflow-hidden rounded-lg border border-border">
+              <Table className="table-fixed text-xs lg:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("table.name")}</TableHead>
-                    <TableHead>{t("table.masked")}</TableHead>
-                    <TableHead>{t("table.createdAt")}</TableHead>
-                    <TableHead>{t("table.lastUsedAt")}</TableHead>
-                    <TableHead>{t("table.expiresAt")}</TableHead>
-                    <TableHead>{t("table.status")}</TableHead>
-                    <TableHead>{t("table.actions")}</TableHead>
+                    <TableHead className={PAT_COLUMN_CLASS.name}>{t("table.name")}</TableHead>
+                    <TableHead className={PAT_COLUMN_CLASS.masked}>{t("table.masked")}</TableHead>
+                    <TableHead className={PAT_COLUMN_CLASS.createdAt}>{t("table.createdAt")}</TableHead>
+                    <TableHead className={PAT_COLUMN_CLASS.lastUsedAt}>{t("table.lastUsedAt")}</TableHead>
+                    <TableHead className={PAT_COLUMN_CLASS.expiresAt}>{t("table.expiresAt")}</TableHead>
+                    <TableHead className={PAT_COLUMN_CLASS.status}>{t("table.status")}</TableHead>
+                    <TableHead className={PAT_COLUMN_CLASS.actions}>{t("table.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tokens.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>{item.key_alias}</TableCell>
-                      <TableCell>{item.key_name ?? "-"}</TableCell>
-                      <TableCell><DateTimeValue value={item.created_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
-                      <TableCell><DateTimeValue value={item.last_used_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
-                      <TableCell><DateTimeValue value={item.expires_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
-                      <TableCell><StatusBadge status={item.revoked_at ? "inactive" : "active"}>{item.revoked_at ? t("status.revoked") : t("status.active")}</StatusBadge></TableCell>
-                      <TableCell><Button variant="outline" size="sm" onClick={() => openDeleteDialog({ type: "single", token: item })}>{t("actions.revoke")}</Button></TableCell>
+                      <TableCell className={PAT_COLUMN_CLASS.name}><span className="block truncate" title={item.key_alias}>{item.key_alias}</span></TableCell>
+                      <TableCell className={PAT_COLUMN_CLASS.masked}><span className="block truncate" title={item.key_name ?? "-"}>{item.key_name ?? "-"}</span></TableCell>
+                      <TableCell className={PAT_COLUMN_CLASS.createdAt}><DateTimeValue value={item.created_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                      <TableCell className={PAT_COLUMN_CLASS.lastUsedAt}><DateTimeValue value={item.last_used_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                      <TableCell className={PAT_COLUMN_CLASS.expiresAt}><DateTimeValue value={item.expires_at} locale={locale} format={{ dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tehran" }} /></TableCell>
+                      <TableCell className={PAT_COLUMN_CLASS.status}><StatusBadge status={item.revoked_at ? "inactive" : "active"}>{item.revoked_at ? t("status.revoked") : t("status.active")}</StatusBadge></TableCell>
+                      <TableCell className={PAT_COLUMN_CLASS.actions}><Button variant="outline" size="sm" onClick={() => openDeleteDialog({ type: "single", token: item })}>{t("actions.revoke")}</Button></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -22,6 +22,14 @@ import type { RateLimitRule } from "./ruleTypes";
 import { RateLimitRuleForm } from "./RateLimitRuleForm";
 
 const FEATURE_RATE_LIMIT_RULES_ENABLED = "rate_limit_rules.enabled";
+const RATE_RULE_COLUMN_CLASS = {
+  ruleId: "w-[42%] px-1.5 lg:px-2",
+  limit: "w-[30%] px-1.5 lg:px-2",
+  window: "hidden w-28 px-1.5 @md:table-cell lg:px-2",
+  status: "w-[18%] px-1.5 lg:px-2",
+  updatedAt: "hidden w-40 px-1.5 @lg:table-cell lg:px-2",
+  actions: "w-12 px-1.5 text-end lg:px-2",
+} as const;
 
 type EffectiveEntitlements = {
   features?: Record<string, unknown>;
@@ -173,33 +181,35 @@ export function RateLimitRulesPage() {
         actionLabel: t("upgradeDialog.action"),
       }}
     >
-      <Table className="text-xs lg:text-sm">
+      <Table className="table-fixed text-xs lg:text-sm">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-1.5 lg:px-2">{t("table.ruleId")}</TableHead>
-                  <TableHead className="px-1.5 lg:px-2">{t("table.limit")}</TableHead>
-                  <TableHead className="px-1.5 lg:px-2">{t("table.window")}</TableHead>
-                  <TableHead className="px-1.5 lg:px-2">{t("table.status")}</TableHead>
-                  <TableHead className="px-1.5 lg:px-2">{t("table.updatedAt")}</TableHead>
-                  <TableHead className="px-1.5 lg:px-2">{t("table.actions")}</TableHead>
+                  <TableHead className={RATE_RULE_COLUMN_CLASS.ruleId}>{t("table.ruleId")}</TableHead>
+                  <TableHead className={RATE_RULE_COLUMN_CLASS.limit}>{t("table.limit")}</TableHead>
+                  <TableHead className={RATE_RULE_COLUMN_CLASS.window}>{t("table.window")}</TableHead>
+                  <TableHead className={RATE_RULE_COLUMN_CLASS.status}>{t("table.status")}</TableHead>
+                  <TableHead className={RATE_RULE_COLUMN_CLASS.updatedAt}>{t("table.updatedAt")}</TableHead>
+                  <TableHead className={RATE_RULE_COLUMN_CLASS.actions}>{t("table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((rule) => (
                   <TableRow key={rule.id}>
-                    <TableCell className="px-1.5 font-mono font-medium lg:px-2" dir="ltr">{rule.rule_id}</TableCell>
-                    <TableCell className="px-1.5 lg:px-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono" dir="ltr">{rule.limit.max}</span>
+                    <TableCell className={`${RATE_RULE_COLUMN_CLASS.ruleId} min-w-0 font-mono font-medium`} dir="ltr">
+                      <span className="block truncate" title={rule.rule_id}>{rule.rule_id}</span>
+                    </TableCell>
+                    <TableCell className={RATE_RULE_COLUMN_CLASS.limit}>
+                      <div className="flex min-w-0 flex-col gap-1 @md:flex-row @md:items-center @md:gap-2">
+                        <span className="truncate font-mono" dir="ltr">{rule.limit.max}</span>
                         <Badge variant="outline">{t(`form.options.dimension.${rule.limit.dimension}`)}</Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="px-1.5 lg:px-2">{`${rule.limit.window.value} ${t(`table.windowUnits.${rule.limit.window.unit}`)}`}</TableCell>
-                    <TableCell className="px-1.5 lg:px-2">
+                    <TableCell className={RATE_RULE_COLUMN_CLASS.window}>{`${rule.limit.window.value} ${t(`table.windowUnits.${rule.limit.window.unit}`)}`}</TableCell>
+                    <TableCell className={RATE_RULE_COLUMN_CLASS.status}>
                       <StatusBadge status={rule.enabled ? "active" : "inactive"}>{rule.enabled ? t("status.enabled") : t("status.disabled")}</StatusBadge>
                     </TableCell>
-                    <TableCell className="px-1.5 lg:px-2">{formatJalaliDateTime(rule.updated_at)}</TableCell>
-                    <TableCell className="px-1.5 lg:px-2">
+                    <TableCell className={RATE_RULE_COLUMN_CLASS.updatedAt}>{formatJalaliDateTime(rule.updated_at)}</TableCell>
+                    <TableCell className={RATE_RULE_COLUMN_CLASS.actions}>
                       <RowActionsMenu label={t("table.rowActions", { ruleId: rule.rule_id })} actions={[
                         { label: t("actions.edit"), icon: <Pencil />, onSelect: () => router.push(`/gateway-policies/rate-limiting-rules/${encodeURIComponent(rule.rule_id)}`) },
                         { label: rule.enabled ? t("actions.disable") : t("actions.enable"), icon: <Power />, onSelect: () => void updateRateLimitRuleStatus(rule.rule_id, !rule.enabled).then(load) },

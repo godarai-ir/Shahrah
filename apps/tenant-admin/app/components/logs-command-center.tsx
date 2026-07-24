@@ -375,6 +375,7 @@ export default function LogsCommandCenter({
   initialError,
 }: LogsCommandCenterProps) {
   const t = useTranslations("logs");
+  const common = useTranslations("common");
   const requestLoggingT = useTranslations("settings.requestLogging");
   const locale = useLocale();
   const pathname = usePathname();
@@ -961,7 +962,7 @@ export default function LogsCommandCenter({
       />
       {canManageRequestLogging ? (
         <Sheet open={requestLoggingOpen} onOpenChange={setRequestLoggingOpen}>
-          <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetContent side="left" closeLabel={common("cancel")} className="w-full overflow-y-auto sm:max-w-xl">
             <SheetHeader>
               <SheetTitle>{requestLoggingT("title")}</SheetTitle>
               <SheetDescription>{requestLoggingT("description")}</SheetDescription>
@@ -985,6 +986,7 @@ export default function LogsCommandCenter({
         onClose={closeDetail}
         onCreateReplayDraft={createReplayDraft}
         formatters={formatters}
+        closeLabel={common("cancel")}
         t={t}
       />
     </div>
@@ -1491,39 +1493,67 @@ function LogsDataTable({
   });
 
   return (
-    <Table className="text-xs">
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} style={{ width: header.getSize() }}>
-                {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
+    <div className="@container overflow-x-auto rounded-lg border">
+      <Table className="table-fixed text-xs">
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id} className={logsColumnClassName(header.column.id)}>
+                  {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHead>
               ))}
             </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
-              {emptyLabel}
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className={logsColumnClassName(cell.column.id)}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
+                {emptyLabel}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
+}
+
+function logsColumnClassName(columnID: string): string {
+  switch (columnID) {
+    case "status":
+      return "w-20";
+    case "started_at":
+      return "w-36";
+    case "model":
+      return "hidden @sm:table-cell";
+    case "provider":
+      return "hidden w-28 @lg:table-cell";
+    case "latency":
+      return "hidden w-24 @2xl:table-cell";
+    case "tokens":
+      return "hidden w-20 @3xl:table-cell";
+    case "cost":
+      return "hidden w-28 @4xl:table-cell";
+    case "route":
+    case "payload":
+      return "hidden @5xl:table-cell";
+    case "actions":
+      return "w-14";
+    default:
+      return "hidden @5xl:table-cell";
+  }
 }
 
 function getExpandedChartMeta(chart: ExpandedChartKey, t: ReturnType<typeof useTranslations>) {
@@ -1794,6 +1824,7 @@ const LogDetailSheet = memo(function LogDetailSheet({
   onClose,
   onCreateReplayDraft,
   formatters,
+  closeLabel,
   t,
 }: {
   selectedLog: RequestLog | null;
@@ -1803,11 +1834,12 @@ const LogDetailSheet = memo(function LogDetailSheet({
   onClose: () => void;
   onCreateReplayDraft: () => Promise<void>;
   formatters: LogsFormatter;
+  closeLabel: string;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
     <Sheet open={selectedLog !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent side="left" closeLabel={closeLabel} className="w-full overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>{t("detailTitle")}</SheetTitle>
           <SheetDescription asChild>
@@ -1840,9 +1872,9 @@ const LogDetailSheet = memo(function LogDetailSheet({
               </Button>
             </div>
             {replayDraft ? <ReplayDraftPanel draft={replayDraft} t={t} /> : null}
-            <Tabs defaultValue="summary">
-              <TabsList asChild className="ms-auto">
-                <ButtonGroup aria-label={t("detailTitle")}>
+            <Tabs defaultValue="summary" className="min-w-0">
+              <TabsList asChild className="w-full">
+                <ButtonGroup aria-label={t("detailTitle")} className="grid w-full grid-cols-2 sm:flex">
                   <TabsTrigger value="summary">{t("tabs.summary")}</TabsTrigger>
                   <TabsTrigger value="request">{t("content.request")}</TabsTrigger>
                   <TabsTrigger value="response">{t("content.response")}</TabsTrigger>

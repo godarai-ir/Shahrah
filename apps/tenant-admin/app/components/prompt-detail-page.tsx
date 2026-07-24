@@ -284,8 +284,8 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
       {isLoading ? (
         <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{t("detail.loading")}</div>
       ) : selectedVersion ? (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PromptDetailTab)} className="rounded-2xl border bg-card p-4">
-          <TabsList variant="line" className="h-auto w-full justify-start gap-2 rounded-none border-b p-0">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PromptDetailTab)} className="min-w-0 overflow-hidden rounded-2xl border bg-card p-4">
+          <TabsList variant="line" className="grid h-auto w-full grid-cols-2 gap-0 rounded-none border-b p-0 sm:flex sm:justify-start sm:gap-2">
             <TabsTrigger value="prompt" className="rounded-none px-2 py-2 data-[state=active]:text-foreground">
               {t("detail.tabs.prompt")}
             </TabsTrigger>
@@ -784,25 +784,27 @@ function PromptCompareDialog(props: {
             />
           </div>
 
-          <div className="overflow-hidden rounded-xl border">
-            <div className="grid grid-cols-2 border-b bg-muted/30">
-              <div className="border-e px-4 py-3 text-center font-medium">
-                {props.baseVersion ? props.t("versions.versionValue", { version: props.baseVersion.version }) : "-"}
+          <div className="overflow-x-auto rounded-xl border">
+            <div className="min-w-2xl">
+              <div className="grid grid-cols-2 border-b bg-muted/30">
+                <div className="border-e px-4 py-3 text-center font-medium">
+                  {props.baseVersion ? props.t("versions.versionValue", { version: props.baseVersion.version }) : "-"}
+                </div>
+                <div className="px-4 py-3 text-center font-medium">
+                  {props.targetVersion ? props.t("versions.versionValue", { version: props.targetVersion.version }) : "-"}
+                </div>
               </div>
-              <div className="px-4 py-3 text-center font-medium">
-                {props.targetVersion ? props.t("versions.versionValue", { version: props.targetVersion.version }) : "-"}
-              </div>
-            </div>
-            <div className="grid grid-cols-2" dir="ltr">
-              <div className="border-e">
-                {props.rows.map((row, index) => (
-                  <DiffLine key={`left-${index}`} side="left" row={row} />
-                ))}
-              </div>
-              <div>
-                {props.rows.map((row, index) => (
-                  <DiffLine key={`right-${index}`} side="right" row={row} />
-                ))}
+              <div className="grid grid-cols-2" dir="ltr">
+                <div className="border-e">
+                  {props.rows.map((row, index) => (
+                    <DiffLine key={`left-${index}`} side="left" row={row} />
+                  ))}
+                </div>
+                <div>
+                  {props.rows.map((row, index) => (
+                    <DiffLine key={`right-${index}`} side="right" row={row} />
+                  ))}
+                </div>
               </div>
             </div>
           </div>

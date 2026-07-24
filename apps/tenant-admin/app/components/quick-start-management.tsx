@@ -363,16 +363,19 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
             </StatusBadge>
           }
         >
-          <ol className="flex flex-col gap-4">
+          <ol className="flex flex-col gap-3 sm:gap-4">
             {journey.steps.map((step, index) => (
               <Fragment key={step.id}>
-                <li className="relative ps-16">
+                <li className="relative ps-12 sm:ps-16">
                     {index < journey.steps.length - 1 ? (
-                      <span className="absolute bottom-0 start-6 top-14 w-px bg-border" aria-hidden="true" />
+                      <span
+                        className="absolute bottom-0 start-5 top-12 w-px bg-border sm:start-6 sm:top-14"
+                        aria-hidden="true"
+                      />
                     ) : null}
                     <span
                       className={cn(
-                        "absolute start-0 top-1 flex size-12 items-center justify-center rounded-lg border text-sm font-semibold",
+                        "absolute start-0 top-1 flex size-10 items-center justify-center rounded-lg border text-sm font-semibold sm:size-12",
                         step.status === "done"
                           ? "border-success/30 bg-success-muted text-success"
                           : step.status === "active"
@@ -384,9 +387,9 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                     >
                       {step.status === "done" ? <CheckCircle2 className="size-5" /> : formatCount(index + 1)}
                     </span>
-                    <div className="bg-card p-4">
+                    <div className="bg-card py-1 sm:p-4">
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="text-base font-semibold">{t(`steps.${step.id}.title`)}</h3>
@@ -412,23 +415,23 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                           />
                         </div>
                         <div className="min-w-0">
-                          <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                          <p className="text-sm leading-7 text-muted-foreground">
                             {t(`steps.${step.id}.description`)}
                           </p>
                           {step.id === "connect_provider" && featuredProviders.length > 0 ? (
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                               {featuredProviders.map((providerItem) => (
                                 <Link
                                   key={providerItem.provider}
                                   href={`/provider-accounts/new?provider=${encodeURIComponent(providerItem.provider)}`}
-                                  className="group flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-3 transition-colors hover:border-primary/30 hover:bg-accent"
+                                  className="group flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-3 transition-colors hover:border-primary/30 hover:bg-accent"
                                 >
-                                  <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted">
+                                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
                                     <ProviderLogo
                                       provider={providerItem.provider}
                                       displayName={providerItem.display_name}
                                       logoURL={providerItem.logo_url}
-                                      size={26}
+                                      size={24}
                                     />
                                   </span>
                                   <span className="min-w-0 flex-1 text-sm font-medium leading-6">
@@ -473,9 +476,18 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
           contentClassName="@container"
         >
           {journey.exploreCards.length > 0 ? (
-            <div className="grid gap-3 @[28rem]:grid-cols-2 @[48rem]:grid-cols-3 @[64rem]:grid-cols-4 @[82rem]:grid-cols-5">
-              {journey.exploreCards.map((cardID) => (
-                <ExploreCard key={cardID} cardID={cardID} t={t} />
+            <div className="grid grid-cols-2 gap-3 @[48rem]:grid-cols-3 @[64rem]:grid-cols-4">
+              {journey.exploreCards.map((cardID, index) => (
+                <ExploreCard
+                  key={cardID}
+                  cardID={cardID}
+                  t={t}
+                  className={
+                    journey.exploreCards.length % 2 === 1 && index === journey.exploreCards.length - 1
+                      ? "col-span-2 @[48rem]:col-span-1"
+                      : undefined
+                  }
+                />
               ))}
             </div>
           ) : (
@@ -752,7 +764,7 @@ function HeaderDescription(props: {
 
 function StepSeparator() {
   return (
-    <li className="flex justify-center ps-16" aria-hidden="true">
+    <li className="hidden justify-center ps-16 sm:flex" aria-hidden="true">
       <div className="flex w-2/3 max-w-sm items-center gap-3 text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-info">
@@ -774,7 +786,7 @@ function StepActionButton(props: {
   const isDisabled = props.status === "unavailable" || props.status === "locked";
   const label = props.t(`steps.${props.stepID}.${props.status === "done" ? "manageAction" : "action"}`);
   const icon = props.action.type === "anchor" ? <TerminalSquare data-icon="inline-end" /> : <KeyRound data-icon="inline-end" />;
-  const buttonClassName = "shrink-0 max-w-full px-2.5 sm:px-3";
+  const buttonClassName = "w-full max-w-full shrink-0 px-2.5 sm:w-auto sm:px-3";
   const textClassName = "inline text-xs sm:text-sm";
 
   if (props.action.type === "link") {
@@ -819,6 +831,7 @@ function StepActionButton(props: {
 
 function ExploreCard(props: {
   cardID: QuickStartExploreCardID;
+  className?: string;
   t: TranslateFn;
 }) {
   const hrefMap: Record<QuickStartExploreCardID, string> = {
@@ -850,20 +863,21 @@ function ExploreCard(props: {
   return (
     <Link
       href={hrefMap[props.cardID]}
-      className="group flex h-full min-h-32 flex-col rounded-lg border border-card-border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent @[28rem]:min-h-36"
+      className={cn(
+        "group flex h-full min-h-36 flex-col rounded-lg border border-card-border bg-card p-3 transition-colors hover:border-primary/30 hover:bg-accent sm:p-4",
+        props.className,
+      )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Icon aria-hidden="true" />
-          </span>
-          <p className="min-w-0 text-sm font-semibold leading-6">
-            {props.t(`explore.cards.${props.cardID}.title`)}
-          </p>
-        </div>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <Icon aria-hidden="true" />
+        </span>
         <ArrowUpRight className="mt-0.5 shrink-0 text-muted-foreground transition group-hover:text-foreground rtl:-rotate-90" aria-hidden="true" />
       </div>
-      <p className="mt-3 text-xs leading-6 text-muted-foreground">
+      <p className="mt-3 min-w-0 text-sm font-semibold leading-6">
+        {props.t(`explore.cards.${props.cardID}.title`)}
+      </p>
+      <p className="mt-2 text-xs leading-6 text-muted-foreground">
         {props.t(`explore.cards.${props.cardID}.description`)}
       </p>
     </Link>

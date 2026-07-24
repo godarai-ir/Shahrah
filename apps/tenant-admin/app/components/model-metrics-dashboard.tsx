@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Info, RotateCcw } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Area,
@@ -79,6 +80,7 @@ type ModelMetricsFacetsResponse = {
 
 export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps) {
   const locale = useLocale();
+  const pathname = usePathname();
   const t = useTranslations("metrics");
   const common = useTranslations("common");
 
@@ -219,6 +221,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     range?: { from: string; to: string },
     filterOverride?: { model: string; provider: string; requestID: string },
     viewByOverride?: ViewBy,
+    options?: { syncURL?: boolean },
   ) {
     const resolvedRange = range ?? resolveSelectedRange(rangePreset, from, to);
     const queryFrom = resolvedRange.from;
@@ -228,6 +231,13 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     const queryRequestIDFilter = filterOverride?.requestID ?? requestIDFilter;
     const queryViewBy = viewByOverride ?? viewBy;
     if (!queryFrom || !queryTo) return;
+    if (options?.syncURL) {
+      syncMetricsURL({ from: queryFrom, to: queryTo }, {
+        model: queryModelFilter,
+        provider: queryProviderFilter,
+        requestID: queryRequestIDFilter,
+      });
+    }
     if (queryFrom !== from) setFrom(queryFrom);
     if (queryTo !== to) setTo(queryTo);
 
@@ -367,7 +377,19 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     setRequestIDFilter("");
     setViewBy("modelName");
     setPct("p99");
+    window.history.replaceState(window.history.state, "", pathname);
     void runQuery(nextRange, { model: "", provider: "", requestID: "" });
+  }
+
+  function syncMetricsURL(range: { from: string; to: string }, filters: { model: string; provider: string; requestID: string }) {
+    const params = new URLSearchParams();
+    params.set("from", range.from);
+    params.set("to", range.to);
+    if (filters.model.trim()) params.set("model", filters.model.trim());
+    if (filters.provider.trim()) params.set("provider", filters.provider.trim());
+    if (filters.requestID.trim()) params.set("request_id", filters.requestID.trim());
+    const nextQuery = params.toString();
+    window.history.replaceState(window.history.state, "", nextQuery ? `${pathname}?${nextQuery}` : pathname);
   }
 
   function handleViewByChange(nextViewBy: ViewBy) {
@@ -473,7 +495,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           </Field>
           <div className="flex items-end 2xl:col-span-2">
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:justify-end">
-              <Button type="button" size="sm" onClick={() => void runQuery()} disabled={loading}>
+              <Button type="button" size="sm" onClick={() => void runQuery(undefined, undefined, undefined, { syncURL: true })} disabled={loading}>
                 {loading ? common("loading") : t("actions.applyFilters")}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={resetFilters} disabled={loading}>
@@ -508,7 +530,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
         <MetricCard label={<InfoMetricLabel label={t("cards.cachedTokens")} tooltip={t("cards.cachedTokensHint")} />} value={<CompactValue display={formatCompactNumber(summary.avoidedTokens, { locale })} />} density="compact" className="shadow-none" />
       </section>
 
-      <section aria-label={t("sections.charts")} className="grid gap-3 xl:grid-cols-2">
+      <section aria-label={t("sections.charts")} className="grid min-w-0 gap-3 xl:grid-cols-2">
         <ChartCard title={requestChartTitle}>
           <ChartContainer config={seriesConfig} className="h-[240px] w-full md:h-[260px]">
             <AreaChart data={chartData.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -656,8 +678,8 @@ function ChartCard({
     <AppCard
       title={<span className="truncate text-sm">{title}</span>}
       actions={action}
-      contentClassName="pt-0"
-      className="shadow-none"
+      contentClassName="min-w-0 overflow-hidden pt-0"
+      className="min-w-0 overflow-hidden shadow-none"
     >
       {children}
     </AppCard>

@@ -14,7 +14,6 @@ import {
   Layers3,
   Network,
   Plus,
-  RefreshCw,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
@@ -39,8 +38,10 @@ import { DataListPanel } from "@/components/app-ui/DataListPanel";
 import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
 import { DebouncedTextFilter, FilterField } from "@/components/app-ui/FilterField";
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
+import { EmptyState } from "@/components/app-ui/EmptyState";
 import { OperationNotice, type OperationNoticeValue } from "@/components/app-ui/OperationNotice";
 import { PageContainer } from "@/components/app-ui/PageContainer";
+import { RefreshButton } from "@/components/app-ui/RefreshButton";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { TablePagination } from "@/components/app-ui/TablePagination";
@@ -366,7 +367,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
       />
 
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 md:flex-row md:items-center md:justify-between">
-        <Tabs value={state.tab} onValueChange={changeTab} className="max-w-full overflow-x-auto">
+        <Tabs value={state.tab} onValueChange={changeTab} className="min-w-0 max-w-full">
           <TabsList variant="line" aria-label={t("tabs.label")}>
             <TabsTrigger value="providers">
               <Network data-icon="inline-start" aria-hidden="true" />
@@ -381,18 +382,16 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
           </TabsList>
         </Tabs>
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
+          <RefreshButton
+            label={t("actions.refresh")}
+            loadingLabel={t("loading")}
+            isLoading={loadingAccounts || (state.tab === "models" && loadingModels)}
             onClick={() => {
               setLoadingAccounts(true);
               if (state.tab === "models") setLoadingModels(true);
               setReloadKey((value) => value + 1);
             }}
-          >
-            <RefreshCw data-icon="inline-start" aria-hidden="true" />
-            {t("actions.refresh")}
-          </Button>
+          />
           <Button asChild>
             <Link href="/provider-accounts/new">
               <Plus data-icon="inline-start" aria-hidden="true" />
@@ -404,9 +403,11 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
 
       <DataListPanel
         aria-label={state.tab === "providers" ? t("providers.ariaLabel") : t("models.ariaLabel")}
+        toolbarClassName="@container"
+        contentClassName="@container"
         toolbar={
           <div className="flex min-w-0 flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-4">
               <DebouncedTextFilter
                 label={t("filters.search")}
                 value={state.q}
@@ -434,7 +435,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
                 />
               </FilterField>
               {state.tab === "providers" ? (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2 @sm:grid-cols-2">
                   <FilterField label={t("filters.credential")} htmlFor="model-catalog-credential-filter">
                     <FilterCombobox
                       id="model-catalog-credential-filter"
@@ -465,7 +466,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
                   </FilterField>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2 @sm:grid-cols-2">
                   <FilterField label={t("filters.sort")} htmlFor="model-catalog-sort">
                     <FilterCombobox
                       id="model-catalog-sort"
@@ -518,24 +519,24 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
         loadingRows={7}
         empty={state.tab === "providers" ? filteredAccounts.length === 0 : models.length === 0}
         emptyState={
-          <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
-            <div className="mx-auto flex max-w-md flex-col items-center gap-3">
-              {state.tab === "providers" ? <Network className="size-8 text-muted-foreground" aria-hidden="true" /> : <Boxes className="size-8 text-muted-foreground" aria-hidden="true" />}
-              <h2 className="font-semibold">
-                {noResults || state.q || filterChips.length
-                  ? t("empty.noResultsTitle")
-                  : state.tab === "providers"
-                    ? t("empty.noProvidersTitle")
-                    : t("empty.noModelsTitle")}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {noResults || state.q || filterChips.length
-                  ? t("empty.noResultsDescription")
-                  : state.tab === "providers"
-                    ? t("empty.noProvidersDescription")
-                    : t("empty.noModelsDescription")}
-              </p>
-              {state.q || filterChips.length ? (
+          <EmptyState
+            icon={state.tab === "providers" ? Network : Boxes}
+            title={
+              noResults || state.q || filterChips.length
+                ? t("empty.noResultsTitle")
+                : state.tab === "providers"
+                  ? t("empty.noProvidersTitle")
+                  : t("empty.noModelsTitle")
+            }
+            description={
+              noResults || state.q || filterChips.length
+                ? t("empty.noResultsDescription")
+                : state.tab === "providers"
+                  ? t("empty.noProvidersDescription")
+                  : t("empty.noModelsDescription")
+            }
+            primaryAction={
+              state.q || filterChips.length ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -550,9 +551,9 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
                     {t("actions.addProvider")}
                   </Link>
                 </Button>
-              )}
-            </div>
-          </div>
+              )
+            }
+          />
         }
         pagination={
           state.tab === "models" && filteredModelTotal > MODEL_PAGE_SIZE ? (
@@ -680,16 +681,16 @@ function ProvidersTable({
   const locale = useLocale();
 
   return (
-    <Table>
+    <Table className="table-fixed">
       <TableHeader>
         <TableRow>
           <TableHead>{t("columns.name")}</TableHead>
-          <TableHead className="hidden lg:table-cell">{t("columns.connectionIdentifier")}</TableHead>
-          <TableHead className="hidden md:table-cell">{t("columns.models")}</TableHead>
-          <TableHead className="hidden lg:table-cell">{t("columns.credential")}</TableHead>
-          <TableHead>{t("columns.readiness")}</TableHead>
-          <TableHead className="hidden xl:table-cell">{t("columns.updated")}</TableHead>
-          <TableHead className="w-12"><span className="sr-only">{t("columns.actions")}</span></TableHead>
+          <TableHead className="hidden w-48 @4xl:table-cell">{t("columns.connectionIdentifier")}</TableHead>
+          <TableHead className="hidden w-20 @sm:table-cell">{t("columns.models")}</TableHead>
+          <TableHead className="hidden w-32 @2xl:table-cell">{t("columns.credential")}</TableHead>
+          <TableHead className="w-36">{t("columns.readiness")}</TableHead>
+          <TableHead className="hidden w-44 @5xl:table-cell">{t("columns.updated")}</TableHead>
+          <TableHead className="w-16"><span className="sr-only">{t("columns.actions")}</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -715,7 +716,7 @@ function ProvidersTable({
                   </span>
                 </Link>
               </TableCell>
-              <TableCell className="hidden lg:table-cell">
+              <TableCell className="hidden @4xl:table-cell">
                 <div className="flex min-w-0 items-center gap-1" dir="ltr">
                   <code className="truncate font-mono text-xs" title={`${account.provider}:${account.name}`}>
                     {account.provider}:{account.name}
@@ -728,8 +729,8 @@ function ProvidersTable({
                   />
                 </div>
               </TableCell>
-              <TableCell className="hidden md:table-cell">{summary?.model_count ?? 0}</TableCell>
-              <TableCell className="hidden lg:table-cell">
+              <TableCell className="hidden @sm:table-cell">{summary?.model_count ?? 0}</TableCell>
+              <TableCell className="hidden @2xl:table-cell">
                 <StatusBadge status="neutral">
                   {account.use_platform_managed_credentials ? t("credential.managed") : t("credential.byok")}
                 </StatusBadge>
@@ -737,7 +738,7 @@ function ProvidersTable({
               <TableCell>
                 <ReadinessBadge readiness={summary?.readiness ?? "needs_models"} />
               </TableCell>
-              <TableCell className="hidden whitespace-nowrap text-muted-foreground xl:table-cell">
+              <TableCell className="hidden whitespace-nowrap text-muted-foreground @5xl:table-cell">
                 <DateTimeValue value={account.updated_at} locale={locale} fallback={t("values.na")} />
               </TableCell>
               <TableCell>
@@ -798,16 +799,16 @@ type ModelsTableProps = {
 function ModelsTable({ models, providerBySlug, onOpen }: ModelsTableProps) {
   const t = useTranslations("modelCatalog");
   return (
-    <Table>
+    <Table className="table-fixed">
       <TableHeader>
         <TableRow>
           <TableHead>{t("columns.model")}</TableHead>
-          <TableHead className="hidden md:table-cell">{t("columns.provider")}</TableHead>
-          <TableHead>{t("columns.availability")}</TableHead>
-          <TableHead className="hidden lg:table-cell">{t("columns.modalities")}</TableHead>
-          <TableHead className="hidden xl:table-cell">{t("columns.context")}</TableHead>
-          <TableHead className="hidden lg:table-cell">{t("columns.pricing")}</TableHead>
-          <TableHead className="w-12"><span className="sr-only">{t("columns.actions")}</span></TableHead>
+          <TableHead className="hidden @lg:table-cell">{t("columns.provider")}</TableHead>
+          <TableHead className="w-28">{t("columns.availability")}</TableHead>
+          <TableHead className="hidden @2xl:table-cell">{t("columns.modalities")}</TableHead>
+          <TableHead className="hidden @5xl:table-cell">{t("columns.context")}</TableHead>
+          <TableHead className="hidden w-32 @2xl:table-cell">{t("columns.pricing")}</TableHead>
+          <TableHead className="w-16"><span className="sr-only">{t("columns.actions")}</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -835,7 +836,7 @@ function ModelsTable({ models, providerBySlug, onOpen }: ModelsTableProps) {
                   </span>
                 </button>
               </TableCell>
-              <TableCell className="hidden md:table-cell">
+              <TableCell className="hidden @lg:table-cell">
                 <div className="flex items-center gap-2" dir="ltr">
                   <ProviderLogo
                     provider={model.provider}
@@ -848,7 +849,7 @@ function ModelsTable({ models, providerBySlug, onOpen }: ModelsTableProps) {
               <TableCell>
                 <AvailabilityPopover model={model} onOpen={onOpen} />
               </TableCell>
-              <TableCell className="hidden lg:table-cell">
+              <TableCell className="hidden @2xl:table-cell">
                 <div className="flex max-w-60 flex-wrap gap-1">
                   {[...(model.input_modalities ?? []), ...(model.output_modalities ?? [])]
                     .filter((value, index, values) => values.indexOf(value) === index)
@@ -859,8 +860,8 @@ function ModelsTable({ models, providerBySlug, onOpen }: ModelsTableProps) {
                     ))}
                 </div>
               </TableCell>
-              <TableCell className="hidden xl:table-cell" dir="ltr">{formatContext(model.context_window, t("values.na"))}</TableCell>
-              <TableCell className="hidden lg:table-cell">
+              <TableCell className="hidden @5xl:table-cell" dir="ltr">{formatContext(model.context_window, t("values.na"))}</TableCell>
+              <TableCell className="hidden @2xl:table-cell">
                 <div className="flex flex-col text-xs" dir="ltr">
                   <span>{t("pricing.input")}: {formatPrice(availability?.effective_pricing?.input_usd_per_1m, t("values.na"))}</span>
                   <span>{t("pricing.output")}: {formatPrice(availability?.effective_pricing?.output_usd_per_1m, t("values.na"))}</span>

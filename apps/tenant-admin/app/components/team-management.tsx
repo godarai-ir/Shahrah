@@ -65,6 +65,14 @@ const DEFAULT_PERMISSIONS = ["/key/info", "/key/health"];
 const WORKSPACE_TYPES = ["production", "staging", "development", "research", "internal", "general"] as const;
 const WORKSPACE_TYPE_SET = new Set<string>(WORKSPACE_TYPES);
 const PAGE_SIZE = 25;
+const TEAM_COLUMN_CLASS = {
+  team: "w-[48%]",
+  orgUnit: "hidden w-40 @md:table-cell",
+  workspaceType: "hidden w-28 @lg:table-cell",
+  status: "w-[32%]",
+  updated: "hidden w-24 @lg:table-cell",
+  actions: "w-14 text-end",
+} as const;
 const FEATURE_TEAMS_ENABLED = "teams.enabled";
 
 const emptyForm: TeamForm = {
@@ -407,18 +415,18 @@ export default function TeamManagement({
             <AppSelectField ariaLabel={t("filters.sortLabel")} value={sortBy} onValueChange={setSortBy} triggerClassName="h-10 w-full" options={[{ value: "recent", label: t("sort.recent") }, { value: "name", label: t("sort.name") }, { value: "members", label: t("sort.members") }]} />
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader><TableRow><TableHead>{t("table.team")}</TableHead><TableHead>{t("table.orgUnit")}</TableHead><TableHead>{t("table.workspaceType")}</TableHead><TableHead>{t("table.status")}</TableHead><TableHead>{t("table.updated")}</TableHead><TableHead className="w-10 text-end"> </TableHead></TableRow></TableHeader>
+          <div className="@container/teams overflow-hidden rounded-lg border border-border">
+            <Table className="table-fixed text-xs lg:text-sm">
+              <TableHeader><TableRow><TableHead className={TEAM_COLUMN_CLASS.team}>{t("table.team")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.orgUnit}>{t("table.orgUnit")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.workspaceType}>{t("table.workspaceType")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.status}>{t("table.status")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.updated}>{t("table.updated")}</TableHead><TableHead className={TEAM_COLUMN_CLASS.actions}> </TableHead></TableRow></TableHeader>
               <TableBody>
                 {isLoading && filtered.length === 0 ? <TableLoadingRows colSpan={6} label={t("table.loading")} /> : filtered.length === 0 ? <TableEmptyRow colSpan={6} icon={Users} title={t("empty.title")} description={t("empty.description")} primaryAction={canCreateTeam ? <Button type="button" onClick={handleCreateTeam} disabled={!hasLoadedEntitlements}><Plus data-icon="inline-start" />{t("actions.new")}</Button> : undefined} /> : filtered.map((team) => (
                   <TableRow key={team.id} className={cn("cursor-pointer", selectedTeamID === team.id && "bg-muted/50")} onClick={() => setSelectedTeamID(team.id)}>
-                    <TableCell><div className="min-w-44"><p className="truncate font-medium">{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground">{team.alias}</p></div></TableCell>
-                    <TableCell>{getOrgUnitName(team, orgUnits, t)}</TableCell>
-                    <TableCell><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
-                    <TableCell>{getStatus(team) === "blocked" ? <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge> : <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>}</TableCell>
-                    <TableCell><DateTimeValue value={team.updated_at} locale={locale} format={{ month: "short", day: "numeric" }} /></TableCell>
-                    <TableCell className="text-end">
+                    <TableCell className={TEAM_COLUMN_CLASS.team}><div className="min-w-0"><p className="truncate font-medium" title={getTeamName(team)}>{getTeamName(team)}</p><p className="truncate text-xs text-muted-foreground" title={team.alias}>{team.alias}</p></div></TableCell>
+                    <TableCell className={TEAM_COLUMN_CLASS.orgUnit}>{getOrgUnitName(team, orgUnits, t)}</TableCell>
+                    <TableCell className={TEAM_COLUMN_CLASS.workspaceType}><Badge variant="outline">{t(`workspace.${getWorkspaceType(team)}`)}</Badge></TableCell>
+                    <TableCell className={TEAM_COLUMN_CLASS.status}>{getStatus(team) === "blocked" ? <AppStatusBadge status="error">{t("status.blocked")}</AppStatusBadge> : <AppStatusBadge status="active">{t("status.active")}</AppStatusBadge>}</TableCell>
+                    <TableCell className={TEAM_COLUMN_CLASS.updated}><DateTimeValue value={team.updated_at} locale={locale} format={{ month: "short", day: "numeric" }} /></TableCell>
+                    <TableCell className={TEAM_COLUMN_CLASS.actions}>
                       <RowActionsMenu
                         label={t("table.actions")}
                         actions={[
@@ -462,15 +470,15 @@ export default function TeamManagement({
         </div>
       </section>
 
-      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} pending={isSaving}>
+      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
         <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
       </FormSheet>
 
-      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} pending={isSaving}>
+      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
         <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} />
       </FormSheet>
 
-      <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="left" className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
+      <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="left" closeLabel={t("actions.cancel")} className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
         <form onSubmit={addMember} className="mt-6 flex flex-col gap-3">
           <FieldGroup className="gap-3">
             <Field>

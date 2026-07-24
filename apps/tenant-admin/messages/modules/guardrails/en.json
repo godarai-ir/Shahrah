@@ -17,7 +17,8 @@
     "copied": "Copied",
     "save": "Save",
     "saving": "Saving...",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "table": {
     "name": "Name",

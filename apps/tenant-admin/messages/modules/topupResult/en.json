@@ -8,5 +8,12 @@
     "authority": "Gateway Authority",
     "reason": "Reason"
   },
+  "status": {
+    "success": "Successful",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "pending": "Pending",
+    "unknown": "Unknown"
+  },
   "backToTopup": "Back to top-up"
 }

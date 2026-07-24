@@ -48,6 +48,11 @@ export default function PromptRegistryListPage() {
       <PromptRegistryList
         isLoading={isLoading}
         locale={locale}
+        onClearSearch={() => {
+          setQuery("");
+          setPageOffset(0);
+          void loadPrompts("", 0, pageSize);
+        }}
         onDelete={setPendingDeletePrompt}
         onNextPage={() => {
           const nextOffset = pageOffset + pageSize;

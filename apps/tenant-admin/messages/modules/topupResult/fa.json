@@ -8,5 +8,12 @@
     "authority": "Authority درگاه",
     "reason": "دلیل"
   },
+  "status": {
+    "success": "موفق",
+    "failed": "ناموفق",
+    "cancelled": "لغوشده",
+    "pending": "در انتظار",
+    "unknown": "نامشخص"
+  },
   "backToTopup": "بازگشت به صفحه شارژ"
 }

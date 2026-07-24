@@ -31,6 +31,7 @@ export default async function TopUpResultPage(props: ResultPageProps) {
   const authority = first(searchParams.authority);
 
   const success = status === "success";
+  const statusLabel = labelForStatus(status, t);
 
   return (
     <AdminShell
@@ -42,7 +43,7 @@ export default async function TopUpResultPage(props: ResultPageProps) {
         <dl className="flex flex-col gap-2 text-sm">
           <div className="flex items-center justify-between gap-3 border-b pb-2">
             <dt className="text-muted-foreground">{t("fields.status")}</dt>
-            <dd className="font-medium">{status}</dd>
+            <dd className="font-medium">{statusLabel}</dd>
           </div>
           {refID ? (
             <div className="flex items-center justify-between gap-3 border-b pb-2">
@@ -79,4 +80,22 @@ function first(value: string | string[] | undefined): string | undefined {
     return value[0];
   }
   return value;
+}
+
+function labelForStatus(status: string, t: Awaited<ReturnType<typeof getTranslations<"topupResult">>>) {
+  switch (status) {
+    case "success":
+      return t("status.success");
+    case "failed":
+      return t("status.failed");
+    case "cancelled":
+    case "canceled":
+      return t("status.cancelled");
+    case "pending":
+      return t("status.pending");
+    case "unknown":
+      return t("status.unknown");
+    default:
+      return status;
+  }
 }

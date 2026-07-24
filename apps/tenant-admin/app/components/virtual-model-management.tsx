@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, Save, Search, Trash2, XCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, Route, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppNumberField, ChipInput, ConfirmDialog, DateTimeValue, FormSheet, IdentifierField, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { AppNumberField, ChipInput, ConfirmDialog, DateTimeValue, EmptyState, FormSheet, IdentifierField, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet, FieldTitle } from "@/components/ui/field";
@@ -589,32 +589,42 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
               <Skeleton className="h-9 w-full rounded-md" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">{t("empty.title")}</p>
-              <p className="mt-1">
-                {t("empty.description")}{" "}
-                <a
-                  href={docsHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {t("empty.guide")}
-                </a>
-              </p>
-            </div>
+            <EmptyState
+              icon={Route}
+              title={query ? t("empty.noResultsTitle") : t("empty.title")}
+              description={query ? t("empty.noResultsDescription") : t("empty.description")}
+              primaryAction={
+                query ? (
+                  <Button type="button" variant="outline" onClick={() => setQuery("")}>
+                    {t("actions.clearSearch")}
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={startCreate}>
+                    <Plus data-icon="inline-start" />
+                    {t("actions.new")}
+                  </Button>
+                )
+              }
+              secondaryAction={
+                <Button variant="outline" asChild>
+                  <a href={docsHref} target="_blank" rel="noreferrer">
+                    {t("empty.guide")}
+                  </a>
+                </Button>
+              }
+            />
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
+            <div className="@container overflow-x-auto rounded-lg border">
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("list.alias")}</TableHead>
-                    <TableHead>{t("list.strategy")}</TableHead>
-                    <TableHead>{t("list.targets")}</TableHead>
-                    <TableHead>{t("list.updatedAt")}</TableHead>
-                    <TableHead>{t("list.createdBy")}</TableHead>
-                    <TableHead>{t("list.status")}</TableHead>
-                    <TableHead className="w-[1%] whitespace-nowrap text-center">{t("list.actions")}</TableHead>
+                    <TableHead className="hidden w-24 @sm:table-cell">{t("list.strategy")}</TableHead>
+                    <TableHead className="hidden w-20 @md:table-cell">{t("list.targets")}</TableHead>
+                    <TableHead className="hidden w-40 @4xl:table-cell">{t("list.updatedAt")}</TableHead>
+                    <TableHead className="hidden w-48 @4xl:table-cell">{t("list.createdBy")}</TableHead>
+                    <TableHead className="w-24">{t("list.status")}</TableHead>
+                    <TableHead className="w-16 whitespace-nowrap text-center">{t("list.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -626,10 +636,10 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                       <TableCell>
                         <ModelNameValue value={item.alias} onCopyError={() => setNotice({ kind: "error", message: t("messages.copyAliasError") })} />
                       </TableCell>
-                      <TableCell>{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
-                      <TableCell>{item.targets?.length ?? 0}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground"><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }} /></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
+                      <TableCell className="hidden @sm:table-cell">{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
+                      <TableCell className="hidden @md:table-cell">{item.targets?.length ?? 0}</TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground @4xl:table-cell"><DateTimeValue value={item.updated_at} locale={locale} format={{ year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }} /></TableCell>
+                      <TableCell className="hidden truncate text-sm text-muted-foreground @4xl:table-cell">{userLabelByID[item.created_by ?? ""] || item.created_by || "-"}</TableCell>
                       <TableCell>
                         <StatusBadge status={item.enabled ? "active" : "inactive"}>
                           {item.enabled ? t("status.enabled") : t("status.disabled")}

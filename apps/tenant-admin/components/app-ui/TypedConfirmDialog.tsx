@@ -16,6 +16,7 @@ export type TypedConfirmDialogProps = {
   expectedValue: string;
   inputLabel: React.ReactNode;
   cancelLabel: React.ReactNode;
+  closeLabel?: string;
   confirmLabel: React.ReactNode;
   pendingLabel: React.ReactNode;
   onConfirm: () => void | Promise<void>;
@@ -37,6 +38,7 @@ function TypedConfirmDialogState({
   expectedValue,
   inputLabel,
   cancelLabel,
+  closeLabel,
   confirmLabel,
   pendingLabel,
   onConfirm,
@@ -74,7 +76,7 @@ function TypedConfirmDialogState({
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogContent aria-busy={pending} showCloseButton={!pending}>
+      <DialogContent aria-busy={pending} closeLabel={closeLabel ?? (typeof cancelLabel === "string" ? cancelLabel : undefined)} showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
