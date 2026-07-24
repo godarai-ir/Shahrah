@@ -17,8 +17,8 @@ export function ModelNameValue({ value, copyValue = value, fallback = "-", onCop
   if (!value) return <>{fallback}</>;
 
   return (
-    <div dir="ltr" className={cn("flex min-w-max items-center justify-start gap-1 text-start", className)} {...props}>
-      <code className="whitespace-nowrap font-mono text-xs" title={value}>{value}</code>
+    <div dir="ltr" className={cn("flex min-w-0 max-w-full items-center justify-start gap-1 text-start", className)} {...props}>
+      <code className="block min-w-0 truncate whitespace-nowrap font-mono text-xs" title={value}>{value}</code>
       <CopyAction
         value={copyValue}
         copyLabel={t("modelName.copy")}

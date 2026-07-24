@@ -98,7 +98,6 @@ export default async function VirtualUsersPage() {
         initialError={virtualUsersResult.ok ? null : virtualUsersResult.errorMessage ?? "Request failed."}
         teams={teamsResult.ok ? teamsPayload.data ?? [] : []}
         orgUnits={orgUnitsResult.ok ? orgUnitsPayload.data ?? [] : []}
-        docsHref={virtualUsersDocsHref}
       />
     </AdminShell>
   );

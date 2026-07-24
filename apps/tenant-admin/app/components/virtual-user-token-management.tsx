@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FormSheet, HelpLink, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FormSheet, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -102,13 +102,13 @@ const VIRTUAL_USER_COLUMN_CLASS = {
   status: "w-1/4",
 } as const;
 const VAT_COLUMN_CLASS = {
-  name: "w-5/12",
-  masked: "hidden w-40 @md:table-cell",
-  models: "hidden w-1/4 @lg:table-cell",
-  lastUsed: "hidden w-36 @xl:table-cell",
-  expiresAt: "hidden w-36 @lg:table-cell",
-  status: "w-1/4",
-  actions: "w-16 text-end",
+  name: "w-1/5",
+  masked: "hidden w-1/5 @lg:table-cell",
+  models: "hidden w-2/5 @lg:table-cell",
+  lastUsed: "hidden w-36 @2xl:table-cell",
+  expiresAt: "hidden w-36 @2xl:table-cell",
+  status: "w-1/6",
+  actions: "w-24 text-end",
 } as const;
 const emptyVirtualUserForm: VirtualUserForm = {
   alias: "",
@@ -129,14 +129,12 @@ export default function VirtualUserTokenManagement({
   initialError,
   teams,
   orgUnits,
-  docsHref,
 }: {
   initialVirtualUsers: VirtualUser[];
   initialTotal: number;
   initialError: string | null;
   teams: Team[];
   orgUnits: OrgUnit[];
-  docsHref: string;
 }) {
   const t = useTranslations("virtualUsers");
   const locale = useLocale();
@@ -447,15 +445,6 @@ export default function VirtualUserTokenManagement({
       <PageHeader
         title={t("title")}
         description={t("description")}
-        actions={
-          <>
-            <Button type="button" onClick={openCreateVirtualUser} disabled={!hasLoadedEntitlements}>
-              <Plus data-icon="inline-start" />
-              {t("actions.createUser")}
-            </Button>
-            <HelpLink href={docsHref} />
-          </>
-        }
       />
 
       {banner ? (
@@ -474,16 +463,27 @@ export default function VirtualUserTokenManagement({
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("searchPlaceholder")}
             />
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={t("actions.refresh")}
-              title={t("actions.refresh")}
-              onClick={() => void loadVirtualUsers(0, query.trim())}
-              disabled={isLoadingUsers}
-            >
-              {isLoadingUsers ? <Spinner /> : <RefreshCcw />}
-            </Button>
+            <div className="flex flex-wrap gap-2 sm:shrink-0 sm:flex-nowrap">
+              <Button
+                type="button"
+                onClick={openCreateVirtualUser}
+                disabled={!hasLoadedEntitlements}
+                className="flex-1 sm:flex-none"
+              >
+                <Plus data-icon="inline-start" />
+                {t("actions.createUser")}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={t("actions.refresh")}
+                title={t("actions.refresh")}
+                onClick={() => void loadVirtualUsers(0, query.trim())}
+                disabled={isLoadingUsers}
+              >
+                {isLoadingUsers ? <Spinner /> : <RefreshCcw />}
+              </Button>
+            </div>
           </div>
 
           <div className="@container/virtual-users overflow-hidden rounded-lg border border-border">
@@ -556,8 +556,6 @@ export default function VirtualUserTokenManagement({
                 <CardHeader>
                   <EntityIdentityHeader
                     title={selectedVirtualUser.display_name || selectedVirtualUser.alias}
-                    identifier={selectedVirtualUser.id}
-                    copy={{ copyLabel: t("actions.copyIdentifier"), copiedLabel: t("messages.identifierCopied"), onCopyError: () => setBanner({ kind: "error", message: t("messages.identifierCopyFailed") }) }}
                     status={<AppStatusBadge status={selectedVirtualUser.active ? "active" : "inactive"}>{selectedVirtualUser.active ? t("status.active") : t("status.inactive")}</AppStatusBadge>}
                     actions={<>
                     <Button variant="outline" size="icon-sm" aria-label={t("actions.editUser")} title={t("actions.editUser")} onClick={openEditVirtualUser}>
@@ -578,9 +576,9 @@ export default function VirtualUserTokenManagement({
               </Card>
 
               <DefinitionList columns={3}>
-                <DefinitionListItem surface emphasis label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
-                <DefinitionListItem surface emphasis label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
-                <DefinitionListItem surface emphasis label={t("detail.tokens")} value={String(tokenTotal)} />
+                <DefinitionListItem surface emphasis className="bg-card shadow-xs" label={t("detail.team")} value={getTeamName(selectedVirtualUser.team_id, teams)} />
+                <DefinitionListItem surface emphasis className="bg-card shadow-xs" label={t("detail.orgUnit")} value={getOrgUnitName(selectedVirtualUser.org_unit_id, orgUnits)} />
+                <DefinitionListItem surface emphasis className="bg-card shadow-xs" label={t("detail.tokens")} value={String(tokenTotal)} />
               </DefinitionList>
 
               <AppCard contentClassName="flex min-w-0 flex-col gap-4">
@@ -667,7 +665,7 @@ export default function VirtualUserTokenManagement({
                             <AppStatusBadge status={token.revoked_at || token.blocked ? "error" : "active"}>{token.revoked_at ? t("status.revoked") : token.blocked ? t("status.blocked") : t("status.active")}</AppStatusBadge>
                           </TableCell>
                           <TableCell className={VAT_COLUMN_CLASS.actions}>
-                            <div className="flex flex-wrap justify-end gap-2">
+                            <div className="flex flex-nowrap justify-end gap-2">
                               <Button
                                 variant="outline"
                                 size="icon-sm"
