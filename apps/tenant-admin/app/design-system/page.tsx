@@ -10,7 +10,7 @@ import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,9 +24,11 @@ const tokens = [
   ["background", "bg-background text-foreground"],
   ["card", "bg-card text-card-foreground"],
   ["primary", "bg-primary text-primary-foreground"],
+  ["primary-soft", "bg-primary-soft text-primary-soft-foreground"],
   ["secondary", "bg-secondary text-secondary-foreground"],
   ["muted", "bg-muted text-muted-foreground"],
   ["accent", "bg-accent text-accent-foreground"],
+  ["success-soft", "bg-success-soft text-success-soft-foreground"],
   ["destructive", "bg-destructive text-destructive-foreground"],
 ];
 
@@ -64,7 +66,7 @@ export default function DesignSystemPage() {
   const irrDisplay = formatCompactIrr(845_000, { locale: "fa-IR" });
 
   return (
-    <PageContainer as="main" spacing="relaxed">
+    <PageContainer as="main" spacing="relaxed" dir="ltr">
       <PageHeader
         eyebrow="Design System"
         title="Tenant Admin UI Foundation"
@@ -75,18 +77,50 @@ export default function DesignSystemPage() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader
+          title="Atlas visual identity"
+          description="Warm application canvas, graphite navigation, cobalt selection, and mint operational state."
+        />
+        <div className="atlas-canvas overflow-hidden rounded-lg border border-card-border">
+          <div className="grid min-h-64 md:grid-cols-3">
+            <aside className="atlas-sidebar flex flex-col gap-4 bg-sidebar p-4 text-sidebar-foreground">
+              <div className="flex items-center gap-3">
+                <span className="flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  A
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <strong className="text-sm">Atlas</strong>
+                  <span className="text-xs text-sidebar-foreground/60">Calm infrastructure</span>
+                </span>
+              </div>
+              <div className="rounded-md bg-sidebar-primary/20 px-3 py-2 text-sm font-semibold">
+                Active navigation
+              </div>
+            </aside>
+            <div className="grid content-start gap-4 p-4 sm:grid-cols-2 md:col-span-2">
+              <MetricCard label="Requests" value="128.4K" description="Current period" icon={Activity} />
+              <MetricCard label="Reliability" value="99.2%" description="Operational state" icon={CheckCircle2} tone="success" />
+              <AppCard className="sm:col-span-2" title="Atlas data surface" description="Thin borders, restrained elevation, and compact hierarchy.">
+                <div className="h-16 rounded-md border border-primary-subtle-border bg-primary-soft" />
+              </AppCard>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
           title="Shell page heading"
           description="Route-level pages pass their localized title, optional description, and contextual help link to AdminShell."
         />
-        <div className="grid gap-3 md:grid-cols-2" dir="rtl">
-          <div className="rounded-xl border border-border bg-background p-4">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2" dir="rtl">
+          <div className="min-w-0 rounded-xl border border-border bg-background p-4">
             <ShellPageHeading
               as="div"
               title="قوانین محدودسازی نرخ"
               description="تعریف قوانین محدودسازی برای درخواست‌های گیت‌وی بر اساس کاربر، مدل و متادیتا."
             />
           </div>
-          <div className="rounded-xl border border-border bg-background p-4">
+          <div className="min-w-0 rounded-xl border border-border bg-background p-4">
             <ShellPageHeading as="div" title="پلن" />
           </div>
         </div>

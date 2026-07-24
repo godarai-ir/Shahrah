@@ -37,9 +37,9 @@ Next.js 16 note: follow the local docs in `node_modules/next/dist/docs/` before 
 
 ## 2. Visual Identity
 
-Shahrah/GodarAI should feel like a calm infrastructure console for teams running LLM-powered products. Tenant-admin must be visually related to `apps/website`: Vazirmatn typography, indigo primary actions, restrained purple accents, slate/neutral operational surfaces, dark console previews, and compact dashboard information density. The UI should be precise, reliable, modern, and enterprise-ready, with enough density for technical users to compare providers, models, traces, cost, and limits quickly.
+Shahrah/GodarAI uses the **Atlas / Calm Infrastructure** language: Vazirmatn typography, a warm near-white application canvas, crisp white data surfaces, graphite navigation, cobalt-indigo primary actions, and mint operational state. Tenant-admin should feel like a focused control plane for teams running LLM-powered products—precise, reliable, modern, and enterprise-ready, with enough density to compare providers, models, traces, cost, and limits quickly.
 
-Use a professional SaaS dashboard style: restrained surfaces, low-radius cards, clear section boundaries, compact controls, meaningful icons, readable tables, and status colors that serve operations. The current token base is website-aligned: mostly neutral/slate surfaces, indigo as the primary action color, purple as a secondary brand accent, and green/amber/red/cyan only for meaningful operational state.
+Use restrained 11px cards, thin semantic borders, compact controls, meaningful icons, readable tables, and status colors that serve operations. The sidebar is the strongest brand surface; the main canvas is intentionally quieter. Purple remains a secondary chart accent, while mint/amber/red communicate operational meaning. Low-contrast geometric grids may appear on the shell and authentication canvases, but never compete with dense content.
 
 Avoid overly playful illustrations, excessive gradients, heavy animation, consumer landing-page layouts inside authenticated app screens, low-contrast text, oversized cards for dense operational content, and decorative elements that reduce readability. Login/onboarding screens may carry more brand atmosphere than authenticated pages, but they should still show trust, security, and gateway context rather than generic marketing art.
 

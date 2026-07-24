@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, ChartNoAxesCombined, CircleDollarSign } from "lucide-react";
+import { Activity, ChartNoAxesCombined } from "lucide-react";
 
 import { AppCard, EmptyState } from "@/components/app-ui";
 import { Badge } from "@/components/ui/badge";
@@ -104,9 +104,6 @@ export function DashboardAnalytics({
     providerQuery.set("type", "breakdown");
     providerQuery.set("group_by", "provider");
 
-    setIsLoading(true);
-    setIsUnavailable(false);
-
     void Promise.all([
       fetchAnalytics(`/api/logs/analytics?${timeseriesQuery.toString()}`, controller.signal),
       fetchAnalytics(`/api/logs/analytics?${providerQuery.toString()}`, controller.signal),
@@ -114,6 +111,7 @@ export function DashboardAnalytics({
       .then(([nextTimeseries, nextProviderBreakdown]) => {
         setTimeseries(nextTimeseries);
         setProviderBreakdown(nextProviderBreakdown);
+        setIsUnavailable(false);
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === "AbortError") return;

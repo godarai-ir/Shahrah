@@ -17,7 +17,11 @@ export function SectionHeader({ title, description, action, icon: Icon, density 
   return (
     <div className={cn("flex gap-3 sm:items-start sm:justify-between", compact ? "items-start" : "flex-col sm:flex-row", className)}>
       <div className="flex min-w-0 items-start gap-2">
-        {Icon ? <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
+        {Icon ? (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary-subtle-border bg-primary-soft text-primary-soft-foreground [&>svg]:size-4">
+            <Icon aria-hidden="true" />
+          </span>
+        ) : null}
         <div className="min-w-0">
           <h2 className={cn("font-semibold text-foreground", compact ? "text-sm md:text-base" : "text-base md:text-lg")}>{title}</h2>
           {description ? <p className={cn("mt-1 text-muted-foreground", compact ? "text-xs leading-normal" : "text-sm leading-6")}>{description}</p> : null}

@@ -13,29 +13,59 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-active: var(--primary-active);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-hover: var(--primary-soft-hover);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-primary-subtle-border: var(--primary-subtle-border);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-hover: var(--accent-hover);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
+  --color-destructive-soft-border: var(--destructive-soft-border);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-muted: var(--success-muted);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-foreground: var(--success-soft-foreground);
+  --color-success-soft-border: var(--success-soft-border);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-muted: var(--warning-muted);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+  --color-warning-soft-border: var(--warning-soft-border);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
   --color-info-muted: var(--info-muted);
+  --color-info-soft: var(--info-soft);
+  --color-info-soft-foreground: var(--info-soft-foreground);
+  --color-info-soft-border: var(--info-soft-border);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-soft-foreground: var(--neutral-soft-foreground);
+  --color-neutral-soft-border: var(--neutral-soft-border);
   --color-code: var(--code);
   --color-code-foreground: var(--code-foreground);
   --color-code-border: var(--code-border);
   --color-code-muted-foreground: var(--code-muted-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-input-border: var(--input-border);
+  --color-input-focus-border: var(--input-focus-border);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-elevated-foreground: var(--surface-elevated-foreground);
+  --color-surface-elevated-border: var(--surface-elevated-border);
+  --color-surface-demo: var(--surface-demo);
+  --color-surface-demo-foreground: var(--surface-demo-foreground);
+  --color-surface-demo-border: var(--surface-demo-border);
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -85,6 +115,16 @@ body {
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--primary-soft-foreground);
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
 }
 
 .variable-placeholder {
@@ -171,13 +211,16 @@ body {
 
 /* Card hover effect */
 .card-hover {
-  transition: transform var(--duration-normal) var(--ease-out),
-              box-shadow var(--duration-normal) var(--ease-out);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .card-hover:hover {
   transform: translateY(var(--hover-lift-y));
-  box-shadow: var(--hover-lift-shadow);
+  border-color: var(--primary-subtle-border);
+  box-shadow: var(--shadow-md);
 }
 
 /* Active press effect */
@@ -276,6 +319,75 @@ body {
 
 .surface-primary-soft-hover:hover {
   background: var(--primary-soft-hover);
+}
+
+/* Atlas shell canvas: a quiet technical grid that stays behind content. */
+.atlas-canvas {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(
+      color-mix(in oklab, var(--foreground) 2.5%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--foreground) 2.5%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 32px 32px;
+}
+
+.atlas-brand-grid {
+  background-image:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--primary) 11%, transparent),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 14% 18%,
+      color-mix(in oklab, var(--success) 9%, transparent),
+      transparent 24%
+    ),
+    linear-gradient(
+      color-mix(in oklab, var(--foreground) 3%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--foreground) 3%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: auto, auto, 28px 28px, 28px 28px;
+}
+
+.atlas-sidebar {
+  background-image:
+    radial-gradient(
+      circle at 18% 8%,
+      color-mix(in oklab, var(--sidebar-primary) 13%, transparent),
+      transparent 22%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--sidebar-foreground) 4%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: auto, 44px 44px;
+}
+
+.atlas-accent-line {
+  position: relative;
+}
+
+.atlas-accent-line::before {
+  position: absolute;
+  inset-block: var(--space-4);
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  content: "";
 }
 
 .tone-neutral {

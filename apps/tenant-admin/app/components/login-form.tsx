@@ -165,38 +165,11 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
   }
 
   return (
-    <main className="relative flex min-h-screen overflow-hidden bg-background text-foreground">
-      <div
-        className="pointer-events-none absolute inset-0"
-        aria-hidden="true"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at center, color-mix(in oklab, var(--foreground) 13%, transparent) 1px, transparent 1.4px), radial-gradient(circle at center, color-mix(in oklab, var(--primary) 16%, transparent) 1px, transparent 1.5px)",
-          backgroundPosition: "0 0, 18px 18px",
-          backgroundSize: "28px 28px, 56px 56px",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-80"
-        aria-hidden="true"
-        style={{
-          backgroundImage:
-            "linear-gradient(135deg, color-mix(in oklab, var(--primary) 10%, transparent), transparent 36%), linear-gradient(315deg, color-mix(in oklab, var(--chart-3) 9%, transparent), transparent 42%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0"
-        aria-hidden="true"
-        style={{
-          background:
-            "radial-gradient(circle at 50% 44%, transparent 0%, transparent 28%, color-mix(in oklab, var(--background) 72%, transparent) 74%)",
-        }}
-      />
-
-      <div className="relative mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
+    <main className="atlas-brand-grid relative flex min-h-screen overflow-hidden bg-background text-foreground">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-sm">
+            <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary-subtle-border bg-card p-1.5 shadow-sm">
               <Image
                 src="/brand/mini_logo.svg"
                 alt={t("logoAlt")}
@@ -233,7 +206,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card/80 p-1 text-xs font-medium shadow-sm backdrop-blur">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-card-border bg-card p-1 text-xs font-medium shadow-xs">
               <StepPill
                 active={activeStep === "request"}
                 icon={<KeyRound className="size-3.5" aria-hidden="true" />}
@@ -246,7 +219,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
               />
             </div>
 
-            <Card className="rounded-2xl border-border/80 bg-card/95 shadow-2xl shadow-primary/10 backdrop-blur">
+            <Card className="atlas-accent-line overflow-hidden shadow-md">
               <CardContent className="flex flex-col gap-5 p-4 md:p-5">
                 {notice && (
                   <Alert variant="success" icon={<CheckCircle aria-hidden="true" />}>
@@ -308,8 +281,8 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
 
                     <div className="flex flex-col gap-3">
                       <Label htmlFor="captchaAnswer">{t("captcha.label")}</Label>
-                      <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/35 p-3">
-                        <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-3 rounded-lg border border-border bg-neutral-soft/55 p-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           <Input
                             id="captchaAnswer"
                             dir="ltr"
@@ -330,27 +303,29 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                             }
                             className="h-11 min-w-0 flex-1 text-start"
                           />
-                          {captchaImage ? (
-                            <Image
-                              src={captchaImage}
-                              alt={t("captcha.label")}
-                              width={170}
-                              height={56}
-                              unoptimized
-                              className="h-12 w-36 shrink-0 rounded-lg bg-card object-contain sm:w-[170px]"
-                            />
-                          ) : (
-                            <div className="h-12 w-36 shrink-0 rounded-lg bg-card sm:w-[170px]" />
-                          )}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => void refreshCaptcha({ clearError: true })}
-                            aria-label={t("captcha.refresh")}
-                          >
-                            <RefreshCw data-icon="inline-start" aria-hidden="true" />
-                          </Button>
+                          <div className="flex items-center gap-3 sm:contents">
+                            {captchaImage ? (
+                              <Image
+                                src={captchaImage}
+                                alt={t("captcha.label")}
+                                width={170}
+                                height={56}
+                                unoptimized
+                                className="h-12 min-w-0 flex-1 rounded-md bg-card object-contain sm:w-40 sm:flex-none"
+                              />
+                            ) : (
+                              <div className="h-12 min-w-0 flex-1 rounded-md bg-card sm:w-40 sm:flex-none" />
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => void refreshCaptcha({ clearError: true })}
+                              aria-label={t("captcha.refresh")}
+                            >
+                              <RefreshCw data-icon="inline-start" aria-hidden="true" />
+                            </Button>
+                          </div>
                         </div>
                         {fieldErrors.captchaAnswer && (
                           <p
@@ -390,7 +365,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
                             <InputOTPSlot
                               key={index}
                               index={index}
-                              className="size-11 rounded-xl border bg-background text-base font-semibold shadow-xs first:rounded-xl last:rounded-xl"
+                              className="size-11 rounded-md border bg-background text-base font-semibold shadow-xs first:rounded-md last:rounded-md"
                             />
                           ))}
                         </InputOTPGroup>
@@ -476,7 +451,7 @@ function AnimatedHeroText({
       <span>{prefix}</span>
       <span
         className={cn(
-          "inline-flex min-w-[6.75rem] justify-center rounded-lg bg-primary/10 px-2 py-1 text-primary ring-1 ring-primary/15 transition-all duration-300 motion-reduce:transition-none sm:min-w-[7.75rem] sm:px-2.5",
+          "inline-flex min-w-[6.75rem] justify-center rounded-md bg-primary-soft px-2 py-1 text-primary-soft-foreground ring-1 ring-primary-subtle-border transition-all duration-300 motion-reduce:transition-none sm:min-w-[7.75rem] sm:px-2.5",
           isVisible
             ? "translate-y-0 opacity-100 blur-0"
             : "translate-y-1 opacity-0 blur-sm",

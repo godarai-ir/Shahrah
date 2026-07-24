@@ -143,6 +143,9 @@ export default function AdminShellClient({
   return (
     <PermissionsProvider permissions={permissions}>
       <SidebarProvider className="bg-background">
+        <a href="#main-content" className="skip-link">
+          {t("skipToContent")}
+        </a>
         <AdminSidebar
           tenantSlug={tenantSlug}
           navItems={visibleNavItems}
@@ -154,10 +157,17 @@ export default function AdminShellClient({
           }}
         />
 
-        <SidebarInset className="min-w-0 rounded-none bg-background">
-          <header className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:px-6">
+        <SidebarInset
+          id="main-content"
+          tabIndex={-1}
+          className="atlas-canvas min-w-0 rounded-none bg-background"
+        >
+          <header className="sticky top-0 z-10 border-b border-border/80 bg-background/90 px-4 py-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
-              <SidebarTrigger aria-label={t("menu.open")} />
+              <SidebarTrigger
+                className="border border-border bg-card shadow-xs"
+                aria-label={t("menu.open")}
+              />
 
               <div className="min-w-0 flex-1">
                 {pageHeader ? (
@@ -167,17 +177,19 @@ export default function AdminShellClient({
                 )}
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
                 <WalletBalanceLink summary={walletSummary} />
                 <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} />
                 <ThemeToggle />
-                <DocsLink href={pageHeader?.helpHref ?? docsHref} />
+                <div className="hidden sm:block">
+                  <DocsLink href={pageHeader?.helpHref ?? docsHref} />
+                </div>
               </div>
             </div>
           </header>
 
           <div className={cn(
-            "min-h-0 min-w-0 flex-1",
+            "relative min-h-0 min-w-0 flex-1",
             contentPadding === "default" && "p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
             contentPadding === "none" && "overflow-hidden",
           )}>
@@ -216,10 +228,17 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
           type="button"
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="shrink-0 p-1"
           aria-label={t("profile.menu")}
         >
-          <User data-icon="inline-start" aria-hidden="true" />
+          <Avatar className="size-7 rounded-md">
+            <AvatarFallback
+              className="rounded-md bg-primary-soft text-xs font-semibold text-primary-soft-foreground"
+              dir="ltr"
+            >
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={8} className="w-72 p-2 text-start">
@@ -315,17 +334,17 @@ function AdminSidebar({
       mobileDescription={t("menu.description")}
       mobileCloseLabel={t("menu.close")}
     >
-      <SidebarHeader className="border-b border-sidebar-border/70 p-3">
+      <SidebarHeader className="gap-3 border-b border-sidebar-border/80 p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
               tooltip={`گُدارAI · ${tenantSlug}`}
-              className="items-center gap-3"
+              className="items-center gap-3 after:hidden hover:bg-sidebar-accent/70"
               asChild
             >
               <Link href="/" onClick={() => setOpenMobile(false)}>
-                <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md">
+                <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary/15 p-1 ring-1 ring-sidebar-primary/35">
                   <Image
                     src="/brand/mini_logo.png"
                     alt={t("logoAlt")}
@@ -336,25 +355,44 @@ function AdminSidebar({
                   />
                 </span>
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-sm font-semibold">گُدارAI</span>
-                  <span className="truncate text-xs uppercase tracking-[0.16em] text-sidebar-foreground/70" dir="ltr">
+                  <span className="truncate text-base font-semibold text-sidebar-foreground">گُدارAI</span>
+                  <span className="truncate text-xs text-sidebar-foreground/55">{t("title")}</span>
+                </span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              variant="outline"
+              tooltip={`${t("tenant")} · ${tenantSlug}`}
+              className="after:hidden"
+              asChild
+            >
+              <div>
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20 text-xs font-semibold text-sidebar-primary-foreground ring-1 ring-sidebar-primary/30">
+                  {getTenantInitials(tenantSlug)}
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-xs text-sidebar-foreground/55">{t("tenant")}</span>
+                  <span className="truncate font-mono text-xs font-medium text-sidebar-foreground" dir="ltr">
                     {tenantSlug}
                   </span>
                 </span>
-              </Link>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="custom-scrollbar gap-1 px-2 py-3" role="navigation" aria-label={t("nav.title")}>
+      <SidebarContent className="custom-scrollbar gap-1 px-1 py-3" role="navigation" aria-label={t("nav.title")}>
         {navGroups.map((group) => (
           <Collapsible key={group.labelKey} defaultOpen={group.items.some((item) => item.isActive)} asChild>
-            <SidebarGroup className="p-0 py-1">
+            <SidebarGroup className="py-1">
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="group/collapsible flex w-full items-center justify-between gap-3 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                   <span className="flex min-w-0 items-center gap-2">
-                    <group.icon className="size-4 shrink-0" aria-hidden="true" />
+                    <group.icon className="size-4 shrink-0 text-sidebar-foreground/55" aria-hidden="true" />
                     <span className="truncate">{t(group.labelKey)}</span>
                   </span>
                   <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" aria-hidden="true" />
@@ -362,10 +400,7 @@ function AdminSidebar({
               </SidebarGroupLabel>
               <CollapsibleContent>
                 <SidebarGroupContent>
-                  <SidebarMenu
-                    aria-label={t(group.labelKey)}
-                    className="border-s border-sidebar-border/80 ps-2 group-data-[collapsible=icon]:border-s-0 group-data-[collapsible=icon]:ps-0"
-                  >
+                  <SidebarMenu aria-label={t(group.labelKey)} className="gap-0.5">
                     {group.items.map((item) => {
                       const Icon = item.icon;
 
@@ -401,7 +436,7 @@ function AdminSidebar({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/70 bg-sidebar-accent/30 p-3 group-data-[collapsible=icon]:hidden">
+      <SidebarFooter className="border-t border-sidebar-border/80 bg-sidebar-accent/25 p-3 group-data-[collapsible=icon]:hidden">
         <SidebarPlanSummary summary={subscriptionSummary} onNavigate={() => setOpenMobile(false)} />
         <SidebarAppVersion version={appVersion} />
       </SidebarFooter>
@@ -434,7 +469,7 @@ function WalletBalanceLink({
       variant="outline"
       size="icon"
       className={cn(
-        "hidden h-auto min-h-10 w-auto min-w-10 gap-2 px-3 py-2 md:inline-flex",
+        "hidden h-10 w-auto min-w-10 gap-2 px-3 md:inline-flex",
         isLowBalance && "border-destructive/40 text-destructive hover:text-destructive",
       )}
       asChild
@@ -483,6 +518,11 @@ function getUserInitials(value: string): string {
   }
 
   return source.slice(0, 2).toUpperCase();
+}
+
+function getTenantInitials(value: string): string {
+  const normalized = value.trim().replace(/[^a-zA-Z0-9]/g, "");
+  return (normalized.slice(0, 2) || "WS").toUpperCase();
 }
 
 function SidebarPlanSummary({

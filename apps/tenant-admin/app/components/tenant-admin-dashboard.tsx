@@ -1,23 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { type ComponentProps, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   BookOpen,
   Gauge,
   type LucideIcon,
   RefreshCcw,
+  Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { CompactValue, MetricCard } from "@/components/app-ui";
+import { AppCard, CompactValue, MetricCard } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCompactNumber } from "@/lib/compact-number";
-import { cn } from "@/lib/utils";
 import { DashboardAnalytics } from "./dashboard-analytics";
 
 type TenantSubscription = {
@@ -80,6 +79,10 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
 
   const planStatus = subscription?.status?.trim().toLowerCase() ?? "";
+  const planName =
+    subscription?.plan_display_name?.trim() ||
+    subscription?.plan_slug?.trim() ||
+    t("plan.currentPlan");
   const planVisual = useMemo(() => getPlanVisual(planStatus), [planStatus]);
   const planStatusLabel = t(`plan.status.${planVisual.statusKey}`);
   const planIntervalLabel = t(`plan.interval.${normalizeBillingInterval(subscription?.billing_interval)}`);
@@ -140,77 +143,89 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   }, [common]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="px-1 py-1 sm:px-2 sm:py-2">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)] xl:items-start">
-          <div className="flex min-w-0 flex-col gap-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={planVisual.badgeVariant}>{planStatusLabel}</Badge>
-                  <Badge variant="outline">{planIntervalLabel}</Badge>
-                  {daysRemaining !== null ? (
-                    <Badge variant="secondary">
-                      {t("plan.daysRemainingBadge", { days: numberFormatter.format(daysRemaining) })}
-                    </Badge>
-                  ) : null}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => void loadDashboard()}
-                  disabled={isLoading}
-                  aria-label={isLoading ? t("refreshing") : common("refresh")}
-                >
-                  <RefreshCcw data-icon="inline-start" aria-hidden="true" />
-                </Button>
-                <Button type="button" asChild>
-                  <Link href="/billing/plan">
-                    {planActionLabel}
-                    <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <UsageSummaryCard
-                icon={Gauge}
-                title={t("plan.requestLimit")}
-                used={requestUsageValue}
-                limit={totalPlanRequestLimit}
-                subtitle={t("plan.requestLimitHint", {
-                  monthly: formatUsagePart(requestsPerMonthLimit),
-                  months: numberFormatter.format(planMonths),
-                })}
-                tone={requestUsageRatio !== null && requestUsageRatio >= 0.85 ? "warning" : "success"}
-              />
-            </div>
-          </div>
-
-          <DashboardPanel className="border-info/30 bg-info/5">
-            <CardHeader className="gap-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-info/12 text-info">
-                  <BookOpen className="size-4" aria-hidden="true" />
-                </span>
-                {t("quickStart.title")}
-              </CardTitle>
-              <CardDescription className="max-w-2xl leading-6">{t("quickStart.description")}</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Button type="button" variant="outline" asChild>
-                <Link href="/quick-start">
-                  {t("quickStart.action")}
-                  <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-                </Link>
-              </Button>
-            </CardContent>
-          </DashboardPanel>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+      <AppCard
+        title={t("overviewEyebrow")}
+        description={planName}
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => void loadDashboard()}
+              disabled={isLoading}
+              aria-label={isLoading ? t("refreshing") : common("refresh")}
+            >
+              <RefreshCcw data-icon="inline-start" aria-hidden="true" />
+            </Button>
+            <Button type="button" asChild>
+              <Link href="/billing/plan">
+                {planActionLabel}
+                <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+              </Link>
+            </Button>
+          </>
+        }
+        className="atlas-accent-line overflow-hidden"
+        headerClassName="bg-neutral-soft/45"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={planVisual.badgeVariant}>{planStatusLabel}</Badge>
+          <Badge variant="outline">{planIntervalLabel}</Badge>
+          {daysRemaining !== null ? (
+            <Badge variant="secondary">
+              {t("plan.daysRemainingBadge", { days: numberFormatter.format(daysRemaining) })}
+            </Badge>
+          ) : null}
         </div>
-      </section>
+      </AppCard>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <UsageSummaryCard
+          icon={Gauge}
+          title={t("plan.requestLimit")}
+          used={requestUsageValue}
+          limit={totalPlanRequestLimit}
+          subtitle={t("plan.requestLimitHint", {
+            monthly: formatUsagePart(requestsPerMonthLimit),
+            months: numberFormatter.format(planMonths),
+          })}
+          tone={requestUsageRatio !== null && requestUsageRatio >= 0.85 ? "warning" : "success"}
+        />
+
+        <MetricCard
+          label={t("workspaceUsers")}
+          value={
+            props.initialUsersTotal === null
+              ? "-"
+              : numberFormatter.format(props.initialUsersTotal)
+          }
+          description={t("workspaceUsersHint")}
+          icon={Users}
+          tone="default"
+        />
+
+        <AppCard
+          title={
+            <span className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-md border border-info-soft-border bg-info-soft text-info-soft-foreground">
+                <BookOpen className="size-4" aria-hidden="true" />
+              </span>
+              {t("quickStart.title")}
+            </span>
+          }
+          description={t("quickStart.description")}
+          className="border-info-soft-border bg-info-soft/35 md:col-span-2 xl:col-span-1"
+        >
+          <Button type="button" variant="outline" asChild>
+            <Link href="/quick-start">
+              {t("quickStart.action")}
+              <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+            </Link>
+          </Button>
+        </AppCard>
+      </div>
 
       {banner ? (
         <Alert variant="destructive">
@@ -226,7 +241,6 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         requestLimit={totalPlanRequestLimit}
         refreshKey={analyticsRefreshKey}
       />
-
     </div>
   );
 }
@@ -246,19 +260,6 @@ function UsageSummaryCard(props: {
       description={props.subtitle}
       icon={props.icon}
       tone={props.tone}
-      className="card-hover"
-    />
-  );
-}
-
-function DashboardPanel(props: ComponentProps<typeof Card>) {
-  return (
-    <Card
-      {...props}
-      className={cn(
-        "overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm backdrop-blur-sm",
-        props.className,
-      )}
     />
   );
 }

@@ -31,10 +31,10 @@ export function AppCard({
   const hasHeader = title || description || actions;
 
   return (
-    <Card className={cn("card-hover", className)}>
+    <Card className={className}>
       {hasHeader ? (
         <CardHeader className={cn("flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4", headerClassName)}>
-          <div className={cn("min-w-0", titleContainerClassName)}>
+          <div className={cn("min-w-0 flex-1", titleContainerClassName)}>
             {title ? <CardTitle>{title}</CardTitle> : null}
             {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
           </div>

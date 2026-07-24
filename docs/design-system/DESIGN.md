@@ -22,6 +22,26 @@ This application is a B2B SaaS / developer tool application. The UI should feel:
 - Accessible interactive states
 - RTL-first layout awareness
 
+## Atlas Theme
+
+Tenant-admin uses the **Atlas / Calm Infrastructure** theme. Atlas combines a
+warm near-white application canvas, white data surfaces, a graphite navigation
+rail, cobalt-indigo primary actions, and mint operational states. The result
+should feel precise, calm, and purpose-built for infrastructure work rather
+than like a generic SaaS template.
+
+- Use the 4px spacing grid and prefer 8, 12, 16, 24, and 32px intervals.
+- Default cards use an 11px radius, a one-pixel semantic border, and a very
+  restrained shadow. Elevation must communicate hierarchy, not decoration.
+- The sidebar is the strongest brand surface. Its graphite treatment remains
+  distinct from the application canvas in both themes.
+- Geometric grid motifs are allowed only on large shell or authentication
+  canvases. Keep them low-contrast and never place them behind dense text.
+- Cobalt-indigo identifies primary actions and selection. Mint, amber, and red
+  remain reserved for meaningful operational state.
+- Hover motion is limited to interactive surfaces and should not exceed a
+  one-pixel lift. Static information cards do not float on hover.
+
 ## Core Rules for AI Coding Agents
 
 1. Before creating or changing UI, inspect existing `components/ui`, `components/app-ui`, and this design system documentation.

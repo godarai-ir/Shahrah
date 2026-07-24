@@ -1,6 +1,9 @@
 {
   "title": "Tenant Dashboard",
   "subtitle": "Review the current plan, subscription status, and tenant limits",
+  "overviewEyebrow": "Workspace operations overview",
+  "workspaceUsers": "Workspace users",
+  "workspaceUsersHint": "Registered members in this workspace",
   "refreshing": "Refreshing...",
   "keyCreatedTitle": "Newly created key is shown only once",
   "messages": {

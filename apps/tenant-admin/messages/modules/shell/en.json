@@ -3,6 +3,7 @@
   "tenant": "Tenant Workspace",
   "searchPlaceholder": "Search in panel...",
   "logout": "Sign out",
+  "skipToContent": "Skip to main content",
   "profile": {
     "menu": "Profile menu",
     "account": "Account"

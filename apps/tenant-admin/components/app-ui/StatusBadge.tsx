@@ -6,13 +6,13 @@ import { cn } from "@/lib/utils";
 type Status = "active" | "inactive" | "pending" | "success" | "warning" | "error" | "neutral";
 
 const statusClasses: Record<Status, string> = {
-  active: "border-success/30 bg-success/10 text-success",
-  inactive: "border-border bg-muted text-muted-foreground",
-  pending: "border-warning/30 bg-warning/10 text-warning",
-  success: "border-success/30 bg-success/10 text-success",
-  warning: "border-warning/30 bg-warning/10 text-warning",
-  error: "border-destructive/30 bg-destructive/10 text-destructive",
-  neutral: "border-border bg-secondary text-secondary-foreground",
+  active: "border-success-soft-border bg-success-soft text-success-soft-foreground",
+  inactive: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground",
+  pending: "border-warning-soft-border bg-warning-soft text-warning-soft-foreground",
+  success: "border-success-soft-border bg-success-soft text-success-soft-foreground",
+  warning: "border-warning-soft-border bg-warning-soft text-warning-soft-foreground",
+  error: "border-destructive-soft-border bg-destructive-soft text-destructive-soft-foreground",
+  neutral: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground",
 };
 
 type StatusBadgeProps = React.ComponentProps<typeof Badge> & {

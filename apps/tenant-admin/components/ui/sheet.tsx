@@ -35,7 +35,7 @@ function SheetOverlay({
   return (
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
-      className={cn("fixed inset-0 z-50 bg-black/40", className)}
+      className={cn("fixed inset-0 z-50 bg-foreground/45 backdrop-blur-sm", className)}
       {...props}
     />
   );
@@ -57,7 +57,7 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 gap-4 bg-background p-6 shadow-lg",
+          "fixed z-50 gap-4 bg-card p-5 text-card-foreground shadow-xl",
           side === "right" && "inset-y-0 right-0 h-full w-4/5 border-l sm:max-w-sm",
           side === "left" && "inset-y-0 left-0 h-full w-4/5 border-r sm:max-w-sm",
           side === "top" && "inset-x-0 top-0 border-b",
@@ -67,8 +67,8 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="absolute top-4 end-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
-          <X className="h-4 w-4" />
+        <SheetPrimitive.Close className="absolute end-4 top-4 rounded-md opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
+          <X className="size-4" />
           <span className="sr-only">{closeLabel}</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
@@ -77,7 +77,7 @@ function SheetContent({
 }
 
 function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="sheet-header" className={cn("flex flex-col space-y-2", className)} {...props} />;
+  return <div data-slot="sheet-header" className={cn("flex flex-col gap-2", className)} {...props} />;
 }
 
 function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
