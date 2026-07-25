@@ -203,19 +203,18 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		runtimeAPIKey := ""
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
+		noCredential := providerAccountUsesNoCredential(provider, authMode)
 
 		var providerAuth *platform.ResolvedProviderAuth
 
-		if apiKey != "" && hasCredential && !platformManagedCredentials && !strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+		if apiKey != "" && hasCredential && !platformManagedCredentials && !noCredential {
 			runtimeAPIKey = apiKey
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled
-		} else if strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+		} else if noCredential {
 			providerAuth = &platform.ResolvedProviderAuth{Mode: string(platform.ProviderAuthModeNoCredential)}
 
-			if strings.EqualFold(provider, "mock") {
-				billingMode = platform.BillingModeExternalBilled
-			}
+			billingMode = platform.BillingModeExternalBilled
 		}
 
 		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "base_url"))
@@ -251,6 +250,11 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 	}
 
 	return deps, rows.Err()
+}
+
+func providerAccountUsesNoCredential(provider, authMode string) bool {
+	return strings.EqualFold(strings.TrimSpace(provider), "mock") ||
+		strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential))
 }
 
 func firstString(primary, secondary map[string]interface{}, keys ...string) string {
