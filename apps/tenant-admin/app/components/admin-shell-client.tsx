@@ -348,12 +348,13 @@ function AdminSidebar({
               <Link href="/" onClick={() => setOpenMobile(false)}>
                 <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary/15 p-1 ring-1 ring-sidebar-primary/35">
                   <Image
-                    src="/brand/mini_logo.png"
+                    src="/brand/mini_logo.svg"
                     alt={t("logoAlt")}
                     width={36}
                     height={36}
                     className="h-full w-full object-contain"
                     priority
+                    unoptimized
                   />
                 </span>
                 <span className="flex min-w-0 flex-col gap-0.5">
