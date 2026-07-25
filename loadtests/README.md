@@ -151,6 +151,31 @@ k6 run -e SCENARIO=ramp -e TARGET_VUS=25 -e HOLD=5m loadtests/k6/gateway-scenari
 Remove-Item Env:API_KEY
 ```
 
+### Run protected production tests from GitHub Actions
+
+The `Production k6 Load Test` workflow provides a manually dispatched CI runner
+for `mock-smoke`, `smoke`, `ramp`, `soak`, and `spike`. It runs only from
+`main`, serializes production load tests with a workflow-level concurrency
+group, uses the exact production mock guard values, and uploads the warning log
+and JSON summary as GitHub Actions artifacts.
+
+Create a GitHub Environment named `production-loadtest`, restrict it to the
+custom deployment branch policy `main`, and add the dedicated load-test VAT as
+the environment secret `LOADTEST_VAT`. Require an environment reviewer when the
+repository's GitHub plan supports that protection rule. Do not use a provider
+credential, master key, or ordinary tenant token for this secret.
+
+Run the workflow from **Actions > Production k6 Load Test > Run workflow** and
+explicitly check the production confirmation input. Start with `mock-smoke`.
+Only approve a higher-load scenario after that run passes and confirms the
+mock-provider marker. The workflow exposes bounded choices for VUs and duration
+so an accidental dispatch cannot request an unreviewed load level.
+
+The GitHub-hosted runner's source network differs from a developer workstation.
+Treat CI timeout or connection failures as load-generator network evidence; a
+request that never reaches the production ingress cannot create a tenant trace.
+Download the workflow artifact to inspect `k6.log` and `summary.json`.
+
 You can tune mock behavior before starting compose:
 
 ```powershell
