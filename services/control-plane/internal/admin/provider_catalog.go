@@ -25,6 +25,11 @@ var errDiscoveryUnavailable = errors.New("model-discovery service unavailable")
 
 const discoveryTimeout = 8 * time.Second
 
+const (
+	internalMockProvider = "mock"
+	internalMockModel    = "mock/chat"
+)
+
 type providerCatalogCache struct {
 	mu          sync.RWMutex
 	providers   []platform.ProviderCatalogProvider
@@ -94,6 +99,10 @@ func normalizeProviderSlug(value string) string {
 }
 
 func discoveryProviderExists(ctx context.Context, provider string) (bool, error) {
+	if normalizeProviderSlug(provider) == internalMockProvider {
+		return true, nil
+	}
+
 	items, err := discoveryProviders(ctx)
 	if err != nil {
 		return false, err
@@ -159,6 +168,24 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	normalizedProvider := normalizeProviderSlug(provider)
 	if normalizedProvider == "" {
 		return nil, fmt.Errorf("provider is required")
+	}
+	if normalizedProvider == internalMockProvider {
+		zeroPrice := 0.0
+		return []platform.ProviderCatalogModel{{
+			Provider:         internalMockProvider,
+			Model:            internalMockModel,
+			DisplayName:      "Internal Mock Chat",
+			Modes:            []string{"chat", "completion"},
+			Types:            []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeCompletion},
+			InputModalities:  []string{"text"},
+			OutputModalities: []string{"text"},
+			Capabilities:     []string{"chat", "completion"},
+			Features:         []string{"chat", "completion"},
+			PublicPricing: &platform.ModelPrice{
+				InputUSDPer1M:  &zeroPrice,
+				OutputUSDPer1M: &zeroPrice,
+			},
+		}}, nil
 	}
 
 	if cached, ok := getCachedProviderModels(normalizedProvider); ok {
