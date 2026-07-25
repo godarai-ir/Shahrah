@@ -13,6 +13,7 @@ export default async function HomePage() {
         title={t('title')}
         description={t('subtitle')}
         icon={Boxes}
+        compact
       />
       <ModelsExplorer />
     </div>

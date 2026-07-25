@@ -6,12 +6,14 @@ import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  Building2,
+  Boxes,
   CircleAlert,
+  Info,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
 import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,13 +22,36 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiGet, resolveAssetUrl } from "@/lib/api";
+import { Slider } from "@/components/ui/slider";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { apiGet } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useDisplayFormatters } from "@/lib/use-display-formatters";
 
@@ -45,6 +70,7 @@ type ModelRow = {
   capabilities: string[];
   pricing?: { inputPerMillionTokens?: number; outputPerMillionTokens?: number } | null;
   free: boolean;
+  catalogPreview?: boolean;
 };
 
 type FacetOption = { slug: string; name: string };
@@ -63,13 +89,115 @@ type FacetsResponse = {
   };
 };
 
-type StatusKey = "active" | "inactive" | "disabled" | "maintenance" | "deprecated" | "preview" | "available" | "unavailable";
+type StatusKey =
+  | "active"
+  | "inactive"
+  | "disabled"
+  | "maintenance"
+  | "deprecated"
+  | "preview"
+  | "available"
+  | "unavailable";
 
 const ALL_VALUE = "__all__";
+const CONTEXT_LIMIT = 2_000_000;
+const PRICE_LIMIT = 100;
+
+const PREVIEW_MODELS: ModelRow[] = [
+  {
+    canonicalId: "openai/gpt-4.1-mini",
+    slug: "gpt-4.1-mini",
+    name: "GPT-4.1 Mini",
+    provider: { slug: "openai", name: "OpenAI" },
+    status: "preview",
+    contextWindow: 1_000_000,
+    maxOutputTokens: 32_768,
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+    capabilities: ["vision", "tool_calling", "json_mode", "streaming"],
+    pricing: { inputPerMillionTokens: 0.4 },
+    free: false,
+    catalogPreview: true,
+  },
+  {
+    canonicalId: "anthropic/claude-sonnet-4",
+    slug: "claude-sonnet-4",
+    name: "Claude Sonnet 4",
+    provider: { slug: "anthropic", name: "Anthropic" },
+    status: "preview",
+    contextWindow: 200_000,
+    inputModalities: ["text", "image"],
+    outputModalities: ["text"],
+    capabilities: [],
+    free: false,
+    catalogPreview: true,
+  },
+  {
+    canonicalId: "google-gemini/gemini-2.5-flash",
+    slug: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: { slug: "google-gemini", name: "Google Gemini" },
+    status: "preview",
+    contextWindow: 1_000_000,
+    inputModalities: ["text", "image", "audio"],
+    outputModalities: ["text"],
+    capabilities: [],
+    free: false,
+    catalogPreview: true,
+  },
+  {
+    canonicalId: "mistral-ai/mistral-small-latest",
+    slug: "mistral-small-latest",
+    name: "Mistral Small",
+    provider: { slug: "mistral-ai", name: "Mistral AI" },
+    status: "preview",
+    contextWindow: 128_000,
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+    capabilities: [],
+    free: false,
+    catalogPreview: true,
+  },
+  {
+    canonicalId: "cohere/command-r-plus",
+    slug: "command-r-plus",
+    name: "Command R+",
+    provider: { slug: "cohere", name: "Cohere" },
+    status: "preview",
+    contextWindow: 128_000,
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+    capabilities: [],
+    free: false,
+    catalogPreview: true,
+  },
+  {
+    canonicalId: "groq/llama-3.3-70b-versatile",
+    slug: "llama-3.3-70b-versatile",
+    name: "Llama 3.3 70B",
+    provider: { slug: "groq", name: "Groq" },
+    status: "preview",
+    contextWindow: 128_000,
+    inputModalities: ["text"],
+    outputModalities: ["text"],
+    capabilities: [],
+    free: false,
+    catalogPreview: true,
+  },
+];
 
 function getStatusKey(status: string): StatusKey | null {
   const normalized = status.toLowerCase().replaceAll("_", "-");
-  const keys: StatusKey[] = ["active", "inactive", "disabled", "maintenance", "deprecated", "preview", "available", "unavailable"];
+  const keys: StatusKey[] = [
+    "active",
+    "inactive",
+    "disabled",
+    "maintenance",
+    "deprecated",
+    "preview",
+    "available",
+    "unavailable",
+  ];
   return keys.includes(normalized as StatusKey) ? (normalized as StatusKey) : null;
 }
 
@@ -91,7 +219,12 @@ function FilterSelect({
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Select value={value || ALL_VALUE} onValueChange={(nextValue) => onValueChange(nextValue === ALL_VALUE ? "" : nextValue)}>
+      <Select
+        value={value || ALL_VALUE}
+        onValueChange={(nextValue) =>
+          onValueChange(nextValue === ALL_VALUE ? "" : nextValue)
+        }
+      >
         <SelectTrigger id={id}>
           <SelectValue />
         </SelectTrigger>
@@ -99,7 +232,9 @@ function FilterSelect({
           <SelectGroup>
             <SelectItem value={ALL_VALUE}>{allLabel}</SelectItem>
             {options.map((item) => (
-              <SelectItem key={item.slug} value={item.slug}>{item.name}</SelectItem>
+              <SelectItem key={item.slug} value={item.slug}>
+                {item.name}
+              </SelectItem>
             ))}
           </SelectGroup>
         </SelectContent>
@@ -108,32 +243,52 @@ function FilterSelect({
   );
 }
 
-function NumericFilter({
-  id,
+function RangeFilter({
   label,
   value,
+  min,
+  max,
   step,
-  onChange,
+  formatValue,
+  onValueChange,
 }: {
-  id: string;
   label: string;
-  value: string;
-  step?: string;
-  onChange: (value: string) => void;
+  value: [number, number];
+  min: number;
+  max: number;
+  step: number;
+  formatValue: (value: number) => string;
+  onValueChange: (value: [number, number]) => void;
 }) {
+  const id = useId();
+
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <Label id={id}>{label}</Label>
+        <span className="text-xs tabular-nums text-muted-foreground" dir="ltr">
+          {formatValue(value[0])} – {formatValue(value[1])}
+        </span>
+      </div>
+      <Slider
         dir="ltr"
-        type="number"
-        min="0"
+        aria-labelledby={id}
+        min={min}
+        max={max}
         step={step}
-        inputMode="decimal"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onValueChange={(nextValue) =>
+          onValueChange(nextValue as [number, number])
+        }
       />
+      <div
+        className="flex items-center justify-between text-xs tabular-nums text-muted-foreground"
+        dir="ltr"
+        aria-hidden="true"
+      >
+        <span>{formatValue(min)}</span>
+        <span>{formatValue(max)}</span>
+      </div>
     </div>
   );
 }
@@ -144,15 +299,39 @@ export function ModelsExplorer() {
   const tStatus = useTranslations("Statuses");
   const { formatPrice } = useDisplayFormatters();
   const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
+  const compactNumberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("fa-IR", {
+        notation: "compact",
+        maximumFractionDigits: 1,
+      }),
+    [],
+  );
+  const priceRangeFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("fa-IR", {
+        maximumFractionDigits: 1,
+      }),
+    [],
+  );
   const [q, setQ] = useState("");
   const [provider, setProvider] = useState("");
   const [inputModality, setInputModality] = useState("");
   const [outputModality, setOutputModality] = useState("");
-  const [minContextWindow, setMinContextWindow] = useState("");
-  const [maxContextWindow, setMaxContextWindow] = useState("");
-  const [minPromptPrice, setMinPromptPrice] = useState("");
-  const [maxPromptPrice, setMaxPromptPrice] = useState("");
+  const [contextRange, setContextRange] = useState<[number, number]>([
+    0,
+    CONTEXT_LIMIT,
+  ]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([
+    0,
+    PRICE_LIMIT,
+  ]);
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+
+  const contextRangeActive =
+    contextRange[0] !== 0 || contextRange[1] !== CONTEXT_LIMIT;
+  const priceRangeActive =
+    priceRange[0] !== 0 || priceRange[1] !== PRICE_LIMIT;
 
   const params = useMemo(() => {
     const searchParams = new URLSearchParams();
@@ -160,48 +339,93 @@ export function ModelsExplorer() {
     if (provider) searchParams.set("provider", provider);
     if (inputModality) searchParams.set("input_modalities", inputModality);
     if (outputModality) searchParams.set("output_modalities", outputModality);
-    if (minContextWindow) searchParams.set("min_context_window", minContextWindow);
-    if (maxContextWindow) searchParams.set("max_context_window", maxContextWindow);
-    if (minPromptPrice) searchParams.set("min_input_price", minPromptPrice);
-    if (maxPromptPrice) searchParams.set("max_input_price", maxPromptPrice);
+    if (contextRange[0] > 0) {
+      searchParams.set("min_context_window", String(contextRange[0]));
+    }
+    if (contextRange[1] < CONTEXT_LIMIT) {
+      searchParams.set("max_context_window", String(contextRange[1]));
+    }
+    if (priceRange[0] > 0) {
+      searchParams.set("min_input_price", String(priceRange[0]));
+    }
+    if (priceRange[1] < PRICE_LIMIT) {
+      searchParams.set("max_input_price", String(priceRange[1]));
+    }
     searchParams.set("limit", "24");
     return searchParams.toString();
-  }, [q, provider, inputModality, outputModality, minContextWindow, maxContextWindow, minPromptPrice, maxPromptPrice]);
+  }, [
+    q,
+    provider,
+    inputModality,
+    outputModality,
+    contextRange,
+    priceRange,
+  ]);
 
   const modelsQuery = useQuery({
     queryKey: ["models", params],
-    queryFn: () => apiGet<{ data: ModelRow[]; pagination: { total: number } }>(`/models?${params}`),
+    queryFn: () =>
+      apiGet<{ data: ModelRow[]; pagination: { total: number } }>(
+        `/models?${params}`,
+      ),
   });
-  const facetsQuery = useQuery({ queryKey: ["facets"], queryFn: () => apiGet<FacetsResponse>("/facets") });
+  const facetsQuery = useQuery({
+    queryKey: ["facets"],
+    queryFn: () => apiGet<FacetsResponse>("/facets"),
+  });
 
-  const providers = facetsQuery.data?.providers ?? facetsQuery.data?.data?.providers ?? [];
-  const inputModalities = facetsQuery.data?.inputModalities ?? facetsQuery.data?.input_modalities ?? facetsQuery.data?.data?.inputModalities ?? facetsQuery.data?.data?.input_modalities ?? [];
-  const outputModalities = facetsQuery.data?.outputModalities ?? facetsQuery.data?.output_modalities ?? facetsQuery.data?.data?.outputModalities ?? facetsQuery.data?.data?.output_modalities ?? [];
-  const activeFilterCount = [q, provider, inputModality, outputModality, minContextWindow, maxContextWindow, minPromptPrice, maxPromptPrice].filter(Boolean).length;
+  const providers =
+    facetsQuery.data?.providers ??
+    facetsQuery.data?.data?.providers ??
+    [];
+  const inputModalities =
+    facetsQuery.data?.inputModalities ??
+    facetsQuery.data?.input_modalities ??
+    facetsQuery.data?.data?.inputModalities ??
+    facetsQuery.data?.data?.input_modalities ??
+    [];
+  const outputModalities =
+    facetsQuery.data?.outputModalities ??
+    facetsQuery.data?.output_modalities ??
+    facetsQuery.data?.data?.outputModalities ??
+    facetsQuery.data?.data?.output_modalities ??
+    [];
+  const activeFilterCount =
+    [q, provider, inputModality, outputModality].filter(Boolean).length +
+    Number(contextRangeActive) +
+    Number(priceRangeActive);
+  const liveModels = modelsQuery.data?.data ?? [];
+  const showingPreview =
+    !modelsQuery.isLoading &&
+    !modelsQuery.isError &&
+    liveModels.length === 0 &&
+    activeFilterCount === 0;
+  const displayedModels = showingPreview ? PREVIEW_MODELS : liveModels;
 
   const clearFilters = () => {
     setQ("");
     setProvider("");
     setInputModality("");
     setOutputModality("");
-    setMinContextWindow("");
-    setMaxContextWindow("");
-    setMinPromptPrice("");
-    setMaxPromptPrice("");
+    setContextRange([0, CONTEXT_LIMIT]);
+    setPriceRange([0, PRICE_LIMIT]);
   };
 
-  const formatStatus = (status: string) => {
-    const key = getStatusKey(status);
-    return key ? tStatus(key) : status;
+  const formatStatus = (model: ModelRow) => {
+    if (model.catalogPreview) return t("previewRow");
+    const key = getStatusKey(model.status);
+    return key ? tStatus(key) : model.status;
   };
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <Card className="overflow-hidden p-0 shadow-sm lg:sticky lg:top-20 lg:z-10">
+      <Card className="overflow-hidden p-0 shadow-sm">
         <CardHeader className="border-b border-border bg-muted/35 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold sm:text-lg">{t("filtersTitle")}</h2>
+              <h2 className="text-base font-semibold sm:text-lg">
+                {t("filtersTitle")}
+              </h2>
               {activeFilterCount > 0 ? (
                 <Badge className="border-primary-soft bg-primary-soft text-primary-soft-foreground">
                   {t("activeFilters", { count: activeFilterCount })}
@@ -210,15 +434,6 @@ export function ModelsExplorer() {
             </div>
             <CardDescription>{t("filtersDescription")}</CardDescription>
           </div>
-          {activeFilterCount > 0 ? (
-            <Button
-              type="button"
-              className="h-9 shrink-0 border border-border bg-background px-3 text-foreground hover:bg-accent"
-              onClick={clearFilters}
-            >
-              {t("clearFilters", { count: activeFilterCount })}
-            </Button>
-          ) : null}
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4 pt-4 sm:pt-5">
@@ -226,7 +441,10 @@ export function ModelsExplorer() {
             <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2 xl:col-span-1">
               <Label htmlFor="catalog-model-search">{t("searchLabel")}</Label>
               <div className="relative">
-                <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Search
+                  className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <Input
                   id="catalog-model-search"
                   className="ps-10"
@@ -236,211 +454,394 @@ export function ModelsExplorer() {
                 />
               </div>
             </div>
-            <FilterSelect label={t("providerLabel")} allLabel={t("allProviders")} value={provider} options={providers} onValueChange={setProvider} />
-            <FilterSelect label={t("inputModalityLabel")} allLabel={t("allInputModalities")} value={inputModality} options={inputModalities} onValueChange={setInputModality} />
-            <FilterSelect label={t("outputModalityLabel")} allLabel={t("allOutputModalities")} value={outputModality} options={outputModalities} onValueChange={setOutputModality} />
+            <FilterSelect
+              label={t("providerLabel")}
+              allLabel={t("allProviders")}
+              value={provider}
+              options={providers}
+              onValueChange={setProvider}
+            />
+            <FilterSelect
+              label={t("inputModalityLabel")}
+              allLabel={t("allInputModalities")}
+              value={inputModality}
+              options={inputModalities}
+              onValueChange={setInputModality}
+            />
+            <FilterSelect
+              label={t("outputModalityLabel")}
+              allLabel={t("allOutputModalities")}
+              value={outputModality}
+              options={outputModalities}
+              onValueChange={setOutputModality}
+            />
           </div>
 
-          <div id="catalog-advanced-filters" className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-4", !advancedFiltersOpen && "hidden lg:grid")}>
-            <NumericFilter id="catalog-min-context" label={t("minimumContext")} value={minContextWindow} onChange={setMinContextWindow} />
-            <NumericFilter id="catalog-max-context" label={t("maximumContext")} value={maxContextWindow} onChange={setMaxContextWindow} />
-            <NumericFilter id="catalog-min-price" label={t("minimumInputPrice")} value={minPromptPrice} step="0.0001" onChange={setMinPromptPrice} />
-            <NumericFilter id="catalog-max-price" label={t("maximumInputPrice")} value={maxPromptPrice} step="0.0001" onChange={setMaxPromptPrice} />
+          <div
+            id="catalog-advanced-filters"
+            className={cn(
+              "grid gap-3 lg:grid-cols-2",
+              !advancedFiltersOpen && "hidden lg:grid",
+            )}
+          >
+            <RangeFilter
+              label={t("contextRange")}
+              value={contextRange}
+              min={0}
+              max={CONTEXT_LIMIT}
+              step={1_000}
+              formatValue={(value) => compactNumberFormatter.format(value)}
+              onValueChange={setContextRange}
+            />
+            <RangeFilter
+              label={t("inputPriceRange")}
+              value={priceRange}
+              min={0}
+              max={PRICE_LIMIT}
+              step={0.1}
+              formatValue={(value) => `$${priceRangeFormatter.format(value)}`}
+              onValueChange={setPriceRange}
+            />
           </div>
+        </CardContent>
 
+        <CardFooter className="justify-between gap-3 border-t border-border bg-muted/20">
           <Button
             type="button"
+            variant="outline"
             aria-expanded={advancedFiltersOpen}
             aria-controls="catalog-advanced-filters"
-            className="h-9 self-start border border-border bg-background px-3 text-foreground hover:bg-accent lg:hidden"
+            className="lg:hidden"
             onClick={() => setAdvancedFiltersOpen((open) => !open)}
           >
             <SlidersHorizontal data-icon="inline-start" aria-hidden="true" />
-            {advancedFiltersOpen ? t("hideAdvancedFilters") : t("showAdvancedFilters")}
+            {advancedFiltersOpen
+              ? t("hideAdvancedFilters")
+              : t("showAdvancedFilters")}
           </Button>
-        </CardContent>
+          {activeFilterCount > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="ms-auto"
+              onClick={clearFilters}
+            >
+              {t("clearFilters", { count: activeFilterCount })}
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {t("rangeFilterHint")}
+            </span>
+          )}
+        </CardFooter>
       </Card>
 
-      <section aria-labelledby="catalog-results-title" className="flex min-w-0 flex-col gap-4">
+      <section
+        aria-labelledby="catalog-results-title"
+        className="flex min-w-0 flex-col gap-4"
+      >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-col gap-1">
-            <h2 id="catalog-results-title" className="text-base font-semibold sm:text-lg">{t("resultsTitle")}</h2>
-            <p className="text-sm leading-6 text-muted-foreground">{t("resultsDescription")}</p>
+            <h2
+              id="catalog-results-title"
+              className="text-base font-semibold sm:text-lg"
+            >
+              {t("resultsTitle")}
+            </h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {t("resultsDescription")}
+            </p>
           </div>
           {!modelsQuery.isLoading && !modelsQuery.isError ? (
             <Badge aria-live="polite" className="self-start px-3 py-1 sm:self-auto">
-              {t("modelsFound", { count: modelsQuery.data?.pagination.total ?? 0 })}
+              {showingPreview
+                ? t("previewModelsCount", { count: PREVIEW_MODELS.length })
+                : t("modelsFound", {
+                    count: modelsQuery.data?.pagination.total ?? 0,
+                  })}
             </Badge>
           ) : null}
         </div>
 
         {facetsQuery.isError ? (
-          <ResultMessage tone="warning" title={t("filtersError")} />
+          <Alert>
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("filtersError")}</AlertTitle>
+            <AlertDescription>{t("filtersErrorDescription")}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {showingPreview ? (
+          <Alert>
+            <Info aria-hidden="true" />
+            <AlertTitle>{t("previewDataTitle")}</AlertTitle>
+            <AlertDescription>{t("previewDataDescription")}</AlertDescription>
+          </Alert>
         ) : null}
 
         {modelsQuery.isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t("loading")}>
-            {Array.from({ length: 6 }, (_, index) => <ModelCardSkeleton key={index} />)}
-          </div>
+          <ModelsTableSkeleton label={t("loading")} />
         ) : null}
 
         {modelsQuery.isError ? (
-          <ResultMessage tone="error" title={t("loadError")} />
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("loadError")}</AlertTitle>
+            <AlertDescription>{t("loadErrorDescription")}</AlertDescription>
+          </Alert>
         ) : null}
 
-        {!modelsQuery.isLoading && !modelsQuery.isError && modelsQuery.data?.data.length === 0 ? (
-          <ResultMessage tone="neutral" title={t("noMatches")} action={activeFilterCount > 0 ? (
-            <Button type="button" onClick={clearFilters}>{t("clearFilters", { count: activeFilterCount })}</Button>
-          ) : (
-            <Link
-              href="/providers"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {t("browseProviders")}
-            </Link>
-          )} />
+        {!modelsQuery.isLoading &&
+        !modelsQuery.isError &&
+        displayedModels.length === 0 ? (
+          <Empty className="border border-card-border bg-card">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Boxes aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>{t("noMatchesTitle")}</EmptyTitle>
+              <EmptyDescription>{t("noMatches")}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              {activeFilterCount > 0 ? (
+                <Button type="button" onClick={clearFilters}>
+                  {t("clearFilters", { count: activeFilterCount })}
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link href="/providers">{t("browseProviders")}</Link>
+                </Button>
+              )}
+            </EmptyContent>
+          </Empty>
         ) : null}
 
-        {!modelsQuery.isLoading && !modelsQuery.isError && modelsQuery.data?.data.length ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {modelsQuery.data.data.map((model) => {
-              const providerLogo = resolveAssetUrl(model.provider.logoUrl);
-              const seriesLogo = resolveAssetUrl(model.modelSeries?.logoUrl);
-              const statusKey = getStatusKey(model.status);
-              const statusClassName = cn(
-                (statusKey === "active" || statusKey === "available") && "border-success-soft bg-success-soft text-success-soft-foreground",
-              );
-
-              return (
-                <Card key={model.canonicalId} className="group relative flex min-w-0 flex-col overflow-hidden p-0 transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg">
-                  <span className="absolute inset-x-0 top-0 h-1 bg-primary opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
-                  <div className="absolute end-3 top-3 z-10">
-                    <CompareToggleButton canonicalId={model.canonicalId} compact iconOnly />
-                  </div>
-                  <Link
-                    href={`/models/${model.provider.slug}/${model.slug}`}
-                    className="flex h-full min-w-0 flex-col rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <CardHeader className="pe-16">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex shrink-0 items-center gap-1">
-                          {providerLogo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={providerLogo} alt={model.provider.name} className="size-9 rounded-lg border border-border bg-background object-contain p-1" />
-                          ) : (
-                            <span className="flex size-9 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
-                              <Building2 className="size-4" aria-hidden="true" />
-                            </span>
-                          )}
-                          {seriesLogo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={seriesLogo} alt={t("modelSeriesLogoAlt", { name: model.modelSeries?.name ?? "" })} className="size-9 rounded-lg border border-border bg-background object-contain p-1" />
-                          ) : null}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge className={statusClassName}>{formatStatus(model.status)}</Badge>
-                            {model.free ? <Badge className="border-success-soft bg-success-soft text-success-soft-foreground">{t("free")}</Badge> : null}
-                          </div>
-                          <CardTitle className="mt-2 text-lg leading-7 transition-colors group-hover:text-primary">
-                            <bdi dir="auto">{model.name}</bdi>
-                          </CardTitle>
-                          <CardDescription className="truncate text-xs" dir="ltr" data-technical>{model.canonicalId}</CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="flex flex-1 flex-col gap-4">
-                      <p dir="auto" className="line-clamp-2 min-h-12 text-sm leading-6 text-muted-foreground">
-                        {model.description || t("noDescription")}
-                      </p>
-
-                      <dl className="grid grid-cols-2 gap-2">
-                        <ModelMetric label={tCommon("provider")} value={model.provider.name} />
-                        <ModelMetric label={t("contextWindow")} value={model.contextWindow === undefined ? "-" : numberFormatter.format(model.contextWindow)} />
-                        <ModelMetric label={t("maxOutputTokens")} value={model.maxOutputTokens === undefined ? "-" : numberFormatter.format(model.maxOutputTokens)} />
-                        <ModelMetric label={t("inputPrice")} value={formatPrice(model.pricing?.inputPerMillionTokens)} />
-                      </dl>
-
-                      {model.capabilities.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {model.capabilities.slice(0, 4).map((capability) => (
-                            <Badge key={capability}><bdi dir="auto">{capability}</bdi></Badge>
-                          ))}
-                          {model.capabilities.length > 4 ? <Badge>+{numberFormatter.format(model.capabilities.length - 4)}</Badge> : null}
-                        </div>
-                      ) : null}
-                    </CardContent>
-
-                    <CardFooter className="justify-between gap-3 border-t border-border bg-muted/30">
-                      <span className="text-sm font-medium text-primary">{t("viewDetails")}</span>
-                      <ArrowLeft className="size-4 text-primary transition-transform group-hover:-translate-x-1" aria-hidden="true" />
-                    </CardFooter>
-                  </Link>
-                </Card>
-              );
-            })}
-          </div>
+        {!modelsQuery.isLoading &&
+        !modelsQuery.isError &&
+        displayedModels.length > 0 ? (
+          <ModelsTable
+            models={displayedModels}
+            formatStatus={formatStatus}
+            formatPrice={formatPrice}
+            formatNumber={(value) => numberFormatter.format(value)}
+            labels={{
+              model: t("table.model"),
+              provider: tCommon("provider"),
+              modalities: t("table.modalities"),
+              context: t("contextWindow"),
+              inputPrice: t("inputPrice"),
+              status: tCommon("status"),
+              actions: t("table.actions"),
+              input: t("table.input"),
+              output: t("table.output"),
+              viewDetails: t("viewDetails"),
+              preview: t("previewRow"),
+              unavailable: tCommon("unknown"),
+            }}
+          />
         ) : null}
       </section>
     </div>
   );
 }
 
-function ModelMetric({ label, value }: { label: string; value: React.ReactNode }) {
+function ModelsTable({
+  models,
+  formatStatus,
+  formatPrice,
+  formatNumber,
+  labels,
+}: {
+  models: ModelRow[];
+  formatStatus: (model: ModelRow) => string;
+  formatPrice: (value?: number) => string;
+  formatNumber: (value: number) => string;
+  labels: {
+    model: string;
+    provider: string;
+    modalities: string;
+    context: string;
+    inputPrice: string;
+    status: string;
+    actions: string;
+    input: string;
+    output: string;
+    viewDetails: string;
+    preview: string;
+    unavailable: string;
+  };
+}) {
   return (
-    <div className="min-w-0 rounded-lg bg-muted/50 p-2.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 truncate text-sm font-semibold" title={typeof value === "string" ? value : undefined}>{value}</dd>
-    </div>
-  );
-}
+    <Card className="overflow-hidden p-0 shadow-sm">
+      <CardContent className="p-0 sm:p-0">
+        <Table>
+          <TableHeader className="bg-muted/45">
+            <TableRow>
+              <TableHead className="min-w-64">{labels.model}</TableHead>
+              <TableHead>{labels.provider}</TableHead>
+              <TableHead>{labels.modalities}</TableHead>
+              <TableHead>{labels.context}</TableHead>
+              <TableHead>{labels.inputPrice}</TableHead>
+              <TableHead>{labels.status}</TableHead>
+              <TableHead className="text-end">{labels.actions}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {models.map((model) => {
+              const statusKey = getStatusKey(model.status);
+              const statusClassName = cn(
+                !model.catalogPreview &&
+                  (statusKey === "active" || statusKey === "available") &&
+                  "border-success-soft bg-success-soft text-success-soft-foreground",
+                model.catalogPreview &&
+                  "border-primary-soft bg-primary-soft text-primary-soft-foreground",
+              );
 
-function ModelCardSkeleton() {
-  return (
-    <Card className="flex flex-col gap-4 p-5" aria-hidden="true">
-      <div className="flex items-start gap-3">
-        <Skeleton className="size-9 shrink-0" />
-        <div className="flex flex-1 flex-col gap-2">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-6 w-2/3" />
-          <Skeleton className="h-3 w-full" />
-        </div>
-      </div>
-      <Skeleton className="h-12 w-full" />
-      <div className="grid grid-cols-2 gap-2">
-        <Skeleton className="h-14" />
-        <Skeleton className="h-14" />
-        <Skeleton className="h-14" />
-        <Skeleton className="h-14" />
-      </div>
+              return (
+                <TableRow key={model.canonicalId}>
+                  <TableCell>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      {model.catalogPreview ? (
+                        <span className="font-semibold" dir="auto">
+                          {model.name}
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/models/${model.provider.slug}/${model.slug}`}
+                          className="font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          dir="auto"
+                        >
+                          {model.name}
+                        </Link>
+                      )}
+                      <span
+                        className="max-w-64 truncate text-xs text-muted-foreground"
+                        dir="ltr"
+                        data-technical
+                        title={model.canonicalId}
+                      >
+                        {model.canonicalId}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{model.provider.name}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex min-w-48 flex-col gap-1.5">
+                      <ModalityList
+                        label={labels.input}
+                        values={model.inputModalities}
+                        unavailable={labels.unavailable}
+                      />
+                      <ModalityList
+                        label={labels.output}
+                        values={model.outputModalities}
+                        unavailable={labels.unavailable}
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell className="tabular-nums" dir="ltr">
+                    {model.contextWindow === undefined
+                      ? "—"
+                      : formatNumber(model.contextWindow)}
+                  </TableCell>
+                  <TableCell className="tabular-nums" dir="ltr">
+                    {model.pricing?.inputPerMillionTokens === undefined
+                      ? "—"
+                      : formatPrice(model.pricing.inputPerMillionTokens)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={statusClassName}>
+                      {formatStatus(model)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {model.catalogPreview ? (
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          {labels.preview}
+                        </Button>
+                      ) : (
+                        <>
+                          <CompareToggleButton
+                            canonicalId={model.canonicalId}
+                            compact
+                            iconOnly
+                          />
+                          <Button asChild variant="ghost" size="icon">
+                            <Link
+                              href={`/models/${model.provider.slug}/${model.slug}`}
+                              aria-label={`${labels.viewDetails}: ${model.name}`}
+                              title={labels.viewDetails}
+                            >
+                              <ArrowLeft aria-hidden="true" />
+                            </Link>
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
     </Card>
   );
 }
 
-function ResultMessage({
-  title,
-  tone,
-  action,
+function ModalityList({
+  label,
+  values,
+  unavailable,
 }: {
-  title: string;
-  tone: "error" | "warning" | "neutral";
-  action?: React.ReactNode;
+  label: string;
+  values: string[];
+  unavailable: string;
 }) {
   return (
-    <Card role={tone === "error" ? "alert" : "status"} className="flex flex-col items-start gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
-        <span className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-xl",
-          tone === "error" && "bg-destructive-soft text-destructive-soft-foreground",
-          tone === "warning" && "bg-warning-soft text-warning-soft-foreground",
-          tone === "neutral" && "bg-muted text-muted-foreground",
-        )}>
-          <CircleAlert className="size-5" aria-hidden="true" />
-        </span>
-        <p className="text-sm font-medium leading-6">{title}</p>
-      </div>
-      {action}
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="truncate text-xs" dir="auto">
+        {values.length > 0 ? values.slice(0, 3).join("، ") : unavailable}
+      </span>
+    </div>
+  );
+}
+
+function ModelsTableSkeleton({ label }: { label: string }) {
+  return (
+    <Card
+      className="overflow-hidden p-0"
+      role="status"
+      aria-label={label}
+    >
+      <CardContent className="p-0 sm:p-0">
+        <Table>
+          <TableHeader className="bg-muted/45">
+            <TableRow>
+              {Array.from({ length: 7 }, (_, index) => (
+                <TableHead key={index}>
+                  <Skeleton className="h-4 w-20" />
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 6 }, (_, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {Array.from({ length: 7 }, (_, cellIndex) => (
+                  <TableCell key={cellIndex}>
+                    <Skeleton className="h-8 w-full min-w-20" />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
     </Card>
   );
 }

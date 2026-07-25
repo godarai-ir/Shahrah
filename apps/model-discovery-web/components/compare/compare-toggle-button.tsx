@@ -32,13 +32,18 @@ export function CompareToggleButton({ canonicalId, compact = false, iconOnly = f
     return (
       <Button
         type="button"
+        variant="outline"
+        size="icon-sm"
         onClick={onClick}
         aria-label={selected ? t("removeAria", { id: canonicalId }) : t("addAria", { id: canonicalId })}
         title={selected ? t("remove") : t("add")}
         disabled={!selected && !canAdd}
-        className="h-8 w-8 border border-border bg-card p-0 text-card-foreground hover:bg-accent"
       >
-        {selected ? <X className="h-4 w-4 text-success-soft-foreground" /> : <Plus className="h-4 w-4" />}
+        {selected ? (
+          <X data-icon="inline-start" className="text-success-soft-foreground" />
+        ) : (
+          <Plus data-icon="inline-start" />
+        )}
       </Button>
     );
   }
@@ -46,10 +51,10 @@ export function CompareToggleButton({ canonicalId, compact = false, iconOnly = f
   return (
     <Button
       type="button"
+      size={compact ? "sm" : "default"}
       onClick={onClick}
       aria-label={selected ? t("removeAria", { id: canonicalId }) : t("addAria", { id: canonicalId })}
       disabled={!selected && !canAdd}
-      className={compact ? "h-8 px-2 text-xs" : ""}
     >
       {selected ? t("remove") : t("add")}
       {selected ? <Badge className="ms-2 border-success-soft bg-success-soft text-success-soft-foreground">{t("selected")}</Badge> : null}
