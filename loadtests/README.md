@@ -85,6 +85,37 @@ deployed. After GitOps contains the exact allowlists, run a single smoke request
 with `EXPECT_MOCK_PROVIDER=true` and require
 `X-Shahrah-Mock-Provider: true` before starting any ramp, spike, or soak test.
 
+For production, set every safety-sensitive value explicitly in the same terminal.
+Keep the VAT local to that terminal and do not paste it into logs, Git, or chat:
+
+```powershell
+$env:PRODUCTION_LOADTEST="true"
+$env:BASE_URL="https://<tenant-slug>.godarai.ir"
+$env:API_KEY="<dedicated-load-test-vat>"
+$env:TENANT="<tenant-slug>"
+$env:MODEL="loadtest/mock"
+$env:EMBEDDING_MODEL="loadtest/mock"
+$env:EXPECT_MOCK_PROVIDER="true"
+
+k6 run -e SCENARIO=mock-smoke loadtests/k6/gateway-scenarios.js
+```
+
+The `mock-smoke` scenario sends exactly one chat request. Production URLs and
+`PRODUCTION_LOADTEST=true` enable a fail-fast guard: k6 refuses to start unless
+the dedicated VAT, tenant slug, exact mock model, HTTPS base URL, and mock-marker
+expectation are all present. A missing `X-Shahrah-Mock-Provider: true` fails the
+test through the `gateway_success_rate` threshold.
+
+Only after `mock-smoke` passes should you run the regular scenarios in the same
+terminal. Clear the VAT from the terminal when the test window ends:
+
+```powershell
+k6 run -e SCENARIO=smoke loadtests/k6/gateway-scenarios.js
+k6 run -e SCENARIO=ramp -e TARGET_VUS=25 -e HOLD=5m loadtests/k6/gateway-scenarios.js
+
+Remove-Item Env:API_KEY
+```
+
 You can tune mock behavior before starting compose:
 
 ```powershell

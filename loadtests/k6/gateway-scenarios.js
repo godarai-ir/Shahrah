@@ -3,16 +3,26 @@ import { check, group, sleep } from 'k6';
 import exec from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
-const baseUrl = (__ENV.BASE_URL || 'http://localhost:4000').replace(/\/$/, '');
+const configuredBaseUrl = (__ENV.BASE_URL || '').trim();
+const configuredApiKey = (__ENV.API_KEY || '').trim();
+const configuredTenant = (__ENV.TENANT || '').trim();
+const baseUrl = (configuredBaseUrl || 'http://localhost:4000').replace(/\/$/, '');
 const scenario = __ENV.SCENARIO || 'mixed';
-const apiKey = __ENV.API_KEY || __ENV.MASTER_KEY || 'sk-dev-master-key-12345';
-const tenant = __ENV.TENANT || 'tenant1';
+const apiKey = configuredApiKey || __ENV.MASTER_KEY || 'sk-dev-master-key-12345';
+const tenant = configuredTenant || 'tenant1';
 const model = __ENV.MODEL || 'gpt-4o-mini';
+const embeddingModel = __ENV.EMBEDDING_MODEL || model;
 const timeout = __ENV.TIMEOUT || '60s';
 const cacheType = __ENV.CACHE_TYPE || 'simple';
 const cacheTTL = Number(__ENV.CACHE_TTL || 600);
 const cacheNamespace = __ENV.CACHE_NAMESPACE || 'loadtest';
 const expectMockProvider = (__ENV.EXPECT_MOCK_PROVIDER || 'false').toLowerCase() === 'true';
+const productionLoadTest = (__ENV.PRODUCTION_LOADTEST || 'false').toLowerCase() === 'true';
+const strictMockMode = productionLoadTest
+  || scenario === 'mock-smoke'
+  || isGodarAIProductionUrl(configuredBaseUrl);
+
+validateStrictMockMode();
 
 const gatewayErrors = new Counter('gateway_errors');
 const cacheHits = new Counter('gateway_cache_hits');
@@ -20,6 +30,13 @@ const successfulGatewayCalls = new Rate('gateway_success_rate');
 const upstreamDuration = new Trend('gateway_upstream_duration', true);
 
 const scenarios = {
+  'mock-smoke': {
+    executor: 'shared-iterations',
+    vus: 1,
+    iterations: 1,
+    maxDuration: __ENV.MAX_DURATION || '30s',
+    exec: 'mockSmoke',
+  },
   smoke: {
     executor: 'constant-vus',
     vus: Number(__ENV.VUS || 2),
@@ -90,6 +107,42 @@ function headers(extra = {}) {
   };
 }
 
+function isGodarAIProductionUrl(value) {
+  return /^https:\/\/(?:[a-z0-9-]+\.)*godarai\.ir(?::\d+)?(?:\/|$)/i.test(value);
+}
+
+function validateStrictMockMode() {
+  if (!strictMockMode) {
+    return;
+  }
+
+  const errors = [];
+  if (!configuredBaseUrl) {
+    errors.push('BASE_URL must be set explicitly');
+  } else if (!configuredBaseUrl.toLowerCase().startsWith('https://')) {
+    errors.push('BASE_URL must use HTTPS');
+  }
+  if (!configuredApiKey) {
+    errors.push('API_KEY must be set explicitly to the dedicated VAT');
+  }
+  if (!configuredTenant) {
+    errors.push('TENANT must be set explicitly to the dedicated tenant slug');
+  }
+  if (model !== 'loadtest/mock') {
+    errors.push('MODEL must equal loadtest/mock');
+  }
+  if (embeddingModel !== 'loadtest/mock') {
+    errors.push('EMBEDDING_MODEL must be unset or equal loadtest/mock');
+  }
+  if (!expectMockProvider) {
+    errors.push('EXPECT_MOCK_PROVIDER must equal true');
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Production mock safety check failed:\n- ${errors.join('\n- ')}`);
+  }
+}
+
 function record(name, response, providerCall = false) {
   const cacheStatus = response.headers['X-Godarai-Cache-Status'] || response.headers['x-godarai-cache-status'];
   const mockMarker = response.headers['X-Shahrah-Mock-Provider'] || response.headers['x-shahrah-mock-provider'];
@@ -155,7 +208,7 @@ function responses() {
 
 function embeddings() {
   const response = http.post(`${baseUrl}/v1/embeddings`, JSON.stringify({
-    model: __ENV.EMBEDDING_MODEL || model,
+    model: embeddingModel,
     input: [`gateway load test ${exec.scenario.iterationInTest}`, 'latency and contention profiling'],
   }), {
     headers: headers(),
@@ -183,6 +236,10 @@ function health() {
   });
 
   record('health', response);
+}
+
+export function mockSmoke() {
+  group('production mock smoke', () => chat('off'));
 }
 
 export default function () {
