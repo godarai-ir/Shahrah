@@ -46,6 +46,26 @@ func TestLiveAndReady(t *testing.T) {
 	}
 }
 
+func TestMetricsEndpointReportsRequests(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(nil)
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/live", nil))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "shahrah_transport_http_requests_total") ||
+		!strings.Contains(body, `service="silk-road"`) ||
+		!strings.Contains(body, `route="live"`) {
+		t.Fatalf("expected silk-road request metrics, got %q", body)
+	}
+}
+
 func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 	t.Parallel()
 

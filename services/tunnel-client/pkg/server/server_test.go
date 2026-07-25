@@ -73,6 +73,26 @@ func TestReadinessFailsWhenTunnelServerIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestMetricsEndpointReportsRequests(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler("http://127.0.0.1:1", nil)
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/live", nil))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "shahrah_transport_http_requests_total") ||
+		!strings.Contains(body, `service="tunnel-client"`) ||
+		!strings.Contains(body, `route="live"`) {
+		t.Fatalf("expected tunnel-client request metrics, got %q", body)
+	}
+}
+
 func TestDispatchForwardsTraceAndBody(t *testing.T) {
 	t.Parallel()
 

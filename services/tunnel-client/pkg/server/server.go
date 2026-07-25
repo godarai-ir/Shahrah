@@ -18,6 +18,8 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 	}
 
 	mux := http.NewServeMux()
+	metrics := newHTTPMetrics("tunnel-client")
+	mux.Handle("/metrics", metrics.handler())
 	localHealth := func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -82,7 +84,7 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 		relayBody(w, resp.Body, payload.Stream || responseIsEventStream(resp.Header))
 	})
 
-	return mux
+	return metrics.wrap(mux)
 }
 
 func copyHeaders(dst http.Header, src http.Header) {

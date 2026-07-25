@@ -18,6 +18,8 @@ func NewHandler(client *http.Client) http.Handler {
 	registry := newProviderRegistry()
 
 	mux := http.NewServeMux()
+	metrics := newHTTPMetrics("silk-road")
+	mux.Handle("/metrics", metrics.handler())
 	localHealth := func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"healthy","service":"silk-road"}`))
@@ -56,7 +58,7 @@ func NewHandler(client *http.Client) http.Handler {
 		relayBody(w, resp.Body, payload.Stream || responseIsEventStream(resp.Headers))
 	})
 
-	return mux
+	return metrics.wrap(mux)
 }
 
 func copyHeaders(dst http.Header, src http.Header) {
