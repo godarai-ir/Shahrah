@@ -106,6 +106,41 @@ the dedicated VAT, tenant slug, exact mock model, HTTPS base URL, and mock-marke
 expectation are all present. A missing `X-Shahrah-Mock-Provider: true` fails the
 test through the `gateway_success_rate` threshold.
 
+### Troubleshoot a stale production load-test script
+
+Production must use the canonical model FQN `mock:loadtest:chat`. If the safety
+check instead reports either of these messages, k6 is running an older copy of
+`gateway-scenarios.js`:
+
+```text
+MODEL must equal loadtest/mock
+EMBEDDING_MODEL must be unset or equal loadtest/mock
+```
+
+Do not change the production model to `loadtest/mock`; that alias is only valid
+for the local compose load-test deployment. Verify that the script contains the
+production guard before continuing:
+
+```powershell
+Select-String `
+  -Path loadtests/k6/gateway-scenarios.js `
+  -Pattern "productionMockModel = 'mock:loadtest:chat'"
+```
+
+Update the checkout before running k6. If the current workspace contains
+uncommitted work, preserve it and create a clean worktree instead of pulling,
+resetting, or overwriting those changes:
+
+```powershell
+git fetch origin
+git worktree add ../shahrah-loadtest origin/main
+Set-Location ../shahrah-loadtest
+```
+
+Export `PRODUCTION_LOADTEST`, `BASE_URL`, `API_KEY`, `TENANT`, `MODEL`,
+`EMBEDDING_MODEL`, and `EXPECT_MOCK_PROVIDER` again in that same PowerShell
+session. Then run `mock-smoke` from the clean checkout before starting a ramp.
+
 Only after `mock-smoke` passes should you run the regular scenarios in the same
 terminal. Clear the VAT from the terminal when the test window ends:
 
