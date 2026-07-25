@@ -1,0 +1,139 @@
+name: Production k6 Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: I confirm this authorized run targets production through the mock provider
+        required: true
+        type: boolean
+        default: false
+      scenario:
+        description: k6 scenario to run
+        required: true
+        type: choice
+        default: mock-smoke
+        options:
+          - mock-smoke
+          - smoke
+          - ramp
+          - soak
+          - spike
+      vus:
+        description: VUs for smoke/soak and target VUs for ramp
+        required: true
+        type: choice
+        default: "1"
+        options:
+          - "1"
+          - "5"
+          - "10"
+          - "25"
+          - "50"
+      duration:
+        description: Duration used by smoke and soak
+        required: true
+        type: choice
+        default: 1m
+        options:
+          - 1m
+          - 15m
+          - 30m
+          - 2h
+      hold:
+        description: Hold duration used by ramp
+        required: true
+        type: choice
+        default: 5m
+        options:
+          - 1m
+          - 5m
+          - 10m
+      spike_vus:
+        description: Peak VUs used by spike
+        required: true
+        type: choice
+        default: "50"
+        options:
+          - "25"
+          - "50"
+          - "100"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-k6
+  cancel-in-progress: false
+
+jobs:
+  load-test:
+    name: ${{ inputs.scenario }} against production mock
+    if: github.ref == 'refs/heads/main' && inputs.confirm_production
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    environment: production-loadtest
+    env:
+      PRODUCTION_LOADTEST: "true"
+      BASE_URL: https://delpak.godarai.ir
+      API_KEY: ${{ secrets.LOADTEST_VAT }}
+      TENANT: delpak
+      MODEL: mock:loadtest:chat
+      EMBEDDING_MODEL: mock:loadtest:chat
+      EXPECT_MOCK_PROVIDER: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Validate protected inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$API_KEY"
+          test "$PRODUCTION_LOADTEST" = "true"
+          test "$BASE_URL" = "https://delpak.godarai.ir"
+          test "$TENANT" = "delpak"
+          test "$MODEL" = "mock:loadtest:chat"
+          test "$EMBEDDING_MODEL" = "mock:loadtest:chat"
+          test "$EXPECT_MOCK_PROVIDER" = "true"
+
+      - name: Prepare result directory
+        run: mkdir -p loadtests/results
+
+      - name: Run k6
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --volume "$PWD:/work" \
+            --workdir /work \
+            --env PRODUCTION_LOADTEST \
+            --env BASE_URL \
+            --env API_KEY \
+            --env TENANT \
+            --env MODEL \
+            --env EMBEDDING_MODEL \
+            --env EXPECT_MOCK_PROVIDER \
+            grafana/k6:2.0.0 run \
+            --summary-export=/work/loadtests/results/summary.json \
+            --log-format=json \
+            --log-output=file=/work/loadtests/results/k6.log,level=warning \
+            --tag testid="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            -e SCENARIO="${{ inputs.scenario }}" \
+            -e VUS="${{ inputs.vus }}" \
+            -e DURATION="${{ inputs.duration }}" \
+            -e TARGET_VUS="${{ inputs.vus }}" \
+            -e HOLD="${{ inputs.hold }}" \
+            -e BASELINE_VUS="${{ inputs.vus }}" \
+            -e SPIKE_VUS="${{ inputs.spike_vus }}" \
+            loadtests/k6/gateway-scenarios.js
+
+      - name: Upload k6 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-${{ inputs.scenario }}-${{ github.run_id }}
+          path: loadtests/results/
+          if-no-files-found: warn
+          retention-days: 14
