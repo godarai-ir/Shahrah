@@ -66,13 +66,16 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.ModelName)
 		model.Aliases = appendUniqueModelAlias(model.Aliases, dep.Model)
+
 		modes := authInfo.AllowedModelTypes[id]
 		if len(modes) == 0 {
 			modes = supportedModesFromDeploymentInfo(dep.ModelInfo)
 		}
+
 		for _, mode := range modes {
 			model.SupportedModes = appendUniqueModelAlias(model.SupportedModes, mode)
 		}
+
 		byAlias[id] = model
 	}
 
@@ -92,13 +95,16 @@ func (h *ModelsHandler) Handle(c *fiber.Ctx) error {
 		model.OwnedBy = "shahrah"
 		model.Provider = "virtual"
 		model.Aliases = appendUniqueModelAlias(model.Aliases, vm.Alias)
+
 		modes := authInfo.AllowedModelTypes[vm.Alias]
 		if len(modes) == 0 {
 			modes = vm.ExposedModes
 		}
+
 		for _, mode := range modes {
 			model.SupportedModes = appendUniqueModelAlias(model.SupportedModes, mode)
 		}
+
 		byAlias[vm.Alias] = model
 	}
 
@@ -121,6 +127,7 @@ func supportedModesFromDeploymentInfo(info map[string]interface{}) []string {
 	if len(info) == 0 {
 		return nil
 	}
+
 	switch modes := info["supported_modes"].(type) {
 	case []string:
 		return append([]string(nil), modes...)
@@ -131,6 +138,7 @@ func supportedModesFromDeploymentInfo(info map[string]interface{}) []string {
 				out = append(out, text)
 			}
 		}
+
 		return out
 	default:
 		return nil

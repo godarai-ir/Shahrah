@@ -76,6 +76,7 @@ func TestSimpleCacheExactHitAndIsolation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "miss", result.Status)
 	require.NoError(t, service.Store(context.Background(), pending, []byte(`{"id":"cached"}`), "trace-original", "openai", "gpt-4", platform.UsageCostBreakdown{InputTokens: 10, OutputTokens: 5, TotalCostUSD: 0.01, TotalCostIRR: 8500, ExchangeRate: 850000}, "test-pricing-v1"))
+
 	secondReq := req
 	secondReq.Metadata = map[string]interface{}{"source": "tenant_admin_playground", "client_run_id": "run-2", "comparison_id": "comparison-2"}
 	result, _, err = service.Lookup(context.Background(), scope, secondReq, cfg)

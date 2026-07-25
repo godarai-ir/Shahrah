@@ -169,8 +169,10 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	if normalizedProvider == "" {
 		return nil, fmt.Errorf("provider is required")
 	}
+
 	if normalizedProvider == internalMockProvider {
 		zeroPrice := 0.0
+
 		return []platform.ProviderCatalogModel{{
 			Provider:         internalMockProvider,
 			Model:            internalMockModel,

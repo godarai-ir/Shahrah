@@ -166,8 +166,10 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	var budgetReservation *platform.BudgetReservation
-	var budgetResponseHandled bool
+	var (
+		budgetReservation     *platform.BudgetReservation
+		budgetResponseHandled bool
+	)
 
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
@@ -412,7 +414,18 @@ func buildCompletionRequestLogPayload(req contractsopenai.CompletionRequest, ori
 	})
 }
 
-func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, clientReq contractsopenai.CompletionRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *CompletionsHandler) handleStream(
+	c *fiber.Ctx,
+	req contractsopenai.ChatCompletionRequest,
+	clientReq contractsopenai.CompletionRequest,
+	originalBody []byte,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+) error {
 	requestLogBase := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/completions", "completions", "failed", 0, start, 0)
 	requestLogBase.RequestID = tunnelReq.RequestID
 	requestLogBase.TraceID = tunnelReq.TraceID
@@ -438,6 +451,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 
 		return writeAPIError(c, fiber.StatusBadGateway, "stream failed", "bad_gateway")
 	}
+
 	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
@@ -451,10 +465,12 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 			responsePayload := buildJSONResponseLogPayload(body, map[string]interface{}{"stream": true, "outcome": "provider_http_error"})
 			responsePayload["stream"] = true
 			responsePayload["outcome"] = "provider_http_error"
+
 			errorType := ErrorTypeMap[statusCode]
 			if strings.TrimSpace(errorType) == "" {
 				errorType = "api_error"
 			}
+
 			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", statusCode, errorType, responsePayload, nil)
 		})
 	}
@@ -477,6 +493,7 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
 		responseCapture := &streamResponseLogCapture{}
 		logStreamFailure := func(errorType string, message string) {
 			payload := responseCapture.Payload("failed")
@@ -566,9 +583,11 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 					if bytes.Equal(raw, []byte("data: [DONE]")) || bytes.Equal(raw, []byte("[DONE]")) {
 						doneMarker := []byte("data: [DONE]\n\n")
 						responseCapture.Append(doneMarker)
+
 						if writeErr := writeBufferedBytes(w, doneMarker); writeErr != nil {
 							h.logger.Warn("failed to write done marker", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 							logStreamFailure("stream_write_error", writeErr.Error())
+
 							return
 						}
 
@@ -589,9 +608,11 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 						}
 
 						responseCapture.Append(chunk.Data)
+
 						if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
 							h.logger.Warn("failed to forward raw stream chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 							logStreamFailure("stream_write_error", writeErr.Error())
+
 							return
 						}
 
@@ -623,14 +644,17 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 						if marshalErr != nil {
 							h.logger.Warn("failed to encode legacy completion chunk", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
 							logStreamFailure("stream_encoding_error", marshalErr.Error())
+
 							return
 						}
 
 						legacyEvent := bytes.Join([][]byte{[]byte("data: "), data, []byte("\n\n")}, nil)
 						responseCapture.Append(legacyEvent)
+
 						if writeErr := writeBufferedBytes(w, legacyEvent); writeErr != nil {
 							h.logger.Warn("failed to write legacy completion chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 							logStreamFailure("stream_write_error", writeErr.Error())
+
 							return
 						}
 					}
@@ -638,9 +662,11 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 					if chunk.IsDone {
 						doneMarker := []byte("data: [DONE]\n\n")
 						responseCapture.Append(doneMarker)
+
 						if writeErr := writeBufferedBytes(w, doneMarker); writeErr != nil {
 							h.logger.Warn("failed to write final done marker", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 							logStreamFailure("stream_write_error", writeErr.Error())
+
 							return
 						}
 
@@ -661,14 +687,17 @@ func (h *CompletionsHandler) handleStream(c *fiber.Ctx, req contractsopenai.Chat
 					if marshalErr != nil {
 						h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
 						logStreamFailure("streaming_error", err.Error())
+
 						return
 					}
 
 					streamErrorEvent := bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)
 					responseCapture.Append(streamErrorEvent)
+
 					if writeErr := writeBufferedBytes(w, streamErrorEvent); writeErr != nil {
 						h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 					}
+
 					logStreamFailure("streaming_error", err.Error())
 				} else {
 					logStreamFailure("stream_closed_without_completion", "provider stream closed without a completion marker")

@@ -82,6 +82,7 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 			"metadata": map[string]string{"source": "tenant_admin_playground", "client_run_id": runID},
 		})
 		require.NoError(t, marshalErr)
+
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
@@ -151,9 +152,10 @@ func (m *mockBilling) CheckBudget(ctx context.Context, authCtx *platform.AuthCon
 
 func (m *mockBilling) FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
 	if usage != nil {
-		copy := *usage
-		m.finalizedUsage = &copy
+		usageCopy := *usage
+		m.finalizedUsage = &usageCopy
 	}
+
 	return m.cost, nil
 }
 
@@ -2069,7 +2071,9 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 4, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Salam\"}}]}\n\n")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,")}
+
 	stream.chunks <- platform.TunnelChunk{Data: []byte("\"completion_tokens\":5,\"total_tokens\":15}}\n\n")}
 
 	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
@@ -2134,11 +2138,13 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 		"content-type": "application/json",
 		"x-request-id": "provider-request-1",
 	}, 1, 0)
+
 	stream.statusCode = http.StatusPaymentRequired
 	stream.chunks <- platform.TunnelChunk{
 		Data:   []byte(`{"error":{"message":"Provider streaming payment required"}}`),
 		IsDone: true,
 	}
+
 	close(stream.chunks)
 
 	mTunnel := &mockTunnelTransport{stream: stream}

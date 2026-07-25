@@ -269,8 +269,10 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	var budgetReservation *platform.BudgetReservation
-	var budgetResponseHandled bool
+	var (
+		budgetReservation     *platform.BudgetReservation
+		budgetResponseHandled bool
+	)
 
 	budgetReservationAttempted := false
 
@@ -1041,7 +1043,17 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	return c.Status(fiber.StatusOK).Send(entry.Response)
 }
 
-func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *ChatCompletionHandler) handleStream(
+	c *fiber.Ctx,
+	req contractsopenai.ChatCompletionRequest,
+	originalBody []byte,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+) error {
 	includeStreamTelemetry := strings.EqualFold(strings.TrimSpace(c.Get(apiheaders.HeaderStreamTelemetry)), "true")
 	requestLogBase := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "failed", 0, start, 0)
 	requestLogBase.RequestID = tunnelReq.RequestID
@@ -1068,6 +1080,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
@@ -1081,10 +1094,12 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 			responsePayload := buildJSONResponseLogPayload(body, map[string]interface{}{"stream": true, "outcome": "provider_http_error"})
 			responsePayload["stream"] = true
 			responsePayload["outcome"] = "provider_http_error"
+
 			errorType := ErrorTypeMap[statusCode]
 			if strings.TrimSpace(errorType) == "" {
 				errorType = "api_error"
 			}
+
 			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", statusCode, errorType, responsePayload, nil)
 		})
 	}
@@ -1107,6 +1122,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
 		responseCapture := &streamResponseLogCapture{}
 		logStreamFailure := func(errorType string, message string) {
 			payload := responseCapture.Payload("failed")
@@ -1116,8 +1132,11 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 
 		budgetCommitted := false
 		finalized := false
+
 		var finalizedCost platform.UsageCostBreakdown
+
 		usageCapture := &streamUsageCapture{}
+
 		defer func() {
 			if !budgetCommitted {
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
@@ -1128,6 +1147,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 			if finalized {
 				return finalizedCost
 			}
+
 			finalized = true
 
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
@@ -1192,6 +1212,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				}, tunnelReq.Deployment),
 			})
 			finalizedCost = finalCost
+
 			return finalizedCost
 		}
 
@@ -1206,17 +1227,21 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 				if len(chunk.Data) > 0 {
 					responseCapture.Append(chunk.Data)
 					usageCapture.Add(chunk.Data)
+
 					if chunk.IsDone && includeStreamTelemetry && isStreamDoneMarker(chunk.Data) {
 						finalCost := finalizeAndLogSuccess()
 						if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
 							h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 							return
 						}
+
 						if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
 							h.logger.Warn("failed to write streaming done chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						}
+
 						return
 					}
+
 					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_write_failed")
@@ -1233,6 +1258,7 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 							h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						}
 					}
+
 					return
 				}
 			case err, ok := <-stream.Errors():
@@ -1248,14 +1274,17 @@ func (h *ChatCompletionHandler) handleStream(c *fiber.Ctx, req contractsopenai.C
 					if marshalErr != nil {
 						h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
 						logStreamFailure("streaming_error", err.Error())
+
 						return
 					}
 
 					streamErrorEvent := bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)
 					responseCapture.Append(streamErrorEvent)
+
 					if writeErr := writeBufferedBytes(w, streamErrorEvent); writeErr != nil {
 						h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 					}
+
 					logStreamFailure("streaming_error", err.Error())
 				} else {
 					logStreamFailure("stream_closed_without_completion", "provider stream closed without a completion marker")
@@ -1284,7 +1313,9 @@ func (capture *streamUsageCapture) Add(data []byte) {
 		if !ok {
 			return
 		}
+
 		capture.buffer = rest
+
 		payload := streamFrameData(frame)
 		if payload == "" || payload == "[DONE]" {
 			continue
@@ -1302,7 +1333,9 @@ func (capture *streamUsageCapture) Usage() *contractsopenai.Usage {
 	if capture == nil || capture.usage == nil {
 		return nil
 	}
+
 	usage := *capture.usage
+
 	return &usage
 }
 
@@ -1311,32 +1344,40 @@ func takeSSEFrame(buffer string) (string, string, bool) {
 	carriageReturnIndex := strings.Index(buffer, "\r\n\r\n")
 	index := newlineIndex
 	delimiterLength := 2
+
 	if carriageReturnIndex >= 0 && (index < 0 || carriageReturnIndex < index) {
 		index = carriageReturnIndex
 		delimiterLength = 4
 	}
+
 	if index < 0 {
 		return "", buffer, false
 	}
+
 	return buffer[:index], buffer[index+delimiterLength:], true
 }
 
 func streamFrameData(frame string) string {
 	lines := strings.Split(strings.ReplaceAll(frame, "\r\n", "\n"), "\n")
+
 	data := make([]string, 0, len(lines))
 	for _, line := range lines {
 		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
+
 		data = append(data, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
 	}
+
 	if len(data) > 0 {
 		return strings.Join(data, "\n")
 	}
+
 	trimmed := strings.TrimSpace(frame)
 	if strings.HasPrefix(trimmed, "{") || trimmed == "[DONE]" {
 		return trimmed
 	}
+
 	return ""
 }
 
@@ -1364,6 +1405,7 @@ func writeStreamTelemetryEvent(w *bufio.Writer, cost platform.UsageCostBreakdown
 	if err != nil {
 		return err
 	}
+
 	return writeBufferedBytes(w, bytes.Join([][]byte{[]byte("event: godarai.telemetry\ndata: "), payload, []byte("\n\n")}, nil))
 }
 
@@ -1595,14 +1637,6 @@ func closeStreamBestEffort(logger *zap.Logger, stream interface{ Close() error }
 
 func writeBufferedBytes(w *bufio.Writer, data []byte) error {
 	if _, err := w.Write(data); err != nil {
-		return err
-	}
-
-	return w.Flush()
-}
-
-func writeBufferedString(w *bufio.Writer, data string) error {
-	if _, err := w.WriteString(data); err != nil {
 		return err
 	}
 

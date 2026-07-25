@@ -212,6 +212,7 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 	if err != nil {
 		return Result{}, nil, err
 	}
+
 	fingerprintReq := cacheFingerprintRequest(req)
 
 	exactHash, err := hashJSON(struct {
@@ -236,6 +237,7 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 	last := req.Messages[len(req.Messages)-1]
 	text := contractsopenai.ChatContentText(last.Content)
 	parameterReq := fingerprintReq
+
 	parameterReq.Messages = append([]contractsopenai.ChatMessage(nil), req.Messages...)
 	parameterReq.Messages[len(parameterReq.Messages)-1].Content = "__semantic_final_user_text__"
 

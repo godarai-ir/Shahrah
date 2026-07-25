@@ -92,6 +92,7 @@ func TestReserveBudgetForRequestStopsAfterWritingBudgetError(t *testing.T) {
 		}
 
 		reachedProvider = true
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 

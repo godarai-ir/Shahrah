@@ -147,8 +147,10 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	var budgetReservation *platform.BudgetReservation
-	var budgetResponseHandled bool
+	var (
+		budgetReservation     *platform.BudgetReservation
+		budgetResponseHandled bool
+	)
 
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
@@ -403,6 +405,7 @@ func (h *AudioTranscriptionsHandler) handleStream(
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,

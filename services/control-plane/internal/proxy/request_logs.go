@@ -34,6 +34,7 @@ func (capture *streamResponseLogCapture) Append(data []byte) {
 	if len(data) > remaining {
 		capture.data = append(capture.data, data[:remaining]...)
 		capture.truncated = true
+
 		return
 	}
 
@@ -83,6 +84,7 @@ func logStreamingRequestBestEffort(
 	} else {
 		entry.Metadata = make(map[string]interface{}, 1)
 	}
+
 	entry.Metadata["stream"] = true
 
 	if finalCost != nil {

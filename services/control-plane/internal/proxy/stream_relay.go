@@ -36,6 +36,7 @@ func writeTunnelStreamHTTPError(c *fiber.Ctx, logger *zap.Logger, stream platfor
 
 func readTunnelStreamErrorBody(stream platform.TunnelStream) ([]byte, error) {
 	var body bytes.Buffer
+
 	chunks := stream.Chunks()
 	errors := stream.Errors()
 
@@ -53,6 +54,7 @@ func readTunnelStreamErrorBody(stream platform.TunnelStream) ([]byte, error) {
 				if len(data) > remaining {
 					data = data[:remaining]
 				}
+
 				_, _ = body.Write(data)
 			}
 
@@ -64,6 +66,7 @@ func readTunnelStreamErrorBody(stream platform.TunnelStream) ([]byte, error) {
 				errors = nil
 				continue
 			}
+
 			if streamErr != nil {
 				return body.Bytes(), fmt.Errorf("read provider error stream: %w", streamErr)
 			}

@@ -115,10 +115,12 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 		}
 
 		model.Aliases = appendUnique(model.Aliases, dep.ModelName)
+
 		model.Aliases = appendUnique(model.Aliases, dep.Model)
 		for _, mode := range supportedModesFromModelInfo(dep.ModelInfo) {
 			model.SupportedModes = appendUnique(model.SupportedModes, mode)
 		}
+
 		byAlias[id] = model
 	}
 
@@ -126,20 +128,24 @@ func (h *Handlers) ListModels(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	for _, vm := range virtualModels {
 		alias := strings.TrimSpace(vm.Alias)
 		if alias == "" || !vm.Enabled {
 			continue
 		}
+
 		model := byAlias[alias]
 		model.ID = alias
 		model.Object = "model"
 		model.OwnedBy = "shahrah"
 		model.Provider = "virtual"
+
 		model.Aliases = appendUnique(model.Aliases, alias)
 		for _, mode := range vm.ExposedModes {
 			model.SupportedModes = appendUnique(model.SupportedModes, mode)
 		}
+
 		byAlias[alias] = model
 	}
 
@@ -162,10 +168,12 @@ func supportedModesFromModelInfo(info map[string]interface{}) []string {
 	if len(info) == 0 {
 		return nil
 	}
+
 	value, ok := info["supported_modes"]
 	if !ok {
 		return nil
 	}
+
 	switch modes := value.(type) {
 	case []string:
 		return append([]string(nil), modes...)
@@ -176,6 +184,7 @@ func supportedModesFromModelInfo(info map[string]interface{}) []string {
 				out = append(out, text)
 			}
 		}
+
 		return out
 	default:
 		return nil

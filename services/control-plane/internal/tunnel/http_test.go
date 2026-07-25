@@ -143,6 +143,7 @@ func TestStreamReturnsErrorStreamForHTTPFailure(t *testing.T) {
 	if assertedHeaders["X-Request-Id"] != "req_error" {
 		t.Fatalf("expected propagated error header, got %#v", assertedHeaders)
 	}
+
 	if stream.StatusCode() != http.StatusBadGateway {
 		t.Fatalf("expected upstream status %d, got %d", http.StatusBadGateway, stream.StatusCode())
 	}

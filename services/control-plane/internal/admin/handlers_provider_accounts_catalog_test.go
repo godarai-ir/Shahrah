@@ -63,23 +63,29 @@ func TestBuildTenantProviderAccountModelCatalogAggregatesAvailability(t *testing
 	if len(items) != 1 {
 		t.Fatalf("expected one aggregated model, got %d", len(items))
 	}
+
 	item := items[0]
 	if got := len(item.Availability); got != 2 {
 		t.Fatalf("expected two availability paths, got %d", got)
 	}
+
 	if item.DisplayName != "GPT-4.1" || !item.IsDeprecated || item.ReplacementModel != "gpt-5" {
 		t.Fatalf("catalog metadata was not preserved: %#v", item)
 	}
+
 	if item.Availability[0].FQN != "openai:managed:gpt-4.1" ||
 		item.Availability[1].FQN != "openai:primary:gpt-4.1" {
 		t.Fatalf("unexpected FQNs: %#v", item.Availability)
 	}
+
 	if item.Availability[0].CredentialSource != platform.CredentialSourceGodarManagedKey {
 		t.Fatalf("expected managed credential source, got %q", item.Availability[0].CredentialSource)
 	}
+
 	if item.Availability[1].CredentialSource != platform.CredentialSourceUserBYOK {
 		t.Fatalf("expected BYOK credential source, got %q", item.Availability[1].CredentialSource)
 	}
+
 	for _, availability := range item.Availability {
 		if !availability.PricingResolved || availability.Readiness != platform.ProviderAccountReadinessReady {
 			t.Fatalf("expected ready, priced availability: %#v", availability)
@@ -91,6 +97,7 @@ func TestAccountReadinessPrecedence(t *testing.T) {
 	account := platform.TenantProviderAccount{
 		AuthMode: platform.ProviderAuthModeAPIKey,
 	}
+
 	summary := platform.TenantProviderAccountSummary{}
 	if got := accountReadiness(account, summary); got != platform.ProviderAccountReadinessNeedsCredentials {
 		t.Fatalf("expected credentials readiness first, got %q", got)
@@ -107,6 +114,7 @@ func TestAccountReadinessPrecedence(t *testing.T) {
 	}
 
 	summary.ManagerCount = 1
+
 	summary.PricingUnresolvedCount = 1
 	if got := accountReadiness(account, summary); got != platform.ProviderAccountReadinessPricingIncomplete {
 		t.Fatalf("expected pricing incomplete, got %q", got)

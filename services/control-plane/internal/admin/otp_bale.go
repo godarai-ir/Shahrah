@@ -63,6 +63,7 @@ func newBaleSafirOTPSenderFromEnv() OTPMobileSender {
 	apiAccessKey := strings.TrimSpace(os.Getenv("BALE_SAFIR_API_ACCESS_KEY"))
 	botIDRaw := strings.TrimSpace(os.Getenv("BALE_SAFIR_BOT_ID"))
 	enabledRaw := strings.TrimSpace(os.Getenv("BALE_OTP_ENABLED"))
+
 	enabled := apiAccessKey != "" || botIDRaw != ""
 	if enabledRaw != "" {
 		enabled = strings.EqualFold(enabledRaw, "true")
@@ -72,6 +73,7 @@ func newBaleSafirOTPSenderFromEnv() OTPMobileSender {
 	if err != nil || botID <= 0 {
 		err = fmt.Errorf("BALE_SAFIR_BOT_ID must be a positive integer")
 	}
+
 	if apiAccessKey == "" {
 		err = fmt.Errorf("BALE_SAFIR_API_ACCESS_KEY is required")
 	}
@@ -92,20 +94,22 @@ func newBaleSafirOTPSenderFromEnv() OTPMobileSender {
 	}
 }
 
-func (s *baleSafirOTPSender) SendTenantAdminOTP(to string, _ string, otpCode string, _ int) error {
+func (s *baleSafirOTPSender) SendTenantAdminOTP(to string, _ string, otpCode string, _ int) (sendErr error) {
 	if !s.enabled {
 		return nil
 	}
+
 	if s.configErr != nil {
-		return fmt.Errorf("Bale Safir OTP configuration is invalid: %w", s.configErr)
+		return fmt.Errorf("invalid Bale Safir OTP configuration: %w", s.configErr)
 	}
 
 	phoneNumber, err := normalizeBalePhoneNumber(to)
 	if err != nil {
 		return err
 	}
+
 	if !baleOTPPattern.MatchString(otpCode) {
-		return fmt.Errorf("Bale Safir only supports numeric OTP values")
+		return fmt.Errorf("numeric OTP value required for Bale Safir")
 	}
 
 	payload, err := json.Marshal(baleSafirOTPRequest{
@@ -124,6 +128,7 @@ func (s *baleSafirOTPSender) SendTenantAdminOTP(to string, _ string, otpCode str
 	if err != nil {
 		return fmt.Errorf("create Bale Safir OTP request: %w", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("api-access-key", s.apiAccessKey)
 
@@ -131,23 +136,32 @@ func (s *baleSafirOTPSender) SendTenantAdminOTP(to string, _ string, otpCode str
 	if err != nil {
 		return fmt.Errorf("send Bale Safir OTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); sendErr == nil && closeErr != nil {
+			sendErr = fmt.Errorf("close Bale Safir OTP response body: %w", closeErr)
+		}
+	}()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
-		return fmt.Errorf("Bale Safir OTP request returned HTTP %d", resp.StatusCode)
+		if _, err := io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10)); err != nil {
+			return fmt.Errorf("discard Bale Safir OTP error response: %w", err)
+		}
+
+		return fmt.Errorf("unexpected Bale Safir OTP HTTP status %d", resp.StatusCode)
 	}
 
 	var result baleSafirOTPResponse
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&result); err != nil {
 		return fmt.Errorf("decode Bale Safir OTP response: %w", err)
 	}
+
 	if len(result.Errors) > 0 {
 		providerErr := result.Errors[0]
-		return fmt.Errorf("Bale Safir rejected OTP request (code %d)", providerErr.Code)
+		return fmt.Errorf("request rejected by Bale Safir (code %d)", providerErr.Code)
 	}
+
 	if strings.TrimSpace(result.MessageID) == "" {
-		return fmt.Errorf("Bale Safir OTP response did not include message_id")
+		return fmt.Errorf("missing message_id in Bale Safir OTP response")
 	}
 
 	return nil
