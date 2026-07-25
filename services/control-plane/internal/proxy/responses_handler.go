@@ -198,6 +198,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	if err != nil || dep == nil {
+		if handled, dependencyErr := writeRoutingDependencyUnavailable(c, h.logger, err, requestedModel, currentTenant.ID); handled {
+			return dependencyErr
+		}
+
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}

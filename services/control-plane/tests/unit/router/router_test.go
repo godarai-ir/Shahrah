@@ -2,6 +2,7 @@ package router_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -195,6 +196,7 @@ func TestRouter_ShouldMatchProviderScopedWildcardBeforeGlobalWildcard(t *testing
 type staticDeploymentStore struct {
 	mu          sync.Mutex
 	deployments []platform.Deployment
+	err         error
 	calls       int
 }
 
@@ -204,12 +206,20 @@ func (s *staticDeploymentStore) ListDeployments(_ context.Context, _ string) ([]
 
 	s.calls++
 
+	if s.err != nil {
+		return nil, s.err
+	}
+
 	return append([]platform.Deployment(nil), s.deployments...), nil
 }
 
 func (s *staticDeploymentStore) ResolveProviderAccountAPIKey(_ context.Context, _ string, modelFQN string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.err != nil {
+		return "", s.err
+	}
 
 	modelFQN = strings.TrimSpace(modelFQN)
 	for _, dep := range s.deployments {
@@ -226,6 +236,12 @@ func (s *staticDeploymentStore) callCount() int {
 	defer s.mu.Unlock()
 
 	return s.calls
+}
+
+func (s *staticDeploymentStore) setError(err error) {
+	s.mu.Lock()
+	s.err = err
+	s.mu.Unlock()
 }
 
 func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
@@ -457,4 +473,91 @@ func TestRouter_ReloadsTenantDeploymentsAfterTTLExpiry(t *testing.T) {
 	assert.NotNil(t, dep)
 
 	assert.Equal(t, 2, store.callCount())
+}
+
+func TestRouter_UsesLastKnownGoodDeploymentsWhenStoreFails(t *testing.T) {
+	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "0")
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &staticDeploymentStore{
+		deployments: []platform.Deployment{
+			{
+				ID:        "provider-account:openai-1:gpt-4o-mini",
+				TenantID:  "tenant-1",
+				ModelName: "openai:openai-main:gpt-4o-mini",
+				Provider:  "openai",
+				Model:     "gpt-4o-mini",
+				APIKey:    "tenant-openai-key",
+			},
+		},
+	}
+
+	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	require.NoError(t, err)
+
+	first, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	store.setError(errors.New("database unavailable"))
+
+	fallback, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+	require.NoError(t, err)
+	require.NotNil(t, fallback)
+	assert.Equal(t, first.ID, fallback.ID)
+	assert.Equal(t, "tenant-openai-key", fallback.Params.APIKey)
+}
+
+func TestRouter_UsesResolvedLastKnownGoodRouteAfterSanitizedCacheExpires(t *testing.T) {
+	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "30")
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	deployment := platform.Deployment{
+		ID:        "provider-account:openai-1:gpt-4o-mini",
+		TenantID:  "tenant-1",
+		ModelName: "openai:openai-main:gpt-4o-mini",
+		Provider:  "openai",
+		Model:     "gpt-4o-mini",
+		APIKey:    "tenant-openai-key",
+	}
+	store := &staticDeploymentStore{deployments: []platform.Deployment{deployment}}
+
+	sanitized := deployment
+	sanitized.APIKey = ""
+	raw, err := json.Marshal([]platform.Deployment{sanitized})
+	require.NoError(t, err)
+	memCache.Set(context.Background(), "deployments:tenant:tenant-1", string(raw), 30*time.Second)
+
+	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	require.NoError(t, err)
+
+	first, err := r.Route(context.Background(), "tenant-1", deployment.ModelName)
+	require.NoError(t, err)
+	require.Equal(t, "tenant-openai-key", first.Params.APIKey)
+
+	memCache.Delete(context.Background(), "deployments:tenant:tenant-1")
+	store.setError(errors.New("database unavailable"))
+
+	fallback, err := r.Route(context.Background(), "tenant-1", deployment.ModelName)
+	require.NoError(t, err)
+	require.NotNil(t, fallback)
+	assert.Equal(t, deployment.ID, fallback.ID)
+	assert.Equal(t, "tenant-openai-key", fallback.Params.APIKey)
+}
+
+func TestRouter_ReturnsDependencyUnavailableWithoutLastKnownGoodSnapshot(t *testing.T) {
+	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "0")
+
+	logger, _ := zap.NewDevelopment()
+	memCache, _ := cache.NewMemoryCache(logger)
+	store := &staticDeploymentStore{err: errors.New("database unavailable")}
+
+	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	require.NoError(t, err)
+
+	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
+	assert.Nil(t, dep)
+	assert.ErrorIs(t, err, llmrouter.ErrDependencyUnavailable)
 }

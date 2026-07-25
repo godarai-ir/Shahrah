@@ -23,10 +23,11 @@ import (
 
 // Errors.
 var (
-	ErrNoHealthyDeployments = errors.New("no healthy deployments available")
-	ErrModelNotFound        = errors.New("model not found")
-	ErrAllDeploymentsFailed = errors.New("all deployments failed or are in cooldown")
-	ErrNoPlatformCredential = errors.New("platform provider credential unavailable")
+	ErrNoHealthyDeployments  = errors.New("no healthy deployments available")
+	ErrModelNotFound         = errors.New("model not found")
+	ErrAllDeploymentsFailed  = errors.New("all deployments failed or are in cooldown")
+	ErrNoPlatformCredential  = errors.New("platform provider credential unavailable")
+	ErrDependencyUnavailable = errors.New("routing dependency unavailable")
 )
 
 // Deployment represents a single model deployment.
@@ -74,6 +75,9 @@ type Router struct {
 	platformCredentials           *platformcredentials.Manager
 	platformCredentialMode        string
 	platformCredentialEnvironment string
+	lastKnownGoodDeployments      map[string][]platform.Deployment
+	lastKnownGoodRoutes           map[string]*Deployment
+	deploymentFallbackActive      map[string]bool
 }
 
 func (r *Router) SetPlatformCredentialResolver(manager *platformcredentials.Manager, mode, environment string) {
@@ -93,13 +97,16 @@ func (r *Router) SetPlatformCredentialResolver(manager *platformcredentials.Mana
 // NewRouter creates a new Router instance.
 func NewRouter(modelList []config.ModelDeployment, settings config.RouterSettings, c cache.Cache, store DeploymentStore, logger *zap.Logger) (*Router, error) {
 	r := &Router{
-		deployments: make(map[string][]*Deployment),
-		fallbacks:   make(map[string][]string),
-		numRetries:  settings.NumRetries,
-		cache:       c,
-		logger:      logger,
-		store:       store,
-		dynamicTTL:  secondsEnvOrDefault("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", 30*time.Second),
+		deployments:              make(map[string][]*Deployment),
+		fallbacks:                make(map[string][]string),
+		numRetries:               settings.NumRetries,
+		cache:                    c,
+		logger:                   logger,
+		store:                    store,
+		dynamicTTL:               secondsEnvOrDefault("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", 30*time.Second),
+		lastKnownGoodDeployments: make(map[string][]platform.Deployment),
+		lastKnownGoodRoutes:      make(map[string]*Deployment),
+		deploymentFallbackActive: make(map[string]bool),
 	}
 
 	// Initialize cooldown cache
@@ -182,30 +189,66 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	r.mu.RLock()
 	deployments := append([]*Deployment(nil), r.deployments[modelName]...)
 	fallbacks := append([]string(nil), r.fallbacks[modelName]...)
+	_, modelConfigured := r.deployments[modelName]
 	r.mu.RUnlock()
 
+	var dynamicErr error
+	dynamicIDs := make(map[string]struct{})
 	if r.store != nil && tenantID != "" {
 		dynamic, err := r.listCachedDeployments(ctx, tenantID)
-		if err == nil {
-			for _, dep := range dynamic {
-				if dep.ModelName != modelName && dep.ModelName != "*" {
-					continue
+		storeFailed := err != nil
+		hasResolvedFallback := false
+		if err != nil {
+			dynamicErr = fmt.Errorf("%w: deployment store: %v", ErrDependencyUnavailable, err)
+			if snapshot, ok := r.lastKnownGoodDeploymentSnapshot(tenantID); ok {
+				dynamic = snapshot
+				if r.markDeploymentFallbackActive(tenantID) {
+					r.logger.Warn("Using last-known-good deployment snapshot",
+						zap.String("tenant_id", tenantID),
+						zap.Error(err),
+					)
 				}
-
-				hydrated := r.hydrateDynamicDeployment(dep)
-				if hydrated == nil {
-					continue
-				}
-
-				deployments = append(deployments, hydrated)
 			}
+
+			if resolved, ok := r.lastKnownGoodRoute(tenantID, modelName); ok {
+				deployments = append(deployments, resolved)
+				dynamicIDs[resolved.ID] = struct{}{}
+				hasResolvedFallback = true
+			}
+		} else {
+			r.rememberDeploymentSnapshot(tenantID, dynamic)
+		}
+
+		for _, dep := range dynamic {
+			if dep.ModelName != modelName && dep.ModelName != "*" {
+				continue
+			}
+
+			dynamicIDs[dep.ID] = struct{}{}
+			if hasResolvedFallback {
+				continue
+			}
+
+			hydrated := r.hydrateDynamicDeployment(dep)
+			if hydrated == nil {
+				continue
+			}
+
+			if storeFailed && dynamicDeploymentNeedsResolvedCredential(hydrated) {
+				continue
+			}
+
+			deployments = append(deployments, hydrated)
 		}
 	}
 
-	_, ok := r.deployments[modelName]
-	if !ok {
+	if !modelConfigured {
 		if isModelFQN(modelName) {
 			if len(deployments) == 0 {
+				if dynamicErr != nil {
+					return nil, dynamicErr
+				}
+
 				return nil, ErrModelNotFound
 			}
 		} else {
@@ -213,6 +256,10 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 			// "anthropic/*" before the global "*" fallback.
 			deployments = append(deployments, r.matchWildcardDeployments(modelName)...)
 			if len(deployments) == 0 {
+				if dynamicErr != nil {
+					return nil, dynamicErr
+				}
+
 				return nil, ErrModelNotFound
 			}
 		}
@@ -231,9 +278,13 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 						return nil, err
 					}
 
-					return r.applyCredentials(ctx, tenantID, modelName, selected)
+					return r.finalizeRoute(ctx, tenantID, modelName, selected, dynamicIDs)
 				}
 			}
+		}
+
+		if dynamicErr != nil {
+			return nil, dynamicErr
 		}
 
 		return nil, ErrNoHealthyDeployments
@@ -244,7 +295,147 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 		return nil, err
 	}
 
-	return r.applyCredentials(ctx, tenantID, modelName, selected)
+	return r.finalizeRoute(ctx, tenantID, modelName, selected, dynamicIDs)
+}
+
+func (r *Router) rememberDeploymentSnapshot(tenantID string, deployments []platform.Deployment) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return
+	}
+
+	r.mu.Lock()
+	r.lastKnownGoodDeployments[tenantID] = cloneDeployments(deployments)
+	r.deploymentFallbackActive[tenantID] = false
+	allowedIDs := make(map[string]struct{}, len(deployments))
+	for _, dep := range deployments {
+		allowedIDs[dep.ID] = struct{}{}
+	}
+	for key, route := range r.lastKnownGoodRoutes {
+		if !strings.HasPrefix(key, tenantID+"\x00") {
+			continue
+		}
+		if _, ok := allowedIDs[route.ID]; !ok {
+			delete(r.lastKnownGoodRoutes, key)
+		}
+	}
+	r.mu.Unlock()
+}
+
+func (r *Router) lastKnownGoodDeploymentSnapshot(tenantID string) ([]platform.Deployment, bool) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, false
+	}
+
+	r.mu.RLock()
+	deployments, ok := r.lastKnownGoodDeployments[tenantID]
+	r.mu.RUnlock()
+
+	return cloneDeployments(deployments), ok
+}
+
+func (r *Router) finalizeRoute(
+	ctx context.Context,
+	tenantID string,
+	modelName string,
+	selected *Deployment,
+	dynamicIDs map[string]struct{},
+) (*Deployment, error) {
+	resolved, err := r.applyCredentials(ctx, tenantID, modelName, selected)
+	if err != nil || resolved == nil {
+		return resolved, err
+	}
+
+	if _, ok := dynamicIDs[resolved.ID]; ok {
+		r.rememberResolvedRoute(tenantID, modelName, resolved)
+	}
+
+	return resolved, nil
+}
+
+func (r *Router) rememberResolvedRoute(tenantID, modelName string, deployment *Deployment) {
+	key := resolvedRouteKey(tenantID, modelName)
+	if key == "" || deployment == nil {
+		return
+	}
+
+	r.mu.Lock()
+	r.lastKnownGoodRoutes[key] = cloneDeployment(deployment)
+	r.mu.Unlock()
+}
+
+func (r *Router) lastKnownGoodRoute(tenantID, modelName string) (*Deployment, bool) {
+	key := resolvedRouteKey(tenantID, modelName)
+	if key == "" {
+		return nil, false
+	}
+
+	r.mu.RLock()
+	deployment, ok := r.lastKnownGoodRoutes[key]
+	r.mu.RUnlock()
+
+	return cloneDeployment(deployment), ok
+}
+
+func (r *Router) markDeploymentFallbackActive(tenantID string) bool {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return false
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.deploymentFallbackActive[tenantID] {
+		return false
+	}
+
+	r.deploymentFallbackActive[tenantID] = true
+
+	return true
+}
+
+func resolvedRouteKey(tenantID, modelName string) string {
+	tenantID = strings.TrimSpace(tenantID)
+	modelName = strings.TrimSpace(modelName)
+	if tenantID == "" || modelName == "" {
+		return ""
+	}
+
+	return tenantID + "\x00" + modelName
+}
+
+func cloneDeployment(in *Deployment) *Deployment {
+	if in == nil {
+		return nil
+	}
+
+	out := *in
+	out.Params = in.Params
+	if in.Params.CustomHeaders != nil {
+		out.Params.CustomHeaders = make(map[string]string, len(in.Params.CustomHeaders))
+		for key, value := range in.Params.CustomHeaders {
+			out.Params.CustomHeaders[key] = value
+		}
+	}
+	if in.ProviderAuth != nil {
+		providerAuth := *in.ProviderAuth
+		out.ProviderAuth = &providerAuth
+	}
+
+	return &out
+}
+
+func dynamicDeploymentNeedsResolvedCredential(deployment *Deployment) bool {
+	if deployment == nil || !strings.HasPrefix(strings.TrimSpace(deployment.ID), "provider-account:") {
+		return false
+	}
+
+	noCredential := deployment.ProviderAuth != nil &&
+		strings.EqualFold(strings.TrimSpace(deployment.ProviderAuth.Mode), string(platform.ProviderAuthModeNoCredential))
+
+	return !noCredential && strings.TrimSpace(deployment.Params.APIKey) == ""
 }
 
 func (r *Router) applyCredentials(ctx context.Context, tenantID, modelName string, selected *Deployment) (*Deployment, error) {

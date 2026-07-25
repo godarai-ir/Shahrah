@@ -10,29 +10,66 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-func TestHealthProxy(t *testing.T) {
+func TestHealthIsLocal(t *testing.T) {
 	t.Parallel()
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/health" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte("ok"))
+		t.Fatalf("liveness must not call upstream: %s", r.URL.Path)
 	}))
 	defer upstream.Close()
 
 	handler := NewHandler(upstream.URL, nil)
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	for _, path := range []string{"/health", "/live"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: expected status %d, got %d", path, http.StatusOK, rec.Code)
+		}
+	}
+}
+
+func TestReadinessChecksTunnelServer(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ready" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ready","service":"tunnel-server"}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(upstream.URL, nil)
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
-	if strings.TrimSpace(rec.Body.String()) != "ok" {
-		t.Fatalf("unexpected body: %q", rec.Body.String())
+}
+
+func TestReadinessFailsWhenTunnelServerIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not ready", http.StatusServiceUnavailable)
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(upstream.URL, nil)
+	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, rec.Code)
 	}
 }
 

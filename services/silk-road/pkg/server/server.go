@@ -18,10 +18,13 @@ func NewHandler(client *http.Client) http.Handler {
 	registry := newProviderRegistry()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	localHealth := func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"healthy","service":"silk-road"}`))
-	})
+	}
+	mux.HandleFunc("/health", localHealth)
+	mux.HandleFunc("/live", localHealth)
+	mux.HandleFunc("/ready", localHealth)
 
 	mux.HandleFunc("/dispatch", func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)

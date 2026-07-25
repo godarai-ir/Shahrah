@@ -322,7 +322,11 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return routeErr
 	}
 
-	deployment = h.routeChatCandidates(c.Context(), currentTenant.ID, routeCandidates, deployment)
+	deployment, routeErr = h.routeChatCandidates(c.Context(), currentTenant.ID, routeCandidates, deployment)
+	if handled, dependencyErr := writeRoutingDependencyUnavailable(c, h.logger, routeErr, requestedModel, currentTenant.ID); handled {
+		return dependencyErr
+	}
+
 	if handled, validationErr := h.validateChatDeployment(c, currentTenant.ID, requestedModel, req, deployment); handled || validationErr != nil {
 		return validationErr
 	}
@@ -366,19 +370,22 @@ func (h *ChatCompletionHandler) routeChatCandidates(
 	tenantID string,
 	candidates []string,
 	deployment *router.Deployment,
-) *router.Deployment {
+) (*router.Deployment, error) {
 	if deployment != nil {
-		return deployment
+		return deployment, nil
 	}
 
+	var routeErr error
 	for _, candidate := range candidates {
 		resolved, err := h.llmRouter.Route(ctx, tenantID, candidate)
 		if err == nil {
-			return resolved
+			return resolved, nil
 		}
+
+		routeErr = err
 	}
 
-	return nil
+	return nil, routeErr
 }
 
 func (h *ChatCompletionHandler) validateChatDeployment(

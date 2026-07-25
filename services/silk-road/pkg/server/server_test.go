@@ -31,6 +31,21 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestLiveAndReady(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(nil)
+	for _, path := range []string{"/live", "/ready"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: expected status %d, got %d", path, http.StatusOK, rec.Code)
+		}
+	}
+}
+
 func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 	t.Parallel()
 

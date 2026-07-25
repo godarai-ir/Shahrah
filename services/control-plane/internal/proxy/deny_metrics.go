@@ -3,9 +3,10 @@ package proxy
 import "go.uber.org/zap"
 
 const (
-	denyReasonKeyAllowlist   = "key_allowlist"
-	denyReasonProviderPolicy = "provider_account_policy"
-	denyReasonUnknownModel   = "unknown_model"
+	denyReasonKeyAllowlist          = "key_allowlist"
+	denyReasonProviderPolicy        = "provider_account_policy"
+	denyReasonUnknownModel          = "unknown_model"
+	denyReasonDependencyUnavailable = "dependency_unavailable"
 )
 
 func emitDenyCounter(logger *zap.Logger, reason string, model string, tenantID string) {

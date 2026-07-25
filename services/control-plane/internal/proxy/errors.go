@@ -3,11 +3,14 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
+	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -156,6 +159,29 @@ func writeAPIErrorDetail(c *fiber.Ctx, status int, message string, errType strin
 			Code:    code,
 		},
 	})
+}
+
+func writeRoutingDependencyUnavailable(
+	c *fiber.Ctx,
+	logger *zap.Logger,
+	routeErr error,
+	model string,
+	tenantID string,
+) (bool, error) {
+	if !errors.Is(routeErr, router.ErrDependencyUnavailable) {
+		return false, nil
+	}
+
+	emitDenyCounter(logger, denyReasonDependencyUnavailable, model, tenantID)
+
+	return true, writeAPIErrorDetail(
+		c,
+		fiber.StatusServiceUnavailable,
+		"Routing dependency unavailable",
+		"dependency_unavailable",
+		"",
+		"dependency_unavailable",
+	)
 }
 
 func writeUnsupportedModelModeError(c *fiber.Ctx, model string, requestedMode platform.ModelType, exposedModes []string) error {

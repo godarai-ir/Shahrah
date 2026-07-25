@@ -18,14 +18,33 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet, serverURL+"/health", nil)
+	localHealth := func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"healthy","service":"tunnel-client"}`))
+	}
+	mux.HandleFunc("/health", localHealth)
+	mux.HandleFunc("/live", localHealth)
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, serverURL+"/ready", nil)
+		if err != nil {
+			http.Error(w, "dependency unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
 		resp, err := client.Do(req)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			http.Error(w, "dependency unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		defer resp.Body.Close()
+
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			http.Error(w, "dependency unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
 		_, _ = io.Copy(w, resp.Body)
 	})
