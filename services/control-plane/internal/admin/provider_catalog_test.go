@@ -231,6 +231,34 @@ func TestDiscoveryProviderExists_NormalizesLegacyProviderSlug(t *testing.T) {
 	assert.True(t, exists)
 }
 
+func TestDiscoveryProviderExists_AllowsInternalMockWithoutDiscovery(t *testing.T) {
+	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", "http://127.0.0.1:1")
+	invalidateDiscoveryCache()
+
+	exists, err := discoveryProviderExists(context.Background(), " mock ")
+	require.NoError(t, err)
+	assert.True(t, exists)
+}
+
+func TestDiscoveryProviderModels_ReturnsInternalMockWithoutDiscovery(t *testing.T) {
+	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", "http://127.0.0.1:1")
+	invalidateDiscoveryCache()
+
+	items, err := discoveryProviderModels(context.Background(), "mock")
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+
+	model := items[0]
+	assert.Equal(t, "mock", model.Provider)
+	assert.Equal(t, "mock/chat", model.Model)
+	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeCompletion}, model.Types)
+	require.NotNil(t, model.PublicPricing)
+	require.NotNil(t, model.PublicPricing.InputUSDPer1M)
+	require.NotNil(t, model.PublicPricing.OutputUSDPer1M)
+	assert.Zero(t, *model.PublicPricing.InputUSDPer1M)
+	assert.Zero(t, *model.PublicPricing.OutputUSDPer1M)
+}
+
 func TestMapDiscoveryProviders_PreservesModelCount(t *testing.T) {
 	modelCount := 12
 	items := mapDiscoveryProviders([]discoveryProvider{{
