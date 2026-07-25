@@ -40,7 +40,50 @@ For cost-safe local load testing, start the stack with the load-test override. T
 docker compose -f infra/compose/local.yml -f infra/compose/loadtest.override.yml up --build control-plane tunnel-client tunnel-server silk-road
 ```
 
-The mock provider is disabled in normal compose/prod paths. It is only registered when `SILK_ROAD_ENABLE_MOCK_PROVIDER=true`, and the load-test override also mounts `loadtests/config/proxy_config.yaml` into the control-plane so static model routes point at provider `mock`.
+The mock provider is disabled in normal compose/prod paths. It is only registered when `SILK_ROAD_ENABLE_MOCK_PROVIDER=true`, and each request must also match both `SILK_ROAD_MOCK_ALLOWED_TENANT_IDS` and `SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS`. Missing allowlists fail closed with HTTP 403. The load-test override allows all local tenants but only the static deployment ID `loadtest-mock-1`; production must use an exact tenant ID instead of `*`.
+
+The mock provider is always treated as `external_billed` by the control-plane, so mock traffic does not reserve or debit the tenant wallet. It still emits normal request, trace, token, latency, and provider metadata for gateway load testing.
+
+### Production provisioning sequence
+
+Use a dedicated production tenant. While signed in to that tenant's admin UI,
+create the mock deployment from the browser console so no admin token is copied
+outside the existing session:
+
+```javascript
+const result = await fetch("/api/models", {
+  method: "POST",
+  credentials: "include",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    model_name: "loadtest/mock",
+    provider: "mock",
+    model: "mock/chat",
+    rpm: 100000,
+    tpm: 10000000,
+    weight: 1,
+    timeout: 60,
+  }),
+}).then(async (response) => ({
+  status: response.status,
+  body: await response.json(),
+}));
+console.log(result);
+```
+
+The tenant-admin BFF only permits missing upstream credentials for the exact
+internal provider slug `mock`; external providers still require both fields.
+Keep the returned tenant UUID and deployment UUID; they are the exact values
+committed to the production GitOps allowlists. Create the VAT with an empty model
+allowlist in this dedicated tenant. Legacy mock deployments are intentionally
+not added to the public provider-account catalogue; an empty VAT allowlist in a
+tenant without provider-account policy enforcement uses the tenant's available
+models.
+
+Do not enable the production mock flag until the fail-closed Silk Road image is
+deployed. After GitOps contains the exact allowlists, run a single smoke request
+with `EXPECT_MOCK_PROVIDER=true` and require
+`X-Shahrah-Mock-Provider: true` before starting any ramp, spike, or soak test.
 
 You can tune mock behavior before starting compose:
 
@@ -48,6 +91,9 @@ You can tune mock behavior before starting compose:
 $env:SILK_ROAD_MOCK_LATENCY_MS="75"
 $env:SILK_ROAD_MOCK_ERROR_RATE="0.01"
 $env:SILK_ROAD_MOCK_ERROR_STATUS="429"
+$env:SILK_ROAD_MOCK_ALLOWED_TENANT_IDS="*"
+$env:SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS="loadtest-mock-1"
+$env:EXPECT_MOCK_PROVIDER="true"
 ```
 
 For a directly running service:

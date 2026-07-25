@@ -125,6 +125,7 @@ func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
 		apiheaders.HeaderTraceID:         "X-GodarAI-Trace-Id",
 		"x-trace-id":                     "X-Trace-Id",
 		"traceparent":                    "Traceparent",
+		"x-shahrah-mock-provider":        "X-Shahrah-Mock-Provider",
 		// Also handle mixed-case input that some providers may send
 		"x-ratelimit-remaining": "X-Ratelimit-Remaining",
 	}

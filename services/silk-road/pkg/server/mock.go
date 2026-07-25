@@ -16,9 +16,11 @@ import (
 )
 
 type mockConfig struct {
-	Latency     time.Duration
-	ErrorRate   float64
-	ErrorStatus int
+	Latency              time.Duration
+	ErrorRate            float64
+	ErrorStatus          int
+	AllowedTenantIDs     map[string]struct{}
+	AllowedDeploymentIDs map[string]struct{}
 }
 
 type mockAdapter struct {
@@ -31,9 +33,11 @@ func mockProviderEnabled() bool {
 
 func loadMockConfigFromEnv() mockConfig {
 	return mockConfig{
-		Latency:     time.Duration(intEnv("SILK_ROAD_MOCK_LATENCY_MS", 50)) * time.Millisecond,
-		ErrorRate:   floatEnv("SILK_ROAD_MOCK_ERROR_RATE", 0),
-		ErrorStatus: intEnv("SILK_ROAD_MOCK_ERROR_STATUS", http.StatusTooManyRequests),
+		Latency:              time.Duration(intEnv("SILK_ROAD_MOCK_LATENCY_MS", 50)) * time.Millisecond,
+		ErrorRate:            floatEnv("SILK_ROAD_MOCK_ERROR_RATE", 0),
+		ErrorStatus:          intEnv("SILK_ROAD_MOCK_ERROR_STATUS", http.StatusTooManyRequests),
+		AllowedTenantIDs:     csvSetEnv("SILK_ROAD_MOCK_ALLOWED_TENANT_IDS"),
+		AllowedDeploymentIDs: csvSetEnv("SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS"),
 	}
 }
 
@@ -52,6 +56,16 @@ func newMockAdapter(cfg mockConfig) providerAdapter {
 }
 
 func (a *mockAdapter) Dispatch(ctx context.Context, _ *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
+	if !a.requestAllowed(payload) {
+		return jsonAdapterResponse(http.StatusForbidden, map[string]interface{}{
+			"error": map[string]interface{}{
+				"message": "mock provider is not authorized for this route",
+				"type":    "permission_error",
+				"code":    "mock_provider_access_denied",
+			},
+		})
+	}
+
 	if a.cfg.Latency > 0 {
 		timer := time.NewTimer(a.cfg.Latency)
 		select {
@@ -87,6 +101,23 @@ func (a *mockAdapter) Dispatch(ctx context.Context, _ *http.Client, payload plat
 	default:
 		return jsonAdapterResponse(http.StatusOK, mockChatBody(payload))
 	}
+}
+
+func (a *mockAdapter) requestAllowed(payload platform.TunnelRequest) bool {
+	tenantID := strings.TrimSpace(payload.TenantID)
+	deploymentID := strings.TrimSpace(payload.Deployment.ID)
+	if tenantID == "" || deploymentID == "" {
+		return false
+	}
+
+	if _, ok := a.cfg.AllowedTenantIDs[tenantID]; !ok {
+		if _, wildcard := a.cfg.AllowedTenantIDs["*"]; !wildcard {
+			return false
+		}
+	}
+
+	_, ok := a.cfg.AllowedDeploymentIDs[deploymentID]
+	return ok
 }
 
 func jsonAdapterResponse(status int, body map[string]interface{}) (*adapterResponse, error) {
@@ -330,6 +361,16 @@ func floatEnv(key string, fallback float64) float64 {
 		return fallback
 	}
 	return value
+}
+
+func csvSetEnv(key string) map[string]struct{} {
+	values := make(map[string]struct{})
+	for _, item := range strings.Split(os.Getenv(key), ",") {
+		if normalized := strings.TrimSpace(item); normalized != "" {
+			values[normalized] = struct{}{}
+		}
+	}
+	return values
 }
 
 func ioNopCloser(raw []byte) io.ReadCloser {

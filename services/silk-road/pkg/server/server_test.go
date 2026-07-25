@@ -290,10 +290,19 @@ func TestDispatchMockProviderDisabledByDefault(t *testing.T) {
 func TestDispatchMockProviderEnabled(t *testing.T) {
 	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "true")
 	t.Setenv("SILK_ROAD_MOCK_LATENCY_MS", "0")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_TENANT_IDS", "tenant-loadtest")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS", "deployment-loadtest")
 
-	handler := NewHandler(nil)
+	upstreamCalls := 0
+	handler := NewHandler(&http.Client{
+		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			upstreamCalls++
+			return nil, fmt.Errorf("mock provider attempted an upstream request")
+		}),
+	})
 	payload := platform.TunnelRequest{
-		Deployment: platform.Deployment{Provider: "mock", Model: "mock-model"},
+		TenantID:   "tenant-loadtest",
+		Deployment: platform.Deployment{ID: "deployment-loadtest", Provider: "mock", Model: "mock-model"},
 		Body:       []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
 	}
 	body, err := json.Marshal(payload)
@@ -315,15 +324,70 @@ func TestDispatchMockProviderEnabled(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
 		t.Fatalf("unexpected mock response: %q", rec.Body.String())
 	}
+	if upstreamCalls != 0 {
+		t.Fatalf("expected no upstream requests, got %d", upstreamCalls)
+	}
+}
+
+func TestDispatchMockProviderFailsClosedOutsideAllowlist(t *testing.T) {
+	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "true")
+	t.Setenv("SILK_ROAD_MOCK_LATENCY_MS", "0")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_TENANT_IDS", "tenant-loadtest")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS", "deployment-loadtest")
+
+	handler := NewHandler(nil)
+	tests := []struct {
+		name       string
+		tenantID   string
+		deployment string
+	}{
+		{name: "different tenant", tenantID: "tenant-customer", deployment: "deployment-loadtest"},
+		{name: "different deployment", tenantID: "tenant-loadtest", deployment: "deployment-customer"},
+		{name: "missing tenant", deployment: "deployment-loadtest"},
+		{name: "missing deployment", tenantID: "tenant-loadtest"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload := platform.TunnelRequest{
+				TenantID: tt.tenantID,
+				Deployment: platform.Deployment{
+					ID:       tt.deployment,
+					Provider: "mock",
+					Model:    "mock-model",
+				},
+				Body: []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
+			}
+			body, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatalf("marshal payload: %v", err)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("expected status %d, got %d with body %q", http.StatusForbidden, rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), `"code":"mock_provider_access_denied"`) {
+				t.Fatalf("unexpected mock denial: %q", rec.Body.String())
+			}
+		})
+	}
 }
 
 func TestDispatchMockProviderRerank(t *testing.T) {
 	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "true")
 	t.Setenv("SILK_ROAD_MOCK_LATENCY_MS", "0")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_TENANT_IDS", "tenant-loadtest")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS", "deployment-rerank")
 
 	handler := NewHandler(nil)
 	payload := platform.TunnelRequest{
-		Deployment: platform.Deployment{Provider: "mock", Model: "mock-rerank"},
+		TenantID:   "tenant-loadtest",
+		Deployment: platform.Deployment{ID: "deployment-rerank", Provider: "mock", Model: "mock-rerank"},
 		RequestMetadata: map[string]interface{}{
 			"provider_endpoint_path": "/rerank",
 		},
@@ -353,10 +417,13 @@ func TestDispatchMockProviderRerank(t *testing.T) {
 func TestDispatchMockProviderEmbeddings(t *testing.T) {
 	t.Setenv("SILK_ROAD_ENABLE_MOCK_PROVIDER", "true")
 	t.Setenv("SILK_ROAD_MOCK_LATENCY_MS", "0")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_TENANT_IDS", "tenant-loadtest")
+	t.Setenv("SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS", "deployment-embedding")
 
 	handler := NewHandler(nil)
 	payload := platform.TunnelRequest{
-		Deployment: platform.Deployment{Provider: "mock", Model: "mock-embedding"},
+		TenantID:   "tenant-loadtest",
+		Deployment: platform.Deployment{ID: "deployment-embedding", Provider: "mock", Model: "mock-embedding"},
 		RequestMetadata: map[string]interface{}{
 			"provider_endpoint_path": "/embeddings",
 		},
@@ -424,6 +491,12 @@ func TestDispatchOpenAICompatiblePreservesJSONContentTypeForImages(t *testing.T)
 	if gotContentType != "application/json" {
 		t.Fatalf("unexpected content type: %q", gotContentType)
 	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func TestDispatchOpenAICompatiblePreservesMultipartContentTypeForImages(t *testing.T) {

@@ -12,6 +12,7 @@ const timeout = __ENV.TIMEOUT || '60s';
 const cacheType = __ENV.CACHE_TYPE || 'simple';
 const cacheTTL = Number(__ENV.CACHE_TTL || 600);
 const cacheNamespace = __ENV.CACHE_NAMESPACE || 'loadtest';
+const expectMockProvider = (__ENV.EXPECT_MOCK_PROVIDER || 'false').toLowerCase() === 'true';
 
 const gatewayErrors = new Counter('gateway_errors');
 const cacheHits = new Counter('gateway_cache_hits');
@@ -89,18 +90,23 @@ function headers(extra = {}) {
   };
 }
 
-function record(name, response) {
-  const ok = check(response, {
+function record(name, response, providerCall = false) {
+  const cacheStatus = response.headers['X-Godarai-Cache-Status'] || response.headers['x-godarai-cache-status'];
+  const mockMarker = response.headers['X-Shahrah-Mock-Provider'] || response.headers['x-shahrah-mock-provider'];
+  const assertions = {
     [`${name}: status is 2xx`]: (r) => r.status >= 200 && r.status < 300,
     [`${name}: has body`]: (r) => r.body && r.body.length > 0,
-  });
+  };
+  if (providerCall && expectMockProvider && (!cacheStatus || cacheStatus.toLowerCase() !== 'hit')) {
+    assertions[`${name}: routed to mock provider`] = () => mockMarker === 'true';
+  }
+  const ok = check(response, assertions);
 
   successfulGatewayCalls.add(ok);
   if (!ok) {
     gatewayErrors.add(1);
   }
 
-  const cacheStatus = response.headers['X-Godarai-Cache-Status'] || response.headers['x-godarai-cache-status'];
   if (cacheStatus && cacheStatus.toLowerCase() === 'hit') {
     cacheHits.add(1);
   }
@@ -130,7 +136,7 @@ function chat(cacheMode = 'off') {
     tags: { endpoint: 'chat_completions', cache_mode: cacheMode },
   });
 
-  record('chat completions', response);
+  record('chat completions', response, true);
 }
 
 function responses() {
@@ -144,7 +150,7 @@ function responses() {
     tags: { endpoint: 'responses' },
   });
 
-  record('responses', response);
+  record('responses', response, true);
 }
 
 function embeddings() {
@@ -157,7 +163,7 @@ function embeddings() {
     tags: { endpoint: 'embeddings' },
   });
 
-  record('embeddings', response);
+  record('embeddings', response, true);
 }
 
 function models() {

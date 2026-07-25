@@ -23,6 +23,10 @@ func deploymentCredentialSource(dep platform.Deployment) string {
 }
 
 func deploymentBillingMode(dep platform.Deployment) string {
+	if strings.EqualFold(strings.TrimSpace(dep.Provider), "mock") {
+		return platform.BillingModeExternalBilled
+	}
+
 	mode := strings.TrimSpace(dep.BillingMode)
 	switch mode {
 	case platform.BillingModeExternalBilled:
