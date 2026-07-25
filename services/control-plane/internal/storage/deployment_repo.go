@@ -203,6 +203,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		runtimeAPIKey := ""
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
+
 		var providerAuth *platform.ResolvedProviderAuth
 
 		if apiKey != "" && hasCredential && !platformManagedCredentials && !strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
@@ -211,6 +212,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			billingMode = platform.BillingModeExternalBilled
 		} else if strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
 			providerAuth = &platform.ResolvedProviderAuth{Mode: string(platform.ProviderAuthModeNoCredential)}
+
 			if strings.EqualFold(provider, "mock") {
 				billingMode = platform.BillingModeExternalBilled
 			}
