@@ -145,7 +145,6 @@ export default function VirtualUserTokenManagement({
   const [offset, setOffset] = useState(0);
   const [selectedID, setSelectedID] = useState(initialVirtualUsers[0]?.id ?? "");
   const [tokens, setTokens] = useState<VATToken[]>([]);
-  const [tokenTotal, setTokenTotal] = useState(0);
   const [allowedModels, setAllowedModels] = useState<string[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
@@ -227,7 +226,6 @@ export default function VirtualUserTokenManagement({
         setSelectedID(nextSelectedID);
         if (!nextSelectedID) {
           setTokens([]);
-          setTokenTotal(0);
           setAllowedModels([]);
         }
       }
@@ -247,7 +245,6 @@ export default function VirtualUserTokenManagement({
         `/api/virtual-users/${encodeURIComponent(virtualUserID)}/tokens?limit=50&offset=0`,
       );
       setTokens(payload.data ?? []);
-      setTokenTotal(payload.total ?? payload.data?.length ?? 0);
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.loadTokensError")) });
     } finally {
@@ -286,7 +283,6 @@ export default function VirtualUserTokenManagement({
       setVirtualUsers((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
       setSelectedID(created.id);
       setTokens([]);
-      setTokenTotal(0);
       await loadAllowedModels(created.team_id ?? "");
       setBanner({ kind: "success", message: t("messages.createUserSuccess") });
       await loadVirtualUsers(0, query.trim(), created.id);
@@ -328,7 +324,6 @@ export default function VirtualUserTokenManagement({
       await requestJSON(`/api/virtual-users/${encodeURIComponent(selectedVirtualUser.id)}`, { method: "DELETE" });
       setSelectedID("");
       setTokens([]);
-      setTokenTotal(0);
       setAllowedModels([]);
       setBanner({ kind: "success", message: t("messages.deleteUserSuccess") });
       await loadVirtualUsers(0, query.trim());

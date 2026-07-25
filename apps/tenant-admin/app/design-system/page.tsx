@@ -197,7 +197,6 @@ export default function DesignSystemPage() {
           query={policyQuery}
           onQueryChange={setPolicyQuery}
           searchPlaceholder="Search rules"
-          resultCountLabel="1 result"
           itemCount={1}
           loading={false}
           loadingLabel="Loading rules"
