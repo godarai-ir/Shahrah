@@ -97,11 +97,13 @@ export default async function ModelDetailPage({
   }
 
   return (
-    <ModelDetailView
-      model={model}
-      requestedCanonicalId={requestedCanonicalId}
-      fetchError={error}
-    />
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
+      <ModelDetailView
+        model={model}
+        requestedCanonicalId={requestedCanonicalId}
+        fetchError={error}
+      />
+    </div>
   );
 }
 

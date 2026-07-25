@@ -423,8 +423,10 @@ function CompareTableSkeleton({ label }: { label: string }) {
 export default function ComparePage() {
   const t = useTranslations("Compare");
   return (
-    <Suspense fallback={<CompareTableSkeleton label={t("pageLoading")} />}>
-      <ComparePageContent />
-    </Suspense>
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
+      <Suspense fallback={<CompareTableSkeleton label={t("pageLoading")} />}>
+        <ComparePageContent />
+      </Suspense>
+    </div>
   );
 }

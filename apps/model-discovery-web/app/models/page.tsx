@@ -1,21 +1,35 @@
 import { ModelsExplorer } from '@/components/catalog/models-explorer';
-import { PageHero } from '@/components/page-hero';
-import { Boxes } from 'lucide-react';
+import { CatalogHero } from '@/components/catalog/catalog-hero';
+import { apiGet } from '@/lib/api';
 import { getTranslations } from 'next-intl/server';
 
 export default async function ModelsPage() {
   const t = await getTranslations('Catalog');
+  const stats = await getCatalogStats();
 
   return (
-    <div className="flex flex-col gap-6 sm:gap-8">
-      <PageHero
-        eyebrow={t('eyebrow')}
-        title={t('title')}
-        description={t('subtitle')}
-        icon={Boxes}
+    <div className="flex flex-col">
+      <CatalogHero
+        active="models"
+        title={t('heroTitle')}
+        summary={t('heroSummary', stats)}
       />
-      <ModelsExplorer />
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <ModelsExplorer />
+      </div>
     </div>
   );
+}
+
+async function getCatalogStats() {
+  try {
+    const providers = await apiGet<Array<{ modelCount?: number }>>('/providers');
+    return {
+      modelCount: providers.reduce((sum, provider) => sum + (provider.modelCount ?? 0), 0),
+      providerCount: providers.length,
+    };
+  } catch {
+    return { modelCount: 0, providerCount: 0 };
+  }
 }
 

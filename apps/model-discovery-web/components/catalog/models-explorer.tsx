@@ -1,28 +1,44 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { Fragment, useId, useMemo, useState } from "react";
 import Link from "next/link";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowLeft,
-  Boxes,
+  Brain,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CircleAlert,
+  Clipboard,
+  Eye,
+  Filter,
   Info,
+  ListFilter,
   Search,
   SlidersHorizontal,
+  Sparkles,
+  Wrench,
 } from "lucide-react";
 import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
+import { ProviderMark } from "@/components/catalog/provider-mark";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -51,154 +67,620 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { apiGet } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useDisplayFormatters } from "@/lib/use-display-formatters";
 
+type Pricing = {
+  currency?: string;
+  inputPerMillionTokens?: number | null;
+  outputPerMillionTokens?: number | null;
+  cachedInputPerMillionTokens?: number | null;
+  imageInputPrice?: number | null;
+  imageOutputPrice?: number | null;
+  audioInputPrice?: number | null;
+  audioOutputPrice?: number | null;
+  requestPrice?: number | null;
+};
+
 type ModelRow = {
+  id?: string;
   canonicalId: string;
   slug: string;
   name: string;
   provider: { slug: string; name: string; logoUrl?: string | null };
-  modelSeries?: { slug: string; name: string; logoUrl?: string | null } | null;
   description?: string;
   status: string;
-  contextWindow?: number;
-  maxOutputTokens?: number;
+  mode?: string[];
+  contextWindow?: number | null;
+  maxOutputTokens?: number | null;
   inputModalities: string[];
   outputModalities: string[];
   capabilities: string[];
-  pricing?: { inputPerMillionTokens?: number; outputPerMillionTokens?: number } | null;
+  supportedParameters?: string[];
+  pricing?: Pricing | null;
   free: boolean;
+  updatedAt?: string;
   catalogPreview?: boolean;
 };
 
-type FacetOption = { slug: string; name: string };
+type FacetOption = { slug: string; name: string; count?: number };
 type FacetsResponse = {
   providers?: FacetOption[];
+  capabilities?: FacetOption[];
   inputModalities?: FacetOption[];
-  input_modalities?: FacetOption[];
   outputModalities?: FacetOption[];
-  output_modalities?: FacetOption[];
   data?: {
     providers?: FacetOption[];
+    capabilities?: FacetOption[];
     inputModalities?: FacetOption[];
-    input_modalities?: FacetOption[];
     outputModalities?: FacetOption[];
-    output_modalities?: FacetOption[];
   };
 };
 
-type StatusKey =
-  | "active"
-  | "inactive"
-  | "disabled"
-  | "maintenance"
-  | "deprecated"
-  | "preview"
-  | "available"
-  | "unavailable";
+type ModelsResponse = {
+  data: ModelRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+type SortValue =
+  | "most_popular"
+  | "newest"
+  | "name"
+  | "cheapest_input"
+  | "cheapest_output"
+  | "largest_context";
+
+type FeatureKey = "vision" | "tools" | "reasoning";
 
 const ALL_VALUE = "__all__";
+const PAGE_SIZE = 24;
 const CONTEXT_LIMIT = 2_000_000;
 const PRICE_LIMIT = 100;
 
+const FEATURE_CAPABILITIES: Record<FeatureKey, string> = {
+  vision: "vision",
+  tools: "function_calling",
+  reasoning: "reasoning",
+};
+
 const PREVIEW_MODELS: ModelRow[] = [
-  {
-    canonicalId: "openai/gpt-4.1-mini",
-    slug: "gpt-4.1-mini",
-    name: "GPT-4.1 Mini",
-    provider: { slug: "openai", name: "OpenAI" },
-    status: "preview",
-    contextWindow: 1_000_000,
-    maxOutputTokens: 32_768,
-    inputModalities: ["text", "image"],
-    outputModalities: ["text"],
-    capabilities: ["vision", "tool_calling", "json_mode", "streaming"],
-    pricing: { inputPerMillionTokens: 0.4 },
-    free: false,
-    catalogPreview: true,
-  },
-  {
-    canonicalId: "anthropic/claude-sonnet-4",
-    slug: "claude-sonnet-4",
-    name: "Claude Sonnet 4",
-    provider: { slug: "anthropic", name: "Anthropic" },
-    status: "preview",
-    contextWindow: 200_000,
-    inputModalities: ["text", "image"],
-    outputModalities: ["text"],
-    capabilities: [],
-    free: false,
-    catalogPreview: true,
-  },
-  {
-    canonicalId: "google-gemini/gemini-2.5-flash",
-    slug: "gemini-2.5-flash",
-    name: "Gemini 2.5 Flash",
-    provider: { slug: "google-gemini", name: "Google Gemini" },
-    status: "preview",
-    contextWindow: 1_000_000,
-    inputModalities: ["text", "image", "audio"],
-    outputModalities: ["text"],
-    capabilities: [],
-    free: false,
-    catalogPreview: true,
-  },
-  {
-    canonicalId: "mistral-ai/mistral-small-latest",
-    slug: "mistral-small-latest",
-    name: "Mistral Small",
-    provider: { slug: "mistral-ai", name: "Mistral AI" },
-    status: "preview",
-    contextWindow: 128_000,
-    inputModalities: ["text"],
-    outputModalities: ["text"],
-    capabilities: [],
-    free: false,
-    catalogPreview: true,
-  },
-  {
-    canonicalId: "cohere/command-r-plus",
-    slug: "command-r-plus",
-    name: "Command R+",
-    provider: { slug: "cohere", name: "Cohere" },
-    status: "preview",
-    contextWindow: 128_000,
-    inputModalities: ["text"],
-    outputModalities: ["text"],
-    capabilities: [],
-    free: false,
-    catalogPreview: true,
-  },
-  {
-    canonicalId: "groq/llama-3.3-70b-versatile",
-    slug: "llama-3.3-70b-versatile",
-    name: "Llama 3.3 70B",
-    provider: { slug: "groq", name: "Groq" },
-    status: "preview",
-    contextWindow: 128_000,
-    inputModalities: ["text"],
-    outputModalities: ["text"],
-    capabilities: [],
-    free: false,
-    catalogPreview: true,
-  },
+  previewModel("openai", "OpenAI", "gpt-4.1-mini", "GPT-4.1 Mini", 0.4, 1.6, 0.1, ["vision", "function_calling"], 1_000_000),
+  previewModel("anthropic", "Anthropic", "claude-sonnet-4", "Claude Sonnet 4", 3, 15, 0.3, ["vision", "reasoning", "function_calling"], 200_000),
+  previewModel("google-gemini", "Google Gemini", "gemini-2.5-flash", "Gemini 2.5 Flash", 0.3, 2.5, 0.03, ["vision", "function_calling"], 1_000_000),
+  previewModel("mistral-ai", "Mistral AI", "mistral-small-latest", "Mistral Small", 0.2, 0.6, null, ["function_calling"], 128_000),
+  previewModel("cohere", "Cohere", "command-r-plus", "Command R+", 2.5, 10, null, ["function_calling"], 128_000),
+  previewModel("groq", "Groq", "llama-3.3-70b-versatile", "Llama 3.3 70B", 0.59, 0.79, null, [], 128_000),
+  previewModel("openrouter", "OpenRouter", "deepseek-r1", "DeepSeek R1", 0.55, 2.19, null, ["reasoning"], 163_840),
+  previewModel("together-ai", "Together AI", "qwen-2.5-72b", "Qwen 2.5 72B", 1.2, 1.2, null, ["function_calling"], 128_000),
 ];
 
-function getStatusKey(status: string): StatusKey | null {
-  const normalized = status.toLowerCase().replaceAll("_", "-");
-  const keys: StatusKey[] = [
-    "active",
-    "inactive",
-    "disabled",
-    "maintenance",
-    "deprecated",
-    "preview",
-    "available",
-    "unavailable",
-  ];
-  return keys.includes(normalized as StatusKey) ? (normalized as StatusKey) : null;
+function previewModel(
+  providerSlug: string,
+  providerName: string,
+  slug: string,
+  name: string,
+  input: number,
+  output: number,
+  cached: number | null,
+  capabilities: string[],
+  contextWindow: number,
+): ModelRow {
+  return {
+    canonicalId: `${providerSlug}/${slug}`,
+    slug,
+    name,
+    provider: { slug: providerSlug, name: providerName },
+    status: "preview",
+    mode: ["chat"],
+    contextWindow,
+    maxOutputTokens: 32_768,
+    inputModalities: capabilities.includes("vision") ? ["text", "image"] : ["text"],
+    outputModalities: ["text"],
+    capabilities,
+    supportedParameters: capabilities.includes("function_calling") ? ["tools"] : [],
+    pricing: {
+      currency: "USD",
+      inputPerMillionTokens: input,
+      outputPerMillionTokens: output,
+      cachedInputPerMillionTokens: cached,
+    },
+    free: false,
+    updatedAt: "2026-07-25T00:00:00.000Z",
+    catalogPreview: true,
+  };
+}
+
+export function ModelsExplorer() {
+  const t = useTranslations("Catalog");
+  const tCommon = useTranslations("Common");
+  const { formatPrice } = useDisplayFormatters();
+  const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
+  const compactNumberFormatter = useMemo(
+    () => new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFractionDigits: 1 }),
+    [],
+  );
+  const priceRangeFormatter = useMemo(
+    () => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 1 }),
+    [],
+  );
+
+  const [q, setQ] = useState("");
+  const [provider, setProvider] = useState("");
+  const [features, setFeatures] = useState<FeatureKey[]>([]);
+  const [inputModality, setInputModality] = useState("");
+  const [outputModality, setOutputModality] = useState("");
+  const [contextRange, setContextRange] = useState<[number, number]>([0, CONTEXT_LIMIT]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, PRICE_LIMIT]);
+  const [sort, setSort] = useState<SortValue>("most_popular");
+  const [page, setPage] = useState(1);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [expandedModel, setExpandedModel] = useState<string | null>(null);
+  const [copiedModel, setCopiedModel] = useState<string | null>(null);
+
+  const contextRangeActive = contextRange[0] !== 0 || contextRange[1] !== CONTEXT_LIMIT;
+  const priceRangeActive = priceRange[0] !== 0 || priceRange[1] !== PRICE_LIMIT;
+  const activeFilterCount =
+    [q, provider, inputModality, outputModality].filter(Boolean).length +
+    features.length +
+    Number(contextRangeActive) +
+    Number(priceRangeActive);
+
+  const params = useMemo(() => {
+    const searchParams = new URLSearchParams();
+    if (q.trim()) searchParams.set("q", q.trim());
+    if (provider) searchParams.set("provider", provider);
+    if (features.length) {
+      searchParams.set(
+        "capabilities",
+        features.map((feature) => FEATURE_CAPABILITIES[feature]).join(","),
+      );
+    }
+    if (inputModality) searchParams.set("input_modalities", inputModality);
+    if (outputModality) searchParams.set("output_modalities", outputModality);
+    if (contextRange[0] > 0) searchParams.set("min_context_window", String(contextRange[0]));
+    if (contextRange[1] < CONTEXT_LIMIT) searchParams.set("max_context_window", String(contextRange[1]));
+    if (priceRange[0] > 0) searchParams.set("min_input_price", String(priceRange[0]));
+    if (priceRange[1] < PRICE_LIMIT) searchParams.set("max_input_price", String(priceRange[1]));
+    searchParams.set("sort", sort);
+    searchParams.set("page", String(page));
+    searchParams.set("limit", String(PAGE_SIZE));
+    return searchParams.toString();
+  }, [
+    q,
+    provider,
+    features,
+    inputModality,
+    outputModality,
+    contextRange,
+    priceRange,
+    sort,
+    page,
+  ]);
+
+  const modelsQuery = useQuery({
+    queryKey: ["models", params],
+    queryFn: () => apiGet<ModelsResponse>(`/models?${params}`),
+    placeholderData: keepPreviousData,
+  });
+  const facetsQuery = useQuery({
+    queryKey: ["facets"],
+    queryFn: () => apiGet<FacetsResponse>("/facets"),
+  });
+
+  const providers = facetsQuery.data?.providers ?? facetsQuery.data?.data?.providers ?? [];
+  const inputModalities =
+    facetsQuery.data?.inputModalities ?? facetsQuery.data?.data?.inputModalities ?? [];
+  const outputModalities =
+    facetsQuery.data?.outputModalities ?? facetsQuery.data?.data?.outputModalities ?? [];
+  const liveModels = modelsQuery.data?.data ?? [];
+  const showingPreview =
+    !modelsQuery.isLoading &&
+    !modelsQuery.isError &&
+    liveModels.length === 0 &&
+    activeFilterCount === 0 &&
+    page === 1;
+  const displayedModels = showingPreview ? sortPreviewModels(PREVIEW_MODELS, sort) : liveModels;
+  const totalModels = showingPreview
+    ? PREVIEW_MODELS.length
+    : (modelsQuery.data?.pagination.total ?? 0);
+  const totalPages = showingPreview
+    ? 1
+    : (modelsQuery.data?.pagination.totalPages ?? 1);
+
+  const clearFilters = () => {
+    setQ("");
+    setProvider("");
+    setFeatures([]);
+    setInputModality("");
+    setOutputModality("");
+    setContextRange([0, CONTEXT_LIMIT]);
+    setPriceRange([0, PRICE_LIMIT]);
+    setPage(1);
+  };
+
+  const toggleFeature = (feature: FeatureKey) => {
+    setFeatures((current) =>
+      current.includes(feature)
+        ? current.filter((item) => item !== feature)
+        : [...current, feature],
+    );
+    setPage(1);
+  };
+
+  const copyModelId = async (canonicalId: string) => {
+    await navigator.clipboard.writeText(canonicalId);
+    setCopiedModel(canonicalId);
+    window.setTimeout(() => setCopiedModel((current) => (current === canonicalId ? null : current)), 1600);
+  };
+
+  return (
+    <TooltipProvider>
+      <section aria-label={t("directoryLabel")} className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              aria-label={t("searchLabel")}
+              className="h-10 ps-10"
+              placeholder={t("searchShortPlaceholder")}
+              value={q}
+              onChange={(event) => {
+                setQ(event.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+
+          <div className="scrollbar-none flex min-w-0 items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
+            <Select value={provider || ALL_VALUE} onValueChange={(value) => {
+              setProvider(value === ALL_VALUE ? "" : value);
+              setPage(1);
+            }}>
+              <SelectTrigger className="h-10 w-auto min-w-36">
+                <Filter data-icon="inline-start" aria-hidden="true" />
+                <SelectValue placeholder={t("providerLabel")} />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectGroup>
+                  <SelectItem value={ALL_VALUE}>{t("allProviders")}</SelectItem>
+                  {providers.map((item) => (
+                    <SelectItem key={item.slug} value={item.slug}>
+                      <span>{item.name}</span>
+                      {item.count !== undefined ? (
+                        <span className="ms-auto text-xs text-muted-foreground">
+                          {numberFormatter.format(item.count)}
+                        </span>
+                      ) : null}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="lg" className="h-10">
+                  <Sparkles data-icon="inline-start" aria-hidden="true" />
+                  {t("featuresFilter")}
+                  {features.length ? <Badge>{numberFormatter.format(features.length)}</Badge> : null}
+                  <ChevronDown data-icon="inline-end" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuLabel>{t("featuresFilter")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {(["vision", "tools", "reasoning"] as FeatureKey[]).map((feature) => (
+                  <DropdownMenuCheckboxItem
+                    key={feature}
+                    checked={features.includes(feature)}
+                    onCheckedChange={() => toggleFeature(feature)}
+                  >
+                    <FeatureIcon feature={feature} />
+                    {t(`features.${feature}`)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="lg" className="h-10">
+                  <ListFilter data-icon="inline-start" aria-hidden="true" />
+                  {t(`sort.${sort}`)}
+                  <ChevronDown data-icon="inline-end" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuLabel>{t("sort.title")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup value={sort} onValueChange={(value) => {
+                  setSort(value as SortValue);
+                  setPage(1);
+                }}>
+                  <DropdownMenuRadioItem value="most_popular">{t("sort.most_popular")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="newest">{t("sort.newest")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="name">{t("sort.name")}</DropdownMenuRadioItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>{t("sort.priceGroup")}</DropdownMenuLabel>
+                  <DropdownMenuRadioItem value="cheapest_input">{t("sort.cheapest_input")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="cheapest_output">{t("sort.cheapest_output")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="largest_context">{t("sort.largest_context")}</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              type="button"
+              variant={advancedFiltersOpen ? "secondary" : "outline"}
+              size="icon-lg"
+              aria-label={t("showAdvancedFilters")}
+              aria-expanded={advancedFiltersOpen}
+              aria-controls="catalog-advanced-filters"
+              onClick={() => setAdvancedFiltersOpen((open) => !open)}
+            >
+              <SlidersHorizontal aria-hidden="true" />
+            </Button>
+          </div>
+
+          <span className="shrink-0 text-sm tabular-nums text-muted-foreground" aria-live="polite">
+            {t("modelsCountCompact", { count: totalModels })}
+          </span>
+        </div>
+
+        <div
+          id="catalog-advanced-filters"
+          className={cn(
+            "grid gap-3 rounded-xl border border-border bg-card p-4 lg:grid-cols-2",
+            !advancedFiltersOpen && "hidden",
+          )}
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
+            <FilterSelect
+              label={t("inputModalityLabel")}
+              allLabel={t("allInputModalities")}
+              value={inputModality}
+              options={inputModalities}
+              onValueChange={(value) => {
+                setInputModality(value);
+                setPage(1);
+              }}
+            />
+            <FilterSelect
+              label={t("outputModalityLabel")}
+              allLabel={t("allOutputModalities")}
+              value={outputModality}
+              options={outputModalities}
+              onValueChange={(value) => {
+                setOutputModality(value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <RangeFilter
+            label={t("contextRange")}
+            value={contextRange}
+            min={0}
+            max={CONTEXT_LIMIT}
+            step={1_000}
+            formatValue={(value) => compactNumberFormatter.format(value)}
+            onValueChange={(value) => {
+              setContextRange(value);
+              setPage(1);
+            }}
+          />
+          <RangeFilter
+            label={t("inputPriceRange")}
+            value={priceRange}
+            min={0}
+            max={PRICE_LIMIT}
+            step={0.1}
+            formatValue={(value) => `$${priceRangeFormatter.format(value)}`}
+            onValueChange={(value) => {
+              setPriceRange(value);
+              setPage(1);
+            }}
+          />
+          {activeFilterCount ? (
+            <div className="flex justify-end lg:col-span-2">
+              <Button type="button" variant="ghost" onClick={clearFilters}>
+                {t("clearFilters", { count: activeFilterCount })}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        {facetsQuery.isError ? (
+          <Alert>
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("filtersError")}</AlertTitle>
+            <AlertDescription>{t("filtersErrorDescription")}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {showingPreview ? (
+          <Alert>
+            <Info aria-hidden="true" />
+            <AlertTitle>{t("previewDataTitle")}</AlertTitle>
+            <AlertDescription>{t("previewDataDescription")}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {modelsQuery.isLoading ? <ModelsTableSkeleton label={t("loading")} /> : null}
+
+        {modelsQuery.isError ? (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("loadError")}</AlertTitle>
+            <AlertDescription>{t("loadErrorDescription")}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {!modelsQuery.isLoading && !modelsQuery.isError && displayedModels.length === 0 ? (
+          <Empty className="border border-card-border bg-card">
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><Search aria-hidden="true" /></EmptyMedia>
+              <EmptyTitle>{t("noMatchesTitle")}</EmptyTitle>
+              <EmptyDescription>{t("noMatches")}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button type="button" onClick={clearFilters}>{t("clearFilters", { count: activeFilterCount })}</Button>
+            </EmptyContent>
+          </Empty>
+        ) : null}
+
+        {!modelsQuery.isLoading && !modelsQuery.isError && displayedModels.length > 0 ? (
+          <>
+            <Card className="overflow-hidden p-0 shadow-sm">
+              <CardContent className="p-0 sm:p-0">
+                <Table>
+                  <TableHeader className="bg-muted/45">
+                    <TableRow>
+                      <TableHead className="min-w-44">{tCommon("provider")}</TableHead>
+                      <TableHead className="min-w-64">{t("table.modelId")}</TableHead>
+                      <TableHead>{t("table.inputPrice")}</TableHead>
+                      <TableHead>{t("table.outputPrice")}</TableHead>
+                      <TableHead>{t("table.cacheRead")}</TableHead>
+                      <TableHead>{t("table.cacheWrite")}</TableHead>
+                      <TableHead>{t("table.features")}</TableHead>
+                      <TableHead>{t("table.updated")}</TableHead>
+                      <TableHead className="text-end">{t("table.actions")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedModels.map((model) => {
+                      const expanded = expandedModel === model.canonicalId;
+                      const detailCount = getDetailCount(model);
+
+                      return (
+                        <Fragment key={model.canonicalId}>
+                          <TableRow className="group">
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {detailCount ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    aria-label={expanded ? t("hideRowDetails") : t("showRowDetails")}
+                                    aria-expanded={expanded}
+                                    onClick={() => setExpandedModel(expanded ? null : model.canonicalId)}
+                                  >
+                                    <ChevronLeft className={cn("transition-transform", expanded && "-rotate-90")} aria-hidden="true" />
+                                  </Button>
+                                ) : null}
+                                <ProviderMark name={model.provider.name} logoUrl={model.provider.logoUrl} size="sm" />
+                                <Link
+                                  href={`/providers/${model.provider.slug}`}
+                                  className="truncate text-sm font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  {model.provider.name}
+                                </Link>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex min-w-0 items-center gap-2">
+                                {model.catalogPreview ? (
+                                  <span className="truncate font-mono text-sm font-semibold" dir="ltr">{model.slug}</span>
+                                ) : (
+                                  <Link
+                                    href={`/models/${model.provider.slug}/${model.slug}`}
+                                    className="truncate font-mono text-sm font-semibold hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    dir="ltr"
+                                    title={model.canonicalId}
+                                  >
+                                    {model.slug}
+                                  </Link>
+                                )}
+                                {detailCount ? (
+                                  <button
+                                    type="button"
+                                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning-soft bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning-soft-foreground"
+                                    onClick={() => setExpandedModel(expanded ? null : model.canonicalId)}
+                                  >
+                                    <Sparkles className="size-3" aria-hidden="true" />
+                                    +{numberFormatter.format(detailCount)}
+                                  </button>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <PriceCell value={model.pricing?.inputPerMillionTokens} formatPrice={formatPrice} />
+                            <PriceCell value={model.pricing?.outputPerMillionTokens} formatPrice={formatPrice} />
+                            <PriceCell value={model.pricing?.cachedInputPerMillionTokens} formatPrice={formatPrice} />
+                            <TableCell className="text-muted-foreground">—</TableCell>
+                            <TableCell>
+                              <FeatureIcons model={model} labels={{
+                                vision: t("features.vision"),
+                                tools: t("features.tools"),
+                                reasoning: t("features.reasoning"),
+                              }} />
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                              {model.updatedAt ? formatRelativeDate(model.updatedAt) : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1">
+                                {!model.catalogPreview ? (
+                                  <CompareToggleButton canonicalId={model.canonicalId} compact iconOnly />
+                                ) : null}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      aria-label={t("copyModelId")}
+                                      onClick={() => void copyModelId(model.canonicalId)}
+                                    >
+                                      {copiedModel === model.canonicalId ? <Check aria-hidden="true" /> : <Clipboard aria-hidden="true" />}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>{copiedModel === model.canonicalId ? tCommon("copied") : t("copyModelId")}</TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {expanded ? (
+                            <TableRow className="bg-muted/20 hover:bg-muted/20">
+                              <TableCell colSpan={9} className="p-0">
+                                <ModelRowDetails model={model} formatPrice={formatPrice} formatNumber={numberFormatter.format} />
+                              </TableCell>
+                            </TableRow>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={totalModels}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          </>
+        ) : null}
+      </section>
+    </TooltipProvider>
+  );
 }
 
 function FilterSelect({
@@ -219,23 +701,14 @@ function FilterSelect({
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Select
-        value={value || ALL_VALUE}
-        onValueChange={(nextValue) =>
-          onValueChange(nextValue === ALL_VALUE ? "" : nextValue)
-        }
-      >
+      <Select value={value || ALL_VALUE} onValueChange={(next) => onValueChange(next === ALL_VALUE ? "" : next)}>
         <SelectTrigger id={id}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent position="popper" sideOffset={6}>
+        <SelectContent position="popper">
           <SelectGroup>
             <SelectItem value={ALL_VALUE}>{allLabel}</SelectItem>
-            {options.map((item) => (
-              <SelectItem key={item.slug} value={item.slug}>
-                {item.name}
-              </SelectItem>
-            ))}
+            {options.map((item) => <SelectItem key={item.slug} value={item.slug}>{item.name}</SelectItem>)}
           </SelectGroup>
         </SelectContent>
       </Select>
@@ -261,7 +734,6 @@ function RangeFilter({
   onValueChange: (value: [number, number]) => void;
 }) {
   const id = useId();
-
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
       <div className="flex items-center justify-between gap-3">
@@ -277,15 +749,9 @@ function RangeFilter({
         max={max}
         step={step}
         value={value}
-        onValueChange={(nextValue) =>
-          onValueChange(nextValue as [number, number])
-        }
+        onValueChange={(next) => onValueChange(next as [number, number])}
       />
-      <div
-        className="flex items-center justify-between text-xs tabular-nums text-muted-foreground"
-        dir="ltr"
-        aria-hidden="true"
-      >
+      <div className="flex items-center justify-between text-xs tabular-nums text-muted-foreground" dir="ltr" aria-hidden="true">
         <span>{formatValue(min)}</span>
         <span>{formatValue(max)}</span>
       </div>
@@ -293,549 +759,198 @@ function RangeFilter({
   );
 }
 
-export function ModelsExplorer() {
-  const t = useTranslations("Catalog");
-  const tCommon = useTranslations("Common");
-  const tStatus = useTranslations("Statuses");
-  const { formatPrice } = useDisplayFormatters();
-  const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
-  const compactNumberFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("fa-IR", {
-        notation: "compact",
-        maximumFractionDigits: 1,
-      }),
-    [],
+function PriceCell({
+  value,
+  formatPrice,
+}: {
+  value?: number | null;
+  formatPrice: (value?: number | null) => string;
+}) {
+  return (
+    <TableCell className="whitespace-nowrap font-mono text-sm tabular-nums" dir="ltr">
+      {value === undefined || value === null ? "—" : formatPrice(value)}
+    </TableCell>
   );
-  const priceRangeFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("fa-IR", {
-        maximumFractionDigits: 1,
-      }),
-    [],
-  );
-  const [q, setQ] = useState("");
-  const [provider, setProvider] = useState("");
-  const [inputModality, setInputModality] = useState("");
-  const [outputModality, setOutputModality] = useState("");
-  const [contextRange, setContextRange] = useState<[number, number]>([
-    0,
-    CONTEXT_LIMIT,
-  ]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([
-    0,
-    PRICE_LIMIT,
-  ]);
-  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+}
 
-  const contextRangeActive =
-    contextRange[0] !== 0 || contextRange[1] !== CONTEXT_LIMIT;
-  const priceRangeActive =
-    priceRange[0] !== 0 || priceRange[1] !== PRICE_LIMIT;
+function FeatureIcons({
+  model,
+  labels,
+}: {
+  model: ModelRow;
+  labels: Record<FeatureKey, string>;
+}) {
+  const visibleFeatures: FeatureKey[] = [];
+  if (hasFeature(model, "vision")) visibleFeatures.push("vision");
+  if (hasFeature(model, "tools")) visibleFeatures.push("tools");
+  if (hasFeature(model, "reasoning")) visibleFeatures.push("reasoning");
 
-  const params = useMemo(() => {
-    const searchParams = new URLSearchParams();
-    if (q) searchParams.set("q", q);
-    if (provider) searchParams.set("provider", provider);
-    if (inputModality) searchParams.set("input_modalities", inputModality);
-    if (outputModality) searchParams.set("output_modalities", outputModality);
-    if (contextRange[0] > 0) {
-      searchParams.set("min_context_window", String(contextRange[0]));
-    }
-    if (contextRange[1] < CONTEXT_LIMIT) {
-      searchParams.set("max_context_window", String(contextRange[1]));
-    }
-    if (priceRange[0] > 0) {
-      searchParams.set("min_input_price", String(priceRange[0]));
-    }
-    if (priceRange[1] < PRICE_LIMIT) {
-      searchParams.set("max_input_price", String(priceRange[1]));
-    }
-    searchParams.set("limit", "24");
-    return searchParams.toString();
-  }, [
-    q,
-    provider,
-    inputModality,
-    outputModality,
-    contextRange,
-    priceRange,
-  ]);
-
-  const modelsQuery = useQuery({
-    queryKey: ["models", params],
-    queryFn: () =>
-      apiGet<{ data: ModelRow[]; pagination: { total: number } }>(
-        `/models?${params}`,
-      ),
-  });
-  const facetsQuery = useQuery({
-    queryKey: ["facets"],
-    queryFn: () => apiGet<FacetsResponse>("/facets"),
-  });
-
-  const providers =
-    facetsQuery.data?.providers ??
-    facetsQuery.data?.data?.providers ??
-    [];
-  const inputModalities =
-    facetsQuery.data?.inputModalities ??
-    facetsQuery.data?.input_modalities ??
-    facetsQuery.data?.data?.inputModalities ??
-    facetsQuery.data?.data?.input_modalities ??
-    [];
-  const outputModalities =
-    facetsQuery.data?.outputModalities ??
-    facetsQuery.data?.output_modalities ??
-    facetsQuery.data?.data?.outputModalities ??
-    facetsQuery.data?.data?.output_modalities ??
-    [];
-  const activeFilterCount =
-    [q, provider, inputModality, outputModality].filter(Boolean).length +
-    Number(contextRangeActive) +
-    Number(priceRangeActive);
-  const liveModels = modelsQuery.data?.data ?? [];
-  const showingPreview =
-    !modelsQuery.isLoading &&
-    !modelsQuery.isError &&
-    liveModels.length === 0 &&
-    activeFilterCount === 0;
-  const displayedModels = showingPreview ? PREVIEW_MODELS : liveModels;
-
-  const clearFilters = () => {
-    setQ("");
-    setProvider("");
-    setInputModality("");
-    setOutputModality("");
-    setContextRange([0, CONTEXT_LIMIT]);
-    setPriceRange([0, PRICE_LIMIT]);
-  };
-
-  const formatStatus = (model: ModelRow) => {
-    if (model.catalogPreview) return t("previewRow");
-    const key = getStatusKey(model.status);
-    return key ? tStatus(key) : model.status;
-  };
+  if (!visibleFeatures.length) return <span className="text-muted-foreground">—</span>;
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      <Card className="overflow-hidden p-0 shadow-sm">
-        <CardHeader className="border-b border-border bg-muted/35 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold sm:text-lg">
-                {t("filtersTitle")}
-              </h2>
-              {activeFilterCount > 0 ? (
-                <Badge className="border-primary-soft bg-primary-soft text-primary-soft-foreground">
-                  {t("activeFilters", { count: activeFilterCount })}
-                </Badge>
-              ) : null}
-            </div>
-            <CardDescription>{t("filtersDescription")}</CardDescription>
-          </div>
-        </CardHeader>
-
-        <CardContent className="flex flex-col gap-4 pt-4 sm:pt-5">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2 xl:col-span-1">
-              <Label htmlFor="catalog-model-search">{t("searchLabel")}</Label>
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <Input
-                  id="catalog-model-search"
-                  className="ps-10"
-                  placeholder={t("searchPlaceholder")}
-                  value={q}
-                  onChange={(event) => setQ(event.target.value)}
-                />
-              </div>
-            </div>
-            <FilterSelect
-              label={t("providerLabel")}
-              allLabel={t("allProviders")}
-              value={provider}
-              options={providers}
-              onValueChange={setProvider}
-            />
-            <FilterSelect
-              label={t("inputModalityLabel")}
-              allLabel={t("allInputModalities")}
-              value={inputModality}
-              options={inputModalities}
-              onValueChange={setInputModality}
-            />
-            <FilterSelect
-              label={t("outputModalityLabel")}
-              allLabel={t("allOutputModalities")}
-              value={outputModality}
-              options={outputModalities}
-              onValueChange={setOutputModality}
-            />
-          </div>
-
-          <div
-            id="catalog-advanced-filters"
-            className={cn(
-              "grid gap-3 lg:grid-cols-2",
-              !advancedFiltersOpen && "hidden lg:grid",
-            )}
-          >
-            <RangeFilter
-              label={t("contextRange")}
-              value={contextRange}
-              min={0}
-              max={CONTEXT_LIMIT}
-              step={1_000}
-              formatValue={(value) => compactNumberFormatter.format(value)}
-              onValueChange={setContextRange}
-            />
-            <RangeFilter
-              label={t("inputPriceRange")}
-              value={priceRange}
-              min={0}
-              max={PRICE_LIMIT}
-              step={0.1}
-              formatValue={(value) => `$${priceRangeFormatter.format(value)}`}
-              onValueChange={setPriceRange}
-            />
-          </div>
-        </CardContent>
-
-        <CardFooter className="justify-between gap-3 border-t border-border bg-muted/20">
-          <Button
-            type="button"
-            variant="outline"
-            aria-expanded={advancedFiltersOpen}
-            aria-controls="catalog-advanced-filters"
-            className="lg:hidden"
-            onClick={() => setAdvancedFiltersOpen((open) => !open)}
-          >
-            <SlidersHorizontal data-icon="inline-start" aria-hidden="true" />
-            {advancedFiltersOpen
-              ? t("hideAdvancedFilters")
-              : t("showAdvancedFilters")}
-          </Button>
-          {activeFilterCount > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="ms-auto"
-              onClick={clearFilters}
-            >
-              {t("clearFilters", { count: activeFilterCount })}
-            </Button>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {t("rangeFilterHint")}
+    <div className="flex items-center gap-1">
+      {visibleFeatures.map((feature) => (
+        <Tooltip key={feature}>
+          <TooltipTrigger asChild>
+            <span className="inline-flex size-7 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground">
+              <FeatureIcon feature={feature} />
+              <span className="sr-only">{labels[feature]}</span>
             </span>
-          )}
-        </CardFooter>
-      </Card>
-
-      <section
-        aria-labelledby="catalog-results-title"
-        className="flex min-w-0 flex-col gap-4"
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <h2
-              id="catalog-results-title"
-              className="text-base font-semibold sm:text-lg"
-            >
-              {t("resultsTitle")}
-            </h2>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {t("resultsDescription")}
-            </p>
-          </div>
-          {!modelsQuery.isLoading && !modelsQuery.isError ? (
-            <Badge aria-live="polite" className="self-start px-3 py-1 sm:self-auto">
-              {showingPreview
-                ? t("previewModelsCount", { count: PREVIEW_MODELS.length })
-                : t("modelsFound", {
-                    count: modelsQuery.data?.pagination.total ?? 0,
-                  })}
-            </Badge>
-          ) : null}
-        </div>
-
-        {facetsQuery.isError ? (
-          <Alert>
-            <CircleAlert aria-hidden="true" />
-            <AlertTitle>{t("filtersError")}</AlertTitle>
-            <AlertDescription>{t("filtersErrorDescription")}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {showingPreview ? (
-          <Alert>
-            <Info aria-hidden="true" />
-            <AlertTitle>{t("previewDataTitle")}</AlertTitle>
-            <AlertDescription>{t("previewDataDescription")}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {modelsQuery.isLoading ? (
-          <ModelsTableSkeleton label={t("loading")} />
-        ) : null}
-
-        {modelsQuery.isError ? (
-          <Alert variant="destructive">
-            <CircleAlert aria-hidden="true" />
-            <AlertTitle>{t("loadError")}</AlertTitle>
-            <AlertDescription>{t("loadErrorDescription")}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {!modelsQuery.isLoading &&
-        !modelsQuery.isError &&
-        displayedModels.length === 0 ? (
-          <Empty className="border border-card-border bg-card">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Boxes aria-hidden="true" />
-              </EmptyMedia>
-              <EmptyTitle>{t("noMatchesTitle")}</EmptyTitle>
-              <EmptyDescription>{t("noMatches")}</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              {activeFilterCount > 0 ? (
-                <Button type="button" onClick={clearFilters}>
-                  {t("clearFilters", { count: activeFilterCount })}
-                </Button>
-              ) : (
-                <Button asChild>
-                  <Link href="/providers">{t("browseProviders")}</Link>
-                </Button>
-              )}
-            </EmptyContent>
-          </Empty>
-        ) : null}
-
-        {!modelsQuery.isLoading &&
-        !modelsQuery.isError &&
-        displayedModels.length > 0 ? (
-          <ModelsTable
-            models={displayedModels}
-            formatStatus={formatStatus}
-            formatPrice={formatPrice}
-            formatNumber={(value) => numberFormatter.format(value)}
-            labels={{
-              model: t("table.model"),
-              provider: tCommon("provider"),
-              modalities: t("table.modalities"),
-              context: t("contextWindow"),
-              inputPrice: t("inputPrice"),
-              status: tCommon("status"),
-              actions: t("table.actions"),
-              input: t("table.input"),
-              output: t("table.output"),
-              viewDetails: t("viewDetails"),
-              preview: t("previewRow"),
-              unavailable: tCommon("unknown"),
-            }}
-          />
-        ) : null}
-      </section>
+          </TooltipTrigger>
+          <TooltipContent>{labels[feature]}</TooltipContent>
+        </Tooltip>
+      ))}
     </div>
   );
 }
 
-function ModelsTable({
-  models,
-  formatStatus,
+function FeatureIcon({ feature }: { feature: FeatureKey }) {
+  if (feature === "vision") return <Eye aria-hidden="true" />;
+  if (feature === "tools") return <Wrench aria-hidden="true" />;
+  return <Brain aria-hidden="true" />;
+}
+
+function hasFeature(model: ModelRow, feature: FeatureKey) {
+  const capabilities = model.capabilities.map((item) => item.toLowerCase());
+  if (feature === "vision") {
+    return capabilities.includes("vision") || model.inputModalities.includes("image");
+  }
+  if (feature === "tools") {
+    return capabilities.some((item) => ["function_calling", "tool_calling", "tool_choice", "tools"].includes(item));
+  }
+  return capabilities.some((item) => item.includes("reason"));
+}
+
+function ModelRowDetails({
+  model,
   formatPrice,
   formatNumber,
-  labels,
 }: {
-  models: ModelRow[];
-  formatStatus: (model: ModelRow) => string;
-  formatPrice: (value?: number) => string;
+  model: ModelRow;
+  formatPrice: (value?: number | null) => string;
   formatNumber: (value: number) => string;
-  labels: {
-    model: string;
-    provider: string;
-    modalities: string;
-    context: string;
-    inputPrice: string;
-    status: string;
-    actions: string;
-    input: string;
-    output: string;
-    viewDetails: string;
-    preview: string;
-    unavailable: string;
-  };
 }) {
-  return (
-    <Card className="overflow-hidden p-0 shadow-sm">
-      <CardContent className="p-0 sm:p-0">
-        <Table>
-          <TableHeader className="bg-muted/45">
-            <TableRow>
-              <TableHead className="min-w-64">{labels.model}</TableHead>
-              <TableHead>{labels.provider}</TableHead>
-              <TableHead>{labels.modalities}</TableHead>
-              <TableHead>{labels.context}</TableHead>
-              <TableHead>{labels.inputPrice}</TableHead>
-              <TableHead>{labels.status}</TableHead>
-              <TableHead className="text-end">{labels.actions}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {models.map((model) => {
-              const statusKey = getStatusKey(model.status);
-              const statusClassName = cn(
-                !model.catalogPreview &&
-                  (statusKey === "active" || statusKey === "available") &&
-                  "border-success-soft bg-success-soft text-success-soft-foreground",
-                model.catalogPreview &&
-                  "border-primary-soft bg-primary-soft text-primary-soft-foreground",
-              );
+  const t = useTranslations("Catalog");
+  const pricingDetails = [
+    [t("detail.imageInput"), model.pricing?.imageInputPrice],
+    [t("detail.imageOutput"), model.pricing?.imageOutputPrice],
+    [t("detail.audioInput"), model.pricing?.audioInputPrice],
+    [t("detail.audioOutput"), model.pricing?.audioOutputPrice],
+    [t("detail.request"), model.pricing?.requestPrice],
+  ].filter((entry): entry is [string, number] => typeof entry[1] === "number");
 
-              return (
-                <TableRow key={model.canonicalId}>
-                  <TableCell>
-                    <div className="flex min-w-0 flex-col gap-1">
-                      {model.catalogPreview ? (
-                        <span className="font-semibold" dir="auto">
-                          {model.name}
-                        </span>
-                      ) : (
-                        <Link
-                          href={`/models/${model.provider.slug}/${model.slug}`}
-                          className="font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          dir="auto"
-                        >
-                          {model.name}
-                        </Link>
-                      )}
-                      <span
-                        className="max-w-64 truncate text-xs text-muted-foreground"
-                        dir="ltr"
-                        data-technical
-                        title={model.canonicalId}
-                      >
-                        {model.canonicalId}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">{model.provider.name}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex min-w-48 flex-col gap-1.5">
-                      <ModalityList
-                        label={labels.input}
-                        values={model.inputModalities}
-                        unavailable={labels.unavailable}
-                      />
-                      <ModalityList
-                        label={labels.output}
-                        values={model.outputModalities}
-                        unavailable={labels.unavailable}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell className="tabular-nums" dir="ltr">
-                    {model.contextWindow === undefined
-                      ? "—"
-                      : formatNumber(model.contextWindow)}
-                  </TableCell>
-                  <TableCell className="tabular-nums" dir="ltr">
-                    {model.pricing?.inputPerMillionTokens === undefined
-                      ? "—"
-                      : formatPrice(model.pricing.inputPerMillionTokens)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={statusClassName}>
-                      {formatStatus(model)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      {model.catalogPreview ? (
-                        <Button type="button" variant="outline" size="sm" disabled>
-                          {labels.preview}
-                        </Button>
-                      ) : (
-                        <>
-                          <CompareToggleButton
-                            canonicalId={model.canonicalId}
-                            compact
-                            iconOnly
-                          />
-                          <Button asChild variant="ghost" size="icon">
-                            <Link
-                              href={`/models/${model.provider.slug}/${model.slug}`}
-                              aria-label={`${labels.viewDetails}: ${model.name}`}
-                              title={labels.viewDetails}
-                            >
-                              <ArrowLeft aria-hidden="true" />
-                            </Link>
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+  return (
+    <div className="grid gap-4 border-y border-border px-6 py-5 lg:grid-cols-[1fr_2fr]">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("detail.title")}</p>
+        <dl className="mt-3 grid grid-cols-2 gap-3">
+          <DetailValue label={t("contextWindow")} value={model.contextWindow ? formatNumber(model.contextWindow) : "—"} />
+          <DetailValue label={t("maxOutputTokens")} value={model.maxOutputTokens ? formatNumber(model.maxOutputTokens) : "—"} />
+          <DetailValue label={t("detail.modes")} value={model.mode?.join("، ") || "—"} technical />
+          <DetailValue label={t("table.modalities")} value={[...model.inputModalities, ...model.outputModalities].join("، ") || "—"} technical />
+        </dl>
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("detail.additionalPricing")}</p>
+        {pricingDetails.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {pricingDetails.map(([label, value]) => (
+              <span key={label} className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs">
+                <span className="text-muted-foreground">{label}</span>
+                <strong className="font-mono" dir="ltr">{formatPrice(value)}</strong>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">{t("detail.noAdditionalPricing")}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
-function ModalityList({
+function DetailValue({
   label,
-  values,
-  unavailable,
+  value,
+  technical = false,
 }: {
   label: string;
-  values: string[];
-  unavailable: string;
+  value: string;
+  technical?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-      <span className="truncate text-xs" dir="auto">
-        {values.length > 0 ? values.slice(0, 3).join("، ") : unavailable}
-      </span>
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 truncate text-sm font-medium" dir={technical ? "ltr" : undefined}>{value}</dd>
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  total,
+  pageSize,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  const t = useTranslations("Catalog");
+  const formatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm text-muted-foreground">
+        {t("paginationSummary", {
+          start: formatter.format(start),
+          end: formatter.format(end),
+          total: formatter.format(total),
+        })}
+      </p>
+      <div className="flex items-center gap-1" dir="ltr">
+        <Button type="button" variant="outline" size="icon" disabled={page <= 1} aria-label={t("firstPage")} onClick={() => onPageChange(1)}>
+          <ChevronsLeft aria-hidden="true" />
+        </Button>
+        <Button type="button" variant="outline" size="icon" disabled={page <= 1} aria-label={t("previousPage")} onClick={() => onPageChange(page - 1)}>
+          <ChevronLeft aria-hidden="true" />
+        </Button>
+        <span className="min-w-20 text-center text-sm tabular-nums">
+          {formatter.format(page)} / {formatter.format(totalPages)}
+        </span>
+        <Button type="button" variant="outline" size="icon" disabled={page >= totalPages} aria-label={t("nextPage")} onClick={() => onPageChange(page + 1)}>
+          <ChevronRight aria-hidden="true" />
+        </Button>
+        <Button type="button" variant="outline" size="icon" disabled={page >= totalPages} aria-label={t("lastPage")} onClick={() => onPageChange(totalPages)}>
+          <ChevronsRight aria-hidden="true" />
+        </Button>
+      </div>
     </div>
   );
 }
 
 function ModelsTableSkeleton({ label }: { label: string }) {
   return (
-    <Card
-      className="overflow-hidden p-0"
-      role="status"
-      aria-label={label}
-    >
+    <Card className="overflow-hidden p-0" role="status" aria-label={label}>
       <CardContent className="p-0 sm:p-0">
         <Table>
           <TableHeader className="bg-muted/45">
             <TableRow>
-              {Array.from({ length: 7 }, (_, index) => (
-                <TableHead key={index}>
-                  <Skeleton className="h-4 w-20" />
-                </TableHead>
+              {Array.from({ length: 9 }, (_, index) => (
+                <TableHead key={index}><Skeleton className="h-4 w-20" /></TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Array.from({ length: 6 }, (_, rowIndex) => (
+            {Array.from({ length: 8 }, (_, rowIndex) => (
               <TableRow key={rowIndex}>
-                {Array.from({ length: 7 }, (_, cellIndex) => (
-                  <TableCell key={cellIndex}>
-                    <Skeleton className="h-8 w-full min-w-20" />
-                  </TableCell>
+                {Array.from({ length: 9 }, (_, cellIndex) => (
+                  <TableCell key={cellIndex}><Skeleton className="h-8 w-full min-w-20" /></TableCell>
                 ))}
               </TableRow>
             ))}
@@ -844,4 +959,35 @@ function ModelsTableSkeleton({ label }: { label: string }) {
       </CardContent>
     </Card>
   );
+}
+
+function getDetailCount(model: ModelRow) {
+  const extraPrices = [
+    model.pricing?.imageInputPrice,
+    model.pricing?.imageOutputPrice,
+    model.pricing?.audioInputPrice,
+    model.pricing?.audioOutputPrice,
+    model.pricing?.requestPrice,
+  ].filter((value) => typeof value === "number").length;
+  return extraPrices || (model.contextWindow || model.maxOutputTokens || model.mode?.length ? 1 : 0);
+}
+
+function sortPreviewModels(models: ModelRow[], sort: SortValue) {
+  const sorted = [...models];
+  if (sort === "name") return sorted.sort((a, b) => a.slug.localeCompare(b.slug));
+  if (sort === "cheapest_input") return sorted.sort((a, b) => (a.pricing?.inputPerMillionTokens ?? Infinity) - (b.pricing?.inputPerMillionTokens ?? Infinity));
+  if (sort === "cheapest_output") return sorted.sort((a, b) => (a.pricing?.outputPerMillionTokens ?? Infinity) - (b.pricing?.outputPerMillionTokens ?? Infinity));
+  if (sort === "largest_context") return sorted.sort((a, b) => (b.contextWindow ?? 0) - (a.contextWindow ?? 0));
+  return sorted;
+}
+
+function formatRelativeDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const days = Math.round((date.getTime() - Date.now()) / 86_400_000);
+  const formatter = new Intl.RelativeTimeFormat("fa-IR", { numeric: "auto" });
+  if (Math.abs(days) < 30) return formatter.format(days, "day");
+  const months = Math.round(days / 30);
+  if (Math.abs(months) < 12) return formatter.format(months, "month");
+  return formatter.format(Math.round(months / 12), "year");
 }

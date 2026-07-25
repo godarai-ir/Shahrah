@@ -32,8 +32,9 @@ export function DisplaySettingsDialog() {
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon"
+          className="text-catalog-hero-muted hover:bg-background/10 hover:text-catalog-hero-foreground"
           aria-label={t("openAria")}
           title={t("title")}
         >

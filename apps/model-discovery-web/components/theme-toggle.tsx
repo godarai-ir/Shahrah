@@ -13,8 +13,9 @@ export function ThemeToggle() {
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="icon"
+      className="text-catalog-hero-muted hover:bg-background/10 hover:text-catalog-hero-foreground"
       onClick={() => updateSettings({ themeMode: isLight ? "DARK" : "LIGHT" })}
       aria-label={isLight ? t("switchToDark") : t("switchToLight")}
       title={isLight ? t("switchToDark") : t("switchToLight")}

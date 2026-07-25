@@ -139,6 +139,15 @@ class ProviderCatalogEntry {
   @ApiPropertyOptional()
   supportsByok?: boolean | null;
 
+  @ApiPropertyOptional()
+  supportsRegionalRouting?: boolean | null;
+
+  @ApiPropertyOptional()
+  modelCount?: number;
+
+  @ApiPropertyOptional({ type: () => [String] })
+  modes?: string[];
+
   @ApiPropertyOptional({ type: () => [ProviderConnectionSchemaResponse] })
   connectionSchemas?: ProviderConnectionSchemaResponse[];
 }

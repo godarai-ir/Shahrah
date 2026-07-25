@@ -808,6 +808,14 @@ components:
           type: boolean
         supportsByok:
           type: object
+        supportsRegionalRouting:
+          type: object
+        modelCount:
+          type: number
+        modes:
+          type: array
+          items:
+            type: string
         connectionSchemas:
           type: array
           items:
@@ -974,6 +982,14 @@ components:
           type: boolean
         supportsByok:
           type: object
+        supportsRegionalRouting:
+          type: object
+        modelCount:
+          type: number
+        modes:
+          type: array
+          items:
+            type: string
         connectionSchemas:
           type: array
           items:

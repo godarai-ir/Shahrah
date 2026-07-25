@@ -28,17 +28,23 @@ export class ProvidersService {
       where: { enabled: true },
       orderBy: { name: 'asc' },
       include: {
-        models: { where: { enabled: true } },
+        models: {
+          where: { enabled: true },
+          select: { id: true, mode: true },
+        },
       },
     });
 
     return providers.map((provider) => {
       const safeProvider = { ...provider } as Record<string, unknown>;
       const models = provider.models;
+      const modes = Array.from(
+        new Set(models.flatMap((model) => model.mode)),
+      ).sort();
       delete safeProvider.models;
       delete safeProvider.legacyConnectionProfile;
       delete safeProvider.connectionProfile;
-      return { ...safeProvider, modelCount: models.length };
+      return { ...safeProvider, modelCount: models.length, modes };
     });
   }
 

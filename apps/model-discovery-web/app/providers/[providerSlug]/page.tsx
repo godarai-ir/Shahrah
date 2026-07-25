@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Building2, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { apiGet } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { PageHero } from "@/components/page-hero";
-import { ProviderModelsList } from "@/components/provider-models-list";
+import { ProviderMark } from "@/components/catalog/provider-mark";
+import { ProviderModelsList, type ProviderModel } from "@/components/provider-models-list";
 
 type ProviderDetail = {
   slug: string;
@@ -14,7 +14,8 @@ type ProviderDetail = {
   status: string;
   websiteUrl?: string;
   docsUrl?: string;
-  models?: Array<{ id: string; slug: string; displayName: string }>;
+  logoUrl?: string;
+  models?: ProviderModel[];
 };
 
 type StatusKey = "active" | "inactive" | "disabled" | "maintenance";
@@ -38,7 +39,6 @@ function getStatusClasses(status: string) {
 export default async function ProviderDetailPage({ params }: { params: Promise<{ providerSlug: string }> }) {
   const { providerSlug } = await params;
   const t = await getTranslations("ProviderDetail");
-  const tCommon = await getTranslations("Common");
   const tStatus = await getTranslations("Statuses");
   let provider: ProviderDetail | null = null;
 
@@ -50,7 +50,7 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
 
   if (!provider) {
     return (
-      <div className="space-y-4">
+      <div className="mx-auto w-full max-w-7xl space-y-4 px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t("title")}</h1>
         <Card className="border-warning-soft bg-warning-soft text-warning-soft-foreground">
           <p className="text-sm" role="alert">{t("loadError")}</p>
@@ -65,20 +65,25 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
   const statusLabel = statusKey ? tStatus(statusKey) : provider.status;
 
   return (
-    <div className="flex flex-col gap-6 sm:gap-8">
-      <PageHero
-        eyebrow={t("eyebrow")}
-        title={provider.name}
-        description={provider.description || t("noDescription")}
-        icon={Building2}
-        afterTitle={
-          <>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:gap-8 sm:px-6 lg:py-10">
+      <section className="rounded-2xl border border-border bg-card p-5 sm:p-7">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <ProviderMark name={provider.name} logoUrl={provider.logoUrl} size="lg" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{provider.name}</h1>
             <Badge className={getStatusClasses(provider.status)}>{statusLabel}</Badge>
             <Badge>{t("modelCount", { count: modelCount })}</Badge>
-          </>
-        }
-        actions={
-          <>
+              </div>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
+                {provider.description || t("noDescription")}
+              </p>
+              <code className="mt-3 block text-xs text-muted-foreground" dir="ltr">{provider.slug}</code>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {provider.websiteUrl ? (
               <a href={provider.websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent">
                 {t("visitWebsite")}
@@ -94,37 +99,15 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
             <Link href="/providers" className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
               {t("backToProviders")}
             </Link>
-          </>
-        }
-      />
-
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <p className="text-xs text-muted-foreground">{tCommon("status")}</p>
-          <p className="mt-1 text-lg font-semibold">{statusLabel}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-muted-foreground">{t("totalModels")}</p>
-          <p className="mt-1 text-lg font-semibold">{new Intl.NumberFormat("fa-IR").format(modelCount)}</p>
-        </Card>
-        <Card className="sm:col-span-2 lg:col-span-1">
-          <p className="text-xs text-muted-foreground">{tCommon("slug")}</p>
-          <p className="mt-1 truncate text-lg font-semibold"><bdi dir="ltr" data-technical>{provider.slug}</bdi></p>
-        </Card>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-base font-semibold md:text-lg">{tCommon("models")}</h2>
-          <p className="text-sm leading-6 text-muted-foreground">{t("modelsDescription")}</p>
+          </div>
         </div>
-
-        {sortedModels.length === 0 ? (
-          <Card><p className="text-sm text-muted-foreground">{t("noModels")}</p></Card>
-        ) : (
-          <ProviderModelsList providerSlug={provider.slug} models={sortedModels} />
-        )}
       </section>
+
+      {sortedModels.length === 0 ? (
+        <Card><p className="text-sm text-muted-foreground">{t("noModels")}</p></Card>
+      ) : (
+        <ProviderModelsList providerSlug={provider.slug} models={sortedModels} docsUrl={provider.docsUrl} />
+      )}
     </div>
   );
 }

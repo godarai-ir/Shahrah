@@ -21,6 +21,10 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-catalog-hero: var(--catalog-hero);
+  --color-catalog-hero-foreground: var(--catalog-hero-foreground);
+  --color-catalog-hero-muted: var(--catalog-hero-muted);
+  --color-catalog-hero-border: var(--catalog-hero-border);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -74,6 +78,10 @@
   --primary-foreground: oklch(0.99 0 0);
   --primary-soft: color-mix(in oklab, var(--primary) 11%, transparent);
   --primary-soft-foreground: oklch(0.47 0.17 255);
+  --catalog-hero: oklch(0.16 0.025 255);
+  --catalog-hero-foreground: oklch(0.98 0.004 245);
+  --catalog-hero-muted: oklch(0.76 0.02 245);
+  --catalog-hero-border: oklch(0.98 0.004 245 / 14%);
   --accent: oklch(0.93 0.025 245);
   --accent-foreground: oklch(0.28 0.04 255);
   --destructive: oklch(0.58 0.2 25);
@@ -118,6 +126,10 @@
   --primary-foreground: oklch(0.17 0.02 255);
   --primary-soft: color-mix(in oklab, var(--primary) 15%, transparent);
   --primary-soft-foreground: oklch(0.86 0.08 235);
+  --catalog-hero: oklch(0.12 0.018 255);
+  --catalog-hero-foreground: oklch(0.98 0.004 245);
+  --catalog-hero-muted: oklch(0.76 0.02 245);
+  --catalog-hero-border: oklch(0.98 0.004 245 / 14%);
   --accent: oklch(0.27 0.025 255);
   --accent-foreground: oklch(0.97 0.006 245);
   --destructive: oklch(0.7 0.17 25);
@@ -213,6 +225,39 @@ code,
 pre,
 [data-technical] {
   font-family: var(--font-mono);
+}
+
+.catalog-hero {
+  box-shadow: inset 0 -1px color-mix(in oklab, var(--catalog-hero-border) 80%, transparent);
+}
+
+.catalog-hero-media {
+  transform: translateZ(0);
+}
+
+.catalog-hero-image {
+  object-position: 72% center;
+}
+
+.catalog-hero-vignette {
+  background:
+    radial-gradient(circle at center, transparent, color-mix(in oklab, var(--catalog-hero) 28%, transparent)),
+    linear-gradient(to bottom, transparent, color-mix(in oklab, var(--catalog-hero) 18%, transparent));
+}
+
+.catalog-hero::after {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: -1;
+  height: 7rem;
+  content: "";
+  background: linear-gradient(to bottom, transparent, var(--background));
+}
+
+@media (min-width: 40rem) {
+  .catalog-hero-image {
+    object-position: center;
+  }
 }
 
 @layer base {

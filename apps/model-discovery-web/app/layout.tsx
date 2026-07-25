@@ -43,6 +43,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html
       lang={locale}
       dir="rtl"
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${sans.variable} antialiased`}
     >
@@ -51,29 +52,31 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <QueryProvider>
             <DisplaySettingsProvider>
               <CompareProvider>
-                <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur-xl">
+                <header className="sticky top-0 z-50 border-b border-catalog-hero-border bg-catalog-hero/95 text-catalog-hero-foreground shadow-xs backdrop-blur-xl">
                   <nav
-                    className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-2.5 sm:px-6 lg:px-8"
+                    className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8"
                     aria-label={t("mainLabel")}
                   >
                     <Link
-                      href="/"
+                      href="https://godarai.ir/"
                       aria-label={t("brandAria")}
-                      className="flex shrink-0 items-center gap-2 rounded-xl px-1 py-1 text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="group flex shrink-0 items-center gap-2.5 rounded-xl text-catalog-hero-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                      <span className="flex size-9 items-center justify-center rounded-xl border border-primary/20 bg-primary-soft">
-                        <Image src="/catalog/mini_logo.svg" alt="" width={28} height={28} priority className="size-7" />
+                      <span className="flex size-10 items-center justify-center rounded-xl border border-catalog-hero-border bg-background/10 shadow-xs transition-all group-hover:bg-background/15 group-hover:shadow-sm">
+                        <Image src="/catalog/mini_logo.svg" alt="" width={30} height={30} priority className="size-7.5" />
                       </span>
-                      <span className="hidden font-bold tracking-tight sm:inline">{t("brand")}</span>
+                      <span className="hidden text-base font-bold tracking-tight sm:inline">
+                        {t("brand")}
+                      </span>
                     </Link>
                     <SiteNavigation />
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 items-center gap-1 rounded-xl border border-catalog-hero-border bg-background/10 p-1 shadow-xs">
                       <ThemeToggle />
                       <DisplaySettingsDialog />
                     </div>
                   </nav>
                 </header>
-                <main className="relative mx-auto w-full max-w-7xl flex-1 px-4 py-5 pb-28 sm:px-6 sm:py-8 lg:px-8">
+                <main className="relative w-full flex-1 pb-28">
                   {children}
                 </main>
                 <SiteFooter />

@@ -27,7 +27,16 @@ export class CatalogService {
   async listModels(query: ModelsQueryDto) {
     const indexed = await this.indexing.searchModels(query);
     if (indexed) {
-      return indexed;
+      if (indexed.pagination.total > 0) {
+        return indexed;
+      }
+
+      const databaseHasEnabledModels = await this.prisma.model.count({
+        where: { enabled: true, provider: { enabled: true } },
+      });
+      if (databaseHasEnabledModels === 0) {
+        return indexed;
+      }
     }
 
     const where: any = {

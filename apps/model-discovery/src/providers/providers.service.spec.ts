@@ -11,7 +11,10 @@ describe('ProvidersService', () => {
             slug: 'anthropic',
             name: 'Anthropic',
             enabled: true,
-            models: [{ id: 'model-1' }, { id: 'model-2' }],
+            models: [
+              { id: 'model-1', mode: ['chat', 'responses'] },
+              { id: 'model-2', mode: ['chat', 'embedding'] },
+            ],
             connectionProfile: { configJson: { api_key: 'must-not-leak' } },
           },
         ]),
@@ -21,7 +24,11 @@ describe('ProvidersService', () => {
 
     const result = await service.list();
     expect(result).toEqual([
-      expect.objectContaining({ slug: 'anthropic', modelCount: 2 }),
+      expect.objectContaining({
+        slug: 'anthropic',
+        modelCount: 2,
+        modes: ['chat', 'embedding', 'responses'],
+      }),
     ]);
     expect(JSON.stringify(result)).not.toContain('connectionProfile');
     expect(JSON.stringify(result)).not.toContain('must-not-leak');
@@ -29,7 +36,10 @@ describe('ProvidersService', () => {
       expect.objectContaining({
         where: { enabled: true },
         include: expect.objectContaining({
-          models: { where: { enabled: true } },
+          models: {
+            where: { enabled: true },
+            select: { id: true, mode: true },
+          },
         }),
       }),
     );

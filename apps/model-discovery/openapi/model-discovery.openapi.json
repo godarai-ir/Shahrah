@@ -1357,6 +1357,18 @@
           "supportsByok": {
             "type": "object"
           },
+          "supportsRegionalRouting": {
+            "type": "object"
+          },
+          "modelCount": {
+            "type": "number"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "connectionSchemas": {
             "type": "array",
             "items": {
@@ -1600,6 +1612,18 @@
           },
           "supportsByok": {
             "type": "object"
+          },
+          "supportsRegionalRouting": {
+            "type": "object"
+          },
+          "modelCount": {
+            "type": "number"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "connectionSchemas": {
             "type": "array",
