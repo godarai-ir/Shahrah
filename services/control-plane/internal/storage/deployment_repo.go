@@ -204,10 +204,18 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
 
+		var providerAuth *platform.ResolvedProviderAuth
+
 		if apiKey != "" && hasCredential && !platformManagedCredentials && !strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
 			runtimeAPIKey = apiKey
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled
+		} else if strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+			providerAuth = &platform.ResolvedProviderAuth{Mode: string(platform.ProviderAuthModeNoCredential)}
+
+			if strings.EqualFold(provider, "mock") {
+				billingMode = platform.BillingModeExternalBilled
+			}
 		}
 
 		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "base_url"))
@@ -230,6 +238,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			BillingMode:         billingMode,
 			ProviderAccountID:   accountID,
 			ProviderAccountName: accountName,
+			ProviderAuth:        providerAuth,
 			ModelInfo: map[string]interface{}{
 				"source":                "tenant_provider_account",
 				"provider_account_id":   accountID,

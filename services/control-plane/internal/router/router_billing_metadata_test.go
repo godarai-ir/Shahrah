@@ -82,3 +82,31 @@ func TestRouterProviderAccountWithoutBYOKUsesSharedProviderKeyAndWalletBilling(t
 	assert.Equal(t, "acct_1", dep.ProviderAccountID)
 	assert.Equal(t, "shared-openai", dep.ProviderAccountName)
 }
+
+func TestRouterNoCredentialMockBypassesPlatformCredentialResolution(t *testing.T) {
+	store := deploymentStoreStub{deployments: []platform.Deployment{{
+		ID:                  "provider-account:acct_mock:mock/chat",
+		TenantID:            "tenant_a",
+		ModelName:           "mock:loadtest:chat",
+		Provider:            "mock",
+		Model:               "mock/chat",
+		CredentialSource:    platform.CredentialSourceGodarManagedKey,
+		BillingMode:         platform.BillingModeExternalBilled,
+		ProviderAccountID:   "acct_mock",
+		ProviderAccountName: "loadtest",
+		ProviderAuth: &platform.ResolvedProviderAuth{
+			Mode: string(platform.ProviderAuthModeNoCredential),
+		},
+	}}}
+	rt, err := NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, newRouterTestCache(t), store, zap.NewNop())
+	require.NoError(t, err)
+	rt.SetPlatformCredentialResolver(nil, platform.ProviderCredentialModeStore, platform.ProviderCredentialEnvironmentProd)
+
+	dep, err := rt.Route(context.Background(), "tenant_a", "mock:loadtest:chat")
+	require.NoError(t, err)
+
+	assert.Empty(t, dep.Params.APIKey)
+	assert.Equal(t, string(platform.ProviderAuthModeNoCredential), dep.ProviderAuth.Mode)
+	assert.Equal(t, platform.BillingModeExternalBilled, dep.BillingMode)
+	assert.Equal(t, "acct_mock", dep.ProviderAccountID)
+}

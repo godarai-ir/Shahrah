@@ -18,9 +18,13 @@ const cacheTTL = Number(__ENV.CACHE_TTL || 600);
 const cacheNamespace = __ENV.CACHE_NAMESPACE || 'loadtest';
 const expectMockProvider = (__ENV.EXPECT_MOCK_PROVIDER || 'false').toLowerCase() === 'true';
 const productionLoadTest = (__ENV.PRODUCTION_LOADTEST || 'false').toLowerCase() === 'true';
+const productionMockModel = 'mock:loadtest:chat';
 const strictMockMode = productionLoadTest
   || scenario === 'mock-smoke'
   || isGodarAIProductionUrl(configuredBaseUrl);
+const expectedMockModel = productionLoadTest || isGodarAIProductionUrl(configuredBaseUrl)
+  ? productionMockModel
+  : 'loadtest/mock';
 
 validateStrictMockMode();
 
@@ -128,11 +132,11 @@ function validateStrictMockMode() {
   if (!configuredTenant) {
     errors.push('TENANT must be set explicitly to the dedicated tenant slug');
   }
-  if (model !== 'loadtest/mock') {
-    errors.push('MODEL must equal loadtest/mock');
+  if (model !== expectedMockModel) {
+    errors.push(`MODEL must equal ${expectedMockModel}`);
   }
-  if (embeddingModel !== 'loadtest/mock') {
-    errors.push('EMBEDDING_MODEL must be unset or equal loadtest/mock');
+  if (embeddingModel !== expectedMockModel) {
+    errors.push(`EMBEDDING_MODEL must be unset or equal ${expectedMockModel}`);
   }
   if (!expectMockProvider) {
     errors.push('EXPECT_MOCK_PROVIDER must equal true');
