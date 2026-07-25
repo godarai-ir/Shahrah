@@ -12,16 +12,20 @@ func TestBaleSafirOTPSenderSendsDocumentedOTPPayload(t *testing.T) {
 	t.Helper()
 
 	var received baleSafirOTPRequest
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("method = %s, want POST", r.Method)
 		}
+
 		if got := r.Header.Get("api-access-key"); got != "safir-secret" {
 			t.Errorf("api-access-key = %q, want safir-secret", got)
 		}
+
 		if got := r.Header.Get("Content-Type"); got != "application/json" {
 			t.Errorf("Content-Type = %q, want application/json", got)
 		}
+
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -47,12 +51,15 @@ func TestBaleSafirOTPSenderSendsDocumentedOTPPayload(t *testing.T) {
 	if received.RequestID != "request-123" {
 		t.Fatalf("request_id = %q, want request-123", received.RequestID)
 	}
+
 	if received.BotID != 123456789 {
 		t.Fatalf("bot_id = %d, want 123456789", received.BotID)
 	}
+
 	if received.PhoneNumber != "989123456789" {
 		t.Fatalf("phone_number = %q, want 989123456789", received.PhoneNumber)
 	}
+
 	if received.MessageData.OTPMessage.OTP != "654321" {
 		t.Fatalf("otp = %q, want 654321", received.MessageData.OTPMessage.OTP)
 	}
@@ -81,6 +88,7 @@ func TestBaleSafirOTPSenderReturnsProviderError(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "code 17") {
 		t.Fatalf("error = %v, want provider error code 17", err)
 	}
+
 	if strings.Contains(err.Error(), "989123456789") {
 		t.Fatal("provider error leaked the destination phone number")
 	}
@@ -105,6 +113,7 @@ func TestNormalizeBalePhoneNumber(t *testing.T) {
 			if err != nil {
 				t.Fatalf("normalizeBalePhoneNumber(%q): %v", tt.input, err)
 			}
+
 			if got != tt.want {
 				t.Fatalf("normalizeBalePhoneNumber(%q) = %q, want %q", tt.input, got, tt.want)
 			}

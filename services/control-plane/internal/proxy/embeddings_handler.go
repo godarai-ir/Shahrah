@@ -150,8 +150,10 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	var budgetReservation *platform.BudgetReservation
-	var budgetResponseHandled bool
+	var (
+		budgetReservation     *platform.BudgetReservation
+		budgetResponseHandled bool
+	)
 
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {

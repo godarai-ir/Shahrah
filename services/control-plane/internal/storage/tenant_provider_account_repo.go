@@ -180,6 +180,7 @@ func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, ten
 	defer rows.Close()
 
 	items := make([]platform.TenantProviderAccountCatalogRecord, 0)
+
 	for rows.Next() {
 		var (
 			item               platform.TenantProviderAccountCatalogRecord
@@ -696,6 +697,7 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 			}
 		}
 	}
+
 	if apiKey == "" || isMaskedCredentialValue(apiKey) {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: false,
@@ -704,6 +706,7 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 	}
 
 	result := validateProviderAPIKey(ctx, strings.TrimSpace(req.Provider), apiKey, req.ProviderConfig, nil)
+
 	return &platform.TestTenantProviderAccountCredentialsResponse{
 		Success: result.Success,
 		Message: result.Message,
@@ -1367,6 +1370,7 @@ func parseModelPriceText(raw *string) *platform.ModelPrice {
 	if err := json.Unmarshal([]byte(*raw), &out); err != nil {
 		return nil
 	}
+
 	return &out
 }
 

@@ -304,6 +304,7 @@ func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
 	if recordErr != nil {
 		return recordErr
 	}
+
 	catalog := loadTenantProviderCatalogModels(c.Context(), records)
 	summaries := buildTenantProviderAccountSummaries(records, catalog)
 
@@ -330,6 +331,7 @@ func (h *Handlers) ListTenantProviderAccountModels(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	records, err := store.ListTenantProviderAccountCatalogRecords(c.Context(), currentTenant.ID)
 	if err != nil {
 		return err
@@ -339,13 +341,16 @@ func (h *Handlers) ListTenantProviderAccountModels(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	catalog := loadTenantProviderCatalogModels(c.Context(), records)
 	items := buildTenantProviderAccountModelCatalog(records, catalog, query)
 	total := len(items)
+
 	start := query.Offset
 	if start > total {
 		start = total
 	}
+
 	end := start + query.Limit
 	if end > total {
 		end = total
@@ -373,11 +378,14 @@ func (h *Handlers) TestProviderConnection(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid provider connection test payload")
 	}
+
 	req.Provider = normalizeProviderSlug(req.Provider)
+
 	req.ModelHint = strings.TrimSpace(req.ModelHint)
 	if req.Provider == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "provider is required")
 	}
+
 	if req.AuthMode == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "auth_mode is required")
 	}
@@ -386,16 +394,20 @@ func (h *Handlers) TestProviderConnection(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, "provider catalog is unavailable")
 	}
+
 	var selected *platform.ProviderCatalogProvider
+
 	for index := range providers {
 		if normalizeProviderSlug(providers[index].Provider) == req.Provider {
 			selected = &providers[index]
 			break
 		}
 	}
+
 	if selected == nil || !selected.Enabled {
 		return fiber.NewError(fiber.StatusBadRequest, "provider is not available")
 	}
+
 	if !providerCatalogAllowsAuthMode(*selected, req.AuthMode) {
 		return fiber.NewError(fiber.StatusBadRequest, "auth_mode is not supported by this provider")
 	}
@@ -404,10 +416,12 @@ func (h *Handlers) TestProviderConnection(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	result, err := store.TestProviderConnection(c.Context(), req)
 	if err != nil {
 		return err
 	}
+
 	return c.JSON(result)
 }
 
@@ -818,57 +832,71 @@ func parseTenantProviderModelCatalogQuery(c *fiber.Ctx) (tenantProviderModelCata
 	if out.Sort == "" {
 		out.Sort = "name"
 	}
+
 	switch out.Sort {
 	case "name", "provider", "availability", "context", "input_price", "output_price":
 	default:
 		return out, fiber.NewError(fiber.StatusBadRequest, "unsupported model catalog sort")
 	}
+
 	if out.Order == "" {
 		out.Order = "asc"
 	}
+
 	if out.Order != "asc" && out.Order != "desc" {
 		return out, fiber.NewError(fiber.StatusBadRequest, "order must be asc or desc")
 	}
+
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
 		value, err := strconv.Atoi(raw)
 		if err != nil || value <= 0 {
 			return out, fiber.NewError(fiber.StatusBadRequest, "limit must be a positive number")
 		}
+
 		if value > 100 {
 			value = 100
 		}
+
 		out.Limit = value
 	}
+
 	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
 		value, err := strconv.Atoi(raw)
 		if err != nil || value < 0 {
 			return out, fiber.NewError(fiber.StatusBadRequest, "offset must be zero or greater")
 		}
+
 		out.Offset = value
 	}
+
 	return out, nil
 }
 
 func csvValueSet(raw string, normalizeProvider bool) map[string]struct{} {
 	out := make(map[string]struct{})
+
 	for _, part := range strings.Split(raw, ",") {
 		value := strings.TrimSpace(part)
 		if normalizeProvider {
 			value = normalizeProviderSlug(value)
 		}
+
 		if value != "" {
 			out[value] = struct{}{}
 		}
 	}
+
 	return out
 }
 
 func loadTenantProviderCatalogModels(ctx context.Context, records []platform.TenantProviderAccountCatalogRecord) tenantProviderCatalogLookup {
 	providers := make(map[string]struct{})
+
 	for _, record := range records {
 		if strings.TrimSpace(record.Model) == "" {
 			continue
 		}
+
 		provider := normalizeProviderSlug(record.Account.Provider)
 		if provider != "" {
 			providers[provider] = struct{}{}
@@ -881,6 +909,7 @@ func loadTenantProviderCatalogModels(ctx context.Context, records []platform.Ten
 		if err != nil {
 			continue
 		}
+
 		index := make(map[string]platform.ProviderCatalogModel, len(models))
 		for _, item := range models {
 			key := strings.ToLower(modelid.CanonicalOfficialModel(provider, item.Model))
@@ -888,8 +917,10 @@ func loadTenantProviderCatalogModels(ctx context.Context, records []platform.Ten
 				index[key] = item
 			}
 		}
+
 		out[provider] = index
 	}
+
 	return out
 }
 
@@ -897,6 +928,7 @@ func catalogModelForRecord(record platform.TenantProviderAccountCatalogRecord, c
 	provider := normalizeProviderSlug(record.Account.Provider)
 	model := strings.ToLower(modelid.CanonicalOfficialModel(provider, record.Model))
 	item, ok := catalog[provider][model]
+
 	return item, ok
 }
 
@@ -904,9 +936,11 @@ func resolvedRecordPrice(record platform.TenantProviderAccountCatalogRecord, cat
 	if record.PricingMode == platform.PricingModePrivate {
 		return cloneModelPrice(record.PrivatePricing)
 	}
+
 	if hasCatalog && catalogModel.PublicPricing != nil {
 		return cloneModelPrice(catalogModel.PublicPricing)
 	}
+
 	return cloneModelPrice(record.PublicPricing)
 }
 
@@ -920,39 +954,49 @@ func accountReadiness(account platform.TenantProviderAccount, summary platform.T
 		account.AuthMode != platform.ProviderAuthModeNoCredential {
 		return platform.ProviderAccountReadinessNeedsCredentials
 	}
+
 	if summary.ModelCount == 0 {
 		return platform.ProviderAccountReadinessNeedsModels
 	}
+
 	if summary.ManagerCount == 0 {
 		return platform.ProviderAccountReadinessNeedsAccess
 	}
+
 	if summary.PricingUnresolvedCount > 0 {
 		return platform.ProviderAccountReadinessPricingIncomplete
 	}
+
 	return platform.ProviderAccountReadinessReady
 }
 
 func buildTenantProviderAccountSummaries(records []platform.TenantProviderAccountCatalogRecord, catalog tenantProviderCatalogLookup) map[string]platform.TenantProviderAccountSummary {
 	out := make(map[string]platform.TenantProviderAccountSummary)
 	accounts := make(map[string]platform.TenantProviderAccount)
+
 	for _, record := range records {
 		summary := out[record.Account.ID]
 		summary.ManagerCount = record.ManagerCount
 		summary.UserCount = record.UserCount
+
 		accounts[record.Account.ID] = record.Account
 		if strings.TrimSpace(record.Model) != "" {
 			summary.ModelCount++
+
 			catalogModel, ok := catalogModelForRecord(record, catalog)
 			if !modelPriceResolved(resolvedRecordPrice(record, catalogModel, ok)) {
 				summary.PricingUnresolvedCount++
 			}
 		}
+
 		out[record.Account.ID] = summary
 	}
+
 	for accountID, summary := range out {
 		summary.Readiness = accountReadiness(accounts[accountID], summary)
 		out[accountID] = summary
 	}
+
 	return out
 }
 
@@ -968,12 +1012,14 @@ func buildTenantProviderAccountModelCatalog(
 		if strings.TrimSpace(record.Model) == "" {
 			continue
 		}
+
 		provider := normalizeProviderSlug(record.Account.Provider)
 		if len(query.Providers) > 0 {
 			if _, ok := query.Providers[provider]; !ok {
 				continue
 			}
 		}
+
 		if len(query.AccountIDs) > 0 {
 			if _, ok := query.AccountIDs[record.Account.ID]; !ok {
 				continue
@@ -983,6 +1029,7 @@ func buildTenantProviderAccountModelCatalog(
 		officialModel := modelid.CanonicalOfficialModel(provider, record.Model)
 		key := provider + "\x00" + strings.ToLower(officialModel)
 		item := byKey[key]
+
 		catalogModel, hasCatalog := catalogModelForRecord(record, catalog)
 		if item == nil {
 			item = &platform.TenantProviderAccountModelCatalogItem{
@@ -999,6 +1046,7 @@ func buildTenantProviderAccountModelCatalog(
 				if item.DisplayName == "" {
 					item.DisplayName = officialModel
 				}
+
 				item.Modes = append([]string(nil), catalogModel.Modes...)
 				item.Types = append([]platform.ModelType(nil), catalogModel.Types...)
 				item.ContextWindow = catalogModel.ContextWindow
@@ -1010,16 +1058,19 @@ func buildTenantProviderAccountModelCatalog(
 				item.IsDeprecated = catalogModel.IsDeprecated
 				item.ReplacementModel = catalogModel.ReplacementModel
 			}
+
 			byKey[key] = item
 		}
 
 		effectivePrice := resolvedRecordPrice(record, catalogModel, hasCatalog)
+
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		if record.Account.HasCredential &&
 			!record.Account.UsePlatformManagedCredentials &&
 			record.Account.AuthMode != platform.ProviderAuthModeNoCredential {
 			credentialSource = platform.CredentialSourceUserBYOK
 		}
+
 		item.Availability = append(item.Availability, platform.TenantProviderAccountModelAvailability{
 			AccountID:             record.Account.ID,
 			AccountName:           record.Account.Name,
@@ -1038,9 +1089,11 @@ func buildTenantProviderAccountModelCatalog(
 		sort.SliceStable(item.Availability, func(i, j int) bool {
 			return strings.ToLower(item.Availability[i].AccountName) < strings.ToLower(item.Availability[j].AccountName)
 		})
+
 		if query.Query != "" && !tenantCatalogItemMatches(*item, query.Query) {
 			continue
 		}
+
 		items = append(items, *item)
 	}
 
@@ -1049,24 +1102,31 @@ func buildTenantProviderAccountModelCatalog(
 		if comparison == 0 {
 			comparison = strings.Compare(strings.ToLower(items[i].Provider+":"+items[i].Model), strings.ToLower(items[j].Provider+":"+items[j].Model))
 		}
+
 		if query.Order == "desc" {
 			return comparison > 0
 		}
+
 		return comparison < 0
 	})
+
 	return items
 }
 
 func tenantCatalogItemMatches(item platform.TenantProviderAccountModelCatalogItem, query string) bool {
-	values := []string{item.Provider, item.Model, item.DisplayName}
+	values := make([]string, 0, 3+2*len(item.Availability))
+	values = append(values, item.Provider, item.Model, item.DisplayName)
+
 	for _, availability := range item.Availability {
 		values = append(values, availability.AccountName, availability.FQN)
 	}
+
 	for _, value := range values {
 		if strings.Contains(strings.ToLower(value), query) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -1113,11 +1173,13 @@ func intValue(value *int) int {
 	if value == nil {
 		return -1
 	}
+
 	return *value
 }
 
 func catalogSortPrice(item platform.TenantProviderAccountModelCatalogItem, input bool) float64 {
 	var value *float64
+
 	if item.PublicPricing != nil {
 		if input {
 			value = item.PublicPricing.InputUSDPer1M
@@ -1125,6 +1187,7 @@ func catalogSortPrice(item platform.TenantProviderAccountModelCatalogItem, input
 			value = item.PublicPricing.OutputUSDPer1M
 		}
 	}
+
 	if value == nil && len(item.Availability) > 0 && item.Availability[0].EffectivePricing != nil {
 		if input {
 			value = item.Availability[0].EffectivePricing.InputUSDPer1M
@@ -1132,9 +1195,11 @@ func catalogSortPrice(item platform.TenantProviderAccountModelCatalogItem, input
 			value = item.Availability[0].EffectivePricing.OutputUSDPer1M
 		}
 	}
+
 	if value == nil {
 		return 1.7976931348623157e+308
 	}
+
 	return *value
 }
 
@@ -1144,6 +1209,7 @@ func providerCatalogAllowsAuthMode(provider platform.ProviderCatalogProvider, au
 			return true
 		}
 	}
+
 	return false
 }
 

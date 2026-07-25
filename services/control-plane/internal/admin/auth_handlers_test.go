@@ -127,11 +127,13 @@ func TestCreateOTPRequestSendsMobileOTPThroughNotifier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
+
 	t.Cleanup(func() { _ = resp.Body.Close() })
 
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("status = %d, want %d", resp.StatusCode, fiber.StatusOK)
 	}
+
 	if notifier.channel != "mobile" || notifier.to != "09123456789" || notifier.otpCode != "654321" {
 		t.Fatalf("notifier call = channel %q, to %q, otp %q", notifier.channel, notifier.to, notifier.otpCode)
 	}

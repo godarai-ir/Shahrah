@@ -188,6 +188,26 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 		}}, nil
 	}
 
+	if normalizedProvider == internalMockProvider {
+		zeroPrice := 0.0
+
+		return []platform.ProviderCatalogModel{{
+			Provider:         internalMockProvider,
+			Model:            internalMockModel,
+			DisplayName:      "Internal Mock Chat",
+			Modes:            []string{"chat", "completion"},
+			Types:            []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeCompletion},
+			InputModalities:  []string{"text"},
+			OutputModalities: []string{"text"},
+			Capabilities:     []string{"chat", "completion"},
+			Features:         []string{"chat", "completion"},
+			PublicPricing: &platform.ModelPrice{
+				InputUSDPer1M:  &zeroPrice,
+				OutputUSDPer1M: &zeroPrice,
+			},
+		}}, nil
+	}
+
 	if cached, ok := getCachedProviderModels(normalizedProvider); ok {
 		atomic.AddUint64(&discoveryTelemetry.modelsCacheHit, 1)
 		return cached, nil
