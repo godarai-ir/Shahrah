@@ -93,8 +93,8 @@ $env:PRODUCTION_LOADTEST="true"
 $env:BASE_URL="https://<tenant-slug>.godarai.ir"
 $env:API_KEY="<dedicated-load-test-vat>"
 $env:TENANT="<tenant-slug>"
-$env:MODEL="loadtest/mock"
-$env:EMBEDDING_MODEL="loadtest/mock"
+$env:MODEL="mock:loadtest:chat"
+$env:EMBEDDING_MODEL="mock:loadtest:chat"
 $env:EXPECT_MOCK_PROVIDER="true"
 
 k6 run -e SCENARIO=mock-smoke loadtests/k6/gateway-scenarios.js

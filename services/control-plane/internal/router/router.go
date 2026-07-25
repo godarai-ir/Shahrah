@@ -249,7 +249,11 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 
 func (r *Router) applyCredentials(ctx context.Context, tenantID, modelName string, selected *Deployment) (*Deployment, error) {
 	selected = r.applyBYOK(ctx, tenantID, modelName, selected)
-	if selected == nil || selected.CredentialSource == platform.CredentialSourceUserBYOK || r.platformCredentialMode == "" || r.platformCredentialMode == platform.ProviderCredentialModeEnv {
+
+	noCredential := selected != nil &&
+		selected.ProviderAuth != nil &&
+		strings.EqualFold(strings.TrimSpace(selected.ProviderAuth.Mode), string(platform.ProviderAuthModeNoCredential))
+	if selected == nil || noCredential || selected.CredentialSource == platform.CredentialSourceUserBYOK || r.platformCredentialMode == "" || r.platformCredentialMode == platform.ProviderCredentialModeEnv {
 		return selected, nil
 	}
 
@@ -657,7 +661,10 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		ProviderAuth:        providerAuth,
 		ModelInfo:           dep.ModelInfo,
 	}
-	if isProviderAccountDeploymentWithoutRuntimeCredential(hydrated) && !r.canResolveProviderAccountCredential(dep.ModelName) {
+
+	noCredential := hydrated.ProviderAuth != nil &&
+		strings.EqualFold(strings.TrimSpace(hydrated.ProviderAuth.Mode), string(platform.ProviderAuthModeNoCredential))
+	if isProviderAccountDeploymentWithoutRuntimeCredential(hydrated) && !noCredential && !r.canResolveProviderAccountCredential(dep.ModelName) {
 		return nil
 	}
 
