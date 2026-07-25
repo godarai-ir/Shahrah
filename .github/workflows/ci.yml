@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main, master]
-    tags: ["v*"]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
@@ -13,7 +12,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GO_VERSION: "1.26.3"
@@ -86,159 +85,18 @@ jobs:
           flags: unit-tests
           fail_ci_if_error: false
 
-  # =============================================================================
-  # Build Job
-  # =============================================================================
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  production-release:
+    name: Production Release
     needs: [lint, test]
-    strategy:
-      fail-fast: false
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
-            goarch: arm64
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: ${{ env.CONTROL_PLANE_DIR }}/go.sum
-
-      - name: Download dependencies
-        run: go mod download
-        working-directory: ${{ env.CONTROL_PLANE_DIR }}
-
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-          BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-          GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-          
-          OUTPUT_DIR="bin/${{ matrix.goos }}-${{ matrix.goarch }}"
-          mkdir -p "$OUTPUT_DIR"
-          
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            EXT=".exe"
-          else
-            EXT=""
-          fi
-          
-          CGO_ENABLED=0 go build \
-            -ldflags "-s -w \
-              -X main.Version=$VERSION \
-              -X main.BuildTime=$BUILD_TIME \
-              -X main.GitCommit=$GIT_COMMIT" \
-            -o "$OUTPUT_DIR/go-llm-proxy$EXT" \
-            ./cmd/server/
-        working-directory: ${{ env.CONTROL_PLANE_DIR }}
-
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: go-llm-proxy-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ env.CONTROL_PLANE_DIR }}/bin/${{ matrix.goos }}-${{ matrix.goarch }}/
-          retention-days: 7
-
-  # =============================================================================
-  # Docker Build Job
-  # =============================================================================
-  docker:
-    name: Docker Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, test]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/shahrah-control-plane
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          # The Dockerfile copies shared packages and sibling Go modules.
-          context: .
-          file: ./services/control-plane/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # =============================================================================
-  # Release Job (only on tags)
-  # =============================================================================
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [build]
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     permissions:
       contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: bin/
-
-      - name: Generate release notes
-        run: |
-          PREVIOUS_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
-          if [ -n "$PREVIOUS_TAG" ]; then
-            git log "$PREVIOUS_TAG..HEAD" --pretty=format:"* %s (%h)" > RELEASE_NOTES.md
-          else
-            echo "Initial release." > RELEASE_NOTES.md
-          fi
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: bin/**/*
-          body_path: RELEASE_NOTES.md
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: ./.github/workflows/gitops-production-release.yml
+    with:
+      base_sha: ${{ github.event.before }}
+      head_sha: ${{ github.sha }}
+    secrets:
+      REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      GITOPS_REPO_TOKEN: ${{ secrets.GITOPS_REPO_TOKEN }}

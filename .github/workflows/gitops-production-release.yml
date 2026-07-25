@@ -1,8 +1,34 @@
 name: Build Changed Images And Propose Production Release
 
 on:
-  push:
-    branches: [main, master]
+  workflow_call:
+    inputs:
+      base_sha:
+        description: "Base commit used to detect changed services"
+        required: false
+        type: string
+      head_sha:
+        description: "Commit to build and release"
+        required: false
+        type: string
+      services:
+        description: "Comma-separated service IDs, or all"
+        required: false
+        type: string
+      release_type:
+        description: "SemVer bump type"
+        required: false
+        type: string
+        default: auto
+    secrets:
+      REGISTRY_URL:
+        required: true
+      REGISTRY_USERNAME:
+        required: true
+      REGISTRY_PASSWORD:
+        required: true
+      GITOPS_REPO_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       services:
@@ -31,6 +57,7 @@ env:
   REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
   REGISTRY_REPOSITORY: delpak/godar-ai
   GITOPS_REPO: Delpak/shahrah-gitops
+  RELEASE_SHA: ${{ inputs.head_sha || github.sha }}
 
 jobs:
   detect-changes:
@@ -50,11 +77,10 @@ jobs:
       - name: Detect services
         id: detect
         env:
-          BASE_SHA: ${{ github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-          EVENT_NAME: ${{ github.event_name }}
-          MANUAL_SERVICES: ${{ github.event.inputs.services }}
-          MANUAL_BUMP: ${{ github.event.inputs.release_type }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          HEAD_SHA: ${{ env.RELEASE_SHA }}
+          MANUAL_SERVICES: ${{ inputs.services }}
+          MANUAL_BUMP: ${{ inputs.release_type }}
         run: |
           python - <<'PY'
           import json
@@ -208,7 +234,6 @@ jobs:
 
           manual_services = (os.getenv("MANUAL_SERVICES") or "").strip()
           manual_bump = (os.getenv("MANUAL_BUMP") or "auto").strip()
-          event_name = os.getenv("EVENT_NAME", "")
           base_sha = (os.getenv("BASE_SHA") or "").strip()
           head_sha = (os.getenv("HEAD_SHA") or "").strip()
 
@@ -218,7 +243,7 @@ jobs:
               if sid not in selected:
                   selected.append(sid)
 
-          if event_name == "workflow_dispatch" and manual_services:
+          if manual_services:
               for raw in manual_services.split(","):
                   sid = raw.strip()
                   if not sid:
@@ -465,7 +490,7 @@ jobs:
       - name: Create immutable SemVer Git tags
         env:
           MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
-          HEAD_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ env.RELEASE_SHA }}
         run: |
           python - <<'PY'
           import json
@@ -558,11 +583,11 @@ jobs:
           token: ${{ secrets.GITOPS_REPO_TOKEN }}
           path: gitops
           commit-message: "chore(production): deploy SemVer tags for [${{ needs.detect-changes.outputs.changed_services }}]"
-          branch: "ci/production-${{ github.sha }}"
+          branch: "ci/production-${{ env.RELEASE_SHA }}"
           base: main
           title: "chore(production): deploy SemVer tags"
           body: |
-            Automated production promotion from app repository commit `${{ github.sha }}`.
+            Automated production promotion from app repository commit `${{ env.RELEASE_SHA }}`.
 
             Summary: `${{ needs.detect-changes.outputs.build_summary }}`
 
