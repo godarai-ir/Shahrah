@@ -160,6 +160,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		}
 
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
+
 		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
 

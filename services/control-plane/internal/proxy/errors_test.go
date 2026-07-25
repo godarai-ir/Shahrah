@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -27,10 +28,12 @@ func TestWriteRoutingDependencyUnavailable(t *testing.T) {
 		return err
 	})
 
-	response, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	response, err := app.Test(httptest.NewRequest("GET", "/", http.NoBody))
 	require.NoError(t, err)
-	require.Equal(t, fiber.StatusServiceUnavailable, response.StatusCode)
+
 	defer response.Body.Close()
+
+	require.Equal(t, fiber.StatusServiceUnavailable, response.StatusCode)
 
 	var body struct {
 		Error struct {

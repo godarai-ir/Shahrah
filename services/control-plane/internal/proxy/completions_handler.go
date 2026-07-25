@@ -209,6 +209,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		}
 
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
+
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
 

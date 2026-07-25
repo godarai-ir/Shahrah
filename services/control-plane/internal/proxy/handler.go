@@ -376,6 +376,7 @@ func (h *ChatCompletionHandler) routeChatCandidates(
 	}
 
 	var routeErr error
+
 	for _, candidate := range candidates {
 		resolved, err := h.llmRouter.Route(ctx, tenantID, candidate)
 		if err == nil {

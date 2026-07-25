@@ -193,15 +193,20 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	r.mu.RUnlock()
 
 	var dynamicErr error
+
 	dynamicIDs := make(map[string]struct{})
+
 	if r.store != nil && tenantID != "" {
 		dynamic, err := r.listCachedDeployments(ctx, tenantID)
 		storeFailed := err != nil
 		hasResolvedFallback := false
+
 		if err != nil {
 			dynamicErr = fmt.Errorf("%w: deployment store: %v", ErrDependencyUnavailable, err)
+
 			if snapshot, ok := r.lastKnownGoodDeploymentSnapshot(tenantID); ok {
 				dynamic = snapshot
+
 				if r.markDeploymentFallbackActive(tenantID) {
 					r.logger.Warn("Using last-known-good deployment snapshot",
 						zap.String("tenant_id", tenantID),
@@ -225,6 +230,7 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 			}
 
 			dynamicIDs[dep.ID] = struct{}{}
+
 			if hasResolvedFallback {
 				continue
 			}
@@ -307,14 +313,17 @@ func (r *Router) rememberDeploymentSnapshot(tenantID string, deployments []platf
 	r.mu.Lock()
 	r.lastKnownGoodDeployments[tenantID] = cloneDeployments(deployments)
 	r.deploymentFallbackActive[tenantID] = false
+
 	allowedIDs := make(map[string]struct{}, len(deployments))
 	for _, dep := range deployments {
 		allowedIDs[dep.ID] = struct{}{}
 	}
+
 	for key, route := range r.lastKnownGoodRoutes {
 		if !strings.HasPrefix(key, tenantID+"\x00") {
 			continue
 		}
+
 		if _, ok := allowedIDs[route.ID]; !ok {
 			delete(r.lastKnownGoodRoutes, key)
 		}
@@ -398,6 +407,7 @@ func (r *Router) markDeploymentFallbackActive(tenantID string) bool {
 
 func resolvedRouteKey(tenantID, modelName string) string {
 	tenantID = strings.TrimSpace(tenantID)
+
 	modelName = strings.TrimSpace(modelName)
 	if tenantID == "" || modelName == "" {
 		return ""
@@ -412,6 +422,7 @@ func cloneDeployment(in *Deployment) *Deployment {
 	}
 
 	out := *in
+
 	out.Params = in.Params
 	if in.Params.CustomHeaders != nil {
 		out.Params.CustomHeaders = make(map[string]string, len(in.Params.CustomHeaders))
@@ -419,6 +430,7 @@ func cloneDeployment(in *Deployment) *Deployment {
 			out.Params.CustomHeaders[key] = value
 		}
 	}
+
 	if in.ProviderAuth != nil {
 		providerAuth := *in.ProviderAuth
 		out.ProviderAuth = &providerAuth
