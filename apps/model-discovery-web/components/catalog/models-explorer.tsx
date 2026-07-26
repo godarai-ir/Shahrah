@@ -1,9 +1,18 @@
 "use client";
 
-import { Fragment, useId, useMemo, useState } from "react";
+import {
+  Fragment,
+  useId,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { EndpointModeBadgeList } from "@/components/catalog/endpoint-mode-badge";
+import { DisplayPrice } from "@/components/catalog/display-price";
+import { TokenScale } from "@/components/catalog/token-scale";
 import {
   Brain,
   Check,
@@ -212,17 +221,12 @@ function previewModel(
 export function ModelsExplorer() {
   const t = useTranslations("Catalog");
   const tCommon = useTranslations("Common");
-  const { formatPrice, formatPriceAmount } = useDisplayFormatters();
+  const { settings, formatPriceAmount } = useDisplayFormatters();
   const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
   const compactNumberFormatter = useMemo(
     () => new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFractionDigits: 1 }),
     [],
   );
-  const priceRangeFormatter = useMemo(
-    () => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 1 }),
-    [],
-  );
-
   const [q, setQ] = useState("");
   const [provider, setProvider] = useState("");
   const [features, setFeatures] = useState<FeatureKey[]>([]);
@@ -302,6 +306,9 @@ export function ModelsExplorer() {
       ),
     [providersQuery.data],
   );
+  const selectedProvider = provider
+    ? providers.find((item) => item.slug === provider)
+    : undefined;
   const previewModelsWithLogos = useMemo(
     () =>
       PREVIEW_MODELS.map((model) => ({
@@ -359,16 +366,18 @@ export function ModelsExplorer() {
   return (
     <TooltipProvider>
       <section aria-label={t("directoryLabel")} className="flex min-w-0 flex-col gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative min-w-0 flex-1">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative min-w-0 flex-1" dir="ltr">
             <Search
               className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
-            <Input
+              <Input
               aria-label={t("searchLabel")}
               className="h-10 ps-10"
-              placeholder={t("searchShortPlaceholder")}
+              placeholder={t("searchCountPlaceholder", {
+                count: numberFormatter.format(totalModels),
+              })}
               value={q}
               onChange={(event) => {
                 setQ(event.target.value);
@@ -377,27 +386,47 @@ export function ModelsExplorer() {
             />
           </div>
 
-          <div className="scrollbar-none min-w-0 overflow-x-auto pb-1 lg:pb-0">
+          <div className="scrollbar-none min-w-0 overflow-x-auto pb-1 md:pb-0">
             <div className="flex w-max min-w-full items-center justify-center gap-2">
               <Select value={provider || ALL_VALUE} onValueChange={(value) => {
                 setProvider(value === ALL_VALUE ? "" : value);
                 setPage(1);
               }}>
               <SelectTrigger className="h-10 w-auto min-w-36">
-                <Filter data-icon="inline-start" aria-hidden="true" />
-                <SelectValue placeholder={t("providerLabel")} />
+                {selectedProvider ? (
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ProviderMark
+                      name={selectedProvider.name}
+                      logoUrl={providerLogoBySlug.get(selectedProvider.slug)}
+                      size="xs"
+                    />
+                    <span className="truncate">{selectedProvider.name}</span>
+                  </span>
+                ) : (
+                  <>
+                    <Filter className="size-4" data-icon="inline-start" aria-hidden="true" />
+                    <SelectValue placeholder={t("providerLabel")} />
+                  </>
+                )}
               </SelectTrigger>
               <SelectContent position="popper">
                 <SelectGroup>
                   <SelectItem value={ALL_VALUE}>{t("allProviders")}</SelectItem>
                   {providers.map((item) => (
                     <SelectItem key={item.slug} value={item.slug}>
-                      <span>{item.name}</span>
-                      {item.count !== undefined ? (
-                        <span className="ms-auto text-xs text-muted-foreground">
-                          {numberFormatter.format(item.count)}
-                        </span>
-                      ) : null}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <ProviderMark
+                          name={item.name}
+                          logoUrl={providerLogoBySlug.get(item.slug)}
+                          size="xs"
+                        />
+                        <span className="truncate">{item.name}</span>
+                        {item.count !== undefined ? (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            | {t("modelsCountCompact", { count: item.count })}
+                          </span>
+                        ) : null}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -469,10 +498,6 @@ export function ModelsExplorer() {
               </Button>
             </div>
           </div>
-
-          <span className="shrink-0 text-sm tabular-nums text-muted-foreground" aria-live="polite">
-            {t("modelsCountCompact", { count: totalModels })}
-          </span>
         </div>
 
         <div
@@ -522,7 +547,7 @@ export function ModelsExplorer() {
             min={0}
             max={PRICE_LIMIT}
             step={0.1}
-            formatValue={(value) => `$${priceRangeFormatter.format(value)}`}
+            formatValue={formatPriceAmount}
             onValueChange={(value) => {
               setPriceRange(value);
               setPage(1);
@@ -585,9 +610,30 @@ export function ModelsExplorer() {
                     <TableRow>
                       <TableHead className="min-w-44">{tCommon("provider")}</TableHead>
                       <TableHead className="min-w-64">{t("table.modelId")}</TableHead>
-                      <TableHead>{t("table.inputPrice")}</TableHead>
-                      <TableHead>{t("table.outputPrice")}</TableHead>
-                      <TableHead>{t("table.cacheRead")}</TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center gap-1">
+                          {t("table.inputShort")}
+                          <span aria-hidden="true">(</span>
+                          <TokenScale scale={settings.priceScale} />
+                          <span aria-hidden="true">)</span>
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center gap-1">
+                          {t("table.outputShort")}
+                          <span aria-hidden="true">(</span>
+                          <TokenScale scale={settings.priceScale} />
+                          <span aria-hidden="true">)</span>
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center gap-1">
+                          {t("table.cacheShort")}
+                          <span aria-hidden="true">(</span>
+                          <TokenScale scale={settings.priceScale} />
+                          <span aria-hidden="true">)</span>
+                        </span>
+                      </TableHead>
                       <TableHead>{t("table.cacheWrite")}</TableHead>
                       <TableHead>{t("table.features")}</TableHead>
                       <TableHead>{t("table.updated")}</TableHead>
@@ -615,6 +661,9 @@ export function ModelsExplorer() {
                                   >
                                     <ChevronLeft className={cn("transition-transform", expanded && "-rotate-90")} aria-hidden="true" />
                                   </Button>
+                                ) : null}
+                                {!model.catalogPreview ? (
+                                  <CompareToggleButton canonicalId={model.canonicalId} iconOnly />
                                 ) : null}
                                 <ProviderMark name={model.provider.name} logoUrl={model.provider.logoUrl} size="sm" />
                                 <Link
@@ -667,9 +716,6 @@ export function ModelsExplorer() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center justify-end gap-1">
-                                {!model.catalogPreview ? (
-                                  <CompareToggleButton canonicalId={model.canonicalId} compact iconOnly />
-                                ) : null}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
@@ -690,7 +736,7 @@ export function ModelsExplorer() {
                           {expanded ? (
                             <TableRow className="bg-muted/20 hover:bg-muted/20">
                               <TableCell colSpan={9} className="p-0">
-                                <ModelRowDetails model={model} formatPrice={formatPrice} formatNumber={numberFormatter.format} />
+                                <ModelRowDetails model={model} formatNumber={numberFormatter.format} />
                               </TableCell>
                             </TableRow>
                           ) : null}
@@ -856,11 +902,9 @@ function hasFeature(model: ModelRow, feature: FeatureKey) {
 
 function ModelRowDetails({
   model,
-  formatPrice,
   formatNumber,
 }: {
   model: ModelRow;
-  formatPrice: (value?: number | null) => string;
   formatNumber: (value: number) => string;
 }) {
   const t = useTranslations("Catalog");
@@ -884,7 +928,16 @@ function ModelRowDetails({
         <dl className="mt-4 grid gap-3 sm:grid-cols-2">
           <DetailValue label={t("contextWindow")} value={model.contextWindow ? formatNumber(model.contextWindow) : "—"} />
           <DetailValue label={t("maxOutputTokens")} value={model.maxOutputTokens ? formatNumber(model.maxOutputTokens) : "—"} />
-          <DetailValue label={t("detail.modes")} value={model.mode?.join("، ") || "—"} technical />
+          <DetailValue
+            label={t("detail.modes")}
+            value={
+              model.mode?.length ? (
+                <EndpointModeBadgeList modes={model.mode} />
+              ) : (
+                "—"
+              )
+            }
+          />
           <DetailValue label={t("table.modalities")} value={[...model.inputModalities, ...model.outputModalities].join("، ") || "—"} technical />
         </dl>
       </section>
@@ -901,7 +954,7 @@ function ModelRowDetails({
               <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
                 <dt className="text-xs text-muted-foreground">{label}</dt>
                 <dd className="whitespace-nowrap text-sm font-semibold tabular-nums text-card-foreground" dir="rtl">
-                  {formatPrice(value)}
+                  <DisplayPrice value={value} />
                 </dd>
               </div>
             ))}
@@ -922,19 +975,22 @@ function DetailValue({
   technical = false,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   technical?: boolean;
 }) {
+  const textValue = typeof value === "string" ? value : undefined;
+
   return (
     <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          "mt-1 truncate text-sm font-semibold tabular-nums text-card-foreground",
+          "mt-1 text-sm font-semibold tabular-nums text-card-foreground",
+          textValue && "truncate",
           technical && "font-mono text-xs",
         )}
         dir={technical ? "ltr" : undefined}
-        title={value}
+        title={textValue}
       >
         {value}
       </dd>

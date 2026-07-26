@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,16 @@ export function CompareTray() {
             >
               {t("openCompare")}
             </Link>
-            <Button type="button" variant="secondary" size="sm" onClick={clear} aria-label={t("clearSelection")}>
-              {t("clearAll")}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={clear}
+              aria-label={t("clearSelection")}
+              title={t("clearSelection")}
+            >
+              <Trash2 aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -59,7 +67,17 @@ export function CompareTray() {
           >
             {t("openCompare")}
           </Link>
-          <Button type="button" variant="secondary" size="sm" onClick={clear} aria-label={t("clearSelection")}>{t("clearAll")}</Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={clear}
+            aria-label={t("clearSelection")}
+            title={t("clearSelection")}
+          >
+            <Trash2 aria-hidden="true" />
+          </Button>
         </div>
       </div>
       {notice ? <p className="mx-auto max-w-7xl px-4 pb-3 text-xs text-warning-soft-foreground" aria-live="polite">{notice}</p> : null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useLayoutEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { DisplaySettings, DISPLAY_SETTINGS_DEFAULTS, DISPLAY_SETTINGS_STORAGE_KEY } from '@/lib/display-settings';
 
 type DisplaySettingsContextValue = {
@@ -13,17 +13,18 @@ type DisplaySettingsContextValue = {
 const DisplaySettingsContext = createContext<DisplaySettingsContextValue | null>(null);
 
 export function DisplaySettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettingsState] = useState<DisplaySettings>(() => {
-    if (typeof window === 'undefined') return DISPLAY_SETTINGS_DEFAULTS;
+  const [settings, setSettingsState] = useState<DisplaySettings>(DISPLAY_SETTINGS_DEFAULTS);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(DISPLAY_SETTINGS_STORAGE_KEY);
-      if (!raw) return DISPLAY_SETTINGS_DEFAULTS;
+      if (!raw) return;
       const parsed = JSON.parse(raw) as Partial<DisplaySettings>;
-      return { ...DISPLAY_SETTINGS_DEFAULTS, ...parsed };
+      setSettingsState({ ...DISPLAY_SETTINGS_DEFAULTS, ...parsed });
     } catch {
-      return DISPLAY_SETTINGS_DEFAULTS;
+      setSettingsState(DISPLAY_SETTINGS_DEFAULTS);
     }
-  });
+  }, []);
 
   const setSettings = (next: DisplaySettings) => {
     setSettingsState(next);

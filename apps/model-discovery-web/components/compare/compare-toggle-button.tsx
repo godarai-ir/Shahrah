@@ -1,9 +1,8 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useCompareModels } from "@/components/compare/compare-provider";
 
 type CompareToggleButtonProps = {
@@ -32,18 +31,18 @@ export function CompareToggleButton({ canonicalId, compact = false, iconOnly = f
     return (
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         size="icon-sm"
         onClick={onClick}
         aria-label={selected ? t("removeAria", { id: canonicalId }) : t("addAria", { id: canonicalId })}
+        aria-pressed={selected}
         title={selected ? t("remove") : t("add")}
         disabled={!selected && !canAdd}
       >
-        {selected ? (
-          <X data-icon="inline-start" className="text-success-soft-foreground" />
-        ) : (
-          <Plus data-icon="inline-start" />
-        )}
+        <Bookmark
+          aria-hidden="true"
+          className={selected ? "fill-primary text-primary" : "text-muted-foreground"}
+        />
       </Button>
     );
   }
@@ -54,10 +53,15 @@ export function CompareToggleButton({ canonicalId, compact = false, iconOnly = f
       size={compact ? "sm" : "default"}
       onClick={onClick}
       aria-label={selected ? t("removeAria", { id: canonicalId }) : t("addAria", { id: canonicalId })}
+      aria-pressed={selected}
       disabled={!selected && !canAdd}
     >
-      {selected ? t("remove") : t("add")}
-      {selected ? <Badge className="ms-2 border-success-soft bg-success-soft text-success-soft-foreground">{t("selected")}</Badge> : null}
+      <Bookmark
+        data-icon="inline-start"
+        aria-hidden="true"
+        className={selected ? "fill-current" : undefined}
+      />
+      {t("label")}
     </Button>
   );
 }

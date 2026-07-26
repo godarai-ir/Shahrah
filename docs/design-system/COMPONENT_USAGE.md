@@ -28,6 +28,15 @@ Use at the top of standalone route-level pages that are not rendered inside `Adm
 
 Use `titleAddon` for lightweight contextual links that must remain on the title row. Keep primary actions in `actions`.
 
+## CatalogBreadcrumb
+
+Use `CatalogBreadcrumb` above public catalog provider and model detail surfaces.
+The provider page renders `providers → current provider`; the model page renders
+`providers → provider → current model`. Intermediate levels remain links and
+the final level uses `BreadcrumbPage` so assistive technology receives
+`aria-current="page"`. Keep labels localized and preserve automatic direction
+for provider and model names.
+
 ## PageContainer
 
 Use `PageContainer` as the outer layout for route-level pages. The default `wide` size, standard padding, and default spacing produce the established `max-w-7xl` page rhythm. Use `readable` for focused content and `full` for embedded workflows that must consume their parent width.
@@ -138,6 +147,18 @@ Keep `components/ui/dropdown-menu`, `components/ui/select`, and `components/ui/c
 
 Use for common statuses: `active`, `inactive`, `pending`, `success`, `warning`, `error`, and `neutral`.
 
+## EndpointModeBadge
+
+Use `EndpointModeBadge` for a single model API endpoint mode such as `chat`,
+`image`, `embedding`, `audio`, `video`, `rerank`, or `moderation`. It keeps the
+technical label LTR and pairs every mode with a semantic color and recognizable
+icon. Unknown modes intentionally receive the primary fallback treatment so
+they remain visually distinct from neutral metadata.
+
+Use `EndpointModeBadgeList` when a model supports multiple endpoint modes. It
+deduplicates values, wraps responsively, and supports an optional display
+limit. Do not recreate endpoint-mode chips with feature-local `Badge` loops.
+
 ## StatusOptionGroup
 
 Use `StatusOptionGroup` when one setting must be selected from a small set of visually descriptive status options. Pass the controlled `value`, localized group `label`, option metadata, and `onValueChange`; use `columns` only to adjust responsive layout.
@@ -167,6 +188,18 @@ Pass the localized input instruction separately from `expectedValue`. Confirmati
 Use `UnsavedChangesDialog` when leaving, replacing, or closing an editable surface would discard dirty form state. Keep the pending continuation in the owning feature and run it through `onDiscard`; the dialog provides explicit “keep editing” and “discard changes” actions instead of relying on `window.confirm`.
 
 ## Copyable Values And One-Time Secrets
+
+Use `CopyPageLink` for the compact link-icon action beside public catalog
+provider and model titles. It copies the current browser URL, exposes localized
+idle, success, and failure labels, announces the result, and includes a legacy
+clipboard fallback. Do not implement page-link copy state separately in each
+detail header.
+
+Use `TokenScale` wherever catalog pricing needs to identify whether an amount is
+for one token or one million tokens. It renders the localized compact notation
+and exposes the unabbreviated scale in a keyboard-accessible tooltip. Compose it
+through `DisplayPrice` when both the localized currency amount and token scale
+are shown together; do not rebuild this phrase in individual catalog pages.
 
 Use `EntityIdentityHeader` inside entity detail cards when a title, technical identifier, status, and actions need one responsive hierarchy. Pass copy labels only when the identifier should be copyable; the component composes `CopyAction` and keeps identifiers LTR.
 

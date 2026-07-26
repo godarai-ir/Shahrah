@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const EMPTY = "-";
@@ -6,7 +7,7 @@ export function CompareCell({
   value,
   isDifferent,
 }: {
-  value: string | number | null | undefined;
+  value: ReactNode;
   isDifferent: boolean;
 }) {
   return (
@@ -15,7 +16,7 @@ export function CompareCell({
       className={cn(
         "block rounded-md px-2 py-1 leading-6",
         isDifferent
-          ? "bg-primary-soft font-medium text-primary-soft-foreground"
+          ? "font-medium text-foreground"
           : "text-muted-foreground",
       )}
     >

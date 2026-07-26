@@ -1,9 +1,11 @@
-import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { apiGet } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { CatalogBreadcrumb } from "@/components/catalog/catalog-breadcrumb";
+import { CopyPageLink } from "@/components/catalog/copy-page-link";
 import { ProviderMark } from "@/components/catalog/provider-mark";
 import { ProviderModelsList, type ProviderModel } from "@/components/provider-models-list";
 
@@ -39,6 +41,7 @@ function getStatusClasses(status: string) {
 export default async function ProviderDetailPage({ params }: { params: Promise<{ providerSlug: string }> }) {
   const { providerSlug } = await params;
   const t = await getTranslations("ProviderDetail");
+  const tNavigation = await getTranslations("Navigation");
   const tStatus = await getTranslations("Statuses");
   let provider: ProviderDetail | null = null;
 
@@ -66,49 +69,64 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:gap-8 sm:px-6 lg:py-10">
-      <section className="rounded-2xl border border-border bg-card p-5 sm:p-7">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 items-start gap-4">
-            <ProviderMark name={provider.name} logoUrl={provider.logoUrl} size="lg" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                  <bdi dir="auto">{provider.name}</bdi>
-                </h1>
-                <Badge className={getStatusClasses(provider.status)}>{statusLabel}</Badge>
-                <Badge>{t("modelCount", { count: modelCount })}</Badge>
+      <CatalogBreadcrumb
+        providersLabel={tNavigation("providers")}
+        providerSlug={provider.slug}
+        providerLabel={provider.name}
+      />
+      <Card className="overflow-hidden p-0">
+        <div className="h-1 bg-primary" aria-hidden="true" />
+        <CardContent className="p-5 sm:p-7">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+              <ProviderMark name={provider.name} logoUrl={provider.logoUrl} size="lg" />
+              <div className="min-w-0">
+                <Badge className="border-primary-soft bg-primary-soft text-primary-soft-foreground">
+                  {t("eyebrow")}
+                </Badge>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                    <bdi dir="auto">{provider.name}</bdi>
+                  </h1>
+                  <CopyPageLink
+                    label={t("copyLink")}
+                    copiedLabel={t("copyLinkSuccess")}
+                    failedLabel={t("copyLinkError")}
+                  />
+                  <Badge className={getStatusClasses(provider.status)}>{statusLabel}</Badge>
+                  <Badge>{t("modelCount", { count: modelCount })}</Badge>
+                </div>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
+                  {provider.description || t("noDescription")}
+                </p>
               </div>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-                {provider.description || t("noDescription")}
-              </p>
-              <code className="mt-3 inline-block text-xs text-muted-foreground" dir="ltr">{provider.slug}</code>
+            </div>
+            <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2 lg:flex lg:max-w-sm lg:flex-wrap lg:justify-end">
+              {provider.websiteUrl ? (
+                <Button asChild variant="outline" size="lg" className="h-11 sm:h-9">
+                  <a href={provider.websiteUrl} target="_blank" rel="noreferrer">
+                    {t("visitWebsite")}
+                    <ExternalLink data-icon="inline-end" aria-hidden="true" />
+                  </a>
+                </Button>
+              ) : null}
+              {provider.docsUrl ? (
+                <Button asChild size="lg" className="h-11 sm:h-9">
+                  <a href={provider.docsUrl} target="_blank" rel="noreferrer">
+                    {t("viewApiDocs")}
+                    <ExternalLink data-icon="inline-end" aria-hidden="true" />
+                  </a>
+                </Button>
+              ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {provider.websiteUrl ? (
-              <a href={provider.websiteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent">
-                {t("visitWebsite")}
-                <ExternalLink className="size-4" aria-hidden="true" />
-              </a>
-            ) : null}
-            {provider.docsUrl ? (
-              <a href={provider.docsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent">
-                {t("viewApiDocs")}
-                <ExternalLink className="size-4" aria-hidden="true" />
-              </a>
-            ) : null}
-            <Link href="/providers" className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
-              {t("backToProviders")}
-            </Link>
-          </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {sortedModels.length === 0 ? (
         <Card><p className="text-sm text-muted-foreground">{t("noModels")}</p></Card>
       ) : (
-        <ProviderModelsList providerSlug={provider.slug} models={sortedModels} docsUrl={provider.docsUrl} />
+        <ProviderModelsList providerSlug={provider.slug} models={sortedModels} />
       )}
     </div>
   );

@@ -11,24 +11,26 @@ export function ProviderMark({
 }: {
   name: string;
   logoUrl?: string | null;
-  size?: "sm" | "default" | "lg";
+  size?: "xs" | "sm" | "default" | "lg";
 }) {
   const src = resolveAssetUrl(logoUrl);
 
   return (
     <span
       className={cn(
-        "relative flex shrink-0 items-center justify-center overflow-hidden border border-border bg-background text-muted-foreground",
+        "relative flex shrink-0 items-center justify-center overflow-hidden border border-border bg-catalog-hero-foreground text-catalog-hero",
+        size === "xs" && "size-6 rounded-md",
         size === "sm" && "size-8 rounded-lg",
         size === "default" && "size-10 rounded-xl",
-        size === "lg" && "size-12 rounded-xl",
+        size === "lg" && "size-18 rounded-xl",
       )}
     >
       <Building2
         className={cn(
+          size === "xs" && "size-3",
           size === "sm" && "size-3.5",
           size === "default" && "size-4",
-          size === "lg" && "size-5",
+          size === "lg" && "size-7",
         )}
         aria-hidden="true"
       />
@@ -37,7 +39,7 @@ export function ProviderMark({
         <img
           src={src}
           alt=""
-          className="absolute inset-0 size-full bg-background object-contain p-1.5"
+          className="absolute inset-0 size-full bg-catalog-hero-foreground object-contain p-1.5"
           onError={(event) => {
             event.currentTarget.hidden = true;
           }}

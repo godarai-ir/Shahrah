@@ -2,10 +2,12 @@
 
 import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CircleAlert, GitCompareArrows, ListFilter, Trash2 } from "lucide-react";
+import { CircleAlert, GitCompareArrows, ListFilter, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { DisplayPrice } from "@/components/catalog/display-price";
+import { EndpointModeBadgeList } from "@/components/catalog/endpoint-mode-badge";
 import { useCompareModels } from "@/components/compare/compare-provider";
 import { CompareCell, compareListValues, compareScalarValues } from "@/components/compare/compare-cell";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,7 @@ type CompareField = {
   section: SectionKey;
   kind: FieldKind;
   getValue: (model: CompareModel) => string;
+  renderValue?: (model: CompareModel) => React.ReactNode;
   getList?: (model: CompareModel) => string[];
 };
 
@@ -112,14 +115,47 @@ function ComparePageContent() {
   };
 
   const fields: CompareField[] = [
-    { key: "modelName", label: tFields("modelName"), section: "identity", kind: "scalar", getValue: (model) => model.displayName || EMPTY },
-    { key: "provider", label: tFields("provider"), section: "identity", kind: "scalar", getValue: (model) => model.provider?.name || model.provider?.slug || EMPTY },
-    { key: "series", label: tFields("series"), section: "identity", kind: "scalar", getValue: (model) => model.modelSeries?.name || model.modelSeries?.slug || EMPTY },
+    {
+      key: "provider",
+      label: tFields("provider"),
+      section: "identity",
+      kind: "scalar",
+      getValue: (model) => model.provider?.name || model.provider?.slug || EMPTY,
+      renderValue: (model) => model.provider?.slug ? (
+        <Link
+          href={`/providers/${model.provider.slug}`}
+          className="rounded-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <bdi dir="auto">{model.provider.name || model.provider.slug}</bdi>
+        </Link>
+      ) : EMPTY,
+    },
     { key: "status", label: tFields("status"), section: "identity", kind: "scalar", getValue: (model) => formatStatus(model.status) },
     { key: "releaseDate", label: tFields("releaseDate"), section: "identity", kind: "scalar", getValue: (model) => formatDate(model.releaseDate) },
-    { key: "inputPrice", label: tFields("inputPrice"), section: "pricing", kind: "scalar", getValue: (model) => formatPrice(model.pricing?.[0]?.inputPricePerMillionTokens) },
-    { key: "outputPrice", label: tFields("outputPrice"), section: "pricing", kind: "scalar", getValue: (model) => formatPrice(model.pricing?.[0]?.outputPricePerMillionTokens) },
-    { key: "cachedInput", label: tFields("cachedInput"), section: "pricing", kind: "scalar", getValue: (model) => formatPrice(model.pricing?.[0]?.cachedInputPricePerMillionTokens) },
+    {
+      key: "inputPrice",
+      label: tFields("inputPrice"),
+      section: "pricing",
+      kind: "scalar",
+      getValue: (model) => formatPrice(model.pricing?.[0]?.inputPricePerMillionTokens),
+      renderValue: (model) => <DisplayPrice value={model.pricing?.[0]?.inputPricePerMillionTokens} />,
+    },
+    {
+      key: "outputPrice",
+      label: tFields("outputPrice"),
+      section: "pricing",
+      kind: "scalar",
+      getValue: (model) => formatPrice(model.pricing?.[0]?.outputPricePerMillionTokens),
+      renderValue: (model) => <DisplayPrice value={model.pricing?.[0]?.outputPricePerMillionTokens} />,
+    },
+    {
+      key: "cachedInput",
+      label: tFields("cachedInput"),
+      section: "pricing",
+      kind: "scalar",
+      getValue: (model) => formatPrice(model.pricing?.[0]?.cachedInputPricePerMillionTokens),
+      renderValue: (model) => <DisplayPrice value={model.pricing?.[0]?.cachedInputPricePerMillionTokens} />,
+    },
     {
       key: "inputModalities",
       label: tFields("inputModalities"),
@@ -127,6 +163,10 @@ function ComparePageContent() {
       kind: "list",
       getValue: (model) => normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null)).join("، ") || EMPTY,
       getList: (model) => normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null)),
+      renderValue: (model) => {
+        const modes = normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null));
+        return modes.length ? <EndpointModeBadgeList modes={modes} /> : EMPTY;
+      },
     },
     {
       key: "outputModalities",
@@ -135,6 +175,10 @@ function ComparePageContent() {
       kind: "list",
       getValue: (model) => normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null)).join("، ") || EMPTY,
       getList: (model) => normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null)),
+      renderValue: (model) => {
+        const modes = normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null));
+        return modes.length ? <EndpointModeBadgeList modes={modes} /> : EMPTY;
+      },
     },
     {
       key: "capabilities",
@@ -165,24 +209,6 @@ function ComparePageContent() {
       kind: "list",
       getValue: (model) => normalizeNameList((model.regions ?? []).map((item) => item.region ?? null)).join("، ") || EMPTY,
       getList: (model) => normalizeNameList((model.regions ?? []).map((item) => item.region ?? null)),
-    },
-    {
-      key: "benchmarksSummary",
-      label: tFields("benchmarksSummary"),
-      section: "regionsBenchmarks",
-      kind: "list",
-      getValue: (model) => (model.benchmarks ?? []).map((benchmark) => {
-        const name = benchmark.benchmark?.name || benchmark.benchmark?.slug;
-        if (!name) return null;
-        const score = benchmark.score ?? benchmark.percentile;
-        return score === null || score === undefined ? name : `${name}: ${numberFormatter.format(score)}`;
-      }).filter((value): value is string => Boolean(value)).join("، ") || EMPTY,
-      getList: (model) => (model.benchmarks ?? []).map((benchmark) => {
-        const name = benchmark.benchmark?.name || benchmark.benchmark?.slug;
-        if (!name) return null;
-        const score = benchmark.score ?? benchmark.percentile;
-        return score === null || score === undefined ? name : `${name}:${score}`;
-      }).filter((value): value is string => Boolean(value)),
     },
   ];
 
@@ -281,50 +307,43 @@ function ComparePageContent() {
           </div>
 
           <Card className="overflow-hidden p-0">
-            <CardHeader className="border-b border-border sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-              <div className="flex min-w-0 flex-col gap-1">
-                <h2 className="text-base font-semibold sm:text-lg">{t("tableTitle")}</h2>
-                <CardDescription>{t("tableDescription")}</CardDescription>
-              </div>
-              <p className="text-xs leading-5 text-muted-foreground lg:hidden">{t("scrollHint")}</p>
-            </CardHeader>
             <CardContent className="p-0 sm:p-0">
               {compareQuery.isLoading ? (
                 <CompareTableSkeleton label={t("loading")} />
               ) : null}
 
               {!compareQuery.isLoading && !compareQuery.isError ? (
-                <div className="overflow-x-auto" role="region" aria-label={t("tableTitle")} tabIndex={0}>
+                <div className="max-h-[70dvh] overflow-auto" role="region" aria-label={t("tableTitle")} tabIndex={0}>
                   <table
                     className="w-full table-fixed border-collapse text-sm"
                     style={{ minWidth: `${11 + selectedCount * 15}rem` }}
                   >
                     <caption className="sr-only">{t("tableCaption")}</caption>
-                    <thead className="bg-muted/70">
+                    <thead className="sticky top-0 z-20 bg-muted shadow-sm">
                       <tr>
-                        <th scope="col" className="sticky start-0 z-10 w-44 bg-muted p-3 text-start align-top">
+                        <th scope="col" className="sticky start-0 z-30 w-44 bg-muted p-3 text-start align-top">
                           {tCommon("field")}
                         </th>
                         {selectedIds.map((id) => (
-                          <th key={id} scope="col" className="w-60 p-3 text-start align-top">
-                            <div className="flex min-w-0 flex-col items-start gap-2">
-                              <div className="min-w-0">
-                                <p dir="auto" className="line-clamp-2 font-semibold leading-6">
-                                  {modelById.get(id)?.displayName || id}
-                                </p>
-                                <p className="truncate text-xs font-normal text-muted-foreground" dir="ltr" data-technical title={id}>
-                                  {id}
-                                </p>
-                              </div>
+                          <th key={id} scope="col" className="w-60 bg-muted p-3 text-start align-top">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <Link
+                                href={`/models/${id}`}
+                                dir="auto"
+                                className="line-clamp-2 min-w-0 flex-1 rounded-sm font-semibold leading-6 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                {modelById.get(id)?.displayName || id}
+                              </Link>
                               <Button
                                 type="button"
-                                variant="outline"
-                                size="sm"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="shrink-0"
                                 onClick={() => remove(id)}
                                 aria-label={t("removeAria", { id })}
+                                title={t("removeAria", { id })}
                               >
-                                <Trash2 data-icon="inline-start" aria-hidden="true" />
-                                {t("removeButton")}
+                                <X aria-hidden="true" />
                               </Button>
                             </div>
                           </th>
@@ -364,7 +383,7 @@ function ComparePageContent() {
                                 {rows.map((model, index) => (
                                   <td key={`${field.key}-${selectedIds[index]}`} className="p-2 align-top sm:p-3">
                                     <CompareCell
-                                      value={model ? field.getValue(model) : EMPTY}
+                                      value={model ? field.renderValue?.(model) ?? field.getValue(model) : EMPTY}
                                       isDifferent={isDifferent}
                                     />
                                   </td>

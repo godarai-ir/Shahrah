@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   AudioLines,
   Banknote,
   BookOpen,
   Bot,
-  Boxes,
+  Check,
   Code2,
   Copy,
   Cpu,
@@ -25,9 +25,12 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
+import { CopyPageLink } from "@/components/catalog/copy-page-link";
+import { DisplayPrice } from "@/components/catalog/display-price";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { formatCompactNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 import { useDisplayFormatters } from "@/lib/use-display-formatters";
 
@@ -82,14 +85,39 @@ type ModelDetail = {
   benchmarks?: Array<{ id?: string; score?: number | null; percentile?: number | null; evaluatedAt?: string | null; benchmark?: { slug?: string | null; name?: string | null } | null }> | null;
 };
 
-type StatusKey = "active" | "inactive" | "disabled" | "maintenance" | "deprecated" | "preview" | "available" | "unavailable";
+type StatusKey =
+  | "active"
+  | "inactive"
+  | "disabled"
+  | "maintenance"
+  | "deprecated"
+  | "preview"
+  | "available"
+  | "unavailable"
+  | "draft"
+  | "review"
+  | "published"
+  | "archived";
 type ModalityMeta = { icon: LucideIcon; className: string };
 
 const EMPTY = "-";
 
 function getStatusKey(status: string): StatusKey | null {
   const normalized = status.toLowerCase().replaceAll("_", "-");
-  const keys: StatusKey[] = ["active", "inactive", "disabled", "maintenance", "deprecated", "preview", "available", "unavailable"];
+  const keys: StatusKey[] = [
+    "active",
+    "inactive",
+    "disabled",
+    "maintenance",
+    "deprecated",
+    "preview",
+    "available",
+    "unavailable",
+    "draft",
+    "review",
+    "published",
+    "archived",
+  ];
   return keys.includes(normalized as StatusKey) ? (normalized as StatusKey) : null;
 }
 
@@ -148,7 +176,10 @@ function KeyValue({ label, value, technical = false }: { label: string; value: R
       <dd
         dir={technical ? "ltr" : "auto"}
         data-technical={technical || undefined}
-        className={cn("min-w-0 font-medium sm:col-span-3", technical && "break-all text-xs leading-6")}
+        className={cn(
+          "min-w-0 font-medium sm:col-span-3",
+          technical && "overflow-x-auto whitespace-nowrap text-xs leading-6",
+        )}
       >
         {value}
       </dd>
@@ -176,7 +207,8 @@ function ChipList({ values, emptyLabel, initial = 10 }: { values: string[]; empt
       {values.length > initial ? (
         <Button
           type="button"
-          className="h-8 border border-border bg-background px-2.5 py-1 text-xs text-foreground hover:bg-accent"
+          variant="outline"
+          size="sm"
           onClick={() => setExpanded((value) => !value)}
         >
           {expanded ? t("showLess") : t("showMore", { count: values.length - initial })}
@@ -230,21 +262,27 @@ function TechnicalIdentifier({
   onCopy: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background/60 p-3 sm:flex-row sm:items-center">
+    <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-background/60 p-3">
       <div className="min-w-0 flex-1">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <code dir="ltr" data-technical className="mt-1 block break-all text-xs font-medium leading-6 text-foreground">
+        <code
+          dir="ltr"
+          data-technical
+          className="scrollbar-none mt-1 block overflow-x-auto whitespace-nowrap text-xs font-medium leading-6 text-foreground"
+        >
           {value}
         </code>
       </div>
       <Button
         type="button"
-        aria-live="polite"
-        className="h-9 shrink-0 border border-border bg-muted px-3 text-xs text-foreground hover:bg-accent"
+        variant="outline"
+        size="icon"
+        className="shrink-0"
+        aria-label={copied ? copiedLabel : copyLabel}
+        title={copied ? copiedLabel : copyLabel}
         onClick={onCopy}
       >
-        <Copy data-icon="inline-start" aria-hidden="true" />
-        {copied ? copiedLabel : copyLabel}
+        {copied ? <Check className="text-success-soft-foreground" aria-hidden="true" /> : <Copy aria-hidden="true" />}
       </Button>
     </div>
   );
@@ -254,9 +292,10 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
   const t = useTranslations("ModelDetail");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Statuses");
-  const { formatDate, formatPrice } = useDisplayFormatters();
+  const { formatDate } = useDisplayFormatters();
   const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }), []);
   const [copiedField, setCopiedField] = useState<"canonical" | "slug" | null>(null);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const normalized = useMemo(() => {
     const inputModalities = (model?.inputModalities ?? []).map((entry) => entry.modality?.name || entry.modality?.slug).filter((value): value is string => Boolean(value));
@@ -275,10 +314,13 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
   const copyText = async (text: string, field: "canonical" | "slug") => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopyFailed(false);
       setCopiedField(field);
       window.setTimeout(() => setCopiedField(null), 1200);
     } catch {
       setCopiedField(null);
+      setCopyFailed(true);
+      window.setTimeout(() => setCopyFailed(false), 2400);
     }
   };
 
@@ -288,7 +330,13 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
     return key ? tStatus(key) : status;
   };
   const booleanLabel = (value?: boolean | null) => value === null || value === undefined ? EMPTY : value ? tCommon("yes") : tCommon("no");
-  const formatNumber = (value?: number | null) => value === null || value === undefined ? EMPTY : numberFormatter.format(value);
+  const formatCompactMetric = (value?: number | null) => value === null || value === undefined
+    ? EMPTY
+    : (
+        <bdi dir="ltr" title={numberFormatter.format(value)}>
+          {formatCompactNumber(value)}
+        </bdi>
+      );
 
   if (!model) {
     const notFound = fetchError?.includes("API 404");
@@ -319,50 +367,65 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
 
   const modelDocsUrl = safeUrl(model.officialDocsUrl);
   const providerDocsUrl = safeUrl(model.provider?.docsUrl);
-  const privacyPolicyUrl = safeUrl(model.provider?.privacyPolicyUrl);
+  const modelDescription = model.longDescription?.trim() || model.shortDescription?.trim();
   const modelStatusKey = getStatusKey(model.status);
   const statusClassName = modelStatusKey === "active" || modelStatusKey === "available"
     ? "border-success-soft bg-success-soft text-success-soft-foreground"
     : undefined;
 
   const metrics = [
-    { label: t("contextWindow"), value: formatNumber(model.contextWindow), icon: Gauge },
-    { label: t("maxOutputTokens"), value: formatNumber(model.maxOutputTokens), icon: Cpu },
-    { label: t("baselineInputPrice"), value: formatPrice(model.pricing?.[0]?.inputPricePerMillionTokens), icon: Banknote },
-    { label: t("baselineOutputPrice"), value: formatPrice(model.pricing?.[0]?.outputPricePerMillionTokens), icon: Banknote },
-    { label: t("modalities"), value: t("modalityCounts", { input: normalized.inputModalities.length, output: normalized.outputModalities.length }), icon: Boxes },
-    { label: t("capabilities"), value: numberFormatter.format(normalized.capabilities.length), icon: Sparkles },
+    { label: t("contextWindow"), value: formatCompactMetric(model.contextWindow), icon: Gauge },
+    { label: t("maxOutputTokens"), value: formatCompactMetric(model.maxOutputTokens), icon: Cpu },
+    { label: t("baselineInputPrice"), value: <DisplayPrice value={model.pricing?.[0]?.inputPricePerMillionTokens} />, icon: Banknote },
+    { label: t("baselineOutputPrice"), value: <DisplayPrice value={model.pricing?.[0]?.outputPricePerMillionTokens} />, icon: Banknote },
   ];
 
   return (
     <div className="grid min-w-0 gap-5 xl:grid-cols-4 xl:items-start">
       <div className="flex min-w-0 flex-col gap-5 xl:col-span-3">
-        <Card className="page-hero relative isolate overflow-hidden p-0">
-          <div className="pointer-events-none absolute end-8 top-8 hidden sm:block" aria-hidden="true">
-            <div className="hero-orbit relative size-28 rounded-full border border-primary/20" />
-            <div className="absolute inset-8 flex items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-              <Bot className="size-6" />
-            </div>
-          </div>
-          <div className="relative flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
-            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-col gap-5 p-4 sm:p-6">
+            <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-foreground">
+                    <Bot className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h1 className="min-w-0 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+                      <bdi dir="auto">{model.displayName}</bdi>
+                    </h1>
+                    <CopyPageLink
+                      label={t("copyLink")}
+                      copiedLabel={t("copySuccess")}
+                      failedLabel={t("copyError")}
+                    />
+                  </div>
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold">
+                    <bdi dir="auto">{model.provider?.name || model.provider?.slug || t("unknownProvider")}</bdi>
+                  </span>
                   <Badge className={statusClassName}>{formatStatus(model.status)}</Badge>
                   {model.lifecycleStatus ? <Badge>{formatStatus(model.lifecycleStatus)}</Badge> : null}
-                  <Badge>{model.provider?.name || model.provider?.slug || t("unknownProvider")}</Badge>
                 </div>
-                <div className="flex min-w-0 flex-col gap-2">
-                  <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">
-                    <bdi dir="auto">{model.displayName}</bdi>
-                  </h1>
+                {modelDescription ? (
                   <p dir="auto" className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-                    {model.longDescription || model.shortDescription || t("noDescription")}
+                    {modelDescription}
                   </p>
-                </div>
+                ) : null}
               </div>
-              <div className="w-full shrink-0 sm:w-auto [&>button]:w-full">
-                <CompareToggleButton canonicalId={model.canonicalId} />
+
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {modelDocsUrl ? (
+                  <Button asChild variant="outline">
+                    <a href={modelDocsUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink data-icon="inline-start" aria-hidden="true" />
+                      {t("officialDocs")}
+                    </a>
+                  </Button>
+                ) : null}
+                <CompareToggleButton canonicalId={model.canonicalId} compact />
               </div>
             </div>
 
@@ -384,9 +447,12 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
                 onCopy={() => copyText(model.slug, "slug")}
               />
             </div>
+            <p className="sr-only" aria-live="polite" aria-atomic="true">
+              {copyFailed ? t("copyError") : copiedField ? t("copySuccess") : ""}
+            </p>
           </div>
 
-          <dl className="grid grid-cols-2 border-t border-border sm:grid-cols-3">
+          <dl className="grid grid-cols-2 border-t border-border sm:grid-cols-4">
             {metrics.map(({ label, value, icon: Icon }, index) => (
               <div
                 key={label}
@@ -394,22 +460,21 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
                   "flex min-w-0 flex-col gap-2 border-border p-4 sm:p-5",
                   index % 2 === 0 && "border-e",
                   index >= 2 && "border-t",
-                  index % 3 !== 2 && "sm:border-e",
-                  index >= 3 && "sm:border-t",
-                  index === 2 && "sm:border-t-0",
+                  index < 3 && "sm:border-e",
+                  index >= 2 && "sm:border-t-0",
                 )}
               >
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Icon className="size-4 shrink-0" aria-hidden="true" />
                   <dt>{label}</dt>
                 </div>
-                <dd className="min-w-0 text-sm font-semibold leading-6 sm:text-base">{value}</dd>
+                <dd dir="auto" className="min-w-0 text-sm font-semibold leading-6 tabular-nums sm:text-base">{value}</dd>
               </div>
             ))}
           </dl>
         </Card>
 
-        <Card className="p-2 xl:hidden">
+        <Card className="sticky top-16 z-20 bg-card/95 p-2 shadow-sm backdrop-blur xl:hidden">
           <nav aria-label={t("onThisPage")} className="scrollbar-none flex min-w-0 items-center gap-1 overflow-x-auto">
             <span className="shrink-0 px-2 text-xs font-semibold text-foreground">{t("onThisPage")}</span>
             {sections.map(([id, label]) => (
@@ -427,28 +492,22 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
         <div className="grid min-w-0 gap-5 lg:grid-cols-2">
           <SectionCard id="core-specs" label={t("sections.coreSpecs")} icon={ListTree}>
             <dl className="divide-y divide-border">
-              <KeyValue label={t("fields.canonicalId")} value={model.canonicalId} technical />
-              <KeyValue label={t("fields.slug")} value={model.slug} technical />
               <KeyValue label={t("fields.status")} value={formatStatus(model.status)} />
               <KeyValue label={t("fields.lifecycle")} value={formatStatus(model.lifecycleStatus)} />
               <KeyValue label={t("fields.releaseDate")} value={formatDate(model.releaseDate)} />
               <KeyValue label={t("fields.deprecatedAt")} value={formatDate(model.deprecatedAt)} />
               <KeyValue label={t("fields.knowledgeCutoff")} value={formatDate(model.knowledgeCutoff)} />
-              <KeyValue label={t("fields.tokenizer")} value={model.tokenizer || EMPTY} technical />
               <KeyValue label={t("fields.license")} value={model.license || EMPTY} />
             </dl>
           </SectionCard>
 
           <SectionCard id="provider-governance" label={t("sections.providerGovernance")} icon={ShieldCheck}>
             <dl className="divide-y divide-border">
-              <KeyValue label={t("fields.providerName")} value={model.provider?.name || EMPTY} />
-              <KeyValue label={t("fields.providerSlug")} value={model.provider?.slug || EMPTY} technical />
               <KeyValue label={t("fields.providerStatus")} value={formatStatus(model.provider?.status)} />
               <KeyValue label={t("fields.byokSupport")} value={booleanLabel(model.provider?.supportsByok)} />
               <KeyValue label={t("fields.regionalRouting")} value={booleanLabel(model.provider?.supportsRegionalRouting)} />
               <KeyValue label={t("fields.modelDocs")} value={modelDocsUrl ? <ExternalResource href={modelDocsUrl} label={tCommon("open")} /> : EMPTY} />
               <KeyValue label={t("fields.providerDocs")} value={providerDocsUrl ? <ExternalResource href={providerDocsUrl} label={tCommon("open")} /> : EMPTY} />
-              <KeyValue label={t("fields.privacyPolicy")} value={privacyPolicyUrl ? <ExternalResource href={privacyPolicyUrl} label={tCommon("open")} /> : EMPTY} />
             </dl>
           </SectionCard>
 
@@ -480,10 +539,10 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
               <div className="grid gap-3">
                 {normalized.sortedPricing.map((price) => {
                   const sourceUrl = safeUrl(price.sourceUrl);
-                  const priceValues = [
-                    [t("input"), formatPrice(price.inputPricePerMillionTokens)],
-                    [t("output"), formatPrice(price.outputPricePerMillionTokens)],
-                    [t("cachedInput"), formatPrice(price.cachedInputPricePerMillionTokens)],
+                  const priceValues: Array<[string, ReactNode]> = [
+                    [t("input"), <DisplayPrice key="input-price" value={price.inputPricePerMillionTokens} />],
+                    [t("output"), <DisplayPrice key="output-price" value={price.outputPricePerMillionTokens} />],
+                    [t("cachedInput"), <DisplayPrice key="cached-input-price" value={price.cachedInputPricePerMillionTokens} />],
                     [t("effectiveFrom"), formatDate(price.effectiveFrom)],
                   ];
 
@@ -545,8 +604,8 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
         </div>
       </div>
 
-      <aside className="hidden xl:block">
-        <Card className="sticky top-24 p-3">
+      <aside className="hidden self-start xl:sticky xl:top-24 xl:block">
+        <Card className="p-3">
           <div className="flex items-center gap-2 px-2 pb-2">
             <ListTree className="size-4 text-muted-foreground" aria-hidden="true" />
             <h2 className="text-sm font-semibold">{t("onThisPage")}</h2>
@@ -577,7 +636,7 @@ function ExternalResource({ href, label, showUrl = false }: { href: string; labe
       dir={showUrl ? "ltr" : undefined}
       className={cn(
         "inline-flex min-w-0 items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        showUrl && "break-all text-xs",
+        showUrl && "max-w-full overflow-x-auto whitespace-nowrap text-xs",
       )}
     >
       <span>{showUrl ? href : label}</span>

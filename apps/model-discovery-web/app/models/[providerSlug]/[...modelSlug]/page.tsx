@@ -1,4 +1,6 @@
 import { apiGet } from '@/lib/api';
+import { getTranslations } from 'next-intl/server';
+import { CatalogBreadcrumb } from '@/components/catalog/catalog-breadcrumb';
 import { ModelDetailView } from '@/components/catalog/model-detail-view';
 
 type ModelDetail = {
@@ -85,6 +87,7 @@ export default async function ModelDetailPage({
   const { providerSlug, modelSlug } = await params;
   const modelSlugPath = (modelSlug || []).join('/');
   const requestedCanonicalId = `${providerSlug}/${modelSlugPath}`;
+  const tNavigation = await getTranslations('Navigation');
 
   let model: ModelDetail | null = null;
   let error: string | null = null;
@@ -97,7 +100,13 @@ export default async function ModelDetailPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 lg:py-10">
+      <CatalogBreadcrumb
+        providersLabel={tNavigation('providers')}
+        providerSlug={model?.provider?.slug || providerSlug}
+        providerLabel={model?.provider?.name || model?.provider?.slug || providerSlug}
+        modelLabel={model?.displayName || modelSlugPath}
+      />
       <ModelDetailView
         model={model}
         requestedCanonicalId={requestedCanonicalId}

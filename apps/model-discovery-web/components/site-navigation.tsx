@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Code2, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { GitHubIcon } from "@/components/github-icon";
 
 const links = [
   { href: "https://godarai.ir/docs", key: "useApi", external: true },
@@ -24,7 +25,9 @@ export function SiteNavigation() {
             rel="noreferrer"
             className="hidden shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-catalog-hero-muted transition-colors hover:bg-background/10 hover:text-catalog-hero-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
           >
-            {key === "github" ? <Code2 aria-hidden="true" /> : null}
+            {key === "github" ? (
+              <GitHubIcon className="size-4" aria-hidden="true" />
+            ) : null}
             {t(key)}
             {key !== "github" ? <ExternalLink className="size-3.5" aria-hidden="true" /> : null}
           </a>
