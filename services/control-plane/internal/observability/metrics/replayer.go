@@ -205,6 +205,16 @@ func (r *Replayer) processMessage(ctx context.Context, message redis.XMessage) {
 		return
 	}
 
+	if err := r.client.XDel(ctx, r.cfg.Stream, message.ID).Err(); err != nil {
+		dlqReplayErrors.Inc()
+		r.logger.Warn("model metrics dlq cleanup failed after ack",
+			zap.Error(err),
+			zap.String("stream_id", message.ID),
+		)
+
+		return
+	}
+
 	dlqReplayTotal.Inc()
 }
 
@@ -242,6 +252,13 @@ func (r *Replayer) poisonAndAck(ctx context.Context, message redis.XMessage, rea
 	if err := r.client.XAck(ctx, r.cfg.Stream, r.cfg.Group, message.ID).Err(); err != nil {
 		dlqReplayErrors.Inc()
 		r.logger.Error("failed to ack poisoned model metrics event", zap.Error(err))
+
+		return
+	}
+
+	if err := r.client.XDel(ctx, r.cfg.Stream, message.ID).Err(); err != nil {
+		dlqReplayErrors.Inc()
+		r.logger.Error("failed to remove poisoned model metrics event after ack", zap.Error(err))
 
 		return
 	}
