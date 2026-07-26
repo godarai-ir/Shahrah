@@ -1,7 +1,7 @@
-# Shahrah Design System — tenant-admin Components
+# GodarAI Atlas Design System — tenant-admin Components
 
 > مستندات کامل کامپوننت‌های UI اپلیکیشن tenant-admin
-> مبتنی بر Design Tokens هم‌راستا با وب‌سایت Shahrah
+> مبتنی بر Design Tokens و دارایی‌های رسمی برند GodarAI
 
 ---
 
@@ -25,12 +25,13 @@
 
 | نقش | Light Mode | Dark Mode | کاربرد |
 |-----|-----------|-----------|--------|
-| Primary | `oklch(0.53 0.17 255)` | `oklch(0.68 0.17 254)` | دکمه‌های اصلی، لینک‌ها، آیکون‌های فعال |
-| Secondary | `oklch(0.95 0.0058 264.53)` | `oklch(0.269 0 0)` | دکمه‌های ثانویه، بک‌گراند المان‌ها |
+| Primary | Navy `#012651` | Cyan `#00C9EB` | دکمه‌های اصلی، لینک‌ها، آیکون‌های فعال |
+| Focus | Cyan/Navy mix | Cyan `#00C9EB` | focus ring و مرز کنترل فعال |
+| Secondary | Navy-derived soft surface | Ice-derived dark surface | دکمه‌های ثانویه و بک‌گراند المان‌ها |
 | Success | `oklch(0.62 0.18 155)` | `oklch(0.55 0.16 155)` | پیام موفقیت، وضعیت فعال |
 | Warning | `oklch(0.78 0.16 80)` | `oklch(0.65 0.15 80)` | هشدار، نیاز به توجه |
 | Destructive | `oklch(0.62 0.23 27)` | `oklch(0.396 0.141 25.723)` | حذف، خطر، خطا |
-| Info | `oklch(0.68 0.17 254)` | `oklch(0.58 0.17 254)` | اطلاعات، راهنما |
+| Info | Navy | Cyan | اطلاعات، راهنما |
 
 ### تایپوگرافی
 
@@ -74,13 +75,26 @@
 
 ## کامپوننت‌های پایه
 
+### GodarAI Logo [`GodarAILogo`](apps/tenant-admin/components/app-ui/GodarAILogo.tsx)
+
+```tsx
+import { GodarAILogo } from "@/components/app-ui";
+
+<GodarAILogo alt="GodarAI" className="h-10 w-auto max-w-full object-contain" />
+<GodarAILogo variant="dark" decorative className="h-10 w-auto max-w-full object-contain" />
+```
+
+`auto` حالت پیش‌فرض است و از theme اپ پیروی می‌کند. `light` و `dark` برای
+پس‌زمینه‌های ثابت و `mono-navy`/`mono-white` برای کاربرد تک‌رنگ هستند.
+برای جلوگیری از اعوجاج همیشه ارتفاع را کنترل کنید و عرض را `auto` نگه دارید.
+
 ### Button [`Button`](apps/tenant-admin/components/ui/button.tsx)
 
 ```tsx
 import { Button } from "@/components/ui/button";
 
 // Variantهای اصلی
-<Button variant="default">       // Primary — رنگ indigo
+<Button variant="default">       // Primary — رنگ semantic برند
 <Button variant="secondary">     // Secondary — بک‌گراند muted
 <Button variant="outline">       // Outline — با border
 <Button variant="ghost">         // Ghost — بدون بک‌گراند

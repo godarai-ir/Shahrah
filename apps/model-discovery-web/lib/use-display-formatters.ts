@@ -3,7 +3,11 @@
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useDisplaySettings } from "@/components/display-settings-provider";
-import { formatDisplayDate, formatDisplayPrice } from "@/lib/display-settings";
+import {
+  formatDisplayDate,
+  formatDisplayPrice,
+  formatDisplayPriceAmount,
+} from "@/lib/display-settings";
 
 export function useDisplayFormatters() {
   const t = useTranslations("Units");
@@ -26,5 +30,7 @@ export function useDisplayFormatters() {
     settings,
     formatDate: (value: string | null | undefined) => formatDisplayDate(value, settings),
     formatPrice: (value: number | null | undefined) => formatDisplayPrice(value, settings, priceLabels),
+    formatPriceAmount: (value: number | null | undefined) =>
+      formatDisplayPriceAmount(value, settings, priceLabels),
   };
 }

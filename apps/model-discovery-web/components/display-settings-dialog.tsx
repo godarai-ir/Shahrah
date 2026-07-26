@@ -1,6 +1,19 @@
 "use client";
 
-import { Monitor, Moon, Settings, Sun } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  Banknote,
+  CalendarDays,
+  CheckCircle2,
+  Gauge,
+  Monitor,
+  Moon,
+  Palette,
+  RotateCcw,
+  Settings,
+  SlidersHorizontal,
+  Sun,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,6 +21,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -41,21 +55,35 @@ export function DisplaySettingsDialog() {
           <Settings aria-hidden="true" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
+      <DialogContent className="max-h-dvh max-w-xl overflow-y-auto p-0">
+        <DialogHeader className="border-b border-border bg-muted/35 px-6 py-5 pe-14">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary-soft text-primary-soft-foreground shadow-xs">
+              <SlidersHorizontal className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <DialogTitle>{t("title")}</DialogTitle>
+              <DialogDescription className="mt-1">{t("description")}</DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="theme-mode">{t("theme")}</Label>
+        <div className="grid gap-3 px-6 py-5 sm:grid-cols-2">
+          <SettingField
+            icon={<Palette aria-hidden="true" />}
+            htmlFor="theme-mode"
+            label={t("theme")}
+            description={t("themeDescription")}
+          >
             <Select
               dir="rtl"
               value={settings.themeMode}
               onValueChange={(value) => updateSettings({ themeMode: value as ThemeMode })}
             >
-              <SelectTrigger id="theme-mode">
+              <SelectTrigger
+                id="theme-mode"
+                className="[&_[data-slot=select-value]]:flex [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:items-center [&_[data-slot=select-value]]:gap-2 [&_[data-slot=select-value]]:whitespace-nowrap [&_[data-slot=select-value]_svg]:size-4 [&_[data-slot=select-value]_svg]:shrink-0"
+              >
                 <SelectValue placeholder={t("selectTheme")} />
               </SelectTrigger>
               <SelectContent>
@@ -75,10 +103,14 @@ export function DisplaySettingsDialog() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </SettingField>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="currency-unit">{t("currency")}</Label>
+          <SettingField
+            icon={<Banknote aria-hidden="true" />}
+            htmlFor="currency-unit"
+            label={t("currency")}
+            description={t("currencyDescription")}
+          >
             <Select
               dir="rtl"
               value={settings.currencyUnit}
@@ -95,10 +127,14 @@ export function DisplaySettingsDialog() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </SettingField>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="date-calendar">{t("calendar")}</Label>
+          <SettingField
+            icon={<CalendarDays aria-hidden="true" />}
+            htmlFor="date-calendar"
+            label={t("calendar")}
+            description={t("calendarDescription")}
+          >
             <Select
               dir="rtl"
               value={settings.dateCalendar}
@@ -114,10 +150,14 @@ export function DisplaySettingsDialog() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </SettingField>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="price-scale">{t("priceUnit")}</Label>
+          <SettingField
+            icon={<Gauge aria-hidden="true" />}
+            htmlFor="price-scale"
+            label={t("priceUnit")}
+            description={t("priceUnitDescription")}
+          >
             <Select
               dir="rtl"
               value={settings.priceScale}
@@ -133,16 +173,52 @@ export function DisplaySettingsDialog() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="flex items-center justify-end">
-            <Button type="button" className="bg-muted text-foreground hover:bg-accent" onClick={resetSettings}>
-              {t("resetDefaults")}
-            </Button>
-          </div>
+          </SettingField>
         </div>
+
+        <DialogFooter className="justify-between border-t border-border bg-muted/25 px-6 py-4">
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CheckCircle2 className="size-4 text-success-soft-foreground" aria-hidden="true" />
+            {t("autoSaveHint")}
+          </span>
+          <Button type="button" variant="outline" size="lg" onClick={resetSettings}>
+            <RotateCcw data-icon="inline-start" aria-hidden="true" />
+            {t("resetDefaults")}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SettingField({
+  icon,
+  htmlFor,
+  label,
+  description,
+  children,
+}: {
+  icon: ReactNode;
+  htmlFor: string;
+  label: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-card-border bg-card p-4 shadow-xs">
+      <div className="flex items-start gap-2.5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground [&_svg]:size-4">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <Label htmlFor={htmlFor} className="text-sm font-semibold">{label}</Label>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <div className="mt-3 [&_[data-slot=select-trigger]]:bg-background [&_[data-slot=select-trigger]]:shadow-xs">
+        {children}
+      </div>
+    </section>
   );
 }
 

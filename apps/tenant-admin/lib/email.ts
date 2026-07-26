@@ -175,7 +175,7 @@ function resolveEmailLogoURL(baseURL?: string) {
     return configured;
   }
 
-  return resolvePublicAssetURL("/brand/mini_logo.png", baseURL);
+  return resolvePublicAssetURL("/brand/png/godarai-mark-light-256x188.png", baseURL);
 }
 
 function resolveWorkspaceURL(tenantSlug: string, fallbackURL?: string) {

@@ -3,6 +3,8 @@
   "private": true,
   "packageManager": "pnpm@10.0.0",
   "scripts": {
+    "brand:sync": "node scripts/sync-brand-assets.mjs",
+    "brand:check": "node scripts/sync-brand-assets.mjs --check",
     "build": "turbo run build",
     "dev": "pnpm --filter @shahrah/tenant-admin dev",
     "dev:model-discovery": "pnpm --filter model-discovery start:dev",

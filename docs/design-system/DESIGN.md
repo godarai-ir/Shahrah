@@ -22,25 +22,47 @@ This application is a B2B SaaS / developer tool application. The UI should feel:
 - Accessible interactive states
 - RTL-first layout awareness
 
-## Atlas Theme
+## GodarAI Atlas Theme
 
-Tenant-admin uses the **Atlas / Calm Infrastructure** theme. Atlas combines a
-warm near-white application canvas, white data surfaces, a graphite navigation
-rail, cobalt-indigo primary actions, and mint operational states. The result
+Tenant-admin uses the **GodarAI Atlas / Calm Infrastructure** theme. Atlas combines
+an off-white application canvas, white data surfaces, a navy navigation rail,
+navy actions in light mode, cyan actions in dark mode, and semantic operational states. The result
 should feel precise, calm, and purpose-built for infrastructure work rather
 than like a generic SaaS template.
 
 - Use the 4px spacing grid and prefer 8, 12, 16, 24, and 32px intervals.
 - Default cards use an 11px radius, a one-pixel semantic border, and a very
   restrained shadow. Elevation must communicate hierarchy, not decoration.
-- The sidebar is the strongest brand surface. Its graphite treatment remains
+- The sidebar is the strongest brand surface. Its navy treatment remains
   distinct from the application canvas in both themes.
 - Geometric grid motifs are allowed only on large shell or authentication
   canvases. Keep them low-contrast and never place them behind dense text.
-- Cobalt-indigo identifies primary actions and selection. Mint, amber, and red
-  remain reserved for meaningful operational state.
+- Navy identifies primary actions on light surfaces. Cyan identifies focus,
+  selection, and primary actions on dark surfaces. Green, amber, and red remain
+  reserved for meaningful operational state.
 - Hover motion is limited to interactive surfaces and should not exceed a
   one-pixel lift. Static information cards do not float on hover.
+
+## Brand Mark
+
+`web-assets` is the source of truth for the GodarAI mark. Product applications
+consume synchronized files under `/brand`; do not copy, recolor, or redraw the
+mark in feature code.
+
+| Context | Asset |
+| --- | --- |
+| Light UI surface | `godarai-mark-light.svg` |
+| Dark UI surface | `godarai-mark-dark.svg` |
+| Theme-aware product UI | `GodarAILogo` with `variant="auto"` |
+| Single-color light surface | `godarai-mark-mono-navy.svg` |
+| Single-color dark surface | `godarai-mark-mono-white.svg` |
+| Email | `godarai-mark-light-256x188.png` |
+| Browser/PWA/social metadata | Files under `/brand/icons`, `/brand/web`, and `/brand/social` |
+
+Always preserve the intrinsic `336:247` ratio. Consumers set a responsive
+height and use `w-auto max-w-full object-contain`; they must not force the mark
+into a stretched square. Use an empty alt only when adjacent text already names
+GodarAI.
 
 ## Core Rules for AI Coding Agents
 

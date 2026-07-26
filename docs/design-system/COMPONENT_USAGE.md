@@ -1,5 +1,17 @@
 # Component Usage
 
+## GodarAILogo
+
+Use `GodarAILogo` for every tenant-admin brand mark. The default `auto` variant
+tracks the application theme; use explicit `light` or `dark` variants only when
+the containing surface has a fixed tone, such as the always-dark sidebar.
+
+Keep the intrinsic logo ratio by setting a responsive height with `w-auto
+max-w-full object-contain`. Use `decorative` when nearby visible text already
+names GodarAI; otherwise pass the localized logo alt text. Email, favicon, PWA,
+and social-preview contexts use their dedicated files under `/brand` instead of
+this component.
+
 ## ShellPageHeading / AdminShell page metadata
 
 Every route-level page rendered inside `AdminShell` must pass a `pageHeader` object with a localized `title`, an optional localized `description`, and an optional contextual `helpHref`. The shell renders `ShellPageHeading` as the page's only `h1` and uses `helpHref` for the existing documentation action, falling back to the documentation home when no contextual link is provided.

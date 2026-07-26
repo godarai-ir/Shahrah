@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -42,6 +41,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick, type AdminNavItem } from "@/app/components/admin-shell-nav";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
 import { ShellPageHeading, type ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
+import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
 import { PermissionsProvider } from "@/app/components/permissions-context";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
@@ -341,24 +341,22 @@ function AdminSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip={{ children: `گُدارAI · ${tenantSlug}`, side: tooltipSide }}
+              tooltip={{ children: `گدارAI · ${tenantSlug}`, side: tooltipSide }}
               className="items-center gap-3 after:hidden hover:bg-sidebar-accent/70"
               asChild
             >
               <Link href="/" onClick={() => setOpenMobile(false)}>
                 <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary/15 p-1 ring-1 ring-sidebar-primary/35">
-                  <Image
-                    src="/brand/mini_logo.svg"
+                  <GodarAILogo
                     alt={t("logoAlt")}
-                    width={36}
-                    height={36}
-                    className="h-full w-full object-contain"
+                    variant="dark"
+                    className="h-full w-auto max-w-full object-contain"
                     priority
-                    unoptimized
+                    sizes="2.5rem"
                   />
                 </span>
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-base font-semibold text-sidebar-foreground">گُدارAI</span>
+                  <span className="truncate text-base font-semibold text-sidebar-foreground">گدارAI</span>
                   <span className="truncate text-xs text-sidebar-foreground/55">{t("title")}</span>
                 </span>
               </Link>

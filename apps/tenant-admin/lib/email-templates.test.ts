@@ -11,13 +11,13 @@ describe("email templates", () => {
       tenantName: `Acme <script>alert("x")</script>`,
       tenantSlug: "acme",
       invitationLink: "https://acme.godarai.ir/invite/?invitetoken=abc",
-      logoURL: "https://acme.godarai.ir/brand/mini_logo.png",
+      logoURL: "https://acme.godarai.ir/brand/png/godarai-mark-light-256x188.png",
       workspaceURL: "https://acme.godarai.ir",
     });
 
     expect(template.subject).toContain("گدارAI");
     expect(template.html).toContain(`dir="rtl"`);
-    expect(template.html).toContain("https://acme.godarai.ir/brand/mini_logo.png");
+    expect(template.html).toContain("https://acme.godarai.ir/brand/png/godarai-mark-light-256x188.png");
     expect(template.html).toContain("پذیرش دعوت‌نامه");
     expect(template.html).toContain("&lt;script&gt;");
     expect(template.html).not.toContain("<script>alert");

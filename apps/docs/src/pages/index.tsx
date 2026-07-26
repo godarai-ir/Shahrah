@@ -247,7 +247,7 @@ export default function Home(): ReactNode {
             <p className={styles.eyebrow}>مستندات گدارAI</p>
             <div id="home-title" className={styles.heroIntro}>
               <p>
-                <strong>گٌدارAI</strong>{' '}
+                <strong>گدارAI</strong>{' '}
                 <span className={styles.inlineLatin} dir="ltr">
                   (GodarAI)
                 </span>{' '}

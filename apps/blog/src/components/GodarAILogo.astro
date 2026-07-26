@@ -1,0 +1,33 @@
+---
+interface Props {
+  alt?: string;
+  class?: string;
+  decorative?: boolean;
+  variant?: "auto" | "light" | "dark" | "mono-navy" | "mono-white";
+}
+
+const {
+  alt = "GodarAI",
+  class: className = "h-8 w-auto max-w-full object-contain",
+  decorative = false,
+  variant = "light",
+} = Astro.props;
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const sourceByVariant = {
+  auto: "godarai-mark-adaptive.svg",
+  light: "godarai-mark-light.svg",
+  dark: "godarai-mark-dark.svg",
+  "mono-navy": "godarai-mark-mono-navy.svg",
+  "mono-white": "godarai-mark-mono-white.svg",
+};
+---
+
+<img
+  src={`${basePath}/brand/svg/${sourceByVariant[variant]}`}
+  alt={decorative ? "" : alt}
+  aria-hidden={decorative ? "true" : undefined}
+  width="336"
+  height="247"
+  class={className}
+  decoding="async"
+/>

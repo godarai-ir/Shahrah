@@ -1,12 +1,18 @@
 ---
+import GodarAILogo from "./GodarAILogo.astro";
+
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 
 <header class="sticky top-0 z-40 border-b border-white/70 bg-white/85 backdrop-blur-xl">
   <div class="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
     <a href={basePath || "/"} class="flex items-center gap-3 text-right">
-      <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600 text-sm font-black text-white shadow-soft">
-        ش
+      <span class="flex size-11 items-center justify-center rounded-2xl bg-white p-1 shadow-soft ring-1 ring-slate-200">
+        <GodarAILogo
+          decorative
+          variant="light"
+          class="h-full w-auto max-w-full object-contain"
+        />
       </span>
       <span>
         <span class="block text-sm font-semibold text-brand-700">بلاگ گدارAI</span>

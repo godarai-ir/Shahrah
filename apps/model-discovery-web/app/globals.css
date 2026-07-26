@@ -231,35 +231,6 @@ pre,
   box-shadow: inset 0 -1px color-mix(in oklab, var(--catalog-hero-border) 80%, transparent);
 }
 
-.catalog-hero-media {
-  transform: translateZ(0);
-}
-
-.catalog-hero-image {
-  object-position: 72% center;
-}
-
-.catalog-hero-vignette {
-  background:
-    radial-gradient(circle at center, transparent, color-mix(in oklab, var(--catalog-hero) 28%, transparent)),
-    linear-gradient(to bottom, transparent, color-mix(in oklab, var(--catalog-hero) 18%, transparent));
-}
-
-.catalog-hero::after {
-  position: absolute;
-  inset: auto 0 0;
-  z-index: -1;
-  height: 7rem;
-  content: "";
-  background: linear-gradient(to bottom, transparent, var(--background));
-}
-
-@media (min-width: 40rem) {
-  .catalog-hero-image {
-    object-position: center;
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -1,6 +1,6 @@
 {
   "eyebrow": "Operational quick start",
-  "title": "Send your first successful request through Shahrah",
+  "title": "Send your first successful request through GodarAI",
   "subtitle": "To quickly configure your workspace, follow the customized instructions below.",
   "docsLink": "Read the docs",
   "planNames": {
@@ -73,7 +73,7 @@
   "steps": {
     "connect_provider": {
       "title": "Connect your first provider account",
-      "description": "Without upstream credentials, Shahrah has nothing to route. Start by connecting a valid provider account.",
+      "description": "Without upstream credentials, GodarAI has nothing to route. Start by connecting a valid provider account.",
       "learn": "A provider account is the secure connection to the model provider, not your application token.",
       "action": "Connect provider",
       "manageAction": "Manage providers"
@@ -208,7 +208,7 @@
       },
       "virtual_users": {
         "title": "Service identities",
-        "description": "Create virtual users and VATs so applications connect to Shahrah with their own identity."
+        "description": "Create virtual users and VATs so applications connect to GodarAI with their own identity."
       },
       "teams": {
         "title": "Teams",

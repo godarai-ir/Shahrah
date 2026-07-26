@@ -1,0 +1,38 @@
+{
+  "name": "مستندات گدارAI",
+  "short_name": "مستندات گدارAI",
+  "description": "مستندات فنی پلتفرم گدارAI",
+  "start_url": "/docs/",
+  "scope": "/docs/",
+  "lang": "fa",
+  "dir": "rtl",
+  "display": "standalone",
+  "background_color": "#06182D",
+  "theme_color": "#012651",
+  "icons": [
+    {
+      "src": "../icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/maskable-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "../icons/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

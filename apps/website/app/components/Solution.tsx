@@ -3,6 +3,7 @@
 import { motion } from 'motion/react';
 import { AppWindow, Globe2 } from 'lucide-react';
 import Image from 'next/image';
+import { GodarAILogo } from './GodarAILogo';
 
 export function Solution() {
   return (
@@ -52,12 +53,11 @@ export function Solution() {
             >
               <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl border-4 border-white bg-gradient-to-br from-indigo-500 to-purple-600 shadow-[0_0_30px_rgba(99,102,241,0.4)] dark:border-[#0B0F19]">
                 <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/80 bg-white shadow-lg ring-1 ring-slate-900/10">
-                  <Image
-                    src="/mini_logo.svg"
+                  <GodarAILogo
                     alt="لوگوی گدارAI"
-                    width={64}
-                    height={64}
-                    className="h-16 w-16"
+                    variant="light"
+                    className="h-16 w-auto max-w-16 object-contain"
+                    sizes="4rem"
                   />
                 </div>
                 <div className="absolute -bottom-10 z-10 whitespace-nowrap text-lg font-bold text-indigo-600 dark:text-indigo-400">

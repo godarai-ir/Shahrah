@@ -76,6 +76,37 @@ describe.each<ThemeName>(["light", "dark"])("%s design-token contrast", (theme) 
       expect(contrast(translucentRing, surfaceColor), `50% focus ring on ${surface}`).toBeGreaterThanOrEqual(NON_TEXT_CONTRAST);
     }
   });
+
+  it("keeps the branded sidebar text and selection pairs readable", () => {
+    expectContrast(theme, "sidebar-foreground", "sidebar", TEXT_CONTRAST);
+    expectContrast(theme, "sidebar-primary-foreground", "sidebar-primary", TEXT_CONTRAST);
+    expectContrast(theme, "sidebar-accent-foreground", "sidebar-accent", TEXT_CONTRAST);
+  });
+
+  it("resolves five distinct brand-derived chart colors", () => {
+    const resolved = Array.from({ length: 5 }, (_, index) => {
+      const color = tokenColor(theme, `chart-${index + 1}`);
+      return color.rgb.map((channel) => Math.round(channel * 255)).join(",");
+    });
+
+    expect(new Set(resolved).size).toBe(5);
+  });
+});
+
+describe("GodarAI brand primitives", () => {
+  it("matches the canonical web-assets palette", () => {
+    expect(lightTokens).toMatchObject({
+      "brand-cyan": "#00C9EB",
+      "brand-cyan-bright": "#05D1EE",
+      "brand-cyan-deep": "#00BCE1",
+      "brand-navy": "#012651",
+      "brand-navy-top": "#022A57",
+      "brand-navy-bottom": "#011D40",
+      "brand-dark-background": "#06182D",
+      "brand-off-white": "#F6FBFF",
+      "brand-ice": "#D9EEFF",
+    });
+  });
 });
 
 describe("global focus indicator", () => {

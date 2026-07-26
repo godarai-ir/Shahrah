@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+         viewBox="140 372 1679 1235"
+         role="img" aria-labelledby="title desc"
+         preserveAspectRatio="xMidYMid meet">
+      <title id="title">GodarAI mark</title>
+      <desc id="desc">GodarAI brand symbol reconstructed as scalable vector paths.</desc>
+      <defs>
+        <linearGradient id="cyanGradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#05D1EE"/>
+          <stop offset="0.52" stop-color="#00C9EB"/>
+          <stop offset="1" stop-color="#00BCE1"/>
+        </linearGradient>
+        <linearGradient id="navyGradient" x1="0.16" y1="0" x2="0.78" y2="1">
+          <stop offset="0" stop-color="#022A57"/>
+          <stop offset="0.52" stop-color="#012651"/>
+          <stop offset="1" stop-color="#011D40"/>
+        </linearGradient>
+        <linearGradient id="iceGradient" x1="0.12" y1="0" x2="0.84" y2="1">
+          <stop offset="0" stop-color="#FFFFFF"/>
+          <stop offset="1" stop-color="#D9EEFF"/>
+        </linearGradient>
+      </defs>
+      <style>
+        .primary { fill: url(#cyanGradient); }
+        .secondary { fill: url(#navyGradient); }
+        @media (prefers-color-scheme: dark) {
+          .secondary { fill: url(#iceGradient); }
+        }
+        </style>
+      <path class="primary" d="M 1758 432
+L 1059 432
+C 993 432 934 439 875 458
+C 785 487 711 538 640 608
+C 576 672 513 747 450 820
+C 430 844 414 862 400 872
+C 460 881 528 907 610 970
+C 620 952 630 938 642 923
+L 805 753
+C 859 698 914 670 981 655
+C 1007 649 1033 646 1059 646
+L 1496 646
+C 1534 646 1561 636 1586 614
+L 1758 432
+Z"/>
+      <path class="secondary" d="M 1742 870
+L 1046 870
+C 1040 870 1038 874 1038 881
+L 1040 1068
+L 1515 1068
+C 1490 1134 1446 1197 1388 1242
+C 1308 1304 1206 1333 1090 1326
+C 976 1319 883 1277 806 1205
+C 766 1168 719 1112 669 1050
+L 609 968
+C 553 907 480 875 392 870
+L 208 870
+C 202 870 200 874 200 881
+L 200 1068
+L 325 1068
+C 381 1068 422 1088 469 1131
+L 606 1299
+C 737 1454 900 1536 1088 1546
+C 1268 1555 1431 1497 1548 1389
+C 1673 1274 1747 1118 1750 1006
+L 1750 883
+C 1750 875 1747 871 1742 870
+Z"/>
+    </svg>

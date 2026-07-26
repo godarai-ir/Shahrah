@@ -1,6 +1,7 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+
+import { GodarAILogo } from '@/components/godarai-logo';
 
 const footerLinkClass =
   'text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
@@ -14,13 +15,10 @@ export function SiteFooter() {
         <div className="mb-6 grid grid-cols-3 gap-x-4 gap-y-6 md:grid-cols-4 md:gap-6">
           <div className="col-span-3 md:col-span-1">
             <div className="mb-3 flex items-center gap-2">
-              <Image
-                src="/catalog/mini_logo.svg"
-                alt=""
-                aria-hidden="true"
-                width={36}
-                height={36}
-                className="size-9 shrink-0 rounded-lg"
+              <GodarAILogo
+                decorative
+                className="h-9 w-auto max-w-12 shrink-0 object-contain"
+                sizes="3rem"
               />
               <span className="text-xl font-bold text-foreground">{t('brand')}</span>
             </div>

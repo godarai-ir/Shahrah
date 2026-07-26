@@ -14,8 +14,10 @@ import {
   ChevronsRight,
   CircleAlert,
   Clipboard,
+  Coins,
   Eye,
   Filter,
+  Gauge,
   Info,
   ListFilter,
   Search,
@@ -111,6 +113,11 @@ type ModelRow = {
 };
 
 type FacetOption = { slug: string; name: string; count?: number };
+type ProviderAsset = {
+  slug: string;
+  name: string;
+  logoUrl?: string | null;
+};
 type FacetsResponse = {
   providers?: FacetOption[];
   capabilities?: FacetOption[];
@@ -205,7 +212,7 @@ function previewModel(
 export function ModelsExplorer() {
   const t = useTranslations("Catalog");
   const tCommon = useTranslations("Common");
-  const { formatPrice } = useDisplayFormatters();
+  const { formatPrice, formatPriceAmount } = useDisplayFormatters();
   const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
   const compactNumberFormatter = useMemo(
     () => new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFractionDigits: 1 }),
@@ -278,12 +285,34 @@ export function ModelsExplorer() {
     queryKey: ["facets"],
     queryFn: () => apiGet<FacetsResponse>("/facets"),
   });
+  const providersQuery = useQuery({
+    queryKey: ["providers", "catalog-assets"],
+    queryFn: () => apiGet<ProviderAsset[]>("/providers"),
+  });
 
   const providers = facetsQuery.data?.providers ?? facetsQuery.data?.data?.providers ?? [];
   const inputModalities =
     facetsQuery.data?.inputModalities ?? facetsQuery.data?.data?.inputModalities ?? [];
   const outputModalities =
     facetsQuery.data?.outputModalities ?? facetsQuery.data?.data?.outputModalities ?? [];
+  const providerLogoBySlug = useMemo(
+    () =>
+      new Map(
+        (providersQuery.data ?? []).map((item) => [item.slug, item.logoUrl ?? null]),
+      ),
+    [providersQuery.data],
+  );
+  const previewModelsWithLogos = useMemo(
+    () =>
+      PREVIEW_MODELS.map((model) => ({
+        ...model,
+        provider: {
+          ...model.provider,
+          logoUrl: providerLogoBySlug.get(model.provider.slug) ?? null,
+        },
+      })),
+    [providerLogoBySlug],
+  );
   const liveModels = modelsQuery.data?.data ?? [];
   const showingPreview =
     !modelsQuery.isLoading &&
@@ -291,7 +320,9 @@ export function ModelsExplorer() {
     liveModels.length === 0 &&
     activeFilterCount === 0 &&
     page === 1;
-  const displayedModels = showingPreview ? sortPreviewModels(PREVIEW_MODELS, sort) : liveModels;
+  const displayedModels = showingPreview
+    ? sortPreviewModels(previewModelsWithLogos, sort)
+    : liveModels;
   const totalModels = showingPreview
     ? PREVIEW_MODELS.length
     : (modelsQuery.data?.pagination.total ?? 0);
@@ -346,11 +377,12 @@ export function ModelsExplorer() {
             />
           </div>
 
-          <div className="scrollbar-none flex min-w-0 items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-            <Select value={provider || ALL_VALUE} onValueChange={(value) => {
-              setProvider(value === ALL_VALUE ? "" : value);
-              setPage(1);
-            }}>
+          <div className="scrollbar-none min-w-0 overflow-x-auto pb-1 lg:pb-0">
+            <div className="flex w-max min-w-full items-center justify-center gap-2">
+              <Select value={provider || ALL_VALUE} onValueChange={(value) => {
+                setProvider(value === ALL_VALUE ? "" : value);
+                setPage(1);
+              }}>
               <SelectTrigger className="h-10 w-auto min-w-36">
                 <Filter data-icon="inline-start" aria-hidden="true" />
                 <SelectValue placeholder={t("providerLabel")} />
@@ -424,17 +456,18 @@ export function ModelsExplorer() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button
-              type="button"
-              variant={advancedFiltersOpen ? "secondary" : "outline"}
-              size="icon-lg"
-              aria-label={t("showAdvancedFilters")}
-              aria-expanded={advancedFiltersOpen}
-              aria-controls="catalog-advanced-filters"
-              onClick={() => setAdvancedFiltersOpen((open) => !open)}
-            >
-              <SlidersHorizontal aria-hidden="true" />
-            </Button>
+              <Button
+                type="button"
+                variant={advancedFiltersOpen ? "secondary" : "outline"}
+                size="icon-lg"
+                aria-label={t("showAdvancedFilters")}
+                aria-expanded={advancedFiltersOpen}
+                aria-controls="catalog-advanced-filters"
+                onClick={() => setAdvancedFiltersOpen((open) => !open)}
+              >
+                <SlidersHorizontal aria-hidden="true" />
+              </Button>
+            </div>
           </div>
 
           <span className="shrink-0 text-sm tabular-nums text-muted-foreground" aria-live="polite">
@@ -546,9 +579,9 @@ export function ModelsExplorer() {
         {!modelsQuery.isLoading && !modelsQuery.isError && displayedModels.length > 0 ? (
           <>
             <Card className="overflow-hidden p-0 shadow-sm">
-              <CardContent className="p-0 sm:p-0">
+              <CardContent className="p-0 sm:p-0 [&_[data-slot=table-container]]:max-h-80 [&_[data-slot=table-container]]:overflow-auto lg:[&_[data-slot=table-container]]:max-h-[60dvh]">
                 <Table>
-                  <TableHeader className="bg-muted/45">
+                  <TableHeader className="sticky top-0 z-20 bg-card shadow-sm">
                     <TableRow>
                       <TableHead className="min-w-44">{tCommon("provider")}</TableHead>
                       <TableHead className="min-w-64">{t("table.modelId")}</TableHead>
@@ -618,9 +651,9 @@ export function ModelsExplorer() {
                                 ) : null}
                               </div>
                             </TableCell>
-                            <PriceCell value={model.pricing?.inputPerMillionTokens} formatPrice={formatPrice} />
-                            <PriceCell value={model.pricing?.outputPerMillionTokens} formatPrice={formatPrice} />
-                            <PriceCell value={model.pricing?.cachedInputPerMillionTokens} formatPrice={formatPrice} />
+                            <PriceCell value={model.pricing?.inputPerMillionTokens} formatPrice={formatPriceAmount} />
+                            <PriceCell value={model.pricing?.outputPerMillionTokens} formatPrice={formatPriceAmount} />
+                            <PriceCell value={model.pricing?.cachedInputPerMillionTokens} formatPrice={formatPriceAmount} />
                             <TableCell className="text-muted-foreground">—</TableCell>
                             <TableCell>
                               <FeatureIcons model={model} labels={{
@@ -767,7 +800,7 @@ function PriceCell({
   formatPrice: (value?: number | null) => string;
 }) {
   return (
-    <TableCell className="whitespace-nowrap font-mono text-sm tabular-nums" dir="ltr">
+    <TableCell className="whitespace-nowrap font-sans text-sm tabular-nums" dir="rtl">
       {value === undefined || value === null ? "—" : formatPrice(value)}
     </TableCell>
   );
@@ -840,31 +873,45 @@ function ModelRowDetails({
   ].filter((entry): entry is [string, number] => typeof entry[1] === "number");
 
   return (
-    <div className="grid gap-4 border-y border-border px-6 py-5 lg:grid-cols-[1fr_2fr]">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("detail.title")}</p>
-        <dl className="mt-3 grid grid-cols-2 gap-3">
+    <div className="grid gap-4 border-y border-border bg-muted/20 px-4 py-4 sm:px-6 lg:grid-cols-[3fr_2fr]">
+      <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Gauge className="size-4" aria-hidden="true" />
+          </span>
+          <h3 className="text-sm font-semibold text-card-foreground">{t("detail.title")}</h3>
+        </div>
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
           <DetailValue label={t("contextWindow")} value={model.contextWindow ? formatNumber(model.contextWindow) : "—"} />
           <DetailValue label={t("maxOutputTokens")} value={model.maxOutputTokens ? formatNumber(model.maxOutputTokens) : "—"} />
           <DetailValue label={t("detail.modes")} value={model.mode?.join("، ") || "—"} technical />
           <DetailValue label={t("table.modalities")} value={[...model.inputModalities, ...model.outputModalities].join("، ") || "—"} technical />
         </dl>
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("detail.additionalPricing")}</p>
+      </section>
+      <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <Coins className="size-4" aria-hidden="true" />
+          </span>
+          <h3 className="text-sm font-semibold text-card-foreground">{t("detail.additionalPricing")}</h3>
+        </div>
         {pricingDetails.length ? (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <dl className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             {pricingDetails.map(([label, value]) => (
-              <span key={label} className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs">
-                <span className="text-muted-foreground">{label}</span>
-                <strong className="font-mono" dir="ltr">{formatPrice(value)}</strong>
-              </span>
+              <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="whitespace-nowrap text-sm font-semibold tabular-nums text-card-foreground" dir="rtl">
+                  {formatPrice(value)}
+                </dd>
+              </div>
             ))}
-          </div>
+          </dl>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">{t("detail.noAdditionalPricing")}</p>
+          <p className="mt-4 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-sm leading-6 text-muted-foreground">
+            {t("detail.noAdditionalPricing")}
+          </p>
         )}
-      </div>
+      </section>
     </div>
   );
 }
@@ -879,9 +926,18 @@ function DetailValue({
   technical?: boolean;
 }) {
   return (
-    <div>
+    <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 truncate text-sm font-medium" dir={technical ? "ltr" : undefined}>{value}</dd>
+      <dd
+        className={cn(
+          "mt-1 truncate text-sm font-semibold tabular-nums text-card-foreground",
+          technical && "font-mono text-xs",
+        )}
+        dir={technical ? "ltr" : undefined}
+        title={value}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

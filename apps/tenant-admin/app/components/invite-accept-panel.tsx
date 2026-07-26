@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
@@ -19,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
 import { cn } from "@/lib/utils";
 
 type InviteAcceptPanelProps = {
@@ -91,7 +91,13 @@ export default function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
           <div className="relative flex flex-col gap-8">
             <div className="flex items-center gap-3">
               <span className="flex size-12 items-center justify-center rounded-xl bg-primary-foreground shadow-sm">
-                <Image src="/brand/mini_logo.svg" alt="" width={34} height={34} priority />
+                <GodarAILogo
+                  decorative
+                  variant="light"
+                  priority
+                  className="h-9 w-auto max-w-full object-contain"
+                  sizes="2.25rem"
+                />
               </span>
               <div>
                 <p className="text-lg font-bold">{t("brand.name")}</p>
@@ -117,7 +123,12 @@ export default function InviteAcceptPanel({ token }: InviteAcceptPanelProps) {
         <section className="flex flex-col p-4 sm:p-8 lg:col-span-3 lg:p-10">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <span className="flex size-11 items-center justify-center rounded-xl border border-primary/15 bg-primary/5">
-              <Image src="/brand/mini_logo.svg" alt="" width={30} height={30} priority />
+              <GodarAILogo
+                decorative
+                priority
+                className="h-8 w-auto max-w-full object-contain"
+                sizes="2rem"
+              />
             </span>
             <div>
               <p className="font-bold">{t("brand.name")}</p>

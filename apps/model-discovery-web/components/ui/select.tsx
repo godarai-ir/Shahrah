@@ -6,8 +6,11 @@ import { Check, ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+function Select({
+  dir = "rtl",
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  return <SelectPrimitive.Root data-slot="select" dir={dir} {...props} />;
 }
 
 function SelectTrigger({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
@@ -41,7 +44,7 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<t
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
-        className={cn("z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg", className)}
+        className={cn("z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-start text-popover-foreground shadow-lg", className)}
         {...props}
       >
         <SelectPrimitive.Viewport>{children}</SelectPrimitive.Viewport>

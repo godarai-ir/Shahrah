@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { ThemeProvider } from "@/app/components/ThemeProvider";
+import { GodarAILogo } from "@/app/components/GodarAILogo";
 import { mobileAuthUIEnabled } from "@/app/lib/mobile-auth-ui";
 import { onboardingMessages as t } from "./messages";
 
@@ -154,7 +154,12 @@ export default function OnboardingPage() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         <header className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-            <Image src="/mini_logo.svg" alt="" width={40} height={40} className="size-10 rounded-xl" />
+            <GodarAILogo
+              decorative
+              priority
+              className="h-10 w-auto max-w-14 object-contain"
+              sizes="3.5rem"
+            />
             <span className="text-lg font-bold tracking-tight sm:text-xl">گدارAI</span>
           </Link>
           <Link

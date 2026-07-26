@@ -14,6 +14,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
+
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -170,13 +172,11 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
         <header className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary-subtle-border bg-card p-1.5 shadow-sm">
-              <Image
-                src="/brand/mini_logo.svg"
+              <GodarAILogo
                 alt={t("logoAlt")}
-                width={40}
-                height={40}
-                className="h-full w-full object-contain"
+                className="h-full w-auto max-w-full object-contain"
                 priority
+                sizes="2.75rem"
               />
             </div>
             <div className="min-w-0">

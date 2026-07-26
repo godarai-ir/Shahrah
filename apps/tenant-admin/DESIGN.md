@@ -1,6 +1,6 @@
-# Shahrah Design System Guide
+# GodarAI Atlas Design System Guide
 
-This guide is the implementation contract for Shahrah UI work in this repository. It is written for coding agents and frontend engineers who need to create consistent pages, components, dashboards, and configuration workflows without re-deciding the product direction each time.
+This guide is the implementation contract for GodarAI tenant-admin UI work in this repository. It is written for coding agents and frontend engineers who need to create consistent pages, components, dashboards, and configuration workflows without re-deciding the product direction each time.
 
 ## Repository Baseline
 
@@ -37,7 +37,7 @@ Next.js 16 note: follow the local docs in `node_modules/next/dist/docs/` before 
 
 ## 2. Visual Identity
 
-Shahrah/GodarAI uses the **Atlas / Calm Infrastructure** language: Vazirmatn typography, a warm near-white application canvas, crisp white data surfaces, graphite navigation, cobalt-indigo primary actions, and mint operational state. Tenant-admin should feel like a focused control plane for teams running LLM-powered products—precise, reliable, modern, and enterprise-ready, with enough density to compare providers, models, traces, cost, and limits quickly.
+GodarAI uses the **GodarAI Atlas / Calm Infrastructure** language: Vazirmatn typography, an off-white application canvas, crisp white data surfaces, navy navigation, navy primary actions on light surfaces, cyan primary actions on dark surfaces, and independent semantic operational states. Tenant-admin should feel like a focused control plane for teams running LLM-powered products—precise, reliable, modern, and enterprise-ready, with enough density to compare providers, models, traces, cost, and limits quickly.
 
 Use restrained 11px cards, thin semantic borders, compact controls, meaningful icons, readable tables, and status colors that serve operations. The sidebar is the strongest brand surface; the main canvas is intentionally quieter. Purple remains a secondary chart accent, while mint/amber/red communicate operational meaning. Low-contrast geometric grids may appear on the shell and authentication canvases, but never compete with dense content.
 

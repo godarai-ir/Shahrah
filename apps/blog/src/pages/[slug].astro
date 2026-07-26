@@ -50,6 +50,12 @@ const articleSchema = {
   publisher: {
     "@type": "Organization",
     name: "GodarAI",
+    logo: {
+      "@type": "ImageObject",
+      url: new URL("/blog/brand/social/og-image-light-1200x630.png", site).toString(),
+      width: 1200,
+      height: 630,
+    },
   },
 };
 const breadcrumbSchema = {

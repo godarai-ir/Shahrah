@@ -210,6 +210,17 @@ html[dir='rtl'] .footer__link-item svg {
   z-index: var(--ifm-z-index-fixed);
 }
 
+.navbar__logo {
+  flex-shrink: 0;
+}
+
+.navbar__logo img {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .navbar-with-inline-search .navbar {
   position: relative;
 }

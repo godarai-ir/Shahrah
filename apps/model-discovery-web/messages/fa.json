@@ -3,6 +3,16 @@
     "title": "گدارAI | فهرست مدل‌ها",
     "description": "مدل‌ها و ارائه‌دهندگان هوش مصنوعی را پیدا، بررسی و مقایسه کنید."
   },
+  "NotFound": {
+    "eyebrow": "خطای ۴۰۴",
+    "title": "این مسیر به جایی نمی‌رسد",
+    "description": "صفحه‌ای که دنبالش بودید پیدا نشد؛ شاید نشانی آن تغییر کرده یا دیگر در دسترس نباشد.",
+    "hint": "نشانی را دوباره بررسی کنید یا از مسیرهای اصلی کاتالوگ به مقصدتان برسید.",
+    "homeAction": "بازگشت به فهرست مدل‌ها",
+    "providersAction": "مرور ارائه‌دهندگان",
+    "brand": "گدارAI",
+    "brandAria": "رفتن به فهرست مدل‌های گدارAI"
+  },
   "Common": {
     "close": "بستن",
     "open": "باز کردن",
@@ -30,8 +40,8 @@
   },
   "CatalogShell": {
     "tabsLabel": "بخش‌های اصلی کاتالوگ",
-    "modelsTab": "Models",
-    "providersTab": "Providers & Endpoints"
+    "modelsTab": "مدل‌های AI",
+    "providersTab": "ارائه‌دهندگان و خدمات"
   },
   "Statuses": {
     "active": "فعال",
@@ -132,8 +142,8 @@
       "modalities": "شیوه‌ها",
       "input": "ورودی:",
       "output": "خروجی:",
-      "inputPrice": "ورودی / میلیون",
-      "outputPrice": "خروجی / میلیون",
+      "inputPrice": "ورودی / ۱ م.ت",
+      "outputPrice": "خروجی / ۱ م.ت",
       "cacheRead": "خواندن Cache",
       "cacheWrite": "نوشتن Cache",
       "features": "قابلیت‌ها",
@@ -328,6 +338,7 @@
     "title": "تنظیمات نمایش",
     "description": "این تنظیمات در همین مرورگر ذخیره می‌شوند و تغییرات بلافاصله اعمال می‌شوند.",
     "theme": "ظاهر سایت",
+    "themeDescription": "حالت روشن، تیره یا تنظیم دستگاه",
     "selectTheme": "ظاهر سایت را انتخاب کنید",
     "light": "روشن",
     "dark": "تیره",
@@ -335,18 +346,22 @@
     "switchToLight": "تغییر به حالت روشن",
     "switchToDark": "تغییر به حالت تیره",
     "currency": "واحد پول",
+    "currencyDescription": "واحد نمایش هزینه‌های مدل‌ها",
     "selectCurrency": "واحد پول را انتخاب کنید",
-    "dollar": "دلار آمریکا (USD)",
+    "dollar": "دلار (USD)",
     "rial": "ریال (IRR)",
     "toman": "تومان",
     "calendar": "تقویم تاریخ",
+    "calendarDescription": "شیوه نمایش تاریخ‌ها در کاتالوگ",
     "selectCalendar": "تقویم را انتخاب کنید",
     "gregorian": "میلادی",
     "shamsi": "شمسی",
     "priceUnit": "مقیاس قیمت",
+    "priceUnitDescription": "هزینه هر توکن یا یک میلیون توکن",
     "selectPriceUnit": "مقیاس قیمت را انتخاب کنید",
     "perMillionTokens": "به‌ازای یک میلیون توکن",
     "perToken": "به‌ازای هر توکن",
+    "autoSaveHint": "ذخیره خودکار در مرورگر",
     "resetDefaults": "بازنشانی تنظیمات پیش‌فرض"
   },
   "ModelDetail": {

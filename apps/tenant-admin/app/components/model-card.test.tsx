@@ -101,11 +101,11 @@ describe("ModelCard", () => {
       />,
     );
 
-    expect(screen.getByText("Recommended")).toHaveClass("bg-success/10");
-    expect(within(screen.getByRole("region", { name: "Input formats" })).getByTitle("text")).toHaveClass("bg-info/10");
-    expect(within(screen.getByRole("region", { name: "Output formats" })).getByTitle("text")).toHaveClass("bg-success/10");
-    expect(within(screen.getByRole("region", { name: "Capabilities" })).getByTitle("function_calling")).toHaveClass("bg-info/10");
-    expect(within(screen.getByRole("region", { name: "Capabilities" })).getByTitle("cache_control")).toHaveClass("bg-warning/10");
-    expect(within(screen.getByRole("region", { name: "Capabilities" })).getByTitle("structured_output")).toHaveClass("bg-success/10");
+    expect(screen.getByText("Recommended")).toHaveClass("bg-success-soft");
+    expect(within(screen.getByRole("region", { name: "Input formats" })).getByTitle("text")).toHaveClass("bg-info-soft");
+    expect(within(screen.getByRole("region", { name: "Output formats" })).getByTitle("text")).toHaveClass("bg-success-soft");
+    expect(within(screen.getByRole("region", { name: "Capabilities" })).getByTitle("function_calling")).toHaveClass("bg-info-soft");
+    expect(within(screen.getByRole("region", { name: "Capabilities" })).getByTitle("cache_control")).toHaveClass("bg-warning-soft");
+    expect(within(screen.getByRole("region", { name: "Capabilities" })).getByTitle("structured_output")).toHaveClass("bg-success-soft");
   });
 });

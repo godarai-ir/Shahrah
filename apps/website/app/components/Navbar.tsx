@@ -4,7 +4,7 @@ import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCh
 import { useTheme } from './ThemeProvider';
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { GodarAILogo } from './GodarAILogo';
 
 const features = [
   { name: 'پایش و مشاهده‌پذیری', description: 'گزارش رخداد، رد درخواست و سنجه‌های مصرف', icon: Activity, href: '/features/observability' },
@@ -39,15 +39,13 @@ export function Navbar() {
           {/* Logo & Menu */}
           <div className="flex min-w-0 items-center gap-4 sm:gap-8">
             <Link href="/" className="flex min-w-0 items-center gap-2">
-              <Image
-                src="/mini_logo.svg"
-                alt=""
-                aria-hidden="true"
-                width={36}
-                height={36}
-                className="h-9 w-9 shrink-0 rounded-lg"
+              <GodarAILogo
+                decorative
+                priority
+                className="h-9 w-auto max-w-12 shrink-0 object-contain"
+                sizes="3rem"
               />
-              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گٌدارAI</span>
+              <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گدارAI</span>
             </Link>
             <div className="hidden md:flex items-center gap-6 h-16">
               <div className="relative group/features h-full flex items-center">

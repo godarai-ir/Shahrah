@@ -29,6 +29,7 @@ export { DebouncedTextFilter, FilterField, RangeFilterField, type DebouncedTextF
 export { FormSection } from "./FormSection";
 export { FormDialog, type FormDialogProps, type FormDialogSize } from "./FormDialog";
 export { FormSheet, type FormSheetProps, type FormSheetSize } from "./FormSheet";
+export { GodarAILogo, type GodarAILogoProps, type GodarAILogoVariant } from "./GodarAILogo";
 export { HelpLink } from "./HelpLink";
 export { DEFAULT_IDENTIFIER_DESCRIPTION, IDENTIFIER_PATTERN, IdentifierField, isValidIdentifier } from "./IdentifierField";
 export { formatJson, JsonEditor, JsonEditorField, type JsonEditorFieldProps, type JsonEditorProps } from "./JsonEditor";

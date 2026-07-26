@@ -33,6 +33,18 @@ export function formatDisplayPrice(
   settings: DisplaySettings,
   labels: DisplayPriceLabels,
 ): string {
+  const amount = formatDisplayPriceAmount(value, settings, labels);
+  if (amount === EMPTY) return EMPTY;
+
+  const unitLabel = settings.priceScale === 'PER_TOKEN' ? labels.perToken : labels.perMillionTokens;
+  return `${amount}، ${unitLabel}`;
+}
+
+export function formatDisplayPriceAmount(
+  value: number | null | undefined,
+  settings: DisplaySettings,
+  labels: DisplayPriceLabels,
+): string {
   if (value === null || value === undefined) return EMPTY;
 
   let transformed = value;
@@ -51,8 +63,7 @@ export function formatDisplayPrice(
     maximumFractionDigits: fractionDigits,
   }).format(transformed);
 
-  const unitLabel = settings.priceScale === 'PER_TOKEN' ? labels.perToken : labels.perMillionTokens;
-  return `${formatted} ${labels.currencies[settings.currencyUnit]}، ${unitLabel}`;
+  return `${formatted} ${labels.currencies[settings.currencyUnit]}`;
 }
 
 export function formatDisplayDate(

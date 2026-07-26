@@ -1,4 +1,5 @@
-﻿import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
 import { getLocale, getMessages } from "next-intl/server";
 
@@ -6,6 +7,7 @@ import AppProviders from "@/app/components/app-providers";
 import { QueryProvider } from "@/app/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { getLocaleDirection } from "@/lib/locale-direction";
+import { resolveRequestOriginFromHeaders } from "@/lib/tenant";
 
 import "./globals.css";
 
@@ -21,17 +23,63 @@ const jetBrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "گُدارAI | پنل مدیریت فضای کار",
-  description: "پنل فارسی مدیریت فضای کار برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
-      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
-    ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const fallbackOrigin =
+    process.env.NEXT_PUBLIC_TENANT_ADMIN_URL?.trim() ||
+    process.env.SHAHRAH_TENANT_ADMIN_URL?.trim() ||
+    "https://godarai.ir";
+  const origin = resolveRequestOriginFromHeaders(requestHeaders, fallbackOrigin);
+  const socialImage = new URL("/brand/social/og-image-dark-1200x630.png", origin).toString();
+  const title = "گدارAI | پنل مدیریت فضای کار";
+  const description = "پنل فارسی مدیریت فضای کار برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.";
+
+  return {
+    metadataBase: new URL(origin),
+    title,
+    description,
+    applicationName: "گدارAI",
+    manifest: "/brand/web/site.webmanifest",
+    icons: {
+      icon: [
+        { url: "/brand/icons/favicon.svg", type: "image/svg+xml" },
+        { url: "/brand/icons/favicon-light.ico", sizes: "any", media: "(prefers-color-scheme: light)" },
+        { url: "/brand/icons/favicon-dark.ico", sizes: "any", media: "(prefers-color-scheme: dark)" },
+        { url: "/brand/icons/favicon.ico", sizes: "any" },
+      ],
+      apple: [{ url: "/brand/icons/apple-touch-icon.png", sizes: "180x180" }],
+      other: [{ rel: "mask-icon", url: "/brand/svg/safari-pinned-tab.svg" }],
+    },
+    openGraph: {
+      title,
+      description,
+      siteName: "گدارAI",
+      locale: "fa_IR",
+      type: "website",
+      images: [{ url: socialImage, width: 1200, height: 630, type: "image/png", alt: "لوگوی گدارAI" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [socialImage],
+    },
+    robots: {
+      index: false,
+      follow: false,
+      nocache: true,
+    },
+    other: {
+      "msapplication-config": "/brand/web/browserconfig.xml",
+    },
+  };
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
+    { media: "(prefers-color-scheme: dark)", color: "#06182D" },
+  ],
 };
 
 export default async function RootLayout({

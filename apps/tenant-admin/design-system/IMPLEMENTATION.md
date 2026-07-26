@@ -1,19 +1,21 @@
-# Shahrah Design System — Implementation Guide
+# GodarAI Atlas Design System — Implementation Guide
 
-> راهنمای پیاده‌سازی Design System جدید برای tenant-admin
-> مبتنی بر یکپارچگی بصری با وب‌سایت Shahrah
+> راهنمای پیاده‌سازی Design System برند GodarAI برای tenant-admin
+> با دارایی‌های همگام‌شده از `web-assets`
 
 ---
 
 ## 1. نمای کلی
 
-این Design System برای یکپارچه‌سازی ظاهر بصری tenant-admin با وب‌سایت Shahrah طراحی شده است. تمام کامپوننت‌ها بر اساس Design Tokens مشترک ساخته شده‌اند و از استانداردهای WCAG 2.2 پشتیبانی می‌کنند.
+این Design System هویت GodarAI Atlas را در tenant-admin پیاده می‌کند. تمام
+کامپوننت‌ها بر اساس توکن‌های semantic، پالت رسمی Navy/Cyan و استانداردهای
+WCAG 2.2 ساخته می‌شوند.
 
 ### تغییرات کلیدی
 
 | بخش | قبل | بعد |
 |-----|-----|-----|
-| پالت رنگی | آبی-بنفش عمومی | Indigo/Purple با برند Shahrah |
+| پالت رنگی | Cobalt/Graphite | Navy/Cyan رسمی GodarAI |
 | تایپوگرافی | Vazirmatn (بدون وزن) | Vazirmatn (9 وزن) |
 | گوشه‌ها | `rounded-md` | `rounded-lg` و `rounded-xl` |
 | سایه‌ها | `shadow-sm` ساده | سایه‌های سفارشی با glow |
@@ -34,6 +36,8 @@ apps/tenant-admin/
 │       ├── login-form.tsx       # Redesigned auth form
 │       └── ...                  # Other components
 ├── components/
+│   ├── app-ui/
+│   │   └── GodarAILogo.tsx     # Theme-aware brand component
 │   └── ui/
 │       ├── button.tsx           # Enhanced button with loading state
 │       ├── card.tsx             # Enhanced card with hover effect
@@ -47,8 +51,28 @@ apps/tenant-admin/
 │   └── IMPLEMENTATION.md        # This file
 └── public/
     └── brand/
-        └── shahrah-logo.png     # Brand logo
+        ├── svg/                 # Light, dark, adaptive, and monochrome marks
+        ├── icons/               # Browser, Apple, Android, and maskable icons
+        ├── png/                 # Email-safe mark
+        ├── social/              # 1200×630 social cards
+        └── web/                 # Manifest and browser configuration
 ```
+
+دارایی‌های `public/brand` را دستی تغییر ندهید. از ریشه مخزن
+`pnpm brand:sync` را برای همگام‌سازی و `pnpm brand:check` را برای کنترل checksum
+و نبود ارجاع‌های legacy اجرا کنید.
+
+### ماتریس لوگو
+
+| کاربرد | Variant/فایل |
+| --- | --- |
+| رابط theme-aware | `GodarAILogo` با `variant="auto"` |
+| سایدبار تیره ثابت | `variant="dark"` |
+| سطح روشن ثابت | `variant="light"` |
+| ایمیل | `/brand/png/godarai-mark-light-256x188.png` |
+| favicon | SVG تطبیقی و ICO fallback |
+| PWA | Android و maskable PNG |
+| OG/Twitter | `/brand/social/og-image-dark-1200x630.png` |
 
 ---
 
@@ -162,7 +186,7 @@ import { StatCard } from "@/app/components/stat-card";
   subtitle="آخرین بروزرسانی: امروز"
   icon={Wallet}
   trend={{ value: 12, positive: true }}
-  color="indigo"
+  color="primary"
 />
 ```
 

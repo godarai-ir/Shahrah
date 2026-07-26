@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, GodarAILogo, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -77,19 +77,19 @@ export default function DesignSystemPage() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader
-          title="Atlas visual identity"
-          description="Warm application canvas, graphite navigation, cobalt selection, and mint operational state."
+          title="GodarAI Atlas visual identity"
+          description="Off-white application canvas, navy navigation and actions, cyan focus and selection, and semantic operational state."
         />
         <div className="atlas-canvas overflow-hidden rounded-lg border border-card-border">
           <div className="grid min-h-64 md:grid-cols-3">
             <aside className="atlas-sidebar flex flex-col gap-4 bg-sidebar p-4 text-sidebar-foreground">
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  A
+                <span className="flex size-9 items-center justify-center rounded-lg bg-sidebar-accent p-1 ring-1 ring-sidebar-border">
+                  <GodarAILogo variant="dark" decorative className="h-full w-auto max-w-full object-contain" />
                 </span>
                 <span className="flex flex-col gap-0.5">
-                  <strong className="text-sm">Atlas</strong>
-                  <span className="text-xs text-sidebar-foreground/60">Calm infrastructure</span>
+                  <strong className="text-sm">GodarAI Atlas</strong>
+                  <span className="text-xs text-sidebar-foreground/60">Branded infrastructure</span>
                 </span>
               </div>
               <div className="rounded-md bg-sidebar-primary/20 px-3 py-2 text-sm font-semibold">
@@ -104,6 +104,33 @@ export default function DesignSystemPage() {
               </AppCard>
             </div>
           </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <AppCard title="Automatic" description="Follows the active application theme.">
+            <div className="flex min-h-28 items-center justify-center rounded-lg border border-card-border bg-card p-4">
+              <GodarAILogo className="h-16 w-auto max-w-full object-contain" />
+            </div>
+          </AppCard>
+          <AppCard title="Light surface" description="Navy and cyan mark for light backgrounds.">
+            <div className="flex min-h-28 items-center justify-center rounded-lg border border-card-border bg-card p-4">
+              <GodarAILogo variant="light" className="h-16 w-auto max-w-full object-contain" />
+            </div>
+          </AppCard>
+          <AppCard title="Dark surface" description="Ice and cyan mark for dark backgrounds.">
+            <div className="flex min-h-28 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar p-4">
+              <GodarAILogo variant="dark" className="h-16 w-auto max-w-full object-contain" />
+            </div>
+          </AppCard>
+          <AppCard title="Monochrome" description="Single-color marks for constrained surfaces.">
+            <div className="grid min-h-28 grid-cols-2 overflow-hidden rounded-lg border border-card-border">
+              <span className="flex items-center justify-center bg-card p-3">
+                <GodarAILogo variant="mono-navy" decorative className="h-12 w-auto max-w-full object-contain" />
+              </span>
+              <span className="flex items-center justify-center bg-sidebar p-3">
+                <GodarAILogo variant="mono-white" decorative className="h-12 w-auto max-w-full object-contain" />
+              </span>
+            </div>
+          </AppCard>
         </div>
       </section>
 

@@ -1,181 +1,167 @@
 /**
- * Shahrah Design Tokens — tenant-admin
- * Atlas theme: calm infrastructure console with warm canvas, graphite navigation,
- * cobalt-indigo actions, and mint operational states.
+ * GodarAI Design Tokens — tenant-admin
+ * GodarAI Atlas theme: calm infrastructure console with an off-white canvas,
+ * navy navigation and actions, cyan focus and selection, and semantic operations.
  * Supports light/dark modes, RTL layout, WCAG 2.2 contrast ratios
  */
 
 @custom-variant dark (&:is(.dark *));
 
 /* ========================================
-   1. COLOR TOKENS — Website-Aligned
+   1. COLOR TOKENS — GODARAI ATLAS
    ======================================== */
 
 :root {
-  /* Core brand colors */
-  --shahrah-indigo-50: oklch(0.97 0.02 270);
-  --shahrah-indigo-100: oklch(0.93 0.04 270);
-  --shahrah-indigo-200: oklch(0.86 0.08 270);
-  --shahrah-indigo-300: oklch(0.76 0.14 270);
-  --shahrah-indigo-400: oklch(0.68 0.17 270);
-  --shahrah-indigo-500: oklch(0.53 0.17 255);
-  --shahrah-indigo-600: oklch(0.45 0.18 255);
-  --shahrah-indigo-700: oklch(0.37 0.15 255);
-  --shahrah-indigo-800: oklch(0.28 0.12 255);
-  --shahrah-indigo-900: oklch(0.21 0.09 255);
-  --shahrah-indigo-950: oklch(0.15 0.06 255);
+  /* Canonical primitives from web-assets/colors.json. */
+  --brand-cyan: #00C9EB;
+  --brand-cyan-bright: #05D1EE;
+  --brand-cyan-deep: #00BCE1;
+  --brand-navy: #012651;
+  --brand-navy-top: #022A57;
+  --brand-navy-bottom: #011D40;
+  --brand-dark-background: #06182D;
+  --brand-off-white: #F6FBFF;
+  --brand-ice: #D9EEFF;
 
-  --shahrah-purple-50: oklch(0.97 0.02 310);
-  --shahrah-purple-100: oklch(0.94 0.04 310);
-  --shahrah-purple-200: oklch(0.87 0.08 310);
-  --shahrah-purple-300: oklch(0.78 0.14 310);
-  --shahrah-purple-400: oklch(0.70 0.17 310);
-  --shahrah-purple-500: oklch(0.58 0.20 310);
-  --shahrah-purple-600: oklch(0.48 0.18 310);
-  --shahrah-purple-700: oklch(0.38 0.15 310);
-  --shahrah-purple-800: oklch(0.30 0.12 310);
-  --shahrah-purple-900: oklch(0.23 0.09 310);
-  --shahrah-purple-950: oklch(0.16 0.06 310);
-
-  /* Semantic tokens — Atlas light */
-  --background: #f6f5f1;
-  --foreground: #172033;
+  /* Semantic tokens — GodarAI Atlas light */
+  --background: var(--brand-off-white);
+  --foreground: var(--brand-dark-background);
 
   --card: #ffffff;
-  --card-foreground: #172033;
-  --card-border: #dedfdc;
+  --card-foreground: var(--brand-dark-background);
+  --card-border: color-mix(in oklab, var(--brand-navy) 14%, white);
 
   --popover: #ffffff;
-  --popover-foreground: #172033;
+  --popover-foreground: var(--brand-dark-background);
 
-  --primary: #4057d6;
-  --primary-hover: #3348be;
-  --primary-active: #293aa2;
-  --primary-foreground: #ffffff;
+  --primary: var(--brand-navy);
+  --primary-hover: var(--brand-navy-top);
+  --primary-active: var(--brand-dark-background);
+  --primary-foreground: var(--brand-off-white);
   --primary-glow: color-mix(in oklab, var(--primary) 20%, transparent);
-  --primary-soft: #edf0ff;
-  --primary-soft-hover: #e3e7ff;
-  --primary-soft-foreground: #3348be;
-  --primary-subtle-border: #cbd2ff;
+  --primary-soft: var(--brand-ice);
+  --primary-soft-hover: color-mix(in oklab, var(--brand-cyan) 18%, var(--brand-ice));
+  --primary-soft-foreground: var(--brand-navy);
+  --primary-subtle-border: color-mix(in oklab, var(--brand-cyan-deep) 38%, var(--brand-ice));
 
-  --secondary: #eeefea;
-  --secondary-foreground: #2a3345;
-  --secondary-hover: #e5e7e1;
+  --secondary: color-mix(in oklab, var(--brand-navy) 7%, var(--brand-off-white));
+  --secondary-foreground: var(--brand-navy);
+  --secondary-hover: color-mix(in oklab, var(--brand-navy) 11%, var(--brand-off-white));
 
-  --muted: #ecede8;
-  --muted-foreground: #667085;
+  --muted: color-mix(in oklab, var(--brand-navy) 6%, var(--brand-off-white));
+  --muted-foreground: color-mix(in oklab, var(--brand-navy) 68%, var(--brand-off-white));
 
-  --accent: #edf0ff;
-  --accent-foreground: #293a87;
-  --accent-hover: #e3e7ff;
+  --accent: color-mix(in oklab, var(--brand-cyan) 15%, var(--brand-off-white));
+  --accent-foreground: var(--brand-navy);
+  --accent-hover: color-mix(in oklab, var(--brand-cyan) 23%, var(--brand-off-white));
 
-  --destructive: #c83e4d;
-  --destructive-hover: #ad303f;
+  --destructive: #ad303f;
+  --destructive-hover: #922837;
   --destructive-foreground: #ffffff;
   --destructive-soft: #fdebed;
   --destructive-soft-foreground: #a52f3c;
   --destructive-soft-border: #f3b8bf;
 
-  --success: #1a8f75;
+  --success: #116f5b;
   --success-foreground: #ffffff;
   --success-muted: #e7f7f2;
   --success-soft: #e7f7f2;
   --success-soft-foreground: #116f5b;
   --success-soft-border: #b8e7da;
 
-  --warning: #a35e08;
+  --warning: #83500c;
   --warning-foreground: #ffffff;
   --warning-muted: #fff4da;
   --warning-soft: #fff4da;
   --warning-soft-foreground: #83500c;
   --warning-soft-border: #edd18f;
 
-  --info: #4057d6;
-  --info-foreground: #ffffff;
-  --info-muted: #edf0ff;
-  --info-soft: #edf0ff;
-  --info-soft-foreground: #3348be;
-  --info-soft-border: #cbd2ff;
+  --info: var(--brand-navy);
+  --info-foreground: var(--brand-off-white);
+  --info-muted: var(--brand-ice);
+  --info-soft: var(--brand-ice);
+  --info-soft-foreground: var(--brand-navy);
+  --info-soft-border: color-mix(in oklab, var(--brand-cyan-deep) 34%, var(--brand-ice));
 
-  --neutral-soft: #f1f1ed;
-  --neutral-soft-foreground: #4f596b;
-  --neutral-soft-border: #dedfdc;
+  --neutral-soft: color-mix(in oklab, var(--brand-navy) 5%, var(--brand-off-white));
+  --neutral-soft-foreground: color-mix(in oklab, var(--brand-navy) 74%, var(--brand-off-white));
+  --neutral-soft-border: color-mix(in oklab, var(--brand-navy) 14%, white);
 
-  --border: #dedfdc;
-  --input: #e0e2de;
-  --input-background: #fbfbf8;
-  --input-border: #d4d7d2;
-  --input-focus-border: var(--primary);
+  --border: color-mix(in oklab, var(--brand-navy) 14%, white);
+  --input: color-mix(in oklab, var(--brand-navy) 18%, white);
+  --input-background: #ffffff;
+  --input-border: color-mix(in oklab, var(--brand-navy) 20%, white);
+  --input-focus-border: var(--brand-cyan-deep);
 
-  --surface-elevated: #f0f2ff;
+  --surface-elevated: color-mix(in oklab, var(--brand-cyan) 8%, var(--brand-off-white));
   --surface-elevated-foreground: var(--foreground);
-  --surface-elevated-border: #d7dcfa;
-  --surface-demo: #171c28;
-  --surface-demo-foreground: #f4f6fc;
-  --surface-demo-border: #2b3445;
+  --surface-elevated-border: color-mix(in oklab, var(--brand-cyan-deep) 24%, var(--brand-ice));
+  --surface-demo: var(--brand-dark-background);
+  --surface-demo-foreground: var(--brand-off-white);
+  --surface-demo-border: color-mix(in oklab, var(--brand-cyan) 22%, var(--brand-dark-background));
 
-  --code: #f0f1ee;
-  --code-foreground: #202a3d;
-  --code-border: #daddd8;
-  --code-muted-foreground: #657084;
+  --code: color-mix(in oklab, var(--brand-navy) 6%, var(--brand-off-white));
+  --code-foreground: var(--brand-dark-background);
+  --code-border: color-mix(in oklab, var(--brand-navy) 16%, white);
+  --code-muted-foreground: color-mix(in oklab, var(--brand-navy) 62%, var(--brand-off-white));
 
-  --ring: #4057d6;
-  --ring-offset: #f6f5f1;
+  --ring: var(--brand-navy);
+  --ring-offset: var(--brand-off-white);
 
-  /* Sidebar tokens — graphite Atlas rail */
-  --sidebar: #171c28;
-  --sidebar-foreground: #f4f6fc;
-  --sidebar-primary: #4057d6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #222a3a;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #2b3445;
-  --sidebar-ring: #7f91f4;
+  /* Sidebar tokens — branded navy rail */
+  --sidebar: var(--brand-dark-background);
+  --sidebar-foreground: var(--brand-off-white);
+  --sidebar-primary: var(--brand-cyan);
+  --sidebar-primary-foreground: var(--brand-dark-background);
+  --sidebar-accent: var(--brand-navy);
+  --sidebar-accent-foreground: var(--brand-off-white);
+  --sidebar-border: color-mix(in oklab, var(--brand-cyan) 18%, var(--brand-dark-background));
+  --sidebar-ring: var(--brand-cyan);
 
-  /* Chart tokens — Atlas operational palette */
-  --chart-1: #4057d6;
-  --chart-2: #1da987;
-  --chart-3: #7c65d9;
-  --chart-4: #c98516;
-  --chart-5: #c83e4d;
+  /* Chart tokens — brand-derived, statuses keep their semantic palettes. */
+  --chart-1: var(--brand-navy);
+  --chart-2: var(--brand-cyan-deep);
+  --chart-3: color-mix(in oklab, var(--brand-cyan) 55%, var(--brand-navy));
+  --chart-4: color-mix(in oklab, var(--brand-navy) 72%, var(--brand-cyan));
+  --chart-5: color-mix(in oklab, var(--brand-cyan-deep) 60%, var(--brand-ice));
 
   /* Variable placeholders — hue is assigned per prompt variable. */
   --variable-foreground-lightness: 52%;
   --variable-foreground-chroma: 0.18;
 }
 
-/* Dark mode — Atlas night */
+/* Dark mode — GodarAI Atlas night */
 .dark {
-  --background: #0e1420;
-  --foreground: #f3f5f9;
+  --background: var(--brand-dark-background);
+  --foreground: var(--brand-off-white);
 
-  --card: #151d2a;
-  --card-foreground: #f3f5f9;
-  --card-border: #2a3546;
+  --card: var(--brand-navy-bottom);
+  --card-foreground: var(--brand-off-white);
+  --card-border: color-mix(in oklab, var(--brand-ice) 18%, var(--brand-navy-bottom));
 
-  --popover: #151d2a;
-  --popover-foreground: #f3f5f9;
+  --popover: var(--brand-navy-bottom);
+  --popover-foreground: var(--brand-off-white);
 
-  --primary: #7183f2;
-  --primary-hover: #8292f7;
-  --primary-active: #91a0fa;
-  --primary-foreground: #101729;
+  --primary: var(--brand-cyan);
+  --primary-hover: var(--brand-cyan-bright);
+  --primary-active: var(--brand-cyan-deep);
+  --primary-foreground: var(--brand-dark-background);
   --primary-glow: color-mix(in oklab, var(--primary) 25%, transparent);
-  --primary-soft: #202a4b;
-  --primary-soft-hover: #28345c;
-  --primary-soft-foreground: #bdc7ff;
+  --primary-soft: color-mix(in oklab, var(--brand-cyan) 18%, var(--brand-dark-background));
+  --primary-soft-hover: color-mix(in oklab, var(--brand-cyan) 24%, var(--brand-dark-background));
+  --primary-soft-foreground: var(--brand-ice);
   --primary-subtle-border: color-mix(in oklab, var(--primary) 30%, transparent);
 
-  --secondary: #212b39;
-  --secondary-foreground: #edf1f7;
-  --secondary-hover: #2a3545;
+  --secondary: color-mix(in oklab, var(--brand-ice) 10%, var(--brand-dark-background));
+  --secondary-foreground: var(--brand-off-white);
+  --secondary-hover: color-mix(in oklab, var(--brand-ice) 15%, var(--brand-dark-background));
 
-  --muted: #202a38;
-  --muted-foreground: #a9b4c4;
+  --muted: color-mix(in oklab, var(--brand-ice) 8%, var(--brand-dark-background));
+  --muted-foreground: color-mix(in oklab, var(--brand-ice) 72%, var(--brand-dark-background));
 
-  --accent: #242f4f;
-  --accent-foreground: #eef1ff;
-  --accent-hover: #2b385d;
+  --accent: color-mix(in oklab, var(--brand-cyan) 14%, var(--brand-dark-background));
+  --accent-foreground: var(--brand-off-white);
+  --accent-hover: color-mix(in oklab, var(--brand-cyan) 20%, var(--brand-dark-background));
 
   --destructive: oklch(0.74 0.16 27);
   --destructive-hover: oklch(0.78 0.14 27);
@@ -198,53 +184,53 @@
   --warning-soft-foreground: oklch(0.84 0.07 80);
   --warning-soft-border: color-mix(in oklab, var(--warning) 34%, transparent);
 
-  --info: oklch(0.72 0.14 254);
-  --info-foreground: oklch(0.205 0 0);
-  --info-muted: oklch(0.22 0.06 254);
+  --info: var(--brand-cyan);
+  --info-foreground: var(--brand-dark-background);
+  --info-muted: color-mix(in oklab, var(--brand-cyan) 14%, var(--brand-dark-background));
   --info-soft: color-mix(in oklab, var(--info) 16%, transparent);
-  --info-soft-foreground: oklch(0.82 0.08 254);
+  --info-soft-foreground: var(--brand-ice);
   --info-soft-border: color-mix(in oklab, var(--info) 34%, transparent);
 
   --neutral-soft: color-mix(in oklab, white 8%, transparent);
   --neutral-soft-foreground: oklch(0.8 0.01 255);
   --neutral-soft-border: color-mix(in oklab, white 12%, transparent);
 
-  --border: #2a3546;
-  --input: #344155;
-  --input-background: #111925;
-  --input-border: #344155;
+  --border: color-mix(in oklab, var(--brand-ice) 18%, var(--brand-dark-background));
+  --input: color-mix(in oklab, var(--brand-ice) 24%, var(--brand-dark-background));
+  --input-background: color-mix(in oklab, var(--brand-navy-bottom) 72%, var(--brand-dark-background));
+  --input-border: color-mix(in oklab, var(--brand-ice) 24%, var(--brand-dark-background));
   --input-focus-border: var(--primary);
 
   --surface-elevated: color-mix(in oklab, var(--card) 82%, var(--primary) 18%);
   --surface-elevated-foreground: var(--foreground);
   --surface-elevated-border: color-mix(in oklab, var(--primary) 26%, var(--border));
-  --surface-demo: oklch(0.16 0.01 255);
-  --surface-demo-foreground: oklch(0.94 0.01 255);
-  --surface-demo-border: oklch(0.28 0.02 255);
+  --surface-demo: color-mix(in oklab, black 24%, var(--brand-dark-background));
+  --surface-demo-foreground: var(--brand-off-white);
+  --surface-demo-border: color-mix(in oklab, var(--brand-cyan) 22%, var(--brand-dark-background));
 
-  --code: oklch(0.16 0.02 255);
-  --code-foreground: oklch(0.93 0.01 255);
-  --code-border: oklch(0.28 0.03 255);
-  --code-muted-foreground: oklch(0.62 0.03 255);
+  --code: color-mix(in oklab, black 18%, var(--brand-dark-background));
+  --code-foreground: var(--brand-off-white);
+  --code-border: color-mix(in oklab, var(--brand-ice) 20%, var(--brand-dark-background));
+  --code-muted-foreground: color-mix(in oklab, var(--brand-ice) 68%, var(--brand-dark-background));
 
-  --ring: #91a0fa;
-  --ring-offset: #0e1420;
+  --ring: var(--brand-cyan);
+  --ring-offset: var(--brand-dark-background);
 
   /* Sidebar tokens — dark */
-  --sidebar: #090f19;
-  --sidebar-foreground: #f3f5f9;
+  --sidebar: var(--brand-navy-bottom);
+  --sidebar-foreground: var(--brand-off-white);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: #151f2d;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #222d3d;
+  --sidebar-accent: var(--brand-navy);
+  --sidebar-accent-foreground: var(--brand-off-white);
+  --sidebar-border: color-mix(in oklab, var(--brand-cyan) 18%, var(--brand-navy-bottom));
   --sidebar-ring: var(--ring);
 
-  --chart-1: #7f91f4;
-  --chart-2: #3dd0aa;
-  --chart-3: #a395f2;
-  --chart-4: #e8ad4a;
-  --chart-5: #ef7581;
+  --chart-1: var(--brand-cyan);
+  --chart-2: var(--brand-ice);
+  --chart-3: var(--brand-cyan-bright);
+  --chart-4: color-mix(in oklab, var(--brand-cyan) 62%, var(--brand-off-white));
+  --chart-5: color-mix(in oklab, var(--brand-ice) 68%, var(--brand-navy));
 
   --variable-foreground-lightness: 76%;
   --variable-foreground-chroma: 0.16;

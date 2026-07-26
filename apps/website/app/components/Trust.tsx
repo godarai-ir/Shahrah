@@ -1,7 +1,7 @@
 'use client';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { GodarAILogo } from './GodarAILogo';
 
 export function Trust() {
   return (
@@ -35,15 +35,12 @@ export function Footer() {
         <div className="mb-6 grid grid-cols-3 gap-x-4 gap-y-6 md:grid-cols-4 md:gap-6">
           <div className="col-span-3 md:col-span-1">
             <div className="mb-3 flex items-center gap-2">
-              <Image
-                src="/mini_logo.svg"
-                alt=""
-                aria-hidden="true"
-                width={36}
-                height={36}
-                className="h-9 w-9 shrink-0 rounded-lg"
+              <GodarAILogo
+                decorative
+                className="h-9 w-auto max-w-12 shrink-0 object-contain"
+                sizes="3rem"
               />
-              <span className="font-bold text-xl text-slate-900 dark:text-white">گٌدارAI</span>
+              <span className="font-bold text-xl text-slate-900 dark:text-white">گدارAI</span>
             </div>
             <p className="mb-3 max-w-2xl text-xs leading-6 text-slate-500 dark:text-gray-400 md:text-sm">
               درگاه مدل‌های زبانی برای اتصال، مسیریابی، کنترل هزینه و پایش مصرف مدل‌ها در تیم‌های ایرانی.

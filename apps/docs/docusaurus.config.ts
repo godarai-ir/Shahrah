@@ -167,7 +167,7 @@ function createDocPath(id: string, slug?: string): string {
 const config: Config = {
   title: 'مستندات گدارAI',
   tagline: 'مستندات پلتفرم گیت‌وی مدل زبانی گدارAI',
-  favicon: 'img/favicon.ico',
+  favicon: 'brand/icons/favicon.ico',
   future: {
     v4: true,
   },
@@ -189,6 +189,78 @@ const config: Config = {
   },
   headTags: [
     {
+      tagName: 'link',
+      attributes: {
+        rel: 'icon',
+        href: '/docs/brand/icons/favicon.svg',
+        type: 'image/svg+xml',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'icon',
+        href: '/docs/brand/icons/favicon-light.ico',
+        sizes: 'any',
+        media: '(prefers-color-scheme: light)',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'icon',
+        href: '/docs/brand/icons/favicon-dark.ico',
+        sizes: 'any',
+        media: '(prefers-color-scheme: dark)',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'apple-touch-icon',
+        href: '/docs/brand/icons/apple-touch-icon.png',
+        sizes: '180x180',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'mask-icon',
+        href: '/docs/brand/svg/safari-pinned-tab.svg',
+        color: '#00C9EB',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'manifest',
+        href: '/docs/brand/web/site.webmanifest',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'theme-color',
+        content: '#FFFFFF',
+        media: '(prefers-color-scheme: light)',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'theme-color',
+        content: '#06182D',
+        media: '(prefers-color-scheme: dark)',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'msapplication-config',
+        content: '/docs/brand/web/browserconfig.xml',
+      },
+    },
+    {
       tagName: 'script',
       attributes: {
         type: 'application/ld+json',
@@ -199,7 +271,7 @@ const config: Config = {
         name: 'گدارAI',
         alternateName: 'GodarAI',
         url: 'https://godarai.ir',
-        logo: 'https://godarai.ir/docs/img/logo.svg',
+        logo: 'https://godarai.ir/docs/brand/svg/godarai-mark-light.svg',
       }),
     },
     {
@@ -239,7 +311,7 @@ const config: Config = {
   ],
   plugins: [shahrahLocalSearchPlugin],
   themeConfig: {
-    image: 'img/docs/intro-gateway-architecture.png',
+    image: 'brand/social/og-image-light-1200x630.png',
     metadata: [
       {
         name: 'keywords',
@@ -249,6 +321,11 @@ const config: Config = {
       {name: 'twitter:card', content: 'summary_large_image'},
       {property: 'og:locale', content: 'fa_IR'},
       {property: 'og:site_name', content: 'مستندات گدارAI'},
+      {property: 'og:image:width', content: '1200'},
+      {property: 'og:image:height', content: '630'},
+      {property: 'og:image:type', content: 'image/png'},
+      {property: 'og:image:alt', content: 'لوگوی گدارAI — مستندات'},
+      {name: 'twitter:image:alt', content: 'لوگوی گدارAI — مستندات'},
     ],
     colorMode: {
       respectPrefersColorScheme: true,
@@ -257,7 +334,10 @@ const config: Config = {
       title: 'گدارAI',
       logo: {
         alt: 'لوگوی گدارAI',
-        src: 'img/mini_logo.svg',
+        src: 'brand/svg/godarai-mark-light.svg',
+        srcDark: 'brand/svg/godarai-mark-dark.svg',
+        width: 34,
+        height: 25,
       },
       items: [
         {
