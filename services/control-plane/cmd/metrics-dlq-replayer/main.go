@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -28,19 +27,10 @@ func main() {
 		}
 	}()
 
-	cfg, err := config.LoadConfig(logger)
-	if err != nil {
-		logger.Fatal("load configuration", zap.Error(err))
-	}
-
-	if strings.TrimSpace(cfg.GeneralSettings.DatabaseURL) == "" {
-		logger.Fatal("missing database_url")
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	store, err := storage.NewStore(ctx, cfg.GeneralSettings.DatabaseURL, logger)
+	store, err := storage.NewMetricsStore(ctx, logger)
 	if err != nil {
 		logger.Fatal("initialize storage", zap.Error(err))
 	}

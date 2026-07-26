@@ -151,13 +151,26 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 	return store, nil
 }
 
+// NewMetricsStore creates the ClickHouse-only store used by background metrics
+// workers. It intentionally does not initialize PostgreSQL.
+func NewMetricsStore(ctx context.Context, logger *zap.Logger) (*Store, error) {
+	store := &Store{logger: logger}
+	if err := store.initClickHouseWithRetry(ctx); err != nil {
+		return nil, fmt.Errorf("initialize clickhouse metrics backend: %w", err)
+	}
+
+	return store, nil
+}
+
 // Close closes the store.
 func (s *Store) Close() {
 	if s.clickhouse != nil {
 		closeBestEffort(s.clickhouse)
 	}
 
-	s.pool.Close()
+	if s.pool != nil {
+		s.pool.Close()
+	}
 }
 
 // PoolStats returns a snapshot of PostgreSQL pool state for observability.
