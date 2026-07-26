@@ -1,0 +1,18 @@
+{
+  "brand": {
+    "cyan": "#00C9EB",
+    "cyanBright": "#05D1EE",
+    "cyanDeep": "#00BCE1",
+    "navy": "#012651",
+    "navyTop": "#022A57",
+    "navyBottom": "#011D40",
+    "darkBackground": "#06182D",
+    "offWhite": "#F6FBFF",
+    "ice": "#D9EEFF"
+  },
+  "recommended_css_variables": {
+    "--godarai-cyan": "#00C9EB",
+    "--godarai-navy": "#012651",
+    "--godarai-dark-bg": "#06182D"
+  }
+}

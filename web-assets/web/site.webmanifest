@@ -1,0 +1,35 @@
+{
+  "name": "GodarAI",
+  "short_name": "GodarAI",
+  "description": "GodarAI web application",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06182D",
+  "theme_color": "#012651",
+  "icons": [
+    {
+      "src": "../icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/maskable-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "../icons/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
