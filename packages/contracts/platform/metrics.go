@@ -3,6 +3,7 @@ package platform
 import "time"
 
 type ModelMetricEvent struct {
+	EventID              string                 `json:"event_id"`
 	TS                   time.Time              `json:"ts"`
 	TenantID             string                 `json:"tenant_id"`
 	RequestID            string                 `json:"request_id"`

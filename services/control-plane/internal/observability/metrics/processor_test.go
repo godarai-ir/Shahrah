@@ -2,11 +2,13 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -16,6 +18,23 @@ type batchExporterStub struct {
 	mu      sync.Mutex
 	batches [][]platform.ModelMetricEvent
 }
+
+type failingBatchExporterStub struct{}
+
+func (failingBatchExporterStub) InsertModelMetricEvents(_ context.Context, _ []platform.ModelMetricEvent) error {
+	return errors.New("clickhouse unavailable")
+}
+
+type dlqStub struct {
+	events []platform.ModelMetricEvent
+}
+
+func (s *dlqStub) Enqueue(_ context.Context, event platform.ModelMetricEvent, _ error) error {
+	s.events = append(s.events, event)
+	return nil
+}
+
+func (s *dlqStub) Close() error { return nil }
 
 func (s *batchExporterStub) InsertModelMetricEvents(_ context.Context, events []platform.ModelMetricEvent) error {
 	copied := append([]platform.ModelMetricEvent(nil), events...)
@@ -44,6 +63,32 @@ func TestBuildEventPreservesFirstClassCacheSavings(t *testing.T) {
 	assert.Equal(t, "semantic", event.CacheMatch)
 	assert.Equal(t, 0.25, event.AvoidedCostUSD)
 	assert.Equal(t, "origin-1", event.CacheOriginRequestID)
+	parsedID, err := uuid.Parse(event.EventID)
+	require.NoError(t, err)
+	assert.Equal(t, uuid.Version(7), parsedID.Version())
+}
+
+func TestProcessorFlushMovesFailedBatchToDLQ(t *testing.T) {
+	queue := NewQueue(2)
+	event := (&Processor{}).BuildEvent(BuildInput{TS: time.Now(), RequestID: "request-1", StatusCode: 200})
+	require.True(t, queue.Enqueue(event))
+
+	dlq := &dlqStub{}
+	processor := NewProcessor(Config{
+		BatchSize:        1,
+		ExportTimeout:    time.Second,
+		RetryMaxAttempts: 1,
+		RetryBaseDelay:   time.Millisecond,
+		RetryMaxDelay:    time.Millisecond,
+		DLQ: DLQConfig{
+			EnqueueTimeout: 250 * time.Millisecond,
+		},
+	}, queue, failingBatchExporterStub{}, zap.NewNop(), dlq)
+
+	processor.flush()
+
+	require.Len(t, dlq.events, 1)
+	assert.Equal(t, event.EventID, dlq.events[0].EventID)
 }
 
 func TestBuildEventDefaultsCacheDimensionsToNone(t *testing.T) {

@@ -5,6 +5,7 @@
 2. `002_gateway_model_metrics_1m.sql`
 3. `003_mv_gateway_model_metrics_1m.sql`
 4. `004_observability_runtime_schema.sql`
+5. `005_gateway_model_event_id.sql`
 
 ## Rollback Notes
 - Safest rollback order:

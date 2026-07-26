@@ -2,17 +2,15 @@ package metrics
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -21,29 +19,41 @@ type Exporter interface {
 	InsertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error
 }
 
+// DeadLetterQueue durably stores events that could not be written to ClickHouse.
+type DeadLetterQueue interface {
+	Enqueue(ctx context.Context, event platform.ModelMetricEvent, cause error) error
+	Close() error
+}
+
 // Processor buffers and exports metric events with retries and DLQ fallback.
 type Processor struct {
 	cfg      Config
 	queue    *Queue
 	exporter Exporter
+	dlq      DeadLetterQueue
 	logger   *zap.Logger
 	stopCh   chan struct{}
 	wg       sync.WaitGroup
 }
 
 // NewProcessor creates a metrics processor.
-func NewProcessor(cfg Config, queue *Queue, exporter Exporter, logger *zap.Logger) *Processor {
+func NewProcessor(cfg Config, queue *Queue, exporter Exporter, logger *zap.Logger, dlqs ...DeadLetterQueue) *Processor {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
-	return &Processor{
+	processor := &Processor{
 		cfg:      cfg,
 		queue:    queue,
 		exporter: exporter,
 		logger:   logger,
 		stopCh:   make(chan struct{}),
 	}
+	if len(dlqs) > 0 {
+		processor.dlq = dlqs[0]
+	}
+
+	return processor
 }
 
 // Start launches the processor loop.
@@ -95,14 +105,33 @@ func (p *Processor) flush() {
 	}
 
 	if err := p.insertBatchWithRetry(batch); err != nil {
-		p.logger.Warn("model metrics batch insert failed; writing to dlq", zap.Error(err), zap.Int("batch_size", len(batch)))
+		p.logger.Warn("model metrics batch insert failed; writing to redis stream dlq", zap.Error(err), zap.Int("batch_size", len(batch)))
 
 		for _, ev := range batch {
-			if dlqErr := p.appendDLQ(ev); dlqErr != nil {
-				p.logger.Warn("model metrics dlq write failed", zap.Error(dlqErr))
+			if p.dlq == nil {
+				dlqDroppedTotal.Inc()
+				p.logger.Error("model metrics event dropped because dlq is unavailable", zap.String("event_id", ev.EventID))
+
+				continue
+			}
+
+			dlqErr := p.enqueueDLQ(ev, err)
+			if dlqErr != nil {
+				dlqDroppedTotal.Inc()
+				p.logger.Error("model metrics redis stream dlq write failed",
+					zap.Error(dlqErr),
+					zap.String("event_id", ev.EventID),
+				)
 			}
 		}
 	}
+}
+
+func (p *Processor) enqueueDLQ(event platform.ModelMetricEvent, cause error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), p.cfg.DLQ.EnqueueTimeout)
+	defer cancel()
+
+	return p.dlq.Enqueue(ctx, event, cause)
 }
 
 func (p *Processor) insertBatchWithRetry(batch []platform.ModelMetricEvent) error {
@@ -126,33 +155,6 @@ func (p *Processor) insertBatchWithRetry(batch []platform.ModelMetricEvent) erro
 	return lastErr
 }
 
-func (p *Processor) appendDLQ(ev platform.ModelMetricEvent) error {
-	if p.cfg.DLQPath == "" {
-		return nil
-	}
-
-	if err := os.MkdirAll(filepath.Dir(p.cfg.DLQPath), 0o755); err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(p.cfg.DLQPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer closeDLQFile(f)
-
-	b, err := json.Marshal(ev)
-	if err != nil {
-		return err
-	}
-
-	if _, err := f.Write(append(b, '\n')); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func backoffDelay(attempt int, base, maxDelay time.Duration) time.Duration {
 	if attempt < 1 {
 		attempt = 1
@@ -168,16 +170,6 @@ func backoffDelay(attempt int, base, maxDelay time.Duration) time.Duration {
 	jitter := time.Duration(rand.Int63n(int64(d / 5)))
 
 	return d + jitter
-}
-
-func closeDLQFile(f *os.File) {
-	if f == nil {
-		return
-	}
-
-	if err := f.Close(); err != nil {
-		return
-	}
 }
 
 // BuildEvent converts structured input into a metric event payload.
@@ -200,6 +192,7 @@ func (p *Processor) BuildEvent(input BuildInput) platform.ModelMetricEvent {
 	}
 
 	return platform.ModelMetricEvent{
+		EventID:              uuid.Must(uuid.NewV7()).String(),
 		TS:                   input.TS.UTC(),
 		TenantID:             input.TenantID,
 		RequestID:            input.RequestID,

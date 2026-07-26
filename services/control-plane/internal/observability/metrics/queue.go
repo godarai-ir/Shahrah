@@ -5,7 +5,14 @@ import (
 	"sync/atomic"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
+
+var metricsQueueDroppedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "shahrah_model_metrics_queue_dropped_total",
+	Help: "Number of model metric events dropped because the in-memory queue was full.",
+})
 
 // Queue is a concurrency-safe bounded queue for metric events.
 type Queue struct {
@@ -35,6 +42,8 @@ func (q *Queue) Enqueue(ev platform.ModelMetricEvent) bool {
 		return true
 	default:
 		q.dropped.Add(1)
+		metricsQueueDroppedTotal.Inc()
+
 		return false
 	}
 }

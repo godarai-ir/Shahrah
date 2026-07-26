@@ -150,6 +150,7 @@ func applyClickHouseMigrations(ctx context.Context, db *sql.DB) error {
 		"002_gateway_model_metrics_1m.sql",
 		"003_mv_gateway_model_metrics_1m.sql",
 		"004_observability_runtime_schema.sql",
+		"005_gateway_model_event_id.sql",
 	} {
 		path := filepath.Join(root, "infra", "clickhouse", "migrations", name)
 

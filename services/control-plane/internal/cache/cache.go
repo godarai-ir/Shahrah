@@ -154,27 +154,62 @@ type Cache interface {
 // DualCache implements Cache using both memory and Redis.
 type DualCache struct {
 	memory *MemoryCache
-	redis  *redis.Client
+	redis  redis.UniversalClient
 	logger *zap.Logger
 }
 
 // NewDualCache creates a new dual cache (memory + Redis).
 func NewDualCache(redisHost string, redisPort int, redisPassword string, logger *zap.Logger) (*DualCache, error) {
+	return newDualCache(redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", redisHost, redisPort),
+		Password: redisPassword,
+		DB:       0,
+	}), logger)
+}
+
+// NewDualCacheWithSentinel resolves and follows the active Redis master through Sentinel.
+func NewDualCacheWithSentinel(sentinelAddrs []string, masterName, redisPassword, sentinelPassword string, logger *zap.Logger) (*DualCache, error) {
+	if len(sentinelAddrs) == 0 {
+		return nil, errors.New("at least one Redis Sentinel address is required")
+	}
+
+	if strings.TrimSpace(masterName) == "" {
+		return nil, errors.New("redis Sentinel master name is required")
+	}
+
+	return newDualCache(redis.NewFailoverClient(&redis.FailoverOptions{
+		MasterName:            masterName,
+		SentinelAddrs:         sentinelAddrs,
+		Password:              redisPassword,
+		SentinelPassword:      sentinelPassword,
+		DB:                    0,
+		DialTimeout:           2 * time.Second,
+		ReadTimeout:           2 * time.Second,
+		WriteTimeout:          2 * time.Second,
+		PoolSize:              32,
+		MinIdleConns:          4,
+		ContextTimeoutEnabled: true,
+	}), logger)
+}
+
+func newDualCache(rdb redis.UniversalClient, logger *zap.Logger) (*DualCache, error) {
 	memory, err := NewMemoryCache(logger)
 	if err != nil {
 		return nil, err
 	}
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", redisHost, redisPort),
-		Password: redisPassword,
-		DB:       0,
-	})
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
+		if closeErr := rdb.Close(); closeErr != nil {
+			logger.Debug("failed to close Redis after unsuccessful ping", zap.Error(closeErr))
+		}
+
+		if closeErr := memory.Close(); closeErr != nil {
+			logger.Debug("failed to close memory cache after unsuccessful Redis ping", zap.Error(closeErr))
+		}
+
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
@@ -1166,7 +1201,7 @@ func parseBudgetWindowSnapshot(windowKey string, values map[string]string) (*Bud
 	}, nil
 }
 
-func drainFlatPairs(ctx context.Context, rdb *redis.Client, script string, dirtySetKey string, batchSize int) ([]interface{}, error) {
+func drainFlatPairs(ctx context.Context, rdb redis.UniversalClient, script string, dirtySetKey string, batchSize int) ([]interface{}, error) {
 	if batchSize <= 0 {
 		batchSize = 100
 	}

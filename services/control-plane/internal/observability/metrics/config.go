@@ -18,7 +18,7 @@ type Config struct {
 	RetryMaxAttempts int
 	RetryBaseDelay   time.Duration
 	RetryMaxDelay    time.Duration
-	DLQPath          string
+	DLQ              DLQConfig
 }
 
 // LoadConfigFromEnv builds the metrics configuration from environment variables.
@@ -32,7 +32,7 @@ func LoadConfigFromEnv() Config {
 		RetryMaxAttempts: 3,
 		RetryBaseDelay:   100 * time.Millisecond,
 		RetryMaxDelay:    2 * time.Second,
-		DLQPath:          "./tmp/model-metrics-dlq.jsonl",
+		DLQ:              loadDLQConfigFromEnv(),
 	}
 	cfg.QueueCapacity = intEnvOrDefault("METRICS_MODEL_QUEUE_CAPACITY", cfg.QueueCapacity)
 	cfg.BatchSize = intEnvOrDefault("METRICS_MODEL_BATCH_SIZE", cfg.BatchSize)
@@ -41,7 +41,6 @@ func LoadConfigFromEnv() Config {
 	cfg.RetryMaxAttempts = intEnvOrDefault("METRICS_MODEL_RETRY_MAX_ATTEMPTS", cfg.RetryMaxAttempts)
 	cfg.RetryBaseDelay = durationMillisEnvOrDefault("METRICS_MODEL_RETRY_BASE_DELAY_MS", cfg.RetryBaseDelay)
 	cfg.RetryMaxDelay = durationMillisEnvOrDefault("METRICS_MODEL_RETRY_MAX_DELAY_MS", cfg.RetryMaxDelay)
-	cfg.DLQPath = stringEnvOrDefault("METRICS_MODEL_DLQ_PATH", cfg.DLQPath)
 
 	return cfg
 }

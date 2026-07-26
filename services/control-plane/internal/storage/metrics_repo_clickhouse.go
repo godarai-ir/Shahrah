@@ -15,7 +15,7 @@ import (
 
 func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
 	if err := s.validateClickHouseColumns(ctx, "gateway_model_events", []string{
-		"ts", "tenant_id", "request_id", "model_name", "virtual_model_name", "provider_name", "provider_model_name",
+		"event_id", "ts", "tenant_id", "request_id", "model_name", "virtual_model_name", "provider_name", "provider_model_name",
 		"request_type", "user_id", "user_email", "virtual_account_id", "virtual_account_name", "team_ids", "team_names",
 		"status_code", "error_type", "latency_ms", "ttft_ms", "itl_ms", "tpot_ms", "input_tokens", "output_tokens", "cost_usd",
 		"cache_mode", "cache_status", "cache_match", "cache_similarity", "cache_origin_request_id",
@@ -39,7 +39,7 @@ func (s *Store) ensureClickHouseMetricsSchema(ctx context.Context) error {
 }
 
 const modelMetricInsertColumns = `
-	ts, tenant_id, request_id, model_name, virtual_model_name, provider_name, provider_model_name,
+	event_id, ts, tenant_id, request_id, model_name, virtual_model_name, provider_name, provider_model_name,
 	request_type, user_id, user_email, virtual_account_id, virtual_account_name, team_ids, team_names,
 	status_code, error_type, latency_ms, ttft_ms, itl_ms, tpot_ms, input_tokens, output_tokens, cost_usd,
 	cache_mode, cache_status, cache_match, cache_similarity, cache_origin_request_id,
@@ -47,8 +47,8 @@ const modelMetricInsertColumns = `
 	embedding_cost_usd, pricing_version, metadata_json
 `
 
-const modelMetricInsertPlaceholders = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-const modelMetricInsertArgCount = 35
+const modelMetricInsertPlaceholders = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+const modelMetricInsertArgCount = 36
 
 func (s *Store) insertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error {
 	if len(events) == 0 {
@@ -84,6 +84,7 @@ func modelMetricInsertArgs(ev platform.ModelMetricEvent) []interface{} {
 	}
 
 	return []interface{}{
+		ev.EventID,
 		ev.TS.UTC(),
 		ev.TenantID,
 		ev.RequestID,

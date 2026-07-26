@@ -74,6 +74,7 @@ func parseFlags() config {
 	return cfg
 }
 
+//nolint:wsl_v5 // The destructive workflow is intentionally linear so every safety gate remains visible.
 func run(ctx context.Context, cfg config) error {
 	if cfg.tenant == "" {
 		return errors.New("--tenant is required")
@@ -91,8 +92,8 @@ func run(ctx context.Context, cfg config) error {
 	}
 	defer mainDB.Close()
 
-	if err := mainDB.Ping(ctx); err != nil {
-		return fmt.Errorf("ping main PostgreSQL database: %w", err)
+	if pingErr := mainDB.Ping(ctx); pingErr != nil {
+		return fmt.Errorf("ping main PostgreSQL database: %w", pingErr)
 	}
 
 	tenant, err := resolveTenant(ctx, mainDB, cfg.tenant)
@@ -120,10 +121,14 @@ func run(ctx context.Context, cfg config) error {
 			if err != nil {
 				return fmt.Errorf("open ClickHouse database: %w", err)
 			}
-			defer clickHouseDB.Close()
+			defer func() {
+				if closeErr := clickHouseDB.Close(); closeErr != nil {
+					fmt.Fprintf(os.Stderr, "warning: close ClickHouse connection: %v\n", closeErr)
+				}
+			}()
 
-			if err := clickHouseDB.PingContext(ctx); err != nil {
-				return fmt.Errorf("ping ClickHouse database: %w", err)
+			if pingErr := clickHouseDB.PingContext(ctx); pingErr != nil {
+				return fmt.Errorf("ping ClickHouse database: %w", pingErr)
 			}
 
 			clickHouseCounts, inventoryErr := inventoryClickHouse(ctx, clickHouseDB, tenant.ID)
@@ -150,8 +155,8 @@ func run(ctx context.Context, cfg config) error {
 			}
 			defer supportDB.Close()
 
-			if err := supportDB.Ping(ctx); err != nil {
-				return fmt.Errorf("ping support-admin PostgreSQL database: %w", err)
+			if pingErr := supportDB.Ping(ctx); pingErr != nil {
+				return fmt.Errorf("ping support-admin PostgreSQL database: %w", pingErr)
 			}
 
 			count, inventoryErr := supportProjectionCount(ctx, supportDB, tenant.ID)
@@ -181,8 +186,8 @@ func run(ctx context.Context, cfg config) error {
 	// Delete auxiliary copies first. If the final transactional main-database
 	// purge fails, the tenant still exists and the command can be rerun safely.
 	if clickHouseDB != nil {
-		if err := purgeClickHouse(ctx, clickHouseDB, tenant.ID); err != nil {
-			return fmt.Errorf("purge ClickHouse database: %w", err)
+		if purgeErr := purgeClickHouse(ctx, clickHouseDB, tenant.ID); purgeErr != nil {
+			return fmt.Errorf("purge ClickHouse database: %w", purgeErr)
 		}
 		fmt.Println("ClickHouse tenant rows deleted and mutations synchronized.")
 	}
@@ -209,6 +214,7 @@ func run(ctx context.Context, cfg config) error {
 	return nil
 }
 
+//nolint:wsl_v5 // Query scanning is kept explicit for auditability in this destructive command.
 func resolveTenant(ctx context.Context, db *pgxpool.Pool, identity string) (tenantRecord, error) {
 	rows, err := db.Query(ctx, `
 		SELECT tenant_id::text, slug, domain, status
@@ -243,6 +249,7 @@ func resolveTenant(ctx context.Context, db *pgxpool.Pool, identity string) (tena
 	}
 }
 
+//nolint:wsl_v5 // Schema discovery is intentionally expressed as a linear validation pipeline.
 func postgresTenantTables(ctx context.Context, q interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }) ([]string, error) {
@@ -275,6 +282,7 @@ func postgresTenantTables(ctx context.Context, q interface {
 	return tables, rows.Err()
 }
 
+//nolint:wsl_v5 // Inventory output mirrors the destructive phase step by step.
 func inventoryPostgres(ctx context.Context, db *pgxpool.Pool, tenantID string) ([]tableCount, error) {
 	tables, err := postgresTenantTables(ctx, db)
 	if err != nil {
@@ -297,23 +305,26 @@ func inventoryPostgres(ctx context.Context, db *pgxpool.Pool, tenantID string) (
 	return counts, nil
 }
 
+//nolint:wsl_v5 // Savepoint handling stays linear to make rollback behavior reviewable.
 func purgeMainPostgres(ctx context.Context, db *pgxpool.Pool, tenant tenantRecord) ([]tableCount, error) {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			fmt.Fprintf(os.Stderr, "warning: rollback tenant purge transaction: %v\n", rollbackErr)
+		}
 	}()
 
 	var lockedID, slug string
-	if err := tx.QueryRow(ctx, `
+	if lockErr := tx.QueryRow(ctx, `
 		SELECT tenant_id::text, slug
 		FROM public.tenants
 		WHERE tenant_id = $1
 		FOR UPDATE
-	`, tenant.ID).Scan(&lockedID, &slug); err != nil {
-		return nil, fmt.Errorf("lock tenant: %w", err)
+	`, tenant.ID).Scan(&lockedID, &slug); lockErr != nil {
+		return nil, fmt.Errorf("lock tenant: %w", lockErr)
 	}
 	if lockedID != tenant.ID || slug != tenant.Slug {
 		return nil, errors.New("tenant identity changed after preflight; aborting")
@@ -336,15 +347,15 @@ func purgeMainPostgres(ctx context.Context, db *pgxpool.Pool, tenant tenantRecor
 		for _, table := range remaining {
 			attempt++
 			savepoint := fmt.Sprintf("tenant_purge_%d", attempt)
-			if _, err := tx.Exec(ctx, "SAVEPOINT "+savepoint); err != nil {
-				return nil, err
+			if _, savepointErr := tx.Exec(ctx, "SAVEPOINT "+savepoint); savepointErr != nil {
+				return nil, savepointErr
 			}
 
 			query := "DELETE FROM " + pgx.Identifier{"public", table}.Sanitize() + " WHERE tenant_id = $1"
 			tag, deleteErr := tx.Exec(ctx, query, tenant.ID)
 			if deleteErr == nil {
-				if _, err := tx.Exec(ctx, "RELEASE SAVEPOINT "+savepoint); err != nil {
-					return nil, err
+				if _, releaseErr := tx.Exec(ctx, "RELEASE SAVEPOINT "+savepoint); releaseErr != nil {
+					return nil, releaseErr
 				}
 				if tag.RowsAffected() > 0 {
 					deleted = append(deleted, tableCount{Name: table, Count: tag.RowsAffected()})
@@ -353,11 +364,11 @@ func purgeMainPostgres(ctx context.Context, db *pgxpool.Pool, tenant tenantRecor
 				continue
 			}
 
-			if _, err := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT "+savepoint); err != nil {
-				return nil, err
+			if _, rollbackErr := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT "+savepoint); rollbackErr != nil {
+				return nil, rollbackErr
 			}
-			if _, err := tx.Exec(ctx, "RELEASE SAVEPOINT "+savepoint); err != nil {
-				return nil, err
+			if _, releaseErr := tx.Exec(ctx, "RELEASE SAVEPOINT "+savepoint); releaseErr != nil {
+				return nil, releaseErr
 			}
 
 			var pgErr *pgconn.PgError
@@ -396,6 +407,7 @@ func purgeMainPostgres(ctx context.Context, db *pgxpool.Pool, tenant tenantRecor
 	return deleted, nil
 }
 
+//nolint:wsl_v5 // Schema discovery is intentionally linear for predictable destructive behavior.
 func clickHouseTenantTables(ctx context.Context, db *sql.DB) ([]string, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT c.table
@@ -411,7 +423,11 @@ func clickHouseTenantTables(ctx context.Context, db *sql.DB) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: close ClickHouse table rows: %v\n", closeErr)
+		}
+	}()
 
 	var tables []string
 	for rows.Next() {
@@ -425,6 +441,7 @@ func clickHouseTenantTables(ctx context.Context, db *sql.DB) ([]string, error) {
 	return tables, rows.Err()
 }
 
+//nolint:wsl_v5 // Inventory output mirrors the destructive phase step by step.
 func inventoryClickHouse(ctx context.Context, db *sql.DB, tenantID string) ([]tableCount, error) {
 	tables, err := clickHouseTenantTables(ctx, db)
 	if err != nil {
@@ -446,6 +463,7 @@ func inventoryClickHouse(ctx context.Context, db *sql.DB, tenantID string) ([]ta
 	return counts, nil
 }
 
+//nolint:wsl_v5 // Mutation and verification stay adjacent for operational safety.
 func purgeClickHouse(ctx context.Context, db *sql.DB, tenantID string) error {
 	tables, err := clickHouseTenantTables(ctx, db)
 	if err != nil {
@@ -472,6 +490,7 @@ func purgeClickHouse(ctx context.Context, db *sql.DB, tenantID string) error {
 	return nil
 }
 
+//nolint:wsl_v5 // The preflight existence check remains explicit.
 func supportProjectionCount(ctx context.Context, db *pgxpool.Pool, tenantID string) (int64, error) {
 	var exists bool
 	if err := db.QueryRow(ctx, `SELECT to_regclass('public.support_tenant_projections') IS NOT NULL`).Scan(&exists); err != nil {
@@ -491,6 +510,7 @@ func supportProjectionCount(ctx context.Context, db *pgxpool.Pool, tenantID stri
 	return count, err
 }
 
+//nolint:wsl_v5 // The deletion preflight and execution stay adjacent.
 func purgeSupportProjection(ctx context.Context, db *pgxpool.Pool, tenantID string) (int64, error) {
 	var exists bool
 	if err := db.QueryRow(ctx, `SELECT to_regclass('public.support_tenant_projections') IS NOT NULL`).Scan(&exists); err != nil {
@@ -515,6 +535,7 @@ func quoteClickHouseIdentifier(value string) string {
 	return "`" + strings.ReplaceAll(value, "`", "``") + "`"
 }
 
+//nolint:wsl_v5 // Console output is deliberately linear and easy to audit.
 func printInventory(label string, counts []tableCount) {
 	var total int64
 	for _, item := range counts {
@@ -532,6 +553,7 @@ func printInventory(label string, counts []tableCount) {
 	}
 }
 
+//nolint:wsl_v5 // Stable sorted output is clearer as a linear transformation.
 func formatBlockers(blockers map[string]string) string {
 	tables := make([]string, 0, len(blockers))
 	for table := range blockers {

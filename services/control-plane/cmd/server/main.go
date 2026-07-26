@@ -69,7 +69,23 @@ func main() {
 	httpMetrics := prommetrics.NewHTTPMetrics()
 
 	var dualCache cache.Cache
-	if cfg.RouterSettings.RedisHost != "" {
+	if sentinelAddrs := splitCSVEnv("REDIS_SENTINEL_ADDRS"); len(sentinelAddrs) > 0 {
+		dualCache, err = cache.NewDualCacheWithSentinel(
+			sentinelAddrs,
+			stringEnvOrDefault("REDIS_MASTER_NAME", "mymaster"),
+			cfg.RouterSettings.RedisPassword,
+			os.Getenv("REDIS_SENTINEL_PASSWORD"),
+			logger,
+		)
+		if err != nil {
+			logger.Warn("Failed to initialize Redis Sentinel cache, falling back to memory-only", zap.Error(err))
+
+			dualCache, err = cache.NewMemoryCache(logger)
+			if err != nil {
+				logger.Fatal("Failed to initialize in-memory cache", zap.Error(err))
+			}
+		}
+	} else if cfg.RouterSettings.RedisHost != "" {
 		dualCache, err = cache.NewDualCache(cfg.RouterSettings.RedisHost, cfg.RouterSettings.RedisPort, cfg.RouterSettings.RedisPassword, logger)
 		if err != nil {
 			logger.Warn("Failed to initialize Redis cache, falling back to memory-only", zap.Error(err))
@@ -175,8 +191,25 @@ func main() {
 	)
 
 	if metricsCfg.Enabled {
+		var metricsDLQ metricsobs.DeadLetterQueue
+
+		if metricsCfg.DLQ.Backend == "redis_stream" {
+			metricsDLQ, err = newMetricsDLQ(ctx, metricsCfg.DLQ)
+			if err != nil {
+				logger.Fatal("Failed to initialize model metrics Redis Stream DLQ", zap.Error(err))
+			}
+
+			defer func() {
+				if closeErr := metricsDLQ.Close(); closeErr != nil {
+					logger.Warn("Failed to close model metrics Redis Stream DLQ", zap.Error(closeErr))
+				}
+			}()
+		} else {
+			logger.Warn("Model metrics DLQ is disabled; failed ClickHouse exports can be dropped")
+		}
+
 		metricsQueue := metricsobs.NewQueue(metricsCfg.QueueCapacity)
-		metricsProcessor := metricsobs.NewProcessor(metricsCfg, metricsQueue, store, logger)
+		metricsProcessor := metricsobs.NewProcessor(metricsCfg, metricsQueue, store, logger, metricsDLQ)
 		metricsProcessor.Start()
 
 		defer func() {
@@ -434,6 +467,34 @@ func main() {
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
+}
+
+func splitCSVEnv(key string) []string {
+	parts := strings.Split(os.Getenv(key), ",")
+
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if value := strings.TrimSpace(part); value != "" {
+			values = append(values, value)
+		}
+	}
+
+	return values
+}
+
+func stringEnvOrDefault(key, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		return value
+	}
+
+	return fallback
+}
+
+func newMetricsDLQ(ctx context.Context, cfg metricsobs.DLQConfig) (metricsobs.DeadLetterQueue, error) {
+	dlqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	return metricsobs.NewRedisStreamDLQ(dlqCtx, cfg)
 }
 
 type platformCredentialRuntime struct {

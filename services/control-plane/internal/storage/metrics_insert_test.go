@@ -13,6 +13,7 @@ func TestModelMetricInsertArgsMatchPlaceholderCount(t *testing.T) {
 	ttft := 25
 	similarity := 0.98
 	args := modelMetricInsertArgs(platform.ModelMetricEvent{
+		EventID:          "019b5f1d-f9a7-7abc-8123-0123456789ab",
 		TS:               time.Unix(100, 0),
 		TenantID:         "tenant-1",
 		RequestID:        "request-1",
@@ -37,4 +38,5 @@ func TestModelMetricInsertArgsMatchPlaceholderCount(t *testing.T) {
 
 	assert.Equal(t, modelMetricInsertArgCount, strings.Count(modelMetricInsertPlaceholders, "?"))
 	assert.Len(t, args, modelMetricInsertArgCount)
+	assert.Equal(t, "019b5f1d-f9a7-7abc-8123-0123456789ab", args[0])
 }

@@ -10,6 +10,7 @@ func TestQuoteClickHouseIdentifier(t *testing.T) {
 	if got, want := quoteClickHouseIdentifier("request_logs_ch"), "`request_logs_ch`"; got != want {
 		t.Fatalf("quoteClickHouseIdentifier() = %q, want %q", got, want)
 	}
+
 	if got, want := quoteClickHouseIdentifier("odd`name"), "`odd``name`"; got != want {
 		t.Fatalf("quoteClickHouseIdentifier() = %q, want %q", got, want)
 	}
