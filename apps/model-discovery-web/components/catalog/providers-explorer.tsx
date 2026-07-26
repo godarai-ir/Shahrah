@@ -134,11 +134,13 @@ export function ProvidersExplorer({
         />
       </section>
 
-      <Tabs value={section} onValueChange={setSection} className="gap-5">
-        <TabsList variant="default" className="w-fit max-w-full overflow-x-auto">
-          <TabsTrigger value="endpoints">{t("sections.endpoints")}</TabsTrigger>
+      <Tabs dir="rtl" value={section} onValueChange={setSection} className="gap-5">
+        <TabsList variant="default" className="scrollbar-none w-fit max-w-full overflow-x-auto">
+          <TabsTrigger value="endpoints">
+            <bdi dir="ltr">{t("sections.endpoints")}</bdi>
+          </TabsTrigger>
           <TabsTrigger value="providers">
-            {t("sections.providers")}
+            <bdi dir="ltr">{t("sections.providers")}</bdi>
             <Badge>{formatter.format(providers.length)}</Badge>
           </TabsTrigger>
         </TabsList>
@@ -155,7 +157,7 @@ export function ProvidersExplorer({
                       <p className="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {t(`modeGroups.${group.key}`)}
                       </p>
-                      <div className="flex gap-1 overflow-x-auto lg:flex-col">
+                      <div className="scrollbar-none flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
                         {modes.map((mode) => {
                           const count = providers.filter((provider) => provider.modes.includes(mode)).length;
                           return (
@@ -163,10 +165,10 @@ export function ProvidersExplorer({
                               key={mode}
                               type="button"
                               variant={selectedMode === mode ? "secondary" : "ghost"}
-                              className="justify-between"
+                              className="shrink-0 justify-between lg:w-full"
                               onClick={() => setSelectedMode(mode)}
                             >
-                              <span className="truncate">{modeLabel(mode, t)}</span>
+                              <bdi className="truncate" dir="ltr">{modeLabel(mode, t)}</bdi>
                               <span className="text-xs tabular-nums text-muted-foreground">{formatter.format(count)}</span>
                             </Button>
                           );
@@ -181,7 +183,7 @@ export function ProvidersExplorer({
             <section className="flex min-w-0 flex-col gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold">{modeLabel(selectedMode, t)}</h2>
+                  <h2 className="text-xl font-semibold" dir="ltr">{modeLabel(selectedMode, t)}</h2>
                   <code className="rounded-md bg-muted px-2 py-1 text-xs" dir="ltr">{selectedMode}</code>
                 </div>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -306,7 +308,7 @@ function ProviderEndpointCard({
           <ProviderMark name={provider.name} logoUrl={provider.logoUrl} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <strong className="truncate">{provider.name}</strong>
+              <strong className="truncate"><bdi dir="auto">{provider.name}</bdi></strong>
               <Badge className="border-success-soft bg-success-soft text-success-soft-foreground">{t("native")}</Badge>
             </div>
             <p className="mt-1 truncate text-xs text-muted-foreground" dir="ltr">{selectedMode}</p>
@@ -331,13 +333,13 @@ function ProviderDirectoryCard({ provider }: { provider: ProviderDirectoryItem }
           <div className="flex items-start gap-3">
             <ProviderMark name={provider.name} logoUrl={provider.logoUrl} />
             <div className="min-w-0 flex-1">
-              <strong className="block truncate text-base">{provider.name}</strong>
+              <strong className="block truncate text-base"><bdi dir="auto">{provider.name}</bdi></strong>
               <span className="text-xs text-muted-foreground">{t("activeModels", { count: provider.modelCount ?? 0 })}</span>
             </div>
             <ArrowLeft className="size-4 text-muted-foreground transition-transform group-hover:-translate-x-1 group-hover:text-primary" aria-hidden="true" />
           </div>
           <div className="mt-4 flex flex-wrap gap-1.5">
-            {visibleModes.map((mode) => <Badge key={mode} className="bg-background">{modeLabel(mode, t)}</Badge>)}
+            {visibleModes.map((mode) => <Badge key={mode} className="bg-background" dir="ltr">{modeLabel(mode, t)}</Badge>)}
             {remaining > 0 ? <Badge className="bg-background">+{formatter.format(remaining)}</Badge> : null}
           </div>
           <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">

@@ -64,13 +64,15 @@ export function ProviderModelsList({
   }
 
   return (
-    <Tabs defaultValue="models" className="gap-5">
-      <TabsList className="w-fit max-w-full overflow-x-auto">
+    <Tabs dir="rtl" defaultValue="models" className="gap-5">
+      <TabsList className="scrollbar-none w-fit max-w-full overflow-x-auto">
         <TabsTrigger value="models">
-          {t("tabs.models")}
+          <bdi dir="ltr">{t("tabs.models")}</bdi>
           <Badge>{new Intl.NumberFormat("fa-IR").format(models.length)}</Badge>
         </TabsTrigger>
-        <TabsTrigger value="coverage">{t("tabs.coverage")}</TabsTrigger>
+        <TabsTrigger value="coverage">
+          <bdi dir="ltr">{t("tabs.coverage")}</bdi>
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="models" className="space-y-4">
@@ -111,7 +113,7 @@ export function ProviderModelsList({
                     <TableRow key={model.id}>
                       <TableCell>
                         <Link href={`/models/${providerSlug}/${model.slug}`} className="font-medium hover:text-primary">
-                          {model.displayName}
+                          <bdi dir="auto">{model.displayName}</bdi>
                         </Link>
                       </TableCell>
                       <TableCell>
@@ -122,7 +124,7 @@ export function ProviderModelsList({
                       <TableCell dir="ltr">{formatPrice(price?.cachedInputPricePerMillionTokens)}</TableCell>
                       <TableCell>
                         <div className="flex max-w-64 flex-wrap gap-1">
-                          {(model.mode ?? []).slice(0, 3).map((mode) => <Badge key={mode} className="bg-background">{mode}</Badge>)}
+                          {(model.mode ?? []).slice(0, 3).map((mode) => <Badge key={mode} className="bg-background" dir="ltr">{mode}</Badge>)}
                         </div>
                       </TableCell>
                       <TableCell dir="ltr">{model.contextWindow ? model.contextWindow.toLocaleString("en-US") : "—"}</TableCell>
@@ -143,9 +145,9 @@ export function ProviderModelsList({
       </TabsContent>
 
       <TabsContent value="coverage" className="space-y-5">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]" dir="ltr">
           <Card className="overflow-hidden p-0">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4" dir="rtl">
               <div>
                 <h2 className="font-semibold">{t("quickStart.title")}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{t("quickStart.description")}</p>
@@ -158,7 +160,7 @@ export function ProviderModelsList({
               <code>{quickStartCode(sampleId)}</code>
             </pre>
           </Card>
-          <Card>
+          <Card dir="rtl">
             <h2 className="font-semibold">{t("coverageSummary.title")}</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {t("coverageSummary.description", { count: modes.length })}
@@ -177,7 +179,7 @@ export function ProviderModelsList({
             {modes.map((mode) => (
               <Card key={mode} className="flex items-center justify-between gap-3">
                 <div>
-                  <strong className="block text-sm">{mode}</strong>
+                  <strong className="block text-sm" dir="ltr">{mode}</strong>
                   <code className="mt-1 block text-xs text-muted-foreground" dir="ltr">{mode}</code>
                 </div>
                 <Badge className="border-success-soft bg-success-soft text-success-soft-foreground">{t("supported")}</Badge>

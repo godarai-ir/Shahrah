@@ -73,14 +73,16 @@ export default async function ProviderDetailPage({ params }: { params: Promise<{
             <div className="min-w-0">
               <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{provider.name}</h1>
-            <Badge className={getStatusClasses(provider.status)}>{statusLabel}</Badge>
-            <Badge>{t("modelCount", { count: modelCount })}</Badge>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  <bdi dir="auto">{provider.name}</bdi>
+                </h1>
+                <Badge className={getStatusClasses(provider.status)}>{statusLabel}</Badge>
+                <Badge>{t("modelCount", { count: modelCount })}</Badge>
               </div>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
                 {provider.description || t("noDescription")}
               </p>
-              <code className="mt-3 block text-xs text-muted-foreground" dir="ltr">{provider.slug}</code>
+              <code className="mt-3 inline-block text-xs text-muted-foreground" dir="ltr">{provider.slug}</code>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
