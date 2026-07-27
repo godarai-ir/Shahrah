@@ -10,6 +10,8 @@ import { ScopesGuard } from '../common/guards/scopes.guard';
 import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { PrismaService } from '../database/prisma.service';
 import { IndexingService } from '../indexing/indexing.service';
+import { evaluatePublicationReadiness } from '../publication/publication-policy';
+import { serializePricingProfiles } from '../pricing/pricing-response';
 
 const pricingRateSchema = z.object({
   key: z.string().optional(),
@@ -143,6 +145,9 @@ export class ImportController {
     }
 
     for (const row of parsed.data.models) {
+      const existing = await this.prisma.model.findUnique({
+        where: { canonicalId: row.canonicalId },
+      });
       const provider = await this.prisma.provider.findUniqueOrThrow({
         where: { slug: row.providerSlug },
       });
@@ -164,12 +169,14 @@ export class ImportController {
           slug: row.slug,
           displayName: row.displayName,
           status: (row.status as any) || 'active',
-          lifecycleStatus: (row.lifecycleStatus as any) || 'published',
+          lifecycleStatus:
+            row.mode?.includes('image') ? 'draft' : ((row.lifecycleStatus as any) || 'published'),
           shortDescription: row.shortDescription,
           contextWindow: row.contextWindow,
           maxOutputTokens: row.maxOutputTokens,
           openSource: row.openSource ?? false,
           pricingStatus: this.resolvePricingStatus(row),
+          pricingAuthority: 'import',
           mode: row.mode?.length ? row.mode : ['unknown'],
           categoryId,
         },
@@ -178,13 +185,19 @@ export class ImportController {
           slug: row.slug,
           displayName: row.displayName,
           status: (row.status as any) || undefined,
-          lifecycleStatus: (row.lifecycleStatus as any) || undefined,
+          lifecycleStatus:
+            existing?.pricingAuthority === 'admin'
+              ? undefined
+              : row.mode?.includes('image')
+                ? undefined
+                : (row.lifecycleStatus as any) || undefined,
           shortDescription: row.shortDescription,
           contextWindow: row.contextWindow,
           maxOutputTokens: row.maxOutputTokens,
           openSource: row.openSource,
           pricingStatus:
-            row.pricing !== undefined || row.pricingStatus !== undefined
+            existing?.pricingAuthority !== 'admin' &&
+            (row.pricing !== undefined || row.pricingStatus !== undefined)
               ? this.resolvePricingStatus(row)
               : undefined,
           mode: row.mode?.length ? row.mode : undefined,
@@ -192,8 +205,11 @@ export class ImportController {
         },
       });
 
+      const preserveAdminPricing = existing?.pricingAuthority === 'admin';
       await this.prisma.$transaction([
-        this.prisma.modelPricing.deleteMany({ where: { modelId: model.id } }),
+        ...(preserveAdminPricing
+          ? []
+          : [this.prisma.modelPricing.deleteMany({ where: { modelId: model.id } })]),
         this.prisma.modelCapability.deleteMany({
           where: { modelId: model.id },
         }),
@@ -258,7 +274,7 @@ export class ImportController {
         });
       }
 
-      if (row.pricing) {
+      if (row.pricing && !preserveAdminPricing) {
         const pricingRows = Array.isArray(row.pricing)
           ? row.pricing
           : [row.pricing];
@@ -297,6 +313,31 @@ export class ImportController {
             },
           });
         }
+      }
+
+      if (row.mode?.includes('image') && !preserveAdminPricing) {
+        const candidate = await this.prisma.model.findUniqueOrThrow({
+          where: { id: model.id },
+          include: {
+            pricing: { include: { region: true, rates: true } },
+          },
+        });
+        const publication = evaluatePublicationReadiness({
+          mode: candidate.mode,
+          pricingStatus: candidate.pricingStatus,
+          pricingProfiles: serializePricingProfiles(candidate.pricing),
+        });
+        await this.prisma.model.update({
+          where: { id: model.id },
+          data: {
+            lifecycleStatus:
+              candidate.lifecycleStatus === 'published' && publication.eligible
+                ? 'published'
+                : publication.eligible
+                  ? 'review'
+                  : 'draft',
+          },
+        });
       }
 
       await this.prisma.modelChangelog.create({

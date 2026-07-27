@@ -159,6 +159,7 @@ exports.Prisma.ModelScalarFieldEnum = {
   deprecatedAt: 'deprecatedAt',
   openSource: 'openSource',
   pricingStatus: 'pricingStatus',
+  pricingAuthority: 'pricingAuthority',
   tokenizer: 'tokenizer',
   license: 'license',
   huggingFaceUrl: 'huggingFaceUrl',
@@ -470,6 +471,11 @@ exports.ModelPricingStatus = exports.$Enums.ModelPricingStatus = {
   unknown: 'unknown',
   priced: 'priced',
   free: 'free'
+};
+
+exports.PricingAuthority = exports.$Enums.PricingAuthority = {
+  import: 'import',
+  admin: 'admin'
 };
 
 exports.PricingUsage = exports.$Enums.PricingUsage = {

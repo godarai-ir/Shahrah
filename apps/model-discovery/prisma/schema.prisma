@@ -35,6 +35,11 @@ enum ModelPricingStatus {
   free
 }
 
+enum PricingAuthority {
+  import
+  admin
+}
+
 enum PricingUsage {
   input
   output
@@ -96,6 +101,7 @@ model Model {
   deprecatedAt     DateTime?
   openSource       Boolean @default(false)
   pricingStatus    ModelPricingStatus @default(unknown)
+  pricingAuthority PricingAuthority @default(import)
   tokenizer        String?
   license          String?
   huggingFaceUrl   String?
@@ -124,6 +130,8 @@ model Model {
   @@index([providerId])
   @@index([status])
   @@index([enabled])
+  @@index([lifecycleStatus])
+  @@index([pricingAuthority])
   @@index([contextWindow])
   @@index([maxOutputTokens])
   @@index([slug])

@@ -12,7 +12,6 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
-	"github.com/shopspring/decimal"
 )
 
 var (
@@ -57,6 +56,7 @@ type Service struct {
 	walletCacheTTL       time.Duration
 	budgetWindowTTLGrace time.Duration
 	rateLimitFailOpen    bool
+	imageBillingMode     string
 }
 
 // NewService creates a billing enforcement service.
@@ -89,6 +89,7 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 		walletCacheTTL:       secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
 		budgetWindowTTLGrace: secondsEnvOrDefault("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 86400*time.Second),
 		rateLimitFailOpen:    boolEnvOrDefault("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
+		imageBillingMode:     imageDimensionalBillingModeFromEnv(),
 	}
 	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
 
@@ -540,34 +541,6 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 	return s.rateSnapshotUsage(model, measures, estimated)
 }
 
-// FinalizeImageUsage recalculates final spend for image endpoints.
-func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *openai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
-	if usage == nil && providerCostUSDTicks == nil {
-		return estimated, nil
-	}
-
-	inputTokens, outputTokens, totalTokens := imageUsageTokenBreakdown(usage, estimated)
-	breakdown, err := s.rateSnapshotUsage(model, tokenUsageMeasures(inputTokens, outputTokens), estimated)
-	if err != nil {
-		return platform.UsageCostBreakdown{}, err
-	}
-	breakdown.TotalTokens = totalTokens
-
-	if providerCostUSDTicks != nil && *providerCostUSDTicks >= 0 {
-		totalUSD := float64(*providerCostUSDTicks) / usdTicksPerDollar
-		breakdown = applyProviderImageCost(breakdown, totalUSD)
-		rate := s.exchangeRate(ctx)
-		breakdown.ExchangeRate = rate.USDtoIRR
-		breakdown.TotalCostIRR = totalUSD * rate.USDtoIRR
-		breakdown.TotalCostUSDExact = decimal.NewFromFloat(totalUSD).String()
-		breakdown.ExchangeRateExact = decimal.NewFromFloat(rate.USDtoIRR).String()
-		breakdown.TotalCostIRRExact = decimal.NewFromFloat(totalUSD).Mul(decimal.NewFromFloat(rate.USDtoIRR)).String()
-		breakdown.RatingStatus = "provider_reported"
-	}
-
-	return breakdown, nil
-}
-
 func unpricedTokenBreakdown(model string, inputTokens int, outputTokens int) platform.UsageCostBreakdown {
 	return platform.UsageCostBreakdown{
 		Model:         model,
@@ -577,53 +550,6 @@ func unpricedTokenBreakdown(model string, inputTokens int, outputTokens int) pla
 		UsageMeasures: tokenUsageMeasures(inputTokens, outputTokens),
 		RatingStatus:  "pending",
 	}
-}
-
-const usdTicksPerDollar = 10_000_000_000.0
-
-func imageUsageTokenBreakdown(usage *openai.Usage, estimated platform.UsageCostBreakdown) (int, int, int) {
-	if usage == nil {
-		return estimated.InputTokens, estimated.OutputTokens, estimated.TotalTokens
-	}
-
-	inputTokens := usage.PromptTokens
-	outputTokens := usage.CompletionTokens
-
-	totalTokens := usage.TotalTokens
-	if totalTokens <= 0 {
-		totalTokens = inputTokens + outputTokens
-	}
-
-	if inputTokens == 0 && outputTokens == 0 && totalTokens > 0 {
-		if estimated.InputTokens > 0 && totalTokens > estimated.InputTokens {
-			inputTokens = estimated.InputTokens
-			outputTokens = totalTokens - inputTokens
-		} else {
-			outputTokens = totalTokens
-		}
-	}
-
-	if totalTokens < inputTokens+outputTokens {
-		totalTokens = inputTokens + outputTokens
-	}
-
-	return inputTokens, outputTokens, totalTokens
-}
-
-func applyProviderImageCost(breakdown platform.UsageCostBreakdown, totalUSD float64) platform.UsageCostBreakdown {
-	breakdown.TotalCostUSD = totalUSD
-	if breakdown.InputCostUSD+breakdown.OutputCostUSD > 0 {
-		pricedTotal := breakdown.InputCostUSD + breakdown.OutputCostUSD
-		breakdown.InputCostUSD = totalUSD * (breakdown.InputCostUSD / pricedTotal)
-		breakdown.OutputCostUSD = totalUSD - breakdown.InputCostUSD
-
-		return breakdown
-	}
-
-	breakdown.InputCostUSD = 0
-	breakdown.OutputCostUSD = totalUSD
-
-	return breakdown
 }
 
 func (s *Service) exchangeRate(ctx context.Context) *platform.ExchangeRate {

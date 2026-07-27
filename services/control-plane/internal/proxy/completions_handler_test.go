@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -35,6 +36,22 @@ func (b *testBudgeter) EstimateCost(_ context.Context, req contractsopenai.ChatC
 func (b *testBudgeter) EstimateEmbeddingCost(_ context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
 	return platform.UsageCostBreakdown{Model: req.Model, TotalTokens: 16, InputTokens: 16, OutputTokens: 0, TotalCostUSD: 0.001, TotalCostIRR: 850}, nil
 }
+func (b *testBudgeter) EstimateImageUsage(_ context.Context, _ platform.Deployment, model string, usage platform.ImageUsage) (platform.UsageCostBreakdown, error) {
+	return platform.UsageCostBreakdown{
+		Model:         model,
+		InputTokens:   usage.InputTokens,
+		OutputTokens:  usage.OutputTokens,
+		TotalTokens:   usage.TotalTokens,
+		TotalCostUSD:  0.001,
+		TotalCostIRR:  850,
+		RatingStatus:  "rated",
+		PricingSource: "catalog",
+		UsageMeasures: []platform.UsageMeasure{
+			{Usage: "input", Unit: "token", Amount: strconv.Itoa(usage.InputTokens), ServiceTier: "standard"},
+			{Usage: "output", Unit: "token", Amount: strconv.Itoa(usage.OutputTokens), ServiceTier: "standard"},
+		},
+	}, nil
+}
 func (b *testBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string, _ int) (*cache.RateLimitResult, error) {
 	return &cache.RateLimitResult{Allowed: true, Current: 1, Limit: 100, ResetAt: time.Now().Add(time.Minute)}, nil
 }
@@ -51,20 +68,32 @@ func (b *testBudgeter) FinalizeFromUsage(_ context.Context, _ string, usage *con
 	return estimated, nil
 }
 
-func (b *testBudgeter) FinalizeImageUsage(_ context.Context, _ string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
-	if usage != nil {
-		estimated.InputTokens = usage.PromptTokens
-		estimated.OutputTokens = usage.CompletionTokens
-
-		estimated.TotalTokens = usage.TotalTokens
-		if estimated.TotalTokens == 0 {
-			estimated.TotalTokens = estimated.InputTokens + estimated.OutputTokens
-		}
+func (b *testBudgeter) FinalizeImageUsage(_ context.Context, _ string, usage platform.ImageUsage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	estimated.InputTokens = usage.InputTokens
+	estimated.OutputTokens = usage.OutputTokens
+	estimated.TotalTokens = usage.TotalTokens
+	if estimated.TotalTokens == 0 {
+		estimated.TotalTokens = estimated.InputTokens + estimated.OutputTokens
 	}
 
-	if providerCostUSDTicks != nil {
-		estimated.TotalCostUSD = float64(*providerCostUSDTicks) / 10_000_000_000.0
+	if usage.ProviderCostUSDTicks != nil {
+		estimated.TotalCostUSD = float64(*usage.ProviderCostUSDTicks) / 10_000_000_000.0
 		estimated.TotalCostIRR = estimated.TotalCostUSD * 850000
+		estimated.OutputCostUSD = estimated.TotalCostUSD
+		estimated.RatingStatus = "provider_reported"
+		estimated.PricingSource = "provider_reported"
+		estimated.AppliedRates = []platform.AppliedRate{{
+			ProfileKey:       "provider-reported",
+			RateKey:          "provider-reported:request",
+			Usage:            "output",
+			Unit:             "request",
+			RateAmount:       strconv.FormatFloat(estimated.TotalCostUSD, 'f', -1, 64),
+			RateQuantity:     1,
+			UsageAmount:      "1",
+			ComponentCostUSD: strconv.FormatFloat(estimated.TotalCostUSD, 'f', -1, 64),
+			Currency:         "USD",
+			PricingSource:    "provider_reported",
+		}}
 	}
 
 	return estimated, nil

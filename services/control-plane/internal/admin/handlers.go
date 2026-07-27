@@ -92,6 +92,9 @@ type providerAccountStore interface {
 	IsTenantProviderAccountManager(ctx context.Context, tenantID string, accountID string, userID string, teamID string) (bool, error)
 	DeleteTenantProviderAccount(ctx context.Context, tenantID string, accountID string) error
 	SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
+	ListCatalogAvailabilityProviders(ctx context.Context) ([]string, error)
+	ReconcileProviderCatalogAvailability(ctx context.Context, provider string, publishedModels []string) (int64, error)
+	ReconcileLegacyDeploymentCatalogAvailability(ctx context.Context, catalog []storage.CatalogModelPublication) (int64, error)
 }
 
 type orgUnitStore interface {

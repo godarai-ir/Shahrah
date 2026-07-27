@@ -6,6 +6,8 @@ import {
   Param,
   ParseBoolPipe,
   Post,
+  Put,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -28,6 +30,8 @@ import { IndexingService } from '../indexing/indexing.service';
 import { UpsertModelDto } from './dto/upsert-model.dto';
 import { UpsertModelSeriesDto } from './dto/upsert-model-series.dto';
 import { Decimal } from '@prisma/client-runtime-utils';
+import { serializePricingProfiles } from '../pricing/pricing-response';
+import { evaluatePublicationReadiness } from '../publication/publication-policy';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -45,6 +49,11 @@ export class CatalogAdminController {
     @Body() dto: UpsertModelDto,
     @Req() request: AuthenticatedRequest,
   ) {
+    if (dto.lifecycleStatus === 'published') {
+      throw new BadRequestException(
+        'Use the dedicated publish action after pricing validation.',
+      );
+    }
     this.validatePricingProfiles(dto);
     const provider = await this.prisma.provider.findUniqueOrThrow({
       where: { slug: dto.providerSlug },
@@ -86,6 +95,8 @@ export class CatalogAdminController {
             dto.pricingStatus !== undefined
               ? this.resolvePricingStatus(dto)
               : undefined,
+          pricingAuthority:
+            dto.pricingProfiles !== undefined ? 'admin' : 'import',
           mode: dto.mode?.length ? dto.mode : ['unknown'],
         },
         update: {
@@ -103,6 +114,8 @@ export class CatalogAdminController {
           maxOutputTokens: dto.maxOutputTokens,
           openSource: dto.openSource,
           pricingStatus: this.resolvePricingStatus(dto),
+          pricingAuthority:
+            dto.pricingProfiles !== undefined ? 'admin' : undefined,
           mode: dto.mode?.length ? dto.mode : undefined,
         },
       });
@@ -276,11 +289,322 @@ export class CatalogAdminController {
 
   @Get()
   @Scopes('catalog:read')
-  listAll() {
-    return this.prisma.model.findMany({
+  async listAll(
+    @Query('page') rawPage?: string,
+    @Query('limit') rawLimit?: string,
+    @Query('q') q?: string,
+    @Query('provider') provider?: string,
+    @Query('mode') mode?: string,
+    @Query('lifecycle') lifecycle?: string,
+    @Query('readiness') readiness?: string,
+  ) {
+    const page = Math.max(1, Number(rawPage) || 1);
+    const limit = Math.min(200, Math.max(1, Number(rawLimit) || 50));
+    const where: any = {
+      provider: provider ? { slug: provider } : undefined,
+      mode: mode ? { has: mode } : undefined,
+      lifecycleStatus: lifecycle || undefined,
+      OR: q
+        ? [
+            { canonicalId: { contains: q, mode: 'insensitive' } },
+            { displayName: { contains: q, mode: 'insensitive' } },
+          ]
+        : undefined,
+    };
+    const rows = await this.prisma.model.findMany({
+      where,
       orderBy: [{ providerId: 'asc' }, { displayName: 'asc' }],
-      include: { provider: true, modelSeries: true },
-      take: 500,
+      include: {
+        provider: true,
+        modelSeries: true,
+        pricing: {
+          include: { region: true, rates: { orderBy: { rateKey: 'asc' } } },
+          orderBy: [{ region: { slug: 'asc' } }, { effectiveFrom: 'desc' }],
+        },
+      },
+    });
+    const mapped = rows.map((row) => this.adminModel(row));
+    const filtered = readiness
+      ? mapped.filter((row) => row.publication.state === readiness)
+      : mapped;
+    const data = filtered.slice((page - 1) * limit, page * limit);
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total: filtered.length,
+        totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
+      },
+      summary: mapped.reduce<Record<string, number>>((acc, row) => {
+        acc[row.publication.state] =
+          (acc[row.publication.state] ?? 0) + 1;
+        return acc;
+      }, {}),
+      providerSummary: filtered.reduce<Record<string, number>>((acc, row) => {
+        acc[row.provider.name] = (acc[row.provider.name] ?? 0) + 1;
+        return acc;
+      }, {}),
+    };
+  }
+
+  @Get('detail/:canonicalId')
+  @Scopes('catalog:read')
+  async detail(@Param('canonicalId') canonicalId: string) {
+    const row = await this.prisma.model.findUniqueOrThrow({
+      where: { canonicalId: decodeURIComponent(canonicalId) },
+      include: {
+        provider: true,
+        modelSeries: true,
+        pricing: {
+          include: { region: true, rates: { orderBy: { rateKey: 'asc' } } },
+          orderBy: [{ region: { slug: 'asc' } }, { effectiveFrom: 'desc' }],
+        },
+      },
+    });
+    return this.adminModel(row);
+  }
+
+  @Put(':canonicalId/pricing')
+  @Scopes('catalog:write')
+  async updatePricing(
+    @Param('canonicalId') canonicalId: string,
+    @Body()
+    body: Pick<UpsertModelDto, 'pricingStatus' | 'pricingProfiles'>,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const decodedId = decodeURIComponent(canonicalId);
+    const before = await this.prisma.model.findUniqueOrThrow({
+      where: { canonicalId: decodedId },
+      include: {
+        pricing: { include: { region: true, rates: true } },
+      },
+    });
+    if (before.lifecycleStatus === 'published') {
+      throw new BadRequestException(
+        'Unpublish the model before editing public pricing.',
+      );
+    }
+    const dto = {
+      providerSlug: '',
+      canonicalId: decodedId,
+      slug: before.slug,
+      displayName: before.displayName,
+      pricingStatus: body.pricingStatus,
+      pricingProfiles: body.pricingProfiles ?? [],
+    } satisfies UpsertModelDto;
+    this.validatePricingProfiles(dto);
+    const pricingStatus = this.resolvePricingStatus(dto);
+
+    const model = await this.prisma.$transaction(async (tx) => {
+      await tx.modelPricing.deleteMany({ where: { modelId: before.id } });
+      for (const profile of dto.pricingProfiles ?? []) {
+        const regionSlug = this.normalizeRegion(profile.region);
+        const region = await tx.region.upsert({
+          where: { slug: regionSlug },
+          create: { slug: regionSlug, name: regionSlug },
+          update: {},
+        });
+        await tx.modelPricing.create({
+          data: {
+            modelId: before.id,
+            regionId: region.id,
+            currency: profile.currency || 'USD',
+            sourceUrl: profile.sourceUrl,
+            effectiveFrom: profile.effectiveFrom
+              ? new Date(profile.effectiveFrom)
+              : new Date(),
+            effectiveTo: profile.effectiveTo
+              ? new Date(profile.effectiveTo)
+              : undefined,
+            rates: {
+              create: profile.rates.map((rate) => ({
+                rateKey: rate.key || this.rateKey(rate),
+                usage: rate.usage as any,
+                unit: rate.unit,
+                amount: rate.amount,
+                quantity: rate.quantity,
+                serviceTier: (rate.serviceTier ?? 'standard') as any,
+                resolution: rate.resolution,
+                tierFrom: rate.tierFrom,
+                tierTo: rate.tierTo,
+                tierMode: rate.tierMode,
+                qualifiers: rate.qualifiers as any,
+              })),
+            },
+          },
+        });
+      }
+      const candidate = await tx.model.update({
+        where: { id: before.id },
+        data: {
+          pricingStatus,
+          pricingAuthority: 'admin',
+          lifecycleStatus: 'draft',
+        },
+      });
+      const withPricing = await tx.model.findUniqueOrThrow({
+        where: { id: before.id },
+        include: {
+          provider: true,
+          modelSeries: true,
+          pricing: { include: { region: true, rates: true } },
+        },
+      });
+      const publication = this.publication(withPricing);
+      const updated = publication.eligible
+        ? await tx.model.update({
+            where: { id: candidate.id },
+            data: { lifecycleStatus: 'review' },
+          })
+        : candidate;
+      await tx.auditLog.create({
+        data: {
+          entityType: 'model',
+          entityId: before.id,
+          action: 'pricing_update',
+          beforeJson: before as any,
+          afterJson: { ...updated, publication } as any,
+          ...auditActor(request),
+        },
+      });
+      return updated;
+    });
+    await this.indexing.enqueueModelIndex(model.id);
+    return this.detail(encodeURIComponent(decodedId));
+  }
+
+  @Post(':canonicalId/publish')
+  @Scopes('catalog:write')
+  async publish(
+    @Param('canonicalId') canonicalId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.setPublicationStatus(
+      decodeURIComponent(canonicalId),
+      'published',
+      request,
+    );
+  }
+
+  @Post(':canonicalId/unpublish')
+  @Scopes('catalog:write')
+  async unpublish(
+    @Param('canonicalId') canonicalId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.setPublicationStatus(
+      decodeURIComponent(canonicalId),
+      'draft',
+      request,
+    );
+  }
+
+  @Post(':canonicalId/pricing-authority/import')
+  @Scopes('catalog:write')
+  async releasePricingAuthority(
+    @Param('canonicalId') canonicalId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const decodedId = decodeURIComponent(canonicalId);
+    const model = await this.prisma.$transaction(async (tx) => {
+      const before = await tx.model.findUniqueOrThrow({
+        where: { canonicalId: decodedId },
+      });
+      const updated = await tx.model.update({
+        where: { id: before.id },
+        data: {
+          pricingAuthority: 'import',
+          lifecycleStatus: 'draft',
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          entityType: 'model',
+          entityId: before.id,
+          action: 'release_pricing_authority',
+          beforeJson: before as any,
+          afterJson: updated as any,
+          ...auditActor(request),
+        },
+      });
+      return updated;
+    });
+    await this.indexing.enqueueModelIndex(model.id);
+    return this.detail(encodeURIComponent(decodedId));
+  }
+
+  private async setPublicationStatus(
+    canonicalId: string,
+    lifecycleStatus: 'draft' | 'published',
+    request: AuthenticatedRequest,
+  ) {
+    const model = await this.prisma.$transaction(async (tx) => {
+      const before = await tx.model.findUniqueOrThrow({
+        where: { canonicalId },
+        include: {
+          provider: true,
+          modelSeries: true,
+          pricing: { include: { region: true, rates: true } },
+        },
+      });
+      const publication = this.publication(before);
+      if (lifecycleStatus === 'published' && !publication.eligible) {
+        throw new BadRequestException({
+          code: 'model_not_ready_for_publication',
+          blockers: publication.blockers,
+        });
+      }
+      const updated = await tx.model.update({
+        where: { id: before.id },
+        data: { lifecycleStatus },
+      });
+      await tx.auditLog.create({
+        data: {
+          entityType: 'model',
+          entityId: before.id,
+          action:
+            lifecycleStatus === 'published' ? 'publish' : 'unpublish',
+          beforeJson: before as any,
+          afterJson: { ...updated, publication } as any,
+          ...auditActor(request),
+        },
+      });
+      return updated;
+    });
+    await this.indexing.enqueueModelIndex(model.id);
+    return this.detail(encodeURIComponent(canonicalId));
+  }
+
+  private adminModel(row: any) {
+    const pricingProfiles = serializePricingProfiles(row.pricing ?? []);
+    const publication = evaluatePublicationReadiness({
+      mode: row.mode,
+      pricingStatus: row.pricingStatus,
+      pricingProfiles,
+    });
+    return {
+      ...row,
+      pricing: undefined,
+      pricingProfiles,
+      publication: {
+        ...publication,
+        state:
+          row.lifecycleStatus === 'published'
+            ? 'published'
+            : row.lifecycleStatus === 'deprecated' ||
+                row.lifecycleStatus === 'archived'
+              ? 'retired'
+              : publication.state,
+      },
+    };
+  }
+
+  private publication(row: any) {
+    return evaluatePublicationReadiness({
+      mode: row.mode,
+      pricingStatus: row.pricingStatus,
+      pricingProfiles: serializePricingProfiles(row.pricing ?? []),
     });
   }
 

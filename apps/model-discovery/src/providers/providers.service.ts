@@ -33,7 +33,7 @@ export class ProvidersService {
       orderBy: { name: 'asc' },
       include: {
         models: {
-          where: { enabled: true },
+          where: { enabled: true, lifecycleStatus: 'published' },
           select: { id: true, mode: true },
         },
       },
@@ -69,7 +69,7 @@ export class ProvidersService {
       where: { slug, enabled: true },
       include: {
         models: {
-          where: { enabled: true },
+          where: { enabled: true, lifecycleStatus: 'published' },
           include: {
             pricing: {
               include: {
@@ -101,7 +101,11 @@ export class ProvidersService {
 
   async listModels(slug: string) {
     const rows = await this.prisma.model.findMany({
-      where: { enabled: true, provider: { slug, enabled: true } },
+      where: {
+        enabled: true,
+        lifecycleStatus: 'published',
+        provider: { slug, enabled: true },
+      },
       include: {
         pricing: {
           include: {

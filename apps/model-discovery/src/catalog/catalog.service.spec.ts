@@ -65,7 +65,11 @@ describe('CatalogService', () => {
     } as any);
 
     expect(prisma.model.count).toHaveBeenNthCalledWith(1, {
-      where: { enabled: true, provider: { enabled: true } },
+      where: {
+        enabled: true,
+        lifecycleStatus: 'published',
+        provider: { enabled: true },
+      },
     });
     expect(prisma.model.findMany).toHaveBeenCalled();
     expect(result.meta).toEqual({

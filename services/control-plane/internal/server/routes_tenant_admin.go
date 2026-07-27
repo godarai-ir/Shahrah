@@ -94,6 +94,7 @@ func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	api.Post("/prompt-versions/:versionID/render", deps.AdminHandlers.RenderPromptVersion)
 	api.Get("/provider-catalog/providers", deps.AdminHandlers.ListProviderCatalog)
 	api.Post("/provider-catalog/refresh", deps.AdminHandlers.RefreshProviderCatalogCache)
+	api.Post("/provider-catalog/reconcile", deps.AdminHandlers.ReconcileProviderCatalogAvailability)
 	api.Get("/provider-catalog/stats", deps.AdminHandlers.GetProviderCatalogStats)
 	api.Get("/provider-catalog/display-settings", deps.AdminHandlers.GetProviderCatalogDisplaySettings)
 	api.Get("/provider-catalog/assets/:bucket/:fileName", deps.AdminHandlers.GetProviderCatalogAsset)

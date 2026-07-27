@@ -27,6 +27,7 @@ func (s *Store) ResolveProviderAccountAPIKey(ctx context.Context, tenantID, mode
 		  AND a.use_platform_managed_credentials = false
 		  AND COALESCE(a.credential_data->>'api_key', '') <> ''
 		  AND m.enabled = true
+		  AND m.catalog_available = true
 		ORDER BY a.updated_at DESC
 	`, tenantID, provider, accountAlias, "no_credential")
 	if err != nil {

@@ -45,6 +45,21 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
+	req.Provider = normalizeProviderSlug(req.Provider)
+	knownCatalogModel, publishedCatalogModel, catalogErr :=
+		discoveryAdminModelPublication(c.Context(), req.Provider, req.Model)
+	if catalogErr != nil {
+		return fiber.NewError(
+			fiber.StatusBadGateway,
+			"model publication status is unavailable",
+		)
+	}
+	if knownCatalogModel && !publishedCatalogModel {
+		return fiber.NewError(
+			fiber.StatusUnprocessableEntity,
+			"catalog model is not published",
+		)
+	}
 
 	dep, err := h.models.CreateDeployment(c.Context(), platform.Deployment{
 		TenantID:   currentTenant.ID,

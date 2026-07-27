@@ -56,6 +56,30 @@ func (h *Handlers) RefreshProviderCatalogCache(c *fiber.Ctx) error {
 	})
 }
 
+// ReconcileProviderCatalogAvailability refreshes the durable runtime gate from
+// the public (published-only) discovery catalog.
+func (h *Handlers) ReconcileProviderCatalogAvailability(c *fiber.Ctx) error {
+	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
+		"provider_account:manage",
+		"settings:manage",
+	}); err != nil {
+		return err
+	}
+	store, err := h.requireProviderAccountsStore()
+	if err != nil {
+		return err
+	}
+	providers, changed, err := ReconcileCatalogAvailability(c.Context(), store)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, err.Error())
+	}
+	return c.JSON(fiber.Map{
+		"ok":        true,
+		"providers": providers,
+		"changed":   changed,
+	})
+}
+
 // GetProviderCatalogStats returns discovery/cache telemetry counters.
 func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account read permission required", []string{
@@ -694,6 +718,8 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 			EffectiveCapabilities: item.Types,
 			PricingMode:           item.PricingMode,
 			PricingResolved:       resolved,
+			CatalogAvailable:      item.CatalogAvailable,
+			CatalogBlockReason:    item.CatalogBlockReason,
 		})
 	}
 

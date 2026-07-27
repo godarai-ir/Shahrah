@@ -34,6 +34,9 @@ When changing `model-discovery` usage in `control-plane`:
 3. Extend or adjust the OpenAPI contract assertions for any new upstream endpoint or critical parameter constraint.
 
 Do not add undocumented fallback behavior that hides upstream contract drift.
+Run `pnpm --dir apps/model-discovery audit:image-pricing` to list image
+models whose catalog profiles cannot use the `image`, `image_token`, or legacy
+`token` output strategies.
 
 ## Required Configuration
 
@@ -50,6 +53,7 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `TOKEN_USAGE_DELTA_TTL_SECONDS`: optional, default `86400`
 - `TOKEN_LAST_USED_FLUSH_INTERVAL_SECONDS`: optional, default `60`
 - `TOKEN_LAST_USED_TTL_SECONDS`: optional, default `86400`
+- `IMAGE_DIMENSIONAL_BILLING_MODE`: optional image billing rollout mode; `off` (default) keeps legacy input/output token rating, `shadow` records dimensional comparisons while settling with legacy rating, and `enforce` rates image endpoints with catalog `token`, `image_token`, and `image` units
 - `NOBITEX_EXCHANGE_RATE_ENABLED`: optional; defaults to `true` when `billing_settings.rate_source` is `nobitex`
 - `NOBITEX_EXCHANGE_RATE_INTERVAL_SECONDS`: optional, default `300`
 - `NOBITEX_EXCHANGE_RATE_SYMBOL`: optional, default `USDTIRT`

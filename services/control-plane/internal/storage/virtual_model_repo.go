@@ -704,6 +704,7 @@ func (s *Store) supportedModesForVirtualModelTarget(ctx context.Context, tenantI
 		  AND lower(a.provider) = lower($2)
 		  AND a.name = $3
 		  AND m.enabled = true
+		  AND m.catalog_available = true
 	`, tenantID, provider, accountAlias)
 	if err != nil {
 		return nil, err

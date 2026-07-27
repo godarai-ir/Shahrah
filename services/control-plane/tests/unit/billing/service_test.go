@@ -174,19 +174,13 @@ func rateEmbeddingEstimate(t *testing.T, svc *billing.Service, req openai.Embedd
 	return rated
 }
 
-func rateImageEstimate(t *testing.T, svc *billing.Service, model string) platform.UsageCostBreakdown {
+func rateImageEstimate(t *testing.T, svc *billing.Service, model string, usage platform.ImageUsage) platform.UsageCostBreakdown {
 	t.Helper()
-	rated, err := svc.RateDeploymentUsage(context.Background(), platform.Deployment{
+	rated, err := svc.EstimateImageUsage(context.Background(), platform.Deployment{
 		Model: model, Provider: "test", RegionName: "global",
 		BillingMode: platform.BillingModeWalletBilled, PricingSource: "public",
 		EffectivePricing: testTokenPricing("10", "27"),
-	}, platform.UsageCostBreakdown{
-		Model: model,
-		UsageMeasures: []platform.UsageMeasure{
-			{Usage: "input", Unit: "token", Amount: "1", ServiceTier: "standard"},
-			{Usage: "output", Unit: "token", Amount: "1", ServiceTier: "standard"},
-		},
-	})
+	}, model, usage)
 	require.NoError(t, err)
 	return rated
 }
@@ -443,12 +437,12 @@ func TestBillingService_ShouldFinalizeImageCostWithImagePricing(t *testing.T) {
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
 
-	usage := &openai.Usage{
-		PromptTokens:     1000,
-		CompletionTokens: 1000,
-		TotalTokens:      2000,
+	usage := platform.ImageUsage{
+		InputTokens:  1000,
+		OutputTokens: 1000,
+		TotalTokens:  2000,
 	}
-	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-1.5", usage, nil, rateImageEstimate(t, svc, "gpt-image-1.5"))
+	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-1.5", usage, rateImageEstimate(t, svc, "gpt-image-1.5", usage))
 	require.NoError(t, err)
 
 	expectedUSD := 0.037
@@ -465,8 +459,15 @@ func TestBillingService_ShouldUseProviderImageCostTicksWhenAvailable(t *testing.
 	}, 850000, "test")
 
 	ticks := int64(200000000)
-	usage := &openai.Usage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30}
-	out, err := svc.FinalizeImageUsage(context.Background(), "grok-imagine-image", usage, &ticks, rateImageEstimate(t, svc, "grok-imagine-image"))
+	usage := platform.ImageUsage{
+		InputTokens:          10,
+		OutputTokens:         20,
+		TotalTokens:          30,
+		ProviderCostUSDTicks: &ticks,
+		Source:               platform.ImageUsageSourceProviderReported,
+	}
+	estimateUsage := platform.ImageUsage{InputTokens: 10, OutputTokens: 20, TotalTokens: 30}
+	out, err := svc.FinalizeImageUsage(context.Background(), "grok-imagine-image", usage, rateImageEstimate(t, svc, "grok-imagine-image", estimateUsage))
 	require.NoError(t, err)
 
 	assert.Equal(t, 10, out.InputTokens)
@@ -484,8 +485,9 @@ func TestBillingService_ShouldChargeImageUsageWhenOnlyTotalTokensAreReturned(t *
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
 
-	usage := &openai.Usage{TotalTokens: 284}
-	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-2", usage, nil, rateImageEstimate(t, svc, "gpt-image-2"))
+	usage := platform.ImageUsage{TotalTokens: 284}
+	estimateUsage := platform.ImageUsage{OutputTokens: 284, TotalTokens: 284}
+	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-2", usage, rateImageEstimate(t, svc, "gpt-image-2", estimateUsage))
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, out.InputTokens)

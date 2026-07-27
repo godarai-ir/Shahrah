@@ -124,6 +124,29 @@ type UsageMeasure struct {
 	Qualifiers  map[string]interface{} `json:"qualifiers,omitempty"`
 }
 
+const (
+	ImageUsageSourceEstimated        = "estimated"
+	ImageUsageSourceProviderUsage    = "provider_usage"
+	ImageUsageSourceProviderReported = "provider_reported"
+)
+
+// ImageUsage is a provider-independent description of image endpoint usage.
+// Optional detail pointers distinguish a missing provider breakdown from a
+// provider-reported zero.
+type ImageUsage struct {
+	InputTokens          int    `json:"input_tokens"`
+	OutputTokens         int    `json:"output_tokens"`
+	TotalTokens          int    `json:"total_tokens"`
+	InputTextTokens      *int   `json:"input_text_tokens,omitempty"`
+	InputImageTokens     *int   `json:"input_image_tokens,omitempty"`
+	InputImageCount      int    `json:"input_image_count,omitempty"`
+	OutputImageCount     int    `json:"output_image_count,omitempty"`
+	Resolution           string `json:"resolution,omitempty"`
+	Quality              string `json:"quality,omitempty"`
+	ProviderCostUSDTicks *int64 `json:"provider_cost_usd_ticks,omitempty"`
+	Source               string `json:"source,omitempty"`
+}
+
 // AppliedRate records the exact catalog rate selected for a usage measure.
 type AppliedRate struct {
 	ProfileKey       string                 `json:"profile_key"`
@@ -242,16 +265,18 @@ type TenantProviderAccount struct {
 
 // TenantProviderAccountModel is tenant-selected model config inside one account.
 type TenantProviderAccountModel struct {
-	Model            string                 `json:"model"`
-	Enabled          bool                   `json:"enabled"`
-	Types            []ModelType            `json:"types"`
-	SupportedModes   []ModelType            `json:"supported_modes,omitempty"`
-	InputModalities  []string               `json:"input_modalities,omitempty"`
-	OutputModalities []string               `json:"output_modalities,omitempty"`
-	PricingMode      PricingMode            `json:"pricing_mode"`
-	PublicPricing    *ModelPrice            `json:"public_pricing,omitempty"`
-	PrivatePricing   *ModelPrice            `json:"private_pricing,omitempty"`
-	Settings         map[string]interface{} `json:"settings,omitempty"`
+	Model              string                 `json:"model"`
+	Enabled            bool                   `json:"enabled"`
+	CatalogAvailable   bool                   `json:"catalog_available"`
+	CatalogBlockReason string                 `json:"catalog_block_reason,omitempty"`
+	Types              []ModelType            `json:"types"`
+	SupportedModes     []ModelType            `json:"supported_modes,omitempty"`
+	InputModalities    []string               `json:"input_modalities,omitempty"`
+	OutputModalities   []string               `json:"output_modalities,omitempty"`
+	PricingMode        PricingMode            `json:"pricing_mode"`
+	PublicPricing      *ModelPrice            `json:"public_pricing,omitempty"`
+	PrivatePricing     *ModelPrice            `json:"private_pricing,omitempty"`
+	Settings           map[string]interface{} `json:"settings,omitempty"`
 }
 
 // AccessPrincipal is one user/team/everyone principal entry.
@@ -313,6 +338,8 @@ type TenantProviderAccountModelEffective struct {
 	EffectiveCapabilities []ModelType `json:"effective_capabilities"`
 	PricingMode           PricingMode `json:"pricing_mode"`
 	PricingResolved       bool        `json:"pricing_resolved"`
+	CatalogAvailable      bool        `json:"catalog_available"`
+	CatalogBlockReason    string      `json:"catalog_block_reason,omitempty"`
 }
 
 type TenantProviderAccountModelsUpsertResponse struct {

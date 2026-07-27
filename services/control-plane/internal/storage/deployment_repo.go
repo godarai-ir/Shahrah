@@ -79,7 +79,8 @@ func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]p
 		SELECT id::text, COALESCE(tenant_id::text, ''), model_name, provider, model,
 		       provider_config, COALESCE(model_info, '{}')
 		FROM model_deployments
-		WHERE tenant_id IS NULL OR tenant_id = $1
+		WHERE (tenant_id IS NULL OR tenant_id = $1)
+		  AND (catalog_managed = false OR catalog_available = true)
 		ORDER BY created_at ASC
 	`, tenantID)
 	if err != nil {
@@ -162,6 +163,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		JOIN tenant_provider_account_models m
 		  ON m.account_id = a.account_id
 		 AND m.enabled = true
+		 AND m.catalog_available = true
 		WHERE a.tenant_id = $1
 		ORDER BY a.created_at ASC, m.created_at ASC, m.model ASC
 	`, tenantID)

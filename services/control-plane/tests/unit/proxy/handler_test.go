@@ -123,13 +123,14 @@ func (m *mockTunnelTransport) Healthy(ctx context.Context) error { return nil }
 
 // mockBilling implements budgeter interface for testing.
 type mockBilling struct {
-	cost           platform.UsageCostBreakdown
-	estimateErr    error
-	rateLimitErr   error
-	rateLimitRes   *mcache.RateLimitResult
-	budgetErr      error
-	estimateModel  string
-	finalizedUsage *contractsopenai.Usage
+	cost                platform.UsageCostBreakdown
+	estimateErr         error
+	rateLimitErr        error
+	rateLimitRes        *mcache.RateLimitResult
+	budgetErr           error
+	estimateModel       string
+	finalizedUsage      *contractsopenai.Usage
+	finalizedImageUsage *platform.ImageUsage
 }
 
 func (m *mockBilling) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
@@ -139,6 +140,11 @@ func (m *mockBilling) EstimateCost(ctx context.Context, req contractsopenai.Chat
 
 func (m *mockBilling) EstimateEmbeddingCost(ctx context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
 	m.estimateModel = req.Model
+	return m.cost, m.estimateErr
+}
+
+func (m *mockBilling) EstimateImageUsage(ctx context.Context, deployment platform.Deployment, model string, usage platform.ImageUsage) (platform.UsageCostBreakdown, error) {
+	m.estimateModel = model
 	return m.cost, m.estimateErr
 }
 
@@ -159,7 +165,9 @@ func (m *mockBilling) FinalizeFromUsage(ctx context.Context, model string, usage
 	return m.cost, nil
 }
 
-func (m *mockBilling) FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+func (m *mockBilling) FinalizeImageUsage(ctx context.Context, model string, usage platform.ImageUsage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	usageCopy := usage
+	m.finalizedImageUsage = &usageCopy
 	return m.cost, nil
 }
 

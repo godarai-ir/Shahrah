@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
@@ -173,15 +172,28 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	contractDeployment := toContractDeployment(dep)
 	outboundModel := providerOutboundModel(requestedModel, dep)
 
-	estimated := estimateImageCostFallback(requestedModel, metadata)
-	if usage := estimatedImageUsage(outboundModel, metadata); usage != nil {
-		estimated = withTokenUsageMeasures(estimated, usage.PromptTokens, usage.CompletionTokens)
-	}
-
-	estimated.Metadata = metadata
-	estimated, err = rateDeploymentEstimate(c, h.billing, contractDeployment, estimated)
+	estimatedUsage := estimatedImageUsage(outboundModel, metadata)
+	estimated, err := h.billing.EstimateImageUsage(
+		c.Context(),
+		contractDeployment,
+		billingModelForDeployment(requestedModel, contractDeployment),
+		estimatedUsage,
+	)
 	if err != nil {
-		return err
+		return writeAPIError(
+			c,
+			fiber.StatusUnprocessableEntity,
+			"Effective pricing is unavailable for the selected deployment",
+			"pricing_unresolved",
+		)
+	}
+	estimated.RequestType = op.RequestType
+	estimated.Endpoint = "/v1" + op.Path
+	if estimated.Metadata == nil {
+		estimated.Metadata = map[string]interface{}{}
+	}
+	for key, value := range metadata {
+		estimated.Metadata[key] = value
 	}
 	quotaStart := time.Now()
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
@@ -260,7 +272,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
-	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType, body, contentType)
+	err = h.handleSync(c, requestedModel, authInfo, estimated, estimatedUsage, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType, body, contentType)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -273,6 +285,7 @@ func (h *ImagesHandler) handleSync(
 	requestedModel string,
 	authInfo *platform.AuthContext,
 	estimated platform.UsageCostBreakdown,
+	estimatedUsage platform.ImageUsage,
 	tunnelReq platform.TunnelRequest,
 	budgetReservation *platform.BudgetReservation,
 	op imageOperation,
@@ -306,11 +319,23 @@ func (h *ImagesHandler) handleSync(
 	providerAttrs["response_payload"] = buildTraceImageResponsePayload(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
-	providerCostUSDTicks := imageUsageCostTicksPtr(resp.Body)
-
-	finalCost, err := h.billing.FinalizeImageUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), imageUsageToOpenAI(resp.Body), providerCostUSDTicks, estimated)
+	actualUsage := imageUsageFromResponse(resp.Body, estimatedUsage)
+	finalCost, err := h.billing.FinalizeImageUsage(
+		c.Context(),
+		billingModelForDeployment(requestedModel, tunnelReq.Deployment),
+		actualUsage,
+		estimated,
+	)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize image usage", "billing_error")
+	}
+	if strings.EqualFold(strings.TrimSpace(finalCost.RatingStatus), "estimated_final") &&
+		h.logger != nil {
+		h.logger.Warn(
+			"image billing finalized from pre-provider estimate",
+			zap.String("request_id", tunnelReq.RequestID),
+			zap.String("provider", tunnelReq.Deployment.Provider),
+		)
 	}
 
 	metadata := enrichPricingMetadata(withImageResponseMetadata(tunnelReq.RequestMetadata, resp.Body), auth.GetAuthInfo(c), requestedModel)
@@ -348,6 +373,12 @@ func (h *ImagesHandler) handleSync(
 		RequestMetadata: metadata,
 		CompletionStart: start,
 		CompletionEnd:   time.Now(),
+		UsageMeasures:   finalCost.UsageMeasures,
+		RatingSnapshot:  ratedUsageFromBreakdown(finalCost, tunnelReq.Deployment),
+		CostComponents:  finalCost.AppliedRates,
+		PricingSource:   finalCost.PricingSource,
+		RatingStatus:    finalCost.RatingStatus,
+		OutputCount:     actualUsage.OutputImageCount,
 	})
 	h.emitModelMetric(metricsobs.BuildInput{
 		TS:                 time.Now().UTC(),
@@ -465,7 +496,7 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
 
-	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "input_fidelity"} {
+	for _, key := range []string{"resolution", "image_size", "size", "quality", "response_format", "output_format", "moderation", "background", "input_fidelity"} {
 		if v, ok := raw[key].(string); ok && strings.TrimSpace(v) != "" {
 			metadata[key] = strings.TrimSpace(v)
 		}
@@ -619,7 +650,7 @@ func multipartImagePresence(c *fiber.Ctx) interface{} {
 }
 
 func fillImageMultipartMetadata(c *fiber.Ctx, metadata map[string]interface{}, op imageOperation) {
-	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "output_compression", "partial_images", "input_fidelity"} {
+	for _, key := range []string{"resolution", "image_size", "size", "quality", "response_format", "output_format", "moderation", "background", "output_compression", "partial_images", "input_fidelity"} {
 		if v := strings.TrimSpace(c.FormValue(key)); v != "" {
 			metadata[key] = v
 		}
@@ -802,75 +833,219 @@ func escapeMultipartQuote(value string) string {
 	return value
 }
 
-func estimateImageCostFallback(model string, _ map[string]interface{}) platform.UsageCostBreakdown {
-	return platform.UsageCostBreakdown{
-		Model:       model,
-		TotalTokens: 0,
-	}
-}
-
-func estimatedImageUsage(model string, metadata map[string]interface{}) *contractsopenai.Usage {
-	if len(metadata) == 0 {
-		return nil
-	}
-
-	inputTokens := 0
+func estimatedImageUsage(model string, metadata map[string]interface{}) platform.ImageUsage {
+	inputTextTokens := 0
 	if rawPromptLength, ok := metadata["prompt_length"]; ok {
-		inputTokens = estimateTextTokensFromLength(rawPromptLength)
+		inputTextTokens = estimateTextTokensFromLength(rawPromptLength)
 	}
-
-	if inputTokens == 0 {
-		inputTokens = 100
+	if inputTextTokens == 0 {
+		inputTextTokens = 100
 	}
-
-	inputTokens += estimatedImageInputTokens(model, metadata)
-
+	inputImageTokens := estimatedImageInputTokens(model, metadata)
 	imageCount := imageCountFromMetadata(metadata)
 	outputTokens := estimatedImageOutputTokens(model, metadata) * imageCount
-	outputTokens += partialImageCountFromMetadata(metadata) * 100
+	inputTokens := inputTextTokens + inputImageTokens
 
-	return &contractsopenai.Usage{
-		PromptTokens:     inputTokens,
-		CompletionTokens: outputTokens,
+	return platform.ImageUsage{
+		InputTokens:      inputTokens,
+		OutputTokens:     outputTokens,
 		TotalTokens:      inputTokens + outputTokens,
+		InputTextTokens:  intPointer(inputTextTokens),
+		InputImageTokens: intPointer(inputImageTokens),
+		InputImageCount:  imageInputCountFromMetadata(metadata),
+		OutputImageCount: imageCount,
+		Resolution:       canonicalImageResolution(metadata),
+		Quality:          normalizedImageQuality(metadata),
+		Source:           platform.ImageUsageSourceEstimated,
 	}
 }
 
-func imageUsageToOpenAI(body []byte) *contractsopenai.Usage {
+func imageUsageFromResponse(
+	body []byte,
+	estimated platform.ImageUsage,
+) platform.ImageUsage {
 	var raw map[string]interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&raw); err != nil {
+		return providerImageUsageFallback(estimated)
 	}
 
+	outputCount := 0
+	if data, ok := raw["data"].([]interface{}); ok {
+		outputCount = len(data)
+	}
+	if outputCount == 0 {
+		outputCount = estimated.OutputImageCount
+	}
+
+	out := platform.ImageUsage{
+		InputImageCount:  estimated.InputImageCount,
+		OutputImageCount: outputCount,
+		Resolution:       estimated.Resolution,
+		Quality:          estimated.Quality,
+		Source:           platform.ImageUsageSourceProviderUsage,
+	}
 	usage, ok := raw["usage"].(map[string]interface{})
 	if !ok {
-		return nil
+		return out
 	}
 
-	inputTokens := intFromImageUsage(usage, "input_tokens")
-	if inputTokens == 0 {
-		inputTokens = intFromImageUsage(usage, "prompt_tokens")
+	out.InputTokens = firstImageUsageInt(usage, "input_tokens", "prompt_tokens")
+	out.OutputTokens = firstImageUsageInt(usage, "output_tokens", "completion_tokens")
+	out.TotalTokens = firstImageUsageInt(usage, "total_tokens")
+	if details, ok := usage["input_tokens_details"].(map[string]interface{}); ok {
+		if value, found := imageInteger(details["text_tokens"]); found {
+			out.InputTextTokens = intPointer(value)
+		}
+		if value, found := imageInteger(details["image_tokens"]); found {
+			out.InputImageTokens = intPointer(value)
+		}
+	}
+	if out.InputTokens > 0 &&
+		out.InputTextTokens == nil &&
+		out.InputImageTokens == nil {
+		out.InputTextTokens, out.InputImageTokens = proportionalImageInputSplit(
+			out.InputTokens,
+			estimated,
+		)
+	}
+	if ticks, found := imageInt64(usage["cost_in_usd_ticks"]); found {
+		out.ProviderCostUSDTicks = &ticks
+		if ticks >= 0 {
+			out.Source = platform.ImageUsageSourceProviderReported
+		}
+	}
+	if out.InputTokens == 0 &&
+		out.OutputTokens == 0 &&
+		out.TotalTokens > 0 {
+		out.OutputTokens = out.TotalTokens
+	}
+	if out.TotalTokens < out.InputTokens+out.OutputTokens {
+		out.TotalTokens = out.InputTokens + out.OutputTokens
+	}
+	return out
+}
+
+func intPointer(value int) *int {
+	return &value
+}
+
+func canonicalImageResolution(metadata map[string]interface{}) string {
+	for _, key := range []string{"resolution", "image_size", "size"} {
+		value := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata[key])))
+		switch value {
+		case "1k", "2k", "4k":
+			return value
+		}
+	}
+	return ""
+}
+
+func normalizedImageQuality(metadata map[string]interface{}) string {
+	quality := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["quality"])))
+	if quality == "<nil>" {
+		return ""
+	}
+	return quality
+}
+
+func providerImageUsageFallback(estimated platform.ImageUsage) platform.ImageUsage {
+	return platform.ImageUsage{
+		InputImageCount:  estimated.InputImageCount,
+		OutputImageCount: estimated.OutputImageCount,
+		Resolution:       estimated.Resolution,
+		Quality:          estimated.Quality,
+		Source:           platform.ImageUsageSourceProviderUsage,
+	}
+}
+
+func firstImageUsageInt(usage map[string]interface{}, keys ...string) int {
+	for _, key := range keys {
+		if value, ok := imageInteger(usage[key]); ok {
+			return value
+		}
+	}
+	return 0
+}
+
+func imageInteger(value interface{}) (int, bool) {
+	switch typed := value.(type) {
+	case json.Number:
+		parsed, err := typed.Int64()
+		if err != nil || parsed < 0 || int64(int(parsed)) != parsed {
+			return 0, false
+		}
+		return int(parsed), true
+	case int:
+		if typed < 0 {
+			return 0, false
+		}
+		return typed, true
+	case int64:
+		if typed < 0 || int64(int(typed)) != typed {
+			return 0, false
+		}
+		return int(typed), true
+	case float64:
+		if typed < 0 || math.Trunc(typed) != typed || typed > float64(^uint(0)>>1) {
+			return 0, false
+		}
+		return int(typed), true
+	default:
+		return 0, false
+	}
+}
+
+func imageInt64(value interface{}) (int64, bool) {
+	switch typed := value.(type) {
+	case json.Number:
+		parsed, err := typed.Int64()
+		return parsed, err == nil
+	case int:
+		return int64(typed), true
+	case int64:
+		return typed, true
+	case float64:
+		if math.Trunc(typed) != typed ||
+			typed < math.MinInt64 ||
+			typed > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(typed), true
+	default:
+		return 0, false
+	}
+}
+
+func proportionalImageInputSplit(
+	actualInputTokens int,
+	estimated platform.ImageUsage,
+) (*int, *int) {
+	estimatedText := 0
+	if estimated.InputTextTokens != nil {
+		estimatedText = maxImageInt(*estimated.InputTextTokens, 0)
+	}
+	estimatedImage := 0
+	if estimated.InputImageTokens != nil {
+		estimatedImage = maxImageInt(*estimated.InputImageTokens, 0)
+	}
+	estimatedTotal := estimatedText + estimatedImage
+	if estimatedTotal <= 0 {
+		return intPointer(actualInputTokens), intPointer(0)
 	}
 
-	outputTokens := intFromImageUsage(usage, "output_tokens")
-	if outputTokens == 0 {
-		outputTokens = intFromImageUsage(usage, "completion_tokens")
-	}
+	// Integer division assigns any rounding remainder to text tokens.
+	imageTokens := actualInputTokens * estimatedImage / estimatedTotal
+	textTokens := actualInputTokens - imageTokens
+	return intPointer(textTokens), intPointer(imageTokens)
+}
 
-	totalTokens := intFromImageUsage(usage, "total_tokens")
-	if totalTokens == 0 {
-		totalTokens = inputTokens + outputTokens
+func maxImageInt(left, right int) int {
+	if left > right {
+		return left
 	}
-
-	if inputTokens == 0 && outputTokens == 0 && totalTokens == 0 {
-		return nil
-	}
-
-	return &contractsopenai.Usage{
-		PromptTokens:     inputTokens,
-		CompletionTokens: outputTokens,
-		TotalTokens:      totalTokens,
-	}
+	return right
 }
 
 func estimateTextTokensFromLength(raw interface{}) int {
@@ -1054,39 +1229,6 @@ func isLandscapeSize(size string) bool {
 	return wErr == nil && hErr == nil && width > height
 }
 
-func partialImageCountFromMetadata(metadata map[string]interface{}) int {
-	if metadata == nil {
-		return 0
-	}
-
-	count := imageNumber(metadata["partial_images"])
-	if count < 0 {
-		return 0
-	}
-
-	return count
-}
-
-func intFromImageUsage(usage map[string]interface{}, key string) int {
-	switch v := usage[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case json.Number:
-		n, err := v.Int64()
-		if err != nil {
-			return 0
-		}
-
-		return int(n)
-	default:
-		return 0
-	}
-}
-
 func withImageResponseMetadata(input map[string]interface{}, body []byte) map[string]interface{} {
 	out := map[string]interface{}{}
 	for k, v := range input {
@@ -1103,7 +1245,9 @@ func withImageResponseMetadata(input map[string]interface{}, body []byte) map[st
 
 func imageUsageCostTicks(body []byte) (int64, bool) {
 	var raw map[string]interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&raw); err != nil {
 		return 0, false
 	}
 
@@ -1112,26 +1256,7 @@ func imageUsageCostTicks(body []byte) (int64, bool) {
 		return 0, false
 	}
 
-	switch v := usage["cost_in_usd_ticks"].(type) {
-	case float64:
-		return int64(v), true
-	case int64:
-		return v, true
-	case json.Number:
-		n, err := v.Int64()
-		return n, err == nil
-	default:
-		return 0, false
-	}
-}
-
-func imageUsageCostTicksPtr(body []byte) *int64 {
-	ticks, ok := imageUsageCostTicks(body)
-	if !ok {
-		return nil
-	}
-
-	return &ticks
+	return imageInt64(usage["cost_in_usd_ticks"])
 }
 
 func imageNumber(v interface{}) int {

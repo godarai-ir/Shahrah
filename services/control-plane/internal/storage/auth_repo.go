@@ -244,6 +244,7 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 			JOIN tenant_provider_account_models m ON m.account_id = a.account_id
 			WHERE a.tenant_id = $1
 			  AND m.enabled = true
+			  AND m.catalog_available = true
 		)
 	`, tenantID).Scan(&hasEnabledModels); err != nil {
 		return nil, false, err
@@ -267,6 +268,7 @@ func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, t
 		JOIN tenant_provider_account_models m
 		  ON m.account_id = a.account_id
 		 AND m.enabled = true
+		 AND m.catalog_available = true
 		JOIN tenant_provider_account_access ac
 		  ON ac.account_id = a.account_id
 		 AND ac.role = 'user'

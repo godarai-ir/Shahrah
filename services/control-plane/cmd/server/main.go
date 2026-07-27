@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -66,6 +67,12 @@ func main() {
 		logger.Fatal("Failed to initialize storage", zap.Error(err))
 	}
 	defer store.Close()
+	go admin.RunCatalogAvailabilityReconciler(
+		ctx,
+		store,
+		time.Duration(intEnvOrDefault("MODEL_CATALOG_RECONCILE_INTERVAL_SEC", 60))*time.Second,
+		logger,
+	)
 
 	httpMetrics := prommetrics.NewHTTPMetrics()
 
@@ -509,6 +516,18 @@ func stringEnvOrDefault(key, fallback string) string {
 	}
 
 	return fallback
+}
+
+func intEnvOrDefault(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 func newMetricsDLQ(ctx context.Context, cfg metricsobs.DLQConfig) (metricsobs.DeadLetterQueue, error) {

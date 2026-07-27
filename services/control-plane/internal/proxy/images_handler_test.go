@@ -14,6 +14,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	billingservice "github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
@@ -91,6 +92,39 @@ type rateLimitCountingBudgeter struct {
 	lastEstimatedTokens int
 }
 
+type imageBillingTestStore struct {
+	testWallets
+	wallet *platform.Wallet
+	rate   *platform.ExchangeRate
+}
+
+func (s *imageBillingTestStore) GetWallet(
+	_ context.Context,
+	tenantID string,
+) (*platform.Wallet, error) {
+	if s.wallet == nil {
+		return &platform.Wallet{TenantID: tenantID, BalanceIRR: 1_000_000}, nil
+	}
+	return s.wallet, nil
+}
+
+func (s *imageBillingTestStore) GetLatestExchangeRate(
+	_ context.Context,
+) (*platform.ExchangeRate, error) {
+	if s.rate == nil {
+		return &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"}, nil
+	}
+	return s.rate, nil
+}
+
+func (s *imageBillingTestStore) UpsertExchangeRate(
+	_ context.Context,
+	rate platform.ExchangeRate,
+) (*platform.ExchangeRate, error) {
+	s.rate = &rate
+	return &rate, nil
+}
+
 func (b *rateLimitCountingBudgeter) CheckRateLimit(_ context.Context, _ *platform.AuthContext, _ string, estimatedTokens int) (*cache.RateLimitResult, error) {
 	b.calls++
 	b.lastEstimatedTokens = estimatedTokens
@@ -99,10 +133,11 @@ func (b *rateLimitCountingBudgeter) CheckRateLimit(_ context.Context, _ *platfor
 }
 
 func TestImagesHandlerJSONGeneration(t *testing.T) {
+	providerBody := []byte(`{"created":1,"data":[{"b64_json":"AAAA","revised_prompt":"safe","mime_type":"image/png"}],"usage":{"input_tokens":12,"output_tokens":272,"total_tokens":284,"cost_in_usd_ticks":12345}}`)
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
 		Headers:    map[string]string{"content-type": "application/json"},
-		Body:       []byte(`{"created":1,"data":[{"b64_json":"AAAA","revised_prompt":"safe","mime_type":"image/png"}],"usage":{"input_tokens":12,"output_tokens":272,"total_tokens":284,"cost_in_usd_ticks":12345}}`),
+		Body:       providerBody,
 	}}
 	logs := &testLogs{}
 	app, _ := newImagesTestApp(t, "openai:acct:gpt-image-1", "openai", "gpt-image-1", tunnel, logs, nil)
@@ -128,10 +163,118 @@ func TestImagesHandlerJSONGeneration(t *testing.T) {
 	assert.Equal(t, 284, logs.loggedSpends[0].TotalTokens)
 	assert.InDelta(t, 0.0000012345, logs.loggedSpends[0].CostUSD, 1e-12)
 	assert.Equal(t, int64(12345), logs.loggedSpends[0].RequestMetadata["provider_cost_in_usd_ticks"])
+	assert.Equal(t, "provider_reported", logs.loggedSpends[0].RatingStatus)
+	assert.Equal(t, "provider_reported", logs.loggedSpends[0].PricingSource)
+	assert.Equal(t, 1, logs.loggedSpends[0].OutputCount)
+	require.NotNil(t, logs.loggedSpends[0].RatingSnapshot)
+	require.Len(t, logs.loggedSpends[0].CostComponents, 1)
+	assert.Equal(t, "provider-reported:request", logs.loggedSpends[0].CostComponents[0].RateKey)
+	assert.Equal(t, "0.0000012345", logs.loggedSpends[0].CostComponents[0].ComponentCostUSD)
 	require.Len(t, logs.requestEntries(), 1)
 	assert.Equal(t, "openai:acct:gpt-image-1", logs.requestEntries()[0].RequestBody["model"])
 	assert.Equal(t, "paint a bridge", logs.requestEntries()[0].RequestBody["prompt"])
 	assert.Equal(t, "generations", logs.requestEntries()[0].RequestBody["operation"])
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, providerBody, responseBody)
+}
+
+func TestImagesHandlerWalletPreflightSupportsPerImagePricing(t *testing.T) {
+	t.Setenv("IMAGE_DIMENSIONAL_BILLING_MODE", "enforce")
+	mem, err := cache.NewMemoryCache(zap.NewNop())
+	require.NoError(t, err)
+	modelName := "xai:acct:grok-imagine-image"
+	price := &platform.ModelPrice{
+		Status: "priced",
+		Profiles: []platform.PricingProfile{{
+			Region:   "global",
+			Currency: "USD",
+			Rates: []platform.PricingRate{{
+				Key:         "output:image",
+				Usage:       "output",
+				Unit:        "image",
+				Amount:      "0.02",
+				Quantity:    1,
+				ServiceTier: "standard",
+			}},
+		}},
+	}
+	deployments := completionsDeploymentStore{deployments: []platform.Deployment{{
+		ID:               "dep-image",
+		TenantID:         "tenant_a",
+		ModelName:        modelName,
+		Provider:         "xai",
+		Model:            "grok-imagine-image",
+		APIKey:           "test-key",
+		RegionName:       "global",
+		BillingMode:      platform.BillingModeWalletBilled,
+		EffectivePricing: price,
+		PricingSource:    "public",
+	}}}
+	rt, err := router.NewRouter(
+		nil,
+		config.RouterSettings{CooldownTime: 60, NumRetries: 1},
+		mem,
+		deployments,
+		zap.NewNop(),
+	)
+	require.NoError(t, err)
+
+	store := &imageBillingTestStore{
+		wallet: &platform.Wallet{TenantID: "tenant_a", BalanceIRR: 1_000_000},
+		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}
+	billing := billingservice.NewService(mem, store, 850000, "test")
+	logs := &testLogs{}
+	providerBody := []byte(`{"created":1,"data":[{"url":"one"},{"url":"two"}]}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       providerBody,
+	}}
+	handler := NewImagesHandler(rt, tunnel, billing, store, logs, zap.NewNop())
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+			AllowedModelTypes: map[string][]string{
+				modelName: {"image_generation"},
+			},
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{
+			ID:     "tenant_a",
+			Slug:   "a",
+			Status: "active",
+		})
+		return c.Next()
+	})
+	app.Post("/v1/images/generations", handler.HandleGenerations)
+
+	req := httptest.NewRequest(
+		"POST",
+		"/v1/images/generations",
+		bytes.NewBufferString(`{"model":"xai:acct:grok-imagine-image","prompt":"two images","n":2}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, providerBody, body)
+	require.Len(t, logs.loggedSpends, 1)
+	assert.InDelta(t, 0.04, logs.loggedSpends[0].CostUSD, 1e-12)
+	assert.Equal(t, 2, logs.loggedSpends[0].OutputCount)
+	assert.Equal(t, "rated", logs.loggedSpends[0].RatingStatus)
+	require.Len(t, logs.loggedSpends[0].CostComponents, 1)
+	assert.Equal(t, "image", logs.loggedSpends[0].CostComponents[0].Unit)
+	assert.Equal(t, "0.04", logs.loggedSpends[0].CostComponents[0].ComponentCostUSD)
 }
 
 func TestImagesHandlerGenerationRequiresPrompt(t *testing.T) {
@@ -160,10 +303,10 @@ func TestEstimatedImageUsageUsesGPTImage2TokenTable(t *testing.T) {
 		"partial_images": 2,
 	})
 
-	require.NotNil(t, usage)
-	assert.Equal(t, 5, usage.PromptTokens)
-	assert.Equal(t, 1967, usage.CompletionTokens)
-	assert.Equal(t, 1972, usage.TotalTokens)
+	require.NotNil(t, usage.InputTextTokens)
+	assert.Equal(t, 5, *usage.InputTextTokens)
+	assert.Equal(t, 1767, usage.OutputTokens)
+	assert.Equal(t, 1772, usage.TotalTokens)
 }
 
 func TestEstimatedImageUsageIncludesEditInputImages(t *testing.T) {
@@ -174,9 +317,12 @@ func TestEstimatedImageUsageIncludesEditInputImages(t *testing.T) {
 		"quality":       "low",
 	})
 
-	require.NotNil(t, usage)
-	assert.Equal(t, 3077, usage.PromptTokens)
-	assert.Equal(t, 196, usage.CompletionTokens)
+	require.NotNil(t, usage.InputTextTokens)
+	require.NotNil(t, usage.InputImageTokens)
+	assert.Equal(t, 5, *usage.InputTextTokens)
+	assert.Equal(t, 3072, *usage.InputImageTokens)
+	assert.Equal(t, 3077, usage.InputTokens)
+	assert.Equal(t, 196, usage.OutputTokens)
 	assert.Equal(t, 3273, usage.TotalTokens)
 }
 
@@ -187,10 +333,92 @@ func TestEstimatedImageUsageUsesDallE2VariationUnits(t *testing.T) {
 		"size":        "512x512",
 	})
 
-	require.NotNil(t, usage)
-	assert.Equal(t, 1124, usage.PromptTokens)
-	assert.Equal(t, 1800, usage.CompletionTokens)
+	require.NotNil(t, usage.InputTextTokens)
+	require.NotNil(t, usage.InputImageTokens)
+	assert.Equal(t, 100, *usage.InputTextTokens)
+	assert.Equal(t, 1024, *usage.InputImageTokens)
+	assert.Equal(t, 1124, usage.InputTokens)
+	assert.Equal(t, 1800, usage.OutputTokens)
 	assert.Equal(t, 2924, usage.TotalTokens)
+}
+
+func TestImageUsageFromResponseNormalizesOpenAIImageDetails(t *testing.T) {
+	estimated := platform.ImageUsage{
+		InputTextTokens:  imageTestIntPointer(1),
+		InputImageTokens: imageTestIntPointer(1),
+		OutputImageCount: 3,
+		Resolution:       "4k",
+		Quality:          "high",
+	}
+	usage := imageUsageFromResponse([]byte(`{
+		"data":[{"url":"one"},{"url":"two"}],
+		"usage":{
+			"input_tokens":50,
+			"input_tokens_details":{"text_tokens":10,"image_tokens":40},
+			"output_tokens":50,
+			"total_tokens":100
+		}
+	}`), estimated)
+
+	require.NotNil(t, usage.InputTextTokens)
+	require.NotNil(t, usage.InputImageTokens)
+	assert.Equal(t, 10, *usage.InputTextTokens)
+	assert.Equal(t, 40, *usage.InputImageTokens)
+	assert.Equal(t, 50, usage.InputTokens)
+	assert.Equal(t, 50, usage.OutputTokens)
+	assert.Equal(t, 100, usage.TotalTokens)
+	assert.Equal(t, 2, usage.OutputImageCount)
+	assert.Equal(t, "4k", usage.Resolution)
+	assert.Equal(t, "high", usage.Quality)
+	assert.Equal(t, platform.ImageUsageSourceProviderUsage, usage.Source)
+}
+
+func TestImageUsageFromResponseSplitsMissingDetailsProportionally(t *testing.T) {
+	estimated := platform.ImageUsage{
+		InputTextTokens:  imageTestIntPointer(100),
+		InputImageTokens: imageTestIntPointer(200),
+		OutputImageCount: 1,
+	}
+	usage := imageUsageFromResponse([]byte(`{
+		"data":[{"url":"one"}],
+		"usage":{"input_tokens":10,"output_tokens":1,"total_tokens":11}
+	}`), estimated)
+
+	require.NotNil(t, usage.InputTextTokens)
+	require.NotNil(t, usage.InputImageTokens)
+	assert.Equal(t, 4, *usage.InputTextTokens)
+	assert.Equal(t, 6, *usage.InputImageTokens)
+}
+
+func TestImageUsageFromResponseParsesProviderTicksExactly(t *testing.T) {
+	usage := imageUsageFromResponse(
+		[]byte(`{"data":[{"url":"one"}],"usage":{"cost_in_usd_ticks":200000000}}`),
+		platform.ImageUsage{OutputImageCount: 1},
+	)
+
+	require.NotNil(t, usage.ProviderCostUSDTicks)
+	assert.Equal(t, int64(200_000_000), *usage.ProviderCostUSDTicks)
+	assert.Equal(t, platform.ImageUsageSourceProviderReported, usage.Source)
+}
+
+func TestCanonicalImageResolutionUsesExplicitKClassOnly(t *testing.T) {
+	assert.Equal(t, "2k", canonicalImageResolution(map[string]interface{}{
+		"resolution": "2K",
+		"image_size": "4k",
+		"size":       "1024x1024",
+	}))
+	assert.Equal(t, "4k", canonicalImageResolution(map[string]interface{}{
+		"resolution": "1024x1024",
+		"image_size": "4K",
+		"size":       "2k",
+	}))
+	assert.Empty(t, canonicalImageResolution(map[string]interface{}{
+		"size": "4096x4096",
+	}))
+}
+
+func imageTestIntPointer(value int) *int {
+	return &value
 }
 
 func TestImagesHandlerJSONEditRejectsEmptyImage(t *testing.T) {
@@ -213,7 +441,8 @@ func TestImagesHandlerJSONEditRejectsEmptyImage(t *testing.T) {
 
 func TestImagesHandlerJSONEdit(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{"created":1,"data":[{"b64_json":"AAAA","mime_type":"image/png"}]}`)}}
-	app, _ := newImagesTestApp(t, "grok-imagine-image", "xai", "grok-imagine-image", tunnel, nil, nil)
+	logs := &testLogs{}
+	app, _ := newImagesTestApp(t, "grok-imagine-image", "xai", "grok-imagine-image", tunnel, logs, nil)
 
 	req := httptest.NewRequest("POST", "/v1/images/edits", bytes.NewBufferString(`{"model":"grok-imagine-image","prompt":"make it brighter","image":{"url":"https://example.com/private/path/image.png","type":"image_url"},"output_format":"webp","output_compression":80,"moderation":"low"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -228,6 +457,8 @@ func TestImagesHandlerJSONEdit(t *testing.T) {
 	assert.Equal(t, "webp", tunnel.lastReq.RequestMetadata["output_format"])
 	assert.Equal(t, 80, tunnel.lastReq.RequestMetadata["output_compression"])
 	assert.Equal(t, "low", tunnel.lastReq.RequestMetadata["moderation"])
+	require.Len(t, logs.loggedSpends, 1)
+	assert.Equal(t, 1, logs.loggedSpends[0].OutputCount)
 }
 
 func TestImagesHandlerMultipartEdit(t *testing.T) {
@@ -258,7 +489,8 @@ func TestImagesHandlerMultipartEdit(t *testing.T) {
 func TestImagesHandlerMultipartVariation(t *testing.T) {
 	body, contentType := buildMultipartBody(t, map[string]string{"model": "openai:acct:dall-e-2", "n": "1", "response_format": "url"}, map[string][]byte{"image": []byte("fake-image-bytes")})
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{"created":1,"data":[{"url":"https://cdn.example/variant.png"}]}`)}}
-	app, _ := newImagesTestApp(t, "openai:acct:dall-e-2", "openai", "dall-e-2", tunnel, nil, nil)
+	logs := &testLogs{}
+	app, _ := newImagesTestApp(t, "openai:acct:dall-e-2", "openai", "dall-e-2", tunnel, logs, nil)
 
 	req := httptest.NewRequest("POST", "/v1/images/variations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", contentType)
@@ -275,6 +507,8 @@ func TestImagesHandlerMultipartVariation(t *testing.T) {
 	assertMultipartFileBytes(t, outboundForm, "image", []byte("fake-image-bytes"))
 	assert.Equal(t, 1, tunnel.lastReq.RequestMetadata["image_count"])
 	assert.Equal(t, "url", tunnel.lastReq.RequestMetadata["response_format"])
+	require.Len(t, logs.loggedSpends, 1)
+	assert.Equal(t, 1, logs.loggedSpends[0].OutputCount)
 }
 
 func TestImagesHandlerVariationEstimateUsesDeploymentModel(t *testing.T) {

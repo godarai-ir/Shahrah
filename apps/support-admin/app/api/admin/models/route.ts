@@ -1,7 +1,8 @@
 import { adminProxy } from '@/lib/admin-proxy';
 
-export async function GET() {
-  return adminProxy('/admin/models');
+export async function GET(request: Request) {
+  const query = new URL(request.url).search;
+  return adminProxy(`/admin/models${query}`);
 }
 
 export async function POST(request: Request) {

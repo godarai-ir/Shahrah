@@ -59,7 +59,11 @@ export class CatalogService {
       }
 
       const databaseHasEnabledModels = await this.prisma.model.count({
-        where: { enabled: true, provider: { enabled: true } },
+        where: {
+          enabled: true,
+          lifecycleStatus: 'published',
+          provider: { enabled: true },
+        },
       });
       if (databaseHasEnabledModels === 0) {
         return indexed;
@@ -68,6 +72,7 @@ export class CatalogService {
 
     const where: any = {
       enabled: true,
+      lifecycleStatus: 'published',
       provider: {
         ...(query.provider ? { slug: query.provider } : {}),
         enabled: true,
@@ -256,7 +261,12 @@ export class CatalogService {
 
   async getModelByCanonicalId(canonicalId: string) {
     const row = await this.prisma.model.findFirst({
-      where: { canonicalId, enabled: true, provider: { enabled: true } },
+      where: {
+        canonicalId,
+        enabled: true,
+        lifecycleStatus: 'published',
+        provider: { enabled: true },
+      },
       include: {
         provider: true,
         modelSeries: true,
@@ -293,6 +303,7 @@ export class CatalogService {
       where: {
         canonicalId: { in: ids },
         enabled: true,
+        lifecycleStatus: 'published',
         provider: { enabled: true },
       },
       include: {
@@ -325,7 +336,11 @@ export class CatalogService {
 
   recent() {
     return this.prisma.model.findMany({
-      where: { enabled: true, provider: { enabled: true } },
+      where: {
+        enabled: true,
+        lifecycleStatus: 'published',
+        provider: { enabled: true },
+      },
       orderBy: { releaseDate: 'desc' },
       take: 20,
       include: { provider: true },
@@ -337,6 +352,7 @@ export class CatalogService {
       where: {
         pricingStatus: 'free',
         enabled: true,
+        lifecycleStatus: 'published',
         provider: { enabled: true },
       },
       include: {

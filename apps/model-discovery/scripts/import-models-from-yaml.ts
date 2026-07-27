@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import { basename, join } from 'node:path';
 import { parsePricingProfiles } from '../src/pricing/pricing-parser';
+import { evaluatePublicationReadiness } from '../src/publication/publication-policy';
 import {
   ParsedPricingProfile,
   PricingDiagnostic,
@@ -376,7 +377,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
     if (doc['isDeprecated'] === true) continue;
 
     const status = mapModelStatus(doc['status']);
-    const lifecycleStatus = mapLifecycle(status);
+    let lifecycleStatus = mapLifecycle(status);
     const limits = asObject(doc['limits']);
     const modalities = asObject(doc['modalities']);
     const paramsCombined = new Set<string>([
@@ -427,6 +428,20 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
 
     const mode = normalizeSupportedModes(doc['mode'], doc['supportedModes']);
     const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
+    if (mode.includes('image') && lifecycleStatus === 'published') {
+      const readiness = evaluatePublicationReadiness({
+        mode,
+        pricingStatus: pricing.status,
+        pricingProfiles: pricing.profiles.map((profile) => ({
+          region: profile.regionSlug,
+          currency: profile.currency,
+          effectiveFrom: profile.effectiveFrom,
+          effectiveTo: profile.effectiveTo,
+          rates: profile.rates,
+        })),
+      });
+      lifecycleStatus = readiness.eligible ? 'review' : 'draft';
+    }
 
     models.push({
       canonicalId: `${providerSlug}/${modelId}`,
@@ -560,6 +575,31 @@ async function importProviderBatch(
   }
 
   for (const row of batch.models) {
+    const existing = await prisma.model.findUnique({
+      where: { canonicalId: row.canonicalId },
+      include: {
+        pricing: { include: { region: true, rates: true } },
+      },
+    });
+    const isImage = row.mode.includes('image');
+    let lifecycleStatus = row.lifecycleStatus;
+    if (
+      existing &&
+      row.lifecycleStatus !== 'deprecated' &&
+      row.lifecycleStatus !== 'archived'
+    ) {
+      if (existing.pricingAuthority === 'admin') {
+        lifecycleStatus = existing.lifecycleStatus;
+      } else if (isImage) {
+        if (existing.lifecycleStatus === 'published') {
+          lifecycleStatus =
+            row.lifecycleStatus === 'review' ? 'published' : 'draft';
+        } else {
+          lifecycleStatus = existing.lifecycleStatus;
+        }
+      }
+    }
+    const preserveAdminPricing = existing?.pricingAuthority === 'admin';
     const model = await prisma.model.upsert({
       where: { canonicalId: row.canonicalId },
       create: {
@@ -569,7 +609,7 @@ async function importProviderBatch(
         displayName: row.displayName,
         mode: row.mode,
         status: row.status,
-        lifecycleStatus: row.lifecycleStatus,
+        lifecycleStatus,
         shortDescription: row.shortDescription,
         contextWindow: row.contextWindow,
         maxOutputTokens: row.maxOutputTokens,
@@ -585,20 +625,22 @@ async function importProviderBatch(
         displayName: row.displayName,
         mode: row.mode,
         status: row.status,
-        lifecycleStatus: row.lifecycleStatus,
+        lifecycleStatus,
         shortDescription: row.shortDescription,
         contextWindow: row.contextWindow,
         maxOutputTokens: row.maxOutputTokens,
         releaseDate: row.releaseDate,
         deprecatedAt: row.deprecatedAt,
         officialDocsUrl: row.officialDocsUrl,
-        pricingStatus: row.pricingStatus,
+        pricingStatus: preserveAdminPricing ? undefined : row.pricingStatus,
         openSource: row.openSource,
       },
     });
 
     await prisma.$transaction([
-      prisma.modelPricing.deleteMany({ where: { modelId: model.id } }),
+      ...(preserveAdminPricing
+        ? []
+        : [prisma.modelPricing.deleteMany({ where: { modelId: model.id } })]),
       prisma.modelCapability.deleteMany({ where: { modelId: model.id } }),
       prisma.modelInputModality.deleteMany({ where: { modelId: model.id } }),
       prisma.modelOutputModality.deleteMany({ where: { modelId: model.id } }),
@@ -618,7 +660,7 @@ async function importProviderBatch(
       });
     }
 
-    for (const pricing of row.pricingProfiles) {
+    for (const pricing of preserveAdminPricing ? [] : row.pricingProfiles) {
       const regionId = await ensureRegion(pricing.regionSlug);
       await prisma.modelPricing.create({
         data: {

@@ -35,10 +35,11 @@ const httpErrorFloor = 400
 type budgeter interface {
 	EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error)
 	EstimateEmbeddingCost(ctx context.Context, req contractsopenai.EmbeddingRequest) (platform.UsageCostBreakdown, error)
+	EstimateImageUsage(ctx context.Context, deployment platform.Deployment, model string, usage platform.ImageUsage) (platform.UsageCostBreakdown, error)
 	CheckRateLimit(ctx context.Context, auth *platform.AuthContext, model string, estimatedTokens int) (*cache.RateLimitResult, error)
 	CheckBudget(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) error
 	FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
-	FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
+	FinalizeImageUsage(ctx context.Context, model string, usage platform.ImageUsage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
 }
 
 type walletStore interface {

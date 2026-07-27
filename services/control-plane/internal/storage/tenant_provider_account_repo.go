@@ -752,6 +752,8 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 	rows, err := s.pool.Query(ctx, `
 		SELECT model,
 		       enabled,
+		       catalog_available,
+		       COALESCE(catalog_block_reason, ''),
 		       COALESCE(types, '{}'),
 		       COALESCE(input_modalities, '{}'),
 		       COALESCE(output_modalities, '{}'),
@@ -783,6 +785,8 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 		if err := rows.Scan(
 			&model.Model,
 			&model.Enabled,
+			&model.CatalogAvailable,
+			&model.CatalogBlockReason,
 			&types,
 			&inputModalities,
 			&outputModalities,

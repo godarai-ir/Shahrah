@@ -37,7 +37,7 @@ describe('ProvidersService', () => {
         where: { enabled: true },
         include: expect.objectContaining({
           models: {
-            where: { enabled: true },
+            where: { enabled: true, lifecycleStatus: 'published' },
             select: { id: true, mode: true },
           },
         }),
@@ -171,6 +171,7 @@ describe('ProvidersService', () => {
       expect.objectContaining({
         where: {
           enabled: true,
+          lifecycleStatus: 'published',
           provider: { slug: 'anthropic', enabled: true },
         },
       }),

@@ -208,6 +208,14 @@ export const ModelPricingStatus: {
 export type ModelPricingStatus = (typeof ModelPricingStatus)[keyof typeof ModelPricingStatus]
 
 
+export const PricingAuthority: {
+  import: 'import',
+  admin: 'admin'
+};
+
+export type PricingAuthority = (typeof PricingAuthority)[keyof typeof PricingAuthority]
+
+
 export const PricingUsage: {
   input: 'input',
   output: 'output',
@@ -243,6 +251,10 @@ export const LifecycleStatus: typeof $Enums.LifecycleStatus
 export type ModelPricingStatus = $Enums.ModelPricingStatus
 
 export const ModelPricingStatus: typeof $Enums.ModelPricingStatus
+
+export type PricingAuthority = $Enums.PricingAuthority
+
+export const PricingAuthority: typeof $Enums.PricingAuthority
 
 export type PricingUsage = $Enums.PricingUsage
 
@@ -4873,7 +4885,7 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"Provider", 'DateTime'>
     readonly updatedAt: FieldRef<"Provider", 'DateTime'>
   }
-    
+
 
   // Custom InputTypes
   /**
@@ -5418,6 +5430,7 @@ export namespace Prisma {
     deprecatedAt: Date | null
     openSource: boolean | null
     pricingStatus: $Enums.ModelPricingStatus | null
+    pricingAuthority: $Enums.PricingAuthority | null
     tokenizer: string | null
     license: string | null
     huggingFaceUrl: string | null
@@ -5448,6 +5461,7 @@ export namespace Prisma {
     deprecatedAt: Date | null
     openSource: boolean | null
     pricingStatus: $Enums.ModelPricingStatus | null
+    pricingAuthority: $Enums.PricingAuthority | null
     tokenizer: string | null
     license: string | null
     huggingFaceUrl: string | null
@@ -5479,6 +5493,7 @@ export namespace Prisma {
     deprecatedAt: number
     openSource: number
     pricingStatus: number
+    pricingAuthority: number
     tokenizer: number
     license: number
     huggingFaceUrl: number
@@ -5523,6 +5538,7 @@ export namespace Prisma {
     deprecatedAt?: true
     openSource?: true
     pricingStatus?: true
+    pricingAuthority?: true
     tokenizer?: true
     license?: true
     huggingFaceUrl?: true
@@ -5553,6 +5569,7 @@ export namespace Prisma {
     deprecatedAt?: true
     openSource?: true
     pricingStatus?: true
+    pricingAuthority?: true
     tokenizer?: true
     license?: true
     huggingFaceUrl?: true
@@ -5584,6 +5601,7 @@ export namespace Prisma {
     deprecatedAt?: true
     openSource?: true
     pricingStatus?: true
+    pricingAuthority?: true
     tokenizer?: true
     license?: true
     huggingFaceUrl?: true
@@ -5702,6 +5720,7 @@ export namespace Prisma {
     deprecatedAt: Date | null
     openSource: boolean
     pricingStatus: $Enums.ModelPricingStatus
+    pricingAuthority: $Enums.PricingAuthority
     tokenizer: string | null
     license: string | null
     huggingFaceUrl: string | null
@@ -5752,6 +5771,7 @@ export namespace Prisma {
     deprecatedAt?: boolean
     openSource?: boolean
     pricingStatus?: boolean
+    pricingAuthority?: boolean
     tokenizer?: boolean
     license?: boolean
     huggingFaceUrl?: boolean
@@ -5798,6 +5818,7 @@ export namespace Prisma {
     deprecatedAt?: boolean
     openSource?: boolean
     pricingStatus?: boolean
+    pricingAuthority?: boolean
     tokenizer?: boolean
     license?: boolean
     huggingFaceUrl?: boolean
@@ -5832,6 +5853,7 @@ export namespace Prisma {
     deprecatedAt?: boolean
     openSource?: boolean
     pricingStatus?: boolean
+    pricingAuthority?: boolean
     tokenizer?: boolean
     license?: boolean
     huggingFaceUrl?: boolean
@@ -5866,6 +5888,7 @@ export namespace Prisma {
     deprecatedAt?: boolean
     openSource?: boolean
     pricingStatus?: boolean
+    pricingAuthority?: boolean
     tokenizer?: boolean
     license?: boolean
     huggingFaceUrl?: boolean
@@ -5876,7 +5899,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ModelOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "canonicalId" | "slug" | "displayName" | "mode" | "shortDescription" | "longDescription" | "status" | "enabled" | "lifecycleStatus" | "categoryId" | "modelSeriesId" | "contextWindow" | "maxOutputTokens" | "knowledgeCutoff" | "releaseDate" | "deprecatedAt" | "openSource" | "pricingStatus" | "tokenizer" | "license" | "huggingFaceUrl" | "modelCardUrl" | "officialDocsUrl" | "popularityScore" | "createdAt" | "updatedAt", ExtArgs["result"]["model"]>
+  export type ModelOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "providerId" | "canonicalId" | "slug" | "displayName" | "mode" | "shortDescription" | "longDescription" | "status" | "enabled" | "lifecycleStatus" | "categoryId" | "modelSeriesId" | "contextWindow" | "maxOutputTokens" | "knowledgeCutoff" | "releaseDate" | "deprecatedAt" | "openSource" | "pricingStatus" | "pricingAuthority" | "tokenizer" | "license" | "huggingFaceUrl" | "modelCardUrl" | "officialDocsUrl" | "popularityScore" | "createdAt" | "updatedAt", ExtArgs["result"]["model"]>
   export type ModelInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     provider?: boolean | ProviderDefaultArgs<ExtArgs>
     category?: boolean | Model$categoryArgs<ExtArgs>
@@ -5944,6 +5967,7 @@ export namespace Prisma {
       deprecatedAt: Date | null
       openSource: boolean
       pricingStatus: $Enums.ModelPricingStatus
+      pricingAuthority: $Enums.PricingAuthority
       tokenizer: string | null
       license: string | null
       huggingFaceUrl: string | null
@@ -6409,6 +6433,7 @@ export namespace Prisma {
     readonly deprecatedAt: FieldRef<"Model", 'DateTime'>
     readonly openSource: FieldRef<"Model", 'Boolean'>
     readonly pricingStatus: FieldRef<"Model", 'ModelPricingStatus'>
+    readonly pricingAuthority: FieldRef<"Model", 'PricingAuthority'>
     readonly tokenizer: FieldRef<"Model", 'String'>
     readonly license: FieldRef<"Model", 'String'>
     readonly huggingFaceUrl: FieldRef<"Model", 'String'>
@@ -6418,7 +6443,7 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"Model", 'DateTime'>
     readonly updatedAt: FieldRef<"Model", 'DateTime'>
   }
-    
+
 
   // Custom InputTypes
   /**
@@ -37483,6 +37508,7 @@ export namespace Prisma {
     deprecatedAt: 'deprecatedAt',
     openSource: 'openSource',
     pricingStatus: 'pricingStatus',
+    pricingAuthority: 'pricingAuthority',
     tokenizer: 'tokenizer',
     license: 'license',
     huggingFaceUrl: 'huggingFaceUrl',
@@ -37985,6 +38011,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'PricingAuthority'
+   */
+  export type EnumPricingAuthorityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PricingAuthority'>
+
+
+
+  /**
+   * Reference to a field of type 'PricingAuthority[]'
+   */
+  export type ListEnumPricingAuthorityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PricingAuthority[]'>
+
+
+
+  /**
    * Reference to a field of type 'Float'
    */
   export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -38209,6 +38249,7 @@ export namespace Prisma {
     deprecatedAt?: DateTimeNullableFilter<"Model"> | Date | string | null
     openSource?: BoolFilter<"Model"> | boolean
     pricingStatus?: EnumModelPricingStatusFilter<"Model"> | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFilter<"Model"> | $Enums.PricingAuthority
     tokenizer?: StringNullableFilter<"Model"> | string | null
     license?: StringNullableFilter<"Model"> | string | null
     huggingFaceUrl?: StringNullableFilter<"Model"> | string | null
@@ -38254,6 +38295,7 @@ export namespace Prisma {
     deprecatedAt?: SortOrderInput | SortOrder
     openSource?: SortOrder
     pricingStatus?: SortOrder
+    pricingAuthority?: SortOrder
     tokenizer?: SortOrderInput | SortOrder
     license?: SortOrderInput | SortOrder
     huggingFaceUrl?: SortOrderInput | SortOrder
@@ -38303,6 +38345,7 @@ export namespace Prisma {
     deprecatedAt?: DateTimeNullableFilter<"Model"> | Date | string | null
     openSource?: BoolFilter<"Model"> | boolean
     pricingStatus?: EnumModelPricingStatusFilter<"Model"> | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFilter<"Model"> | $Enums.PricingAuthority
     tokenizer?: StringNullableFilter<"Model"> | string | null
     license?: StringNullableFilter<"Model"> | string | null
     huggingFaceUrl?: StringNullableFilter<"Model"> | string | null
@@ -38348,6 +38391,7 @@ export namespace Prisma {
     deprecatedAt?: SortOrderInput | SortOrder
     openSource?: SortOrder
     pricingStatus?: SortOrder
+    pricingAuthority?: SortOrder
     tokenizer?: SortOrderInput | SortOrder
     license?: SortOrderInput | SortOrder
     huggingFaceUrl?: SortOrderInput | SortOrder
@@ -38387,6 +38431,7 @@ export namespace Prisma {
     deprecatedAt?: DateTimeNullableWithAggregatesFilter<"Model"> | Date | string | null
     openSource?: BoolWithAggregatesFilter<"Model"> | boolean
     pricingStatus?: EnumModelPricingStatusWithAggregatesFilter<"Model"> | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityWithAggregatesFilter<"Model"> | $Enums.PricingAuthority
     tokenizer?: StringNullableWithAggregatesFilter<"Model"> | string | null
     license?: StringNullableWithAggregatesFilter<"Model"> | string | null
     huggingFaceUrl?: StringNullableWithAggregatesFilter<"Model"> | string | null
@@ -40249,6 +40294,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -40294,6 +40340,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -40333,6 +40380,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -40378,6 +40426,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -40420,6 +40469,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -40448,6 +40498,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -40479,6 +40530,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -42507,6 +42559,13 @@ export namespace Prisma {
     not?: NestedEnumModelPricingStatusFilter<$PrismaModel> | $Enums.ModelPricingStatus
   }
 
+  export type EnumPricingAuthorityFilter<$PrismaModel = never> = {
+    equals?: $Enums.PricingAuthority | EnumPricingAuthorityFieldRefInput<$PrismaModel>
+    in?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumPricingAuthorityFilter<$PrismaModel> | $Enums.PricingAuthority
+  }
+
   export type FloatFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel>
     in?: number[] | ListFloatFieldRefInput<$PrismaModel>
@@ -42669,6 +42728,7 @@ export namespace Prisma {
     deprecatedAt?: SortOrder
     openSource?: SortOrder
     pricingStatus?: SortOrder
+    pricingAuthority?: SortOrder
     tokenizer?: SortOrder
     license?: SortOrder
     huggingFaceUrl?: SortOrder
@@ -42705,6 +42765,7 @@ export namespace Prisma {
     deprecatedAt?: SortOrder
     openSource?: SortOrder
     pricingStatus?: SortOrder
+    pricingAuthority?: SortOrder
     tokenizer?: SortOrder
     license?: SortOrder
     huggingFaceUrl?: SortOrder
@@ -42735,6 +42796,7 @@ export namespace Prisma {
     deprecatedAt?: SortOrder
     openSource?: SortOrder
     pricingStatus?: SortOrder
+    pricingAuthority?: SortOrder
     tokenizer?: SortOrder
     license?: SortOrder
     huggingFaceUrl?: SortOrder
@@ -42809,6 +42871,16 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumModelPricingStatusFilter<$PrismaModel>
     _max?: NestedEnumModelPricingStatusFilter<$PrismaModel>
+  }
+
+  export type EnumPricingAuthorityWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.PricingAuthority | EnumPricingAuthorityFieldRefInput<$PrismaModel>
+    in?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumPricingAuthorityWithAggregatesFilter<$PrismaModel> | $Enums.PricingAuthority
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumPricingAuthorityFilter<$PrismaModel>
+    _max?: NestedEnumPricingAuthorityFilter<$PrismaModel>
   }
 
   export type FloatWithAggregatesFilter<$PrismaModel = never> = {
@@ -44324,6 +44396,10 @@ export namespace Prisma {
     set?: $Enums.ModelPricingStatus
   }
 
+  export type EnumPricingAuthorityFieldUpdateOperationsInput = {
+    set?: $Enums.PricingAuthority
+  }
+
   export type FloatFieldUpdateOperationsInput = {
     set?: number
     increment?: number
@@ -45724,6 +45800,13 @@ export namespace Prisma {
     not?: NestedEnumModelPricingStatusFilter<$PrismaModel> | $Enums.ModelPricingStatus
   }
 
+  export type NestedEnumPricingAuthorityFilter<$PrismaModel = never> = {
+    equals?: $Enums.PricingAuthority | EnumPricingAuthorityFieldRefInput<$PrismaModel>
+    in?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumPricingAuthorityFilter<$PrismaModel> | $Enums.PricingAuthority
+  }
+
   export type NestedFloatFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel>
     in?: number[] | ListFloatFieldRefInput<$PrismaModel>
@@ -45804,6 +45887,16 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumModelPricingStatusFilter<$PrismaModel>
     _max?: NestedEnumModelPricingStatusFilter<$PrismaModel>
+  }
+
+  export type NestedEnumPricingAuthorityWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.PricingAuthority | EnumPricingAuthorityFieldRefInput<$PrismaModel>
+    in?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.PricingAuthority[] | ListEnumPricingAuthorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumPricingAuthorityWithAggregatesFilter<$PrismaModel> | $Enums.PricingAuthority
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumPricingAuthorityFilter<$PrismaModel>
+    _max?: NestedEnumPricingAuthorityFilter<$PrismaModel>
   }
 
   export type NestedFloatWithAggregatesFilter<$PrismaModel = never> = {
@@ -45996,6 +46089,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -46039,6 +46133,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -46197,6 +46292,7 @@ export namespace Prisma {
     deprecatedAt?: DateTimeNullableFilter<"Model"> | Date | string | null
     openSource?: BoolFilter<"Model"> | boolean
     pricingStatus?: EnumModelPricingStatusFilter<"Model"> | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFilter<"Model"> | $Enums.PricingAuthority
     tokenizer?: StringNullableFilter<"Model"> | string | null
     license?: StringNullableFilter<"Model"> | string | null
     huggingFaceUrl?: StringNullableFilter<"Model"> | string | null
@@ -47060,6 +47156,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -47103,6 +47200,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -47468,6 +47566,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -47512,6 +47611,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -47566,6 +47666,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -47610,6 +47711,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -47648,6 +47750,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -47692,6 +47795,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -47809,6 +47913,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -47853,6 +47958,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48051,6 +48157,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48095,6 +48202,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48168,6 +48276,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48212,6 +48321,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48343,6 +48453,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48387,6 +48498,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48460,6 +48572,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48504,6 +48617,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48567,6 +48681,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48611,6 +48726,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48684,6 +48800,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48728,6 +48845,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48825,6 +48943,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48869,6 +48988,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -48942,6 +49062,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -48986,6 +49107,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -49049,6 +49171,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49092,6 +49215,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49241,6 +49365,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49285,6 +49410,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49358,6 +49484,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -49402,6 +49529,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -49511,6 +49639,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49555,6 +49684,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49632,6 +49762,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -49676,6 +49807,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -49743,6 +49875,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49787,6 +49920,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49841,6 +49975,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -49885,6 +50020,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -49923,6 +50059,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -49967,6 +50104,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -50021,6 +50159,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -50065,6 +50204,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -50137,6 +50277,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -50181,6 +50322,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -50252,6 +50394,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -50296,6 +50439,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -50468,6 +50612,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -50518,6 +50663,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -50561,6 +50707,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -50602,6 +50749,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -50988,6 +51136,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -51016,6 +51165,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -51059,6 +51209,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -51100,6 +51251,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -51262,6 +51414,7 @@ export namespace Prisma {
     deprecatedAt?: Date | string | null
     openSource?: boolean
     pricingStatus?: $Enums.ModelPricingStatus
+    pricingAuthority?: $Enums.PricingAuthority
     tokenizer?: string | null
     license?: string | null
     huggingFaceUrl?: string | null
@@ -51290,6 +51443,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -51333,6 +51487,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -51374,6 +51529,7 @@ export namespace Prisma {
     deprecatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     openSource?: BoolFieldUpdateOperationsInput | boolean
     pricingStatus?: EnumModelPricingStatusFieldUpdateOperationsInput | $Enums.ModelPricingStatus
+    pricingAuthority?: EnumPricingAuthorityFieldUpdateOperationsInput | $Enums.PricingAuthority
     tokenizer?: NullableStringFieldUpdateOperationsInput | string | null
     license?: NullableStringFieldUpdateOperationsInput | string | null
     huggingFaceUrl?: NullableStringFieldUpdateOperationsInput | string | null

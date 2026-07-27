@@ -26,6 +26,8 @@
         "service-account:revoke": "tsx scripts/revoke-service-account-key.ts",
         "import:providers:yaml": "tsx scripts/import-models-from-yaml.ts",
         "import:providers:git": "tsx scripts/import-models-from-git.ts",
+        "audit:image-pricing": "tsx scripts/audit-image-pricing.ts",
+        "reconcile:image-publication": "tsx scripts/reconcile-image-publication.ts",
         "openapi:export": "node -r ts-node/register -r tsconfig-paths/register scripts/export-openapi.ts",
         "audit:provider-connection-secrets": "tsx scripts/audit-provider-connection-secrets.ts"
     },

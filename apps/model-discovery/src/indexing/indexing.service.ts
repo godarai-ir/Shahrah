@@ -409,7 +409,10 @@ export class IndexingService {
       canonicalId: model.canonicalId,
       name: model.displayName,
       slug: model.slug,
-      enabled: model.enabled && model.provider.enabled,
+      enabled:
+        model.enabled &&
+        model.provider.enabled &&
+        model.lifecycleStatus === 'published',
       providerSlug: model.provider.slug,
       providerName: model.provider.name,
       providerLogoUrl: model.provider.logoUrl || undefined,
@@ -500,7 +503,7 @@ export class IndexingService {
   }
 
   private buildFilterBy(query: ModelsQueryDto) {
-    const filters: string[] = ['enabled:=true'];
+    const filters: string[] = ['enabled:=true', 'lifecycleStatus:=published'];
 
     if (query.provider) filters.push(`providerSlug:=${query.provider}`);
     if (query.category) filters.push(`category:=${query.category}`);
