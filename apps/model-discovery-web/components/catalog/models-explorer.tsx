@@ -887,7 +887,7 @@ function CapabilityList({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {uniqueCapabilities.map((capability) => (
-        <Badge key={capability} variant="outline" className="gap-1.5 font-normal">
+        <Badge key={capability} className="gap-1.5 font-normal">
           <CapabilityFilterIcon capability={capability} />
           {capabilityNameBySlug.get(capability) ?? capability.replaceAll("_", " ")}
         </Badge>
