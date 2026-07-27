@@ -12,8 +12,11 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { EndpointModeBadgeList } from "@/components/catalog/endpoint-mode-badge";
 import { DisplayPrice } from "@/components/catalog/display-price";
+import { ModalityFlow } from "@/components/catalog/modality-icon-list";
 import { TokenScale } from "@/components/catalog/token-scale";
 import {
+  AudioLines,
+  Boxes,
   Brain,
   Check,
   ChevronDown,
@@ -23,16 +26,19 @@ import {
   ChevronsRight,
   CircleAlert,
   Clipboard,
-  Coins,
   Eye,
+  FileText,
   Filter,
-  Gauge,
+  Image as ImageIcon,
   Info,
+  Layers3,
   ListFilter,
   Search,
   SlidersHorizontal,
   Sparkles,
+  Video,
   Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
 import { ProviderMark } from "@/components/catalog/provider-mark";
@@ -158,18 +164,10 @@ type SortValue =
   | "cheapest_output"
   | "largest_context";
 
-type FeatureKey = "vision" | "tools" | "reasoning";
-
 const ALL_VALUE = "__all__";
 const PAGE_SIZE = 24;
 const CONTEXT_LIMIT = 2_000_000;
 const PRICE_LIMIT = 100;
-
-const FEATURE_CAPABILITIES: Record<FeatureKey, string> = {
-  vision: "vision",
-  tools: "function_calling",
-  reasoning: "reasoning",
-};
 
 const PREVIEW_MODELS: ModelRow[] = [
   previewModel("openai", "OpenAI", "gpt-4.1-mini", "GPT-4.1 Mini", 0.4, 1.6, 0.1, ["vision", "function_calling"], 1_000_000),
@@ -229,7 +227,7 @@ export function ModelsExplorer() {
   );
   const [q, setQ] = useState("");
   const [provider, setProvider] = useState("");
-  const [features, setFeatures] = useState<FeatureKey[]>([]);
+  const [features, setFeatures] = useState<string[]>([]);
   const [inputModality, setInputModality] = useState("");
   const [outputModality, setOutputModality] = useState("");
   const [contextRange, setContextRange] = useState<[number, number]>([0, CONTEXT_LIMIT]);
@@ -253,10 +251,7 @@ export function ModelsExplorer() {
     if (q.trim()) searchParams.set("q", q.trim());
     if (provider) searchParams.set("provider", provider);
     if (features.length) {
-      searchParams.set(
-        "capabilities",
-        features.map((feature) => FEATURE_CAPABILITIES[feature]).join(","),
-      );
+      searchParams.set("capabilities", features.join(","));
     }
     if (inputModality) searchParams.set("input_modalities", inputModality);
     if (outputModality) searchParams.set("output_modalities", outputModality);
@@ -299,6 +294,12 @@ export function ModelsExplorer() {
     facetsQuery.data?.inputModalities ?? facetsQuery.data?.data?.inputModalities ?? [];
   const outputModalities =
     facetsQuery.data?.outputModalities ?? facetsQuery.data?.data?.outputModalities ?? [];
+  const capabilityOptions =
+    facetsQuery.data?.capabilities ?? facetsQuery.data?.data?.capabilities ?? [];
+  const capabilityNameBySlug = useMemo(
+    () => new Map(capabilityOptions.map((capability) => [capability.slug, capability.name])),
+    [capabilityOptions],
+  );
   const providerLogoBySlug = useMemo(
     () =>
       new Map(
@@ -348,7 +349,7 @@ export function ModelsExplorer() {
     setPage(1);
   };
 
-  const toggleFeature = (feature: FeatureKey) => {
+  const toggleFeature = (feature: string) => {
     setFeatures((current) =>
       current.includes(feature)
         ? current.filter((item) => item !== feature)
@@ -386,7 +387,7 @@ export function ModelsExplorer() {
             />
           </div>
 
-          <div className="scrollbar-none min-w-0 overflow-x-auto pb-1 md:pb-0">
+          <div className="scrollbar-none min-w-0 overflow-x-auto py-1">
             <div className="flex w-max min-w-full items-center justify-center gap-2">
               <Select value={provider || ALL_VALUE} onValueChange={(value) => {
                 setProvider(value === ALL_VALUE ? "" : value);
@@ -433,6 +434,30 @@ export function ModelsExplorer() {
               </SelectContent>
             </Select>
 
+            <FilterSelect
+              compact
+              label={t("inputModalityLabel")}
+              allLabel={t("allInputModalities")}
+              value={inputModality}
+              options={inputModalities}
+              onValueChange={(value) => {
+                setInputModality(value);
+                setPage(1);
+              }}
+            />
+
+            <FilterSelect
+              compact
+              label={t("outputModalityLabel")}
+              allLabel={t("allOutputModalities")}
+              value={outputModality}
+              options={outputModalities}
+              onValueChange={(value) => {
+                setOutputModality(value);
+                setPage(1);
+              }}
+            />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="lg" className="h-10">
@@ -442,17 +467,22 @@ export function ModelsExplorer() {
                   <ChevronDown data-icon="inline-end" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuContent align="start" className="w-72">
                 <DropdownMenuLabel>{t("featuresFilter")}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {(["vision", "tools", "reasoning"] as FeatureKey[]).map((feature) => (
+                {capabilityOptions.map((capability) => (
                   <DropdownMenuCheckboxItem
-                    key={feature}
-                    checked={features.includes(feature)}
-                    onCheckedChange={() => toggleFeature(feature)}
+                    key={capability.slug}
+                    checked={features.includes(capability.slug)}
+                    onCheckedChange={() => toggleFeature(capability.slug)}
                   >
-                    <FeatureIcon feature={feature} />
-                    {t(`features.${feature}`)}
+                    <CapabilityFilterIcon capability={capability.slug} />
+                    <span className="min-w-0 flex-1 truncate">{capability.name}</span>
+                    {capability.count !== undefined ? (
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {numberFormatter.format(capability.count)}
+                      </span>
+                    ) : null}
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuContent>
@@ -462,7 +492,7 @@ export function ModelsExplorer() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="lg" className="h-10">
                   <ListFilter data-icon="inline-start" aria-hidden="true" />
-                  {t(`sort.${sort}`)}
+                  {t("sort.title")}
                   <ChevronDown data-icon="inline-end" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
@@ -507,28 +537,6 @@ export function ModelsExplorer() {
             !advancedFiltersOpen && "hidden",
           )}
         >
-          <div className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
-            <FilterSelect
-              label={t("inputModalityLabel")}
-              allLabel={t("allInputModalities")}
-              value={inputModality}
-              options={inputModalities}
-              onValueChange={(value) => {
-                setInputModality(value);
-                setPage(1);
-              }}
-            />
-            <FilterSelect
-              label={t("outputModalityLabel")}
-              allLabel={t("allOutputModalities")}
-              value={outputModality}
-              options={outputModalities}
-              onValueChange={(value) => {
-                setOutputModality(value);
-                setPage(1);
-              }}
-            />
-          </div>
           <RangeFilter
             label={t("contextRange")}
             value={contextRange}
@@ -635,9 +643,6 @@ export function ModelsExplorer() {
                         </span>
                       </TableHead>
                       <TableHead>{t("table.cacheWrite")}</TableHead>
-                      <TableHead>{t("table.features")}</TableHead>
-                      <TableHead>{t("table.updated")}</TableHead>
-                      <TableHead className="text-end">{t("table.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -688,40 +693,13 @@ export function ModelsExplorer() {
                                     {model.slug}
                                   </Link>
                                 )}
-                                {detailCount ? (
-                                  <button
-                                    type="button"
-                                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning-soft bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning-soft-foreground"
-                                    onClick={() => setExpandedModel(expanded ? null : model.canonicalId)}
-                                  >
-                                    <Sparkles className="size-3" aria-hidden="true" />
-                                    +{numberFormatter.format(detailCount)}
-                                  </button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                            <PriceCell value={model.pricing?.inputPerMillionTokens} formatPrice={formatPriceAmount} />
-                            <PriceCell value={model.pricing?.outputPerMillionTokens} formatPrice={formatPriceAmount} />
-                            <PriceCell value={model.pricing?.cachedInputPerMillionTokens} formatPrice={formatPriceAmount} />
-                            <TableCell className="text-muted-foreground">—</TableCell>
-                            <TableCell>
-                              <FeatureIcons model={model} labels={{
-                                vision: t("features.vision"),
-                                tools: t("features.tools"),
-                                reasoning: t("features.reasoning"),
-                              }} />
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                              {model.updatedAt ? formatRelativeDate(model.updatedAt) : "—"}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center justify-end gap-1">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      size="icon"
+                                      size="icon-xs"
+                                      className="shrink-0"
                                       aria-label={t("copyModelId")}
                                       onClick={() => void copyModelId(model.canonicalId)}
                                     >
@@ -732,11 +710,19 @@ export function ModelsExplorer() {
                                 </Tooltip>
                               </div>
                             </TableCell>
+                            <PriceCell value={model.pricing?.inputPerMillionTokens} formatPrice={formatPriceAmount} />
+                            <PriceCell value={model.pricing?.outputPerMillionTokens} formatPrice={formatPriceAmount} />
+                            <PriceCell value={model.pricing?.cachedInputPerMillionTokens} formatPrice={formatPriceAmount} />
+                            <TableCell className="text-muted-foreground">—</TableCell>
                           </TableRow>
                           {expanded ? (
                             <TableRow className="bg-muted/20 hover:bg-muted/20">
-                              <TableCell colSpan={9} className="p-0">
-                                <ModelRowDetails model={model} formatNumber={numberFormatter.format} />
+                              <TableCell colSpan={6} className="p-0">
+                                <ModelRowDetails
+                                  model={model}
+                                  formatNumber={numberFormatter.format}
+                                  capabilityNameBySlug={capabilityNameBySlug}
+                                />
                               </TableCell>
                             </TableRow>
                           ) : null}
@@ -768,31 +754,66 @@ function FilterSelect({
   value,
   options,
   onValueChange,
+  compact = false,
 }: {
   label: string;
   allLabel: string;
   value: string;
   options: FacetOption[];
   onValueChange: (value: string) => void;
+  compact?: boolean;
 }) {
   const id = useId();
+  const selectedOption = options.find((item) => item.slug === value);
 
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
+    <div className={cn("flex min-w-0", compact ? "items-center" : "flex-col gap-1.5")}>
+      <Label htmlFor={id} className={compact ? "sr-only" : undefined}>{label}</Label>
       <Select value={value || ALL_VALUE} onValueChange={(next) => onValueChange(next === ALL_VALUE ? "" : next)}>
-        <SelectTrigger id={id}>
-          <SelectValue />
+        <SelectTrigger id={id} className={compact ? "h-10 w-auto min-w-44" : undefined}>
+          {compact ? <span className="shrink-0 text-xs text-muted-foreground">{label}</span> : null}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <ModalityOptionIcon option={selectedOption} />
+            <span className="truncate">{selectedOption?.name || allLabel}</span>
+          </span>
         </SelectTrigger>
         <SelectContent position="popper">
           <SelectGroup>
-            <SelectItem value={ALL_VALUE}>{allLabel}</SelectItem>
-            {options.map((item) => <SelectItem key={item.slug} value={item.slug}>{item.name}</SelectItem>)}
+            <SelectItem value={ALL_VALUE}>
+              <span className="flex items-center gap-2">
+                <ModalityOptionIcon />
+                {allLabel}
+              </span>
+            </SelectItem>
+            {options.map((item) => (
+              <SelectItem key={item.slug} value={item.slug}>
+                <span className="flex items-center gap-2">
+                  <ModalityOptionIcon option={item} />
+                  {item.name}
+                </span>
+              </SelectItem>
+            ))}
           </SelectGroup>
         </SelectContent>
       </Select>
     </div>
   );
+}
+
+function ModalityOptionIcon({ option }: { option?: FacetOption }) {
+  const Icon = getModalityOptionIcon(option);
+  return <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />;
+}
+
+function getModalityOptionIcon(option?: FacetOption): LucideIcon {
+  if (!option) return Layers3;
+
+  const key = `${option.slug} ${option.name}`.toLowerCase();
+  if (key.includes("image") || key.includes("vision")) return ImageIcon;
+  if (key.includes("audio") || key.includes("speech") || key.includes("voice")) return AudioLines;
+  if (key.includes("video")) return Video;
+  if (key.includes("text") || key.includes("doc") || key.includes("pdf")) return FileText;
+  return Boxes;
 }
 
 function RangeFilter({
@@ -852,82 +873,65 @@ function PriceCell({
   );
 }
 
-function FeatureIcons({
-  model,
-  labels,
+function CapabilityList({
+  capabilities,
+  capabilityNameBySlug,
 }: {
-  model: ModelRow;
-  labels: Record<FeatureKey, string>;
+  capabilities: string[];
+  capabilityNameBySlug: ReadonlyMap<string, string>;
 }) {
-  const visibleFeatures: FeatureKey[] = [];
-  if (hasFeature(model, "vision")) visibleFeatures.push("vision");
-  if (hasFeature(model, "tools")) visibleFeatures.push("tools");
-  if (hasFeature(model, "reasoning")) visibleFeatures.push("reasoning");
+  const uniqueCapabilities = Array.from(new Set(capabilities));
 
-  if (!visibleFeatures.length) return <span className="text-muted-foreground">—</span>;
+  if (!uniqueCapabilities.length) return <span className="text-muted-foreground">—</span>;
 
   return (
-    <div className="flex items-center gap-1">
-      {visibleFeatures.map((feature) => (
-        <Tooltip key={feature}>
-          <TooltipTrigger asChild>
-            <span className="inline-flex size-7 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground">
-              <FeatureIcon feature={feature} />
-              <span className="sr-only">{labels[feature]}</span>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{labels[feature]}</TooltipContent>
-        </Tooltip>
+    <div className="flex flex-wrap items-center gap-1.5">
+      {uniqueCapabilities.map((capability) => (
+        <Badge key={capability} variant="outline" className="gap-1.5 font-normal">
+          <CapabilityFilterIcon capability={capability} />
+          {capabilityNameBySlug.get(capability) ?? capability.replaceAll("_", " ")}
+        </Badge>
       ))}
     </div>
   );
 }
 
-function FeatureIcon({ feature }: { feature: FeatureKey }) {
-  if (feature === "vision") return <Eye aria-hidden="true" />;
-  if (feature === "tools") return <Wrench aria-hidden="true" />;
-  return <Brain aria-hidden="true" />;
-}
-
-function hasFeature(model: ModelRow, feature: FeatureKey) {
-  const capabilities = model.capabilities.map((item) => item.toLowerCase());
-  if (feature === "vision") {
-    return capabilities.includes("vision") || model.inputModalities.includes("image");
-  }
-  if (feature === "tools") {
-    return capabilities.some((item) => ["function_calling", "tool_calling", "tool_choice", "tools"].includes(item));
-  }
-  return capabilities.some((item) => item.includes("reason"));
+function CapabilityFilterIcon({ capability }: { capability: string }) {
+  const key = capability.toLowerCase();
+  if (key.includes("vision") || key.includes("image")) return <Eye aria-hidden="true" />;
+  if (key.includes("tool") || key.includes("function")) return <Wrench aria-hidden="true" />;
+  if (key.includes("reason")) return <Brain aria-hidden="true" />;
+  return <Sparkles aria-hidden="true" />;
 }
 
 function ModelRowDetails({
   model,
   formatNumber,
+  capabilityNameBySlug,
 }: {
   model: ModelRow;
   formatNumber: (value: number) => string;
+  capabilityNameBySlug: ReadonlyMap<string, string>;
 }) {
   const t = useTranslations("Catalog");
-  const pricingDetails = [
-    [t("detail.imageInput"), model.pricing?.imageInputPrice],
-    [t("detail.imageOutput"), model.pricing?.imageOutputPrice],
-    [t("detail.audioInput"), model.pricing?.audioInputPrice],
-    [t("detail.audioOutput"), model.pricing?.audioOutputPrice],
-    [t("detail.request"), model.pricing?.requestPrice],
-  ].filter((entry): entry is [string, number] => typeof entry[1] === "number");
 
   return (
-    <div className="grid gap-4 border-y border-border bg-muted/20 px-4 py-4 sm:px-6 lg:grid-cols-[3fr_2fr]">
-      <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <Gauge className="size-4" aria-hidden="true" />
-          </span>
-          <h3 className="text-sm font-semibold text-card-foreground">{t("detail.title")}</h3>
-        </div>
-        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+    <div className="border-y border-border bg-muted/20 px-4 py-4 sm:px-6">
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <DetailValue label={t("contextWindow")} value={model.contextWindow ? formatNumber(model.contextWindow) : "—"} />
           <DetailValue label={t("maxOutputTokens")} value={model.maxOutputTokens ? formatNumber(model.maxOutputTokens) : "—"} />
+          <DetailValue
+            label={t("table.modalities")}
+            value={
+              <ModalityFlow
+                inputValues={model.inputModalities}
+                outputValues={model.outputModalities}
+                inputLabel={t("inputModalityLabel")}
+                outputLabel={t("outputModalityLabel")}
+                emptyLabel="—"
+              />
+            }
+          />
           <DetailValue
             label={t("detail.modes")}
             value={
@@ -938,33 +942,20 @@ function ModelRowDetails({
               )
             }
           />
-          <DetailValue label={t("table.modalities")} value={[...model.inputModalities, ...model.outputModalities].join("، ") || "—"} technical />
-        </dl>
-      </section>
-      <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <Coins className="size-4" aria-hidden="true" />
-          </span>
-          <h3 className="text-sm font-semibold text-card-foreground">{t("detail.additionalPricing")}</h3>
-        </div>
-        {pricingDetails.length ? (
-          <dl className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            {pricingDetails.map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="whitespace-nowrap text-sm font-semibold tabular-nums text-card-foreground" dir="rtl">
-                  <DisplayPrice value={value} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-        ) : (
-          <p className="mt-4 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-sm leading-6 text-muted-foreground">
-            {t("detail.noAdditionalPricing")}
-          </p>
-        )}
-      </section>
+          <DetailValue
+            label={t("table.features")}
+            value={
+              <CapabilityList
+                capabilities={model.capabilities}
+                capabilityNameBySlug={capabilityNameBySlug}
+              />
+            }
+          />
+          <DetailValue
+            label={t("table.updated")}
+            value={model.updatedAt ? formatRelativeDate(model.updatedAt) : "—"}
+          />
+      </dl>
     </div>
   );
 }
@@ -1053,7 +1044,7 @@ function ModelsTableSkeleton({ label }: { label: string }) {
         <Table>
           <TableHeader className="bg-muted/45">
             <TableRow>
-              {Array.from({ length: 9 }, (_, index) => (
+              {Array.from({ length: 6 }, (_, index) => (
                 <TableHead key={index}><Skeleton className="h-4 w-20" /></TableHead>
               ))}
             </TableRow>
@@ -1061,7 +1052,7 @@ function ModelsTableSkeleton({ label }: { label: string }) {
           <TableBody>
             {Array.from({ length: 8 }, (_, rowIndex) => (
               <TableRow key={rowIndex}>
-                {Array.from({ length: 9 }, (_, cellIndex) => (
+                {Array.from({ length: 6 }, (_, cellIndex) => (
                   <TableCell key={cellIndex}><Skeleton className="h-8 w-full min-w-20" /></TableCell>
                 ))}
               </TableRow>
@@ -1081,7 +1072,15 @@ function getDetailCount(model: ModelRow) {
     model.pricing?.audioOutputPrice,
     model.pricing?.requestPrice,
   ].filter((value) => typeof value === "number").length;
-  return extraPrices || (model.contextWindow || model.maxOutputTokens || model.mode?.length ? 1 : 0);
+  return extraPrices || (
+    model.contextWindow ||
+    model.maxOutputTokens ||
+    model.mode?.length ||
+    model.capabilities.length ||
+    model.updatedAt
+      ? 1
+      : 0
+  );
 }
 
 function sortPreviewModels(models: ModelRow[], sort: SortValue) {

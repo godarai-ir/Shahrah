@@ -14,6 +14,7 @@ export async function ModelsCatalogPage() {
         compact
         title={t("heroTitle")}
         summary={t("heroSummary", stats)}
+        modelCount={stats.modelCount}
       />
       <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         <ModelsExplorer />

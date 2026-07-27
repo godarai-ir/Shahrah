@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  Bot,
   Check,
   ChevronLeft,
   ChevronRight,
   Copy,
   ExternalLink,
+  Network,
   Search,
   SearchX,
   X,
@@ -133,8 +135,6 @@ export function ProviderModelsList({
   const currentPage = Math.min(page, pageCount);
   const pageStart = (currentPage - 1) * PAGE_SIZE;
   const visibleModels = filteredModels.slice(pageStart, pageStart + PAGE_SIZE);
-  const visibleStart = filteredModels.length ? pageStart + 1 : 0;
-  const visibleEnd = Math.min(pageStart + PAGE_SIZE, filteredModels.length);
   const sampleModel =
     models.find((model) => model.mode?.includes(activeEndpoint)) ?? models[0];
   const sampleId =
@@ -180,12 +180,30 @@ export function ProviderModelsList({
         {announcement}
       </p>
 
-      <TabsList className="scrollbar-none mx-auto w-fit max-w-full overflow-x-auto p-1 group-data-horizontal/tabs:h-12">
-        <TabsTrigger value="models" className="cursor-pointer px-4 text-base font-semibold sm:px-6">
+      <TabsList className="scrollbar-none relative isolate mx-auto w-fit max-w-full overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm group-data-horizontal/tabs:h-14">
+        <TabsTrigger
+          value="models"
+          className="z-10 h-11 cursor-pointer gap-2 rounded-lg px-3 text-sm font-semibold hover:bg-accent/60 hover:text-foreground data-active:border-primary/20 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-md data-active:[&_[data-tab-icon]]:bg-primary-foreground/15 dark:data-active:bg-primary dark:data-active:text-primary-foreground sm:px-5 sm:text-base"
+        >
+          <span
+            data-tab-icon
+            className="flex size-8 items-center justify-center rounded-md bg-muted transition-colors"
+          >
+            <Bot className="size-4" aria-hidden="true" />
+          </span>
           <bdi>{t("tabs.models")}</bdi>
         </TabsTrigger>
-        <TabsTrigger value="coverage" className="cursor-pointer px-4 text-base font-semibold sm:px-6">
-          <bdi>{t("tabs.coverage")}</bdi>
+        <TabsTrigger
+          value="coverage"
+          className="z-10 h-11 cursor-pointer gap-2 rounded-lg px-3 text-sm font-semibold hover:bg-accent/60 hover:text-foreground data-active:border-primary/20 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-md data-active:[&_[data-tab-icon]]:bg-primary-foreground/15 dark:data-active:bg-primary dark:data-active:text-primary-foreground sm:px-5 sm:text-base"
+        >
+          <span
+            data-tab-icon
+            className="flex size-8 items-center justify-center rounded-md bg-muted transition-colors"
+          >
+            <Network className="size-4" aria-hidden="true" />
+          </span>
+          <bdi dir="rtl">{t("tabs.coverage")}</bdi>
         </TabsTrigger>
       </TabsList>
 
@@ -236,10 +254,12 @@ export function ProviderModelsList({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value={ALL_MODES}>{t("allModes")}</SelectItem>
+                      <SelectItem value={ALL_MODES}>
+                        <EndpointModeBadge mode={ALL_MODES} label={t("allModes")} />
+                      </SelectItem>
                       {modes.map((mode) => (
                         <SelectItem key={mode} value={mode}>
-                          <bdi dir="ltr">{mode}</bdi>
+                          <EndpointModeBadge mode={mode} />
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -287,13 +307,6 @@ export function ProviderModelsList({
                               </Link>
                             </CardTitle>
                           </div>
-                          <CardDescription
-                            className="mt-2 overflow-x-auto text-left font-mono text-xs whitespace-nowrap"
-                            dir="ltr"
-                            title={modelId}
-                          >
-                            {modelId}
-                          </CardDescription>
                         </div>
                         <Button
                           type="button"
@@ -491,17 +504,10 @@ export function ProviderModelsList({
 
             {pageCount > 1 ? (
               <nav
-                className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex justify-end"
                 aria-label={t("paginationLabel")}
               >
-                <p className="text-sm text-muted-foreground">
-                  {t("paginationSummary", {
-                    start: visibleStart,
-                    end: visibleEnd,
-                    total: filteredModels.length,
-                  })}
-                </p>
-                <div className="grid grid-cols-2 gap-2 sm:flex">
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                   <Button
                     type="button"
                     variant="outline"

@@ -19,8 +19,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ProvidersPage() {
+export default async function ProvidersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ section?: string | string[] }>;
+}) {
   const t = await getTranslations("Providers");
+  const params = await searchParams;
+  const section = params?.section === "providers" ? "providers" : "endpoints";
   let providers: ProviderDirectoryItem[] = [];
   let hasError = false;
 
@@ -43,9 +49,13 @@ export default async function ProvidersPage() {
         active="providers"
         title={t("heroTitle")}
         summary={t("heroSummary", stats)}
+        modelCount={stats.modelCount}
+        providerCount={stats.providerCount}
+        endpointCount={stats.endpointCount}
+        activeProviderSection={section}
       />
       <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <ProvidersExplorer providers={providers} hasError={hasError} />
+        <ProvidersExplorer providers={providers} hasError={hasError} initialSection={section} />
       </div>
     </div>
   );

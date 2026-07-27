@@ -7,10 +7,18 @@ import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { DisplayPrice } from "@/components/catalog/display-price";
-import { EndpointModeBadgeList } from "@/components/catalog/endpoint-mode-badge";
+import { ModalityFlow } from "@/components/catalog/modality-icon-list";
 import { useCompareModels } from "@/components/compare/compare-provider";
 import { CompareCell, compareListValues, compareScalarValues } from "@/components/compare/compare-cell";
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -157,27 +165,32 @@ function ComparePageContent() {
       renderValue: (model) => <DisplayPrice value={model.pricing?.[0]?.cachedInputPricePerMillionTokens} />,
     },
     {
-      key: "inputModalities",
-      label: tFields("inputModalities"),
+      key: "modalities",
+      label: tFields("modalities"),
       section: "capabilities",
       kind: "list",
-      getValue: (model) => normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null)).join("، ") || EMPTY,
-      getList: (model) => normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null)),
-      renderValue: (model) => {
-        const modes = normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null));
-        return modes.length ? <EndpointModeBadgeList modes={modes} /> : EMPTY;
+      getValue: (model) => {
+        const inputValues = normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null));
+        const outputValues = normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null));
+        return [...inputValues.map((value) => `input:${value}`), ...outputValues.map((value) => `output:${value}`)].join("، ") || EMPTY;
       },
-    },
-    {
-      key: "outputModalities",
-      label: tFields("outputModalities"),
-      section: "capabilities",
-      kind: "list",
-      getValue: (model) => normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null)).join("، ") || EMPTY,
-      getList: (model) => normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null)),
+      getList: (model) => {
+        const inputValues = normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null));
+        const outputValues = normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null));
+        return [...inputValues.map((value) => `input:${value}`), ...outputValues.map((value) => `output:${value}`)];
+      },
       renderValue: (model) => {
-        const modes = normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null));
-        return modes.length ? <EndpointModeBadgeList modes={modes} /> : EMPTY;
+        const inputValues = normalizeNameList((model.inputModalities ?? []).map((item) => item.modality ?? null));
+        const outputValues = normalizeNameList((model.outputModalities ?? []).map((item) => item.modality ?? null));
+        return (
+          <ModalityFlow
+            inputValues={inputValues}
+            outputValues={outputValues}
+            inputLabel={tFields("inputModalities")}
+            outputLabel={tFields("outputModalities")}
+            emptyLabel={EMPTY}
+          />
+        );
       },
     },
     {
@@ -241,6 +254,26 @@ function ComparePageContent() {
         ) : null}
       />
 
+      <Breadcrumb dir="rtl" className="px-1">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/providers?section=providers">{t("breadcrumbProviders")}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/models">{t("breadcrumbModels")}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{t("title")}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {selectedCount === 0 ? (
         <Card role="status" className="p-0">
           <CardHeader className="items-start sm:flex-row sm:items-center sm:gap-4">
@@ -261,36 +294,6 @@ function ComparePageContent() {
         </Card>
       ) : (
         <>
-          <Card className="p-0">
-            <CardHeader className="sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="flex min-w-0 flex-col gap-1">
-                <h2 className="text-base font-semibold leading-7 sm:text-lg">{t("controlsTitle")}</h2>
-                <CardDescription>{t("controlsDescription")}</CardDescription>
-              </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                <Button
-                  type="button"
-                  aria-pressed={onlyDiffs}
-                  aria-label={t("onlyDifferencesAria")}
-                  variant={onlyDiffs ? "secondary" : "outline"}
-                  onClick={() => setOnlyDiffs((current) => !current)}
-                >
-                  <ListFilter data-icon="inline-start" aria-hidden="true" />
-                  {t("onlyDifferences")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={clear}
-                  aria-label={t("clearSelection")}
-                >
-                  <Trash2 data-icon="inline-start" aria-hidden="true" />
-                  {t("clearAll")}
-                </Button>
-              </div>
-            </CardHeader>
-          </Card>
-
           <div className="flex flex-col gap-3">
             {selectedCount === 1 ? (
               <CompareNotice tone="warning">{t("oneModelHint")}</CompareNotice>
@@ -322,7 +325,32 @@ function ComparePageContent() {
                     <thead className="sticky top-0 z-20 bg-muted shadow-sm">
                       <tr>
                         <th scope="col" className="sticky start-0 z-30 w-44 bg-muted p-3 text-start align-top">
-                          {tCommon("field")}
+                          <span className="sr-only">{tCommon("field")}</span>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="px-2"
+                              aria-pressed={onlyDiffs}
+                              aria-label={t("onlyDifferencesAria")}
+                              variant={onlyDiffs ? "secondary" : "outline"}
+                              onClick={() => setOnlyDiffs((current) => !current)}
+                            >
+                              <ListFilter data-icon="inline-start" aria-hidden="true" />
+                              {t("onlyDifferences")}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="px-2"
+                              variant="outline"
+                              onClick={clear}
+                              aria-label={t("clearSelection")}
+                            >
+                              <Trash2 data-icon="inline-start" aria-hidden="true" />
+                              {t("clearAll")}
+                            </Button>
+                          </div>
                         </th>
                         {selectedIds.map((id) => (
                           <th key={id} scope="col" className="w-60 bg-muted p-3 text-start align-top">

@@ -228,7 +228,73 @@ pre,
 }
 
 .catalog-hero {
-  box-shadow: inset 0 -1px color-mix(in oklab, var(--catalog-hero-border) 80%, transparent);
+  box-shadow: inset 0 -1px color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+.catalog-hero-mesh {
+  opacity: 0.8;
+  background-image:
+    radial-gradient(circle at 18% 24%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 28%),
+    radial-gradient(circle at 82% 72%, color-mix(in oklab, var(--primary-soft) 75%, transparent), transparent 32%);
+  animation: catalog-hero-breathe 10s ease-in-out infinite alternate;
+}
+
+.catalog-hero-orbit {
+  animation: catalog-hero-drift 14s ease-in-out infinite alternate;
+}
+
+.catalog-hero-orbit-start {
+  animation-delay: -4s;
+}
+
+.catalog-hero-orbit-end {
+  animation-direction: alternate-reverse;
+}
+
+.catalog-hero-node {
+  animation: catalog-hero-float 6s ease-in-out infinite;
+}
+
+.catalog-hero-node-delayed {
+  animation-delay: -3s;
+}
+
+@keyframes catalog-hero-breathe {
+  from {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes catalog-hero-drift {
+  from {
+    transform: translate3d(0, -4%, 0) rotate(0deg);
+  }
+  to {
+    transform: translate3d(1.5rem, 4%, 0) rotate(8deg);
+  }
+}
+
+@keyframes catalog-hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.75rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-hero-mesh,
+  .catalog-hero-orbit,
+  .catalog-hero-node {
+    animation: none;
+  }
 }
 
 @layer base {

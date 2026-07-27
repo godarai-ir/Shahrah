@@ -70,21 +70,24 @@ function getEndpointModeMeta(mode: string): EndpointModeMeta {
 
 export function EndpointModeBadge({
   mode,
+  label,
   className,
 }: {
   mode: string;
+  label?: string;
   className?: string;
 }) {
   const { icon: Icon, className: toneClassName } = getEndpointModeMeta(mode);
+  const displayLabel = label ?? mode;
 
   return (
     <Badge
       className={cn("gap-1.5 font-medium", toneClassName, className)}
       dir="ltr"
-      title={mode}
+      title={displayLabel}
     >
       <Icon className="size-3.5" aria-hidden="true" />
-      <span>{mode}</span>
+      <span>{displayLabel}</span>
     </Badge>
   );
 }

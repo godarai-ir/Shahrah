@@ -47,7 +47,7 @@ export function PageHero({
             {description}
           </p>
         </div>
-        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        {actions ? <div className="flex w-full flex-wrap justify-center gap-2">{actions}</div> : null}
       </div>
     </header>
   );

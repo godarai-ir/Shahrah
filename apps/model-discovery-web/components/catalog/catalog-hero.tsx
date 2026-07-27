@@ -1,27 +1,40 @@
 import Link from "next/link";
 import { Boxes, Cable } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export async function CatalogHero({
   active,
   title,
   summary,
+  modelCount,
+  providerCount,
+  endpointCount,
+  activeProviderSection = "providers",
   compact = false,
 }: {
   active: "models" | "providers";
   title: string;
   summary: React.ReactNode;
+  modelCount?: number;
+  providerCount?: number;
+  endpointCount?: number;
+  activeProviderSection?: "providers" | "endpoints";
   compact?: boolean;
 }) {
   const t = await getTranslations("CatalogShell");
+  const formatter = new Intl.NumberFormat("fa-IR");
 
   return (
-    <header className="catalog-hero relative isolate overflow-hidden border-y border-catalog-hero-border bg-gradient-to-bl from-primary/40 via-catalog-hero to-catalog-hero text-catalog-hero-foreground">
-      <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-primary/10 to-primary/25"
-        aria-hidden="true"
-      />
+    <header className="catalog-hero relative isolate overflow-hidden border-y border-border bg-card text-card-foreground">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="catalog-hero-mesh absolute inset-0" />
+        <div className="catalog-hero-orbit catalog-hero-orbit-start absolute -start-16 top-1/4 size-56 rounded-full border border-primary/15 sm:size-72" />
+        <div className="catalog-hero-orbit catalog-hero-orbit-end absolute -end-10 top-0 size-44 rounded-full border border-primary/20 sm:size-64" />
+        <span className="catalog-hero-node absolute start-1/4 top-1/4 size-2 rounded-full bg-primary/60 shadow-sm" />
+        <span className="catalog-hero-node catalog-hero-node-delayed absolute end-1/4 bottom-1/4 size-3 rounded-full border border-primary/30 bg-card shadow-sm" />
+      </div>
 
       <div
         className={cn(
@@ -39,7 +52,7 @@ export async function CatalogHero({
         >
           <div
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-xl border border-catalog-hero-border bg-background/10 shadow-sm",
+              "flex shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary-soft text-primary-soft-foreground shadow-sm",
               compact ? "size-10" : "mb-5 size-11",
             )}
           >
@@ -60,7 +73,7 @@ export async function CatalogHero({
             </h1>
             <p
               className={cn(
-                "text-catalog-hero-muted",
+                "text-muted-foreground",
                 compact
                   ? "mt-1 text-sm leading-6"
                   : "mt-3 max-w-3xl text-sm leading-7 sm:text-base",
@@ -74,16 +87,30 @@ export async function CatalogHero({
         <nav
           aria-label={t("tabsLabel")}
           className={cn(
-            "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-catalog-hero-border bg-background/10 p-1",
+            "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-background/80 p-1 shadow-sm backdrop-blur",
             compact ? "self-start sm:shrink-0 sm:self-auto" : "mt-7",
           )}
         >
           <CatalogTabLink href="/models" active={active === "models"}>
-            {t("modelsTab")}
+            <span>{t("modelsTab")}</span>
+            {modelCount !== undefined ? <Badge>{formatter.format(modelCount)}</Badge> : null}
           </CatalogTabLink>
-          <CatalogTabLink href="/providers" active={active === "providers"}>
-            {t("providersTab")}
+          <CatalogTabLink
+            href="/providers?section=providers"
+            active={active === "providers" && activeProviderSection === "providers"}
+          >
+            <span>{t("providersTab")}</span>
+            {providerCount !== undefined ? <Badge>{formatter.format(providerCount)}</Badge> : null}
           </CatalogTabLink>
+          {endpointCount !== undefined ? (
+            <CatalogTabLink
+              href="/providers?section=endpoints"
+              active={active === "providers" && activeProviderSection === "endpoints"}
+            >
+              <span>{t("operationsTab")}</span>
+              <Badge>{formatter.format(endpointCount)}</Badge>
+            </CatalogTabLink>
+          ) : null}
         </nav>
       </div>
     </header>
@@ -104,10 +131,10 @@ function CatalogTabLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "bg-background text-foreground shadow-sm"
-          : "text-catalog-hero-muted hover:bg-background/10 hover:text-catalog-hero-foreground",
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
       )}
     >
       {children}

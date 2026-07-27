@@ -2,18 +2,12 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  AudioLines,
   Banknote,
   BookOpen,
   Bot,
-  Check,
-  Code2,
-  Copy,
   Cpu,
   ExternalLink,
-  FileText,
   Gauge,
-  Image as ImageIcon,
   Link2,
   ListTree,
   type LucideIcon,
@@ -21,12 +15,12 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  Video,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
 import { CopyPageLink } from "@/components/catalog/copy-page-link";
 import { DisplayPrice } from "@/components/catalog/display-price";
+import { ModalityFlow } from "@/components/catalog/modality-icon-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -98,8 +92,6 @@ type StatusKey =
   | "review"
   | "published"
   | "archived";
-type ModalityMeta = { icon: LucideIcon; className: string };
-
 const EMPTY = "-";
 
 function getStatusKey(status: string): StatusKey | null {
@@ -218,84 +210,12 @@ function ChipList({ values, emptyLabel, initial = 10 }: { values: string[]; empt
   );
 }
 
-function getModalityMeta(value: string): ModalityMeta {
-  const key = value.toLowerCase();
-  if (key.includes("text")) return { icon: FileText, className: "border-primary-soft bg-primary-soft text-primary-soft-foreground" };
-  if (key.includes("image")) return { icon: ImageIcon, className: "border-border bg-accent text-accent-foreground" };
-  if (key.includes("audio") || key.includes("speech") || key.includes("voice")) return { icon: AudioLines, className: "border-warning-soft bg-warning-soft text-warning-soft-foreground" };
-  if (key.includes("video")) return { icon: Video, className: "border-destructive-soft bg-destructive-soft text-destructive-soft-foreground" };
-  if (key.includes("embedding")) return { icon: Code2, className: "border-success-soft bg-success-soft text-success-soft-foreground" };
-  return { icon: Code2, className: "border-border bg-muted text-muted-foreground" };
-}
-
-function ModalityIconList({ values, emptyLabel }: { values: string[]; emptyLabel: string }) {
-  if (values.length === 0) return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {values.map((value) => {
-        const { icon: Icon, className } = getModalityMeta(value);
-        return (
-          <span key={value} className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", className)}>
-            <Icon className="size-3.5" aria-hidden="true" />
-            <bdi dir="auto">{value}</bdi>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function TechnicalIdentifier({
-  label,
-  value,
-  copyLabel,
-  copied,
-  copiedLabel,
-  onCopy,
-}: {
-  label: string;
-  value: string;
-  copyLabel: string;
-  copied: boolean;
-  copiedLabel: string;
-  onCopy: () => void;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-background/60 p-3">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <code
-          dir="ltr"
-          data-technical
-          className="scrollbar-none mt-1 block overflow-x-auto whitespace-nowrap text-xs font-medium leading-6 text-foreground"
-        >
-          {value}
-        </code>
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="shrink-0"
-        aria-label={copied ? copiedLabel : copyLabel}
-        title={copied ? copiedLabel : copyLabel}
-        onClick={onCopy}
-      >
-        {copied ? <Check className="text-success-soft-foreground" aria-hidden="true" /> : <Copy aria-hidden="true" />}
-      </Button>
-    </div>
-  );
-}
-
 export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { model: ModelDetail | null; requestedCanonicalId: string; fetchError?: string | null }) {
   const t = useTranslations("ModelDetail");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Statuses");
   const { formatDate } = useDisplayFormatters();
   const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }), []);
-  const [copiedField, setCopiedField] = useState<"canonical" | "slug" | null>(null);
-  const [copyFailed, setCopyFailed] = useState(false);
 
   const normalized = useMemo(() => {
     const inputModalities = (model?.inputModalities ?? []).map((entry) => entry.modality?.name || entry.modality?.slug).filter((value): value is string => Boolean(value));
@@ -310,19 +230,6 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
     const sortedPricing = [...(model?.pricing ?? [])].sort((a, b) => (a.region?.slug || "global").localeCompare(b.region?.slug || "global"));
     return { inputModalities, outputModalities, capabilities, supportedParams, sortedPricing };
   }, [model]);
-
-  const copyText = async (text: string, field: "canonical" | "slug") => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyFailed(false);
-      setCopiedField(field);
-      window.setTimeout(() => setCopiedField(null), 1200);
-    } catch {
-      setCopiedField(null);
-      setCopyFailed(true);
-      window.setTimeout(() => setCopyFailed(false), 2400);
-    }
-  };
 
   const formatStatus = (status?: string | null) => {
     if (!status) return EMPTY;
@@ -429,27 +336,6 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
               </div>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              <TechnicalIdentifier
-                label={t("canonicalId")}
-                value={model.canonicalId}
-                copyLabel={t("copyCanonicalId")}
-                copied={copiedField === "canonical"}
-                copiedLabel={tCommon("copied")}
-                onCopy={() => copyText(model.canonicalId, "canonical")}
-              />
-              <TechnicalIdentifier
-                label={tCommon("slug")}
-                value={model.slug}
-                copyLabel={t("copySlug")}
-                copied={copiedField === "slug"}
-                copiedLabel={tCommon("copied")}
-                onCopy={() => copyText(model.slug, "slug")}
-              />
-            </div>
-            <p className="sr-only" aria-live="polite" aria-atomic="true">
-              {copyFailed ? t("copyError") : copiedField ? t("copySuccess") : ""}
-            </p>
           </div>
 
           <dl className="grid grid-cols-2 border-t border-border sm:grid-cols-4">
@@ -512,16 +398,13 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
           </SectionCard>
 
           <SectionCard id="modalities" label={t("sections.modalities")} icon={Network}>
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-medium text-muted-foreground">{t("input")}</h3>
-                <ModalityIconList values={normalized.inputModalities} emptyLabel={t("noInputModalities")} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-medium text-muted-foreground">{t("output")}</h3>
-                <ModalityIconList values={normalized.outputModalities} emptyLabel={t("noOutputModalities")} />
-              </div>
-            </div>
+            <ModalityFlow
+              inputValues={normalized.inputModalities}
+              outputValues={normalized.outputModalities}
+              inputLabel={t("input")}
+              outputLabel={t("output")}
+              emptyLabel={EMPTY}
+            />
           </SectionCard>
 
           <SectionCard id="capabilities" label={t("sections.capabilities")} icon={Sparkles}>
@@ -583,18 +466,22 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
                 {(model.sources ?? []).map((source, index) => {
                   const sourceUrl = safeUrl(source.url);
                   return (
-                    <article key={source.id || `${source.url || "source"}-${index}`} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-background/60 p-4">
+                    <article
+                      key={source.id || `${source.url || "source"}-${index}`}
+                      dir="rtl"
+                      className="flex min-w-0 flex-col gap-2 rounded-lg bg-background/60 p-4 text-start"
+                    >
                       <div className="flex items-start gap-3">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                           <Link2 className="size-4" aria-hidden="true" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <h3 dir="auto" className="font-medium">{source.title || tCommon("source")}</h3>
-                          <p dir="auto" className="text-xs text-muted-foreground">{source.sourceType || EMPTY}</p>
+                          <h3 className="font-medium">{source.title || tCommon("source")}</h3>
+                          <p className="text-xs text-muted-foreground">{source.sourceType || EMPTY}</p>
                         </div>
                       </div>
                       {sourceUrl ? <ExternalResource href={sourceUrl} label={tCommon("open")} showUrl /> : <p>{EMPTY}</p>}
-                      {source.notes ? <p dir="auto" className="text-sm leading-6 text-muted-foreground">{source.notes}</p> : null}
+                      {source.notes ? <p className="text-sm leading-6 text-muted-foreground">{source.notes}</p> : null}
                     </article>
                   );
                 })}

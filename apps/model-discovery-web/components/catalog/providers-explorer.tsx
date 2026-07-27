@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Boxes,
   Cable,
   CircleAlert,
   KeyRound,
@@ -18,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 export type ProviderDirectoryItem = {
@@ -64,9 +63,11 @@ const MODE_LABEL_KEYS = {
 export function ProvidersExplorer({
   providers,
   hasError,
+  initialSection,
 }: {
   providers: ProviderDirectoryItem[];
   hasError: boolean;
+  initialSection: "endpoints" | "providers";
 }) {
   const t = useTranslations("Providers");
   const formatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
@@ -75,7 +76,6 @@ export function ProvidersExplorer({
     [providers],
   );
   const defaultMode = availableModes.includes("chat") ? "chat" : (availableModes[0] ?? "");
-  const [section, setSection] = useState("endpoints");
   const [selectedMode, setSelectedMode] = useState(defaultMode);
   const [query, setQuery] = useState("");
 
@@ -89,10 +89,6 @@ export function ProvidersExplorer({
   const endpointProviders = filteredProviders.filter((provider) =>
     provider.modes.includes(selectedMode),
   );
-  const endpointCount = providers.reduce((sum, provider) => sum + provider.modes.length, 0);
-  const modelCount = providers.reduce((sum, provider) => sum + (provider.modelCount ?? 0), 0);
-  const byokCount = providers.filter((provider) => provider.supportsByok).length;
-
   if (hasError) {
     return (
       <Empty className="border border-warning-soft bg-warning-soft text-warning-soft-foreground">
@@ -106,83 +102,54 @@ export function ProvidersExplorer({
 
   return (
     <div className="flex min-w-0 flex-col gap-8">
-      <section aria-label={t("metricsLabel")} className="grid overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label={t("metrics.providers")}
-          value={formatter.format(providers.length)}
-          icon={Boxes}
-          active={section === "providers"}
-          onClick={() => setSection("providers")}
-        />
-        <Metric
-          label={t("metrics.models")}
-          value={formatter.format(modelCount)}
-          icon={Boxes}
-          href="/models"
-        />
-        <Metric
-          label={t("metrics.endpointCombinations")}
-          value={formatter.format(endpointCount)}
-          icon={Cable}
-          active={section === "endpoints"}
-          onClick={() => setSection("endpoints")}
-        />
-        <Metric
-          label={t("metrics.byokProviders")}
-          value={formatter.format(byokCount)}
-          icon={KeyRound}
-        />
-      </section>
-
-      <Tabs dir="rtl" value={section} onValueChange={setSection} className="gap-5">
-        <TabsList variant="default" className="scrollbar-none w-fit max-w-full overflow-x-auto">
-          <TabsTrigger value="endpoints">
-            <bdi dir="ltr">{t("sections.endpoints")}</bdi>
-          </TabsTrigger>
-          <TabsTrigger value="providers">
-            <bdi dir="ltr">{t("sections.providers")}</bdi>
-            <Badge>{formatter.format(providers.length)}</Badge>
-          </TabsTrigger>
-        </TabsList>
-
+      <Tabs dir="rtl" value={initialSection} className="gap-5">
         <TabsContent value="endpoints">
           <div className="grid min-w-0 gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
             <aside className="min-w-0">
-              <div className="rounded-xl border border-border bg-card p-2 lg:sticky lg:top-20">
+              <div className="space-y-3 rounded-xl border border-border bg-card p-3 shadow-sm lg:sticky lg:top-20">
                 {MODE_GROUPS.map((group) => {
                   const modes = group.modes.filter((mode) => availableModes.includes(mode));
                   if (!modes.length) return null;
                   return (
-                    <div key={group.key} className="mb-3 last:mb-0">
-                      <p className="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <section
+                      key={group.key}
+                      className="rounded-lg border border-border bg-background/70 p-2"
+                    >
+                      <p className="mb-2 border-b border-border px-2 pb-2 pt-1 text-sm font-bold text-foreground">
                         {t(`modeGroups.${group.key}`)}
                       </p>
-                      <div className="scrollbar-none flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+                      <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
                         {modes.map((mode) => {
                           const count = providers.filter((provider) => provider.modes.includes(mode)).length;
+                          const isSelected = selectedMode === mode;
                           return (
                             <Button
                               key={mode}
                               type="button"
-                              variant={selectedMode === mode ? "secondary" : "ghost"}
-                              className="shrink-0 justify-between lg:w-full"
+                              variant={isSelected ? "secondary" : "outline"}
+                              className={cn(
+                                "min-h-11 shrink-0 justify-between gap-4 px-3 text-sm font-semibold lg:w-full",
+                                isSelected && "border border-primary/30 bg-primary-soft text-primary-soft-foreground shadow-sm",
+                              )}
                               onClick={() => setSelectedMode(mode)}
                             >
                               <bdi className="truncate" dir="ltr">{modeLabel(mode, t)}</bdi>
-                              <span className="text-xs tabular-nums text-muted-foreground">{formatter.format(count)}</span>
+                              <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-muted-foreground">
+                                {formatter.format(count)}
+                              </span>
                             </Button>
                           );
                         })}
                       </div>
-                    </div>
+                    </section>
                   );
                 })}
               </div>
             </aside>
 
             <section className="flex min-w-0 flex-col gap-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="text-center">
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <h2 className="text-xl font-semibold" dir="ltr">{modeLabel(selectedMode, t)}</h2>
                   <code className="rounded-md bg-muted px-2 py-1 text-xs" dir="ltr">{selectedMode}</code>
                 </div>
@@ -215,12 +182,7 @@ export function ProvidersExplorer({
 
         <TabsContent value="providers">
           <section className="flex min-w-0 flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <SearchField value={query} onValueChange={setQuery} placeholder={t("searchProviders")} />
-              <span className="text-sm text-muted-foreground">
-                {t("providerResults", { count: filteredProviders.length, total: providers.length })}
-              </span>
-            </div>
+            <SearchField value={query} onValueChange={setQuery} placeholder={t("searchProviders")} />
             {filteredProviders.length ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {filteredProviders.map((provider) => (
@@ -242,40 +204,6 @@ export function ProvidersExplorer({
   );
 }
 
-function Metric({
-  label,
-  value,
-  icon: Icon,
-  href,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: string;
-  icon: typeof Boxes;
-  href?: string;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  const className = cn(
-    "group flex min-h-28 items-center justify-between gap-4 border-b border-border p-5 text-start transition-colors sm:border-e lg:border-b-0",
-    active ? "bg-primary-soft" : "hover:bg-muted/40",
-  );
-  const content = (
-    <>
-      <div>
-        <strong className="block text-2xl font-bold tabular-nums">{value}</strong>
-        <span className="mt-1 block text-sm text-muted-foreground">{label}</span>
-      </div>
-      <Icon className="size-5 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden="true" />
-    </>
-  );
-
-  if (href) return <Link href={href} className={className}>{content}</Link>;
-  if (onClick) return <button type="button" className={className} onClick={onClick}>{content}</button>;
-  return <div className={className}>{content}</div>;
-}
-
 function SearchField({
   value,
   onValueChange,
@@ -286,7 +214,7 @@ function SearchField({
   placeholder: string;
 }) {
   return (
-    <div className="relative w-full max-w-xl">
+    <div className="relative mx-auto w-full max-w-xl">
       <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
       <Input className="h-10 ps-10" value={value} onChange={(event) => onValueChange(event.target.value)} placeholder={placeholder} />
     </div>

@@ -120,7 +120,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                     </div>
                   </nav>
                 </header>
-                <main className="relative w-full flex-1 pb-28">
+                <main className="relative w-full flex-1 pb-16">
                   {children}
                 </main>
                 <SiteFooter />
