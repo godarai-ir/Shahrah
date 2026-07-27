@@ -1,4 +1,4 @@
-# GodarAI Atlas Design System — tenant-admin Components
+# GodarAI Tenant Admin Design System — Components
 
 > مستندات کامل کامپوننت‌های UI اپلیکیشن tenant-admin
 > مبتنی بر Design Tokens و دارایی‌های رسمی برند GodarAI
@@ -25,13 +25,13 @@
 
 | نقش | Light Mode | Dark Mode | کاربرد |
 |-----|-----------|-----------|--------|
-| Primary | Navy `#012651` | Cyan `#00C9EB` | دکمه‌های اصلی، لینک‌ها، آیکون‌های فعال |
-| Focus | Cyan/Navy mix | Cyan `#00C9EB` | focus ring و مرز کنترل فعال |
-| Secondary | Navy-derived soft surface | Ice-derived dark surface | دکمه‌های ثانویه و بک‌گراند المان‌ها |
-| Success | `oklch(0.62 0.18 155)` | `oklch(0.55 0.16 155)` | پیام موفقیت، وضعیت فعال |
-| Warning | `oklch(0.78 0.16 80)` | `oklch(0.65 0.15 80)` | هشدار، نیاز به توجه |
-| Destructive | `oklch(0.62 0.23 27)` | `oklch(0.396 0.141 25.723)` | حذف، خطر، خطا |
-| Info | Navy | Cyan | اطلاعات، راهنما |
+| Primary | Indigo `oklch(0.488 0.243 264.376)` | Deep Indigo `oklch(0.424 0.199 265.638)` | دکمه‌های اصلی، لینک‌ها، آیکون‌های فعال |
+| Focus | Primary | Foreground پرکنتراست | focus ring و مرز کنترل فعال |
+| Secondary | Neutral `oklch(0.967 0.001 286.375)` | Charcoal `oklch(0.274 0.006 286.033)` | دکمه‌های ثانویه و بک‌گراند المان‌ها |
+| Success | `oklch(0.47 0.12 160)` | `oklch(0.72 0.14 155)` | پیام موفقیت، وضعیت فعال |
+| Warning | `oklch(0.49 0.11 70)` | `oklch(0.76 0.14 80)` | هشدار، نیاز به توجه |
+| Destructive | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | حذف، خطر، خطا |
+| Info | Indigo | Light Blue | اطلاعات، راهنما |
 
 ### تایپوگرافی
 

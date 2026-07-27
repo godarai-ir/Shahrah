@@ -22,24 +22,22 @@ This application is a B2B SaaS / developer tool application. The UI should feel:
 - Accessible interactive states
 - RTL-first layout awareness
 
-## GodarAI Atlas Theme
+## Tenant-admin Theme
 
-Tenant-admin uses the **GodarAI Atlas / Calm Infrastructure** theme. Atlas combines
-an off-white application canvas, white data surfaces, a navy navigation rail,
-navy actions in light mode, cyan actions in dark mode, and semantic operational states. The result
-should feel precise, calm, and purpose-built for infrastructure work rather
-than like a generic SaaS template.
+Tenant-admin uses a clean shadcn theme with neutral application surfaces,
+indigo actions, restrained cyan data-visualization colors, and independent
+semantic operational states. The result should feel precise, calm, and
+purpose-built for infrastructure work rather than like a generic SaaS template.
 
 - Use the 4px spacing grid and prefer 8, 12, 16, 24, and 32px intervals.
-- Default cards use an 11px radius, a one-pixel semantic border, and a very
+- Default cards use a 10px radius, a one-pixel semantic border, and a very
   restrained shadow. Elevation must communicate hierarchy, not decoration.
-- The sidebar is the strongest brand surface. Its navy treatment remains
-  distinct from the application canvas in both themes.
+- The sidebar stays visually distinct through its own neutral surface, border,
+  active-state accent, and restrained texture in both themes.
 - Geometric grid motifs are allowed only on large shell or authentication
   canvases. Keep them low-contrast and never place them behind dense text.
-- Navy identifies primary actions on light surfaces. Cyan identifies focus,
-  selection, and primary actions on dark surfaces. Green, amber, and red remain
-  reserved for meaningful operational state.
+- Indigo identifies primary actions and selection in both themes. Green, amber,
+  and red remain reserved for meaningful operational state.
 - Hover motion is limited to interactive surfaces and should not exceed a
   one-pixel lift. Static information cards do not float on hover.
 

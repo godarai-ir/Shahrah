@@ -1,4 +1,4 @@
-# GodarAI Atlas Design System — Implementation Guide
+# GodarAI Tenant Admin Design System — Implementation Guide
 
 > راهنمای پیاده‌سازی Design System برند GodarAI برای tenant-admin
 > با دارایی‌های همگام‌شده از `web-assets`
@@ -7,15 +7,15 @@
 
 ## 1. نمای کلی
 
-این Design System هویت GodarAI Atlas را در tenant-admin پیاده می‌کند. تمام
-کامپوننت‌ها بر اساس توکن‌های semantic، پالت رسمی Navy/Cyan و استانداردهای
+این Design System هویت بصری خنثی و آبی GodarAI را در tenant-admin پیاده می‌کند. تمام
+کامپوننت‌ها بر اساس توکن‌های semantic، پالت خنثی/Indigo مبتنی بر OKLCH و استانداردهای
 WCAG 2.2 ساخته می‌شوند.
 
 ### تغییرات کلیدی
 
 | بخش | قبل | بعد |
 |-----|-----|-----|
-| پالت رنگی | Cobalt/Graphite | Navy/Cyan رسمی GodarAI |
+| پالت رنگی | Cobalt/Graphite | Neutral/Indigo با نمودارهای Cyan |
 | تایپوگرافی | Vazirmatn (بدون وزن) | Vazirmatn (9 وزن) |
 | گوشه‌ها | `rounded-md` | `rounded-lg` و `rounded-xl` |
 | سایه‌ها | `shadow-sm` ساده | سایه‌های سفارشی با glow |

@@ -167,7 +167,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
   }
 
   return (
-    <main className="atlas-brand-grid relative flex min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="theme-brand-grid relative flex min-h-screen overflow-hidden bg-background text-foreground">
       <div className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -219,7 +219,7 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
               />
             </div>
 
-            <Card className="atlas-accent-line overflow-hidden shadow-md">
+            <Card className="theme-accent-line overflow-hidden shadow-md">
               <CardContent className="flex flex-col gap-5 p-4 md:p-5">
                 {notice && (
                   <Alert variant="success" icon={<CheckCircle aria-hidden="true" />}>

@@ -429,7 +429,7 @@ export function ReportsPanel({ initialSummary, initialMonthly, initialError }: R
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={86} fill="hsl(var(--primary))" />
+                <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={86} fill="var(--primary)" />
                 <Tooltip formatter={(value) => formatIRR(Number(value))} />
               </PieChart>
             </ResponsiveContainer>

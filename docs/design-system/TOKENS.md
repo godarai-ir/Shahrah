@@ -1,22 +1,12 @@
 # Design Tokens
 
-## GodarAI Brand Primitives
+## Theme Foundation
 
-These primitives come from `web-assets/colors.json` and are exposed by the
-tenant-admin token sheet. Feature code must consume semantic tokens rather than
-using these hex values directly.
-
-| Primitive | Value | Intended role |
-| --- | --- | --- |
-| `brand-cyan` | `#00C9EB` | Dark-mode actions and branded selection |
-| `brand-cyan-bright` | `#05D1EE` | Cyan hover |
-| `brand-cyan-deep` | `#00BCE1` | Focus borders and derived rings |
-| `brand-navy` | `#012651` | Light-mode actions and navigation |
-| `brand-navy-top` | `#022A57` | Navy hover |
-| `brand-navy-bottom` | `#011D40` | Dark elevated surfaces |
-| `brand-dark-background` | `#06182D` | Dark canvas and sidebar |
-| `brand-off-white` | `#F6FBFF` | Light canvas and dark-mode text |
-| `brand-ice` | `#D9EEFF` | Soft surfaces and secondary dark text |
+Tenant-admin uses the shadcn CSS-variable model with OKLCH values. Light mode
+uses white neutral surfaces and indigo actions; dark mode uses warm charcoal
+surfaces and a deeper indigo action color. The sidebar has its own neutral
+surface and active-state tokens. Feature code must consume semantic tokens
+rather than copying theme values directly.
 
 ## Color Tokens
 
@@ -42,10 +32,14 @@ using these hex values directly.
 
 The tenant admin also defines documented product tones: `success`, `warning`, `info`, soft tone tokens, sidebar tokens, and chart tokens in `apps/tenant-admin/design-system/tokens.css`.
 
-GodarAI Atlas maps navy to light-mode primary actions, cyan to dark-mode
-primary actions and focus, and brand-derived `color-mix()` values to secondary,
-accent, sidebar, code, and chart surfaces. Success, warning, and destructive
-tokens stay semantically independent from the brand palette.
+The generated `ring` value remains part of the theme contract. Interactive
+components map their visible focus treatment to the derived `focus-ring` token
+so keyboard focus reaches the project’s non-text contrast target in both modes.
+
+The theme maps indigo to primary actions and selection, neutral OKLCH values to
+secondary, accent, sidebar, and code surfaces, and a restrained cyan scale to
+charts. Success, warning, and destructive tokens stay semantically independent
+from the product palette.
 
 Code display surfaces use:
 

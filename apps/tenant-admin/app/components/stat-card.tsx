@@ -29,7 +29,7 @@ export function StatCard({
   const iconClassName = cn(
     color === "green" && "bg-success/10 text-success",
     color === "amber" && "bg-warning/10 text-warning",
-    color === "red" && "bg-destructive/10 text-destructive",
+    color === "red" && "tone-danger",
     color === "purple" && "surface-primary-soft",
   );
 

@@ -49,7 +49,7 @@ export default async function LogDetailPage({ params }: Params) {
     >
       <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
         {!result.ok ? (
-          <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <p className="rounded-xl border border-destructive-soft-border bg-destructive-soft p-4 text-sm text-destructive-soft-foreground">
             {result.errorMessage ?? t("detailError")}
           </p>
         ) : (

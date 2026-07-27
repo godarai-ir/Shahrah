@@ -162,7 +162,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
             </Button>
           </>
         }
-        className="atlas-accent-line overflow-hidden"
+        className="theme-accent-line overflow-hidden"
         headerClassName="bg-neutral-soft/45"
         contentClassName="pt-3 md:pt-3"
       >

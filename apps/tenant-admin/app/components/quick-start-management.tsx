@@ -381,7 +381,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                           : step.status === "active"
                             ? "border-info/30 bg-info/10 text-info"
                             : step.status === "unavailable"
-                              ? "border-destructive/20 bg-destructive/5 text-destructive"
+                              ? "border-destructive-soft-border bg-destructive-soft text-destructive-soft-foreground"
                               : "border-border bg-muted/40 text-muted-foreground",
                       )}
                     >

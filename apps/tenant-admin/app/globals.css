@@ -66,7 +66,7 @@
   --color-surface-demo: var(--surface-demo);
   --color-surface-demo-foreground: var(--surface-demo-foreground);
   --color-surface-demo-border: var(--surface-demo-border);
-  --color-ring: var(--ring);
+  --color-ring: var(--focus-ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -74,7 +74,7 @@
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-ring: var(--focus-ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -137,7 +137,7 @@ button:not(:disabled),
 
 /* Focus visible — meets WCAG 2.2 2.4.7 Focus Visible */
 :focus-visible {
-  outline: var(--focus-ring-width) var(--focus-ring-style) var(--ring);
+  outline: var(--focus-ring-width) var(--focus-ring-style) var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
   box-shadow: 0 0 0 calc(var(--focus-ring-width) + var(--focus-ring-offset)) var(--ring-offset);
   border-radius: var(--radius-sm);
@@ -321,8 +321,8 @@ button:not(:disabled),
   background: var(--primary-soft-hover);
 }
 
-/* Atlas shell canvas: a quiet technical grid that stays behind content. */
-.atlas-canvas {
+/* Quiet technical texture that stays behind dense application content. */
+.theme-canvas {
   background-color: var(--background);
   background-image:
     linear-gradient(
@@ -337,7 +337,7 @@ button:not(:disabled),
   background-size: 32px 32px;
 }
 
-.atlas-brand-grid {
+.theme-brand-grid {
   background-image:
     linear-gradient(
       135deg,
@@ -346,7 +346,7 @@ button:not(:disabled),
     ),
     radial-gradient(
       circle at 14% 18%,
-      color-mix(in oklab, var(--brand-cyan) 9%, transparent),
+      color-mix(in oklab, var(--primary) 7%, transparent),
       transparent 24%
     ),
     linear-gradient(
@@ -361,30 +361,30 @@ button:not(:disabled),
   background-size: auto, auto, 28px 28px, 28px 28px;
 }
 
-.atlas-sidebar {
+.theme-sidebar {
   background-image:
     radial-gradient(
       circle at 18% 8%,
-      color-mix(in oklab, var(--sidebar-primary) 13%, transparent),
-      transparent 22%
+      color-mix(in oklab, var(--sidebar-primary) 5%, transparent),
+      transparent 26%
     ),
     linear-gradient(
       135deg,
-      color-mix(in oklab, var(--sidebar-foreground) 4%, transparent) 1px,
+      color-mix(in oklab, var(--sidebar-foreground) 2%, transparent) 1px,
       transparent 1px
     );
   background-size: auto, 44px 44px;
 }
 
-.atlas-accent-line {
+.theme-accent-line {
   position: relative;
 }
 
-.atlas-accent-line::before {
+.theme-accent-line::before {
   position: absolute;
   inset-block: var(--space-4);
   inset-inline-start: 0;
-  width: 3px;
+  width: 2px;
   border-radius: var(--radius-full);
   background: var(--primary);
   content: "";

@@ -77,29 +77,29 @@ export default function DesignSystemPage() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader
-          title="GodarAI Atlas visual identity"
-          description="Off-white application canvas, navy navigation and actions, cyan focus and selection, and semantic operational state."
+          title="GodarAI visual identity"
+          description="Neutral application surfaces, indigo actions, restrained cyan data colors, and semantic operational states."
         />
-        <div className="atlas-canvas overflow-hidden rounded-lg border border-card-border">
+        <div className="theme-canvas overflow-hidden rounded-lg border border-card-border">
           <div className="grid min-h-64 md:grid-cols-3">
-            <aside className="atlas-sidebar flex flex-col gap-4 bg-sidebar p-4 text-sidebar-foreground">
+            <aside className="theme-sidebar flex flex-col gap-4 border-e border-sidebar-border bg-sidebar p-4 text-sidebar-foreground">
               <div className="flex items-center gap-3">
                 <span className="flex size-9 items-center justify-center rounded-lg bg-sidebar-accent p-1 ring-1 ring-sidebar-border">
-                  <GodarAILogo variant="dark" decorative className="h-full w-auto max-w-full object-contain" />
+                  <GodarAILogo decorative className="h-full w-auto max-w-full object-contain" />
                 </span>
                 <span className="flex flex-col gap-0.5">
-                  <strong className="text-sm">GodarAI Atlas</strong>
-                  <span className="text-xs text-sidebar-foreground/60">Branded infrastructure</span>
+                  <strong className="text-sm">GodarAI</strong>
+                  <span className="text-xs text-sidebar-foreground/60">Calm developer console</span>
                 </span>
               </div>
-              <div className="rounded-md bg-sidebar-primary/20 px-3 py-2 text-sm font-semibold">
+              <div className="border-s-2 border-sidebar-primary bg-sidebar-accent px-3 py-2 text-sm font-semibold text-sidebar-accent-foreground">
                 Active navigation
               </div>
             </aside>
             <div className="grid content-start gap-4 p-4 sm:grid-cols-2 md:col-span-2">
               <MetricCard label="Requests" value="128.4K" description="Current period" icon={Activity} />
               <MetricCard label="Reliability" value="99.2%" description="Operational state" icon={CheckCircle2} tone="success" />
-              <AppCard className="sm:col-span-2" title="Atlas data surface" description="Thin borders, restrained elevation, and compact hierarchy.">
+              <AppCard className="sm:col-span-2" title="Neutral data surface" description="Thin borders, restrained elevation, and compact hierarchy.">
                 <div className="h-16 rounded-md border border-primary-subtle-border bg-primary-soft" />
               </AppCard>
             </div>

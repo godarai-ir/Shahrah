@@ -160,7 +160,7 @@ export default function AdminShellClient({
         <SidebarInset
           id="main-content"
           tabIndex={-1}
-          className="atlas-canvas min-w-0 rounded-none bg-background"
+          className="theme-canvas min-w-0 rounded-none bg-background"
         >
           <header className="sticky top-0 z-10 border-b border-border/80 bg-background/90 px-4 py-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
@@ -349,7 +349,6 @@ function AdminSidebar({
                 <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary/15 p-1 ring-1 ring-sidebar-primary/35">
                   <GodarAILogo
                     alt={t("logoAlt")}
-                    variant="dark"
                     className="h-full w-auto max-w-full object-contain"
                     priority
                     sizes="2.5rem"

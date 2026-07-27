@@ -1,4 +1,4 @@
-# GodarAI Atlas Design System Guide
+# GodarAI Tenant Admin Design System Guide
 
 This guide is the implementation contract for GodarAI tenant-admin UI work in this repository. It is written for coding agents and frontend engineers who need to create consistent pages, components, dashboards, and configuration workflows without re-deciding the product direction each time.
 
@@ -12,7 +12,7 @@ This guide is the implementation contract for GodarAI tenant-admin UI work in th
 | shadcn/ui | `components.json` uses style `new-york`, `rsc: true`, `tsx: true`, `baseColor: slate`, CSS variables, lucide icons, and `rtl: true`. |
 | Components | Multiple shadcn primitives exist under `components/ui`, including button, card, input, label, alert, badge, table, tabs, sidebar, dialog, sheet, select, popover, tooltip, and chart. |
 | Utilities | `lib/utils.ts` exports `cn()` with `clsx` and `tailwind-merge`. |
-| Tokens | `app/globals.css` imports `design-system/tokens.css`, which defines website-aligned shadcn semantic tokens for core surfaces, indigo primary, purple accent support, success, warning, info, destructive, borders, inputs, chart colors, sidebar colors, radius, shadows, and typography. |
+| Tokens | `app/globals.css` imports `design-system/tokens.css`, which defines shadcn semantic tokens for neutral core surfaces, indigo primary actions, cyan chart colors, success, warning, info, destructive, borders, inputs, sidebar colors, radius, shadows, and typography. |
 | Dark mode | Token values exist under `.dark`, Tailwind has `@custom-variant dark (&:is(.dark *));`, and `ThemeProvider` plus `ThemeToggle` are available. |
 | Typography | `app/layout.tsx` loads `Vazirmatn` and `JetBrains_Mono` through `next/font/google`; `--font-sans` maps to Vazirmatn and `--font-mono` maps to JetBrains Mono. |
 | RTL | shadcn config enables RTL, the app root renders `dir="rtl"`, and `lang` comes from `next-intl`. |
@@ -37,9 +37,9 @@ Next.js 16 note: follow the local docs in `node_modules/next/dist/docs/` before 
 
 ## 2. Visual Identity
 
-GodarAI uses the **GodarAI Atlas / Calm Infrastructure** language: Vazirmatn typography, an off-white application canvas, crisp white data surfaces, navy navigation, navy primary actions on light surfaces, cyan primary actions on dark surfaces, and independent semantic operational states. Tenant-admin should feel like a focused control plane for teams running LLM-powered products—precise, reliable, modern, and enterprise-ready, with enough density to compare providers, models, traces, cost, and limits quickly.
+GodarAI tenant-admin uses Vazirmatn typography, neutral application surfaces, crisp data cards, indigo primary actions and selection in both themes, a restrained cyan chart scale, and independent semantic operational states. Tenant-admin should feel like a focused control plane for teams running LLM-powered products—precise, reliable, modern, and enterprise-ready, with enough density to compare providers, models, traces, cost, and limits quickly.
 
-Use restrained 11px cards, thin semantic borders, compact controls, meaningful icons, readable tables, and status colors that serve operations. The sidebar is the strongest brand surface; the main canvas is intentionally quieter. Purple remains a secondary chart accent, while mint/amber/red communicate operational meaning. Low-contrast geometric grids may appear on the shell and authentication canvases, but never compete with dense content.
+Use restrained 10px cards, thin semantic borders, compact controls, meaningful icons, readable tables, and status colors that serve operations. The sidebar remains distinct through a neutral surface, border, active indigo marker, and quiet texture; the main canvas stays intentionally quieter. Green, amber, and red communicate operational meaning. Low-contrast geometric grids may appear on the shell and authentication canvases, but never compete with dense content.
 
 Avoid overly playful illustrations, excessive gradients, heavy animation, consumer landing-page layouts inside authenticated app screens, low-contrast text, oversized cards for dense operational content, and decorative elements that reduce readability. Login/onboarding screens may carry more brand atmosphere than authenticated pages, but they should still show trust, security, and gateway context rather than generic marketing art.
 
