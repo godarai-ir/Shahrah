@@ -29,6 +29,7 @@ model Tenant {
   wallet_topup_intents       wallet_topup_intents[]
   wallet_transactions        WalletTransaction[]
   wallets                    Wallet?
+  video_generation_jobs      VideoGenerationJob[]
 
   @@map("tenants")
 }
@@ -275,6 +276,14 @@ model SpendLog {
   request_id            String?   @db.VarChar(255)
   cost_usd              Decimal?  @db.Decimal(10, 6)
   cost_irr              Decimal?  @db.Decimal(18, 2)
+  usage_measures        Json      @default("[]")
+  rating_snapshot       Json?
+  cost_components       Json      @default("[]")
+  pricing_source        String?   @db.VarChar(20)
+  rating_status         String?   @db.VarChar(32)
+  video_seconds         Decimal?  @db.Decimal(12, 3)
+  video_resolution      String?   @db.VarChar(32)
+  output_count          Int?
   tenants               Tenant?   @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([created_at], map: "idx_spend_created")
@@ -283,6 +292,76 @@ model SpendLog {
   @@index([token_hash], map: "idx_spend_token")
   @@index([user_id], map: "idx_spend_user")
   @@map("spend_logs")
+}
+
+model VideoGenerationJob {
+  job_id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String               @db.Uuid
+  request_id            String               @db.VarChar(255)
+  idempotency_key       String?              @db.VarChar(128)
+  token_hash            String?              @db.VarChar(64)
+  actor_id              String?              @db.VarChar(255)
+  model                 String               @db.VarChar(255)
+  provider              String               @db.VarChar(100)
+  provider_model        String               @db.VarChar(255)
+  deployment_id         String               @db.VarChar(512)
+  provider_account_id   String?              @db.Uuid
+  region                String?              @db.VarChar(100)
+  billing_mode          String               @db.VarChar(32)
+  pricing_source        String?              @db.VarChar(20)
+  provider_job_id       String?              @db.VarChar(512)
+  generation_status     String               @default("submitting") @db.VarChar(32)
+  delivery_status       String               @default("pending") @db.VarChar(32)
+  settlement_status     String               @default("pending") @db.VarChar(32)
+  request_snapshot      Json
+  requested_usage       Json                 @default("[]")
+  actual_usage          Json?
+  pricing_snapshot      Json?
+  estimated_rating_snapshot Json
+  rating_snapshot       Json?
+  exchange_rate         Decimal              @db.Decimal(24, 8)
+  estimated_cost_usd    Decimal              @default(0) @db.Decimal(24, 12)
+  estimated_cost_irr    Decimal              @default(0) @db.Decimal(24, 2)
+  final_cost_usd        Decimal?             @db.Decimal(24, 12)
+  final_cost_irr        Decimal?             @db.Decimal(24, 2)
+  budget_reservation    Json?
+  provider_response     Json?
+  output_artifacts      Json                 @default("[]")
+  last_error            String?
+  next_poll_at          DateTime?            @db.Timestamptz(6)
+  lease_owner           String?              @db.VarChar(255)
+  lease_expires_at      DateTime?            @db.Timestamptz(6)
+  attempt_count         Int                  @default(0)
+  version               BigInt               @default(1)
+  completed_at          DateTime?            @db.Timestamptz(6)
+  cancelled_at          DateTime?            @db.Timestamptz(6)
+  expires_at            DateTime             @default(dbgenerated("(now() + '7 days'::interval)")) @db.Timestamptz(6)
+  created_at            DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime             @default(now()) @db.Timestamptz(6)
+  tenants               Tenant               @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  submissions           VideoJobSubmission[]
+
+  @@unique([tenant_id, request_id], map: "uq_video_jobs_tenant_request")
+  @@index([tenant_id, created_at(sort: Desc)], map: "idx_video_jobs_tenant_created")
+  @@map("video_generation_jobs")
+}
+
+model VideoJobSubmission {
+  submission_id   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_id          String             @db.Uuid
+  attempt         Int
+  status          String             @default("pending") @db.VarChar(32)
+  request_payload Json
+  response_payload Json?
+  error           String?
+  started_at      DateTime?          @db.Timestamptz(6)
+  completed_at    DateTime?          @db.Timestamptz(6)
+  created_at      DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime           @default(now()) @db.Timestamptz(6)
+  job             VideoGenerationJob @relation(fields: [job_id], references: [job_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([job_id, attempt], map: "uq_video_job_submission_attempt")
+  @@map("video_job_submissions")
 }
 
 model RequestLog {
@@ -410,7 +489,10 @@ model TenantProviderAccountModel {
   model                    String                @db.VarChar(255)
   enabled                  Boolean               @default(true)
   types                    String[]              @default([])
+  input_modalities         String[]              @default([])
+  output_modalities        String[]              @default([])
   pricing_mode             String                @default("public") @db.VarChar(20)
+  public_pricing           Json?
   private_pricing          Json?
   settings                 Json                  @default("{}")
   created_at               DateTime              @default(now()) @db.Timestamptz(6)

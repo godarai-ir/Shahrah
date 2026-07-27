@@ -34,6 +34,10 @@ import {
   buildSelectedModelPayload,
   canUseCustomModelPricing,
 } from "@/app/components/provider-account-wizard.models";
+import {
+  isPricingResolved,
+  pricingSummaryText,
+} from "@/app/components/pricing";
 import { AccessEditor } from "@/app/components/provider-account-wizard/access-editor";
 import {
   mergeAccountIntoList,
@@ -85,7 +89,6 @@ import {
   buildBashCurlGuideCommand,
   buildCurlGuidePayload,
   extractMessageFromPayload,
-  formatDisplayPrice,
   formatProviderDisplayName,
   generateProviderAccountName,
   getCurlGuideEndpoint,
@@ -97,7 +100,6 @@ import {
   resolveCurlGuideMode,
   shouldGenerateProviderAccountName,
   stringsEqualFold,
-  toNumberOrUndefined,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
 import { usePermissions } from "@/app/components/permissions-context";
@@ -408,14 +410,10 @@ export default function ProviderAccountWizard(props?: {
       const draft = modelDrafts[model.model];
       if (!draft?.enabled) continue;
       if (draft.pricingMode === "private") {
-        const input = toNumberOrUndefined(draft.inputPrice);
-        const output = toNumberOrUndefined(draft.outputPrice);
-        if (typeof input !== "number" && typeof output !== "number") unresolved += 1;
+        if (!isPricingResolved(draft.privatePricing)) unresolved += 1;
         continue;
       }
-      const hasCatalog =
-        typeof model.public_pricing?.input_usd_per_1m === "number" ||
-        typeof model.public_pricing?.output_usd_per_1m === "number";
+      const hasCatalog = isPricingResolved(model.public_pricing);
       if (!hasCatalog) unresolved += 1;
     }
     return unresolved;
@@ -1947,18 +1945,7 @@ export default function ProviderAccountWizard(props?: {
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">
                                 {ux("models.card.context")}: <bdi>{model.context_window?.toLocaleString() ?? ux("models.na")}</bdi>
-                                {" · "}{ux("models.labels.input")}: <bdi dir="ltr">{formatDisplayPrice(model.public_pricing?.input_usd_per_1m, {
-                                  currency: "USD",
-                                  scale: "PER_MILLION_TOKENS",
-                                  usdToIrr: 0,
-                                  naLabel: ux("models.na"),
-                                })}</bdi>
-                                {" · "}{ux("models.labels.output")}: <bdi dir="ltr">{formatDisplayPrice(model.public_pricing?.output_usd_per_1m, {
-                                  currency: "USD",
-                                  scale: "PER_MILLION_TOKENS",
-                                  usdToIrr: 0,
-                                  naLabel: ux("models.na"),
-                                })}</bdi>
+                                {" · "}{ux("models.card.pricing")}: <bdi dir="ltr">{pricingSummaryText(model.public_pricing, ux("models.na"))}</bdi>
                               </p>
                             </div>
                           ))}

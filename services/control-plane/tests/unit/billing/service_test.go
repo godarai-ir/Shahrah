@@ -139,6 +139,58 @@ func (s *entitlementWalletStoreStub) entitlementCallCounts() (int, int) {
 	return s.fullCalls, s.limitCalls
 }
 
+func testTokenPricing(inputAmount, outputAmount string) *platform.ModelPrice {
+	return &platform.ModelPrice{Status: "priced", Profiles: []platform.PricingProfile{{
+		Region: "global", Currency: "USD", Rates: []platform.PricingRate{
+			{Key: "input", Usage: "input", Unit: "token", Amount: inputAmount, Quantity: 1_000_000, ServiceTier: "standard"},
+			{Key: "output", Usage: "output", Unit: "token", Amount: outputAmount, Quantity: 1_000_000, ServiceTier: "standard"},
+		},
+	}}}
+}
+
+func rateChatEstimate(t *testing.T, svc *billing.Service, req openai.ChatCompletionRequest) platform.UsageCostBreakdown {
+	t.Helper()
+	estimate, err := svc.EstimateCost(context.Background(), req)
+	require.NoError(t, err)
+	rated, err := svc.RateDeploymentUsage(context.Background(), platform.Deployment{
+		Model: req.Model, Provider: "test", RegionName: "global",
+		BillingMode: platform.BillingModeWalletBilled, PricingSource: "public",
+		EffectivePricing: testTokenPricing("0.5", "1.5"),
+	}, estimate)
+	require.NoError(t, err)
+	return rated
+}
+
+func rateEmbeddingEstimate(t *testing.T, svc *billing.Service, req openai.EmbeddingRequest) platform.UsageCostBreakdown {
+	t.Helper()
+	estimate, err := svc.EstimateEmbeddingCost(context.Background(), req)
+	require.NoError(t, err)
+	rated, err := svc.RateDeploymentUsage(context.Background(), platform.Deployment{
+		Model: req.Model, Provider: "test", RegionName: "global",
+		BillingMode: platform.BillingModeWalletBilled, PricingSource: "public",
+		EffectivePricing: testTokenPricing("0.5", "1.5"),
+	}, estimate)
+	require.NoError(t, err)
+	return rated
+}
+
+func rateImageEstimate(t *testing.T, svc *billing.Service, model string) platform.UsageCostBreakdown {
+	t.Helper()
+	rated, err := svc.RateDeploymentUsage(context.Background(), platform.Deployment{
+		Model: model, Provider: "test", RegionName: "global",
+		BillingMode: platform.BillingModeWalletBilled, PricingSource: "public",
+		EffectivePricing: testTokenPricing("10", "27"),
+	}, platform.UsageCostBreakdown{
+		Model: model,
+		UsageMeasures: []platform.UsageMeasure{
+			{Usage: "input", Unit: "token", Amount: "1", ServiceTier: "standard"},
+			{Usage: "output", Unit: "token", Amount: "1", ServiceTier: "standard"},
+		},
+	})
+	require.NoError(t, err)
+	return rated
+}
+
 func TestBillingService_ShouldEstimateCost(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
@@ -147,13 +199,12 @@ func TestBillingService_ShouldEstimateCost(t *testing.T) {
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
 
-	out, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{
+	out := rateChatEstimate(t, svc, openai.ChatCompletionRequest{
 		Model: "gpt-3.5-turbo",
 		Messages: []openai.ChatMessage{
 			{Role: "user", Content: "hello world"},
 		},
 	})
-	assert.NoError(t, err)
 	assert.Greater(t, out.TotalTokens, 0)
 	assert.Greater(t, out.TotalCostIRR, 0.0)
 }
@@ -167,15 +218,13 @@ func TestBillingService_ShouldEstimateCostWithPer1KScaling(t *testing.T) {
 	}, 850000, "test")
 
 	maxTokens := 250
-	out, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{
+	out := rateChatEstimate(t, svc, openai.ChatCompletionRequest{
 		Model:     "gpt-3.5-turbo",
 		MaxTokens: &maxTokens,
 		Messages: []openai.ChatMessage{
 			{Role: "user", Content: "hello world"},
 		},
 	})
-	require.NoError(t, err)
-
 	// gpt-3.5-turbo: input=$0.50/1M, output=$1.50/1M
 	// modelPrice(): input=0.0005 and output=0.0015 per 1K
 	// promptTokens estimator returns 100
@@ -196,11 +245,10 @@ func TestBillingService_ShouldEstimateEmbeddingCost(t *testing.T) {
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}, 850000, "test")
 
-	out, err := svc.EstimateEmbeddingCost(context.Background(), openai.EmbeddingRequest{
+	out := rateEmbeddingEstimate(t, svc, openai.EmbeddingRequest{
 		Model: "text-embedding-3-small",
 		Input: []string{"hello", "world"},
 	})
-	require.NoError(t, err)
 	assert.Greater(t, out.TotalTokens, 0)
 	assert.Equal(t, 0, out.OutputTokens)
 	assert.Greater(t, out.TotalCostIRR, 0.0)
@@ -219,13 +267,12 @@ func TestBillingService_ShouldCacheExchangeRateAcrossCostEstimations(t *testing.
 	})
 
 	for i := 0; i < 3; i++ {
-		out, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{
+		out := rateChatEstimate(t, svc, openai.ChatCompletionRequest{
 			Model: "gpt-3.5-turbo",
 			Messages: []openai.ChatMessage{
 				{Role: "user", Content: "hello world"},
 			},
 		})
-		require.NoError(t, err)
 		assert.Equal(t, 850000.0, out.ExchangeRate)
 	}
 
@@ -247,22 +294,19 @@ func TestBillingService_ShouldUseStaleExchangeRateAndRefreshAsync(t *testing.T) 
 		MaxStale: time.Hour,
 	})
 
-	first, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
-	require.NoError(t, err)
+	first := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	assert.Equal(t, 850000.0, first.ExchangeRate)
 
 	time.Sleep(time.Millisecond)
 
-	stale, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
-	require.NoError(t, err)
+	stale := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	assert.Equal(t, 850000.0, stale.ExchangeRate)
 
 	require.Eventually(t, func() bool {
 		return store.rateCallCount() >= 2
 	}, time.Second, 10*time.Millisecond)
 
-	refreshed, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
-	require.NoError(t, err)
+	refreshed := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	assert.Equal(t, 900000.0, refreshed.ExchangeRate)
 }
 
@@ -278,8 +322,7 @@ func TestBillingService_ShouldFallbackToDefaultRateWhenExchangeRateUnavailable(t
 		MaxStale: time.Hour,
 	})
 
-	out, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
-	require.NoError(t, err)
+	out := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	assert.Equal(t, 810000.0, out.ExchangeRate)
 	assert.Equal(t, 1, store.rateCallCount())
 	assert.Equal(t, 1, store.upsertCalls)
@@ -301,8 +344,7 @@ func TestBillingService_ShouldKeepStaleExchangeRateWhenAsyncRefreshFails(t *test
 		MaxStale: time.Hour,
 	})
 
-	first, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
-	require.NoError(t, err)
+	first := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	assert.Equal(t, 850000.0, first.ExchangeRate)
 
 	store.mu.Lock()
@@ -311,16 +353,14 @@ func TestBillingService_ShouldKeepStaleExchangeRateWhenAsyncRefreshFails(t *test
 
 	time.Sleep(time.Millisecond)
 
-	stale, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
-	require.NoError(t, err)
+	stale := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	assert.Equal(t, 850000.0, stale.ExchangeRate)
 
 	require.Eventually(t, func() bool {
 		return store.rateCallCount() >= 2
 	}, time.Second, 10*time.Millisecond)
 
-	afterFailedRefresh, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
-	require.NoError(t, err)
+	afterFailedRefresh := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	assert.Equal(t, 850000.0, afterFailedRefresh.ExchangeRate)
 	assert.Equal(t, 0, store.upsertCalls)
 }
@@ -347,7 +387,14 @@ func TestBillingService_ShouldCoalesceConcurrentExchangeRateMisses(t *testing.T)
 		go func() {
 			defer wg.Done()
 
-			_, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+			estimate, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+			if err == nil {
+				_, err = svc.RateDeploymentUsage(context.Background(), platform.Deployment{
+					Model: "gpt-3.5-turbo", Provider: "test", RegionName: "global",
+					BillingMode: platform.BillingModeWalletBilled, PricingSource: "public",
+					EffectivePricing: testTokenPricing("0.5", "1.5"),
+				}, estimate)
+			}
 			errs <- err
 		}()
 	}
@@ -375,7 +422,8 @@ func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 		CompletionTokens: 80,
 		TotalTokens:      200,
 	}
-	out, err := svc.FinalizeFromUsage(context.Background(), "gpt-3.5-turbo", usage, platform.UsageCostBreakdown{})
+	estimated := rateChatEstimate(t, svc, openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
+	out, err := svc.FinalizeFromUsage(context.Background(), "gpt-3.5-turbo", usage, estimated)
 	require.NoError(t, err)
 
 	// inputCost=(120/1000)*0.0005=0.00006
@@ -400,7 +448,7 @@ func TestBillingService_ShouldFinalizeImageCostWithImagePricing(t *testing.T) {
 		CompletionTokens: 1000,
 		TotalTokens:      2000,
 	}
-	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-1.5", usage, nil, platform.UsageCostBreakdown{})
+	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-1.5", usage, nil, rateImageEstimate(t, svc, "gpt-image-1.5"))
 	require.NoError(t, err)
 
 	expectedUSD := 0.037
@@ -418,7 +466,7 @@ func TestBillingService_ShouldUseProviderImageCostTicksWhenAvailable(t *testing.
 
 	ticks := int64(200000000)
 	usage := &openai.Usage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30}
-	out, err := svc.FinalizeImageUsage(context.Background(), "grok-imagine-image", usage, &ticks, platform.UsageCostBreakdown{})
+	out, err := svc.FinalizeImageUsage(context.Background(), "grok-imagine-image", usage, &ticks, rateImageEstimate(t, svc, "grok-imagine-image"))
 	require.NoError(t, err)
 
 	assert.Equal(t, 10, out.InputTokens)
@@ -437,7 +485,7 @@ func TestBillingService_ShouldChargeImageUsageWhenOnlyTotalTokensAreReturned(t *
 	}, 850000, "test")
 
 	usage := &openai.Usage{TotalTokens: 284}
-	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-2", usage, nil, platform.UsageCostBreakdown{})
+	out, err := svc.FinalizeImageUsage(context.Background(), "gpt-image-2", usage, nil, rateImageEstimate(t, svc, "gpt-image-2"))
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, out.InputTokens)

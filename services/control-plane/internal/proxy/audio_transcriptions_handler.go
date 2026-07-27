@@ -240,6 +240,10 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
+		estimated, err = rateDeploymentEstimate(c, h.billing, tunnelReq.Deployment, estimated)
+		if err != nil {
+			return err
+		}
 		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil || budgetResponseHandled {
 			return err
@@ -772,13 +776,11 @@ func estimateAudioTranscriptionCostFallback(model string, metadata map[string]in
 		inputTokens += estimateAudioTokensFromFileSize(size)
 	}
 
-	return platform.UsageCostBreakdown{
+	return withTokenUsageMeasures(platform.UsageCostBreakdown{
 		Model:       model,
 		RequestType: "audio_transcriptions",
 		Endpoint:    "/v1" + audioTranscriptionsPath,
-		InputTokens: inputTokens,
-		TotalTokens: inputTokens,
-	}
+	}, inputTokens, 0)
 }
 
 func estimateAudioTokensFromFileSize(raw interface{}) int {

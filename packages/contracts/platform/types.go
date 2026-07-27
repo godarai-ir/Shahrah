@@ -178,22 +178,39 @@ type SpendLog struct {
 	RequestMetadata map[string]interface{} `json:"request_metadata,omitempty"`
 	CompletionStart time.Time              `json:"completion_start_time"`
 	CompletionEnd   time.Time              `json:"completion_end_time"`
+	UsageMeasures   []UsageMeasure         `json:"usage_measures,omitempty"`
+	RatingSnapshot  *RatedUsage            `json:"rating_snapshot,omitempty"`
+	CostComponents  []AppliedRate          `json:"cost_components,omitempty"`
+	PricingSource   string                 `json:"pricing_source,omitempty"`
+	RatingStatus    string                 `json:"rating_status,omitempty"`
+	VideoSeconds    string                 `json:"video_seconds,omitempty"`
+	VideoResolution string                 `json:"video_resolution,omitempty"`
+	OutputCount     int                    `json:"output_count,omitempty"`
 }
 
 // UsageCostBreakdown captures estimated or final cost.
 type UsageCostBreakdown struct {
-	Model         string                 `json:"model"`
-	RequestType   string                 `json:"request_type,omitempty"`
-	Endpoint      string                 `json:"endpoint,omitempty"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-	InputTokens   int                    `json:"input_tokens"`
-	OutputTokens  int                    `json:"output_tokens"`
-	TotalTokens   int                    `json:"total_tokens"`
-	InputCostUSD  float64                `json:"input_cost_usd"`
-	OutputCostUSD float64                `json:"output_cost_usd"`
-	TotalCostUSD  float64                `json:"total_cost_usd"`
-	ExchangeRate  float64                `json:"exchange_rate"`
-	TotalCostIRR  float64                `json:"total_cost_irr"`
+	Model               string                 `json:"model"`
+	RequestType         string                 `json:"request_type,omitempty"`
+	Endpoint            string                 `json:"endpoint,omitempty"`
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+	InputTokens         int                    `json:"input_tokens"`
+	OutputTokens        int                    `json:"output_tokens"`
+	TotalTokens         int                    `json:"total_tokens"`
+	InputCostUSD        float64                `json:"input_cost_usd"`
+	OutputCostUSD       float64                `json:"output_cost_usd"`
+	TotalCostUSD        float64                `json:"total_cost_usd"`
+	ExchangeRate        float64                `json:"exchange_rate"`
+	TotalCostIRR        float64                `json:"total_cost_irr"`
+	TotalCostUSDExact   string                 `json:"total_cost_usd_exact,omitempty"`
+	ExchangeRateExact   string                 `json:"exchange_rate_exact,omitempty"`
+	TotalCostIRRExact   string                 `json:"total_cost_irr_exact,omitempty"`
+	UsageMeasures       []UsageMeasure         `json:"usage_measures,omitempty"`
+	AppliedRates        []AppliedRate          `json:"applied_rates,omitempty"`
+	RatingStatus        string                 `json:"rating_status,omitempty"`
+	PricingSource       string                 `json:"pricing_source,omitempty"`
+	PricingSnapshot     *ModelPrice            `json:"pricing_snapshot,omitempty"`
+	PricingSnapshotHash string                 `json:"pricing_snapshot_hash,omitempty"`
 }
 
 // BudgetReservationTarget is one window reserved for a request.
@@ -248,6 +265,8 @@ type Deployment struct {
 	CredentialVersionID string                 `json:"credential_version_id,omitempty"`
 	ProviderAuth        *ResolvedProviderAuth  `json:"provider_auth,omitempty"`
 	ModelInfo           map[string]interface{} `json:"model_info,omitempty"`
+	EffectivePricing    *ModelPrice            `json:"effective_pricing,omitempty"`
+	PricingSource       string                 `json:"pricing_source,omitempty"`
 }
 
 // TenantStore resolves tenants for requests.

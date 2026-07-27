@@ -1,4 +1,5 @@
 import type { ProviderCatalogModel } from "./types";
+import { findPricingRate, pricingRateNumber } from "@/app/components/pricing";
 import {
   getModelCapabilities,
   getModelDiscoveryCatalogBaseURL,
@@ -65,7 +66,7 @@ export function filterAndSortProviderModels({
   const minContextValue = toNumberOrUndefined(filters.minContext);
   const normalizedSearch = filters.search.trim().toLowerCase();
   const filtered = models.filter((model) => {
-    const inputPrice = model.public_pricing?.input_usd_per_1m;
+    const inputPrice = pricingRateNumber(findPricingRate(model.public_pricing, "input"));
     const context = model.context_window;
     const searchableValues = [
       model.display_name,
@@ -98,8 +99,8 @@ export function filterAndSortProviderModels({
 
   const sorted = [...filtered];
   sorted.sort((a, b) => {
-    const aPrice = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-    const bPrice = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
+    const aPrice = pricingRateNumber(findPricingRate(a.public_pricing, "input")) ?? Number.POSITIVE_INFINITY;
+    const bPrice = pricingRateNumber(findPricingRate(b.public_pricing, "input")) ?? Number.POSITIVE_INFINITY;
     const aContext = a.context_window ?? 0;
     const bContext = b.context_window ?? 0;
     switch (filters.sortBy) {
@@ -147,8 +148,8 @@ export function getRecommendedModel(models: ProviderCatalogModel[]): ProviderCat
     const datedA = /(?:^|[-_/])20\d{2}[-_]?\d{2}[-_]?\d{2}(?:$|[-_/])/.test(a.model) ? 1 : 0;
     const datedB = /(?:^|[-_/])20\d{2}[-_]?\d{2}[-_]?\d{2}(?:$|[-_/])/.test(b.model) ? 1 : 0;
     if (datedA !== datedB) return datedA - datedB;
-    const priceA = a.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
-    const priceB = b.public_pricing?.input_usd_per_1m ?? Number.POSITIVE_INFINITY;
+    const priceA = pricingRateNumber(findPricingRate(a.public_pricing, "input")) ?? Number.POSITIVE_INFINITY;
+    const priceB = pricingRateNumber(findPricingRate(b.public_pricing, "input")) ?? Number.POSITIVE_INFINITY;
     if (priceA !== priceB) return priceA - priceB;
     return (b.context_window ?? 0) - (a.context_window ?? 0);
   })[0] ?? null;

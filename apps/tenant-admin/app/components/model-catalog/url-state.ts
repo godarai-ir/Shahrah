@@ -3,9 +3,7 @@ export type ModelCatalogSort =
   | "name"
   | "provider"
   | "availability"
-  | "context"
-  | "input_price"
-  | "output_price";
+  | "context";
 export type SortOrder = "asc" | "desc";
 export type ProviderDetailSection = "overview" | "models" | "access" | "credentials";
 
@@ -30,8 +28,6 @@ const MODEL_CATALOG_SORTS = new Set<ModelCatalogSort>([
   "provider",
   "availability",
   "context",
-  "input_price",
-  "output_price",
 ]);
 const DETAIL_SECTIONS = new Set<ProviderDetailSection>([
   "overview",

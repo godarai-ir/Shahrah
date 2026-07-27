@@ -2,6 +2,48 @@
 
 This document is the contract entrypoint for every Shahrah component that consumes `model-discovery`.
 
+## Pricing Contract
+
+Pricing is unit-aware and is returned through `pricingStatus`,
+`pricingProfiles`, and `pricingSummary`. A profile identifies a region,
+currency, source, and effective interval; every profile contains dimensioned
+rates:
+
+```json
+{
+  "pricingStatus": "priced",
+  "pricingProfiles": [
+    {
+      "region": "us-west-2",
+      "currency": "USD",
+      "rates": [
+        {
+          "key": "output:second:standard:resolution=540p:tier=base",
+          "usage": "output",
+          "unit": "second",
+          "amount": "0.75",
+          "quantity": 1,
+          "serviceTier": "standard",
+          "resolution": "540p",
+          "tier": null,
+          "qualifiers": {}
+        }
+      ]
+    }
+  ]
+}
+```
+
+`amount` is always an exact decimal string. Token-like source prices are
+normalized to `quantity: 1000000`; per-second, per-request, and per-image rates
+use `quantity: 1`. `pricingStatus=unknown` is distinct from an explicit
+`pricingStatus=free`; a missing or zero-only source price is never inferred to
+be free.
+
+Numeric price filters and sorting require both `price_usage` and `price_unit`.
+Optional selectors are `price_region`, `price_resolution`, and
+`price_service_tier`. Prices with different units must not be compared.
+
 ## Canonical Spec Sources
 
 Use these sources in this order:

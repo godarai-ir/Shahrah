@@ -53,11 +53,11 @@ export interface ModelCardData {
   contextWindow?: number;
   maxOutputTokens?: number;
   pricing?: {
-    inputPerMillion?: number;
-    outputPerMillion?: number;
-    cachedInputPerMillion?: number;
-    imagePerMillion?: number;
-    audioPerMillion?: number;
+    rates?: Array<{
+      key: string;
+      label: string;
+      value: string;
+    }>;
   };
   latencyTier?: "low" | "medium" | "high";
   qualityTier?: "basic" | "good" | "high" | "frontier";
@@ -82,11 +82,6 @@ type ModelCardProps = {
   model: ModelCardData;
   mobileDensity?: "compact" | "detailed";
   detailsHref?: string;
-  pricingDisplay?: {
-    currency: "USD" | "TOMAN";
-    scale: "PER_MILLION_TOKENS" | "PER_TOKEN";
-    usdToIrr: number;
-  };
   onViewDetails?: (model: ModelCardData) => void;
   onCompare?: (model: ModelCardData) => void;
   isSelected?: boolean;
@@ -114,7 +109,6 @@ type ModelCardProps = {
     latency?: string;
     quality?: string;
     pricing?: string;
-    priceInputOutput?: string;
     pricingUnavailable?: string;
     technicalMetadata?: string;
     inputFormats?: string;
@@ -123,8 +117,6 @@ type ModelCardProps = {
     invocationModes?: string;
     fqn?: string;
     customPricing?: string;
-    pricingPerMillion?: string;
-    pricingPerToken?: string;
     modelId?: string;
     providerId?: string;
     apiMode?: string;
@@ -161,11 +153,6 @@ type ModelCardProps = {
 export function ModelCard(props: ModelCardProps) {
   const { model } = props;
   const mobileDensity = props.mobileDensity ?? "detailed";
-  const pricingDisplay = props.pricingDisplay ?? {
-    currency: "USD" as const,
-    scale: "PER_MILLION_TOKENS" as const,
-    usdToIrr: 0,
-  };
   const [copied, setCopied] = useState(false);
   const labels = {
     context: "Context",
@@ -175,7 +162,6 @@ export function ModelCard(props: ModelCardProps) {
     latency: "Latency",
     quality: "Quality",
     pricing: "Pricing",
-    priceInputOutput: "Input cost / Output cost",
     pricingUnavailable: "Pricing unavailable",
     technicalMetadata: "Technical metadata",
     inputFormats: "Input formats",
@@ -184,8 +170,6 @@ export function ModelCard(props: ModelCardProps) {
     invocationModes: "Invocation modes",
     fqn: "Model FQN",
     customPricing: "Custom pricing",
-    pricingPerMillion: "Cost (1M tokens)",
-    pricingPerToken: "Cost per token",
     modelId: "Model ID",
     providerId: "Provider ID",
     apiMode: "API mode",
@@ -366,11 +350,8 @@ export function ModelCard(props: ModelCardProps) {
         <div className="grid min-w-0 grid-cols-2 gap-2.5">
           <MetricPanel label={labels.context} value={formatTokenCount(model.contextWindow)} />
           <PricePanel
-            label={pricingDisplay.scale === "PER_TOKEN" ? labels.pricingPerToken : labels.pricingPerMillion}
-            inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, pricingDisplay)}
-            outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, pricingDisplay)}
-            inputLabel={labels.input}
-            outputLabel={labels.output}
+            label={labels.pricing}
+            rates={model.pricing?.rates}
             action={props.pricingAction}
           />
         </div>
@@ -458,10 +439,7 @@ function BadgePanel(props: {
 
 function PricePanel(props: {
   label: string;
-  inputLabel: string;
-  outputLabel: string;
-  inputValue: string;
-  outputValue: string;
+  rates?: Array<{ key: string; label: string; value: string }>;
   action?: ReactNode;
   className?: string;
 }) {
@@ -474,14 +452,15 @@ function PricePanel(props: {
         </div>
       </div>
       <div className="grid min-w-0 grid-cols-2 gap-2">
-        <div className="min-w-0 rounded-md bg-background/50 px-2 py-1.5 text-center">
-          <p className="text-xs text-muted-foreground">{props.inputLabel}</p>
-          <p className="mt-1 truncate text-sm font-semibold" dir="ltr" title={props.inputValue}>{props.inputValue}</p>
-        </div>
-        <div className="min-w-0 rounded-md bg-background/50 px-2 py-1.5 text-center">
-          <p className="text-xs text-muted-foreground">{props.outputLabel}</p>
-          <p className="mt-1 truncate text-sm font-semibold" dir="ltr" title={props.outputValue}>{props.outputValue}</p>
-        </div>
+        {(props.rates ?? []).slice(0, 2).map((rate) => (
+          <div key={rate.key} className="min-w-0 rounded-md bg-background/50 px-2 py-1.5 text-center">
+            <p className="truncate text-xs text-muted-foreground" dir="ltr" title={rate.label}>{rate.label}</p>
+            <p className="mt-1 truncate text-sm font-semibold" dir="ltr" title={rate.value}>{rate.value}</p>
+          </div>
+        ))}
+        {(props.rates ?? []).length === 0 ? (
+          <span className="col-span-2 text-center text-xs text-muted-foreground">N/A</span>
+        ) : null}
       </div>
     </section>
   );
@@ -554,45 +533,6 @@ export function formatTokenCount(value?: number) {
   if (value >= 1_000_000) return `${trimZeros(value / 1_000_000)}M`;
   if (value >= 1_000) return `${trimZeros(value / 1_000)}K`;
   return `${value}`;
-}
-
-export function formatPriceWithDisplay(
-  usdPerMillion: number | undefined,
-  display: { currency: "USD" | "TOMAN"; scale: "PER_MILLION_TOKENS" | "PER_TOKEN"; usdToIrr: number },
-) {
-  if (typeof usdPerMillion !== "number" || !Number.isFinite(usdPerMillion)) return "N/A";
-
-  let value = usdPerMillion;
-  if (display.scale === "PER_TOKEN") value = value / 1_000_000;
-
-  if (display.currency === "TOMAN") {
-    const toman = (value * display.usdToIrr) / 10;
-    const formatted = new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: display.scale === "PER_TOKEN" ? 2 : 0,
-    }).format(toman);
-    return display.scale === "PER_TOKEN" ? `${formatted} toman / token` : `${formatted} toman / 1M tokens`;
-  }
-
-  return display.scale === "PER_TOKEN"
-    ? `$${trimZeros(value)} / token`
-    : `$${trimZeros(value)} / 1M tokens`;
-}
-
-function formatPriceValueOnly(
-  usdPerMillion: number | undefined,
-  display: { currency: "USD" | "TOMAN"; scale: "PER_MILLION_TOKENS" | "PER_TOKEN"; usdToIrr: number },
-) {
-  if (typeof usdPerMillion !== "number" || !Number.isFinite(usdPerMillion)) return "N/A";
-
-  const value = display.scale === "PER_TOKEN" ? usdPerMillion / 1_000_000 : usdPerMillion;
-  if (display.currency === "TOMAN") {
-    const toman = (value * display.usdToIrr) / 10;
-    return `${new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: display.scale === "PER_TOKEN" ? 2 : 0,
-    }).format(toman)} toman`;
-  }
-
-  return `$${trimZeros(value)}`;
 }
 
 function trimZeros(value: number) {

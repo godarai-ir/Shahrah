@@ -3,11 +3,7 @@ import type {
   TenantProviderAccount,
   TenantProviderAccountSummary,
 } from "@/app/components/provider-account-wizard/types";
-
-export type ModelPrice = {
-  input_usd_per_1m?: number;
-  output_usd_per_1m?: number;
-};
+import type { ModelPrice } from "@/app/components/pricing";
 
 export type ModelAvailability = {
   account_id: string;

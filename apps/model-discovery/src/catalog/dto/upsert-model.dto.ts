@@ -2,30 +2,104 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsBoolean,
+  IsObject,
   IsInt,
+  IsIn,
+  IsISO8601,
+  Matches,
   IsOptional,
   IsString,
+  Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
-export class UpsertModelPricingDto {
+export class UpsertModelPricingRateDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  key?: string;
+
+  @ApiProperty()
+  @IsIn(['input', 'output', 'cache_read', 'cache_write'])
+  usage!: string;
+
+  @ApiProperty()
+  @IsString()
+  unit!: string;
+
+  @ApiProperty()
+  @Matches(/^\d+(?:\.\d+)?$/)
+  amount!: string;
+
+  @ApiProperty()
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsIn(['standard', 'batch', 'priority'])
+  serviceTier?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  resolution?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  tierFrom?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  tierTo?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tierMode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  qualifiers?: Record<string, string | number | boolean>;
+}
+
+export class UpsertModelPricingProfileDto {
+  @ApiProperty()
+  @IsString()
+  region!: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   currency?: string;
 
   @ApiPropertyOptional()
-  inputPricePerMillionTokens?: number;
-
-  @ApiPropertyOptional()
-  outputPricePerMillionTokens?: number;
-
-  @ApiPropertyOptional()
-  cachedInputPricePerMillionTokens?: number;
-
-  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   sourceUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsISO8601()
+  effectiveFrom?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsISO8601()
+  effectiveTo?: string;
+
+  @ApiProperty({ type: () => [UpsertModelPricingRateDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpsertModelPricingRateDto)
+  rates!: UpsertModelPricingRateDto[];
 }
 
 export class UpsertModelDto {
@@ -97,8 +171,8 @@ export class UpsertModelDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsBoolean()
-  free?: boolean;
+  @IsIn(['unknown', 'priced', 'free'])
+  pricingStatus?: string;
 
   @ApiPropertyOptional({ type: () => [String] })
   @IsOptional()
@@ -130,7 +204,10 @@ export class UpsertModelDto {
   @IsArray()
   regions?: string[];
 
-  @ApiPropertyOptional({ type: () => UpsertModelPricingDto })
+  @ApiPropertyOptional({ type: () => [UpsertModelPricingProfileDto] })
   @IsOptional()
-  pricing?: UpsertModelPricingDto;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpsertModelPricingProfileDto)
+  pricingProfiles?: UpsertModelPricingProfileDto[];
 }

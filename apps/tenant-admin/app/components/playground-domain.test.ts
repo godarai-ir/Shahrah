@@ -186,6 +186,51 @@ describe("playground domain", () => {
     });
   });
 
+  it("builds a canonical video request using seconds times output count inputs", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "xai:video:grok-imagine-video";
+    column.videoPrompt = "A {{style}} tracking shot";
+    column.variableValues = { style: "cinematic" };
+    column.videoConfig = {
+      seconds: "6",
+      resolution: "720p",
+      aspectRatio: "16:9",
+      count: "2",
+      serviceTier: "standard",
+      seed: "42",
+    };
+
+    const built = validateAndBuildRunPayload(column, "comparison-1", "video_generation");
+
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.payload).toMatchObject({
+      mode: "video_generation",
+      request: {
+        model: "xai:video:grok-imagine-video",
+        prompt: "A cinematic tracking shot",
+        seconds: 6,
+        resolution: "720p",
+        aspect_ratio: "16:9",
+        n: 2,
+        service_tier: "standard",
+        seed: 42,
+      },
+    });
+  });
+
+  it("rejects video duration outside the bounded billable range", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "video-model";
+    column.videoPrompt = "A scene";
+    column.videoConfig.seconds = "121";
+
+    expect(validateAndBuildRunPayload(column, "comparison-1", "video_generation")).toEqual({
+      ok: false,
+      errorKey: "validation.videoSecondsRange",
+    });
+  });
+
   it("normalizes safe image results and redacts base64 from the raw response", () => {
     const normalized = normalizeImageGenerationResponse({
       data: [

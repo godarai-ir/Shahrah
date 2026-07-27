@@ -9,17 +9,32 @@ import {
   type WizardCatalogModel,
   type WizardModelDraft,
 } from "./provider-account-wizard.models";
+import type { ModelPrice } from "./pricing";
+
+function tokenPricing(input: number, output: number): ModelPrice {
+  return {
+    status: "priced",
+    profiles: [{
+      region: "global",
+      currency: "USD",
+      rates: [
+        { key: "input-token", usage: "input", unit: "token", amount: String(input), quantity: 1_000_000, service_tier: "standard" },
+        { key: "output-token", usage: "output", unit: "token", amount: String(output), quantity: 1_000_000, service_tier: "standard" },
+      ],
+    }],
+  };
+}
 
 const visibleModels: WizardCatalogModel[] = [
   {
     model: "gpt-4.1",
     types: ["chat"],
-    public_pricing: { input_usd_per_1m: 1, output_usd_per_1m: 2 },
+    public_pricing: tokenPricing(1, 2),
   },
   {
     model: "gpt-4.1-mini",
     types: ["chat", "embedding"],
-    public_pricing: { input_usd_per_1m: 0.5, output_usd_per_1m: 1 },
+    public_pricing: tokenPricing(0.5, 1),
   },
 ];
 
@@ -28,8 +43,6 @@ function makeDraft(partial: Partial<WizardModelDraft>): WizardModelDraft {
     enabled: false,
     selectedCapabilities: [],
     pricingMode: "public",
-    inputPrice: "",
-    outputPrice: "",
     ...partial,
   };
 }
@@ -67,8 +80,7 @@ describe("provider-account-wizard model helpers", () => {
         enabled: true,
         selectedCapabilities: ["chat", "embedding"],
         pricingMode: "private",
-        inputPrice: "1.25",
-        outputPrice: "",
+        privatePricing: tokenPricing(1.25, 2),
       }),
       "gpt-4.1-mini": makeDraft({
         enabled: false,
@@ -85,8 +97,15 @@ describe("provider-account-wizard model helpers", () => {
         effective_capabilities: ["chat", "embedding"],
         pricing_mode: "private",
         private_pricing: {
-          input_usd_per_1m: 1.25,
-          output_usd_per_1m: undefined,
+          status: "priced",
+          profiles: [{
+            region: "global",
+            currency: "USD",
+            rates: [
+              { key: "input-token", usage: "input", unit: "token", amount: "1.25", quantity: 1_000_000, service_tier: "standard" },
+              { key: "output-token", usage: "output", unit: "token", amount: "2", quantity: 1_000_000, service_tier: "standard" },
+            ],
+          }],
         },
       },
     ]);
@@ -98,8 +117,6 @@ describe("provider-account-wizard model helpers", () => {
         enabled: true,
         selectedCapabilities: ["chat"],
         pricingMode: "private",
-        inputPrice: "",
-        outputPrice: "",
       }),
     };
 
@@ -115,8 +132,7 @@ describe("provider-account-wizard model helpers", () => {
         enabled: true,
         selectedCapabilities: ["chat"],
         pricingMode: "private",
-        inputPrice: "1.25",
-        outputPrice: "2.5",
+        privatePricing: tokenPricing(1.25, 2.5),
       }),
     };
 

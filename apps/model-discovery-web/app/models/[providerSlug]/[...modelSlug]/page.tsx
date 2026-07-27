@@ -2,6 +2,7 @@ import { apiGet } from '@/lib/api';
 import { getTranslations } from 'next-intl/server';
 import { CatalogBreadcrumb } from '@/components/catalog/catalog-breadcrumb';
 import { ModelDetailView } from '@/components/catalog/model-detail-view';
+import type { PricingProfile, PricingSummary } from '@/lib/pricing';
 
 type ModelDetail = {
   canonicalId: string;
@@ -29,17 +30,9 @@ type ModelDetail = {
     supportsByok?: boolean | null;
     supportsRegionalRouting?: boolean | null;
   } | null;
-  pricing?: Array<{
-    id: string;
-    currency?: string | null;
-    inputPricePerMillionTokens?: number | null;
-    outputPricePerMillionTokens?: number | null;
-    cachedInputPricePerMillionTokens?: number | null;
-    effectiveFrom?: string | null;
-    effectiveTo?: string | null;
-    sourceUrl?: string | null;
-    region?: { slug?: string | null; name?: string | null } | null;
-  }> | null;
+  pricingStatus?: 'unknown' | 'priced' | 'free';
+  pricingProfiles?: PricingProfile[] | null;
+  pricingSummary?: PricingSummary | null;
   inputModalities?: Array<{
     modality?: { slug?: string | null; name?: string | null } | null;
   }> | null;

@@ -25,7 +25,11 @@ type providerRegistry struct {
 }
 
 func newProviderRegistry() *providerRegistry {
-	openAI := newOpenAICompatibleAdapter("https://api.openai.com/v1")
+	openAI := newVideoCapableAdapter(
+		newOpenAICompatibleAdapter("https://api.openai.com/v1"),
+		"https://api.openai.com/v1",
+		"bearer",
+	)
 
 	registry := &providerRegistry{
 		adapters: map[string]providerAdapter{
@@ -33,8 +37,8 @@ func newProviderRegistry() *providerRegistry {
 			"openai":           openAI,
 			"ai21":             newOpenAICompatibleAdapter("https://api.ai21.com/studio/v1"),
 			"azure-ai-foundry": newOpenAICompatibleAdapterWithAuth("", "api-key", false),
-			"azure-open-ai":    newAzureOpenAIAdapter(),
-			"azure":            newAzureOpenAIAdapter(),
+			"azure-open-ai":    newVideoCapableAdapter(newAzureOpenAIAdapter(), "", "api-key"),
+			"azure":            newVideoCapableAdapter(newAzureOpenAIAdapter(), "", "api-key"),
 			"cerebras":         newOpenAICompatibleAdapter("https://api.cerebras.ai/v1"),
 			"databricks":       newOpenAICompatibleAdapter(""),
 			"groq":             newOpenAICompatibleAdapter("https://api.groq.com/openai/v1"),
@@ -45,20 +49,22 @@ func newProviderRegistry() *providerRegistry {
 			"perplexityai":     newOpenAICompatibleAdapter("https://api.perplexity.ai"),
 			"perplexity-ai":    newOpenAICompatibleAdapter("https://api.perplexity.ai"),
 			"sambanova":        newOpenAICompatibleAdapter(""),
-			"deepinfra":        newOpenAICompatibleAdapter("https://api.deepinfra.com/v1/openai"),
+			"deepinfra":        newVideoCapableAdapter(newOpenAICompatibleAdapter("https://api.deepinfra.com/v1/openai"), "https://api.deepinfra.com", "bearer"),
 			"fireworks":        newOpenAICompatibleAdapter(""),
-			"togetherai":       newOpenAICompatibleAdapter("https://api.together.xyz/v1"),
-			"together-ai":      newOpenAICompatibleAdapter("https://api.together.xyz/v1"),
-			"xai":              newOpenAICompatibleAdapter("https://api.x.ai/v1"),
+			"togetherai":       newVideoCapableAdapter(newOpenAICompatibleAdapter("https://api.together.xyz/v1"), "https://api.together.xyz/v1", "bearer"),
+			"together-ai":      newVideoCapableAdapter(newOpenAICompatibleAdapter("https://api.together.xyz/v1"), "https://api.together.xyz/v1", "bearer"),
+			"xai":              newVideoCapableAdapter(newOpenAICompatibleAdapter("https://api.x.ai/v1"), "https://api.x.ai/v1", "bearer"),
 			"cohere":           newCohereAdapter(),
 			"deepgram":         newDeepgramAudioTranscriptionsAdapter(),
-			"google-vertex":    newGoogleVertexSpeechAdapter(),
-			"vertex":           newGoogleVertexSpeechAdapter(),
-			"vertex-ai":        newGoogleVertexSpeechAdapter(),
-			"vertexai":         newGoogleVertexSpeechAdapter(),
+			"google-vertex":    newVideoCapableAdapter(newGoogleVertexSpeechAdapter(), "", "bearer"),
+			"vertex":           newVideoCapableAdapter(newGoogleVertexSpeechAdapter(), "", "bearer"),
+			"vertex-ai":        newVideoCapableAdapter(newGoogleVertexSpeechAdapter(), "", "bearer"),
+			"vertexai":         newVideoCapableAdapter(newGoogleVertexSpeechAdapter(), "", "bearer"),
 			"anthropic":        newAnthropicAdapter(),
-			"gemini":           newGeminiAdapter(),
-			"google-gemini":    newGeminiAdapter(),
+			"gemini":           newVideoCapableAdapter(newGeminiAdapter(), "https://generativelanguage.googleapis.com/v1beta", "google-api-key"),
+			"google-gemini":    newVideoCapableAdapter(newGeminiAdapter(), "https://generativelanguage.googleapis.com/v1beta", "google-api-key"),
+			"aws-bedrock":      newVideoOnlyAdapter("", "bearer"),
+			"bedrock":          newVideoOnlyAdapter("", "bearer"),
 		},
 	}
 	if mockProviderEnabled() {

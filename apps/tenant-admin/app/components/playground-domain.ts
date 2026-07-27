@@ -3,7 +3,7 @@ import type { PromptManifest, PromptVersion } from "./prompt-management-shared";
 
 export type PlaygroundRole = "system" | "user" | "assistant" | "tool";
 
-export type PlaygroundMode = "chat" | "image_generation";
+export type PlaygroundMode = "chat" | "image_generation" | "video_generation";
 
 export type PlaygroundMessage = {
   id: string;
@@ -62,6 +62,15 @@ export type PlaygroundImageConfig = {
   moderation: "auto" | "low";
 };
 
+export type PlaygroundVideoConfig = {
+  seconds: string;
+  resolution: string;
+  aspectRatio: string;
+  count: string;
+  serviceTier: string;
+  seed: string;
+};
+
 export type PlaygroundColumnDraft = {
   id: string;
   label: string;
@@ -72,6 +81,9 @@ export type PlaygroundColumnDraft = {
   config: PlaygroundConfig;
   imagePrompt: string;
   imageConfig: PlaygroundImageConfig;
+  videoPrompt: string;
+  videoConfig: PlaygroundVideoConfig;
+  videoInputFile?: File;
   variableValues: Record<string, string>;
   editorMode: "visual" | "json";
   jsonDraft: string;
@@ -106,6 +118,11 @@ export type PlaygroundTelemetry = {
   requestedImageSize?: string;
   requestedImageQuality?: string;
   imageMimeType?: string;
+  videoSeconds?: string;
+  videoResolution?: string;
+  videoOutputCount?: number;
+  videoGenerationStatus?: string;
+  videoSettlementStatus?: string;
 };
 
 export type PlaygroundRunResult = {
@@ -114,6 +131,7 @@ export type PlaygroundRunResult = {
   rawResponse: unknown;
   toolCalls: unknown[];
   generatedImages: PlaygroundGeneratedImage[];
+  generatedVideos: PlaygroundGeneratedVideo[];
   finishReason?: string;
   error?: string;
   responseIsPrevious?: boolean;
@@ -127,6 +145,15 @@ export type PlaygroundGeneratedImage = {
   b64Json?: string;
   revisedPrompt?: string;
   mimeType: "image/png" | "image/jpeg" | "image/webp";
+};
+
+export type PlaygroundGeneratedVideo = {
+  id: string;
+  url: string;
+  mimeType: string;
+  duration?: string;
+  resolution?: string;
+  sizeBytes?: number;
 };
 
 const DEFAULT_SCHEMA = JSON.stringify({
@@ -155,6 +182,8 @@ export function createPlaygroundColumn(label: string, defaultSystemPrompt: strin
     config: createDefaultConfig(),
     imagePrompt: "",
     imageConfig: createDefaultImageConfig(),
+    videoPrompt: "",
+    videoConfig: createDefaultVideoConfig(),
     variableValues: {},
     editorMode: "visual",
     jsonDraft: "",
@@ -163,6 +192,17 @@ export function createPlaygroundColumn(label: string, defaultSystemPrompt: strin
   };
   column.jsonDraft = serializeColumnJSON(column);
   return column;
+}
+
+export function createDefaultVideoConfig(): PlaygroundVideoConfig {
+  return {
+    seconds: "5",
+    resolution: "720p",
+    aspectRatio: "16:9",
+    count: "1",
+    serviceTier: "standard",
+    seed: "",
+  };
 }
 
 export function createDefaultImageConfig(): PlaygroundImageConfig {
@@ -240,7 +280,12 @@ export function clonePlaygroundColumn(column: PlaygroundColumnDraft, label: stri
 }
 
 export function getColumnVariables(column: PlaygroundColumnDraft, mode: PlaygroundMode = "chat"): string[] {
-  return extractPromptVariableNames(mode === "image_generation" ? [column.imagePrompt] : column.messages.map((message) => message.content));
+  const sources = mode === "image_generation"
+    ? [column.imagePrompt]
+    : mode === "video_generation"
+      ? [column.videoPrompt]
+      : column.messages.map((message) => message.content);
+  return extractPromptVariableNames(sources);
 }
 
 export function serializeColumnJSON(column: PlaygroundColumnDraft): string {
@@ -308,6 +353,7 @@ export function applyColumnJSON(column: PlaygroundColumnDraft): { ok: true; colu
 export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, comparisonID: string, mode: PlaygroundMode = "chat") {
   if (!column.selectedModel.trim()) return failure("validation.modelRequired");
   if (mode === "image_generation") return validateAndBuildImageRunPayload(column, comparisonID);
+  if (mode === "video_generation") return validateAndBuildVideoRunPayload(column, comparisonID);
   if (column.messages.length === 0 || column.messages.every((message) => !message.content.trim())) return failure("validation.messagesRequired");
   for (let index = 0; index < column.messages.length; index += 1) {
     const message = column.messages[index];
@@ -356,6 +402,43 @@ export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, compar
         } : null,
         guardrails: { input: column.config.inputGuardrails, output: column.config.outputGuardrails, scope: column.config.guardrailScope },
       },
+    },
+  };
+}
+
+function validateAndBuildVideoRunPayload(column: PlaygroundColumnDraft, comparisonID: string) {
+  if (!column.videoPrompt.trim()) return failure("validation.videoPromptRequired");
+  if (column.videoPrompt.length > 100_000) return failure("validation.videoPromptTooLong");
+  const variables = getColumnVariables(column, "video_generation");
+  const missing = variables.filter((name) => !(column.variableValues[name] ?? "").trim());
+  if (missing.length) return failure("validation.variablesMissing", { names: missing.join(", ") });
+
+  const seconds = Number(column.videoConfig.seconds);
+  if (!Number.isInteger(seconds) || seconds < 1 || seconds > 120) return failure("validation.videoSecondsRange");
+  const count = Number(column.videoConfig.count);
+  if (!Number.isInteger(count) || count < 1 || count > 4) return failure("validation.videoCountRange");
+  const seed = column.videoConfig.seed.trim() ? Number(column.videoConfig.seed) : undefined;
+  if (seed !== undefined && (!Number.isSafeInteger(seed) || seed < 0)) return failure("validation.videoSeedRange");
+
+  const request: Record<string, unknown> = {
+    model: column.selectedModel.trim(),
+    prompt: renderPromptText(column.videoPrompt, column.variableValues).rendered,
+    seconds,
+    resolution: column.videoConfig.resolution,
+    aspect_ratio: column.videoConfig.aspectRatio,
+    n: count,
+    service_tier: column.videoConfig.serviceTier,
+  };
+  if (seed !== undefined) request.seed = seed;
+
+  return {
+    ok: true as const,
+    payload: {
+      mode: "video_generation" as const,
+      client_run_id: createID("run"),
+      comparison_id: comparisonID,
+      column_id: column.id,
+      request,
     },
   };
 }
@@ -522,7 +605,10 @@ export function hydratePlaygroundColumn(version: PromptVersion, label: string): 
   const column: PlaygroundColumnDraft = {
     id: createID("column"), label, selectedModel: manifest.model ?? "", selectedProvider: "",
     messages: manifest.messages.map((message) => ({ id: createID("message"), role: isRole(message.role) ? message.role : "user", content: typeof message.content === "string" ? message.content : JSON.stringify(message.content ?? ""), toolCallId: message.tool_call_id })),
-    tools: tools.ok ? tools.tools : [], config: hydratedConfig, imagePrompt: "", imageConfig: createDefaultImageConfig(), variableValues: { ...(manifest.variables ?? {}) },
+    tools: tools.ok ? tools.tools : [], config: hydratedConfig,
+    imagePrompt: "", imageConfig: createDefaultImageConfig(),
+    videoPrompt: "", videoConfig: createDefaultVideoConfig(),
+    variableValues: { ...(manifest.variables ?? {}) },
     editorMode: "visual", jsonDraft: "", jsonError: "", sourcePromptID: version.prompt_id,
     sourceVersionID: version.id, sourceFQN: version.fqn, sourcePromptName: version.name,
     sourcePromptDescription: version.description ?? manifest.description ?? "", dirty: false,

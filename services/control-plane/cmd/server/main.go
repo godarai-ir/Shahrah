@@ -33,6 +33,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
+	videoruntime "github.com/Delpak/shahrah/services/control-plane/internal/video"
 	"go.uber.org/zap"
 )
 
@@ -379,6 +380,23 @@ func main() {
 	audioTranscriptionsHandler := proxy.NewAudioTranscriptionsHandlerWithDependencies(baseProxyDeps)
 	audioSpeechHandler := proxy.NewAudioSpeechHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
+	videoAdapters := videoruntime.NewAdapterRegistry(tunnelClient)
+	var videoObjects videoruntime.ObjectStore
+	if objectStore, objectStoreErr := videoruntime.NewS3ObjectStoreFromEnv(ctx); objectStoreErr != nil {
+		logger.Warn("Video object storage is unavailable; video creation will fail closed", zap.Error(objectStoreErr))
+	} else {
+		videoObjects = objectStore
+	}
+	videoHandler := proxy.NewVideoHandler(llmRouter, billingService, store, videoAdapters, videoObjects, logger)
+	videoWorker := videoruntime.NewWorker(
+		store,
+		billingService,
+		store,
+		videoAdapters,
+		videoObjects,
+		proxy.NewVideoDeploymentResolver(llmRouter),
+		logger,
+	)
 
 	traceCfg := tracing.LoadConfigFromEnv()
 	traceQueue := tracing.NewQueue(traceCfg.QueueCapacity)
@@ -430,6 +448,7 @@ func main() {
 		ImagesHandler:              imagesHandler,
 		AudioTranscriptionsHandler: audioTranscriptionsHandler,
 		AudioSpeechHandler:         audioSpeechHandler,
+		VideoHandler:               videoHandler,
 		ModelsHandler:              modelsHandler,
 		PoolStats:                  store,
 		HTTPMetrics:                httpMetrics,
@@ -439,6 +458,8 @@ func main() {
 
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	videoWorker.Start(runCtx)
+	defer videoWorker.Stop()
 
 	store.StartTokenUsageFlusher(runCtx)
 	store.StartUsageCounterFlusher(runCtx)

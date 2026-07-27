@@ -346,6 +346,10 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
+		estimated, err = rateDeploymentEstimate(c, h.billing, tunnelReq.Deployment, estimated)
+		if err != nil {
+			return err
+		}
 		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil || budgetResponseHandled {
 			return err
@@ -1593,6 +1597,8 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 		ConnectionID:        dep.ConnectionID,
 		CredentialVersionID: dep.CredentialVersionID,
 		ProviderAuth:        dep.ProviderAuth,
+		EffectivePricing:    dep.EffectivePricing,
+		PricingSource:       dep.PricingSource,
 	}
 }
 
@@ -1632,6 +1638,21 @@ func logProviderFailureRequest(
 }
 
 func logSpendBestEffort(logger *zap.Logger, logs usageLogger, ctx context.Context, spendLog platform.SpendLog) {
+	if len(spendLog.UsageMeasures) == 0 {
+		spendLog.UsageMeasures = withTokenUsageMeasures(platform.UsageCostBreakdown{}, spendLog.InputTokens, spendLog.OutputTokens).UsageMeasures
+	}
+	if spendLog.PricingSource == "" && spendLog.RequestMetadata != nil {
+		if source, ok := spendLog.RequestMetadata["pricing_mode"].(string); ok {
+			spendLog.PricingSource = source
+		}
+	}
+	if spendLog.RatingStatus == "" {
+		if resolved, ok := spendLog.RequestMetadata["pricing_resolved"].(bool); ok && !resolved {
+			spendLog.RatingStatus = "unrated"
+		} else {
+			spendLog.RatingStatus = "rated"
+		}
+	}
 	if err := logs.LogSpend(ctx, spendLog); err != nil && logger != nil {
 		logger.Warn("failed to log spend", zap.Error(err), zap.String("request_id", spendLog.RequestID))
 	}

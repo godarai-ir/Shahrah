@@ -2,9 +2,15 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -26,6 +32,101 @@ func TestRegistryContainsEveryDatabaseProviderMarkedRuntimeReady(t *testing.T) {
 				t.Fatalf("runtime-ready provider %q has no adapter: %v", provider, err)
 			}
 		})
+	}
+}
+
+func TestVideoAdapterSignsAWSRequestsWithSigV4(t *testing.T) {
+	t.Parallel()
+	var authorization, sessionToken, contentHash string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorization = r.Header.Get("Authorization")
+		sessionToken = r.Header.Get("X-Amz-Security-Token")
+		contentHash = r.Header.Get("X-Amz-Content-Sha256")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer upstream.Close()
+
+	adapter := newVideoOnlyAdapter(upstream.URL, "bearer")
+	response, err := adapter.Dispatch(context.Background(), upstream.Client(), platform.TunnelRequest{
+		RequestID: "video-1",
+		Deployment: platform.Deployment{
+			Provider: "aws-bedrock", APIBase: upstream.URL, RegionName: "us-west-2",
+			ProviderAuth: &platform.ResolvedProviderAuth{
+				Mode: string(platform.ProviderAuthModeAWSSigV4), AWSAccessKeyID: "AKID",
+				AWSSecretAccessKey: "secret", AWSSessionToken: "session",
+			},
+		},
+		Body: []byte(`{"modelId":"test"}`),
+		RequestMetadata: map[string]interface{}{
+			"provider_operation": "video", "provider_endpoint_path": "/model/test/async-invoke",
+		},
+	})
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+	if !strings.HasPrefix(authorization, "AWS4-HMAC-SHA256 Credential=AKID/") {
+		t.Fatalf("unexpected AWS Authorization header %q", authorization)
+	}
+	if sessionToken != "session" || len(contentHash) != 64 {
+		t.Fatalf("missing SigV4 headers: session=%q hash=%q", sessionToken, contentHash)
+	}
+}
+
+func TestVideoAdapterUsesAndCachesGoogleServiceAccountToken(t *testing.T) {
+	t.Parallel()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkcs8, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privatePEM := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8}))
+
+	var tokenCalls atomic.Int32
+	var apiCalls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			tokenCalls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"access_token":"google-token","expires_in":3600}`)
+			return
+		}
+		apiCalls.Add(1)
+		if got := r.Header.Get("Authorization"); got != "Bearer google-token" {
+			t.Errorf("unexpected Google Authorization header %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer upstream.Close()
+
+	adapter := newVideoOnlyAdapter(upstream.URL, "bearer")
+	payload := platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "google-vertex", APIBase: upstream.URL, RegionName: "us-central1",
+			ProviderAuth: &platform.ResolvedProviderAuth{
+				Mode: string(platform.ProviderAuthModeGoogleServiceAccount), GoogleClientEmail: "svc@example.test",
+				GooglePrivateKey: privatePEM, GoogleTokenURI: upstream.URL + "/token",
+			},
+		},
+		Body: []byte(`{}`),
+		RequestMetadata: map[string]interface{}{
+			"provider_operation": "video", "provider_endpoint_path": "/v1/video",
+		},
+	}
+	for range 2 {
+		response, dispatchErr := adapter.Dispatch(context.Background(), upstream.Client(), payload)
+		if dispatchErr != nil {
+			t.Fatalf("dispatch: %v", dispatchErr)
+		}
+		_ = response.Body.Close()
+	}
+	if tokenCalls.Load() != 1 || apiCalls.Load() != 2 {
+		t.Fatalf("expected one token request and two API requests, got token=%d api=%d", tokenCalls.Load(), apiCalls.Load())
 	}
 }
 

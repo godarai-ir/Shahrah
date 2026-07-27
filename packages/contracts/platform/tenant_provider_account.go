@@ -25,6 +25,7 @@ const (
 	ModelTypeAudioTranscription ModelType = "audio_transcription"
 	ModelTypeAudioTranslation   ModelType = "audio_translation"
 	ModelTypeImageGeneration    ModelType = "image_generation"
+	ModelTypeVideoGeneration    ModelType = "video_generation"
 	ModelTypeModeration         ModelType = "moderation"
 	ModelTypeRerank             ModelType = "rerank"
 	ModelTypeSearch             ModelType = "search"
@@ -75,10 +76,86 @@ const (
 	AccessScopeModel   AccessScope = "model"
 )
 
-// ModelPrice is normalized as USD per 1M tokens.
+// PricingTier describes an optional usage tier for one rate.
+type PricingTier struct {
+	From *int   `json:"from,omitempty"`
+	To   *int   `json:"to,omitempty"`
+	Mode string `json:"mode,omitempty"`
+}
+
+// PricingRate is one exact, dimensioned catalog price. Amount remains a decimal
+// string so JSON round-trips do not lose precision.
+type PricingRate struct {
+	Key         string                 `json:"key"`
+	Usage       string                 `json:"usage"`
+	Unit        string                 `json:"unit"`
+	Amount      string                 `json:"amount"`
+	Quantity    int                    `json:"quantity"`
+	ServiceTier string                 `json:"service_tier"`
+	Resolution  string                 `json:"resolution,omitempty"`
+	Tier        *PricingTier           `json:"tier,omitempty"`
+	Qualifiers  map[string]interface{} `json:"qualifiers,omitempty"`
+}
+
+// PricingProfile groups rates that share a region, currency and validity window.
+type PricingProfile struct {
+	Region        string        `json:"region"`
+	Currency      string        `json:"currency"`
+	EffectiveFrom string        `json:"effective_from,omitempty"`
+	EffectiveTo   string        `json:"effective_to,omitempty"`
+	SourceURL     string        `json:"source_url,omitempty"`
+	Rates         []PricingRate `json:"rates"`
+}
+
+// ModelPrice is the canonical unit-aware pricing payload.
 type ModelPrice struct {
-	InputUSDPer1M  *float64 `json:"input_usd_per_1m,omitempty"`
-	OutputUSDPer1M *float64 `json:"output_usd_per_1m,omitempty"`
+	Status   string           `json:"status,omitempty"`
+	Profiles []PricingProfile `json:"profiles"`
+}
+
+// UsageMeasure is one provider-independent billable quantity. Decimal values
+// are strings so rate calculations and persisted snapshots remain exact.
+type UsageMeasure struct {
+	Usage       string                 `json:"usage"`
+	Unit        string                 `json:"unit"`
+	Amount      string                 `json:"amount"`
+	Resolution  string                 `json:"resolution,omitempty"`
+	ServiceTier string                 `json:"service_tier,omitempty"`
+	Qualifiers  map[string]interface{} `json:"qualifiers,omitempty"`
+}
+
+// AppliedRate records the exact catalog rate selected for a usage measure.
+type AppliedRate struct {
+	ProfileKey       string                 `json:"profile_key"`
+	RateKey          string                 `json:"rate_key"`
+	Usage            string                 `json:"usage"`
+	Unit             string                 `json:"unit"`
+	RateAmount       string                 `json:"rate_amount"`
+	RateQuantity     int                    `json:"rate_quantity"`
+	UsageAmount      string                 `json:"usage_amount"`
+	ComponentCostUSD string                 `json:"component_cost_usd"`
+	Region           string                 `json:"region,omitempty"`
+	Currency         string                 `json:"currency"`
+	Resolution       string                 `json:"resolution,omitempty"`
+	ServiceTier      string                 `json:"service_tier,omitempty"`
+	PricingSource    string                 `json:"pricing_source,omitempty"`
+	Qualifiers       map[string]interface{} `json:"qualifiers,omitempty"`
+}
+
+// RatedUsage is the canonical, auditable result of rating one request.
+type RatedUsage struct {
+	Status          string         `json:"status"`
+	Model           string         `json:"model"`
+	Provider        string         `json:"provider,omitempty"`
+	Region          string         `json:"region,omitempty"`
+	PricingSource   string         `json:"pricing_source,omitempty"`
+	Measures        []UsageMeasure `json:"measures"`
+	Components      []AppliedRate  `json:"components,omitempty"`
+	TotalCostUSD    string         `json:"total_cost_usd"`
+	ExchangeRate    string         `json:"exchange_rate"`
+	TotalCostIRR    string         `json:"total_cost_irr"`
+	PricingSnapshot *ModelPrice    `json:"pricing_snapshot,omitempty"`
+	SnapshotHash    string         `json:"snapshot_hash,omitempty"`
 }
 
 // ProviderCatalogProvider is returned by the provider picker endpoint.

@@ -175,15 +175,14 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 	estimated := estimateImageCostFallback(requestedModel, metadata)
 	if usage := estimatedImageUsage(outboundModel, metadata); usage != nil {
-		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(c.Context(), outboundModel, usage, nil, estimated)
-		if finalizeErr != nil {
-			return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate image request cost", "billing_error")
-		}
-
-		estimated = finalizedEstimate
+		estimated = withTokenUsageMeasures(estimated, usage.PromptTokens, usage.CompletionTokens)
 	}
 
 	estimated.Metadata = metadata
+	estimated, err = rateDeploymentEstimate(c, h.billing, contractDeployment, estimated)
+	if err != nil {
+		return err
+	}
 	quotaStart := time.Now()
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)

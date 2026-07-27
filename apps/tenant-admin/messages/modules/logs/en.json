@@ -233,6 +233,15 @@
     "cost": "Cost",
     "trace": "Trace"
   },
+  "usage": {
+    "title": "Rated usage",
+    "ratingStatus": "Rating status",
+    "pricingSource": "Pricing source",
+    "videoSeconds": "Video seconds",
+    "videoResolution": "Video resolution",
+    "measures": "Usage measures",
+    "rates": "Applied rates"
+  },
   "content": {
     "request": "Request Payload",
     "response": "Response Payload",

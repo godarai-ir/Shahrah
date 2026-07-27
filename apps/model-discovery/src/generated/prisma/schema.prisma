@@ -29,6 +29,25 @@ enum LifecycleStatus {
   archived
 }
 
+enum ModelPricingStatus {
+  unknown
+  priced
+  free
+}
+
+enum PricingUsage {
+  input
+  output
+  cache_read
+  cache_write
+}
+
+enum PricingServiceTier {
+  standard
+  batch
+  priority
+}
+
 model Provider {
   id                      String         @id @default(cuid())
   slug                    String         @unique
@@ -57,17 +76,17 @@ model Provider {
 }
 
 model Model {
-  id               String          @id @default(cuid())
+  id               String             @id @default(cuid())
   providerId       String
-  canonicalId      String          @unique
+  canonicalId      String             @unique
   slug             String
   displayName      String
-  mode             String[]        @default(["unknown"])
+  mode             String[]           @default(["unknown"])
   shortDescription String?
   longDescription  String?
-  status           ModelStatus     @default(active)
-  enabled          Boolean         @default(true)
-  lifecycleStatus  LifecycleStatus @default(draft)
+  status           ModelStatus        @default(active)
+  enabled          Boolean            @default(true)
+  lifecycleStatus  LifecycleStatus    @default(draft)
   categoryId       String?
   modelSeriesId    String?
   contextWindow    Int?
@@ -75,16 +94,16 @@ model Model {
   knowledgeCutoff  DateTime?
   releaseDate      DateTime?
   deprecatedAt     DateTime?
-  openSource       Boolean         @default(false)
-  free             Boolean         @default(false)
+  openSource       Boolean            @default(false)
+  pricingStatus    ModelPricingStatus @default(unknown)
   tokenizer        String?
   license          String?
   huggingFaceUrl   String?
   modelCardUrl     String?
   officialDocsUrl  String?
-  popularityScore  Float           @default(0)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  popularityScore  Float              @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   provider         Provider                  @relation(fields: [providerId], references: [id], onDelete: Cascade)
   category         Category?                 @relation(fields: [categoryId], references: [id])
@@ -179,29 +198,47 @@ model ModelVersion {
 }
 
 model ModelPricing {
-  id                               String    @id @default(cuid())
-  modelId                          String
-  regionId                         String?
-  currency                         String    @default("USD")
-  inputPricePerMillionTokens       Float?
-  outputPricePerMillionTokens      Float?
-  cachedInputPricePerMillionTokens Float?
-  imageInputPrice                  Float?
-  imageOutputPrice                 Float?
-  audioInputPrice                  Float?
-  audioOutputPrice                 Float?
-  requestPrice                     Float?
-  effectiveFrom                    DateTime?
-  effectiveTo                      DateTime?
-  sourceUrl                        String?
-  createdAt                        DateTime  @default(now())
-  updatedAt                        DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  modelId       String
+  regionId      String
+  currency      String    @default("USD")
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  sourceUrl     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  model  Model   @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  region Region? @relation(fields: [regionId], references: [id])
+  model  Model              @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  region Region             @relation(fields: [regionId], references: [id])
+  rates  ModelPricingRate[]
 
-  @@index([modelId])
-  @@index([effectiveFrom, effectiveTo])
+  @@index([modelId, regionId])
+  @@index([modelId, effectiveFrom, effectiveTo])
+}
+
+model ModelPricingRate {
+  id             String             @id @default(cuid())
+  modelPricingId String
+  rateKey        String
+  usage          PricingUsage
+  unit           String
+  amount         Decimal            @db.Decimal(30, 18)
+  quantity       Int
+  serviceTier    PricingServiceTier @default(standard)
+  resolution     String?
+  tierFrom       Int?
+  tierTo         Int?
+  tierMode       String?
+  qualifiers     Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  pricing ModelPricing @relation(fields: [modelPricingId], references: [id], onDelete: Cascade)
+
+  @@unique([modelPricingId, rateKey])
+  @@index([usage, unit])
+  @@index([resolution])
+  @@index([amount])
 }
 
 model Capability {

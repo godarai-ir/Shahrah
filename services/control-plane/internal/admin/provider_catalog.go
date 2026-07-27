@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 )
 
 var errDiscoveryNotFound = errors.New("discovery resource not found")
@@ -70,20 +69,43 @@ type discoveryProvider struct {
 	SupportsRegionalRouting bool              `json:"supportsRegionalRouting"`
 }
 
-type modelDiscoveryPricing struct {
-	InputPerMillionTokens  *float64 `json:"inputPerMillionTokens"`
-	OutputPerMillionTokens *float64 `json:"outputPerMillionTokens"`
+type modelDiscoveryPricingTier struct {
+	From *int   `json:"from"`
+	To   *int   `json:"to"`
+	Mode string `json:"mode"`
+}
+
+type modelDiscoveryPricingRate struct {
+	Key         string                     `json:"key"`
+	Usage       string                     `json:"usage"`
+	Unit        string                     `json:"unit"`
+	Amount      string                     `json:"amount"`
+	Quantity    int                        `json:"quantity"`
+	ServiceTier string                     `json:"serviceTier"`
+	Resolution  string                     `json:"resolution"`
+	Tier        *modelDiscoveryPricingTier `json:"tier"`
+	Qualifiers  map[string]interface{}     `json:"qualifiers"`
+}
+
+type modelDiscoveryPricingProfile struct {
+	Region        string                      `json:"region"`
+	Currency      string                      `json:"currency"`
+	EffectiveFrom string                      `json:"effectiveFrom"`
+	EffectiveTo   string                      `json:"effectiveTo"`
+	SourceURL     string                      `json:"sourceUrl"`
+	Rates         []modelDiscoveryPricingRate `json:"rates"`
 }
 
 type modelDiscoveryModel struct {
-	CanonicalID      string                 `json:"canonicalId"`
-	Name             string                 `json:"name"`
-	Mode             []string               `json:"mode"`
-	ContextWindow    *int                   `json:"contextWindow"`
-	Capabilities     []string               `json:"capabilities"`
-	InputModalities  []string               `json:"inputModalities"`
-	OutputModalities []string               `json:"outputModalities"`
-	Pricing          *modelDiscoveryPricing `json:"pricing"`
+	CanonicalID      string                         `json:"canonicalId"`
+	Name             string                         `json:"name"`
+	Mode             []string                       `json:"mode"`
+	ContextWindow    *int                           `json:"contextWindow"`
+	Capabilities     []string                       `json:"capabilities"`
+	InputModalities  []string                       `json:"inputModalities"`
+	OutputModalities []string                       `json:"outputModalities"`
+	PricingStatus    string                         `json:"pricingStatus"`
+	PricingProfiles  []modelDiscoveryPricingProfile `json:"pricingProfiles"`
 }
 
 func normalizeProviderSlug(value string) string {
@@ -171,8 +193,6 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	}
 
 	if normalizedProvider == internalMockProvider {
-		zeroPrice := 0.0
-
 		return []platform.ProviderCatalogModel{{
 			Provider:         internalMockProvider,
 			Model:            internalMockModel,
@@ -183,30 +203,7 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 			OutputModalities: []string{"text"},
 			Capabilities:     []string{"chat", "completion"},
 			Features:         []string{"chat", "completion"},
-			PublicPricing: &platform.ModelPrice{
-				InputUSDPer1M:  &zeroPrice,
-				OutputUSDPer1M: &zeroPrice,
-			},
-		}}, nil
-	}
-
-	if normalizedProvider == internalMockProvider {
-		zeroPrice := 0.0
-
-		return []platform.ProviderCatalogModel{{
-			Provider:         internalMockProvider,
-			Model:            internalMockModel,
-			DisplayName:      "Internal Mock Chat",
-			Modes:            []string{"chat", "completion"},
-			Types:            []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeCompletion},
-			InputModalities:  []string{"text"},
-			OutputModalities: []string{"text"},
-			Capabilities:     []string{"chat", "completion"},
-			Features:         []string{"chat", "completion"},
-			PublicPricing: &platform.ModelPrice{
-				InputUSDPer1M:  &zeroPrice,
-				OutputUSDPer1M: &zeroPrice,
-			},
+			PublicPricing:    freeTokenPricing(),
 		}}, nil
 	}
 
@@ -262,7 +259,6 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 		}
 
 		items[i].Types = normalizeModelTypes(items[i].Types)
-		items[i].PublicPricing = fillModelPricingFromRegistry(normalizedProvider, items[i].Model, items[i].PublicPricing)
 	}
 
 	setCachedProviderModels(normalizedProvider, items)
@@ -319,7 +315,6 @@ func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provide
 		}
 
 		items[i].Types = normalizeModelTypes(items[i].Types)
-		items[i].PublicPricing = fillModelPricingFromRegistry(provider, items[i].Model, items[i].PublicPricing)
 	}
 
 	return items, nil
@@ -757,11 +752,11 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 			Capabilities:     normalizeStringList(item.Capabilities),
 			Features:         normalizeStringList(item.Capabilities),
 		}
-		if item.Pricing != nil {
-			entry.PublicPricing = &platform.ModelPrice{
-				InputUSDPer1M:  item.Pricing.InputPerMillionTokens,
-				OutputUSDPer1M: item.Pricing.OutputPerMillionTokens,
-			}
+		if len(item.PricingProfiles) > 0 || item.PricingStatus == "free" {
+			entry.PublicPricing = mapDiscoveryPricing(
+				item.PricingStatus,
+				item.PricingProfiles,
+			)
 		}
 
 		out = append(out, entry)
@@ -964,63 +959,92 @@ func cloneModelPrice(price *platform.ModelPrice) *platform.ModelPrice {
 		return nil
 	}
 
-	out := *price
-
-	return &out
-}
-
-func fillModelPricingFromRegistry(provider string, model string, current *platform.ModelPrice) *platform.ModelPrice {
-	if hasPositiveModelPrice(current, true) && hasPositiveModelPrice(current, false) {
-		return current
+	out := &platform.ModelPrice{
+		Status:   price.Status,
+		Profiles: make([]platform.PricingProfile, len(price.Profiles)),
 	}
-
-	pricing, _ := billing.GetPricing(provider, model)
-	if pricing.InputPrice <= 0 && pricing.OutputPrice <= 0 {
-		return current
-	}
-
-	out := &platform.ModelPrice{}
-	if current != nil {
-		*out = *current
-	}
-
-	assignModelPriceIfMissing(out, true, pricing.InputPrice)
-	assignModelPriceIfMissing(out, false, pricing.OutputPrice)
-
-	if out.InputUSDPer1M == nil && out.OutputUSDPer1M == nil {
-		return nil
+	for i, profile := range price.Profiles {
+		out.Profiles[i] = profile
+		out.Profiles[i].Rates = make([]platform.PricingRate, len(profile.Rates))
+		for j, rate := range profile.Rates {
+			out.Profiles[i].Rates[j] = rate
+			if rate.Tier != nil {
+				tier := *rate.Tier
+				out.Profiles[i].Rates[j].Tier = &tier
+			}
+			if rate.Qualifiers != nil {
+				out.Profiles[i].Rates[j].Qualifiers = make(map[string]interface{}, len(rate.Qualifiers))
+				for key, value := range rate.Qualifiers {
+					out.Profiles[i].Rates[j].Qualifiers[key] = value
+				}
+			}
+		}
 	}
 
 	return out
 }
 
-func hasPositiveModelPrice(price *platform.ModelPrice, input bool) bool {
-	if price == nil {
-		return false
+func tokenRate(usage string, amount float64) platform.PricingRate {
+	return platform.PricingRate{
+		Key:         usage + ":token:standard:resolution=default:tier=base",
+		Usage:       usage,
+		Unit:        "token",
+		Amount:      strconv.FormatFloat(amount, 'f', -1, 64),
+		Quantity:    1_000_000,
+		ServiceTier: "standard",
 	}
-
-	value := price.OutputUSDPer1M
-	if input {
-		value = price.InputUSDPer1M
-	}
-
-	return value != nil && *value > 0
 }
 
-func assignModelPriceIfMissing(price *platform.ModelPrice, input bool, value float64) {
-	if value <= 0 {
-		return
+func freeTokenPricing() *platform.ModelPrice {
+	return &platform.ModelPrice{
+		Status: "free",
+		Profiles: []platform.PricingProfile{{
+			Region:   "global",
+			Currency: "USD",
+			Rates: []platform.PricingRate{
+				tokenRate("input", 0),
+				tokenRate("output", 0),
+			},
+		}},
 	}
+}
 
-	target := &price.OutputUSDPer1M
-	if input {
-		target = &price.InputUSDPer1M
+func mapDiscoveryPricing(status string, profiles []modelDiscoveryPricingProfile) *platform.ModelPrice {
+	out := &platform.ModelPrice{
+		Status:   status,
+		Profiles: make([]platform.PricingProfile, 0, len(profiles)),
 	}
-
-	if *target != nil && **target > 0 {
-		return
+	for _, profile := range profiles {
+		mapped := platform.PricingProfile{
+			Region:        profile.Region,
+			Currency:      profile.Currency,
+			EffectiveFrom: profile.EffectiveFrom,
+			EffectiveTo:   profile.EffectiveTo,
+			SourceURL:     profile.SourceURL,
+			Rates:         make([]platform.PricingRate, 0, len(profile.Rates)),
+		}
+		for _, rate := range profile.Rates {
+			var tier *platform.PricingTier
+			if rate.Tier != nil {
+				tier = &platform.PricingTier{
+					From: rate.Tier.From,
+					To:   rate.Tier.To,
+					Mode: rate.Tier.Mode,
+				}
+			}
+			mapped.Rates = append(mapped.Rates, platform.PricingRate{
+				Key:         rate.Key,
+				Usage:       rate.Usage,
+				Unit:        rate.Unit,
+				Amount:      rate.Amount,
+				Quantity:    rate.Quantity,
+				ServiceTier: rate.ServiceTier,
+				Resolution:  rate.Resolution,
+				Tier:        tier,
+				Qualifiers:  rate.Qualifiers,
+			})
+		}
+		out.Profiles = append(out.Profiles, mapped)
 	}
-
-	v := value
-	*target = &v
+	return out
 }

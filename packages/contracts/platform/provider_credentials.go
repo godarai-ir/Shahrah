@@ -15,8 +15,14 @@ const (
 // only on the internal mTLS tunnel dispatch. It must never be used in metadata,
 // logs, traces, audits, analytics, or public/admin responses.
 type ResolvedProviderAuth struct {
-	Mode   string `json:"mode"`
-	APIKey string `json:"api_key,omitempty"`
+	Mode               string `json:"mode"`
+	APIKey             string `json:"api_key,omitempty"`
+	AWSAccessKeyID     string `json:"aws_access_key_id,omitempty"`
+	AWSSecretAccessKey string `json:"aws_secret_access_key,omitempty"`
+	AWSSessionToken    string `json:"aws_session_token,omitempty"`
+	GoogleClientEmail  string `json:"google_client_email,omitempty"`
+	GooglePrivateKey   string `json:"google_private_key,omitempty"`
+	GoogleTokenURI     string `json:"google_token_uri,omitempty"`
 }
 
 type ProviderConnectionField struct {

@@ -92,14 +92,16 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 
 	modelStore := &integrationModelStore{
 		deployments: []platform.Deployment{{
-			ID:        "dep-1",
-			TenantID:  "tenant-1",
-			ModelName: "gpt-3.5-turbo",
-			Provider:  "openai",
-			Model:     "gpt-3.5-turbo",
-			APIBase:   provider.URL + "/v1",
-			APIKey:    "sk-provider-test",
-			RPM:       100,
+			ID:            "dep-1",
+			TenantID:      "tenant-1",
+			ModelName:     "gpt-3.5-turbo",
+			Provider:      "openai",
+			Model:         "gpt-3.5-turbo",
+			APIBase:       provider.URL + "/v1",
+			APIKey:        "sk-provider-test",
+			RPM:           100,
+			BillingMode:   platform.BillingModeExternalBilled,
+			PricingSource: "public",
 		}},
 	}
 	walletStore := &integrationWalletStore{
@@ -108,16 +110,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	}
 
 	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")
-	llmRouter, err := router.NewRouter([]config.ModelDeployment{{
-		ModelName: "gpt-3.5-turbo",
-		ProviderEndpoint: config.ProviderEndpointConfig{
-			Model:   "openai/gpt-3.5-turbo",
-			APIBase: provider.URL + "/v1",
-			APIKey:  "sk-provider-test",
-			RPM:     100,
-		},
-		ModelInfo: map[string]interface{}{"id": "dep-1"},
-	}}, config.RouterSettings{
+	llmRouter, err := router.NewRouter(nil, config.RouterSettings{
 		RoutingStrategy: "simple-shuffle",
 		CooldownTime:    60,
 	}, memCache, modelStore, logger)
@@ -159,11 +152,9 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
 	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode, string(body))
 
 	var completion contractsopenai.ChatCompletionResponse
 	assert.NoError(t, json.Unmarshal(body, &completion))
@@ -1072,6 +1063,19 @@ type integrationModelStore struct {
 }
 
 func (s *integrationModelStore) CreateDeployment(ctx context.Context, dep platform.Deployment) (*platform.Deployment, error) {
+	// Legacy management-API fixtures predate catalog-backed provider accounts.
+	// Give those fixtures an explicit price so they exercise the production
+	// fail-closed wallet path rather than relying on the removed registry.
+	if dep.EffectivePricing == nil {
+		dep.BillingMode = platform.BillingModeWalletBilled
+		dep.PricingSource = "public"
+		dep.EffectivePricing = &platform.ModelPrice{Status: "priced", Profiles: []platform.PricingProfile{{
+			Region: "global", Currency: "USD", Rates: []platform.PricingRate{
+				{Key: "input", Usage: "input", Unit: "token", Amount: "0.5", Quantity: 1_000_000, ServiceTier: "standard"},
+				{Key: "output", Usage: "output", Unit: "token", Amount: "1.5", Quantity: 1_000_000, ServiceTier: "standard"},
+			},
+		}}}
+	}
 	s.deployments = append(s.deployments, dep)
 	return &dep, nil
 }

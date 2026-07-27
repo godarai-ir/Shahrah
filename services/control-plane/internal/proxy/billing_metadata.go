@@ -1,9 +1,12 @@
 package proxy
 
 import (
+	"context"
+	"strconv"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/gofiber/fiber/v2"
 )
 
 func deploymentCredentialSource(dep platform.Deployment) string {
@@ -42,9 +45,52 @@ func deploymentBillingMode(dep platform.Deployment) string {
 	}
 }
 
-func shouldDeferBudgetReservationUntilRoute(model string) bool {
-	_, _, _, ok := splitModelFQN(model)
-	return ok
+func shouldDeferBudgetReservationUntilRoute(_ string) bool {
+	// Effective pricing belongs to a concrete deployment, so wallet reservation
+	// must never happen before routing has selected that deployment.
+	return true
+}
+
+func withTokenUsageMeasures(breakdown platform.UsageCostBreakdown, inputTokens, outputTokens int) platform.UsageCostBreakdown {
+	breakdown.InputTokens = inputTokens
+	breakdown.OutputTokens = outputTokens
+	breakdown.TotalTokens = inputTokens + outputTokens
+	breakdown.UsageMeasures = nil
+	if inputTokens > 0 {
+		breakdown.UsageMeasures = append(breakdown.UsageMeasures, platform.UsageMeasure{
+			Usage: "input", Unit: "token", Amount: strconv.Itoa(inputTokens), ServiceTier: "standard",
+		})
+	}
+	if outputTokens > 0 {
+		breakdown.UsageMeasures = append(breakdown.UsageMeasures, platform.UsageMeasure{
+			Usage: "output", Unit: "token", Amount: strconv.Itoa(outputTokens), ServiceTier: "standard",
+		})
+	}
+	return breakdown
+}
+
+type deploymentUsageRater interface {
+	RateDeploymentUsage(context.Context, platform.Deployment, platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
+}
+
+func rateDeploymentEstimate(c *fiber.Ctx, service budgeter, dep platform.Deployment, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	rater, ok := service.(deploymentUsageRater)
+	if !ok {
+		// Test doubles and intentionally minimal embedders may not implement
+		// deployment rating. The production billing service always does.
+		return estimated, nil
+	}
+
+	rated, err := rater.RateDeploymentUsage(c.Context(), dep, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, writeAPIError(
+			c,
+			fiber.StatusUnprocessableEntity,
+			"Effective pricing is unavailable for the selected deployment",
+			"pricing_unresolved",
+		)
+	}
+	return rated, nil
 }
 
 func hasDeploymentBillingContext(dep platform.Deployment) bool {

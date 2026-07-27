@@ -15,7 +15,10 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-type ModalityIcon = ComponentType<SVGProps<SVGSVGElement>>;
+type ModalityIcon = ComponentType<{
+  className?: string;
+  "aria-hidden"?: boolean | "true" | "false";
+}>;
 type ModalityMeta = { icon: ModalityIcon; className: string };
 
 function getModalityMeta(value: string): ModalityMeta {

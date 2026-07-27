@@ -5,6 +5,10 @@ import { Queue } from 'bullmq';
 import Typesense from 'typesense';
 import { PrismaService } from '../database/prisma.service';
 import { ModelsQueryDto } from '../catalog/dto/models-query.dto';
+import {
+  serializePricingProfiles,
+  summarizePricing,
+} from '../pricing/pricing-response';
 
 export const INDEXING_QUEUE = 'catalog-indexing';
 
@@ -28,10 +32,14 @@ type TypesenseDocument = {
   categoryName?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
-  inputPricePerMillionTokens?: number | null;
-  outputPricePerMillionTokens?: number | null;
-  cachedInputPricePerMillionTokens?: number | null;
-  free: boolean;
+  pricingStatus: string;
+  pricingUsages: string[];
+  pricingUnits: string[];
+  pricingResolutions: string[];
+  pricingRegions: string[];
+  pricingServiceTiers: string[];
+  pricingJson: string;
+  pricingSummaryJson: string;
   openSource: boolean;
   inputModalities: string[];
   outputModalities: string[];
@@ -71,15 +79,11 @@ export type TypesenseListModelsResponse = {
     outputModalities: string[];
     supportedParameters: string[];
     capabilities: string[];
-    pricing: {
-      currency: string;
-      inputPerMillionTokens?: number | null;
-      outputPerMillionTokens?: number | null;
-      cachedInputPerMillionTokens?: number | null;
-    } | null;
+    pricingStatus: string;
+    pricingProfiles: ReturnType<typeof serializePricingProfiles>;
+    pricingSummary: ReturnType<typeof summarizePricing>;
     regions: string[];
     openSource: boolean;
-    free: boolean;
     createdAt: Date;
     updatedAt: Date;
   }>;
@@ -131,10 +135,13 @@ export class IndexingService {
       apiKey: cfg.get<string>('TYPESENSE_API_KEY', 'xyz'),
       connectionTimeoutSeconds: 2,
     });
-    this.collectionName = cfg.get<string>(
+    const configuredCollectionName = cfg.get<string>(
       'TYPESENSE_COLLECTION_MODELS',
       'models',
     );
+    this.collectionName = configuredCollectionName.endsWith('_v2')
+      ? configuredCollectionName
+      : `${configuredCollectionName}_v2`;
     this.readsEnabled =
       cfg.get<string>('TYPESENSE_READS_ENABLED', 'true') !== 'false';
     this.readyStrict =
@@ -210,24 +217,14 @@ export class IndexingService {
         { name: 'categoryName', type: 'string', optional: true },
         { name: 'contextWindow', type: 'int32', sort: true, optional: true },
         { name: 'maxOutputTokens', type: 'int32', sort: true, optional: true },
-        {
-          name: 'inputPricePerMillionTokens',
-          type: 'float',
-          sort: true,
-          optional: true,
-        },
-        {
-          name: 'outputPricePerMillionTokens',
-          type: 'float',
-          sort: true,
-          optional: true,
-        },
-        {
-          name: 'cachedInputPricePerMillionTokens',
-          type: 'float',
-          optional: true,
-        },
-        { name: 'free', type: 'bool', facet: true },
+        { name: 'pricingStatus', type: 'string', facet: true },
+        { name: 'pricingUsages', type: 'string[]', facet: true },
+        { name: 'pricingUnits', type: 'string[]', facet: true },
+        { name: 'pricingResolutions', type: 'string[]', facet: true },
+        { name: 'pricingRegions', type: 'string[]', facet: true },
+        { name: 'pricingServiceTiers', type: 'string[]', facet: true },
+        { name: 'pricingJson', type: 'string', optional: true },
+        { name: 'pricingSummaryJson', type: 'string', optional: true },
         { name: 'openSource', type: 'bool', facet: true },
         { name: 'inputModalities', type: 'string[]', facet: true },
         { name: 'outputModalities', type: 'string[]', facet: true },
@@ -390,7 +387,10 @@ export class IndexingService {
         provider: true,
         modelSeries: true,
         category: true,
-        pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+        pricing: {
+          include: { region: true, rates: true },
+          orderBy: [{ region: { slug: 'asc' } }, { effectiveFrom: 'desc' }],
+        },
         inputModalities: { include: { modality: true } },
         outputModalities: { include: { modality: true } },
         supportedParams: { include: { supportedParameter: true } },
@@ -401,7 +401,9 @@ export class IndexingService {
       },
     });
     if (!model) return null;
-    const p = model.pricing[0];
+    const pricingProfiles = serializePricingProfiles(model.pricing);
+    const pricingSummary = summarizePricing(pricingProfiles, model.mode);
+    const pricingRates = pricingProfiles.flatMap((profile) => profile.rates);
     const doc: TypesenseDocument = {
       id: model.id,
       canonicalId: model.canonicalId,
@@ -422,11 +424,26 @@ export class IndexingService {
       categoryName: model.category?.name || undefined,
       contextWindow: model.contextWindow || undefined,
       maxOutputTokens: model.maxOutputTokens || undefined,
-      inputPricePerMillionTokens: p?.inputPricePerMillionTokens ?? null,
-      outputPricePerMillionTokens: p?.outputPricePerMillionTokens ?? null,
-      cachedInputPricePerMillionTokens:
-        p?.cachedInputPricePerMillionTokens ?? null,
-      free: model.free,
+      pricingStatus: model.pricingStatus,
+      pricingUsages: Array.from(
+        new Set(pricingRates.map((rate) => rate.usage)),
+      ),
+      pricingUnits: Array.from(new Set(pricingRates.map((rate) => rate.unit))),
+      pricingResolutions: Array.from(
+        new Set(
+          pricingRates
+            .map((rate) => rate.resolution)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ),
+      pricingRegions: Array.from(
+        new Set(pricingProfiles.map((profile) => profile.region)),
+      ),
+      pricingServiceTiers: Array.from(
+        new Set(pricingRates.map((rate) => rate.serviceTier)),
+      ),
+      pricingJson: JSON.stringify(pricingProfiles),
+      pricingSummaryJson: JSON.stringify(pricingSummary),
       openSource: model.openSource,
       inputModalities: model.inputModalities.map((x) => x.modality.slug),
       outputModalities: model.outputModalities.map((x) => x.modality.slug),
@@ -489,7 +506,16 @@ export class IndexingService {
     if (query.category) filters.push(`category:=${query.category}`);
     if (query.status) filters.push(`status:=${query.status}`);
     if (query.region) filters.push(`regions:=${query.region}`);
-    if (query.free_only) filters.push('free:=true');
+    if (query.free_only) filters.push('pricingStatus:=free');
+    if (query.price_usage)
+      filters.push(`pricingUsages:=${query.price_usage}`);
+    if (query.price_unit) filters.push(`pricingUnits:=${query.price_unit}`);
+    if (query.price_region)
+      filters.push(`pricingRegions:=${query.price_region}`);
+    if (query.price_resolution)
+      filters.push(`pricingResolutions:=${query.price_resolution}`);
+    if (query.price_service_tier)
+      filters.push(`pricingServiceTiers:=${query.price_service_tier}`);
     if (query.open_source_only) filters.push('openSource:=true');
     if (query.mode?.length) filters.push(this.arrayFilter('mode', query.mode));
     if (query.input_modalities?.length) {
@@ -520,16 +546,6 @@ export class IndexingService {
     if (query.max_output_tokens !== undefined) {
       filters.push(`maxOutputTokens:<=${query.max_output_tokens}`);
     }
-    if (query.min_input_price !== undefined) {
-      filters.push(`inputPricePerMillionTokens:>=${query.min_input_price}`);
-    }
-    if (query.max_input_price !== undefined) {
-      filters.push(`inputPricePerMillionTokens:<=${query.max_input_price}`);
-    }
-    if (query.max_output_price !== undefined) {
-      filters.push(`outputPricePerMillionTokens:<=${query.max_output_price}`);
-    }
-
     return filters.join(' && ');
   }
 
@@ -544,10 +560,6 @@ export class IndexingService {
     switch (sort) {
       case 'name':
         return 'name:asc,_text_match:desc';
-      case 'cheapest_input':
-        return 'inputPricePerMillionTokens:asc,_text_match:desc';
-      case 'cheapest_output':
-        return 'outputPricePerMillionTokens:asc,_text_match:desc';
       case 'largest_context':
         return 'contextWindow:desc,_text_match:desc';
       case 'most_popular':
@@ -588,25 +600,21 @@ export class IndexingService {
       outputModalities: document.outputModalities,
       supportedParameters: document.supportedParameters,
       capabilities: document.capabilities,
-      pricing:
-        document.inputPricePerMillionTokens !== null ||
-        document.outputPricePerMillionTokens !== null ||
-        document.cachedInputPricePerMillionTokens !== null
-          ? {
-              currency: 'USD',
-              inputPerMillionTokens:
-                document.inputPricePerMillionTokens ?? null,
-              outputPerMillionTokens:
-                document.outputPricePerMillionTokens ?? null,
-              cachedInputPerMillionTokens:
-                document.cachedInputPricePerMillionTokens ?? null,
-            }
-          : null,
+      pricingStatus: document.pricingStatus,
+      pricingProfiles: this.parseJson(document.pricingJson, []),
+      pricingSummary: this.parseJson(document.pricingSummaryJson, null),
       regions: document.regions,
       openSource: document.openSource,
-      free: document.free,
       createdAt: new Date(document.createdAtTimestamp * 1000),
       updatedAt: new Date(document.updatedAtTimestamp * 1000),
     };
+  }
+
+  private parseJson<T>(value: string, fallback: T): T {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
   }
 }

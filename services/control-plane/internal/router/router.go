@@ -47,6 +47,8 @@ type Deployment struct {
 	ConnectionID        string
 	CredentialVersionID string
 	ProviderAuth        *platform.ResolvedProviderAuth
+	EffectivePricing    *platform.ModelPrice
+	PricingSource       string
 }
 
 // DeploymentStore allows dynamic deployment lookup from persistence.
@@ -863,6 +865,8 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		CredentialVersionID: dep.CredentialVersionID,
 		ProviderAuth:        providerAuth,
 		ModelInfo:           dep.ModelInfo,
+		EffectivePricing:    dep.EffectivePricing,
+		PricingSource:       dep.PricingSource,
 	}
 
 	noCredential := hydrated.ProviderAuth != nil &&
@@ -887,6 +891,8 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		ConnectionID:        dep.ConnectionID,
 		CredentialVersionID: dep.CredentialVersionID,
 		ProviderAuth:        providerAuth,
+		EffectivePricing:    dep.EffectivePricing,
+		PricingSource:       dep.PricingSource,
 	}
 }
 

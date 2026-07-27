@@ -5,6 +5,12 @@ import { parse } from 'yaml';
 import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import { basename, join } from 'node:path';
+import { parsePricingProfiles } from '../src/pricing/pricing-parser';
+import {
+  ParsedPricingProfile,
+  PricingDiagnostic,
+  PricingStatus,
+} from '../src/pricing/pricing.types';
 
 type StringRecord = Record<string, unknown>;
 
@@ -36,7 +42,7 @@ type ImportModelRow = {
   releaseDate?: Date;
   deprecatedAt?: Date;
   officialDocsUrl?: string;
-  free: boolean;
+  pricingStatus: PricingStatus;
   openSource: boolean;
   capabilities: string[];
   inputModalities: string[];
@@ -44,18 +50,7 @@ type ImportModelRow = {
   supportedParameters: string[];
   regions: string[];
   sources: string[];
-  pricingRows: Array<{
-    regionSlug: string;
-    sourceUrl?: string;
-    inputPricePerMillionTokens?: number;
-    outputPricePerMillionTokens?: number;
-    cachedInputPricePerMillionTokens?: number;
-    imageInputPrice?: number;
-    imageOutputPrice?: number;
-    audioInputPrice?: number;
-    audioOutputPrice?: number;
-    requestPrice?: number;
-  }>;
+  pricingProfiles: ParsedPricingProfile[];
 };
 
 type ImportProviderBatch = {
@@ -64,6 +59,12 @@ type ImportProviderBatch = {
   docsUrl?: string;
   websiteUrl?: string;
   models: ImportModelRow[];
+  diagnostics: Array<
+    PricingDiagnostic & {
+      filePath: string;
+      modelId: string;
+    }
+  >;
 };
 
 const connectionString =
@@ -261,10 +262,13 @@ function normalizeModeValue(input: unknown): ModelMode {
   }
 }
 
-function normalizeSupportedModes(input: unknown): ModelMode[] {
+function normalizeSupportedModes(...inputs: unknown[]): ModelMode[] {
   const modes = Array.from(
     new Set(
-      asStringArray(input)
+      inputs
+        .flatMap((input) =>
+          typeof input === 'string' ? [input] : asStringArray(input),
+        )
         .map((value) => normalizeModeValue(value))
         .filter((mode) => knownModes.has(mode) && mode !== 'unknown'),
     ),
@@ -299,12 +303,6 @@ function paramsFromDoc(doc: StringRecord | undefined): string[] {
     if (typeof key === 'string' && key.trim() !== '') keys.push(slugify(key));
   }
   return keys;
-}
-
-function normalizeRegion(raw: string): string {
-  const val = raw.trim();
-  if (val === '*' || val === 'global') return 'global';
-  return slugify(val);
 }
 
 function inferOutputModalities(
@@ -350,11 +348,6 @@ function inferOutputModalities(
   return Array.from(inferred);
 }
 
-function perTokenToPerMillion(input: number | undefined): number | undefined {
-  if (input === undefined) return undefined;
-  return input * 1_000_000;
-}
-
 async function parseProviderDir(providerDir: string): Promise<ImportProviderBatch> {
   const providerSlug = slugify(basename(providerDir));
   const defaultPath = join(providerDir, 'default.yaml');
@@ -370,6 +363,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
   const docsUrl = asStringArray(defaultDoc?.['documentation'])[0];
 
   const models: ImportModelRow[] = [];
+  const diagnostics: ImportProviderBatch['diagnostics'] = [];
   const defaultParams = paramsFromDoc(defaultDoc);
 
   for (const filePath of yamlFiles) {
@@ -406,29 +400,20 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
     );
     const sources = asStringArray(doc['sources']);
 
-    const costs = Array.isArray(doc['costs']) ? doc['costs'] : [];
-    const pricingRows: ImportModelRow['pricingRows'] = [];
-    const regionSet = new Set<string>();
-    for (const item of costs) {
-      const cost = asObject(item);
-      if (!cost) continue;
-      const region = typeof cost['region'] === 'string' ? normalizeRegion(cost['region']) : 'global';
-      regionSet.add(region);
-      pricingRows.push({
-        regionSlug: region,
-        sourceUrl: sources[0],
-        inputPricePerMillionTokens: perTokenToPerMillion(asNumber(cost['input_cost_per_token'])),
-        outputPricePerMillionTokens: perTokenToPerMillion(asNumber(cost['output_cost_per_token'])),
-        cachedInputPricePerMillionTokens: perTokenToPerMillion(
-          asNumber(cost['cache_read_input_token_cost']),
-        ),
-        imageInputPrice: asNumber(cost['input_cost_per_image']),
-        imageOutputPrice: asNumber(cost['output_cost_per_image']),
-        audioInputPrice: asNumber(cost['input_cost_per_audio_token']),
-        audioOutputPrice: asNumber(cost['output_cost_per_audio_token']),
-        requestPrice: asNumber(cost['request_cost']),
-      });
-    }
+    const pricing = parsePricingProfiles(doc['costs'], {
+      sourceUrl: sources[0],
+      explicitFree: doc['free'] === true,
+    });
+    diagnostics.push(
+      ...pricing.diagnostics.map((diagnostic) => ({
+        ...diagnostic,
+        filePath,
+        modelId,
+      })),
+    );
+    const regionSet = new Set(
+      pricing.profiles.map((profile) => profile.regionSlug),
+    );
     if (regionSet.size === 0) regionSet.add('global');
 
     const contextWindow = asNumber(limits?.['context_window']);
@@ -440,21 +425,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
       inferDateFromName(modelId) ??
       inferDateFromName(basename(filePath, '.yaml'));
 
-    const free = pricingRows.length > 0
-      ? pricingRows.every(
-          (p) =>
-            (p.inputPricePerMillionTokens ?? 0) === 0 &&
-            (p.outputPricePerMillionTokens ?? 0) === 0 &&
-            (p.cachedInputPricePerMillionTokens ?? 0) === 0 &&
-            (p.imageInputPrice ?? 0) === 0 &&
-            (p.imageOutputPrice ?? 0) === 0 &&
-            (p.audioInputPrice ?? 0) === 0 &&
-            (p.audioOutputPrice ?? 0) === 0 &&
-            (p.requestPrice ?? 0) === 0,
-        )
-      : false;
-
-    const mode = normalizeSupportedModes(doc['supportedModes']);
+    const mode = normalizeSupportedModes(doc['mode'], doc['supportedModes']);
     const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
 
     models.push({
@@ -469,7 +440,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
       releaseDate,
       deprecatedAt,
       officialDocsUrl: sources[0],
-      free,
+      pricingStatus: pricing.status,
       openSource: false,
       capabilities: features,
       inputModalities,
@@ -477,7 +448,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
       supportedParameters: Array.from(paramsCombined),
       regions: Array.from(regionSet),
       sources,
-      pricingRows,
+      pricingProfiles: pricing.profiles,
     });
   }
 
@@ -486,6 +457,7 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
     name: providerName,
     docsUrl,
     models,
+    diagnostics,
   };
 }
 
@@ -548,6 +520,7 @@ async function importProviderBatch(
   batch: ImportProviderBatch,
   clearMissing: boolean,
   dryRun: boolean,
+  importTimestamp: Date,
 ): Promise<{ modelsImported: number; modelsDeleted: number }> {
   if (dryRun) {
     return { modelsImported: batch.models.length, modelsDeleted: 0 };
@@ -603,7 +576,7 @@ async function importProviderBatch(
         releaseDate: row.releaseDate,
         deprecatedAt: row.deprecatedAt,
         officialDocsUrl: row.officialDocsUrl,
-        free: row.free,
+        pricingStatus: row.pricingStatus,
         openSource: row.openSource,
       },
       update: {
@@ -619,7 +592,7 @@ async function importProviderBatch(
         releaseDate: row.releaseDate,
         deprecatedAt: row.deprecatedAt,
         officialDocsUrl: row.officialDocsUrl,
-        free: row.free,
+        pricingStatus: row.pricingStatus,
         openSource: row.openSource,
       },
     });
@@ -645,23 +618,30 @@ async function importProviderBatch(
       });
     }
 
-    for (const pricing of row.pricingRows) {
+    for (const pricing of row.pricingProfiles) {
       const regionId = await ensureRegion(pricing.regionSlug);
       await prisma.modelPricing.create({
         data: {
           modelId: model.id,
           regionId,
-          currency: 'USD',
-          inputPricePerMillionTokens: pricing.inputPricePerMillionTokens,
-          outputPricePerMillionTokens: pricing.outputPricePerMillionTokens,
-          cachedInputPricePerMillionTokens: pricing.cachedInputPricePerMillionTokens,
-          imageInputPrice: pricing.imageInputPrice,
-          imageOutputPrice: pricing.imageOutputPrice,
-          audioInputPrice: pricing.audioInputPrice,
-          audioOutputPrice: pricing.audioOutputPrice,
-          requestPrice: pricing.requestPrice,
+          currency: pricing.currency,
           sourceUrl: pricing.sourceUrl,
-          effectiveFrom: new Date(),
+          effectiveFrom: importTimestamp,
+          rates: {
+            create: pricing.rates.map((rate) => ({
+              rateKey: rate.rateKey,
+              usage: rate.usage,
+              unit: rate.unit,
+              amount: rate.amount,
+              quantity: rate.quantity,
+              serviceTier: rate.serviceTier,
+              resolution: rate.resolution,
+              tierFrom: rate.tierFrom,
+              tierTo: rate.tierTo,
+              tierMode: rate.tierMode,
+              qualifiers: rate.qualifiers,
+            })),
+          },
         },
       });
     }
@@ -720,6 +700,8 @@ async function main() {
   const providersArg = getArgValue('--providers');
   const dryRun = hasFlag('--dry-run');
   const clearMissing = hasFlag('--clear-missing');
+  const allowUnknownPricingKeys = hasFlag('--allow-unknown-pricing-keys');
+  const importTimestamp = new Date();
 
   const selected = new Set(
     (providersArg ?? '')
@@ -742,18 +724,63 @@ async function main() {
 
   let totalProviders = 0;
   let totalModels = 0;
-  for (const providerDir of providerDirs) {
-    const batch = await parseProviderDir(providerDir);
-    const result = await importProviderBatch(batch, clearMissing, dryRun);
+  let totalProfiles = 0;
+  let totalRates = 0;
+  let totalWarnings = 0;
+  const batches = await Promise.all(
+    providerDirs.map((providerDir) => parseProviderDir(providerDir)),
+  );
+
+  for (const batch of batches) {
+    const errors = batch.diagnostics.filter(
+      (diagnostic) => diagnostic.severity === 'error',
+    );
+    const warnings = batch.diagnostics.filter(
+      (diagnostic) => diagnostic.severity === 'warning',
+    );
+    totalWarnings += warnings.length;
+    for (const diagnostic of batch.diagnostics) {
+      console.error(
+        `[pricing:${diagnostic.severity}] provider=${batch.slug} model=${diagnostic.modelId} region=${diagnostic.regionSlug} code=${diagnostic.code} key=${diagnostic.key ?? '-'} file=${diagnostic.filePath} message=${diagnostic.message}`,
+      );
+    }
+    const blockingErrors = errors.filter(
+      (diagnostic) =>
+        diagnostic.code !== 'unknown_pricing_key' ||
+        !allowUnknownPricingKeys,
+    );
+    if (blockingErrors.length > 0) {
+      throw new Error(
+        `Pricing validation failed for provider ${batch.slug} with ${blockingErrors.length} blocking error(s).`,
+      );
+    }
+  }
+
+  for (const batch of batches) {
+    const warnings = batch.diagnostics.filter(
+      (diagnostic) => diagnostic.severity === 'warning',
+    );
+    const result = await importProviderBatch(
+      batch,
+      clearMissing,
+      dryRun,
+      importTimestamp,
+    );
     totalProviders += 1;
     totalModels += result.modelsImported;
+    const profiles = batch.models.flatMap((model) => model.pricingProfiles);
+    totalProfiles += profiles.length;
+    totalRates += profiles.reduce(
+      (count, profile) => count + profile.rates.length,
+      0,
+    );
     console.log(
-      `[import] provider=${batch.slug} models=${result.modelsImported} dryRun=${dryRun}`,
+      `[import] provider=${batch.slug} models=${result.modelsImported} profiles=${profiles.length} rates=${profiles.reduce((count, profile) => count + profile.rates.length, 0)} warnings=${warnings.length} dryRun=${dryRun}`,
     );
   }
 
   console.log(
-    `[import] completed providers=${totalProviders} models=${totalModels} dryRun=${dryRun}`,
+    `[import] completed providers=${totalProviders} models=${totalModels} profiles=${totalProfiles} rates=${totalRates} warnings=${totalWarnings} dryRun=${dryRun}`,
   );
 }
 

@@ -93,18 +93,13 @@ import {
 import { apiGet } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useDisplayFormatters } from "@/lib/use-display-formatters";
-
-type Pricing = {
-  currency?: string;
-  inputPerMillionTokens?: number | null;
-  outputPerMillionTokens?: number | null;
-  cachedInputPerMillionTokens?: number | null;
-  imageInputPrice?: number | null;
-  imageOutputPrice?: number | null;
-  audioInputPrice?: number | null;
-  audioOutputPrice?: number | null;
-  requestPrice?: number | null;
-};
+import {
+  allPricingRates,
+  findPricingRate,
+  type PricingProfile,
+  type PricingRate,
+  type PricingSummary,
+} from "@/lib/pricing";
 
 type ModelRow = {
   id?: string;
@@ -121,8 +116,9 @@ type ModelRow = {
   outputModalities: string[];
   capabilities: string[];
   supportedParameters?: string[];
-  pricing?: Pricing | null;
-  free: boolean;
+  pricingStatus: "unknown" | "priced" | "free";
+  pricingProfiles: PricingProfile[];
+  pricingSummary?: PricingSummary | null;
   updatedAt?: string;
   catalogPreview?: boolean;
 };
@@ -204,13 +200,16 @@ function previewModel(
     outputModalities: ["text"],
     capabilities,
     supportedParameters: capabilities.includes("function_calling") ? ["tools"] : [],
-    pricing: {
+    pricingStatus: "priced",
+    pricingProfiles: [{
+      region: "global",
       currency: "USD",
-      inputPerMillionTokens: input,
-      outputPerMillionTokens: output,
-      cachedInputPerMillionTokens: cached,
-    },
-    free: false,
+      rates: [
+        { key: "input-token", usage: "input", unit: "token", amount: String(input), quantity: 1_000_000, serviceTier: "standard" },
+        { key: "output-token", usage: "output", unit: "token", amount: String(output), quantity: 1_000_000, serviceTier: "standard" },
+        ...(cached === null ? [] : [{ key: "cache-token", usage: "cache_read", unit: "token", amount: String(cached), quantity: 1_000_000, serviceTier: "standard" }]),
+      ],
+    }],
     updatedAt: "2026-07-25T00:00:00.000Z",
     catalogPreview: true,
   };
@@ -257,9 +256,16 @@ export function ModelsExplorer() {
     if (outputModality) searchParams.set("output_modalities", outputModality);
     if (contextRange[0] > 0) searchParams.set("min_context_window", String(contextRange[0]));
     if (contextRange[1] < CONTEXT_LIMIT) searchParams.set("max_context_window", String(contextRange[1]));
-    if (priceRange[0] > 0) searchParams.set("min_input_price", String(priceRange[0]));
-    if (priceRange[1] < PRICE_LIMIT) searchParams.set("max_input_price", String(priceRange[1]));
-    searchParams.set("sort", sort);
+    if (priceRangeActive || sort === "cheapest_input" || sort === "cheapest_output") {
+      searchParams.set("price_usage", sort === "cheapest_output" ? "output" : "input");
+      searchParams.set("price_unit", "token");
+    }
+    if (priceRange[0] > 0) searchParams.set("min_price", String(priceRange[0]));
+    if (priceRange[1] < PRICE_LIMIT) searchParams.set("max_price", String(priceRange[1]));
+    searchParams.set(
+      "sort",
+      sort === "cheapest_input" || sort === "cheapest_output" ? "price_asc" : sort,
+    );
     searchParams.set("page", String(page));
     searchParams.set("limit", String(PAGE_SIZE));
     return searchParams.toString();
@@ -710,9 +716,9 @@ export function ModelsExplorer() {
                                 </Tooltip>
                               </div>
                             </TableCell>
-                            <PriceCell value={model.pricing?.inputPerMillionTokens} formatPrice={formatPriceAmount} />
-                            <PriceCell value={model.pricing?.outputPerMillionTokens} formatPrice={formatPriceAmount} />
-                            <PriceCell value={model.pricing?.cachedInputPerMillionTokens} formatPrice={formatPriceAmount} />
+                            <PriceCell rate={model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "input")?.rate} formatPrice={formatPriceAmount} />
+                            <PriceCell rate={model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "output")?.rate} formatPrice={formatPriceAmount} />
+                            <PriceCell rate={model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "cache_read")?.rate} formatPrice={formatPriceAmount} />
                             <TableCell className="text-muted-foreground">—</TableCell>
                           </TableRow>
                           {expanded ? (
@@ -860,15 +866,24 @@ function RangeFilter({
 }
 
 function PriceCell({
-  value,
+  rate,
   formatPrice,
 }: {
-  value?: number | null;
+  rate?: PricingRate;
   formatPrice: (value?: number | null) => string;
 }) {
+  const amount = rate ? Number(rate.amount) : undefined;
+  if (!rate || amount === undefined || !Number.isFinite(amount)) {
+    return <TableCell className="text-muted-foreground">—</TableCell>;
+  }
   return (
     <TableCell className="whitespace-nowrap font-sans text-sm tabular-nums" dir="rtl">
-      {value === undefined || value === null ? "—" : formatPrice(value)}
+      <span>
+        {formatPrice(amount)}
+        <bdi dir="ltr" className="ms-1 text-xs text-muted-foreground">
+          / {rate.quantity === 1 ? "" : `${rate.quantity.toLocaleString("en-US")} `}{rate.unit}
+        </bdi>
+      </span>
     </TableCell>
   );
 }
@@ -1065,13 +1080,7 @@ function ModelsTableSkeleton({ label }: { label: string }) {
 }
 
 function getDetailCount(model: ModelRow) {
-  const extraPrices = [
-    model.pricing?.imageInputPrice,
-    model.pricing?.imageOutputPrice,
-    model.pricing?.audioInputPrice,
-    model.pricing?.audioOutputPrice,
-    model.pricing?.requestPrice,
-  ].filter((value) => typeof value === "number").length;
+  const extraPrices = allPricingRates(model.pricingProfiles).length;
   return extraPrices || (
     model.contextWindow ||
     model.maxOutputTokens ||
@@ -1086,8 +1095,8 @@ function getDetailCount(model: ModelRow) {
 function sortPreviewModels(models: ModelRow[], sort: SortValue) {
   const sorted = [...models];
   if (sort === "name") return sorted.sort((a, b) => a.slug.localeCompare(b.slug));
-  if (sort === "cheapest_input") return sorted.sort((a, b) => (a.pricing?.inputPerMillionTokens ?? Infinity) - (b.pricing?.inputPerMillionTokens ?? Infinity));
-  if (sort === "cheapest_output") return sorted.sort((a, b) => (a.pricing?.outputPerMillionTokens ?? Infinity) - (b.pricing?.outputPerMillionTokens ?? Infinity));
+  if (sort === "cheapest_input") return sorted.sort((a, b) => Number(findPricingRate(a.pricingProfiles, "input")?.rate.amount ?? Infinity) - Number(findPricingRate(b.pricingProfiles, "input")?.rate.amount ?? Infinity));
+  if (sort === "cheapest_output") return sorted.sort((a, b) => Number(findPricingRate(a.pricingProfiles, "output")?.rate.amount ?? Infinity) - Number(findPricingRate(b.pricingProfiles, "output")?.rate.amount ?? Infinity));
   if (sort === "largest_context") return sorted.sort((a, b) => (b.contextWindow ?? 0) - (a.contextWindow ?? 0));
   return sorted;
 }

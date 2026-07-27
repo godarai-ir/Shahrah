@@ -45,8 +45,6 @@
     "provider": "Provider",
     "availability": "Availability",
     "context": "Context window",
-    "input_price": "Input price",
-    "output_price": "Output price",
     "asc": "Ascending",
     "desc": "Descending"
   },
@@ -123,6 +121,8 @@
     "publicOutputPrice": "Public output price",
     "effectiveInputPrice": "Effective input price",
     "effectiveOutputPrice": "Effective output price",
+    "publicPricing": "Public pricing",
+    "effectivePricing": "Effective pricing",
     "deprecated": "This model is deprecated. Plan to move workloads to a supported model.",
     "deprecatedWithReplacement": "This model is deprecated. Recommended replacement: {replacement}.",
     "bashExample": "Bash example",

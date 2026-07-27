@@ -42,6 +42,15 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/audio/speech", deps.AudioSpeechHandler.Handle)
 	}
 
+	if deps.VideoHandler != nil {
+		v1.Post("/videos", deps.VideoHandler.Create)
+		v1.Get("/videos", deps.VideoHandler.List)
+		v1.Get("/videos/:id", deps.VideoHandler.Get)
+		v1.Get("/videos/:id/content", deps.VideoHandler.Content)
+		v1.Post("/videos/:id/cancel", deps.VideoHandler.Cancel)
+		v1.Delete("/videos/:id", deps.VideoHandler.Delete)
+	}
+
 	if deps.ModelsHandler != nil {
 		v1.Get("/models", deps.ModelsHandler.Handle)
 	}

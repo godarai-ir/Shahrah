@@ -1,10 +1,13 @@
+import {
+  clonePricing,
+  isPricingResolved,
+  type ModelPrice,
+} from "@/app/components/pricing";
+
 export type WizardCatalogModel = {
   model: string;
   types?: string[];
-  public_pricing?: {
-    input_usd_per_1m?: number;
-    output_usd_per_1m?: number;
-  };
+  public_pricing?: ModelPrice;
 };
 
 export type WizardAccountModel = {
@@ -12,30 +15,21 @@ export type WizardAccountModel = {
   enabled: boolean;
   types?: string[];
   pricing_mode: "public" | "private";
-  private_pricing?: {
-    input_usd_per_1m?: number;
-    output_usd_per_1m?: number;
-  };
+  private_pricing?: ModelPrice;
 };
 
 export type WizardModelDraft = {
   enabled: boolean;
   selectedCapabilities: string[];
   pricingMode: "public" | "private";
-  inputPrice: string;
-  outputPrice: string;
+  privatePricing?: ModelPrice;
 };
 
 export type WizardModelSavePayload = {
   model: string;
   effective_capabilities: string[];
   pricing_mode: "public" | "private";
-  private_pricing?:
-    | {
-        input_usd_per_1m?: number;
-        output_usd_per_1m?: number;
-      }
-    | undefined;
+  private_pricing?: ModelPrice;
 };
 
 export type WizardModelValidationErrorReason =
@@ -81,8 +75,7 @@ function createDefaultDraft(model: WizardCatalogModel): WizardModelDraft {
     enabled: false,
     selectedCapabilities: capabilities.length === 1 ? capabilities : [],
     pricingMode: "public",
-    inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-    outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
+    privatePricing: clonePricing(model.public_pricing),
   };
 }
 
@@ -107,8 +100,7 @@ export function buildDraftsForAccount(
       enabled: item.enabled,
       selectedCapabilities: normalizeCapabilities(item.types),
       pricingMode: item.pricing_mode ?? "public",
-      inputPrice: item.private_pricing?.input_usd_per_1m?.toString() ?? "",
-      outputPrice: item.private_pricing?.output_usd_per_1m?.toString() ?? "",
+      privatePricing: clonePricing(item.private_pricing),
     };
   }
   return next;
@@ -161,12 +153,7 @@ export function buildSelectedModelPayload(
         effective_capabilities: normalizeCapabilities(draft.selectedCapabilities),
         pricing_mode: pricingMode,
         private_pricing:
-          pricingMode === "private"
-            ? {
-                input_usd_per_1m: toNumberOrUndefined(draft.inputPrice),
-                output_usd_per_1m: toNumberOrUndefined(draft.outputPrice),
-              }
-            : undefined,
+          pricingMode === "private" ? buildPrivatePricing(draft) : undefined,
       };
     });
 
@@ -176,9 +163,7 @@ export function buildSelectedModelPayload(
       validationErrors.push({ model: item.model, reason: "effective_capabilities_required" });
     }
     if (item.pricing_mode !== "private") continue;
-    const input = item.private_pricing?.input_usd_per_1m;
-    const output = item.private_pricing?.output_usd_per_1m;
-    if (typeof input !== "number" && typeof output !== "number") {
+    if (!isPricingResolved(item.private_pricing)) {
       validationErrors.push({ model: item.model, reason: "private_pricing_required" });
     }
   }
@@ -186,10 +171,6 @@ export function buildSelectedModelPayload(
   return { models, validationErrors };
 }
 
-function toNumberOrUndefined(value: string): number | undefined {
-  const raw = value.trim();
-  if (!raw) return undefined;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return undefined;
-  return parsed;
+function buildPrivatePricing(draft: WizardModelDraft): ModelPrice | undefined {
+  return clonePricing(draft.privatePricing);
 }

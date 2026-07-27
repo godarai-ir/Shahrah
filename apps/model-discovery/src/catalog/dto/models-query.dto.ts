@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -66,15 +67,28 @@ export class ModelsQueryDto {
   @ApiPropertyOptional()
   @Type(() => Number)
   @IsOptional()
-  min_input_price?: number;
+  @IsNumber()
+  @Min(0)
+  min_price?: number;
   @ApiPropertyOptional()
   @Type(() => Number)
   @IsOptional()
-  max_input_price?: number;
-  @ApiPropertyOptional()
-  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  max_price?: number;
+  @ApiPropertyOptional({
+    enum: ['input', 'output', 'cache_read', 'cache_write'],
+  })
   @IsOptional()
-  max_output_price?: number;
+  @IsIn(['input', 'output', 'cache_read', 'cache_write'])
+  price_usage?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() price_unit?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() price_region?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() price_resolution?: string;
+  @ApiPropertyOptional({ enum: ['standard', 'batch', 'priority'] })
+  @IsOptional()
+  @IsIn(['standard', 'batch', 'priority'])
+  price_service_tier?: string;
   @ApiPropertyOptional()
   @Type(() => Boolean)
   @IsOptional()
@@ -91,8 +105,8 @@ export class ModelsQueryDto {
     enum: [
       'newest',
       'name',
-      'cheapest_input',
-      'cheapest_output',
+      'price_asc',
+      'price_desc',
       'largest_context',
       'most_popular',
       'highest_benchmark_score',
@@ -102,8 +116,8 @@ export class ModelsQueryDto {
   @IsIn([
     'newest',
     'name',
-    'cheapest_input',
-    'cheapest_output',
+    'price_asc',
+    'price_desc',
     'largest_context',
     'most_popular',
     'highest_benchmark_score',

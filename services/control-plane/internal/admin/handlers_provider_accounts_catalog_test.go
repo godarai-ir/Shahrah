@@ -7,8 +7,6 @@ import (
 )
 
 func TestBuildTenantProviderAccountModelCatalogAggregatesAvailability(t *testing.T) {
-	inputPrice := 2.5
-	outputPrice := 10.0
 	records := []platform.TenantProviderAccountCatalogRecord{
 		{
 			Account: platform.TenantProviderAccount{
@@ -46,8 +44,15 @@ func TestBuildTenantProviderAccountModelCatalogAggregatesAvailability(t *testing
 				DisplayName: "GPT-4.1",
 				Types:       []platform.ModelType{platform.ModelTypeChat},
 				PublicPricing: &platform.ModelPrice{
-					InputUSDPer1M:  &inputPrice,
-					OutputUSDPer1M: &outputPrice,
+					Status: "priced",
+					Profiles: []platform.PricingProfile{{
+						Region:   "global",
+						Currency: "USD",
+						Rates: []platform.PricingRate{
+							{Key: "input-token", Usage: "input", Unit: "token", Amount: "2.5", Quantity: 1_000_000, ServiceTier: "standard"},
+							{Key: "output-token", Usage: "output", Unit: "token", Amount: "10", Quantity: 1_000_000, ServiceTier: "standard"},
+						},
+					}},
 				},
 				IsDeprecated:     true,
 				ReplacementModel: "gpt-5",

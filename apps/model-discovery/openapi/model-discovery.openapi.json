@@ -474,7 +474,7 @@
             }
           },
           {
-            "name": "min_input_price",
+            "name": "min_price",
             "required": false,
             "in": "query",
             "schema": {
@@ -482,7 +482,7 @@
             }
           },
           {
-            "name": "max_input_price",
+            "name": "max_price",
             "required": false,
             "in": "query",
             "schema": {
@@ -490,11 +490,54 @@
             }
           },
           {
-            "name": "max_output_price",
+            "name": "price_usage",
             "required": false,
             "in": "query",
             "schema": {
-              "type": "number"
+              "type": "string",
+              "enum": [
+                "input",
+                "output",
+                "cache_read",
+                "cache_write"
+              ]
+            }
+          },
+          {
+            "name": "price_unit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_region",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_resolution",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_service_tier",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "standard",
+                "batch",
+                "priority"
+              ]
             }
           },
           {
@@ -538,8 +581,8 @@
               "enum": [
                 "newest",
                 "name",
-                "cheapest_input",
-                "cheapest_output",
+                "price_asc",
+                "price_desc",
                 "largest_context",
                 "most_popular",
                 "highest_benchmark_score"
@@ -1383,50 +1426,82 @@
           "enabled"
         ]
       },
-      "FacetOption": {
+      "ModelPricingTierSnapshot": {
         "type": "object",
         "properties": {
-          "slug": {
+          "from": {
+            "type": "object"
+          },
+          "to": {
+            "type": "object"
+          },
+          "mode": {
+            "type": "object"
+          }
+        }
+      },
+      "ModelPricingRateSnapshot": {
+        "type": "object",
+        "properties": {
+          "key": {
             "type": "string"
           },
-          "name": {
+          "usage": {
+            "type": "string",
+            "enum": [
+              "input",
+              "output",
+              "cache_read",
+              "cache_write"
+            ]
+          },
+          "unit": {
             "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "description": "Exact decimal amount encoded as a string.",
+            "example": "0.75"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "serviceTier": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "batch",
+              "priority"
+            ]
+          },
+          "resolution": {
+            "type": "object"
+          },
+          "tier": {
+            "$ref": "#/components/schemas/ModelPricingTierSnapshot"
+          },
+          "qualifiers": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
-          "slug",
-          "name"
+          "key",
+          "usage",
+          "unit",
+          "amount",
+          "quantity",
+          "serviceTier"
         ]
       },
-      "ModelPricingSnapshot": {
+      "ModelPricingProfileSnapshot": {
         "type": "object",
         "properties": {
+          "region": {
+            "type": "string"
+          },
           "currency": {
-            "type": "object"
-          },
-          "inputPricePerMillionTokens": {
-            "type": "object"
-          },
-          "outputPricePerMillionTokens": {
-            "type": "object"
-          },
-          "cachedInputPricePerMillionTokens": {
-            "type": "object"
-          },
-          "imageInputPrice": {
-            "type": "object"
-          },
-          "imageOutputPrice": {
-            "type": "object"
-          },
-          "audioInputPrice": {
-            "type": "object"
-          },
-          "audioOutputPrice": {
-            "type": "object"
-          },
-          "requestPrice": {
-            "type": "object"
+            "type": "string"
           },
           "sourceUrl": {
             "type": "object"
@@ -1434,10 +1509,70 @@
           "effectiveFrom": {
             "type": "object"
           },
-          "region": {
-            "$ref": "#/components/schemas/FacetOption"
+          "effectiveTo": {
+            "type": "object"
+          },
+          "rates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelPricingRateSnapshot"
+            }
           }
-        }
+        },
+        "required": [
+          "region",
+          "currency",
+          "rates"
+        ]
+      },
+      "ModelPricingSummarySnapshot": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "minimumAmount": {
+            "type": "string"
+          },
+          "maximumAmount": {
+            "type": "string"
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rateCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "usage",
+          "unit",
+          "currency",
+          "quantity",
+          "minimumAmount",
+          "maximumAmount",
+          "regions",
+          "resolutions",
+          "rateCount"
+        ]
       },
       "ProviderModelsListItem": {
         "type": "object",
@@ -1487,8 +1622,22 @@
               "type": "string"
             }
           },
-          "pricing": {
-            "$ref": "#/components/schemas/ModelPricingSnapshot"
+          "pricingStatus": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "priced",
+              "free"
+            ]
+          },
+          "pricingProfiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelPricingProfileSnapshot"
+            }
+          },
+          "pricingSummary": {
+            "$ref": "#/components/schemas/ModelPricingSummarySnapshot"
           },
           "regions": {
             "type": "array",
@@ -1506,6 +1655,8 @@
           "outputModalities",
           "supportedParameters",
           "capabilities",
+          "pricingStatus",
+          "pricingProfiles",
           "regions"
         ]
       },
@@ -1521,6 +1672,21 @@
         },
         "required": [
           "data"
+        ]
+      },
+      "FacetOption": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
         ]
       },
       "CapabilityLink": {
@@ -1558,11 +1724,22 @@
           "status": {
             "type": "object"
           },
-          "pricing": {
+          "pricingStatus": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "priced",
+              "free"
+            ]
+          },
+          "pricingProfiles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ModelPricingSnapshot"
+              "$ref": "#/components/schemas/ModelPricingProfileSnapshot"
             }
+          },
+          "pricingSummary": {
+            "$ref": "#/components/schemas/ModelPricingSummarySnapshot"
           },
           "capabilities": {
             "type": "array",
@@ -1576,7 +1753,8 @@
           "slug",
           "displayName",
           "mode",
-          "pricing",
+          "pricingStatus",
+          "pricingProfiles",
           "capabilities"
         ]
       },
@@ -1824,8 +2002,22 @@
               "type": "string"
             }
           },
-          "pricing": {
-            "$ref": "#/components/schemas/ModelPricingSnapshot"
+          "pricingStatus": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "priced",
+              "free"
+            ]
+          },
+          "pricingProfiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelPricingProfileSnapshot"
+            }
+          },
+          "pricingSummary": {
+            "$ref": "#/components/schemas/ModelPricingSummarySnapshot"
           },
           "regions": {
             "type": "array",
@@ -1834,9 +2026,6 @@
             }
           },
           "openSource": {
-            "type": "boolean"
-          },
-          "free": {
             "type": "boolean"
           },
           "createdAt": {
@@ -1857,9 +2046,10 @@
           "outputModalities",
           "supportedParameters",
           "capabilities",
+          "pricingStatus",
+          "pricingProfiles",
           "regions",
           "openSource",
-          "free",
           "createdAt",
           "updatedAt"
         ]
@@ -2082,11 +2272,22 @@
               "$ref": "#/components/schemas/RegionLink"
             }
           },
-          "pricing": {
+          "pricingStatus": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "priced",
+              "free"
+            ]
+          },
+          "pricingProfiles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ModelPricingSnapshot"
+              "$ref": "#/components/schemas/ModelPricingProfileSnapshot"
             }
+          },
+          "pricingSummary": {
+            "$ref": "#/components/schemas/ModelPricingSummarySnapshot"
           },
           "sources": {
             "type": "array",
@@ -2108,9 +2309,6 @@
           },
           "openSource": {
             "type": "boolean"
-          },
-          "free": {
-            "type": "boolean"
           }
         },
         "required": [
@@ -2125,33 +2323,87 @@
           "supportedParams",
           "capabilities",
           "regions",
-          "pricing",
+          "pricingStatus",
+          "pricingProfiles",
           "sources",
           "changelog",
           "benchmarks",
-          "openSource",
-          "free"
+          "openSource"
         ]
       },
-      "UpsertModelPricingDto": {
+      "UpsertModelPricingRateDto": {
         "type": "object",
         "properties": {
+          "key": {
+            "type": "string"
+          },
+          "usage": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "serviceTier": {
+            "type": "string"
+          },
+          "resolution": {
+            "type": "string"
+          },
+          "tierFrom": {
+            "type": "number"
+          },
+          "tierTo": {
+            "type": "number"
+          },
+          "tierMode": {
+            "type": "string"
+          },
+          "qualifiers": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "usage",
+          "unit",
+          "amount",
+          "quantity"
+        ]
+      },
+      "UpsertModelPricingProfileDto": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string"
+          },
           "currency": {
             "type": "string"
           },
-          "inputPricePerMillionTokens": {
-            "type": "number"
-          },
-          "outputPricePerMillionTokens": {
-            "type": "number"
-          },
-          "cachedInputPricePerMillionTokens": {
-            "type": "number"
-          },
           "sourceUrl": {
             "type": "string"
+          },
+          "effectiveFrom": {
+            "type": "string"
+          },
+          "effectiveTo": {
+            "type": "string"
+          },
+          "rates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpsertModelPricingRateDto"
+            }
           }
-        }
+        },
+        "required": [
+          "region",
+          "rates"
+        ]
       },
       "UpsertModelDto": {
         "type": "object",
@@ -2198,8 +2450,8 @@
           "openSource": {
             "type": "boolean"
           },
-          "free": {
-            "type": "boolean"
+          "pricingStatus": {
+            "type": "string"
           },
           "mode": {
             "type": "array",
@@ -2237,8 +2489,11 @@
               "type": "string"
             }
           },
-          "pricing": {
-            "$ref": "#/components/schemas/UpsertModelPricingDto"
+          "pricingProfiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpsertModelPricingProfileDto"
+            }
           }
         },
         "required": [
@@ -2287,8 +2542,13 @@
           "openSource": {
             "type": "boolean"
           },
-          "free": {
-            "type": "boolean"
+          "pricingStatus": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "priced",
+              "free"
+            ]
           },
           "provider": {
             "$ref": "#/components/schemas/ProviderSummary"
@@ -2305,7 +2565,7 @@
           "enabled",
           "mode",
           "openSource",
-          "free",
+          "pricingStatus",
           "provider"
         ]
       },
@@ -2620,8 +2880,8 @@
           "openSource": {
             "type": "boolean"
           },
-          "free": {
-            "type": "boolean"
+          "pricingStatus": {
+            "type": "string"
           },
           "mode": {
             "type": "array",

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Columns3, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, Square } from "lucide-react";
+import { AlertTriangle, Columns3, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, Square, Video } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -37,6 +37,7 @@ import {
   validateAndBuildRunPayload,
   type PlaygroundColumnDraft,
   type PlaygroundGeneratedImage,
+  type PlaygroundGeneratedVideo,
   type PlaygroundMode,
   type PlaygroundRunResult,
   type PlaygroundTelemetry,
@@ -68,7 +69,10 @@ export default function PlaygroundPage() {
   const canLoad = permissions.some((item) => item === "prompt:list" || item === "policy:list" || item === "policy:manage");
   const canOpenTrace = permissions.includes("settings:list");
   const consumeStream = usePlaygroundStream();
-  const [mode, setMode] = useState<PlaygroundMode>(() => searchParams.get("mode") === "image_generation" ? "image_generation" : "chat");
+  const [mode, setMode] = useState<PlaygroundMode>(() => {
+    const requestedMode = searchParams.get("mode");
+    return requestedMode === "image_generation" || requestedMode === "video_generation" ? requestedMode : "chat";
+  });
 
   const [columns, setColumns] = useState<PlaygroundColumnDraft[]>(() => [createPlaygroundColumn(t("option", { count: 1 }), locale === "fa" ? "شما یک دستیار دقیق و مفید هستید." : "You are a precise and helpful assistant.")]);
   const [results, setResults] = useState<Record<string, PlaygroundRunResult>>(() => ({ [columns[0].id]: emptyRunResult() }));
@@ -92,6 +96,7 @@ export default function PlaygroundPage() {
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [pendingMode, setPendingMode] = useState<PlaygroundMode | null>(null);
   const abortControllers = useRef(new Map<string, AbortController>());
+  const activeVideoJobs = useRef(new Map<string, string>());
   const confirmedNavigation = useRef(false);
   const initialVersionLoaded = useRef(false);
   const initialModelLoaded = useRef(false);
@@ -298,6 +303,8 @@ export default function PlaygroundPage() {
     let responseText = "";
     let toolCalls: unknown[] = [];
     let generatedImages: PlaygroundGeneratedImage[] = [];
+    let generatedVideos: PlaygroundGeneratedVideo[] = [];
+    let videoJob: VideoJobResponse | undefined;
     let finishReason: string | undefined;
     let usage: Record<string, unknown> | undefined;
     let responseID: string | undefined;
@@ -317,21 +324,24 @@ export default function PlaygroundPage() {
           rawResponse: previous.rawResponse,
           toolCalls: previous.toolCalls,
           generatedImages: previous.generatedImages,
+          generatedVideos: previous.generatedVideos,
           finishReason: previous.finishReason,
           telemetry: previous.telemetry,
-          responseIsPrevious: Boolean(previous.responseText || previous.toolCalls.length || previous.generatedImages.length),
+          responseIsPrevious: Boolean(previous.responseText || previous.toolCalls.length || previous.generatedImages.length || previous.generatedVideos.length),
           startedAt,
         },
       };
     });
 
     try {
-      const response = await fetch("/api/playground/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validation.payload),
-        signal: controller.signal,
-      });
+      const response = mode === "video_generation"
+        ? await submitVideoRun(column, validation.payload.request, controller.signal)
+        : await fetch("/api/playground/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(validation.payload),
+            signal: controller.signal,
+          });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
         throw new Error(payload?.error?.message || `${t("errors.run")} (${response.status})`);
@@ -375,7 +385,38 @@ export default function PlaygroundPage() {
         streamedCostIRR = streamed.costIRR;
       } else {
         const payload = await response.json() as Record<string, unknown>;
-        if (mode === "image_generation") {
+        if (mode === "video_generation") {
+          const initialJob = payload as unknown as VideoJobResponse;
+          if (!initialJob.id) throw new Error(t("video.invalidJob"));
+          activeVideoJobs.current.set(column.id, initialJob.id);
+          videoJob = await pollVideoJob(initialJob, controller.signal, (nextJob) => {
+            setResults((current) => ({
+              ...current,
+              [column.id]: {
+                ...current[column.id],
+                status: "running",
+                rawResponse: nextJob,
+                responseIsPrevious: false,
+                telemetry: { ...baseTelemetry, ...videoTelemetry(nextJob) },
+              },
+            }));
+          });
+          rawResponse = videoJob;
+          responseID = videoJob.id;
+          responseModel = videoJob.model;
+          if (videoJob.generation_status !== "succeeded" || videoJob.delivery_status !== "ready" || videoJob.settlement_status !== "committed") {
+            throw new Error(videoJob.last_error || t("video.failed"));
+          }
+          generatedVideos = (videoJob.artifacts ?? []).map((artifact, index) => ({
+            id: artifact.id || String(index),
+            url: `/api/playground/videos/${encodeURIComponent(videoJob!.id)}/content?artifact_id=${encodeURIComponent(artifact.id || String(index))}`,
+            mimeType: artifact.content_type || "video/mp4",
+            duration: artifact.duration_seconds,
+            resolution: artifact.resolution,
+            sizeBytes: artifact.size_bytes,
+          }));
+          if (generatedVideos.length === 0) throw new Error(t("video.noUsableVideo"));
+        } else if (mode === "image_generation") {
           const normalized = normalizeImageGenerationResponse(payload, column.imageConfig.outputFormat);
           generatedImages = normalized.images;
           rawResponse = normalized.rawResponse;
@@ -401,7 +442,7 @@ export default function PlaygroundPage() {
       setResults((current) => ({
         ...current,
         [column.id]: {
-          status: "success", responseText, rawResponse: rawResponse ?? normalizedResponse, toolCalls, generatedImages, finishReason, responseIsPrevious: false,
+          status: "success", responseText, rawResponse: rawResponse ?? normalizedResponse, toolCalls, generatedImages, generatedVideos, finishReason, responseIsPrevious: false,
           telemetry: {
             ...baseTelemetry,
             effectiveModel: responseModel ?? column.selectedModel,
@@ -415,7 +456,7 @@ export default function PlaygroundPage() {
               requestedImageSize: column.imageConfig.size,
               requestedImageQuality: column.imageConfig.quality,
               imageMimeType: generatedImages[0]?.mimeType,
-            } : {}),
+            } : mode === "video_generation" && videoJob ? videoTelemetry(videoJob) : {}),
           },
         },
       }));
@@ -436,7 +477,7 @@ export default function PlaygroundPage() {
           };
         });
       } else {
-        const hasNewResponse = Boolean(responseText || toolCalls.length || generatedImages.length);
+        const hasNewResponse = Boolean(responseText || toolCalls.length || generatedImages.length || generatedVideos.length);
         setResults((current) => ({
           ...current,
           [column.id]: {
@@ -446,8 +487,9 @@ export default function PlaygroundPage() {
             rawResponse: hasNewResponse ? current[column.id]?.rawResponse ?? rawResponse : previousResult.rawResponse,
             toolCalls: hasNewResponse ? toolCalls : previousResult.toolCalls,
             generatedImages: hasNewResponse ? generatedImages : previousResult.generatedImages,
+            generatedVideos: hasNewResponse ? generatedVideos : previousResult.generatedVideos,
             finishReason: hasNewResponse ? finishReason : previousResult.finishReason,
-            responseIsPrevious: !hasNewResponse && Boolean(previousResult.responseText || previousResult.toolCalls.length || previousResult.generatedImages.length),
+            responseIsPrevious: !hasNewResponse && Boolean(previousResult.responseText || previousResult.toolCalls.length || previousResult.generatedImages.length || previousResult.generatedVideos.length),
             error: normalizeError(error, t("errors.run")),
             telemetry: hasNewResponse
               ? { ...current[column.id]?.telemetry, requestedModel: column.selectedModel, durationMs: Math.round(performance.now() - startedAt) }
@@ -457,15 +499,20 @@ export default function PlaygroundPage() {
       }
     } finally {
       abortControllers.current.delete(column.id);
+      activeVideoJobs.current.delete(column.id);
     }
   }
 
   function stopColumn(columnID: string) {
     abortControllers.current.get(columnID)?.abort();
+    const videoJobID = activeVideoJobs.current.get(columnID);
+    if (videoJobID) {
+      void fetch(`/api/playground/videos/${encodeURIComponent(videoJobID)}/cancel`, { method: "POST" });
+    }
   }
 
   function stopAll() {
-    abortControllers.current.forEach((controller) => controller.abort());
+    for (const columnID of abortControllers.current.keys()) stopColumn(columnID);
   }
 
   function replaceActiveWithVersion(version: PromptVersion, force = false) {
@@ -524,12 +571,13 @@ export default function PlaygroundPage() {
           dir={locale === "fa" ? "rtl" : "ltr"}
           value={mode}
           disabled={anyRunning}
-          onValueChange={(value) => { if (value === "chat" || value === "image_generation") requestModeChange(value); }}
+          onValueChange={(value) => { if (value === "chat" || value === "image_generation" || value === "video_generation") requestModeChange(value); }}
           aria-label={t("mode.label")}
           className="rounded-md border border-border bg-muted p-1"
         >
           <ToggleGroupItem value="chat" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><MessageSquare />{t("mode.chat")}</ToggleGroupItem>
           <ToggleGroupItem value="image_generation" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><ImageIcon />{t("mode.imageGeneration")}</ToggleGroupItem>
+          <ToggleGroupItem value="video_generation" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><Video />{t("mode.videoGeneration")}</ToggleGroupItem>
         </ToggleGroup>
         {columns.length > 1 ? (
           <Tabs value={activeColumnID} onValueChange={setActiveColumnID} className="min-w-0 md:hidden">
@@ -552,7 +600,7 @@ export default function PlaygroundPage() {
       ) : modelError ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-destructive" /><div><h2 className="font-semibold">{t("errors.loadModels")}</h2><p className="mt-1 text-sm text-muted-foreground">{modelError}</p></div><Button type="button" onClick={() => void loadModels()}>{t("actions.retry")}</Button></div>
       ) : modeModels.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{mode === "image_generation" ? t("model.noImageModelTitle") : t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "image_generation" ? t("model.noImageModelDescription") : t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts">{t("model.connect")}</a></Button></div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{mode === "image_generation" ? t("model.noImageModelTitle") : mode === "video_generation" ? t("model.noVideoModelTitle") : t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "image_generation" ? t("model.noImageModelDescription") : mode === "video_generation" ? t("model.noVideoModelDescription") : t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts">{t("model.connect")}</a></Button></div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden p-3">
           {columns.length === 1 ? (
@@ -807,12 +855,107 @@ function getPromptCapacityMessage(limit: number | null, count: number | null, re
   return t("save.capacityLimit", { limit });
 }
 
+type VideoJobResponse = {
+  id: string;
+  model: string;
+  generation_status: string;
+  delivery_status: string;
+  settlement_status: string;
+  requested_usage?: Array<{ usage?: string; unit?: string; amount?: string; resolution?: string; qualifiers?: { output_count?: number } }>;
+  actual_usage?: Array<{ usage?: string; unit?: string; amount?: string; resolution?: string; qualifiers?: { output_count?: number } }>;
+  estimated_rating?: { total_cost_usd?: string; total_cost_irr?: string; status?: string };
+  final_rating?: { total_cost_usd?: string; total_cost_irr?: string; status?: string };
+  artifacts?: Array<{
+    id?: string;
+    content_type?: string;
+    duration_seconds?: string;
+    resolution?: string;
+    size_bytes?: number;
+  }>;
+  last_error?: string;
+};
+
+async function submitVideoRun(column: PlaygroundColumnDraft, request: Record<string, unknown>, signal: AbortSignal) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(request)) {
+    if (value !== undefined && value !== null && value !== "") form.set(key, String(value));
+  }
+  if (column.videoInputFile) form.set("input_reference", column.videoInputFile, column.videoInputFile.name);
+  return fetch("/api/playground/videos", {
+    method: "POST",
+    headers: { "Idempotency-Key": createClientID("video") },
+    body: form,
+    signal,
+  });
+}
+
+async function pollVideoJob(initial: VideoJobResponse, signal: AbortSignal, onUpdate: (job: VideoJobResponse) => void) {
+  let job = initial;
+  while (!videoJobIsTerminal(job)) {
+    await abortableDelay(2_000, signal);
+    const response = await fetch(`/api/playground/videos/${encodeURIComponent(job.id)}`, { signal, cache: "no-store" });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+      throw new Error(payload?.error?.message || `Video status request failed (${response.status})`);
+    }
+    job = await response.json() as VideoJobResponse;
+    onUpdate(job);
+  }
+  return job;
+}
+
+function videoJobIsTerminal(job: VideoJobResponse) {
+  if (["failed", "cancelled", "billing_review"].includes(job.generation_status)) return true;
+  return job.generation_status === "succeeded" &&
+    (job.settlement_status === "committed" || job.settlement_status === "review") &&
+    (job.delivery_status === "ready" || job.delivery_status === "failed" || job.settlement_status === "review");
+}
+
+function abortableDelay(milliseconds: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    const abort = () => {
+      window.clearTimeout(timeout);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function videoTelemetry(job: VideoJobResponse): Partial<PlaygroundTelemetry> {
+  const measures = job.actual_usage?.length ? job.actual_usage : job.requested_usage ?? [];
+  const seconds = measures
+    .filter((measure) => measure.usage === "output" && measure.unit === "second")
+    .reduce((total, measure) => total + (Number(measure.amount) || 0), 0);
+  const outputCount = measures.reduce((total, measure) => total + (Number(measure.qualifiers?.output_count) || 0), 0);
+  const rating = job.final_rating ?? job.estimated_rating;
+  const costUSD = rating?.total_cost_usd === undefined ? undefined : Number(rating.total_cost_usd);
+  const costIRR = rating?.total_cost_irr === undefined ? undefined : Number(rating.total_cost_irr);
+  return {
+    effectiveModel: job.model,
+    costUSD: Number.isFinite(costUSD) ? costUSD : undefined,
+    costIRR: Number.isFinite(costIRR) ? costIRR : undefined,
+    videoSeconds: seconds > 0 ? String(seconds) : undefined,
+    videoResolution: measures.find((measure) => measure.resolution)?.resolution,
+    videoOutputCount: outputCount > 0 ? outputCount : job.artifacts?.length,
+    videoGenerationStatus: job.generation_status,
+    videoSettlementStatus: job.settlement_status,
+  };
+}
+
 function collectPlaygroundVariables(columns: PlaygroundColumnDraft[], mode: PlaygroundMode): string[] {
   const variables = new Set<string>();
   const pattern = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 
   for (const column of columns) {
-    const sources = mode === "image_generation" ? [column.imagePrompt] : column.messages.map((message) => message.content);
+    const sources = mode === "image_generation" ? [column.imagePrompt] : mode === "video_generation" ? [column.videoPrompt] : column.messages.map((message) => message.content);
     for (const source of sources) {
       for (const match of source.matchAll(pattern)) {
         const name = match[1]?.trim();
@@ -824,7 +967,7 @@ function collectPlaygroundVariables(columns: PlaygroundColumnDraft[], mode: Play
   return [...variables];
 }
 
-function emptyRunResult(): PlaygroundRunResult { return { status: "idle", responseText: "", rawResponse: null, toolCalls: [], generatedImages: [] }; }
+function emptyRunResult(): PlaygroundRunResult { return { status: "idle", responseText: "", rawResponse: null, toolCalls: [], generatedImages: [], generatedVideos: [] }; }
 
 function modelSupportsPlaygroundMode(model: GatewayModel, mode: PlaygroundMode) {
   const supportedModes = [...(model.supported_modes ?? []), ...(model.types ?? [])]

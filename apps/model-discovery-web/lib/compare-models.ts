@@ -7,12 +7,6 @@ let cachedCompareIds: CompareModelId[] = EMPTY_COMPARE_IDS;
 
 export type CompareModelId = string;
 
-export type ComparePricing = {
-  inputPricePerMillionTokens?: number | null;
-  outputPricePerMillionTokens?: number | null;
-  cachedInputPricePerMillionTokens?: number | null;
-};
-
 export type CompareModel = {
   canonicalId: string;
   displayName?: string | null;
@@ -21,7 +15,7 @@ export type CompareModel = {
   contextWindow?: number | null;
   maxOutputTokens?: number | null;
   openSource?: boolean | null;
-  free?: boolean | null;
+  pricingStatus?: "unknown" | "priced" | "free" | null;
   license?: string | null;
   officialDocsUrl?: string | null;
   provider?: {
@@ -32,7 +26,8 @@ export type CompareModel = {
     slug?: string | null;
     name?: string | null;
   } | null;
-  pricing?: ComparePricing[] | null;
+  pricingProfiles?: PricingProfile[] | null;
+  pricingSummary?: PricingSummary | null;
   inputModalities?: Array<{ modality?: { slug?: string | null; name?: string | null } | null }> | null;
   outputModalities?: Array<{ modality?: { slug?: string | null; name?: string | null } | null }> | null;
   capabilities?: Array<{ capability?: { slug?: string | null; name?: string | null } | null }> | null;
@@ -115,3 +110,4 @@ export function normalizeNameList(entries: Array<{ slug?: string | null; name?: 
     .map((entry) => entry?.name || entry?.slug)
     .filter((value): value is string => Boolean(value));
 }
+import type { PricingProfile, PricingSummary } from "@/lib/pricing";

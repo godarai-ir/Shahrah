@@ -11,18 +11,34 @@ import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { PrismaService } from '../database/prisma.service';
 import { IndexingService } from '../indexing/indexing.service';
 
+const pricingRateSchema = z.object({
+  key: z.string().optional(),
+  usage: z.enum(['input', 'output', 'cache_read', 'cache_write']),
+  unit: z.string().min(1),
+  amount: z
+    .union([
+      z.string().regex(/^\d+(?:\.\d+)?$/),
+      z.number().finite().nonnegative(),
+    ])
+    .transform(String),
+  quantity: z.number().int().positive().default(1),
+  serviceTier: z.enum(['standard', 'batch', 'priority']).default('standard'),
+  resolution: z.string().optional(),
+  tierFrom: z.number().int().nonnegative().optional(),
+  tierTo: z.number().int().nonnegative().optional(),
+  tierMode: z.string().optional(),
+  qualifiers: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .optional(),
+});
+
 const pricingSchema = z.object({
+  region: z.string().default('global'),
   currency: z.string().optional(),
-  inputPricePerMillionTokens: z.number().optional(),
-  outputPricePerMillionTokens: z.number().optional(),
-  cachedInputPricePerMillionTokens: z.number().optional(),
-  imageInputPrice: z.number().optional(),
-  imageOutputPrice: z.number().optional(),
-  audioInputPrice: z.number().optional(),
-  audioOutputPrice: z.number().optional(),
-  requestPrice: z.number().optional(),
-  region: z.string().optional(),
   sourceUrl: z.string().optional(),
+  effectiveFrom: z.string().datetime().optional(),
+  effectiveTo: z.string().datetime().optional(),
+  rates: z.array(pricingRateSchema),
 });
 
 const providerSchema = z.object({
@@ -44,7 +60,7 @@ const modelSchema = z.object({
   contextWindow: z.number().int().optional(),
   maxOutputTokens: z.number().int().optional(),
   openSource: z.boolean().optional(),
-  free: z.boolean().optional(),
+  pricingStatus: z.enum(['unknown', 'priced', 'free']).optional(),
   mode: z.array(z.string()).optional(),
   categorySlug: z.string().optional(),
   inputModalities: z.array(z.string()).optional(),
@@ -153,7 +169,7 @@ export class ImportController {
           contextWindow: row.contextWindow,
           maxOutputTokens: row.maxOutputTokens,
           openSource: row.openSource ?? false,
-          free: row.free ?? false,
+          pricingStatus: this.resolvePricingStatus(row),
           mode: row.mode?.length ? row.mode : ['unknown'],
           categoryId,
         },
@@ -167,7 +183,10 @@ export class ImportController {
           contextWindow: row.contextWindow,
           maxOutputTokens: row.maxOutputTokens,
           openSource: row.openSource,
-          free: row.free,
+          pricingStatus:
+            row.pricing !== undefined || row.pricingStatus !== undefined
+              ? this.resolvePricingStatus(row)
+              : undefined,
           mode: row.mode?.length ? row.mode : undefined,
           categoryId,
         },
@@ -244,28 +263,37 @@ export class ImportController {
           ? row.pricing
           : [row.pricing];
         for (const pricing of pricingRows) {
-          let regionId: string | undefined;
-          if (pricing.region) {
-            const region = await this.ensureRegion(pricing.region);
-            regionId = region.id;
-          }
+          const region = await this.ensureRegion(
+            this.normalizeRegion(pricing.region),
+          );
 
           await this.prisma.modelPricing.create({
             data: {
               modelId: model.id,
-              regionId,
+              regionId: region.id,
               currency: pricing.currency || 'USD',
-              inputPricePerMillionTokens: pricing.inputPricePerMillionTokens,
-              outputPricePerMillionTokens: pricing.outputPricePerMillionTokens,
-              cachedInputPricePerMillionTokens:
-                pricing.cachedInputPricePerMillionTokens,
-              imageInputPrice: pricing.imageInputPrice,
-              imageOutputPrice: pricing.imageOutputPrice,
-              audioInputPrice: pricing.audioInputPrice,
-              audioOutputPrice: pricing.audioOutputPrice,
-              requestPrice: pricing.requestPrice,
               sourceUrl: pricing.sourceUrl,
-              effectiveFrom: new Date(),
+              effectiveFrom: pricing.effectiveFrom
+                ? new Date(pricing.effectiveFrom)
+                : new Date(),
+              effectiveTo: pricing.effectiveTo
+                ? new Date(pricing.effectiveTo)
+                : undefined,
+              rates: {
+                create: pricing.rates.map((rate) => ({
+                  rateKey: rate.key || this.rateKey(rate),
+                  usage: rate.usage,
+                  unit: rate.unit,
+                  amount: rate.amount,
+                  quantity: rate.quantity,
+                  serviceTier: rate.serviceTier,
+                  resolution: rate.resolution,
+                  tierFrom: rate.tierFrom,
+                  tierTo: rate.tierTo,
+                  tierMode: rate.tierMode,
+                  qualifiers: rate.qualifiers as any,
+                })),
+              },
             },
           });
         }
@@ -296,5 +324,47 @@ export class ImportController {
       importedProviders: parsed.data.providers.length,
       importedModels: parsed.data.models.length,
     };
+  }
+
+  private resolvePricingStatus(
+    row: z.infer<typeof modelSchema>,
+  ): 'unknown' | 'priced' | 'free' {
+    if (row.pricingStatus === 'free') return 'free';
+    if (!row.pricing) return row.pricingStatus ?? 'unknown';
+
+    const profiles = Array.isArray(row.pricing) ? row.pricing : [row.pricing];
+    const hasPositiveRate = profiles.some((profile) =>
+      profile.rates.some((rate) => {
+        const amount = Number(rate.amount);
+        return Number.isFinite(amount) && amount > 0;
+      }),
+    );
+    return hasPositiveRate ? 'priced' : 'unknown';
+  }
+
+  private normalizeRegion(region: string) {
+    const normalized = region.trim().toLowerCase();
+    if (!normalized || normalized === '*' || normalized === 'global') {
+      return 'global';
+    }
+    return normalized
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  private rateKey(rate: {
+    usage: string;
+    unit: string;
+    serviceTier: string;
+    resolution?: string;
+    tierFrom?: number;
+  }) {
+    return [
+      rate.usage,
+      rate.unit,
+      rate.serviceTier,
+      `resolution=${rate.resolution ?? 'default'}`,
+      `tier=${rate.tierFrom ?? 'base'}`,
+    ].join(':');
   }
 }

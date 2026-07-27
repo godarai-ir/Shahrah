@@ -13,8 +13,9 @@
     "label": "حالت محیط آزمایش",
     "chat": "گفت‌وگو",
     "imageGeneration": "تولید تصویر",
+    "videoGeneration": "تولید ویدیو",
     "changeTitle": "حالت محیط آزمایش تغییر کند؟",
-    "changeDescription": "ورودی و نتیجه گفت‌وگو با تولید تصویر سازگار نیست. با تغییر حالت، همه ستون‌های مقایسه بازنشانی می‌شوند.",
+    "changeDescription": "ورودی و نتیجه گفت‌وگو، تولید تصویر و تولید ویدیو با هم سازگار نیستند. با تغییر حالت، همه ستون‌های مقایسه بازنشانی می‌شوند.",
     "changeConfirm": "تغییر حالت و بازنشانی"
   },
   "selectOption": "گزینه {current} از {total}",
@@ -63,6 +64,8 @@
     "unavailableDescription": "برای اجرای نخست، یک ارائه‌دهنده مدل متصل کنید.",
     "noImageModelTitle": "مدل تولید تصویر در دسترس نیست",
     "noImageModelDescription": "در یک حساب ارائه‌دهنده یا مدل مجازی، مدلی با قابلیت image_generation فعال کنید.",
+    "noVideoModelTitle": "مدل تولید ویدیو در دسترس نیست",
+    "noVideoModelDescription": "در یک حساب ارائه‌دهنده، مدلی با قابلیت video_generation فعال کنید.",
     "connect": "اتصال ارائه‌دهنده مدل",
     "virtual": "مدل مجازی"
   },
@@ -95,6 +98,32 @@
     "tooLarge": "تصویر تولیدشده برای رمزگشایی امن در مرورگر بیش از حد بزرگ است.",
     "invalidBase64": "داده تصویر تولیدشده معتبر نیست.",
     "noUsableImage": "پاسخ ارائه‌دهنده شامل نشانی امن یا داده base64 معتبر نبود."
+  },
+  "video": {
+    "prompt": "پرامپت ویدیو",
+    "promptHelp": "حرکت، صحنه، دوربین و سبک را توصیف کنید. متغیرهای زمان اجرا مانند {subject} پشتیبانی می‌شوند.",
+    "promptPlaceholder": "حرکت آرام و سینمایی دوربین در...",
+    "inputImage": "تصویر ورودی اختیاری",
+    "inputImageHelp": "برای تبدیل تصویر به ویدیو، فایل PNG، JPEG یا WebP تا سقف ۲۰ مگابایت بارگذاری کنید.",
+    "selectedInput": "انتخاب‌شده: {name}",
+    "settingsHelp": "رزرو اولیه بر پایه ثانیه × تعداد خروجی و وضوح انتخابی است. تسویه نهایی با مصرف واقعی قابل اثبات و snapshot قیمت زمان ارسال انجام می‌شود.",
+    "seconds": "ثانیه هر خروجی",
+    "count": "تعداد خروجی",
+    "resolution": "وضوح",
+    "aspectRatio": "نسبت تصویر",
+    "serviceTier": "سطح سرویس",
+    "seed": "Seed (اختیاری)",
+    "emptyTitle": "هنوز ویدیویی تولید نشده است",
+    "emptyDescription": "یک مدل ویدیویی انتخاب کنید، پرامپت را بنویسید و job غیرهمزمان را اجرا کنید.",
+    "processing": "ارائه‌دهنده در حال تولید، تحویل و تسویه ویدیو است…",
+    "result": "ویدیوی تولیدشده {count}",
+    "durationValue": "{seconds} ثانیه",
+    "unsupported": "مرورگر شما امکان پخش این ویدیو را ندارد.",
+    "open": "بازکردن",
+    "download": "دانلود",
+    "invalidJob": "سرویس job معتبر ویدیو برنگرداند.",
+    "failed": "تولید، تحویل یا تسویه ویدیو کامل نشد.",
+    "noUsableVideo": "job کامل‌شده ویدیوی قابل تحویلی ندارد."
   },
   "empty": {
     "title": "هنوز پرامپتی اجرا نشده است.",
@@ -166,7 +195,7 @@
   "telemetry": {
     "inputTokens": "توکن ورودی", "outputTokens": "توکن خروجی", "totalTokens": "مجموع توکن",
     "duration": "زمان کل", "ttft": "اولین توکن", "costUSD": "هزینه دلار", "costIRR": "هزینه ریال",
-    "model": "مدل مؤثر", "cache": "کش", "cacheSimilarity": "شباهت کش", "finishReason": "علت پایان", "imageCount": "تعداد تصویر", "imageSize": "اندازه درخواستی", "imageQuality": "کیفیت درخواستی", "imageMimeType": "نوع MIME تصویر", "trace": "شناسه رد", "unavailable": "—"
+    "model": "مدل مؤثر", "cache": "کش", "cacheSimilarity": "شباهت کش", "finishReason": "علت پایان", "imageCount": "تعداد تصویر", "imageSize": "اندازه درخواستی", "imageQuality": "کیفیت درخواستی", "imageMimeType": "نوع MIME تصویر", "videoSeconds": "ثانیه ویدیو", "videoResolution": "وضوح", "videoOutputCount": "تعداد خروجی", "videoGenerationStatus": "وضعیت تولید", "videoSettlementStatus": "وضعیت تسویه", "trace": "شناسه رد", "unavailable": "—"
   },
   "save": {
     "titleNew": "ذخیره در مخزن پرامپت",
@@ -212,6 +241,11 @@
     "imagePromptRequired": "پرامپت تصویر را وارد کنید.",
     "imagePromptTooLong": "پرامپت تصویر بیش از حد طولانی است.",
     "imageCompressionRange": "فشرده‌سازی خروجی باید عدد صحیحی بین ۰ و ۱۰۰ باشد.",
+    "videoPromptRequired": "پرامپت ویدیو را وارد کنید.",
+    "videoPromptTooLong": "پرامپت ویدیو بیش از حد طولانی است.",
+    "videoSecondsRange": "مدت باید عدد صحیحی بین ۱ و ۱۲۰ ثانیه باشد.",
+    "videoCountRange": "تعداد خروجی باید عدد صحیحی بین ۱ و ۴ باشد.",
+    "videoSeedRange": "Seed باید عدد صحیح نامنفی باشد.",
     "messagesRequired": "حداقل یک پیام غیرخالی لازم است.",
     "messageEmpty": "محتوای پیام {index} خالی است.",
     "messageToolCallId": "شناسه فراخوانی ابزار برای پیام {index} الزامی است.",

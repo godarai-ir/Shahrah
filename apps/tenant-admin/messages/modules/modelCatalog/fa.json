@@ -45,8 +45,6 @@
     "provider": "ارائه‌دهنده",
     "availability": "دسترسی‌پذیری",
     "context": "پنجره متن",
-    "input_price": "قیمت ورودی",
-    "output_price": "قیمت خروجی",
     "asc": "صعودی",
     "desc": "نزولی"
   },
@@ -123,6 +121,8 @@
     "publicOutputPrice": "قیمت عمومی خروجی",
     "effectiveInputPrice": "قیمت مؤثر ورودی",
     "effectiveOutputPrice": "قیمت مؤثر خروجی",
+    "publicPricing": "قیمت عمومی",
+    "effectivePricing": "قیمت مؤثر",
     "deprecated": "این مدل منسوخ شده است. بارهای کاری را به یک مدل پشتیبانی‌شده منتقل کنید.",
     "deprecatedWithReplacement": "این مدل منسوخ شده است. جایگزین پیشنهادی: {replacement}.",
     "bashExample": "نمونه Bash",

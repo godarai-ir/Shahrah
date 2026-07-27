@@ -12,6 +12,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -53,7 +54,6 @@ type Service struct {
 	}
 	defaultRate          platform.ExchangeRate
 	exchangeRateCache    *exchangeRateCache
-	pricingCache         *pricingCache
 	walletCacheTTL       time.Duration
 	budgetWindowTTLGrace time.Duration
 	rateLimitFailOpen    bool
@@ -61,16 +61,16 @@ type Service struct {
 
 // NewService creates a billing enforcement service.
 func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string) *Service {
-	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv(), loadPricingCacheConfigFromEnv())
+	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv())
 }
 
 // NewServiceWithExchangeRateCacheConfig creates a billing service with explicit cache settings.
 func NewServiceWithExchangeRateCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig) *Service {
-	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, exchangeRateCacheConfig, loadPricingCacheConfigFromEnv())
+	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, exchangeRateCacheConfig)
 }
 
 // NewServiceWithCacheConfig creates a billing service with explicit hot-path cache settings.
-func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig, pricingCacheConfig PricingCacheConfig) *Service {
+func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig) *Service {
 	var entitlements entitlementStore
 	if resolvedEntitlements, ok := store.(entitlementStore); ok {
 		entitlements = resolvedEntitlements
@@ -91,7 +91,6 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 		rateLimitFailOpen:    boolEnvOrDefault("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 	}
 	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
-	svc.pricingCache = newPricingCache(c, pricingCacheConfig, modelPriceFromRegistry)
 
 	return svc
 }
@@ -516,8 +515,6 @@ func cloneInterfaceMap(in map[string]interface{}) map[string]interface{} {
 
 // EstimateCost estimates tokens and cost for a request.
 func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
-	rate := s.exchangeRate(ctx)
-
 	promptTokens := estimatePromptTokens(req)
 
 	outputTokens := 256
@@ -525,19 +522,13 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		outputTokens = *req.MaxTokens
 	}
 
-	price := s.modelPrice(ctx, req.Model)
-
-	return costBreakdown(req.Model, promptTokens, outputTokens, price, rate.USDtoIRR), nil
+	return unpricedTokenBreakdown(req.Model, promptTokens, outputTokens), nil
 }
 
 // EstimateEmbeddingCost estimates cost for an embeddings request.
 func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.EmbeddingRequest) (platform.UsageCostBreakdown, error) {
-	rate := s.exchangeRate(ctx)
-
 	promptTokens := estimateEmbeddingPromptTokens(req.Input)
-	price := s.modelPrice(ctx, req.Model)
-
-	return costBreakdown(req.Model, promptTokens, 0, price, rate.USDtoIRR), nil
+	return unpricedTokenBreakdown(req.Model, promptTokens, 0), nil
 }
 
 // FinalizeFromUsage recalculates final spend from provider usage.
@@ -545,12 +536,8 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 	if usage == nil {
 		return estimated, nil
 	}
-
-	rate := s.exchangeRate(ctx)
-
-	price := s.modelPrice(ctx, model)
-
-	return costBreakdown(model, usage.PromptTokens, usage.CompletionTokens, price, rate.USDtoIRR), nil
+	measures := tokenUsageMeasures(usage.PromptTokens, usage.CompletionTokens)
+	return s.rateSnapshotUsage(model, measures, estimated)
 }
 
 // FinalizeImageUsage recalculates final spend for image endpoints.
@@ -559,36 +546,36 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 		return estimated, nil
 	}
 
-	rate := s.exchangeRate(ctx)
 	inputTokens, outputTokens, totalTokens := imageUsageTokenBreakdown(usage, estimated)
-	price := s.modelPrice(ctx, model)
-	breakdown := imageCostBreakdown(model, inputTokens, outputTokens, totalTokens, price, rate.USDtoIRR)
+	breakdown, err := s.rateSnapshotUsage(model, tokenUsageMeasures(inputTokens, outputTokens), estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
+	breakdown.TotalTokens = totalTokens
 
 	if providerCostUSDTicks != nil && *providerCostUSDTicks >= 0 {
 		totalUSD := float64(*providerCostUSDTicks) / usdTicksPerDollar
 		breakdown = applyProviderImageCost(breakdown, totalUSD)
+		rate := s.exchangeRate(ctx)
 		breakdown.ExchangeRate = rate.USDtoIRR
 		breakdown.TotalCostIRR = totalUSD * rate.USDtoIRR
+		breakdown.TotalCostUSDExact = decimal.NewFromFloat(totalUSD).String()
+		breakdown.ExchangeRateExact = decimal.NewFromFloat(rate.USDtoIRR).String()
+		breakdown.TotalCostIRRExact = decimal.NewFromFloat(totalUSD).Mul(decimal.NewFromFloat(rate.USDtoIRR)).String()
+		breakdown.RatingStatus = "provider_reported"
 	}
 
 	return breakdown, nil
 }
 
-func costBreakdown(model string, inputTokens int, outputTokens int, price priceInfo, exchangeRate float64) platform.UsageCostBreakdown {
-	inputCost := (float64(inputTokens) / 1000.0) * price.Input
-	outputCost := (float64(outputTokens) / 1000.0) * price.Output
-	totalUSD := inputCost + outputCost
-
+func unpricedTokenBreakdown(model string, inputTokens int, outputTokens int) platform.UsageCostBreakdown {
 	return platform.UsageCostBreakdown{
 		Model:         model,
 		InputTokens:   inputTokens,
 		OutputTokens:  outputTokens,
 		TotalTokens:   inputTokens + outputTokens,
-		InputCostUSD:  inputCost,
-		OutputCostUSD: outputCost,
-		TotalCostUSD:  totalUSD,
-		ExchangeRate:  exchangeRate,
-		TotalCostIRR:  totalUSD * exchangeRate,
+		UsageMeasures: tokenUsageMeasures(inputTokens, outputTokens),
+		RatingStatus:  "pending",
 	}
 }
 
@@ -623,15 +610,6 @@ func imageUsageTokenBreakdown(usage *openai.Usage, estimated platform.UsageCostB
 	return inputTokens, outputTokens, totalTokens
 }
 
-func imageCostBreakdown(model string, inputTokens int, outputTokens int, totalTokens int, price priceInfo, exchangeRate float64) platform.UsageCostBreakdown {
-	out := costBreakdown(model, inputTokens, outputTokens, price, exchangeRate)
-	if totalTokens > 0 {
-		out.TotalTokens = totalTokens
-	}
-
-	return out
-}
-
 func applyProviderImageCost(breakdown platform.UsageCostBreakdown, totalUSD float64) platform.UsageCostBreakdown {
 	breakdown.TotalCostUSD = totalUSD
 	if breakdown.InputCostUSD+breakdown.OutputCostUSD > 0 {
@@ -646,14 +624,6 @@ func applyProviderImageCost(breakdown platform.UsageCostBreakdown, totalUSD floa
 	breakdown.OutputCostUSD = totalUSD
 
 	return breakdown
-}
-
-func (s *Service) modelPrice(ctx context.Context, model string) priceInfo {
-	if s != nil && s.pricingCache != nil {
-		return s.pricingCache.Get(ctx, model)
-	}
-
-	return modelPriceFromRegistry(model)
 }
 
 func (s *Service) exchangeRate(ctx context.Context) *platform.ExchangeRate {

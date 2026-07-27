@@ -34,6 +34,13 @@ import {
   canUseCustomModelPricing,
   clearVisibleModelSelection,
 } from "@/app/components/provider-account-wizard.models";
+import {
+  clonePricing,
+  isPricingResolved,
+  pricingEntries,
+  pricingRatePresentation,
+  type ModelPrice,
+} from "@/app/components/pricing";
 import { cn } from "@/lib/utils";
 import { CodeExampleBlock } from "./code-example-block";
 import {
@@ -63,7 +70,6 @@ import {
   buildCurlGuidePayload,
   buildCurlGuideSampleResponse,
   buildPowerShellCurlGuideCommand,
-  formatDisplayPrice,
   getCurlGuideEndpoint,
   getModelCapabilities,
   getModelModes,
@@ -72,7 +78,6 @@ import {
   normalizeCapabilityList,
   requestJSON,
   resolveCurlGuideMode,
-  toNumberOrUndefined,
   unwrapData,
 } from "./utils";
 
@@ -131,8 +136,7 @@ type PricingEditorState = {
   open: boolean;
   modelKey: string;
   pricingMode: "public" | "private";
-  inputPrice: string;
-  outputPrice: string;
+  privatePricing?: ModelPrice;
   error: string;
 };
 
@@ -151,8 +155,7 @@ function buildFallbackDraft(model: ProviderCatalogModel, selectableOptions: stri
     enabled: false,
     selectedCapabilities: selectableOptions,
     pricingMode: "public",
-    inputPrice: model.public_pricing?.input_usd_per_1m?.toString() ?? "",
-    outputPrice: model.public_pricing?.output_usd_per_1m?.toString() ?? "",
+    privatePricing: model.public_pricing,
   };
 }
 
@@ -162,8 +165,6 @@ type ModelListItemProps = {
   canManage: boolean;
   compact: boolean;
   mobileDensity: "compact" | "detailed";
-  displayCurrency: "USD" | "TOMAN";
-  displayScale: "PER_MILLION_TOKENS" | "PER_TOKEN";
   draft?: ModelDraft;
   labels: ModelCardLabels;
   model: ProviderCatalogModel;
@@ -175,7 +176,6 @@ type ModelListItemProps = {
   setModelEnabled: (model: ProviderCatalogModel, draft: ModelDraft, selectableOptions: string[], enabled: boolean) => void;
   toModelCardData: (model: ProviderCatalogModel, draft: ModelDraft) => ModelCardData;
   ux: ReturnType<typeof useTranslations>;
-  usdToIrr: number;
   getSelectableOptions: (model: ProviderCatalogModel) => string[];
 };
 
@@ -226,24 +226,30 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
   const capabilities = useMemo(() => getModelCapabilities(model).slice(0, 2), [model]);
   const modes = useMemo(() => getModelModes(model).slice(0, 2), [model]);
   const priceLabel = useMemo(
-    () =>
-      formatDisplayPrice(model.public_pricing?.input_usd_per_1m, {
+    () => {
+      const entry = pricingEntries(model.public_pricing)[0];
+      if (!entry) return ux("models.na");
+      const presentation = pricingRatePresentation(entry, {
         currency: displayCurrency,
         scale: displayScale,
         usdToIrr,
-        naLabel: ux("models.na"),
-      }),
-    [displayCurrency, displayScale, model.public_pricing?.input_usd_per_1m, usdToIrr, ux],
+      });
+      return `${presentation.value} · ${presentation.label}`;
+    },
+    [displayCurrency, displayScale, model.public_pricing, usdToIrr, ux],
   );
-  const outputPriceLabel = useMemo(
-    () =>
-      formatDisplayPrice(model.public_pricing?.output_usd_per_1m, {
+  const secondaryPriceLabel = useMemo(
+    () => {
+      const entry = pricingEntries(model.public_pricing)[1];
+      if (!entry) return ux("models.na");
+      const presentation = pricingRatePresentation(entry, {
         currency: displayCurrency,
         scale: displayScale,
         usdToIrr,
-        naLabel: ux("models.na"),
-      }),
-    [displayCurrency, displayScale, model.public_pricing?.output_usd_per_1m, usdToIrr, ux],
+      });
+      return `${presentation.value} · ${presentation.label}`;
+    },
+    [displayCurrency, displayScale, model.public_pricing, usdToIrr, ux],
   );
 
   return (
@@ -280,7 +286,7 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
       </td>
       <td className="px-3 py-3">
         <div className="truncate whitespace-nowrap text-xs font-medium" dir="ltr">
-          {outputPriceLabel}
+          {secondaryPriceLabel}
         </div>
       </td>
       <td className="hidden px-3 py-3 md:table-cell">
@@ -323,8 +329,6 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
     canUseCustomPricing,
     compact,
     mobileDensity,
-    displayCurrency,
-    displayScale,
     draft: draftProp,
     getSelectableOptions,
     labels,
@@ -336,7 +340,6 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
     renderPricingEditorContent,
     setModelEnabled,
     toModelCardData,
-    usdToIrr,
     ux,
   } = props;
   const selectableOptions = useMemo(
@@ -352,14 +355,6 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
     [canUseCustomPricing, draft],
   );
   const cardData = useMemo(() => toModelCardData(model, displayDraft), [displayDraft, model, toModelCardData]);
-  const pricingDisplay = useMemo(
-    () => ({
-      currency: displayCurrency,
-      scale: displayScale,
-      usdToIrr,
-    }),
-    [displayCurrency, displayScale, usdToIrr],
-  );
   const isPricingEditorOpen = pricingEditor.open && pricingEditor.modelKey === model.model;
 
   return (
@@ -379,7 +374,6 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           model={cardData}
           mobileDensity={mobileDensity}
           detailsHref={buildModelDiscoveryDetailsHref(model)}
-          pricingDisplay={pricingDisplay}
           formatCapabilityLabel={(value) => formatCapabilityLabel(value, ux)}
           isSelected={displayDraft.enabled}
           onSelectedChange={(checked) => setModelEnabled(model, displayDraft, selectableOptions, checked)}
@@ -429,13 +423,11 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
     prev.canManage !== next.canManage ||
     prev.compact !== next.compact ||
     prev.mobileDensity !== next.mobileDensity ||
-    prev.displayCurrency !== next.displayCurrency ||
-    prev.displayScale !== next.displayScale ||
     prev.draft !== next.draft ||
     prev.labels !== next.labels ||
     prev.model !== next.model ||
     prev.ux !== next.ux ||
-    prev.usdToIrr !== next.usdToIrr
+    prev.toModelCardData !== next.toModelCardData
   ) {
     return false;
   }
@@ -448,8 +440,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
     nextOpen &&
     (
       prev.pricingEditor.pricingMode !== next.pricingEditor.pricingMode ||
-      prev.pricingEditor.inputPrice !== next.pricingEditor.inputPrice ||
-      prev.pricingEditor.outputPrice !== next.pricingEditor.outputPrice ||
+      prev.pricingEditor.privatePricing !== next.pricingEditor.privatePricing ||
       prev.pricingEditor.error !== next.pricingEditor.error
     )
   ) {
@@ -504,8 +495,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     open: false,
     modelKey: "",
     pricingMode: "public",
-    inputPrice: "",
-    outputPrice: "",
+    privatePricing: undefined,
     error: "",
   });
   const pricingEditorView = useMemo<PricingEditorState>(() => {
@@ -525,7 +515,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       latency: ux("models.card.latency"),
       quality: ux("models.card.quality"),
       pricing: ux("models.card.pricing"),
-      priceInputOutput: ux("models.card.priceInputOutput"),
       pricingUnavailable: ux("models.card.pricingUnavailable"),
       technicalMetadata: ux("models.card.technicalMetadata"),
       inputFormats: ux("models.card.inputFormats"),
@@ -534,8 +523,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       invocationModes: ux("models.card.invocationModes"),
       fqn: ux("models.card.fqn"),
       customPricing: ux("models.card.customPricing"),
-      pricingPerMillion: ux("models.card.pricingPerMillion"),
-      pricingPerToken: ux("models.displayUnit.perToken"),
       modelId: ux("models.card.modelId"),
       providerId: ux("models.card.providerId"),
       apiMode: ux("models.card.apiMode"),
@@ -687,8 +674,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       open: true,
       modelKey: model.model,
       pricingMode: draft.pricingMode,
-      inputPrice: draft.inputPrice,
-      outputPrice: draft.outputPrice,
+      privatePricing: clonePricing(draft.privatePricing ?? model.public_pricing),
       error: "",
     });
   }, [canUseCustomPricing, modelDrafts]);
@@ -702,15 +688,9 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
       return;
     }
-    const inputNumber = toNumberOrUndefined(pricingEditor.inputPrice);
-    const outputNumber = toNumberOrUndefined(pricingEditor.outputPrice);
     if (pricingEditor.pricingMode === "private") {
-      if (pricingEditor.inputPrice.trim() && (typeof inputNumber !== "number" || inputNumber < 0)) {
+      if (!isPricingResolved(pricingEditor.privatePricing)) {
         setPricingEditor((prev) => ({ ...prev, error: ux("models.validation.invalidInputPrice") }));
-        return;
-      }
-      if (pricingEditor.outputPrice.trim() && (typeof outputNumber !== "number" || outputNumber < 0)) {
-        setPricingEditor((prev) => ({ ...prev, error: ux("models.validation.invalidOutputPrice") }));
         return;
       }
     }
@@ -723,8 +703,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         ...current,
         enabled: true,
         pricingMode: pricingEditor.pricingMode,
-        inputPrice: pricingEditor.inputPrice.trim(),
-        outputPrice: pricingEditor.outputPrice.trim(),
+        privatePricing: clonePricing(pricingEditor.privatePricing),
       },
     };
     setModelDrafts(nextDrafts);
@@ -759,43 +738,63 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           ]}
         />
         {pricingEditor.pricingMode === "private" ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label>{ux("models.labels.input")}</Label>
-              <Input
-                className="h-8"
-                value={pricingEditor.inputPrice}
-                onChange={(event) => setPricingEditor((prev) => ({ ...prev, inputPrice: event.target.value, error: "" }))}
-                placeholder={ux("models.placeholders.input")}
-                dir="ltr"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>{ux("models.labels.output")}</Label>
-              <Input
-                className="h-8"
-                value={pricingEditor.outputPrice}
-                onChange={(event) => setPricingEditor((prev) => ({ ...prev, outputPrice: event.target.value, error: "" }))}
-                placeholder={ux("models.placeholders.output")}
-                dir="ltr"
-              />
-            </div>
+          <div className="grid max-h-72 gap-3 overflow-y-auto">
+            {(pricingEditor.privatePricing?.profiles ?? []).map((profile, profileIndex) => (
+              <fieldset key={`${profile.region}-${profileIndex}`} className="grid gap-2 rounded-md border p-2">
+                <legend className="px-1 text-xs text-muted-foreground">
+                  <bdi dir="ltr">{profile.region} · {profile.currency}</bdi>
+                </legend>
+                {profile.rates.map((rate, rateIndex) => (
+                  <div key={rate.key} className="grid gap-1">
+                    <Label className="text-xs">
+                      <bdi dir="ltr">
+                        {rate.usage} / {rate.quantity === 1 ? "" : `${rate.quantity} `}{rate.unit}
+                        {rate.resolution ? ` · ${rate.resolution}` : ""}
+                      </bdi>
+                    </Label>
+                    <Input
+                      className="h-8"
+                      value={rate.amount}
+                      onChange={(event) => {
+                        const amount = event.target.value;
+                        setPricingEditor((previous) => {
+                          const privatePricing = clonePricing(previous.privatePricing);
+                          if (!privatePricing) return previous;
+                          privatePricing.profiles[profileIndex].rates[rateIndex].amount = amount;
+                          return {
+                            ...previous,
+                            privatePricing,
+                            error: "",
+                          };
+                        });
+                      }}
+                      inputMode="decimal"
+                      dir="ltr"
+                    />
+                  </div>
+                ))}
+              </fieldset>
+            ))}
           </div>
         ) : (
           <div className="rounded-md border border-border/70 bg-muted/30 p-2 text-xs text-muted-foreground">
             <div className="font-medium text-foreground">{ux("models.catalogPricing")}</div>
-            <div className="mt-1 flex items-center justify-between gap-2">
-              <span>{ux("models.labels.input")}</span>
-              <span dir="ltr">
-                {formatDisplayPrice(model.public_pricing?.input_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}
-              </span>
-            </div>
-            <div className="mt-1 flex items-center justify-between gap-2">
-              <span>{ux("models.labels.output")}</span>
-              <span dir="ltr">
-                {formatDisplayPrice(model.public_pricing?.output_usd_per_1m, { currency: displayCurrency, scale: displayScale, usdToIrr, naLabel: ux("models.na") })}
-              </span>
-            </div>
+            {pricingEntries(model.public_pricing).map((entry) => {
+              const presentation = pricingRatePresentation(entry, {
+                currency: displayCurrency,
+                scale: displayScale,
+                usdToIrr,
+              });
+              return (
+                <div key={`${entry.profile.region}:${entry.rate.key}`} className="mt-1 flex items-center justify-between gap-2">
+                  <span dir="ltr">{presentation.label}</span>
+                  <span dir="ltr">{presentation.value}</span>
+                </div>
+              );
+            })}
+            {pricingEntries(model.public_pricing).length === 0 ? (
+              <div className="mt-1">{ux("models.na")}</div>
+            ) : null}
           </div>
         )}
         {pricingEditor.error ? (
@@ -824,14 +823,10 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     const selectionTypes = getModelSelectionTypes(model);
     const inputModalities = normalizeCapabilityList(model.input_modalities);
     const outputModalities = normalizeCapabilityList(model.output_modalities);
-    const privateInputPrice = toNumberOrUndefined(draft?.inputPrice ?? "");
-    const privateOutputPrice = toNumberOrUndefined(draft?.outputPrice ?? "");
-    const inputPrice = draft?.pricingMode === "private" && typeof privateInputPrice === "number"
-      ? privateInputPrice
-      : model.public_pricing?.input_usd_per_1m;
-    const outputPrice = draft?.pricingMode === "private" && typeof privateOutputPrice === "number"
-      ? privateOutputPrice
-      : model.public_pricing?.output_usd_per_1m;
+    const effectivePricing =
+      draft?.pricingMode === "private"
+        ? draft.privatePricing
+        : model.public_pricing;
     const categories: ModelCardData["category"] = [];
     if (modes.includes("embedding") || selectionTypes.includes("embedding")) categories.push("embedding");
     if (caps.some((c) => c.toLowerCase().includes("vision") || c.toLowerCase().includes("image")) || inputModalities.includes("image") || outputModalities.includes("image")) categories.push("vision");
@@ -856,8 +851,20 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       contextWindow: model.context_window,
       maxOutputTokens: undefined,
       pricing: {
-        inputPerMillion: inputPrice,
-        outputPerMillion: outputPrice,
+        rates: (effectivePricing?.status === "unknown"
+          ? []
+          : pricingEntries(effectivePricing).map((entry) => {
+              const presentation = pricingRatePresentation(entry, {
+                currency: displayCurrency,
+                scale: displayScale,
+                usdToIrr,
+              });
+              return {
+                key: `${entry.profile.region}:${entry.rate.key}`,
+                ...presentation,
+              };
+            })
+        ).slice(0, 2),
       },
       latencyTier: "medium",
       qualityTier: "good",
@@ -872,7 +879,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         mode: modes.join(", ") || undefined,
       },
     };
-  }, [buildModelFqn, recommendedModel?.model, ux]);
+  }, [buildModelFqn, displayCurrency, displayScale, recommendedModel?.model, usdToIrr, ux]);
 
   const getSelectableOptions = useCallback((model: ProviderCatalogModel) => {
     const modes = getModelModes(model);
@@ -1194,8 +1201,8 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                           <th className="px-2 py-2 text-center font-medium">{ux("common.enabled")}</th>
                           <th className="px-3 py-2 text-start font-medium">{ux("models.card.modelId")}</th>
                           <th className="px-3 py-2 text-center font-medium">{ux("models.card.context")}</th>
-                          <th className="px-3 py-2 text-start font-medium">{ux("models.labels.input")}</th>
-                          <th className="px-3 py-2 text-start font-medium">{ux("models.labels.output")}</th>
+                          <th className="px-3 py-2 text-start font-medium">{ux("models.card.pricing")} 1</th>
+                          <th className="px-3 py-2 text-start font-medium">{ux("models.card.pricing")} 2</th>
                           <th className="hidden px-3 py-2 text-start font-medium md:table-cell">{ux("models.card.capabilities")}</th>
                         </tr>
                       </thead>
@@ -1229,8 +1236,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                       canManage={props.canManage && !props.isSaving}
                       compact
                       mobileDensity="detailed"
-                      displayCurrency={displayCurrency}
-                      displayScale={displayScale}
                       draft={props.modelDrafts[model.model]}
                       labels={modelCardLabels}
                       model={model}
@@ -1242,7 +1247,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                       setModelEnabled={setModelEnabled}
                       toModelCardData={toModelCardData}
                       ux={ux}
-                      usdToIrr={usdToIrr}
                       getSelectableOptions={getSelectableOptions}
                     />
                   ))}
@@ -1527,8 +1531,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               canManage={props.canManage && !props.isSaving}
               compact={false}
               mobileDensity="detailed"
-              displayCurrency={displayCurrency}
-              displayScale={displayScale}
               draft={props.modelDrafts[model.model]}
               labels={modelCardLabels}
               model={model}
@@ -1540,7 +1542,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               setModelEnabled={setModelEnabled}
               toModelCardData={toModelCardData}
               ux={ux}
-              usdToIrr={usdToIrr}
               getSelectableOptions={getSelectableOptions}
             />
           ))}

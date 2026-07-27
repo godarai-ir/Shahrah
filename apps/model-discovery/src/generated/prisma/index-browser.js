@@ -158,7 +158,7 @@ exports.Prisma.ModelScalarFieldEnum = {
   releaseDate: 'releaseDate',
   deprecatedAt: 'deprecatedAt',
   openSource: 'openSource',
-  free: 'free',
+  pricingStatus: 'pricingStatus',
   tokenizer: 'tokenizer',
   license: 'license',
   huggingFaceUrl: 'huggingFaceUrl',
@@ -227,17 +227,27 @@ exports.Prisma.ModelPricingScalarFieldEnum = {
   modelId: 'modelId',
   regionId: 'regionId',
   currency: 'currency',
-  inputPricePerMillionTokens: 'inputPricePerMillionTokens',
-  outputPricePerMillionTokens: 'outputPricePerMillionTokens',
-  cachedInputPricePerMillionTokens: 'cachedInputPricePerMillionTokens',
-  imageInputPrice: 'imageInputPrice',
-  imageOutputPrice: 'imageOutputPrice',
-  audioInputPrice: 'audioInputPrice',
-  audioOutputPrice: 'audioOutputPrice',
-  requestPrice: 'requestPrice',
   effectiveFrom: 'effectiveFrom',
   effectiveTo: 'effectiveTo',
   sourceUrl: 'sourceUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ModelPricingRateScalarFieldEnum = {
+  id: 'id',
+  modelPricingId: 'modelPricingId',
+  rateKey: 'rateKey',
+  usage: 'usage',
+  unit: 'unit',
+  amount: 'amount',
+  quantity: 'quantity',
+  serviceTier: 'serviceTier',
+  resolution: 'resolution',
+  tierFrom: 'tierFrom',
+  tierTo: 'tierTo',
+  tierMode: 'tierMode',
+  qualifiers: 'qualifiers',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -456,6 +466,25 @@ exports.LifecycleStatus = exports.$Enums.LifecycleStatus = {
   archived: 'archived'
 };
 
+exports.ModelPricingStatus = exports.$Enums.ModelPricingStatus = {
+  unknown: 'unknown',
+  priced: 'priced',
+  free: 'free'
+};
+
+exports.PricingUsage = exports.$Enums.PricingUsage = {
+  input: 'input',
+  output: 'output',
+  cache_read: 'cache_read',
+  cache_write: 'cache_write'
+};
+
+exports.PricingServiceTier = exports.$Enums.PricingServiceTier = {
+  standard: 'standard',
+  batch: 'batch',
+  priority: 'priority'
+};
+
 exports.Prisma.ModelName = {
   Provider: 'Provider',
   Model: 'Model',
@@ -465,6 +494,7 @@ exports.Prisma.ModelName = {
   ProviderLogoAsset: 'ProviderLogoAsset',
   ModelVersion: 'ModelVersion',
   ModelPricing: 'ModelPricing',
+  ModelPricingRate: 'ModelPricingRate',
   Capability: 'Capability',
   ModelCapability: 'ModelCapability',
   Modality: 'Modality',

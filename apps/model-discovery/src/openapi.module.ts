@@ -202,33 +202,56 @@ class RegionLink {
   region!: FacetOption;
 }
 
-class ModelPricingSnapshot {
+class ModelPricingTierSnapshot {
   @ApiPropertyOptional()
-  currency?: string | null;
+  from?: number | null;
 
   @ApiPropertyOptional()
-  inputPricePerMillionTokens?: number | null;
+  to?: number | null;
 
   @ApiPropertyOptional()
-  outputPricePerMillionTokens?: number | null;
+  mode?: string | null;
+}
+
+class ModelPricingRateSnapshot {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty({ enum: ['input', 'output', 'cache_read', 'cache_write'] })
+  usage!: string;
+
+  @ApiProperty()
+  unit!: string;
+
+  @ApiProperty({
+    type: String,
+    description: 'Exact decimal amount encoded as a string.',
+    example: '0.75',
+  })
+  amount!: string;
+
+  @ApiProperty()
+  quantity!: number;
+
+  @ApiProperty({ enum: ['standard', 'batch', 'priority'] })
+  serviceTier!: string;
 
   @ApiPropertyOptional()
-  cachedInputPricePerMillionTokens?: number | null;
+  resolution?: string | null;
 
-  @ApiPropertyOptional()
-  imageInputPrice?: number | null;
+  @ApiPropertyOptional({ type: () => ModelPricingTierSnapshot })
+  tier?: ModelPricingTierSnapshot | null;
 
-  @ApiPropertyOptional()
-  imageOutputPrice?: number | null;
+  @ApiPropertyOptional({ additionalProperties: true })
+  qualifiers?: Record<string, string | number | boolean>;
+}
 
-  @ApiPropertyOptional()
-  audioInputPrice?: number | null;
+class ModelPricingProfileSnapshot {
+  @ApiProperty()
+  region!: string;
 
-  @ApiPropertyOptional()
-  audioOutputPrice?: number | null;
-
-  @ApiPropertyOptional()
-  requestPrice?: number | null;
+  @ApiProperty()
+  currency!: string;
 
   @ApiPropertyOptional()
   sourceUrl?: string | null;
@@ -236,8 +259,40 @@ class ModelPricingSnapshot {
   @ApiPropertyOptional()
   effectiveFrom?: string | null;
 
-  @ApiPropertyOptional({ type: () => FacetOption })
-  region?: FacetOption | null;
+  @ApiPropertyOptional()
+  effectiveTo?: string | null;
+
+  @ApiProperty({ type: () => [ModelPricingRateSnapshot] })
+  rates!: ModelPricingRateSnapshot[];
+}
+
+class ModelPricingSummarySnapshot {
+  @ApiProperty()
+  usage!: string;
+
+  @ApiProperty()
+  unit!: string;
+
+  @ApiProperty()
+  currency!: string;
+
+  @ApiProperty()
+  quantity!: number;
+
+  @ApiProperty({ type: String })
+  minimumAmount!: string;
+
+  @ApiProperty({ type: String })
+  maximumAmount!: string;
+
+  @ApiProperty({ type: () => [String] })
+  regions!: string[];
+
+  @ApiProperty({ type: () => [String] })
+  resolutions!: string[];
+
+  @ApiProperty()
+  rateCount!: number;
 }
 
 class ModelBenchmarkResult {
@@ -325,17 +380,20 @@ class CatalogModelListItem {
   @ApiProperty({ type: () => [String] })
   capabilities!: string[];
 
-  @ApiPropertyOptional({ type: () => ModelPricingSnapshot })
-  pricing?: ModelPricingSnapshot | null;
+  @ApiProperty({ enum: ['unknown', 'priced', 'free'] })
+  pricingStatus!: string;
+
+  @ApiProperty({ type: () => [ModelPricingProfileSnapshot] })
+  pricingProfiles!: ModelPricingProfileSnapshot[];
+
+  @ApiPropertyOptional({ type: () => ModelPricingSummarySnapshot })
+  pricingSummary?: ModelPricingSummarySnapshot | null;
 
   @ApiProperty({ type: () => [String] })
   regions!: string[];
 
   @ApiProperty()
   openSource!: boolean;
-
-  @ApiProperty()
-  free!: boolean;
 
   @ApiProperty()
   createdAt!: string;
@@ -424,8 +482,14 @@ class CatalogModelDetailResponse {
   @ApiProperty({ type: () => [RegionLink] })
   regions!: RegionLink[];
 
-  @ApiProperty({ type: () => [ModelPricingSnapshot] })
-  pricing!: ModelPricingSnapshot[];
+  @ApiProperty({ enum: ['unknown', 'priced', 'free'] })
+  pricingStatus!: string;
+
+  @ApiProperty({ type: () => [ModelPricingProfileSnapshot] })
+  pricingProfiles!: ModelPricingProfileSnapshot[];
+
+  @ApiPropertyOptional({ type: () => ModelPricingSummarySnapshot })
+  pricingSummary?: ModelPricingSummarySnapshot | null;
 
   @ApiProperty({ type: () => [ModelSourceReference] })
   sources!: ModelSourceReference[];
@@ -439,8 +503,6 @@ class CatalogModelDetailResponse {
   @ApiProperty()
   openSource!: boolean;
 
-  @ApiProperty()
-  free!: boolean;
 }
 
 class ProviderDetailModel {
@@ -462,8 +524,14 @@ class ProviderDetailModel {
   @ApiPropertyOptional()
   status?: string | null;
 
-  @ApiProperty({ type: () => [ModelPricingSnapshot] })
-  pricing!: ModelPricingSnapshot[];
+  @ApiProperty({ enum: ['unknown', 'priced', 'free'] })
+  pricingStatus!: string;
+
+  @ApiProperty({ type: () => [ModelPricingProfileSnapshot] })
+  pricingProfiles!: ModelPricingProfileSnapshot[];
+
+  @ApiPropertyOptional({ type: () => ModelPricingSummarySnapshot })
+  pricingSummary?: ModelPricingSummarySnapshot | null;
 
   @ApiProperty({ type: () => [CapabilityLink] })
   capabilities!: CapabilityLink[];
@@ -505,8 +573,14 @@ class ProviderModelsListItem {
   @ApiProperty({ type: () => [String] })
   capabilities!: string[];
 
-  @ApiPropertyOptional({ type: () => ModelPricingSnapshot })
-  pricing?: ModelPricingSnapshot | null;
+  @ApiProperty({ enum: ['unknown', 'priced', 'free'] })
+  pricingStatus!: string;
+
+  @ApiProperty({ type: () => [ModelPricingProfileSnapshot] })
+  pricingProfiles!: ModelPricingProfileSnapshot[];
+
+  @ApiPropertyOptional({ type: () => ModelPricingSummarySnapshot })
+  pricingSummary?: ModelPricingSummarySnapshot | null;
 
   @ApiProperty({ type: () => [String] })
   regions!: string[];
@@ -591,8 +665,8 @@ class AdminModelRecord {
   @ApiProperty()
   openSource!: boolean;
 
-  @ApiProperty()
-  free!: boolean;
+  @ApiProperty({ enum: ['unknown', 'priced', 'free'] })
+  pricingStatus!: string;
 
   @ApiProperty({ type: () => ProviderSummary })
   provider!: ProviderSummary;
@@ -622,38 +696,23 @@ class ImportProviderDto {
 }
 
 class ImportPricingDto {
+  @ApiProperty()
+  region!: string;
+
   @ApiPropertyOptional()
   currency?: string;
 
   @ApiPropertyOptional()
-  inputPricePerMillionTokens?: number;
-
-  @ApiPropertyOptional()
-  outputPricePerMillionTokens?: number;
-
-  @ApiPropertyOptional()
-  cachedInputPricePerMillionTokens?: number;
-
-  @ApiPropertyOptional()
-  imageInputPrice?: number;
-
-  @ApiPropertyOptional()
-  imageOutputPrice?: number;
-
-  @ApiPropertyOptional()
-  audioInputPrice?: number;
-
-  @ApiPropertyOptional()
-  audioOutputPrice?: number;
-
-  @ApiPropertyOptional()
-  requestPrice?: number;
-
-  @ApiPropertyOptional()
-  region?: string;
-
-  @ApiPropertyOptional()
   sourceUrl?: string;
+
+  @ApiPropertyOptional()
+  effectiveFrom?: string;
+
+  @ApiPropertyOptional()
+  effectiveTo?: string;
+
+  @ApiProperty({ type: () => [ModelPricingRateSnapshot] })
+  rates!: ModelPricingRateSnapshot[];
 }
 
 class ImportModelDto {
@@ -688,7 +747,7 @@ class ImportModelDto {
   openSource?: boolean;
 
   @ApiPropertyOptional()
-  free?: boolean;
+  pricingStatus?: 'unknown' | 'priced' | 'free';
 
   @ApiPropertyOptional({ type: () => [String] })
   mode?: string[];

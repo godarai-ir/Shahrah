@@ -27,6 +27,12 @@ import { Card } from "@/components/ui/card";
 import { formatCompactNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 import { useDisplayFormatters } from "@/lib/use-display-formatters";
+import {
+  findPricingRate,
+  primaryPricingRate,
+  type PricingProfile,
+  type PricingSummary,
+} from "@/lib/pricing";
 
 type Provider = {
   slug?: string | null;
@@ -37,18 +43,6 @@ type Provider = {
   privacyPolicyUrl?: string | null;
   supportsByok?: boolean | null;
   supportsRegionalRouting?: boolean | null;
-};
-
-type Pricing = {
-  id: string;
-  currency?: string | null;
-  inputPricePerMillionTokens?: number | null;
-  outputPricePerMillionTokens?: number | null;
-  cachedInputPricePerMillionTokens?: number | null;
-  effectiveFrom?: string | null;
-  effectiveTo?: string | null;
-  sourceUrl?: string | null;
-  region?: { slug?: string | null; name?: string | null } | null;
 };
 
 type ModelDetail = {
@@ -68,7 +62,9 @@ type ModelDetail = {
   license?: string | null;
   officialDocsUrl?: string | null;
   provider?: Provider | null;
-  pricing?: Pricing[] | null;
+  pricingStatus?: "unknown" | "priced" | "free";
+  pricingProfiles?: PricingProfile[] | null;
+  pricingSummary?: PricingSummary | null;
   inputModalities?: Array<{ modality?: { slug?: string | null; name?: string | null } | null }> | null;
   outputModalities?: Array<{ modality?: { slug?: string | null; name?: string | null } | null }> | null;
   supportedParams?: Array<{ supportedParameter?: { slug?: string | null; name?: string | null } | null }> | null;
@@ -227,7 +223,7 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
       if (!slug && !name) return null;
       return slug && name ? `${name} (${slug})` : (name || slug) as string;
     }).filter((value): value is string => Boolean(value));
-    const sortedPricing = [...(model?.pricing ?? [])].sort((a, b) => (a.region?.slug || "global").localeCompare(b.region?.slug || "global"));
+    const sortedPricing = [...(model?.pricingProfiles ?? [])].sort((a, b) => a.region.localeCompare(b.region));
     return { inputModalities, outputModalities, capabilities, supportedParams, sortedPricing };
   }, [model]);
 
@@ -283,8 +279,8 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
   const metrics = [
     { label: t("contextWindow"), value: formatCompactMetric(model.contextWindow), icon: Gauge },
     { label: t("maxOutputTokens"), value: formatCompactMetric(model.maxOutputTokens), icon: Cpu },
-    { label: t("baselineInputPrice"), value: <DisplayPrice value={model.pricing?.[0]?.inputPricePerMillionTokens} />, icon: Banknote },
-    { label: t("baselineOutputPrice"), value: <DisplayPrice value={model.pricing?.[0]?.outputPricePerMillionTokens} />, icon: Banknote },
+    { label: t("baselineInputPrice"), value: <DisplayPrice rate={model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "input")?.rate ?? primaryPricingRate(model.pricingProfiles)} />, icon: Banknote },
+    { label: t("baselineOutputPrice"), value: <DisplayPrice rate={model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "output")?.rate} />, icon: Banknote },
   ];
 
   return (
@@ -416,21 +412,20 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
           </SectionCard>
 
           <SectionCard id="pricing" label={t("sections.pricing")} icon={Banknote} className="lg:col-span-2">
-            {normalized.sortedPricing.length === 0 ? (
+            {model.pricingStatus === "unknown" || normalized.sortedPricing.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("noPricing")}</p>
             ) : (
               <div className="grid gap-3">
-                {normalized.sortedPricing.map((price) => {
+                {normalized.sortedPricing.map((price, profileIndex) => {
                   const sourceUrl = safeUrl(price.sourceUrl);
-                  const priceValues: Array<[string, ReactNode]> = [
-                    [t("input"), <DisplayPrice key="input-price" value={price.inputPricePerMillionTokens} />],
-                    [t("output"), <DisplayPrice key="output-price" value={price.outputPricePerMillionTokens} />],
-                    [t("cachedInput"), <DisplayPrice key="cached-input-price" value={price.cachedInputPricePerMillionTokens} />],
-                    [t("effectiveFrom"), formatDate(price.effectiveFrom)],
-                  ];
+                  const priceValues: Array<[string, ReactNode]> = price.rates.map((rate) => [
+                    `${rate.usage} · ${rate.serviceTier}${rate.resolution ? ` · ${rate.resolution}` : ""}`,
+                    <DisplayPrice key={rate.key} rate={rate} />,
+                  ]);
+                  priceValues.push([t("effectiveFrom"), formatDate(price.effectiveFrom)]);
 
                   return (
-                    <article key={price.id} className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background/60 p-4">
+                    <article key={`${price.region}-${profileIndex}`} className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background/60 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -438,7 +433,7 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
                           </span>
                           <div>
                             <p className="text-xs text-muted-foreground">{t("region")}</p>
-                            <p className="text-sm font-semibold"><bdi dir="auto">{price.region?.name || price.region?.slug || tCommon("global")}</bdi></p>
+                            <p className="text-sm font-semibold"><bdi dir="auto">{price.region || tCommon("global")}</bdi></p>
                           </div>
                         </div>
                         {sourceUrl ? <ExternalResource href={sourceUrl} label={t("source")} /> : null}

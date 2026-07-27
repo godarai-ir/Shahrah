@@ -76,10 +76,7 @@ export type ProviderCatalogModel = {
   output_modalities?: string[];
   capabilities?: string[];
   features?: string[];
-  public_pricing?: {
-    input_usd_per_1m?: number;
-    output_usd_per_1m?: number;
-  };
+  public_pricing?: ModelPrice;
 };
 
 export type TenantProviderAccount = {
@@ -117,14 +114,8 @@ export type TenantProviderAccountModel = {
   input_modalities?: string[];
   output_modalities?: string[];
   pricing_mode: "public" | "private";
-  public_pricing?: {
-    input_usd_per_1m?: number;
-    output_usd_per_1m?: number;
-  };
-  private_pricing?: {
-    input_usd_per_1m?: number;
-    output_usd_per_1m?: number;
-  };
+  public_pricing?: ModelPrice;
+  private_pricing?: ModelPrice;
   settings?: Record<string, unknown>;
 };
 
@@ -188,8 +179,7 @@ export type ModelDraft = {
   enabled: boolean;
   selectedCapabilities: string[];
   pricingMode: "public" | "private";
-  inputPrice: string;
-  outputPrice: string;
+  privatePricing?: ModelPrice;
 };
 
 export type Readiness = "ready" | "connection_failed" | "needs_credentials" | "needs_access" | "pricing_incomplete";
@@ -223,3 +213,4 @@ export const SUPPORTED_CURL_GUIDE_MODES: SupportedCurlGuideMode[] = [
 ];
 
 
+import type { ModelPrice } from "@/app/components/pricing";

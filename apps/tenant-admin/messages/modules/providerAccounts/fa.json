@@ -34,12 +34,7 @@
     "accessTitle": "کنترل دسترسی مصرف",
     "empty": "مدلی برای این ارائه‌دهنده یافت نشد.",
     "searchPlaceholder": "جست‌وجو در نام مدل",
-    "toggleSelectAll": "انتخاب همه",
-    "columns": {
-      "model": "مدل",
-      "inputCost": "هزینه ورودی (دلار / ۱ میلیون)",
-      "outputCost": "هزینه خروجی (دلار / ۱ میلیون)"
-    }
+    "toggleSelectAll": "انتخاب همه"
   },
   "fields": {
     "provider": "ارائه‌دهنده مدل",
@@ -50,8 +45,6 @@
     "apiKeyOptional": "کلید دسترسی اختیاری",
     "secretRefOptional": "مرجع Secret اختیاری",
     "pricingMode": "مبنای قیمت‌گذاری",
-    "inputPrice": "هزینه ورودی (دلار / ۱ میلیون توکن)",
-    "outputPrice": "هزینه خروجی (دلار / ۱ میلیون توکن)",
     "publicPricing": "قیمت عمومی",
     "privatePricing": "قیمت اختصاصی",
     "azureTenantID": "Azure Tenant ID",
@@ -335,7 +328,6 @@
         "latency": "تأخیر",
         "quality": "کیفیت",
         "pricing": "قیمت‌گذاری",
-        "priceInputOutput": "هزینه ورودی / هزینه خروجی",
         "pricingUnavailable": "قیمت موجود نیست",
         "technicalMetadata": "فراداده فنی",
         "inputFormats": "ورودی",
@@ -344,7 +336,6 @@
         "invocationModes": "حالت‌ها",
         "fqn": "FQN مدل",
         "customPricing": "قیمت تعدیلی",
-        "pricingPerMillion": "هزینه به ازای ۱ میلیون توکن",
         "modelId": "شناسه مدل",
         "providerId": "شناسه ارائه‌دهنده",
         "apiMode": "حالت API",

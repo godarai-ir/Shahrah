@@ -41,6 +41,14 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 			marshalJSONBestEffort(log.RequestMetadata),
 			log.CompletionStart,
 			log.CompletionEnd,
+			marshalJSONBestEffort(log.UsageMeasures),
+			marshalJSONBestEffort(log.RatingSnapshot),
+			marshalJSONBestEffort(log.CostComponents),
+			emptyToNil(log.PricingSource),
+			emptyToNil(log.RatingStatus),
+			emptyToNil(log.VideoSeconds),
+			emptyToNil(log.VideoResolution),
+			nullPositiveInt(log.OutputCount),
 		)
 	}
 
@@ -48,13 +56,20 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 		INSERT INTO spend_logs (
 			request_id, token_hash, tenant_id, organization_id, team_id, model, input_tokens, output_tokens,
 			total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
-			completion_start_time, completion_end_time
+			completion_start_time, completion_end_time, usage_measures, rating_snapshot,
+			cost_components, pricing_source, rating_status, video_seconds, video_resolution, output_count
 		)
-		VALUES `+strings.Join(values, ", "), args...); err != nil {
+		VALUES `+strings.Join(values, ", ")+`
+		ON CONFLICT (tenant_id, request_id)
+		WHERE tenant_id IS NOT NULL AND request_id IS NOT NULL
+		DO NOTHING`, args...); err != nil {
 		return err
 	}
 
 	for _, log := range logs {
+		if log.RatingSnapshot != nil {
+			continue
+		}
 		if err := s.queueTokenSpendDelta(ctx, log.TokenHash, log.CostUSD); err != nil {
 			return err
 		}
@@ -63,7 +78,14 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 	return nil
 }
 
-const spendLogInsertColumnCount = 16
+const spendLogInsertColumnCount = 24
+
+func nullPositiveInt(value int) interface{} {
+	if value <= 0 {
+		return nil
+	}
+	return value
+}
 
 func spendLogInsertPlaceholders(rowIndex, columns int) string {
 	start := rowIndex*columns + 1

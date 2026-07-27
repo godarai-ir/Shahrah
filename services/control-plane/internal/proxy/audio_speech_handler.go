@@ -235,6 +235,10 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
+		estimated, err = rateDeploymentEstimate(c, h.billing, tunnelReq.Deployment, estimated)
+		if err != nil {
+			return err
+		}
 		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil || budgetResponseHandled {
 			return err
@@ -725,13 +729,11 @@ func estimateAudioSpeechCostFallback(model string, metadata map[string]interface
 		inputTokens += estimateTextTokensFromLength(instructionsLength)
 	}
 
-	return platform.UsageCostBreakdown{
+	return withTokenUsageMeasures(platform.UsageCostBreakdown{
 		Model:       model,
 		RequestType: audioSpeechRequestType,
 		Endpoint:    "/v1" + audioSpeechPath,
-		InputTokens: inputTokens,
-		TotalTokens: inputTokens,
-	}
+	}, inputTokens, 0)
 }
 
 func audioSpeechUsageToOpenAI(body []byte) *contractsopenai.Usage {

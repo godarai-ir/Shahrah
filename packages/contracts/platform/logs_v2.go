@@ -49,6 +49,14 @@ type RequestLogDetailV2 struct {
 	Metadata            map[string]interface{}        `json:"metadata,omitempty"`
 	Actor               map[string]string             `json:"actor,omitempty"`
 	Scope               map[string]string             `json:"scope,omitempty"`
+	UsageMeasures       []UsageMeasure                `json:"usage_measures,omitempty"`
+	RatingSnapshot      *RatedUsage                   `json:"rating_snapshot,omitempty"`
+	CostComponents      []AppliedRate                 `json:"cost_components,omitempty"`
+	PricingSource       string                        `json:"pricing_source,omitempty"`
+	RatingStatus        string                        `json:"rating_status,omitempty"`
+	VideoSeconds        string                        `json:"video_seconds,omitempty"`
+	VideoResolution     string                        `json:"video_resolution,omitempty"`
+	OutputCount         int                           `json:"output_count,omitempty"`
 }
 
 type ListRequestLogsV2Params struct {

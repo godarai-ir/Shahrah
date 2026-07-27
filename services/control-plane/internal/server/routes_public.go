@@ -10,6 +10,9 @@ import (
 
 func registerPublicRoutes(app *fiber.App, cfg *config.Config, deps Dependencies, httpMetrics *prommetrics.HTTPMetrics) {
 	registerObservabilityRoutes(app, cfg, deps, httpMetrics)
+	if deps.VideoHandler != nil {
+		app.Post("/webhooks/videos/:provider", deps.VideoHandler.Webhook)
+	}
 	registerPublicAdminRoutes(app, deps)
 	registerPlatformAdminRoutes(app, cfg, deps)
 }

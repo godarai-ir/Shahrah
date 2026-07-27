@@ -25,6 +25,7 @@ describe("playground image output", () => {
       rawResponse: { data: [{ b64_json: "[base64 omitted]" }] },
       toolCalls: [],
       generatedImages: [{ index: 0, b64Json: "YWJj", mimeType: "image/png", revisedPrompt: "A revised prompt" }],
+      generatedVideos: [],
     };
     const rendered = render(
       <PlaygroundOutputPanel

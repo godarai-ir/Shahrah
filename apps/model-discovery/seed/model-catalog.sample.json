@@ -19,7 +19,7 @@
       "contextWindow": 1000000,
       "maxOutputTokens": 32768,
       "openSource": false,
-      "free": false,
+      "pricingStatus": "priced",
       "categorySlug": "programming",
       "inputModalities": ["text", "image"],
       "outputModalities": ["text"],
@@ -27,10 +27,13 @@
       "capabilities": ["vision", "tool_calling", "json_mode", "streaming"],
       "regions": ["global", "us", "eu"],
       "pricing": {
+        "region": "global",
         "currency": "USD",
-        "inputPricePerMillionTokens": 0.4,
-        "outputPricePerMillionTokens": 1.6,
-        "cachedInputPricePerMillionTokens": 0.1
+        "rates": [
+          { "key": "input:token:standard", "usage": "input", "unit": "token", "amount": "0.4", "quantity": 1000000, "serviceTier": "standard" },
+          { "key": "output:token:standard", "usage": "output", "unit": "token", "amount": "1.6", "quantity": 1000000, "serviceTier": "standard" },
+          { "key": "cache_read:token:standard", "usage": "cache_read", "unit": "token", "amount": "0.1", "quantity": 1000000, "serviceTier": "standard" }
+        ]
       }
     }
   ]

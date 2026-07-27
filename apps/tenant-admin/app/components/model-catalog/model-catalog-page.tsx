@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
+import { pricingSummaryText } from "@/app/components/pricing";
 import type {
   ProviderAccountReadiness,
   ProviderCatalogProvider,
@@ -475,8 +476,6 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
                         "provider",
                         "availability",
                         "context",
-                        "input_price",
-                        "output_price",
                       ].map((value) => ({ value, label: t(`sort.${value}`) }))}
                       value={state.sort}
                       onValueChange={(value) => updateURL({ sort: value })}
@@ -863,8 +862,7 @@ function ModelsTable({ models, providerBySlug, onOpen }: ModelsTableProps) {
               <TableCell className="hidden @5xl:table-cell" dir="ltr">{formatContext(model.context_window, t("values.na"))}</TableCell>
               <TableCell className="hidden @2xl:table-cell">
                 <div className="flex flex-col text-xs" dir="ltr">
-                  <span>{t("pricing.input")}: {formatPrice(availability?.effective_pricing?.input_usd_per_1m, t("values.na"))}</span>
-                  <span>{t("pricing.output")}: {formatPrice(availability?.effective_pricing?.output_usd_per_1m, t("values.na"))}</span>
+                  <bdi dir="ltr">{pricingSummaryText(availability?.effective_pricing, t("values.na"))}</bdi>
                 </div>
               </TableCell>
               <TableCell>
@@ -944,9 +942,7 @@ function AvailabilityPopover({
                   />
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {t("pricing.input")}: {formatPrice(availability.effective_pricing?.input_usd_per_1m, t("values.na"))}
-                  {" · "}
-                  {t("pricing.output")}: {formatPrice(availability.effective_pricing?.output_usd_per_1m, t("values.na"))}
+                  <bdi dir="ltr">{pricingSummaryText(availability.effective_pricing, t("values.na"))}</bdi>
                 </span>
               </div>
             ))}
@@ -994,11 +990,6 @@ function readinessLabel(
   readiness: ProviderAccountReadiness,
 ): string {
   return t(`readiness.${readiness}`);
-}
-
-function formatPrice(value: number | undefined, fallback: string): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value)}`;
 }
 
 function formatContext(value: number | undefined, fallback: string): string {

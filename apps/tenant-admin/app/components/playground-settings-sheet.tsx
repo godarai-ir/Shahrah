@@ -75,6 +75,8 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
         </SheetHeader>
         {props.mode === "image_generation" ? (
           <ImageGenerationSettings column={column} readOnly={props.readOnly} onChange={props.onChange} t={props.t} />
+        ) : props.mode === "video_generation" ? (
+          <VideoGenerationSettings column={column} readOnly={props.readOnly} onChange={props.onChange} t={props.t} />
         ) : <Tabs defaultValue="model" className="min-h-0 flex-1 gap-0">
           <div className="flex justify-center overflow-x-auto border-b border-border p-3">
             <TabsList asChild className="h-auto bg-transparent p-0">
@@ -192,6 +194,55 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
         <SheetFooter className="border-t border-border p-4"><Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>{props.t("actions.close")}</Button></SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function VideoGenerationSettings(props: {
+  column: PlaygroundColumnDraft;
+  readOnly: boolean;
+  onChange: (column: PlaygroundColumnDraft) => void;
+  t: Translation;
+}) {
+  const config = props.column.videoConfig;
+  function changeConfig(patch: Partial<typeof config>) {
+    props.onChange({ ...props.column, videoConfig: { ...config, ...patch }, dirty: true });
+  }
+
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <FieldGroup className="p-4">
+        <Alert variant="info"><AlertDescription>{props.t("video.settingsHelp")}</AlertDescription></Alert>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <AppNumberField label={props.t("video.seconds")} value={config.seconds} min={1} max={120} step={1} disabled={props.readOnly} onChange={(event) => changeConfig({ seconds: event.target.value })} />
+          <AppNumberField label={props.t("video.count")} value={config.count} min={1} max={4} step={1} disabled={props.readOnly} onChange={(event) => changeConfig({ count: event.target.value })} />
+          <AppSelectField
+            label={props.t("video.resolution")}
+            value={config.resolution}
+            disabled={props.readOnly}
+            onValueChange={(resolution) => changeConfig({ resolution })}
+            options={["540p", "720p", "1080p"].map((value) => ({ value, label: value }))}
+            optionTextDir="ltr"
+          />
+          <AppSelectField
+            label={props.t("video.aspectRatio")}
+            value={config.aspectRatio}
+            disabled={props.readOnly}
+            onValueChange={(aspectRatio) => changeConfig({ aspectRatio })}
+            options={["16:9", "9:16", "1:1"].map((value) => ({ value, label: value }))}
+            optionTextDir="ltr"
+          />
+          <AppSelectField
+            label={props.t("video.serviceTier")}
+            value={config.serviceTier}
+            disabled={props.readOnly}
+            onValueChange={(serviceTier) => changeConfig({ serviceTier })}
+            options={["standard", "priority"].map((value) => ({ value, label: value }))}
+            optionTextDir="ltr"
+          />
+          <AppNumberField label={props.t("video.seed")} value={config.seed} min={0} step={1} disabled={props.readOnly} onChange={(event) => changeConfig({ seed: event.target.value })} />
+        </div>
+      </FieldGroup>
+    </ScrollArea>
   );
 }
 

@@ -33,12 +33,7 @@
     "accessTitle": "Usage access control",
     "empty": "No models were discovered for this provider.",
     "searchPlaceholder": "Search model name",
-    "toggleSelectAll": "Select all",
-    "columns": {
-      "model": "Model",
-      "inputCost": "Input cost ($/1M)",
-      "outputCost": "Output cost ($/1M)"
-    }
+    "toggleSelectAll": "Select all"
   },
   "fields": {
     "provider": "Model provider",
@@ -49,8 +44,6 @@
     "apiKeyOptional": "API Key (optional)",
     "secretRefOptional": "Secret reference (optional)",
     "pricingMode": "Pricing basis",
-    "inputPrice": "Input cost (USD / 1M tokens)",
-    "outputPrice": "Output cost (USD / 1M tokens)",
     "publicPricing": "Public pricing",
     "privatePricing": "Custom pricing",
     "azureTenantID": "Azure Tenant ID",
@@ -333,7 +326,6 @@
         "latency": "Latency",
         "quality": "Quality",
         "pricing": "Pricing",
-        "priceInputOutput": "Input cost / Output cost",
         "pricingUnavailable": "Pricing unavailable",
         "technicalMetadata": "Technical metadata",
         "inputFormats": "Input",
@@ -342,7 +334,6 @@
         "invocationModes": "Modes",
         "fqn": "Model FQN",
         "customPricing": "Adjusted pricing",
-        "pricingPerMillion": "Cost (1M tokens)",
         "modelId": "Model ID",
         "providerId": "Provider ID",
         "apiMode": "API mode",

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -665,8 +666,13 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "private pricing requires a provider account with user-owned credentials")
 		}
 
-		if item.PricingMode == platform.PricingModePrivate && (item.PrivatePricing == nil || (item.PrivatePricing.InputUSDPer1M == nil && item.PrivatePricing.OutputUSDPer1M == nil)) {
-			return fiber.NewError(fiber.StatusBadRequest, "private pricing mode requires private_pricing input/output values")
+		if item.PricingMode == platform.PricingModePrivate {
+			if err := validateModelPrice(item.PrivatePricing); err != nil {
+				return fiber.NewError(
+					fiber.StatusBadRequest,
+					"private pricing mode requires a complete unit-aware private_pricing payload: "+err.Error(),
+				)
+			}
 		}
 	}
 
@@ -834,7 +840,7 @@ func parseTenantProviderModelCatalogQuery(c *fiber.Ctx) (tenantProviderModelCata
 	}
 
 	switch out.Sort {
-	case "name", "provider", "availability", "context", "input_price", "output_price":
+	case "name", "provider", "availability", "context":
 	default:
 		return out, fiber.NewError(fiber.StatusBadRequest, "unsupported model catalog sort")
 	}
@@ -945,7 +951,49 @@ func resolvedRecordPrice(record platform.TenantProviderAccountCatalogRecord, cat
 }
 
 func modelPriceResolved(price *platform.ModelPrice) bool {
-	return price != nil && (price.InputUSDPer1M != nil || price.OutputUSDPer1M != nil)
+	return validateModelPrice(price) == nil
+}
+
+func validateModelPrice(price *platform.ModelPrice) error {
+	if price == nil || len(price.Profiles) == 0 {
+		return errors.New("at least one pricing profile is required")
+	}
+	if price.Status == "unknown" {
+		return errors.New("pricing status is unknown")
+	}
+
+	for _, profile := range price.Profiles {
+		if strings.TrimSpace(profile.Region) == "" {
+			return errors.New("pricing profile region is required")
+		}
+		if strings.TrimSpace(profile.Currency) == "" {
+			return errors.New("pricing profile currency is required")
+		}
+		if len(profile.Rates) == 0 {
+			return errors.New("each pricing profile requires at least one rate")
+		}
+
+		keys := make(map[string]struct{}, len(profile.Rates))
+		for _, rate := range profile.Rates {
+			key := strings.TrimSpace(rate.Key)
+			if key == "" || strings.TrimSpace(rate.Usage) == "" || strings.TrimSpace(rate.Unit) == "" {
+				return errors.New("rate key, usage and unit are required")
+			}
+			if _, exists := keys[key]; exists {
+				return errors.New("duplicate pricing rate key: " + key)
+			}
+			keys[key] = struct{}{}
+			if rate.Quantity <= 0 {
+				return errors.New("rate quantity must be positive")
+			}
+			amount, err := strconv.ParseFloat(strings.TrimSpace(rate.Amount), 64)
+			if err != nil || math.IsNaN(amount) || math.IsInf(amount, 0) || amount < 0 {
+				return errors.New("rate amount must be a non-negative decimal string")
+			}
+		}
+	}
+
+	return nil
 }
 
 func accountReadiness(account platform.TenantProviderAccount, summary platform.TenantProviderAccountSummary) platform.ProviderAccountReadiness {
@@ -1138,10 +1186,6 @@ func compareTenantCatalogItems(left, right platform.TenantProviderAccountModelCa
 		return compareInt(len(left.Availability), len(right.Availability))
 	case "context":
 		return compareInt(intValue(left.ContextWindow), intValue(right.ContextWindow))
-	case "input_price":
-		return compareFloat(catalogSortPrice(left, true), catalogSortPrice(right, true))
-	case "output_price":
-		return compareFloat(catalogSortPrice(left, false), catalogSortPrice(right, false))
 	default:
 		return strings.Compare(strings.ToLower(left.DisplayName), strings.ToLower(right.DisplayName))
 	}
@@ -1158,46 +1202,9 @@ func compareInt(left, right int) int {
 	}
 }
 
-func compareFloat(left, right float64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	default:
-		return 0
-	}
-}
-
 func intValue(value *int) int {
 	if value == nil {
 		return -1
-	}
-
-	return *value
-}
-
-func catalogSortPrice(item platform.TenantProviderAccountModelCatalogItem, input bool) float64 {
-	var value *float64
-
-	if item.PublicPricing != nil {
-		if input {
-			value = item.PublicPricing.InputUSDPer1M
-		} else {
-			value = item.PublicPricing.OutputUSDPer1M
-		}
-	}
-
-	if value == nil && len(item.Availability) > 0 && item.Availability[0].EffectivePricing != nil {
-		if input {
-			value = item.Availability[0].EffectivePricing.InputUSDPer1M
-		} else {
-			value = item.Availability[0].EffectivePricing.OutputUSDPer1M
-		}
-	}
-
-	if value == nil {
-		return 1.7976931348623157e+308
 	}
 
 	return *value

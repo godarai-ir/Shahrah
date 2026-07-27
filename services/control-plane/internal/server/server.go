@@ -50,6 +50,7 @@ type Dependencies struct {
 	ImagesHandler              *proxy.ImagesHandler
 	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
 	AudioSpeechHandler         *proxy.AudioSpeechHandler
+	VideoHandler               *proxy.VideoHandler
 	ModelsHandler              *proxy.ModelsHandler
 	PoolStats                  prommetrics.PoolStatsProvider
 	HTTPMetrics                *prommetrics.HTTPMetrics

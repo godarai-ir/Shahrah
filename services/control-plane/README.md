@@ -71,6 +71,23 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `BALE_SAFIR_BOT_ID`: numeric ID of the Bale bot whose name is shown in the OTP message
 - `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: ArvanCloud BGE-M3 OpenAI-compatible base URL ending in `/v1`; treat the complete opaque URL as a secret
 - `SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY`: bearer credential for the Iran-hosted BGE-M3 endpoint
+- `VIDEO_OBJECT_STORE_BUCKET`: required to enable `/v1/videos`; S3-compatible bucket used for managed inputs and outputs
+- `VIDEO_OBJECT_STORE_ENDPOINT`: optional custom S3 endpoint (for example MinIO); AWS S3 is used when omitted
+- `VIDEO_OBJECT_STORE_REGION`, `VIDEO_OBJECT_STORE_ACCESS_KEY_ID`, `VIDEO_OBJECT_STORE_SECRET_ACCESS_KEY`: object-store region and credentials
+- `VIDEO_OBJECT_STORE_PATH_STYLE`: optional path-style S3 addressing; defaults to `true` for custom endpoints
+- `VIDEO_OBJECT_STORE_SSE`: optional server-side encryption toggle, default `true`
+- `VIDEO_OBJECT_RETENTION_DAYS`: managed video retention, default `7`
+- `VIDEO_OUTPUT_MAX_MIB`: maximum provider artifact size copied into managed storage, default `2048`
+- `VIDEO_ENABLED_PROVIDERS`: optional comma-separated rollout allowlist such as `xai,deepinfra`; all implemented adapters are available when omitted
+- `VIDEO_WEBHOOK_SECRET` or `VIDEO_WEBHOOK_SECRET_<PROVIDER>`: HMAC secret for timestamped provider webhook ingress
+
+Video output metadata is probed with `ffprobe` when it is installed. Without
+provider-reported usage or a successful probe, only adapters that guarantee the
+requested duration and resolution can settle automatically; all other jobs move
+to `billing_review`. AWS Bedrock video accounts also require
+`video_output_s3_uri` in provider-account configuration, pointing at an S3
+destination accessible to both Bedrock and the configured managed object-store
+credentials.
 
 Platform workloads use database-backed service credentials instead of `MASTER_KEY`. Provision or rotate the complete, version-controlled `support-admin` scope set with:
 

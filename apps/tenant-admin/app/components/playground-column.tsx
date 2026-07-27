@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, Play, Plus, Save, Settings2, Square, Trash2 } from "lucide-react";
+import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, Play, Plus, Save, Settings2, Square, Trash2, Video } from "lucide-react";
 
 import {
   CopyAction,
@@ -31,6 +31,7 @@ import {
   serializeColumnJSON,
   type PlaygroundColumnDraft,
   type PlaygroundGeneratedImage,
+  type PlaygroundGeneratedVideo,
   type PlaygroundMode,
   type PlaygroundRunResult,
 } from "./playground-domain";
@@ -122,21 +123,38 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
         </div>
       </div>
 
-      {props.mode === "image_generation" ? (
+      {props.mode === "image_generation" || props.mode === "video_generation" ? (
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col gap-4 p-4">
-            <Alert variant="info"><AlertDescription>{props.t("image.temporaryNotice")}</AlertDescription></Alert>
+            {props.mode === "image_generation" ? <Alert variant="info"><AlertDescription>{props.t("image.temporaryNotice")}</AlertDescription></Alert> : null}
             <VariableTextareaField
-              label={props.t("image.prompt")}
-              description={props.t("image.promptHelp", { subject: "{{subject}}" })}
+              label={props.t(props.mode === "video_generation" ? "video.prompt" : "image.prompt")}
+              description={props.t(props.mode === "video_generation" ? "video.promptHelp" : "image.promptHelp", { subject: "{{subject}}" })}
               variables={props.variables ?? []}
-              value={column.imagePrompt}
-              placeholder={props.t("image.promptPlaceholder")}
+              value={props.mode === "video_generation" ? column.videoPrompt : column.imagePrompt}
+              placeholder={props.t(props.mode === "video_generation" ? "video.promptPlaceholder" : "image.promptPlaceholder")}
               readOnly={props.readOnly}
-              error={!column.imagePrompt.trim() ? props.t("validation.imagePromptRequired") : undefined}
+              error={!(props.mode === "video_generation" ? column.videoPrompt : column.imagePrompt).trim()
+                ? props.t(props.mode === "video_generation" ? "validation.videoPromptRequired" : "validation.imagePromptRequired")
+                : undefined}
               className="min-h-56 resize-y"
-              onChange={(event) => props.onChange({ ...column, imagePrompt: event.target.value, dirty: true })}
+              onChange={(event) => props.onChange(props.mode === "video_generation"
+                ? { ...column, videoPrompt: event.target.value, dirty: true }
+                : { ...column, imagePrompt: event.target.value, dirty: true })}
             />
+            {props.mode === "video_generation" ? (
+              <div className="flex flex-col gap-2">
+                <label htmlFor={`${column.id}-video-input`} className="text-sm font-medium">{props.t("video.inputImage")}</label>
+                <Input
+                  id={`${column.id}-video-input`}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={props.readOnly}
+                  onChange={(event) => props.onChange({ ...column, videoInputFile: event.target.files?.[0], dirty: true })}
+                />
+                <p className="text-xs text-muted-foreground">{column.videoInputFile ? props.t("video.selectedInput", { name: column.videoInputFile.name }) : props.t("video.inputImageHelp")}</p>
+              </div>
+            ) : null}
           </div>
         </ScrollArea>
       ) : <Tabs value={column.editorMode} onValueChange={switchMode} className="min-h-0 flex-1 gap-0">
@@ -265,9 +283,9 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
         <div className="flex flex-1 items-center justify-center p-6">
           <EmptyState
             variant="inline"
-            icon={props.mode === "image_generation" ? ImageIcon : undefined}
-            title={props.mode === "image_generation" ? props.t("image.emptyTitle") : props.t("empty.title")}
-            description={props.mode === "image_generation" ? props.t("image.emptyDescription") : props.t("empty.description")}
+            icon={props.mode === "image_generation" ? ImageIcon : props.mode === "video_generation" ? Video : undefined}
+            title={props.mode === "image_generation" ? props.t("image.emptyTitle") : props.mode === "video_generation" ? props.t("video.emptyTitle") : props.t("empty.title")}
+            description={props.mode === "image_generation" ? props.t("image.emptyDescription") : props.mode === "video_generation" ? props.t("video.emptyDescription") : props.t("empty.description")}
           />
         </div>
       ) : (
@@ -281,10 +299,13 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
           <TabsContent value="response" className="min-h-0 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="flex flex-col gap-4 p-4">
-                {result.status === "running" && !result.responseText && result.generatedImages.length === 0 ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />{props.t("status.running")}</div> : null}
+                {result.status === "running" && !result.responseText && result.generatedImages.length === 0 && result.generatedVideos.length === 0 ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />{props.mode === "video_generation" ? props.t("video.processing") : props.t("status.running")}</div> : null}
                 {result.error ? <Alert variant="destructive"><AlertDescription>{result.error}</AlertDescription></Alert> : null}
                 {props.mode === "image_generation" && result.generatedImages.length ? (
                   <GeneratedImageGallery images={result.generatedImages} t={props.t} />
+                ) : null}
+                {props.mode === "video_generation" && result.generatedVideos.length ? (
+                  <GeneratedVideoGallery videos={result.generatedVideos} t={props.t} />
                 ) : null}
                 {props.mode === "chat" && result.responseText ? <div className="whitespace-pre-wrap text-sm leading-7" dir="auto">{result.responseText}</div> : null}
                 {props.mode === "chat" && result.toolCalls.length ? (
@@ -310,6 +331,37 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
       <div className="sr-only" role="status" aria-live="polite">
         {result.status === "running" ? props.t("streamAnnouncement.started") : result.status === "success" ? props.t("streamAnnouncement.completed") : result.status === "stopped" ? props.t("streamAnnouncement.stopped") : result.status === "error" ? props.t("streamAnnouncement.failed") : ""}
       </div>
+    </div>
+  );
+}
+
+function GeneratedVideoGallery(props: { videos: PlaygroundGeneratedVideo[]; t: Translation }) {
+  return (
+    <div className="grid gap-4">
+      {props.videos.map((video, index) => (
+        <Card key={video.id} className="overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between gap-2 p-4">
+            <CardTitle className="text-sm">{props.t("video.result", { count: index + 1 })}</CardTitle>
+            <div className="flex items-center gap-2">
+              {video.resolution ? <Badge variant="secondary" className="font-mono">{video.resolution}</Badge> : null}
+              {video.duration ? <Badge variant="outline">{props.t("video.durationValue", { seconds: video.duration })}</Badge> : null}
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <video className="aspect-video w-full bg-muted/30 object-contain" controls preload="metadata" src={video.url}>
+              {props.t("video.unsupported")}
+            </video>
+          </CardContent>
+          <CardFooter className="justify-end gap-2 p-4">
+            <Button type="button" size="sm" variant="outline" asChild>
+              <a href={video.url} target="_blank" rel="noreferrer"><ExternalLink data-icon="inline-start" />{props.t("video.open")}</a>
+            </Button>
+            <Button type="button" size="sm" asChild>
+              <a href={video.url} download={`generated-video-${index + 1}.mp4`}><Download data-icon="inline-start" />{props.t("video.download")}</a>
+            </Button>
+          </CardFooter>
+        </Card>
+      ))}
     </div>
   );
 }
@@ -437,6 +489,13 @@ function buildTelemetryItems(result: PlaygroundRunResult, locale: string, t: Tra
       { key: "image-size", label: t("telemetry.imageSize"), value: telemetry.requestedImageSize ?? null, technical: true },
       { key: "image-quality", label: t("telemetry.imageQuality"), value: telemetry.requestedImageQuality ?? null, technical: true },
       { key: "image-mime", label: t("telemetry.imageMimeType"), value: telemetry.imageMimeType ?? null, technical: true },
+    ] satisfies RunTelemetryItem[]),
+    ...(telemetry.videoSeconds === undefined ? [] : [
+      { key: "video-seconds", label: t("telemetry.videoSeconds"), value: telemetry.videoSeconds, technical: true },
+      { key: "video-resolution", label: t("telemetry.videoResolution"), value: telemetry.videoResolution ?? null, technical: true },
+      { key: "video-count", label: t("telemetry.videoOutputCount"), value: telemetry.videoOutputCount === undefined ? null : number.format(telemetry.videoOutputCount) },
+      { key: "video-generation", label: t("telemetry.videoGenerationStatus"), value: telemetry.videoGenerationStatus ?? null, technical: true },
+      { key: "video-settlement", label: t("telemetry.videoSettlementStatus"), value: telemetry.videoSettlementStatus ?? null, technical: true },
     ] satisfies RunTelemetryItem[]),
     { key: "trace", label: t("telemetry.trace"), value: telemetry.traceId ?? telemetry.requestId ?? null, rawValue: telemetry.traceId ?? telemetry.requestId, technical: true },
   ];

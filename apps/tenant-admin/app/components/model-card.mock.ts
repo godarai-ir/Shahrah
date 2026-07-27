@@ -17,10 +17,10 @@ export const mockModelCards: ModelCardData[] = [
     contextWindow: 1_000_000,
     maxOutputTokens: 32_000,
     pricing: {
-      inputPerMillion: 0.15,
-      outputPerMillion: 0.6,
-      cachedInputPerMillion: 0.03,
-      imagePerMillion: 1.2,
+      rates: [
+        { key: "input-token", label: "input / 1,000,000 token", value: "0.15 USD" },
+        { key: "output-token", label: "output / 1,000,000 token", value: "0.6 USD" },
+      ],
     },
     latencyTier: "low",
     qualityTier: "high",
@@ -58,7 +58,9 @@ export const mockModelCards: ModelCardData[] = [
     contextWindow: 8_192,
     maxOutputTokens: 0,
     pricing: {
-      inputPerMillion: 0.13,
+      rates: [
+        { key: "input-token", label: "input / 1,000,000 token", value: "0.13 USD" },
+      ],
     },
     latencyTier: "low",
     qualityTier: "frontier",

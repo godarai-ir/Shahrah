@@ -9,8 +9,6 @@ const ALLOWED_SORTS = new Set([
   "provider",
   "availability",
   "context",
-  "input_price",
-  "output_price",
 ]);
 
 export async function GET(request: NextRequest) {

@@ -32,6 +32,7 @@ import { type CompareModel, MAX_COMPARE_MODELS, normalizeNameList, parseCompareI
 import { cn } from "@/lib/utils";
 import { useDisplayFormatters } from "@/lib/use-display-formatters";
 import { PageHero } from "@/components/page-hero";
+import { allPricingRates } from "@/lib/pricing";
 
 type FieldKind = "scalar" | "list";
 type SectionKey = "identity" | "pricing" | "capabilities" | "limits" | "governance" | "regionsBenchmarks";
@@ -63,7 +64,7 @@ function ComparePageContent() {
   const tSections = useTranslations("Compare.sections");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Statuses");
-  const { formatDate, formatPrice } = useDisplayFormatters();
+  const { formatDate } = useDisplayFormatters();
   const numberFormatter = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
   const router = useRouter();
   const pathname = usePathname();
@@ -121,6 +122,45 @@ function ComparePageContent() {
     const key = getStatusKey(status);
     return key ? tStatus(key) : status;
   };
+  const pricingRateKeys = Array.from(
+    new Set(
+      rows.flatMap((model) =>
+        model
+          ? model.pricingStatus === "unknown"
+            ? []
+            : allPricingRates(model.pricingProfiles).map(
+              ({ profile, rate }) => `${profile.region}:${rate.key}`,
+            )
+          : [],
+      ),
+    ),
+  ).sort();
+  const pricingFields: CompareField[] = pricingRateKeys.map((compoundKey) => {
+    const [region, ...rateKeyParts] = compoundKey.split(":");
+    const rateKey = rateKeyParts.join(":");
+    const findRate = (model: CompareModel) =>
+      allPricingRates(model.pricingProfiles).find(
+        ({ profile, rate }) =>
+          profile.region === region && rate.key === rateKey,
+      )?.rate;
+    const sample = rows
+      .filter((model): model is CompareModel => Boolean(model))
+      .map(findRate)
+      .find(Boolean);
+    return {
+      key: `pricing:${compoundKey}`,
+      label: sample
+        ? `${region} · ${sample.usage}/${sample.unit}${sample.resolution ? ` · ${sample.resolution}` : ""}`
+        : compoundKey,
+      section: "pricing",
+      kind: "scalar",
+      getValue: (model) => {
+        const rate = findRate(model);
+        return rate ? `${rate.amount}/${rate.quantity} ${rate.unit}` : EMPTY;
+      },
+      renderValue: (model) => <DisplayPrice rate={findRate(model)} />,
+    };
+  });
 
   const fields: CompareField[] = [
     {
@@ -140,30 +180,7 @@ function ComparePageContent() {
     },
     { key: "status", label: tFields("status"), section: "identity", kind: "scalar", getValue: (model) => formatStatus(model.status) },
     { key: "releaseDate", label: tFields("releaseDate"), section: "identity", kind: "scalar", getValue: (model) => formatDate(model.releaseDate) },
-    {
-      key: "inputPrice",
-      label: tFields("inputPrice"),
-      section: "pricing",
-      kind: "scalar",
-      getValue: (model) => formatPrice(model.pricing?.[0]?.inputPricePerMillionTokens),
-      renderValue: (model) => <DisplayPrice value={model.pricing?.[0]?.inputPricePerMillionTokens} />,
-    },
-    {
-      key: "outputPrice",
-      label: tFields("outputPrice"),
-      section: "pricing",
-      kind: "scalar",
-      getValue: (model) => formatPrice(model.pricing?.[0]?.outputPricePerMillionTokens),
-      renderValue: (model) => <DisplayPrice value={model.pricing?.[0]?.outputPricePerMillionTokens} />,
-    },
-    {
-      key: "cachedInput",
-      label: tFields("cachedInput"),
-      section: "pricing",
-      kind: "scalar",
-      getValue: (model) => formatPrice(model.pricing?.[0]?.cachedInputPricePerMillionTokens),
-      renderValue: (model) => <DisplayPrice value={model.pricing?.[0]?.cachedInputPricePerMillionTokens} />,
-    },
+    ...pricingFields,
     {
       key: "modalities",
       label: tFields("modalities"),
@@ -212,7 +229,7 @@ function ComparePageContent() {
     { key: "contextWindow", label: tFields("contextWindow"), section: "limits", kind: "scalar", getValue: (model) => toNumber(model.contextWindow) },
     { key: "maxOutputTokens", label: tFields("maxOutputTokens"), section: "limits", kind: "scalar", getValue: (model) => toNumber(model.maxOutputTokens) },
     { key: "openSource", label: tFields("openSource"), section: "governance", kind: "scalar", getValue: (model) => yesNo(model.openSource) },
-    { key: "free", label: tFields("free"), section: "governance", kind: "scalar", getValue: (model) => yesNo(model.free) },
+    { key: "pricingStatus", label: tFields("free"), section: "governance", kind: "scalar", getValue: (model) => model.pricingStatus ?? EMPTY },
     { key: "license", label: tFields("license"), section: "governance", kind: "scalar", getValue: (model) => model.license || EMPTY },
     { key: "docsAvailable", label: tFields("docsAvailable"), section: "governance", kind: "scalar", getValue: (model) => yesNo(Boolean(model.officialDocsUrl)) },
     {

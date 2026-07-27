@@ -11,6 +11,21 @@ import {
   normalizeProviderScopedModelName,
 } from "./model-editor-utils";
 import type { ProviderCatalogModel } from "./types";
+import type { ModelPrice } from "@/app/components/pricing";
+
+function tokenPricing(input: number, output: number): ModelPrice {
+  return {
+    status: "priced",
+    profiles: [{
+      region: "global",
+      currency: "USD",
+      rates: [
+        { key: "input-token", usage: "input", unit: "token", amount: String(input), quantity: 1_000_000, service_tier: "standard" },
+        { key: "output-token", usage: "output", unit: "token", amount: String(output), quantity: 1_000_000, service_tier: "standard" },
+      ],
+    }],
+  };
+}
 
 const models: ProviderCatalogModel[] = [
   {
@@ -22,7 +37,7 @@ const models: ProviderCatalogModel[] = [
     input_modalities: ["text"],
     output_modalities: ["text"],
     capabilities: ["tools"],
-    public_pricing: { input_usd_per_1m: 1, output_usd_per_1m: 4 },
+    public_pricing: tokenPricing(1, 4),
   },
   {
     provider: "openai",
@@ -33,7 +48,7 @@ const models: ProviderCatalogModel[] = [
     input_modalities: ["text", "image"],
     output_modalities: ["text"],
     capabilities: ["vision"],
-    public_pricing: { input_usd_per_1m: 5, output_usd_per_1m: 15 },
+    public_pricing: tokenPricing(5, 15),
   },
   {
     provider: "openai",
@@ -44,7 +59,7 @@ const models: ProviderCatalogModel[] = [
     input_modalities: ["text"],
     output_modalities: ["text"],
     capabilities: ["tools", "reasoning"],
-    public_pricing: { input_usd_per_1m: 2, output_usd_per_1m: 8 },
+    public_pricing: tokenPricing(2, 8),
   },
 ];
 

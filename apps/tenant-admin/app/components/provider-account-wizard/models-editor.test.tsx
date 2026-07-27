@@ -45,8 +45,15 @@ const model: ProviderCatalogModel = {
   output_modalities: ["text"],
   capabilities: ["function_calling"],
   public_pricing: {
-    input_usd_per_1m: 2,
-    output_usd_per_1m: 8,
+    status: "priced",
+    profiles: [{
+      region: "global",
+      currency: "USD",
+      rates: [
+        { key: "input-token", usage: "input", unit: "token", amount: "2", quantity: 1_000_000, service_tier: "standard" },
+        { key: "output-token", usage: "output", unit: "token", amount: "8", quantity: 1_000_000, service_tier: "standard" },
+      ],
+    }],
   },
 };
 
@@ -54,8 +61,7 @@ const draft: ModelDraft = {
   enabled: true,
   selectedCapabilities: ["chat"],
   pricingMode: "public",
-  inputPrice: "2",
-  outputPrice: "8",
+  privatePricing: model.public_pricing,
 };
 
 const account: TenantProviderAccount = {

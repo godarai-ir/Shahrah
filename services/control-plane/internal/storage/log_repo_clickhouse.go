@@ -333,8 +333,41 @@ func (s *Store) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, log
 		item.RequestPayload = decodeJSONMap(requestPayloadJSON)
 		item.ResponsePayload = decodeJSONMap(responsePayloadJSON)
 	}
+	s.enrichRequestLogWithRatedSpend(ctx, tenantID, item.Log.RequestID, &item)
 
 	return &item, nil
+}
+
+func (s *Store) enrichRequestLogWithRatedSpend(ctx context.Context, tenantID, requestID string, item *platform.RequestLogDetailV2) {
+	if s == nil || s.pool == nil || item == nil || strings.TrimSpace(requestID) == "" {
+		return
+	}
+	var usageRaw, ratingRaw, componentsRaw []byte
+	err := s.pool.QueryRow(ctx, `
+		SELECT usage_measures, rating_snapshot, cost_components,
+		       COALESCE(pricing_source, ''), COALESCE(rating_status, ''),
+		       COALESCE(video_seconds::text, ''), COALESCE(video_resolution, ''),
+		       COALESCE(output_count, 0)
+		FROM spend_logs
+		WHERE tenant_id = $1::uuid AND request_id = $2
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, tenantID, requestID).Scan(
+		&usageRaw, &ratingRaw, &componentsRaw,
+		&item.PricingSource, &item.RatingStatus,
+		&item.VideoSeconds, &item.VideoResolution, &item.OutputCount,
+	)
+	if err != nil {
+		return
+	}
+	_ = json.Unmarshal(usageRaw, &item.UsageMeasures)
+	if len(ratingRaw) > 0 {
+		var rating platform.RatedUsage
+		if json.Unmarshal(ratingRaw, &rating) == nil {
+			item.RatingSnapshot = &rating
+		}
+	}
+	_ = json.Unmarshal(componentsRaw, &item.CostComponents)
 }
 
 func (s *Store) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {

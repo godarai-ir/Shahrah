@@ -31,6 +31,7 @@ import {
 
 import type { CatalogModel } from "./types";
 import { formatCatalogModelDisplayName } from "./formatters";
+import { pricingSummaryText } from "@/app/components/pricing";
 
 type ModelDetailsSheetProps = {
   model: CatalogModel | null;
@@ -165,11 +166,42 @@ export function ModelDetailsSheet({
               <DefinitionListItem label={t("drawer.outputModalities")} value={formatModalityList(model.output_modalities, t)} surface />
               <DefinitionListItem label={t("drawer.capabilities")} value={formatCapabilityList(selectedAvailability.effective_capabilities, t)} valueDir="auto" surface />
               <DefinitionListItem label={t("drawer.credentialSource")} value={t(`credential.${credentialKey(selectedAvailability.credential_source)}`)} surface />
-              <DefinitionListItem label={t("drawer.publicInputPrice")} value={formatPrice(model.public_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-              <DefinitionListItem label={t("drawer.publicOutputPrice")} value={formatPrice(model.public_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-              <DefinitionListItem label={t("drawer.effectiveInputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-              <DefinitionListItem label={t("drawer.effectiveOutputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
+              <DefinitionListItem label={t("drawer.publicPricing")} value={pricingSummaryText(model.public_pricing, t("values.na"))} valueDir="ltr" surface />
+              <DefinitionListItem label={t("drawer.effectivePricing")} value={pricingSummaryText(selectedAvailability.effective_pricing, t("values.na"))} valueDir="ltr" surface />
             </DefinitionList>
+
+            {(selectedAvailability.effective_pricing?.profiles ?? []).length > 0 ? (
+              <div className="grid gap-3">
+                {selectedAvailability.effective_pricing?.profiles.map((profile, profileIndex) => (
+                  <section
+                    key={`${profile.region}-${profileIndex}`}
+                    className="grid gap-2 rounded-lg border bg-muted/20 p-3"
+                    aria-label={`${profile.region} pricing`}
+                  >
+                    <div className="flex items-center justify-between gap-3 text-sm font-medium">
+                      <bdi dir="ltr">{profile.region}</bdi>
+                      <bdi dir="ltr">{profile.currency}</bdi>
+                    </div>
+                    <div className="grid gap-2">
+                      {profile.rates.map((rate) => (
+                        <div
+                          key={rate.key}
+                          className="grid gap-1 rounded-md bg-background p-2 text-xs sm:grid-cols-[1fr_auto]"
+                        >
+                          <bdi dir="ltr">
+                            {rate.usage} · {rate.service_tier}
+                            {rate.resolution ? ` · ${rate.resolution}` : ""}
+                          </bdi>
+                          <bdi dir="ltr" className="font-medium">
+                            {rate.amount} {profile.currency} / {rate.quantity === 1 ? "" : `${rate.quantity.toLocaleString("en-US")} `}{rate.unit}
+                          </bdi>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : null}
 
             {code ? (
               <div className="flex flex-col gap-4">
@@ -230,11 +262,6 @@ export function ModelDetailsSheet({
       </SheetContent>
     </Sheet>
   );
-}
-
-function formatPrice(value: number | undefined, fallback: string): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value)} / 1M`;
 }
 
 function formatContext(value: number | undefined, fallback: string): string {

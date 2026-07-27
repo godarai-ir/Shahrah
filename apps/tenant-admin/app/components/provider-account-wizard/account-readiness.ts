@@ -5,6 +5,7 @@ import type {
   TenantProviderAccount,
   TenantProviderAccountModel,
 } from "./types";
+import { isPricingResolved } from "@/app/components/pricing";
 export function deriveAccountListReadiness(account: TenantProviderAccount): Readiness {
   if (!account.has_credential && !account.use_platform_managed_credentials && account.auth_mode !== "no_credential") {
     return "needs_credentials";
@@ -29,16 +30,10 @@ export function deriveAccountDetailsReadiness(
   const hasUnresolvedPricing = models.some((model) => {
     if (!model.enabled) return false;
     if (model.pricing_mode === "private") {
-      return (
-        typeof model.private_pricing?.input_usd_per_1m !== "number" &&
-        typeof model.private_pricing?.output_usd_per_1m !== "number"
-      );
+      return !isPricingResolved(model.private_pricing);
     }
     const catalog = catalogByModel.get(model.model);
-    return (
-      typeof catalog?.public_pricing?.input_usd_per_1m !== "number" &&
-      typeof catalog?.public_pricing?.output_usd_per_1m !== "number"
-    );
+    return !isPricingResolved(catalog?.public_pricing);
   });
   return hasUnresolvedPricing ? "pricing_incomplete" : "ready";
 }

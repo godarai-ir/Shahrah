@@ -40,6 +40,8 @@ export default async function LogDetailPage({ params }: Params) {
   const visibility = (payload.content_visibility ?? {}) as Record<string, unknown>;
   const requestPayload = payload.request_payload as Record<string, unknown> | undefined;
   const responsePayload = payload.response_payload as Record<string, unknown> | undefined;
+  const usageMeasures = Array.isArray(payload.usage_measures) ? payload.usage_measures : [];
+  const costComponents = Array.isArray(payload.cost_components) ? payload.cost_components : [];
 
   return (
     <AdminShell
@@ -73,6 +75,22 @@ export default async function LogDetailPage({ params }: Params) {
                 }
               />
             </DefinitionList>
+
+            {(usageMeasures.length > 0 || costComponents.length > 0) ? (
+              <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                <h3 className="text-sm font-semibold">{t("usage.title")}</h3>
+                <DefinitionList columns={4}>
+                  <DefinitionListItem surface label={t("usage.ratingStatus")} value={String(payload.rating_status ?? "-")} />
+                  <DefinitionListItem surface label={t("usage.pricingSource")} value={String(payload.pricing_source ?? "-")} />
+                  <DefinitionListItem surface label={t("usage.videoSeconds")} value={String(payload.video_seconds ?? "-")} />
+                  <DefinitionListItem surface label={t("usage.videoResolution")} value={String(payload.video_resolution ?? "-")} />
+                </DefinitionList>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <PayloadCard title={t("usage.measures")} payload={{ items: usageMeasures }} hidden={false} hiddenText="" />
+                  <PayloadCard title={t("usage.rates")} payload={{ items: costComponents }} hidden={false} hiddenText="" />
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-4 lg:grid-cols-2">
               <PayloadCard title={t("content.request")} payload={requestPayload} hidden={!visibility.can_view_content} hiddenText={t("content.hidden")} />

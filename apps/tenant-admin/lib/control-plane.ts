@@ -250,6 +250,55 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
   });
 }
 
+// Streams tenant-scoped media and preserves the control-plane signed-URL
+// redirect without buffering large assets in the tenant-admin process.
+export async function proxyToControlPlaneAsset(options: ProxyOptions) {
+  const tenantResolution = ensureTenantFromHeaders(options.request.headers, options.tenantSlug);
+  if (!tenantResolution.ok) {
+    return NextResponse.json({ error: { message: tenantResolution.message } }, { status: tenantResolution.status });
+  }
+  const auth = await readAuthFromRequest(options.request);
+  if (!auth.ok) return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
+  if (!assertTenantMatch(tenantResolution.tenantSlug, auth.tenantSlug)) {
+    return NextResponse.json({ error: { message: "Tenant mismatch between host and authenticated session." } }, { status: 403 });
+  }
+
+  const masterKey = process.env.SHAHRAH_MASTER_KEY ?? process.env.MASTER_KEY;
+  if (!masterKey) return NextResponse.json({ error: { message: "Control-plane credentials are not configured." } }, { status: 500 });
+  const headers = buildControlPlaneHeaders({
+    tenantSlug: tenantResolution.tenantSlug,
+    userID: auth.user.id,
+    requestHeaders: options.request.headers,
+    upstreamHeaders: options.upstreamHeaders,
+    masterKey,
+    accept: "*/*",
+    hasBody: false,
+  });
+
+  try {
+    const upstream = await fetch(new URL(normalizePath(options.path), getControlPlaneBaseURL()), {
+      method: options.method,
+      headers,
+      redirect: "manual",
+      cache: "no-store",
+      signal: options.request.signal,
+    });
+    const location = upstream.headers.get("location");
+    if (location && upstream.status >= 300 && upstream.status < 400) {
+      return NextResponse.redirect(location, upstream.status);
+    }
+    const responseHeaders = new Headers();
+    for (const name of ["content-type", "content-length", "content-disposition", "cache-control"]) {
+      const value = upstream.headers.get(name);
+      if (value) responseHeaders.set(name, value);
+    }
+    return new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to reach the control-plane asset endpoint.";
+    return NextResponse.json({ error: { message } }, { status: 502 });
+  }
+}
+
 export async function proxyPublicInvitationAcceptance(
   request: NextRequest,
   token: string,
@@ -299,9 +348,14 @@ export async function fetchControlPlaneJSON(
   const forwardedHost = resolveForwardedHost(options.requestHeaders);
   const forwardedProto = resolveForwardedProto(options.requestHeaders);
   const upstreamHeaders = new Headers(options.upstreamHeaders ?? {});
+  const multipartBody = typeof FormData !== "undefined" && options.body instanceof FormData;
   upstreamHeaders.set("Authorization", `Bearer ${masterKey}`);
   upstreamHeaders.set("Accept", "application/json");
-  upstreamHeaders.set("Content-Type", "application/json");
+  if (multipartBody) {
+    upstreamHeaders.delete("Content-Type");
+  } else {
+    upstreamHeaders.set("Content-Type", "application/json");
+  }
   upstreamHeaders.set("x-godarai-tenant", options.tenantSlug);
   upstreamHeaders.delete(LEGACY_CONTROL_PLANE_USER_ID_HEADER);
   if (options.userID) {
@@ -320,7 +374,7 @@ export async function fetchControlPlaneJSON(
     const upstream = await fetch(url, {
       method: options.method,
       headers: upstreamHeaders,
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: multipartBody ? options.body as FormData : options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
       signal: options.signal,
     });

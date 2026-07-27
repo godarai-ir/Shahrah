@@ -154,7 +154,10 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		       a.use_platform_managed_credentials,
 		       m.model,
 		       COALESCE(m.types, '{}'),
-		       COALESCE(m.settings, '{}'::jsonb)
+		       COALESCE(m.settings, '{}'::jsonb),
+		       m.pricing_mode,
+		       m.public_pricing,
+		       m.private_pricing
 		FROM tenant_provider_accounts a
 		JOIN tenant_provider_account_models m
 		  ON m.account_id = a.account_id
@@ -183,8 +186,11 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			model                      string
 			modelTypes                 []string
 			settingsRaw                []byte
+			pricingMode                string
+			publicPricingRaw           []byte
+			privatePricingRaw          []byte
 		)
-		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &platformManagedCredentials, &model, &modelTypes, &settingsRaw); err != nil {
+		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &platformManagedCredentials, &model, &modelTypes, &settingsRaw, &pricingMode, &publicPricingRaw, &privatePricingRaw); err != nil {
 			return nil, err
 		}
 
@@ -200,6 +206,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		credentials := parseJSONObject(credentialRaw)
 		settings := parseJSONObject(settingsRaw)
 		apiKey := strings.TrimSpace(toString(credentials["api_key"]))
+		rawCredentials := parseNestedJSONObject(credentials["raw"])
 		runtimeAPIKey := ""
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
@@ -211,6 +218,25 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			runtimeAPIKey = apiKey
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled
+			providerAuth = &platform.ResolvedProviderAuth{Mode: string(platform.ProviderAuthModeAPIKey), APIKey: apiKey}
+		} else if strings.EqualFold(authMode, string(platform.ProviderAuthModeAWSSigV4)) && hasCredential && !platformManagedCredentials {
+			credentialSource = platform.CredentialSourceUserBYOK
+			billingMode = platform.BillingModeExternalBilled
+			providerAuth = &platform.ResolvedProviderAuth{
+				Mode:               string(platform.ProviderAuthModeAWSSigV4),
+				AWSAccessKeyID:     firstCredential(rawCredentials, "access_key_id", "aws_access_key_id", "access_key"),
+				AWSSecretAccessKey: firstCredential(rawCredentials, "secret_access_key", "aws_secret_access_key", "secret_key"),
+				AWSSessionToken:    firstCredential(rawCredentials, "session_token", "aws_session_token"),
+			}
+		} else if strings.EqualFold(authMode, string(platform.ProviderAuthModeGoogleServiceAccount)) && hasCredential && !platformManagedCredentials {
+			credentialSource = platform.CredentialSourceUserBYOK
+			billingMode = platform.BillingModeExternalBilled
+			providerAuth = &platform.ResolvedProviderAuth{
+				Mode:              string(platform.ProviderAuthModeGoogleServiceAccount),
+				GoogleClientEmail: firstCredential(rawCredentials, "client_email"),
+				GooglePrivateKey:  firstCredential(rawCredentials, "private_key"),
+				GoogleTokenURI:    firstCredential(rawCredentials, "token_uri"),
+			}
 		} else if noCredential {
 			providerAuth = &platform.ResolvedProviderAuth{Mode: string(platform.ProviderAuthModeNoCredential)}
 
@@ -218,6 +244,10 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		}
 
 		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "base_url"))
+		effectivePricing, pricingSource, err := effectiveDeploymentPricing(pricingMode, publicPricingRaw, privatePricingRaw)
+		if err != nil {
+			return nil, err
+		}
 
 		deps = append(deps, platform.Deployment{
 			ID:                  "provider-account:" + accountID + ":" + model,
@@ -228,6 +258,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			APIBase:             apiBase,
 			APIKey:              runtimeAPIKey,
 			APIVersion:          firstString(providerConfig, settings, "api_version"),
+			ProjectID:           firstString(providerConfig, settings, "project_id", "google_project_id"),
 			RegionName:          firstString(providerConfig, settings, "region_name", "region", "aws_region"),
 			RPM:                 firstInt64(settings, providerConfig, "rpm"),
 			TPM:                 firstInt64(settings, providerConfig, "tpm"),
@@ -238,6 +269,8 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			ProviderAccountID:   accountID,
 			ProviderAccountName: accountName,
 			ProviderAuth:        providerAuth,
+			EffectivePricing:    effectivePricing,
+			PricingSource:       pricingSource,
 			ModelInfo: map[string]interface{}{
 				"source":                "tenant_provider_account",
 				"provider_account_id":   accountID,
@@ -245,11 +278,48 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 				"credential_source":     credentialSource,
 				"billing_mode":          billingMode,
 				"supported_modes":       normalizeStringList(modelTypes),
+				"pricing_source":        pricingSource,
+				"video_output_s3_uri":   firstString(providerConfig, settings, "video_output_s3_uri", "output_s3_uri"),
+				"video_output_uri":      firstString(providerConfig, settings, "video_output_uri", "output_gcs_uri", "storage_uri"),
 			},
 		})
 	}
 
 	return deps, rows.Err()
+}
+
+func effectiveDeploymentPricing(mode string, publicRaw, privateRaw []byte) (*platform.ModelPrice, string, error) {
+	source := "public"
+	raw := publicRaw
+	if strings.EqualFold(strings.TrimSpace(mode), string(platform.PricingModePrivate)) {
+		source = "private"
+		raw = privateRaw
+	}
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, source, nil
+	}
+
+	var pricing platform.ModelPrice
+	if err := json.Unmarshal(raw, &pricing); err != nil {
+		return nil, source, err
+	}
+	return &pricing, source, nil
+}
+
+func parseNestedJSONObject(value interface{}) map[string]interface{} {
+	if typed, ok := value.(map[string]interface{}); ok {
+		return typed
+	}
+	return map[string]interface{}{}
+}
+
+func firstCredential(credentials map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(toString(credentials[key])); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func providerAccountUsesNoCredential(provider, authMode string) bool {

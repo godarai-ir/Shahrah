@@ -244,6 +244,10 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
+		estimated, err = rateDeploymentEstimate(c, h.billing, tunnelReq.Deployment, estimated)
+		if err != nil {
+			return err
+		}
 		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil || budgetResponseHandled {
 			return err

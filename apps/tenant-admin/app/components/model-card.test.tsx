@@ -15,7 +15,12 @@ const model: ModelCardData = {
   status: "stable",
   capabilities: ["chat"],
   contextWindow: 256_000,
-  pricing: { inputPerMillion: 2, outputPerMillion: 8 },
+  pricing: {
+    rates: [
+      { key: "video-540p", label: "output / second · 540p", value: "0.75 USD" },
+      { key: "video-720p", label: "output / second · 720p", value: "1.5 USD" },
+    ],
+  },
   inputModalities: ["text"],
   outputModalities: ["text"],
   invocationModes: ["chat"],
@@ -73,7 +78,7 @@ describe("ModelCard", () => {
 
     expect(title).toHaveClass("text-3xl", "md:text-3xl");
     expect(titleRow).toContainElement(screen.getByLabelText("Enabled"));
-    expect(titleRow).toContainElement(tagRow);
+    expect(titleRow).toContainElement(tagRow as HTMLElement);
     expect(within(tagRow as HTMLElement).getByText("Chat")).toBeInTheDocument();
     expect(within(tagRow as HTMLElement).getByText("Recommended")).toBeInTheDocument();
   });
@@ -82,9 +87,9 @@ describe("ModelCard", () => {
     render(<ModelCard model={model} />);
 
     expect(screen.getByRole("region", { name: "Context" })).toHaveTextContent("256K");
-    expect(screen.getByRole("region", { name: "Cost (1M tokens)" })).toHaveTextContent("$2");
-    expect(screen.getByRole("region", { name: "Cost (1M tokens)" })).toHaveTextContent("$8");
-    expect(screen.getByRole("region", { name: "Cost (1M tokens)" })).not.toHaveTextContent("/ 1M tokens");
+    expect(screen.getByRole("region", { name: "Pricing" })).toHaveTextContent("output / second · 540p");
+    expect(screen.getByRole("region", { name: "Pricing" })).toHaveTextContent("0.75 USD");
+    expect(screen.getByRole("region", { name: "Pricing" })).toHaveTextContent("output / second · 720p");
     expect(screen.getByRole("region", { name: "Input formats" })).toHaveTextContent("text");
     expect(screen.getByRole("region", { name: "Capabilities" })).toHaveTextContent("chat");
     expect(screen.getByRole("region", { name: "Invocation modes" })).toHaveTextContent("chat");

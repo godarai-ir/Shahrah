@@ -13,8 +13,6 @@ import (
 )
 
 func TestMapDiscoveryModels_PreservesGatewayAndUIFields(t *testing.T) {
-	inputPrice := 0.4
-	outputPrice := 1.2
 	contextWindow := 128000
 
 	items := mapDiscoveryModels([]modelDiscoveryModel{
@@ -26,10 +24,15 @@ func TestMapDiscoveryModels_PreservesGatewayAndUIFields(t *testing.T) {
 			Capabilities:     []string{"chat", "reasoning"},
 			InputModalities:  []string{"text"},
 			OutputModalities: []string{"text"},
-			Pricing: &modelDiscoveryPricing{
-				InputPerMillionTokens:  &inputPrice,
-				OutputPerMillionTokens: &outputPrice,
-			},
+			PricingStatus:    "priced",
+			PricingProfiles: []modelDiscoveryPricingProfile{{
+				Region:   "global",
+				Currency: "USD",
+				Rates: []modelDiscoveryPricingRate{
+					{Key: "input-token", Usage: "input", Unit: "token", Amount: "0.4", Quantity: 1_000_000, ServiceTier: "standard"},
+					{Key: "output-token", Usage: "output", Unit: "token", Amount: "1.2", Quantity: 1_000_000, ServiceTier: "standard"},
+				},
+			}},
 		},
 	})
 
@@ -44,14 +47,12 @@ func TestMapDiscoveryModels_PreservesGatewayAndUIFields(t *testing.T) {
 	assert.Equal(t, []string{"chat", "reasoning"}, items[0].Capabilities)
 	assert.Equal(t, []string{"chat", "reasoning"}, items[0].Features)
 	require.NotNil(t, items[0].PublicPricing)
-	assert.Equal(t, &inputPrice, items[0].PublicPricing.InputUSDPer1M)
-	assert.Equal(t, &outputPrice, items[0].PublicPricing.OutputUSDPer1M)
+	require.Len(t, items[0].PublicPricing.Profiles, 1)
+	assert.Equal(t, "0.4", items[0].PublicPricing.Profiles[0].Rates[0].Amount)
+	assert.Equal(t, "1.2", items[0].PublicPricing.Profiles[0].Rates[1].Amount)
 }
 
 func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing.T) {
-	inputPrice := 0.15
-	outputPrice := 0.6
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/providers/openai/models" {
 			http.NotFound(w, r)
@@ -59,7 +60,7 @@ func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat"],"capabilities":["chat","function_calling"],"inputModalities":["text"],"outputModalities":["text"],"pricing":{"inputPerMillionTokens":0.15,"outputPerMillionTokens":0.6}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"canonicalId":"gpt-4.1-mini","name":"GPT-4.1 Mini","mode":["chat"],"capabilities":["chat","function_calling"],"inputModalities":["text"],"outputModalities":["text"],"pricingStatus":"priced","pricingProfiles":[{"region":"global","currency":"USD","rates":[{"key":"input-token","usage":"input","unit":"token","amount":"0.15","quantity":1000000,"serviceTier":"standard"},{"key":"output-token","usage":"output","unit":"token","amount":"0.6","quantity":1000000,"serviceTier":"standard"}]}]}]}`))
 	}))
 	defer server.Close()
 
@@ -84,8 +85,9 @@ func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing
 	assert.NotEmpty(t, items[0].InputModalities)
 	assert.NotEmpty(t, items[0].OutputModalities)
 	assert.NotNil(t, items[0].PublicPricing)
-	assert.Equal(t, &inputPrice, items[0].PublicPricing.InputUSDPer1M)
-	assert.Equal(t, &outputPrice, items[0].PublicPricing.OutputUSDPer1M)
+	require.Len(t, items[0].PublicPricing.Profiles, 1)
+	assert.Equal(t, "0.15", items[0].PublicPricing.Profiles[0].Rates[0].Amount)
+	assert.Equal(t, "0.6", items[0].PublicPricing.Profiles[0].Rates[1].Amount)
 	assert.Equal(t, platform.PricingModePublic, items[0].PricingMode)
 }
 
@@ -253,10 +255,24 @@ func TestDiscoveryProviderModels_ReturnsInternalMockWithoutDiscovery(t *testing.
 	assert.Equal(t, "mock/chat", model.Model)
 	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeCompletion}, model.Types)
 	require.NotNil(t, model.PublicPricing)
-	require.NotNil(t, model.PublicPricing.InputUSDPer1M)
-	require.NotNil(t, model.PublicPricing.OutputUSDPer1M)
-	assert.Zero(t, *model.PublicPricing.InputUSDPer1M)
-	assert.Zero(t, *model.PublicPricing.OutputUSDPer1M)
+	assert.Equal(t, "free", model.PublicPricing.Status)
+	require.Len(t, model.PublicPricing.Profiles, 1)
+	require.Len(t, model.PublicPricing.Profiles[0].Rates, 2)
+	assert.Equal(t, "0", model.PublicPricing.Profiles[0].Rates[0].Amount)
+	assert.Equal(t, "0", model.PublicPricing.Profiles[0].Rates[1].Amount)
+}
+
+func TestModelPriceResolved_DistinguishesExplicitZeroFromUnknown(t *testing.T) {
+	explicitFree := freeTokenPricing()
+	require.True(t, modelPriceResolved(explicitFree))
+
+	unknown := cloneModelPrice(explicitFree)
+	unknown.Status = "unknown"
+	require.False(t, modelPriceResolved(unknown))
+
+	duplicate := cloneModelPrice(explicitFree)
+	duplicate.Profiles[0].Rates[1].Key = duplicate.Profiles[0].Rates[0].Key
+	require.False(t, modelPriceResolved(duplicate))
 }
 
 func TestMapDiscoveryProviders_PreservesModelCount(t *testing.T) {

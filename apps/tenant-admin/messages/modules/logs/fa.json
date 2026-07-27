@@ -233,6 +233,15 @@
     "cost": "هزینه",
     "trace": "ردیابی"
   },
+  "usage": {
+    "title": "مصرف قیمت‌گذاری‌شده",
+    "ratingStatus": "وضعیت قیمت‌گذاری",
+    "pricingSource": "منبع قیمت",
+    "videoSeconds": "ثانیه ویدیو",
+    "videoResolution": "کیفیت ویدیو",
+    "measures": "مقادیر مصرف",
+    "rates": "نرخ‌های اعمال‌شده"
+  },
   "content": {
     "request": "محتوای درخواست",
     "response": "محتوای پاسخ",

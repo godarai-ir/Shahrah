@@ -10,6 +10,10 @@ import { UpsertProviderDto } from './dto/upsert-provider.dto';
 import { validateConnectionSchemaFields } from './connection-schema-validation';
 import { UpsertProviderConnectionSchemaDto } from './dto/upsert-provider-connection-schema.dto';
 import { processProviderLogoImage } from './provider-logo-image';
+import {
+  serializePricingProfiles,
+  summarizePricing,
+} from '../pricing/pricing-response';
 
 type ProviderLogoAssetResult = {
   body: Buffer;
@@ -60,27 +64,52 @@ export class ProvidersService {
     });
   }
 
-  detail(slug: string) {
-    return this.prisma.provider.findFirst({
+  async detail(slug: string) {
+    const provider = await this.prisma.provider.findFirst({
       where: { slug, enabled: true },
       include: {
         models: {
           where: { enabled: true },
           include: {
-            pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+            pricing: {
+              include: {
+                region: true,
+                rates: { orderBy: { rateKey: 'asc' } },
+              },
+              orderBy: { effectiveFrom: 'desc' },
+            },
             capabilities: { include: { capability: true } },
           },
           orderBy: { releaseDate: 'desc' },
         },
       },
     });
+    if (!provider) return null;
+    return {
+      ...provider,
+      models: provider.models.map((model) => {
+        const { pricing, ...modelFields } = model;
+        const pricingProfiles = serializePricingProfiles(pricing);
+        return {
+          ...modelFields,
+          pricingProfiles,
+          pricingSummary: summarizePricing(pricingProfiles, model.mode),
+        };
+      }),
+    };
   }
 
   async listModels(slug: string) {
     const rows = await this.prisma.model.findMany({
       where: { enabled: true, provider: { slug, enabled: true } },
       include: {
-        pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+        pricing: {
+          include: {
+            region: true,
+            rates: { orderBy: { rateKey: 'asc' } },
+          },
+          orderBy: { effectiveFrom: 'desc' },
+        },
         inputModalities: { include: { modality: true } },
         outputModalities: { include: { modality: true } },
         supportedParams: { include: { supportedParameter: true } },
@@ -91,7 +120,9 @@ export class ProvidersService {
     });
 
     return {
-      data: rows.map((row) => ({
+      data: rows.map((row) => {
+        const pricingProfiles = serializePricingProfiles(row.pricing);
+        return {
         canonicalId: row.canonicalId,
         slug: row.slug,
         name: row.displayName,
@@ -106,18 +137,12 @@ export class ProvidersService {
           (item) => item.supportedParameter.slug,
         ),
         capabilities: row.capabilities.map((item) => item.capability.slug),
-        pricing: row.pricing[0]
-          ? {
-              currency: row.pricing[0].currency,
-              inputPerMillionTokens: row.pricing[0].inputPricePerMillionTokens,
-              outputPerMillionTokens:
-                row.pricing[0].outputPricePerMillionTokens,
-              cachedInputPerMillionTokens:
-                row.pricing[0].cachedInputPricePerMillionTokens,
-            }
-          : null,
+        pricingStatus: row.pricingStatus,
+        pricingProfiles,
+        pricingSummary: summarizePricing(pricingProfiles, row.mode),
         regions: row.regions.map((item) => item.region.slug),
-      })),
+        };
+      }),
     };
   }
 

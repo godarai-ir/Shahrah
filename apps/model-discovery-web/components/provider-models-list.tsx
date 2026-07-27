@@ -22,7 +22,6 @@ import {
   EndpointModeBadge,
   EndpointModeBadgeList,
 } from "@/components/catalog/endpoint-mode-badge";
-import { TokenScale } from "@/components/catalog/token-scale";
 import { CompareToggleButton } from "@/components/compare/compare-toggle-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +60,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  findPricingRate,
+  formatRateUnit,
+  primaryPricingRate,
+  type PricingProfile,
+  type PricingRate,
+} from "@/lib/pricing";
 
 const ALL_MODES = "all";
 const PAGE_SIZE = 24;
@@ -73,11 +79,8 @@ export type ProviderModel = {
   mode?: string[];
   contextWindow?: number | null;
   updatedAt?: string | null;
-  pricing?: Array<{
-    inputPricePerMillionTokens?: number | null;
-    outputPricePerMillionTokens?: number | null;
-    cachedInputPricePerMillionTokens?: number | null;
-  }>;
+  pricingStatus?: "unknown" | "priced" | "free";
+  pricingProfiles?: PricingProfile[];
   capabilities?: Array<{ capability?: { slug?: string; name?: string } }>;
 };
 
@@ -97,6 +100,12 @@ export function ProviderModelsList({
   const [page, setPage] = useState(1);
   const [copied, setCopied] = useState("");
   const [announcement, setAnnouncement] = useState("");
+  const formatRate = (rate?: PricingRate) => {
+    if (!rate) return "-";
+    const amount = Number(rate.amount);
+    if (!Number.isFinite(amount)) return "-";
+    return `${formatPriceAmount(amount)} / ${formatRateUnit(rate)}`;
+  };
 
   const modes = useMemo(
     () =>
@@ -288,7 +297,9 @@ export function ProviderModelsList({
           <>
             <div className="flex flex-col gap-3 md:hidden">
               {visibleModels.map((model) => {
-                const price = model.pricing?.[0];
+                const inputRate = model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "input")?.rate;
+                const outputRate = model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "output")?.rate;
+                const primaryRate = model.pricingStatus === "unknown" ? undefined : primaryPricingRate(model.pricingProfiles);
                 const modelId = getModelId(providerSlug, model);
 
                 return (
@@ -329,23 +340,17 @@ export function ProviderModelsList({
                       <dl className="grid grid-cols-3 gap-2">
                         <MobileMetric
                           label={t("table.inputShort")}
-                          value={formatPriceAmount(
-                            price?.inputPricePerMillionTokens,
-                          )}
+                          value={formatRate(inputRate ?? primaryRate)}
                           usesPersianCurrency={usesPersianCurrency}
                         />
                         <MobileMetric
                           label={t("table.outputShort")}
-                          value={formatPriceAmount(
-                            price?.outputPricePerMillionTokens,
-                          )}
+                          value={formatRate(outputRate)}
                           usesPersianCurrency={usesPersianCurrency}
                         />
                         <MobileMetric
                           label={t("table.cacheShort")}
-                          value={formatPriceAmount(
-                            price?.cachedInputPricePerMillionTokens,
-                          )}
+                          value={formatRate(model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "cache_read")?.rate)}
                           usesPersianCurrency={usesPersianCurrency}
                         />
                       </dl>
@@ -391,28 +396,13 @@ export function ProviderModelsList({
                       {t("table.model")}
                     </TableHead>
                     <TableHead>
-                      <span className="inline-flex items-center gap-1">
-                        {t("table.inputShort")}
-                        <span aria-hidden="true">(</span>
-                        <TokenScale scale={settings.priceScale} />
-                        <span aria-hidden="true">)</span>
-                      </span>
+                      {t("table.inputShort")}
                     </TableHead>
                     <TableHead>
-                      <span className="inline-flex items-center gap-1">
-                        {t("table.outputShort")}
-                        <span aria-hidden="true">(</span>
-                        <TokenScale scale={settings.priceScale} />
-                        <span aria-hidden="true">)</span>
-                      </span>
+                      {t("table.outputShort")}
                     </TableHead>
                     <TableHead>
-                      <span className="inline-flex items-center gap-1">
-                        {t("table.cacheShort")}
-                        <span aria-hidden="true">(</span>
-                        <TokenScale scale={settings.priceScale} />
-                        <span aria-hidden="true">)</span>
-                      </span>
+                      {t("table.cacheShort")}
                     </TableHead>
                     <TableHead className="min-w-44">
                       {t("table.modes")}
@@ -422,7 +412,9 @@ export function ProviderModelsList({
                 </TableHeader>
                 <TableBody>
                   {visibleModels.map((model) => {
-                    const price = model.pricing?.[0];
+                    const inputRate = model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "input")?.rate;
+                    const outputRate = model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "output")?.rate;
+                    const primaryRate = model.pricingStatus === "unknown" ? undefined : primaryPricingRate(model.pricingProfiles);
                     const modelId = getModelId(providerSlug, model);
 
                     return (
@@ -460,7 +452,7 @@ export function ProviderModelsList({
                           )}
                           dir={usesPersianCurrency ? "rtl" : "ltr"}
                         >
-                          {formatPriceAmount(price?.inputPricePerMillionTokens)}
+                          {formatRate(inputRate ?? primaryRate)}
                         </TableCell>
                         <TableCell
                           className={cn(
@@ -469,7 +461,7 @@ export function ProviderModelsList({
                           )}
                           dir={usesPersianCurrency ? "rtl" : "ltr"}
                         >
-                          {formatPriceAmount(price?.outputPricePerMillionTokens)}
+                          {formatRate(outputRate)}
                         </TableCell>
                         <TableCell
                           className={cn(
@@ -478,9 +470,7 @@ export function ProviderModelsList({
                           )}
                           dir={usesPersianCurrency ? "rtl" : "ltr"}
                         >
-                          {formatPriceAmount(
-                            price?.cachedInputPricePerMillionTokens,
-                          )}
+                          {formatRate(model.pricingStatus === "unknown" ? undefined : findPricingRate(model.pricingProfiles, "cache_read")?.rate)}
                         </TableCell>
                         <TableCell>
                           <EndpointModeBadgeList
