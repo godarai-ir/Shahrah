@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { BadgeCheck, BookOpen, Building2, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
+import { BookOpen, Building2, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -336,8 +336,8 @@ function AdminSidebar({
       mobileDescription={t("menu.description")}
       mobileCloseLabel={t("menu.close")}
     >
-      <SidebarHeader className="gap-3 border-b border-sidebar-border/60 p-3">
-        <SidebarMenu className="gap-2">
+      <SidebarHeader className="gap-3 border-b border-sidebar-border! p-3">
+        <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
@@ -360,27 +360,6 @@ function AdminSidebar({
                   <span className="truncate text-xs text-sidebar-foreground/55">{t("title")}</span>
                 </span>
               </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              variant="outline"
-              tooltip={{ children: `${t("tenant")} · ${tenantSlug}`, side: tooltipSide }}
-              className="after:hidden"
-              asChild
-            >
-              <div>
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20 text-xs font-semibold text-sidebar-primary-foreground ring-1 ring-sidebar-primary/30">
-                  {getTenantInitials(tenantSlug)}
-                </span>
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-xs text-sidebar-foreground/55">{t("tenant")}</span>
-                  <span className="truncate font-mono text-xs font-medium text-sidebar-foreground" dir="ltr">
-                    {tenantSlug}
-                  </span>
-                </span>
-              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -441,9 +420,8 @@ function AdminSidebar({
             ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/60 bg-sidebar-accent/20 p-3 group-data-[collapsible=icon]:hidden">
-        <SidebarPlanSummary summary={subscriptionSummary} onNavigate={() => setOpenMobile(false)} />
-        <SidebarAppVersion version={appVersion} />
+      <SidebarFooter className="border-t border-sidebar-border! bg-sidebar-accent/20 p-3 group-data-[collapsible=icon]:hidden">
+        <SidebarPlanSummary summary={subscriptionSummary} appVersion={appVersion} onNavigate={() => setOpenMobile(false)} />
       </SidebarFooter>
       <SidebarRail aria-label={t("menu.toggle")} title={t("menu.toggle")} />
     </Sidebar>
@@ -563,13 +541,9 @@ function getUserInitials(value: string): string {
   return source.slice(0, 2).toUpperCase();
 }
 
-function getTenantInitials(value: string): string {
-  const normalized = value.trim().replace(/[^a-zA-Z0-9]/g, "");
-  return (normalized.slice(0, 2) || "WS").toUpperCase();
-}
-
 function SidebarPlanSummary({
   summary,
+  appVersion,
   onNavigate,
 }: {
   summary: {
@@ -577,6 +551,7 @@ function SidebarPlanSummary({
     status: string | null;
     periodEnd: string | null;
   };
+  appVersion: string;
   onNavigate: () => void;
 }) {
   const t = useTranslations("shell");
@@ -591,27 +566,20 @@ function SidebarPlanSummary({
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SidebarMenuButton size="lg" variant="outline" tooltip={t("nav.plan")} asChild>
+        <SidebarMenuButton size="lg" variant="outline" tooltip={t("nav.plan")} className="flex-col gap-1.5" asChild>
           <Link href="/billing/plan" onClick={onNavigate}>
-            <BadgeCheck aria-hidden="true" />
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-sm font-medium">{planName}</span>
+            <span className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-center">
+              <span className="truncate text-xs font-medium">{planName}</span>
+              <span className="text-sidebar-foreground/35" aria-hidden="true">|</span>
               <span className={cn("truncate text-xs font-normal", isExpired ? "text-warning" : "text-sidebar-foreground/60")}>{periodLabel}</span>
+            </span>
+            <span className="w-full text-center text-[0.6875rem] leading-none text-sidebar-foreground/45">
+              {t("appVersion.label")} <span dir="ltr" className="font-mono">{appVersion}</span>
             </span>
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
-  );
-}
-
-function SidebarAppVersion({ version }: { version: string }) {
-  const t = useTranslations("shell");
-
-  return (
-    <p className="pt-1 text-center text-xs text-sidebar-foreground/50">
-      {t("appVersion.label")} <span dir="ltr" className="font-mono">{version}</span>
-    </p>
   );
 }
 

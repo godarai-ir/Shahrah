@@ -31,8 +31,8 @@
     "open": "مشاهده مستندات"
   },
   "plan": {
-    "label": "پلن: {name}",
-    "daysRemaining": "{days} روز مانده",
+    "label": "طرح فعال: {name}",
+    "daysRemaining": "{days} روز",
     "unknown": "پلن نامشخص",
     "noEndDate": "بدون تاریخ پایان",
     "expired": "پایان یافته"
