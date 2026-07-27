@@ -117,6 +117,7 @@ jobs:
                   "dockerfile": "apps/model-discovery/Dockerfile",
                   "target": "migrate",
                   "values_path": "migrations.modelDiscovery.image.tag",
+                  "additional_values_paths": ["migrations.modelDiscoveryCatalogImport.image.tag"],
                   "semver_prefix": "model-discovery",
                   "paths": ["apps/model-discovery/"],
               },
@@ -225,7 +226,6 @@ jobs:
           all_service_ids = [s["id"] for s in services]
 
           shared_paths = [
-              ".github/workflows/gitops-production-release.yml",
               "packages/",
               "pnpm-lock.yaml",
               "pnpm-workspace.yaml",
