@@ -148,6 +148,8 @@ jobs:
           paths = [service_to_values_path[sid]]
           if sid == "control-plane":
               paths.append("metricsDlqReplayer.image.tag")
+          if sid == "model-discovery-migrate":
+              paths.append("migrations.modelDiscoveryCatalogImport.image.tag")
           for values_path in paths:
               keys = values_path.split(".")
               cur = data
