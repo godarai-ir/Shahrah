@@ -374,6 +374,7 @@ func (h *ImagesHandler) handleSync(
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	setTraceHeaders(c, tunnelReq.TraceID)
 	setCostHeaders(c, finalCost)
 

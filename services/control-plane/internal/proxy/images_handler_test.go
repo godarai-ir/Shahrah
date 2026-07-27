@@ -115,6 +115,7 @@ func TestImagesHandlerJSONGeneration(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, fiber.MIMEApplicationJSON, resp.Header.Get(fiber.HeaderContentType))
 	assert.Equal(t, "/images/generations", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
 	assert.Equal(t, "application/json", tunnel.lastReq.Headers["Content-Type"])
 

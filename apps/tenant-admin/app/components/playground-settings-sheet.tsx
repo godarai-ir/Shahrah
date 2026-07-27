@@ -230,10 +230,11 @@ function ImageGenerationSettings(props: {
           />
           <AppSelectField
             label={props.t("image.responseFormat")}
-            value={config.responseFormat}
+            description={props.t("image.responseFormatHelp")}
+            value={config.responseFormat || "default"}
             disabled={props.readOnly}
-            onValueChange={(value) => changeConfig({ responseFormat: value as "url" | "b64_json" })}
-            options={[{ value: "url", label: "URL" }, { value: "b64_json", label: "Base64 JSON" }]}
+            onValueChange={(value) => changeConfig({ responseFormat: value === "default" ? "" : value as "url" | "b64_json" })}
+            options={[{ value: "default", label: props.t("image.modelDefault") }, { value: "url", label: "URL" }, { value: "b64_json", label: "Base64 JSON" }]}
             optionTextDir="ltr"
           />
           <AppSelectField

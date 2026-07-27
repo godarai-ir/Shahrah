@@ -32,7 +32,10 @@ describe("playground run route", () => {
     fetchControlPlaneJSONMock.mockResolvedValue({
       ok: true,
       status: 200,
-      payload: { data: [{ id: "gpt-image-1", supported_modes: ["image_generation"] }] },
+      payload: { data: [
+        { id: "gpt-image-1", supported_modes: ["image_generation"] },
+        { id: "dall-e-3", supported_modes: ["image_generation"] },
+      ] },
       responseHeaders: {},
     });
   });
@@ -113,7 +116,6 @@ describe("playground run route", () => {
         model: "gpt-image-1",
         prompt: "A quiet mountain lake",
         n: 1,
-        response_format: "b64_json",
         output_format: "png",
       },
     }));
@@ -126,8 +128,25 @@ describe("playground run route", () => {
       model: "gpt-image-1",
       prompt: "A quiet mountain lake",
       n: 1,
-      response_format: "b64_json",
       output_format: "png",
+    });
+  });
+
+  it("forwards an explicitly selected response format for compatible image models", async () => {
+    await POST(requestFor({
+      mode: "image_generation",
+      request: {
+        model: "dall-e-3",
+        prompt: "A quiet mountain lake",
+        n: 1,
+        response_format: "b64_json",
+      },
+    }));
+
+    expect(proxyToControlPlaneMock).toHaveBeenCalledOnce();
+    expect(proxyToControlPlaneMock.mock.calls[0][0].body).toMatchObject({
+      model: "dall-e-3",
+      response_format: "b64_json",
     });
   });
 

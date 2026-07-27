@@ -146,7 +146,6 @@ describe("playground domain", () => {
     column.variableValues = { tone: "cinematic" };
     column.imageConfig = {
       ...column.imageConfig,
-      responseFormat: "b64_json",
       size: "1024x1024",
       outputFormat: "webp",
       outputCompression: "80",
@@ -162,13 +161,29 @@ describe("playground domain", () => {
         model: "openai:images:gpt-image-1",
         prompt: "A cinematic portrait",
         n: 1,
-        response_format: "b64_json",
         size: "1024x1024",
         output_format: "webp",
         output_compression: 80,
       },
     });
+    expect(built.payload.request).not.toHaveProperty("response_format");
     expect(built.payload).not.toHaveProperty("godarai");
+  });
+
+  it("sends an explicitly selected response format for compatible image models", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "openai:images:dall-e-3";
+    column.imagePrompt = "A quiet mountain lake";
+    column.imageConfig.responseFormat = "b64_json";
+
+    const built = validateAndBuildRunPayload(column, "comparison-1", "image_generation");
+
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.payload.request).toMatchObject({
+      model: "openai:images:dall-e-3",
+      response_format: "b64_json",
+    });
   });
 
   it("normalizes safe image results and redacts base64 from the raw response", () => {

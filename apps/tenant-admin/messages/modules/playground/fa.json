@@ -77,6 +77,7 @@
     "size": "اندازه",
     "quality": "کیفیت",
     "responseFormat": "قالب پاسخ",
+    "responseFormatHelp": "پیش‌فرض مدل، response_format را ارسال نمی‌کند. مدل‌های GPT Image به‌صورت خودکار Base64 JSON برمی‌گردانند؛ قالب صریح باید توسط ارائه‌دهنده پشتیبانی شود.",
     "outputFormat": "قالب خروجی",
     "outputCompression": "فشرده‌سازی خروجی (۰ تا ۱۰۰)",
     "background": "پس‌زمینه",

@@ -55,7 +55,7 @@ export type PlaygroundConfig = {
 export type PlaygroundImageConfig = {
   size: string;
   quality: string;
-  responseFormat: "url" | "b64_json";
+  responseFormat: "" | "url" | "b64_json";
   outputFormat: "" | "png" | "jpeg" | "webp";
   outputCompression: string;
   background: "auto" | "transparent" | "opaque";
@@ -169,7 +169,7 @@ export function createDefaultImageConfig(): PlaygroundImageConfig {
   return {
     size: "auto",
     quality: "auto",
-    responseFormat: "url",
+    responseFormat: "",
     outputFormat: "",
     outputCompression: "",
     background: "auto",
@@ -377,8 +377,8 @@ function validateAndBuildImageRunPayload(column: PlaygroundColumnDraft, comparis
     model: column.selectedModel.trim(),
     prompt: renderedPrompt,
     n: 1,
-    response_format: column.imageConfig.responseFormat,
   };
+  if (column.imageConfig.responseFormat) request.response_format = column.imageConfig.responseFormat;
   if (column.imageConfig.size !== "auto") request.size = column.imageConfig.size;
   if (column.imageConfig.quality !== "auto") request.quality = column.imageConfig.quality;
   if (column.imageConfig.outputFormat) request.output_format = column.imageConfig.outputFormat;

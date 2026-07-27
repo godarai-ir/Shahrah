@@ -92,6 +92,28 @@ describe("authenticated control-plane proxy", () => {
     expect(new Headers(init?.headers).get("x-godarai-user-id")).toBe("user-1");
   });
 
+  it("parses a JSON response even when the upstream content type is missing", async () => {
+    readAuthFromRequestMock.mockResolvedValueOnce({
+      ok: true,
+      tenantSlug: "acme",
+      user: { id: "user-1" },
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response('{"data":[{"b64_json":"YWJj"}]}'),
+    );
+
+    const response = await proxyToControlPlane({
+      request: tenantRequest("/api/playground/run"),
+      method: "POST",
+      path: "/v1/images/generations",
+      body: { model: "gpt-image-1.5", prompt: "A bridge" },
+    });
+
+    await expect(response.json()).resolves.toEqual({
+      data: [{ b64_json: "YWJj" }],
+    });
+  });
+
   it("rejects a caller-supplied user identity that differs from the session", async () => {
     readAuthFromRequestMock.mockResolvedValueOnce({
       ok: true,

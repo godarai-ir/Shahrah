@@ -460,10 +460,10 @@ function parsePayload(body: string, contentType: string): unknown {
     return {};
   }
 
-  if (contentType.includes("application/json")) {
-    try {
-      return JSON.parse(body) as unknown;
-    } catch {
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    if (contentType.includes("application/json")) {
       return {
         error: {
           message: body,

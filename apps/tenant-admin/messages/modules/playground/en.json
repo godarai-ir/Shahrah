@@ -33,6 +33,7 @@
     "size": "Size",
     "quality": "Quality",
     "responseFormat": "Response format",
+    "responseFormatHelp": "Model default omits response_format. GPT Image models return Base64 JSON automatically; explicit formats require provider support.",
     "outputFormat": "Output format",
     "outputCompression": "Output compression (0–100)",
     "background": "Background",
