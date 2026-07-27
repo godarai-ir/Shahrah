@@ -261,7 +261,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
-	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType)
+	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType, body, contentType)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -280,6 +280,8 @@ func (h *ImagesHandler) handleSync(
 	start time.Time,
 	tenantSlug string,
 	contentType string,
+	originalBody []byte,
+	originalContentType string,
 ) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
@@ -327,7 +329,7 @@ func (h *ImagesHandler) handleSync(
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
-	logEntry.RequestBody = map[string]interface{}{"model": requestedModel, "operation": op.Name, "n": tunnelReq.RequestMetadata["n"], "size": tunnelReq.RequestMetadata["size"], "quality": tunnelReq.RequestMetadata["quality"]}
+	logEntry.RequestBody = buildImageRequestLogPayload(originalBody, originalContentType, requestedModel, op.Name, tunnelReq.RequestMetadata)
 	logEntry.ResponseBody = buildTraceImageResponsePayload(resp.Body)
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
@@ -437,6 +439,25 @@ func extractImageRequestMetadata(c *fiber.Ctx, body []byte, contentType string, 
 	}
 
 	return "", metadata, fmt.Errorf("unsupported content type")
+}
+
+func buildImageRequestLogPayload(body []byte, contentType, requestedModel, operation string, metadata map[string]interface{}) map[string]interface{} {
+	overrides := map[string]interface{}{
+		"model":     strings.TrimSpace(requestedModel),
+		"operation": strings.TrimSpace(operation),
+	}
+
+	if isJSONContentType(contentType) || strings.TrimSpace(contentType) == "" {
+		return buildJSONRequestLogPayload(body, overrides)
+	}
+
+	for _, key := range []string{"n", "size", "quality", "response_format", "output_format", "moderation", "background", "output_compression", "partial_images", "input_fidelity"} {
+		if value, ok := metadata[key]; ok && value != nil {
+			overrides[key] = value
+		}
+	}
+
+	return overrides
 }
 
 func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]interface{}, op imageOperation) {

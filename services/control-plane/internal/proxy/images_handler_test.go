@@ -128,6 +128,10 @@ func TestImagesHandlerJSONGeneration(t *testing.T) {
 	assert.Equal(t, 284, logs.loggedSpends[0].TotalTokens)
 	assert.InDelta(t, 0.0000012345, logs.loggedSpends[0].CostUSD, 1e-12)
 	assert.Equal(t, int64(12345), logs.loggedSpends[0].RequestMetadata["provider_cost_in_usd_ticks"])
+	require.Len(t, logs.requestEntries(), 1)
+	assert.Equal(t, "openai:acct:gpt-image-1", logs.requestEntries()[0].RequestBody["model"])
+	assert.Equal(t, "paint a bridge", logs.requestEntries()[0].RequestBody["prompt"])
+	assert.Equal(t, "generations", logs.requestEntries()[0].RequestBody["operation"])
 }
 
 func TestImagesHandlerGenerationRequiresPrompt(t *testing.T) {
