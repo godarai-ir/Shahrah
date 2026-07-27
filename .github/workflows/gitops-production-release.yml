@@ -98,6 +98,7 @@ jobs:
                   "dockerfile": "services/control-plane/Dockerfile",
                   "target": "",
                   "values_path": "controlPlane.image.tag",
+                  "additional_values_paths": ["metricsDlqReplayer.image.tag"],
                   "semver_prefix": "control-plane",
                   "paths": ["services/control-plane/"],
               },
@@ -378,6 +379,7 @@ jobs:
                   "dockerfile": s["dockerfile"],
                   "target": s["target"],
                   "values_path": s["values_path"],
+                  "additional_values_paths": s.get("additional_values_paths", []),
                   "semver_prefix": s["semver_prefix"],
                   "semver_tag": semver_tag,
               })
@@ -561,20 +563,30 @@ jobs:
               data = yaml.safe_load(f)
 
           for item in matrix:
-              keys = item["values_path"].split(".")
-              cur = data
-              for k in keys[:-1]:
-                  if k not in cur or cur[k] is None:
-                      cur[k] = {}
-                  cur = cur[k]
-              cur[keys[-1]] = item["semver_tag"]
+              values_paths = [
+                  item["values_path"],
+                  *item.get("additional_values_paths", []),
+              ]
+              for values_path in values_paths:
+                  keys = values_path.split(".")
+                  cur = data
+                  for k in keys[:-1]:
+                      if k not in cur or cur[k] is None:
+                          cur[k] = {}
+                      cur = cur[k]
+                  cur[keys[-1]] = item["semver_tag"]
 
           with open(path, "w", encoding="utf-8") as f:
               yaml.safe_dump(data, f, sort_keys=False)
 
           print("Updated tags:")
           for item in matrix:
-              print(f"- {item['values_path']} = {item['semver_tag']}")
+              values_paths = [
+                  item["values_path"],
+                  *item.get("additional_values_paths", []),
+              ]
+              for values_path in values_paths:
+                  print(f"- {values_path} = {item['semver_tag']}")
           PY
 
       - name: Create pull request in GitOps repo

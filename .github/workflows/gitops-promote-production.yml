@@ -146,6 +146,8 @@ jobs:
               data = yaml.safe_load(f)
 
           paths = [service_to_values_path[sid]]
+          if sid == "control-plane":
+              paths.append("metricsDlqReplayer.image.tag")
           for values_path in paths:
               keys = values_path.split(".")
               cur = data
@@ -176,7 +178,7 @@ jobs:
 
             - Service: `${{ inputs.service_id }}`
             - SemVer image tag: `${{ inputs.image_tag }}`
-            - Updated only one key in `helm/shahrah/values.production.yaml`
+            - Updated all image tag keys owned by the selected service in `helm/shahrah/values.production.yaml`
           labels: |
             gitops
             production
