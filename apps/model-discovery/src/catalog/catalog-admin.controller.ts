@@ -27,7 +27,11 @@ import { Scopes } from '../common/decorators/scopes.decorator';
 import { ScopesGuard } from '../common/guards/scopes.guard';
 import { ServiceAccountGuard } from '../common/guards/service-account.guard';
 import { IndexingService } from '../indexing/indexing.service';
-import { UpsertModelDto } from './dto/upsert-model.dto';
+import {
+  resolvePricingTier,
+  UpdateModelPricingDto,
+  UpsertModelDto,
+} from './dto/upsert-model.dto';
 import { UpsertModelSeriesDto } from './dto/upsert-model-series.dto';
 import { Decimal } from '@prisma/client-runtime-utils';
 import { serializePricingProfiles } from '../pricing/pricing-response';
@@ -144,22 +148,23 @@ export class CatalogAdminController {
               rates: {
                 create: profile.rates.map((rate) => {
                   const amount = new Decimal(rate.amount);
+                  const tier = resolvePricingTier(rate);
                   if (!amount.isFinite() || amount.isNegative()) {
                     throw new BadRequestException(
                       `Invalid amount for ${rate.key ?? rate.unit}`,
                     );
                   }
                   return {
-                    rateKey: rate.key || this.rateKey(rate),
+                    rateKey: rate.key || this.rateKey(rate, tier.from),
                     usage: rate.usage as any,
                     unit: rate.unit,
                     amount: rate.amount,
                     quantity: rate.quantity,
                     serviceTier: (rate.serviceTier ?? 'standard') as any,
                     resolution: rate.resolution,
-                    tierFrom: rate.tierFrom,
-                    tierTo: rate.tierTo,
-                    tierMode: rate.tierMode,
+                    tierFrom: tier.from,
+                    tierTo: tier.to,
+                    tierMode: tier.mode,
                     qualifiers: rate.qualifiers as any,
                   };
                 }),
@@ -224,7 +229,8 @@ export class CatalogAdminController {
 
       const keys = new Set<string>();
       for (const rate of profile.rates) {
-        const key = rate.key || this.rateKey(rate);
+        const tier = resolvePricingTier(rate);
+        const key = rate.key || this.rateKey(rate, tier.from);
         if (keys.has(key)) {
           throw new BadRequestException(
             `Duplicate pricing rate key ${key} in ${profile.region}`,
@@ -232,9 +238,9 @@ export class CatalogAdminController {
         }
         keys.add(key);
         if (
-          rate.tierFrom !== undefined &&
-          rate.tierTo !== undefined &&
-          rate.tierTo <= rate.tierFrom
+          tier.from !== undefined &&
+          tier.to !== undefined &&
+          tier.to <= tier.from
         ) {
           throw new BadRequestException(
             `Invalid tier bounds for pricing rate ${key}`,
@@ -262,19 +268,21 @@ export class CatalogAdminController {
       .replace(/^-+|-+$/g, '');
   }
 
-  private rateKey(rate: {
-    usage: string;
-    unit: string;
-    serviceTier?: string;
-    resolution?: string;
-    tierFrom?: number;
-  }) {
+  private rateKey(
+    rate: {
+      usage: string;
+      unit: string;
+      serviceTier?: string;
+      resolution?: string;
+    },
+    tierFrom?: number,
+  ) {
     return [
       rate.usage,
       rate.unit,
       rate.serviceTier ?? 'standard',
       `resolution=${rate.resolution ?? 'default'}`,
-      `tier=${rate.tierFrom ?? 'base'}`,
+      `tier=${tierFrom ?? 'base'}`,
     ].join(':');
   }
 
@@ -369,8 +377,7 @@ export class CatalogAdminController {
   @Scopes('catalog:write')
   async updatePricing(
     @Param('canonicalId') canonicalId: string,
-    @Body()
-    body: Pick<UpsertModelDto, 'pricingStatus' | 'pricingProfiles'>,
+    @Body() body: UpdateModelPricingDto,
     @Req() request: AuthenticatedRequest,
   ) {
     const decodedId = decodeURIComponent(canonicalId);
@@ -418,19 +425,22 @@ export class CatalogAdminController {
               ? new Date(profile.effectiveTo)
               : undefined,
             rates: {
-              create: profile.rates.map((rate) => ({
-                rateKey: rate.key || this.rateKey(rate),
-                usage: rate.usage as any,
-                unit: rate.unit,
-                amount: rate.amount,
-                quantity: rate.quantity,
-                serviceTier: (rate.serviceTier ?? 'standard') as any,
-                resolution: rate.resolution,
-                tierFrom: rate.tierFrom,
-                tierTo: rate.tierTo,
-                tierMode: rate.tierMode,
-                qualifiers: rate.qualifiers as any,
-              })),
+              create: profile.rates.map((rate) => {
+                const tier = resolvePricingTier(rate);
+                return {
+                  rateKey: rate.key || this.rateKey(rate, tier.from),
+                  usage: rate.usage as any,
+                  unit: rate.unit,
+                  amount: rate.amount,
+                  quantity: rate.quantity,
+                  serviceTier: (rate.serviceTier ?? 'standard') as any,
+                  resolution: rate.resolution,
+                  tierFrom: tier.from,
+                  tierTo: tier.to,
+                  tierMode: tier.mode,
+                  qualifiers: rate.qualifiers as any,
+                };
+              }),
             },
           },
         });

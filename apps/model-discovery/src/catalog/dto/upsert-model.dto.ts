@@ -14,6 +14,25 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+export class UpsertModelPricingTierDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  from?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  to?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  mode?: string | null;
+}
+
 export class UpsertModelPricingRateDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -63,6 +82,12 @@ export class UpsertModelPricingRateDto {
   @IsOptional()
   @IsString()
   tierMode?: string;
+
+  @ApiPropertyOptional({ type: () => UpsertModelPricingTierDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpsertModelPricingTierDto)
+  tier?: UpsertModelPricingTierDto | null;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -210,4 +235,37 @@ export class UpsertModelDto {
   @ValidateNested({ each: true })
   @Type(() => UpsertModelPricingProfileDto)
   pricingProfiles?: UpsertModelPricingProfileDto[];
+}
+
+export class UpdateModelPricingDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsIn(['unknown', 'priced', 'free'])
+  pricingStatus?: string;
+
+  @ApiPropertyOptional({ type: () => [UpsertModelPricingProfileDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpsertModelPricingProfileDto)
+  pricingProfiles?: UpsertModelPricingProfileDto[];
+}
+
+export function resolvePricingTier(rate: UpsertModelPricingRateDto): {
+  from?: number;
+  to?: number;
+  mode?: string;
+} {
+  if (rate.tier) {
+    return {
+      from: rate.tier.from ?? undefined,
+      to: rate.tier.to ?? undefined,
+      mode: rate.tier.mode ?? undefined,
+    };
+  }
+  return {
+    from: rate.tierFrom,
+    to: rate.tierTo,
+    mode: rate.tierMode,
+  };
 }
