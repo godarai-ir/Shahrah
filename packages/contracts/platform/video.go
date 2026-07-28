@@ -76,6 +76,7 @@ type VideoGenerationJob struct {
 	IdempotencyKey    string                 `json:"-"`
 	TokenHash         string                 `json:"-"`
 	ActorID           string                 `json:"-"`
+	OwnerPrincipal    string                 `json:"-"`
 	Model             string                 `json:"model"`
 	Provider          string                 `json:"provider"`
 	ProviderModel     string                 `json:"provider_model"`

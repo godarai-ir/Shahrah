@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
-import { readAuthFromRequest } from "@/lib/auth/request-auth";
+import {
+  authorizeAPIRequest,
+  PLAYGROUND_VIDEO_MUTATE_PERMISSIONS,
+  PLAYGROUND_VIDEO_READ_PERMISSIONS,
+} from "@/lib/auth/api-permissions";
 import { fetchControlPlaneJSON, proxyToControlPlane } from "@/lib/control-plane";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +15,9 @@ const VIDEO_FIELDS = new Set([
 ]);
 
 export async function GET(request: NextRequest) {
+  const authorization = await authorizeAPIRequest(request, PLAYGROUND_VIDEO_READ_PERMISSIONS);
+  if (!authorization.ok) return authorization.response;
+
   return proxyToControlPlane({
     request,
     method: "GET",
@@ -20,14 +26,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await readAuthFromRequest(request);
-  if (!auth.ok) return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
-
-  const permissionPayload = await getCurrentMePermissions(auth.tenantSlug, auth.user.id).catch(() => null);
-  const permissions = permissionPayload ? getNormalizedPermissionSet(permissionPayload) : new Set<string>();
-  if (!permissions.has("playground:run") && !permissions.has("policy:manage")) {
-    return NextResponse.json({ error: { message: "You do not have permission to run billable playground requests." } }, { status: 403 });
-  }
+  const authorization = await authorizeAPIRequest(request, PLAYGROUND_VIDEO_MUTATE_PERMISSIONS);
+  if (!authorization.ok) return authorization.response;
+  const { auth } = authorization;
 
   const form = await request.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: { message: "Invalid video request." } }, { status: 400 });

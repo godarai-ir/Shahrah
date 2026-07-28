@@ -27,10 +27,10 @@ import (
 
 type videoJobStore interface {
 	CreateVideoJob(context.Context, *platform.VideoGenerationJob) (*platform.VideoGenerationJob, error)
-	GetVideoJob(context.Context, string, string) (*platform.VideoGenerationJob, error)
-	GetVideoJobByIdempotency(context.Context, string, string) (*platform.VideoGenerationJob, error)
+	GetVideoJob(context.Context, storage.VideoJobAccessScope, string) (*platform.VideoGenerationJob, error)
+	GetVideoJobByIdempotency(context.Context, storage.VideoJobAccessScope, string) (*platform.VideoGenerationJob, error)
 	GetVideoJobByProviderID(context.Context, string, string) (*platform.VideoGenerationJob, error)
-	ListVideoJobs(context.Context, string, int, time.Time) ([]platform.VideoGenerationJob, error)
+	ListVideoJobs(context.Context, storage.VideoJobAccessScope, int, time.Time) ([]platform.VideoGenerationJob, error)
 	SaveVideoJob(context.Context, *platform.VideoGenerationJob, int64) error
 	MarkVideoSubmission(context.Context, string, int, string, map[string]interface{}, string) error
 }
@@ -171,6 +171,14 @@ func (h *VideoHandler) Create(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	ownerPrincipal, err := videoOwnerPrincipal(authInfo)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+	}
+	ownerScope := storage.VideoJobAccessScope{
+		TenantID:       currentTenant.ID,
+		OwnerPrincipal: ownerPrincipal,
+	}
 	if h.objects == nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Video object storage is unavailable", "storage_error")
 	}
@@ -196,7 +204,7 @@ func (h *VideoHandler) Create(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Idempotency-Key is too long", "invalid_request_error")
 	}
 	if idempotencyKey != "" {
-		existing, lookupErr := h.jobs.GetVideoJobByIdempotency(c.Context(), currentTenant.ID, idempotencyKey)
+		existing, lookupErr := h.jobs.GetVideoJobByIdempotency(c.Context(), ownerScope, idempotencyKey)
 		if lookupErr == nil {
 			return c.Status(fiber.StatusOK).JSON(existing)
 		}
@@ -248,7 +256,7 @@ func (h *VideoHandler) Create(c *fiber.Ctx) error {
 	now := time.Now().UTC()
 	job := &platform.VideoGenerationJob{
 		ID: jobID, TenantID: currentTenant.ID, RequestID: requestID, IdempotencyKey: idempotencyKey,
-		TokenHash: authInfo.TokenHash, ActorID: firstNonEmptyString(authInfo.UserID, authInfo.VirtualUserID),
+		TokenHash: authInfo.TokenHash, ActorID: firstNonEmptyString(authInfo.UserID, authInfo.VirtualUserID), OwnerPrincipal: ownerPrincipal,
 		Model: requestedModel, Provider: contractDeployment.Provider, ProviderModel: contractDeployment.Model,
 		DeploymentID: contractDeployment.ID, ProviderAccountID: contractDeployment.ProviderAccountID,
 		Region: contractDeployment.RegionName, BillingMode: deploymentBillingMode(contractDeployment),
@@ -271,9 +279,13 @@ func (h *VideoHandler) Create(c *fiber.Ctx) error {
 }
 
 func (h *VideoHandler) List(c *fiber.Ctx) error {
-	_, currentTenant, err := videoRequestContext(c)
+	authInfo, currentTenant, err := videoRequestContext(c)
 	if err != nil {
 		return err
+	}
+	scope, err := videoJobAccessScope(authInfo, currentTenant.ID)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
 	}
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
 	var before time.Time
@@ -283,7 +295,7 @@ func (h *VideoHandler) List(c *fiber.Ctx) error {
 			return writeAPIError(c, fiber.StatusBadRequest, "Invalid before cursor", "invalid_request_error")
 		}
 	}
-	items, err := h.jobs.ListVideoJobs(c.Context(), currentTenant.ID, limit, before)
+	items, err := h.jobs.ListVideoJobs(c.Context(), scope, limit, before)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Unable to list video jobs", "storage_error")
 	}
@@ -295,11 +307,15 @@ func (h *VideoHandler) List(c *fiber.Ctx) error {
 }
 
 func (h *VideoHandler) Get(c *fiber.Ctx) error {
-	_, currentTenant, err := videoRequestContext(c)
+	authInfo, currentTenant, err := videoRequestContext(c)
 	if err != nil {
 		return err
 	}
-	job, err := h.jobs.GetVideoJob(c.Context(), currentTenant.ID, c.Params("id"))
+	scope, err := videoJobAccessScope(authInfo, currentTenant.ID)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+	}
+	job, err := h.jobs.GetVideoJob(c.Context(), scope, c.Params("id"))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return writeAPIError(c, fiber.StatusNotFound, "Video job not found", "not_found")
 	}
@@ -310,11 +326,15 @@ func (h *VideoHandler) Get(c *fiber.Ctx) error {
 }
 
 func (h *VideoHandler) Content(c *fiber.Ctx) error {
-	_, currentTenant, err := videoRequestContext(c)
+	authInfo, currentTenant, err := videoRequestContext(c)
 	if err != nil {
 		return err
 	}
-	job, err := h.jobs.GetVideoJob(c.Context(), currentTenant.ID, c.Params("id"))
+	scope, err := videoJobAccessScope(authInfo, currentTenant.ID)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+	}
+	job, err := h.jobs.GetVideoJob(c.Context(), scope, c.Params("id"))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return writeAPIError(c, fiber.StatusNotFound, "Video job not found", "not_found")
 	}
@@ -346,11 +366,15 @@ func (h *VideoHandler) Content(c *fiber.Ctx) error {
 }
 
 func (h *VideoHandler) Cancel(c *fiber.Ctx) error {
-	_, currentTenant, err := videoRequestContext(c)
+	authInfo, currentTenant, err := videoRequestContext(c)
 	if err != nil {
 		return err
 	}
-	job, err := h.jobs.GetVideoJob(c.Context(), currentTenant.ID, c.Params("id"))
+	scope, err := videoJobAccessScope(authInfo, currentTenant.ID)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+	}
+	job, err := h.jobs.GetVideoJob(c.Context(), scope, c.Params("id"))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return writeAPIError(c, fiber.StatusNotFound, "Video job not found", "not_found")
 	}
@@ -412,11 +436,15 @@ func (h *VideoHandler) Cancel(c *fiber.Ctx) error {
 }
 
 func (h *VideoHandler) Delete(c *fiber.Ctx) error {
-	_, currentTenant, err := videoRequestContext(c)
+	authInfo, currentTenant, err := videoRequestContext(c)
 	if err != nil {
 		return err
 	}
-	job, err := h.jobs.GetVideoJob(c.Context(), currentTenant.ID, c.Params("id"))
+	scope, err := videoJobAccessScope(authInfo, currentTenant.ID)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusForbidden, err.Error(), "authorization_error")
+	}
+	job, err := h.jobs.GetVideoJob(c.Context(), scope, c.Params("id"))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return writeAPIError(c, fiber.StatusNotFound, "Video job not found", "not_found")
 	}
@@ -537,6 +565,51 @@ func videoRequestContext(c *fiber.Ctx) (*platform.AuthContext, *platform.Tenant,
 	}
 	authInfo.TenantID = currentTenant.ID
 	return authInfo, currentTenant, nil
+}
+
+func videoJobAccessScope(authInfo *platform.AuthContext, tenantID string) (storage.VideoJobAccessScope, error) {
+	if authInfo == nil {
+		return storage.VideoJobAccessScope{}, errors.New("authenticated video owner is required")
+	}
+	if strings.TrimSpace(authInfo.UserID) != "" && strings.TrimSpace(authInfo.VirtualUserID) != "" {
+		return storage.VideoJobAccessScope{}, errors.New("ambiguous video owner identity")
+	}
+	if auth.IsTenantAdminOrHigher(authInfo) {
+		return storage.VideoJobAccessScope{
+			TenantID:        tenantID,
+			AllowTenantWide: true,
+		}, nil
+	}
+	ownerPrincipal, err := videoOwnerPrincipal(authInfo)
+	if err != nil {
+		return storage.VideoJobAccessScope{}, err
+	}
+	return storage.VideoJobAccessScope{
+		TenantID:       tenantID,
+		OwnerPrincipal: ownerPrincipal,
+	}, nil
+}
+
+func videoOwnerPrincipal(authInfo *platform.AuthContext) (string, error) {
+	if authInfo == nil {
+		return "", errors.New("authenticated video owner is required")
+	}
+	userID := strings.TrimSpace(authInfo.UserID)
+	virtualUserID := strings.TrimSpace(authInfo.VirtualUserID)
+	tokenHash := strings.TrimSpace(authInfo.TokenHash)
+	if userID != "" && virtualUserID != "" {
+		return "", errors.New("ambiguous video owner identity")
+	}
+	if userID != "" {
+		return "user:" + userID, nil
+	}
+	if virtualUserID != "" {
+		return "virtual_user:" + virtualUserID, nil
+	}
+	if tokenHash != "" {
+		return "token:" + tokenHash, nil
+	}
+	return "", errors.New("authenticated video owner is required")
 }
 
 func parseVideoCreateRequest(c *fiber.Ctx) (platform.VideoCreateRequest, *multipart.FileHeader, error) {

@@ -14,6 +14,15 @@ import (
 
 var ErrVideoJobConflict = errors.New("video job version conflict")
 
+// VideoJobAccessScope is the repository-enforced boundary for client-facing
+// video job reads. Tenant-wide access is reserved for explicitly authorized
+// tenant and proxy administrators.
+type VideoJobAccessScope struct {
+	TenantID        string
+	OwnerPrincipal  string
+	AllowTenantWide bool
+}
+
 func (s *Store) CreateVideoJob(ctx context.Context, job *platform.VideoGenerationJob) (*platform.VideoGenerationJob, error) {
 	if job.ID == "" {
 		job.ID = uuid.NewString()
@@ -49,7 +58,7 @@ func (s *Store) CreateVideoJob(ctx context.Context, job *platform.VideoGeneratio
 
 	_, err = tx.Exec(ctx, `
 		INSERT INTO video_generation_jobs (
-			job_id, tenant_id, request_id, idempotency_key, token_hash, actor_id,
+			job_id, tenant_id, request_id, idempotency_key, token_hash, actor_id, owner_principal,
 			model, provider, provider_model, deployment_id, provider_account_id,
 			region, billing_mode, pricing_source, provider_job_id,
 			generation_status, delivery_status, settlement_status,
@@ -60,16 +69,16 @@ func (s *Store) CreateVideoJob(ctx context.Context, job *platform.VideoGeneratio
 			completed_at, cancelled_at, expires_at, created_at, updated_at
 		) VALUES (
 			$1::uuid, $2::uuid, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''),
-			$7, $8, $9, $10, NULLIF($11, '')::uuid,
-			NULLIF($12, ''), $13, NULLIF($14, ''), NULLIF($15, ''),
-			$16, $17, $18,
-			$19, $20, $21, $22,
-			$23, $24, $25, $26, $27,
-			$28, $29, $30, $31,
-			$32, NULLIF($33, ''), $34, $35, $36,
-			$37, $38, $39, $40, $41
+			NULLIF($7, ''), $8, $9, $10, $11, NULLIF($12, '')::uuid,
+			NULLIF($13, ''), $14, NULLIF($15, ''), NULLIF($16, ''),
+			$17, $18, $19,
+			$20, $21, $22, $23,
+			$24, $25, $26, $27, $28,
+			$29, $30, $31, $32,
+			$33, NULLIF($34, ''), $35, $36, $37,
+			$38, $39, $40, $41, $42
 		)
-	`, job.ID, job.TenantID, job.RequestID, job.IdempotencyKey, job.TokenHash, job.ActorID,
+	`, job.ID, job.TenantID, job.RequestID, job.IdempotencyKey, job.TokenHash, job.ActorID, job.OwnerPrincipal,
 		job.Model, job.Provider, job.ProviderModel, job.DeploymentID, job.ProviderAccountID,
 		job.Region, job.BillingMode, job.PricingSource, job.ProviderJobID,
 		job.GenerationStatus, job.DeliveryStatus, job.SettlementStatus,
@@ -98,12 +107,25 @@ func (s *Store) CreateVideoJob(ctx context.Context, job *platform.VideoGeneratio
 	return job, nil
 }
 
-func (s *Store) GetVideoJob(ctx context.Context, tenantID, jobID string) (*platform.VideoGenerationJob, error) {
-	return scanVideoJob(s.pool.QueryRow(ctx, videoJobSelect+` WHERE tenant_id = $1::uuid AND job_id = $2::uuid`, tenantID, jobID))
+func (s *Store) GetVideoJob(ctx context.Context, scope VideoJobAccessScope, jobID string) (*platform.VideoGenerationJob, error) {
+	if scope.AllowTenantWide {
+		return scanVideoJob(s.pool.QueryRow(ctx, videoJobSelect+` WHERE tenant_id = $1::uuid AND job_id = $2::uuid`, scope.TenantID, jobID))
+	}
+	if strings.TrimSpace(scope.OwnerPrincipal) == "" {
+		return nil, pgx.ErrNoRows
+	}
+	return scanVideoJob(s.pool.QueryRow(ctx, videoJobSelect+`
+		WHERE tenant_id = $1::uuid AND owner_principal = $2 AND job_id = $3::uuid
+	`, scope.TenantID, scope.OwnerPrincipal, jobID))
 }
 
-func (s *Store) GetVideoJobByIdempotency(ctx context.Context, tenantID, key string) (*platform.VideoGenerationJob, error) {
-	return scanVideoJob(s.pool.QueryRow(ctx, videoJobSelect+` WHERE tenant_id = $1::uuid AND idempotency_key = $2`, tenantID, key))
+func (s *Store) GetVideoJobByIdempotency(ctx context.Context, scope VideoJobAccessScope, key string) (*platform.VideoGenerationJob, error) {
+	if strings.TrimSpace(scope.OwnerPrincipal) == "" {
+		return nil, pgx.ErrNoRows
+	}
+	return scanVideoJob(s.pool.QueryRow(ctx, videoJobSelect+`
+		WHERE tenant_id = $1::uuid AND owner_principal = $2 AND idempotency_key = $3
+	`, scope.TenantID, scope.OwnerPrincipal, key))
 }
 
 func (s *Store) GetVideoJobByProviderID(ctx context.Context, provider, providerJobID string) (*platform.VideoGenerationJob, error) {
@@ -112,18 +134,29 @@ func (s *Store) GetVideoJobByProviderID(ctx context.Context, provider, providerJ
 	`, strings.TrimSpace(provider), strings.TrimSpace(providerJobID)))
 }
 
-func (s *Store) ListVideoJobs(ctx context.Context, tenantID string, limit int, before time.Time) ([]platform.VideoGenerationJob, error) {
+func (s *Store) ListVideoJobs(ctx context.Context, scope VideoJobAccessScope, limit int, before time.Time) ([]platform.VideoGenerationJob, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
 	if before.IsZero() {
 		before = time.Now().UTC().Add(time.Second)
 	}
-	rows, err := s.pool.Query(ctx, videoJobSelect+`
+	if !scope.AllowTenantWide && strings.TrimSpace(scope.OwnerPrincipal) == "" {
+		return []platform.VideoGenerationJob{}, nil
+	}
+	query := videoJobSelect + `
 		WHERE tenant_id = $1::uuid AND created_at < $2
 		ORDER BY created_at DESC
-		LIMIT $3
-	`, tenantID, before, limit)
+		LIMIT $3`
+	args := []interface{}{scope.TenantID, before, limit}
+	if !scope.AllowTenantWide {
+		query = videoJobSelect + `
+			WHERE tenant_id = $1::uuid AND owner_principal = $2 AND created_at < $3
+			ORDER BY created_at DESC
+			LIMIT $4`
+		args = []interface{}{scope.TenantID, scope.OwnerPrincipal, before, limit}
+	}
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +326,7 @@ func (s *Store) ClaimExpiredVideoJobs(ctx context.Context, worker string, limit 
 
 const videoJobSelect = `SELECT ` + `
 	job_id::text, tenant_id::text, request_id, COALESCE(idempotency_key, ''),
-	COALESCE(token_hash, ''), COALESCE(actor_id, ''), model, provider, provider_model,
+	COALESCE(token_hash, ''), COALESCE(actor_id, ''), COALESCE(owner_principal, ''), model, provider, provider_model,
 	deployment_id, COALESCE(provider_account_id::text, ''), COALESCE(region, ''),
 	billing_mode, COALESCE(pricing_source, ''), COALESCE(provider_job_id, ''),
 	generation_status, delivery_status, settlement_status, request_snapshot,
@@ -306,7 +339,7 @@ FROM video_generation_jobs`
 func videoJobColumns(alias string) string {
 	p := alias + "."
 	return p + `job_id::text, ` + p + `tenant_id::text, ` + p + `request_id, COALESCE(` + p + `idempotency_key, ''),
-		COALESCE(` + p + `token_hash, ''), COALESCE(` + p + `actor_id, ''), ` + p + `model, ` + p + `provider, ` + p + `provider_model,
+		COALESCE(` + p + `token_hash, ''), COALESCE(` + p + `actor_id, ''), COALESCE(` + p + `owner_principal, ''), ` + p + `model, ` + p + `provider, ` + p + `provider_model,
 		` + p + `deployment_id, COALESCE(` + p + `provider_account_id::text, ''), COALESCE(` + p + `region, ''),
 		` + p + `billing_mode, COALESCE(` + p + `pricing_source, ''), COALESCE(` + p + `provider_job_id, ''),
 		` + p + `generation_status, ` + p + `delivery_status, ` + p + `settlement_status, ` + p + `request_snapshot,
@@ -330,7 +363,7 @@ func scanVideoJob(row videoRow) (*platform.VideoGenerationJob, error) {
 	)
 	err := row.Scan(
 		&job.ID, &job.TenantID, &job.RequestID, &job.IdempotencyKey,
-		&job.TokenHash, &job.ActorID, &job.Model, &job.Provider, &job.ProviderModel,
+		&job.TokenHash, &job.ActorID, &job.OwnerPrincipal, &job.Model, &job.Provider, &job.ProviderModel,
 		&job.DeploymentID, &job.ProviderAccountID, &job.Region,
 		&job.BillingMode, &job.PricingSource, &job.ProviderJobID,
 		&job.GenerationStatus, &job.DeliveryStatus, &job.SettlementStatus,

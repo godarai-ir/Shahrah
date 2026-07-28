@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS video_generation_jobs (
     idempotency_key VARCHAR(128),
     token_hash VARCHAR(64),
     actor_id VARCHAR(255),
+    owner_principal VARCHAR(320),
     model VARCHAR(255) NOT NULL,
     provider VARCHAR(100) NOT NULL,
     provider_model VARCHAR(255) NOT NULL,
@@ -75,9 +76,9 @@ CREATE TABLE IF NOT EXISTS video_generation_jobs (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_video_jobs_tenant_request
     ON video_generation_jobs (tenant_id, request_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_video_jobs_tenant_idempotency
-    ON video_generation_jobs (tenant_id, idempotency_key)
-    WHERE idempotency_key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_video_jobs_tenant_owner_idempotency
+    ON video_generation_jobs (tenant_id, owner_principal, idempotency_key)
+    WHERE owner_principal IS NOT NULL AND idempotency_key IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_video_jobs_provider_job
     ON video_generation_jobs (provider, provider_job_id)
     WHERE provider_job_id IS NOT NULL;
@@ -86,6 +87,8 @@ CREATE INDEX IF NOT EXISTS idx_video_jobs_poll
     WHERE generation_status IN ('submitting', 'queued', 'running', 'succeeded', 'failed', 'cancelled');
 CREATE INDEX IF NOT EXISTS idx_video_jobs_tenant_created
     ON video_generation_jobs (tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_video_jobs_tenant_owner_created
+    ON video_generation_jobs (tenant_id, owner_principal, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS video_job_submissions (
     submission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
