@@ -660,6 +660,12 @@ func applyImageUsageTotals(out *platform.UsageCostBreakdown, usage platform.Imag
 }
 
 func imageUsageHasActualFacts(usage platform.ImageUsage) bool {
+	if strings.EqualFold(
+		strings.TrimSpace(usage.Source),
+		platform.ImageUsageSourceEstimated,
+	) {
+		return false
+	}
 	return usage.InputTokens > 0 ||
 		usage.OutputTokens > 0 ||
 		usage.TotalTokens > 0 ||

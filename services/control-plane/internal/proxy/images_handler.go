@@ -875,32 +875,42 @@ func imageUsageFromResponse(
 	if data, ok := raw["data"].([]interface{}); ok {
 		outputCount = len(data)
 	}
-	if outputCount == 0 {
-		outputCount = estimated.OutputImageCount
-	}
 
 	out := platform.ImageUsage{
 		InputImageCount:  estimated.InputImageCount,
 		OutputImageCount: outputCount,
 		Resolution:       estimated.Resolution,
 		Quality:          estimated.Quality,
-		Source:           platform.ImageUsageSourceProviderUsage,
+		Source:           platform.ImageUsageSourceEstimated,
+	}
+	if outputCount > 0 {
+		out.Source = platform.ImageUsageSourceProviderUsage
 	}
 	usage, ok := raw["usage"].(map[string]interface{})
 	if !ok {
+		if out.Source == platform.ImageUsageSourceEstimated {
+			return providerImageUsageFallback(estimated)
+		}
 		return out
 	}
 
-	out.InputTokens = firstImageUsageInt(usage, "input_tokens", "prompt_tokens")
-	out.OutputTokens = firstImageUsageInt(usage, "output_tokens", "completion_tokens")
-	out.TotalTokens = firstImageUsageInt(usage, "total_tokens")
+	var inputFound, outputFound, totalFound bool
+	out.InputTokens, inputFound = firstImageUsageInt(usage, "input_tokens", "prompt_tokens")
+	out.OutputTokens, outputFound = firstImageUsageInt(usage, "output_tokens", "completion_tokens")
+	out.TotalTokens, totalFound = firstImageUsageInt(usage, "total_tokens")
+	detailsFound := false
 	if details, ok := usage["input_tokens_details"].(map[string]interface{}); ok {
 		if value, found := imageInteger(details["text_tokens"]); found {
 			out.InputTextTokens = intPointer(value)
+			detailsFound = true
 		}
 		if value, found := imageInteger(details["image_tokens"]); found {
 			out.InputImageTokens = intPointer(value)
+			detailsFound = true
 		}
+	}
+	if inputFound || outputFound || totalFound || detailsFound {
+		out.Source = platform.ImageUsageSourceProviderUsage
 	}
 	if out.InputTokens > 0 &&
 		out.InputTextTokens == nil &&
@@ -923,6 +933,9 @@ func imageUsageFromResponse(
 	}
 	if out.TotalTokens < out.InputTokens+out.OutputTokens {
 		out.TotalTokens = out.InputTokens + out.OutputTokens
+	}
+	if out.Source == platform.ImageUsageSourceEstimated {
+		return providerImageUsageFallback(estimated)
 	}
 	return out
 }
@@ -956,17 +969,17 @@ func providerImageUsageFallback(estimated platform.ImageUsage) platform.ImageUsa
 		OutputImageCount: estimated.OutputImageCount,
 		Resolution:       estimated.Resolution,
 		Quality:          estimated.Quality,
-		Source:           platform.ImageUsageSourceProviderUsage,
+		Source:           platform.ImageUsageSourceEstimated,
 	}
 }
 
-func firstImageUsageInt(usage map[string]interface{}, keys ...string) int {
+func firstImageUsageInt(usage map[string]interface{}, keys ...string) (int, bool) {
 	for _, key := range keys {
 		if value, ok := imageInteger(usage[key]); ok {
-			return value
+			return value, true
 		}
 	}
-	return 0
+	return 0, false
 }
 
 func imageInteger(value interface{}) (int, bool) {

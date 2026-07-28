@@ -401,6 +401,30 @@ func TestImageUsageFromResponseParsesProviderTicksExactly(t *testing.T) {
 	assert.Equal(t, platform.ImageUsageSourceProviderReported, usage.Source)
 }
 
+func TestImageUsageFromResponseDoesNotPromoteEstimateWithoutProviderFacts(t *testing.T) {
+	estimated := platform.ImageUsage{
+		InputTokens:      100,
+		OutputTokens:     200,
+		TotalTokens:      300,
+		OutputImageCount: 2,
+		Source:           platform.ImageUsageSourceEstimated,
+	}
+
+	for _, body := range [][]byte{
+		[]byte(`not-json`),
+		[]byte(`{"created":1}`),
+		[]byte(`{"created":1,"usage":{}}`),
+	} {
+		usage := imageUsageFromResponse(body, estimated)
+
+		assert.Equal(t, platform.ImageUsageSourceEstimated, usage.Source)
+		assert.Zero(t, usage.InputTokens)
+		assert.Zero(t, usage.OutputTokens)
+		assert.Zero(t, usage.TotalTokens)
+		assert.Equal(t, 2, usage.OutputImageCount)
+	}
+}
+
 func TestCanonicalImageResolutionUsesExplicitKClassOnly(t *testing.T) {
 	assert.Equal(t, "2k", canonicalImageResolution(map[string]interface{}{
 		"resolution": "2K",

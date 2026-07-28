@@ -58,13 +58,15 @@ func NewVideoDeploymentResolver(llmRouter *router.Router) videoruntime.Deploymen
 	return func(ctx context.Context, tenantID, model, deploymentID string) (platform.Deployment, error) {
 		var routeErr error
 		for _, candidate := range modelRoutingCandidates(model) {
-			deployment, err := llmRouter.Route(ctx, tenantID, candidate)
+			var deployment *router.Deployment
+			var err error
+			if deploymentID == "" {
+				deployment, err = llmRouter.Route(ctx, tenantID, candidate)
+			} else {
+				deployment, err = llmRouter.ResolveDeployment(ctx, tenantID, candidate, deploymentID)
+			}
 			if err != nil || deployment == nil {
 				routeErr = err
-				continue
-			}
-			if deploymentID != "" && deployment.ID != deploymentID {
-				routeErr = errors.New("selected deployment does not match persisted video job")
 				continue
 			}
 			return toContractDeployment(deployment), nil
@@ -358,7 +360,7 @@ func (h *VideoHandler) Cancel(c *fiber.Ctx) error {
 	if isTerminalVideoStatus(job.GenerationStatus) {
 		return c.JSON(job)
 	}
-	dep, err := h.routeVideo(c.Context(), currentTenant.ID, job.Model)
+	dep, err := NewVideoDeploymentResolver(h.router)(c.Context(), currentTenant.ID, job.Model, job.DeploymentID)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Unable to resolve video deployment", "routing_error")
 	}
@@ -367,7 +369,7 @@ func (h *VideoHandler) Cancel(c *fiber.Ctx) error {
 		if adapterErr != nil {
 			return writeAPIError(c, fiber.StatusBadGateway, adapterErr.Error(), "provider_error")
 		}
-		result, cancelErr := adapter.Cancel(c.Context(), job.RequestID, job.TenantID, toContractDeployment(dep), job.ProviderJobID)
+		result, cancelErr := adapter.Cancel(c.Context(), job.RequestID, job.TenantID, dep, job.ProviderJobID)
 		if cancelErr != nil {
 			return writeAPIError(c, fiber.StatusBadGateway, "Provider cancellation failed", "provider_error")
 		}

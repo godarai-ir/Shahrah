@@ -192,6 +192,123 @@ func TestIntegration_StorageSchemaContract(t *testing.T) {
 	assertIndexForColumn(t, pool, "model_deployments", "tenant_id")
 }
 
+type integrationTokenUsageCache struct {
+	cache.Cache
+	mu     sync.Mutex
+	deltas map[string]float64
+}
+
+func (c *integrationTokenUsageCache) QueueTokenSpendDelta(
+	_ context.Context,
+	deltaKey string,
+	_ string,
+	deltaUSD float64,
+	_ time.Duration,
+	_ int64,
+) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.deltas[deltaKey] += deltaUSD
+	return nil
+}
+
+func (c *integrationTokenUsageCache) DrainTokenSpendDeltas(
+	_ context.Context,
+	_ string,
+	_ int,
+) ([]cache.TokenSpendDelta, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	out := make([]cache.TokenSpendDelta, 0, len(c.deltas))
+	for key, delta := range c.deltas {
+		out = append(out, cache.TokenSpendDelta{Key: key, DeltaUSD: delta})
+	}
+	c.deltas = make(map[string]float64)
+	return out, nil
+}
+
+func (c *integrationTokenUsageCache) QueueKeyLastUsed(
+	context.Context,
+	string,
+	string,
+	int64,
+	time.Duration,
+) (bool, error) {
+	return true, nil
+}
+
+func (c *integrationTokenUsageCache) DrainKeyLastUsed(
+	context.Context,
+	string,
+	int,
+) ([]cache.KeyLastUsedSnapshot, error) {
+	return nil, nil
+}
+
+func TestIntegration_LogSpendsDeduplicatesTokenSpendSideEffect(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(databaseURL) == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	ctx := context.Background()
+	logger := zap.NewNop()
+	t.Setenv("TOKEN_USAGE_AGGREGATION_ENABLED", "true")
+	t.Setenv("TOKEN_USAGE_REDIS_KEY_PREFIX", "integration-spend-dedupe")
+	memCache, err := cache.NewMemoryCache(logger)
+	require.NoError(t, err)
+	tokenUsageCache := &integrationTokenUsageCache{
+		Cache:  memCache,
+		deltas: make(map[string]float64),
+	}
+
+	store, err := storage.NewStore(ctx, databaseURL, logger)
+	require.NoError(t, err)
+	t.Cleanup(store.Close)
+	store.SetEntitlementCache(tokenUsageCache)
+
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+	resetPersistentState(t, pool)
+
+	currentTenant := createIntegrationTenant(t, pool, "spend-dedupe")
+	now := time.Now().UTC()
+	spend := platform.SpendLog{
+		RequestID:       "request-spend-dedupe",
+		TokenHash:       "token-spend-dedupe",
+		TenantID:        currentTenant.ID,
+		Model:           "test-model",
+		CostUSD:         1.25,
+		CostIRR:         1_000,
+		Status:          "success",
+		CompletionStart: now,
+		CompletionEnd:   now,
+	}
+
+	require.NoError(t, store.LogSpends(ctx, []platform.SpendLog{spend, spend}))
+	require.NoError(t, store.LogSpend(ctx, spend))
+
+	deltas, err := tokenUsageCache.DrainTokenSpendDeltas(
+		ctx,
+		"integration-spend-dedupe:token_spend_delta:dirty",
+		10,
+	)
+	require.NoError(t, err)
+	require.Len(t, deltas, 1)
+	assert.Equal(t, 1.25, deltas[0].DeltaUSD)
+
+	var spendCount int
+	require.NoError(t, pool.QueryRow(
+		ctx,
+		`SELECT COUNT(*) FROM spend_logs WHERE tenant_id = $1::uuid AND request_id = $2`,
+		currentTenant.ID,
+		spend.RequestID,
+	).Scan(&spendCount))
+	assert.Equal(t, 1, spendCount)
+}
+
 func TestIntegration_ExchangeRateUpsertMaintainsSingleCurrentRowPerSource(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(databaseURL) == "" {

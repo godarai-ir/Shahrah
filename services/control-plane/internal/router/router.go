@@ -25,6 +25,7 @@ import (
 var (
 	ErrNoHealthyDeployments  = errors.New("no healthy deployments available")
 	ErrModelNotFound         = errors.New("model not found")
+	ErrDeploymentNotFound    = errors.New("deployment not found")
 	ErrAllDeploymentsFailed  = errors.New("all deployments failed or are in cooldown")
 	ErrNoPlatformCredential  = errors.New("platform provider credential unavailable")
 	ErrDependencyUnavailable = errors.New("routing dependency unavailable")
@@ -304,6 +305,103 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	}
 
 	return r.finalizeRoute(ctx, tenantID, modelName, selected, dynamicIDs)
+}
+
+// ResolveDeployment returns the exact persisted deployment for an asynchronous
+// request. It deliberately bypasses health filtering and load balancing because
+// an in-flight provider job cannot be moved to another deployment.
+func (r *Router) ResolveDeployment(ctx context.Context, tenantID, modelName, deploymentID string) (*Deployment, error) {
+	deploymentID = strings.TrimSpace(deploymentID)
+	if deploymentID == "" {
+		return nil, ErrDeploymentNotFound
+	}
+
+	if deployment := r.configuredDeploymentByID(modelName, deploymentID); deployment != nil {
+		return r.applyCredentials(ctx, tenantID, modelName, deployment)
+	}
+
+	if r.store == nil || strings.TrimSpace(tenantID) == "" {
+		return nil, ErrDeploymentNotFound
+	}
+
+	deployments, err := r.listCachedDeployments(ctx, tenantID)
+	storeFailed := err != nil
+	var dependencyErr error
+	if storeFailed {
+		dependencyErr = fmt.Errorf("%w: deployment store: %v", ErrDependencyUnavailable, err)
+		if snapshot, ok := r.lastKnownGoodDeploymentSnapshot(tenantID); ok {
+			deployments = snapshot
+		} else if deployment, ok := r.lastKnownGoodRoute(tenantID, modelName); ok && deployment.ID == deploymentID {
+			return r.applyCredentials(ctx, tenantID, modelName, deployment)
+		} else {
+			return nil, dependencyErr
+		}
+	} else {
+		r.rememberDeploymentSnapshot(tenantID, deployments)
+	}
+
+	for _, deployment := range deployments {
+		if deployment.ID != deploymentID {
+			continue
+		}
+		if deployment.ModelName != modelName && deployment.ModelName != "*" {
+			return nil, ErrDeploymentNotFound
+		}
+
+		hydrated := r.hydrateDynamicDeployment(deployment)
+		if hydrated == nil {
+			return nil, ErrNoPlatformCredential
+		}
+		if storeFailed && dynamicDeploymentNeedsResolvedCredential(hydrated) {
+			if resolved, ok := r.lastKnownGoodRoute(tenantID, modelName); ok && resolved.ID == deploymentID {
+				return r.applyCredentials(ctx, tenantID, modelName, resolved)
+			}
+			return nil, dependencyErr
+		}
+
+		return r.finalizeRoute(ctx, tenantID, modelName, hydrated, map[string]struct{}{deploymentID: {}})
+	}
+
+	if storeFailed {
+		if deployment, ok := r.lastKnownGoodRoute(tenantID, modelName); ok && deployment.ID == deploymentID {
+			return r.applyCredentials(ctx, tenantID, modelName, deployment)
+		}
+		return nil, dependencyErr
+	}
+
+	return nil, ErrDeploymentNotFound
+}
+
+func (r *Router) configuredDeploymentByID(modelName, deploymentID string) *Deployment {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	find := func(deployments []*Deployment) *Deployment {
+		for _, deployment := range deployments {
+			if deployment != nil && deployment.ID == deploymentID {
+				return cloneDeployment(deployment)
+			}
+		}
+		return nil
+	}
+
+	if deployments, configured := r.deployments[modelName]; configured {
+		return find(deployments)
+	}
+
+	var wildcardDeployments []*Deployment
+	for pattern, deployments := range r.deployments {
+		prefix, ok := wildcardPrefix(pattern)
+		if !ok || !strings.HasPrefix(modelName, prefix) {
+			continue
+		}
+		wildcardDeployments = append(wildcardDeployments, deployments...)
+	}
+	if len(wildcardDeployments) > 0 {
+		return find(wildcardDeployments)
+	}
+
+	return find(r.deployments["*"])
 }
 
 func (r *Router) rememberDeploymentSnapshot(tenantID string, deployments []platform.Deployment) {

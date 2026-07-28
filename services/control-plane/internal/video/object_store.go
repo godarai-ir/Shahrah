@@ -105,13 +105,15 @@ func NewS3ObjectStoreFromEnv(ctx context.Context) (*S3ObjectStore, error) {
 		}
 	})
 	ttlSeconds := envInt("VIDEO_OBJECT_STORE_PRESIGN_TTL_SECONDS", 900)
+	allowHTTP := envBool("VIDEO_OUTPUT_ALLOW_HTTP", false)
+	downloadTimeout := time.Duration(envInt("VIDEO_OUTPUT_DOWNLOAD_TIMEOUT_SECONDS", 300)) * time.Second
 	return &S3ObjectStore{
 		client:     client,
 		presign:    s3.NewPresignClient(client),
-		httpClient: &http.Client{Timeout: time.Duration(envInt("VIDEO_OUTPUT_DOWNLOAD_TIMEOUT_SECONDS", 300)) * time.Second},
+		httpClient: newVideoOutputHTTPClient(downloadTimeout, allowHTTP),
 		bucket:     bucket,
 		keyPrefix:  strings.Trim(strings.TrimSpace(os.Getenv("VIDEO_OBJECT_STORE_PREFIX")), "/"),
-		allowHTTP:  envBool("VIDEO_OUTPUT_ALLOW_HTTP", false),
+		allowHTTP:  allowHTTP,
 		encryption: envBool("VIDEO_OBJECT_STORE_SSE", true),
 		defaultTTL: time.Duration(ttlSeconds) * time.Second,
 		maxBytes:   int64(envInt("VIDEO_OUTPUT_MAX_MIB", 2048)) * 1024 * 1024,
@@ -123,7 +125,18 @@ func (s *S3ObjectStore) CopyFromURL(ctx context.Context, tenantID, jobID string,
 		return artifact, ErrObjectStoreUnavailable
 	}
 	source, err := url.Parse(strings.TrimSpace(artifact.ProviderURL))
-	if err != nil || source.Host == "" || (source.Scheme != "https" && source.Scheme != "s3" && !(s.allowHTTP && source.Scheme == "http")) {
+	if err != nil {
+		return artifact, errors.New("provider output URL must be an allowed absolute URL")
+	}
+	source.Scheme = strings.ToLower(source.Scheme)
+	if source.Scheme == "s3" {
+		if source.Host == "" || source.User != nil {
+			return artifact, errors.New("provider output URL must be an allowed absolute URL")
+		}
+	} else if err := validateVideoOutputHTTPURL(source, s.allowHTTP); err != nil {
+		return artifact, err
+	}
+	if source.Scheme != "s3" && source.Scheme != "https" && source.Scheme != "http" {
 		return artifact, errors.New("provider output URL must be an allowed absolute URL")
 	}
 

@@ -370,6 +370,39 @@ func TestFinalizeImageUsageFallsBackToReservedEstimate(t *testing.T) {
 	assert.Equal(t, "actual_usage_rate_unresolved", finalized.Metadata["image_billing_fallback_reason"])
 }
 
+func TestFinalizeImageUsageNeverRatesEstimatedUsageAsActual(t *testing.T) {
+	svc := imageTestService(t)
+	price := imageTestPricing(
+		imageTestRate("per-image", "output", "image", "0.02", 1),
+	)
+	estimatedUsage := platform.ImageUsage{
+		OutputImageCount: 2,
+		Source:           platform.ImageUsageSourceEstimated,
+	}
+	estimated, err := svc.EstimateImageUsage(
+		context.Background(),
+		imageTestDeployment(price),
+		"image-model",
+		estimatedUsage,
+	)
+	require.NoError(t, err)
+
+	finalized, err := svc.FinalizeImageUsage(
+		context.Background(),
+		"image-model",
+		estimatedUsage,
+		estimated,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "estimated_final", finalized.RatingStatus)
+	assert.Equal(t, estimated.TotalCostUSDExact, finalized.TotalCostUSDExact)
+	assert.Equal(
+		t,
+		platform.ImageUsageSourceEstimated,
+		finalized.Metadata["image_usage_source"],
+	)
+}
+
 func TestEstimateImageUsageAllowsUnratedExternalBilling(t *testing.T) {
 	svc := imageTestService(t)
 	deployment := imageTestDeployment(imageTestPricing(

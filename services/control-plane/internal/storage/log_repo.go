@@ -42,7 +42,7 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 			log.CompletionStart,
 			log.CompletionEnd,
 			marshalJSONBestEffort(log.UsageMeasures),
-			marshalJSONBestEffort(log.RatingSnapshot),
+			nullableJSON(log.RatingSnapshot),
 			marshalJSONBestEffort(log.CostComponents),
 			emptyToNil(log.PricingSource),
 			emptyToNil(log.RatingStatus),
@@ -52,25 +52,48 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 		)
 	}
 
-	if _, err := s.pool.Exec(ctx, `
-		INSERT INTO spend_logs (
-			request_id, token_hash, tenant_id, organization_id, team_id, model, input_tokens, output_tokens,
-			total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
-			completion_start_time, completion_end_time, usage_measures, rating_snapshot,
-			cost_components, pricing_source, rating_status, video_seconds, video_resolution, output_count
+	rows, err := s.pool.Query(ctx, `
+		WITH inserted_spend AS (
+			INSERT INTO spend_logs (
+				request_id, token_hash, tenant_id, organization_id, team_id, model, input_tokens, output_tokens,
+				total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
+				completion_start_time, completion_end_time, usage_measures, rating_snapshot,
+				cost_components, pricing_source, rating_status, video_seconds, video_resolution, output_count
+			)
+			VALUES `+strings.Join(values, ", ")+`
+			ON CONFLICT (tenant_id, request_id)
+			WHERE tenant_id IS NOT NULL AND request_id IS NOT NULL
+			DO NOTHING
+			RETURNING COALESCE(token_hash, '') AS token_hash,
+			          COALESCE(cost_usd, 0)::double precision AS cost_usd,
+			          rating_snapshot
 		)
-		VALUES `+strings.Join(values, ", ")+`
-		ON CONFLICT (tenant_id, request_id)
-		WHERE tenant_id IS NOT NULL AND request_id IS NOT NULL
-		DO NOTHING`, args...); err != nil {
+		SELECT token_hash, cost_usd
+		FROM inserted_spend
+		WHERE rating_snapshot IS NULL
+	`, args...)
+	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
-	for _, log := range logs {
-		if log.RatingSnapshot != nil {
-			continue
+	// Conflict replays are intentionally absent from RETURNING, so their
+	// token-spend aggregation side effect cannot be applied a second time.
+	insertedLegacySpends := make([]tokenSpendUpdate, 0, len(logs))
+	for rows.Next() {
+		var inserted tokenSpendUpdate
+		if err := rows.Scan(&inserted.TokenHash, &inserted.DeltaUSD); err != nil {
+			return err
 		}
-		if err := s.queueTokenSpendDelta(ctx, log.TokenHash, log.CostUSD); err != nil {
+		insertedLegacySpends = append(insertedLegacySpends, inserted)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+
+	for _, inserted := range insertedLegacySpends {
+		if err := s.queueTokenSpendDelta(ctx, inserted.TokenHash, inserted.DeltaUSD); err != nil {
 			return err
 		}
 	}
