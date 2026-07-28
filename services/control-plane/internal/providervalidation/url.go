@@ -14,6 +14,48 @@ var ErrInvalidBaseURL = errors.New("invalid provider base URL")
 
 var geminiAPIVersionPattern = regexp.MustCompile(`^v[0-9]+(?:(?:alpha|beta)[0-9]*)?$`)
 
+var providerBaseURLConfigKeys = []string{
+	"api_base",
+	"base_url",
+	"endpoint",
+	"serving_endpoint_url",
+}
+
+// NormalizeBaseURLConfig validates every recognized provider base-URL alias
+// before mutating config. This keeps persistence and probe-time validation in
+// sync and avoids partially normalizing a rejected request.
+func NormalizeBaseURLConfig(provider string, config map[string]interface{}) error {
+	normalized := make(map[string]string, len(providerBaseURLConfigKeys))
+
+	for _, key := range providerBaseURLConfigKeys {
+		value, exists := config[key]
+		if !exists {
+			continue
+		}
+
+		raw, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("%w: %s must be a string", ErrInvalidBaseURL, key)
+		}
+
+		safe, err := ValidateBaseURL(provider, raw)
+		if err != nil {
+			return fmt.Errorf("%w: %s: %v", ErrInvalidBaseURL, key, err)
+		}
+		normalized[key] = safe
+	}
+
+	for key, safe := range normalized {
+		if safe == "" {
+			delete(config, key)
+			continue
+		}
+		config[key] = safe
+	}
+
+	return nil
+}
+
 // ValidateBaseURL normalizes and validates provider-owned HTTPS base URLs.
 func ValidateBaseURL(provider, raw string) (string, error) {
 	value := strings.TrimSpace(raw)

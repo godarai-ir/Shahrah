@@ -2,6 +2,66 @@ import type { ProviderConnectionSchema } from "./types";
 
 export type ProviderCredentialValues = Record<string, string>;
 
+export type ProviderCredentialValidationResult = {
+  success: boolean;
+  unsupported?: boolean;
+  category?: string;
+};
+
+export type ProviderCredentialValidationMessageKey =
+  | "messages.credentialValid"
+  | "messages.credentialQuotaExhausted"
+  | "messages.credentialInvalid"
+  | "messages.credentialForbidden"
+  | "messages.credentialConfigurationInvalid"
+  | "messages.credentialMissing"
+  | "messages.credentialNetworkError"
+  | "messages.credentialTimeout"
+  | "messages.credentialProviderError"
+  | "messages.credentialUnsupported"
+  | "messages.credentialManaged"
+  | "messages.credentialNotRequired";
+
+export function providerCredentialValidationMessageKey(
+  result: ProviderCredentialValidationResult,
+): ProviderCredentialValidationMessageKey {
+  if (result.unsupported || result.category === "unsupported") return "messages.credentialUnsupported";
+
+  switch (result.category) {
+    case "ok":
+      return "messages.credentialValid";
+    case "quota_exhausted":
+      return "messages.credentialQuotaExhausted";
+    case "invalid_credential":
+      return "messages.credentialInvalid";
+    case "forbidden":
+      return "messages.credentialForbidden";
+    case "configuration":
+      return "messages.credentialConfigurationInvalid";
+    case "missing_credential":
+      return "messages.credentialMissing";
+    case "network":
+      return "messages.credentialNetworkError";
+    case "timeout":
+      return "messages.credentialTimeout";
+    case "provider":
+      return "messages.credentialProviderError";
+    case "managed":
+      return "messages.credentialManaged";
+    case "no_credential":
+      return "messages.credentialNotRequired";
+    default:
+      return result.success ? "messages.credentialValid" : "messages.credentialInvalid";
+  }
+}
+
+export function providerCredentialValidationNoticeKind(
+  result: ProviderCredentialValidationResult,
+): "success" | "warning" | "error" {
+  if (result.unsupported || result.category === "unsupported") return "warning";
+  return result.success ? "success" : "error";
+}
+
 export function defaultProviderCredentialValues(schema: ProviderConnectionSchema | null): ProviderCredentialValues {
   return Object.fromEntries(
     (schema?.fields ?? []).flatMap((field) => {

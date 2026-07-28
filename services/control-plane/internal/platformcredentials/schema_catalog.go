@@ -149,7 +149,40 @@ func cloneSchemas(items []platform.ProviderConnectionSchema) []platform.Provider
 
 	for index := range result {
 		result[index].Fields = append([]platform.ProviderConnectionField(nil), items[index].Fields...)
+		for fieldIndex := range result[index].Fields {
+			field := &result[index].Fields[fieldIndex]
+			field.RequiredWhen = cloneSchemaMap(field.RequiredWhen)
+			field.Validation = cloneSchemaMap(field.Validation)
+		}
 	}
 
 	return result
+}
+
+func cloneSchemaMap(source map[string]interface{}) map[string]interface{} {
+	if source == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{}, len(source))
+	for key, value := range source {
+		result[key] = cloneSchemaValue(value)
+	}
+
+	return result
+}
+
+func cloneSchemaValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		return cloneSchemaMap(typed)
+	case []interface{}:
+		result := make([]interface{}, len(typed))
+		for index, item := range typed {
+			result[index] = cloneSchemaValue(item)
+		}
+		return result
+	default:
+		return value
+	}
 }

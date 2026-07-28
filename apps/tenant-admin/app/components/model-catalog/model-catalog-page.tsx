@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
+import {
+  providerCredentialValidationMessageKey,
+  providerCredentialValidationNoticeKind,
+  type ProviderCredentialValidationResult,
+} from "@/app/components/provider-account-wizard/credential-schema";
 import { pricingSummaryText } from "@/app/components/pricing";
 import type {
   ProviderAccountReadiness,
@@ -82,6 +87,7 @@ type ModelCatalogPageProps = {
 
 export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
   const t = useTranslations("modelCatalog");
+  const providerT = useTranslations("providerAccounts");
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
@@ -326,16 +332,16 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
   async function testConnection(account: TenantProviderAccount) {
     setNotice(null);
     try {
-      const response = await requestJSON<{ success?: boolean; message?: string }>(
+      const response = await requestJSON<ProviderCredentialValidationResult & { message?: string }>(
         `/api/tenant-provider-accounts/${encodeURIComponent(account.id)}/test-credentials`,
         { method: "POST", body: JSON.stringify({}) },
       );
       setNotice({
-        kind: response.success === false ? "error" : "success",
-        message: response.message || t("notices.connectionTestSucceeded", { account: account.name }),
+        kind: providerCredentialValidationNoticeKind(response),
+        message: providerT(providerCredentialValidationMessageKey(response)),
       });
-    } catch (error) {
-      setNotice({ kind: "error", message: normalizeError(error, t("errors.connectionTest")) });
+    } catch {
+      setNotice({ kind: "error", message: providerT("messages.credentialTestFailed") });
     }
   }
 

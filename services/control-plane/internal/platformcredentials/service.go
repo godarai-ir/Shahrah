@@ -88,6 +88,9 @@ func (s *Service) CreateConnection(ctx context.Context, request platform.CreateP
 	if err != nil || strings.TrimSpace(request.Name) == "" || hasSecretConfig(request.Config) || !validConnectionConfig(schema, request.Config) {
 		return nil, ErrInvalidRequest
 	}
+	if err := providervalidation.NormalizeBaseURLConfig(request.ProviderSlug, request.Config); err != nil {
+		return nil, ErrInvalidRequest
+	}
 
 	if request.Weight == 0 {
 		request.Weight = 1
@@ -109,6 +112,9 @@ func (s *Service) UpdateConnection(ctx context.Context, id string, request platf
 
 		schema, err := s.schema(ctx, connection.ProviderSlug, connection.AuthMode, connection.SchemaVersion)
 		if err != nil || !validConnectionConfig(schema, request.Config) {
+			return nil, ErrInvalidRequest
+		}
+		if err := providervalidation.NormalizeBaseURLConfig(connection.ProviderSlug, request.Config); err != nil {
 			return nil, ErrInvalidRequest
 		}
 	}

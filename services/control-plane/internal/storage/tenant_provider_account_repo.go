@@ -21,7 +21,7 @@ var (
 
 // CreateTenantProviderAccount creates a provider account for the tenant.
 func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string, req platform.CreateTenantProviderAccountRequest) (*platform.TenantProviderAccount, error) {
-	if err := validateProviderConfigAPIBase(req.Provider, req.ProviderConfig, "api_base", "base_url"); err != nil {
+	if err := validateProviderConfigAPIBase(req.Provider, req.ProviderConfig); err != nil {
 		return nil, err
 	}
 
@@ -291,7 +291,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		nextProviderCfg = req.ProviderConfig
 	}
 
-	if validationErr := validateProviderConfigAPIBase(currentProvider, nextProviderCfg, "api_base", "base_url"); validationErr != nil {
+	if validationErr := validateProviderConfigAPIBase(currentProvider, nextProviderCfg); validationErr != nil {
 		return nil, validationErr
 	}
 
@@ -417,7 +417,7 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 			continue
 		}
 
-		if validationErr := validateProviderConfigAPIBase(provider, item.Settings, "api_base", "base_url"); validationErr != nil {
+		if validationErr := validateProviderConfigAPIBase(provider, item.Settings); validationErr != nil {
 			return nil, validationErr
 		}
 

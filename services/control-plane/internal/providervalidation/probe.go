@@ -126,19 +126,21 @@ func (p *Prober) Probe(ctx context.Context, request Request) Result {
 		return Result{Category: "network", Message: "Provider validation response could not be read."}
 	}
 
-	return classifyResponse(resp.StatusCode, body, request.Secrets)
+	return classifyResponse(request.Provider, resp.StatusCode, body, request.Secrets)
 }
 
-func classifyResponse(status int, body []byte, secrets map[string]string) Result {
+func classifyResponse(provider string, status int, body []byte, secrets map[string]string) Result {
 	detail := sanitizedProviderError(body, secrets)
 
 	switch {
 	case status >= http.StatusOK && status < http.StatusMultipleChoices:
 		return Result{Success: true, Category: "ok", Message: "Provider accepted the credential."}
-	case status == http.StatusUnauthorized:
+	case status == http.StatusUnauthorized ||
+		(provider == "cohere" && status == 498) ||
+		(provider == "google-gemini" && googleAPIKeyInvalid(body)):
 		return Result{Category: "invalid_credential", Message: appendProviderDetail("Provider rejected the credential as invalid.", detail)}
 	case status == http.StatusForbidden:
-		return Result{Category: "forbidden", Message: appendProviderDetail("The credential authenticated but lacks permission for the validation endpoint.", detail)}
+		return Result{Category: "forbidden", Message: appendProviderDetail("Provider denied access to the validation endpoint.", detail)}
 	case status == http.StatusPaymentRequired || status == http.StatusTooManyRequests:
 		return Result{
 			Success:  true,
@@ -155,6 +157,27 @@ func classifyResponse(status int, body []byte, secrets map[string]string) Result
 			Message:  appendProviderDetail(fmt.Sprintf("Provider validation failed with HTTP %d.", status), detail),
 		}
 	}
+}
+
+func googleAPIKeyInvalid(body []byte) bool {
+	var payload struct {
+		Error struct {
+			Details []struct {
+				Reason string `json:"reason"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+
+	for _, detail := range payload.Error.Details {
+		if detail.Reason == "API_KEY_INVALID" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func appendProviderDetail(message, detail string) string {

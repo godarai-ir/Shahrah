@@ -50,3 +50,28 @@ func TestValidateProviderAPIBaseRejectsSSRFTargets(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateProviderConfigAPIBaseCoversEveryPersistedAlias(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		key      string
+		value    interface{}
+	}{
+		{name: "Azure endpoint", provider: "azure-open-ai", key: "endpoint", value: "https://127.0.0.1"},
+		{name: "Databricks serving endpoint", provider: "databricks", key: "serving_endpoint_url", value: "https://metadata.google.internal"},
+		{name: "non-string base URL", provider: "openai", key: "base_url", value: 42},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := map[string]interface{}{tt.key: tt.value}
+
+			err := validateProviderConfigAPIBase(tt.provider, config)
+
+			require.Error(t, err)
+			assert.ErrorIs(t, err, ErrInvalidProviderAPIBase)
+			assert.Equal(t, tt.value, config[tt.key])
+		})
+	}
+}

@@ -4,6 +4,8 @@ import {
   buildProviderCredentialPayload,
   defaultProviderCredentialValues,
   missingRequiredProviderFields,
+  providerCredentialValidationMessageKey,
+  providerCredentialValidationNoticeKind,
   requiresProviderCredentialValidation,
 } from "./credential-schema";
 import type { ProviderConnectionSchema } from "./types";
@@ -72,5 +74,36 @@ describe("provider credential schema helpers", () => {
       runtime_ready: false,
       credential_validation_supported: false,
     }, false)).toBe(false);
+  });
+
+  it("maps stable backend categories to localized UI messages and notice kinds", () => {
+    expect(providerCredentialValidationMessageKey({
+      success: true,
+      category: "quota_exhausted",
+    })).toBe("messages.credentialQuotaExhausted");
+    expect(providerCredentialValidationNoticeKind({
+      success: true,
+      category: "quota_exhausted",
+    })).toBe("success");
+
+    expect(providerCredentialValidationMessageKey({
+      success: false,
+      category: "configuration",
+    })).toBe("messages.credentialConfigurationInvalid");
+    expect(providerCredentialValidationNoticeKind({
+      success: false,
+      category: "configuration",
+    })).toBe("error");
+
+    expect(providerCredentialValidationMessageKey({
+      success: false,
+      unsupported: true,
+      category: "unsupported",
+    })).toBe("messages.credentialUnsupported");
+    expect(providerCredentialValidationNoticeKind({
+      success: false,
+      unsupported: true,
+      category: "unsupported",
+    })).toBe("warning");
   });
 });

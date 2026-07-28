@@ -14,8 +14,13 @@ import {
 } from "@/components/app-ui";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  providerCredentialValidationMessageKey,
+  providerCredentialValidationNoticeKind,
+  type ProviderCredentialValidationResult,
+} from "@/app/components/provider-account-wizard/credential-schema";
 import type { TenantProviderAccount } from "@/app/components/provider-account-wizard/types";
-import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
+import { requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 
 export function ProviderConnectionTestDialog(props: {
   open: boolean;
@@ -49,18 +54,20 @@ export function ProviderConnectionTestDialog(props: {
     setNotice(null);
     try {
       const trimmedModelHint = modelHint.trim();
-      const result = await requestJSON<{ success: boolean; message?: string }>(
+      const result = await requestJSON<ProviderCredentialValidationResult & { message?: string }>(
         `/api/tenant-provider-accounts/${encodeURIComponent(props.account.id)}/test-credentials`,
         {
           method: "POST",
           body: JSON.stringify({ model_hint: trimmedModelHint || undefined }),
         },
       );
-      const payload = unwrapData<{ success: boolean; message?: string }>(result) ?? result;
-      const message = payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
-      setNotice({ kind: payload.success ? "success" : "error", message });
-    } catch (error) {
-      setNotice({ kind: "error", message: normalizeError(error, t("messages.credentialTestFailed")) });
+      const payload = unwrapData<ProviderCredentialValidationResult & { message?: string }>(result) ?? result;
+      setNotice({
+        kind: providerCredentialValidationNoticeKind(payload),
+        message: t(providerCredentialValidationMessageKey(payload)),
+      });
+    } catch {
+      setNotice({ kind: "error", message: t("messages.credentialTestFailed") });
     } finally {
       setIsTesting(false);
     }

@@ -572,7 +572,7 @@ function SidebarPlanSummary({
               <span className="text-sidebar-foreground/35" aria-hidden="true">|</span>
               <span className={cn("truncate text-xs font-normal", isExpired ? "text-warning" : "text-sidebar-foreground/60")}>{periodLabel}</span>
             </span>
-            <span className="w-full text-center text-[0.6875rem] leading-none text-sidebar-foreground/45">
+            <span className="w-full text-center text-xs leading-none text-sidebar-foreground/45">
               {t("appVersion.label")} <span dir="ltr" className="font-mono">{appVersion}</span>
             </span>
           </Link>

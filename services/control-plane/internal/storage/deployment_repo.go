@@ -269,7 +269,10 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			billingMode = platform.BillingModeExternalBilled
 		}
 
-		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "base_url"))
+		apiBase := safeProviderAPIBase(
+			provider,
+			firstString(providerConfig, settings, "serving_endpoint_url", "endpoint", "base_url", "api_base"),
+		)
 		effectivePricing, pricingSource, err := effectiveDeploymentPricing(pricingMode, publicPricingRaw, privatePricingRaw)
 		if err != nil {
 			return nil, err

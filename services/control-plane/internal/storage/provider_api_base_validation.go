@@ -18,23 +18,9 @@ func ValidateProviderAPIBase(provider string, raw string) (string, error) {
 	return normalized, nil
 }
 
-func validateProviderConfigAPIBase(provider string, config map[string]interface{}, keys ...string) error {
-	for _, key := range keys {
-		raw, ok := config[key].(string)
-		if !ok {
-			continue
-		}
-
-		normalized, err := ValidateProviderAPIBase(provider, raw)
-		if err != nil {
-			return err
-		}
-
-		if normalized == "" {
-			delete(config, key)
-		} else {
-			config[key] = normalized
-		}
+func validateProviderConfigAPIBase(provider string, config map[string]interface{}) error {
+	if err := providervalidation.NormalizeBaseURLConfig(provider, config); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidProviderAPIBase, err)
 	}
 
 	return nil

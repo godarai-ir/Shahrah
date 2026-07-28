@@ -2,6 +2,7 @@ package providervalidation
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -55,6 +56,74 @@ func TestValidateBaseURLRejectsUnsafeTargets(t *testing.T) {
 	for _, raw := range tests {
 		if _, err := ValidateBaseURL("openai", raw); !errors.Is(err, ErrInvalidBaseURL) {
 			t.Fatalf("expected ErrInvalidBaseURL for %q, got %v", raw, err)
+		}
+	}
+}
+
+func TestNormalizeBaseURLConfigValidatesEveryAlias(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		provider string
+		key      string
+		raw      string
+		want     string
+	}{
+		{
+			name:     "Azure endpoint",
+			provider: "azure-open-ai",
+			key:      "endpoint",
+			raw:      " HTTPS://RESOURCE.OPENAI.AZURE.COM/ ",
+			want:     "https://resource.openai.azure.com",
+		},
+		{
+			name:     "Databricks serving endpoint",
+			provider: "databricks",
+			key:      "serving_endpoint_url",
+			raw:      "https://WORKSPACE.CLOUD.DATABRICKS.COM/serving-endpoints/model/invocations/",
+			want:     "https://workspace.cloud.databricks.com/serving-endpoints/model/invocations",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			config := map[string]interface{}{test.key: test.raw}
+			if err := NormalizeBaseURLConfig(test.provider, config); err != nil {
+				t.Fatal(err)
+			}
+			if got := config[test.key]; got != test.want {
+				t.Fatalf("unexpected normalized URL %#v, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeBaseURLConfigRejectsUnsafeOrInvalidAliasesAtomically(t *testing.T) {
+	t.Parallel()
+
+	tests := []map[string]interface{}{
+		{"endpoint": "https://127.0.0.1"},
+		{"serving_endpoint_url": "https://metadata.google.internal"},
+		{"base_url": 42},
+	}
+
+	for _, config := range tests {
+		before := make(map[string]interface{}, len(config)+1)
+		for key, value := range config {
+			before[key] = value
+		}
+		before["api_base"] = " HTTPS://API.OPENAI.COM/V1/ "
+		config["api_base"] = before["api_base"]
+
+		if err := NormalizeBaseURLConfig("openai", config); !errors.Is(err, ErrInvalidBaseURL) {
+			t.Fatalf("expected ErrInvalidBaseURL for %#v, got %v", before, err)
+		}
+		if !reflect.DeepEqual(config, before) {
+			t.Fatalf("rejected config was partially mutated: got %#v, want %#v", config, before)
 		}
 	}
 }

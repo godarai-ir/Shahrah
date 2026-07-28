@@ -48,6 +48,8 @@ import {
   buildProviderCredentialPayload,
   defaultProviderCredentialValues,
   missingRequiredProviderFields,
+  providerCredentialValidationMessageKey,
+  providerCredentialValidationNoticeKind,
   providerCredentialValuesForSchema,
   requiresProviderCredentialValidation,
   type ProviderCredentialValues,
@@ -958,25 +960,17 @@ export default function ProviderAccountWizard(props?: {
         },
       );
       const payload = unwrapData<{ success: boolean; unsupported?: boolean; category?: string; message?: string }>(result) ?? result;
-      const rawMessage =
-        payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
-      const message = payload.unsupported
-        ? rawMessage
-        : payload.success
-          ? ux("integrations.wizard.connectionTestSuccess", { message: rawMessage })
-        : ux("integrations.wizard.connectionTestFailed", { message: rawMessage });
       setCreateCredentialTestResult({
-        kind: payload.unsupported ? "warning" : payload.success ? "success" : "error",
-        message,
+        kind: providerCredentialValidationNoticeKind(payload),
+        message: t(providerCredentialValidationMessageKey(payload)),
       });
       setAPIKeyTouched(!payload.success);
       setCredentialTestSucceeded(payload.success && !payload.unsupported);
-    } catch (error) {
+    } catch {
       setCredentialTestSucceeded(false);
-      const message = normalizeError(error, t("messages.credentialTestFailed"));
       setCreateCredentialTestResult({
         kind: "error",
-        message: ux("integrations.wizard.connectionTestFailed", { message }),
+        message: t("messages.credentialTestFailed"),
       });
     } finally {
       setIsTesting(false);
@@ -1181,24 +1175,17 @@ export default function ProviderAccountWizard(props?: {
         { method: "POST", body: JSON.stringify({}) },
       );
       const payload = unwrapData<{ success: boolean; unsupported?: boolean; category?: string; message?: string }>(result) ?? result;
-      const nextMessage =
-        payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
       setCreateCredentialTestResult({
-        kind: payload.unsupported ? "warning" : payload.success ? "success" : "error",
-        message: payload.unsupported
-          ? nextMessage
-          : payload.success
-          ? ux("integrations.wizard.connectionTestSuccess", { message: nextMessage })
-          : ux("integrations.wizard.connectionTestFailed", { message: nextMessage }),
+        kind: providerCredentialValidationNoticeKind(payload),
+        message: t(providerCredentialValidationMessageKey(payload)),
       });
       setAPIKeyTouched(!payload.success);
       setCredentialTestSucceeded(payload.success && !payload.unsupported);
-    } catch (error) {
+    } catch {
       setCredentialTestSucceeded(false);
-      const message = normalizeError(error, t("messages.credentialTestFailed"));
       setCreateCredentialTestResult({
         kind: "error",
-        message: ux("integrations.wizard.connectionTestFailed", { message }),
+        message: t("messages.credentialTestFailed"),
       });
     } finally {
       setIsTesting(false);

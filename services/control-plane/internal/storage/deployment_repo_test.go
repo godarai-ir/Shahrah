@@ -75,3 +75,25 @@ func TestCatalogPriceResolved(t *testing.T) {
 		Currency: "USD",
 	}}}))
 }
+
+func TestProviderConnectionBaseURLAliasesFollowProbePrecedence(t *testing.T) {
+	t.Parallel()
+
+	config := map[string]interface{}{
+		"api_base":            "https://legacy.example",
+		"base_url":            "https://base.example",
+		"endpoint":            "https://azure.example",
+		"serving_endpoint_url": "https://databricks.example",
+	}
+
+	got := firstString(
+		config,
+		nil,
+		"serving_endpoint_url",
+		"endpoint",
+		"base_url",
+		"api_base",
+	)
+
+	assert.Equal(t, "https://databricks.example", got)
+}

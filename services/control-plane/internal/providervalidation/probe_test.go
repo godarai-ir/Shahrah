@@ -246,6 +246,49 @@ func TestProbeClassifiesQuotaAsAuthenticatedAndRedactsErrors(t *testing.T) {
 	}
 }
 
+func TestProbeClassifiesProviderSpecificCredentialErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		provider string
+		status   int
+		body     string
+	}{
+		{
+			name:     "Cohere invalid token",
+			provider: "cohere",
+			status:   498,
+			body:     `{"message":"invalid token"}`,
+		},
+		{
+			name:     "Gemini invalid API key reason",
+			provider: "google-gemini",
+			status:   http.StatusBadRequest,
+			body:     `{"error":{"message":"API key not valid","details":[{"reason":"API_KEY_INVALID","domain":"googleapis.com"}]}}`,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return testHTTPResponse(test.status, test.body), nil
+			})}
+
+			result := NewProber(client).Probe(
+				context.Background(),
+				apiKeyRequest(test.provider, "provider-secret"),
+			)
+			if result.Success || result.Category != "invalid_credential" {
+				t.Fatalf("unexpected result: %#v", result)
+			}
+		})
+	}
+}
+
 func TestProbeDoesNotFollowProviderRedirects(t *testing.T) {
 	t.Parallel()
 

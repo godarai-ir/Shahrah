@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
 func TestSchemaCatalogDerivesCredentialValidationCapability(t *testing.T) {
@@ -59,5 +61,32 @@ func TestSchemaCatalogDerivesCredentialValidationCapability(t *testing.T) {
 	}
 	if schemas[1].CredentialValidationSupported {
 		t.Fatal("unsupported OAuth validation must not be advertised")
+	}
+}
+
+func TestCloneSchemasIsolatesNestedFieldMetadata(t *testing.T) {
+	t.Parallel()
+
+	source := []platform.ProviderConnectionSchema{{
+		Fields: []platform.ProviderConnectionField{{
+			Key: "base_url",
+			RequiredWhen: map[string]interface{}{
+				"auth_mode": []interface{}{"api_key"},
+			},
+			Validation: map[string]interface{}{
+				"rules": map[string]interface{}{"scheme": "https"},
+			},
+		}},
+	}}
+
+	cloned := cloneSchemas(source)
+	cloned[0].Fields[0].RequiredWhen["auth_mode"].([]interface{})[0] = "oauth"
+	cloned[0].Fields[0].Validation["rules"].(map[string]interface{})["scheme"] = "http"
+
+	if got := source[0].Fields[0].RequiredWhen["auth_mode"].([]interface{})[0]; got != "api_key" {
+		t.Fatalf("RequiredWhen leaked through clone: got %#v", got)
+	}
+	if got := source[0].Fields[0].Validation["rules"].(map[string]interface{})["scheme"]; got != "https" {
+		t.Fatalf("Validation leaked through clone: got %#v", got)
 	}
 }
