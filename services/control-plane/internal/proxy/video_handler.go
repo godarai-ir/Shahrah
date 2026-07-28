@@ -215,6 +215,9 @@ func (h *VideoHandler) Create(c *fiber.Ctx) error {
 
 	deployment, err := h.routeVideo(c.Context(), currentTenant.ID, requestedModel)
 	if err != nil {
+		if errors.Is(err, router.ErrDeploymentBillingMetadataUnresolved) {
+			return writeAPIError(c, fiber.StatusUnprocessableEntity, "Effective video pricing is unavailable", "pricing_unresolved")
+		}
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "No available video deployment", "routing_error")
 	}
 	contractDeployment := toContractDeployment(deployment)

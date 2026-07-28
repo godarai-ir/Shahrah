@@ -34,6 +34,13 @@ export function missingRequiredProviderFields(
   return (schema?.fields ?? []).filter((field) => field.required && !values[field.key]?.trim());
 }
 
+export function requiresProviderCredentialValidation(
+  schema: ProviderConnectionSchema | null,
+  usePlatformManagedCredentials: boolean,
+) {
+  return !usePlatformManagedCredentials && schema?.credential_validation_supported === true;
+}
+
 export function buildProviderCredentialPayload(
   schema: ProviderConnectionSchema | null,
   values: ProviderCredentialValues,

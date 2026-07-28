@@ -92,16 +92,17 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 
 	modelStore := &integrationModelStore{
 		deployments: []platform.Deployment{{
-			ID:            "dep-1",
-			TenantID:      "tenant-1",
-			ModelName:     "gpt-3.5-turbo",
-			Provider:      "openai",
-			Model:         "gpt-3.5-turbo",
-			APIBase:       provider.URL + "/v1",
-			APIKey:        "sk-provider-test",
-			RPM:           100,
-			BillingMode:   platform.BillingModeExternalBilled,
-			PricingSource: "public",
+			ID:               "dep-1",
+			TenantID:         "tenant-1",
+			ModelName:        "gpt-3.5-turbo",
+			Provider:         "openai",
+			Model:            "gpt-3.5-turbo",
+			APIBase:          provider.URL + "/v1",
+			APIKey:           "sk-provider-test",
+			RPM:              100,
+			CredentialSource: platform.CredentialSourceUserBYOK,
+			BillingMode:      platform.BillingModeExternalBilled,
+			PricingSource:    "public",
 		}},
 	}
 	walletStore := &integrationWalletStore{

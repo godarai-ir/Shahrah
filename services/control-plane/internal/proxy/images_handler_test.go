@@ -207,6 +207,7 @@ func TestImagesHandlerWalletPreflightSupportsPerImagePricing(t *testing.T) {
 		Model:            "grok-imagine-image",
 		APIKey:           "test-key",
 		RegionName:       "global",
+		CredentialSource: platform.CredentialSourceGodarManagedKey,
 		BillingMode:      platform.BillingModeWalletBilled,
 		EffectivePricing: price,
 		PricingSource:    "public",

@@ -30,6 +30,17 @@ type createModelRequest struct {
 	ModelInfo  map[string]interface{} `json:"model_info"`
 }
 
+func legacyDeploymentBillingMetadata(provider, apiKey string) (string, string, error) {
+	if normalizeProviderSlug(provider) == internalMockProvider {
+		return platform.CredentialSourceGodarManagedKey, platform.BillingModeExternalBilled, nil
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return "", "", errors.New("api_key is required for legacy provider deployments")
+	}
+
+	return platform.CredentialSourceUserBYOK, platform.BillingModeExternalBilled, nil
+}
+
 // CreateModel creates a deployment for the current tenant.
 func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 	if err := requireTenantAdminOrHigher(c); err != nil {
@@ -46,6 +57,11 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 	req.Provider = normalizeProviderSlug(req.Provider)
+	credentialSource, billingMode, billingErr := legacyDeploymentBillingMetadata(req.Provider, req.APIKey)
+	if billingErr != nil {
+		return fiber.NewError(fiber.StatusBadRequest, billingErr.Error())
+	}
+
 	knownCatalogModel, publishedCatalogModel, catalogErr :=
 		discoveryAdminModelPublication(c.Context(), req.Provider, req.Model)
 	if catalogErr != nil {
@@ -61,20 +77,26 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 		)
 	}
 
+	effectivePricing, pricingSource, _ := ResolvePublicModelPricing(c.Context(), req.Provider, req.Model)
+
 	dep, err := h.models.CreateDeployment(c.Context(), platform.Deployment{
-		TenantID:   currentTenant.ID,
-		ModelName:  req.ModelName,
-		Provider:   req.Provider,
-		Model:      req.Model,
-		APIBase:    req.APIBase,
-		APIKey:     req.APIKey,
-		APIVersion: req.APIVersion,
-		RegionName: req.RegionName,
-		RPM:        req.RPM,
-		TPM:        req.TPM,
-		Weight:     req.Weight,
-		TimeoutSec: req.TimeoutSec,
-		ModelInfo:  req.ModelInfo,
+		TenantID:         currentTenant.ID,
+		ModelName:        req.ModelName,
+		Provider:         req.Provider,
+		Model:            req.Model,
+		APIBase:          req.APIBase,
+		APIKey:           req.APIKey,
+		APIVersion:       req.APIVersion,
+		RegionName:       req.RegionName,
+		RPM:              req.RPM,
+		TPM:              req.TPM,
+		Weight:           req.Weight,
+		TimeoutSec:       req.TimeoutSec,
+		CredentialSource: credentialSource,
+		BillingMode:      billingMode,
+		EffectivePricing: effectivePricing,
+		PricingSource:    pricingSource,
+		ModelInfo:        req.ModelInfo,
 	})
 	if err != nil {
 		if errors.Is(err, storage.ErrInvalidProviderAPIBase) {

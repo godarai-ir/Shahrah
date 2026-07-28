@@ -9,6 +9,35 @@ ALTER TABLE spend_logs
     ADD COLUMN IF NOT EXISTS video_resolution VARCHAR(32),
     ADD COLUMN IF NOT EXISTS output_count INTEGER;
 
+ALTER TABLE model_deployments
+    ADD COLUMN IF NOT EXISTS credential_source VARCHAR(32),
+    ADD COLUMN IF NOT EXISTS billing_mode VARCHAR(32),
+    ADD COLUMN IF NOT EXISTS effective_pricing JSONB,
+    ADD COLUMN IF NOT EXISTS pricing_source VARCHAR(32);
+
+UPDATE model_deployments
+SET credential_source = CASE
+        WHEN lower(provider) = 'mock' THEN 'godar_managed_key'
+        WHEN btrim(COALESCE(provider_config->>'api_key', '')) <> '' THEN 'user_byok'
+        ELSE credential_source
+    END,
+    billing_mode = CASE
+        WHEN lower(provider) = 'mock' THEN 'external_billed'
+        WHEN btrim(COALESCE(provider_config->>'api_key', '')) <> '' THEN 'external_billed'
+        ELSE billing_mode
+    END
+WHERE credential_source IS NULL OR billing_mode IS NULL;
+
+ALTER TABLE model_deployments
+    DROP CONSTRAINT IF EXISTS ck_model_deployments_credential_source,
+    ADD CONSTRAINT ck_model_deployments_credential_source CHECK (
+        credential_source IS NULL OR credential_source IN ('godar_managed_key', 'user_byok', 'platform_managed', 'platform_env_break_glass')
+    ),
+    DROP CONSTRAINT IF EXISTS ck_model_deployments_billing_mode,
+    ADD CONSTRAINT ck_model_deployments_billing_mode CHECK (
+        billing_mode IS NULL OR billing_mode IN ('wallet_billed', 'external_billed')
+    );
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_spend_logs_tenant_request
     ON spend_logs (tenant_id, request_id)
     WHERE tenant_id IS NOT NULL AND request_id IS NOT NULL;
@@ -118,6 +147,13 @@ DROP TABLE IF EXISTS video_generation_jobs;
 DROP INDEX IF EXISTS idx_spend_logs_rating_status;
 DROP INDEX IF EXISTS idx_spend_logs_video_usage;
 DROP INDEX IF EXISTS uq_spend_logs_tenant_request;
+ALTER TABLE model_deployments
+    DROP CONSTRAINT IF EXISTS ck_model_deployments_billing_mode,
+    DROP CONSTRAINT IF EXISTS ck_model_deployments_credential_source,
+    DROP COLUMN IF EXISTS pricing_source,
+    DROP COLUMN IF EXISTS effective_pricing,
+    DROP COLUMN IF EXISTS billing_mode,
+    DROP COLUMN IF EXISTS credential_source;
 ALTER TABLE spend_logs
     DROP COLUMN IF EXISTS output_count,
     DROP COLUMN IF EXISTS video_resolution,

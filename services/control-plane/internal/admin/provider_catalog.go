@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 )
 
 var errDiscoveryNotFound = errors.New("discovery resource not found")
@@ -264,6 +265,30 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	setCachedProviderModels(normalizedProvider, items)
 
 	return items, nil
+}
+
+// ResolvePublicModelPricing returns the canonical public price for one provider
+// model. It is exported for the runtime router so configured platform-managed
+// deployments use the same discovery contract and cache as tenant admin flows.
+func ResolvePublicModelPricing(ctx context.Context, provider, model string) (*platform.ModelPrice, string, error) {
+	provider = normalizeProviderSlug(provider)
+	model = modelid.CanonicalOfficialModel(provider, model)
+	if provider == "" || strings.TrimSpace(model) == "" {
+		return nil, "", errDiscoveryNotFound
+	}
+
+	models, err := discoveryProviderModels(ctx, provider)
+	if err != nil {
+		return nil, "", err
+	}
+
+	for _, item := range models {
+		if modelid.MatchOfficialModel(provider, item.Model, model) {
+			return cloneModelPrice(item.PublicPricing), "public", nil
+		}
+	}
+
+	return nil, "", errDiscoveryNotFound
 }
 
 func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provider string) ([]platform.ProviderCatalogModel, error) {

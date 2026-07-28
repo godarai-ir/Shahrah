@@ -3,14 +3,12 @@ package platformcredentials
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providervalidation"
 )
 
 var (
@@ -243,191 +241,32 @@ func (s *Service) afterLifecycleMutation(ctx context.Context, connection *platfo
 	return errors.Join(mutationErrors...)
 }
 
-type HTTPProber struct{ client *http.Client }
+type HTTPProber struct {
+	prober *providervalidation.Prober
+}
 
 func NewHTTPProber(client *http.Client) *HTTPProber {
-	if client == nil {
-		client = &http.Client{Timeout: 6 * time.Second}
-	}
-
-	return &HTTPProber{client: client}
+	return &HTTPProber{prober: providervalidation.NewProber(client)}
 }
 
 func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secrets map[string]string) (bool, string, string) {
-	spec, ok := documentedProbe(record)
-	if !ok {
-		return false, "unsupported", "This provider authentication mode has no implemented non-billable validation probe."
+	config := map[string]interface{}{
+		"base_url":     record.BaseURL,
+		"api_version":  record.APIVersion,
+		"organization": record.Organization,
+		"project":      record.Project,
+		"http_referer": record.HTTPReferer,
+		"app_title":    record.AppTitle,
+		"client_name":  record.ClientName,
 	}
+	result := p.prober.Probe(ctx, providervalidation.Request{
+		Provider: record.ProviderSlug,
+		AuthMode: record.AuthMode,
+		Config:   config,
+		Secrets:  secrets,
+	})
 
-	if !safeProbeURL(record.ProviderSlug, spec.url) {
-		return false, "configuration", "Provider base URL is not allowed."
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.url, http.NoBody)
-	if err != nil {
-		return false, "configuration", "Provider validation endpoint is invalid."
-	}
-
-	switch spec.auth {
-	case "x-api-key":
-		req.Header.Set("x-api-key", secrets["api_key"])
-
-		version := record.APIVersion
-		if version == "" {
-			version = "2023-06-01"
-		}
-
-		req.Header.Set("anthropic-version", version)
-	case "api-key":
-		req.Header.Set("api-key", secrets["api_key"])
-	case "x-goog-api-key":
-		req.Header.Set("x-goog-api-key", secrets["api_key"])
-	case "bearer-access-token":
-		req.Header.Set("Authorization", "Bearer "+secrets["access_token"])
-	case "bearer-api-key":
-		req.Header.Set("Authorization", "Bearer "+secrets["api_key"])
-	}
-
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return false, "network", "Provider validation could not reach the upstream service."
-	}
-
-	if closeErr := resp.Body.Close(); closeErr != nil {
-		return false, "network", "Provider validation response could not be closed."
-	}
-
-	switch {
-	case resp.StatusCode >= 200 && resp.StatusCode < 300:
-		return true, "ok", "Provider accepted the credential."
-	case resp.StatusCode == http.StatusUnauthorized:
-		return false, "invalid_credential", "Provider rejected the credential."
-	case resp.StatusCode == http.StatusForbidden:
-		return false, "forbidden", "The credential authenticated but lacks permission for the validation endpoint."
-	case resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusPaymentRequired:
-		return true, "quota_exhausted", "Credential authenticated; quota or billing prevented the probe."
-	case resp.StatusCode == http.StatusNotFound:
-		return false, "deployment_not_found", "The configured provider endpoint was not found."
-	default:
-		return false, "provider", fmt.Sprintf("Provider validation returned HTTP %d.", resp.StatusCode)
-	}
-}
-
-type probeSpec struct {
-	url  string
-	auth string
-}
-
-func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
-	base := strings.TrimRight(strings.TrimSpace(record.BaseURL), "/")
-	switch normalizeProvider(record.ProviderSlug) {
-	case "anthropic":
-		if base == "" {
-			base = "https://api.anthropic.com"
-		}
-
-		return probeSpec{url: base + "/v1/models?limit=1", auth: "x-api-key"}, record.AuthMode == "api_key"
-	case "azure-open-ai":
-		if record.AuthMode != "api_key" || base == "" {
-			return probeSpec{}, false
-		}
-
-		if strings.Contains(strings.ToLower(base), "/openai/v1") {
-			return modelsProbe(base, "", "api-key"), true
-		}
-
-		version := strings.TrimSpace(record.APIVersion)
-		if version == "" {
-			version = "2024-10-21"
-		}
-
-		return probeSpec{url: base + "/openai/models?api-version=" + url.QueryEscape(version), auth: "api-key"}, true
-	case "cerebras":
-		return modelsProbe(base, "https://api.cerebras.ai/v1", "bearer-api-key"), record.AuthMode == "api_key"
-	case "cohere":
-		if base == "" {
-			base = "https://api.cohere.com"
-		}
-
-		return probeSpec{url: base + "/v1/models", auth: "bearer-api-key"}, record.AuthMode == "api_key"
-	case "databricks":
-		if record.AuthMode != "personal_access_token" || base == "" {
-			return probeSpec{}, false
-		}
-
-		parsed, err := url.Parse(base)
-		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" {
-			return probeSpec{}, false
-		}
-
-		parsed.Path = "/api/2.0/serving-endpoints"
-		parsed.RawPath, parsed.RawQuery, parsed.Fragment = "", "", ""
-
-		return probeSpec{url: parsed.String(), auth: "bearer-access-token"}, true
-	case "deepinfra":
-		return modelsProbe(base, "https://api.deepinfra.com/v1/openai", "bearer-api-key"), record.AuthMode == "api_key"
-	case "google-gemini":
-		if base == "" {
-			base = "https://generativelanguage.googleapis.com/v1beta"
-		}
-
-		return probeSpec{url: base + "/models?pageSize=1", auth: "x-goog-api-key"}, record.AuthMode == "api_key"
-	case "groq":
-		return modelsProbe(base, "https://api.groq.com/openai/v1", "bearer-api-key"), record.AuthMode == "api_key"
-	case "mistral-ai":
-		return modelsProbe(base, "https://api.mistral.ai/v1", "bearer-api-key"), record.AuthMode == "api_key"
-	case "openai":
-		return modelsProbe(base, "https://api.openai.com/v1", "bearer-api-key"), record.AuthMode == "api_key"
-	case "openrouter":
-		return modelsProbe(base, "https://openrouter.ai/api/v1", "bearer-api-key"), record.AuthMode == "api_key"
-	case "together-ai":
-		return modelsProbe(base, "https://api.together.xyz/v1", "bearer-api-key"), record.AuthMode == "api_key"
-	case "xai":
-		return modelsProbe(base, "https://api.x.ai/v1", "bearer-api-key"), record.AuthMode == "api_key"
-	default:
-		return probeSpec{}, false
-	}
-}
-
-func modelsProbe(base, fallback, auth string) probeSpec {
-	if base == "" {
-		base = fallback
-	}
-
-	return probeSpec{url: strings.TrimRight(base, "/") + "/models", auth: auth}
-}
-
-func safeProbeURL(providerSlug, raw string) bool {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
-		return false
-	}
-
-	host := strings.ToLower(parsed.Hostname())
-	if net.ParseIP(host) != nil || host == "localhost" || strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".internal") {
-		return false
-	}
-
-	exact := map[string]string{
-		"ai21": "api.ai21.com", "anthropic": "api.anthropic.com", "cerebras": "api.cerebras.ai",
-		"cohere": "api.cohere.com", "deepinfra": "api.deepinfra.com", "google-gemini": "generativelanguage.googleapis.com",
-		"groq": "api.groq.com", "mistral-ai": "api.mistral.ai", "openai": "api.openai.com",
-		"openrouter": "openrouter.ai", "perplexity-ai": "api.perplexity.ai", "together-ai": "api.together.xyz", "xai": "api.x.ai",
-	}
-	if expected := exact[normalizeProvider(providerSlug)]; expected != "" {
-		return host == expected
-	}
-
-	switch normalizeProvider(providerSlug) {
-	case "azure-ai-foundry", "azure-open-ai":
-		return strings.HasSuffix(host, ".openai.azure.com") || strings.HasSuffix(host, ".services.ai.azure.com")
-	case "databricks":
-		return strings.HasSuffix(host, ".cloud.databricks.com") || strings.HasSuffix(host, ".azuredatabricks.net") || strings.HasSuffix(host, ".gcp.databricks.com")
-	case "sambanova":
-		return true // SambaStack is customer-hosted; public HTTPS and local/IP blocks above still apply.
-	default:
-		return false
-	}
+	return result.Success, result.Category, result.Message
 }
 
 func hasSecretConfig(config map[string]interface{}) bool {
@@ -447,25 +286,7 @@ func hasSecretConfig(config map[string]interface{}) bool {
 }
 
 func normalizeProvider(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	switch value {
-	case "azure":
-		return "azure-open-ai"
-	case "bedrock":
-		return "aws-bedrock"
-	case "gemini":
-		return "google-gemini"
-	case "vertexai":
-		return "google-vertex"
-	case "mistral":
-		return "mistral-ai"
-	case "togetherai":
-		return "together-ai"
-	case "perplexity", "perplexityai":
-		return "perplexity-ai"
-	default:
-		return value
-	}
+	return providervalidation.NormalizeProvider(value)
 }
 func sanitizeReason(value string) string {
 	value = strings.TrimSpace(value)

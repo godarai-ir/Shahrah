@@ -618,45 +618,43 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 
 	if usePlatformManagedCredentials {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: true,
-			Message: "platform-managed credentials are enabled; no tenant provider credential is required",
+			Success:  true,
+			Category: "managed",
+			Message:  "platform-managed credentials are enabled; no tenant provider credential is required",
+		}, nil
+	}
+
+	if strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success:  true,
+			Category: "no_credential",
+			Message:  "this provider connection does not require a credential",
 		}, nil
 	}
 
 	if !hasCredential {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: false,
-			Message: "credential is missing; provide a provider credential or enable platform-managed credentials",
-		}, nil
-	}
-
-	if platform.ProviderAuthMode(strings.TrimSpace(authMode)) != platform.ProviderAuthModeAPIKey {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: false,
-			Message: "connection validation is only implemented for API key provider accounts",
+			Success:  false,
+			Category: "missing_credential",
+			Message:  "credential is missing; provide a provider credential or enable platform-managed credentials",
 		}, nil
 	}
 
 	credentials := parseJSONObject(credentialRaw)
-
-	apiKey := ""
-	if value, ok := credentials["api_key"].(string); ok {
-		apiKey = value
-	}
-
-	apiKey = strings.TrimSpace(apiKey)
-	if apiKey == "" || isMaskedCredentialValue(apiKey) {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: false,
-			Message: "API key is missing or masked; enter a new provider API key before testing",
-		}, nil
-	}
-
-	result := validateProviderAPIKey(ctx, provider, apiKey, parseJSONObject(providerCfgRaw), nil)
+	result := validateProviderCredential(
+		ctx,
+		provider,
+		authMode,
+		parseJSONObject(providerCfgRaw),
+		providerCredentialSecrets(credentials),
+		nil,
+	)
 
 	return &platform.TestTenantProviderAccountCredentialsResponse{
-		Success: result.Success,
-		Message: result.Message,
+		Success:     result.Success,
+		Unsupported: result.Unsupported,
+		Category:    result.Category,
+		Message:     result.Message,
 	}, nil
 }
 
@@ -665,51 +663,44 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestProviderConnectionRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
 	if req.UsePlatformManagedCredentials {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: true,
-			Message: "platform-managed credentials are enabled; no tenant provider credential is required",
+			Success:  true,
+			Category: "managed",
+			Message:  "platform-managed credentials are enabled; no tenant provider credential is required",
 		}, nil
 	}
 
 	if req.AuthMode == platform.ProviderAuthModeNoCredential {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: true,
-			Message: "this provider connection does not require a credential",
+			Success:  true,
+			Category: "no_credential",
+			Message:  "this provider connection does not require a credential",
 		}, nil
 	}
 
-	if req.AuthMode != platform.ProviderAuthModeAPIKey {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success:     false,
-			Unsupported: true,
-			Message:     "automatic connection validation is not available for this authentication mode",
-		}, nil
-	}
-
-	apiKey := ""
+	credentials := make(map[string]interface{})
 	if req.Credentials != nil {
-		apiKey = strings.TrimSpace(req.Credentials.APIKey)
-		if apiKey == "" && req.Credentials.Raw != nil {
-			for _, key := range []string{"api_key", "access_token", "token"} {
-				if value, ok := req.Credentials.Raw[key].(string); ok && strings.TrimSpace(value) != "" {
-					apiKey = strings.TrimSpace(value)
-					break
-				}
-			}
+		if apiKey := strings.TrimSpace(req.Credentials.APIKey); apiKey != "" {
+			credentials["api_key"] = apiKey
+		}
+		if len(req.Credentials.Raw) > 0 {
+			credentials["raw"] = req.Credentials.Raw
 		}
 	}
 
-	if apiKey == "" || isMaskedCredentialValue(apiKey) {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: false,
-			Message: "API key is missing or masked; enter a provider API key before testing",
-		}, nil
-	}
-
-	result := validateProviderAPIKey(ctx, strings.TrimSpace(req.Provider), apiKey, req.ProviderConfig, nil)
+	result := validateProviderCredential(
+		ctx,
+		strings.TrimSpace(req.Provider),
+		string(req.AuthMode),
+		req.ProviderConfig,
+		providerCredentialSecrets(credentials),
+		nil,
+	)
 
 	return &platform.TestTenantProviderAccountCredentialsResponse{
-		Success: result.Success,
-		Message: result.Message,
+		Success:     result.Success,
+		Unsupported: result.Unsupported,
+		Category:    result.Category,
+		Message:     result.Message,
 	}, nil
 }
 

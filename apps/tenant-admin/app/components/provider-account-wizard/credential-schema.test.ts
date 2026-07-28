@@ -4,6 +4,7 @@ import {
   buildProviderCredentialPayload,
   defaultProviderCredentialValues,
   missingRequiredProviderFields,
+  requiresProviderCredentialValidation,
 } from "./credential-schema";
 import type { ProviderConnectionSchema } from "./types";
 
@@ -12,6 +13,7 @@ const openAISchema: ProviderConnectionSchema = {
   auth_mode: "api_key",
   version: 1,
   runtime_ready: true,
+  credential_validation_supported: true,
   fields: [
     { key: "api_key", label: "API key", type: "password", secret: true, required: true, scope: "credential", runtime_mapping: "authorization_bearer" },
     { key: "base_url", label: "Base URL", type: "url", secret: false, scope: "connection", validation: { default: "https://api.openai.com/v1" } },
@@ -49,6 +51,7 @@ describe("provider credential schema helpers", () => {
       auth_mode: "personal_access_token",
       version: 1,
       runtime_ready: true,
+      credential_validation_supported: true,
       fields: [
         { key: "access_token", label: "Access token", type: "password", secret: true, required: true, scope: "credential", runtime_mapping: "authorization_bearer" },
       ],
@@ -58,5 +61,16 @@ describe("provider credential schema helpers", () => {
       api_key: "token",
       raw: { access_token: "token" },
     });
+  });
+
+  it("requires preflight only when the shared backend registry supports it", () => {
+    expect(requiresProviderCredentialValidation(openAISchema, false)).toBe(true);
+    expect(requiresProviderCredentialValidation(openAISchema, true)).toBe(false);
+    expect(requiresProviderCredentialValidation({
+      ...openAISchema,
+      provider_slug: "deepgram",
+      runtime_ready: false,
+      credential_validation_supported: false,
+    }, false)).toBe(false);
   });
 });

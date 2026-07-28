@@ -262,12 +262,14 @@ func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
-				ID:        "provider-account:anthropic-1:anthropic/claude-3-haiku-20240307",
-				TenantID:  "tenant-1",
-				ModelName: "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307",
-				Provider:  "anthropic",
-				Model:     "anthropic/claude-3-haiku-20240307",
-				APIKey:    "sk-ant-test",
+				ID:               "provider-account:anthropic-1:anthropic/claude-3-haiku-20240307",
+				TenantID:         "tenant-1",
+				ModelName:        "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307",
+				Provider:         "anthropic",
+				Model:            "anthropic/claude-3-haiku-20240307",
+				APIKey:           "sk-ant-test",
+				CredentialSource: platform.CredentialSourceUserBYOK,
+				BillingMode:      platform.BillingModeExternalBilled,
 			},
 		},
 	}
@@ -325,11 +327,13 @@ func TestRouter_FQNProviderAccountWithoutBYOKUsesSharedProviderKey(t *testing.T)
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
-				ID:        "provider-account:openai-1:gpt-5-nano",
-				TenantID:  "tenant-1",
-				ModelName: "openai:openai-daring-lotus:gpt-5-nano",
-				Provider:  "openai",
-				Model:     "gpt-5-nano",
+				ID:               "provider-account:openai-1:gpt-5-nano",
+				TenantID:         "tenant-1",
+				ModelName:        "openai:openai-daring-lotus:gpt-5-nano",
+				Provider:         "openai",
+				Model:            "gpt-5-nano",
+				CredentialSource: platform.CredentialSourceGodarManagedKey,
+				BillingMode:      platform.BillingModeWalletBilled,
 			},
 		},
 	}
@@ -352,12 +356,14 @@ func TestRouter_CanonicalizesProviderPrefixedModelForProviderAccountDeployment(t
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
-				ID:        "provider-account:openai-1:openai/gpt-4o-mini",
-				TenantID:  "tenant-1",
-				ModelName: "openai:openai-daring-lotus:gpt-4o-mini",
-				Provider:  "openai",
-				Model:     "openai/gpt-4o-mini",
-				APIKey:    "tenant-openai-key",
+				ID:               "provider-account:openai-1:openai/gpt-4o-mini",
+				TenantID:         "tenant-1",
+				ModelName:        "openai:openai-daring-lotus:gpt-4o-mini",
+				Provider:         "openai",
+				Model:            "openai/gpt-4o-mini",
+				APIKey:           "tenant-openai-key",
+				CredentialSource: platform.CredentialSourceUserBYOK,
+				BillingMode:      platform.BillingModeExternalBilled,
 			},
 		},
 	}
@@ -380,12 +386,14 @@ func TestRouter_CachesTenantDeployments(t *testing.T) {
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
-				ID:        "provider-account:openai-1:gpt-4o-mini",
-				TenantID:  "tenant-1",
-				ModelName: "openai:openai-main:gpt-4o-mini",
-				Provider:  "openai",
-				Model:     "gpt-4o-mini",
-				APIKey:    "tenant-openai-key",
+				ID:               "provider-account:openai-1:gpt-4o-mini",
+				TenantID:         "tenant-1",
+				ModelName:        "openai:openai-main:gpt-4o-mini",
+				Provider:         "openai",
+				Model:            "gpt-4o-mini",
+				APIKey:           "tenant-openai-key",
+				CredentialSource: platform.CredentialSourceUserBYOK,
+				BillingMode:      platform.BillingModeExternalBilled,
 			},
 		},
 	}
@@ -415,12 +423,14 @@ func TestRouter_ReloadsTenantDeploymentsAfterCacheInvalidation(t *testing.T) {
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
-				ID:        "provider-account:openai-1:gpt-4o-mini",
-				TenantID:  "tenant-1",
-				ModelName: "openai:openai-main:gpt-4o-mini",
-				Provider:  "openai",
-				Model:     "gpt-4o-mini",
-				APIKey:    "tenant-openai-key",
+				ID:               "provider-account:openai-1:gpt-4o-mini",
+				TenantID:         "tenant-1",
+				ModelName:        "openai:openai-main:gpt-4o-mini",
+				Provider:         "openai",
+				Model:            "gpt-4o-mini",
+				APIKey:           "tenant-openai-key",
+				CredentialSource: platform.CredentialSourceUserBYOK,
+				BillingMode:      platform.BillingModeExternalBilled,
 			},
 		},
 	}
@@ -449,12 +459,14 @@ func TestRouter_ReloadsTenantDeploymentsAfterTTLExpiry(t *testing.T) {
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
-				ID:        "provider-account:openai-1:gpt-4o-mini",
-				TenantID:  "tenant-1",
-				ModelName: "openai:openai-main:gpt-4o-mini",
-				Provider:  "openai",
-				Model:     "gpt-4o-mini",
-				APIKey:    "tenant-openai-key",
+				ID:               "provider-account:openai-1:gpt-4o-mini",
+				TenantID:         "tenant-1",
+				ModelName:        "openai:openai-main:gpt-4o-mini",
+				Provider:         "openai",
+				Model:            "gpt-4o-mini",
+				APIKey:           "tenant-openai-key",
+				CredentialSource: platform.CredentialSourceUserBYOK,
+				BillingMode:      platform.BillingModeExternalBilled,
 			},
 		},
 	}
@@ -483,12 +495,14 @@ func TestRouter_UsesLastKnownGoodDeploymentsWhenStoreFails(t *testing.T) {
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
-				ID:        "provider-account:openai-1:gpt-4o-mini",
-				TenantID:  "tenant-1",
-				ModelName: "openai:openai-main:gpt-4o-mini",
-				Provider:  "openai",
-				Model:     "gpt-4o-mini",
-				APIKey:    "tenant-openai-key",
+				ID:               "provider-account:openai-1:gpt-4o-mini",
+				TenantID:         "tenant-1",
+				ModelName:        "openai:openai-main:gpt-4o-mini",
+				Provider:         "openai",
+				Model:            "gpt-4o-mini",
+				APIKey:           "tenant-openai-key",
+				CredentialSource: platform.CredentialSourceUserBYOK,
+				BillingMode:      platform.BillingModeExternalBilled,
 			},
 		},
 	}
@@ -515,12 +529,14 @@ func TestRouter_UsesResolvedLastKnownGoodRouteAfterSanitizedCacheExpires(t *test
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
 	deployment := platform.Deployment{
-		ID:        "provider-account:openai-1:gpt-4o-mini",
-		TenantID:  "tenant-1",
-		ModelName: "openai:openai-main:gpt-4o-mini",
-		Provider:  "openai",
-		Model:     "gpt-4o-mini",
-		APIKey:    "tenant-openai-key",
+		ID:               "provider-account:openai-1:gpt-4o-mini",
+		TenantID:         "tenant-1",
+		ModelName:        "openai:openai-main:gpt-4o-mini",
+		Provider:         "openai",
+		Model:            "gpt-4o-mini",
+		APIKey:           "tenant-openai-key",
+		CredentialSource: platform.CredentialSourceUserBYOK,
+		BillingMode:      platform.BillingModeExternalBilled,
 	}
 	store := &staticDeploymentStore{deployments: []platform.Deployment{deployment}}
 

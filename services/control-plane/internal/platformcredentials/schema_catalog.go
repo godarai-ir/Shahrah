@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providervalidation"
 )
 
 // SchemaCatalog is used only by operator workflows. It is intentionally absent
@@ -126,11 +127,12 @@ func (c *ModelDiscoverySchemaCatalog) Schemas(ctx context.Context, providerSlug 
 	items := make([]platform.ProviderConnectionSchema, 0, len(payload.ConnectionSchemas))
 	for _, item := range payload.ConnectionSchemas {
 		items = append(items, platform.ProviderConnectionSchema{
-			ProviderSlug: providerSlug,
-			AuthMode:     strings.ToLower(strings.TrimSpace(item.AuthMode)),
-			Version:      item.Version,
-			RuntimeReady: item.RuntimeReady,
-			Fields:       item.Fields,
+			ProviderSlug:                  providerSlug,
+			AuthMode:                      strings.ToLower(strings.TrimSpace(item.AuthMode)),
+			Version:                       item.Version,
+			RuntimeReady:                  item.RuntimeReady,
+			CredentialValidationSupported: providervalidation.Supports(providerSlug, item.AuthMode),
+			Fields:                        item.Fields,
 		})
 	}
 

@@ -94,6 +94,7 @@ type providerAccountStore interface {
 	SearchAccessPrincipals(ctx context.Context, tenantID string, kind string, query string, limit int) ([]platform.AccessPrincipalCandidate, error)
 	ListCatalogAvailabilityProviders(ctx context.Context) ([]string, error)
 	ReconcileProviderCatalogAvailability(ctx context.Context, provider string, publishedModels []string) (int64, error)
+	ReconcileLegacyDeploymentCatalogPricing(ctx context.Context, provider string, models []platform.ProviderCatalogModel) (int64, error)
 	ReconcileLegacyDeploymentCatalogAvailability(ctx context.Context, catalog []storage.CatalogModelPublication) (int64, error)
 }
 

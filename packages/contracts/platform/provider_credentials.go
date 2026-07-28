@@ -41,11 +41,12 @@ type ProviderConnectionField struct {
 }
 
 type ProviderConnectionSchema struct {
-	ProviderSlug string                    `json:"provider_slug"`
-	AuthMode     string                    `json:"auth_mode"`
-	Version      int                       `json:"version"`
-	RuntimeReady bool                      `json:"runtime_ready"`
-	Fields       []ProviderConnectionField `json:"fields"`
+	ProviderSlug                  string                    `json:"provider_slug"`
+	AuthMode                      string                    `json:"auth_mode"`
+	Version                       int                       `json:"version"`
+	RuntimeReady                  bool                      `json:"runtime_ready"`
+	CredentialValidationSupported bool                      `json:"credential_validation_supported"`
+	Fields                        []ProviderConnectionField `json:"fields"`
 }
 
 type PlatformProviderConnectionScope struct {

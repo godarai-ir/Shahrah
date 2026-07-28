@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"go.uber.org/zap"
@@ -16,6 +17,7 @@ import (
 type CatalogAvailabilityStore interface {
 	ListCatalogAvailabilityProviders(ctx context.Context) ([]string, error)
 	ReconcileProviderCatalogAvailability(ctx context.Context, provider string, publishedModels []string) (int64, error)
+	ReconcileLegacyDeploymentCatalogPricing(ctx context.Context, provider string, models []platform.ProviderCatalogModel) (int64, error)
 	ReconcileLegacyDeploymentCatalogAvailability(ctx context.Context, catalog []storage.CatalogModelPublication) (int64, error)
 }
 
@@ -44,6 +46,11 @@ func ReconcileCatalogAvailability(ctx context.Context, store CatalogAvailability
 			return len(providers), changed, reconcileErr
 		}
 		changed += count
+		pricingCount, reconcileErr := store.ReconcileLegacyDeploymentCatalogPricing(ctx, provider, models)
+		if reconcileErr != nil {
+			return len(providers), changed, reconcileErr
+		}
+		changed += pricingCount
 	}
 	adminCatalog, err := discoveryAdminModelPublications(ctx)
 	if err != nil {

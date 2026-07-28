@@ -168,6 +168,17 @@ func writeRoutingDependencyUnavailable(
 	model string,
 	tenantID string,
 ) (bool, error) {
+	if errors.Is(routeErr, router.ErrDeploymentBillingMetadataUnresolved) {
+		return true, writeAPIErrorDetail(
+			c,
+			fiber.StatusUnprocessableEntity,
+			"Effective deployment billing metadata is unavailable",
+			"pricing_unresolved",
+			"",
+			"pricing_unresolved",
+		)
+	}
+
 	if !errors.Is(routeErr, router.ErrDependencyUnavailable) {
 		return false, nil
 	}

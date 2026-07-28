@@ -49,6 +49,7 @@ import {
   defaultProviderCredentialValues,
   missingRequiredProviderFields,
   providerCredentialValuesForSchema,
+  requiresProviderCredentialValidation,
   type ProviderCredentialValues,
 } from "@/app/components/provider-account-wizard/credential-schema";
 import { buildCreatedConnectionHref, getCreateStepState, shouldPersistCreateAccount } from "@/app/components/provider-account-wizard/create-flow";
@@ -180,7 +181,7 @@ export default function ProviderAccountWizard(props?: {
 
   const [apiKey, setAPIKey] = useState("");
   const [apiKeyTouched, setAPIKeyTouched] = useState(false);
-  const [apiKeyTestSucceeded, setAPIKeyTestSucceeded] = useState(false);
+  const [credentialTestSucceeded, setCredentialTestSucceeded] = useState(false);
   const [secretRef, setSecretRef] = useState("");
   const [azureTenantID, setAzureTenantID] = useState("");
   const [azureClientID, setAzureClientID] = useState("");
@@ -253,7 +254,7 @@ export default function ProviderAccountWizard(props?: {
     && missingRequiredCredentialFields.length === 0
   );
   const requiresSuccessfulCreatePreflight =
-    !usePlatformManagedCredentials && stringsEqualFold(authMode, "api_key");
+    requiresProviderCredentialValidation(selectedConnectionSchema, usePlatformManagedCredentials);
   const missingRequiredCredentialFieldsForSave = useMemo(() => {
     if (usePlatformManagedCredentials) return [];
     const mustReplaceSecret = !account?.has_credential || !stringsEqualFold(authMode, account.auth_mode);
@@ -438,7 +439,7 @@ export default function ProviderAccountWizard(props?: {
   const createPreflightReady =
     usePlatformManagedCredentials
     || !requiresSuccessfulCreatePreflight
-    || apiKeyTestSucceeded;
+    || credentialTestSucceeded;
   const createReady =
     Boolean(provider && name.trim())
     && !accountNameConflict
@@ -617,7 +618,7 @@ export default function ProviderAccountWizard(props?: {
         setGoogleServiceAccountJSON(typeof cfg.google_service_account_json === "string" ? cfg.google_service_account_json : "");
         setAPIKey("");
         setAPIKeyTouched(false);
-        setAPIKeyTestSucceeded(false);
+        setCredentialTestSucceeded(false);
         setCreateCredentialTestResult(null);
         setSecretRef("");
         setManagers(payload.access?.managers ?? []);
@@ -780,7 +781,7 @@ export default function ProviderAccountWizard(props?: {
         await handleLoadAccount(accountID);
       }
       setAPIKeyTouched(false);
-      setAPIKeyTestSucceeded(false);
+      setCredentialTestSucceeded(false);
       credentialDraftBaselineRef.current = {
         authMode,
         usePlatformManagedCredentials: savingPlatformManagedCredentials,
@@ -816,7 +817,7 @@ export default function ProviderAccountWizard(props?: {
   function resetCredentialInputs() {
     setAPIKey("");
     setAPIKeyTouched(false);
-    setAPIKeyTestSucceeded(false);
+    setCredentialTestSucceeded(false);
     setCreateCredentialTestResult(null);
     setSecretRef("");
     setAzureTenantID("");
@@ -926,7 +927,7 @@ export default function ProviderAccountWizard(props?: {
 
   async function handleCreateCredentialTest() {
     setCreateCredentialTestResult(null);
-    setAPIKeyTestSucceeded(false);
+    setCredentialTestSucceeded(false);
     if (usePlatformManagedCredentials) return;
     if (!selectedConnectionSchema || missingRequiredCredentialFields.length > 0) {
       setCreateCredentialTestResult({
@@ -940,7 +941,7 @@ export default function ProviderAccountWizard(props?: {
 
     setIsTesting(true);
     try {
-      const result = await requestJSON<{ success: boolean; unsupported?: boolean; message?: string }>(
+      const result = await requestJSON<{ success: boolean; unsupported?: boolean; category?: string; message?: string }>(
         "/api/provider-connections/test",
         {
           method: "POST",
@@ -956,7 +957,7 @@ export default function ProviderAccountWizard(props?: {
           }),
         },
       );
-      const payload = unwrapData<{ success: boolean; unsupported?: boolean; message?: string }>(result) ?? result;
+      const payload = unwrapData<{ success: boolean; unsupported?: boolean; category?: string; message?: string }>(result) ?? result;
       const rawMessage =
         payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
       const message = payload.unsupported
@@ -969,9 +970,9 @@ export default function ProviderAccountWizard(props?: {
         message,
       });
       setAPIKeyTouched(!payload.success);
-      setAPIKeyTestSucceeded(payload.success && !payload.unsupported);
+      setCredentialTestSucceeded(payload.success && !payload.unsupported);
     } catch (error) {
-      setAPIKeyTestSucceeded(false);
+      setCredentialTestSucceeded(false);
       const message = normalizeError(error, t("messages.credentialTestFailed"));
       setCreateCredentialTestResult({
         kind: "error",
@@ -991,7 +992,7 @@ export default function ProviderAccountWizard(props?: {
       setBanner({ kind: "error", message: connectionSchemaError || ux("integrations.wizard.requiredCredentialFields") });
       return;
     }
-    if (requiresSuccessfulCreatePreflight && !apiKeyTestSucceeded) {
+    if (requiresSuccessfulCreatePreflight && !credentialTestSucceeded) {
       setBanner({ kind: "error", message: ux("integrations.wizard.credentialsRequiredForTest") });
       return;
     }
@@ -1175,23 +1176,25 @@ export default function ProviderAccountWizard(props?: {
     }
     setIsTesting(true);
     try {
-      const result = await requestJSON<{ success: boolean; message?: string }>(
+      const result = await requestJSON<{ success: boolean; unsupported?: boolean; category?: string; message?: string }>(
         `/api/tenant-provider-accounts/${encodeURIComponent(selectedAccountID)}/test-credentials`,
         { method: "POST", body: JSON.stringify({}) },
       );
-      const payload = unwrapData<{ success: boolean; message?: string }>(result) ?? result;
+      const payload = unwrapData<{ success: boolean; unsupported?: boolean; category?: string; message?: string }>(result) ?? result;
       const nextMessage =
         payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
       setCreateCredentialTestResult({
-        kind: payload.success ? "success" : "error",
-        message: payload.success
+        kind: payload.unsupported ? "warning" : payload.success ? "success" : "error",
+        message: payload.unsupported
+          ? nextMessage
+          : payload.success
           ? ux("integrations.wizard.connectionTestSuccess", { message: nextMessage })
           : ux("integrations.wizard.connectionTestFailed", { message: nextMessage }),
       });
       setAPIKeyTouched(!payload.success);
-      setAPIKeyTestSucceeded(payload.success);
+      setCredentialTestSucceeded(payload.success && !payload.unsupported);
     } catch (error) {
-      setAPIKeyTestSucceeded(false);
+      setCredentialTestSucceeded(false);
       const message = normalizeError(error, t("messages.credentialTestFailed"));
       setCreateCredentialTestResult({
         kind: "error",
@@ -1569,7 +1572,7 @@ export default function ProviderAccountWizard(props?: {
                               setSelectedProviderID(nextProvider);
                                setUsePlatformManagedCredentials(true);
                                setAPIKey("");
-                               setAPIKeyTestSucceeded(false);
+                               setCredentialTestSucceeded(false);
                                setCreateCredentialTestResult(null);
                               void loadProviderModels(item.provider);
                             }}
@@ -1600,7 +1603,7 @@ export default function ProviderAccountWizard(props?: {
                         <Button type="button" variant="outline" asChild>
                           <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
                         </Button>
-                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || !canContinueCreateDetails || (requiresSuccessfulCreatePreflight && !apiKeyTestSucceeded) || isLoading || isSavingCredentials || !provider || !name.trim()}>
+                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || !canContinueCreateDetails || (requiresSuccessfulCreatePreflight && !credentialTestSucceeded) || isLoading || isSavingCredentials || !provider || !name.trim()}>
                           {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
                         </Button>
                       </>
@@ -1666,7 +1669,7 @@ export default function ProviderAccountWizard(props?: {
                             onValueChange={(nextValue) => {
                                if (account) return;
                                setUsePlatformManagedCredentials(nextValue === "platform-managed");
-                               setAPIKeyTestSucceeded(false);
+                               setCredentialTestSucceeded(false);
                                setCreateCredentialTestResult(null);
                             }}
                             disabled={!!account}
@@ -1734,7 +1737,7 @@ export default function ProviderAccountWizard(props?: {
                                       const nextSchema = connectionSchemas.find((schema) => schema.auth_mode === value) ?? null;
                                      setAuthMode(value as ProviderAuthMode);
                                      setProviderCredentialValues(defaultProviderCredentialValues(nextSchema));
-                                     setAPIKeyTestSucceeded(false);
+                                     setCredentialTestSucceeded(false);
                                      setCreateCredentialTestResult(null);
                                     }}
                                   />
@@ -1745,7 +1748,7 @@ export default function ProviderAccountWizard(props?: {
                                     values={providerCredentialValues}
                                     onValueChange={(key, value) => {
                                       setProviderCredentialValues((current) => ({ ...current, [key]: value }));
-                                      setAPIKeyTestSucceeded(false);
+                                      setCredentialTestSucceeded(false);
                                       setCreateCredentialTestResult(null);
                                     }}
                                     disabled={isLoading || isSavingCredentials || isTesting}
@@ -2282,11 +2285,11 @@ export default function ProviderAccountWizard(props?: {
                             setAPIKeyTouched={(value) => {
                               setAPIKeyTouched(value);
                               if (value) {
-                                setAPIKeyTestSucceeded(false);
+                                setCredentialTestSucceeded(false);
                                 setCreateCredentialTestResult(null);
                               }
                             }}
-                            apiKeyHint={apiKeyTestSucceeded ? account?.credential_hint : undefined}
+                            apiKeyHint={credentialTestSucceeded ? account?.credential_hint : undefined}
                             secretRef={secretRef}
                             setSecretRef={setSecretRef}
                             azureTenantID={azureTenantID}
@@ -2687,7 +2690,7 @@ export default function ProviderAccountWizard(props?: {
                                         const nextSchema = connectionSchemas.find((schema) => schema.auth_mode === value) ?? null;
                                         setAuthMode(value as ProviderAuthMode);
                                         setProviderCredentialValues(providerCredentialValuesForSchema(nextSchema, account.provider_config));
-                                        setAPIKeyTestSucceeded(false);
+                                        setCredentialTestSucceeded(false);
                                         setCreateCredentialTestResult(null);
                                       }}
                                     />
@@ -2698,7 +2701,7 @@ export default function ProviderAccountWizard(props?: {
                                       values={providerCredentialValues}
                                       onValueChange={(key, value) => {
                                         setProviderCredentialValues((current) => ({ ...current, [key]: value }));
-                                        setAPIKeyTestSucceeded(false);
+                                        setCredentialTestSucceeded(false);
                                         setCreateCredentialTestResult(null);
                                       }}
                                       disabled={!canManageProviderAccount || !canEditCredentialSettings || isSavingCredentials || isTesting}

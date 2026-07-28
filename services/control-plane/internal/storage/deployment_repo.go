@@ -43,12 +43,23 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 		return nil, err
 	}
 
+	var pricing []byte
+	if dep.EffectivePricing != nil {
+		pricing, err = json.Marshal(dep.EffectivePricing)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO model_deployments (
-			id, tenant_id, model_name, provider, model, provider_config, model_info, rpm, tpm, timeout
+			id, tenant_id, model_name, provider, model, provider_config, model_info,
+			rpm, tpm, timeout, credential_source, billing_mode, effective_pricing, pricing_source
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, dep.ID, nullUUID(dep.TenantID), dep.ModelName, dep.Provider, dep.Model, params, info, dep.RPM, dep.TPM, dep.TimeoutSec)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+	`, dep.ID, nullUUID(dep.TenantID), dep.ModelName, dep.Provider, dep.Model, params, info,
+		dep.RPM, dep.TPM, dep.TimeoutSec, emptyToNil(dep.CredentialSource),
+		emptyToNil(dep.BillingMode), pricing, emptyToNil(dep.PricingSource))
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +88,9 @@ func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platfor
 func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(tenant_id::text, ''), model_name, provider, model,
-		       provider_config, COALESCE(model_info, '{}')
+		       provider_config, COALESCE(model_info, '{}'),
+		       COALESCE(credential_source, ''), COALESCE(billing_mode, ''),
+		       effective_pricing, COALESCE(pricing_source, '')
 		FROM model_deployments
 		WHERE (tenant_id IS NULL OR tenant_id = $1)
 		  AND (catalog_managed = false OR catalog_available = true)
@@ -92,12 +105,17 @@ func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]p
 
 	for rows.Next() {
 		var (
-			dep       platform.Deployment
-			paramsRaw []byte
-			infoRaw   []byte
+			dep        platform.Deployment
+			paramsRaw  []byte
+			infoRaw    []byte
+			pricingRaw []byte
 		)
 
-		scanErr := rows.Scan(&dep.ID, &dep.TenantID, &dep.ModelName, &dep.Provider, &dep.Model, &paramsRaw, &infoRaw)
+		scanErr := rows.Scan(
+			&dep.ID, &dep.TenantID, &dep.ModelName, &dep.Provider, &dep.Model,
+			&paramsRaw, &infoRaw, &dep.CredentialSource, &dep.BillingMode,
+			&pricingRaw, &dep.PricingSource,
+		)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -116,6 +134,12 @@ func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]p
 
 		if len(infoRaw) > 0 {
 			if unmarshalErr := json.Unmarshal(infoRaw, &dep.ModelInfo); unmarshalErr != nil {
+				return nil, unmarshalErr
+			}
+		}
+
+		if len(pricingRaw) > 0 {
+			if unmarshalErr := json.Unmarshal(pricingRaw, &dep.EffectivePricing); unmarshalErr != nil {
 				return nil, unmarshalErr
 			}
 		}

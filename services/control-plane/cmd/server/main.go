@@ -146,6 +146,7 @@ func main() {
 	}
 
 	llmRouter.SetPlatformCredentialResolver(platformCredentialManager, credentialMode, strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_ENVIRONMENT")))
+	llmRouter.SetPricingResolver(admin.ResolvePublicModelPricing)
 
 	authMiddleware := auth.NewAuthMiddleware(store, cfg.GeneralSettings.MasterKey, logger)
 	authMiddleware.SetRuntimeProfiles(runtimeProfiles)

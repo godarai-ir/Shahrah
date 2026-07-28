@@ -393,6 +393,7 @@ type UpdateTenantProviderAccountCredentialsRequest struct {
 type TestTenantProviderAccountCredentialsResponse struct {
 	Success     bool   `json:"success"`
 	Unsupported bool   `json:"unsupported,omitempty"`
+	Category    string `json:"category,omitempty"`
 	Message     string `json:"message,omitempty"`
 }
 

@@ -2,8 +2,10 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 )
 
@@ -16,9 +18,15 @@ type CatalogModelPublication struct {
 // ListCatalogAvailabilityProviders returns providers with persisted tenant model selections.
 func (s *Store) ListCatalogAvailabilityProviders(ctx context.Context) ([]string, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT lower(a.provider)
-		FROM tenant_provider_accounts a
-		JOIN tenant_provider_account_models m ON m.account_id = a.account_id
+		SELECT DISTINCT provider
+		FROM (
+			SELECT lower(a.provider) AS provider
+			FROM tenant_provider_accounts a
+			JOIN tenant_provider_account_models m ON m.account_id = a.account_id
+			UNION
+			SELECT lower(provider) AS provider
+			FROM model_deployments
+		) providers
 		ORDER BY 1
 	`)
 	if err != nil {
@@ -98,6 +106,120 @@ func (s *Store) ReconcileLegacyDeploymentCatalogAvailability(ctx context.Context
 		s.warmDeploymentCacheAsync(tenantID)
 	}
 	return changed, nil
+}
+
+// ReconcileLegacyDeploymentCatalogPricing persists the latest valid public
+// pricing snapshot without changing how tenant-owned credentials are billed.
+func (s *Store) ReconcileLegacyDeploymentCatalogPricing(
+	ctx context.Context,
+	provider string,
+	models []platform.ProviderCatalogModel,
+) (int64, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id::text, COALESCE(tenant_id::text, ''), model
+		FROM model_deployments
+		WHERE lower(provider) = lower($1)
+	`, provider)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	type deployment struct {
+		id, tenantID, model string
+	}
+	items := make([]deployment, 0)
+	for rows.Next() {
+		var item deployment
+		if err := rows.Scan(&item.id, &item.tenantID, &item.model); err != nil {
+			return 0, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	var changed int64
+	affected := make(map[string]struct{})
+	for _, item := range items {
+		var price *platform.ModelPrice
+		for _, candidate := range models {
+			if modelid.MatchOfficialModel(provider, candidate.Model, item.model) {
+				price = candidate.PublicPricing
+				break
+			}
+		}
+		if !catalogPriceResolved(price) {
+			continue
+		}
+		raw, err := json.Marshal(price)
+		if err != nil {
+			return changed, err
+		}
+		tag, err := s.pool.Exec(ctx, `
+			UPDATE model_deployments
+			SET effective_pricing = $2::jsonb,
+			    pricing_source = 'public',
+			    updated_at = CASE
+			        WHEN effective_pricing IS DISTINCT FROM $2::jsonb
+			          OR pricing_source IS DISTINCT FROM 'public'
+			        THEN now()
+			        ELSE updated_at
+			    END
+			WHERE id = $1::uuid
+			  AND (
+			      effective_pricing IS DISTINCT FROM $2::jsonb
+			      OR pricing_source IS DISTINCT FROM 'public'
+			  )
+		`, item.id, string(raw))
+		if err != nil {
+			return changed, err
+		}
+		if tag.RowsAffected() > 0 {
+			changed++
+			if item.tenantID != "" {
+				affected[item.tenantID] = struct{}{}
+			}
+		}
+	}
+
+	for tenantID := range affected {
+		s.invalidateDeploymentCache(ctx, tenantID)
+		s.invalidateTenantRuntimeProfile(ctx, tenantID, "catalog.legacy_pricing")
+		s.warmDeploymentCacheAsync(tenantID)
+	}
+
+	return changed, nil
+}
+
+func catalogPriceResolved(price *platform.ModelPrice) bool {
+	if price == nil || strings.EqualFold(strings.TrimSpace(price.Status), "unknown") {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(price.Status), "free") {
+		return true
+	}
+	if len(price.Profiles) == 0 {
+		return false
+	}
+	for _, profile := range price.Profiles {
+		if strings.TrimSpace(profile.Region) == "" ||
+			strings.TrimSpace(profile.Currency) == "" ||
+			len(profile.Rates) == 0 {
+			return false
+		}
+		for _, rate := range profile.Rates {
+			if strings.TrimSpace(rate.Key) == "" ||
+				strings.TrimSpace(rate.Usage) == "" ||
+				strings.TrimSpace(rate.Unit) == "" ||
+				strings.TrimSpace(rate.Amount) == "" ||
+				rate.Quantity <= 0 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // ReconcileProviderCatalogAvailability applies the published catalog snapshot locally.

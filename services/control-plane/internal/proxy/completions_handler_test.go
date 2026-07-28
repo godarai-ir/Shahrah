@@ -639,6 +639,8 @@ func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testi
 		Provider:            "openai",
 		Model:               "gpt-4o-mini",
 		APIKey:              "user-openai-key",
+		CredentialSource:    platform.CredentialSourceUserBYOK,
+		BillingMode:         platform.BillingModeExternalBilled,
 		ProviderAccountID:   "acct_1",
 		ProviderAccountName: "personal-openai",
 	}}}
@@ -703,6 +705,8 @@ func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T
 		Provider:            "openai",
 		Model:               "gpt-4o-mini",
 		APIKey:              "user-openai-key",
+		CredentialSource:    platform.CredentialSourceUserBYOK,
+		BillingMode:         platform.BillingModeExternalBilled,
 		ProviderAccountID:   "acct_1",
 		ProviderAccountName: "personal-openai",
 	}}}

@@ -3,6 +3,7 @@ package storage
 import (
 	"testing"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,4 +49,29 @@ func TestProviderAccountUsesNoCredential(t *testing.T) {
 			assert.Equal(t, tt.want, providerAccountUsesNoCredential(tt.provider, tt.authMode))
 		})
 	}
+}
+
+func TestCatalogPriceResolved(t *testing.T) {
+	t.Parallel()
+
+	valid := &platform.ModelPrice{Profiles: []platform.PricingProfile{{
+		Region:   "global",
+		Currency: "USD",
+		Rates: []platform.PricingRate{{
+			Key:      "input",
+			Usage:    "input_tokens",
+			Unit:     "token",
+			Amount:   "0.01",
+			Quantity: 1000,
+		}},
+	}}}
+
+	assert.True(t, catalogPriceResolved(valid))
+	assert.True(t, catalogPriceResolved(&platform.ModelPrice{Status: "free"}))
+	assert.False(t, catalogPriceResolved(nil))
+	assert.False(t, catalogPriceResolved(&platform.ModelPrice{Status: "unknown", Profiles: valid.Profiles}))
+	assert.False(t, catalogPriceResolved(&platform.ModelPrice{Profiles: []platform.PricingProfile{{
+		Region:   "global",
+		Currency: "USD",
+	}}}))
 }

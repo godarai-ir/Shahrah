@@ -27,6 +27,7 @@ export type ProviderConnectionSchema = {
   auth_mode: ProviderAuthMode;
   version: number;
   runtime_ready: boolean;
+  credential_validation_supported: boolean;
   fields: ProviderConnectionSchemaField[];
 };
 

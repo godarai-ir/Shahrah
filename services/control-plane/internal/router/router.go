@@ -23,12 +23,13 @@ import (
 
 // Errors.
 var (
-	ErrNoHealthyDeployments  = errors.New("no healthy deployments available")
-	ErrModelNotFound         = errors.New("model not found")
-	ErrDeploymentNotFound    = errors.New("deployment not found")
-	ErrAllDeploymentsFailed  = errors.New("all deployments failed or are in cooldown")
-	ErrNoPlatformCredential  = errors.New("platform provider credential unavailable")
-	ErrDependencyUnavailable = errors.New("routing dependency unavailable")
+	ErrNoHealthyDeployments                = errors.New("no healthy deployments available")
+	ErrModelNotFound                       = errors.New("model not found")
+	ErrDeploymentNotFound                  = errors.New("deployment not found")
+	ErrAllDeploymentsFailed                = errors.New("all deployments failed or are in cooldown")
+	ErrNoPlatformCredential                = errors.New("platform provider credential unavailable")
+	ErrDependencyUnavailable               = errors.New("routing dependency unavailable")
+	ErrDeploymentBillingMetadataUnresolved = errors.New("deployment billing metadata unresolved")
 )
 
 // Deployment represents a single model deployment.
@@ -61,6 +62,8 @@ type byokCredentialResolver interface {
 	ResolveProviderAccountAPIKey(ctx context.Context, tenantID string, modelFQN string) (string, error)
 }
 
+type PricingResolver func(ctx context.Context, provider, model string) (*platform.ModelPrice, string, error)
+
 // Router is the main LLM request router.
 type Router struct {
 	mu                            sync.RWMutex
@@ -81,6 +84,13 @@ type Router struct {
 	lastKnownGoodDeployments      map[string][]platform.Deployment
 	lastKnownGoodRoutes           map[string]*Deployment
 	deploymentFallbackActive      map[string]bool
+	pricingResolver               PricingResolver
+	lastKnownGoodPricing          map[string]resolvedPricing
+}
+
+type resolvedPricing struct {
+	price  *platform.ModelPrice
+	source string
 }
 
 func (r *Router) SetPlatformCredentialResolver(manager *platformcredentials.Manager, mode, environment string) {
@@ -97,6 +107,12 @@ func (r *Router) SetPlatformCredentialResolver(manager *platformcredentials.Mana
 	}
 }
 
+func (r *Router) SetPricingResolver(resolver PricingResolver) {
+	r.mu.Lock()
+	r.pricingResolver = resolver
+	r.mu.Unlock()
+}
+
 // NewRouter creates a new Router instance.
 func NewRouter(modelList []config.ModelDeployment, settings config.RouterSettings, c cache.Cache, store DeploymentStore, logger *zap.Logger) (*Router, error) {
 	r := &Router{
@@ -110,6 +126,7 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 		lastKnownGoodDeployments: make(map[string][]platform.Deployment),
 		lastKnownGoodRoutes:      make(map[string]*Deployment),
 		deploymentFallbackActive: make(map[string]bool),
+		lastKnownGoodPricing:     make(map[string]resolvedPricing),
 	}
 
 	// Initialize cooldown cache
@@ -196,6 +213,7 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	r.mu.RUnlock()
 
 	var dynamicErr error
+	var invalidBillingMetadata bool
 
 	dynamicIDs := make(map[string]struct{})
 
@@ -238,6 +256,11 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 				continue
 			}
 
+			if !deploymentBillingMetadataValid(dep) {
+				invalidBillingMetadata = true
+				continue
+			}
+
 			hydrated := r.hydrateDynamicDeployment(dep)
 			if hydrated == nil {
 				continue
@@ -257,6 +280,9 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 				if dynamicErr != nil {
 					return nil, dynamicErr
 				}
+				if invalidBillingMetadata {
+					return nil, ErrDeploymentBillingMetadataUnresolved
+				}
 
 				return nil, ErrModelNotFound
 			}
@@ -267,6 +293,9 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 			if len(deployments) == 0 {
 				if dynamicErr != nil {
 					return nil, dynamicErr
+				}
+				if invalidBillingMetadata {
+					return nil, ErrDeploymentBillingMetadataUnresolved
 				}
 
 				return nil, ErrModelNotFound
@@ -317,7 +346,7 @@ func (r *Router) ResolveDeployment(ctx context.Context, tenantID, modelName, dep
 	}
 
 	if deployment := r.configuredDeploymentByID(modelName, deploymentID); deployment != nil {
-		return r.applyCredentials(ctx, tenantID, modelName, deployment)
+		return r.resolveExactDeployment(ctx, tenantID, modelName, deployment)
 	}
 
 	if r.store == nil || strings.TrimSpace(tenantID) == "" {
@@ -332,7 +361,7 @@ func (r *Router) ResolveDeployment(ctx context.Context, tenantID, modelName, dep
 		if snapshot, ok := r.lastKnownGoodDeploymentSnapshot(tenantID); ok {
 			deployments = snapshot
 		} else if deployment, ok := r.lastKnownGoodRoute(tenantID, modelName); ok && deployment.ID == deploymentID {
-			return r.applyCredentials(ctx, tenantID, modelName, deployment)
+			return r.resolveExactDeployment(ctx, tenantID, modelName, deployment)
 		} else {
 			return nil, dependencyErr
 		}
@@ -347,6 +376,9 @@ func (r *Router) ResolveDeployment(ctx context.Context, tenantID, modelName, dep
 		if deployment.ModelName != modelName && deployment.ModelName != "*" {
 			return nil, ErrDeploymentNotFound
 		}
+		if !deploymentBillingMetadataValid(deployment) {
+			return nil, ErrDeploymentBillingMetadataUnresolved
+		}
 
 		hydrated := r.hydrateDynamicDeployment(deployment)
 		if hydrated == nil {
@@ -354,7 +386,7 @@ func (r *Router) ResolveDeployment(ctx context.Context, tenantID, modelName, dep
 		}
 		if storeFailed && dynamicDeploymentNeedsResolvedCredential(hydrated) {
 			if resolved, ok := r.lastKnownGoodRoute(tenantID, modelName); ok && resolved.ID == deploymentID {
-				return r.applyCredentials(ctx, tenantID, modelName, resolved)
+				return r.resolveExactDeployment(ctx, tenantID, modelName, resolved)
 			}
 			return nil, dependencyErr
 		}
@@ -364,12 +396,25 @@ func (r *Router) ResolveDeployment(ctx context.Context, tenantID, modelName, dep
 
 	if storeFailed {
 		if deployment, ok := r.lastKnownGoodRoute(tenantID, modelName); ok && deployment.ID == deploymentID {
-			return r.applyCredentials(ctx, tenantID, modelName, deployment)
+			return r.resolveExactDeployment(ctx, tenantID, modelName, deployment)
 		}
 		return nil, dependencyErr
 	}
 
 	return nil, ErrDeploymentNotFound
+}
+
+func (r *Router) resolveExactDeployment(
+	ctx context.Context,
+	tenantID string,
+	modelName string,
+	deployment *Deployment,
+) (*Deployment, error) {
+	resolved, err := r.applyCredentials(ctx, tenantID, modelName, deployment)
+	if err != nil || resolved == nil {
+		return resolved, err
+	}
+	return r.applyResolvedPricing(ctx, modelName, resolved), nil
 }
 
 func (r *Router) configuredDeploymentByID(modelName, deploymentID string) *Deployment {
@@ -456,11 +501,98 @@ func (r *Router) finalizeRoute(
 		return resolved, err
 	}
 
+	resolved = r.applyResolvedPricing(ctx, modelName, resolved)
+
 	if _, ok := dynamicIDs[resolved.ID]; ok {
 		r.rememberResolvedRoute(tenantID, modelName, resolved)
 	}
 
 	return resolved, nil
+}
+
+func (r *Router) applyResolvedPricing(ctx context.Context, modelName string, selected *Deployment) *Deployment {
+	if selected == nil ||
+		selected.BillingMode != platform.BillingModeWalletBilled ||
+		modelPriceResolved(selected.EffectivePricing) {
+		return selected
+	}
+
+	r.mu.RLock()
+	resolver := r.pricingResolver
+	r.mu.RUnlock()
+	if resolver == nil {
+		return selected
+	}
+
+	model := pricingModelForRoute(selected, modelName)
+	key := strings.ToLower(strings.TrimSpace(selected.Provider) + "\x00" + strings.TrimSpace(model))
+	price, source, err := resolver(ctx, selected.Provider, model)
+	if err == nil && modelPriceResolved(price) && strings.TrimSpace(source) != "" {
+		r.mu.Lock()
+		r.lastKnownGoodPricing[key] = resolvedPricing{price: cloneModelPrice(price), source: strings.TrimSpace(source)}
+		r.mu.Unlock()
+
+		cloned := cloneDeployment(selected)
+		cloned.EffectivePricing = cloneModelPrice(price)
+		cloned.PricingSource = strings.TrimSpace(source)
+		return cloned
+	}
+
+	r.mu.RLock()
+	fallback, ok := r.lastKnownGoodPricing[key]
+	r.mu.RUnlock()
+	if !ok {
+		return selected
+	}
+
+	cloned := cloneDeployment(selected)
+	cloned.EffectivePricing = cloneModelPrice(fallback.price)
+	cloned.PricingSource = fallback.source
+	return cloned
+}
+
+func pricingModelForRoute(deployment *Deployment, modelName string) string {
+	if deployment == nil {
+		return ""
+	}
+	model := modelid.CanonicalOfficialModel(deployment.Provider, deployment.Model)
+	if model != "" && model != "*" && !strings.HasSuffix(model, "/*") {
+		return model
+	}
+	if provider, _, official, ok := modelid.SplitModelFQN(modelName); ok &&
+		strings.EqualFold(provider, deployment.Provider) {
+		return official
+	}
+	return modelid.CanonicalOfficialModel(deployment.Provider, modelName)
+}
+
+func modelPriceResolved(price *platform.ModelPrice) bool {
+	if price == nil || strings.EqualFold(strings.TrimSpace(price.Status), "unknown") {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(price.Status), "free") || len(price.Profiles) > 0
+}
+
+func cloneModelPrice(price *platform.ModelPrice) *platform.ModelPrice {
+	if price == nil {
+		return nil
+	}
+	out := *price
+	out.Profiles = append([]platform.PricingProfile(nil), price.Profiles...)
+	for i := range out.Profiles {
+		out.Profiles[i].Rates = append([]platform.PricingRate(nil), price.Profiles[i].Rates...)
+	}
+	return &out
+}
+
+func deploymentBillingMetadataValid(dep platform.Deployment) bool {
+	credentialSource := strings.TrimSpace(dep.CredentialSource)
+	billingMode := strings.TrimSpace(dep.BillingMode)
+	if credentialSource == "" || billingMode == "" {
+		return false
+	}
+	return billingMode == platform.BillingModeWalletBilled ||
+		billingMode == platform.BillingModeExternalBilled
 }
 
 func (r *Router) rememberResolvedRoute(tenantID, modelName string, deployment *Deployment) {
@@ -535,6 +667,7 @@ func cloneDeployment(in *Deployment) *Deployment {
 		providerAuth := *in.ProviderAuth
 		out.ProviderAuth = &providerAuth
 	}
+	out.EffectivePricing = cloneModelPrice(in.EffectivePricing)
 
 	return &out
 }
@@ -918,10 +1051,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 
 	credentialSource := strings.TrimSpace(dep.CredentialSource)
 	if credentialSource == "" {
-		credentialSource = platform.CredentialSourceGodarManagedKey
-		if hasProviderAccountRuntimeCredential {
-			credentialSource = platform.CredentialSourceUserBYOK
-		}
+		return nil
 	}
 
 	providerAuth := dep.ProviderAuth
@@ -931,10 +1061,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 
 	billingMode := strings.TrimSpace(dep.BillingMode)
 	if billingMode == "" {
-		billingMode = platform.BillingModeWalletBilled
-		if credentialSource == platform.CredentialSourceUserBYOK {
-			billingMode = platform.BillingModeExternalBilled
-		}
+		return nil
 	}
 
 	hydrated := platform.Deployment{

@@ -8,6 +8,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestLegacyDeploymentBillingMetadata(t *testing.T) {
+	t.Parallel()
+
+	t.Run("tenant api key is BYOK and externally billed", func(t *testing.T) {
+		credentialSource, billingMode, err := legacyDeploymentBillingMetadata("openai", "tenant-key")
+		require.NoError(t, err)
+		assert.Equal(t, platform.CredentialSourceUserBYOK, credentialSource)
+		assert.Equal(t, platform.BillingModeExternalBilled, billingMode)
+	})
+
+	t.Run("mock needs no credential and is externally billed", func(t *testing.T) {
+		credentialSource, billingMode, err := legacyDeploymentBillingMetadata(" Mock ", "")
+		require.NoError(t, err)
+		assert.Equal(t, platform.CredentialSourceGodarManagedKey, credentialSource)
+		assert.Equal(t, platform.BillingModeExternalBilled, billingMode)
+	})
+
+	t.Run("non mock without credential is rejected", func(t *testing.T) {
+		credentialSource, billingMode, err := legacyDeploymentBillingMetadata("anthropic", " ")
+		require.Error(t, err)
+		assert.Empty(t, credentialSource)
+		assert.Empty(t, billingMode)
+	})
+}
+
 func TestValidateCreateVirtualModelRequestAllowsWeighted(t *testing.T) {
 	req := platform.CreateVirtualModelRequest{
 		Alias:           "smart-router",
