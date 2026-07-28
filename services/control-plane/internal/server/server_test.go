@@ -368,6 +368,27 @@ func TestPlatformAdminAuthMiddlewareEnforcesServiceAccountScopes(t *testing.T) {
 	assert.Equal(t, fiber.StatusForbidden, writeResponse.StatusCode)
 }
 
+func TestPlatformProviderCatalogReconcileRouteIsRegistered(t *testing.T) {
+	t.Parallel()
+
+	app := NewFiberApp(&config.Config{
+		GeneralSettings: config.GeneralSettings{
+			MasterKey: "master-secret",
+		},
+	}, Dependencies{
+		AdminHandlers: admin.New(admin.Dependencies{}),
+	})
+
+	request := httptest.NewRequest(fiber.MethodPost, "/api/v1/platform/provider-catalog/reconcile", http.NoBody)
+	request.Header.Set("Authorization", "Bearer master-secret")
+
+	response, err := app.Test(request)
+	defer closeResponseBody(t, response)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNotImplemented, response.StatusCode)
+}
+
 func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
 	t.Parallel()
 

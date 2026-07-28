@@ -65,6 +65,18 @@ func (h *Handlers) ReconcileProviderCatalogAvailability(c *fiber.Ctx) error {
 	}); err != nil {
 		return err
 	}
+
+	return h.reconcileProviderCatalogAvailability(c)
+}
+
+// ReconcilePlatformProviderCatalogAvailability refreshes the durable runtime
+// gate for platform administrators authenticated by the platform route
+// middleware.
+func (h *Handlers) ReconcilePlatformProviderCatalogAvailability(c *fiber.Ctx) error {
+	return h.reconcileProviderCatalogAvailability(c)
+}
+
+func (h *Handlers) reconcileProviderCatalogAvailability(c *fiber.Ctx) error {
 	store, err := h.requireProviderAccountsStore()
 	if err != nil {
 		return err

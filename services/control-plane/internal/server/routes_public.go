@@ -58,6 +58,7 @@ func registerPlatformAdminRoutes(app *fiber.App, cfg *config.Config, deps Depend
 	platformAdmin.Put("/commercial-plans/:slug/versions/:version/entitlements/:featureKey", deps.AdminHandlers.UpsertPlatformPlanEntitlement)
 	platformAdmin.Post("/commercial-plans/:slug/versions/:version/prices", deps.AdminHandlers.UpsertPlatformPlanPrice)
 	platformAdmin.Put("/commercial-plans/:slug/versions/:version/prices/:interval", deps.AdminHandlers.UpsertPlatformPlanPrice)
+	platformAdmin.Post("/provider-catalog/reconcile", deps.AdminHandlers.ReconcilePlatformProviderCatalogAvailability)
 	platformAdmin.Put("/tenant-subscriptions", deps.AdminHandlers.UpsertPlatformTenantSubscription)
 	platformAdmin.Put("/tenant-entitlement-overrides", deps.AdminHandlers.UpsertPlatformTenantEntitlementOverride)
 	platformAdmin.Delete("/tenant-entitlement-overrides/:tenantID/:featureKey", deps.AdminHandlers.DeletePlatformTenantEntitlementOverride)

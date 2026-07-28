@@ -23,6 +23,7 @@ func TestRequiredPlatformScopeForProviderCredentialLifecycle(t *testing.T) {
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/rollback", PlatformScopeProviderCredentialActivate},
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/disable", PlatformScopeProviderCredentialDisable},
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/credential-versions/1/revoke", PlatformScopeProviderCredentialDisable},
+		{fiber.MethodPost, "/api/v1/platform/provider-catalog/reconcile", PlatformScopeCatalogWrite},
 	}
 	for _, test := range tests {
 		if got := RequiredPlatformScope(test.method, test.path); got != test.want {
