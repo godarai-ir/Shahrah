@@ -36,9 +36,14 @@ func TestAnthropicPricingSnapshotRequiresEveryCoreDimensionForReadyModels(
 	}
 	for _, model := range anthropicReadyModels {
 		payload.Models = append(payload.Models, discoveryRuntimeModel{
-			CanonicalID:  "anthropic/" + model,
-			Slug:         model,
-			Status:       "active",
+			CanonicalID: "anthropic/" + model,
+			Slug:        model,
+			Status:      "active",
+			RuntimeProfile: completeDiscoveryRuntimeProfile(
+				now,
+				"manual",
+				[]string{"manual", "disabled"},
+			),
 			PricingRates: completeAnthropicRates(),
 		})
 	}
@@ -63,13 +68,19 @@ func TestAnthropicPricingSnapshotRequiresEveryCoreDimensionForReadyModels(
 func TestAnthropicPricingSnapshotFailsClosedForMissingOrStaleRates(
 	t *testing.T,
 ) {
+	now := time.Now().UTC()
 	payload := discoveryRuntimeSnapshot{
 		Provider:    "anthropic",
 		Revision:    "revision-1",
-		GeneratedAt: time.Now().UTC(),
+		GeneratedAt: now,
 		Models: []discoveryRuntimeModel{{
 			CanonicalID: "anthropic/claude-sonnet-4-6",
 			Slug:        "claude-sonnet-4-6",
+			RuntimeProfile: completeDiscoveryRuntimeProfile(
+				now,
+				"adaptive",
+				[]string{"adaptive", "manual", "disabled"},
+			),
 			PricingRates: []discoveryPricingRate{{
 				Dimension:    "input_tokens",
 				Unit:         "token",
@@ -93,6 +104,74 @@ func TestAnthropicPricingSnapshotFailsClosedForMissingOrStaleRates(
 	require.ErrorIs(t, err, ErrPricingUnavailable)
 }
 
+func TestAnthropicPricingSnapshotFailsClosedWithoutValidRuntimeProfile(
+	t *testing.T,
+) {
+	payload := discoveryRuntimeSnapshot{
+		Provider:    "anthropic",
+		Revision:    "revision-profile-required",
+		GeneratedAt: time.Now().UTC(),
+		Models: []discoveryRuntimeModel{{
+			CanonicalID:  "anthropic/claude-opus-4-7",
+			Slug:         "claude-opus-4-7",
+			Status:       "active",
+			PricingRates: completeAnthropicRates(),
+		}},
+	}
+
+	_, err := normalizeAnthropicPricingSnapshot(payload)
+	require.ErrorIs(t, err, ErrPricingUnavailable)
+}
+
+func TestAnthropicEstimatePinsRuntimeProfileToPricingRevision(t *testing.T) {
+	now := time.Now().UTC()
+	snapshot, err := normalizeAnthropicPricingSnapshot(
+		discoveryRuntimeSnapshot{
+			Provider:    "anthropic",
+			Revision:    "revision-profile-1",
+			GeneratedAt: now,
+			Models: []discoveryRuntimeModel{{
+				CanonicalID: "anthropic/claude-opus-4-7",
+				Slug:        "claude-opus-4-7",
+				Status:      "active",
+				RuntimeProfile: completeDiscoveryRuntimeProfile(
+					now,
+					"adaptive",
+					[]string{"adaptive"},
+				),
+				PricingRates: completeAnthropicRates(),
+			}},
+		},
+	)
+	require.NoError(t, err)
+	manager := &AnthropicPricingSnapshotManager{now: time.Now}
+	manager.state.Store(snapshot)
+	service := &Service{
+		defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
+		anthropicPricing: manager,
+	}
+
+	estimated, err := service.EstimateCost(
+		context.Background(),
+		contractsopenai.ChatCompletionRequest{
+			Model: "anthropic/claude-opus-4-7",
+		},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, estimated.ModelRuntimeProfile)
+	require.Equal(
+		t,
+		estimated.PricingRevision,
+		estimated.ModelRuntimeProfile.CatalogRevision,
+	)
+	require.Equal(
+		t,
+		"adaptive",
+		estimated.ModelRuntimeProfile.Profile.Thinking.DefaultMode,
+	)
+}
+
 func TestAnthropicFinalizeUsesPinnedDecimalSnapshotAndCacheDimensions(
 	t *testing.T,
 ) {
@@ -103,9 +182,14 @@ func TestAnthropicFinalizeUsesPinnedDecimalSnapshotAndCacheDimensions(
 			Revision:    "revision-1",
 			GeneratedAt: now,
 			Models: []discoveryRuntimeModel{{
-				CanonicalID:  "anthropic/claude-sonnet-4-6",
-				Slug:         "claude-sonnet-4-6",
-				Status:       "active",
+				CanonicalID: "anthropic/claude-sonnet-4-6",
+				Slug:        "claude-sonnet-4-6",
+				Status:      "active",
+				RuntimeProfile: completeDiscoveryRuntimeProfile(
+					now,
+					"adaptive",
+					[]string{"adaptive", "manual", "disabled"},
+				),
 				PricingRates: completeAnthropicRates(),
 			}},
 		},
@@ -249,9 +333,14 @@ func anthropicBillingTestService(
 			Revision:    "revision-1",
 			GeneratedAt: time.Now().UTC(),
 			Models: []discoveryRuntimeModel{{
-				CanonicalID:  "anthropic/claude-opus-4-7",
-				Slug:         "claude-opus-4-7",
-				Status:       "active",
+				CanonicalID: "anthropic/claude-opus-4-7",
+				Slug:        "claude-opus-4-7",
+				Status:      "active",
+				RuntimeProfile: completeDiscoveryRuntimeProfile(
+					time.Now().UTC(),
+					"adaptive",
+					[]string{"adaptive"},
+				),
 				PricingRates: completeAnthropicRates(),
 			}},
 		},
@@ -305,4 +394,48 @@ func completeAnthropicRates() []discoveryPricingRate {
 		})
 	}
 	return out
+}
+
+func completeDiscoveryRuntimeProfile(
+	effectiveFrom time.Time,
+	defaultThinking string,
+	allowedThinking []string,
+) *discoveryRuntimeProfileRevision {
+	return &discoveryRuntimeProfileRevision{
+		Version: 1,
+		Profile: platform.ModelRuntimeProfile{
+			Version:   1,
+			Endpoints: []string{"messages", "count_tokens", "message_batches"},
+			Thinking: platform.ModelRuntimeThinkingProfile{
+				DefaultMode:  defaultThinking,
+				AllowedModes: allowedThinking,
+				EffortValues: []string{"low", "medium", "high", "max"},
+			},
+			AssistantPrefill: false,
+			Sampling: platform.ModelRuntimeSamplingProfile{
+				Parameters:             []string{"temperature", "top_p", "top_k"},
+				DisallowedWithThinking: []string{"temperature", "top_p", "top_k"},
+			},
+			Tools: platform.ModelRuntimeToolsProfile{
+				Custom: true, Parallel: true, StructuredOutput: true,
+			},
+			Modalities: platform.ModelRuntimeModalities{
+				Input: []string{"text", "image", "pdf"}, Output: []string{"text"},
+			},
+			RequestControls: platform.ModelRuntimeRequestControls{
+				ServiceTierValues:  []string{"auto", "standard_only"},
+				InferenceGeoValues: []string{"global", "us"},
+				SpeedValues:        []string{"standard"},
+			},
+			BetaHeaders: []string{"files-api-2025-04-14"},
+			Limits: platform.ModelRuntimeLimits{
+				ContextWindow: 1_000_000, MaxOutputTokens: 128_000,
+				MessagesBytes: 32 * 1024 * 1024,
+				BatchBytes:    256 * 1024 * 1024,
+				FileBytes:     500 * 1024 * 1024,
+			},
+		},
+		SourceURL:     "https://platform.claude.com/docs/en/about-claude/models/overview",
+		EffectiveFrom: effectiveFrom,
+	}
 }

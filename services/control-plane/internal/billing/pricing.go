@@ -7,6 +7,7 @@ import (
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/shopspring/decimal"
 )
 
@@ -295,6 +296,7 @@ type priceInfo struct {
 	Revision       string
 	GeneratedAt    time.Time
 	Provider       string
+	RuntimeProfile *platform.ModelRuntimeProfileBinding
 }
 
 // modelPriceFromRegistry returns pricing for a given model from the static registry.

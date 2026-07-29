@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/shopspring/decimal"
 )
@@ -29,10 +30,18 @@ type discoveryRuntimeSnapshot struct {
 }
 
 type discoveryRuntimeModel struct {
-	CanonicalID  string                 `json:"canonicalId"`
-	Slug         string                 `json:"slug"`
-	Status       string                 `json:"status"`
-	PricingRates []discoveryPricingRate `json:"pricingRates"`
+	CanonicalID    string                           `json:"canonicalId"`
+	Slug           string                           `json:"slug"`
+	Status         string                           `json:"status"`
+	RuntimeProfile *discoveryRuntimeProfileRevision `json:"runtimeProfile"`
+	PricingRates   []discoveryPricingRate           `json:"pricingRates"`
+}
+
+type discoveryRuntimeProfileRevision struct {
+	Version       int                          `json:"version"`
+	Profile       platform.ModelRuntimeProfile `json:"profile"`
+	SourceURL     string                       `json:"sourceUrl"`
+	EffectiveFrom time.Time                    `json:"effectiveFrom"`
 }
 
 type discoveryPricingRate struct {
@@ -55,10 +64,11 @@ type normalizedPricingRate struct {
 }
 
 type anthropicPricingModel struct {
-	CanonicalID string
-	Slug        string
-	Status      string
-	Rates       map[string]normalizedPricingRate
+	CanonicalID    string
+	Slug           string
+	Status         string
+	RuntimeProfile *platform.ModelRuntimeProfileBinding
+	Rates          map[string]normalizedPricingRate
 }
 
 type anthropicPricingSnapshot struct {
@@ -189,6 +199,43 @@ func (m *AnthropicPricingSnapshotManager) Ready() bool {
 		m.now().Sub(snapshot.GeneratedAt) <= anthropicPricingMaxAge
 }
 
+func (m *AnthropicPricingSnapshotManager) ResolveModelRuntimeProfiles(
+	models []string,
+	expectedRevision string,
+) ([]platform.ModelRuntimeProfileBinding, error) {
+	if m == nil {
+		return nil, ErrPricingUnavailable
+	}
+	snapshot := m.state.Load()
+	if snapshot == nil ||
+		m.now().Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge ||
+		(expectedRevision != "" && snapshot.Revision != expectedRevision) {
+		return nil, ErrPricingUnavailable
+	}
+	profiles := make([]platform.ModelRuntimeProfileBinding, 0, len(models))
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		normalized := normalizeAnthropicPricingModelID(model)
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		item, ok := snapshot.Models[normalized]
+		if !ok || item.RuntimeProfile == nil {
+			return nil, ErrPricingUnavailable
+		}
+		binding := *item.RuntimeProfile
+		if err := binding.Validate(); err != nil {
+			return nil, ErrPricingUnavailable
+		}
+		profiles = append(profiles, binding)
+	}
+	if len(profiles) == 0 {
+		return nil, ErrPricingUnavailable
+	}
+	return profiles, nil
+}
+
 func normalizeAnthropicPricingSnapshot(
 	payload discoveryRuntimeSnapshot,
 ) (*anthropicPricingSnapshot, error) {
@@ -200,6 +247,22 @@ func normalizeAnthropicPricingSnapshot(
 	}
 	models := make(map[string]anthropicPricingModel, len(payload.Models)*2)
 	for _, item := range payload.Models {
+		if item.RuntimeProfile == nil {
+			return nil, ErrPricingUnavailable
+		}
+		runtimeBinding := &platform.ModelRuntimeProfileBinding{
+			Provider:        payload.Provider,
+			CatalogRevision: payload.Revision,
+			CanonicalID:     item.CanonicalID,
+			Slug:            item.Slug,
+			ProfileVersion:  item.RuntimeProfile.Version,
+			Profile:         item.RuntimeProfile.Profile,
+			SourceURL:       item.RuntimeProfile.SourceURL,
+			EffectiveFrom:   item.RuntimeProfile.EffectiveFrom,
+		}
+		if err := runtimeBinding.Validate(); err != nil {
+			return nil, ErrPricingUnavailable
+		}
 		rates := make(map[string]normalizedPricingRate, len(item.PricingRates))
 		for _, input := range item.PricingRates {
 			if input.Currency != "USD" || input.Region != "global" {
@@ -227,10 +290,11 @@ func normalizeAnthropicPricingSnapshot(
 			return nil, ErrPricingUnavailable
 		}
 		model := anthropicPricingModel{
-			CanonicalID: item.CanonicalID,
-			Slug:        item.Slug,
-			Status:      item.Status,
-			Rates:       rates,
+			CanonicalID:    item.CanonicalID,
+			Slug:           item.Slug,
+			Status:         item.Status,
+			RuntimeProfile: runtimeBinding,
+			Rates:          rates,
 		}
 		models[strings.ToLower(strings.TrimSpace(item.Slug))] = model
 		models[strings.ToLower(strings.TrimSpace(item.CanonicalID))] = model

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -61,11 +62,12 @@ func TestConvertToAnthropicRequestMapsToolsStructuredOutputAndParameters(t *test
 	}
 
 	// Adaptive thinking and sampling cannot be combined.
-	if _, err := convertToAnthropicRequest(request); err == nil {
+	profile := anthropicTestRuntimeProfile(request.Model)
+	if _, err := convertToAnthropicRequest(request, profile.Profile); err == nil {
 		t.Fatal("expected adaptive thinking sampling conflict")
 	}
 	request.TopK = nil
-	converted, err := convertToAnthropicRequest(request)
+	converted, err := convertToAnthropicRequest(request, profile.Profile)
 	if err != nil {
 		t.Fatalf("convertToAnthropicRequest: %v", err)
 	}
@@ -116,7 +118,10 @@ func TestConvertToAnthropicRequestMapsToolMessages(t *testing.T) {
 			{Role: "tool", ToolCallID: "toolu_1", Content: `{"temperature":31}`},
 		},
 	}
-	converted, err := convertToAnthropicRequest(request)
+	converted, err := convertToAnthropicRequest(
+		request,
+		anthropicTestRuntimeProfile(request.Model).Profile,
+	)
 	if err != nil {
 		t.Fatalf("convertToAnthropicRequest: %v", err)
 	}
@@ -174,9 +179,193 @@ func TestOpus47RejectsManualThinking(t *testing.T) {
 		Thinking: &contractsopenai.ThinkingConfig{Type: "enabled", BudgetTokens: 2048},
 		Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "test"}},
 	}
-	if _, err := convertToAnthropicRequest(request); err == nil {
+	if _, err := convertToAnthropicRequest(
+		request,
+		anthropicTestRuntimeProfile(request.Model).Profile,
+	); err == nil {
 		t.Fatal("expected manual thinking to be rejected for Opus 4.7")
 	}
+}
+
+func TestAnthropicConversionUsesRuntimeProfileInsteadOfModelName(t *testing.T) {
+	request := contractsopenai.ChatCompletionRequest{
+		Model:           "claude-future-model",
+		ReasoningEffort: "high",
+		Speed:           "fast",
+		Messages: []contractsopenai.ChatMessage{{
+			Role: "user", Content: "test",
+		}},
+	}
+	binding := anthropicTestRuntimeProfile(request.Model)
+	binding.Profile.Thinking.DefaultMode = "adaptive"
+	binding.Profile.Thinking.AllowedModes = []string{"adaptive"}
+	binding.Profile.AssistantPrefill = false
+	binding.Profile.RequestControls.SpeedValues = []string{"fast"}
+
+	converted, err := convertToAnthropicRequest(
+		request,
+		binding.Profile,
+	)
+
+	if err != nil {
+		t.Fatalf("convertToAnthropicRequest: %v", err)
+	}
+	if converted.Thinking == nil ||
+		converted.Thinking.Type != "adaptive" ||
+		converted.Speed != "fast" {
+		t.Fatalf("runtime profile was not applied: %#v", converted)
+	}
+}
+
+func TestAnthropicConversionRejectsProfileDisallowedAssistantPrefill(
+	t *testing.T,
+) {
+	request := contractsopenai.ChatCompletionRequest{
+		Model: "claude-future-model",
+		Messages: []contractsopenai.ChatMessage{{
+			Role: "assistant", Content: "prefill",
+		}},
+	}
+	binding := anthropicTestRuntimeProfile(request.Model)
+	binding.Profile.AssistantPrefill = false
+
+	_, err := convertToAnthropicRequest(request, binding.Profile)
+
+	if err == nil || !strings.Contains(err.Error(), "assistant") {
+		t.Fatalf("expected assistant prefill rejection, got %v", err)
+	}
+}
+
+func TestAnthropicConversionRejectsProfileDisallowedSamplingParameter(
+	t *testing.T,
+) {
+	topK := 10
+	request := contractsopenai.ChatCompletionRequest{
+		Model:    "claude-future-model",
+		TopK:     &topK,
+		Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "test"}},
+	}
+	binding := anthropicTestRuntimeProfile(request.Model)
+	binding.Profile.Sampling.Parameters = []string{"temperature", "top_p"}
+
+	_, err := convertToAnthropicRequest(request, binding.Profile)
+
+	if err == nil || !strings.Contains(err.Error(), "top_k") {
+		t.Fatalf("expected top_k rejection, got %v", err)
+	}
+}
+
+func TestAnthropicBetaHeadersIntersectAccountAndRuntimeProfile(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/", nil)
+	binding := anthropicTestRuntimeProfile("claude-opus-4-7")
+	binding.Profile.BetaHeaders = []string{"model-approved"}
+	payload := platform.TunnelRequest{
+		Headers: map[string]string{
+			"anthropic-beta": "model-approved,account-only",
+		},
+		Deployment: platform.Deployment{
+			ProviderHeaders: map[string]string{
+				"Anthropic-Beta-Allowlist": "model-approved,account-only",
+			},
+		},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{binding},
+	}
+
+	applyAnthropicBetaHeaders(request, payload)
+
+	if got := request.Header.Get("anthropic-beta"); got != "model-approved" {
+		t.Fatalf("unexpected intersected beta header %q", got)
+	}
+}
+
+func TestAnthropicDispatchFailsClosedWithoutRuntimeProfile(t *testing.T) {
+	called := false
+	upstream := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			called = true
+			w.WriteHeader(http.StatusOK)
+		},
+	))
+	defer upstream.Close()
+	adapter := &anthropicAdapter{}
+
+	_, err := adapter.Dispatch(
+		t.Context(),
+		upstream.Client(),
+		platform.TunnelRequest{
+			Deployment: platform.Deployment{
+				Provider: "anthropic",
+				APIBase:  upstream.URL,
+				APIKey:   "sk-test",
+			},
+			Body: []byte(
+				`{"model":"claude-opus-4-7","messages":[{"role":"user","content":"hi"}]}`,
+			),
+		},
+	)
+
+	if err == nil || !strings.Contains(err.Error(), "runtime profile") {
+		t.Fatalf("expected missing runtime profile error, got %v", err)
+	}
+	if called {
+		t.Fatal("upstream must not be called without a runtime profile")
+	}
+}
+
+func anthropicTestRuntimeProfile(
+	model string,
+) platform.ModelRuntimeProfileBinding {
+	defaultMode := "manual"
+	allowedModes := []string{"manual", "disabled"}
+	assistantPrefill := true
+	if strings.Contains(model, "-4-6") || strings.Contains(model, "-4-7") {
+		defaultMode = "adaptive"
+		allowedModes = []string{"adaptive", "manual", "disabled"}
+		assistantPrefill = false
+	}
+	if strings.Contains(model, "-4-7") {
+		allowedModes = []string{"adaptive"}
+	}
+	binding := platform.ModelRuntimeProfileBinding{
+		Provider:        "anthropic",
+		CatalogRevision: "test-runtime-revision",
+		CanonicalID:     "anthropic/" + canonicalAnthropicModel(model),
+		Slug:            canonicalAnthropicModel(model),
+		ProfileVersion:  1,
+		EffectiveFrom:   time.Now().UTC(),
+		Profile: platform.ModelRuntimeProfile{
+			Version:   1,
+			Endpoints: []string{"messages", "count_tokens", "message_batches", "files", "models"},
+			Thinking: platform.ModelRuntimeThinkingProfile{
+				DefaultMode: defaultMode, AllowedModes: allowedModes,
+				EffortValues: []string{"low", "medium", "high", "max"},
+			},
+			AssistantPrefill: assistantPrefill,
+			Sampling: platform.ModelRuntimeSamplingProfile{
+				Parameters:             []string{"temperature", "top_p", "top_k"},
+				DisallowedWithThinking: []string{"temperature", "top_p", "top_k"},
+			},
+			Tools: platform.ModelRuntimeToolsProfile{
+				Custom: true, Parallel: true, StructuredOutput: true,
+			},
+			Modalities: platform.ModelRuntimeModalities{
+				Input: []string{"text", "image", "pdf"}, Output: []string{"text"},
+			},
+			RequestControls: platform.ModelRuntimeRequestControls{
+				ServiceTierValues:  []string{"auto", "standard_only"},
+				InferenceGeoValues: []string{"global", "us"},
+				SpeedValues:        []string{"standard", "fast"},
+			},
+			BetaHeaders: []string{"files-api-2025-04-14"},
+			Limits: platform.ModelRuntimeLimits{
+				ContextWindow: 1_000_000, MaxOutputTokens: 128_000,
+				MessagesBytes: 32 * 1024 * 1024,
+				BatchBytes:    256 * 1024 * 1024,
+				FileBytes:     500 * 1024 * 1024,
+			},
+		},
+	}
+	return binding
 }
 
 func TestAnthropicTypedOperationBuildsFixedPathAndFiltersBeta(t *testing.T) {

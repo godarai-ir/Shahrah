@@ -1,6 +1,36 @@
 import { CatalogService } from './catalog.service';
 
 describe('CatalogService', () => {
+  it('fails the runtime snapshot when a stored profile is invalid', async () => {
+    const prisma = {
+      model: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            canonicalId: 'anthropic/claude-opus-4-7',
+            slug: 'claude-opus-4-7',
+            status: 'active',
+            deprecationDate: null,
+            retirementDate: null,
+            replacementCanonicalId: null,
+            runtimeProfiles: [
+              {
+                version: 1,
+                profileJson: { version: 1 },
+                sourceUrl: 'https://platform.claude.com/docs',
+                effectiveFrom: new Date(),
+              },
+            ],
+            pricingRates: [],
+            sources: [],
+          },
+        ]),
+      },
+    } as any;
+    const service = new CatalogService(prisma, {} as any);
+
+    await expect(service.runtimeSnapshot('anthropic')).rejects.toThrow();
+  });
+
   it('applies enabled/provider-enabled filters', async () => {
     const prisma = {
       model: {

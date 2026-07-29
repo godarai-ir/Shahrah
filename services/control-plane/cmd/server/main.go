@@ -333,13 +333,14 @@ func main() {
 	}
 
 	baseProxyDeps := proxy.BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunnelClient,
-		Billing:       billingService,
-		Wallets:       store,
-		RequestLogger: requestLogger,
-		Logger:        logger,
-		EmitMetric:    emitMetric,
+		Router:                   llmRouter,
+		Tunnel:                   tunnelClient,
+		Billing:                  billingService,
+		Wallets:                  store,
+		AnthropicRuntimeProfiles: anthropicPricing,
+		RequestLogger:            requestLogger,
+		Logger:                   logger,
+		EmitMetric:               emitMetric,
 	}
 
 	var spendLogger proxy.SpendLogger = store

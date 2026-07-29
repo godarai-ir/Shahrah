@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { IndexingService } from '../indexing/indexing.service';
 import { ModelsQueryDto } from './dto/models-query.dto';
 import { createHash } from 'node:crypto';
+import { modelRuntimeProfileSchema } from './runtime-profile.schema';
 
 @Injectable()
 export class CatalogService {
@@ -55,6 +56,15 @@ export class CatalogService {
     });
 
     const models = rows.map((row) => {
+      const storedRuntimeProfile = row.runtimeProfiles[0];
+      const runtimeProfile = modelRuntimeProfileSchema.parse(
+        storedRuntimeProfile.profileJson,
+      );
+      if (storedRuntimeProfile.version !== runtimeProfile.version) {
+        throw new Error(
+          `Runtime profile version mismatch for ${row.canonicalId}`,
+        );
+      }
       const effectiveStatus =
         row.retirementDate && row.retirementDate <= generatedAt
           ? 'unavailable'
@@ -68,14 +78,12 @@ export class CatalogService {
         deprecationDate: row.deprecationDate,
         retirementDate: row.retirementDate,
         replacementCanonicalId: row.replacementCanonicalId,
-        runtimeProfile: row.runtimeProfiles[0]
-          ? {
-              version: row.runtimeProfiles[0].version,
-              profile: row.runtimeProfiles[0].profileJson,
-              sourceUrl: row.runtimeProfiles[0].sourceUrl,
-              effectiveFrom: row.runtimeProfiles[0].effectiveFrom,
-            }
-          : null,
+        runtimeProfile: {
+          version: storedRuntimeProfile.version,
+          profile: runtimeProfile,
+          sourceUrl: storedRuntimeProfile.sourceUrl,
+          effectiveFrom: storedRuntimeProfile.effectiveFrom,
+        },
         pricingRates: row.pricingRates.map((rate) => ({
           dimension: rate.dimension,
           unit: rate.unit,

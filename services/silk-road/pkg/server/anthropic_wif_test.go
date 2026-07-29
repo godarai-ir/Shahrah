@@ -86,6 +86,9 @@ func TestAnthropicWIFExchangesOnceAndUsesBearerToken(t *testing.T) {
 				},
 			},
 		},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{
+			anthropicTestRuntimeProfile("claude-sonnet-4-6"),
+		},
 		Body: []byte(`{"model":"claude-sonnet-4-6","messages":[{"role":"user","content":"hi"}]}`),
 	}
 

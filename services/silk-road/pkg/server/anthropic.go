@@ -163,7 +163,30 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 		return nil, fmt.Errorf("decode openai request: %w", err)
 	}
 
-	anthropicReq, err := convertToAnthropicRequest(openAIReq)
+	runtimeProfile, err := anthropicRuntimeProfileForModel(
+		payload,
+		openAIReq.Model,
+		"messages",
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateAnthropicOpenAIRequestWithProfile(
+		openAIReq,
+		runtimeProfile,
+	); err != nil {
+		return nil, err
+	}
+	if len(payload.Body) > runtimeProfile.Profile.Limits.MessagesBytes {
+		return nil, fmt.Errorf(
+			"anthropic operation payload exceeds %d bytes",
+			runtimeProfile.Profile.Limits.MessagesBytes,
+		)
+	}
+	anthropicReq, err := convertToAnthropicRequest(
+		openAIReq,
+		runtimeProfile.Profile,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("convert anthropic request: %w", err)
 	}
@@ -236,10 +259,14 @@ func anthropicWIFConnectionKey(deployment platform.Deployment) string {
 }
 
 func (a *anthropicAdapter) dispatchNative(ctx context.Context, client *http.Client, target string, payload platform.TunnelRequest) (*adapterResponse, error) {
+	if err := validateAnthropicNativeRuntimeProfiles(payload); err != nil {
+		return nil, err
+	}
 	method, path, maxBytes, err := anthropicOperationTarget(payload.Operation, payload.OperationInput)
 	if err != nil {
 		return nil, err
 	}
+	maxBytes = anthropicRuntimeProfilePayloadLimit(payload, maxBytes)
 	if maxBytes > 0 && int64(len(payload.Body)) > maxBytes {
 		return nil, fmt.Errorf("anthropic operation payload exceeds %d bytes", maxBytes)
 	}
@@ -434,6 +461,12 @@ func applyAnthropicBetaHeaders(req *http.Request, payload platform.TunnelRequest
 	enabled := make([]string, 0, len(requested))
 	for value := range requested {
 		if _, ok := allowed[value]; ok {
+			if !anthropicRuntimeProfilesAllowBeta(
+				payload.ModelRuntimeProfiles,
+				value,
+			) {
+				continue
+			}
 			enabled = append(enabled, value)
 		}
 	}
@@ -441,6 +474,21 @@ func applyAnthropicBetaHeaders(req *http.Request, payload platform.TunnelRequest
 		sort.Strings(enabled)
 		req.Header.Set("anthropic-beta", strings.Join(enabled, ","))
 	}
+}
+
+func anthropicRuntimeProfilesAllowBeta(
+	profiles []platform.ModelRuntimeProfileBinding,
+	header string,
+) bool {
+	if len(profiles) == 0 {
+		return true
+	}
+	for _, binding := range profiles {
+		if !binding.Profile.AllowsBetaHeader(header) {
+			return false
+		}
+	}
+	return true
 }
 
 func commaSeparatedSet(input string) map[string]struct{} {
@@ -714,7 +762,16 @@ func anthropicVersion(version string) string {
 	return strings.TrimSpace(version)
 }
 
-func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthropicRequest, error) {
+func convertToAnthropicRequest(
+	req contractsopenai.ChatCompletionRequest,
+	runtimeProfile platform.ModelRuntimeProfile,
+) (anthropicRequest, error) {
+	if err := validateAnthropicRequestWithRuntimeProfile(
+		req,
+		runtimeProfile,
+	); err != nil {
+		return anthropicRequest{}, err
+	}
 	anthReq := anthropicRequest{
 		Model:       canonicalAnthropicModel(req.Model),
 		MaxTokens:   4096,
@@ -734,14 +791,24 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 		return anthropicRequest{}, err
 	}
 	anthReq.Metadata = anthropicMetadataFromOpenAI(req.Metadata, req.User)
-	anthReq.Output, err = anthropicOutputConfigFromOpenAI(req.Model, req.ResponseFormat, req.OutputConfig, req.ReasoningEffort)
+	anthReq.Output, err = anthropicOutputConfigFromOpenAI(
+		runtimeProfile,
+		req.ResponseFormat,
+		req.OutputConfig,
+		req.ReasoningEffort,
+	)
 	if err != nil {
 		return anthropicRequest{}, err
 	}
 	anthReq.ServiceTier = strings.TrimSpace(req.ServiceTier)
 	anthReq.Speed = strings.TrimSpace(req.Speed)
 	anthReq.InferenceGeo = strings.TrimSpace(req.InferenceGeo)
-	if err := validateAnthropicRequestControls(anthReq.Model, anthReq.ServiceTier, anthReq.Speed, anthReq.InferenceGeo); err != nil {
+	if err := validateAnthropicRequestControls(
+		runtimeProfile,
+		anthReq.ServiceTier,
+		anthReq.Speed,
+		anthReq.InferenceGeo,
+	); err != nil {
 		return anthropicRequest{}, err
 	}
 
@@ -798,7 +865,11 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 		anthReq.MaxTokens = *req.MaxTokens
 	}
 
-	anthReq.Thinking, err = anthropicThinkingConfig(req, anthReq.MaxTokens)
+	anthReq.Thinking, err = anthropicThinkingConfig(
+		req,
+		anthReq.MaxTokens,
+		runtimeProfile,
+	)
 	if err != nil {
 		return anthropicRequest{}, err
 	}
@@ -912,13 +983,18 @@ func anthropicMetadataFromOpenAI(metadata map[string]interface{}, user string) *
 	return &anthropicMetadata{UserID: userID}
 }
 
-func anthropicOutputConfigFromOpenAI(model string, responseFormat interface{}, output map[string]interface{}, effort string) (*anthropicOutputConfig, error) {
+func anthropicOutputConfigFromOpenAI(
+	runtimeProfile platform.ModelRuntimeProfile,
+	responseFormat interface{},
+	output map[string]interface{},
+	effort string,
+) (*anthropicOutputConfig, error) {
 	config := &anthropicOutputConfig{}
 	if value, ok := output["effort"].(string); ok {
 		config.Effort = strings.TrimSpace(value)
-	} else if strings.Contains(canonicalAnthropicModel(model), "-4-6") ||
-		strings.Contains(canonicalAnthropicModel(model), "-4-7") {
-		config.Effort = normalizeAnthropicEffort(effort)
+	} else if normalized := normalizeAnthropicEffort(effort); normalized != "" &&
+		runtimeProfile.AllowsEffort(normalized) {
+		config.Effort = normalized
 	}
 	if responseFormat != nil {
 		raw, err := json.Marshal(responseFormat)
@@ -968,32 +1044,23 @@ func anthropicOutputConfigFromOpenAI(model string, responseFormat interface{}, o
 	return config, nil
 }
 
-func validateAnthropicRequestControls(model, serviceTier, speed, inferenceGeo string) error {
-	model = strings.ToLower(strings.TrimSpace(model))
+func validateAnthropicRequestControls(
+	runtimeProfile platform.ModelRuntimeProfile,
+	serviceTier, speed, inferenceGeo string,
+) error {
 	serviceTier = strings.ToLower(strings.TrimSpace(serviceTier))
 	speed = strings.ToLower(strings.TrimSpace(speed))
 	inferenceGeo = strings.ToLower(strings.TrimSpace(inferenceGeo))
-	if serviceTier != "" && serviceTier != "auto" && serviceTier != "standard_only" {
+	if serviceTier != "" &&
+		!runtimeProfile.AllowsServiceTier(serviceTier) {
 		return fmt.Errorf("unsupported service_tier %q", serviceTier)
 	}
-	is46 := strings.Contains(model, "-4-6")
-	is47 := strings.Contains(model, "-4-7")
-	if inferenceGeo != "" {
-		if inferenceGeo != "global" && inferenceGeo != "us" {
-			return fmt.Errorf("unsupported inference_geo %q", inferenceGeo)
-		}
-		if !is46 && !is47 {
-			return fmt.Errorf("inference_geo is not supported by %s", model)
-		}
+	if inferenceGeo != "" &&
+		!runtimeProfile.AllowsInferenceGeo(inferenceGeo) {
+		return fmt.Errorf("unsupported inference_geo %q", inferenceGeo)
 	}
-	if speed != "" && speed != "standard" && speed != "fast" {
+	if speed != "" && !runtimeProfile.AllowsSpeed(speed) {
 		return fmt.Errorf("unsupported speed %q", speed)
-	}
-	if speed == "fast" && !is46 {
-		return fmt.Errorf("fast speed is not available for %s", model)
-	}
-	if speed == "standard" && !is46 && !is47 {
-		return fmt.Errorf("speed is not supported by %s", model)
 	}
 	return nil
 }
@@ -1169,12 +1236,11 @@ func canonicalAnthropicModel(model string) string {
 	return model
 }
 
-func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxTokens int) (*contractsopenai.ThinkingConfig, error) {
-	model := canonicalAnthropicModel(req.Model)
-	is47 := strings.Contains(model, "opus-4-7")
-	is46 := strings.Contains(model, "opus-4-6") || strings.Contains(model, "sonnet-4-6")
-	adaptiveGeneration := is47 || is46
-
+func anthropicThinkingConfig(
+	req contractsopenai.ChatCompletionRequest,
+	maxTokens int,
+	runtimeProfile platform.ModelRuntimeProfile,
+) (*contractsopenai.ThinkingConfig, error) {
 	if req.Thinking != nil {
 		if strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") {
 			return nil, nil
@@ -1184,14 +1250,8 @@ func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxToken
 			cfg.Type = "enabled"
 		}
 		if strings.EqualFold(cfg.Type, "adaptive") {
-			if req.Temperature != nil || req.TopP != nil || req.TopK != nil {
-				return nil, fmt.Errorf("adaptive thinking cannot be combined with sampling parameters")
-			}
 			cfg.BudgetTokens = 0
 			return &cfg, nil
-		}
-		if is47 {
-			return nil, fmt.Errorf("claude opus 4.7 only supports adaptive thinking")
 		}
 		if !strings.EqualFold(cfg.Type, "enabled") {
 			return nil, fmt.Errorf("unsupported thinking type %q", cfg.Type)
@@ -1203,19 +1263,16 @@ func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxToken
 	}
 
 	effort := strings.ToLower(strings.TrimSpace(req.ReasoningEffort))
-	if adaptiveGeneration {
+	switch strings.ToLower(
+		strings.TrimSpace(runtimeProfile.Thinking.DefaultMode),
+	) {
+	case "adaptive":
 		if effort == "none" {
 			return nil, nil
 		}
-		if req.Temperature != nil || req.TopP != nil || req.TopK != nil {
-			return nil, fmt.Errorf("adaptive thinking cannot be combined with sampling parameters")
-		}
-		if effort == "max" || effort == "xhigh" {
-			if !strings.Contains(model, "opus-") {
-				return nil, fmt.Errorf("reasoning_effort=max is not supported by %s", model)
-			}
-		}
 		return &contractsopenai.ThinkingConfig{Type: "adaptive"}, nil
+	case "disabled":
+		return nil, nil
 	}
 	if effort == "" || effort == "none" {
 		return nil, nil

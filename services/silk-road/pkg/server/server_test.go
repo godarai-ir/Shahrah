@@ -1025,6 +1025,9 @@ func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 			APIBase:  upstream.URL,
 			APIKey:   "sk-ant-test",
 		},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{
+			anthropicTestRuntimeProfile("claude-3-haiku-20240307"),
+		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"system","content":"be brief"},{"role":"user","content":"hi"}]}`),
 	}
 	raw, err := json.Marshal(payload)
@@ -1096,6 +1099,9 @@ func TestDispatchAnthropicAdapterMapsExtendedThinking(t *testing.T) {
 			Provider: "anthropic",
 			APIBase:  upstream.URL,
 			APIKey:   "sk-ant-test",
+		},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{
+			anthropicTestRuntimeProfile("anthropic/claude-3-7-sonnet"),
 		},
 		Body: []byte(`{
 			"model":"anthropic/claude-3-7-sonnet",
@@ -1170,6 +1176,9 @@ func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
 			APIBase:  upstream.URL,
 			APIKey:   "sk-ant-test",
 		},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{
+			anthropicTestRuntimeProfile("claude-3-haiku-20240307"),
+		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}]}`),
 	}
 	raw, err := json.Marshal(payload)
@@ -1223,6 +1232,9 @@ func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
 			Provider: "anthropic",
 			APIBase:  upstream.URL,
 			APIKey:   "sk-ant-test",
+		},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{
+			anthropicTestRuntimeProfile("claude-3-haiku-20240307"),
 		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":[{"type":"text","text":"summarize"},{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}]}]}`),
 	}
@@ -1403,6 +1415,9 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 			Provider: "anthropic",
 			APIBase:  upstream.URL,
 			APIKey:   "sk-ant-test",
+		},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{
+			anthropicTestRuntimeProfile("claude-3-haiku-20240307"),
 		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":"hi"}],"stream":true}`),
 	}

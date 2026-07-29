@@ -328,7 +328,14 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return dependencyErr
 	}
 
-	if handled, validationErr := h.validateChatDeployment(c, currentTenant.ID, requestedModel, req, deployment); handled || validationErr != nil {
+	if handled, validationErr := h.validateChatDeployment(
+		c,
+		currentTenant.ID,
+		requestedModel,
+		req,
+		deployment,
+		estimated.ModelRuntimeProfile,
+	); handled || validationErr != nil {
 		return validationErr
 	}
 
@@ -344,6 +351,23 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq := baseReq
 	tunnelReq.Body = payload
 	tunnelReq.Deployment = toContractDeployment(deployment)
+	runtimeModel := strings.TrimSpace(deployment.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = resolvedModel
+	}
+	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+		deployment.Provider,
+		runtimeModel,
+		estimated,
+	)
+	if err != nil {
+		return writeAPIError(
+			c,
+			fiber.StatusServiceUnavailable,
+			err.Error(),
+			"runtime_profile_unavailable",
+		)
+	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
@@ -413,6 +437,7 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 	requestedModel string,
 	req contractsopenai.ChatCompletionRequest,
 	deployment *router.Deployment,
+	runtimeProfile *platform.ModelRuntimeProfileBinding,
 ) (bool, error) {
 	if deployment == nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, tenantID)
@@ -445,8 +470,18 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
 
-	if err := validateProviderExtendedThinkingInput(req, provider); err != nil {
-		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	if strings.EqualFold(strings.TrimSpace(provider), "anthropic") {
+		if err := validateAnthropicChatRuntimeProfile(
+			req,
+			runtimeProfile,
+		); err != nil {
+			return true, writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				err.Error(),
+				"invalid_request_error",
+			)
+		}
 	}
 
 	return false, nil
@@ -1724,7 +1759,8 @@ func chatRequestHasTools(req contractsopenai.ChatCompletionRequest) bool {
 }
 
 func chatRequestHasResponseFormat(req contractsopenai.ChatCompletionRequest) bool {
-	return req.ResponseFormat != nil
+	return req.ResponseFormat != nil ||
+		(req.OutputConfig != nil && req.OutputConfig["format"] != nil)
 }
 
 func chatRequestHasExtendedThinking(req contractsopenai.ChatCompletionRequest) bool {
@@ -1753,7 +1789,7 @@ func thinkingConfigEnabled(value *contractsopenai.ThinkingConfig) bool {
 
 	thinkingType := strings.ToLower(strings.TrimSpace(value.Type))
 
-	return thinkingType == "enabled"
+	return thinkingType == "enabled" || thinkingType == "adaptive"
 }
 
 func supportsChatImageProvider(provider string) bool {
@@ -1826,7 +1862,7 @@ func validateThinkingConfig(value *contractsopenai.ThinkingConfig) error {
 	}
 
 	switch thinkingType {
-	case "enabled", "disabled":
+	case "enabled", "adaptive", "disabled":
 	default:
 		return fmt.Errorf("thinking.type %q is not supported", value.Type)
 	}
@@ -1912,34 +1948,6 @@ func validateProviderMediaInput(req contractsopenai.ChatCompletionRequest, provi
 				return fmt.Errorf("message[%d].content part[%d].image_url.url: %v", msgIndex, partIndex, err)
 			}
 		}
-	}
-
-	return nil
-}
-
-func validateProviderExtendedThinkingInput(req contractsopenai.ChatCompletionRequest, provider string) error {
-	if strings.ToLower(strings.TrimSpace(provider)) != "anthropic" {
-		return nil
-	}
-
-	if !chatRequestHasExtendedThinking(req) {
-		return nil
-	}
-
-	if req.Temperature != nil {
-		return fmt.Errorf("temperature is not supported with Anthropic extended thinking")
-	}
-
-	if req.TopP != nil && *req.TopP < 0.95 {
-		return fmt.Errorf("top_p must be between 0.95 and 1 when Anthropic extended thinking is enabled")
-	}
-
-	if req.Thinking != nil && strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "enabled") && req.Thinking.BudgetTokens > 0 && req.MaxTokens != nil && *req.MaxTokens <= req.Thinking.BudgetTokens {
-		return fmt.Errorf("max_tokens must be greater than thinking.budget_tokens for Anthropic extended thinking")
-	}
-
-	if req.Thinking == nil && strings.TrimSpace(req.ReasoningEffort) != "" && !strings.EqualFold(strings.TrimSpace(req.ReasoningEffort), "none") && req.MaxTokens != nil && *req.MaxTokens <= 1024 {
-		return fmt.Errorf("max_tokens must be greater than 1024 for Anthropic extended thinking")
 	}
 
 	return nil

@@ -581,7 +581,17 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 		return platform.UsageCostBreakdown{}, err
 	}
 
-	return usageCostBreakdown(model, usage, price, rate.USDtoIRR, estimated.PricingConditions)
+	breakdown, err := usageCostBreakdown(
+		model,
+		usage,
+		price,
+		rate.USDtoIRR,
+		estimated.PricingConditions,
+	)
+	if err == nil {
+		breakdown.ModelRuntimeProfile = estimated.ModelRuntimeProfile
+	}
+	return breakdown, err
 }
 
 // FinalizeBatchFromUsage uses the price revision pinned when the batch was
@@ -595,7 +605,18 @@ func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usag
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
 	}
-	return anthropicUsageCostBreakdown(model, usage, price, rate.USDtoIRR, true, estimated.PricingConditions)
+	breakdown, err := anthropicUsageCostBreakdown(
+		model,
+		usage,
+		price,
+		rate.USDtoIRR,
+		true,
+		estimated.PricingConditions,
+	)
+	if err == nil {
+		breakdown.ModelRuntimeProfile = estimated.ModelRuntimeProfile
+	}
+	return breakdown, err
 }
 
 // FinalizeImageUsage recalculates final spend for image endpoints.
@@ -651,6 +672,7 @@ func costBreakdown(model string, inputTokens int, outputTokens int, price priceI
 	}
 	if price.Provider == "anthropic" {
 		breakdown.PricingRevision = price.Revision
+		breakdown.ModelRuntimeProfile = price.RuntimeProfile
 		breakdown.Components = []platform.UsageCostComponent{
 			usageCostComponent("input_tokens", int64(inputTokens), price.Rates["input_tokens"]),
 			usageCostComponent("output_tokens", int64(outputTokens), price.Rates["output_tokens"]),
@@ -677,6 +699,7 @@ func anthropicTokenCostBreakdown(model string, inputTokens, outputTokens int, pr
 		TotalTokens: inputTokens + outputTokens, InputCostUSD: inputUSD,
 		OutputCostUSD: outputUSD, TotalCostUSD: totalUSD, ExchangeRate: exchangeRate,
 		TotalCostIRR: totalUSD * exchangeRate, PricingRevision: price.Revision,
+		ModelRuntimeProfile: price.RuntimeProfile,
 		Components: []platform.UsageCostComponent{
 			usageCostComponent(inputDimension, int64(inputTokens), inputRate),
 			usageCostComponent(outputDimension, int64(outputTokens), outputRate),
@@ -816,6 +839,7 @@ func anthropicUsageCostBreakdown(
 		Batch:                      batch,
 		PricingConditions:          conditions,
 		PricingRevision:            price.Revision,
+		ModelRuntimeProfile:        price.RuntimeProfile,
 		Components:                 components,
 		PricingSnapshot:            usagePricingSnapshot(price),
 	}, nil
@@ -923,6 +947,7 @@ func (s *Service) modelPrice(
 			Revision:       snapshot.Revision,
 			GeneratedAt:    snapshot.GeneratedAt,
 			Provider:       "anthropic",
+			RuntimeProfile: item.RuntimeProfile,
 		}, nil
 	}
 	if s != nil && s.pricingCache != nil {

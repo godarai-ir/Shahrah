@@ -10,12 +10,13 @@
 
 اصلاحات اصلی برنامه پیاده‌سازی شده‌اند: قیمت‌گذاری Anthropic از Snapshot نسخه‌دار Model Discovery خوانده می‌شود، Credentialهای جدید سازمان رمزگذاری می‌شوند، WIF در قرارداد و Silk Road وجود دارد، Adapter از Tools و Thinking و Structured Output پشتیبانی می‌کند و API بومی Messages، Models، Files و Message Batches عرضه شده است.
 
-بااین‌حال، بررسی دوباره کد و تطبیق آن با مستندات رسمی جاری Anthropic نشان می‌دهد که هنوز نمی‌توان عبارت «پشتیبانی کامل» را برای این ۱۱ مدل به‌کار برد. دو مانع اصلی انتشار عبارت‌اند از:
+بااین‌حال، بررسی دوباره کد و تطبیق آن با مستندات رسمی جاری Anthropic نشان می‌دهد که هنوز نمی‌توان عبارت «پشتیبانی کامل» را برای این ۱۱ مدل به‌کار برد. موانع اصلی انتشار عبارت‌اند از:
 
 1. ماتریس زنده API Key و WIF برای تمام مدل‌ها و قابلیت‌ها اجرا نشده است.
-2. `ModelRuntimeProfile` در Hot Path رفتار Silk Road اعمال نمی‌شود؛ بخشی از قواعد مدل همچنان به‌صورت Hard-coded پیاده‌سازی شده است.
+2. Beta خروجی 300k، Server Toolهای مسیر OpenAI-compatible و سقف واقعی Sonnet 4.6 هنوز تعیین تکلیف نشده‌اند.
+3. مجموعه آزمون‌های Release Readiness و تأیید انسانی اجرا نشده است.
 
-در این بازبینی، ۱۱ مغایرت باقی‌مانده ثبت شده است: ۷ مورد P1 و ۴ مورد P2. مغایرت‌های `ANT-REM-001` و `ANT-REM-003` بسته شده‌اند.
+در این بازبینی، ۹ مغایرت باقی‌مانده ثبت شده است: ۵ مورد P1 و ۴ مورد P2. مغایرت‌های `ANT-REM-001`، `ANT-REM-003`، `ANT-REM-004` و `ANT-REM-005` بسته شده‌اند.
 
 ## مبنا و روش ارزیابی
 
@@ -111,7 +112,8 @@
 | Code Execution Billing | منطبق در کد با Fail Closed | حالت رایگان همراه `web_search_20260209+` یا `web_fetch_20260209+` ممیزی می‌شود؛ حالت مستقلِ قابل‌صورتحساب پیش از Upstream غیرفعال است. |
 | Tools سفارشی | منطبق در کد | Function، Tool Choice، Tool Result و Tool Delta نگاشت می‌شوند. |
 | Server Toolها | ناقص در OpenAI-compatible | مسیر بومی Body رسمی را عبور می‌دهد؛ Adapter فقط Function Tool را می‌پذیرد. |
-| Thinking | منطبق در کد، اما Hard-coded | قواعد 4.6 و 4.7 اعمال می‌شوند، ولی از Runtime Profile کاتالوگ خوانده نمی‌شوند. |
+| Runtime Profile | منطبق در کد | Profile با Snapshot قیمت از یک Revision اتمیک Pin می‌شود و نبود، ناسازگاری یا کهنگی آن Fail Closed است. |
+| Thinking و Sampling | منطبق در کد | قواعد Thinking، Effort، Sampling conflict و پارامترهای مجاز از Runtime Profile خوانده و در Control Plane و Silk Road اعتبارسنجی می‌شوند. |
 | Structured Output | منطبق در کد | JSON Schema به `output_config.format` نگاشت می‌شود. |
 | Streaming | منطبق در کد | Eventها، Usage نهایی، Tool Delta و خطای میانه Stream حفظ می‌شوند. |
 | Image و PDF | منطبق در کد | Base64، URL و `file_id` پشتیبانی می‌شوند. |
@@ -157,14 +159,14 @@
 - Text، Image و PDF از Base64، URL و `file_id`
 - Thinking، Redacted Thinking، Citation، Tool Use، Stop Reason و Usage
 
-قواعد Thinking فعلی:
+قواعد Thinking ثبت‌شده در Runtime Profile:
 
 - Opus 4.7 فقط Adaptive Thinking را می‌پذیرد و Manual Thinking رد می‌شود.
 - Opus 4.6 و Sonnet 4.6 به‌صورت پیش‌فرض Adaptive هستند؛ Manual Thinking با وضعیت Deprecated قابل استفاده است.
 - مدل‌های 4.5 و پایین‌تر از Manual Extended Thinking استفاده می‌کنند.
 - تعارض Sampling با Adaptive Thinking و مجازبودن `effort=max` اعتبارسنجی می‌شود.
 
-این قواعد از نظر رفتار فعلی درست‌اند، اما چون از `ModelRuntimeProfile` دریافت نمی‌شوند، تغییر مستندات یا اضافه‌شدن مدل جدید می‌تواند بدون خطای Import باعث Drift در Runtime شود.
+Model Discovery مقدار `profileJson` را با Zod اعتبارسنجی می‌کند. Control Plane همان Profile و قیمت را در یک Snapshot اتمیک نگه می‌دارد و Revision آن را هنگام Reserve در `UsageCostBreakdown` Pin می‌کند. Profile Pin‌شده در قرارداد Tunnel به Silk Road منتقل می‌شود و Validator و Adapter برای Endpoint، Thinking، Effort، Sampling، Prefill، Tools، Structured Output، Modality، Request Control، Beta Header و سقف‌ها فقط از همان Profile استفاده می‌کنند. نبود Profile، اختلاف Revision یا Profile نامعتبر پیش از تماس با Upstream متوقف می‌شود.
 
 ## قیمت‌گذاری
 
@@ -226,14 +228,14 @@ Cost API رسمی Anthropic هزینه را به‌صورت تجمیعی با ش
 |---|---|---|
 | `ANT-REM-001` | بسته | Migration شماره 054، حذف `credential_data` از Prisma و SQLهای Runtime، حذف Dual-read و Migrator، تست PostgreSQL با رکورد Legacy و حفظ Credential رمزگذاری‌شده سالم |
 | `ANT-REM-003` | بسته | کنترل پیش از Upstream برای Messages و هر آیتم Batch، Pin شرط حالت رایگان در Reservation، مؤلفه ممیزی صفر فقط برای Web Toolهای واجد شرایط، Fail Closed برای Usage بدون انتساب، Metadata کاتالوگ و تست‌های رگرسیون Billing/Proxy |
+| `ANT-REM-004` | بسته | اعتبارسنجی Zod در Model Discovery، Profile نسخه‌دار در Snapshot اتمیک Control Plane، Pin قیمت و Profile با Revision یکسان، عبور قرارداد نوع‌دار از Tunnel، Validator و Adapter مبتنی بر Profile و Fail Closed پیش از Upstream |
+| `ANT-REM-005` | بسته | تقاطع `requested ∩ account allowlist ∩ model runtime profile` در Silk Road برای درخواست‌های مدل‌محور و تست رد Header مجاز حساب اما نامجاز مدل |
 
 ## مغایرت‌های باقی‌مانده
 
 | شناسه | شدت | مغایرت | اثر | اقدام اصلاحی |
 |---|---|---|---|---|
 | `ANT-REM-002` | P1 | هیچ ماتریس زنده‌ای برای ۱۱ مدل با API Key و WIF اجرا نشده است | دسترسی واقعی مدل، Scope، Beta و رفتار upstream اثبات نشده است | Smoke و E2E زنده را با Credential کم‌دسترسی اجرا و Fixture پاک‌سازی‌شده ثبت کنید |
-| `ANT-REM-004` | P1 | `ModelRuntimeProfile` در Control Plane دریافت نمی‌شود و Silk Road قواعد مدل را Hard-code کرده است | Drift بین کاتالوگ و Runtime و پذیرش Beta نامعتبر | Runtime Profile را در Snapshot اتمیک وارد و Validator/Adapter/Beta intersection را از همان Revision تغذیه کنید |
-| `ANT-REM-005` | P1 | Beta Header مدل با Allowlist حساب تقاطع داده نمی‌شود؛ فقط Allowlist حساب در Silk Road اعمال می‌شود | Beta مجاز برای حساب ممکن است روی مدل نامعتبر عبور کند | تقاطع `requested ∩ account allowlist ∩ model runtime profile` را اعمال کنید |
 | `ANT-REM-006` | P1 | Beta رسمی `output-300k-2026-03-24` برای Batch مدل‌های 4.6 و 4.7 در Runtime Profile ثبت نشده است | سقف رسمی 300k در Batch قابل استفاده مطمئن نیست | Header را فقط برای مدل‌های مجاز به Profile و Connection Schema اضافه و تست مرزی 300k ایجاد کنید |
 | `ANT-REM-007` | P1 | OpenAI-compatible فقط Function Tool را می‌پذیرد و Server Toolهای Anthropic را رد می‌کند | Web Search، Web Fetch و Code Execution فقط از API بومی قابل استفاده‌اند | یا قرارداد نوع‌دار Server Tool به OpenAI-compatible اضافه شود، یا این محدودیت در کاتالوگ و مستندات مسیر OpenAI شفاف شود |
 | `ANT-REM-008` | P2 | `speed=fast` برای مدل‌های 4.6 در Profile به‌عنوان Mode مجاز نمایش داده می‌شود، درحالی‌که Anthropic آن را با سرعت و قیمت استاندارد اجرا می‌کند | کاربر تصور می‌کند Fast واقعی دریافت کرده است | Mode پذیرفته‌شده را از Mode مؤثر جدا و مقدار `effective_speed=standard` را نمایش و ثبت کنید |
@@ -251,11 +253,11 @@ Cost API رسمی Anthropic هزینه را به‌صورت تجمیعی با ش
 | `ANT-FIND-002` | بسته | Plaintext، Dual-read و Migrator حذف شده‌اند؛ آزمون Migration تخریبی و مسیر رمزگذاری‌شده موفق است. |
 | `ANT-FIND-003` | بسته ایمن | Token، Cache و Web Search تسویه می‌شوند؛ Code Execution رایگان ممیزی و حالت مستقلِ غیرقابل انتساب پیش از Upstream رد می‌شود. |
 | `ANT-FIND-004` | بسته برای Custom Tool | Server Tool مسیر OpenAI در `ANT-REM-007` جدا ثبت شده است. |
-| `ANT-FIND-005` | بسته از نظر رفتار فعلی | منبع حقیقت Runtime در `ANT-REM-004` هنوز اصلاح نشده است. |
+| `ANT-FIND-005` | بسته | Thinking و Effort از Runtime Profile همان Revision قیمت در Validator و Adapter اعمال می‌شوند. |
 | `ANT-FIND-006` | بسته در کد | تمام خانواده‌های API بومی عرضه شده‌اند. |
 | `ANT-FIND-007` | بسته در کد | State machine و خطای میانه Stream پیاده‌سازی شده‌اند. |
 | `ANT-FIND-008` | بسته در کد | Lifecycle و Retirement خودکار وجود دارد؛ آزمون روز Retirement لازم است. |
-| `ANT-FIND-009` | ناقص معماری | پارامترها پیاده‌سازی شده‌اند، اما Profile در Runtime اعمال نمی‌شود. |
+| `ANT-FIND-009` | بسته | پارامترهای مدل‌محور و تعارض‌های Sampling از Runtime Profile نسخه‌دار اعتبارسنجی می‌شوند. |
 | `ANT-FIND-010` | بسته در کد | آزمون زنده WIF در `ANT-REM-002` باز است. |
 | `ANT-FIND-011` | بسته در کد | Probe قابلیت‌محور وجود دارد؛ آزمون Scope واقعی باز است. |
 | `ANT-FIND-012` | بسته در کد | URL، Base64 و `file_id` پشتیبانی می‌شوند. |
@@ -284,6 +286,11 @@ Cost API رسمی Anthropic هزینه را به‌صورت تجمیعی با ش
 | جلوگیری از Secret در Provider Config | `services/control-plane/internal/storage/provider_config_secret_validation.go` |
 | Operationهای نوع‌دار Tunnel | `packages/contracts/platform/types.go` |
 | Runtime Profile و Pricing Import | `apps/model-discovery/scripts/import-models-from-yaml.ts` |
+| اعتبارسنجی Profile در Model Discovery | `apps/model-discovery/src/catalog/catalog.service.ts` و `apps/model-discovery/src/catalog/runtime-profile.schema.ts` |
+| قرارداد مشترک Runtime Profile | `packages/contracts/platform/model_runtime_profile.go` |
+| Pin اتمیک قیمت و Profile | `services/control-plane/internal/billing/anthropic_pricing_snapshot.go` |
+| Validator مبتنی بر Profile | `services/control-plane/internal/proxy/anthropic_runtime_profile.go` |
+| Adapter مبتنی بر Profile و Beta intersection | `services/silk-road/pkg/server/anthropic_runtime_profile.go` و `services/silk-road/pkg/server/anthropic.go` |
 | Schema کاتالوگ | `apps/model-discovery/prisma/schema.prisma` |
 
 ## آزمون‌های ثبت‌شده
@@ -299,6 +306,18 @@ Cost API رسمی Anthropic هزینه را به‌صورت تجمیعی با ش
 - Fail Closed برای Usage اجرای کد بدون شرط Pin‌شده
 - اجرای موفق `go test ./...` و `go vet ./...` در Control Plane
 - اجرای موفق ۴۱ تست، Build، Typecheck و Import خشک ۲۷ مدل Anthropic در Model Discovery
+
+برای `ANT-REM-004` و `ANT-REM-005` تست‌های مستقل زیر ثبت و اجرا شدند:
+
+- رد Snapshot فاقد Runtime Profile یا دارای Profile نامعتبر
+- اثبات یکسان‌بودن Revision قیمت و Profile Pin‌شده در Reserve و Finalize
+- Round-trip قرارداد Runtime Profile در `TunnelRequest`
+- اعمال رفتار مدل آینده بدون اتکا به نام Hard-coded مدل
+- رد Assistant Prefill، Sampling، Thinking، Effort، Modality، Tool، Request Control و سقف نامجاز بر اساس Profile
+- رد درخواست Anthropic فاقد Profile پیش از هر تماس Upstream
+- تقاطع Beta Header در سطح درخواست، Allowlist حساب و تمام Profileهای مدل‌های Batch
+- اجرای موفق ۴۲ تست، Build، Typecheck و Import خشک ۲۷ مدل Anthropic در Model Discovery
+- اجرای موفق `go test ./...` و `go vet ./...` در Control Plane و Silk Road
 
 این موفقیت جایگزین موارد زیر نیست:
 
@@ -326,9 +345,9 @@ Cost API رسمی Anthropic هزینه را به‌صورت تجمیعی با ش
 
 ### Runtime و قابلیت‌ها
 
-- [ ] Runtime Profile همراه Pricing Snapshot در Control Plane دریافت و Pin شود.
-- [ ] Silk Road قواعد Thinking، Sampling، Prefill، Speed، Beta و سقف‌ها را از Profile دریافت کند.
-- [ ] Beta Header با Allowlist حساب و Profile مدل تقاطع داده شود.
+- [x] Runtime Profile همراه Pricing Snapshot در Control Plane دریافت و Pin شود.
+- [x] Silk Road قواعد Thinking، Sampling، Prefill، Speed، Beta و سقف‌ها را از Profile دریافت کند.
+- [x] Beta Header با Allowlist حساب و Profile مدل تقاطع داده شود.
 - [ ] `output-300k-2026-03-24` برای Batch مدل‌های مجاز اضافه و تست شود.
 - [ ] محدودیت Server Tool در OpenAI-compatible رفع یا به‌صورت صریح مستند شود.
 - [ ] رفتار مؤثر `speed=fast` برای مدل‌های 4.6 به‌عنوان Standard ثبت شود.

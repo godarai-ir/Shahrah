@@ -245,6 +245,19 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 			"provider_endpoint_path": "/completions",
 		},
 	}
+	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+		dep.Provider,
+		outboundModel,
+		estimated,
+	)
+	if err != nil {
+		return writeAPIError(
+			c,
+			fiber.StatusServiceUnavailable,
+			err.Error(),
+			"runtime_profile_unavailable",
+		)
+	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {

@@ -23,16 +23,24 @@ type SpendLogger interface {
 	LogSpend(ctx context.Context, log platform.SpendLog) error
 }
 
+type anthropicModelRuntimeProfileResolver interface {
+	ResolveModelRuntimeProfiles(
+		models []string,
+		expectedRevision string,
+	) ([]platform.ModelRuntimeProfileBinding, error)
+}
+
 // BaseHandlerDependencies groups shared proxy handler dependencies.
 type BaseHandlerDependencies struct {
-	Router        *router.Router
-	Tunnel        platform.TunnelTransport
-	Billing       budgeter
-	Wallets       walletStore
-	RequestLogger RequestLogger
-	SpendLogger   SpendLogger
-	Logger        *zap.Logger
-	EmitMetric    func(input metricsobs.BuildInput)
+	Router                   *router.Router
+	Tunnel                   platform.TunnelTransport
+	Billing                  budgeter
+	Wallets                  walletStore
+	AnthropicRuntimeProfiles anthropicModelRuntimeProfileResolver
+	RequestLogger            RequestLogger
+	SpendLogger              SpendLogger
+	Logger                   *zap.Logger
+	EmitMetric               func(input metricsobs.BuildInput)
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.

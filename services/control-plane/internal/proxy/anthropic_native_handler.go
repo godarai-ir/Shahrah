@@ -41,6 +41,7 @@ type AnthropicNativeHandler struct {
 	tunnel           platform.TunnelTransport
 	billing          budgeter
 	wallets          walletStore
+	runtimeProfiles  anthropicModelRuntimeProfileResolver
 	logger           *zap.Logger
 	nativeEnabled    bool
 	filesEnabled     bool
@@ -52,7 +53,8 @@ func NewAnthropicNativeHandler(deps BaseHandlerDependencies, deployments anthrop
 	resources, _ := deployments.(anthropicNativeResourceStore)
 	return &AnthropicNativeHandler{
 		router: deps.Router, deployments: deployments, tunnel: deps.Tunnel,
-		resources: resources, billing: deps.Billing, wallets: deps.Wallets, logger: deps.Logger,
+		resources: resources, billing: deps.Billing, wallets: deps.Wallets,
+		runtimeProfiles: deps.AnthropicRuntimeProfiles, logger: deps.Logger,
 		nativeEnabled:    anthropicFeatureEnabled("ANTHROPIC_NATIVE_API_ENABLED", true),
 		filesEnabled:     anthropicFeatureEnabled("ANTHROPIC_FILES_API_ENABLED", true),
 		batchesEnabled:   anthropicFeatureEnabled("ANTHROPIC_BATCH_API_ENABLED", true),
@@ -191,6 +193,44 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 			return err
 		}
 	}
+	if anthropicOperationNeedsModelRuntimeProfile(operation) {
+		if h.runtimeProfiles == nil {
+			releaseBudgetBestEffort(
+				c.Context(),
+				h.logger,
+				h.billing,
+				reservation,
+				"runtime_profile_unavailable",
+			)
+			return writeAnthropicError(
+				c,
+				fiber.StatusServiceUnavailable,
+				"runtime_profile_unavailable",
+				"Anthropic model runtime profile is unavailable",
+			)
+		}
+		expectedRevision := estimated.PricingRevision
+		tunnelRequest.ModelRuntimeProfiles, err =
+			h.runtimeProfiles.ResolveModelRuntimeProfiles(
+				officialModels,
+				expectedRevision,
+			)
+		if err != nil {
+			releaseBudgetBestEffort(
+				c.Context(),
+				h.logger,
+				h.billing,
+				reservation,
+				"runtime_profile_unavailable",
+			)
+			return writeAnthropicError(
+				c,
+				fiber.StatusServiceUnavailable,
+				"runtime_profile_unavailable",
+				"Anthropic model runtime profile is unavailable",
+			)
+		}
+	}
 
 	if stream {
 		return h.proxyStream(c, tunnelRequest, reservation, estimated, authInfo, officialModels[0])
@@ -230,6 +270,19 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 		c.Set(fiber.HeaderContentType, contentType)
 	}
 	return c.Status(response.StatusCode).Send(response.Body)
+}
+
+func anthropicOperationNeedsModelRuntimeProfile(
+	operation platform.ProviderOperation,
+) bool {
+	switch operation {
+	case platform.ProviderOperationAnthropicMessages,
+		platform.ProviderOperationAnthropicCountTokens,
+		platform.ProviderOperationAnthropicBatchesCreate:
+		return true
+	default:
+		return false
+	}
 }
 
 func anthropicFeatureEnabled(name string, fallback bool) bool {

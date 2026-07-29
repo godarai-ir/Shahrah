@@ -204,29 +204,30 @@ type UsagePricingSnapshot struct {
 }
 
 type UsageCostBreakdown struct {
-	Model                      string                 `json:"model"`
-	RequestType                string                 `json:"request_type,omitempty"`
-	Endpoint                   string                 `json:"endpoint,omitempty"`
-	Metadata                   map[string]interface{} `json:"metadata,omitempty"`
-	InputTokens                int                    `json:"input_tokens"`
-	OutputTokens               int                    `json:"output_tokens"`
-	TotalTokens                int                    `json:"total_tokens"`
-	InputCostUSD               float64                `json:"input_cost_usd"`
-	OutputCostUSD              float64                `json:"output_cost_usd"`
-	TotalCostUSD               float64                `json:"total_cost_usd"`
-	ExchangeRate               float64                `json:"exchange_rate"`
-	TotalCostIRR               float64                `json:"total_cost_irr"`
-	CacheCreation5mInputTokens int                    `json:"cache_creation_5m_input_tokens,omitempty"`
-	CacheCreation1hInputTokens int                    `json:"cache_creation_1h_input_tokens,omitempty"`
-	CacheReadInputTokens       int                    `json:"cache_read_input_tokens,omitempty"`
-	ServerToolUse              map[string]int         `json:"server_tool_use,omitempty"`
-	ServiceTier                string                 `json:"service_tier,omitempty"`
-	Speed                      string                 `json:"speed,omitempty"`
-	Batch                      bool                   `json:"batch,omitempty"`
-	PricingRevision            string                 `json:"pricing_revision,omitempty"`
-	PricingConditions          map[string]string      `json:"pricing_conditions,omitempty"`
-	Components                 []UsageCostComponent   `json:"components,omitempty"`
-	PricingSnapshot            *UsagePricingSnapshot  `json:"pricing_snapshot,omitempty"`
+	Model                      string                      `json:"model"`
+	RequestType                string                      `json:"request_type,omitempty"`
+	Endpoint                   string                      `json:"endpoint,omitempty"`
+	Metadata                   map[string]interface{}      `json:"metadata,omitempty"`
+	InputTokens                int                         `json:"input_tokens"`
+	OutputTokens               int                         `json:"output_tokens"`
+	TotalTokens                int                         `json:"total_tokens"`
+	InputCostUSD               float64                     `json:"input_cost_usd"`
+	OutputCostUSD              float64                     `json:"output_cost_usd"`
+	TotalCostUSD               float64                     `json:"total_cost_usd"`
+	ExchangeRate               float64                     `json:"exchange_rate"`
+	TotalCostIRR               float64                     `json:"total_cost_irr"`
+	CacheCreation5mInputTokens int                         `json:"cache_creation_5m_input_tokens,omitempty"`
+	CacheCreation1hInputTokens int                         `json:"cache_creation_1h_input_tokens,omitempty"`
+	CacheReadInputTokens       int                         `json:"cache_read_input_tokens,omitempty"`
+	ServerToolUse              map[string]int              `json:"server_tool_use,omitempty"`
+	ServiceTier                string                      `json:"service_tier,omitempty"`
+	Speed                      string                      `json:"speed,omitempty"`
+	Batch                      bool                        `json:"batch,omitempty"`
+	PricingRevision            string                      `json:"pricing_revision,omitempty"`
+	PricingConditions          map[string]string           `json:"pricing_conditions,omitempty"`
+	ModelRuntimeProfile        *ModelRuntimeProfileBinding `json:"model_runtime_profile,omitempty"`
+	Components                 []UsageCostComponent        `json:"components,omitempty"`
+	PricingSnapshot            *UsagePricingSnapshot       `json:"pricing_snapshot,omitempty"`
 }
 
 // BudgetReservationTarget is one window reserved for a request.
@@ -526,16 +527,17 @@ type AnthropicNativeResourceMapping struct {
 }
 
 type TunnelRequest struct {
-	RequestID       string                 `json:"request_id"`
-	TenantID        string                 `json:"tenant_id"`
-	TraceID         string                 `json:"trace_id"`
-	Stream          bool                   `json:"stream"`
-	Operation       ProviderOperation      `json:"provider_operation,omitempty"`
-	OperationInput  ProviderOperationInput `json:"provider_operation_input,omitempty"`
-	Deployment      Deployment             `json:"deployment"`
-	Headers         map[string]string      `json:"headers,omitempty"`
-	Body            []byte                 `json:"body"`
-	RequestMetadata map[string]interface{} `json:"request_metadata,omitempty"`
+	RequestID            string                       `json:"request_id"`
+	TenantID             string                       `json:"tenant_id"`
+	TraceID              string                       `json:"trace_id"`
+	Stream               bool                         `json:"stream"`
+	Operation            ProviderOperation            `json:"provider_operation,omitempty"`
+	OperationInput       ProviderOperationInput       `json:"provider_operation_input,omitempty"`
+	Deployment           Deployment                   `json:"deployment"`
+	ModelRuntimeProfiles []ModelRuntimeProfileBinding `json:"model_runtime_profiles,omitempty"`
+	Headers              map[string]string            `json:"headers,omitempty"`
+	Body                 []byte                       `json:"body"`
+	RequestMetadata      map[string]interface{}       `json:"request_metadata,omitempty"`
 }
 
 // TunnelResponse is the final provider response.
