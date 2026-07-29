@@ -64,6 +64,12 @@ func NewService(repo Repository, secrets *EncryptedDBSecretStore, manager *Manag
 	return &Service{repo: repo, secrets: secrets, manager: manager, publisher: publisher, catalog: catalog, prober: prober}
 }
 
+func (s *Service) SetProber(prober CredentialProber) {
+	if s != nil && prober != nil {
+		s.prober = prober
+	}
+}
+
 func (s *Service) Schemas(ctx context.Context, providerSlug string) ([]platform.ProviderConnectionSchema, error) {
 	if s.catalog == nil {
 		return nil, ErrNotFound
@@ -137,7 +143,18 @@ func (s *Service) CreateCredentialVersion(ctx context.Context, connectionID stri
 	}
 
 	schema, err := s.schema(ctx, connection.ProviderSlug, connection.AuthMode, connection.SchemaVersion)
-	if err != nil || !validCredentialSecrets(schema, request.Secrets) || s.secrets == nil {
+	if connection.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) &&
+		len(request.Secrets) == 0 {
+		tokenSource, _ := connection.Config["token_source_id"].(string)
+		request.Secrets = map[string]string{
+			"wif_binding": strings.TrimSpace(tokenSource),
+		}
+	}
+	validSecrets := validCredentialSecrets(schema, request.Secrets)
+	if connection.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) {
+		validSecrets = strings.TrimSpace(request.Secrets["wif_binding"]) != ""
+	}
+	if err != nil || !validSecrets || s.secrets == nil {
 		return nil, ErrInvalidRequest
 	}
 
@@ -513,9 +530,31 @@ func validConnectionConfig(schema platform.ProviderConnectionSchema, config map[
 			return false
 		}
 
-		text, ok := value.(string)
-		if !ok || strings.TrimSpace(text) == "" {
-			return false
+		if field.Type == "multi_select" {
+			values, ok := value.([]string)
+			if !ok {
+				raw, rawOK := value.([]interface{})
+				if !rawOK {
+					return false
+				}
+				for _, item := range raw {
+					text, textOK := item.(string)
+					if !textOK || strings.TrimSpace(text) == "" {
+						return false
+					}
+				}
+			} else {
+				for _, text := range values {
+					if strings.TrimSpace(text) == "" {
+						return false
+					}
+				}
+			}
+		} else {
+			text, ok := value.(string)
+			if !ok || strings.TrimSpace(text) == "" {
+				return false
+			}
 		}
 	}
 

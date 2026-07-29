@@ -39,6 +39,8 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 			log.ResponseTimeMS,
 			log.Status,
 			marshalJSONBestEffort(log.RequestMetadata),
+			marshalJSONBestEffort(log.UsageBreakdown),
+			marshalJSONBestEffort(log.PricingSnapshot),
 			log.CompletionStart,
 			log.CompletionEnd,
 		)
@@ -48,6 +50,7 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 		INSERT INTO spend_logs (
 			request_id, token_hash, tenant_id, organization_id, team_id, model, input_tokens, output_tokens,
 			total_tokens, cost_usd, cost_irr, response_time_ms, status, request_metadata,
+			usage_breakdown_json, pricing_snapshot_json,
 			completion_start_time, completion_end_time
 		)
 		VALUES `+strings.Join(values, ", "), args...); err != nil {
@@ -63,7 +66,7 @@ func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 	return nil
 }
 
-const spendLogInsertColumnCount = 16
+const spendLogInsertColumnCount = 18
 
 func spendLogInsertPlaceholders(rowIndex, columns int) string {
 	start := rowIndex*columns + 1

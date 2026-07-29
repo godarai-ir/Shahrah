@@ -15,6 +15,8 @@ var (
 )
 
 type Binding struct {
+	TenantID            string
+	AccountID           string
 	ProviderSlug        string
 	Environment         string
 	ConnectionID        string
@@ -26,21 +28,26 @@ type Binding struct {
 
 type EncryptedCredential struct {
 	Binding
-	BaseURL      string
-	APIVersion   string
-	Organization string
-	Project      string
-	HTTPReferer  string
-	AppTitle     string
-	ClientName   string
-	Ciphertext   []byte
-	DataNonce    []byte
-	WrappedDEK   []byte
-	WrapNonce    []byte
-	KEKVersion   string
-	Fingerprint  string
-	DisplayHint  string
-	ExpiresAt    *time.Time
+	BaseURL          string
+	APIVersion       string
+	Organization     string
+	Project          string
+	HTTPReferer      string
+	AppTitle         string
+	ClientName       string
+	FederationRuleID string
+	OrganizationID   string
+	ServiceAccountID string
+	WorkspaceID      string
+	TokenSourceID    string
+	Ciphertext       []byte
+	DataNonce        []byte
+	WrappedDEK       []byte
+	WrapNonce        []byte
+	KEKVersion       string
+	Fingerprint      string
+	DisplayHint      string
+	ExpiresAt        *time.Time
 }
 
 // ResolvedCredential is immutable after insertion into a Manager snapshot. It
@@ -60,6 +67,11 @@ type ResolvedCredential struct {
 	HTTPReferer         string
 	AppTitle            string
 	ClientName          string
+	FederationRuleID    string
+	OrganizationID      string
+	ServiceAccountID    string
+	WorkspaceID         string
+	TokenSourceID       string
 	ExpiresAt           *time.Time
 }
 

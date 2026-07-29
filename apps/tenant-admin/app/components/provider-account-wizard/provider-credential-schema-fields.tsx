@@ -3,7 +3,8 @@
 import { ExternalLink } from "lucide-react";
 import type { ChangeEvent } from "react";
 
-import { AppCodeTextareaField, AppTextField } from "@/components/app-ui";
+import { AppCodeTextareaField, AppTextField, ChipInput } from "@/components/app-ui";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import type { ProviderConnectionSchema, ProviderConnectionSchemaField } from "./types";
 import type { ProviderCredentialValues } from "./credential-schema";
 
@@ -72,6 +73,22 @@ export function ProviderCredentialSchemaFields({
                 };
                 if (field.type === "textarea") {
                   return <AppCodeTextareaField key={field.key} {...shared} className="min-h-32" />;
+                }
+                if (field.type === "multi_select") {
+                  const selected = (values[field.key] ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+                  return (
+                    <Field key={field.key} className="md:col-span-2">
+                      <FieldLabel htmlFor={shared.id}>{label}</FieldLabel>
+                      <ChipInput
+                        id={shared.id}
+                        value={selected}
+                        onValueChange={(items) => onValueChange(field.key, items.join(","))}
+                        getRemoveLabel={(value) => `${field.label}: ${value}`}
+                        disabled={disabled}
+                      />
+                      {shared.description ? <FieldDescription>{shared.description}</FieldDescription> : null}
+                    </Field>
+                  );
                 }
                 return (
                   <AppTextField

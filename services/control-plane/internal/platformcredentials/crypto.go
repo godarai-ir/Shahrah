@@ -207,6 +207,12 @@ func open(key, ciphertext, nonce, aad []byte) ([]byte, error) {
 }
 
 func additionalData(binding Binding) []byte {
+	if binding.TenantID != "" || binding.AccountID != "" {
+		return []byte(fmt.Sprintf("tenant_id=%s\naccount_id=%s\nprovider=%s\nauth_mode=%s\nschema_version=%d\ncredential_version_id=%s\ncredential_version=%d",
+			binding.TenantID, binding.AccountID, binding.ProviderSlug, binding.AuthMode,
+			binding.SchemaVersion, binding.CredentialVersionID, binding.CredentialVersion))
+	}
+
 	return []byte(fmt.Sprintf("provider=%s\nenvironment=%s\nconnection=%s\ncredential_version_id=%s\ncredential_version=%d\nauth_mode=%s\nschema_version=%d",
 		binding.ProviderSlug, binding.Environment, binding.ConnectionID, binding.CredentialVersionID,
 		binding.CredentialVersion, binding.AuthMode, binding.SchemaVersion))

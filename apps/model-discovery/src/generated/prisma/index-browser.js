@@ -157,6 +157,9 @@ exports.Prisma.ModelScalarFieldEnum = {
   knowledgeCutoff: 'knowledgeCutoff',
   releaseDate: 'releaseDate',
   deprecatedAt: 'deprecatedAt',
+  deprecationDate: 'deprecationDate',
+  retirementDate: 'retirementDate',
+  replacementCanonicalId: 'replacementCanonicalId',
   openSource: 'openSource',
   free: 'free',
   tokenizer: 'tokenizer',
@@ -167,6 +170,17 @@ exports.Prisma.ModelScalarFieldEnum = {
   popularityScore: 'popularityScore',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ModelRuntimeProfileScalarFieldEnum = {
+  id: 'id',
+  modelId: 'modelId',
+  version: 'version',
+  profileJson: 'profileJson',
+  sourceUrl: 'sourceUrl',
+  effectiveFrom: 'effectiveFrom',
+  effectiveTo: 'effectiveTo',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.ModelSeriesScalarFieldEnum = {
@@ -235,6 +249,22 @@ exports.Prisma.ModelPricingScalarFieldEnum = {
   audioInputPrice: 'audioInputPrice',
   audioOutputPrice: 'audioOutputPrice',
   requestPrice: 'requestPrice',
+  effectiveFrom: 'effectiveFrom',
+  effectiveTo: 'effectiveTo',
+  sourceUrl: 'sourceUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ModelPricingRateScalarFieldEnum = {
+  id: 'id',
+  modelId: 'modelId',
+  dimension: 'dimension',
+  unit: 'unit',
+  unitPriceUsd: 'unitPriceUsd',
+  currency: 'currency',
+  conditionJson: 'conditionJson',
+  region: 'region',
   effectiveFrom: 'effectiveFrom',
   effectiveTo: 'effectiveTo',
   sourceUrl: 'sourceUrl',
@@ -459,12 +489,14 @@ exports.LifecycleStatus = exports.$Enums.LifecycleStatus = {
 exports.Prisma.ModelName = {
   Provider: 'Provider',
   Model: 'Model',
+  ModelRuntimeProfile: 'ModelRuntimeProfile',
   ModelSeries: 'ModelSeries',
   ProviderConnectionProfile: 'ProviderConnectionProfile',
   ProviderConnectionSchema: 'ProviderConnectionSchema',
   ProviderLogoAsset: 'ProviderLogoAsset',
   ModelVersion: 'ModelVersion',
   ModelPricing: 'ModelPricing',
+  ModelPricingRate: 'ModelPricingRate',
   Capability: 'Capability',
   ModelCapability: 'ModelCapability',
   Modality: 'Modality',

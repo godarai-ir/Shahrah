@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -86,7 +87,16 @@ func (m *Manager) Reload(ctx context.Context) error {
 			secret := runtimeAuthSecret(record, secrets)
 			clearSecretMap(secrets)
 
-			if strings.TrimSpace(secret) == "" {
+			if strings.TrimSpace(secret) == "" &&
+				record.AuthMode != string(platform.ProviderAuthModeAnthropicWIF) {
+				m.metrics.ObserveSnapshotLoad(false, m.now().Sub(started), 0)
+				return nil, ErrDecryptFailed
+			}
+			if record.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) &&
+				(record.FederationRuleID == "" ||
+					record.OrganizationID == "" ||
+					record.ServiceAccountID == "" ||
+					record.TokenSourceID == "") {
 				m.metrics.ObserveSnapshotLoad(false, m.now().Sub(started), 0)
 				return nil, ErrDecryptFailed
 			}
@@ -98,7 +108,10 @@ func (m *Manager) Reload(ctx context.Context) error {
 				APIKey: secret, BaseURL: record.BaseURL, APIVersion: record.APIVersion,
 				Organization: record.Organization, Project: record.Project,
 				HTTPReferer: record.HTTPReferer, AppTitle: record.AppTitle, ClientName: record.ClientName,
-				ExpiresAt: record.ExpiresAt,
+				FederationRuleID: record.FederationRuleID, OrganizationID: record.OrganizationID,
+				ServiceAccountID: record.ServiceAccountID, WorkspaceID: record.WorkspaceID,
+				TokenSourceID: record.TokenSourceID,
+				ExpiresAt:     record.ExpiresAt,
 			}
 		}
 
@@ -147,6 +160,9 @@ func runtimeAuthSecret(record EncryptedCredential, secrets map[string]string) st
 		if record.AuthMode == "api_key" {
 			return secrets["api_key"]
 		}
+	}
+	if record.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) {
+		return secrets["wif_binding"]
 	}
 
 	return ""

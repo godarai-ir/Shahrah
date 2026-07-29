@@ -14,6 +14,10 @@ type providerAdapter interface {
 	Dispatch(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error)
 }
 
+type rawProviderAdapter interface {
+	DispatchRaw(ctx context.Context, client *http.Client, payload platform.TunnelRequest, body io.Reader, contentLength int64) (*adapterResponse, error)
+}
+
 type adapterResponse struct {
 	StatusCode int
 	Headers    http.Header

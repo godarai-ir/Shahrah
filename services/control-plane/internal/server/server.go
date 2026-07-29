@@ -51,6 +51,7 @@ type Dependencies struct {
 	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
 	AudioSpeechHandler         *proxy.AudioSpeechHandler
 	ModelsHandler              *proxy.ModelsHandler
+	AnthropicNativeHandler     *proxy.AnthropicNativeHandler
 	PoolStats                  prommetrics.PoolStatsProvider
 	HTTPMetrics                *prommetrics.HTTPMetrics
 	Logger                     *zap.Logger
@@ -72,11 +73,12 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	}
 
 	app := fiber.New(fiber.Config{
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
-		BodyLimit:    30 * 1024 * 1024,
-		ErrorHandler: customErrorHandler,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		BodyLimit:         500 * 1024 * 1024,
+		StreamRequestBody: true,
+		ErrorHandler:      customErrorHandler,
 	})
 
 	httpMetrics := deps.HTTPMetrics
@@ -98,6 +100,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowHeaders: strings.Join([]string{
 			"Origin", "Content-Type", "Accept", "Authorization", "api-key", "x-api-key",
+			"anthropic-version", "anthropic-beta", "x-godarai-provider-account",
 			apiheaders.HeaderTenant, apiheaders.HeaderGuardrails,
 			apiheaders.HeaderGuardrailsScope,
 		}, ", "),
@@ -108,6 +111,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	}
 
 	app.Use(httpMetrics.Middleware())
+	app.Use(providerPayloadLimitMiddleware())
 
 	registerPublicRoutes(app, cfg, deps, httpMetrics)
 
@@ -126,6 +130,39 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerProtectedRoutes(app, deps)
 
 	return app
+}
+
+func providerPayloadLimitMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		const (
+			normalLimit = int64(32 * 1024 * 1024)
+			batchLimit  = int64(256 * 1024 * 1024)
+			fileLimit   = int64(500 * 1024 * 1024)
+		)
+		limit := normalLimit
+		path := strings.ToLower(c.Path())
+		if strings.HasPrefix(path, "/v1/messages/batches") {
+			limit = batchLimit
+		}
+		if path == "/v1/files" && c.Method() == fiber.MethodPost &&
+			c.Get("anthropic-version") != "" {
+			limit = fileLimit
+		}
+		contentLength := int64(c.Request().Header.ContentLength())
+		if contentLength > limit {
+			if c.Get("anthropic-version") != "" {
+				return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
+					"type": "error",
+					"error": fiber.Map{
+						"type":    "request_too_large",
+						"message": "Request body exceeds the Anthropic operation limit.",
+					},
+				})
+			}
+			return fiber.ErrRequestEntityTooLarge
+		}
+		return c.Next()
+	}
 }
 
 func buildHTTPLoggerConfig(output io.Writer) fiberlogger.Config {

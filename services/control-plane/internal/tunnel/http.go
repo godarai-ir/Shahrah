@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,6 +61,41 @@ func (t *HTTPTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (
 	}
 
 	return out, nil
+}
+
+// ProxyRaw sends a length-prefixed metadata envelope followed by the raw body.
+func (t *HTTPTransport) ProxyRaw(ctx context.Context, req platform.TunnelRequest, body io.Reader, contentLength int64) (*platform.TunnelRawResponse, error) {
+	req.Body = nil
+	metadata, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	if len(metadata) == 0 || len(metadata) > 256*1024 {
+		return nil, fmt.Errorf("raw tunnel metadata is invalid")
+	}
+	prefix := make([]byte, 4)
+	binary.BigEndian.PutUint32(prefix, uint32(len(metadata)))
+	if body == nil {
+		body = http.NoBody
+	}
+	reader := io.MultiReader(bytes.NewReader(prefix), bytes.NewReader(metadata), body)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, t.baseURL+"/dispatch/raw", reader)
+	if err != nil {
+		return nil, err
+	}
+	if contentLength >= 0 {
+		httpReq.ContentLength = int64(len(prefix)+len(metadata)) + contentLength
+	}
+	httpReq.Header.Set("Content-Type", "application/vnd.godarai.tunnel-stream")
+	resp, err := streamingHTTPClient(t.client).Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	return &platform.TunnelRawResponse{
+		StatusCode: resp.StatusCode,
+		Headers:    flattenHeaders(resp.Header),
+		Body:       resp.Body,
+	}, nil
 }
 
 // Stream sends a streaming tunnel request.

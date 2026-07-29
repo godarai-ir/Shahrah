@@ -140,7 +140,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	estimated, err := h.billing.EstimateCost(c.Context(), estimateReq)
 	if err != nil {
-		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
+		return writeBillingEstimateError(c, err)
 	}
 
 	estimated.Metadata = req.Metadata

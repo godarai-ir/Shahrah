@@ -66,6 +66,13 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `LOG_RETENTION_CLEANUP_TIMEOUT_MS`: optional, default `30000`
 - `OPENAI_API_KEY`: optional, used by the default OpenAI entries in `configs/proxy_config.yaml`
 - `ANTHROPIC_API_KEY`: optional, used by the default Anthropic entries in `configs/proxy_config.yaml`
+- `ANTHROPIC_NATIVE_API_ENABLED`: optional rollback switch for native Messages and Models routes; default `true`
+- `ANTHROPIC_FILES_API_ENABLED`: optional independent rollback switch for native Files routes; default `true`
+- `ANTHROPIC_BATCH_API_ENABLED`: optional independent rollback switch for native Message Batches routes and reconciliation worker; default `true`
+- `ANTHROPIC_NATIVE_ACCOUNT_ALLOWLIST`: optional comma-separated provider-account IDs used for staged native API rollout; an empty value permits every authorized account
+- `TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION`: active tenant credential KEK version
+- `TENANT_PROVIDER_CREDENTIAL_KEKS_JSON`: required version-to-base64-KEK map for tenant credential envelope encryption
+- `TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY`: required independent base64 key (at least 32 bytes after decoding) for tenant credential fingerprints
 - `BALE_OTP_ENABLED`: optional kill switch for mobile OTP delivery (`true|false`); when unset, delivery is enabled automatically after both Bale credentials below are configured
 - `BALE_SAFIR_API_ACCESS_KEY`: Safir API access key from the Bale business panel; keep it in the deployment secret store
 - `BALE_SAFIR_BOT_ID`: numeric ID of the Bale bot whose name is shown in the OTP message

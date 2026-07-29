@@ -15,6 +15,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
@@ -242,7 +243,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 
 	estimated, err := h.billing.EstimateCost(c.Context(), estimateReq)
 	if err != nil {
-		return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate request cost", "billing_error")
+		return writeBillingEstimateError(c, err)
 	}
 
 	estimated.Metadata = req.Metadata
@@ -363,6 +364,23 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	return err
+}
+
+func writeBillingEstimateError(c *fiber.Ctx, err error) error {
+	if errors.Is(err, billing.ErrPricingUnavailable) {
+		return writeAPIError(
+			c,
+			fiber.StatusServiceUnavailable,
+			"Anthropic pricing snapshot is unavailable or stale",
+			"pricing_unavailable",
+		)
+	}
+	return writeAPIError(
+		c,
+		fiber.StatusBadGateway,
+		"Failed to estimate request cost",
+		"billing_error",
+	)
 }
 
 func (h *ChatCompletionHandler) routeChatCandidates(
@@ -901,6 +919,8 @@ func (h *ChatCompletionHandler) handleSync(
 				ResponseTimeMS:  responseTimeMS,
 				Status:          "blocked",
 				RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
+				UsageBreakdown:  &finalCost,
+				PricingSnapshot: finalCost.PricingSnapshot,
 				CompletionStart: start,
 				CompletionEnd:   time.Now(),
 			})
@@ -949,6 +969,8 @@ func (h *ChatCompletionHandler) handleSync(
 		ResponseTimeMS:  responseTimeMS,
 		Status:          "success",
 		RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
+		UsageBreakdown:  &finalCost,
+		PricingSnapshot: finalCost.PricingSnapshot,
 		CompletionStart: start,
 		CompletionEnd:   time.Now(),
 	})
@@ -1189,6 +1211,8 @@ func (h *ChatCompletionHandler) handleStream(
 				ResponseTimeMS:  int(time.Since(start).Milliseconds()),
 				Status:          "success",
 				RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
+				UsageBreakdown:  &finalCost,
+				PricingSnapshot: finalCost.PricingSnapshot,
 				CompletionStart: start,
 				CompletionEnd:   time.Now(),
 			})

@@ -5,6 +5,10 @@ import { parse } from 'yaml';
 import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import { basename, join } from 'node:path';
+import {
+  modelRuntimeProfileSchema,
+  type ModelRuntimeProfile,
+} from '../src/catalog/runtime-profile.schema';
 
 type StringRecord = Record<string, unknown>;
 
@@ -35,6 +39,9 @@ type ImportModelRow = {
   maxOutputTokens?: number;
   releaseDate?: Date;
   deprecatedAt?: Date;
+  deprecationDate?: Date;
+  retirementDate?: Date;
+  replacementCanonicalId?: string;
   officialDocsUrl?: string;
   free: boolean;
   openSource: boolean;
@@ -44,6 +51,15 @@ type ImportModelRow = {
   supportedParameters: string[];
   regions: string[];
   sources: string[];
+  runtimeProfile?: ModelRuntimeProfile;
+  pricingRates: Array<{
+    dimension: string;
+    unit: string;
+    unitPriceUsd: string;
+    conditionJson?: StringRecord;
+    region: string;
+    sourceUrl: string;
+  }>;
   pricingRows: Array<{
     regionSlug: string;
     sourceUrl?: string;
@@ -160,7 +176,8 @@ function titleCaseFromSlug(input: string): string {
 }
 
 function asObject(input: unknown): StringRecord | undefined {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  if (!input || typeof input !== 'object' || Array.isArray(input))
+    return undefined;
   return input as StringRecord;
 }
 
@@ -178,6 +195,23 @@ function asNumber(input: unknown): number | undefined {
   return undefined;
 }
 
+function asDecimalString(input: unknown): string | undefined {
+  if (typeof input === 'number' && Number.isFinite(input)) return String(input);
+  if (typeof input === 'string' && input.trim() !== '') {
+    const value = Number(input);
+    return Number.isFinite(value) ? input.trim() : undefined;
+  }
+  return undefined;
+}
+
+function divideDecimalString(
+  input: unknown,
+  divisor: number,
+): string | undefined {
+  const value = asNumber(input);
+  return value === undefined ? undefined : String(value / divisor);
+}
+
 function toDate(input: unknown): Date | undefined {
   if (typeof input !== 'string' || input.trim() === '') return undefined;
   const dt = new Date(input);
@@ -193,8 +227,11 @@ function inferDateFromName(name: string): Date | undefined {
   return dt;
 }
 
-function mapModelStatus(rawStatus: unknown): 'active' | 'preview' | 'deprecated' | 'unavailable' {
-  const normalized = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : '';
+function mapModelStatus(
+  rawStatus: unknown,
+): 'active' | 'preview' | 'deprecated' | 'unavailable' {
+  const normalized =
+    typeof rawStatus === 'string' ? rawStatus.toLowerCase() : '';
   if (normalized === 'active') return 'active';
   if (normalized === 'preview') return 'preview';
   if (normalized === 'deprecated') return 'deprecated';
@@ -272,17 +309,20 @@ function normalizeSupportedModes(input: unknown): ModelMode[] {
   return modes.length > 0 ? modes : ['unknown'];
 }
 
-function filterSupportedValues(input: string[], allowed: Set<string>): string[] {
+function filterSupportedValues(
+  input: string[],
+  allowed: Set<string>,
+): string[] {
   return Array.from(
     new Set(
-      input
-        .map(normalizeTaxonomyValue)
-        .filter((value) => allowed.has(value)),
+      input.map(normalizeTaxonomyValue).filter((value) => allowed.has(value)),
     ),
   );
 }
 
-function mapLifecycle(status: 'active' | 'preview' | 'deprecated' | 'unavailable') {
+function mapLifecycle(
+  status: 'active' | 'preview' | 'deprecated' | 'unavailable',
+) {
   if (status === 'deprecated') return 'deprecated';
   if (status === 'unavailable') return 'archived';
   return 'published';
@@ -355,7 +395,9 @@ function perTokenToPerMillion(input: number | undefined): number | undefined {
   return input * 1_000_000;
 }
 
-async function parseProviderDir(providerDir: string): Promise<ImportProviderBatch> {
+async function parseProviderDir(
+  providerDir: string,
+): Promise<ImportProviderBatch> {
   const providerSlug = slugify(basename(providerDir));
   const defaultPath = join(providerDir, 'default.yaml');
   let defaultDoc: StringRecord | undefined;
@@ -368,6 +410,8 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
 
   const providerName = titleCaseFromSlug(providerSlug);
   const docsUrl = asStringArray(defaultDoc?.['documentation'])[0];
+  const providerSources = asStringArray(defaultDoc?.['documentation']);
+  const defaultToolPricing = asObject(defaultDoc?.['tool_pricing']);
 
   const models: ImportModelRow[] = [];
   const defaultParams = paramsFromDoc(defaultDoc);
@@ -379,9 +423,15 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
 
     const modelId = typeof doc['model'] === 'string' ? doc['model'] : undefined;
     if (!modelId) continue;
-    if (doc['isDeprecated'] === true) continue;
-
-    const status = mapModelStatus(doc['status']);
+    const deprecationDate = toDate(doc['deprecationDate']);
+    const retirementDate = toDate(doc['retirementDate']);
+    const now = new Date();
+    const status =
+      retirementDate && retirementDate <= now
+        ? 'unavailable'
+        : deprecationDate && deprecationDate <= now
+          ? 'deprecated'
+          : mapModelStatus(doc['status']);
     const lifecycleStatus = mapLifecycle(status);
     const limits = asObject(doc['limits']);
     const modalities = asObject(doc['modalities']);
@@ -404,21 +454,36 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
       asStringArray(modalities?.['output']),
       supportedOutputModalities,
     );
-    const sources = asStringArray(doc['sources']);
+    const sources = Array.from(
+      new Set([...asStringArray(doc['sources']), ...providerSources]),
+    );
+    const runtimeProfileValue = doc['runtimeProfile'];
+    const runtimeProfile =
+      runtimeProfileValue === undefined
+        ? undefined
+        : modelRuntimeProfileSchema.parse(runtimeProfileValue);
 
     const costs = Array.isArray(doc['costs']) ? doc['costs'] : [];
     const pricingRows: ImportModelRow['pricingRows'] = [];
+    const pricingRates: ImportModelRow['pricingRates'] = [];
     const regionSet = new Set<string>();
     for (const item of costs) {
       const cost = asObject(item);
       if (!cost) continue;
-      const region = typeof cost['region'] === 'string' ? normalizeRegion(cost['region']) : 'global';
+      const region =
+        typeof cost['region'] === 'string'
+          ? normalizeRegion(cost['region'])
+          : 'global';
       regionSet.add(region);
       pricingRows.push({
         regionSlug: region,
         sourceUrl: sources[0],
-        inputPricePerMillionTokens: perTokenToPerMillion(asNumber(cost['input_cost_per_token'])),
-        outputPricePerMillionTokens: perTokenToPerMillion(asNumber(cost['output_cost_per_token'])),
+        inputPricePerMillionTokens: perTokenToPerMillion(
+          asNumber(cost['input_cost_per_token']),
+        ),
+        outputPricePerMillionTokens: perTokenToPerMillion(
+          asNumber(cost['output_cost_per_token']),
+        ),
         cachedInputPricePerMillionTokens: perTokenToPerMillion(
           asNumber(cost['cache_read_input_token_cost']),
         ),
@@ -428,31 +493,253 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
         audioOutputPrice: asNumber(cost['output_cost_per_audio_token']),
         requestPrice: asNumber(cost['request_cost']),
       });
+
+      const sourceUrl = sources.find((source) => source.includes('pricing'));
+      if (!sourceUrl) {
+        throw new Error(
+          `${modelId}: pricing data requires an official pricing source`,
+        );
+      }
+      const rateMappings: Array<{
+        key: string;
+        dimension: string;
+        unit: string;
+        conditionJson?: StringRecord;
+      }> = [
+        {
+          key: 'input_cost_per_token',
+          dimension: 'input_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'output_cost_per_token',
+          dimension: 'output_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'cache_creation_input_token_cost',
+          dimension: 'cache_write_5m_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'cache_creation_input_token_cost_per_hour',
+          dimension: 'cache_write_1h_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'cache_read_input_token_cost',
+          dimension: 'cache_read_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'input_cost_per_token_batches',
+          dimension: 'batch_input_tokens',
+          unit: 'token',
+          conditionJson: { api: 'message_batches' },
+        },
+        {
+          key: 'output_cost_per_token_batches',
+          dimension: 'batch_output_tokens',
+          unit: 'token',
+          conditionJson: { api: 'message_batches' },
+        },
+        {
+          key: 'data_residency_input_cost_per_token',
+          dimension: 'data_residency_input_tokens',
+          unit: 'token',
+          conditionJson: { inference_geo: 'configured' },
+        },
+        {
+          key: 'data_residency_output_cost_per_token',
+          dimension: 'data_residency_output_tokens',
+          unit: 'token',
+          conditionJson: { inference_geo: 'configured' },
+        },
+        {
+          key: 'fast_mode_input_cost_per_token',
+          dimension: 'speed_input_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'priority' },
+        },
+        {
+          key: 'fast_mode_output_cost_per_token',
+          dimension: 'speed_output_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'priority' },
+        },
+      ];
+      for (const mapping of rateMappings) {
+        const unitPriceUsd = asDecimalString(cost[mapping.key]);
+        if (unitPriceUsd === undefined) continue;
+        pricingRates.push({
+          dimension: mapping.dimension,
+          unit: mapping.unit,
+          unitPriceUsd,
+          conditionJson: mapping.conditionJson,
+          region,
+          sourceUrl,
+        });
+      }
+      const hasBatchPricing =
+        asDecimalString(cost['input_cost_per_token_batches']) !== undefined &&
+        asDecimalString(cost['output_cost_per_token_batches']) !== undefined;
+      if (hasBatchPricing) {
+        const batchCacheMappings = [
+          ['cache_creation_input_token_cost', 'batch_cache_write_5m_tokens'],
+          [
+            'cache_creation_input_token_cost_per_hour',
+            'batch_cache_write_1h_tokens',
+          ],
+          ['cache_read_input_token_cost', 'batch_cache_read_tokens'],
+        ] as const;
+        for (const [key, dimension] of batchCacheMappings) {
+          const standard = asNumber(cost[key]);
+          if (standard === undefined) continue;
+          pricingRates.push({
+            dimension,
+            unit: 'token',
+            unitPriceUsd: String(standard * 0.5),
+            conditionJson: { api: 'message_batches' },
+            region,
+            sourceUrl,
+          });
+        }
+      }
+      if (
+        runtimeProfile?.requestControls.inferenceGeoValues.includes('us')
+      ) {
+        const residencyMappings = [
+          ['input_cost_per_token', 'data_residency_input_tokens'],
+          ['output_cost_per_token', 'data_residency_output_tokens'],
+          [
+            'cache_creation_input_token_cost',
+            'data_residency_cache_write_5m_tokens',
+          ],
+          [
+            'cache_creation_input_token_cost_per_hour',
+            'data_residency_cache_write_1h_tokens',
+          ],
+          ['cache_read_input_token_cost', 'data_residency_cache_read_tokens'],
+          [
+            'input_cost_per_token_batches',
+            'data_residency_batch_input_tokens',
+          ],
+          [
+            'output_cost_per_token_batches',
+            'data_residency_batch_output_tokens',
+          ],
+        ] as const;
+        for (const [key, dimension] of residencyMappings) {
+          const standard = asNumber(cost[key]);
+          if (standard === undefined) continue;
+          pricingRates.push({
+            dimension,
+            unit: 'token',
+            unitPriceUsd: String(standard * 1.1),
+            conditionJson: { inference_geo: 'us' },
+            region,
+            sourceUrl,
+          });
+        }
+        if (hasBatchPricing) {
+          const residencyBatchCacheMappings = [
+            [
+              'cache_creation_input_token_cost',
+              'data_residency_batch_cache_write_5m_tokens',
+            ],
+            [
+              'cache_creation_input_token_cost_per_hour',
+              'data_residency_batch_cache_write_1h_tokens',
+            ],
+            [
+              'cache_read_input_token_cost',
+              'data_residency_batch_cache_read_tokens',
+            ],
+          ] as const;
+          for (const [key, dimension] of residencyBatchCacheMappings) {
+            const standard = asNumber(cost[key]);
+            if (standard === undefined) continue;
+            pricingRates.push({
+              dimension,
+              unit: 'token',
+              unitPriceUsd: String(standard * 0.5 * 1.1),
+              conditionJson: {
+                api: 'message_batches',
+                inference_geo: 'us',
+              },
+              region,
+              sourceUrl,
+            });
+          }
+        }
+      }
+    }
+
+    const webSearch = asObject(defaultToolPricing?.['web_search']);
+    const webSearchPrice = divideDecimalString(
+      webSearch?.['per_thousand_requests'],
+      1000,
+    );
+    const pricingSource = sources.find((source) => source.includes('pricing'));
+    if (webSearchPrice && pricingSource) {
+      pricingRates.push({
+        dimension: 'web_search_requests',
+        unit: 'request',
+        unitPriceUsd: webSearchPrice,
+        region: 'global',
+        sourceUrl: pricingSource,
+      });
+    }
+    const codeExecution = asObject(defaultToolPricing?.['code_execution']);
+    const codeExecutionPrice = asDecimalString(
+      codeExecution?.['per_container_hour'],
+    );
+    const codeExecutionSource = sources.find((source) =>
+      source.includes('code-execution-tool'),
+    );
+    if (codeExecutionPrice && codeExecutionSource) {
+      pricingRates.push({
+        dimension: 'code_execution_container_hours',
+        unit: 'container_hour',
+        unitPriceUsd: codeExecutionPrice,
+        conditionJson: {
+          free_organization_hours_per_month:
+            asNumber(codeExecution?.['free_organization_hours_per_month']) ??
+            1550,
+          minimum_minutes:
+            asNumber(codeExecution?.['minimum_minutes']) ?? 5,
+          reconciliation: 'provider_usage_invoice',
+        },
+        region: 'global',
+        sourceUrl: codeExecutionSource,
+      });
     }
     if (regionSet.size === 0) regionSet.add('global');
 
     const contextWindow = asNumber(limits?.['context_window']);
     const maxOutputTokens =
-      asNumber(limits?.['max_output_tokens']) ?? asNumber(limits?.['max_tokens']);
+      asNumber(limits?.['max_output_tokens']) ??
+      asNumber(limits?.['max_tokens']);
 
-    const deprecatedAt = toDate(doc['deprecationDate']);
+    const deprecatedAt = deprecationDate;
     const releaseDate =
       inferDateFromName(modelId) ??
       inferDateFromName(basename(filePath, '.yaml'));
 
-    const free = pricingRows.length > 0
-      ? pricingRows.every(
-          (p) =>
-            (p.inputPricePerMillionTokens ?? 0) === 0 &&
-            (p.outputPricePerMillionTokens ?? 0) === 0 &&
-            (p.cachedInputPricePerMillionTokens ?? 0) === 0 &&
-            (p.imageInputPrice ?? 0) === 0 &&
-            (p.imageOutputPrice ?? 0) === 0 &&
-            (p.audioInputPrice ?? 0) === 0 &&
-            (p.audioOutputPrice ?? 0) === 0 &&
-            (p.requestPrice ?? 0) === 0,
-        )
-      : false;
+    const free =
+      pricingRows.length > 0
+        ? pricingRows.every(
+            (p) =>
+              (p.inputPricePerMillionTokens ?? 0) === 0 &&
+              (p.outputPricePerMillionTokens ?? 0) === 0 &&
+              (p.cachedInputPricePerMillionTokens ?? 0) === 0 &&
+              (p.imageInputPrice ?? 0) === 0 &&
+              (p.imageOutputPrice ?? 0) === 0 &&
+              (p.audioInputPrice ?? 0) === 0 &&
+              (p.audioOutputPrice ?? 0) === 0 &&
+              (p.requestPrice ?? 0) === 0,
+          )
+        : false;
 
     const mode = normalizeSupportedModes(doc['supportedModes']);
     const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
@@ -465,9 +752,17 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
       lifecycleStatus,
       mode,
       contextWindow: contextWindow ? Math.floor(contextWindow) : undefined,
-      maxOutputTokens: maxOutputTokens ? Math.floor(maxOutputTokens) : undefined,
+      maxOutputTokens: maxOutputTokens
+        ? Math.floor(maxOutputTokens)
+        : undefined,
       releaseDate,
       deprecatedAt,
+      deprecationDate,
+      retirementDate,
+      replacementCanonicalId:
+        typeof doc['replacementModel'] === 'string'
+          ? `${providerSlug}/${doc['replacementModel']}`
+          : undefined,
       officialDocsUrl: sources[0],
       free,
       openSource: false,
@@ -477,6 +772,8 @@ async function parseProviderDir(providerDir: string): Promise<ImportProviderBatc
       supportedParameters: Array.from(paramsCombined),
       regions: Array.from(regionSet),
       sources,
+      runtimeProfile,
+      pricingRates,
       pricingRows,
     });
   }
@@ -580,7 +877,9 @@ async function importProviderBatch(
       where: { providerId: provider.id },
       select: { id: true, canonicalId: true },
     });
-    const toDeleteIds = existing.filter((m) => !keep.has(m.canonicalId)).map((m) => m.id);
+    const toDeleteIds = existing
+      .filter((m) => !keep.has(m.canonicalId))
+      .map((m) => m.id);
     if (toDeleteIds.length > 0) {
       await prisma.model.deleteMany({ where: { id: { in: toDeleteIds } } });
     }
@@ -602,6 +901,9 @@ async function importProviderBatch(
         maxOutputTokens: row.maxOutputTokens,
         releaseDate: row.releaseDate,
         deprecatedAt: row.deprecatedAt,
+        deprecationDate: row.deprecationDate,
+        retirementDate: row.retirementDate,
+        replacementCanonicalId: row.replacementCanonicalId,
         officialDocsUrl: row.officialDocsUrl,
         free: row.free,
         openSource: row.openSource,
@@ -618,6 +920,9 @@ async function importProviderBatch(
         maxOutputTokens: row.maxOutputTokens,
         releaseDate: row.releaseDate,
         deprecatedAt: row.deprecatedAt,
+        deprecationDate: row.deprecationDate,
+        retirementDate: row.retirementDate,
+        replacementCanonicalId: row.replacementCanonicalId,
         officialDocsUrl: row.officialDocsUrl,
         free: row.free,
         openSource: row.openSource,
@@ -626,10 +931,14 @@ async function importProviderBatch(
 
     await prisma.$transaction([
       prisma.modelPricing.deleteMany({ where: { modelId: model.id } }),
+      prisma.modelPricingRate.deleteMany({ where: { modelId: model.id } }),
+      prisma.modelRuntimeProfile.deleteMany({ where: { modelId: model.id } }),
       prisma.modelCapability.deleteMany({ where: { modelId: model.id } }),
       prisma.modelInputModality.deleteMany({ where: { modelId: model.id } }),
       prisma.modelOutputModality.deleteMany({ where: { modelId: model.id } }),
-      prisma.modelSupportedParameter.deleteMany({ where: { modelId: model.id } }),
+      prisma.modelSupportedParameter.deleteMany({
+        where: { modelId: model.id },
+      }),
       prisma.modelRegion.deleteMany({ where: { modelId: model.id } }),
       prisma.sourceReference.deleteMany({ where: { modelId: model.id } }),
     ]);
@@ -654,13 +963,42 @@ async function importProviderBatch(
           currency: 'USD',
           inputPricePerMillionTokens: pricing.inputPricePerMillionTokens,
           outputPricePerMillionTokens: pricing.outputPricePerMillionTokens,
-          cachedInputPricePerMillionTokens: pricing.cachedInputPricePerMillionTokens,
+          cachedInputPricePerMillionTokens:
+            pricing.cachedInputPricePerMillionTokens,
           imageInputPrice: pricing.imageInputPrice,
           imageOutputPrice: pricing.imageOutputPrice,
           audioInputPrice: pricing.audioInputPrice,
           audioOutputPrice: pricing.audioOutputPrice,
           requestPrice: pricing.requestPrice,
           sourceUrl: pricing.sourceUrl,
+          effectiveFrom: new Date(),
+        },
+      });
+    }
+
+    for (const rate of row.pricingRates) {
+      await prisma.modelPricingRate.create({
+        data: {
+          modelId: model.id,
+          dimension: rate.dimension,
+          unit: rate.unit,
+          unitPriceUsd: rate.unitPriceUsd,
+          currency: 'USD',
+          conditionJson: rate.conditionJson,
+          region: rate.region,
+          sourceUrl: rate.sourceUrl,
+          effectiveFrom: new Date(),
+        },
+      });
+    }
+
+    if (row.runtimeProfile) {
+      await prisma.modelRuntimeProfile.create({
+        data: {
+          modelId: model.id,
+          version: row.runtimeProfile.version,
+          profileJson: row.runtimeProfile,
+          sourceUrl: row.sources[0],
           effectiveFrom: new Date(),
         },
       });

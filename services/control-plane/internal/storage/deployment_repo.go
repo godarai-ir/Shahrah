@@ -149,7 +149,6 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		       a.name,
 		       a.auth_mode,
 		       COALESCE(a.provider_config, '{}'::jsonb),
-		       COALESCE(a.credential_data, '{}'::jsonb),
 		       a.has_credential,
 		       a.use_platform_managed_credentials,
 		       m.model,
@@ -177,14 +176,13 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			accountName                string
 			authMode                   string
 			providerRaw                []byte
-			credentialRaw              []byte
 			hasCredential              bool
 			platformManagedCredentials bool
 			model                      string
 			modelTypes                 []string
 			settingsRaw                []byte
 		)
-		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &credentialRaw, &hasCredential, &platformManagedCredentials, &model, &modelTypes, &settingsRaw); err != nil {
+		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &hasCredential, &platformManagedCredentials, &model, &modelTypes, &settingsRaw); err != nil {
 			return nil, err
 		}
 
@@ -197,20 +195,28 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		}
 
 		providerConfig := parseJSONObject(providerRaw)
-		credentials := parseJSONObject(credentialRaw)
 		settings := parseJSONObject(settingsRaw)
-		apiKey := strings.TrimSpace(toString(credentials["api_key"]))
-		runtimeAPIKey := ""
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
 		noCredential := providerAccountUsesNoCredential(provider, authMode)
 
 		var providerAuth *platform.ResolvedProviderAuth
 
-		if apiKey != "" && hasCredential && !platformManagedCredentials && !noCredential {
-			runtimeAPIKey = apiKey
+		if hasCredential && !platformManagedCredentials && !noCredential {
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled
+			if strings.EqualFold(authMode, string(platform.ProviderAuthModeAnthropicWIF)) {
+				providerAuth = &platform.ResolvedProviderAuth{
+					Mode: string(platform.ProviderAuthModeAnthropicWIF),
+					AnthropicWIF: &platform.ResolvedAnthropicWIFAuth{
+						FederationRuleID: firstString(providerConfig, nil, "federation_rule_id"),
+						OrganizationID:   firstString(providerConfig, nil, "organization_id"),
+						ServiceAccountID: firstString(providerConfig, nil, "service_account_id"),
+						WorkspaceID:      firstString(providerConfig, nil, "workspace_id"),
+						TokenSourceID:    firstString(providerConfig, nil, "token_source_id"),
+					},
+				}
+			}
 		} else if noCredential {
 			providerAuth = &platform.ResolvedProviderAuth{Mode: string(platform.ProviderAuthModeNoCredential)}
 
@@ -226,7 +232,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			Provider:            provider,
 			Model:               model,
 			APIBase:             apiBase,
-			APIKey:              runtimeAPIKey,
+			APIKey:              "",
 			APIVersion:          firstString(providerConfig, settings, "api_version"),
 			RegionName:          firstString(providerConfig, settings, "region_name", "region", "aws_region"),
 			RPM:                 firstInt64(settings, providerConfig, "rpm"),

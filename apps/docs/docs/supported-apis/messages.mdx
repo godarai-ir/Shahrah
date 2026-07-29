@@ -11,13 +11,13 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 
 ## جایگاه Messages API در گدارAI
 
-در بسیاری از اتصال‌های مشتریان، گدارAI مدل‌های Anthropic را از مسیر `Chat Completions` هم قابل مصرف می‌کند؛ یعنی شما با قرارداد سازگار با OpenAI درخواست می‌فرستید و درگاه، نگاشت لازم را برای ارائه‌دهنده انجام می‌دهد. اگر در محیط شما نقطه پایانی بومی `Messages API` هم فعال باشد، مستندات همان محیط مسیر دقیق و محدودیت‌های آن را نشان می‌دهد.
+گدارAI مدل‌های Anthropic را هم از مسیر سازگار با OpenAI و هم از مسیر بومی Anthropic عرضه می‌کند. مسیر `POST /v1/messages` درخواست و پاسخ Anthropic را حفظ می‌کند؛ مسیر `POST /v1/chat/completions` همان قابلیت‌ها را تا حد ممکن به قرارداد OpenAI نگاشت می‌کند.
 
 قاعده انتخاب:
 
 - اگر چند ارائه‌دهنده مدل دارید و می‌خواهید قرارداد واحد داشته باشید، از `Chat Completions` شروع کنید.
 - اگر اپلیکیشن شما به شکل دقیق پاسخ‌ها و قابلیت‌های اختصاصی Claude وابسته است، `Messages API` را بررسی کنید.
-- اگر مسیر بومی Messages در محیط شما فعال نیست، مدل Anthropic مجاز را از مسیر `Chat Completions` مصرف کنید.
+- اگر باید ساختار بومی Anthropic را حفظ کنید، از `/v1/messages` استفاده کنید.
 
 ## Messages API چه مسئله‌ای را حل می‌کند؟
 
@@ -30,7 +30,7 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 
 ## شکل رایج درخواست
 
-وقتی مسیر بومی Messages در محیط شما فعال باشد، درخواست معمولاً با این مفاهیم ساخته می‌شود:
+درخواست بومی معمولاً با این فیلدها ساخته می‌شود:
 
 - `model`
 - `max_tokens`
@@ -42,8 +42,9 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 <ApiCodeTabs
   endpoint="/v1/messages"
   groupId="messages-language"
+  headers={{"anthropic-version": "2023-06-01"}}
   body={{
-    model: "anthropic:default:claude-3-5-sonnet",
+    model: "anthropic:default:claude-sonnet-4-6",
     max_tokens: 1024,
     system: "You are a concise Persian technical assistant.",
     messages: [
@@ -55,7 +56,21 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
   }}
 />
 
-اگر SDK یا مسیر بومی در محیط شما فعال نیست، همین سناریو را با `Chat Completions` و شناسه مدل Anthropic مجاز پیاده کنید.
+توکن گدارAI را در `Authorization: Bearer` یا `x-api-key` بفرستید. گدارAI این توکن را فقط برای احراز هویت درخواست مصرف می‌کند و آن را به Anthropic نمی‌فرستد.
+
+:::warning
+برای جلوگیری از انتخاب حساب اشتباه، در محیط‌های چندحسابی شناسه کامل مدل را بفرستید. شناسه ساده فقط زمانی پذیرفته می‌شود که دقیقاً به یک حساب Anthropic مجاز برسد؛ در غیر این صورت پاسخ `ambiguous_provider_account` دریافت می‌کنید.
+:::
+
+## مسیرهای بومی در دسترس
+
+- `POST /v1/messages` برای ساخت پیام همگام یا جریانی
+- `POST /v1/messages/count_tokens` برای شمارش توکن
+- خانواده `/v1/messages/batches` برای ساخت، پیگیری، لغو و دریافت نتیجه دسته‌ها
+- خانواده `/v1/files` برای بارگذاری، فهرست، دریافت و حذف فایل‌ها
+- `GET /v1/models` و `GET /v1/models/{id}` برای فهرست و جزئیات مدل‌ها
+
+در مسیرهای مشترک `/v1/models` و `/v1/files`، سرآیند `anthropic-version` قرارداد بومی Anthropic را انتخاب می‌کند. بدون این سرآیند، رفتار سازگار با OpenAI همان مسیر حفظ می‌شود.
 
 ## تفاوت با Chat Completions
 
@@ -70,7 +85,7 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 
 ## پاسخ مورد انتظار
 
-در الگوی Anthropic، پاسخ معمولاً شامل این بخش‌هاست:
+پاسخ بومی، بلوک‌های متن، ابزار، تفکر، تفکر پوشیده و ارجاع را بدون تبدیل به شکل OpenAI برمی‌گرداند. نمونه ساده:
 
 ```json
 {
@@ -92,15 +107,15 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 }
 ```
 
-برای تحلیل هزینه و رفتار، `usage` را ذخیره کنید و آن را با گزارش رخدادهای گدارAI تطبیق دهید.
+برای تحلیل هزینه و رفتار، `usage` و `request-id` را ذخیره و با گزارش رخدادهای گدارAI تطبیق دهید. در پاسخ جریانی، خطای میانه جریان به‌صورت خطا باقی می‌ماند و با پایان موفق کاذب پوشانده نمی‌شود.
 
 ## پیش از استفاده چه چیزهایی را بررسی کنم؟
 
-- آیا مسیر بومی `Messages API` در محیط شما فعال و مستند شده است؟
 - آیا مدل Anthropic انتخابی در دسترسی شما مجاز است؟
 - آیا اپلیکیشن شما واقعاً به شکل پاسخ Anthropic نیاز دارد یا `Chat Completions` کافی است؟
 - آیا توکن مصرفی برای سرویس محیط عملیاتی از نوع کلید دسترسی مجازی است؟
+- آیا قابلیت آزمایشی درخواستی در فهرست مجاز همان حساب Anthropic قرار دارد؟
 
 ## جمع‌بندی
 
-`Messages API` برای تیم‌های Claude-first ارزشمند است، اما برای بیشتر اتصال‌های چندمدلی، `Chat Completions` مسیر ساده‌تر و پایدارتر شروع است. تصمیم درست را بر اساس قرارداد اپلیکیشن، مدل‌های مجاز و مسیرهای فعال در محیط گدارAI خود بگیرید.
+`Messages API` برای تیم‌های Claude-first ارزشمند است، اما برای اتصال‌های چندمدلی، `Chat Completions` قرارداد یکدست‌تری می‌دهد. تصمیم را بر اساس قرارداد اپلیکیشن و مدل‌های مجاز بگیرید.

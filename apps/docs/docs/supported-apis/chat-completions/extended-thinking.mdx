@@ -7,7 +7,7 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 
 # تفکر عمیق‌تر
 
-`Extended Thinking` برای مدل‌هایی مطرح می‌شود که هنگام حل مسئله، داده‌های ساختاریافته‌ای برای ادامه زمینه استدلالی بین نوبت‌ها برمی‌گردانند. این قابلیت برای همه مدل‌ها فعال نیست و باید آن را وابسته به مدل و ارائه‌دهنده بدانید.
+`Extended Thinking` برای مدل‌هایی مطرح می‌شود که هنگام حل مسئله، داده‌های ساختاریافته‌ای برای ادامه زمینه استدلالی بین نوبت‌ها برمی‌گردانند. تنظیم درست آن به نسل مدل Claude بستگی دارد.
 
 این صفحه برای سناریوهای پیشرفته است؛ اگر فقط می‌خواهید یک پاسخ نهایی بگیرید، معمولاً [حافظه نهان و استدلال](/supported-apis/chat-completions/caching-and-reasoning) کافی است.
 
@@ -23,8 +23,18 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 در مسیرهای OpenAI-compatible، این فیلدها به ارائه‌دهنده ارسال و از پاسخ هم حفظ می‌شوند. در مسیر Anthropic-native، گدارAI `reasoning_effort` یا `thinking` را به تنظیم `thinking` در Anthropic Messages API تبدیل می‌کند و بلوک‌های `thinking` و `redacted_thinking` پاسخ را در `thinking_blocks` برمی‌گرداند.
 
 :::warning
-درخواست‌هایی که تفکر عمیق‌تر دارند در حافظه نهان پاسخ ذخیره نمی‌شوند. برای Anthropic-native، `temperature` همراه تفکر عمیق‌تر پذیرفته نمی‌شود و `top_p` باید بین `0.95` و `1` باشد.
+درخواست‌هایی که تفکر عمیق‌تر دارند در حافظه نهان پاسخ ذخیره نمی‌شوند. تفکر تطبیقی را با `temperature`، `top_p` یا `top_k` ترکیب نکنید؛ گدارAI این تعارض را پیش از ارسال درخواست رد می‌کند.
 :::
+
+## تنظیم بر اساس نسل مدل
+
+| مدل | حالت پشتیبانی‌شده | روش کنترل |
+| --- | --- | --- |
+| Claude Opus 4.7 | فقط تفکر تطبیقی | `reasoning_effort` یا `output_config.effort`؛ تفکر دستی رد می‌شود. |
+| Claude Opus 4.6 و Sonnet 4.6 | تفکر تطبیقی به‌صورت پیش‌فرض | `reasoning_effort`؛ تفکر دستی فقط برای سازگاری قدیمی پذیرفته می‌شود و منسوخ است. |
+| Claude 4.5 و قدیمی‌تر | تفکر عمیق دستی | `thinking.type: "enabled"` و `thinking.budget_tokens` |
+
+مقدار `max` فقط برای مدل‌های Opus مجاز است. گدارAI ترکیب حالت تفکر، تلاش استدلالی و پارامترهای نمونه‌گیری را با نمایه زمان اجرای همان مدل اعتبارسنجی می‌کند.
 
 ## چه زمانی لازم می‌شود؟
 
@@ -76,7 +86,7 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
   groupId="chat-completions-language"
   sdkOperation="chat.completions.create"
   body={{
-    model: "anthropic:default:claude-3-7-sonnet",
+    model: "anthropic:default:claude-sonnet-4-6",
     messages: [
       {
         role: "user",
@@ -90,11 +100,11 @@ import ApiCodeTabs from '@site/src/components/ApiCodeTabs';
 
 در این نمونه، هدف اصلی ذخیره کامل `assistant_message` است. همین پیام ممکن است شامل `content`، `tool_calls`، `reasoning_content` یا `thinking_blocks` باشد.
 
-اگر می‌خواهید بودجه تفکر Anthropic را صریح کنترل کنید، می‌توانید به‌جای تکیه بر نگاشت `reasoning_effort`، فیلد `thinking` را بفرستید:
+برای مدل‌های 4.5 و قدیمی‌تر، بودجه تفکر Anthropic را با فیلد `thinking` کنترل کنید:
 
 ```python
 response = client.chat.completions.create(
-    model="anthropic:default:claude-3-7-sonnet",
+    model="anthropic:default:claude-sonnet-4-5",
     messages=[{"role": "user", "content": "این مسئله را تحلیل کن."}],
     max_tokens=4000,
     extra_body={"thinking": {"type": "enabled", "budget_tokens": 3200}},
@@ -119,7 +129,7 @@ messages = [
 ]
 
 response2 = client.chat.completions.create(
-    model="anthropic:default:claude-3-7-sonnet",
+    model="anthropic:default:claude-sonnet-4-6",
     messages=messages,
     reasoning_effort="high",
     max_tokens=4000,
@@ -144,7 +154,7 @@ response2 = client.chat.completions.create(
 
 این الگو از خطاهای ظریف در عامل‌های چندمرحله‌ای جلوگیری می‌کند.
 
-در گدارAI، ترکیب `tools` با تفکر عمیق‌تر برای مسیرهای OpenAI-compatible همان‌طور که ارائه‌دهنده پشتیبانی کند عبور داده می‌شود. برای مسیر Anthropic-native، تا زمانی که آداپتر ابزارهای Anthropic فعال نشده باشد، درخواست دارای `tools` رد می‌شود.
+گدارAI ترکیب `tools` و تفکر عمیق‌تر را در هر دو مسیر بومی Anthropic و سازگار با OpenAI پشتیبانی می‌کند. فراخوانی ابزار به `tool_use` و نتیجه پیام با نقش `tool` به `tool_result` نگاشت می‌شود. اگر `parallel_tool_calls` را غیرفعال کنید، گدارAI `disable_parallel_tool_use` را برای Anthropic تنظیم می‌کند.
 
 ## پاسخ جریانی
 

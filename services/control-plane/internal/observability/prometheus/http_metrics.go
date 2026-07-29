@@ -62,6 +62,11 @@ type HTTPMetrics struct {
 	platformCredentialSnapshotDuration   prom.Histogram
 	platformCredentialSnapshotEntries    prom.Gauge
 	platformCredentialLastLoadedUnixNano *atomic.Int64
+	anthropicPricingSnapshotAge          prom.Gauge
+	anthropicPricingFailures             *prom.CounterVec
+	anthropicLegacyCredentialReads       prom.Counter
+	anthropicBatchStates                 *prom.CounterVec
+	anthropicUsageDimensions             *prom.CounterVec
 	supportTicketsCreated                prom.Counter
 	supportMessages                      *prom.CounterVec
 	supportAttachments                   *prom.CounterVec
@@ -211,6 +216,26 @@ func NewHTTPMetrics() *HTTPMetrics {
 
 		return time.Since(time.Unix(0, loadedAt)).Seconds()
 	})
+	anthropicPricingSnapshotAge := prom.NewGauge(prom.GaugeOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_pricing_snapshot_age_seconds",
+		Help: "Age of the Anthropic pricing snapshot currently used for request billing.",
+	})
+	anthropicPricingFailures := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_pricing_failures_total",
+		Help: "Anthropic pricing failures by bounded stage.",
+	}, []string{"stage"})
+	anthropicLegacyCredentialReads := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_legacy_credential_reads_total",
+		Help: "Legacy plaintext tenant Anthropic credential reads during the zero-downtime migration.",
+	})
+	anthropicBatchStates := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_batch_state_transitions_total",
+		Help: "Anthropic batch state transitions observed by the reconciliation worker.",
+	}, []string{"state"})
+	anthropicUsageDimensions := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_usage_dimension_total",
+		Help: "Anthropic usage quantities billed by a bounded pricing dimension.",
+	}, []string{"dimension"})
 	keyLastUsedFlushErrors := prom.NewCounter(prom.CounterOpts{
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "key_last_used_flush_errors_total",
 		Help: "Total key last-used aggregate flush failures.",
@@ -253,6 +278,8 @@ func NewHTTPMetrics() *HTTPMetrics {
 		keyLastUsedQueuedTotal, keyLastUsedSkippedTotal, keyLastUsedFallbackTotal, keyLastUsedFlushDuration, keyLastUsedFlushBatchSize, keyLastUsedFlushErrors,
 		platformCredentialResolves, platformCredentialSnapshotLoads, platformCredentialSnapshotDuration,
 		platformCredentialSnapshotEntries, platformCredentialSnapshotAge,
+		anthropicPricingSnapshotAge, anthropicPricingFailures,
+		anthropicLegacyCredentialReads, anthropicBatchStates, anthropicUsageDimensions,
 		supportTicketsCreated, supportMessages, supportAttachments, supportFirstResponse,
 		supportTransitions, supportRatings, supportStatus,
 	)
@@ -285,6 +312,11 @@ func NewHTTPMetrics() *HTTPMetrics {
 		platformCredentialSnapshotDuration:   platformCredentialSnapshotDuration,
 		platformCredentialSnapshotEntries:    platformCredentialSnapshotEntries,
 		platformCredentialLastLoadedUnixNano: platformCredentialLastLoadedUnixNano,
+		anthropicPricingSnapshotAge:          anthropicPricingSnapshotAge,
+		anthropicPricingFailures:             anthropicPricingFailures,
+		anthropicLegacyCredentialReads:       anthropicLegacyCredentialReads,
+		anthropicBatchStates:                 anthropicBatchStates,
+		anthropicUsageDimensions:             anthropicUsageDimensions,
 		supportTicketsCreated:                supportTicketsCreated,
 		supportMessages:                      supportMessages,
 		supportAttachments:                   supportAttachments,
@@ -295,6 +327,60 @@ func NewHTTPMetrics() *HTTPMetrics {
 	}
 	activeHTTPMetrics.Store(metrics)
 	return metrics
+}
+
+func SetAnthropicPricingSnapshotAge(age time.Duration) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil && age >= 0 {
+		metrics.anthropicPricingSnapshotAge.Set(age.Seconds())
+	}
+}
+
+func RecordAnthropicPricingFailure(stage string) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		switch stage {
+		case "fetch", "decode", "validate", "stale", "missing_rate":
+		default:
+			stage = "other"
+		}
+		metrics.anthropicPricingFailures.WithLabelValues(stage).Inc()
+	}
+}
+
+func RecordAnthropicLegacyCredentialRead() {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		metrics.anthropicLegacyCredentialReads.Inc()
+	}
+}
+
+func RecordAnthropicBatchState(state string) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		switch state {
+		case "in_progress", "canceling", "ended", "canceled", "expired", "failed":
+		default:
+			state = "other"
+		}
+		metrics.anthropicBatchStates.WithLabelValues(state).Inc()
+	}
+}
+
+func RecordAnthropicUsageDimension(dimension string, quantity int64) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil && quantity > 0 {
+		allowed := map[string]struct{}{
+			"input_tokens": {}, "output_tokens": {}, "cache_write_5m_tokens": {},
+			"cache_write_1h_tokens": {}, "cache_read_tokens": {},
+			"batch_input_tokens": {}, "batch_output_tokens": {},
+			"batch_cache_write_5m_tokens": {}, "batch_cache_write_1h_tokens": {},
+			"batch_cache_read_tokens": {}, "web_search_requests": {},
+		}
+		if _, ok := allowed[dimension]; !ok {
+			if strings.HasPrefix(dimension, "data_residency_") {
+				dimension = "data_residency"
+			} else {
+				dimension = "other"
+			}
+		}
+		metrics.anthropicUsageDimensions.WithLabelValues(dimension).Add(float64(quantity))
+	}
 }
 
 func RecordSupportTicketCreated() {

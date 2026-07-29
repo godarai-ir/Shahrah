@@ -43,6 +43,35 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	}
 
 	if deps.ModelsHandler != nil {
-		v1.Get("/models", deps.ModelsHandler.Handle)
+		v1.Get("/models", func(c *fiber.Ctx) error {
+			if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
+				return deps.AnthropicNativeHandler.Handle(c)
+			}
+			return deps.ModelsHandler.Handle(c)
+		})
+	}
+
+	if deps.AnthropicNativeHandler != nil {
+		native := deps.AnthropicNativeHandler.Handle
+		v1.Post("/messages", native)
+		v1.Post("/messages/count_tokens", native)
+		v1.Post("/messages/batches", native)
+		v1.Get("/messages/batches", native)
+		v1.Get("/messages/batches/:id", native)
+		v1.Post("/messages/batches/:id/cancel", native)
+		v1.Get("/messages/batches/:id/results", native)
+
+		requireAnthropicVersion := func(c *fiber.Ctx) error {
+			if c.Get("anthropic-version") == "" {
+				return c.Next()
+			}
+			return native(c)
+		}
+		v1.Post("/files", requireAnthropicVersion)
+		v1.Get("/files", requireAnthropicVersion)
+		v1.Get("/files/:id", requireAnthropicVersion)
+		v1.Delete("/files/:id", requireAnthropicVersion)
+		v1.Get("/files/:id/content", requireAnthropicVersion)
+		v1.Get("/models/:id", requireAnthropicVersion)
 	}
 }

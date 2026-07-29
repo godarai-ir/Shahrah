@@ -2287,35 +2287,52 @@ export default function ProviderAccountWizard(props?: {
                         </div>
 
                         {!usePlatformManagedCredentials ? (
-                          <CredentialFields
-                            authMode={authMode}
-                            apiKey={apiKey}
-                            setAPIKey={setAPIKey}
-                            apiKeyTouched={apiKeyTouched}
-                            setAPIKeyTouched={(value) => {
-                              setAPIKeyTouched(value);
-                              if (value) {
+                          selectedConnectionSchema ? (
+                            <ProviderCredentialSchemaFields
+                              schema={selectedConnectionSchema}
+                              values={providerCredentialValues}
+                              onValueChange={(key, value) => {
+                                setProviderCredentialValues((current) => ({ ...current, [key]: value }));
                                 setAPIKeyTestSucceeded(false);
                                 setCreateCredentialTestResult(null);
-                              }
-                            }}
-                            apiKeyHint={apiKeyTestSucceeded ? account?.credential_hint : undefined}
-                            secretRef={secretRef}
-                            setSecretRef={setSecretRef}
-                            azureTenantID={azureTenantID}
-                            setAzureTenantID={setAzureTenantID}
-                            azureClientID={azureClientID}
-                            setAzureClientID={setAzureClientID}
-                            awsAccessKeyID={awsAccessKeyID}
-                            setAWSAccessKeyID={setAWSAccessKeyID}
-                            awsSecretAccessKey={awsSecretAccessKey}
-                            setAWSSecretAccessKey={setAWSSecretAccessKey}
-                            awsRegion={awsRegion}
-                            setAWSRegion={setAWSRegion}
-                            googleServiceAccountJSON={googleServiceAccountJSON}
-                            setGoogleServiceAccountJSON={setGoogleServiceAccountJSON}
-                            t={t}
-                          />
+                              }}
+                              disabled={isLoading || isSavingCredentials || isTesting}
+                              connectionFieldsTitle={ux("integrations.wizard.connectionFieldsTitle")}
+                              credentialFieldsTitle={ux("integrations.wizard.credentialFieldsTitle")}
+                              writeOnlyLabel={ux("integrations.wizard.writeOnlyCredential")}
+                              documentationLabel={ux("integrations.wizard.providerDocumentation")}
+                            />
+                          ) : (
+                            <CredentialFields
+                              authMode={authMode}
+                              apiKey={apiKey}
+                              setAPIKey={setAPIKey}
+                              apiKeyTouched={apiKeyTouched}
+                              setAPIKeyTouched={(value) => {
+                                setAPIKeyTouched(value);
+                                if (value) {
+                                  setAPIKeyTestSucceeded(false);
+                                  setCreateCredentialTestResult(null);
+                                }
+                              }}
+                              apiKeyHint={apiKeyTestSucceeded ? account?.credential_hint : undefined}
+                              secretRef={secretRef}
+                              setSecretRef={setSecretRef}
+                              azureTenantID={azureTenantID}
+                              setAzureTenantID={setAzureTenantID}
+                              azureClientID={azureClientID}
+                              setAzureClientID={setAzureClientID}
+                              awsAccessKeyID={awsAccessKeyID}
+                              setAWSAccessKeyID={setAWSAccessKeyID}
+                              awsSecretAccessKey={awsSecretAccessKey}
+                              setAWSSecretAccessKey={setAWSSecretAccessKey}
+                              awsRegion={awsRegion}
+                              setAWSRegion={setAWSRegion}
+                              googleServiceAccountJSON={googleServiceAccountJSON}
+                              setGoogleServiceAccountJSON={setGoogleServiceAccountJSON}
+                              t={t}
+                            />
+                          )
                         ) : null}
 
                         <div className="flex justify-between">
@@ -2648,6 +2665,12 @@ export default function ProviderAccountWizard(props?: {
                     {visibleActiveTab === "credentials" ? (
                       <section className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
                         <div className="flex flex-col gap-4 p-4 sm:p-5">
+                          {account.credential_rotation_required ? (
+                            <Alert variant="warning">
+                              <AlertTitle>{ux("credentials.rotationRequiredTitle")}</AlertTitle>
+                              <AlertDescription>{ux("credentials.rotationRequiredDescription")}</AlertDescription>
+                            </Alert>
+                          ) : null}
                           {account.use_platform_managed_credentials ? (
                             <Alert>
                               <AlertTitle>{ux("credentials.managedCredentialLockedTitle")}</AlertTitle>

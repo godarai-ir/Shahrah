@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -56,6 +57,51 @@ func NewHandler(client *http.Client) http.Handler {
 		copyHeaders(w.Header(), resp.Headers)
 		w.WriteHeader(resp.StatusCode)
 		relayBody(w, resp.Body, payload.Stream || responseIsEventStream(resp.Headers))
+	})
+	mux.HandleFunc("/dispatch/raw", func(w http.ResponseWriter, r *http.Request) {
+		var lengthPrefix [4]byte
+		if _, err := io.ReadFull(r.Body, lengthPrefix[:]); err != nil {
+			http.Error(w, "invalid raw tunnel envelope", http.StatusBadRequest)
+			return
+		}
+		metadataLength := int(binary.BigEndian.Uint32(lengthPrefix[:]))
+		if metadataLength <= 0 || metadataLength > 256*1024 {
+			http.Error(w, "raw tunnel metadata exceeds limit", http.StatusBadRequest)
+			return
+		}
+		metadata := make([]byte, metadataLength)
+		if _, err := io.ReadFull(r.Body, metadata); err != nil {
+			http.Error(w, "invalid raw tunnel metadata", http.StatusBadRequest)
+			return
+		}
+		var payload platform.TunnelRequest
+		if err := json.Unmarshal(metadata, &payload); err != nil {
+			http.Error(w, "invalid raw tunnel metadata", http.StatusBadRequest)
+			return
+		}
+		adapter, err := registry.adapterFor(payload.Deployment.Provider)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		rawAdapter, ok := adapter.(rawProviderAdapter)
+		if !ok {
+			http.Error(w, "provider does not support raw tunnel operations", http.StatusBadRequest)
+			return
+		}
+		rawLength := int64(-1)
+		if r.ContentLength >= int64(4+metadataLength) {
+			rawLength = r.ContentLength - int64(4+metadataLength)
+		}
+		resp, err := rawAdapter.DispatchRaw(r.Context(), clientForStream(client, true), payload, r.Body, rawLength)
+		if err != nil {
+			http.Error(w, "raw provider operation failed", http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		copyHeaders(w.Header(), resp.Headers)
+		w.WriteHeader(resp.StatusCode)
+		relayBody(w, resp.Body, true)
 	})
 
 	return metrics.wrap(mux)

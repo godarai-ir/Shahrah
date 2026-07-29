@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -54,6 +57,7 @@ type Service struct {
 	defaultRate          platform.ExchangeRate
 	exchangeRateCache    *exchangeRateCache
 	pricingCache         *pricingCache
+	anthropicPricing     *AnthropicPricingSnapshotManager
 	walletCacheTTL       time.Duration
 	budgetWindowTTLGrace time.Duration
 	rateLimitFailOpen    bool
@@ -100,6 +104,12 @@ func (s *Service) SetRuntimeProfiles(runtimeProfiles interface {
 	Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
 }) {
 	s.runtimeProfiles = runtimeProfiles
+}
+
+func (s *Service) SetAnthropicPricingSnapshotManager(
+	manager *AnthropicPricingSnapshotManager,
+) {
+	s.anthropicPricing = manager
 }
 
 // CheckRateLimit validates per-minute request and token limits.
@@ -525,9 +535,24 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		outputTokens = *req.MaxTokens
 	}
 
-	price := s.modelPrice(ctx, req.Model)
+	price, err := s.modelPrice(ctx, req.Model)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
 
-	return costBreakdown(req.Model, promptTokens, outputTokens, price, rate.USDtoIRR), nil
+	breakdown := costBreakdown(req.Model, promptTokens, outputTokens, price, rate.USDtoIRR)
+	if price.Provider == "anthropic" && strings.EqualFold(strings.TrimSpace(req.InferenceGeo), "us") {
+		conditional, conditionErr := anthropicTokenCostBreakdown(
+			req.Model, promptTokens, outputTokens, price, rate.USDtoIRR,
+			"data_residency_input_tokens", "data_residency_output_tokens",
+		)
+		if conditionErr != nil {
+			return platform.UsageCostBreakdown{}, conditionErr
+		}
+		conditional.PricingConditions = map[string]string{"inference_geo": "us"}
+		breakdown = conditional
+	}
+	return breakdown, nil
 }
 
 // EstimateEmbeddingCost estimates cost for an embeddings request.
@@ -535,7 +560,10 @@ func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.Embeddin
 	rate := s.exchangeRate(ctx)
 
 	promptTokens := estimateEmbeddingPromptTokens(req.Input)
-	price := s.modelPrice(ctx, req.Model)
+	price, err := s.modelPrice(ctx, req.Model)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
 
 	return costBreakdown(req.Model, promptTokens, 0, price, rate.USDtoIRR), nil
 }
@@ -548,9 +576,26 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 
 	rate := s.exchangeRate(ctx)
 
-	price := s.modelPrice(ctx, model)
+	price, err := s.pinnedOrCurrentModelPrice(ctx, model, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
 
-	return costBreakdown(model, usage.PromptTokens, usage.CompletionTokens, price, rate.USDtoIRR), nil
+	return usageCostBreakdown(model, usage, price, rate.USDtoIRR, estimated.PricingConditions)
+}
+
+// FinalizeBatchFromUsage uses the price revision pinned when the batch was
+// reserved and applies batch token dimensions instead of synchronous rates.
+func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usage *openai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	if usage == nil {
+		return estimated, nil
+	}
+	rate := s.exchangeRate(ctx)
+	price, err := s.pinnedOrCurrentModelPrice(ctx, model, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
+	return anthropicUsageCostBreakdown(model, usage, price, rate.USDtoIRR, true, estimated.PricingConditions)
 }
 
 // FinalizeImageUsage recalculates final spend for image endpoints.
@@ -561,7 +606,10 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 
 	rate := s.exchangeRate(ctx)
 	inputTokens, outputTokens, totalTokens := imageUsageTokenBreakdown(usage, estimated)
-	price := s.modelPrice(ctx, model)
+	price, err := s.pinnedOrCurrentModelPrice(ctx, model, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
 	breakdown := imageCostBreakdown(model, inputTokens, outputTokens, totalTokens, price, rate.USDtoIRR)
 
 	if providerCostUSDTicks != nil && *providerCostUSDTicks >= 0 {
@@ -575,11 +623,22 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 }
 
 func costBreakdown(model string, inputTokens int, outputTokens int, price priceInfo, exchangeRate float64) platform.UsageCostBreakdown {
-	inputCost := (float64(inputTokens) / 1000.0) * price.Input
-	outputCost := (float64(outputTokens) / 1000.0) * price.Output
-	totalUSD := inputCost + outputCost
+	inputRate := price.InputPerToken
+	if inputRate.IsZero() && price.Input != 0 {
+		inputRate = decimal.NewFromFloat(price.Input).Div(decimal.NewFromInt(1000))
+	}
+	outputRate := price.OutputPerToken
+	if outputRate.IsZero() && price.Output != 0 {
+		outputRate = decimal.NewFromFloat(price.Output).Div(decimal.NewFromInt(1000))
+	}
+	inputCostExact := inputRate.Mul(decimal.NewFromInt(int64(inputTokens)))
+	outputCostExact := outputRate.Mul(decimal.NewFromInt(int64(outputTokens)))
+	inputCost, _ := inputCostExact.Float64()
+	outputCost, _ := outputCostExact.Float64()
+	totalExact := inputCostExact.Add(outputCostExact)
+	totalUSD, _ := totalExact.Float64()
 
-	return platform.UsageCostBreakdown{
+	breakdown := platform.UsageCostBreakdown{
 		Model:         model,
 		InputTokens:   inputTokens,
 		OutputTokens:  outputTokens,
@@ -590,6 +649,166 @@ func costBreakdown(model string, inputTokens int, outputTokens int, price priceI
 		ExchangeRate:  exchangeRate,
 		TotalCostIRR:  totalUSD * exchangeRate,
 	}
+	if price.Provider == "anthropic" {
+		breakdown.PricingRevision = price.Revision
+		breakdown.Components = []platform.UsageCostComponent{
+			usageCostComponent("input_tokens", int64(inputTokens), price.Rates["input_tokens"]),
+			usageCostComponent("output_tokens", int64(outputTokens), price.Rates["output_tokens"]),
+		}
+		breakdown.PricingSnapshot = usagePricingSnapshot(price)
+	}
+	return breakdown
+}
+
+func anthropicTokenCostBreakdown(model string, inputTokens, outputTokens int, price priceInfo, exchangeRate float64, inputDimension, outputDimension string) (platform.UsageCostBreakdown, error) {
+	inputRate, inputOK := price.Rates[inputDimension]
+	outputRate, outputOK := price.Rates[outputDimension]
+	if !inputOK || !outputOK {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: conditional Anthropic token rate is missing", ErrPricingUnavailable)
+	}
+	inputExact := inputRate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(inputTokens)))
+	outputExact := outputRate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(outputTokens)))
+	totalExact := inputExact.Add(outputExact)
+	inputUSD, _ := inputExact.Float64()
+	outputUSD, _ := outputExact.Float64()
+	totalUSD, _ := totalExact.Float64()
+	return platform.UsageCostBreakdown{
+		Model: model, InputTokens: inputTokens, OutputTokens: outputTokens,
+		TotalTokens: inputTokens + outputTokens, InputCostUSD: inputUSD,
+		OutputCostUSD: outputUSD, TotalCostUSD: totalUSD, ExchangeRate: exchangeRate,
+		TotalCostIRR: totalUSD * exchangeRate, PricingRevision: price.Revision,
+		Components: []platform.UsageCostComponent{
+			usageCostComponent(inputDimension, int64(inputTokens), inputRate),
+			usageCostComponent(outputDimension, int64(outputTokens), outputRate),
+		},
+		PricingSnapshot: usagePricingSnapshot(price),
+	}, nil
+}
+
+func usageCostBreakdown(
+	model string,
+	usage *openai.Usage,
+	price priceInfo,
+	exchangeRate float64,
+	conditions map[string]string,
+) (platform.UsageCostBreakdown, error) {
+	if price.Provider != "anthropic" {
+		return costBreakdown(
+			model,
+			usage.PromptTokens,
+			usage.CompletionTokens,
+			price,
+			exchangeRate,
+		), nil
+	}
+	return anthropicUsageCostBreakdown(model, usage, price, exchangeRate, false, conditions)
+}
+
+func anthropicUsageCostBreakdown(
+	model string,
+	usage *openai.Usage,
+	price priceInfo,
+	exchangeRate float64,
+	batch bool,
+	conditions map[string]string,
+) (platform.UsageCostBreakdown, error) {
+	inputDimension := "input_tokens"
+	outputDimension := "output_tokens"
+	cache5mDimension := "cache_write_5m_tokens"
+	cache1hDimension := "cache_write_1h_tokens"
+	cacheReadDimension := "cache_read_tokens"
+	if batch {
+		inputDimension = "batch_input_tokens"
+		outputDimension = "batch_output_tokens"
+		cache5mDimension = "batch_cache_write_5m_tokens"
+		cache1hDimension = "batch_cache_write_1h_tokens"
+		cacheReadDimension = "batch_cache_read_tokens"
+	}
+	if strings.EqualFold(conditions["inference_geo"], "us") {
+		inputDimension = "data_residency_" + inputDimension
+		outputDimension = "data_residency_" + outputDimension
+		cache5mDimension = "data_residency_" + cache5mDimension
+		cache1hDimension = "data_residency_" + cache1hDimension
+		cacheReadDimension = "data_residency_" + cacheReadDimension
+	}
+	quantities := map[string]int64{
+		inputDimension:     int64(usage.PromptTokens),
+		outputDimension:    int64(usage.CompletionTokens),
+		cache5mDimension:   int64(usage.CacheCreation5mInputTokens),
+		cache1hDimension:   int64(usage.CacheCreation1hInputTokens),
+		cacheReadDimension: int64(usage.CacheReadInputTokens),
+	}
+	if usage.CacheCreationInputTokens > 0 &&
+		quantities[cache5mDimension] == 0 &&
+		quantities[cache1hDimension] == 0 {
+		quantities[cache5mDimension] = int64(
+			usage.CacheCreationInputTokens,
+		)
+	}
+	for tool, quantity := range usage.ServerToolUse {
+		quantities[tool] = int64(quantity)
+	}
+
+	totalExact := decimal.Zero
+	inputExact := decimal.Zero
+	outputExact := decimal.Zero
+	components := make([]platform.UsageCostComponent, 0, len(quantities))
+	dimensions := make([]string, 0, len(quantities))
+	for dimension := range quantities {
+		dimensions = append(dimensions, dimension)
+	}
+	sort.Strings(dimensions)
+	for _, dimension := range dimensions {
+		quantity := quantities[dimension]
+		if quantity == 0 {
+			continue
+		}
+		rate, ok := price.Rates[dimension]
+		if !ok {
+			return platform.UsageCostBreakdown{}, fmt.Errorf(
+				"%w: missing rate for %s",
+				ErrPricingUnavailable,
+				dimension,
+			)
+		}
+		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+		totalExact = totalExact.Add(cost)
+		if dimension == outputDimension {
+			outputExact = outputExact.Add(cost)
+		} else {
+			inputExact = inputExact.Add(cost)
+		}
+		components = append(
+			components,
+			usageCostComponent(dimension, quantity, rate),
+		)
+		prommetrics.RecordAnthropicUsageDimension(dimension, quantity)
+	}
+	inputUSD, _ := inputExact.Float64()
+	outputUSD, _ := outputExact.Float64()
+	totalUSD, _ := totalExact.Float64()
+	return platform.UsageCostBreakdown{
+		Model:                      model,
+		InputTokens:                usage.PromptTokens,
+		OutputTokens:               usage.CompletionTokens,
+		TotalTokens:                usage.TotalTokens,
+		InputCostUSD:               inputUSD,
+		OutputCostUSD:              outputUSD,
+		TotalCostUSD:               totalUSD,
+		ExchangeRate:               exchangeRate,
+		TotalCostIRR:               totalUSD * exchangeRate,
+		CacheCreation5mInputTokens: usage.CacheCreation5mInputTokens,
+		CacheCreation1hInputTokens: usage.CacheCreation1hInputTokens,
+		CacheReadInputTokens:       usage.CacheReadInputTokens,
+		ServerToolUse:              usage.ServerToolUse,
+		ServiceTier:                usage.ServiceTier,
+		Speed:                      usage.Speed,
+		Batch:                      batch,
+		PricingConditions:          conditions,
+		PricingRevision:            price.Revision,
+		Components:                 components,
+		PricingSnapshot:            usagePricingSnapshot(price),
+	}, nil
 }
 
 const usdTicksPerDollar = 10_000_000_000.0
@@ -648,12 +867,119 @@ func applyProviderImageCost(breakdown platform.UsageCostBreakdown, totalUSD floa
 	return breakdown
 }
 
-func (s *Service) modelPrice(ctx context.Context, model string) priceInfo {
+func (s *Service) modelPrice(
+	ctx context.Context,
+	model string,
+) (priceInfo, error) {
+	if isAnthropicModel(model) {
+		if s == nil || s.anthropicPricing == nil {
+			return priceInfo{}, ErrPricingUnavailable
+		}
+		item, snapshot, err := s.anthropicPricing.Price(model)
+		if err != nil {
+			return priceInfo{}, err
+		}
+		return priceInfo{
+			Input:          decimalToPerThousand(item.Rates["input_tokens"].UnitPriceUSD),
+			Output:         decimalToPerThousand(item.Rates["output_tokens"].UnitPriceUSD),
+			InputPerToken:  item.Rates["input_tokens"].UnitPriceUSD,
+			OutputPerToken: item.Rates["output_tokens"].UnitPriceUSD,
+			Rates:          item.Rates,
+			Revision:       snapshot.Revision,
+			GeneratedAt:    snapshot.GeneratedAt,
+			Provider:       "anthropic",
+		}, nil
+	}
 	if s != nil && s.pricingCache != nil {
-		return s.pricingCache.Get(ctx, model)
+		return s.pricingCache.Get(ctx, model), nil
 	}
 
-	return modelPriceFromRegistry(model)
+	return modelPriceFromRegistry(model), nil
+}
+
+func (s *Service) pinnedOrCurrentModelPrice(
+	ctx context.Context,
+	model string,
+	estimated platform.UsageCostBreakdown,
+) (priceInfo, error) {
+	if !isAnthropicModel(model) || estimated.PricingSnapshot == nil {
+		return s.modelPrice(ctx, model)
+	}
+	return priceInfoFromUsageSnapshot(estimated.PricingSnapshot)
+}
+
+func decimalToPerThousand(value decimal.Decimal) float64 {
+	out, _ := value.Mul(decimal.NewFromInt(1000)).Float64()
+	return out
+}
+
+func usageCostComponent(
+	dimension string,
+	quantity int64,
+	rate normalizedPricingRate,
+) platform.UsageCostComponent {
+	cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+	return platform.UsageCostComponent{
+		Dimension:    dimension,
+		Quantity:     decimal.NewFromInt(quantity).String(),
+		Unit:         rate.Unit,
+		UnitPriceUSD: rate.UnitPriceUSD.String(),
+		CostUSD:      cost.String(),
+		Condition:    cloneInterfaceMap(rate.Condition),
+	}
+}
+
+func usagePricingSnapshot(price priceInfo) *platform.UsagePricingSnapshot {
+	rates := make(map[string]platform.UsageCostComponent, len(price.Rates))
+	for dimension, rate := range price.Rates {
+		rates[dimension] = usageCostComponent(dimension, 0, rate)
+	}
+	return &platform.UsagePricingSnapshot{
+		Provider:    price.Provider,
+		Revision:    price.Revision,
+		GeneratedAt: price.GeneratedAt,
+		Rates:       rates,
+	}
+}
+
+func priceInfoFromUsageSnapshot(
+	snapshot *platform.UsagePricingSnapshot,
+) (priceInfo, error) {
+	if snapshot == nil || snapshot.Provider != "anthropic" ||
+		snapshot.Revision == "" || snapshot.GeneratedAt.IsZero() {
+		return priceInfo{}, ErrPricingUnavailable
+	}
+	rates := make(
+		map[string]normalizedPricingRate,
+		len(snapshot.Rates),
+	)
+	for dimension, component := range snapshot.Rates {
+		value, err := decimal.NewFromString(component.UnitPriceUSD)
+		if err != nil || component.Unit == "" {
+			return priceInfo{}, ErrPricingUnavailable
+		}
+		rates[dimension] = normalizedPricingRate{
+			Dimension:    dimension,
+			Unit:         component.Unit,
+			UnitPriceUSD: value,
+			Condition:    cloneInterfaceMap(component.Condition),
+		}
+	}
+	input, inputOK := rates["input_tokens"]
+	output, outputOK := rates["output_tokens"]
+	if !inputOK || !outputOK {
+		return priceInfo{}, ErrPricingUnavailable
+	}
+	return priceInfo{
+		Input:          decimalToPerThousand(input.UnitPriceUSD),
+		Output:         decimalToPerThousand(output.UnitPriceUSD),
+		InputPerToken:  input.UnitPriceUSD,
+		OutputPerToken: output.UnitPriceUSD,
+		Rates:          rates,
+		Revision:       snapshot.Revision,
+		GeneratedAt:    snapshot.GeneratedAt,
+		Provider:       snapshot.Provider,
+	}, nil
 }
 
 func (s *Service) exchangeRate(ctx context.Context) *platform.ExchangeRate {

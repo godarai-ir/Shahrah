@@ -9,6 +9,7 @@ import (
 )
 
 var ErrInvalidProviderAPIBase = errors.New("invalid provider api_base")
+var ErrInvalidAnthropicWIFConfig = errors.New("invalid anthropic WIF config")
 
 func ValidateProviderAPIBase(provider string, raw string) (string, error) {
 	value := strings.TrimSpace(raw)
@@ -77,6 +78,46 @@ func validateProviderConfigAPIBase(provider string, config map[string]interface{
 		}
 	}
 
+	return nil
+}
+
+func validateAnthropicWIFConfig(
+	provider string,
+	authMode string,
+	config map[string]interface{},
+) error {
+	if !strings.EqualFold(strings.TrimSpace(authMode), "anthropic_wif") {
+		return nil
+	}
+	if normalizeProviderAPIBaseProvider(provider) != "anthropic" {
+		return fmt.Errorf(
+			"%w: auth mode is only valid for anthropic",
+			ErrInvalidAnthropicWIFConfig,
+		)
+	}
+
+	for _, key := range []string{
+		"federation_rule_id",
+		"organization_id",
+		"service_account_id",
+		"token_source_id",
+	} {
+		value, ok := config[key].(string)
+		if !ok || strings.TrimSpace(value) == "" {
+			return fmt.Errorf("%w: %s is required", ErrInvalidAnthropicWIFConfig, key)
+		}
+		config[key] = strings.TrimSpace(value)
+	}
+	tokenSource := config["token_source_id"].(string)
+	if strings.ContainsAny(tokenSource, `/\`) || strings.Contains(tokenSource, "..") {
+		return fmt.Errorf(
+			"%w: token_source_id must be an allowlisted identifier, not a path",
+			ErrInvalidAnthropicWIFConfig,
+		)
+	}
+	if workspace, ok := config["workspace_id"].(string); ok {
+		config["workspace_id"] = strings.TrimSpace(workspace)
+	}
 	return nil
 }
 

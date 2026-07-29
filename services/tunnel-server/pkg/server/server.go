@@ -83,6 +83,24 @@ func NewHandler(silkRoadURL string, client *http.Client) http.Handler {
 		w.WriteHeader(resp.StatusCode)
 		relayBody(w, resp.Body, payload.Stream || responseIsEventStream(resp.Header))
 	})
+	mux.HandleFunc("/dispatch/raw", func(w http.ResponseWriter, r *http.Request) {
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, silkRoadURL+"/dispatch/raw", r.Body)
+		if err != nil {
+			http.Error(w, "invalid raw tunnel request", http.StatusBadRequest)
+			return
+		}
+		req.ContentLength = r.ContentLength
+		req.Header.Set("Content-Type", "application/vnd.godarai.tunnel-stream")
+		resp, err := clientForStream(client, true).Do(req)
+		if err != nil {
+			http.Error(w, "raw tunnel dependency unavailable", http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		copyHeaders(w.Header(), resp.Header)
+		w.WriteHeader(resp.StatusCode)
+		relayBody(w, resp.Body, true)
+	})
 
 	return metrics.wrap(mux)
 }

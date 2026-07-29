@@ -215,6 +215,8 @@
       "managedCredentialDescription": "This account uses GodarAI-managed credentials.",
       "managedCredentialLockedTitle": "This account uses GodarAI credentials",
       "managedCredentialLockedDescription": "Private credential editing is not available for accounts that use GodarAI-managed credentials.",
+      "rotationRequiredTitle": "Credential rotation required",
+      "rotationRequiredDescription": "This credential was previously stored in readable form. Replace it with a new credential and run the connection test again.",
       "privateCredentialLockedTitle": "This account's BYOK policy is fixed",
       "privateCredentialLockedDescription": "This account was created with a dedicated provider credential. You can update the connection details. Learn more about the <byokLink>BYOK policy</byokLink>.",
       "privateCredentialEditDescription": "Update the dedicated {providerName} connection information and credential."

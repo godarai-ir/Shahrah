@@ -2,7 +2,9 @@ package tunnel
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +13,47 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
+
+func TestProxyRawStreamsLengthPrefixedEnvelope(t *testing.T) {
+	var received platform.TunnelRequest
+	var receivedBody string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/dispatch/raw" {
+			t.Fatalf("unexpected path: %s", request.URL.Path)
+		}
+		var prefix [4]byte
+		if _, err := io.ReadFull(request.Body, prefix[:]); err != nil {
+			t.Fatal(err)
+		}
+		metadata := make([]byte, binary.BigEndian.Uint32(prefix[:]))
+		if _, err := io.ReadFull(request.Body, metadata); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(metadata, &received); err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := io.ReadAll(request.Body)
+		receivedBody = string(raw)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write([]byte("download"))
+	}))
+	defer upstream.Close()
+
+	transport := NewHTTPTransport(upstream.URL, time.Second)
+	response, err := transport.ProxyRaw(t.Context(), platform.TunnelRequest{
+		Operation:  platform.ProviderOperationAnthropicFilesCreate,
+		Deployment: platform.Deployment{Provider: "anthropic"},
+	}, strings.NewReader("large-body"), int64(len("large-body")))
+	if err != nil {
+		t.Fatalf("ProxyRaw: %v", err)
+	}
+	defer response.Body.Close()
+	output, _ := io.ReadAll(response.Body)
+	if received.Operation != platform.ProviderOperationAnthropicFilesCreate ||
+		receivedBody != "large-body" || string(output) != "download" {
+		t.Fatalf("raw tunnel mismatch: operation=%s body=%q output=%q", received.Operation, receivedBody, output)
+	}
+}
 
 func TestStreamIgnoresClientTimeoutWhileBodyIsOpen(t *testing.T) {
 	t.Parallel()

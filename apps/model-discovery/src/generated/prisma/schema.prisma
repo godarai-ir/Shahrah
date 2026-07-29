@@ -57,40 +57,45 @@ model Provider {
 }
 
 model Model {
-  id               String          @id @default(cuid())
-  providerId       String
-  canonicalId      String          @unique
-  slug             String
-  displayName      String
-  mode             String[]        @default(["unknown"])
-  shortDescription String?
-  longDescription  String?
-  status           ModelStatus     @default(active)
-  enabled          Boolean         @default(true)
-  lifecycleStatus  LifecycleStatus @default(draft)
-  categoryId       String?
-  modelSeriesId    String?
-  contextWindow    Int?
-  maxOutputTokens  Int?
-  knowledgeCutoff  DateTime?
-  releaseDate      DateTime?
-  deprecatedAt     DateTime?
-  openSource       Boolean         @default(false)
-  free             Boolean         @default(false)
-  tokenizer        String?
-  license          String?
-  huggingFaceUrl   String?
-  modelCardUrl     String?
-  officialDocsUrl  String?
-  popularityScore  Float           @default(0)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id                     String          @id @default(cuid())
+  providerId             String
+  canonicalId            String          @unique
+  slug                   String
+  displayName            String
+  mode                   String[]        @default(["unknown"])
+  shortDescription       String?
+  longDescription        String?
+  status                 ModelStatus     @default(active)
+  enabled                Boolean         @default(true)
+  lifecycleStatus        LifecycleStatus @default(draft)
+  categoryId             String?
+  modelSeriesId          String?
+  contextWindow          Int?
+  maxOutputTokens        Int?
+  knowledgeCutoff        DateTime?
+  releaseDate            DateTime?
+  deprecatedAt           DateTime?
+  deprecationDate        DateTime?
+  retirementDate         DateTime?
+  replacementCanonicalId String?
+  openSource             Boolean         @default(false)
+  free                   Boolean         @default(false)
+  tokenizer              String?
+  license                String?
+  huggingFaceUrl         String?
+  modelCardUrl           String?
+  officialDocsUrl        String?
+  popularityScore        Float           @default(0)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
   provider         Provider                  @relation(fields: [providerId], references: [id], onDelete: Cascade)
   category         Category?                 @relation(fields: [categoryId], references: [id])
   modelSeries      ModelSeries?              @relation(fields: [modelSeriesId], references: [id])
   versions         ModelVersion[]
   pricing          ModelPricing[]
+  pricingRates     ModelPricingRate[]
+  runtimeProfiles  ModelRuntimeProfile[]
   capabilities     ModelCapability[]
   inputModalities  ModelInputModality[]
   outputModalities ModelOutputModality[]
@@ -108,6 +113,22 @@ model Model {
   @@index([contextWindow])
   @@index([maxOutputTokens])
   @@index([slug])
+}
+
+model ModelRuntimeProfile {
+  id            String    @id @default(cuid())
+  modelId       String
+  version       Int
+  profileJson   Json
+  sourceUrl     String?
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, version])
+  @@index([modelId, effectiveFrom, effectiveTo])
 }
 
 model ModelSeries {
@@ -201,6 +222,27 @@ model ModelPricing {
   region Region? @relation(fields: [regionId], references: [id])
 
   @@index([modelId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+model ModelPricingRate {
+  id            String    @id @default(cuid())
+  modelId       String
+  dimension     String
+  unit          String
+  unitPriceUsd  Decimal   @db.Decimal(30, 12)
+  currency      String    @default("USD")
+  conditionJson Json?
+  region        String    @default("global")
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  sourceUrl     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId, dimension, region])
   @@index([effectiveFrom, effectiveTo])
 }
 

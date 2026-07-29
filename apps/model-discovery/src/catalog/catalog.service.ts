@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { IndexingService } from '../indexing/indexing.service';
 import { ModelsQueryDto } from './dto/models-query.dto';
+import { createHash } from 'node:crypto';
 
 @Injectable()
 export class CatalogService {
@@ -22,6 +23,83 @@ export class CatalogService {
       default:
         return [{ releaseDate: 'desc' }, { createdAt: 'desc' }];
     }
+  }
+
+  async runtimeSnapshot(providerSlug: string) {
+    const generatedAt = new Date();
+    const rows = await this.prisma.model.findMany({
+      where: {
+        provider: { slug: providerSlug, enabled: true },
+        enabled: true,
+        runtimeProfiles: { some: {} },
+      },
+      include: {
+        pricingRates: {
+          where: {
+            effectiveFrom: { lte: generatedAt },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: generatedAt } }],
+          },
+          orderBy: [{ dimension: 'asc' }, { region: 'asc' }],
+        },
+        runtimeProfiles: {
+          where: {
+            effectiveFrom: { lte: generatedAt },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gt: generatedAt } }],
+          },
+          orderBy: { version: 'desc' },
+          take: 1,
+        },
+        sources: { orderBy: { url: 'asc' } },
+      },
+      orderBy: { canonicalId: 'asc' },
+    });
+
+    const models = rows.map((row) => {
+      const effectiveStatus =
+        row.retirementDate && row.retirementDate <= generatedAt
+          ? 'unavailable'
+          : row.deprecationDate && row.deprecationDate <= generatedAt
+            ? 'deprecated'
+            : row.status;
+      return {
+        canonicalId: row.canonicalId,
+        slug: row.slug,
+        status: effectiveStatus,
+        deprecationDate: row.deprecationDate,
+        retirementDate: row.retirementDate,
+        replacementCanonicalId: row.replacementCanonicalId,
+        runtimeProfile: row.runtimeProfiles[0]
+          ? {
+              version: row.runtimeProfiles[0].version,
+              profile: row.runtimeProfiles[0].profileJson,
+              sourceUrl: row.runtimeProfiles[0].sourceUrl,
+              effectiveFrom: row.runtimeProfiles[0].effectiveFrom,
+            }
+          : null,
+        pricingRates: row.pricingRates.map((rate) => ({
+          dimension: rate.dimension,
+          unit: rate.unit,
+          unitPriceUsd: rate.unitPriceUsd.toString(),
+          currency: rate.currency,
+          condition: rate.conditionJson,
+          region: rate.region,
+          effectiveFrom: rate.effectiveFrom,
+          effectiveTo: rate.effectiveTo,
+          sourceUrl: rate.sourceUrl,
+        })),
+        sources: row.sources.map((source) => source.url),
+      };
+    });
+    const revision = createHash('sha256')
+      .update(JSON.stringify(models))
+      .digest('hex');
+
+    return {
+      provider: providerSlug,
+      revision,
+      generatedAt,
+      models,
+    };
   }
 
   async listModels(query: ModelsQueryDto) {

@@ -1,9 +1,57 @@
 # چک‌لیست آمادگی کامل ارائه‌دهنده Anthropic در گدارAI
 
-> وضعیت سند: اجراشده در ۲۹ ژوئیه ۲۰۲۶  
-> نتیجه نهایی: **رد دروازه آمادگی کامل — Anthropic در وضعیت فعلی برای عرضه کامل آماده نیست.**
+> وضعیت سند: بازاجراشده پس از پیاده‌سازی اصلاحات در ۲۹ ژوئیه ۲۰۲۶
+>
+> نتیجه دروازه پیاده‌سازی: **موفق — مغایرت‌های کد و قرارداد برنامه اصلاح شده‌اند.**
+>
+> نتیجه دروازه انتشار: **در انتظار — آزمون زنده API Key/WIF، صفرشدن Legacy Credential، تثبیت Sonnet 4.6 با Models API و تأیید بازبین انسانی هنوز لازم است.**
 
-## نتیجه اجرای چک‌لیست
+## نتیجه بازاجرای پس از اصلاح
+
+ارزیابی مفصل بعدی این سند، خط مبنای پیش از اصلاح را نگه می‌دارد. جدول زیر وضعیت همان ۱۷ مغایرت پس از پیاده‌سازی جاری را ثبت می‌کند.
+
+| شناسه | وضعیت پس از اصلاح | شاهد اصلی |
+|---|---|---|
+| `ANT-FIND-001` | بسته | Snapshot نسخه‌دار Model Discovery، Pin در زمان Reserve، LKG حداکثر ۲۴ ساعت و خطای `pricing_unavailable` بدون fallback |
+| `ANT-FIND-002` | بسته در کد؛ عملیات Migration پیش از انتشار الزامی | جدول نسخه‌دار رمزگذاری‌شده، Dual-read، Migrator قابل ادامه، AAD کامل، Fingerprint و وضعیت Rotation |
+| `ANT-FIND-003` | بسته برای Token/Cache/Web Search؛ اجرای کد نیازمند تطبیق صورتحساب سازمانی است | Usage افزایشی، اجزای Decimal و ثبت ممیزی؛ نرخ ساعتی اجرای کد با شرط سهمیه رایگان ثبت شده و نبود بعد قابل محاسبه Fail Closed است |
+| `ANT-FIND-004` | بسته | نگاشت کامل ابزار سفارشی، `tool_choice`، `tool_result`، Structured Output و Tool Delta |
+| `ANT-FIND-005` | بسته | تفکر تطبیقی برای 4.6/4.7، رد Manual در 4.7 و اعتبارسنجی `effort`/Sampling |
+| `ANT-FIND-006` | بسته | Messages، Count Tokens، Models، Files و Message Batches روی `/v1` با Operation نوع‌دار |
+| `ANT-FIND-007` | بسته | State machine کامل SSE، خطای میانه Stream، Usage نهایی، Request ID و Tool Delta |
+| `ANT-FIND-008` | بسته | `deprecationDate` و `retirementDate` مستقل، مدل جایگزین و تبدیل خودکار به Unavailable در تاریخ Retirement |
+| `ANT-FIND-009` | بسته | پارامترهای Anthropic، کنترل‌های درخواست و Runtime Profile نسخه‌دار |
+| `ANT-FIND-010` | بسته در کد؛ آزمون زنده لازم | WIF پلتفرم و سازمان، Token Source Allowlist، Exchange و Refresh تک‌پرواز در Silk Road |
+| `ANT-FIND-011` | بسته در کد؛ آزمون زنده لازم | Probe از Tunnel برای Models، Count Tokens و Files و گزارش قابلیت‌محور Scope |
+| `ANT-FIND-012` | بسته | تصویر و PDF از Base64، URL و `file_id` به‌همراه Files API جریانی |
+| `ANT-FIND-013` | بسته | منابع رسمی، تاریخ‌های چرخه عمر، Endpoint، محدودیت و Runtime Profile در Importer |
+| `ANT-FIND-014` | بسته در Schema و Billing قابل محاسبه | `ModelPricingRate` Decimal برای Token، Cache، Batch، Web Search، Code Execution، Data Residency و Speed/شرایط |
+| `ANT-FIND-015` | بسته | حذف `assistant_prefill` از 4.6 و 4.7 |
+| `ANT-FIND-016` | مسدود تا آزمون زنده | مقدار کاتالوگ و منبع ثبت شده است؛ پاسخ Models API حساب واقعی و تاریخ مشاهده باید پیش از انتشار ثبت شود |
+| `ANT-FIND-017` | بسته | منابع رسمی و تاریخ‌های قابل استخراج در Importer و ۱۱ YAML |
+
+### دروازه‌های خودکار اجراشده پس از اصلاح
+
+| دروازه | نتیجه |
+|---|---|
+| Control Plane: Billing، Storage، Proxy، Server، Tunnel، Platform/Tenant Credential، Runtime Profile و Router | موفق |
+| Silk Road Adapter/WIF | موفق |
+| Tunnel Client و Tunnel Server | موفق |
+| Model Discovery | ۱۳ مجموعه و ۴۱ آزمون موفق؛ Build موفق |
+| Dry-run واردسازی Anthropic | ۲۷ مدل بدون خطای Schema |
+| پنل سازمان | اعتبارسنجی ۲۸ فضای ترجمه، ESLint و Next.js Production Build موفق |
+| مستندات | TypeScript و Docusaurus Production Build موفق |
+
+### مواردی که پیاده‌سازی نمی‌تواند جایگزین آن‌ها شود
+
+- اجرای ماتریس زنده ۱۱ مدل با API Key و WIF کم‌دسترسی در Staging؛
+- اجرای Migrator روی داده واقعی، تأیید صفرشدن Legacy-read، چرخش همه کلیدهای قدیمی و سپس حذف ستون در Migration عملیاتی جدا؛
+- تثبیت سقف Sonnet 4.6 با پاسخ Models API همان حساب و ثبت تاریخ مشاهده؛
+- تطبیق هزینه اجرای کد با Usage and Cost API یا صورتحساب سازمانی Anthropic، چون پاسخ Messages تعداد درخواست اجرای کد را می‌دهد اما مدت قابل‌صورتحساب و سهمیه رایگان سازمان را تعیین نمی‌کند؛
+- Load/Security test فایل مصنوعی ۵۰۰ مگابایتی در زیرساخت Staging؛
+- تأیید نهایی بازبین انسانی.
+
+## نتیجه اجرای مبنا پیش از اصلاح
 
 ### جمع‌بندی مدیریتی
 

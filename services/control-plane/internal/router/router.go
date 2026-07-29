@@ -58,6 +58,14 @@ type byokCredentialResolver interface {
 	ResolveProviderAccountAPIKey(ctx context.Context, tenantID string, modelFQN string) (string, error)
 }
 
+type byokAuthResolver interface {
+	ResolveProviderAccountAuth(
+		ctx context.Context,
+		tenantID string,
+		modelFQN string,
+	) (*platform.ResolvedProviderAuth, error)
+}
+
 // Router is the main LLM request router.
 type Router struct {
 	mu                            sync.RWMutex
@@ -433,6 +441,10 @@ func cloneDeployment(in *Deployment) *Deployment {
 
 	if in.ProviderAuth != nil {
 		providerAuth := *in.ProviderAuth
+		if in.ProviderAuth.AnthropicWIF != nil {
+			wif := *in.ProviderAuth.AnthropicWIF
+			providerAuth.AnthropicWIF = &wif
+		}
 		out.ProviderAuth = &providerAuth
 	}
 
@@ -480,7 +492,7 @@ func (r *Router) applyCredentials(ctx context.Context, tenantID, modelName strin
 			cloned.BillingMode = platform.BillingModeWalletBilled
 			cloned.ConnectionID = resolved.ConnectionID
 			cloned.CredentialVersionID = resolved.CredentialVersionID
-			cloned.ProviderAuth = &platform.ResolvedProviderAuth{Mode: resolved.AuthMode, APIKey: resolved.APIKey}
+			cloned.ProviderAuth = resolvedPlatformProviderAuth(resolved)
 
 			return &cloned, nil
 		}
@@ -496,6 +508,27 @@ func (r *Router) applyCredentials(ctx context.Context, tenantID, modelName strin
 	}
 
 	return nil, ErrNoPlatformCredential
+}
+
+func resolvedPlatformProviderAuth(
+	resolved platformcredentials.ResolvedCredential,
+) *platform.ResolvedProviderAuth {
+	if resolved.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) {
+		return &platform.ResolvedProviderAuth{
+			Mode: resolved.AuthMode,
+			AnthropicWIF: &platform.ResolvedAnthropicWIFAuth{
+				FederationRuleID: resolved.FederationRuleID,
+				OrganizationID:   resolved.OrganizationID,
+				ServiceAccountID: resolved.ServiceAccountID,
+				WorkspaceID:      resolved.WorkspaceID,
+				TokenSourceID:    resolved.TokenSourceID,
+			},
+		}
+	}
+	return &platform.ResolvedProviderAuth{
+		Mode:   resolved.AuthMode,
+		APIKey: resolved.APIKey,
+	}
 }
 
 func providerConnectionHeaders(resolved platformcredentials.ResolvedCredential) map[string]string {
@@ -903,9 +936,11 @@ func (r *Router) hasProviderAccountCredentialResolver() bool {
 		return false
 	}
 
-	_, ok := r.store.(byokCredentialResolver)
-
-	return ok
+	if _, ok := r.store.(byokAuthResolver); ok {
+		return true
+	}
+	_, legacy := r.store.(byokCredentialResolver)
+	return legacy
 }
 
 func (r *Router) findSharedProviderDeployment(provider string, model string) *Deployment {
@@ -949,22 +984,43 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 		return dep
 	}
 
-	resolver, ok := r.store.(byokCredentialResolver)
-	if !ok {
-		return dep
+	var resolved *platform.ResolvedProviderAuth
+	if resolver, ok := r.store.(byokAuthResolver); ok {
+		auth, err := resolver.ResolveProviderAccountAuth(ctx, tenantID, modelName)
+		if err != nil || auth == nil {
+			return dep
+		}
+		resolved = auth
+	} else {
+		resolver, ok := r.store.(byokCredentialResolver)
+		if !ok {
+			return dep
+		}
+		apiKey, err := resolver.ResolveProviderAccountAPIKey(ctx, tenantID, modelName)
+		if err != nil || strings.TrimSpace(apiKey) == "" {
+			return dep
+		}
+		resolved = &platform.ResolvedProviderAuth{
+			Mode:   string(platform.ProviderAuthModeAPIKey),
+			APIKey: apiKey,
+		}
 	}
 
-	apiKey, err := resolver.ResolveProviderAccountAPIKey(ctx, tenantID, modelName)
-	if err != nil || strings.TrimSpace(apiKey) == "" {
+	if resolved.Mode == string(platform.ProviderAuthModeAPIKey) &&
+		strings.TrimSpace(resolved.APIKey) == "" {
 		return dep
 	}
 
 	cloned := *dep
 	cloned.Params = dep.Params
-	cloned.Params.APIKey = apiKey
+	if resolved.Mode == string(platform.ProviderAuthModeAPIKey) {
+		cloned.Params.APIKey = resolved.APIKey
+	} else {
+		cloned.Params.APIKey = ""
+	}
 	cloned.CredentialSource = platform.CredentialSourceUserBYOK
 	cloned.BillingMode = platform.BillingModeExternalBilled
-	cloned.ProviderAuth = &platform.ResolvedProviderAuth{Mode: "api_key", APIKey: apiKey}
+	cloned.ProviderAuth = resolved
 
 	return &cloned
 }

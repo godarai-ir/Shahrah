@@ -65,11 +65,49 @@ func (r *GuardrailResolver) ListEnabledTenantGuardrailsBySlugs(ctx context.Conte
 }
 
 type DeploymentStore struct {
-	manager *Manager
+	manager      *Manager
+	authResolver interface {
+		ResolveProviderAccountAuth(
+			ctx context.Context,
+			tenantID string,
+			modelFQN string,
+		) (*platform.ResolvedProviderAuth, error)
+	}
 }
 
-func NewDeploymentStore(manager *Manager) *DeploymentStore {
-	return &DeploymentStore{manager: manager}
+func NewDeploymentStore(
+	manager *Manager,
+	resolvers ...interface {
+		ResolveProviderAccountAuth(
+			ctx context.Context,
+			tenantID string,
+			modelFQN string,
+		) (*platform.ResolvedProviderAuth, error)
+	},
+) *DeploymentStore {
+	store := &DeploymentStore{manager: manager}
+	if len(resolvers) > 0 {
+		store.authResolver = resolvers[0]
+	}
+	return store
+}
+
+func (s *DeploymentStore) ResolveProviderAccountAuth(
+	ctx context.Context,
+	tenantID string,
+	modelFQN string,
+) (*platform.ResolvedProviderAuth, error) {
+	if s.authResolver == nil {
+		apiKey, err := s.ResolveProviderAccountAPIKey(ctx, tenantID, modelFQN)
+		if err != nil || apiKey == "" {
+			return nil, err
+		}
+		return &platform.ResolvedProviderAuth{
+			Mode:   string(platform.ProviderAuthModeAPIKey),
+			APIKey: apiKey,
+		}, nil
+	}
+	return s.authResolver.ResolveProviderAccountAuth(ctx, tenantID, modelFQN)
 }
 
 func (s *DeploymentStore) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {

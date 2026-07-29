@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
@@ -24,6 +25,9 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	if err := validateProviderConfigAPIBase(req.Provider, req.ProviderConfig, "api_base", "base_url"); err != nil {
 		return nil, err
 	}
+	if err := validateAnthropicWIFConfig(req.Provider, string(req.AuthMode), req.ProviderConfig); err != nil {
+		return nil, err
+	}
 
 	providerCfg, err := marshalJSONObject(req.ProviderConfig)
 	if err != nil {
@@ -35,23 +39,34 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		req.Credentials = nil
 	}
 
-	credentialData, hasCredential, err := marshalCredentialData(req.Credentials)
+	credentialData := []byte("{}")
+	hasCredential := req.Credentials != nil &&
+		strings.TrimSpace(req.Credentials.APIKey) != ""
+	if req.AuthMode == platform.ProviderAuthModeAnthropicWIF {
+		hasCredential = true
+	}
+	if usePlatformManagedCredentials || req.AuthMode == platform.ProviderAuthModeNoCredential {
+		hasCredential = false
+	}
+
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer rollbackTxBestEffort(ctx, tx)
 
 	var (
 		account        platform.TenantProviderAccount
 		providerCfgRaw []byte
-		credentialRaw  []byte
+		credentialHint string
 	)
 
-	err = s.pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO tenant_provider_accounts (
 			tenant_id, provider, name, auth_mode, provider_config, credential_data, has_credential, use_platform_managed_credentials
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, use_platform_managed_credentials, created_at, updated_at
+		RETURNING account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_hint, ''), has_credential, use_platform_managed_credentials, credential_rotation_required, created_at, updated_at
 	`, tenantID, req.Provider, req.Name, string(req.AuthMode), providerCfg, credentialData, hasCredential, usePlatformManagedCredentials).Scan(
 		&account.ID,
 		&account.TenantID,
@@ -59,9 +74,10 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		&account.Name,
 		&account.AuthMode,
 		&providerCfgRaw,
-		&credentialRaw,
+		&credentialHint,
 		&account.HasCredential,
 		&account.UsePlatformManagedCredentials,
+		&account.CredentialRotationRequired,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -71,7 +87,25 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 
 	account.ProviderConfig = parseJSONObject(providerCfgRaw)
 
-	account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
+	account.CredentialHint = credentialHint
+	if hasCredential && req.AuthMode == platform.ProviderAuthModeAPIKey {
+		hint, encryptErr := s.writeTenantCredentialVersion(
+			ctx,
+			tx,
+			tenantID,
+			account.ID,
+			req.Provider,
+			string(req.AuthMode),
+			map[string]string{"api_key": strings.TrimSpace(req.Credentials.APIKey)},
+		)
+		if encryptErr != nil {
+			return nil, encryptErr
+		}
+		account.CredentialHint = hint
+	}
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, commitErr
+	}
 	if s.logger != nil {
 		s.logger.Info("provider_account.created",
 			zap.String("tenant_id", tenantID),
@@ -91,8 +125,8 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 // ListTenantProviderAccounts lists provider accounts scoped to one tenant.
 func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string) ([]platform.TenantProviderAccount, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb),
-		       has_credential, use_platform_managed_credentials, created_at, updated_at
+		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_hint, ''),
+		       has_credential, use_platform_managed_credentials, credential_rotation_required, created_at, updated_at
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1
 		ORDER BY created_at DESC
@@ -108,7 +142,7 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 		var (
 			account        platform.TenantProviderAccount
 			providerCfgRaw []byte
-			credentialRaw  []byte
+			credentialHint string
 		)
 		if err := rows.Scan(
 			&account.ID,
@@ -117,9 +151,10 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 			&account.Name,
 			&account.AuthMode,
 			&providerCfgRaw,
-			&credentialRaw,
+			&credentialHint,
 			&account.HasCredential,
 			&account.UsePlatformManagedCredentials,
+			&account.CredentialRotationRequired,
 			&account.CreatedAt,
 			&account.UpdatedAt,
 		); err != nil {
@@ -127,7 +162,7 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 		}
 
 		account.ProviderConfig = parseJSONObject(providerCfgRaw)
-		account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
+		account.CredentialHint = credentialHint
 		items = append(items, account)
 	}
 
@@ -152,9 +187,10 @@ func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, ten
 		       a.name,
 		       a.auth_mode,
 		       COALESCE(a.provider_config, '{}'::jsonb),
-		       COALESCE(a.credential_data, '{}'::jsonb),
+		       COALESCE(a.credential_hint, ''),
 		       a.has_credential,
 		       a.use_platform_managed_credentials,
+		       a.credential_rotation_required,
 		       a.created_at,
 		       a.updated_at,
 		       COALESCE(ac.manager_count, 0),
@@ -185,7 +221,7 @@ func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, ten
 		var (
 			item               platform.TenantProviderAccountCatalogRecord
 			providerConfigRaw  []byte
-			credentialRaw      []byte
+			credentialHint     string
 			types              []string
 			inputModalities    []string
 			outputModalities   []string
@@ -200,9 +236,10 @@ func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, ten
 			&item.Account.Name,
 			&item.Account.AuthMode,
 			&providerConfigRaw,
-			&credentialRaw,
+			&credentialHint,
 			&item.Account.HasCredential,
 			&item.Account.UsePlatformManagedCredentials,
+			&item.Account.CredentialRotationRequired,
 			&item.Account.CreatedAt,
 			&item.Account.UpdatedAt,
 			&item.ManagerCount,
@@ -219,7 +256,7 @@ func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, ten
 		}
 
 		item.Account.ProviderConfig = parseJSONObject(providerConfigRaw)
-		item.Account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
+		item.Account.CredentialHint = credentialHint
 		item.Types = stringsToModelTypes(types)
 		item.InputModalities = normalizeStringList(inputModalities)
 		item.OutputModalities = normalizeStringList(outputModalities)
@@ -294,6 +331,9 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	if validationErr := validateProviderConfigAPIBase(currentProvider, nextProviderCfg, "api_base", "base_url"); validationErr != nil {
 		return nil, validationErr
 	}
+	if validationErr := validateAnthropicWIFConfig(currentProvider, nextAuthMode, nextProviderCfg); validationErr != nil {
+		return nil, validationErr
+	}
 
 	nextProviderCfgRaw, err := marshalJSONObject(nextProviderCfg)
 	if err != nil {
@@ -305,33 +345,27 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		nextPlatformManagedCredentials = *req.UsePlatformManagedCredentials
 	}
 
-	nextCredentialMap := parseJSONObject(currentCredentialRaw)
-	if shouldClearProviderAccountCredentials(nextAuthMode, nextPlatformManagedCredentials, req.Credentials) {
-		nextCredentialMap = map[string]interface{}{}
-	} else if req.Credentials != nil {
-		if req.Credentials.APIKey != "" {
-			nextCredentialMap["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
-		}
-
-		if req.Credentials.SecretRef != "" {
-			nextCredentialMap["secret_ref"] = strings.TrimSpace(req.Credentials.SecretRef)
-		}
-
-		if len(req.Credentials.Raw) > 0 {
-			nextCredentialMap["raw"] = req.Credentials.Raw
-		}
+	clearCredential := shouldClearProviderAccountCredentials(
+		nextAuthMode,
+		nextPlatformManagedCredentials,
+		req.Credentials,
+	)
+	newAPIKey := ""
+	if req.Credentials != nil {
+		newAPIKey = strings.TrimSpace(req.Credentials.APIKey)
 	}
-
-	nextCredentialRaw, err := marshalJSONObject(nextCredentialMap)
-	if err != nil {
-		return nil, err
-	}
-
-	nextHasCredential := providerAccountCredentialMapHasCredential(nextCredentialMap)
+	nextCredentialRaw := currentCredentialRaw
+	nextHasCredential := currentHasCredential
 
 	if req.Credentials == nil {
 		nextHasCredential = currentHasCredential
 		nextCredentialRaw = currentCredentialRaw
+	} else if newAPIKey != "" {
+		nextHasCredential = true
+		nextCredentialRaw = []byte("{}")
+	} else if clearCredential {
+		nextHasCredential = false
+		nextCredentialRaw = []byte("{}")
 	}
 
 	if req.Credentials == nil && (currentPlatformManagedCredentials || strings.EqualFold(currentAuthMode, string(platform.ProviderAuthModeNoCredential))) && !nextPlatformManagedCredentials && !strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
@@ -341,6 +375,11 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 
 	if nextPlatformManagedCredentials || strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
 		nextHasCredential = false
+		nextCredentialRaw = []byte("{}")
+	}
+	if strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAnthropicWIF)) &&
+		!nextPlatformManagedCredentials {
+		nextHasCredential = true
 		nextCredentialRaw = []byte("{}")
 	}
 
@@ -356,6 +395,37 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextCredentialRaw, nextHasCredential, nextPlatformManagedCredentials)
 	if execErr != nil {
 		return nil, execErr
+	}
+	if newAPIKey != "" &&
+		!nextPlatformManagedCredentials &&
+		strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAPIKey)) {
+		if _, encryptErr := s.writeTenantCredentialVersion(
+			ctx,
+			tx,
+			tenantID,
+			accountID,
+			currentProvider,
+			nextAuthMode,
+			map[string]string{"api_key": newAPIKey},
+		); encryptErr != nil {
+			return nil, encryptErr
+		}
+	} else if clearCredential || nextPlatformManagedCredentials ||
+		strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) ||
+		strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAnthropicWIF)) {
+		if clearErr := s.clearTenantCredentialVersion(ctx, tx, tenantID, accountID); clearErr != nil {
+			return nil, clearErr
+		}
+		if strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAnthropicWIF)) &&
+			!nextPlatformManagedCredentials {
+			if _, restoreErr := tx.Exec(ctx, `
+				UPDATE tenant_provider_accounts
+				SET has_credential = true
+				WHERE tenant_id = $1 AND account_id = $2
+			`, tenantID, accountID); restoreErr != nil {
+				return nil, restoreErr
+			}
+		}
 	}
 
 	commitErr := tx.Commit(ctx)
@@ -602,16 +672,15 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 		provider                      string
 		authMode                      string
 		providerCfgRaw                []byte
-		credentialRaw                 []byte
 		hasCredential                 bool
 		usePlatformManagedCredentials bool
 	)
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT provider, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, use_platform_managed_credentials
+		SELECT provider, auth_mode, provider_config, has_credential, use_platform_managed_credentials
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&provider, &authMode, &providerCfgRaw, &credentialRaw, &hasCredential, &usePlatformManagedCredentials)
+	`, tenantID, accountID).Scan(&provider, &authMode, &providerCfgRaw, &hasCredential, &usePlatformManagedCredentials)
 	if err != nil {
 		return nil, err
 	}
@@ -630,6 +699,30 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 		}, nil
 	}
 
+	providerConfig := parseJSONObject(providerCfgRaw)
+	if strings.EqualFold(provider, "anthropic") &&
+		(platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAPIKey ||
+			platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAnthropicWIF) &&
+		s.tenantProviderProber != nil {
+		secrets := map[string]string{}
+		if platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAPIKey {
+			apiKey, resolveErr := s.resolveTenantProviderAccountAPIKey(ctx, tenantID, accountID)
+			if resolveErr != nil {
+				return nil, resolveErr
+			}
+			secrets["api_key"] = apiKey
+		}
+		success, _, message := s.tenantProviderProber.Probe(
+			ctx,
+			anthropicProbeCredential(accountID, authMode, providerConfig),
+			secrets,
+		)
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: success,
+			Message: message,
+		}, nil
+	}
+
 	if platform.ProviderAuthMode(strings.TrimSpace(authMode)) != platform.ProviderAuthModeAPIKey {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: false,
@@ -637,14 +730,14 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 		}, nil
 	}
 
-	credentials := parseJSONObject(credentialRaw)
-
-	apiKey := ""
-	if value, ok := credentials["api_key"].(string); ok {
-		apiKey = value
+	apiKey, resolveErr := s.resolveTenantProviderAccountAPIKey(
+		ctx,
+		tenantID,
+		accountID,
+	)
+	if resolveErr != nil {
+		return nil, resolveErr
 	}
-
-	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" || isMaskedCredentialValue(apiKey) {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: false,
@@ -652,7 +745,7 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 		}, nil
 	}
 
-	result := validateProviderAPIKey(ctx, provider, apiKey, parseJSONObject(providerCfgRaw), nil)
+	result := validateProviderAPIKey(ctx, provider, apiKey, providerConfig, nil)
 
 	return &platform.TestTenantProviderAccountCredentialsResponse{
 		Success: result.Success,
@@ -674,6 +767,25 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
 			Message: "this provider connection does not require a credential",
+		}, nil
+	}
+
+	if strings.EqualFold(req.Provider, "anthropic") &&
+		(req.AuthMode == platform.ProviderAuthModeAPIKey ||
+			req.AuthMode == platform.ProviderAuthModeAnthropicWIF) &&
+		s.tenantProviderProber != nil {
+		secrets := map[string]string{}
+		if req.Credentials != nil {
+			secrets["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
+		}
+		success, _, message := s.tenantProviderProber.Probe(
+			ctx,
+			anthropicProbeCredential("preflight", string(req.AuthMode), req.ProviderConfig),
+			secrets,
+		)
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: success,
+			Message: message,
 		}, nil
 	}
 
@@ -713,16 +825,32 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 	}, nil
 }
 
+func anthropicProbeCredential(connectionID, authMode string, config map[string]interface{}) platformcredentials.EncryptedCredential {
+	return platformcredentials.EncryptedCredential{
+		Binding: platformcredentials.Binding{
+			ProviderSlug: "anthropic", ConnectionID: connectionID,
+			CredentialVersionID: "probe", AuthMode: strings.TrimSpace(authMode),
+		},
+		BaseURL:          firstString(config, nil, "api_base", "base_url"),
+		APIVersion:       firstString(config, nil, "api_version"),
+		FederationRuleID: firstString(config, nil, "federation_rule_id"),
+		OrganizationID:   firstString(config, nil, "organization_id"),
+		ServiceAccountID: firstString(config, nil, "service_account_id"),
+		WorkspaceID:      firstString(config, nil, "workspace_id"),
+		TokenSourceID:    firstString(config, nil, "token_source_id"),
+	}
+}
+
 func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccount, error) {
 	var (
 		account        platform.TenantProviderAccount
 		providerCfgRaw []byte
-		credentialRaw  []byte
+		credentialHint string
 	)
 
 	err := s.pool.QueryRow(ctx, `
-		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_data, '{}'::jsonb),
-		       has_credential, use_platform_managed_credentials, created_at, updated_at
+		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_hint, ''),
+		       has_credential, use_platform_managed_credentials, credential_rotation_required, created_at, updated_at
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
 	`, tenantID, accountID).Scan(
@@ -732,9 +860,10 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 		&account.Name,
 		&account.AuthMode,
 		&providerCfgRaw,
-		&credentialRaw,
+		&credentialHint,
 		&account.HasCredential,
 		&account.UsePlatformManagedCredentials,
+		&account.CredentialRotationRequired,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -743,7 +872,7 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 	}
 
 	account.ProviderConfig = parseJSONObject(providerCfgRaw)
-	account.CredentialHint = credentialHintFromMap(parseJSONObject(credentialRaw))
+	account.CredentialHint = credentialHint
 
 	return &account, nil
 }

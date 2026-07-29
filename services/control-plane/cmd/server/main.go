@@ -33,6 +33,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantcredentials"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
 	"go.uber.org/zap"
 )
@@ -66,6 +67,17 @@ func main() {
 		logger.Fatal("Failed to initialize storage", zap.Error(err))
 	}
 	defer store.Close()
+
+	tenantCredentialStore, tenantCredentialErr :=
+		tenantcredentials.NewEncryptedStoreFromEnv()
+	if tenantCredentialErr != nil {
+		logger.Warn(
+			"Tenant provider credential encryption is unavailable; new tenant API keys will be rejected",
+			zap.Error(tenantCredentialErr),
+		)
+	} else {
+		store.SetTenantCredentialStore(tenantCredentialStore)
+	}
 
 	httpMetrics := prommetrics.NewHTTPMetrics()
 
@@ -131,7 +143,7 @@ func main() {
 
 	runtimeProfiles := runtimeprofile.NewManager(runtimeprofile.NewCompiler(store), store, distributedRuntimeProfileCache, logger, runtimeProfileCfg)
 	store.SetRuntimeProfileManager(runtimeProfiles)
-	runtimeDeploymentStore := runtimeprofile.NewDeploymentStore(runtimeProfiles)
+	runtimeDeploymentStore := runtimeprofile.NewDeploymentStore(runtimeProfiles, store)
 
 	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, runtimeDeploymentStore, logger)
 	if err != nil {
@@ -151,6 +163,24 @@ func main() {
 
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	billingService.SetRuntimeProfiles(runtimeProfiles)
+	anthropicPricing, pricingErr :=
+		billing.NewAnthropicPricingSnapshotManagerFromEnv(nil)
+	if pricingErr != nil {
+		logger.Fatal(
+			"Anthropic pricing snapshot is not configured",
+			zap.Error(pricingErr),
+		)
+	}
+	if pricingErr := anthropicPricing.Reload(ctx); pricingErr != nil {
+		logger.Fatal(
+			"Initial Anthropic pricing snapshot is unavailable",
+			zap.Error(pricingErr),
+		)
+	}
+	pricingCtx, cancelPricing := context.WithCancel(ctx)
+	defer cancelPricing()
+	go anthropicPricing.Run(pricingCtx, 5*time.Minute)
+	billingService.SetAnthropicPricingSnapshotManager(anthropicPricing)
 
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
@@ -181,6 +211,10 @@ func main() {
 	}
 
 	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
+	if credentialRuntime.service != nil {
+		credentialRuntime.service.SetProber(platformcredentials.NewTunnelCredentialProber(tunnelClient))
+	}
+	store.SetTenantProviderCredentialProber(platformcredentials.NewTunnelCredentialProber(tunnelClient))
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()
 
@@ -387,6 +421,7 @@ func main() {
 	audioTranscriptionsHandler := proxy.NewAudioTranscriptionsHandlerWithDependencies(baseProxyDeps)
 	audioSpeechHandler := proxy.NewAudioSpeechHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
+	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseProxyDeps, store)
 
 	traceCfg := tracing.LoadConfigFromEnv()
 	traceQueue := tracing.NewQueue(traceCfg.QueueCapacity)
@@ -439,6 +474,7 @@ func main() {
 		AudioTranscriptionsHandler: audioTranscriptionsHandler,
 		AudioSpeechHandler:         audioSpeechHandler,
 		ModelsHandler:              modelsHandler,
+		AnthropicNativeHandler:     anthropicNativeHandler,
 		PoolStats:                  store,
 		HTTPMetrics:                httpMetrics,
 		Logger:                     logger,
@@ -448,6 +484,7 @@ func main() {
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	go anthropicNativeHandler.RunBatchWorker(runCtx, 15*time.Second)
 	store.StartTokenUsageFlusher(runCtx)
 	store.StartUsageCounterFlusher(runCtx)
 

@@ -8,10 +8,16 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 var requestDurationBuckets = [...]float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}
+
+var anthropicWIFExchangeSuccess atomic.Uint64
+var anthropicWIFExchangeFailure atomic.Uint64
+var anthropicWIFRefreshTotal atomic.Uint64
+var anthropicStreamErrors atomic.Uint64
 
 type metricKey struct {
 	route  string
@@ -106,6 +112,16 @@ func (m *httpMetrics) writePrometheus(w http.ResponseWriter) {
 	_, _ = fmt.Fprintln(w, "# HELP shahrah_transport_build_info Static build information for a Shahrah transport service.")
 	_, _ = fmt.Fprintln(w, "# TYPE shahrah_transport_build_info gauge")
 	_, _ = fmt.Fprintf(w, "shahrah_transport_build_info{service=%s} 1\n", service)
+	_, _ = fmt.Fprintln(w, "# HELP shahrah_silk_road_anthropic_wif_exchange_total Anthropic WIF token exchanges by bounded result.")
+	_, _ = fmt.Fprintln(w, "# TYPE shahrah_silk_road_anthropic_wif_exchange_total counter")
+	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_wif_exchange_total{result=\"success\"} %d\n", anthropicWIFExchangeSuccess.Load())
+	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_wif_exchange_total{result=\"failure\"} %d\n", anthropicWIFExchangeFailure.Load())
+	_, _ = fmt.Fprintln(w, "# HELP shahrah_silk_road_anthropic_wif_refresh_total Anthropic WIF refreshes performed before token expiry.")
+	_, _ = fmt.Fprintln(w, "# TYPE shahrah_silk_road_anthropic_wif_refresh_total counter")
+	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_wif_refresh_total %d\n", anthropicWIFRefreshTotal.Load())
+	_, _ = fmt.Fprintln(w, "# HELP shahrah_silk_road_anthropic_stream_errors_total Anthropic upstream stream error events.")
+	_, _ = fmt.Fprintln(w, "# TYPE shahrah_silk_road_anthropic_stream_errors_total counter")
+	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_stream_errors_total %d\n", anthropicStreamErrors.Load())
 	_, _ = fmt.Fprintln(w, "# HELP shahrah_transport_http_requests_total Total HTTP requests handled by Shahrah transport services.")
 	_, _ = fmt.Fprintln(w, "# TYPE shahrah_transport_http_requests_total counter")
 
@@ -157,6 +173,8 @@ func metricRoute(path string) string {
 	switch path {
 	case "/dispatch":
 		return "dispatch"
+	case "/dispatch/raw":
+		return "dispatch_raw"
 	case "/health":
 		return "health"
 	case "/live":

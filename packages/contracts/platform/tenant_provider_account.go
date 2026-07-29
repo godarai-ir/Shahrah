@@ -10,6 +10,7 @@ const (
 	ProviderAuthModeAzureEntraCert       ProviderAuthMode = "azure_entra_cert"
 	ProviderAuthModeAWSSigV4             ProviderAuthMode = "aws_sigv4"
 	ProviderAuthModeGoogleServiceAccount ProviderAuthMode = "google_service_account"
+	ProviderAuthModeAnthropicWIF         ProviderAuthMode = "anthropic_wif"
 	ProviderAuthModeNoCredential         ProviderAuthMode = "no_credential"
 )
 
@@ -158,6 +159,7 @@ type TenantProviderAccount struct {
 	ProviderConfig                map[string]interface{} `json:"provider_config,omitempty"`
 	HasCredential                 bool                   `json:"has_credential"`
 	CredentialHint                string                 `json:"credential_hint,omitempty"`
+	CredentialRotationRequired    bool                   `json:"credential_rotation_required"`
 	UsePlatformManagedCredentials bool                   `json:"use_platform_managed_credentials"`
 	CreatedAt                     time.Time              `json:"created_at"`
 	UpdatedAt                     time.Time              `json:"updated_at"`

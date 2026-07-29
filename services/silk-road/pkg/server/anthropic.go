@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,17 +19,29 @@ import (
 
 const anthropicDefaultVersion = "2023-06-01"
 
-type anthropicAdapter struct{}
+type anthropicAdapter struct {
+	wif    *anthropicWIFManager
+	wifErr error
+}
 
 type anthropicRequest struct {
-	Model       string                          `json:"model"`
-	Messages    []anthropicMessage              `json:"messages"`
-	MaxTokens   int                             `json:"max_tokens,omitempty"`
-	Temperature *float64                        `json:"temperature,omitempty"`
-	TopP        *float64                        `json:"top_p,omitempty"`
-	Stream      bool                            `json:"stream,omitempty"`
-	System      []anthropicContentBlock         `json:"system,omitempty"`
-	Thinking    *contractsopenai.ThinkingConfig `json:"thinking,omitempty"`
+	Model        string                          `json:"model"`
+	Messages     []anthropicMessage              `json:"messages"`
+	MaxTokens    int                             `json:"max_tokens,omitempty"`
+	Temperature  *float64                        `json:"temperature,omitempty"`
+	TopP         *float64                        `json:"top_p,omitempty"`
+	TopK         *int                            `json:"top_k,omitempty"`
+	Stop         []string                        `json:"stop_sequences,omitempty"`
+	Stream       bool                            `json:"stream,omitempty"`
+	System       []anthropicContentBlock         `json:"system,omitempty"`
+	Thinking     *contractsopenai.ThinkingConfig `json:"thinking,omitempty"`
+	Tools        []anthropicTool                 `json:"tools,omitempty"`
+	ToolChoice   *anthropicToolChoice            `json:"tool_choice,omitempty"`
+	Metadata     *anthropicMetadata              `json:"metadata,omitempty"`
+	Output       *anthropicOutputConfig          `json:"output_config,omitempty"`
+	ServiceTier  string                          `json:"service_tier,omitempty"`
+	Speed        string                          `json:"speed,omitempty"`
+	InferenceGeo string                          `json:"inference_geo,omitempty"`
 }
 
 type anthropicMessage struct {
@@ -36,18 +50,50 @@ type anthropicMessage struct {
 }
 
 type anthropicContentBlock struct {
-	Type      string           `json:"type"`
-	Text      string           `json:"text,omitempty"`
-	Thinking  string           `json:"thinking,omitempty"`
-	Signature string           `json:"signature,omitempty"`
-	Data      string           `json:"data,omitempty"`
-	Source    *anthropicSource `json:"source,omitempty"`
+	Type         string                 `json:"type"`
+	Text         string                 `json:"text,omitempty"`
+	Thinking     string                 `json:"thinking,omitempty"`
+	Signature    string                 `json:"signature,omitempty"`
+	Data         string                 `json:"data,omitempty"`
+	Source       *anthropicSource       `json:"source,omitempty"`
+	ID           string                 `json:"id,omitempty"`
+	Name         string                 `json:"name,omitempty"`
+	Input        interface{}            `json:"input,omitempty"`
+	ToolUseID    string                 `json:"tool_use_id,omitempty"`
+	Content      interface{}            `json:"content,omitempty"`
+	IsError      bool                   `json:"is_error,omitempty"`
+	CacheControl map[string]interface{} `json:"cache_control,omitempty"`
+	Citations    []interface{}          `json:"citations,omitempty"`
 }
 
 type anthropicSource struct {
 	Type      string `json:"type"`
-	MediaType string `json:"media_type"`
-	Data      string `json:"data"`
+	MediaType string `json:"media_type,omitempty"`
+	Data      string `json:"data,omitempty"`
+	URL       string `json:"url,omitempty"`
+	FileID    string `json:"file_id,omitempty"`
+}
+
+type anthropicTool struct {
+	Name         string                 `json:"name"`
+	Description  string                 `json:"description,omitempty"`
+	InputSchema  map[string]interface{} `json:"input_schema"`
+	CacheControl map[string]interface{} `json:"cache_control,omitempty"`
+}
+
+type anthropicToolChoice struct {
+	Type                   string `json:"type"`
+	Name                   string `json:"name,omitempty"`
+	DisableParallelToolUse bool   `json:"disable_parallel_tool_use,omitempty"`
+}
+
+type anthropicMetadata struct {
+	UserID string `json:"user_id,omitempty"`
+}
+
+type anthropicOutputConfig struct {
+	Effort string      `json:"effort,omitempty"`
+	Format interface{} `json:"format,omitempty"`
 }
 
 type anthropicResponse struct {
@@ -61,34 +107,55 @@ type anthropicResponse struct {
 }
 
 type anthropicUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
+	CacheCreation            struct {
+		Ephemeral5mInputTokens int `json:"ephemeral_5m_input_tokens,omitempty"`
+		Ephemeral1hInputTokens int `json:"ephemeral_1h_input_tokens,omitempty"`
+	} `json:"cache_creation,omitempty"`
+	ServerToolUse map[string]int `json:"server_tool_use,omitempty"`
+	ServiceTier   string         `json:"service_tier,omitempty"`
+	Speed         string         `json:"speed,omitempty"`
 }
 
 type anthropicStreamEvent struct {
-	Type    string `json:"type"`
-	Index   int    `json:"index,omitempty"`
+	Type  string `json:"type"`
+	Index int    `json:"index,omitempty"`
+	Error *struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
 	Message struct {
-		ID    string `json:"id"`
-		Model string `json:"model"`
+		ID    string         `json:"id"`
+		Model string         `json:"model"`
+		Usage anthropicUsage `json:"usage"`
 	} `json:"message,omitempty"`
-	Delta struct {
-		Type       string `json:"type,omitempty"`
-		Text       string `json:"text,omitempty"`
-		Thinking   string `json:"thinking,omitempty"`
-		Signature  string `json:"signature,omitempty"`
-		StopReason string `json:"stop_reason,omitempty"`
+	ContentBlock anthropicContentBlock `json:"content_block,omitempty"`
+	Usage        anthropicUsage        `json:"usage,omitempty"`
+	Delta        struct {
+		Type        string `json:"type,omitempty"`
+		Text        string `json:"text,omitempty"`
+		Thinking    string `json:"thinking,omitempty"`
+		Signature   string `json:"signature,omitempty"`
+		PartialJSON string `json:"partial_json,omitempty"`
+		StopReason  string `json:"stop_reason,omitempty"`
 	} `json:"delta,omitempty"`
 }
 
 func newAnthropicAdapter() providerAdapter {
-	return &anthropicAdapter{}
+	manager, err := newAnthropicWIFManagerFromEnv()
+	return &anthropicAdapter{wif: manager, wifErr: err}
 }
 
 func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
 	target, err := resolveBaseURL(payload.Deployment.APIBase, "https://api.anthropic.com")
 	if err != nil {
 		return nil, err
+	}
+	if payload.Operation != "" && payload.Operation != platform.ProviderOperationChatCompletions {
+		return a.dispatchNative(ctx, client, target, payload)
 	}
 
 	var openAIReq contractsopenai.ChatCompletionRequest
@@ -110,8 +177,11 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", deploymentAPIKey(payload.Deployment))
+	if err := a.applyAuth(ctx, client, target, payload.Deployment, req); err != nil {
+		return nil, err
+	}
 	req.Header.Set("anthropic-version", anthropicVersion(payload.Deployment.APIVersion))
+	applyAnthropicBetaHeaders(req, payload)
 	if payload.Stream {
 		req.Header.Set("Accept", "text/event-stream")
 	}
@@ -133,6 +203,268 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 		return adaptAnthropicStreamResponse(resp, openAIReq.Model), nil
 	}
 	return adaptAnthropicSyncResponse(resp, openAIReq.Model)
+}
+
+func (a *anthropicAdapter) applyAuth(ctx context.Context, client *http.Client, target string, deployment platform.Deployment, req *http.Request) error {
+	if deployment.ProviderAuth != nil &&
+		deployment.ProviderAuth.Mode == string(platform.ProviderAuthModeAnthropicWIF) {
+		if a.wifErr != nil {
+			return errAnthropicWIFUnavailable
+		}
+		token, tokenErr := a.wif.token(
+			ctx,
+			client,
+			target,
+			anthropicWIFConnectionKey(deployment),
+			deployment.ProviderAuth.AnthropicWIF,
+		)
+		if tokenErr != nil {
+			return tokenErr
+		}
+		req.Header.Set("Authorization", "Bearer "+token.accessToken)
+	} else {
+		req.Header.Set("x-api-key", deploymentAPIKey(deployment))
+	}
+	return nil
+}
+
+func anthropicWIFConnectionKey(deployment platform.Deployment) string {
+	if strings.TrimSpace(deployment.ConnectionID) != "" {
+		return strings.TrimSpace(deployment.ConnectionID)
+	}
+	return strings.TrimSpace(deployment.ProviderAccountID)
+}
+
+func (a *anthropicAdapter) dispatchNative(ctx context.Context, client *http.Client, target string, payload platform.TunnelRequest) (*adapterResponse, error) {
+	method, path, maxBytes, err := anthropicOperationTarget(payload.Operation, payload.OperationInput)
+	if err != nil {
+		return nil, err
+	}
+	if maxBytes > 0 && int64(len(payload.Body)) > maxBytes {
+		return nil, fmt.Errorf("anthropic operation payload exceeds %d bytes", maxBytes)
+	}
+	var body io.Reader = http.NoBody
+	if len(payload.Body) > 0 {
+		body = bytes.NewReader(payload.Body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), body)
+	if err != nil {
+		return nil, err
+	}
+	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	} else if len(payload.Body) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("anthropic-version", anthropicVersion(payload.Deployment.APIVersion))
+	applyAnthropicBetaHeaders(req, payload)
+	if payload.Stream {
+		req.Header.Set("Accept", "text/event-stream")
+	}
+	if err := a.applyAuth(ctx, client, target, payload.Deployment, req); err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+}
+
+func (a *anthropicAdapter) DispatchRaw(ctx context.Context, client *http.Client, payload platform.TunnelRequest, body io.Reader, contentLength int64) (*adapterResponse, error) {
+	switch payload.Operation {
+	case platform.ProviderOperationAnthropicFilesCreate,
+		platform.ProviderOperationAnthropicFilesContent,
+		platform.ProviderOperationAnthropicBatchesResults:
+	default:
+		return nil, fmt.Errorf("operation %q does not support raw tunneling", payload.Operation)
+	}
+	target, err := resolveBaseURL(payload.Deployment.APIBase, "https://api.anthropic.com")
+	if err != nil {
+		return nil, err
+	}
+	method, path, maxBytes, err := anthropicOperationTarget(payload.Operation, payload.OperationInput)
+	if err != nil {
+		return nil, err
+	}
+	if contentLength > maxBytes && maxBytes > 0 {
+		return nil, fmt.Errorf("anthropic operation payload exceeds %d bytes", maxBytes)
+	}
+	if body == nil {
+		body = http.NoBody
+	}
+	if maxBytes > 0 && contentLength < 0 {
+		body = &hardLimitReader{reader: body, remaining: maxBytes}
+	}
+	req, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), body)
+	if err != nil {
+		return nil, err
+	}
+	if contentLength >= 0 {
+		req.ContentLength = contentLength
+	}
+	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	req.Header.Set("anthropic-version", anthropicVersion(payload.Deployment.APIVersion))
+	applyAnthropicBetaHeaders(req, payload)
+	if err := a.applyAuth(ctx, client, target, payload.Deployment, req); err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+}
+
+type hardLimitReader struct {
+	reader    io.Reader
+	remaining int64
+	exhausted bool
+}
+
+func (r *hardLimitReader) Read(buffer []byte) (int, error) {
+	if r.exhausted {
+		return 0, fmt.Errorf("provider payload exceeds configured limit")
+	}
+	if int64(len(buffer)) > r.remaining+1 {
+		buffer = buffer[:r.remaining+1]
+	}
+	n, err := r.reader.Read(buffer)
+	if int64(n) > r.remaining {
+		r.exhausted = true
+		return 0, fmt.Errorf("provider payload exceeds configured limit")
+	}
+	r.remaining -= int64(n)
+	return n, err
+}
+
+func anthropicOperationTarget(operation platform.ProviderOperation, input platform.ProviderOperationInput) (string, string, int64, error) {
+	const (
+		messageLimit = int64(32 * 1024 * 1024)
+		batchLimit   = int64(256 * 1024 * 1024)
+		fileLimit    = int64(500 * 1024 * 1024)
+	)
+	id := strings.TrimSpace(input.ResourceID)
+	resourcePath := func(prefix, suffix string) (string, error) {
+		if id == "" {
+			return "", fmt.Errorf("provider operation requires resource_id")
+		}
+		return prefix + url.PathEscape(id) + suffix, nil
+	}
+	listPath := func(base string) string {
+		query := url.Values{}
+		if input.BeforeID != "" {
+			query.Set("before_id", input.BeforeID)
+		}
+		if input.AfterID != "" {
+			query.Set("after_id", input.AfterID)
+		}
+		if input.Limit > 0 {
+			query.Set("limit", fmt.Sprintf("%d", input.Limit))
+		}
+		if len(query) == 0 {
+			return base
+		}
+		return base + "?" + query.Encode()
+	}
+	switch operation {
+	case platform.ProviderOperationAnthropicMessages:
+		return http.MethodPost, "/v1/messages", messageLimit, nil
+	case platform.ProviderOperationAnthropicCountTokens:
+		return http.MethodPost, "/v1/messages/count_tokens", messageLimit, nil
+	case platform.ProviderOperationAnthropicModelsList:
+		return http.MethodGet, listPath("/v1/models"), 0, nil
+	case platform.ProviderOperationAnthropicModelsGet:
+		path, err := resourcePath("/v1/models/", "")
+		return http.MethodGet, path, 0, err
+	case platform.ProviderOperationAnthropicFilesCreate:
+		return http.MethodPost, "/v1/files", fileLimit, nil
+	case platform.ProviderOperationAnthropicFilesList:
+		return http.MethodGet, listPath("/v1/files"), 0, nil
+	case platform.ProviderOperationAnthropicFilesGet:
+		path, err := resourcePath("/v1/files/", "")
+		return http.MethodGet, path, 0, err
+	case platform.ProviderOperationAnthropicFilesDelete:
+		path, err := resourcePath("/v1/files/", "")
+		return http.MethodDelete, path, 0, err
+	case platform.ProviderOperationAnthropicFilesContent:
+		path, err := resourcePath("/v1/files/", "/content")
+		return http.MethodGet, path, 0, err
+	case platform.ProviderOperationAnthropicBatchesCreate:
+		return http.MethodPost, "/v1/messages/batches", batchLimit, nil
+	case platform.ProviderOperationAnthropicBatchesList:
+		return http.MethodGet, listPath("/v1/messages/batches"), 0, nil
+	case platform.ProviderOperationAnthropicBatchesGet:
+		path, err := resourcePath("/v1/messages/batches/", "")
+		return http.MethodGet, path, 0, err
+	case platform.ProviderOperationAnthropicBatchesCancel:
+		path, err := resourcePath("/v1/messages/batches/", "/cancel")
+		return http.MethodPost, path, 0, err
+	case platform.ProviderOperationAnthropicBatchesResults:
+		path, err := resourcePath("/v1/messages/batches/", "/results")
+		return http.MethodGet, path, 0, err
+	default:
+		return "", "", 0, fmt.Errorf("unsupported typed provider operation %q", operation)
+	}
+}
+
+func headerValue(headers map[string]string, name string) string {
+	for key, value := range headers {
+		if strings.EqualFold(strings.TrimSpace(key), name) {
+			return value
+		}
+	}
+	return ""
+}
+
+func applyAnthropicBetaHeaders(req *http.Request, payload platform.TunnelRequest) {
+	if req == nil {
+		return
+	}
+	allowed := commaSeparatedSet(
+		payload.Deployment.ProviderHeaders["Anthropic-Beta-Allowlist"] + "," +
+			payload.Deployment.ProviderHeaders["anthropic-beta-allowlist"],
+	)
+	requested := commaSeparatedSet(headerValue(payload.Headers, "anthropic-beta"))
+	if operationNeedsFilesBeta(payload.Operation) {
+		requested["files-api-2025-04-14"] = struct{}{}
+	}
+	enabled := make([]string, 0, len(requested))
+	for value := range requested {
+		if _, ok := allowed[value]; ok {
+			enabled = append(enabled, value)
+		}
+	}
+	if len(enabled) > 0 {
+		sort.Strings(enabled)
+		req.Header.Set("anthropic-beta", strings.Join(enabled, ","))
+	}
+}
+
+func commaSeparatedSet(input string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, value := range strings.Split(input, ",") {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			out[value] = struct{}{}
+		}
+	}
+	return out
+}
+
+func operationNeedsFilesBeta(operation platform.ProviderOperation) bool {
+	switch operation {
+	case platform.ProviderOperationAnthropicFilesCreate,
+		platform.ProviderOperationAnthropicFilesList,
+		platform.ProviderOperationAnthropicFilesGet,
+		platform.ProviderOperationAnthropicFilesDelete,
+		platform.ProviderOperationAnthropicFilesContent:
+		return true
+	default:
+		return false
+	}
 }
 
 func adaptAnthropicSyncResponse(resp *http.Response, model string) (*adapterResponse, error) {
@@ -172,12 +504,19 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 		var currentEvent string
 		streamID := ""
 		streamModel := model
+		completed := false
+		var latestUsage anthropicUsage
 
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
-					_, _ = pipeWriter.Write([]byte("data: [DONE]\n\n"))
+					if completed {
+						_, _ = pipeWriter.Write([]byte("data: [DONE]\n\n"))
+					} else {
+						anthropicStreamErrors.Add(1)
+						_ = pipeWriter.CloseWithError(io.ErrUnexpectedEOF)
+					}
 					return
 				}
 				_ = pipeWriter.CloseWithError(err)
@@ -197,7 +536,8 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 				}
 				var evt anthropicStreamEvent
 				if err := json.Unmarshal([]byte(data), &evt); err != nil {
-					continue
+					_ = pipeWriter.CloseWithError(fmt.Errorf("decode anthropic SSE event: %w", err))
+					return
 				}
 				if evt.Message.ID != "" {
 					streamID = evt.Message.ID
@@ -206,8 +546,39 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 					streamModel = evt.Message.Model
 				}
 				switch eventType(currentEvent, evt.Type) {
+				case "message_start":
+					latestUsage = evt.Message.Usage
+					chunk := contractsopenai.StreamChunk{
+						ID: streamID, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: streamModel,
+						Choices: []contractsopenai.Choice{{Index: 0, Delta: &contractsopenai.ChatMessage{Role: "assistant"}}},
+					}
+					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+						return
+					}
+				case "content_block_start":
+					if evt.ContentBlock.Type != "tool_use" {
+						continue
+					}
+					index := evt.Index
+					arguments, _ := json.Marshal(evt.ContentBlock.Input)
+					if string(arguments) == "null" || string(arguments) == "{}" {
+						arguments = nil
+					}
+					chunk := contractsopenai.StreamChunk{
+						ID: streamID, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: streamModel,
+						Choices: []contractsopenai.Choice{{
+							Index: 0,
+							Delta: &contractsopenai.ChatMessage{ToolCalls: []contractsopenai.ToolCall{{
+								ID: evt.ContentBlock.ID, Type: "function", Index: &index,
+								Function: &contractsopenai.FunctionCall{Name: evt.ContentBlock.Name, Arguments: string(arguments)},
+							}}},
+						}},
+					}
+					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+						return
+					}
 				case "content_block_delta":
-					if evt.Delta.Text == "" && evt.Delta.Thinking == "" && evt.Delta.Signature == "" {
+					if evt.Delta.Text == "" && evt.Delta.Thinking == "" && evt.Delta.Signature == "" && evt.Delta.PartialJSON == "" {
 						continue
 					}
 					delta := &contractsopenai.ChatMessage{}
@@ -223,6 +594,13 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 					if evt.Delta.Text != "" {
 						delta.Content = evt.Delta.Text
 					}
+					if evt.Delta.PartialJSON != "" {
+						index := evt.Index
+						delta.ToolCalls = []contractsopenai.ToolCall{{
+							Type: "function", Index: &index,
+							Function: &contractsopenai.FunctionCall{Arguments: evt.Delta.PartialJSON},
+						}}
+					}
 					chunk := contractsopenai.StreamChunk{
 						ID:      streamID,
 						Object:  "chat.completion.chunk",
@@ -233,8 +611,22 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 							Delta: delta,
 						}},
 					}
-					writeSSEChunk(pipeWriter, chunk)
+					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+						return
+					}
 				case "message_delta":
+					if evt.Usage.OutputTokens > 0 {
+						latestUsage.OutputTokens = evt.Usage.OutputTokens
+					}
+					if evt.Usage.CacheCreationInputTokens > 0 {
+						latestUsage.CacheCreationInputTokens = evt.Usage.CacheCreationInputTokens
+					}
+					if evt.Usage.CacheReadInputTokens > 0 {
+						latestUsage.CacheReadInputTokens = evt.Usage.CacheReadInputTokens
+					}
+					if evt.Usage.ServerToolUse != nil {
+						latestUsage.ServerToolUse = evt.Usage.ServerToolUse
+					}
 					if evt.Delta.StopReason == "" {
 						continue
 					}
@@ -246,10 +638,41 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 						Choices: []contractsopenai.Choice{{
 							Index:        0,
 							Delta:        &contractsopenai.ChatMessage{},
-							FinishReason: evt.Delta.StopReason,
+							FinishReason: mapAnthropicStopReason(evt.Delta.StopReason),
 						}},
 					}
-					writeSSEChunk(pipeWriter, chunk)
+					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+						return
+					}
+				case "message_stop":
+					completed = true
+					usage := openAIUsageFromAnthropic(latestUsage)
+					if usage.TotalTokens > 0 {
+						chunk := contractsopenai.StreamChunk{
+							ID: streamID, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: streamModel,
+							Choices: []contractsopenai.Choice{}, Usage: usage,
+						}
+						if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+							return
+						}
+					}
+				case "error":
+					anthropicStreamErrors.Add(1)
+					message := "Anthropic stream error"
+					errorType := "api_error"
+					if evt.Error != nil {
+						if strings.TrimSpace(evt.Error.Message) != "" {
+							message = evt.Error.Message
+						}
+						if strings.TrimSpace(evt.Error.Type) != "" {
+							errorType = evt.Error.Type
+						}
+					}
+					encoded, _ := json.Marshal(contractsopenai.APIError{Error: contractsopenai.ErrorInfo{
+						Message: message, Type: errorType, Code: "anthropic_stream_error",
+					}})
+					_, _ = pipeWriter.Write([]byte("data: " + string(encoded) + "\n\n"))
+					return
 				}
 			}
 		}
@@ -262,14 +685,19 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 	}
 }
 
-func writeSSEChunk(w io.Writer, chunk contractsopenai.StreamChunk) {
+func writeSSEChunk(w io.Writer, chunk contractsopenai.StreamChunk) error {
 	encoded, err := json.Marshal(chunk)
 	if err != nil {
-		return
+		return err
 	}
-	_, _ = w.Write([]byte("data: "))
-	_, _ = w.Write(encoded)
-	_, _ = w.Write([]byte("\n\n"))
+	if _, err := w.Write([]byte("data: ")); err != nil {
+		return err
+	}
+	if _, err := w.Write(encoded); err != nil {
+		return err
+	}
+	_, err = w.Write([]byte("\n\n"))
+	return err
 }
 
 func eventType(explicit string, fallback string) string {
@@ -292,7 +720,29 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 		MaxTokens:   4096,
 		Temperature: req.Temperature,
 		TopP:        req.TopP,
+		TopK:        req.TopK,
 		Stream:      req.Stream,
+	}
+	var err error
+	if anthReq.Stop, err = anthropicStopSequences(req.Stop); err != nil {
+		return anthropicRequest{}, err
+	}
+	if anthReq.Tools, err = anthropicTools(req.Tools, req.CacheControl); err != nil {
+		return anthropicRequest{}, err
+	}
+	if anthReq.ToolChoice, err = anthropicToolChoiceFromOpenAI(req.ToolChoice, req.ParallelToolCalls); err != nil {
+		return anthropicRequest{}, err
+	}
+	anthReq.Metadata = anthropicMetadataFromOpenAI(req.Metadata, req.User)
+	anthReq.Output, err = anthropicOutputConfigFromOpenAI(req.Model, req.ResponseFormat, req.OutputConfig, req.ReasoningEffort)
+	if err != nil {
+		return anthropicRequest{}, err
+	}
+	anthReq.ServiceTier = strings.TrimSpace(req.ServiceTier)
+	anthReq.Speed = strings.TrimSpace(req.Speed)
+	anthReq.InferenceGeo = strings.TrimSpace(req.InferenceGeo)
+	if err := validateAnthropicRequestControls(anthReq.Model, anthReq.ServiceTier, anthReq.Speed, anthReq.InferenceGeo); err != nil {
+		return anthropicRequest{}, err
 	}
 
 	for _, msg := range req.Messages {
@@ -304,6 +754,16 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 			thinkingBlocks := anthropicBlocksFromThinkingBlocks(msg.ThinkingBlocks)
 			blocks = append(thinkingBlocks, blocks...)
 		}
+		if strings.EqualFold(strings.TrimSpace(msg.Role), "assistant") && len(msg.ToolCalls) > 0 {
+			toolBlocks, toolErr := anthropicBlocksFromToolCalls(msg.ToolCalls)
+			if toolErr != nil {
+				return anthropicRequest{}, toolErr
+			}
+			if len(blocks) == 1 && blocks[0].Type == "text" && strings.TrimSpace(blocks[0].Text) == "" {
+				blocks = nil
+			}
+			blocks = append(blocks, toolBlocks...)
+		}
 		if msg.Role == "system" {
 			for _, block := range blocks {
 				if block.Type != "text" {
@@ -313,8 +773,23 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 			}
 			continue
 		}
+		role := strings.ToLower(strings.TrimSpace(msg.Role))
+		if role == "tool" {
+			if strings.TrimSpace(msg.ToolCallID) == "" {
+				return anthropicRequest{}, fmt.Errorf("tool message requires tool_call_id")
+			}
+			role = "user"
+			blocks = []anthropicContentBlock{{
+				Type:      "tool_result",
+				ToolUseID: strings.TrimSpace(msg.ToolCallID),
+				Content:   anthropicToolResultContent(msg.Content),
+			}}
+		}
+		if role != "user" && role != "assistant" {
+			return anthropicRequest{}, fmt.Errorf("unsupported anthropic message role %q", msg.Role)
+		}
 		anthReq.Messages = append(anthReq.Messages, anthropicMessage{
-			Role:    msg.Role,
+			Role:    role,
 			Content: blocks,
 		})
 	}
@@ -323,9 +798,259 @@ func convertToAnthropicRequest(req contractsopenai.ChatCompletionRequest) (anthr
 		anthReq.MaxTokens = *req.MaxTokens
 	}
 
-	anthReq.Thinking = anthropicThinkingConfig(req, anthReq.MaxTokens)
+	anthReq.Thinking, err = anthropicThinkingConfig(req, anthReq.MaxTokens)
+	if err != nil {
+		return anthropicRequest{}, err
+	}
 
 	return anthReq, nil
+}
+
+func anthropicStopSequences(value interface{}) ([]string, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, nil
+	case string:
+		if strings.TrimSpace(typed) == "" {
+			return nil, nil
+		}
+		return []string{typed}, nil
+	case []string:
+		return append([]string(nil), typed...), nil
+	case []interface{}:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			text, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("stop must contain only strings")
+			}
+			out = append(out, text)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("stop must be a string or string array")
+	}
+}
+
+func anthropicTools(tools []contractsopenai.ToolDefinition, cacheControl map[string]interface{}) ([]anthropicTool, error) {
+	out := make([]anthropicTool, 0, len(tools))
+	for index, tool := range tools {
+		if !strings.EqualFold(strings.TrimSpace(tool.Type), "function") || tool.Function == nil {
+			return nil, fmt.Errorf("anthropic only supports OpenAI function tools")
+		}
+		name := strings.TrimSpace(tool.Function.Name)
+		if name == "" {
+			return nil, fmt.Errorf("tool %d requires a name", index)
+		}
+		schema := tool.Function.Parameters
+		if schema == nil {
+			schema = map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}
+		}
+		item := anthropicTool{Name: name, Description: tool.Function.Description, InputSchema: schema}
+		if index == len(tools)-1 && len(cacheControl) > 0 {
+			item.CacheControl = cloneStringAnyMap(cacheControl)
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func anthropicToolChoiceFromOpenAI(value interface{}, parallel *bool) (*anthropicToolChoice, error) {
+	disableParallel := parallel != nil && !*parallel
+	if value == nil {
+		if !disableParallel {
+			return nil, nil
+		}
+		return &anthropicToolChoice{Type: "auto", DisableParallelToolUse: true}, nil
+	}
+	if text, ok := value.(string); ok {
+		switch strings.ToLower(strings.TrimSpace(text)) {
+		case "auto":
+			return &anthropicToolChoice{Type: "auto", DisableParallelToolUse: disableParallel}, nil
+		case "required", "any":
+			return &anthropicToolChoice{Type: "any", DisableParallelToolUse: disableParallel}, nil
+		case "none":
+			return nil, fmt.Errorf("Anthropic does not support tool_choice=none when tools are supplied")
+		default:
+			return nil, fmt.Errorf("unsupported tool_choice %q", text)
+		}
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tool_choice")
+	}
+	var object struct {
+		Type     string `json:"type"`
+		Function *struct {
+			Name string `json:"name"`
+		} `json:"function"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return nil, fmt.Errorf("invalid tool_choice")
+	}
+	name := strings.TrimSpace(object.Name)
+	if object.Function != nil {
+		name = strings.TrimSpace(object.Function.Name)
+	}
+	if name == "" {
+		return nil, fmt.Errorf("named tool_choice requires function.name")
+	}
+	return &anthropicToolChoice{Type: "tool", Name: name, DisableParallelToolUse: disableParallel}, nil
+}
+
+func anthropicMetadataFromOpenAI(metadata map[string]interface{}, user string) *anthropicMetadata {
+	userID := strings.TrimSpace(user)
+	if userID == "" && metadata != nil {
+		if value, ok := metadata["user_id"].(string); ok {
+			userID = strings.TrimSpace(value)
+		}
+	}
+	if userID == "" {
+		return nil
+	}
+	return &anthropicMetadata{UserID: userID}
+}
+
+func anthropicOutputConfigFromOpenAI(model string, responseFormat interface{}, output map[string]interface{}, effort string) (*anthropicOutputConfig, error) {
+	config := &anthropicOutputConfig{}
+	if value, ok := output["effort"].(string); ok {
+		config.Effort = strings.TrimSpace(value)
+	} else if strings.Contains(canonicalAnthropicModel(model), "-4-6") ||
+		strings.Contains(canonicalAnthropicModel(model), "-4-7") {
+		config.Effort = normalizeAnthropicEffort(effort)
+	}
+	if responseFormat != nil {
+		raw, err := json.Marshal(responseFormat)
+		if err != nil {
+			return nil, fmt.Errorf("invalid response_format")
+		}
+		var format struct {
+			Type       string          `json:"type"`
+			JSONSchema json.RawMessage `json:"json_schema"`
+		}
+		if err := json.Unmarshal(raw, &format); err != nil {
+			return nil, fmt.Errorf("invalid response_format")
+		}
+		switch format.Type {
+		case "", "text":
+		case "json_schema":
+			if len(format.JSONSchema) == 0 || string(format.JSONSchema) == "null" {
+				return nil, fmt.Errorf("response_format.json_schema is required")
+			}
+			var envelope struct {
+				Schema json.RawMessage `json:"schema"`
+			}
+			if err := json.Unmarshal(format.JSONSchema, &envelope); err != nil {
+				return nil, fmt.Errorf("invalid response_format.json_schema")
+			}
+			schema := format.JSONSchema
+			if len(envelope.Schema) > 0 && string(envelope.Schema) != "null" {
+				schema = envelope.Schema
+			}
+			var preserved interface{}
+			if err := json.Unmarshal(schema, &preserved); err != nil {
+				return nil, fmt.Errorf("invalid response_format.json_schema.schema")
+			}
+			config.Format = map[string]interface{}{"type": "json_schema", "schema": preserved}
+		default:
+			return nil, fmt.Errorf("unsupported response_format type %q", format.Type)
+		}
+	}
+	if config.Format == nil {
+		if value, ok := output["format"]; ok {
+			config.Format = value
+		}
+	}
+	if config.Effort == "" && config.Format == nil {
+		return nil, nil
+	}
+	return config, nil
+}
+
+func validateAnthropicRequestControls(model, serviceTier, speed, inferenceGeo string) error {
+	model = strings.ToLower(strings.TrimSpace(model))
+	serviceTier = strings.ToLower(strings.TrimSpace(serviceTier))
+	speed = strings.ToLower(strings.TrimSpace(speed))
+	inferenceGeo = strings.ToLower(strings.TrimSpace(inferenceGeo))
+	if serviceTier != "" && serviceTier != "auto" && serviceTier != "standard_only" {
+		return fmt.Errorf("unsupported service_tier %q", serviceTier)
+	}
+	is46 := strings.Contains(model, "-4-6")
+	is47 := strings.Contains(model, "-4-7")
+	if inferenceGeo != "" {
+		if inferenceGeo != "global" && inferenceGeo != "us" {
+			return fmt.Errorf("unsupported inference_geo %q", inferenceGeo)
+		}
+		if !is46 && !is47 {
+			return fmt.Errorf("inference_geo is not supported by %s", model)
+		}
+	}
+	if speed != "" && speed != "standard" && speed != "fast" {
+		return fmt.Errorf("unsupported speed %q", speed)
+	}
+	if speed == "fast" && !is46 {
+		return fmt.Errorf("fast speed is not available for %s", model)
+	}
+	if speed == "standard" && !is46 && !is47 {
+		return fmt.Errorf("speed is not supported by %s", model)
+	}
+	return nil
+}
+
+func normalizeAnthropicEffort(effort string) string {
+	switch strings.ToLower(strings.TrimSpace(effort)) {
+	case "minimal", "low":
+		return "low"
+	case "medium":
+		return "medium"
+	case "high":
+		return "high"
+	case "xhigh", "max":
+		return "max"
+	default:
+		return ""
+	}
+}
+
+func anthropicBlocksFromToolCalls(calls []contractsopenai.ToolCall) ([]anthropicContentBlock, error) {
+	out := make([]anthropicContentBlock, 0, len(calls))
+	for _, call := range calls {
+		if call.Function == nil {
+			return nil, fmt.Errorf("anthropic tool call requires a function")
+		}
+		var input interface{} = map[string]interface{}{}
+		if strings.TrimSpace(call.Function.Arguments) != "" {
+			if err := json.Unmarshal([]byte(call.Function.Arguments), &input); err != nil {
+				return nil, fmt.Errorf("tool call %q arguments must be valid JSON", call.ID)
+			}
+		}
+		out = append(out, anthropicContentBlock{
+			Type:  "tool_use",
+			ID:    call.ID,
+			Name:  call.Function.Name,
+			Input: input,
+		})
+	}
+	return out, nil
+}
+
+func anthropicToolResultContent(content interface{}) interface{} {
+	if text := contractsopenai.ChatContentText(content); text != "" {
+		return text
+	}
+	return content
+}
+
+func cloneStringAnyMap(input map[string]interface{}) map[string]interface{} {
+	if input == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
 }
 
 func anthropicBlocksFromThinkingBlocks(blocks []contractsopenai.ThinkingBlock) []anthropicContentBlock {
@@ -372,21 +1097,36 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 		case "text":
 			blocks = append(blocks, anthropicContentBlock{Type: "text", Text: part.Text})
 		case "image_url":
-			mediaType, data, err := contractsopenai.ParseImageDataURL(part.ImageURL.URL)
-			if err != nil {
-				return nil, err
+			source := &anthropicSource{}
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(part.ImageURL.URL)), "data:") {
+				mediaType, data, err := contractsopenai.ParseImageDataURL(part.ImageURL.URL)
+				if err != nil {
+					return nil, err
+				}
+				source.Type = "base64"
+				source.MediaType = mediaType
+				source.Data = data
+			} else {
+				if !isHTTPURL(part.ImageURL.URL) {
+					return nil, fmt.Errorf("image_url must use https or a base64 data URL")
+				}
+				source.Type = "url"
+				source.URL = strings.TrimSpace(part.ImageURL.URL)
 			}
 			blocks = append(blocks, anthropicContentBlock{
-				Type: "image",
-				Source: &anthropicSource{
-					Type:      "base64",
-					MediaType: mediaType,
-					Data:      data,
-				},
+				Type:   "image",
+				Source: source,
 			})
 		case "file":
 			if strings.TrimSpace(part.File.FileID) != "" {
-				return nil, fmt.Errorf("file.file_id is not supported for anthropic")
+				blocks = append(blocks, anthropicContentBlock{
+					Type: "document",
+					Source: &anthropicSource{
+						Type:   "file",
+						FileID: strings.TrimSpace(part.File.FileID),
+					},
+				})
+				continue
 			}
 			mediaType, data, err := contractsopenai.ParseFileDataURL(part.File.FileData)
 			if err != nil {
@@ -408,6 +1148,11 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 	return blocks, nil
 }
 
+func isHTTPURL(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	return strings.HasPrefix(value, "https://")
+}
+
 func canonicalAnthropicModel(model string) string {
 	model = strings.TrimSpace(model)
 	if model == "" {
@@ -424,30 +1169,62 @@ func canonicalAnthropicModel(model string) string {
 	return model
 }
 
-func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxTokens int) *contractsopenai.ThinkingConfig {
+func anthropicThinkingConfig(req contractsopenai.ChatCompletionRequest, maxTokens int) (*contractsopenai.ThinkingConfig, error) {
+	model := canonicalAnthropicModel(req.Model)
+	is47 := strings.Contains(model, "opus-4-7")
+	is46 := strings.Contains(model, "opus-4-6") || strings.Contains(model, "sonnet-4-6")
+	adaptiveGeneration := is47 || is46
+
 	if req.Thinking != nil {
 		if strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") {
-			return nil
+			return nil, nil
 		}
 		cfg := *req.Thinking
 		if strings.TrimSpace(cfg.Type) == "" {
 			cfg.Type = "enabled"
 		}
+		if strings.EqualFold(cfg.Type, "adaptive") {
+			if req.Temperature != nil || req.TopP != nil || req.TopK != nil {
+				return nil, fmt.Errorf("adaptive thinking cannot be combined with sampling parameters")
+			}
+			cfg.BudgetTokens = 0
+			return &cfg, nil
+		}
+		if is47 {
+			return nil, fmt.Errorf("claude opus 4.7 only supports adaptive thinking")
+		}
+		if !strings.EqualFold(cfg.Type, "enabled") {
+			return nil, fmt.Errorf("unsupported thinking type %q", cfg.Type)
+		}
 		if cfg.BudgetTokens <= 0 {
 			cfg.BudgetTokens = defaultAnthropicThinkingBudget(req.ReasoningEffort, maxTokens)
 		}
-		return &cfg
+		return &cfg, nil
 	}
 
 	effort := strings.ToLower(strings.TrimSpace(req.ReasoningEffort))
+	if adaptiveGeneration {
+		if effort == "none" {
+			return nil, nil
+		}
+		if req.Temperature != nil || req.TopP != nil || req.TopK != nil {
+			return nil, fmt.Errorf("adaptive thinking cannot be combined with sampling parameters")
+		}
+		if effort == "max" || effort == "xhigh" {
+			if !strings.Contains(model, "opus-") {
+				return nil, fmt.Errorf("reasoning_effort=max is not supported by %s", model)
+			}
+		}
+		return &contractsopenai.ThinkingConfig{Type: "adaptive"}, nil
+	}
 	if effort == "" || effort == "none" {
-		return nil
+		return nil, nil
 	}
 
 	return &contractsopenai.ThinkingConfig{
 		Type:         "enabled",
 		BudgetTokens: defaultAnthropicThinkingBudget(effort, maxTokens),
-	}
+	}, nil
 }
 
 func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
@@ -472,6 +1249,8 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	content := ""
 	reasoningContent := ""
 	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
+	toolCalls := make([]contractsopenai.ToolCall, 0)
+	citations := make([]interface{}, 0)
 	for _, block := range resp.Content {
 		switch block.Type {
 		case "text":
@@ -492,9 +1271,20 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 				thinkingBlock["data"] = block.Data
 			}
 			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
+		case "tool_use":
+			arguments, _ := json.Marshal(block.Input)
+			toolCalls = append(toolCalls, contractsopenai.ToolCall{
+				ID:   block.ID,
+				Type: "function",
+				Function: &contractsopenai.FunctionCall{
+					Name:      block.Name,
+					Arguments: string(arguments),
+				},
+			})
 		default:
 			content += block.Text
 		}
+		citations = append(citations, block.Citations...)
 	}
 
 	message := &contractsopenai.ChatMessage{
@@ -507,6 +1297,12 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	if len(thinkingBlocks) > 0 {
 		message.ThinkingBlocks = thinkingBlocks
 	}
+	if len(toolCalls) > 0 {
+		message.ToolCalls = toolCalls
+	}
+	if len(citations) > 0 {
+		message.Citations = citations
+	}
 
 	return &contractsopenai.ChatCompletionResponse{
 		ID:      resp.ID,
@@ -516,12 +1312,47 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 		Choices: []contractsopenai.Choice{{
 			Index:        0,
 			Message:      message,
-			FinishReason: resp.StopReason,
+			FinishReason: mapAnthropicStopReason(resp.StopReason),
 		}},
 		Usage: &contractsopenai.Usage{
-			PromptTokens:     resp.Usage.InputTokens,
-			CompletionTokens: resp.Usage.OutputTokens,
-			TotalTokens:      resp.Usage.InputTokens + resp.Usage.OutputTokens,
+			PromptTokens:               resp.Usage.InputTokens,
+			CompletionTokens:           resp.Usage.OutputTokens,
+			TotalTokens:                resp.Usage.InputTokens + resp.Usage.OutputTokens,
+			CacheCreationInputTokens:   resp.Usage.CacheCreationInputTokens,
+			CacheCreation5mInputTokens: resp.Usage.CacheCreation.Ephemeral5mInputTokens,
+			CacheCreation1hInputTokens: resp.Usage.CacheCreation.Ephemeral1hInputTokens,
+			CacheReadInputTokens:       resp.Usage.CacheReadInputTokens,
+			ServerToolUse:              resp.Usage.ServerToolUse,
+			ServiceTier:                resp.Usage.ServiceTier,
+			Speed:                      resp.Usage.Speed,
 		},
+	}
+}
+
+func mapAnthropicStopReason(reason string) string {
+	switch strings.TrimSpace(reason) {
+	case "end_turn", "stop_sequence", "pause_turn", "refusal":
+		return "stop"
+	case "max_tokens", "model_context_window_exceeded":
+		return "length"
+	case "tool_use":
+		return "tool_calls"
+	default:
+		return strings.TrimSpace(reason)
+	}
+}
+
+func openAIUsageFromAnthropic(usage anthropicUsage) *contractsopenai.Usage {
+	return &contractsopenai.Usage{
+		PromptTokens:               usage.InputTokens,
+		CompletionTokens:           usage.OutputTokens,
+		TotalTokens:                usage.InputTokens + usage.OutputTokens,
+		CacheCreationInputTokens:   usage.CacheCreationInputTokens,
+		CacheCreation5mInputTokens: usage.CacheCreation.Ephemeral5mInputTokens,
+		CacheCreation1hInputTokens: usage.CacheCreation.Ephemeral1hInputTokens,
+		CacheReadInputTokens:       usage.CacheReadInputTokens,
+		ServerToolUse:              usage.ServerToolUse,
+		ServiceTier:                usage.ServiceTier,
+		Speed:                      usage.Speed,
 	}
 }

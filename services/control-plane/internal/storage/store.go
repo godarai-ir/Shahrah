@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -63,6 +64,13 @@ type Store struct {
 	authzCacheMaxEntries int
 
 	runtimeProfiles *runtimeprofile.Manager
+
+	tenantCredentialStore     *platformcredentials.EncryptedDBSecretStore
+	tenantCredentialCacheMu   sync.Mutex
+	tenantCredentialCache     map[string]tenantCredentialCacheEntry
+	tenantCredentialCacheTTL  time.Duration
+	tenantCredentialLoadGroup singleflight.Group
+	tenantProviderProber      platformcredentials.CredentialProber
 }
 
 // SetEntitlementCache attaches the shared control-plane cache used by entitlement resolution.
@@ -91,6 +99,14 @@ func (s *Store) SetTokenUsageMetrics(metrics TokenUsageMetrics) {
 
 func (s *Store) SetRuntimeProfileManager(manager *runtimeprofile.Manager) {
 	s.runtimeProfiles = manager
+}
+
+func (s *Store) SetTenantCredentialStore(secretStore *platformcredentials.EncryptedDBSecretStore) {
+	s.tenantCredentialStore = secretStore
+}
+
+func (s *Store) SetTenantProviderCredentialProber(prober platformcredentials.CredentialProber) {
+	s.tenantProviderProber = prober
 }
 
 // NewStore creates a new PostgreSQL store.
@@ -138,6 +154,8 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 		authzTenantEpoch:           make(map[string]uint64),
 		authzCacheTTL:              60 * time.Second,
 		authzCacheMaxEntries:       5000,
+		tenantCredentialCache:      make(map[string]tenantCredentialCacheEntry),
+		tenantCredentialCacheTTL:   secondsEnvOrDefault("TENANT_PROVIDER_CREDENTIAL_CACHE_TTL_SECONDS", 60*time.Second),
 	}
 	if err := store.initClickHouseWithRetry(ctx); err != nil {
 		if boolEnvOrDefault("CLICKHOUSE_REQUIRED", false) {

@@ -1,7 +1,9 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { CatalogService } from './catalog.service';
 import { ModelsQueryDto } from './dto/models-query.dto';
+import { RuntimeSnapshotDto } from './dto/runtime-snapshot.dto';
 
 @ApiTags('models')
 @Controller({ path: 'models', version: '1' })
@@ -36,6 +38,12 @@ export class CatalogController {
   @Get('deprecated')
   deprecated() {
     return this.catalog.deprecatedModels();
+  }
+
+  @Get('runtime-snapshot/:providerSlug')
+  @ApiOkResponse({ type: RuntimeSnapshotDto })
+  runtimeSnapshot(@Param('providerSlug') providerSlug: string) {
+    return this.catalog.runtimeSnapshot(providerSlug);
   }
 
   @Get(':canonicalId')

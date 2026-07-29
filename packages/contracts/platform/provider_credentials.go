@@ -15,8 +15,20 @@ const (
 // only on the internal mTLS tunnel dispatch. It must never be used in metadata,
 // logs, traces, audits, analytics, or public/admin responses.
 type ResolvedProviderAuth struct {
-	Mode   string `json:"mode"`
-	APIKey string `json:"api_key,omitempty"`
+	Mode         string                    `json:"mode"`
+	APIKey       string                    `json:"api_key,omitempty"`
+	AnthropicWIF *ResolvedAnthropicWIFAuth `json:"anthropic_wif,omitempty"`
+}
+
+// ResolvedAnthropicWIFAuth contains identifiers only. Silk Road resolves the
+// allowlisted token source and performs token exchange in the Europe runtime.
+// Neither an OIDC assertion nor an exchanged access token is serialized back.
+type ResolvedAnthropicWIFAuth struct {
+	FederationRuleID string `json:"federation_rule_id"`
+	OrganizationID   string `json:"organization_id"`
+	ServiceAccountID string `json:"service_account_id"`
+	WorkspaceID      string `json:"workspace_id,omitempty"`
+	TokenSourceID    string `json:"token_source_id"`
 }
 
 type ProviderConnectionField struct {

@@ -14,13 +14,20 @@ type ChatCompletionRequest struct {
 	StreamOptions     *StreamOptions         `json:"stream_options,omitempty"`
 	Temperature       *float64               `json:"temperature,omitempty"`
 	TopP              *float64               `json:"top_p,omitempty"`
+	TopK              *int                   `json:"top_k,omitempty"`
 	MaxTokens         *int                   `json:"max_tokens,omitempty"`
+	Stop              interface{}            `json:"stop,omitempty"`
 	ReasoningEffort   string                 `json:"reasoning_effort,omitempty"`
 	Thinking          *ThinkingConfig        `json:"thinking,omitempty"`
 	ParallelToolCalls *bool                  `json:"parallel_tool_calls,omitempty"`
 	ResponseFormat    interface{}            `json:"response_format,omitempty"`
+	OutputConfig      map[string]interface{} `json:"output_config,omitempty"`
 	Tools             []ToolDefinition       `json:"tools,omitempty"`
 	ToolChoice        interface{}            `json:"tool_choice,omitempty"`
+	CacheControl      map[string]interface{} `json:"cache_control,omitempty"`
+	ServiceTier       string                 `json:"service_tier,omitempty"`
+	Speed             string                 `json:"speed,omitempty"`
+	InferenceGeo      string                 `json:"inference_geo,omitempty"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
 	User              string                 `json:"user,omitempty"`
 	PromptVersionFQN  string                 `json:"prompt_version_fqn,omitempty"`
@@ -44,6 +51,7 @@ type ChatMessage struct {
 	ThinkingBlocks   []ThinkingBlock `json:"thinking_blocks,omitempty"`
 	ToolCalls        []ToolCall      `json:"tool_calls,omitempty"`
 	ToolCallID       string          `json:"tool_call_id,omitempty"`
+	Citations        []interface{}   `json:"citations,omitempty"`
 	// FunctionCall is deprecated by OpenAI in favor of tool_calls, but retained
 	// so OpenAI-compatible providers can round-trip older responses.
 	FunctionCall *FunctionCall `json:"function_call,omitempty"`
@@ -430,9 +438,16 @@ type Choice struct {
 
 // Usage represents token usage statistics.
 type Usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+	PromptTokens               int            `json:"prompt_tokens"`
+	CompletionTokens           int            `json:"completion_tokens"`
+	TotalTokens                int            `json:"total_tokens"`
+	CacheCreationInputTokens   int            `json:"cache_creation_input_tokens,omitempty"`
+	CacheCreation5mInputTokens int            `json:"cache_creation_5m_input_tokens,omitempty"`
+	CacheCreation1hInputTokens int            `json:"cache_creation_1h_input_tokens,omitempty"`
+	CacheReadInputTokens       int            `json:"cache_read_input_tokens,omitempty"`
+	ServerToolUse              map[string]int `json:"server_tool_use,omitempty"`
+	ServiceTier                string         `json:"service_tier,omitempty"`
+	Speed                      string         `json:"speed,omitempty"`
 }
 
 // StreamChunk represents a single chunk in a streaming response.

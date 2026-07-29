@@ -1,6 +1,7 @@
 import type { PrincipalSearchKind } from "@/app/components/principal-search-input";
 export type ProviderAuthMode =
   | "api_key"
+  | "anthropic_wif"
   | "azure_entra_cert"
   | "aws_sigv4"
   | "google_service_account"
@@ -10,7 +11,7 @@ export type ProviderAuthMode =
 export type ProviderConnectionSchemaField = {
   key: string;
   label: string;
-  type: "text" | "url" | "password" | "textarea" | string;
+  type: "text" | "url" | "password" | "textarea" | "multi_select" | string;
   secret: boolean;
   required?: boolean;
   required_when?: Record<string, unknown>;
@@ -90,6 +91,7 @@ export type TenantProviderAccount = {
   provider_config?: Record<string, unknown>;
   has_credential: boolean;
   credential_hint?: string;
+  credential_rotation_required?: boolean;
   use_platform_managed_credentials: boolean;
   created_at?: string;
   updated_at?: string;

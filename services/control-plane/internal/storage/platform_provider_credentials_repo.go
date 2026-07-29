@@ -636,6 +636,11 @@ func applyPlatformCredentialRuntimeConfig(record *platformcredentials.EncryptedC
 	record.HTTPReferer = stringConfig(config, "http_referer")
 	record.AppTitle = stringConfig(config, "app_title")
 	record.ClientName = stringConfig(config, "client_name")
+	record.FederationRuleID = stringConfig(config, "federation_rule_id")
+	record.OrganizationID = stringConfig(config, "organization_id")
+	record.ServiceAccountID = stringConfig(config, "service_account_id")
+	record.WorkspaceID = stringConfig(config, "workspace_id")
+	record.TokenSourceID = stringConfig(config, "token_source_id")
 }
 func firstStringConfig(config map[string]interface{}, keys ...string) string {
 	for _, key := range keys {

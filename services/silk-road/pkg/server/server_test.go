@@ -1389,6 +1389,9 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 			"event: message_delta",
 			`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}`,
 			"",
+			"event: message_stop",
+			`data: {"type":"message_stop"}`,
+			"",
 		}, "\n")))
 	}))
 	defer upstream.Close()
@@ -1440,7 +1443,7 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 	scanner := bufio.NewScanner(strings.NewReader(streamText))
 	found := false
 	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), `"finish_reason":"end_turn"`) {
+		if strings.Contains(scanner.Text(), `"finish_reason":"stop"`) {
 			found = true
 			break
 		}

@@ -4,8 +4,10 @@ package billing
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	"github.com/shopspring/decimal"
 )
 
 // ModelPricing defines pricing for a specific model.
@@ -285,8 +287,14 @@ func FormatPrice(price float64) string {
 
 // priceInfo holds pricing info with per-token prices.
 type priceInfo struct {
-	Input  float64 // per 1K token
-	Output float64 // per 1K token
+	Input          float64 // compatibility: per 1K token
+	Output         float64 // compatibility: per 1K token
+	InputPerToken  decimal.Decimal
+	OutputPerToken decimal.Decimal
+	Rates          map[string]normalizedPricingRate
+	Revision       string
+	GeneratedAt    time.Time
+	Provider       string
 }
 
 // modelPriceFromRegistry returns pricing for a given model from the static registry.
@@ -303,14 +311,15 @@ func modelPriceFromRegistry(model string) priceInfo {
 
 	pricing, found := GetPricing(provider, modelName)
 	if !found {
-		// Return default pricing
-		return priceInfo{Input: 0.001, Output: 0.002}
+		return priceInfo{}
 	}
 
 	// Convert from per-1M to per-1K
 	return priceInfo{
-		Input:  pricing.InputPrice / 1000,
-		Output: pricing.OutputPrice / 1000,
+		Input:          pricing.InputPrice / 1000,
+		Output:         pricing.OutputPrice / 1000,
+		InputPerToken:  decimal.NewFromFloat(pricing.InputPrice).Div(decimal.NewFromInt(1_000_000)),
+		OutputPerToken: decimal.NewFromFloat(pricing.OutputPrice).Div(decimal.NewFromInt(1_000_000)),
 	}
 }
 

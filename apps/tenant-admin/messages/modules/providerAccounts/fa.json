@@ -216,6 +216,8 @@
       "managedCredentialDescription": "این حساب از اعتبارنامه مدیریت‌شده گدارAI استفاده می‌کند.",
       "managedCredentialLockedTitle": "این حساب از اعتبارنامه گدارAI استفاده می‌کند",
       "managedCredentialLockedDescription": "برای حساب‌هایی که با اعتبارنامه مدیریت‌شده گدارAI کار می‌کنند، ویرایش اعتبارنامه خصوصی در دسترس نیست.",
+      "rotationRequiredTitle": "چرخش اعتبارنامه الزامی است",
+      "rotationRequiredDescription": "این اعتبارنامه پیش‌تر به‌شکل قابل‌خواندن ذخیره شده بود. آن را با یک اعتبارنامه تازه جایگزین کنید و آزمون اتصال را دوباره اجرا کنید.",
       "privateCredentialLockedTitle": "سیاست BYOK این حساب ثابت است",
       "privateCredentialLockedDescription": "این حساب با اعتبارنامه اختصاصی ساخته شده است. می‌توانید اطلاعات اتصال را به‌روزرسانی کنید. درباره <byokLink>سیاست BYOK</byokLink> بیشتر بدانید.",
       "privateCredentialEditDescription": "اطلاعات اتصال و اعتبارنامه اختصاصی {providerName} را به‌روزرسانی کنید."

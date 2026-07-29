@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"io"
 	"strings"
 	"time"
 )
@@ -176,24 +177,53 @@ type SpendLog struct {
 	ResponseTimeMS  int                    `json:"response_time_ms"`
 	Status          string                 `json:"status"`
 	RequestMetadata map[string]interface{} `json:"request_metadata,omitempty"`
+	UsageBreakdown  *UsageCostBreakdown    `json:"usage_breakdown,omitempty"`
+	PricingSnapshot *UsagePricingSnapshot  `json:"pricing_snapshot,omitempty"`
 	CompletionStart time.Time              `json:"completion_start_time"`
 	CompletionEnd   time.Time              `json:"completion_end_time"`
 }
 
 // UsageCostBreakdown captures estimated or final cost.
+type UsageCostComponent struct {
+	Dimension    string                 `json:"dimension"`
+	Quantity     string                 `json:"quantity"`
+	Unit         string                 `json:"unit"`
+	UnitPriceUSD string                 `json:"unit_price_usd"`
+	CostUSD      string                 `json:"cost_usd"`
+	Condition    map[string]interface{} `json:"condition,omitempty"`
+}
+
+type UsagePricingSnapshot struct {
+	Provider    string                        `json:"provider"`
+	Revision    string                        `json:"revision"`
+	GeneratedAt time.Time                     `json:"generated_at"`
+	Rates       map[string]UsageCostComponent `json:"rates"`
+}
+
 type UsageCostBreakdown struct {
-	Model         string                 `json:"model"`
-	RequestType   string                 `json:"request_type,omitempty"`
-	Endpoint      string                 `json:"endpoint,omitempty"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-	InputTokens   int                    `json:"input_tokens"`
-	OutputTokens  int                    `json:"output_tokens"`
-	TotalTokens   int                    `json:"total_tokens"`
-	InputCostUSD  float64                `json:"input_cost_usd"`
-	OutputCostUSD float64                `json:"output_cost_usd"`
-	TotalCostUSD  float64                `json:"total_cost_usd"`
-	ExchangeRate  float64                `json:"exchange_rate"`
-	TotalCostIRR  float64                `json:"total_cost_irr"`
+	Model                      string                 `json:"model"`
+	RequestType                string                 `json:"request_type,omitempty"`
+	Endpoint                   string                 `json:"endpoint,omitempty"`
+	Metadata                   map[string]interface{} `json:"metadata,omitempty"`
+	InputTokens                int                    `json:"input_tokens"`
+	OutputTokens               int                    `json:"output_tokens"`
+	TotalTokens                int                    `json:"total_tokens"`
+	InputCostUSD               float64                `json:"input_cost_usd"`
+	OutputCostUSD              float64                `json:"output_cost_usd"`
+	TotalCostUSD               float64                `json:"total_cost_usd"`
+	ExchangeRate               float64                `json:"exchange_rate"`
+	TotalCostIRR               float64                `json:"total_cost_irr"`
+	CacheCreation5mInputTokens int                    `json:"cache_creation_5m_input_tokens,omitempty"`
+	CacheCreation1hInputTokens int                    `json:"cache_creation_1h_input_tokens,omitempty"`
+	CacheReadInputTokens       int                    `json:"cache_read_input_tokens,omitempty"`
+	ServerToolUse              map[string]int         `json:"server_tool_use,omitempty"`
+	ServiceTier                string                 `json:"service_tier,omitempty"`
+	Speed                      string                 `json:"speed,omitempty"`
+	Batch                      bool                   `json:"batch,omitempty"`
+	PricingRevision            string                 `json:"pricing_revision,omitempty"`
+	PricingConditions          map[string]string      `json:"pricing_conditions,omitempty"`
+	Components                 []UsageCostComponent   `json:"components,omitempty"`
+	PricingSnapshot            *UsagePricingSnapshot  `json:"pricing_snapshot,omitempty"`
 }
 
 // BudgetReservationTarget is one window reserved for a request.
@@ -297,6 +327,12 @@ type TunnelTransport interface {
 	Proxy(ctx context.Context, req TunnelRequest) (*TunnelResponse, error)
 	Stream(ctx context.Context, req TunnelRequest) (TunnelStream, error)
 	Healthy(ctx context.Context) error
+}
+
+// TunnelRawTransport streams large provider payloads without embedding them in
+// the JSON tunnel envelope.
+type TunnelRawTransport interface {
+	ProxyRaw(ctx context.Context, req TunnelRequest, body io.Reader, contentLength int64) (*TunnelRawResponse, error)
 }
 
 // ProviderForwarder forwards provider requests on the Europe side.
@@ -445,11 +481,54 @@ func (p *CreateKeyParams) Normalize() {
 }
 
 // TunnelRequest is the internal request sent over the Shahrah tunnel path.
+type ProviderOperation string
+
+const (
+	ProviderOperationChatCompletions         ProviderOperation = "chat_completions"
+	ProviderOperationAnthropicMessages       ProviderOperation = "anthropic_messages"
+	ProviderOperationAnthropicCountTokens    ProviderOperation = "anthropic_count_tokens"
+	ProviderOperationAnthropicModelsList     ProviderOperation = "anthropic_models_list"
+	ProviderOperationAnthropicModelsGet      ProviderOperation = "anthropic_models_get"
+	ProviderOperationAnthropicFilesCreate    ProviderOperation = "anthropic_files_create"
+	ProviderOperationAnthropicFilesList      ProviderOperation = "anthropic_files_list"
+	ProviderOperationAnthropicFilesGet       ProviderOperation = "anthropic_files_get"
+	ProviderOperationAnthropicFilesDelete    ProviderOperation = "anthropic_files_delete"
+	ProviderOperationAnthropicFilesContent   ProviderOperation = "anthropic_files_content"
+	ProviderOperationAnthropicBatchesCreate  ProviderOperation = "anthropic_batches_create"
+	ProviderOperationAnthropicBatchesList    ProviderOperation = "anthropic_batches_list"
+	ProviderOperationAnthropicBatchesGet     ProviderOperation = "anthropic_batches_get"
+	ProviderOperationAnthropicBatchesCancel  ProviderOperation = "anthropic_batches_cancel"
+	ProviderOperationAnthropicBatchesResults ProviderOperation = "anthropic_batches_results"
+)
+
+// ProviderOperationInput carries only identifiers and pagination fields used
+// by fixed provider operations. It never accepts an upstream path or method.
+type ProviderOperationInput struct {
+	ResourceID string `json:"resource_id,omitempty"`
+	BeforeID   string `json:"before_id,omitempty"`
+	AfterID    string `json:"after_id,omitempty"`
+	Limit      int    `json:"limit,omitempty"`
+}
+
+type AnthropicNativeResourceMapping struct {
+	PublicID          string              `json:"public_id"`
+	TenantID          string              `json:"tenant_id"`
+	ProviderAccountID string              `json:"provider_account_id"`
+	UpstreamID        string              `json:"-"`
+	Status            string              `json:"status"`
+	ReservationID     string              `json:"reservation_id,omitempty"`
+	Reservation       *BudgetReservation  `json:"reservation,omitempty"`
+	PricingRevision   string              `json:"pricing_revision,omitempty"`
+	EstimatedUsage    *UsageCostBreakdown `json:"estimated_usage,omitempty"`
+}
+
 type TunnelRequest struct {
 	RequestID       string                 `json:"request_id"`
 	TenantID        string                 `json:"tenant_id"`
 	TraceID         string                 `json:"trace_id"`
 	Stream          bool                   `json:"stream"`
+	Operation       ProviderOperation      `json:"provider_operation,omitempty"`
+	OperationInput  ProviderOperationInput `json:"provider_operation_input,omitempty"`
 	Deployment      Deployment             `json:"deployment"`
 	Headers         map[string]string      `json:"headers,omitempty"`
 	Body            []byte                 `json:"body"`
@@ -461,6 +540,12 @@ type TunnelResponse struct {
 	StatusCode int               `json:"status_code"`
 	Headers    map[string]string `json:"headers,omitempty"`
 	Body       []byte            `json:"body"`
+}
+
+type TunnelRawResponse struct {
+	StatusCode int
+	Headers    map[string]string
+	Body       io.ReadCloser
 }
 
 // TunnelChunk is a streaming chunk flowing through the tunnel path.

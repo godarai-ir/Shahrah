@@ -141,6 +141,15 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	// Estimate cost using the same billing logic
 	estimated, err := h.billing.EstimateCost(c.Context(), chatReq)
 	if err != nil {
+		if strings.HasPrefix(
+			strings.ToLower(strings.TrimSpace(resolvedModel)),
+			"anthropic",
+		) || strings.Contains(
+			strings.ToLower(strings.TrimSpace(resolvedModel)),
+			"claude-",
+		) {
+			return writeBillingEstimateError(c, err)
+		}
 		h.logger.Error("failed to estimate cost", zap.Error(err))
 
 		estimated = platform.UsageCostBreakdown{

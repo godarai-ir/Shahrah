@@ -6,7 +6,12 @@ export function defaultProviderCredentialValues(schema: ProviderConnectionSchema
   return Object.fromEntries(
     (schema?.fields ?? []).flatMap((field) => {
       const value = field.validation?.default;
-      return typeof value === "string" && value.trim() ? [[field.key, value]] : [];
+      if (typeof value === "string" && value.trim()) return [[field.key, value]];
+      if (Array.isArray(value)) {
+        const normalized = value.filter((item): item is string => typeof item === "string" && !!item.trim());
+        return normalized.length ? [[field.key, normalized.join(",")]] : [];
+      }
+      return [];
     }),
   );
 }
@@ -21,6 +26,9 @@ export function providerCredentialValuesForSchema(
     if (field.scope !== "connection") continue;
     const value = providerConfig?.[field.key];
     if (typeof value === "string") values[field.key] = value;
+    else if (Array.isArray(value)) {
+      values[field.key] = value.filter((item): item is string => typeof item === "string").join(",");
+    }
     else if (typeof value === "number" || typeof value === "boolean") values[field.key] = String(value);
   }
 
@@ -38,14 +46,16 @@ export function buildProviderCredentialPayload(
   schema: ProviderConnectionSchema | null,
   values: ProviderCredentialValues,
 ) {
-  const providerConfig: Record<string, string> = {};
+  const providerConfig: Record<string, unknown> = {};
   const rawCredentials: Record<string, string> = {};
 
   for (const field of schema?.fields ?? []) {
     const value = values[field.key]?.trim();
     if (!value) continue;
     if (field.scope === "credential") rawCredentials[field.key] = value;
-    else providerConfig[field.key] = value;
+    else if (field.type === "multi_select") {
+      providerConfig[field.key] = value.split(",").map((item) => item.trim()).filter(Boolean);
+    } else providerConfig[field.key] = value;
   }
 
   const credentials: Record<string, unknown> = {};
