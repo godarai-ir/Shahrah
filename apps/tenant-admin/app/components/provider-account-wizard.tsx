@@ -60,6 +60,7 @@ import type {
   AccountDetailsResponse,
   AccountsResponse,
   Banner,
+  CredentialTestResult,
   ModelDraft,
   ProviderAccountWizardMode,
   ProviderAuthMode,
@@ -75,6 +76,7 @@ import type {
   WorkspaceMode,
   WorkspaceTab,
 } from "@/app/components/provider-account-wizard/types";
+import { WIFCredentialStatus } from "@/app/components/provider-account-wizard/wif-credential-status";
 import {
   CreateFlowStepIndicator,
   type CreateWizardSectionID,
@@ -207,7 +209,9 @@ export default function ProviderAccountWizard(props?: {
   const [users, setUsers] = useState<AccessPrincipal[]>([]);
   const accessAutosaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const [createCredentialTestResult, setCreateCredentialTestResult] = useState<Banner | null>(null);
+  const [createCredentialTestResult, setCreateCredentialTestResult] = useState<
+    (Banner & Partial<CredentialTestResult>) | null
+  >(null);
   const [activeCreateSection, setActiveCreateSection] = useState<CreateWizardSectionID>("details");
   const [furthestCreateStepIndex, setFurthestCreateStepIndex] = useState(0);
   const [providerSearch, setProviderSearch] = useState("");
@@ -942,7 +946,7 @@ export default function ProviderAccountWizard(props?: {
 
     setIsTesting(true);
     try {
-      const result = await requestJSON<{ success: boolean; unsupported?: boolean; message?: string }>(
+      const result = await requestJSON<CredentialTestResult>(
         "/api/provider-connections/test",
         {
           method: "POST",
@@ -958,7 +962,7 @@ export default function ProviderAccountWizard(props?: {
           }),
         },
       );
-      const payload = unwrapData<{ success: boolean; unsupported?: boolean; message?: string }>(result) ?? result;
+      const payload = unwrapData<CredentialTestResult>(result) ?? result;
       const rawMessage =
         payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
       const message = payload.unsupported
@@ -967,6 +971,7 @@ export default function ProviderAccountWizard(props?: {
           ? ux("integrations.wizard.connectionTestSuccess", { message: rawMessage })
         : ux("integrations.wizard.connectionTestFailed", { message: rawMessage });
       setCreateCredentialTestResult({
+        ...payload,
         kind: payload.unsupported ? "warning" : payload.success ? "success" : "error",
         message,
       });
@@ -1177,14 +1182,15 @@ export default function ProviderAccountWizard(props?: {
     }
     setIsTesting(true);
     try {
-      const result = await requestJSON<{ success: boolean; message?: string }>(
+      const result = await requestJSON<CredentialTestResult>(
         `/api/tenant-provider-accounts/${encodeURIComponent(selectedAccountID)}/test-credentials`,
         { method: "POST", body: JSON.stringify({}) },
       );
-      const payload = unwrapData<{ success: boolean; message?: string }>(result) ?? result;
+      const payload = unwrapData<CredentialTestResult>(result) ?? result;
       const nextMessage =
         payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
       setCreateCredentialTestResult({
+        ...payload,
         kind: payload.success ? "success" : "error",
         message: payload.success
           ? ux("integrations.wizard.connectionTestSuccess", { message: nextMessage })
@@ -1784,6 +1790,7 @@ export default function ProviderAccountWizard(props?: {
                                     <AlertDescription>{createCredentialTestResult.message}</AlertDescription>
                                   </Alert>
                                 ) : null}
+                                <WIFCredentialStatus result={createCredentialTestResult} />
                               </FieldGroup>
                             ) : null}
                           </RadioGroup>
@@ -2771,6 +2778,7 @@ export default function ProviderAccountWizard(props?: {
                                       <AlertDescription>{createCredentialTestResult.message}</AlertDescription>
                                     </Alert>
                                   ) : null}
+                                  <WIFCredentialStatus result={createCredentialTestResult} />
                                 </FieldGroup>
                               </div>
 

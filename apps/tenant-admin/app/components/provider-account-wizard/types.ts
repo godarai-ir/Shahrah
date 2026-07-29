@@ -97,6 +97,15 @@ export type TenantProviderAccount = {
   updated_at?: string;
 };
 
+export type CredentialTestResult = {
+  success: boolean;
+  unsupported?: boolean;
+  message?: string;
+  wif_effective_scopes?: string[];
+  wif_expires_at?: string;
+  wif_last_refresh_at?: string;
+};
+
 export type ProviderAccountReadiness =
   | "ready"
   | "needs_models"

@@ -255,6 +255,84 @@ func TestAnthropicConversionRejectsProfileDisallowedSamplingParameter(
 	}
 }
 
+func TestAnthropicConversionPreservesTypedServerTool(t *testing.T) {
+	maxUses := 3
+	request := contractsopenai.ChatCompletionRequest{
+		Model: "claude-opus-4-7",
+		Tools: []contractsopenai.ToolDefinition{{
+			Type:           "web_search_20260209",
+			Name:           "web_search",
+			AllowedCallers: []string{"direct"},
+			AllowedDomains: []string{"platform.claude.com"},
+			MaxUses:        &maxUses,
+		}},
+		Messages: []contractsopenai.ChatMessage{{
+			Role: "user", Content: "search",
+		}},
+	}
+	binding := anthropicTestRuntimeProfile(request.Model)
+	binding.Profile.Tools.Server = true
+
+	converted, err := convertToAnthropicRequest(request, binding.Profile)
+
+	if err != nil {
+		t.Fatalf("convertToAnthropicRequest: %v", err)
+	}
+	if len(converted.Tools) != 1 ||
+		converted.Tools[0].Type != "web_search_20260209" ||
+		converted.Tools[0].Name != "web_search" ||
+		converted.Tools[0].MaxUses == nil ||
+		*converted.Tools[0].MaxUses != maxUses ||
+		len(converted.Tools[0].AllowedDomains) != 1 {
+		t.Fatalf("server tool was not preserved: %#v", converted.Tools)
+	}
+}
+
+func TestAnthropicConversionRejectsUnknownServerToolVersion(t *testing.T) {
+	request := contractsopenai.ChatCompletionRequest{
+		Model: "claude-opus-4-7",
+		Tools: []contractsopenai.ToolDefinition{{
+			Type: "web_search_20990101",
+			Name: "web_search",
+		}},
+		Messages: []contractsopenai.ChatMessage{{
+			Role: "user", Content: "search",
+		}},
+	}
+	binding := anthropicTestRuntimeProfile(request.Model)
+	binding.Profile.Tools.Server = true
+
+	_, err := convertToAnthropicRequest(request, binding.Profile)
+	if err == nil || !strings.Contains(err.Error(), "unsupported Anthropic tool type") {
+		t.Fatalf("expected unknown server tool version rejection, got %v", err)
+	}
+}
+
+func TestAnthropicResponsePreservesServerToolBlocks(t *testing.T) {
+	var response anthropicResponse
+	if err := json.Unmarshal([]byte(`{
+		"id":"msg_server_tool",
+		"content":[
+			{"type":"server_tool_use","id":"srv_1","name":"web_search","input":{"query":"Claude"}},
+			{"type":"web_search_tool_result","tool_use_id":"srv_1","content":[{"type":"web_search_result","url":"https://platform.claude.com"}]}
+		],
+		"usage":{"input_tokens":10,"output_tokens":20,"server_tool_use":{"web_search_requests":1}},
+		"stop_reason":"end_turn"
+	}`), &response); err != nil {
+		t.Fatal(err)
+	}
+
+	converted := convertToOpenAIResponse(response, "claude-opus-4-7")
+	message := converted.Choices[0].Message
+	if message == nil || len(message.ProviderContent) != 2 {
+		t.Fatalf("server-tool content was not preserved: %#v", message)
+	}
+	if converted.Usage == nil ||
+		converted.Usage.ServerToolUse["web_search_requests"] != 1 {
+		t.Fatalf("server-tool usage was not preserved: %#v", converted.Usage)
+	}
+}
+
 func TestAnthropicBetaHeadersIntersectAccountAndRuntimeProfile(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/", nil)
 	binding := anthropicTestRuntimeProfile("claude-opus-4-7")
@@ -346,7 +424,7 @@ func anthropicTestRuntimeProfile(
 				DisallowedWithThinking: []string{"temperature", "top_p", "top_k"},
 			},
 			Tools: platform.ModelRuntimeToolsProfile{
-				Custom: true, Parallel: true, StructuredOutput: true,
+				Custom: true, Server: true, Parallel: true, StructuredOutput: true,
 			},
 			Modalities: platform.ModelRuntimeModalities{
 				Input: []string{"text", "image", "pdf"}, Output: []string{"text"},
@@ -420,6 +498,92 @@ func TestAnthropicTypedOperationRequiresResourceID(t *testing.T) {
 	_, _, _, err := anthropicOperationTarget(platform.ProviderOperationAnthropicFilesContent, platform.ProviderOperationInput{})
 	if err == nil {
 		t.Fatal("expected resource_id validation error")
+	}
+}
+
+func TestAnthropicBatchAutomaticallyEnablesModelScoped300KOutputBeta(
+	t *testing.T,
+) {
+	gotBeta := ""
+	upstream := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, request *http.Request) {
+			gotBeta = request.Header.Get("anthropic-beta")
+			_, _ = io.WriteString(
+				w,
+				`{"id":"msgbatch_1","type":"message_batch"}`,
+			)
+		},
+	))
+	defer upstream.Close()
+
+	binding := anthropicTestRuntimeProfile("claude-opus-4-7")
+	binding.Profile.BetaHeaders = append(
+		binding.Profile.BetaHeaders,
+		"output-300k-2026-03-24",
+	)
+	binding.Profile.BetaCapabilities = []platform.ModelRuntimeBetaCapability{{
+		Header:          "output-300k-2026-03-24",
+		Endpoints:       []string{"message_batches"},
+		MaxOutputTokens: 300000,
+	}}
+	response, err := (&anthropicAdapter{}).Dispatch(
+		t.Context(),
+		upstream.Client(),
+		platform.TunnelRequest{
+			Operation: platform.ProviderOperationAnthropicBatchesCreate,
+			Body: []byte(`{"requests":[{"custom_id":"long","params":{
+				"model":"claude-opus-4-7",
+				"max_tokens":300000,
+				"messages":[{"role":"user","content":"write"}]
+			}}]}`),
+			Deployment: platform.Deployment{
+				Provider: "anthropic", APIBase: upstream.URL,
+				APIKey: "sk-provider",
+				ProviderHeaders: map[string]string{
+					"Anthropic-Beta-Allowlist": "output-300k-2026-03-24",
+				},
+			},
+			ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{binding},
+		},
+	)
+	if err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+	defer response.Body.Close()
+	if gotBeta != "output-300k-2026-03-24" {
+		t.Fatalf("expected 300k beta header, got %q", gotBeta)
+	}
+}
+
+func TestAnthropicBatchRejects300KOutputWithoutAccountAllowlist(
+	t *testing.T,
+) {
+	binding := anthropicTestRuntimeProfile("claude-opus-4-7")
+	binding.Profile.BetaHeaders = append(
+		binding.Profile.BetaHeaders,
+		"output-300k-2026-03-24",
+	)
+	binding.Profile.BetaCapabilities = []platform.ModelRuntimeBetaCapability{{
+		Header:          "output-300k-2026-03-24",
+		Endpoints:       []string{"message_batches"},
+		MaxOutputTokens: 300000,
+	}}
+	_, err := (&anthropicAdapter{}).Dispatch(
+		t.Context(),
+		http.DefaultClient,
+		platform.TunnelRequest{
+			Operation: platform.ProviderOperationAnthropicBatchesCreate,
+			Body: []byte(`{"requests":[{"custom_id":"long","params":{
+				"model":"claude-opus-4-7",
+				"max_tokens":300000,
+				"messages":[{"role":"user","content":"write"}]
+			}}]}`),
+			Deployment:           platform.Deployment{Provider: "anthropic"},
+			ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{binding},
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "provider account") {
+		t.Fatalf("expected account allowlist rejection, got %v", err)
 	}
 }
 

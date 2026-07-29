@@ -16,6 +16,7 @@ const validProfile = {
   },
   tools: {
     custom: true,
+    server: true,
     parallel: true,
     structuredOutput: true,
   },
@@ -55,6 +56,45 @@ describe('modelRuntimeProfileSchema', () => {
     const result = modelRuntimeProfileSchema.safeParse({
       ...validProfile,
       unsupportedBehavior: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('validates endpoint-scoped beta limits and effective speed', () => {
+    const parsed = modelRuntimeProfileSchema.parse({
+      ...validProfile,
+      endpoints: [...validProfile.endpoints, 'message_batches'],
+      requestControls: {
+        serviceTierValues: ['auto'],
+        inferenceGeoValues: ['global'],
+        speedValues: ['standard', 'fast'],
+        effectiveSpeed: { standard: 'standard', fast: 'standard' },
+      },
+      betaHeaders: ['output-300k-2026-03-24'],
+      betaCapabilities: [
+        {
+          header: 'output-300k-2026-03-24',
+          endpoints: ['message_batches'],
+          maxOutputTokens: 300_000,
+        },
+      ],
+    });
+
+    expect(parsed.requestControls.effectiveSpeed.fast).toBe('standard');
+    expect(parsed.betaCapabilities[0]?.maxOutputTokens).toBe(300_000);
+  });
+
+  it('rejects a beta capability whose header is not allowlisted', () => {
+    const result = modelRuntimeProfileSchema.safeParse({
+      ...validProfile,
+      betaCapabilities: [
+        {
+          header: 'output-300k-2026-03-24',
+          endpoints: ['messages'],
+          maxOutputTokens: 300_000,
+        },
+      ],
     });
 
     expect(result.success).toBe(false);

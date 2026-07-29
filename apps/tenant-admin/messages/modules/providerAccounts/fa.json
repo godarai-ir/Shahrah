@@ -249,7 +249,11 @@
       "errorTitle": "تست اتصال ناموفق بود",
       "warningTitle": "هشدار اتصال",
       "infoTitle": "تست اتصال",
-      "credentialHint": "اعتبارنامه ذخیره‌شده"
+      "credentialHint": "اعتبارنامه ذخیره‌شده",
+      "wifStatus": "وضعیت هویت کاری Anthropic",
+      "wifScopes": "دامنه‌های مؤثر WIF",
+      "wifExpiresAt": "زمان انقضای توکن دسترسی",
+      "wifLastRefreshAt": "آخرین نوسازی توکن"
     },
     "accessTester": {
       "title": "تست دسترسی‌های مجاز",

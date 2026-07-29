@@ -62,6 +62,52 @@ func TestValidateThinkingConfigAcceptsAdaptiveForProfileValidation(
 	)
 }
 
+func TestAnthropicOpenAIToolPricingPolicyPinsFreeCodeExecution(
+	t *testing.T,
+) {
+	request := contractsopenai.ChatCompletionRequest{
+		Tools: []contractsopenai.ToolDefinition{
+			{Type: "web_search_20260209", Name: "web_search"},
+			{Type: "code_execution_20260521", Name: "code_execution"},
+		},
+	}
+
+	conditions, err := anthropicOpenAIToolPricingPolicy(request)
+
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		platform.AnthropicCodeExecutionFreeWithCurrentWebTools,
+		conditions[platform.AnthropicCodeExecutionPricingCondition],
+	)
+}
+
+func TestAnthropicOpenAIToolPricingPolicyRejectsBillableCodeExecution(
+	t *testing.T,
+) {
+	request := contractsopenai.ChatCompletionRequest{
+		Tools: []contractsopenai.ToolDefinition{{
+			Type: "code_execution_20260521", Name: "code_execution",
+		}},
+	}
+
+	_, err := anthropicOpenAIToolPricingPolicy(request)
+
+	require.ErrorContains(t, err, "billable")
+}
+
+func TestAnthropicEffectiveSpeedMetadataRecordsFallback(t *testing.T) {
+	metadata := withAnthropicEffectiveSpeedMetadata(
+		map[string]interface{}{"caller": "test"},
+		"fast",
+		"standard",
+	)
+
+	require.Equal(t, "fast", metadata["requested_speed"])
+	require.Equal(t, "standard", metadata["effective_speed"])
+	require.Equal(t, "test", metadata["caller"])
+}
+
 func TestRuntimeProfilesFromEstimateRequiresSamePinnedRevision(t *testing.T) {
 	binding := testAnthropicRuntimeProfileBinding("claude-opus-4-7")
 	estimated := platform.UsageCostBreakdown{
@@ -102,7 +148,7 @@ func testAnthropicRuntimeProfileBinding(
 				DisallowedWithThinking: []string{"temperature", "top_p", "top_k"},
 			},
 			Tools: platform.ModelRuntimeToolsProfile{
-				Custom: true, Parallel: true, StructuredOutput: true,
+				Custom: true, Server: true, Parallel: true, StructuredOutput: true,
 			},
 			Modalities: platform.ModelRuntimeModalities{
 				Input: []string{"text", "image", "pdf"}, Output: []string{"text"},

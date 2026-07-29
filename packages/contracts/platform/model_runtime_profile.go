@@ -9,16 +9,17 @@ import (
 // ModelRuntimeProfile is the versioned provider behavior contract imported
 // from Model Discovery. Field names intentionally match the catalog JSON.
 type ModelRuntimeProfile struct {
-	Version          int                         `json:"version"`
-	Endpoints        []string                    `json:"endpoints"`
-	Thinking         ModelRuntimeThinkingProfile `json:"thinking"`
-	AssistantPrefill bool                        `json:"assistantPrefill"`
-	Sampling         ModelRuntimeSamplingProfile `json:"sampling"`
-	Tools            ModelRuntimeToolsProfile    `json:"tools"`
-	Modalities       ModelRuntimeModalities      `json:"modalities"`
-	RequestControls  ModelRuntimeRequestControls `json:"requestControls"`
-	BetaHeaders      []string                    `json:"betaHeaders"`
-	Limits           ModelRuntimeLimits          `json:"limits"`
+	Version          int                          `json:"version"`
+	Endpoints        []string                     `json:"endpoints"`
+	Thinking         ModelRuntimeThinkingProfile  `json:"thinking"`
+	AssistantPrefill bool                         `json:"assistantPrefill"`
+	Sampling         ModelRuntimeSamplingProfile  `json:"sampling"`
+	Tools            ModelRuntimeToolsProfile     `json:"tools"`
+	Modalities       ModelRuntimeModalities       `json:"modalities"`
+	RequestControls  ModelRuntimeRequestControls  `json:"requestControls"`
+	BetaHeaders      []string                     `json:"betaHeaders"`
+	BetaCapabilities []ModelRuntimeBetaCapability `json:"betaCapabilities,omitempty"`
+	Limits           ModelRuntimeLimits           `json:"limits"`
 }
 
 type ModelRuntimeThinkingProfile struct {
@@ -35,6 +36,7 @@ type ModelRuntimeSamplingProfile struct {
 
 type ModelRuntimeToolsProfile struct {
 	Custom           bool `json:"custom"`
+	Server           bool `json:"server"`
 	Parallel         bool `json:"parallel"`
 	StructuredOutput bool `json:"structuredOutput"`
 }
@@ -45,9 +47,16 @@ type ModelRuntimeModalities struct {
 }
 
 type ModelRuntimeRequestControls struct {
-	ServiceTierValues  []string `json:"serviceTierValues"`
-	InferenceGeoValues []string `json:"inferenceGeoValues"`
-	SpeedValues        []string `json:"speedValues"`
+	ServiceTierValues  []string          `json:"serviceTierValues"`
+	InferenceGeoValues []string          `json:"inferenceGeoValues"`
+	SpeedValues        []string          `json:"speedValues"`
+	EffectiveSpeed     map[string]string `json:"effectiveSpeed,omitempty"`
+}
+
+type ModelRuntimeBetaCapability struct {
+	Header          string   `json:"header"`
+	Endpoints       []string `json:"endpoints"`
+	MaxOutputTokens int      `json:"maxOutputTokens,omitempty"`
 }
 
 type ModelRuntimeLimits struct {
@@ -184,10 +193,50 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported speed %q", value)
 		}
 	}
+	for requested, effective := range profile.RequestControls.EffectiveSpeed {
+		if !profile.AllowsSpeed(requested) {
+			return fmt.Errorf(
+				"effective speed mapping uses unsupported request %q",
+				requested,
+			)
+		}
+		if !containsRuntimeValue([]string{"standard", "fast"}, effective) {
+			return fmt.Errorf("unsupported effective speed %q", effective)
+		}
+	}
 	for _, header := range profile.BetaHeaders {
 		if strings.TrimSpace(header) == "" ||
 			strings.ContainsAny(header, ",\r\n") {
 			return fmt.Errorf("invalid beta header %q", header)
+		}
+	}
+	for _, capability := range profile.BetaCapabilities {
+		if !profile.AllowsBetaHeader(capability.Header) {
+			return fmt.Errorf(
+				"beta capability header %q is not allowlisted",
+				capability.Header,
+			)
+		}
+		if len(capability.Endpoints) == 0 {
+			return fmt.Errorf(
+				"beta capability %q requires endpoints",
+				capability.Header,
+			)
+		}
+		for _, endpoint := range capability.Endpoints {
+			if !profile.AllowsEndpoint(endpoint) {
+				return fmt.Errorf(
+					"beta capability %q uses unsupported endpoint %q",
+					capability.Header,
+					endpoint,
+				)
+			}
+		}
+		if capability.MaxOutputTokens < 0 {
+			return fmt.Errorf(
+				"beta capability %q max output tokens cannot be negative",
+				capability.Header,
+			)
 		}
 	}
 	if profile.Limits.ContextWindow <= 0 ||
@@ -249,6 +298,54 @@ func (profile ModelRuntimeProfile) AllowsInferenceGeo(value string) bool {
 
 func (profile ModelRuntimeProfile) AllowsSpeed(value string) bool {
 	return containsRuntimeValue(profile.RequestControls.SpeedValues, value)
+}
+
+func (profile ModelRuntimeProfile) EffectiveSpeed(value string) string {
+	requested := strings.ToLower(strings.TrimSpace(value))
+	if requested == "" {
+		return ""
+	}
+	for key, effective := range profile.RequestControls.EffectiveSpeed {
+		if strings.EqualFold(strings.TrimSpace(key), requested) {
+			return strings.ToLower(strings.TrimSpace(effective))
+		}
+	}
+	if profile.AllowsSpeed(requested) {
+		return requested
+	}
+	return ""
+}
+
+func (profile ModelRuntimeProfile) MaxOutputTokensFor(
+	endpoint string,
+	betaHeaders []string,
+) int {
+	limit := profile.Limits.MaxOutputTokens
+	for _, capability := range profile.BetaCapabilities {
+		if capability.MaxOutputTokens <= limit ||
+			!containsRuntimeValue(capability.Endpoints, endpoint) ||
+			!containsRuntimeValue(betaHeaders, capability.Header) {
+			continue
+		}
+		limit = capability.MaxOutputTokens
+	}
+	return limit
+}
+
+func (profile ModelRuntimeProfile) RequiredBetaHeaderForOutput(
+	endpoint string,
+	maxOutputTokens int,
+) string {
+	if maxOutputTokens <= profile.Limits.MaxOutputTokens {
+		return ""
+	}
+	for _, capability := range profile.BetaCapabilities {
+		if capability.MaxOutputTokens >= maxOutputTokens &&
+			containsRuntimeValue(capability.Endpoints, endpoint) {
+			return capability.Header
+		}
+	}
+	return ""
 }
 
 func FindModelRuntimeProfile(

@@ -45,6 +45,9 @@ type tenantAdminOTPEmail struct {
 const tenantAdminEmailBrandName = "گدارAI"
 const tenantAdminEmailProductURL = "https://godarai.ir"
 const tenantAdminEmailSupportEmail = "support@godarai.ir"
+const defaultResendFromEmail = "auth@notifications.godarai.ir"
+const defaultResendFromName = tenantAdminEmailBrandName
+const defaultResendReplyTo = tenantAdminEmailSupportEmail
 
 func NewOTPEmailSenderFromEnv() OTPEmailSender {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("NODE_ENV")), "production") {
@@ -87,13 +90,22 @@ func newResendOTPEmailSenderFromEnv() OTPEmailSender {
 	return &resendOTPEmailSender{
 		enabled:   enabled,
 		apiKey:    strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
-		fromEmail: strings.TrimSpace(os.Getenv("RESEND_FROM_EMAIL")),
-		fromName:  defaultIfEmpty(strings.TrimSpace(os.Getenv("RESEND_FROM_NAME")), "GodarAI"),
-		replyTo:   strings.TrimSpace(os.Getenv("RESEND_REPLY_TO")),
+		fromEmail: resolveResendFromEmail(os.Getenv("RESEND_FROM_EMAIL")),
+		fromName:  defaultIfEmpty(strings.TrimSpace(os.Getenv("RESEND_FROM_NAME")), defaultResendFromName),
+		replyTo:   defaultIfEmpty(strings.TrimSpace(os.Getenv("RESEND_REPLY_TO")), defaultResendReplyTo),
 		client: resend.NewCustomClient(&http.Client{
 			Timeout: 10 * time.Second,
 		}, strings.TrimSpace(os.Getenv("RESEND_API_KEY"))),
 	}
+}
+
+func resolveResendFromEmail(configuredEmail string) string {
+	normalizedEmail := strings.TrimSpace(configuredEmail)
+	if strings.HasSuffix(strings.ToLower(normalizedEmail), "@notifications.godarai.ir") {
+		return normalizedEmail
+	}
+
+	return defaultResendFromEmail
 }
 
 func (s *smtpOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, otpCode string, expiresInMinutes int) error {
@@ -149,8 +161,8 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 		return nil
 	}
 
-	if s.apiKey == "" || s.fromEmail == "" {
-		return fmt.Errorf("RESEND_API_KEY and RESEND_FROM_EMAIL are required when NODE_ENV=production")
+	if s.apiKey == "" {
+		return fmt.Errorf("RESEND_API_KEY is required when NODE_ENV=production")
 	}
 
 	email := renderTenantAdminOTPEmail(tenantSlug, otpCode, expiresInMinutes)

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -72,8 +73,20 @@ func validateAnthropicChatRuntimeProfile(
 	if chatRequestHasFile(req) && !profile.AllowsInputModality("pdf") {
 		return fmt.Errorf("model does not support PDF input")
 	}
-	if len(req.Tools) > 0 && !profile.Tools.Custom {
-		return fmt.Errorf("model does not support custom tools")
+	for _, tool := range req.Tools {
+		if strings.EqualFold(strings.TrimSpace(tool.Type), "function") {
+			if !profile.Tools.Custom {
+				return fmt.Errorf("model does not support custom tools")
+			}
+			continue
+		}
+		if isAnthropicServerToolType(tool.Type) {
+			if !profile.Tools.Server {
+				return fmt.Errorf("model does not support server tools")
+			}
+			continue
+		}
+		return fmt.Errorf("unsupported Anthropic tool type %q", tool.Type)
 	}
 	if req.ParallelToolCalls != nil &&
 		*req.ParallelToolCalls &&
@@ -194,4 +207,72 @@ func normalizeProfileEffort(value string) string {
 	default:
 		return ""
 	}
+}
+
+func isAnthropicServerToolType(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	_, ok := map[string]struct{}{
+		"web_search_20260318":     {},
+		"web_search_20260209":     {},
+		"web_search_20250305":     {},
+		"web_fetch_20260318":      {},
+		"web_fetch_20260309":      {},
+		"web_fetch_20260209":      {},
+		"web_fetch_20250910":      {},
+		"code_execution_20260521": {},
+		"code_execution_20260120": {},
+		"code_execution_20250825": {},
+	}[value]
+	return ok
+}
+
+func anthropicOpenAIToolPricingPolicy(
+	req contractsopenai.ChatCompletionRequest,
+) (map[string]string, error) {
+	body, err := json.Marshal(struct {
+		Tools []contractsopenai.ToolDefinition `json:"tools,omitempty"`
+	}{
+		Tools: req.Tools,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("invalid Anthropic tools")
+	}
+	return anthropicCodeExecutionPricingPolicy(
+		body,
+		platform.ProviderOperationAnthropicMessages,
+	)
+}
+
+func mergePricingConditions(
+	base map[string]string,
+	additional map[string]string,
+) map[string]string {
+	if len(additional) == 0 {
+		return base
+	}
+	if base == nil {
+		base = make(map[string]string, len(additional))
+	}
+	for key, value := range additional {
+		base[key] = value
+	}
+	return base
+}
+
+func withAnthropicEffectiveSpeedMetadata(
+	metadata map[string]interface{},
+	requested, effective string,
+) map[string]interface{} {
+	requested = strings.ToLower(strings.TrimSpace(requested))
+	effective = strings.ToLower(strings.TrimSpace(effective))
+	if requested == "" || effective == "" {
+		return metadata
+	}
+	result := make(map[string]interface{}, len(metadata)+2)
+	for key, value := range metadata {
+		result[key] = value
+	}
+	result["requested_speed"] = requested
+	result["effective_speed"] = effective
+	return result
 }

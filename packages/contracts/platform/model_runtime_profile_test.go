@@ -51,6 +51,43 @@ func TestTunnelRequestPreservesModelRuntimeProfileBinding(t *testing.T) {
 	}
 }
 
+func TestModelRuntimeProfileResolvesEffectiveSpeedAndBetaOutputLimit(
+	t *testing.T,
+) {
+	profile := validModelRuntimeProfileBinding().Profile
+	profile.Endpoints = append(profile.Endpoints, "message_batches")
+	profile.RequestControls.SpeedValues = []string{"standard", "fast"}
+	profile.RequestControls.EffectiveSpeed = map[string]string{
+		"standard": "standard",
+		"fast":     "standard",
+	}
+	profile.BetaHeaders = append(
+		profile.BetaHeaders,
+		"output-300k-2026-03-24",
+	)
+	profile.BetaCapabilities = []ModelRuntimeBetaCapability{{
+		Header:          "output-300k-2026-03-24",
+		Endpoints:       []string{"message_batches"},
+		MaxOutputTokens: 300000,
+	}}
+
+	if got := profile.EffectiveSpeed("fast"); got != "standard" {
+		t.Fatalf("expected standard effective speed, got %q", got)
+	}
+	if got := profile.MaxOutputTokensFor(
+		"message_batches",
+		[]string{"output-300k-2026-03-24"},
+	); got != 300000 {
+		t.Fatalf("expected 300k beta output limit, got %d", got)
+	}
+	if got := profile.MaxOutputTokensFor(
+		"messages",
+		[]string{"output-300k-2026-03-24"},
+	); got != profile.Limits.MaxOutputTokens {
+		t.Fatalf("messages endpoint must retain base limit, got %d", got)
+	}
+}
+
 func validModelRuntimeProfileBinding() ModelRuntimeProfileBinding {
 	return ModelRuntimeProfileBinding{
 		Provider:        "anthropic",
@@ -74,6 +111,7 @@ func validModelRuntimeProfileBinding() ModelRuntimeProfileBinding {
 			},
 			Tools: ModelRuntimeToolsProfile{
 				Custom:           true,
+				Server:           true,
 				Parallel:         true,
 				StructuredOutput: true,
 			},

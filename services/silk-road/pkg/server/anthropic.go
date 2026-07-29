@@ -64,6 +64,7 @@ type anthropicContentBlock struct {
 	IsError      bool                   `json:"is_error,omitempty"`
 	CacheControl map[string]interface{} `json:"cache_control,omitempty"`
 	Citations    []interface{}          `json:"citations,omitempty"`
+	ProviderData map[string]interface{} `json:"-"`
 }
 
 type anthropicSource struct {
@@ -75,10 +76,18 @@ type anthropicSource struct {
 }
 
 type anthropicTool struct {
-	Name         string                 `json:"name"`
-	Description  string                 `json:"description,omitempty"`
-	InputSchema  map[string]interface{} `json:"input_schema"`
-	CacheControl map[string]interface{} `json:"cache_control,omitempty"`
+	Type           string                 `json:"type,omitempty"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description,omitempty"`
+	InputSchema    map[string]interface{} `json:"input_schema,omitempty"`
+	AllowedCallers []string               `json:"allowed_callers,omitempty"`
+	AllowedDomains []string               `json:"allowed_domains,omitempty"`
+	BlockedDomains []string               `json:"blocked_domains,omitempty"`
+	MaxUses        *int                   `json:"max_uses,omitempty"`
+	UserLocation   map[string]interface{} `json:"user_location,omitempty"`
+	CacheControl   map[string]interface{} `json:"cache_control,omitempty"`
+	Strict         *bool                  `json:"strict,omitempty"`
+	DeferLoading   *bool                  `json:"defer_loading,omitempty"`
 }
 
 type anthropicToolChoice struct {
@@ -134,14 +143,47 @@ type anthropicStreamEvent struct {
 	} `json:"message,omitempty"`
 	ContentBlock anthropicContentBlock `json:"content_block,omitempty"`
 	Usage        anthropicUsage        `json:"usage,omitempty"`
-	Delta        struct {
-		Type        string `json:"type,omitempty"`
-		Text        string `json:"text,omitempty"`
-		Thinking    string `json:"thinking,omitempty"`
-		Signature   string `json:"signature,omitempty"`
-		PartialJSON string `json:"partial_json,omitempty"`
-		StopReason  string `json:"stop_reason,omitempty"`
-	} `json:"delta,omitempty"`
+	Delta        anthropicStreamDelta  `json:"delta,omitempty"`
+}
+
+type anthropicStreamDelta struct {
+	Type         string                 `json:"type,omitempty"`
+	Text         string                 `json:"text,omitempty"`
+	Thinking     string                 `json:"thinking,omitempty"`
+	Signature    string                 `json:"signature,omitempty"`
+	PartialJSON  string                 `json:"partial_json,omitempty"`
+	StopReason   string                 `json:"stop_reason,omitempty"`
+	ProviderData map[string]interface{} `json:"-"`
+}
+
+func (block *anthropicContentBlock) UnmarshalJSON(data []byte) error {
+	type alias anthropicContentBlock
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*block = anthropicContentBlock(decoded)
+	block.ProviderData = raw
+	return nil
+}
+
+func (delta *anthropicStreamDelta) UnmarshalJSON(data []byte) error {
+	type alias anthropicStreamDelta
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*delta = anthropicStreamDelta(decoded)
+	delta.ProviderData = raw
+	return nil
 }
 
 func newAnthropicAdapter() providerAdapter {
@@ -209,10 +251,11 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 		req.Header.Set("Accept", "text/event-stream")
 	}
 
-	resp, err := client.Do(req)
+	resp, err := doAnthropicRequest(ctx, client, req, false)
 	if err != nil {
 		return nil, err
 	}
+	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		return &adapterResponse{
@@ -259,6 +302,11 @@ func anthropicWIFConnectionKey(deployment platform.Deployment) string {
 }
 
 func (a *anthropicAdapter) dispatchNative(ctx context.Context, client *http.Client, target string, payload platform.TunnelRequest) (*adapterResponse, error) {
+	var err error
+	payload, err = prepareAnthropicCapabilityBetaHeaders(payload)
+	if err != nil {
+		return nil, err
+	}
 	if err := validateAnthropicNativeRuntimeProfiles(payload); err != nil {
 		return nil, err
 	}
@@ -291,11 +339,82 @@ func (a *anthropicAdapter) dispatchNative(ctx context.Context, client *http.Clie
 	if err := a.applyAuth(ctx, client, target, payload.Deployment, req); err != nil {
 		return nil, err
 	}
-	resp, err := client.Do(req)
+	resp, err := doAnthropicRequest(
+		ctx,
+		client,
+		req,
+		anthropicOperationIsIdempotent(payload.Operation),
+	)
 	if err != nil {
 		return nil, err
 	}
+	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+}
+
+func prepareAnthropicCapabilityBetaHeaders(
+	payload platform.TunnelRequest,
+) (platform.TunnelRequest, error) {
+	if payload.Operation != platform.ProviderOperationAnthropicBatchesCreate {
+		return payload, nil
+	}
+	var batch struct {
+		Requests []struct {
+			Params struct {
+				Model     string `json:"model"`
+				MaxTokens int    `json:"max_tokens"`
+			} `json:"params"`
+		} `json:"requests"`
+	}
+	if err := json.Unmarshal(payload.Body, &batch); err != nil {
+		return payload, fmt.Errorf("invalid Anthropic batch request")
+	}
+	requested := commaSeparatedSet(
+		headerValue(payload.Headers, "anthropic-beta"),
+	)
+	accountAllowed := commaSeparatedSet(
+		payload.Deployment.ProviderHeaders["Anthropic-Beta-Allowlist"] + "," +
+			payload.Deployment.ProviderHeaders["anthropic-beta-allowlist"],
+	)
+	for _, item := range batch.Requests {
+		binding, ok := platform.FindModelRuntimeProfile(
+			payload.ModelRuntimeProfiles,
+			item.Params.Model,
+		)
+		if !ok {
+			return payload, fmt.Errorf(
+				"Anthropic model runtime profile is missing for %s",
+				item.Params.Model,
+			)
+		}
+		required := binding.Profile.RequiredBetaHeaderForOutput(
+			"message_batches",
+			item.Params.MaxTokens,
+		)
+		if required == "" {
+			continue
+		}
+		if _, ok := accountAllowed[required]; !ok {
+			return payload, fmt.Errorf(
+				"Anthropic beta capability %s is not enabled for provider account",
+				required,
+			)
+		}
+		requested[required] = struct{}{}
+	}
+	if len(requested) == 0 {
+		return payload, nil
+	}
+	values := make([]string, 0, len(requested))
+	for value := range requested {
+		values = append(values, value)
+	}
+	sort.Strings(values)
+	if payload.Headers == nil {
+		payload.Headers = make(map[string]string)
+	}
+	payload.Headers["anthropic-beta"] = strings.Join(values, ",")
+	return payload, nil
 }
 
 func (a *anthropicAdapter) DispatchRaw(ctx context.Context, client *http.Client, payload platform.TunnelRequest, body io.Reader, contentLength int64) (*adapterResponse, error) {
@@ -342,7 +461,53 @@ func (a *anthropicAdapter) DispatchRaw(ctx context.Context, client *http.Client,
 	if err != nil {
 		return nil, err
 	}
+	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+}
+
+func (a *anthropicAdapter) addWIFStatusHeaders(
+	deployment platform.Deployment,
+	headers http.Header,
+) {
+	if headers == nil || a == nil || a.wif == nil ||
+		deployment.ProviderAuth == nil ||
+		deployment.ProviderAuth.AnthropicWIF == nil {
+		return
+	}
+	token, ok := a.wif.status(
+		anthropicWIFConnectionKey(deployment),
+		deployment.ProviderAuth.AnthropicWIF,
+	)
+	if !ok {
+		return
+	}
+	headers.Set(
+		"X-GodarAI-Anthropic-WIF-Expires-At",
+		token.expiresAt.UTC().Format(time.RFC3339),
+	)
+	headers.Set(
+		"X-GodarAI-Anthropic-WIF-Refreshed-At",
+		token.refreshedAt.UTC().Format(time.RFC3339),
+	)
+	if scopes := sanitizedAnthropicWIFScopes(token.scopes); len(scopes) > 0 {
+		headers.Set(
+			"X-GodarAI-Anthropic-WIF-Scopes",
+			strings.Join(scopes, " "),
+		)
+	}
+}
+
+func sanitizedAnthropicWIFScopes(scopes []string) []string {
+	result := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		scope = strings.TrimSpace(scope)
+		if scope == "" || strings.ContainsAny(scope, "\r\n,") {
+			continue
+		}
+		result = append(result, scope)
+	}
+	sort.Strings(result)
+	return result
 }
 
 type hardLimitReader struct {
@@ -605,6 +770,25 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 					}
 				case "content_block_start":
 					if evt.ContentBlock.Type != "tool_use" {
+						if isAnthropicServerContentBlock(
+							evt.ContentBlock.Type,
+						) && len(evt.ContentBlock.ProviderData) > 0 {
+							chunk := contractsopenai.StreamChunk{
+								ID: streamID, Object: "chat.completion.chunk",
+								Created: time.Now().Unix(), Model: streamModel,
+								Choices: []contractsopenai.Choice{{
+									Index: evt.Index,
+									Delta: &contractsopenai.ChatMessage{
+										ProviderContent: []map[string]interface{}{
+											evt.ContentBlock.ProviderData,
+										},
+									},
+								}},
+							}
+							if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+								return
+							}
+						}
 						continue
 					}
 					index := evt.Index
@@ -626,7 +810,10 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 						return
 					}
 				case "content_block_delta":
-					if evt.Delta.Text == "" && evt.Delta.Thinking == "" && evt.Delta.Signature == "" && evt.Delta.PartialJSON == "" {
+					if evt.Delta.Text == "" && evt.Delta.Thinking == "" &&
+						evt.Delta.Signature == "" &&
+						evt.Delta.PartialJSON == "" &&
+						len(evt.Delta.ProviderData) == 0 {
 						continue
 					}
 					delta := &contractsopenai.ChatMessage{}
@@ -648,6 +835,15 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 							Type: "function", Index: &index,
 							Function: &contractsopenai.FunctionCall{Arguments: evt.Delta.PartialJSON},
 						}}
+					}
+					if len(evt.Delta.ProviderData) > 0 &&
+						evt.Delta.Type != "text_delta" &&
+						evt.Delta.Type != "thinking_delta" &&
+						evt.Delta.Type != "signature_delta" &&
+						evt.Delta.Type != "input_json_delta" {
+						delta.ProviderContent = []map[string]interface{}{
+							evt.Delta.ProviderData,
+						}
 					}
 					chunk := contractsopenai.StreamChunk{
 						ID:      streamID,
@@ -906,24 +1102,82 @@ func anthropicStopSequences(value interface{}) ([]string, error) {
 func anthropicTools(tools []contractsopenai.ToolDefinition, cacheControl map[string]interface{}) ([]anthropicTool, error) {
 	out := make([]anthropicTool, 0, len(tools))
 	for index, tool := range tools {
-		if !strings.EqualFold(strings.TrimSpace(tool.Type), "function") || tool.Function == nil {
-			return nil, fmt.Errorf("anthropic only supports OpenAI function tools")
+		toolType := strings.ToLower(strings.TrimSpace(tool.Type))
+		if toolType == "function" {
+			if tool.Function == nil {
+				return nil, fmt.Errorf("tool %d requires function", index)
+			}
+			name := strings.TrimSpace(tool.Function.Name)
+			if name == "" {
+				return nil, fmt.Errorf("tool %d requires a name", index)
+			}
+			schema := tool.Function.Parameters
+			if schema == nil {
+				schema = map[string]interface{}{
+					"type": "object", "properties": map[string]interface{}{},
+				}
+			}
+			item := anthropicTool{
+				Name: name, Description: tool.Function.Description,
+				InputSchema: schema, Strict: tool.Function.Strict,
+			}
+			if index == len(tools)-1 && len(cacheControl) > 0 {
+				item.CacheControl = cloneStringAnyMap(cacheControl)
+			}
+			out = append(out, item)
+			continue
 		}
-		name := strings.TrimSpace(tool.Function.Name)
+		if !isSupportedAnthropicServerToolType(toolType) {
+			return nil, fmt.Errorf(
+				"unsupported Anthropic server tool type %q",
+				tool.Type,
+			)
+		}
+		name := strings.TrimSpace(tool.Name)
 		if name == "" {
-			return nil, fmt.Errorf("tool %d requires a name", index)
+			name = anthropicServerToolDefaultName(toolType)
 		}
-		schema := tool.Function.Parameters
-		if schema == nil {
-			schema = map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}
+		item := anthropicTool{
+			Type: toolType, Name: name,
+			AllowedCallers: append([]string(nil), tool.AllowedCallers...),
+			AllowedDomains: append([]string(nil), tool.AllowedDomains...),
+			BlockedDomains: append([]string(nil), tool.BlockedDomains...),
+			MaxUses:        tool.MaxUses, UserLocation: cloneStringAnyMap(tool.UserLocation),
+			CacheControl: cloneStringAnyMap(tool.CacheControl),
+			Strict:       tool.Strict, DeferLoading: tool.DeferLoading,
 		}
-		item := anthropicTool{Name: name, Description: tool.Function.Description, InputSchema: schema}
-		if index == len(tools)-1 && len(cacheControl) > 0 {
+		if item.CacheControl == nil && index == len(tools)-1 &&
+			len(cacheControl) > 0 {
 			item.CacheControl = cloneStringAnyMap(cacheControl)
 		}
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+func isSupportedAnthropicServerToolType(value string) bool {
+	_, ok := map[string]struct{}{
+		"web_search_20260318":     {},
+		"web_search_20260209":     {},
+		"web_search_20250305":     {},
+		"web_fetch_20260318":      {},
+		"web_fetch_20260309":      {},
+		"web_fetch_20260209":      {},
+		"web_fetch_20250910":      {},
+		"code_execution_20260521": {},
+		"code_execution_20260120": {},
+		"code_execution_20250825": {},
+	}[strings.ToLower(strings.TrimSpace(value))]
+	return ok
+}
+
+func anthropicServerToolDefaultName(toolType string) string {
+	for _, name := range []string{"web_search", "web_fetch", "code_execution"} {
+		if strings.HasPrefix(toolType, name+"_") {
+			return name
+		}
+	}
+	return ""
 }
 
 func anthropicToolChoiceFromOpenAI(value interface{}, parallel *bool) (*anthropicToolChoice, error) {
@@ -1308,6 +1562,7 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
 	toolCalls := make([]contractsopenai.ToolCall, 0)
 	citations := make([]interface{}, 0)
+	providerContent := make([]map[string]interface{}, 0)
 	for _, block := range resp.Content {
 		switch block.Type {
 		case "text":
@@ -1338,6 +1593,11 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 					Arguments: string(arguments),
 				},
 			})
+		case "server_tool_use", "web_search_tool_result",
+			"web_fetch_tool_result", "code_execution_tool_result":
+			if len(block.ProviderData) > 0 {
+				providerContent = append(providerContent, block.ProviderData)
+			}
 		default:
 			content += block.Text
 		}
@@ -1359,6 +1619,9 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	}
 	if len(citations) > 0 {
 		message.Citations = citations
+	}
+	if len(providerContent) > 0 {
+		message.ProviderContent = providerContent
 	}
 
 	return &contractsopenai.ChatCompletionResponse{
@@ -1396,6 +1659,16 @@ func mapAnthropicStopReason(reason string) string {
 		return "tool_calls"
 	default:
 		return strings.TrimSpace(reason)
+	}
+}
+
+func isAnthropicServerContentBlock(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "server_tool_use", "web_search_tool_result",
+		"web_fetch_tool_result", "code_execution_tool_result":
+		return true
+	default:
+		return false
 	}
 }
 

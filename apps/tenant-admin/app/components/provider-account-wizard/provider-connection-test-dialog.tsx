@@ -15,7 +15,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { TenantProviderAccount } from "@/app/components/provider-account-wizard/types";
+import type { CredentialTestResult } from "@/app/components/provider-account-wizard/types";
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
+import { WIFCredentialStatus } from "@/app/components/provider-account-wizard/wif-credential-status";
 
 export function ProviderConnectionTestDialog(props: {
   open: boolean;
@@ -27,6 +29,7 @@ export function ProviderConnectionTestDialog(props: {
   const [modelHint, setModelHint] = useState("");
   const [notice, setNotice] = useState<OperationNoticeValue | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<CredentialTestResult | null>(null);
 
   if (!props.account) return null;
 
@@ -34,6 +37,7 @@ export function ProviderConnectionTestDialog(props: {
     setModelHint("");
     setNotice(null);
     setIsTesting(false);
+    setTestResult(null);
   }
 
   function handleOpenChange(open: boolean) {
@@ -47,18 +51,20 @@ export function ProviderConnectionTestDialog(props: {
 
     setIsTesting(true);
     setNotice(null);
+    setTestResult(null);
     try {
       const trimmedModelHint = modelHint.trim();
-      const result = await requestJSON<{ success: boolean; message?: string }>(
+      const result = await requestJSON<CredentialTestResult>(
         `/api/tenant-provider-accounts/${encodeURIComponent(props.account.id)}/test-credentials`,
         {
           method: "POST",
           body: JSON.stringify({ model_hint: trimmedModelHint || undefined }),
         },
       );
-      const payload = unwrapData<{ success: boolean; message?: string }>(result) ?? result;
+      const payload = unwrapData<CredentialTestResult>(result) ?? result;
       const message = payload.message ?? (payload.success ? t("messages.credentialValid") : t("messages.credentialInvalid"));
       setNotice({ kind: payload.success ? "success" : "error", message });
+      setTestResult(payload);
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.credentialTestFailed")) });
     } finally {
@@ -118,6 +124,7 @@ export function ProviderConnectionTestDialog(props: {
             info: ux("connectionTest.infoTitle"),
           }}
         />
+        <WIFCredentialStatus result={testResult} />
       </form>
     </FormDialog>
   );

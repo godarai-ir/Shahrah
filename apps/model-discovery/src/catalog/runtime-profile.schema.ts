@@ -30,6 +30,7 @@ export const modelRuntimeProfileSchema = z
     }),
     tools: z.object({
       custom: z.boolean(),
+      server: z.boolean().default(false),
       parallel: z.boolean(),
       structuredOutput: z.boolean(),
     }),
@@ -46,13 +47,26 @@ export const modelRuntimeProfileSchema = z
           .array(z.enum(['global', 'us']))
           .default(['global']),
         speedValues: z.array(z.enum(['standard', 'fast'])).default([]),
+        effectiveSpeed: z
+          .record(z.string(), z.enum(['standard', 'fast']))
+          .default({}),
       })
       .default({
         serviceTierValues: ['auto', 'standard_only'],
         inferenceGeoValues: ['global'],
         speedValues: [],
+        effectiveSpeed: {},
       }),
     betaHeaders: z.array(z.string().min(1)).default([]),
+    betaCapabilities: z
+      .array(
+        z.object({
+          header: z.string().min(1),
+          endpoints: z.array(endpointSchema).min(1),
+          maxOutputTokens: z.number().int().positive().optional(),
+        }),
+      )
+      .default([]),
     limits: z.object({
       contextWindow: z.number().int().positive(),
       maxOutputTokens: z.number().int().positive(),
@@ -91,6 +105,42 @@ export const modelRuntimeProfileSchema = z
         path: ['thinking', 'effortValues'],
         message: 'effortValues require an enabled thinking mode',
       });
+    }
+    for (const [requested, effective] of Object.entries(
+      profile.requestControls.effectiveSpeed,
+    )) {
+      if (!profile.requestControls.speedValues.includes(requested as 'standard' | 'fast')) {
+        context.addIssue({
+          code: 'custom',
+          path: ['requestControls', 'effectiveSpeed', requested],
+          message: `${requested} must be included in speedValues`,
+        });
+      }
+      if (effective === 'fast' && requested !== 'fast') {
+        context.addIssue({
+          code: 'custom',
+          path: ['requestControls', 'effectiveSpeed', requested],
+          message: 'standard requests cannot become fast implicitly',
+        });
+      }
+    }
+    for (const capability of profile.betaCapabilities) {
+      if (!profile.betaHeaders.includes(capability.header)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['betaCapabilities'],
+          message: `${capability.header} must be included in betaHeaders`,
+        });
+      }
+      for (const endpoint of capability.endpoints) {
+        if (!profile.endpoints.includes(endpoint)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['betaCapabilities', capability.header, 'endpoints'],
+            message: `${endpoint} must be included in endpoints`,
+          });
+        }
+      }
     }
   });
 

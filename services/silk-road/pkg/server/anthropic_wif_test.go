@@ -2,11 +2,13 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -100,6 +102,21 @@ func TestAnthropicWIFExchangesOnceAndUsesBearerToken(t *testing.T) {
 		)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if response.Headers.Get("X-GodarAI-Anthropic-WIF-Scopes") !=
+			"workspace:developer workspace:inference" {
+			t.Fatalf("unexpected sanitized WIF scopes %q",
+				response.Headers.Get("X-GodarAI-Anthropic-WIF-Scopes"))
+		}
+		if response.Headers.Get("X-GodarAI-Anthropic-WIF-Expires-At") == "" ||
+			response.Headers.Get("X-GodarAI-Anthropic-WIF-Refreshed-At") == "" {
+			t.Fatal("WIF expiry and refresh timestamps must be propagated")
+		}
+		if strings.Contains(
+			fmt.Sprint(response.Headers),
+			"access-secret",
+		) {
+			t.Fatal("WIF access token must not be exposed in response headers")
 		}
 		_ = response.Body.Close()
 	}

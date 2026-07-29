@@ -289,9 +289,12 @@ type UpdateTenantProviderAccountCredentialsRequest struct {
 
 // TestTenantProviderAccountCredentialsResponse returns test execution result.
 type TestTenantProviderAccountCredentialsResponse struct {
-	Success     bool   `json:"success"`
-	Unsupported bool   `json:"unsupported,omitempty"`
-	Message     string `json:"message,omitempty"`
+	Success              bool       `json:"success"`
+	Unsupported          bool       `json:"unsupported,omitempty"`
+	Message              string     `json:"message,omitempty"`
+	WIFEffectiveScopes   []string   `json:"wif_effective_scopes,omitempty"`
+	WIFExpiresAt         *time.Time `json:"wif_expires_at,omitempty"`
+	WIFLastRefreshAt     *time.Time `json:"wif_last_refresh_at,omitempty"`
 }
 
 // TenantProviderAccountDetailsResponse returns full account data for wizard editing.

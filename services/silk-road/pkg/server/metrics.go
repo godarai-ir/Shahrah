@@ -18,6 +18,8 @@ var anthropicWIFExchangeSuccess atomic.Uint64
 var anthropicWIFExchangeFailure atomic.Uint64
 var anthropicWIFRefreshTotal atomic.Uint64
 var anthropicStreamErrors atomic.Uint64
+var anthropicRetryTotal atomic.Uint64
+var anthropicRetryExhausted atomic.Uint64
 
 type metricKey struct {
 	route  string
@@ -119,6 +121,8 @@ func (m *httpMetrics) writePrometheus(w http.ResponseWriter) {
 	_, _ = fmt.Fprintln(w, "# HELP shahrah_silk_road_anthropic_wif_refresh_total Anthropic WIF refreshes performed before token expiry.")
 	_, _ = fmt.Fprintln(w, "# TYPE shahrah_silk_road_anthropic_wif_refresh_total counter")
 	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_wif_refresh_total %d\n", anthropicWIFRefreshTotal.Load())
+	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_retry_total %d\n", anthropicRetryTotal.Load())
+	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_retry_exhausted_total %d\n", anthropicRetryExhausted.Load())
 	_, _ = fmt.Fprintln(w, "# HELP shahrah_silk_road_anthropic_stream_errors_total Anthropic upstream stream error events.")
 	_, _ = fmt.Fprintln(w, "# TYPE shahrah_silk_road_anthropic_stream_errors_total counter")
 	_, _ = fmt.Fprintf(w, "shahrah_silk_road_anthropic_stream_errors_total %d\n", anthropicStreamErrors.Load())

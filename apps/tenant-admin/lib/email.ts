@@ -17,6 +17,10 @@ type SendEmailInput = {
 let cachedTransporter: nodemailer.Transporter | null = null;
 let cachedResendClient: Resend | null = null;
 
+const defaultResendFromEmail = "auth@notifications.godarai.ir";
+const defaultResendFromName = "گدارAI";
+const defaultResendReplyTo = "support@godarai.ir";
+
 function isProductionRuntime() {
   return process.env.NODE_ENV === "production";
 }
@@ -34,17 +38,26 @@ function getSMTPConfig() {
 
 function getResendConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim() || "";
-  const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || "";
-  const fromName = process.env.RESEND_FROM_NAME?.trim() || "GodarAI";
-  const replyTo = process.env.RESEND_REPLY_TO?.trim() || undefined;
+  const fromEmail = resolveResendFromEmail(process.env.RESEND_FROM_EMAIL);
+  const fromName = process.env.RESEND_FROM_NAME?.trim() || defaultResendFromName;
+  const replyTo = process.env.RESEND_REPLY_TO?.trim() || defaultResendReplyTo;
 
-  if (isProductionRuntime() && (!apiKey || !fromEmail)) {
-    throw new Error(
-      "RESEND_API_KEY and RESEND_FROM_EMAIL are required when NODE_ENV=production.",
-    );
+  if (isProductionRuntime() && !apiKey) {
+    throw new Error("RESEND_API_KEY is required when NODE_ENV=production.");
   }
 
   return { apiKey, fromEmail, fromName, replyTo };
+}
+
+function resolveResendFromEmail(configuredEmail: string | undefined) {
+  const normalizedEmail = configuredEmail?.trim() || "";
+  if (
+    normalizedEmail.toLowerCase().endsWith("@notifications.godarai.ir")
+  ) {
+    return normalizedEmail;
+  }
+
+  return defaultResendFromEmail;
 }
 
 function getTransporter() {

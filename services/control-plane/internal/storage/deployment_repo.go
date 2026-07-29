@@ -244,6 +244,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			ProviderAccountID:   accountID,
 			ProviderAccountName: accountName,
 			ProviderAuth:        providerAuth,
+			ProviderHeaders:     anthropicProviderHeaders(provider, providerConfig),
 			ModelInfo: map[string]interface{}{
 				"source":                "tenant_provider_account",
 				"provider_account_id":   accountID,
@@ -256,6 +257,53 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 	}
 
 	return deps, rows.Err()
+}
+
+func anthropicProviderHeaders(
+	provider string,
+	config map[string]interface{},
+) map[string]string {
+	if !strings.EqualFold(strings.TrimSpace(provider), "anthropic") {
+		return nil
+	}
+	values := providerConfigStringList(config["beta_allowlist"])
+	if len(values) == 0 {
+		return nil
+	}
+	return map[string]string{
+		"Anthropic-Beta-Allowlist": strings.Join(values, ","),
+	}
+}
+
+func providerConfigStringList(value interface{}) []string {
+	var input []string
+	switch typed := value.(type) {
+	case string:
+		input = strings.Split(typed, ",")
+	case []string:
+		input = typed
+	case []interface{}:
+		input = make([]string, 0, len(typed))
+		for _, item := range typed {
+			if text, ok := item.(string); ok {
+				input = append(input, text)
+			}
+		}
+	}
+	seen := make(map[string]struct{}, len(input))
+	result := make([]string, 0, len(input))
+	for _, item := range input {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result
 }
 
 func providerAccountUsesNoCredential(provider, authMode string) bool {

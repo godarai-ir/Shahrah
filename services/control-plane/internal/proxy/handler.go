@@ -247,6 +247,34 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	estimated.Metadata = req.Metadata
+	if estimated.ModelRuntimeProfile != nil &&
+		strings.EqualFold(
+			strings.TrimSpace(estimated.ModelRuntimeProfile.Provider),
+			"anthropic",
+		) {
+		pricingConditions, policyErr :=
+			anthropicOpenAIToolPricingPolicy(req)
+		if policyErr != nil {
+			return writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				policyErr.Error(),
+				"invalid_request_error",
+			)
+		}
+		estimated.PricingConditions = mergePricingConditions(
+			estimated.PricingConditions,
+			pricingConditions,
+		)
+		estimated.Speed = estimated.ModelRuntimeProfile.Profile.EffectiveSpeed(
+			req.Speed,
+		)
+		estimated.Metadata = withAnthropicEffectiveSpeedMetadata(
+			estimated.Metadata,
+			req.Speed,
+			estimated.Speed,
+		)
+	}
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
 	setRateLimitHeaders(c, rateLimit)

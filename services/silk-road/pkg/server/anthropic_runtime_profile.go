@@ -93,8 +93,22 @@ func validateAnthropicRequestWithRuntimeProfile(
 		!profile.AllowsInputModality("pdf") {
 		return fmt.Errorf("model does not support PDF input")
 	}
-	if len(req.Tools) > 0 && !profile.Tools.Custom {
-		return fmt.Errorf("model does not support custom tools")
+	for _, tool := range req.Tools {
+		if strings.EqualFold(strings.TrimSpace(tool.Type), "function") {
+			if !profile.Tools.Custom {
+				return fmt.Errorf("model does not support custom tools")
+			}
+			continue
+		}
+		if isSupportedAnthropicServerToolType(
+			strings.ToLower(strings.TrimSpace(tool.Type)),
+		) {
+			if !profile.Tools.Server {
+				return fmt.Errorf("model does not support server tools")
+			}
+			continue
+		}
+		return fmt.Errorf("unsupported Anthropic tool type %q", tool.Type)
 	}
 	if req.ParallelToolCalls != nil &&
 		*req.ParallelToolCalls &&
@@ -268,6 +282,12 @@ func validateAnthropicNativeMessageBody(
 	if err != nil {
 		return err
 	}
+	effectiveProfile := binding.Profile
+	effectiveProfile.Limits.MaxOutputTokens =
+		binding.Profile.MaxOutputTokensFor(
+			endpoint,
+			anthropicRequestedBetaHeaders(payload),
+		)
 	chatRequest := contractsopenai.ChatCompletionRequest{
 		Model:        request.Model,
 		MaxTokens:    request.MaxTokens,
@@ -305,7 +325,23 @@ func validateAnthropicNativeMessageBody(
 			return fmt.Errorf("model does not support PDF input")
 		}
 	}
-	return validateAnthropicOpenAIRequestWithProfile(chatRequest, binding)
+	effectiveBinding := *binding
+	effectiveBinding.Profile = effectiveProfile
+	return validateAnthropicOpenAIRequestWithProfile(
+		chatRequest,
+		&effectiveBinding,
+	)
+}
+
+func anthropicRequestedBetaHeaders(
+	payload platform.TunnelRequest,
+) []string {
+	set := commaSeparatedSet(headerValue(payload.Headers, "anthropic-beta"))
+	values := make([]string, 0, len(set))
+	for value := range set {
+		values = append(values, value)
+	}
+	return values
 }
 
 func containsAnthropicContentType(content []byte, expected string) bool {

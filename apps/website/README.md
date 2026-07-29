@@ -18,10 +18,14 @@ Production email env:
 ```bash
 NODE_ENV=production
 RESEND_API_KEY=replace-in-production-secret-store
-RESEND_FROM_EMAIL=notifications@your-verified-domain.example
-RESEND_FROM_NAME=Shahrah
-RESEND_REPLY_TO=support@your-verified-domain.example
+RESEND_FROM_EMAIL=auth@notifications.godarai.ir
+RESEND_FROM_NAME=گدارAI
+RESEND_REPLY_TO=support@godarai.ir
 ```
+
+`RESEND_FROM_EMAIL` must use the verified `notifications.godarai.ir`
+subdomain. Missing values and legacy root-domain senders fall back to
+`auth@notifications.godarai.ir`.
 
 The website contact form sends submissions to `support@godarai.ir` through this
 server-side email configuration. The Resend API key is never exposed to the browser.

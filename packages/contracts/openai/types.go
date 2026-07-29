@@ -52,6 +52,9 @@ type ChatMessage struct {
 	ToolCalls        []ToolCall      `json:"tool_calls,omitempty"`
 	ToolCallID       string          `json:"tool_call_id,omitempty"`
 	Citations        []interface{}   `json:"citations,omitempty"`
+	// ProviderContent preserves provider-native content blocks that do not
+	// have an OpenAI equivalent, including Anthropic server-tool results.
+	ProviderContent []map[string]interface{} `json:"provider_content,omitempty"`
 	// FunctionCall is deprecated by OpenAI in favor of tool_calls, but retained
 	// so OpenAI-compatible providers can round-trip older responses.
 	FunctionCall *FunctionCall `json:"function_call,omitempty"`
@@ -376,9 +379,18 @@ func parseBase64DataURL(value string, field string) (string, string, error) {
 
 // ToolDefinition represents a function/tool definition.
 type ToolDefinition struct {
-	Type     string       `json:"type"`
-	Function *FunctionDef `json:"function,omitempty"`
-	Custom   *CustomTool  `json:"custom,omitempty"`
+	Type           string                 `json:"type"`
+	Function       *FunctionDef           `json:"function,omitempty"`
+	Custom         *CustomTool            `json:"custom,omitempty"`
+	Name           string                 `json:"name,omitempty"`
+	AllowedCallers []string               `json:"allowed_callers,omitempty"`
+	AllowedDomains []string               `json:"allowed_domains,omitempty"`
+	BlockedDomains []string               `json:"blocked_domains,omitempty"`
+	MaxUses        *int                   `json:"max_uses,omitempty"`
+	UserLocation   map[string]interface{} `json:"user_location,omitempty"`
+	CacheControl   map[string]interface{} `json:"cache_control,omitempty"`
+	Strict         *bool                  `json:"strict,omitempty"`
+	DeferLoading   *bool                  `json:"defer_loading,omitempty"`
 }
 
 // FunctionDef represents a function definition for tool calling.

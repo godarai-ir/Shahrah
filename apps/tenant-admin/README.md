@@ -96,10 +96,14 @@ Production email env on `control-plane`:
 ```bash
 NODE_ENV=production
 RESEND_API_KEY=replace-in-production-secret-store
-RESEND_FROM_EMAIL=notifications@your-verified-domain.example
-RESEND_FROM_NAME=Shahrah
-RESEND_REPLY_TO=support@your-verified-domain.example
+RESEND_FROM_EMAIL=auth@notifications.godarai.ir
+RESEND_FROM_NAME=گدارAI
+RESEND_REPLY_TO=support@godarai.ir
 ```
+
+`RESEND_FROM_EMAIL` must use the verified `notifications.godarai.ir`
+subdomain. Missing values and legacy root-domain senders fall back to
+`auth@notifications.godarai.ir`.
 
 Tenants are not seeded and there is no default tenant. Create a tenant through
 the website onboarding flow first. For local hostname-based tenant resolution,

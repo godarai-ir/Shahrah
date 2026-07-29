@@ -5,6 +5,36 @@ import (
 	"testing"
 )
 
+func TestNewResendOTPEmailSenderUsesGodarAINotificationsDefaults(t *testing.T) {
+	t.Setenv("RESEND_API_KEY", "test-api-key")
+	t.Setenv("RESEND_FROM_EMAIL", "noreply@godarai.ir")
+	t.Setenv("RESEND_FROM_NAME", "")
+	t.Setenv("RESEND_REPLY_TO", "")
+
+	sender, ok := newResendOTPEmailSenderFromEnv().(*resendOTPEmailSender)
+	if !ok {
+		t.Fatal("newResendOTPEmailSenderFromEnv returned an unexpected sender type")
+	}
+
+	if sender.fromEmail != defaultResendFromEmail {
+		t.Fatalf("fromEmail = %q, want %q", sender.fromEmail, defaultResendFromEmail)
+	}
+	if sender.fromName != defaultResendFromName {
+		t.Fatalf("fromName = %q, want %q", sender.fromName, defaultResendFromName)
+	}
+	if sender.replyTo != defaultResendReplyTo {
+		t.Fatalf("replyTo = %q, want %q", sender.replyTo, defaultResendReplyTo)
+	}
+}
+
+func TestResolveResendFromEmailAllowsVerifiedNotificationsSubdomain(t *testing.T) {
+	const configuredEmail = "notifications@notifications.godarai.ir"
+
+	if got := resolveResendFromEmail(configuredEmail); got != configuredEmail {
+		t.Fatalf("resolveResendFromEmail() = %q, want %q", got, configuredEmail)
+	}
+}
+
 func TestRenderTenantAdminOTPEmailIsBrandedRTLAndEscaped(t *testing.T) {
 	email := renderTenantAdminOTPEmail(`acme<script>`, `123<456`, 5)
 

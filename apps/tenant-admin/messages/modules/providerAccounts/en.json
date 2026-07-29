@@ -248,7 +248,11 @@
       "errorTitle": "Connection test failed",
       "warningTitle": "Connection warning",
       "infoTitle": "Connection test",
-      "credentialHint": "Stored credential"
+      "credentialHint": "Stored credential",
+      "wifStatus": "Anthropic workload identity status",
+      "wifScopes": "Effective WIF scopes",
+      "wifExpiresAt": "Access token expires at",
+      "wifLastRefreshAt": "Last token refresh"
     },
     "accessTester": {
       "title": "Test allowed access",

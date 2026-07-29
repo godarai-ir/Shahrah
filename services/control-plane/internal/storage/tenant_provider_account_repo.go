@@ -709,14 +709,17 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 			}
 			secrets["api_key"] = apiKey
 		}
-		success, _, message := s.tenantProviderProber.Probe(
-			ctx,
+		success, _, message, metadata := probeTenantProviderCredential(
+			ctx, s.tenantProviderProber,
 			anthropicProbeCredential(accountID, authMode, providerConfig),
 			secrets,
 		)
 		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: success,
-			Message: message,
+			Success:            success,
+			Message:            message,
+			WIFEffectiveScopes: metadata.WIFScopes,
+			WIFExpiresAt:       metadata.WIFExpiresAt,
+			WIFLastRefreshAt:   metadata.WIFRefreshedAt,
 		}, nil
 	}
 
@@ -775,14 +778,21 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 		if req.Credentials != nil {
 			secrets["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
 		}
-		success, _, message := s.tenantProviderProber.Probe(
-			ctx,
-			anthropicProbeCredential("preflight", string(req.AuthMode), req.ProviderConfig),
+		success, _, message, metadata := probeTenantProviderCredential(
+			ctx, s.tenantProviderProber,
+			anthropicProbeCredential(
+				"preflight",
+				string(req.AuthMode),
+				req.ProviderConfig,
+			),
 			secrets,
 		)
 		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: success,
-			Message: message,
+			Success:            success,
+			Message:            message,
+			WIFEffectiveScopes: metadata.WIFScopes,
+			WIFExpiresAt:       metadata.WIFExpiresAt,
+			WIFLastRefreshAt:   metadata.WIFRefreshedAt,
 		}, nil
 	}
 
@@ -820,6 +830,19 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 		Success: result.Success,
 		Message: result.Message,
 	}, nil
+}
+
+func probeTenantProviderCredential(
+	ctx context.Context,
+	prober platformcredentials.CredentialProber,
+	record platformcredentials.EncryptedCredential,
+	secrets map[string]string,
+) (bool, string, string, platformcredentials.ProbeMetadata) {
+	if detailed, ok := prober.(platformcredentials.DetailedCredentialProber); ok {
+		return detailed.ProbeDetailed(ctx, record, secrets)
+	}
+	success, category, summary := prober.Probe(ctx, record, secrets)
+	return success, category, summary, platformcredentials.ProbeMetadata{}
 }
 
 func anthropicProbeCredential(connectionID, authMode string, config map[string]interface{}) platformcredentials.EncryptedCredential {

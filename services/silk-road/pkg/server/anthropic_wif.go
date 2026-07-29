@@ -23,6 +23,7 @@ var errAnthropicWIFUnavailable = errors.New("anthropic_wif_unavailable")
 type anthropicWIFToken struct {
 	accessToken string
 	expiresAt   time.Time
+	refreshedAt time.Time
 	scopes      []string
 }
 
@@ -94,12 +95,7 @@ func (m *anthropicWIFManager) token(
 	if m == nil || config == nil {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
-	cacheKey := strings.Join([]string{
-		connectionID,
-		config.FederationRuleID,
-		config.WorkspaceID,
-		config.TokenSourceID,
-	}, "\x00")
+	cacheKey := anthropicWIFCacheKey(connectionID, config)
 
 	for {
 		m.mu.Lock()
@@ -208,6 +204,41 @@ func (m *anthropicWIFManager) exchange(
 	return anthropicWIFToken{
 		accessToken: payload.AccessToken,
 		expiresAt:   m.now().Add(time.Duration(payload.ExpiresIn) * time.Second),
+		refreshedAt: m.now(),
 		scopes:      strings.Fields(payload.Scope),
 	}, nil
+}
+
+func anthropicWIFCacheKey(
+	connectionID string,
+	config *platform.ResolvedAnthropicWIFAuth,
+) string {
+	if config == nil {
+		return ""
+	}
+	return strings.Join([]string{
+		connectionID,
+		config.FederationRuleID,
+		config.WorkspaceID,
+		config.TokenSourceID,
+	}, "\x00")
+}
+
+func (m *anthropicWIFManager) status(
+	connectionID string,
+	config *platform.ResolvedAnthropicWIFAuth,
+) (anthropicWIFToken, bool) {
+	if m == nil || config == nil {
+		return anthropicWIFToken{}, false
+	}
+	cacheKey := anthropicWIFCacheKey(connectionID, config)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	token, ok := m.cache[cacheKey]
+	if !ok {
+		return anthropicWIFToken{}, false
+	}
+	token.accessToken = ""
+	token.scopes = append([]string(nil), token.scopes...)
+	return token, true
 }
