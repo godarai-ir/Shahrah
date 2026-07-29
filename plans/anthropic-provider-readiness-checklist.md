@@ -10,13 +10,12 @@
 
 اصلاحات اصلی برنامه پیاده‌سازی شده‌اند: قیمت‌گذاری Anthropic از Snapshot نسخه‌دار Model Discovery خوانده می‌شود، Credentialهای جدید سازمان رمزگذاری می‌شوند، WIF در قرارداد و Silk Road وجود دارد، Adapter از Tools و Thinking و Structured Output پشتیبانی می‌کند و API بومی Messages، Models، Files و Message Batches عرضه شده است.
 
-بااین‌حال، بررسی دوباره کد و تطبیق آن با مستندات رسمی جاری Anthropic نشان می‌دهد که هنوز نمی‌توان عبارت «پشتیبانی کامل» را برای این ۱۱ مدل به‌کار برد. سه مانع اصلی انتشار عبارت‌اند از:
+بااین‌حال، بررسی دوباره کد و تطبیق آن با مستندات رسمی جاری Anthropic نشان می‌دهد که هنوز نمی‌توان عبارت «پشتیبانی کامل» را برای این ۱۱ مدل به‌کار برد. دو مانع اصلی انتشار عبارت‌اند از:
 
 1. ماتریس زنده API Key و WIF برای تمام مدل‌ها و قابلیت‌ها اجرا نشده است.
-2. هزینه Code Execution از پاسخ Messages قابل تسویه دقیق نیست و در وضعیت فعلی می‌تواند به `pricing_unavailable` منجر شود.
-3. `ModelRuntimeProfile` در Hot Path رفتار Silk Road اعمال نمی‌شود؛ بخشی از قواعد مدل همچنان به‌صورت Hard-coded پیاده‌سازی شده است.
+2. `ModelRuntimeProfile` در Hot Path رفتار Silk Road اعمال نمی‌شود؛ بخشی از قواعد مدل همچنان به‌صورت Hard-coded پیاده‌سازی شده است.
 
-در این بازبینی، ۱۲ مغایرت باقی‌مانده ثبت شده است: ۸ مورد P1 و ۴ مورد P2. مغایرت P0 با شناسه `ANT-REM-001` بسته شده است.
+در این بازبینی، ۱۱ مغایرت باقی‌مانده ثبت شده است: ۷ مورد P1 و ۴ مورد P2. مغایرت‌های `ANT-REM-001` و `ANT-REM-003` بسته شده‌اند.
 
 ## مبنا و روش ارزیابی
 
@@ -48,6 +47,7 @@
 - [Effort](https://platform.claude.com/docs/en/build-with-claude/effort)
 - [Tool Use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 - [Code Execution](https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool)
+- [Usage and Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cost-api)
 - [Prompt Caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
 - [Rate Limits](https://platform.claude.com/docs/en/api/rate-limits)
 - [Rate Limit API](https://platform.claude.com/docs/en/manage-claude/rate-limits-api)
@@ -108,7 +108,7 @@
 | WIF | منطبق در کد | Exchange، Cache، Singleflight و Scope Probe پیاده‌سازی شده‌اند؛ آزمون زنده انجام نشده است. |
 | قیمت Token و Cache | منطبق در کد | Snapshot نسخه‌دار، Decimal، Pin در Reserve و Fail Closed پس از ۲۴ ساعت وجود دارد. |
 | Web Search Billing | منطبق در کد | بعد `web_search_requests` محاسبه و ممیزی می‌شود. |
-| Code Execution Billing | ناقص | Usage پاسخ تعداد درخواست را می‌دهد، اما نرخ کاتالوگ بر حسب ساعت Container است. |
+| Code Execution Billing | منطبق در کد با Fail Closed | حالت رایگان همراه `web_search_20260209+` یا `web_fetch_20260209+` ممیزی می‌شود؛ حالت مستقلِ قابل‌صورتحساب پیش از Upstream غیرفعال است. |
 | Tools سفارشی | منطبق در کد | Function، Tool Choice، Tool Result و Tool Delta نگاشت می‌شوند. |
 | Server Toolها | ناقص در OpenAI-compatible | مسیر بومی Body رسمی را عبور می‌دهد؛ Adapter فقط Function Tool را می‌پذیرد. |
 | Thinking | منطبق در کد، اما Hard-coded | قواعد 4.6 و 4.7 اعمال می‌شوند، ولی از Runtime Profile کاتالوگ خوانده نمی‌شوند. |
@@ -183,18 +183,22 @@
 - `inference_geo=us` برای نسل 4.6 و جدیدتر ضریب ۱٫۱ روی ابعاد Token و Cache دارد.
 - Web Search برابر ۱۰ دلار به‌ازای هر ۱۰۰۰ درخواست است.
 - Code Execution مستقل پس از سهمیه رایگان ماهانه سازمان، بر حسب Container-hour محاسبه می‌شود و حداقل زمان قابل‌صورتحساب دارد.
+- Code Execution در همان درخواست همراه `web_search_20260209+` یا `web_fetch_20260209+` هزینه افزوده ندارد.
 - نبود Snapshot معتبر، Rate یا Dimension برای Anthropic باید با `pricing_unavailable` و HTTP 503 متوقف شود.
 
-### ناسازگاری Code Execution
+### سیاست ایمن Code Execution
 
 پاسخ Messages مقدار `server_tool_use.code_execution_requests` را گزارش می‌کند، اما کاتالوگ گدارAI نرخ `code_execution_container_hours` را نگه می‌دارد. مدت Container و مانده سهمیه رایگان سازمان از پاسخ Messages به‌دست نمی‌آید. بنابراین نگاشت مستقیم و دقیق بین Usage و Rate وجود ندارد.
 
-تا زمان اتصال به منبع صورتحساب یا Usage سازمانی Anthropic، یکی از این دو راه باید اجرا شود:
+Cost API رسمی Anthropic هزینه را به‌صورت تجمیعی با شرح `Code Execution Usage` گزارش می‌کند، آن را در Usage API قرار نمی‌دهد و داده ممکن است با چند دقیقه تأخیر ظاهر شود. این داده برای Finalize قطعی همان درخواست کافی نیست. برای جلوگیری از هزینه صفر یا تسویه حدسی، سیاست زیر پیاده‌سازی شده است:
 
-1. Code Execution برای حساب‌های Billable غیرفعال و قابلیت آن از کاتالوگ قابل عرضه حذف شود.
-2. هزینه آن به‌صورت Reconciliation پس از دریافت داده قطعی سازمان تسویه شود و Reservation مستقل داشته باشد.
+1. در Messages و تک‌تک آیتم‌های Message Batch، وجود `code_execution_*` بدون `web_search_20260209+` یا `web_fetch_20260209+` با خطای بومی Anthropic و HTTP 400، پیش از Route، Reserve و Tunnel رد می‌شود.
+2. حضور Web Tool واجد شرایط به‌صورت شرط قیمت‌گذاری در Reservation و Snapshot همان درخواست Pin می‌شود.
+3. اگر پاسخ واجد شرایط `code_execution_requests` داشته باشد، یک مؤلفه ممیزی با Quantity واقعی، Unit برابر `request`، نرخ صفر و ارجاع به بعد کاتالوگ `code_execution_container_hours` ثبت می‌شود.
+4. هر Usage اجرای کد بدون شرط Pin‌شده همچنان با `pricing_unavailable` Fail Closed می‌شود؛ Missing Dimension هیچ‌گاه به‌طور ضمنی صفر محاسبه نمی‌شود.
+5. کاتالوگ صریحاً `billable_gateway_mode=disabled`، منبع Reconciliation برابر `anthropic_cost_api` و حداقل نسخه Web Tool را ثبت می‌کند.
 
-ادامه با هزینه صفر مجاز نیست.
+در نتیجه، اجرای کد رایگان رسمی قابل استفاده است و اجرای مستقل تا زمانی که Anthropic امکان انتساب هزینه قطعی به درخواست را فراهم کند، به‌درستی غیرقابل استفاده است.
 
 ## Credential و WIF
 
@@ -221,13 +225,13 @@
 | شناسه | وضعیت | شواهد |
 |---|---|---|
 | `ANT-REM-001` | بسته | Migration شماره 054، حذف `credential_data` از Prisma و SQLهای Runtime، حذف Dual-read و Migrator، تست PostgreSQL با رکورد Legacy و حفظ Credential رمزگذاری‌شده سالم |
+| `ANT-REM-003` | بسته | کنترل پیش از Upstream برای Messages و هر آیتم Batch، Pin شرط حالت رایگان در Reservation، مؤلفه ممیزی صفر فقط برای Web Toolهای واجد شرایط، Fail Closed برای Usage بدون انتساب، Metadata کاتالوگ و تست‌های رگرسیون Billing/Proxy |
 
 ## مغایرت‌های باقی‌مانده
 
 | شناسه | شدت | مغایرت | اثر | اقدام اصلاحی |
 |---|---|---|---|---|
 | `ANT-REM-002` | P1 | هیچ ماتریس زنده‌ای برای ۱۱ مدل با API Key و WIF اجرا نشده است | دسترسی واقعی مدل، Scope، Beta و رفتار upstream اثبات نشده است | Smoke و E2E زنده را با Credential کم‌دسترسی اجرا و Fixture پاک‌سازی‌شده ثبت کنید |
-| `ANT-REM-003` | P1 | Usage ابزار Code Execution با Rate ساعتی کاتالوگ قابل تطبیق مستقیم نیست | Finalize می‌تواند Fail Closed شود یا هزینه قابل تسویه نباشد | Reconciliation سازمانی یا غیرفعال‌سازی قابلیت تا فراهم‌شدن Usage قطعی |
 | `ANT-REM-004` | P1 | `ModelRuntimeProfile` در Control Plane دریافت نمی‌شود و Silk Road قواعد مدل را Hard-code کرده است | Drift بین کاتالوگ و Runtime و پذیرش Beta نامعتبر | Runtime Profile را در Snapshot اتمیک وارد و Validator/Adapter/Beta intersection را از همان Revision تغذیه کنید |
 | `ANT-REM-005` | P1 | Beta Header مدل با Allowlist حساب تقاطع داده نمی‌شود؛ فقط Allowlist حساب در Silk Road اعمال می‌شود | Beta مجاز برای حساب ممکن است روی مدل نامعتبر عبور کند | تقاطع `requested ∩ account allowlist ∩ model runtime profile` را اعمال کنید |
 | `ANT-REM-006` | P1 | Beta رسمی `output-300k-2026-03-24` برای Batch مدل‌های 4.6 و 4.7 در Runtime Profile ثبت نشده است | سقف رسمی 300k در Batch قابل استفاده مطمئن نیست | Header را فقط برای مدل‌های مجاز به Profile و Connection Schema اضافه و تست مرزی 300k ایجاد کنید |
@@ -245,7 +249,7 @@
 |---|---|---|
 | `ANT-FIND-001` | بسته | Pricing Snapshot، LKG 24h، Pin Revision و Fail Closed پیاده‌سازی شده‌اند. |
 | `ANT-FIND-002` | بسته | Plaintext، Dual-read و Migrator حذف شده‌اند؛ آزمون Migration تخریبی و مسیر رمزگذاری‌شده موفق است. |
-| `ANT-FIND-003` | ناقص | Token، Cache و Web Search بسته‌اند؛ Code Execution در `ANT-REM-003` باز است. |
+| `ANT-FIND-003` | بسته ایمن | Token، Cache و Web Search تسویه می‌شوند؛ Code Execution رایگان ممیزی و حالت مستقلِ غیرقابل انتساب پیش از Upstream رد می‌شود. |
 | `ANT-FIND-004` | بسته برای Custom Tool | Server Tool مسیر OpenAI در `ANT-REM-007` جدا ثبت شده است. |
 | `ANT-FIND-005` | بسته از نظر رفتار فعلی | منبع حقیقت Runtime در `ANT-REM-004` هنوز اصلاح نشده است. |
 | `ANT-FIND-006` | بسته در کد | تمام خانواده‌های API بومی عرضه شده‌اند. |
@@ -256,7 +260,7 @@
 | `ANT-FIND-011` | بسته در کد | Probe قابلیت‌محور وجود دارد؛ آزمون Scope واقعی باز است. |
 | `ANT-FIND-012` | بسته در کد | URL، Base64 و `file_id` پشتیبانی می‌شوند. |
 | `ANT-FIND-013` | بسته | منابع، Lifecycle و Runtime Profile در Importer ثبت می‌شوند. |
-| `ANT-FIND-014` | ناقص | Schema چندبعدی کامل است؛ Reconciliation اجرای کد باز است. |
+| `ANT-FIND-014` | بسته با Fail Closed | Schema چندبعدی حفظ شده و تا فراهم‌شدن انتساب قطعی Cost API، حالت مستقل غیرفعال است. |
 | `ANT-FIND-015` | بسته | `assistant_prefill` از 4.6 و 4.7 حذف شده است. |
 | `ANT-FIND-016` | باز | در `ANT-REM-009` پیگیری می‌شود. |
 | `ANT-FIND-017` | بسته | Source و تاریخ‌های قابل استخراج ثبت می‌شوند. |
@@ -267,6 +271,8 @@
 |---|---|
 | Snapshot و قیمت‌گذاری | `services/control-plane/internal/billing/anthropic_pricing_snapshot.go` |
 | Usage چندبعدی و Decimal | `services/control-plane/internal/billing/service.go` |
+| سیاست Code Execution | `services/control-plane/internal/proxy/anthropic_native_request.go` |
+| تست رگرسیون Code Execution | `services/control-plane/internal/proxy/anthropic_native_handler_test.go` و `services/control-plane/internal/billing/anthropic_pricing_snapshot_test.go` |
 | Adapter Anthropic | `services/silk-road/pkg/server/anthropic.go` |
 | WIF | `services/silk-road/pkg/server/anthropic_wif.go` |
 | API بومی | `services/control-plane/internal/proxy/anthropic_native_handler.go` |
@@ -284,12 +290,22 @@
 
 علاوه بر تست‌های خودکار ثبت‌شده قبلی، Migration شماره 054 روی PostgreSQL موقت با سه حالت Plaintext، نسخه مهاجرت‌شده Rotation-required و نسخه رمزگذاری‌شده سالم اجرا شد. دو حالت ناامن حذف و Credential رمزگذاری‌شده سالم حفظ شد. تست Integration حذف ستون Plaintext نیز موفق بود.
 
+برای `ANT-REM-003` تست‌های مستقل زیر ثبت و اجرا شدند:
+
+- رد Code Execution مستقل و رد Web Tool قدیمی
+- پذیرش ترکیب رایگان رسمی
+- اعتبارسنجی تک‌تک آیتم‌های Batch و جلوگیری از تعمیم شرط یک آیتم به آیتم دیگر
+- ثبت مؤلفه صفر قابل ممیزی برای `code_execution_requests`
+- Fail Closed برای Usage اجرای کد بدون شرط Pin‌شده
+- اجرای موفق `go test ./...` و `go vet ./...` در Control Plane
+- اجرای موفق ۴۱ تست، Build، Typecheck و Import خشک ۲۷ مدل Anthropic در Model Discovery
+
 این موفقیت جایگزین موارد زیر نیست:
 
 - آزمون زنده تمام ۱۱ مدل با API Key
 - آزمون زنده تمام ۱۱ مدل با WIF
 - آزمون Scopeهای `workspace:inference` و `workspace:developer`
-- آزمون Code Execution و تطبیق با صورتحساب واقعی
+- آزمون زنده حالت رایگان Code Execution و تأیید رد حالت مستقل پیش از Upstream
 - آزمون Batch شامل Success، Error، Cancel، Expiry و خروجی 300k
 - آزمون فایل مصنوعی 500MB با Backpressure
 - آزمون قطع Upload، Download و SSE
@@ -319,8 +335,9 @@
 
 ### Billing و محدودیت‌ها
 
-- [ ] Code Execution به منبع Usage/Invoice سازمانی متصل یا تا آن زمان غیرفعال شود.
-- [ ] هیچ Missing Dimension با هزینه صفر ادامه پیدا نکند.
+- [x] Code Execution مستقل تا فراهم‌شدن انتساب قطعی Cost API پیش از Upstream غیرفعال شود.
+- [x] حالت رایگان Code Execution فقط با Web Tool واجد شرایط Pin و ممیزی شود.
+- [x] هیچ Missing Dimension با هزینه صفر ضمنی ادامه پیدا نکند.
 - [ ] سقف Sonnet 4.6 با Models API حساب واقعی ثبت شود.
 - [ ] Rate Limitهای واقعی Workspace در Snapshot عملیاتی وارد شوند.
 - [ ] Retry فقط برای عملیات Idempotent و خطاهای مستند اعمال شود.

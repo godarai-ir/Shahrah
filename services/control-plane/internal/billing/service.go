@@ -764,6 +764,16 @@ func anthropicUsageCostBreakdown(
 			continue
 		}
 		rate, ok := price.Rates[dimension]
+		if dimension == "code_execution_requests" {
+			rate, ok = anthropicCodeExecutionUsageRate(price, conditions)
+			if !ok {
+				return platform.UsageCostBreakdown{}, fmt.Errorf(
+					"%w: billable code execution requires "+
+						"provider cost reconciliation",
+					ErrPricingUnavailable,
+				)
+			}
+		}
 		if !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
 				"%w: missing rate for %s",
@@ -809,6 +819,31 @@ func anthropicUsageCostBreakdown(
 		Components:                 components,
 		PricingSnapshot:            usagePricingSnapshot(price),
 	}, nil
+}
+
+func anthropicCodeExecutionUsageRate(
+	price priceInfo,
+	conditions map[string]string,
+) (normalizedPricingRate, bool) {
+	if conditions[platform.AnthropicCodeExecutionPricingCondition] !=
+		platform.AnthropicCodeExecutionFreeWithCurrentWebTools {
+		return normalizedPricingRate{}, false
+	}
+	hourlyRate, ok := price.Rates["code_execution_container_hours"]
+	if !ok || hourlyRate.Unit != "container_hour" {
+		return normalizedPricingRate{}, false
+	}
+	return normalizedPricingRate{
+		Dimension: "code_execution_requests",
+		Unit:      "request",
+		Condition: map[string]interface{}{
+			platform.AnthropicCodeExecutionPricingCondition: platform.AnthropicCodeExecutionFreeWithCurrentWebTools,
+			"source_dimension": hourlyRate.Dimension,
+		},
+		UnitPriceUSD: decimal.Zero,
+		Region:       hourlyRate.Region,
+		SourceURL:    hourlyRate.SourceURL,
+	}, true
 }
 
 const usdTicksPerDollar = 10_000_000_000.0

@@ -150,3 +150,103 @@ func anthropicMaximumOutputTokens(body []byte, operation platform.ProviderOperat
 	}
 	return 0
 }
+
+type anthropicNativeToolPricingInput struct {
+	Type string `json:"type"`
+}
+
+type anthropicNativeMessagePricingInput struct {
+	Tools []anthropicNativeToolPricingInput `json:"tools"`
+}
+
+func anthropicCodeExecutionPricingPolicy(
+	body []byte,
+	operation platform.ProviderOperation,
+) (map[string]string, error) {
+	var requests []anthropicNativeMessagePricingInput
+	switch operation {
+	case platform.ProviderOperationAnthropicMessages:
+		var request anthropicNativeMessagePricingInput
+		if err := json.Unmarshal(body, &request); err != nil {
+			return nil, fmt.Errorf("Invalid request body")
+		}
+		requests = []anthropicNativeMessagePricingInput{request}
+	case platform.ProviderOperationAnthropicBatchesCreate:
+		var batch struct {
+			Requests []struct {
+				Params anthropicNativeMessagePricingInput `json:"params"`
+			} `json:"requests"`
+		}
+		if err := json.Unmarshal(body, &batch); err != nil {
+			return nil, fmt.Errorf("Invalid request body")
+		}
+		requests = make([]anthropicNativeMessagePricingInput, 0, len(batch.Requests))
+		for _, item := range batch.Requests {
+			requests = append(requests, item.Params)
+		}
+	default:
+		return nil, nil
+	}
+
+	freeCodeExecutionPossible := false
+	for index, request := range requests {
+		hasCodeExecution := false
+		hasCurrentWebTool := false
+		for _, tool := range request.Tools {
+			toolType := strings.ToLower(strings.TrimSpace(tool.Type))
+			if strings.HasPrefix(toolType, "code_execution_") {
+				hasCodeExecution = true
+			}
+			if anthropicVersionedToolAtLeast(
+				toolType,
+				"web_search",
+				"20260209",
+			) || anthropicVersionedToolAtLeast(
+				toolType,
+				"web_fetch",
+				"20260209",
+			) {
+				hasCurrentWebTool = true
+			}
+		}
+		if hasCodeExecution && !hasCurrentWebTool {
+			prefix := ""
+			if operation == platform.ProviderOperationAnthropicBatchesCreate {
+				prefix = fmt.Sprintf("batch item %d: ", index)
+			}
+			return nil, fmt.Errorf(
+				"%sbillable Anthropic code execution is unavailable; "+
+					"include web_search_20260209 or later, or "+
+					"web_fetch_20260209 or later",
+				prefix,
+			)
+		}
+		freeCodeExecutionPossible = freeCodeExecutionPossible ||
+			hasCurrentWebTool
+	}
+	if !freeCodeExecutionPossible {
+		return nil, nil
+	}
+	return map[string]string{
+		platform.AnthropicCodeExecutionPricingCondition: platform.AnthropicCodeExecutionFreeWithCurrentWebTools,
+	}, nil
+}
+
+func anthropicVersionedToolAtLeast(
+	toolType, name, minimumVersion string,
+) bool {
+	prefix := name + "_"
+	if !strings.HasPrefix(toolType, prefix) {
+		return false
+	}
+	version := strings.TrimPrefix(toolType, prefix)
+	if len(version) != len(minimumVersion) {
+		return false
+	}
+	for _, value := range version {
+		if value < '0' || value > '9' {
+			return false
+		}
+	}
+	return version >= minimumVersion
+}

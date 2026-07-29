@@ -13,6 +13,9 @@ const (
 
 	BillingModeWalletBilled   = "wallet_billed"
 	BillingModeExternalBilled = "external_billed"
+
+	AnthropicCodeExecutionPricingCondition        = "anthropic_code_execution_billing"
+	AnthropicCodeExecutionFreeWithCurrentWebTools = "free_with_web_search_or_fetch_20260209_plus"
 )
 
 // Tenant represents the root tenant boundary for Shahrah.

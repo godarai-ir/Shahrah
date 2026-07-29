@@ -91,6 +91,15 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeAnthropicError(c, fiber.StatusBadRequest, "invalid_request_error", err.Error())
 	}
+	pricingConditions, err := anthropicCodeExecutionPricingPolicy(body, operation)
+	if err != nil {
+		return writeAnthropicError(
+			c,
+			fiber.StatusBadRequest,
+			"invalid_request_error",
+			err.Error(),
+		)
+	}
 
 	accountSelector := c.Get("x-godarai-provider-account")
 	var resourceMapping *platform.AnthropicNativeResourceMapping
@@ -167,6 +176,14 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 		estimated, err = h.billing.EstimateCost(c.Context(), estimateRequest)
 		if err != nil {
 			return writeAnthropicBillingError(c, err)
+		}
+		if len(pricingConditions) > 0 {
+			if estimated.PricingConditions == nil {
+				estimated.PricingConditions = make(map[string]string)
+			}
+			for key, value := range pricingConditions {
+				estimated.PricingConditions[key] = value
+			}
 		}
 		var handled bool
 		reservation, handled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deployment.BillingMode)

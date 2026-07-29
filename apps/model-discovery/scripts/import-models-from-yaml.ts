@@ -708,7 +708,18 @@ async function parseProviderDir(
             1550,
           minimum_minutes:
             asNumber(codeExecution?.['minimum_minutes']) ?? 5,
-          reconciliation: 'provider_usage_invoice',
+          free_with_web_tool_min_version:
+            asNumber(codeExecution?.['free_with_web_tool_min_version']) ??
+            20260209,
+          billable_gateway_mode:
+            typeof codeExecution?.['billable_gateway_mode'] === 'string'
+              ? codeExecution['billable_gateway_mode']
+              : 'disabled',
+          reconciliation:
+            typeof codeExecution?.['reconciliation'] === 'string'
+              ? codeExecution['reconciliation']
+              : 'anthropic_cost_api',
+          request_attribution: 'unavailable',
         },
         region: 'global',
         sourceUrl: codeExecutionSource,

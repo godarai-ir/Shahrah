@@ -56,6 +56,7 @@ func TestAnthropicPricingSnapshotRequiresEveryCoreDimensionForReadyModels(
 		require.Contains(t, rates, "batch_input_tokens")
 		require.Contains(t, rates, "batch_output_tokens")
 		require.Contains(t, rates, "web_search_requests")
+		require.Contains(t, rates, "code_execution_container_hours")
 	}
 }
 
@@ -155,23 +156,144 @@ func TestAnthropicFinalizeUsesPinnedDecimalSnapshotAndCacheDimensions(
 	require.Len(t, final.Components, 4)
 }
 
+func TestAnthropicFinalizeAuditsFreeCodeExecutionWithoutHourlyConversion(
+	t *testing.T,
+) {
+	service, estimated := anthropicBillingTestService(t)
+	estimated.PricingConditions = map[string]string{
+		platform.AnthropicCodeExecutionPricingCondition: platform.AnthropicCodeExecutionFreeWithCurrentWebTools,
+	}
+
+	final, err := service.FinalizeFromUsage(
+		context.Background(),
+		"anthropic/claude-opus-4-7",
+		&contractsopenai.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 5,
+			TotalTokens:      15,
+			ServerToolUse: map[string]int{
+				"code_execution_requests": 2,
+			},
+		},
+		estimated,
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]int{"code_execution_requests": 2}, final.ServerToolUse)
+	require.Equal(t, "revision-1", final.PricingRevision)
+	require.Len(t, final.Components, 3)
+	require.Equal(t, "code_execution_requests", final.Components[0].Dimension)
+	require.Equal(t, "2", final.Components[0].Quantity)
+	require.Equal(t, "request", final.Components[0].Unit)
+	require.Equal(t, "0", final.Components[0].UnitPriceUSD)
+	require.Equal(t, "0", final.Components[0].CostUSD)
+	require.Equal(
+		t,
+		platform.AnthropicCodeExecutionFreeWithCurrentWebTools,
+		final.Components[0].Condition[platform.AnthropicCodeExecutionPricingCondition],
+	)
+}
+
+func TestAnthropicFinalizeFailsClosedForUnattributedCodeExecution(t *testing.T) {
+	service, estimated := anthropicBillingTestService(t)
+
+	_, err := service.FinalizeFromUsage(
+		context.Background(),
+		"anthropic/claude-opus-4-7",
+		&contractsopenai.Usage{
+			ServerToolUse: map[string]int{
+				"code_execution_requests": 1,
+			},
+		},
+		estimated,
+	)
+
+	require.ErrorIs(t, err, ErrPricingUnavailable)
+	require.Contains(t, err.Error(), "code execution")
+}
+
+func TestAnthropicFinalizeFailsClosedWhenFreeCodeExecutionSourceRateIsMissing(
+	t *testing.T,
+) {
+	service, estimated := anthropicBillingTestService(t)
+	delete(
+		estimated.PricingSnapshot.Rates,
+		"code_execution_container_hours",
+	)
+	estimated.PricingConditions = map[string]string{
+		platform.AnthropicCodeExecutionPricingCondition: platform.AnthropicCodeExecutionFreeWithCurrentWebTools,
+	}
+
+	_, err := service.FinalizeFromUsage(
+		context.Background(),
+		"anthropic/claude-opus-4-7",
+		&contractsopenai.Usage{
+			ServerToolUse: map[string]int{
+				"code_execution_requests": 1,
+			},
+		},
+		estimated,
+	)
+
+	require.ErrorIs(t, err, ErrPricingUnavailable)
+	require.Contains(t, err.Error(), "code execution")
+}
+
+func anthropicBillingTestService(
+	t *testing.T,
+) (*Service, platform.UsageCostBreakdown) {
+	t.Helper()
+	snapshot, err := normalizeAnthropicPricingSnapshot(
+		discoveryRuntimeSnapshot{
+			Provider:    "anthropic",
+			Revision:    "revision-1",
+			GeneratedAt: time.Now().UTC(),
+			Models: []discoveryRuntimeModel{{
+				CanonicalID:  "anthropic/claude-opus-4-7",
+				Slug:         "claude-opus-4-7",
+				Status:       "active",
+				PricingRates: completeAnthropicRates(),
+			}},
+		},
+	)
+	require.NoError(t, err)
+	manager := &AnthropicPricingSnapshotManager{now: time.Now}
+	manager.state.Store(snapshot)
+	service := &Service{
+		defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
+		anthropicPricing: manager,
+	}
+	estimated, err := service.EstimateCost(
+		context.Background(),
+		contractsopenai.ChatCompletionRequest{
+			Model: "anthropic/claude-opus-4-7",
+		},
+	)
+	require.NoError(t, err)
+	return service, estimated
+}
+
 func completeAnthropicRates() []discoveryPricingRate {
 	source := "https://platform.claude.com/docs/en/about-claude/pricing"
 	values := map[string]string{
-		"input_tokens":          "0.000003",
-		"output_tokens":         "0.000015",
-		"cache_write_5m_tokens": "0.00000375",
-		"cache_write_1h_tokens": "0.000006",
-		"cache_read_tokens":     "0.0000003",
-		"batch_input_tokens":    "0.0000015",
-		"batch_output_tokens":   "0.0000075",
-		"web_search_requests":   "0.01",
+		"input_tokens":                   "0.000003",
+		"output_tokens":                  "0.000015",
+		"cache_write_5m_tokens":          "0.00000375",
+		"cache_write_1h_tokens":          "0.000006",
+		"cache_read_tokens":              "0.0000003",
+		"batch_input_tokens":             "0.0000015",
+		"batch_output_tokens":            "0.0000075",
+		"web_search_requests":            "0.01",
+		"code_execution_container_hours": "0.05",
 	}
 	out := make([]discoveryPricingRate, 0, len(values))
 	for dimension, price := range values {
 		unit := "token"
 		if dimension == "web_search_requests" {
 			unit = "request"
+		}
+		if dimension == "code_execution_container_hours" {
+			unit = "container_hour"
 		}
 		out = append(out, discoveryPricingRate{
 			Dimension:    dimension,
