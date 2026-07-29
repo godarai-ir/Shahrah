@@ -15,12 +15,3 @@ func TestShouldClearProviderAccountCredentials(t *testing.T) {
 	assert.False(t, shouldClearProviderAccountCredentials(string(platform.ProviderAuthModeAPIKey), false, &platform.ProviderAccountCredentials{APIKey: "sk-test"}))
 	assert.False(t, shouldClearProviderAccountCredentials(string(platform.ProviderAuthModeAPIKey), false, nil))
 }
-
-func TestProviderAccountCredentialMapHasCredential(t *testing.T) {
-	assert.False(t, providerAccountCredentialMapHasCredential(map[string]interface{}{}))
-	assert.False(t, providerAccountCredentialMapHasCredential(map[string]interface{}{"api_key": "  "}))
-
-	assert.True(t, providerAccountCredentialMapHasCredential(map[string]interface{}{"api_key": "sk-test"}))
-	assert.True(t, providerAccountCredentialMapHasCredential(map[string]interface{}{"secret_ref": "vault/provider"}))
-	assert.True(t, providerAccountCredentialMapHasCredential(map[string]interface{}{"raw": map[string]interface{}{"client_email": "svc@example.com"}}))
-}

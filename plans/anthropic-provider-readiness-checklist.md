@@ -1,1046 +1,353 @@
-# چک‌لیست آمادگی کامل ارائه‌دهنده Anthropic در گدارAI
+# گزارش بازبینی آمادگی ارائه‌دهنده Anthropic در گدارAI
 
-> وضعیت سند: بازاجراشده پس از پیاده‌سازی اصلاحات در ۲۹ ژوئیه ۲۰۲۶
+> تاریخ بازبینی: ۲۹ ژوئیه ۲۰۲۶
 >
-> نتیجه دروازه پیاده‌سازی: **موفق — مغایرت‌های کد و قرارداد برنامه اصلاح شده‌اند.**
+> دامنه: ارائه‌دهنده مستقیم `anthropic` و ۱۱ مدل آماده‌ای که در اجرای مبنا از دیتابیس Model Discovery استخراج شدند
 >
-> نتیجه دروازه انتشار: **در انتظار — آزمون زنده API Key/WIF، صفرشدن Legacy Credential، تثبیت Sonnet 4.6 با Models API و تأیید بازبین انسانی هنوز لازم است.**
+> نتیجه نهایی: **آمادگی کامل تأیید نمی‌شود؛ عرضه فقط به‌صورت کنترل‌شده در Staging یا برای حساب‌های Allowlist‌شده مجاز است.**
 
-## نتیجه بازاجرای پس از اصلاح
+## خلاصه مدیریتی
 
-ارزیابی مفصل بعدی این سند، خط مبنای پیش از اصلاح را نگه می‌دارد. جدول زیر وضعیت همان ۱۷ مغایرت پس از پیاده‌سازی جاری را ثبت می‌کند.
+اصلاحات اصلی برنامه پیاده‌سازی شده‌اند: قیمت‌گذاری Anthropic از Snapshot نسخه‌دار Model Discovery خوانده می‌شود، Credentialهای جدید سازمان رمزگذاری می‌شوند، WIF در قرارداد و Silk Road وجود دارد، Adapter از Tools و Thinking و Structured Output پشتیبانی می‌کند و API بومی Messages، Models، Files و Message Batches عرضه شده است.
 
-| شناسه | وضعیت پس از اصلاح | شاهد اصلی |
-|---|---|---|
-| `ANT-FIND-001` | بسته | Snapshot نسخه‌دار Model Discovery، Pin در زمان Reserve، LKG حداکثر ۲۴ ساعت و خطای `pricing_unavailable` بدون fallback |
-| `ANT-FIND-002` | بسته در کد؛ عملیات Migration پیش از انتشار الزامی | جدول نسخه‌دار رمزگذاری‌شده، Dual-read، Migrator قابل ادامه، AAD کامل، Fingerprint و وضعیت Rotation |
-| `ANT-FIND-003` | بسته برای Token/Cache/Web Search؛ اجرای کد نیازمند تطبیق صورتحساب سازمانی است | Usage افزایشی، اجزای Decimal و ثبت ممیزی؛ نرخ ساعتی اجرای کد با شرط سهمیه رایگان ثبت شده و نبود بعد قابل محاسبه Fail Closed است |
-| `ANT-FIND-004` | بسته | نگاشت کامل ابزار سفارشی، `tool_choice`، `tool_result`، Structured Output و Tool Delta |
-| `ANT-FIND-005` | بسته | تفکر تطبیقی برای 4.6/4.7، رد Manual در 4.7 و اعتبارسنجی `effort`/Sampling |
-| `ANT-FIND-006` | بسته | Messages، Count Tokens، Models، Files و Message Batches روی `/v1` با Operation نوع‌دار |
-| `ANT-FIND-007` | بسته | State machine کامل SSE، خطای میانه Stream، Usage نهایی، Request ID و Tool Delta |
-| `ANT-FIND-008` | بسته | `deprecationDate` و `retirementDate` مستقل، مدل جایگزین و تبدیل خودکار به Unavailable در تاریخ Retirement |
-| `ANT-FIND-009` | بسته | پارامترهای Anthropic، کنترل‌های درخواست و Runtime Profile نسخه‌دار |
-| `ANT-FIND-010` | بسته در کد؛ آزمون زنده لازم | WIF پلتفرم و سازمان، Token Source Allowlist، Exchange و Refresh تک‌پرواز در Silk Road |
-| `ANT-FIND-011` | بسته در کد؛ آزمون زنده لازم | Probe از Tunnel برای Models، Count Tokens و Files و گزارش قابلیت‌محور Scope |
-| `ANT-FIND-012` | بسته | تصویر و PDF از Base64، URL و `file_id` به‌همراه Files API جریانی |
-| `ANT-FIND-013` | بسته | منابع رسمی، تاریخ‌های چرخه عمر، Endpoint، محدودیت و Runtime Profile در Importer |
-| `ANT-FIND-014` | بسته در Schema و Billing قابل محاسبه | `ModelPricingRate` Decimal برای Token، Cache، Batch، Web Search، Code Execution، Data Residency و Speed/شرایط |
-| `ANT-FIND-015` | بسته | حذف `assistant_prefill` از 4.6 و 4.7 |
-| `ANT-FIND-016` | مسدود تا آزمون زنده | مقدار کاتالوگ و منبع ثبت شده است؛ پاسخ Models API حساب واقعی و تاریخ مشاهده باید پیش از انتشار ثبت شود |
-| `ANT-FIND-017` | بسته | منابع رسمی و تاریخ‌های قابل استخراج در Importer و ۱۱ YAML |
+بااین‌حال، بررسی دوباره کد و تطبیق آن با مستندات رسمی جاری Anthropic نشان می‌دهد که هنوز نمی‌توان عبارت «پشتیبانی کامل» را برای این ۱۱ مدل به‌کار برد. سه مانع اصلی انتشار عبارت‌اند از:
 
-### دروازه‌های خودکار اجراشده پس از اصلاح
+1. ماتریس زنده API Key و WIF برای تمام مدل‌ها و قابلیت‌ها اجرا نشده است.
+2. هزینه Code Execution از پاسخ Messages قابل تسویه دقیق نیست و در وضعیت فعلی می‌تواند به `pricing_unavailable` منجر شود.
+3. `ModelRuntimeProfile` در Hot Path رفتار Silk Road اعمال نمی‌شود؛ بخشی از قواعد مدل همچنان به‌صورت Hard-coded پیاده‌سازی شده است.
 
-| دروازه | نتیجه |
+در این بازبینی، ۱۲ مغایرت باقی‌مانده ثبت شده است: ۸ مورد P1 و ۴ مورد P2. مغایرت P0 با شناسه `ANT-REM-001` بسته شده است.
+
+## مبنا و روش ارزیابی
+
+| مورد | مقدار |
 |---|---|
-| Control Plane: Billing، Storage، Proxy، Server، Tunnel، Platform/Tenant Credential، Runtime Profile و Router | موفق |
-| Silk Road Adapter/WIF | موفق |
-| Tunnel Client و Tunnel Server | موفق |
-| Model Discovery | ۱۳ مجموعه و ۴۱ آزمون موفق؛ Build موفق |
-| Dry-run واردسازی Anthropic | ۲۷ مدل بدون خطای Schema |
-| پنل سازمان | اعتبارسنجی ۲۸ فضای ترجمه، ESLint و Next.js Production Build موفق |
-| مستندات | TypeScript و Docusaurus Production Build موفق |
+| معیار مدل آماده | Provider فعال و Model فعال، روشن و `published` در Snapshot اجرای مبنا |
+| تعداد مدل‌های دامنه | ۱۱ |
+| مسیرهای Runtime | Control Plane، Silk Road، Tunnel Client و Tunnel Server |
+| قراردادها | Anthropic-native و OpenAI-compatible |
+| کاتالوگ | `D:\source\models\providers\anthropic` و Model Discovery |
+| آزمون زنده | اجرا نشده؛ Credential واقعی API Key و WIF در دسترس این بازبینی نبود |
+| وضعیت مدل‌های Claude 5 | خارج از دامنه؛ در Snapshot مبنا جزو ۱۱ مدل آماده نبودند |
 
-### مواردی که پیاده‌سازی نمی‌تواند جایگزین آن‌ها شود
+این سند وضعیت فعلی را نشان می‌دهد و جایگزین نسخه قبلی است. شرح خط مبنای پیش از اصلاح و چک‌لیست عمومی اجرا‌نشده حذف شده‌اند تا وضعیت‌های قدیمی با نتیجه فعلی اشتباه نشوند.
 
-- اجرای ماتریس زنده ۱۱ مدل با API Key و WIF کم‌دسترسی در Staging؛
-- اجرای Migrator روی داده واقعی، تأیید صفرشدن Legacy-read، چرخش همه کلیدهای قدیمی و سپس حذف ستون در Migration عملیاتی جدا؛
-- تثبیت سقف Sonnet 4.6 با پاسخ Models API همان حساب و ثبت تاریخ مشاهده؛
-- تطبیق هزینه اجرای کد با Usage and Cost API یا صورتحساب سازمانی Anthropic، چون پاسخ Messages تعداد درخواست اجرای کد را می‌دهد اما مدت قابل‌صورتحساب و سهمیه رایگان سازمان را تعیین نمی‌کند؛
-- Load/Security test فایل مصنوعی ۵۰۰ مگابایتی در زیرساخت Staging؛
-- تأیید نهایی بازبین انسانی.
+## منابع رسمی
 
-## نتیجه اجرای مبنا پیش از اصلاح
-
-### جمع‌بندی مدیریتی
-
-ارزیابی روی ارائه‌دهنده مستقیم `anthropic` و ۱۱ مدل فعال، روشن و منتشرشده در دیتابیس Model Discovery انجام شد. مسیر پایه OpenAI-compatible برای پیام متنی همگام و جریانی در Silk Road پیاده‌سازی شده و تست‌های موجود آن موفق‌اند؛ بااین‌حال، وجود سه مغایرت P0 و چند مغایرت P1 مانع اعلام آمادگی کامل است.
-
-مهم‌ترین نتیجه‌ها:
-
-- **قیمت‌گذاری Runtime برای هر ۱۱ مدل آماده اشتباه است.** رجیستری Billing هیچ‌کدام از مدل‌های Claude 4.x موجود در دیتابیس را ندارد و برای مدل ناشناخته قیمت پیش‌فرض ۱ دلار ورودی و ۲ دلار خروجی به‌ازای یک میلیون توکن اعمال می‌کند.
-- **هزینه‌های Prompt Cache، Batch و Server Tool محاسبه نمی‌شوند.** قرارداد Usage نیز فیلدهای مصرف Cache و ابزارهای سمت سرور Anthropic را نگه نمی‌دارد.
-- **Credential حساب‌های BYOK مستأجر به‌صورت JSONB قابل خواندن ذخیره می‌شود.** رمزگذاری Envelope موجود فقط برای Credentialهای مدیریت‌شده پلتفرم استفاده شده است.
-- **Tool Use، `tool_choice` و Structured Output با وجود ثبت به‌عنوان قابلیت مدل‌ها، در Control Plane برای Anthropic رد می‌شوند.**
-- **Extended Thinking مدل Opus 4.7 ناسازگار است.** مبدل موجود `thinking.type=enabled` تولید می‌کند، درحالی‌که Opus 4.7 فقط Adaptive Thinking را می‌پذیرد. در مدل‌های 4.6 نیز روش دستی Deprecated شده است.
-- **قرارداد بومی Anthropic عرضه نشده است.** مسیرهای Messages بومی، Token Counting، Message Batches، Models و Files در Routeهای عمومی گدارAI وجود ندارند.
-- **دو ردیف Opus 4.1 همچنان Active و Published هستند،** درحالی‌که Anthropic آن‌ها را از ۵ ژوئن ۲۰۲۶ Deprecated کرده و تاریخ بازنشستگی ۵ اوت ۲۰۲۶ اعلام شده است.
-- **تصویر و PDF فقط به‌صورت Data URL مبتنی بر Base64 کار می‌کنند.** ورودی URL و `file_id` رسمی Anthropic پذیرفته نمی‌شود.
-- **آزمون زنده اجرا نشد،** زیرا Credential آزمایشی Anthropic در محیط فرایند یا فایل‌های محیطی Workspace وجود نداشت. بنابراین موفقیت واقعی هیچ‌یک از ۱۱ مدل در upstream تأیید نشده است.
-
-### امتیاز و وضعیت دروازه‌ها
-
-| حوزه | وضعیت | توضیح کوتاه |
-|---|---|---|
-| موجودی مدل‌ها | منطبق | ۱۱ ردیف مستقیم از دیتابیس استخراج شد. |
-| اسناد و چرخه عمر | ناقص | ۱۰ مدل فاقد SourceReference و `officialDocsUrl` هستند؛ Opus 4.1 وضعیت نادرست دارد. |
-| Credential و اتصال | ناسازگار | API Key مدیریت‌شده پلتفرم پیاده‌سازی شده؛ WIF و آزمون BYOK Anthropic غایب و ذخیره BYOK ناامن است. |
-| Endpoint و Mode | ناقص | Chat همگام و Streaming موجود؛ API بومی، Count Tokens، Batch، Models و Files غایب‌اند. |
-| Modality | ناقص | Text و Base64 Image/PDF موجود؛ URL و Files API پشتیبانی نمی‌شوند. صوت و ویدئو برای مدل‌های این دامنه ورودی/خروجی رسمی نیستند. |
-| پارامترهای درخواست | ناسازگار | چند پارامتر اصلی حذف یا رد می‌شوند؛ قرارداد Thinking نسل‌های جدید رعایت نمی‌شود. |
-| پاسخ و Streaming | ناقص | متن و Thinking پایه تبدیل می‌شود؛ Usage کامل، رخداد خطای Stream و Tool Delta از دست می‌روند. |
-| قیمت‌گذاری و Billing | ناسازگار | نرخ پایه دیتابیس عمدتاً درست است، اما Runtime از آن استفاده نمی‌کند و ابعاد قیمت کامل نیست. |
-| محدودیت‌ها | ناقص | Context و Max Output عمدتاً ثبت شده؛ Rate Limit و برخی محدودیت‌های Beta مدل‌محور نیستند. |
-| امنیت | ناسازگار | Credential پلتفرم رمزگذاری می‌شود، ولی Tenant BYOK در JSONB قابل خواندن است. |
-| تست خودکار | ناقص | تست‌های موجود موفق‌اند، اما مدل‌ها و قابلیت‌های جاری را به‌طور کامل پوشش نمی‌دهند. |
-| تست زنده | مسدود | Credential آزمایشی موجود نبود. |
-| آمادگی نهایی | **رد** | مغایرت باز P0 و P1 وجود دارد. |
-
-### مبنای ارزیابی
-
-| فیلد | مقدار |
-|---|---|
-| تاریخ اجرا و آخرین مراجعه به منابع رسمی | ۲۹ ژوئیه ۲۰۲۶ |
-| Workspace | `D:\source\Shahrah` |
-| Commit مبنا | `da97e1b944a7ca2526b1d580dd62f022e2d80579` به‌همراه تغییرات Working Tree موجود هنگام ارزیابی |
-| دامنه دیتابیس | Model Discovery متصل از طریق `apps/model-discovery/.env`؛ هیچ Secret نمایش داده نشد |
-| معیار مدل آماده | Provider: `active && enabled`؛ Model: `active && enabled && lifecycleStatus=published` |
-| Migration اصلی قابل مشاهده | تا `050_support_ticketing.sql`؛ Migration شماره ۵۰ خارج از دامنه این ارزیابی است |
-| Runtime بررسی‌شده | Control Plane و Silk Road |
-| مسیر قرارداد بررسی‌شده | OpenAI-compatible `POST /v1/chat/completions` و تبدیل داخلی به `POST /v1/messages` |
-| آزمون زنده | اجرا نشد؛ Credential Anthropic در محیط موجود نبود |
-| ارزیاب | Codex |
-| بازبین انسانی | ثبت نشده |
-
-### منابع رسمی مبنا
-
-- [API Overview و فهرست Endpointها](https://platform.claude.com/docs/en/api/overview)
-- [Authentication و Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/authentication)
 - [Models Overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [Model IDs and Versioning](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions)
 - [Model Deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations)
 - [Pricing](https://platform.claude.com/docs/en/about-claude/pricing)
-- [Rate Limits](https://platform.claude.com/docs/en/api/rate-limits)
-- [Errors](https://platform.claude.com/docs/en/api/errors)
-- [Extended Thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
-- [Vision](https://platform.claude.com/docs/en/build-with-claude/vision)
-- [PDF Support](https://platform.claude.com/docs/en/build-with-claude/pdf-support)
+- [Messages API](https://platform.claude.com/docs/en/api/messages)
+- [Models API](https://platform.claude.com/docs/en/api/models)
+- [Message Batches](https://platform.claude.com/docs/en/build-with-claude/batch-processing)
 - [Files API](https://platform.claude.com/docs/en/build-with-claude/files)
-- [Prompt Caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
-- [Beta Headers](https://platform.claude.com/docs/en/api/beta-headers)
+- [Token Counting](https://platform.claude.com/docs/en/build-with-claude/token-counting)
+- [Streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)
+- [Extended Thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
+- [Effort](https://platform.claude.com/docs/en/build-with-claude/effort)
 - [Tool Use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
+- [Code Execution](https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool)
+- [Prompt Caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
+- [Rate Limits](https://platform.claude.com/docs/en/api/rate-limits)
+- [Rate Limit API](https://platform.claude.com/docs/en/manage-claude/rate-limits-api)
+- [Errors](https://platform.claude.com/docs/en/api/errors)
+- [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation)
+- [WIF API Reference](https://platform.claude.com/docs/en/manage-claude/wif-reference)
+- [Fast Mode](https://platform.claude.com/docs/en/build-with-claude/fast-mode)
 
-### موجودی قطعی مدل‌های آماده
-
-در زمان ارزیابی، ۱۱ مدل زیر معیار آماده را داشتند. مدل‌های جدیدتر موجود در مخزن YAML، مانند نسل Claude 5، چون در دیتابیس آماده ثبت نشده‌اند خارج از این دامنه هستند.
-
-| ردیف | شناسه رکورد | شناسه گدارAI و upstream | Context | سقف خروجی DB | وضعیت رسمی | نتیجه مدل |
-|---:|---|---|---:|---:|---|---|
-| ۱ | `cmr0bfdqo000wdsut2lwhczqs` | `anthropic/claude-haiku-4-5` → `claude-haiku-4-5` | 200k | 64k | Alias فعال | ناقص |
-| ۲ | `cmr0bfc6u000jdsutz9g4umht` | `anthropic/claude-haiku-4-5-20251001` → `claude-haiku-4-5-20251001` | 200k | 64k | فعال؛ Not-before-retirement: ۱۵ اکتبر ۲۰۲۶ | ناقص |
-| ۳ | `cmr0bff1t0012dsuty7sv4hxe` | `anthropic/claude-opus-4-1` → `claude-opus-4-1` | 200k | 32k | Deprecated | ناسازگار |
-| ۴ | `cmr0bfeb7000zdsutfgf3nsbq` | `anthropic/claude-opus-4-1-20250805` → `claude-opus-4-1-20250805` | 200k | 32k | Deprecated؛ Retirement: ۵ اوت ۲۰۲۶ | ناسازگار |
-| ۵ | `cmr0bfg030018dsutcr0mqa41` | `anthropic/claude-opus-4-5` → `claude-opus-4-5` | 200k | 64k | Alias فعال | ناقص |
-| ۶ | `cmr0bffif0015dsutio4m0078` | `anthropic/claude-opus-4-5-20251101` → `claude-opus-4-5-20251101` | 200k | 64k | فعال؛ Not-before-retirement: ۲۴ نوامبر ۲۰۲۶ | ناقص |
-| ۷ | `cmr0bfgcq001bdsut8wb6ni9g` | `anthropic/claude-opus-4-6` → `claude-opus-4-6` | 1M | 128k | فعال | ناسازگار |
-| ۸ | `cmr0bfgl3001edsut7a9yxr10` | `anthropic/claude-opus-4-7` → `claude-opus-4-7` | 1M | 128k | فعال | ناسازگار |
-| ۹ | `cmr0bfi3e001mdsut2dyq6t8m` | `anthropic/claude-sonnet-4-5` → `claude-sonnet-4-5` | 200k | 64k | Alias فعال | ناقص |
-| ۱۰ | `cmr0bfh7a001idsut2qxxrd3t` | `anthropic/claude-sonnet-4-5-20250929` → `claude-sonnet-4-5-20250929` | 200k | 64k | فعال؛ Not-before-retirement: ۲۹ سپتامبر ۲۰۲۶ | ناقص |
-| ۱۱ | `cmr0bfilz001pdsutjieatzpm` | `anthropic/claude-sonnet-4-6` → `claude-sonnet-4-6` | 1M | 64k | فعال | ناقص؛ سقف خروجی نیازمند تأیید Models API |
-
-نکته درباره Sonnet 4.6: جدول جاری Models Overview سقف همگام را 64k اعلام می‌کند، درحالی‌که Migration Guide رسمی و فایل YAML داخلی 128k را ذکر می‌کنند. مقدار دیتابیس 64k است. به علت تناقض دو منبع رسمی، این مورد باید با `GET /v1/models/{model_id}` یا پاسخ Models API یک حساب فعال تثبیت شود و تا آن زمان «ناقص/نیازمند تأیید» است.
-
-### نتیجه کنترل‌های اجرایی
-
-| شناسه کنترل | وضعیت | شواهد اصلی |
-|---|---|---|
-| `ANT-SCOPE-001` | منطبق | Query مستقیم دیتابیس؛ ۱۱ مدل |
-| `ANT-SCOPE-002` | ناسازگار | Opus 4.1 در DB فعال است؛ چرخه عمر Aliasها و `deprecatedAt` یکدست نیست |
-| `ANT-DOC-001` | ناقص | ۱۰ از ۱۱ مدل SourceReference ندارند؛ Release Date همه مدل‌ها تهی است |
-| `ANT-AUTH-001` | ناقص | فقط `api_key` در Connection Schema؛ WIF وجود ندارد |
-| `ANT-AUTH-002` | ناقص | `x-api-key` و `anthropic-version` موجود؛ `Authorization` WIF و `anthropic-beta` غایب |
-| `ANT-AUTH-003` | ناسازگار | Credential پلتفرم AES-GCM؛ Tenant BYOK در `credential_data` قابل خواندن |
-| `ANT-AUTH-004` | ناقص | Probe مدیریت‌شده پلتفرم موجود؛ Probe حساب Tenant برای Anthropic پیاده‌سازی نشده |
-| `ANT-ENDPOINT-001` | پیاده‌سازی‌نشده | Route بومی `/v1/messages` و خانواده Endpointهای Anthropic عرضه نشده‌اند |
-| `ANT-ENDPOINT-002` | ناقص | `/v1/chat/completions` همگام و جریانی موجود؛ بخشی از قرارداد OpenAI رد یا حذف می‌شود |
-| `ANT-ENDPOINT-003` | ناقص | Sync و Streaming؛ Batch و Async رسمی غایب |
-| `ANT-MOD-001` | ناقص | Text منطبق؛ Image/PDF فقط Base64؛ URL و `file_id` رد می‌شوند |
-| `ANT-REQ-001` | ناقص | ساختار مبدل همه پارامترهای رسمی را مدل نمی‌کند |
-| `ANT-REQ-002` | ناسازگار | `top_k`، stop، tools، cache، metadata، adaptive thinking و effort کامل نگاشت نمی‌شوند |
-| `ANT-RESP-001` | ناقص | Text و Thinking پایه حفظ می‌شود؛ Tool/Citation/Usage کامل حذف می‌شود |
-| `ANT-RESP-002` | ناسازگار | خطای داخل Stream و Usage نهایی به‌شکل کامل منتقل نمی‌شود |
-| `ANT-USAGE-001` | ناسازگار | فقط input/output token؛ Cache و Server Tool usage حذف می‌شود |
-| `ANT-FEAT-001` | ناسازگار | Tool Use و Structured Output رد می‌شوند؛ Prompt Cache و Betaها پیاده‌سازی نشده‌اند |
-| `ANT-PRICE-001` | ناقص | نرخ پایه DB عمدتاً درست؛ Source و ابعاد قیمت ناقص |
-| `ANT-PRICE-002` | ناسازگار | Cache write/read، Batch، ابزارها، Data Residency و Speed در Runtime مدل نشده‌اند |
-| `ANT-PRICE-003` | ناسازگار | Billing از DB استفاده نمی‌کند و برای مدل‌های جاری fallback اشتباه دارد |
-| `ANT-LIMIT-001` | ناقص | Context/Output ثبت شده؛ محدودیت‌های فرمت و قابلیت‌های Beta کامل نیست |
-| `ANT-LIMIT-002` | ناقص | Rate Limit upstream مدل‌محور در کاتالوگ/سیاست Runtime بازنمایی نشده است |
-| `ANT-ERR-001` | ناقص | خطای HTTP همگام عبور می‌کند؛ رخداد خطای Stream از دست می‌رود |
-| `ANT-RES-001` | ناقص | Timeout موجود؛ سیاست Retry/Backoff ویژه Anthropic و Idempotency روشن نیست |
-| `ANT-OBS-001` | ناقص | مشاهده‌پذیری عمومی وجود دارد؛ مصرف و علت توقف Anthropic کامل نیست |
-| `ANT-CAT-001` | ناسازگار | قابلیت‌های ثبت‌شده با محدودیت Proxy و Adapter تطبیق ندارند |
-| `ANT-ROUTE-001` | ناقص | مسیر مستقیم Anthropic موجود؛ آزمون زنده همه مدل‌ها انجام نشده است |
-| `ANT-ACCESS-001` | ناقص | کنترل Tenant عمومی موجود؛ دسترسی واقعی upstream هر مدل تأیید نشده است |
-| `ANT-SEC-001` | ناسازگار | ذخیره Tenant BYOK و پوشش Secret نیازمند اصلاح فوری است |
-| `ANT-TEST-001` | مسدود | Credential زنده برای اجرای ماتریس ۱۱ مدل موجود نبود |
-| `ANT-TEST-002` | ناقص | تست واحد بعضی قابلیت‌ها موجود است، اما قابلیت‌های جاری و منفی پوشش ندارند |
-| `ANT-TEST-003` | ناقص | تست واحد موفق؛ Staging/Production smoke اجرا نشد |
-
-### ماتریس Endpoint و Mode
-
-| قابلیت | وضعیت رسمی Anthropic | وضعیت گدارAI | نتیجه |
-|---|---|---|---|
-| Messages همگام | `POST /v1/messages` | از طریق OpenAI-compatible به upstream تبدیل می‌شود؛ Route بومی عمومی ندارد | ناقص |
-| Messages Streaming | SSE رسمی | تبدیل به Chunkهای OpenAI انجام می‌شود | ناقص؛ Usage و خطای Stream کامل نیست |
-| Token Counting | `POST /v1/messages/count_tokens` | Route عمومی ندارد | پیاده‌سازی‌نشده |
-| Message Batches | خانواده `/v1/messages/batches` | Route و Adapter ندارد | پیاده‌سازی‌نشده |
-| Models | خانواده `/v1/models` | فقط برای Probe مدیریت‌شده استفاده می‌شود؛ Proxy عمومی ندارد | پیاده‌سازی‌نشده برای مصرف‌کننده |
-| Files | خانواده Beta `/v1/files` | Route، Beta Header و `file_id` ندارد | پیاده‌سازی‌نشده |
-| OpenAI Chat Completions | قرارداد گدارAI | موجود | ناقص |
-| Sync | رسمی | موجود | ناقص |
-| Streaming | رسمی | موجود | ناقص |
-| Batch/Async | رسمی | موجود نیست | پیاده‌سازی‌نشده |
-
-شاهد Routeها: [`services/control-plane/internal/server/routes_proxy.go`](../services/control-plane/internal/server/routes_proxy.go) فقط خانواده Endpointهای OpenAI-compatible را ثبت می‌کند. تبدیل Anthropic در [`services/silk-road/pkg/server/anthropic.go`](../services/silk-road/pkg/server/anthropic.go) انجام می‌شود.
-
-### ماتریس Modality
-
-| وجه | قرارداد رسمی مدل‌های این دامنه | وضعیت پیاده‌سازی | نتیجه |
-|---|---|---|---|
-| متن ورودی | پشتیبانی می‌شود | پیام و System متنی تبدیل می‌شود | منطبق در سطح کد؛ بدون آزمون زنده |
-| تصویر Base64 | پشتیبانی می‌شود | Data URL به Source Base64 تبدیل می‌شود | منطبق در سطح کد؛ بدون آزمون زنده |
-| تصویر URL | پشتیبانی می‌شود | Parser فقط Data URL را می‌پذیرد | پیاده‌سازی‌نشده |
-| تصویر `file_id` | از Files API پشتیبانی می‌شود | صریحاً رد می‌شود | پیاده‌سازی‌نشده |
-| PDF Base64 | پشتیبانی می‌شود | Data URL PDF تبدیل می‌شود | منطبق در سطح کد؛ بدون آزمون زنده |
-| PDF URL | پشتیبانی می‌شود | پشتیبانی نمی‌شود | پیاده‌سازی‌نشده |
-| PDF `file_id` | پشتیبانی می‌شود | پشتیبانی نمی‌شود | پیاده‌سازی‌نشده |
-| متن خروجی | پشتیبانی می‌شود | تبدیل می‌شود | منطبق در سطح کد؛ بدون آزمون زنده |
-| Thinking/Redacted Thinking | وابسته به مدل و تنظیم | بلوک پایه تبدیل می‌شود | ناسازگار برای Opus 4.7 |
-| Tool Use خروجی | پشتیبانی می‌شود | Proxy درخواست را رد و Adapter بلوک را حذف می‌کند | پیاده‌سازی‌نشده |
-| صوت/ویدئو | برای این ۱۱ مدل ورودی یا خروجی رسمی نیست | در این دامنه عرضه نمی‌شود | نامرتبط |
-
-### پارامترهای درخواست و پاسخ
-
-| گروه | پشتیبانی فعلی | شکاف |
-|---|---|---|
-| `model`, `messages`, `system`, `max_tokens` | موجود | `max_tokens` در نبود مقدار به 4096 تبدیل می‌شود؛ باید با قرارداد محصول روشن باشد |
-| `temperature`, `top_p` | موجود | قواعد ناسازگاری با Thinking و نسل مدل کامل نیست |
-| `top_k` | در کاتالوگ بعضی مدل‌ها ثبت شده | در ساختار درخواست Silk Road وجود ندارد |
-| `stop_sequences` | کاتالوگ/قرارداد ادعا دارد | به Anthropic نگاشت نمی‌شود |
-| `stream` | موجود | Usage نهایی و خطای Stream ناقص |
-| `tools`, `tool_choice` | قابلیت مدل‌ها در DB | Control Plane برای Anthropic رد می‌کند |
-| Structured Output / `output_config.format` | قابلیت مدل‌ها در DB | `response_format` برای Anthropic رد می‌شود |
-| `thinking` دستی | موجود | برای Opus 4.7 نامعتبر؛ در 4.6 Deprecated |
-| Adaptive Thinking و `output_config.effort` | رسمی برای 4.6/4.7 | قرارداد و Adapter ندارند |
-| Prompt Cache / `cache_control` | رسمی | قرارداد، Usage و Billing ندارند |
-| `metadata` | قرارداد OpenAI فیلد دارد | Adapter Anthropic منتقل نمی‌کند |
-| `service_tier`, `speed`, `inference_geo` | بسته به مدل/حساب رسمی | مدل نشده‌اند |
-| `anthropic-beta` | برای قابلیت‌های Beta لازم | تزریق انتخابی ندارد |
-| Usage پایه | input/output token | Cache read/write و Server Tool usage حذف می‌شود |
-| Stop reason | upstream دریافت می‌شود | نگاشت معنایی کامل به `finish_reason` انجام نمی‌شود |
-| Error event در SSE | رسمی | شناخته نمی‌شود و جریان ممکن است با `[DONE]` پایان عادی بگیرد |
-
-### قیمت‌گذاری
-
-نرخ‌های پایه رسمی زیر در ردیف‌های DB درست ثبت شده‌اند، اما Billing Runtime از آن‌ها استفاده نمی‌کند:
-
-| خانواده مدل | ورودی رسمی / MTok | خروجی رسمی / MTok | Cache hit رسمی / MTok | قیمت Runtime فعلی برای مدل ناشناخته | نتیجه |
-|---|---:|---:|---:|---:|---|
-| Haiku 4.5 | $1 | $5 | $0.10 | $1 ورودی / $2 خروجی | خروجی اشتباه |
-| Sonnet 4.5 و 4.6 | $3 | $15 | $0.30 | $1 ورودی / $2 خروجی | ورودی و خروجی اشتباه |
-| Opus 4.1 | $15 | $75 | $1.50 | $1 ورودی / $2 خروجی | ورودی و خروجی اشتباه |
-| Opus 4.5، 4.6 و 4.7 | $5 | $25 | $0.50 | $1 ورودی / $2 خروجی | ورودی و خروجی اشتباه |
-
-ابعاد رسمی دیگری که در مدل قیمت Runtime وجود ندارند:
-
-- Cache write پنج‌دقیقه‌ای: 1.25 برابر نرخ ورودی؛
-- Cache write یک‌ساعته: 2 برابر نرخ ورودی؛
-- Cache read/hit: 0.1 برابر نرخ ورودی؛
-- Message Batches: تخفیف ۵۰ درصدی ورودی و خروجی؛
-- Web Search: هزینه مستقل به‌ازای تعداد جست‌وجو؛
-- Code Execution: هزینه مبتنی بر زمان پس از سهمیه رایگان؛
-- ضریب‌های Data Residency و Speed در سناریوهای مربوط؛
-- ابعاد Beta مانند سقف خروجی ویژه Batch، در صورت عرضه.
-
-شاهد Runtime: رجیستری [`services/control-plane/internal/billing/pricing.go`](../services/control-plane/internal/billing/pricing.go) فقط مدل‌های Claude 3/3.5 را دارد؛ `modelPriceFromRegistry` برای مدل ناشناخته مقدار پیش‌فرض اعمال می‌کند و [`services/control-plane/internal/billing/service.go`](../services/control-plane/internal/billing/service.go) همین Loader را در Hot Path استفاده می‌کند.
-
-### Credential و امنیت
-
-| کنترل | نتیجه | شاهد |
-|---|---|---|
-| API Key مدیریت‌شده پلتفرم | منطبق در سطح کد | `x-api-key`، نسخه API و Probe غیرصورتحسابی Models API وجود دارد |
-| رمزگذاری Credential پلتفرم | منطبق در سطح کد | AES-GCM، DEK مجزا و KEK نسخه‌دار در `internal/platformcredentials/crypto.go` |
-| Rotation و Snapshot مدیریت‌شده | منطبق در سطح کد | Version، Activate/Rollback و Invalidation در `internal/platformcredentials` |
-| WIF و Bearer کوتاه‌عمر | پیاده‌سازی‌نشده | Connection Schema فقط `api_key` دارد |
-| Tenant BYOK API Key | ناسازگار امنیتی | `credential_data jsonb` و خواندن مستقیم `credential_data->>'api_key'` |
-| آزمون اتصال Tenant BYOK Anthropic | پیاده‌سازی‌نشده | Switch اعتبارسنجی مستقیم، Anthropic را ندارد |
-| Base URL | محدود و امن برای Probe | Host مستقیم `api.anthropic.com` Allowlist شده؛ Proxy سفارشی عملاً پشتیبانی نمی‌شود |
-| Redaction خطا | ناقص ولی موجود | الگوی `sk-...` و جایگزینی مقدار Credential وجود دارد؛ آزمون ویژه `sk-ant-...` توصیه می‌شود |
-
-### مغایرت‌های ثبت‌شده و اقدام اصلاحی
-
-| شناسه | شدت | مغایرت | اثر | اقدام اصلاحی پیشنهادی |
-|---|---|---|---|---|
-| `ANT-FIND-001` | P0 | مدل‌های جاری Anthropic در Billing Registry نیستند و fallback $1/$2 اعمال می‌شود | رزرو بودجه و صورتحساب اشتباه برای هر ۱۱ مدل | منبع واحد قیمت را از Model Discovery به Billing متصل کنید؛ fallback مالی را Fail Closed کنید و تست Golden برای هر مدل بسازید |
-| `ANT-FIND-002` | P0 | Tenant BYOK در JSONB قابل خواندن ذخیره و مستقیم Query می‌شود | خطر افشای API Key | Tenant Credential را به Secret Store رمزگذاری‌شده منتقل کنید، داده موجود را Migration و دسترسی ستون قدیمی را حذف کنید |
-| `ANT-FIND-003` | P0 | Cache و Server Tool usage از پاسخ حذف و صورتحساب نمی‌شود | کم‌محاسبه یا محاسبه نادرست هزینه | قرارداد Usage و Billing dimensions را توسعه دهید و Fixture رسمی Cache/Tool را تست کنید |
-| `ANT-FIND-004` | P1 | Tools، `tool_choice` و Structured Output با ادعای کاتالوگ ناسازگارند | قابلیت‌های اصلی مدل قابل استفاده نیست | قرارداد، Validator، Adapter و Stream tool delta را پیاده‌سازی یا تا آن زمان قابلیت‌ها را از کاتالوگ حذف کنید |
-| `ANT-FIND-005` | P1 | Opus 4.7 با `thinking.type=enabled` فراخوانی می‌شود | درخواست Reasoning با HTTP 400 شکست می‌خورد | Adaptive Thinking و `output_config.effort` را مدل‌محور پیاده‌سازی کنید؛ Manual Thinking را برای 4.7 رد کنید |
-| `ANT-FIND-006` | P1 | Endpointهای بومی Count، Batch، Models و Files عرضه نشده‌اند | پشتیبانی Anthropic کامل نیست | Route و Adapter مستقل بومی یا قرارداد معادل مستند و کامل اضافه کنید |
-| `ANT-FIND-007` | P1 | خطای SSE، Usage نهایی و Tool Delta کامل منتقل نمی‌شوند | موفقیت کاذب Stream و Billing ناقص | State machine کامل رخدادهای Anthropic و تست قطع/خطای میانه جریان اضافه کنید |
-| `ANT-FIND-008` | P1 | Opus 4.1 با وجود Deprecated بودن Active/Published است | عرضه مدل نزدیک به Retirement بدون هشدار | وضعیت DB را Deprecated کنید، Retirement job و مدل جایگزین ثبت کنید |
-| `ANT-FIND-009` | P1 | پارامترهای رسمی متعددی حذف یا نادرست نگاشت می‌شوند | رفتار درخواست با قرارداد رسمی تطبیق ندارد | جدول سازگاری پارامتر بر اساس نسل مدل ایجاد و Validator/Adapter را از آن تغذیه کنید |
-| `ANT-FIND-010` | P2 | WIF پشتیبانی نمی‌شود | روش رسمی دوم احراز هویت قابل استفاده نیست | Auth mode، Token refresh و تزریق Bearer را اضافه کنید |
-| `ANT-FIND-011` | P2 | Probe اتصال Tenant BYOK برای Anthropic وجود ندارد | کاربر پیش از ذخیره/استفاده از اعتبار Credential مطمئن نمی‌شود | Probe امن `/v1/models?limit=1` با Headerهای Anthropic اضافه کنید |
-| `ANT-FIND-012` | P2 | تصویر/PDF URL و `file_id` پشتیبانی نمی‌شود | فقط Base64 قابل استفاده است | Content sourceهای URL/File و Files API Beta را اضافه کنید |
-| `ANT-FIND-013` | P2 | Source و تاریخ مدل‌ها در DB ناقص است | ممیزی و تشخیص تغییرات رسمی دشوار است | Importer را برای Docs URL، SourceReference، Release/Deprecation/Retirement کامل کنید |
-| `ANT-FIND-014` | P2 | Schema قیمت DB همه ابعاد رسمی را ندارد | حتی با اتصال Billing، قیمت کامل بازنمایی نمی‌شود | مدل قیمت چندبعدی و بازه اثر را توسعه دهید |
-| `ANT-FIND-015` | P2 | Capability `assistant_prefill` برای 4.6/4.7 ثبت شده | کاتالوگ کاربر را به درخواست نامعتبر هدایت می‌کند | این Capability را برای 4.6+ حذف و Migration Guide را در منبع مدل ثبت کنید |
-| `ANT-FIND-016` | P2 | سقف خروجی Sonnet 4.6 بین منابع رسمی و YAML متناقض است | خطر Validation نادرست | مقدار را از Models API حساب فعال Snapshot و منبع/تاریخ را ثبت کنید |
-| `ANT-FIND-017` | P3 | ۱۰ مدل فاقد لینک رسمی و همه فاقد Release Date هستند | کیفیت پایین مستندات و Traceability | تکمیل متادیتا و Validation در Importer |
-
-### ترتیب اصلاح پیشنهادی
-
-1. توقف اتکای مالی به fallback و اتصال Billing به قیمت نسخه‌دار کاتالوگ؛ سپس افزودن ابعاد Cache و Tool.
-2. رمزگذاری و Migration فوری Tenant BYOK.
-3. هم‌راستا کردن Capabilityهای DB با واقعیت Runtime؛ تا قبل از پیاده‌سازی، ادعاهای Tools، Structured Output و Prefill حذف شوند.
-4. اصلاح Thinking مدل‌محور برای 4.6 و 4.7 و تکمیل Streaming.
-5. اصلاح چرخه عمر Opus 4.1 و افزودن Job بازنشستگی.
-6. تکمیل Endpointهای بومی، URL/File modality، WIF و Probe اتصال.
-7. اجرای ماتریس زنده ۱۱ مدل در Staging با Credential کم‌دسترسی و ثبت Fixtureهای پاک‌سازی‌شده.
-
-### آزمون‌های اجراشده
-
-| آزمون | نتیجه |
-|---|---|
-| `go test -count=1 ./pkg/server` در Silk Road | موفق |
-| `go test -count=1 ./internal/billing` در Control Plane | موفق |
-| `go test -count=1 ./internal/storage` در Control Plane | موفق |
-| `go test -count=1 ./internal/proxy` در Control Plane | موفق |
-| `go test -count=1 ./internal/platformcredentials` در Control Plane | موفق |
-| `pnpm test -- --runInBand` در Model Discovery | ۱۲ Suite و ۳۸ Test موفق |
-| بررسی وجود `ANTHROPIC_API_KEY` در محیط و فایل‌های Environment | موجود نبود؛ هیچ مقدار Secret خوانده یا چاپ نشد |
-| آزمون زنده ۱۱ مدل | مسدود به علت نبود Credential |
-
-موفقیت تست‌ها فقط نشان می‌دهد رفتار پوشش‌داده‌شده Regression ندارد. تست‌های موجود برای WIF، مدل‌های جاری 4.6/4.7، Tools، Structured Output، Prompt Cache، Batch، Files، Stream Error، Usage چندبعدی و قیمت هر ۱۱ مدل پوشش کافی ندارند.
-
-### نتیجه نهایی
-
-در وضعیت فعلی، هیچ‌یک از ۱۱ مدل را نمی‌توان «کاملاً آماده» اعلام کرد. مسیر پایه متن برای برخی مدل‌ها از نظر کد محتمل است، اما بدون آزمون زنده تأیید نشده و به علت خطای Billing سراسری، ذخیره ناامن Tenant BYOK و شکاف قابلیت‌های اصلی، عرضه عمومی کامل باید متوقف یا به‌صورت شفاف محدود شود. بازاجرای این چک‌لیست پس از بستن همه P0ها و P1ها و فراهم‌شدن Credential آزمایشی الزامی است.
-
-## هدف
-
-این سند برای ارزیابی آمادگی ارائه‌دهنده **Anthropic** و تمام مدل‌های آماده Anthropic در دیتابیس گدارAI استفاده می‌شود. ارزیاب باید ابتدا مستندات رسمی و جاری Anthropic را برای هر مدل مطالعه کند و سپس قرارداد مستندشده را با دیتابیس، کد، رابط‌های برنامه‌نویسی، مسیریابی، محاسبه هزینه و رفتار عملی گدارAI تطبیق دهد.
-
-این سند اکنون شامل نتیجه اجرای ارزیابی است. بخش‌های بعدی، کنترل‌های مرجع قابل تکرار را نگه می‌دارند و وجود هر مورد به‌تنهایی به معنی پشتیبانی گدارAI از آن نیست؛ وضعیت قطعی هر حوزه در ماتریس‌های «نتیجه اجرای چک‌لیست» ثبت شده است.
-
-## محدوده
-
-- دسترسی مستقیم به Claude API با شناسه ارائه‌دهنده `anthropic`
-- تمام مدل‌هایی که هنگام شروع ارزیابی، در دیتابیس گدارAI برای `anthropic` در وضعیت آماده یا قابل عرضه قرار دارند
-- حساب ارائه‌دهنده، اطلاعات اتصال، کاتالوگ مدل، مسیریابی، نقاط پایانی، ورودی و خروجی، قابلیت‌ها، محدودیت‌ها، قیمت‌گذاری، محاسبه هزینه، خطاها، امنیت و آزمون عملی
-- هر دو قرارداد Anthropic-native و OpenAI-compatible گدارAI، در صورتی که محصول آن‌ها را برای مدل موردنظر عرضه یا مستند کرده باشد
-
-موارد زیر در این سند ارزیابی نمی‌شوند، مگر اینکه با یک ردیف مستقل و شناسه ارائه‌دهنده جداگانه وارد محدوده شوند:
-
-- مدل‌های Anthropic عرضه‌شده از مسیر Amazon Bedrock، Google Cloud، Microsoft Foundry یا سایر ارائه‌دهندگان واسط
-- قابلیت‌های Claude.ai که در Claude API عرضه نشده‌اند
-- قابلیت‌های آزمایشی یا محدوددسترسی که گدارAI آن‌ها را عرضه یا ادعا نکرده است
-
-اگر یک قابلیت رسمی برای مدل وجود داشته باشد اما گدارAI آن را عرضه نکند، وضعیت آن «پیاده‌سازی‌نشده» یا «ناقص» است؛ نه «نامرتبط». قابلیت‌هایی که مدل یا Claude API رسماً پشتیبانی نمی‌کند باید «نامرتبط» ثبت شوند و شکاف محسوب نمی‌شوند.
-
-## مشخصات اجرای ارزیابی
-
-این جدول در اجرای ۲۹ ژوئیه ۲۰۲۶ تکمیل شده است.
-
-| فیلد | مقدار |
-|---|---|
-| تاریخ آغاز ارزیابی | ۲۹ ژوئیه ۲۰۲۶ |
-| تاریخ آخرین بازبینی منابع رسمی | ۲۹ ژوئیه ۲۰۲۶ |
-| محیط گدارAI | Workspace محلی؛ دیتابیس متصل Model Discovery |
-| نسخه یا Commit ارزیابی‌شده | `da97e1b944a7ca2526b1d580dd62f022e2d80579` به‌همراه Working Tree موجود |
-| نسخه دیتابیس یا Migration | Migrationهای مخزن تا شماره ۵۰؛ دیتابیس کاتالوگ از اتصال برنامه بررسی شد |
-| نسخه فعال کاتالوگ مدل | Snapshot زمان اجرای Query؛ شناسه نسخه مستقل در Schema موجود نبود |
-| ارزیاب | Codex |
-| بازبین | ثبت نشده |
-| حساب یا Workspace آزمایشی Anthropic | موجود نبود |
-| دامنه دسترسی Credential آزمایشی | موجود نبود؛ آزمون زنده مسدود |
-
-اطلاعات حساس مانند کلید دسترسی، توکن، Secret و بدنه حاوی داده محرمانه نباید در این سند یا پیوست‌های آن ثبت شوند.
-
-## وضعیت‌ها
+## تعریف وضعیت و شدت
 
 | وضعیت | تعریف |
 |---|---|
-| بررسی‌نشده | هنوز منبع رسمی و پیاده‌سازی با یکدیگر تطبیق داده نشده‌اند. |
-| منطبق | پیاده‌سازی و آزمون عملی با قرارداد رسمی تطبیق دارند و مدرک ثبت شده است. |
-| ناقص | بخشی از قرارداد رسمی یا سناریوی مورد انتظار پشتیبانی می‌شود. |
-| پیاده‌سازی‌نشده | قابلیت رسمی و موردنیاز در گدارAI وجود ندارد یا قابل استفاده نیست. |
-| ناسازگار | قابلیت وجود دارد، اما رفتار، داده یا نتیجه آن با قرارداد رسمی متفاوت است. |
-| نامرتبط | قابلیت برای این مدل، نقطه پایانی یا محدوده کاربرد ندارد و دلیل آن ثبت شده است. |
-| مسدود | بررسی به علت نبود Credential، دسترسی، محیط یا وابستگی خارجی ممکن نیست. |
-
-وضعیت «منطبق» فقط زمانی مجاز است که هر سه مدرک زیر وجود داشته باشند:
-
-1. پیوند و تاریخ مراجعه به منبع رسمی Anthropic؛
-2. مرجع پیاده‌سازی گدارAI، مانند فایل، قرارداد، Migration یا تنظیم کاتالوگ؛
-3. نتیجه آزمون قابل تکرار، شامل ورودی پاک‌سازی‌شده، نتیجه مورد انتظار و نتیجه واقعی.
-
-## شدت مغایرت
+| منطبق | قرارداد، پیاده‌سازی و آزمون متناسب وجود دارد. |
+| منطبق در کد | پیاده‌سازی و تست خودکار وجود دارد، اما آزمون زنده یا عملیات انتشار انجام نشده است. |
+| ناقص | بخشی از قرارداد رسمی قابل استفاده نیست یا منبع حقیقت در Runtime اعمال نمی‌شود. |
+| مسدود عملیاتی | کد آماده است، اما Migration، Credential، زیرساخت یا تأیید عملیاتی تکمیل نشده است. |
+| نامرتبط | قابلیت برای مدل‌های این دامنه پشتیبانی رسمی ندارد. |
 
 | شدت | تعریف |
 |---|---|
-| P0 | خطر افشای Credential، محاسبه هزینه اشتباه، دسترسی بین‌سازمانی یا غیرقابل استفاده بودن همه مدل‌های Anthropic |
-| P1 | غیرقابل استفاده بودن یک مدل آماده، نقطه پایانی اصلی، پاسخ جریانی یا قابلیت اصلی اعلام‌شده |
-| P2 | نقص یک قابلیت فرعی، Metadata، نگاشت خطا، محدودیت یا تجربه مدیریتی با راه‌حل موقت |
-| P3 | نقص مستندات، نام‌گذاری یا مشاهده‌پذیری که نتیجه اصلی درخواست را خراب نمی‌کند |
-
-## دروازه پذیرش نهایی
-
-ارائه‌دهنده Anthropic فقط زمانی «کاملاً آماده» است که:
-
-- [x] فهرست تمام مدل‌های آماده Anthropic مستقیماً از دیتابیس استخراج و ثابت شده باشد.
-- [x] برای هر مدل بدون استثنا، نتیجه ارزیابی مستقل در ماتریس مدل‌ها ثبت شده باشد.
-- [ ] تمام کنترل‌های الزامی سطح ارائه‌دهنده «منطبق» باشند.
-- [ ] هر قابلیت رسمی و قابل استفاده مدل در گدارAI «منطبق» باشد؛ موارد خارج از دامنه با دلیل «نامرتبط» شده باشند.
-- [ ] هیچ مغایرت باز P0 یا P1 وجود نداشته باشد.
-- [ ] قیمت‌ها و تمام ابعاد مصرف قابل‌صورتحساب با منبع رسمی جاری تطبیق داشته باشند.
-- [ ] محاسبه هزینه گدارAI با نمونه مصرف واقعی یا Fixture رسمی تأیید شده باشد.
-- [ ] آزمون‌های همگام، جریانی، منفی و انتهابه‌انتها برای همه مدل‌ها موفق باشند.
-- [ ] مدل منقضی، بازنشسته یا غیرقابل دسترس در وضعیت «آماده» باقی نمانده باشد.
-- [ ] مدارک ارزیابی و تاریخ مراجعه ثبت شده‌اند؛ تأیید بازبین انسانی هنوز ثبت نشده است.
-
----
-
-## ۱. تثبیت دامنه و موجودی مدل‌ها
-
-### ANT-SCOPE-001 — استخراج دامنه از دیتابیس
-
-- [ ] ردیف ارائه‌دهنده `anthropic` با شناسه داخلی، وضعیت، نشانی مستندات و تنظیمات آن استخراج شود.
-- [ ] معیار دقیق «مدل آماده» از قرارداد دیتابیس مشخص شود؛ مانند وضعیت، فعال‌بودن، قابلیت انتشار و عدم بازنشستگی.
-- [ ] تمام مدل‌های منطبق با این معیار مستقیماً از دیتابیس استخراج شوند؛ از فهرست دستی استفاده نشود.
-- [ ] زمان استخراج، نسخه کاتالوگ و Query بدون مقدار حساس ثبت شود.
-- [ ] مدل‌های Anthropic متعلق به Bedrock، Google Cloud یا سایر ارائه‌دهندگان از دامنه مستقیم `anthropic` جدا شوند.
-- [ ] تعداد مدل‌های استخراج‌شده با خروجی API کاتالوگ و رابط مدیریتی تطبیق داده شود.
-- [ ] Snapshot موجودی برای تکرارپذیری ارزیابی نگه‌داری شود.
-
-معیار پذیرش: هیچ مدل آماده‌ای خارج از دامنه نمانده باشد و هر ردیف به یک رکورد مشخص دیتابیس قابل ردیابی باشد.
-
-### جدول موجودی مدل‌ها
-
-برای هر مدل آماده یک ردیف اضافه شود.
-
-| ردیف | شناسه رکورد | شناسه canonical گدارAI | شناسه upstream Anthropic | نام مستعار | وضعیت دیتابیس | نسخه/تاریخ مدل | وضعیت رسمی مدل | برگه ارزیابی |
-|---:|---|---|---|---|---|---|---|---|
-| ۱ | — | — | — | — | — | — | بررسی‌نشده | — |
-
-### ANT-SCOPE-002 — کنترل شناسه و چرخه عمر
-
-- [ ] شناسه دقیق API و نام‌های مستعار هر مدل از مرجع رسمی استخراج شوند.
-- [ ] تفاوت شناسه ثابت نسخه‌دار و نام مستعار شناور مشخص شود.
-- [ ] نگاشت شناسه گدارAI به شناسه upstream یک‌به‌یک و بدون حذف یا افزودن اشتباه پیشوند باشد.
-- [ ] تاریخ عرضه، وضعیت فعال، Deprecated و Retirement Date هر مدل ثبت شود.
-- [ ] مدل جایگزین رسمی برای مدل‌های Deprecated یا بازنشسته ثبت شود.
-- [ ] رفتار نام مستعار شناور هنگام تغییر نسخه upstream مشخص و آزموده شود.
-- [ ] مدل محدوددسترسی فقط در صورت وجود دسترسی واقعی و اعلام روشن محدودیت، آماده محسوب شود.
-
-معیار پذیرش: هیچ شناسه نامعتبر، بازنشسته یا بدون دسترسی عملی به‌عنوان مدل آماده عرضه نشود.
-
-## ۲. مطالعه مرجع رسمی هر مدل
-
-پیش از بررسی کد یا اجرای آزمون، برای هر مدل یک «برگه قرارداد رسمی» ساخته شود.
-
-### ANT-DOC-001 — برگه قرارداد رسمی مدل
-
-- [ ] صفحه رسمی مدل، جدول مقایسه مدل‌ها و صفحه شناسه‌ها مطالعه شود.
-- [ ] صفحه قیمت‌گذاری و یادداشت‌های ویژه قیمت همان مدل مطالعه شود.
-- [ ] صفحه محدودیت‌ها، Context Window و سقف خروجی مدل مطالعه شود.
-- [ ] نقاط پایانی و قابلیت‌های عمومی یا آزمایشی قابل استفاده با مدل مشخص شوند.
-- [ ] انواع ورودی، خروجی و قالب‌های پشتیبانی‌شده مشخص شوند.
-- [ ] پارامترها، قواعد ناسازگاری پارامترها و مقادیر پیش‌فرض ثبت شوند.
-- [ ] تفاوت رفتار مدل با نسل قبلی و راهنمای مهاجرت بررسی شود.
-- [ ] تاریخ مراجعه و پیوند مستقیم همه منابع ثبت شود.
-- [ ] اگر منابع رسمی با یکدیگر ناسازگارند، تناقض به‌عنوان مورد نیازمند تأیید ثبت شود.
-
-### قالب برگه قرارداد رسمی مدل
-
-| فیلد | مقدار |
-|---|---|
-| شناسه upstream | — |
-| شناسه ثابت نسخه‌دار | — |
-| نام‌های مستعار رسمی | — |
-| وضعیت عرضه | — |
-| تاریخ عرضه/بازنشستگی | — |
-| Context Window | — |
-| بیشینه خروجی | — |
-| ورودی‌های رسمی | — |
-| خروجی‌های رسمی | — |
-| نقاط پایانی مجاز | — |
-| حالت‌های پردازش | — |
-| قابلیت‌های اصلی | — |
-| قابلیت‌های Beta | — |
-| محدودیت‌های اختصاصی | — |
-| قیمت‌ها و واحدها | — |
-| منابع رسمی و تاریخ مراجعه | — |
-
-معیار پذیرش: هیچ ادعایی درباره مدل از حافظه، منبع ثانویه یا مدل مشابه کپی نشده باشد.
-
-## ۳. Credential و اطلاعات اتصال
-
-### ANT-AUTH-001 — روش‌های احراز هویت
-
-- [ ] تمام روش‌های احراز هویت رسمی و جاری Claude API شناسایی شوند.
-- [ ] کلید دسترسی با سرآیند صحیح و بدون تغییر به upstream ارسال شود.
-- [ ] اگر Workload Identity Federation یا توکن کوتاه‌عمر در محصول پشتیبانی یا ادعا می‌شود، دریافت، نگه‌داری، تمدید و تزریق `Authorization` آزموده شود.
-- [ ] Credential مدیریتی با Credential استنتاج اشتباه گرفته نشود.
-- [ ] Credential مربوط به Bedrock، Google Cloud یا Microsoft Foundry زیر اتصال مستقیم Anthropic پذیرفته نشود.
-- [ ] Credential نامعتبر، منقضی، لغوشده و فاقد مجوز با خطای روشن رد شود.
-- [ ] انتخاب روش احراز هویت در UI، API و دیتابیس یکسان باشد.
-
-### ANT-AUTH-002 — فیلدهای اتصال
-
-- [ ] `api_key` در صورت انتخاب روش کلید دسترسی، الزامی و Secret باشد.
-- [ ] نشانی پایه پیش‌فرض Claude API درست باشد.
-- [ ] نشانی پایه سفارشی فقط مطابق سیاست امنیتی محصول پذیرفته شود.
-- [ ] نسخه API در سرآیند `anthropic-version` ارسال شود و مقدار پیش‌فرض مستند و معتبر باشد.
-- [ ] `content-type` صحیح برای نقاط پایانی JSON ارسال شود.
-- [ ] `anthropic-beta` فقط برای قابلیت انتخاب‌شده، با مقدار دقیق و قابل ممیزی ارسال شود.
-- [ ] امکان ارسال چند Beta Header و قواعد ناسازگاری آن‌ها بررسی شود.
-- [ ] سرآیندهای داخلی گدارAI، کلید مصرف‌کننده یا سرآیند ارائه‌دهنده دیگر به Anthropic نشت نکند.
-- [ ] مهلت اتصال، Proxy، TLS و سیاست Redirect مشخص و امن باشند.
-
-### ANT-AUTH-003 — چرخه عمر و امنیت Secret
-
-- [ ] Credential در انتقال و در حالت ذخیره‌شده رمزگذاری شود.
-- [ ] Secret در Log، Trace، خطا، پاسخ API، رابط مدیریتی و خروجی پشتیبان آشکار نشود.
-- [ ] دسترسی خواندن، ساخت، ویرایش، آزمون و حذف Credential تفکیک و ممیزی شود.
-- [ ] Rotation بدون نیاز به تغییر مدل‌های وابسته و با قطع حداقلی انجام شود.
-- [ ] نسخه فعال Credential و آخرین زمان اعتبارسنجی قابل مشاهده باشد.
-- [ ] حذف Credential وابسته، رفتار روشن و امن داشته باشد.
-- [ ] جداسازی سازمانی مانع استفاده یک سازمان از Credential سازمان دیگر شود.
-- [ ] رخدادهای ایجاد، ویرایش، Rotation، فعال‌سازی و شکست اعتبارسنجی ثبت شوند.
-
-### ANT-AUTH-004 — اعتبارسنجی اتصال
-
-- [ ] عملیات اعتبارسنجی از نقطه پایانی رسمی و مناسب استفاده کند.
-- [ ] اعتبارسنجی ناخواسته درخواست پرهزینه تولید نکند یا هزینه احتمالی را روشن اعلام کند.
-- [ ] پاسخ موفق فقط اصالت Credential را تأیید کند و با آمادگی همه مدل‌ها اشتباه گرفته نشود.
-- [ ] خطای DNS، TLS، Timeout، `401`، `403`، محدودیت نرخ و خطای upstream از هم تفکیک شوند.
-- [ ] متن خطا Secret یا پاسخ خام حساس را نمایش ندهد.
-- [ ] نتیجه اعتبارسنجی دارای زمان، وضعیت و شناسه رخداد قابل ردیابی باشد.
-
-معیار پذیرش بخش Credential: اتصال از مسیر مدیریتی تا upstream با Credential معتبر کار کند، Credential نامعتبر به‌شکل امن رد شود و هیچ Secret در هیچ خروجی قابل مشاهده نباشد.
-
-## ۴. نقاط پایانی و حالت‌های پردازش
-
-برای هر نقطه پایانی، پشتیبانی باید هم در سطح ارائه‌دهنده و هم برای تک‌تک مدل‌ها بررسی شود.
-
-| قابلیت یا نقطه پایانی | مسیر رسمی Anthropic | مسیر گدارAI | مدل‌های مجاز | همگام | جریانی | ناهمگام/Batch | وضعیت | مدرک |
-|---|---|---|---|---|---|---|---|---|
-| Messages | `POST /v1/messages` | — | — | — | — | — | بررسی‌نشده | — |
-| Token Counting | `POST /v1/messages/count_tokens` | — | — | نامرتبط | نامرتبط | نامرتبط | بررسی‌نشده | — |
-| Message Batches | خانواده `/v1/messages/batches` | — | — | نامرتبط | نامرتبط | — | بررسی‌نشده | — |
-| Models | خانواده `/v1/models` | — | نامرتبط | — | نامرتبط | نامرتبط | بررسی‌نشده | — |
-| Files، در صورت عرضه | خانواده `/v1/files` | — | — | — | نامرتبط | نامرتبط | بررسی‌نشده | — |
-| Text Completions قدیمی، فقط در صورت ادعای محصول | `/v1/complete` | — | — | — | — | نامرتبط | بررسی‌نشده | — |
-
-### ANT-ENDPOINT-001 — قرارداد بومی Anthropic
-
-- [ ] روش HTTP، مسیر، سرآیندها و بدنه هر نقطه پایانی با مرجع رسمی تطبیق داده شود.
-- [ ] نقاط پایانی پایدار و Beta از یکدیگر تفکیک شوند.
-- [ ] پارامترهای مسیر و Query، صفحه‌بندی و عملیات Create/Get/List/Cancel/Delete مرتبط بررسی شوند.
-- [ ] پاسخ همگام بدون حذف Content Blockهای پشتیبانی‌شده عبور یا نگاشت داده شود.
-- [ ] پاسخ جریانی با ترتیب و نوع رویدادهای رسمی پردازش شود.
-- [ ] خطای میان پاسخ جریانی پس از دریافت HTTP `200` مدیریت شود.
-- [ ] `request-id` upstream برای عیب‌یابی حفظ یا به Trace داخلی پیوند داده شود.
-
-### ANT-ENDPOINT-002 — قرارداد OpenAI-compatible گدارAI
-
-- [ ] فقط مسیرهایی که گدارAI رسماً برای Anthropic عرضه می‌کند در کاتالوگ و مستندات فعال باشند.
-- [ ] نگاشت درخواست OpenAI-compatible به Messages API بدون تغییر معنای ورودی باشد.
-- [ ] پیام `system` با جایگاه و قالب درست Anthropic نگاشت شود.
-- [ ] Content Blockهای چندوجهی، ابزارها، تفکر و نتایج ابزار بدون حذف خاموش نگاشت شوند.
-- [ ] فیلدهای پشتیبانی‌نشده پیش از ارسال، با خطای روشن و پایدار رد شوند.
-- [ ] `finish_reason` و دلایل توقف Anthropic به مقدار درست و بدون از دست‌رفتن اطلاعات نگاشت شوند.
-- [ ] پاسخ جریانی به SSE سازگار با قرارداد عمومی گدارAI تبدیل شود.
-- [ ] شناسه مدل برگشتی و میزان مصرف به مدل واقعی upstream مربوط باشند.
-
-### ANT-ENDPOINT-003 — حالت‌های اجرا
-
-- [ ] درخواست همگام بررسی شود.
-- [ ] پاسخ جریانی و لغو اتصال کاربر بررسی شود.
-- [ ] پردازش Batch شامل ایجاد، پیگیری، لغو، پایان، انقضا و دریافت نتیجه بررسی شود.
-- [ ] Token Counting با همان ابزارها، تصاویر، اسناد، System Prompt و قابلیت‌های درخواست اصلی بررسی شود.
-- [ ] حالت استاندارد و حالت‌های Service Tier، Priority یا Fast فقط برای مدل‌های مجاز بررسی شوند.
-- [ ] قابلیت‌های Beta فقط با Opt-in صریح، سرآیند درست و علامت‌گذاری روشن فعال شوند.
-- [ ] Timeout و درخواست‌های طولانی مطابق توصیه رسمی مدیریت شوند.
-
-معیار پذیرش: تمام حالت‌های رسمی و عرضه‌شده برای هر مدل قابل استفاده باشند و هیچ حالت پشتیبانی‌نشده‌ای به‌اشتباه تبلیغ یا فعال نشود.
-
-## ۵. ورودی‌ها و خروجی‌های چندوجهی
-
-### ماتریس وجه‌های ورودی و خروجی
-
-برای هر مدل یک نسخه از این جدول تکمیل شود. «پشتیبانی رسمی» باید پیش از «وضعیت گدارAI» تعیین شود.
-
-| وجه یا Content Block | جهت | پشتیبانی رسمی مدل | قالب‌ها و محدودیت‌ها | مسیر انتقال در گدارAI | وضعیت | مدرک |
-|---|---|---|---|---|---|---|
-| متن | ورودی | — | — | — | بررسی‌نشده | — |
-| تصویر | ورودی | — | نوع MIME، ابعاد، حجم، تعداد و منبع | — | بررسی‌نشده | — |
-| PDF/سند | ورودی | — | نوع منبع، حجم، صفحه و رمزگذاری | — | بررسی‌نشده | — |
-| فایل با `file_id` | ورودی | — | وضعیت Files API و Beta | — | بررسی‌نشده | — |
-| Search Result | ورودی | — | ساختار منبع، عنوان، محتوا و Citation | — | بررسی‌نشده | — |
-| Tool Result | ورودی | — | ساختار و ارتباط با `tool_use_id` | — | بررسی‌نشده | — |
-| صوت | ورودی | — | — | — | بررسی‌نشده | — |
-| ویدئو | ورودی | — | — | — | بررسی‌نشده | — |
-| متن | خروجی | — | Content Block و Encoding | — | بررسی‌نشده | — |
-| Tool Use | خروجی | — | شناسه، نام و ورودی JSON | — | بررسی‌نشده | — |
-| Thinking/Redacted Thinking | خروجی | — | امضا، بازپخش و محدودیت نمایش | — | بررسی‌نشده | — |
-| Citation | خروجی | — | نوع و محل ارجاع | — | بررسی‌نشده | — |
-| تصویر | خروجی | — | — | — | بررسی‌نشده | — |
-| صوت | خروجی | — | — | — | بررسی‌نشده | — |
-| ویدئو | خروجی | — | — | — | بررسی‌نشده | — |
-
-### ANT-MOD-001 — کنترل هر وجه
-
-- [ ] پشتیبانی یا عدم پشتیبانی وجه فقط از مرجع رسمی همان مدل نتیجه‌گیری شود.
-- [ ] URL، Base64 و `file_id` به‌صورت جداگانه بررسی شوند.
-- [ ] نوع MIME مجاز و ناسازگار آزموده شود.
-- [ ] اندازه، تعداد، ابعاد، صفحه و سقف کل درخواست در مرز و بیرون از مرز آزموده شود.
-- [ ] ترتیب Content Blockها و ترکیب متن با تصویر، سند، Search Result و Tool Result بررسی شود.
-- [ ] تصویر یا سند ناقص، رمزگذاری‌شده، خراب یا دسترس‌ناپذیر خطای روشن تولید کند.
-- [ ] داده باینری در Log یا Trace ثبت نشود.
-- [ ] هزینه توکنی تصویر و سند در مصرف و صورتحساب لحاظ شود.
-- [ ] وجه پشتیبانی‌نشده پیش از فراخوانی upstream رد شود.
-
-معیار پذیرش: تمام وجه‌های رسمی مدل با قالب و محدودیت درست کار کنند و صوت، ویدئو یا هر وجه پشتیبانی‌نشده به‌اشتباه فعال اعلام نشود.
-
-## ۶. پارامترهای درخواست
-
-### ANT-REQ-001 — استخراج قرارداد پارامترها
-
-برای هر مدل و نقطه پایانی، همه پارامترهای رسمی در جدول زیر ثبت شوند. جدول باید از Schema رسمی همان تاریخ ساخته شود و به این نمونه‌ها محدود نماند.
-
-| پارامتر | نقطه پایانی | نوع | الزامی | مقدار پیش‌فرض | بازه/Enum | وابستگی یا ناسازگاری | نگاشت گدارAI | وضعیت | مدرک |
-|---|---|---|---|---|---|---|---|---|---|
-| `model` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `messages` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `max_tokens` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `system` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `temperature` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `top_p` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `top_k` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `stop_sequences` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `stream` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `metadata` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `tools` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `tool_choice` | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `thinking` یا معادل جاری | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| `cache_control` | Content Block | — | — | — | — | — | — | بررسی‌نشده | — |
-| تنظیم Citation | Content Block | — | — | — | — | — | — | بررسی‌نشده | — |
-| تنظیم خروجی ساخت‌یافته | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-| Service Tier/Speed، در صورت پشتیبانی | Messages | — | — | — | — | — | — | بررسی‌نشده | — |
-
-### ANT-REQ-002 — اعتبارسنجی و نگاشت
-
-- [ ] نوع، الزام، مقدار پیش‌فرض، حداقل، حداکثر و Enum هر پارامتر تطبیق داده شود.
-- [ ] تفاوت پارامترها میان مدل‌ها و نسخه‌های مختلف ثبت شود.
-- [ ] قواعد ترکیب‌ناپذیری پارامترها، به‌ویژه حالت‌های تفکر، ابزار و نمونه‌برداری آزموده شود.
-- [ ] مقدار صفر، تهی، Null، حذف‌شده و مقدار مرزی به‌صورت مستقل آزموده شود.
-- [ ] فیلد ناشناخته مطابق سیاست رسمی و قرارداد عمومی گدارAI مدیریت شود.
-- [ ] تبدیل نام پارامترهای OpenAI-compatible به Anthropic بدون تغییر معنا باشد.
-- [ ] پارامتر پشتیبانی‌نشده حذف خاموش نشود.
-- [ ] Unicode، متن راست‌به‌چپ، JSON تو‌در‌تو و ورودی بزرگ بررسی شوند.
-- [ ] Prefill پیام Assistant فقط برای مدل‌هایی که رسماً مجازند پذیرفته شود.
-- [ ] Token Counting و درخواست واقعی از قرارداد ورودی یکسان استفاده کنند.
-
-معیار پذیرش: همه پارامترها نتیجه قابل پیش‌بینی داشته باشند و ورودی نامعتبر پیش از ایجاد هزینه غیرضروری با خطای دقیق رد شود.
-
-## ۷. پاسخ، پاسخ جریانی و میزان مصرف
-
-### ANT-RESP-001 — پاسخ همگام
-
-- [ ] `id`، `type`، `role`، `model`، `content`، دلیل توقف و `usage` بررسی شوند.
-- [ ] همه انواع Content Block رسمی حفظ یا به‌شکل مستند نگاشت شوند.
-- [ ] مدل واقعی پاسخ با مدل مسیریابی‌شده و رکورد صورتحساب یکسان باشد.
-- [ ] دلیل‌های مختلف توقف، از جمله پایان طبیعی، سقف توکن، Stop Sequence، استفاده از ابزار و دلایل جدید مدل آزموده شوند.
-- [ ] مقدارهای جدید Enum یا فیلدهای اختیاری باعث شکست Decoder نشوند.
-- [ ] پاسخ خالی، Refusal، محتوای Redacted و پاسخ ناقص مدیریت شوند.
-- [ ] `request-id` upstream به رخداد و Trace داخلی قابل اتصال باشد.
-
-### ANT-RESP-002 — پاسخ جریانی
-
-- [ ] ترتیب رویدادهای آغاز پیام، آغاز Block، Delta، پایان Block و پایان پیام حفظ شود.
-- [ ] Delta متن، ورودی ابزار، Citation و تفکر، در صورت پشتیبانی مدل، بررسی شود.
-- [ ] میزان مصرف نهایی کامل و فقط یک‌بار ثبت شود.
-- [ ] قطع ارتباط مصرف‌کننده، لغو Context و بسته‌شدن اتصال upstream آزموده شود.
-- [ ] خطای Anthropic پس از آغاز Stream به خطای جریانی استاندارد گدارAI تبدیل شود.
-- [ ] رویداد ناشناخته آینده نادیده گرفته یا به‌شکل امن مدیریت شود و Stream را بی‌دلیل خراب نکند.
-- [ ] Chunkهای UTF-8 و متن فارسی در مرز چند بایت خراب نشوند.
-- [ ] صورتحساب درخواست نیمه‌تمام مطابق میزان مصرف واقعی ثبت شود.
-
-### ANT-USAGE-001 — نگاشت مصرف
-
-- [ ] توکن‌های ورودی و خروجی دقیقاً از پاسخ upstream استخراج شوند.
-- [ ] توکن‌های ساخت Cache، خواندن Cache و سایر ابعاد مصرف جداگانه حفظ شوند.
-- [ ] مصرف ابزارهای سمت سرور و هزینه‌های غیرتوکنی، در صورت وجود، ثبت شوند.
-- [ ] مصرف Batch، حالت سریع، Tier خاص و Context طولانی با بعد درست ثبت شود.
-- [ ] جمع مصرف در Log، رخداد صورتحساب، API تحلیلی و داشبورد یکسان باشد.
-- [ ] Retry یا Fallback باعث دوباره‌شماری یا حذف مصرف نشود.
-- [ ] برای پاسخ فاقد Usage معتبر، درخواست بدون هشدار با هزینه صفر نهایی نشود.
-
-معیار پذیرش: پاسخ قابل بازسازی، دلیل توقف درست و تمام ابعاد مصرف برای هر درخواست قابل ردیابی باشند.
-
-## ۸. قابلیت‌های اختصاصی Anthropic
-
-برای هر قابلیت، ابتدا فهرست مدل‌های رسمی پشتیبان، وضعیت عمومی یا Beta، سرآیند لازم، پارامترها، خروجی، محدودیت و قیمت استخراج شود.
-
-| قابلیت | مدل‌های رسمی پشتیبان | وضعیت عرضه | قرارداد گدارAI | وضعیت | مدرک |
-|---|---|---|---|---|---|
-| استفاده از ابزار و Tool Choice | — | — | — | بررسی‌نشده | — |
-| ابزارهای سمت سرور | — | — | — | بررسی‌نشده | — |
-| خروجی ساخت‌یافته | — | — | — | بررسی‌نشده | — |
-| تفکر توسعه‌یافته یا تطبیقی | — | — | — | بررسی‌نشده | — |
-| تفکر بینابینی با ابزار | — | — | — | بررسی‌نشده | — |
-| Prompt Caching | — | — | — | بررسی‌نشده | — |
-| Citation | — | — | — | بررسی‌نشده | — |
-| Search Result Content Block | — | — | — | بررسی‌نشده | — |
-| Web Search/Web Fetch | — | — | — | بررسی‌نشده | — |
-| Code Execution/Computer Use | — | — | — | بررسی‌نشده | — |
-| Context Management/Compaction | — | — | — | بررسی‌نشده | — |
-| Files API | — | — | — | بررسی‌نشده | — |
-| Message Batches | — | — | — | بررسی‌نشده | — |
-| Token Counting | — | — | — | بررسی‌نشده | — |
-| Service Tier/Priority/Fast Mode | — | — | — | بررسی‌نشده | — |
-
-### ANT-FEAT-001 — آزمون قابلیت‌ها
-
-- [ ] درخواست حداقلی موفق برای هر قابلیت اجرا شود.
-- [ ] ترکیب قابلیت با پاسخ جریانی آزموده شود.
-- [ ] ترکیب‌های رسمی قابلیت‌ها، مانند ابزار همراه Cache یا تفکر، آزموده شوند.
-- [ ] ترکیب ممنوع با خطای روشن رد شود.
-- [ ] Content Blockهای لازم در رفت‌وبرگشت چندمرحله‌ای بدون تغییر بازپخش شوند.
-- [ ] امضاها و داده‌های محرمانه تفکر مطابق قرارداد رسمی نگه‌داری یا حذف شوند.
-- [ ] Beta Header فقط هنگام استفاده از قابلیت Beta ارسال شود.
-- [ ] حذف یا تغییر نسخه Beta به‌عنوان تغییر ناسازگار رصد شود.
-- [ ] قابلیت مدل جدید به‌صورت خودکار و بدون قرارداد، فعال فرض نشود.
-
-معیار پذیرش: هر قابلیت اعلام‌شده برای همان مدل، در تمام مسیرهای عرضه‌شده گدارAI قابل استفاده باشد.
-
-## ۹. قیمت‌گذاری و محاسبه هزینه
-
-### ANT-PRICE-001 — استخراج قیمت رسمی
-
-برای هر مدل و هر بعد قیمت یک ردیف مستقل ثبت شود.
-
-| مدل/قابلیت | بعد قیمت | شرط اعمال | واحد رسمی | قیمت رسمی | ارز | تاریخ اثر | مقدار گدارAI | وضعیت | منبع |
-|---|---|---|---|---:|---|---|---:|---|---|
-| — | توکن ورودی | استاندارد | — | — | USD | — | — | بررسی‌نشده | — |
-| — | توکن خروجی | استاندارد | — | — | USD | — | — | بررسی‌نشده | — |
-| — | ساخت Cache | مدت نگه‌داری مشخص | — | — | USD | — | — | بررسی‌نشده | — |
-| — | خواندن Cache | Cache Hit | — | — | USD | — | — | بررسی‌نشده | — |
-| — | Batch | — | — | — | USD | — | — | بررسی‌نشده | — |
-| — | Context طولانی | عبور از آستانه رسمی | — | — | USD | — | — | بررسی‌نشده | — |
-| — | Service Tier/Fast/Priority | — | — | — | USD | — | — | بررسی‌نشده | — |
-| — | ابزار سمت سرور | به‌ازای فراخوانی یا مصرف | — | — | USD | — | — | بررسی‌نشده | — |
-| — | هزینه منطقه‌ای یا اقامت داده | — | — | — | USD | — | — | بررسی‌نشده | — |
-
-### ANT-PRICE-002 — قواعد قیمت
-
-- [ ] قیمت ورودی و خروجی هر شناسه مدل از مرجع رسمی همان مدل گرفته شود.
-- [ ] قیمت نام مستعار شناور به نسخه واقعی اجراشده متصل باشد.
-- [ ] قیمت Cache Write با مدت‌های نگه‌داری متفاوت و Cache Read جداگانه ثبت شود.
-- [ ] تخفیف Batch و شرایط ترکیب آن با Cache یا Tier دیگر بررسی شود.
-- [ ] قیمت Context طولانی و آستانه آن، در صورت وجود، پیاده‌سازی شود.
-- [ ] هزینه ابزارهای سمت سرور، جست‌وجوی وب، اجرای کد یا قابلیت‌های مشابه جداگانه محاسبه شود.
-- [ ] قیمت حالت سریع، Priority یا Service Tier جداگانه اعمال شود.
-- [ ] هزینه تصویر و PDF بر اساس توکن‌های گزارش‌شده یا قاعده رسمی محاسبه شود.
-- [ ] قیمت مدل Deprecated تا تاریخ پایان سرویس درست باقی بماند.
-- [ ] تاریخ اثر، نسخه منبع و تاریخ آخرین همگام‌سازی قیمت ذخیره شود.
-- [ ] مقدار ذخیره‌شده دقت کافی داشته باشد و تبدیل واحد باعث خطای گردکردن نشود.
-
-### ANT-PRICE-003 — آزمون صورتحساب
-
-- [ ] هزینه یک درخواست متن ساده با محاسبه دستی تطبیق داده شود.
-- [ ] هزینه درخواست دارای تصویر یا PDF بررسی شود.
-- [ ] Cache Miss، Cache Write و Cache Hit جداگانه آزموده شوند.
-- [ ] درخواست Batch بررسی شود.
-- [ ] درخواست دارای ابزار پولی بررسی شود.
-- [ ] Context طولانی و Tier ویژه، در صورت پشتیبانی، بررسی شوند.
-- [ ] درخواست جریانی، نیمه‌تمام، Retryشده و خطادار بررسی شود.
-- [ ] مبلغ USD، تبدیل ارز و مبلغ نهایی گدارAI از هم قابل تفکیک باشند.
-- [ ] تغییر قیمت بدون Migration امن، تاریخ اثر و قابلیت ممیزی اعمال نشود.
-
-معیار پذیرش: اختلاف محاسبه گدارAI با فرمول رسمی، پس از اعمال قاعده گردکردن مصوب، صفر باشد.
-
-## ۱۰. محدودیت‌ها و سهمیه‌ها
-
-### ANT-LIMIT-001 — محدودیت‌های مدل
-
-- [ ] Context Window هر مدل ثبت و در ورودی اعمال شود.
-- [ ] بیشینه خروجی هر مدل ثبت و برای `max_tokens` اعمال شود.
-- [ ] محدودیت‌های ویژه تفکر و رابطه بودجه تفکر با خروجی بررسی شود.
-- [ ] سقف اندازه کل درخواست برای هر نقطه پایانی ثبت شود.
-- [ ] محدودیت تصویر شامل تعداد، حجم، ابعاد و قالب ثبت شود.
-- [ ] محدودیت PDF شامل حجم، تعداد صفحه، رمزگذاری و Context ثبت شود.
-- [ ] محدودیت فایل و طول عمر فایل، در صورت عرضه، ثبت شود.
-- [ ] حداقل طول قابل Cache، تعداد Breakpoint و مدت نگه‌داری ثبت شود.
-- [ ] حداکثر تعداد ابزار، Stop Sequence، Message و Content Block از Schema رسمی استخراج شود.
-- [ ] محدودیت اختصاصی مدل یا قابلیت Beta ثبت شود.
-
-### ANT-LIMIT-002 — محدودیت نرخ و هزینه
-
-- [ ] واحدهای RPM، ITPM، OTPM و سایر سهمیه‌های رسمی ثبت شوند.
-- [ ] تفاوت سهمیه بر اساس مدل، گروه مدل، Tier و Workspace در نظر گرفته شود.
-- [ ] Cache Tokenها مطابق قاعده رسمی در Rate Limit محاسبه شوند.
-- [ ] سهمیه Batch و نقاط پایانی پشتیبان جداگانه بررسی شود.
-- [ ] `retry-after` و سرآیندهای محدودیت نرخ حفظ یا به قرارداد عمومی نگاشت شوند.
-- [ ] Backoff، Jitter و سقف Retry برای `429` و خطاهای گذرا آزموده شوند.
-- [ ] محدودیت مصرف گدارAI نباید از محدودیت Anthropic عبور کند یا خطای مبهم بسازد.
-- [ ] Spend Limit upstream و سقف هزینه گدارAI از یکدیگر تفکیک شوند.
-
-معیار پذیرش: درخواست خارج از محدودیت با خطای قابل اقدام رد شود و درخواست مرزی معتبر بدون رد اشتباه اجرا شود.
-
-## ۱۱. خطا، پایداری و مشاهده‌پذیری
-
-### ANT-ERR-001 — نگاشت خطا
-
-- [ ] کدهای HTTP و انواع خطای رسمی Anthropic به خطای استاندارد گدارAI نگاشت شوند.
-- [ ] `400`، `401`، `403`، `404`، `409`، `413`، `429`، `5xx`، Timeout و Overload جداگانه آزموده شوند.
-- [ ] خطای اعتبارسنجی پارامتر با نام فیلد و پیام قابل اقدام بازگردد.
-- [ ] خطای مدل نامعتبر، مدل بدون دسترسی و مدل بازنشسته از هم قابل تشخیص باشند.
-- [ ] خطای میان Stream در قالب درست به مصرف‌کننده برسد.
-- [ ] `request_id` Anthropic و شناسه درخواست گدارAI برای پشتیبانی ثبت شوند.
-- [ ] بدنه خام خطا پیش از نمایش پاک‌سازی شود.
-- [ ] نوع خطای جدید upstream باعث Panic یا پاسخ موفق کاذب نشود.
-
-### ANT-RES-001 — Retry، Timeout و Fallback
-
-- [ ] فقط خطاهای گذرا Retry شوند.
-- [ ] درخواست غیرقابل تکرار یا Batch ناخواسته دوباره ایجاد نشود.
-- [ ] Backoff به `retry-after` احترام بگذارد.
-- [ ] سقف Retry و Timeout قابل پیکربندی و قابل مشاهده باشد.
-- [ ] لغو درخواست کاربر به upstream منتقل شود.
-- [ ] Fallback مدل، هزینه و Usage هر تلاش را درست ثبت کند.
-- [ ] Fallback به مدل دارای قابلیت کمتر بدون کنترل قابلیت انجام نشود.
-- [ ] Circuit Breaker و بازیابی پس از خطا، در صورت وجود، آزموده شوند.
-
-### ANT-OBS-001 — مشاهده‌پذیری
-
-- [ ] Provider، مدل درخواستی، مدل واقعی، حالت اجرا، زمان پاسخ و وضعیت ثبت شوند.
-- [ ] زمان اولین توکن برای پاسخ جریانی ثبت شود.
-- [ ] ابعاد کامل Usage و Cost ثبت شوند.
-- [ ] Cache Hit، Batch، Tier، ابزار و Retry قابل تفکیک باشند.
-- [ ] محتوای حساس، Secret، تصویر و سند بر اساس سیاست داده Redact شوند.
-- [ ] Trace از ورودی گدارAI تا درخواست upstream و صورتحساب قابل دنبال‌کردن باشد.
-- [ ] سنجه‌های نرخ موفقیت، خطا، `429`، `5xx`، Timeout و اختلاف صورتحساب موجود باشند.
-
-## ۱۲. کاتالوگ، مسیریابی و کنترل دسترسی
-
-### ANT-CAT-001 — کاتالوگ مدل
-
-- [ ] مشخصات مدل در دیتابیس با برگه رسمی آن تطبیق داده شود.
-- [ ] نوع مدل، وجه‌ها، قابلیت‌ها، Context، سقف خروجی، چرخه عمر و قیمت در یک نسخه کاتالوگ سازگار باشند.
-- [ ] `/v1/models` فقط مدل‌های واقعاً قابل استفاده و مجاز را نمایش دهد.
-- [ ] جزئیات مدل، شناسه، ارائه‌دهنده و قابلیت‌های نادرست اعلام نکند.
-- [ ] تغییر وضعیت مدل در کاتالوگ بدون تأخیر نامشخص به Runtime برسد.
-- [ ] منبع و تاریخ آخرین همگام‌سازی اطلاعات ناپایدار ثبت شود.
-
-### ANT-ROUTE-001 — مسیریابی
-
-- [ ] شناسه عمومی گدارAI به حساب ارائه‌دهنده و مدل upstream درست resolve شود.
-- [ ] نام مستعار مدل به نسخه مورد انتظار resolve شود.
-- [ ] انتخاب حساب Anthropic بر اساس سازمان، تیم و سیاست دسترسی درست باشد.
-- [ ] Wildcard یا مدل مجازی به مدل ناسازگار از نظر قابلیت هدایت نشود.
-- [ ] مسیر مستقیم Anthropic با Bedrock یا سایر عرضه‌کنندگان Claude اشتباه نشود.
-- [ ] مدل غیرفعال، Deprecated ممنوع یا فاقد Credential انتخاب نشود.
-- [ ] مدل واقعی انتخاب‌شده در پاسخ، Trace و صورتحساب یکسان باشد.
-
-### ANT-ACCESS-001 — دسترسی مصرف‌کننده
-
-- [ ] فقط سازمان، تیم یا کلید مجاز مدل را در فهرست ببیند و مصرف کند.
-- [ ] دسترسی مدیریتی حساب ارائه‌دهنده از دسترسی مصرف مدل جدا باشد.
-- [ ] غیرفعال‌سازی حساب یا مدل، درخواست جدید را متوقف کند.
-- [ ] تغییر مجوز با Cache قدیمی دور زده نشود.
-- [ ] مدل محدوددسترسی Anthropic فقط برای حساب دارای مجوز عرضه شود.
-
-## ۱۳. امنیت، حریم خصوصی و حاکمیت داده
-
-### ANT-SEC-001 — کنترل‌های امنیتی
-
-- [ ] نشانی پایه سفارشی در برابر SSRF، Redirect و خروج داده محافظت شود.
-- [ ] فقط دامنه‌ها و Schemeهای مجاز برای اتصال مستقیم Anthropic پذیرفته شوند.
-- [ ] TLS معتبر و بررسی گواهی فعال باشد.
-- [ ] سرآیندهای حساس در Redirect یا مقصد دیگر ارسال نشوند.
-- [ ] داده سازمان‌ها در Cache، Batch، File و Log از یکدیگر جدا باشد.
-- [ ] ورودی و خروجی مطابق سیاست نگه‌داری داده گدارAI حذف یا نگه‌داری شوند.
-- [ ] رفتار حذف فایل، Batch و داده‌های موقت با قرارداد رسمی و سیاست محصول تطبیق داده شود.
-- [ ] گزینه‌های اقامت داده یا پردازش منطقه‌ای فقط در صورت پشتیبانی واقعی اعلام شوند.
-- [ ] Metadata ارسالی به Anthropic فاقد داده شخصی یا Secret غیرضروری باشد.
-
-معیار پذیرش: استفاده از Anthropic مرز سازمانی یا سیاست داده گدارAI را تضعیف نکند و هیچ ادعای انطباق بدون مدرک وجود نداشته باشد.
-
-## ۱۴. مجموعه آزمون عملی
-
-### ANT-TEST-001 — آزمون پایه برای هر مدل
-
-- [ ] کشف مدل از کاتالوگ
-- [ ] درخواست متن کوتاه همگام
-- [ ] درخواست متن فارسی و راست‌به‌چپ
-- [ ] پاسخ جریانی و ثبت زمان اولین توکن
-- [ ] `max_tokens` در مقدار عادی، مرزی و نامعتبر
-- [ ] Stop Sequence
-- [ ] System Prompt
-- [ ] محاسبه Usage و Cost
-- [ ] Credential نامعتبر
-- [ ] شناسه مدل نامعتبر
-- [ ] Timeout یا لغو درخواست
-- [ ] محدودیت نرخ شبیه‌سازی‌شده
-
-### ANT-TEST-002 — آزمون قابلیت‌های مدل
-
-هر مورد فقط برای مدل دارای پشتیبانی رسمی اجرا شود.
-
-- [ ] ورودی تصویر با URL
-- [ ] ورودی تصویر با Base64
-- [ ] PDF یا سند با روش‌های رسمی
-- [ ] فایل با `file_id`
-- [ ] استفاده اجباری، خودکار و غیرفعال از ابزار
-- [ ] رفت‌وبرگشت کامل `tool_use` و `tool_result`
-- [ ] خروجی ساخت‌یافته و Schema نامعتبر
-- [ ] تفکر و بازپخش Blockهای لازم در نوبت بعد
-- [ ] Prompt Caching در حالت Miss، Write و Hit
-- [ ] Citation و Search Result
-- [ ] ابزار سمت سرور
-- [ ] Token Counting
-- [ ] Message Batch
-- [ ] Tier یا حالت سرعت ویژه
-- [ ] Context طولانی
-
-### ANT-TEST-003 — مسیرهای اجرای آزمون
-
-- [ ] فراخوانی مستقیم Anthropic-native از گدارAI
-- [ ] فراخوانی OpenAI-compatible از REST API گدارAI
-- [ ] SDK رسمی گدارAI، در صورت عرضه
-- [ ] SDK بومی Anthropic با Base URL گدارAI، فقط در صورت ادعای سازگاری
-- [ ] حساب ارائه‌دهنده متعلق به سازمان
-- [ ] Credential مدیریت‌شده پلتفرم، در صورت عرضه
-- [ ] مدل مستقیم و مدل مجازی یا Fallback، در صورت عرضه
-
-### الزامات مدرک آزمون
-
-- شناسه آزمون و مدل؛
-- تاریخ، محیط و Commit؛
-- درخواست پاک‌سازی‌شده؛
-- پاسخ یا خلاصه پاسخ پاک‌سازی‌شده؛
-- `request-id` و Trace ID؛
-- Usage و Cost مورد انتظار و واقعی؛
-- نتیجه Pass/Fail؛
-- پیوند به آزمون خودکار یا گزارش اجرا.
-
-## ۱۵. برگه ارزیابی هر مدل
-
-این بخش برای **هر مدل موجود در جدول موجودی** کپی و تکمیل شود.
-
-### مدل: `{شناسه مدل}`
-
-| محور | وضعیت | خلاصه مدرک | مغایرت |
+| P0 | خطر امنیتی، افشای Secret، محاسبه مالی سراسری نادرست یا نقض جداسازی سازمان‌ها |
+| P1 | شکست یک مدل، Endpoint یا قابلیت اصلی اعلام‌شده |
+| P2 | شکاف محدود، مشاهده‌پذیری، تاب‌آوری یا تجربه مدیریتی |
+| P3 | نقص مستندات یا Metadata بدون اثر مستقیم Runtime |
+
+## موجودی مدل‌ها و نتیجه فعلی
+
+تمام مدل‌های فعال این جدول تحت تأثیر دروازه‌های مشترک آزمون زنده، Credential و Runtime Profile هستند. بنابراین وضعیت «آماده مشروط» به معنی آمادگی کد برای آزمون Staging است، نه تأیید عرضه عمومی.
+
+| مدل | Context | سقف خروجی ثبت‌شده | وضعیت رسمی در تاریخ بازبینی | نتیجه |
+|---|---:|---:|---|---|
+| `anthropic/claude-haiku-4-5` | 200k | 64k | Alias فعال | آماده مشروط |
+| `anthropic/claude-haiku-4-5-20251001` | 200k | 64k | فعال؛ Retirement نه زودتر از ۱۵ اکتبر ۲۰۲۶ | آماده مشروط |
+| `anthropic/claude-opus-4-1` | 200k | 32k | Deprecated | فقط عرضه محدود با هشدار مهاجرت |
+| `anthropic/claude-opus-4-1-20250805` | 200k | 32k | Deprecated؛ Retirement در ۵ اوت ۲۰۲۶ | فقط عرضه محدود تا Retirement |
+| `anthropic/claude-opus-4-5` | 200k | 64k | Alias فعال | آماده مشروط |
+| `anthropic/claude-opus-4-5-20251101` | 200k | 64k | فعال؛ Retirement نه زودتر از ۲۴ نوامبر ۲۰۲۶ | آماده مشروط |
+| `anthropic/claude-opus-4-6` | 1M | 128k | فعال | آماده مشروط |
+| `anthropic/claude-opus-4-7` | 1M | 128k | فعال | آماده مشروط |
+| `anthropic/claude-sonnet-4-5` | 200k | 64k | Alias فعال | آماده مشروط |
+| `anthropic/claude-sonnet-4-5-20250929` | 200k | 64k | فعال؛ Retirement نه زودتر از ۲۹ سپتامبر ۲۰۲۶ | آماده مشروط |
+| `anthropic/claude-sonnet-4-6` | 1M | 128k در YAML فعلی | فعال | ناقص تا تثبیت سقف با Models API |
+
+### نکات چرخه عمر
+
+- Anthropic مدل Opus 4.1 را در ۵ ژوئن ۲۰۲۶ Deprecated کرده و تاریخ Retirement آن را ۵ اوت ۲۰۲۶ اعلام کرده است.
+- Importer اکنون `deprecationDate` و `retirementDate` را جدا نگه می‌دارد و پس از Retirement وضعیت مدل را `unavailable` می‌کند.
+- پاسخ صحیح پس از Retirement برای Opus 4.1 باید `model_retired` باشد؛ قابل فراخوانی نگه‌داشتن آن معیار قبولی نیست.
+- مدل‌های Claude 5 موجود در مخزن YAML تنها پس از Import و احراز معیار «آماده» باید در ارزیابی مستقل بعدی وارد دامنه شوند.
+
+## وضعیت حوزه‌های اصلی
+
+| حوزه | وضعیت فعلی | توضیح |
+|---|---|---|
+| کاتالوگ و چرخه عمر | منطبق در کد | Lifecycle، منبع رسمی، Runtime Profile و نرخ‌های نرمال‌شده افزوده شده‌اند. |
+| API Key پلتفرم | منطبق در کد | Envelope Encryption و Probe وجود دارد. |
+| Credential سازمان | منطبق در کد و Migration | ستون Plaintext و Dual-read حذف شده‌اند؛ Runtime فقط نسخه رمزگذاری‌شده را می‌پذیرد. |
+| WIF | منطبق در کد | Exchange، Cache، Singleflight و Scope Probe پیاده‌سازی شده‌اند؛ آزمون زنده انجام نشده است. |
+| قیمت Token و Cache | منطبق در کد | Snapshot نسخه‌دار، Decimal، Pin در Reserve و Fail Closed پس از ۲۴ ساعت وجود دارد. |
+| Web Search Billing | منطبق در کد | بعد `web_search_requests` محاسبه و ممیزی می‌شود. |
+| Code Execution Billing | ناقص | Usage پاسخ تعداد درخواست را می‌دهد، اما نرخ کاتالوگ بر حسب ساعت Container است. |
+| Tools سفارشی | منطبق در کد | Function، Tool Choice، Tool Result و Tool Delta نگاشت می‌شوند. |
+| Server Toolها | ناقص در OpenAI-compatible | مسیر بومی Body رسمی را عبور می‌دهد؛ Adapter فقط Function Tool را می‌پذیرد. |
+| Thinking | منطبق در کد، اما Hard-coded | قواعد 4.6 و 4.7 اعمال می‌شوند، ولی از Runtime Profile کاتالوگ خوانده نمی‌شوند. |
+| Structured Output | منطبق در کد | JSON Schema به `output_config.format` نگاشت می‌شود. |
+| Streaming | منطبق در کد | Eventها، Usage نهایی، Tool Delta و خطای میانه Stream حفظ می‌شوند. |
+| Image و PDF | منطبق در کد | Base64، URL و `file_id` پشتیبانی می‌شوند. |
+| Audio و Video | نامرتبط | برای این ۱۱ مدل ورودی یا خروجی رسمی نیستند. |
+| API بومی | منطبق در کد | Messages، Count Tokens، Models، Files و Batches عرضه شده‌اند. |
+| Tunnel جریانی | منطبق در کد | Upload و Download بزرگ به‌صورت Stream عبور می‌کنند. |
+| Rate Limit upstream | ناقص | Headerها منتقل می‌شوند، اما Rate Limit API در سیاست Runtime وارد نشده است. |
+| Retry | ناقص | Retry ناامن انجام نمی‌شود، اما سیاست مستند Backoff و Retry برای عملیات Idempotent وجود ندارد. |
+| پنل WIF | ناقص | Auth Mode و Probe دیده می‌شوند؛ Expiry، Scope مؤثر و آخرین Refresh نمایش داده نمی‌شوند. |
+
+## ماتریس Endpoint و Mode
+
+| قابلیت | مسیر رسمی | مسیر گدارAI | وضعیت |
 |---|---|---|---|
-| منبع رسمی و چرخه عمر | بررسی‌نشده | — | — |
-| شناسه و Alias | بررسی‌نشده | — | — |
-| Credential و دسترسی | بررسی‌نشده | — | — |
-| نقاط پایانی | بررسی‌نشده | — | — |
-| حالت همگام | بررسی‌نشده | — | — |
-| پاسخ جریانی | بررسی‌نشده | — | — |
-| Batch | بررسی‌نشده | — | — |
-| Token Counting | بررسی‌نشده | — | — |
-| وجه‌های ورودی | بررسی‌نشده | — | — |
-| وجه‌های خروجی | بررسی‌نشده | — | — |
-| پارامترهای درخواست | بررسی‌نشده | — | — |
-| پاسخ و دلیل توقف | بررسی‌نشده | — | — |
-| Usage | بررسی‌نشده | — | — |
-| قابلیت‌های اختصاصی | بررسی‌نشده | — | — |
-| Context و سقف خروجی | بررسی‌نشده | — | — |
-| Rate Limit | بررسی‌نشده | — | — |
-| قیمت‌گذاری | بررسی‌نشده | — | — |
-| صورتحساب گدارAI | بررسی‌نشده | — | — |
-| خطا و Retry | بررسی‌نشده | — | — |
-| مسیریابی و دسترسی | بررسی‌نشده | — | — |
-| مشاهده‌پذیری | بررسی‌نشده | — | — |
-| آزمون انتهابه‌انتها | بررسی‌نشده | — | — |
+| Messages همگام | `POST /v1/messages` | همان مسیر | منطبق در کد |
+| Messages جریانی | `POST /v1/messages` با `stream=true` | همان مسیر | منطبق در کد |
+| OpenAI-compatible Chat | نامرتبط در Anthropic | `POST /v1/chat/completions` | منطبق برای Text و Custom Tool؛ ناقص برای Server Tool |
+| Count Tokens | `POST /v1/messages/count_tokens` | همان مسیر | منطبق در کد |
+| Models | `GET /v1/models` و `GET /v1/models/{id}` | همان مسیر با تشخیص `anthropic-version` | منطبق در کد |
+| Files | خانواده `/v1/files` | همان مسیر | منطبق در کد |
+| Message Batches | خانواده `/v1/messages/batches` | همان مسیر | منطبق پایه؛ Beta خروجی 300k ناقص |
+| Fast | پارامتر `speed` | Adapter و قرارداد بومی | Metadata مدل‌های 4.6 نیازمند اصلاح معنایی |
+| Priority/Service Tier | `service_tier` | عبور و ثبت Usage | منطبق در کد؛ وابسته به قرارداد حساب |
 
-نتیجه مدل:
+### محدودیت اندازه
 
-- [ ] آماده کامل
-- [ ] آماده مشروط
-- [ ] غیرقابل عرضه تا رفع مغایرت
-- [ ] باید Deprecated یا غیرفعال شود
-
-دلیل نتیجه: —
-
-## ۱۶. ثبت مغایرت‌ها
-
-برای هر وضعیت «ناقص»، «پیاده‌سازی‌نشده» یا «ناسازگار» یک ردیف ثبت شود.
-
-| شناسه | مدل/سطح | محور | انتظار رسمی | وضعیت گدارAI | شدت | مدرک | اقدام اصلاحی | مالک | موعد | وضعیت |
-|---|---|---|---|---|---|---|---|---|---|---|
-| ANT-GAP-001 | — | — | — | — | — | — | — | — | — | باز |
-
-هر مغایرت باید:
-
-- به یک یا چند مورد چک‌لیست پیوند داشته باشد؛
-- اثر آن بر استفاده، هزینه، امنیت یا سازگاری را توضیح دهد؛
-- راه بازتولید داشته باشد؛
-- اقدام اصلاحی قابل آزمون و معیار بسته‌شدن داشته باشد؛
-- پس از اصلاح، دوباره با منبع رسمی و آزمون عملی تأیید شود.
-
-## ۱۷. گزارش نهایی مرحله ارزیابی
-
-| سنجه | مقدار |
+| عملیات | سقف اعمال‌شده |
 |---|---:|
-| تعداد مدل‌های آماده در دامنه | — |
-| تعداد مدل‌های کاملاً منطبق | — |
-| تعداد مدل‌های آماده مشروط | — |
-| تعداد مدل‌های غیرقابل عرضه | — |
-| تعداد مغایرت P0 | — |
-| تعداد مغایرت P1 | — |
-| تعداد مغایرت P2 | — |
-| تعداد مغایرت P3 | — |
-| تعداد موارد مسدود | — |
+| Messages و Count Tokens | 32MB |
+| Message Batches | 256MB |
+| Files | 500MB |
 
-### تأیید نهایی
+## پارامترها، محتوا و پاسخ
 
-- [ ] موجودی مدل‌ها کامل است.
-- [ ] همه برگه‌های مدل تکمیل شده‌اند.
-- [ ] همه قیمت‌ها دوباره بازبینی شده‌اند.
-- [ ] همه آزمون‌های الزامی اجرا شده‌اند.
-- [ ] موارد «نامرتبط» دلیل و منبع دارند.
-- [ ] موارد مسدود، مالک و گام بعدی دارند.
-- [ ] نتیجه توسط بازبین دوم تأیید شده است.
+موارد زیر در Adapter فعلی پیاده‌سازی شده‌اند:
 
-نتیجه نهایی ارائه‌دهنده:
+- `max_tokens`، `temperature`، `top_p`، `top_k` و `stop_sequences`
+- `system`، Metadata و `user_id`
+- Function Tools، `tool_choice`، `parallel_tool_calls=false` و `tool_result`
+- Prompt Cache و `cache_control`
+- `response_format.json_schema` و `output_config.format`
+- `service_tier`، `speed` و `inference_geo`
+- Text، Image و PDF از Base64، URL و `file_id`
+- Thinking، Redacted Thinking، Citation، Tool Use، Stop Reason و Usage
 
-- [ ] Anthropic کاملاً آماده است.
-- [ ] Anthropic با محدودیت‌های ثبت‌شده آماده است.
-- [ ] Anthropic تا رفع مغایرت‌های مسدودکننده آماده نیست.
+قواعد Thinking فعلی:
 
-## منابع رسمی پایه برای آغاز مرحله بعد
+- Opus 4.7 فقط Adaptive Thinking را می‌پذیرد و Manual Thinking رد می‌شود.
+- Opus 4.6 و Sonnet 4.6 به‌صورت پیش‌فرض Adaptive هستند؛ Manual Thinking با وضعیت Deprecated قابل استفاده است.
+- مدل‌های 4.5 و پایین‌تر از Manual Extended Thinking استفاده می‌کنند.
+- تعارض Sampling با Adaptive Thinking و مجازبودن `effort=max` اعتبارسنجی می‌شود.
 
-این فهرست نقطه شروع است و جای صفحه اختصاصی هر مدل یا قابلیت را نمی‌گیرد. منابع باید در تاریخ اجرای ارزیابی دوباره باز شوند، زیرا مدل‌ها، قیمت‌ها، Betaها و محدودیت‌ها تغییر می‌کنند.
+این قواعد از نظر رفتار فعلی درست‌اند، اما چون از `ModelRuntimeProfile` دریافت نمی‌شوند، تغییر مستندات یا اضافه‌شدن مدل جدید می‌تواند بدون خطای Import باعث Drift در Runtime شود.
 
-- [نمای کلی Claude API](https://platform.claude.com/docs/en/api/overview)
-- [احراز هویت](https://platform.claude.com/docs/en/manage-claude/authentication)
-- [نمای کلی مدل‌ها](https://platform.claude.com/docs/en/about-claude/models/overview)
-- [شناسه مدل‌ها و نسخه‌بندی](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions)
-- [Deprecated و بازنشستگی مدل‌ها](https://platform.claude.com/docs/en/about-claude/model-deprecations)
-- [قیمت‌گذاری](https://platform.claude.com/docs/en/about-claude/pricing)
-- [Messages API](https://platform.claude.com/docs/en/api/messages)
-- [Message Batches API](https://platform.claude.com/docs/en/api/messages/batches/create)
-- [Token Counting API](https://platform.claude.com/docs/en/api/messages/count_tokens)
-- [Models API](https://platform.claude.com/docs/en/api/models/list)
-- [Files API](https://platform.claude.com/docs/en/build-with-claude/files)
-- [نسخه‌های API](https://platform.claude.com/docs/en/api/versioning)
-- [Beta Headerها](https://platform.claude.com/docs/en/api/beta-headers)
-- [خطاهای Claude API](https://platform.claude.com/docs/en/api/errors)
-- [محدودیت نرخ](https://platform.claude.com/docs/en/api/rate-limits)
-- [پاسخ جریانی](https://platform.claude.com/docs/en/build-with-claude/streaming)
-- [پردازش تصویر](https://platform.claude.com/docs/en/build-with-claude/vision)
-- [پردازش PDF](https://platform.claude.com/docs/en/build-with-claude/pdf-support)
-- [استفاده از ابزار](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
-- [تفکر توسعه‌یافته](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
-- [Prompt Caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
-- [Search Result Content Block](https://platform.claude.com/docs/en/build-with-claude/search-results)
+## قیمت‌گذاری
 
-تاریخ تهیه فهرست منابع: ۲۰۲۶-۰۷-۲۹
+نرخ‌های پایه‌ای که باید در Snapshot معتبر مدل‌ها وجود داشته باشند:
+
+| خانواده | Input / MTok | Cache write 5m | Cache write 1h | Cache read | Output / MTok |
+|---|---:|---:|---:|---:|---:|
+| Claude Haiku 4.5 | $1 | $1.25 | $2 | $0.10 | $5 |
+| Claude Sonnet 4.5 و 4.6 | $3 | $3.75 | $6 | $0.30 | $15 |
+| Claude Opus 4.5، 4.6 و 4.7 | $5 | $6.25 | $10 | $0.50 | $25 |
+| Claude Opus 4.1 | $15 | $18.75 | $30 | $1.50 | $75 |
+
+قواعد تکمیلی:
+
+- Message Batches برای Token و Prompt Cache تخفیف ۵۰ درصدی دارد.
+- `inference_geo=us` برای نسل 4.6 و جدیدتر ضریب ۱٫۱ روی ابعاد Token و Cache دارد.
+- Web Search برابر ۱۰ دلار به‌ازای هر ۱۰۰۰ درخواست است.
+- Code Execution مستقل پس از سهمیه رایگان ماهانه سازمان، بر حسب Container-hour محاسبه می‌شود و حداقل زمان قابل‌صورتحساب دارد.
+- نبود Snapshot معتبر، Rate یا Dimension برای Anthropic باید با `pricing_unavailable` و HTTP 503 متوقف شود.
+
+### ناسازگاری Code Execution
+
+پاسخ Messages مقدار `server_tool_use.code_execution_requests` را گزارش می‌کند، اما کاتالوگ گدارAI نرخ `code_execution_container_hours` را نگه می‌دارد. مدت Container و مانده سهمیه رایگان سازمان از پاسخ Messages به‌دست نمی‌آید. بنابراین نگاشت مستقیم و دقیق بین Usage و Rate وجود ندارد.
+
+تا زمان اتصال به منبع صورتحساب یا Usage سازمانی Anthropic، یکی از این دو راه باید اجرا شود:
+
+1. Code Execution برای حساب‌های Billable غیرفعال و قابلیت آن از کاتالوگ قابل عرضه حذف شود.
+2. هزینه آن به‌صورت Reconciliation پس از دریافت داده قطعی سازمان تسویه شود و Reservation مستقل داشته باشد.
+
+ادامه با هزینه صفر مجاز نیست.
+
+## Credential و WIF
+
+موارد پیاده‌سازی‌شده:
+
+- API Keyهای جدید سازمان فقط به‌صورت رمزگذاری‌شده نوشته می‌شوند.
+- AAD شامل Tenant، Account، Provider، Auth Mode، Schema Version و Credential Version است.
+- Runtime Cache محدود، TTLدار، Singleflight و Tenant-scoped است.
+- Runtime فقط نسخه فعال جدول `tenant_provider_account_credential_versions` را می‌خواند و هیچ fallback به Plaintext ندارد.
+- Migration شماره 054 تمام Credentialهای Rotation-required را بی‌اعتبار و حذف می‌کند، حساب‌های ناسازگار را Fail Closed می‌کند و ستون `credential_data` را حذف می‌کند.
+- ابزار Migrator و متریک Legacy-read حذف شده‌اند؛ نبود نسخه رمزگذاری‌شده به‌معنی نبود Credential است.
+- قرار دادن Secret در `provider_config`، حتی در ساختارهای تو‌در‌تو، با HTTP 400 رد می‌شود و Secret فقط از فیلد Write-only مربوط به Credential پذیرفته می‌شود.
+- WIF برای Platform و Tenant از Token Source شناسه‌دار و Allowlist‌شده استفاده می‌کند.
+- Token Exchange در Silk Road انجام می‌شود و Token پیش از انقضا با Singleflight نوسازی می‌شود.
+- Probe قابلیت‌های `workspace:inference` و `workspace:developer` را جدا گزارش می‌کند.
+
+موارد باز:
+
+- آزمون زنده Token Exchange، Refresh هم‌زمان، Scope ناکافی و Rule نامعتبر
+- ثبت و نمایش Expiry، Scope مؤثر و آخرین Refresh در پنل
+
+## مغایرت بسته‌شده در این بازبینی
+
+| شناسه | وضعیت | شواهد |
+|---|---|---|
+| `ANT-REM-001` | بسته | Migration شماره 054، حذف `credential_data` از Prisma و SQLهای Runtime، حذف Dual-read و Migrator، تست PostgreSQL با رکورد Legacy و حفظ Credential رمزگذاری‌شده سالم |
+
+## مغایرت‌های باقی‌مانده
+
+| شناسه | شدت | مغایرت | اثر | اقدام اصلاحی |
+|---|---|---|---|---|
+| `ANT-REM-002` | P1 | هیچ ماتریس زنده‌ای برای ۱۱ مدل با API Key و WIF اجرا نشده است | دسترسی واقعی مدل، Scope، Beta و رفتار upstream اثبات نشده است | Smoke و E2E زنده را با Credential کم‌دسترسی اجرا و Fixture پاک‌سازی‌شده ثبت کنید |
+| `ANT-REM-003` | P1 | Usage ابزار Code Execution با Rate ساعتی کاتالوگ قابل تطبیق مستقیم نیست | Finalize می‌تواند Fail Closed شود یا هزینه قابل تسویه نباشد | Reconciliation سازمانی یا غیرفعال‌سازی قابلیت تا فراهم‌شدن Usage قطعی |
+| `ANT-REM-004` | P1 | `ModelRuntimeProfile` در Control Plane دریافت نمی‌شود و Silk Road قواعد مدل را Hard-code کرده است | Drift بین کاتالوگ و Runtime و پذیرش Beta نامعتبر | Runtime Profile را در Snapshot اتمیک وارد و Validator/Adapter/Beta intersection را از همان Revision تغذیه کنید |
+| `ANT-REM-005` | P1 | Beta Header مدل با Allowlist حساب تقاطع داده نمی‌شود؛ فقط Allowlist حساب در Silk Road اعمال می‌شود | Beta مجاز برای حساب ممکن است روی مدل نامعتبر عبور کند | تقاطع `requested ∩ account allowlist ∩ model runtime profile` را اعمال کنید |
+| `ANT-REM-006` | P1 | Beta رسمی `output-300k-2026-03-24` برای Batch مدل‌های 4.6 و 4.7 در Runtime Profile ثبت نشده است | سقف رسمی 300k در Batch قابل استفاده مطمئن نیست | Header را فقط برای مدل‌های مجاز به Profile و Connection Schema اضافه و تست مرزی 300k ایجاد کنید |
+| `ANT-REM-007` | P1 | OpenAI-compatible فقط Function Tool را می‌پذیرد و Server Toolهای Anthropic را رد می‌کند | Web Search، Web Fetch و Code Execution فقط از API بومی قابل استفاده‌اند | یا قرارداد نوع‌دار Server Tool به OpenAI-compatible اضافه شود، یا این محدودیت در کاتالوگ و مستندات مسیر OpenAI شفاف شود |
+| `ANT-REM-008` | P2 | `speed=fast` برای مدل‌های 4.6 در Profile به‌عنوان Mode مجاز نمایش داده می‌شود، درحالی‌که Anthropic آن را با سرعت و قیمت استاندارد اجرا می‌کند | کاربر تصور می‌کند Fast واقعی دریافت کرده است | Mode پذیرفته‌شده را از Mode مؤثر جدا و مقدار `effective_speed=standard` را نمایش و ثبت کنید |
+| `ANT-REM-009` | P1 | سقف خروجی Sonnet 4.6 بین Snapshot مبنا، YAML فعلی و صفحات رسمی در حال تغییر یکدست نیست | Validator می‌تواند درخواست معتبر را رد یا درخواست نامعتبر را عبور دهد | `GET /v1/models/claude-sonnet-4-6` را با حساب واقعی اجرا و مقدار، Account، Revision و تاریخ مشاهده را ثبت کنید |
+| `ANT-REM-010` | P2 | Rate Limit API Anthropic در Runtime مصرف نمی‌شود | سیاست داخلی از Tier و محدودیت واقعی Workspace آگاه نیست | Snapshot محدودیت‌ها را با Admin API دریافت و Headerهای پاسخ را برای اصلاح پویا حفظ کنید |
+| `ANT-REM-011` | P2 | سیاست Retry/Backoff ویژه Anthropic وجود ندارد | خطاهای گذرای Idempotent بدون بازیابی می‌مانند | Retry محدود برای خطاهای مستند و عملیات اثبات‌شده Idempotent با رعایت `Retry-After` پیاده‌سازی کنید |
+| `ANT-REM-012` | P2 | Expiry، Scope مؤثر و آخرین Refresh WIF در پنل نمایش داده نمی‌شود | عیب‌یابی و پیشگیری از انقضا دشوار است | وضعیت Sanitized Token را بدون Assertion یا Access Token ذخیره و نمایش دهید |
+| `ANT-REM-013` | P1 انتشار | آزمون 500MB، چرخه کامل Batch، قطع Stream، تست امنیت و تأیید انسانی انجام نشده است | آمادگی عملیاتی زیر بار و خطا اثبات نشده است | مجموعه Release Readiness را در Staging اجرا و گزارش مستقل ثبت کنید |
+
+## وضعیت ۱۷ مغایرت اولیه
+
+| شناسه اولیه | وضعیت فعلی | توضیح |
+|---|---|---|
+| `ANT-FIND-001` | بسته | Pricing Snapshot، LKG 24h، Pin Revision و Fail Closed پیاده‌سازی شده‌اند. |
+| `ANT-FIND-002` | بسته | Plaintext، Dual-read و Migrator حذف شده‌اند؛ آزمون Migration تخریبی و مسیر رمزگذاری‌شده موفق است. |
+| `ANT-FIND-003` | ناقص | Token، Cache و Web Search بسته‌اند؛ Code Execution در `ANT-REM-003` باز است. |
+| `ANT-FIND-004` | بسته برای Custom Tool | Server Tool مسیر OpenAI در `ANT-REM-007` جدا ثبت شده است. |
+| `ANT-FIND-005` | بسته از نظر رفتار فعلی | منبع حقیقت Runtime در `ANT-REM-004` هنوز اصلاح نشده است. |
+| `ANT-FIND-006` | بسته در کد | تمام خانواده‌های API بومی عرضه شده‌اند. |
+| `ANT-FIND-007` | بسته در کد | State machine و خطای میانه Stream پیاده‌سازی شده‌اند. |
+| `ANT-FIND-008` | بسته در کد | Lifecycle و Retirement خودکار وجود دارد؛ آزمون روز Retirement لازم است. |
+| `ANT-FIND-009` | ناقص معماری | پارامترها پیاده‌سازی شده‌اند، اما Profile در Runtime اعمال نمی‌شود. |
+| `ANT-FIND-010` | بسته در کد | آزمون زنده WIF در `ANT-REM-002` باز است. |
+| `ANT-FIND-011` | بسته در کد | Probe قابلیت‌محور وجود دارد؛ آزمون Scope واقعی باز است. |
+| `ANT-FIND-012` | بسته در کد | URL، Base64 و `file_id` پشتیبانی می‌شوند. |
+| `ANT-FIND-013` | بسته | منابع، Lifecycle و Runtime Profile در Importer ثبت می‌شوند. |
+| `ANT-FIND-014` | ناقص | Schema چندبعدی کامل است؛ Reconciliation اجرای کد باز است. |
+| `ANT-FIND-015` | بسته | `assistant_prefill` از 4.6 و 4.7 حذف شده است. |
+| `ANT-FIND-016` | باز | در `ANT-REM-009` پیگیری می‌شود. |
+| `ANT-FIND-017` | بسته | Source و تاریخ‌های قابل استخراج ثبت می‌شوند. |
+
+## شواهد پیاده‌سازی
+
+| قابلیت | شاهد |
+|---|---|
+| Snapshot و قیمت‌گذاری | `services/control-plane/internal/billing/anthropic_pricing_snapshot.go` |
+| Usage چندبعدی و Decimal | `services/control-plane/internal/billing/service.go` |
+| Adapter Anthropic | `services/silk-road/pkg/server/anthropic.go` |
+| WIF | `services/silk-road/pkg/server/anthropic_wif.go` |
+| API بومی | `services/control-plane/internal/proxy/anthropic_native_handler.go` |
+| Files و Batch | `services/control-plane/internal/proxy/anthropic_native_resources.go` |
+| Worker Batch | `services/control-plane/internal/proxy/anthropic_batch_worker.go` |
+| Credential سازمان | `services/control-plane/internal/storage/tenant_provider_credential_crypto.go` |
+| حذف Plaintext | `db/main/migrations/054_drop_plaintext_tenant_provider_credentials.sql` |
+| تست Schema و Credential رمزگذاری‌شده | `services/control-plane/tests/integration/tenant_provider_credential_schema_integration_test.go` |
+| جلوگیری از Secret در Provider Config | `services/control-plane/internal/storage/provider_config_secret_validation.go` |
+| Operationهای نوع‌دار Tunnel | `packages/contracts/platform/types.go` |
+| Runtime Profile و Pricing Import | `apps/model-discovery/scripts/import-models-from-yaml.ts` |
+| Schema کاتالوگ | `apps/model-discovery/prisma/schema.prisma` |
+
+## آزمون‌های ثبت‌شده
+
+علاوه بر تست‌های خودکار ثبت‌شده قبلی، Migration شماره 054 روی PostgreSQL موقت با سه حالت Plaintext، نسخه مهاجرت‌شده Rotation-required و نسخه رمزگذاری‌شده سالم اجرا شد. دو حالت ناامن حذف و Credential رمزگذاری‌شده سالم حفظ شد. تست Integration حذف ستون Plaintext نیز موفق بود.
+
+این موفقیت جایگزین موارد زیر نیست:
+
+- آزمون زنده تمام ۱۱ مدل با API Key
+- آزمون زنده تمام ۱۱ مدل با WIF
+- آزمون Scopeهای `workspace:inference` و `workspace:developer`
+- آزمون Code Execution و تطبیق با صورتحساب واقعی
+- آزمون Batch شامل Success، Error، Cancel، Expiry و خروجی 300k
+- آزمون فایل مصنوعی 500MB با Backpressure
+- آزمون قطع Upload، Download و SSE
+- آزمون Opus 4.1 در تاریخ Retirement
+- تأیید انسانی گزارش نهایی
+
+## چک‌لیست اقدامات باقی‌مانده
+
+### امنیت و Credential
+
+- [x] Dual-read و ابزار Migrator حذف شوند.
+- [x] Credentialهای Rotation-required بدون انتقال Secret قدیمی بی‌اعتبار و حذف شوند.
+- [x] حساب API Key بدون نسخه رمزگذاری‌شده Fail Closed شود.
+- [x] `credential_data` از دیتابیس، Prisma و SQLهای Runtime حذف شود.
+- [x] Credential رمزگذاری‌شده سالم در Migration حفظ شود.
+- [x] ذخیره Secret در `provider_config` و ساختارهای تو‌در‌تو رد شود.
+- [ ] هیچ Secret، Assertion یا Access Token در Log، Trace و پاسخ مشاهده نشود.
+
+### Runtime و قابلیت‌ها
+
+- [ ] Runtime Profile همراه Pricing Snapshot در Control Plane دریافت و Pin شود.
+- [ ] Silk Road قواعد Thinking، Sampling، Prefill، Speed، Beta و سقف‌ها را از Profile دریافت کند.
+- [ ] Beta Header با Allowlist حساب و Profile مدل تقاطع داده شود.
+- [ ] `output-300k-2026-03-24` برای Batch مدل‌های مجاز اضافه و تست شود.
+- [ ] محدودیت Server Tool در OpenAI-compatible رفع یا به‌صورت صریح مستند شود.
+- [ ] رفتار مؤثر `speed=fast` برای مدل‌های 4.6 به‌عنوان Standard ثبت شود.
+
+### Billing و محدودیت‌ها
+
+- [ ] Code Execution به منبع Usage/Invoice سازمانی متصل یا تا آن زمان غیرفعال شود.
+- [ ] هیچ Missing Dimension با هزینه صفر ادامه پیدا نکند.
+- [ ] سقف Sonnet 4.6 با Models API حساب واقعی ثبت شود.
+- [ ] Rate Limitهای واقعی Workspace در Snapshot عملیاتی وارد شوند.
+- [ ] Retry فقط برای عملیات Idempotent و خطاهای مستند اعمال شود.
+
+### آزمون زنده و انتشار
+
+- [ ] Credential واقعی API Key کم‌دسترسی در Staging فراهم شود.
+- [ ] WIF واقعی با Scopeهای حداقلی فراهم شود.
+- [ ] ماتریس Text Sync/Stream، Image، PDF، Tools، Structured Output و Thinking برای هر ۱۱ مدل اجرا شود.
+- [ ] Count Tokens، Files و Message Batches به‌صورت E2E اجرا شوند.
+- [ ] Tenant isolation و Account ambiguity آزموده شوند.
+- [ ] تست 500MB و Backpressure بدون رشد حافظه متناسب با فایل موفق باشد.
+- [ ] نتیجه Retirement مدل Opus 4.1 بررسی شود.
+- [ ] تمام P0 و P1ها بسته و گزارش توسط بازبین انسانی تأیید شود.
+
+## معیار اعلام آمادگی کامل
+
+ارائه‌دهنده Anthropic فقط زمانی «کاملاً آماده» است که تمام شرایط زیر هم‌زمان برقرار باشند:
+
+- هیچ مغایرت P0 یا P1 باز نباشد.
+- هیچ Credential قدیمی قابل خواندن باقی نمانده باشد.
+- Snapshot قیمت کمتر از ۲۴ ساعت عمر داشته باشد.
+- Runtime Profile همان Revision کاتالوگ در Validator و Adapter اعمال شود.
+- تمام ۱۱ مدل نتیجه موفق زنده یا نتیجه چرخه عمر مورد انتظار داشته باشند.
+- Code Execution هزینه قابل ممیزی داشته باشد یا رسماً غیرفعال باشد.
+- API Key و WIF هر دو در Staging موفق باشند.
+- Load، Stream، Batch، Security و Tenant isolation موفق باشند.
+- بازبین انسانی گزارش و شواهد را تأیید کرده باشد.
+
+تا پیش از تحقق این شروط، وضعیت صحیح ارائه‌دهنده Anthropic در گدارAI **«آماده برای آزمون کنترل‌شده، نه آماده برای پشتیبانی کامل عمومی»** است.

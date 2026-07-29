@@ -389,9 +389,11 @@ model TenantProviderAccount {
   name                           String                        @db.VarChar(255)
   auth_mode                      String                        @db.VarChar(50)
   provider_config                Json                          @default("{}")
-  credential_data                Json?
   has_credential                 Boolean                       @default(false)
   use_platform_managed_credentials        Boolean                       @default(false)
+  active_credential_version_id   String?                       @db.Uuid
+  credential_hint                String?                       @db.VarChar(64)
+  credential_rotation_required   Boolean                       @default(false)
   created_at                     DateTime                      @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime                      @default(now()) @db.Timestamptz(6)
   tenant_provider_account_access TenantProviderAccountAccess[]
@@ -402,6 +404,31 @@ model TenantProviderAccount {
   @@index([tenant_id], map: "idx_tenant_provider_accounts_tenant_id")
   @@index([tenant_id, provider], map: "idx_tenant_provider_accounts_tenant_provider")
   @@map("tenant_provider_accounts")
+}
+
+model TenantProviderAccountCredentialVersion {
+  credential_version_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String    @db.Uuid
+  account_id             String    @db.Uuid
+  provider               String    @db.VarChar(100)
+  auth_mode              String    @db.VarChar(64)
+  schema_version         Int       @default(1)
+  version                BigInt
+  ciphertext             Bytes
+  data_nonce             Bytes
+  wrapped_dek            Bytes
+  wrap_nonce             Bytes
+  kek_version            String    @db.VarChar(64)
+  fingerprint            String    @db.VarChar(64)
+  display_hint           String    @default("configured") @db.VarChar(64)
+  status                 String    @default("active") @db.VarChar(32)
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+  revoked_at             DateTime? @db.Timestamptz(6)
+
+  @@unique([account_id, version], map: "tenant_provider_credential_account_version_unique")
+  @@unique([tenant_id, account_id, credential_version_id], map: "tenant_provider_credential_tenant_account_id_unique")
+  @@index([tenant_id, account_id, status], map: "idx_tenant_provider_credential_runtime")
+  @@map("tenant_provider_account_credential_versions")
 }
 
 model TenantProviderAccountModel {

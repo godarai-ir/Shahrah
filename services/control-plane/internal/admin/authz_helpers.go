@@ -272,6 +272,10 @@ func mapProviderAccountStoreError(err error) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
+	if errors.Is(err, storage.ErrProviderConfigContainsSecret) {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
 	if errors.Is(err, storage.ErrPrivatePricingRequiresCredential) {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}

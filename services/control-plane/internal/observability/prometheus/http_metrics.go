@@ -64,7 +64,6 @@ type HTTPMetrics struct {
 	platformCredentialLastLoadedUnixNano *atomic.Int64
 	anthropicPricingSnapshotAge          prom.Gauge
 	anthropicPricingFailures             *prom.CounterVec
-	anthropicLegacyCredentialReads       prom.Counter
 	anthropicBatchStates                 *prom.CounterVec
 	anthropicUsageDimensions             *prom.CounterVec
 	supportTicketsCreated                prom.Counter
@@ -224,10 +223,6 @@ func NewHTTPMetrics() *HTTPMetrics {
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_pricing_failures_total",
 		Help: "Anthropic pricing failures by bounded stage.",
 	}, []string{"stage"})
-	anthropicLegacyCredentialReads := prom.NewCounter(prom.CounterOpts{
-		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_legacy_credential_reads_total",
-		Help: "Legacy plaintext tenant Anthropic credential reads during the zero-downtime migration.",
-	})
 	anthropicBatchStates := prom.NewCounterVec(prom.CounterOpts{
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "anthropic_batch_state_transitions_total",
 		Help: "Anthropic batch state transitions observed by the reconciliation worker.",
@@ -279,7 +274,7 @@ func NewHTTPMetrics() *HTTPMetrics {
 		platformCredentialResolves, platformCredentialSnapshotLoads, platformCredentialSnapshotDuration,
 		platformCredentialSnapshotEntries, platformCredentialSnapshotAge,
 		anthropicPricingSnapshotAge, anthropicPricingFailures,
-		anthropicLegacyCredentialReads, anthropicBatchStates, anthropicUsageDimensions,
+		anthropicBatchStates, anthropicUsageDimensions,
 		supportTicketsCreated, supportMessages, supportAttachments, supportFirstResponse,
 		supportTransitions, supportRatings, supportStatus,
 	)
@@ -314,7 +309,6 @@ func NewHTTPMetrics() *HTTPMetrics {
 		platformCredentialLastLoadedUnixNano: platformCredentialLastLoadedUnixNano,
 		anthropicPricingSnapshotAge:          anthropicPricingSnapshotAge,
 		anthropicPricingFailures:             anthropicPricingFailures,
-		anthropicLegacyCredentialReads:       anthropicLegacyCredentialReads,
 		anthropicBatchStates:                 anthropicBatchStates,
 		anthropicUsageDimensions:             anthropicUsageDimensions,
 		supportTicketsCreated:                supportTicketsCreated,
@@ -343,12 +337,6 @@ func RecordAnthropicPricingFailure(stage string) {
 			stage = "other"
 		}
 		metrics.anthropicPricingFailures.WithLabelValues(stage).Inc()
-	}
-}
-
-func RecordAnthropicLegacyCredentialRead() {
-	if metrics := activeHTTPMetrics.Load(); metrics != nil {
-		metrics.anthropicLegacyCredentialReads.Inc()
 	}
 }
 

@@ -1,8 +1,9 @@
-BEGIN;
+-- +goose Up
+-- +goose StatementBegin
 
 CREATE TABLE IF NOT EXISTS anthropic_file_mappings (
     public_id text PRIMARY KEY,
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id uuid NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
     provider_account_id uuid NOT NULL REFERENCES tenant_provider_accounts(account_id) ON DELETE CASCADE,
     upstream_id text NOT NULL,
     status text NOT NULL DEFAULT 'active',
@@ -16,7 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_anthropic_file_mappings_tenant_account
 
 CREATE TABLE IF NOT EXISTS anthropic_batch_mappings (
     public_id text PRIMARY KEY,
-    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id uuid NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
     provider_account_id uuid NOT NULL REFERENCES tenant_provider_accounts(account_id) ON DELETE CASCADE,
     upstream_id text NOT NULL,
     status text NOT NULL DEFAULT 'in_progress',
@@ -33,4 +34,10 @@ CREATE TABLE IF NOT EXISTS anthropic_batch_mappings (
 CREATE INDEX IF NOT EXISTS idx_anthropic_batch_mappings_tenant_account_status
     ON anthropic_batch_mappings (tenant_id, provider_account_id, status, created_at DESC);
 
-COMMIT;
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS anthropic_batch_mappings;
+DROP TABLE IF EXISTS anthropic_file_mappings;
+-- +goose StatementEnd

@@ -28,6 +28,9 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	if err := validateAnthropicWIFConfig(req.Provider, string(req.AuthMode), req.ProviderConfig); err != nil {
 		return nil, err
 	}
+	if err := validateProviderConfigContainsNoSecrets(req.ProviderConfig); err != nil {
+		return nil, err
+	}
 
 	providerCfg, err := marshalJSONObject(req.ProviderConfig)
 	if err != nil {
@@ -39,7 +42,6 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		req.Credentials = nil
 	}
 
-	credentialData := []byte("{}")
 	hasCredential := req.Credentials != nil &&
 		strings.TrimSpace(req.Credentials.APIKey) != ""
 	if req.AuthMode == platform.ProviderAuthModeAnthropicWIF {
@@ -63,11 +65,11 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 
 	err = tx.QueryRow(ctx, `
 		INSERT INTO tenant_provider_accounts (
-			tenant_id, provider, name, auth_mode, provider_config, credential_data, has_credential, use_platform_managed_credentials
+			tenant_id, provider, name, auth_mode, provider_config, has_credential, use_platform_managed_credentials
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_hint, ''), has_credential, use_platform_managed_credentials, credential_rotation_required, created_at, updated_at
-	`, tenantID, req.Provider, req.Name, string(req.AuthMode), providerCfg, credentialData, hasCredential, usePlatformManagedCredentials).Scan(
+	`, tenantID, req.Provider, req.Name, string(req.AuthMode), providerCfg, hasCredential, usePlatformManagedCredentials).Scan(
 		&account.ID,
 		&account.TenantID,
 		&account.Provider,
@@ -102,6 +104,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 			return nil, encryptErr
 		}
 		account.CredentialHint = hint
+		account.HasCredential = true
 	}
 	if commitErr := tx.Commit(ctx); commitErr != nil {
 		return nil, commitErr
@@ -304,16 +307,15 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		currentAuthMode                   string
 		currentProvider                   string
 		currentProviderCfg                []byte
-		currentCredentialRaw              []byte
 		currentHasCredential              bool
 		currentPlatformManagedCredentials bool
 	)
 
 	queryErr := tx.QueryRow(ctx, `
-		SELECT auth_mode, provider, provider_config, COALESCE(credential_data, '{}'::jsonb), has_credential, use_platform_managed_credentials
+		SELECT auth_mode, provider, provider_config, has_credential, use_platform_managed_credentials
 		FROM tenant_provider_accounts
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID).Scan(&currentAuthMode, &currentProvider, &currentProviderCfg, &currentCredentialRaw, &currentHasCredential, &currentPlatformManagedCredentials)
+	`, tenantID, accountID).Scan(&currentAuthMode, &currentProvider, &currentProviderCfg, &currentHasCredential, &currentPlatformManagedCredentials)
 	if queryErr != nil {
 		return nil, queryErr
 	}
@@ -332,6 +334,9 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		return nil, validationErr
 	}
 	if validationErr := validateAnthropicWIFConfig(currentProvider, nextAuthMode, nextProviderCfg); validationErr != nil {
+		return nil, validationErr
+	}
+	if validationErr := validateProviderConfigContainsNoSecrets(nextProviderCfg); validationErr != nil {
 		return nil, validationErr
 	}
 
@@ -354,45 +359,37 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	if req.Credentials != nil {
 		newAPIKey = strings.TrimSpace(req.Credentials.APIKey)
 	}
-	nextCredentialRaw := currentCredentialRaw
 	nextHasCredential := currentHasCredential
 
 	if req.Credentials == nil {
 		nextHasCredential = currentHasCredential
-		nextCredentialRaw = currentCredentialRaw
 	} else if newAPIKey != "" {
 		nextHasCredential = true
-		nextCredentialRaw = []byte("{}")
 	} else if clearCredential {
 		nextHasCredential = false
-		nextCredentialRaw = []byte("{}")
 	}
 
 	if req.Credentials == nil && (currentPlatformManagedCredentials || strings.EqualFold(currentAuthMode, string(platform.ProviderAuthModeNoCredential))) && !nextPlatformManagedCredentials && !strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
 		nextHasCredential = false
-		nextCredentialRaw = []byte("{}")
 	}
 
 	if nextPlatformManagedCredentials || strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
 		nextHasCredential = false
-		nextCredentialRaw = []byte("{}")
 	}
 	if strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAnthropicWIF)) &&
 		!nextPlatformManagedCredentials {
 		nextHasCredential = true
-		nextCredentialRaw = []byte("{}")
 	}
 
 	_, execErr := tx.Exec(ctx, `
 		UPDATE tenant_provider_accounts
 		SET auth_mode = $3,
 		    provider_config = $4,
-		    credential_data = $5,
-		    has_credential = $6,
-		    use_platform_managed_credentials = $7,
+		    has_credential = $5,
+		    use_platform_managed_credentials = $6,
 		    updated_at = NOW()
 		WHERE tenant_id = $1 AND account_id = $2
-	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextCredentialRaw, nextHasCredential, nextPlatformManagedCredentials)
+	`, tenantID, accountID, nextAuthMode, nextProviderCfgRaw, nextHasCredential, nextPlatformManagedCredentials)
 	if execErr != nil {
 		return nil, execErr
 	}
@@ -1401,66 +1398,12 @@ func principalExistsForTenant(ctx context.Context, tx pgx.Tx, tenantID string, p
 	}
 }
 
-func marshalCredentialData(input *platform.ProviderAccountCredentials) ([]byte, bool, error) {
-	if input == nil {
-		return nil, false, nil
-	}
-
-	payload := make(map[string]interface{})
-	if apiKey := strings.TrimSpace(input.APIKey); apiKey != "" {
-		payload["api_key"] = apiKey
-	}
-
-	if secretRef := strings.TrimSpace(input.SecretRef); secretRef != "" {
-		payload["secret_ref"] = secretRef
-	}
-
-	if len(input.Raw) > 0 {
-		payload["raw"] = input.Raw
-	}
-
-	if input.SkipRequired {
-		payload["skip_required"] = true
-	}
-
-	if len(payload) == 0 {
-		return nil, false, nil
-	}
-
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return nil, false, err
-	}
-
-	_, hasAPIKey := payload["api_key"]
-	_, hasSecretRef := payload["secret_ref"]
-	_, hasRaw := payload["raw"]
-
-	return raw, hasAPIKey || hasSecretRef || hasRaw, nil
-}
-
 func shouldClearProviderAccountCredentials(authMode string, usePlatformManagedCredentials bool, input *platform.ProviderAccountCredentials) bool {
 	if usePlatformManagedCredentials || strings.EqualFold(strings.TrimSpace(authMode), string(platform.ProviderAuthModeNoCredential)) {
 		return true
 	}
 
 	return input != nil && input.SkipRequired
-}
-
-func providerAccountCredentialMapHasCredential(input map[string]interface{}) bool {
-	if v, ok := input["api_key"].(string); ok && strings.TrimSpace(v) != "" {
-		return true
-	}
-
-	if v, ok := input["secret_ref"].(string); ok && strings.TrimSpace(v) != "" {
-		return true
-	}
-
-	if _, ok := input["raw"]; ok {
-		return true
-	}
-
-	return false
 }
 
 func tenantProviderAccountAllowsPrivatePricing(authMode string, hasCredential bool, usePlatformManagedCredentials bool) bool {

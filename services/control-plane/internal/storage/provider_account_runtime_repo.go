@@ -14,9 +14,8 @@ type providerAccountRuntimeRecord struct {
 	providerConfig map[string]interface{}
 }
 
-// ResolveProviderAccountAPIKey preserves the legacy resolver contract while
-// reading the encrypted tenant credential version first and plaintext only for
-// not-yet-migrated accounts.
+// ResolveProviderAccountAPIKey preserves the resolver contract while reading
+// only the active encrypted tenant credential version.
 func (s *Store) ResolveProviderAccountAPIKey(
 	ctx context.Context,
 	tenantID string,

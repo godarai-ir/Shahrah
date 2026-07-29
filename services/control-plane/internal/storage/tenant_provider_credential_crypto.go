@@ -7,11 +7,9 @@ import (
 	"strings"
 	"time"
 
-	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"go.uber.org/zap"
 )
 
 var ErrTenantCredentialEncryptionUnavailable = errors.New(
@@ -104,7 +102,6 @@ func (s *Store) writeTenantCredentialVersion(
 		SET active_credential_version_id = $3,
 		    credential_hint = $4,
 		    credential_rotation_required = false,
-		    credential_data = '{}'::jsonb,
 		    has_credential = true
 		WHERE tenant_id = $1 AND account_id = $2
 	`, tenantID, accountID, versionID, encrypted.DisplayHint); err != nil {
@@ -112,112 +109,6 @@ func (s *Store) writeTenantCredentialVersion(
 	}
 
 	return encrypted.DisplayHint, nil
-}
-
-type LegacyTenantCredentialMigrationResult struct {
-	Migrated  int
-	Remaining int
-}
-
-// MigrateLegacyTenantProviderCredentials is resumable and concurrency-safe.
-// Rows are locked with SKIP LOCKED so multiple workers can process disjoint
-// batches. Migrated credentials remain rotation-required.
-func (s *Store) MigrateLegacyTenantProviderCredentials(
-	ctx context.Context,
-	batchSize int,
-) (LegacyTenantCredentialMigrationResult, error) {
-	if s.tenantCredentialStore == nil {
-		return LegacyTenantCredentialMigrationResult{},
-			ErrTenantCredentialEncryptionUnavailable
-	}
-	if batchSize <= 0 || batchSize > 1000 {
-		batchSize = 100
-	}
-
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return LegacyTenantCredentialMigrationResult{}, err
-	}
-	defer rollbackTxBestEffort(ctx, tx)
-
-	type legacyRow struct {
-		tenantID  string
-		accountID string
-		provider  string
-		authMode  string
-		apiKey    string
-	}
-	rows, err := tx.Query(ctx, `
-		SELECT tenant_id::text, account_id::text, provider, auth_mode,
-		       credential_data->>'api_key'
-		FROM tenant_provider_accounts
-		WHERE active_credential_version_id IS NULL
-		  AND COALESCE(credential_data->>'api_key', '') <> ''
-		ORDER BY created_at
-		LIMIT $1
-		FOR UPDATE SKIP LOCKED
-	`, batchSize)
-	if err != nil {
-		return LegacyTenantCredentialMigrationResult{}, err
-	}
-	batch := make([]legacyRow, 0, batchSize)
-	for rows.Next() {
-		var row legacyRow
-		if err := rows.Scan(
-			&row.tenantID,
-			&row.accountID,
-			&row.provider,
-			&row.authMode,
-			&row.apiKey,
-		); err != nil {
-			rows.Close()
-			return LegacyTenantCredentialMigrationResult{}, err
-		}
-		batch = append(batch, row)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return LegacyTenantCredentialMigrationResult{}, err
-	}
-	rows.Close()
-
-	for _, row := range batch {
-		if _, err := s.writeTenantCredentialVersion(
-			ctx,
-			tx,
-			row.tenantID,
-			row.accountID,
-			row.provider,
-			row.authMode,
-			map[string]string{"api_key": strings.TrimSpace(row.apiKey)},
-		); err != nil {
-			return LegacyTenantCredentialMigrationResult{}, err
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE tenant_provider_accounts
-			SET credential_rotation_required = true
-			WHERE tenant_id = $1 AND account_id = $2
-		`, row.tenantID, row.accountID); err != nil {
-			return LegacyTenantCredentialMigrationResult{}, err
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return LegacyTenantCredentialMigrationResult{}, err
-	}
-
-	var remaining int
-	if err := s.pool.QueryRow(ctx, `
-		SELECT COUNT(*)
-		FROM tenant_provider_accounts
-		WHERE active_credential_version_id IS NULL
-		  AND COALESCE(credential_data->>'api_key', '') <> ''
-	`).Scan(&remaining); err != nil {
-		return LegacyTenantCredentialMigrationResult{}, err
-	}
-	return LegacyTenantCredentialMigrationResult{
-		Migrated:  len(batch),
-		Remaining: remaining,
-	}, nil
 }
 
 func (s *Store) clearTenantCredentialVersion(
@@ -230,7 +121,6 @@ func (s *Store) clearTenantCredentialVersion(
 		UPDATE tenant_provider_accounts
 		SET active_credential_version_id = NULL,
 		    credential_hint = NULL,
-		    credential_data = '{}'::jsonb,
 		    has_credential = false
 		WHERE tenant_id = $1 AND account_id = $2
 	`, tenantID, accountID); err != nil {
@@ -281,7 +171,7 @@ func (s *Store) resolveTenantProviderAccountAPIKey(
 		&row.kekVersion, &row.fingerprint,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return s.resolveLegacyTenantProviderAccountAPIKey(ctx, tenantID, accountID)
+		return "", nil
 	}
 	if err != nil {
 		return "", err
@@ -342,31 +232,4 @@ func (s *Store) resolveTenantProviderAccountAPIKey(
 		return "", err
 	}
 	return value.(string), nil
-}
-
-func (s *Store) resolveLegacyTenantProviderAccountAPIKey(
-	ctx context.Context,
-	tenantID string,
-	accountID string,
-) (string, error) {
-	var apiKey string
-	err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(credential_data->>'api_key', '')
-		FROM tenant_provider_accounts
-		WHERE tenant_id = $1 AND account_id = $2
-		  AND active_credential_version_id IS NULL
-	`, tenantID, accountID).Scan(&apiKey)
-	if err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(apiKey) != "" {
-		prommetrics.RecordAnthropicLegacyCredentialRead()
-		if s.logger != nil {
-			s.logger.Warn(
-				"tenant_provider_credential.legacy_read",
-				zap.String("provider", "redacted"),
-			)
-		}
-	}
-	return strings.TrimSpace(apiKey), nil
 }
