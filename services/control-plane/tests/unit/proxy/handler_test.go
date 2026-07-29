@@ -1949,7 +1949,11 @@ func TestChatCompletionHandler_RejectsFileIDForGeminiAdapter(t *testing.T) {
 
 	var apiErr contractsopenai.APIError
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Contains(t, apiErr.Error.Message, "file.file_id is not supported")
+	assert.Contains(
+		t,
+		apiErr.Error.Message,
+		"does not support file input through GodarAI chat completions",
+	)
 }
 
 func TestChatCompletionHandler_RejectsToolsForNativeProviderWithoutAdapter(t *testing.T) {

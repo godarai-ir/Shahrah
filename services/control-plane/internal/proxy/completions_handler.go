@@ -130,7 +130,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 	// Transform to chat completion format internally
 	chatReq := contractsopenai.ChatCompletionRequest{
-		Model:       resolvedModel,
+		Model:       billingEstimateModel(requestedModel),
 		Messages:    []contractsopenai.ChatMessage{{Role: "user", Content: req.Prompt}},
 		Stream:      req.Stream,
 		MaxTokens:   req.MaxTokens,

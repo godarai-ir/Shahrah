@@ -174,13 +174,41 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	outboundModel := providerOutboundModel(requestedModel, dep)
 
 	estimated := estimateImageCostFallback(requestedModel, metadata)
+	estimated.Metadata = metadata
 	if usage := estimatedImageUsage(outboundModel, metadata); usage != nil {
-		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(c.Context(), outboundModel, usage, nil, estimated)
+		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(
+			c.Context(),
+			billingModelForDeployment(requestedModel, contractDeployment),
+			usage,
+			nil,
+			estimated,
+		)
 		if finalizeErr != nil {
 			return writeAPIError(c, fiber.StatusBadGateway, "Failed to estimate image request cost", "billing_error")
 		}
 
 		estimated = finalizedEstimate
+	}
+	if isGoogleGeminiProvider(dep.Provider) {
+		if op.Name != "generations" {
+			return writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				"Google Gemini OpenAI compatibility only documents image generations",
+				"invalid_request_error",
+			)
+		}
+		if endpointErr := validateGoogleGeminiRuntimeEndpoint(
+			estimated.ModelRuntimeProfile,
+			"image_generations",
+		); endpointErr != nil {
+			return writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				endpointErr.Error(),
+				"invalid_request_error",
+			)
+		}
 	}
 
 	estimated.Metadata = metadata

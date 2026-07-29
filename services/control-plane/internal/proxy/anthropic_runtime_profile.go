@@ -13,19 +13,36 @@ func runtimeProfilesFromEstimate(
 	provider, model string,
 	estimated platform.UsageCostBreakdown,
 ) ([]platform.ModelRuntimeProfileBinding, error) {
-	if !strings.EqualFold(strings.TrimSpace(provider), "anthropic") {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider != "anthropic" && !isGoogleGeminiProvider(provider) {
 		return nil, nil
 	}
+	providerLabel := "Anthropic"
+	if isGoogleGeminiProvider(provider) {
+		providerLabel = "Google Gemini"
+	}
 	if estimated.ModelRuntimeProfile == nil {
-		return nil, fmt.Errorf("Anthropic model runtime profile is unavailable")
+		return nil, fmt.Errorf("%s model runtime profile is unavailable", providerLabel)
 	}
 	binding := *estimated.ModelRuntimeProfile
 	if err := binding.Validate(); err != nil ||
 		binding.CatalogRevision != estimated.PricingRevision ||
-		!binding.MatchesModel(model) {
-		return nil, fmt.Errorf("Anthropic model runtime profile is invalid")
+		!binding.MatchesModel(model) ||
+		!runtimeProfileProviderMatches(provider, binding.Provider) {
+		return nil, fmt.Errorf("%s model runtime profile is invalid", providerLabel)
 	}
 	return []platform.ModelRuntimeProfileBinding{binding}, nil
+}
+
+func runtimeProfileProviderMatches(deploymentProvider, bindingProvider string) bool {
+	if strings.EqualFold(
+		strings.TrimSpace(deploymentProvider),
+		strings.TrimSpace(bindingProvider),
+	) {
+		return true
+	}
+	return isGoogleGeminiProvider(deploymentProvider) &&
+		isGoogleGeminiProvider(bindingProvider)
 }
 
 func validateAnthropicChatRuntimeProfile(

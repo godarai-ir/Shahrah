@@ -25,6 +25,7 @@ type ChatCompletionRequest struct {
 	Tools             []ToolDefinition       `json:"tools,omitempty"`
 	ToolChoice        interface{}            `json:"tool_choice,omitempty"`
 	CacheControl      map[string]interface{} `json:"cache_control,omitempty"`
+	ExtraBody         map[string]interface{} `json:"extra_body,omitempty"`
 	ServiceTier       string                 `json:"service_tier,omitempty"`
 	Speed             string                 `json:"speed,omitempty"`
 	InferenceGeo      string                 `json:"inference_geo,omitempty"`
@@ -75,10 +76,11 @@ type ThinkingBlock map[string]interface{}
 
 // ChatContentPart represents one OpenAI-compatible multimodal message part.
 type ChatContentPart struct {
-	Type     string        `json:"type"`
-	Text     string        `json:"text,omitempty"`
-	ImageURL *ChatImageURL `json:"image_url,omitempty"`
-	File     *ChatFile     `json:"file,omitempty"`
+	Type       string          `json:"type"`
+	Text       string          `json:"text,omitempty"`
+	ImageURL   *ChatImageURL   `json:"image_url,omitempty"`
+	File       *ChatFile       `json:"file,omitempty"`
+	InputAudio *ChatInputAudio `json:"input_audio,omitempty"`
 }
 
 // ChatImageURL contains an image URL or data URL for multimodal requests.
@@ -92,6 +94,13 @@ type ChatFile struct {
 	Filename string `json:"filename,omitempty"`
 	FileData string `json:"file_data,omitempty"`
 	FileID   string `json:"file_id,omitempty"`
+}
+
+// ChatInputAudio contains base64 audio and its documented OpenAI-compatible
+// format (for example wav or mp3).
+type ChatInputAudio struct {
+	Data   string `json:"data"`
+	Format string `json:"format"`
 }
 
 // ValidateChatMessageContent checks the supported Shahrah chat content contract.
@@ -170,6 +179,26 @@ func ChatContentHasFile(content interface{}) bool {
 	return ChatContentFileCount(content) > 0
 }
 
+// ChatContentInputAudioCount returns the number of input_audio parts in content.
+func ChatContentInputAudioCount(content interface{}) int {
+	parts, ok, err := ChatContentParts(content)
+	if !ok || err != nil {
+		return 0
+	}
+	count := 0
+	for _, part := range parts {
+		if part.Type == "input_audio" {
+			count++
+		}
+	}
+	return count
+}
+
+// ChatContentHasInputAudio reports whether content contains input audio.
+func ChatContentHasInputAudio(content interface{}) bool {
+	return ChatContentInputAudioCount(content) > 0
+}
+
 // ChatContentParts normalizes array content parts. The bool is false for plain string content.
 func ChatContentParts(content interface{}) ([]ChatContentPart, bool, error) {
 	switch v := content.(type) {
@@ -214,6 +243,13 @@ func validateChatContentParts(parts []ChatContentPart) ([]ChatContentPart, bool,
 			hasFileID := strings.TrimSpace(part.File.FileID) != ""
 			if !hasFileData && !hasFileID {
 				return nil, true, fmt.Errorf("content part[%d].file.file_data or file.file_id is required", i)
+			}
+		case "input_audio":
+			if part.InputAudio == nil || strings.TrimSpace(part.InputAudio.Data) == "" {
+				return nil, true, fmt.Errorf("content part[%d].input_audio.data is required", i)
+			}
+			if strings.TrimSpace(part.InputAudio.Format) == "" {
+				return nil, true, fmt.Errorf("content part[%d].input_audio.format is required", i)
 			}
 		default:
 			return nil, true, fmt.Errorf("content part[%d].type %q is not supported", i, part.Type)
@@ -265,6 +301,18 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 		if fileID, ok := file["file_id"].(string); ok {
 			part.File.FileID = fileID
 		}
+	case "input_audio":
+		inputAudio, ok := m["input_audio"].(map[string]interface{})
+		if !ok {
+			return ChatContentPart{}, fmt.Errorf("input_audio must be an object")
+		}
+		part.InputAudio = &ChatInputAudio{}
+		if data, ok := inputAudio["data"].(string); ok {
+			part.InputAudio.Data = data
+		}
+		if format, ok := inputAudio["format"].(string); ok {
+			part.InputAudio.Format = format
+		}
 	}
 	return part, nil
 }
@@ -311,6 +359,12 @@ func redactChatContentParts(parts []ChatContentPart) []map[string]interface{} {
 				file["file_id"] = part.File.FileID
 			}
 			item["file"] = file
+		}
+		if part.Type == "input_audio" && part.InputAudio != nil {
+			item["input_audio"] = map[string]interface{}{
+				"data":   "[REDACTED]",
+				"format": part.InputAudio.Format,
+			}
 		}
 		out = append(out, item)
 	}
@@ -437,6 +491,7 @@ type ChatCompletionResponse struct {
 	Model             string   `json:"model"`
 	Choices           []Choice `json:"choices"`
 	Usage             *Usage   `json:"usage,omitempty"`
+	ServiceTier       string   `json:"service_tier,omitempty"`
 	SystemFingerprint string   `json:"system_fingerprint,omitempty"`
 }
 
@@ -450,26 +505,37 @@ type Choice struct {
 
 // Usage represents token usage statistics.
 type Usage struct {
-	PromptTokens               int            `json:"prompt_tokens"`
-	CompletionTokens           int            `json:"completion_tokens"`
-	TotalTokens                int            `json:"total_tokens"`
-	CacheCreationInputTokens   int            `json:"cache_creation_input_tokens,omitempty"`
-	CacheCreation5mInputTokens int            `json:"cache_creation_5m_input_tokens,omitempty"`
-	CacheCreation1hInputTokens int            `json:"cache_creation_1h_input_tokens,omitempty"`
-	CacheReadInputTokens       int            `json:"cache_read_input_tokens,omitempty"`
-	ServerToolUse              map[string]int `json:"server_tool_use,omitempty"`
-	ServiceTier                string         `json:"service_tier,omitempty"`
-	Speed                      string         `json:"speed,omitempty"`
+	PromptTokens               int                `json:"prompt_tokens"`
+	CompletionTokens           int                `json:"completion_tokens"`
+	TotalTokens                int                `json:"total_tokens"`
+	PromptTokensDetails        *UsageTokenDetails `json:"prompt_tokens_details,omitempty"`
+	CompletionTokensDetails    *UsageTokenDetails `json:"completion_tokens_details,omitempty"`
+	CacheCreationInputTokens   int                `json:"cache_creation_input_tokens,omitempty"`
+	CacheCreation5mInputTokens int                `json:"cache_creation_5m_input_tokens,omitempty"`
+	CacheCreation1hInputTokens int                `json:"cache_creation_1h_input_tokens,omitempty"`
+	CacheReadInputTokens       int                `json:"cache_read_input_tokens,omitempty"`
+	ServerToolUse              map[string]int     `json:"server_tool_use,omitempty"`
+	ServiceTier                string             `json:"service_tier,omitempty"`
+	Speed                      string             `json:"speed,omitempty"`
+}
+
+// UsageTokenDetails carries OpenAI-compatible token subcategories needed for
+// modality- and cache-aware billing.
+type UsageTokenDetails struct {
+	AudioTokens     int `json:"audio_tokens,omitempty"`
+	CachedTokens    int `json:"cached_tokens,omitempty"`
+	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
 }
 
 // StreamChunk represents a single chunk in a streaming response.
 type StreamChunk struct {
-	ID      string   `json:"id"`
-	Object  string   `json:"object"`
-	Created int64    `json:"created"`
-	Model   string   `json:"model"`
-	Choices []Choice `json:"choices"`
-	Usage   *Usage   `json:"usage,omitempty"`
+	ID          string   `json:"id"`
+	Object      string   `json:"object"`
+	Created     int64    `json:"created"`
+	Model       string   `json:"model"`
+	Choices     []Choice `json:"choices"`
+	Usage       *Usage   `json:"usage,omitempty"`
+	ServiceTier string   `json:"service_tier,omitempty"`
 }
 
 // APIError represents an API error response.

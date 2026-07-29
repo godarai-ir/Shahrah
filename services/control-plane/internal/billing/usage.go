@@ -26,9 +26,12 @@ var tokenMappers = map[string]TokenFieldMapper{
 	// Bedrock uses inputTokens, outputTokens
 	"bedrock": bedrockTokenMapper,
 
-	// Vertex AI / Gemini - estimate from content length
+	// Vertex AI uses its native usage schema.
 	"vertexai": vertexTokenMapper,
-	"gemini":   vertexTokenMapper,
+
+	// Gemini is dispatched through Google's documented OpenAI-compatible API.
+	"gemini":        standardTokenMapper,
+	"google-gemini": standardTokenMapper,
 
 	// Cohere - uses prompt_tokens, completion_tokens
 	"cohere": cohereTokenMapper,

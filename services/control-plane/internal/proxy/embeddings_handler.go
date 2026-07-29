@@ -129,7 +129,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
 	estimateReq := req
-	estimateReq.Model = providerModelID(requestedModel)
+	estimateReq.Model = billingEstimateModel(requestedModel)
 	quotaStart := time.Now()
 
 	estimated, err := h.billing.EstimateEmbeddingCost(c.Context(), estimateReq)
@@ -201,6 +201,19 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 
 	if !supportsEmbeddingsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Embeddings API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
+	}
+	if isGoogleGeminiProvider(dep.Provider) {
+		if endpointErr := validateGoogleGeminiRuntimeEndpoint(
+			estimated.ModelRuntimeProfile,
+			"embeddings",
+		); endpointErr != nil {
+			return writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				endpointErr.Error(),
+				"invalid_request_error",
+			)
+		}
 	}
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
@@ -507,7 +520,7 @@ func apiFieldError(message string, param string, code string) error {
 
 func supportsEmbeddingsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "azure", "groq", "mistral", "togetherai", "openrouter", "mock":
+	case "openai", "azure", "groq", "mistral", "togetherai", "openrouter", "gemini", "google-gemini", "mock":
 		return true
 	default:
 		return false

@@ -239,7 +239,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 
 	quotaStart := time.Now()
 	estimateReq := req
-	estimateReq.Model = resolvedModel
+	estimateReq.Model = billingEstimateModel(requestedModel)
 
 	estimated, err := h.billing.EstimateCost(c.Context(), estimateReq)
 	if err != nil {
@@ -423,7 +423,7 @@ func writeBillingEstimateError(c *fiber.Ctx, err error) error {
 		return writeAPIError(
 			c,
 			fiber.StatusServiceUnavailable,
-			"Anthropic pricing snapshot is unavailable or stale",
+			"Provider pricing snapshot is unavailable or stale",
 			"pricing_unavailable",
 		)
 	}
@@ -482,6 +482,10 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support file input through GodarAI chat completions", provider), "invalid_request_error")
 	}
 
+	if chatRequestHasInputAudio(req) && !supportsChatInputAudioProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support input_audio through GodarAI chat completions", provider), "invalid_request_error")
+	}
+
 	if chatRequestHasTools(req) && !supportsChatToolsProvider(provider) {
 		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support tools through GodarAI chat completions", provider), "invalid_request_error")
 	}
@@ -500,6 +504,19 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 
 	if strings.EqualFold(strings.TrimSpace(provider), "anthropic") {
 		if err := validateAnthropicChatRuntimeProfile(
+			req,
+			runtimeProfile,
+		); err != nil {
+			return true, writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				err.Error(),
+				"invalid_request_error",
+			)
+		}
+	}
+	if isGoogleGeminiProvider(provider) {
+		if err := validateGoogleGeminiChatRuntimeProfile(
 			req,
 			runtimeProfile,
 		); err != nil {
@@ -929,6 +946,13 @@ func (h *ChatCompletionHandler) handleSync(
 
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode provider response", "api_error")
 	}
+	if completion.Usage != nil {
+		if tier := responseHeaderValue(resp.Headers, "x-gemini-service-tier"); tier != "" {
+			completion.Usage.ServiceTier = tier
+		} else if completion.Usage.ServiceTier == "" {
+			completion.Usage.ServiceTier = completion.ServiceTier
+		}
+	}
 
 	providerAttrs["response_payload"] = buildTraceChatResponsePayload(completion)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
@@ -1209,7 +1233,8 @@ func (h *ChatCompletionHandler) handleStream(
 	setTraceHeaders(c, tunnelReq.TraceID)
 
 	// Forward provider headers from stream
-	forwardProviderHeaders(c, stream.Headers())
+	streamHeaders := stream.Headers()
+	forwardProviderHeaders(c, streamHeaders)
 	virtualModelName := modelMetricVirtualName(c, req.Model)
 
 	requestCtx := c.Context()
@@ -1228,7 +1253,9 @@ func (h *ChatCompletionHandler) handleStream(
 
 		var finalizedCost platform.UsageCostBreakdown
 
-		usageCapture := &streamUsageCapture{}
+		usageCapture := &streamUsageCapture{
+			tier: responseHeaderValue(streamHeaders, "x-gemini-service-tier"),
+		}
 
 		defer func() {
 			if !budgetCommitted {
@@ -1399,6 +1426,7 @@ func (h *ChatCompletionHandler) handleStream(
 type streamUsageCapture struct {
 	buffer string
 	usage  *contractsopenai.Usage
+	tier   string
 }
 
 func (capture *streamUsageCapture) Add(data []byte) {
@@ -1419,6 +1447,11 @@ func (capture *streamUsageCapture) Add(data []byte) {
 		var chunk contractsopenai.StreamChunk
 		if err := json.Unmarshal([]byte(payload), &chunk); err == nil && chunk.Usage != nil {
 			usage := *chunk.Usage
+			if capture.tier != "" {
+				usage.ServiceTier = capture.tier
+			} else if usage.ServiceTier == "" {
+				usage.ServiceTier = chunk.ServiceTier
+			}
 			capture.usage = &usage
 		}
 	}
@@ -1432,6 +1465,15 @@ func (capture *streamUsageCapture) Usage() *contractsopenai.Usage {
 	usage := *capture.usage
 
 	return &usage
+}
+
+func responseHeaderValue(headers map[string]string, name string) string {
+	for key, value := range headers {
+		if strings.EqualFold(strings.TrimSpace(key), name) {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func takeSSEFrame(buffer string) (string, string, bool) {
@@ -1782,6 +1824,15 @@ func chatRequestHasFile(req contractsopenai.ChatCompletionRequest) bool {
 	return false
 }
 
+func chatRequestHasInputAudio(req contractsopenai.ChatCompletionRequest) bool {
+	for _, msg := range req.Messages {
+		if contractsopenai.ChatContentHasInputAudio(msg.Content) {
+			return true
+		}
+	}
+	return false
+}
+
 func chatRequestHasTools(req contractsopenai.ChatCompletionRequest) bool {
 	return len(req.Tools) > 0 || req.ToolChoice != nil || req.ParallelToolCalls != nil
 }
@@ -1822,7 +1873,7 @@ func thinkingConfigEnabled(value *contractsopenai.ThinkingConfig) bool {
 
 func supportsChatImageProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -1831,7 +1882,7 @@ func supportsChatImageProvider(provider string) bool {
 
 func supportsChatToolsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -1840,7 +1891,7 @@ func supportsChatToolsProvider(provider string) bool {
 
 func supportsChatResponseFormatProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -1849,7 +1900,7 @@ func supportsChatResponseFormatProvider(provider string) bool {
 
 func supportsChatExtendedThinkingProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -1858,7 +1909,16 @@ func supportsChatExtendedThinkingProvider(provider string) bool {
 
 func supportsChatFileProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "openrouter", "anthropic", "gemini":
+	case "", "openai", "azure", "openrouter", "anthropic":
+		return true
+	default:
+		return false
+	}
+}
+
+func supportsChatInputAudioProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "openai", "azure", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -1940,7 +2000,7 @@ func validateChatResponseFormat(value interface{}) error {
 
 func validateProviderMediaInput(req contractsopenai.ChatCompletionRequest, provider string) error {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "anthropic", "gemini":
+	case "anthropic", "gemini", "google-gemini":
 	default:
 		return nil
 	}

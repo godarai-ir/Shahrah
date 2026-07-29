@@ -87,3 +87,64 @@ func TestDocumentedOptionalHeadersAreProviderScoped(t *testing.T) {
 		t.Fatal("OpenAI-only header crossed the provider boundary")
 	}
 }
+
+func TestGeminiAdapterCarriesDocumentedOpenAICompatibleEndpointsAndStreaming(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		path     string
+		stream   bool
+		wantPath string
+	}{
+		{name: "chat stream", stream: true, wantPath: "/v1beta/openai/chat/completions"},
+		{name: "embeddings", path: "/embeddings", wantPath: "/v1beta/openai/embeddings"},
+		{name: "images", path: "/images/generations", wantPath: "/v1beta/openai/images/generations"},
+		{name: "videos", path: "/videos", wantPath: "/v1beta/openai/videos"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var gotPath, gotAuthorization, gotAccept string
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotPath = r.URL.Path
+				gotAuthorization = r.Header.Get("Authorization")
+				gotAccept = r.Header.Get("Accept")
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, `{}`)
+			}))
+			defer upstream.Close()
+
+			metadata := map[string]interface{}{}
+			if tt.path != "" {
+				metadata["provider_endpoint_path"] = tt.path
+			}
+			adapter := newGeminiAdapter()
+			response, err := adapter.Dispatch(context.Background(), upstream.Client(), platform.TunnelRequest{
+				Stream: tt.stream,
+				Deployment: platform.Deployment{
+					Provider: "google-gemini",
+					APIBase:  upstream.URL + "/v1beta",
+					APIKey:   "gemini-secret",
+				},
+				Body:            []byte(`{"model":"gemini-3.1-flash-lite"}`),
+				RequestMetadata: metadata,
+			})
+			if err != nil {
+				t.Fatalf("dispatch: %v", err)
+			}
+			defer response.Body.Close()
+			if gotPath != tt.wantPath {
+				t.Fatalf("path=%q want=%q", gotPath, tt.wantPath)
+			}
+			if gotAuthorization != "Bearer gemini-secret" {
+				t.Fatalf("authorization=%q", gotAuthorization)
+			}
+			if tt.stream && gotAccept != "text/event-stream" {
+				t.Fatalf("stream accept=%q", gotAccept)
+			}
+		})
+	}
+}

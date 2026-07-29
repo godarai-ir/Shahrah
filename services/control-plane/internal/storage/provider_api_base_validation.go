@@ -176,7 +176,7 @@ func allowedProviderAPIBaseHosts(provider string) []string {
 		return []string{"api.anthropic.com"}
 	case "cohere":
 		return []string{"api.cohere.com", "api.cohere.ai"}
-	case "gemini":
+	case "gemini", "google-gemini":
 		return []string{"generativelanguage.googleapis.com"}
 	case "openrouter":
 		return []string{"openrouter.ai"}

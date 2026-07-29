@@ -81,8 +81,8 @@ type ModelRuntimeProfileBinding struct {
 }
 
 func (binding ModelRuntimeProfileBinding) Validate() error {
-	if strings.ToLower(strings.TrimSpace(binding.Provider)) != "anthropic" {
-		return fmt.Errorf("model runtime profile provider must be anthropic")
+	if strings.TrimSpace(binding.Provider) == "" {
+		return fmt.Errorf("model runtime profile provider is required")
 	}
 	if strings.TrimSpace(binding.CatalogRevision) == "" {
 		return fmt.Errorf("model runtime profile catalog revision is required")
@@ -116,6 +116,18 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"message_batches",
 				"files",
 				"models",
+				"chat_completions",
+				"embeddings",
+				"image_generations",
+				"audio_speech",
+				"videos",
+				"interactions",
+				"live",
+				"batches",
+				"generate_content",
+				"generate_answer",
+				"embed_content",
+				"imagen_generate",
 			},
 			endpoint,
 		) {
@@ -138,7 +150,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 	}
 	for _, effort := range profile.Thinking.EffortValues {
 		if !containsRuntimeValue(
-			[]string{"low", "medium", "high", "max"},
+			[]string{"none", "minimal", "low", "medium", "high", "max"},
 			effort,
 		) {
 			return fmt.Errorf("unsupported effort value %q", effort)
@@ -164,20 +176,23 @@ func (profile ModelRuntimeProfile) Validate() error {
 	}
 	for _, modality := range profile.Modalities.Input {
 		if !containsRuntimeValue(
-			[]string{"text", "image", "pdf"},
+			[]string{"unknown", "text", "image", "pdf", "audio", "video", "code"},
 			modality,
 		) {
 			return fmt.Errorf("unsupported input modality %q", modality)
 		}
 	}
 	for _, modality := range profile.Modalities.Output {
-		if !containsRuntimeValue([]string{"text"}, modality) {
+		if !containsRuntimeValue(
+			[]string{"unknown", "text", "image", "audio", "video", "embedding", "code"},
+			modality,
+		) {
 			return fmt.Errorf("unsupported output modality %q", modality)
 		}
 	}
 	for _, value := range profile.RequestControls.ServiceTierValues {
 		if !containsRuntimeValue(
-			[]string{"auto", "standard_only"},
+			[]string{"auto", "standard_only", "standard", "batch", "flex", "priority"},
 			value,
 		) {
 			return fmt.Errorf("unsupported service tier %q", value)
@@ -239,8 +254,8 @@ func (profile ModelRuntimeProfile) Validate() error {
 			)
 		}
 	}
-	if profile.Limits.ContextWindow <= 0 ||
-		profile.Limits.MaxOutputTokens <= 0 ||
+	if profile.Limits.ContextWindow < 0 ||
+		profile.Limits.MaxOutputTokens < 0 ||
 		profile.Limits.MessagesBytes <= 0 ||
 		profile.Limits.BatchBytes <= 0 ||
 		profile.Limits.FileBytes <= 0 {
@@ -250,10 +265,10 @@ func (profile ModelRuntimeProfile) Validate() error {
 }
 
 func (binding ModelRuntimeProfileBinding) MatchesModel(model string) bool {
-	normalized := normalizeRuntimeModelID(model)
+	normalized := normalizeRuntimeModelID(model, binding.Provider)
 	return normalized != "" &&
-		(normalized == normalizeRuntimeModelID(binding.CanonicalID) ||
-			normalized == normalizeRuntimeModelID(binding.Slug))
+		(normalized == normalizeRuntimeModelID(binding.CanonicalID, binding.Provider) ||
+			normalized == normalizeRuntimeModelID(binding.Slug, binding.Provider))
 }
 
 func (profile ModelRuntimeProfile) AllowsEndpoint(endpoint string) bool {
@@ -374,11 +389,12 @@ func containsRuntimeValue(values []string, expected string) bool {
 	return false
 }
 
-func normalizeRuntimeModelID(model string) string {
+func normalizeRuntimeModelID(model string, provider string) string {
 	value := strings.ToLower(strings.TrimSpace(model))
 	if strings.Count(value, ":") == 2 {
 		parts := strings.SplitN(value, ":", 3)
 		value = strings.TrimSpace(parts[2])
 	}
-	return strings.TrimPrefix(value, "anthropic/")
+	prefix := strings.ToLower(strings.TrimSpace(provider)) + "/"
+	return strings.TrimPrefix(value, prefix)
 }

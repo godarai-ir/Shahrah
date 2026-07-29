@@ -46,3 +46,31 @@ func providerModelID(model string) string {
 
 	return model
 }
+
+// billingEstimateModel preserves provider-qualified identifiers for catalog
+// pricing providers. Their pricing snapshots are selected by provider prefix,
+// while the provider-facing request still uses providerModelID.
+func billingEstimateModel(model string) string {
+	model = normalizeModelIdentifier(model)
+	provider, _, _, ok := splitModelFQN(model)
+	if ok && isGoogleGeminiProvider(provider) {
+		return model
+	}
+
+	value := strings.ToLower(model)
+	if strings.HasPrefix(value, "google-gemini/") ||
+		strings.HasPrefix(value, "gemini/") {
+		return model
+	}
+
+	return providerModelID(model)
+}
+
+func isGoogleGeminiProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "google-gemini", "gemini":
+		return true
+	default:
+		return false
+	}
+}

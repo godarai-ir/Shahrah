@@ -88,6 +88,47 @@ func TestModelRuntimeProfileResolvesEffectiveSpeedAndBetaOutputLimit(
 	}
 }
 
+func TestGeminiRuntimeProfileAllowsNativeAndCompatibleEndpoints(t *testing.T) {
+	binding := validModelRuntimeProfileBinding()
+	binding.Provider = "google-gemini"
+	binding.CanonicalID = "google-gemini/gemini-3.1-flash-lite"
+	binding.Slug = "gemini-3.1-flash-lite"
+	binding.Profile.Endpoints = []string{
+		"models",
+		"chat_completions",
+		"embeddings",
+		"image_generations",
+		"audio_speech",
+		"videos",
+		"interactions",
+		"live",
+	}
+	binding.Profile.Modalities = ModelRuntimeModalities{
+		Input:  []string{"text", "image", "pdf", "audio", "video"},
+		Output: []string{"text", "image", "audio", "video", "embedding"},
+	}
+	binding.Profile.Thinking = ModelRuntimeThinkingProfile{
+		DefaultMode:  "manual",
+		AllowedModes: []string{"manual"},
+		EffortValues: []string{"none", "minimal", "low", "medium", "high"},
+	}
+	binding.Profile.RequestControls.ServiceTierValues = []string{
+		"standard",
+		"batch",
+		"flex",
+		"priority",
+	}
+	binding.Profile.Limits.ContextWindow = 0
+	binding.Profile.Limits.MaxOutputTokens = 0
+
+	if err := binding.Validate(); err != nil {
+		t.Fatalf("expected valid Gemini runtime binding, got %v", err)
+	}
+	if !binding.MatchesModel("google-gemini/gemini-3.1-flash-lite") {
+		t.Fatal("expected provider-prefixed Gemini model to match")
+	}
+}
+
 func validModelRuntimeProfileBinding() ModelRuntimeProfileBinding {
 	return ModelRuntimeProfileBinding{
 		Provider:        "anthropic",

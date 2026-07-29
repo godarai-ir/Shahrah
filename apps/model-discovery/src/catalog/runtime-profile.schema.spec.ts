@@ -99,4 +99,50 @@ describe('modelRuntimeProfileSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('accepts Gemini native and OpenAI-compatible endpoints and modalities', () => {
+    const parsed = modelRuntimeProfileSchema.parse({
+      ...validProfile,
+      endpoints: [
+        'models',
+        'chat_completions',
+        'embeddings',
+        'image_generations',
+        'videos',
+        'interactions',
+        'live',
+        'batches',
+        'generate_content',
+        'generate_answer',
+        'embed_content',
+        'imagen_generate',
+      ],
+      thinking: {
+        defaultMode: 'manual',
+        allowedModes: ['manual'],
+        manualDeprecated: false,
+        effortValues: ['none', 'minimal', 'low', 'medium', 'high'],
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf', 'audio', 'video'],
+        output: ['text', 'image', 'audio', 'video', 'embedding'],
+      },
+      requestControls: {
+        serviceTierValues: ['standard', 'flex', 'priority'],
+        inferenceGeoValues: ['global'],
+        speedValues: [],
+        effectiveSpeed: {},
+      },
+      limits: {
+        contextWindow: 0,
+        maxOutputTokens: 0,
+      },
+    });
+
+    expect(parsed.endpoints).toContain('interactions');
+    expect(parsed.endpoints).toContain('generate_content');
+    expect(parsed.endpoints).toContain('embed_content');
+    expect(parsed.modalities.output).toContain('embedding');
+    expect(parsed.thinking.effortValues).toContain('minimal');
+  });
 });

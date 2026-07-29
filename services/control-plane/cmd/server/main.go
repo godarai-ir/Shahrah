@@ -181,6 +181,25 @@ func main() {
 	defer cancelPricing()
 	go anthropicPricing.Run(pricingCtx, 5*time.Minute)
 	billingService.SetAnthropicPricingSnapshotManager(anthropicPricing)
+	geminiPricing, pricingErr :=
+		billing.NewCatalogPricingSnapshotManagerFromEnv("google-gemini", nil)
+	if pricingErr != nil {
+		logger.Fatal(
+			"Google Gemini pricing snapshot is not configured",
+			zap.Error(pricingErr),
+		)
+	}
+	if pricingErr := geminiPricing.Reload(ctx); pricingErr != nil {
+		logger.Fatal(
+			"Initial Google Gemini pricing snapshot is unavailable",
+			zap.Error(pricingErr),
+		)
+	}
+	go geminiPricing.Run(pricingCtx, 5*time.Minute)
+	billingService.SetCatalogPricingSnapshotManager(
+		"google-gemini",
+		geminiPricing,
+	)
 
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(

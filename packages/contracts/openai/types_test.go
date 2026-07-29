@@ -82,6 +82,39 @@ func TestChatMessageContentUnmarshalFilePart(t *testing.T) {
 	}
 }
 
+func TestChatMessageContentUnmarshalInputAudioPart(t *testing.T) {
+	var req ChatCompletionRequest
+	err := json.Unmarshal([]byte(`{
+		"model":"gemini-3.1-flash-lite-preview",
+		"messages":[{
+			"role":"user",
+			"content":[
+				{"type":"text","text":"Transcribe this clip."},
+				{"type":"input_audio","input_audio":{"data":"UklGRg==","format":"wav"}}
+			]
+		}],
+		"extra_body":{"google":{"thinking_config":{"include_thoughts":true}}}
+	}`), &req)
+	if err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	parts, ok, err := ChatContentParts(req.Messages[0].Content)
+	if err != nil || !ok {
+		t.Fatalf("ChatContentParts: ok=%v err=%v", ok, err)
+	}
+	if parts[1].InputAudio == nil ||
+		parts[1].InputAudio.Data != "UklGRg==" ||
+		parts[1].InputAudio.Format != "wav" {
+		t.Fatalf("input_audio was not preserved: %#v", parts[1])
+	}
+	if req.ExtraBody["google"] == nil {
+		t.Fatalf("extra_body was not preserved: %#v", req.ExtraBody)
+	}
+	if err := ValidateChatMessageContent(req.Messages[0].Content); err != nil {
+		t.Fatalf("ValidateChatMessageContent: %v", err)
+	}
+}
+
 func TestChatMessageContentRejectsFilePartWithoutDataOrID(t *testing.T) {
 	content := []interface{}{
 		map[string]interface{}{"type": "file", "file": map[string]interface{}{"filename": "guide.pdf"}},
@@ -114,6 +147,19 @@ func TestRedactChatContentRedactsFileDataURL(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 	if got := string(raw); got != `[{"file":{"file_data":"data:application/pdf;base64,[redacted]","filename":"guide.pdf"},"type":"file"}]` {
+		t.Fatalf("unexpected redacted content: %s", got)
+	}
+}
+
+func TestRedactChatContentRedactsInputAudio(t *testing.T) {
+	redacted := RedactChatContent([]interface{}{
+		map[string]interface{}{"type": "input_audio", "input_audio": map[string]interface{}{"data": "UklGRg==", "format": "wav"}},
+	})
+	raw, err := json.Marshal(redacted)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if got := string(raw); got != `[{"input_audio":{"data":"[REDACTED]","format":"wav"},"type":"input_audio"}]` {
 		t.Fatalf("unexpected redacted content: %s", got)
 	}
 }

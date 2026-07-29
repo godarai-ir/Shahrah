@@ -63,5 +63,6 @@ go build ./services/silk-road/cmd/server
 
 - OpenAI-compatible providers default to `POST /chat/completions` unless a request metadata override specifies another endpoint path.
 - Anthropic requests use the provider API key and `anthropic-version` header, and streaming is adapted to OpenAI-compatible SSE chunks.
-- Gemini does not support streaming through the chat-completions path in this implementation.
+- Gemini streaming through the OpenAI-compatible chat-completions path is
+  supported and must preserve upstream SSE semantics.
 - If the upstream responds with an error status, relay that status and headers without inventing fallback responses.

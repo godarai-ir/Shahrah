@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../src/generated/prisma/client';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client';
 import { parse } from 'yaml';
 import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
@@ -56,7 +56,7 @@ type ImportModelRow = {
     dimension: string;
     unit: string;
     unitPriceUsd: string;
-    conditionJson?: StringRecord;
+    conditionJson?: Prisma.InputJsonObject;
     region: string;
     sourceUrl: string;
   }>;
@@ -137,6 +137,157 @@ const supportedCapabilities = new Set([
   'system_messages',
   'tool_choice',
 ]);
+
+function runtimeEndpointsForModel(
+  providerSlug: string,
+  modelId: string,
+  modes: ModelMode[],
+): ModelRuntimeProfile['endpoints'] {
+  const endpoints = new Set<ModelRuntimeProfile['endpoints'][number]>([
+    'models',
+  ]);
+
+  if (providerSlug === 'google-gemini') {
+    if (modelId === 'aqa') {
+      endpoints.add('generate_answer');
+      return Array.from(endpoints);
+    }
+    if (modelId.startsWith('deep-research-')) {
+      endpoints.add('interactions');
+      return Array.from(endpoints);
+    }
+    if (modelId.startsWith('gemma-')) {
+      endpoints.add('generate_content');
+      return Array.from(endpoints);
+    }
+    if (modelId === 'gemini-embedding-2-preview') {
+      endpoints.add('embeddings');
+      return Array.from(endpoints);
+    }
+    if (modelId === 'gemini-embedding-2') {
+      endpoints.add('embed_content');
+      return Array.from(endpoints);
+    }
+    if (modes.includes('image')) {
+      if (
+        modelId === 'gemini-2.5-flash-image' ||
+        modelId === 'gemini-3-pro-image-preview'
+      ) {
+        endpoints.add('image_generations');
+      } else if (modelId.startsWith('imagen-')) {
+        endpoints.add('imagen_generate');
+      } else {
+        endpoints.add('generate_content');
+      }
+      return Array.from(endpoints);
+    }
+  }
+
+  for (const mode of modes) {
+    switch (mode) {
+      case 'chat':
+      case 'completion':
+        endpoints.add('chat_completions');
+        break;
+      case 'embedding':
+        endpoints.add('embeddings');
+        break;
+      case 'image':
+        endpoints.add('image_generations');
+        break;
+      case 'text_to_speech':
+        if (providerSlug === 'google-gemini') {
+          endpoints.add('interactions');
+        } else {
+          endpoints.add('audio_speech');
+        }
+        break;
+      case 'video':
+        endpoints.add('videos');
+        break;
+      case 'responses':
+        endpoints.add('interactions');
+        break;
+      case 'realtime':
+        endpoints.add('live');
+        break;
+    }
+  }
+  return Array.from(endpoints);
+}
+
+function buildImportedRuntimeProfile(input: {
+  providerSlug: string;
+  modelId: string;
+  modes: ModelMode[];
+  capabilities: string[];
+  inputModalities: string[];
+  outputModalities: string[];
+  supportedParameters: string[];
+  contextWindow?: number;
+  maxOutputTokens?: number;
+}): ModelRuntimeProfile {
+  const parameters = new Set(
+    input.supportedParameters.map((value) => normalizeTaxonomyValue(value)),
+  );
+  const capabilities = new Set(input.capabilities);
+  const supportsThinking =
+    parameters.has('thinking') || parameters.has('reasoning_effort');
+
+  return modelRuntimeProfileSchema.parse({
+    version: 1,
+    endpoints: runtimeEndpointsForModel(
+      input.providerSlug,
+      input.modelId,
+      input.modes,
+    ),
+    thinking: {
+      defaultMode: supportsThinking ? 'manual' : 'disabled',
+      allowedModes: supportsThinking ? ['manual'] : ['disabled'],
+      manualDeprecated: false,
+      effortValues: [],
+    },
+    assistantPrefill: capabilities.has('assistant_prefill'),
+    sampling: {
+      parameters: ['temperature', 'top_p', 'top_k'].filter((parameter) =>
+        parameters.has(parameter),
+      ),
+      disallowedWithThinking: [],
+    },
+    tools: {
+      custom: capabilities.has('function_calling'),
+      server: capabilities.has('code_execution'),
+      parallel: capabilities.has('parallel_function_calling'),
+      structuredOutput:
+        capabilities.has('structured_output') ||
+        capabilities.has('json_output'),
+    },
+    modalities: {
+      input:
+        input.inputModalities.length > 0
+          ? input.inputModalities.map((value) =>
+              value === 'doc' ? 'pdf' : value,
+            )
+          : ['unknown'],
+      output:
+        input.outputModalities.length > 0
+          ? input.outputModalities
+          : ['unknown'],
+    },
+    requestControls: {
+      serviceTierValues: [],
+      inferenceGeoValues: ['global'],
+      speedValues: [],
+      effectiveSpeed: {},
+    },
+    betaHeaders: [],
+    betaCapabilities: [],
+    limits: {
+      contextWindow: input.contextWindow ?? 0,
+      maxOutputTokens: input.maxOutputTokens ?? 0,
+    },
+  });
+}
 
 function getArgValue(flag: string): string | undefined {
   const idx = process.argv.findIndex((x) => x === flag);
@@ -458,7 +609,7 @@ async function parseProviderDir(
       new Set([...asStringArray(doc['sources']), ...providerSources]),
     );
     const runtimeProfileValue = doc['runtimeProfile'];
-    const runtimeProfile =
+    const explicitRuntimeProfile =
       runtimeProfileValue === undefined
         ? undefined
         : modelRuntimeProfileSchema.parse(runtimeProfileValue);
@@ -504,7 +655,7 @@ async function parseProviderDir(
         key: string;
         dimension: string;
         unit: string;
-        conditionJson?: StringRecord;
+        conditionJson?: Prisma.InputJsonObject;
       }> = [
         {
           key: 'input_cost_per_token',
@@ -535,13 +686,76 @@ async function parseProviderDir(
           key: 'input_cost_per_token_batches',
           dimension: 'batch_input_tokens',
           unit: 'token',
-          conditionJson: { api: 'message_batches' },
+          conditionJson:
+            providerSlug === 'anthropic'
+              ? { api: 'message_batches' }
+              : providerSlug === 'google-gemini'
+                ? { api: 'batches' }
+                : { service_tier: 'batch' },
         },
         {
           key: 'output_cost_per_token_batches',
           dimension: 'batch_output_tokens',
           unit: 'token',
-          conditionJson: { api: 'message_batches' },
+          conditionJson:
+            providerSlug === 'anthropic'
+              ? { api: 'message_batches' }
+              : providerSlug === 'google-gemini'
+                ? { api: 'batches' }
+                : { service_tier: 'batch' },
+        },
+        {
+          key: 'input_cost_per_image',
+          dimension: 'input_images',
+          unit: 'image',
+        },
+        {
+          key: 'output_cost_per_image',
+          dimension: 'output_images',
+          unit: 'image',
+        },
+        {
+          key: 'input_cost_per_audio_token',
+          dimension: 'audio_input_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'output_cost_per_audio_token',
+          dimension: 'audio_output_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'request_cost',
+          dimension: 'requests',
+          unit: 'request',
+        },
+        {
+          key: 'output_cost_per_second',
+          dimension: 'output_video_seconds',
+          unit: 'second',
+        },
+        {
+          key: 'cache_storage_cost_per_token_per_hour',
+          dimension: 'cache_storage_token_hours',
+          unit: 'token_hour',
+        },
+        {
+          key: 'input_cost_per_token_above_200k_tokens',
+          dimension: 'long_context_input_tokens',
+          unit: 'token',
+          conditionJson: { min_prompt_tokens: 200001 },
+        },
+        {
+          key: 'output_cost_per_token_above_200k_tokens',
+          dimension: 'long_context_output_tokens',
+          unit: 'token',
+          conditionJson: { min_prompt_tokens: 200001 },
+        },
+        {
+          key: 'cache_read_input_token_cost_above_200k_tokens',
+          dimension: 'long_context_cache_read_tokens',
+          unit: 'token',
+          conditionJson: { min_prompt_tokens: 200001 },
         },
         {
           key: 'data_residency_input_cost_per_token',
@@ -580,10 +794,24 @@ async function parseProviderDir(
           sourceUrl,
         });
       }
+      if (
+        asDecimalString(cost['output_cost_per_second']) === undefined
+      ) {
+        const unitPriceUsd = asDecimalString(cost['cost_per_second']);
+        if (unitPriceUsd !== undefined) {
+          pricingRates.push({
+            dimension: 'output_video_seconds',
+            unit: 'second',
+            unitPriceUsd,
+            region,
+            sourceUrl,
+          });
+        }
+      }
       const hasBatchPricing =
         asDecimalString(cost['input_cost_per_token_batches']) !== undefined &&
         asDecimalString(cost['output_cost_per_token_batches']) !== undefined;
-      if (hasBatchPricing) {
+      if (hasBatchPricing && providerSlug === 'anthropic') {
         const batchCacheMappings = [
           ['cache_creation_input_token_cost', 'batch_cache_write_5m_tokens'],
           [
@@ -606,7 +834,9 @@ async function parseProviderDir(
         }
       }
       if (
-        runtimeProfile?.requestControls.inferenceGeoValues.includes('us')
+        explicitRuntimeProfile?.requestControls.inferenceGeoValues.includes(
+          'us',
+        )
       ) {
         const residencyMappings = [
           ['input_cost_per_token', 'data_residency_input_tokens'],
@@ -620,10 +850,7 @@ async function parseProviderDir(
             'data_residency_cache_write_1h_tokens',
           ],
           ['cache_read_input_token_cost', 'data_residency_cache_read_tokens'],
-          [
-            'input_cost_per_token_batches',
-            'data_residency_batch_input_tokens',
-          ],
+          ['input_cost_per_token_batches', 'data_residency_batch_input_tokens'],
           [
             'output_cost_per_token_batches',
             'data_residency_batch_output_tokens',
@@ -706,8 +933,7 @@ async function parseProviderDir(
           free_organization_hours_per_month:
             asNumber(codeExecution?.['free_organization_hours_per_month']) ??
             1550,
-          minimum_minutes:
-            asNumber(codeExecution?.['minimum_minutes']) ?? 5,
+          minimum_minutes: asNumber(codeExecution?.['minimum_minutes']) ?? 5,
           free_with_web_tool_min_version:
             asNumber(codeExecution?.['free_with_web_tool_min_version']) ??
             20260209,
@@ -731,6 +957,23 @@ async function parseProviderDir(
     const maxOutputTokens =
       asNumber(limits?.['max_output_tokens']) ??
       asNumber(limits?.['max_tokens']);
+    const mode = normalizeSupportedModes(doc['supportedModes']);
+    const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
+    const runtimeProfile =
+      explicitRuntimeProfile ??
+      (providerSlug === 'google-gemini'
+        ? buildImportedRuntimeProfile({
+            providerSlug,
+            modelId,
+            modes: mode,
+            capabilities: features,
+            inputModalities,
+            outputModalities,
+            supportedParameters: Array.from(paramsCombined),
+            contextWindow,
+            maxOutputTokens,
+          })
+        : undefined);
 
     const deprecatedAt = deprecationDate;
     const releaseDate =
@@ -751,9 +994,6 @@ async function parseProviderDir(
               (p.requestPrice ?? 0) === 0,
           )
         : false;
-
-    const mode = normalizeSupportedModes(doc['supportedModes']);
-    const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
 
     models.push({
       canonicalId: `${providerSlug}/${modelId}`,
@@ -940,7 +1180,29 @@ async function importProviderBatch(
       },
     });
 
-    await prisma.$transaction([
+    const [officialRateCount, officialProfileCount] = await Promise.all([
+      prisma.modelPricingRate.count({
+        where: {
+          modelId: model.id,
+          sourceUrl: {
+            startsWith: 'https://ai.google.dev/',
+          },
+        },
+      }),
+      prisma.modelRuntimeProfile.count({
+        where: {
+          modelId: model.id,
+          sourceUrl: {
+            startsWith: 'https://ai.google.dev/',
+          },
+        },
+      }),
+    ]);
+    const preserveOfficialRuntime =
+      batch.slug === 'google-gemini' &&
+      (officialRateCount > 0 || officialProfileCount > 0);
+
+    const replacementDeletes = [
       prisma.modelPricing.deleteMany({ where: { modelId: model.id } }),
       prisma.modelPricingRate.deleteMany({ where: { modelId: model.id } }),
       prisma.modelRuntimeProfile.deleteMany({ where: { modelId: model.id } }),
@@ -952,7 +1214,11 @@ async function importProviderBatch(
       }),
       prisma.modelRegion.deleteMany({ where: { modelId: model.id } }),
       prisma.sourceReference.deleteMany({ where: { modelId: model.id } }),
-    ]);
+    ];
+    if (preserveOfficialRuntime) {
+      replacementDeletes.splice(0, 3);
+    }
+    await prisma.$transaction(replacementDeletes);
 
     for (const src of row.sources) {
       await prisma.sourceReference.create({
@@ -965,7 +1231,7 @@ async function importProviderBatch(
       });
     }
 
-    for (const pricing of row.pricingRows) {
+    for (const pricing of preserveOfficialRuntime ? [] : row.pricingRows) {
       const regionId = await ensureRegion(pricing.regionSlug);
       await prisma.modelPricing.create({
         data: {
@@ -987,7 +1253,7 @@ async function importProviderBatch(
       });
     }
 
-    for (const rate of row.pricingRates) {
+    for (const rate of preserveOfficialRuntime ? [] : row.pricingRates) {
       await prisma.modelPricingRate.create({
         data: {
           modelId: model.id,
@@ -1003,14 +1269,26 @@ async function importProviderBatch(
       });
     }
 
-    if (row.runtimeProfile) {
-      await prisma.modelRuntimeProfile.create({
-        data: {
+    if (row.runtimeProfile && !preserveOfficialRuntime) {
+      await prisma.modelRuntimeProfile.upsert({
+        where: {
+          modelId_version: {
+            modelId: model.id,
+            version: row.runtimeProfile.version,
+          },
+        },
+        create: {
           modelId: model.id,
           version: row.runtimeProfile.version,
           profileJson: row.runtimeProfile,
           sourceUrl: row.sources[0],
           effectiveFrom: new Date(),
+        },
+        update: {
+          profileJson: row.runtimeProfile,
+          sourceUrl: row.sources[0],
+          effectiveFrom: new Date(),
+          effectiveTo: null,
         },
       });
     }

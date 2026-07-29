@@ -1260,16 +1260,16 @@ func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
 	}
 }
 
-func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
+func TestDispatchGeminiAdapterUsesOfficialOpenAICompatibility(t *testing.T) {
 	t.Parallel()
 
 	var gotPath string
-	var gotAPIKey string
+	var gotAuthorization string
 	var gotQueryKey string
 	var body map[string]any
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
-		gotAPIKey = r.Header.Get("x-goog-api-key")
+		gotAuthorization = r.Header.Get("Authorization")
 		gotQueryKey = r.URL.Query().Get("key")
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1277,10 +1277,7 @@ func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"candidates":[{"content":{"role":"model","parts":[{"text":"small icon"}]},"finishReason":"STOP"}],
-			"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":2,"totalTokenCount":14}
-		}`))
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-google","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"small icon"},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":2,"total_tokens":14}}`))
 	}))
 	defer upstream.Close()
 
@@ -1288,7 +1285,7 @@ func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
 	payload := platform.TunnelRequest{
 		Deployment: platform.Deployment{
 			Provider: "gemini",
-			APIBase:  upstream.URL,
+			APIBase:  upstream.URL + "/v1beta",
 			APIKey:   "gemini-key",
 		},
 		Body: []byte(`{"model":"gemini/gemini-1.5-flash","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}]}`),
@@ -1306,24 +1303,24 @@ func TestDispatchGeminiAdapterConvertsImageDataURL(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
-	if gotPath != "/models/gemini-1.5-flash:generateContent" {
+	if gotPath != "/v1beta/openai/chat/completions" {
 		t.Fatalf("unexpected gemini path: %q", gotPath)
 	}
-	if gotAPIKey != "gemini-key" || gotQueryKey != "" {
-		t.Fatalf("Gemini key must use x-goog-api-key only; header=%q query=%q", gotAPIKey, gotQueryKey)
+	if gotAuthorization != "Bearer gemini-key" || gotQueryKey != "" {
+		t.Fatalf("Gemini OpenAI compatibility must use bearer auth only; header=%q query=%q", gotAuthorization, gotQueryKey)
 	}
-	contents := body["contents"].([]any)
-	parts := contents[0].(map[string]any)["parts"].([]any)
-	inlineData := parts[1].(map[string]any)["inline_data"].(map[string]any)
-	if inlineData["mime_type"] != "image/png" || inlineData["data"] != "AAAA" {
-		t.Fatalf("unexpected gemini inline data: %#v", inlineData)
+	messages := body["messages"].([]any)
+	parts := messages[0].(map[string]any)["content"].([]any)
+	imageURL := parts[1].(map[string]any)["image_url"].(map[string]any)
+	if imageURL["url"] != "data:image/png;base64,AAAA" {
+		t.Fatalf("unexpected OpenAI-compatible Gemini image: %#v", imageURL)
 	}
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
 		t.Fatalf("unexpected response: %s", rec.Body.String())
 	}
 }
 
-func TestDispatchGeminiAdapterConvertsPDFFileDataURL(t *testing.T) {
+func TestDispatchGeminiAdapterPreservesDocumentedAudioPayload(t *testing.T) {
 	t.Parallel()
 
 	var gotPath string
@@ -1336,10 +1333,7 @@ func TestDispatchGeminiAdapterConvertsPDFFileDataURL(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"candidates":[{"content":{"role":"model","parts":[{"text":"short guide"}]},"finishReason":"STOP"}],
-			"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":3,"totalTokenCount":23}
-		}`))
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-google","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"short guide"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":3,"total_tokens":23}}`))
 	}))
 	defer upstream.Close()
 
@@ -1347,10 +1341,10 @@ func TestDispatchGeminiAdapterConvertsPDFFileDataURL(t *testing.T) {
 	payload := platform.TunnelRequest{
 		Deployment: platform.Deployment{
 			Provider: "gemini",
-			APIBase:  upstream.URL,
+			APIBase:  upstream.URL + "/v1beta",
 			APIKey:   "gemini-key",
 		},
-		Body: []byte(`{"model":"gemini/gemini-1.5-flash","messages":[{"role":"user","content":[{"type":"text","text":"summarize"},{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}]}]}`),
+		Body: []byte(`{"model":"gemini/gemini-3.1-flash-lite","messages":[{"role":"user","content":[{"type":"text","text":"transcribe"},{"type":"input_audio","input_audio":{"data":"UklGRg==","format":"wav"}}]}]}`),
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -1365,14 +1359,14 @@ func TestDispatchGeminiAdapterConvertsPDFFileDataURL(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
-	if gotPath != "/models/gemini-1.5-flash:generateContent" {
+	if gotPath != "/v1beta/openai/chat/completions" {
 		t.Fatalf("unexpected gemini path: %q", gotPath)
 	}
-	contents := body["contents"].([]any)
-	parts := contents[0].(map[string]any)["parts"].([]any)
-	inlineData := parts[1].(map[string]any)["inline_data"].(map[string]any)
-	if inlineData["mime_type"] != "application/pdf" || inlineData["data"] != "JVBERi0x" {
-		t.Fatalf("unexpected gemini inline data: %#v", inlineData)
+	messages := body["messages"].([]any)
+	parts := messages[0].(map[string]any)["content"].([]any)
+	inputAudio := parts[1].(map[string]any)["input_audio"].(map[string]any)
+	if inputAudio["data"] != "UklGRg==" || inputAudio["format"] != "wav" {
+		t.Fatalf("unexpected OpenAI-compatible Gemini audio: %#v", inputAudio)
 	}
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
 		t.Fatalf("unexpected response: %s", rec.Body.String())

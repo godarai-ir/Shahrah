@@ -16,6 +16,7 @@ type openAICompatibleAdapter struct {
 	authHeader             string
 	apiVersionQuery        bool
 	azureDeploymentRouting bool
+	baseURLNormalizer      func(string) string
 }
 
 func newOpenAICompatibleAdapter(defaultBaseURL string) providerAdapter {
@@ -35,6 +36,9 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 	target, err := resolveBaseURL(payload.Deployment.APIBase, a.defaultBaseURL)
 	if err != nil {
 		return nil, err
+	}
+	if a.baseURLNormalizer != nil {
+		target = a.baseURLNormalizer(target)
 	}
 
 	if a.azureDeploymentRouting && !strings.Contains(strings.ToLower(target), "/openai/v1") && !strings.Contains(strings.ToLower(target), "/openai/deployments/") {
