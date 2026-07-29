@@ -28,6 +28,10 @@ func TestRunProducesSanitizedPassingModelMatrix(t *testing.T) {
 		case request.URL.Path == "/v1/messages/count_tokens":
 			_, _ = io.WriteString(w, `{"input_tokens":8}`)
 		case request.URL.Path == "/v1/chat/completions":
+			body, _ := io.ReadAll(request.Body)
+			if !strings.Contains(string(body), `"type":"web_search_20250305"`) {
+				t.Errorf("readiness matrix must use the broadly compatible web search version: %s", body)
+			}
 			_, _ = io.WriteString(w, `{"id":"chat","choices":[{"message":{"content":"OK"}}]}`)
 		case request.URL.Path == "/v1/messages":
 			body, _ := io.ReadAll(request.Body)

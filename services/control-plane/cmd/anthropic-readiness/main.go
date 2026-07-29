@@ -276,7 +276,10 @@ func checkOpenAIServerToolContract(
 		"model": model, "max_tokens": 32,
 		"messages": []map[string]interface{}{{"role": "user", "content": "Reply OK without using tools."}},
 		"tools": []map[string]interface{}{{
-			"type": "web_search_20260318", "name": "web_search", "max_uses": 1,
+			// The baseline version works across the legacy and current Claude 4
+			// models in this readiness matrix. Newer versions default to
+			// programmatic calling, which is not supported by every legacy model.
+			"type": "web_search_20250305", "name": "web_search", "max_uses": 1,
 		}},
 		"tool_choice": "auto",
 	}
