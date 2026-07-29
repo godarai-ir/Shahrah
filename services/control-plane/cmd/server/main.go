@@ -31,6 +31,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
 	"go.uber.org/zap"
@@ -232,6 +233,11 @@ func main() {
 		defer reconciler.Stop()
 	}
 
+	supportFileService, supportFileErr := supportfiles.NewFromEnv()
+	if supportFileErr != nil {
+		logger.Warn("Support attachment service is unavailable", zap.Error(supportFileErr))
+	}
+
 	adminDeps := admin.Dependencies{
 		Keys:             store,
 		Models:           store,
@@ -255,6 +261,8 @@ func main() {
 		Plans:            store,
 		Entitlements:     store,
 		SupportTenants:   store,
+		SupportTickets:   store,
+		SupportFiles:     supportFileService,
 	}
 	if platformCredentialService != nil {
 		adminDeps.ProviderCredentials = platformCredentialService

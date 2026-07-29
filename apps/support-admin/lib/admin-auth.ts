@@ -27,7 +27,12 @@ export type AdminPermission =
   | 'wallet:read'
   | 'wallet:adjust'
   | 'billing:read'
-  | 'audit:read';
+  | 'audit:read'
+  | 'support_ticket:read'
+  | 'support_ticket:reply'
+  | 'support_ticket:triage'
+  | 'support_ticket:status_write'
+  | 'support_ticket:rating_read';
 
 export type AdminSession = {
   sessionId: string;
@@ -45,6 +50,8 @@ const ROLE_PERMISSIONS: Record<string, readonly AdminPermission[]> = {
     'platform_credentials:disable', 'tenant:read',
     'tenant:status:write', 'subscription:read', 'subscription:write', 'usage:read',
     'wallet:read', 'wallet:adjust', 'billing:read', 'audit:read',
+    'support_ticket:read', 'support_ticket:reply', 'support_ticket:triage',
+    'support_ticket:status_write', 'support_ticket:rating_read',
   ],
   catalog_admin: [
     'catalog:read', 'catalog:write', 'provider:write', 'import:execute',
@@ -54,7 +61,12 @@ const ROLE_PERMISSIONS: Record<string, readonly AdminPermission[]> = {
     'catalog:read', 'platform_credentials:read_metadata', 'platform_credentials:create_version',
     'platform_credentials:test', 'platform_credentials:activate', 'platform_credentials:disable', 'audit:read',
   ],
-  support_agent: ['catalog:read', 'platform_credentials:read_metadata', 'tenant:read', 'subscription:read', 'usage:read', 'wallet:read', 'billing:read', 'audit:read'],
+  support_agent: [
+    'catalog:read', 'platform_credentials:read_metadata', 'tenant:read', 'subscription:read',
+    'usage:read', 'wallet:read', 'billing:read', 'audit:read', 'support_ticket:read',
+    'support_ticket:reply', 'support_ticket:triage', 'support_ticket:status_write',
+    'support_ticket:rating_read',
+  ],
 };
 
 function tokenHash(token: string): string {

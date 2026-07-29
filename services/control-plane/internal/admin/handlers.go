@@ -2,11 +2,13 @@ package admin
 
 import (
 	"context"
+	"mime/multipart"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -255,6 +257,28 @@ type supportTenantOperationsStore interface {
 	ListTenantSubscriptionPaymentIntents(ctx context.Context, tenantID string, limit, offset int) ([]platform.SubscriptionPaymentIntent, error)
 }
 
+type supportTicketStore interface {
+	ListSupportTickets(context.Context, platform.SupportTicketListParams) ([]platform.SupportTicket, int, error)
+	CountSupportTickets(context.Context, platform.SupportTicketListParams) (*platform.SupportTicketCounts, error)
+	GetSupportTicket(context.Context, string, string, string, bool) (*platform.SupportTicket, error)
+	GetSupportTicketDetail(context.Context, string, string, string, bool) (*platform.SupportTicketDetail, error)
+	CreateSupportTicket(context.Context, string, string, platform.CreateSupportTicketRequest, []platform.SupportTicketAttachmentUpload, platform.SupportTicketActor, int) (*platform.SupportTicketDetail, bool, error)
+	ListSupportTicketMessages(context.Context, string, int, int) ([]platform.SupportTicketMessage, error)
+	AddSupportTicketMessage(context.Context, string, string, platform.AddSupportTicketMessageRequest, []platform.SupportTicketAttachmentUpload, platform.SupportTicketActor, bool, int) (*platform.SupportTicketDetail, bool, error)
+	TriageSupportTicket(context.Context, string, platform.TriageSupportTicketRequest, platform.SupportTicketActor) (*platform.SupportTicket, error)
+	ReopenSupportTicket(context.Context, string, platform.ReopenSupportTicketRequest, platform.SupportTicketActor) (*platform.SupportTicket, error)
+	RateSupportTicket(context.Context, string, string, string, platform.RateSupportTicketRequest, platform.SupportTicketActor) (*platform.SupportTicket, error)
+	ListSupportTicketEvents(context.Context, string, int, int) ([]platform.SupportTicketEvent, error)
+	GetSupportTicketAttachment(context.Context, string, string, string, bool) (*platform.SupportTicketAttachmentObject, error)
+	RecordSupportTicketAttachmentDownload(context.Context, *platform.SupportTicketAttachmentObject, platform.SupportTicketActor, string) error
+}
+
+type supportAttachmentService interface {
+	UploadFiles(context.Context, string, string, []*multipart.FileHeader) ([]platform.SupportTicketAttachmentUpload, error)
+	Get(context.Context, string) (*supportfiles.ObjectReader, error)
+	DeleteUploads(context.Context, []platform.SupportTicketAttachmentUpload)
+}
+
 type platformProviderCredentialService interface {
 	Schemas(context.Context, string) ([]platform.ProviderConnectionSchema, error)
 	CreateConnection(context.Context, platform.CreatePlatformProviderConnectionRequest, platformcredentials.Actor, string) (*platform.PlatformProviderConnection, error)
@@ -292,6 +316,8 @@ type Dependencies struct {
 	Plans               planStore
 	Entitlements        entitlementResolverStore
 	SupportTenants      supportTenantOperationsStore
+	SupportTickets      supportTicketStore
+	SupportFiles        supportAttachmentService
 	ProviderCredentials platformProviderCredentialService
 }
 
@@ -319,6 +345,8 @@ type Handlers struct {
 	plans               planStore
 	entitlements        entitlementResolverStore
 	supportTenants      supportTenantOperationsStore
+	supportTickets      supportTicketStore
+	supportFiles        supportAttachmentService
 	providerCredentials platformProviderCredentialService
 }
 
@@ -347,6 +375,8 @@ func New(deps Dependencies) *Handlers {
 		plans:               deps.Plans,
 		entitlements:        deps.Entitlements,
 		supportTenants:      deps.SupportTenants,
+		supportTickets:      deps.SupportTickets,
+		supportFiles:        deps.SupportFiles,
 		providerCredentials: deps.ProviderCredentials,
 	}
 }

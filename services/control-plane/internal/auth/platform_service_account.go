@@ -14,6 +14,8 @@ const (
 	PlatformScopeProviderCredentialTest          = "platform:provider-credentials:test"
 	PlatformScopeProviderCredentialActivate      = "platform:provider-credentials:activate"
 	PlatformScopeProviderCredentialDisable       = "platform:provider-credentials:disable"
+	PlatformScopeSupportTicketRead               = "platform:support-tickets:read"
+	PlatformScopeSupportTicketWrite              = "platform:support-tickets:write"
 	PlatformScopeAll                             = "platform:*"
 )
 

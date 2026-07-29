@@ -250,6 +250,80 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
   });
 }
 
+/**
+ * Relays an authenticated request and response body as streams. This is used
+ * for multipart support-ticket uploads and private attachment downloads so
+ * binary data is never decoded or re-encoded by the Next.js boundary.
+ */
+export async function proxyToControlPlaneBodyStream(options: {
+  request: NextRequest;
+  method: "GET" | "POST";
+  path: string;
+}) {
+  const tenantResolution = ensureTenantFromHeaders(options.request.headers);
+  if (!tenantResolution.ok) {
+    return NextResponse.json({ error: { message: tenantResolution.message } }, { status: tenantResolution.status });
+  }
+
+  const auth = await readAuthFromRequest(options.request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
+  }
+  if (!assertTenantMatch(tenantResolution.tenantSlug, auth.tenantSlug)) {
+    return NextResponse.json({ error: { message: "Tenant mismatch between host and authenticated session." } }, { status: 403 });
+  }
+
+  const masterKey = process.env.SHAHRAH_MASTER_KEY ?? process.env.MASTER_KEY;
+  if (!masterKey) {
+    return NextResponse.json({ error: { message: "Control-plane credentials are not configured." } }, { status: 500 });
+  }
+
+  const headers = buildControlPlaneHeaders({
+    tenantSlug: tenantResolution.tenantSlug,
+    userID: auth.user.id,
+    requestHeaders: options.request.headers,
+    upstreamHeaders: {
+      ...(options.request.headers.get("content-type")
+        ? { "content-type": options.request.headers.get("content-type") as string }
+        : {}),
+      ...(options.request.headers.get("idempotency-key")
+        ? { "idempotency-key": options.request.headers.get("idempotency-key") as string }
+        : {}),
+      ...(options.request.headers.get("x-request-id")
+        ? { "x-request-id": options.request.headers.get("x-request-id") as string }
+        : {}),
+    },
+    masterKey,
+    accept: "*/*",
+    hasBody: false,
+  });
+  const contentType = options.request.headers.get("content-type");
+  if (contentType) headers.set("content-type", contentType);
+
+  try {
+    const init: RequestInit & { duplex?: "half" } = {
+      method: options.method,
+      headers,
+      body: options.method === "POST" ? options.request.body : undefined,
+      cache: "no-store",
+      signal: options.request.signal,
+    };
+    if (init.body) init.duplex = "half";
+
+    const upstream = await fetch(new URL(normalizePath(options.path), getControlPlaneBaseURL()), init);
+    const responseHeaders = new Headers();
+    for (const name of ["content-type", "content-disposition", "cache-control", "x-content-type-options", "x-request-id", "idempotency-replayed"]) {
+      const value = upstream.headers.get(name);
+      if (value) responseHeaders.set(name, value);
+    }
+    return new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch (error) {
+    if (options.request.signal.aborted) return new NextResponse(null, { status: 499 });
+    const message = error instanceof Error ? error.message : "Control-plane connection failed.";
+    return NextResponse.json({ error: { message } }, { status: 502 });
+  }
+}
+
 export async function proxyPublicInvitationAcceptance(
   request: NextRequest,
   token: string,

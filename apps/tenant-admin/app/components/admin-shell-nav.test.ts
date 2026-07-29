@@ -10,6 +10,7 @@ function t(key: string) {
     "nav.personalAccessTokens": "توکن‌های دسترسی شخصی",
     "nav.orgUnits": "واحدهای سازمانی",
     "nav.virtualUsers": "کاربران مجازی",
+    "nav.supportTickets": "پشتیبانی",
   };
   return dictionary[key] ?? key;
 }
@@ -51,5 +52,11 @@ describe("admin access navigation items", () => {
   it("shows roles only with role permissions", () => {
     expect(getVisibleTitles(["role:list"])).toContain("نقش‌ها");
     expect(getVisibleTitles(["team:read"])).not.toContain("نقش‌ها");
+  });
+
+  it("shows support only for users who can read tickets", () => {
+    expect(getVisibleTitles(["support_ticket:read_own"])).toContain("پشتیبانی");
+    expect(getVisibleTitles(["support_ticket:read_all"])).toContain("پشتیبانی");
+    expect(getVisibleTitles(["support_ticket:create"])).not.toContain("پشتیبانی");
   });
 });

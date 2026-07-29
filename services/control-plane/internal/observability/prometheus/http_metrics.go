@@ -62,7 +62,16 @@ type HTTPMetrics struct {
 	platformCredentialSnapshotDuration   prom.Histogram
 	platformCredentialSnapshotEntries    prom.Gauge
 	platformCredentialLastLoadedUnixNano *atomic.Int64
+	supportTicketsCreated                prom.Counter
+	supportMessages                      *prom.CounterVec
+	supportAttachments                   *prom.CounterVec
+	supportFirstResponse                 prom.Histogram
+	supportTransitions                   *prom.CounterVec
+	supportRatings                       prom.Histogram
+	supportStatus                        *prom.GaugeVec
 }
+
+var activeHTTPMetrics atomic.Pointer[HTTPMetrics]
 
 // NewHTTPMetrics creates a Prometheus registry and HTTP metrics collectors.
 func NewHTTPMetrics() *HTTPMetrics {
@@ -206,6 +215,36 @@ func NewHTTPMetrics() *HTTPMetrics {
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "key_last_used_flush_errors_total",
 		Help: "Total key last-used aggregate flush failures.",
 	})
+	supportTicketsCreated := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "support", Name: "tickets_created_total",
+		Help: "Total support tickets created.",
+	})
+	supportMessages := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "support", Name: "messages_total",
+		Help: "Total support ticket messages by bounded author type.",
+	}, []string{"author_type"})
+	supportAttachments := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "support", Name: "attachment_operations_total",
+		Help: "Total support attachment operations by bounded outcome.",
+	}, []string{"outcome"})
+	supportFirstResponse := prom.NewHistogram(prom.HistogramOpts{
+		Namespace: "shahrah", Subsystem: "support", Name: "first_response_seconds",
+		Help:    "Elapsed seconds from ticket creation to first support response.",
+		Buckets: []float64{60, 300, 900, 3600, 14400, 43200, 86400, 259200},
+	})
+	supportTransitions := prom.NewCounterVec(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "support", Name: "transitions_total",
+		Help: "Total support ticket transition attempts by bounded result.",
+	}, []string{"result"})
+	supportRatings := prom.NewHistogram(prom.HistogramOpts{
+		Namespace: "shahrah", Subsystem: "support", Name: "rating_score",
+		Help:    "Aggregate support satisfaction score distribution.",
+		Buckets: []float64{1, 2, 3, 4, 5},
+	})
+	supportStatus := prom.NewGaugeVec(prom.GaugeOpts{
+		Namespace: "shahrah", Subsystem: "support", Name: "tickets_by_status",
+		Help: "Current support ticket distribution by bounded status.",
+	}, []string{"status"})
 
 	registry.MustRegister(
 		requestsTotal, requestDuration, inflight, backpressureInFlight, backpressureRejectedTotal,
@@ -214,9 +253,11 @@ func NewHTTPMetrics() *HTTPMetrics {
 		keyLastUsedQueuedTotal, keyLastUsedSkippedTotal, keyLastUsedFallbackTotal, keyLastUsedFlushDuration, keyLastUsedFlushBatchSize, keyLastUsedFlushErrors,
 		platformCredentialResolves, platformCredentialSnapshotLoads, platformCredentialSnapshotDuration,
 		platformCredentialSnapshotEntries, platformCredentialSnapshotAge,
+		supportTicketsCreated, supportMessages, supportAttachments, supportFirstResponse,
+		supportTransitions, supportRatings, supportStatus,
 	)
 
-	return &HTTPMetrics{
+	metrics := &HTTPMetrics{
 		registry:                             registry,
 		requestsTotal:                        requestsTotal,
 		requestDuration:                      requestDuration,
@@ -244,6 +285,82 @@ func NewHTTPMetrics() *HTTPMetrics {
 		platformCredentialSnapshotDuration:   platformCredentialSnapshotDuration,
 		platformCredentialSnapshotEntries:    platformCredentialSnapshotEntries,
 		platformCredentialLastLoadedUnixNano: platformCredentialLastLoadedUnixNano,
+		supportTicketsCreated:                supportTicketsCreated,
+		supportMessages:                      supportMessages,
+		supportAttachments:                   supportAttachments,
+		supportFirstResponse:                 supportFirstResponse,
+		supportTransitions:                   supportTransitions,
+		supportRatings:                       supportRatings,
+		supportStatus:                        supportStatus,
+	}
+	activeHTTPMetrics.Store(metrics)
+	return metrics
+}
+
+func RecordSupportTicketCreated() {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		metrics.supportTicketsCreated.Inc()
+	}
+}
+
+func RecordSupportMessage(authorType string) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		metrics.supportMessages.WithLabelValues(boundedSupportAuthor(authorType)).Inc()
+	}
+}
+
+func RecordSupportAttachment(outcome string) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		metrics.supportAttachments.WithLabelValues(boundedSupportOutcome(outcome)).Inc()
+	}
+}
+
+func ObserveSupportFirstResponse(elapsed time.Duration) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil && elapsed >= 0 {
+		metrics.supportFirstResponse.Observe(elapsed.Seconds())
+	}
+}
+
+func RecordSupportTransition(result string) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		switch result {
+		case "success", "stale", "invalid":
+		default:
+			result = "error"
+		}
+		metrics.supportTransitions.WithLabelValues(result).Inc()
+	}
+}
+
+func ObserveSupportRating(score int) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil && score >= 1 && score <= 5 {
+		metrics.supportRatings.Observe(float64(score))
+	}
+}
+
+func SetSupportStatusCounts(values map[string]int) {
+	if metrics := activeHTTPMetrics.Load(); metrics != nil {
+		for _, status := range []string{"open", "in_progress", "waiting_for_customer", "resolved", "closed"} {
+			metrics.supportStatus.WithLabelValues(status).Set(float64(values[status]))
+		}
+	}
+}
+
+func boundedSupportAuthor(value string) string {
+	switch value {
+	case "tenant_user", "support_agent", "system":
+		return value
+	default:
+		return "unknown"
+	}
+}
+
+func boundedSupportOutcome(value string) string {
+	switch value {
+	case "uploaded", "downloaded", "rejected", "scan_failed", "not_ready", "storage_error":
+		return value
+	default:
+		return "error"
 	}
 }
 

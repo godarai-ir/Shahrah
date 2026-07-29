@@ -20,6 +20,7 @@ import {
   UserCog,
   UserCircle2,
   Users,
+  LifeBuoy,
 } from "lucide-react";
 
 import { canAnyPermission } from "../../lib/authz";
@@ -52,6 +53,7 @@ export type AdminNavKey =
   | "rateLimitPolicies"
   | "budgetLimitPolicies"
   | "guardrails"
+  | "supportTickets"
   | "settings";
 
 export type AdminNavItem = {
@@ -85,6 +87,14 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: LayoutDashboard,
       isActive: pathname === "/",
       requiredPermissions: [],
+    },
+    {
+      key: "supportTickets",
+      href: "/support/tickets",
+      title: t("nav.supportTickets"),
+      icon: LifeBuoy,
+      isActive: pathname.startsWith("/support/tickets"),
+      requiredPermissions: ["support_ticket:read_own", "support_ticket:read_all"],
     },
     {
       key: "quickStart",

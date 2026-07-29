@@ -75,6 +75,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  120 * time.Second,
+		BodyLimit:    30 * 1024 * 1024,
 		ErrorHandler: customErrorHandler,
 	})
 

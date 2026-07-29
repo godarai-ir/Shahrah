@@ -32,6 +32,8 @@ func TestSupportAdminProfileContainsEveryRequiredScope(t *testing.T) {
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/credential-versions/1/test"},
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/credential-versions/1/activate"},
 		{fiber.MethodPost, "/api/v1/platform/provider-connections/id/disable"},
+		{fiber.MethodGet, "/api/v1/platform/support/tickets"},
+		{fiber.MethodPost, "/api/v1/platform/support/tickets/id/messages"},
 	}
 
 	requiredScopes := make(map[string]struct{}, len(required))

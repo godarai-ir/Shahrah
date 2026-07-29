@@ -49,6 +49,13 @@ func PlatformAdminAuthMiddleware(masterKey string, serviceAccounts PlatformServi
 }
 
 func RequiredPlatformScope(method, path string) string {
+	if strings.Contains(path, "/support/tickets") || strings.Contains(path, "/support/ticket-attachments") {
+		if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
+			return PlatformScopeSupportTicketRead
+		}
+		return PlatformScopeSupportTicketWrite
+	}
+
 	if strings.Contains(path, "/provider-connections") || strings.Contains(path, "/provider-connection-schemas") {
 		if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
 			return PlatformScopeProviderCredentialRead

@@ -3,6 +3,23 @@
 :root {
   --font-sans: "IBM Plex Sans", sans-serif;
   --font-mono: "IBM Plex Mono", monospace;
+  --support-surface: oklch(0.178 0.006 285.885);
+  --support-surface-muted: oklch(0.21 0.006 285.885);
+  --support-border: oklch(0.274 0.006 286.033);
+  --support-muted: oklch(0.705 0.015 286.067);
+  --support-accent: oklch(0.715 0.143 215.221);
+  --support-danger: oklch(0.704 0.191 22.216);
+  --support-success: oklch(0.696 0.17 162.48);
 }
 
 body { font-family: var(--font-sans); }
+
+@theme inline {
+  --color-support-surface: var(--support-surface);
+  --color-support-surface-muted: var(--support-surface-muted);
+  --color-support-border: var(--support-border);
+  --color-support-muted: var(--support-muted);
+  --color-support-accent: var(--support-accent);
+  --color-support-danger: var(--support-danger);
+  --color-support-success: var(--support-success);
+}

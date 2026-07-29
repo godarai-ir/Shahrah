@@ -192,6 +192,27 @@ var permissionCatalog = map[string]permissionMeta{
 		Group:       "logs",
 		Description: "Allows creating safe replay drafts from request logs",
 	},
+
+	"support_ticket:create": {
+		Group:       "support",
+		Description: "Allows creating support tickets",
+	},
+	"support_ticket:read_own": {
+		Group:       "support",
+		Description: "Allows viewing support tickets created by the current user",
+	},
+	"support_ticket:read_all": {
+		Group:       "support",
+		Description: "Allows viewing all support tickets in the tenant",
+	},
+	"support_ticket:reply": {
+		Group:       "support",
+		Description: "Allows replying to visible support tickets",
+	},
+	"support_ticket:rate": {
+		Group:       "support",
+		Description: "Allows rating resolved support tickets created by the current user",
+	},
 }
 
 var systemRolePermissions = map[string][]string{
@@ -206,6 +227,7 @@ var systemRolePermissions = map[string][]string{
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
+		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
 	},
 	"tenant_admin": {
 		"policy:list", "policy:manage",
@@ -218,6 +240,7 @@ var systemRolePermissions = map[string][]string{
 		"settings:list", "settings:manage",
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
+		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
 	},
 	"billing_manager": {
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
@@ -233,6 +256,7 @@ var systemRolePermissions = map[string][]string{
 		"provider_account:read",
 		"settings:list",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
+		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
 	},
 	"team_admin": {
 		"policy:list",
@@ -243,15 +267,18 @@ var systemRolePermissions = map[string][]string{
 		"provider_account:read",
 		"settings:list",
 		"logs:read_metadata",
+		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
 	},
 	"member": {
 		"user:list",
 		"settings:list",
 		"logs:read_metadata",
+		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
 	},
 	"readonly_member": {
 		"settings:list",
 		"logs:read_metadata",
+		"support_ticket:create", "support_ticket:read_own", "support_ticket:reply", "support_ticket:rate",
 	},
 }
 

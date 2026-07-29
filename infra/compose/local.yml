@@ -41,6 +41,13 @@ services:
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-no-reply@shahrah.local}
+      SUPPORT_S3_ENDPOINT: http://minio:9000
+      SUPPORT_S3_REGION: us-east-1
+      SUPPORT_S3_BUCKET: godarai-support
+      SUPPORT_S3_ACCESS_KEY: ${SUPPORT_S3_ACCESS_KEY:-godarai-local}
+      SUPPORT_S3_SECRET_KEY: ${SUPPORT_S3_SECRET_KEY:-godarai-local-secret}
+      SUPPORT_S3_FORCE_PATH_STYLE: "true"
+      SUPPORT_CLAMAV_ADDRESS: clamav:3310
       BALE_OTP_ENABLED: ${BALE_OTP_ENABLED:-false}
       BALE_SAFIR_API_ACCESS_KEY: ${BALE_SAFIR_API_ACCESS_KEY:-}
       BALE_SAFIR_BOT_ID: ${BALE_SAFIR_BOT_ID:-}
@@ -58,6 +65,10 @@ services:
         condition: service_started
       mailpit:
         condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
     restart: unless-stopped
 
   model-discovery:
@@ -282,6 +293,54 @@ services:
       - "8025:8025"
     restart: unless-stopped
 
+  minio:
+    logging: *default-logging
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "${MINIO_API_HOST_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${SUPPORT_S3_ACCESS_KEY:-godarai-local}
+      MINIO_ROOT_PASSWORD: ${SUPPORT_S3_SECRET_KEY:-godarai-local-secret}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/godarai-support &&
+        mc anonymous set none local/godarai-support
+    environment:
+      MINIO_ROOT_USER: ${SUPPORT_S3_ACCESS_KEY:-godarai-local}
+      MINIO_ROOT_PASSWORD: ${SUPPORT_S3_SECRET_KEY:-godarai-local-secret}
+
+  clamav:
+    logging: *default-logging
+    image: clamav/clamav:stable
+    ports:
+      - "${CLAMAV_HOST_PORT:-3310}:3310"
+    healthcheck:
+      test: ["CMD-SHELL", "printf 'PING\\n' | nc 127.0.0.1 3310 | grep PONG"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
   pgadmin:
     logging: *default-logging
     image: dpage/pgadmin4:latest
@@ -302,4 +361,5 @@ volumes:
   redisdata:
   clickhousedata:
   typesensedata:
+  miniodata:
   pgadmin_data:

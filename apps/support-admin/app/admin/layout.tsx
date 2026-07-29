@@ -4,6 +4,7 @@ import { DisplaySettingsProvider } from '@/components/display-settings-provider'
 const links = [
   ['/admin', 'Overview'],
   ['/admin/tenants', 'Tenants'],
+  ['/admin/tickets', 'Tickets'],
   ['/admin/providers', 'Providers'],
   ['/admin/provider-connections', 'Provider Credentials'],
   ['/admin/models', 'Models'],

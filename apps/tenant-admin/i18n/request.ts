@@ -29,6 +29,7 @@ const MESSAGE_NAMESPACES = [
   "guardrails",
   "prompts",
   "playground",
+  "support",
 ] as const;
 
 async function loadMessages(locale: "fa" | "en") {

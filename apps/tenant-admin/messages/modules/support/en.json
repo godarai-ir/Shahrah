@@ -1,0 +1,130 @@
+{
+  "list": {
+    "title": "Support tickets",
+    "description": "Create and follow up on your support requests."
+  },
+  "new": {
+    "title": "Create support ticket",
+    "description": "Send your request details to the GodarAI support team.",
+    "detailsTitle": "Request details",
+    "detailsDescription": "Include the information needed to investigate the issue.",
+    "messageHint": "Plain text up to 10,000 characters. Do not send secrets such as API keys."
+  },
+  "detail": {
+    "title": "Ticket details",
+    "description": "Conversation and support request status"
+  },
+  "fields": {
+    "id": "Ticket ID",
+    "subject": "Subject",
+    "category": "Category",
+    "status": "Status",
+    "priority": "Priority",
+    "requester": "Requester",
+    "message": "Message",
+    "createdAt": "Created",
+    "lastActivity": "Last activity",
+    "resolvedAt": "Resolved",
+    "closedAt": "Closed"
+  },
+  "statuses": {
+    "open": "Open",
+    "in_progress": "In progress",
+    "waiting_for_customer": "Waiting for you",
+    "resolved": "Resolved",
+    "closed": "Closed"
+  },
+  "categories": {
+    "technical": "Technical",
+    "billing": "Billing",
+    "account": "Account",
+    "feature_request": "Feature request",
+    "other": "Other"
+  },
+  "priorities": {
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "filters": {
+    "query": "Search",
+    "queryPlaceholder": "Ticket ID or subject",
+    "status": "Status filter",
+    "all": "All statuses"
+  },
+  "actions": {
+    "new": "New ticket",
+    "submit": "Create ticket",
+    "submitting": "Sending…",
+    "cancel": "Cancel",
+    "send": "Send message",
+    "sendAndReopen": "Send and reopen",
+    "backToList": "Back to tickets",
+    "copy": "Copy ticket ID",
+    "copying": "Copying",
+    "copied": "Copied"
+  },
+  "states": {
+    "loading": "Loading tickets…",
+    "emptyTitle": "No tickets yet",
+    "emptyDescription": "Create a ticket when you need help from the GodarAI team.",
+    "notFound": "Ticket not found"
+  },
+  "conversation": {
+    "title": "Conversation",
+    "support": "GodarAI support",
+    "you": "You",
+    "organization": "Your organization"
+  },
+  "reply": {
+    "title": "Send reply",
+    "reopenTitle": "Send a message and reopen",
+    "closed": "This ticket is closed and read-only. Create a new ticket for a new request."
+  },
+  "attachments": {
+    "title": "Attachments",
+    "policy": "Up to 5 files, 10 MiB each and 25 MiB total. PDF, images, text, CSV, LOG and JSON are supported.",
+    "add": "Add attachments",
+    "remove": "Remove {name}",
+    "download": "Download {name}",
+    "scan": {
+      "quarantined": "Security scan pending",
+      "clean": "Scanned",
+      "rejected": "Rejected"
+    }
+  },
+  "rating": {
+    "title": "Rate support quality",
+    "scoreLabel": "Satisfaction from 1 to 5",
+    "scoreValue": "{score} out of 5",
+    "comment": "Optional comment",
+    "submit": "Save rating",
+    "saved": "Your rating was saved."
+  },
+  "validation": {
+    "subject": "Subject must be between 5 and 160 characters.",
+    "messageRequired": "Enter a message or attach at least one file.",
+    "messageLength": "The message cannot exceed 10,000 characters.",
+    "fileCount": "A message can have up to 5 files.",
+    "fileSize": "Each file must be 10 MiB or smaller.",
+    "totalSize": "Combined file size must be 25 MiB or smaller.",
+    "fileType": "One of the selected file types is not allowed.",
+    "rating": "Choose a rating from 1 to 5."
+  },
+  "pagination": {
+    "label": "Ticket pagination",
+    "summary": "{count} tickets on this page",
+    "previous": "First page",
+    "next": "Next"
+  },
+  "errors": {
+    "load": "Tickets could not be loaded.",
+    "create": "The ticket could not be created.",
+    "reply": "The message could not be sent.",
+    "rating": "The rating could not be saved."
+  },
+  "values": {
+    "notAvailable": "—"
+  }
+}

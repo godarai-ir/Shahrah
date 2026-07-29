@@ -108,6 +108,8 @@ var supportAdminScopes = []string{
 	auth.PlatformScopeProviderCredentialTest,
 	auth.PlatformScopeProviderCredentialActivate,
 	auth.PlatformScopeProviderCredentialDisable,
+	auth.PlatformScopeSupportTicketRead,
+	auth.PlatformScopeSupportTicketWrite,
 }
 
 func resolveCredentialConfig(name, profile, rawScopes string) (string, []string, error) {
@@ -150,6 +152,8 @@ func parseScopes(raw string) ([]string, error) {
 		auth.PlatformScopeProviderCredentialTest:          {},
 		auth.PlatformScopeProviderCredentialActivate:      {},
 		auth.PlatformScopeProviderCredentialDisable:       {},
+		auth.PlatformScopeSupportTicketRead:               {},
+		auth.PlatformScopeSupportTicketWrite:              {},
 	}
 	seen := map[string]struct{}{}
 

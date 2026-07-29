@@ -6,6 +6,7 @@ export default function AdminHome() {
   const links = [
     ['/admin/providers', 'Providers'],
     ['/admin/tenants', 'Tenants'],
+    ['/admin/tickets', 'Support Tickets'],
     ['/admin/models', 'Models'],
     ['/admin/model-series', 'Model Series'],
     ['/admin/pricing', 'Pricing'],

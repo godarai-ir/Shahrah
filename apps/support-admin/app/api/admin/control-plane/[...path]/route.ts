@@ -16,10 +16,11 @@ export async function GET(request: Request, context: RouteContext) {
 
 export async function POST(request: Request, context: RouteContext) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const contentType = request.headers.get('content-type') ?? 'application/json';
   return proxyControlPlanePlatform(context, {
     method: 'POST',
-    body: await request.text(),
-    contentType: request.headers.get('content-type') ?? 'application/json',
+    body: contentType.includes('multipart/form-data') ? request.body ?? undefined : await request.text(),
+    contentType,
     idempotencyKey: request.headers.get('idempotency-key') ?? undefined,
   });
 }
@@ -55,7 +56,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
 async function proxyControlPlanePlatform(
   context: RouteContext,
-	init: { method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: string; contentType?: string; search?: string; idempotencyKey?: string },
+	init: { method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: BodyInit; contentType?: string; search?: string; idempotencyKey?: string },
 ) {
   const { path = [] } = await context.params;
   const permission = controlPlanePermission(path, init.method);
@@ -73,30 +74,54 @@ async function proxyControlPlanePlatform(
   const upstreamPath = path.map(encodeURIComponent).join('/');
 	const url = new URL(`/api/v1/platform/${upstreamPath}`, ensureTrailingSlash(baseURL));
 	url.search = init.search ?? '';
+  const requestId = randomUUID();
 
-  const response = await fetch(url, {
+  const fetchInit: RequestInit & { duplex?: 'half' } = {
     method: init.method,
     headers: {
       authorization: `Bearer ${serviceToken}`,
       'x-shahrah-actor-id': session.userId,
       'x-shahrah-actor-role': session.role,
-      'x-request-id': randomUUID(),
+      'x-request-id': requestId,
       accept: 'application/json',
       ...(init.body ? { 'content-type': init.contentType ?? 'application/json' } : {}),
       ...(init.idempotencyKey ? { 'idempotency-key': init.idempotencyKey } : {}),
     },
     body: init.body || undefined,
     cache: 'no-store',
+  };
+  if (init.body instanceof ReadableStream) fetchInit.duplex = 'half';
+  const response = await fetch(url, fetchInit);
+  const responseHeaders = new Headers({
+    'content-type': response.headers.get('content-type') ?? 'application/json',
+    'x-request-id': response.headers.get('x-request-id') ?? requestId,
   });
-  const text = await response.text();
-  return new NextResponse(text, {
+  const contentDisposition = response.headers.get('content-disposition');
+  const cacheControl = response.headers.get('cache-control');
+  const noSniff = response.headers.get('x-content-type-options');
+  if (contentDisposition) responseHeaders.set('content-disposition', contentDisposition);
+  if (cacheControl) responseHeaders.set('cache-control', cacheControl);
+  if (noSniff) responseHeaders.set('x-content-type-options', noSniff);
+
+  return new NextResponse(response.body, {
     status: response.status,
-    headers: { 'content-type': response.headers.get('content-type') ?? 'application/json' },
+    headers: responseHeaders,
   });
 }
 
 function controlPlanePermission(path: string[], method: string): AdminPermission {
   const joined = path.join('/');
+  if (joined.startsWith('support/ticket-attachments')) return 'support_ticket:read';
+  if (joined.startsWith('support/tickets')) {
+    if (method === 'GET') {
+      if (joined.endsWith('/events')) return 'audit:read';
+      return 'support_ticket:read';
+    }
+    if (joined.endsWith('/messages')) return 'support_ticket:reply';
+    if (joined.endsWith('/triage')) return 'support_ticket:triage';
+    if (joined.endsWith('/reopen')) return 'support_ticket:status_write';
+    return 'support_ticket:status_write';
+  }
   if (joined.startsWith('provider-connections') || joined.startsWith('provider-connection-schemas')) {
     if (method === 'GET') return 'platform_credentials:read_metadata';
     if (joined.includes('/test')) return 'platform_credentials:test';

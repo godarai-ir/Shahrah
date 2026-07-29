@@ -150,6 +150,13 @@ func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	api.Put("/settings/trace-privacy", deps.AdminHandlers.UpdateTenantTracePrivacySettings)
 	api.Get("/settings/request-logging", deps.AdminHandlers.GetTenantRequestLoggingSettings)
 	api.Put("/settings/request-logging", deps.AdminHandlers.UpdateTenantRequestLoggingSettings)
+	api.Get("/support/tickets", deps.AdminHandlers.ListTenantSupportTickets)
+	api.Post("/support/tickets", deps.AdminHandlers.CreateTenantSupportTicket)
+	api.Get("/support/tickets/:ticketID", deps.AdminHandlers.GetTenantSupportTicket)
+	api.Get("/support/tickets/:ticketID/messages", deps.AdminHandlers.ListTenantSupportTicketMessages)
+	api.Post("/support/tickets/:ticketID/messages", deps.AdminHandlers.AddTenantSupportTicketMessage)
+	api.Get("/support/ticket-attachments/:attachmentID/download", deps.AdminHandlers.DownloadTenantSupportTicketAttachment)
+	api.Put("/support/tickets/:ticketID/rating", deps.AdminHandlers.RateTenantSupportTicket)
 
 	apiV2 := app.Group("/api/v2")
 	apiV2.Get("/logs", deps.AdminHandlers.ListRequestLogsV2)
