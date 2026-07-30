@@ -82,6 +82,21 @@ type ImportProviderBatch = {
   models: ImportModelRow[];
 };
 
+export type ProviderYamlImportOptions = {
+  providersRoot: string;
+  providerSlugs?: string[];
+  dryRun?: boolean;
+  clearMissing?: boolean;
+  log?: (message: string) => void;
+};
+
+export type ProviderYamlImportSummary = {
+  providersImported: number;
+  modelsImported: number;
+  modelsDeleted: number;
+  dryRun: boolean;
+};
+
 const connectionString =
   process.env.DATABASE_URL ??
   'postgresql://postgres:postgres@127.0.0.1:5432/model_discovery?schema=public';
@@ -251,9 +266,7 @@ function runtimeEndpointsForModel(
   if (
     providerSlug === 'openai' &&
     modes.some((mode) =>
-      ['chat', 'completion', 'responses', 'embedding'].includes(
-        mode,
-      ),
+      ['chat', 'completion', 'responses', 'embedding'].includes(mode),
     )
   ) {
     endpoints.add('batches');
@@ -386,14 +399,20 @@ function buildImportedRuntimeProfile(input: {
   });
 }
 
-function getArgValue(flag: string): string | undefined {
-  const idx = process.argv.findIndex((x) => x === flag);
+function getArgValue(
+  flag: string,
+  args: string[] = process.argv.slice(2),
+): string | undefined {
+  const idx = args.findIndex((x) => x === flag);
   if (idx < 0) return undefined;
-  return process.argv[idx + 1];
+  return args[idx + 1];
 }
 
-function hasFlag(flag: string): boolean {
-  return process.argv.includes(flag);
+function hasFlag(
+  flag: string,
+  args: string[] = process.argv.slice(2),
+): boolean {
+  return args.includes(flag);
 }
 
 function slugify(input: string): string {
@@ -1543,6 +1562,7 @@ async function importProviderBatch(
     },
   });
 
+  let modelsDeleted = 0;
   if (clearMissing) {
     const keep = new Set(batch.models.map((m) => m.canonicalId));
     const existing = await prisma.model.findMany({
@@ -1553,7 +1573,10 @@ async function importProviderBatch(
       .filter((m) => !keep.has(m.canonicalId))
       .map((m) => m.id);
     if (toDeleteIds.length > 0) {
-      await prisma.model.deleteMany({ where: { id: { in: toDeleteIds } } });
+      const result = await prisma.model.deleteMany({
+        where: { id: { in: toDeleteIds } },
+      });
+      modelsDeleted = result.count;
     }
   }
 
@@ -1759,21 +1782,21 @@ async function importProviderBatch(
     });
   }
 
-  return { modelsImported: batch.models.length, modelsDeleted: 0 };
+  return { modelsImported: batch.models.length, modelsDeleted };
 }
 
-async function main() {
-  const providersRoot =
-    getArgValue('--providers-root') ?? 'D:\\source\\models\\providers';
-  const providersArg = getArgValue('--providers');
-  const dryRun = hasFlag('--dry-run');
-  const clearMissing = hasFlag('--clear-missing');
-
+export async function importProviderYaml(
+  options: ProviderYamlImportOptions,
+): Promise<ProviderYamlImportSummary> {
+  const {
+    providersRoot,
+    providerSlugs = [],
+    dryRun = false,
+    clearMissing = false,
+    log = console.log,
+  } = options;
   const selected = new Set(
-    (providersArg ?? '')
-      .split(',')
-      .map((x) => slugify(x))
-      .filter(Boolean),
+    providerSlugs.map((x) => slugify(x)).filter(Boolean),
   );
 
   const dirEntries = await fs.readdir(providersRoot, { withFileTypes: true });
@@ -1790,26 +1813,55 @@ async function main() {
 
   let totalProviders = 0;
   let totalModels = 0;
+  let totalDeleted = 0;
   for (const providerDir of providerDirs) {
     const batch = await parseProviderDir(providerDir);
     const result = await importProviderBatch(batch, clearMissing, dryRun);
     totalProviders += 1;
     totalModels += result.modelsImported;
-    console.log(
+    totalDeleted += result.modelsDeleted;
+    log(
       `[import] provider=${batch.slug} models=${result.modelsImported} dryRun=${dryRun}`,
     );
   }
 
-  console.log(
+  log(
     `[import] completed providers=${totalProviders} models=${totalModels} dryRun=${dryRun}`,
   );
+
+  return {
+    providersImported: totalProviders,
+    modelsImported: totalModels,
+    modelsDeleted: totalDeleted,
+    dryRun,
+  };
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
+export async function disconnectProviderYamlImporter(): Promise<void> {
+  await prisma.$disconnect();
+}
+
+async function main(args: string[] = process.argv.slice(2)): Promise<void> {
+  const providersRoot =
+    getArgValue('--providers-root', args) ?? 'D:\\source\\models\\providers';
+  const providersArg = getArgValue('--providers', args);
+
+  await importProviderYaml({
+    providersRoot,
+    providerSlugs: (providersArg ?? '')
+      .split(',')
+      .map((provider) => provider.trim())
+      .filter(Boolean),
+    dryRun: hasFlag('--dry-run', args),
+    clearMissing: hasFlag('--clear-missing', args),
   });
+}
+
+if (require.main === module) {
+  void main()
+    .catch((err) => {
+      console.error(err);
+      process.exitCode = 1;
+    })
+    .finally(disconnectProviderYamlImporter);
+}

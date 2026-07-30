@@ -114,6 +114,13 @@ Exported files:
 - YAML importer script: `scripts/import-models-from-yaml.ts`
 
 ### Import from provider YAML folders
+- Import the curated OpenAI catalog with OpenAI-specific allowlist validation:
+  - `pnpm --filter model-discovery import:provider:openai`
+- Parse and validate OpenAI without writing to the database:
+  - `pnpm --filter model-discovery import:provider:openai -- --dry-run`
+- Reconcile the OpenAI database catalog, deleting rows absent from the curated
+  allowlist:
+  - `pnpm --filter model-discovery import:provider:openai -- --clear-missing`
 - Import all providers under `D:\source\models\providers`:
   - `pnpm --filter model-discovery import:providers:yaml`
 - Import specific providers:
