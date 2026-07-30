@@ -159,6 +159,7 @@ func normalizeCatalogPricingSnapshot(
 			return nil, ErrPricingUnavailable
 		}
 		rates := make(map[string]normalizedPricingRate, len(item.PricingRates))
+		rateList := make([]normalizedPricingRate, 0, len(item.PricingRates))
 		for _, input := range item.PricingRates {
 			if input.Currency != "USD" || input.Region != "global" {
 				continue
@@ -169,7 +170,7 @@ func normalizeCatalogPricingSnapshot(
 				input.SourceURL == "" {
 				return nil, ErrPricingUnavailable
 			}
-			if _, duplicate := rates[input.Dimension]; duplicate {
+			if _, duplicate := rates[input.Dimension]; duplicate && provider != "openai" {
 				return nil, fmt.Errorf(
 					"%w: duplicate %s rate dimension %s",
 					ErrPricingUnavailable,
@@ -177,13 +178,20 @@ func normalizeCatalogPricingSnapshot(
 					input.Dimension,
 				)
 			}
-			rates[input.Dimension] = normalizedPricingRate{
-				Dimension:    input.Dimension,
-				Unit:         input.Unit,
-				UnitPriceUSD: value,
-				Condition:    input.Condition,
-				Region:       input.Region,
-				SourceURL:    input.SourceURL,
+			normalized := normalizedPricingRate{
+				Dimension:     input.Dimension,
+				Unit:          input.Unit,
+				UnitPriceUSD:  value,
+				Condition:     input.Condition,
+				Region:        input.Region,
+				SourceURL:     input.SourceURL,
+				EffectiveFrom: input.EffectiveFrom,
+				EffectiveTo:   input.EffectiveTo,
+			}
+			rateList = append(rateList, normalized)
+			if current, exists := rates[input.Dimension]; !exists ||
+				(len(current.Condition) > 0 && len(normalized.Condition) == 0) {
+				rates[input.Dimension] = normalized
 			}
 		}
 		model := anthropicPricingModel{
@@ -192,6 +200,7 @@ func normalizeCatalogPricingSnapshot(
 			Status:         item.Status,
 			RuntimeProfile: runtimeBinding,
 			Rates:          rates,
+			RateList:       rateList,
 		}
 		models[normalizeCatalogPricingModelID(item.Slug, provider)] = model
 		models[normalizeCatalogPricingModelID(item.CanonicalID, provider)] = model

@@ -156,6 +156,23 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
 }
 
+func TestResponseUsagePreservesCacheWriteTokensForBilling(t *testing.T) {
+	usage := responseUsageToOpenAI(&contractsopenai.ResponseUsage{
+		InputTokens:  100,
+		OutputTokens: 10,
+		TotalTokens:  110,
+		InputDetails: &contractsopenai.ResponseInputTokenDetails{
+			CachedTokens:     20,
+			CacheWriteTokens: 30,
+		},
+	})
+
+	require.NotNil(t, usage)
+	require.NotNil(t, usage.PromptTokensDetails)
+	assert.Equal(t, 20, usage.PromptTokensDetails.CachedTokens)
+	assert.Equal(t, 30, usage.PromptTokensDetails.CacheWriteTokens)
+}
+
 func TestResponsesHandlerForwardsTextFormat(t *testing.T) {
 	payload := contractsopenai.Response{
 		ID:        "resp_structured",
@@ -218,6 +235,60 @@ func TestResponsesHandlerForwardsTextFormat(t *testing.T) {
 	assert.Contains(t, string(raw), `"type":"json_schema"`)
 	assert.Contains(t, string(raw), `"strict":true`)
 	assert.Contains(t, string(raw), `"additionalProperties":false`)
+}
+
+func TestResponsesHandlerPreservesUnknownOfficialFieldsLosslessly(t *testing.T) {
+	upstreamBody := []byte(`{"id":"resp_future","object":"response","model":"gpt-4o","status":"completed","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2},"future_response_field":{"enabled":true}}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       upstreamBody,
+	}}
+	app, _ := newResponsesTestApp(t, "openai", tunnel)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","future_request_field":{"mode":"official"}}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	var outbound map[string]interface{}
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	assert.Equal(t, map[string]interface{}{"mode": "official"}, outbound["future_request_field"])
+
+	received, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(upstreamBody), string(received))
+	assert.Contains(t, string(received), `"future_response_field"`)
+}
+
+func TestResponsesHandlerPreservesOpenAIErrorContract(t *testing.T) {
+	upstreamBody := []byte(`{"error":{"message":"bad tool","type":"invalid_request_error","param":"tools[0].type","code":"invalid_tool","future_error_field":{"retryable":false}}}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusBadRequest,
+		Headers: map[string]string{
+			"x-request-id":                   "openai_req_error",
+			"x-ratelimit-remaining-requests": "42",
+		},
+		Body: upstreamBody,
+	}}
+	app, _ := newResponsesTestApp(t, "openai", tunnel)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, "openai_req_error", resp.Header.Get("X-Request-Id"))
+	assert.Equal(t, "42", resp.Header.Get("X-Ratelimit-Remaining-Requests"))
+
+	received, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(upstreamBody), string(received))
 }
 
 func TestResponsesHandlerRejectsNonOpenAIProvider(t *testing.T) {
@@ -352,13 +423,20 @@ func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	assert.Contains(t, string(body), `"type":"streaming_error"`)
+	assert.Contains(t, string(body), "event: error\n")
+	assert.Contains(t, string(body), `"type":"error"`)
+	assert.Contains(t, string(body), `"code":null`)
+	assert.Contains(t, string(body), `"param":null`)
+	assert.Contains(t, string(body), `"sequence_number":0`)
 	assert.True(t, stream.closed)
 }
 
 func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
-	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n")}
+	stream.chunks <- platform.TunnelChunk{Data: []byte(
+		"event: response.completed\n" +
+			"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_done\",\"model\":\"gpt-4o\",\"status\":\"completed\",\"service_tier\":\"standard\",\"usage\":{\"input_tokens\":7,\"output_tokens\":3,\"total_tokens\":10,\"input_tokens_details\":{\"cached_tokens\":2,\"cache_write_tokens\":1}}}}\n\n",
+	)}
 
 	close(stream.chunks)
 
@@ -409,10 +487,13 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	assert.Contains(t, string(body), `response.output_text.delta`)
+	assert.Contains(t, string(body), `response.completed`)
 	assert.NotContains(t, strings.ToLower(string(body)), "panic")
 	assert.Len(t, wallets.debits, 1)
 	assert.Len(t, logs.loggedSpends, 1)
+	assert.Equal(t, 7, logs.loggedSpends[0].InputTokens)
+	assert.Equal(t, 3, logs.loggedSpends[0].OutputTokens)
+	assert.Equal(t, 10, logs.loggedSpends[0].TotalTokens)
 	assert.True(t, stream.closed)
 	assert.Equal(t, "/responses", logs.loggedSpends[0].RequestMetadata["provider_endpoint_path"])
 }

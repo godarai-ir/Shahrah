@@ -204,6 +204,10 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Streaming audio transcriptions are not supported for provider: %s", dep.Provider), "invalid_request_error")
 	}
 
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
+	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := providerOutboundModel(requestedModel, dep)
@@ -230,6 +234,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     reqMeta.Stream,
+		Operation:  platform.ProviderOperationOpenAIAudioTranscriptions,
 		Deployment: toContractDeployment(dep),
 		Headers: map[string]string{
 			"Content-Type": outboundContentType,

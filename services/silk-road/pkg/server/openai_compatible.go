@@ -48,7 +48,11 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		}
 		target = joinURL(target, "/openai/deployments/"+url.PathEscape(deployment))
 	}
-	endpoint := joinURL(target, openAICompatiblePath(payload))
+	method, operationPath, err := resolveOpenAIOperation(payload)
+	if err != nil {
+		return nil, err
+	}
+	endpoint := joinURL(target, operationPath)
 	apiVersion := strings.TrimSpace(payload.Deployment.APIVersion)
 	if a.azureDeploymentRouting && !strings.Contains(strings.ToLower(target), "/openai/v1") && apiVersion == "" {
 		apiVersion = "2024-10-21"
@@ -60,7 +64,7 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		}
 		endpoint += separator + "api-version=" + url.QueryEscape(apiVersion)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload.Body))
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(payload.Body))
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +72,9 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		req.Header.Set("Content-Type", contentType)
 	} else {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if clientRequestID := strings.TrimSpace(payload.Headers["X-Client-Request-Id"]); clientRequestID != "" {
+		req.Header.Set("X-Client-Request-Id", clientRequestID)
 	}
 	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
 		if strings.EqualFold(a.authHeader, "api-key") {
@@ -92,21 +99,6 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 	}, nil
 }
 
-func openAICompatiblePath(payload platform.TunnelRequest) string {
-	if payload.RequestMetadata != nil {
-		if raw, ok := payload.RequestMetadata["provider_endpoint_path"].(string); ok {
-			path := strings.TrimSpace(raw)
-			if path != "" {
-				if !strings.HasPrefix(path, "/") {
-					return "/" + path
-				}
-				return path
-			}
-		}
-	}
-	return "/chat/completions"
-}
-
 func resolveBaseURL(explicit string, fallback string) (string, error) {
 	if target := strings.TrimSpace(explicit); target != "" {
 		return strings.TrimRight(target, "/"), nil
@@ -115,6 +107,17 @@ func resolveBaseURL(explicit string, fallback string) (string, error) {
 		return strings.TrimRight(target, "/"), nil
 	}
 	return "", fmt.Errorf("provider api_base is required")
+}
+
+// openAICompatiblePath remains for provider-specific adapters that only need
+// the historical fixed endpoint subset. Unsupported metadata is converted to
+// an inert path rather than being interpreted as an arbitrary upstream path.
+func openAICompatiblePath(payload platform.TunnelRequest) string {
+	_, path, err := resolveLegacyOpenAICompatibleOperation(payload.RequestMetadata)
+	if err != nil {
+		return "/invalid-provider-operation"
+	}
+	return path
 }
 
 func joinURL(base string, path string) string {

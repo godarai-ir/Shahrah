@@ -7,6 +7,33 @@ import type {
 export type ModelPrice = {
   input_usd_per_1m?: number;
   output_usd_per_1m?: number;
+  rates?: ModelPricingRate[];
+};
+
+export type ModelPricingRate = {
+  key: string;
+  dimension: string;
+  unit: string;
+  unit_price_usd: string;
+  condition?: Record<string, unknown>;
+  region?: string;
+  source_url?: string;
+};
+
+export type CapabilityReadiness = {
+  endpoint: string;
+  method?: string;
+  input_modality?: string;
+  output_modality?: string;
+  transport?: string;
+  state:
+    | "contract_ready"
+    | "blocked_lifecycle"
+    | "pricing_incomplete"
+    | "unsupported_transport";
+  reason?: string;
+  audit_revision?: string;
+  live_validated: boolean;
 };
 
 export type ModelAvailability = {
@@ -19,6 +46,7 @@ export type ModelAvailability = {
   effective_pricing?: ModelPrice;
   pricing_resolved: boolean;
   readiness: ProviderAccountReadiness;
+  capability_readiness?: CapabilityReadiness[];
 };
 
 export type CatalogModel = {
@@ -33,6 +61,7 @@ export type CatalogModel = {
   capabilities?: string[];
   features?: string[];
   public_pricing?: ModelPrice;
+  readiness?: CapabilityReadiness[];
   is_deprecated?: boolean;
   replacement_model?: string;
   availability: ModelAvailability[];

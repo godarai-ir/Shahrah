@@ -125,6 +125,17 @@ func TestModerationsHandlerSingleStringInput(t *testing.T) {
 	assert.Equal(t, 1, logs.loggedSpends[0].RequestMetadata["input_count"])
 }
 
+func TestNormalizeModerationInputAcceptsTextAndImageItems(t *testing.T) {
+	input := []interface{}{
+		map[string]interface{}{"type": "text", "text": "check this"},
+		map[string]interface{}{"type": "image_url", "image_url": map[string]interface{}{"url": "https://example.test/image.png"}},
+	}
+
+	normalized, err := normalizeModerationInput(input)
+	require.NoError(t, err)
+	assert.Equal(t, input, normalized)
+}
+
 func TestModerationsHandlerBatchInputPreservesOrder(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
@@ -163,8 +174,8 @@ func TestModerationsHandlerValidationErrors(t *testing.T) {
 		{name: "missing input", body: `{"model":"omni-moderation-latest"}`, param: "input", code: "invalid_input"},
 		{name: "empty string", body: `{"model":"omni-moderation-latest","input":""}`, param: "input", code: "invalid_input"},
 		{name: "empty array", body: `{"model":"omni-moderation-latest","input":[]}`, param: "input", code: "invalid_input"},
-		{name: "object unsupported", body: `{"model":"omni-moderation-latest","input":{"type":"text","text":"hello"}}`, param: "input", code: "unsupported_input_type"},
-		{name: "array object unsupported", body: `{"model":"omni-moderation-latest","input":[{"type":"text","text":"hello"}]}`, param: "input", code: "unsupported_input_type"},
+		{name: "object unsupported", body: `{"model":"omni-moderation-latest","input":{"type":"video","video":"hello"}}`, param: "input", code: "unsupported_input_type"},
+		{name: "array object unsupported", body: `{"model":"omni-moderation-latest","input":[{"type":"video","video":"hello"}]}`, param: "input", code: "unsupported_input_type"},
 		{name: "stream unsupported", body: `{"model":"omni-moderation-latest","input":"hello","stream":true}`, param: "stream", code: "unsupported_parameter"},
 		{name: "messages unsupported", body: `{"model":"omni-moderation-latest","input":"hello","messages":[]}`, param: "messages", code: "unsupported_parameter"},
 	}

@@ -186,14 +186,20 @@ function runtimeEndpointsForModel(
   for (const mode of modes) {
     switch (mode) {
       case 'chat':
-      case 'completion':
         endpoints.add('chat_completions');
+        break;
+      case 'completion':
+        endpoints.add('completions');
         break;
       case 'embedding':
         endpoints.add('embeddings');
         break;
       case 'image':
         endpoints.add('image_generations');
+        if (providerSlug === 'openai') {
+          endpoints.add('image_edits');
+          endpoints.add('image_variations');
+        }
         break;
       case 'text_to_speech':
         if (providerSlug === 'google-gemini') {
@@ -206,12 +212,47 @@ function runtimeEndpointsForModel(
         endpoints.add('videos');
         break;
       case 'responses':
-        endpoints.add('interactions');
+        if (providerSlug === 'openai') {
+          endpoints.add('responses');
+          endpoints.add('responses_input_tokens');
+          endpoints.add('responses_compact');
+          endpoints.add('conversations');
+          endpoints.add('uploads');
+          endpoints.add('vector_stores');
+          endpoints.add('containers');
+        } else {
+          endpoints.add('interactions');
+        }
         break;
       case 'realtime':
-        endpoints.add('live');
+        if (providerSlug === 'openai') {
+          endpoints.add('realtime');
+          endpoints.add('realtime_transcription');
+          endpoints.add('realtime_translation');
+        } else {
+          endpoints.add('live');
+        }
+        break;
+      case 'audio_transcription':
+        endpoints.add('audio_transcriptions');
+        break;
+      case 'audio_translation':
+        endpoints.add('audio_translations');
+        break;
+      case 'moderation':
+        endpoints.add('moderations');
         break;
     }
+  }
+  if (
+    providerSlug === 'openai' &&
+    modes.some((mode) =>
+      ['chat', 'completion', 'responses', 'embedding', 'moderation'].includes(
+        mode,
+      ),
+    )
+  ) {
+    endpoints.add('batches');
   }
   return Array.from(endpoints);
 }
@@ -224,6 +265,10 @@ function buildImportedRuntimeProfile(input: {
   inputModalities: string[];
   outputModalities: string[];
   supportedParameters: string[];
+  reasoningEffortValues: string[];
+  supportedTools: string[];
+  serviceTierValues: ModelRuntimeProfile['requestControls']['serviceTierValues'];
+  lifecycle?: 'active' | 'preview' | 'deprecated' | 'unavailable';
   contextWindow?: number;
   maxOutputTokens?: number;
 }): ModelRuntimeProfile {
@@ -233,19 +278,44 @@ function buildImportedRuntimeProfile(input: {
   const capabilities = new Set(input.capabilities);
   const supportsThinking =
     parameters.has('thinking') || parameters.has('reasoning_effort');
+  const isOpenAI = input.providerSlug === 'openai';
+  const isGPT56 = /^gpt-5\.6(?:-|$)/.test(input.modelId);
+  const endpoints = runtimeEndpointsForModel(
+    input.providerSlug,
+    input.modelId,
+    input.modes,
+  );
 
   return modelRuntimeProfileSchema.parse({
-    version: 1,
-    endpoints: runtimeEndpointsForModel(
-      input.providerSlug,
-      input.modelId,
-      input.modes,
+    version: isOpenAI ? 2 : 1,
+    endpoints,
+    transports: Array.from(
+      new Set([
+        'http',
+        ...(parameters.has('stream') &&
+        endpoints.some((endpoint) =>
+          ['chat_completions', 'responses', 'image_generations'].includes(
+            endpoint,
+          ),
+        )
+          ? ['sse']
+          : []),
+        ...(endpoints.some((endpoint) => endpoint.startsWith('realtime'))
+          ? ['websocket']
+          : []),
+      ]),
     ),
+    lifecycle: input.lifecycle ?? 'active',
     thinking: {
       defaultMode: supportsThinking ? 'manual' : 'disabled',
       allowedModes: supportsThinking ? ['manual'] : ['disabled'],
       manualDeprecated: false,
-      effortValues: [],
+      effortValues: supportsThinking ? input.reasoningEffortValues : [],
+      reasoningModes: supportsThinking && isGPT56 ? ['standard', 'pro'] : [],
+      contextValues:
+        supportsThinking && isGPT56
+          ? ['auto', 'current_turn', 'all_turns']
+          : [],
     },
     assistantPrefill: capabilities.has('assistant_prefill'),
     sampling: {
@@ -256,11 +326,14 @@ function buildImportedRuntimeProfile(input: {
     },
     tools: {
       custom: capabilities.has('function_calling'),
-      server: capabilities.has('code_execution'),
+      server:
+        capabilities.has('code_execution') ||
+        input.supportedTools.some((tool) => tool !== 'function_calling'),
       parallel: capabilities.has('parallel_function_calling'),
       structuredOutput:
         capabilities.has('structured_output') ||
         capabilities.has('json_output'),
+      supported: input.supportedTools,
     },
     modalities: {
       input:
@@ -275,7 +348,7 @@ function buildImportedRuntimeProfile(input: {
           : ['unknown'],
     },
     requestControls: {
-      serviceTierValues: [],
+      serviceTierValues: input.serviceTierValues,
       inferenceGeoValues: ['global'],
       speedValues: [],
       effectiveSpeed: {},
@@ -386,8 +459,9 @@ function mapModelStatus(
   if (normalized === 'active') return 'active';
   if (normalized === 'preview') return 'preview';
   if (normalized === 'deprecated') return 'deprecated';
+  if (normalized === 'retired') return 'unavailable';
   if (normalized === 'unavailable') return 'unavailable';
-  return 'active';
+  return 'unavailable';
 }
 
 function normalizeModeValue(input: unknown): ModelMode {
@@ -479,6 +553,32 @@ function mapLifecycle(
   return 'published';
 }
 
+function enforceOpenAIReleaseStatus(
+  provider: string,
+  modelId: string,
+  status: 'active' | 'preview' | 'deprecated' | 'unavailable',
+): 'active' | 'preview' | 'deprecated' | 'unavailable' {
+  if (provider !== 'openai') return status;
+  const id = modelId.toLowerCase().replace(/^openai\//, '');
+  if (id === 'chat-latest' || id === 'chatgpt-image-latest') {
+    return 'unavailable';
+  }
+  if (id.includes('preview')) return 'preview';
+  return status;
+}
+
+function enforceOpenAIModes(
+  provider: string,
+  modelId: string,
+  modes: ModelMode[],
+): ModelMode[] {
+  if (provider !== 'openai' || !modes.includes('unknown')) return modes;
+  const id = modelId.toLowerCase().replace(/^openai\//, '');
+  if (id === 'gpt-3.5-turbo-instruct') return ['completion'];
+  if (id.startsWith('sora-')) return ['video'];
+  return modes;
+}
+
 function paramsFromDoc(doc: StringRecord | undefined): string[] {
   if (!doc) return [];
   const params = doc['params'];
@@ -490,6 +590,26 @@ function paramsFromDoc(doc: StringRecord | undefined): string[] {
     if (typeof key === 'string' && key.trim() !== '') keys.push(slugify(key));
   }
   return keys;
+}
+
+function supportedValuesForParam(
+  doc: StringRecord | undefined,
+  parameter: string,
+): string[] {
+  if (!doc || !Array.isArray(doc['params'])) return [];
+  for (const item of doc['params']) {
+    const record = asObject(item);
+    if (
+      typeof record?.['key'] === 'string' &&
+      normalizeTaxonomyValue(record['key']) ===
+        normalizeTaxonomyValue(parameter)
+    ) {
+      return asStringArray(record['supportedValues']).map(
+        normalizeTaxonomyValue,
+      );
+    }
+  }
+  return [];
 }
 
 function normalizeRegion(raw: string): string {
@@ -577,12 +697,17 @@ async function parseProviderDir(
     const deprecationDate = toDate(doc['deprecationDate']);
     const retirementDate = toDate(doc['retirementDate']);
     const now = new Date();
-    const status =
+    const importedStatus =
       retirementDate && retirementDate <= now
         ? 'unavailable'
         : deprecationDate && deprecationDate <= now
           ? 'deprecated'
           : mapModelStatus(doc['status']);
+    const status = enforceOpenAIReleaseStatus(
+      providerSlug,
+      modelId,
+      importedStatus,
+    );
     const lifecycleStatus = mapLifecycle(status);
     const limits = asObject(doc['limits']);
     const modalities = asObject(doc['modalities']);
@@ -669,7 +794,10 @@ async function parseProviderDir(
         },
         {
           key: 'cache_creation_input_token_cost',
-          dimension: 'cache_write_5m_tokens',
+          dimension:
+            providerSlug === 'openai'
+              ? 'cache_write_tokens'
+              : 'cache_write_5m_tokens',
           unit: 'token',
         },
         {
@@ -681,6 +809,18 @@ async function parseProviderDir(
           key: 'cache_read_input_token_cost',
           dimension: 'cache_read_tokens',
           unit: 'token',
+        },
+        {
+          key: 'cache_read_input_token_cost_batches',
+          dimension: 'batch_cache_read_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'batch' },
+        },
+        {
+          key: 'cache_creation_input_token_cost_batches',
+          dimension: 'batch_cache_write_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'batch' },
         },
         {
           key: 'input_cost_per_token_batches',
@@ -743,19 +883,19 @@ async function parseProviderDir(
           key: 'input_cost_per_token_above_200k_tokens',
           dimension: 'long_context_input_tokens',
           unit: 'token',
-          conditionJson: { min_prompt_tokens: 200001 },
+          conditionJson: { min_prompt_tokens: 272001 },
         },
         {
           key: 'output_cost_per_token_above_200k_tokens',
           dimension: 'long_context_output_tokens',
           unit: 'token',
-          conditionJson: { min_prompt_tokens: 200001 },
+          conditionJson: { min_prompt_tokens: 272001 },
         },
         {
           key: 'cache_read_input_token_cost_above_200k_tokens',
           dimension: 'long_context_cache_read_tokens',
           unit: 'token',
-          conditionJson: { min_prompt_tokens: 200001 },
+          conditionJson: { min_prompt_tokens: 272001 },
         },
         {
           key: 'data_residency_input_cost_per_token',
@@ -781,6 +921,102 @@ async function parseProviderDir(
           unit: 'token',
           conditionJson: { service_tier: 'priority' },
         },
+        {
+          key: 'input_cost_per_token_flex',
+          dimension: 'flex_input_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'flex' },
+        },
+        {
+          key: 'output_cost_per_token_flex',
+          dimension: 'flex_output_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'flex' },
+        },
+        {
+          key: 'cache_read_input_token_cost_flex',
+          dimension: 'flex_cache_read_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'flex' },
+        },
+        {
+          key: 'cache_creation_input_token_cost_flex',
+          dimension: 'flex_cache_write_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'flex' },
+        },
+        {
+          key: 'input_cost_per_token_batches_above_272k_tokens',
+          dimension: 'batch_long_context_input_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'batch',
+            min_prompt_tokens: 272001,
+          },
+        },
+        {
+          key: 'output_cost_per_token_batches_above_272k_tokens',
+          dimension: 'batch_long_context_output_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'batch',
+            min_prompt_tokens: 272001,
+          },
+        },
+        {
+          key: 'cache_read_input_token_cost_batches_above_272k_tokens',
+          dimension: 'batch_long_context_cache_read_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'batch',
+            min_prompt_tokens: 272001,
+          },
+        },
+        {
+          key: 'cache_creation_input_token_cost_batches_above_272k_tokens',
+          dimension: 'batch_long_context_cache_write_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'batch',
+            min_prompt_tokens: 272001,
+          },
+        },
+        {
+          key: 'input_cost_per_token_flex_above_272k_tokens',
+          dimension: 'flex_long_context_input_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'flex',
+            min_prompt_tokens: 272001,
+          },
+        },
+        {
+          key: 'output_cost_per_token_flex_above_272k_tokens',
+          dimension: 'flex_long_context_output_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'flex',
+            min_prompt_tokens: 272001,
+          },
+        },
+        {
+          key: 'cache_read_input_token_cost_flex_above_272k_tokens',
+          dimension: 'flex_long_context_cache_read_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'flex',
+            min_prompt_tokens: 272001,
+          },
+        },
+        {
+          key: 'cache_creation_input_token_cost_flex_above_272k_tokens',
+          dimension: 'flex_long_context_cache_write_tokens',
+          unit: 'token',
+          conditionJson: {
+            service_tier: 'flex',
+            min_prompt_tokens: 272001,
+          },
+        },
       ];
       for (const mapping of rateMappings) {
         const unitPriceUsd = asDecimalString(cost[mapping.key]);
@@ -794,9 +1030,53 @@ async function parseProviderDir(
           sourceUrl,
         });
       }
-      if (
-        asDecimalString(cost['output_cost_per_second']) === undefined
-      ) {
+      const priorityPricing = asObject(cost['priority_pricing']);
+      for (const [key, dimension] of [
+        ['input_cost_per_token', 'speed_input_tokens'],
+        ['output_cost_per_token', 'speed_output_tokens'],
+        ['cache_read_input_token_cost', 'speed_cache_read_tokens'],
+        ['cache_creation_input_token_cost', 'speed_cache_write_tokens'],
+      ] as const) {
+        const unitPriceUsd = asDecimalString(priorityPricing?.[key]);
+        if (unitPriceUsd === undefined) continue;
+        pricingRates.push({
+          dimension,
+          unit: 'token',
+          unitPriceUsd,
+          conditionJson: { service_tier: 'priority' },
+          region,
+          sourceUrl,
+        });
+      }
+      const tieredPricing = asObject(cost['tiered_pricing']);
+      for (const [key, dimension] of [
+        ['input', 'long_context_input_tokens'],
+        ['output', 'long_context_output_tokens'],
+        ['cache_read', 'long_context_cache_read_tokens'],
+        ['cache_write', 'long_context_cache_write_tokens'],
+      ] as const) {
+        const tiers = tieredPricing?.[key];
+        if (!Array.isArray(tiers)) continue;
+        const tier = asObject(tiers[0]);
+        const threshold = asNumber(tier?.['from']);
+        const unitPriceUsd = asDecimalString(tier?.['cost_per_token']);
+        if (
+          threshold === undefined ||
+          unitPriceUsd === undefined ||
+          threshold !== 272000
+        ) {
+          continue;
+        }
+        pricingRates.push({
+          dimension,
+          unit: 'token',
+          unitPriceUsd,
+          conditionJson: { min_prompt_tokens: 272001 },
+          region,
+          sourceUrl,
+        });
+      }
+      if (asDecimalString(cost['output_cost_per_second']) === undefined) {
         const unitPriceUsd = asDecimalString(cost['cost_per_second']);
         if (unitPriceUsd !== undefined) {
           pricingRates.push({
@@ -917,6 +1197,53 @@ async function parseProviderDir(
         sourceUrl: pricingSource,
       });
     }
+    const fileSearch = asObject(defaultToolPricing?.['file_search']);
+    const fileSearchPrice = divideDecimalString(
+      fileSearch?.['per_thousand_requests'],
+      1000,
+    );
+    if (fileSearchPrice && pricingSource) {
+      pricingRates.push({
+        dimension: 'file_search_requests',
+        unit: 'request',
+        unitPriceUsd: fileSearchPrice,
+        region: 'global',
+        sourceUrl: pricingSource,
+      });
+    }
+    const fileSearchStoragePrice = asDecimalString(
+      fileSearch?.['storage_per_gb_day'],
+    );
+    if (fileSearchStoragePrice && pricingSource) {
+      pricingRates.push({
+        dimension: 'file_search_storage_gb_days',
+        unit: 'gb_day',
+        unitPriceUsd: fileSearchStoragePrice,
+        conditionJson: {
+          free_storage_gb: asNumber(fileSearch?.['free_storage_gb']) ?? 1,
+        },
+        region: 'global',
+        sourceUrl: pricingSource,
+      });
+    }
+    const containers = asObject(defaultToolPricing?.['containers']);
+    const containerSessions = asObject(containers?.['per_session']);
+    for (const memory of ['1gb', '4gb', '16gb', '64gb'] as const) {
+      const price = asDecimalString(containerSessions?.[memory]);
+      if (!price || !pricingSource) continue;
+      pricingRates.push({
+        dimension: `container_sessions_${memory}`,
+        unit: 'session',
+        unitPriceUsd: price,
+        conditionJson: {
+          memory,
+          session_minutes: asNumber(containers?.['session_minutes']) ?? 20,
+          minimum_minutes: asNumber(containers?.['minimum_minutes']) ?? 5,
+        },
+        region: 'global',
+        sourceUrl: pricingSource,
+      });
+    }
     const codeExecution = asObject(defaultToolPricing?.['code_execution']);
     const codeExecutionPrice = asDecimalString(
       codeExecution?.['per_container_hour'],
@@ -957,11 +1284,21 @@ async function parseProviderDir(
     const maxOutputTokens =
       asNumber(limits?.['max_output_tokens']) ??
       asNumber(limits?.['max_tokens']);
-    const mode = normalizeSupportedModes(doc['supportedModes']);
+    const mode = enforceOpenAIModes(
+      providerSlug,
+      modelId,
+      normalizeSupportedModes(doc['supportedModes']),
+    );
     const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
+    const supportedTools = asStringArray(doc['tools']).map(
+      normalizeTaxonomyValue,
+    );
+    const serviceTierValues = asStringArray(doc['serviceTiers']).map(
+      normalizeTaxonomyValue,
+    ) as ModelRuntimeProfile['requestControls']['serviceTierValues'];
     const runtimeProfile =
       explicitRuntimeProfile ??
-      (providerSlug === 'google-gemini'
+      (providerSlug === 'google-gemini' || providerSlug === 'openai'
         ? buildImportedRuntimeProfile({
             providerSlug,
             modelId,
@@ -970,6 +1307,13 @@ async function parseProviderDir(
             inputModalities,
             outputModalities,
             supportedParameters: Array.from(paramsCombined),
+            reasoningEffortValues:
+              supportedValuesForParam(doc, 'reasoning_effort').length > 0
+                ? supportedValuesForParam(doc, 'reasoning_effort')
+                : supportedValuesForParam(defaultDoc, 'reasoning_effort'),
+            supportedTools,
+            serviceTierValues,
+            lifecycle: status,
             contextWindow,
             maxOutputTokens,
           })

@@ -71,3 +71,37 @@ func TestForwardProviderHeadersIncludesAllDocumentedAnthropicRateLimits(
 		}
 	}
 }
+
+func TestForwardProviderHeadersIncludesAllDocumentedOpenAIRateLimits(t *testing.T) {
+	app := fiber.New()
+	app.Get("/", func(c *fiber.Ctx) error {
+		forwardProviderHeaders(c, map[string]string{
+			"x-ratelimit-limit-requests":     "500",
+			"x-ratelimit-limit-tokens":       "500000",
+			"x-ratelimit-remaining-requests": "499",
+			"x-ratelimit-remaining-tokens":   "499000",
+			"x-ratelimit-reset-requests":     "120ms",
+			"x-ratelimit-reset-tokens":       "1s",
+		})
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	for name, want := range map[string]string{
+		"X-Ratelimit-Limit-Requests":     "500",
+		"X-Ratelimit-Limit-Tokens":       "500000",
+		"X-Ratelimit-Remaining-Requests": "499",
+		"X-Ratelimit-Remaining-Tokens":   "499000",
+		"X-Ratelimit-Reset-Requests":     "120ms",
+		"X-Ratelimit-Reset-Tokens":       "1s",
+	} {
+		if got := response.Header.Get(name); got != want {
+			t.Fatalf("%s=%q want %q", name, got, want)
+		}
+	}
+}

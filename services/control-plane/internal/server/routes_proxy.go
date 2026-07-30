@@ -14,6 +14,12 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 	if deps.ResponsesHandler != nil {
 		v1.Post("/responses", deps.ResponsesHandler.Handle)
+		v1.Post("/responses/compact", deps.ResponsesHandler.HandleCompact)
+		v1.Post("/responses/input_tokens", deps.ResponsesHandler.HandleInputTokens)
+		v1.Get("/responses/:response_id", deps.ResponsesHandler.HandleRetrieve)
+		v1.Delete("/responses/:response_id", deps.ResponsesHandler.HandleDelete)
+		v1.Post("/responses/:response_id/cancel", deps.ResponsesHandler.HandleCancel)
+		v1.Get("/responses/:response_id/input_items", deps.ResponsesHandler.HandleInputItems)
 	}
 
 	if deps.EmbeddingsHandler != nil {

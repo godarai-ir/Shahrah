@@ -38,9 +38,9 @@ func TestBillingEstimateModel_PreservesGoogleGeminiFQN(t *testing.T) {
 	}
 }
 
-func TestBillingEstimateModel_StripsNonCatalogProviderFQN(t *testing.T) {
+func TestBillingEstimateModel_PreservesOpenAIFQN(t *testing.T) {
 	got := billingEstimateModel("openai:production:gpt-4o-mini")
-	if got != "gpt-4o-mini" {
-		t.Fatalf("expected provider model id, got %q", got)
+	if got != "openai:production:gpt-4o-mini" {
+		t.Fatalf("expected OpenAI FQN to be preserved, got %q", got)
 	}
 }

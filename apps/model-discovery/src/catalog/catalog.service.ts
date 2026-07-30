@@ -111,7 +111,13 @@ export class CatalogService {
   }
 
   async listModels(query: ModelsQueryDto) {
-    const indexed = await this.indexing.searchModels(query);
+    // OpenAI account setup consumes the condition-aware rate card. Typesense
+    // currently stores only the legacy token projection, so this provider must
+    // use the authoritative database read path.
+    const indexed =
+      query.provider === 'openai'
+        ? null
+        : await this.indexing.searchModels(query);
     if (indexed) {
       if (indexed.pagination.total > 0) {
         return indexed;
@@ -199,6 +205,17 @@ export class CatalogService {
           modelSeries: true,
           category: true,
           pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+          pricingRates: {
+            where: {
+              effectiveFrom: { lte: new Date() },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: new Date() } }],
+            },
+            orderBy: [
+              { dimension: 'asc' },
+              { region: 'asc' },
+              { effectiveFrom: 'desc' },
+            ],
+          },
           inputModalities: { include: { modality: true } },
           outputModalities: { include: { modality: true } },
           supportedParams: { include: { supportedParameter: true } },
@@ -249,6 +266,17 @@ export class CatalogService {
               row.pricing[0].cachedInputPricePerMillionTokens,
           }
         : null,
+      pricingRates: (row.pricingRates ?? []).map((rate) => ({
+        dimension: rate.dimension,
+        unit: rate.unit,
+        unitPriceUsd: rate.unitPriceUsd.toString(),
+        currency: rate.currency,
+        condition: rate.conditionJson,
+        region: rate.region,
+        effectiveFrom: rate.effectiveFrom,
+        effectiveTo: rate.effectiveTo,
+        sourceUrl: rate.sourceUrl,
+      })),
       regions: row.regions.map((r) => r.region.slug),
       openSource: row.openSource,
       free: row.free,

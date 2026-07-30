@@ -20,12 +20,15 @@ type ModelType string
 const (
 	ModelTypeChat               ModelType = "chat"
 	ModelTypeCompletion         ModelType = "completion"
+	ModelTypeResponses          ModelType = "responses"
 	ModelTypeEmbedding          ModelType = "embedding"
 	ModelTypeRealtime           ModelType = "realtime"
 	ModelTypeTextToSpeech       ModelType = "text_to_speech"
 	ModelTypeAudioTranscription ModelType = "audio_transcription"
 	ModelTypeAudioTranslation   ModelType = "audio_translation"
 	ModelTypeImageGeneration    ModelType = "image_generation"
+	ModelTypeVideoGeneration    ModelType = "video_generation"
+	ModelTypeBatch              ModelType = "batch"
 	ModelTypeModeration         ModelType = "moderation"
 	ModelTypeRerank             ModelType = "rerank"
 	ModelTypeSearch             ModelType = "search"
@@ -76,10 +79,51 @@ const (
 	AccessScopeModel   AccessScope = "model"
 )
 
-// ModelPrice is normalized as USD per 1M tokens.
+// ModelPricingRate is one immutable, condition-aware catalog rate. Key is a
+// stable identity derived from dimension, unit, condition, region and effective
+// window; tenant private pricing overrides public pricing by this exact key.
+type ModelPricingRate struct {
+	Key           string                 `json:"key"`
+	Dimension     string                 `json:"dimension"`
+	Unit          string                 `json:"unit"`
+	UnitPriceUSD  string                 `json:"unit_price_usd"`
+	Condition     map[string]interface{} `json:"condition,omitempty"`
+	Region        string                 `json:"region,omitempty"`
+	EffectiveFrom *time.Time             `json:"effective_from,omitempty"`
+	EffectiveTo   *time.Time             `json:"effective_to,omitempty"`
+	SourceURL     string                 `json:"source_url,omitempty"`
+}
+
+// ModelPrice keeps the legacy two-token projection for existing clients while
+// Rates is the authoritative multi-dimensional price card.
 type ModelPrice struct {
-	InputUSDPer1M  *float64 `json:"input_usd_per_1m,omitempty"`
-	OutputUSDPer1M *float64 `json:"output_usd_per_1m,omitempty"`
+	InputUSDPer1M  *float64           `json:"input_usd_per_1m,omitempty"`
+	OutputUSDPer1M *float64           `json:"output_usd_per_1m,omitempty"`
+	Rates          []ModelPricingRate `json:"rates,omitempty"`
+}
+
+type CapabilityReadinessState string
+
+const (
+	CapabilityReadinessContractReady        CapabilityReadinessState = "contract_ready"
+	CapabilityReadinessBlockedLifecycle     CapabilityReadinessState = "blocked_lifecycle"
+	CapabilityReadinessPricingIncomplete    CapabilityReadinessState = "pricing_incomplete"
+	CapabilityReadinessUnsupportedTransport CapabilityReadinessState = "unsupported_transport"
+)
+
+// CapabilityReadiness reports operational support at endpoint/modality/
+// transport granularity. LiveValidated remains false until a real OpenAI
+// credential smoke test is deliberately added to the release process.
+type CapabilityReadiness struct {
+	Endpoint       string                   `json:"endpoint"`
+	Method         string                   `json:"method,omitempty"`
+	InputModality  string                   `json:"input_modality,omitempty"`
+	OutputModality string                   `json:"output_modality,omitempty"`
+	Transport      string                   `json:"transport,omitempty"`
+	State          CapabilityReadinessState `json:"state"`
+	Reason         string                   `json:"reason,omitempty"`
+	AuditRevision  string                   `json:"audit_revision,omitempty"`
+	LiveValidated  bool                     `json:"live_validated"`
 }
 
 // ProviderCatalogProvider is returned by the provider picker endpoint.
@@ -109,6 +153,7 @@ type ProviderCatalogModel struct {
 	Capabilities     []string               `json:"capabilities,omitempty"`
 	Features         []string               `json:"features,omitempty"`
 	PublicPricing    *ModelPrice            `json:"public_pricing,omitempty"`
+	Readiness        []CapabilityReadiness  `json:"readiness,omitempty"`
 	SettingsSchema   map[string]interface{} `json:"settings_schema,omitempty"`
 	IsDeprecated     bool                   `json:"is_deprecated,omitempty"`
 	ReplacementModel string                 `json:"replacement_model,omitempty"`
@@ -177,6 +222,7 @@ type TenantProviderAccountModel struct {
 	PublicPricing    *ModelPrice            `json:"public_pricing,omitempty"`
 	PrivatePricing   *ModelPrice            `json:"private_pricing,omitempty"`
 	Settings         map[string]interface{} `json:"settings,omitempty"`
+	Readiness        []CapabilityReadiness  `json:"readiness,omitempty"`
 }
 
 // AccessPrincipal is one user/team/everyone principal entry.
@@ -289,12 +335,12 @@ type UpdateTenantProviderAccountCredentialsRequest struct {
 
 // TestTenantProviderAccountCredentialsResponse returns test execution result.
 type TestTenantProviderAccountCredentialsResponse struct {
-	Success              bool       `json:"success"`
-	Unsupported          bool       `json:"unsupported,omitempty"`
-	Message              string     `json:"message,omitempty"`
-	WIFEffectiveScopes   []string   `json:"wif_effective_scopes,omitempty"`
-	WIFExpiresAt         *time.Time `json:"wif_expires_at,omitempty"`
-	WIFLastRefreshAt     *time.Time `json:"wif_last_refresh_at,omitempty"`
+	Success            bool       `json:"success"`
+	Unsupported        bool       `json:"unsupported,omitempty"`
+	Message            string     `json:"message,omitempty"`
+	WIFEffectiveScopes []string   `json:"wif_effective_scopes,omitempty"`
+	WIFExpiresAt       *time.Time `json:"wif_expires_at,omitempty"`
+	WIFLastRefreshAt   *time.Time `json:"wif_last_refresh_at,omitempty"`
 }
 
 // TenantProviderAccountDetailsResponse returns full account data for wizard editing.
@@ -340,6 +386,7 @@ type TenantProviderAccountModelAvailability struct {
 	EffectivePricing      *ModelPrice              `json:"effective_pricing,omitempty"`
 	PricingResolved       bool                     `json:"pricing_resolved"`
 	Readiness             ProviderAccountReadiness `json:"readiness"`
+	CapabilityReadiness   []CapabilityReadiness    `json:"capability_readiness,omitempty"`
 }
 
 // TenantProviderAccountModelCatalogItem is a tenant-visible model enriched
@@ -356,6 +403,7 @@ type TenantProviderAccountModelCatalogItem struct {
 	Capabilities     []string                                 `json:"capabilities,omitempty"`
 	Features         []string                                 `json:"features,omitempty"`
 	PublicPricing    *ModelPrice                              `json:"public_pricing,omitempty"`
+	Readiness        []CapabilityReadiness                    `json:"readiness,omitempty"`
 	IsDeprecated     bool                                     `json:"is_deprecated,omitempty"`
 	ReplacementModel string                                   `json:"replacement_model,omitempty"`
 	Availability     []TenantProviderAccountModelAvailability `json:"availability"`

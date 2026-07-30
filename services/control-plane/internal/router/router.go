@@ -42,11 +42,13 @@ type Deployment struct {
 	Weight              float64
 	CredentialSource    string
 	BillingMode         string
+	PricingMode         platform.PricingMode
 	ProviderAccountID   string
 	ProviderAccountName string
 	ConnectionID        string
 	CredentialVersionID string
 	ProviderAuth        *platform.ResolvedProviderAuth
+	EffectivePricing    *platform.ModelPrice
 }
 
 // DeploymentStore allows dynamic deployment lookup from persistence.
@@ -890,12 +892,14 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		TimeoutSec:          params.Timeout,
 		CredentialSource:    credentialSource,
 		BillingMode:         billingMode,
+		PricingMode:         dep.PricingMode,
 		ProviderAccountID:   dep.ProviderAccountID,
 		ProviderAccountName: dep.ProviderAccountName,
 		ConnectionID:        dep.ConnectionID,
 		CredentialVersionID: dep.CredentialVersionID,
 		ProviderAuth:        providerAuth,
 		ModelInfo:           dep.ModelInfo,
+		EffectivePricing:    dep.EffectivePricing,
 	}
 
 	noCredential := hydrated.ProviderAuth != nil &&
@@ -915,11 +919,13 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 		Weight:              fallbackWeight(hydrated),
 		CredentialSource:    credentialSource,
 		BillingMode:         billingMode,
+		PricingMode:         dep.PricingMode,
 		ProviderAccountID:   dep.ProviderAccountID,
 		ProviderAccountName: dep.ProviderAccountName,
 		ConnectionID:        dep.ConnectionID,
 		CredentialVersionID: dep.CredentialVersionID,
 		ProviderAuth:        providerAuth,
+		EffectivePricing:    dep.EffectivePricing,
 	}
 }
 

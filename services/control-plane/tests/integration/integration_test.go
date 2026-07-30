@@ -156,17 +156,17 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer sk-integration-key")
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req, int((30 * time.Second).Milliseconds()))
+	resp, requestErr := app.Test(req, int((30 * time.Second).Milliseconds()))
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
 	body, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.NoError(t, requestErr)
+	require.Equal(t, http.StatusOK, resp.StatusCode, string(body))
 
 	var completion contractsopenai.ChatCompletionResponse
-	assert.NoError(t, json.Unmarshal(body, &completion))
+	require.NoError(t, json.Unmarshal(body, &completion))
+	require.NotEmpty(t, completion.Choices)
 	assert.Equal(t, "hello from provider", completion.Choices[0].Message.Content)
 	assert.Len(t, walletStore.spendLogs, 1)
 	assert.Len(t, walletStore.requestLogs, 1)
@@ -2488,6 +2488,7 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 	}
 
 	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")
+	configureOpenAITestCatalog(t, billingSvc)
 	llmRouter, err := router.NewRouter(nil, config.RouterSettings{
 		RoutingStrategy: "simple-shuffle",
 		CooldownTime:    60,
@@ -2530,6 +2531,103 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 	walletStore.onSpend = keyStore.addSpend
 
 	return app, keyStore, modelStore, walletStore
+}
+
+func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
+	t.Helper()
+
+	t.Setenv("GODARAI_OPENAI_CONTRACT_READY", "true")
+	now := time.Now().UTC()
+	discovery := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/models/runtime-snapshot/openai", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
+			"provider":    "openai",
+			"revision":    "integration-openai-1",
+			"generatedAt": now,
+			"models": []interface{}{
+				map[string]interface{}{
+					"canonicalId": "openai/gpt-4o-mini",
+					"slug":        "gpt-4o-mini",
+					"status":      "active",
+					"runtimeProfile": map[string]interface{}{
+						"version": 1,
+						"profile": map[string]interface{}{
+							"version":    1,
+							"endpoints":  []string{"responses"},
+							"transports": []string{"http", "sse"},
+							"thinking": map[string]interface{}{
+								"defaultMode":  "disabled",
+								"allowedModes": []string{"disabled"},
+								"effortValues": []string{},
+							},
+							"assistantPrefill": false,
+							"sampling": map[string]interface{}{
+								"parameters":             []string{"temperature", "top_p"},
+								"disallowedWithThinking": []string{},
+							},
+							"tools": map[string]interface{}{
+								"custom":           true,
+								"server":           true,
+								"parallel":         true,
+								"structuredOutput": true,
+								"supported":        []string{"function_calling"},
+							},
+							"modalities": map[string]interface{}{
+								"input":  []string{"text", "image"},
+								"output": []string{"text"},
+							},
+							"requestControls": map[string]interface{}{
+								"serviceTierValues":  []string{"standard"},
+								"inferenceGeoValues": []string{"global"},
+								"speedValues":        []string{"standard"},
+							},
+							"betaHeaders": []string{},
+							"limits": map[string]interface{}{
+								"contextWindow":   128000,
+								"maxOutputTokens": 16384,
+								"messagesBytes":   1048576,
+								"batchBytes":      1048576,
+								"fileBytes":       1048576,
+							},
+						},
+						"sourceUrl":     "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+						"effectiveFrom": now.Add(-time.Hour),
+					},
+					"pricingRates": []interface{}{
+						map[string]interface{}{
+							"dimension":     "input_tokens",
+							"unit":          "token",
+							"unitPriceUsd":  "0.00000015",
+							"currency":      "USD",
+							"region":        "global",
+							"sourceUrl":     "https://developers.openai.com/api/docs/pricing",
+							"effectiveFrom": now.Add(-time.Hour),
+						},
+						map[string]interface{}{
+							"dimension":     "output_tokens",
+							"unit":          "token",
+							"unitPriceUsd":  "0.0000006",
+							"currency":      "USD",
+							"region":        "global",
+							"sourceUrl":     "https://developers.openai.com/api/docs/pricing",
+							"effectiveFrom": now.Add(-time.Hour),
+						},
+					},
+				},
+			},
+		}))
+	}))
+	t.Cleanup(discovery.Close)
+	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", discovery.URL)
+
+	manager, err := billing.NewCatalogPricingSnapshotManagerFromEnv(
+		"openai",
+		discovery.Client(),
+	)
+	require.NoError(t, err)
+	require.NoError(t, manager.Reload(context.Background()))
+	service.SetCatalogPricingSnapshotManager("openai", manager)
 }
 
 func createVirtualKey(t *testing.T, app *fiber.App, body string) platform.CreatedKey {

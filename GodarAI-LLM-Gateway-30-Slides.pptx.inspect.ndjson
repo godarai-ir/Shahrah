@@ -1,0 +1,786 @@
+{"kind":"deck","id":"pr/muoiis","name":"Deck"}
+{"kind":"layout","layoutId":"3e821bfd-e23b-4cd2-9edf-9637534eedca","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"92ff20c2-b293-4c3c-a6dc-afc9e26afb7e","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/6imafg","slide":1,"title":"GODARAI","textShapes":5}
+{"kind":"shape","id":"sh/excbu14n","slide":1,"bbox":[0,0,14,720]}
+{"kind":"shape","id":"sh/10nupg3e","slide":1,"bbox":[862,92,330,330]}
+{"kind":"textbox","id":"sh/rulcjmlc","slide":1,"text":"GODARAI","textPreview":"GODARAI","textChars":7,"textLines":1,"bbox":[72,70,260,26]}
+{"kind":"textbox","id":"sh/qtcbq14r","slide":1,"name":"deck-title","text":"LLM Gateway","textPreview":"LLM Gateway","textChars":11,"textLines":1,"bbox":[72,180,690,82]}
+{"kind":"textbox","id":"sh/dw3ulw3i","slide":1,"text":"One API. Any model. Production control.","textPreview":"One API. Any model. Production control.","textChars":39,"textLines":1,"bbox":[72,282,670,42]}
+{"kind":"shape","id":"sh/svutsrmx","slide":1,"bbox":[72,366,170,1]}
+{"kind":"textbox","id":"sh/bqpcvqlg","slide":1,"text":"Unified access, routing, security, observability, caching, prompts, and billing.","textPreview":"Unified access, routing, security, observability, caching, prompts, and billing.","textChars":80,"textLines":1,"bbox":[72,398,650,84]}
+{"kind":"textbox","id":"sh/apgv2l4v","slide":1,"text":"Product & technical overview  •  30 slides","textPreview":"Product & technical overview  •  30 slides","textChars":42,"textLines":1,"bbox":[72,626,520,22]}
+{"kind":"image","id":"im/58rmlcbq","slide":1,"name":"","alt":"GodarAI logo","bbox":[900,156,255,190]}
+{"kind":"notes","id":"nt/6imafg","slide":1,"text":"Open with the operating idea: the gateway is the stable control point between applications and a changing model market.\n\n[Sources]\n- D:\\source\\Shahrah\\web-assets\\colors.json\n- D:\\source\\Shahrah\\web-assets\\png\\natural\\dark\\godarai-mark-dark-2048x1506.png"}
+{"kind":"slide","id":"sl/3kmvvy","slide":2,"title":"OVERVIEW","textShapes":15}
+{"kind":"shape","id":"sh/elovqpsf","slide":2,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/1ofelkbq","slide":2,"name":"section-label","text":"OVERVIEW","textPreview":"OVERVIEW","textChars":8,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/0n6dsfa5","slide":2,"name":"slide-title","text":"One control plane for the LLM stack","textPreview":"One control plane for the LLM stack","textChars":35,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/29ovupsb","slide":2,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/pczep4b2","slide":2,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/obqdwzah","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/behwrets","slide":2,"bbox":[210,350,840,1]}
+{"kind":"textbox","id":"sh/ad8vy9sn","slide":2,"text":"Products\n& agents","textPreview":"Products | & agents","textChars":17,"textLines":2,"bbox":[86,292,210,116]}
+{"kind":"textbox","id":"sh/wn2tsfut","slide":2,"text":"GodarAI\nLLM Gateway","textPreview":"GodarAI | LLM Gateway","textChars":19,"textLines":2,"bbox":[452,266,370,168]}
+{"kind":"textbox","id":"sh/xovu1kbe","slide":2,"text":"OpenAI","textPreview":"OpenAI","textChars":6,"textLines":1,"bbox":[982,208,180,60]}
+{"kind":"textbox","id":"sh/alkbq5cn","slide":2,"text":"Anthropic","textPreview":"Anthropic","textChars":9,"textLines":1,"bbox":[982,288,180,60]}
+{"kind":"textbox","id":"sh/bmtczat8","slide":2,"text":"Google","textPreview":"Google","textChars":6,"textLines":1,"bbox":[982,368,180,60]}
+{"kind":"textbox","id":"sh/krmtwzup","slide":2,"text":"Cloud & local","textPreview":"Cloud & local","textChars":13,"textLines":1,"bbox":[982,448,180,60]}
+{"kind":"textbox","id":"sh/lsvu5kba","slide":2,"text":"API","textPreview":"API","textChars":3,"textLines":1,"bbox":[430,480,90,34]}
+{"kind":"textbox","id":"sh/yp4bupcz","slide":2,"text":"POLICY","textPreview":"POLICY","textChars":6,"textLines":1,"bbox":[532,480,110,34]}
+{"kind":"textbox","id":"sh/jqdc3utk","slide":2,"text":"DATA","textPreview":"DATA","textChars":4,"textLines":1,"bbox":[654,480,100,34]}
+{"kind":"textbox","id":"sh/8v6t0zu1","slide":2,"text":"COST","textPreview":"COST","textChars":4,"textLines":1,"bbox":[766,480,90,34]}
+{"kind":"textbox","id":"sh/tgfu94bm","slide":2,"text":"The application integrates once; governance and provider choice evolve behind the gateway.","textPreview":"The application integrates once; governance and provider choice evolve behind the gateway.","textChars":90,"textLines":1,"bbox":[270,570,740,50]}
+{"kind":"image","id":"im/qd83ihwz","slide":2,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/3kmvvy","slide":2,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\09_GodarAI_features.md\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\AIGateway.tsx\n- D:\\source\\Shahrah\\web-assets\\png\\natural\\dark\\godarai-mark-dark-2048x1506.png"}
+{"kind":"slide","id":"sl/phh5h2","slide":3,"title":"WHY A GATEWAY","textShapes":14}
+{"kind":"shape","id":"sh/dwna587u","slide":3,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/qtcbado3","slide":3,"name":"section-label","text":"WHY A GATEWAY","textPreview":"WHY A GATEWAY","textChars":13,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/buls3ypo","slide":3,"name":"slide-title","text":"Every provider otherwise becomes a new integration","textPreview":"Every provider otherwise becomes a new integration","textChars":50,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/l0nu9snq","slide":3,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/yxwbedof","slide":3,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/zy5s7ip0","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/g3at4j61","slide":3,"text":"WITHOUT","textPreview":"WITHOUT","textChars":7,"textLines":1,"bbox":[70,206,190,26]}
+{"kind":"textbox","id":"sh/143axo7m","slide":3,"text":"SDKs","textPreview":"SDKs","textChars":4,"textLines":1,"bbox":[70,252,160,34]}
+{"kind":"textbox","id":"sh/t0ra1kvq","slide":3,"text":"auth","textPreview":"auth","textChars":4,"textLines":1,"bbox":[260,252,160,34]}
+{"kind":"textbox","id":"sh/szi98fel","slide":3,"text":"schemas","textPreview":"schemas","textChars":7,"textLines":1,"bbox":[450,252,160,34]}
+{"kind":"textbox","id":"sh/ry98zad0","slide":3,"text":"retries","textPreview":"retries","textChars":7,"textLines":1,"bbox":[640,252,160,34]}
+{"kind":"textbox","id":"sh/6x0r65wf","slide":3,"text":"logs","textPreview":"logs","textChars":4,"textLines":1,"bbox":[830,252,160,34]}
+{"kind":"textbox","id":"sh/1oba54v2","slide":3,"text":"billing","textPreview":"billing","textChars":7,"textLines":1,"bbox":[1020,252,160,34]}
+{"kind":"shape","id":"sh/gn29czuh","slide":3,"bbox":[150,320,1,126]}
+{"kind":"shape","id":"sh/f2ts3udw","slide":3,"bbox":[338,320,1,126]}
+{"kind":"shape","id":"sh/e1krapcb","slide":3,"bbox":[526,320,1,126]}
+{"kind":"shape","id":"sh/psva94vy","slide":3,"bbox":[714,320,1,126]}
+{"kind":"shape","id":"sh/or29gzud","slide":3,"bbox":[902,320,1,126]}
+{"kind":"shape","id":"sh/ovatc32p","slide":3,"bbox":[1090,320,1,126]}
+{"kind":"textbox","id":"sh/9w3ul83a","slide":3,"text":"Repeated for every model provider","textPreview":"Repeated for every model provider","textChars":33,"textLines":1,"bbox":[70,468,480,38]}
+{"kind":"shape","id":"sh/m9sbadkj","slide":3,"bbox":[540,458,160,58]}
+{"kind":"textbox","id":"sh/nu1cjil4","slide":3,"text":"One stable\nGodarAI contract","textPreview":"One stable | GodarAI contract","textChars":27,"textLines":2,"bbox":[780,422,320,128]}
+{"kind":"textbox","id":"sh/wzutgn21","slide":3,"text":"Change providers without rebuilding the product edge.","textPreview":"Change providers without rebuilding the product edge.","textChars":53,"textLines":1,"bbox":[742,574,400,44]}
+{"kind":"image","id":"im/hsbuhcjq","slide":3,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/phh5h2","slide":3,"text":"[Sources]\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\AIGateway.tsx\n- D:\\source\\Shahrah\\docs\\content-glossary.md\n- D:\\source\\Shahrah\\web-assets\\png\\natural\\light\\godarai-mark-light-2048x1506.png"}
+{"kind":"slide","id":"sl/9jm0wg","slide":4,"title":"REQUEST PATH","textShapes":23}
+{"kind":"shape","id":"sh/idk7itob","slide":4,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/50vqd87m","slide":4,"name":"section-label","text":"REQUEST PATH","textPreview":"REQUEST PATH","textChars":12,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/kz29k361","slide":4,"name":"slide-title","text":"Policy shapes every request before inference","textPreview":"Policy shapes every request before inference","textChars":44,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/a9k7etoz","slide":4,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/xcbq9o7q","slide":4,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/wb2pg365","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/n6983epo","slide":4,"bbox":[132,344,890,1]}
+{"kind":"shape","id":"sh/m507a9o3","slide":4,"bbox":[122,294,58,58]}
+{"kind":"textbox","id":"sh/szi5wb6p","slide":4,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[122,307,58,32]}
+{"kind":"textbox","id":"sh/t0r6pg7a","slide":4,"text":"Authenticate","textPreview":"Authenticate","textChars":12,"textLines":1,"bbox":[74,378,154,30]}
+{"kind":"textbox","id":"sh/6xgnu18z","slide":4,"text":"PAT / VAT","textPreview":"PAT / VAT","textChars":9,"textLines":1,"bbox":[74,412,154,42]}
+{"kind":"shape","id":"sh/7y9on6pk","slide":4,"bbox":[300,294,58,58]}
+{"kind":"textbox","id":"sh/kby5srqt","slide":4,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[300,307,58,32]}
+{"kind":"textbox","id":"sh/5w76lw7e","slide":4,"text":"Authorize","textPreview":"Authorize","textChars":9,"textLines":1,"bbox":[252,378,154,30]}
+{"kind":"textbox","id":"sh/i9gnqh8n","slide":4,"text":"model + scope","textPreview":"model + scope","textChars":13,"textLines":1,"bbox":[252,412,154,42]}
+{"kind":"shape","id":"sh/japojmp8","slide":4,"bbox":[478,294,58,58]}
+{"kind":"textbox","id":"sh/472p4v6x","slide":4,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[478,307,58,32]}
+{"kind":"textbox","id":"sh/psb6x07i","slide":4,"text":"Protect","textPreview":"Protect","textChars":7,"textLines":1,"bbox":[430,378,154,30]}
+{"kind":"textbox","id":"sh/do76hgzm","slide":4,"text":"guardrails","textPreview":"guardrails","textChars":10,"textLines":1,"bbox":[430,412,154,42]}
+{"kind":"shape","id":"sh/cny5ovy1","slide":4,"bbox":[656,294,58,58]}
+{"kind":"textbox","id":"sh/bmpofqhw","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[656,307,58,32]}
+{"kind":"textbox","id":"sh/qlgnmlgb","slide":4,"text":"Optimize","textPreview":"Optimize","textChars":8,"textLines":1,"bbox":[608,378,154,30]}
+{"kind":"textbox","id":"sh/pkn6dgzq","slide":4,"text":"cache + route","textPreview":"cache + route","textChars":13,"textLines":1,"bbox":[608,412,154,42]}
+{"kind":"shape","id":"sh/oje5kby5","slide":4,"bbox":[834,294,58,58]}
+{"kind":"textbox","id":"sh/3i5ob6hk","slide":4,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[834,307,58,32]}
+{"kind":"textbox","id":"sh/2hwni1gz","slide":4,"text":"Infer","textPreview":"Infer","textChars":5,"textLines":1,"bbox":[786,378,154,30]}
+{"kind":"textbox","id":"sh/1gn69wze","slide":4,"text":"provider","textPreview":"provider","textChars":8,"textLines":1,"bbox":[786,412,154,42]}
+{"kind":"shape","id":"sh/gve5gbyt","slide":4,"bbox":[1012,294,58,58]}
+{"kind":"textbox","id":"sh/61s3axwr","slide":4,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1012,307,58,32]}
+{"kind":"textbox","id":"sh/r2lkj2xc","slide":4,"text":"Record","textPreview":"Record","textChars":6,"textLines":1,"bbox":[964,378,154,30]}
+{"kind":"textbox","id":"sh/snulc7ex","slide":4,"text":"usage + trace","textPreview":"usage + trace","textChars":13,"textLines":1,"bbox":[964,412,154,42]}
+{"kind":"textbox","id":"sh/to3mlcfi","slide":4,"text":"A single request path makes behavior consistent across providers.","textPreview":"A single request path makes behavior consistent across providers.","textChars":65,"textLines":1,"bbox":[310,534,660,42]}
+{"kind":"image","id":"im/6lcbylgj","slide":4,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/9jm0wg","slide":4,"text":"[Sources]\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\proxy\\handler.go\n- D:\\source\\Shahrah\\plans\\guardrails-implementation.md\n- D:\\source\\Shahrah\\plans\\vat-operationalization-requirements.md"}
+{"kind":"slide","id":"sl/m4s2q8","slide":5,"title":"UNIFIED API","textShapes":12}
+{"kind":"shape","id":"sh/p4rqh8bm","slide":5,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/21076tsv","slide":5,"name":"section-label","text":"UNIFIED API","textPreview":"UNIFIED API","textChars":11,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/n298fytg","slide":5,"name":"slide-title","text":"Unified API keeps the application contract stable","textPreview":"Unified API keeps the application contract stable","textChars":49,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/xsbql8bi","slide":5,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/apk7ads7","slide":5,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/bqt8jits","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/kv2pgna9","slide":5,"bbox":[70,194,620,386]}
+{"kind":"shape","id":"sh/lwvqpsbu","slide":5,"bbox":[90,212,10,10]}
+{"kind":"shape","id":"sh/lsfid8je","slide":5,"bbox":[108,212,10,10]}
+{"kind":"shape","id":"sh/0r6h43it","slide":5,"bbox":[126,212,10,10]}
+{"kind":"textbox","id":"sh/z6x0by18","slide":5,"text":"OpenAI-compatible client","textPreview":"OpenAI-compatible client","textChars":24,"textLines":1,"bbox":[154,206,516,24]}
+{"kind":"shape","id":"sh/y5oz2tkn","slide":5,"bbox":[90,236,580,1]}
+{"kind":"textbox","id":"sh/9wzih8ja","slide":5,"text":"const client = new OpenAI({\n  apiKey: process.env.GODARAI_TOKEN,\n  baseURL: \"https://api.godarai.ir/v1\"\n});\n\nconst result = await client.responses.create({\n  model: \"support-smart\",\n  input: \"Summarize this ticket\"\n});","textPreview":"const client = new OpenAI({ |   apiKey: process.env.GODARAI_TOKEN, |   baseURL: \"https://api.godarai.ir/v1\" | }); |  | const result = awa...","textChars":218,"textLines":9,"bbox":[94,250,572,314]}
+{"kind":"textbox","id":"sh/8vqh83ip","slide":5,"text":"The code owns intent.","textPreview":"The code owns intent.","textChars":21,"textLines":1,"bbox":[760,210,400,36]}
+{"kind":"shape","id":"sh/nux0fy1k","slide":5,"bbox":[760,281,10,10]}
+{"kind":"textbox","id":"sh/mtoz6d0z","slide":5,"text":"GodarAI owns provider translation.","textPreview":"GodarAI owns provider translation.","textChars":34,"textLines":1,"bbox":[784,274,376,42]}
+{"kind":"shape","id":"sh/p0vy5oj6","slide":5,"bbox":[760,345,10,10]}
+{"kind":"textbox","id":"sh/ozmhwj2l","slide":5,"text":"Policies apply consistently.","textPreview":"Policies apply consistently.","textChars":28,"textLines":1,"bbox":[784,338,376,42]}
+{"kind":"shape","id":"sh/gva983et","slide":5,"bbox":[760,409,10,10]}
+{"kind":"textbox","id":"sh/1wjq18ve","slide":5,"text":"Model aliases remain stable.","textPreview":"Model aliases remain stable.","textChars":28,"textLines":1,"bbox":[784,402,376,42]}
+{"kind":"shape","id":"sh/et8r6dwn","slide":5,"bbox":[760,473,10,10]}
+{"kind":"textbox","id":"sh/fu18zid8","slide":5,"text":"Telemetry and cost share one schema.","textPreview":"Telemetry and cost share one schema.","textChars":36,"textLines":1,"bbox":[784,466,376,42]}
+{"kind":"textbox","id":"sh/oja9cnep","slide":5,"text":"CHANGE BASE URL + TOKEN","textPreview":"CHANGE BASE URL + TOKEN","textChars":23,"textLines":1,"bbox":[760,548,290,34]}
+{"kind":"image","id":"im/hg3qxgb2","slide":5,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/m4s2q8","slide":5,"text":"[Sources]\n- D:\\source\\Shahrah\\docs\\content-glossary.md\n- D:\\source\\Shahrah\\plans\\vat-operationalization-requirements.md"}
+{"kind":"slide","id":"sl/e7tper","slide":6,"title":"UNIFIED API","textShapes":23}
+{"kind":"shape","id":"sh/z210jmtw","slide":6,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/k3u1c7uh","slide":6,"name":"section-label","text":"UNIFIED API","textPreview":"UNIFIED API","textChars":11,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/lo3ilcb2","slide":6,"name":"slide-title","text":"Use the endpoint that matches the job","textPreview":"Use the endpoint that matches the job","textChars":37,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"textbox","id":"sh/axsj6xcf","slide":6,"name":"subtitle","text":"Availability depends on the selected model, provider, and workspace configuration.","textPreview":"Availability depends on the selected model, provider, and workspace configuration.","textChars":82,"textLines":1,"bbox":[68,134,1020,34]}
+{"kind":"shape","id":"sh/cza187ul","slide":6,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/x0jihcbq","slide":6,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/utcji1sj","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/vu5kr6t4","slide":6,"text":"/v1/responses","textPreview":"/v1/responses","textChars":13,"textLines":1,"bbox":[70,196,350,30]}
+{"kind":"textbox","id":"sh/j6xcrydk","slide":6,"text":"Agentic, multimodal, tool-driven response","textPreview":"Agentic, multimodal, tool-driven response","textChars":41,"textLines":1,"bbox":[70,234,350,54]}
+{"kind":"shape","id":"sh/i5obitcz","slide":6,"bbox":[435,196,1,92]}
+{"kind":"shape","id":"sh/58fut8vq","slide":6,"bbox":[70,302,350,1]}
+{"kind":"textbox","id":"sh/k76tk3u5","slide":6,"text":"/v1/chat/completions","textPreview":"/v1/chat/completions","textChars":20,"textLines":1,"bbox":[462,196,350,30]}
+{"kind":"textbox","id":"sh/7axcvydw","slide":6,"text":"Conversation and structured generation","textPreview":"Conversation and structured generation","textChars":38,"textLines":1,"bbox":[462,234,350,54]}
+{"kind":"shape","id":"sh/69obmtcb","slide":6,"bbox":[827,196,1,92]}
+{"kind":"shape","id":"sh/tcfux8v2","slide":6,"bbox":[462,302,350,1]}
+{"kind":"textbox","id":"sh/sb6to3uh","slide":6,"text":"/v1/completions","textPreview":"/v1/completions","textChars":15,"textLines":1,"bbox":[854,196,350,30]}
+{"kind":"textbox","id":"sh/fehczids","slide":6,"text":"Legacy text-completion compatibility","textPreview":"Legacy text-completion compatibility","textChars":36,"textLines":1,"bbox":[854,234,350,54]}
+{"kind":"shape","id":"sh/ud8bqdc7","slide":6,"bbox":[854,302,350,1]}
+{"kind":"textbox","id":"sh/qtsfyhwf","slide":6,"text":"/v1/embeddings","textPreview":"/v1/embeddings","textChars":14,"textLines":1,"bbox":[70,328,350,30]}
+{"kind":"textbox","id":"sh/ru1wrmx0","slide":6,"text":"Vectors for search and retrieval","textPreview":"Vectors for search and retrieval","textChars":32,"textLines":1,"bbox":[70,366,350,54]}
+{"kind":"shape","id":"sh/cvax0rel","slide":6,"bbox":[435,328,1,92]}
+{"kind":"shape","id":"sh/dw3etwf6","slide":6,"bbox":[70,434,350,1]}
+{"kind":"textbox","id":"sh/25sfuxwj","slide":6,"text":"/v1/rerank","textPreview":"/v1/rerank","textChars":10,"textLines":1,"bbox":[462,328,350,30]}
+{"kind":"textbox","id":"sh/361wn2x4","slide":6,"text":"Reorder candidates by relevance","textPreview":"Reorder candidates by relevance","textChars":31,"textLines":1,"bbox":[462,366,350,54]}
+{"kind":"shape","id":"sh/47axw7ep","slide":6,"bbox":[827,328,1,92]}
+{"kind":"shape","id":"sh/p8jepcfa","slide":6,"bbox":[462,434,350,1]}
+{"kind":"textbox","id":"sh/m1cf61wn","slide":6,"text":"/v1/moderations","textPreview":"/v1/moderations","textChars":15,"textLines":1,"bbox":[854,328,350,30]}
+{"kind":"textbox","id":"sh/n2lwz6x8","slide":6,"text":"Model-based content safety","textPreview":"Model-based content safety","textChars":26,"textLines":1,"bbox":[854,366,350,54]}
+{"kind":"shape","id":"sh/h8rqlk3m","slide":6,"bbox":[854,434,350,1]}
+{"kind":"textbox","id":"sh/w7y9cz21","slide":6,"text":"/v1/messages","textPreview":"/v1/messages","textChars":12,"textLines":1,"bbox":[70,460,350,30]}
+{"kind":"textbox","id":"sh/v6p8julg","slide":6,"text":"Anthropic-compatible message contract","textPreview":"Anthropic-compatible message contract","textChars":37,"textLines":1,"bbox":[70,498,350,54]}
+{"kind":"shape","id":"sh/u5grapkb","slide":6,"bbox":[435,460,1,92]}
+{"kind":"textbox","id":"sh/947qhk3q","slide":6,"text":"/v1/audio/transcriptions","textPreview":"/v1/audio/transcriptions","textChars":24,"textLines":1,"bbox":[462,460,350,30]}
+{"kind":"textbox","id":"sh/83yp8f25","slide":6,"text":"Speech-to-text workloads","textPreview":"Speech-to-text workloads","textChars":24,"textLines":1,"bbox":[462,498,350,54]}
+{"kind":"shape","id":"sh/n2p8falk","slide":6,"bbox":[827,460,1,92]}
+{"kind":"textbox","id":"sh/m1g765kz","slide":6,"text":"/v1/models","textPreview":"/v1/models","textChars":10,"textLines":1,"bbox":[854,460,350,30]}
+{"kind":"textbox","id":"sh/t0bqto3u","slide":6,"text":"Discover models allowed to the caller","textPreview":"Discover models allowed to the caller","textChars":37,"textLines":1,"bbox":[854,498,350,54]}
+{"kind":"image","id":"im/y1kr2d8b","slide":6,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/e7tper","slide":6,"text":"[Sources]\n- D:\\source\\Shahrah\\docs\\content-glossary.md\n- D:\\source\\Shahrah\\plans\\truefoundry-provider-account-management-reference.md"}
+{"kind":"slide","id":"sl/s2dfmd","slide":7,"title":"KEY ENDPOINTS","textShapes":13}
+{"kind":"shape","id":"sh/sve5onq5","slide":7,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/7u54fipk","slide":7,"name":"section-label","text":"KEY ENDPOINTS","textPreview":"KEY ENDPOINTS","textChars":13,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/6twnmd8z","slide":7,"name":"slide-title","text":"Responses API is the path for agentic apps","textPreview":"Responses API is the path for agentic apps","textChars":42,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/kre5k3qt","slide":7,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/jq54byp8","slide":7,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/ipwnid8n","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/xonm987i","slide":7,"bbox":[70,190,610,390]}
+{"kind":"shape","id":"sh/wnu5g3qx","slide":7,"bbox":[90,208,10,10]}
+{"kind":"shape","id":"sh/qp876d4v","slide":7,"bbox":[108,208,10,10]}
+{"kind":"shape","id":"sh/bq1ofi5g","slide":7,"bbox":[126,208,10,10]}
+{"kind":"textbox","id":"sh/crap8nm1","slide":7,"text":"POST /v1/responses","textPreview":"POST /v1/responses","textChars":18,"textLines":1,"bbox":[154,202,506,24]}
+{"kind":"shape","id":"sh/dsj6h8nm","slide":7,"bbox":[90,232,570,1]}
+{"kind":"textbox","id":"sh/21872t4z","slide":7,"text":"{\n  \"model\": \"support-smart\",\n  \"instructions\": \"Be concise and factual.\",\n  \"input\": \"Resolve this customer issue.\",\n  \"tools\": [{ \"type\": \"function\", ... }],\n  \"max_output_tokens\": 400,\n  \"stream\": true\n}","textPreview":"{ |   \"model\": \"support-smart\", |   \"instructions\": \"Be concise and factual.\", |   \"input\": \"Resolve this customer issue.\", |   \"tools\": ...","textChars":206,"textLines":8,"bbox":[94,246,562,318]}
+{"kind":"textbox","id":"sh/32hoby54","slide":7,"text":"input","textPreview":"input","textChars":5,"textLines":1,"bbox":[748,210,410,48]}
+{"kind":"textbox","id":"sh/o3qp43mp","slide":7,"text":"Text, files, images, or structured content","textPreview":"Text, files, images, or structured content","textChars":42,"textLines":1,"bbox":[748,258,410,46]}
+{"kind":"textbox","id":"sh/p4z6d8na","slide":7,"text":"tools","textPreview":"tools","textChars":5,"textLines":1,"bbox":[748,332,410,48]}
+{"kind":"textbox","id":"sh/uxonyt4n","slide":7,"text":"Functions and agent actions","textPreview":"Functions and agent actions","textChars":27,"textLines":1,"bbox":[748,380,410,46]}
+{"kind":"textbox","id":"sh/fyho7y58","slide":7,"text":"output","textPreview":"output","textChars":6,"textLines":1,"bbox":[748,454,410,48]}
+{"kind":"textbox","id":"sh/j2d4ful0","slide":7,"text":"Typed response items and usage","textPreview":"Typed response items and usage","textChars":30,"textLines":1,"bbox":[748,502,410,46]}
+{"kind":"textbox","id":"sh/i1436pkf","slide":7,"text":"Use `max_output_tokens` for the output ceiling.","textPreview":"Use `max_output_tokens` for the output ceiling.","textChars":47,"textLines":1,"bbox":[748,574,410,34]}
+{"kind":"image","id":"im/gb6xw7q1","slide":7,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/s2dfmd","slide":7,"text":"[Sources]\n- D:\\source\\Shahrah\\docs\\content-glossary.md"}
+{"kind":"slide","id":"sl/a5hn82","slide":8,"title":"KEY ENDPOINTS","textShapes":12}
+{"kind":"shape","id":"sh/czyh03ux","slide":8,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/byp0ridc","slide":8,"name":"section-label","text":"KEY ENDPOINTS","textPreview":"KEY ENDPOINTS","textChars":13,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/qxgzydcr","slide":8,"name":"slide-title","text":"Chat Completions stays ideal for conversation","textPreview":"Chat Completions stays ideal for conversation","textChars":45,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/03i14nut","slide":8,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/z290vid8","slide":8,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/y1gj2dc3","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/9sri1svq","slide":8,"bbox":[70,190,610,398]}
+{"kind":"shape","id":"sh/8ri18nu5","slide":8,"bbox":[90,208,10,10]}
+{"kind":"shape","id":"sh/2pc36p0n","slide":8,"bbox":[108,208,10,10]}
+{"kind":"shape","id":"sh/3qlkzu18","slide":8,"bbox":[126,208,10,10]}
+{"kind":"textbox","id":"sh/4rul8zit","slide":8,"text":"POST /v1/chat/completions","textPreview":"POST /v1/chat/completions","textChars":25,"textLines":1,"bbox":[154,202,506,24]}
+{"kind":"shape","id":"sh/ps3214je","slide":8,"bbox":[90,232,570,1]}
+{"kind":"textbox","id":"sh/qtc3a90z","slide":8,"text":"{\n  \"model\": \"chat-stable\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"...\" },\n    { \"role\": \"user\", \"content\": \"...\" }\n  ],\n  \"response_format\": { \"type\": \"json_schema\" },\n  \"stream\": true\n}","textPreview":"{ |   \"model\": \"chat-stable\", |   \"messages\": [ |     { \"role\": \"system\", \"content\": \"...\" }, |     { \"role\": \"user\", \"content\": \"...\" } ...","textChars":200,"textLines":9,"bbox":[94,246,562,326]}
+{"kind":"textbox","id":"sh/rulk3e1k","slide":8,"text":"Best fit","textPreview":"Best fit","textChars":8,"textLines":1,"bbox":[760,206,220,32]}
+{"kind":"shape","id":"sh/cvelcji5","slide":8,"bbox":[760,265,10,10]}
+{"kind":"textbox","id":"sh/dgn254ja","slide":8,"text":"Multi-turn chat","textPreview":"Multi-turn chat","textChars":15,"textLines":1,"bbox":[784,258,356,42]}
+{"kind":"shape","id":"sh/6xsjy5kf","slide":8,"bbox":[760,319,10,10]}
+{"kind":"textbox","id":"sh/7y1kra10","slide":8,"text":"Structured output","textPreview":"Structured output","textChars":17,"textLines":1,"bbox":[784,312,356,42]}
+{"kind":"shape","id":"sh/bqd8jmdw","slide":8,"bbox":[760,373,10,10]}
+{"kind":"textbox","id":"sh/ap4rahwb","slide":8,"text":"Tool calling","textPreview":"Tool calling","textChars":12,"textLines":1,"bbox":[784,366,356,42]}
+{"kind":"shape","id":"sh/xsfqlcvm","slide":8,"bbox":[760,427,10,10]}
+{"kind":"textbox","id":"sh/crm9cre1","slide":8,"text":"Streaming interfaces","textPreview":"Streaming interfaces","textChars":20,"textLines":1,"bbox":[784,420,356,42]}
+{"kind":"shape","id":"sh/nmd8f2dk","slide":8,"bbox":[760,506,390,80]}
+{"kind":"textbox","id":"sh/2l4r6xwz","slide":8,"text":"Legacy `/v1/completions` can remain for compatibility; prefer Responses or Chat Completions for new work.","textPreview":"Legacy `/v1/completions` can remain for compatibility; prefer Responses or Chat Completions for new work.","textChars":105,"textLines":1,"bbox":[782,522,346,52]}
+{"kind":"image","id":"im/k3ilonyh","slide":8,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/a5hn82","slide":8,"text":"[Sources]\n- D:\\source\\Shahrah\\docs\\content-glossary.md"}
+{"kind":"slide","id":"sl/d4d5zl","slide":9,"title":"KEY ENDPOINTS","textShapes":22}
+{"kind":"shape","id":"sh/9032tc36","slide":9,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/mdsjix4f","slide":9,"name":"section-label","text":"KEY ENDPOINTS","textPreview":"KEY ENDPOINTS","textChars":13,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/ne1kr2l0","slide":9,"name":"slide-title","text":"Data and media share the same policy layer","textPreview":"Data and media share the same policy layer","textChars":42,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/x432xw32","slide":9,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/a1cjmh4r","slide":9,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/b2lkvmlc","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/s7q1cnmd","slide":9,"text":"EMBED","textPreview":"EMBED","textChars":5,"textLines":1,"bbox":[70,206,150,26]}
+{"kind":"textbox","id":"sh/d8j2ls3y","slide":9,"text":"/v1/embeddings","textPreview":"/v1/embeddings","textChars":14,"textLines":1,"bbox":[230,204,430,30]}
+{"kind":"textbox","id":"sh/l4vehcnu","slide":9,"text":"search • RAG • clustering","textPreview":"search • RAG • clustering","textChars":25,"textLines":1,"bbox":[694,206,350,28]}
+{"kind":"shape","id":"sh/032x8769","slide":9,"bbox":[70,258,1040,1]}
+{"kind":"textbox","id":"sh/z2twf25o","slide":9,"text":"RERANK","textPreview":"RERANK","textChars":6,"textLines":1,"bbox":[70,300,150,26]}
+{"kind":"textbox","id":"sh/yhkf6xo3","slide":9,"text":"/v1/rerank","textPreview":"/v1/rerank","textChars":10,"textLines":1,"bbox":[230,298,430,30]}
+{"kind":"textbox","id":"sh/98velcnq","slide":9,"text":"relevance • ordering","textPreview":"relevance • ordering","textChars":20,"textLines":1,"bbox":[694,300,350,28]}
+{"kind":"shape","id":"sh/87mxc765","slide":9,"bbox":[70,352,1040,1]}
+{"kind":"textbox","id":"sh/n6dwj25k","slide":9,"text":"MODERATE","textPreview":"MODERATE","textChars":8,"textLines":1,"bbox":[70,394,150,26]}
+{"kind":"textbox","id":"sh/m54fahof","slide":9,"text":"/v1/moderations","textPreview":"/v1/moderations","textChars":15,"textLines":1,"bbox":[230,392,430,30]}
+{"kind":"textbox","id":"sh/xcfypwn2","slide":9,"text":"content policy signal","textPreview":"content policy signal","textChars":21,"textLines":1,"bbox":[694,394,350,28]}
+{"kind":"shape","id":"sh/wb6xgr6h","slide":9,"bbox":[70,446,1040,1]}
+{"kind":"textbox","id":"sh/grep8zip","slide":9,"text":"TRANSCRIBE","textPreview":"TRANSCRIBE","textChars":10,"textLines":1,"bbox":[70,488,150,26]}
+{"kind":"textbox","id":"sh/1s7q1kza","slide":9,"text":"/v1/audio/transcriptions","textPreview":"/v1/audio/transcriptions","textChars":24,"textLines":1,"bbox":[230,486,430,30]}
+{"kind":"textbox","id":"sh/epw76p0j","slide":9,"text":"speech → text","textPreview":"speech → text","textChars":13,"textLines":1,"bbox":[694,488,350,28]}
+{"kind":"shape","id":"sh/fq58zuh4","slide":9,"bbox":[70,540,1040,1]}
+{"kind":"textbox","id":"sh/ovy9czi1","slide":9,"text":"AUTH","textPreview":"AUTH","textChars":4,"textLines":1,"bbox":[180,588,110,34]}
+{"kind":"textbox","id":"sh/pg7q54z6","slide":9,"text":"BUDGET","textPreview":"BUDGET","textChars":6,"textLines":1,"bbox":[310,588,120,34]}
+{"kind":"textbox","id":"sh/2tgrap0v","slide":9,"text":"GUARDRAILS","textPreview":"GUARDRAILS","textChars":10,"textLines":1,"bbox":[450,588,150,34]}
+{"kind":"textbox","id":"sh/3up83uhg","slide":9,"text":"LOGS","textPreview":"LOGS","textChars":4,"textLines":1,"bbox":[620,588,100,34]}
+{"kind":"textbox","id":"sh/4zup0fih","slide":9,"text":"BILLING","textPreview":"BILLING","textChars":7,"textLines":1,"bbox":[740,588,120,34]}
+{"kind":"textbox","id":"sh/5k3qt0z2","slide":9,"text":"TRACE","textPreview":"TRACE","textChars":5,"textLines":1,"bbox":[880,588,110,34]}
+{"kind":"image","id":"im/5s7u9w36","slide":9,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/d4d5zl","slide":9,"text":"[Sources]\n- D:\\source\\Shahrah\\docs\\content-glossary.md\n- D:\\source\\Shahrah\\plans\\truefoundry-provider-account-management-reference.md"}
+{"kind":"slide","id":"sl/gz1fyl","slide":10,"title":"BRING YOUR OWN KEY","textShapes":12}
+{"kind":"shape","id":"sh/3qx4batw","slide":10,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/or65kfah","slide":10,"name":"section-label","text":"BRING YOUR OWN KEY","textPreview":"BRING YOUR OWN KEY","textChars":18,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/psf6dkb2","slide":10,"name":"slide-title","text":"BYOK separates access from credential ownership","textPreview":"BYOK separates access from credential ownership","textChars":47,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/fmd47qt0","slide":10,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/gnm5gval","slide":10,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/1ovm90bq","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/yh8nqpsj","slide":10,"text":"APPLICATION","textPreview":"APPLICATION","textChars":11,"textLines":1,"bbox":[76,206,180,24]}
+{"kind":"textbox","id":"sh/zihojut4","slide":10,"text":"PAT / VAT","textPreview":"PAT / VAT","textChars":9,"textLines":1,"bbox":[76,246,220,92]}
+{"kind":"shape","id":"sh/nuhszexs","slide":10,"bbox":[296,292,200,1]}
+{"kind":"textbox","id":"sh/29or69wn","slide":10,"text":"GATEWAY","textPreview":"GATEWAY","textChars":7,"textLines":1,"bbox":[510,206,180,24]}
+{"kind":"textbox","id":"sh/pwza1ofy","slide":10,"text":"Authenticate\nAuthorize\nRoute","textPreview":"Authenticate | Authorize | Route","textChars":28,"textLines":3,"bbox":[510,236,250,134]}
+{"kind":"shape","id":"sh/ovq98jed","slide":10,"bbox":[760,292,190,1]}
+{"kind":"textbox","id":"sh/byhs3yx4","slide":10,"text":"UPSTREAM","textPreview":"UPSTREAM","textChars":8,"textLines":1,"bbox":[964,206,180,24]}
+{"kind":"textbox","id":"sh/ax8ratwj","slide":10,"text":"Tenant BYOK\nprovider credential","textPreview":"Tenant BYOK | provider credential","textChars":31,"textLines":2,"bbox":[964,236,220,134]}
+{"kind":"shape","id":"sh/x0za58fa","slide":10,"bbox":[92,454,1076,116]}
+{"kind":"textbox","id":"sh/czq9c3ep","slide":10,"text":"The app holds a GodarAI token—not every provider key.","textPreview":"The app holds a GodarAI token—not every provider key.","textChars":53,"textLines":1,"bbox":[126,476,620,34]}
+{"kind":"textbox","id":"sh/z21s7yx0","slide":10,"text":"Credential source is explicit: BYOK can remain externally billed; platform-managed usage can remain wallet billed.","textPreview":"Credential source is explicit: BYOK can remain externally billed; platform-managed usage can remain wallet billed.","textChars":114,"textLines":1,"bbox":[126,520,980,34]}
+{"kind":"image","id":"im/zy98buh4","slide":10,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/gz1fyl","slide":10,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\platform-managed-provider-credentials-product-analysis.md\n- D:\\source\\Shahrah\\plans\\vat-operationalization-requirements.md"}
+{"kind":"slide","id":"sl/uak7na","slide":11,"title":"BRING YOUR OWN KEY","textShapes":12}
+{"kind":"shape","id":"sh/dcvu90nu","slide":11,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/q94byl4j","slide":11,"name":"section-label","text":"BRING YOUR OWN KEY","textPreview":"BRING YOUR OWN KEY","textChars":18,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/badc7q54","slide":11,"name":"slide-title","text":"Provider secrets stay behind the gateway boundary","textPreview":"Provider secrets stay behind the gateway boundary","textChars":49,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/lgfud036","slide":11,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/yd4b254f","slide":11,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/zexcba50","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/gj2tsbmh","slide":11,"bbox":[70,194,730,398]}
+{"kind":"textbox","id":"sh/1kba1gn2","slide":11,"text":"Trusted control boundary","textPreview":"Trusted control boundary","textChars":24,"textLines":1,"bbox":[104,220,370,36]}
+{"kind":"shape","id":"sh/ds36lg3i","slide":11,"bbox":[104,291,10,10]}
+{"kind":"textbox","id":"sh/crupcb2x","slide":11,"text":"Encrypt secret material at rest.","textPreview":"Encrypt secret material at rest.","textChars":32,"textLines":1,"bbox":[128,284,576,42]}
+{"kind":"shape","id":"sh/rqloj6lc","slide":11,"bbox":[104,351,10,10]}
+{"kind":"textbox","id":"sh/qpcna147","slide":11,"text":"Return metadata—not the stored value.","textPreview":"Return metadata—not the stored value.","textChars":37,"textLines":1,"bbox":[128,344,576,42]}
+{"kind":"shape","id":"sh/1gn6pg3u","slide":11,"bbox":[104,411,10,10]}
+{"kind":"textbox","id":"sh/0vepgb29","slide":11,"text":"Inject credentials only for dispatch.","textPreview":"Inject credentials only for dispatch.","textChars":37,"textLines":1,"bbox":[128,404,576,42]}
+{"kind":"shape","id":"sh/zu5on6lo","slide":11,"bbox":[104,471,10,10]}
+{"kind":"textbox","id":"sh/etw7elk3","slide":11,"text":"Redact auth headers from logs and traces.","textPreview":"Redact auth headers from logs and traces.","textChars":41,"textLines":1,"bbox":[128,464,576,42]}
+{"kind":"shape","id":"sh/9k76t03q","slide":11,"bbox":[842,208,1,370]}
+{"kind":"textbox","id":"sh/ojepkv25","slide":11,"text":"NEVER","textPreview":"NEVER","textChars":5,"textLines":1,"bbox":[914,238,200,40]}
+{"kind":"textbox","id":"sh/8nm9gzah","slide":11,"text":"provider keys\nin client code","textPreview":"provider keys | in client code","textChars":28,"textLines":2,"bbox":[870,304,300,82]}
+{"kind":"textbox","id":"sh/9ofqp4b2","slide":11,"text":"or\nobservable payloads","textPreview":"or | observable payloads","textChars":22,"textLines":2,"bbox":[870,420,300,82]}
+{"kind":"image","id":"im/dc7at4ri","slide":11,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/uak7na","slide":11,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\platform-managed-provider-credentials-product-analysis.md\n- D:\\source\\Shahrah\\plans\\observability-platform-implementation-plan.md"}
+{"kind":"slide","id":"sl/5z76gd","slide":12,"title":"BRING YOUR OWN KEY","textShapes":20}
+{"kind":"shape","id":"sh/dgre54rq","slide":12,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/qd0fu98z","slide":12,"name":"section-label","text":"BRING YOUR OWN KEY","textPreview":"BRING YOUR OWN KEY","textChars":18,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/re9w3e9k","slide":12,"name":"slide-title","text":"Credentials follow a controlled lifecycle","textPreview":"Credentials follow a controlled lifecycle","textChars":41,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/5cre14re","slide":12,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/i9gvqp83","slide":12,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/3apwzu98","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/o72x43qd","slide":12,"bbox":[126,338,966,1]}
+{"kind":"shape","id":"sh/p8bydori","slide":12,"bbox":[132,292,70,70]}
+{"kind":"textbox","id":"sh/1k7qloje","slide":12,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[132,310,70,34]}
+{"kind":"textbox","id":"sh/0jepcj2t","slide":12,"text":"Draft","textPreview":"Draft","textChars":5,"textLines":1,"bbox":[82,392,170,32]}
+{"kind":"textbox","id":"sh/fi58je18","slide":12,"text":"new version","textPreview":"new version","textChars":11,"textLines":1,"bbox":[82,430,170,28]}
+{"kind":"shape","id":"sh/ehw7atk3","slide":12,"bbox":[356,292,70,70]}
+{"kind":"textbox","id":"sh/dgnqho3i","slide":12,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[356,310,70,34]}
+{"kind":"textbox","id":"sh/sfep8j2x","slide":12,"text":"Test","textPreview":"Test","textChars":4,"textLines":1,"bbox":[306,392,170,32]}
+{"kind":"textbox","id":"sh/re58felc","slide":12,"text":"minimal probe","textPreview":"minimal probe","textChars":13,"textLines":1,"bbox":[306,430,170,28]}
+{"kind":"shape","id":"sh/qtw769kr","slide":12,"bbox":[580,292,70,70]}
+{"kind":"textbox","id":"sh/xcrqt8jm","slide":12,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[580,310,70,34]}
+{"kind":"textbox","id":"sh/cbi9k321","slide":12,"text":"Activate","textPreview":"Activate","textChars":8,"textLines":1,"bbox":[530,392,170,32]}
+{"kind":"textbox","id":"sh/wvqtgrad","slide":12,"text":"audited switch","textPreview":"audited switch","textChars":14,"textLines":1,"bbox":[530,430,170,28]}
+{"kind":"shape","id":"sh/hgzapwry","slide":12,"bbox":[804,292,70,70]}
+{"kind":"textbox","id":"sh/utorehs7","slide":12,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[804,310,70,34]}
+{"kind":"textbox","id":"sh/vuxsnm9s","slide":12,"text":"Rotate","textPreview":"Rotate","textChars":6,"textLines":1,"bbox":[754,392,170,32]}
+{"kind":"textbox","id":"sh/8r69c7a1","slide":12,"text":"grace period","textPreview":"grace period","textChars":12,"textLines":1,"bbox":[754,430,170,28]}
+{"kind":"shape","id":"sh/9sfalcrm","slide":12,"bbox":[1028,292,70,70]}
+{"kind":"textbox","id":"sh/mporaxsb","slide":12,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1028,310,70,34]}
+{"kind":"textbox","id":"sh/nqxsj29g","slide":12,"text":"Rollback","textPreview":"Rollback","textChars":8,"textLines":1,"bbox":[978,392,170,32]}
+{"kind":"textbox","id":"sh/0nm987a5","slide":12,"text":"known good","textPreview":"known good","textChars":10,"textLines":1,"bbox":[978,430,170,28]}
+{"kind":"textbox","id":"sh/lofahsrq","slide":12,"text":"Save does not silently overwrite an active credential.","textPreview":"Save does not silently overwrite an active credential.","textChars":54,"textLines":1,"bbox":[250,538,780,40]}
+{"kind":"image","id":"im/pgva5gzm","slide":12,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/5z76gd","slide":12,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\platform-managed-provider-credentials-product-analysis.md"}
+{"kind":"slide","id":"sl/0qt6oq","slide":13,"title":"VIRTUAL MODELS","textShapes":10}
+{"kind":"shape","id":"sh/xkrq5o3a","slide":13,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/ahg7atkz","slide":13,"name":"section-label","text":"VIRTUAL MODELS","textPreview":"VIRTUAL MODELS","textChars":14,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/bip83ylk","slide":13,"name":"slide-title","text":"Virtual Models decouple products from providers","textPreview":"Virtual Models decouple products from providers","textChars":47,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/pg7q1o3e","slide":13,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/2dg769kn","slide":13,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/nep8zel8","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/8b294n2x","slide":13,"text":"support-smart","textPreview":"support-smart","textChars":13,"textLines":1,"bbox":[80,248,320,140]}
+{"kind":"textbox","id":"sh/tcbqd83i","slide":13,"text":"Stable model alias","textPreview":"Stable model alias","textChars":18,"textLines":1,"bbox":[106,410,266,30]}
+{"kind":"shape","id":"sh/1sfa10j6","slide":13,"bbox":[400,222,230,96]}
+{"kind":"shape","id":"sh/gr6tsvil","slide":13,"bbox":[400,318,230,1]}
+{"kind":"shape","id":"sh/fqxszq10","slide":13,"bbox":[400,318,230,96]}
+{"kind":"textbox","id":"sh/uporqlkf","slide":13,"text":"OpenAI\nmodel target","textPreview":"OpenAI | model target","textChars":19,"textLines":2,"bbox":[690,180,300,84]}
+{"kind":"textbox","id":"sh/tovaxgju","slide":13,"text":"Anthropic\nmodel target","textPreview":"Anthropic | model target","textChars":22,"textLines":2,"bbox":[690,276,300,84]}
+{"kind":"textbox","id":"sh/snm9ob2p","slide":13,"text":"Google\nmodel target","textPreview":"Google | model target","textChars":19,"textLines":2,"bbox":[690,372,300,84]}
+{"kind":"textbox","id":"sh/7mdsv614","slide":13,"text":"Change targets, order, and weights—without changing application code.","textPreview":"Change targets, order, and weights—without changing application code.","textChars":69,"textLines":1,"bbox":[210,544,860,40]}
+{"kind":"image","id":"im/1sbutk7m","slide":13,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/0qt6oq","slide":13,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\virtual-models-decision-log.md\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\virtualmodels\\virtualmodels.go"}
+{"kind":"slide","id":"sl/mdd8d5","slide":14,"title":"VIRTUAL MODELS","textShapes":18}
+{"kind":"shape","id":"sh/cjqhkrqp","slide":14,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/rihgrmp4","slide":14,"name":"section-label","text":"VIRTUAL MODELS","textPreview":"VIRTUAL MODELS","textChars":14,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/qh8zih8j","slide":14,"name":"slide-title","text":"Priority routing makes failover explicit","textPreview":"Priority routing makes failover explicit","textChars":40,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/4vqhg7qd","slide":14,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/3uxgn2ps","slide":14,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/2tozex87","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/hsfyls72","slide":14,"text":"ORDERED TARGET CHAIN","textPreview":"ORDERED TARGET CHAIN","textChars":20,"textLines":1,"bbox":[70,202,280,26]}
+{"kind":"shape","id":"sh/gr6hc7qh","slide":14,"bbox":[170,354,892,1]}
+{"kind":"shape","id":"sh/a90f6xoz","slide":14,"bbox":[110,302,104,104]}
+{"kind":"textbox","id":"sh/ba9gzipk","slide":14,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[110,330,104,44]}
+{"kind":"textbox","id":"sh/cvix8n65","slide":14,"text":"Primary","textPreview":"Primary","textChars":7,"textLines":1,"bbox":[66,434,190,36]}
+{"kind":"textbox","id":"sh/xwry1s7q","slide":14,"text":"try first","textPreview":"try first","textChars":9,"textLines":1,"bbox":[66,478,190,28]}
+{"kind":"shape","id":"sh/25gf2do3","slide":14,"bbox":[500,302,104,104]}
+{"kind":"textbox","id":"sh/n6pwvipo","slide":14,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[500,330,104,44]}
+{"kind":"textbox","id":"sh/o7ix4n6t","slide":14,"text":"Secondary","textPreview":"Secondary","textChars":9,"textLines":1,"bbox":[456,434,190,36]}
+{"kind":"textbox","id":"sh/p8ryxs7e","slide":14,"text":"on eligible failure","textPreview":"on eligible failure","textChars":19,"textLines":1,"bbox":[456,478,190,28]}
+{"kind":"shape","id":"sh/e1gfydor","slide":14,"bbox":[890,302,104,104]}
+{"kind":"textbox","id":"sh/f2pwrypc","slide":14,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[890,330,104,44]}
+{"kind":"textbox","id":"sh/j6lcze54","slide":14,"text":"Fallback","textPreview":"Fallback","textChars":8,"textLines":1,"bbox":[846,434,190,36]}
+{"kind":"textbox","id":"sh/ilcv694j","slide":14,"text":"last candidate","textPreview":"last candidate","textChars":14,"textLines":1,"bbox":[846,478,190,28]}
+{"kind":"textbox","id":"sh/58nu14na","slide":14,"text":"RETRY","textPreview":"RETRY","textChars":5,"textLines":1,"bbox":[322,568,120,34]}
+{"kind":"textbox","id":"sh/47ud8zmp","slide":14,"text":"COOLDOWN","textPreview":"COOLDOWN","textChars":8,"textLines":1,"bbox":[464,568,140,34]}
+{"kind":"textbox","id":"sh/ra5c3e5g","slide":14,"text":"FALLBACK","textPreview":"FALLBACK","textChars":8,"textLines":1,"bbox":[626,568,140,34]}
+{"kind":"textbox","id":"sh/69wva94v","slide":14,"text":"STABLE ERROR","textPreview":"STABLE ERROR","textChars":12,"textLines":1,"bbox":[788,568,170,34]}
+{"kind":"image","id":"im/cjid4bi5","slide":14,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/mdd8d5","slide":14,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\virtual-models-decision-log.md\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\virtualmodels\\virtualmodels.go"}
+{"kind":"slide","id":"sl/t2k4ff","slide":15,"title":"VIRTUAL MODELS","textShapes":12}
+{"kind":"shape","id":"sh/18b6d8bi","slide":15,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/el072tsr","slide":15,"name":"section-label","text":"VIRTUAL MODELS","textPreview":"VIRTUAL MODELS","textChars":14,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/fm9obytc","slide":15,"name":"slide-title","text":"Weighted routing spreads initial traffic","textPreview":"Weighted routing spreads initial traffic","textChars":40,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/pcb6hsre","slide":15,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/29k76ds3","slide":15,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/natofito","slide":15,"text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/4fi5wjap","slide":15,"text":"virtual model","textPreview":"virtual model","textChars":13,"textLines":1,"bbox":[70,260,260,116]}
+{"kind":"shape","id":"sh/5gr65oba","slide":15,"bbox":[330,208,260,110]}
+{"kind":"shape","id":"sh/dwnmpkje","slide":15,"bbox":[330,318,260,1]}
+{"kind":"shape","id":"sh/svelgf29","slide":15,"bbox":[330,318,260,110]}
+{"kind":"textbox","id":"sh/rul4na1o","slide":15,"text":"Target A","textPreview":"Target A","textChars":8,"textLines":1,"bbox":[640,198,250,84]}
+{"kind":"textbox","id":"sh/qtc3e5k3","slide":15,"text":"60%","textPreview":"60%","textChars":3,"textLines":1,"bbox":[930,216,160,46]}
+{"kind":"textbox","id":"sh/1knmtkjq","slide":15,"text":"Target B","textPreview":"Target B","textChars":8,"textLines":1,"bbox":[640,308,250,84]}
+{"kind":"textbox","id":"sh/0zelkz25","slide":15,"text":"30%","textPreview":"30%","textChars":3,"textLines":1,"bbox":[930,326,160,46]}
+{"kind":"textbox","id":"sh/fy54ru1k","slide":15,"text":"Target C","textPreview":"Target C","textChars":8,"textLines":1,"bbox":[640,418,250,84]}
+{"kind":"textbox","id":"sh/exw3ipkz","slide":15,"text":"10%","textPreview":"10%","textChars":3,"textLines":1,"bbox":[930,436,160,46]}
+{"kind":"textbox","id":"sh/po7mx4jm","slide":15,"text":"The selected target is probabilistic; retry and fallback remain deterministic.","textPreview":"The selected target is probabilistic; retry and fallback remain deterministic.","textChars":78,"textLines":1,"bbox":[186,560,900,40]}
+{"kind":"image","id":"im/hovmhor6","slide":15,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/t2k4ff","slide":15,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\virtual-model-weighted-strategy-executable-prompt.md\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\virtualmodels\\virtualmodels.go"}
+{"kind":"slide","id":"sl/50pkbg","slide":16,"title":"ROUTING STRATEGIES","textShapes":21}
+{"kind":"shape","id":"sh/nq18765o","slide":16,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/orapgb69","slide":16,"name":"section-label","text":"ROUTING STRATEGIES","textPreview":"ROUTING STRATEGIES","textChars":18,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/ps3q9gnu","slide":16,"name":"slide-title","text":"Strategy is a policy choice—not application code","textPreview":"Strategy is a policy choice—not application code","textChars":48,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/bul8bq5k","slide":16,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/cvu9kb65","slide":16,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/xw3qdgnq","slide":16,"text":"16","textPreview":"16","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/yhcrmlob","slide":16,"text":"CORE VIRTUAL MODEL STRATEGIES","textPreview":"CORE VIRTUAL MODEL STRATEGIES","textChars":29,"textLines":1,"bbox":[70,198,420,26]}
+{"kind":"textbox","id":"sh/zil8fq5w","slide":16,"text":"Priority","textPreview":"Priority","textChars":8,"textLines":1,"bbox":[70,244,240,36]}
+{"kind":"textbox","id":"sh/bmp4b610","slide":16,"text":"Weighted","textPreview":"Weighted","textChars":8,"textLines":1,"bbox":[360,244,240,36]}
+{"kind":"textbox","id":"sh/alg321kf","slide":16,"text":"Ordered resilience","textPreview":"Ordered resilience","textChars":18,"textLines":1,"bbox":[70,286,240,28]}
+{"kind":"textbox","id":"sh/xormdgjq","slide":16,"text":"Traffic distribution","textPreview":"Traffic distribution","textChars":20,"textLines":1,"bbox":[360,286,240,28]}
+{"kind":"shape","id":"sh/wnil4b25","slide":16,"bbox":[70,338,520,1]}
+{"kind":"textbox","id":"sh/nypk761o","slide":16,"text":"EXTENSIBLE POLICY STRATEGIES","textPreview":"EXTENSIBLE POLICY STRATEGIES","textChars":28,"textLines":1,"bbox":[70,382,420,26]}
+{"kind":"textbox","id":"sh/2xg3y1k3","slide":16,"text":"Lowest cost","textPreview":"Lowest cost","textChars":11,"textLines":1,"bbox":[70,430,280,28]}
+{"kind":"textbox","id":"sh/p0729wju","slide":16,"text":"optimize unit economics","textPreview":"optimize unit economics","textChars":23,"textLines":1,"bbox":[70,462,280,26]}
+{"kind":"textbox","id":"sh/ozyl0r29","slide":16,"text":"Lowest latency","textPreview":"Lowest latency","textChars":14,"textLines":1,"bbox":[380,430,280,28]}
+{"kind":"textbox","id":"sh/7u94jq1s","slide":16,"text":"optimize response time","textPreview":"optimize response time","textChars":22,"textLines":1,"bbox":[380,462,280,26]}
+{"kind":"textbox","id":"sh/6t03alkn","slide":16,"text":"Least busy","textPreview":"Least busy","textChars":10,"textLines":1,"bbox":[70,512,280,28]}
+{"kind":"textbox","id":"sh/21ofyt8r","slide":16,"text":"balance live capacity","textPreview":"balance live capacity","textChars":21,"textLines":1,"bbox":[70,544,280,26]}
+{"kind":"textbox","id":"sh/3mxgrypc","slide":16,"text":"Simple shuffle","textPreview":"Simple shuffle","textChars":14,"textLines":1,"bbox":[380,512,280,28]}
+{"kind":"textbox","id":"sh/4n6x0jqx","slide":16,"text":"spread attempts simply","textPreview":"spread attempts simply","textChars":22,"textLines":1,"bbox":[380,544,280,26]}
+{"kind":"shape","id":"sh/pofyto7i","slide":16,"bbox":[712,206,426,340]}
+{"kind":"textbox","id":"sh/qpof2t83","slide":16,"text":"app request","textPreview":"app request","textChars":11,"textLines":1,"bbox":[768,252,310,34]}
+{"kind":"textbox","id":"sh/rqxgvypo","slide":16,"text":"model: \"support-smart\"","textPreview":"model: \"support-smart\"","textChars":22,"textLines":1,"bbox":[770,308,306,34]}
+{"kind":"shape","id":"sh/crqx43q9","slide":16,"bbox":[925,368,1,62]}
+{"kind":"textbox","id":"sh/dszyx87e","slide":16,"text":"Routing policy can change\nwithout a new product release.","textPreview":"Routing policy can change | without a new product release.","textChars":56,"textLines":2,"bbox":[770,448,306,60]}
+{"kind":"image","id":"im/j2xkjmx8","slide":16,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/50pkbg","slide":16,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\09_GodarAI_features.md\n- D:\\source\\Shahrah\\plans\\virtual-model-weighted-strategy-executable-prompt.md\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\virtualmodels\\virtualmodels.go"}
+{"kind":"slide","id":"sl/9h1dxg","slide":17,"title":"ROUTING RESILIENCE","textShapes":17}
+{"kind":"shape","id":"sh/hcry9cri","slide":17,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/u90fyxsr","slide":17,"name":"section-label","text":"ROUTING RESILIENCE","textPreview":"ROUTING RESILIENCE","textChars":18,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/va9g729c","slide":17,"name":"slide-title","text":"Retries, cooldowns, and fallback protect availability","textPreview":"Retries, cooldowns, and fallback protect availability","textChars":53,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/98ry5sr6","slide":17,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/mlgfuxsv","slide":17,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/7mpw32tg","slide":17,"text":"17","textPreview":"17","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/kjyxsnap","slide":17,"bbox":[160,330,890,1]}
+{"kind":"shape","id":"sh/lk7e1sba","slide":17,"bbox":[136,278,84,84]}
+{"kind":"textbox","id":"sh/dsnax4fq","slide":17,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[136,300,84,38]}
+{"kind":"textbox","id":"sh/s7utozy5","slide":17,"text":"Attempt","textPreview":"Attempt","textChars":7,"textLines":1,"bbox":[90,392,176,32]}
+{"kind":"textbox","id":"sh/r6lsvuxk","slide":17,"text":"target A","textPreview":"target A","textChars":8,"textLines":1,"bbox":[90,432,176,28]}
+{"kind":"shape","id":"sh/q5cbm9gz","slide":17,"bbox":[422,278,84,84]}
+{"kind":"textbox","id":"sh/543at4fu","slide":17,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[422,300,84,38]}
+{"kind":"textbox","id":"sh/43utkzy9","slide":17,"text":"Retry","textPreview":"Retry","textChars":5,"textLines":1,"bbox":[376,392,176,32]}
+{"kind":"textbox","id":"sh/j2lsruxo","slide":17,"text":"same policy","textPreview":"same policy","textChars":11,"textLines":1,"bbox":[376,432,176,28]}
+{"kind":"shape","id":"sh/i1cbipg3","slide":17,"bbox":[708,278,84,84]}
+{"kind":"textbox","id":"sh/h0japkfi","slide":17,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[708,300,84,38]}
+{"kind":"textbox","id":"sh/wzatgfyx","slide":17,"text":"Cooldown","textPreview":"Cooldown","textChars":8,"textLines":1,"bbox":[662,392,176,32]}
+{"kind":"textbox","id":"sh/8jetwf6t","slide":17,"text":"unhealthy target","textPreview":"unhealthy target","textChars":16,"textLines":1,"bbox":[662,432,176,28]}
+{"kind":"shape","id":"sh/9kna5kne","slide":17,"bbox":[994,278,84,84]}
+{"kind":"textbox","id":"sh/mhwbupon","slide":17,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[994,300,84,38]}
+{"kind":"textbox","id":"sh/ni5s3u58","slide":17,"text":"Fallback","textPreview":"Fallback","textChars":8,"textLines":1,"bbox":[948,392,176,32]}
+{"kind":"textbox","id":"sh/0fetsf6x","slide":17,"text":"next target","textPreview":"next target","textChars":11,"textLines":1,"bbox":[948,432,176,28]}
+{"kind":"shape","id":"sh/lgna1kni","slide":17,"bbox":[248,526,784,72]}
+{"kind":"textbox","id":"sh/ydcbq5or","slide":17,"text":"Failure behavior is centralized, observable, and consistent.","textPreview":"Failure behavior is centralized, observable, and consistent.","textChars":60,"textLines":1,"bbox":[286,546,708,32]}
+{"kind":"image","id":"im/9wrapsva","slide":17,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/9h1dxg","slide":17,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\virtual-models-decision-log.md\n- D:\\source\\Shahrah\\plans\\virtual-model-weighted-strategy-executable-prompt.md\n- D:\\source\\Shahrah\\plans\\09_GodarAI_features.md"}
+{"kind":"slide","id":"sl/97t5yq","slide":18,"title":"IDENTITY","textShapes":13}
+{"kind":"shape","id":"sh/lwjetkju","slide":18,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/yt8vi5k3","slide":18,"name":"section-label","text":"IDENTITY","textPreview":"IDENTITY","textChars":8,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/zuhwra1o","slide":18,"name":"slide-title","text":"PAT and VAT separate human and service identities","textPreview":"PAT and VAT separate human and service identities","textChars":49,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/dszep0jy","slide":18,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/qp8ve5k7","slide":18,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/rqhwna1s","slide":18,"text":"18","textPreview":"18","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/wnaxsz2h","slide":18,"bbox":[126,226,190,190]}
+{"kind":"textbox","id":"sh/xo3e14j2","slide":18,"text":"PAT","textPreview":"PAT","textChars":3,"textLines":1,"bbox":[126,268,190,52]}
+{"kind":"textbox","id":"sh/x0bu5wnm","slide":18,"text":"human","textPreview":"human","textChars":5,"textLines":1,"bbox":[126,326,190,30]}
+{"kind":"shape","id":"sh/wzitcr61","slide":18,"bbox":[472,226,190,190]}
+{"kind":"textbox","id":"sh/by9c365g","slide":18,"text":"VAT","textPreview":"VAT","textChars":3,"textLines":1,"bbox":[472,268,190,52]}
+{"kind":"textbox","id":"sh/ax0ba1ob","slide":18,"text":"service","textPreview":"service","textChars":7,"textLines":1,"bbox":[472,326,190,30]}
+{"kind":"shape","id":"sh/9wru1wnq","slide":18,"bbox":[748,214,1,262]}
+{"kind":"shape","id":"sh/ovit8r65","slide":18,"bbox":[806,237,10,10]}
+{"kind":"textbox","id":"sh/na9szm5k","slide":18,"text":"Same Bearer-token developer experience","textPreview":"Same Bearer-token developer experience","textChars":38,"textLines":1,"bbox":[830,230,336,42]}
+{"kind":"shape","id":"sh/m90b6hoz","slide":18,"bbox":[806,305,10,10]}
+{"kind":"textbox","id":"sh/tsvudgnu","slide":18,"text":"Different ownership and lifecycle","textPreview":"Different ownership and lifecycle","textChars":33,"textLines":1,"bbox":[830,298,336,42]}
+{"kind":"shape","id":"sh/8r2tkb69","slide":18,"bbox":[806,373,10,10]}
+{"kind":"textbox","id":"sh/sbadgzul","slide":18,"text":"Scoped model and policy access","textPreview":"Scoped model and policy access","textChars":30,"textLines":1,"bbox":[830,366,336,42]}
+{"kind":"shape","id":"sh/tc3e94v6","slide":18,"bbox":[806,441,10,10]}
+{"kind":"textbox","id":"sh/69svepcf","slide":18,"text":"Independent revoke and rotation","textPreview":"Independent revoke and rotation","textChars":31,"textLines":1,"bbox":[830,434,336,42]}
+{"kind":"textbox","id":"sh/ra1w7ud0","slide":18,"text":"Identity is the anchor for audit, policy, and billing.","textPreview":"Identity is the anchor for audit, policy, and billing.","textChars":54,"textLines":1,"bbox":[214,548,850,40]}
+{"kind":"image","id":"im/tkfulobe","slide":18,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/97t5yq","slide":18,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\vat-operationalization-requirements.md\n- D:\\source\\Shahrah\\plans\\tenant-organization-team-design.md"}
+{"kind":"slide","id":"sl/b2f9pp","slide":19,"title":"IDENTITY","textShapes":23}
+{"kind":"shape","id":"sh/1kzyxsba","slide":19,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/ehof2dcz","slide":19,"name":"section-label","text":"IDENTITY","textPreview":"IDENTITY","textChars":8,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/fixgvit4","slide":19,"name":"slide-title","text":"PAT for people; VAT for production workloads","textPreview":"PAT for people; VAT for production workloads","textChars":44,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/p8zy1sbm","slide":19,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/2l8z6dcv","slide":19,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/nmhgzitg","slide":19,"text":"19","textPreview":"19","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/cbahc7ux","slide":19,"text":"PAT","textPreview":"PAT","textChars":3,"textLines":1,"bbox":[176,200,240,44]}
+{"kind":"textbox","id":"sh/xcjy5cbi","slide":19,"text":"VAT","textPreview":"VAT","textChars":3,"textLines":1,"bbox":[858,200,240,44]}
+{"kind":"shape","id":"sh/p4bit0fm","slide":19,"bbox":[640,198,1,390]}
+{"kind":"textbox","id":"sh/4j2h0vy1","slide":19,"text":"Owner","textPreview":"Owner","textChars":5,"textLines":1,"bbox":[92,286,150,28]}
+{"kind":"textbox","id":"sh/3it0rqxg","slide":19,"text":"individual user","textPreview":"individual user","textChars":15,"textLines":1,"bbox":[242,286,320,30]}
+{"kind":"textbox","id":"sh/ihkzylgv","slide":19,"text":"Best for","textPreview":"Best for","textChars":8,"textLines":1,"bbox":[92,356,150,28]}
+{"kind":"textbox","id":"sh/d8vix0fi","slide":19,"text":"local development","textPreview":"local development","textChars":17,"textLines":1,"bbox":[242,356,320,30]}
+{"kind":"textbox","id":"sh/c7mh4vyd","slide":19,"text":"Lifecycle","textPreview":"Lifecycle","textChars":9,"textLines":1,"bbox":[92,426,150,28]}
+{"kind":"textbox","id":"sh/r6d0vaxs","slide":19,"text":"user-managed","textPreview":"user-managed","textChars":12,"textLines":1,"bbox":[242,426,320,30]}
+{"kind":"textbox","id":"sh/q5kz25g7","slide":19,"text":"Risk boundary","textPreview":"Risk boundary","textChars":13,"textLines":1,"bbox":[92,496,150,28]}
+{"kind":"textbox","id":"sh/tcrilgfe","slide":19,"text":"personal access","textPreview":"personal access","textChars":15,"textLines":1,"bbox":[242,496,320,30]}
+{"kind":"textbox","id":"sh/8bihsbyt","slide":19,"text":"Owner","textPreview":"Owner","textChars":5,"textLines":1,"bbox":[708,286,150,28]}
+{"kind":"textbox","id":"sh/k769ofa1","slide":19,"text":"virtual user / service","textPreview":"virtual user / service","textChars":22,"textLines":1,"bbox":[858,286,320,30]}
+{"kind":"textbox","id":"sh/l8fqxkrm","slide":19,"text":"Best for","textPreview":"Best for","textChars":8,"textLines":1,"bbox":[708,356,150,28]}
+{"kind":"textbox","id":"sh/y5orm5sv","slide":19,"text":"apps, CI/CD, jobs","textPreview":"apps, CI/CD, jobs","textChars":17,"textLines":1,"bbox":[858,356,320,30]}
+{"kind":"textbox","id":"sh/j6x8va9g","slide":19,"text":"Lifecycle","textPreview":"Lifecycle","textChars":9,"textLines":1,"bbox":[708,426,150,28]}
+{"kind":"textbox","id":"sh/8v69sfax","slide":19,"text":"team-managed","textPreview":"team-managed","textChars":12,"textLines":1,"bbox":[858,426,320,30]}
+{"kind":"textbox","id":"sh/twza1kri","slide":19,"text":"Risk boundary","textPreview":"Risk boundary","textChars":13,"textLines":1,"bbox":[708,496,150,28]}
+{"kind":"textbox","id":"sh/69orq5s7","slide":19,"text":"one workload","textPreview":"one workload","textChars":12,"textLines":1,"bbox":[858,496,320,30]}
+{"kind":"textbox","id":"sh/7ax8za9c","slide":19,"text":"Do not bind production availability to a person’s account.","textPreview":"Do not bind production availability to a person’s account.","textChars":58,"textLines":1,"bbox":[312,590,656,36]}
+{"kind":"image","id":"im/pwbmdkzm","slide":19,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/b2f9pp","slide":19,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\vat-operationalization-requirements.md\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\SecurityCompliance.tsx"}
+{"kind":"slide","id":"sl/o2f8nf","slide":20,"title":"IDENTITY & POLICY","textShapes":15}
+{"kind":"shape","id":"sh/vmpwbmxk","slide":20,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/gnyxkry5","slide":20,"name":"section-label","text":"IDENTITY & POLICY","textPreview":"IDENTITY & POLICY","textChars":17,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/horedwfa","slide":20,"name":"slide-title","text":"Access narrows as it moves down the hierarchy","textPreview":"Access narrows as it moves down the hierarchy","textChars":45,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/7ipw72x8","slide":20,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/8jyxg7yt","slide":20,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/tk7e9cfe","slide":20,"text":"20","textPreview":"20","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/qd0fq1g7","slide":20,"bbox":[175,190,930,62]}
+{"kind":"textbox","id":"sh/re9gj6xs","slide":20,"text":"Tenant","textPreview":"Tenant","textChars":6,"textLines":1,"bbox":[199,203,240,30]}
+{"kind":"textbox","id":"sh/zax0rahs","slide":20,"text":"all approved provider accounts + models","textPreview":"all approved provider accounts + models","textChars":39,"textLines":1,"bbox":[455,204,622,28]}
+{"kind":"shape","id":"sh/epoji5gn","slide":20,"bbox":[230,270,820,62]}
+{"kind":"textbox","id":"sh/1cfit0zy","slide":20,"text":"Org unit","textPreview":"Org unit","textChars":8,"textLines":1,"bbox":[254,283,240,30]}
+{"kind":"textbox","id":"sh/0b61kvyd","slide":20,"text":"business boundary","textPreview":"business boundary","textChars":17,"textLines":1,"bbox":[510,284,512,28]}
+{"kind":"shape","id":"sh/nex0vah4","slide":20,"bbox":[285,350,710,62]}
+{"kind":"textbox","id":"sh/mdojm5gj","slide":20,"text":"Team","textPreview":"Team","textChars":4,"textLines":1,"bbox":[309,363,240,30]}
+{"kind":"textbox","id":"sh/9gzixkza","slide":20,"text":"shared workload scope","textPreview":"shared workload scope","textChars":21,"textLines":1,"bbox":[565,364,402,28]}
+{"kind":"shape","id":"sh/ofq1ofyp","slide":20,"bbox":[340,430,600,62]}
+{"kind":"textbox","id":"sh/bih0zuh0","slide":20,"text":"User / Virtual user","textPreview":"User / Virtual user","textChars":19,"textLines":1,"bbox":[364,443,240,30]}
+{"kind":"textbox","id":"sh/ah8jqpgf","slide":20,"text":"identity permissions","textPreview":"identity permissions","textChars":20,"textLines":1,"bbox":[620,444,292,28]}
+{"kind":"shape","id":"sh/6ds3yt0n","slide":20,"bbox":[390,510,500,62]}
+{"kind":"textbox","id":"sh/7el4re18","slide":20,"text":"PAT / VAT","textPreview":"PAT / VAT","textChars":9,"textLines":1,"bbox":[414,523,240,30]}
+{"kind":"textbox","id":"sh/sful0jit","slide":20,"text":"final model + budget limits","textPreview":"final model + budget limits","textChars":27,"textLines":1,"bbox":[670,524,192,28]}
+{"kind":"textbox","id":"sh/t03mtoje","slide":20,"text":"A token can inherit access—but it cannot expand beyond its parent scope.","textPreview":"A token can inherit access—but it cannot expand beyond its parent scope.","textChars":72,"textLines":1,"bbox":[230,606,820,34]}
+{"kind":"image","id":"im/fahkbihk","slide":20,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/o2f8nf","slide":20,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\tenant-organization-team-design.md\n- D:\\source\\Shahrah\\plans\\vat-operationalization-requirements.md"}
+{"kind":"slide","id":"sl/pj1tcv","slide":21,"title":"OBSERVABILITY","textShapes":14}
+{"kind":"shape","id":"sh/kn29w7ax","slide":21,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/jmt8n29c","slide":21,"name":"section-label","text":"OBSERVABILITY","textPreview":"OBSERVABILITY","textChars":13,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/ilkruxsr","slide":21,"name":"slide-title","text":"Every request becomes an observable event","textPreview":"Every request becomes an observable event","textChars":41,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/wj2psnal","slide":21,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/vit8ji90","slide":21,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/ahk7qxsf","slide":21,"text":"21","textPreview":"21","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/hgfqxwra","slide":21,"text":"Request","textPreview":"Request","textChars":7,"textLines":1,"bbox":[78,276,180,92]}
+{"kind":"shape","id":"sh/gfm94rap","slide":21,"bbox":[258,322,140,1]}
+{"kind":"textbox","id":"sh/i5gjy10b","slide":21,"text":"Gateway trace","textPreview":"Gateway trace","textChars":13,"textLines":1,"bbox":[408,246,290,152]}
+{"kind":"shape","id":"sh/36p076hw","slide":21,"bbox":[698,220,150,102]}
+{"kind":"shape","id":"sh/4ry10bih","slide":21,"bbox":[698,322,150,1]}
+{"kind":"shape","id":"sh/5s72twzm","slide":21,"bbox":[698,322,150,102]}
+{"kind":"textbox","id":"sh/u1wjuh0z","slide":21,"text":"Logs","textPreview":"Logs","textChars":4,"textLines":1,"bbox":[900,178,220,76]}
+{"kind":"textbox","id":"sh/v2503mhk","slide":21,"text":"Metrics","textPreview":"Metrics","textChars":7,"textLines":1,"bbox":[900,284,220,76]}
+{"kind":"textbox","id":"sh/g3y1wri5","slide":21,"text":"Spend","textPreview":"Spend","textChars":5,"textLines":1,"bbox":[900,390,220,76]}
+{"kind":"textbox","id":"sh/h47i5wzq","slide":21,"text":"request_id","textPreview":"request_id","textChars":10,"textLines":1,"bbox":[302,514,140,34]}
+{"kind":"textbox","id":"sh/ex0j6l0j","slide":21,"text":"trace_id","textPreview":"trace_id","textChars":8,"textLines":1,"bbox":[462,514,130,34]}
+{"kind":"textbox","id":"sh/zy9kzqh4","slide":21,"text":"model","textPreview":"model","textChars":5,"textLines":1,"bbox":[612,514,110,34]}
+{"kind":"textbox","id":"sh/bqhobet4","slide":21,"text":"key_type","textPreview":"key_type","textChars":8,"textLines":1,"bbox":[742,514,130,34]}
+{"kind":"textbox","id":"sh/a587i9cj","slide":21,"text":"cost","textPreview":"cost","textChars":4,"textLines":1,"bbox":[892,514,100,34]}
+{"kind":"image","id":"im/cje9kf6x","slide":21,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/pj1tcv","slide":21,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\observability-platform-implementation-plan.md\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\Observability.tsx\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\proxy\\request_logs.go"}
+{"kind":"slide","id":"sl/ub4jcb","slide":22,"title":"OBSERVABILITY","textShapes":19}
+{"kind":"shape","id":"sh/q5cfil0z","slide":22,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/ds3ytgzq","slide":22,"name":"section-label","text":"OBSERVABILITY","textPreview":"OBSERVABILITY","textChars":13,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/s7uxkbi5","slide":22,"name":"slide-title","text":"Logs and traces answer “what happened?”","textPreview":"Logs and traces answer “what happened?”","textChars":39,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/i1sfe103","slide":22,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/54jypgje","slide":22,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/43axgbit","slide":22,"text":"22","textPreview":"22","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/ny5gzqhs","slide":22,"text":"REQUEST LOG","textPreview":"REQUEST LOG","textChars":11,"textLines":1,"bbox":[70,196,240,26]}
+{"kind":"shape","id":"sh/2xwzq507","slide":22,"bbox":[70,236,484,356]}
+{"kind":"shape","id":"sh/8ful4z2l","slide":22,"bbox":[90,254,10,10]}
+{"kind":"shape","id":"sh/9g3mx4j6","slide":22,"bbox":[108,254,10,10]}
+{"kind":"shape","id":"sh/mdc32pkf","slide":22,"bbox":[126,254,10,10]}
+{"kind":"textbox","id":"sh/7el4vu10","slide":22,"text":"structured event","textPreview":"structured event","textChars":16,"textLines":1,"bbox":[154,248,380,24]}
+{"kind":"shape","id":"sh/kbal0z29","slide":22,"bbox":[90,278,444,1]}
+{"kind":"textbox","id":"sh/lcj2tkju","slide":22,"text":"status=200\nendpoint=/v1/chat/completions\nmodel=support-smart\nprovider=anthropic\nlatency_ms=684\ncache_status=miss\ninput_tokens=840\noutput_tokens=176\ncost_usd=...\ntrace_id=01J...","textPreview":"status=200 | endpoint=/v1/chat/completions | model=support-smart | provider=anthropic | latency_ms=684 | cache_status=miss | input_tokens...","textChars":176,"textLines":10,"bbox":[94,292,436,284]}
+{"kind":"textbox","id":"sh/y9s3ypkj","slide":22,"text":"TRACE","textPreview":"TRACE","textChars":5,"textLines":1,"bbox":[642,196,240,26]}
+{"kind":"shape","id":"sh/za1kru14","slide":22,"bbox":[642,242,450,46]}
+{"kind":"shape","id":"sh/cnalwf2d","slide":22,"bbox":[642,242,10,46]}
+{"kind":"textbox","id":"sh/x8j2pkjy","slide":22,"text":"auth","textPreview":"auth","textChars":4,"textLines":1,"bbox":[670,252,280,26]}
+{"kind":"textbox","id":"sh/d4bitgvm","slide":22,"text":"6 ms","textPreview":"6 ms","textChars":4,"textLines":1,"bbox":[968,252,100,26]}
+{"kind":"shape","id":"sh/c3210bu1","slide":22,"bbox":[642,308,450,46]}
+{"kind":"shape","id":"sh/r2t0r6dg","slide":22,"bbox":[642,308,10,46]}
+{"kind":"textbox","id":"sh/q1kjy1cb","slide":22,"text":"guardrail.input","textPreview":"guardrail.input","textChars":15,"textLines":1,"bbox":[670,318,280,26]}
+{"kind":"textbox","id":"sh/pgripwvq","slide":22,"text":"11 ms","textPreview":"11 ms","textChars":5,"textLines":1,"bbox":[968,318,100,26]}
+{"kind":"shape","id":"sh/4fi1wru5","slide":22,"bbox":[642,374,450,46]}
+{"kind":"shape","id":"sh/3e90nmdk","slide":22,"bbox":[642,374,10,46]}
+{"kind":"textbox","id":"sh/2d0juhcz","slide":22,"text":"route.resolve","textPreview":"route.resolve","textChars":13,"textLines":1,"bbox":[670,384,280,26]}
+{"kind":"textbox","id":"sh/9cv210vu","slide":22,"text":"3 ms","textPreview":"3 ms","textChars":4,"textLines":1,"bbox":[968,384,100,26]}
+{"kind":"shape","id":"sh/obm18vu9","slide":22,"bbox":[642,440,450,46]}
+{"kind":"shape","id":"sh/m5w76tof","slide":22,"bbox":[642,440,10,46]}
+{"kind":"textbox","id":"sh/765ofyp0","slide":22,"text":"provider.call","textPreview":"provider.call","textChars":13,"textLines":1,"bbox":[670,450,280,26]}
+{"kind":"textbox","id":"sh/87ep836l","slide":22,"text":"641 ms","textPreview":"641 ms","textChars":6,"textLines":1,"bbox":[968,450,100,26]}
+{"kind":"shape","id":"sh/98nqh876","slide":22,"bbox":[642,506,450,46]}
+{"kind":"shape","id":"sh/y1c729oj","slide":22,"bbox":[642,506,10,46]}
+{"kind":"textbox","id":"sh/z2lobep4","slide":22,"text":"billing.finalize","textPreview":"billing.finalize","textChars":16,"textLines":1,"bbox":[670,516,280,26]}
+{"kind":"textbox","id":"sh/k3up4j6p","slide":22,"text":"8 ms","textPreview":"8 ms","textChars":4,"textLines":1,"bbox":[968,516,100,26]}
+{"kind":"textbox","id":"sh/l436do7a","slide":22,"text":"Metadata by default; sensitive payload capture requires explicit policy.","textPreview":"Metadata by default; sensitive payload capture requires explicit policy.","textChars":72,"textLines":1,"bbox":[642,582,480,34]}
+{"kind":"image","id":"im/q98nmhgr","slide":22,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/ub4jcb","slide":22,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\observability-platform-implementation-plan.md\n- D:\\source\\Shahrah\\plans\\guardrails-implementation.md\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\proxy\\request_logs.go"}
+{"kind":"slide","id":"sl/jlhymj","slide":23,"title":"OBSERVABILITY","textShapes":17}
+{"kind":"shape","id":"sh/c3ihon2d","slide":23,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/b2pgvi1s","slide":23,"name":"section-label","text":"OBSERVABILITY","textPreview":"OBSERVABILITY","textChars":13,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/a1gzmxk7","slide":23,"name":"slide-title","text":"Metrics turn telemetry into operating signals","textPreview":"Metrics turn telemetry into operating signals","textChars":45,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/ozyhkn21","slide":23,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/nypgri1g","slide":23,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/2xgzidkb","slide":23,"text":"23","textPreview":"23","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/1w7yp83q","slide":23,"text":"Availability","textPreview":"Availability","textChars":12,"textLines":1,"bbox":[70,206,330,36]}
+{"kind":"textbox","id":"sh/0vehg325","slide":23,"text":"success rate","textPreview":"success rate","textChars":12,"textLines":1,"bbox":[70,252,330,32]}
+{"kind":"shape","id":"sh/yl0jy5cr","slide":23,"bbox":[70,304,330,1]}
+{"kind":"textbox","id":"sh/zm907adw","slide":23,"text":"Latency","textPreview":"Latency","textChars":7,"textLines":1,"bbox":[456,206,330,36]}
+{"kind":"textbox","id":"sh/kni10fuh","slide":23,"text":"p50 • p95 • p99","textPreview":"p50 • p95 • p99","textChars":15,"textLines":1,"bbox":[456,252,330,32]}
+{"kind":"shape","id":"sh/lorit0b2","slide":23,"bbox":[456,304,330,1]}
+{"kind":"textbox","id":"sh/axgjulcf","slide":23,"text":"Reliability","textPreview":"Reliability","textChars":11,"textLines":1,"bbox":[842,206,330,36]}
+{"kind":"textbox","id":"sh/by903qd0","slide":23,"text":"provider errors • retries","textPreview":"provider errors • retries","textChars":25,"textLines":1,"bbox":[842,252,330,32]}
+{"kind":"shape","id":"sh/czi1wvul","slide":23,"bbox":[842,304,330,1]}
+{"kind":"textbox","id":"sh/x0ri50v6","slide":23,"text":"Efficiency","textPreview":"Efficiency","textChars":10,"textLines":1,"bbox":[70,382,330,36]}
+{"kind":"textbox","id":"sh/2tgjqlcj","slide":23,"text":"cache hit • avoided cost","textPreview":"cache hit • avoided cost","textChars":24,"textLines":1,"bbox":[70,428,330,32]}
+{"kind":"shape","id":"sh/nup0zqd4","slide":23,"bbox":[70,480,330,1]}
+{"kind":"textbox","id":"sh/rmlobipk","slide":23,"text":"Consumption","textPreview":"Consumption","textChars":11,"textLines":1,"bbox":[456,382,330,36]}
+{"kind":"textbox","id":"sh/6lc7idoz","slide":23,"text":"requests • tokens • spend","textPreview":"requests • tokens • spend","textChars":25,"textLines":1,"bbox":[456,428,330,32]}
+{"kind":"shape","id":"sh/to36ds7q","slide":23,"bbox":[456,480,330,1]}
+{"kind":"textbox","id":"sh/snupkn65","slide":23,"text":"Control","textPreview":"Control","textChars":7,"textLines":1,"bbox":[842,382,330,36]}
+{"kind":"textbox","id":"sh/fqlof2pg","slide":23,"text":"rate and budget rejections","textPreview":"rate and budget rejections","textChars":26,"textLines":1,"bbox":[842,428,330,32]}
+{"kind":"shape","id":"sh/epc7mxov","slide":23,"bbox":[842,480,330,1]}
+{"kind":"shape","id":"sh/1s3qhsnm","slide":23,"bbox":[70,548,1100,72]}
+{"kind":"textbox","id":"sh/grupo761","slide":23,"text":"Measure the gateway as both infrastructure and a product control plane.","textPreview":"Measure the gateway as both infrastructure and a product control plane.","textChars":71,"textLines":1,"bbox":[112,568,1016,32]}
+{"kind":"image","id":"im/gzyt076t","slide":23,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/jlhymj","slide":23,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\observability-platform-implementation-plan.md\n- D:\\source\\Shahrah\\plans\\model-metrics-contract-v2.md\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\proxy\\handler.go"}
+{"kind":"slide","id":"sl/ssj34m","slide":24,"title":"CACHING","textShapes":13}
+{"kind":"shape","id":"sh/0jadg7ed","slide":24,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/fi1cn2xs","slide":24,"name":"section-label","text":"CACHING","textPreview":"CACHING","textChars":7,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/ehsvexw7","slide":24,"name":"slide-title","text":"Simple cache removes identical repeat work","textPreview":"Simple cache removes identical repeat work","textChars":42,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/sfqdcne1","slide":24,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/rehcjixg","slide":24,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/qd8vadwb","slide":24,"text":"24","textPreview":"24","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/5czuh8fq","slide":24,"text":"Request A","textPreview":"Request A","textChars":9,"textLines":1,"bbox":[80,244,210,82]}
+{"kind":"textbox","id":"sh/4bqd8ne5","slide":24,"text":"Exact-key lookup","textPreview":"Exact-key lookup","textChars":16,"textLines":1,"bbox":[414,244,300,82]}
+{"kind":"textbox","id":"sh/2503qhk7","slide":24,"text":"Provider","textPreview":"Provider","textChars":8,"textLines":1,"bbox":[850,244,240,82]}
+{"kind":"shape","id":"sh/369kj2ls","slide":24,"bbox":[290,285,124,1]}
+{"kind":"shape","id":"sh/o7ils72d","slide":24,"bbox":[714,285,136,1]}
+{"kind":"textbox","id":"sh/p8rmlc3y","slide":24,"text":"first call → MISS → store with TTL","textPreview":"first call → MISS → store with TTL","textChars":34,"textLines":1,"bbox":[388,358,360,30]}
+{"kind":"textbox","id":"sh/uhg3mxkb","slide":24,"text":"Request A","textPreview":"Request A","textChars":9,"textLines":1,"bbox":[80,458,210,82]}
+{"kind":"textbox","id":"sh/fipkf2lw","slide":24,"text":"Exact-key lookup","textPreview":"Exact-key lookup","textChars":16,"textLines":1,"bbox":[414,458,300,82]}
+{"kind":"textbox","id":"sh/g3ilo721","slide":24,"text":"Cached response","textPreview":"Cached response","textChars":15,"textLines":1,"bbox":[850,458,240,82]}
+{"kind":"shape","id":"sh/14r2hc3m","slide":24,"bbox":[290,499,124,1]}
+{"kind":"shape","id":"sh/6dg3idkz","slide":24,"bbox":[714,499,136,1]}
+{"kind":"textbox","id":"sh/7epkbilk","slide":24,"text":"HIT","textPreview":"HIT","textChars":3,"textLines":1,"bbox":[548,574,100,34]}
+{"kind":"textbox","id":"sh/vil0je1c","slide":24,"text":"Skip provider cost and wallet debit on a valid cache hit.","textPreview":"Skip provider cost and wallet debit on a valid cache hit.","textChars":57,"textLines":1,"bbox":[702,576,420,32]}
+{"kind":"image","id":"im/s7idobet","slide":24,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/ssj34m","slide":24,"text":"[Sources]\n- D:\\source\\Shahrah\\services\\control-plane\\tests\\unit\\proxy\\handler_test.go\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\proxy\\handler.go\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\AIGateway.tsx"}
+{"kind":"slide","id":"sl/69ed88","slide":25,"title":"CACHING","textShapes":10}
+{"kind":"shape","id":"sh/idkz2poj","slide":25,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/5gbyxkna","slide":25,"name":"section-label","text":"CACHING","textPreview":"CACHING","textChars":7,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/4f2h4f6p","slide":25,"name":"slide-title","text":"Smart cache recognizes equivalent intent","textPreview":"Smart cache recognizes equivalent intent","textChars":40,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/6hkz6pov","slide":25,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/tkvi14n6","slide":25,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/sjmh8z6l","slide":25,"text":"25","textPreview":"25","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/7m9gnq5w","slide":25,"text":"“Where is order 8472?”","textPreview":"“Where is order 8472?”","textChars":22,"textLines":1,"bbox":[76,208,480,38]}
+{"kind":"textbox","id":"sh/ml0zu5ob","slide":25,"text":"“Track shipment #8472.”","textPreview":"“Track shipment #8472.”","textChars":23,"textLines":1,"bbox":[76,272,480,38]}
+{"kind":"shape","id":"sh/sj6x8r65","slide":25,"bbox":[560,244,170,96]}
+{"kind":"shape","id":"sh/d4fe1wnq","slide":25,"bbox":[560,308,170,32]}
+{"kind":"textbox","id":"sh/qhof6hoz","slide":25,"text":"Embedding +\nsimilarity check","textPreview":"Embedding + | similarity check","textChars":28,"textLines":2,"bbox":[754,270,300,140]}
+{"kind":"textbox","id":"sh/rixwzm5k","slide":25,"text":"threshold met","textPreview":"threshold met","textChars":13,"textLines":1,"bbox":[832,434,144,26]}
+{"kind":"shape","id":"sh/076xcb6h","slide":25,"bbox":[74,506,1040,88]}
+{"kind":"textbox","id":"sh/18ze5gnm","slide":25,"text":"Semantic hits record similarity, origin trace, avoided tokens, and avoided cost.","textPreview":"Semantic hits record similarity, origin trace, avoided tokens, and avoided cost.","textChars":80,"textLines":1,"bbox":[112,528,964,42]}
+{"kind":"textbox","id":"sh/e5ofa1ob","slide":25,"text":"Use TTL and similarity policy to balance reuse against freshness and precision.","textPreview":"Use TTL and similarity policy to balance reuse against freshness and precision.","textChars":79,"textLines":1,"bbox":[208,616,848,28]}
+{"kind":"image","id":"im/a50j6t0j","slide":25,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/69ed88","slide":25,"text":"[Sources]\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\proxy\\handler.go\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\AIGateway.tsx"}
+{"kind":"slide","id":"sl/rlwkpk","slide":26,"title":"GUARDRAILS","textShapes":16}
+{"kind":"shape","id":"sh/psvyx0bq","slide":26,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/254z25cz","slide":26,"name":"section-label","text":"GUARDRAILS","textPreview":"GUARDRAILS","textChars":10,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/36dgvadk","slide":26,"name":"slide-title","text":"Guardrails enforce policy around inference","textPreview":"Guardrails enforce policy around inference","textChars":42,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/14vyt0ve","slide":26,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/e1kfylc3","slide":26,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/f2tg7qd8","slide":26,"text":"26","textPreview":"26","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/kz6hcfud","slide":26,"text":"Input","textPreview":"Input","textChars":5,"textLines":1,"bbox":[70,286,180,82]}
+{"kind":"shape","id":"sh/l0fy5kbi","slide":26,"bbox":[250,327,110,1]}
+{"kind":"textbox","id":"sh/dkfyh8ji","slide":26,"text":"Input guardrails","textPreview":"Input guardrails","textChars":16,"textLines":1,"bbox":[370,250,250,154]}
+{"kind":"shape","id":"sh/sj6xo32x","slide":26,"bbox":[620,327,110,1]}
+{"kind":"textbox","id":"sh/ridwfy1s","slide":26,"text":"Model","textPreview":"Model","textChars":5,"textLines":1,"bbox":[740,286,180,82]}
+{"kind":"shape","id":"sh/qh4fmtk7","slide":26,"bbox":[920,327,90,1]}
+{"kind":"textbox","id":"sh/5gved8jm","slide":26,"text":"Output\nguardrails","textPreview":"Output | guardrails","textChars":17,"textLines":2,"bbox":[1020,250,180,154]}
+{"kind":"textbox","id":"sh/4fmxk321","slide":26,"text":"BLOCK","textPreview":"BLOCK","textChars":5,"textLines":1,"bbox":[168,486,110,34]}
+{"kind":"textbox","id":"sh/3edwby1g","slide":26,"text":"REDACT","textPreview":"REDACT","textChars":6,"textLines":1,"bbox":[300,486,120,34]}
+{"kind":"textbox","id":"sh/id4fitkv","slide":26,"text":"AUDIT","textPreview":"AUDIT","textChars":5,"textLines":1,"bbox":[442,486,110,34]}
+{"kind":"textbox","id":"sh/pczypsjq","slide":26,"text":"KEYWORDS","textPreview":"KEYWORDS","textChars":8,"textLines":1,"bbox":[574,486,140,34]}
+{"kind":"textbox","id":"sh/obqxwn25","slide":26,"text":"REGEX","textPreview":"REGEX","textChars":5,"textLines":1,"bbox":[736,486,110,34]}
+{"kind":"textbox","id":"sh/8fyhsrah","slide":26,"text":"SECRETS","textPreview":"SECRETS","textChars":7,"textLines":1,"bbox":[868,486,130,34]}
+{"kind":"textbox","id":"sh/9g7ilwr2","slide":26,"text":"BASIC PII","textPreview":"BASIC PII","textChars":9,"textLines":1,"bbox":[1020,486,140,34]}
+{"kind":"textbox","id":"sh/mdwzq1sb","slide":26,"text":"Moderation is a model API; guardrails are the gateway’s policy enforcement layer.","textPreview":"Moderation is a model API; guardrails are the gateway’s policy enforcement layer.","textChars":81,"textLines":1,"bbox":[226,580,828,36]}
+{"kind":"image","id":"im/1gj6tw7y","slide":26,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/rlwkpk","slide":26,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\guardrails-implementation.md\n- D:\\source\\Shahrah\\docs\\content-glossary.md\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\Guardrails.tsx"}
+{"kind":"slide","id":"sl/67vj39","slide":27,"title":"PROMPT ENGINEERING","textShapes":22}
+{"kind":"shape","id":"sh/jmdsn6p8","slide":27,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/4nmtwbqd","slide":27,"name":"section-label","text":"PROMPT ENGINEERING","textPreview":"PROMPT ENGINEERING","textChars":18,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/5ovapg7y","slide":27,"name":"slide-title","text":"Prompt engineering becomes a versioned workflow","textPreview":"Prompt engineering becomes a versioned workflow","textChars":47,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/vytsj6pw","slide":27,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/wz2tsbqh","slide":27,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/h0valg72","slide":27,"text":"27","textPreview":"27","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/mtkbm18f","slide":27,"text":"chat_prompt:shop-support/order-status:v4","textPreview":"chat_prompt:shop-support/order-status:v4","textChars":40,"textLines":1,"bbox":[70,206,650,34]}
+{"kind":"shape","id":"sh/7utsfmp0","slide":27,"bbox":[70,258,1050,1]}
+{"kind":"shape","id":"sh/36dgr2ps","slide":27,"bbox":[70,304,58,58]}
+{"kind":"textbox","id":"sh/254fyx87","slide":27,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[70,318,58,30]}
+{"kind":"textbox","id":"sh/p8vytc7y","slide":27,"text":"Design","textPreview":"Design","textChars":6,"textLines":1,"bbox":[40,382,120,30]}
+{"kind":"textbox","id":"sh/o7mx07qd","slide":27,"text":"template + variables","textPreview":"template + variables","textChars":20,"textLines":1,"bbox":[8,420,184,50]}
+{"kind":"shape","id":"sh/baxgvmpo","slide":27,"bbox":[128,333,162,1]}
+{"kind":"shape","id":"sh/q94f2h83","slide":27,"bbox":[290,304,58,58]}
+{"kind":"textbox","id":"sh/dcfyxc7u","slide":27,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[290,318,58,30]}
+{"kind":"textbox","id":"sh/cb6x47q9","slide":27,"text":"Test","textPreview":"Test","textChars":4,"textLines":1,"bbox":[260,382,120,30]}
+{"kind":"textbox","id":"sh/retgji9k","slide":27,"text":"safe sample data","textPreview":"safe sample data","textChars":16,"textLines":1,"bbox":[228,420,184,50]}
+{"kind":"shape","id":"sh/6dkfqd8z","slide":27,"bbox":[348,333,162,1]}
+{"kind":"shape","id":"sh/u5srepwz","slide":27,"bbox":[510,304,58,58]}
+{"kind":"textbox","id":"sh/v61snadk","slide":27,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[510,318,58,30]}
+{"kind":"textbox","id":"sh/g7u9gfep","slide":27,"text":"Version","textPreview":"Version","textChars":7,"textLines":1,"bbox":[480,382,120,30]}
+{"kind":"textbox","id":"sh/h83apkva","slide":27,"text":"immutable reference","textPreview":"immutable reference","textChars":19,"textLines":1,"bbox":[448,420,184,50]}
+{"kind":"shape","id":"sh/6hsra5wn","slide":27,"bbox":[568,333,162,1]}
+{"kind":"shape","id":"sh/7i1sjad8","slide":27,"bbox":[730,304,58,58]}
+{"kind":"textbox","id":"sh/8ja9cfet","slide":27,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[730,318,58,30]}
+{"kind":"textbox","id":"sh/tkjalkve","slide":27,"text":"Deploy","textPreview":"Deploy","textChars":6,"textLines":1,"bbox":[700,382,120,30]}
+{"kind":"textbox","id":"sh/yd8r65wr","slide":27,"text":"FQN in request","textPreview":"FQN in request","textChars":14,"textLines":1,"bbox":[668,420,184,50]}
+{"kind":"shape","id":"sh/zehsfqdc","slide":27,"bbox":[788,333,162,1]}
+{"kind":"shape","id":"sh/187ul8fu","slide":27,"bbox":[950,304,58,58]}
+{"kind":"textbox","id":"sh/07ydc3y9","slide":27,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[950,318,58,30]}
+{"kind":"textbox","id":"sh/f6pcjyxo","slide":27,"text":"Observe","textPreview":"Observe","textChars":7,"textLines":1,"bbox":[920,382,120,30]}
+{"kind":"textbox","id":"sh/e5wvatg3","slide":27,"text":"trace + cost + guardrails","textPreview":"trace + cost + guardrails","textChars":25,"textLines":1,"bbox":[888,420,184,50]}
+{"kind":"shape","id":"sh/d4nuhofi","slide":27,"bbox":[250,516,780,112]}
+{"kind":"shape","id":"sh/s3ed8jyx","slide":27,"bbox":[270,534,10,10]}
+{"kind":"shape","id":"sh/r25cfexs","slide":27,"bbox":[288,534,10,10]}
+{"kind":"shape","id":"sh/q1wv69g7","slide":27,"bbox":[306,534,10,10]}
+{"kind":"textbox","id":"sh/50nudofm","slide":27,"text":"runtime reference","textPreview":"runtime reference","textChars":17,"textLines":1,"bbox":[334,528,676,24]}
+{"kind":"shape","id":"sh/4zet4jy1","slide":27,"bbox":[270,558,740,1]}
+{"kind":"textbox","id":"sh/krmtojul","slide":27,"text":"\"prompt_version_fqn\": \"chat_prompt:shop-support/order-status:v4\",\n\"prompt_variables\": {\n  \"customer_name\": \"Ava\",\n  \"order_id\": \"8472\"\n}","textPreview":"\"prompt_version_fqn\": \"chat_prompt:shop-support/order-status:v4\", | \"prompt_variables\": { |   \"customer_name\": \"Ava\", |   \"order_id\": \"84...","textChars":136,"textLines":5,"bbox":[274,572,732,40]}
+{"kind":"image","id":"im/32hcz294","slide":27,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/67vj39","slide":27,"text":"[Sources]\n- D:\\source\\Shahrah\\apps\\website\\app\\pages\\features\\PromptEngineering.tsx"}
+{"kind":"slide","id":"sl/ooy31j","slide":28,"title":"BILLING","textShapes":14}
+{"kind":"shape","id":"sh/xczi18bi","slide":28,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/a98z6tcr","slide":28,"name":"section-label","text":"BILLING","textPreview":"BILLING","textChars":7,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/bah0zytc","slide":28,"name":"slide-title","text":"Billing joins usage, price, and identity","textPreview":"Billing joins usage, price, and identity","textChars":40,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/98zixob6","slide":28,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/mloz2tcv","slide":28,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/nmh0vyt0","slide":28,"text":"28","textPreview":"28","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/83a1gnu5","slide":28,"text":"USAGE","textPreview":"USAGE","textChars":5,"textLines":1,"bbox":[70,208,310,30]}
+{"kind":"textbox","id":"sh/t43i9sba","slide":28,"text":"input tokens\noutput tokens\ncached tokens\nrequests","textPreview":"input tokens | output tokens | cached tokens | requests","textChars":49,"textLines":4,"bbox":[70,266,310,178]}
+{"kind":"textbox","id":"sh/p4nyh0ra","slide":28,"text":"+","textPreview":"+","textChars":1,"textLines":1,"bbox":[400,318,42,46]}
+{"kind":"textbox","id":"sh/43eh8va5","slide":28,"text":"PRICE","textPreview":"PRICE","textChars":5,"textLines":1,"bbox":[450,208,310,30]}
+{"kind":"textbox","id":"sh/325gfq9k","slide":28,"text":"provider rate\npricing version\ncurrency rate\ncredential source","textPreview":"provider rate | pricing version | currency rate | credential source","textChars":61,"textLines":4,"bbox":[450,266,310,178]}
+{"kind":"textbox","id":"sh/21cz6lsz","slide":28,"text":"+","textPreview":"+","textChars":1,"textLines":1,"bbox":[780,318,42,46]}
+{"kind":"textbox","id":"sh/h03ydgre","slide":28,"text":"IDENTITY","textPreview":"IDENTITY","textChars":8,"textLines":1,"bbox":[830,208,310,30]}
+{"kind":"textbox","id":"sh/gzuh4bat","slide":28,"text":"tenant\nteam\nuser / virtual user\nPAT / VAT","textPreview":"tenant | team | user / virtual user | PAT / VAT","textChars":41,"textLines":4,"bbox":[830,266,310,178]}
+{"kind":"shape","id":"sh/fylgbq98","slide":28,"bbox":[214,500,852,92]}
+{"kind":"textbox","id":"sh/uxcf2lsn","slide":28,"text":"Chargeable event + spend ledger + audit trail","textPreview":"Chargeable event + spend ledger + audit trail","textChars":45,"textLines":1,"bbox":[256,528,768,36]}
+{"kind":"textbox","id":"sh/1w7ypkri","slide":28,"text":"BYOK and platform-managed credentials can carry different billing ownership.","textPreview":"BYOK and platform-managed credentials can carry different billing ownership.","textChars":76,"textLines":1,"bbox":[250,618,780,26]}
+{"kind":"image","id":"im/twrexsji","slide":28,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/ooy31j","slide":28,"text":"[Sources]\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\billing\\service.go\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\proxy\\handler.go\n- D:\\source\\Shahrah\\plans\\platform-managed-provider-credentials-product-analysis.md"}
+{"kind":"slide","id":"sl/miw2vx","slide":29,"title":"BILLING & FINOPS","textShapes":15}
+{"kind":"shape","id":"sh/pw7m5g3u","slide":29,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/2tg3ulk3","slide":29,"name":"section-label","text":"BILLING & FINOPS","textPreview":"BILLING & FINOPS","textChars":16,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/3up436lo","slide":29,"name":"slide-title","text":"Budgets make cost control proactive","textPreview":"Budgets make cost control proactive","textChars":35,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/1s7m1g3i","slide":29,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/e5w3q1kr","slide":29,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/f6p4z6lc","slide":29,"text":"29","textPreview":"29","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"shape","id":"sh/0ni54v2h","slide":29,"bbox":[70,194,500,370]}
+{"kind":"textbox","id":"sh/lobmd03m","slide":29,"text":"BEFORE THE CALL","textPreview":"BEFORE THE CALL","textChars":15,"textLines":1,"bbox":[104,228,260,26]}
+{"kind":"shape","id":"sh/5knu9s76","slide":29,"bbox":[104,291,10,10]}
+{"kind":"textbox","id":"sh/4jet0nql","slide":29,"text":"Estimate input + max output","textPreview":"Estimate input + max output","textChars":27,"textLines":1,"bbox":[128,284,376,42]}
+{"kind":"shape","id":"sh/jy5s7i90","slide":29,"bbox":[104,355,10,10]}
+{"kind":"textbox","id":"sh/ixwbyd8v","slide":29,"text":"Check RPM / TPM limits","textPreview":"Check RPM / TPM limits","textChars":22,"textLines":1,"bbox":[128,348,376,42]}
+{"kind":"shape","id":"sh/hwna58ra","slide":29,"bbox":[104,419,10,10]}
+{"kind":"textbox","id":"sh/wvetw3qp","slide":29,"text":"Check key, team, and tenant budget","textPreview":"Check key, team, and tenant budget","textChars":34,"textLines":1,"bbox":[128,412,376,42]}
+{"kind":"shape","id":"sh/vuls3y94","slide":29,"bbox":[104,483,10,10]}
+{"kind":"textbox","id":"sh/utcbud8j","slide":29,"text":"Reject with a normalized error","textPreview":"Reject with a normalized error","textChars":30,"textLines":1,"bbox":[128,476,376,42]}
+{"kind":"shape","id":"sh/1s7uhc7e","slide":29,"bbox":[638,194,500,370]}
+{"kind":"textbox","id":"sh/0ryt87qt","slide":29,"text":"AFTER THE CALL","textPreview":"AFTER THE CALL","textChars":14,"textLines":1,"bbox":[672,228,260,26]}
+{"kind":"shape","id":"sh/0v6dkby5","slide":29,"bbox":[672,291,10,10]}
+{"kind":"textbox","id":"sh/lwfedgfq","slide":29,"text":"Reconcile actual usage","textPreview":"Reconcile actual usage","textChars":22,"textLines":1,"bbox":[696,284,376,42]}
+{"kind":"shape","id":"sh/ytovi1gz","slide":29,"bbox":[672,355,10,10]}
+{"kind":"textbox","id":"sh/zuxwb6xk","slide":29,"text":"Debit wallet when applicable","textPreview":"Debit wallet when applicable","textChars":28,"textLines":1,"bbox":[696,348,376,42]}
+{"kind":"shape","id":"sh/cr6dgbyt","slide":29,"bbox":[672,419,10,10]}
+{"kind":"textbox","id":"sh/dsfe9gfe","slide":29,"text":"Attribute spend to identity and tags","textPreview":"Attribute spend to identity and tags","textChars":36,"textLines":1,"bbox":[696,412,376,42]}
+{"kind":"shape","id":"sh/q54ve1g3","slide":29,"bbox":[672,483,10,10]}
+{"kind":"textbox","id":"sh/bqdw76xo","slide":29,"text":"Emit metrics and audit records","textPreview":"Emit metrics and audit records","textChars":30,"textLines":1,"bbox":[696,476,376,42]}
+{"kind":"textbox","id":"sh/o3mdcryx","slide":29,"text":"Soft alerts inform. Hard limits enforce.","textPreview":"Soft alerts inform. Hard limits enforce.","textChars":40,"textLines":1,"bbox":[350,602,580,34]}
+{"kind":"image","id":"im/h4jehgba","slide":29,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"notes","id":"nt/miw2vx","slide":29,"text":"[Sources]\n- D:\\source\\Shahrah\\plans\\tag-budget-architecture.md\n- D:\\source\\Shahrah\\plans\\customer-budget-architecture.md\n- D:\\source\\Shahrah\\plans\\vat-operationalization-requirements.md\n- D:\\source\\Shahrah\\services\\control-plane\\internal\\billing\\service.go"}
+{"kind":"slide","id":"sl/game6y","slide":30,"title":"TAKEAWAY","textShapes":14}
+{"kind":"shape","id":"sh/r6xsbihk","slide":30,"name":"brand-rail","bbox":[0,0,12,720]}
+{"kind":"textbox","id":"sh/s7694ny5","slide":30,"name":"section-label","text":"TAKEAWAY","textPreview":"TAKEAWAY","textChars":8,"textLines":1,"bbox":[68,38,420,24]}
+{"kind":"textbox","id":"sh/t8fadszq","slide":30,"name":"slide-title","text":"Govern model choice through one gateway","textPreview":"Govern model choice through one gateway","textChars":39,"textLines":1,"bbox":[68,78,1040,54]}
+{"kind":"shape","id":"sh/fuhsf2hw","slide":30,"name":"footer-rule","bbox":[68,668,1120,1]}
+{"kind":"textbox","id":"sh/gvqt87yh","slide":30,"text":"GODARAI  /  LLM GATEWAY","textPreview":"GODARAI  /  LLM GATEWAY","textChars":23,"textLines":1,"bbox":[68,682,300,18]}
+{"kind":"textbox","id":"sh/1wzahcz2","slide":30,"text":"30","textPreview":"30","textChars":2,"textLines":1,"bbox":[1148,682,40,18]}
+{"kind":"textbox","id":"sh/2x8baxg7","slide":30,"text":"ONE API","textPreview":"ONE API","textChars":7,"textLines":1,"bbox":[70,208,300,38]}
+{"kind":"textbox","id":"sh/3yhsj2hs","slide":30,"text":"keeps product code stable","textPreview":"keeps product code stable","textChars":25,"textLines":1,"bbox":[70,250,380,30]}
+{"kind":"textbox","id":"sh/vmpsja10","slide":30,"text":"ONE POLICY LAYER","textPreview":"ONE POLICY LAYER","textChars":16,"textLines":1,"bbox":[450,208,340,38]}
+{"kind":"textbox","id":"sh/algba5kf","slide":30,"text":"controls identity, safety, and routing","textPreview":"controls identity, safety, and routing","textChars":38,"textLines":1,"bbox":[450,250,380,30]}
+{"kind":"textbox","id":"sh/xoralkj6","slide":30,"text":"ONE DATA PLANE","textPreview":"ONE DATA PLANE","textChars":14,"textLines":1,"bbox":[840,208,340,38]}
+{"kind":"textbox","id":"sh/wnytcf2l","slide":30,"text":"connects telemetry to cost","textPreview":"connects telemetry to cost","textChars":26,"textLines":1,"bbox":[840,250,330,30]}
+{"kind":"shape","id":"sh/nipsfa14","slide":30,"bbox":[70,328,1090,1]}
+{"kind":"textbox","id":"sh/mxgr65kj","slide":30,"text":"1  Connect an app","textPreview":"1  Connect an app","textChars":17,"textLines":1,"bbox":[90,392,300,82]}
+{"kind":"textbox","id":"sh/9k7ahkja","slide":30,"text":"2  Create a virtual model","textPreview":"2  Create a virtual model","textChars":25,"textLines":1,"bbox":[490,392,300,82]}
+{"kind":"textbox","id":"sh/8jyt8f2p","slide":30,"text":"3  Add policy + budgets","textPreview":"3  Add policy + budgets","textChars":23,"textLines":1,"bbox":[890,392,300,82]}
+{"kind":"textbox","id":"sh/7e9sru18","slide":30,"text":"GodarAI turns a changing model market into governed infrastructure.","textPreview":"GodarAI turns a changing model market into governed infrastructure.","textChars":67,"textLines":1,"bbox":[210,548,860,46]}
+{"kind":"image","id":"im/jepoval8","slide":30,"name":"","alt":"GodarAI logo","bbox":[1162,36,62,46]}
+{"kind":"image","id":"im/907m9wzu","slide":30,"name":"","alt":"GodarAI logo","bbox":[590,606,100,52]}
+{"kind":"notes","id":"nt/game6y","slide":30,"text":"Close on the operating model: applications express intent; GodarAI governs execution.\n\n[Sources]\n- D:\\source\\Shahrah\\plans\\09_GodarAI_features.md\n- D:\\source\\Shahrah\\docs\\content-glossary.md\n- D:\\source\\Shahrah\\web-assets\\png\\natural\\dark\\godarai-mark-dark-2048x1506.png"}

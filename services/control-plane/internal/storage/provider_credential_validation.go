@@ -105,7 +105,7 @@ func providerCredentialProbeFor(provider string, providerConfig map[string]inter
 	normalized := strings.TrimSpace(strings.ToLower(provider))
 	switch normalized {
 	case "openai":
-		return bearerModelsProbe(configString("openai", providerConfig, "api_base", "https://api.openai.com/v1"))
+		return openAIModelsProbe(providerConfig)
 	case "groq":
 		return bearerModelsProbe(configString("groq", providerConfig, "api_base", "https://api.groq.com/openai/v1"))
 	case "mistral":
@@ -117,6 +117,31 @@ func providerCredentialProbeFor(provider string, providerConfig map[string]inter
 	default:
 		return providerCredentialProbe{}, false, nil
 	}
+}
+
+func openAIModelsProbe(providerConfig map[string]interface{}) (providerCredentialProbe, bool, error) {
+	apiBase, err := configString("openai", providerConfig, "api_base", "https://api.openai.com/v1")
+	if err != nil {
+		return providerCredentialProbe{}, false, err
+	}
+	return providerCredentialProbe{
+		url: strings.TrimRight(apiBase, "/") + "/models",
+		headers: func(apiKey string) map[string]string {
+			headers := map[string]string{"Authorization": "Bearer " + apiKey}
+			if value := providerConfigText(providerConfig, "organization"); value != "" {
+				headers["OpenAI-Organization"] = value
+			}
+			if value := providerConfigText(providerConfig, "project"); value != "" {
+				headers["OpenAI-Project"] = value
+			}
+			return headers
+		},
+	}, true, nil
+}
+
+func providerConfigText(config map[string]interface{}, key string) string {
+	value, _ := config[key].(string)
+	return strings.TrimSpace(value)
 }
 
 func bearerModelsProbe(apiBase string, err error) (providerCredentialProbe, bool, error) {

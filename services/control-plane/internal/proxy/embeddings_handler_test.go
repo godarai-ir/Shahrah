@@ -148,6 +148,25 @@ func TestEmbeddingsHandlerSingleStringInput(t *testing.T) {
 	assert.True(t, sawProvider)
 }
 
+func TestNormalizeEmbeddingInputAcceptsTokenArrays(t *testing.T) {
+	for _, input := range []interface{}{
+		[]interface{}{float64(1), float64(2), float64(3)},
+		[]interface{}{
+			[]interface{}{float64(1), float64(2)},
+			[]interface{}{float64(3)},
+		},
+	} {
+		normalized, err := normalizeEmbeddingInput(input)
+		require.NoError(t, err)
+		assert.Equal(t, input, normalized)
+	}
+}
+
+func TestNormalizeEmbeddingInputRejectsMixedTokenAndTextArrays(t *testing.T) {
+	_, err := normalizeEmbeddingInput([]interface{}{"hello", float64(2)})
+	require.Error(t, err)
+}
+
 func TestEmbeddingsHandlerBatchInputPreservesOrder(t *testing.T) {
 	payload := contractsopenai.EmbeddingResponse{
 		Object: "list",
@@ -202,7 +221,7 @@ func TestEmbeddingsHandlerValidationErrors(t *testing.T) {
 		{name: "empty array", body: `{"model":"text-embedding-3-small","input":[]}`, status: fiber.StatusBadRequest, param: "input"},
 		{name: "bad encoding", body: `{"model":"text-embedding-3-small","input":"hello","encoding_format":"hex"}`, status: fiber.StatusBadRequest, param: "encoding_format"},
 		{name: "bad dimensions", body: `{"model":"text-embedding-3-small","input":"hello","dimensions":0}`, status: fiber.StatusBadRequest, param: "dimensions"},
-		{name: "token array unsupported", body: `{"model":"text-embedding-3-small","input":[1,2,3]}`, status: fiber.StatusBadRequest, param: "input"},
+		{name: "mixed token array unsupported", body: `{"model":"text-embedding-3-small","input":[1,"two",3]}`, status: fiber.StatusBadRequest, param: "input"},
 	}
 
 	for _, tc := range cases {

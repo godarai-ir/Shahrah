@@ -200,6 +200,29 @@ func main() {
 		"google-gemini",
 		geminiPricing,
 	)
+	if environmentEnabled("GODARAI_OPENAI_CONTRACT_READY") {
+		openAIPricing, openAIPricingErr :=
+			billing.NewCatalogPricingSnapshotManagerFromEnv("openai", nil)
+		if openAIPricingErr != nil {
+			logger.Fatal(
+				"OpenAI pricing snapshot is not configured",
+				zap.Error(openAIPricingErr),
+			)
+		}
+		if openAIPricingErr := openAIPricing.Reload(ctx); openAIPricingErr != nil {
+			logger.Fatal(
+				"Initial OpenAI pricing snapshot is unavailable",
+				zap.Error(openAIPricingErr),
+			)
+		}
+		go openAIPricing.Run(pricingCtx, 5*time.Minute)
+		billingService.SetCatalogPricingSnapshotManager("openai", openAIPricing)
+	} else {
+		logger.Warn(
+			"OpenAI provider execution is disabled until the contract-readiness gate is enabled",
+			zap.String("gate", "GODARAI_OPENAI_CONTRACT_READY"),
+		)
+	}
 
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
@@ -357,6 +380,8 @@ func main() {
 		Billing:                  billingService,
 		Wallets:                  store,
 		AnthropicRuntimeProfiles: anthropicPricing,
+		ProviderResources:        store,
+		Deployments:              runtimeDeploymentStore,
 		RequestLogger:            requestLogger,
 		Logger:                   logger,
 		EmitMetric:               emitMetric,
@@ -553,6 +578,15 @@ func stringEnvOrDefault(key, fallback string) string {
 	}
 
 	return fallback
+}
+
+func environmentEnabled(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func newMetricsDLQ(ctx context.Context, cfg metricsobs.DLQConfig) (metricsobs.DeadLetterQueue, error) {

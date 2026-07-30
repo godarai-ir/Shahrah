@@ -11,6 +11,8 @@ import (
 type ModelRuntimeProfile struct {
 	Version          int                          `json:"version"`
 	Endpoints        []string                     `json:"endpoints"`
+	Transports       []string                     `json:"transports,omitempty"`
+	Lifecycle        string                       `json:"lifecycle,omitempty"`
 	Thinking         ModelRuntimeThinkingProfile  `json:"thinking"`
 	AssistantPrefill bool                         `json:"assistantPrefill"`
 	Sampling         ModelRuntimeSamplingProfile  `json:"sampling"`
@@ -27,6 +29,8 @@ type ModelRuntimeThinkingProfile struct {
 	AllowedModes     []string `json:"allowedModes"`
 	ManualDeprecated bool     `json:"manualDeprecated"`
 	EffortValues     []string `json:"effortValues"`
+	ReasoningModes   []string `json:"reasoningModes,omitempty"`
+	ContextValues    []string `json:"contextValues,omitempty"`
 }
 
 type ModelRuntimeSamplingProfile struct {
@@ -35,10 +39,11 @@ type ModelRuntimeSamplingProfile struct {
 }
 
 type ModelRuntimeToolsProfile struct {
-	Custom           bool `json:"custom"`
-	Server           bool `json:"server"`
-	Parallel         bool `json:"parallel"`
-	StructuredOutput bool `json:"structuredOutput"`
+	Custom           bool     `json:"custom"`
+	Server           bool     `json:"server"`
+	Parallel         bool     `json:"parallel"`
+	StructuredOutput bool     `json:"structuredOutput"`
+	Supported        []string `json:"supported,omitempty"`
 }
 
 type ModelRuntimeModalities struct {
@@ -117,10 +122,26 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"files",
 				"models",
 				"chat_completions",
+				"completions",
+				"responses",
+				"responses_input_tokens",
+				"responses_compact",
+				"conversations",
 				"embeddings",
+				"moderations",
 				"image_generations",
+				"image_edits",
+				"image_variations",
 				"audio_speech",
+				"audio_transcriptions",
+				"audio_translations",
+				"realtime",
+				"realtime_transcription",
+				"realtime_translation",
 				"videos",
+				"uploads",
+				"vector_stores",
+				"containers",
 				"interactions",
 				"live",
 				"batches",
@@ -133,6 +154,17 @@ func (profile ModelRuntimeProfile) Validate() error {
 		) {
 			return fmt.Errorf("unsupported model endpoint %q", endpoint)
 		}
+	}
+	for _, transport := range profile.Transports {
+		if !containsRuntimeValue([]string{"http", "sse", "websocket"}, transport) {
+			return fmt.Errorf("unsupported model transport %q", transport)
+		}
+	}
+	if profile.Lifecycle != "" && !containsRuntimeValue(
+		[]string{"active", "preview", "deprecated", "retired", "unavailable"},
+		profile.Lifecycle,
+	) {
+		return fmt.Errorf("unsupported model lifecycle %q", profile.Lifecycle)
 	}
 	if !containsRuntimeValue(
 		profile.Thinking.AllowedModes,
@@ -150,10 +182,20 @@ func (profile ModelRuntimeProfile) Validate() error {
 	}
 	for _, effort := range profile.Thinking.EffortValues {
 		if !containsRuntimeValue(
-			[]string{"none", "minimal", "low", "medium", "high", "max"},
+			[]string{"none", "minimal", "low", "medium", "high", "xhigh", "max"},
 			effort,
 		) {
 			return fmt.Errorf("unsupported effort value %q", effort)
+		}
+	}
+	for _, mode := range profile.Thinking.ReasoningModes {
+		if !containsRuntimeValue([]string{"standard", "pro"}, mode) {
+			return fmt.Errorf("unsupported reasoning mode %q", mode)
+		}
+	}
+	for _, value := range profile.Thinking.ContextValues {
+		if !containsRuntimeValue([]string{"auto", "current_turn", "all_turns"}, value) {
+			return fmt.Errorf("unsupported reasoning context %q", value)
 		}
 	}
 	for _, parameter := range append(
@@ -168,6 +210,26 @@ func (profile ModelRuntimeProfile) Validate() error {
 			parameter,
 		) {
 			return fmt.Errorf("unsupported sampling parameter %q", parameter)
+		}
+	}
+	for _, tool := range profile.Tools.Supported {
+		if !containsRuntimeValue(
+			[]string{
+				"function_calling",
+				"web_search",
+				"file_search",
+				"tool_search",
+				"image_generation",
+				"code_interpreter",
+				"hosted_shell",
+				"apply_patch",
+				"skills",
+				"computer_use",
+				"mcp",
+			},
+			tool,
+		) {
+			return fmt.Errorf("unsupported model tool %q", tool)
 		}
 	}
 	if len(profile.Modalities.Input) == 0 ||
@@ -192,7 +254,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 	}
 	for _, value := range profile.RequestControls.ServiceTierValues {
 		if !containsRuntimeValue(
-			[]string{"auto", "standard_only", "standard", "batch", "flex", "priority"},
+			[]string{"auto", "standard_only", "standard", "batch", "flex", "priority", "fast"},
 			value,
 		) {
 			return fmt.Errorf("unsupported service tier %q", value)

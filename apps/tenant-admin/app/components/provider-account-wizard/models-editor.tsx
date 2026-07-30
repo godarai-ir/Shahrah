@@ -133,6 +133,7 @@ type PricingEditorState = {
   pricingMode: "public" | "private";
   inputPrice: string;
   outputPrice: string;
+  ratePrices: Record<string, string>;
   error: string;
 };
 
@@ -450,6 +451,7 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
       prev.pricingEditor.pricingMode !== next.pricingEditor.pricingMode ||
       prev.pricingEditor.inputPrice !== next.pricingEditor.inputPrice ||
       prev.pricingEditor.outputPrice !== next.pricingEditor.outputPrice ||
+      prev.pricingEditor.ratePrices !== next.pricingEditor.ratePrices ||
       prev.pricingEditor.error !== next.pricingEditor.error
     )
   ) {
@@ -506,6 +508,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     pricingMode: "public",
     inputPrice: "",
     outputPrice: "",
+    ratePrices: {},
     error: "",
   });
   const pricingEditorView = useMemo<PricingEditorState>(() => {
@@ -689,6 +692,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       pricingMode: draft.pricingMode,
       inputPrice: draft.inputPrice,
       outputPrice: draft.outputPrice,
+      ratePrices: Object.fromEntries((draft.rateOverrides ?? []).map((rate) => [rate.key, rate.unit_price_usd])),
       error: "",
     });
   }, [canUseCustomPricing, modelDrafts]);
@@ -704,6 +708,8 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     }
     const inputNumber = toNumberOrUndefined(pricingEditor.inputPrice);
     const outputNumber = toNumberOrUndefined(pricingEditor.outputPrice);
+    const model = providerModels.find((item) => item.model === pricingEditor.modelKey);
+    const publicRates = model?.public_pricing?.rates ?? [];
     if (pricingEditor.pricingMode === "private") {
       if (pricingEditor.inputPrice.trim() && (typeof inputNumber !== "number" || inputNumber < 0)) {
         setPricingEditor((prev) => ({ ...prev, error: ux("models.validation.invalidInputPrice") }));
@@ -712,6 +718,13 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       if (pricingEditor.outputPrice.trim() && (typeof outputNumber !== "number" || outputNumber < 0)) {
         setPricingEditor((prev) => ({ ...prev, error: ux("models.validation.invalidOutputPrice") }));
         return;
+      }
+      for (const rate of publicRates) {
+        const value = pricingEditor.ratePrices[rate.key]?.trim() ?? "";
+        if (value && (typeof toNumberOrUndefined(value) !== "number" || Number(value) < 0)) {
+          setPricingEditor((prev) => ({ ...prev, error: ux("models.validation.invalidInputPrice") }));
+          return;
+        }
       }
     }
 
@@ -725,12 +738,16 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         pricingMode: pricingEditor.pricingMode,
         inputPrice: pricingEditor.inputPrice.trim(),
         outputPrice: pricingEditor.outputPrice.trim(),
+        rateOverrides: publicRates.flatMap((rate) => {
+          const value = pricingEditor.ratePrices[rate.key]?.trim() ?? "";
+          return value ? [{ ...rate, unit_price_usd: value }] : [];
+        }),
       },
     };
     setModelDrafts(nextDrafts);
     if (account) onSave(nextDrafts);
     setPricingEditor((prev) => ({ ...prev, open: false, error: "" }));
-  }, [account, canUseCustomPricing, modelDrafts, onSave, pricingEditor, setModelDrafts, ux]);
+  }, [account, canUseCustomPricing, modelDrafts, onSave, pricingEditor, providerModels, setModelDrafts, ux]);
 
   const renderPricingEditorContent = (model: ProviderCatalogModel) => (
     canUseCustomPricing ? <PopoverContent align="start" className="w-72 p-3">
@@ -759,6 +776,33 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
           ]}
         />
         {pricingEditor.pricingMode === "private" ? (
+          model.public_pricing?.rates?.length ? (
+            <div className="max-h-72 space-y-2 overflow-y-auto pe-1">
+              {model.public_pricing.rates.map((rate) => (
+                <div key={rate.key} className="rounded-md border border-border p-2">
+                  <Label className="font-mono text-xs" dir="ltr">{rate.dimension}</Label>
+                  <Input
+                    className="mt-1 h-8"
+                    value={pricingEditor.ratePrices[rate.key] ?? ""}
+                    onChange={(event) =>
+                      setPricingEditor((prev) => ({
+                        ...prev,
+                        ratePrices: { ...prev.ratePrices, [rate.key]: event.target.value },
+                        error: "",
+                      }))
+                    }
+                    placeholder={`${rate.unit_price_usd} USD / ${rate.unit}`}
+                    dir="ltr"
+                  />
+                  {rate.condition && Object.keys(rate.condition).length ? (
+                    <p className="mt-1 truncate font-mono text-xs text-muted-foreground" dir="ltr">
+                      {JSON.stringify(rate.condition)}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label>{ux("models.labels.input")}</Label>
@@ -781,6 +825,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               />
             </div>
           </div>
+          )
         ) : (
           <div className="rounded-md border border-border/70 bg-muted/30 p-2 text-xs text-muted-foreground">
             <div className="font-medium text-foreground">{ux("models.catalogPricing")}</div>

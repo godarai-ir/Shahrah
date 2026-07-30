@@ -7,13 +7,20 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
+
+// ErrProviderContractNotReady prevents an incomplete provider implementation
+// from reaching the outbound tunnel, including legacy bare-model routes.
+var ErrProviderContractNotReady = errors.New("provider contract is not ready")
 
 // HTTPTransport sends requests to the local tunnel-client service.
 type HTTPTransport struct {
@@ -31,6 +38,10 @@ func NewHTTPTransport(baseURL string, timeout time.Duration) *HTTPTransport {
 
 // Proxy sends a non-streaming tunnel request.
 func (t *HTTPTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
+	if err := validateProviderReleaseGate(req); err != nil {
+		return nil, err
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -65,6 +76,10 @@ func (t *HTTPTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (
 
 // ProxyRaw sends a length-prefixed metadata envelope followed by the raw body.
 func (t *HTTPTransport) ProxyRaw(ctx context.Context, req platform.TunnelRequest, body io.Reader, contentLength int64) (*platform.TunnelRawResponse, error) {
+	if err := validateProviderReleaseGate(req); err != nil {
+		return nil, err
+	}
+
 	req.Body = nil
 	metadata, err := json.Marshal(req)
 	if err != nil {
@@ -100,6 +115,10 @@ func (t *HTTPTransport) ProxyRaw(ctx context.Context, req platform.TunnelRequest
 
 // Stream sends a streaming tunnel request.
 func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
+	if err := validateProviderReleaseGate(req); err != nil {
+		return nil, err
+	}
+
 	req.Stream = true
 
 	body, err := json.Marshal(req)
@@ -191,6 +210,19 @@ func (t *HTTPTransport) Healthy(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func validateProviderReleaseGate(req platform.TunnelRequest) error {
+	if !strings.EqualFold(strings.TrimSpace(req.Deployment.Provider), "openai") {
+		return nil
+	}
+
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GODARAI_OPENAI_CONTRACT_READY"))) {
+	case "1", "true", "yes", "on":
+		return nil
+	default:
+		return fmt.Errorf("%w: openai", ErrProviderContractNotReady)
+	}
 }
 
 type streamRelay struct {

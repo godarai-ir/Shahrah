@@ -22,25 +22,29 @@ import (
 
 // ResponsesHandler serves OpenAI's responses API for OpenAI-native models.
 type ResponsesHandler struct {
-	llmRouter  *router.Router
-	tunnel     platform.TunnelTransport
-	billing    budgeter
-	wallets    walletStore
-	logs       usageLogger
-	logger     *zap.Logger
-	emitMetric func(input metricsobs.BuildInput)
+	llmRouter   *router.Router
+	tunnel      platform.TunnelTransport
+	billing     budgeter
+	wallets     walletStore
+	resources   providerNativeResourceStore
+	deployments responseDeploymentLister
+	logs        usageLogger
+	logger      *zap.Logger
+	emitMetric  func(input metricsobs.BuildInput)
 }
 
 // NewResponsesHandlerWithDependencies creates a responses handler from explicit dependencies.
 func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *ResponsesHandler {
 	return &ResponsesHandler{
-		llmRouter:  deps.Router,
-		tunnel:     deps.Tunnel,
-		billing:    deps.Billing,
-		wallets:    deps.Wallets,
-		logs:       deps.logger(),
-		logger:     deps.Logger,
-		emitMetric: deps.metricEmitter(),
+		llmRouter:   deps.Router,
+		tunnel:      deps.Tunnel,
+		billing:     deps.Billing,
+		wallets:     deps.Wallets,
+		resources:   deps.ProviderResources,
+		deployments: deps.Deployments,
+		logs:        deps.logger(),
+		logger:      deps.Logger,
+		emitMetric:  deps.metricEmitter(),
 	}
 }
 
@@ -88,39 +92,31 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 	}
 
-	if strings.TrimSpace(req.Model) == "" {
-		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
-	}
-
+	modelWasProvided := strings.TrimSpace(req.Model) != ""
 	requestedModel := normalizeModelIdentifier(req.Model)
+	resolvedDeployment, effectiveModel, upstreamPreviousResponseID, err := h.resolveResponseCreateDeployment(
+		c.Context(),
+		currentTenant.ID,
+		requestedModel,
+		strings.TrimSpace(req.PreviousResponseID),
+		strings.TrimSpace(c.Get("x-godarai-provider-account")),
+	)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
+	}
+	requestedModel = effectiveModel
+	req.Model = requestedModel
 
-	routeCandidates := modelRoutingCandidates(requestedModel)
-	if len(routeCandidates) == 0 {
-		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
+	if requestedModel == "" {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "Unable to determine the model for Responses routing and billing", "routing_error")
 	}
 
 	tracing.SetModelForTrace(c, requestedModel)
 
-	if !hasResponseInput(req.Input, req.Instructions) {
-		return writeAPIError(c, fiber.StatusBadRequest, "input is required", "invalid_request_error")
-	}
-
-	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
-		return writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
-	}
-
-	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
-		return writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
-	}
-
-	if req.MaxOutputTokens != nil && *req.MaxOutputTokens < 1 {
-		return writeAPIError(c, fiber.StatusBadRequest, "max_output_tokens must be at least 1", "invalid_request_error")
-	}
-
-	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeChat)
+	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeResponses)
 	if !modelAccess.Allowed {
 		if modelAccess.UnsupportedVMMode {
-			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeChat, modelAccess.ExposedModes)
+			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeResponses, modelAccess.ExposedModes)
 		}
 
 		denyReason := denyReasonForModel(authInfo)
@@ -189,42 +185,60 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	routeStart := time.Now()
 
-	var dep *router.Deployment
-	for _, candidate := range routeCandidates {
-		dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
-		if err == nil {
-			break
+	var (
+		dep              *router.Deployment
+		tunnelDeployment platform.Deployment
+	)
+	if resolvedDeployment != nil {
+		tunnelDeployment = *resolvedDeployment
+	} else {
+		for _, candidate := range modelRoutingCandidates(requestedModel) {
+			dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
+			if err == nil {
+				break
+			}
+		}
+
+		if err != nil || dep == nil {
+			if handled, dependencyErr := writeRoutingDependencyUnavailable(c, h.logger, err, requestedModel, currentTenant.ID); handled {
+				return dependencyErr
+			}
+
+			emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
+
+			return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+		}
+		tunnelDeployment = toContractDeployment(dep)
+	}
+
+	if !supportsResponsesProvider(tunnelDeployment.Provider) {
+		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", tunnelDeployment.Provider), "invalid_request_error")
+	}
+
+	if dep != nil {
+		estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+		if err != nil {
+			return writeBillingEstimateError(c, err)
 		}
 	}
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": tunnelDeployment.Provider, "deployment_id": tunnelDeployment.ID})
 
-	if err != nil || dep == nil {
-		if handled, dependencyErr := writeRoutingDependencyUnavailable(c, h.logger, err, requestedModel, currentTenant.ID); handled {
-			return dependencyErr
+	payload := originalBody
+	if modelWasProvided {
+		outboundModel := strings.TrimSpace(tunnelDeployment.Model)
+		if outboundModel == "" || outboundModel == "*" {
+			outboundModel = providerModelID(requestedModel)
 		}
-
-		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
-
-		return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+		payload, err = rewriteOpenAIJSONModel(payload, outboundModel)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
+		}
 	}
-
-	if !supportsResponsesProvider(dep.Provider) {
-		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
-	}
-
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
-
-	outboundReq := req
-
-	outboundModel := strings.TrimSpace(dep.Model)
-	if outboundModel == "" || outboundModel == "*" {
-		outboundModel = providerModelID(requestedModel)
-	}
-
-	outboundReq.Model = outboundModel
-
-	payload, err := json.Marshal(outboundReq)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
+	if upstreamPreviousResponseID != "" && upstreamPreviousResponseID != strings.TrimSpace(req.PreviousResponseID) {
+		payload, err = rewriteOpenAIJSONStringField(payload, "previous_response_id", upstreamPreviousResponseID)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
+		}
 	}
 
 	tunnelReq := platform.TunnelRequest{
@@ -232,11 +246,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     req.Stream,
-		Deployment: toContractDeployment(dep),
-		Headers: map[string]string{
-			"Content-Type": "application/json",
-		},
-		Body: payload,
+		Operation:  platform.ProviderOperationOpenAIResponsesCreate,
+		Deployment: tunnelDeployment,
+		Headers:    responseProviderHeaders(c),
+		Body:       payload,
 		RequestMetadata: map[string]interface{}{
 			"tenant_slug":            apiheaders.GetTenant(c),
 			"model":                  requestedModel,
@@ -294,7 +307,7 @@ func (h *ResponsesHandler) handleSync(
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
-		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
+		return writeOpenAIProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	var response contractsopenai.Response
@@ -310,8 +323,13 @@ func (h *ResponsesHandler) handleSync(
 
 	providerAttrs["response_payload"] = buildTraceResponsePayload(response)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+	h.recordResponseMapping(c.Context(), authInfo.TenantID, tunnelReq.Deployment, response.ID, response.Status, response.Model)
 
-	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(req.Model, tunnelReq.Deployment), responseUsageToOpenAI(response.Usage), estimated)
+	finalUsage := responseUsageToOpenAI(response.Usage)
+	if finalUsage != nil {
+		finalUsage.ServiceTier = response.ServiceTier
+	}
+	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(req.Model, tunnelReq.Deployment), finalUsage, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
@@ -381,12 +399,36 @@ func (h *ResponsesHandler) handleSync(
 	setCostHeaders(c, finalCost)
 
 	responseStart := time.Now()
-	err = c.Status(resp.StatusCode).JSON(response)
+	c.Status(resp.StatusCode)
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	err = c.Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceResponsePayload(response),
 	})
 
 	return err
+}
+
+// rewriteOpenAIJSONModel changes only the routing-owned model field. Using
+// RawMessage values preserves every other official or future OpenAI field
+// instead of round-tripping through the gateway's necessarily incomplete DTO.
+func rewriteOpenAIJSONModel(body []byte, model string) ([]byte, error) {
+	return rewriteOpenAIJSONStringField(body, "model", providerModelID(model))
+}
+
+func rewriteOpenAIJSONStringField(body []byte, field string, value string) ([]byte, error) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(body, &object); err != nil {
+		return nil, err
+	}
+
+	encodedValue, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	object[field] = encodedValue
+
+	return json.Marshal(object)
 }
 
 func buildResponseRequestLogPayload(req contractsopenai.ResponseRequest, originalBody []byte) map[string]interface{} {
@@ -422,7 +464,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 		})
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
 
-		return writeTunnelStreamHTTPError(c, h.logger, stream)
+		return writeOpenAITunnelStreamHTTPError(c, h.logger, stream)
 	}
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{
@@ -442,6 +484,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 		defer closeStreamBestEffort(h.logger, stream)
 
 		budgetCommitted := false
+		var completedResponse *contractsopenai.Response
 		defer func() {
 			if !budgetCommitted {
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
@@ -455,7 +498,14 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
 
-			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, nil, estimated)
+			var finalUsage *contractsopenai.Usage
+			if completedResponse != nil {
+				finalUsage = responseUsageToOpenAI(completedResponse.Usage)
+				if finalUsage != nil {
+					finalUsage.ServiceTier = completedResponse.ServiceTier
+				}
+			}
+			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, finalUsage, estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
 
@@ -514,7 +564,26 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 			})
 		}
 
-		relayTunnelStream(stream, w, finalizeAndLogSuccess, h.logger, tunnelReq.RequestID, "responses")
+		relayTunnelStreamWithErrorFramer(
+			stream,
+			w,
+			finalizeAndLogSuccess,
+			h.logger,
+			tunnelReq.RequestID,
+			"responses",
+			frameOpenAIResponseStreamError,
+			h.newResponseStreamObserver(
+				requestCtx,
+				authInfo.TenantID,
+				tunnelReq.Deployment,
+				func(response contractsopenai.Response) {
+					if response.Usage != nil {
+						copy := response
+						completedResponse = &copy
+					}
+				},
+			),
+		)
 	})
 
 	responseStart := time.Now()
@@ -537,25 +606,6 @@ func supportsResponsesProvider(provider string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func hasResponseInput(input interface{}, instructions string) bool {
-	if strings.TrimSpace(instructions) != "" {
-		return true
-	}
-
-	switch v := input.(type) {
-	case nil:
-		return false
-	case string:
-		return strings.TrimSpace(v) != ""
-	case []interface{}:
-		return len(v) > 0
-	case map[string]interface{}:
-		return len(v) > 0
-	default:
-		return true
 	}
 }
 
@@ -588,6 +638,7 @@ func responseRequestToChatCompletion(req contractsopenai.ResponseRequest, model 
 		Tools:       req.Tools,
 		ToolChoice:  req.ToolChoice,
 		User:        req.User,
+		ServiceTier: req.ServiceTier,
 	}
 }
 
@@ -628,9 +679,21 @@ func responseUsageToOpenAI(usage *contractsopenai.ResponseUsage) *contractsopena
 		return nil
 	}
 
-	return &contractsopenai.Usage{
+	result := &contractsopenai.Usage{
 		PromptTokens:     usage.InputTokens,
 		CompletionTokens: usage.OutputTokens,
 		TotalTokens:      usage.TotalTokens,
 	}
+	if usage.InputDetails != nil {
+		result.PromptTokensDetails = &contractsopenai.UsageTokenDetails{
+			CachedTokens:     usage.InputDetails.CachedTokens,
+			CacheWriteTokens: usage.InputDetails.CacheWriteTokens,
+		}
+	}
+	if usage.OutputDetails != nil {
+		result.CompletionTokensDetails = &contractsopenai.UsageTokenDetails{
+			ReasoningTokens: usage.OutputDetails.ReasoningTokens,
+		}
+	}
+	return result
 }

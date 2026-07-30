@@ -200,6 +200,10 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Text to speech API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
 
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
+	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := providerOutboundModel(requestedModel, dep)
@@ -225,6 +229,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     reqMeta.Stream,
+		Operation:  platform.ProviderOperationOpenAIAudioSpeech,
 		Deployment: toContractDeployment(dep),
 		Headers: map[string]string{
 			"Content-Type": "application/json",

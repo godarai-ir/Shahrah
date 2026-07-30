@@ -383,7 +383,7 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, "gpt-4.1", mBilling.estimateModel)
+	assert.Equal(t, "openai:openai:gpt-4.1", mBilling.estimateModel)
 
 	var outbound contractsopenai.ChatCompletionRequest
 	require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))

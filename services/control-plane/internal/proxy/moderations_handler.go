@@ -129,7 +129,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
 	estimateReq := contractsopenai.EmbeddingRequest{
-		Model: providerModelID(requestedModel),
+		Model: billingEstimateModel(requestedModel),
 		Input: req.Input,
 	}
 	quotaStart := time.Now()
@@ -205,6 +205,10 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Moderations API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
 
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
+	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundReq := req
@@ -226,6 +230,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     false,
+		Operation:  platform.ProviderOperationOpenAIModerations,
 		Deployment: toContractDeployment(dep),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
@@ -448,28 +453,63 @@ func normalizeModerationInput(input interface{}) (interface{}, error) {
 			return nil, moderationFieldError("input is required and must be a non-empty string or a non-empty array of strings", "input", "invalid_input")
 		}
 
-		out := make([]string, 0, len(v))
 		for _, item := range v {
-			s, ok := item.(string)
-			if !ok {
-				return nil, moderationFieldError("input must be a string or array of strings", "input", "unsupported_input_type")
+			switch typed := item.(type) {
+			case string:
+				if strings.TrimSpace(typed) == "" {
+					return nil, moderationFieldError("input array items must be non-empty", "input", "invalid_input")
+				}
+			case map[string]interface{}:
+				if err := validateModerationMultimodalItem(typed); err != nil {
+					return nil, err
+				}
+			default:
+				return nil, moderationFieldError("input must contain text or image input items", "input", "unsupported_input_type")
 			}
-
-			if strings.TrimSpace(s) == "" {
-				return nil, moderationFieldError("input array items must be non-empty strings", "input", "invalid_input")
-			}
-
-			out = append(out, s)
 		}
 
-		return out, nil
+		return v, nil
+	case map[string]interface{}:
+		if err := validateModerationMultimodalItem(v); err != nil {
+			return nil, err
+		}
+		return v, nil
 	default:
 		if input == nil {
 			return nil, moderationFieldError("input is required and must be a non-empty string or a non-empty array of strings", "input", "invalid_input")
 		}
 
-		return nil, moderationFieldError("input must be a string or array of strings", "input", "unsupported_input_type")
+		return nil, moderationFieldError("input must be text, an image input item, or an array of those items", "input", "unsupported_input_type")
 	}
+}
+
+func validateModerationMultimodalItem(item map[string]interface{}) error {
+	itemType, _ := item["type"].(string)
+	switch strings.TrimSpace(itemType) {
+	case "text":
+		text, _ := item["text"].(string)
+		if strings.TrimSpace(text) == "" {
+			return moderationFieldError("text input items require non-empty text", "input", "invalid_input")
+		}
+	case "image_url":
+		switch value := item["image_url"].(type) {
+		case string:
+			if strings.TrimSpace(value) == "" {
+				return moderationFieldError("image_url input items require an image URL", "input", "invalid_input")
+			}
+		case map[string]interface{}:
+			url, _ := value["url"].(string)
+			if strings.TrimSpace(url) == "" {
+				return moderationFieldError("image_url input items require an image URL", "input", "invalid_input")
+			}
+		default:
+			return moderationFieldError("image_url input items require an image URL", "input", "invalid_input")
+		}
+	default:
+		return moderationFieldError("moderation input item type must be text or image_url", "input", "unsupported_input_type")
+	}
+
+	return nil
 }
 
 func moderationFieldError(message string, param string, code string) error {

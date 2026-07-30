@@ -45,22 +45,26 @@ type discoveryRuntimeProfileRevision struct {
 }
 
 type discoveryPricingRate struct {
-	Dimension    string                 `json:"dimension"`
-	Unit         string                 `json:"unit"`
-	UnitPriceUSD string                 `json:"unitPriceUsd"`
-	Currency     string                 `json:"currency"`
-	Condition    map[string]interface{} `json:"condition"`
-	Region       string                 `json:"region"`
-	SourceURL    string                 `json:"sourceUrl"`
+	Dimension     string                 `json:"dimension"`
+	Unit          string                 `json:"unit"`
+	UnitPriceUSD  string                 `json:"unitPriceUsd"`
+	Currency      string                 `json:"currency"`
+	Condition     map[string]interface{} `json:"condition"`
+	Region        string                 `json:"region"`
+	SourceURL     string                 `json:"sourceUrl"`
+	EffectiveFrom time.Time              `json:"effectiveFrom"`
+	EffectiveTo   *time.Time             `json:"effectiveTo"`
 }
 
 type normalizedPricingRate struct {
-	Dimension    string
-	Unit         string
-	UnitPriceUSD decimal.Decimal
-	Condition    map[string]interface{}
-	Region       string
-	SourceURL    string
+	Dimension     string
+	Unit          string
+	UnitPriceUSD  decimal.Decimal
+	Condition     map[string]interface{}
+	Region        string
+	SourceURL     string
+	EffectiveFrom time.Time
+	EffectiveTo   *time.Time
 }
 
 type anthropicPricingModel struct {
@@ -69,6 +73,7 @@ type anthropicPricingModel struct {
 	Status         string
 	RuntimeProfile *platform.ModelRuntimeProfileBinding
 	Rates          map[string]normalizedPricingRate
+	RateList       []normalizedPricingRate
 }
 
 type anthropicPricingSnapshot struct {

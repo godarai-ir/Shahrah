@@ -42,6 +42,30 @@ type budgeter interface {
 	FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error)
 }
 
+type deploymentPricingBudgeter interface {
+	ApplyPricingOverride(
+		ctx context.Context,
+		estimated platform.UsageCostBreakdown,
+		effective *platform.ModelPrice,
+	) (platform.UsageCostBreakdown, error)
+}
+
+func applyDeploymentPricingOverride(
+	ctx context.Context,
+	billing budgeter,
+	estimated platform.UsageCostBreakdown,
+	deployment *router.Deployment,
+) (platform.UsageCostBreakdown, error) {
+	if deployment == nil || deployment.PricingMode != platform.PricingModePrivate {
+		return estimated, nil
+	}
+	overrider, ok := billing.(deploymentPricingBudgeter)
+	if !ok {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("private pricing override is unavailable")
+	}
+	return overrider.ApplyPricingOverride(ctx, estimated, deployment.EffectivePricing)
+}
+
 type walletStore interface {
 	DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error)
 }
@@ -334,6 +358,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		TenantID:  currentTenant.ID,
 		TraceID:   requestID,
 		Stream:    req.Stream,
+		Operation: platform.ProviderOperationChatCompletions,
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
@@ -365,6 +390,10 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		estimated.ModelRuntimeProfile,
 	); handled || validationErr != nil {
 		return validationErr
+	}
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, deployment)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
 	}
 
 	if !isVirtual {
@@ -1717,11 +1746,13 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 		TimeoutSec:          dep.Params.Timeout,
 		CredentialSource:    dep.CredentialSource,
 		BillingMode:         dep.BillingMode,
+		PricingMode:         dep.PricingMode,
 		ProviderAccountID:   dep.ProviderAccountID,
 		ProviderAccountName: dep.ProviderAccountName,
 		ConnectionID:        dep.ConnectionID,
 		CredentialVersionID: dep.CredentialVersionID,
 		ProviderAuth:        dep.ProviderAuth,
+		EffectivePricing:    dep.EffectivePricing,
 	}
 }
 

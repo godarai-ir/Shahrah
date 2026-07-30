@@ -201,6 +201,7 @@ type UsagePricingSnapshot struct {
 	Revision    string                        `json:"revision"`
 	GeneratedAt time.Time                     `json:"generated_at"`
 	Rates       map[string]UsageCostComponent `json:"rates"`
+	RateList    []UsageCostComponent          `json:"rate_list,omitempty"`
 }
 
 type UsageCostBreakdown struct {
@@ -227,6 +228,7 @@ type UsageCostBreakdown struct {
 	PricingConditions          map[string]string           `json:"pricing_conditions,omitempty"`
 	ModelRuntimeProfile        *ModelRuntimeProfileBinding `json:"model_runtime_profile,omitempty"`
 	Components                 []UsageCostComponent        `json:"components,omitempty"`
+	Quantities                 map[string]string           `json:"quantities,omitempty"`
 	PricingSnapshot            *UsagePricingSnapshot       `json:"pricing_snapshot,omitempty"`
 }
 
@@ -276,12 +278,14 @@ type Deployment struct {
 	TimeoutSec          float64                `json:"timeout,omitempty"`
 	CredentialSource    string                 `json:"credential_source,omitempty"`
 	BillingMode         string                 `json:"billing_mode,omitempty"`
+	PricingMode         PricingMode            `json:"pricing_mode,omitempty"`
 	ProviderAccountID   string                 `json:"provider_account_id,omitempty"`
 	ProviderAccountName string                 `json:"provider_account_name,omitempty"`
 	ConnectionID        string                 `json:"connection_id,omitempty"`
 	CredentialVersionID string                 `json:"credential_version_id,omitempty"`
 	ProviderAuth        *ResolvedProviderAuth  `json:"provider_auth,omitempty"`
 	ModelInfo           map[string]interface{} `json:"model_info,omitempty"`
+	EffectivePricing    *ModelPrice            `json:"effective_pricing,omitempty"`
 }
 
 // TenantStore resolves tenants for requests.
@@ -488,30 +492,113 @@ func (p *CreateKeyParams) Normalize() {
 type ProviderOperation string
 
 const (
-	ProviderOperationChatCompletions         ProviderOperation = "chat_completions"
-	ProviderOperationAnthropicMessages       ProviderOperation = "anthropic_messages"
-	ProviderOperationAnthropicCountTokens    ProviderOperation = "anthropic_count_tokens"
-	ProviderOperationAnthropicModelsList     ProviderOperation = "anthropic_models_list"
-	ProviderOperationAnthropicModelsGet      ProviderOperation = "anthropic_models_get"
-	ProviderOperationAnthropicFilesCreate    ProviderOperation = "anthropic_files_create"
-	ProviderOperationAnthropicFilesList      ProviderOperation = "anthropic_files_list"
-	ProviderOperationAnthropicFilesGet       ProviderOperation = "anthropic_files_get"
-	ProviderOperationAnthropicFilesDelete    ProviderOperation = "anthropic_files_delete"
-	ProviderOperationAnthropicFilesContent   ProviderOperation = "anthropic_files_content"
-	ProviderOperationAnthropicBatchesCreate  ProviderOperation = "anthropic_batches_create"
-	ProviderOperationAnthropicBatchesList    ProviderOperation = "anthropic_batches_list"
-	ProviderOperationAnthropicBatchesGet     ProviderOperation = "anthropic_batches_get"
-	ProviderOperationAnthropicBatchesCancel  ProviderOperation = "anthropic_batches_cancel"
-	ProviderOperationAnthropicBatchesResults ProviderOperation = "anthropic_batches_results"
+	ProviderOperationChatCompletions                    ProviderOperation = "chat_completions"
+	ProviderOperationOpenAICompletions                  ProviderOperation = "openai_completions"
+	ProviderOperationOpenAIResponsesCreate              ProviderOperation = "openai_responses_create"
+	ProviderOperationOpenAIResponsesGet                 ProviderOperation = "openai_responses_get"
+	ProviderOperationOpenAIResponsesDelete              ProviderOperation = "openai_responses_delete"
+	ProviderOperationOpenAIResponsesCancel              ProviderOperation = "openai_responses_cancel"
+	ProviderOperationOpenAIResponsesCompact             ProviderOperation = "openai_responses_compact"
+	ProviderOperationOpenAIResponsesInputItems          ProviderOperation = "openai_responses_input_items"
+	ProviderOperationOpenAIResponsesInputTokens         ProviderOperation = "openai_responses_input_tokens"
+	ProviderOperationOpenAIConversationsCreate          ProviderOperation = "openai_conversations_create"
+	ProviderOperationOpenAIConversationsList            ProviderOperation = "openai_conversations_list"
+	ProviderOperationOpenAIConversationsGet             ProviderOperation = "openai_conversations_get"
+	ProviderOperationOpenAIConversationsUpdate          ProviderOperation = "openai_conversations_update"
+	ProviderOperationOpenAIConversationsDelete          ProviderOperation = "openai_conversations_delete"
+	ProviderOperationOpenAIConversationItemsCreate      ProviderOperation = "openai_conversation_items_create"
+	ProviderOperationOpenAIConversationItemsList        ProviderOperation = "openai_conversation_items_list"
+	ProviderOperationOpenAIConversationItemsGet         ProviderOperation = "openai_conversation_items_get"
+	ProviderOperationOpenAIConversationItemsDelete      ProviderOperation = "openai_conversation_items_delete"
+	ProviderOperationOpenAIEmbeddings                   ProviderOperation = "openai_embeddings"
+	ProviderOperationOpenAIModerations                  ProviderOperation = "openai_moderations"
+	ProviderOperationOpenAIImagesGenerations            ProviderOperation = "openai_images_generations"
+	ProviderOperationOpenAIImagesEdits                  ProviderOperation = "openai_images_edits"
+	ProviderOperationOpenAIImagesVariations             ProviderOperation = "openai_images_variations"
+	ProviderOperationOpenAIAudioSpeech                  ProviderOperation = "openai_audio_speech"
+	ProviderOperationOpenAIAudioTranscriptions          ProviderOperation = "openai_audio_transcriptions"
+	ProviderOperationOpenAIAudioTranslations            ProviderOperation = "openai_audio_translations"
+	ProviderOperationOpenAIBatchesCreate                ProviderOperation = "openai_batches_create"
+	ProviderOperationOpenAIBatchesList                  ProviderOperation = "openai_batches_list"
+	ProviderOperationOpenAIBatchesGet                   ProviderOperation = "openai_batches_get"
+	ProviderOperationOpenAIBatchesCancel                ProviderOperation = "openai_batches_cancel"
+	ProviderOperationOpenAIFilesCreate                  ProviderOperation = "openai_files_create"
+	ProviderOperationOpenAIFilesList                    ProviderOperation = "openai_files_list"
+	ProviderOperationOpenAIFilesGet                     ProviderOperation = "openai_files_get"
+	ProviderOperationOpenAIFilesDelete                  ProviderOperation = "openai_files_delete"
+	ProviderOperationOpenAIFilesContent                 ProviderOperation = "openai_files_content"
+	ProviderOperationOpenAIUploadsCreate                ProviderOperation = "openai_uploads_create"
+	ProviderOperationOpenAIUploadsAddPart               ProviderOperation = "openai_uploads_add_part"
+	ProviderOperationOpenAIUploadsComplete              ProviderOperation = "openai_uploads_complete"
+	ProviderOperationOpenAIUploadsCancel                ProviderOperation = "openai_uploads_cancel"
+	ProviderOperationOpenAIVectorStoresCreate           ProviderOperation = "openai_vector_stores_create"
+	ProviderOperationOpenAIVectorStoresList             ProviderOperation = "openai_vector_stores_list"
+	ProviderOperationOpenAIVectorStoresGet              ProviderOperation = "openai_vector_stores_get"
+	ProviderOperationOpenAIVectorStoresUpdate           ProviderOperation = "openai_vector_stores_update"
+	ProviderOperationOpenAIVectorStoresDelete           ProviderOperation = "openai_vector_stores_delete"
+	ProviderOperationOpenAIVectorStoresSearch           ProviderOperation = "openai_vector_stores_search"
+	ProviderOperationOpenAIVectorStoreFilesCreate       ProviderOperation = "openai_vector_store_files_create"
+	ProviderOperationOpenAIVectorStoreFilesList         ProviderOperation = "openai_vector_store_files_list"
+	ProviderOperationOpenAIVectorStoreFilesGet          ProviderOperation = "openai_vector_store_files_get"
+	ProviderOperationOpenAIVectorStoreFilesUpdate       ProviderOperation = "openai_vector_store_files_update"
+	ProviderOperationOpenAIVectorStoreFilesDelete       ProviderOperation = "openai_vector_store_files_delete"
+	ProviderOperationOpenAIVectorStoreFilesContent      ProviderOperation = "openai_vector_store_files_content"
+	ProviderOperationOpenAIVectorStoreFileBatchesCreate ProviderOperation = "openai_vector_store_file_batches_create"
+	ProviderOperationOpenAIVectorStoreFileBatchesList   ProviderOperation = "openai_vector_store_file_batches_list"
+	ProviderOperationOpenAIVectorStoreFileBatchesGet    ProviderOperation = "openai_vector_store_file_batches_get"
+	ProviderOperationOpenAIVectorStoreFileBatchesCancel ProviderOperation = "openai_vector_store_file_batches_cancel"
+	ProviderOperationOpenAIContainersCreate             ProviderOperation = "openai_containers_create"
+	ProviderOperationOpenAIContainersList               ProviderOperation = "openai_containers_list"
+	ProviderOperationOpenAIContainersGet                ProviderOperation = "openai_containers_get"
+	ProviderOperationOpenAIContainersDelete             ProviderOperation = "openai_containers_delete"
+	ProviderOperationOpenAIContainerFilesCreate         ProviderOperation = "openai_container_files_create"
+	ProviderOperationOpenAIContainerFilesList           ProviderOperation = "openai_container_files_list"
+	ProviderOperationOpenAIContainerFilesGet            ProviderOperation = "openai_container_files_get"
+	ProviderOperationOpenAIContainerFilesDelete         ProviderOperation = "openai_container_files_delete"
+	ProviderOperationOpenAIContainerFilesContent        ProviderOperation = "openai_container_files_content"
+	ProviderOperationOpenAIVideosCreate                 ProviderOperation = "openai_videos_create"
+	ProviderOperationOpenAIVideosList                   ProviderOperation = "openai_videos_list"
+	ProviderOperationOpenAIVideosGet                    ProviderOperation = "openai_videos_get"
+	ProviderOperationOpenAIVideosDelete                 ProviderOperation = "openai_videos_delete"
+	ProviderOperationOpenAIVideosContent                ProviderOperation = "openai_videos_content"
+	ProviderOperationOpenAIVideosEdit                   ProviderOperation = "openai_videos_edit"
+	ProviderOperationOpenAIVideosExtend                 ProviderOperation = "openai_videos_extend"
+	ProviderOperationOpenAIVideosRemix                  ProviderOperation = "openai_videos_remix"
+	ProviderOperationOpenAIModelsList                   ProviderOperation = "openai_models_list"
+	ProviderOperationOpenAIModelsGet                    ProviderOperation = "openai_models_get"
+	ProviderOperationOpenAIRealtime                     ProviderOperation = "openai_realtime"
+	ProviderOperationOpenAIRealtimeTranscription        ProviderOperation = "openai_realtime_transcription"
+	ProviderOperationOpenAIRealtimeTranslation          ProviderOperation = "openai_realtime_translation"
+	ProviderOperationAnthropicMessages                  ProviderOperation = "anthropic_messages"
+	ProviderOperationAnthropicCountTokens               ProviderOperation = "anthropic_count_tokens"
+	ProviderOperationAnthropicModelsList                ProviderOperation = "anthropic_models_list"
+	ProviderOperationAnthropicModelsGet                 ProviderOperation = "anthropic_models_get"
+	ProviderOperationAnthropicFilesCreate               ProviderOperation = "anthropic_files_create"
+	ProviderOperationAnthropicFilesList                 ProviderOperation = "anthropic_files_list"
+	ProviderOperationAnthropicFilesGet                  ProviderOperation = "anthropic_files_get"
+	ProviderOperationAnthropicFilesDelete               ProviderOperation = "anthropic_files_delete"
+	ProviderOperationAnthropicFilesContent              ProviderOperation = "anthropic_files_content"
+	ProviderOperationAnthropicBatchesCreate             ProviderOperation = "anthropic_batches_create"
+	ProviderOperationAnthropicBatchesList               ProviderOperation = "anthropic_batches_list"
+	ProviderOperationAnthropicBatchesGet                ProviderOperation = "anthropic_batches_get"
+	ProviderOperationAnthropicBatchesCancel             ProviderOperation = "anthropic_batches_cancel"
+	ProviderOperationAnthropicBatchesResults            ProviderOperation = "anthropic_batches_results"
 )
 
 // ProviderOperationInput carries only identifiers and pagination fields used
 // by fixed provider operations. It never accepts an upstream path or method.
 type ProviderOperationInput struct {
-	ResourceID string `json:"resource_id,omitempty"`
-	BeforeID   string `json:"before_id,omitempty"`
-	AfterID    string `json:"after_id,omitempty"`
-	Limit      int    `json:"limit,omitempty"`
+	ResourceID          string   `json:"resource_id,omitempty"`
+	ParentResourceID    string   `json:"parent_resource_id,omitempty"`
+	SecondaryResourceID string   `json:"secondary_resource_id,omitempty"`
+	BeforeID            string   `json:"before_id,omitempty"`
+	AfterID             string   `json:"after_id,omitempty"`
+	Limit               int      `json:"limit,omitempty"`
+	Order               string   `json:"order,omitempty"`
+	Include             []string `json:"include,omitempty"`
+	IncludeObfuscation  *bool    `json:"include_obfuscation,omitempty"`
+	StartingAfter       *int64   `json:"starting_after,omitempty"`
+	Stream              *bool    `json:"stream,omitempty"`
 }
 
 type AnthropicNativeResourceMapping struct {
@@ -524,6 +611,24 @@ type AnthropicNativeResourceMapping struct {
 	Reservation       *BudgetReservation  `json:"reservation,omitempty"`
 	PricingRevision   string              `json:"pricing_revision,omitempty"`
 	EstimatedUsage    *UsageCostBreakdown `json:"estimated_usage,omitempty"`
+}
+
+// ProviderNativeResourceMapping is the provider-neutral identity and billing
+// binding for stateful upstream resources.
+type ProviderNativeResourceMapping struct {
+	PublicID          string                 `json:"public_id"`
+	TenantID          string                 `json:"tenant_id"`
+	Provider          string                 `json:"provider"`
+	ProviderAccountID string                 `json:"provider_account_id"`
+	ResourceKind      string                 `json:"resource_kind"`
+	UpstreamID        string                 `json:"-"`
+	Status            string                 `json:"status"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	ReservationID     string                 `json:"reservation_id,omitempty"`
+	Reservation       *BudgetReservation     `json:"reservation,omitempty"`
+	PricingRevision   string                 `json:"pricing_revision,omitempty"`
+	EstimatedUsage    *UsageCostBreakdown    `json:"estimated_usage,omitempty"`
+	ExpiresAt         *time.Time             `json:"expires_at,omitempty"`
 }
 
 type TunnelRequest struct {
@@ -551,6 +656,21 @@ type TunnelRawResponse struct {
 	StatusCode int
 	Headers    map[string]string
 	Body       io.ReadCloser
+}
+
+type TunnelWebSocketFrame struct {
+	Type int    `json:"type"`
+	Data []byte `json:"data,omitempty"`
+}
+
+type TunnelWebSocket interface {
+	Read(ctx context.Context) (TunnelWebSocketFrame, error)
+	Write(ctx context.Context, frame TunnelWebSocketFrame) error
+	Close(code int, reason string) error
+}
+
+type TunnelWebSocketTransport interface {
+	OpenWebSocket(ctx context.Context, req TunnelRequest) (TunnelWebSocket, error)
 }
 
 // TunnelChunk is a streaming chunk flowing through the tunnel path.

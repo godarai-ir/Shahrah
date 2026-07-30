@@ -190,9 +190,11 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 	t.Parallel()
 
 	var gotPath string
+	var gotClientRequestID string
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+		gotClientRequestID = r.Header.Get("X-Client-Request-Id")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"id":"resp_1","object":"response","output":[]}`))
@@ -208,6 +210,9 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 		},
 		RequestMetadata: map[string]interface{}{
 			"provider_endpoint_path": "/responses",
+		},
+		Headers: map[string]string{
+			"X-Client-Request-Id": "client_req_1",
 		},
 		Body: []byte(`{"model":"gpt-4o","input":"hi"}`),
 	}
@@ -226,6 +231,9 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 	}
 	if gotPath != "/responses" {
 		t.Fatalf("expected path /responses, got %q", gotPath)
+	}
+	if gotClientRequestID != "client_req_1" {
+		t.Fatalf("expected X-Client-Request-Id to be forwarded, got %q", gotClientRequestID)
 	}
 }
 

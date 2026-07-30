@@ -189,6 +189,10 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 		estimated = finalizedEstimate
 	}
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
+	}
 	if isGoogleGeminiProvider(dep.Provider) {
 		if op.Name != "generations" {
 			return writeAPIError(
@@ -280,6 +284,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     false,
+		Operation:  imageProviderOperation(op.Name),
 		Deployment: contractDeployment,
 		Headers: map[string]string{
 			"Content-Type": outboundContentType,
@@ -295,6 +300,17 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	}
 
 	return err
+}
+
+func imageProviderOperation(name string) platform.ProviderOperation {
+	switch name {
+	case "edits":
+		return platform.ProviderOperationOpenAIImagesEdits
+	case "variations":
+		return platform.ProviderOperationOpenAIImagesVariations
+	default:
+		return platform.ProviderOperationOpenAIImagesGenerations
+	}
 }
 
 func (h *ImagesHandler) handleSync(

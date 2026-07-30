@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -153,7 +154,10 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		       a.use_platform_managed_credentials,
 		       m.model,
 		       COALESCE(m.types, '{}'),
-		       COALESCE(m.settings, '{}'::jsonb)
+		       COALESCE(m.settings, '{}'::jsonb),
+		       COALESCE(m.pricing_mode, 'public'),
+		       m.public_pricing,
+		       m.private_pricing
 		FROM tenant_provider_accounts a
 		JOIN tenant_provider_account_models m
 		  ON m.account_id = a.account_id
@@ -181,8 +185,26 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			model                      string
 			modelTypes                 []string
 			settingsRaw                []byte
+			pricingMode                string
+			publicPricingRaw           []byte
+			privatePricingRaw          []byte
 		)
-		if err := rows.Scan(&accountID, &accountTenant, &provider, &accountName, &authMode, &providerRaw, &hasCredential, &platformManagedCredentials, &model, &modelTypes, &settingsRaw); err != nil {
+		if err := rows.Scan(
+			&accountID,
+			&accountTenant,
+			&provider,
+			&accountName,
+			&authMode,
+			&providerRaw,
+			&hasCredential,
+			&platformManagedCredentials,
+			&model,
+			&modelTypes,
+			&settingsRaw,
+			&pricingMode,
+			&publicPricingRaw,
+			&privatePricingRaw,
+		); err != nil {
 			return nil, err
 		}
 
@@ -196,6 +218,14 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 
 		providerConfig := parseJSONObject(providerRaw)
 		settings := parseJSONObject(settingsRaw)
+		effectivePricing, pricingErr := effectiveDeploymentPricing(
+			pricingMode,
+			publicPricingRaw,
+			privatePricingRaw,
+		)
+		if pricingErr != nil {
+			return nil, pricingErr
+		}
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
 		noCredential := providerAccountUsesNoCredential(provider, authMode)
@@ -241,10 +271,12 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			TimeoutSec:          firstFloat64(settings, providerConfig, "timeout", "timeout_sec"),
 			CredentialSource:    credentialSource,
 			BillingMode:         billingMode,
+			PricingMode:         platform.PricingMode(pricingMode),
 			ProviderAccountID:   accountID,
 			ProviderAccountName: accountName,
 			ProviderAuth:        providerAuth,
-			ProviderHeaders:     anthropicProviderHeaders(provider, providerConfig),
+			ProviderHeaders:     documentedProviderHeaders(provider, providerConfig),
+			EffectivePricing:    effectivePricing,
 			ModelInfo: map[string]interface{}{
 				"source":                "tenant_provider_account",
 				"provider_account_id":   accountID,
@@ -259,11 +291,25 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 	return deps, rows.Err()
 }
 
-func anthropicProviderHeaders(
+func documentedProviderHeaders(
 	provider string,
 	config map[string]interface{},
 ) map[string]string {
-	if !strings.EqualFold(strings.TrimSpace(provider), "anthropic") {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai":
+		headers := make(map[string]string, 2)
+		if value := firstString(config, nil, "organization", "openai_organization"); value != "" {
+			headers["OpenAI-Organization"] = value
+		}
+		if value := firstString(config, nil, "project", "openai_project"); value != "" {
+			headers["OpenAI-Project"] = value
+		}
+		if len(headers) == 0 {
+			return nil
+		}
+		return headers
+	case "anthropic":
+	default:
 		return nil
 	}
 	values := providerConfigStringList(config["beta_allowlist"])
@@ -273,6 +319,73 @@ func anthropicProviderHeaders(
 	return map[string]string{
 		"Anthropic-Beta-Allowlist": strings.Join(values, ","),
 	}
+}
+
+func effectiveDeploymentPricing(
+	mode string,
+	publicRaw []byte,
+	privateRaw []byte,
+) (*platform.ModelPrice, error) {
+	decode := func(raw []byte) (*platform.ModelPrice, error) {
+		if len(raw) == 0 || string(raw) == "null" {
+			return nil, nil
+		}
+		var value platform.ModelPrice
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return nil, err
+		}
+		return &value, nil
+	}
+	publicPrice, err := decode(publicRaw)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.EqualFold(strings.TrimSpace(mode), string(platform.PricingModePrivate)) {
+		return publicPrice, nil
+	}
+	privatePrice, err := decode(privateRaw)
+	if err != nil {
+		return nil, err
+	}
+	if privatePrice == nil {
+		return nil, nil
+	}
+	if publicPrice == nil {
+		return privatePrice, nil
+	}
+	merged := *publicPrice
+	merged.Rates = append([]platform.ModelPricingRate(nil), publicPrice.Rates...)
+	index := make(map[string]int, len(merged.Rates))
+	for i, rate := range merged.Rates {
+		index[strings.TrimSpace(rate.Key)] = i
+	}
+	for _, override := range privatePrice.Rates {
+		key := strings.TrimSpace(override.Key)
+		position, ok := index[key]
+		if key == "" || !ok {
+			return nil, fmt.Errorf("private pricing rate %q does not match the public rate card", key)
+		}
+		publicRate := merged.Rates[position]
+		if override.Dimension != publicRate.Dimension ||
+			override.Unit != publicRate.Unit {
+			return nil, fmt.Errorf("private pricing rate %q changes immutable rate identity", key)
+		}
+		publicRate.UnitPriceUSD = override.UnitPriceUSD
+		merged.Rates[position] = publicRate
+	}
+	if privatePrice.InputUSDPer1M != nil {
+		merged.InputUSDPer1M = privatePrice.InputUSDPer1M
+	}
+	if privatePrice.OutputUSDPer1M != nil {
+		merged.OutputUSDPer1M = privatePrice.OutputUSDPer1M
+	}
+	return &merged, nil
+}
+
+// anthropicProviderHeaders is kept for focused compatibility tests and callers
+// compiled during rolling deployments.
+func anthropicProviderHeaders(provider string, config map[string]interface{}) map[string]string {
+	return documentedProviderHeaders(provider, config)
 }
 
 func providerConfigStringList(value interface{}) []string {

@@ -4,7 +4,18 @@ export type WizardCatalogModel = {
   public_pricing?: {
     input_usd_per_1m?: number;
     output_usd_per_1m?: number;
+    rates?: WizardModelPricingRate[];
   };
+};
+
+export type WizardModelPricingRate = {
+  key: string;
+  dimension: string;
+  unit: string;
+  unit_price_usd: string;
+  condition?: Record<string, unknown>;
+  region?: string;
+  source_url?: string;
 };
 
 export type WizardAccountModel = {
@@ -15,6 +26,7 @@ export type WizardAccountModel = {
   private_pricing?: {
     input_usd_per_1m?: number;
     output_usd_per_1m?: number;
+    rates?: WizardModelPricingRate[];
   };
 };
 
@@ -24,6 +36,7 @@ export type WizardModelDraft = {
   pricingMode: "public" | "private";
   inputPrice: string;
   outputPrice: string;
+  rateOverrides?: WizardModelPricingRate[];
 };
 
 export type WizardModelSavePayload = {
@@ -34,6 +47,7 @@ export type WizardModelSavePayload = {
     | {
         input_usd_per_1m?: number;
         output_usd_per_1m?: number;
+        rates?: WizardModelPricingRate[];
       }
     | undefined;
 };
@@ -109,6 +123,7 @@ export function buildDraftsForAccount(
       pricingMode: item.pricing_mode ?? "public",
       inputPrice: item.private_pricing?.input_usd_per_1m?.toString() ?? "",
       outputPrice: item.private_pricing?.output_usd_per_1m?.toString() ?? "",
+      rateOverrides: item.private_pricing?.rates ?? [],
     };
   }
   return next;
@@ -165,6 +180,7 @@ export function buildSelectedModelPayload(
             ? {
                 input_usd_per_1m: toNumberOrUndefined(draft.inputPrice),
                 output_usd_per_1m: toNumberOrUndefined(draft.outputPrice),
+                rates: draft.rateOverrides?.length ? draft.rateOverrides : undefined,
               }
             : undefined,
       };
@@ -178,7 +194,8 @@ export function buildSelectedModelPayload(
     if (item.pricing_mode !== "private") continue;
     const input = item.private_pricing?.input_usd_per_1m;
     const output = item.private_pricing?.output_usd_per_1m;
-    if (typeof input !== "number" && typeof output !== "number") {
+    const rates = item.private_pricing?.rates ?? [];
+    if (typeof input !== "number" && typeof output !== "number" && rates.length === 0) {
       validationErrors.push({ model: item.model, reason: "private_pricing_required" });
     }
   }

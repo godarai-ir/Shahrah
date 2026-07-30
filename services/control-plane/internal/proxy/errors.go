@@ -56,6 +56,21 @@ func TransformProviderError(c *fiber.Ctx, status int, body []byte, headers map[s
 	return WriteAPIError(c, status, message, errType)
 }
 
+// writeOpenAIProviderError preserves OpenAI's public error contract for native
+// endpoints. In particular, code, param, type, and any future fields must not
+// be discarded by the gateway.
+func writeOpenAIProviderError(c *fiber.Ctx, status int, body []byte, headers map[string]string) error {
+	forwardProviderHeaders(c, headers)
+
+	if len(body) > 0 && json.Valid(body) {
+		c.Status(status)
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		return c.Send(body)
+	}
+
+	return TransformProviderError(c, status, body, nil)
+}
+
 // transformProviderError is an alias for TransformProviderError (for backward compatibility).
 var transformProviderError = TransformProviderError
 
@@ -147,6 +162,10 @@ func forwardProviderHeaders(c *fiber.Ctx, headers map[string]string) {
 		"anthropic-fast-output-tokens-reset":          "Anthropic-Fast-Output-Tokens-Reset",
 		"x-ratelimit-remaining-tokens":                "X-Ratelimit-Remaining-Tokens",
 		"x-ratelimit-remaining-requests":              "X-Ratelimit-Remaining-Requests",
+		"x-ratelimit-limit-requests":                  "X-Ratelimit-Limit-Requests",
+		"x-ratelimit-limit-tokens":                    "X-Ratelimit-Limit-Tokens",
+		"x-ratelimit-reset-requests":                  "X-Ratelimit-Reset-Requests",
+		"x-ratelimit-reset-tokens":                    "X-Ratelimit-Reset-Tokens",
 		"x-ratelimit-limit":                           "X-Ratelimit-Limit",
 		"x-ratelimit-reset":                           "X-Ratelimit-Reset",
 		"cf-ray":                                      "Cf-Ray",

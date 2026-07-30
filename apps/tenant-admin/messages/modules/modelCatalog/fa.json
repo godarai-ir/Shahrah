@@ -123,10 +123,38 @@
     "publicOutputPrice": "قیمت عمومی خروجی",
     "effectiveInputPrice": "قیمت مؤثر ورودی",
     "effectiveOutputPrice": "قیمت مؤثر خروجی",
+    "ratesTitle": "نرخ‌های قیمت‌گذاری",
+    "ratesDescription": "نرخ‌های عمومی شرط‌دار و مقدار مؤثر مستأجر برای حساب انتخاب‌شده.",
+    "capabilityReadinessTitle": "آمادگی قابلیت‌ها",
+    "capabilityReadinessDescription": "پشتیبانی قراردادی به تفکیک endpoint، مدالیتی و transport؛ اعتبارسنجی زنده جداگانه نمایش داده می‌شود.",
     "deprecated": "این مدل منسوخ شده است. بارهای کاری را به یک مدل پشتیبانی‌شده منتقل کنید.",
     "deprecatedWithReplacement": "این مدل منسوخ شده است. جایگزین پیشنهادی: {replacement}.",
     "bashExample": "نمونه Bash",
     "powershellExample": "نمونه PowerShell"
+  },
+  "rates": {
+    "dimension": "بُعد",
+    "unit": "واحد",
+    "public": "دلار عمومی",
+    "effective": "دلار مؤثر",
+    "source": "منبع",
+    "inherited": "ارث‌رسیده",
+    "overridden": "قیمت خصوصی"
+  },
+  "capabilityReadiness": {
+    "endpoint": "Endpoint",
+    "modality": "مدالیتی",
+    "transport": "Transport",
+    "contract": "قرارداد",
+    "live": "اعتبارسنجی زنده",
+    "yes": "بله",
+    "no": "خیر",
+    "states": {
+      "contract_ready": "قرارداد آماده",
+      "blocked_lifecycle": "مسدود به‌علت چرخه عمر",
+      "pricing_incomplete": "قیمت‌گذاری ناقص",
+      "unsupported_transport": "Transport پشتیبانی‌نشده"
+    }
   },
   "details": {
     "loading": "در حال بارگذاری جزئیات ارائه‌دهنده",

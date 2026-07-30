@@ -216,6 +216,10 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
+	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundReq := req
@@ -237,6 +241,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     false,
+		Operation:  platform.ProviderOperationOpenAIEmbeddings,
 		Deployment: toContractDeployment(dep),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
@@ -487,31 +492,47 @@ func normalizeEmbeddingInput(input interface{}) (interface{}, error) {
 		return v, nil
 	case []interface{}:
 		if len(v) == 0 {
-			return nil, apiFieldError("input is required and must be a non-empty string or a non-empty array of strings", "input", "invalid_input")
+			return nil, apiFieldError("input is required and must be a non-empty string, token array, or array of inputs", "input", "invalid_input")
 		}
 
-		out := make([]string, 0, len(v))
+		if allEmbeddingTokens(v) {
+			return v, nil
+		}
+
+		allStrings := true
+		allTokenArrays := true
 		for _, item := range v {
-			s, ok := item.(string)
-			if !ok {
-				return nil, apiFieldError("token-array inputs are not supported yet; input must be a string or array of strings", "input", "unsupported_input_type")
+			if s, ok := item.(string); !ok || strings.TrimSpace(s) == "" {
+				allStrings = false
 			}
-
-			if strings.TrimSpace(s) == "" {
-				return nil, apiFieldError("input array items must be non-empty strings", "input", "invalid_input")
+			nested, ok := item.([]interface{})
+			if !ok || len(nested) == 0 || !allEmbeddingTokens(nested) {
+				allTokenArrays = false
 			}
-
-			out = append(out, s)
 		}
 
-		return out, nil
+		if allStrings || allTokenArrays {
+			return v, nil
+		}
+
+		return nil, apiFieldError("input must be a string, array of strings, token array, or array of token arrays", "input", "unsupported_input_type")
 	default:
 		if input == nil {
-			return nil, apiFieldError("input is required and must be a non-empty string or a non-empty array of strings", "input", "invalid_input")
+			return nil, apiFieldError("input is required and must be a non-empty string, token array, or array of inputs", "input", "invalid_input")
 		}
 
-		return nil, apiFieldError("token-array inputs are not supported yet; input must be a string or array of strings", "input", "unsupported_input_type")
+		return nil, apiFieldError("input must be a string, array of strings, token array, or array of token arrays", "input", "unsupported_input_type")
 	}
+}
+
+func allEmbeddingTokens(values []interface{}) bool {
+	for _, value := range values {
+		number, ok := value.(float64)
+		if !ok || number < 0 || number != float64(int64(number)) {
+			return false
+		}
+	}
+	return len(values) > 0
 }
 
 func apiFieldError(message string, param string, code string) error {

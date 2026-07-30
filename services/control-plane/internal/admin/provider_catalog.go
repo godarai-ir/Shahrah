@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -84,6 +86,17 @@ type modelDiscoveryModel struct {
 	InputModalities  []string               `json:"inputModalities"`
 	OutputModalities []string               `json:"outputModalities"`
 	Pricing          *modelDiscoveryPricing `json:"pricing"`
+	Status           string                 `json:"status"`
+	PricingRates     []struct {
+		Dimension     string                 `json:"dimension"`
+		Unit          string                 `json:"unit"`
+		UnitPriceUSD  string                 `json:"unitPriceUsd"`
+		Condition     map[string]interface{} `json:"condition"`
+		Region        string                 `json:"region"`
+		EffectiveFrom *time.Time             `json:"effectiveFrom"`
+		EffectiveTo   *time.Time             `json:"effectiveTo"`
+		SourceURL     string                 `json:"sourceUrl"`
+	} `json:"pricingRates"`
 }
 
 func normalizeProviderSlug(value string) string {
@@ -470,6 +483,10 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 			invalid = append(invalid, model)
 			continue
 		}
+		if cm.IsDeprecated {
+			invalid = append(invalid, model)
+			continue
+		}
 
 		requestedCapabilities := normalizeModelTypes(item.EffectiveCapabilities)
 		allowedCapabilities := normalizeModelTypes(cm.Types)
@@ -514,6 +531,7 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 			PublicPricing:    cloneModelPrice(cm.PublicPricing),
 			PrivatePricing:   cloneModelPrice(item.PrivatePricing),
 			Settings:         map[string]interface{}{},
+			Readiness:        append([]platform.CapabilityReadiness(nil), cm.Readiness...),
 		})
 	}
 
@@ -756,6 +774,7 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 			OutputModalities: normalizeStringList(item.OutputModalities),
 			Capabilities:     normalizeStringList(item.Capabilities),
 			Features:         normalizeStringList(item.Capabilities),
+			IsDeprecated:     strings.TrimSpace(item.Status) != "" && !strings.EqualFold(strings.TrimSpace(item.Status), "active"),
 		}
 		if item.Pricing != nil {
 			entry.PublicPricing = &platform.ModelPrice{
@@ -763,6 +782,26 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 				OutputUSDPer1M: item.Pricing.OutputPerMillionTokens,
 			}
 		}
+		if len(item.PricingRates) > 0 {
+			if entry.PublicPricing == nil {
+				entry.PublicPricing = &platform.ModelPrice{}
+			}
+			entry.PublicPricing.Rates = make([]platform.ModelPricingRate, 0, len(item.PricingRates))
+			for _, rate := range item.PricingRates {
+				entry.PublicPricing.Rates = append(entry.PublicPricing.Rates, platform.ModelPricingRate{
+					Key:           pricingRateKey(rate.Dimension, rate.Unit, rate.Region, rate.Condition, rate.EffectiveFrom, rate.EffectiveTo),
+					Dimension:     strings.TrimSpace(rate.Dimension),
+					Unit:          strings.TrimSpace(rate.Unit),
+					UnitPriceUSD:  strings.TrimSpace(rate.UnitPriceUSD),
+					Condition:     cloneInterfaceMap(rate.Condition),
+					Region:        strings.TrimSpace(rate.Region),
+					EffectiveFrom: rate.EffectiveFrom,
+					EffectiveTo:   rate.EffectiveTo,
+					SourceURL:     strings.TrimSpace(rate.SourceURL),
+				})
+			}
+		}
+		entry.Readiness = catalogCapabilityReadiness(entry, item.Status)
 
 		out = append(out, entry)
 	}
@@ -808,14 +847,18 @@ func mapModeToModelType(mode string) platform.ModelType {
 	switch strings.TrimSpace(strings.ToLower(mode)) {
 	case "chat":
 		return platform.ModelTypeChat
-	case "completion", "responses":
+	case "completion":
 		return platform.ModelTypeCompletion
+	case "responses":
+		return platform.ModelTypeResponses
 	case "embedding":
 		return platform.ModelTypeEmbedding
 	case "realtime":
 		return platform.ModelTypeRealtime
 	case "image":
 		return platform.ModelTypeImageGeneration
+	case "video":
+		return platform.ModelTypeVideoGeneration
 	case "text_to_speech":
 		return platform.ModelTypeTextToSpeech
 	case "audio_transcription":
@@ -915,10 +958,6 @@ func normalizeModelTypes(types []platform.ModelType) []platform.ModelType {
 	seen := make(map[platform.ModelType]struct{}, len(types))
 	for _, item := range types {
 		normalized := platform.ModelType(strings.TrimSpace(strings.ToLower(string(item))))
-		if normalized == "responses" {
-			normalized = platform.ModelTypeCompletion
-		}
-
 		if normalized == "" {
 			continue
 		}
@@ -965,8 +1004,80 @@ func cloneModelPrice(price *platform.ModelPrice) *platform.ModelPrice {
 	}
 
 	out := *price
+	if len(price.Rates) > 0 {
+		out.Rates = append([]platform.ModelPricingRate(nil), price.Rates...)
+		for i := range out.Rates {
+			out.Rates[i].Condition = cloneInterfaceMap(out.Rates[i].Condition)
+		}
+	}
 
 	return &out
+}
+
+func cloneInterfaceMap(input map[string]interface{}) map[string]interface{} {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]interface{}, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
+}
+
+func pricingRateKey(
+	dimension string,
+	unit string,
+	region string,
+	condition map[string]interface{},
+	effectiveFrom *time.Time,
+	effectiveTo *time.Time,
+) string {
+	payload := struct {
+		Dimension     string                 `json:"dimension"`
+		Unit          string                 `json:"unit"`
+		Region        string                 `json:"region"`
+		Condition     map[string]interface{} `json:"condition,omitempty"`
+		EffectiveFrom *time.Time             `json:"effective_from,omitempty"`
+		EffectiveTo   *time.Time             `json:"effective_to,omitempty"`
+	}{
+		Dimension:     strings.TrimSpace(dimension),
+		Unit:          strings.TrimSpace(unit),
+		Region:        strings.TrimSpace(region),
+		Condition:     condition,
+		EffectiveFrom: effectiveFrom,
+		EffectiveTo:   effectiveTo,
+	}
+	raw, _ := json.Marshal(payload)
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func catalogCapabilityReadiness(
+	model platform.ProviderCatalogModel,
+	status string,
+) []platform.CapabilityReadiness {
+	state := platform.CapabilityReadinessContractReady
+	reason := ""
+	if strings.TrimSpace(status) != "" && !strings.EqualFold(strings.TrimSpace(status), "active") {
+		state = platform.CapabilityReadinessBlockedLifecycle
+		reason = "model_lifecycle_not_active"
+	}
+	result := make([]platform.CapabilityReadiness, 0, len(model.Modes))
+	for _, mode := range model.Modes {
+		transport := "http"
+		if strings.EqualFold(mode, "realtime") {
+			transport = "websocket"
+		}
+		result = append(result, platform.CapabilityReadiness{
+			Endpoint:      mode,
+			Transport:     transport,
+			State:         state,
+			Reason:        reason,
+			LiveValidated: false,
+		})
+	}
+	return result
 }
 
 func fillModelPricingFromRegistry(provider string, model string, current *platform.ModelPrice) *platform.ModelPrice {

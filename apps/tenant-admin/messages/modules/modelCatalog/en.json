@@ -123,10 +123,38 @@
     "publicOutputPrice": "Public output price",
     "effectiveInputPrice": "Effective input price",
     "effectiveOutputPrice": "Effective output price",
+    "ratesTitle": "Pricing rates",
+    "ratesDescription": "Condition-aware public rates and the effective tenant value for the selected account.",
+    "capabilityReadinessTitle": "Capability readiness",
+    "capabilityReadinessDescription": "Contract support by endpoint, modality, and transport. Live validation remains separate.",
     "deprecated": "This model is deprecated. Plan to move workloads to a supported model.",
     "deprecatedWithReplacement": "This model is deprecated. Recommended replacement: {replacement}.",
     "bashExample": "Bash example",
     "powershellExample": "PowerShell example"
+  },
+  "rates": {
+    "dimension": "Dimension",
+    "unit": "Unit",
+    "public": "Public USD",
+    "effective": "Effective USD",
+    "source": "Source",
+    "inherited": "Inherited",
+    "overridden": "Private override"
+  },
+  "capabilityReadiness": {
+    "endpoint": "Endpoint",
+    "modality": "Modality",
+    "transport": "Transport",
+    "contract": "Contract",
+    "live": "Live validated",
+    "yes": "Yes",
+    "no": "No",
+    "states": {
+      "contract_ready": "Contract ready",
+      "blocked_lifecycle": "Lifecycle blocked",
+      "pricing_incomplete": "Pricing incomplete",
+      "unsupported_transport": "Transport unsupported"
+    }
   },
   "details": {
     "loading": "Loading provider details",

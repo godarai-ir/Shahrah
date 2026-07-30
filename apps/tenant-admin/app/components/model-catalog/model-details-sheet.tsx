@@ -28,6 +28,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { CatalogModel } from "./types";
 import { formatCatalogModelDisplayName } from "./formatters";
@@ -171,6 +172,17 @@ export function ModelDetailsSheet({
               <DefinitionListItem label={t("drawer.effectiveOutputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
             </DefinitionList>
 
+            <PricingRatesTable
+              publicRates={model.public_pricing?.rates ?? []}
+              effectiveRates={selectedAvailability.effective_pricing?.rates ?? []}
+              t={t}
+            />
+
+            <CapabilityReadinessTable
+              rows={selectedAvailability.capability_readiness ?? model.readiness ?? []}
+              t={t}
+            />
+
             {code ? (
               <div className="flex flex-col gap-4">
                 <CodePanel
@@ -229,6 +241,116 @@ export function ModelDetailsSheet({
         ) : null}
       </SheetContent>
     </Sheet>
+  );
+}
+
+type CatalogTranslator = ReturnType<typeof useTranslations>;
+
+function PricingRatesTable({
+  publicRates,
+  effectiveRates,
+  t,
+}: {
+  publicRates: NonNullable<CatalogModel["public_pricing"]>["rates"];
+  effectiveRates: NonNullable<CatalogModel["public_pricing"]>["rates"];
+  t: CatalogTranslator;
+}) {
+  const effectiveByKey = new Map((effectiveRates ?? []).map((rate) => [rate.key, rate]));
+  if (!publicRates?.length) return null;
+
+  return (
+    <section className="space-y-3" aria-labelledby="model-pricing-rates-title">
+      <div>
+        <h3 id="model-pricing-rates-title" className="text-sm font-semibold">{t("drawer.ratesTitle")}</h3>
+        <p className="text-xs text-muted-foreground">{t("drawer.ratesDescription")}</p>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("rates.dimension")}</TableHead>
+              <TableHead>{t("rates.unit")}</TableHead>
+              <TableHead>{t("rates.public")}</TableHead>
+              <TableHead>{t("rates.effective")}</TableHead>
+              <TableHead>{t("rates.source")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {publicRates.map((rate) => {
+              const effective = effectiveByKey.get(rate.key) ?? rate;
+              const inherited = effective.unit_price_usd === rate.unit_price_usd;
+              return (
+                <TableRow key={rate.key}>
+                  <TableCell dir="ltr" className="font-mono text-xs">{rate.dimension}</TableCell>
+                  <TableCell dir="ltr">{rate.unit}</TableCell>
+                  <TableCell dir="ltr">{rate.unit_price_usd}</TableCell>
+                  <TableCell dir="ltr">{effective.unit_price_usd}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={inherited ? "neutral" : "warning"}>
+                      {inherited ? t("rates.inherited") : t("rates.overridden")}
+                    </StatusBadge>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+}
+
+function CapabilityReadinessTable({
+  rows,
+  t,
+}: {
+  rows: NonNullable<CatalogModel["readiness"]>;
+  t: CatalogTranslator;
+}) {
+  if (!rows.length) return null;
+  return (
+    <section className="space-y-3" aria-labelledby="model-capability-readiness-title">
+      <div>
+        <h3 id="model-capability-readiness-title" className="text-sm font-semibold">{t("drawer.capabilityReadinessTitle")}</h3>
+        <p className="text-xs text-muted-foreground">{t("drawer.capabilityReadinessDescription")}</p>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("capabilityReadiness.endpoint")}</TableHead>
+              <TableHead>{t("capabilityReadiness.modality")}</TableHead>
+              <TableHead>{t("capabilityReadiness.transport")}</TableHead>
+              <TableHead>{t("capabilityReadiness.contract")}</TableHead>
+              <TableHead>{t("capabilityReadiness.live")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, index) => (
+              <TableRow key={`${row.method ?? ""}:${row.endpoint}:${row.transport ?? ""}:${index}`}>
+                <TableCell dir="ltr" className="font-mono text-xs">
+                  {[row.method, row.endpoint].filter(Boolean).join(" ")}
+                </TableCell>
+                <TableCell>
+                  {[row.input_modality, row.output_modality].filter(Boolean).join(" → ") || t("values.na")}
+                </TableCell>
+                <TableCell dir="ltr">{row.transport ?? "http"}</TableCell>
+                <TableCell>
+                  <StatusBadge status={row.state === "contract_ready" ? "success" : "warning"}>
+                    {t(`capabilityReadiness.states.${row.state}`)}
+                  </StatusBadge>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={row.live_validated ? "success" : "neutral"}>
+                    {row.live_validated ? t("capabilityReadiness.yes") : t("capabilityReadiness.no")}
+                  </StatusBadge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
   );
 }
 

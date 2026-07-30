@@ -222,6 +222,10 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
 
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
+	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := strings.TrimSpace(dep.Model)
@@ -236,6 +240,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     req.Stream,
+		Operation:  platform.ProviderOperationOpenAICompletions,
 		Deployment: toContractDeployment(dep),
 		Headers:    map[string]string{"Authorization": "Bearer " + dep.Params.APIKey},
 		Body:       mustMarshalJSON(chatReq),

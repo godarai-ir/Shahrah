@@ -134,7 +134,7 @@ func TestResolveProviderAccountModelSelections_RejectsInvalidCapabilities(t *tes
 	assert.Equal(t, []platform.ModelType{platform.ModelTypeEmbedding}, items[0].Types)
 }
 
-func TestResolveProviderAccountModelSelections_AcceptsResponsesAliasAsCompletion(t *testing.T) {
+func TestResolveProviderAccountModelSelections_PreservesResponsesAsIndependentType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/providers/openai/models" {
 			http.NotFound(w, r)
@@ -160,7 +160,7 @@ func TestResolveProviderAccountModelSelections_AcceptsResponsesAliasAsCompletion
 	require.Empty(t, invalid)
 	require.Empty(t, invalidCapabilities)
 	require.Len(t, items, 1)
-	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeCompletion}, items[0].Types)
+	assert.Equal(t, []platform.ModelType{platform.ModelTypeChat, platform.ModelTypeResponses}, items[0].Types)
 }
 
 func TestDiscoveryProviders_FailsWithoutFallbackWhenDiscoveryUnavailable(t *testing.T) {

@@ -257,8 +257,18 @@ func estimateEmbeddingPromptTokens(input interface{}) int {
 		total := 0
 
 		for _, item := range v {
-			if s, ok := item.(string); ok {
-				total += EstimateTokens(s)
+			switch typed := item.(type) {
+			case string:
+				total += EstimateTokens(typed)
+			case float64:
+				// JSON token arrays are decoded as float64 values.
+				total++
+			case []interface{}:
+				for _, token := range typed {
+					if _, ok := token.(float64); ok {
+						total++
+					}
+				}
 			}
 		}
 

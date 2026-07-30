@@ -293,6 +293,7 @@ type priceInfo struct {
 	InputPerToken  decimal.Decimal
 	OutputPerToken decimal.Decimal
 	Rates          map[string]normalizedPricingRate
+	RateList       []normalizedPricingRate
 	Revision       string
 	GeneratedAt    time.Time
 	Provider       string

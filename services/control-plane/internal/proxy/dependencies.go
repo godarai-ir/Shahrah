@@ -37,6 +37,8 @@ type BaseHandlerDependencies struct {
 	Billing                  budgeter
 	Wallets                  walletStore
 	AnthropicRuntimeProfiles anthropicModelRuntimeProfileResolver
+	ProviderResources        providerNativeResourceStore
+	Deployments              responseDeploymentLister
 	RequestLogger            RequestLogger
 	SpendLogger              SpendLogger
 	Logger                   *zap.Logger

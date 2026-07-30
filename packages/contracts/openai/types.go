@@ -522,9 +522,10 @@ type Usage struct {
 // UsageTokenDetails carries OpenAI-compatible token subcategories needed for
 // modality- and cache-aware billing.
 type UsageTokenDetails struct {
-	AudioTokens     int `json:"audio_tokens,omitempty"`
-	CachedTokens    int `json:"cached_tokens,omitempty"`
-	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
+	AudioTokens      int `json:"audio_tokens,omitempty"`
+	CachedTokens     int `json:"cached_tokens,omitempty"`
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
+	ReasoningTokens  int `json:"reasoning_tokens,omitempty"`
 }
 
 // StreamChunk represents a single chunk in a streaming response.
@@ -685,6 +686,7 @@ type ResponseRequest struct {
 	PreviousResponseID string                 `json:"previous_response_id,omitempty"`
 	Stream             bool                   `json:"stream,omitempty"`
 	User               string                 `json:"user,omitempty"`
+	ServiceTier        string                 `json:"service_tier,omitempty"`
 }
 
 // ResponseTextConfig contains text output formatting options for the Responses API.
@@ -704,6 +706,7 @@ type Response struct {
 	Error             interface{}            `json:"error,omitempty"`
 	IncompleteDetails interface{}            `json:"incomplete_details,omitempty"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	ServiceTier       string                 `json:"service_tier,omitempty"`
 }
 
 // ResponseOutput captures one output item returned by the responses API.
@@ -733,7 +736,8 @@ type ResponseUsage struct {
 
 // ResponseInputTokenDetails provides cached token detail for responses usage.
 type ResponseInputTokenDetails struct {
-	CachedTokens int `json:"cached_tokens,omitempty"`
+	CachedTokens     int `json:"cached_tokens,omitempty"`
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
 }
 
 // ResponseOutputTokenDetails provides reasoning token detail for responses usage.

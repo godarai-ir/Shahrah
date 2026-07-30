@@ -1,6 +1,19 @@
 import { z } from 'zod';
 
 const thinkingModeSchema = z.enum(['adaptive', 'manual', 'disabled']);
+const supportedToolSchema = z.enum([
+  'function_calling',
+  'web_search',
+  'file_search',
+  'tool_search',
+  'image_generation',
+  'code_interpreter',
+  'hosted_shell',
+  'apply_patch',
+  'skills',
+  'computer_use',
+  'mcp',
+]);
 const endpointSchema = z.enum([
   'messages',
   'count_tokens',
@@ -8,29 +21,55 @@ const endpointSchema = z.enum([
   'files',
   'models',
   'chat_completions',
+  'completions',
+  'responses',
+  'responses_input_tokens',
+  'responses_compact',
+  'conversations',
   'embeddings',
+  'moderations',
   'image_generations',
+  'image_edits',
+  'image_variations',
   'audio_speech',
+  'audio_transcriptions',
+  'audio_translations',
+  'realtime',
+  'realtime_transcription',
+  'realtime_translation',
   'videos',
+  'uploads',
+  'vector_stores',
+  'containers',
   'interactions',
   'live',
-    'batches',
-    'generate_content',
-    'generate_answer',
-    'embed_content',
-    'imagen_generate',
+  'batches',
+  'generate_content',
+  'generate_answer',
+  'embed_content',
+  'imagen_generate',
 ]);
 
 export const modelRuntimeProfileSchema = z
   .object({
     version: z.number().int().positive(),
     endpoints: z.array(endpointSchema).min(1),
+    transports: z.array(z.enum(['http', 'sse', 'websocket'])).default(['http']),
+    lifecycle: z
+      .enum(['active', 'preview', 'deprecated', 'retired', 'unavailable'])
+      .default('active'),
     thinking: z.object({
       defaultMode: thinkingModeSchema,
       allowedModes: z.array(thinkingModeSchema).min(1),
       manualDeprecated: z.boolean().default(false),
       effortValues: z
-        .array(z.enum(['none', 'minimal', 'low', 'medium', 'high', 'max']))
+        .array(
+          z.enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']),
+        )
+        .default([]),
+      reasoningModes: z.array(z.enum(['standard', 'pro'])).default([]),
+      contextValues: z
+        .array(z.enum(['auto', 'current_turn', 'all_turns']))
         .default([]),
     }),
     assistantPrefill: z.boolean(),
@@ -45,6 +84,7 @@ export const modelRuntimeProfileSchema = z
       server: z.boolean().default(false),
       parallel: z.boolean(),
       structuredOutput: z.boolean(),
+      supported: z.array(supportedToolSchema).default([]),
     }),
     modalities: z.object({
       input: z
@@ -77,6 +117,7 @@ export const modelRuntimeProfileSchema = z
               'batch',
               'flex',
               'priority',
+              'fast',
             ]),
           )
           .default(['auto', 'standard_only']),

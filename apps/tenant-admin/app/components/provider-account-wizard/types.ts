@@ -80,7 +80,18 @@ export type ProviderCatalogModel = {
   public_pricing?: {
     input_usd_per_1m?: number;
     output_usd_per_1m?: number;
+    rates?: ModelPricingRate[];
   };
+};
+
+export type ModelPricingRate = {
+  key: string;
+  dimension: string;
+  unit: string;
+  unit_price_usd: string;
+  condition?: Record<string, unknown>;
+  region?: string;
+  source_url?: string;
 };
 
 export type TenantProviderAccount = {
@@ -135,6 +146,7 @@ export type TenantProviderAccountModel = {
   private_pricing?: {
     input_usd_per_1m?: number;
     output_usd_per_1m?: number;
+    rates?: ModelPricingRate[];
   };
   settings?: Record<string, unknown>;
 };
@@ -201,6 +213,7 @@ export type ModelDraft = {
   pricingMode: "public" | "private";
   inputPrice: string;
   outputPrice: string;
+  rateOverrides?: ModelPricingRate[];
 };
 
 export type Readiness = "ready" | "connection_failed" | "needs_credentials" | "needs_access" | "pricing_incomplete";

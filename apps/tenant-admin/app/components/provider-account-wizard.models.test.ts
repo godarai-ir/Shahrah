@@ -170,4 +170,38 @@ describe("provider-account-wizard model helpers", () => {
     expect(drafts["gpt-4.1-mini"].enabled).toBe(true);
     expect(drafts["gpt-4.1-mini"].selectedCapabilities).toEqual(["embedding", "chat"]);
   });
+
+  it("serializes only explicit condition-aware private rate overrides", () => {
+    const result = buildSelectedModelPayload({
+      "gpt-5": {
+        enabled: true,
+        selectedCapabilities: ["responses"],
+        pricingMode: "private",
+        inputPrice: "",
+        outputPrice: "",
+        rateOverrides: [
+          {
+            key: "priority-input",
+            dimension: "input_tokens",
+            unit: "token",
+            unit_price_usd: "0.000002",
+            condition: { service_tier: "priority" },
+            region: "global",
+          },
+        ],
+      },
+    });
+
+    expect(result.validationErrors).toEqual([]);
+    expect(result.models[0]?.private_pricing?.rates).toEqual([
+      {
+        key: "priority-input",
+        dimension: "input_tokens",
+        unit: "token",
+        unit_price_usd: "0.000002",
+        condition: { service_tier: "priority" },
+        region: "global",
+      },
+    ]);
+  });
 });

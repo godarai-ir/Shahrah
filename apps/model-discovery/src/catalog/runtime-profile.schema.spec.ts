@@ -145,4 +145,30 @@ describe('modelRuntimeProfileSchema', () => {
     expect(parsed.modalities.output).toContain('embedding');
     expect(parsed.thinking.effortValues).toContain('minimal');
   });
+
+  it('accepts OpenAI Responses tools and the Fast service tier', () => {
+    const parsed = modelRuntimeProfileSchema.parse({
+      ...validProfile,
+      endpoints: ['models', 'responses'],
+      tools: {
+        ...validProfile.tools,
+        supported: [
+          'function_calling',
+          'web_search',
+          'file_search',
+          'computer_use',
+          'mcp',
+        ],
+      },
+      requestControls: {
+        serviceTierValues: ['standard', 'priority', 'fast'],
+        inferenceGeoValues: ['global'],
+        speedValues: ['standard', 'fast'],
+        effectiveSpeed: { standard: 'standard', fast: 'fast' },
+      },
+    });
+
+    expect(parsed.tools.supported).toContain('computer_use');
+    expect(parsed.requestControls.serviceTierValues).toContain('fast');
+  });
 });
