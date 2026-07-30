@@ -1,0 +1,18 @@
+modalities:
+    input:
+        - audio
+    output:
+        - text
+mode: audio_transcription
+model: cohere-transcribe-03-2026
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - temperature
+    - stream
+    - reasoning_effort
+sources:
+    - https://docs.cohere.com/docs/transcribe
+status: active
+supportedModes:
+    - audio_transcription

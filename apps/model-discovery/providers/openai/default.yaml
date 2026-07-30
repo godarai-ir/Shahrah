@@ -1,0 +1,68 @@
+documentation:
+    - https://platform.openai.com/docs
+    - https://openai.com/api/pricing/
+    - https://platform.openai.com/docs/models
+    - https://platform.openai.com/docs/deprecations
+    - https://developers.openai.com/api/docs/models
+    - https://developers.openai.com/api/docs/pricing
+    - https://developers.openai.com/docs/deprecations
+    - https://developers.openai.com/api/docs/guides/reasoning#reasoning-effort
+messages:
+    options:
+        - system
+        - user
+        - assistant
+        - developer
+params:
+    - defaultValue: 128
+      key: max_tokens
+      maxValue: 4096
+      minValue: 1
+    - defaultValue: 0.8
+      key: temperature
+      maxValue: 2
+      minValue: 0
+    - defaultValue: null
+      key: stop
+      type: array-of-strings
+    - defaultValue: 0.1
+      key: top_p
+      maxValue: 1
+      minValue: 0
+    - defaultValue: 1
+      key: "n"
+      maxValue: 10
+      minValue: 1
+    - defaultValue: true
+      key: stream
+      type: boolean
+    - defaultValue: null
+      key: tool_choice
+    - defaultValue: true
+      key: parallel_tool_calls
+      type: boolean
+    - defaultValue: medium
+      key: reasoning_effort
+      supportedValues:
+          - none
+          - minimal
+          - low
+          - medium
+          - high
+          - xhigh
+      type: string
+tool_pricing:
+    web_search:
+        per_thousand_requests: 10
+    file_search:
+        per_thousand_requests: 2.5
+        storage_per_gb_day: 0.1
+        free_storage_gb: 1
+    containers:
+        minimum_minutes: 5
+        session_minutes: 20
+        per_session:
+            1gb: 0.03
+            4gb: 0.12
+            16gb: 0.48
+            64gb: 1.92

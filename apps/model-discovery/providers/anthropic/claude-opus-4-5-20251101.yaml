@@ -1,0 +1,79 @@
+costs:
+    - cache_creation_input_token_cost: 0.00000625
+      cache_creation_input_token_cost_per_hour: 0.00001
+      cache_read_input_token_cost: 5e-7
+      input_cost_per_token: 0.000005
+      input_cost_per_token_batches: 0.0000025
+      output_cost_per_token: 0.000025
+      output_cost_per_token_batches: 0.0000125
+      region: "*"
+features:
+    - function_calling
+    - tool_choice
+    - prompt_caching
+    - structured_output
+    - assistant_prefill
+    - cache_control
+limits:
+    context_window: 200000
+    max_input_tokens: 200000
+    max_output_tokens: 64000
+    max_tokens: 64000
+    tool_use_system_prompt_tokens: 496
+modalities:
+    input:
+        - text
+        - image
+        - pdf
+    output:
+        - text
+mode: chat
+model: claude-opus-4-5-20251101
+params:
+    - key: max_tokens
+      maxValue: 64000
+    - defaultValue: null
+      key: thinking
+    - defaultValue: high
+      key: reasoning_effort
+      supportedValues:
+          - low
+          - medium
+          - high
+      type: string
+provisioning: serverless
+removeParams:
+    - temperature
+    - top_p
+retirementDate: "2026-11-24"
+status: active
+supportedModes:
+    - chat
+thinking: true
+runtimeProfile:
+    version: 1
+    endpoints: [messages, count_tokens, message_batches, files, models]
+    thinking:
+        defaultMode: manual
+        allowedModes: [manual, disabled]
+        manualDeprecated: false
+        effortValues: [low, medium, high]
+    assistantPrefill: true
+    sampling:
+        parameters: [temperature, top_p, top_k]
+        disallowedWithThinking: [temperature, top_p, top_k]
+    tools:
+        custom: true
+        server: true
+        parallel: true
+        structuredOutput: true
+    modalities:
+        input: [text, image, pdf]
+        output: [text]
+    betaHeaders: [files-api-2025-04-14]
+    limits:
+        contextWindow: 200000
+        maxOutputTokens: 64000
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

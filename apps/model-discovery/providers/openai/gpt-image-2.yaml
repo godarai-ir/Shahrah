@@ -1,0 +1,55 @@
+costs:
+    - cache_read_input_token_cost: 0.00000125
+      cache_read_input_token_cost_batches: 6.25e-7
+      cache_read_input_image_token_cost: 0.000002
+      cache_read_input_image_token_cost_batches: 0.000001
+      input_cost_per_image_token: 0.000008
+      input_cost_per_image_token_batches: 0.000004
+      input_cost_per_token: 0.000005
+      input_cost_per_token_batches: 0.0000025
+      output_cost_per_image_token: 0.00003
+      output_cost_per_image_token_batches: 0.000015
+      output_cost_per_token: 0.00003
+      output_cost_per_token_batches: 0.000015
+      region: "*"
+features:
+    - prompt_caching
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - image
+mode: image
+model: gpt-image-2
+provisioning: serverless
+removeParams:
+    - stream
+    - tool_choice
+    - parallel_tool_calls
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-image-2
+    - https://developers.openai.com/api/docs/guides/image-generation
+    - https://developers.openai.com/api/docs/pricing
+snapshots:
+    - gpt-image-2-2026-04-21
+rateLimits:
+    - tier: 1
+      tokensPerMinute: 100000
+      imagesPerMinute: 5
+    - tier: 2
+      tokensPerMinute: 250000
+      imagesPerMinute: 20
+    - tier: 3
+      tokensPerMinute: 800000
+      imagesPerMinute: 50
+    - tier: 4
+      tokensPerMinute: 3000000
+      imagesPerMinute: 150
+    - tier: 5
+      tokensPerMinute: 8000000
+      imagesPerMinute: 250
+status: active
+supportedModes:
+    - image

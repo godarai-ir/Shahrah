@@ -1,6 +1,7 @@
 {
     "name": "model-discovery",
     "version": "0.0.1",
+    "packageManager": "pnpm@10.0.0",
     "description": "",
     "author": "",
     "private": true,
@@ -26,7 +27,6 @@
         "service-account:revoke": "tsx scripts/revoke-service-account-key.ts",
         "import:provider:openai": "tsx scripts/import-openai-from-yaml.ts",
         "import:providers:yaml": "tsx scripts/import-models-from-yaml.ts",
-        "import:providers:git": "tsx scripts/import-models-from-git.ts",
         "openapi:export": "node -r ts-node/register -r tsconfig-paths/register scripts/export-openapi.ts",
         "audit:provider-connection-secrets": "tsx scripts/audit-provider-connection-secrets.ts"
     },

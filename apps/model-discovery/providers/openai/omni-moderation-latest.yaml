@@ -1,0 +1,49 @@
+costs:
+    - input_cost_per_token: 0
+      output_cost_per_token: 0
+      region: "*"
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - text
+mode: moderation
+model: omni-moderation-latest
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - temperature
+    - stop
+    - top_p
+    - "n"
+    - stream
+    - tool_choice
+    - parallel_tool_calls
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/guides/moderation
+    - https://developers.openai.com/api/docs/models/omni-moderation-latest
+    - https://developers.openai.com/api/docs/pricing
+snapshots:
+    - omni-moderation-2024-09-26
+rateLimits:
+    - tier: 1
+      requestsPerMinute: 500
+      requestsPerDay: 10000
+      tokensPerMinute: 10000
+    - tier: 2
+      requestsPerMinute: 500
+      tokensPerMinute: 20000
+    - tier: 3
+      requestsPerMinute: 1000
+      tokensPerMinute: 50000
+    - tier: 4
+      requestsPerMinute: 2000
+      tokensPerMinute: 250000
+    - tier: 5
+      requestsPerMinute: 5000
+      tokensPerMinute: 500000
+status: active
+supportedModes:
+    - moderation

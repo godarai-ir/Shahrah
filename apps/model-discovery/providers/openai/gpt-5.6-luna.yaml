@@ -1,0 +1,104 @@
+costs:
+    - cache_creation_input_token_cost: 2.5e-7
+      cache_read_input_token_cost: 2e-8
+      input_cost_per_token: 2e-7
+      input_cost_per_token_batches: 1e-7
+      cache_creation_input_token_cost_batches: 1.25e-7
+      cache_read_input_token_cost_batches: 1e-8
+      input_cost_per_token_flex: 1e-7
+      output_cost_per_token_flex: 6e-7
+      cache_creation_input_token_cost_flex: 1.25e-7
+      cache_read_input_token_cost_flex: 1e-8
+      output_cost_per_token: 0.0000012
+      output_cost_per_token_batches: 6e-7
+      input_cost_per_token_batches_above_272k_tokens: 2e-7
+      output_cost_per_token_batches_above_272k_tokens: 9e-7
+      cache_creation_input_token_cost_batches_above_272k_tokens: 2.5e-7
+      cache_read_input_token_cost_batches_above_272k_tokens: 2e-8
+      input_cost_per_token_flex_above_272k_tokens: 2e-7
+      output_cost_per_token_flex_above_272k_tokens: 9e-7
+      cache_creation_input_token_cost_flex_above_272k_tokens: 2.5e-7
+      cache_read_input_token_cost_flex_above_272k_tokens: 2e-8
+      priority_pricing:
+          cache_creation_input_token_cost: 5e-7
+          cache_read_input_token_cost: 4e-8
+          input_cost_per_token: 4e-7
+          output_cost_per_token: 0.0000024
+      region: "*"
+      tiered_pricing:
+          cache_read:
+              - cost_per_token: 4e-8
+                from: 272000
+          cache_write:
+              - cost_per_token: 5e-7
+                from: 272000
+          input:
+              - cost_per_token: 4e-7
+                from: 272000
+          output:
+              - cost_per_token: 0.0000018
+                from: 272000
+          pricing_mode: cumulative
+features:
+    - function_calling
+    - parallel_function_calling
+    - structured_output
+    - prompt_caching
+    - system_messages
+    - tool_choice
+    - json_output
+tools:
+    - function_calling
+    - web_search
+    - file_search
+    - tool_search
+    - image_generation
+    - code_interpreter
+    - hosted_shell
+    - apply_patch
+    - skills
+    - computer_use
+    - mcp
+serviceTiers:
+    - standard
+    - batch
+    - flex
+    - priority
+    - fast
+limits:
+    context_window: 1050000
+    max_output_tokens: 128000
+    max_tokens: 128000
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - text
+mode: chat
+model: gpt-5.6-luna
+params:
+    - defaultValue: 128
+      key: max_completion_tokens
+      maxValue: 128000
+      minValue: 1
+    - defaultValue: medium
+      key: reasoning_effort
+      supportedValues:
+          - none
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
+      type: string
+provisioning: serverless
+removeParams:
+    - max_tokens
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-5.6-luna
+status: active
+supportedModes:
+    - chat
+    - responses
+thinking: true

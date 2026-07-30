@@ -1,0 +1,57 @@
+documentation:
+    - https://platform.claude.com/docs/en/home
+    - https://platform.claude.com/docs/en/about-claude/pricing
+    - https://platform.claude.com/docs/en/about-claude/models/overview
+    - https://platform.claude.com/docs/en/about-claude/model-deprecations
+    - https://platform.claude.com/docs/en/build-with-claude/effort
+    - https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool
+    - https://platform.claude.com/docs/en/manage-claude/usage-cost-api
+messages:
+    options:
+        - system
+        - user
+        - assistant
+params:
+    - defaultValue: 256
+      key: max_tokens
+      maxValue: 4096
+      minValue: 1
+    - defaultValue: 0.7
+      key: temperature
+      maxValue: 1
+      minValue: 0
+    - defaultValue: 1
+      key: top_p
+      maxValue: 1
+      minValue: 0
+    - defaultValue: 0
+      key: top_k
+      maxValue: 100
+      minValue: 0
+    - defaultValue: null
+      key: stop
+      type: array-of-strings
+    - defaultValue: true
+      key: stream
+      type: boolean
+    - defaultValue: null
+      key: tool_choice
+    - defaultValue: high
+      key: reasoning_effort
+      supportedValues:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
+      type: string
+tool_pricing:
+    web_search:
+        per_thousand_requests: 10
+    code_execution:
+        per_container_hour: 0.05
+        free_organization_hours_per_month: 1550
+        minimum_minutes: 5
+        free_with_web_tool_min_version: 20260209
+        billable_gateway_mode: disabled
+        reconciliation: anthropic_cost_api

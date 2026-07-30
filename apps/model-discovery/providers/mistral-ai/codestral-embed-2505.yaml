@@ -1,0 +1,29 @@
+costs:
+    - input_cost_per_token: 1.5e-7
+      input_cost_per_token_batches: 7.5e-8
+      region: "*"
+limits:
+    context_window: 8192
+modalities:
+    input:
+        - text
+        - code
+    output:
+        - embedding
+mode: embedding
+model: codestral-embed-2505
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - temperature
+    - top_p
+    - seed
+    - stop
+    - stream
+sources:
+    - https://mistral.ai/news/codestral-embed
+    - https://docs.mistral.ai/capabilities/embeddings/code_embeddings
+    - https://docs.mistral.ai/models/codestral-embed-25-05
+status: active
+supportedModes:
+    - embedding

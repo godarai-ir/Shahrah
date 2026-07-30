@@ -1,0 +1,44 @@
+documentation:
+    - https://docs.perplexity.ai/docs/sonar/models
+    - https://docs.perplexity.ai/docs/agent-api/models
+    - https://docs.perplexity.ai/docs/getting-started/pricing
+    - https://docs.perplexity.ai/api-reference/sonar-post
+messages:
+    options:
+        - system
+        - user
+        - assistant
+params:
+    - defaultValue: 256
+      key: max_tokens
+      maxValue: 32768
+      minValue: 1
+    - defaultValue: 0.7
+      key: temperature
+      maxValue: 2
+      minValue: 0
+    - defaultValue: 1
+      key: top_p
+      maxValue: 1
+      minValue: 0
+    - defaultValue: 1
+      key: top_k
+      maxValue: 2048
+      minValue: 0
+    - defaultValue: 1
+      key: "n"
+      maxValue: 10
+      minValue: 1
+    - defaultValue: null
+      key: stop
+      type: array-of-strings
+    - defaultValue: true
+      key: stream
+      type: boolean
+    - defaultValue: medium
+      key: reasoning_effort
+      supportedValues:
+          - low
+          - medium
+          - high
+      type: string

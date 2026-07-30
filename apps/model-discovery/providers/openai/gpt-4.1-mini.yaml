@@ -1,0 +1,91 @@
+costs:
+    - cache_read_input_token_cost: 1e-7
+      input_cost_per_token: 4e-7
+      input_cost_per_token_batches: 2e-7
+      output_cost_per_token: 0.0000016
+      output_cost_per_token_batches: 8e-7
+      priority_pricing:
+          cache_read_input_token_cost: 1.75e-7
+          input_cost_per_token: 7e-7
+          output_cost_per_token: 0.0000028
+      region: "*"
+features:
+    - fine_tuning
+    - function_calling
+    - parallel_function_calling
+    - system_messages
+    - tool_choice
+    - prompt_caching
+    - predicted_outputs
+    - structured_output
+    - json_output
+tools:
+    - function_calling
+    - web_search
+    - file_search
+    - image_generation
+    - code_interpreter
+    - mcp
+serviceTiers:
+    - standard
+    - batch
+    - priority
+    - fast
+limits:
+    context_window: 1047576
+    max_input_tokens: 1047576
+    max_output_tokens: 32768
+    max_tokens: 32768
+modalities:
+    input:
+        - text
+        - image
+        - pdf
+    output:
+        - text
+mode: chat
+model: gpt-4.1-mini
+params:
+    - defaultValue: 1000
+      key: max_completion_tokens
+      maxValue: 32768
+      minValue: 1
+    - defaultValue: null
+      key: response_format
+      type: string
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-4.1-mini
+    - https://developers.openai.com/api/docs/guides/pdf-files
+    - https://developers.openai.com/api/docs/pricing
+snapshots:
+    - gpt-4.1-mini-2025-04-14
+rateLimits:
+    - tier: 1
+      requestsPerMinute: 500
+      requestsPerDay: 10000
+      tokensPerMinute: 200000
+      batchQueueTokens: 2000000
+    - tier: 2
+      requestsPerMinute: 5000
+      tokensPerMinute: 2000000
+      batchQueueTokens: 20000000
+    - tier: 3
+      requestsPerMinute: 5000
+      tokensPerMinute: 4000000
+      batchQueueTokens: 40000000
+    - tier: 4
+      requestsPerMinute: 10000
+      tokensPerMinute: 10000000
+      batchQueueTokens: 1000000000
+    - tier: 5
+      requestsPerMinute: 30000
+      tokensPerMinute: 150000000
+      batchQueueTokens: 15000000000
+status: active
+supportedModes:
+    - chat
+    - responses

@@ -1,0 +1,34 @@
+costs:
+    - input_cost_per_minute: 0.0045
+      region: "*"
+features:
+    - streaming
+limits:
+    max_input_bytes: 26214400
+modalities:
+    input:
+        - audio
+        - text
+    output:
+        - text
+mode: audio_transcription
+model: gpt-transcribe
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - temperature
+    - stop
+    - top_p
+    - "n"
+    - tool_choice
+    - parallel_tool_calls
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-transcribe
+    - https://developers.openai.com/api/docs/guides/speech-to-text
+    - https://developers.openai.com/api/docs/pricing
+snapshots:
+    - gpt-transcribe
+status: active
+supportedModes:
+    - audio_transcription

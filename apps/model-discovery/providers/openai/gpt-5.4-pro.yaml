@@ -1,0 +1,75 @@
+costs:
+    - input_cost_per_token: 0.00003
+      input_cost_per_token_batches: 0.000015
+      input_cost_per_token_flex: 0.000015
+      output_cost_per_token: 0.00018
+      output_cost_per_token_batches: 0.00009
+      output_cost_per_token_flex: 0.00009
+      input_cost_per_token_batches_above_272k_tokens: 0.00003
+      output_cost_per_token_batches_above_272k_tokens: 0.000135
+      input_cost_per_token_flex_above_272k_tokens: 0.00003
+      output_cost_per_token_flex_above_272k_tokens: 0.000135
+      region: "*"
+      tiered_pricing:
+          input:
+              - cost_per_token: 0.00006
+                from: 272000
+          output:
+              - cost_per_token: 0.00027
+                from: 272000
+          pricing_mode: cumulative
+features:
+    - function_calling
+    - tool_choice
+    - system_messages
+tools:
+    - function_calling
+    - web_search
+    - file_search
+    - tool_search
+    - image_generation
+    - apply_patch
+    - computer_use
+    - mcp
+serviceTiers:
+    - standard
+    - batch
+    - flex
+limits:
+    context_window: 1050000
+    max_output_tokens: 128000
+    max_tokens: 128000
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - text
+mode: responses
+model: gpt-5.4-pro
+params:
+    - defaultValue: 128000
+      key: max_completion_tokens
+      maxValue: 128000
+      minValue: 1
+    - defaultValue: high
+      key: reasoning_effort
+      supportedValues:
+          - medium
+          - high
+          - xhigh
+      type: string
+provisioning: serverless
+removeParams:
+    - temperature
+    - top_p
+    - "n"
+    - stop
+    - max_tokens
+    - max_completion_tokens
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-5.4-pro
+status: active
+supportedModes:
+    - responses
+thinking: true

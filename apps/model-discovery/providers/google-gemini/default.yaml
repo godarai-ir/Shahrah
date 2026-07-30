@@ -1,0 +1,45 @@
+documentation:
+    - https://ai.google.dev/gemini-api/docs
+    - https://ai.google.dev/gemini-api/docs/deprecations
+    - https://ai.google.dev/gemini-api/docs/pricing#standard
+    - https://ai.google.dev/gemini-api/docs/pricing#batch
+    - https://ai.google.dev/gemini-api/docs/models
+    - https://ai.google.dev/gemini-api/docs/changelog
+    - https://ai.google.dev/gemini-api/docs/thinking#thinking-levels
+messages:
+    options:
+        - user
+        - assistant
+params:
+    - defaultValue: 256
+      key: max_tokens
+      maxValue: 4096
+      minValue: 1
+    - defaultValue: 0.7
+      key: temperature
+      maxValue: 2
+      minValue: 0
+    - defaultValue: 1
+      key: top_p
+      maxValue: 1
+      minValue: 0
+    - defaultValue: 40
+      key: top_k
+      maxValue: 100
+      minValue: 0
+    - defaultValue: null
+      key: stop
+      type: array-of-strings
+    - defaultValue: true
+      key: stream
+      type: boolean
+    - defaultValue: null
+      key: tool_choice
+    - defaultValue: medium
+      key: reasoning_effort
+      supportedValues:
+          - minimal
+          - low
+          - medium
+          - high
+      type: string

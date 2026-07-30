@@ -10,6 +10,8 @@ import {
   type ModelRuntimeProfile,
 } from '../src/catalog/runtime-profile.schema';
 
+export const DEFAULT_PROVIDERS_ROOT = join(__dirname, '..', 'providers');
+
 type StringRecord = Record<string, unknown>;
 
 type ModelMode =
@@ -1843,7 +1845,7 @@ export async function disconnectProviderYamlImporter(): Promise<void> {
 
 async function main(args: string[] = process.argv.slice(2)): Promise<void> {
   const providersRoot =
-    getArgValue('--providers-root', args) ?? 'D:\\source\\models\\providers';
+    getArgValue('--providers-root', args) ?? DEFAULT_PROVIDERS_ROOT;
   const providersArg = getArgValue('--providers', args);
 
   await importProviderYaml({

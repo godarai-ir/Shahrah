@@ -1,0 +1,23 @@
+costs:
+    - output_cost_per_second: 0.35
+      region: "*"
+isDeprecated: true
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - video
+mode: video
+model: veo-2.0-generate-001
+removeParams:
+    - max_tokens
+    - temperature
+    - top_p
+    - top_k
+    - stop
+    - stream
+    - tool_choice
+sources:
+    - https://ai.google.dev/gemini-api/docs/video
+status: active

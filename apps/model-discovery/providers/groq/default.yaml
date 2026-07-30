@@ -1,0 +1,39 @@
+documentation:
+    - https://console.groq.com/docs
+    - https://groq.com/pricing/
+    - https://console.groq.com/docs/models
+    - https://console.groq.com/docs/deprecations
+    - https://console.groq.com/docs/reasoning
+messages:
+    options:
+        - system
+        - user
+        - assistant
+params:
+    - defaultValue: 256
+      key: max_tokens
+      maxValue: 4096
+      minValue: 1
+    - defaultValue: 0.7
+      key: temperature
+      maxValue: 2
+      minValue: 0
+    - defaultValue: 1
+      key: top_p
+      maxValue: 1
+      minValue: 0
+    - defaultValue: null
+      key: stop
+      type: array-of-strings
+    - defaultValue: true
+      key: stream
+      type: boolean
+    - defaultValue: default
+      key: reasoning_effort
+      supportedValues:
+          - none
+          - default
+          - low
+          - medium
+          - high
+      type: string

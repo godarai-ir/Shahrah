@@ -259,7 +259,7 @@ Typecheck کامل Tenant Admin به‌علت خطاهای از قبل موجو�
 | تست 500MB و قطع Stream | `services/silk-road/pkg/server/anthropic_release_readiness_test.go` |
 | فرمان ماتریس زنده | `services/control-plane/cmd/anthropic-readiness/main.go` |
 | راهنمای اجرای ماتریس | `services/control-plane/cmd/anthropic-readiness/README.md` |
-| کاتالوگ ۱۱ مدل | `D:\source\models\providers\anthropic` |
+| کاتالوگ ۱۱ مدل | `apps/model-discovery/providers/anthropic` |
 
 ## شکاف جدید ناشی از تغییر مستندات
 

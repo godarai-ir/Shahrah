@@ -1,0 +1,43 @@
+costs:
+    - input_cost_per_character: 0.00003
+      region: "*"
+limits:
+    max_input_characters: 4096
+modalities:
+    input:
+        - text
+    output:
+        - audio
+mode: text_to_speech
+model: tts-1-hd
+provisioning: serverless
+removeParams:
+    - temperature
+    - stop
+    - top_p
+    - "n"
+    - tool_choice
+    - parallel_tool_calls
+    - stream
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/models/tts-1-hd
+    - https://developers.openai.com/api/docs/guides/text-to-speech
+    - https://developers.openai.com/api/reference/resources/audio/speech
+    - https://developers.openai.com/api/docs/pricing
+snapshots:
+    - tts-1-hd
+rateLimits:
+    - tier: 1
+      requestsPerMinute: 500
+    - tier: 2
+      requestsPerMinute: 2500
+    - tier: 3
+      requestsPerMinute: 5000
+    - tier: 4
+      requestsPerMinute: 7500
+    - tier: 5
+      requestsPerMinute: 10000
+status: active
+supportedModes:
+    - text_to_speech

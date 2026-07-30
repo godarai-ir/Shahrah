@@ -1,0 +1,32 @@
+costs:
+    - output_cost_per_second_1080p: 0.08
+      output_cost_per_second_720p: 0.05
+      region: "*"
+limits:
+    context_window: 1024
+    max_input_tokens: 1024
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - video
+        - audio
+mode: video
+model: veo-3.1-lite-generate-preview
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - temperature
+    - top_p
+    - top_k
+    - stop
+    - stream
+    - tool_choice
+    - reasoning_effort
+sources:
+    - https://ai.google.dev/gemini-api/docs/models/veo-3.1-lite-generate-preview
+    - https://ai.google.dev/gemini-api/docs/video
+status: preview
+supportedModes:
+    - video

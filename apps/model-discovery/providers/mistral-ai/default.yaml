@@ -1,0 +1,40 @@
+documentation:
+    - https://docs.mistral.ai
+    - https://mistral.ai/pricing
+    - https://docs.mistral.ai/getting-started/models
+messages:
+    options:
+        - system
+        - user
+        - assistant
+params:
+    - defaultValue: 256
+      key: max_tokens
+      maxValue: 32768
+      minValue: 1
+    - defaultValue: 0.7
+      key: temperature
+      maxValue: 2
+      minValue: 0
+    - defaultValue: 1
+      key: top_p
+      maxValue: 1
+      minValue: 0
+    - defaultValue: null
+      key: seed
+      maxValue: 1
+      minValue: 0
+    - defaultValue: null
+      key: stop
+      type: array-of-strings
+    - defaultValue: true
+      key: stream
+      type: boolean
+    - key: reasoning_effort
+      supportedValues:
+          - none
+          - minimal
+          - low
+          - medium
+          - high
+          - xhigh

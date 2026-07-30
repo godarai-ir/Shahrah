@@ -1,0 +1,4 @@
+mode: audio_transcription
+model: phoneme
+supportedModes:
+    - audio_transcription

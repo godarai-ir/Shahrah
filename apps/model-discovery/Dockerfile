@@ -3,20 +3,21 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
 
+RUN corepack enable
 COPY package.json ./
-RUN --mount=type=cache,id=npm-cache-model-discovery,target=/root/.npm \
-    npm install
+RUN --mount=type=cache,id=pnpm-cache-model-discovery,target=/pnpm/store \
+    pnpm config set store-dir /pnpm/store && \
+    pnpm install --no-frozen-lockfile
 
 FROM deps AS builder
 COPY . .
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/model_discovery?schema=public
-RUN npm run prisma:generate
-RUN npm run build
-RUN npm prune --omit=dev
+RUN pnpm run prisma:generate
+RUN pnpm run build
+RUN pnpm prune --prod
 
 FROM deps AS migrate
-RUN apk add --no-cache git ca-certificates
 COPY . .
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
 

@@ -1,0 +1,52 @@
+costs:
+    - input_cost_per_token: 0.00000125
+      output_cost_per_token: 0.000005
+      region: "*"
+limits:
+    context_window: 16000
+    max_output_tokens: 2000
+    max_tokens: 2000
+modalities:
+    input:
+        - audio
+        - text
+    output:
+        - text
+mode: audio_transcription
+model: gpt-4o-mini-transcribe
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - temperature
+    - stop
+    - top_p
+    - "n"
+    - tool_choice
+    - parallel_tool_calls
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe
+    - https://developers.openai.com/api/docs/guides/speech-to-text
+    - https://developers.openai.com/api/docs/pricing
+snapshots:
+    - gpt-4o-mini-transcribe-2025-12-15
+    - gpt-4o-mini-transcribe-2025-03-20
+rateLimits:
+    - tier: 1
+      requestsPerMinute: 500
+      tokensPerMinute: 50000
+    - tier: 2
+      requestsPerMinute: 2000
+      tokensPerMinute: 150000
+    - tier: 3
+      requestsPerMinute: 5000
+      tokensPerMinute: 600000
+    - tier: 4
+      requestsPerMinute: 10000
+      tokensPerMinute: 2000000
+    - tier: 5
+      requestsPerMinute: 10000
+      tokensPerMinute: 8000000
+status: active
+supportedModes:
+    - audio_transcription

@@ -1,0 +1,75 @@
+costs:
+    - cache_creation_input_token_cost: 0.00000375
+      cache_creation_input_token_cost_per_hour: 0.000006
+      cache_read_input_token_cost: 3e-7
+      input_cost_per_token: 0.000003
+      input_cost_per_token_batches: 0.0000015
+      output_cost_per_token: 0.000015
+      output_cost_per_token_batches: 0.0000075
+      region: "*"
+features:
+    - function_calling
+    - parallel_function_calling
+    - tool_choice
+    - prompt_caching
+    - cache_control
+    - structured_output
+    - assistant_prefill
+    - system_messages
+limits:
+    context_window: 200000
+    max_input_tokens: 200000
+    max_output_tokens: 64000
+    max_tokens: 64000
+    tool_use_system_prompt_tokens: 496
+modalities:
+    input:
+        - text
+        - image
+        - pdf
+    output:
+        - text
+mode: chat
+model: claude-sonnet-4-5
+params:
+    - key: max_tokens
+      maxValue: 64000
+    - defaultValue: null
+      key: thinking
+provisioning: serverless
+removeParams:
+    - temperature
+    - top_p
+    - reasoning_effort
+retirementDate: "2026-09-29"
+status: active
+supportedModes:
+    - chat
+thinking: true
+runtimeProfile:
+    version: 1
+    endpoints: [messages, count_tokens, message_batches, files, models]
+    thinking:
+        defaultMode: manual
+        allowedModes: [manual, disabled]
+        manualDeprecated: false
+        effortValues: []
+    assistantPrefill: true
+    sampling:
+        parameters: [temperature, top_p, top_k]
+        disallowedWithThinking: [temperature, top_p, top_k]
+    tools:
+        custom: true
+        server: true
+        parallel: true
+        structuredOutput: true
+    modalities:
+        input: [text, image, pdf]
+        output: [text]
+    betaHeaders: [files-api-2025-04-14]
+    limits:
+        contextWindow: 200000
+        maxOutputTokens: 64000
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

@@ -1,0 +1,28 @@
+documentation:
+    - https://docs.cohere.com
+    - https://cohere.com/pricing
+    - https://docs.cohere.com/docs/models
+    - https://docs.cohere.com/docs/deprecations
+messages:
+    options:
+        - system
+        - user
+        - assistant
+params:
+    - defaultValue: 256
+      key: max_tokens
+      maxValue: 4096
+      minValue: 1
+    - defaultValue: 0.7
+      key: temperature
+      maxValue: 1
+      minValue: 0
+    - defaultValue: true
+      key: stream
+      type: boolean
+    - defaultValue: high
+      key: reasoning_effort
+      supportedValues:
+          - none
+          - high
+      type: string

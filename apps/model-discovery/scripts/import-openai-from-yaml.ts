@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PROVIDERS_ROOT,
   disconnectProviderYamlImporter,
   importProviderYaml,
 } from './import-models-from-yaml';
@@ -25,7 +26,7 @@ async function main(args: string[] = process.argv.slice(2)): Promise<void> {
   }
 
   const providersRoot =
-    getArgValue(args, '--providers-root') ?? 'D:\\source\\models\\providers';
+    getArgValue(args, '--providers-root') ?? DEFAULT_PROVIDERS_ROOT;
   const validation = await validateOpenAIProviderDirectory(providersRoot);
   const dryRun = hasFlag(args, '--dry-run');
   const clearMissing = hasFlag(args, '--clear-missing');

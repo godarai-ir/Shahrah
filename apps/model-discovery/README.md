@@ -112,8 +112,11 @@ Exported files:
 - Sample import JSON: `seed/model-catalog.sample.json`
 - Default seed script: `prisma/seed.ts` (disabled by design)
 - YAML importer script: `scripts/import-models-from-yaml.ts`
+- Versioned provider catalog: `providers/`
 
 ### Import from provider YAML folders
+- Provider YAML files are maintained directly under
+  `apps/model-discovery/providers` and are included in the migration image.
 - Import the curated OpenAI catalog with OpenAI-specific allowlist validation:
   - `pnpm --filter model-discovery import:provider:openai`
 - Parse and validate OpenAI without writing to the database:
@@ -121,7 +124,7 @@ Exported files:
 - Reconcile the OpenAI database catalog, deleting rows absent from the curated
   allowlist:
   - `pnpm --filter model-discovery import:provider:openai -- --clear-missing`
-- Import all providers under `D:\source\models\providers`:
+- Import all checked-in providers:
   - `pnpm --filter model-discovery import:providers:yaml`
 - Import specific providers:
   - `pnpm --filter model-discovery import:providers:yaml -- --providers openai,anthropic`
@@ -130,6 +133,6 @@ Exported files:
 - Optional sync cleanup (delete DB models missing from YAML for selected providers):
   - `pnpm --filter model-discovery import:providers:yaml -- --providers openai --clear-missing`
 - Custom providers root:
-  - `pnpm --filter model-discovery import:providers:yaml -- --providers-root D:\source\models\providers`
+  - `pnpm --filter model-discovery import:providers:yaml -- --providers-root <path>`
 
 No sample seed data is created by default.
