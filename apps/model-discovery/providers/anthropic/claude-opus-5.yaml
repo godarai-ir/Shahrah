@@ -1,48 +1,156 @@
 costs:
-    - cache_creation_input_token_cost: 0.00000625
-      cache_creation_input_token_cost_per_hour: 0.00001
-      cache_read_input_token_cost: 5e-7
-      input_cost_per_token: 0.000005
-      input_cost_per_token_batches: 0.0000025
-      output_cost_per_token: 0.000025
-      output_cost_per_token_batches: 0.0000125
-      region: "*"
+  - cache_creation_input_token_cost: 0.00000625
+    cache_creation_input_token_cost_batches: 0.000003125
+    cache_creation_input_token_cost_per_hour: 0.00001
+    cache_creation_input_token_cost_per_hour_batches: 0.000005
+    cache_read_input_token_cost: 5e-7
+    cache_read_input_token_cost_batches: 2.5e-7
+    data_residency_cache_creation_input_token_cost: 0.000006875
+    data_residency_cache_creation_input_token_cost_per_hour: 0.000011
+    data_residency_cache_read_input_token_cost: 5.5e-7
+    data_residency_batch_cache_creation_input_token_cost: 0.0000034375
+    data_residency_batch_cache_creation_input_token_cost_per_hour: 0.0000055
+    data_residency_batch_cache_read_input_token_cost: 2.75e-7
+    data_residency_batch_input_cost_per_token: 0.00000275
+    data_residency_batch_output_cost_per_token: 0.00001375
+    data_residency_fast_mode_cache_creation_input_token_cost: 0.00001375
+    data_residency_fast_mode_cache_creation_input_token_cost_per_hour: 0.000022
+    data_residency_fast_mode_cache_read_input_token_cost: 0.0000011
+    data_residency_fast_mode_input_cost_per_token: 0.000011
+    data_residency_fast_mode_output_cost_per_token: 0.000055
+    effective_from: '2026-07-24T00:00:00Z'
+    input_cost_per_token: 0.000005
+    input_cost_per_token_batches: 0.0000025
+    output_cost_per_token: 0.000025
+    output_cost_per_token_batches: 0.0000125
+    data_residency_input_cost_per_token: 0.0000055
+    data_residency_output_cost_per_token: 0.0000275
+    fast_mode_input_cost_per_token: 0.00001
+    fast_mode_output_cost_per_token: 0.00005
+    fast_mode_cache_creation_input_token_cost: 0.0000125
+    fast_mode_cache_creation_input_token_cost_per_hour: 0.00002
+    fast_mode_cache_read_input_token_cost: 0.000001
+    region: '*'
 features:
-    - function_calling
-    - parallel_function_calling
-    - cache_control
-    - system_messages
-    - tool_choice
-    - prompt_caching
-    - structured_output
-    - assistant_prefill
-    - code_execution
+  - function_calling
+  - parallel_function_calling
+  - cache_control
+  - system_messages
+  - tool_choice
+  - prompt_caching
+  - structured_output
+  - code_execution
 limits:
-    context_window: 1000000
-    max_input_tokens: 1000000
-    max_output_tokens: 128000
-    max_tokens: 128000
-    tool_use_system_prompt_tokens: 286
+  context_window: 1000000
+  max_input_tokens: 1000000
+  max_output_tokens: 128000
+  max_tokens: 128000
+  tool_use_system_prompt_tokens: 286
 modalities:
-    input:
-        - text
-        - image
-        - pdf
-    output:
-        - text
+  input:
+    - text
+    - image
+    - pdf
+  output:
+    - text
 mode: chat
 model: claude-opus-5
 params:
-    - defaultValue: 256
-      key: max_tokens
-      maxValue: 128000
-      minValue: 1
+  - defaultValue: 256
+    key: max_tokens
+    maxValue: 128000
+    minValue: 1
 provisioning: serverless
 removeParams:
-    - temperature
-    - top_p
-    - top_k
+  - temperature
+  - top_p
+  - top_k
 status: active
 supportedModes:
-    - chat
+  - chat
 thinking: true
+sources:
+  - https://platform.claude.com/docs/en/about-claude/models/overview
+  - https://platform.claude.com/docs/en/about-claude/pricing
+  - https://platform.claude.com/docs/en/about-claude/models/migration-guide
+  - https://platform.claude.com/docs/en/build-with-claude/fast-mode
+runtimeProfile:
+  version: 2
+  endpoints:
+    [messages, count_tokens, message_batches, files, models, chat_completions]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive, disabled]
+    manualDeprecated: true
+    effortValues: [low, medium, high, xhigh, max]
+    disabledMaxEffort: high
+  assistantPrefill: false
+  sampling:
+    parameters: []
+    disallowedWithThinking: [temperature, top_p, top_k]
+  tools:
+    custom: true
+    server: true
+    parallel: true
+    structuredOutput: true
+    supported:
+      [
+        function_calling,
+        web_search,
+        tool_search,
+        code_execution,
+        programmatic_tool_calling,
+        memory,
+        advisor,
+        mcp,
+        bash,
+        text_editor,
+        computer_use,
+        skills,
+      ]
+    preferredVersions:
+      web_search: web_search_20260318
+      tool_search: tool_search_tool_regex_20251119
+      code_execution: code_execution_20260521
+      memory: memory_20250818
+      advisor: advisor_20260301
+      mcp: mcp_toolset
+      bash: bash_20250124
+      text_editor: text_editor_20250728
+      computer_use: computer_20251124
+      skills: skills-2025-10-02
+  modalities:
+    input: [text, image, pdf]
+    output: [text]
+  requestControls:
+    serviceTierValues: [auto, standard_only]
+    inferenceGeoValues: [global, us]
+    speedValues: [standard, fast]
+    effectiveSpeed: { standard: standard, fast: fast }
+  betaHeaders:
+    [
+      files-api-2025-04-14,
+      mcp-client-2025-11-20,
+      computer-use-2025-11-24,
+      skills-2025-10-02,
+      output-300k-2026-03-24,
+      fast-mode-2026-02-01,
+      compact-2026-01-12,
+      context-management-2025-06-27,
+      advisor-tool-2026-03-01,
+    ]
+  betaCapabilities:
+    - header: output-300k-2026-03-24
+      endpoints: [message_batches]
+      maxOutputTokens: 300000
+  minimumRetentionDays: 0
+  zdrEligible: true
+  limits:
+    contextWindow: 1000000
+    maxInputTokens: 1000000
+    maxOutputTokens: 128000
+    messagesBytes: 33554432
+    batchBytes: 268435456
+    fileBytes: 524288000

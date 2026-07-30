@@ -1327,7 +1327,9 @@ func normalizeAnthropicEffort(effort string) string {
 		return "medium"
 	case "high":
 		return "high"
-	case "xhigh", "max":
+	case "xhigh":
+		return "xhigh"
+	case "max":
 		return "max"
 	default:
 		return ""
@@ -1557,6 +1559,10 @@ func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
 }
 
 func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsopenai.ChatCompletionResponse {
+	responseModel := strings.TrimSpace(resp.Model)
+	if responseModel == "" {
+		responseModel = model
+	}
 	content := ""
 	reasoningContent := ""
 	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
@@ -1628,7 +1634,7 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 		ID:      resp.ID,
 		Object:  "chat.completion",
 		Created: time.Now().Unix(),
-		Model:   model,
+		Model:   responseModel,
 		Choices: []contractsopenai.Choice{{
 			Index:        0,
 			Message:      message,

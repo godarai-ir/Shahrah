@@ -88,6 +88,27 @@ func TestModelRuntimeProfileResolvesEffectiveSpeedAndBetaOutputLimit(
 	}
 }
 
+func TestModelRuntimeProfileValidatesAlwaysOnAndDisabledEffort(t *testing.T) {
+	profile := validModelRuntimeProfileBinding().Profile
+	profile.Thinking.AlwaysEnabled = true
+
+	if err := profile.Validate(); err == nil {
+		t.Fatal("always-enabled thinking must reject a disabled mode")
+	}
+
+	profile.Thinking.AlwaysEnabled = false
+	profile.Thinking.DisabledMaxEffort = "high"
+	if err := profile.Validate(); err != nil {
+		t.Fatalf("expected disabled effort ceiling to be valid, got %v", err)
+	}
+	if !profile.AllowsDisabledEffort("high") {
+		t.Fatal("expected high effort to be allowed while thinking is disabled")
+	}
+	if profile.AllowsDisabledEffort("xhigh") {
+		t.Fatal("expected xhigh effort to exceed disabled thinking ceiling")
+	}
+}
+
 func TestGeminiRuntimeProfileAllowsNativeAndCompatibleEndpoints(t *testing.T) {
 	binding := validModelRuntimeProfileBinding()
 	binding.Provider = "google-gemini"

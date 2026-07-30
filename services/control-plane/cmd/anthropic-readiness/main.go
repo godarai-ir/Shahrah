@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -23,16 +24,49 @@ import (
 
 var defaultModels = []string{
 	"anthropic/claude-haiku-4-5",
-	"anthropic/claude-haiku-4-5-20251001",
-	"anthropic/claude-opus-4-1",
-	"anthropic/claude-opus-4-1-20250805",
-	"anthropic/claude-opus-4-5",
-	"anthropic/claude-opus-4-5-20251101",
-	"anthropic/claude-opus-4-6",
-	"anthropic/claude-opus-4-7",
-	"anthropic/claude-sonnet-4-5",
-	"anthropic/claude-sonnet-4-5-20250929",
-	"anthropic/claude-sonnet-4-6",
+	"anthropic/claude-sonnet-5",
+	"anthropic/claude-opus-5",
+	"anthropic/claude-fable-5",
+}
+
+type modelCapabilitySpec struct {
+	ProfileVersion int
+	Thinking       string
+	WebSearchType  string
+	Batch300K      bool
+	ExpectedIDs    []string
+}
+
+var modelCapabilities = map[string]modelCapabilitySpec{
+	"anthropic/claude-haiku-4-5": {
+		ProfileVersion: 2,
+		Thinking:       "manual",
+		WebSearchType:  "web_search_20250305",
+		ExpectedIDs: []string{
+			"claude-haiku-4-5",
+			"claude-haiku-4-5-20251001",
+		},
+	},
+	"anthropic/claude-sonnet-5": {
+		ProfileVersion: 2,
+		Thinking:       "adaptive",
+		WebSearchType:  "web_search_20260318",
+		Batch300K:      true,
+		ExpectedIDs:    []string{"claude-sonnet-5"},
+	},
+	"anthropic/claude-opus-5": {
+		ProfileVersion: 2,
+		Thinking:       "adaptive",
+		WebSearchType:  "web_search_20260318",
+		Batch300K:      true,
+		ExpectedIDs:    []string{"claude-opus-5"},
+	},
+	"anthropic/claude-fable-5": {
+		ProfileVersion: 2,
+		Thinking:       "adaptive",
+		WebSearchType:  "web_search_20260318",
+		ExpectedIDs:    []string{"claude-fable-5"},
+	},
 }
 
 type config struct {
@@ -60,27 +94,35 @@ type report struct {
 }
 
 type modelReport struct {
-	Model  string        `json:"model"`
-	Checks []checkResult `json:"checks"`
+	Model          string        `json:"model"`
+	ProfileVersion int           `json:"profile_version"`
+	Checks         []checkResult `json:"checks"`
 }
 
 type checkResult struct {
-	Name       string `json:"name"`
-	Passed     bool   `json:"passed"`
-	StatusCode int    `json:"status_code,omitempty"`
-	RequestID  string `json:"request_id,omitempty"`
-	Detail     string `json:"detail,omitempty"`
+	Name          string `json:"name"`
+	Passed        bool   `json:"passed"`
+	StatusCode    int    `json:"status_code,omitempty"`
+	RequestIDHash string `json:"request_id_sha256,omitempty"`
+	Detail        string `json:"detail,omitempty"`
 }
 
 type reportSummary struct {
-	Passed int `json:"passed"`
-	Failed int `json:"failed"`
+	Passed  int `json:"passed"`
+	Failed  int `json:"failed"`
+	Blocked int `json:"blocked"`
 }
 
 type rateLimitSnapshot struct {
-	ObservedAt time.Time       `json:"observed_at"`
-	Org        json.RawMessage `json:"organization"`
-	Workspace  json.RawMessage `json:"workspace,omitempty"`
+	ObservedAt time.Time         `json:"observed_at"`
+	Org        rateLimitSummary  `json:"organization"`
+	Workspace  *rateLimitSummary `json:"workspace,omitempty"`
+}
+
+type rateLimitSummary struct {
+	ResponseBytes  int    `json:"response_bytes"`
+	ResponseSHA256 string `json:"response_sha256"`
+	ResourceCount  int    `json:"resource_count"`
 }
 
 func main() {
@@ -103,12 +145,13 @@ func main() {
 		os.Exit(2)
 	}
 	fmt.Printf(
-		"Anthropic readiness report: %s (passed=%d failed=%d)\n",
+		"Anthropic readiness report: %s (passed=%d failed=%d blocked=%d)\n",
 		cfg.reportPath,
 		result.Summary.Passed,
 		result.Summary.Failed,
+		result.Summary.Blocked,
 	)
-	if result.Summary.Failed > 0 {
+	if result.Summary.Failed > 0 || result.Summary.Blocked > 0 {
 		os.Exit(1)
 	}
 }
@@ -150,15 +193,19 @@ func run(ctx context.Context, client *http.Client, cfg config) report {
 		AuthLabel:   cfg.authLabel,
 	}
 	for _, model := range cfg.models {
-		item := modelReport{Model: model}
+		spec := modelCapabilities[model]
+		item := modelReport{
+			Model:          model,
+			ProfileVersion: spec.ProfileVersion,
+		}
 		item.Checks = append(item.Checks,
-			checkModel(ctx, client, cfg, model),
+			checkModel(ctx, client, cfg, model, spec),
 			checkCountTokens(ctx, client, cfg, model),
-			checkMessage(ctx, client, cfg, model, false),
-			checkMessage(ctx, client, cfg, model, true),
+			checkMessage(ctx, client, cfg, model, spec, false),
+			checkMessage(ctx, client, cfg, model, spec, true),
 			checkStructuredOutput(ctx, client, cfg, model),
-			checkThinking(ctx, client, cfg, model),
-			checkOpenAIServerToolContract(ctx, client, cfg, model),
+			checkThinking(ctx, client, cfg, model, spec),
+			checkOpenAIServerToolContract(ctx, client, cfg, model, spec),
 		)
 		out.Models = append(out.Models, item)
 	}
@@ -169,6 +216,11 @@ func run(ctx context.Context, client *http.Client, cfg config) report {
 		snapshot, checks := fetchRateLimitSnapshot(ctx, client, cfg)
 		out.RateLimitSnapshot = snapshot
 		out.Resources = append(out.Resources, checks...)
+	} else {
+		out.Resources = append(out.Resources, checkResult{
+			Name:   "rate_limits.admin_api",
+			Detail: "BLOCKED: ANTHROPIC_ADMIN_KEY was not provided",
+		})
 	}
 	for _, item := range out.Models {
 		for _, check := range item.Checks {
@@ -181,7 +233,13 @@ func run(ctx context.Context, client *http.Client, cfg config) report {
 	return out
 }
 
-func checkModel(ctx context.Context, client *http.Client, cfg config, model string) checkResult {
+func checkModel(
+	ctx context.Context,
+	client *http.Client,
+	cfg config,
+	model string,
+	spec modelCapabilitySpec,
+) checkResult {
 	status, headers, body, err := request(
 		ctx,
 		client,
@@ -192,9 +250,25 @@ func checkModel(ctx context.Context, client *http.Client, cfg config, model stri
 		nil,
 	)
 	result := resultFor("models.get", status, headers, body, err)
-	if result.Passed && !bytes.Contains(body, []byte(`"max_tokens"`)) {
-		result.Passed = false
-		result.Detail = "Models API response omitted max_tokens"
+	if result.Passed {
+		var payload struct {
+			ID             string `json:"id"`
+			MaxInputTokens int    `json:"max_input_tokens"`
+			MaxTokens      int    `json:"max_tokens"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			result.Passed = false
+			result.Detail = "Models API response was invalid JSON"
+		} else if !containsExact(spec.ExpectedIDs, payload.ID) {
+			result.Passed = false
+			result.Detail = fmt.Sprintf(
+				"Models API returned %q for requested model",
+				payload.ID,
+			)
+		} else if payload.MaxInputTokens <= 0 || payload.MaxTokens <= 0 {
+			result.Passed = false
+			result.Detail = "Models API response omitted token limits"
+		}
 	}
 	return result
 }
@@ -208,7 +282,14 @@ func checkCountTokens(ctx context.Context, client *http.Client, cfg config, mode
 	})
 }
 
-func checkMessage(ctx context.Context, client *http.Client, cfg config, model string, stream bool) checkResult {
+func checkMessage(
+	ctx context.Context,
+	client *http.Client,
+	cfg config,
+	model string,
+	spec modelCapabilitySpec,
+	stream bool,
+) checkResult {
 	name := "messages.sync"
 	if stream {
 		name = "messages.stream"
@@ -228,7 +309,38 @@ func checkMessage(ctx context.Context, client *http.Client, cfg config, model st
 		result.Passed = false
 		result.Detail = "stream did not end with message_stop or contained an error"
 	}
+	if result.Passed && !responseUsesExpectedModel(responseBody, spec.ExpectedIDs) {
+		result.Passed = false
+		result.Detail = "response omitted the served model or returned an unexpected model"
+	}
 	return result
+}
+
+func responseUsesExpectedModel(body []byte, expected []string) bool {
+	compact := bytes.Map(func(value rune) rune {
+		switch value {
+		case ' ', '\t', '\r', '\n':
+			return -1
+		default:
+			return value
+		}
+	}, body)
+	for _, model := range expected {
+		encoded, _ := json.Marshal(model)
+		if bytes.Contains(compact, append([]byte(`"model":`), encoded...)) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsExact(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func checkStructuredOutput(ctx context.Context, client *http.Client, cfg config, model string) checkResult {
@@ -249,12 +361,23 @@ func checkStructuredOutput(ctx context.Context, client *http.Client, cfg config,
 	})
 }
 
-func checkThinking(ctx context.Context, client *http.Client, cfg config, model string) checkResult {
+func checkThinking(
+	ctx context.Context,
+	client *http.Client,
+	cfg config,
+	model string,
+	spec modelCapabilitySpec,
+) checkResult {
 	thinking := map[string]interface{}{"type": "enabled", "budget_tokens": 1024}
 	output := map[string]interface{}{}
-	if strings.Contains(model, "-4-6") || strings.Contains(model, "-4-7") {
+	if spec.Thinking == "adaptive" {
 		thinking = map[string]interface{}{"type": "adaptive"}
 		output["effort"] = "low"
+	} else if spec.Thinking != "manual" {
+		return checkResult{
+			Name:   "messages.thinking",
+			Detail: "BLOCKED: runtime capability spec is unavailable",
+		}
 	}
 	payload := map[string]interface{}{
 		"model": model, "max_tokens": 2048, "thinking": thinking,
@@ -271,15 +394,19 @@ func checkOpenAIServerToolContract(
 	client *http.Client,
 	cfg config,
 	model string,
+	spec modelCapabilitySpec,
 ) checkResult {
+	if spec.WebSearchType == "" {
+		return checkResult{
+			Name:   "openai.server_tool_contract",
+			Detail: "BLOCKED: runtime capability spec is unavailable",
+		}
+	}
 	payload := map[string]interface{}{
 		"model": model, "max_tokens": 32,
 		"messages": []map[string]interface{}{{"role": "user", "content": "Reply OK without using tools."}},
 		"tools": []map[string]interface{}{{
-			// The baseline version works across the legacy and current Claude 4
-			// models in this readiness matrix. Newer versions default to
-			// programmatic calling, which is not supported by every legacy model.
-			"type": "web_search_20250305", "name": "web_search", "max_uses": 1,
+			"type": spec.WebSearchType, "name": "web_search", "max_uses": 1,
 		}},
 		"tool_choice": "auto",
 	}
@@ -315,9 +442,7 @@ func runResourceChecks(ctx context.Context, client *http.Client, cfg config) []c
 	maxTokens := 32
 	if cfg.test300K {
 		for _, model := range cfg.models {
-			if strings.Contains(model, "opus-4-6") ||
-				strings.Contains(model, "opus-4-7") ||
-				strings.Contains(model, "sonnet-4-6") {
+			if modelCapabilities[model].Batch300K {
 				batchModel = model
 				maxTokens = 300000
 				break
@@ -439,7 +564,7 @@ func fetchRateLimitSnapshot(
 		workspacePath := "/v1/organizations/workspaces/" +
 			url.PathEscape(cfg.workspaceID) + "/rate_limits"
 		workspace, workspaceCheck := adminGet(ctx, client, cfg, workspacePath)
-		snapshot.Workspace = workspace
+		snapshot.Workspace = &workspace
 		checks = append(checks, workspaceCheck)
 	}
 	return snapshot, checks
@@ -450,7 +575,7 @@ func adminGet(
 	client *http.Client,
 	cfg config,
 	targetPath string,
-) (json.RawMessage, checkResult) {
+) (rateLimitSummary, checkResult) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -458,13 +583,13 @@ func adminGet(
 		nil,
 	)
 	if err != nil {
-		return nil, checkResult{Name: "rate_limits.snapshot", Detail: err.Error()}
+		return rateLimitSummary{}, checkResult{Name: "rate_limits.snapshot", Detail: err.Error()}
 	}
 	req.Header.Set("x-api-key", cfg.adminKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, checkResult{Name: "rate_limits.snapshot", Detail: err.Error()}
+		return rateLimitSummary{}, checkResult{Name: "rate_limits.snapshot", Detail: err.Error()}
 	}
 	defer resp.Body.Close()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 8*1024*1024))
@@ -476,9 +601,18 @@ func adminGet(
 	if !json.Valid(body) {
 		result.Passed = false
 		result.Detail = "Rate Limits API returned invalid JSON"
-		return nil, result
+		return rateLimitSummary{}, result
 	}
-	return append(json.RawMessage(nil), body...), result
+	var envelope struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	_ = json.Unmarshal(body, &envelope)
+	digest := sha256.Sum256(body)
+	return rateLimitSummary{
+		ResponseBytes:  len(body),
+		ResponseSHA256: fmt.Sprintf("%x", digest[:]),
+		ResourceCount:  len(envelope.Data),
+	}, result
 }
 
 func jsonCheck(
@@ -570,7 +704,9 @@ func resultFor(
 		Name:       name,
 		Passed:     err == nil && status >= 200 && status < 300,
 		StatusCode: status,
-		RequestID:  firstHeader(headers, "request-id", "x-request-id"),
+		RequestIDHash: opaqueIDHash(
+			firstHeader(headers, "request-id", "x-request-id"),
+		),
 	}
 	if err != nil {
 		result.Detail = err.Error()
@@ -578,6 +714,14 @@ func resultFor(
 		result.Detail = sanitizedError(body)
 	}
 	return result
+}
+
+func opaqueIDHash(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	digest := sha256.Sum256([]byte(value))
+	return fmt.Sprintf("%x", digest[:])
 }
 
 func sanitizedError(body []byte) string {
@@ -615,6 +759,8 @@ func responseID(body []byte) string {
 func accumulate(summary *reportSummary, result checkResult) {
 	if result.Passed {
 		summary.Passed++
+	} else if strings.HasPrefix(result.Detail, "BLOCKED:") {
+		summary.Blocked++
 	} else {
 		summary.Failed++
 	}

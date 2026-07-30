@@ -333,6 +333,49 @@ func TestAnthropicResponsePreservesServerToolBlocks(t *testing.T) {
 	}
 }
 
+func TestAnthropicResponseReportsServedModel(t *testing.T) {
+	converted := convertToOpenAIResponse(
+		anthropicResponse{
+			ID:    "msg_fallback",
+			Model: "claude-opus-4-8",
+			Usage: anthropicUsage{},
+		},
+		"claude-fable-5",
+	)
+
+	if converted.Model != "claude-opus-4-8" {
+		t.Fatalf("expected served fallback model, got %q", converted.Model)
+	}
+}
+
+func TestAnthropicNativeToolValidationFailsClosedForKnownIncompatibility(
+	t *testing.T,
+) {
+	profile := anthropicTestRuntimeProfile("claude-opus-5").Profile
+	profile.Tools.Supported = []string{
+		"function_calling",
+		"web_search",
+		"code_execution",
+	}
+
+	if err := validateAnthropicNativeTools(
+		[]json.RawMessage{json.RawMessage(
+			`{"type":"web_fetch_20260318","name":"web_fetch"}`,
+		)},
+		profile,
+	); err == nil {
+		t.Fatal("expected known unsupported native tool to be rejected")
+	}
+	if err := validateAnthropicNativeTools(
+		[]json.RawMessage{json.RawMessage(
+			`{"type":"future_native_tool_20270101","name":"future"}`,
+		)},
+		profile,
+	); err != nil {
+		t.Fatalf("future native tool should pass through, got %v", err)
+	}
+}
+
 func TestAnthropicBetaHeadersIntersectAccountAndRuntimeProfile(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/", nil)
 	binding := anthropicTestRuntimeProfile("claude-opus-4-7")

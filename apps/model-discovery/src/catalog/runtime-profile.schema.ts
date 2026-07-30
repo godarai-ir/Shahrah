@@ -4,15 +4,22 @@ const thinkingModeSchema = z.enum(['adaptive', 'manual', 'disabled']);
 const supportedToolSchema = z.enum([
   'function_calling',
   'web_search',
+  'web_fetch',
   'file_search',
   'tool_search',
   'image_generation',
   'code_interpreter',
+  'code_execution',
   'hosted_shell',
+  'bash',
+  'text_editor',
   'apply_patch',
   'skills',
   'computer_use',
   'mcp',
+  'memory',
+  'advisor',
+  'programmatic_tool_calling',
 ]);
 const endpointSchema = z.enum([
   'messages',
@@ -71,6 +78,10 @@ export const modelRuntimeProfileSchema = z
       contextValues: z
         .array(z.enum(['auto', 'current_turn', 'all_turns']))
         .default([]),
+      alwaysEnabled: z.boolean().default(false),
+      disabledMaxEffort: z
+        .enum(['low', 'medium', 'high', 'xhigh', 'max'])
+        .optional(),
     }),
     assistantPrefill: z.boolean(),
     fineTuning: z.boolean().default(false),
@@ -87,6 +98,9 @@ export const modelRuntimeProfileSchema = z
       parallel: z.boolean(),
       structuredOutput: z.boolean(),
       supported: z.array(supportedToolSchema).default([]),
+      preferredVersions: z
+        .partialRecord(supportedToolSchema, z.string().min(1))
+        .default({}),
     }),
     modalities: z.object({
       input: z
@@ -159,6 +173,8 @@ export const modelRuntimeProfileSchema = z
         }),
       )
       .default([]),
+    minimumRetentionDays: z.number().int().nonnegative().default(0),
+    zdrEligible: z.boolean().default(false),
     limits: z.object({
       contextWindow: z.number().int().nonnegative(),
       maxInputTokens: z.number().int().nonnegative().default(0),
@@ -201,6 +217,27 @@ export const modelRuntimeProfileSchema = z
         message: 'effortValues require an enabled thinking mode',
       });
     }
+    if (
+      profile.thinking.alwaysEnabled &&
+      (profile.thinking.allowedModes.length !== 1 ||
+        profile.thinking.allowedModes[0] !== 'adaptive')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['thinking', 'alwaysEnabled'],
+        message: 'alwaysEnabled thinking must allow only adaptive mode',
+      });
+    }
+    if (
+      profile.thinking.disabledMaxEffort &&
+      !profile.thinking.allowedModes.includes('disabled')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['thinking', 'disabledMaxEffort'],
+        message: 'disabledMaxEffort requires disabled thinking mode',
+      });
+    }
     for (const [requested, effective] of Object.entries(
       profile.requestControls.effectiveSpeed,
     )) {
@@ -220,6 +257,19 @@ export const modelRuntimeProfileSchema = z
           code: 'custom',
           path: ['requestControls', 'effectiveSpeed', requested],
           message: 'standard requests cannot become fast implicitly',
+        });
+      }
+    }
+    for (const tool of Object.keys(profile.tools.preferredVersions)) {
+      if (
+        !profile.tools.supported.includes(
+          tool as (typeof profile.tools.supported)[number],
+        )
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['tools', 'preferredVersions', tool],
+          message: `${tool} must be included in tools.supported`,
         });
       }
     }

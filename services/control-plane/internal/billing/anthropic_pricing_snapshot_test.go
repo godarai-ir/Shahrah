@@ -172,6 +172,51 @@ func TestAnthropicEstimatePinsRuntimeProfileToPricingRevision(t *testing.T) {
 	)
 }
 
+func TestAnthropicFastModeUsesPremiumRatesForEstimateAndUsage(t *testing.T) {
+	service, _ := anthropicBillingTestService(t)
+
+	estimated, err := service.EstimateCost(
+		context.Background(),
+		contractsopenai.ChatCompletionRequest{
+			Model: "anthropic/claude-opus-4-7",
+			Speed: "fast",
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "speed_input_tokens", estimated.Components[0].Dimension)
+	require.Equal(t, "fast", estimated.PricingConditions["speed"])
+
+	final, err := service.FinalizeFromUsage(
+		context.Background(),
+		"anthropic/claude-opus-4-7",
+		&contractsopenai.Usage{
+			PromptTokens:     100,
+			CompletionTokens: 10,
+			TotalTokens:      110,
+			Speed:            "fast",
+		},
+		estimated,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "speed_input_tokens", final.Components[0].Dimension)
+	require.Equal(t, "speed_output_tokens", final.Components[1].Dimension)
+
+	combined, err := service.EstimateCost(
+		context.Background(),
+		contractsopenai.ChatCompletionRequest{
+			Model:        "anthropic/claude-opus-4-7",
+			Speed:        "fast",
+			InferenceGeo: "us",
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		"data_residency_speed_input_tokens",
+		combined.Components[0].Dimension,
+	)
+}
+
 func TestAnthropicFinalizeUsesPinnedDecimalSnapshotAndCacheDimensions(
 	t *testing.T,
 ) {
@@ -365,15 +410,22 @@ func anthropicBillingTestService(
 func completeAnthropicRates() []discoveryPricingRate {
 	source := "https://platform.claude.com/docs/en/about-claude/pricing"
 	values := map[string]string{
-		"input_tokens":                   "0.000003",
-		"output_tokens":                  "0.000015",
-		"cache_write_5m_tokens":          "0.00000375",
-		"cache_write_1h_tokens":          "0.000006",
-		"cache_read_tokens":              "0.0000003",
-		"batch_input_tokens":             "0.0000015",
-		"batch_output_tokens":            "0.0000075",
-		"web_search_requests":            "0.01",
-		"code_execution_container_hours": "0.05",
+		"input_tokens":                       "0.000003",
+		"output_tokens":                      "0.000015",
+		"cache_write_5m_tokens":              "0.00000375",
+		"cache_write_1h_tokens":              "0.000006",
+		"cache_read_tokens":                  "0.0000003",
+		"batch_input_tokens":                 "0.0000015",
+		"batch_output_tokens":                "0.0000075",
+		"speed_input_tokens":                 "0.000010",
+		"speed_output_tokens":                "0.000050",
+		"speed_cache_write_5m_tokens":        "0.0000125",
+		"speed_cache_write_1h_tokens":        "0.000020",
+		"speed_cache_read_tokens":            "0.000001",
+		"data_residency_speed_input_tokens":  "0.000011",
+		"data_residency_speed_output_tokens": "0.000055",
+		"web_search_requests":                "0.01",
+		"code_execution_container_hours":     "0.05",
 	}
 	out := make([]discoveryPricingRate, 0, len(values))
 	for dimension, price := range values {

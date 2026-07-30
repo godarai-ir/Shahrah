@@ -106,6 +106,15 @@ func validateAnthropicRequestWithRuntimeProfile(
 			if !profile.Tools.Server {
 				return fmt.Errorf("model does not support server tools")
 			}
+			if len(profile.Tools.Supported) > 0 &&
+				!profile.AllowsTool(
+					anthropicServerToolCapability(tool.Type),
+				) {
+				return fmt.Errorf(
+					"model does not support Anthropic server tool %q",
+					tool.Type,
+				)
+			}
 			continue
 		}
 		return fmt.Errorf("unsupported Anthropic tool type %q", tool.Type)
@@ -132,6 +141,14 @@ func validateAnthropicRequestWithRuntimeProfile(
 				outputEffort,
 			)
 		}
+		if req.Thinking != nil &&
+			strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") &&
+			!profile.AllowsDisabledEffort(normalized) {
+			return fmt.Errorf(
+				"model does not support output_config.effort=%s with disabled thinking",
+				outputEffort,
+			)
+		}
 	}
 	if value := strings.ToLower(strings.TrimSpace(req.ServiceTier)); value != "" &&
 		!profile.AllowsServiceTier(value) {
@@ -146,6 +163,20 @@ func validateAnthropicRequestWithRuntimeProfile(
 		return fmt.Errorf("unsupported speed %q", value)
 	}
 	return validateAnthropicThinkingWithRuntimeProfile(req, profile)
+}
+
+func anthropicServerToolCapability(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	for _, capability := range []string{
+		"web_search",
+		"web_fetch",
+		"code_execution",
+	} {
+		if strings.HasPrefix(value, capability+"_") {
+			return capability
+		}
+	}
+	return ""
 }
 
 func validateAnthropicThinkingWithRuntimeProfile(
@@ -181,6 +212,12 @@ func validateAnthropicThinkingWithRuntimeProfile(
 		return fmt.Errorf("model does not support reasoning_effort=%s", effort)
 	}
 	if mode == "" || mode == "disabled" {
+		if mode == "disabled" && !profile.AllowsDisabledEffort(effort) {
+			return fmt.Errorf(
+				"model does not support reasoning_effort=%s with disabled thinking",
+				effort,
+			)
+		}
 		return nil
 	}
 	for _, parameter := range profile.Sampling.DisallowedWithThinking {
@@ -300,10 +337,11 @@ func validateAnthropicNativeMessageBody(
 		Thinking:     request.Thinking,
 		OutputConfig: request.OutputConfig,
 	}
-	if len(request.Tools) > 0 {
-		chatRequest.Tools = []contractsopenai.ToolDefinition{{
-			Type: "function",
-		}}
+	if err := validateAnthropicNativeTools(
+		request.Tools,
+		binding.Profile,
+	); err != nil {
+		return err
 	}
 	if request.OutputConfig["format"] != nil {
 		chatRequest.ResponseFormat = request.OutputConfig["format"]
@@ -331,6 +369,64 @@ func validateAnthropicNativeMessageBody(
 		chatRequest,
 		&effectiveBinding,
 	)
+}
+
+func validateAnthropicNativeTools(
+	tools []json.RawMessage,
+	profile platform.ModelRuntimeProfile,
+) error {
+	for index, rawTool := range tools {
+		var tool struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(rawTool, &tool); err != nil {
+			return fmt.Errorf("invalid Anthropic tool %d", index)
+		}
+		toolType := strings.ToLower(strings.TrimSpace(tool.Type))
+		if toolType == "" {
+			if !profile.Tools.Custom {
+				return fmt.Errorf("model does not support custom tools")
+			}
+			continue
+		}
+		capability := anthropicNativeToolCapability(toolType)
+		// Unknown provider-native tool variants are passed through. This keeps
+		// the native tunnel forward compatible while known model/tool
+		// incompatibilities still fail closed.
+		if capability == "" || len(profile.Tools.Supported) == 0 {
+			continue
+		}
+		if !profile.AllowsTool(capability) {
+			return fmt.Errorf(
+				"model does not support Anthropic native tool %q",
+				tool.Type,
+			)
+		}
+	}
+	return nil
+}
+
+func anthropicNativeToolCapability(toolType string) string {
+	toolType = strings.ToLower(strings.TrimSpace(toolType))
+	if toolType == "mcp_toolset" {
+		return "mcp"
+	}
+	for prefix, capability := range map[string]string{
+		"web_search_":       "web_search",
+		"web_fetch_":        "web_fetch",
+		"code_execution_":   "code_execution",
+		"tool_search_tool_": "tool_search",
+		"memory_":           "memory",
+		"advisor_":          "advisor",
+		"computer_":         "computer_use",
+		"bash_":             "bash",
+		"text_editor_":      "text_editor",
+	} {
+		if strings.HasPrefix(toolType, prefix) {
+			return capability
+		}
+	}
+	return ""
 }
 
 func anthropicRequestedBetaHeaders(

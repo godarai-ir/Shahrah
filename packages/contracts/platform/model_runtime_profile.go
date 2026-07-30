@@ -9,31 +9,35 @@ import (
 // ModelRuntimeProfile is the versioned provider behavior contract imported
 // from Model Discovery. Field names intentionally match the catalog JSON.
 type ModelRuntimeProfile struct {
-	Version             int                          `json:"version"`
-	Endpoints           []string                     `json:"endpoints"`
-	Transports          []string                     `json:"transports,omitempty"`
-	Lifecycle           string                       `json:"lifecycle,omitempty"`
-	Thinking            ModelRuntimeThinkingProfile  `json:"thinking"`
-	AssistantPrefill    bool                         `json:"assistantPrefill"`
-	FineTuning          bool                         `json:"fineTuning,omitempty"`
-	PredictedOutputs    bool                         `json:"predictedOutputs,omitempty"`
-	Sampling            ModelRuntimeSamplingProfile  `json:"sampling"`
-	Tools               ModelRuntimeToolsProfile     `json:"tools"`
-	Modalities          ModelRuntimeModalities       `json:"modalities"`
-	RequestControls     ModelRuntimeRequestControls  `json:"requestControls"`
-	BetaHeaders         []string                     `json:"betaHeaders"`
-	BetaCapabilities    []ModelRuntimeBetaCapability `json:"betaCapabilities,omitempty"`
-	ReferenceRateLimits []ModelRuntimeRateLimitTier  `json:"referenceRateLimits,omitempty"`
-	Limits              ModelRuntimeLimits           `json:"limits"`
+	Version              int                          `json:"version"`
+	Endpoints            []string                     `json:"endpoints"`
+	Transports           []string                     `json:"transports,omitempty"`
+	Lifecycle            string                       `json:"lifecycle,omitempty"`
+	Thinking             ModelRuntimeThinkingProfile  `json:"thinking"`
+	AssistantPrefill     bool                         `json:"assistantPrefill"`
+	FineTuning           bool                         `json:"fineTuning,omitempty"`
+	PredictedOutputs     bool                         `json:"predictedOutputs,omitempty"`
+	Sampling             ModelRuntimeSamplingProfile  `json:"sampling"`
+	Tools                ModelRuntimeToolsProfile     `json:"tools"`
+	Modalities           ModelRuntimeModalities       `json:"modalities"`
+	RequestControls      ModelRuntimeRequestControls  `json:"requestControls"`
+	BetaHeaders          []string                     `json:"betaHeaders"`
+	BetaCapabilities     []ModelRuntimeBetaCapability `json:"betaCapabilities,omitempty"`
+	ReferenceRateLimits  []ModelRuntimeRateLimitTier  `json:"referenceRateLimits,omitempty"`
+	MinimumRetentionDays int                          `json:"minimumRetentionDays,omitempty"`
+	ZDREligible          bool                         `json:"zdrEligible,omitempty"`
+	Limits               ModelRuntimeLimits           `json:"limits"`
 }
 
 type ModelRuntimeThinkingProfile struct {
-	DefaultMode      string   `json:"defaultMode"`
-	AllowedModes     []string `json:"allowedModes"`
-	ManualDeprecated bool     `json:"manualDeprecated"`
-	EffortValues     []string `json:"effortValues"`
-	ReasoningModes   []string `json:"reasoningModes,omitempty"`
-	ContextValues    []string `json:"contextValues,omitempty"`
+	DefaultMode       string   `json:"defaultMode"`
+	AllowedModes      []string `json:"allowedModes"`
+	ManualDeprecated  bool     `json:"manualDeprecated"`
+	EffortValues      []string `json:"effortValues"`
+	ReasoningModes    []string `json:"reasoningModes,omitempty"`
+	ContextValues     []string `json:"contextValues,omitempty"`
+	AlwaysEnabled     bool     `json:"alwaysEnabled,omitempty"`
+	DisabledMaxEffort string   `json:"disabledMaxEffort,omitempty"`
 }
 
 type ModelRuntimeSamplingProfile struct {
@@ -42,11 +46,12 @@ type ModelRuntimeSamplingProfile struct {
 }
 
 type ModelRuntimeToolsProfile struct {
-	Custom           bool     `json:"custom"`
-	Server           bool     `json:"server"`
-	Parallel         bool     `json:"parallel"`
-	StructuredOutput bool     `json:"structuredOutput"`
-	Supported        []string `json:"supported,omitempty"`
+	Custom            bool              `json:"custom"`
+	Server            bool              `json:"server"`
+	Parallel          bool              `json:"parallel"`
+	StructuredOutput  bool              `json:"structuredOutput"`
+	Supported         []string          `json:"supported,omitempty"`
+	PreferredVersions map[string]string `json:"preferredVersions,omitempty"`
 }
 
 type ModelRuntimeModalities struct {
@@ -206,6 +211,25 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported effort value %q", effort)
 		}
 	}
+	if profile.Thinking.AlwaysEnabled &&
+		(len(profile.Thinking.AllowedModes) != 1 ||
+			!profile.AllowsThinkingMode("adaptive")) {
+		return fmt.Errorf("always-enabled thinking must allow only adaptive mode")
+	}
+	if profile.Thinking.DisabledMaxEffort != "" {
+		if !profile.AllowsThinkingMode("disabled") {
+			return fmt.Errorf("disabled max effort requires disabled thinking mode")
+		}
+		if !containsRuntimeValue(
+			[]string{"low", "medium", "high", "xhigh", "max"},
+			profile.Thinking.DisabledMaxEffort,
+		) {
+			return fmt.Errorf(
+				"unsupported disabled max effort %q",
+				profile.Thinking.DisabledMaxEffort,
+			)
+		}
+	}
 	for _, mode := range profile.Thinking.ReasoningModes {
 		if !containsRuntimeValue([]string{"standard", "pro"}, mode) {
 			return fmt.Errorf("unsupported reasoning mode %q", mode)
@@ -235,20 +259,46 @@ func (profile ModelRuntimeProfile) Validate() error {
 			[]string{
 				"function_calling",
 				"web_search",
+				"web_fetch",
 				"file_search",
 				"tool_search",
 				"image_generation",
 				"code_interpreter",
+				"code_execution",
 				"hosted_shell",
+				"bash",
+				"text_editor",
 				"apply_patch",
 				"skills",
 				"computer_use",
 				"mcp",
+				"memory",
+				"advisor",
+				"programmatic_tool_calling",
 			},
 			tool,
 		) {
 			return fmt.Errorf("unsupported model tool %q", tool)
 		}
+	}
+	for tool, version := range profile.Tools.PreferredVersions {
+		if !profile.AllowsTool(tool) {
+			return fmt.Errorf(
+				"preferred version uses unsupported model tool %q",
+				tool,
+			)
+		}
+		if strings.TrimSpace(version) == "" ||
+			strings.ContainsAny(version, ",\r\n") {
+			return fmt.Errorf(
+				"invalid preferred version %q for model tool %q",
+				version,
+				tool,
+			)
+		}
+	}
+	if profile.MinimumRetentionDays < 0 {
+		return fmt.Errorf("minimum retention days cannot be negative")
 	}
 	if len(profile.Modalities.Input) == 0 ||
 		len(profile.Modalities.Output) == 0 {
@@ -381,6 +431,35 @@ func (profile ModelRuntimeProfile) AllowsThinkingMode(mode string) bool {
 
 func (profile ModelRuntimeProfile) AllowsEffort(effort string) bool {
 	return containsRuntimeValue(profile.Thinking.EffortValues, effort)
+}
+
+func (profile ModelRuntimeProfile) AllowsTool(tool string) bool {
+	return containsRuntimeValue(profile.Tools.Supported, tool)
+}
+
+func (profile ModelRuntimeProfile) AllowsDisabledEffort(effort string) bool {
+	if profile.Thinking.DisabledMaxEffort == "" || effort == "" {
+		return true
+	}
+	return runtimeEffortRank(effort) <=
+		runtimeEffortRank(profile.Thinking.DisabledMaxEffort)
+}
+
+func runtimeEffortRank(value string) int {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "low", "minimal":
+		return 1
+	case "medium":
+		return 2
+	case "high":
+		return 3
+	case "xhigh":
+		return 4
+	case "max":
+		return 5
+	default:
+		return 0
+	}
 }
 
 func (profile ModelRuntimeProfile) AllowsSamplingParameter(

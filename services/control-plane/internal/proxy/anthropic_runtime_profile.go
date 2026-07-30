@@ -101,6 +101,13 @@ func validateAnthropicChatRuntimeProfile(
 			if !profile.Tools.Server {
 				return fmt.Errorf("model does not support server tools")
 			}
+			if len(profile.Tools.Supported) > 0 &&
+				!profile.AllowsTool(anthropicServerToolCapability(tool.Type)) {
+				return fmt.Errorf(
+					"model does not support Anthropic server tool %q",
+					tool.Type,
+				)
+			}
 			continue
 		}
 		return fmt.Errorf("unsupported Anthropic tool type %q", tool.Type)
@@ -123,6 +130,14 @@ func validateAnthropicChatRuntimeProfile(
 		if normalized == "" || !profile.AllowsEffort(normalized) {
 			return fmt.Errorf(
 				"model does not support output_config.effort=%s",
+				outputEffort,
+			)
+		}
+		if req.Thinking != nil &&
+			strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") &&
+			!profile.AllowsDisabledEffort(normalized) {
+			return fmt.Errorf(
+				"model does not support output_config.effort=%s with disabled thinking",
 				outputEffort,
 			)
 		}
@@ -176,6 +191,12 @@ func validateAnthropicThinkingAgainstProfile(
 		return fmt.Errorf("model does not support reasoning_effort=%s", effort)
 	}
 	if mode == "" || mode == "disabled" {
+		if mode == "disabled" && !profile.AllowsDisabledEffort(effort) {
+			return fmt.Errorf(
+				"model does not support reasoning_effort=%s with disabled thinking",
+				effort,
+			)
+		}
 		return nil
 	}
 	for _, parameter := range profile.Sampling.DisallowedWithThinking {
@@ -219,7 +240,9 @@ func normalizeProfileEffort(value string) string {
 		return "medium"
 	case "high":
 		return "high"
-	case "xhigh", "max":
+	case "xhigh":
+		return "xhigh"
+	case "max":
 		return "max"
 	default:
 		return ""
@@ -241,6 +264,20 @@ func isAnthropicServerToolType(value string) bool {
 		"code_execution_20250825": {},
 	}[value]
 	return ok
+}
+
+func anthropicServerToolCapability(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	for _, capability := range []string{
+		"web_search",
+		"web_fetch",
+		"code_execution",
+	} {
+		if strings.HasPrefix(value, capability+"_") {
+			return capability
+		}
+	}
+	return ""
 }
 
 func anthropicOpenAIToolPricingPolicy(

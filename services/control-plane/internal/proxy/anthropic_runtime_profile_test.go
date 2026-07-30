@@ -51,6 +51,72 @@ func TestAnthropicChatValidationUsesPinnedRuntimeProfile(t *testing.T) {
 	)
 }
 
+func TestAnthropicChatValidationEnforcesModelSpecificServerTools(t *testing.T) {
+	binding := testAnthropicRuntimeProfileBinding("claude-opus-5")
+	binding.Profile.Tools.Supported = []string{
+		"function_calling",
+		"web_search",
+		"code_execution",
+	}
+	request := contractsopenai.ChatCompletionRequest{
+		Model: "claude-opus-5",
+		Messages: []contractsopenai.ChatMessage{{
+			Role: "user", Content: "test",
+		}},
+		Tools: []contractsopenai.ToolDefinition{{
+			Type: "web_fetch_20260318",
+			Name: "web_fetch",
+		}},
+	}
+
+	require.ErrorContains(
+		t,
+		validateAnthropicChatRuntimeProfile(request, &binding),
+		"web_fetch",
+	)
+	request.Tools[0] = contractsopenai.ToolDefinition{
+		Type: "web_search_20260318",
+		Name: "web_search",
+	}
+	require.NoError(
+		t,
+		validateAnthropicChatRuntimeProfile(request, &binding),
+	)
+}
+
+func TestAnthropicChatValidationEnforcesDisabledThinkingEffortCeiling(
+	t *testing.T,
+) {
+	binding := testAnthropicRuntimeProfileBinding("claude-opus-5")
+	binding.Profile.Thinking.AllowedModes = []string{"adaptive", "disabled"}
+	binding.Profile.Thinking.DefaultMode = "adaptive"
+	binding.Profile.Thinking.EffortValues = []string{
+		"low", "medium", "high", "xhigh", "max",
+	}
+	binding.Profile.Thinking.DisabledMaxEffort = "high"
+	request := contractsopenai.ChatCompletionRequest{
+		Model: "claude-opus-5",
+		Thinking: &contractsopenai.ThinkingConfig{
+			Type: "disabled",
+		},
+		OutputConfig: map[string]interface{}{"effort": "xhigh"},
+		Messages: []contractsopenai.ChatMessage{{
+			Role: "user", Content: "test",
+		}},
+	}
+
+	require.ErrorContains(
+		t,
+		validateAnthropicChatRuntimeProfile(request, &binding),
+		"disabled thinking",
+	)
+	request.OutputConfig["effort"] = "high"
+	require.NoError(
+		t,
+		validateAnthropicChatRuntimeProfile(request, &binding),
+	)
+}
+
 func TestValidateThinkingConfigAcceptsAdaptiveForProfileValidation(
 	t *testing.T,
 ) {

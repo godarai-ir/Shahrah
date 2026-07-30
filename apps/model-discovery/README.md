@@ -124,6 +124,14 @@ Exported files:
 - Reconcile the OpenAI database catalog, deleting rows absent from the curated
   allowlist:
   - `pnpm --filter model-discovery import:provider:openai -- --clear-missing`
+- Import the curated Anthropic catalog with Anthropic-specific allowlist,
+  pricing, and runtime-profile validation:
+  - `pnpm --filter model-discovery import:provider:anthropic`
+- Parse and validate Anthropic without writing to the database:
+  - `pnpm --filter model-discovery import:provider:anthropic -- --dry-run`
+- Reconcile the Anthropic database catalog, deleting rows absent from the
+  curated allowlist:
+  - `pnpm --filter model-discovery import:provider:anthropic -- --clear-missing`
 - Import all checked-in providers:
   - `pnpm --filter model-discovery import:providers:yaml`
 - Import specific providers:

@@ -171,4 +171,19 @@ describe('modelRuntimeProfileSchema', () => {
     expect(parsed.tools.supported).toContain('computer_use');
     expect(parsed.requestControls.serviceTierValues).toContain('fast');
   });
+
+  it('requires preferred tool versions to reference supported tools', () => {
+    const result = modelRuntimeProfileSchema.safeParse({
+      ...validProfile,
+      tools: {
+        ...validProfile.tools,
+        supported: ['function_calling'],
+        preferredVersions: {
+          web_search: 'web_search_20260318',
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

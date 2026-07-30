@@ -9,6 +9,11 @@ import {
   modelRuntimeProfileSchema,
   type ModelRuntimeProfile,
 } from '../src/catalog/runtime-profile.schema';
+import { anthropicProviderImporter } from './model-import/providers/anthropic';
+import type {
+  ProviderPricingRate,
+  ProviderRateMapping,
+} from './model-import/types';
 
 export const DEFAULT_PROVIDERS_ROOT = join(__dirname, '..', 'providers');
 
@@ -54,17 +59,12 @@ type ImportModelRow = {
   regions: string[];
   sources: string[];
   runtimeProfile?: ModelRuntimeProfile;
-  pricingRates: Array<{
-    dimension: string;
-    unit: string;
-    unitPriceUsd: string;
-    conditionJson?: Prisma.InputJsonObject;
-    region: string;
-    sourceUrl: string;
-  }>;
+  pricingRates: ProviderPricingRate[];
   pricingRows: Array<{
     regionSlug: string;
     sourceUrl?: string;
+    effectiveFrom?: Date;
+    effectiveTo?: Date;
     inputPricePerMillionTokens?: number;
     outputPricePerMillionTokens?: number;
     cachedInputPricePerMillionTokens?: number;
@@ -488,6 +488,20 @@ function toDate(input: unknown): Date | undefined {
   return dt;
 }
 
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(',')}]`;
+  }
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function inferDateFromName(name: string): Date | undefined {
   const m = name.match(/(20\d{2})-(\d{2})-(\d{2})/);
   if (!m) return undefined;
@@ -715,6 +729,10 @@ async function parseProviderDir(
   providerDir: string,
 ): Promise<ImportProviderBatch> {
   const providerSlug = slugify(basename(providerDir));
+  const providerImporter =
+    providerSlug === anthropicProviderImporter.slug
+      ? anthropicProviderImporter
+      : undefined;
   const defaultPath = join(providerDir, 'default.yaml');
   let defaultDoc: StringRecord | undefined;
   if (existsSync(defaultPath)) {
@@ -795,10 +813,29 @@ async function parseProviderDir(
         typeof cost['region'] === 'string'
           ? normalizeRegion(cost['region'])
           : 'global';
+      const effectiveFrom = toDate(cost['effective_from']);
+      const effectiveTo = toDate(cost['effective_to']);
+      if (cost['effective_from'] !== undefined && !effectiveFrom) {
+        throw new Error(`${modelId}: invalid pricing effective_from`);
+      }
+      if (cost['effective_to'] !== undefined && !effectiveTo) {
+        throw new Error(`${modelId}: invalid pricing effective_to`);
+      }
+      if (
+        effectiveFrom &&
+        effectiveTo &&
+        effectiveFrom.getTime() >= effectiveTo.getTime()
+      ) {
+        throw new Error(
+          `${modelId}: pricing effective_from must precede effective_to`,
+        );
+      }
       regionSet.add(region);
       pricingRows.push({
         regionSlug: region,
         sourceUrl: sources[0],
+        effectiveFrom,
+        effectiveTo,
         inputPricePerMillionTokens: perTokenToPerMillion(
           asNumber(cost['input_cost_per_token']),
         ),
@@ -821,12 +858,7 @@ async function parseProviderDir(
           `${modelId}: pricing data requires an official pricing source`,
         );
       }
-      const rateMappings: Array<{
-        key: string;
-        dimension: string;
-        unit: string;
-        conditionJson?: Prisma.InputJsonObject;
-      }> = [
+      const rateMappings: ProviderRateMapping[] = [
         {
           key: 'input_cost_per_token',
           dimension: 'input_tokens',
@@ -863,7 +895,13 @@ async function parseProviderDir(
         },
         {
           key: 'cache_creation_input_token_cost_batches',
-          dimension: 'batch_cache_write_tokens',
+          dimension: 'batch_cache_write_5m_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'batch' },
+        },
+        {
+          key: 'cache_creation_input_token_cost_per_hour_batches',
+          dimension: 'batch_cache_write_1h_tokens',
           unit: 'token',
           conditionJson: { service_tier: 'batch' },
         },
@@ -872,22 +910,20 @@ async function parseProviderDir(
           dimension: 'batch_input_tokens',
           unit: 'token',
           conditionJson:
-            providerSlug === 'anthropic'
-              ? { api: 'message_batches' }
-              : providerSlug === 'google-gemini'
-                ? { api: 'batches' }
-                : { service_tier: 'batch' },
+            providerImporter?.batchPricingCondition ??
+            (providerSlug === 'google-gemini'
+              ? { api: 'batches' }
+              : { service_tier: 'batch' }),
         },
         {
           key: 'output_cost_per_token_batches',
           dimension: 'batch_output_tokens',
           unit: 'token',
           conditionJson:
-            providerSlug === 'anthropic'
-              ? { api: 'message_batches' }
-              : providerSlug === 'google-gemini'
-                ? { api: 'batches' }
-                : { service_tier: 'batch' },
+            providerImporter?.batchPricingCondition ??
+            (providerSlug === 'google-gemini'
+              ? { api: 'batches' }
+              : { service_tier: 'batch' }),
         },
         {
           key: 'input_cost_per_image',
@@ -986,30 +1022,6 @@ async function parseProviderDir(
           conditionJson: { min_prompt_tokens: 272001 },
         },
         {
-          key: 'data_residency_input_cost_per_token',
-          dimension: 'data_residency_input_tokens',
-          unit: 'token',
-          conditionJson: { inference_geo: 'configured' },
-        },
-        {
-          key: 'data_residency_output_cost_per_token',
-          dimension: 'data_residency_output_tokens',
-          unit: 'token',
-          conditionJson: { inference_geo: 'configured' },
-        },
-        {
-          key: 'fast_mode_input_cost_per_token',
-          dimension: 'speed_input_tokens',
-          unit: 'token',
-          conditionJson: { service_tier: 'priority' },
-        },
-        {
-          key: 'fast_mode_output_cost_per_token',
-          dimension: 'speed_output_tokens',
-          unit: 'token',
-          conditionJson: { service_tier: 'priority' },
-        },
-        {
           key: 'input_cost_per_token_flex',
           dimension: 'flex_input_tokens',
           unit: 'token',
@@ -1105,6 +1117,7 @@ async function parseProviderDir(
             min_prompt_tokens: 272001,
           },
         },
+        ...(providerImporter?.rateMappings ?? []),
       ];
       for (const mapping of rateMappings) {
         const unitPriceUsd = asDecimalString(cost[mapping.key]);
@@ -1116,6 +1129,8 @@ async function parseProviderDir(
           conditionJson: mapping.conditionJson,
           region,
           sourceUrl,
+          effectiveFrom,
+          effectiveTo,
         });
       }
       const priorityPricing = asObject(cost['priority_pricing']);
@@ -1176,98 +1191,13 @@ async function parseProviderDir(
           });
         }
       }
-      const hasBatchPricing =
-        asDecimalString(cost['input_cost_per_token_batches']) !== undefined &&
-        asDecimalString(cost['output_cost_per_token_batches']) !== undefined;
-      if (hasBatchPricing && providerSlug === 'anthropic') {
-        const batchCacheMappings = [
-          ['cache_creation_input_token_cost', 'batch_cache_write_5m_tokens'],
-          [
-            'cache_creation_input_token_cost_per_hour',
-            'batch_cache_write_1h_tokens',
-          ],
-          ['cache_read_input_token_cost', 'batch_cache_read_tokens'],
-        ] as const;
-        for (const [key, dimension] of batchCacheMappings) {
-          const standard = asNumber(cost[key]);
-          if (standard === undefined) continue;
-          pricingRates.push({
-            dimension,
-            unit: 'token',
-            unitPriceUsd: String(standard * 0.5),
-            conditionJson: { api: 'message_batches' },
-            region,
-            sourceUrl,
-          });
-        }
-      }
-      if (
-        explicitRuntimeProfile?.requestControls.inferenceGeoValues.includes(
-          'us',
-        )
-      ) {
-        const residencyMappings = [
-          ['input_cost_per_token', 'data_residency_input_tokens'],
-          ['output_cost_per_token', 'data_residency_output_tokens'],
-          [
-            'cache_creation_input_token_cost',
-            'data_residency_cache_write_5m_tokens',
-          ],
-          [
-            'cache_creation_input_token_cost_per_hour',
-            'data_residency_cache_write_1h_tokens',
-          ],
-          ['cache_read_input_token_cost', 'data_residency_cache_read_tokens'],
-          ['input_cost_per_token_batches', 'data_residency_batch_input_tokens'],
-          [
-            'output_cost_per_token_batches',
-            'data_residency_batch_output_tokens',
-          ],
-        ] as const;
-        for (const [key, dimension] of residencyMappings) {
-          const standard = asNumber(cost[key]);
-          if (standard === undefined) continue;
-          pricingRates.push({
-            dimension,
-            unit: 'token',
-            unitPriceUsd: String(standard * 1.1),
-            conditionJson: { inference_geo: 'us' },
-            region,
-            sourceUrl,
-          });
-        }
-        if (hasBatchPricing) {
-          const residencyBatchCacheMappings = [
-            [
-              'cache_creation_input_token_cost',
-              'data_residency_batch_cache_write_5m_tokens',
-            ],
-            [
-              'cache_creation_input_token_cost_per_hour',
-              'data_residency_batch_cache_write_1h_tokens',
-            ],
-            [
-              'cache_read_input_token_cost',
-              'data_residency_batch_cache_read_tokens',
-            ],
-          ] as const;
-          for (const [key, dimension] of residencyBatchCacheMappings) {
-            const standard = asNumber(cost[key]);
-            if (standard === undefined) continue;
-            pricingRates.push({
-              dimension,
-              unit: 'token',
-              unitPriceUsd: String(standard * 0.5 * 1.1),
-              conditionJson: {
-                api: 'message_batches',
-                inference_geo: 'us',
-              },
-              region,
-              sourceUrl,
-            });
-          }
-        }
-      }
+      providerImporter?.appendDerivedCostPricingRates({
+        cost,
+        explicitRuntimeProfile,
+        pricingRates,
+        region,
+        sourceUrl,
+      });
     }
 
     const webSearch = asObject(defaultToolPricing?.['web_search']);
@@ -1332,40 +1262,11 @@ async function parseProviderDir(
         sourceUrl: pricingSource,
       });
     }
-    const codeExecution = asObject(defaultToolPricing?.['code_execution']);
-    const codeExecutionPrice = asDecimalString(
-      codeExecution?.['per_container_hour'],
-    );
-    const codeExecutionSource = sources.find((source) =>
-      source.includes('code-execution-tool'),
-    );
-    if (codeExecutionPrice && codeExecutionSource) {
-      pricingRates.push({
-        dimension: 'code_execution_container_hours',
-        unit: 'container_hour',
-        unitPriceUsd: codeExecutionPrice,
-        conditionJson: {
-          free_organization_hours_per_month:
-            asNumber(codeExecution?.['free_organization_hours_per_month']) ??
-            1550,
-          minimum_minutes: asNumber(codeExecution?.['minimum_minutes']) ?? 5,
-          free_with_web_tool_min_version:
-            asNumber(codeExecution?.['free_with_web_tool_min_version']) ??
-            20260209,
-          billable_gateway_mode:
-            typeof codeExecution?.['billable_gateway_mode'] === 'string'
-              ? codeExecution['billable_gateway_mode']
-              : 'disabled',
-          reconciliation:
-            typeof codeExecution?.['reconciliation'] === 'string'
-              ? codeExecution['reconciliation']
-              : 'anthropic_cost_api',
-          request_attribution: 'unavailable',
-        },
-        region: 'global',
-        sourceUrl: codeExecutionSource,
-      });
-    }
+    providerImporter?.appendToolPricingRates({
+      defaultToolPricing,
+      pricingRates,
+      sources,
+    });
     if (regionSet.size === 0) regionSet.add('global');
 
     const contextWindow = asNumber(limits?.['context_window']);
@@ -1694,7 +1595,8 @@ async function importProviderBatch(
           audioOutputPrice: pricing.audioOutputPrice,
           requestPrice: pricing.requestPrice,
           sourceUrl: pricing.sourceUrl,
-          effectiveFrom: new Date(),
+          effectiveFrom: pricing.effectiveFrom ?? new Date(),
+          effectiveTo: pricing.effectiveTo,
         },
       });
     }
@@ -1710,12 +1612,31 @@ async function importProviderBatch(
           conditionJson: rate.conditionJson,
           region: rate.region,
           sourceUrl: rate.sourceUrl,
-          effectiveFrom: new Date(),
+          effectiveFrom: rate.effectiveFrom ?? new Date(),
+          effectiveTo: rate.effectiveTo,
         },
       });
     }
 
     if (row.runtimeProfile && !preserveOfficialRuntime) {
+      const existingRuntimeProfile =
+        await prisma.modelRuntimeProfile.findUnique({
+          where: {
+            modelId_version: {
+              modelId: model.id,
+              version: row.runtimeProfile.version,
+            },
+          },
+        });
+      if (
+        existingRuntimeProfile &&
+        stableJson(existingRuntimeProfile.profileJson) !==
+          stableJson(row.runtimeProfile)
+      ) {
+        throw new Error(
+          `${row.canonicalId}: runtime profile version ${row.runtimeProfile.version} is immutable; increment runtimeProfile.version`,
+        );
+      }
       await prisma.modelRuntimeProfile.upsert({
         where: {
           modelId_version: {
@@ -1730,12 +1651,7 @@ async function importProviderBatch(
           sourceUrl: row.sources[0],
           effectiveFrom: new Date(),
         },
-        update: {
-          profileJson: row.runtimeProfile,
-          sourceUrl: row.sources[0],
-          effectiveFrom: new Date(),
-          effectiveTo: null,
-        },
+        update: {},
       });
     }
 

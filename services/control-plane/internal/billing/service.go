@@ -664,7 +664,25 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 	}
 
 	breakdown := costBreakdown(req.Model, promptTokens, outputTokens, price, rate.USDtoIRR)
-	if price.Provider == "anthropic" && strings.EqualFold(strings.TrimSpace(req.InferenceGeo), "us") {
+	if price.Provider == "anthropic" &&
+		strings.EqualFold(strings.TrimSpace(req.Speed), "fast") {
+		prefix := ""
+		if strings.EqualFold(strings.TrimSpace(req.InferenceGeo), "us") {
+			prefix = "data_residency_"
+		}
+		conditional, conditionErr := anthropicTokenCostBreakdown(
+			req.Model, promptTokens, outputTokens, price, rate.USDtoIRR,
+			prefix+"speed_input_tokens", prefix+"speed_output_tokens",
+		)
+		if conditionErr != nil {
+			return platform.UsageCostBreakdown{}, conditionErr
+		}
+		conditional.PricingConditions = map[string]string{"speed": "fast"}
+		breakdown = conditional
+	}
+	if price.Provider == "anthropic" &&
+		!strings.EqualFold(strings.TrimSpace(req.Speed), "fast") &&
+		strings.EqualFold(strings.TrimSpace(req.InferenceGeo), "us") {
 		conditional, conditionErr := anthropicTokenCostBreakdown(
 			req.Model, promptTokens, outputTokens, price, rate.USDtoIRR,
 			"data_residency_input_tokens", "data_residency_output_tokens",
@@ -1475,6 +1493,19 @@ func anthropicUsageCostBreakdown(
 		cache5mDimension = "batch_cache_write_5m_tokens"
 		cache1hDimension = "batch_cache_write_1h_tokens"
 		cacheReadDimension = "batch_cache_read_tokens"
+	}
+	if strings.EqualFold(strings.TrimSpace(usage.Speed), "fast") {
+		if batch {
+			return platform.UsageCostBreakdown{}, fmt.Errorf(
+				"%w: Anthropic fast-mode is unavailable with Batch",
+				ErrPricingUnavailable,
+			)
+		}
+		inputDimension = "speed_input_tokens"
+		outputDimension = "speed_output_tokens"
+		cache5mDimension = "speed_cache_write_5m_tokens"
+		cache1hDimension = "speed_cache_write_1h_tokens"
+		cacheReadDimension = "speed_cache_read_tokens"
 	}
 	if strings.EqualFold(conditions["inference_geo"], "us") {
 		inputDimension = "data_residency_" + inputDimension
