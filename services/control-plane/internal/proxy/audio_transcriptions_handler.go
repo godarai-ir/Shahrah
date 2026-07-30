@@ -3,6 +3,7 @@ package proxy
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -294,7 +295,7 @@ func (h *AudioTranscriptionsHandler) handleSync(
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
-		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
+		return writeCompatibleProviderError(c, tunnelReq.Deployment.Provider, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	responseSummary := buildTraceAudioTranscriptionResponsePayload(resp.Body, resp.Headers)
@@ -306,6 +307,19 @@ func (h *AudioTranscriptionsHandler) handleSync(
 	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), audioTranscriptionUsageToOpenAI(resp.Body), estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize audio transcription usage", "billing_error")
+	}
+	if minutes, ok := audioTranscriptionMinutes(resp.Body); ok {
+		finalCost, err = priceMeteredUsage(
+			c.Context(),
+			h.billing,
+			billingModelForDeployment(requestedModel, tunnelReq.Deployment),
+			"audio_input_minutes",
+			minutes,
+			finalCost,
+		)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize audio transcription metered usage", "billing_error")
+		}
 	}
 
 	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
@@ -443,6 +457,7 @@ func (h *AudioTranscriptionsHandler) handleStream(
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+		streamUsage := &audioTranscriptionStreamUsage{}
 
 		budgetCommitted := false
 		defer func() {
@@ -462,6 +477,19 @@ func (h *AudioTranscriptionsHandler) handleStream(
 
 				finalCost = estimated
 				finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
+			}
+			if minutes, ok := streamUsage.Minutes(); ok {
+				finalCost, finalizeErr = priceMeteredUsage(
+					requestCtx,
+					h.billing,
+					billingModelForDeployment(requestedModel, tunnelReq.Deployment),
+					"audio_input_minutes",
+					minutes,
+					finalCost,
+				)
+				if finalizeErr != nil {
+					h.logger.Warn("failed to finalize streaming audio transcription metered usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+				}
 			}
 
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
@@ -518,7 +546,15 @@ func (h *AudioTranscriptionsHandler) handleStream(
 			budgetCommitted = true
 		}
 
-		relayTunnelStream(stream, w, commitEstimatedBudget, h.logger, tunnelReq.RequestID, "audio_transcription")
+		relayTunnelStream(
+			stream,
+			w,
+			commitEstimatedBudget,
+			h.logger,
+			tunnelReq.RequestID,
+			"audio_transcription",
+			streamUsage.Observe,
+		)
 	})
 
 	responseStart := time.Now()
@@ -565,6 +601,9 @@ func extractAudioTranscriptionMetadata(c *fiber.Ctx, contentType string) (audioT
 	}
 
 	fillAudioTranscriptionMetadata(metadata.Metadata, form)
+	if err := validateOpenAIAudioTranscriptionModelFields(model, form); err != nil {
+		return metadata, err
+	}
 
 	responseFormat := strings.ToLower(strings.TrimSpace(firstFormValue(form.Value, "response_format")))
 	if responseFormat == "" {
@@ -624,6 +663,12 @@ func fillAudioTranscriptionMetadata(metadata map[string]interface{}, form *multi
 		metadata["prompt_length"] = len(prompt)
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
+	if languages := audioFormArrayValues(form.Value, "languages"); len(languages) > 0 {
+		metadata["languages"] = languages
+	}
+	if keywords := audioFormArrayValues(form.Value, "keywords"); len(keywords) > 0 {
+		metadata["keywords_count"] = len(keywords)
+	}
 
 	for _, key := range []string{"chunking_strategy"} {
 		if value := strings.TrimSpace(firstFormValue(form.Value, key)); value != "" {
@@ -667,6 +712,54 @@ func fillAudioTranscriptionMetadata(metadata map[string]interface{}, form *multi
 			metadata["file_content_type"] = safeContentTypeFamily(contentType)
 		}
 	}
+}
+
+func validateOpenAIAudioTranscriptionModelFields(
+	model string,
+	form *multipart.Form,
+) error {
+	if form == nil {
+		return nil
+	}
+
+	modelID := strings.ToLower(strings.TrimSpace(providerModelID(model)))
+	if modelID == "gpt-transcribe" ||
+		modelID == "gpt-4o-mini-transcribe" ||
+		modelID == "gpt-4o-transcribe-diarize" {
+		for _, header := range form.File["file"] {
+			if header != nil && header.Size > 25*1024*1024 {
+				return fmt.Errorf("file must not exceed 25 MB")
+			}
+		}
+	}
+	if modelID == "gpt-transcribe" {
+		language := strings.TrimSpace(firstFormValue(form.Value, "language"))
+		languages := audioFormArrayValues(form.Value, "languages")
+		if language != "" && len(languages) > 0 {
+			return fmt.Errorf("language and languages cannot be used together for gpt-transcribe")
+		}
+		for _, keyword := range audioFormArrayValues(form.Value, "keywords") {
+			if strings.ContainsAny(keyword, "<>\r\n") {
+				return fmt.Errorf("keywords values cannot contain <, >, carriage returns, or line feeds")
+			}
+		}
+	}
+
+	if modelID == "gpt-4o-transcribe-diarize" {
+		if strings.TrimSpace(firstFormValue(form.Value, "prompt")) != "" {
+			return fmt.Errorf("prompt is not supported by gpt-4o-transcribe-diarize")
+		}
+		names := audioFormArrayValues(form.Value, "known_speaker_names")
+		references := audioFormArrayValues(form.Value, "known_speaker_references")
+		if len(names) > 4 || len(references) > 4 {
+			return fmt.Errorf("known speaker references support at most four speakers")
+		}
+		if len(names) != len(references) {
+			return fmt.Errorf("known_speaker_names and known_speaker_references must have the same length")
+		}
+	}
+
+	return nil
 }
 
 func firstFormValue(values map[string][]string, key string) string {
@@ -762,6 +855,14 @@ func audioTranscriptionValidationErrorDetail(err error) (string, string) {
 		return "temperature", "invalid_temperature"
 	case strings.Contains(message, "stream"):
 		return "stream", "invalid_stream"
+	case strings.Contains(message, "languages"):
+		return "languages", "invalid_languages"
+	case strings.Contains(message, "keywords"):
+		return "keywords", "invalid_keywords"
+	case strings.Contains(message, "known_speaker"):
+		return "known_speaker_references", "invalid_known_speakers"
+	case strings.Contains(message, "prompt"):
+		return "prompt", "unsupported_parameter"
 	default:
 		return "request", "invalid_request"
 	}
@@ -849,6 +950,79 @@ func audioTranscriptionUsageToOpenAI(body []byte) *contractsopenai.Usage {
 		CompletionTokens: outputTokens,
 		TotalTokens:      totalTokens,
 	}
+}
+
+func audioTranscriptionMinutes(body []byte) (string, bool) {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return "", false
+	}
+
+	usage, ok := raw["usage"].(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+
+	seconds, ok := floatFromAudioUsage(usage, "seconds")
+	if !ok || seconds < 0 {
+		return "", false
+	}
+
+	return strconv.FormatFloat(seconds/60, 'f', -1, 64), true
+}
+
+func floatFromAudioUsage(usage map[string]interface{}, key string) (float64, bool) {
+	switch value := usage[key].(type) {
+	case float64:
+		return value, true
+	case int:
+		return float64(value), true
+	case int64:
+		return float64(value), true
+	case json.Number:
+		parsed, err := value.Float64()
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+const maxAudioTranscriptionStreamUsageBytes = 1 << 20
+
+type audioTranscriptionStreamUsage struct {
+	body []byte
+}
+
+func (usage *audioTranscriptionStreamUsage) Observe(chunk []byte) {
+	if usage == nil || len(chunk) == 0 ||
+		len(usage.body) >= maxAudioTranscriptionStreamUsageBytes {
+		return
+	}
+
+	remaining := maxAudioTranscriptionStreamUsageBytes - len(usage.body)
+	if len(chunk) > remaining {
+		chunk = chunk[:remaining]
+	}
+	usage.body = append(usage.body, chunk...)
+}
+
+func (usage *audioTranscriptionStreamUsage) Minutes() (string, bool) {
+	if usage == nil {
+		return "", false
+	}
+
+	for _, line := range bytes.Split(usage.body, []byte{'\n'}) {
+		line = bytes.TrimSpace(line)
+		if !bytes.HasPrefix(line, []byte("data:")) {
+			continue
+		}
+		payload := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+		if minutes, ok := audioTranscriptionMinutes(payload); ok {
+			return minutes, true
+		}
+	}
+
+	return "", false
 }
 
 func intFromAudioUsage(usage map[string]interface{}, key string) int {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -270,6 +271,59 @@ func TestAudioTranscriptionsHandlerValidationErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateOpenAIAudioTranscriptionModelFields(t *testing.T) {
+	t.Run("gpt-transcribe rejects language and languages", func(t *testing.T) {
+		form := &multipart.Form{Value: map[string][]string{
+			"language":    {"en"},
+			"languages[]": {"en", "fa"},
+		}}
+		err := validateOpenAIAudioTranscriptionModelFields("gpt-transcribe", form)
+		require.EqualError(t, err, "language and languages cannot be used together for gpt-transcribe")
+	})
+
+	t.Run("gpt-transcribe rejects unsafe keywords", func(t *testing.T) {
+		form := &multipart.Form{Value: map[string][]string{
+			"keywords[]": {"safe", "bad\nkeyword"},
+		}}
+		err := validateOpenAIAudioTranscriptionModelFields("gpt-transcribe", form)
+		require.EqualError(t, err, "keywords values cannot contain <, >, carriage returns, or line feeds")
+	})
+
+	t.Run("OpenAI transcription models enforce the 25 MB file limit", func(t *testing.T) {
+		form := &multipart.Form{File: map[string][]*multipart.FileHeader{
+			"file": {{Filename: "large.wav", Size: 25*1024*1024 + 1}},
+		}}
+		err := validateOpenAIAudioTranscriptionModelFields("gpt-4o-mini-transcribe", form)
+		require.EqualError(t, err, "file must not exceed 25 MB")
+	})
+
+	t.Run("diarize rejects prompt and mismatched speakers", func(t *testing.T) {
+		promptForm := &multipart.Form{Value: map[string][]string{"prompt": {"not supported"}}}
+		err := validateOpenAIAudioTranscriptionModelFields("gpt-4o-transcribe-diarize", promptForm)
+		require.EqualError(t, err, "prompt is not supported by gpt-4o-transcribe-diarize")
+
+		speakerForm := &multipart.Form{Value: map[string][]string{
+			"known_speaker_names[]":      {"Alice", "Bob"},
+			"known_speaker_references[]": {"ref-a"},
+		}}
+		err = validateOpenAIAudioTranscriptionModelFields("gpt-4o-transcribe-diarize", speakerForm)
+		require.EqualError(t, err, "known_speaker_names and known_speaker_references must have the same length")
+	})
+}
+
+func TestAudioTranscriptionMinuteReconciliation(t *testing.T) {
+	minutes, ok := audioTranscriptionMinutes([]byte(`{"usage":{"seconds":90}}`))
+	require.True(t, ok)
+	assert.Equal(t, "1.5", minutes)
+
+	streamUsage := &audioTranscriptionStreamUsage{}
+	streamUsage.Observe([]byte("event: transcript.text.done\n"))
+	streamUsage.Observe([]byte("data: {\"usage\":{\"seconds\":45}}\n\n"))
+	minutes, ok = streamUsage.Minutes()
+	require.True(t, ok)
+	assert.Equal(t, "0.75", minutes)
 }
 
 func TestAudioTranscriptionsHandlerRequiresMultipart(t *testing.T) {

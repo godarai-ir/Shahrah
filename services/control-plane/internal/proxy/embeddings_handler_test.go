@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http/httptest"
 	"testing"
 
@@ -146,6 +147,36 @@ func TestEmbeddingsHandlerSingleStringInput(t *testing.T) {
 	}
 
 	assert.True(t, sawProvider)
+}
+
+func TestEmbeddingsHandlerPreservesFutureRequestAndResponseFields(t *testing.T) {
+	providerBody := []byte(`{"object":"list","model":"text-embedding-3-small","data":[],"usage":{"prompt_tokens":1,"total_tokens":1},"future_response":{"revision":2}}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json; charset=utf-8"},
+		Body:       providerBody,
+	}}
+	app, _ := newEmbeddingsTestApp(t, "text-embedding-3-small", "openai", "text-embedding-3-small", tunnel, nil)
+
+	req := httptest.NewRequest(
+		"POST",
+		"/v1/embeddings",
+		bytes.NewBufferString(`{"model":"text-embedding-3-small","input":"hello","future_request":{"mode":"exact"}}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	var outbound map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	require.JSONEq(t, `{"mode":"exact"}`, string(outbound["future_request"]))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, string(providerBody), string(body))
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 }
 
 func TestNormalizeEmbeddingInputAcceptsTokenArrays(t *testing.T) {

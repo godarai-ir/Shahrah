@@ -325,7 +325,7 @@ func (h *ResponsesHandler) handleSync(
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 	h.recordResponseMapping(c.Context(), authInfo.TenantID, tunnelReq.Deployment, response.ID, response.Status, response.Model)
 
-	finalUsage := responseUsageToOpenAI(response.Usage)
+	finalUsage := responseUsageWithToolsToOpenAI(response)
 	if finalUsage != nil {
 		finalUsage.ServiceTier = response.ServiceTier
 	}
@@ -500,7 +500,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 
 			var finalUsage *contractsopenai.Usage
 			if completedResponse != nil {
-				finalUsage = responseUsageToOpenAI(completedResponse.Usage)
+				finalUsage = responseUsageWithToolsToOpenAI(*completedResponse)
 				if finalUsage != nil {
 					finalUsage.ServiceTier = completedResponse.ServiceTier
 				}
@@ -696,4 +696,28 @@ func responseUsageToOpenAI(usage *contractsopenai.ResponseUsage) *contractsopena
 		}
 	}
 	return result
+}
+
+func responseUsageWithToolsToOpenAI(
+	response contractsopenai.Response,
+) *contractsopenai.Usage {
+	usage := responseUsageToOpenAI(response.Usage)
+	if usage == nil {
+		return nil
+	}
+
+	serverTools := map[string]int{}
+	for _, item := range response.Output {
+		switch strings.ToLower(strings.TrimSpace(item.Type)) {
+		case "web_search_call":
+			serverTools["web_search_requests"]++
+		case "file_search_call":
+			serverTools["file_search_requests"]++
+		}
+	}
+	if len(serverTools) > 0 {
+		usage.ServerToolUse = serverTools
+	}
+
+	return usage
 }

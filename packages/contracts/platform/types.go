@@ -595,6 +595,7 @@ type ProviderOperationInput struct {
 	AfterID             string   `json:"after_id,omitempty"`
 	Limit               int      `json:"limit,omitempty"`
 	Order               string   `json:"order,omitempty"`
+	Purpose             string   `json:"purpose,omitempty"`
 	Include             []string `json:"include,omitempty"`
 	IncludeObfuscation  *bool    `json:"include_obfuscation,omitempty"`
 	StartingAfter       *int64   `json:"starting_after,omitempty"`

@@ -20,6 +20,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Delete("/responses/:response_id", deps.ResponsesHandler.HandleDelete)
 		v1.Post("/responses/:response_id/cancel", deps.ResponsesHandler.HandleCancel)
 		v1.Get("/responses/:response_id/input_items", deps.ResponsesHandler.HandleInputItems)
+		v1.Post("/batches", deps.ResponsesHandler.HandleBatchCreate)
+		v1.Get("/batches", deps.ResponsesHandler.HandleBatchList)
+		v1.Get("/batches/:batch_id", deps.ResponsesHandler.HandleBatchGet)
+		v1.Post("/batches/:batch_id/cancel", deps.ResponsesHandler.HandleBatchCancel)
 	}
 
 	if deps.EmbeddingsHandler != nil {
@@ -73,11 +77,33 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 			}
 			return native(c)
 		}
-		v1.Post("/files", requireAnthropicVersion)
-		v1.Get("/files", requireAnthropicVersion)
-		v1.Get("/files/:id", requireAnthropicVersion)
-		v1.Delete("/files/:id", requireAnthropicVersion)
-		v1.Get("/files/:id/content", requireAnthropicVersion)
 		v1.Get("/models/:id", requireAnthropicVersion)
+	}
+
+	if deps.ResponsesHandler != nil || deps.AnthropicNativeHandler != nil {
+		fileHandler := func(openAI fiber.Handler) fiber.Handler {
+			return func(c *fiber.Ctx) error {
+				if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
+					return deps.AnthropicNativeHandler.Handle(c)
+				}
+				if openAI == nil {
+					return fiber.ErrNotFound
+				}
+				return openAI(c)
+			}
+		}
+		var create, list, get, deleteFile, content fiber.Handler
+		if deps.ResponsesHandler != nil {
+			create = deps.ResponsesHandler.HandleFileCreate
+			list = deps.ResponsesHandler.HandleFileList
+			get = deps.ResponsesHandler.HandleFileGet
+			deleteFile = deps.ResponsesHandler.HandleFileDelete
+			content = deps.ResponsesHandler.HandleFileContent
+		}
+		v1.Post("/files", fileHandler(create))
+		v1.Get("/files", fileHandler(list))
+		v1.Get("/files/:file_id", fileHandler(get))
+		v1.Delete("/files/:file_id", fileHandler(deleteFile))
+		v1.Get("/files/:file_id/content", fileHandler(content))
 	}
 }

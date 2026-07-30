@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -123,6 +124,36 @@ func TestModerationsHandlerSingleStringInput(t *testing.T) {
 	require.Len(t, logs.loggedSpends, 1)
 	assert.Equal(t, "/moderations", logs.loggedSpends[0].RequestMetadata["provider_endpoint_path"])
 	assert.Equal(t, 1, logs.loggedSpends[0].RequestMetadata["input_count"])
+}
+
+func TestModerationsHandlerPreservesFutureRequestAndResponseFields(t *testing.T) {
+	providerBody := []byte(`{"id":"modr_future","model":"omni-moderation-latest","results":[],"future_response":{"taxonomy":"v2"}}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json; charset=utf-8"},
+		Body:       providerBody,
+	}}
+	app, _ := newModerationsTestApp(t, "omni-moderation-latest", "openai", "omni-moderation-latest", tunnel, nil, nil)
+
+	req := httptest.NewRequest(
+		"POST",
+		"/v1/moderations",
+		bytes.NewBufferString(`{"model":"omni-moderation-latest","input":"hello","future_request":{"policy":"strict"}}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	var outbound map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	require.JSONEq(t, `{"policy":"strict"}`, string(outbound["future_request"]))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, string(providerBody), string(body))
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 }
 
 func TestNormalizeModerationInputAcceptsTextAndImageItems(t *testing.T) {

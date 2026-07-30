@@ -8,31 +8,74 @@ import (
 
 // ChatCompletionRequest mirrors OpenAI's chat completion request format.
 type ChatCompletionRequest struct {
-	Model             string                 `json:"model"`
-	Messages          []ChatMessage          `json:"messages"`
-	Stream            bool                   `json:"stream,omitempty"`
-	StreamOptions     *StreamOptions         `json:"stream_options,omitempty"`
-	Temperature       *float64               `json:"temperature,omitempty"`
-	TopP              *float64               `json:"top_p,omitempty"`
-	TopK              *int                   `json:"top_k,omitempty"`
-	MaxTokens         *int                   `json:"max_tokens,omitempty"`
-	Stop              interface{}            `json:"stop,omitempty"`
-	ReasoningEffort   string                 `json:"reasoning_effort,omitempty"`
-	Thinking          *ThinkingConfig        `json:"thinking,omitempty"`
-	ParallelToolCalls *bool                  `json:"parallel_tool_calls,omitempty"`
-	ResponseFormat    interface{}            `json:"response_format,omitempty"`
-	OutputConfig      map[string]interface{} `json:"output_config,omitempty"`
-	Tools             []ToolDefinition       `json:"tools,omitempty"`
-	ToolChoice        interface{}            `json:"tool_choice,omitempty"`
-	CacheControl      map[string]interface{} `json:"cache_control,omitempty"`
-	ExtraBody         map[string]interface{} `json:"extra_body,omitempty"`
-	ServiceTier       string                 `json:"service_tier,omitempty"`
-	Speed             string                 `json:"speed,omitempty"`
-	InferenceGeo      string                 `json:"inference_geo,omitempty"`
-	Metadata          map[string]interface{} `json:"metadata,omitempty"`
-	User              string                 `json:"user,omitempty"`
-	PromptVersionFQN  string                 `json:"prompt_version_fqn,omitempty"`
-	PromptVariables   map[string]string      `json:"prompt_variables,omitempty"`
+	Model             string                     `json:"model"`
+	Messages          []ChatMessage              `json:"messages"`
+	Stream            bool                       `json:"stream,omitempty"`
+	StreamOptions     *StreamOptions             `json:"stream_options,omitempty"`
+	Temperature       *float64                   `json:"temperature,omitempty"`
+	TopP              *float64                   `json:"top_p,omitempty"`
+	TopK              *int                       `json:"top_k,omitempty"`
+	MaxTokens         *int                       `json:"max_tokens,omitempty"`
+	Stop              interface{}                `json:"stop,omitempty"`
+	ReasoningEffort   string                     `json:"reasoning_effort,omitempty"`
+	Thinking          *ThinkingConfig            `json:"thinking,omitempty"`
+	ParallelToolCalls *bool                      `json:"parallel_tool_calls,omitempty"`
+	ResponseFormat    interface{}                `json:"response_format,omitempty"`
+	OutputConfig      map[string]interface{}     `json:"output_config,omitempty"`
+	Tools             []ToolDefinition           `json:"tools,omitempty"`
+	ToolChoice        interface{}                `json:"tool_choice,omitempty"`
+	CacheControl      map[string]interface{}     `json:"cache_control,omitempty"`
+	ExtraBody         map[string]interface{}     `json:"extra_body,omitempty"`
+	ServiceTier       string                     `json:"service_tier,omitempty"`
+	Speed             string                     `json:"speed,omitempty"`
+	InferenceGeo      string                     `json:"inference_geo,omitempty"`
+	Metadata          map[string]interface{}     `json:"metadata,omitempty"`
+	User              string                     `json:"user,omitempty"`
+	PromptVersionFQN  string                     `json:"prompt_version_fqn,omitempty"`
+	PromptVariables   map[string]string          `json:"prompt_variables,omitempty"`
+	AdditionalFields  map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON retains fields added by OpenAI after this contract was
+// compiled. Known fields remain strongly typed for policy and billing logic,
+// while unknown fields are relayed losslessly by MarshalJSON.
+func (r *ChatCompletionRequest) UnmarshalJSON(data []byte) error {
+	type requestAlias ChatCompletionRequest
+	var decoded requestAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*r = ChatCompletionRequest(decoded)
+	r.AdditionalFields = fields
+	return nil
+}
+
+// MarshalJSON overlays the current typed request on the original raw fields.
+// This preserves future OpenAI parameters while still allowing GodarAI to
+// rewrite routing fields and apply policy transformations.
+func (r ChatCompletionRequest) MarshalJSON() ([]byte, error) {
+	type requestAlias ChatCompletionRequest
+	knownJSON, err := json.Marshal(requestAlias(r))
+	if err != nil {
+		return nil, err
+	}
+	var known map[string]json.RawMessage
+	if err := json.Unmarshal(knownJSON, &known); err != nil {
+		return nil, err
+	}
+	merged := make(map[string]json.RawMessage, len(r.AdditionalFields)+len(known))
+	for key, value := range r.AdditionalFields {
+		merged[key] = append(json.RawMessage(nil), value...)
+	}
+	for key, value := range known {
+		merged[key] = value
+	}
+	delete(merged, "AdditionalFields")
+	return json.Marshal(merged)
 }
 
 // StreamOptions configures optional fields emitted by compatible streaming providers.
@@ -522,10 +565,14 @@ type Usage struct {
 // UsageTokenDetails carries OpenAI-compatible token subcategories needed for
 // modality- and cache-aware billing.
 type UsageTokenDetails struct {
-	AudioTokens      int `json:"audio_tokens,omitempty"`
-	CachedTokens     int `json:"cached_tokens,omitempty"`
-	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
-	ReasoningTokens  int `json:"reasoning_tokens,omitempty"`
+	AudioTokens       int `json:"audio_tokens,omitempty"`
+	TextTokens        int `json:"text_tokens,omitempty"`
+	ImageTokens       int `json:"image_tokens,omitempty"`
+	CachedTokens      int `json:"cached_tokens,omitempty"`
+	CachedTextTokens  int `json:"cached_text_tokens,omitempty"`
+	CachedImageTokens int `json:"cached_image_tokens,omitempty"`
+	CacheWriteTokens  int `json:"cache_write_tokens,omitempty"`
+	ReasoningTokens   int `json:"reasoning_tokens,omitempty"`
 }
 
 // StreamChunk represents a single chunk in a streaming response.

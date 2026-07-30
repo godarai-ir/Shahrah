@@ -129,9 +129,11 @@ const supportedCapabilities = new Set([
   'assistant_prefill',
   'cache_control',
   'code_execution',
+  'fine_tuning',
   'function_calling',
   'json_output',
   'parallel_function_calling',
+  'predicted_outputs',
   'prompt_caching',
   'structured_output',
   'system_messages',
@@ -198,7 +200,9 @@ function runtimeEndpointsForModel(
         endpoints.add('image_generations');
         if (providerSlug === 'openai') {
           endpoints.add('image_edits');
-          endpoints.add('image_variations');
+          if (modelId === 'dall-e-2') {
+            endpoints.add('image_variations');
+          }
         }
         break;
       case 'text_to_speech':
@@ -247,10 +251,17 @@ function runtimeEndpointsForModel(
   if (
     providerSlug === 'openai' &&
     modes.some((mode) =>
-      ['chat', 'completion', 'responses', 'embedding', 'moderation'].includes(
+      ['chat', 'completion', 'responses', 'embedding'].includes(
         mode,
       ),
     )
+  ) {
+    endpoints.add('batches');
+  }
+  if (
+    providerSlug === 'openai' &&
+    modes.includes('image') &&
+    modelId === 'gpt-image-2'
   ) {
     endpoints.add('batches');
   }
@@ -268,8 +279,12 @@ function buildImportedRuntimeProfile(input: {
   reasoningEffortValues: string[];
   supportedTools: string[];
   serviceTierValues: ModelRuntimeProfile['requestControls']['serviceTierValues'];
+  referenceRateLimits: ModelRuntimeProfile['referenceRateLimits'];
   lifecycle?: 'active' | 'preview' | 'deprecated' | 'unavailable';
   contextWindow?: number;
+  maxInputTokens?: number;
+  maxInputCharacters?: number;
+  maxInputBytes?: number;
   maxOutputTokens?: number;
 }): ModelRuntimeProfile {
   const parameters = new Set(
@@ -294,9 +309,12 @@ function buildImportedRuntimeProfile(input: {
         'http',
         ...(parameters.has('stream') &&
         endpoints.some((endpoint) =>
-          ['chat_completions', 'responses', 'image_generations'].includes(
-            endpoint,
-          ),
+          [
+            'chat_completions',
+            'responses',
+            'image_generations',
+            'audio_transcriptions',
+          ].includes(endpoint),
         )
           ? ['sse']
           : []),
@@ -318,6 +336,8 @@ function buildImportedRuntimeProfile(input: {
           : [],
     },
     assistantPrefill: capabilities.has('assistant_prefill'),
+    fineTuning: capabilities.has('fine_tuning'),
+    predictedOutputs: capabilities.has('predicted_outputs'),
     sampling: {
       parameters: ['temperature', 'top_p', 'top_k'].filter((parameter) =>
         parameters.has(parameter),
@@ -355,8 +375,12 @@ function buildImportedRuntimeProfile(input: {
     },
     betaHeaders: [],
     betaCapabilities: [],
+    referenceRateLimits: input.referenceRateLimits,
     limits: {
       contextWindow: input.contextWindow ?? 0,
+      maxInputTokens: input.maxInputTokens ?? 0,
+      maxInputCharacters: input.maxInputCharacters ?? 0,
+      maxInputBytes: input.maxInputBytes ?? 0,
       maxOutputTokens: input.maxOutputTokens ?? 0,
     },
   });
@@ -865,6 +889,49 @@ async function parseProviderDir(
           unit: 'token',
         },
         {
+          key: 'input_cost_per_character',
+          dimension: 'speech_input_characters',
+          unit: 'character',
+        },
+        {
+          key: 'input_cost_per_minute',
+          dimension: 'audio_input_minutes',
+          unit: 'minute',
+        },
+        {
+          key: 'input_cost_per_image_token',
+          dimension: 'image_input_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'cache_read_input_image_token_cost',
+          dimension: 'image_cache_read_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'output_cost_per_image_token',
+          dimension: 'image_output_tokens',
+          unit: 'token',
+        },
+        {
+          key: 'input_cost_per_image_token_batches',
+          dimension: 'batch_image_input_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'batch' },
+        },
+        {
+          key: 'cache_read_input_image_token_cost_batches',
+          dimension: 'batch_image_cache_read_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'batch' },
+        },
+        {
+          key: 'output_cost_per_image_token_batches',
+          dimension: 'batch_image_output_tokens',
+          unit: 'token',
+          conditionJson: { service_tier: 'batch' },
+        },
+        {
           key: 'request_cost',
           dimension: 'requests',
           unit: 'request',
@@ -1281,6 +1348,9 @@ async function parseProviderDir(
     if (regionSet.size === 0) regionSet.add('global');
 
     const contextWindow = asNumber(limits?.['context_window']);
+    const maxInputTokens = asNumber(limits?.['max_input_tokens']);
+    const maxInputCharacters = asNumber(limits?.['max_input_characters']);
+    const maxInputBytes = asNumber(limits?.['max_input_bytes']);
     const maxOutputTokens =
       asNumber(limits?.['max_output_tokens']) ??
       asNumber(limits?.['max_tokens']);
@@ -1296,6 +1366,9 @@ async function parseProviderDir(
     const serviceTierValues = asStringArray(doc['serviceTiers']).map(
       normalizeTaxonomyValue,
     ) as ModelRuntimeProfile['requestControls']['serviceTierValues'];
+    const referenceRateLimits = Array.isArray(doc['rateLimits'])
+      ? (doc['rateLimits'] as ModelRuntimeProfile['referenceRateLimits'])
+      : [];
     const runtimeProfile =
       explicitRuntimeProfile ??
       (providerSlug === 'google-gemini' || providerSlug === 'openai'
@@ -1313,8 +1386,12 @@ async function parseProviderDir(
                 : supportedValuesForParam(defaultDoc, 'reasoning_effort'),
             supportedTools,
             serviceTierValues,
+            referenceRateLimits,
             lifecycle: status,
             contextWindow,
+            maxInputTokens,
+            maxInputCharacters,
+            maxInputBytes,
             maxOutputTokens,
           })
         : undefined);

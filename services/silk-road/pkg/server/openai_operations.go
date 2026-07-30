@@ -366,6 +366,9 @@ func withListQuery(path string, input platform.ProviderOperationInput) string {
 	if input.Order != "" {
 		query.Set("order", input.Order)
 	}
+	if input.Purpose != "" {
+		query.Set("purpose", input.Purpose)
+	}
 	for _, include := range input.Include {
 		if value := strings.TrimSpace(include); value != "" {
 			query.Add("include", value)

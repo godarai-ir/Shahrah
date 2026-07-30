@@ -73,6 +73,8 @@ export const modelRuntimeProfileSchema = z
         .default([]),
     }),
     assistantPrefill: z.boolean(),
+    fineTuning: z.boolean().default(false),
+    predictedOutputs: z.boolean().default(false),
     sampling: z.object({
       parameters: z.array(z.enum(['temperature', 'top_p', 'top_k'])),
       disallowedWithThinking: z
@@ -145,8 +147,23 @@ export const modelRuntimeProfileSchema = z
         }),
       )
       .default([]),
+    referenceRateLimits: z
+      .array(
+        z.object({
+          tier: z.number().int().min(1).max(5),
+          requestsPerMinute: z.number().int().nonnegative().optional(),
+          requestsPerDay: z.number().int().nonnegative().optional(),
+          tokensPerMinute: z.number().int().nonnegative().optional(),
+          imagesPerMinute: z.number().int().nonnegative().optional(),
+          batchQueueTokens: z.number().int().nonnegative().optional(),
+        }),
+      )
+      .default([]),
     limits: z.object({
       contextWindow: z.number().int().nonnegative(),
+      maxInputTokens: z.number().int().nonnegative().default(0),
+      maxInputCharacters: z.number().int().nonnegative().default(0),
+      maxInputBytes: z.number().int().nonnegative().default(0),
       maxOutputTokens: z.number().int().nonnegative(),
       messagesBytes: z
         .number()

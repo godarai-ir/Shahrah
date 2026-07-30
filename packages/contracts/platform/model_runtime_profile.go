@@ -9,19 +9,22 @@ import (
 // ModelRuntimeProfile is the versioned provider behavior contract imported
 // from Model Discovery. Field names intentionally match the catalog JSON.
 type ModelRuntimeProfile struct {
-	Version          int                          `json:"version"`
-	Endpoints        []string                     `json:"endpoints"`
-	Transports       []string                     `json:"transports,omitempty"`
-	Lifecycle        string                       `json:"lifecycle,omitempty"`
-	Thinking         ModelRuntimeThinkingProfile  `json:"thinking"`
-	AssistantPrefill bool                         `json:"assistantPrefill"`
-	Sampling         ModelRuntimeSamplingProfile  `json:"sampling"`
-	Tools            ModelRuntimeToolsProfile     `json:"tools"`
-	Modalities       ModelRuntimeModalities       `json:"modalities"`
-	RequestControls  ModelRuntimeRequestControls  `json:"requestControls"`
-	BetaHeaders      []string                     `json:"betaHeaders"`
-	BetaCapabilities []ModelRuntimeBetaCapability `json:"betaCapabilities,omitempty"`
-	Limits           ModelRuntimeLimits           `json:"limits"`
+	Version             int                          `json:"version"`
+	Endpoints           []string                     `json:"endpoints"`
+	Transports          []string                     `json:"transports,omitempty"`
+	Lifecycle           string                       `json:"lifecycle,omitempty"`
+	Thinking            ModelRuntimeThinkingProfile  `json:"thinking"`
+	AssistantPrefill    bool                         `json:"assistantPrefill"`
+	FineTuning          bool                         `json:"fineTuning,omitempty"`
+	PredictedOutputs    bool                         `json:"predictedOutputs,omitempty"`
+	Sampling            ModelRuntimeSamplingProfile  `json:"sampling"`
+	Tools               ModelRuntimeToolsProfile     `json:"tools"`
+	Modalities          ModelRuntimeModalities       `json:"modalities"`
+	RequestControls     ModelRuntimeRequestControls  `json:"requestControls"`
+	BetaHeaders         []string                     `json:"betaHeaders"`
+	BetaCapabilities    []ModelRuntimeBetaCapability `json:"betaCapabilities,omitempty"`
+	ReferenceRateLimits []ModelRuntimeRateLimitTier  `json:"referenceRateLimits,omitempty"`
+	Limits              ModelRuntimeLimits           `json:"limits"`
 }
 
 type ModelRuntimeThinkingProfile struct {
@@ -64,12 +67,27 @@ type ModelRuntimeBetaCapability struct {
 	MaxOutputTokens int      `json:"maxOutputTokens,omitempty"`
 }
 
+// ModelRuntimeRateLimitTier records OpenAI's published organization-tier
+// reference ceilings. These values are discovery metadata; tenant enforcement
+// remains governed by GodarAI's own rate-limit policies.
+type ModelRuntimeRateLimitTier struct {
+	Tier              int `json:"tier"`
+	RequestsPerMinute int `json:"requestsPerMinute,omitempty"`
+	RequestsPerDay    int `json:"requestsPerDay,omitempty"`
+	TokensPerMinute   int `json:"tokensPerMinute,omitempty"`
+	ImagesPerMinute   int `json:"imagesPerMinute,omitempty"`
+	BatchQueueTokens  int `json:"batchQueueTokens,omitempty"`
+}
+
 type ModelRuntimeLimits struct {
-	ContextWindow   int `json:"contextWindow"`
-	MaxOutputTokens int `json:"maxOutputTokens"`
-	MessagesBytes   int `json:"messagesBytes"`
-	BatchBytes      int `json:"batchBytes"`
-	FileBytes       int `json:"fileBytes"`
+	ContextWindow      int `json:"contextWindow"`
+	MaxInputTokens     int `json:"maxInputTokens,omitempty"`
+	MaxInputCharacters int `json:"maxInputCharacters,omitempty"`
+	MaxInputBytes      int `json:"maxInputBytes,omitempty"`
+	MaxOutputTokens    int `json:"maxOutputTokens"`
+	MessagesBytes      int `json:"messagesBytes"`
+	BatchBytes         int `json:"batchBytes"`
+	FileBytes          int `json:"fileBytes"`
 }
 
 // ModelRuntimeProfileBinding pins one model profile to the exact atomic
@@ -316,7 +334,27 @@ func (profile ModelRuntimeProfile) Validate() error {
 			)
 		}
 	}
+	seenRateLimitTiers := map[int]struct{}{}
+	for _, limits := range profile.ReferenceRateLimits {
+		if limits.Tier < 1 || limits.Tier > 5 {
+			return fmt.Errorf("reference rate-limit tier must be between 1 and 5")
+		}
+		if _, exists := seenRateLimitTiers[limits.Tier]; exists {
+			return fmt.Errorf("duplicate reference rate-limit tier %d", limits.Tier)
+		}
+		seenRateLimitTiers[limits.Tier] = struct{}{}
+		if limits.RequestsPerMinute < 0 ||
+			limits.RequestsPerDay < 0 ||
+			limits.TokensPerMinute < 0 ||
+			limits.ImagesPerMinute < 0 ||
+			limits.BatchQueueTokens < 0 {
+			return fmt.Errorf("reference rate-limit values cannot be negative")
+		}
+	}
 	if profile.Limits.ContextWindow < 0 ||
+		profile.Limits.MaxInputTokens < 0 ||
+		profile.Limits.MaxInputCharacters < 0 ||
+		profile.Limits.MaxInputBytes < 0 ||
 		profile.Limits.MaxOutputTokens < 0 ||
 		profile.Limits.MessagesBytes <= 0 ||
 		profile.Limits.BatchBytes <= 0 ||

@@ -174,6 +174,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	outboundModel := providerOutboundModel(requestedModel, dep)
 
 	estimated := estimateImageCostFallback(requestedModel, metadata)
+	metadata["estimated_image_input_tokens"] = estimatedImageInputTokens(outboundModel, metadata)
 	estimated.Metadata = metadata
 	if usage := estimatedImageUsage(outboundModel, metadata); usage != nil {
 		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(
@@ -253,7 +254,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	outboundContentType := contentType
 
 	if isJSONContentType(contentType) {
-		outboundBody, err = rewriteJSONModel(body, outboundModel)
+		outboundBody, err = rewriteOpenAIJSONModel(body, outboundModel)
 		if err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
 		}
@@ -345,7 +346,7 @@ func (h *ImagesHandler) handleSync(
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
-		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
+		return writeCompatibleProviderError(c, tunnelReq.Deployment.Provider, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	providerAttrs["response_payload"] = buildTraceImageResponsePayload(resp.Body)
@@ -878,6 +879,10 @@ func estimatedImageUsage(model string, metadata map[string]interface{}) *contrac
 		PromptTokens:     inputTokens,
 		CompletionTokens: outputTokens,
 		TotalTokens:      inputTokens + outputTokens,
+		PromptTokensDetails: &contractsopenai.UsageTokenDetails{
+			TextTokens:  inputTokens - estimatedImageInputTokens(model, metadata),
+			ImageTokens: estimatedImageInputTokens(model, metadata),
+		},
 	}
 }
 
@@ -911,11 +916,22 @@ func imageUsageToOpenAI(body []byte) *contractsopenai.Usage {
 		return nil
 	}
 
-	return &contractsopenai.Usage{
+	result := &contractsopenai.Usage{
 		PromptTokens:     inputTokens,
 		CompletionTokens: outputTokens,
 		TotalTokens:      totalTokens,
 	}
+	if details, ok := usage["input_tokens_details"].(map[string]interface{}); ok {
+		result.PromptTokensDetails = &contractsopenai.UsageTokenDetails{
+			TextTokens:        intFromImageUsage(details, "text_tokens"),
+			ImageTokens:       intFromImageUsage(details, "image_tokens"),
+			CachedTokens:      intFromImageUsage(details, "cached_tokens"),
+			CachedTextTokens:  intFromImageUsage(details, "cached_text_tokens"),
+			CachedImageTokens: intFromImageUsage(details, "cached_image_tokens"),
+		}
+	}
+
+	return result
 }
 
 func estimateTextTokensFromLength(raw interface{}) int {

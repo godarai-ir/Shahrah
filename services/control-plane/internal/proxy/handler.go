@@ -50,6 +50,38 @@ type deploymentPricingBudgeter interface {
 	) (platform.UsageCostBreakdown, error)
 }
 
+type meteredUsageBudgeter interface {
+	PriceMeteredUsage(
+		ctx context.Context,
+		model string,
+		dimension string,
+		quantity string,
+		estimated platform.UsageCostBreakdown,
+	) (platform.UsageCostBreakdown, error)
+}
+
+func priceMeteredUsage(
+	ctx context.Context,
+	billing budgeter,
+	model string,
+	dimension string,
+	quantity string,
+	estimated platform.UsageCostBreakdown,
+) (platform.UsageCostBreakdown, error) {
+	metered, ok := billing.(meteredUsageBudgeter)
+	if !ok {
+		return estimated, nil
+	}
+
+	return metered.PriceMeteredUsage(
+		ctx,
+		model,
+		dimension,
+		quantity,
+		estimated,
+	)
+}
+
 func applyDeploymentPricingOverride(
 	ctx context.Context,
 	billing budgeter,
@@ -563,6 +595,12 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 
 func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deploymentModel string, fallbackModel string) ([]byte, error) {
 	outboundReq := req
+	if req.AdditionalFields != nil {
+		outboundReq.AdditionalFields = make(map[string]json.RawMessage, len(req.AdditionalFields))
+		for key, value := range req.AdditionalFields {
+			outboundReq.AdditionalFields[key] = append(json.RawMessage(nil), value...)
+		}
+	}
 
 	outboundModel := strings.TrimSpace(deploymentModel)
 	if outboundModel == "" || outboundModel == "*" {
@@ -572,10 +610,8 @@ func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deplo
 	outboundReq.Model = outboundModel
 	outboundReq.PromptVersionFQN = ""
 	outboundReq.PromptVariables = nil
-	// Metadata is a Shahrah control-plane concern (policies, billing, and logs).
-	// Do not forward it to providers: OpenAI, for example, only accepts metadata
-	// when provider-side response storage is explicitly enabled.
-	outboundReq.Metadata = nil
+	delete(outboundReq.AdditionalFields, "prompt_version_fqn")
+	delete(outboundReq.AdditionalFields, "prompt_variables")
 
 	return json.Marshal(outboundReq)
 }

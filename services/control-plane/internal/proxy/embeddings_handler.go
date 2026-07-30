@@ -222,16 +222,15 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	}
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
-	outboundReq := req
-
 	outboundModel := strings.TrimSpace(dep.Model)
 	if outboundModel == "" || outboundModel == "*" {
 		outboundModel = providerModelID(requestedModel)
 	}
 
-	outboundReq.Model = providerModelID(outboundModel)
-
-	payload, err := json.Marshal(outboundReq)
+	payload, err := rewriteOpenAIJSONModel(
+		originalBody,
+		providerModelID(outboundModel),
+	)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 	}
@@ -305,7 +304,7 @@ func (h *EmbeddingsHandler) handleSync(
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
-		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
+		return writeCompatibleProviderError(c, tunnelReq.Deployment.Provider, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	var response contractsopenai.EmbeddingResponse
@@ -397,7 +396,12 @@ func (h *EmbeddingsHandler) handleSync(
 	setCostHeaders(c, finalCost)
 
 	responseStart := time.Now()
-	err = c.Status(resp.StatusCode).JSON(response)
+	if contentType := strings.TrimSpace(resp.Headers["Content-Type"]); contentType != "" {
+		c.Set(fiber.HeaderContentType, contentType)
+	} else {
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	}
+	err = c.Status(resp.StatusCode).Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceEmbeddingResponsePayload(response),
 	})

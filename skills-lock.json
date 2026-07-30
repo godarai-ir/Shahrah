@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "claude-api": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/claude-api/SKILL.md",
+      "computedHash": "af3981031f9a240d66f9e44383f13fa94600ca238ee1d0db009b6a4ecbdf78b9"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",

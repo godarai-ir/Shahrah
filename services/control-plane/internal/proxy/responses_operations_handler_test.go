@@ -85,7 +85,7 @@ func (s responseOperationDeployments) ListDeployments(
 
 func newResponseOperationsTestApp(
 	t *testing.T,
-	tunnel *captureTunnel,
+	tunnel platform.TunnelTransport,
 	resources *responseOperationResources,
 ) *fiber.App {
 	t.Helper()
@@ -149,7 +149,86 @@ func newResponseOperationsTestApp(
 	app.Delete("/v1/responses/:response_id", h.HandleDelete)
 	app.Post("/v1/responses/:response_id/cancel", h.HandleCancel)
 	app.Get("/v1/responses/:response_id/input_items", h.HandleInputItems)
+	app.Post("/v1/batches", h.HandleBatchCreate)
+	app.Get("/v1/batches", h.HandleBatchList)
+	app.Get("/v1/batches/:batch_id", h.HandleBatchGet)
+	app.Post("/v1/batches/:batch_id/cancel", h.HandleBatchCancel)
+	app.Post("/v1/files", h.HandleFileCreate)
+	app.Get("/v1/files", h.HandleFileList)
+	app.Get("/v1/files/:file_id", h.HandleFileGet)
+	app.Delete("/v1/files/:file_id", h.HandleFileDelete)
+	app.Get("/v1/files/:file_id/content", h.HandleFileContent)
 	return app
+}
+
+func TestOpenAIFileCreateUsesRawTunnelAndRecordsAffinity(t *testing.T) {
+	resources := &responseOperationResources{}
+	tunnel := &rawSpeechTunnel{
+		captureTunnel: &captureTunnel{},
+		rawResp: &platform.TunnelRawResponse{
+			StatusCode: fiber.StatusOK,
+			Headers:    map[string]string{"content-type": "application/json"},
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{"id":"file_public","status":"processed"}`))),
+		},
+	}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+	requestBody, contentType := buildMultipartBody(
+		t,
+		map[string]string{"purpose": "batch"},
+		map[string][]byte{"file": []byte(`{"custom_id":"one"}`)},
+	)
+	req := httptest.NewRequest(http.MethodPost, "/v1/files", bytes.NewReader(requestBody))
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, platform.ProviderOperationOpenAIFilesCreate, tunnel.lastReq.Operation)
+	assert.Equal(t, requestBody, tunnel.rawBody)
+	mapping, ok := resources.mappings["file_public"]
+	require.True(t, ok)
+	assert.Equal(t, openAIFileResourceKind, mapping.ResourceKind)
+	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
+}
+
+func TestOpenAIBatchOperationsArePublicAndAccountBound(t *testing.T) {
+	resources := &responseOperationResources{mappings: map[string]platform.ProviderNativeResourceMapping{
+		"file_input": {
+			PublicID: "file_input", TenantID: "tenant_a", Provider: "openai",
+			ProviderAccountID: "acct_1", ResourceKind: openAIFileResourceKind,
+			UpstreamID: "file_upstream", Status: "processed",
+		},
+	}}
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       []byte(`{"id":"batch_public","status":"validating"}`),
+	}}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/batches", bytes.NewBufferString(`{
+		"input_file_id":"file_input",
+		"endpoint":"/v1/responses",
+		"completion_window":"24h",
+		"future_field":{"preserve":true}
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, platform.ProviderOperationOpenAIBatchesCreate, tunnel.lastReq.Operation)
+	assert.Equal(t, "acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
+
+	var relayed map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &relayed))
+	require.JSONEq(t, `"file_upstream"`, string(relayed["input_file_id"]))
+	require.JSONEq(t, `{"preserve":true}`, string(relayed["future_field"]))
+	mapping, ok := resources.mappings["batch_public"]
+	require.True(t, ok)
+	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
+	assert.Equal(t, openAIBatchResourceKind, mapping.ResourceKind)
 }
 
 func TestResponsesResourceOperationsArePublicAndAccountBound(t *testing.T) {

@@ -71,6 +71,14 @@ func writeOpenAIProviderError(c *fiber.Ctx, status int, body []byte, headers map
 	return TransformProviderError(c, status, body, nil)
 }
 
+func writeCompatibleProviderError(c *fiber.Ctx, provider string, status int, body []byte, headers map[string]string) error {
+	if strings.EqualFold(strings.TrimSpace(provider), "openai") {
+		return writeOpenAIProviderError(c, status, body, headers)
+	}
+
+	return TransformProviderError(c, status, body, headers)
+}
+
 // transformProviderError is an alias for TransformProviderError (for backward compatibility).
 var transformProviderError = TransformProviderError
 

@@ -3,8 +3,11 @@ package proxy
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -133,6 +136,17 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	estimated := estimateAudioSpeechCostFallback(requestedModel, reqMeta.Metadata)
 	estimated.Metadata = reqMeta.Metadata
+	estimated, err = priceMeteredUsage(
+		c.Context(),
+		h.billing,
+		billingEstimateModel(requestedModel),
+		"speech_input_characters",
+		strconv.Itoa(audioSpeechInputCharacters(reqMeta.Metadata)),
+		estimated,
+	)
+	if err != nil {
+		return writeBillingEstimateError(c, err)
+	}
 	quotaStart := time.Now()
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
@@ -208,7 +222,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	outboundModel := providerOutboundModel(requestedModel, dep)
 
-	outboundBody, err := rewriteJSONModel(body, outboundModel)
+	outboundBody, err := rewriteOpenAIJSONModel(body, outboundModel)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid JSON request body", "invalid_request_error")
 	}
@@ -271,6 +285,10 @@ func (h *AudioSpeechHandler) handleSync(
 	originalBody []byte,
 	originalContentType string,
 ) error {
+	if rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport); ok {
+		return h.handleRawSync(c, rawTunnel, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, start, tenantSlug, originalBody, originalContentType)
+	}
+
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
@@ -289,7 +307,7 @@ func (h *AudioSpeechHandler) handleSync(
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
-		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
+		return writeCompatibleProviderError(c, tunnelReq.Deployment.Provider, resp.StatusCode, resp.Body, resp.Headers)
 	}
 
 	responseSummary := buildTraceAudioSpeechResponsePayload(resp.Body, resp.Headers)
@@ -301,6 +319,17 @@ func (h *AudioSpeechHandler) handleSync(
 	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), audioSpeechUsageToOpenAI(resp.Body), estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech usage", "billing_error")
+	}
+	finalCost, err = priceMeteredUsage(
+		c.Context(),
+		h.billing,
+		billingModelForDeployment(requestedModel, tunnelReq.Deployment),
+		"speech_input_characters",
+		strconv.Itoa(audioSpeechInputCharacters(tunnelReq.RequestMetadata)),
+		finalCost,
+	)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech metered usage", "billing_error")
 	}
 
 	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
@@ -381,6 +410,118 @@ func (h *AudioSpeechHandler) handleSync(
 	})
 
 	return err
+}
+
+func (h *AudioSpeechHandler) handleRawSync(
+	c *fiber.Ctx,
+	rawTunnel platform.TunnelRawTransport,
+	requestedModel string,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+	originalBody []byte,
+	originalContentType string,
+) error {
+	providerStart := time.Now()
+	providerAttrs := map[string]interface{}{
+		"provider":        tunnelReq.Deployment.Provider,
+		"request_payload": buildTraceAudioSpeechRequestPayload(originalBody, originalContentType, tunnelReq.RequestMetadata),
+		"raw_stream":      true,
+	}
+	resp, err := rawTunnel.ProxyRaw(c.Context(), tunnelReq, bytes.NewReader(tunnelReq.Body), int64(len(tunnelReq.Body)))
+	if err != nil {
+		providerAttrs["error"] = err.Error()
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
+	}
+	if resp == nil || resp.Body == nil {
+		return writeAPIError(c, fiber.StatusBadGateway, "Provider returned an empty speech response", "api_error")
+	}
+
+	if resp.StatusCode >= httpErrorFloor {
+		defer resp.Body.Close()
+		errorBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, errorBody)
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+		return writeCompatibleProviderError(c, tunnelReq.Deployment.Provider, resp.StatusCode, errorBody, resp.Headers)
+	}
+
+	responseSummary := buildTraceAudioSpeechResponsePayload(nil, resp.Headers)
+	providerAttrs["response_payload"] = responseSummary
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+
+	finalCost, err := priceMeteredUsage(
+		c.Context(),
+		h.billing,
+		billingModelForDeployment(requestedModel, tunnelReq.Deployment),
+		"speech_input_characters",
+		strconv.Itoa(audioSpeechInputCharacters(tunnelReq.RequestMetadata)),
+		estimated,
+	)
+	if err != nil {
+		_ = resp.Body.Close()
+		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech metered usage", "billing_error")
+	}
+	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
+		_ = resp.Body.Close()
+		return writeBudgetCheckError(c, debitErr)
+	}
+
+	responseTimeMS := int(time.Since(start).Milliseconds())
+	responseMetadata := withAudioSpeechResponseMetadata(tunnelReq.RequestMetadata, nil, resp.Headers)
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, requestedModel, "/v1"+audioSpeechPath, audioSpeechRequestType, "success", resp.StatusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.CostUSD = finalCost.TotalCostUSD
+	logEntry.CostIRR = finalCost.TotalCostIRR
+	logEntry.InputTokens = finalCost.InputTokens
+	logEntry.OutputTokens = finalCost.OutputTokens
+	logEntry.TotalTokens = finalCost.TotalTokens
+	logEntry.RequestBody = buildTraceAudioSpeechRequestPayload(originalBody, originalContentType, tunnelReq.RequestMetadata)
+	logEntry.ResponseBody = responseSummary
+	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
+		RequestID: tunnelReq.RequestID, TokenHash: authInfo.TokenHash,
+		TenantID: authInfo.TenantID, OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID,
+		Model: requestedModel, InputTokens: finalCost.InputTokens, OutputTokens: finalCost.OutputTokens,
+		TotalTokens: finalCost.TotalTokens, CostUSD: finalCost.TotalCostUSD, CostIRR: finalCost.TotalCostIRR,
+		ResponseTimeMS: responseTimeMS, Status: "success",
+		RequestMetadata: enrichPricingMetadata(responseMetadata, authInfo, requestedModel),
+		CompletionStart: start, CompletionEnd: time.Now(),
+	})
+	h.emitModelMetric(metricsobs.BuildInput{
+		TS: time.Now().UTC(), TenantID: authInfo.TenantID, RequestID: tunnelReq.RequestID,
+		ModelName: requestedModel, ProviderName: tunnelReq.Deployment.Provider, ProviderModelName: tunnelReq.Deployment.Model,
+		RequestType: audioSpeechRequestType, UserID: authInfo.UserID, VirtualAccountID: authInfo.KeyID,
+		VirtualAccountName: authInfo.KeyAlias, TeamIDs: nonEmptySlice([]string{authInfo.TeamID}),
+		StatusCode: resp.StatusCode, LatencyMS: responseTimeMS, InputTokens: finalCost.InputTokens,
+		OutputTokens: finalCost.OutputTokens, CostUSD: finalCost.TotalCostUSD,
+		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
+			"endpoint": "/v1" + audioSpeechPath, "key_type": authInfo.KeyType,
+			"team_id": authInfo.TeamID, "org_unit_id": authInfo.OrgUnitID, "tenant_slug": tenantSlug,
+			"response_format": tunnelReq.RequestMetadata["response_format"], "voice_type": tunnelReq.RequestMetadata["voice_type"],
+			"raw_stream": true,
+		}, tunnelReq.Deployment),
+	})
+
+	forwardProviderHeaders(c, resp.Headers)
+	if contentType := responseContentType(resp.Headers); contentType != "" {
+		c.Set(fiber.HeaderContentType, contentType)
+	}
+	setTraceHeaders(c, tunnelReq.TraceID)
+	setCostHeaders(c, finalCost)
+	c.Status(resp.StatusCode)
+	requestCtx := c.Context()
+	requestCtx.SetBodyStreamWriter(func(writer *bufio.Writer) {
+		defer resp.Body.Close()
+		_, _ = io.CopyBuffer(writer, resp.Body, make([]byte, 32*1024))
+		_ = writer.Flush()
+	})
+
+	return nil
 }
 
 func (h *AudioSpeechHandler) handleStream(
@@ -737,6 +878,23 @@ func estimateAudioSpeechCostFallback(model string, metadata map[string]interface
 		InputTokens: inputTokens,
 		TotalTokens: inputTokens,
 	}
+}
+
+func audioSpeechInputCharacters(metadata map[string]interface{}) int {
+	switch value := metadata["input_length"].(type) {
+	case int:
+		return value
+	case int64:
+		return int(value)
+	case float64:
+		return int(value)
+	case json.Number:
+		if parsed, err := value.Int64(); err == nil {
+			return int(parsed)
+		}
+	}
+
+	return 0
 }
 
 func audioSpeechUsageToOpenAI(body []byte) *contractsopenai.Usage {

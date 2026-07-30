@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http/httptest"
@@ -23,7 +24,19 @@ import (
 	"go.uber.org/zap"
 )
 
-func newAudioSpeechTestApp(t *testing.T, modelName string, provider string, deploymentModel string, tunnel *captureTunnel, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
+type rawSpeechTunnel struct {
+	*captureTunnel
+	rawResp *platform.TunnelRawResponse
+	rawBody []byte
+}
+
+func (t *rawSpeechTunnel) ProxyRaw(_ context.Context, req platform.TunnelRequest, body io.Reader, _ int64) (*platform.TunnelRawResponse, error) {
+	t.lastReq = req
+	t.rawBody, _ = io.ReadAll(body)
+	return t.rawResp, nil
+}
+
+func newAudioSpeechTestApp(t *testing.T, modelName string, provider string, deploymentModel string, tunnel platform.TunnelTransport, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
 	mem, err := cache.NewMemoryCache(zap.NewNop())
@@ -70,6 +83,30 @@ func newAudioSpeechTestApp(t *testing.T, modelName string, provider string, depl
 	app.Post("/v1/audio/speech", h.Handle)
 
 	return app, q
+}
+
+func TestAudioSpeechHandlerRawBinaryStreaming(t *testing.T) {
+	tunnel := &rawSpeechTunnel{
+		captureTunnel: &captureTunnel{},
+		rawResp: &platform.TunnelRawResponse{
+			StatusCode: fiber.StatusOK,
+			Headers:    map[string]string{"content-type": "audio/mpeg", "x-request-id": "provider_tts_1"},
+			Body:       io.NopCloser(bytes.NewReader([]byte("streamed-mp3"))),
+		},
+	}
+	app, _ := newAudioSpeechTestApp(t, "tts-1", "openai", "tts-1", tunnel, nil, nil)
+	req := httptest.NewRequest("POST", "/v1/audio/speech", bytes.NewBufferString(`{"model":"tts-1","input":"hello","voice":"alloy"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("streamed-mp3"), body)
+	assert.Equal(t, "audio/mpeg", resp.Header.Get("Content-Type"))
+	assert.Equal(t, "provider_tts_1", resp.Header.Get("X-Request-Id"))
+	assert.Equal(t, tunnel.lastReq.Body, tunnel.rawBody)
 }
 
 func TestAudioSpeechHandlerJSONSuccess(t *testing.T) {
