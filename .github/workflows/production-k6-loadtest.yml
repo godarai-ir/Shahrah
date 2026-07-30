@@ -70,7 +70,7 @@ jobs:
   load-test:
     name: ${{ inputs.scenario }} against production mock
     if: github.ref == 'refs/heads/main' && inputs.confirm_production
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.OPS_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 150
     environment: production-loadtest
     env:

@@ -62,7 +62,7 @@ env:
 jobs:
   detect-changes:
     name: Detect Changed Services And Version Tags
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RELEASE_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     outputs:
       release_tag: ${{ steps.detect.outputs.release_tag }}
       matrix: ${{ steps.detect.outputs.matrix }}
@@ -407,7 +407,7 @@ jobs:
 
   build-and-push:
     name: Build And Push Changed Images
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RELEASE_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     needs: [detect-changes]
     if: ${{ needs.detect-changes.outputs.changed_services != '' }}
     strategy:
@@ -473,7 +473,7 @@ jobs:
 
   tag-release:
     name: Create Per-Service Git Tags
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RELEASE_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     needs: [detect-changes, build-and-push]
     if: ${{ needs.detect-changes.outputs.changed_services != '' }}
     permissions:
@@ -527,7 +527,7 @@ jobs:
 
   update-gitops-production:
     name: Create GitOps Production PR
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RELEASE_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     needs: [detect-changes, build-and-push, tag-release]
     if: ${{ needs.detect-changes.outputs.changed_services != '' }}
     permissions:
@@ -614,7 +614,7 @@ jobs:
 
   no-op:
     name: No Changed Services
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RELEASE_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     needs: [detect-changes]
     if: ${{ needs.detect-changes.outputs.changed_services == '' }}
     steps:

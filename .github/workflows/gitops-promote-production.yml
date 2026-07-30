@@ -40,7 +40,7 @@ env:
 jobs:
   promote:
     name: Create GitOps Production PR
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.OPS_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Validate inputs and token
         run: |

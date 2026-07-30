@@ -15,7 +15,7 @@ env:
 jobs:
   mirror:
     name: Mirror ingress-nginx images
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RELEASE_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Validate registry secrets
         run: |
