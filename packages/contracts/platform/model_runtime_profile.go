@@ -9,24 +9,33 @@ import (
 // ModelRuntimeProfile is the versioned provider behavior contract imported
 // from Model Discovery. Field names intentionally match the catalog JSON.
 type ModelRuntimeProfile struct {
-	Version              int                          `json:"version"`
-	Endpoints            []string                     `json:"endpoints"`
-	Transports           []string                     `json:"transports,omitempty"`
-	Lifecycle            string                       `json:"lifecycle,omitempty"`
-	Thinking             ModelRuntimeThinkingProfile  `json:"thinking"`
-	AssistantPrefill     bool                         `json:"assistantPrefill"`
-	FineTuning           bool                         `json:"fineTuning,omitempty"`
-	PredictedOutputs     bool                         `json:"predictedOutputs,omitempty"`
-	Sampling             ModelRuntimeSamplingProfile  `json:"sampling"`
-	Tools                ModelRuntimeToolsProfile     `json:"tools"`
-	Modalities           ModelRuntimeModalities       `json:"modalities"`
-	RequestControls      ModelRuntimeRequestControls  `json:"requestControls"`
-	BetaHeaders          []string                     `json:"betaHeaders"`
-	BetaCapabilities     []ModelRuntimeBetaCapability `json:"betaCapabilities,omitempty"`
-	ReferenceRateLimits  []ModelRuntimeRateLimitTier  `json:"referenceRateLimits,omitempty"`
-	MinimumRetentionDays int                          `json:"minimumRetentionDays,omitempty"`
-	ZDREligible          bool                         `json:"zdrEligible,omitempty"`
-	Limits               ModelRuntimeLimits           `json:"limits"`
+	Version               int                           `json:"version"`
+	Aliases               []string                      `json:"aliases,omitempty"`
+	Endpoints             []string                      `json:"endpoints"`
+	Transports            []string                      `json:"transports,omitempty"`
+	Lifecycle             string                        `json:"lifecycle,omitempty"`
+	Thinking              ModelRuntimeThinkingProfile   `json:"thinking"`
+	AssistantPrefill      bool                          `json:"assistantPrefill"`
+	FineTuning            bool                          `json:"fineTuning,omitempty"`
+	PredictedOutputs      bool                          `json:"predictedOutputs,omitempty"`
+	Sampling              ModelRuntimeSamplingProfile   `json:"sampling"`
+	Tools                 ModelRuntimeToolsProfile      `json:"tools"`
+	Modalities            ModelRuntimeModalities        `json:"modalities"`
+	RequestControls       ModelRuntimeRequestControls   `json:"requestControls"`
+	RequestHeaders        ModelRuntimeRequestHeaders    `json:"requestHeaders,omitempty"`
+	ContextPricing        ModelRuntimeContextPricing    `json:"contextPricing,omitempty"`
+	Batch                 ModelRuntimeBatchProfile      `json:"batch,omitempty"`
+	DeferredCompletions   ModelRuntimeDeferredProfile   `json:"deferredCompletions,omitempty"`
+	ResponseResources     ModelRuntimeResponseResources `json:"responseResources,omitempty"`
+	ImageControls         ModelRuntimeImageControls     `json:"imageControls,omitempty"`
+	UsageAccounting       ModelRuntimeUsageAccounting   `json:"usageAccounting,omitempty"`
+	UnsupportedParameters []string                      `json:"unsupportedParameters,omitempty"`
+	BetaHeaders           []string                      `json:"betaHeaders"`
+	BetaCapabilities      []ModelRuntimeBetaCapability  `json:"betaCapabilities,omitempty"`
+	ReferenceRateLimits   []ModelRuntimeRateLimitTier   `json:"referenceRateLimits,omitempty"`
+	MinimumRetentionDays  int                           `json:"minimumRetentionDays,omitempty"`
+	ZDREligible           bool                          `json:"zdrEligible,omitempty"`
+	Limits                ModelRuntimeLimits            `json:"limits"`
 }
 
 type ModelRuntimeThinkingProfile struct {
@@ -64,6 +73,54 @@ type ModelRuntimeRequestControls struct {
 	InferenceGeoValues []string          `json:"inferenceGeoValues"`
 	SpeedValues        []string          `json:"speedValues"`
 	EffectiveSpeed     map[string]string `json:"effectiveSpeed,omitempty"`
+}
+
+type ModelRuntimeRequestHeaders struct {
+	Allowed    []string            `json:"allowed,omitempty"`
+	ByEndpoint map[string][]string `json:"byEndpoint,omitempty"`
+}
+
+type ModelRuntimeContextPricing struct {
+	LongContextThresholdTokens int  `json:"longContextThresholdTokens,omitempty"`
+	AppliesToAllTokens         bool `json:"appliesToAllTokens"`
+}
+
+type ModelRuntimeBatchProfile struct {
+	Eligible           bool     `json:"eligible"`
+	Discounted         bool     `json:"discounted"`
+	SupportedEndpoints []string `json:"supportedEndpoints,omitempty"`
+	MaxRequestBytes    int      `json:"maxRequestBytes,omitempty"`
+}
+
+type ModelRuntimeDeferredProfile struct {
+	Eligible          bool `json:"eligible"`
+	RetentionSeconds  int  `json:"retentionSeconds,omitempty"`
+	MaximumRetrievals int  `json:"maximumRetrievals,omitempty"`
+}
+
+type ModelRuntimeResponseResources struct {
+	Store            bool `json:"store"`
+	Retrieve         bool `json:"retrieve"`
+	Delete           bool `json:"delete"`
+	Compact          bool `json:"compact"`
+	CountInputTokens bool `json:"countInputTokens"`
+}
+
+type ModelRuntimeImageControls struct {
+	AspectRatios           []string `json:"aspectRatios,omitempty"`
+	Resolutions            []string `json:"resolutions,omitempty"`
+	ResponseFormats        []string `json:"responseFormats,omitempty"`
+	MaximumOutputs         int      `json:"maximumOutputs,omitempty"`
+	MaximumReferenceImages int      `json:"maximumReferenceImages,omitempty"`
+	EditTransport          string   `json:"editTransport,omitempty"`
+	FilesInput             bool     `json:"filesInput"`
+	StorageOptions         bool     `json:"storageOptions"`
+	Streaming              bool     `json:"streaming"`
+}
+
+type ModelRuntimeUsageAccounting struct {
+	RequiredResponseFields []string `json:"requiredResponseFields,omitempty"`
+	ExactProviderCost      bool     `json:"exactProviderCost"`
 }
 
 type ModelRuntimeBetaCapability struct {
@@ -152,6 +209,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"files",
 				"models",
 				"chat_completions",
+				"deferred_chat_completions",
 				"completions",
 				"responses",
 				"responses_input_tokens",
@@ -162,6 +220,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"image_generations",
 				"image_edits",
 				"image_variations",
+				"image_generation_models",
 				"audio_speech",
 				"audio_transcriptions",
 				"audio_translations",
@@ -175,6 +234,9 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"interactions",
 				"live",
 				"batches",
+				"batch_requests",
+				"batch_results",
+				"file_public_urls",
 				"generate_content",
 				"stream_generate_content",
 				"batch_generate_content",
@@ -289,10 +351,64 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"google_search",
 				"google_maps",
 				"url_context",
+				"x_search",
+				"attachment_search",
+				"collections_search",
 			},
 			tool,
 		) {
 			return fmt.Errorf("unsupported model tool %q", tool)
+		}
+	}
+	seenAliases := map[string]struct{}{}
+	for _, alias := range profile.Aliases {
+		alias = strings.TrimSpace(alias)
+		if alias == "" {
+			return fmt.Errorf("model alias cannot be empty")
+		}
+		if _, exists := seenAliases[alias]; exists {
+			return fmt.Errorf("duplicate model alias %q", alias)
+		}
+		seenAliases[alias] = struct{}{}
+	}
+	for _, header := range profile.RequestHeaders.Allowed {
+		if strings.TrimSpace(header) == "" || strings.ContainsAny(header, "\r\n") {
+			return fmt.Errorf("invalid provider request header %q", header)
+		}
+	}
+	for endpoint, headers := range profile.RequestHeaders.ByEndpoint {
+		if !profile.AllowsEndpoint(endpoint) {
+			return fmt.Errorf("request header policy uses unsupported endpoint %q", endpoint)
+		}
+		for _, header := range headers {
+			if strings.TrimSpace(header) == "" || strings.ContainsAny(header, "\r\n") {
+				return fmt.Errorf("invalid provider request header %q", header)
+			}
+		}
+	}
+	if profile.ContextPricing.LongContextThresholdTokens < 0 {
+		return fmt.Errorf("long-context threshold cannot be negative")
+	}
+	if profile.Batch.Eligible && len(profile.Batch.SupportedEndpoints) == 0 {
+		return fmt.Errorf("eligible batch profile requires supported endpoints")
+	}
+	for _, endpoint := range profile.Batch.SupportedEndpoints {
+		if !profile.AllowsEndpoint(endpoint) {
+			return fmt.Errorf("batch profile uses unsupported endpoint %q", endpoint)
+		}
+	}
+	if profile.Batch.MaxRequestBytes < 0 || profile.DeferredCompletions.RetentionSeconds < 0 || profile.DeferredCompletions.MaximumRetrievals < 0 {
+		return fmt.Errorf("runtime retention and request limits cannot be negative")
+	}
+	if profile.ImageControls.EditTransport != "" && profile.ImageControls.EditTransport != "json" && profile.ImageControls.EditTransport != "multipart" {
+		return fmt.Errorf("unsupported image edit transport %q", profile.ImageControls.EditTransport)
+	}
+	if profile.ImageControls.MaximumOutputs < 0 || profile.ImageControls.MaximumReferenceImages < 0 {
+		return fmt.Errorf("image control limits cannot be negative")
+	}
+	for _, field := range profile.UsageAccounting.RequiredResponseFields {
+		if !containsRuntimeValue([]string{"cost_in_usd_ticks", "num_server_side_tools_used", "service_tier"}, field) {
+			return fmt.Errorf("unsupported required usage field %q", field)
 		}
 	}
 	for tool, version := range profile.Tools.PreferredVersions {
@@ -336,7 +452,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 	}
 	for _, value := range profile.RequestControls.ServiceTierValues {
 		if !containsRuntimeValue(
-			[]string{"auto", "standard_only", "standard", "batch", "flex", "priority", "fast"},
+			[]string{"auto", "standard_only", "default", "standard", "batch", "flex", "priority", "fast"},
 			value,
 		) {
 			return fmt.Errorf("unsupported service tier %q", value)
@@ -454,9 +570,19 @@ func (profile ModelRuntimeProfile) Validate() error {
 
 func (binding ModelRuntimeProfileBinding) MatchesModel(model string) bool {
 	normalized := normalizeRuntimeModelID(model, binding.Provider)
-	return normalized != "" &&
-		(normalized == normalizeRuntimeModelID(binding.CanonicalID, binding.Provider) ||
-			normalized == normalizeRuntimeModelID(binding.Slug, binding.Provider))
+	if normalized == "" {
+		return false
+	}
+	if normalized == normalizeRuntimeModelID(binding.CanonicalID, binding.Provider) ||
+		normalized == normalizeRuntimeModelID(binding.Slug, binding.Provider) {
+		return true
+	}
+	for _, alias := range binding.Profile.Aliases {
+		if normalized == normalizeRuntimeModelID(alias, binding.Provider) {
+			return true
+		}
+	}
+	return false
 }
 
 func (profile ModelRuntimeProfile) AllowsEndpoint(endpoint string) bool {

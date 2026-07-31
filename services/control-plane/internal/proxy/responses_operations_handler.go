@@ -110,30 +110,28 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 	operationInput.ResourceID = publicID
 
 	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
+	providerSelector := ""
+	resourceModel := ""
 	if h.resources != nil {
-		mapping, mappingErr := h.resources.GetProviderNativeResourceMapping(
-			c.Context(),
-			currentTenant.ID,
-			"openai",
-			responsesResourceKind,
-			publicID,
-		)
+		mapping, mappingErr := h.responseResourceMapping(c.Context(), currentTenant.ID, publicID)
 		switch {
 		case mappingErr == nil && mapping != nil:
 			if model, _ := mapping.Metadata["model"].(string); strings.TrimSpace(model) != "" {
+				resourceModel = normalizeModelIdentifier(model)
 				modelAccess := modelAccessForType(authInfo, normalizeModelIdentifier(model), platform.ModelTypeResponses)
 				if !modelAccess.Allowed {
 					return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for responses", "authorization_error")
 				}
 			}
 			accountSelector = mapping.ProviderAccountID
+			providerSelector = mapping.Provider
 			operationInput.ResourceID = mapping.UpstreamID
 		case mappingErr != nil && !errors.Is(mappingErr, storage.ErrProviderNativeResourceNotFound):
 			return writeAPIError(c, fiber.StatusServiceUnavailable, "Response routing state is unavailable", "routing_error")
 		}
 	}
 
-	deployment, err := h.resolveResponseDeployment(c.Context(), currentTenant.ID, accountSelector, "")
+	deployment, err := h.resolveResponseDeployment(c.Context(), currentTenant.ID, providerSelector, accountSelector, "")
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
 	}
@@ -154,7 +152,26 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 			"response_id":            publicID,
 		}, deployment),
 	}
-
+	if strings.EqualFold(deployment.Provider, "xai") {
+		if resourceModel == "" {
+			return writeAPIError(c, fiber.StatusServiceUnavailable, "xAI response model binding is unavailable", "routing_error")
+		}
+		estimated, estimateErr := h.billing.EstimateCost(c.Context(), contractsopenai.ChatCompletionRequest{Model: billingModelForDeployment(resourceModel, deployment)})
+		if estimateErr != nil {
+			return writeBillingEstimateError(c, estimateErr)
+		}
+		runtimeModel := strings.TrimSpace(deployment.Model)
+		if runtimeModel == "" || runtimeModel == "*" {
+			runtimeModel = providerModelID(resourceModel)
+		}
+		tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(deployment.Provider, runtimeModel, estimated)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
+		}
+		if err := validateXAIResponseResourceOperation(operation, tunnelReq.ModelRuntimeProfiles[0].Profile); err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+		}
+	}
 	if err := h.tunnel.Healthy(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
@@ -172,9 +189,9 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 	}
 
 	if operation == platform.ProviderOperationOpenAIResponsesDelete {
-		h.updateResponseMappingStatus(c.Context(), currentTenant.ID, publicID, "deleted")
+		h.updateResponseMappingStatus(c.Context(), currentTenant.ID, deployment.Provider, publicID, "deleted")
 	} else if operation == platform.ProviderOperationOpenAIResponsesCancel {
-		h.updateResponseMappingStatusFromBody(c.Context(), currentTenant.ID, publicID, resp.Body)
+		h.updateResponseMappingStatusFromBody(c.Context(), currentTenant.ID, deployment.Provider, publicID, resp.Body)
 	}
 
 	forwardProviderHeaders(c, resp.Headers)
@@ -250,9 +267,17 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 			return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 		}
 	} else {
+		providerSelector := strings.ToLower(strings.TrimSpace(c.Get("x-godarai-provider")))
+		if providerSelector == "" {
+			providerSelector = "openai"
+		}
+		if providerSelector != "openai" && providerSelector != "xai" {
+			return writeAPIError(c, fiber.StatusBadRequest, "x-godarai-provider must be openai or xai", "invalid_request_error")
+		}
 		deployment, err = h.resolveResponseDeployment(
 			c.Context(),
 			currentTenant.ID,
+			providerSelector,
 			strings.TrimSpace(c.Get("x-godarai-provider-account")),
 			"",
 		)
@@ -275,6 +300,39 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 			"model":                  requestedModel,
 			"provider_endpoint_path": endpoint,
 		}, deployment),
+	}
+	if strings.EqualFold(strings.TrimSpace(deployment.Provider), "xai") {
+		var responseRequest contractsopenai.ResponseRequest
+		if err := json.Unmarshal(body, &responseRequest); err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
+		}
+		estimateRequest := responseRequestToChatCompletion(
+			responseRequest,
+			billingModelForDeployment(requestedModel, deployment),
+		)
+		estimated, estimateErr := h.billing.EstimateCost(c.Context(), estimateRequest)
+		if estimateErr != nil {
+			return writeBillingEstimateError(c, estimateErr)
+		}
+		runtimeModel := strings.TrimSpace(deployment.Model)
+		if runtimeModel == "" || runtimeModel == "*" {
+			runtimeModel = providerModelID(requestedModel)
+		}
+		tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+			deployment.Provider,
+			runtimeModel,
+			estimated,
+		)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
+		}
+		profile := tunnelReq.ModelRuntimeProfiles[0].Profile
+		if operation == platform.ProviderOperationOpenAIResponsesCompact && !profile.ResponseResources.Compact {
+			return writeAPIError(c, fiber.StatusBadRequest, "model does not support Responses compaction", "invalid_request_error")
+		}
+		if operation == platform.ProviderOperationOpenAIResponsesInputTokens && !profile.ResponseResources.CountInputTokens {
+			return writeAPIError(c, fiber.StatusBadRequest, "model does not support Responses input token counting", "invalid_request_error")
+		}
 	}
 
 	if err := h.tunnel.Healthy(c.Context()); err != nil {
@@ -314,6 +372,7 @@ func responsesRequestContext(c *fiber.Ctx) (*platform.AuthContext, *platform.Ten
 func (h *ResponsesHandler) resolveResponseDeployment(
 	ctx context.Context,
 	tenantID string,
+	providerSelector string,
 	accountSelector string,
 	requestedModel string,
 ) (platform.Deployment, error) {
@@ -326,10 +385,15 @@ func (h *ResponsesHandler) resolveResponseDeployment(
 	}
 
 	accountSelector = strings.TrimSpace(accountSelector)
+	providerSelector = strings.ToLower(strings.TrimSpace(providerSelector))
 	requestedModel = normalizeModelIdentifier(requestedModel)
 	candidates := make([]platform.Deployment, 0, len(deployments))
 	for _, deployment := range deployments {
-		if !strings.EqualFold(strings.TrimSpace(deployment.Provider), "openai") {
+		provider := strings.ToLower(strings.TrimSpace(deployment.Provider))
+		if !supportsResponsesProvider(provider) || provider == "mock" {
+			continue
+		}
+		if providerSelector != "" && provider != providerSelector {
 			continue
 		}
 		if accountSelector != "" &&
@@ -347,9 +411,9 @@ func (h *ResponsesHandler) resolveResponseDeployment(
 	}
 	if len(candidates) == 0 {
 		if accountSelector != "" {
-			return platform.Deployment{}, fmt.Errorf("OpenAI provider account %q was not found", accountSelector)
+			return platform.Deployment{}, fmt.Errorf("Responses provider account %q was not found", accountSelector)
 		}
-		return platform.Deployment{}, fmt.Errorf("No OpenAI provider account is available")
+		return platform.Deployment{}, fmt.Errorf("No Responses provider account is available")
 	}
 
 	if accountSelector == "" {
@@ -372,6 +436,55 @@ func (h *ResponsesHandler) resolveResponseDeployment(
 	return candidates[0], nil
 }
 
+func (h *ResponsesHandler) responseResourceMapping(
+	ctx context.Context,
+	tenantID string,
+	publicID string,
+) (*platform.ProviderNativeResourceMapping, error) {
+	if h.resources == nil {
+		return nil, storage.ErrProviderNativeResourceNotFound
+	}
+	var found *platform.ProviderNativeResourceMapping
+	for _, provider := range []string{"openai", "xai"} {
+		mapping, err := h.resources.GetProviderNativeResourceMapping(
+			ctx,
+			tenantID,
+			provider,
+			responsesResourceKind,
+			publicID,
+		)
+		if errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if mapping == nil {
+			continue
+		}
+		if found != nil {
+			return nil, fmt.Errorf("ambiguous provider response resource")
+		}
+		found = mapping
+	}
+	if found == nil {
+		return nil, storage.ErrProviderNativeResourceNotFound
+	}
+	return found, nil
+}
+
+func responseProviderFromModel(model string) string {
+	value := strings.ToLower(strings.TrimSpace(model))
+	switch {
+	case strings.HasPrefix(value, "xai/"), strings.HasPrefix(value, "xai:"), strings.HasPrefix(providerModelID(value), "grok-"):
+		return "xai"
+	case strings.HasPrefix(value, "openai/"), strings.HasPrefix(value, "openai:"):
+		return "openai"
+	default:
+		return ""
+	}
+}
+
 // resolveResponseCreateDeployment pins continuations to the account that owns
 // the previous response. It also supplies a model for authorization, limits,
 // and billing when OpenAI permits the client to omit model.
@@ -387,18 +500,14 @@ func (h *ResponsesHandler) resolveResponseCreateDeployment(
 	accountSelector = strings.TrimSpace(accountSelector)
 	upstreamPreviousResponseID := previousResponseID
 	mappedModel := ""
+	providerSelector := responseProviderFromModel(requestedModel)
 
 	if previousResponseID != "" && h.resources != nil {
-		mapping, err := h.resources.GetProviderNativeResourceMapping(
-			ctx,
-			tenantID,
-			"openai",
-			responsesResourceKind,
-			previousResponseID,
-		)
+		mapping, err := h.responseResourceMapping(ctx, tenantID, previousResponseID)
 		switch {
 		case err == nil && mapping != nil:
 			accountSelector = strings.TrimSpace(mapping.ProviderAccountID)
+			providerSelector = strings.ToLower(strings.TrimSpace(mapping.Provider))
 			upstreamPreviousResponseID = strings.TrimSpace(mapping.UpstreamID)
 			if upstreamPreviousResponseID == "" {
 				upstreamPreviousResponseID = previousResponseID
@@ -415,11 +524,11 @@ func (h *ResponsesHandler) resolveResponseCreateDeployment(
 		return nil, requestedModel, upstreamPreviousResponseID, nil
 	}
 
-	deployment, err := h.resolveResponseDeployment(ctx, tenantID, accountSelector, requestedModel)
+	deployment, err := h.resolveResponseDeployment(ctx, tenantID, providerSelector, accountSelector, requestedModel)
 	if err != nil && accountSelector != "" && requestedModel != "" {
 		// Account affinity is mandatory, while a wildcard provider deployment
 		// may not advertise a concrete model in its deployment row.
-		deployment, err = h.resolveResponseDeployment(ctx, tenantID, accountSelector, "")
+		deployment, err = h.resolveResponseDeployment(ctx, tenantID, providerSelector, accountSelector, "")
 	}
 	if err != nil {
 		return nil, "", "", err
@@ -566,7 +675,8 @@ func (h *ResponsesHandler) recordResponseMapping(
 ) {
 	if h.resources == nil ||
 		strings.TrimSpace(responseID) == "" ||
-		strings.TrimSpace(deployment.ProviderAccountID) == "" {
+		strings.TrimSpace(deployment.ProviderAccountID) == "" ||
+		!supportsResponsesProvider(deployment.Provider) {
 		return
 	}
 	if strings.TrimSpace(status) == "" {
@@ -575,7 +685,7 @@ func (h *ResponsesHandler) recordResponseMapping(
 	_, err := h.resources.UpsertProviderNativeResourceMapping(ctx, platform.ProviderNativeResourceMapping{
 		PublicID:          responseID,
 		TenantID:          tenantID,
-		Provider:          "openai",
+		Provider:          strings.ToLower(strings.TrimSpace(deployment.Provider)),
 		ProviderAccountID: deployment.ProviderAccountID,
 		ResourceKind:      responsesResourceKind,
 		UpstreamID:        responseID,
@@ -593,6 +703,7 @@ func (h *ResponsesHandler) recordResponseMapping(
 func (h *ResponsesHandler) updateResponseMappingStatus(
 	ctx context.Context,
 	tenantID string,
+	provider string,
 	responseID string,
 	status string,
 ) {
@@ -602,7 +713,7 @@ func (h *ResponsesHandler) updateResponseMappingStatus(
 	if err := h.resources.UpdateProviderNativeResourceStatus(
 		ctx,
 		tenantID,
-		"openai",
+		strings.ToLower(strings.TrimSpace(provider)),
 		responsesResourceKind,
 		responseID,
 		status,
@@ -614,6 +725,7 @@ func (h *ResponsesHandler) updateResponseMappingStatus(
 func (h *ResponsesHandler) updateResponseMappingStatusFromBody(
 	ctx context.Context,
 	tenantID string,
+	provider string,
 	responseID string,
 	body []byte,
 ) {
@@ -621,7 +733,7 @@ func (h *ResponsesHandler) updateResponseMappingStatusFromBody(
 		Status string `json:"status"`
 	}
 	if json.Unmarshal(body, &result) == nil && strings.TrimSpace(result.Status) != "" {
-		h.updateResponseMappingStatus(ctx, tenantID, responseID, result.Status)
+		h.updateResponseMappingStatus(ctx, tenantID, provider, responseID, result.Status)
 	}
 }
 
@@ -680,7 +792,7 @@ func (h *ResponsesHandler) newResponseStreamObserver(
 					recorded = true
 				} else if canRecordMapping && strings.TrimSpace(event.Response.Status) != "" {
 					statusCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					h.updateResponseMappingStatus(statusCtx, tenantID, event.Response.ID, event.Response.Status)
+					h.updateResponseMappingStatus(statusCtx, tenantID, deployment.Provider, event.Response.ID, event.Response.Status)
 					cancel()
 				}
 				for _, observe := range onResponse {

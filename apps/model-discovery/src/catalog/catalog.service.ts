@@ -81,6 +81,7 @@ export class CatalogService {
       return {
         canonicalId: row.canonicalId,
         slug: row.slug,
+        aliases: runtimeProfile.aliases,
         status: effectiveStatus,
         deprecationDate: row.deprecationDate,
         retirementDate: row.retirementDate,
@@ -105,7 +106,7 @@ export class CatalogService {
         sources: row.sources.map((source) => source.url),
       };
     });
-    if (providerSlug === 'anthropic') {
+    if (providerSlug === 'anthropic' || providerSlug === 'xai') {
       for (const model of models) {
         const coreDimensions = new Set(
           model.pricingRates
@@ -114,7 +115,12 @@ export class CatalogService {
             )
             .map((rate) => rate.dimension),
         );
-        const missingDimensions = ['input_tokens', 'output_tokens'].filter(
+        const requiredDimensions =
+          providerSlug === 'xai' &&
+          model.runtimeProfile.profile.modalities.output.includes('image')
+            ? ['input_images', 'output_images']
+            : ['input_tokens', 'output_tokens'];
+        const missingDimensions = requiredDimensions.filter(
           (dimension) => !coreDimensions.has(dimension),
         );
         if (missingDimensions.length > 0) {
@@ -145,7 +151,7 @@ export class CatalogService {
     // currently stores only the legacy token projection, so this provider must
     // use the authoritative database read path.
     const indexed =
-      query.provider === 'openai'
+      query.provider === 'openai' || query.provider === 'xai'
         ? null
         : await this.indexing.searchModels(query);
     if (indexed) {
@@ -246,6 +252,14 @@ export class CatalogService {
               { effectiveFrom: 'desc' },
             ],
           },
+          runtimeProfiles: {
+            where: {
+              effectiveFrom: { lte: new Date() },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: new Date() } }],
+            },
+            orderBy: { version: 'desc' },
+            take: 1,
+          },
           inputModalities: { include: { modality: true } },
           outputModalities: { include: { modality: true } },
           supportedParams: { include: { supportedParameter: true } },
@@ -259,60 +273,75 @@ export class CatalogService {
       }),
     ]);
 
-    const data = rows.map((row) => ({
-      id: row.id,
-      canonicalId: row.canonicalId,
-      slug: row.slug,
-      name: row.displayName,
-      provider: {
-        slug: row.provider.slug,
-        name: row.provider.name,
-        logoUrl: row.provider.logoUrl,
-      },
-      modelSeries: row.modelSeries
-        ? {
-            slug: row.modelSeries.slug,
-            name: row.modelSeries.name,
-            logoUrl: row.modelSeries.logoUrl,
-          }
-        : null,
-      description: row.shortDescription,
-      status: row.status,
-      mode: row.mode,
-      contextWindow: row.contextWindow,
-      maxOutputTokens: row.maxOutputTokens,
-      inputModalities: row.inputModalities.map((m) => m.modality.slug),
-      outputModalities: row.outputModalities.map((m) => m.modality.slug),
-      supportedParameters: row.supportedParams.map(
-        (m) => m.supportedParameter.slug,
-      ),
-      capabilities: row.capabilities.map((m) => m.capability.slug),
-      pricing: row.pricing[0]
-        ? {
-            currency: row.pricing[0].currency,
-            inputPerMillionTokens: row.pricing[0].inputPricePerMillionTokens,
-            outputPerMillionTokens: row.pricing[0].outputPricePerMillionTokens,
-            cachedInputPerMillionTokens:
-              row.pricing[0].cachedInputPricePerMillionTokens,
-          }
-        : null,
-      pricingRates: (row.pricingRates ?? []).map((rate) => ({
-        dimension: rate.dimension,
-        unit: rate.unit,
-        unitPriceUsd: rate.unitPriceUsd.toString(),
-        currency: rate.currency,
-        condition: rate.conditionJson,
-        region: rate.region,
-        effectiveFrom: rate.effectiveFrom,
-        effectiveTo: rate.effectiveTo,
-        sourceUrl: rate.sourceUrl,
-      })),
-      regions: row.regions.map((r) => r.region.slug),
-      openSource: row.openSource,
-      free: row.free,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    }));
+    const data = rows.map((row) => {
+      const runtimeProfile = row.runtimeProfiles?.[0]
+        ? modelRuntimeProfileSchema.parse(row.runtimeProfiles[0].profileJson)
+        : null;
+      return {
+        id: row.id,
+        canonicalId: row.canonicalId,
+        slug: row.slug,
+        aliases: runtimeProfile?.aliases ?? [],
+        name: row.displayName,
+        provider: {
+          slug: row.provider.slug,
+          name: row.provider.name,
+          logoUrl: row.provider.logoUrl,
+        },
+        modelSeries: row.modelSeries
+          ? {
+              slug: row.modelSeries.slug,
+              name: row.modelSeries.name,
+              logoUrl: row.modelSeries.logoUrl,
+            }
+          : null,
+        description: row.shortDescription,
+        status: row.status,
+        mode: row.mode,
+        contextWindow: row.contextWindow,
+        maxOutputTokens: row.maxOutputTokens,
+        inputModalities: row.inputModalities.map((m) => m.modality.slug),
+        outputModalities: row.outputModalities.map((m) => m.modality.slug),
+        supportedParameters: row.supportedParams.map(
+          (m) => m.supportedParameter.slug,
+        ),
+        capabilities: row.capabilities.map((m) => m.capability.slug),
+        pricing: row.pricing[0]
+          ? {
+              currency: row.pricing[0].currency,
+              inputPerMillionTokens: row.pricing[0].inputPricePerMillionTokens,
+              outputPerMillionTokens:
+                row.pricing[0].outputPricePerMillionTokens,
+              cachedInputPerMillionTokens:
+                row.pricing[0].cachedInputPricePerMillionTokens,
+            }
+          : null,
+        pricingRates: (row.pricingRates ?? []).map((rate) => ({
+          dimension: rate.dimension,
+          unit: rate.unit,
+          unitPriceUsd: rate.unitPriceUsd.toString(),
+          currency: rate.currency,
+          condition: rate.conditionJson,
+          region: rate.region,
+          effectiveFrom: rate.effectiveFrom,
+          effectiveTo: rate.effectiveTo,
+          sourceUrl: rate.sourceUrl,
+        })),
+        regions: row.regions.map((r) => r.region.slug),
+        openSource: row.openSource,
+        free: row.free,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        runtimeProfile: runtimeProfile
+          ? {
+              version: row.runtimeProfiles[0].version,
+              profile: runtimeProfile,
+              sourceUrl: row.runtimeProfiles[0].sourceUrl,
+              effectiveFrom: row.runtimeProfiles[0].effectiveFrom,
+            }
+          : null,
+      };
+    });
 
     return {
       data,

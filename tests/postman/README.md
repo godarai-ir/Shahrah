@@ -56,7 +56,7 @@ assertionها عمدا diagnostic هستند: اگر headerهای `x-godarai-cac
 
 ## Providerهای بدون credential
 
-برای providerهای غیر OpenAI کالکشن placeholder ساخته شده است. تا وقتی `provider_enabled=true`، `provider_account_name` و FQNهای مدل پر نشوند، requestها با pre-request script skip می‌شوند و secretی hard-code نشده است.
+برای providerهای غیر OpenAI کالکشن placeholder ساخته شده است. کالکشن xAI از این قاعده مستثنا است و برای چهار مدل هدف، تست‌های credential-gated واقعی دارد؛ مقدار `provider_account_id` آن باید پیش از اجرا تنظیم شود. در سایر کالکشن‌ها تا وقتی `provider_enabled=true`، `provider_account_name` و FQNهای مدل پر نشوند، requestها با pre-request script skip می‌شوند و secretی hard-code نشده است.
 
 ## Provider Snapshot
 
@@ -82,7 +82,7 @@ assertionها عمدا diagnostic هستند: اگر headerهای `x-godarai-cac
 | perplexity-ai | Perplexity Ai | active | true | 5 |
 | sambanova | Sambanova | active | true | 13 |
 | together-ai | Together Ai | active | true | 238 |
-| xai | Xai | active | true | 72 |
+| xai | xAI | active | true | 4 |
 
 ## بازتولید
 

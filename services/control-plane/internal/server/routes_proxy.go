@@ -21,6 +21,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	}
 	if deps.ProxyHandler != nil {
 		v1.Post("/chat/completions", deps.ProxyHandler.Handle)
+		v1.Get("/chat/deferred-completion/:request_id", deps.ProxyHandler.HandleXAIDeferredGet)
 	}
 
 	if deps.CompletionsHandler != nil {
@@ -39,6 +40,9 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Get("/batches", deps.ResponsesHandler.HandleBatchList)
 		v1.Get("/batches/:batch_id", deps.ResponsesHandler.HandleBatchGet)
 		v1.Post("/batches/:batch_id/cancel", deps.ResponsesHandler.HandleBatchCancel)
+		v1.Get("/batches/:batch_id/requests", deps.ResponsesHandler.HandleXAIBatchRequestsList)
+		v1.Post("/batches/:batch_id/requests", deps.ResponsesHandler.HandleXAIBatchRequestsAdd)
+		v1.Get("/batches/:batch_id/results", deps.ResponsesHandler.HandleXAIBatchResults)
 	}
 
 	if deps.EmbeddingsHandler != nil {
@@ -118,7 +122,14 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/files", fileHandler(create))
 		v1.Get("/files", fileHandler(list))
 		v1.Get("/files/:file_id", fileHandler(get))
+		if deps.ResponsesHandler != nil {
+			v1.Put("/files/:file_id", deps.ResponsesHandler.HandleFileUpdate)
+		}
 		v1.Delete("/files/:file_id", fileHandler(deleteFile))
 		v1.Get("/files/:file_id/content", fileHandler(content))
+		if deps.ResponsesHandler != nil {
+			v1.Post("/files/:file_id/public-url", deps.ResponsesHandler.HandleFilePublicURLCreate)
+			v1.Post("/files/:file_id/public-url/revoke", deps.ResponsesHandler.HandleFilePublicURLRevoke)
+		}
 	}
 }

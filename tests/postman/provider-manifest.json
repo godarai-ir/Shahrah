@@ -309,13 +309,13 @@
     },
     {
       "slug": "xai",
-      "name": "Xai",
+      "name": "xAI",
       "status": "active",
       "enabled": true,
-      "modelCount": 72,
+      "modelCount": 4,
       "docsUrl": "https://docs.x.ai",
       "collection": "collections/GodarAI - xai.postman_collection.json",
-      "executionStatus": "placeholder-no-credentials"
+      "executionStatus": "credential-gated-conformance"
     }
   ]
 }

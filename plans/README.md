@@ -113,6 +113,10 @@ graph TB
 
 - **2026-04-28**: Wallet top-up intent/callback/verify flow delivered in `services/control-plane` with provider adapters for `mock`, `zarinpal`, and `idpay`, plus idempotent wallet crediting and transaction auditing.
 
+## Active Provider Readiness Plans
+
+- [xAI four-model full-support execution plan](xai-four-model-production-readiness.md): production-readiness work for `grok-4.3`, `grok-4.5`, `grok-imagine-image`, and `grok-imagine-image-quality`.
+
 ## LiteLLM Inspiration
 
 GodarAI draws heavily from LiteLLM's proven architecture:

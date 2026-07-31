@@ -779,6 +779,13 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 	)
 	if err == nil {
 		breakdown.ModelRuntimeProfile = estimated.ModelRuntimeProfile
+		breakdown.Metadata = cloneUsageMetadata(estimated.Metadata)
+		if strings.EqualFold(price.Provider, "xai") {
+			breakdown, err = reconcileXAIProviderCost(breakdown, usage.CostInUSDTicks, rate.USDtoIRR)
+			if err == nil {
+				breakdown.Metadata["num_server_side_tools_used"] = usage.NumServerSideToolsUsed
+			}
+		}
 	}
 	return breakdown, err
 }
@@ -795,7 +802,7 @@ func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usag
 		return platform.UsageCostBreakdown{}, err
 	}
 	var breakdown platform.UsageCostBreakdown
-	if strings.EqualFold(price.Provider, "openai") {
+	if strings.EqualFold(price.Provider, "openai") || strings.EqualFold(price.Provider, "xai") {
 		if strings.Contains(strings.ToLower(model), "gpt-image") {
 			breakdown, err = openAIImageCostBreakdown(
 				model,
@@ -808,6 +815,17 @@ func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usag
 				estimated.Metadata,
 				"batch",
 			)
+		} else if strings.EqualFold(price.Provider, "xai") && strings.Contains(strings.ToLower(model), "grok-imagine-image") {
+			breakdown, err = xAIImageCostBreakdown(
+				model,
+				usage.PromptTokens,
+				usage.CompletionTokens,
+				usage.TotalTokens,
+				price,
+				rate.USDtoIRR,
+				estimated.Metadata,
+			)
+			breakdown.Batch = true
 		} else {
 			batchUsage := *usage
 			batchUsage.ServiceTier = "batch"
@@ -831,6 +849,10 @@ func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usag
 	}
 	if err == nil {
 		breakdown.ModelRuntimeProfile = estimated.ModelRuntimeProfile
+		breakdown.Metadata = cloneUsageMetadata(estimated.Metadata)
+		if strings.EqualFold(price.Provider, "xai") {
+			breakdown, err = reconcileXAIProviderCost(breakdown, usage.CostInUSDTicks, rate.USDtoIRR)
+		}
 	}
 	return breakdown, err
 }
@@ -861,11 +883,26 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 		return platform.UsageCostBreakdown{}, err
 	}
 
+	if strings.EqualFold(price.Provider, "xai") {
+		var ticks int64
+		if providerCostUSDTicks != nil {
+			ticks = *providerCostUSDTicks
+		} else if usage != nil {
+			ticks = usage.CostInUSDTicks
+		}
+		return reconcileXAIProviderCost(breakdown, ticks, rate.USDtoIRR)
+	}
+
 	if providerCostUSDTicks != nil && *providerCostUSDTicks >= 0 {
 		totalUSD := float64(*providerCostUSDTicks) / usdTicksPerDollar
 		breakdown = applyProviderImageCost(breakdown, totalUSD)
 		breakdown.ExchangeRate = rate.USDtoIRR
 		breakdown.TotalCostIRR = totalUSD * rate.USDtoIRR
+		if breakdown.Metadata == nil {
+			breakdown.Metadata = cloneUsageMetadata(estimated.Metadata)
+		}
+		breakdown.Metadata["provider_cost_in_usd_ticks"] = *providerCostUSDTicks
+		breakdown.Metadata["provider_cost_exact"] = true
 	}
 
 	return breakdown, nil
@@ -1113,13 +1150,23 @@ func openAIUsageCostBreakdown(
 		cacheDimension = "speed_cache_read_tokens"
 		cacheWriteDimension = "speed_cache_write_tokens"
 	}
-	if usage.PromptTokens > 272000 {
+	longContextThreshold := 272000
+	if strings.EqualFold(price.Provider, "xai") {
+		longContextThreshold = 200000
+	}
+	if usage.PromptTokens >= longContextThreshold {
 		switch tier {
 		case "priority":
-			return platform.UsageCostBreakdown{}, fmt.Errorf(
-				"%w: OpenAI Fast/Priority processing does not support long-context requests",
-				ErrPricingUnavailable,
-			)
+			if strings.EqualFold(price.Provider, "xai") {
+				inputDimension, outputDimension = "speed_long_context_input_tokens", "speed_long_context_output_tokens"
+				cacheDimension = "speed_long_context_cache_read_tokens"
+				cacheWriteDimension = "speed_long_context_cache_write_tokens"
+			} else {
+				return platform.UsageCostBreakdown{}, fmt.Errorf(
+					"%w: OpenAI Fast/Priority processing does not support long-context requests",
+					ErrPricingUnavailable,
+				)
+			}
 		case "batch":
 			inputDimension, outputDimension = "batch_long_context_input_tokens", "batch_long_context_output_tokens"
 			cacheDimension = "batch_long_context_cache_read_tokens"
@@ -1703,12 +1750,126 @@ func imageCostBreakdown(
 			"standard",
 		)
 	}
+	if price.Provider == "xai" {
+		return xAIImageCostBreakdown(model, inputTokens, outputTokens, totalTokens, price, exchangeRate, metadata)
+	}
 	out := costBreakdown(model, inputTokens, outputTokens, price, exchangeRate)
 	if totalTokens > 0 {
 		out.TotalTokens = totalTokens
 	}
 
 	return out, nil
+}
+
+func xAIImageCostBreakdown(
+	model string,
+	inputTokens int,
+	outputTokens int,
+	totalTokens int,
+	price priceInfo,
+	exchangeRate float64,
+	metadata map[string]interface{},
+) (platform.UsageCostBreakdown, error) {
+	inputImages := intFromBillingMetadata(metadata["image_count"])
+	outputImages := intFromBillingMetadata(metadata["n"])
+	if outputImages <= 0 {
+		outputImages = 1
+	}
+	resolution := strings.ToLower(strings.TrimSpace(stringFromBillingMetadata(metadata["resolution"])))
+	if resolution == "" {
+		resolution = "1k"
+	}
+
+	components := make([]platform.UsageCostComponent, 0, 2)
+	inputExact := decimal.Zero
+	if inputImages > 0 {
+		rate, ok := selectXAIImageRate(price, "input_images", "")
+		if !ok {
+			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing input image rate", ErrPricingUnavailable)
+		}
+		inputExact = rate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(inputImages)))
+		components = append(components, usageCostComponent("input_images", int64(inputImages), rate))
+	}
+	outputRate, ok := selectXAIImageRate(price, "output_images", resolution)
+	if !ok {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing %s output image rate", ErrPricingUnavailable, resolution)
+	}
+	outputExact := outputRate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(outputImages)))
+	components = append(components, usageCostComponent("output_images", int64(outputImages), outputRate))
+	inputUSD, _ := inputExact.Float64()
+	outputUSD, _ := outputExact.Float64()
+	totalUSD := inputUSD + outputUSD
+	return platform.UsageCostBreakdown{
+		Model: model, Metadata: cloneUsageMetadata(metadata),
+		InputTokens: inputTokens, OutputTokens: outputTokens, TotalTokens: totalTokens,
+		InputCostUSD: inputUSD, OutputCostUSD: outputUSD, TotalCostUSD: totalUSD,
+		ExchangeRate: exchangeRate, TotalCostIRR: totalUSD * exchangeRate,
+		PricingRevision: price.Revision, ModelRuntimeProfile: price.RuntimeProfile,
+		Components: components, PricingSnapshot: usagePricingSnapshot(price),
+		Quantities: map[string]string{"input_images": strconv.Itoa(inputImages), "output_images": strconv.Itoa(outputImages)},
+	}, nil
+}
+
+func selectXAIImageRate(price priceInfo, dimension, resolution string) (normalizedPricingRate, bool) {
+	for _, rate := range price.RateList {
+		if rate.Dimension != dimension {
+			continue
+		}
+		conditionResolution := strings.ToLower(strings.TrimSpace(fmt.Sprint(rate.Condition["resolution"])))
+		if resolution == "" && conditionResolution == "" {
+			return rate, true
+		}
+		if resolution != "" && conditionResolution == resolution {
+			return rate, true
+		}
+	}
+	rate, ok := price.Rates[dimension]
+	return rate, ok && (resolution == "" || len(rate.Condition) == 0)
+}
+
+func reconcileXAIProviderCost(breakdown platform.UsageCostBreakdown, ticks int64, exchangeRate float64) (platform.UsageCostBreakdown, error) {
+	if ticks <= 0 {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: xAI response omitted cost_in_usd_ticks", ErrPricingUnavailable)
+	}
+	catalogTotalUSD := breakdown.TotalCostUSD
+	exactUSD := decimal.NewFromInt(ticks).Div(decimal.NewFromInt(int64(usdTicksPerDollar)))
+	totalUSD, _ := exactUSD.Float64()
+	delta := exactUSD.Sub(decimal.NewFromFloat(catalogTotalUSD))
+	breakdown = applyProviderImageCost(breakdown, totalUSD)
+	if !delta.IsZero() {
+		breakdown.Components = append(breakdown.Components, platform.UsageCostComponent{
+			Dimension:    "provider_cost_reconciliation",
+			Quantity:     "1",
+			Unit:         "request",
+			UnitPriceUSD: delta.String(),
+			CostUSD:      delta.String(),
+			Condition:    map[string]interface{}{"source": "cost_in_usd_ticks"},
+		})
+	}
+	breakdown.ExchangeRate = exchangeRate
+	breakdown.TotalCostIRR = totalUSD * exchangeRate
+	if breakdown.Metadata == nil {
+		breakdown.Metadata = map[string]interface{}{}
+	}
+	breakdown.Metadata["provider_cost_in_usd_ticks"] = ticks
+	breakdown.Metadata["provider_cost_usd"] = exactUSD.String()
+	breakdown.Metadata["catalog_estimated_cost_usd"] = decimal.NewFromFloat(catalogTotalUSD).String()
+	breakdown.Metadata["provider_cost_reconciliation_delta_usd"] = delta.String()
+	breakdown.Metadata["provider_cost_exact"] = true
+	return breakdown, nil
+}
+
+func cloneUsageMetadata(input map[string]interface{}) map[string]interface{} {
+	output := make(map[string]interface{}, len(input)+2)
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
+}
+
+func stringFromBillingMetadata(value interface{}) string {
+	text, _ := value.(string)
+	return text
 }
 
 func openAIImageCostBreakdown(
@@ -2083,6 +2244,9 @@ func catalogPricingProvider(model string) string {
 	case strings.HasPrefix(value, "openai/"),
 		strings.HasPrefix(value, "openai:"):
 		return "openai"
+	case strings.HasPrefix(value, "xai/"),
+		strings.HasPrefix(value, "xai:"):
+		return "xai"
 	default:
 		return ""
 	}

@@ -23,6 +23,9 @@ const supportedToolSchema = z.enum([
   'google_search',
   'google_maps',
   'url_context',
+  'x_search',
+  'attachment_search',
+  'collections_search',
 ]);
 const endpointSchema = z.enum([
   'messages',
@@ -31,6 +34,7 @@ const endpointSchema = z.enum([
   'files',
   'models',
   'chat_completions',
+  'deferred_chat_completions',
   'completions',
   'responses',
   'responses_input_tokens',
@@ -41,6 +45,7 @@ const endpointSchema = z.enum([
   'image_generations',
   'image_edits',
   'image_variations',
+  'image_generation_models',
   'audio_speech',
   'audio_transcriptions',
   'audio_translations',
@@ -54,6 +59,9 @@ const endpointSchema = z.enum([
   'interactions',
   'live',
   'batches',
+  'batch_requests',
+  'batch_results',
+  'file_public_urls',
   'generate_content',
   'stream_generate_content',
   'batch_generate_content',
@@ -67,6 +75,7 @@ const endpointSchema = z.enum([
 export const modelRuntimeProfileSchema = z
   .object({
     version: z.number().int().positive(),
+    aliases: z.array(z.string().min(1)).default([]),
     endpoints: z.array(endpointSchema).min(1),
     transports: z.array(z.enum(['http', 'sse', 'websocket'])).default(['http']),
     lifecycle: z
@@ -136,6 +145,7 @@ export const modelRuntimeProfileSchema = z
             z.enum([
               'auto',
               'standard_only',
+              'default',
               'standard',
               'batch',
               'flex',
@@ -158,6 +168,89 @@ export const modelRuntimeProfileSchema = z
         speedValues: [],
         effectiveSpeed: {},
       }),
+    requestHeaders: z
+      .object({
+        allowed: z.array(z.string().min(1)).default([]),
+        byEndpoint: z
+          .partialRecord(endpointSchema, z.array(z.string().min(1)))
+          .default({}),
+      })
+      .default({ allowed: [], byEndpoint: {} }),
+    contextPricing: z
+      .object({
+        longContextThresholdTokens: z.number().int().positive().optional(),
+        appliesToAllTokens: z.boolean().default(true),
+      })
+      .default({ appliesToAllTokens: true }),
+    batch: z
+      .object({
+        eligible: z.boolean().default(false),
+        discounted: z.boolean().default(false),
+        supportedEndpoints: z.array(endpointSchema).default([]),
+        maxRequestBytes: z.number().int().positive().optional(),
+      })
+      .default({
+        eligible: false,
+        discounted: false,
+        supportedEndpoints: [],
+      }),
+    deferredCompletions: z
+      .object({
+        eligible: z.boolean().default(false),
+        retentionSeconds: z.number().int().positive().optional(),
+        maximumRetrievals: z.number().int().positive().optional(),
+      })
+      .default({ eligible: false }),
+    responseResources: z
+      .object({
+        store: z.boolean().default(false),
+        retrieve: z.boolean().default(false),
+        delete: z.boolean().default(false),
+        compact: z.boolean().default(false),
+        countInputTokens: z.boolean().default(false),
+      })
+      .default({
+        store: false,
+        retrieve: false,
+        delete: false,
+        compact: false,
+        countInputTokens: false,
+      }),
+    imageControls: z
+      .object({
+        aspectRatios: z.array(z.string().min(1)).default([]),
+        resolutions: z.array(z.string().min(1)).default([]),
+        responseFormats: z.array(z.string().min(1)).default([]),
+        maximumOutputs: z.number().int().positive().optional(),
+        maximumReferenceImages: z.number().int().positive().optional(),
+        editTransport: z.enum(['json', 'multipart']).optional(),
+        filesInput: z.boolean().default(false),
+        storageOptions: z.boolean().default(false),
+        streaming: z.boolean().default(false),
+      })
+      .default({
+        aspectRatios: [],
+        resolutions: [],
+        responseFormats: [],
+        filesInput: false,
+        storageOptions: false,
+        streaming: false,
+      }),
+    usageAccounting: z
+      .object({
+        requiredResponseFields: z
+          .array(
+            z.enum([
+              'cost_in_usd_ticks',
+              'num_server_side_tools_used',
+              'service_tier',
+            ]),
+          )
+          .default([]),
+        exactProviderCost: z.boolean().default(false),
+      })
+      .default({ requiredResponseFields: [], exactProviderCost: false }),
+    unsupportedParameters: z.array(z.string().min(1)).default([]),
     betaHeaders: z.array(z.string().min(1)).default([]),
     betaCapabilities: z
       .array(
@@ -322,6 +415,45 @@ export const modelRuntimeProfileSchema = z
             message: `${endpoint} must be included in endpoints`,
           });
         }
+      }
+    }
+    if (new Set(profile.aliases).size !== profile.aliases.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['aliases'],
+        message: 'aliases must be unique',
+      });
+    }
+    if (
+      profile.batch.eligible &&
+      profile.batch.supportedEndpoints.length === 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['batch', 'supportedEndpoints'],
+        message: 'eligible batch profiles require supported endpoints',
+      });
+    }
+    for (const endpoint of profile.batch.supportedEndpoints) {
+      if (!profile.endpoints.includes(endpoint)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['batch', 'supportedEndpoints'],
+          message: `${endpoint} must be included in endpoints`,
+        });
+      }
+    }
+    for (const endpoint of Object.keys(profile.requestHeaders.byEndpoint)) {
+      if (
+        !profile.endpoints.includes(
+          endpoint as (typeof profile.endpoints)[number],
+        )
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['requestHeaders', 'byEndpoint', endpoint],
+          message: `${endpoint} must be included in endpoints`,
+        });
       }
     }
   });

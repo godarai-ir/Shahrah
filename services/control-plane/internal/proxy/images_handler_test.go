@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
@@ -27,7 +28,101 @@ import (
 )
 
 func newImagesTestApp(t *testing.T, modelName string, provider string, deploymentModel string, tunnel *captureTunnel, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
-	return newImagesTestAppWithBudgeter(t, modelName, provider, deploymentModel, tunnel, &testBudgeter{}, logs, allowedTypes, emitMetric...)
+	var b budgeter = &testBudgeter{}
+	if strings.EqualFold(provider, "xai") {
+		b = &xaiImageBudgeter{}
+	}
+	return newImagesTestAppWithBudgeter(t, modelName, provider, deploymentModel, tunnel, b, logs, allowedTypes, emitMetric...)
+}
+
+type xaiImageBudgeter struct{ testBudgeter }
+
+func (b *xaiImageBudgeter) FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	finalized, err := b.testBudgeter.FinalizeImageUsage(ctx, model, usage, providerCostUSDTicks, estimated)
+	if err != nil {
+		return finalized, err
+	}
+	binding := xaiImageTestRuntimeProfile()
+	finalized.ModelRuntimeProfile = &binding
+	finalized.PricingRevision = binding.CatalogRevision
+	return finalized, nil
+}
+
+func xaiImageTestRuntimeProfile() platform.ModelRuntimeProfileBinding {
+	return platform.ModelRuntimeProfileBinding{
+		Provider:        "xai",
+		CatalogRevision: "xai-image-test-revision",
+		CanonicalID:     "xai/grok-imagine-image",
+		Slug:            "grok-imagine-image",
+		ProfileVersion:  3,
+		EffectiveFrom:   time.Now().UTC(),
+		Profile: platform.ModelRuntimeProfile{
+			Version:    3,
+			Aliases:    []string{"grok-imagine-image-2026-03-02"},
+			Endpoints:  []string{"image_generations", "image_edits", "files", "file_public_urls"},
+			Transports: []string{"http"},
+			Lifecycle:  "active",
+			Thinking: platform.ModelRuntimeThinkingProfile{
+				DefaultMode:  "disabled",
+				AllowedModes: []string{"disabled"},
+			},
+			Sampling: platform.ModelRuntimeSamplingProfile{},
+			Tools:    platform.ModelRuntimeToolsProfile{},
+			Modalities: platform.ModelRuntimeModalities{
+				Input:  []string{"text", "image"},
+				Output: []string{"image"},
+			},
+			RequestControls: platform.ModelRuntimeRequestControls{
+				ServiceTierValues:  []string{"standard", "batch"},
+				InferenceGeoValues: []string{"global"},
+			},
+			ImageControls: platform.ModelRuntimeImageControls{
+				AspectRatios:           []string{"1:1", "16:9", "auto"},
+				Resolutions:            []string{"1k", "2k"},
+				ResponseFormats:        []string{"url", "b64_json"},
+				MaximumOutputs:         10,
+				MaximumReferenceImages: 3,
+				EditTransport:          "json",
+				FilesInput:             true,
+				StorageOptions:         true,
+			},
+			UsageAccounting: platform.ModelRuntimeUsageAccounting{
+				RequiredResponseFields: []string{"cost_in_usd_ticks"},
+				ExactProviderCost:      true,
+			},
+			Limits: platform.ModelRuntimeLimits{
+				MaxInputCharacters: 1024,
+				MessagesBytes:      32 * 1024 * 1024,
+				BatchBytes:         25 * 1024 * 1024,
+				FileBytes:          48 * 1024 * 1024,
+			},
+		},
+	}
+}
+
+func TestXAIImageFileOutputsAreRecordedForLaterFilesOperations(t *testing.T) {
+	resources := &responseOperationResources{}
+	h := &ImagesHandler{resources: resources}
+	app := fiber.New()
+	app.Get("/", func(c *fiber.Ctx) error {
+		h.recordXAIImageFileOutputs(c, "tenant_a", platform.Deployment{
+			ID: "dep_xai", Provider: "xai", ProviderAccountID: "acct_xai",
+		}, []byte(`{"data":[{"url":"https://imgen.x.ai/temp","file_output":{"file_id":"file_generated","filename":"result.png","expires_at":1780000000,"public_url":"https://files-cdn.x.ai/token/result.png","public_url_expires_at":1779990000}}]}`))
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	mapping, ok := resources.mappings["file_generated"]
+	require.True(t, ok)
+	assert.Equal(t, "xai", mapping.Provider)
+	assert.Equal(t, "acct_xai", mapping.ProviderAccountID)
+	assert.Equal(t, "result.png", mapping.Metadata["filename"])
+	assert.Equal(t, "https://files-cdn.x.ai/token/result.png", mapping.Metadata["public_url"])
+	require.NotNil(t, mapping.ExpiresAt)
+	assert.Equal(t, int64(1780000000), mapping.ExpiresAt.Unix())
 }
 
 func newImagesTestAppWithBudgeter(t *testing.T, modelName string, provider string, deploymentModel string, tunnel *captureTunnel, b budgeter, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
@@ -180,6 +275,18 @@ func TestEstimatedImageUsageIncludesEditInputImages(t *testing.T) {
 	assert.Equal(t, 3273, usage.TotalTokens)
 }
 
+func TestFillImageJSONMetadataCountsAllXAIEditReferences(t *testing.T) {
+	metadata := map[string]interface{}{}
+	fillImageJSONMetadata(metadata, map[string]interface{}{
+		"image": map[string]interface{}{"file_id": "file_one"},
+		"images": []interface{}{
+			map[string]interface{}{"url": "https://example.test/two.png"},
+			map[string]interface{}{"file_id": "file_three"},
+		},
+	}, imageOperation{Name: "edits"})
+	assert.Equal(t, 3, metadata["image_count"])
+}
+
 func TestEstimatedImageUsageUsesDallE2VariationUnits(t *testing.T) {
 	usage := estimatedImageUsage("openai:default:dall-e-2", map[string]interface{}{
 		"image_count": 1,
@@ -228,6 +335,91 @@ func TestImagesHandlerJSONEdit(t *testing.T) {
 	assert.Equal(t, "webp", tunnel.lastReq.RequestMetadata["output_format"])
 	assert.Equal(t, 80, tunnel.lastReq.RequestMetadata["output_compression"])
 	assert.Equal(t, "low", tunnel.lastReq.RequestMetadata["moderation"])
+	require.Len(t, tunnel.lastReq.ModelRuntimeProfiles, 1)
+	assert.Equal(t, "xai", tunnel.lastReq.ModelRuntimeProfiles[0].Provider)
+}
+
+func TestImagesHandlerValidatesXAIImageControls(t *testing.T) {
+	for name, test := range map[string]struct {
+		route       string
+		body        string
+		wantMessage string
+	}{
+		"output count": {
+			route:       "/v1/images/generations",
+			body:        `{"model":"grok-imagine-image","prompt":"paint","n":11}`,
+			wantMessage: "n exceeds model limit",
+		},
+		"aspect ratio": {
+			route:       "/v1/images/generations",
+			body:        `{"model":"grok-imagine-image","prompt":"paint","aspect_ratio":"7:5"}`,
+			wantMessage: "unsupported aspect_ratio",
+		},
+		"resolution": {
+			route:       "/v1/images/generations",
+			body:        `{"model":"grok-imagine-image","prompt":"paint","resolution":"4k"}`,
+			wantMessage: "unsupported resolution",
+		},
+		"reference count": {
+			route:       "/v1/images/edits",
+			body:        `{"model":"grok-imagine-image","prompt":"paint","image":["a","b","c","d"]}`,
+			wantMessage: "reference images",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Body: []byte(`{}`)}}
+			app, _ := newImagesTestApp(t, "grok-imagine-image", "xai", "grok-imagine-image", tunnel, nil, nil)
+			req := httptest.NewRequest("POST", test.route, bytes.NewBufferString(test.body))
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+			require.NoError(t, err)
+			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+			received, readErr := io.ReadAll(resp.Body)
+			require.NoError(t, readErr)
+			assert.Contains(t, string(received), test.wantMessage)
+			assert.Empty(t, tunnel.lastReq.RequestID)
+		})
+	}
+}
+
+func TestImagesHandlerRejectsUnsupportedXAIImageSurfaces(t *testing.T) {
+	for name, test := range map[string]struct {
+		route       string
+		contentType string
+		body        []byte
+		wantMessage string
+	}{
+		"variations": {
+			route:       "/v1/images/variations",
+			contentType: "application/json",
+			body:        []byte(`{"model":"grok-imagine-image","image":"ref"}`),
+			wantMessage: "do not support image variations",
+		},
+		"multipart edits": {
+			route:       "/v1/images/edits",
+			contentType: "multipart/form-data; boundary=test",
+			body:        []byte("--test\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ngrok-imagine-image\r\n--test\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\nedit\r\n--test\r\nContent-Disposition: form-data; name=\"image\"; filename=\"a.png\"\r\nContent-Type: image/png\r\n\r\na\r\n--test--\r\n"),
+			wantMessage: "require application/json",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Body: []byte(`{}`)}}
+			app, _ := newImagesTestApp(t, "grok-imagine-image", "xai", "grok-imagine-image", tunnel, nil, nil)
+			req := httptest.NewRequest("POST", test.route, bytes.NewReader(test.body))
+			req.Header.Set("Content-Type", test.contentType)
+
+			resp, err := app.Test(req)
+			defer closeResponseBody(t, resp)
+			require.NoError(t, err)
+			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+			received, readErr := io.ReadAll(resp.Body)
+			require.NoError(t, readErr)
+			assert.Contains(t, string(received), test.wantMessage)
+			assert.Empty(t, tunnel.lastReq.RequestID)
+		})
+	}
 }
 
 func TestImagesHandlerMultipartEdit(t *testing.T) {
@@ -457,4 +649,11 @@ func readMultipartFile(t *testing.T, header *multipart.FileHeader) []byte {
 	require.NoError(t, err)
 
 	return data
+}
+
+func TestImageUsageCostTicksPreservesInt64Precision(t *testing.T) {
+	const expected int64 = 9_007_199_254_740_993
+	ticks, ok := imageUsageCostTicks([]byte(`{"usage":{"cost_in_usd_ticks":9007199254740993}}`))
+	require.True(t, ok)
+	require.Equal(t, expected, ticks)
 }

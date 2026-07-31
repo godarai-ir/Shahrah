@@ -37,6 +37,7 @@ type AppendToolPricingRatesInput = {
   defaultToolPricing?: StringRecord;
   pricingRates: ProviderPricingRate[];
   sources: string[];
+  documentedTools?: Set<string>;
 };
 
 const ANTHROPIC_RATE_MAPPINGS: ProviderRateMapping[] = [

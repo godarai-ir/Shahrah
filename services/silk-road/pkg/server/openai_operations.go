@@ -31,6 +31,12 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 	switch payload.Operation {
 	case platform.ProviderOperationChatCompletions:
 		return http.MethodPost, "/chat/completions", nil
+	case platform.ProviderOperationXAIDeferredChatGet:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		return http.MethodGet, "/chat/deferred-completion/" + value, nil
 	case platform.ProviderOperationOpenAICompletions:
 		return http.MethodPost, "/completions", nil
 	case platform.ProviderOperationOpenAIResponsesCreate:
@@ -131,6 +137,31 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 			return http.MethodPost, "/batches/" + value + "/cancel", nil
 		}
 		return http.MethodGet, "/batches/" + value, nil
+	case platform.ProviderOperationXAIBatchesCreate:
+		return http.MethodPost, "/batches", nil
+	case platform.ProviderOperationXAIBatchesList:
+		return http.MethodGet, withListQuery("/batches", input), nil
+	case platform.ProviderOperationXAIBatchesGet,
+		platform.ProviderOperationXAIBatchRequestsList,
+		platform.ProviderOperationXAIBatchRequestsAdd,
+		platform.ProviderOperationXAIBatchResults,
+		platform.ProviderOperationXAIBatchesCancel:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		switch payload.Operation {
+		case platform.ProviderOperationXAIBatchRequestsList:
+			return http.MethodGet, withListQuery("/batches/"+value+"/requests", input), nil
+		case platform.ProviderOperationXAIBatchRequestsAdd:
+			return http.MethodPost, "/batches/" + value + "/requests", nil
+		case platform.ProviderOperationXAIBatchResults:
+			return http.MethodGet, withListQuery("/batches/"+value+"/results", input), nil
+		case platform.ProviderOperationXAIBatchesCancel:
+			return http.MethodPost, "/batches/" + value + ":cancel", nil
+		default:
+			return http.MethodGet, "/batches/" + value, nil
+		}
 	case platform.ProviderOperationOpenAIFilesCreate:
 		return http.MethodPost, "/files", nil
 	case platform.ProviderOperationOpenAIFilesList:
@@ -149,6 +180,23 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 			suffix = "/content"
 		}
 		return method, "/files/" + value + suffix, nil
+	case platform.ProviderOperationXAIFilePublicURLCreate,
+		platform.ProviderOperationXAIFilePublicURLRevoke:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		suffix := "/public-url"
+		if payload.Operation == platform.ProviderOperationXAIFilePublicURLRevoke {
+			suffix += "/revoke"
+		}
+		return http.MethodPost, "/files/" + value + suffix, nil
+	case platform.ProviderOperationXAIFilesUpdate:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		return http.MethodPut, "/files/" + value, nil
 	case platform.ProviderOperationOpenAIUploadsCreate:
 		return http.MethodPost, "/uploads", nil
 	case platform.ProviderOperationOpenAIUploadsAddPart,
@@ -368,6 +416,15 @@ func withListQuery(path string, input platform.ProviderOperationInput) string {
 	}
 	if input.Purpose != "" {
 		query.Set("purpose", input.Purpose)
+	}
+	if input.PaginationToken != "" {
+		query.Set("pagination_token", input.PaginationToken)
+	}
+	if input.SortBy != "" {
+		query.Set("sort_by", input.SortBy)
+	}
+	if input.Filter != "" {
+		query.Set("filter", input.Filter)
 	}
 	for _, include := range input.Include {
 		if value := strings.TrimSpace(include); value != "" {

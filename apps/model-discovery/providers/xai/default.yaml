@@ -1,0 +1,29 @@
+documentation:
+  - https://docs.x.ai/developers/models
+  - https://docs.x.ai/developers/pricing
+  - https://docs.x.ai/developers/rest-api-reference/inference
+  - https://docs.x.ai/developers/rate-limits
+messages:
+  options: [system, user, assistant, tool]
+params:
+  - key: temperature
+    minValue: 0
+    maxValue: 2
+  - key: top_p
+    minValue: 0
+    maxValue: 1
+  - key: stop
+    type: array-of-strings
+  - key: stream
+    type: boolean
+tool_pricing:
+  web_search:
+    per_thousand_requests: 5
+  x_search:
+    per_thousand_requests: 5
+  code_execution:
+    per_thousand_requests: 5
+  attachment_search:
+    per_thousand_requests: 10
+  collections_search:
+    per_thousand_requests: 2.5

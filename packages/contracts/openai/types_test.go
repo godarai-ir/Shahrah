@@ -475,3 +475,26 @@ func TestRerankRequestResponseRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestXAIUsageFieldsRoundTrip(t *testing.T) {
+	for name, target := range map[string]interface{}{
+		"chat":      &ChatCompletionResponse{},
+		"responses": &Response{},
+	} {
+		t.Run(name, func(t *testing.T) {
+			payload := []byte(`{"id":"usage_1","model":"grok-4.5","usage":{"prompt_tokens":3,"completion_tokens":2,"input_tokens":3,"output_tokens":2,"total_tokens":5,"cost_in_usd_ticks":123456789,"num_server_side_tools_used":2}}`)
+			if err := json.Unmarshal(payload, target); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			raw, err := json.Marshal(target)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			for _, want := range []string{`"cost_in_usd_ticks":123456789`, `"num_server_side_tools_used":2`} {
+				if !strings.Contains(string(raw), want) {
+					t.Fatalf("round-trip usage missing %s: %s", want, raw)
+				}
+			}
+		})
+	}
+}

@@ -132,6 +132,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
 	estimateReq := responseRequestToChatCompletion(req, requestedModel)
+	estimateReq.Model = billingEstimateModel(requestedModel)
 	quotaStart := time.Now()
 
 	estimated, err := h.billing.EstimateCost(c.Context(), estimateReq)
@@ -240,6 +241,12 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 			return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 		}
 	}
+	if strings.EqualFold(strings.TrimSpace(tunnelDeployment.Provider), "xai") {
+		payload, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, tunnelDeployment.ProviderAccountID, payload)
+		if err != nil {
+			return writeXAIFileReferenceError(c, err)
+		}
+	}
 
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
@@ -257,6 +264,18 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		},
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+	runtimeModel := strings.TrimSpace(tunnelReq.Deployment.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = providerModelID(requestedModel)
+	}
+	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+		tunnelReq.Deployment.Provider,
+		runtimeModel,
+		estimated,
+	)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
+	}
 
 	if !budgetReservationAttempted {
 		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
@@ -333,6 +352,7 @@ func (h *ResponsesHandler) handleSync(
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
+	tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, finalUsage)
 
 	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
@@ -512,6 +532,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				finalCost = estimated
 				finalCost.Model = billingModel
 			}
+			tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, finalUsage)
 
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
@@ -602,7 +623,7 @@ func (h *ResponsesHandler) emitModelMetric(input metricsobs.BuildInput) {
 
 func supportsResponsesProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "mock":
+	case "openai", "xai", "mock":
 		return true
 	default:
 		return false
@@ -680,9 +701,11 @@ func responseUsageToOpenAI(usage *contractsopenai.ResponseUsage) *contractsopena
 	}
 
 	result := &contractsopenai.Usage{
-		PromptTokens:     usage.InputTokens,
-		CompletionTokens: usage.OutputTokens,
-		TotalTokens:      usage.TotalTokens,
+		PromptTokens:           usage.InputTokens,
+		CompletionTokens:       usage.OutputTokens,
+		TotalTokens:            usage.TotalTokens,
+		CostInUSDTicks:         usage.CostInUSDTicks,
+		NumServerSideToolsUsed: usage.NumServerSideToolsUsed,
 	}
 	if usage.InputDetails != nil {
 		result.PromptTokensDetails = &contractsopenai.UsageTokenDetails{
@@ -711,6 +734,14 @@ func responseUsageWithToolsToOpenAI(
 		switch strings.ToLower(strings.TrimSpace(item.Type)) {
 		case "web_search_call":
 			serverTools["web_search_requests"]++
+		case "x_search_call":
+			serverTools["x_search_requests"]++
+		case "code_execution_call", "code_interpreter_call":
+			serverTools["code_execution_requests"]++
+		case "attachment_search_call":
+			serverTools["attachment_search_requests"]++
+		case "collections_search_call":
+			serverTools["collections_search_requests"]++
 		case "file_search_call":
 			serverTools["file_search_requests"]++
 		}

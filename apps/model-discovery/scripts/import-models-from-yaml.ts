@@ -4,7 +4,7 @@ import { Prisma, PrismaClient } from '../src/generated/prisma/client';
 import { parse } from 'yaml';
 import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import {
   modelRuntimeProfileSchema,
   type ModelRuntimeProfile,
@@ -12,6 +12,10 @@ import {
 import { findMissingProviderSlugs } from '../src/catalog/provider-catalog-reconciliation';
 import { anthropicProviderImporter } from './model-import/providers/anthropic';
 import { googleGeminiProviderImporter } from './model-import/providers/google-gemini';
+import {
+  validateXAIProviderDirectory,
+  xaiProviderImporter,
+} from './model-import/providers/xai';
 import type {
   ProviderPricingRate,
   ProviderRateMapping,
@@ -494,7 +498,12 @@ async function parseProviderDir(
       ? anthropicProviderImporter
       : providerSlug === googleGeminiProviderImporter.slug
         ? googleGeminiProviderImporter
-        : undefined;
+        : providerSlug === xaiProviderImporter.slug
+          ? xaiProviderImporter
+          : undefined;
+  if (providerSlug === xaiProviderImporter.slug) {
+    await validateXAIProviderDirectory(dirname(providerDir));
+  }
   const defaultPath = join(providerDir, 'default.yaml');
   let defaultDoc: StringRecord | undefined;
   if (existsSync(defaultPath)) {
@@ -653,19 +662,25 @@ async function parseProviderDir(
           key: 'cache_read_input_token_cost_batches',
           dimension: 'batch_cache_read_tokens',
           unit: 'token',
-          conditionJson: { service_tier: 'batch' },
+          conditionJson: providerImporter?.batchPricingCondition ?? {
+            service_tier: 'batch',
+          },
         },
         {
           key: 'cache_creation_input_token_cost_batches',
           dimension: 'batch_cache_write_5m_tokens',
           unit: 'token',
-          conditionJson: { service_tier: 'batch' },
+          conditionJson: providerImporter?.batchPricingCondition ?? {
+            service_tier: 'batch',
+          },
         },
         {
           key: 'cache_creation_input_token_cost_per_hour_batches',
           dimension: 'batch_cache_write_1h_tokens',
           unit: 'token',
-          conditionJson: { service_tier: 'batch' },
+          conditionJson: providerImporter?.batchPricingCondition ?? {
+            service_tier: 'batch',
+          },
         },
         {
           key: 'input_cost_per_token_batches',
@@ -979,7 +994,9 @@ async function parseProviderDir(
     if (
       webSearchPrice &&
       pricingSource &&
-      (providerSlug !== 'google-gemini' || documentedTools.has('google_search'))
+      (providerSlug !== 'google-gemini' ||
+        documentedTools.has('google_search')) &&
+      (providerSlug !== 'xai' || documentedTools.has('web_search'))
     ) {
       pricingRates.push({
         dimension:
@@ -1074,6 +1091,7 @@ async function parseProviderDir(
       defaultToolPricing,
       pricingRates,
       sources,
+      documentedTools,
     });
     if (regionSet.size === 0) regionSet.add('global');
 
@@ -1091,13 +1109,19 @@ async function parseProviderDir(
     );
     const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
     if (
-      (providerSlug === 'google-gemini' || providerSlug === 'openai') &&
+      (providerSlug === 'google-gemini' ||
+        providerSlug === 'openai' ||
+        providerSlug === 'xai') &&
       !explicitRuntimeProfile
     ) {
       throw new Error(`${modelId}: explicit runtimeProfile is required`);
     }
     const minimumRuntimeProfileVersion =
-      providerSlug === 'openai' ? 3 : providerSlug === 'google-gemini' ? 2 : 1;
+      providerSlug === 'openai' || providerSlug === 'xai'
+        ? 3
+        : providerSlug === 'google-gemini'
+          ? 2
+          : 1;
     if (
       explicitRuntimeProfile &&
       explicitRuntimeProfile.version < minimumRuntimeProfileVersion

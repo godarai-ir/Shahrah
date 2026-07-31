@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,6 +18,7 @@ type openAICompatibleAdapter struct {
 	apiVersionQuery        bool
 	azureDeploymentRouting bool
 	baseURLNormalizer      func(string) string
+	allowedRequestHeaders  []string
 }
 
 func newOpenAICompatibleAdapter(defaultBaseURL string) providerAdapter {
@@ -76,6 +78,11 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 	if clientRequestID := strings.TrimSpace(payload.Headers["X-Client-Request-Id"]); clientRequestID != "" {
 		req.Header.Set("X-Client-Request-Id", clientRequestID)
 	}
+	for _, name := range a.allowedRequestHeaders {
+		if value := strings.TrimSpace(headerValue(payload.Headers, name)); value != "" {
+			req.Header.Set(name, value)
+		}
+	}
 	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
 		if strings.EqualFold(a.authHeader, "api-key") {
 			req.Header.Set("api-key", apiKey)
@@ -97,6 +104,46 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		Headers:    resp.Header.Clone(),
 		Body:       resp.Body,
 	}, nil
+}
+
+func (a *openAICompatibleAdapter) DispatchRaw(ctx context.Context, client *http.Client, payload platform.TunnelRequest, body io.Reader, contentLength int64) (*adapterResponse, error) {
+	target, err := resolveBaseURL(payload.Deployment.APIBase, a.defaultBaseURL)
+	if err != nil {
+		return nil, err
+	}
+	if a.baseURLNormalizer != nil {
+		target = a.baseURLNormalizer(target)
+	}
+	method, operationPath, err := resolveOpenAIOperation(payload)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, method, joinURL(target, operationPath), body)
+	if err != nil {
+		return nil, err
+	}
+	if contentLength >= 0 {
+		req.ContentLength = contentLength
+	}
+	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if clientRequestID := strings.TrimSpace(headerValue(payload.Headers, "x-client-request-id")); clientRequestID != "" {
+		req.Header.Set("X-Client-Request-Id", clientRequestID)
+	}
+	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
+		if strings.EqualFold(a.authHeader, "api-key") {
+			req.Header.Set("api-key", apiKey)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+	}
+	applyDocumentedProviderHeaders(req, payload.Deployment)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
 }
 
 func resolveBaseURL(explicit string, fallback string) (string, error) {

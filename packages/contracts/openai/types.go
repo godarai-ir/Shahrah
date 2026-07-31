@@ -558,6 +558,8 @@ type Usage struct {
 	CacheCreation1hInputTokens int                `json:"cache_creation_1h_input_tokens,omitempty"`
 	CacheReadInputTokens       int                `json:"cache_read_input_tokens,omitempty"`
 	ServerToolUse              map[string]int     `json:"server_tool_use,omitempty"`
+	NumServerSideToolsUsed     int                `json:"num_server_side_tools_used,omitempty"`
+	CostInUSDTicks             int64              `json:"cost_in_usd_ticks,omitempty"`
 	ServiceTier                string             `json:"service_tier,omitempty"`
 	Speed                      string             `json:"speed,omitempty"`
 }
@@ -774,11 +776,13 @@ type ResponseOutputContent struct {
 
 // ResponseUsage mirrors token accounting in the OpenAI responses API.
 type ResponseUsage struct {
-	InputTokens   int                         `json:"input_tokens"`
-	OutputTokens  int                         `json:"output_tokens"`
-	TotalTokens   int                         `json:"total_tokens"`
-	InputDetails  *ResponseInputTokenDetails  `json:"input_tokens_details,omitempty"`
-	OutputDetails *ResponseOutputTokenDetails `json:"output_tokens_details,omitempty"`
+	InputTokens            int                         `json:"input_tokens"`
+	OutputTokens           int                         `json:"output_tokens"`
+	TotalTokens            int                         `json:"total_tokens"`
+	InputDetails           *ResponseInputTokenDetails  `json:"input_tokens_details,omitempty"`
+	OutputDetails          *ResponseOutputTokenDetails `json:"output_tokens_details,omitempty"`
+	NumServerSideToolsUsed int                         `json:"num_server_side_tools_used,omitempty"`
+	CostInUSDTicks         int64                       `json:"cost_in_usd_ticks,omitempty"`
 }
 
 // ResponseInputTokenDetails provides cached token detail for responses usage.

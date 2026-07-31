@@ -509,12 +509,11 @@ func TestDispatchOpenAICompatiblePreservesJSONContentTypeForImages(t *testing.T)
 
 	handler := NewHandler(nil)
 	payload := platform.TunnelRequest{
-		Deployment: platform.Deployment{Provider: "xai", APIBase: upstream.URL, APIKey: "provider-secret"},
-		Headers:    map[string]string{"Content-Type": "application/json"},
-		RequestMetadata: map[string]interface{}{
-			"provider_endpoint_path": "/images/generations",
-		},
-		Body: []byte(`{"model":"grok-imagine-image","prompt":"hi"}`),
+		Operation:            platform.ProviderOperationOpenAIImagesGenerations,
+		Deployment:           platform.Deployment{Provider: "xai", Model: "grok-imagine-image", APIBase: upstream.URL, APIKey: "provider-secret"},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{xaiTestRuntimeProfile("grok-imagine-image")},
+		Headers:              map[string]string{"Content-Type": "application/json"},
+		Body:                 []byte(`{"model":"grok-imagine-image","prompt":"hi"}`),
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

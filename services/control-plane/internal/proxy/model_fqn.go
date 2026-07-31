@@ -53,14 +53,15 @@ func providerModelID(model string) string {
 func billingEstimateModel(model string) string {
 	model = normalizeModelIdentifier(model)
 	provider, _, _, ok := splitModelFQN(model)
-	if ok && (isGoogleGeminiProvider(provider) || strings.EqualFold(provider, "openai")) {
+	if ok && (isGoogleGeminiProvider(provider) || strings.EqualFold(provider, "openai") || strings.EqualFold(provider, "xai")) {
 		return model
 	}
 
 	value := strings.ToLower(model)
 	if strings.HasPrefix(value, "google-gemini/") ||
 		strings.HasPrefix(value, "gemini/") ||
-		strings.HasPrefix(value, "openai/") {
+		strings.HasPrefix(value, "openai/") ||
+		strings.HasPrefix(value, "xai/") {
 		return model
 	}
 

@@ -132,6 +132,8 @@ type ChatCompletionHandler struct {
 	guardrails    *guardrails.Engine
 	guardrailRepo guardrailResolver
 	prompts       promptResolver
+	resources     providerNativeResourceStore
+	deployments   responseDeploymentLister
 }
 
 // SetResponseCache enables opt-in response caching without changing existing constructor callers.
@@ -161,6 +163,8 @@ func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *
 		emitMetric:    deps.Base.metricEmitter(),
 		guardrailRepo: deps.GuardrailResolver,
 		prompts:       deps.PromptResolver,
+		resources:     deps.Base.ProviderResources,
+		deployments:   deps.Base.Deployments,
 	}
 }
 
@@ -440,6 +444,16 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq := baseReq
 	tunnelReq.Body = payload
 	tunnelReq.Deployment = toContractDeployment(deployment)
+	if strings.EqualFold(strings.TrimSpace(deployment.Provider), "xai") {
+		payload, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, deployment.ProviderAccountID, payload)
+		if err != nil {
+			return writeXAIFileReferenceError(c, err)
+		}
+		tunnelReq.Body = payload
+		if conversationID := strings.TrimSpace(c.Get("x-grok-conv-id")); conversationID != "" {
+			tunnelReq.Headers["x-grok-conv-id"] = conversationID
+		}
+	}
 	runtimeModel := strings.TrimSpace(deployment.Model)
 	if runtimeModel == "" || runtimeModel == "*" {
 		runtimeModel = resolvedModel
@@ -586,6 +600,24 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 				fiber.StatusBadRequest,
 				err.Error(),
 				"invalid_request_error",
+			)
+		}
+	}
+	if strings.EqualFold(strings.TrimSpace(provider), "xai") {
+		if err := validateXAIChatRuntimeProfile(req, runtimeProfile); err != nil {
+			return true, writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				err.Error(),
+				"invalid_request_error",
+			)
+		}
+		if chatRequestDeferred(req) && (h.resources == nil || h.deployments == nil || strings.TrimSpace(deployment.ProviderAccountID) == "") {
+			return true, writeAPIError(
+				c,
+				fiber.StatusServiceUnavailable,
+				"Deferred chat completion routing state is unavailable",
+				"routing_error",
 			)
 		}
 	}
@@ -1002,6 +1034,9 @@ func (h *ChatCompletionHandler) handleSync(
 
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
+	if strings.EqualFold(strings.TrimSpace(tunnelReq.Deployment.Provider), "xai") && chatRequestDeferred(req) {
+		return h.handleXAIDeferredCreate(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, resp, start)
+	}
 
 	var completion contractsopenai.ChatCompletionResponse
 	if err := json.Unmarshal(resp.Body, &completion); err != nil {
@@ -1028,6 +1063,7 @@ func (h *ChatCompletionHandler) handleSync(
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
+	tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, completion.Usage)
 
 	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
@@ -1337,13 +1373,15 @@ func (h *ChatCompletionHandler) handleStream(
 
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
 
-			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, usageCapture.Usage(), estimated)
+			capturedUsage := usageCapture.Usage()
+			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, capturedUsage, estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
 
 				finalCost = estimated
 				finalCost.Model = billingModel
 			}
+			tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, capturedUsage)
 
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
@@ -1976,7 +2014,7 @@ func supportsChatExtendedThinkingProvider(provider string) bool {
 
 func supportsChatFileProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "openrouter", "anthropic":
+	case "", "openai", "azure", "openrouter", "anthropic", "xai":
 		return true
 	default:
 		return false

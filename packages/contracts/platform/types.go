@@ -493,6 +493,7 @@ type ProviderOperation string
 
 const (
 	ProviderOperationChatCompletions                    ProviderOperation = "chat_completions"
+	ProviderOperationXAIDeferredChatGet                 ProviderOperation = "xai_deferred_chat_get"
 	ProviderOperationOpenAICompletions                  ProviderOperation = "openai_completions"
 	ProviderOperationOpenAIResponsesCreate              ProviderOperation = "openai_responses_create"
 	ProviderOperationOpenAIResponsesGet                 ProviderOperation = "openai_responses_get"
@@ -522,11 +523,21 @@ const (
 	ProviderOperationOpenAIBatchesList                  ProviderOperation = "openai_batches_list"
 	ProviderOperationOpenAIBatchesGet                   ProviderOperation = "openai_batches_get"
 	ProviderOperationOpenAIBatchesCancel                ProviderOperation = "openai_batches_cancel"
+	ProviderOperationXAIBatchesCreate                   ProviderOperation = "xai_batches_create"
+	ProviderOperationXAIBatchesList                     ProviderOperation = "xai_batches_list"
+	ProviderOperationXAIBatchesGet                      ProviderOperation = "xai_batches_get"
+	ProviderOperationXAIBatchRequestsList               ProviderOperation = "xai_batch_requests_list"
+	ProviderOperationXAIBatchRequestsAdd                ProviderOperation = "xai_batch_requests_add"
+	ProviderOperationXAIBatchResults                    ProviderOperation = "xai_batch_results"
+	ProviderOperationXAIBatchesCancel                   ProviderOperation = "xai_batches_cancel"
 	ProviderOperationOpenAIFilesCreate                  ProviderOperation = "openai_files_create"
 	ProviderOperationOpenAIFilesList                    ProviderOperation = "openai_files_list"
 	ProviderOperationOpenAIFilesGet                     ProviderOperation = "openai_files_get"
 	ProviderOperationOpenAIFilesDelete                  ProviderOperation = "openai_files_delete"
 	ProviderOperationOpenAIFilesContent                 ProviderOperation = "openai_files_content"
+	ProviderOperationXAIFilesUpdate                     ProviderOperation = "xai_files_update"
+	ProviderOperationXAIFilePublicURLCreate             ProviderOperation = "xai_file_public_url_create"
+	ProviderOperationXAIFilePublicURLRevoke             ProviderOperation = "xai_file_public_url_revoke"
 	ProviderOperationOpenAIUploadsCreate                ProviderOperation = "openai_uploads_create"
 	ProviderOperationOpenAIUploadsAddPart               ProviderOperation = "openai_uploads_add_part"
 	ProviderOperationOpenAIUploadsComplete              ProviderOperation = "openai_uploads_complete"
@@ -620,6 +631,9 @@ type ProviderOperationInput struct {
 	Limit               int      `json:"limit,omitempty"`
 	Order               string   `json:"order,omitempty"`
 	Purpose             string   `json:"purpose,omitempty"`
+	PaginationToken     string   `json:"pagination_token,omitempty"`
+	SortBy              string   `json:"sort_by,omitempty"`
+	Filter              string   `json:"filter,omitempty"`
 	Include             []string `json:"include,omitempty"`
 	IncludeObfuscation  *bool    `json:"include_obfuscation,omitempty"`
 	StartingAfter       *int64   `json:"starting_after,omitempty"`

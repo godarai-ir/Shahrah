@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
@@ -18,21 +19,34 @@ import (
 const (
 	openAIBatchResourceKind = "batch"
 	openAIFileResourceKind  = "file"
+	xAIFileUploadMaxBytes   = int64(48 * 1024 * 1024)
 )
 
 func (h *ResponsesHandler) HandleBatchCreate(c *fiber.Ctx) error {
+	if strings.EqualFold(strings.TrimSpace(c.Get("x-godarai-provider")), "xai") {
+		return h.HandleXAIBatchCreate(c)
+	}
 	return h.handleOpenAIJSONResource(c, platform.ProviderOperationOpenAIBatchesCreate, openAIBatchResourceKind, "")
 }
 
 func (h *ResponsesHandler) HandleBatchList(c *fiber.Ctx) error {
+	if strings.EqualFold(strings.TrimSpace(c.Get("x-godarai-provider")), "xai") {
+		return h.HandleXAIBatchList(c)
+	}
 	return h.handleOpenAIJSONResource(c, platform.ProviderOperationOpenAIBatchesList, openAIBatchResourceKind, "")
 }
 
 func (h *ResponsesHandler) HandleBatchGet(c *fiber.Ctx) error {
+	if strings.EqualFold(strings.TrimSpace(c.Get("x-godarai-provider")), "xai") {
+		return h.HandleXAIBatchGet(c)
+	}
 	return h.handleOpenAIJSONResource(c, platform.ProviderOperationOpenAIBatchesGet, openAIBatchResourceKind, c.Params("batch_id"))
 }
 
 func (h *ResponsesHandler) HandleBatchCancel(c *fiber.Ctx) error {
+	if strings.EqualFold(strings.TrimSpace(c.Get("x-godarai-provider")), "xai") {
+		return h.HandleXAIBatchCancel(c)
+	}
 	return h.handleOpenAIJSONResource(c, platform.ProviderOperationOpenAIBatchesCancel, openAIBatchResourceKind, c.Params("batch_id"))
 }
 
@@ -56,6 +70,18 @@ func (h *ResponsesHandler) HandleFileContent(c *fiber.Ctx) error {
 	return h.handleOpenAIRawResource(c, platform.ProviderOperationOpenAIFilesContent, openAIFileResourceKind, c.Params("file_id"))
 }
 
+func (h *ResponsesHandler) HandleFileUpdate(c *fiber.Ctx) error {
+	return h.handleOpenAIJSONResource(c, platform.ProviderOperationXAIFilesUpdate, openAIFileResourceKind, c.Params("file_id"))
+}
+
+func (h *ResponsesHandler) HandleFilePublicURLCreate(c *fiber.Ctx) error {
+	return h.handleOpenAIJSONResource(c, platform.ProviderOperationXAIFilePublicURLCreate, openAIFileResourceKind, c.Params("file_id"))
+}
+
+func (h *ResponsesHandler) HandleFilePublicURLRevoke(c *fiber.Ctx) error {
+	return h.handleOpenAIJSONResource(c, platform.ProviderOperationXAIFilePublicURLRevoke, openAIFileResourceKind, c.Params("file_id"))
+}
+
 func (h *ResponsesHandler) handleOpenAIJSONResource(
 	c *fiber.Ctx,
 	operation platform.ProviderOperation,
@@ -73,19 +99,43 @@ func (h *ResponsesHandler) handleOpenAIJSONResource(
 	}
 	input.ResourceID = strings.TrimSpace(publicID)
 
+	providerSelector, err := resourceProviderSelector(c, resourceKind, input.ResourceID == "")
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
 	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
+	var resourceMapping *platform.ProviderNativeResourceMapping
 	if input.ResourceID != "" {
-		mapping, mappingErr := h.openAIResourceMapping(c, currentTenant.ID, resourceKind, input.ResourceID)
+		mapping, mappingErr := h.providerResourceMapping(c, currentTenant.ID, providerSelector, resourceKind, input.ResourceID)
 		if mappingErr != nil {
 			return mappingErr
 		}
 		if mapping != nil {
+			resourceMapping = mapping
+			providerSelector = mapping.Provider
 			accountSelector = mapping.ProviderAccountID
 			input.ResourceID = mapping.UpstreamID
 		}
 	}
 
 	body := append([]byte(nil), c.Body()...)
+	if operation == platform.ProviderOperationXAIFilePublicURLCreate {
+		if len(bytes.TrimSpace(body)) == 0 {
+			body = []byte(`{}`)
+		}
+		var request struct {
+			ExpiresAfter *int `json:"expires_after"`
+		}
+		if json.Unmarshal(body, &request) != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, "Invalid public URL request body", "invalid_request_error")
+		}
+		if request.ExpiresAfter != nil && (*request.ExpiresAfter < 3600 || *request.ExpiresAfter > 30*24*60*60) {
+			return writeAPIError(c, fiber.StatusBadRequest, "expires_after must be between 3600 and 2592000 seconds", "invalid_request_error")
+		}
+		if message := validateXAIFilePublicURLRequest(resourceMapping, request.ExpiresAfter, time.Now()); message != "" {
+			return writeAPIError(c, fiber.StatusBadRequest, message, "invalid_request_error")
+		}
+	}
 	if operation == platform.ProviderOperationOpenAIBatchesCreate {
 		var request struct {
 			InputFileID string `json:"input_file_id"`
@@ -93,7 +143,7 @@ func (h *ResponsesHandler) handleOpenAIJSONResource(
 		if len(body) == 0 || json.Unmarshal(body, &request) != nil || strings.TrimSpace(request.InputFileID) == "" {
 			return writeAPIError(c, fiber.StatusBadRequest, "input_file_id is required", "invalid_request_error")
 		}
-		mapping, mappingErr := h.openAIResourceMapping(c, currentTenant.ID, openAIFileResourceKind, request.InputFileID)
+		mapping, mappingErr := h.providerResourceMapping(c, currentTenant.ID, "openai", openAIFileResourceKind, request.InputFileID)
 		if mappingErr != nil {
 			return mappingErr
 		}
@@ -109,7 +159,12 @@ func (h *ResponsesHandler) handleOpenAIJSONResource(
 		}
 	}
 
-	deployment, err := h.resolveResponseDeployment(c.Context(), currentTenant.ID, accountSelector, "")
+	if operation == platform.ProviderOperationXAIFilePublicURLCreate || operation == platform.ProviderOperationXAIFilePublicURLRevoke || operation == platform.ProviderOperationXAIFilesUpdate {
+		if !strings.EqualFold(providerSelector, "xai") {
+			return writeAPIError(c, fiber.StatusBadRequest, "file operation is only supported by xAI", "invalid_request_error")
+		}
+	}
+	deployment, err := h.resolveResponseDeployment(c.Context(), currentTenant.ID, providerSelector, accountSelector, "")
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
 	}
@@ -137,6 +192,19 @@ func (h *ResponsesHandler) handleOpenAIJSONResource(
 	if operation == platform.ProviderOperationOpenAIBatchesCreate {
 		h.recordOpenAIResourceMapping(c, currentTenant.ID, deployment, resourceKind, resp.Body)
 	}
+	if resourceKind == openAIFileResourceKind && (operation == platform.ProviderOperationOpenAIFilesGet || operation == platform.ProviderOperationXAIFilesUpdate) {
+		if resourceMapping != nil {
+			h.recordProviderFileMetadata(c, resourceMapping, resp.Body)
+		} else {
+			h.recordOpenAIResourceMapping(c, currentTenant.ID, deployment, resourceKind, resp.Body)
+		}
+	}
+	if resourceKind == openAIFileResourceKind && operation == platform.ProviderOperationOpenAIFilesList {
+		h.recordProviderFileListMappings(c, currentTenant.ID, deployment, resp.Body)
+	}
+	if operation == platform.ProviderOperationXAIFilePublicURLCreate || operation == platform.ProviderOperationXAIFilePublicURLRevoke {
+		h.recordXAIFilePublicURLState(c, resourceMapping, resp.Body, operation == platform.ProviderOperationXAIFilePublicURLRevoke)
+	}
 	if resourceKind == openAIBatchResourceKind {
 		h.recordOpenAIBatchFileMappings(c, currentTenant.ID, deployment, resp.Body)
 	}
@@ -144,7 +212,7 @@ func (h *ResponsesHandler) handleOpenAIJSONResource(
 		h.updateOpenAIResourceMappingFromBody(c, currentTenant.ID, resourceKind, publicID, resp.Body)
 	}
 	if operation == platform.ProviderOperationOpenAIFilesDelete {
-		h.updateOpenAIResourceStatus(c, currentTenant.ID, resourceKind, publicID, "deleted")
+		h.updateProviderResourceStatus(c, currentTenant.ID, deployment.Provider, resourceKind, publicID, "deleted")
 	}
 
 	forwardProviderHeaders(c, resp.Headers)
@@ -173,18 +241,23 @@ func (h *ResponsesHandler) handleOpenAIRawResource(
 	}
 
 	input := platform.ProviderOperationInput{ResourceID: strings.TrimSpace(publicID)}
+	providerSelector, err := resourceProviderSelector(c, resourceKind, input.ResourceID == "")
+	if err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
 	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
 	if input.ResourceID != "" {
-		mapping, mappingErr := h.openAIResourceMapping(c, currentTenant.ID, resourceKind, input.ResourceID)
+		mapping, mappingErr := h.providerResourceMapping(c, currentTenant.ID, providerSelector, resourceKind, input.ResourceID)
 		if mappingErr != nil {
 			return mappingErr
 		}
 		if mapping != nil {
+			providerSelector = mapping.Provider
 			accountSelector = mapping.ProviderAccountID
 			input.ResourceID = mapping.UpstreamID
 		}
 	}
-	deployment, err := h.resolveResponseDeployment(c.Context(), currentTenant.ID, accountSelector, "")
+	deployment, err := h.resolveResponseDeployment(c.Context(), currentTenant.ID, providerSelector, accountSelector, "")
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
 	}
@@ -211,6 +284,9 @@ func (h *ResponsesHandler) handleOpenAIRawResource(
 			body := append([]byte(nil), c.Body()...)
 			bodyReader = bytes.NewReader(body)
 			contentLength = int64(len(body))
+		}
+		if strings.EqualFold(providerSelector, "xai") && contentLength > xAIFileUploadMaxBytes {
+			return writeAPIError(c, fiber.StatusRequestEntityTooLarge, "xAI file uploads cannot exceed 48 MiB", "invalid_request_error")
 		}
 	}
 	resp, err := rawTunnel.ProxyRaw(c.Context(), tunnelReq, bodyReader, contentLength)
@@ -252,10 +328,13 @@ func (h *ResponsesHandler) handleOpenAIRawResource(
 
 func openAIListOperationInput(c *fiber.Ctx) (platform.ProviderOperationInput, error) {
 	input := platform.ProviderOperationInput{
-		AfterID:  strings.TrimSpace(c.Query("after")),
-		BeforeID: strings.TrimSpace(c.Query("before")),
-		Order:    strings.ToLower(strings.TrimSpace(c.Query("order"))),
-		Purpose:  strings.TrimSpace(c.Query("purpose")),
+		AfterID:         strings.TrimSpace(c.Query("after")),
+		BeforeID:        strings.TrimSpace(c.Query("before")),
+		Order:           strings.ToLower(strings.TrimSpace(c.Query("order"))),
+		Purpose:         strings.TrimSpace(c.Query("purpose")),
+		PaginationToken: strings.TrimSpace(c.Query("pagination_token")),
+		SortBy:          strings.TrimSpace(c.Query("sort_by")),
+		Filter:          strings.TrimSpace(c.Query("filter")),
 	}
 	if input.Order != "" && input.Order != "asc" && input.Order != "desc" {
 		return input, fmt.Errorf("order must be asc or desc")
@@ -270,23 +349,38 @@ func openAIListOperationInput(c *fiber.Ctx) (platform.ProviderOperationInput, er
 	return input, nil
 }
 
-func (h *ResponsesHandler) openAIResourceMapping(
+func (h *ResponsesHandler) providerResourceMapping(
 	c *fiber.Ctx,
 	tenantID string,
+	providerSelector string,
 	resourceKind string,
 	publicID string,
 ) (*platform.ProviderNativeResourceMapping, error) {
 	if h.resources == nil {
 		return nil, nil
 	}
-	mapping, err := h.resources.GetProviderNativeResourceMapping(c.Context(), tenantID, "openai", resourceKind, publicID)
-	if err == nil {
-		return mapping, nil
+	providers := []string{"openai", "xai"}
+	if strings.TrimSpace(providerSelector) != "" {
+		providers = []string{strings.ToLower(strings.TrimSpace(providerSelector))}
 	}
-	if errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
-		return nil, writeAPIError(c, fiber.StatusNotFound, "OpenAI resource not found", "invalid_request_error")
+	var found *platform.ProviderNativeResourceMapping
+	for _, provider := range providers {
+		mapping, err := h.resources.GetProviderNativeResourceMapping(c.Context(), tenantID, provider, resourceKind, publicID)
+		if err == nil {
+			if found != nil {
+				return nil, writeAPIError(c, fiber.StatusConflict, "resource id is ambiguous; specify x-godarai-provider", "invalid_request_error")
+			}
+			found = mapping
+			continue
+		}
+		if !errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
+			return nil, writeAPIError(c, fiber.StatusServiceUnavailable, "provider resource routing state is unavailable", "routing_error")
+		}
 	}
-	return nil, writeAPIError(c, fiber.StatusServiceUnavailable, "OpenAI resource routing state is unavailable", "routing_error")
+	if found == nil {
+		return nil, writeAPIError(c, fiber.StatusNotFound, "provider resource not found", "invalid_request_error")
+	}
+	return found, nil
 }
 
 func (h *ResponsesHandler) recordOpenAIResourceMapping(
@@ -300,21 +394,198 @@ func (h *ResponsesHandler) recordOpenAIResourceMapping(
 		return
 	}
 	var result struct {
-		ID     string `json:"id"`
-		Status string `json:"status"`
+		ID                 string      `json:"id"`
+		Status             string      `json:"status"`
+		Bytes              json.Number `json:"bytes"`
+		Filename           string      `json:"filename"`
+		ContentType        string      `json:"content_type"`
+		CreatedAt          json.Number `json:"created_at"`
+		ExpiresAt          json.Number `json:"expires_at"`
+		PublicURL          string      `json:"public_url"`
+		PublicURLExpiresAt json.Number `json:"public_url_expires_at"`
 	}
-	if json.Unmarshal(body, &result) != nil || strings.TrimSpace(result.ID) == "" {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if decoder.Decode(&result) != nil || strings.TrimSpace(result.ID) == "" {
 		return
 	}
 	if strings.TrimSpace(result.Status) == "" {
 		result.Status = "active"
 	}
+	metadata := map[string]interface{}{"deployment_id": deployment.ID}
+	copyStringMetadata(metadata, "filename", result.Filename)
+	copyStringMetadata(metadata, "content_type", result.ContentType)
+	copyStringMetadata(metadata, "public_url", result.PublicURL)
+	copyNumberMetadata(metadata, "bytes", result.Bytes)
+	copyNumberMetadata(metadata, "created_at", result.CreatedAt)
+	copyNumberMetadata(metadata, "expires_at", result.ExpiresAt)
+	copyNumberMetadata(metadata, "public_url_expires_at", result.PublicURLExpiresAt)
+	var expiresAt *time.Time
+	if unix, ok := numberInt64(result.ExpiresAt); ok {
+		value := time.Unix(unix, 0).UTC()
+		expiresAt = &value
+	}
 	_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), platform.ProviderNativeResourceMapping{
-		PublicID: result.ID, TenantID: tenantID, Provider: "openai",
+		PublicID: result.ID, TenantID: tenantID, Provider: strings.ToLower(strings.TrimSpace(deployment.Provider)),
 		ProviderAccountID: deployment.ProviderAccountID, ResourceKind: resourceKind,
 		UpstreamID: result.ID, Status: result.Status,
-		Metadata: map[string]interface{}{"deployment_id": deployment.ID},
+		Metadata: metadata, ExpiresAt: expiresAt,
 	})
+}
+
+func validateXAIFilePublicURLRequest(mapping *platform.ProviderNativeResourceMapping, expiresAfter *int, now time.Time) string {
+	if mapping == nil {
+		return ""
+	}
+	if size, ok := metadataInt64(mapping.Metadata, "bytes"); ok && size > 50*1024*1024 {
+		return "files larger than 50 MiB cannot have an xAI public URL"
+	}
+	if contentType, _ := mapping.Metadata["content_type"].(string); strings.TrimSpace(contentType) != "" {
+		switch strings.ToLower(strings.TrimSpace(contentType)) {
+		case "image/png", "image/jpeg", "video/mp4", "application/pdf":
+		default:
+			return "file content_type is not eligible for an xAI public URL"
+		}
+	}
+	if expiresAfter != nil && mapping.ExpiresAt != nil && now.Add(time.Duration(*expiresAfter)*time.Second).After(*mapping.ExpiresAt) {
+		return "expires_after cannot exceed the file's remaining lifetime"
+	}
+	return ""
+}
+
+func (h *ResponsesHandler) recordXAIFilePublicURLState(
+	c *fiber.Ctx,
+	mapping *platform.ProviderNativeResourceMapping,
+	body []byte,
+	revoked bool,
+) {
+	if h.resources == nil || mapping == nil {
+		return
+	}
+	updated := *mapping
+	updated.Metadata = cloneResourceMetadata(mapping.Metadata)
+	if revoked {
+		delete(updated.Metadata, "public_url")
+		delete(updated.Metadata, "public_url_expires_at")
+	} else {
+		var result struct {
+			PublicURL string      `json:"public_url"`
+			ExpiresAt json.Number `json:"expires_at"`
+		}
+		decoder := json.NewDecoder(bytes.NewReader(body))
+		decoder.UseNumber()
+		if decoder.Decode(&result) != nil || strings.TrimSpace(result.PublicURL) == "" {
+			return
+		}
+		updated.Metadata["public_url"] = result.PublicURL
+		copyNumberMetadata(updated.Metadata, "public_url_expires_at", result.ExpiresAt)
+	}
+	_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), updated)
+}
+
+func (h *ResponsesHandler) recordProviderFileMetadata(
+	c *fiber.Ctx,
+	mapping *platform.ProviderNativeResourceMapping,
+	body []byte,
+) {
+	if h.resources == nil || mapping == nil {
+		return
+	}
+	var result struct {
+		Bytes              json.Number `json:"bytes"`
+		Filename           string      `json:"filename"`
+		ContentType        string      `json:"content_type"`
+		CreatedAt          json.Number `json:"created_at"`
+		ExpiresAt          json.Number `json:"expires_at"`
+		PublicURL          string      `json:"public_url"`
+		PublicURLExpiresAt json.Number `json:"public_url_expires_at"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if decoder.Decode(&result) != nil {
+		return
+	}
+	updated := *mapping
+	updated.Metadata = cloneResourceMetadata(mapping.Metadata)
+	copyStringMetadata(updated.Metadata, "filename", result.Filename)
+	copyStringMetadata(updated.Metadata, "content_type", result.ContentType)
+	copyStringMetadata(updated.Metadata, "public_url", result.PublicURL)
+	copyNumberMetadata(updated.Metadata, "bytes", result.Bytes)
+	copyNumberMetadata(updated.Metadata, "created_at", result.CreatedAt)
+	copyNumberMetadata(updated.Metadata, "expires_at", result.ExpiresAt)
+	copyNumberMetadata(updated.Metadata, "public_url_expires_at", result.PublicURLExpiresAt)
+	if unix, ok := numberInt64(result.ExpiresAt); ok {
+		value := time.Unix(unix, 0).UTC()
+		updated.ExpiresAt = &value
+	}
+	_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), updated)
+}
+
+func (h *ResponsesHandler) recordProviderFileListMappings(
+	c *fiber.Ctx,
+	tenantID string,
+	deployment platform.Deployment,
+	body []byte,
+) {
+	var result struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(body, &result) != nil {
+		return
+	}
+	for _, file := range result.Data {
+		h.recordOpenAIResourceMapping(c, tenantID, deployment, openAIFileResourceKind, file)
+	}
+}
+
+func cloneResourceMetadata(source map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{}, len(source)+2)
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
+func copyStringMetadata(metadata map[string]interface{}, key, value string) {
+	if value = strings.TrimSpace(value); value != "" {
+		metadata[key] = value
+	}
+}
+
+func copyNumberMetadata(metadata map[string]interface{}, key string, value json.Number) {
+	if number, ok := numberInt64(value); ok {
+		metadata[key] = number
+	}
+}
+
+func numberInt64(value json.Number) (int64, bool) {
+	if strings.TrimSpace(value.String()) == "" {
+		return 0, false
+	}
+	number, err := value.Int64()
+	return number, err == nil
+}
+
+func metadataInt64(metadata map[string]interface{}, key string) (int64, bool) {
+	value, ok := metadata[key]
+	if !ok {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case int64:
+		return typed, true
+	case int:
+		return int64(typed), true
+	case float64:
+		return int64(typed), true
+	case json.Number:
+		return numberInt64(typed)
+	case string:
+		number, err := strconv.ParseInt(typed, 10, 64)
+		return number, err == nil
+	default:
+		return 0, false
+	}
 }
 
 func (h *ResponsesHandler) recordOpenAIBatchFileMappings(
@@ -370,7 +641,32 @@ func (h *ResponsesHandler) updateOpenAIResourceStatus(
 	publicID string,
 	status string,
 ) {
+	h.updateProviderResourceStatus(c, tenantID, "openai", resourceKind, publicID, status)
+}
+
+func (h *ResponsesHandler) updateProviderResourceStatus(
+	c *fiber.Ctx,
+	tenantID string,
+	provider string,
+	resourceKind string,
+	publicID string,
+	status string,
+) {
 	if h.resources != nil {
-		_ = h.resources.UpdateProviderNativeResourceStatus(c.Context(), tenantID, "openai", resourceKind, publicID, status)
+		_ = h.resources.UpdateProviderNativeResourceStatus(c.Context(), tenantID, strings.ToLower(strings.TrimSpace(provider)), resourceKind, publicID, status)
 	}
+}
+
+func resourceProviderSelector(c *fiber.Ctx, resourceKind string, defaultForCollection bool) (string, error) {
+	if resourceKind != openAIFileResourceKind {
+		return "openai", nil
+	}
+	provider := strings.ToLower(strings.TrimSpace(c.Get("x-godarai-provider")))
+	if provider == "" && defaultForCollection {
+		return "openai", nil
+	}
+	if provider != "" && provider != "openai" && provider != "xai" {
+		return "", fmt.Errorf("x-godarai-provider must be openai or xai")
+	}
+	return provider, nil
 }

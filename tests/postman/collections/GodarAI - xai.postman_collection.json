@@ -1,807 +1,211 @@
 {
   "info": {
     "_postman_id": "76359fe7-7635-9fe7-7635-76359fe77635",
-    "name": "GodarAI - Xai",
-    "description": "Placeholder collection for Xai. Enable provider_enabled and set account/model variables after valid credentials are available.",
+    "name": "GodarAI - xAI four-model conformance",
+    "description": "Credential-gated GodarAI contract checks for grok-4.3, grok-4.5, grok-imagine-image, and grok-imagine-image-quality. Requests use only a GodarAI virtual key; never place XAI_API_KEY in this collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{godarai_api_key}}", "type": "string" }]
+  },
+  "event": [
     {
-      "key": "provider_name",
-      "value": "Xai",
-      "type": "string"
-    },
-    {
-      "key": "provider_slug",
-      "value": "xai",
-      "type": "string"
-    },
-    {
-      "key": "provider_model_count",
-      "value": "72",
-      "type": "string"
-    },
-    {
-      "key": "provider_enabled",
-      "value": "false",
-      "type": "string"
-    },
-    {
-      "key": "provider_api_key",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "provider_account_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "provider_account_name",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "model_fqn_default",
-      "value": "xai:{{provider_account_name}}:{{provider_default_model_slug}}",
-      "type": "string"
-    },
-    {
-      "key": "model_fqn_chat",
-      "value": "xai:{{provider_account_name}}:{{provider_chat_model_slug}}",
-      "type": "string"
-    },
-    {
-      "key": "model_fqn_completion",
-      "value": "xai:{{provider_account_name}}:{{provider_completion_model_slug}}",
-      "type": "string"
-    },
-    {
-      "key": "model_fqn_responses",
-      "value": "xai:{{provider_account_name}}:{{provider_responses_model_slug}}",
-      "type": "string"
-    },
-    {
-      "key": "model_fqn_embeddings",
-      "value": "xai:{{provider_account_name}}:{{provider_embedding_model_slug}}",
-      "type": "string"
-    },
-    {
-      "key": "model_fqn_images",
-      "value": "xai:{{provider_account_name}}:{{provider_image_model_slug}}",
-      "type": "string"
-    },
-    {
-      "key": "model_fqn_video",
-      "value": "xai:{{provider_account_name}}:{{provider_video_model_slug}}",
-      "type": "string"
-    },
-    {
-      "key": "supports_chat",
-      "value": "false",
-      "type": "string"
-    },
-    {
-      "key": "supports_completion",
-      "value": "false",
-      "type": "string"
-    },
-    {
-      "key": "supports_responses",
-      "value": "false",
-      "type": "string"
-    },
-    {
-      "key": "supports_embeddings",
-      "value": "false",
-      "type": "string"
-    },
-    {
-      "key": "supports_images",
-      "value": "false",
-      "type": "string"
-    },
-    {
-      "key": "supports_video",
-      "value": "false",
-      "type": "string"
-    },
-    {
-      "key": "supports_batch",
-      "value": "false",
-      "type": "string"
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.get('godarai_api_key')) { throw new Error('godarai_api_key is required'); }",
+          "if (!pm.collectionVariables.get('provider_account_id')) { throw new Error('Set provider_account_id before running xAI conformance'); }"
+        ]
+      }
     }
+  ],
+  "variable": [
+    { "key": "provider_slug", "value": "xai", "type": "string" },
+    { "key": "provider_model_count", "value": "4", "type": "string" },
+    { "key": "provider_account_id", "value": "", "type": "string" },
+    { "key": "grok_43_model", "value": "grok-4.3", "type": "string" },
+    { "key": "grok_45_model", "value": "grok-4.5", "type": "string" },
+    { "key": "imagine_model", "value": "grok-imagine-image", "type": "string" },
+    { "key": "imagine_quality_model", "value": "grok-imagine-image-quality", "type": "string" }
   ],
   "item": [
     {
       "name": "Discovery",
       "item": [
         {
-          "name": "List Gateway Models",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([200]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}"
-                ]
-              }
-            }
-          ],
+          "name": "List exactly the four target models",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{base_url}}/v1/models"
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.response.to.have.status(200);",
+              "const body = pm.response.json();",
+              "const ids = (body.data || body.models || body).map(x => x.id || x.modelId);",
+              "['grok-4.3','grok-4.5','grok-imagine-image','grok-imagine-image-quality'].forEach(id => pm.expect(ids).to.include(id));"
+            ] }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Text models",
+      "item": [
+        {
+          "name": "grok-4.3 Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" },
+              { "key": "x-grok-conv-id", "value": "postman-grok-43" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"model\": \"{{grok_43_model}}\",\n  \"messages\": [{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\n  \"reasoning_effort\": \"none\",\n  \"max_tokens\": 8\n}" },
+            "url": "{{base_url}}/v1/chat/completions"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);", "pm.expect(pm.response.json().usage.cost_in_usd_ticks).to.be.a('number');"] } }]
+        },
+        {
+          "name": "grok-4.5 Chat reasoning",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"model\": \"{{grok_45_model}}\",\n  \"messages\": [{\"role\":\"user\",\"content\":\"Reply with OK.\"}],\n  \"reasoning_effort\": \"low\",\n  \"max_tokens\": 8\n}" },
+            "url": "{{base_url}}/v1/chat/completions"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);", "pm.expect(pm.response.json().usage.cost_in_usd_ticks).to.be.a('number');"] } }]
+        },
+        {
+          "name": "grok-4.5 rejects incompatible sampling",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"model\": \"{{grok_45_model}}\",\n  \"messages\": [],\n  \"reasoning_effort\": \"low\",\n  \"presence_penalty\": 0.1\n}" },
+            "url": "{{base_url}}/v1/chat/completions"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.expect(pm.response.code).to.be.oneOf([400,422]);"] } }]
+        },
+        {
+          "name": "grok-4.3 Responses",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"model\": \"{{grok_43_model}}\",\n  \"input\": \"Reply with OK.\",\n  \"max_output_tokens\": 8\n}" },
+            "url": "{{base_url}}/v1/responses"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);", "pm.expect(pm.response.json().usage.cost_in_usd_ticks).to.be.a('number');"] } }]
+        },
+        {
+          "name": "grok-4.5 Responses compaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"model\": \"{{grok_45_model}}\",\n  \"input\": [{\"role\":\"user\",\"content\":\"Remember that the code is 42.\"}]\n}" },
+            "url": "{{base_url}}/v1/responses/compact"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Image models",
+      "item": [
+        {
+          "name": "Imagine 1K base64 generation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"model\": \"{{imagine_model}}\",\n  \"prompt\": \"A small blue circle on white\",\n  \"n\": 1,\n  \"resolution\": \"1k\",\n  \"aspect_ratio\": \"1:1\",\n  \"response_format\": \"b64_json\"\n}" },
+            "url": "{{base_url}}/v1/images/generations"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);", "const body=pm.response.json();", "pm.expect(body.data[0].b64_json).to.be.a('string');"] } }]
+        },
+        {
+          "name": "Imagine Quality 2K URL generation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"model\": \"{{imagine_quality_model}}\",\n  \"prompt\": \"A small blue circle on white\",\n  \"n\": 1,\n  \"resolution\": \"2k\",\n  \"aspect_ratio\": \"1:1\",\n  \"response_format\": \"url\"\n}" },
+            "url": "{{base_url}}/v1/images/generations"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);", "const body=pm.response.json();", "pm.expect(body.data[0].url).to.be.a('string');"] } }]
+        },
+        {
+          "name": "xAI multipart edits rejected locally",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
+            ],
+            "body": { "mode": "formdata", "formdata": [
+              { "key": "model", "value": "{{imagine_model}}", "type": "text" },
+              { "key": "prompt", "value": "edit", "type": "text" }
+            ] },
+            "url": "{{base_url}}/v1/images/edits"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.expect(pm.response.code).to.be.oneOf([400,415,422]);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Resources",
+      "item": [
+        {
+          "name": "List xAI Files",
+          "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
             ],
-            "url": {
-              "raw": "{{base_url}}/v1/models",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "models"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Text",
-      "item": [
-        {
-          "name": "Chat Completions Placeholder",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([200]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}",
-                  "const body = pm.response.json();",
-                  "pm.test('chat completion shape', () => { pm.expect(body).to.have.property('choices'); pm.expect(body.choices).to.be.an('array').that.is.not.empty; });",
-                  "if (body.id) pm.collectionVariables.set('last_chat_completion_id', body.id);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/v1/chat/completions",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "chat",
-                "completions"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"{{model_fqn_chat}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Smoke test for Xai\"\n    }\n  ],\n  \"max_tokens\": 32\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
+            "url": "{{base_url}}/v1/files?limit=10"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);"] } }]
         },
         {
-          "name": "Responses Placeholder",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([200]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}",
-                  "const body = pm.response.json();",
-                  "pm.test('responses shape', () => { pm.expect(body.id || body.output || body.output_text).to.exist; });",
-                  "if (body.id) pm.collectionVariables.set('last_response_api_id', body.id);"
-                ]
-              }
-            }
-          ],
+          "name": "xAI Batch is fail-closed pending settlement",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-godarai-provider", "value": "xai" },
+              { "key": "x-godarai-provider-account", "value": "{{provider_account_id}}" }
             ],
-            "url": {
-              "raw": "{{base_url}}/v1/responses",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "responses"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"{{model_fqn_responses}}\",\n  \"input\": \"Smoke test for Xai\",\n  \"max_output_tokens\": 32\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Completions Placeholder",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([200]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}",
-                  "const body = pm.response.json();",
-                  "pm.test('completion shape', () => { pm.expect(body).to.have.property('choices'); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/v1/completions",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "completions"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"{{model_fqn_completion}}\",\n  \"prompt\": \"Smoke test for Xai\",\n  \"max_tokens\": 32\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Specialized",
-      "item": [
-        {
-          "name": "Embeddings Placeholder",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([200]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}",
-                  "const body = pm.response.json();",
-                  "pm.test('embedding shape', () => { pm.expect(body.object).to.eql('list'); pm.expect(body.data).to.be.an('array').that.is.not.empty; });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/v1/embeddings",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "embeddings"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"{{model_fqn_embeddings}}\",\n  \"input\": \"Embedding smoke test for Xai\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Images Placeholder",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([200]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}",
-                  "const body = pm.response.json();",
-                  "pm.test('image shape', () => { pm.expect(body.data || body.output || body.images).to.exist; });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/v1/images/generations",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "images",
-                "generations"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"{{model_fqn_images}}\",\n  \"prompt\": \"API diagnostic image for Xai\",\n  \"n\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Batch Placeholder - Route Not Registered",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([404,501]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/v1/batches",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "batches"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"input_file_id\": \"{{batch_input_file_id}}\",\n  \"endpoint\": \"/v1/chat/completions\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Video Placeholder - Route Not Registered",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const required = ['base_url', 'tenant_slug', 'godarai_api_key'];",
-                  "const missing = required.filter((key) => !pm.variables.get(key));",
-                  "if (missing.length) {",
-                  "  pm.collectionVariables.set('last_skip_reason', `Missing required variable(s): ${missing.join(', ')}`);",
-                  "  pm.execution.skipRequest();",
-                  "}",
-                  "if (String(pm.collectionVariables.get('provider_enabled') || '').toLowerCase() !== 'true') {",
-                  "  pm.collectionVariables.set('last_skip_reason', 'Provider placeholder is disabled until credentials/account-provider/FQNs are configured.');",
-                  "  pm.execution.skipRequest();",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const skip = pm.collectionVariables.get('last_skip_reason');",
-                  "if (skip) { pm.test(`Skipped: ${skip}`, () => pm.expect(true).to.eql(true)); pm.collectionVariables.unset('last_skip_reason'); }",
-                  "pm.test('status is expected', () => pm.expect([404,501]).to.include(pm.response.code));",
-                  "pm.test('response is JSON when body is present', () => { if (pm.response.text()) pm.response.to.be.json; });",
-                  "const requestId = pm.response.headers.get('x-request-id') || pm.response.headers.get('x-godarai-request-id') || pm.response.headers.get('x-trace-id');",
-                  "if (requestId) pm.collectionVariables.set('last_request_id', requestId);",
-                  "try { const body = pm.response.json(); if (body.id) pm.collectionVariables.set('last_response_id', body.id); } catch (_) {}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{godarai_api_key}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "x-godarai-tenant",
-                "value": "{{tenant_slug}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/v1/videos",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "v1",
-                "videos"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"{{model_fqn_video}}\",\n  \"prompt\": \"Video diagnostic placeholder for Xai\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
+            "body": { "mode": "raw", "raw": "{\"name\":\"godarai-postman-conformance\"}" },
+            "url": "{{base_url}}/v1/batches"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(503);", "pm.expect(pm.response.json().error.type).to.eql('billing_unavailable');"] } }]
         }
       ]
     }

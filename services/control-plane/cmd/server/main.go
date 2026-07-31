@@ -223,6 +223,24 @@ func main() {
 		go openAIPricing.Run(pricingCtx, 5*time.Minute)
 	}
 
+	xaiPricing, xaiPricingErr :=
+		billing.NewCatalogPricingSnapshotManagerFromEnv("xai", nil)
+	if xaiPricingErr != nil {
+		logger.Warn(
+			"xAI pricing is unavailable; xAI requests will fail closed until configuration is restored",
+			zap.Error(xaiPricingErr),
+		)
+	} else {
+		billingService.SetCatalogPricingSnapshotManager("xai", xaiPricing)
+		if xaiPricingErr := xaiPricing.Reload(ctx); xaiPricingErr != nil {
+			logger.Warn(
+				"Initial xAI pricing snapshot is unavailable; background refresh will retry",
+				zap.Error(xaiPricingErr),
+			)
+		}
+		go xaiPricing.Run(pricingCtx, 5*time.Minute)
+	}
+
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
 		billing.LoadNobitexExchangeRateConfigFromEnv(cfg.BillingSettings.RateSource),

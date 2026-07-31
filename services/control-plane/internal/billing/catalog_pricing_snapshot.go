@@ -170,7 +170,7 @@ func normalizeCatalogPricingSnapshot(
 				input.SourceURL == "" {
 				return nil, ErrPricingUnavailable
 			}
-			if _, duplicate := rates[input.Dimension]; duplicate && provider != "openai" {
+			if _, duplicate := rates[input.Dimension]; duplicate && provider != "openai" && provider != "xai" {
 				return nil, fmt.Errorf(
 					"%w: duplicate %s rate dimension %s",
 					ErrPricingUnavailable,
@@ -204,6 +204,9 @@ func normalizeCatalogPricingSnapshot(
 		}
 		models[normalizeCatalogPricingModelID(item.Slug, provider)] = model
 		models[normalizeCatalogPricingModelID(item.CanonicalID, provider)] = model
+		for _, alias := range item.RuntimeProfile.Profile.Aliases {
+			models[normalizeCatalogPricingModelID(alias, provider)] = model
+		}
 	}
 	return &anthropicPricingSnapshot{
 		Revision:    payload.Revision,

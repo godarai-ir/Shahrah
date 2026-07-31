@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,13 +43,19 @@ func (s *responseOperationResources) UpsertProviderNativeResourceMapping(
 
 func (s *responseOperationResources) GetProviderNativeResourceMapping(
 	_ context.Context,
-	_ string,
-	_ string,
+	tenantID string,
+	provider string,
 	_ string,
 	publicID string,
 ) (*platform.ProviderNativeResourceMapping, error) {
 	mapping, ok := s.mappings[publicID]
 	if !ok {
+		return nil, storage.ErrProviderNativeResourceNotFound
+	}
+	if mapping.Provider != "" && !strings.EqualFold(mapping.Provider, provider) {
+		return nil, storage.ErrProviderNativeResourceNotFound
+	}
+	if mapping.TenantID != "" && mapping.TenantID != tenantID {
 		return nil, storage.ErrProviderNativeResourceNotFound
 	}
 	return &mapping, nil
@@ -69,6 +76,9 @@ func (s *responseOperationResources) UpdateProviderNativeResourceStatus(
 		s.statuses = make(map[string]string)
 	}
 	s.statuses[publicID] = status
+	mapping := s.mappings[publicID]
+	mapping.Status = status
+	s.mappings[publicID] = mapping
 	return nil
 }
 
@@ -100,7 +110,17 @@ func newResponseOperationsTestApp(
 		ProviderAccountID:   "acct_1",
 		ProviderAccountName: "primary-openai",
 	}
-	deployments := responseOperationDeployments{deployments: []platform.Deployment{deployment}}
+	xaiDeployment := platform.Deployment{
+		ID:                  "dep_xai_1",
+		TenantID:            "tenant_a",
+		ModelName:           "grok-4.5",
+		Provider:            "xai",
+		Model:               "grok-4.5",
+		APIKey:              "xai-test-key",
+		ProviderAccountID:   "xai_acct_1",
+		ProviderAccountName: "primary-xai",
+	}
+	deployments := responseOperationDeployments{deployments: []platform.Deployment{deployment, xaiDeployment}}
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter(
@@ -153,11 +173,17 @@ func newResponseOperationsTestApp(
 	app.Get("/v1/batches", h.HandleBatchList)
 	app.Get("/v1/batches/:batch_id", h.HandleBatchGet)
 	app.Post("/v1/batches/:batch_id/cancel", h.HandleBatchCancel)
+	app.Get("/v1/batches/:batch_id/requests", h.HandleXAIBatchRequestsList)
+	app.Post("/v1/batches/:batch_id/requests", h.HandleXAIBatchRequestsAdd)
+	app.Get("/v1/batches/:batch_id/results", h.HandleXAIBatchResults)
 	app.Post("/v1/files", h.HandleFileCreate)
 	app.Get("/v1/files", h.HandleFileList)
 	app.Get("/v1/files/:file_id", h.HandleFileGet)
+	app.Put("/v1/files/:file_id", h.HandleFileUpdate)
 	app.Delete("/v1/files/:file_id", h.HandleFileDelete)
 	app.Get("/v1/files/:file_id/content", h.HandleFileContent)
+	app.Post("/v1/files/:file_id/public-url", h.HandleFilePublicURLCreate)
+	app.Post("/v1/files/:file_id/public-url/revoke", h.HandleFilePublicURLRevoke)
 	return app
 }
 
@@ -190,6 +216,157 @@ func TestOpenAIFileCreateUsesRawTunnelAndRecordsAffinity(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, openAIFileResourceKind, mapping.ResourceKind)
 	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
+}
+
+func TestXAIFileCreateUsesSelectedProviderAndRecordsAffinity(t *testing.T) {
+	resources := &responseOperationResources{}
+	tunnel := &rawSpeechTunnel{
+		captureTunnel: &captureTunnel{},
+		rawResp: &platform.TunnelRawResponse{
+			StatusCode: fiber.StatusOK,
+			Headers:    map[string]string{"content-type": "application/json"},
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{"id":"file_xai","status":"processed"}`))),
+		},
+	}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+	requestBody, contentType := buildMultipartBody(t, map[string]string{"purpose": "assistants"}, map[string][]byte{"file": []byte("hello")})
+	req := httptest.NewRequest(http.MethodPost, "/v1/files", bytes.NewReader(requestBody))
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("x-godarai-provider", "xai")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, "xai", tunnel.lastReq.Deployment.Provider)
+	assert.Equal(t, "xai_acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
+	assert.Equal(t, requestBody, tunnel.rawBody)
+	mapping, ok := resources.mappings["file_xai"]
+	require.True(t, ok)
+	assert.Equal(t, "xai", mapping.Provider)
+	assert.Equal(t, "xai_acct_1", mapping.ProviderAccountID)
+}
+
+func TestXAIFilePublicURLUsesOwnedFileProvider(t *testing.T) {
+	resources := &responseOperationResources{mappings: map[string]platform.ProviderNativeResourceMapping{
+		"file_xai": {
+			PublicID: "file_xai", TenantID: "tenant_a", Provider: "xai",
+			ProviderAccountID: "xai_acct_1", ResourceKind: openAIFileResourceKind,
+			UpstreamID: "file_xai_upstream", Status: "processed",
+		},
+	}}
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       []byte(`{"public_url":"https://files-cdn.x.ai/token/file.png"}`),
+	}}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+	req := httptest.NewRequest(http.MethodPost, "/v1/files/file_xai/public-url", bytes.NewBufferString(`{"expires_after":3600}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, platform.ProviderOperationXAIFilePublicURLCreate, tunnel.lastReq.Operation)
+	assert.Equal(t, "file_xai_upstream", tunnel.lastReq.OperationInput.ResourceID)
+	assert.Equal(t, "xai", tunnel.lastReq.Deployment.Provider)
+	assert.JSONEq(t, `{"expires_after":3600}`, string(tunnel.lastReq.Body))
+	assert.Equal(t, "https://files-cdn.x.ai/token/file.png", resources.mappings["file_xai"].Metadata["public_url"])
+}
+
+func TestXAIFilePublicURLRejectsKnownIneligibleFileMetadata(t *testing.T) {
+	now := time.Date(2026, time.July, 31, 12, 0, 0, 0, time.UTC)
+	shortExpiry := now.Add(90 * time.Minute)
+	tests := []struct {
+		name       string
+		mapping    platform.ProviderNativeResourceMapping
+		expires    *int
+		wantReason string
+	}{
+		{
+			name:       "too large",
+			mapping:    platform.ProviderNativeResourceMapping{Metadata: map[string]interface{}{"bytes": int64(50*1024*1024 + 1)}},
+			wantReason: "50 MiB",
+		},
+		{
+			name:       "unsupported content type",
+			mapping:    platform.ProviderNativeResourceMapping{Metadata: map[string]interface{}{"content_type": "text/plain"}},
+			wantReason: "content_type",
+		},
+		{
+			name:       "url outlives file",
+			mapping:    platform.ProviderNativeResourceMapping{ExpiresAt: &shortExpiry},
+			expires:    pointerTo(2 * 60 * 60),
+			wantReason: "remaining lifetime",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Contains(t, validateXAIFilePublicURLRequest(&test.mapping, test.expires, now), test.wantReason)
+		})
+	}
+	allowed := platform.ProviderNativeResourceMapping{Metadata: map[string]interface{}{
+		"bytes":        int64(50 * 1024 * 1024),
+		"content_type": "image/png",
+	}}
+	assert.Empty(t, validateXAIFilePublicURLRequest(&allowed, pointerTo(3600), now))
+}
+
+func pointerTo(value int) *int { return &value }
+
+func TestXAIFileUpdateUsesFixedOperationAndOwnedAccount(t *testing.T) {
+	resources := &responseOperationResources{mappings: map[string]platform.ProviderNativeResourceMapping{
+		"file_xai": {
+			PublicID: "file_xai", TenantID: "tenant_a", Provider: "xai",
+			ProviderAccountID: "xai_acct_1", ResourceKind: openAIFileResourceKind,
+			UpstreamID: "file_xai_upstream", Status: "processed",
+		},
+	}}
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       []byte(`{"id":"file_xai_upstream","filename":"renamed.png"}`),
+	}}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+	req := httptest.NewRequest(http.MethodPut, "/v1/files/file_xai", bytes.NewBufferString(`{"filename":"renamed.png"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, platform.ProviderOperationXAIFilesUpdate, tunnel.lastReq.Operation)
+	assert.Equal(t, "file_xai_upstream", tunnel.lastReq.OperationInput.ResourceID)
+	assert.Equal(t, "xai_acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
+	assert.JSONEq(t, `{"filename":"renamed.png"}`, string(tunnel.lastReq.Body))
+	assert.Equal(t, "renamed.png", resources.mappings["file_xai"].Metadata["filename"])
+	_, createdWithUpstreamID := resources.mappings["file_xai_upstream"]
+	assert.False(t, createdWithUpstreamID)
+}
+
+func TestXAIFileListRecordsReturnedFilesForOwnedFollowUpOperations(t *testing.T) {
+	resources := &responseOperationResources{}
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       []byte(`{"data":[{"id":"file_existing","bytes":42,"filename":"existing.pdf","expires_at":1780000000}],"pagination_token":"next"}`),
+	}}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+	req := httptest.NewRequest(http.MethodGet, "/v1/files?limit=20&pagination_token=previous", nil)
+	req.Header.Set("x-godarai-provider", "xai")
+	req.Header.Set("x-godarai-provider-account", "xai_acct_1")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	mapping, ok := resources.mappings["file_existing"]
+	require.True(t, ok)
+	assert.Equal(t, "xai", mapping.Provider)
+	assert.Equal(t, "xai_acct_1", mapping.ProviderAccountID)
+	assert.Equal(t, int64(42), mapping.Metadata["bytes"])
+	assert.Equal(t, "existing.pdf", mapping.Metadata["filename"])
 }
 
 func TestOpenAIBatchOperationsArePublicAndAccountBound(t *testing.T) {
@@ -229,6 +406,46 @@ func TestOpenAIBatchOperationsArePublicAndAccountBound(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
 	assert.Equal(t, openAIBatchResourceKind, mapping.ResourceKind)
+}
+
+func TestXAIBatchCreateFailsClosedUntilSettlementIsReady(t *testing.T) {
+	resources := &responseOperationResources{}
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       []byte(`{"batch_id":"batch_xai","name":"nightly","state":{"num_requests":0}}`),
+	}}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+	req := httptest.NewRequest(http.MethodPost, "/v1/batches", bytes.NewBufferString(`{"name":"nightly"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-godarai-provider", "xai")
+	req.Header.Set("x-godarai-provider-account", "xai_acct_1")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
+	assert.Empty(t, tunnel.lastReq.Operation)
+	assert.Empty(t, resources.mappings)
+}
+
+func TestParseXAIBatchRequestsRejectsUnknownSurface(t *testing.T) {
+	requests, err := parseXAIBatchRequests([]byte(`{"batch_requests":[
+		{"batch_request_id":"one","batch_request":{"chat_get_completion":{"model":"grok-4.3"}}},
+		{"batch_request_id":"two","batch_request":{"responses":{"model":"grok-4.3"}}},
+		{"batch_request_id":"three","batch_request":{"image_generation":{"model":"grok-imagine-image"}}},
+		{"batch_request_id":"four","batch_request":{"image_edit":{"model":"grok-imagine-image-quality"}}}
+	]}`))
+	require.NoError(t, err)
+	require.Equal(t, []xaiBatchModelRequest{
+		{Model: "grok-4.3", Endpoint: "chat_completions"},
+		{Model: "grok-4.3", Endpoint: "responses"},
+		{Model: "grok-imagine-image", Endpoint: "image_generations"},
+		{Model: "grok-imagine-image-quality", Endpoint: "image_edits"},
+	}, requests)
+
+	_, err = parseXAIBatchRequests([]byte(`{"batch_requests":[{"batch_request":{"unknown":{"model":"grok-4.3"}}}]}`))
+	require.ErrorContains(t, err, "unsupported xAI batch request type")
 }
 
 func TestResponsesResourceOperationsArePublicAndAccountBound(t *testing.T) {
@@ -507,4 +724,43 @@ func TestResponsesStreamingCreatePersistsProviderAccountAffinity(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
 	assert.Equal(t, "in_progress", mapping.Status)
+}
+
+func TestXAIResponseResourceMappingIsProviderAndTenantBound(t *testing.T) {
+	resources := &responseOperationResources{mappings: map[string]platform.ProviderNativeResourceMapping{
+		"resp_xai": {
+			PublicID:          "resp_xai",
+			TenantID:          "tenant_a",
+			Provider:          "xai",
+			ProviderAccountID: "xai_acct_1",
+			ResourceKind:      responsesResourceKind,
+			UpstreamID:        "resp_xai_upstream",
+		},
+	}}
+	handler := &ResponsesHandler{resources: resources}
+
+	mapping, err := handler.responseResourceMapping(context.Background(), "tenant_a", "resp_xai")
+	require.NoError(t, err)
+	assert.Equal(t, "xai", mapping.Provider)
+	assert.Equal(t, "xai_acct_1", mapping.ProviderAccountID)
+
+	_, err = handler.responseResourceMapping(context.Background(), "tenant_b", "resp_xai")
+	require.ErrorIs(t, err, storage.ErrProviderNativeResourceNotFound)
+}
+
+func TestResolveResponseDeploymentPinsXAIProviderAccount(t *testing.T) {
+	handler := &ResponsesHandler{deployments: responseOperationDeployments{deployments: []platform.Deployment{
+		{ID: "openai_dep", Provider: "openai", Model: "grok-4.5", ProviderAccountID: "shared"},
+		{ID: "xai_dep", Provider: "xai", Model: "grok-4.5", ProviderAccountID: "shared"},
+	}}}
+
+	deployment, err := handler.resolveResponseDeployment(
+		context.Background(),
+		"tenant_a",
+		"xai",
+		"shared",
+		"grok-4.5",
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "xai_dep", deployment.ID)
 }

@@ -53,7 +53,7 @@ func newProviderRegistry() *providerRegistry {
 			"fireworks":        newOpenAICompatibleAdapter(""),
 			"togetherai":       newOpenAICompatibleAdapter("https://api.together.xyz/v1"),
 			"together-ai":      newOpenAICompatibleAdapter("https://api.together.xyz/v1"),
-			"xai":              newOpenAICompatibleAdapter("https://api.x.ai/v1"),
+			"xai":              newXAIAdapter(),
 			"cohere":           newCohereAdapter(),
 			"deepgram":         newDeepgramAudioTranscriptionsAdapter(),
 			"google-vertex":    newGoogleVertexSpeechAdapter(),

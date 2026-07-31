@@ -44,3 +44,10 @@ func TestBillingEstimateModel_PreservesOpenAIFQN(t *testing.T) {
 		t.Fatalf("expected OpenAI FQN to be preserved, got %q", got)
 	}
 }
+
+func TestBillingEstimateModel_PreservesXAIFQN(t *testing.T) {
+	got := billingEstimateModel("xai:production:grok-4.5")
+	if got != "xai:production:grok-4.5" {
+		t.Fatalf("expected xAI FQN to be preserved, got %q", got)
+	}
+}

@@ -101,7 +101,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowHeaders: strings.Join([]string{
 			"Origin", "Content-Type", "Accept", "Authorization", "api-key", "x-api-key",
-			"anthropic-version", "anthropic-beta", "x-godarai-provider-account", "x-client-request-id",
+			"anthropic-version", "anthropic-beta", "x-godarai-provider", "x-godarai-provider-account", "x-grok-conv-id", "x-client-request-id",
 			apiheaders.HeaderTenant, apiheaders.HeaderGuardrails,
 			apiheaders.HeaderGuardrailsScope,
 		}, ", "),

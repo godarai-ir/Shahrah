@@ -14,12 +14,14 @@ func runtimeProfilesFromEstimate(
 	estimated platform.UsageCostBreakdown,
 ) ([]platform.ModelRuntimeProfileBinding, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
-	if provider != "anthropic" && !isGoogleGeminiProvider(provider) {
+	if provider != "anthropic" && provider != "xai" && !isGoogleGeminiProvider(provider) {
 		return nil, nil
 	}
 	providerLabel := "Anthropic"
 	if isGoogleGeminiProvider(provider) {
 		providerLabel = "Google Gemini"
+	} else if provider == "xai" {
+		providerLabel = "xAI"
 	}
 	if estimated.ModelRuntimeProfile == nil {
 		return nil, fmt.Errorf("%s model runtime profile is unavailable", providerLabel)

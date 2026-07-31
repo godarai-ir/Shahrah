@@ -34,6 +34,7 @@ type ImagesHandler struct {
 	billing    budgeter
 	wallets    walletStore
 	logs       usageLogger
+	resources  providerNativeResourceStore
 	logger     *zap.Logger
 	emitMetric func(input metricsobs.BuildInput)
 }
@@ -71,6 +72,7 @@ func NewImagesHandlerWithDependencies(deps BaseHandlerDependencies) *ImagesHandl
 		billing:    deps.Billing,
 		wallets:    deps.Wallets,
 		logs:       deps.logger(),
+		resources:  deps.ProviderResources,
 		logger:     deps.Logger,
 		emitMetric: deps.metricEmitter(),
 	}
@@ -194,6 +196,17 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+	if strings.EqualFold(strings.TrimSpace(dep.Provider), "xai") {
+		if validationErr := validateXAIImageRuntimeProfile(
+			op.Name,
+			contentType,
+			metadata,
+			estimated.ModelRuntimeProfile,
+		); validationErr != nil {
+			param, code := imageValidationErrorDetail(validationErr)
+			return writeAPIErrorDetail(c, fiber.StatusBadRequest, validationErr.Error(), "invalid_request_error", param, code)
+		}
+	}
 	if isGoogleGeminiProvider(dep.Provider) {
 		if op.Name != "generations" {
 			return writeAPIError(
@@ -293,7 +306,21 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
 	}
+	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+		dep.Provider,
+		outboundModel,
+		estimated,
+	)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "model_profile_error")
+	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+	if strings.EqualFold(strings.TrimSpace(tunnelReq.Deployment.Provider), "xai") && isJSONContentType(outboundContentType) {
+		tunnelReq.Body, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, tunnelReq.Deployment.ProviderAccountID, tunnelReq.Body)
+		if err != nil {
+			return writeXAIFileReferenceError(c, err)
+		}
+	}
 
 	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType, body, contentType)
 	if err == nil {
@@ -353,6 +380,9 @@ func (h *ImagesHandler) handleSync(
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
 	providerCostUSDTicks := imageUsageCostTicksPtr(resp.Body)
+	if strings.EqualFold(tunnelReq.Deployment.Provider, "xai") {
+		h.recordXAIImageFileOutputs(c, authInfo.TenantID, tunnelReq.Deployment, resp.Body)
+	}
 
 	finalCost, err := h.billing.FinalizeImageUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), imageUsageToOpenAI(resp.Body), providerCostUSDTicks, estimated)
 	if err != nil {
@@ -442,6 +472,50 @@ func (h *ImagesHandler) emitModelMetric(input metricsobs.BuildInput) {
 	h.emitMetric(input)
 }
 
+func (h *ImagesHandler) recordXAIImageFileOutputs(c *fiber.Ctx, tenantID string, deployment platform.Deployment, body []byte) {
+	if h.resources == nil || strings.TrimSpace(deployment.ProviderAccountID) == "" {
+		return
+	}
+	var response struct {
+		Data []struct {
+			FileOutput *struct {
+				FileID             string      `json:"file_id"`
+				Filename           string      `json:"filename"`
+				ExpiresAt          json.Number `json:"expires_at"`
+				PublicURL          string      `json:"public_url"`
+				PublicURLExpiresAt json.Number `json:"public_url_expires_at"`
+				PublicURLError     string      `json:"public_url_error"`
+			} `json:"file_output"`
+		} `json:"data"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if decoder.Decode(&response) != nil {
+		return
+	}
+	for _, item := range response.Data {
+		if item.FileOutput == nil || strings.TrimSpace(item.FileOutput.FileID) == "" {
+			continue
+		}
+		metadata := map[string]interface{}{"deployment_id": deployment.ID, "source": "imagine"}
+		copyStringMetadata(metadata, "filename", item.FileOutput.Filename)
+		copyStringMetadata(metadata, "public_url", item.FileOutput.PublicURL)
+		copyStringMetadata(metadata, "public_url_error", item.FileOutput.PublicURLError)
+		copyNumberMetadata(metadata, "expires_at", item.FileOutput.ExpiresAt)
+		copyNumberMetadata(metadata, "public_url_expires_at", item.FileOutput.PublicURLExpiresAt)
+		var expiresAt *time.Time
+		if unix, ok := numberInt64(item.FileOutput.ExpiresAt); ok {
+			value := time.Unix(unix, 0).UTC()
+			expiresAt = &value
+		}
+		_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), platform.ProviderNativeResourceMapping{
+			PublicID: item.FileOutput.FileID, TenantID: tenantID, Provider: "xai",
+			ProviderAccountID: deployment.ProviderAccountID, ResourceKind: openAIFileResourceKind,
+			UpstreamID: item.FileOutput.FileID, Status: "active", Metadata: metadata, ExpiresAt: expiresAt,
+		})
+	}
+}
+
 func extractImageRequestMetadata(c *fiber.Ctx, body []byte, contentType string, op imageOperation) (string, map[string]interface{}, error) {
 	metadata := map[string]interface{}{"content_type": safeContentTypeFamily(contentType)}
 	if isJSONContentType(contentType) || strings.TrimSpace(contentType) == "" {
@@ -511,10 +585,13 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
 
-	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "input_fidelity"} {
+	for _, key := range []string{"size", "quality", "response_format", "output_format", "moderation", "background", "input_fidelity", "aspect_ratio", "resolution"} {
 		if v, ok := raw[key].(string); ok && strings.TrimSpace(v) != "" {
 			metadata[key] = strings.TrimSpace(v)
 		}
+	}
+	if storageOptions, ok := raw["storage_options"]; ok && storageOptions != nil {
+		metadata["storage_options_present"] = true
 	}
 
 	for _, key := range []string{"output_compression", "partial_images"} {
@@ -527,11 +604,16 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 		metadata["n"] = n
 	}
 
+	imageCount := 0
 	if _, ok := raw["image"]; ok {
 		metadata["image_source_type"] = traceImageSourceType(raw["image"])
-		if count := jsonImageCount(raw["image"]); count > 0 {
-			metadata["image_count"] = count
-		}
+		imageCount += jsonImageCount(raw["image"])
+	}
+	if _, ok := raw["images"]; ok {
+		imageCount += jsonImageCount(raw["images"])
+	}
+	if imageCount > 0 {
+		metadata["image_count"] = imageCount
 	}
 
 	if _, ok := raw["mask"]; ok {
@@ -1164,7 +1246,9 @@ func withImageResponseMetadata(input map[string]interface{}, body []byte) map[st
 
 func imageUsageCostTicks(body []byte) (int64, bool) {
 	var raw map[string]interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&raw); err != nil {
 		return 0, false
 	}
 
@@ -1174,8 +1258,6 @@ func imageUsageCostTicks(body []byte) (int64, bool) {
 	}
 
 	switch v := usage["cost_in_usd_ticks"].(type) {
-	case float64:
-		return int64(v), true
 	case int64:
 		return v, true
 	case json.Number:

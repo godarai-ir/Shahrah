@@ -47,6 +47,21 @@ func TestValidateProviderAPIKeySupportsSambaNova(t *testing.T) {
 	assert.Equal(t, "Bearer sbnv-real-key-1234", gotAuth)
 }
 
+func TestValidateProviderAPIKeySupportsXAI(t *testing.T) {
+	var gotAuth string
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		gotAuth = r.Header.Get("Authorization")
+		assert.Equal(t, "api.x.ai", r.URL.Host)
+		assert.Equal(t, "/v1/models", r.URL.Path)
+		return jsonResponse(http.StatusOK, `{"data":[],"object":"list"}`), nil
+	})}
+
+	result := validateProviderAPIKey(context.Background(), "xai", "xai-real-key-1234", map[string]interface{}{}, client)
+
+	assert.True(t, result.Success)
+	assert.Equal(t, "Bearer xai-real-key-1234", gotAuth)
+}
+
 func TestValidateProviderAPIKeyRejectsInvalidProviderKey(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return jsonResponse(http.StatusUnauthorized, `{"error":{"message":"Incorrect API key provided: sk-real-key-1234"}}`), nil

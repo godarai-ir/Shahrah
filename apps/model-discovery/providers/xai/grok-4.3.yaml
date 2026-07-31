@@ -1,0 +1,130 @@
+model: grok-4.3
+aliases: [grok-4.3-latest, grok-latest]
+status: active
+supportedModes: [chat, responses]
+modalities:
+  input: [text, image]
+  output: [text]
+features:
+  - function_calling
+  - parallel_function_calling
+  - tool_choice
+  - system_messages
+  - prompt_caching
+  - structured_output
+  - json_output
+  - code_execution
+tools: [web_search, x_search, code_execution, mcp]
+params:
+  - key: reasoning_effort
+    supportedValues: [none, low, medium, high]
+  - key: max_completion_tokens
+  - key: response_format
+  - key: tools
+  - key: tool_choice
+  - key: parallel_tool_calls
+  - key: service_tier
+    supportedValues: [default, priority]
+  - key: deferred
+    type: boolean
+  - key: prompt_cache_key
+removeParams: [logprobs, top_logprobs]
+limits:
+  context_window: 1000000
+  max_input_tokens: 1000000
+costs:
+  - region: '*'
+    input_cost_per_token: 0.00000125
+    cache_read_input_token_cost: 0.0000002
+    output_cost_per_token: 0.0000025
+    xai_long_context_input_cost_per_token: 0.0000025
+    xai_long_context_cache_read_input_token_cost: 0.0000004
+    xai_long_context_output_cost_per_token: 0.000005
+    input_cost_per_token_batches: 0.000001
+    cache_read_input_token_cost_batches: 0.00000016
+    output_cost_per_token_batches: 0.000002
+    xai_batch_long_context_input_cost_per_token: 0.000002
+    xai_batch_long_context_cache_read_input_token_cost: 0.00000032
+    xai_batch_long_context_output_cost_per_token: 0.000004
+    priority_pricing:
+      input_cost_per_token: 0.0000025
+      cache_read_input_token_cost: 0.0000004
+      output_cost_per_token: 0.000005
+    xai_priority_long_context_input_cost_per_token: 0.000005
+    xai_priority_long_context_cache_read_input_token_cost: 0.0000008
+    xai_priority_long_context_output_cost_per_token: 0.00001
+sources:
+  - https://docs.x.ai/developers/models/grok-4.3
+  - https://docs.x.ai/developers/pricing
+  - https://docs.x.ai/developers/rest-api-reference/inference/chat
+  - https://docs.x.ai/developers/advanced-api-usage/batch-api
+  - https://docs.x.ai/developers/cost-tracking
+runtimeProfile:
+  version: 3
+  aliases: [grok-4.3-latest, grok-latest]
+  endpoints:
+    [
+      models,
+      chat_completions,
+      deferred_chat_completions,
+      responses,
+    ]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive, disabled]
+    manualDeprecated: false
+    effortValues: [none, low, medium, high]
+  assistantPrefill: false
+  sampling:
+    parameters: [temperature, top_p]
+    disallowedWithThinking: []
+  tools:
+    custom: true
+    server: true
+    parallel: true
+    structuredOutput: true
+    supported: [function_calling, web_search, x_search, code_execution, mcp]
+  modalities:
+    input: [text, image]
+    output: [text]
+  requestControls:
+    serviceTierValues: [default, priority]
+    inferenceGeoValues: [global]
+    speedValues: []
+  requestHeaders:
+    allowed: [x-grok-conv-id]
+    byEndpoint:
+      chat_completions: [x-grok-conv-id]
+  contextPricing:
+    longContextThresholdTokens: 200000
+    appliesToAllTokens: true
+  batch:
+    eligible: false
+    discounted: true
+    supportedEndpoints: [chat_completions, responses]
+    maxRequestBytes: 26214400
+  deferredCompletions:
+    eligible: true
+    retentionSeconds: 86400
+    maximumRetrievals: 1
+  responseResources:
+    store: true
+    retrieve: true
+    delete: true
+    compact: false
+    countInputTokens: false
+  usageAccounting:
+    requiredResponseFields: [cost_in_usd_ticks]
+    exactProviderCost: true
+  unsupportedParameters: [logprobs, top_logprobs]
+  minimumRetentionDays: 0
+  zdrEligible: false
+  limits:
+    contextWindow: 1000000
+    maxInputTokens: 1000000
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 26214400
+    fileBytes: 50331648

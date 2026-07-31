@@ -32,6 +32,19 @@ type captureTunnel struct {
 	lastReq   platform.TunnelRequest
 }
 
+type xaiResponsesBudgeter struct{ testBudgeter }
+
+func (b *xaiResponsesBudgeter) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
+	estimated, err := b.testBudgeter.EstimateCost(ctx, req)
+	if err != nil {
+		return estimated, err
+	}
+	binding := xaiProxyTestRuntimeProfile()
+	estimated.ModelRuntimeProfile = &binding
+	estimated.PricingRevision = binding.CatalogRevision
+	return estimated, nil
+}
+
 func (t *captureTunnel) Proxy(_ context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	t.lastReq = req
 	return t.resp, nil
@@ -53,11 +66,17 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, l
 
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	require.NoError(t, err)
+	modelName := "gpt-4o"
+	var billing budgeter = &testBudgeter{}
+	if strings.EqualFold(provider, "xai") {
+		modelName = "grok-4.5"
+		billing = &xaiResponsesBudgeter{}
+	}
 	rt, err := router.NewRouter([]config.ModelDeployment{{
-		ModelName: "gpt-4o",
+		ModelName: modelName,
 		ProviderEndpoint: config.ProviderEndpointConfig{
 			Provider: provider,
-			Model:    "gpt-4o",
+			Model:    modelName,
 			APIKey:   "test-key",
 		},
 	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
@@ -68,7 +87,7 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, l
 		logs = logsOpt[0]
 	}
 
-	h := NewResponsesHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop())
+	h := NewResponsesHandler(rt, tunnel, billing, &testWallets{}, logs, zap.NewNop())
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -307,6 +326,37 @@ func TestResponsesHandlerRejectsNonOpenAIProvider(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotImplemented, resp.StatusCode)
+}
+
+func TestResponsesHandlerSupportsXAIWithPinnedProfileAndProviderFields(t *testing.T) {
+	upstreamBody := []byte(`{"id":"resp_xai","object":"response","model":"grok-4.5","status":"completed","output":[{"type":"x_search_call","id":"tool_1","provider_extension":{"keep":true}}],"usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5,"cost_in_usd_ticks":123456789,"num_server_side_tools_used":1},"xai_extension":{"keep":true}}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       upstreamBody,
+	}}
+	app, _ := newResponsesTestApp(t, "xai", tunnel)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"grok-4.5","input":"hello","reasoning":{"effort":"low"}}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	require.Len(t, tunnel.lastReq.ModelRuntimeProfiles, 1)
+	assert.Equal(t, "xai", tunnel.lastReq.ModelRuntimeProfiles[0].Provider)
+	assert.True(t, tunnel.lastReq.ModelRuntimeProfiles[0].MatchesModel("grok-4.5"))
+	assert.Equal(t, platform.ProviderOperationOpenAIResponsesCreate, tunnel.lastReq.Operation)
+	assert.Contains(t, string(tunnel.lastReq.Body), `"reasoning":{"effort":"low"}`)
+
+	received, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(upstreamBody), string(received))
+	assert.Contains(t, string(received), `"provider_extension":{"keep":true}`)
+	assert.Contains(t, string(received), `"cost_in_usd_ticks":123456789`)
+	assert.Contains(t, string(received), `"num_server_side_tools_used":1`)
 }
 
 func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing.T) {
