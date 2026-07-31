@@ -253,7 +253,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 			billingMode = platform.BillingModeExternalBilled
 		}
 
-		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "base_url"))
+		apiBase := safeProviderAPIBase(provider, firstString(providerConfig, settings, "api_base", "native_base_url", "base_url"))
 
 		deps = append(deps, platform.Deployment{
 			ID:                  "provider-account:" + accountID + ":" + model,

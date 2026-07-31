@@ -47,3 +47,85 @@ rateLimits:
 status: active
 supportedModes:
     - moderation
+runtimeProfile:
+    version: 3
+    endpoints:
+        - models
+        - moderations
+    transports:
+        - http
+    lifecycle: active
+    thinking:
+        defaultMode: disabled
+        allowedModes:
+            - disabled
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: []
+        disallowedWithThinking: []
+    tools:
+        custom: false
+        server: false
+        parallel: false
+        structuredOutput: false
+        supported: []
+        preferredVersions: {}
+    modalities:
+        input:
+            - text
+            - image
+        output:
+            - text
+    requestControls:
+        serviceTierValues: []
+        inferenceGeoValues:
+            - global
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits:
+        - tier: 1
+          scope: project
+          dynamic: false
+          requestsPerMinute: 500
+          requestsPerDay: 10000
+          tokensPerMinute: 10000
+        - tier: 2
+          scope: project
+          dynamic: false
+          requestsPerMinute: 500
+          tokensPerMinute: 20000
+        - tier: 3
+          scope: project
+          dynamic: false
+          requestsPerMinute: 1000
+          tokensPerMinute: 50000
+        - tier: 4
+          scope: project
+          dynamic: false
+          requestsPerMinute: 2000
+          tokensPerMinute: 250000
+        - tier: 5
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 500000
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 0
+        maxInputTokens: 0
+        maxInputCharacters: 0
+        maxInputBytes: 0
+        maxOutputTokens: 0
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

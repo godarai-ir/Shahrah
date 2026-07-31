@@ -1,38 +1,94 @@
-costs:
-    - input_cost_per_audio_token: 6.5e-6
-      input_cost_per_image_token: 4.5e-7
-      input_cost_per_token: 2e-7
-      input_cost_per_token_batches: 1e-7
-      input_cost_per_video_token: 1.2e-5
-      region: "*"
+model: gemini-embedding-2
+status: active
+mode: embedding
+supportedModes: [embedding]
+provisioning: serverless
+modalities:
+    input: [text, image, audio, video, pdf]
+    output: [embedding]
 limits:
     context_window: 8192
     max_input_tokens: 8192
     output_vector_size: 3072
-modalities:
-    input:
-        - text
-        - image
-        - audio
-        - video
-        - pdf
-    output:
-        - embedding
-mode: embedding
-model: gemini-embedding-2
-provisioning: serverless
-removeParams:
-    - max_tokens
-    - temperature
-    - top_p
-    - top_k
-    - stop
-    - stream
-    - tool_choice
-    - reasoning_effort
+features: []
+tools: []
+endpoints: [models, embed_content, batch_embed_contents, embeddings, files, batches]
+transports: [http]
+serviceTiers: [standard, batch]
+thinkingProfile:
+    defaultMode: disabled
+    allowedModes: [disabled]
+    manualDeprecated: false
+    effortValues: []
+    reasoningModes: []
+    contextValues: []
+    alwaysEnabled: false
+removeParams: [max_tokens, temperature, top_p, top_k, stop, stream, tool_choice, reasoning_effort]
+rateLimits: &geminiRateLimits
+    - { usageTier: free, scope: project, dynamic: true, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+costs:
+    - region: "*"
+      input_cost_per_token: 0.0000002
+      input_cost_per_image_token: 0.00000045
+      input_cost_per_image: 0.00012
+      input_cost_per_audio_token: 0.0000065
+      input_cost_per_video_token: 0.000012
+      input_cost_per_token_batches: 0.0000001
+      input_cost_per_image_token_batches: 0.000000225
+      input_cost_per_image_batches: 0.00006
+      input_cost_per_audio_token_batches: 0.00000325
+      input_cost_per_video_token_batches: 0.000006
 sources:
-    - https://ai.google.dev/gemini-api/docs/embeddings
     - https://ai.google.dev/gemini-api/docs/models/gemini-embedding-2
-status: active
-supportedModes:
-    - embedding
+    - https://ai.google.dev/gemini-api/docs/embeddings
+    - https://ai.google.dev/gemini-api/docs/pricing
+    - https://ai.google.dev/gemini-api/docs/rate-limits
+runtimeProfile:
+    version: 2
+    endpoints: [models, embed_content, batch_embed_contents, embeddings, files, batches]
+    transports: [http]
+    lifecycle: active
+    thinking:
+        defaultMode: disabled
+        allowedModes: [disabled]
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: []
+        disallowedWithThinking: []
+    tools:
+        custom: false
+        server: false
+        parallel: false
+        structuredOutput: false
+        supported: []
+        preferredVersions: {}
+    modalities:
+        input: [text, image, audio, video, pdf]
+        output: [embedding]
+    requestControls:
+        serviceTierValues: [standard, batch]
+        inferenceGeoValues: [global]
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits: *geminiRateLimits
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 8192
+        maxInputTokens: 8192
+        maxOutputTokens: 0
+        messagesBytes: 33554432
+        batchBytes: 2000000000
+        fileBytes: 2000000000

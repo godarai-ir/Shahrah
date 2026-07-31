@@ -1,6 +1,7 @@
 import { existsSync, promises as fs } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { parse } from 'yaml';
+import { modelRuntimeProfileSchema } from '../../../src/catalog/runtime-profile.schema';
 
 export const OPENAI_PROVIDER_SLUG = 'openai';
 
@@ -30,6 +31,7 @@ export const OPENAI_SUPPORTED_MODEL_IDS = [
 
 type OpenAIYamlDocument = {
   model?: unknown;
+  runtimeProfile?: unknown;
 };
 
 export type OpenAIProviderValidationResult = {
@@ -109,14 +111,34 @@ export async function validateOpenAIProviderDirectory(
   const invalidFiles: string[] = [];
 
   for (const filePath of modelFiles) {
-    const document = parse(
-      await fs.readFile(filePath, 'utf8'),
-    ) as OpenAIYamlDocument;
-    if (typeof document?.model !== 'string' || document.model.trim() === '') {
-      invalidFiles.push(relative(providerDir, filePath));
+    const relativeFile = relative(providerDir, filePath);
+    let document: OpenAIYamlDocument;
+    try {
+      document = parse(
+        await fs.readFile(filePath, 'utf8'),
+      ) as OpenAIYamlDocument;
+    } catch {
+      invalidFiles.push(`${relativeFile}(malformed_yaml)`);
       continue;
     }
-    modelIds.push(document.model.trim());
+    if (typeof document?.model !== 'string' || document.model.trim() === '') {
+      invalidFiles.push(relativeFile);
+      continue;
+    }
+    const modelId = document.model.trim();
+    if (basename(filePath, '.yaml') !== modelId) {
+      invalidFiles.push(`${relativeFile}(filename_mismatch)`);
+      continue;
+    }
+    modelIds.push(modelId);
+    const runtimeProfile = modelRuntimeProfileSchema.safeParse(
+      document.runtimeProfile,
+    );
+    if (!runtimeProfile.success) {
+      invalidFiles.push(`${relativeFile}(invalid_runtime_profile)`);
+    } else if (runtimeProfile.data.version < 3) {
+      invalidFiles.push(`${relativeFile}(runtime_profile_version)`);
+    }
   }
 
   const expected = new Set<string>(OPENAI_SUPPORTED_MODEL_IDS);

@@ -84,3 +84,111 @@ status: active
 supportedModes:
     - chat
     - responses
+runtimeProfile:
+    version: 3
+    endpoints:
+        - models
+        - chat_completions
+        - responses
+        - responses_input_tokens
+        - responses_compact
+        - conversations
+        - uploads
+        - vector_stores
+        - containers
+        - batches
+    transports:
+        - http
+        - sse
+    lifecycle: active
+    thinking:
+        defaultMode: disabled
+        allowedModes:
+            - disabled
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: true
+    predictedOutputs: true
+    sampling:
+        parameters:
+            - temperature
+            - top_p
+        disallowedWithThinking: []
+    tools:
+        custom: true
+        server: true
+        parallel: true
+        structuredOutput: true
+        supported:
+            - function_calling
+            - web_search
+            - file_search
+            - image_generation
+            - code_interpreter
+            - mcp
+        preferredVersions: {}
+    modalities:
+        input:
+            - text
+            - image
+        output:
+            - text
+    requestControls:
+        serviceTierValues:
+            - standard
+            - batch
+            - priority
+            - fast
+        inferenceGeoValues:
+            - global
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits:
+        - tier: 1
+          scope: project
+          dynamic: false
+          requestsPerMinute: 500
+          requestsPerDay: 10000
+          tokensPerMinute: 200000
+          batchQueueTokens: 2000000
+        - tier: 2
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 2000000
+          batchQueueTokens: 20000000
+        - tier: 3
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 4000000
+          batchQueueTokens: 40000000
+        - tier: 4
+          scope: project
+          dynamic: false
+          requestsPerMinute: 10000
+          tokensPerMinute: 10000000
+          batchQueueTokens: 1000000000
+        - tier: 5
+          scope: project
+          dynamic: false
+          requestsPerMinute: 30000
+          tokensPerMinute: 150000000
+          batchQueueTokens: 15000000000
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 128000
+        maxInputTokens: 128000
+        maxInputCharacters: 0
+        maxInputBytes: 0
+        maxOutputTokens: 16384
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

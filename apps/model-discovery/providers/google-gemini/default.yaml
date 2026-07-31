@@ -6,6 +6,11 @@ documentation:
     - https://ai.google.dev/gemini-api/docs/models
     - https://ai.google.dev/gemini-api/docs/changelog
     - https://ai.google.dev/gemini-api/docs/thinking#thinking-levels
+    - https://ai.google.dev/gemini-api/docs/interactions-overview
+    - https://ai.google.dev/gemini-api/docs/openai
+    - https://ai.google.dev/gemini-api/docs/rate-limits
+    - https://ai.google.dev/gemini-api/docs/api-key
+    - https://ai.google.dev/gemini-api/docs/oauth
 messages:
     options:
         - user
@@ -13,7 +18,7 @@ messages:
 params:
     - defaultValue: 256
       key: max_tokens
-      maxValue: 4096
+      maxValue: 65536
       minValue: 1
     - defaultValue: 0.7
       key: temperature
@@ -43,3 +48,14 @@ params:
           - medium
           - high
       type: string
+tool_pricing:
+    web_search:
+        billing_basis: actual_queries
+        free_monthly_queries: 5000
+        per_thousand_requests: 14
+        source: https://ai.google.dev/gemini-api/docs/pricing#search-grounding
+    google_maps:
+        billing_basis: actual_queries
+        free_monthly_queries: 5000
+        per_thousand_requests: 14
+        source: https://ai.google.dev/gemini-api/docs/pricing#google-maps-grounding

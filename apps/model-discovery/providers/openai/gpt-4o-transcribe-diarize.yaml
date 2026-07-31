@@ -49,3 +49,85 @@ rateLimits:
 status: active
 supportedModes:
     - audio_transcription
+runtimeProfile:
+    version: 3
+    endpoints:
+        - models
+        - audio_transcriptions
+    transports:
+        - http
+        - sse
+    lifecycle: active
+    thinking:
+        defaultMode: disabled
+        allowedModes:
+            - disabled
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: []
+        disallowedWithThinking: []
+    tools:
+        custom: false
+        server: false
+        parallel: false
+        structuredOutput: false
+        supported: []
+        preferredVersions: {}
+    modalities:
+        input:
+            - audio
+            - text
+        output:
+            - text
+    requestControls:
+        serviceTierValues: []
+        inferenceGeoValues:
+            - global
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits:
+        - tier: 1
+          scope: project
+          dynamic: false
+          requestsPerMinute: 500
+          tokensPerMinute: 10000
+        - tier: 2
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 100000
+        - tier: 3
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 400000
+        - tier: 4
+          scope: project
+          dynamic: false
+          requestsPerMinute: 10000
+          tokensPerMinute: 2000000
+        - tier: 5
+          scope: project
+          dynamic: false
+          requestsPerMinute: 10000
+          tokensPerMinute: 6000000
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 16000
+        maxInputTokens: 16000
+        maxInputCharacters: 0
+        maxInputBytes: 0
+        maxOutputTokens: 2000
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

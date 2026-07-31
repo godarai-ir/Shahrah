@@ -1,45 +1,93 @@
-costs:
-    - input_cost_per_token: 2.5e-7
-      input_cost_per_token_batches: 1.25e-7
-      output_cost_per_image_token: 0.00003
-      output_cost_per_token: 0.0000015
-      output_cost_per_token_batches: 7.5e-7
-      region: "*"
-features:
-    - function_calling
-limits:
-    context_window: 65536
-    max_input_tokens: 65536
-    max_output_tokens: 4096
-    max_tokens: 4096
-modalities:
-    input:
-        - text
-        - image
-    output:
-        - text
-        - image
-mode: image
 model: gemini-3.1-flash-lite-image
-params:
-    - defaultValue: 1
-      key: temperature
-      maxValue: 1
-    - defaultValue: 0.95
-      key: top_p
-    - defaultValue: 64
-      key: top_k
-    - defaultValue: minimal
-      key: reasoning_effort
-      supportedValues:
-          - minimal
-          - high
-      type: string
+status: active
+mode: image
+supportedModes: [image]
 provisioning: serverless
+modalities:
+    input: [text, image]
+    output: [text, image]
+limits: { context_window: 65536, max_input_tokens: 65536, max_output_tokens: 4096, max_tokens: 4096 }
+features: [function_calling, system_messages, tool_choice]
+tools: [function_calling]
+endpoints: [models, generate_content, stream_generate_content, batches, batch_generate_content, files, image_generations]
+transports: [http, sse]
+serviceTiers: [standard, batch]
+thinkingProfile:
+    defaultMode: manual
+    allowedModes: [manual]
+    manualDeprecated: false
+    effortValues: [minimal, high]
+    reasoningModes: []
+    contextValues: []
+    alwaysEnabled: false
+params:
+    - { key: max_tokens, minValue: 1, maxValue: 4096 }
+    - { key: stream, type: boolean }
+    - { key: tool_choice }
+    - { key: reasoning_effort, defaultValue: minimal, supportedValues: [minimal, high], type: string }
+removeParams: [temperature, top_p, top_k]
+rateLimits: &geminiRateLimits
+    - { usageTier: free, scope: project, dynamic: true, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+costs:
+    - region: "*"
+      input_cost_per_token: 0.00000025
+      output_cost_per_token: 0.0000015
+      output_cost_per_image_token: 0.00003
+      output_cost_per_image_1k: 0.0336
+      input_cost_per_token_batches: 0.000000125
+      output_cost_per_token_batches: 0.00000075
+      output_cost_per_image_token_batches: 0.000015
+      output_cost_per_image_1k_batches: 0.0168
 sources:
     - https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image
-status: active
-supportedModes:
-    - image
-    - chat
-thinking: true
+    - https://ai.google.dev/gemini-api/docs/image-generation
+    - https://ai.google.dev/gemini-api/docs/pricing
+runtimeProfile:
+    version: 2
+    endpoints: [models, generate_content, stream_generate_content, batches, batch_generate_content, files, image_generations]
+    transports: [http, sse]
+    lifecycle: active
+    thinking:
+        defaultMode: manual
+        allowedModes: [manual]
+        manualDeprecated: false
+        effortValues: [minimal, high]
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: []
+        disallowedWithThinking: [temperature, top_p, top_k]
+    tools:
+        custom: true
+        server: false
+        parallel: false
+        structuredOutput: false
+        supported: [function_calling]
+        preferredVersions: {}
+    modalities:
+        input: [text, image]
+        output: [text, image]
+    requestControls:
+        serviceTierValues: [standard, batch]
+        inferenceGeoValues: [global]
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits: *geminiRateLimits
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 65536
+        maxInputTokens: 65536
+        maxOutputTokens: 4096
+        messagesBytes: 33554432
+        batchBytes: 2000000000
+        fileBytes: 2000000000

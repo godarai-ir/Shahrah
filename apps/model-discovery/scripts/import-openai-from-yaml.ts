@@ -2,6 +2,7 @@ import {
   DEFAULT_PROVIDERS_ROOT,
   disconnectProviderYamlImporter,
   importProviderYaml,
+  verifyActiveProviderModelInvariant,
 } from './import-models-from-yaml';
 import {
   OPENAI_PROVIDER_SLUG,
@@ -48,6 +49,13 @@ async function main(args: string[] = process.argv.slice(2)): Promise<void> {
   ) {
     throw new Error(
       `OpenAI import invariant failed: providers=${summary.providersImported} models=${summary.modelsImported}`,
+    );
+  }
+
+  if (clearMissing && !dryRun) {
+    await verifyActiveProviderModelInvariant(
+      OPENAI_PROVIDER_SLUG,
+      OPENAI_SUPPORTED_MODEL_IDS,
     );
   }
 

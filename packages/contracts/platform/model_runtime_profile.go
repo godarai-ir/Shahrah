@@ -72,16 +72,23 @@ type ModelRuntimeBetaCapability struct {
 	MaxOutputTokens int      `json:"maxOutputTokens,omitempty"`
 }
 
-// ModelRuntimeRateLimitTier records OpenAI's published organization-tier
-// reference ceilings. These values are discovery metadata; tenant enforcement
-// remains governed by GodarAI's own rate-limit policies.
+// ModelRuntimeRateLimitTier records provider-published reference quota
+// metadata. Dynamic/project values remain distinct from GodarAI tenant limits.
 type ModelRuntimeRateLimitTier struct {
-	Tier              int `json:"tier"`
-	RequestsPerMinute int `json:"requestsPerMinute,omitempty"`
-	RequestsPerDay    int `json:"requestsPerDay,omitempty"`
-	TokensPerMinute   int `json:"tokensPerMinute,omitempty"`
-	ImagesPerMinute   int `json:"imagesPerMinute,omitempty"`
-	BatchQueueTokens  int `json:"batchQueueTokens,omitempty"`
+	Tier                    int     `json:"tier,omitempty"`
+	UsageTier               string  `json:"usageTier,omitempty"`
+	Scope                   string  `json:"scope,omitempty"`
+	Dynamic                 bool    `json:"dynamic,omitempty"`
+	RequestsPerMinute       int     `json:"requestsPerMinute,omitempty"`
+	RequestsPerDay          int     `json:"requestsPerDay,omitempty"`
+	TokensPerMinute         int     `json:"tokensPerMinute,omitempty"`
+	TokensPerDay            int     `json:"tokensPerDay,omitempty"`
+	ImagesPerMinute         int     `json:"imagesPerMinute,omitempty"`
+	BatchQueueTokens        int     `json:"batchQueueTokens,omitempty"`
+	SpendUSDPerTenMinutes   float64 `json:"spendUsdPerTenMinutes,omitempty"`
+	ConcurrentBatchRequests int     `json:"concurrentBatchRequests,omitempty"`
+	InputFileBytes          int64   `json:"inputFileBytes,omitempty"`
+	FileStorageBytes        int64   `json:"fileStorageBytes,omitempty"`
 }
 
 type ModelRuntimeLimits struct {
@@ -169,6 +176,10 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"live",
 				"batches",
 				"generate_content",
+				"stream_generate_content",
+				"batch_generate_content",
+				"batch_embed_contents",
+				"cached_contents",
 				"generate_answer",
 				"embed_content",
 				"imagen_generate",
@@ -275,6 +286,9 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"memory",
 				"advisor",
 				"programmatic_tool_calling",
+				"google_search",
+				"google_maps",
+				"url_context",
 			},
 			tool,
 		) {
@@ -385,19 +399,43 @@ func (profile ModelRuntimeProfile) Validate() error {
 		}
 	}
 	seenRateLimitTiers := map[int]struct{}{}
+	seenUsageTiers := map[string]struct{}{}
 	for _, limits := range profile.ReferenceRateLimits {
-		if limits.Tier < 1 || limits.Tier > 5 {
+		if limits.Tier == 0 && strings.TrimSpace(limits.UsageTier) == "" {
+			return fmt.Errorf("reference rate-limit tier identity is required")
+		}
+		if limits.Tier < 0 || limits.Tier > 5 {
 			return fmt.Errorf("reference rate-limit tier must be between 1 and 5")
 		}
-		if _, exists := seenRateLimitTiers[limits.Tier]; exists {
-			return fmt.Errorf("duplicate reference rate-limit tier %d", limits.Tier)
+		if limits.Tier > 0 {
+			if _, exists := seenRateLimitTiers[limits.Tier]; exists {
+				return fmt.Errorf("duplicate reference rate-limit tier %d", limits.Tier)
+			}
+			seenRateLimitTiers[limits.Tier] = struct{}{}
 		}
-		seenRateLimitTiers[limits.Tier] = struct{}{}
+		usageTier := strings.ToLower(strings.TrimSpace(limits.UsageTier))
+		if usageTier != "" {
+			if !containsRuntimeValue([]string{"free", "tier_1", "tier_2", "tier_3"}, usageTier) {
+				return fmt.Errorf("unsupported reference usage tier %q", limits.UsageTier)
+			}
+			if _, exists := seenUsageTiers[usageTier]; exists {
+				return fmt.Errorf("duplicate reference usage tier %q", usageTier)
+			}
+			seenUsageTiers[usageTier] = struct{}{}
+		}
+		if limits.Scope != "" && limits.Scope != "project" {
+			return fmt.Errorf("unsupported reference rate-limit scope %q", limits.Scope)
+		}
 		if limits.RequestsPerMinute < 0 ||
 			limits.RequestsPerDay < 0 ||
 			limits.TokensPerMinute < 0 ||
+			limits.TokensPerDay < 0 ||
 			limits.ImagesPerMinute < 0 ||
-			limits.BatchQueueTokens < 0 {
+			limits.BatchQueueTokens < 0 ||
+			limits.SpendUSDPerTenMinutes < 0 ||
+			limits.ConcurrentBatchRequests < 0 ||
+			limits.InputFileBytes < 0 ||
+			limits.FileStorageBytes < 0 {
 			return fmt.Errorf("reference rate-limit values cannot be negative")
 		}
 	}
@@ -423,6 +461,12 @@ func (binding ModelRuntimeProfileBinding) MatchesModel(model string) bool {
 
 func (profile ModelRuntimeProfile) AllowsEndpoint(endpoint string) bool {
 	return containsRuntimeValue(profile.Endpoints, endpoint)
+}
+
+// AllowsTransport reports whether the imported model contract permits the
+// requested wire transport (for example HTTP or SSE).
+func (profile ModelRuntimeProfile) AllowsTransport(transport string) bool {
+	return containsRuntimeValue(profile.Transports, transport)
 }
 
 func (profile ModelRuntimeProfile) AllowsThinkingMode(mode string) bool {

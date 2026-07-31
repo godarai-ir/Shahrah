@@ -1,56 +1,103 @@
-costs:
-    - cache_creation_input_token_cost_per_hour: 0.000001
-      cache_read_input_token_cost: 1.5e-7
-      input_cost_per_token: 0.0000015
-      input_cost_per_token_batches: 7.5e-7
-      output_cost_per_token: 0.000009
-      output_cost_per_token_batches: 0.0000045
-      region: "*"
-features:
-    - function_calling
-    - parallel_function_calling
-    - cache_control
-    - system_messages
-    - tool_choice
-    - prompt_caching
-    - structured_output
-    - code_execution
-    - json_output
-limits:
-    context_window: 1048576
-    max_input_tokens: 1048576
-    max_output_tokens: 65536
-    max_tokens: 65536
-modalities:
-    input:
-        - text
-        - image
-        - audio
-        - video
-        - pdf
-    output:
-        - text
-mode: chat
 model: gemini-3.5-flash
-params:
-    - defaultValue: 1
-      key: temperature
-      maxValue: 2
-    - defaultValue: 0.95
-      key: top_p
-    - defaultValue: 64
-      key: top_k
-    - defaultValue: medium
-      key: reasoning_effort
-      supportedValues:
-          - low
-          - medium
-          - high
-      type: string
+status: active
+mode: chat
+supportedModes: [chat, responses]
 provisioning: serverless
+modalities:
+    input: [text, image, audio, video, pdf]
+    output: [text]
+limits: { context_window: 1048576, max_input_tokens: 1048576, max_output_tokens: 65536, max_tokens: 65536 }
+features: [function_calling, parallel_function_calling, system_messages, tool_choice, prompt_caching, structured_output, code_execution, json_output]
+tools: [function_calling, google_search, google_maps, url_context, file_search, code_execution, computer_use, mcp]
+endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]
+transports: [http, sse]
+serviceTiers: [standard, batch, flex, priority]
+thinkingProfile:
+    defaultMode: manual
+    allowedModes: [manual]
+    manualDeprecated: false
+    effortValues: [low, medium, high]
+    reasoningModes: []
+    contextValues: []
+    alwaysEnabled: false
+params:
+    - { key: max_tokens, minValue: 1, maxValue: 65536 }
+    - { key: temperature, minValue: 0, maxValue: 2 }
+    - { key: top_p, minValue: 0, maxValue: 1 }
+    - { key: top_k, minValue: 0 }
+    - { key: stream, type: boolean }
+    - { key: tool_choice }
+    - { key: reasoning_effort, defaultValue: medium, supportedValues: [low, medium, high], type: string }
+rateLimits: &geminiRateLimits
+    - { usageTier: free, scope: project, dynamic: true, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, batchQueueTokens: 3000000, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+costs:
+    - region: "*"
+      input_cost_per_token: 0.0000015
+      output_cost_per_token: 0.000009
+      cache_read_input_token_cost: 0.00000015
+      cache_storage_cost_per_token_per_hour: 0.000001
+      input_cost_per_token_batches: 0.00000075
+      output_cost_per_token_batches: 0.0000045
+      cache_read_input_token_cost_batches: 0.000000075
+      cache_storage_cost_per_token_per_hour_batches: 0.000001
+      input_cost_per_token_flex: 0.00000075
+      output_cost_per_token_flex: 0.0000045
+      cache_read_input_token_cost_flex: 0.00000008
+      cache_storage_cost_per_token_per_hour_flex: 0.000001
+      input_cost_per_token_priority: 0.0000027
+      output_cost_per_token_priority: 0.0000162
+      cache_read_input_token_cost_priority: 0.00000027
+      cache_storage_cost_per_token_per_hour_priority: 0.000001
 sources:
     - https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash
-status: active
-supportedModes:
-    - chat
-thinking: true
+    - https://ai.google.dev/gemini-api/docs/pricing
+    - https://ai.google.dev/gemini-api/docs/rate-limits
+runtimeProfile:
+    version: 2
+    endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]
+    transports: [http, sse]
+    lifecycle: active
+    thinking:
+        defaultMode: manual
+        allowedModes: [manual]
+        manualDeprecated: false
+        effortValues: [low, medium, high]
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: [temperature, top_p, top_k]
+        disallowedWithThinking: []
+    tools:
+        custom: true
+        server: true
+        parallel: true
+        structuredOutput: true
+        supported: [function_calling, google_search, google_maps, url_context, file_search, code_execution, computer_use, mcp]
+        preferredVersions: {}
+    modalities:
+        input: [text, image, audio, video, pdf]
+        output: [text]
+    requestControls:
+        serviceTierValues: [standard, batch, flex, priority]
+        inferenceGeoValues: [global]
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits: *geminiRateLimits
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 1048576
+        maxInputTokens: 1048576
+        maxOutputTokens: 65536
+        messagesBytes: 33554432
+        batchBytes: 2000000000
+        fileBytes: 2000000000

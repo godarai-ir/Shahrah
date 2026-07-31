@@ -26,6 +26,7 @@
         "service-account:create": "tsx scripts/create-service-account.ts",
         "service-account:revoke": "tsx scripts/revoke-service-account-key.ts",
         "import:provider:anthropic": "tsx scripts/import-anthropic-from-yaml.ts",
+        "import:provider:google-gemini": "tsx scripts/import-google-gemini-from-yaml.ts",
         "import:provider:openai": "tsx scripts/import-openai-from-yaml.ts",
         "import:providers:yaml": "tsx scripts/import-models-from-yaml.ts",
         "openapi:export": "node -r ts-node/register -r tsconfig-paths/register scripts/export-openapi.ts",

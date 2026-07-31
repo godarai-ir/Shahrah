@@ -222,10 +222,10 @@
       "name": "Google Gemini",
       "status": "active",
       "enabled": true,
-      "modelCount": 41,
+      "modelCount": 9,
       "docsUrl": "https://ai.google.dev/gemini-api/docs",
       "collection": "collections/GodarAI - google-gemini.postman_collection.json",
-      "executionStatus": "placeholder-no-credentials"
+      "executionStatus": "executable-template"
     },
     {
       "slug": "google-vertex",

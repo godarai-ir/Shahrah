@@ -11,6 +11,7 @@ import {
 } from '../src/catalog/runtime-profile.schema';
 import { findMissingProviderSlugs } from '../src/catalog/provider-catalog-reconciliation';
 import { anthropicProviderImporter } from './model-import/providers/anthropic';
+import { googleGeminiProviderImporter } from './model-import/providers/google-gemini';
 import type {
   ProviderPricingRate,
   ProviderRateMapping,
@@ -159,250 +160,6 @@ const supportedCapabilities = new Set([
   'system_messages',
   'tool_choice',
 ]);
-
-function runtimeEndpointsForModel(
-  providerSlug: string,
-  modelId: string,
-  modes: ModelMode[],
-): ModelRuntimeProfile['endpoints'] {
-  const endpoints = new Set<ModelRuntimeProfile['endpoints'][number]>([
-    'models',
-  ]);
-
-  if (providerSlug === 'google-gemini') {
-    if (modelId === 'aqa') {
-      endpoints.add('generate_answer');
-      return Array.from(endpoints);
-    }
-    if (modelId.startsWith('deep-research-')) {
-      endpoints.add('interactions');
-      return Array.from(endpoints);
-    }
-    if (modelId.startsWith('gemma-')) {
-      endpoints.add('generate_content');
-      return Array.from(endpoints);
-    }
-    if (modelId === 'gemini-embedding-2-preview') {
-      endpoints.add('embeddings');
-      return Array.from(endpoints);
-    }
-    if (modelId === 'gemini-embedding-2') {
-      endpoints.add('embed_content');
-      return Array.from(endpoints);
-    }
-    if (modes.includes('image')) {
-      if (
-        modelId === 'gemini-2.5-flash-image' ||
-        modelId === 'gemini-3-pro-image-preview'
-      ) {
-        endpoints.add('image_generations');
-      } else if (modelId.startsWith('imagen-')) {
-        endpoints.add('imagen_generate');
-      } else {
-        endpoints.add('generate_content');
-      }
-      return Array.from(endpoints);
-    }
-  }
-
-  for (const mode of modes) {
-    switch (mode) {
-      case 'chat':
-        endpoints.add('chat_completions');
-        break;
-      case 'completion':
-        endpoints.add('completions');
-        break;
-      case 'embedding':
-        endpoints.add('embeddings');
-        break;
-      case 'image':
-        endpoints.add('image_generations');
-        if (providerSlug === 'openai') {
-          endpoints.add('image_edits');
-          if (modelId === 'dall-e-2') {
-            endpoints.add('image_variations');
-          }
-        }
-        break;
-      case 'text_to_speech':
-        if (providerSlug === 'google-gemini') {
-          endpoints.add('interactions');
-        } else {
-          endpoints.add('audio_speech');
-        }
-        break;
-      case 'video':
-        endpoints.add('videos');
-        break;
-      case 'responses':
-        if (providerSlug === 'openai') {
-          endpoints.add('responses');
-          endpoints.add('responses_input_tokens');
-          endpoints.add('responses_compact');
-          endpoints.add('conversations');
-          endpoints.add('uploads');
-          endpoints.add('vector_stores');
-          endpoints.add('containers');
-        } else {
-          endpoints.add('interactions');
-        }
-        break;
-      case 'realtime':
-        if (providerSlug === 'openai') {
-          endpoints.add('realtime');
-          endpoints.add('realtime_transcription');
-          endpoints.add('realtime_translation');
-        } else {
-          endpoints.add('live');
-        }
-        break;
-      case 'audio_transcription':
-        endpoints.add('audio_transcriptions');
-        break;
-      case 'audio_translation':
-        endpoints.add('audio_translations');
-        break;
-      case 'moderation':
-        endpoints.add('moderations');
-        break;
-    }
-  }
-  if (
-    providerSlug === 'openai' &&
-    modes.some((mode) =>
-      ['chat', 'completion', 'responses', 'embedding'].includes(mode),
-    )
-  ) {
-    endpoints.add('batches');
-  }
-  if (
-    providerSlug === 'openai' &&
-    modes.includes('image') &&
-    modelId === 'gpt-image-2'
-  ) {
-    endpoints.add('batches');
-  }
-  return Array.from(endpoints);
-}
-
-function buildImportedRuntimeProfile(input: {
-  providerSlug: string;
-  modelId: string;
-  modes: ModelMode[];
-  capabilities: string[];
-  inputModalities: string[];
-  outputModalities: string[];
-  supportedParameters: string[];
-  reasoningEffortValues: string[];
-  supportedTools: string[];
-  serviceTierValues: ModelRuntimeProfile['requestControls']['serviceTierValues'];
-  referenceRateLimits: ModelRuntimeProfile['referenceRateLimits'];
-  lifecycle?: 'active' | 'preview' | 'deprecated' | 'unavailable';
-  contextWindow?: number;
-  maxInputTokens?: number;
-  maxInputCharacters?: number;
-  maxInputBytes?: number;
-  maxOutputTokens?: number;
-}): ModelRuntimeProfile {
-  const parameters = new Set(
-    input.supportedParameters.map((value) => normalizeTaxonomyValue(value)),
-  );
-  const capabilities = new Set(input.capabilities);
-  const supportsThinking =
-    parameters.has('thinking') || parameters.has('reasoning_effort');
-  const isOpenAI = input.providerSlug === 'openai';
-  const isGPT56 = /^gpt-5\.6(?:-|$)/.test(input.modelId);
-  const endpoints = runtimeEndpointsForModel(
-    input.providerSlug,
-    input.modelId,
-    input.modes,
-  );
-
-  return modelRuntimeProfileSchema.parse({
-    version: isOpenAI ? 2 : 1,
-    endpoints,
-    transports: Array.from(
-      new Set([
-        'http',
-        ...(parameters.has('stream') &&
-        endpoints.some((endpoint) =>
-          [
-            'chat_completions',
-            'responses',
-            'image_generations',
-            'audio_transcriptions',
-          ].includes(endpoint),
-        )
-          ? ['sse']
-          : []),
-        ...(endpoints.some((endpoint) => endpoint.startsWith('realtime'))
-          ? ['websocket']
-          : []),
-      ]),
-    ),
-    lifecycle: input.lifecycle ?? 'active',
-    thinking: {
-      defaultMode: supportsThinking ? 'manual' : 'disabled',
-      allowedModes: supportsThinking ? ['manual'] : ['disabled'],
-      manualDeprecated: false,
-      effortValues: supportsThinking ? input.reasoningEffortValues : [],
-      reasoningModes: supportsThinking && isGPT56 ? ['standard', 'pro'] : [],
-      contextValues:
-        supportsThinking && isGPT56
-          ? ['auto', 'current_turn', 'all_turns']
-          : [],
-    },
-    assistantPrefill: capabilities.has('assistant_prefill'),
-    fineTuning: capabilities.has('fine_tuning'),
-    predictedOutputs: capabilities.has('predicted_outputs'),
-    sampling: {
-      parameters: ['temperature', 'top_p', 'top_k'].filter((parameter) =>
-        parameters.has(parameter),
-      ),
-      disallowedWithThinking: [],
-    },
-    tools: {
-      custom: capabilities.has('function_calling'),
-      server:
-        capabilities.has('code_execution') ||
-        input.supportedTools.some((tool) => tool !== 'function_calling'),
-      parallel: capabilities.has('parallel_function_calling'),
-      structuredOutput:
-        capabilities.has('structured_output') ||
-        capabilities.has('json_output'),
-      supported: input.supportedTools,
-    },
-    modalities: {
-      input:
-        input.inputModalities.length > 0
-          ? input.inputModalities.map((value) =>
-              value === 'doc' ? 'pdf' : value,
-            )
-          : ['unknown'],
-      output:
-        input.outputModalities.length > 0
-          ? input.outputModalities
-          : ['unknown'],
-    },
-    requestControls: {
-      serviceTierValues: input.serviceTierValues,
-      inferenceGeoValues: ['global'],
-      speedValues: [],
-      effectiveSpeed: {},
-    },
-    betaHeaders: [],
-    betaCapabilities: [],
-    referenceRateLimits: input.referenceRateLimits,
-    limits: {
-      contextWindow: input.contextWindow ?? 0,
-      maxInputTokens: input.maxInputTokens ?? 0,
-      maxInputCharacters: input.maxInputCharacters ?? 0,
-      maxInputBytes: input.maxInputBytes ?? 0,
-      maxOutputTokens: input.maxOutputTokens ?? 0,
-    },
-  });
-}
 
 function getArgValue(
   flag: string,
@@ -735,7 +492,9 @@ async function parseProviderDir(
   const providerImporter =
     providerSlug === anthropicProviderImporter.slug
       ? anthropicProviderImporter
-      : undefined;
+      : providerSlug === googleGeminiProviderImporter.slug
+        ? googleGeminiProviderImporter
+        : undefined;
   const defaultPath = join(providerDir, 'default.yaml');
   let defaultDoc: StringRecord | undefined;
   if (existsSync(defaultPath)) {
@@ -1010,19 +769,28 @@ async function parseProviderDir(
           key: 'input_cost_per_token_above_200k_tokens',
           dimension: 'long_context_input_tokens',
           unit: 'token',
-          conditionJson: { min_prompt_tokens: 272001 },
+          conditionJson: {
+            min_prompt_tokens:
+              providerSlug === 'google-gemini' ? 200001 : 272001,
+          },
         },
         {
           key: 'output_cost_per_token_above_200k_tokens',
           dimension: 'long_context_output_tokens',
           unit: 'token',
-          conditionJson: { min_prompt_tokens: 272001 },
+          conditionJson: {
+            min_prompt_tokens:
+              providerSlug === 'google-gemini' ? 200001 : 272001,
+          },
         },
         {
           key: 'cache_read_input_token_cost_above_200k_tokens',
           dimension: 'long_context_cache_read_tokens',
           unit: 'token',
-          conditionJson: { min_prompt_tokens: 272001 },
+          conditionJson: {
+            min_prompt_tokens:
+              providerSlug === 'google-gemini' ? 200001 : 272001,
+          },
         },
         {
           key: 'input_cost_per_token_flex',
@@ -1166,18 +934,14 @@ async function parseProviderDir(
         const tier = asObject(tiers[0]);
         const threshold = asNumber(tier?.['from']);
         const unitPriceUsd = asDecimalString(tier?.['cost_per_token']);
-        if (
-          threshold === undefined ||
-          unitPriceUsd === undefined ||
-          threshold !== 272000
-        ) {
+        if (threshold === undefined || unitPriceUsd === undefined) {
           continue;
         }
         pricingRates.push({
           dimension,
           unit: 'token',
           unitPriceUsd,
-          conditionJson: { min_prompt_tokens: 272001 },
+          conditionJson: { min_prompt_tokens: threshold + 1 },
           region,
           sourceUrl,
         });
@@ -1194,7 +958,7 @@ async function parseProviderDir(
           });
         }
       }
-      providerImporter?.appendDerivedCostPricingRates({
+      providerImporter?.appendDerivedCostPricingRates?.({
         cost,
         explicitRuntimeProfile,
         pricingRates,
@@ -1209,11 +973,52 @@ async function parseProviderDir(
       1000,
     );
     const pricingSource = sources.find((source) => source.includes('pricing'));
-    if (webSearchPrice && pricingSource) {
+    const documentedTools = new Set(
+      asStringArray(doc['tools']).map(normalizeTaxonomyValue),
+    );
+    if (
+      webSearchPrice &&
+      pricingSource &&
+      (providerSlug !== 'google-gemini' || documentedTools.has('google_search'))
+    ) {
       pricingRates.push({
-        dimension: 'web_search_requests',
-        unit: 'request',
+        dimension:
+          providerSlug === 'google-gemini'
+            ? 'google_search_queries'
+            : 'web_search_requests',
+        unit: providerSlug === 'google-gemini' ? 'query' : 'request',
         unitPriceUsd: webSearchPrice,
+        conditionJson: {
+          free_monthly_queries:
+            asNumber(webSearch?.['free_monthly_queries']) ?? 0,
+          billing_basis:
+            providerSlug === 'google-gemini'
+              ? 'actual_queries'
+              : 'upstream_query',
+        },
+        region: 'global',
+        sourceUrl: pricingSource,
+      });
+    }
+    const googleMaps = asObject(defaultToolPricing?.['google_maps']);
+    const googleMapsPrice = divideDecimalString(
+      googleMaps?.['per_thousand_requests'],
+      1000,
+    );
+    if (
+      googleMapsPrice &&
+      pricingSource &&
+      (providerSlug !== 'google-gemini' || documentedTools.has('google_maps'))
+    ) {
+      pricingRates.push({
+        dimension: 'google_maps_queries',
+        unit: 'query',
+        unitPriceUsd: googleMapsPrice,
+        conditionJson: {
+          free_monthly_queries:
+            asNumber(googleMaps?.['free_monthly_queries']) ?? 0,
+          billing_basis: 'actual_queries',
+        },
         region: 'global',
         sourceUrl: pricingSource,
       });
@@ -1265,7 +1070,7 @@ async function parseProviderDir(
         sourceUrl: pricingSource,
       });
     }
-    providerImporter?.appendToolPricingRates({
+    providerImporter?.appendToolPricingRates?.({
       defaultToolPricing,
       pricingRates,
       sources,
@@ -1285,41 +1090,23 @@ async function parseProviderDir(
       normalizeSupportedModes(doc['supportedModes']),
     );
     const outputModalities = inferOutputModalities(mode, outputModalitiesRaw);
-    const supportedTools = asStringArray(doc['tools']).map(
-      normalizeTaxonomyValue,
-    );
-    const serviceTierValues = asStringArray(doc['serviceTiers']).map(
-      normalizeTaxonomyValue,
-    ) as ModelRuntimeProfile['requestControls']['serviceTierValues'];
-    const referenceRateLimits = Array.isArray(doc['rateLimits'])
-      ? (doc['rateLimits'] as ModelRuntimeProfile['referenceRateLimits'])
-      : [];
-    const runtimeProfile =
-      explicitRuntimeProfile ??
-      (providerSlug === 'google-gemini' || providerSlug === 'openai'
-        ? buildImportedRuntimeProfile({
-            providerSlug,
-            modelId,
-            modes: mode,
-            capabilities: features,
-            inputModalities,
-            outputModalities,
-            supportedParameters: Array.from(paramsCombined),
-            reasoningEffortValues:
-              supportedValuesForParam(doc, 'reasoning_effort').length > 0
-                ? supportedValuesForParam(doc, 'reasoning_effort')
-                : supportedValuesForParam(defaultDoc, 'reasoning_effort'),
-            supportedTools,
-            serviceTierValues,
-            referenceRateLimits,
-            lifecycle: status,
-            contextWindow,
-            maxInputTokens,
-            maxInputCharacters,
-            maxInputBytes,
-            maxOutputTokens,
-          })
-        : undefined);
+    if (
+      (providerSlug === 'google-gemini' || providerSlug === 'openai') &&
+      !explicitRuntimeProfile
+    ) {
+      throw new Error(`${modelId}: explicit runtimeProfile is required`);
+    }
+    const minimumRuntimeProfileVersion =
+      providerSlug === 'openai' ? 3 : providerSlug === 'google-gemini' ? 2 : 1;
+    if (
+      explicitRuntimeProfile &&
+      explicitRuntimeProfile.version < minimumRuntimeProfileVersion
+    ) {
+      throw new Error(
+        `${modelId}: runtimeProfile.version must be at least ${minimumRuntimeProfileVersion}`,
+      );
+    }
+    const runtimeProfile = explicitRuntimeProfile;
 
     const deprecatedAt = deprecationDate;
     const releaseDate =
@@ -1530,32 +1317,9 @@ async function importProviderBatch(
       },
     });
 
-    const [officialRateCount, officialProfileCount] = await Promise.all([
-      prisma.modelPricingRate.count({
-        where: {
-          modelId: model.id,
-          sourceUrl: {
-            startsWith: 'https://ai.google.dev/',
-          },
-        },
-      }),
-      prisma.modelRuntimeProfile.count({
-        where: {
-          modelId: model.id,
-          sourceUrl: {
-            startsWith: 'https://ai.google.dev/',
-          },
-        },
-      }),
-    ]);
-    const preserveOfficialRuntime =
-      batch.slug === 'google-gemini' &&
-      (officialRateCount > 0 || officialProfileCount > 0);
-
     const replacementDeletes = [
       prisma.modelPricing.deleteMany({ where: { modelId: model.id } }),
       prisma.modelPricingRate.deleteMany({ where: { modelId: model.id } }),
-      prisma.modelRuntimeProfile.deleteMany({ where: { modelId: model.id } }),
       prisma.modelCapability.deleteMany({ where: { modelId: model.id } }),
       prisma.modelInputModality.deleteMany({ where: { modelId: model.id } }),
       prisma.modelOutputModality.deleteMany({ where: { modelId: model.id } }),
@@ -1565,9 +1329,6 @@ async function importProviderBatch(
       prisma.modelRegion.deleteMany({ where: { modelId: model.id } }),
       prisma.sourceReference.deleteMany({ where: { modelId: model.id } }),
     ];
-    if (preserveOfficialRuntime) {
-      replacementDeletes.splice(0, 3);
-    }
     await prisma.$transaction(replacementDeletes);
 
     for (const src of row.sources) {
@@ -1581,7 +1342,7 @@ async function importProviderBatch(
       });
     }
 
-    for (const pricing of preserveOfficialRuntime ? [] : row.pricingRows) {
+    for (const pricing of row.pricingRows) {
       const regionId = await ensureRegion(pricing.regionSlug);
       await prisma.modelPricing.create({
         data: {
@@ -1604,7 +1365,7 @@ async function importProviderBatch(
       });
     }
 
-    for (const rate of preserveOfficialRuntime ? [] : row.pricingRates) {
+    for (const rate of row.pricingRates) {
       await prisma.modelPricingRate.create({
         data: {
           modelId: model.id,
@@ -1621,7 +1382,7 @@ async function importProviderBatch(
       });
     }
 
-    if (row.runtimeProfile && !preserveOfficialRuntime) {
+    if (row.runtimeProfile) {
       const existingRuntimeProfile =
         await prisma.modelRuntimeProfile.findUnique({
           where: {
@@ -1789,6 +1550,29 @@ export async function importProviderYaml(
 
 export async function disconnectProviderYamlImporter(): Promise<void> {
   await prisma.$disconnect();
+}
+
+export async function verifyActiveProviderModelInvariant(
+  providerSlug: string,
+  expectedModelIds: readonly string[],
+): Promise<void> {
+  const provider = await prisma.provider.findUnique({
+    where: { slug: providerSlug },
+    select: {
+      models: {
+        where: { enabled: true, lifecycleStatus: 'published' },
+        select: { slug: true },
+        orderBy: { slug: 'asc' },
+      },
+    },
+  });
+  const actual = provider?.models.map((model) => model.slug) ?? [];
+  const expected = [...expectedModelIds].sort();
+  if (stableJson(actual) !== stableJson(expected)) {
+    throw new Error(
+      `${providerSlug} active model invariant failed: expected=${expected.join(',')} actual=${actual.join(',')}`,
+    );
+  }
 }
 
 async function main(args: string[] = process.argv.slice(2)): Promise<void> {

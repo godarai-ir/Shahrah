@@ -32,3 +32,60 @@ snapshots:
 status: active
 supportedModes:
     - audio_transcription
+runtimeProfile:
+    version: 3
+    endpoints:
+        - models
+        - audio_transcriptions
+    transports:
+        - http
+        - sse
+    lifecycle: active
+    thinking:
+        defaultMode: disabled
+        allowedModes:
+            - disabled
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: []
+        disallowedWithThinking: []
+    tools:
+        custom: false
+        server: false
+        parallel: false
+        structuredOutput: false
+        supported: []
+        preferredVersions: {}
+    modalities:
+        input:
+            - audio
+            - text
+        output:
+            - text
+    requestControls:
+        serviceTierValues: []
+        inferenceGeoValues:
+            - global
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits: []
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 0
+        maxInputTokens: 0
+        maxInputCharacters: 0
+        maxInputBytes: 26214400
+        maxOutputTokens: 0
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

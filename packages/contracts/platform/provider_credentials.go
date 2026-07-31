@@ -15,9 +15,12 @@ const (
 // only on the internal mTLS tunnel dispatch. It must never be used in metadata,
 // logs, traces, audits, analytics, or public/admin responses.
 type ResolvedProviderAuth struct {
-	Mode         string                    `json:"mode"`
-	APIKey       string                    `json:"api_key,omitempty"`
-	AnthropicWIF *ResolvedAnthropicWIFAuth `json:"anthropic_wif,omitempty"`
+	Mode   string `json:"mode"`
+	APIKey string `json:"api_key,omitempty"`
+	// OAuthAccessToken is an already-refreshed, short-lived token. It is only
+	// carried over the internal mTLS tunnel and must never be persisted.
+	OAuthAccessToken string                    `json:"oauth_access_token,omitempty"`
+	AnthropicWIF     *ResolvedAnthropicWIFAuth `json:"anthropic_wif,omitempty"`
 }
 
 // ResolvedAnthropicWIFAuth contains identifiers only. Silk Road resolves the

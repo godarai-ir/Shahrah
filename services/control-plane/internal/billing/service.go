@@ -1359,12 +1359,14 @@ func googleGeminiUsageCostBreakdown(
 		promptCached = usage.PromptTokensDetails.CachedTokens
 	}
 	completionAudio := 0
+	completionImage := 0
 	if usage.CompletionTokensDetails != nil {
 		completionAudio = usage.CompletionTokensDetails.AudioTokens
+		completionImage = usage.CompletionTokensDetails.ImageTokens
 	}
 	if promptAudio < 0 || promptCached < 0 || completionAudio < 0 ||
 		promptAudio+promptCached > usage.PromptTokens ||
-		completionAudio > usage.CompletionTokens {
+		completionAudio+completionImage > usage.CompletionTokens {
 		return platform.UsageCostBreakdown{}, fmt.Errorf(
 			"%w: invalid Gemini token detail totals",
 			ErrPricingUnavailable,
@@ -1401,10 +1403,16 @@ func googleGeminiUsageCostBreakdown(
 	}
 	quantities := map[string]int64{
 		inputDimension:                 int64(textInputTokens),
-		prefix + "output_tokens":       int64(usage.CompletionTokens - completionAudio),
+		prefix + "output_tokens":       int64(usage.CompletionTokens - completionAudio - completionImage),
 		audioInputDimension:            int64(promptAudio),
 		prefix + "audio_output_tokens": int64(completionAudio),
+		prefix + "image_output_tokens": int64(completionImage),
 		prefix + "cache_read_tokens":   int64(promptCached),
+	}
+	for dimension, quantity := range usage.ServerToolUse {
+		if quantity > 0 {
+			quantities[dimension] += int64(quantity)
+		}
 	}
 	dimensions := make([]string, 0, len(quantities))
 	for dimension := range quantities {

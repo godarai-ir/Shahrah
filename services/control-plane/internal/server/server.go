@@ -52,6 +52,7 @@ type Dependencies struct {
 	AudioSpeechHandler         *proxy.AudioSpeechHandler
 	ModelsHandler              *proxy.ModelsHandler
 	AnthropicNativeHandler     *proxy.AnthropicNativeHandler
+	GeminiNativeHandler        *proxy.GeminiNativeHandler
 	PoolStats                  prommetrics.PoolStatsProvider
 	HTTPMetrics                *prommetrics.HTTPMetrics
 	Logger                     *zap.Logger

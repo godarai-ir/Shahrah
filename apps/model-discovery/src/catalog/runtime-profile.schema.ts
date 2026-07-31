@@ -20,6 +20,9 @@ const supportedToolSchema = z.enum([
   'memory',
   'advisor',
   'programmatic_tool_calling',
+  'google_search',
+  'google_maps',
+  'url_context',
 ]);
 const endpointSchema = z.enum([
   'messages',
@@ -52,6 +55,10 @@ const endpointSchema = z.enum([
   'live',
   'batches',
   'generate_content',
+  'stream_generate_content',
+  'batch_generate_content',
+  'batch_embed_contents',
+  'cached_contents',
   'generate_answer',
   'embed_content',
   'imagen_generate',
@@ -164,12 +171,20 @@ export const modelRuntimeProfileSchema = z
     referenceRateLimits: z
       .array(
         z.object({
-          tier: z.number().int().min(1).max(5),
+          tier: z.number().int().min(1).max(5).optional(),
+          usageTier: z.enum(['free', 'tier_1', 'tier_2', 'tier_3']).optional(),
+          scope: z.enum(['project']).default('project'),
+          dynamic: z.boolean().default(false),
           requestsPerMinute: z.number().int().nonnegative().optional(),
           requestsPerDay: z.number().int().nonnegative().optional(),
           tokensPerMinute: z.number().int().nonnegative().optional(),
+          tokensPerDay: z.number().int().nonnegative().optional(),
           imagesPerMinute: z.number().int().nonnegative().optional(),
           batchQueueTokens: z.number().int().nonnegative().optional(),
+          spendUsdPerTenMinutes: z.number().nonnegative().optional(),
+          concurrentBatchRequests: z.number().int().nonnegative().optional(),
+          inputFileBytes: z.number().int().nonnegative().optional(),
+          fileStorageBytes: z.number().int().nonnegative().optional(),
         }),
       )
       .default([]),
@@ -200,6 +215,24 @@ export const modelRuntimeProfileSchema = z
   })
   .strict()
   .superRefine((profile, context) => {
+    const usageTiers = new Set<string>();
+    for (const [index, limits] of profile.referenceRateLimits.entries()) {
+      if (limits.tier === undefined && limits.usageTier === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['referenceRateLimits', index],
+          message: 'tier or usageTier is required',
+        });
+      }
+      if (limits.usageTier && usageTiers.has(limits.usageTier)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['referenceRateLimits', index, 'usageTier'],
+          message: `duplicate usage tier ${limits.usageTier}`,
+        });
+      }
+      if (limits.usageTier) usageTiers.add(limits.usageTier);
+    }
     if (!profile.thinking.allowedModes.includes(profile.thinking.defaultMode)) {
       context.addIssue({
         code: 'custom',

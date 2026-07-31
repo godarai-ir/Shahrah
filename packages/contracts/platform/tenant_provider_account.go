@@ -10,6 +10,7 @@ const (
 	ProviderAuthModeAzureEntraCert       ProviderAuthMode = "azure_entra_cert"
 	ProviderAuthModeAWSSigV4             ProviderAuthMode = "aws_sigv4"
 	ProviderAuthModeGoogleServiceAccount ProviderAuthMode = "google_service_account"
+	ProviderAuthModeOAuthAccessToken     ProviderAuthMode = "oauth_access_token"
 	ProviderAuthModeAnthropicWIF         ProviderAuthMode = "anthropic_wif"
 	ProviderAuthModeNoCredential         ProviderAuthMode = "no_credential"
 )

@@ -4,6 +4,21 @@ import "github.com/gofiber/fiber/v2"
 
 func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	v1 := app.Group("/v1")
+	if deps.GeminiNativeHandler != nil {
+		gemini := deps.GeminiNativeHandler.Handle
+		v1beta := app.Group("/v1beta")
+		v1beta.All("/models", gemini)
+		v1beta.All("/models/*", gemini)
+		v1beta.All("/interactions", gemini)
+		v1beta.All("/interactions/*", gemini)
+		v1beta.All("/files", gemini)
+		v1beta.All("/files/*", gemini)
+		v1beta.All("/cachedContents", gemini)
+		v1beta.All("/cachedContents/*", gemini)
+		v1beta.All("/batches", gemini)
+		v1beta.All("/batches/*", gemini)
+		app.Post("/upload/v1beta/files", gemini)
+	}
 	if deps.ProxyHandler != nil {
 		v1.Post("/chat/completions", deps.ProxyHandler.Handle)
 	}

@@ -466,6 +466,7 @@ func main() {
 	audioSpeechHandler := proxy.NewAudioSpeechHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
 	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseProxyDeps, store)
+	geminiNativeHandler := proxy.NewGeminiNativeHandler(baseProxyDeps, store)
 
 	traceCfg := tracing.LoadConfigFromEnv()
 	traceQueue := tracing.NewQueue(traceCfg.QueueCapacity)
@@ -519,6 +520,7 @@ func main() {
 		AudioSpeechHandler:         audioSpeechHandler,
 		ModelsHandler:              modelsHandler,
 		AnthropicNativeHandler:     anthropicNativeHandler,
+		GeminiNativeHandler:        geminiNativeHandler,
 		PoolStats:                  store,
 		HTTPMetrics:                httpMetrics,
 		Logger:                     logger,

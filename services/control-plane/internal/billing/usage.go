@@ -29,12 +29,91 @@ var tokenMappers = map[string]TokenFieldMapper{
 	// Vertex AI uses its native usage schema.
 	"vertexai": vertexTokenMapper,
 
-	// Gemini is dispatched through Google's documented OpenAI-compatible API.
-	"gemini":        standardTokenMapper,
-	"google-gemini": standardTokenMapper,
+	// Gemini may return either the native usageMetadata shape or the documented
+	// OpenAI-compatible usage shape. The mapper handles both without estimates.
+	"gemini":        googleGeminiTokenMapper,
+	"google-gemini": googleGeminiTokenMapper,
 
 	// Cohere - uses prompt_tokens, completion_tokens
 	"cohere": cohereTokenMapper,
+}
+
+func googleGeminiTokenMapper(rawUsage map[string]interface{}) *contractsopenai.Usage {
+	if _, compatible := rawUsage["prompt_tokens"]; compatible {
+		return standardTokenMapper(rawUsage)
+	}
+	metadata := rawUsage
+	if nested, ok := rawUsage["usageMetadata"].(map[string]interface{}); ok {
+		metadata = nested
+	}
+	usage := &contractsopenai.Usage{}
+	usage.PromptTokens = usageInt(metadata, "promptTokenCount")
+	thoughts := usageInt(metadata, "thoughtsTokenCount")
+	usage.CompletionTokens = usageInt(metadata, "candidatesTokenCount") + thoughts
+	usage.TotalTokens = usageInt(metadata, "totalTokenCount")
+	if usage.TotalTokens == 0 && (usage.PromptTokens > 0 || usage.CompletionTokens > 0) {
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+	cached := usageInt(metadata, "cachedContentTokenCount")
+	usage.CacheReadInputTokens = cached
+	usage.PromptTokensDetails = &contractsopenai.UsageTokenDetails{
+		CachedTokens: cached,
+		AudioTokens:  modalityTokenCount(metadata["promptTokensDetails"], "AUDIO"),
+		ImageTokens:  modalityTokenCount(metadata["promptTokensDetails"], "IMAGE"),
+	}
+	usage.CompletionTokensDetails = &contractsopenai.UsageTokenDetails{
+		ReasoningTokens: thoughts,
+		AudioTokens:     modalityTokenCount(metadata["candidatesTokensDetails"], "AUDIO"),
+		ImageTokens:     modalityTokenCount(metadata["candidatesTokensDetails"], "IMAGE"),
+	}
+	switch strings.ToUpper(strings.TrimSpace(usageString(metadata, "trafficType"))) {
+	case "PRIORITY":
+		usage.ServiceTier = "priority"
+	case "BATCH":
+		usage.ServiceTier = "batch"
+	case "FLEX":
+		usage.ServiceTier = "flex"
+	case "ON_DEMAND", "STANDARD":
+		usage.ServiceTier = "standard"
+	}
+	return usage
+}
+
+func usageInt(values map[string]interface{}, key string) int {
+	switch value := values[key].(type) {
+	case float64:
+		return int(value)
+	case int:
+		return value
+	case json.Number:
+		parsed, _ := value.Int64()
+		return int(parsed)
+	default:
+		return 0
+	}
+}
+
+func usageString(values map[string]interface{}, key string) string {
+	value, _ := values[key].(string)
+	return value
+}
+
+func modalityTokenCount(raw interface{}, modality string) int {
+	items, ok := raw.([]interface{})
+	if !ok {
+		return 0
+	}
+	total := 0
+	for _, item := range items {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if strings.EqualFold(usageString(entry, "modality"), modality) {
+			total += usageInt(entry, "tokenCount")
+		}
+	}
+	return total
 }
 
 // standardTokenMapper handles providers that use OpenAI format

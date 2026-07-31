@@ -385,10 +385,17 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		return modelsProbe(base, "https://api.deepinfra.com/v1/openai", "bearer-api-key"), record.AuthMode == "api_key"
 	case "google-gemini":
 		if base == "" {
-			base = "https://generativelanguage.googleapis.com/v1beta"
+			base = "https://generativelanguage.googleapis.com"
+		}
+		lower := strings.ToLower(base)
+		for _, suffix := range []string{"/v1beta/openai", "/v1/openai", "/v1beta", "/v1"} {
+			if strings.HasSuffix(lower, suffix) {
+				base = base[:len(base)-len(suffix)]
+				break
+			}
 		}
 
-		return probeSpec{url: base + "/models?pageSize=1", auth: "x-goog-api-key"}, record.AuthMode == "api_key"
+		return probeSpec{url: base + "/v1beta/models?pageSize=1", auth: "x-goog-api-key"}, record.AuthMode == "api_key"
 	case "groq":
 		return modelsProbe(base, "https://api.groq.com/openai/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "mistral-ai":

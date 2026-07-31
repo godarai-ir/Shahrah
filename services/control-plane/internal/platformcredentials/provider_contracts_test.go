@@ -30,7 +30,7 @@ func TestDocumentedProviderProbesUseExactAuthentication(t *testing.T) {
 		},
 		{
 			name:    "gemini x-goog-api-key",
-			record:  EncryptedCredential{Binding: Binding{ProviderSlug: "google-gemini", AuthMode: "api_key"}},
+			record:  EncryptedCredential{Binding: Binding{ProviderSlug: "google-gemini", AuthMode: "api_key"}, BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai"},
 			secrets: map[string]string{"api_key": "gemini-secret"}, headerName: "x-goog-api-key", header: "gemini-secret", urlPart: "/v1beta/models?pageSize=1",
 		},
 		{

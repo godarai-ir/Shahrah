@@ -1,39 +1,104 @@
-costs:
-    - input_cost_per_token: 0.000002
-      input_cost_per_token_batches: 0.000001
-      output_cost_per_image_token: 0.00012
-      output_cost_per_token: 0.000012
-      output_cost_per_token_batches: 0.000006
-      region: "*"
-features:
-    - structured_output
-limits:
-    context_window: 65536
-    max_input_tokens: 65536
-    max_output_tokens: 32768
-    max_tokens: 32768
-modalities:
-    input:
-        - text
-        - image
-    output:
-        - text
-        - image
-mode: image
 model: gemini-3-pro-image
-params:
-    - defaultValue: 1
-      key: temperature
-      maxValue: 1
-    - defaultValue: 0.95
-      key: top_p
-    - defaultValue: 64
-      key: top_k
+status: active
+mode: image
+supportedModes: [image]
 provisioning: serverless
+modalities:
+    input: [text, image]
+    output: [text, image]
+limits: { context_window: 65536, max_input_tokens: 65536, max_output_tokens: 32768, max_tokens: 32768 }
+features: [system_messages]
+tools: [google_search]
+endpoints: [models, interactions, generate_content, stream_generate_content, batches, batch_generate_content, files, image_generations]
+transports: [http, sse]
+serviceTiers: [standard, batch, flex, priority]
+thinkingProfile:
+    defaultMode: adaptive
+    allowedModes: [adaptive]
+    manualDeprecated: false
+    effortValues: []
+    reasoningModes: []
+    contextValues: []
+    alwaysEnabled: true
+params:
+    - { key: max_tokens, minValue: 1, maxValue: 32768 }
+    - { key: stream, type: boolean }
+removeParams: [tool_choice, reasoning_effort]
+rateLimits: &geminiRateLimits
+    - { usageTier: free, scope: project, dynamic: true, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+costs:
+    - region: "*"
+      input_cost_per_token: 0.000002
+      input_cost_per_image: 0.0011
+      output_cost_per_token: 0.000012
+      output_cost_per_image_token: 0.00012
+      output_cost_per_image_1k: 0.134
+      output_cost_per_image_2k: 0.134
+      output_cost_per_image_4k: 0.24
+      input_cost_per_token_batches: 0.000001
+      input_cost_per_image_batches: 0.0006
+      output_cost_per_token_batches: 0.000006
+      output_cost_per_image_token_batches: 0.00006
+      output_cost_per_image_1k_batches: 0.067
+      output_cost_per_image_2k_batches: 0.067
+      output_cost_per_image_4k_batches: 0.12
+      input_cost_per_token_flex: 0.000001
+      input_cost_per_image_flex: 0.0006
+      output_cost_per_token_flex: 0.000006
+      output_cost_per_image_token_flex: 0.00006
+      input_cost_per_token_priority: 0.0000036
+      output_cost_per_token_priority: 0.0000216
+      output_cost_per_image_token_priority: 0.000216
 sources:
     - https://ai.google.dev/gemini-api/docs/models/gemini-3-pro-image
     - https://ai.google.dev/gemini-api/docs/image-generation
-status: active
-supportedModes:
-    - image
-thinking: true
+    - https://ai.google.dev/gemini-api/docs/pricing
+runtimeProfile:
+    version: 2
+    endpoints: [models, interactions, generate_content, stream_generate_content, batches, batch_generate_content, files, image_generations]
+    transports: [http, sse]
+    lifecycle: active
+    thinking:
+        defaultMode: adaptive
+        allowedModes: [adaptive]
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: true
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: [temperature, top_p, top_k]
+        disallowedWithThinking: []
+    tools:
+        custom: false
+        server: true
+        parallel: false
+        structuredOutput: false
+        supported: [google_search]
+        preferredVersions: {}
+    modalities:
+        input: [text, image]
+        output: [text, image]
+    requestControls:
+        serviceTierValues: [standard, batch, flex, priority]
+        inferenceGeoValues: [global]
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits: *geminiRateLimits
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 65536
+        maxInputTokens: 65536
+        maxOutputTokens: 32768
+        messagesBytes: 33554432
+        batchBytes: 2000000000
+        fileBytes: 2000000000
