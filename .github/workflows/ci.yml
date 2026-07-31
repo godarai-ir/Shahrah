@@ -24,7 +24,7 @@ jobs:
   # =============================================================================
   lint:
     name: Lint
-    runs-on: ${{ vars.CI_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -57,7 +57,7 @@ jobs:
   # =============================================================================
   test:
     name: Test
-    runs-on: ${{ vars.CI_RUNNER || vars.DEFAULT_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout code
