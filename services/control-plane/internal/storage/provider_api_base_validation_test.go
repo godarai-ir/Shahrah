@@ -17,6 +17,8 @@ func TestValidateProviderAPIBaseAllowsOfficialProviderHosts(t *testing.T) {
 		{name: "openai", provider: "openai", raw: "https://api.openai.com/v1/", want: "https://api.openai.com/v1"},
 		{name: "groq", provider: "groq", raw: "https://api.groq.com/openai/v1", want: "https://api.groq.com/openai/v1"},
 		{name: "xai", provider: "xai", raw: "https://api.x.ai/v1/", want: "https://api.x.ai/v1"},
+		{name: "mistral canonical", provider: "mistral-ai", raw: "https://api.mistral.ai/v1/", want: "https://api.mistral.ai/v1"},
+		{name: "mistral legacy alias", provider: "mistral", raw: "https://api.mistral.ai/v1", want: "https://api.mistral.ai/v1"},
 		{name: "azure", provider: "azure", raw: "https://tenant.openai.azure.com/openai/deployments/gpt", want: "https://tenant.openai.azure.com/openai/deployments/gpt"},
 	}
 

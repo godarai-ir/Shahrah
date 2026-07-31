@@ -1,29 +1,44 @@
-costs:
-    - input_cost_per_token: 1.5e-7
-      input_cost_per_token_batches: 7.5e-8
-      region: "*"
-limits:
-    context_window: 8192
-modalities:
-    input:
-        - text
-        - code
-    output:
-        - embedding
-mode: embedding
 model: codestral-embed-2505
-provisioning: serverless
-removeParams:
-    - max_tokens
-    - temperature
-    - top_p
-    - seed
-    - stop
-    - stream
-sources:
-    - https://mistral.ai/news/codestral-embed
-    - https://docs.mistral.ai/capabilities/embeddings/code_embeddings
-    - https://docs.mistral.ai/models/codestral-embed-25-05
 status: active
-supportedModes:
-    - embedding
+mode: embedding
+supportedModes: [embedding]
+provisioning: serverless
+costs:
+  - region: "*"
+    input_cost_per_token: 0.00000015
+    input_cost_per_token_batches: 0.000000075
+limits:
+  context_window: 8192
+modalities:
+  input: [text, code]
+  output: [embedding]
+sources:
+  - https://docs.mistral.ai/models/model-cards/codestral-embed-25-05
+runtimeProfile:
+  version: 2
+  aliases: [codestral-embed]
+  endpoints: [embeddings, batches]
+  transports: [http]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+  assistantPrefill: false
+  sampling:
+    parameters: []
+  tools:
+    custom: false
+    parallel: false
+    structuredOutput: false
+  modalities:
+    input: [text, code]
+    output: [embedding]
+  parameters:
+    embeddings: [model, input, metadata, output_dimension, output_dtype, encoding_format]
+    batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  limits:
+    contextWindow: 8192
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 536870912
+    fileBytes: 536870912

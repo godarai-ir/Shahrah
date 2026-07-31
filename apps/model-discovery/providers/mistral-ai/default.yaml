@@ -1,40 +1,38 @@
 documentation:
-    - https://docs.mistral.ai
-    - https://mistral.ai/pricing
-    - https://docs.mistral.ai/getting-started/models
+  - https://docs.mistral.ai/openapi.yaml
+  - https://docs.mistral.ai/models/overview
+  - https://mistral.ai/pricing/api/
+  - https://docs.mistral.ai/admin/identity-access/api-keys
 messages:
-    options:
-        - system
-        - user
-        - assistant
+  options:
+    - system
+    - user
+    - assistant
+    - tool
 params:
-    - defaultValue: 256
-      key: max_tokens
-      maxValue: 32768
-      minValue: 1
-    - defaultValue: 0.7
-      key: temperature
-      maxValue: 2
-      minValue: 0
-    - defaultValue: 1
-      key: top_p
-      maxValue: 1
-      minValue: 0
-    - defaultValue: null
-      key: seed
-      maxValue: 1
-      minValue: 0
-    - defaultValue: null
-      key: stop
-      type: array-of-strings
-    - defaultValue: true
-      key: stream
-      type: boolean
-    - key: reasoning_effort
-      supportedValues:
-          - none
-          - minimal
-          - low
-          - medium
-          - high
-          - xhigh
+  - key: max_tokens
+    minValue: 1
+  - key: temperature
+    minValue: 0
+    maxValue: 2
+  - key: top_p
+    minValue: 0
+    maxValue: 1
+  - key: random_seed
+  - key: stop
+    type: array-of-strings
+  - key: stream
+    type: boolean
+tool_pricing:
+  web_search:
+    per_thousand_requests: 30
+  web_search_premium:
+    per_call: 0.05
+  code_execution:
+    per_call: 0.03
+  image_generation:
+    per_image: 0.1
+  libraries:
+    per_call: 0.01
+    ocr_per_page: 0.003
+    indexing_per_token: 0.000001

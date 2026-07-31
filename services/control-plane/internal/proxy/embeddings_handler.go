@@ -202,6 +202,9 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if !supportsEmbeddingsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Embeddings API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("embeddings") {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI embeddings are disabled", "provider_disabled")
+	}
 	if isGoogleGeminiProvider(dep.Provider) {
 		if endpointErr := validateGoogleGeminiRuntimeEndpoint(
 			estimated.ModelRuntimeProfile,
@@ -213,6 +216,14 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 				endpointErr.Error(),
 				"invalid_request_error",
 			)
+		}
+	}
+	if isMistralProvider(dep.Provider) {
+		if endpointErr := validateMistralJSONParameters(estimated.ModelRuntimeProfile, "embeddings", originalBody); endpointErr != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
+		}
+		if endpointErr := validateMistralEmbeddingRequest(originalBody); endpointErr != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
 		}
 	}
 
@@ -253,6 +264,10 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 			"input_count":            embeddingInputCount(req.Input),
 			"encoding_format":        embeddingEncodingValue(req.EncodingFormat),
 		},
+	}
+	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(dep.Provider, outboundModel, estimated)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
 	if req.Dimensions != nil {
 		tunnelReq.RequestMetadata["dimensions"] = *req.Dimensions
@@ -545,7 +560,7 @@ func apiFieldError(message string, param string, code string) error {
 
 func supportsEmbeddingsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "azure", "groq", "mistral", "togetherai", "openrouter", "gemini", "google-gemini", "mock":
+	case "openai", "azure", "groq", "mistral", "mistral-ai", "togetherai", "openrouter", "gemini", "google-gemini", "mock":
 		return true
 	default:
 		return false
@@ -554,7 +569,10 @@ func supportsEmbeddingsProvider(provider string) bool {
 
 func modelSupportsCustomDimensions(model string) bool {
 	model = providerModelID(model)
-	return model == "text-embedding-3-small" || model == "text-embedding-3-large"
+	return model == "text-embedding-3-small" ||
+		model == "text-embedding-3-large" ||
+		model == "codestral-embed-2505" ||
+		model == "codestral-embed"
 }
 
 func embeddingInputCount(input interface{}) int {

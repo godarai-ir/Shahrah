@@ -241,6 +241,24 @@ func main() {
 		go xaiPricing.Run(pricingCtx, 5*time.Minute)
 	}
 
+	mistralPricing, mistralPricingErr :=
+		billing.NewCatalogPricingSnapshotManagerFromEnv("mistral-ai", nil)
+	if mistralPricingErr != nil {
+		logger.Warn(
+			"Mistral AI pricing is unavailable; Mistral AI requests will fail closed until configuration is restored",
+			zap.Error(mistralPricingErr),
+		)
+	} else {
+		billingService.SetCatalogPricingSnapshotManager("mistral-ai", mistralPricing)
+		if mistralPricingErr := mistralPricing.Reload(ctx); mistralPricingErr != nil {
+			logger.Warn(
+				"Initial Mistral AI pricing snapshot is unavailable; background refresh will retry",
+				zap.Error(mistralPricingErr),
+			)
+		}
+		go mistralPricing.Run(pricingCtx, 5*time.Minute)
+	}
+
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
 		billing.LoadNobitexExchangeRateConfigFromEnv(cfg.BillingSettings.RateSource),
@@ -482,6 +500,7 @@ func main() {
 	imagesHandler := proxy.NewImagesHandlerWithDependencies(baseProxyDeps)
 	audioTranscriptionsHandler := proxy.NewAudioTranscriptionsHandlerWithDependencies(baseProxyDeps)
 	audioSpeechHandler := proxy.NewAudioSpeechHandlerWithDependencies(baseProxyDeps)
+	mistralOCRHandler := proxy.NewMistralOCRHandlerWithDependencies(baseProxyDeps)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
 	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseProxyDeps, store)
 	geminiNativeHandler := proxy.NewGeminiNativeHandler(baseProxyDeps, store)
@@ -536,6 +555,7 @@ func main() {
 		ImagesHandler:              imagesHandler,
 		AudioTranscriptionsHandler: audioTranscriptionsHandler,
 		AudioSpeechHandler:         audioSpeechHandler,
+		MistralOCRHandler:          mistralOCRHandler,
 		ModelsHandler:              modelsHandler,
 		AnthropicNativeHandler:     anthropicNativeHandler,
 		GeminiNativeHandler:        geminiNativeHandler,

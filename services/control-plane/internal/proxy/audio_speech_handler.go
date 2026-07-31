@@ -213,6 +213,14 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	if !supportsAudioSpeechProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Text to speech API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("audio_speech") {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio speech is disabled", "provider_disabled")
+	}
+	if isMistralProvider(dep.Provider) {
+		if endpointErr := validateMistralJSONParameters(estimated.ModelRuntimeProfile, "audio_speech", body); endpointErr != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
+		}
+	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
 	if err != nil {
@@ -250,6 +258,10 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 		},
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
+	}
+	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(dep.Provider, outboundModel, estimated)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
@@ -316,9 +328,12 @@ func (h *AudioSpeechHandler) handleSync(
 
 	responseMetadata := withAudioSpeechResponseMetadata(tunnelReq.RequestMetadata, resp.Body, resp.Headers)
 
-	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), audioSpeechUsageToOpenAI(resp.Body), estimated)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech usage", "billing_error")
+	finalCost := estimated
+	if !isMistralProvider(tunnelReq.Deployment.Provider) {
+		finalCost, err = h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(requestedModel, tunnelReq.Deployment), audioSpeechUsageToOpenAI(resp.Body), estimated)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech usage", "billing_error")
+		}
 	}
 	finalCost, err = priceMeteredUsage(
 		c.Context(),
@@ -592,12 +607,16 @@ func (h *AudioSpeechHandler) handleStream(
 				return
 			}
 
-			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModelForDeployment(requestedModel, tunnelReq.Deployment), nil, estimated)
-			if finalizeErr != nil {
-				h.logger.Warn("failed to finalize streaming text to speech usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
+			finalCost := estimated
+			if !isMistralProvider(tunnelReq.Deployment.Provider) {
+				var finalizeErr error
+				finalCost, finalizeErr = h.billing.FinalizeFromUsage(requestCtx, billingModelForDeployment(requestedModel, tunnelReq.Deployment), nil, estimated)
+				if finalizeErr != nil {
+					h.logger.Warn("failed to finalize streaming text to speech usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
 
-				finalCost = estimated
-				finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
+					finalCost = estimated
+					finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
+				}
 			}
 
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
@@ -694,6 +713,7 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 	}
 
 	metadata.Model = model
+	isMistral := strings.HasPrefix(strings.ToLower(providerModelID(model)), "voxtral-mini-tts-")
 
 	input, ok := raw["input"].(string)
 
@@ -703,14 +723,31 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 	}
 
 	inputLength := utf8.RuneCountInString(input)
-	if inputLength > 4096 {
+	if !isMistral && inputLength > 4096 {
 		return metadata, fmt.Errorf("input must be at most 4096 characters")
 	}
 
 	metadata.Metadata["input_length"] = inputLength
 	metadata.Metadata["input_hash"] = hashTracePreview(input)
 
-	if err := fillAudioSpeechVoiceMetadata(metadata.Metadata, raw["voice"]); err != nil {
+	if isMistral {
+		if _, hasOpenAIVoice := raw["voice"]; hasOpenAIVoice {
+			return metadata, fmt.Errorf("voice is not supported for Mistral TTS; use voice_id or ref_audio")
+		}
+		voiceID := strings.TrimSpace(stringFromMap(raw, "voice_id"))
+		refAudio := strings.TrimSpace(stringFromMap(raw, "ref_audio"))
+		if voiceID != "" && refAudio != "" {
+			return metadata, fmt.Errorf("voice_id and ref_audio cannot be used together")
+		}
+		if voiceID != "" {
+			metadata.Metadata["voice_type"] = "voice_id"
+			metadata.Metadata["voice_id_hash"] = hashTracePreview(voiceID)
+		}
+		if refAudio != "" {
+			metadata.Metadata["voice_type"] = "reference_audio"
+			metadata.Metadata["ref_audio_hash"] = hashTracePreview(refAudio)
+		}
+	} else if err := fillAudioSpeechVoiceMetadata(metadata.Metadata, raw["voice"]); err != nil {
 		return metadata, err
 	}
 
@@ -729,7 +766,10 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		responseFormat = "mp3"
 	}
 
-	if !validAudioSpeechResponseFormat(responseFormat) {
+	if !validAudioSpeechResponseFormat(responseFormat) || (isMistral && responseFormat == "aac") {
+		if isMistral {
+			return metadata, fmt.Errorf("response_format must be one of mp3, opus, flac, wav, or pcm")
+		}
 		return metadata, fmt.Errorf("response_format must be one of mp3, opus, aac, flac, wav, or pcm")
 	}
 
@@ -748,6 +788,9 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 
 	streamFormat := strings.ToLower(strings.TrimSpace(stringFromMap(raw, "stream_format")))
 	if streamFormat != "" {
+		if isMistral {
+			return metadata, fmt.Errorf("stream_format is not supported for Mistral TTS; use stream")
+		}
 		if streamFormat != "sse" && streamFormat != "audio" {
 			return metadata, fmt.Errorf("stream_format must be sse or audio")
 		}
@@ -756,6 +799,16 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		metadata.Stream = streamFormat == "sse"
 		metadata.Metadata["stream_format"] = streamFormat
 		metadata.Metadata["stream"] = metadata.Stream
+	}
+	if isMistral {
+		if value, exists := raw["stream"]; exists {
+			stream, ok := value.(bool)
+			if !ok {
+				return metadata, fmt.Errorf("stream must be a boolean")
+			}
+			metadata.Stream = stream
+			metadata.Metadata["stream"] = stream
+		}
 	}
 
 	return metadata, nil
@@ -951,7 +1004,7 @@ func withAudioSpeechResponseMetadata(input map[string]interface{}, body []byte, 
 
 func supportsAudioSpeechProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "openrouter", "deepinfra", "fireworks", "togetherai", "together-ai", "sambanova", "mock":
+	case "", "openai", "openrouter", "deepinfra", "fireworks", "togetherai", "together-ai", "sambanova", "mistral", "mistral-ai", "mock":
 		return true
 	default:
 		return false

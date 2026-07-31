@@ -372,6 +372,92 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 			return "", "", err
 		}
 		return http.MethodGet, "/models/" + value, nil
+	case platform.ProviderOperationMistralFIM:
+		return http.MethodPost, "/fim/completions", nil
+	case platform.ProviderOperationMistralChatModerations:
+		return http.MethodPost, "/chat/moderations", nil
+	case platform.ProviderOperationMistralOCR:
+		return http.MethodPost, "/ocr", nil
+	case platform.ProviderOperationMistralFilesCreate:
+		return http.MethodPost, "/files", nil
+	case platform.ProviderOperationMistralFilesList:
+		return http.MethodGet, "/files", nil
+	case platform.ProviderOperationMistralFilesGet, platform.ProviderOperationMistralFilesDelete,
+		platform.ProviderOperationMistralFilesContent, platform.ProviderOperationMistralFilesURL:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		method, suffix := http.MethodGet, ""
+		if payload.Operation == platform.ProviderOperationMistralFilesDelete {
+			method = http.MethodDelete
+		} else if payload.Operation == platform.ProviderOperationMistralFilesContent {
+			suffix = "/content"
+		} else if payload.Operation == platform.ProviderOperationMistralFilesURL {
+			suffix = "/url"
+		}
+		return method, "/files/" + value + suffix, nil
+	case platform.ProviderOperationMistralBatchCreate:
+		return http.MethodPost, "/batch/jobs", nil
+	case platform.ProviderOperationMistralBatchList:
+		return http.MethodGet, "/batch/jobs", nil
+	case platform.ProviderOperationMistralBatchGet, platform.ProviderOperationMistralBatchCancel,
+		platform.ProviderOperationMistralBatchDelete:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		method, suffix := http.MethodGet, ""
+		if payload.Operation == platform.ProviderOperationMistralBatchCancel {
+			method, suffix = http.MethodPost, "/cancel"
+		} else if payload.Operation == platform.ProviderOperationMistralBatchDelete {
+			method = http.MethodDelete
+		}
+		return method, "/batch/jobs/" + value + suffix, nil
+	case platform.ProviderOperationMistralAgentsCreate:
+		return http.MethodPost, "/agents", nil
+	case platform.ProviderOperationMistralAgentsList:
+		return http.MethodGet, "/agents", nil
+	case platform.ProviderOperationMistralAgentsPages:
+		return http.MethodGet, "/agents/pages", nil
+	case platform.ProviderOperationMistralAgentsGet, platform.ProviderOperationMistralAgentsUpdate,
+		platform.ProviderOperationMistralAgentsDelete:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		method := http.MethodGet
+		if payload.Operation == platform.ProviderOperationMistralAgentsUpdate {
+			method = http.MethodPatch
+		} else if payload.Operation == platform.ProviderOperationMistralAgentsDelete {
+			method = http.MethodDelete
+		}
+		return method, "/agents/" + value, nil
+	case platform.ProviderOperationMistralConversationsCreate:
+		return http.MethodPost, "/conversations", nil
+	case platform.ProviderOperationMistralConversationsList:
+		return http.MethodGet, "/conversations", nil
+	case platform.ProviderOperationMistralConversationsGet, platform.ProviderOperationMistralConversationsAppend,
+		platform.ProviderOperationMistralConversationsDelete, platform.ProviderOperationMistralConversationsHistory,
+		platform.ProviderOperationMistralConversationsMessages, platform.ProviderOperationMistralConversationsRestart:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+		method, suffix := http.MethodGet, ""
+		switch payload.Operation {
+		case platform.ProviderOperationMistralConversationsAppend:
+			method = http.MethodPost
+		case platform.ProviderOperationMistralConversationsDelete:
+			method = http.MethodDelete
+		case platform.ProviderOperationMistralConversationsHistory:
+			suffix = "/history"
+		case platform.ProviderOperationMistralConversationsMessages:
+			suffix = "/messages"
+		case platform.ProviderOperationMistralConversationsRestart:
+			method, suffix = http.MethodPost, "/restart"
+		}
+		return method, "/conversations/" + value + suffix, nil
 	default:
 		return "", "", fmt.Errorf("unsupported or missing fixed provider operation %q", payload.Operation)
 	}

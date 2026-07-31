@@ -50,6 +50,7 @@ type Dependencies struct {
 	ImagesHandler              *proxy.ImagesHandler
 	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
 	AudioSpeechHandler         *proxy.AudioSpeechHandler
+	MistralOCRHandler          *proxy.MistralOCRHandler
 	ModelsHandler              *proxy.ModelsHandler
 	AnthropicNativeHandler     *proxy.AnthropicNativeHandler
 	GeminiNativeHandler        *proxy.GeminiNativeHandler

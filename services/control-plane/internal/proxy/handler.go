@@ -549,6 +549,9 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 	}
 
 	provider := deployment.Provider
+	if isMistralProvider(provider) && !mistralEndpointEnabled("chat_completions") {
+		return true, writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI chat completions are disabled", "provider_disabled")
+	}
 	if chatRequestHasImage(req) && !supportsChatImageProvider(provider) {
 		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through GodarAI chat completions", provider), "invalid_request_error")
 	}
@@ -619,6 +622,11 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 				"Deferred chat completion routing state is unavailable",
 				"routing_error",
 			)
+		}
+	}
+	if isMistralProvider(provider) {
+		if err := validateMistralChatRuntimeProfile(req, runtimeProfile); err != nil {
+			return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 		}
 	}
 

@@ -869,6 +869,8 @@ func mapModeToModelType(mode string) platform.ModelType {
 		return platform.ModelTypeModeration
 	case "rerank":
 		return platform.ModelTypeRerank
+	case "ocr":
+		return platform.ModelTypeOCR
 	default:
 		return ""
 	}
@@ -912,6 +914,8 @@ func mapCapabilityToModelType(capability string) platform.ModelType {
 		return platform.ModelTypeRerank
 	case "search":
 		return platform.ModelTypeSearch
+	case "ocr", "bbox_extraction", "annotations":
+		return platform.ModelTypeOCR
 	default:
 		return ""
 	}

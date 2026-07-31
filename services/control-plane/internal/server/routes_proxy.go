@@ -26,6 +26,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 	if deps.CompletionsHandler != nil {
 		v1.Post("/completions", deps.CompletionsHandler.Handle)
+		v1.Post("/fim/completions", deps.CompletionsHandler.Handle)
 	}
 
 	if deps.ResponsesHandler != nil {
@@ -51,6 +52,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 	if deps.ModerationsHandler != nil {
 		v1.Post("/moderations", deps.ModerationsHandler.Handle)
+		v1.Post("/chat/moderations", deps.ModerationsHandler.Handle)
 	}
 
 	if deps.RerankHandler != nil {
@@ -69,6 +71,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 	if deps.AudioSpeechHandler != nil {
 		v1.Post("/audio/speech", deps.AudioSpeechHandler.Handle)
+	}
+
+	if deps.MistralOCRHandler != nil {
+		v1.Post("/ocr", deps.MistralOCRHandler.Handle)
 	}
 
 	if deps.ModelsHandler != nil {

@@ -1,6 +1,6 @@
 # پلن پشتیبانی کامل از مدل‌های Mistral AI در گدارAI
 
-> وضعیت: پیشنهادی — آماده‌ی تبدیل به Epic و تسک اجرایی  
+> وضعیت اجرا: فازهای کاتالوگ و endpointهای همگام اصلی پیاده‌سازی و بازبینی شده‌اند؛ Files، Batch، Agents، Conversations، تسویهٔ ابزارهای داخلی و smoke زنده هنوز gate نهایی‌اند. شواهد جاری در `docs/godarai-supported-mistral-ai-models-report.md` ثبت شده است.
 > دامنه: تمام مدل‌های موجود در `apps/model-discovery/providers/mistral-ai/`  
 > تاریخ بررسی منابع: ۲۰۲۶-۰۷-۳۱  
 > پیش‌نیاز تحلیلی: `plans/mistral-provider-readiness-checklist.md`
@@ -89,7 +89,7 @@
 - Embeddings در بخشی از کد فقط alias قدیمی `mistral` را می‌پذیرد و canonical provider یعنی `mistral-ai` را رد می‌کند.
 - Moderation، OCR و TTS برای Mistral مسیر end-to-end کامل ندارند.
 - transcription فعلی فقط upload فایل فیزیکی را پوشش می‌دهد؛ قرارداد رسمی `file`، `file_url` و `file_id` را دارد.
-- adapter عمومی پارامترهای native را ممکن است حذف کند و تضمینی برای multipart، SSE، binary audio و قرارداد خطای Mistral ندارد.
+- adapter عمومی پارامترهای native را ممکن است حذف کند و تضمینی برای multipart، SSE، پاسخ JSON/base64 صوت و قرارداد خطای Mistral ندارد.
 - endpointهای Agents، Conversations، Files و Batch برای این provider کامل و model-aware نیستند.
 
 ### ۵.۳. credential
@@ -143,7 +143,7 @@
 - Audio Transcriptions؛
 - Audio Speech؛
 - Batch و Files؛
-- SSE events، binary responses، usage و errors.
+- SSE events، پاسخ JSON/base64 صوت، usage و errors.
 
 پارامترهای native نباید در generic map رها یا بی‌صدا حذف شوند. در مسیر compatible، نگاشت‌های صریح زیر لازم است:
 
@@ -160,7 +160,7 @@
 - base URL رسمی و regional endpointهای allowlist‌شده؛
 - `Authorization: Bearer <api_key>` بدون forwardشدن headerهای حساس کاربر؛
 - path صحیح هر endpoint؛
-- JSON، multipart، SSE و binary audio؛
+- JSON، multipart و SSE با حفظ `audio_data` به‌شکل base64؛
 - cancellation و backpressure برای stream؛
 - timeout و retry فقط برای عملیات idempotent؛
 - استخراج model و usage پیش از پایان stream یا job؛
@@ -189,9 +189,9 @@
 | FIM | `services/control-plane/internal/proxy/completions_handler.go` | جداسازی قرارداد legacy completions از `/v1/fim/completions` |
 | Embeddings | `services/control-plane/internal/proxy/embeddings_handler.go` | پذیرش canonical provider و پارامترهای native embedding |
 | Moderation | `services/control-plane/internal/proxy/moderations_handler.go` | Mistral raw/chat moderation و قرارداد پاسخ صحیح |
-| Audio | `services/control-plane/internal/proxy/audio_transcriptions_handler.go` و `audio_speech_handler.go` | file reference، streaming، binary، voice cloning و usage |
+| Audio | `services/control-plane/internal/proxy/audio_transcriptions_handler.go` و `audio_speech_handler.go` | file reference، streaming، JSON/base64 audio، voice cloning و usage |
 | قراردادها | `packages/contracts/openai/` به‌همراه package اختصاصی Mistral | typeهای native و mappingهای compatible بدون حذف فیلد |
-| tunnel | `services/silk-road/pkg/server/adapters.go` و `openai_compatible.go` یا adapter اختصاصی | path/content-type/SSE/multipart/binary و header policy |
+| tunnel | `services/silk-road/pkg/server/adapters.go` و `openai_compatible.go` یا adapter اختصاصی | path/content-type/SSE/multipart/JSON و header policy |
 | credential | `services/control-plane/internal/platformcredentials/` و `internal/storage/provider_credential_validation.go` | canonicalization، probe، BYOK و Platform-managed |
 | billing | `services/control-plane/internal/billing/pricing.go`، `service.go` و `catalog_pricing_snapshot.go` | حذف fallback صفر، snapshot کاتالوگ Mistral و settlement چندبعدی |
 
@@ -211,7 +211,7 @@
 
 ### Embeddings
 
-ورودی تکی و آرایه‌ای؛ `output_dimension`، `output_dtype` و `encoding_format` با enum رسمی؛ پاسخ float یا base64 بدون تغییر مخرب؛ usage توکن برای billing.
+ورودی تکی و آرایه‌ای؛ `encoding_format` با enum رسمی؛ `output_dimension` و `output_dtype` فقط برای مدلی که این قابلیت را دارد (`codestral-embed-2505`)؛ `mistral-embed-2312` با خروجی ثابت ۱۰۲۴بعدی؛ پاسخ float یا base64 بدون تغییر مخرب و usage توکن برای billing.
 
 ### Moderation
 
@@ -223,11 +223,11 @@ document input، page selection، base64 images، image limits، bbox/structured
 
 ### Transcription
 
-multipart و reference input؛ language، temperature در صورت وجود در OpenAPI، streaming، diarization، context bias و timestamp granularities. duration رسمی پاسخ مبنای تسویه است.
+upload با multipart و reference input با JSON؛ language، temperature در صورت وجود در OpenAPI، streaming، diarization، context bias و timestamp granularities. مقدار رسمی `usage.prompt_audio_seconds` مبنای تسویه است و سقف جاری ۶۰ دقیقه/۵۰۰ MB اعمال شود.
 
 ### TTS
 
-input، model، voice ID یا reference audio، response format رسمی، stream و prompt cache key در صورت وجود. پاسخ binary/stream بدون JSON wrapping اجباری عبور کند.
+input، model، voice ID یا reference audio، response format رسمی، stream و prompt cache key در صورت وجود. پاسخ همگام JSON شامل `audio_data` با base64 و پاسخ streaming به‌شکل SSE بدون تغییر مخرب عبور کند.
 
 ### Agents، Conversations، Files و Batch
 
@@ -378,7 +378,7 @@ catalog revision، exchange-rate revision و credential ID باید همراه r
 - golden request/response برای تمام endpointها؛
 - required/optional، enum، mutually-exclusive fields و unknown field policy؛
 - mappingهای compatible و conflict errors؛
-- SSE chunk/usage termination، multipart و binary audio؛
+- SSE chunk/usage termination، multipart و پاسخ JSON/base64 audio؛
 - parity دوره‌ای با OpenAPI checksum و هشدار drift در CI.
 
 ### آزمون‌های routing و امنیت

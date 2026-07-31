@@ -142,7 +142,7 @@ func TestAudioTranscriptionsHandlerSupportedProviderRouting(t *testing.T) {
 	}{
 		{name: "azure openai", provider: "azure-open-ai", modelName: "azure-open-ai:acct:whisper-1", deploymentModel: "whisper-1", wantKind: "openai_compatible"},
 		{name: "groq", provider: "groq", modelName: "groq:acct:whisper-large-v3", deploymentModel: "whisper-large-v3", wantKind: "openai_compatible"},
-		{name: "mistral", provider: "mistral-ai", modelName: "mistral-ai:acct:voxtral-mini-transcribe-2507", deploymentModel: "voxtral-mini-transcribe-2507", wantKind: "openai_compatible"},
+		{name: "mistral", provider: "mistral-ai", modelName: "mistral-ai:acct:voxtral-mini-2602", deploymentModel: "voxtral-mini-2602", wantKind: "openai_compatible"},
 		{name: "together", provider: "together-ai", modelName: "together-ai:acct:openai/whisper-large-v3", deploymentModel: "openai/whisper-large-v3", wantKind: "openai_compatible"},
 		{name: "deepgram", provider: "deepgram", modelName: "deepgram:acct:nova-3-general", deploymentModel: "deepgram/nova-3-general", wantKind: "native"},
 		{name: "cohere", provider: "cohere", modelName: "cohere:acct:cohere-transcribe-03-2026", deploymentModel: "cohere/cohere-transcribe-03-2026", wantKind: "native"},
@@ -155,7 +155,7 @@ func TestAudioTranscriptionsHandlerSupportedProviderRouting(t *testing.T) {
 			tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 				StatusCode: fiber.StatusOK,
 				Headers:    map[string]string{"content-type": "application/json"},
-				Body:       []byte(`{"text":"ok"}`),
+				Body:       []byte(`{"text":"ok","usage":{"prompt_audio_seconds":1}}`),
 			}}
 			app, _ := newAudioTranscriptionsTestApp(t, tc.modelName, tc.provider, tc.deploymentModel, tunnel, nil, nil)
 
@@ -166,6 +166,10 @@ func TestAudioTranscriptionsHandlerSupportedProviderRouting(t *testing.T) {
 			defer closeResponseBody(t, resp)
 
 			require.NoError(t, err)
+			if resp.StatusCode != fiber.StatusOK {
+				payload, _ := io.ReadAll(resp.Body)
+				t.Logf("unexpected response: %s", payload)
+			}
 			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 			assert.Equal(t, tc.wantKind, tunnel.lastReq.RequestMetadata["provider_adapter_kind"])
 			assert.Equal(t, "/audio/transcriptions", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
@@ -318,12 +322,43 @@ func TestAudioTranscriptionMinuteReconciliation(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "1.5", minutes)
 
+	minutes, ok = audioTranscriptionMinutes([]byte(`{"usage":{"prompt_audio_seconds":203,"prompt_tokens":4}}`))
+	require.True(t, ok)
+	assert.Equal(t, "3.3833333333333333", minutes)
+
 	streamUsage := &audioTranscriptionStreamUsage{}
 	streamUsage.Observe([]byte("event: transcript.text.done\n"))
 	streamUsage.Observe([]byte("data: {\"usage\":{\"seconds\":45}}\n\n"))
 	minutes, ok = streamUsage.Minutes()
 	require.True(t, ok)
 	assert.Equal(t, "0.75", minutes)
+}
+
+func TestMistralAudioTranscriptionsHandlerAcceptsOfficialJSONFileURLContract(t *testing.T) {
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       []byte(`{"model":"voxtral-mini-2602","text":"ok","usage":{"prompt_audio_seconds":12,"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}}`),
+	}}
+	logs := &testLogs{}
+	model := "mistral-ai:acct:voxtral-mini-2602"
+	app, _ := newAudioTranscriptionsTestApp(t, model, "mistral-ai", "voxtral-mini-2602", tunnel, logs, nil)
+
+	body := `{"model":"mistral-ai:acct:voxtral-mini-2602","file_url":"https://example.com/audio.wav","stream":false,"timestamp_granularities":["word"]}`
+	req := httptest.NewRequest("POST", "/v1/audio/transcriptions", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+	require.NoError(t, err)
+	if resp.StatusCode != fiber.StatusOK {
+		payload, _ := io.ReadAll(resp.Body)
+		t.Fatalf("unexpected response %d: %s", resp.StatusCode, payload)
+	}
+	assert.Equal(t, "application/json", tunnel.lastReq.Headers["Content-Type"])
+	assert.JSONEq(t, `{"model":"voxtral-mini-2602","file_url":"https://example.com/audio.wav","stream":false,"timestamp_granularities":["word"]}`, string(tunnel.lastReq.Body))
+	assert.Equal(t, "url", tunnel.lastReq.RequestMetadata["file_source"])
+	require.Len(t, logs.loggedSpends, 1)
 }
 
 func TestAudioTranscriptionsHandlerRequiresMultipart(t *testing.T) {

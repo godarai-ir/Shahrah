@@ -13,6 +13,10 @@ import { findMissingProviderSlugs } from '../src/catalog/provider-catalog-reconc
 import { anthropicProviderImporter } from './model-import/providers/anthropic';
 import { googleGeminiProviderImporter } from './model-import/providers/google-gemini';
 import {
+  mistralAIProviderImporter,
+  validateMistralAIProviderDirectory,
+} from './model-import/providers/mistral-ai';
+import {
   validateXAIProviderDirectory,
   xaiProviderImporter,
 } from './model-import/providers/xai';
@@ -33,6 +37,7 @@ type ModelMode =
   | 'embedding'
   | 'image'
   | 'moderation'
+  | 'ocr'
   | 'realtime'
   | 'rerank'
   | 'responses'
@@ -129,6 +134,7 @@ const knownModes = new Set<ModelMode>([
   'text_to_speech',
   'video',
   'unknown',
+  'ocr',
 ]);
 
 const supportedInputModalities = new Set([
@@ -139,6 +145,8 @@ const supportedInputModalities = new Set([
   'pdf',
   'text',
   'video',
+  'document',
+  'moderation_result',
 ]);
 
 const supportedOutputModalities = new Set([
@@ -163,6 +171,13 @@ const supportedCapabilities = new Set([
   'structured_output',
   'system_messages',
   'tool_choice',
+  'agents',
+  'annotations',
+  'bbox_extraction',
+  'built_in_tools',
+  'document_qna',
+  'timestamps',
+  'voice_cloning',
 ]);
 
 function getArgValue(
@@ -339,6 +354,9 @@ function normalizeModeValue(input: unknown): ModelMode {
     case 'moderation':
     case 'moderations':
       return 'moderation';
+    case 'ocr':
+    case 'document_ocr':
+      return 'ocr';
     case 'unknown':
       return 'unknown';
     default:
@@ -476,6 +494,9 @@ function inferOutputModalities(
       case 'realtime':
         inferred.add('text');
         break;
+      case 'ocr':
+        inferred.add('document');
+        break;
       default:
         break;
     }
@@ -493,6 +514,9 @@ async function parseProviderDir(
   providerDir: string,
 ): Promise<ImportProviderBatch> {
   const providerSlug = slugify(basename(providerDir));
+  if (providerSlug === 'mistral-ai') {
+    await validateMistralAIProviderDirectory(join(providerDir, '..'));
+  }
   const providerImporter =
     providerSlug === anthropicProviderImporter.slug
       ? anthropicProviderImporter
@@ -500,7 +524,9 @@ async function parseProviderDir(
         ? googleGeminiProviderImporter
         : providerSlug === xaiProviderImporter.slug
           ? xaiProviderImporter
-          : undefined;
+          : providerSlug === mistralAIProviderImporter.slug
+            ? mistralAIProviderImporter
+            : undefined;
   if (providerSlug === xaiProviderImporter.slug) {
     await validateXAIProviderDirectory(dirname(providerDir));
   }
@@ -602,9 +628,15 @@ async function parseProviderDir(
         );
       }
       regionSet.add(region);
+      const sourceUrl = sources.find((source) => source.includes('pricing'));
+      if (!sourceUrl) {
+        throw new Error(
+          `${modelId}: pricing data requires an official pricing source`,
+        );
+      }
       pricingRows.push({
         regionSlug: region,
-        sourceUrl: sources[0],
+        sourceUrl,
         effectiveFrom,
         effectiveTo,
         inputPricePerMillionTokens: perTokenToPerMillion(
@@ -623,12 +655,6 @@ async function parseProviderDir(
         requestPrice: asNumber(cost['request_cost']),
       });
 
-      const sourceUrl = sources.find((source) => source.includes('pricing'));
-      if (!sourceUrl) {
-        throw new Error(
-          `${modelId}: pricing data requires an official pricing source`,
-        );
-      }
       const rateMappings: ProviderRateMapping[] = [
         {
           key: 'input_cost_per_token',
@@ -1005,14 +1031,17 @@ async function parseProviderDir(
             : 'web_search_requests',
         unit: providerSlug === 'google-gemini' ? 'query' : 'request',
         unitPriceUsd: webSearchPrice,
-        conditionJson: {
-          free_monthly_queries:
-            asNumber(webSearch?.['free_monthly_queries']) ?? 0,
-          billing_basis:
-            providerSlug === 'google-gemini'
-              ? 'actual_queries'
-              : 'upstream_query',
-        },
+        conditionJson:
+          providerSlug === 'mistral-ai'
+            ? undefined
+            : {
+                free_monthly_queries:
+                  asNumber(webSearch?.['free_monthly_queries']) ?? 0,
+                billing_basis:
+                  providerSlug === 'google-gemini'
+                    ? 'actual_queries'
+                    : 'upstream_query',
+              },
         region: 'global',
         sourceUrl: pricingSource,
       });
@@ -1111,7 +1140,8 @@ async function parseProviderDir(
     if (
       (providerSlug === 'google-gemini' ||
         providerSlug === 'openai' ||
-        providerSlug === 'xai') &&
+        providerSlug === 'xai' ||
+        providerSlug === 'mistral-ai') &&
       !explicitRuntimeProfile
     ) {
       throw new Error(`${modelId}: explicit runtimeProfile is required`);
@@ -1119,7 +1149,7 @@ async function parseProviderDir(
     const minimumRuntimeProfileVersion =
       providerSlug === 'openai' || providerSlug === 'xai'
         ? 3
-        : providerSlug === 'google-gemini'
+        : providerSlug === 'google-gemini' || providerSlug === 'mistral-ai'
           ? 2
           : 1;
     if (

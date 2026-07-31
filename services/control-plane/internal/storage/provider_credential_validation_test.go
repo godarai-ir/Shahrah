@@ -122,6 +122,17 @@ func TestValidateProviderAPIKeyClassifiesForbiddenAndQuota(t *testing.T) {
 	}
 }
 
+func TestMistralCanonicalCredentialProbeUsesBearerModelsEndpoint(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		assert.Equal(t, "https://api.mistral.ai/v1/models", req.URL.String())
+		assert.Equal(t, "Bearer mistral-key-1234", req.Header.Get("Authorization"))
+		return jsonResponse(http.StatusOK, `{"data":[]}`), nil
+	})}
+
+	result := validateProviderAPIKey(context.Background(), "mistral-ai", "mistral-key-1234", nil, client)
+	assert.True(t, result.Success, result.Message)
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {

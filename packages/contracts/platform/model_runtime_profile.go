@@ -21,6 +21,7 @@ type ModelRuntimeProfile struct {
 	Sampling              ModelRuntimeSamplingProfile   `json:"sampling"`
 	Tools                 ModelRuntimeToolsProfile      `json:"tools"`
 	Modalities            ModelRuntimeModalities        `json:"modalities"`
+	Parameters            map[string][]string           `json:"parameters,omitempty"`
 	RequestControls       ModelRuntimeRequestControls   `json:"requestControls"`
 	RequestHeaders        ModelRuntimeRequestHeaders    `json:"requestHeaders,omitempty"`
 	ContextPricing        ModelRuntimeContextPricing    `json:"contextPricing,omitempty"`
@@ -245,6 +246,10 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"generate_answer",
 				"embed_content",
 				"imagen_generate",
+				"fim_completions",
+				"chat_moderations",
+				"ocr",
+				"agents",
 			},
 			endpoint,
 		) {
@@ -332,8 +337,10 @@ func (profile ModelRuntimeProfile) Validate() error {
 			[]string{
 				"function_calling",
 				"web_search",
+				"web_search_premium",
 				"web_fetch",
 				"file_search",
+				"document_library",
 				"tool_search",
 				"image_generation",
 				"code_interpreter",
@@ -436,7 +443,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 	}
 	for _, modality := range profile.Modalities.Input {
 		if !containsRuntimeValue(
-			[]string{"unknown", "text", "image", "pdf", "audio", "video", "code"},
+			[]string{"unknown", "text", "image", "pdf", "document", "audio", "video", "code"},
 			modality,
 		) {
 			return fmt.Errorf("unsupported input modality %q", modality)
@@ -444,10 +451,20 @@ func (profile ModelRuntimeProfile) Validate() error {
 	}
 	for _, modality := range profile.Modalities.Output {
 		if !containsRuntimeValue(
-			[]string{"unknown", "text", "image", "audio", "video", "embedding", "code"},
+			[]string{"unknown", "text", "image", "audio", "video", "embedding", "code", "document", "moderation_result"},
 			modality,
 		) {
 			return fmt.Errorf("unsupported output modality %q", modality)
+		}
+	}
+	for endpoint, parameters := range profile.Parameters {
+		if !profile.AllowsEndpoint(endpoint) {
+			return fmt.Errorf("parameter policy uses unsupported endpoint %q", endpoint)
+		}
+		for _, parameter := range parameters {
+			if strings.TrimSpace(parameter) == "" {
+				return fmt.Errorf("empty parameter in endpoint %q", endpoint)
+			}
 		}
 	}
 	for _, value := range profile.RequestControls.ServiceTierValues {
@@ -640,6 +657,17 @@ func (profile ModelRuntimeProfile) AllowsSamplingParameter(
 
 func (profile ModelRuntimeProfile) AllowsInputModality(modality string) bool {
 	return containsRuntimeValue(profile.Modalities.Input, modality)
+}
+
+// AllowsParameter reports whether a provider-native request field is
+// explicitly allowed for the endpoint. Empty endpoint policies deny fields.
+func (profile ModelRuntimeProfile) AllowsParameter(endpoint, parameter string) bool {
+	for configuredEndpoint, parameters := range profile.Parameters {
+		if strings.EqualFold(strings.TrimSpace(configuredEndpoint), strings.TrimSpace(endpoint)) {
+			return containsRuntimeValue(parameters, parameter)
+		}
+	}
+	return false
 }
 
 func (profile ModelRuntimeProfile) AllowsBetaHeader(header string) bool {

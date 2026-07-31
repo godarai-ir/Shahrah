@@ -170,7 +170,7 @@ func normalizeCatalogPricingSnapshot(
 				input.SourceURL == "" {
 				return nil, ErrPricingUnavailable
 			}
-			if _, duplicate := rates[input.Dimension]; duplicate && provider != "openai" && provider != "xai" {
+			if _, duplicate := rates[input.Dimension]; duplicate && provider != "openai" && provider != "xai" && provider != "mistral-ai" {
 				return nil, fmt.Errorf(
 					"%w: duplicate %s rate dimension %s",
 					ErrPricingUnavailable,
@@ -194,6 +194,9 @@ func normalizeCatalogPricingSnapshot(
 				rates[input.Dimension] = normalized
 			}
 		}
+		if provider == "mistral-ai" && !mistralPricingDimensionsComplete(runtimeBinding.Profile, rates) {
+			return nil, fmt.Errorf("%w: incomplete Mistral AI pricing for %s", ErrPricingUnavailable, item.CanonicalID)
+		}
 		model := anthropicPricingModel{
 			CanonicalID:    item.CanonicalID,
 			Slug:           item.Slug,
@@ -215,6 +218,52 @@ func normalizeCatalogPricingSnapshot(
 	}, nil
 }
 
+func mistralPricingDimensionsComplete(profile platform.ModelRuntimeProfile, rates map[string]normalizedPricingRate) bool {
+	require := func(dimensions ...string) bool {
+		for _, dimension := range dimensions {
+			rate, ok := rates[dimension]
+			if !ok || rate.UnitPriceUSD.IsNegative() || len(rate.Condition) != 0 {
+				return false
+			}
+		}
+		return true
+	}
+	requireAny := func(dimensions ...string) bool {
+		for _, dimension := range dimensions {
+			rate, ok := rates[dimension]
+			if !ok || rate.UnitPriceUSD.IsNegative() {
+				return false
+			}
+		}
+		return true
+	}
+	for _, endpoint := range profile.Endpoints {
+		switch endpoint {
+		case "chat_completions", "fim_completions", "conversations", "agents":
+			if !require("input_tokens", "output_tokens") {
+				return false
+			}
+		case "embeddings", "moderations", "chat_moderations":
+			if !require("input_tokens") {
+				return false
+			}
+		case "audio_transcriptions":
+			if !require("audio_input_seconds") {
+				return false
+			}
+		case "audio_speech":
+			if !require("speech_input_characters") {
+				return false
+			}
+		case "ocr":
+			if !require("ocr_input_pages") || !requireAny("ocr_annotated_pages") {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func normalizeCatalogPricingModelID(model, provider string) string {
 	value := strings.ToLower(strings.TrimSpace(model))
 	if strings.Count(value, ":") == 2 {
@@ -224,6 +273,9 @@ func normalizeCatalogPricingModelID(model, provider string) string {
 	value = strings.TrimPrefix(value, provider+"/")
 	if provider == "google-gemini" {
 		value = strings.TrimPrefix(value, "gemini/")
+	}
+	if provider == "mistral-ai" {
+		value = strings.TrimPrefix(value, "mistral/")
 	}
 	return value
 }
