@@ -4,8 +4,10 @@ const thinkingModeSchema = z.enum(['adaptive', 'manual', 'disabled']);
 const supportedToolSchema = z.enum([
   'function_calling',
   'web_search',
+  'web_search_premium',
   'web_fetch',
   'file_search',
+  'document_library',
   'tool_search',
   'image_generation',
   'code_interpreter',
@@ -62,11 +64,16 @@ const endpointSchema = z.enum([
   'generate_answer',
   'embed_content',
   'imagen_generate',
+  'fim_completions',
+  'chat_moderations',
+  'ocr',
+  'agents',
 ]);
 
 export const modelRuntimeProfileSchema = z
   .object({
     version: z.number().int().positive(),
+    aliases: z.array(z.string().min(1)).default([]),
     endpoints: z.array(endpointSchema).min(1),
     transports: z.array(z.enum(['http', 'sse', 'websocket'])).default(['http']),
     lifecycle: z
@@ -112,7 +119,16 @@ export const modelRuntimeProfileSchema = z
     modalities: z.object({
       input: z
         .array(
-          z.enum(['unknown', 'text', 'image', 'pdf', 'audio', 'video', 'code']),
+          z.enum([
+            'unknown',
+            'text',
+            'image',
+            'pdf',
+            'document',
+            'audio',
+            'video',
+            'code',
+          ]),
         )
         .min(1),
       output: z
@@ -125,10 +141,15 @@ export const modelRuntimeProfileSchema = z
             'video',
             'embedding',
             'code',
+            'document',
+            'moderation_result',
           ]),
         )
         .min(1),
     }),
+    parameters: z
+      .partialRecord(endpointSchema, z.array(z.string().min(1)))
+      .default({}),
     requestControls: z
       .object({
         serviceTierValues: z

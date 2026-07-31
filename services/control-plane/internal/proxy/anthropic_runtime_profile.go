@@ -14,12 +14,14 @@ func runtimeProfilesFromEstimate(
 	estimated platform.UsageCostBreakdown,
 ) ([]platform.ModelRuntimeProfileBinding, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
-	if provider != "anthropic" && !isGoogleGeminiProvider(provider) {
+	if provider != "anthropic" && !isGoogleGeminiProvider(provider) && !isMistralProvider(provider) {
 		return nil, nil
 	}
 	providerLabel := "Anthropic"
 	if isGoogleGeminiProvider(provider) {
 		providerLabel = "Google Gemini"
+	} else if isMistralProvider(provider) {
+		providerLabel = "Mistral AI"
 	}
 	if estimated.ModelRuntimeProfile == nil {
 		return nil, fmt.Errorf("%s model runtime profile is unavailable", providerLabel)
@@ -42,7 +44,8 @@ func runtimeProfileProviderMatches(deploymentProvider, bindingProvider string) b
 		return true
 	}
 	return isGoogleGeminiProvider(deploymentProvider) &&
-		isGoogleGeminiProvider(bindingProvider)
+		isGoogleGeminiProvider(bindingProvider) ||
+		isMistralProvider(deploymentProvider) && isMistralProvider(bindingProvider)
 }
 
 func validateAnthropicChatRuntimeProfile(

@@ -1,35 +1,56 @@
-costs:
-    - input_cost_per_token: 0.0000015
-      output_cost_per_token: 0.0000075
-      region: "*"
-features:
-    - function_calling
-    - structured_output
-    - system_messages
-    - tool_choice
-    - json_output
-limits:
-    context_window: 262144
-modalities:
-    input:
-        - text
-        - image
-    output:
-        - text
-mode: chat
 model: mistral-medium-3-5
-params:
-    - defaultValue: 0.7
-      key: temperature
-    - key: reasoning_effort
-      supportedValues:
-          - none
-          - high
-sources:
-    - https://docs.mistral.ai/capabilities/reasoning/
-    - https://mistral.ai/news/vibe-remote-agents-mistral-medium-3-5
-    - https://docs.mistral.ai/models/model-cards/mistral-medium-3-5-26-04
 status: active
-supportedModes:
-    - chat
-thinking: true
+mode: chat
+supportedModes: [chat]
+provisioning: serverless
+costs:
+  - region: "*"
+    input_cost_per_token: 0.0000015
+    output_cost_per_token: 0.0000075
+    cache_read_input_token_cost: 0.00000015
+    input_cost_per_token_batches: 0.00000075
+    output_cost_per_token_batches: 0.00000375
+features: [function_calling, parallel_function_calling, structured_output, json_output, tool_choice, system_messages, predicted_outputs, document_qna, agents, built_in_tools]
+limits:
+  context_window: 262144
+modalities:
+  input: [text, image, pdf, doc]
+  output: [text]
+sources:
+  - https://docs.mistral.ai/models/model-cards/mistral-medium-3-5-26-04
+runtimeProfile:
+  version: 2
+  aliases: [mistral-medium-latest]
+  endpoints: [chat_completions, conversations, agents, files, batches]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive, disabled]
+    effortValues: [none, high]
+  assistantPrefill: true
+  predictedOutputs: true
+  sampling:
+    parameters: [temperature, top_p]
+    disallowedWithThinking: [temperature, top_p]
+  tools:
+    custom: true
+    server: true
+    parallel: true
+    structuredOutput: true
+    supported: [function_calling, web_search, web_search_premium, document_library, code_interpreter, image_generation]
+  modalities:
+    input: [text, image, pdf, document]
+    output: [text]
+  parameters:
+    chat_completions: [model, messages, temperature, top_p, max_tokens, stream, stop, random_seed, metadata, response_format, tools, tool_choice, presence_penalty, frequency_penalty, n, prediction, parallel_tool_calls, reasoning_effort, prompt_mode, guardrails, prompt_cache_key, safe_prompt]
+    conversations: [model, inputs, stream, tools, completion_args]
+    agents: [model, name, description, instructions, tools, completion_args, handoffs]
+    files: [file, purpose, file_name]
+    batches: [endpoint, input_files, requests, model, agent_id, metadata, timeout_hours]
+  limits:
+    contextWindow: 262144
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 536870912
+    fileBytes: 536870912

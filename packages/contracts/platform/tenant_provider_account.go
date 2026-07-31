@@ -33,6 +33,7 @@ const (
 	ModelTypeModeration         ModelType = "moderation"
 	ModelTypeRerank             ModelType = "rerank"
 	ModelTypeSearch             ModelType = "search"
+	ModelTypeOCR                ModelType = "ocr"
 )
 
 // PricingMode defines whether price is inherited from public catalog or private override.

@@ -741,6 +741,19 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		}
 		breakdown = conditional
 	}
+	if price.Provider == "mistral-ai" {
+		conditional, conditionErr := mistralUsageCostBreakdown(
+			req.Model,
+			&openai.Usage{PromptTokens: promptTokens, CompletionTokens: outputTokens, TotalTokens: promptTokens + outputTokens, ServiceTier: req.ServiceTier},
+			price,
+			rate.USDtoIRR,
+			map[string]string{"service_tier": req.ServiceTier},
+		)
+		if conditionErr != nil {
+			return platform.UsageCostBreakdown{}, conditionErr
+		}
+		breakdown = conditional
+	}
 	return breakdown, nil
 }
 
@@ -873,8 +886,8 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 
 // PriceMeteredUsage prices non-token provider usage (for example speech
 // characters or transcription minutes) against the same pinned public catalog
-// snapshot used by token billing. Unknown dimensions intentionally leave the
-// estimate unchanged so providers with token-priced variants remain compatible.
+// snapshot used by token billing. Unknown legacy-provider dimensions leave the
+// estimate unchanged; catalog-governed Mistral dimensions fail closed.
 func (s *Service) PriceMeteredUsage(
 	ctx context.Context,
 	model string,
@@ -904,6 +917,9 @@ func (s *Service) PriceMeteredUsage(
 
 	pricingRate, ok := price.Rates[normalizedDimension]
 	if !ok {
+		if price.Provider == "mistral-ai" {
+			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing Mistral rate for %s", ErrPricingUnavailable, normalizedDimension)
+		}
 		return estimated, nil
 	}
 
@@ -1040,6 +1056,9 @@ func usageCostBreakdown(
 				conditions,
 			)
 		}
+		if price.Provider == "mistral-ai" {
+			return mistralUsageCostBreakdown(model, usage, price, exchangeRate, conditions)
+		}
 		return costBreakdown(
 			model,
 			usage.PromptTokens,
@@ -1049,6 +1068,82 @@ func usageCostBreakdown(
 		), nil
 	}
 	return anthropicUsageCostBreakdown(model, usage, price, exchangeRate, false, conditions)
+}
+
+func mistralUsageCostBreakdown(model string, usage *openai.Usage, price priceInfo, exchangeRate float64, conditions map[string]string) (platform.UsageCostBreakdown, error) {
+	if usage == nil {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: Mistral usage is missing", ErrPricingUnavailable)
+	}
+	cached := 0
+	if usage.PromptTokensDetails != nil {
+		cached = usage.PromptTokensDetails.CachedTokens
+	}
+	if cached < 0 || cached > usage.PromptTokens {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: invalid Mistral cached token usage", ErrPricingUnavailable)
+	}
+	inputDimension, outputDimension, cacheDimension := "input_tokens", "output_tokens", "cache_read_tokens"
+	if strings.EqualFold(strings.TrimSpace(usage.ServiceTier), "batch") || strings.EqualFold(strings.TrimSpace(conditions["service_tier"]), "batch") {
+		if conditions == nil {
+			conditions = map[string]string{}
+		}
+		conditions["api"] = "batches"
+	}
+	quantities := map[string]int64{
+		inputDimension:  int64(usage.PromptTokens - cached),
+		outputDimension: int64(usage.CompletionTokens),
+	}
+	if cached > 0 {
+		if _, ok := price.Rates[cacheDimension]; !ok {
+			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing Mistral rate for %s", ErrPricingUnavailable, cacheDimension)
+		}
+		quantities[cacheDimension] = int64(cached)
+	}
+	for dimension, quantity := range usage.ServerToolUse {
+		if quantity > 0 {
+			quantities[dimension] += int64(quantity)
+		}
+	}
+	dimensions := make([]string, 0, len(quantities))
+	for dimension := range quantities {
+		dimensions = append(dimensions, dimension)
+	}
+	sort.Strings(dimensions)
+	totalExact, inputExact, outputExact := decimal.Zero, decimal.Zero, decimal.Zero
+	components := make([]platform.UsageCostComponent, 0, len(dimensions))
+	for _, dimension := range dimensions {
+		quantity := quantities[dimension]
+		if quantity == 0 {
+			continue
+		}
+		rate, rateErr := selectOpenAIRate(price.RateList, dimension, usage.PromptTokens, "", conditions)
+		if rateErr != nil {
+			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing or ambiguous Mistral rate for %s", ErrPricingUnavailable, dimension)
+		}
+		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+		totalExact = totalExact.Add(cost)
+		if dimension == outputDimension || strings.Contains(dimension, "output") {
+			outputExact = outputExact.Add(cost)
+		} else {
+			inputExact = inputExact.Add(cost)
+		}
+		components = append(components, usageCostComponent(dimension, quantity, rate))
+	}
+	inputUSD, _ := inputExact.Float64()
+	outputUSD, _ := outputExact.Float64()
+	totalUSD, _ := totalExact.Float64()
+	totalTokens := usage.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+	return platform.UsageCostBreakdown{
+		Model: model, InputTokens: usage.PromptTokens, OutputTokens: usage.CompletionTokens,
+		TotalTokens: totalTokens, CacheReadInputTokens: cached,
+		InputCostUSD: inputUSD, OutputCostUSD: outputUSD, TotalCostUSD: totalUSD,
+		ExchangeRate: exchangeRate, TotalCostIRR: totalUSD * exchangeRate,
+		PricingRevision: price.Revision, ModelRuntimeProfile: price.RuntimeProfile,
+		PricingSnapshot: usagePricingSnapshot(price), Components: components,
+		ServerToolUse: usage.ServerToolUse,
+	}, nil
 }
 
 func openAIUsageCostBreakdown(
@@ -2083,6 +2178,14 @@ func catalogPricingProvider(model string) string {
 	case strings.HasPrefix(value, "openai/"),
 		strings.HasPrefix(value, "openai:"):
 		return "openai"
+	case strings.HasPrefix(value, "mistral-ai/"),
+		strings.HasPrefix(value, "mistral-ai:"),
+		strings.HasPrefix(value, "mistral/"),
+		strings.HasPrefix(value, "mistral:"),
+		strings.HasPrefix(value, "mistral-"),
+		strings.HasPrefix(value, "codestral-"),
+		strings.HasPrefix(value, "voxtral-"):
+		return "mistral-ai"
 	default:
 		return ""
 	}

@@ -1,5 +1,7 @@
 # ممیزی آمادگی Mistral AI در گدارAI
 
+> این سند baseline پیش از پیاده‌سازی را نگه می‌دارد. وضعیت جاری شاخه و شواهد آزمون در [گزارش پشتیبانی Mistral AI](../docs/godarai-supported-mistral-ai-models-report.md) ثبت شده است.
+
 تاریخ ممیزی: ۳۰ ژوئیهٔ ۲۰۲۶  
 دامنه: کد `control-plane` و `silk-road`، کاتالوگ زندهٔ PostgreSQL و مستندات رسمی Mistral  
 مرجع حقیقت: فقط مستندات، OpenAPI، model card، changelog و صفحهٔ رسمی قیمت‌گذاری Mistral

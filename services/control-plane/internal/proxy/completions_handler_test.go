@@ -70,6 +70,33 @@ func (b *testBudgeter) FinalizeImageUsage(_ context.Context, _ string, usage *co
 	return estimated, nil
 }
 
+func (b *testBudgeter) PriceMeteredUsage(_ context.Context, model, _ string, _ string, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	if !strings.Contains(strings.ToLower(model), "mistral") && !strings.Contains(strings.ToLower(model), "voxtral") && !strings.Contains(strings.ToLower(model), "codestral") {
+		return estimated, nil
+	}
+	const revision = "mistral-test-revision"
+	estimated.PricingRevision = revision
+	estimated.ModelRuntimeProfile = &platform.ModelRuntimeProfileBinding{
+		Provider: "mistral-ai", CatalogRevision: revision,
+		CanonicalID: providerModelID(model), Slug: providerModelID(model), ProfileVersion: 2,
+		EffectiveFrom: time.Now().UTC(),
+		Profile: platform.ModelRuntimeProfile{
+			Version: 2, Endpoints: []string{"chat_completions", "fim_completions", "embeddings", "moderations", "chat_moderations", "audio_speech", "audio_transcriptions", "ocr", "agents", "conversations", "files", "batches"},
+			Transports: []string{"http", "sse"}, Lifecycle: "active",
+			Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "disabled", AllowedModes: []string{"disabled"}},
+			Sampling:   platform.ModelRuntimeSamplingProfile{Parameters: []string{"temperature", "top_p"}},
+			Tools:      platform.ModelRuntimeToolsProfile{Custom: true, Parallel: true, StructuredOutput: true},
+			Modalities: platform.ModelRuntimeModalities{Input: []string{"text", "audio", "image", "pdf", "document"}, Output: []string{"text", "audio", "embedding", "document", "moderation_result"}},
+			Parameters: map[string][]string{
+				"audio_transcriptions": {"model", "file", "file_url", "file_id", "language", "temperature", "stream", "diarize", "context_bias", "timestamp_granularities"},
+				"audio_speech":         {"model", "input", "metadata", "stream", "prompt_cache_key", "voice_id", "ref_audio", "response_format"},
+			},
+			Limits: platform.ModelRuntimeLimits{MessagesBytes: 33554432, BatchBytes: 536870912, FileBytes: 536870912},
+		},
+	}
+	return estimated, nil
+}
+
 type walletDebitCall struct {
 	TenantID  string
 	Breakdown platform.UsageCostBreakdown

@@ -204,6 +204,9 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	if !supportsModerationsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Moderations API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("moderations") {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI moderations are disabled", "provider_disabled")
+	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
 	if err != nil {
@@ -224,12 +227,27 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 	}
 
+	operation := platform.ProviderOperationOpenAIModerations
+	providerPath := "/moderations"
+	if isMistralProvider(dep.Provider) && strings.TrimSuffix(c.Path(), "/") == "/v1/chat/moderations" {
+		operation = platform.ProviderOperationMistralChatModerations
+		providerPath = "/chat/moderations"
+	}
+	if isMistralProvider(dep.Provider) {
+		profileEndpoint := "moderations"
+		if operation == platform.ProviderOperationMistralChatModerations {
+			profileEndpoint = "chat_moderations"
+		}
+		if endpointErr := validateMistralJSONParameters(estimated.ModelRuntimeProfile, profileEndpoint, originalBody); endpointErr != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
+		}
+	}
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     false,
-		Operation:  platform.ProviderOperationOpenAIModerations,
+		Operation:  operation,
 		Deployment: toContractDeployment(dep),
 		Headers: map[string]string{
 			"Content-Type": "application/json",
@@ -238,9 +256,13 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		RequestMetadata: map[string]interface{}{
 			"tenant_slug":            apiheaders.GetTenant(c),
 			"model":                  requestedModel,
-			"provider_endpoint_path": "/moderations",
+			"provider_endpoint_path": providerPath,
 			"input_count":            moderationInputCount(req.Input),
 		},
+	}
+	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(dep.Provider, outboundModel, estimated)
+	if err != nil {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
@@ -535,7 +557,7 @@ func moderationInputCount(input interface{}) int {
 
 func supportsModerationsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "openrouter", "mock":
+	case "openai", "openrouter", "mistral", "mistral-ai", "mock":
 		return true
 	default:
 		return false

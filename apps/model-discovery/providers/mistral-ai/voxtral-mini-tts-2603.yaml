@@ -1,30 +1,41 @@
-costs:
-    - input_cost_per_character: 0.000016
-      region: "*"
-features:
-    - function_calling
-limits:
-    context_window: 4096
-modalities:
-    input:
-        - text
-    output:
-        - audio
-mode: text_to_speech
 model: voxtral-mini-tts-2603
-params:
-    - defaultValue: 0.3
-      key: temperature
-provisioning: serverless
-removeParams:
-    - max_tokens
-    - top_p
-    - seed
-    - stop
-sources:
-    - https://docs.mistral.ai/models/voxtral-tts-26-03
-    - https://docs.mistral.ai/capabilities/audio/text_to_speech
-    - https://docs.mistral.ai/capabilities/audio/text_to_speech/speech
 status: active
-supportedModes:
-    - text_to_speech
+mode: text_to_speech
+supportedModes: [text_to_speech]
+provisioning: serverless
+costs:
+  - region: "*"
+    input_cost_per_character: 0.000016
+modalities:
+  input: [text, audio]
+  output: [audio]
+features: [voice_cloning]
+sources:
+  - https://docs.mistral.ai/models/model-cards/voxtral-tts-26-03
+runtimeProfile:
+  version: 2
+  aliases: [voxtral-mini-tts-latest]
+  endpoints: [audio_speech]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+  assistantPrefill: false
+  sampling:
+    parameters: []
+  tools:
+    custom: false
+    parallel: false
+    structuredOutput: false
+  modalities:
+    input: [text, audio]
+    output: [audio]
+  parameters:
+    audio_speech: [input, model, metadata, stream, prompt_cache_key, voice_id, ref_audio, response_format]
+  limits:
+    contextWindow: 0
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 536870912
+    fileBytes: 536870912

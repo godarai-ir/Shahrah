@@ -1,25 +1,45 @@
-costs:
-    - input_cost_per_token: 1e-7
-      output_cost_per_token: 0
-      region: "*"
-limits:
-    context_window: 131072
-modalities:
-    input:
-        - text
-    output:
-        - text
-mode: moderation
 model: mistral-moderation-2603
-removeParams:
-    - temperature
-    - top_p
-    - seed
-    - stop
-    - stream
-    - max_tokens
-sources:
-    - https://docs.mistral.ai/models/mistral-moderation-26-03
 status: active
-supportedModes:
-    - moderation
+mode: moderation
+supportedModes: [moderation]
+provisioning: serverless
+costs:
+  - region: "*"
+    input_cost_per_token: 0.0000001
+    input_cost_per_token_batches: 0.00000005
+limits:
+  context_window: 131072
+modalities:
+  input: [text]
+  output: [moderation_result]
+sources:
+  - https://docs.mistral.ai/models/model-cards/mistral-moderation-26-03
+runtimeProfile:
+  version: 2
+  aliases: []
+  endpoints: [moderations, chat_moderations, batches]
+  transports: [http]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+  assistantPrefill: false
+  sampling:
+    parameters: []
+  tools:
+    custom: false
+    parallel: false
+    structuredOutput: false
+  modalities:
+    input: [text]
+    output: [moderation_result]
+  parameters:
+    moderations: [model, input]
+    chat_moderations: [model, input]
+    batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  limits:
+    contextWindow: 131072
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 536870912
+    fileBytes: 536870912

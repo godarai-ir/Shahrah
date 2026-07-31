@@ -1,0 +1,44 @@
+model: mistral-ocr-4-0
+status: active
+mode: ocr
+supportedModes: [ocr]
+provisioning: serverless
+costs:
+  - region: "*"
+    input_cost_per_page: 0.004
+    input_cost_per_annotated_page: 0.005
+modalities:
+  input: [image, pdf, doc]
+  output: [text, document]
+features: [bbox_extraction, annotations]
+sources:
+  - https://docs.mistral.ai/models/model-cards/ocr-4-0
+runtimeProfile:
+  version: 2
+  aliases: [mistral-ocr-latest, mistral-ocr-4]
+  endpoints: [ocr, files, batches]
+  transports: [http]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+  assistantPrefill: false
+  sampling:
+    parameters: []
+  tools:
+    custom: false
+    parallel: false
+    structuredOutput: true
+  modalities:
+    input: [image, pdf, document]
+    output: [text, document]
+  parameters:
+    ocr: [model, document, pages, include_image_base64, image_limit, image_min_size, bbox_annotation_format, document_annotation_format, document_annotation_prompt, table_format, extract_header, extract_footer, include_blocks, confidence_scores_granularity]
+    files: [file, purpose, file_name]
+    batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  limits:
+    contextWindow: 0
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 536870912
+    fileBytes: 536870912

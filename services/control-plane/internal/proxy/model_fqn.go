@@ -53,18 +53,45 @@ func providerModelID(model string) string {
 func billingEstimateModel(model string) string {
 	model = normalizeModelIdentifier(model)
 	provider, _, _, ok := splitModelFQN(model)
-	if ok && (isGoogleGeminiProvider(provider) || strings.EqualFold(provider, "openai")) {
+	if ok && (isGoogleGeminiProvider(provider) || isMistralProvider(provider) || strings.EqualFold(provider, "openai")) {
 		return model
 	}
 
 	value := strings.ToLower(model)
 	if strings.HasPrefix(value, "google-gemini/") ||
 		strings.HasPrefix(value, "gemini/") ||
+		strings.HasPrefix(value, "mistral-ai/") ||
+		strings.HasPrefix(value, "mistral/") ||
 		strings.HasPrefix(value, "openai/") {
 		return model
 	}
 
 	return providerModelID(model)
+}
+
+func isMistralProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "mistral-ai", "mistral":
+		return true
+	default:
+		return false
+	}
+}
+
+func isMistralModelIdentifier(model string) bool {
+	value := strings.ToLower(strings.TrimSpace(model))
+	if value == "" {
+		return false
+	}
+	if separator := strings.IndexByte(value, ':'); separator > 0 {
+		return isMistralProvider(value[:separator])
+	}
+	if separator := strings.IndexByte(value, '/'); separator > 0 && isMistralProvider(value[:separator]) {
+		return true
+	}
+	return strings.HasPrefix(value, "mistral-") ||
+		strings.HasPrefix(value, "codestral-") ||
+		strings.HasPrefix(value, "voxtral-")
 }
 
 func isGoogleGeminiProvider(provider string) bool {

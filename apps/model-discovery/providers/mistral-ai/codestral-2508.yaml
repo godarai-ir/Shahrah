@@ -1,34 +1,60 @@
-costs:
-    - input_cost_per_token: 3e-7
-      output_cost_per_token: 9e-7
-      region: "*"
-features:
-    - function_calling
-    - structured_output
-    - json_output
-    - system_messages
-    - tool_choice
-    - assistant_prefill
-limits:
-    context_window: 256000
-modalities:
-    input:
-        - text
-        - code
-    output:
-        - text
-        - code
-mode: chat
 model: codestral-2508
-params:
-    - defaultValue: 0.3
-      key: temperature
-provisioning: serverless
-removeParams:
-    - reasoning_effort
-sources:
-    - https://docs.mistral.ai/models/codestral-25-08
 status: active
-supportedModes:
-    - completion
-    - chat
+mode: chat
+supportedModes: [chat, completion]
+provisioning: serverless
+costs:
+  - region: "*"
+    input_cost_per_token: 0.0000003
+    output_cost_per_token: 0.0000009
+    cache_read_input_token_cost: 0.00000003
+    input_cost_per_token_batches: 0.00000015
+    output_cost_per_token_batches: 0.00000045
+features:
+  - function_calling
+  - structured_output
+  - json_output
+  - system_messages
+  - tool_choice
+  - assistant_prefill
+  - predicted_outputs
+  - document_qna
+limits:
+  context_window: 131072
+modalities:
+  input: [text, code]
+  output: [text, code]
+sources:
+  - https://docs.mistral.ai/models/model-cards/codestral-25-08
+runtimeProfile:
+  version: 2
+  aliases: [codestral-latest]
+  endpoints: [chat_completions, fim_completions, conversations, batches]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+  assistantPrefill: true
+  predictedOutputs: true
+  sampling:
+    parameters: [temperature, top_p]
+  tools:
+    custom: true
+    parallel: false
+    structuredOutput: true
+    supported: [function_calling]
+  modalities:
+    input: [text, code]
+    output: [text, code]
+  parameters:
+    chat_completions: [model, messages, temperature, top_p, max_tokens, stream, stop, random_seed, metadata, response_format, tools, tool_choice, prediction, prompt_cache_key, safe_prompt]
+    fim_completions: [model, prompt, suffix, temperature, top_p, max_tokens, min_tokens, stream, stop, random_seed, metadata, prompt_cache_key]
+    conversations: [model, inputs, stream, tools, completion_args]
+    batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  limits:
+    contextWindow: 131072
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 536870912
+    fileBytes: 536870912

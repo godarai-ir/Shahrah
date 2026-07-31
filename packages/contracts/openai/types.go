@@ -618,15 +618,57 @@ type ModelListResponse struct {
 
 // CompletionRequest mirrors OpenAI's legacy completion request format.
 type CompletionRequest struct {
-	Model       string      `json:"model"`
-	Prompt      string      `json:"prompt"`
-	Stream      bool        `json:"stream,omitempty"`
-	MaxTokens   *int        `json:"max_tokens,omitempty"`
-	Temperature *float64    `json:"temperature,omitempty"`
-	TopP        *float64    `json:"top_p,omitempty"`
-	N           int         `json:"n,omitempty"`
-	Echo        bool        `json:"echo,omitempty"`
-	Stop        interface{} `json:"stop,omitempty"`
+	Model            string                     `json:"model"`
+	Prompt           string                     `json:"prompt"`
+	Suffix           string                     `json:"suffix,omitempty"`
+	Stream           bool                       `json:"stream,omitempty"`
+	MaxTokens        *int                       `json:"max_tokens,omitempty"`
+	MinTokens        *int                       `json:"min_tokens,omitempty"`
+	Temperature      *float64                   `json:"temperature,omitempty"`
+	TopP             *float64                   `json:"top_p,omitempty"`
+	RandomSeed       *int                       `json:"random_seed,omitempty"`
+	N                int                        `json:"n,omitempty"`
+	Echo             bool                       `json:"echo,omitempty"`
+	Stop             interface{}                `json:"stop,omitempty"`
+	Metadata         map[string]interface{}     `json:"metadata,omitempty"`
+	PromptCacheKey   string                     `json:"prompt_cache_key,omitempty"`
+	AdditionalFields map[string]json.RawMessage `json:"-"`
+}
+
+func (r *CompletionRequest) UnmarshalJSON(data []byte) error {
+	type requestAlias CompletionRequest
+	var decoded requestAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*r = CompletionRequest(decoded)
+	r.AdditionalFields = fields
+	return nil
+}
+
+func (r CompletionRequest) MarshalJSON() ([]byte, error) {
+	type requestAlias CompletionRequest
+	knownJSON, err := json.Marshal(requestAlias(r))
+	if err != nil {
+		return nil, err
+	}
+	var known map[string]json.RawMessage
+	if err := json.Unmarshal(knownJSON, &known); err != nil {
+		return nil, err
+	}
+	merged := make(map[string]json.RawMessage, len(r.AdditionalFields)+len(known))
+	for key, value := range r.AdditionalFields {
+		merged[key] = append(json.RawMessage(nil), value...)
+	}
+	for key, value := range known {
+		merged[key] = value
+	}
+	delete(merged, "AdditionalFields")
+	return json.Marshal(merged)
 }
 
 // CompletionResponse mirrors OpenAI's legacy completion response format.

@@ -1,23 +1,42 @@
-costs:
-    - input_cost_per_second: 0.00005
-      region: "*"
-features:
-    - structured_output
-limits:
-    context_window: 16384
-modalities:
-    input:
-        - audio
-    output:
-        - text
-mode: audio_transcription
 model: voxtral-mini-2602
-params:
-    - defaultValue: 0
-      key: temperature
-provisioning: serverless
-sources:
-    - https://docs.mistral.ai/models/voxtral-mini-transcribe-26-02
 status: active
-supportedModes:
-    - audio_transcription
+mode: audio_transcription
+supportedModes: [audio_transcription]
+provisioning: serverless
+costs:
+  - region: "*"
+    input_cost_per_second: 0.00005
+modalities:
+  input: [audio]
+  output: [text]
+features: [timestamps]
+sources:
+  - https://docs.mistral.ai/models/model-cards/voxtral-mini-transcribe-26-02
+runtimeProfile:
+  version: 2
+  aliases: [voxtral-mini-latest]
+  endpoints: [audio_transcriptions, batches]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+  assistantPrefill: false
+  sampling:
+    parameters: [temperature]
+  tools:
+    custom: false
+    parallel: false
+    structuredOutput: false
+  modalities:
+    input: [audio]
+    output: [text]
+  parameters:
+    audio_transcriptions: [model, file, file_url, file_id, language, temperature, stream, diarize, context_bias, timestamp_granularities]
+    batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  limits:
+    contextWindow: 0
+    maxOutputTokens: 0
+    messagesBytes: 33554432
+    batchBytes: 536870912
+    fileBytes: 500000000

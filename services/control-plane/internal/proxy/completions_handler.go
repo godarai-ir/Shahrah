@@ -128,10 +128,15 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	authStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
 
-	// Transform to chat completion format internally
+	// Transform to chat completion format internally. FIM suffix tokens are
+	// part of the provider input and must be included in budget reservation.
+	estimatePrompt := req.Prompt
+	if strings.TrimSpace(req.Suffix) != "" {
+		estimatePrompt += "\n" + req.Suffix
+	}
 	chatReq := contractsopenai.ChatCompletionRequest{
 		Model:       billingEstimateModel(requestedModel),
-		Messages:    []contractsopenai.ChatMessage{{Role: "user", Content: req.Prompt}},
+		Messages:    []contractsopenai.ChatMessage{{Role: "user", Content: estimatePrompt}},
 		Stream:      req.Stream,
 		MaxTokens:   req.MaxTokens,
 		Temperature: req.Temperature,
@@ -141,7 +146,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	// Estimate cost using the same billing logic
 	estimated, err := h.billing.EstimateCost(c.Context(), chatReq)
 	if err != nil {
-		if strings.HasPrefix(
+		if isMistralModelIdentifier(resolvedModel) || strings.HasPrefix(
 			strings.ToLower(strings.TrimSpace(resolvedModel)),
 			"anthropic",
 		) || strings.Contains(
@@ -221,6 +226,9 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
+	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("fim_completions") {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI FIM completions are disabled", "provider_disabled")
+	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
 	if err != nil {
@@ -234,20 +242,31 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	chatReq.Model = outboundModel
+	req.Model = outboundModel
 
+	operation := platform.ProviderOperationOpenAICompletions
+	providerPath := "/completions"
+	if isMistralProvider(dep.Provider) {
+		operation = platform.ProviderOperationMistralFIM
+		providerPath = "/fim/completions"
+	}
+	outboundBody := mustMarshalJSON(chatReq)
+	if isMistralProvider(dep.Provider) {
+		outboundBody = mustMarshalJSON(req)
+	}
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
 		TraceID:    requestID,
 		Stream:     req.Stream,
-		Operation:  platform.ProviderOperationOpenAICompletions,
+		Operation:  operation,
 		Deployment: toContractDeployment(dep),
 		Headers:    map[string]string{"Authorization": "Bearer " + dep.Params.APIKey},
-		Body:       mustMarshalJSON(chatReq),
+		Body:       outboundBody,
 		RequestMetadata: map[string]interface{}{
 			"tenant_slug":            apiheaders.GetTenant(c),
 			"model":                  requestedModel,
-			"provider_endpoint_path": "/completions",
+			"provider_endpoint_path": providerPath,
 		},
 	}
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
@@ -262,6 +281,11 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 			err.Error(),
 			"runtime_profile_unavailable",
 		)
+	}
+	if isMistralProvider(dep.Provider) {
+		if err := validateMistralFIMRuntimeProfile(req, estimated.ModelRuntimeProfile); err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+		}
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
