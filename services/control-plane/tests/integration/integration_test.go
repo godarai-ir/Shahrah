@@ -2536,7 +2536,6 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
 	t.Helper()
 
-	t.Setenv("GODARAI_OPENAI_CONTRACT_READY", "true")
 	now := time.Now().UTC()
 	discovery := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/models/runtime-snapshot/openai", r.URL.Path)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +14,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-func TestOpenAIRequestsAreBlockedUntilContractGateIsEnabled(t *testing.T) {
+func TestOpenAIRequestsReachTunnelWithoutReleaseGate(t *testing.T) {
 	hits := 0
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits++
@@ -28,20 +27,11 @@ func TestOpenAIRequestsAreBlockedUntilContractGateIsEnabled(t *testing.T) {
 		Deployment: platform.Deployment{Provider: "openai"},
 	}
 
-	_, err := transport.Proxy(t.Context(), request)
-	if !errors.Is(err, ErrProviderContractNotReady) {
-		t.Fatalf("expected provider readiness error, got %v", err)
-	}
-	if hits != 0 {
-		t.Fatalf("blocked request reached the tunnel endpoint")
-	}
-
-	t.Setenv("GODARAI_OPENAI_CONTRACT_READY", "true")
 	if _, err := transport.Proxy(t.Context(), request); err != nil {
-		t.Fatalf("enabled OpenAI request failed: %v", err)
+		t.Fatalf("OpenAI request failed: %v", err)
 	}
 	if hits != 1 {
-		t.Fatalf("enabled request did not reach the tunnel endpoint")
+		t.Fatalf("OpenAI request did not reach the tunnel endpoint")
 	}
 }
 

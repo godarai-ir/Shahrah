@@ -604,15 +604,15 @@ func (s *Store) AddSupportTicketMessage(
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE support_tickets
-		SET status = $2,
-		    last_message_author_type = $3,
+		SET status = $2::varchar,
+		    last_message_author_type = $3::varchar,
 		    last_message_at = NOW(),
 		    first_support_response_at = CASE
-		      WHEN $3 = 'support_agent' THEN COALESCE(first_support_response_at, NOW())
+		      WHEN $3::varchar = 'support_agent' THEN COALESCE(first_support_response_at, NOW())
 		      ELSE first_support_response_at
 		    END,
-		    resolved_at = CASE WHEN $2 = 'resolved' THEN NOW() WHEN $2 <> 'resolved' THEN NULL ELSE resolved_at END,
-		    closed_at = CASE WHEN $2 = 'closed' THEN NOW() WHEN $2 <> 'closed' THEN NULL ELSE closed_at END,
+		    resolved_at = CASE WHEN $2::varchar = 'resolved' THEN NOW() WHEN $2::varchar <> 'resolved' THEN NULL ELSE resolved_at END,
+		    closed_at = CASE WHEN $2::varchar = 'closed' THEN NOW() WHEN $2::varchar <> 'closed' THEN NULL ELSE closed_at END,
 		    version = version + 1,
 		    updated_at = NOW()
 		WHERE ticket_id = $1::uuid
@@ -682,11 +682,11 @@ func (s *Store) TriageSupportTicket(ctx context.Context, ticketRef string, req p
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE support_tickets
-		SET status = $2,
-		    priority = $3,
+		SET status = $2::varchar,
+		    priority = $3::varchar,
 		    assignee_id = NULLIF($4, ''),
-		    resolved_at = CASE WHEN $2 = 'resolved' AND status <> 'resolved' THEN NOW() WHEN $2 <> 'resolved' THEN NULL ELSE resolved_at END,
-		    closed_at = CASE WHEN $2 = 'closed' AND status <> 'closed' THEN NOW() WHEN $2 <> 'closed' THEN NULL ELSE closed_at END,
+		    resolved_at = CASE WHEN $2::varchar = 'resolved' AND status <> 'resolved' THEN NOW() WHEN $2::varchar <> 'resolved' THEN NULL ELSE resolved_at END,
+		    closed_at = CASE WHEN $2::varchar = 'closed' AND status <> 'closed' THEN NOW() WHEN $2::varchar <> 'closed' THEN NULL ELSE closed_at END,
 		    version = version + 1,
 		    updated_at = NOW()
 		WHERE ticket_id = $1::uuid

@@ -174,4 +174,46 @@ describe("tenant-admin proxy CSRF protection", () => {
 
     expect(response.status).toBe(200);
   });
+
+  it.each([
+    "/api/support/tickets",
+    "/api/support/tickets/ticket-123/messages",
+  ])("allows same-origin multipart support requests on %s", (pathname) => {
+    const formData = new FormData();
+    formData.set("payload", JSON.stringify({ body: "Please help" }));
+    const request = new NextRequest(`https://acme.shahrah.ir${pathname}`, {
+      method: "POST",
+      headers: {
+        host: "acme.shahrah.ir",
+        origin: "https://acme.shahrah.ir",
+        "sec-fetch-site": "same-origin",
+      },
+      body: formData,
+    });
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects multipart requests on support routes that do not accept uploads", () => {
+    const formData = new FormData();
+    formData.set("payload", "{}");
+    const request = new NextRequest(
+      "https://acme.shahrah.ir/api/support/tickets/ticket-123/rating",
+      {
+        method: "PUT",
+        headers: {
+          host: "acme.shahrah.ir",
+          origin: "https://acme.shahrah.ir",
+          "sec-fetch-site": "same-origin",
+        },
+        body: formData,
+      },
+    );
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(415);
+  });
 });

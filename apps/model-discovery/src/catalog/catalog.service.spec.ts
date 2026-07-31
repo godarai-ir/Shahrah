@@ -1,6 +1,104 @@
 import { CatalogService } from './catalog.service';
 
+const validRuntimeProfile = {
+  version: 1,
+  endpoints: ['messages', 'count_tokens'],
+  thinking: {
+    defaultMode: 'adaptive',
+    allowedModes: ['adaptive'],
+    manualDeprecated: false,
+    effortValues: ['low', 'high'],
+  },
+  assistantPrefill: false,
+  sampling: {
+    parameters: [],
+    disallowedWithThinking: [],
+  },
+  tools: {
+    custom: true,
+    server: true,
+    parallel: true,
+    structuredOutput: true,
+  },
+  modalities: {
+    input: ['text', 'image', 'pdf'],
+    output: ['text'],
+  },
+  betaHeaders: [],
+  limits: {
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+  },
+};
+
 describe('CatalogService', () => {
+  it('fails the runtime snapshot when the provider catalog is empty', async () => {
+    const prisma = {
+      model: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const service = new CatalogService(prisma, {} as any);
+
+    await expect(service.runtimeSnapshot('anthropic')).rejects.toMatchObject({
+      response: {
+        code: 'runtime_snapshot_unavailable',
+        provider: 'anthropic',
+        reason: 'no_eligible_models',
+      },
+    });
+  });
+
+  it('fails the Anthropic snapshot when core pricing is incomplete', async () => {
+    const prisma = {
+      model: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            canonicalId: 'anthropic/claude-haiku-4-5',
+            slug: 'claude-haiku-4-5',
+            status: 'active',
+            deprecationDate: null,
+            retirementDate: null,
+            replacementCanonicalId: null,
+            runtimeProfiles: [
+              {
+                version: 1,
+                profileJson: validRuntimeProfile,
+                sourceUrl: 'https://platform.claude.com/docs',
+                effectiveFrom: new Date(),
+              },
+            ],
+            pricingRates: [
+              {
+                dimension: 'input_tokens',
+                unit: 'token',
+                unitPriceUsd: { toString: () => '0.000001' },
+                currency: 'USD',
+                conditionJson: null,
+                region: 'global',
+                effectiveFrom: new Date(),
+                effectiveTo: null,
+                sourceUrl: 'https://platform.claude.com/docs/pricing',
+              },
+            ],
+            sources: [],
+          },
+        ]),
+      },
+    } as any;
+    const service = new CatalogService(prisma, {} as any);
+
+    await expect(service.runtimeSnapshot('anthropic')).rejects.toMatchObject({
+      response: {
+        code: 'runtime_snapshot_unavailable',
+        provider: 'anthropic',
+        model: 'anthropic/claude-haiku-4-5',
+        reason: 'missing_core_pricing',
+        missingDimensions: ['output_tokens'],
+      },
+    });
+  });
+
   it('fails the runtime snapshot when a stored profile is invalid', async () => {
     const prisma = {
       model: {
@@ -46,7 +144,10 @@ describe('CatalogService', () => {
     await service.listModels({ page: 1, limit: 24, sort: 'newest' } as any);
     expect(prisma.model.count).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ enabled: true, provider: expect.objectContaining({ enabled: true }) }),
+        where: expect.objectContaining({
+          enabled: true,
+          provider: expect.objectContaining({ enabled: true }),
+        }),
       }),
     );
   });
@@ -75,10 +176,7 @@ describe('CatalogService', () => {
     };
     const prisma = {
       model: {
-        count: jest
-          .fn()
-          .mockResolvedValueOnce(12)
-          .mockResolvedValueOnce(0),
+        count: jest.fn().mockResolvedValueOnce(12).mockResolvedValueOnce(0),
         findMany: jest.fn().mockResolvedValue([]),
       },
     } as any;

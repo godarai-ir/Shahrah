@@ -116,10 +116,18 @@ function hasSupportedMutationContentType(request: NextRequest): boolean {
     return true;
   }
 
-  return (
-    request.nextUrl.pathname === "/api/wallet/bank-transfers" &&
-    mediaType === "multipart/form-data"
-  );
+  return mediaType === "multipart/form-data" && isSupportedMultipartPath(request.nextUrl.pathname);
+}
+
+function isSupportedMultipartPath(pathname: string): boolean {
+  if (
+    pathname === "/api/wallet/bank-transfers" ||
+    pathname === "/api/support/tickets"
+  ) {
+    return true;
+  }
+
+  return /^\/api\/support\/tickets\/[^/]+\/messages$/.test(pathname);
 }
 
 function csrfError() {

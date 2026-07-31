@@ -101,6 +101,20 @@ services:
         condition: service_healthy
       typesense:
         condition: service_started
+      model-discovery-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3002/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
     restart: unless-stopped
 
   model-discovery-migrate:
@@ -108,7 +122,12 @@ services:
       context: ../../apps/model-discovery
       dockerfile: Dockerfile
       target: migrate
-    command: ["npx", "prisma", "migrate", "deploy"]
+    command:
+      [
+        "sh",
+        "-c",
+        "pnpm exec prisma migrate deploy && pnpm run import:providers:yaml -- --providers anthropic,google-gemini,openai",
+      ]
     environment:
       DATABASE_URL: ${MODEL_DISCOVERY_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public}
     depends_on:

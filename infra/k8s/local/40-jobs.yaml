@@ -65,10 +65,12 @@ spec:
           image: shahrah/model-discovery-migrate:local
           imagePullPolicy: IfNotPresent
           command:
-            - npx
-            - prisma
-            - migrate
-            - deploy
+            - sh
+            - -c
+            - >-
+              pnpm exec prisma migrate deploy &&
+              pnpm run import:providers:yaml --
+              --providers anthropic,google-gemini,openai
           env:
             - name: DATABASE_URL
               valueFrom:

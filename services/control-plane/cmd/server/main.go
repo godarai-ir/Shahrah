@@ -163,65 +163,64 @@ func main() {
 
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	billingService.SetRuntimeProfiles(runtimeProfiles)
+	pricingCtx, cancelPricing := context.WithCancel(ctx)
+	defer cancelPricing()
+
 	anthropicPricing, pricingErr :=
 		billing.NewAnthropicPricingSnapshotManagerFromEnv(nil)
 	if pricingErr != nil {
-		logger.Fatal(
-			"Anthropic pricing snapshot is not configured",
+		logger.Warn(
+			"Anthropic pricing is unavailable; Anthropic requests will fail closed until configuration is restored",
 			zap.Error(pricingErr),
 		)
+	} else {
+		billingService.SetAnthropicPricingSnapshotManager(anthropicPricing)
+		if pricingErr := anthropicPricing.Reload(ctx); pricingErr != nil {
+			logger.Warn(
+				"Initial Anthropic pricing snapshot is unavailable; background refresh will retry",
+				zap.Error(pricingErr),
+			)
+		}
+		go anthropicPricing.Run(pricingCtx, 5*time.Minute)
 	}
-	if pricingErr := anthropicPricing.Reload(ctx); pricingErr != nil {
-		logger.Fatal(
-			"Initial Anthropic pricing snapshot is unavailable",
-			zap.Error(pricingErr),
-		)
-	}
-	pricingCtx, cancelPricing := context.WithCancel(ctx)
-	defer cancelPricing()
-	go anthropicPricing.Run(pricingCtx, 5*time.Minute)
-	billingService.SetAnthropicPricingSnapshotManager(anthropicPricing)
+
 	geminiPricing, pricingErr :=
 		billing.NewCatalogPricingSnapshotManagerFromEnv("google-gemini", nil)
 	if pricingErr != nil {
-		logger.Fatal(
-			"Google Gemini pricing snapshot is not configured",
+		logger.Warn(
+			"Google Gemini pricing is unavailable; Google Gemini requests will fail closed until configuration is restored",
 			zap.Error(pricingErr),
 		)
-	}
-	if pricingErr := geminiPricing.Reload(ctx); pricingErr != nil {
-		logger.Fatal(
-			"Initial Google Gemini pricing snapshot is unavailable",
-			zap.Error(pricingErr),
+	} else {
+		billingService.SetCatalogPricingSnapshotManager(
+			"google-gemini",
+			geminiPricing,
 		)
-	}
-	go geminiPricing.Run(pricingCtx, 5*time.Minute)
-	billingService.SetCatalogPricingSnapshotManager(
-		"google-gemini",
-		geminiPricing,
-	)
-	if environmentEnabled("GODARAI_OPENAI_CONTRACT_READY") {
-		openAIPricing, openAIPricingErr :=
-			billing.NewCatalogPricingSnapshotManagerFromEnv("openai", nil)
-		if openAIPricingErr != nil {
-			logger.Fatal(
-				"OpenAI pricing snapshot is not configured",
-				zap.Error(openAIPricingErr),
+		if pricingErr := geminiPricing.Reload(ctx); pricingErr != nil {
+			logger.Warn(
+				"Initial Google Gemini pricing snapshot is unavailable; background refresh will retry",
+				zap.Error(pricingErr),
 			)
 		}
+		go geminiPricing.Run(pricingCtx, 5*time.Minute)
+	}
+
+	openAIPricing, openAIPricingErr :=
+		billing.NewCatalogPricingSnapshotManagerFromEnv("openai", nil)
+	if openAIPricingErr != nil {
+		logger.Warn(
+			"OpenAI pricing is unavailable; OpenAI requests will fail closed until configuration is restored",
+			zap.Error(openAIPricingErr),
+		)
+	} else {
+		billingService.SetCatalogPricingSnapshotManager("openai", openAIPricing)
 		if openAIPricingErr := openAIPricing.Reload(ctx); openAIPricingErr != nil {
-			logger.Fatal(
-				"Initial OpenAI pricing snapshot is unavailable",
+			logger.Warn(
+				"Initial OpenAI pricing snapshot is unavailable; background refresh will retry",
 				zap.Error(openAIPricingErr),
 			)
 		}
 		go openAIPricing.Run(pricingCtx, 5*time.Minute)
-		billingService.SetCatalogPricingSnapshotManager("openai", openAIPricing)
-	} else {
-		logger.Warn(
-			"OpenAI provider execution is disabled until the contract-readiness gate is enabled",
-			zap.String("gate", "GODARAI_OPENAI_CONTRACT_READY"),
-		)
 	}
 
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
@@ -578,15 +577,6 @@ func stringEnvOrDefault(key, fallback string) string {
 	}
 
 	return fallback
-}
-
-func environmentEnabled(key string) bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
 }
 
 func newMetricsDLQ(ctx context.Context, cfg metricsobs.DLQConfig) (metricsobs.DeadLetterQueue, error) {

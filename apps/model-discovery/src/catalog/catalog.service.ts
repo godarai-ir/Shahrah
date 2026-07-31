@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { IndexingService } from '../indexing/indexing.service';
 import { ModelsQueryDto } from './dto/models-query.dto';
@@ -54,6 +54,13 @@ export class CatalogService {
       },
       orderBy: { canonicalId: 'asc' },
     });
+    if (rows.length === 0) {
+      throw new ServiceUnavailableException({
+        code: 'runtime_snapshot_unavailable',
+        provider: providerSlug,
+        reason: 'no_eligible_models',
+      });
+    }
 
     const models = rows.map((row) => {
       const storedRuntimeProfile = row.runtimeProfiles[0];
@@ -98,6 +105,29 @@ export class CatalogService {
         sources: row.sources.map((source) => source.url),
       };
     });
+    if (providerSlug === 'anthropic') {
+      for (const model of models) {
+        const coreDimensions = new Set(
+          model.pricingRates
+            .filter(
+              (rate) => rate.currency === 'USD' && rate.region === 'global',
+            )
+            .map((rate) => rate.dimension),
+        );
+        const missingDimensions = ['input_tokens', 'output_tokens'].filter(
+          (dimension) => !coreDimensions.has(dimension),
+        );
+        if (missingDimensions.length > 0) {
+          throw new ServiceUnavailableException({
+            code: 'runtime_snapshot_unavailable',
+            provider: providerSlug,
+            model: model.canonicalId,
+            reason: 'missing_core_pricing',
+            missingDimensions,
+          });
+        }
+      }
+    }
     const revision = createHash('sha256')
       .update(JSON.stringify(models))
       .digest('hex');
