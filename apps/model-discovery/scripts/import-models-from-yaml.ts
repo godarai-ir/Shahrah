@@ -9,6 +9,7 @@ import {
   modelRuntimeProfileSchema,
   type ModelRuntimeProfile,
 } from '../src/catalog/runtime-profile.schema';
+import { findMissingProviderSlugs } from '../src/catalog/provider-catalog-reconciliation';
 import { anthropicProviderImporter } from './model-import/providers/anthropic';
 import type {
   ProviderPricingRate,
@@ -89,11 +90,13 @@ export type ProviderYamlImportOptions = {
   providerSlugs?: string[];
   dryRun?: boolean;
   clearMissing?: boolean;
+  clearMissingProviders?: boolean;
   log?: (message: string) => void;
 };
 
 export type ProviderYamlImportSummary = {
   providersImported: number;
+  providersDeleted: number;
   modelsImported: number;
   modelsDeleted: number;
   dryRun: boolean;
@@ -1711,11 +1714,17 @@ export async function importProviderYaml(
     providerSlugs = [],
     dryRun = false,
     clearMissing = false,
+    clearMissingProviders = false,
     log = console.log,
   } = options;
   const selected = new Set(
     providerSlugs.map((x) => slugify(x)).filter(Boolean),
   );
+  if (clearMissingProviders && selected.size > 0) {
+    throw new Error(
+      '--clear-missing-providers cannot be combined with --providers; run a full catalog sync',
+    );
+  }
 
   const dirEntries = await fs.readdir(providersRoot, { withFileTypes: true });
   const providerDirs = dirEntries
@@ -1730,11 +1739,14 @@ export async function importProviderYaml(
   }
 
   let totalProviders = 0;
+  let totalProvidersDeleted = 0;
   let totalModels = 0;
   let totalDeleted = 0;
+  const catalogProviderSlugs: string[] = [];
   for (const providerDir of providerDirs) {
     const batch = await parseProviderDir(providerDir);
     const result = await importProviderBatch(batch, clearMissing, dryRun);
+    catalogProviderSlugs.push(batch.slug);
     totalProviders += 1;
     totalModels += result.modelsImported;
     totalDeleted += result.modelsDeleted;
@@ -1743,12 +1755,32 @@ export async function importProviderYaml(
     );
   }
 
+  if (clearMissingProviders && !dryRun) {
+    const databaseProviders = await prisma.provider.findMany({
+      select: { slug: true },
+    });
+    const missingProviderSlugs = findMissingProviderSlugs(
+      databaseProviders.map((provider) => provider.slug),
+      catalogProviderSlugs,
+    );
+    if (missingProviderSlugs.length > 0) {
+      const result = await prisma.provider.deleteMany({
+        where: { slug: { in: missingProviderSlugs } },
+      });
+      totalProvidersDeleted = result.count;
+      log(
+        `[import] deleted providers=${result.count} slugs=${missingProviderSlugs.join(',')}`,
+      );
+    }
+  }
+
   log(
-    `[import] completed providers=${totalProviders} models=${totalModels} dryRun=${dryRun}`,
+    `[import] completed providers=${totalProviders} providersDeleted=${totalProvidersDeleted} models=${totalModels} modelsDeleted=${totalDeleted} dryRun=${dryRun}`,
   );
 
   return {
     providersImported: totalProviders,
+    providersDeleted: totalProvidersDeleted,
     modelsImported: totalModels,
     modelsDeleted: totalDeleted,
     dryRun,
@@ -1772,6 +1804,7 @@ async function main(args: string[] = process.argv.slice(2)): Promise<void> {
       .filter(Boolean),
     dryRun: hasFlag('--dry-run', args),
     clearMissing: hasFlag('--clear-missing', args),
+    clearMissingProviders: hasFlag('--clear-missing-providers', args),
   });
 }
 

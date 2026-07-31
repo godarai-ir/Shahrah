@@ -140,6 +140,12 @@ Exported files:
   - `pnpm --filter model-discovery import:providers:yaml -- --providers openai --dry-run`
 - Optional sync cleanup (delete DB models missing from YAML for selected providers):
   - `pnpm --filter model-discovery import:providers:yaml -- --providers openai --clear-missing`
+- Full catalog reconciliation (also delete providers whose entire directory is
+  missing):
+  - `pnpm --filter model-discovery import:providers:yaml -- --clear-missing --clear-missing-providers`
+  - `--clear-missing-providers` is intentionally incompatible with
+    `--providers`; it must compare the complete checked-in catalog with the
+    database.
 - Custom providers root:
   - `pnpm --filter model-discovery import:providers:yaml -- --providers-root <path>`
 
