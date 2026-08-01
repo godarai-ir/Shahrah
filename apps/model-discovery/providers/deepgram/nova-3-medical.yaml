@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-3-medical
-supportedModes:
-    - audio_transcription

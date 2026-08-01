@@ -1,4 +1,0 @@
-mode: text_to_speech
-model: aura-orion-en
-supportedModes:
-    - text_to_speech

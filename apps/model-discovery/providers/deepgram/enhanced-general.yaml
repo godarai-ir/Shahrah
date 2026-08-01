@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: enhanced-general
-supportedModes:
-    - audio_transcription

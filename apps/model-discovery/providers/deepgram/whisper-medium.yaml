@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: whisper-medium
-supportedModes:
-    - audio_transcription

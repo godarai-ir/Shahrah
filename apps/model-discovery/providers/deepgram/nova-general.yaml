@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-general
-supportedModes:
-    - audio_transcription

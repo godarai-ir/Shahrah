@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-2-voicemail
-supportedModes:
-    - audio_transcription

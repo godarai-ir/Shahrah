@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-2-drivethru
-supportedModes:
-    - audio_transcription

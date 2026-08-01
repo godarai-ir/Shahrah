@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-phonecall
-supportedModes:
-    - audio_transcription

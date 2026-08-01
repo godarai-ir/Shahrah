@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: video
-supportedModes:
-    - audio_transcription

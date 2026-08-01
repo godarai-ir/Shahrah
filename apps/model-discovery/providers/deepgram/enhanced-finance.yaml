@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: enhanced-finance
-supportedModes:
-    - audio_transcription

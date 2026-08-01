@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-2-conversationalai
-supportedModes:
-    - audio_transcription

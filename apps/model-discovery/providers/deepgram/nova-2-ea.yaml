@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-2-ea
-supportedModes:
-    - audio_transcription

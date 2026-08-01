@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: whisper-small
-supportedModes:
-    - audio_transcription

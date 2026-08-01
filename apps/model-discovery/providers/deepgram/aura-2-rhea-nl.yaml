@@ -1,4 +1,0 @@
-mode: text_to_speech
-model: aura-2-rhea-nl
-supportedModes:
-    - text_to_speech

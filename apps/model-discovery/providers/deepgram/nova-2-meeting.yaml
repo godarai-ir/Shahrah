@@ -1,4 +1,0 @@
-mode: audio_transcription
-model: nova-2-meeting
-supportedModes:
-    - audio_transcription
