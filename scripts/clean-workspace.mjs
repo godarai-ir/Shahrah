@@ -8,10 +8,20 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "..");
 const mode = process.argv[2] ?? "stale";
 const dryRun = process.argv.includes("--dry-run");
-const supportedModes = new Set(["stale", "cache", "all", "prune"]);
+const force = process.argv.includes("--force");
+const supportedModes = new Set([
+	"stale",
+	"cache",
+	"next",
+	"temp",
+	"all",
+	"prune",
+]);
 
 if (!supportedModes.has(mode)) {
-	fail(`Unsupported mode: ${mode}. Use stale, cache, all, or prune.`);
+	fail(
+		`Unsupported mode: ${mode}. Use stale, cache, next, temp, all, or prune.`,
+	);
 }
 
 await verifyRepositoryRoot();
@@ -21,7 +31,8 @@ if (mode === "prune") {
 	process.exit(0);
 }
 
-const targets = await collectTargets(mode);
+const selection = await collectTargets(mode);
+const targets = selection.targets;
 let reclaimedBytes = 0;
 let skippedLockedTarget = false;
 
@@ -33,7 +44,7 @@ for (const target of targets) {
 	}
 
 	console.log(
-		`${dryRun ? "Would remove" : "Removing"} ${relativePath(target)} (${formatBytes(size)})`,
+		`${dryRun ? "Would remove" : "Removing"} ${relativePath(target)} (${formatBytes(size)})${selection.reasons.get(target) ? `: ${selection.reasons.get(target)}` : ""}`,
 	);
 	if (!dryRun) {
 		try {
@@ -63,17 +74,52 @@ for (const target of targets) {
 console.log(
 	`${dryRun ? "Potential reclaim" : "Reclaimed"}: ${formatBytes(reclaimedBytes)}`,
 );
+let remainingManagedBytes = 0;
+for (const target of selection.managedTargets) {
+	remainingManagedBytes += (await getPathSize(target)) ?? 0;
+}
+const reportedRemainingBytes = dryRun
+	? Math.max(0, remainingManagedBytes - reclaimedBytes)
+	: remainingManagedBytes;
+console.log(
+	`${dryRun ? "Projected remaining managed data" : "Remaining managed data"}: ${formatBytes(reportedRemainingBytes)}`,
+);
 if (skippedLockedTarget) {
 	process.exitCode = 1;
 }
 
 async function collectTargets(selectedMode) {
+	const reasons = new Map();
 	const staleTargets = await findNextStaleDirectories();
 	if (selectedMode === "stale") {
-		return staleTargets;
+		return createSelection(staleTargets, staleTargets, reasons);
 	}
 
-	const cacheTargets = [
+	const nextCacheSelection = await findPrunableNextCaches(force);
+	for (const [target, reason] of nextCacheSelection.reasons) {
+		reasons.set(target, reason);
+	}
+	if (selectedMode === "next") {
+		return createSelection(
+			nextCacheSelection.targets,
+			nextCacheSelection.managedTargets,
+			reasons,
+		);
+	}
+
+	const temporaryTargets = [
+		resolveFromRoot(".codex", "tmp"),
+		resolveFromRoot(".golangci-lint-report.json"),
+		resolveFromRoot("GodarAI-Web-Assets.zip"),
+		resolveFromRoot("bin"),
+		resolveFromRoot("services", "control-plane", "bin"),
+		resolveFromRoot("services", "control-plane", "tenant-purge.exe"),
+	];
+	if (selectedMode === "temp") {
+		return createSelection(temporaryTargets, temporaryTargets, reasons);
+	}
+
+	const baseCacheTargets = [
 		...staleTargets,
 		resolveFromRoot(".turbo"),
 		resolveFromRoot(".gocache"),
@@ -84,9 +130,17 @@ async function collectTargets(selectedMode) {
 		resolveFromRoot(".tmp"),
 		resolveFromRoot("services", "control-plane", ".tmp"),
 	];
+	const cacheTargets = [
+		...baseCacheTargets,
+		...nextCacheSelection.targets,
+	];
 
 	if (selectedMode === "cache") {
-		return uniquePaths(cacheTargets);
+		return createSelection(
+			cacheTargets,
+			[...cacheTargets, ...nextCacheSelection.managedTargets],
+			reasons,
+		);
 	}
 
 	const generatedTargets = [
@@ -113,7 +167,71 @@ async function collectTargets(selectedMode) {
 		}
 	}
 
-	return uniquePaths([...cacheTargets, ...generatedTargets]);
+	return createSelection(
+		[...baseCacheTargets, ...temporaryTargets, ...generatedTargets],
+		[
+			...baseCacheTargets,
+			...temporaryTargets,
+			...generatedTargets,
+		],
+		reasons,
+	);
+}
+
+async function findPrunableNextCaches(forceRemoval) {
+	const targets = [];
+	const managedTargets = [];
+	const reasons = new Map();
+	const maximumGiB = readPositiveNumber(
+		"SHAHRAH_NEXT_CACHE_MAX_GIB",
+		"2",
+	);
+	const maximumAgeDays = readPositiveNumber(
+		"SHAHRAH_NEXT_CACHE_MAX_AGE_DAYS",
+		"14",
+	);
+	const maximumBytes = maximumGiB * 1024 ** 3;
+	const oldestAllowedTime = Date.now() - maximumAgeDays * 24 * 60 * 60 * 1000;
+	const appsDirectory = resolveFromRoot("apps");
+
+	for (const appEntry of await readDirectorySafely(appsDirectory)) {
+		if (!appEntry.isDirectory()) {
+			continue;
+		}
+		for (const segments of [
+			[".next", "cache"],
+			[".next", "dev", "cache"],
+		]) {
+			const cacheDirectory = path.join(
+				appsDirectory,
+				appEntry.name,
+				...segments,
+			);
+			const stats = await getPathStats(cacheDirectory);
+			if (stats === null) {
+				continue;
+			}
+			managedTargets.push(cacheDirectory);
+			const tooLarge = stats.size > maximumBytes;
+			const tooOld = stats.latestModifiedAt < oldestAllowedTime;
+			if (!forceRemoval && !tooLarge && !tooOld) {
+				continue;
+			}
+			targets.push(cacheDirectory);
+			const reason = forceRemoval
+				? "forced"
+				: tooLarge
+					? `exceeds ${maximumGiB} GiB limit`
+					: `older than ${maximumAgeDays} days`;
+			reasons.set(path.resolve(cacheDirectory), reason);
+		}
+	}
+
+	return {
+		targets: uniquePaths(targets),
+		managedTargets: uniquePaths(managedTargets),
+		reasons,
+	};
 }
 
 async function findNextStaleDirectories() {
@@ -250,6 +368,53 @@ async function getPathSize(target) {
 		total += (await getPathSize(path.join(target, entry.name))) ?? 0;
 	}
 	return total;
+}
+
+async function getPathStats(target) {
+	let info;
+	try {
+		info = await lstat(target);
+	} catch (error) {
+		if (error.code === "ENOENT") {
+			return null;
+		}
+		throw error;
+	}
+
+	if (!info.isDirectory() || info.isSymbolicLink()) {
+		return { size: info.size, latestModifiedAt: info.mtimeMs };
+	}
+
+	let size = 0;
+	let latestModifiedAt = info.mtimeMs;
+	for (const entry of await readdir(target, { withFileTypes: true })) {
+		const childStats = await getPathStats(path.join(target, entry.name));
+		if (childStats === null) {
+			continue;
+		}
+		size += childStats.size;
+		latestModifiedAt = Math.max(
+			latestModifiedAt,
+			childStats.latestModifiedAt,
+		);
+	}
+	return { size, latestModifiedAt };
+}
+
+function createSelection(targets, managedTargets, reasons) {
+	return {
+		targets: uniquePaths(targets),
+		managedTargets: uniquePaths(managedTargets),
+		reasons,
+	};
+}
+
+function readPositiveNumber(name, fallback) {
+	const value = Number(process.env[name] ?? fallback);
+	if (!Number.isFinite(value) || value <= 0) {
+		fail(`${name} must be a positive number.`);
+	}
+	return value;
 }
 
 async function readDirectorySafely(directory) {

@@ -702,6 +702,14 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 		}, nil
 	}
 
+	normalizedAuthMode := strings.TrimSpace(authMode)
+	if normalizedAuthMode == string(platform.ProviderAuthModeNoCredential) {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: true,
+			Message: "this provider connection does not require a credential",
+		}, nil
+	}
+
 	if !hasCredential {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: false,
@@ -710,66 +718,37 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 	}
 
 	providerConfig := parseJSONObject(providerCfgRaw)
+	secrets := map[string]string{}
+	defer clear(secrets)
 
-	if strings.EqualFold(provider, "anthropic") &&
-		(platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAPIKey ||
-			platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAnthropicWIF) &&
-		s.tenantProviderProber != nil {
-		secrets := map[string]string{}
-
-		if platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAPIKey {
-			apiKey, resolveErr := s.resolveTenantProviderAccountAPIKey(ctx, tenantID, accountID)
-			if resolveErr != nil {
-				return nil, resolveErr
-			}
-
-			secrets["api_key"] = apiKey
+	if normalizedAuthMode == string(platform.ProviderAuthModeAPIKey) || normalizedAuthMode == "personal_access_token" {
+		credential, resolveErr := s.resolveTenantProviderAccountAPIKey(ctx, tenantID, accountID)
+		if resolveErr != nil {
+			return nil, resolveErr
 		}
 
-		success, _, message, metadata := probeTenantProviderCredential(
-			ctx, s.tenantProviderProber,
-			anthropicProbeCredential(accountID, authMode, providerConfig),
-			secrets,
-		)
+		if credential == "" || isMaskedCredentialValue(credential) {
+			return &platform.TestTenantProviderAccountCredentialsResponse{
+				Success: false,
+				Message: "credential is missing or masked; enter a new provider credential before testing",
+			}, nil
+		}
 
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success:            success,
-			Message:            message,
-			WIFEffectiveScopes: metadata.WIFScopes,
-			WIFExpiresAt:       metadata.WIFExpiresAt,
-			WIFLastRefreshAt:   metadata.WIFRefreshedAt,
-		}, nil
+		if normalizedAuthMode == "personal_access_token" {
+			secrets["access_token"] = credential
+		} else {
+			secrets["api_key"] = credential
+		}
 	}
 
-	if platform.ProviderAuthMode(strings.TrimSpace(authMode)) != platform.ProviderAuthModeAPIKey {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: false,
-			Message: "connection validation is only implemented for API key provider accounts",
-		}, nil
-	}
-
-	apiKey, resolveErr := s.resolveTenantProviderAccountAPIKey(
+	success, category, message, metadata := probeTenantProviderCredential(
 		ctx,
-		tenantID,
-		accountID,
+		s.tenantProviderCredentialProber(),
+		tenantProviderProbeCredential(provider, accountID, normalizedAuthMode, providerConfig),
+		secrets,
 	)
-	if resolveErr != nil {
-		return nil, resolveErr
-	}
 
-	if apiKey == "" || isMaskedCredentialValue(apiKey) {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: false,
-			Message: "API key is missing or masked; enter a new provider API key before testing",
-		}, nil
-	}
-
-	result := validateProviderAPIKey(ctx, provider, apiKey, providerConfig, nil)
-
-	return &platform.TestTenantProviderAccountCredentialsResponse{
-		Success: result.Success,
-		Message: result.Message,
-	}, nil
+	return tenantProviderCredentialTestResponse(success, category, message, metadata), nil
 }
 
 // TestProviderConnection validates write-only credentials without persisting
@@ -789,68 +768,84 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 		}, nil
 	}
 
-	if strings.EqualFold(req.Provider, "anthropic") &&
-		(req.AuthMode == platform.ProviderAuthModeAPIKey ||
-			req.AuthMode == platform.ProviderAuthModeAnthropicWIF) &&
-		s.tenantProviderProber != nil {
-		secrets := map[string]string{}
-		if req.Credentials != nil {
-			secrets["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
+	secrets := providerConnectionProbeSecrets(req.AuthMode, req.Credentials)
+	defer clear(secrets)
+
+	if credential, required := requiredProviderProbeSecret(req.AuthMode, secrets); required &&
+		(credential == "" || isMaskedCredentialValue(credential)) {
+		return &platform.TestTenantProviderAccountCredentialsResponse{
+			Success: false,
+			Message: "credential is missing or masked; enter a provider credential before testing",
+		}, nil
+	}
+
+	success, category, message, metadata := probeTenantProviderCredential(
+		ctx,
+		s.tenantProviderCredentialProber(),
+		tenantProviderProbeCredential(
+			strings.TrimSpace(req.Provider),
+			"preflight",
+			string(req.AuthMode),
+			req.ProviderConfig,
+		),
+		secrets,
+	)
+
+	return tenantProviderCredentialTestResponse(success, category, message, metadata), nil
+}
+
+func (s *Store) tenantProviderCredentialProber() platformcredentials.CredentialProber {
+	if s.tenantProviderProber != nil {
+		return s.tenantProviderProber
+	}
+
+	return platformcredentials.NewHTTPProber(nil)
+}
+
+func providerConnectionProbeSecrets(
+	authMode platform.ProviderAuthMode,
+	credentials *platform.ProviderAccountCredentials,
+) map[string]string {
+	secrets := map[string]string{}
+	if credentials == nil {
+		return secrets
+	}
+
+	for key, raw := range credentials.Raw {
+		if value, ok := raw.(string); ok && strings.TrimSpace(value) != "" {
+			secrets[strings.TrimSpace(key)] = strings.TrimSpace(value)
 		}
-
-		success, _, message, metadata := probeTenantProviderCredential(
-			ctx, s.tenantProviderProber,
-			anthropicProbeCredential(
-				"preflight",
-				string(req.AuthMode),
-				req.ProviderConfig,
-			),
-			secrets,
-		)
-
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success:            success,
-			Message:            message,
-			WIFEffectiveScopes: metadata.WIFScopes,
-			WIFExpiresAt:       metadata.WIFExpiresAt,
-			WIFLastRefreshAt:   metadata.WIFRefreshedAt,
-		}, nil
 	}
 
-	if req.AuthMode != platform.ProviderAuthModeAPIKey {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success:     false,
-			Unsupported: true,
-			Message:     "automatic connection validation is not available for this authentication mode",
-		}, nil
+	if value := strings.TrimSpace(credentials.APIKey); value != "" {
+		secrets["api_key"] = value
 	}
 
-	apiKey := ""
-	if req.Credentials != nil {
-		apiKey = strings.TrimSpace(req.Credentials.APIKey)
-		if apiKey == "" && req.Credentials.Raw != nil {
-			for _, key := range []string{"api_key", "access_token", "token"} {
-				if value, ok := req.Credentials.Raw[key].(string); ok && strings.TrimSpace(value) != "" {
-					apiKey = strings.TrimSpace(value)
-					break
-				}
+	if secrets["api_key"] == "" {
+		for _, key := range []string{"access_token", "token"} {
+			if secrets[key] != "" {
+				secrets["api_key"] = secrets[key]
+				break
 			}
 		}
 	}
 
-	if apiKey == "" || isMaskedCredentialValue(apiKey) {
-		return &platform.TestTenantProviderAccountCredentialsResponse{
-			Success: false,
-			Message: "API key is missing or masked; enter a provider API key before testing",
-		}, nil
+	if strings.TrimSpace(string(authMode)) == "personal_access_token" && secrets["access_token"] == "" {
+		secrets["access_token"] = secrets["api_key"]
 	}
 
-	result := validateProviderAPIKey(ctx, strings.TrimSpace(req.Provider), apiKey, req.ProviderConfig, nil)
+	return secrets
+}
 
-	return &platform.TestTenantProviderAccountCredentialsResponse{
-		Success: result.Success,
-		Message: result.Message,
-	}, nil
+func requiredProviderProbeSecret(authMode platform.ProviderAuthMode, secrets map[string]string) (string, bool) {
+	switch strings.TrimSpace(string(authMode)) {
+	case string(platform.ProviderAuthModeAPIKey):
+		return strings.TrimSpace(secrets["api_key"]), true
+	case "personal_access_token":
+		return strings.TrimSpace(secrets["access_token"]), true
+	default:
+		return "", false
+	}
 }
 
 func probeTenantProviderCredential(
@@ -868,14 +863,35 @@ func probeTenantProviderCredential(
 	return success, category, summary, platformcredentials.ProbeMetadata{}
 }
 
-func anthropicProbeCredential(connectionID, authMode string, config map[string]interface{}) platformcredentials.EncryptedCredential {
+func tenantProviderCredentialTestResponse(
+	success bool,
+	category string,
+	message string,
+	metadata platformcredentials.ProbeMetadata,
+) *platform.TestTenantProviderAccountCredentialsResponse {
+	return &platform.TestTenantProviderAccountCredentialsResponse{
+		Success:            success,
+		Unsupported:        strings.EqualFold(strings.TrimSpace(category), "unsupported"),
+		Message:            message,
+		WIFEffectiveScopes: metadata.WIFScopes,
+		WIFExpiresAt:       metadata.WIFExpiresAt,
+		WIFLastRefreshAt:   metadata.WIFRefreshedAt,
+	}
+}
+
+func tenantProviderProbeCredential(provider, connectionID, authMode string, config map[string]interface{}) platformcredentials.EncryptedCredential {
 	return platformcredentials.EncryptedCredential{
 		Binding: platformcredentials.Binding{
-			ProviderSlug: "anthropic", ConnectionID: connectionID,
+			ProviderSlug: strings.TrimSpace(provider), ConnectionID: connectionID,
 			CredentialVersionID: "probe", AuthMode: strings.TrimSpace(authMode),
 		},
-		BaseURL:          firstString(config, nil, "api_base", "base_url"),
+		BaseURL:          firstString(config, nil, "api_base", "native_base_url", "base_url", "endpoint", "serving_endpoint_url"),
 		APIVersion:       firstString(config, nil, "api_version"),
+		Organization:     firstString(config, nil, "organization", "openai_organization"),
+		Project:          firstString(config, nil, "project", "openai_project"),
+		HTTPReferer:      firstString(config, nil, "http_referer"),
+		AppTitle:         firstString(config, nil, "app_title"),
+		ClientName:       firstString(config, nil, "client_name"),
 		FederationRuleID: firstString(config, nil, "federation_rule_id"),
 		OrganizationID:   firstString(config, nil, "organization_id"),
 		ServiceAccountID: firstString(config, nil, "service_account_id"),

@@ -307,6 +307,9 @@ func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secr
 		req.Header.Set("Authorization", "Bearer "+secrets["api_key"])
 	}
 
+	applyProbeMetadataHeaders(req, record)
+	req.Header.Set("Accept", "application/json")
+
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return false, "network", "Provider validation could not reach the upstream service."
@@ -329,6 +332,27 @@ func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secr
 		return false, "deployment_not_found", "The configured provider endpoint was not found."
 	default:
 		return false, "provider", fmt.Sprintf("Provider validation returned HTTP %d.", resp.StatusCode)
+	}
+}
+
+func applyProbeMetadataHeaders(req *http.Request, record EncryptedCredential) {
+	switch normalizeProvider(record.ProviderSlug) {
+	case "openai":
+		if value := strings.TrimSpace(record.Organization); value != "" {
+			req.Header.Set("OpenAI-Organization", value)
+		}
+
+		if value := strings.TrimSpace(record.Project); value != "" {
+			req.Header.Set("OpenAI-Project", value)
+		}
+	case "openrouter":
+		if value := strings.TrimSpace(record.HTTPReferer); value != "" {
+			req.Header.Set("HTTP-Referer", value)
+		}
+
+		if value := strings.TrimSpace(record.AppTitle); value != "" {
+			req.Header.Set("X-Title", value)
+		}
 	}
 }
 
@@ -407,6 +431,8 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		return modelsProbe(base, "https://api.openai.com/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "openrouter":
 		return modelsProbe(base, "https://openrouter.ai/api/v1", "bearer-api-key"), record.AuthMode == "api_key"
+	case "sambanova":
+		return modelsProbe(base, "", "bearer-api-key"), record.AuthMode == "api_key" && base != ""
 	case "together-ai":
 		return modelsProbe(base, "https://api.together.xyz/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "xai":

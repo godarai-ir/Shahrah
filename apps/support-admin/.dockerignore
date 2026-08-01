@@ -1,9 +1,0 @@
-node_modules
-.next
-.turbo
-.git
-coverage
-dist
-*.log
-.env
-.env.*
