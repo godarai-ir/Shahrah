@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Iran-side tunnel relay for Shahrah. This service is a small HTTP hop that forwards requests to `tunnel-server`.
+Iran-side tunnel relay for GodarAI. This service is a small HTTP hop that forwards requests to `tunnel-server`.
 
 ## Ownership
 

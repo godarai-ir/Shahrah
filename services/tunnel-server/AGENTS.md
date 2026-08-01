@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Europe-side tunnel relay for Shahrah. This service forwards tunnel requests to `silk-road`.
+Europe-side tunnel relay for GodarAI. This service forwards tunnel requests to `silk-road`.
 
 ## Ownership
 
