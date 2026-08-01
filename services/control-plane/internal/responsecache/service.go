@@ -297,6 +297,17 @@ func cacheFingerprintRequest(req contractsopenai.ChatCompletionRequest) contract
 	// Metadata is retained for logs and tracing, but the gateway does not send it
 	// to providers, so it cannot affect the generated response or cache identity.
 	req.Metadata = nil
+	if req.AdditionalFields != nil {
+		req.AdditionalFields = make(map[string]json.RawMessage, len(req.AdditionalFields))
+		for key, value := range req.AdditionalFields {
+			if strings.EqualFold(strings.TrimSpace(key), "metadata") {
+				continue
+			}
+
+			req.AdditionalFields[key] = append(json.RawMessage(nil), value...)
+		}
+	}
+
 	return req
 }
 

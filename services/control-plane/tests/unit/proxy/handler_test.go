@@ -448,7 +448,40 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 			Body:       respBody,
 		},
 	}
-	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 15}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{
+		TotalCostUSD:    0.001,
+		TotalTokens:     15,
+		PricingRevision: "test-mistral-runtime",
+		ModelRuntimeProfile: &platform.ModelRuntimeProfileBinding{
+			Provider:        "mistral-ai",
+			CatalogRevision: "test-mistral-runtime",
+			CanonicalID:     "mistral-ai/ministral-8b-2512",
+			Slug:            "ministral-8b-2512",
+			ProfileVersion:  1,
+			EffectiveFrom:   time.Now().UTC(),
+			Profile: platform.ModelRuntimeProfile{
+				Version:   1,
+				Endpoints: []string{"chat_completions"},
+				Thinking: platform.ModelRuntimeThinkingProfile{
+					DefaultMode:  "disabled",
+					AllowedModes: []string{"disabled"},
+				},
+				Sampling: platform.ModelRuntimeSamplingProfile{
+					Parameters: []string{"temperature", "top_p"},
+				},
+				Parameters: map[string][]string{
+					"chat_completions": {"model", "messages"},
+				},
+				Modalities: platform.ModelRuntimeModalities{
+					Input: []string{"text"}, Output: []string{"text"},
+				},
+				Limits: platform.ModelRuntimeLimits{
+					ContextWindow: 32_768, MaxOutputTokens: 8_192,
+					MessagesBytes: 1_048_576, BatchBytes: 1_048_576, FileBytes: 1_048_576,
+				},
+			},
+		},
+	}}
 	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{
 		virtualModels: map[string]*platform.VirtualModel{
@@ -503,7 +536,9 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, string(responseBody))
 
 	var outbound contractsopenai.ChatCompletionRequest
 	require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))
