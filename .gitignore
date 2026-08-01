@@ -104,6 +104,7 @@ $RECYCLE.BIN/
 .env.staging
 .env.development
 *.env
+/ar-mailserver-privatekey.pem
 
 # Build artifacts
 *.tar.gz
@@ -134,7 +135,15 @@ tmp/
 temp/
 *.tmp
 *.temp
+*.inspect.ndjson
 .golangci-lint-report.json
+
+# Repository-local tool caches
+/.cache/
+/.pnpm-store*/
+/.ruff_cache/
+/.tmp/
+**/.tmp/
 
 # Node modules (for any embedded web UIs)
 node_modules/
@@ -149,6 +158,5 @@ RELEASE-NOTES.md
 build/
 release/
 .playwright-mcp/
-pnpm-lock.yaml
 .turbo/
 *.go.[0-9]*

@@ -3,12 +3,42 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**"]
+    },
+    "@shahrah/model-discovery-web#build": {
+      "dependsOn": ["^build"],
       "outputs": [
-        "dist/**",
         ".next/**",
         "!.next/cache/**",
         "!.next/dev/**",
-        "build/**"
+        "!.next/dev-stale*/**"
+      ]
+    },
+    "@shahrah/support-admin#build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "!.next/dev/**",
+        "!.next/dev-stale*/**"
+      ]
+    },
+    "@shahrah/tenant-admin#build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "!.next/dev/**",
+        "!.next/dev-stale*/**"
+      ]
+    },
+    "@shahrah/website#build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "!.next/dev/**",
+        "!.next/dev-stale*/**"
       ]
     },
     "dev": {
