@@ -93,7 +93,6 @@ jobs:
       contents: write
     uses: ./.github/workflows/gitops-production-release.yml
     with:
-      base_sha: ${{ github.event.before }}
       head_sha: ${{ github.sha }}
     secrets:
       REGISTRY_URL: ${{ secrets.REGISTRY_URL }}

@@ -3,10 +3,6 @@ name: Build Changed Images And Propose Production Release
 on:
   workflow_call:
     inputs:
-      base_sha:
-        description: "Base commit used to detect changed services"
-        required: false
-        type: string
       head_sha:
         description: "Commit to build and release"
         required: false
@@ -74,336 +70,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout deployed production state
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_REPO_TOKEN }}
+          path: gitops-production
+
+      - name: Install detector dependencies
+        run: python -m pip install pyyaml==6.0.3
+
       - name: Detect services
         id: detect
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
           HEAD_SHA: ${{ env.RELEASE_SHA }}
           MANUAL_SERVICES: ${{ inputs.services }}
           MANUAL_BUMP: ${{ inputs.release_type }}
+          PRODUCTION_VALUES: gitops-production/helm/shahrah/values.production.yaml
         run: |
-          python - <<'PY'
-          import json
-          import os
-          import re
-          import subprocess
-
-          def sh(cmd):
-              return subprocess.check_output(cmd, text=True).strip()
-
-          services = [
-              {
-                  "id": "control-plane",
-                  "context": ".",
-                  "dockerfile": "services/control-plane/Dockerfile",
-                  "target": "",
-                  "values_path": "controlPlane.image.tag",
-                  "additional_values_paths": ["metricsDlqReplayer.image.tag"],
-                  "semver_prefix": "control-plane",
-                  "paths": ["services/control-plane/"],
-              },
-              {
-                  "id": "model-discovery",
-                  "context": "apps/model-discovery",
-                  "dockerfile": "apps/model-discovery/Dockerfile",
-                  "target": "",
-                  "values_path": "modelDiscovery.image.tag",
-                  "semver_prefix": "model-discovery",
-                  "paths": ["apps/model-discovery/"],
-              },
-              {
-                  "id": "model-discovery-migrate",
-                  "context": "apps/model-discovery",
-                  "dockerfile": "apps/model-discovery/Dockerfile",
-                  "target": "migrate",
-                  "values_path": "migrations.modelDiscovery.image.tag",
-                  "additional_values_paths": ["migrations.modelDiscoveryCatalogImport.image.tag"],
-                  "semver_prefix": "model-discovery",
-                  "paths": ["apps/model-discovery/"],
-              },
-              {
-                  "id": "model-discovery-web",
-                  "context": "apps/model-discovery-web",
-                  "dockerfile": "apps/model-discovery-web/Dockerfile",
-                  "target": "",
-                  "values_path": "modelDiscoveryWeb.image.tag",
-                  "semver_prefix": "model-discovery-web",
-                  "paths": ["apps/model-discovery-web/"],
-              },
-              {
-                  "id": "support-admin",
-                  "context": "apps/support-admin",
-                  "dockerfile": "apps/support-admin/Dockerfile",
-                  "target": "",
-                  "values_path": "supportAdmin.image.tag",
-                  "semver_prefix": "support-admin",
-                  "paths": ["apps/support-admin/"],
-              },
-              {
-                  "id": "support-admin-migrate",
-                  "context": "apps/support-admin",
-                  "dockerfile": "apps/support-admin/Dockerfile",
-                  "target": "migrate",
-                  "values_path": "migrations.supportAdmin.image.tag",
-                  "semver_prefix": "support-admin",
-                  "paths": ["apps/support-admin/"],
-              },
-              {
-                  "id": "silk-road",
-                  "context": ".",
-                  "dockerfile": "services/silk-road/Dockerfile",
-                  "target": "",
-                  "values_path": "silkRoad.image.tag",
-                  "semver_prefix": "silk-road",
-                  "paths": ["services/silk-road/"],
-              },
-              {
-                  "id": "tunnel-client",
-                  "context": ".",
-                  "dockerfile": "services/tunnel-client/Dockerfile",
-                  "target": "",
-                  "values_path": "tunnelClient.image.tag",
-                  "semver_prefix": "tunnel-client",
-                  "paths": ["services/tunnel-client/"],
-              },
-              {
-                  "id": "tunnel-server",
-                  "context": ".",
-                  "dockerfile": "services/tunnel-server/Dockerfile",
-                  "target": "",
-                  "values_path": "tunnelServer.image.tag",
-                  "semver_prefix": "tunnel-server",
-                  "paths": ["services/tunnel-server/"],
-              },
-              {
-                  "id": "goose",
-                  "context": "infra/compose/images/goose-ci",
-                  "dockerfile": "infra/compose/images/goose-ci/Dockerfile",
-                  "target": "",
-                  "values_path": "migrations.mainDb.image.tag",
-                  "semver_prefix": "goose",
-                  "paths": ["infra/compose/images/goose-ci/", "db/"],
-              },
-              {
-                  "id": "docs",
-                  "context": "apps/docs",
-                  "dockerfile": "apps/docs/Dockerfile",
-                  "target": "",
-                  "values_path": "docs.image.tag",
-                  "semver_prefix": "docs",
-                  "paths": ["apps/docs/"],
-              },
-              {
-                  "id": "website",
-                  "context": "apps/website",
-                  "dockerfile": "apps/website/Dockerfile",
-                  "target": "",
-                  "values_path": "website.image.tag",
-                  "semver_prefix": "website",
-                  "paths": ["apps/website/"],
-              },
-              {
-                  "id": "blog",
-                  "context": "apps/blog",
-                  "dockerfile": "apps/blog/Dockerfile",
-                  "target": "",
-                  "values_path": "blog.image.tag",
-                  "semver_prefix": "blog",
-                  "paths": ["apps/blog/"],
-              },
-              {
-                  "id": "tenant-admin",
-                  "context": ".",
-                  "dockerfile": "apps/tenant-admin/Dockerfile",
-                  "target": "",
-                  "values_path": "tenantAdmin.image.tag",
-                  "semver_prefix": "tenant-admin",
-                  "paths": ["apps/tenant-admin/"],
-              },
-          ]
-
-          id_to_service = {s["id"]: s for s in services}
-          all_service_ids = [s["id"] for s in services]
-
-          shared_paths = [
-              "packages/",
-              "pnpm-lock.yaml",
-              "pnpm-workspace.yaml",
-              "package.json",
-              "turbo.json",
-          ]
-
-          manual_services = (os.getenv("MANUAL_SERVICES") or "").strip()
-          manual_bump = (os.getenv("MANUAL_BUMP") or "auto").strip()
-          base_sha = (os.getenv("BASE_SHA") or "").strip()
-          head_sha = (os.getenv("HEAD_SHA") or "").strip()
-
-          selected = []
-
-          def add_service(sid):
-              if sid not in selected:
-                  selected.append(sid)
-
-          if manual_services:
-              for raw in manual_services.split(","):
-                  sid = raw.strip()
-                  if not sid:
-                      continue
-                  if sid == "all":
-                      selected = list(all_service_ids)
-                      break
-                  if sid not in id_to_service:
-                      raise SystemExit(f"Unknown service id: {sid}")
-                  add_service(sid)
-          else:
-              changed_files = []
-              full_build = False
-              if not base_sha or set(base_sha) == {"0"}:
-                  full_build = True
-              else:
-                  try:
-                      diff = sh(["git", "diff", "--name-only", base_sha, head_sha])
-                      changed_files = [line.strip() for line in diff.splitlines() if line.strip()]
-                  except Exception:
-                      full_build = True
-
-              if full_build:
-                  selected = list(all_service_ids)
-              else:
-                  shared_changed = False
-                  for f in changed_files:
-                      if any(f == p or f.startswith(p) for p in shared_paths):
-                          shared_changed = True
-                          break
-
-                  if shared_changed:
-                      selected = list(all_service_ids)
-                  else:
-                      for f in changed_files:
-                          for s in services:
-                              for p in s["paths"]:
-                                  if f == p or f.startswith(p):
-                                      add_service(s["id"])
-                                      break
-
-          # Derive global bump type for this change set.
-          def detect_bump_type():
-              if manual_bump and manual_bump != "auto":
-                  return manual_bump
-
-              if base_sha and set(base_sha) != {"0"}:
-                  try:
-                      msg = sh(["git", "log", "--format=%s%n%b", f"{base_sha}..{head_sha}"])
-                  except Exception:
-                      msg = sh(["git", "log", "-n", "50", "--format=%s%n%b", head_sha])
-              else:
-                  msg = sh(["git", "log", "-n", "50", "--format=%s%n%b", head_sha])
-
-              if "BREAKING CHANGE" in msg or re.search(r"^[a-z]+(\([^\)]+\))?!:", msg, re.M):
-                  return "major"
-              if re.search(r"^feat(\([^\)]+\))?:", msg, re.M):
-                  return "minor"
-              return "patch"
-
-          bump_type = detect_bump_type()
-
-          version_cache = {}
-
-          def latest_semver(prefix):
-              tags = sh(["git", "tag", "--list", f"{prefix}/v*"])
-              best = None
-              for t in [x.strip() for x in tags.splitlines() if x.strip()]:
-                  m = re.match(rf"^{re.escape(prefix)}/v(\d+)\.(\d+)\.(\d+)$", t)
-                  if not m:
-                      continue
-                  v = tuple(int(m.group(i)) for i in (1, 2, 3))
-                  if best is None or v > best:
-                      best = v
-              return best
-
-          def latest_semver_for_commit(prefix, commit_sha):
-              tags = sh(["git", "tag", "--list", f"{prefix}/v*"])
-              best = None
-              for t in [x.strip() for x in tags.splitlines() if x.strip()]:
-                  m = re.match(rf"^{re.escape(prefix)}/v(\d+)\.(\d+)\.(\d+)$", t)
-                  if not m:
-                      continue
-                  try:
-                      tag_sha = sh(["git", "rev-parse", f"{t}^{{}}"])
-                  except Exception:
-                      continue
-                  if tag_sha != commit_sha:
-                      continue
-                  v = tuple(int(m.group(i)) for i in (1, 2, 3))
-                  if best is None or v > best:
-                      best = v
-              return best
-
-          def bump_semver(current, bump):
-              if current is None:
-                  if bump == "major":
-                      return (1, 0, 0)
-                  if bump == "minor":
-                      return (0, 1, 0)
-                  return (0, 1, 0)
-
-              major, minor, patch = current
-              if bump == "major":
-                  return (major + 1, 0, 0)
-              if bump == "minor":
-                  return (major, minor + 1, 0)
-              return (major, minor, patch + 1)
-
-          matrix = []
-          for sid in selected:
-              s = id_to_service[sid]
-              prefix = s["semver_prefix"]
-              if prefix not in version_cache:
-                  existing_for_head = latest_semver_for_commit(prefix, head_sha)
-                  if existing_for_head is not None:
-                      version_cache[prefix] = {
-                          "tag": f"v{existing_for_head[0]}.{existing_for_head[1]}.{existing_for_head[2]}",
-                          "publish": False,
-                      }
-                  else:
-                      current = latest_semver(prefix)
-                      nxt = bump_semver(current, bump_type)
-                      version_cache[prefix] = {
-                          "tag": f"v{nxt[0]}.{nxt[1]}.{nxt[2]}",
-                          "publish": True,
-                      }
-              semver_tag = version_cache[prefix]["tag"]
-              matrix.append({
-                  "id": s["id"],
-                  "context": s["context"],
-                  "dockerfile": s["dockerfile"],
-                  "target": s["target"],
-                  "values_path": s["values_path"],
-                  "additional_values_paths": s.get("additional_values_paths", []),
-                  "semver_prefix": s["semver_prefix"],
-                  "semver_tag": semver_tag,
-              })
-
-          release_tag = f"sha-{head_sha}"
-          changed_services = ",".join([m["id"] for m in matrix])
-          summary = json.dumps(
-              {
-                  "release_tag": release_tag,
-                  "bump_type": bump_type,
-                  "services": [m["id"] for m in matrix],
-                  "semver_tags": {m["id"]: m["semver_tag"] for m in matrix},
-              },
-              separators=(",", ":"),
-          )
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              fh.write(f"release_tag={release_tag}\n")
-              fh.write(f"matrix={json.dumps(matrix, separators=(',', ':'))}\n")
-              fh.write(f"changed_services={changed_services}\n")
-              fh.write(f"build_summary={summary}\n")
-
-          print(summary)
-          PY
+          python scripts/ci/detect_changed_services.py \
+            --head-sha "$HEAD_SHA" \
+            --production-values "$PRODUCTION_VALUES" \
+            --manual-services "$MANUAL_SERVICES" \
+            --manual-bump "$MANUAL_BUMP" \
+            --github-output "$GITHUB_OUTPUT"
 
   build-and-push:
     name: Build And Push Changed Images
