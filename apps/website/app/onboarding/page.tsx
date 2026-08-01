@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle,
   Clock,
+  Github,
   Loader2,
   LockKeyhole,
   Mail,
@@ -39,6 +40,8 @@ type OnboardingPayload = {
   error?: string;
 };
 
+type SocialUser = { id: string; name: string; email: string; email_verified: boolean };
+
 export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("details");
   const [tenantSlug, setTenantSlug] = useState("");
@@ -53,6 +56,7 @@ export default function OnboardingPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [socialUser, setSocialUser] = useState<SocialUser | null>(null);
 
   const isExpired = step === "otp" && remainingSeconds <= 0;
   const formattedRemaining = useMemo(() => formatRemaining(remainingSeconds), [remainingSeconds]);
@@ -66,6 +70,42 @@ export default function OnboardingPage() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, [remainingSeconds, step]);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("social") !== "1") return;
+    void fetch("/api/social-auth/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload: { user?: SocialUser | null }) => {
+        if (payload.user?.email_verified) {
+          setSocialUser(payload.user);
+          setEmail(payload.user.email);
+        } else {
+          setError("ایمیل حساب اجتماعی تایید نشده است.");
+        }
+      })
+      .catch(() => setError("اطلاعات حساب اجتماعی دریافت نشد."));
+  }, []);
+
+  async function provisionSocial(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const result = await postOnboarding({
+        action: "provision_social",
+        tenant_slug: tenantSlug,
+        plan_slug: requestedPlanSlug(),
+      });
+      if (!result.ok) {
+        setError(mapOnboardingError(result.status, result.payload, t.errors.requestFailed));
+        return;
+      }
+      setLoginURL(String(result.payload.login_url ?? ""));
+      setStep("done");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function requestOTP(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -229,7 +269,12 @@ export default function OnboardingPage() {
               {error && <StatusMessage variant="error" icon={<AlertCircle />}>{error}</StatusMessage>}
 
               {step === "details" && (
-                <form className="flex flex-col gap-6" onSubmit={requestOTP}>
+                <form className="flex flex-col gap-6" onSubmit={socialUser ? provisionSocial : requestOTP}>
+                  {!socialUser ? <SocialAuthButtons /> : (
+                    <StatusMessage variant="info" icon={<ShieldCheck />}>
+                      ورود امن با حساب <strong dir="ltr">{socialUser.email}</strong> انجام شد. شناسه فضای کاری را انتخاب کنید.
+                    </StatusMessage>
+                  )}
                   <Field label={t.tenantSlug} hint={t.tenantSlugHint} icon={<Building2 />}>
                     <input
                       id="tenantSlug"
@@ -243,7 +288,7 @@ export default function OnboardingPage() {
                     />
                   </Field>
 
-                  <div className={mobileAuthUIEnabled ? "grid gap-5 sm:grid-cols-2" : "grid gap-5"}>
+                  {!socialUser ? <div className={mobileAuthUIEnabled ? "grid gap-5 sm:grid-cols-2" : "grid gap-5"}>
                     <Field label={t.email} icon={<Mail />}>
                       <input id="email" value={email} onChange={(event) => setEmail(event.target.value.trim().toLowerCase())} placeholder={t.emailPlaceholder} className={inputClass} dir="ltr" type="email" autoComplete="email" required={!mobileAuthUIEnabled} />
                     </Field>
@@ -252,14 +297,14 @@ export default function OnboardingPage() {
                         <input id="mobile" value={mobile} onChange={(event) => setMobile(event.target.value.replace(/[^\d+]/g, ""))} placeholder={t.mobilePlaceholder} className={inputClass} dir="ltr" inputMode="tel" autoComplete="tel" />
                       </Field>
                     ) : null}
-                  </div>
-                  <p className="-mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  </div> : null}
+                  {!socialUser ? <p className="-mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
                     {mobileAuthUIEnabled ? t.contactHint : t.emailHint}
-                  </p>
+                  </p> : null}
 
-                  <button type="submit" disabled={loading || !tenantSlug || (mobileAuthUIEnabled ? !email && !mobile : !email)} className={primaryButtonClass}>
+                  <button type="submit" disabled={loading || !tenantSlug || (!socialUser && (mobileAuthUIEnabled ? !email && !mobile : !email))} className={primaryButtonClass}>
                     {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
-                    {loading ? t.sendingCode : t.sendCode}
+                    {loading ? (socialUser ? "در حال ساخت فضای کاری…" : t.sendingCode) : (socialUser ? "ساخت فضای کاری" : t.sendCode)}
                   </button>
                 </form>
               )}
@@ -313,6 +358,32 @@ export default function OnboardingPage() {
 const inputClass = "min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-start text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-[#0B0F19] dark:placeholder:text-slate-600";
 const primaryButtonClass = "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-700 disabled:pointer-events-none disabled:opacity-50";
 const secondaryButtonClass = "inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
+
+function SocialAuthButtons() {
+  const plan = typeof window === "undefined" ? "developer" : requestedPlanSlug();
+  const providers = [
+    { id: "google", label: "Google", icon: <span className="text-base font-bold">G</span> },
+    { id: "github", label: "GitHub", icon: <Github className="size-5" aria-hidden="true" /> },
+    { id: "microsoft", label: "Microsoft", icon: <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">{[0,1,2,3].map((item) => <i key={item} className="size-1.5 bg-current" />)}</span> },
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {providers.map((provider) => {
+          const query = new URLSearchParams({
+            flow: "onboarding",
+            provider: provider.id,
+            plan,
+          });
+          return <a key={provider.id} href={`/auth/social/start?${query.toString()}`} className={`${secondaryButtonClass} gap-2`} dir="ltr">{provider.icon}{provider.label}</a>;
+        })}
+      </div>
+      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400" aria-hidden="true">
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" /><span>یا ادامه با ایمیل</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+      </div>
+    </div>
+  );
+}
 
 function Field({ children, hint, icon, label }: { children: ReactNode; hint?: string; icon: ReactNode; label: string }) {
   const inputId = label === t.tenantSlug ? "tenantSlug" : label === t.email ? "email" : label === t.mobile ? "mobile" : "otpCode";

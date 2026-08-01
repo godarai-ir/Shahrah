@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { sendOnboardingOTPEmail } from "@/app/lib/email";
+import { callSocialAuthControlPlane } from "@/app/lib/social-auth/control-plane";
+import { socialAuth, socialAuthBaseURL } from "@/app/lib/social-auth/config";
 
-type OnboardingAction = "check_slug" | "request_otp" | "verify_otp";
+type OnboardingAction = "check_slug" | "request_otp" | "verify_otp" | "provision_social";
 
 type OnboardingBody = {
   action?: OnboardingAction;
@@ -39,6 +41,28 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as OnboardingBody | null;
   if (!body?.action) {
     return NextResponse.json({ ok: false, error: errorMessages.invalidRequest }, { status: 400 });
+  }
+
+  if (body.action === "provision_social") {
+    const requestOrigin = new URL(request.url).origin;
+    const originHeader = request.headers.get("origin");
+    if (requestOrigin !== socialAuthBaseURL() || (originHeader && originHeader !== requestOrigin)) {
+      return NextResponse.json({ ok: false, error: "مبدا درخواست احراز هویت معتبر نیست." }, { status: 403 });
+    }
+    const session = await socialAuth.api.getSession({ headers: request.headers });
+    if (!session?.user?.id || !session.user.emailVerified) {
+      return NextResponse.json({ ok: false, error: "حساب اجتماعی معتبر و ایمیل تاییدشده لازم است." }, { status: 401 });
+    }
+    const result = await callSocialAuthControlPlane<unknown>("/api/v1/auth/social/provision", {
+      account_id: session.user.id,
+      tenant_slug: body.tenant_slug,
+      tenant_domain: resolveTenantDomain(request, body),
+      plan_slug: body.plan_slug ?? "developer",
+    });
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: localizeUpstreamError(result.message, result.status) }, { status: result.status });
+    }
+    return NextResponse.json(result.payload, { status: 201 });
   }
 
   let upstream: Awaited<ReturnType<typeof callControlPlane>>;
@@ -169,8 +193,14 @@ function resolveTenantDomain(request: Request, body: OnboardingBody) {
     return "";
   }
 
+  const tenantOriginTemplate = process.env.GODARAI_TENANT_ORIGIN_TEMPLATE;
+  if (tenantOriginTemplate?.includes("{tenant}")) {
+    const templateDomain = normalizeHostnameFromURL(tenantOriginTemplate.replace("{tenant}", slug));
+    if (templateDomain) return templateDomain;
+  }
+
   const explicitDomain = normalizeHostname(body.tenant_domain);
-  if (explicitDomain && !isLocalhostDomain(explicitDomain)) {
+  if (process.env.NODE_ENV !== "production" && explicitDomain) {
     return explicitDomain;
   }
 

@@ -221,6 +221,9 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
 
             <Card className="theme-accent-line overflow-hidden shadow-md">
               <CardContent className="flex flex-col gap-5 p-4 md:p-5">
+                {!otpRequest ? <SocialLoginButtons redirectTo={redirectTo} labels={{
+                  title: t("social.title"), google: t("social.google"), github: t("social.github"), microsoft: t("social.microsoft"), divider: t("social.divider"),
+                }} /> : null}
                 {notice && (
                   <Alert variant="success" icon={<CheckCircle aria-hidden="true" />}>
                     <AlertDescription>{notice}</AlertDescription>
@@ -407,6 +410,27 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
         </div>
       </div>
     </main>
+  );
+}
+
+function SocialLoginButtons({ redirectTo, labels }: { redirectTo: string; labels: Record<"title" | "google" | "github" | "microsoft" | "divider", string> }) {
+  const providers = [
+    { id: "google", label: labels.google, icon: <span className="text-base font-bold">G</span> },
+    { id: "github", label: labels.github, icon: <span className="text-xs font-bold" aria-hidden="true">GH</span> },
+    { id: "microsoft", label: labels.microsoft, icon: <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">{[0, 1, 2, 3].map((item) => <i key={item} className="size-1.5 bg-current" />)}</span> },
+  ];
+  return (
+    <section className="flex flex-col gap-3" aria-label={labels.title}>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {providers.map((provider) => {
+          const query = new URLSearchParams({ provider: provider.id, return_to: redirectTo });
+          return <Button key={provider.id} asChild variant="outline" className="w-full"><a href={`/auth/social/start?${query.toString()}`} dir="ltr">{provider.icon}{provider.label}</a></Button>;
+        })}
+      </div>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+        <span className="h-px flex-1 bg-border" /><span>{labels.divider}</span><span className="h-px flex-1 bg-border" />
+      </div>
+    </section>
   );
 }
 

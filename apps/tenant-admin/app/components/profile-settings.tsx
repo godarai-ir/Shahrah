@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle, Mail, Send, Smartphone } from "lucide-react";
+import { CheckCircle, Link2, Mail, Send, Smartphone } from "lucide-react";
 
 import { PageHeader, SettingsCard } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -58,6 +58,22 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
   const [loadingField, setLoadingField] = useState<"email" | "mobile" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
+
+  async function connectSocialAccount(provider: "google" | "github" | "microsoft") {
+    setSocialLoading(provider);
+    setError(null);
+    try {
+      const result = await requestJSON<{ redirect_url: string }>("/api/auth/social/link-ticket", {
+        method: "POST",
+        body: JSON.stringify({ provider }),
+      });
+      window.location.assign(result.redirect_url);
+    } catch (err) {
+      setError(normalizeError(err, common("requestError")));
+      setSocialLoading(null);
+    }
+  }
 
   async function handleRequestChange(field: "email" | "mobile") {
     setLoadingField(field);
@@ -264,6 +280,24 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           />
         ) : null}
       </section>
+
+      <SettingsCard
+        title={<span className="flex items-center gap-2"><span className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground"><Link2 aria-hidden="true" /></span><span>{t("social.title")}</span></span>}
+        description={t("social.description")}
+        className="max-w-none"
+      >
+        <div className="grid gap-2 sm:grid-cols-3">
+          {([
+            ["google", "Google", <span key="g" className="text-base font-bold">G</span>],
+            ["github", "GitHub", <span key="gh" className="text-xs font-bold" aria-hidden="true">GH</span>],
+            ["microsoft", "Microsoft", <span key="ms" className="grid grid-cols-2 gap-0.5" aria-hidden="true">{[0,1,2,3].map((item) => <i key={item} className="size-1.5 bg-current" />)}</span>],
+          ] as const).map(([provider, label, icon]) => (
+            <Button key={provider} type="button" variant="outline" onClick={() => void connectSocialAccount(provider)} disabled={socialLoading !== null}>
+              {socialLoading === provider ? <Spinner data-icon="inline-start" /> : icon}{label}
+            </Button>
+          ))}
+        </div>
+      </SettingsCard>
     </div>
   );
 }

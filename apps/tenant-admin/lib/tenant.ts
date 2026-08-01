@@ -273,5 +273,5 @@ function isSlug(value: string): boolean {
 }
 
 function isReservedTenantLabel(value: string): boolean {
-  return value === "tenant-admin";
+  return value === "admin" || value === "auth" || value === "tenant-admin";
 }

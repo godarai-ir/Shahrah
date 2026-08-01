@@ -3,6 +3,13 @@
   "eyebrow": "کنسول مدیریت LLM Gateway",
   "title": "ورود",
   "subtitle": "با ایمیل یا شماره همراه وارد شوید. رمز یکبار مصرف متناسب با شیوه ورود ارسال می‌شود.",
+  "social": {
+    "title": "ورود با حساب اجتماعی",
+    "google": "Google",
+    "github": "GitHub",
+    "microsoft": "Microsoft",
+    "divider": "یا ورود با رمز یکبار مصرف"
+  },
   "hero": {
     "badge": "دسترسی امن به فضای کار",
     "title": "ورود به گدارAI",

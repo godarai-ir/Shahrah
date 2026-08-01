@@ -3,6 +3,13 @@
   "eyebrow": "LLM Gateway management console",
   "title": "Sign in",
   "subtitle": "Sign in with email or mobile. A one-time password is sent based on your identifier type.",
+  "social": {
+    "title": "Social sign-in",
+    "google": "Google",
+    "github": "GitHub",
+    "microsoft": "Microsoft",
+    "divider": "or sign in with a one-time password"
+  },
   "hero": {
     "badge": "Secure workspace access",
     "title": "Sign in to the GodarAI control center",

@@ -26,6 +26,9 @@ Current implementation is wired to existing control-plane management APIs:
 Authentication flow implemented in app routes:
 
 - `GET /login` with image captcha + OTP sign-in
+- `GET /login` with Google, GitHub, and Microsoft sign-in through the central auth domain
+- `GET /auth/handoff` for one-time tenant session handoff redemption
+- `POST /api/auth/social/link-ticket` for explicit account linking after recent authentication
 - `POST /api/auth/request-otp`
 - `POST /api/auth/verify-otp`
 - `POST /logout` and `POST /api/auth/logout`
@@ -68,8 +71,13 @@ Configure the tenant-admin connection in `apps/tenant-admin/.env.local`:
 ```bash
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
 SHAHRAH_MASTER_KEY=-sk-dev-master-key-12345
+GODARAI_AUTH_BASE_URL=http://auth.localhost:3000
 MODEL_CATALOG_V2_ENABLED=true
 ```
+
+`GODARAI_AUTH_BASE_URL` is server-only. Tenant login buttons first call a
+same-origin redirect route, which resolves the tenant from the request host and
+then redirects to the central authentication origin.
 
 `MODEL_CATALOG_V2_ENABLED` is a server-side rollout flag. It defaults to `false`; enable it explicitly in local development or staging to use the Providers/Models catalog experience.
 

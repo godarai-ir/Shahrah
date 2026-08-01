@@ -29,6 +29,8 @@ model Tenant {
   wallet_topup_intents       wallet_topup_intents[]
   wallet_transactions        WalletTransaction[]
   wallets                    Wallet?
+  users                      User[]
+  social_auth_handoffs       SocialAuthHandoff[]
 
   @@map("tenants")
 }
@@ -97,7 +99,11 @@ model Team {
 model User {
   user_id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_alias               String?                  @db.VarChar(255)
-  email                    String?                  @unique @db.VarChar(255)
+  email                    String?                  @db.VarChar(255)
+  mobile                   String?
+  active                   Boolean                  @default(true)
+  tenant_id                String                   @db.Uuid
+  account_id               String?
   role                     String?                  @default("internal_user") @db.VarChar(50)
   team_id                  String?                  @db.Uuid
   organization_id          String?                  @db.Uuid
@@ -114,8 +120,106 @@ model User {
   organizations            Organization?            @relation(fields: [organization_id], references: [organization_id], onDelete: NoAction, onUpdate: NoAction)
   teams                    Team?                    @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
   verification_tokens      VerificationToken[]
+  tenants                  Tenant                   @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade, onUpdate: NoAction)
+  social_auth_account      SocialAuthUser?          @relation(fields: [account_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  social_auth_handoffs     SocialAuthHandoff[]
 
+  @@index([tenant_id], map: "idx_users_tenant_id")
+  @@index([account_id], map: "idx_users_account_id")
   @@map("users")
+}
+
+model SocialAuthUser {
+  id            String              @id
+  name          String
+  email         String
+  emailVerified Boolean             @default(false)
+  image         String?
+  createdAt     DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime            @default(now()) @db.Timestamptz(6)
+  sessions      SocialAuthSession[]
+  accounts      SocialAuthIdentity[]
+  tenant_users  User[]
+  handoffs      SocialAuthHandoff[]
+
+  @@map("social_auth_users")
+}
+
+model SocialAuthSession {
+  id        String         @id
+  expiresAt DateTime       @db.Timestamptz(6)
+  token     String         @unique
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime       @default(now()) @db.Timestamptz(6)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      SocialAuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "social_auth_sessions_user_id_idx")
+  @@index([expiresAt], map: "social_auth_sessions_expires_at_idx")
+  @@map("social_auth_sessions")
+}
+
+model SocialAuthIdentity {
+  id                    String         @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?      @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime?      @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime       @default(now()) @db.Timestamptz(6)
+  user                  SocialAuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId], map: "social_auth_accounts_provider_subject_key")
+  @@index([userId], map: "social_auth_accounts_user_id_idx")
+  @@map("social_auth_accounts")
+}
+
+model SocialAuthVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([identifier], map: "social_auth_verifications_identifier_idx")
+  @@index([expiresAt], map: "social_auth_verifications_expires_at_idx")
+  @@map("social_auth_verifications")
+}
+
+model SocialAuthRateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("social_auth_rate_limits")
+}
+
+model SocialAuthHandoff {
+  handoff_id String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code_hash  String          @unique @db.VarChar(64)
+  purpose    String          @db.VarChar(16)
+  account_id String?
+  tenant_id  String          @db.Uuid
+  user_id    String?         @db.Uuid
+  expires_at DateTime        @db.Timestamptz(6)
+  consumed_at DateTime?      @db.Timestamptz(6)
+  created_at DateTime        @default(now()) @db.Timestamptz(6)
+  account    SocialAuthUser? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  tenant     Tenant          @relation(fields: [tenant_id], references: [tenant_id], onDelete: Cascade)
+  user       User?           @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([expires_at], map: "social_auth_handoffs_expiry_idx")
+  @@map("social_auth_handoffs")
 }
 
 model OrganizationMembership {
