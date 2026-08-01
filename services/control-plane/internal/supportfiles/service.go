@@ -76,12 +76,14 @@ func New(store ObjectStore, scanner Scanner) *Service {
 
 func NewFromEnv() (*Service, error) {
 	endpoint := strings.TrimSpace(os.Getenv("SUPPORT_S3_ENDPOINT"))
+
 	bucket := strings.TrimSpace(os.Getenv("SUPPORT_S3_BUCKET"))
 	if endpoint == "" || bucket == "" {
 		return nil, nil
 	}
 
 	accessKey := strings.TrimSpace(os.Getenv("SUPPORT_S3_ACCESS_KEY"))
+
 	secretKey := strings.TrimSpace(os.Getenv("SUPPORT_S3_SECRET_KEY"))
 	if accessKey == "" || secretKey == "" {
 		return nil, fmt.Errorf("%w: SUPPORT_S3_ACCESS_KEY and SUPPORT_S3_SECRET_KEY are required", ErrNotConfigured)
@@ -91,6 +93,7 @@ func NewFromEnv() (*Service, error) {
 	if region == "" {
 		region = "us-east-1"
 	}
+
 	client := s3.New(s3.Options{
 		BaseEndpoint: aws.String(endpoint),
 		Region:       region,
@@ -122,21 +125,26 @@ func (s *Service) UploadFiles(
 	if len(files) == 0 {
 		return nil, nil
 	}
+
 	if s == nil || s.store == nil || s.scanner == nil {
 		return nil, ErrNotConfigured
 	}
+
 	if len(files) > MaxFilesPerMessage {
 		return nil, ErrTooManyFiles
 	}
 
 	var total int64
+
 	for _, file := range files {
 		if file == nil || file.Size <= 0 {
 			return nil, ErrTypeNotAllowed
 		}
+
 		if file.Size > MaxFileBytes {
 			return nil, ErrFileTooLarge
 		}
+
 		total += file.Size
 		if total > MaxMessageBytes {
 			return nil, ErrFileTooLarge
@@ -150,6 +158,7 @@ func (s *Service) UploadFiles(
 			s.DeleteUploads(context.WithoutCancel(ctx), uploads)
 			return nil, err
 		}
+
 		uploads = append(uploads, item)
 	}
 
@@ -163,6 +172,7 @@ func (s *Service) uploadOne(
 	header *multipart.FileHeader,
 ) (platform.SupportTicketAttachmentUpload, error) {
 	originalFilename := sanitizeFilename(header.Filename)
+
 	detectedType, err := validateFileType(header, originalFilename)
 	if err != nil {
 		return platform.SupportTicketAttachmentUpload{}, err
@@ -187,37 +197,45 @@ func (s *Service) uploadOne(
 	if err != nil {
 		return platform.SupportTicketAttachmentUpload{}, fmt.Errorf("open support attachment for upload: %w", err)
 	}
+
 	uploadErr := s.store.Put(ctx, objectKey, uploadReader, header.Size, "application/octet-stream")
 	closeErr := uploadReader.Close()
+
 	if uploadErr != nil {
 		return platform.SupportTicketAttachmentUpload{}, fmt.Errorf("store quarantined support attachment: %w", uploadErr)
 	}
+
 	if closeErr != nil {
-		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey)
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		return platform.SupportTicketAttachmentUpload{}, fmt.Errorf("close support attachment after upload: %w", closeErr)
 	}
 
 	scanReader, err := header.Open()
 	if err != nil {
-		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey)
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		return platform.SupportTicketAttachmentUpload{}, fmt.Errorf("open support attachment for scan: %w", err)
 	}
+
 	clean, scanResult, scanErr := s.scanner.Scan(ctx, io.LimitReader(scanReader, MaxFileBytes+1))
 	closeErr = scanReader.Close()
+
 	if scanErr != nil {
-		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey)
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		return platform.SupportTicketAttachmentUpload{}, fmt.Errorf("%w: %v", ErrScanFailed, scanErr)
 	}
+
 	if closeErr != nil {
-		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey)
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		return platform.SupportTicketAttachmentUpload{}, fmt.Errorf("close support attachment after scan: %w", closeErr)
 	}
+
 	if !clean {
-		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey)
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		return platform.SupportTicketAttachmentUpload{}, fmt.Errorf("%w: %s", ErrInfected, scanResult)
 	}
 
 	scannedAt := time.Now().UTC()
+
 	return platform.SupportTicketAttachmentUpload{
 		ID:                  attachmentID,
 		OriginalFilename:    originalFilename,
@@ -235,10 +253,12 @@ func (s *Service) Get(ctx context.Context, key string) (*ObjectReader, error) {
 	if s == nil || s.store == nil {
 		return nil, ErrNotConfigured
 	}
+
 	body, err := s.store.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
+
 	return &ObjectReader{Body: body}, nil
 }
 
@@ -246,8 +266,9 @@ func (s *Service) DeleteUploads(ctx context.Context, uploads []platform.SupportT
 	if s == nil || s.store == nil {
 		return
 	}
+
 	for _, item := range uploads {
-		_ = s.store.Delete(ctx, item.ObjectKey)
+		_ = s.store.Delete(ctx, item.ObjectKey) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 	}
 }
 
@@ -257,27 +278,35 @@ func (s *Service) CleanupOrphans(ctx context.Context, referenced map[string]stru
 	if s == nil || s.store == nil {
 		return 0, ErrNotConfigured
 	}
+
 	lister, ok := s.store.(ObjectLister)
 	if !ok {
 		return 0, fmt.Errorf("%w: object listing is unavailable", ErrNotConfigured)
 	}
+
 	objects, err := lister.List(ctx, "support/")
 	if err != nil {
 		return 0, err
 	}
+
 	deleted := 0
+
 	for _, object := range objects {
 		if !object.LastModified.Before(olderThan) {
 			continue
 		}
+
 		if _, exists := referenced[object.Key]; exists {
 			continue
 		}
+
 		if err := s.store.Delete(ctx, object.Key); err != nil {
 			return deleted, err
 		}
+
 		deleted++
 	}
+
 	return deleted, nil
 }
 
@@ -294,6 +323,7 @@ func validateFileType(header *multipart.FileHeader, filename string) (string, er
 		"log":  {"text/plain", "application/octet-stream"},
 		"json": {"application/json", "text/plain"},
 	}
+
 	allowedTypes, ok := allowed[extension]
 	if !ok {
 		return "", ErrTypeNotAllowed
@@ -303,13 +333,15 @@ func validateFileType(header *multipart.FileHeader, filename string) (string, er
 	if err != nil {
 		return "", err
 	}
-	defer reader.Close()
+	defer reader.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
 
 	prefix := make([]byte, 512)
+
 	read, err := io.ReadFull(reader, prefix)
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return "", err
 	}
+
 	prefix = prefix[:read]
 	detected := strings.ToLower(strings.TrimSpace(strings.Split(http.DetectContentType(prefix), ";")[0]))
 
@@ -318,29 +350,38 @@ func validateFileType(header *multipart.FileHeader, filename string) (string, er
 		if openErr != nil {
 			return "", openErr
 		}
+
 		content, readErr := io.ReadAll(io.LimitReader(jsonReader, MaxFileBytes+1))
 		closeErr := jsonReader.Close()
+
 		if readErr != nil {
 			return "", readErr
 		}
+
 		if closeErr != nil {
 			return "", closeErr
 		}
+
 		if int64(len(content)) > MaxFileBytes {
 			return "", ErrFileTooLarge
 		}
+
 		if !utf8.Valid(content) || !json.Valid(content) {
 			return "", ErrTypeNotAllowed
 		}
+
 		return "application/json", nil
 	}
+
 	if extension == "csv" || extension == "txt" || extension == "log" {
 		if !utf8.Valid(prefix) || bytesContainNUL(prefix) {
 			return "", ErrTypeNotAllowed
 		}
+
 		if extension == "csv" {
 			return "text/csv", nil
 		}
+
 		return "text/plain", nil
 	}
 
@@ -349,6 +390,7 @@ func validateFileType(header *multipart.FileHeader, filename string) (string, er
 			return detected, nil
 		}
 	}
+
 	return "", ErrTypeNotAllowed
 }
 
@@ -357,21 +399,25 @@ func hashFile(header *multipart.FileHeader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer reader.Close()
+	defer reader.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
 
 	hash := sha256.New()
+
 	written, err := io.Copy(hash, io.LimitReader(reader, MaxFileBytes+1))
 	if err != nil {
 		return "", err
 	}
+
 	if written > MaxFileBytes {
 		return "", ErrFileTooLarge
 	}
+
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func sanitizeFilename(value string) string {
 	value = filepath.Base(strings.TrimSpace(value))
+
 	value = strings.Map(func(r rune) rune {
 		switch {
 		case r == 0, r == '\r', r == '\n', r == '/', r == '\\':
@@ -385,10 +431,12 @@ func sanitizeFilename(value string) string {
 	if value == "" || value == "." {
 		return "attachment"
 	}
+
 	runes := []rune(value)
 	if len(runes) > 200 {
 		value = string(runes[:200])
 	}
+
 	return value
 }
 
@@ -397,15 +445,19 @@ func safePathSegment(value string) string {
 	if value == "" {
 		return "unknown"
 	}
+
 	var builder strings.Builder
+
 	for _, r := range value {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
 			builder.WriteRune(r)
 		}
 	}
+
 	if builder.Len() == 0 {
 		return "unknown"
 	}
+
 	return builder.String()
 }
 
@@ -414,6 +466,7 @@ func sanitizeScanResult(value string) string {
 	if len(value) > 240 {
 		return value[:240]
 	}
+
 	return value
 }
 
@@ -423,6 +476,7 @@ func bytesContainNUL(value []byte) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -431,10 +485,12 @@ func boolEnv(key string, fallback bool) bool {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.ParseBool(raw)
 	if err != nil {
 		return fallback
 	}
+
 	return value
 }
 
@@ -443,10 +499,12 @@ func durationEnv(key string, fallback time.Duration) time.Duration {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := time.ParseDuration(raw)
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return value
 }
 
@@ -463,6 +521,7 @@ func (s *S3ObjectStore) Put(ctx context.Context, key string, body io.Reader, siz
 		ContentLength: aws.Int64(size),
 		ContentType:   aws.String(contentType),
 	})
+
 	return err
 }
 
@@ -474,6 +533,7 @@ func (s *S3ObjectStore) Get(ctx context.Context, key string) (io.ReadCloser, err
 	if err != nil {
 		return nil, err
 	}
+
 	return result.Body, nil
 }
 
@@ -482,6 +542,7 @@ func (s *S3ObjectStore) Delete(ctx context.Context, key string) error {
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(key),
 	})
+
 	return err
 }
 
@@ -491,18 +552,22 @@ func (s *S3ObjectStore) List(ctx context.Context, prefix string) ([]ObjectInfo, 
 		Prefix: aws.String(prefix),
 	})
 	objects := make([]ObjectInfo, 0)
+
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
+
 		for _, item := range page.Contents {
 			if item.Key == nil || item.LastModified == nil {
 				continue
 			}
+
 			objects = append(objects, ObjectInfo{Key: *item.Key, LastModified: *item.LastModified})
 		}
 	}
+
 	return objects, nil
 }
 
@@ -511,21 +576,26 @@ type ClamAVScanner struct {
 	Timeout time.Duration
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (s *ClamAVScanner) Scan(ctx context.Context, reader io.Reader) (bool, string, error) {
 	dialer := net.Dialer{Timeout: s.Timeout}
+
 	conn, err := dialer.DialContext(ctx, "tcp", s.Address)
 	if err != nil {
 		return false, "", err
 	}
-	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(s.Timeout))
+	defer conn.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
+
+	_ = conn.SetDeadline(time.Now().Add(s.Timeout)) //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
 
 	if _, err := conn.Write([]byte{'z', 'I', 'N', 'S', 'T', 'R', 'E', 'A', 'M', 0}); err != nil {
 		return false, "", err
 	}
 
 	buffer := make([]byte, 32*1024)
+
 	var total int64
+
 	for {
 		read, readErr := reader.Read(buffer)
 		if read > 0 {
@@ -533,22 +603,28 @@ func (s *ClamAVScanner) Scan(ctx context.Context, reader io.Reader) (bool, strin
 			if total > MaxFileBytes {
 				return false, "", ErrFileTooLarge
 			}
+
 			length := make([]byte, 4)
 			binary.BigEndian.PutUint32(length, uint32(read))
+
 			if _, err := conn.Write(length); err != nil {
 				return false, "", err
 			}
+
 			if _, err := conn.Write(buffer[:read]); err != nil {
 				return false, "", err
 			}
 		}
+
 		if errors.Is(readErr, io.EOF) {
 			break
 		}
+
 		if readErr != nil {
 			return false, "", readErr
 		}
 	}
+
 	if _, err := conn.Write([]byte{0, 0, 0, 0}); err != nil {
 		return false, "", err
 	}
@@ -557,6 +633,7 @@ func (s *ClamAVScanner) Scan(ctx context.Context, reader io.Reader) (bool, strin
 	if err != nil && !errors.Is(err, io.EOF) {
 		return false, "", err
 	}
+
 	response = strings.TrimSpace(strings.TrimSuffix(response, "\x00"))
 	switch {
 	case strings.HasSuffix(response, "OK"):

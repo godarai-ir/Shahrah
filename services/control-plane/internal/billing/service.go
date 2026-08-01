@@ -30,6 +30,7 @@ func (s *Service) ApplyPricingOverride(
 	if effective == nil || estimated.PricingSnapshot == nil || len(estimated.Components) == 0 {
 		return platform.UsageCostBreakdown{}, ErrPricingUnavailable
 	}
+
 	bySignature := make(map[string]platform.ModelPricingRate, len(effective.Rates))
 	for _, rate := range effective.Rates {
 		signature := pricingComponentSignature(rate.Dimension, rate.Unit, rate.Condition)
@@ -39,6 +40,7 @@ func (s *Service) ApplyPricingOverride(
 				ErrPricingUnavailable,
 			)
 		}
+
 		bySignature[signature] = rate
 	}
 
@@ -53,8 +55,10 @@ func (s *Service) ApplyPricingOverride(
 	}
 
 	inputExact, outputExact := decimal.Zero, decimal.Zero
+
 	for index := range estimated.Components {
 		component := estimated.Components[index]
+
 		rate, ok := bySignature[pricingComponentSignature(component.Dimension, component.Unit, component.Condition)]
 		if !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
@@ -63,20 +67,25 @@ func (s *Service) ApplyPricingOverride(
 				component.Dimension,
 			)
 		}
+
 		price, err := decimal.NewFromString(rate.UnitPriceUSD)
+
 		quantity, quantityErr := decimal.NewFromString(component.Quantity)
 		if err != nil || quantityErr != nil || price.IsNegative() || quantity.IsNegative() {
 			return platform.UsageCostBreakdown{}, ErrPricingUnavailable
 		}
+
 		cost := price.Mul(quantity)
 		component.UnitPriceUSD = price.String()
 		component.CostUSD = cost.String()
+
 		estimated.Components[index] = component
 		if strings.Contains(component.Dimension, "output") {
 			outputExact = outputExact.Add(cost)
 		} else {
 			inputExact = inputExact.Add(cost)
 		}
+
 		for rateIndex := range snapshot.RateList {
 			item := snapshot.RateList[rateIndex]
 			if pricingComponentSignature(item.Dimension, item.Unit, item.Condition) ==
@@ -85,6 +94,7 @@ func (s *Service) ApplyPricingOverride(
 				snapshot.RateList[rateIndex] = item
 			}
 		}
+
 		if item, exists := snapshot.Rates[component.Dimension]; exists &&
 			pricingComponentSignature(item.Dimension, item.Unit, item.Condition) ==
 				pricingComponentSignature(component.Dimension, component.Unit, component.Condition) {
@@ -98,11 +108,12 @@ func (s *Service) ApplyPricingOverride(
 	estimated.OutputCostUSD, _ = outputExact.Float64()
 	estimated.TotalCostUSD, _ = totalExact.Float64()
 	estimated.TotalCostIRR = estimated.TotalCostUSD * estimated.ExchangeRate
-	fingerprint, _ := json.Marshal(effective.Rates)
+	fingerprint, _ := json.Marshal(effective.Rates) //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 	revision := fmt.Sprintf("%s:private:%x", snapshot.Revision, sha256.Sum256(fingerprint))
 	snapshot.Revision = revision
 	estimated.PricingRevision = revision
 	estimated.PricingSnapshot = snapshot
+
 	return estimated, nil
 }
 
@@ -111,7 +122,7 @@ func pricingComponentSignature(
 	unit string,
 	condition map[string]interface{},
 ) string {
-	encoded, _ := json.Marshal(struct {
+	encoded, _ := json.Marshal(struct { //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 		Dimension string                 `json:"dimension"`
 		Unit      string                 `json:"unit"`
 		Condition map[string]interface{} `json:"condition,omitempty"`
@@ -120,6 +131,7 @@ func pricingComponentSignature(
 		Unit:      strings.TrimSpace(unit),
 		Condition: condition,
 	})
+
 	return string(encoded)
 }
 
@@ -153,6 +165,8 @@ type budgetWindowCache interface {
 }
 
 // Service enforces rate limits and budget checks.
+//
+//nolint:gocritic // Pricing override methods precede this core type to keep related pricing logic together.
 type Service struct {
 	cache           cache.Cache
 	store           walletStore
@@ -229,9 +243,11 @@ func (s *Service) SetCatalogPricingSnapshotManager(
 	if s == nil {
 		return
 	}
+
 	if s.catalogPricing == nil {
 		s.catalogPricing = make(map[string]*CatalogPricingSnapshotManager)
 	}
+
 	s.catalogPricing[strings.ToLower(strings.TrimSpace(provider))] = manager
 }
 
@@ -670,6 +686,7 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		if strings.EqualFold(strings.TrimSpace(req.InferenceGeo), "us") {
 			prefix = "data_residency_"
 		}
+
 		conditional, conditionErr := anthropicTokenCostBreakdown(
 			req.Model, promptTokens, outputTokens, price, rate.USDtoIRR,
 			prefix+"speed_input_tokens", prefix+"speed_output_tokens",
@@ -677,9 +694,11 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		if conditionErr != nil {
 			return platform.UsageCostBreakdown{}, conditionErr
 		}
+
 		conditional.PricingConditions = map[string]string{"speed": "fast"}
 		breakdown = conditional
 	}
+
 	if price.Provider == "anthropic" &&
 		!strings.EqualFold(strings.TrimSpace(req.Speed), "fast") &&
 		strings.EqualFold(strings.TrimSpace(req.InferenceGeo), "us") {
@@ -690,14 +709,17 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		if conditionErr != nil {
 			return platform.UsageCostBreakdown{}, conditionErr
 		}
+
 		conditional.PricingConditions = map[string]string{"inference_geo": "us"}
 		breakdown = conditional
 	}
+
 	if price.Provider == "google-gemini" {
 		tier, tierErr := googleGeminiServiceTier(req.ServiceTier)
 		if tierErr != nil {
 			return platform.UsageCostBreakdown{}, tierErr
 		}
+
 		if price.RuntimeProfile != nil &&
 			!price.RuntimeProfile.Profile.AllowsServiceTier(tier) {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
@@ -706,6 +728,7 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 				tier,
 			)
 		}
+
 		conditional, conditionErr := googleGeminiUsageCostBreakdown(
 			req.Model,
 			&openai.Usage{
@@ -721,8 +744,10 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		if conditionErr != nil {
 			return platform.UsageCostBreakdown{}, conditionErr
 		}
+
 		breakdown = conditional
 	}
+
 	if price.Provider == "openai" {
 		conditional, conditionErr := openAIUsageCostBreakdown(
 			req.Model,
@@ -739,8 +764,10 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		if conditionErr != nil {
 			return platform.UsageCostBreakdown{}, conditionErr
 		}
+
 		breakdown = conditional
 	}
+
 	if price.Provider == "mistral-ai" {
 		conditional, conditionErr := mistralUsageCostBreakdown(
 			req.Model,
@@ -752,8 +779,10 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		if conditionErr != nil {
 			return platform.UsageCostBreakdown{}, conditionErr
 		}
+
 		breakdown = conditional
 	}
+
 	return breakdown, nil
 }
 
@@ -762,6 +791,7 @@ func (s *Service) EstimateEmbeddingCost(ctx context.Context, req openai.Embeddin
 	rate := s.exchangeRate(ctx)
 
 	promptTokens := estimateEmbeddingPromptTokens(req.Input)
+
 	price, err := s.modelPrice(ctx, req.Model)
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
@@ -792,6 +822,7 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 	)
 	if err == nil {
 		breakdown.ModelRuntimeProfile = estimated.ModelRuntimeProfile
+
 		breakdown.Metadata = cloneUsageMetadata(estimated.Metadata)
 		if strings.EqualFold(price.Provider, "xai") {
 			breakdown, err = reconcileXAIProviderCost(breakdown, usage.CostInUSDTicks, rate.USDtoIRR)
@@ -800,6 +831,7 @@ func (s *Service) FinalizeFromUsage(ctx context.Context, model string, usage *op
 			}
 		}
 	}
+
 	return breakdown, err
 }
 
@@ -809,12 +841,16 @@ func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usag
 	if usage == nil {
 		return estimated, nil
 	}
+
 	rate := s.exchangeRate(ctx)
+
 	price, err := s.pinnedOrCurrentModelPrice(ctx, model, estimated)
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
 	}
+
 	var breakdown platform.UsageCostBreakdown
+
 	if strings.EqualFold(price.Provider, "openai") || strings.EqualFold(price.Provider, "xai") {
 		if strings.Contains(strings.ToLower(model), "gpt-image") {
 			breakdown, err = openAIImageCostBreakdown(
@@ -860,13 +896,16 @@ func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usag
 			estimated.PricingConditions,
 		)
 	}
+
 	if err == nil {
 		breakdown.ModelRuntimeProfile = estimated.ModelRuntimeProfile
+
 		breakdown.Metadata = cloneUsageMetadata(estimated.Metadata)
 		if strings.EqualFold(price.Provider, "xai") {
 			breakdown, err = reconcileXAIProviderCost(breakdown, usage.CostInUSDTicks, rate.USDtoIRR)
 		}
 	}
+
 	return breakdown, err
 }
 
@@ -878,10 +917,12 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 
 	rate := s.exchangeRate(ctx)
 	inputTokens, outputTokens, totalTokens := imageUsageTokenBreakdown(usage, estimated)
+
 	price, err := s.pinnedOrCurrentModelPrice(ctx, model, estimated)
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
 	}
+
 	breakdown, err := imageCostBreakdown(
 		model,
 		usage,
@@ -903,6 +944,7 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 		} else if usage != nil {
 			ticks = usage.CostInUSDTicks
 		}
+
 		return reconcileXAIProviderCost(breakdown, ticks, rate.USDtoIRR)
 	}
 
@@ -910,10 +952,12 @@ func (s *Service) FinalizeImageUsage(ctx context.Context, model string, usage *o
 		totalUSD := float64(*providerCostUSDTicks) / usdTicksPerDollar
 		breakdown = applyProviderImageCost(breakdown, totalUSD)
 		breakdown.ExchangeRate = rate.USDtoIRR
+
 		breakdown.TotalCostIRR = totalUSD * rate.USDtoIRR
 		if breakdown.Metadata == nil {
 			breakdown.Metadata = cloneUsageMetadata(estimated.Metadata)
 		}
+
 		breakdown.Metadata["provider_cost_in_usd_ticks"] = *providerCostUSDTicks
 		breakdown.Metadata["provider_cost_exact"] = true
 	}
@@ -933,6 +977,7 @@ func (s *Service) PriceMeteredUsage(
 	estimated platform.UsageCostBreakdown,
 ) (platform.UsageCostBreakdown, error) {
 	normalizedDimension := strings.TrimSpace(dimension)
+
 	normalizedQuantity := strings.TrimSpace(quantity)
 	if normalizedDimension == "" || normalizedQuantity == "" {
 		return estimated, nil
@@ -947,6 +992,7 @@ func (s *Service) PriceMeteredUsage(
 	}
 
 	rate := s.exchangeRate(ctx)
+
 	price, err := s.pinnedOrCurrentModelPrice(ctx, model, estimated)
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
@@ -957,6 +1003,7 @@ func (s *Service) PriceMeteredUsage(
 		if price.Provider == "mistral-ai" {
 			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing Mistral rate for %s", ErrPricingUnavailable, normalizedDimension)
 		}
+
 		return estimated, nil
 	}
 
@@ -965,6 +1012,7 @@ func (s *Service) PriceMeteredUsage(
 		parsedQuantity,
 		pricingRate,
 	)
+
 	totalExact, err := decimal.NewFromString(component.CostUSD)
 	if err != nil {
 		return platform.UsageCostBreakdown{}, fmt.Errorf(
@@ -972,6 +1020,7 @@ func (s *Service) PriceMeteredUsage(
 			ErrPricingUnavailable,
 		)
 	}
+
 	totalUSD, _ := totalExact.Float64()
 
 	out := estimated
@@ -997,10 +1046,12 @@ func costBreakdown(model string, inputTokens int, outputTokens int, price priceI
 	if inputRate.IsZero() && price.Input != 0 {
 		inputRate = decimal.NewFromFloat(price.Input).Div(decimal.NewFromInt(1000))
 	}
+
 	outputRate := price.OutputPerToken
 	if outputRate.IsZero() && price.Output != 0 {
 		outputRate = decimal.NewFromFloat(price.Output).Div(decimal.NewFromInt(1000))
 	}
+
 	inputCostExact := inputRate.Mul(decimal.NewFromInt(int64(inputTokens)))
 	outputCostExact := outputRate.Mul(decimal.NewFromInt(int64(outputTokens)))
 	inputCost, _ := inputCostExact.Float64()
@@ -1021,38 +1072,46 @@ func costBreakdown(model string, inputTokens int, outputTokens int, price priceI
 	}
 	if price.Provider != "" && len(price.Rates) > 0 {
 		breakdown.PricingRevision = price.Revision
+
 		breakdown.ModelRuntimeProfile = price.RuntimeProfile
 		for _, dimension := range []string{"input_tokens", "output_tokens"} {
 			rate, ok := price.Rates[dimension]
 			if !ok {
 				continue
 			}
+
 			quantity := inputTokens
 			if dimension == "output_tokens" {
 				quantity = outputTokens
 			}
+
 			breakdown.Components = append(
 				breakdown.Components,
 				usageCostComponent(dimension, int64(quantity), rate),
 			)
 		}
+
 		breakdown.PricingSnapshot = usagePricingSnapshot(price)
 	}
+
 	return breakdown
 }
 
 func anthropicTokenCostBreakdown(model string, inputTokens, outputTokens int, price priceInfo, exchangeRate float64, inputDimension, outputDimension string) (platform.UsageCostBreakdown, error) {
 	inputRate, inputOK := price.Rates[inputDimension]
+
 	outputRate, outputOK := price.Rates[outputDimension]
 	if !inputOK || !outputOK {
 		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: conditional Anthropic token rate is missing", ErrPricingUnavailable)
 	}
+
 	inputExact := inputRate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(inputTokens)))
 	outputExact := outputRate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(outputTokens)))
 	totalExact := inputExact.Add(outputExact)
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD, _ := totalExact.Float64()
+
 	return platform.UsageCostBreakdown{
 		Model: model, InputTokens: inputTokens, OutputTokens: outputTokens,
 		TotalTokens: inputTokens + outputTokens, InputCostUSD: inputUSD,
@@ -1084,6 +1143,7 @@ func usageCostBreakdown(
 				conditions,
 			)
 		}
+
 		if price.Provider == "openai" {
 			return openAIUsageCostBreakdown(
 				model,
@@ -1093,9 +1153,11 @@ func usageCostBreakdown(
 				conditions,
 			)
 		}
+
 		if price.Provider == "mistral-ai" {
 			return mistralUsageCostBreakdown(model, usage, price, exchangeRate, conditions)
 		}
+
 		return costBreakdown(
 			model,
 			usage.PromptTokens,
@@ -1104,6 +1166,7 @@ func usageCostBreakdown(
 			exchangeRate,
 		), nil
 	}
+
 	return anthropicUsageCostBreakdown(model, usage, price, exchangeRate, false, conditions)
 }
 
@@ -1111,20 +1174,26 @@ func mistralUsageCostBreakdown(model string, usage *openai.Usage, price priceInf
 	if usage == nil {
 		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: Mistral usage is missing", ErrPricingUnavailable)
 	}
+
 	cached := 0
 	if usage.PromptTokensDetails != nil {
 		cached = usage.PromptTokensDetails.CachedTokens
 	}
+
 	if cached < 0 || cached > usage.PromptTokens {
 		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: invalid Mistral cached token usage", ErrPricingUnavailable)
 	}
+
 	inputDimension, outputDimension, cacheDimension := "input_tokens", "output_tokens", "cache_read_tokens"
+
 	if strings.EqualFold(strings.TrimSpace(usage.ServiceTier), "batch") || strings.EqualFold(strings.TrimSpace(conditions["service_tier"]), "batch") {
 		if conditions == nil {
 			conditions = map[string]string{}
 		}
+
 		conditions["api"] = "batches"
 	}
+
 	quantities := map[string]int64{
 		inputDimension:  int64(usage.PromptTokens - cached),
 		outputDimension: int64(usage.CompletionTokens),
@@ -1133,45 +1202,58 @@ func mistralUsageCostBreakdown(model string, usage *openai.Usage, price priceInf
 		if _, ok := price.Rates[cacheDimension]; !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing Mistral rate for %s", ErrPricingUnavailable, cacheDimension)
 		}
+
 		quantities[cacheDimension] = int64(cached)
 	}
+
 	for dimension, quantity := range usage.ServerToolUse {
 		if quantity > 0 {
 			quantities[dimension] += int64(quantity)
 		}
 	}
+
 	dimensions := make([]string, 0, len(quantities))
 	for dimension := range quantities {
 		dimensions = append(dimensions, dimension)
 	}
+
 	sort.Strings(dimensions)
+
 	totalExact, inputExact, outputExact := decimal.Zero, decimal.Zero, decimal.Zero
+
 	components := make([]platform.UsageCostComponent, 0, len(dimensions))
 	for _, dimension := range dimensions {
 		quantity := quantities[dimension]
 		if quantity == 0 {
 			continue
 		}
+
 		rate, rateErr := selectOpenAIRate(price.RateList, dimension, usage.PromptTokens, "", conditions)
 		if rateErr != nil {
 			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing or ambiguous Mistral rate for %s", ErrPricingUnavailable, dimension)
 		}
+
 		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+
 		totalExact = totalExact.Add(cost)
 		if dimension == outputDimension || strings.Contains(dimension, "output") {
 			outputExact = outputExact.Add(cost)
 		} else {
 			inputExact = inputExact.Add(cost)
 		}
+
 		components = append(components, usageCostComponent(dimension, quantity, rate))
 	}
+
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD, _ := totalExact.Float64()
+
 	totalTokens := usage.TotalTokens
 	if totalTokens <= 0 {
 		totalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
+
 	return platform.UsageCostBreakdown{
 		Model: model, InputTokens: usage.PromptTokens, OutputTokens: usage.CompletionTokens,
 		TotalTokens: totalTokens, CacheReadInputTokens: cached,
@@ -1194,6 +1276,7 @@ func openAIUsageCostBreakdown(
 	if tier == "" {
 		tier = strings.ToLower(strings.TrimSpace(conditions["service_tier"]))
 	}
+
 	switch tier {
 	case "", "default", "standard":
 		tier = "standard"
@@ -1216,9 +1299,11 @@ func openAIUsageCostBreakdown(
 		promptCached = usage.PromptTokensDetails.CachedTokens
 		promptCacheWrite = usage.PromptTokensDetails.CacheWriteTokens
 	}
+
 	if usage.CompletionTokensDetails != nil {
 		completionAudio = usage.CompletionTokensDetails.AudioTokens
 	}
+
 	if promptAudio < 0 || promptCached < 0 || promptCacheWrite < 0 || completionAudio < 0 ||
 		promptAudio+promptCached+promptCacheWrite > usage.PromptTokens ||
 		completionAudio > usage.CompletionTokens {
@@ -1231,6 +1316,7 @@ func openAIUsageCostBreakdown(
 	inputDimension, outputDimension := "input_tokens", "output_tokens"
 	cacheDimension := "cache_read_tokens"
 	cacheWriteDimension := "cache_write_tokens"
+
 	switch tier {
 	case "batch":
 		inputDimension, outputDimension = "batch_input_tokens", "batch_output_tokens"
@@ -1245,10 +1331,12 @@ func openAIUsageCostBreakdown(
 		cacheDimension = "speed_cache_read_tokens"
 		cacheWriteDimension = "speed_cache_write_tokens"
 	}
+
 	longContextThreshold := 272000
 	if strings.EqualFold(price.Provider, "xai") {
 		longContextThreshold = 200000
 	}
+
 	if usage.PromptTokens >= longContextThreshold {
 		switch tier {
 		case "priority":
@@ -1282,9 +1370,11 @@ func openAIUsageCostBreakdown(
 		// billable, at the applicable ordinary input rate.
 		cacheDimension = inputDimension
 	}
+
 	if promptCacheWrite > 0 && !hasOpenAIRate(price.RateList, cacheWriteDimension, usage.PromptTokens, tier, conditions) {
 		cacheWriteDimension = inputDimension
 	}
+
 	quantities := make(map[string]int64, 7)
 	quantities[inputDimension] += int64(usage.PromptTokens - promptAudio - promptCached - promptCacheWrite)
 	quantities[outputDimension] += int64(usage.CompletionTokens - completionAudio)
@@ -1292,54 +1382,68 @@ func openAIUsageCostBreakdown(
 	quantities[cacheWriteDimension] += int64(promptCacheWrite)
 	quantities["audio_input_tokens"] += int64(promptAudio)
 	quantities["audio_output_tokens"] += int64(completionAudio)
+
 	for tool, quantity := range usage.ServerToolUse {
 		if quantity > 0 {
 			quantities[tool] += int64(quantity)
 		}
 	}
+
 	if webSearchCalls := usage.ServerToolUse["web_search_requests"]; webSearchCalls > 0 &&
 		openAIWebSearchUsesFixedInputBlock(model) {
 		quantities[inputDimension] += int64(webSearchCalls * 8000)
 	}
+
 	dimensions := make([]string, 0, len(quantities))
 	for dimension := range quantities {
 		dimensions = append(dimensions, dimension)
 	}
+
 	sort.Strings(dimensions)
 
 	totalExact, inputExact, outputExact := decimal.Zero, decimal.Zero, decimal.Zero
+
 	components := make([]platform.UsageCostComponent, 0, len(dimensions))
 	for _, dimension := range dimensions {
 		quantity := quantities[dimension]
 		if quantity == 0 {
 			continue
 		}
+
 		selected, err := selectOpenAIRate(price.RateList, dimension, usage.PromptTokens, tier, conditions)
 		if err != nil {
 			return platform.UsageCostBreakdown{}, err
 		}
+
 		cost := selected.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+
 		totalExact = totalExact.Add(cost)
 		if strings.Contains(dimension, "output") {
 			outputExact = outputExact.Add(cost)
 		} else {
 			inputExact = inputExact.Add(cost)
 		}
+
 		components = append(components, usageCostComponent(dimension, quantity, selected))
 	}
+
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD, _ := totalExact.Float64()
+
 	totalTokens := usage.TotalTokens
 	if totalTokens <= 0 {
 		totalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
+
 	applied := map[string]string{"service_tier": tier}
+
 	for key, value := range conditions {
 		if strings.TrimSpace(value) != "" {
 			applied[key] = value
 		}
 	}
+
 	return platform.UsageCostBreakdown{
 		Model: model, InputTokens: usage.PromptTokens,
 		OutputTokens: usage.CompletionTokens, TotalTokens: totalTokens,
@@ -1380,6 +1484,7 @@ func hasOpenAIRate(
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -1392,20 +1497,24 @@ func selectOpenAIRate(
 ) (normalizedPricingRate, error) {
 	matches := make([]normalizedPricingRate, 0, 1)
 	bestSpecificity := -1
+
 	for _, rate := range rates {
 		if rate.Dimension != dimension ||
 			!openAIRateConditionsMatch(rate.Condition, promptTokens, tier, conditions) {
 			continue
 		}
+
 		specificity := len(rate.Condition)
 		if specificity > bestSpecificity {
 			matches = matches[:0]
 			bestSpecificity = specificity
 		}
+
 		if specificity == bestSpecificity {
 			matches = append(matches, rate)
 		}
 	}
+
 	if len(matches) != 1 {
 		return normalizedPricingRate{}, fmt.Errorf(
 			"%w: OpenAI rate selection for %s matched %d rates",
@@ -1414,6 +1523,7 @@ func selectOpenAIRate(
 			len(matches),
 		)
 	}
+
 	return matches[0], nil
 }
 
@@ -1441,6 +1551,7 @@ func openAIRateConditionsMatch(
 			}
 		}
 	}
+
 	return true
 }
 
@@ -1489,6 +1600,7 @@ func googleGeminiUsageCostBreakdown(
 	if strings.TrimSpace(tierValue) == "" {
 		tierValue = conditions["service_tier"]
 	}
+
 	tier, err := googleGeminiServiceTier(tierValue)
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
@@ -1496,16 +1608,20 @@ func googleGeminiUsageCostBreakdown(
 
 	promptAudio := 0
 	promptCached := 0
+
 	if usage.PromptTokensDetails != nil {
 		promptAudio = usage.PromptTokensDetails.AudioTokens
 		promptCached = usage.PromptTokensDetails.CachedTokens
 	}
+
 	completionAudio := 0
 	completionImage := 0
+
 	if usage.CompletionTokensDetails != nil {
 		completionAudio = usage.CompletionTokensDetails.AudioTokens
 		completionImage = usage.CompletionTokensDetails.ImageTokens
 	}
+
 	if promptAudio < 0 || promptCached < 0 || completionAudio < 0 ||
 		promptAudio+promptCached > usage.PromptTokens ||
 		completionAudio+completionImage > usage.CompletionTokens {
@@ -1528,12 +1644,14 @@ func googleGeminiUsageCostBreakdown(
 	if tier != "standard" {
 		prefix = tier + "_"
 	}
+
 	if usage.PromptTokens > 200000 {
 		prefix += "long_context_"
 	}
 
 	inputDimension := prefix + "input_tokens"
 	audioInputDimension := prefix + "audio_input_tokens"
+
 	textInputTokens := usage.PromptTokens - promptAudio - promptCached
 	if promptAudio > 0 {
 		if _, hasAudioRate := price.Rates[audioInputDimension]; !hasAudioRate {
@@ -1543,6 +1661,7 @@ func googleGeminiUsageCostBreakdown(
 			promptAudio = 0
 		}
 	}
+
 	quantities := map[string]int64{
 		inputDimension:                 int64(textInputTokens),
 		prefix + "output_tokens":       int64(usage.CompletionTokens - completionAudio - completionImage),
@@ -1556,21 +1675,25 @@ func googleGeminiUsageCostBreakdown(
 			quantities[dimension] += int64(quantity)
 		}
 	}
+
 	dimensions := make([]string, 0, len(quantities))
 	for dimension := range quantities {
 		dimensions = append(dimensions, dimension)
 	}
+
 	sort.Strings(dimensions)
 
 	totalExact := decimal.Zero
 	inputExact := decimal.Zero
 	outputExact := decimal.Zero
+
 	components := make([]platform.UsageCostComponent, 0, len(dimensions))
 	for _, dimension := range dimensions {
 		quantity := quantities[dimension]
 		if quantity == 0 {
 			continue
 		}
+
 		rate, ok := price.Rates[dimension]
 		if !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
@@ -1579,13 +1702,16 @@ func googleGeminiUsageCostBreakdown(
 				dimension,
 			)
 		}
+
 		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+
 		totalExact = totalExact.Add(cost)
 		if strings.Contains(dimension, "output_") {
 			outputExact = outputExact.Add(cost)
 		} else {
 			inputExact = inputExact.Add(cost)
 		}
+
 		components = append(
 			components,
 			usageCostComponent(dimension, quantity, rate),
@@ -1595,15 +1721,19 @@ func googleGeminiUsageCostBreakdown(
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD, _ := totalExact.Float64()
+
 	appliedConditions := make(map[string]string, len(conditions)+1)
 	for key, value := range conditions {
 		appliedConditions[key] = value
 	}
+
 	appliedConditions["service_tier"] = tier
+
 	totalTokens := usage.TotalTokens
 	if totalTokens <= 0 {
 		totalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
+
 	return platform.UsageCostBreakdown{
 		Model:                model,
 		InputTokens:          usage.PromptTokens,
@@ -1637,6 +1767,7 @@ func anthropicUsageCostBreakdown(
 	cache5mDimension := "cache_write_5m_tokens"
 	cache1hDimension := "cache_write_1h_tokens"
 	cacheReadDimension := "cache_read_tokens"
+
 	if batch {
 		inputDimension = "batch_input_tokens"
 		outputDimension = "batch_output_tokens"
@@ -1644,6 +1775,7 @@ func anthropicUsageCostBreakdown(
 		cache1hDimension = "batch_cache_write_1h_tokens"
 		cacheReadDimension = "batch_cache_read_tokens"
 	}
+
 	if strings.EqualFold(strings.TrimSpace(usage.Speed), "fast") {
 		if batch {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
@@ -1651,12 +1783,14 @@ func anthropicUsageCostBreakdown(
 				ErrPricingUnavailable,
 			)
 		}
+
 		inputDimension = "speed_input_tokens"
 		outputDimension = "speed_output_tokens"
 		cache5mDimension = "speed_cache_write_5m_tokens"
 		cache1hDimension = "speed_cache_write_1h_tokens"
 		cacheReadDimension = "speed_cache_read_tokens"
 	}
+
 	if strings.EqualFold(conditions["inference_geo"], "us") {
 		inputDimension = "data_residency_" + inputDimension
 		outputDimension = "data_residency_" + outputDimension
@@ -1664,6 +1798,7 @@ func anthropicUsageCostBreakdown(
 		cache1hDimension = "data_residency_" + cache1hDimension
 		cacheReadDimension = "data_residency_" + cacheReadDimension
 	}
+
 	quantities := map[string]int64{
 		inputDimension:     int64(usage.PromptTokens),
 		outputDimension:    int64(usage.CompletionTokens),
@@ -1678,6 +1813,7 @@ func anthropicUsageCostBreakdown(
 			usage.CacheCreationInputTokens,
 		)
 	}
+
 	for tool, quantity := range usage.ServerToolUse {
 		quantities[tool] = int64(quantity)
 	}
@@ -1686,16 +1822,20 @@ func anthropicUsageCostBreakdown(
 	inputExact := decimal.Zero
 	outputExact := decimal.Zero
 	components := make([]platform.UsageCostComponent, 0, len(quantities))
+
 	dimensions := make([]string, 0, len(quantities))
 	for dimension := range quantities {
 		dimensions = append(dimensions, dimension)
 	}
+
 	sort.Strings(dimensions)
+
 	for _, dimension := range dimensions {
 		quantity := quantities[dimension]
 		if quantity == 0 {
 			continue
 		}
+
 		rate, ok := price.Rates[dimension]
 		if dimension == "code_execution_requests" {
 			rate, ok = anthropicCodeExecutionUsageRate(price, conditions)
@@ -1707,6 +1847,7 @@ func anthropicUsageCostBreakdown(
 				)
 			}
 		}
+
 		if !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
 				"%w: missing rate for %s",
@@ -1714,22 +1855,27 @@ func anthropicUsageCostBreakdown(
 				dimension,
 			)
 		}
+
 		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+
 		totalExact = totalExact.Add(cost)
 		if dimension == outputDimension {
 			outputExact = outputExact.Add(cost)
 		} else {
 			inputExact = inputExact.Add(cost)
 		}
+
 		components = append(
 			components,
 			usageCostComponent(dimension, quantity, rate),
 		)
 		prommetrics.RecordAnthropicUsageDimension(dimension, quantity)
 	}
+
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD, _ := totalExact.Float64()
+
 	return platform.UsageCostBreakdown{
 		Model:                      model,
 		InputTokens:                usage.PromptTokens,
@@ -1763,10 +1909,12 @@ func anthropicCodeExecutionUsageRate(
 		platform.AnthropicCodeExecutionFreeWithCurrentWebTools {
 		return normalizedPricingRate{}, false
 	}
+
 	hourlyRate, ok := price.Rates["code_execution_container_hours"]
 	if !ok || hourlyRate.Unit != "container_hour" {
 		return normalizedPricingRate{}, false
 	}
+
 	return normalizedPricingRate{
 		Dimension: "code_execution_requests",
 		Unit:      "request",
@@ -1832,6 +1980,7 @@ func imageCostBreakdown(
 			metadata,
 		)
 	}
+
 	if price.Provider == "openai" {
 		return openAIImageCostBreakdown(
 			model,
@@ -1845,9 +1994,11 @@ func imageCostBreakdown(
 			"standard",
 		)
 	}
+
 	if price.Provider == "xai" {
 		return xAIImageCostBreakdown(model, inputTokens, outputTokens, totalTokens, price, exchangeRate, metadata)
 	}
+
 	out := costBreakdown(model, inputTokens, outputTokens, price, exchangeRate)
 	if totalTokens > 0 {
 		out.TotalTokens = totalTokens
@@ -1866,10 +2017,12 @@ func xAIImageCostBreakdown(
 	metadata map[string]interface{},
 ) (platform.UsageCostBreakdown, error) {
 	inputImages := intFromBillingMetadata(metadata["image_count"])
+
 	outputImages := intFromBillingMetadata(metadata["n"])
 	if outputImages <= 0 {
 		outputImages = 1
 	}
+
 	resolution := strings.ToLower(strings.TrimSpace(stringFromBillingMetadata(metadata["resolution"])))
 	if resolution == "" {
 		resolution = "1k"
@@ -1877,23 +2030,28 @@ func xAIImageCostBreakdown(
 
 	components := make([]platform.UsageCostComponent, 0, 2)
 	inputExact := decimal.Zero
+
 	if inputImages > 0 {
 		rate, ok := selectXAIImageRate(price, "input_images", "")
 		if !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing input image rate", ErrPricingUnavailable)
 		}
+
 		inputExact = rate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(inputImages)))
 		components = append(components, usageCostComponent("input_images", int64(inputImages), rate))
 	}
+
 	outputRate, ok := selectXAIImageRate(price, "output_images", resolution)
 	if !ok {
 		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing %s output image rate", ErrPricingUnavailable, resolution)
 	}
+
 	outputExact := outputRate.UnitPriceUSD.Mul(decimal.NewFromInt(int64(outputImages)))
 	components = append(components, usageCostComponent("output_images", int64(outputImages), outputRate))
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD := inputUSD + outputUSD
+
 	return platform.UsageCostBreakdown{
 		Model: model, Metadata: cloneUsageMetadata(metadata),
 		InputTokens: inputTokens, OutputTokens: outputTokens, TotalTokens: totalTokens,
@@ -1910,15 +2068,19 @@ func selectXAIImageRate(price priceInfo, dimension, resolution string) (normaliz
 		if rate.Dimension != dimension {
 			continue
 		}
+
 		conditionResolution := strings.ToLower(strings.TrimSpace(fmt.Sprint(rate.Condition["resolution"])))
 		if resolution == "" && conditionResolution == "" {
 			return rate, true
 		}
+
 		if resolution != "" && conditionResolution == resolution {
 			return rate, true
 		}
 	}
+
 	rate, ok := price.Rates[dimension]
+
 	return rate, ok && (resolution == "" || len(rate.Condition) == 0)
 }
 
@@ -1926,10 +2088,12 @@ func reconcileXAIProviderCost(breakdown platform.UsageCostBreakdown, ticks int64
 	if ticks <= 0 {
 		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: xAI response omitted cost_in_usd_ticks", ErrPricingUnavailable)
 	}
+
 	catalogTotalUSD := breakdown.TotalCostUSD
 	exactUSD := decimal.NewFromInt(ticks).Div(decimal.NewFromInt(int64(usdTicksPerDollar)))
 	totalUSD, _ := exactUSD.Float64()
 	delta := exactUSD.Sub(decimal.NewFromFloat(catalogTotalUSD))
+
 	breakdown = applyProviderImageCost(breakdown, totalUSD)
 	if !delta.IsZero() {
 		breakdown.Components = append(breakdown.Components, platform.UsageCostComponent{
@@ -1941,16 +2105,20 @@ func reconcileXAIProviderCost(breakdown platform.UsageCostBreakdown, ticks int64
 			Condition:    map[string]interface{}{"source": "cost_in_usd_ticks"},
 		})
 	}
+
 	breakdown.ExchangeRate = exchangeRate
+
 	breakdown.TotalCostIRR = totalUSD * exchangeRate
 	if breakdown.Metadata == nil {
 		breakdown.Metadata = map[string]interface{}{}
 	}
+
 	breakdown.Metadata["provider_cost_in_usd_ticks"] = ticks
 	breakdown.Metadata["provider_cost_usd"] = exactUSD.String()
 	breakdown.Metadata["catalog_estimated_cost_usd"] = decimal.NewFromFloat(catalogTotalUSD).String()
 	breakdown.Metadata["provider_cost_reconciliation_delta_usd"] = delta.String()
 	breakdown.Metadata["provider_cost_exact"] = true
+
 	return breakdown, nil
 }
 
@@ -1959,11 +2127,12 @@ func cloneUsageMetadata(input map[string]interface{}) map[string]interface{} {
 	for key, value := range input {
 		output[key] = value
 	}
+
 	return output
 }
 
 func stringFromBillingMetadata(value interface{}) string {
-	text, _ := value.(string)
+	text, _ := value.(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 	return text
 }
 
@@ -1988,6 +2157,7 @@ func openAIImageCostBreakdown(
 		textInputTokens = details.TextTokens
 		imageInputTokens = details.ImageTokens
 		cachedTextTokens = details.CachedTextTokens
+
 		cachedImageTokens = details.CachedImageTokens
 		if cachedTextTokens+cachedImageTokens == 0 && details.CachedTokens > 0 {
 			if imageInputTokens > 0 && textInputTokens == 0 {
@@ -1997,14 +2167,17 @@ func openAIImageCostBreakdown(
 			}
 		}
 	}
+
 	if imageInputTokens == 0 && intFromBillingMetadata(metadata["image_count"]) > 0 {
 		estimatedImageTokens := intFromBillingMetadata(metadata["estimated_image_input_tokens"])
 		if estimatedImageTokens > inputTokens {
 			estimatedImageTokens = inputTokens
 		}
+
 		imageInputTokens = estimatedImageTokens
 		textInputTokens = inputTokens - imageInputTokens
 	}
+
 	if textInputTokens+imageInputTokens == 0 {
 		textInputTokens = inputTokens
 	}
@@ -2025,15 +2198,18 @@ func openAIImageCostBreakdown(
 			"batch_image_output_tokens":     int64(outputTokens),
 		}
 	}
+
 	dimensions := make([]string, 0, len(quantities))
 	for dimension, quantity := range quantities {
 		if quantity > 0 {
 			dimensions = append(dimensions, dimension)
 		}
 	}
+
 	sort.Strings(dimensions)
 
 	totalExact, inputExact, outputExact := decimal.Zero, decimal.Zero, decimal.Zero
+
 	components := make([]platform.UsageCostComponent, 0, len(dimensions))
 	for _, dimension := range dimensions {
 		rate, ok := price.Rates[dimension]
@@ -2047,8 +2223,10 @@ func openAIImageCostBreakdown(
 			case "image_output_tokens", "batch_image_output_tokens":
 				fallback = "output_tokens"
 			}
+
 			rate, ok = price.Rates[fallback]
 		}
+
 		if !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
 				"%w: missing OpenAI image rate for %s",
@@ -2056,14 +2234,17 @@ func openAIImageCostBreakdown(
 				dimension,
 			)
 		}
+
 		quantity := quantities[dimension]
 		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+
 		totalExact = totalExact.Add(cost)
 		if dimension == "image_output_tokens" || dimension == "batch_image_output_tokens" {
 			outputExact = outputExact.Add(cost)
 		} else {
 			inputExact = inputExact.Add(cost)
 		}
+
 		components = append(
 			components,
 			usageCostComponent(dimension, quantity, rate),
@@ -2073,9 +2254,11 @@ func openAIImageCostBreakdown(
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD, _ := totalExact.Float64()
+
 	if totalTokens <= 0 {
 		totalTokens = inputTokens + outputTokens
 	}
+
 	return platform.UsageCostBreakdown{
 		Model: model, InputTokens: inputTokens, OutputTokens: outputTokens,
 		TotalTokens: totalTokens, InputCostUSD: inputUSD,
@@ -2096,7 +2279,7 @@ func intFromBillingMetadata(value interface{}) int {
 	case float64:
 		return int(typed)
 	case json.Number:
-		parsed, _ := typed.Int64()
+		parsed, _ := typed.Int64() //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		return int(parsed)
 	default:
 		return 0
@@ -2113,11 +2296,13 @@ func googleGeminiImageCostBreakdown(
 	metadata map[string]interface{},
 ) (platform.UsageCostBreakdown, error) {
 	quantities := make(map[string]int64)
+
 	if inputTokens > 0 {
 		if _, ok := price.Rates["input_tokens"]; ok {
 			quantities["input_tokens"] = int64(inputTokens)
 		}
 	}
+
 	if outputTokens > 0 {
 		if _, ok := price.Rates["image_output_tokens"]; ok {
 			quantities["image_output_tokens"] = int64(outputTokens)
@@ -2127,6 +2312,7 @@ func googleGeminiImageCostBreakdown(
 	}
 
 	imageCount := int64(1)
+
 	if raw, ok := metadata["n"]; ok {
 		switch value := raw.(type) {
 		case int:
@@ -2135,9 +2321,11 @@ func googleGeminiImageCostBreakdown(
 			imageCount = int64(value)
 		}
 	}
+
 	if imageCount < 1 {
 		imageCount = 1
 	}
+
 	if _, hasTokenRate := quantities["image_output_tokens"]; !hasTokenRate {
 		dimension := googleGeminiImageDimension(price, metadata)
 		if dimension != "" {
@@ -2145,6 +2333,7 @@ func googleGeminiImageCostBreakdown(
 			delete(quantities, "output_tokens")
 		}
 	}
+
 	if len(quantities) == 0 {
 		return platform.UsageCostBreakdown{}, fmt.Errorf(
 			"%w: Gemini image pricing is unavailable",
@@ -2156,13 +2345,17 @@ func googleGeminiImageCostBreakdown(
 	for dimension := range quantities {
 		dimensions = append(dimensions, dimension)
 	}
+
 	sort.Strings(dimensions)
+
 	totalExact := decimal.Zero
 	inputExact := decimal.Zero
 	outputExact := decimal.Zero
+
 	components := make([]platform.UsageCostComponent, 0, len(dimensions))
 	for _, dimension := range dimensions {
 		quantity := quantities[dimension]
+
 		rate, ok := price.Rates[dimension]
 		if !ok {
 			return platform.UsageCostBreakdown{}, fmt.Errorf(
@@ -2171,24 +2364,30 @@ func googleGeminiImageCostBreakdown(
 				dimension,
 			)
 		}
+
 		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+
 		totalExact = totalExact.Add(cost)
 		if dimension == "input_tokens" || strings.HasPrefix(dimension, "input_") {
 			inputExact = inputExact.Add(cost)
 		} else {
 			outputExact = outputExact.Add(cost)
 		}
+
 		components = append(
 			components,
 			usageCostComponent(dimension, quantity, rate),
 		)
 	}
+
 	inputUSD, _ := inputExact.Float64()
 	outputUSD, _ := outputExact.Float64()
 	totalUSD, _ := totalExact.Float64()
+
 	if totalTokens <= 0 {
 		totalTokens = inputTokens + outputTokens
 	}
+
 	return platform.UsageCostBreakdown{
 		Model:               model,
 		InputTokens:         inputTokens,
@@ -2210,7 +2409,8 @@ func googleGeminiImageDimension(
 	price priceInfo,
 	metadata map[string]interface{},
 ) string {
-	size, _ := metadata["size"].(string)
+	size, _ := metadata["size"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
+
 	size = strings.ToLower(strings.TrimSpace(size))
 	switch {
 	case strings.Contains(size, "4096") || strings.Contains(size, "4k"):
@@ -2221,6 +2421,7 @@ func googleGeminiImageDimension(
 		if _, ok := price.Rates["output_images_2k"]; ok {
 			return "output_images_2k"
 		}
+
 		if _, ok := price.Rates["output_images_1k_2k"]; ok {
 			return "output_images_1k_2k"
 		}
@@ -2232,13 +2433,16 @@ func googleGeminiImageDimension(
 		if _, ok := price.Rates["output_images_1k"]; ok {
 			return "output_images_1k"
 		}
+
 		if _, ok := price.Rates["output_images_1k_2k"]; ok {
 			return "output_images_1k_2k"
 		}
 	}
+
 	if _, ok := price.Rates["output_images"]; ok {
 		return "output_images"
 	}
+
 	return ""
 }
 
@@ -2266,10 +2470,12 @@ func (s *Service) modelPrice(
 		if s == nil || s.anthropicPricing == nil {
 			return priceInfo{}, ErrPricingUnavailable
 		}
-		item, snapshot, err := s.anthropicPricing.Price(model)
+
+		item, snapshot, err := s.anthropicPricing.price(model)
 		if err != nil {
 			return priceInfo{}, err
 		}
+
 		return priceInfo{
 			Input:          decimalToPerThousand(item.Rates["input_tokens"].UnitPriceUSD),
 			Output:         decimalToPerThousand(item.Rates["output_tokens"].UnitPriceUSD),
@@ -2283,19 +2489,24 @@ func (s *Service) modelPrice(
 			RuntimeProfile: item.RuntimeProfile,
 		}, nil
 	}
+
 	if provider := catalogPricingProvider(model); provider != "" {
 		if s == nil || s.catalogPricing == nil || s.catalogPricing[provider] == nil {
 			return priceInfo{}, ErrPricingUnavailable
 		}
-		item, snapshot, err := s.catalogPricing[provider].Price(model)
+
+		item, snapshot, err := s.catalogPricing[provider].price(model)
 		if err != nil {
 			return priceInfo{}, err
 		}
+
 		if !strings.EqualFold(strings.TrimSpace(item.Status), "active") {
 			return priceInfo{}, fmt.Errorf("%w: model lifecycle is %s", ErrPricingUnavailable, item.Status)
 		}
+
 		inputRate := item.Rates["input_tokens"].UnitPriceUSD
 		outputRate := item.Rates["output_tokens"].UnitPriceUSD
+
 		return priceInfo{
 			Input:          decimalToPerThousand(inputRate),
 			Output:         decimalToPerThousand(outputRate),
@@ -2309,6 +2520,7 @@ func (s *Service) modelPrice(
 			RuntimeProfile: item.RuntimeProfile,
 		}, nil
 	}
+
 	if s != nil && s.pricingCache != nil {
 		return s.pricingCache.Get(ctx, model), nil
 	}
@@ -2325,6 +2537,7 @@ func (s *Service) pinnedOrCurrentModelPrice(
 		estimated.PricingSnapshot == nil {
 		return s.modelPrice(ctx, model)
 	}
+
 	return priceInfoFromUsageSnapshot(estimated.PricingSnapshot)
 }
 
@@ -2378,6 +2591,7 @@ func usageCostComponentDecimal(
 	rate normalizedPricingRate,
 ) platform.UsageCostComponent {
 	cost := rate.UnitPriceUSD.Mul(quantity)
+
 	return platform.UsageCostComponent{
 		Dimension:    dimension,
 		Quantity:     quantity.String(),
@@ -2393,10 +2607,12 @@ func usagePricingSnapshot(price priceInfo) *platform.UsagePricingSnapshot {
 	for dimension, rate := range price.Rates {
 		rates[dimension] = usageCostComponent(dimension, 0, rate)
 	}
+
 	rateList := make([]platform.UsageCostComponent, 0, len(price.RateList))
 	for _, rate := range price.RateList {
 		rateList = append(rateList, usageCostComponent(rate.Dimension, 0, rate))
 	}
+
 	return &platform.UsagePricingSnapshot{
 		Provider:    price.Provider,
 		Revision:    price.Revision,
@@ -2413,6 +2629,7 @@ func priceInfoFromUsageSnapshot(
 		snapshot.Revision == "" || snapshot.GeneratedAt.IsZero() {
 		return priceInfo{}, ErrPricingUnavailable
 	}
+
 	rates := make(
 		map[string]normalizedPricingRate,
 		len(snapshot.Rates),
@@ -2422,6 +2639,7 @@ func priceInfoFromUsageSnapshot(
 		if err != nil || component.Unit == "" {
 			return priceInfo{}, ErrPricingUnavailable
 		}
+
 		rates[dimension] = normalizedPricingRate{
 			Dimension:    dimension,
 			Unit:         component.Unit,
@@ -2429,12 +2647,14 @@ func priceInfoFromUsageSnapshot(
 			Condition:    cloneInterfaceMap(component.Condition),
 		}
 	}
+
 	rateList := make([]normalizedPricingRate, 0, len(snapshot.RateList))
 	for _, component := range snapshot.RateList {
 		value, err := decimal.NewFromString(component.UnitPriceUSD)
 		if err != nil || component.Dimension == "" || component.Unit == "" {
 			return priceInfo{}, ErrPricingUnavailable
 		}
+
 		rateList = append(rateList, normalizedPricingRate{
 			Dimension:    component.Dimension,
 			Unit:         component.Unit,
@@ -2442,8 +2662,10 @@ func priceInfoFromUsageSnapshot(
 			Condition:    cloneInterfaceMap(component.Condition),
 		})
 	}
+
 	input := rates["input_tokens"]
 	output := rates["output_tokens"]
+
 	return priceInfo{
 		Input:          decimalToPerThousand(input.UnitPriceUSD),
 		Output:         decimalToPerThousand(output.UnitPriceUSD),

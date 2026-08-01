@@ -36,16 +36,28 @@ type AuthStore interface {
 	TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error)
 }
 
+type socialAuthStore interface {
+	ProvisionSocialTenant(ctx context.Context, params storage.ProvisionSocialTenantParams) (*storage.ProvisionedTenant, error)
+	CreateSocialLoginHandoff(ctx context.Context, tenantSlug, accountID string) (*storage.SocialHandoff, error)
+	RedeemSocialLoginHandoff(ctx context.Context, tenantSlug, code string) (*storage.RedeemedSocialHandoff, error)
+	CreateSocialLinkTicket(ctx context.Context, tenantSlug, userID string) (*storage.SocialHandoff, error)
+	CompleteSocialLink(ctx context.Context, ticketCode, accountID string) (*storage.SocialHandoff, error)
+}
+
 // AuthHandlers provides HTTP handlers for tenant-admin auth API.
 type AuthHandlers struct {
 	store       AuthStore
+	socialStore socialAuthStore
 	otpNotifier TenantAdminOTPNotifier
 	otpLimiter  *authRateLimiter
 }
 
 func NewAuthHandlers(store AuthStore, otpNotifier TenantAdminOTPNotifier) *AuthHandlers {
+	socialStore, _ := store.(socialAuthStore) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
+
 	return &AuthHandlers{
 		store:       store,
+		socialStore: socialStore,
 		otpNotifier: otpNotifier,
 		otpLimiter:  newAuthRateLimiter(),
 	}

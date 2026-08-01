@@ -29,6 +29,7 @@ func TestAnthropicPricingSnapshotRequiresEveryCoreDimensionForReadyModels(
 	t *testing.T,
 ) {
 	now := time.Now().UTC()
+
 	payload := discoveryRuntimeSnapshot{
 		Provider:    "anthropic",
 		Revision:    "revision-1",
@@ -51,6 +52,7 @@ func TestAnthropicPricingSnapshotRequiresEveryCoreDimensionForReadyModels(
 	snapshot, err := normalizeAnthropicPricingSnapshot(payload)
 	require.NoError(t, err)
 	require.Len(t, snapshot.Models, len(anthropicReadyModels)*2)
+
 	for _, model := range anthropicReadyModels {
 		rates := snapshot.Models[model].Rates
 		require.Contains(t, rates, "input_tokens")
@@ -100,7 +102,7 @@ func TestAnthropicPricingSnapshotFailsClosedForMissingOrStaleRates(
 		GeneratedAt: time.Now().Add(-anthropicPricingMaxAge - time.Second),
 		Models:      map[string]anthropicPricingModel{},
 	})
-	_, _, err = manager.Price("claude-sonnet-4-6")
+	_, _, err = manager.price("claude-sonnet-4-6")
 	require.ErrorIs(t, err, ErrPricingUnavailable)
 }
 
@@ -144,6 +146,7 @@ func TestAnthropicEstimatePinsRuntimeProfileToPricingRevision(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
 	manager := &AnthropicPricingSnapshotManager{now: time.Now}
 	manager.state.Store(snapshot)
 	service := &Service{
@@ -240,6 +243,7 @@ func TestAnthropicFinalizeUsesPinnedDecimalSnapshotAndCacheDimensions(
 		},
 	)
 	require.NoError(t, err)
+
 	manager := &AnthropicPricingSnapshotManager{now: time.Now}
 	manager.state.Store(snapshot)
 	service := &Service{
@@ -372,6 +376,7 @@ func anthropicBillingTestService(
 	t *testing.T,
 ) (*Service, platform.UsageCostBreakdown) {
 	t.Helper()
+
 	snapshot, err := normalizeAnthropicPricingSnapshot(
 		discoveryRuntimeSnapshot{
 			Provider:    "anthropic",
@@ -391,6 +396,7 @@ func anthropicBillingTestService(
 		},
 	)
 	require.NoError(t, err)
+
 	manager := &AnthropicPricingSnapshotManager{now: time.Now}
 	manager.state.Store(snapshot)
 	service := &Service{
@@ -404,6 +410,7 @@ func anthropicBillingTestService(
 		},
 	)
 	require.NoError(t, err)
+
 	return service, estimated
 }
 
@@ -427,15 +434,18 @@ func completeAnthropicRates() []discoveryPricingRate {
 		"web_search_requests":                "0.01",
 		"code_execution_container_hours":     "0.05",
 	}
+
 	out := make([]discoveryPricingRate, 0, len(values))
 	for dimension, price := range values {
 		unit := "token"
 		if dimension == "web_search_requests" {
 			unit = "request"
 		}
+
 		if dimension == "code_execution_container_hours" {
 			unit = "container_hour"
 		}
+
 		out = append(out, discoveryPricingRate{
 			Dimension:    dimension,
 			Unit:         unit,
@@ -445,6 +455,7 @@ func completeAnthropicRates() []discoveryPricingRate {
 			SourceURL:    source,
 		})
 	}
+
 	return out
 }
 

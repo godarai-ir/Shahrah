@@ -89,6 +89,7 @@ func validateAnthropicWIFConfig(
 	if !strings.EqualFold(strings.TrimSpace(authMode), "anthropic_wif") {
 		return nil
 	}
+
 	if normalizeProviderAPIBaseProvider(provider) != "anthropic" {
 		return fmt.Errorf(
 			"%w: auth mode is only valid for anthropic",
@@ -106,18 +107,22 @@ func validateAnthropicWIFConfig(
 		if !ok || strings.TrimSpace(value) == "" {
 			return fmt.Errorf("%w: %s is required", ErrInvalidAnthropicWIFConfig, key)
 		}
+
 		config[key] = strings.TrimSpace(value)
 	}
-	tokenSource := config["token_source_id"].(string)
+
+	tokenSource := config["token_source_id"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 	if strings.ContainsAny(tokenSource, `/\`) || strings.Contains(tokenSource, "..") {
 		return fmt.Errorf(
 			"%w: token_source_id must be an allowlisted identifier, not a path",
 			ErrInvalidAnthropicWIFConfig,
 		)
 	}
+
 	if workspace, ok := config["workspace_id"].(string); ok {
 		config["workspace_id"] = strings.TrimSpace(workspace)
 	}
+
 	return nil
 }
 

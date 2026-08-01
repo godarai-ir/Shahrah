@@ -17,6 +17,7 @@ func TestAnthropicProviderHeadersUsesConfiguredBetaAllowlist(t *testing.T) {
 	)
 
 	got := headers["Anthropic-Beta-Allowlist"]
+
 	want := "files-api-2025-04-14,output-300k-2026-03-24"
 	if got != want {
 		t.Fatalf("unexpected Anthropic beta allowlist %q", got)

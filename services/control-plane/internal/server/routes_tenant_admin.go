@@ -199,4 +199,9 @@ func registerTenantAdminAuthRoutes(app *fiber.App, deps Dependencies) {
 	authGroup.Get("/user/:id", deps.AuthHandlers.GetUser)
 	authGroup.Post("/user/:id/update-contact", deps.AuthHandlers.UpdateUserContact)
 	authGroup.Post("/user/:id/touch-last-login", deps.AuthHandlers.TouchLastLogin)
+	authGroup.Post("/social/provision", deps.AuthHandlers.ProvisionSocialTenant)
+	authGroup.Post("/social/handoff", deps.AuthHandlers.CreateSocialHandoff)
+	authGroup.Post("/social/handoff/redeem", deps.AuthHandlers.RedeemSocialHandoff)
+	authGroup.Post("/social/link-ticket", deps.AuthHandlers.CreateSocialLinkTicket)
+	authGroup.Post("/social/link", deps.AuthHandlers.CompleteSocialLink)
 }

@@ -74,7 +74,9 @@ func (b *testBudgeter) PriceMeteredUsage(_ context.Context, model, _ string, _ s
 	if !strings.Contains(strings.ToLower(model), "mistral") && !strings.Contains(strings.ToLower(model), "voxtral") && !strings.Contains(strings.ToLower(model), "codestral") {
 		return estimated, nil
 	}
+
 	const revision = "mistral-test-revision"
+
 	estimated.PricingRevision = revision
 	estimated.ModelRuntimeProfile = &platform.ModelRuntimeProfileBinding{
 		Provider: "mistral-ai", CatalogRevision: revision,
@@ -94,6 +96,7 @@ func (b *testBudgeter) PriceMeteredUsage(_ context.Context, model, _ string, _ s
 			Limits: platform.ModelRuntimeLimits{MessagesBytes: 33554432, BatchBytes: 536870912, FileBytes: 536870912},
 		},
 	}
+
 	return estimated, nil
 }
 

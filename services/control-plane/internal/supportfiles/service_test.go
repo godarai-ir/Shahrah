@@ -24,7 +24,9 @@ func (s *memoryStore) Put(_ context.Context, key string, _ io.Reader, _ int64, _
 	if s.putErrorAt > 0 && len(s.puts)+1 == s.putErrorAt {
 		return errors.New("put failed")
 	}
+
 	s.puts = append(s.puts, key)
+
 	return nil
 }
 func (*memoryStore) Get(context.Context, string) (io.ReadCloser, error) {
@@ -47,9 +49,11 @@ func (s scannerResult) Scan(context.Context, io.Reader) (bool, string, error) {
 	if s.err != nil {
 		return false, "", s.err
 	}
+
 	if !s.clean {
 		return false, "Eicar-Test-Signature FOUND", nil
 	}
+
 	return true, "clean", nil
 }
 
@@ -62,9 +66,11 @@ func TestUploadFilesAcceptsValidTextAndStoresGeneratedKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UploadFiles returned error: %v", err)
 	}
+
 	if len(uploads) != 1 || uploads[0].ScanStatus != "clean" {
 		t.Fatalf("unexpected uploads: %#v", uploads)
 	}
+
 	if strings.Contains(uploads[0].ObjectKey, "incident.log") || !strings.HasPrefix(uploads[0].ObjectKey, "support/tenant-id/ticket-id/") {
 		t.Fatalf("unsafe or unexpected object key: %q", uploads[0].ObjectKey)
 	}
@@ -116,6 +122,7 @@ func TestUploadFilesDeletesEarlierObjectsWhenLaterUploadFails(t *testing.T) {
 	if _, err := service.UploadFiles(context.Background(), "tenant", "ticket", files); err == nil {
 		t.Fatal("expected storage failure")
 	}
+
 	if len(store.puts) != 1 || len(store.deletes) != 1 || store.puts[0] != store.deletes[0] {
 		t.Fatalf("compensation did not delete the first object: puts=%v deletes=%v", store.puts, store.deletes)
 	}
@@ -134,6 +141,7 @@ func TestCleanupOrphansKeepsReferencedAndRecentObjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CleanupOrphans returned error: %v", err)
 	}
+
 	if deleted != 1 || len(store.deletes) != 1 || store.deletes[0] != "support/orphan" {
 		t.Fatalf("unexpected cleanup result: deleted=%d keys=%v", deleted, store.deletes)
 	}
@@ -141,24 +149,31 @@ func TestCleanupOrphansKeepsReferencedAndRecentObjects(t *testing.T) {
 
 func multipartFiles(t *testing.T, values map[string][]byte) []*multipart.FileHeader {
 	t.Helper()
+
 	var body bytes.Buffer
+
 	writer := multipart.NewWriter(&body)
 	for name, value := range values {
 		part, err := writer.CreateFormFile("files", name)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if _, err := part.Write(value); err != nil {
 			t.Fatal(err)
 		}
 	}
+
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
+
 	request := httptest.NewRequest(http.MethodPost, "/", &body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
+
 	if err := request.ParseMultipartForm(MaxMessageBytes + 1024); err != nil {
 		t.Fatal(err)
 	}
+
 	return request.MultipartForm.File["files"]
 }

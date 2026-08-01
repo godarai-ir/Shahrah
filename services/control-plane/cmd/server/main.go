@@ -38,6 +38,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//nolint:gocyclo,govet // Startup wiring intentionally keeps component construction and failure handling in one place. Short-lived branch errors are checked immediately.
 func main() {
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -163,6 +164,7 @@ func main() {
 
 	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
 	billingService.SetRuntimeProfiles(runtimeProfiles)
+
 	pricingCtx, cancelPricing := context.WithCancel(ctx)
 	defer cancelPricing()
 
@@ -175,6 +177,7 @@ func main() {
 		)
 	} else {
 		billingService.SetAnthropicPricingSnapshotManager(anthropicPricing)
+
 		if pricingErr := anthropicPricing.Reload(ctx); pricingErr != nil {
 			logger.Warn(
 				"Initial Anthropic pricing snapshot is unavailable; background refresh will retry",
@@ -196,6 +199,7 @@ func main() {
 			"google-gemini",
 			geminiPricing,
 		)
+
 		if pricingErr := geminiPricing.Reload(ctx); pricingErr != nil {
 			logger.Warn(
 				"Initial Google Gemini pricing snapshot is unavailable; background refresh will retry",
@@ -214,6 +218,7 @@ func main() {
 		)
 	} else {
 		billingService.SetCatalogPricingSnapshotManager("openai", openAIPricing)
+
 		if openAIPricingErr := openAIPricing.Reload(ctx); openAIPricingErr != nil {
 			logger.Warn(
 				"Initial OpenAI pricing snapshot is unavailable; background refresh will retry",
@@ -232,6 +237,7 @@ func main() {
 		)
 	} else {
 		billingService.SetCatalogPricingSnapshotManager("xai", xaiPricing)
+
 		if xaiPricingErr := xaiPricing.Reload(ctx); xaiPricingErr != nil {
 			logger.Warn(
 				"Initial xAI pricing snapshot is unavailable; background refresh will retry",
@@ -250,6 +256,7 @@ func main() {
 		)
 	} else {
 		billingService.SetCatalogPricingSnapshotManager("mistral-ai", mistralPricing)
+
 		if mistralPricingErr := mistralPricing.Reload(ctx); mistralPricingErr != nil {
 			logger.Warn(
 				"Initial Mistral AI pricing snapshot is unavailable; background refresh will retry",
@@ -291,6 +298,7 @@ func main() {
 	if credentialRuntime.service != nil {
 		credentialRuntime.service.SetProber(platformcredentials.NewTunnelCredentialProber(tunnelClient))
 	}
+
 	store.SetTenantProviderCredentialProber(platformcredentials.NewTunnelCredentialProber(tunnelClient))
 
 	metricsCfg := metricsobs.LoadConfigFromEnv()
@@ -569,6 +577,7 @@ func main() {
 	defer cancel()
 
 	go anthropicNativeHandler.RunBatchWorker(runCtx, 15*time.Second)
+
 	store.StartTokenUsageFlusher(runCtx)
 	store.StartUsageCounterFlusher(runCtx)
 

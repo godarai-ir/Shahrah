@@ -136,6 +136,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	estimated := estimateAudioSpeechCostFallback(requestedModel, reqMeta.Metadata)
 	estimated.Metadata = reqMeta.Metadata
+
 	estimated, err = priceMeteredUsage(
 		c.Context(),
 		h.billing,
@@ -147,6 +148,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	quotaStart := time.Now()
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
@@ -213,9 +215,11 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	if !supportsAudioSpeechProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Text to speech API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+
 	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("audio_speech") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio speech is disabled", "provider_disabled")
 	}
+
 	if isMistralProvider(dep.Provider) {
 		if endpointErr := validateMistralJSONParameters(estimated.ModelRuntimeProfile, "audio_speech", body); endpointErr != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
@@ -226,6 +230,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := providerOutboundModel(requestedModel, dep)
@@ -259,10 +264,12 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
 	}
+
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(dep.Provider, outboundModel, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
+
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
@@ -335,6 +342,7 @@ func (h *AudioSpeechHandler) handleSync(
 			return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech usage", "billing_error")
 		}
 	}
+
 	finalCost, err = priceMeteredUsage(
 		c.Context(),
 		h.billing,
@@ -446,21 +454,26 @@ func (h *AudioSpeechHandler) handleRawSync(
 		"request_payload": buildTraceAudioSpeechRequestPayload(originalBody, originalContentType, tunnelReq.RequestMetadata),
 		"raw_stream":      true,
 	}
+
 	resp, err := rawTunnel.ProxyRaw(c.Context(), tunnelReq, bytes.NewReader(tunnelReq.Body), int64(len(tunnelReq.Body)))
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if resp == nil || resp.Body == nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Provider returned an empty speech response", "api_error")
 	}
 
 	if resp.StatusCode >= httpErrorFloor {
-		defer resp.Body.Close()
-		errorBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+		defer resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
+
+		errorBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024)) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, errorBody)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
+
 		return writeCompatibleProviderError(c, tunnelReq.Deployment.Provider, resp.StatusCode, errorBody, resp.Headers)
 	}
 
@@ -477,11 +490,12 @@ func (h *AudioSpeechHandler) handleRawSync(
 		estimated,
 	)
 	if err != nil {
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech metered usage", "billing_error")
 	}
+
 	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -523,17 +537,20 @@ func (h *AudioSpeechHandler) handleRawSync(
 	})
 
 	forwardProviderHeaders(c, resp.Headers)
+
 	if contentType := responseContentType(resp.Headers); contentType != "" {
 		c.Set(fiber.HeaderContentType, contentType)
 	}
+
 	setTraceHeaders(c, tunnelReq.TraceID)
 	setCostHeaders(c, finalCost)
 	c.Status(resp.StatusCode)
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(writer *bufio.Writer) {
-		defer resp.Body.Close()
-		_, _ = io.CopyBuffer(writer, resp.Body, make([]byte, 32*1024))
-		_ = writer.Flush()
+		defer resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
+
+		_, _ = io.CopyBuffer(writer, resp.Body, make([]byte, 32*1024)) //nolint:errcheck // A downstream disconnect is handled by terminating the stream.
+		_ = writer.Flush()                                             //nolint:errcheck // A downstream disconnect is handled by terminating the stream.
 	})
 
 	return nil
@@ -608,8 +625,10 @@ func (h *AudioSpeechHandler) handleStream(
 			}
 
 			finalCost := estimated
+
 			if !isMistralProvider(tunnelReq.Deployment.Provider) {
 				var finalizeErr error
+
 				finalCost, finalizeErr = h.billing.FinalizeFromUsage(requestCtx, billingModelForDeployment(requestedModel, tunnelReq.Deployment), nil, estimated)
 				if finalizeErr != nil {
 					h.logger.Warn("failed to finalize streaming text to speech usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
@@ -734,15 +753,19 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		if _, hasOpenAIVoice := raw["voice"]; hasOpenAIVoice {
 			return metadata, fmt.Errorf("voice is not supported for Mistral TTS; use voice_id or ref_audio")
 		}
+
 		voiceID := strings.TrimSpace(stringFromMap(raw, "voice_id"))
+
 		refAudio := strings.TrimSpace(stringFromMap(raw, "ref_audio"))
 		if voiceID != "" && refAudio != "" {
 			return metadata, fmt.Errorf("voice_id and ref_audio cannot be used together")
 		}
+
 		if voiceID != "" {
 			metadata.Metadata["voice_type"] = "voice_id"
 			metadata.Metadata["voice_id_hash"] = hashTracePreview(voiceID)
 		}
+
 		if refAudio != "" {
 			metadata.Metadata["voice_type"] = "reference_audio"
 			metadata.Metadata["ref_audio_hash"] = hashTracePreview(refAudio)
@@ -770,6 +793,7 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		if isMistral {
 			return metadata, fmt.Errorf("response_format must be one of mp3, opus, flac, wav, or pcm")
 		}
+
 		return metadata, fmt.Errorf("response_format must be one of mp3, opus, aac, flac, wav, or pcm")
 	}
 
@@ -791,6 +815,7 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		if isMistral {
 			return metadata, fmt.Errorf("stream_format is not supported for Mistral TTS; use stream")
 		}
+
 		if streamFormat != "sse" && streamFormat != "audio" {
 			return metadata, fmt.Errorf("stream_format must be sse or audio")
 		}
@@ -800,12 +825,14 @@ func extractAudioSpeechMetadata(body []byte, contentType string) (audioSpeechMet
 		metadata.Metadata["stream_format"] = streamFormat
 		metadata.Metadata["stream"] = metadata.Stream
 	}
+
 	if isMistral {
 		if value, exists := raw["stream"]; exists {
 			stream, ok := value.(bool)
 			if !ok {
 				return metadata, fmt.Errorf("stream must be a boolean")
 			}
+
 			metadata.Stream = stream
 			metadata.Metadata["stream"] = stream
 		}

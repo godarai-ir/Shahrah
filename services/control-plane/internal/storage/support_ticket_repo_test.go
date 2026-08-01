@@ -9,6 +9,7 @@ import (
 
 func TestSupportTicketTransitionMatrix(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name         string
 		current      string
@@ -29,6 +30,7 @@ func TestSupportTicketTransitionMatrix(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			if got := validSupportTicketTransition(test.current, test.next, test.supportActor); got != test.allowed {
 				t.Fatalf("validSupportTicketTransition(%q, %q, %v) = %v want %v", test.current, test.next, test.supportActor, got, test.allowed)
 			}
@@ -38,17 +40,21 @@ func TestSupportTicketTransitionMatrix(t *testing.T) {
 
 func TestNewSupportTicketPublicIDIsOpaque(t *testing.T) {
 	t.Parallel()
+
 	first, err := newSupportTicketPublicID()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	second, err := newSupportTicketPublicID()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if first == second {
 		t.Fatalf("generated duplicate public IDs: %q", first)
 	}
+
 	if !strings.HasPrefix(first, "TKT-") || len(first) < 12 {
 		t.Fatalf("unexpected public ID format: %q", first)
 	}
@@ -56,11 +62,16 @@ func TestNewSupportTicketPublicIDIsOpaque(t *testing.T) {
 
 func TestSupportMutationRequestHashIsStableAndPayloadSensitive(t *testing.T) {
 	t.Parallel()
+
 	request := platform.RateSupportTicketRequest{Score: 5, Comment: "helpful", IdempotencyKey: "key"}
-	if supportMutationRequestHash(request) != supportMutationRequestHash(request) {
+
+	firstHash := supportMutationRequestHash(request)
+	if firstHash != supportMutationRequestHash(request) {
 		t.Fatal("same mutation request produced different hashes")
 	}
+
 	changed := request
+
 	changed.Score = 4
 	if supportMutationRequestHash(request) == supportMutationRequestHash(changed) {
 		t.Fatal("different mutation payloads produced the same hash")

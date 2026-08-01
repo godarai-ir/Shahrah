@@ -34,7 +34,9 @@ func (h *Handlers) ListTenantSupportTickets(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	actorID := delegatedUserID(c)
+
 	readAll, allowed := tenantTicketReadAccess(c)
 	if !allowed || actorID == "" {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket access denied")
@@ -44,6 +46,7 @@ func (h *Handlers) ListTenantSupportTickets(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	params.TenantID = currentTenant.ID
 	params.RequesterUserID = actorID
 	params.ReadAll = readAll
@@ -52,20 +55,24 @@ func (h *Handlers) ListTenantSupportTickets(c *fiber.Ctx) error {
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	return c.JSON(platform.SupportTicketListResponse{
 		Data:       items,
 		NextCursor: nextOffsetCursor(params.Offset, len(items), total),
 	})
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *Handlers) CreateTenantSupportTicket(c *fiber.Ctx) error {
 	if !tenantTicketHasPermission(c, "support_ticket:create") {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket create permission required")
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	actorID := delegatedUserID(c)
 	if actorID == "" {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "authenticated user context missing")
@@ -75,9 +82,11 @@ func (h *Handlers) CreateTenantSupportTicket(c *fiber.Ctx) error {
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	if err := validateCreateSupportTicketRequest(req, len(files)); err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	req.IdempotencyKey = supportIdempotencyKey(c, req.IdempotencyKey)
 	if req.IdempotencyKey == "" {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "idempotency key is required")
@@ -87,6 +96,7 @@ func (h *Handlers) CreateTenantSupportTicket(c *fiber.Ctx) error {
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	req.RequestHash = hashSupportRequest(req, uploads)
 
 	store, err := h.requireSupportTicketStore()
@@ -94,6 +104,7 @@ func (h *Handlers) CreateTenantSupportTicket(c *fiber.Ctx) error {
 		h.deleteSupportUploads(uploads)
 		return err
 	}
+
 	detail, replay, err := store.CreateSupportTicket(
 		c.Context(),
 		currentTenant.ID,
@@ -115,6 +126,7 @@ func (h *Handlers) CreateTenantSupportTicket(c *fiber.Ctx) error {
 		prommetrics.RecordSupportTicketCreated()
 		prommetrics.RecordSupportMessage(platform.SupportTicketAuthorTenantUser)
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(detail)
 }
 
@@ -123,19 +135,24 @@ func (h *Handlers) GetTenantSupportTicket(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	actorID := delegatedUserID(c)
+
 	readAll, allowed := tenantTicketReadAccess(c)
 	if !allowed || actorID == "" {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket access denied")
 	}
+
 	store, err := h.requireSupportTicketStore()
 	if err != nil {
 		return err
 	}
+
 	detail, err := store.GetSupportTicketDetail(c.Context(), currentTenant.ID, c.Params("ticketID"), actorID, readAll)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	return c.JSON(detail)
 }
 
@@ -144,32 +161,41 @@ func (h *Handlers) ListTenantSupportTicketMessages(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	actorID := delegatedUserID(c)
+
 	readAll, allowed := tenantTicketReadAccess(c)
 	if !allowed || actorID == "" {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket access denied")
 	}
+
 	store, err := h.requireSupportTicketStore()
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.GetSupportTicket(c.Context(), currentTenant.ID, c.Params("ticketID"), actorID, readAll)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	limit, offset, err := parseCursorPagination(c)
 	if err != nil {
 		return err
 	}
+
 	items, err := store.ListSupportTicketMessages(c.Context(), ticket.ID, limit+1, offset)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	next := ""
+
 	if len(items) > limit {
 		items = items[:limit]
 		next = encodeOffsetCursor(offset + limit)
 	}
+
 	return c.JSON(fiber.Map{"data": items, "next_cursor": next})
 }
 
@@ -177,25 +203,32 @@ func (h *Handlers) AddTenantSupportTicketMessage(c *fiber.Ctx) error {
 	if !tenantTicketHasPermission(c, "support_ticket:reply") {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket reply permission required")
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	actorID := delegatedUserID(c)
+
 	readAll, allowed := tenantTicketReadAccess(c)
 	if !allowed || actorID == "" {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket access denied")
 	}
+
 	req, files, err := parseAddSupportTicketMessageRequest(c)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	if strings.TrimSpace(req.Body) == "" && len(files) == 0 {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "message body or attachment is required")
 	}
+
 	if len([]rune(req.Body)) > 10000 {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "message body must not exceed 10000 characters")
 	}
+
 	req.IdempotencyKey = supportIdempotencyKey(c, req.IdempotencyKey)
 	if req.IdempotencyKey == "" {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "idempotency key is required")
@@ -205,16 +238,20 @@ func (h *Handlers) AddTenantSupportTicketMessage(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.GetSupportTicket(c.Context(), currentTenant.ID, c.Params("ticketID"), actorID, readAll)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	uploads, err := h.uploadSupportFiles(c.Context(), currentTenant.ID, ticket.ID, files)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	req.NextStatus = ""
 	req.RequestHash = hashSupportRequest(req, uploads)
+
 	detail, replay, err := store.AddSupportTicketMessage(
 		c.Context(),
 		currentTenant.ID,
@@ -229,47 +266,59 @@ func (h *Handlers) AddTenantSupportTicketMessage(c *fiber.Ctx) error {
 		h.deleteSupportUploads(uploads)
 		return mapSupportTicketError(c, err)
 	}
+
 	if replay {
 		h.deleteSupportUploads(uploads)
 		c.Set("Idempotency-Replayed", "true")
 	} else {
 		prommetrics.RecordSupportMessage(platform.SupportTicketAuthorTenantUser)
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(detail)
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *Handlers) RateTenantSupportTicket(c *fiber.Ctx) error {
 	if !tenantTicketHasPermission(c, "support_ticket:rate") {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket rating permission required")
 	}
+
 	currentTenant, err := currentTenantOrErr(c)
 	if err != nil {
 		return err
 	}
+
 	actorID := delegatedUserID(c)
 	if actorID == "" {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "authenticated user context missing")
 	}
+
 	var req platform.RateSupportTicketRequest
 	if err := c.BodyParser(&req); err != nil {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "invalid rating request")
 	}
+
 	if req.Score < 1 || req.Score > 5 || len([]rune(req.Comment)) > 500 {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "score must be between 1 and 5 and comment must not exceed 500 characters")
 	}
+
 	req.IdempotencyKey = supportIdempotencyKey(c, req.IdempotencyKey)
 	if req.IdempotencyKey == "" {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "idempotency key is required")
 	}
+
 	store, err := h.requireSupportTicketStore()
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.RateSupportTicket(c.Context(), currentTenant.ID, c.Params("ticketID"), actorID, req, tenantSupportTicketActor(c))
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	prommetrics.ObserveSupportRating(req.Score)
+
 	return c.JSON(ticket)
 }
 
@@ -278,11 +327,14 @@ func (h *Handlers) DownloadTenantSupportTicketAttachment(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	actorID := delegatedUserID(c)
+
 	readAll, allowed := tenantTicketReadAccess(c)
 	if !allowed || actorID == "" {
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket access denied")
 	}
+
 	return h.downloadSupportTicketAttachment(c, currentTenant.ID, actorID, readAll, tenantSupportTicketActor(c))
 }
 
@@ -291,11 +343,14 @@ func (h *Handlers) ListPlatformSupportTickets(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	params.ReadAll = true
+
 	items, total, err := h.requireSupportTicketStoreAndList(c.Context(), params)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	return c.JSON(platform.SupportTicketListResponse{
 		Data:       items,
 		NextCursor: nextOffsetCursor(params.Offset, len(items), total),
@@ -307,20 +362,25 @@ func (h *Handlers) CountPlatformSupportTickets(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	params.ReadAll = true
+
 	store, err := h.requireSupportTicketStore()
 	if err != nil {
 		return err
 	}
+
 	counts, err := store.CountSupportTickets(c.Context(), params)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	prommetrics.SetSupportStatusCounts(map[string]int{
 		"open": counts.Open, "in_progress": counts.InProgress,
 		"waiting_for_customer": counts.WaitingForCustomer,
 		"resolved":             counts.Resolved, "closed": counts.Closed,
 	})
+
 	return c.JSON(counts)
 }
 
@@ -329,10 +389,12 @@ func (h *Handlers) GetPlatformSupportTicket(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	detail, err := store.GetSupportTicketDetail(c.Context(), "", c.Params("ticketID"), "", true)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	return c.JSON(detail)
 }
 
@@ -341,23 +403,29 @@ func (h *Handlers) ListPlatformSupportTicketMessages(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.GetSupportTicket(c.Context(), "", c.Params("ticketID"), "", true)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	limit, offset, err := parseCursorPagination(c)
 	if err != nil {
 		return err
 	}
+
 	items, err := store.ListSupportTicketMessages(c.Context(), ticket.ID, limit+1, offset)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	next := ""
+
 	if len(items) > limit {
 		items = items[:limit]
 		next = encodeOffsetCursor(offset + limit)
 	}
+
 	return c.JSON(fiber.Map{"data": items, "next_cursor": next})
 }
 
@@ -366,19 +434,24 @@ func (h *Handlers) AddPlatformSupportTicketMessage(c *fiber.Ctx) error {
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	if strings.TrimSpace(req.Body) == "" && len(files) == 0 {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "message body or attachment is required")
 	}
+
 	if len([]rune(req.Body)) > 10000 {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "message body must not exceed 10000 characters")
 	}
+
 	req.IdempotencyKey = supportIdempotencyKey(c, req.IdempotencyKey)
 	if req.IdempotencyKey == "" {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "idempotency key is required")
 	}
+
 	if req.NextStatus == "" {
 		req.NextStatus = platform.SupportTicketStatusInProgress
 	}
+
 	if !validTicketStatus(req.NextStatus) || req.NextStatus == platform.SupportTicketStatusClosed {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "support_ticket_invalid_transition", "invalid next status")
 	}
@@ -387,15 +460,19 @@ func (h *Handlers) AddPlatformSupportTicketMessage(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.GetSupportTicket(c.Context(), "", c.Params("ticketID"), "", true)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	uploads, err := h.uploadSupportFiles(c.Context(), ticket.TenantID, ticket.ID, files)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	req.RequestHash = hashSupportRequest(req, uploads)
+
 	detail, replay, err := store.AddSupportTicketMessage(
 		c.Context(),
 		"",
@@ -410,15 +487,18 @@ func (h *Handlers) AddPlatformSupportTicketMessage(c *fiber.Ctx) error {
 		h.deleteSupportUploads(uploads)
 		return mapSupportTicketError(c, err)
 	}
+
 	if replay {
 		h.deleteSupportUploads(uploads)
 		c.Set("Idempotency-Replayed", "true")
 	} else {
 		prommetrics.RecordSupportMessage(platform.SupportTicketAuthorSupportAgent)
+
 		if ticket.FirstSupportResponseAt == nil && detail.Ticket.FirstSupportResponseAt != nil {
 			prommetrics.ObserveSupportFirstResponse(detail.Ticket.FirstSupportResponseAt.Sub(ticket.CreatedAt))
 		}
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(detail)
 }
 
@@ -427,13 +507,17 @@ func (h *Handlers) TriagePlatformSupportTicket(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "invalid triage request")
 	}
+
 	if req.Status != nil && !validTicketStatus(*req.Status) {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "invalid ticket status")
 	}
+
 	if req.Priority != nil && !validTicketPriority(*req.Priority) {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "invalid ticket priority")
 	}
+
 	actor := platformSupportTicketActor(c)
+
 	if req.AssigneeID != nil {
 		value := strings.TrimSpace(*req.AssigneeID)
 		switch value {
@@ -443,22 +527,27 @@ func (h *Handlers) TriagePlatformSupportTicket(c *fiber.Ctx) error {
 			if actor.ID == "" {
 				return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support agent identity is required")
 			}
+
 			value = actor.ID
 		default:
 			if value != actor.ID {
 				return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "assignee must be the authenticated support agent")
 			}
 		}
+
 		req.AssigneeID = &value
 	}
+
 	req.IdempotencyKey = supportIdempotencyKey(c, req.IdempotencyKey)
 	if req.IdempotencyKey == "" {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "idempotency key is required")
 	}
+
 	store, err := h.requireSupportTicketStore()
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.TriageSupportTicket(c.Context(), c.Params("ticketID"), req, actor)
 	if err != nil {
 		if errors.Is(err, storage.ErrSupportTicketStaleVersion) {
@@ -468,9 +557,12 @@ func (h *Handlers) TriagePlatformSupportTicket(c *fiber.Ctx) error {
 		} else {
 			prommetrics.RecordSupportTransition("error")
 		}
+
 		return mapSupportTicketError(c, err)
 	}
+
 	prommetrics.RecordSupportTransition("success")
+
 	return c.JSON(ticket)
 }
 
@@ -479,18 +571,22 @@ func (h *Handlers) ReopenPlatformSupportTicket(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "invalid reopen request")
 	}
+
 	req.IdempotencyKey = supportIdempotencyKey(c, req.IdempotencyKey)
 	if req.IdempotencyKey == "" {
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "invalid_request", "idempotency key is required")
 	}
+
 	store, err := h.requireSupportTicketStore()
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.ReopenSupportTicket(c.Context(), c.Params("ticketID"), req, platformSupportTicketActor(c))
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	return c.JSON(ticket)
 }
 
@@ -499,23 +595,29 @@ func (h *Handlers) ListPlatformSupportTicketEvents(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	ticket, err := store.GetSupportTicket(c.Context(), "", c.Params("ticketID"), "", true)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	limit, offset, err := parseCursorPagination(c)
 	if err != nil {
 		return err
 	}
+
 	items, err := store.ListSupportTicketEvents(c.Context(), ticket.ID, limit+1, offset)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	next := ""
+
 	if len(items) > limit {
 		items = items[:limit]
 		next = encodeOffsetCursor(offset + limit)
 	}
+
 	return c.JSON(fiber.Map{"data": items, "next_cursor": next})
 }
 
@@ -534,26 +636,36 @@ func (h *Handlers) downloadSupportTicketAttachment(
 	if err != nil {
 		return err
 	}
+
 	attachment, err := store.GetSupportTicketAttachment(c.Context(), tenantID, c.Params("attachmentID"), requesterUserID, readAll)
 	if err != nil {
 		return mapSupportTicketError(c, err)
 	}
+
 	if attachment.ScanStatus != "clean" {
 		prommetrics.RecordSupportAttachment("not_ready")
-		_ = store.RecordSupportTicketAttachmentDownload(c.Context(), attachment, actor, "not_ready")
+
+		_ = store.RecordSupportTicketAttachmentDownload(c.Context(), attachment, actor, "not_ready") //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
+
 		return writeSupportTicketError(c, fiber.StatusLocked, "support_attachment_not_ready", "attachment is not available")
 	}
+
 	if h.supportFiles == nil {
 		prommetrics.RecordSupportAttachment("scan_failed")
 		return writeSupportTicketError(c, fiber.StatusServiceUnavailable, "support_attachment_scan_failed", "attachment storage is not configured")
 	}
+
 	object, err := h.supportFiles.Get(c.Context(), attachment.ObjectKey)
 	if err != nil {
 		prommetrics.RecordSupportAttachment("storage_error")
-		_ = store.RecordSupportTicketAttachmentDownload(c.Context(), attachment, actor, "storage_error")
+
+		_ = store.RecordSupportTicketAttachmentDownload(c.Context(), attachment, actor, "storage_error") //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
+
 		return writeSupportTicketError(c, fiber.StatusBadGateway, "support_attachment_not_ready", "attachment could not be loaded")
 	}
-	_ = store.RecordSupportTicketAttachmentDownload(c.Context(), attachment, actor, "allowed")
+
+	_ = store.RecordSupportTicketAttachmentDownload(c.Context(), attachment, actor, "allowed") //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
+
 	prommetrics.RecordSupportAttachment("downloaded")
 
 	c.Set(fiber.HeaderContentType, attachment.DetectedContentType)
@@ -561,6 +673,7 @@ func (h *Handlers) downloadSupportTicketAttachment(
 	c.Set(fiber.HeaderCacheControl, "private, no-store")
 	c.Set("X-Content-Type-Options", "nosniff")
 	c.Context().SetBodyStream(object.Body, int(attachment.SizeBytes))
+
 	return nil
 }
 
@@ -568,6 +681,7 @@ func (h *Handlers) requireSupportTicketStore() (supportTicketStore, error) {
 	if h.supportTickets == nil {
 		return nil, fiber.NewError(fiber.StatusNotImplemented, "support ticket store not configured")
 	}
+
 	return h.supportTickets, nil
 }
 
@@ -576,6 +690,7 @@ func (h *Handlers) requireSupportTicketStoreAndList(ctx context.Context, params 
 	if err != nil {
 		return nil, 0, err
 	}
+
 	return store.ListSupportTickets(ctx, params)
 }
 
@@ -584,6 +699,7 @@ func parseSupportTicketListParams(c *fiber.Ctx) (platform.SupportTicketListParam
 	if err != nil {
 		return platform.SupportTicketListParams{}, err
 	}
+
 	params := platform.SupportTicketListParams{
 		Queue:      strings.TrimSpace(c.Query("queue")),
 		Status:     strings.TrimSpace(c.Query("status")),
@@ -598,49 +714,63 @@ func parseSupportTicketListParams(c *fiber.Ctx) (platform.SupportTicketListParam
 	if params.Status != "" && !validTicketStatus(params.Status) {
 		return platform.SupportTicketListParams{}, fiber.NewError(fiber.StatusBadRequest, "invalid support ticket status")
 	}
+
 	if params.Category != "" && !validTicketCategory(params.Category) {
 		return platform.SupportTicketListParams{}, fiber.NewError(fiber.StatusBadRequest, "invalid support ticket category")
 	}
+
 	if params.Priority != "" && !validTicketPriority(params.Priority) {
 		return platform.SupportTicketListParams{}, fiber.NewError(fiber.StatusBadRequest, "invalid support ticket priority")
 	}
+
 	if raw := strings.TrimSpace(c.Query("updated_from")); raw != "" {
 		value, parseErr := time.Parse(time.RFC3339, raw)
 		if parseErr != nil {
 			return platform.SupportTicketListParams{}, fiber.NewError(fiber.StatusBadRequest, "updated_from must be RFC3339")
 		}
+
 		params.UpdatedFrom = &value
 	}
+
 	if raw := strings.TrimSpace(c.Query("updated_to")); raw != "" {
 		value, parseErr := time.Parse(time.RFC3339, raw)
 		if parseErr != nil {
 			return platform.SupportTicketListParams{}, fiber.NewError(fiber.StatusBadRequest, "updated_to must be RFC3339")
 		}
+
 		params.UpdatedTo = &value
 	}
+
 	return params, nil
 }
 
 func parseCursorPagination(c *fiber.Ctx) (int, int, error) {
 	limit := defaultSupportTicketPageSize
+
 	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
 		value, err := strconv.Atoi(raw)
 		if err != nil || value <= 0 {
 			return 0, 0, fiber.NewError(fiber.StatusBadRequest, "limit must be a positive integer")
 		}
+
 		if value > maxSupportTicketPageSize {
 			value = maxSupportTicketPageSize
 		}
+
 		limit = value
 	}
+
 	offset := 0
+
 	if raw := strings.TrimSpace(c.Query("cursor")); raw != "" {
 		value, err := decodeOffsetCursor(raw)
 		if err != nil {
 			return 0, 0, fiber.NewError(fiber.StatusBadRequest, "invalid cursor")
 		}
+
 		offset = value
 	}
+
 	return limit, offset, nil
 }
 
@@ -653,10 +783,12 @@ func decodeOffsetCursor(cursor string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	value, err := strconv.Atoi(string(raw))
 	if err != nil || value < 0 {
 		return 0, errors.New("invalid cursor")
 	}
+
 	return value, nil
 }
 
@@ -664,18 +796,23 @@ func nextOffsetCursor(offset, count, total int) string {
 	if offset+count >= total {
 		return ""
 	}
+
 	return encodeOffsetCursor(offset + count)
 }
 
 func parseCreateSupportTicketRequest(c *fiber.Ctx) (platform.CreateSupportTicketRequest, []*multipart.FileHeader, error) {
 	var req platform.CreateSupportTicketRequest
+
 	files, err := parseSupportMultipart(c, &req)
+
 	return req, files, err
 }
 
 func parseAddSupportTicketMessageRequest(c *fiber.Ctx) (platform.AddSupportTicketMessageRequest, []*multipart.FileHeader, error) {
 	var req platform.AddSupportTicketMessageRequest
+
 	files, err := parseSupportMultipart(c, &req)
+
 	return req, files, err
 }
 
@@ -685,23 +822,29 @@ func parseSupportMultipart(c *fiber.Ctx, destination interface{}) ([]*multipart.
 		if err := c.BodyParser(destination); err != nil {
 			return nil, fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 		}
+
 		return nil, nil
 	}
+
 	form, err := c.MultipartForm()
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "invalid multipart request body")
 	}
+
 	payload := strings.TrimSpace(c.FormValue("payload"))
 	if payload == "" {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "multipart payload field is required")
 	}
+
 	if err := json.Unmarshal([]byte(payload), destination); err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "invalid multipart payload")
 	}
+
 	files := form.File["files"]
 	if len(files) > supportfiles.MaxFilesPerMessage {
 		return nil, supportfiles.ErrTooManyFiles
 	}
+
 	return files, nil
 }
 
@@ -710,15 +853,19 @@ func validateCreateSupportTicketRequest(req platform.CreateSupportTicketRequest,
 	if subjectLength < 5 || subjectLength > 160 {
 		return fiber.NewError(fiber.StatusBadRequest, "subject must contain 5 to 160 characters")
 	}
+
 	if !validTicketCategory(req.Category) {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid support ticket category")
 	}
+
 	if len([]rune(req.Body)) > 10000 {
 		return fiber.NewError(fiber.StatusBadRequest, "message body must not exceed 10000 characters")
 	}
+
 	if strings.TrimSpace(req.Body) == "" && fileCount == 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "message body or attachment is required")
 	}
+
 	return nil
 }
 
@@ -726,9 +873,11 @@ func (h *Handlers) uploadSupportFiles(ctx context.Context, tenantID, scope strin
 	if len(files) == 0 {
 		return nil, nil
 	}
+
 	if h.supportFiles == nil {
 		return nil, supportfiles.ErrNotConfigured
 	}
+
 	uploads, err := h.supportFiles.UploadFiles(ctx, tenantID, scope, files)
 	if err != nil {
 		switch {
@@ -737,11 +886,14 @@ func (h *Handlers) uploadSupportFiles(ctx context.Context, tenantID, scope strin
 		default:
 			prommetrics.RecordSupportAttachment("scan_failed")
 		}
+
 		return nil, err
 	}
+
 	for range uploads {
 		prommetrics.RecordSupportAttachment("uploaded")
 	}
+
 	return uploads, nil
 }
 
@@ -749,8 +901,10 @@ func (h *Handlers) deleteSupportUploads(uploads []platform.SupportTicketAttachme
 	if h.supportFiles == nil || len(uploads) == 0 {
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
 	h.supportFiles.DeleteUploads(ctx, uploads)
 }
 
@@ -759,9 +913,11 @@ func supportIdempotencyKey(c *fiber.Ctx, bodyValue string) string {
 	if value == "" {
 		value = strings.TrimSpace(bodyValue)
 	}
+
 	if len(value) > 128 {
 		return ""
 	}
+
 	return value
 }
 
@@ -773,8 +929,10 @@ func hashSupportRequest(value interface{}, uploads []platform.SupportTicketAttac
 	for _, item := range uploads {
 		payload.Attachments = append(payload.Attachments, item.SHA256)
 	}
-	raw, _ := json.Marshal(payload)
+
+	raw, _ := json.Marshal(payload) //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 	hash := sha256.Sum256(raw)
+
 	return hex.EncodeToString(hash[:])
 }
 
@@ -785,10 +943,12 @@ func shortHash(value string) string {
 
 func tenantSupportTicketActor(c *fiber.Ctx) platform.SupportTicketActor {
 	info := auth.GetAuthInfo(c)
+
 	role := ""
 	if info != nil {
 		role = info.Role
 	}
+
 	return platform.SupportTicketActor{
 		Type:      platform.SupportTicketAuthorTenantUser,
 		ID:        delegatedUserID(c),
@@ -810,6 +970,7 @@ func requestID(c *fiber.Ctx) string {
 	if value := strings.TrimSpace(c.Get("x-request-id")); value != "" {
 		return value
 	}
+
 	return apiheaders.GetTraceID(c)
 }
 
@@ -818,12 +979,15 @@ func tenantTicketReadAccess(c *fiber.Ctx) (readAll bool, allowed bool) {
 	if auth.IsTenantAdminOrHigher(info) {
 		return true, true
 	}
+
 	if hasPermissionValue(info, "support_ticket:read_all") {
 		return true, true
 	}
+
 	if hasPermissionValue(info, "support_ticket:read_own") {
 		return false, true
 	}
+
 	return false, false
 }
 
@@ -836,11 +1000,13 @@ func hasPermissionValue(info *platform.AuthContext, permission string) bool {
 	if info == nil {
 		return false
 	}
+
 	for _, value := range info.Permissions {
 		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(permission)) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -885,6 +1051,7 @@ func validTicketCategory(value string) bool {
 func contentDispositionAttachment(filename string) string {
 	filename = strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(filename), "\r", "_"), "\n", "_")
 	escaped := url.QueryEscape(filename)
+
 	return fmt.Sprintf("attachment; filename=\"attachment\"; filename*=UTF-8''%s", escaped)
 }
 
@@ -893,10 +1060,12 @@ func intEnv(key string, fallback int) int {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.Atoi(raw)
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return value
 }
 
@@ -915,6 +1084,7 @@ func mapSupportTicketError(c *fiber.Ctx, err error) error {
 	if errors.As(err, &fiberErr) {
 		return writeSupportTicketError(c, fiberErr.Code, "invalid_request", fiberErr.Message)
 	}
+
 	switch {
 	case errors.Is(err, storage.ErrSupportTicketNotFound):
 		return writeSupportTicketError(c, fiber.StatusNotFound, "support_ticket_not_found", "support ticket not found")

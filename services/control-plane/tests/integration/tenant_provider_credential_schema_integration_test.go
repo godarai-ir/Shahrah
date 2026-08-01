@@ -20,6 +20,7 @@ func TestIntegration_TenantProviderCredentialPlaintextStorageIsRemoved(
 
 	pool, err := pgxpool.New(context.Background(), databaseURL)
 	require.NoError(t, err)
+
 	defer pool.Close()
 
 	var plaintextColumns int

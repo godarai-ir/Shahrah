@@ -32,17 +32,22 @@ func TestGeminiOperationFromRequestUsesFiniteNativeRoutes(t *testing.T) {
 			if err != nil {
 				return err
 			}
+
 			if operation != test.operation || model != test.model || stream != test.stream {
 				t.Fatalf("%s: got operation=%s model=%s stream=%v", test.path, operation, model, stream)
 			}
+
 			return c.SendStatus(http.StatusNoContent)
 		})
+
 		request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 		request.Header.Set("Content-Type", "application/json")
+
 		response, err := app.Test(request)
 		if err != nil || response.StatusCode != http.StatusNoContent {
 			t.Fatalf("%s failed: status=%v err=%v", test.path, response.StatusCode, err)
 		}
+
 		_ = response.Body.Close()
 	}
 }
@@ -64,9 +69,11 @@ func TestParseGeminiNativeUsagePreservesModalitiesThinkingTierAndSearch(t *testi
 	if usage == nil || usage.PromptTokens != 12 || usage.CompletionTokens != 10 || usage.CacheReadInputTokens != 4 || usage.ServiceTier != "priority" {
 		t.Fatalf("unexpected Gemini usage: %+v", usage)
 	}
+
 	if usage.PromptTokensDetails == nil || usage.PromptTokensDetails.ImageTokens != 5 || usage.CompletionTokensDetails == nil || usage.CompletionTokensDetails.AudioTokens != 6 {
 		t.Fatalf("missing modality details: %+v", usage)
 	}
+
 	if usage.ServerToolUse["google_search_queries"] != 2 {
 		t.Fatalf("missing Google Search usage: %+v", usage.ServerToolUse)
 	}
@@ -79,14 +86,18 @@ func TestGeminiOperationFromRequestRejectsArbitraryActions(t *testing.T) {
 		if err == nil {
 			t.Fatal("arbitrary operation was accepted")
 		}
+
 		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	})
-	response, err := app.Test(httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-3.6-flash:arbitrary", nil))
+
+	response, err := app.Test(httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-3.6-flash:arbitrary", http.NoBody))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer response.Body.Close()
+
 	body, _ := io.ReadAll(response.Body)
-	if response.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), "Unsupported Gemini model operation") {
+	if response.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), "unsupported Gemini model operation") {
 		t.Fatalf("unexpected response: %d %s", response.StatusCode, body)
 	}
 }
@@ -98,12 +109,16 @@ func TestGeminiOperationFromRequestRejectsWrongMethodForModelAction(t *testing.T
 		if err == nil {
 			t.Fatal("GET model action was accepted")
 		}
+
 		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	})
-	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/v1beta/models/gemini-3.6-flash:generateContent", nil))
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/v1beta/models/gemini-3.6-flash:generateContent", http.NoBody))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer response.Body.Close()
+
 	body, _ := io.ReadAll(response.Body)
 	if response.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), "require POST") {
 		t.Fatalf("unexpected response: %d %s", response.StatusCode, body)
@@ -114,6 +129,7 @@ func TestGoogleGeminiAllowlistIsExact(t *testing.T) {
 	if len(platform.SupportedGoogleGeminiModelIDs) != 9 {
 		t.Fatalf("allowlist has %d models", len(platform.SupportedGoogleGeminiModelIDs))
 	}
+
 	for _, unsupported := range []string{"gemini-latest", "gemini-3.1-pro-preview-customtools", "gemma-3-27b-it", "veo-3.1"} {
 		if isAllowlistedGoogleGeminiModel(unsupported) {
 			t.Fatalf("unexpected allowlisted model %s", unsupported)

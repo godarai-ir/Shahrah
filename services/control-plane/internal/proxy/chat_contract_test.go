@@ -22,6 +22,7 @@ func TestBuildChatCompletionPayloadPreservesFutureOpenAIFields(t *testing.T) {
 
 	payload, err := buildChatCompletionPayload(request, "gpt-4.1", "")
 	require.NoError(t, err)
+
 	var got map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal(payload, &got))
 	require.JSONEq(t, `"gpt-4.1"`, string(got["model"]))

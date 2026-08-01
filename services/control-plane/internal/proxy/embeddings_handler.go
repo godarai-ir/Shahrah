@@ -202,9 +202,11 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if !supportsEmbeddingsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Embeddings API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+
 	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("embeddings") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI embeddings are disabled", "provider_disabled")
 	}
+
 	if isGoogleGeminiProvider(dep.Provider) {
 		if endpointErr := validateGoogleGeminiRuntimeEndpoint(
 			estimated.ModelRuntimeProfile,
@@ -218,10 +220,12 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 			)
 		}
 	}
+
 	if isMistralProvider(dep.Provider) {
 		if endpointErr := validateMistralJSONParameters(estimated.ModelRuntimeProfile, "embeddings", originalBody); endpointErr != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
 		}
+
 		if endpointErr := validateMistralEmbeddingRequest(originalBody); endpointErr != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
 		}
@@ -231,6 +235,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := strings.TrimSpace(dep.Model)
@@ -265,10 +270,12 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 			"encoding_format":        embeddingEncodingValue(req.EncodingFormat),
 		},
 	}
+
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(dep.Provider, outboundModel, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
+
 	if req.Dimensions != nil {
 		tunnelReq.RequestMetadata["dimensions"] = *req.Dimensions
 	}
@@ -411,11 +418,13 @@ func (h *EmbeddingsHandler) handleSync(
 	setCostHeaders(c, finalCost)
 
 	responseStart := time.Now()
+
 	if contentType := strings.TrimSpace(resp.Headers["Content-Type"]); contentType != "" {
 		c.Set(fiber.HeaderContentType, contentType)
 	} else {
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	}
+
 	err = c.Status(resp.StatusCode).Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceEmbeddingResponsePayload(response),
@@ -520,10 +529,12 @@ func normalizeEmbeddingInput(input interface{}) (interface{}, error) {
 
 		allStrings := true
 		allTokenArrays := true
+
 		for _, item := range v {
 			if s, ok := item.(string); !ok || strings.TrimSpace(s) == "" {
 				allStrings = false
 			}
+
 			nested, ok := item.([]interface{})
 			if !ok || len(nested) == 0 || !allEmbeddingTokens(nested) {
 				allTokenArrays = false
@@ -551,6 +562,7 @@ func allEmbeddingTokens(values []interface{}) bool {
 			return false
 		}
 	}
+
 	return len(values) > 0
 }
 
@@ -569,6 +581,7 @@ func supportsEmbeddingsProvider(provider string) bool {
 
 func modelSupportsCustomDimensions(model string) bool {
 	model = providerModelID(model)
+
 	return model == "text-embedding-3-small" ||
 		model == "text-embedding-3-large" ||
 		model == "codestral-embed-2505" ||

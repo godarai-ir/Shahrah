@@ -141,14 +141,18 @@ func providerPayloadLimitMiddleware() fiber.Handler {
 			batchLimit  = int64(256 * 1024 * 1024)
 			fileLimit   = int64(500 * 1024 * 1024)
 		)
+
 		limit := normalLimit
+
 		path := strings.ToLower(c.Path())
 		if strings.HasPrefix(path, "/v1/messages/batches") {
 			limit = batchLimit
 		}
+
 		if path == "/v1/files" && c.Method() == fiber.MethodPost {
 			limit = fileLimit
 		}
+
 		contentLength := int64(c.Request().Header.ContentLength())
 		if contentLength > limit {
 			if c.Get("anthropic-version") != "" {
@@ -160,6 +164,7 @@ func providerPayloadLimitMiddleware() fiber.Handler {
 					},
 				})
 			}
+
 			return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
 				"error": fiber.Map{
 					"message": "Request body exceeds the OpenAI Files operation limit.",
@@ -169,6 +174,7 @@ func providerPayloadLimitMiddleware() fiber.Handler {
 				},
 			})
 		}
+
 		return c.Next()
 	}
 }

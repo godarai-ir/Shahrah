@@ -19,9 +19,11 @@ func TestNewResendOTPEmailSenderUsesGodarAINotificationsDefaults(t *testing.T) {
 	if sender.fromEmail != defaultResendFromEmail {
 		t.Fatalf("fromEmail = %q, want %q", sender.fromEmail, defaultResendFromEmail)
 	}
+
 	if sender.fromName != defaultResendFromName {
 		t.Fatalf("fromName = %q, want %q", sender.fromName, defaultResendFromName)
 	}
+
 	if sender.replyTo != defaultResendReplyTo {
 		t.Fatalf("replyTo = %q, want %q", sender.replyTo, defaultResendReplyTo)
 	}

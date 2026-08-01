@@ -12,6 +12,7 @@ import (
 
 func TestValidateXAIChatRuntimeProfileEnforcesModelContract(t *testing.T) {
 	binding := xaiProxyTestRuntimeProfile()
+
 	for name, test := range map[string]struct {
 		raw       string
 		wantError string
@@ -41,10 +42,12 @@ func TestValidateXAIChatRuntimeProfileEnforcesModelContract(t *testing.T) {
 			if err := json.Unmarshal([]byte(test.raw), &request); err != nil {
 				t.Fatal(err)
 			}
+
 			err := validateXAIChatRuntimeProfile(request, &binding)
 			if test.wantError == "" && err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if test.wantError != "" && (err == nil || !strings.Contains(err.Error(), test.wantError)) {
 				t.Fatalf("expected %q, got %v", test.wantError, err)
 			}
@@ -54,6 +57,7 @@ func TestValidateXAIChatRuntimeProfileEnforcesModelContract(t *testing.T) {
 
 func TestRuntimeProfilesFromEstimateIncludesXAI(t *testing.T) {
 	binding := xaiProxyTestRuntimeProfile()
+
 	profiles, err := runtimeProfilesFromEstimate("xai", "grok-4.5-latest", platform.UsageCostBreakdown{
 		PricingRevision:     binding.CatalogRevision,
 		ModelRuntimeProfile: &binding,
@@ -61,6 +65,7 @@ func TestRuntimeProfilesFromEstimateIncludesXAI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(profiles) != 1 || !profiles[0].MatchesModel("grok-4.5-latest") {
 		t.Fatalf("unexpected xAI runtime profile: %+v", profiles)
 	}
@@ -106,6 +111,7 @@ func xaiProxyTestRuntimeProfile() platform.ModelRuntimeProfileBinding {
 			FileBytes:      48 * 1024 * 1024,
 		},
 	}
+
 	return platform.ModelRuntimeProfileBinding{
 		Provider:        "xai",
 		CatalogRevision: "xai-test-revision",

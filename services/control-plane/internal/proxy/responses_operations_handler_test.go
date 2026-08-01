@@ -37,7 +37,9 @@ func (s *responseOperationResources) UpsertProviderNativeResourceMapping(
 	if s.mappings == nil {
 		s.mappings = make(map[string]platform.ProviderNativeResourceMapping)
 	}
+
 	s.mappings[mapping.PublicID] = mapping
+
 	return &mapping, nil
 }
 
@@ -52,12 +54,15 @@ func (s *responseOperationResources) GetProviderNativeResourceMapping(
 	if !ok {
 		return nil, storage.ErrProviderNativeResourceNotFound
 	}
+
 	if mapping.Provider != "" && !strings.EqualFold(mapping.Provider, provider) {
 		return nil, storage.ErrProviderNativeResourceNotFound
 	}
+
 	if mapping.TenantID != "" && mapping.TenantID != tenantID {
 		return nil, storage.ErrProviderNativeResourceNotFound
 	}
+
 	return &mapping, nil
 }
 
@@ -72,13 +77,16 @@ func (s *responseOperationResources) UpdateProviderNativeResourceStatus(
 	if _, ok := s.mappings[publicID]; !ok {
 		return storage.ErrProviderNativeResourceNotFound
 	}
+
 	if s.statuses == nil {
 		s.statuses = make(map[string]string)
 	}
+
 	s.statuses[publicID] = status
 	mapping := s.mappings[publicID]
 	mapping.Status = status
 	s.mappings[publicID] = mapping
+
 	return nil
 }
 
@@ -160,6 +168,7 @@ func newResponseOperationsTestApp(
 			Slug:   "a",
 			Status: "active",
 		})
+
 		return c.Next()
 	})
 	app.Post("/v1/responses", h.Handle)
@@ -184,6 +193,7 @@ func newResponseOperationsTestApp(
 	app.Get("/v1/files/:file_id/content", h.HandleFileContent)
 	app.Post("/v1/files/:file_id/public-url", h.HandleFilePublicURLCreate)
 	app.Post("/v1/files/:file_id/public-url/revoke", h.HandleFilePublicURLRevoke)
+
 	return app
 }
 
@@ -207,11 +217,14 @@ func TestOpenAIFileCreateUsesRawTunnelAndRecordsAffinity(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
+
 	require.NoError(t, err)
 	defer closeResponseBody(t, resp)
+
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, platform.ProviderOperationOpenAIFilesCreate, tunnel.lastReq.Operation)
 	assert.Equal(t, requestBody, tunnel.rawBody)
+
 	mapping, ok := resources.mappings["file_public"]
 	require.True(t, ok)
 	assert.Equal(t, openAIFileResourceKind, mapping.ResourceKind)
@@ -236,11 +249,13 @@ func TestXAIFileCreateUsesSelectedProviderAndRecordsAffinity(t *testing.T) {
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "xai", tunnel.lastReq.Deployment.Provider)
 	assert.Equal(t, "xai_acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
 	assert.Equal(t, requestBody, tunnel.rawBody)
+
 	mapping, ok := resources.mappings["file_xai"]
 	require.True(t, ok)
 	assert.Equal(t, "xai", mapping.Provider)
@@ -266,6 +281,7 @@ func TestXAIFilePublicURLUsesOwnedFileProvider(t *testing.T) {
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, platform.ProviderOperationXAIFilePublicURLCreate, tunnel.lastReq.Operation)
@@ -278,6 +294,7 @@ func TestXAIFilePublicURLUsesOwnedFileProvider(t *testing.T) {
 func TestXAIFilePublicURLRejectsKnownIneligibleFileMetadata(t *testing.T) {
 	now := time.Date(2026, time.July, 31, 12, 0, 0, 0, time.UTC)
 	shortExpiry := now.Add(90 * time.Minute)
+
 	tests := []struct {
 		name       string
 		mapping    platform.ProviderNativeResourceMapping
@@ -306,6 +323,7 @@ func TestXAIFilePublicURLRejectsKnownIneligibleFileMetadata(t *testing.T) {
 			assert.Contains(t, validateXAIFilePublicURLRequest(&test.mapping, test.expires, now), test.wantReason)
 		})
 	}
+
 	allowed := platform.ProviderNativeResourceMapping{Metadata: map[string]interface{}{
 		"bytes":        int64(50 * 1024 * 1024),
 		"content_type": "image/png",
@@ -334,6 +352,7 @@ func TestXAIFileUpdateUsesFixedOperationAndOwnedAccount(t *testing.T) {
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, platform.ProviderOperationXAIFilesUpdate, tunnel.lastReq.Operation)
@@ -353,14 +372,16 @@ func TestXAIFileListRecordsReturnedFilesForOwnedFollowUpOperations(t *testing.T)
 		Body:       []byte(`{"data":[{"id":"file_existing","bytes":42,"filename":"existing.pdf","expires_at":1780000000}],"pagination_token":"next"}`),
 	}}
 	app := newResponseOperationsTestApp(t, tunnel, resources)
-	req := httptest.NewRequest(http.MethodGet, "/v1/files?limit=20&pagination_token=previous", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/files?limit=20&pagination_token=previous", http.NoBody)
 	req.Header.Set("x-godarai-provider", "xai")
 	req.Header.Set("x-godarai-provider-account", "xai_acct_1")
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
 	mapping, ok := resources.mappings["file_existing"]
 	require.True(t, ok)
 	assert.Equal(t, "xai", mapping.Provider)
@@ -392,8 +413,10 @@ func TestOpenAIBatchOperationsArePublicAndAccountBound(t *testing.T) {
 	}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
+
 	require.NoError(t, err)
 	defer closeResponseBody(t, resp)
+
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, platform.ProviderOperationOpenAIBatchesCreate, tunnel.lastReq.Operation)
 	assert.Equal(t, "acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
@@ -402,6 +425,7 @@ func TestOpenAIBatchOperationsArePublicAndAccountBound(t *testing.T) {
 	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &relayed))
 	require.JSONEq(t, `"file_upstream"`, string(relayed["input_file_id"]))
 	require.JSONEq(t, `{"preserve":true}`, string(relayed["future_field"]))
+
 	mapping, ok := resources.mappings["batch_public"]
 	require.True(t, ok)
 	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
@@ -423,6 +447,7 @@ func TestXAIBatchCreateFailsClosedUntilSettlementIsReady(t *testing.T) {
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
 	assert.Empty(t, tunnel.lastReq.Operation)
@@ -514,17 +539,19 @@ func TestResponsesResourceOperationsArePublicAndAccountBound(t *testing.T) {
 				Body:       []byte(`{"id":"resp_upstream","object":"response","status":"completed"}`),
 			}}
 			app := newResponseOperationsTestApp(t, tunnel, resources)
-			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req := httptest.NewRequest(tt.method, tt.path, http.NoBody)
 			req.Header.Set("X-Client-Request-Id", "client_req_1")
 
 			resp, err := app.Test(req)
 			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			assert.Equal(t, tt.operation, tunnel.lastReq.Operation)
 			assert.Equal(t, "resp_upstream", tunnel.lastReq.OperationInput.ResourceID)
 			assert.Equal(t, "acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
 			assert.Equal(t, "client_req_1", tunnel.lastReq.Headers["X-Client-Request-Id"])
+
 			if tt.assert != nil {
 				tt.assert(t, tunnel.lastReq.OperationInput)
 			}
@@ -538,6 +565,7 @@ func TestResponsesRetrieveSupportsSSEContinuation(t *testing.T) {
 		Data:   []byte("event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n"),
 		IsDone: true,
 	}
+
 	close(stream.chunks)
 
 	resources := &responseOperationResources{mappings: map[string]platform.ProviderNativeResourceMapping{
@@ -553,9 +581,11 @@ func TestResponsesRetrieveSupportsSSEContinuation(t *testing.T) {
 	tunnel := &captureTunnel{stream: stream}
 	app := newResponseOperationsTestApp(t, tunnel, resources)
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/responses/resp_public?stream=true&starting_after=3", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/responses/resp_public?stream=true&starting_after=3", http.NoBody)
+
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
@@ -603,6 +633,7 @@ func TestResponsesBodyOperationsPreserveOfficialPayloads(t *testing.T) {
 
 			resp, err := app.Test(req)
 			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			assert.Equal(t, tt.operation, tunnel.lastReq.Operation)
@@ -610,6 +641,7 @@ func TestResponsesBodyOperationsPreserveOfficialPayloads(t *testing.T) {
 			var original, outbound map[string]interface{}
 			require.NoError(t, json.Unmarshal([]byte(tt.body), &original))
 			require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+
 			for key, value := range original {
 				assert.Equal(t, value, outbound[key])
 			}
@@ -640,9 +672,11 @@ func TestResponsesCreatePersistsProviderAccountAffinity(t *testing.T) {
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "create_client_req", tunnel.lastReq.Headers["X-Client-Request-Id"])
+
 	mapping, ok := resources.mappings["resp_created"]
 	require.True(t, ok)
 	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
@@ -682,6 +716,7 @@ func TestResponsesContinuationMayOmitModelAndUsesPreviousResponseAccount(t *test
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
@@ -698,10 +733,12 @@ func TestResponsesStreamingCreatePersistsProviderAccountAffinity(t *testing.T) {
 		Data: []byte("event: response.created\r\ndata: " +
 			`{"type":"response.created","response":{"id":"resp_streamed","model":"gpt-4o","status":"in_progress"}}`),
 	}
+
 	stream.chunks <- platform.TunnelChunk{
 		Data:   []byte("\r\n\r\n"),
 		IsDone: true,
 	}
+
 	close(stream.chunks)
 
 	resources := &responseOperationResources{}
@@ -715,6 +752,7 @@ func TestResponsesStreamingCreatePersistsProviderAccountAffinity(t *testing.T) {
 
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_, err = io.ReadAll(resp.Body)

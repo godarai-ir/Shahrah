@@ -8,6 +8,7 @@ import (
 
 func TestValidateCreateSupportTicketRequest(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name      string
 		request   platform.CreateSupportTicketRequest
@@ -24,6 +25,7 @@ func TestValidateCreateSupportTicketRequest(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			err := validateCreateSupportTicketRequest(test.request, test.fileCount)
 			if (err != nil) != test.wantError {
 				t.Fatalf("validateCreateSupportTicketRequest() error = %v wantError=%v", err, test.wantError)
@@ -34,11 +36,14 @@ func TestValidateCreateSupportTicketRequest(t *testing.T) {
 
 func TestOffsetCursorRoundTripAndRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
+
 	cursor := encodeOffsetCursor(75)
+
 	offset, err := decodeOffsetCursor(cursor)
 	if err != nil || offset != 75 {
 		t.Fatalf("cursor round trip got offset=%d err=%v", offset, err)
 	}
+
 	if _, err := decodeOffsetCursor("not-a-cursor"); err == nil {
 		t.Fatal("expected invalid cursor to be rejected")
 	}

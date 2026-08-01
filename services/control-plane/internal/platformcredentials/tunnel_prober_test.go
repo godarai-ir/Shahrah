@@ -23,6 +23,7 @@ func (t *metadataProbeTunnel) Proxy(
 		"X-GodarAI-Anthropic-WIF-Refreshed-At": "2026-07-29T11:00:00Z",
 		"X-GodarAI-Anthropic-WIF-Scopes":       "workspace:developer workspace:inference",
 	}
+
 	switch request.Operation {
 	case platform.ProviderOperationAnthropicModelsList:
 		return &platform.TunnelResponse{
@@ -53,8 +54,10 @@ func (t *metadataProbeTunnel) Healthy(context.Context) error { return nil }
 
 func TestTunnelCredentialProberReturnsSanitizedWIFMetadata(t *testing.T) {
 	t.Parallel()
+
 	tunnel := &metadataProbeTunnel{}
 	prober := NewTunnelCredentialProber(tunnel)
+
 	ok, category, _, metadata := prober.ProbeDetailed(
 		context.Background(),
 		EncryptedCredential{
@@ -74,17 +77,21 @@ func TestTunnelCredentialProberReturnsSanitizedWIFMetadata(t *testing.T) {
 	if !ok || category != "ok" {
 		t.Fatalf("probe failed: ok=%v category=%q", ok, category)
 	}
+
 	if len(tunnel.calls) != 3 {
 		t.Fatalf("expected three capability probes, got %d", len(tunnel.calls))
 	}
+
 	if metadata.WIFExpiresAt == nil ||
 		!metadata.WIFExpiresAt.Equal(time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)) {
 		t.Fatalf("unexpected expiry: %#v", metadata.WIFExpiresAt)
 	}
+
 	if metadata.WIFRefreshedAt == nil ||
 		!metadata.WIFRefreshedAt.Equal(time.Date(2026, 7, 29, 11, 0, 0, 0, time.UTC)) {
 		t.Fatalf("unexpected refresh time: %#v", metadata.WIFRefreshedAt)
 	}
+
 	if len(metadata.WIFScopes) != 2 ||
 		metadata.WIFScopes[0] != "workspace:developer" ||
 		metadata.WIFScopes[1] != "workspace:inference" {

@@ -49,10 +49,12 @@ func TestValidateProviderAPIKeySupportsSambaNova(t *testing.T) {
 
 func TestValidateProviderAPIKeySupportsXAI(t *testing.T) {
 	var gotAuth string
+
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		gotAuth = r.Header.Get("Authorization")
 		assert.Equal(t, "api.x.ai", r.URL.Host)
 		assert.Equal(t, "/v1/models", r.URL.Path)
+
 		return jsonResponse(http.StatusOK, `{"data":[],"object":"list"}`), nil
 	})}
 
@@ -126,6 +128,7 @@ func TestMistralCanonicalCredentialProbeUsesBearerModelsEndpoint(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		assert.Equal(t, "https://api.mistral.ai/v1/models", req.URL.String())
 		assert.Equal(t, "Bearer mistral-key-1234", req.Header.Get("Authorization"))
+
 		return jsonResponse(http.StatusOK, `{"data":[]}`), nil
 	})}
 

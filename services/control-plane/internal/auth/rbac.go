@@ -143,6 +143,7 @@ func checkAPIV1PublicRouteAuthorization(method, route string, authInfo *platform
 		if strings.HasPrefix(route, "/api/v1/support/") {
 			return true, checkSupportTicketRouteAuthorization(method, route, authInfo)
 		}
+
 		return false, nil
 	}
 }
@@ -164,6 +165,7 @@ func checkSupportTicketRouteAuthorization(method, route string, authInfo *platfo
 		if normalizedRoute == "/api/v1/support/tickets" && hasPermission(authInfo, "support_ticket:create") {
 			return nil
 		}
+
 		if strings.HasSuffix(normalizedRoute, "/messages") && hasPermission(authInfo, "support_ticket:reply") {
 			return nil
 		}

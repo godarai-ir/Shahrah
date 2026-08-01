@@ -55,11 +55,14 @@ func (s *Store) writeTenantCredentialVersion(
 		AuthMode:            strings.TrimSpace(authMode),
 		SchemaVersion:       1,
 	}
+
 	encrypted, err := s.tenantCredentialStore.Encrypt(binding, secrets)
 	if err != nil {
 		return "", err
 	}
+
 	verified, err := s.tenantCredentialStore.Decrypt(encrypted)
+
 	fingerprintCheck, fingerprintErr := s.tenantCredentialStore.Encrypt(
 		binding,
 		secrets,
@@ -74,6 +77,7 @@ func (s *Store) writeTenantCredentialVersion(
 		clear(verified)
 		return "", platformcredentials.ErrDecryptFailed
 	}
+
 	clear(verified)
 
 	if _, err := tx.Exec(ctx, `
@@ -83,6 +87,7 @@ func (s *Store) writeTenantCredentialVersion(
 	`, accountID); err != nil {
 		return "", err
 	}
+
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO tenant_provider_account_credential_versions (
 			credential_version_id, tenant_id, account_id, provider, auth_mode,
@@ -97,6 +102,7 @@ func (s *Store) writeTenantCredentialVersion(
 		encrypted.Fingerprint, encrypted.DisplayHint); err != nil {
 		return "", err
 	}
+
 	if _, err := tx.Exec(ctx, `
 		UPDATE tenant_provider_accounts
 		SET active_credential_version_id = $3,
@@ -126,11 +132,13 @@ func (s *Store) clearTenantCredentialVersion(
 	`, tenantID, accountID); err != nil {
 		return err
 	}
+
 	_, err := tx.Exec(ctx, `
 		UPDATE tenant_provider_account_credential_versions
 		SET status = 'revoked', revoked_at = NOW()
 		WHERE account_id = $1 AND status IN ('active', 'retiring')
 	`, accountID)
+
 	return err
 }
 
@@ -154,6 +162,7 @@ func (s *Store) resolveTenantProviderAccountAPIKey(
 	}
 
 	var row encryptedRow
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT v.credential_version_id::text, v.version, v.provider, v.auth_mode,
 		       v.schema_version, v.ciphertext, v.data_nonce, v.wrapped_dek,
@@ -173,18 +182,22 @@ func (s *Store) resolveTenantProviderAccountAPIKey(
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
+
 	if err != nil {
 		return "", err
 	}
+
 	if s.tenantCredentialStore == nil {
 		return "", ErrTenantCredentialEncryptionUnavailable
 	}
 
 	cacheKey := fmt.Sprintf("%s:%s:%s:%d", tenantID, accountID, row.versionID, row.version)
 	now := time.Now()
+
 	s.tenantCredentialCacheMu.Lock()
 	cached, ok := s.tenantCredentialCache[cacheKey]
 	s.tenantCredentialCacheMu.Unlock()
+
 	if ok && cached.expiresAt.After(now) {
 		return cached.apiKey, nil
 	}
@@ -207,12 +220,15 @@ func (s *Store) resolveTenantProviderAccountAPIKey(
 			KEKVersion:  row.kekVersion,
 			Fingerprint: row.fingerprint,
 		}
+
 		secrets, decryptErr := s.tenantCredentialStore.Decrypt(record)
 		if decryptErr != nil {
 			return "", decryptErr
 		}
+
 		apiKey := strings.TrimSpace(secrets["api_key"])
 		clear(secrets)
+
 		if apiKey == "" {
 			return "", platformcredentials.ErrDecryptFailed
 		}
@@ -221,15 +237,18 @@ func (s *Store) resolveTenantProviderAccountAPIKey(
 		if len(s.tenantCredentialCache) >= maxTenantCredentialCacheEntries {
 			s.tenantCredentialCache = make(map[string]tenantCredentialCacheEntry)
 		}
+
 		s.tenantCredentialCache[cacheKey] = tenantCredentialCacheEntry{
 			apiKey:    apiKey,
 			expiresAt: now.Add(s.tenantCredentialCacheTTL),
 		}
 		s.tenantCredentialCacheMu.Unlock()
+
 		return apiKey, nil
 	})
 	if err != nil {
 		return "", err
 	}
-	return value.(string), nil
+
+	return value.(string), nil //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 }

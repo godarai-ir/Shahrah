@@ -177,6 +177,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 	estimated := estimateImageCostFallback(requestedModel, metadata)
 	metadata["estimated_image_input_tokens"] = estimatedImageInputTokens(outboundModel, metadata)
+
 	estimated.Metadata = metadata
 	if usage := estimatedImageUsage(outboundModel, metadata); usage != nil {
 		finalizedEstimate, finalizeErr := h.billing.FinalizeImageUsage(
@@ -192,10 +193,12 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 		estimated = finalizedEstimate
 	}
+
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	if strings.EqualFold(strings.TrimSpace(dep.Provider), "xai") {
 		if validationErr := validateXAIImageRuntimeProfile(
 			op.Name,
@@ -207,6 +210,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 			return writeAPIErrorDetail(c, fiber.StatusBadRequest, validationErr.Error(), "invalid_request_error", param, code)
 		}
 	}
+
 	if isGoogleGeminiProvider(dep.Provider) {
 		if op.Name != "generations" {
 			return writeAPIError(
@@ -216,6 +220,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 				"invalid_request_error",
 			)
 		}
+
 		if endpointErr := validateGoogleGeminiRuntimeEndpoint(
 			estimated.ModelRuntimeProfile,
 			"image_generations",
@@ -306,6 +311,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
 	}
+
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
 		dep.Provider,
 		outboundModel,
@@ -314,6 +320,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "model_profile_error")
 	}
+
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 	if strings.EqualFold(strings.TrimSpace(tunnelReq.Deployment.Provider), "xai") && isJSONContentType(outboundContentType) {
 		tunnelReq.Body, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, tunnelReq.Deployment.ProviderAccountID, tunnelReq.Body)
@@ -476,6 +483,7 @@ func (h *ImagesHandler) recordXAIImageFileOutputs(c *fiber.Ctx, tenantID string,
 	if h.resources == nil || strings.TrimSpace(deployment.ProviderAccountID) == "" {
 		return
 	}
+
 	var response struct {
 		Data []struct {
 			FileOutput *struct {
@@ -488,27 +496,34 @@ func (h *ImagesHandler) recordXAIImageFileOutputs(c *fiber.Ctx, tenantID string,
 			} `json:"file_output"`
 		} `json:"data"`
 	}
+
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
+
 	if decoder.Decode(&response) != nil {
 		return
 	}
+
 	for _, item := range response.Data {
 		if item.FileOutput == nil || strings.TrimSpace(item.FileOutput.FileID) == "" {
 			continue
 		}
+
 		metadata := map[string]interface{}{"deployment_id": deployment.ID, "source": "imagine"}
 		copyStringMetadata(metadata, "filename", item.FileOutput.Filename)
 		copyStringMetadata(metadata, "public_url", item.FileOutput.PublicURL)
 		copyStringMetadata(metadata, "public_url_error", item.FileOutput.PublicURLError)
 		copyNumberMetadata(metadata, "expires_at", item.FileOutput.ExpiresAt)
 		copyNumberMetadata(metadata, "public_url_expires_at", item.FileOutput.PublicURLExpiresAt)
+
 		var expiresAt *time.Time
+
 		if unix, ok := numberInt64(item.FileOutput.ExpiresAt); ok {
 			value := time.Unix(unix, 0).UTC()
 			expiresAt = &value
 		}
-		_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), platform.ProviderNativeResourceMapping{
+
+		_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), platform.ProviderNativeResourceMapping{ //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 			PublicID: item.FileOutput.FileID, TenantID: tenantID, Provider: "xai",
 			ProviderAccountID: deployment.ProviderAccountID, ResourceKind: openAIFileResourceKind,
 			UpstreamID: item.FileOutput.FileID, Status: "active", Metadata: metadata, ExpiresAt: expiresAt,
@@ -590,6 +605,7 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 			metadata[key] = strings.TrimSpace(v)
 		}
 	}
+
 	if storageOptions, ok := raw["storage_options"]; ok && storageOptions != nil {
 		metadata["storage_options_present"] = true
 	}
@@ -605,13 +621,16 @@ func fillImageJSONMetadata(metadata map[string]interface{}, raw map[string]inter
 	}
 
 	imageCount := 0
+
 	if _, ok := raw["image"]; ok {
 		metadata["image_source_type"] = traceImageSourceType(raw["image"])
 		imageCount += jsonImageCount(raw["image"])
 	}
+
 	if _, ok := raw["images"]; ok {
 		imageCount += jsonImageCount(raw["images"])
 	}
+
 	if imageCount > 0 {
 		metadata["image_count"] = imageCount
 	}
@@ -822,17 +841,6 @@ func providerOutboundModel(requestedModel string, dep *router.Deployment) string
 	}
 
 	return providerModelID(outboundModel)
-}
-
-func rewriteJSONModel(body []byte, model string) ([]byte, error) {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, err
-	}
-
-	raw["model"] = model
-
-	return json.Marshal(raw)
 }
 
 func rewriteMultipartModel(c *fiber.Ctx, contentType string, model string) ([]byte, string, error) {
@@ -1246,8 +1254,10 @@ func withImageResponseMetadata(input map[string]interface{}, body []byte) map[st
 
 func imageUsageCostTicks(body []byte) (int64, bool) {
 	var raw map[string]interface{}
+
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
+
 	if err := decoder.Decode(&raw); err != nil {
 		return 0, false
 	}

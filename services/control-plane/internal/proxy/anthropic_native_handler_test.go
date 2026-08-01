@@ -17,9 +17,11 @@ func TestAnthropicNativeFeatureFlagsAreIndependent(t *testing.T) {
 	if !handler.operationEnabled(platform.ProviderOperationAnthropicMessages) {
 		t.Fatal("messages should remain enabled")
 	}
+
 	if handler.operationEnabled(platform.ProviderOperationAnthropicFilesCreate) {
 		t.Fatal("files should be disabled independently")
 	}
+
 	if !handler.operationEnabled(platform.ProviderOperationAnthropicBatchesCreate) {
 		t.Fatal("batches should remain enabled")
 	}
@@ -32,6 +34,7 @@ func TestAnthropicNativeAccountAllowlist(t *testing.T) {
 	if !handler.accountEnabled("account-enabled") {
 		t.Fatal("allowlisted account should be enabled")
 	}
+
 	if handler.accountEnabled("account-disabled") {
 		t.Fatal("non-allowlisted account should be disabled")
 	}

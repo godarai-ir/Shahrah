@@ -129,6 +129,7 @@ func relayTunnelStreamWithErrorFramer(
 						observe(chunk.Data)
 					}
 				}
+
 				if err := writeBufferedBytes(writer, chunk.Data); err != nil {
 					logger.Warn("failed to write streaming chunk", zap.Error(err), zap.String("request_id", requestID), zap.String("operation", operation))
 
@@ -151,11 +152,13 @@ func relayTunnelStreamWithErrorFramer(
 					framed, err = errorFramer(streamErr)
 				} else {
 					var payload []byte
+
 					payload, err = json.Marshal(contractsopenai.APIError{
 						Error: contractsopenai.ErrorInfo{Message: streamErr.Error(), Type: "streaming_error"},
 					})
 					framed = bytes.Join([][]byte{[]byte("data: "), payload, []byte("\n\n")}, nil)
 				}
+
 				if err != nil {
 					logger.Warn("failed to encode streaming error payload", zap.Error(err), zap.String("request_id", requestID), zap.String("operation", operation))
 

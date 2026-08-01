@@ -89,6 +89,7 @@ func NewDeploymentStore(
 	if len(resolvers) > 0 {
 		store.authResolver = resolvers[0]
 	}
+
 	return store
 }
 
@@ -102,11 +103,13 @@ func (s *DeploymentStore) ResolveProviderAccountAuth(
 		if err != nil || apiKey == "" {
 			return nil, err
 		}
+
 		return &platform.ResolvedProviderAuth{
 			Mode:   string(platform.ProviderAuthModeAPIKey),
 			APIKey: apiKey,
 		}, nil
 	}
+
 	return s.authResolver.ResolveProviderAccountAuth(ctx, tenantID, modelFQN)
 }
 

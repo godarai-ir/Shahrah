@@ -49,8 +49,10 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 			record,
 			secrets,
 		)
+
 		return success, category, summary, ProbeMetadata{}
 	}
+
 	deployment := platform.Deployment{
 		Provider: "anthropic", APIBase: record.BaseURL, APIVersion: record.APIVersion,
 		ConnectionID: record.ConnectionID, CredentialVersionID: record.CredentialVersionID,
@@ -79,10 +81,12 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 	}
 
 	models, headers, category, summary := p.call(ctx, deployment, platform.ProviderOperationAnthropicModelsList, nil)
+
 	metadata := anthropicWIFProbeMetadata(headers)
 	if category != "ok" {
 		return false, category, summary, metadata
 	}
+
 	var modelList struct {
 		Data []struct {
 			ID string `json:"id"`
@@ -92,7 +96,8 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 		strings.TrimSpace(modelList.Data[0].ID) == "" {
 		return false, "provider", "Anthropic Models API returned no probeable model.", metadata
 	}
-	countBody, _ := json.Marshal(map[string]interface{}{
+
+	countBody, _ := json.Marshal(map[string]interface{}{ //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 		"model": modelList.Data[0].ID,
 		"messages": []map[string]interface{}{{
 			"role": "user", "content": "credential scope probe",
@@ -102,14 +107,18 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 		if category == "forbidden" {
 			return false, "missing_scope", "Credential is missing workspace:inference.", metadata
 		}
+
 		return false, category, summary, metadata
 	}
+
 	if _, _, category, summary = p.call(ctx, deployment, platform.ProviderOperationAnthropicFilesList, nil); category != "ok" {
 		if category == "forbidden" {
 			return false, "missing_scope", "Credential is missing workspace:developer.", metadata
 		}
+
 		return false, category, summary, metadata
 	}
+
 	return true, "ok", "Anthropic credential accepted; Models, workspace:inference, and workspace:developer capabilities are available.", metadata
 }
 
@@ -121,6 +130,7 @@ func (p *TunnelCredentialProber) call(ctx context.Context, deployment platform.D
 	if err != nil {
 		return nil, nil, "network", "Anthropic validation could not reach Silk Road."
 	}
+
 	switch {
 	case response.StatusCode >= 200 && response.StatusCode < 300:
 		return response.Body, response.Headers, "ok", ""
@@ -137,6 +147,7 @@ func (p *TunnelCredentialProber) call(ctx context.Context, deployment platform.D
 
 func anthropicWIFProbeMetadata(headers map[string]string) ProbeMetadata {
 	metadata := ProbeMetadata{}
+
 	for name, value := range headers {
 		switch strings.ToLower(strings.TrimSpace(name)) {
 		case "x-godarai-anthropic-wif-expires-at":
@@ -151,5 +162,6 @@ func anthropicWIFProbeMetadata(headers map[string]string) ProbeMetadata {
 			metadata.WIFScopes = strings.Fields(value)
 		}
 	}
+
 	return metadata
 }

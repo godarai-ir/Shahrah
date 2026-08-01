@@ -174,7 +174,7 @@ func TestCatalogPricingSnapshotRejectsDuplicateDimensions(t *testing.T) {
 }
 
 func TestOpenAIRateSelectorIsConditionalAndFailsOnAmbiguity(t *testing.T) {
-	rates := []normalizedPricingRate{
+	rates := []normalizedPricingRate{ //nolint:prealloc // A literal is clearer before the conditional test-only append below.
 		{
 			Dimension: "input_tokens", Unit: "token",
 			UnitPriceUSD: decimal.RequireFromString("0.000001"),

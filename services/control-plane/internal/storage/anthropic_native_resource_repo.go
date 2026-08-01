@@ -23,11 +23,13 @@ func (s *Store) UpsertAnthropicFileMapping(ctx context.Context, mapping platform
 		&mapping.PublicID, &mapping.TenantID, &mapping.ProviderAccountID,
 		&mapping.UpstreamID, &mapping.Status,
 	)
+
 	return &mapping, err
 }
 
 func (s *Store) GetAnthropicFileMapping(ctx context.Context, tenantID, publicID string) (*platform.AnthropicNativeResourceMapping, error) {
 	var mapping platform.AnthropicNativeResourceMapping
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT public_id, tenant_id::text, provider_account_id::text, upstream_id, status
 		FROM anthropic_file_mappings
@@ -39,6 +41,7 @@ func (s *Store) GetAnthropicFileMapping(ctx context.Context, tenantID, publicID 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAnthropicNativeResourceNotFound
 	}
+
 	return &mapping, err
 }
 
@@ -47,10 +50,12 @@ func (s *Store) UpsertAnthropicBatchMapping(ctx context.Context, mapping platfor
 	if err != nil {
 		return nil, err
 	}
+
 	reservation, err := json.Marshal(mapping.Reservation)
 	if err != nil {
 		return nil, err
 	}
+
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO anthropic_batch_mappings (
 			public_id, tenant_id, provider_account_id, upstream_id, status,
@@ -73,12 +78,16 @@ func (s *Store) UpsertAnthropicBatchMapping(ctx context.Context, mapping platfor
 		RETURNING public_id
 	`, mapping.PublicID, mapping.TenantID, mapping.ProviderAccountID, mapping.UpstreamID,
 		mapping.Status, mapping.ReservationID, reservation, mapping.PricingRevision, estimated).Scan(&mapping.PublicID)
+
 	return &mapping, err
 }
 
 func (s *Store) GetAnthropicBatchMapping(ctx context.Context, tenantID, publicID string) (*platform.AnthropicNativeResourceMapping, error) {
-	var mapping platform.AnthropicNativeResourceMapping
-	var estimated, reservation []byte
+	var (
+		mapping                platform.AnthropicNativeResourceMapping
+		estimated, reservation []byte
+	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT public_id, tenant_id::text, provider_account_id::text, upstream_id, status,
 		       COALESCE(reservation_id, ''), reservation_json, COALESCE(pricing_revision, ''),
@@ -93,23 +102,29 @@ func (s *Store) GetAnthropicBatchMapping(ctx context.Context, tenantID, publicID
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAnthropicNativeResourceNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	if len(estimated) > 0 && string(estimated) != "null" && string(estimated) != "{}" {
 		var breakdown platform.UsageCostBreakdown
 		if err := json.Unmarshal(estimated, &breakdown); err != nil {
 			return nil, err
 		}
+
 		mapping.EstimatedUsage = &breakdown
 	}
+
 	if len(reservation) > 0 && string(reservation) != "null" {
 		var value platform.BudgetReservation
 		if err := json.Unmarshal(reservation, &value); err != nil {
 			return nil, err
 		}
+
 		mapping.Reservation = &value
 	}
+
 	return &mapping, nil
 }
 
@@ -124,6 +139,7 @@ func (s *Store) UpdateAnthropicBatchStatus(ctx context.Context, tenantID, public
 		    END
 		WHERE tenant_id = $1 AND public_id = $2
 	`, tenantID, publicID, status)
+
 	return err
 }
 
@@ -131,6 +147,7 @@ func (s *Store) ListPendingAnthropicBatchMappings(ctx context.Context, limit int
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT public_id, tenant_id::text, provider_account_id::text, upstream_id, status,
 		       COALESCE(reservation_id, ''), reservation_json,
@@ -144,10 +161,14 @@ func (s *Store) ListPendingAnthropicBatchMappings(ctx context.Context, limit int
 		return nil, err
 	}
 	defer rows.Close()
+
 	out := make([]platform.AnthropicNativeResourceMapping, 0)
+
 	for rows.Next() {
-		var mapping platform.AnthropicNativeResourceMapping
-		var reservation, estimated []byte
+		var (
+			mapping                platform.AnthropicNativeResourceMapping
+			reservation, estimated []byte
+		)
 		if err := rows.Scan(
 			&mapping.PublicID, &mapping.TenantID, &mapping.ProviderAccountID,
 			&mapping.UpstreamID, &mapping.Status, &mapping.ReservationID,
@@ -155,21 +176,27 @@ func (s *Store) ListPendingAnthropicBatchMappings(ctx context.Context, limit int
 		); err != nil {
 			return nil, err
 		}
+
 		if len(reservation) > 0 && string(reservation) != "null" {
 			var value platform.BudgetReservation
 			if err := json.Unmarshal(reservation, &value); err != nil {
 				return nil, err
 			}
+
 			mapping.Reservation = &value
 		}
+
 		if len(estimated) > 0 && string(estimated) != "null" && string(estimated) != "{}" {
 			var value platform.UsageCostBreakdown
 			if err := json.Unmarshal(estimated, &value); err != nil {
 				return nil, err
 			}
+
 			mapping.EstimatedUsage = &value
 		}
+
 		out = append(out, mapping)
 	}
+
 	return out, rows.Err()
 }

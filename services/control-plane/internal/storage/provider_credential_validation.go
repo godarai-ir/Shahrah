@@ -126,6 +126,7 @@ func openAIModelsProbe(providerConfig map[string]interface{}) (providerCredentia
 	if err != nil {
 		return providerCredentialProbe{}, false, err
 	}
+
 	return providerCredentialProbe{
 		url: strings.TrimRight(apiBase, "/") + "/models",
 		headers: func(apiKey string) map[string]string {
@@ -133,16 +134,18 @@ func openAIModelsProbe(providerConfig map[string]interface{}) (providerCredentia
 			if value := providerConfigText(providerConfig, "organization"); value != "" {
 				headers["OpenAI-Organization"] = value
 			}
+
 			if value := providerConfigText(providerConfig, "project"); value != "" {
 				headers["OpenAI-Project"] = value
 			}
+
 			return headers
 		},
 	}, true, nil
 }
 
 func providerConfigText(config map[string]interface{}, key string) string {
-	value, _ := config[key].(string)
+	value, _ := config[key].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 	return strings.TrimSpace(value)
 }
 
@@ -250,22 +253,6 @@ var (
 	bearerTokenPattern = regexp.MustCompile(`(?i)Bearer\s+[A-Za-z0-9._~+/=-]+`)
 	apiKeyPattern      = regexp.MustCompile(`(?i)(sk|gsk|mistral|together)[-_][A-Za-z0-9._~+/=-]{8,}`)
 )
-
-func credentialHintFromMap(credentials map[string]interface{}) string {
-	if apiKey, ok := credentials["api_key"].(string); ok {
-		return maskCredentialHint(apiKey)
-	}
-
-	if secretRef, ok := credentials["secret_ref"].(string); ok && strings.TrimSpace(secretRef) != "" {
-		return "secret_ref:" + maskCredentialHint(secretRef)
-	}
-
-	if _, ok := credentials["raw"]; ok {
-		return "configured"
-	}
-
-	return ""
-}
 
 func maskCredentialHint(value string) string {
 	trimmed := strings.TrimSpace(value)

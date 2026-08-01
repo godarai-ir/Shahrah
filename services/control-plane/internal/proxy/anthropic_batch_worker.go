@@ -15,12 +15,16 @@ func (h *AnthropicNativeHandler) RunBatchWorker(ctx context.Context, interval ti
 	if h == nil || h.resources == nil || h.tunnel == nil || !h.batchesEnabled {
 		return
 	}
+
 	if interval <= 0 {
 		interval = 15 * time.Second
 	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
 	h.reconcileAnthropicBatches(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -37,8 +41,10 @@ func (h *AnthropicNativeHandler) reconcileAnthropicBatches(ctx context.Context) 
 		if h.logger != nil {
 			h.logger.Warn("anthropic batch reconciliation failed", zap.Error(err))
 		}
+
 		return
 	}
+
 	for index := range mappings {
 		if err := h.reconcileAnthropicBatch(ctx, &mappings[index]); err != nil && h.logger != nil {
 			h.logger.Warn("anthropic batch item reconciliation failed", zap.Error(err))
@@ -51,6 +57,7 @@ func (h *AnthropicNativeHandler) reconcileAnthropicBatch(ctx context.Context, ma
 	if err != nil {
 		return err
 	}
+
 	request := platform.TunnelRequest{
 		RequestID:      fmt.Sprintf("batch_reconcile_%d", time.Now().UnixNano()),
 		TenantID:       mapping.TenantID,
@@ -58,38 +65,48 @@ func (h *AnthropicNativeHandler) reconcileAnthropicBatch(ctx context.Context, ma
 		OperationInput: platform.ProviderOperationInput{ResourceID: mapping.UpstreamID},
 		Deployment:     *deployment,
 	}
+
 	response, err := h.tunnel.Proxy(ctx, request)
 	if err != nil {
 		return err
 	}
+
 	if response.StatusCode >= 400 {
 		return fmt.Errorf("batch status returned HTTP %d", response.StatusCode)
 	}
+
 	var status struct {
 		ProcessingStatus string `json:"processing_status"`
 	}
 	if err := json.Unmarshal(response.Body, &status); err != nil {
 		return err
 	}
+
 	switch status.ProcessingStatus {
 	case "ended":
 		prommetrics.RecordAnthropicBatchState("ended")
+
 		if mapping.Reservation == nil || mapping.EstimatedUsage == nil {
 			return h.resources.UpdateAnthropicBatchStatus(ctx, mapping.TenantID, mapping.PublicID, "ended")
 		}
+
 		rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
 		if !ok {
 			return fmt.Errorf("raw tunnel streaming is unavailable for batch reconciliation")
 		}
+
 		request.Operation = platform.ProviderOperationAnthropicBatchesResults
+
 		results, err := rawTunnel.ProxyRaw(ctx, request, nil, 0)
 		if err != nil {
 			return err
 		}
-		defer results.Body.Close()
+		defer results.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
+
 		if results.StatusCode >= 400 {
 			return fmt.Errorf("batch results returned HTTP %d", results.StatusCode)
 		}
+
 		return h.finalizeBatchResultsReader(ctx, results.Body, mapping)
 	case "canceling":
 		prommetrics.RecordAnthropicBatchState("canceling")

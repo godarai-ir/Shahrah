@@ -447,6 +447,7 @@ func cloneDeployment(in *Deployment) *Deployment {
 			wif := *in.ProviderAuth.AnthropicWIF
 			providerAuth.AnthropicWIF = &wif
 		}
+
 		out.ProviderAuth = &providerAuth
 	}
 
@@ -527,6 +528,7 @@ func resolvedPlatformProviderAuth(
 			},
 		}
 	}
+
 	return &platform.ResolvedProviderAuth{
 		Mode:   resolved.AuthMode,
 		APIKey: resolved.APIKey,
@@ -945,7 +947,9 @@ func (r *Router) hasProviderAccountCredentialResolver() bool {
 	if _, ok := r.store.(byokAuthResolver); ok {
 		return true
 	}
+
 	_, legacy := r.store.(byokCredentialResolver)
+
 	return legacy
 }
 
@@ -991,21 +995,25 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 	}
 
 	var resolved *platform.ResolvedProviderAuth
+
 	if resolver, ok := r.store.(byokAuthResolver); ok {
 		auth, err := resolver.ResolveProviderAccountAuth(ctx, tenantID, modelName)
 		if err != nil || auth == nil {
 			return dep
 		}
+
 		resolved = auth
 	} else {
 		resolver, ok := r.store.(byokCredentialResolver)
 		if !ok {
 			return dep
 		}
+
 		apiKey, err := resolver.ResolveProviderAccountAPIKey(ctx, tenantID, modelName)
 		if err != nil || strings.TrimSpace(apiKey) == "" {
 			return dep
 		}
+
 		resolved = &platform.ResolvedProviderAuth{
 			Mode:   string(platform.ProviderAuthModeAPIKey),
 			APIKey: apiKey,
@@ -1018,12 +1026,14 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 	}
 
 	cloned := *dep
+
 	cloned.Params = dep.Params
 	if resolved.Mode == string(platform.ProviderAuthModeAPIKey) {
 		cloned.Params.APIKey = resolved.APIKey
 	} else {
 		cloned.Params.APIKey = ""
 	}
+
 	cloned.CredentialSource = platform.CredentialSourceUserBYOK
 	cloned.BillingMode = platform.BillingModeExternalBilled
 	cloned.ProviderAuth = resolved

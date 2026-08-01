@@ -35,6 +35,7 @@ func NewCatalogPricingSnapshotManagerFromEnv(
 	if provider == "" {
 		return nil, fmt.Errorf("%w: snapshot provider is missing", ErrPricingUnavailable)
 	}
+
 	base := strings.TrimRight(
 		strings.TrimSpace(firstNonEmptyEnvironment(
 			"SHAHRAH_MODEL_DISCOVERY_URL",
@@ -45,13 +46,16 @@ func NewCatalogPricingSnapshotManagerFromEnv(
 	if base == "" {
 		return nil, fmt.Errorf("%w: model discovery URL is missing", ErrPricingUnavailable)
 	}
+
 	parsed, err := url.Parse(base)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return nil, fmt.Errorf("%w: model discovery URL is invalid", ErrPricingUnavailable)
 	}
+
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
+
 	return &CatalogPricingSnapshotManager{
 		provider: provider,
 		endpoint: base + "/models/runtime-snapshot/" + url.PathEscape(provider),
@@ -60,32 +64,40 @@ func NewCatalogPricingSnapshotManagerFromEnv(
 	}, nil
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (m *CatalogPricingSnapshotManager) Reload(ctx context.Context) error {
 	if m == nil {
 		return ErrPricingUnavailable
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.endpoint, http.NoBody)
 	if err != nil {
 		return ErrPricingUnavailable
 	}
+
 	resp, err := m.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("%w: %s snapshot fetch failed", ErrPricingUnavailable, m.provider)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
+
 	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024)) //nolint:errcheck // A downstream disconnect is handled by terminating the stream.
 		return fmt.Errorf("%w: %s snapshot HTTP %d", ErrPricingUnavailable, m.provider, resp.StatusCode)
 	}
+
 	var payload discoveryRuntimeSnapshot
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 8*1024*1024)).Decode(&payload); err != nil {
 		return fmt.Errorf("%w: %s snapshot payload is invalid", ErrPricingUnavailable, m.provider)
 	}
+
 	snapshot, err := normalizeCatalogPricingSnapshot(payload, m.provider)
 	if err != nil {
 		return err
 	}
+
 	m.state.Store(snapshot)
+
 	return nil
 }
 
@@ -93,32 +105,37 @@ func (m *CatalogPricingSnapshotManager) Run(ctx context.Context, interval time.D
 	if interval <= 0 {
 		interval = 5 * time.Minute
 	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = m.Reload(ctx)
+			_ = m.Reload(ctx) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		}
 	}
 }
 
-func (m *CatalogPricingSnapshotManager) Price(
+func (m *CatalogPricingSnapshotManager) price(
 	model string,
 ) (anthropicPricingModel, *anthropicPricingSnapshot, error) {
 	if m == nil {
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
+
 	snapshot := m.state.Load()
 	if snapshot == nil || m.now().Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge {
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
+
 	item, ok := snapshot.Models[normalizeCatalogPricingModelID(model, m.provider)]
 	if !ok {
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
+
 	return item, snapshot, nil
 }
 
@@ -126,7 +143,9 @@ func (m *CatalogPricingSnapshotManager) Ready() bool {
 	if m == nil {
 		return false
 	}
+
 	snapshot := m.state.Load()
+
 	return snapshot != nil && m.now().Sub(snapshot.GeneratedAt) <= anthropicPricingMaxAge
 }
 
@@ -140,11 +159,13 @@ func normalizeCatalogPricingSnapshot(
 		len(payload.Models) == 0 {
 		return nil, ErrPricingUnavailable
 	}
+
 	models := make(map[string]anthropicPricingModel, len(payload.Models)*2)
 	for _, item := range payload.Models {
 		if item.RuntimeProfile == nil {
 			return nil, ErrPricingUnavailable
 		}
+
 		runtimeBinding := &platform.ModelRuntimeProfileBinding{
 			Provider:        payload.Provider,
 			CatalogRevision: payload.Revision,
@@ -158,18 +179,22 @@ func normalizeCatalogPricingSnapshot(
 		if err := runtimeBinding.Validate(); err != nil {
 			return nil, ErrPricingUnavailable
 		}
+
 		rates := make(map[string]normalizedPricingRate, len(item.PricingRates))
+
 		rateList := make([]normalizedPricingRate, 0, len(item.PricingRates))
 		for _, input := range item.PricingRates {
 			if input.Currency != "USD" || input.Region != "global" {
 				continue
 			}
+
 			value, err := decimal.NewFromString(input.UnitPriceUSD)
 			if err != nil || value.IsNegative() ||
 				input.Dimension == "" || input.Unit == "" ||
 				input.SourceURL == "" {
 				return nil, ErrPricingUnavailable
 			}
+
 			if _, duplicate := rates[input.Dimension]; duplicate && provider != "openai" && provider != "xai" && provider != "mistral-ai" {
 				return nil, fmt.Errorf(
 					"%w: duplicate %s rate dimension %s",
@@ -178,6 +203,7 @@ func normalizeCatalogPricingSnapshot(
 					input.Dimension,
 				)
 			}
+
 			normalized := normalizedPricingRate{
 				Dimension:     input.Dimension,
 				Unit:          input.Unit,
@@ -188,15 +214,18 @@ func normalizeCatalogPricingSnapshot(
 				EffectiveFrom: input.EffectiveFrom,
 				EffectiveTo:   input.EffectiveTo,
 			}
+
 			rateList = append(rateList, normalized)
 			if current, exists := rates[input.Dimension]; !exists ||
 				(len(current.Condition) > 0 && len(normalized.Condition) == 0) {
 				rates[input.Dimension] = normalized
 			}
 		}
+
 		if provider == "mistral-ai" && !mistralPricingDimensionsComplete(runtimeBinding.Profile, rates) {
 			return nil, fmt.Errorf("%w: incomplete Mistral AI pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
+
 		model := anthropicPricingModel{
 			CanonicalID:    item.CanonicalID,
 			Slug:           item.Slug,
@@ -206,11 +235,13 @@ func normalizeCatalogPricingSnapshot(
 			RateList:       rateList,
 		}
 		models[normalizeCatalogPricingModelID(item.Slug, provider)] = model
+
 		models[normalizeCatalogPricingModelID(item.CanonicalID, provider)] = model
 		for _, alias := range item.RuntimeProfile.Profile.Aliases {
 			models[normalizeCatalogPricingModelID(alias, provider)] = model
 		}
 	}
+
 	return &anthropicPricingSnapshot{
 		Revision:    payload.Revision,
 		GeneratedAt: payload.GeneratedAt,
@@ -226,6 +257,7 @@ func mistralPricingDimensionsComplete(profile platform.ModelRuntimeProfile, rate
 				return false
 			}
 		}
+
 		return true
 	}
 	requireAny := func(dimensions ...string) bool {
@@ -235,8 +267,10 @@ func mistralPricingDimensionsComplete(profile platform.ModelRuntimeProfile, rate
 				return false
 			}
 		}
+
 		return true
 	}
+
 	for _, endpoint := range profile.Endpoints {
 		switch endpoint {
 		case "chat_completions", "fim_completions", "conversations", "agents":
@@ -261,6 +295,7 @@ func mistralPricingDimensionsComplete(profile platform.ModelRuntimeProfile, rate
 			}
 		}
 	}
+
 	return true
 }
 
@@ -270,13 +305,16 @@ func normalizeCatalogPricingModelID(model, provider string) string {
 		parts := strings.SplitN(value, ":", 3)
 		value = parts[2]
 	}
+
 	value = strings.TrimPrefix(value, provider+"/")
 	if provider == "google-gemini" {
 		value = strings.TrimPrefix(value, "gemini/")
 	}
+
 	if provider == "mistral-ai" {
 		value = strings.TrimPrefix(value, "mistral/")
 	}
+
 	return value
 }
 
@@ -286,5 +324,6 @@ func firstNonEmptyEnvironment(keys ...string) string {
 			return value
 		}
 	}
+
 	return ""
 }

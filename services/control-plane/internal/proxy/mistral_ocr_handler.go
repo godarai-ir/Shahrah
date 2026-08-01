@@ -36,48 +36,64 @@ func NewMistralOCRHandlerWithDependencies(deps BaseHandlerDependencies) *Mistral
 
 func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 	startedAt := time.Now()
+
 	if !mistralEndpointEnabled("ocr") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI OCR is disabled", "provider_disabled")
 	}
+
 	authInfo := auth.GetAuthInfo(c)
+
 	currentTenant := tenant.FromContext(c)
 	if authInfo == nil || currentTenant == nil {
 		return writeAPIError(c, fiber.StatusUnauthorized, "Authentication and tenant resolution are required", "authentication_error")
 	}
+
 	authInfo.TenantID = currentTenant.ID
+
 	if !isJSONContentType(c.Get(fiber.HeaderContentType)) {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "application/json content type is required", "invalid_request_error", "request", "unsupported_content_type")
 	}
+
 	body := append([]byte(nil), c.Body()...)
+
 	var request map[string]interface{}
 	if err := json.Unmarshal(body, &request); err != nil || request == nil {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "invalid JSON request body", "invalid_request_error", "request", "invalid_json")
 	}
+
 	requestedModel := normalizeModelIdentifier(stringFromMap(request, "model"))
 	if requestedModel == "" {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, "model is required", "invalid_request_error", "model", "invalid_model")
 	}
+
 	if err := validateMistralOCRRequest(request); err != nil {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error", "request", "invalid_request")
 	}
+
 	if access := modelAccessForType(authInfo, requestedModel, platform.ModelTypeOCR); !access.Allowed {
 		return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for OCR", "authorization_error")
 	}
 
 	pageEstimate := mistralOCRPageEstimate(request)
+
 	dimension := "ocr_input_pages"
 	if mistralOCRUsesAnnotations(request) {
 		dimension = "ocr_annotated_pages"
 	}
+
 	estimated := platform.UsageCostBreakdown{Model: requestedModel, Endpoint: "/v1/ocr", RequestType: "ocr", Metadata: map[string]interface{}{"estimated_pages": pageEstimate, "pricing_dimension": dimension}}
+
 	var err error
+
 	estimated, err = priceMeteredUsage(c.Context(), h.billing, billingEstimateModel(requestedModel), dimension, strconv.Itoa(pageEstimate), estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral OCR pricing is unavailable", "billing_error")
 	}
+
 	if estimated.ModelRuntimeProfile == nil || !estimated.ModelRuntimeProfile.Profile.AllowsEndpoint("ocr") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral OCR runtime profile is unavailable", "runtime_profile_unavailable")
 	}
+
 	for parameter := range request {
 		if !estimated.ModelRuntimeProfile.Profile.AllowsParameter("ocr", parameter) {
 			return writeAPIErrorDetail(c, fiber.StatusBadRequest, fmt.Sprintf("parameter %q is not supported by this Mistral OCR model", parameter), "invalid_request_error", parameter, "unsupported_parameter")
@@ -86,9 +102,11 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, 0)
 	setRateLimitHeaders(c, rateLimit)
+
 	if err != nil {
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
+
 	var deployment *router.Deployment
 	for _, candidate := range modelRoutingCandidates(requestedModel) {
 		deployment, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
@@ -96,38 +114,47 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 			break
 		}
 	}
+
 	if err != nil || deployment == nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "No available deployment for Mistral OCR", "routing_error")
 	}
+
 	if !isMistralProvider(deployment.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, "OCR is only enabled for the Mistral AI provider", "invalid_request_error")
 	}
+
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, deployment)
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	requestID := strings.TrimSpace(c.Get("x-client-request-id"))
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
+
 	reservation, handled, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deployment.BillingMode)
 	if err != nil || handled {
 		return err
 	}
+
 	committed := false
 	defer func() {
 		if !committed {
 			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "ocr_request_not_committed")
 		}
 	}()
+
 	outboundModel := strings.TrimSpace(deployment.Model)
 	if outboundModel == "" || outboundModel == "*" {
 		outboundModel = providerModelID(requestedModel)
 	}
+
 	payload, err := rewriteOpenAIJSONModel(body, providerModelID(outboundModel))
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode OCR request", "invalid_request_error")
 	}
+
 	tunnelRequest := platform.TunnelRequest{
 		RequestID: requestID, TenantID: currentTenant.ID, TraceID: requestID,
 		Operation: platform.ProviderOperationMistralOCR, Deployment: toContractDeployment(deployment),
@@ -136,24 +163,30 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{*estimated.ModelRuntimeProfile},
 	}
 	tunnelRequest.RequestMetadata = enrichRequestMetadataForDeployment(tunnelRequest.RequestMetadata, tunnelRequest.Deployment)
+
 	response, err := h.tunnel.Proxy(c.Context(), tunnelRequest)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Mistral OCR tunnel request failed", "api_error")
 	}
+
 	if response.StatusCode >= fiber.StatusBadRequest {
 		return writeCompatibleProviderError(c, deployment.Provider, response.StatusCode, response.Body, response.Headers)
 	}
+
 	actualPages := mistralOCRResponsePages(response.Body)
 	if actualPages <= 0 {
 		actualPages = pageEstimate
 	}
+
 	finalCost, err := priceMeteredUsage(c.Context(), h.billing, billingModelForDeployment(requestedModel, tunnelRequest.Deployment), dimension, strconv.Itoa(actualPages), estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize Mistral OCR usage", "billing_error")
 	}
+
 	if err := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, reservation, currentTenant.ID, finalCost, requestID, deployment.BillingMode); err != nil {
 		return writeBudgetCheckError(c, err)
 	}
+
 	committed = true
 	responseTimeMS := int(time.Since(startedAt).Milliseconds())
 	logEntry := buildRequestLogEntry(c, authInfo, tunnelRequest.Deployment, requestedModel, "/v1/ocr", "ocr", "success", response.StatusCode, startedAt, responseTimeMS)
@@ -171,6 +204,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		Status: "success", RequestMetadata: enrichPricingMetadata(tunnelRequest.RequestMetadata, authInfo, requestedModel),
 		CompletionStart: startedAt, CompletionEnd: time.Now(),
 	})
+
 	if h.emitMetric != nil {
 		h.emitMetric(metricsobs.BuildInput{
 			TS: time.Now().UTC(), TenantID: authInfo.TenantID, RequestID: requestID,
@@ -179,9 +213,11 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 			CostUSD: finalCost.TotalCostUSD, Metadata: map[string]interface{}{"endpoint": "/v1/ocr", "pages": actualPages, "pricing_dimension": dimension},
 		})
 	}
+
 	forwardProviderHeaders(c, response.Headers)
 	setTraceHeaders(c, requestID)
 	setCostHeaders(c, finalCost)
+
 	return c.Status(response.StatusCode).Send(response.Body)
 }
 
@@ -189,11 +225,13 @@ func mistralOCRPageEstimate(request map[string]interface{}) int {
 	if pages, ok := request["pages"].([]interface{}); ok && len(pages) > 0 {
 		return len(pages)
 	}
+
 	if pages, ok := request["pages"].(string); ok {
 		if count, err := mistralOCRPageSelectionCount(pages); err == nil && count > 0 {
 			return count
 		}
 	}
+
 	return mistralOCRReservationPages
 }
 
@@ -202,8 +240,11 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 	if !ok || len(document) == 0 {
 		return fmt.Errorf("document is required")
 	}
+
 	documentType := strings.ToLower(strings.TrimSpace(stringFromMap(document, "type")))
+
 	var documentField string
+
 	switch documentType {
 	case "file":
 		documentField = "file_id"
@@ -214,6 +255,7 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 	default:
 		return fmt.Errorf("document.type must be one of file, document_url, or image_url")
 	}
+
 	if strings.TrimSpace(stringFromMap(document, documentField)) == "" {
 		return fmt.Errorf("document.%s is required for document.type=%s", documentField, documentType)
 	}
@@ -222,10 +264,12 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 		if _, ok := prompt.(string); !ok {
 			return fmt.Errorf("document_annotation_prompt must be a string")
 		}
+
 		if format, exists := request["document_annotation_format"]; !exists || format == nil {
 			return fmt.Errorf("document_annotation_format is required when document_annotation_prompt is provided")
 		}
 	}
+
 	for _, key := range []string{"bbox_annotation_format", "document_annotation_format"} {
 		if value, exists := request[key]; exists && value != nil {
 			if _, ok := value.(map[string]interface{}); !ok {
@@ -233,6 +277,7 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 			}
 		}
 	}
+
 	for _, key := range []string{"include_image_base64", "extract_header", "extract_footer", "include_blocks"} {
 		if value, exists := request[key]; exists && value != nil {
 			if _, ok := value.(bool); !ok {
@@ -240,6 +285,7 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 			}
 		}
 	}
+
 	for _, key := range []string{"image_limit", "image_min_size"} {
 		if value, exists := request[key]; exists && value != nil {
 			number, ok := value.(float64)
@@ -248,18 +294,21 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 			}
 		}
 	}
+
 	if value, exists := request["table_format"]; exists && value != nil {
 		format, ok := value.(string)
 		if !ok || (format != "markdown" && format != "html") {
 			return fmt.Errorf("table_format must be markdown or html")
 		}
 	}
+
 	if value, exists := request["confidence_scores_granularity"]; exists && value != nil {
 		granularity, ok := value.(string)
 		if !ok || (granularity != "word" && granularity != "page") {
 			return fmt.Errorf("confidence_scores_granularity must be word or page")
 		}
 	}
+
 	if pages, exists := request["pages"]; exists && pages != nil {
 		switch value := pages.(type) {
 		case string:
@@ -270,6 +319,7 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 			if len(value) == 0 {
 				return fmt.Errorf("pages must not be empty")
 			}
+
 			for _, page := range value {
 				number, ok := page.(float64)
 				if !ok || number < 0 || number != float64(int64(number)) {
@@ -280,6 +330,7 @@ func validateMistralOCRRequest(request map[string]interface{}) error {
 			return fmt.Errorf("pages must be a page selection string or an array of integers")
 		}
 	}
+
 	return nil
 }
 
@@ -288,17 +339,22 @@ func mistralOCRPageSelectionCount(selection string) (int, error) {
 	if selection == "" {
 		return 0, fmt.Errorf("pages must not be empty")
 	}
+
 	count := 0
+
 	for _, part := range strings.Split(selection, ",") {
 		part = strings.TrimSpace(part)
+
 		bounds := strings.Split(part, "-")
 		if len(bounds) < 1 || len(bounds) > 2 || strings.TrimSpace(bounds[0]) == "" {
 			return 0, fmt.Errorf("pages must contain comma-separated page numbers or ranges")
 		}
+
 		start, err := strconv.Atoi(strings.TrimSpace(bounds[0]))
 		if err != nil || start < 0 {
 			return 0, fmt.Errorf("pages must contain non-negative page numbers")
 		}
+
 		end := start
 		if len(bounds) == 2 {
 			end, err = strconv.Atoi(strings.TrimSpace(bounds[1]))
@@ -306,11 +362,14 @@ func mistralOCRPageSelectionCount(selection string) (int, error) {
 				return 0, fmt.Errorf("pages contains an invalid range")
 			}
 		}
+
 		if end-start > 100000 || count > 100000-(end-start+1) {
 			return 0, fmt.Errorf("pages selection is too large")
 		}
+
 		count += end - start + 1
 	}
+
 	return count, nil
 }
 
@@ -320,6 +379,7 @@ func mistralOCRUsesAnnotations(request map[string]interface{}) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -328,15 +388,18 @@ func mistralOCRResponsePages(body []byte) int {
 	if json.Unmarshal(body, &response) != nil {
 		return 0
 	}
+
 	if pages, ok := response["pages"].([]interface{}); ok {
 		return len(pages)
 	}
+
 	for _, usageKey := range []string{"usage_info", "usage"} {
 		if usage, ok := response[usageKey].(map[string]interface{}); ok {
-			if pages, ok, _ := numberFromMap(usage, "pages_processed"); ok && pages > 0 {
+			if pages, ok, _ := numberFromMap(usage, "pages_processed"); ok && pages > 0 { //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 				return int(pages)
 			}
 		}
 	}
+
 	return 0
 }

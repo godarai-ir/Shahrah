@@ -81,6 +81,7 @@ func xAITextPriceForTest() priceInfo {
 	rate := func(dimension, value string, condition map[string]interface{}) normalizedPricingRate {
 		return normalizedPricingRate{Dimension: dimension, Unit: "token", UnitPriceUSD: decimal.RequireFromString(value), Condition: condition}
 	}
+
 	return priceInfo{Provider: "xai", RateList: []normalizedPricingRate{
 		rate("input_tokens", "0.000002", nil),
 		rate("output_tokens", "0.000006", nil),

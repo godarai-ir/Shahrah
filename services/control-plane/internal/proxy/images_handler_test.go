@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ func newImagesTestApp(t *testing.T, modelName string, provider string, deploymen
 	if strings.EqualFold(provider, "xai") {
 		b = &xaiImageBudgeter{}
 	}
+
 	return newImagesTestAppWithBudgeter(t, modelName, provider, deploymentModel, tunnel, b, logs, allowedTypes, emitMetric...)
 }
 
@@ -42,9 +44,11 @@ func (b *xaiImageBudgeter) FinalizeImageUsage(ctx context.Context, model string,
 	if err != nil {
 		return finalized, err
 	}
+
 	binding := xaiImageTestRuntimeProfile()
 	finalized.ModelRuntimeProfile = &binding
 	finalized.PricingRevision = binding.CatalogRevision
+
 	return finalized, nil
 }
 
@@ -108,13 +112,17 @@ func TestXAIImageFileOutputsAreRecordedForLaterFilesOperations(t *testing.T) {
 		h.recordXAIImageFileOutputs(c, "tenant_a", platform.Deployment{
 			ID: "dep_xai", Provider: "xai", ProviderAccountID: "acct_xai",
 		}, []byte(`{"data":[{"url":"https://imgen.x.ai/temp","file_output":{"file_id":"file_generated","filename":"result.png","expires_at":1780000000,"public_url":"https://files-cdn.x.ai/token/result.png","public_url_expires_at":1779990000}}]}`))
+
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	resp, err := app.Test(httptest.NewRequest("GET", "/", http.NoBody))
+
 	require.NoError(t, err)
 	defer closeResponseBody(t, resp)
+
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
 	mapping, ok := resources.mappings["file_generated"]
 	require.True(t, ok)
 	assert.Equal(t, "xai", mapping.Provider)
@@ -374,6 +382,7 @@ func TestImagesHandlerValidatesXAIImageControls(t *testing.T) {
 
 			resp, err := app.Test(req)
 			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 			received, readErr := io.ReadAll(resp.Body)
@@ -400,7 +409,12 @@ func TestImagesHandlerRejectsUnsupportedXAIImageSurfaces(t *testing.T) {
 		"multipart edits": {
 			route:       "/v1/images/edits",
 			contentType: "multipart/form-data; boundary=test",
-			body:        []byte("--test\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ngrok-imagine-image\r\n--test\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\nedit\r\n--test\r\nContent-Disposition: form-data; name=\"image\"; filename=\"a.png\"\r\nContent-Type: image/png\r\n\r\na\r\n--test--\r\n"),
+			body: []byte(
+				"--test\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ngrok-imagine-image\r\n" +
+					"--test\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\nedit\r\n" +
+					"--test\r\nContent-Disposition: form-data; name=\"image\"; filename=\"a.png\"\r\n" +
+					"Content-Type: image/png\r\n\r\na\r\n--test--\r\n",
+			),
 			wantMessage: "require application/json",
 		},
 	} {
@@ -412,6 +426,7 @@ func TestImagesHandlerRejectsUnsupportedXAIImageSurfaces(t *testing.T) {
 
 			resp, err := app.Test(req)
 			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 			received, readErr := io.ReadAll(resp.Body)
@@ -653,6 +668,7 @@ func readMultipartFile(t *testing.T, header *multipart.FileHeader) []byte {
 
 func TestImageUsageCostTicksPreservesInt64Precision(t *testing.T) {
 	const expected int64 = 9_007_199_254_740_993
+
 	ticks, ok := imageUsageCostTicks([]byte(`{"usage":{"cost_in_usd_ticks":9007199254740993}}`))
 	require.True(t, ok)
 	require.Equal(t, expected, ticks)

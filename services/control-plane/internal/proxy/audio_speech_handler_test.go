@@ -33,6 +33,7 @@ type rawSpeechTunnel struct {
 func (t *rawSpeechTunnel) ProxyRaw(_ context.Context, req platform.TunnelRequest, body io.Reader, _ int64) (*platform.TunnelRawResponse, error) {
 	t.lastReq = req
 	t.rawBody, _ = io.ReadAll(body)
+
 	return t.rawResp, nil
 }
 
@@ -99,8 +100,10 @@ func TestAudioSpeechHandlerRawBinaryStreaming(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+
 	require.NoError(t, err)
 	defer closeResponseBody(t, resp)
+
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("streamed-mp3"), body)

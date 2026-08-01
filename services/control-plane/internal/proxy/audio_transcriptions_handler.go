@@ -136,6 +136,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 
 	estimated := estimateAudioTranscriptionCostFallback(requestedModel, reqMeta.Metadata)
 	estimated.Metadata = reqMeta.Metadata
+
 	isMistralTranscriptionModel := strings.HasPrefix(strings.ToLower(providerModelID(requestedModel)), "voxtral-mini-")
 	if isMistralTranscriptionModel {
 		estimated, err = priceMeteredUsage(
@@ -150,6 +151,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 			return writeBillingEstimateError(c, err)
 		}
 	}
+
 	quotaStart := time.Now()
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
@@ -217,6 +219,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	if !providerSupport.Supported {
 		return writeAPIError(c, fiber.StatusNotImplemented, providerSupport.Message, "invalid_request_error")
 	}
+
 	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("audio_transcriptions") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio transcriptions are disabled", "provider_disabled")
 	}
@@ -224,16 +227,19 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	if reqMeta.Stream && !providerSupport.Streaming {
 		return writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Streaming audio transcriptions are not supported for provider: %s", dep.Provider), "invalid_request_error")
 	}
+
 	if isMistralProvider(dep.Provider) {
 		if !isMistralTranscriptionModel {
 			return writeAPIError(c, fiber.StatusBadRequest, "selected Mistral model does not support audio transcription", "invalid_request_error")
 		}
+
 		var endpointErr error
 		if isJSONContentType(contentType) {
 			endpointErr = validateMistralJSONParameters(estimated.ModelRuntimeProfile, "audio_transcriptions", body)
 		} else {
 			endpointErr = validateMistralMultipartParameters(estimated.ModelRuntimeProfile, "audio_transcriptions", c)
 		}
+
 		if endpointErr != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
 		}
@@ -243,17 +249,20 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := providerOutboundModel(requestedModel, dep)
 
 	var outboundBody []byte
+
 	outboundContentType := contentType
 	if isJSONContentType(contentType) {
 		outboundBody, err = rewriteOpenAIJSONModel(body, outboundModel)
 	} else {
 		outboundBody, outboundContentType, err = rewriteMultipartModel(c, contentType, outboundModel)
 	}
+
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Invalid audio transcription request body", "invalid_request_error")
 	}
@@ -283,10 +292,12 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		Body:            outboundBody,
 		RequestMetadata: requestMetadata,
 	}
+
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(dep.Provider, outboundModel, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
+
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
@@ -355,8 +366,10 @@ func (h *AudioTranscriptionsHandler) handleSync(
 			return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize audio transcription usage", "billing_error")
 		}
 	}
+
 	if minutes, ok := audioTranscriptionMinutes(resp.Body); ok {
 		dimension, quantity := audioTranscriptionMeteredQuantity(tunnelReq.Deployment.Provider, minutes)
+
 		finalCost, err = priceMeteredUsage(
 			c.Context(),
 			h.billing,
@@ -507,6 +520,7 @@ func (h *AudioTranscriptionsHandler) handleStream(
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
 		streamUsage := &audioTranscriptionStreamUsage{}
 
 		budgetCommitted := false
@@ -522,6 +536,7 @@ func (h *AudioTranscriptionsHandler) handleStream(
 			}
 
 			finalCost := estimated
+
 			var finalizeErr error
 			if !isMistralProvider(tunnelReq.Deployment.Provider) {
 				finalCost, finalizeErr = h.billing.FinalizeFromUsage(requestCtx, billingModelForDeployment(requestedModel, tunnelReq.Deployment), nil, estimated)
@@ -532,8 +547,10 @@ func (h *AudioTranscriptionsHandler) handleStream(
 					finalCost.Model = billingModelForDeployment(requestedModel, tunnelReq.Deployment)
 				}
 			}
+
 			if minutes, ok := streamUsage.Minutes(); ok {
 				dimension, quantity := audioTranscriptionMeteredQuantity(tunnelReq.Deployment.Provider, minutes)
+
 				finalCost, finalizeErr = priceMeteredUsage(
 					requestCtx,
 					h.billing,
@@ -622,10 +639,12 @@ func audioTranscriptionMeteredQuantity(provider, minutes string) (string, string
 	if !isMistralProvider(provider) {
 		return "audio_input_minutes", minutes
 	}
+
 	value, err := strconv.ParseFloat(strings.TrimSpace(minutes), 64)
 	if err != nil || value < 0 {
 		return "audio_input_seconds", "0"
 	}
+
 	return "audio_input_seconds", strconv.FormatFloat(value*60, 'f', -1, 64)
 }
 
@@ -648,6 +667,7 @@ func extractAudioTranscriptionMetadata(c *fiber.Ctx, contentType string) (audioT
 	if isJSONContentType(contentType) {
 		return extractMistralJSONAudioTranscriptionMetadata(c.Body(), metadata)
 	}
+
 	if !isMultipartContentType(contentType) {
 		return metadata, fmt.Errorf("multipart/form-data or application/json content type is required")
 	}
@@ -669,32 +689,40 @@ func extractAudioTranscriptionMetadata(c *fiber.Ctx, contentType string) (audioT
 	isMistral := strings.HasPrefix(modelID, "voxtral-mini-")
 	fileURL := strings.TrimSpace(firstFormValue(form.Value, "file_url"))
 	fileID := strings.TrimSpace(firstFormValue(form.Value, "file_id"))
+
 	sourceCount := 0
 	if len(fileHeaders) > 0 {
 		sourceCount++
 	}
+
 	if fileURL != "" {
 		sourceCount++
 	}
+
 	if fileID != "" {
 		sourceCount++
 	}
+
 	if (!isMistral && len(fileHeaders) == 0) || (isMistral && sourceCount != 1) {
 		if isMistral {
 			return metadata, fmt.Errorf("exactly one of file, file_url, or file_id is required")
 		}
+
 		return metadata, fmt.Errorf("file is required")
 	}
 
 	fillAudioTranscriptionMetadata(metadata.Metadata, form)
+
 	if fileURL != "" {
 		metadata.Metadata["file_source"] = "url"
 		metadata.Metadata["file_url_hash"] = hashTracePreview(fileURL)
 	}
+
 	if fileID != "" {
 		metadata.Metadata["file_source"] = "file_id"
 		metadata.Metadata["file_id_hash"] = hashTracePreview(fileID)
 	}
+
 	if err := validateOpenAIAudioTranscriptionModelFields(model, form); err != nil {
 		return metadata, err
 	}
@@ -753,30 +781,38 @@ func extractMistralJSONAudioTranscriptionMetadata(body []byte, metadata audioTra
 	if err := json.Unmarshal(body, &raw); err != nil || raw == nil {
 		return metadata, fmt.Errorf("invalid JSON request body")
 	}
+
 	model := strings.TrimSpace(stringFromMap(raw, "model"))
 	if model == "" {
 		return metadata, fmt.Errorf("model is required")
 	}
+
 	if !strings.HasPrefix(strings.ToLower(providerModelID(model)), "voxtral-mini-") {
 		return metadata, fmt.Errorf("application/json content type is only supported for Mistral audio transcription models")
 	}
+
 	metadata.Model = model
 
 	fileURL, fileURLExists := raw["file_url"]
+
 	fileID, fileIDExists := raw["file_id"]
 	if _, exists := raw["file"]; exists {
 		return metadata, fmt.Errorf("file uploads require multipart/form-data")
 	}
+
 	urlValue, urlOK := fileURL.(string)
 	idValue, idOK := fileID.(string)
 	urlValue = strings.TrimSpace(urlValue)
 	idValue = strings.TrimSpace(idValue)
+
 	if (fileURLExists && fileURL != nil && !urlOK) || (fileIDExists && fileID != nil && !idOK) {
 		return metadata, fmt.Errorf("file_url and file_id must be strings")
 	}
+
 	if (urlValue == "") == (idValue == "") {
 		return metadata, fmt.Errorf("exactly one of file_url or file_id is required for a JSON request")
 	}
+
 	if urlValue != "" {
 		metadata.Metadata["file_source"] = "url"
 		metadata.Metadata["file_url_hash"] = hashTracePreview(urlValue)
@@ -791,54 +827,67 @@ func extractMistralJSONAudioTranscriptionMetadata(body []byte, metadata audioTra
 			if !ok {
 				return metadata, fmt.Errorf("%s must be a string", key)
 			}
+
 			if text = strings.TrimSpace(text); text != "" {
 				metadata.Metadata[key] = text
 			}
 		}
 	}
+
 	for _, key := range []string{"diarize", "stream"} {
 		if value, exists := raw[key]; exists && value != nil {
 			flag, ok := value.(bool)
 			if !ok {
 				return metadata, fmt.Errorf("%s must be a boolean", key)
 			}
+
 			metadata.Metadata[key] = flag
 			if key == "stream" {
 				metadata.Stream = flag
 			}
 		}
 	}
+
 	if value, exists := raw["temperature"]; exists && value != nil {
 		parsed, ok := value.(float64)
 		if !ok || parsed < 0 || parsed > 1 {
 			return metadata, fmt.Errorf("temperature must be between 0 and 1")
 		}
+
 		metadata.Metadata["temperature"] = parsed
 	}
+
 	for _, key := range []string{"context_bias", "timestamp_granularities"} {
 		value, exists := raw[key]
 		if !exists || value == nil {
 			continue
 		}
+
 		items, ok := value.([]interface{})
 		if !ok {
 			return metadata, fmt.Errorf("%s must be an array of strings", key)
 		}
+
 		values := make([]string, 0, len(items))
 		for _, item := range items {
 			text, ok := item.(string)
 			if !ok || strings.TrimSpace(text) == "" {
 				return metadata, fmt.Errorf("%s must be an array of strings", key)
 			}
+
 			text = strings.TrimSpace(text)
 			if key == "timestamp_granularities" && text != "word" && text != "segment" {
 				return metadata, fmt.Errorf("timestamp_granularities values must be word or segment")
 			}
+
 			values = append(values, text)
 		}
+
 		metadata.Metadata[key] = values
 	}
+
 	metadata.Metadata["response_format"] = metadata.ResponseFormat
+
 	return metadata, nil
 }
 
@@ -851,9 +900,11 @@ func fillAudioTranscriptionMetadata(metadata map[string]interface{}, form *multi
 		metadata["prompt_length"] = len(prompt)
 		metadata["prompt_hash"] = hashTracePreview(prompt)
 	}
+
 	if languages := audioFormArrayValues(form.Value, "languages"); len(languages) > 0 {
 		metadata["languages"] = languages
 	}
+
 	if keywords := audioFormArrayValues(form.Value, "keywords"); len(keywords) > 0 {
 		metadata["keywords_count"] = len(keywords)
 	}
@@ -920,12 +971,15 @@ func validateOpenAIAudioTranscriptionModelFields(
 			}
 		}
 	}
+
 	if modelID == "gpt-transcribe" {
 		language := strings.TrimSpace(firstFormValue(form.Value, "language"))
+
 		languages := audioFormArrayValues(form.Value, "languages")
 		if language != "" && len(languages) > 0 {
 			return fmt.Errorf("language and languages cannot be used together for gpt-transcribe")
 		}
+
 		for _, keyword := range audioFormArrayValues(form.Value, "keywords") {
 			if strings.ContainsAny(keyword, "<>\r\n") {
 				return fmt.Errorf("keywords values cannot contain <, >, carriage returns, or line feeds")
@@ -937,11 +991,14 @@ func validateOpenAIAudioTranscriptionModelFields(
 		if strings.TrimSpace(firstFormValue(form.Value, "prompt")) != "" {
 			return fmt.Errorf("prompt is not supported by gpt-4o-transcribe-diarize")
 		}
+
 		names := audioFormArrayValues(form.Value, "known_speaker_names")
+
 		references := audioFormArrayValues(form.Value, "known_speaker_references")
 		if len(names) > 4 || len(references) > 4 {
 			return fmt.Errorf("known speaker references support at most four speakers")
 		}
+
 		if len(names) != len(references) {
 			return fmt.Errorf("known_speaker_names and known_speaker_references must have the same length")
 		}
@@ -1155,6 +1212,7 @@ func audioTranscriptionMinutes(body []byte) (string, bool) {
 	if !ok {
 		seconds, ok = floatFromAudioUsage(usage, "seconds")
 	}
+
 	if !ok || seconds < 0 {
 		return "", false
 	}
@@ -1194,6 +1252,7 @@ func (usage *audioTranscriptionStreamUsage) Observe(chunk []byte) {
 	if len(chunk) > remaining {
 		chunk = chunk[:remaining]
 	}
+
 	usage.body = append(usage.body, chunk...)
 }
 
@@ -1207,6 +1266,7 @@ func (usage *audioTranscriptionStreamUsage) Minutes() (string, bool) {
 		if !bytes.HasPrefix(line, []byte("data:")) {
 			continue
 		}
+
 		payload := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
 		if minutes, ok := audioTranscriptionMinutes(payload); ok {
 			return minutes, true

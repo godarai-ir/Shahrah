@@ -48,8 +48,11 @@ var routePattern = regexp.MustCompile(`v1\.(Get|Post|Put|Patch|Delete)\("([^"]+)
 var parameterPattern = regexp.MustCompile(`(:[^/]+|\{[^/}]+\})`)
 
 func main() {
-	var baselinePath, routesPath, reportPath, snapshotPath string
-	var allowIncomplete bool
+	var (
+		baselinePath, routesPath, reportPath, snapshotPath string
+		allowIncomplete                                    bool
+	)
+
 	flag.StringVar(&baselinePath, "baseline", "../../packages/contracts/openapi/openai-scoped-routes-db14b6e.json", "SHA-pinned scoped OpenAI route baseline")
 	flag.StringVar(&routesPath, "routes", "internal/server/routes_proxy.go", "GodarAI route registration source")
 	flag.StringVar(&reportPath, "report", "openai-readiness-report.json", "JSON report output")
@@ -62,41 +65,52 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+
 	report.ModelSnapshotPath = snapshotPath
+
 	encoded, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+
 	if err := os.WriteFile(reportPath, encoded, 0o600); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+
 	fmt.Printf("OpenAI contract readiness: %t (%d/%d operations), report=%s\n",
 		report.ContractReady, report.ImplementedCount, report.OfficialCount, reportPath)
+
 	if !report.ContractReady && !allowIncomplete {
 		os.Exit(1)
 	}
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func auditFiles(baselinePath, routesPath string) (readinessReport, error) {
 	var out readinessReport
+
 	baselineBytes, err := os.ReadFile(baselinePath)
 	if err != nil {
 		return out, err
 	}
+
 	var source baseline
 	if err := json.Unmarshal(baselineBytes, &source); err != nil {
 		return out, err
 	}
+
 	if source.Baseline.Commit != officialCommit ||
 		source.Baseline.CommittedAt != officialDate {
 		return out, errors.New("OpenAI baseline commit/date does not match the compiled release gate")
 	}
+
 	routes, err := os.ReadFile(routesPath)
 	if err != nil {
 		return out, err
 	}
+
 	return audit(source.Operations, string(routes)), nil
 }
 
@@ -110,9 +124,11 @@ func audit(official []string, routeSource string) readinessReport {
 	for _, match := range routePattern.FindAllStringSubmatch(openAISource, -1) {
 		implementedRoutes = append(implementedRoutes, strings.ToUpper(match[1])+" "+match[2])
 	}
+
 	implemented := responsesOperationSet(implementedRoutes)
 	missing := difference(expected, implemented)
 	extra := difference(implemented, expected)
+
 	return readinessReport{
 		GeneratedAt:      time.Now().UTC(),
 		OfficialCommit:   officialCommit,
@@ -132,6 +148,7 @@ func audit(official []string, routeSource string) readinessReport {
 func responsesOperationSet(values []string) map[string]struct{} {
 	all := operationSet(values)
 	out := make(map[string]struct{}, 7)
+
 	for operation := range all {
 		parts := strings.SplitN(operation, " ", 2)
 		if len(parts) == 2 &&
@@ -139,6 +156,7 @@ func responsesOperationSet(values []string) map[string]struct{} {
 			out[operation] = struct{}{}
 		}
 	}
+
 	return out
 }
 
@@ -149,6 +167,7 @@ func operationSet(values []string) map[string]struct{} {
 			out[normalized] = struct{}{}
 		}
 	}
+
 	return out
 }
 
@@ -157,18 +176,23 @@ func normalizeOperation(value string) string {
 	if len(parts) != 2 {
 		return ""
 	}
+
 	path := strings.SplitN(strings.TrimSpace(parts[1]), "?", 2)[0]
 	path = parameterPattern.ReplaceAllString(path, "{}")
+
 	return strings.ToUpper(parts[0]) + " " + path
 }
 
 func difference(left, right map[string]struct{}) []string {
 	out := make([]string, 0)
+
 	for value := range left {
 		if _, ok := right[value]; !ok {
 			out = append(out, value)
 		}
 	}
+
 	sort.Strings(out)
+
 	return out
 }

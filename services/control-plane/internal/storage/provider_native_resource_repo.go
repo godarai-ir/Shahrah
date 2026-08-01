@@ -18,24 +18,29 @@ func (s *Store) UpsertProviderNativeResourceMapping(
 	mapping platform.ProviderNativeResourceMapping,
 ) (*platform.ProviderNativeResourceMapping, error) {
 	mapping.Provider = strings.ToLower(strings.TrimSpace(mapping.Provider))
+
 	mapping.ResourceKind = strings.ToLower(strings.TrimSpace(mapping.ResourceKind))
 	if mapping.PublicID == "" || mapping.TenantID == "" ||
 		mapping.Provider == "" || mapping.ProviderAccountID == "" ||
 		mapping.ResourceKind == "" || mapping.UpstreamID == "" {
 		return nil, fmt.Errorf("provider native resource mapping is incomplete")
 	}
+
 	metadata, err := json.Marshal(mapping.Metadata)
 	if err != nil {
 		return nil, err
 	}
+
 	reservation, err := json.Marshal(mapping.Reservation)
 	if err != nil {
 		return nil, err
 	}
+
 	estimated, err := json.Marshal(mapping.EstimatedUsage)
 	if err != nil {
 		return nil, err
 	}
+
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO provider_native_resource_mappings (
 			public_id, tenant_id, provider, provider_account_id, resource_kind,
@@ -64,6 +69,7 @@ func (s *Store) UpsertProviderNativeResourceMapping(
 	if err != nil {
 		return nil, err
 	}
+
 	return &mapping, nil
 }
 
@@ -74,8 +80,11 @@ func (s *Store) GetProviderNativeResourceMapping(
 	resourceKind string,
 	publicID string,
 ) (*platform.ProviderNativeResourceMapping, error) {
-	var mapping platform.ProviderNativeResourceMapping
-	var metadata, reservation, estimated []byte
+	var (
+		mapping                          platform.ProviderNativeResourceMapping
+		metadata, reservation, estimated []byte
+	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT public_id, tenant_id::text, provider, provider_account_id::text,
 		       resource_kind, upstream_id, status, metadata_json,
@@ -94,18 +103,23 @@ func (s *Store) GetProviderNativeResourceMapping(
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrProviderNativeResourceNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err := decodeOptionalJSON(metadata, &mapping.Metadata); err != nil {
 		return nil, err
 	}
+
 	if err := decodeOptionalJSON(reservation, &mapping.Reservation); err != nil {
 		return nil, err
 	}
+
 	if err := decodeOptionalJSON(estimated, &mapping.EstimatedUsage); err != nil {
 		return nil, err
 	}
+
 	return &mapping, nil
 }
 
@@ -126,9 +140,11 @@ func (s *Store) UpdateProviderNativeResourceStatus(
 	if err != nil {
 		return err
 	}
+
 	if tag.RowsAffected() == 0 {
 		return ErrProviderNativeResourceNotFound
 	}
+
 	return nil
 }
 
@@ -136,5 +152,6 @@ func decodeOptionalJSON(raw []byte, target interface{}) error {
 	if len(raw) == 0 || string(raw) == "null" || string(raw) == "{}" {
 		return nil
 	}
+
 	return json.Unmarshal(raw, target)
 }

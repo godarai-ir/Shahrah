@@ -218,6 +218,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 
 		providerConfig := parseJSONObject(providerRaw)
 		settings := parseJSONObject(settingsRaw)
+
 		effectivePricing, pricingErr := effectiveDeploymentPricing(
 			pricingMode,
 			publicPricingRaw,
@@ -226,6 +227,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		if pricingErr != nil {
 			return nil, pricingErr
 		}
+
 		credentialSource := platform.CredentialSourceGodarManagedKey
 		billingMode := platform.BillingModeWalletBilled
 		noCredential := providerAccountUsesNoCredential(provider, authMode)
@@ -235,6 +237,7 @@ func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID str
 		if hasCredential && !platformManagedCredentials && !noCredential {
 			credentialSource = platform.CredentialSourceUserBYOK
 			billingMode = platform.BillingModeExternalBilled
+
 			if strings.EqualFold(authMode, string(platform.ProviderAuthModeAnthropicWIF)) {
 				providerAuth = &platform.ResolvedProviderAuth{
 					Mode: string(platform.ProviderAuthModeAnthropicWIF),
@@ -301,21 +304,26 @@ func documentedProviderHeaders(
 		if value := firstString(config, nil, "organization", "openai_organization"); value != "" {
 			headers["OpenAI-Organization"] = value
 		}
+
 		if value := firstString(config, nil, "project", "openai_project"); value != "" {
 			headers["OpenAI-Project"] = value
 		}
+
 		if len(headers) == 0 {
 			return nil
 		}
+
 		return headers
 	case "anthropic":
 	default:
 		return nil
 	}
+
 	values := providerConfigStringList(config["beta_allowlist"])
 	if len(values) == 0 {
 		return nil
 	}
+
 	return map[string]string{
 		"Anthropic-Beta-Allowlist": strings.Join(values, ","),
 	}
@@ -330,55 +338,71 @@ func effectiveDeploymentPricing(
 		if len(raw) == 0 || string(raw) == "null" {
 			return nil, nil
 		}
+
 		var value platform.ModelPrice
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, err
 		}
+
 		return &value, nil
 	}
+
 	publicPrice, err := decode(publicRaw)
 	if err != nil {
 		return nil, err
 	}
+
 	if !strings.EqualFold(strings.TrimSpace(mode), string(platform.PricingModePrivate)) {
 		return publicPrice, nil
 	}
+
 	privatePrice, err := decode(privateRaw)
 	if err != nil {
 		return nil, err
 	}
+
 	if privatePrice == nil {
 		return nil, nil
 	}
+
 	if publicPrice == nil {
 		return privatePrice, nil
 	}
+
 	merged := *publicPrice
 	merged.Rates = append([]platform.ModelPricingRate(nil), publicPrice.Rates...)
+
 	index := make(map[string]int, len(merged.Rates))
 	for i, rate := range merged.Rates {
 		index[strings.TrimSpace(rate.Key)] = i
 	}
+
 	for _, override := range privatePrice.Rates {
 		key := strings.TrimSpace(override.Key)
+
 		position, ok := index[key]
 		if key == "" || !ok {
 			return nil, fmt.Errorf("private pricing rate %q does not match the public rate card", key)
 		}
+
 		publicRate := merged.Rates[position]
 		if override.Dimension != publicRate.Dimension ||
 			override.Unit != publicRate.Unit {
 			return nil, fmt.Errorf("private pricing rate %q changes immutable rate identity", key)
 		}
+
 		publicRate.UnitPriceUSD = override.UnitPriceUSD
 		merged.Rates[position] = publicRate
 	}
+
 	if privatePrice.InputUSDPer1M != nil {
 		merged.InputUSDPer1M = privatePrice.InputUSDPer1M
 	}
+
 	if privatePrice.OutputUSDPer1M != nil {
 		merged.OutputUSDPer1M = privatePrice.OutputUSDPer1M
 	}
+
 	return &merged, nil
 }
 
@@ -390,6 +414,7 @@ func anthropicProviderHeaders(provider string, config map[string]interface{}) ma
 
 func providerConfigStringList(value interface{}) []string {
 	var input []string
+
 	switch typed := value.(type) {
 	case string:
 		input = strings.Split(typed, ",")
@@ -403,19 +428,24 @@ func providerConfigStringList(value interface{}) []string {
 			}
 		}
 	}
+
 	seen := make(map[string]struct{}, len(input))
+
 	result := make([]string, 0, len(input))
 	for _, item := range input {
 		item = strings.TrimSpace(item)
 		if item == "" {
 			continue
 		}
+
 		if _, ok := seen[item]; ok {
 			continue
 		}
+
 		seen[item] = struct{}{}
 		result = append(result, item)
 	}
+
 	return result
 }
 

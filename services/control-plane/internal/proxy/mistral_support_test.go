@@ -14,9 +14,11 @@ func TestMistralOCRUsageHelpers(t *testing.T) {
 	if pages := mistralOCRPageEstimate(request); pages != 2 {
 		t.Fatalf("estimated pages = %d", pages)
 	}
+
 	if !mistralOCRUsesAnnotations(request) {
 		t.Fatal("annotation pricing was not selected")
 	}
+
 	if pages := mistralOCRResponsePages([]byte(`{"usage_info":{"pages_processed":3}}`)); pages != 3 {
 		t.Fatalf("processed pages = %d", pages)
 	}
@@ -32,6 +34,7 @@ func TestMistralOCRValidatesOfficialRequestContract(t *testing.T) {
 	if err := validateMistralOCRRequest(valid); err != nil {
 		t.Fatalf("valid OCR request was rejected: %v", err)
 	}
+
 	if pages := mistralOCRPageEstimate(valid); pages != 4 {
 		t.Fatalf("page selection estimate = %d, want 4", pages)
 	}
@@ -48,10 +51,12 @@ func TestMistralOCRValidatesOfficialRequestContract(t *testing.T) {
 
 func TestMistralRuntimeProfileRejectsUnsupportedParameter(t *testing.T) {
 	budget := &testBudgeter{}
+
 	estimated, err := budget.PriceMeteredUsage(context.Background(), "mistral-ai:acct:voxtral-mini-2602", "audio_input_seconds", "0", platform.UsageCostBreakdown{})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	parameters := map[string]json.RawMessage{"model": json.RawMessage(`"voxtral-mini-2602"`), "temperature": json.RawMessage(`0`), "unknown": json.RawMessage(`true`)}
 	if err := validateMistralParameters(estimated.ModelRuntimeProfile, "audio_transcriptions", parameters); err == nil {
 		t.Fatal("unsupported parameter was accepted")
@@ -67,10 +72,12 @@ func TestAudioTranscriptionMistralBillingUsesSeconds(t *testing.T) {
 
 func TestMistralChatRejectsConversationOnlyBuiltInTools(t *testing.T) {
 	budget := &testBudgeter{}
+
 	estimated, err := budget.PriceMeteredUsage(context.Background(), "mistral-ai:acct:mistral-small-2603", "input_tokens", "0", platform.UsageCostBreakdown{})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	estimated.ModelRuntimeProfile.Profile.Tools.Supported = []string{"function_calling", "web_search", "image_generation"}
 
 	request := contractsopenai.ChatCompletionRequest{
@@ -96,6 +103,7 @@ func TestMistralEmbeddingNativeParameterValidation(t *testing.T) {
 			t.Fatalf("invalid embedding request was accepted: %s", body)
 		}
 	}
+
 	if err := validateMistralEmbeddingRequest([]byte(`{"output_dimension":256,"output_dtype":"int8"}`)); err != nil {
 		t.Fatalf("valid Codestral Embed parameters were rejected: %v", err)
 	}
@@ -105,6 +113,7 @@ func TestMistralEmbedUsesFixedDimensions(t *testing.T) {
 	if modelSupportsCustomDimensions("mistral-embed") || modelSupportsCustomDimensions("mistral-embed-2312") {
 		t.Fatal("mistral-embed must retain its documented fixed 1024-dimensional output")
 	}
+
 	if !modelSupportsCustomDimensions("codestral-embed-2505") {
 		t.Fatal("Codestral Embed configurable dimensions were disabled")
 	}
@@ -112,11 +121,14 @@ func TestMistralEmbedUsesFixedDimensions(t *testing.T) {
 
 func TestMistralFIMValidatesTokenBounds(t *testing.T) {
 	budget := &testBudgeter{}
+
 	estimated, err := budget.PriceMeteredUsage(context.Background(), "mistral-ai:acct:codestral-2508", "input_tokens", "0", platform.UsageCostBreakdown{})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	minTokens, maxTokens := 20, 10
+
 	request := contractsopenai.CompletionRequest{
 		Model:     "codestral-2508",
 		Prompt:    "func main()",
@@ -137,10 +149,13 @@ func TestMistralFIMValidatesTokenBounds(t *testing.T) {
 func TestMistralFeatureFlagsFailClosed(t *testing.T) {
 	t.Setenv("SHAHRAH_MISTRAL_ENABLED", "true")
 	t.Setenv("SHAHRAH_MISTRAL_OCR_ENABLED", "not-a-boolean")
+
 	if mistralEndpointEnabled("ocr") {
 		t.Fatal("invalid endpoint feature flag must fail closed")
 	}
+
 	t.Setenv("SHAHRAH_MISTRAL_OCR_ENABLED", "true")
+
 	if !mistralEndpointEnabled("ocr") {
 		t.Fatal("enabled endpoint feature flag was rejected")
 	}

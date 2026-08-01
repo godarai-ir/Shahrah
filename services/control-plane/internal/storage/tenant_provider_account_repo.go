@@ -25,9 +25,11 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	if err := validateProviderConfigAPIBase(req.Provider, req.ProviderConfig, "api_base", "base_url"); err != nil {
 		return nil, err
 	}
+
 	if err := validateAnthropicWIFConfig(req.Provider, string(req.AuthMode), req.ProviderConfig); err != nil {
 		return nil, err
 	}
+
 	if err := validateProviderConfigContainsNoSecrets(req.ProviderConfig); err != nil {
 		return nil, err
 	}
@@ -47,6 +49,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 	if req.AuthMode == platform.ProviderAuthModeAnthropicWIF {
 		hasCredential = true
 	}
+
 	if usePlatformManagedCredentials || req.AuthMode == platform.ProviderAuthModeNoCredential {
 		hasCredential = false
 	}
@@ -103,12 +106,15 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 		if encryptErr != nil {
 			return nil, encryptErr
 		}
+
 		account.CredentialHint = hint
 		account.HasCredential = true
 	}
+
 	if commitErr := tx.Commit(ctx); commitErr != nil {
 		return nil, commitErr
 	}
+
 	if s.logger != nil {
 		s.logger.Info("provider_account.created",
 			zap.String("tenant_id", tenantID),
@@ -333,9 +339,11 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	if validationErr := validateProviderConfigAPIBase(currentProvider, nextProviderCfg, "api_base", "base_url"); validationErr != nil {
 		return nil, validationErr
 	}
+
 	if validationErr := validateAnthropicWIFConfig(currentProvider, nextAuthMode, nextProviderCfg); validationErr != nil {
 		return nil, validationErr
 	}
+
 	if validationErr := validateProviderConfigContainsNoSecrets(nextProviderCfg); validationErr != nil {
 		return nil, validationErr
 	}
@@ -355,10 +363,12 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		nextPlatformManagedCredentials,
 		req.Credentials,
 	)
+
 	newAPIKey := ""
 	if req.Credentials != nil {
 		newAPIKey = strings.TrimSpace(req.Credentials.APIKey)
 	}
+
 	nextHasCredential := currentHasCredential
 
 	if req.Credentials == nil {
@@ -376,6 +386,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	if nextPlatformManagedCredentials || strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeNoCredential)) {
 		nextHasCredential = false
 	}
+
 	if strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAnthropicWIF)) &&
 		!nextPlatformManagedCredentials {
 		nextHasCredential = true
@@ -393,6 +404,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 	if execErr != nil {
 		return nil, execErr
 	}
+
 	if newAPIKey != "" &&
 		!nextPlatformManagedCredentials &&
 		strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAPIKey)) {
@@ -413,6 +425,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 		if clearErr := s.clearTenantCredentialVersion(ctx, tx, tenantID, accountID); clearErr != nil {
 			return nil, clearErr
 		}
+
 		if strings.EqualFold(nextAuthMode, string(platform.ProviderAuthModeAnthropicWIF)) &&
 			!nextPlatformManagedCredentials {
 			if _, restoreErr := tx.Exec(ctx, `
@@ -697,23 +710,28 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 	}
 
 	providerConfig := parseJSONObject(providerCfgRaw)
+
 	if strings.EqualFold(provider, "anthropic") &&
 		(platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAPIKey ||
 			platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAnthropicWIF) &&
 		s.tenantProviderProber != nil {
 		secrets := map[string]string{}
+
 		if platform.ProviderAuthMode(strings.TrimSpace(authMode)) == platform.ProviderAuthModeAPIKey {
 			apiKey, resolveErr := s.resolveTenantProviderAccountAPIKey(ctx, tenantID, accountID)
 			if resolveErr != nil {
 				return nil, resolveErr
 			}
+
 			secrets["api_key"] = apiKey
 		}
+
 		success, _, message, metadata := probeTenantProviderCredential(
 			ctx, s.tenantProviderProber,
 			anthropicProbeCredential(accountID, authMode, providerConfig),
 			secrets,
 		)
+
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success:            success,
 			Message:            message,
@@ -738,6 +756,7 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 	if resolveErr != nil {
 		return nil, resolveErr
 	}
+
 	if apiKey == "" || isMaskedCredentialValue(apiKey) {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: false,
@@ -778,6 +797,7 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 		if req.Credentials != nil {
 			secrets["api_key"] = strings.TrimSpace(req.Credentials.APIKey)
 		}
+
 		success, _, message, metadata := probeTenantProviderCredential(
 			ctx, s.tenantProviderProber,
 			anthropicProbeCredential(
@@ -787,6 +807,7 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 			),
 			secrets,
 		)
+
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success:            success,
 			Message:            message,
@@ -841,7 +862,9 @@ func probeTenantProviderCredential(
 	if detailed, ok := prober.(platformcredentials.DetailedCredentialProber); ok {
 		return detailed.ProbeDetailed(ctx, record, secrets)
 	}
+
 	success, category, summary := prober.Probe(ctx, record, secrets)
+
 	return success, category, summary, platformcredentials.ProbeMetadata{}
 }
 

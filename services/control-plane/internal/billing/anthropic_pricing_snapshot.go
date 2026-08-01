@@ -102,16 +102,20 @@ func NewAnthropicPricingSnapshotManagerFromEnv(
 			"/",
 		)
 	}
+
 	if base == "" {
 		return nil, fmt.Errorf("%w: model discovery URL is missing", ErrPricingUnavailable)
 	}
+
 	parsed, err := url.Parse(base)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return nil, fmt.Errorf("%w: model discovery URL is invalid", ErrPricingUnavailable)
 	}
+
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
+
 	return &AnthropicPricingSnapshotManager{
 		endpoint: base + "/models/runtime-snapshot/anthropic",
 		client:   client,
@@ -119,38 +123,48 @@ func NewAnthropicPricingSnapshotManagerFromEnv(
 	}, nil
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (m *AnthropicPricingSnapshotManager) Reload(ctx context.Context) error {
 	if m == nil {
 		return ErrPricingUnavailable
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.endpoint, http.NoBody)
 	if err != nil {
 		return ErrPricingUnavailable
 	}
+
 	resp, err := m.client.Do(req)
 	if err != nil {
 		prommetrics.RecordAnthropicPricingFailure("fetch")
 		return fmt.Errorf("%w: snapshot fetch failed", ErrPricingUnavailable)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
+
 	if resp.StatusCode != http.StatusOK {
 		prommetrics.RecordAnthropicPricingFailure("fetch")
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
+
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024)) //nolint:errcheck // A downstream disconnect is handled by terminating the stream.
+
 		return fmt.Errorf("%w: snapshot HTTP %d", ErrPricingUnavailable, resp.StatusCode)
 	}
 
 	var payload discoveryRuntimeSnapshot
+
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 8*1024*1024))
 	if err := decoder.Decode(&payload); err != nil {
 		prommetrics.RecordAnthropicPricingFailure("decode")
 		return fmt.Errorf("%w: snapshot payload is invalid", ErrPricingUnavailable)
 	}
+
 	snapshot, err := normalizeAnthropicPricingSnapshot(payload)
 	if err != nil {
 		prommetrics.RecordAnthropicPricingFailure("validate")
 		return err
 	}
+
 	m.state.Store(snapshot)
+
 	return nil
 }
 
@@ -161,37 +175,44 @@ func (m *AnthropicPricingSnapshotManager) Run(
 	if interval <= 0 {
 		interval = 5 * time.Minute
 	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = m.Reload(ctx)
+			_ = m.Reload(ctx) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		}
 	}
 }
 
-func (m *AnthropicPricingSnapshotManager) Price(
+func (m *AnthropicPricingSnapshotManager) price(
 	model string,
 ) (anthropicPricingModel, *anthropicPricingSnapshot, error) {
 	if m == nil {
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
+
 	snapshot := m.state.Load()
 	if snapshot == nil ||
 		m.now().Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge {
 		prommetrics.RecordAnthropicPricingFailure("stale")
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
+
 	prommetrics.SetAnthropicPricingSnapshotAge(m.now().Sub(snapshot.GeneratedAt))
+
 	normalized := normalizeAnthropicPricingModelID(model)
+
 	price, ok := snapshot.Models[normalized]
 	if !ok {
 		prommetrics.RecordAnthropicPricingFailure("missing_rate")
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
+
 	return price, snapshot, nil
 }
 
@@ -199,7 +220,9 @@ func (m *AnthropicPricingSnapshotManager) Ready() bool {
 	if m == nil {
 		return false
 	}
+
 	snapshot := m.state.Load()
+
 	return snapshot != nil &&
 		m.now().Sub(snapshot.GeneratedAt) <= anthropicPricingMaxAge
 }
@@ -211,33 +234,42 @@ func (m *AnthropicPricingSnapshotManager) ResolveModelRuntimeProfiles(
 	if m == nil {
 		return nil, ErrPricingUnavailable
 	}
+
 	snapshot := m.state.Load()
 	if snapshot == nil ||
 		m.now().Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge ||
 		(expectedRevision != "" && snapshot.Revision != expectedRevision) {
 		return nil, ErrPricingUnavailable
 	}
+
 	profiles := make([]platform.ModelRuntimeProfileBinding, 0, len(models))
+
 	seen := make(map[string]struct{}, len(models))
 	for _, model := range models {
 		normalized := normalizeAnthropicPricingModelID(model)
 		if _, ok := seen[normalized]; ok {
 			continue
 		}
+
 		seen[normalized] = struct{}{}
+
 		item, ok := snapshot.Models[normalized]
 		if !ok || item.RuntimeProfile == nil {
 			return nil, ErrPricingUnavailable
 		}
+
 		binding := *item.RuntimeProfile
 		if err := binding.Validate(); err != nil {
 			return nil, ErrPricingUnavailable
 		}
+
 		profiles = append(profiles, binding)
 	}
+
 	if len(profiles) == 0 {
 		return nil, ErrPricingUnavailable
 	}
+
 	return profiles, nil
 }
 
@@ -250,11 +282,13 @@ func normalizeAnthropicPricingSnapshot(
 		len(payload.Models) == 0 {
 		return nil, ErrPricingUnavailable
 	}
+
 	models := make(map[string]anthropicPricingModel, len(payload.Models)*2)
 	for _, item := range payload.Models {
 		if item.RuntimeProfile == nil {
 			return nil, ErrPricingUnavailable
 		}
+
 		runtimeBinding := &platform.ModelRuntimeProfileBinding{
 			Provider:        payload.Provider,
 			CatalogRevision: payload.Revision,
@@ -268,17 +302,20 @@ func normalizeAnthropicPricingSnapshot(
 		if err := runtimeBinding.Validate(); err != nil {
 			return nil, ErrPricingUnavailable
 		}
+
 		rates := make(map[string]normalizedPricingRate, len(item.PricingRates))
 		for _, input := range item.PricingRates {
 			if input.Currency != "USD" || input.Region != "global" {
 				continue
 			}
+
 			value, err := decimal.NewFromString(input.UnitPriceUSD)
 			if err != nil || value.IsNegative() ||
 				input.Dimension == "" || input.Unit == "" ||
 				input.SourceURL == "" {
 				return nil, ErrPricingUnavailable
 			}
+
 			rates[input.Dimension] = normalizedPricingRate{
 				Dimension:    input.Dimension,
 				Unit:         input.Unit,
@@ -288,12 +325,15 @@ func normalizeAnthropicPricingSnapshot(
 				SourceURL:    input.SourceURL,
 			}
 		}
+
 		if _, ok := rates["input_tokens"]; !ok {
 			return nil, ErrPricingUnavailable
 		}
+
 		if _, ok := rates["output_tokens"]; !ok {
 			return nil, ErrPricingUnavailable
 		}
+
 		model := anthropicPricingModel{
 			CanonicalID:    item.CanonicalID,
 			Slug:           item.Slug,
@@ -304,6 +344,7 @@ func normalizeAnthropicPricingSnapshot(
 		models[strings.ToLower(strings.TrimSpace(item.Slug))] = model
 		models[strings.ToLower(strings.TrimSpace(item.CanonicalID))] = model
 	}
+
 	return &anthropicPricingSnapshot{
 		Revision:    payload.Revision,
 		GeneratedAt: payload.GeneratedAt,
@@ -317,12 +358,15 @@ func normalizeAnthropicPricingModelID(model string) string {
 		parts := strings.SplitN(value, ":", 3)
 		value = parts[2]
 	}
+
 	value = strings.TrimPrefix(value, "anthropic/")
+
 	return value
 }
 
 func isAnthropicModel(model string) bool {
 	value := strings.ToLower(strings.TrimSpace(model))
+
 	return strings.HasPrefix(value, "anthropic/") ||
 		strings.HasPrefix(value, "anthropic:") ||
 		strings.HasPrefix(value, "claude-")

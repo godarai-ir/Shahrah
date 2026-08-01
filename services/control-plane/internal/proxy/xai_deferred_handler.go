@@ -40,8 +40,10 @@ func (h *ChatCompletionHandler) handleXAIDeferredCreate(
 	if binding, ok := platform.FindModelRuntimeProfile(tunnelReq.ModelRuntimeProfiles, tunnelReq.Deployment.Model); ok && binding.Profile.DeferredCompletions.RetentionSeconds > 0 {
 		retention = time.Duration(binding.Profile.DeferredCompletions.RetentionSeconds) * time.Second
 	}
+
 	expiresAt := time.Now().UTC().Add(retention)
 	requestID := strings.TrimSpace(result.RequestID)
+
 	_, err := h.resources.UpsertProviderNativeResourceMapping(c.Context(), platform.ProviderNativeResourceMapping{
 		PublicID:          requestID,
 		TenantID:          authInfo.TenantID,
@@ -77,37 +79,47 @@ func (h *ChatCompletionHandler) handleXAIDeferredCreate(
 	forwardProviderHeaders(c, resp.Headers)
 	setTraceHeaders(c, tunnelReq.TraceID)
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
 	return c.Status(resp.StatusCode).Send(resp.Body)
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {
 		return writeAPIError(c, fiber.StatusUnauthorized, "Authentication required", "authentication_error")
 	}
+
 	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "Tenant resolution required", "invalid_request_error")
 	}
+
 	authInfo.TenantID = currentTenant.ID
+
 	if h.resources == nil || h.deployments == nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Deferred completion routing state is unavailable", "routing_error")
 	}
 
 	publicID := strings.TrimSpace(c.Params("request_id"))
+
 	mapping, err := h.resources.GetProviderNativeResourceMapping(c.Context(), currentTenant.ID, "xai", xaiDeferredResourceKind, publicID)
 	if errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
 		return writeAPIError(c, fiber.StatusNotFound, "Deferred completion not found", "invalid_request_error")
 	}
+
 	if err != nil || mapping == nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Deferred completion routing state is unavailable", "routing_error")
 	}
+
 	if strings.EqualFold(mapping.Status, "retrieved") {
 		return writeAPIError(c, fiber.StatusGone, "Deferred completion has already been retrieved", "invalid_request_error")
 	}
+
 	if mapping.ExpiresAt != nil && time.Now().UTC().After(*mapping.ExpiresAt) {
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, mapping.Reservation, "deferred_completion_expired")
-		_ = h.resources.UpdateProviderNativeResourceStatus(c.Context(), currentTenant.ID, "xai", xaiDeferredResourceKind, publicID, "expired")
+		_ = h.resources.UpdateProviderNativeResourceStatus(c.Context(), currentTenant.ID, "xai", xaiDeferredResourceKind, publicID, "expired") //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
+
 		return writeAPIError(c, fiber.StatusGone, "Deferred completion has expired", "invalid_request_error")
 	}
 
@@ -115,7 +127,9 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
 	}
+
 	requestID := responseRequestID(c)
+
 	tunnelReq := platform.TunnelRequest{
 		RequestID: requestID,
 		TenantID:  currentTenant.ID,
@@ -134,15 +148,19 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	if err := h.tunnel.Healthy(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
+
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if resp.StatusCode == fiber.StatusAccepted {
 		forwardProviderHeaders(c, resp.Headers)
 		setTraceHeaders(c, requestID)
+
 		return c.Status(fiber.StatusAccepted).Send(resp.Body)
 	}
+
 	if resp.StatusCode >= httpErrorFloor {
 		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
@@ -151,24 +169,31 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	if json.Unmarshal(resp.Body, &completion) != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode deferred completion response", "api_error")
 	}
+
 	estimated := platform.UsageCostBreakdown{}
 	if mapping.EstimatedUsage != nil {
 		estimated = *mapping.EstimatedUsage
 	}
-	model, _ := mapping.Metadata["model"].(string)
+
+	model, _ := mapping.Metadata["model"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
+
 	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(model, deployment), completion.Usage, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize deferred completion usage", "billing_error")
 	}
+
 	tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, deployment.Provider, completion.Usage)
-	billingMode, _ := mapping.Metadata["billing_mode"].(string)
-	originalRequestID, _ := mapping.Metadata["request_id"].(string)
+	billingMode, _ := mapping.Metadata["billing_mode"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
+
+	originalRequestID, _ := mapping.Metadata["request_id"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 	if strings.TrimSpace(originalRequestID) == "" {
 		originalRequestID = requestID
 	}
+
 	if err := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, mapping.Reservation, currentTenant.ID, finalCost, originalRequestID, billingMode); err != nil {
 		return writeBudgetCheckError(c, err)
 	}
+
 	if err := h.resources.UpdateProviderNativeResourceStatus(c.Context(), currentTenant.ID, "xai", xaiDeferredResourceKind, publicID, "retrieved"); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Deferred completion status could not be finalized", "routing_error")
 	}
@@ -187,28 +212,35 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	forwardProviderHeaders(c, resp.Headers)
 	setTraceHeaders(c, requestID)
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
 	return c.Status(resp.StatusCode).Send(resp.Body)
 }
 
 func (h *ChatCompletionHandler) resolveXAIDeferredDeployment(ctx context.Context, tenantID, accountID string) (platform.Deployment, error) {
 	deployments, err := h.deployments.ListDeployments(ctx, tenantID)
 	if err != nil {
-		return platform.Deployment{}, fmt.Errorf("Deferred completion deployment routing is unavailable")
+		return platform.Deployment{}, fmt.Errorf("deferred completion deployment routing is unavailable")
 	}
+
 	var found *platform.Deployment
+
 	for i := range deployments {
 		deployment := deployments[i]
 		if !strings.EqualFold(deployment.Provider, "xai") || !strings.EqualFold(deployment.ProviderAccountID, accountID) {
 			continue
 		}
+
 		if found != nil {
-			return platform.Deployment{}, fmt.Errorf("Deferred completion provider account is ambiguous")
+			return platform.Deployment{}, fmt.Errorf("deferred completion provider account is ambiguous")
 		}
+
 		found = &deployment
 	}
+
 	if found == nil {
-		return platform.Deployment{}, fmt.Errorf("Deferred completion provider account is unavailable")
+		return platform.Deployment{}, fmt.Errorf("deferred completion provider account is unavailable")
 	}
+
 	return *found, nil
 }
 
@@ -216,5 +248,6 @@ func reservationID(reservation *platform.BudgetReservation) string {
 	if reservation == nil {
 		return ""
 	}
+
 	return strings.TrimSpace(reservation.ID)
 }

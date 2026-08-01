@@ -52,6 +52,7 @@ func providerModelID(model string) string {
 // while the provider-facing request still uses providerModelID.
 func billingEstimateModel(model string) string {
 	model = normalizeModelIdentifier(model)
+
 	provider, _, _, ok := splitModelFQN(model)
 	if ok && (isGoogleGeminiProvider(provider) || isMistralProvider(provider) || strings.EqualFold(provider, "openai") || strings.EqualFold(provider, "xai")) {
 		return model
@@ -84,12 +85,15 @@ func isMistralModelIdentifier(model string) bool {
 	if value == "" {
 		return false
 	}
+
 	if separator := strings.IndexByte(value, ':'); separator > 0 {
 		return isMistralProvider(value[:separator])
 	}
+
 	if separator := strings.IndexByte(value, '/'); separator > 0 && isMistralProvider(value[:separator]) {
 		return true
 	}
+
 	return strings.HasPrefix(value, "mistral-") ||
 		strings.HasPrefix(value, "codestral-") ||
 		strings.HasPrefix(value, "voxtral-")

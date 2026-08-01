@@ -65,6 +65,7 @@ func writeOpenAIProviderError(c *fiber.Ctx, status int, body []byte, headers map
 	if len(body) > 0 && json.Valid(body) {
 		c.Status(status)
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
 		return c.Send(body)
 	}
 

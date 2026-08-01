@@ -2489,6 +2489,7 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 
 	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")
 	configureOpenAITestCatalog(t, billingSvc)
+
 	llmRouter, err := router.NewRouter(nil, config.RouterSettings{
 		RoutingStrategy: "simple-shuffle",
 		CooldownTime:    60,

@@ -92,6 +92,7 @@ func (m *Manager) Reload(ctx context.Context) error {
 				m.metrics.ObserveSnapshotLoad(false, m.now().Sub(started), 0)
 				return nil, ErrDecryptFailed
 			}
+
 			if record.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) &&
 				(record.FederationRuleID == "" ||
 					record.OrganizationID == "" ||
@@ -161,6 +162,7 @@ func runtimeAuthSecret(record EncryptedCredential, secrets map[string]string) st
 			return secrets["api_key"]
 		}
 	}
+
 	if record.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) {
 		return secrets["wif_binding"]
 	}

@@ -65,6 +65,8 @@ func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 }
 
 // Handle processes a legacy text completion request.
+//
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
 
@@ -134,6 +136,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if strings.TrimSpace(req.Suffix) != "" {
 		estimatePrompt += "\n" + req.Suffix
 	}
+
 	chatReq := contractsopenai.ChatCompletionRequest{
 		Model:       billingEstimateModel(requestedModel),
 		Messages:    []contractsopenai.ChatMessage{{Role: "user", Content: estimatePrompt}},
@@ -155,6 +158,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		) {
 			return writeBillingEstimateError(c, err)
 		}
+
 		h.logger.Error("failed to estimate cost", zap.Error(err))
 
 		estimated = platform.UsageCostBreakdown{
@@ -226,6 +230,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 		return writeAPIError(c, fiber.StatusInternalServerError, "no available deployments", "internal_error")
 	}
+
 	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("fim_completions") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI FIM completions are disabled", "provider_disabled")
 	}
@@ -234,6 +239,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := strings.TrimSpace(dep.Model)
@@ -246,14 +252,17 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 	operation := platform.ProviderOperationOpenAICompletions
 	providerPath := "/completions"
+
 	if isMistralProvider(dep.Provider) {
 		operation = platform.ProviderOperationMistralFIM
 		providerPath = "/fim/completions"
 	}
+
 	outboundBody := mustMarshalJSON(chatReq)
 	if isMistralProvider(dep.Provider) {
 		outboundBody = mustMarshalJSON(req)
 	}
+
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
@@ -269,6 +278,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 			"provider_endpoint_path": providerPath,
 		},
 	}
+
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
 		dep.Provider,
 		outboundModel,
@@ -282,11 +292,13 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 			"runtime_profile_unavailable",
 		)
 	}
+
 	if isMistralProvider(dep.Provider) {
 		if err := validateMistralFIMRuntimeProfile(req, estimated.ModelRuntimeProfile); err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 		}
 	}
+
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {

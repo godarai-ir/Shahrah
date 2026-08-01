@@ -204,6 +204,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	if !supportsModerationsProvider(dep.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Moderations API is not enabled for provider: %s", dep.Provider), "invalid_request_error")
 	}
+
 	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("moderations") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI moderations are disabled", "provider_disabled")
 	}
@@ -212,6 +213,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	outboundModel := strings.TrimSpace(dep.Model)
@@ -229,19 +231,23 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 
 	operation := platform.ProviderOperationOpenAIModerations
 	providerPath := "/moderations"
+
 	if isMistralProvider(dep.Provider) && strings.TrimSuffix(c.Path(), "/") == "/v1/chat/moderations" {
 		operation = platform.ProviderOperationMistralChatModerations
 		providerPath = "/chat/moderations"
 	}
+
 	if isMistralProvider(dep.Provider) {
 		profileEndpoint := "moderations"
 		if operation == platform.ProviderOperationMistralChatModerations {
 			profileEndpoint = "chat_moderations"
 		}
+
 		if endpointErr := validateMistralJSONParameters(estimated.ModelRuntimeProfile, profileEndpoint, originalBody); endpointErr != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, endpointErr.Error(), "invalid_request_error")
 		}
 	}
+
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
 		TenantID:   currentTenant.ID,
@@ -260,10 +266,12 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 			"input_count":            moderationInputCount(req.Input),
 		},
 	}
+
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(dep.Provider, outboundModel, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
+
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
@@ -398,11 +406,13 @@ func (h *ModerationsHandler) handleSync(
 	setCostHeaders(c, finalCost)
 
 	responseStart := time.Now()
+
 	if contentType := strings.TrimSpace(resp.Headers["Content-Type"]); contentType != "" {
 		c.Set(fiber.HeaderContentType, contentType)
 	} else {
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	}
+
 	err = c.Status(resp.StatusCode).Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
 		"response_payload": buildTraceModerationResponsePayload(response),
@@ -499,6 +509,7 @@ func normalizeModerationInput(input interface{}) (interface{}, error) {
 		if err := validateModerationMultimodalItem(v); err != nil {
 			return nil, err
 		}
+
 		return v, nil
 	default:
 		if input == nil {
@@ -510,10 +521,10 @@ func normalizeModerationInput(input interface{}) (interface{}, error) {
 }
 
 func validateModerationMultimodalItem(item map[string]interface{}) error {
-	itemType, _ := item["type"].(string)
+	itemType, _ := item["type"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 	switch strings.TrimSpace(itemType) {
 	case "text":
-		text, _ := item["text"].(string)
+		text, _ := item["text"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 		if strings.TrimSpace(text) == "" {
 			return moderationFieldError("text input items require non-empty text", "input", "invalid_input")
 		}
@@ -524,7 +535,7 @@ func validateModerationMultimodalItem(item map[string]interface{}) error {
 				return moderationFieldError("image_url input items require an image URL", "input", "invalid_input")
 			}
 		case map[string]interface{}:
-			url, _ := value["url"].(string)
+			url, _ := value["url"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 			if strings.TrimSpace(url) == "" {
 				return moderationFieldError("image_url input items require an image URL", "input", "invalid_input")
 			}

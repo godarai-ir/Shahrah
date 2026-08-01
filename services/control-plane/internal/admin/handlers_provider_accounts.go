@@ -566,6 +566,8 @@ func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 }
 
 // UpsertTenantProviderAccountModels replaces selected models for a provider account.
+//
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 	if err := requirePermissionAnyOrTenantAdmin(c, "provider account manage permission required", []string{
 		"provider_account:manage",
@@ -669,6 +671,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		if item.PricingMode == platform.PricingModePrivate && !hasAnyModelPricingRate(item.PrivatePricing) {
 			return fiber.NewError(fiber.StatusBadRequest, "private pricing mode requires at least one valid private pricing rate")
 		}
+
 		if item.PricingMode == platform.PricingModePrivate {
 			if err := validatePrivatePricingOverride(item.PublicPricing, item.PrivatePricing); err != nil {
 				return fiber.NewError(fiber.StatusBadRequest, err.Error())
@@ -704,35 +707,45 @@ func validatePrivatePricingOverride(publicPrice, privatePrice *platform.ModelPri
 	if publicPrice == nil || privatePrice == nil {
 		return errors.New("private pricing requires a current public pricing revision")
 	}
+
 	if privatePrice.InputUSDPer1M != nil && publicPrice.InputUSDPer1M == nil {
 		return errors.New("private input pricing cannot override an unpublished public rate")
 	}
+
 	if privatePrice.OutputUSDPer1M != nil && publicPrice.OutputUSDPer1M == nil {
 		return errors.New("private output pricing cannot override an unpublished public rate")
 	}
+
 	publicRates := make(map[string]platform.ModelPricingRate, len(publicPrice.Rates))
 	for _, rate := range publicPrice.Rates {
 		publicRates[rate.Key] = rate
 	}
+
 	seen := make(map[string]struct{}, len(privatePrice.Rates))
 	for _, override := range privatePrice.Rates {
 		key := strings.TrimSpace(override.Key)
+
 		publicRate, ok := publicRates[key]
 		if !ok {
 			return errors.New("private pricing contains an unknown or expired rate key")
 		}
+
 		if _, duplicate := seen[key]; duplicate {
 			return errors.New("private pricing contains a duplicate rate key")
 		}
+
 		seen[key] = struct{}{}
+
 		if override.Dimension != publicRate.Dimension || override.Unit != publicRate.Unit {
 			return errors.New("private pricing cannot change a rate dimension or unit")
 		}
+
 		amount, err := decimal.NewFromString(strings.TrimSpace(override.UnitPriceUSD))
 		if err != nil || amount.IsNegative() {
 			return errors.New("private pricing contains an invalid USD decimal amount")
 		}
 	}
+
 	return nil
 }
 
@@ -746,9 +759,11 @@ func hasAnyModelPricingRate(price *platform.ModelPrice) bool {
 	if price == nil {
 		return false
 	}
+
 	if price.InputUSDPer1M != nil || price.OutputUSDPer1M != nil {
 		return true
 	}
+
 	for _, rate := range price.Rates {
 		if strings.TrimSpace(rate.Key) != "" &&
 			strings.TrimSpace(rate.Dimension) != "" &&
@@ -757,6 +772,7 @@ func hasAnyModelPricingRate(price *platform.ModelPrice) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

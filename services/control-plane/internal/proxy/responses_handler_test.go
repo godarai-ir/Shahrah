@@ -39,9 +39,11 @@ func (b *xaiResponsesBudgeter) EstimateCost(ctx context.Context, req contractsop
 	if err != nil {
 		return estimated, err
 	}
+
 	binding := xaiProxyTestRuntimeProfile()
 	estimated.ModelRuntimeProfile = &binding
 	estimated.PricingRevision = binding.CatalogRevision
+
 	return estimated, nil
 }
 
@@ -66,12 +68,16 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, l
 
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	require.NoError(t, err)
+
 	modelName := "gpt-4o"
+
 	var billing budgeter = &testBudgeter{}
+
 	if strings.EqualFold(provider, "xai") {
 		modelName = "grok-4.5"
 		billing = &xaiResponsesBudgeter{}
 	}
+
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: modelName,
 		ProviderEndpoint: config.ProviderEndpointConfig{
@@ -270,6 +276,7 @@ func TestResponsesHandlerPreservesUnknownOfficialFieldsLosslessly(t *testing.T) 
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -300,6 +307,7 @@ func TestResponsesHandlerPreservesOpenAIErrorContract(t *testing.T) {
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, "openai_req_error", resp.Header.Get("X-Request-Id"))
@@ -329,7 +337,13 @@ func TestResponsesHandlerRejectsNonOpenAIProvider(t *testing.T) {
 }
 
 func TestResponsesHandlerSupportsXAIWithPinnedProfileAndProviderFields(t *testing.T) {
-	upstreamBody := []byte(`{"id":"resp_xai","object":"response","model":"grok-4.5","status":"completed","output":[{"type":"x_search_call","id":"tool_1","provider_extension":{"keep":true}}],"usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5,"cost_in_usd_ticks":123456789,"num_server_side_tools_used":1},"xai_extension":{"keep":true}}`)
+	upstreamBody := []byte(
+		`{"id":"resp_xai","object":"response","model":"grok-4.5","status":"completed",` +
+			`"output":[{"type":"x_search_call","id":"tool_1","provider_extension":{"keep":true}}],` +
+			`"usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5,` +
+			`"cost_in_usd_ticks":123456789,"num_server_side_tools_used":1},` +
+			`"xai_extension":{"keep":true}}`,
+	)
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
 		Headers:    map[string]string{"content-type": "application/json"},
@@ -342,6 +356,7 @@ func TestResponsesHandlerSupportsXAIWithPinnedProfileAndProviderFields(t *testin
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -485,7 +500,10 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte(
 		"event: response.completed\n" +
-			"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_done\",\"model\":\"gpt-4o\",\"status\":\"completed\",\"service_tier\":\"standard\",\"usage\":{\"input_tokens\":7,\"output_tokens\":3,\"total_tokens\":10,\"input_tokens_details\":{\"cached_tokens\":2,\"cache_write_tokens\":1}}}}\n\n",
+			"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_done\",\"model\":\"gpt-4o\"," +
+			"\"status\":\"completed\",\"service_tier\":\"standard\",\"usage\":{\"input_tokens\":7," +
+			"\"output_tokens\":3,\"total_tokens\":10,\"input_tokens_details\":{\"cached_tokens\":2," +
+			"\"cache_write_tokens\":1}}}}\n\n",
 	)}
 
 	close(stream.chunks)

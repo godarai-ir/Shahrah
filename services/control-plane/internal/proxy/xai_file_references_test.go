@@ -23,10 +23,12 @@ func TestRewriteXAIFileReferencesEnforcesTenantAccountOwnership(t *testing.T) {
 		"tools":[{"type":"function","parameters":{"properties":{"file_id":{"type":"string","default":"schema-example"}}}}]
 	}`))
 	require.NoError(t, err)
+
 	var decoded map[string]interface{}
 	require.NoError(t, json.Unmarshal(body, &decoded))
 	input := decoded["input"].([]interface{})[0].(map[string]interface{})
 	assert.Equal(t, "file_upstream", input["file_id"])
+
 	parameters := decoded["tools"].([]interface{})[0].(map[string]interface{})["parameters"].(map[string]interface{})
 	properties := parameters["properties"].(map[string]interface{})
 	assert.Equal(t, "schema-example", properties["file_id"].(map[string]interface{})["default"])

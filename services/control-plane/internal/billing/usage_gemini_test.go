@@ -20,9 +20,11 @@ func TestGoogleGeminiTokenMapperPreservesNativeUsageDetails(t *testing.T) {
 	if usage.PromptTokens != 210000 || usage.CompletionTokens != 125 || usage.TotalTokens != 210125 {
 		t.Fatalf("unexpected native usage: %+v", usage)
 	}
+
 	if usage.CacheReadInputTokens != 1000 || usage.ServiceTier != "priority" {
 		t.Fatalf("missing cache/tier usage: %+v", usage)
 	}
+
 	if usage.PromptTokensDetails.AudioTokens != 12 || usage.PromptTokensDetails.ImageTokens != 8 ||
 		usage.CompletionTokensDetails.ImageTokens != 80 || usage.CompletionTokensDetails.ReasoningTokens != 25 {
 		t.Fatalf("missing modality/thought usage: %+v", usage)

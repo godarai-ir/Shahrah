@@ -320,6 +320,7 @@ func NewHTTPMetrics() *HTTPMetrics {
 		supportStatus:                        supportStatus,
 	}
 	activeHTTPMetrics.Store(metrics)
+
 	return metrics
 }
 
@@ -336,6 +337,7 @@ func RecordAnthropicPricingFailure(stage string) {
 		default:
 			stage = "other"
 		}
+
 		metrics.anthropicPricingFailures.WithLabelValues(stage).Inc()
 	}
 }
@@ -347,6 +349,7 @@ func RecordAnthropicBatchState(state string) {
 		default:
 			state = "other"
 		}
+
 		metrics.anthropicBatchStates.WithLabelValues(state).Inc()
 	}
 }
@@ -367,6 +370,7 @@ func RecordAnthropicUsageDimension(dimension string, quantity int64) {
 				dimension = "other"
 			}
 		}
+
 		metrics.anthropicUsageDimensions.WithLabelValues(dimension).Add(float64(quantity))
 	}
 }
@@ -402,6 +406,7 @@ func RecordSupportTransition(result string) {
 		default:
 			result = "error"
 		}
+
 		metrics.supportTransitions.WithLabelValues(result).Inc()
 	}
 }

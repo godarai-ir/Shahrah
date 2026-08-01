@@ -16,6 +16,7 @@ func anthropicOperationFromRequest(c *fiber.Ctx) (platform.ProviderOperation, pl
 		AfterID:    strings.TrimSpace(c.Query("after_id")),
 		Limit:      c.QueryInt("limit", 0),
 	}
+
 	path := strings.TrimSuffix(c.Path(), "/")
 	switch {
 	case c.Method() == fiber.MethodPost && path == "/v1/messages":
@@ -59,16 +60,19 @@ func anthropicRequestModels(operation platform.ProviderOperation, input platform
 			Stream bool   `json:"stream"`
 		}
 		if err := json.Unmarshal(body, &request); err != nil {
-			return nil, false, fmt.Errorf("Invalid request body")
+			return nil, false, fmt.Errorf("invalid request body")
 		}
+
 		if strings.TrimSpace(request.Model) == "" {
 			return nil, false, fmt.Errorf("model is required")
 		}
+
 		return []string{request.Model}, request.Stream && operation == platform.ProviderOperationAnthropicMessages, nil
 	case platform.ProviderOperationAnthropicModelsGet:
 		if input.ResourceID == "" {
 			return nil, false, fmt.Errorf("model id is required")
 		}
+
 		return []string{input.ResourceID}, false, nil
 	case platform.ProviderOperationAnthropicBatchesCreate:
 		var request struct {
@@ -79,18 +83,22 @@ func anthropicRequestModels(operation platform.ProviderOperation, input platform
 			} `json:"requests"`
 		}
 		if err := json.Unmarshal(body, &request); err != nil {
-			return nil, false, fmt.Errorf("Invalid request body")
+			return nil, false, fmt.Errorf("invalid request body")
 		}
+
 		if len(request.Requests) == 0 {
 			return nil, false, fmt.Errorf("requests must not be empty")
 		}
+
 		models := make([]string, 0, len(request.Requests))
 		for _, item := range request.Requests {
 			if strings.TrimSpace(item.Params.Model) == "" {
 				return nil, false, fmt.Errorf("every batch item requires a model")
 			}
+
 			models = append(models, item.Params.Model)
 		}
+
 		return models, false, nil
 	default:
 		return nil, false, nil
@@ -102,6 +110,7 @@ func replaceAnthropicNativeModels(operation platform.ProviderOperation, body []b
 	if err := json.Unmarshal(body, &object); err != nil {
 		return nil, err
 	}
+
 	switch operation {
 	case platform.ProviderOperationAnthropicMessages, platform.ProviderOperationAnthropicCountTokens:
 		object["model"] = official[0]
@@ -110,18 +119,22 @@ func replaceAnthropicNativeModels(operation platform.ProviderOperation, body []b
 		if !ok || len(requests) != len(official) {
 			return nil, fmt.Errorf("invalid batch requests")
 		}
+
 		for index, raw := range requests {
 			item, ok := raw.(map[string]interface{})
 			if !ok {
 				return nil, fmt.Errorf("invalid batch request at index %d", index)
 			}
+
 			params, ok := item["params"].(map[string]interface{})
 			if !ok {
 				return nil, fmt.Errorf("invalid batch params at index %d", index)
 			}
+
 			params["model"] = official[index]
 		}
 	}
+
 	return json.Marshal(object)
 }
 
@@ -130,9 +143,12 @@ func anthropicMaximumOutputTokens(body []byte, operation platform.ProviderOperat
 		var request struct {
 			MaxTokens int `json:"max_tokens"`
 		}
-		_ = json.Unmarshal(body, &request)
+
+		_ = json.Unmarshal(body, &request) //nolint:errcheck // Invalid optional response metadata is treated as absent.
+
 		return request.MaxTokens
 	}
+
 	if operation == platform.ProviderOperationAnthropicBatchesCreate {
 		var request struct {
 			Requests []struct {
@@ -141,13 +157,17 @@ func anthropicMaximumOutputTokens(body []byte, operation platform.ProviderOperat
 				} `json:"params"`
 			} `json:"requests"`
 		}
-		_ = json.Unmarshal(body, &request)
+
+		_ = json.Unmarshal(body, &request) //nolint:errcheck // Invalid optional response metadata is treated as absent.
+
 		total := 0
 		for _, item := range request.Requests {
 			total += item.Params.MaxTokens
 		}
+
 		return total
 	}
+
 	return 0
 }
 
@@ -164,12 +184,14 @@ func anthropicCodeExecutionPricingPolicy(
 	operation platform.ProviderOperation,
 ) (map[string]string, error) {
 	var requests []anthropicNativeMessagePricingInput
+
 	switch operation {
 	case platform.ProviderOperationAnthropicMessages:
 		var request anthropicNativeMessagePricingInput
 		if err := json.Unmarshal(body, &request); err != nil {
-			return nil, fmt.Errorf("Invalid request body")
+			return nil, fmt.Errorf("invalid request body")
 		}
+
 		requests = []anthropicNativeMessagePricingInput{request}
 	case platform.ProviderOperationAnthropicBatchesCreate:
 		var batch struct {
@@ -178,8 +200,9 @@ func anthropicCodeExecutionPricingPolicy(
 			} `json:"requests"`
 		}
 		if err := json.Unmarshal(body, &batch); err != nil {
-			return nil, fmt.Errorf("Invalid request body")
+			return nil, fmt.Errorf("invalid request body")
 		}
+
 		requests = make([]anthropicNativeMessagePricingInput, 0, len(batch.Requests))
 		for _, item := range batch.Requests {
 			requests = append(requests, item.Params)
@@ -189,14 +212,17 @@ func anthropicCodeExecutionPricingPolicy(
 	}
 
 	freeCodeExecutionPossible := false
+
 	for index, request := range requests {
 		hasCodeExecution := false
 		hasCurrentWebTool := false
+
 		for _, tool := range request.Tools {
 			toolType := strings.ToLower(strings.TrimSpace(tool.Type))
 			if strings.HasPrefix(toolType, "code_execution_") {
 				hasCodeExecution = true
 			}
+
 			if anthropicVersionedToolAtLeast(
 				toolType,
 				"web_search",
@@ -209,11 +235,13 @@ func anthropicCodeExecutionPricingPolicy(
 				hasCurrentWebTool = true
 			}
 		}
+
 		if hasCodeExecution && !hasCurrentWebTool {
 			prefix := ""
 			if operation == platform.ProviderOperationAnthropicBatchesCreate {
 				prefix = fmt.Sprintf("batch item %d: ", index)
 			}
+
 			return nil, fmt.Errorf(
 				"%sbillable Anthropic code execution is unavailable; "+
 					"include web_search_20260209 or later, or "+
@@ -221,12 +249,15 @@ func anthropicCodeExecutionPricingPolicy(
 				prefix,
 			)
 		}
+
 		freeCodeExecutionPossible = freeCodeExecutionPossible ||
 			hasCurrentWebTool
 	}
+
 	if !freeCodeExecutionPossible {
 		return nil, nil
 	}
+
 	return map[string]string{
 		platform.AnthropicCodeExecutionPricingCondition: platform.AnthropicCodeExecutionFreeWithCurrentWebTools,
 	}, nil
@@ -239,14 +270,17 @@ func anthropicVersionedToolAtLeast(
 	if !strings.HasPrefix(toolType, prefix) {
 		return false
 	}
+
 	version := strings.TrimPrefix(toolType, prefix)
 	if len(version) != len(minimumVersion) {
 		return false
 	}
+
 	for _, value := range version {
 		if value < '0' || value > '9' {
 			return false
 		}
 	}
+
 	return version >= minimumVersion
 }

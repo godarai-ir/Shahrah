@@ -25,12 +25,14 @@ func TestMistralUsagePricingHandlesBatchCacheAndTools(t *testing.T) {
 		{Dimension: "cache_read_tokens", Unit: "token", UnitPriceUSD: decimal.RequireFromString("0.0000001")},
 		{Dimension: "code_execution_calls", Unit: "call", UnitPriceUSD: decimal.RequireFromString("0.03")},
 	}
+
 	price := priceInfo{Provider: "mistral-ai", RateList: rates, Rates: map[string]normalizedPricingRate{}}
 	for _, rate := range rates {
 		if len(rate.Condition) == 0 {
 			price.Rates[rate.Dimension] = rate
 		}
 	}
+
 	breakdown, err := mistralUsageCostBreakdown("mistral-large-2512", &contractsopenai.Usage{
 		PromptTokens: 100, CompletionTokens: 20, TotalTokens: 120, ServiceTier: "batch",
 		PromptTokensDetails: &contractsopenai.UsageTokenDetails{CachedTokens: 40},
@@ -39,6 +41,7 @@ func TestMistralUsagePricingHandlesBatchCacheAndTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if breakdown.CacheReadInputTokens != 40 || len(breakdown.Components) != 4 {
 		t.Fatalf("unexpected Mistral breakdown: %#v", breakdown)
 	}
@@ -46,11 +49,14 @@ func TestMistralUsagePricingHandlesBatchCacheAndTools(t *testing.T) {
 
 func TestMistralPricingDimensionsFailClosedByModality(t *testing.T) {
 	rate := normalizedPricingRate{UnitPriceUSD: decimal.RequireFromString("0.01")}
+
 	profile := platform.ModelRuntimeProfile{Endpoints: []string{"ocr"}}
 	if mistralPricingDimensionsComplete(profile, map[string]normalizedPricingRate{"ocr_input_pages": rate}) {
 		t.Fatal("OCR pricing must require both normal and annotated page dimensions")
 	}
+
 	annotatedRate := rate
+
 	annotatedRate.Condition = map[string]interface{}{"document_ai": true}
 	if !mistralPricingDimensionsComplete(profile, map[string]normalizedPricingRate{"ocr_input_pages": rate, "ocr_annotated_pages": annotatedRate}) {
 		t.Fatal("complete OCR pricing was rejected")

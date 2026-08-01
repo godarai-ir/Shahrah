@@ -39,6 +39,7 @@ func (h *ResponsesHandler) HandleXAIBatchResults(c *fiber.Ctx) error {
 	return h.handleXAIBatchResource(c, platform.ProviderOperationXAIBatchResults, c.Params("batch_id"))
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platform.ProviderOperation, publicID string) error {
 	_, currentTenant, ok := responsesRequestContext(c)
 	if !ok {
@@ -51,6 +52,7 @@ func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platfo
 	if operation == platform.ProviderOperationXAIBatchesCreate {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "xAI Batch billing settlement is not enabled", "billing_unavailable")
 	}
+
 	if h.resources == nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "xAI Batch routing state is unavailable", "routing_error")
 	}
@@ -59,22 +61,27 @@ func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platfo
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
+
 	input.ResourceID = strings.TrimSpace(publicID)
 	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
+
 	var mapping *platform.ProviderNativeResourceMapping
 	if input.ResourceID != "" {
 		mapping, err = h.providerResourceMapping(c, currentTenant.ID, "xai", openAIBatchResourceKind, input.ResourceID)
 		if err != nil {
 			return err
 		}
+
 		accountSelector = mapping.ProviderAccountID
 		input.ResourceID = mapping.UpstreamID
 	}
+
 	if operation == platform.ProviderOperationXAIBatchRequestsAdd {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "xAI Batch billing settlement is not enabled", "billing_unavailable")
 	}
 
 	body := append([]byte(nil), c.Body()...)
+
 	if operation == platform.ProviderOperationXAIBatchesCreate {
 		var request struct {
 			Name string `json:"name"`
@@ -88,7 +95,9 @@ func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platfo
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
 	}
+
 	profiles := []platform.ModelRuntimeProfileBinding(nil)
+
 	models := []string(nil)
 	if operation == platform.ProviderOperationXAIBatchRequestsAdd {
 		profiles, models, err = h.resolveXAIBatchRuntimeProfiles(c, currentTenant.ID, deployment.ProviderAccountID, body)
@@ -98,6 +107,7 @@ func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platfo
 	}
 
 	requestID := responseRequestID(c)
+
 	tunnelReq := platform.TunnelRequest{
 		RequestID: requestID, TenantID: currentTenant.ID, TraceID: requestID,
 		Operation: operation, OperationInput: input, Deployment: deployment,
@@ -111,10 +121,12 @@ func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platfo
 	if err := h.tunnel.Healthy(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
+
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
+
 	if resp.StatusCode >= httpErrorFloor {
 		return writeOpenAIProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
 	}
@@ -122,22 +134,26 @@ func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platfo
 	if operation == platform.ProviderOperationXAIBatchesCreate {
 		h.recordXAIBatchMapping(c, currentTenant.ID, deployment, resp.Body)
 	}
+
 	if operation == platform.ProviderOperationXAIBatchRequestsAdd && mapping != nil {
 		updated := *mapping
 		if updated.Metadata == nil {
 			updated.Metadata = map[string]interface{}{}
 		}
+
 		updated.Metadata["models"] = models
 		updated.Status = "processing"
-		_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), updated)
+		_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), updated) //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 	}
+
 	if operation == platform.ProviderOperationXAIBatchesCancel {
-		h.updateProviderResourceStatus(c, currentTenant.ID, "xai", openAIBatchResourceKind, publicID, "cancelled")
+		h.updateProviderResourceStatus(c, currentTenant.ID, "xai", openAIBatchResourceKind, publicID, "canceled")
 	}
 
 	forwardProviderHeaders(c, resp.Headers)
 	setTraceHeaders(c, requestID)
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
 	return c.Status(resp.StatusCode).Send(resp.Body)
 }
 
@@ -146,14 +162,18 @@ func (h *ResponsesHandler) resolveXAIBatchRuntimeProfiles(c *fiber.Ctx, tenantID
 	if err != nil {
 		return nil, nil, err
 	}
+
 	profiles := make([]platform.ModelRuntimeProfileBinding, 0, len(requests))
 	models := make([]string, 0, len(requests))
+
 	seen := map[string]struct{}{}
 	for _, request := range requests {
 		if _, ok := seen[request.Model]; ok {
 			continue
 		}
+
 		seen[request.Model] = struct{}{}
+
 		var deployment *router.Deployment
 		for _, candidate := range modelRoutingCandidates(request.Model) {
 			deployment, err = h.llmRouter.Route(c.Context(), tenantID, candidate)
@@ -161,6 +181,7 @@ func (h *ResponsesHandler) resolveXAIBatchRuntimeProfiles(c *fiber.Ctx, tenantID
 				break
 			}
 		}
+
 		if err != nil || deployment == nil || !strings.EqualFold(deployment.Provider, "xai") || !strings.EqualFold(deployment.ProviderAccountID, accountID) {
 			return nil, nil, fmt.Errorf("batch model %s is not available on the batch provider account", request.Model)
 		}
@@ -173,19 +194,24 @@ func (h *ResponsesHandler) resolveXAIBatchRuntimeProfiles(c *fiber.Ctx, tenantID
 		} else {
 			estimated, err = h.billing.EstimateCost(c.Context(), contractsopenai.ChatCompletionRequest{Model: billingModelForDeployment(request.Model, toContractDeployment(deployment))})
 		}
+
 		if err != nil || estimated.ModelRuntimeProfile == nil {
 			return nil, nil, fmt.Errorf("batch runtime profile is unavailable for %s", request.Model)
 		}
+
 		binding := *estimated.ModelRuntimeProfile
 		if !binding.Profile.Batch.Eligible || !runtimeValueAllowed(binding.Profile.Batch.SupportedEndpoints, request.Endpoint) {
 			return nil, nil, fmt.Errorf("model %s does not support xAI Batch %s", request.Model, request.Endpoint)
 		}
+
 		if maximum := binding.Profile.Batch.MaxRequestBytes; maximum > 0 && len(body) > maximum {
 			return nil, nil, fmt.Errorf("batch request body exceeds model limit of %d bytes", maximum)
 		}
+
 		profiles = append(profiles, binding)
 		models = append(models, request.Model)
 	}
+
 	return profiles, models, nil
 }
 
@@ -203,11 +229,13 @@ func parseXAIBatchRequests(body []byte) ([]xaiBatchModelRequest, error) {
 	if json.Unmarshal(body, &request) != nil || len(request.BatchRequests) == 0 {
 		return nil, fmt.Errorf("batch_requests is required")
 	}
+
 	result := make([]xaiBatchModelRequest, 0, len(request.BatchRequests))
 	for _, item := range request.BatchRequests {
 		if len(item.BatchRequest) != 1 {
 			return nil, fmt.Errorf("each batch_request must contain exactly one request type")
 		}
+
 		for requestType, raw := range item.BatchRequest {
 			var modelRequest struct {
 				Model string `json:"model"`
@@ -215,13 +243,16 @@ func parseXAIBatchRequests(body []byte) ([]xaiBatchModelRequest, error) {
 			if json.Unmarshal(raw, &modelRequest) != nil || strings.TrimSpace(modelRequest.Model) == "" {
 				return nil, fmt.Errorf("each batch request model is required")
 			}
+
 			endpoint := xaiBatchEndpointForRequestType(requestType)
 			if endpoint == "" {
 				return nil, fmt.Errorf("unsupported xAI batch request type %s", requestType)
 			}
+
 			result = append(result, xaiBatchModelRequest{Model: strings.TrimSpace(modelRequest.Model), Endpoint: endpoint})
 		}
 	}
+
 	return result, nil
 }
 
@@ -247,7 +278,8 @@ func (h *ResponsesHandler) recordXAIBatchMapping(c *fiber.Ctx, tenantID string, 
 	if json.Unmarshal(body, &result) != nil || strings.TrimSpace(result.BatchID) == "" {
 		return
 	}
-	_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), platform.ProviderNativeResourceMapping{
+
+	_, _ = h.resources.UpsertProviderNativeResourceMapping(c.Context(), platform.ProviderNativeResourceMapping{ //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		PublicID: result.BatchID, TenantID: tenantID, Provider: "xai",
 		ProviderAccountID: deployment.ProviderAccountID, ResourceKind: openAIBatchResourceKind,
 		UpstreamID: result.BatchID, Status: "created",

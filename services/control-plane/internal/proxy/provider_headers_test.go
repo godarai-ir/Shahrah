@@ -50,13 +50,18 @@ func TestForwardProviderHeadersIncludesAllDocumentedAnthropicRateLimits(
 			"anthropic-fast-input-tokens-remaining":      "6000",
 			"anthropic-fast-output-tokens-remaining":     "5000",
 		})
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	request := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+
 	response, err := app.Test(request)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer response.Body.Close()
+
 	for name, want := range map[string]string{
 		"Anthropic-Ratelimit-Tokens-Limit":           "10000",
 		"Anthropic-Ratelimit-Tokens-Remaining":       "9000",
@@ -83,10 +88,11 @@ func TestForwardProviderHeadersIncludesAllDocumentedOpenAIRateLimits(t *testing.
 			"x-ratelimit-reset-requests":     "120ms",
 			"x-ratelimit-reset-tokens":       "1s",
 		})
+
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/", http.NoBody))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -42,18 +42,22 @@ func googleGeminiTokenMapper(rawUsage map[string]interface{}) *contractsopenai.U
 	if _, compatible := rawUsage["prompt_tokens"]; compatible {
 		return standardTokenMapper(rawUsage)
 	}
+
 	metadata := rawUsage
 	if nested, ok := rawUsage["usageMetadata"].(map[string]interface{}); ok {
 		metadata = nested
 	}
+
 	usage := &contractsopenai.Usage{}
 	usage.PromptTokens = usageInt(metadata, "promptTokenCount")
 	thoughts := usageInt(metadata, "thoughtsTokenCount")
 	usage.CompletionTokens = usageInt(metadata, "candidatesTokenCount") + thoughts
+
 	usage.TotalTokens = usageInt(metadata, "totalTokenCount")
 	if usage.TotalTokens == 0 && (usage.PromptTokens > 0 || usage.CompletionTokens > 0) {
 		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
+
 	cached := usageInt(metadata, "cachedContentTokenCount")
 	usage.CacheReadInputTokens = cached
 	usage.PromptTokensDetails = &contractsopenai.UsageTokenDetails{
@@ -61,6 +65,7 @@ func googleGeminiTokenMapper(rawUsage map[string]interface{}) *contractsopenai.U
 		AudioTokens:  modalityTokenCount(metadata["promptTokensDetails"], "AUDIO"),
 		ImageTokens:  modalityTokenCount(metadata["promptTokensDetails"], "IMAGE"),
 	}
+
 	usage.CompletionTokensDetails = &contractsopenai.UsageTokenDetails{
 		ReasoningTokens: thoughts,
 		AudioTokens:     modalityTokenCount(metadata["candidatesTokensDetails"], "AUDIO"),
@@ -76,6 +81,7 @@ func googleGeminiTokenMapper(rawUsage map[string]interface{}) *contractsopenai.U
 	case "ON_DEMAND", "STANDARD":
 		usage.ServiceTier = "standard"
 	}
+
 	return usage
 }
 
@@ -86,7 +92,7 @@ func usageInt(values map[string]interface{}, key string) int {
 	case int:
 		return value
 	case json.Number:
-		parsed, _ := value.Int64()
+		parsed, _ := value.Int64() //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		return int(parsed)
 	default:
 		return 0
@@ -94,7 +100,7 @@ func usageInt(values map[string]interface{}, key string) int {
 }
 
 func usageString(values map[string]interface{}, key string) string {
-	value, _ := values[key].(string)
+	value, _ := values[key].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 	return value
 }
 
@@ -103,16 +109,20 @@ func modalityTokenCount(raw interface{}, modality string) int {
 	if !ok {
 		return 0
 	}
+
 	total := 0
+
 	for _, item := range items {
 		entry, ok := item.(map[string]interface{})
 		if !ok {
 			continue
 		}
+
 		if strings.EqualFold(usageString(entry, "modality"), modality) {
 			total += usageInt(entry, "tokenCount")
 		}
 	}
+
 	return total
 }
 

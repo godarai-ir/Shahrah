@@ -483,6 +483,7 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 			invalid = append(invalid, model)
 			continue
 		}
+
 		if cm.IsDeprecated {
 			invalid = append(invalid, model)
 			continue
@@ -782,10 +783,12 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 				OutputUSDPer1M: item.Pricing.OutputPerMillionTokens,
 			}
 		}
+
 		if len(item.PricingRates) > 0 {
 			if entry.PublicPricing == nil {
 				entry.PublicPricing = &platform.ModelPrice{}
 			}
+
 			entry.PublicPricing.Rates = make([]platform.ModelPricingRate, 0, len(item.PricingRates))
 			for _, rate := range item.PricingRates {
 				entry.PublicPricing.Rates = append(entry.PublicPricing.Rates, platform.ModelPricingRate{
@@ -801,6 +804,7 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 				})
 			}
 		}
+
 		entry.Readiness = catalogCapabilityReadiness(entry, item.Status)
 
 		out = append(out, entry)
@@ -1022,10 +1026,12 @@ func cloneInterfaceMap(input map[string]interface{}) map[string]interface{} {
 	if len(input) == 0 {
 		return nil
 	}
+
 	out := make(map[string]interface{}, len(input))
 	for key, value := range input {
 		out[key] = value
 	}
+
 	return out
 }
 
@@ -1052,8 +1058,9 @@ func pricingRateKey(
 		EffectiveFrom: effectiveFrom,
 		EffectiveTo:   effectiveTo,
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 	sum := sha256.Sum256(raw)
+
 	return hex.EncodeToString(sum[:])
 }
 
@@ -1063,16 +1070,19 @@ func catalogCapabilityReadiness(
 ) []platform.CapabilityReadiness {
 	state := platform.CapabilityReadinessContractReady
 	reason := ""
+
 	if strings.TrimSpace(status) != "" && !strings.EqualFold(strings.TrimSpace(status), "active") {
 		state = platform.CapabilityReadinessBlockedLifecycle
 		reason = "model_lifecycle_not_active"
 	}
+
 	result := make([]platform.CapabilityReadiness, 0, len(model.Modes))
 	for _, mode := range model.Modes {
 		transport := "http"
 		if strings.EqualFold(mode, "realtime") {
 			transport = "websocket"
 		}
+
 		result = append(result, platform.CapabilityReadiness{
 			Endpoint:      mode,
 			Transport:     transport,
@@ -1081,6 +1091,7 @@ func catalogCapabilityReadiness(
 			LiveValidated: false,
 		})
 	}
+
 	return result
 }
 

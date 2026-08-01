@@ -4,6 +4,7 @@ import "github.com/gofiber/fiber/v2"
 
 func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	v1 := app.Group("/v1")
+
 	if deps.GeminiNativeHandler != nil {
 		gemini := deps.GeminiNativeHandler.Handle
 		v1beta := app.Group("/v1beta")
@@ -19,6 +20,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1beta.All("/batches/*", gemini)
 		app.Post("/upload/v1beta/files", gemini)
 	}
+
 	if deps.ProxyHandler != nil {
 		v1.Post("/chat/completions", deps.ProxyHandler.Handle)
 		v1.Get("/chat/deferred-completion/:request_id", deps.ProxyHandler.HandleXAIDeferredGet)
@@ -82,6 +84,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 			if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
 				return deps.AnthropicNativeHandler.Handle(c)
 			}
+
 			return deps.ModelsHandler.Handle(c)
 		})
 	}
@@ -100,6 +103,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 			if c.Get("anthropic-version") == "" {
 				return c.Next()
 			}
+
 			return native(c)
 		}
 		v1.Get("/models/:id", requireAnthropicVersion)
@@ -111,12 +115,15 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 				if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
 					return deps.AnthropicNativeHandler.Handle(c)
 				}
+
 				if openAI == nil {
 					return fiber.ErrNotFound
 				}
+
 				return openAI(c)
 			}
 		}
+
 		var create, list, get, deleteFile, content fiber.Handler
 		if deps.ResponsesHandler != nil {
 			create = deps.ResponsesHandler.HandleFileCreate
@@ -125,14 +132,18 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 			deleteFile = deps.ResponsesHandler.HandleFileDelete
 			content = deps.ResponsesHandler.HandleFileContent
 		}
+
 		v1.Post("/files", fileHandler(create))
 		v1.Get("/files", fileHandler(list))
 		v1.Get("/files/:file_id", fileHandler(get))
+
 		if deps.ResponsesHandler != nil {
 			v1.Put("/files/:file_id", deps.ResponsesHandler.HandleFileUpdate)
 		}
+
 		v1.Delete("/files/:file_id", fileHandler(deleteFile))
 		v1.Get("/files/:file_id/content", fileHandler(content))
+
 		if deps.ResponsesHandler != nil {
 			v1.Post("/files/:file_id/public-url", deps.ResponsesHandler.HandleFilePublicURLCreate)
 			v1.Post("/files/:file_id/public-url/revoke", deps.ResponsesHandler.HandleFilePublicURLRevoke)

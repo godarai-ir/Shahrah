@@ -36,6 +36,7 @@ func walkProviderConfigForSecrets(value interface{}, path string) error {
 	case map[string]interface{}:
 		for key, child := range typed {
 			normalized := strings.ToLower(strings.TrimSpace(key))
+
 			normalized = strings.ReplaceAll(normalized, "-", "_")
 			if _, forbidden := providerConfigSecretKeys[normalized]; forbidden ||
 				strings.HasSuffix(normalized, "_api_key") ||
@@ -50,6 +51,7 @@ func walkProviderConfigForSecrets(value interface{}, path string) error {
 					key,
 				)
 			}
+
 			if err := walkProviderConfigForSecrets(
 				child,
 				path+"."+key,
@@ -67,5 +69,6 @@ func walkProviderConfigForSecrets(value interface{}, path string) error {
 			}
 		}
 	}
+
 	return nil
 }

@@ -53,6 +53,7 @@ func RequiredPlatformScope(method, path string) string {
 		if method == fiber.MethodGet || method == fiber.MethodHead || method == fiber.MethodOptions {
 			return PlatformScopeSupportTicketRead
 		}
+
 		return PlatformScopeSupportTicketWrite
 	}
 

@@ -9,6 +9,7 @@ var reservedTenantSlugs = map[string]struct{}{
 	"admin":     {},
 	"api":       {},
 	"app":       {},
+	"auth":      {},
 	"billing":   {},
 	"default":   {},
 	"help":      {},

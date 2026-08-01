@@ -145,15 +145,17 @@ func (s *Service) CreateCredentialVersion(ctx context.Context, connectionID stri
 	schema, err := s.schema(ctx, connection.ProviderSlug, connection.AuthMode, connection.SchemaVersion)
 	if connection.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) &&
 		len(request.Secrets) == 0 {
-		tokenSource, _ := connection.Config["token_source_id"].(string)
+		tokenSource, _ := connection.Config["token_source_id"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 		request.Secrets = map[string]string{
 			"wif_binding": strings.TrimSpace(tokenSource),
 		}
 	}
+
 	validSecrets := validCredentialSecrets(schema, request.Secrets)
 	if connection.AuthMode == string(platform.ProviderAuthModeAnthropicWIF) {
 		validSecrets = strings.TrimSpace(request.Secrets["wif_binding"]) != ""
 	}
+
 	if err != nil || !validSecrets || s.secrets == nil {
 		return nil, ErrInvalidRequest
 	}
@@ -387,6 +389,7 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com"
 		}
+
 		lower := strings.ToLower(base)
 		for _, suffix := range []string{"/v1beta/openai", "/v1/openai", "/v1beta", "/v1"} {
 			if strings.HasSuffix(lower, suffix) {
@@ -544,6 +547,7 @@ func validConnectionConfig(schema platform.ProviderConnectionSchema, config map[
 				if !rawOK {
 					return false
 				}
+
 				for _, item := range raw {
 					text, textOK := item.(string)
 					if !textOK || strings.TrimSpace(text) == "" {

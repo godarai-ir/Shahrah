@@ -111,14 +111,17 @@ func scanSupportTicket(row supportTicketRowScanner) (*platform.SupportTicket, er
 		value := firstResponse.Time
 		item.FirstSupportResponseAt = &value
 	}
+
 	if resolvedAt.Valid {
 		value := resolvedAt.Time
 		item.ResolvedAt = &value
 	}
+
 	if closedAt.Valid {
 		value := closedAt.Time
 		item.ClosedAt = &value
 	}
+
 	if ratingScore.Valid {
 		item.Rating = &platform.SupportTicketRating{
 			Score:       int(ratingScore.Int32),
@@ -128,6 +131,7 @@ func scanSupportTicket(row supportTicketRowScanner) (*platform.SupportTicket, er
 		if ratingCreatedAt.Valid {
 			item.Rating.CreatedAt = ratingCreatedAt.Time
 		}
+
 		if ratingUpdatedAt.Valid {
 			item.Rating.UpdatedAt = ratingUpdatedAt.Time
 		}
@@ -140,9 +144,11 @@ func (s *Store) ListSupportTickets(ctx context.Context, params platform.SupportT
 	if params.Limit <= 0 {
 		params.Limit = 25
 	}
+
 	if params.Limit > 100 {
 		params.Limit = 100
 	}
+
 	if params.Offset < 0 {
 		params.Offset = 0
 	}
@@ -150,6 +156,7 @@ func (s *Store) ListSupportTickets(ctx context.Context, params platform.SupportT
 	where, args := supportTicketWhere(params, true)
 
 	var total int
+
 	countQuery := `SELECT COUNT(1) FROM support_tickets st JOIN tenants t ON t.tenant_id = st.tenant_id JOIN users u ON u.user_id = st.requester_user_id ` + where
 	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
@@ -170,11 +177,13 @@ func (s *Store) ListSupportTickets(ctx context.Context, params platform.SupportT
 	defer rows.Close()
 
 	items := make([]platform.SupportTicket, 0, params.Limit)
+
 	for rows.Next() {
 		item, err := scanSupportTicket(rows)
 		if err != nil {
 			return nil, 0, err
 		}
+
 		items = append(items, *item)
 	}
 
@@ -218,6 +227,7 @@ func (s *Store) CountSupportTickets(ctx context.Context, params platform.Support
 	); err != nil {
 		return nil, err
 	}
+
 	if averageRating.Valid {
 		out.AverageRating = &averageRating.Float64
 	}
@@ -236,9 +246,11 @@ func supportTicketWhere(params platform.SupportTicketListParams, includeStatus b
 	if value := strings.TrimSpace(params.TenantID); value != "" {
 		add("st.tenant_id::text = $%d", value)
 	}
+
 	if !params.ReadAll && strings.TrimSpace(params.RequesterUserID) != "" {
 		add("st.requester_user_id::text = $%d", strings.TrimSpace(params.RequesterUserID))
 	}
+
 	if includeStatus {
 		if strings.EqualFold(strings.TrimSpace(params.Queue), "needs_support_reply") {
 			conditions = append(conditions, "st.status = 'open'", "st.last_message_author_type = 'tenant_user'")
@@ -246,12 +258,15 @@ func supportTicketWhere(params platform.SupportTicketListParams, includeStatus b
 			add("st.status = $%d", value)
 		}
 	}
+
 	if value := strings.TrimSpace(params.Category); value != "" {
 		add("st.category = $%d", value)
 	}
+
 	if value := strings.TrimSpace(params.Priority); value != "" {
 		add("st.priority = $%d", value)
 	}
+
 	if value := strings.TrimSpace(params.AssigneeID); value != "" {
 		if value == "unassigned" {
 			conditions = append(conditions, "st.assignee_id IS NULL")
@@ -259,6 +274,7 @@ func supportTicketWhere(params platform.SupportTicketListParams, includeStatus b
 			add("st.assignee_id = $%d", value)
 		}
 	}
+
 	if value := strings.TrimSpace(params.Query); value != "" {
 		args = append(args, value)
 		placeholder := fmt.Sprintf("$%d", len(args))
@@ -269,9 +285,11 @@ func supportTicketWhere(params platform.SupportTicketListParams, includeStatus b
 				" OR LOWER(COALESCE(u.email, '')) LIKE LOWER('%' || "+placeholder+" || '%'))",
 		)
 	}
+
 	if params.UpdatedFrom != nil {
 		add("st.last_message_at >= $%d", params.UpdatedFrom.UTC())
 	}
+
 	if params.UpdatedTo != nil {
 		add("st.last_message_at <= $%d", params.UpdatedTo.UTC())
 	}
@@ -281,11 +299,13 @@ func supportTicketWhere(params platform.SupportTicketListParams, includeStatus b
 
 func (s *Store) GetSupportTicket(ctx context.Context, tenantID, ticketRef, requesterUserID string, readAll bool) (*platform.SupportTicket, error) {
 	conditions := []string{"(st.ticket_id::text = $1 OR UPPER(st.public_id) = UPPER($1))"}
+
 	args := []interface{}{strings.TrimSpace(ticketRef)}
 	if strings.TrimSpace(tenantID) != "" {
 		args = append(args, strings.TrimSpace(tenantID))
 		conditions = append(conditions, fmt.Sprintf("st.tenant_id::text = $%d", len(args)))
 	}
+
 	if !readAll && strings.TrimSpace(requesterUserID) != "" {
 		args = append(args, strings.TrimSpace(requesterUserID))
 		conditions = append(conditions, fmt.Sprintf("st.requester_user_id::text = $%d", len(args)))
@@ -299,6 +319,7 @@ func (s *Store) GetSupportTicket(ctx context.Context, tenantID, ticketRef, reque
 	return item, err
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (s *Store) CreateSupportTicket(
 	ctx context.Context,
 	tenantID string,
@@ -315,6 +336,7 @@ func (s *Store) CreateSupportTicket(
 	defer rollbackTxBestEffort(ctx, tx)
 
 	var existingID, existingHash string
+
 	err = tx.QueryRow(ctx, `
 		SELECT ticket_id::text, request_hash
 		FROM support_tickets
@@ -325,12 +347,16 @@ func (s *Store) CreateSupportTicket(
 		if existingHash != req.RequestHash {
 			return nil, false, ErrSupportTicketIdempotency
 		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, err
 		}
+
 		detail, loadErr := s.GetSupportTicketDetail(ctx, tenantID, existingID, requesterUserID, false)
+
 		return detail, true, loadErr
 	}
+
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, err
 	}
@@ -344,6 +370,7 @@ func (s *Store) CreateSupportTicket(
 		`, tenantID, requesterUserID).Scan(&recent); err != nil {
 			return nil, false, err
 		}
+
 		if recent >= maxTicketsPerHour {
 			return nil, false, ErrSupportTicketRateLimited
 		}
@@ -351,6 +378,7 @@ func (s *Store) CreateSupportTicket(
 
 	ticketID := uuid.NewString()
 	messageID := uuid.NewString()
+
 	publicID, err := newSupportTicketPublicID()
 	if err != nil {
 		return nil, false, err
@@ -380,6 +408,7 @@ func (s *Store) CreateSupportTicket(
 	if err := insertSupportTicketAttachmentsTx(ctx, tx, tenantID, ticketID, messageID, attachments); err != nil {
 		return nil, false, err
 	}
+
 	if err := insertSupportTicketEventTx(ctx, tx, ticketID, tenantID, "ticket.created", actor, map[string]interface{}{
 		"category": req.Category,
 		"priority": platform.SupportTicketPriorityNormal,
@@ -392,6 +421,7 @@ func (s *Store) CreateSupportTicket(
 	}
 
 	detail, err := s.GetSupportTicketDetail(ctx, tenantID, ticketID, requesterUserID, false)
+
 	return detail, false, err
 }
 
@@ -400,6 +430,7 @@ func (s *Store) GetSupportTicketDetail(ctx context.Context, tenantID, ticketRef,
 	if err != nil {
 		return nil, err
 	}
+
 	messages, err := s.ListSupportTicketMessages(ctx, ticket.ID, 100, 0)
 	if err != nil {
 		return nil, err
@@ -408,13 +439,16 @@ func (s *Store) GetSupportTicketDetail(ctx context.Context, tenantID, ticketRef,
 	return &platform.SupportTicketDetail{Ticket: *ticket, Messages: messages}, nil
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (s *Store) ListSupportTicketMessages(ctx context.Context, ticketID string, limit, offset int) ([]platform.SupportTicketMessage, error) {
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 100 {
 		limit = 100
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
@@ -445,18 +479,22 @@ func (s *Store) ListSupportTicketMessages(ctx context.Context, ticketID string, 
 
 	messages := make([]platform.SupportTicketMessage, 0, limit)
 	messageIndex := make(map[string]int, limit)
+
 	for rows.Next() {
 		var item platform.SupportTicketMessage
 		if err := rows.Scan(&item.ID, &item.TicketID, &item.AuthorType, &item.AuthorID, &item.AuthorLabel, &item.Body, &item.CreatedAt); err != nil {
 			return nil, err
 		}
+
 		item.Attachments = []platform.SupportTicketAttachment{}
 		messageIndex[item.ID] = len(messages)
 		messages = append(messages, item)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	if len(messages) == 0 {
 		return messages, nil
 	}
@@ -467,6 +505,7 @@ func (s *Store) ListSupportTicketMessages(ctx context.Context, ticketID string, 
 			ids = append(ids, parsed)
 		}
 	}
+
 	attachmentRows, err := s.pool.Query(ctx, `
 		SELECT attachment_id::text, ticket_id::text, message_id::text, original_filename,
 		       detected_content_type, size_bytes, sha256, scan_status, created_at, scanned_at
@@ -498,10 +537,12 @@ func (s *Store) ListSupportTicketMessages(ctx context.Context, ticketID string, 
 		); err != nil {
 			return nil, err
 		}
+
 		if scannedAt.Valid {
 			value := scannedAt.Time
 			item.ScannedAt = &value
 		}
+
 		if index, ok := messageIndex[item.MessageID]; ok {
 			messages[index].Attachments = append(messages[index].Attachments, item)
 		}
@@ -510,6 +551,7 @@ func (s *Store) ListSupportTicketMessages(ctx context.Context, ticketID string, 
 	return messages, attachmentRows.Err()
 }
 
+//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (s *Store) AddSupportTicketMessage(
 	ctx context.Context,
 	tenantID string,
@@ -532,6 +574,7 @@ func (s *Store) AddSupportTicketMessage(
 	}
 
 	var existingMessageID, existingHash string
+
 	err = tx.QueryRow(ctx, `
 		SELECT message_id::text, request_hash
 		FROM support_ticket_messages
@@ -542,20 +585,26 @@ func (s *Store) AddSupportTicketMessage(
 		if existingHash != req.RequestHash {
 			return nil, false, ErrSupportTicketIdempotency
 		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, err
 		}
+
 		detail, loadErr := s.GetSupportTicketDetail(ctx, tenantID, ticket.ID, actor.ID, readAll)
+
 		return detail, true, loadErr
 	}
+
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, err
 	}
 
 	now := time.Now().UTC()
+
 	if ticket.Status == platform.SupportTicketStatusClosed {
 		return nil, false, ErrSupportTicketClosed
 	}
+
 	if ticket.Status == platform.SupportTicketStatusResolved && ticket.ResolvedAt != nil && now.Sub(ticket.ResolvedAt.UTC()) > 7*24*time.Hour {
 		return nil, false, ErrSupportTicketClosed
 	}
@@ -570,6 +619,7 @@ func (s *Store) AddSupportTicketMessage(
 		`, ticket.ID, actor.Type, actor.ID).Scan(&recent); err != nil {
 			return nil, false, err
 		}
+
 		if recent >= maxMessagesPerHour {
 			return nil, false, ErrSupportTicketRateLimited
 		}
@@ -585,6 +635,7 @@ func (s *Store) AddSupportTicketMessage(
 	} else {
 		nextStatus = platform.SupportTicketStatusInProgress
 	}
+
 	if !validSupportTicketTransition(ticket.Status, nextStatus, actor.Type == platform.SupportTicketAuthorSupportAgent) {
 		return nil, false, ErrSupportTicketInvalidTransition
 	}
@@ -598,6 +649,7 @@ func (s *Store) AddSupportTicketMessage(
 	`, messageID, ticket.ID, actor.Type, actor.ID, req.Body, req.IdempotencyKey, req.RequestHash); err != nil {
 		return nil, false, err
 	}
+
 	if err := insertSupportTicketAttachmentsTx(ctx, tx, ticket.TenantID, ticket.ID, messageID, attachments); err != nil {
 		return nil, false, err
 	}
@@ -619,6 +671,7 @@ func (s *Store) AddSupportTicketMessage(
 	`, ticket.ID, nextStatus, actor.Type); err != nil {
 		return nil, false, err
 	}
+
 	if err := insertSupportTicketEventTx(ctx, tx, ticket.ID, ticket.TenantID, "ticket.message_added", actor, map[string]interface{}{
 		"attachment_count": len(attachments),
 		"status_before":    ticket.Status,
@@ -632,6 +685,7 @@ func (s *Store) AddSupportTicketMessage(
 	}
 
 	detail, err := s.GetSupportTicketDetail(ctx, tenantID, ticket.ID, actor.ID, readAll)
+
 	return detail, false, err
 }
 
@@ -646,17 +700,22 @@ func (s *Store) TriageSupportTicket(ctx context.Context, ticketRef string, req p
 	if err != nil {
 		return nil, err
 	}
+
 	requestHash := supportMutationRequestHash(req)
+
 	replay, err := supportMutationReplayTx(ctx, tx, ticket.ID, actor, "triage", req.IdempotencyKey, requestHash)
 	if err != nil {
 		return nil, err
 	}
+
 	if replay {
 		if err := tx.Commit(ctx); err != nil {
 			return nil, err
 		}
+
 		return s.GetSupportTicket(ctx, "", ticket.ID, "", true)
 	}
+
 	if req.Version <= 0 || ticket.Version != req.Version {
 		return nil, ErrSupportTicketStaleVersion
 	}
@@ -667,14 +726,17 @@ func (s *Store) TriageSupportTicket(ctx context.Context, ticketRef string, req p
 		if !validSupportTicketTransition(ticket.Status, nextStatus, true) {
 			return nil, ErrSupportTicketInvalidTransition
 		}
+
 		if ticket.Status == platform.SupportTicketStatusClosed && nextStatus == platform.SupportTicketStatusOpen {
 			return nil, ErrSupportTicketInvalidTransition
 		}
 	}
+
 	nextPriority := ticket.Priority
 	if req.Priority != nil {
 		nextPriority = strings.TrimSpace(*req.Priority)
 	}
+
 	nextAssignee := ticket.AssigneeID
 	if req.AssigneeID != nil {
 		nextAssignee = strings.TrimSpace(*req.AssigneeID)
@@ -704,6 +766,7 @@ func (s *Store) TriageSupportTicket(ctx context.Context, ticketRef string, req p
 	}); err != nil {
 		return nil, err
 	}
+
 	if err := recordSupportMutationTx(ctx, tx, ticket.ID, actor, "triage", req.IdempotencyKey, requestHash); err != nil {
 		return nil, err
 	}
@@ -726,20 +789,26 @@ func (s *Store) ReopenSupportTicket(ctx context.Context, ticketRef string, req p
 	if err != nil {
 		return nil, err
 	}
+
 	requestHash := supportMutationRequestHash(req)
+
 	replay, err := supportMutationReplayTx(ctx, tx, ticket.ID, actor, "reopen", req.IdempotencyKey, requestHash)
 	if err != nil {
 		return nil, err
 	}
+
 	if replay {
 		if err := tx.Commit(ctx); err != nil {
 			return nil, err
 		}
+
 		return s.GetSupportTicket(ctx, "", ticket.ID, "", true)
 	}
+
 	if ticket.Version != req.Version {
 		return nil, ErrSupportTicketStaleVersion
 	}
+
 	if ticket.Status != platform.SupportTicketStatusClosed || strings.TrimSpace(req.Reason) == "" {
 		return nil, ErrSupportTicketInvalidTransition
 	}
@@ -752,14 +821,17 @@ func (s *Store) ReopenSupportTicket(ctx context.Context, ticketRef string, req p
 	`, ticket.ID); err != nil {
 		return nil, err
 	}
+
 	if err := insertSupportTicketEventTx(ctx, tx, ticket.ID, ticket.TenantID, "ticket.reopened", actor, map[string]interface{}{
 		"reason": strings.TrimSpace(req.Reason),
 	}); err != nil {
 		return nil, err
 	}
+
 	if err := recordSupportMutationTx(ctx, tx, ticket.ID, actor, "reopen", req.IdempotencyKey, requestHash); err != nil {
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -778,25 +850,33 @@ func (s *Store) RateSupportTicket(ctx context.Context, tenantID, ticketRef, requ
 	if err != nil {
 		return nil, err
 	}
+
 	requestHash := supportMutationRequestHash(req)
+
 	replay, err := supportMutationReplayTx(ctx, tx, ticket.ID, actor, "rating", req.IdempotencyKey, requestHash)
 	if err != nil {
 		return nil, err
 	}
+
 	if replay {
 		if err := tx.Commit(ctx); err != nil {
 			return nil, err
 		}
+
 		return s.GetSupportTicket(ctx, tenantID, ticket.ID, requesterUserID, false)
 	}
+
 	var ratingExists bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM support_ticket_ratings WHERE ticket_id = $1::uuid)`, ticket.ID).Scan(&ratingExists); err != nil {
 		return nil, err
 	}
+
 	now := time.Now().UTC()
+
 	if ticket.Status != platform.SupportTicketStatusResolved && ticket.Status != platform.SupportTicketStatusClosed {
 		return nil, ErrSupportTicketRatingNotAllowed
 	}
+
 	if ticket.Status == platform.SupportTicketStatusClosed && (ticket.ClosedAt == nil || now.Sub(ticket.ClosedAt.UTC()) > 30*24*time.Hour) {
 		return nil, ErrSupportTicketRatingNotAllowed
 	}
@@ -811,6 +891,7 @@ func (s *Store) RateSupportTicket(ctx context.Context, tenantID, ticketRef, requ
 	`, ticket.ID, ticket.TenantID, requesterUserID, req.Score, strings.TrimSpace(req.Comment)); err != nil {
 		return nil, err
 	}
+
 	if ticket.Status == platform.SupportTicketStatusResolved {
 		if _, err := tx.Exec(ctx, `
 			UPDATE support_tickets
@@ -826,18 +907,22 @@ func (s *Store) RateSupportTicket(ctx context.Context, tenantID, ticketRef, requ
 			return nil, err
 		}
 	}
+
 	ratingEvent := "ticket.rating_submitted"
 	if ratingExists {
 		ratingEvent = "ticket.rating_updated"
 	}
+
 	if err := insertSupportTicketEventTx(ctx, tx, ticket.ID, ticket.TenantID, ratingEvent, actor, map[string]interface{}{
 		"score": req.Score,
 	}); err != nil {
 		return nil, err
 	}
+
 	if err := recordSupportMutationTx(ctx, tx, ticket.ID, actor, "rating", req.IdempotencyKey, requestHash); err != nil {
 		return nil, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -851,14 +936,18 @@ func (s *Store) ListSupportTicketAttachmentObjectKeys(ctx context.Context) (map[
 		return nil, err
 	}
 	defer rows.Close()
+
 	keys := make(map[string]struct{})
+
 	for rows.Next() {
 		var key string
 		if err := rows.Scan(&key); err != nil {
 			return nil, err
 		}
+
 		keys[key] = struct{}{}
 	}
+
 	return keys, rows.Err()
 }
 
@@ -866,9 +955,11 @@ func (s *Store) ListSupportTicketEvents(ctx context.Context, ticketID string, li
 	if limit <= 0 {
 		limit = 50
 	}
+
 	if limit > 100 {
 		limit = 100
 	}
+
 	if offset < 0 {
 		offset = 0
 	}
@@ -888,6 +979,7 @@ func (s *Store) ListSupportTicketEvents(ctx context.Context, ticketID string, li
 	defer rows.Close()
 
 	items := make([]platform.SupportTicketEvent, 0, limit)
+
 	for rows.Next() {
 		var (
 			item platform.SupportTicketEvent
@@ -907,8 +999,9 @@ func (s *Store) ListSupportTicketEvents(ctx context.Context, ticketID string, li
 		); err != nil {
 			return nil, err
 		}
+
 		item.Payload = map[string]interface{}{}
-		_ = json.Unmarshal(raw, &item.Payload)
+		_ = json.Unmarshal(raw, &item.Payload) //nolint:errcheck // Invalid optional response metadata is treated as absent.
 		items = append(items, item)
 	}
 
@@ -918,10 +1011,12 @@ func (s *Store) ListSupportTicketEvents(ctx context.Context, ticketID string, li
 func (s *Store) GetSupportTicketAttachment(ctx context.Context, tenantID, attachmentID, requesterUserID string, readAll bool) (*platform.SupportTicketAttachmentObject, error) {
 	args := []interface{}{strings.TrimSpace(attachmentID)}
 	conditions := []string{"sta.attachment_id::text = $1"}
+
 	if strings.TrimSpace(tenantID) != "" {
 		args = append(args, strings.TrimSpace(tenantID))
 		conditions = append(conditions, fmt.Sprintf("sta.tenant_id::text = $%d", len(args)))
 	}
+
 	if !readAll && strings.TrimSpace(requesterUserID) != "" {
 		args = append(args, strings.TrimSpace(requesterUserID))
 		conditions = append(conditions, fmt.Sprintf("st.requester_user_id::text = $%d", len(args)))
@@ -931,6 +1026,7 @@ func (s *Store) GetSupportTicketAttachment(ctx context.Context, tenantID, attach
 		item      platform.SupportTicketAttachmentObject
 		scannedAt sql.NullTime
 	)
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT sta.attachment_id::text, sta.ticket_id::text, sta.message_id::text,
 		       sta.original_filename, sta.detected_content_type, sta.size_bytes, sta.sha256,
@@ -956,9 +1052,11 @@ func (s *Store) GetSupportTicketAttachment(ctx context.Context, tenantID, attach
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSupportTicketNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	if scannedAt.Valid {
 		value := scannedAt.Time
 		item.ScannedAt = &value
@@ -971,7 +1069,8 @@ func (s *Store) RecordSupportTicketAttachmentDownload(ctx context.Context, attac
 	if attachment == nil {
 		return nil
 	}
-	raw, _ := json.Marshal(map[string]interface{}{
+
+	raw, _ := json.Marshal(map[string]interface{}{ //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 		"attachment_id": attachment.ID,
 		"outcome":       strings.TrimSpace(outcome),
 	})
@@ -981,6 +1080,7 @@ func (s *Store) RecordSupportTicketAttachmentDownload(ctx context.Context, attac
 		)
 		VALUES ($1::uuid, $2::uuid, 'ticket.attachment_downloaded', $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, NOW())
 	`, attachment.TicketID, attachment.TenantID, actor.Type, actor.ID, actor.Role, actor.RequestID, raw)
+
 	return err
 }
 
@@ -988,6 +1088,7 @@ func (s *Store) CloseResolvedSupportTickets(ctx context.Context, before time.Tim
 	if batchSize <= 0 {
 		batchSize = 100
 	}
+
 	if batchSize > 1000 {
 		batchSize = 1000
 	}
@@ -1009,22 +1110,29 @@ func (s *Store) CloseResolvedSupportTickets(ctx context.Context, before time.Tim
 	if err != nil {
 		return 0, err
 	}
+
 	type target struct{ ticketID, tenantID string }
+
 	targets := make([]target, 0, batchSize)
+
 	for rows.Next() {
 		var item target
 		if err := rows.Scan(&item.ticketID, &item.tenantID); err != nil {
 			rows.Close()
 			return 0, err
 		}
+
 		targets = append(targets, item)
 	}
+
 	rows.Close()
+
 	if err := rows.Err(); err != nil {
 		return 0, err
 	}
 
 	systemActor := platform.SupportTicketActor{Type: platform.SupportTicketAuthorSystem, ID: "support-ticket-closer", Role: "system"}
+
 	for _, item := range targets {
 		if _, err := tx.Exec(ctx, `
 			UPDATE support_tickets
@@ -1033,10 +1141,12 @@ func (s *Store) CloseResolvedSupportTickets(ctx context.Context, before time.Tim
 		`, item.ticketID); err != nil {
 			return 0, err
 		}
+
 		if err := insertSupportTicketEventTx(ctx, tx, item.ticketID, item.tenantID, "ticket.auto_closed", systemActor, map[string]interface{}{}); err != nil {
 			return 0, err
 		}
 	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
@@ -1046,11 +1156,13 @@ func (s *Store) CloseResolvedSupportTickets(ctx context.Context, before time.Tim
 
 func lockSupportTicketTx(ctx context.Context, tx pgx.Tx, tenantID, ticketRef, requesterUserID string, readAll bool) (*platform.SupportTicket, error) {
 	conditions := []string{"(st.ticket_id::text = $1 OR UPPER(st.public_id) = UPPER($1))"}
+
 	args := []interface{}{strings.TrimSpace(ticketRef)}
 	if strings.TrimSpace(tenantID) != "" {
 		args = append(args, strings.TrimSpace(tenantID))
 		conditions = append(conditions, fmt.Sprintf("st.tenant_id::text = $%d", len(args)))
 	}
+
 	if !readAll && strings.TrimSpace(requesterUserID) != "" {
 		args = append(args, strings.TrimSpace(requesterUserID))
 		conditions = append(conditions, fmt.Sprintf("st.requester_user_id::text = $%d", len(args)))
@@ -1062,6 +1174,7 @@ func lockSupportTicketTx(ctx context.Context, tx pgx.Tx, tenantID, ticketRef, re
 		resolvedAt    sql.NullTime
 		closedAt      sql.NullTime
 	)
+
 	err := tx.QueryRow(ctx, `
 		SELECT st.ticket_id::text, st.public_id, st.tenant_id::text, st.requester_user_id::text,
 		       st.subject, st.category, st.priority, st.status, COALESCE(st.assignee_id, ''),
@@ -1093,17 +1206,21 @@ func lockSupportTicketTx(ctx context.Context, tx pgx.Tx, tenantID, ticketRef, re
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSupportTicketNotFound
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	if firstResponse.Valid {
 		value := firstResponse.Time
 		item.FirstSupportResponseAt = &value
 	}
+
 	if resolvedAt.Valid {
 		value := resolvedAt.Time
 		item.ResolvedAt = &value
 	}
+
 	if closedAt.Valid {
 		value := closedAt.Time
 		item.ClosedAt = &value
@@ -1146,19 +1263,21 @@ func insertSupportTicketEventTx(
 	actor platform.SupportTicketActor,
 	payload map[string]interface{},
 ) error {
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 	_, err := tx.Exec(ctx, `
 		INSERT INTO support_ticket_events (
 			ticket_id, tenant_id, event_type, actor_type, actor_id, actor_role, request_id, payload, created_at
 		)
 		VALUES ($1::uuid, $2::uuid, $3, $4, NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8, NOW())
 	`, ticketID, tenantID, eventType, actor.Type, actor.ID, actor.Role, actor.RequestID, raw)
+
 	return err
 }
 
 func supportMutationRequestHash(value interface{}) string {
-	raw, _ := json.Marshal(value)
+	raw, _ := json.Marshal(value) //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
 	sum := sha256.Sum256(raw)
+
 	return fmt.Sprintf("%x", sum[:])
 }
 
@@ -1172,6 +1291,7 @@ func supportMutationReplayTx(
 	requestHash string,
 ) (bool, error) {
 	var existingHash string
+
 	err := tx.QueryRow(ctx, `
 		SELECT request_hash
 		FROM support_ticket_mutations
@@ -1182,12 +1302,15 @@ func supportMutationReplayTx(
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
+
 	if err != nil {
 		return false, err
 	}
+
 	if existingHash != requestHash {
 		return false, ErrSupportTicketIdempotency
 	}
+
 	return true, nil
 }
 
@@ -1206,6 +1329,7 @@ func recordSupportMutationTx(
 		)
 		VALUES ($1::uuid, $2, $3, $4, $5, $6, NOW())
 	`, ticketID, actor.Type, actor.ID, operation, idempotencyKey, requestHash)
+
 	return err
 }
 
@@ -1227,11 +1351,13 @@ func validSupportTicketTransition(current, next string, supportActor bool) bool 
 		if next == platform.SupportTicketStatusOpen {
 			return true
 		}
+
 		return supportActor && (next == platform.SupportTicketStatusInProgress || next == platform.SupportTicketStatusResolved)
 	case platform.SupportTicketStatusResolved:
 		if next == platform.SupportTicketStatusOpen {
 			return true
 		}
+
 		return supportActor && next == platform.SupportTicketStatusClosed
 	case platform.SupportTicketStatusClosed:
 		return false
@@ -1245,6 +1371,8 @@ func newSupportTicketPublicID() (string, error) {
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
 	}
+
 	encoded := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(raw)
+
 	return "TKT-" + encoded, nil
 }

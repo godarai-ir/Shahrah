@@ -30,6 +30,7 @@ func (s *Store) ResolveProviderAccountAPIKey(
 		!strings.EqualFold(record.authMode, string(platform.ProviderAuthModeAPIKey)) {
 		return "", err
 	}
+
 	return s.resolveTenantProviderAccountAPIKey(ctx, tenantID, record.accountID)
 }
 
@@ -57,6 +58,7 @@ func (s *Store) ResolveProviderAccountAuth(
 		if resolveErr != nil || apiKey == "" {
 			return nil, resolveErr
 		}
+
 		return &platform.ResolvedProviderAuth{
 			Mode:   string(platform.ProviderAuthModeAPIKey),
 			APIKey: apiKey,
@@ -131,18 +133,21 @@ func (s *Store) resolveProviderAccountRuntimeRecord(
 		); err != nil {
 			return providerAccountRuntimeRecord{}, false, err
 		}
+
 		if modelid.MatchOfficialModel(provider, stored, model) {
 			record.providerConfig = parseJSONObject(configRaw)
 			return record, true, nil
 		}
 	}
+
 	if err := rows.Err(); err != nil {
 		return providerAccountRuntimeRecord{}, false, err
 	}
+
 	return providerAccountRuntimeRecord{}, false, nil
 }
 
 func tenantProviderStringConfig(config map[string]interface{}, key string) string {
-	value, _ := config[key].(string)
+	value, _ := config[key].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 	return strings.TrimSpace(value)
 }

@@ -94,6 +94,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	modelWasProvided := strings.TrimSpace(req.Model) != ""
 	requestedModel := normalizeModelIdentifier(req.Model)
+
 	resolvedDeployment, effectiveModel, upstreamPreviousResponseID, err := h.resolveResponseCreateDeployment(
 		c.Context(),
 		currentTenant.ID,
@@ -104,6 +105,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
 	}
+
 	requestedModel = effectiveModel
 	req.Model = requestedModel
 
@@ -209,6 +211,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 			return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 		}
+
 		tunnelDeployment = toContractDeployment(dep)
 	}
 
@@ -222,25 +225,30 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 			return writeBillingEstimateError(c, err)
 		}
 	}
+
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": tunnelDeployment.Provider, "deployment_id": tunnelDeployment.ID})
 
 	payload := originalBody
+
 	if modelWasProvided {
 		outboundModel := strings.TrimSpace(tunnelDeployment.Model)
 		if outboundModel == "" || outboundModel == "*" {
 			outboundModel = providerModelID(requestedModel)
 		}
+
 		payload, err = rewriteOpenAIJSONModel(payload, outboundModel)
 		if err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 		}
 	}
+
 	if upstreamPreviousResponseID != "" && upstreamPreviousResponseID != strings.TrimSpace(req.PreviousResponseID) {
 		payload, err = rewriteOpenAIJSONStringField(payload, "previous_response_id", upstreamPreviousResponseID)
 		if err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
 		}
 	}
+
 	if strings.EqualFold(strings.TrimSpace(tunnelDeployment.Provider), "xai") {
 		payload, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, tunnelDeployment.ProviderAccountID, payload)
 		if err != nil {
@@ -264,10 +272,12 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		},
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+
 	runtimeModel := strings.TrimSpace(tunnelReq.Deployment.Model)
 	if runtimeModel == "" || runtimeModel == "*" {
 		runtimeModel = providerModelID(requestedModel)
 	}
+
 	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
 		tunnelReq.Deployment.Provider,
 		runtimeModel,
@@ -348,10 +358,12 @@ func (h *ResponsesHandler) handleSync(
 	if finalUsage != nil {
 		finalUsage.ServiceTier = response.ServiceTier
 	}
+
 	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(req.Model, tunnelReq.Deployment), finalUsage, estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
+
 	tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, finalUsage)
 
 	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
@@ -419,6 +431,7 @@ func (h *ResponsesHandler) handleSync(
 	setCostHeaders(c, finalCost)
 
 	responseStart := time.Now()
+
 	c.Status(resp.StatusCode)
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	err = c.Send(resp.Body)
@@ -446,6 +459,7 @@ func rewriteOpenAIJSONStringField(body []byte, field string, value string) ([]by
 	if err != nil {
 		return nil, err
 	}
+
 	object[field] = encodedValue
 
 	return json.Marshal(object)
@@ -504,7 +518,9 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 		defer closeStreamBestEffort(h.logger, stream)
 
 		budgetCommitted := false
+
 		var completedResponse *contractsopenai.Response
+
 		defer func() {
 			if !budgetCommitted {
 				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
@@ -525,6 +541,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 					finalUsage.ServiceTier = completedResponse.ServiceTier
 				}
 			}
+
 			finalCost, finalizeErr := h.billing.FinalizeFromUsage(requestCtx, billingModel, finalUsage, estimated)
 			if finalizeErr != nil {
 				h.logger.Warn("failed to finalize streaming usage", zap.Error(finalizeErr), zap.String("request_id", tunnelReq.RequestID))
@@ -532,6 +549,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				finalCost = estimated
 				finalCost.Model = billingModel
 			}
+
 			tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, finalUsage)
 
 			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
@@ -599,8 +617,8 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				tunnelReq.Deployment,
 				func(response contractsopenai.Response) {
 					if response.Usage != nil {
-						copy := response
-						completedResponse = &copy
+						responseCopy := response
+						completedResponse = &responseCopy
 					}
 				},
 			),
@@ -713,11 +731,13 @@ func responseUsageToOpenAI(usage *contractsopenai.ResponseUsage) *contractsopena
 			CacheWriteTokens: usage.InputDetails.CacheWriteTokens,
 		}
 	}
+
 	if usage.OutputDetails != nil {
 		result.CompletionTokensDetails = &contractsopenai.UsageTokenDetails{
 			ReasoningTokens: usage.OutputDetails.ReasoningTokens,
 		}
 	}
+
 	return result
 }
 
@@ -730,6 +750,7 @@ func responseUsageWithToolsToOpenAI(
 	}
 
 	serverTools := map[string]int{}
+
 	for _, item := range response.Output {
 		switch strings.ToLower(strings.TrimSpace(item.Type)) {
 		case "web_search_call":
@@ -746,6 +767,7 @@ func responseUsageWithToolsToOpenAI(
 			serverTools["file_search_requests"]++
 		}
 	}
+
 	if len(serverTools) > 0 {
 		usage.ServerToolUse = serverTools
 	}

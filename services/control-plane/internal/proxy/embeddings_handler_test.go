@@ -166,6 +166,7 @@ func TestEmbeddingsHandlerPreservesFutureRequestAndResponseFields(t *testing.T) 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
+
 	require.NoError(t, err)
 	defer closeResponseBody(t, resp)
 

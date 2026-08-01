@@ -166,10 +166,12 @@ func TestAudioTranscriptionsHandlerSupportedProviderRouting(t *testing.T) {
 			defer closeResponseBody(t, resp)
 
 			require.NoError(t, err)
+
 			if resp.StatusCode != fiber.StatusOK {
 				payload, _ := io.ReadAll(resp.Body)
 				t.Logf("unexpected response: %s", payload)
 			}
+
 			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 			assert.Equal(t, tc.wantKind, tunnel.lastReq.RequestMetadata["provider_adapter_kind"])
 			assert.Equal(t, "/audio/transcriptions", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
@@ -350,11 +352,14 @@ func TestMistralAudioTranscriptionsHandlerAcceptsOfficialJSONFileURLContract(t *
 
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
+
 	if resp.StatusCode != fiber.StatusOK {
 		payload, _ := io.ReadAll(resp.Body)
 		t.Fatalf("unexpected response %d: %s", resp.StatusCode, payload)
 	}
+
 	assert.Equal(t, "application/json", tunnel.lastReq.Headers["Content-Type"])
 	assert.JSONEq(t, `{"model":"voxtral-mini-2602","file_url":"https://example.com/audio.wav","stream":false,"timestamp_granularities":["word"]}`, string(tunnel.lastReq.Body))
 	assert.Equal(t, "url", tunnel.lastReq.RequestMetadata["file_source"])

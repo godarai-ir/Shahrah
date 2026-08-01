@@ -22,7 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("initialize logger: %v", err)
 	}
-	defer logger.Sync()
+	defer logger.Sync() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -35,6 +35,7 @@ func main() {
 
 	days := positiveIntEnv("SUPPORT_TICKET_RESOLVED_CLOSE_DAYS", 7)
 	batchSize := positiveIntEnv("SUPPORT_TICKET_CLOSE_BATCH_SIZE", 250)
+
 	closed, err := store.CloseResolvedSupportTickets(ctx, time.Now().UTC().Add(-time.Duration(days)*24*time.Hour), batchSize)
 	if err != nil {
 		logger.Fatal("close resolved support tickets", zap.Error(err))
@@ -48,5 +49,6 @@ func positiveIntEnv(key string, fallback int) int {
 	if err != nil || value <= 0 {
 		return fallback
 	}
+
 	return value
 }
