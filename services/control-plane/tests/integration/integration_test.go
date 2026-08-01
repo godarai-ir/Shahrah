@@ -108,6 +108,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	}
 
 	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")
+	configureOpenAITestCatalog(t, billingSvc)
 	llmRouter, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: "gpt-3.5-turbo",
 		ProviderEndpoint: config.ProviderEndpointConfig{
@@ -528,10 +529,11 @@ func TestIntegration_WeightedVirtualModelFallsBackInOrderAfterWeightedPrimary(t 
 	})
 
 	resp := performJSONRequest(t, app, http.MethodPost, "http://localhost/v1/chat/completions", "Bearer sk-master", `{"model":"smart-router","messages":[{"role":"user","content":"hello"}]}`)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var completion contractsopenai.ChatCompletionResponse
 	decodeJSONBody(t, resp, &completion)
+	require.NotEmpty(t, completion.Choices)
 	assert.Equal(t, "backup selected", completion.Choices[0].Message.Content)
 	assert.Equal(t, "gpt-4o-backup", completion.Model)
 }
@@ -2538,6 +2540,17 @@ func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
 	t.Helper()
 
 	now := time.Now().UTC()
+	models := []interface{}{}
+	for _, model := range []string{
+		"gpt-3.5-turbo",
+		"gpt-4",
+		"gpt-4o-mini",
+		"gpt-4o-primary",
+		"gpt-4o-backup",
+	} {
+		models = append(models, openAITestCatalogModel(model, now))
+	}
+
 	discovery := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/models/runtime-snapshot/openai", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
@@ -2545,77 +2558,7 @@ func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
 			"provider":    "openai",
 			"revision":    "integration-openai-1",
 			"generatedAt": now,
-			"models": []interface{}{
-				map[string]interface{}{
-					"canonicalId": "openai/gpt-4o-mini",
-					"slug":        "gpt-4o-mini",
-					"status":      "active",
-					"runtimeProfile": map[string]interface{}{
-						"version": 1,
-						"profile": map[string]interface{}{
-							"version":    1,
-							"endpoints":  []string{"responses"},
-							"transports": []string{"http", "sse"},
-							"thinking": map[string]interface{}{
-								"defaultMode":  "disabled",
-								"allowedModes": []string{"disabled"},
-								"effortValues": []string{},
-							},
-							"assistantPrefill": false,
-							"sampling": map[string]interface{}{
-								"parameters":             []string{"temperature", "top_p"},
-								"disallowedWithThinking": []string{},
-							},
-							"tools": map[string]interface{}{
-								"custom":           true,
-								"server":           true,
-								"parallel":         true,
-								"structuredOutput": true,
-								"supported":        []string{"function_calling"},
-							},
-							"modalities": map[string]interface{}{
-								"input":  []string{"text", "image"},
-								"output": []string{"text"},
-							},
-							"requestControls": map[string]interface{}{
-								"serviceTierValues":  []string{"standard"},
-								"inferenceGeoValues": []string{"global"},
-								"speedValues":        []string{"standard"},
-							},
-							"betaHeaders": []string{},
-							"limits": map[string]interface{}{
-								"contextWindow":   128000,
-								"maxOutputTokens": 16384,
-								"messagesBytes":   1048576,
-								"batchBytes":      1048576,
-								"fileBytes":       1048576,
-							},
-						},
-						"sourceUrl":     "https://developers.openai.com/api/docs/models/gpt-4o-mini",
-						"effectiveFrom": now.Add(-time.Hour),
-					},
-					"pricingRates": []interface{}{
-						map[string]interface{}{
-							"dimension":     "input_tokens",
-							"unit":          "token",
-							"unitPriceUsd":  "0.00000015",
-							"currency":      "USD",
-							"region":        "global",
-							"sourceUrl":     "https://developers.openai.com/api/docs/pricing",
-							"effectiveFrom": now.Add(-time.Hour),
-						},
-						map[string]interface{}{
-							"dimension":     "output_tokens",
-							"unit":          "token",
-							"unitPriceUsd":  "0.0000006",
-							"currency":      "USD",
-							"region":        "global",
-							"sourceUrl":     "https://developers.openai.com/api/docs/pricing",
-							"effectiveFrom": now.Add(-time.Hour),
-						},
-					},
-				},
-			},
+			"models":      models,
 		}))
 	}))
 	t.Cleanup(discovery.Close)
@@ -2628,6 +2571,78 @@ func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
 	require.NoError(t, err)
 	require.NoError(t, manager.Reload(context.Background()))
 	service.SetCatalogPricingSnapshotManager("openai", manager)
+}
+
+func openAITestCatalogModel(model string, now time.Time) map[string]interface{} {
+	return map[string]interface{}{
+		"canonicalId": "openai/" + model,
+		"slug":        model,
+		"status":      "active",
+		"runtimeProfile": map[string]interface{}{
+			"version": 1,
+			"profile": map[string]interface{}{
+				"version":    1,
+				"endpoints":  []string{"chat_completions", "responses"},
+				"transports": []string{"http", "sse"},
+				"thinking": map[string]interface{}{
+					"defaultMode":  "disabled",
+					"allowedModes": []string{"disabled"},
+					"effortValues": []string{},
+				},
+				"assistantPrefill": false,
+				"sampling": map[string]interface{}{
+					"parameters":             []string{"temperature", "top_p"},
+					"disallowedWithThinking": []string{},
+				},
+				"tools": map[string]interface{}{
+					"custom":           true,
+					"server":           true,
+					"parallel":         true,
+					"structuredOutput": true,
+					"supported":        []string{"function_calling"},
+				},
+				"modalities": map[string]interface{}{
+					"input":  []string{"text", "image"},
+					"output": []string{"text"},
+				},
+				"requestControls": map[string]interface{}{
+					"serviceTierValues":  []string{"standard"},
+					"inferenceGeoValues": []string{"global"},
+					"speedValues":        []string{"standard"},
+				},
+				"betaHeaders": []string{},
+				"limits": map[string]interface{}{
+					"contextWindow":   128000,
+					"maxOutputTokens": 16384,
+					"messagesBytes":   1048576,
+					"batchBytes":      1048576,
+					"fileBytes":       1048576,
+				},
+			},
+			"sourceUrl":     "https://developers.openai.com/api/docs/models/" + model,
+			"effectiveFrom": now.Add(-time.Hour),
+		},
+		"pricingRates": []interface{}{
+			map[string]interface{}{
+				"dimension":     "input_tokens",
+				"unit":          "token",
+				"unitPriceUsd":  "0.00000015",
+				"currency":      "USD",
+				"region":        "global",
+				"sourceUrl":     "https://developers.openai.com/api/docs/pricing",
+				"effectiveFrom": now.Add(-time.Hour),
+			},
+			map[string]interface{}{
+				"dimension":     "output_tokens",
+				"unit":          "token",
+				"unitPriceUsd":  "0.0000006",
+				"currency":      "USD",
+				"region":        "global",
+				"sourceUrl":     "https://developers.openai.com/api/docs/pricing",
+				"effectiveFrom": now.Add(-time.Hour),
+			},
+		},
+	}
 }
 
 func createVirtualKey(t *testing.T, app *fiber.App, body string) platform.CreatedKey {

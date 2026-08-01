@@ -1045,7 +1045,7 @@ func (s *Store) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantI
 func (s *Store) checkAndIncrementTenantUsageCounterRedis(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
 	windowStart, windowEnd := usageCounterMonthWindow(now)
 
-	ttl := time.Until(windowEnd) + s.usageCounterTTLBuffer
+	ttl := windowEnd.Sub(now) + s.usageCounterTTLBuffer
 	if ttl <= 0 {
 		ttl = s.usageCounterTTLBuffer
 	}
