@@ -22,6 +22,7 @@ func (p *recordingTenantCredentialProber) Probe(
 	secrets map[string]string,
 ) (bool, string, string) {
 	p.record = record
+
 	p.secrets = make(map[string]string, len(secrets))
 	for key, value := range secrets {
 		p.secrets[key] = value

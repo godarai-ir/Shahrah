@@ -718,6 +718,7 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 	}
 
 	providerConfig := parseJSONObject(providerCfgRaw)
+
 	secrets := map[string]string{}
 	defer clear(secrets)
 
