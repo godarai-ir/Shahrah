@@ -22,7 +22,8 @@ FROM deps AS migrate
 COPY apps/model-discovery ./apps/model-discovery
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=
 WORKDIR /app/apps/model-discovery
-RUN pnpm prisma:generate
+RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/model_discovery?schema=public" \
+    pnpm prisma:generate
 
 FROM node:22-alpine AS prod-deps
 WORKDIR /app
