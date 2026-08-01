@@ -38,7 +38,7 @@ describe('Google Gemini provider importer', () => {
       max_input_tokens: 131072,
       max_output_tokens: 32768,
     });
-    expect(flashImage.modalities.input).toContain('video');
+    expect(flashImage.modalities?.input).toContain('video');
     expect(flashImage.endpoints).not.toContain('live');
 
     for (const model of ['gemini-3.6-flash', 'gemini-3.5-flash-lite']) {

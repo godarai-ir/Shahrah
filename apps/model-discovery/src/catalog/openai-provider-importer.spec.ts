@@ -102,44 +102,47 @@ describe('OpenAI provider importer', () => {
     const root = await copyProviderFixture();
     const modelPath = join(root, 'openai', 'tts-1.yaml');
     const yaml = await readFile(modelPath, 'utf8');
-    await writeFile(modelPath, yaml.replace(/\nruntimeProfile:[\s\S]*$/, '\n'));
-    await expect(validateOpenAIProviderDirectory(root)).rejects.toThrow(
-      'invalid_runtime_profile',
-    );
-    await rm(root, { recursive: true, force: true });
+    try {
+      await writeFile(
+        modelPath,
+        yaml.replace(/\nruntimeProfile:[\s\S]*$/, '\n'),
+      );
+      await expect(validateOpenAIProviderDirectory(root)).rejects.toThrow(
+        'invalid_runtime_profile',
+      );
 
-    const downgradedRoot = await copyProviderFixture();
-    const downgradedPath = join(downgradedRoot, 'openai', 'tts-1.yaml');
-    const downgraded = await readFile(downgradedPath, 'utf8');
-    await writeFile(
-      downgradedPath,
-      downgraded.replace(/(runtimeProfile:\s*\r?\n\s*version:) 3/, '$1 2'),
-    );
-    await expect(
-      validateOpenAIProviderDirectory(downgradedRoot),
-    ).rejects.toThrow('runtime_profile_version');
-    await rm(downgradedRoot, { recursive: true, force: true });
+      await writeFile(
+        modelPath,
+        yaml.replace(/(runtimeProfile:\s*\r?\n\s*version:) 3/, '$1 2'),
+      );
+      await expect(validateOpenAIProviderDirectory(root)).rejects.toThrow(
+        'runtime_profile_version',
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('rejects filename/model mismatches and malformed YAML', async () => {
-    const mismatchRoot = await copyProviderFixture();
-    const mismatchPath = join(mismatchRoot, 'openai', 'tts-1.yaml');
-    const mismatch = await readFile(mismatchPath, 'utf8');
-    await writeFile(
-      mismatchPath,
-      mismatch.replace('model: tts-1', 'model: tts-1-hd'),
-    );
-    await expect(validateOpenAIProviderDirectory(mismatchRoot)).rejects.toThrow(
-      'filename_mismatch',
-    );
-    await rm(mismatchRoot, { recursive: true, force: true });
+    const root = await copyProviderFixture();
+    const modelPath = join(root, 'openai', 'tts-1.yaml');
+    const yaml = await readFile(modelPath, 'utf8');
+    try {
+      await writeFile(
+        modelPath,
+        yaml.replace('model: tts-1', 'model: tts-1-hd'),
+      );
+      await expect(validateOpenAIProviderDirectory(root)).rejects.toThrow(
+        'filename_mismatch',
+      );
 
-    const malformedRoot = await copyProviderFixture();
-    await writeFile(join(malformedRoot, 'openai', 'tts-1.yaml'), 'model: [\n');
-    await expect(
-      validateOpenAIProviderDirectory(malformedRoot),
-    ).rejects.toThrow('malformed_yaml');
-    await rm(malformedRoot, { recursive: true, force: true });
+      await writeFile(modelPath, 'model: [\n');
+      await expect(validateOpenAIProviderDirectory(root)).rejects.toThrow(
+        'malformed_yaml',
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
 

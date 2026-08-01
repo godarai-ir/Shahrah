@@ -174,7 +174,15 @@ export async function validateGoogleGeminiProviderDirectory(
   return { providerDir, modelIds: [...actual].sort(), modelFiles };
 }
 
-const GOOGLE_GEMINI_RATE_MAPPINGS: ProviderRateMapping[] = [
+type GoogleGeminiRateMappingEntry = readonly [
+  key: string,
+  dimension: string,
+  unit: string,
+  serviceTier: string,
+  minPromptTokens?: number,
+];
+
+const GOOGLE_GEMINI_RATE_MAPPING_ENTRIES = [
   [
     'cache_storage_cost_per_token_per_hour_batches',
     'batch_cache_storage_token_hours',
@@ -341,17 +349,22 @@ const GOOGLE_GEMINI_RATE_MAPPINGS: ProviderRateMapping[] = [
     'token',
     'flex',
   ],
-].map(([key, dimension, unit, serviceTier, minPromptTokens]) => ({
-  key,
-  dimension,
-  unit,
-  conditionJson: {
-    service_tier: serviceTier,
-    ...(typeof minPromptTokens === 'number'
-      ? { min_prompt_tokens: minPromptTokens }
-      : {}),
-  },
-}));
+] as const satisfies readonly GoogleGeminiRateMappingEntry[];
+
+const GOOGLE_GEMINI_RATE_MAPPINGS: ProviderRateMapping[] =
+  GOOGLE_GEMINI_RATE_MAPPING_ENTRIES.map(
+    ([key, dimension, unit, serviceTier, minPromptTokens]) => ({
+      key,
+      dimension,
+      unit,
+      conditionJson: {
+        service_tier: serviceTier,
+        ...(typeof minPromptTokens === 'number'
+          ? { min_prompt_tokens: minPromptTokens }
+          : {}),
+      },
+    }),
+  );
 
 export const googleGeminiProviderImporter = {
   slug: GOOGLE_GEMINI_PROVIDER_SLUG,

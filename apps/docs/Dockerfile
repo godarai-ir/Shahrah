@@ -35,4 +35,4 @@ COPY --from=build /app/apps/docs/src ./src
 COPY --from=build /app/apps/docs/static ./static
 
 EXPOSE 3000
-CMD ["pnpm", "serve", "--", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["node", "./node_modules/@docusaurus/core/bin/docusaurus.mjs", "serve", "--host", "0.0.0.0", "--port", "3000"]

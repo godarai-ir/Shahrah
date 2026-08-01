@@ -10,9 +10,13 @@
     "validate:i18n": "node ./scripts/validate-i18n-modules.mjs",
     "lint": "eslint .",
     "test:auth": "node --import tsx --test lib/auth/*.test.ts",
+    "test:fast": "vitest run --project node",
+    "test:full": "vitest run",
+    "test:changed": "vitest run --changed",
+    "test:related": "vitest related",
     "test:node": "vitest run --project node",
     "test:dom": "vitest run --project dom",
-    "test": "vitest run"
+    "test": "pnpm run test:full"
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",

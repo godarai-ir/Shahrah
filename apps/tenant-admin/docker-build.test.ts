@@ -24,7 +24,14 @@ describe("tenant-admin reproducible container build", () => {
 
   it("builds from the repository root with a tenant-admin-specific context", () => {
     const workflow = readFileSync(
-      resolve(repositoryRoot, ".github/workflows/gitops-production-release.yml"),
+      resolve(
+        repositoryRoot,
+        ".github/workflows/gitops-production-release.yml",
+      ),
+      "utf8",
+    );
+    const serviceDetector = readFileSync(
+      resolve(repositoryRoot, "scripts/ci/detect_changed_services.py"),
       "utf8",
     );
     const dockerignore = readFileSync(
@@ -32,7 +39,7 @@ describe("tenant-admin reproducible container build", () => {
       "utf8",
     );
 
-    expect(workflow).toMatch(
+    expect(serviceDetector).toMatch(
       /"id": "tenant-admin",[\s\S]*?"context": "\."/,
     );
     expect(dockerignore).toContain("!pnpm-lock.yaml");
