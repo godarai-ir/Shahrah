@@ -27,7 +27,7 @@ SERVICES = [
     },
     {
         "id": "model-discovery",
-        "context": "apps/model-discovery",
+        "context": ".",
         "dockerfile": "apps/model-discovery/Dockerfile",
         "target": "",
         "values_path": "modelDiscovery.image.tag",
@@ -36,7 +36,7 @@ SERVICES = [
     },
     {
         "id": "model-discovery-migrate",
-        "context": "apps/model-discovery",
+        "context": ".",
         "dockerfile": "apps/model-discovery/Dockerfile",
         "target": "migrate",
         "values_path": "migrations.modelDiscovery.image.tag",
@@ -46,7 +46,7 @@ SERVICES = [
     },
     {
         "id": "model-discovery-web",
-        "context": "apps/model-discovery-web",
+        "context": ".",
         "dockerfile": "apps/model-discovery-web/Dockerfile",
         "target": "",
         "values_path": "modelDiscoveryWeb.image.tag",
@@ -55,7 +55,7 @@ SERVICES = [
     },
     {
         "id": "support-admin",
-        "context": "apps/support-admin",
+        "context": ".",
         "dockerfile": "apps/support-admin/Dockerfile",
         "target": "",
         "values_path": "supportAdmin.image.tag",
@@ -64,7 +64,7 @@ SERVICES = [
     },
     {
         "id": "support-admin-migrate",
-        "context": "apps/support-admin",
+        "context": ".",
         "dockerfile": "apps/support-admin/Dockerfile",
         "target": "migrate",
         "values_path": "migrations.supportAdmin.image.tag",
@@ -109,7 +109,7 @@ SERVICES = [
     },
     {
         "id": "docs",
-        "context": "apps/docs",
+        "context": ".",
         "dockerfile": "apps/docs/Dockerfile",
         "target": "",
         "values_path": "docs.image.tag",
@@ -118,7 +118,7 @@ SERVICES = [
     },
     {
         "id": "website",
-        "context": "apps/website",
+        "context": ".",
         "dockerfile": "apps/website/Dockerfile",
         "target": "",
         "values_path": "website.image.tag",
@@ -127,7 +127,7 @@ SERVICES = [
     },
     {
         "id": "blog",
-        "context": "apps/blog",
+        "context": ".",
         "dockerfile": "apps/blog/Dockerfile",
         "target": "",
         "values_path": "blog.image.tag",

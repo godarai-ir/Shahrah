@@ -1,23 +1,38 @@
-FROM node:20-alpine AS build
+# syntax=docker/dockerfile:1.7
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
-COPY . .
-RUN npm run build
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/docs/package.json ./apps/docs/package.json
+RUN --mount=type=cache,id=pnpm-cache-docs,target=/pnpm/store \
+    pnpm config set store-dir /pnpm/store && \
+    pnpm install --frozen-lockfile --filter @shahrah/docs...
 
-FROM node:20-alpine AS runtime
+FROM deps AS build
+COPY apps/docs ./apps/docs
+RUN pnpm --filter @shahrah/docs build
+
+FROM node:20-alpine AS prod-deps
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --omit=dev
+RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
-COPY --from=build /app/build ./build
-COPY --from=build /app/docusaurus.config.ts ./docusaurus.config.ts
-COPY --from=build /app/sidebars.ts ./sidebars.ts
-COPY --from=build /app/src ./src
-COPY --from=build /app/static ./static
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/docs/package.json ./apps/docs/package.json
+RUN --mount=type=cache,id=pnpm-cache-docs,target=/pnpm/store \
+    pnpm config set store-dir /pnpm/store && \
+    pnpm install --prod --frozen-lockfile --filter @shahrah/docs...
+
+FROM prod-deps AS runtime
+WORKDIR /app/apps/docs
+
+COPY --from=build /app/apps/docs/build ./build
+COPY --from=build /app/apps/docs/docusaurus.config.ts ./docusaurus.config.ts
+COPY --from=build /app/apps/docs/sidebars.ts ./sidebars.ts
+COPY --from=build /app/apps/docs/src ./src
+COPY --from=build /app/apps/docs/static ./static
+
 EXPOSE 3000
-
-CMD ["npm", "run", "serve", "--", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["pnpm", "serve", "--", "--host", "0.0.0.0", "--port", "3000"]

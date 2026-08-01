@@ -74,8 +74,8 @@ services:
   model-discovery:
     logging: *default-logging
     build:
-      context: ../../apps/model-discovery
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: apps/model-discovery/Dockerfile
     ports:
       - "3002:3002"
     environment:
@@ -119,8 +119,8 @@ services:
 
   model-discovery-migrate:
     build:
-      context: ../../apps/model-discovery
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: apps/model-discovery/Dockerfile
       target: migrate
     command:
       [
@@ -137,8 +137,8 @@ services:
   support-admin:
     logging: *default-logging
     build:
-      context: ../../apps/support-admin
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: apps/support-admin/Dockerfile
     env_file:
       - path: ../../apps/support-admin/.env
         required: false
@@ -159,8 +159,8 @@ services:
   model-discovery-web:
     logging: *default-logging
     build:
-      context: ../../apps/model-discovery-web
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: apps/model-discovery-web/Dockerfile
     ports:
       - "${MODEL_DISCOVERY_WEB_HOST_PORT:-3003}:3000"
     environment:
@@ -172,10 +172,10 @@ services:
 
   support-admin-migrate:
     build:
-      context: ../../apps/support-admin
-      dockerfile: Dockerfile
+      context: ../../
+      dockerfile: apps/support-admin/Dockerfile
       target: migrate
-    command: ["npx", "prisma", "migrate", "deploy"]
+    command: ["pnpm", "exec", "prisma", "migrate", "deploy"]
     environment:
       DATABASE_URL: ${SUPPORT_ADMIN_DATABASE_URL:-postgresql://support_admin:local-support-admin-only@postgres:5432/support_admin?schema=public}
     depends_on:

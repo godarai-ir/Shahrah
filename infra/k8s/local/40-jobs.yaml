@@ -105,7 +105,8 @@ spec:
           image: shahrah/support-admin-migrate:local
           imagePullPolicy: IfNotPresent
           command:
-            - npx
+            - pnpm
+            - exec
             - prisma
             - migrate
             - deploy

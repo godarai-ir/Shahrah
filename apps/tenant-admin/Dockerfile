@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2 AS deps
 WORKDIR /app
 
@@ -5,7 +6,9 @@ RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/tenant-admin/package.json ./apps/tenant-admin/package.json
-RUN pnpm install --frozen-lockfile --filter @shahrah/tenant-admin...
+RUN --mount=type=cache,id=pnpm-cache-tenant-admin,target=/pnpm/store \
+    pnpm config set store-dir /pnpm/store && \
+    pnpm install --frozen-lockfile --filter @shahrah/tenant-admin...
 
 FROM deps AS build
 ARG APP_VERSION=0.0.0-dev

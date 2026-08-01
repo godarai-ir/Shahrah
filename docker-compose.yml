@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   postgres:
     image: postgres:18
@@ -51,8 +50,8 @@ services:
 
   model-discovery-web:
     build:
-      context: ./apps/model-discovery-web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/model-discovery-web/Dockerfile
     environment:
       MODEL_DISCOVERY_API_BASE_INTERNAL: http://backend:3002/api/v1
     depends_on:
@@ -62,8 +61,8 @@ services:
 
   support-admin:
     build:
-      context: ./apps/support-admin
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/support-admin/Dockerfile
     env_file:
       - path: ./apps/support-admin/.env
         required: false
@@ -79,10 +78,10 @@ services:
 
   support-admin-migrate:
     build:
-      context: ./apps/support-admin
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/support-admin/Dockerfile
       target: migrate
-    command: ["npx", "prisma", "migrate", "deploy"]
+    command: ["pnpm", "exec", "prisma", "migrate", "deploy"]
     environment:
       DATABASE_URL: postgresql://support_admin:${SUPPORT_ADMIN_DB_PASSWORD:-local-support-admin-only}@postgres:5432/support_admin?schema=public
     depends_on:
