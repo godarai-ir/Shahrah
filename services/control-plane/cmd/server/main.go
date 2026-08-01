@@ -146,7 +146,7 @@ func main() {
 	store.SetRuntimeProfileManager(runtimeProfiles)
 	runtimeDeploymentStore := runtimeprofile.NewDeploymentStore(runtimeProfiles, store)
 
-	llmRouter, err := router.NewRouter(cfg.ModelList, cfg.RouterSettings, dualCache, runtimeDeploymentStore, logger)
+	llmRouter, err := router.NewRouter(nil, cfg.RouterSettings, dualCache, runtimeDeploymentStore, logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize router", zap.Error(err))
 	}

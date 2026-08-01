@@ -1,58 +1,11 @@
 # Shahrah Configuration
 # Environment variables are referenced using ${ENV_VAR} syntax
 
-model_list:
-  # OpenAI GPT-3.5-Turbo
-  - model_name: gpt-3.5-turbo
-    provider_endpoint_config:
-      model: openai/gpt-3.5-turbo
-      api_key: ${OPENAI_API_KEY}
-      rpm: 1000
-      timeout: 60
-    model_info:
-      id: "openai-gpt35-1"
-      health_check_timeout: 30
-
-  # OpenAI GPT-4
-  - model_name: gpt-4
-    provider_endpoint_config:
-      model: openai/gpt-4
-      api_key: ${OPENAI_API_KEY}
-      rpm: 500
-      timeout: 120
-    model_info:
-      id: "openai-gpt4-1"
-      health_check_timeout: 30
-
-  # Wildcard: any openai model
-  - model_name: "*"
-    provider_endpoint_config:
-      model: openai/*
-      api_key: ${OPENAI_API_KEY}
-
-  # Anthropic Claude Sonnet
-  - model_name: claude-3-5-sonnet-latest
-    provider_endpoint_config:
-      model: anthropic/claude-3-5-sonnet-latest
-      api_key: ${ANTHROPIC_API_KEY}
-      rpm: 500
-      timeout: 120
-    model_info:
-      id: "anthropic-claude35sonnet-1"
-      health_check_timeout: 30
-
-  # Wildcard: any anthropic model
-  - model_name: "anthropic/*"
-    provider_endpoint_config:
-      model: anthropic/*
-      api_key: ${ANTHROPIC_API_KEY}
-
 router_settings:
   routing_strategy: simple-shuffle
   redis_host: ${REDIS_HOST}
   redis_port: 6379
   redis_password: ${REDIS_PASSWORD}
-  enable_pre_call_checks: true
   cooldown_time: 60
   num_retries: 3
 
@@ -76,7 +29,6 @@ response_cache:
   embedding_max_batch_size: 16
 
 tenant_settings:
-  base_domain: "shahrah.local"
   allow_header_hint: true
 
 tunnel_settings:
@@ -92,6 +44,4 @@ general_settings:
   database_url: ${DATABASE_URL}
   host: "0.0.0.0"
   port: 4000
-  proxy_batch_write_at: 1
-  database_connection_pool_limit: 10
 

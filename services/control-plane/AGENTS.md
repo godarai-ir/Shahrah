@@ -72,8 +72,6 @@ Common required or important env vars:
 - `CLICKHOUSE_DSN`: trace storage/read backend
 - `ZARINPAL_MERCHANT_ID`: required for `provider=zarinpal`
 - `IDPAY_API_KEY`: required for `provider=idpay`
-- `OPENAI_API_KEY`: optional default provider credential
-- `ANTHROPIC_API_KEY`: optional default provider credential
 - `SHAHRAH_DISCOVERY_TOKEN`: optional dedicated model-discovery credential
 - `SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL`: opaque embedding base URL for smart cache
 - `SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY`: embedding API credential for smart cache
