@@ -16,11 +16,11 @@ class SelectChangedServicesTests(unittest.TestCase):
         self.services = [
             {
                 "id": "service-a",
-                "paths": ["services/a/"],
+                "paths": ["services/a/", "shared/a.json"],
             },
             {
                 "id": "service-b",
-                "paths": ["services/b/"],
+                "paths": ["services/b/", "shared/b.json"],
             },
         ]
 
@@ -42,15 +42,71 @@ class SelectChangedServicesTests(unittest.TestCase):
         self.assertEqual(deployed_bases["service-a"], "deployed-a")
         self.assertEqual(warnings, [])
 
-    def test_shared_change_selects_every_service_from_its_own_baseline(self):
+    def test_service_specific_shared_change_only_selects_dependents(self):
         selected, _, _ = DETECTOR.select_changed_services(
             self.services,
+            "",
+            lambda service: ("v1.0.0", service["id"]),
+            lambda _base: ["shared/a.json"],
+        )
+
+        self.assertEqual(selected, ["service-a"])
+
+    def test_node_lock_change_does_not_select_go_images(self):
+        selected, _, _ = DETECTOR.select_changed_services(
+            DETECTOR.SERVICES,
             "",
             lambda service: ("v1.0.0", service["id"]),
             lambda _base: ["pnpm-lock.yaml"],
         )
 
-        self.assertEqual(selected, ["service-a", "service-b"])
+        self.assertEqual(
+            selected,
+            [
+                "model-discovery",
+                "model-discovery-migrate",
+                "model-discovery-web",
+                "support-admin",
+                "support-admin-migrate",
+                "docs",
+                "website",
+                "blog",
+                "tenant-admin",
+            ],
+        )
+
+    def test_contract_change_selects_only_dependent_go_images(self):
+        selected, _, _ = DETECTOR.select_changed_services(
+            DETECTOR.SERVICES,
+            "",
+            lambda service: ("v1.0.0", service["id"]),
+            lambda _base: ["packages/contracts/platform/types.go"],
+        )
+
+        self.assertEqual(
+            selected,
+            ["control-plane", "silk-road", "tunnel-client", "tunnel-server"],
+        )
+
+    def test_transport_change_also_rebuilds_control_plane(self):
+        selected, _, _ = DETECTOR.select_changed_services(
+            DETECTOR.SERVICES,
+            "",
+            lambda service: ("v1.0.0", service["id"]),
+            lambda _base: ["services/silk-road/pkg/server/server.go"],
+        )
+
+        self.assertEqual(selected, ["control-plane", "silk-road"])
+
+    def test_turbo_configuration_does_not_rebuild_runtime_images(self):
+        selected, _, _ = DETECTOR.select_changed_services(
+            DETECTOR.SERVICES,
+            "",
+            lambda service: ("v1.0.0", service["id"]),
+            lambda _base: ["turbo.json"],
+        )
+
+        self.assertEqual(selected, [])
 
     def test_missing_deployed_tag_selects_service_conservatively(self):
         def resolve(service):

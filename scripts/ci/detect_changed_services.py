@@ -12,7 +12,11 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
-import yaml
+NODE_IMAGE_SHARED_PATHS = [
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "package.json",
+]
 
 SERVICES = [
     {
@@ -23,7 +27,14 @@ SERVICES = [
         "values_path": "controlPlane.image.tag",
         "additional_values_paths": ["metricsDlqReplayer.image.tag"],
         "semver_prefix": "control-plane",
-        "paths": ["services/control-plane/"],
+        "paths": [
+            "services/control-plane/",
+            "services/silk-road/",
+            "services/tunnel-client/",
+            "services/tunnel-server/",
+            "packages/contracts/",
+            ".dockerignore",
+        ],
     },
     {
         "id": "model-discovery",
@@ -32,7 +43,7 @@ SERVICES = [
         "target": "",
         "values_path": "modelDiscovery.image.tag",
         "semver_prefix": "model-discovery",
-        "paths": ["apps/model-discovery/"],
+        "paths": ["apps/model-discovery/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "model-discovery-migrate",
@@ -42,7 +53,7 @@ SERVICES = [
         "values_path": "migrations.modelDiscovery.image.tag",
         "additional_values_paths": ["migrations.modelDiscoveryCatalogImport.image.tag"],
         "semver_prefix": "model-discovery",
-        "paths": ["apps/model-discovery/"],
+        "paths": ["apps/model-discovery/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "model-discovery-web",
@@ -51,7 +62,7 @@ SERVICES = [
         "target": "",
         "values_path": "modelDiscoveryWeb.image.tag",
         "semver_prefix": "model-discovery-web",
-        "paths": ["apps/model-discovery-web/"],
+        "paths": ["apps/model-discovery-web/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "support-admin",
@@ -60,7 +71,7 @@ SERVICES = [
         "target": "",
         "values_path": "supportAdmin.image.tag",
         "semver_prefix": "support-admin",
-        "paths": ["apps/support-admin/"],
+        "paths": ["apps/support-admin/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "support-admin-migrate",
@@ -69,7 +80,7 @@ SERVICES = [
         "target": "migrate",
         "values_path": "migrations.supportAdmin.image.tag",
         "semver_prefix": "support-admin",
-        "paths": ["apps/support-admin/"],
+        "paths": ["apps/support-admin/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "silk-road",
@@ -78,7 +89,7 @@ SERVICES = [
         "target": "",
         "values_path": "silkRoad.image.tag",
         "semver_prefix": "silk-road",
-        "paths": ["services/silk-road/"],
+        "paths": ["services/silk-road/", "packages/contracts/", ".dockerignore"],
     },
     {
         "id": "tunnel-client",
@@ -87,7 +98,7 @@ SERVICES = [
         "target": "",
         "values_path": "tunnelClient.image.tag",
         "semver_prefix": "tunnel-client",
-        "paths": ["services/tunnel-client/"],
+        "paths": ["services/tunnel-client/", "packages/contracts/", ".dockerignore"],
     },
     {
         "id": "tunnel-server",
@@ -96,7 +107,7 @@ SERVICES = [
         "target": "",
         "values_path": "tunnelServer.image.tag",
         "semver_prefix": "tunnel-server",
-        "paths": ["services/tunnel-server/"],
+        "paths": ["services/tunnel-server/", "packages/contracts/", ".dockerignore"],
     },
     {
         "id": "goose",
@@ -114,7 +125,7 @@ SERVICES = [
         "target": "",
         "values_path": "docs.image.tag",
         "semver_prefix": "docs",
-        "paths": ["apps/docs/"],
+        "paths": ["apps/docs/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "website",
@@ -123,7 +134,7 @@ SERVICES = [
         "target": "",
         "values_path": "website.image.tag",
         "semver_prefix": "website",
-        "paths": ["apps/website/"],
+        "paths": ["apps/website/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "blog",
@@ -132,7 +143,7 @@ SERVICES = [
         "target": "",
         "values_path": "blog.image.tag",
         "semver_prefix": "blog",
-        "paths": ["apps/blog/"],
+        "paths": ["apps/blog/", *NODE_IMAGE_SHARED_PATHS],
     },
     {
         "id": "tenant-admin",
@@ -141,16 +152,8 @@ SERVICES = [
         "target": "",
         "values_path": "tenantAdmin.image.tag",
         "semver_prefix": "tenant-admin",
-        "paths": ["apps/tenant-admin/"],
+        "paths": ["apps/tenant-admin/", *NODE_IMAGE_SHARED_PATHS],
     },
-]
-
-SHARED_PATHS = [
-    "packages/",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    "package.json",
-    "turbo.json",
 ]
 
 SEMVER_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
@@ -245,8 +248,7 @@ def select_changed_services(
                 warnings.append(f"{service_id}: {exc}; selecting conservatively")
                 continue
 
-            relevant_paths = [*service["paths"], *SHARED_PATHS]
-            if any(path_matches(path, relevant_paths) for path in changed_files):
+            if any(path_matches(path, service["paths"]) for path in changed_files):
                 selected.append(service_id)
 
     # Manual releases still resolve deployed bases so automatic bump detection uses
@@ -391,6 +393,8 @@ def detect(
     manual_services: str = "",
     manual_bump: str = "auto",
 ) -> dict[str, Any]:
+    import yaml
+
     with production_values_path.open(encoding="utf-8") as production_file:
         production_values = yaml.safe_load(production_file)
     if not isinstance(production_values, dict):

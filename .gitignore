@@ -138,6 +138,10 @@ temp/
 *.inspect.ndjson
 .golangci-lint-report.json
 
+# Python tooling caches
+__pycache__/
+*.py[cod]
+
 # Repository-local tool caches
 /.cache/
 /.pnpm-store*/

@@ -20,11 +20,43 @@ env:
   CONTROL_PLANE_DIR: services/control-plane
 
 jobs:
+  changes:
+    name: Detect changed CI scopes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.detect.outputs.go }}
+      tenant: ${{ steps.detect.outputs.tenant }}
+      model: ${{ steps.detect.outputs.model }}
+      javascript: ${{ steps.detect.outputs.javascript }}
+      tenant_dom: ${{ steps.detect.outputs.tenant_dom }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Test change detectors
+        run: python -m unittest discover -s scripts/ci -p "test_*.py"
+
+      - name: Detect affected scopes
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: >-
+          python scripts/ci/detect_ci_scopes.py
+          --base-sha "$BASE_SHA"
+          --head-sha "$HEAD_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
   # =============================================================================
   # Lint Job
   # =============================================================================
   lint:
     name: Lint
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -58,6 +90,8 @@ jobs:
   # =============================================================================
   test:
     name: Test
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -91,6 +125,8 @@ jobs:
   # =============================================================================
   javascript-checks:
     name: JavaScript checks
+    needs: changes
+    if: needs.changes.outputs.javascript == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -111,19 +147,35 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        env:
+          RUN_TENANT_CHECKS: ${{ needs.changes.outputs.tenant }}
+          RUN_MODEL_CHECKS: ${{ needs.changes.outputs.model }}
+        run: |
+          filters=()
+          if [[ "$RUN_TENANT_CHECKS" == "true" ]]; then
+            filters+=(--filter "@shahrah/tenant-admin...")
+          fi
+          if [[ "$RUN_MODEL_CHECKS" == "true" ]]; then
+            filters+=(--filter "model-discovery...")
+          fi
+          pnpm install --frozen-lockfile "${filters[@]}"
 
       - name: Run tenant-admin node tests
+        if: needs.changes.outputs.tenant == 'true'
         run: pnpm --filter @shahrah/tenant-admin test:node
 
       - name: Run model-discovery tests
+        if: needs.changes.outputs.model == 'true'
         run: pnpm --filter model-discovery test
 
       - name: Type-check model-discovery
+        if: needs.changes.outputs.model == 'true'
         run: pnpm --filter model-discovery typecheck
 
   tenant-dom:
     name: Tenant DOM tests (${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.tenant_dom == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -148,15 +200,23 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter @shahrah/tenant-admin...
 
       - name: Run tenant-admin DOM shard
         run: pnpm --filter @shahrah/tenant-admin test:dom -- --shard=${{ matrix.shard }}
 
   production-release:
     name: Production Release
-    needs: [lint, test, javascript-checks, tenant-dom]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: [changes, lint, test, javascript-checks, tenant-dom]
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      needs.changes.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.javascript-checks.result == 'success' || needs.javascript-checks.result == 'skipped') &&
+      (needs.tenant-dom.result == 'success' || needs.tenant-dom.result == 'skipped')
     permissions:
       contents: write
     uses: ./.github/workflows/gitops-production-release.yml
