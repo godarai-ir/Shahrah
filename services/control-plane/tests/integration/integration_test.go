@@ -109,6 +109,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 
 	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")
 	configureOpenAITestCatalog(t, billingSvc)
+
 	llmRouter, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: "gpt-3.5-turbo",
 		ProviderEndpoint: config.ProviderEndpointConfig{
@@ -2540,14 +2541,16 @@ func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
 	t.Helper()
 
 	now := time.Now().UTC()
-	models := []interface{}{}
-	for _, model := range []string{
+	modelNames := []string{
 		"gpt-3.5-turbo",
 		"gpt-4",
 		"gpt-4o-mini",
 		"gpt-4o-primary",
 		"gpt-4o-backup",
-	} {
+	}
+	models := make([]interface{}, 0, len(modelNames))
+
+	for _, model := range modelNames {
 		models = append(models, openAITestCatalogModel(model, now))
 	}
 
