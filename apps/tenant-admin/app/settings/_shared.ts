@@ -6,6 +6,7 @@ export type SettingsCurrentUser = {
   id: string;
   email?: string;
   mobile?: string;
+  socialProviders?: string[];
   role: string;
 };
 
@@ -33,6 +34,7 @@ export async function loadSettingsShell(nextPath: string) {
     id: auth.user.id,
     email: auth.user.email,
     mobile: auth.user.mobile,
+    socialProviders: auth.user.socialProviders,
     role: auth.user.role,
   };
 

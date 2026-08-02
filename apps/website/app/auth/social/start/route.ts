@@ -6,6 +6,7 @@ import {
   socialAuth,
   socialAuthBaseURL,
 } from "@/app/lib/social-auth/config";
+import { resolveRequestOrigin } from "@/app/lib/social-auth/request-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
   }
 
   const authBase = socialAuthBaseURL();
-  if (incoming.origin !== new URL(authBase).origin) {
+  if (resolveRequestOrigin(request, incoming) !== new URL(authBase).origin) {
     const canonical = new URL("/auth/social/start", authBase);
     canonical.searchParams.set("flow", flow);
     canonical.searchParams.set("provider", provider);
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
   errorCallback.searchParams.set("flow", flow);
   if (tenant) errorCallback.searchParams.set("tenant", tenant);
 
-  return socialAuth.api.signInSocial({
+  const authResponse = await socialAuth.api.signInSocial({
     body: {
       provider,
       callbackURL: complete.toString(),
@@ -60,6 +61,17 @@ export async function GET(request: Request) {
     },
     headers: request.headers,
     asResponse: true,
+  });
+  const authorizationURL = authResponse.headers.get("location");
+  if (!authorizationURL) {
+    return authResponse;
+  }
+
+  const redirectHeaders = new Headers(authResponse.headers);
+  redirectHeaders.set("Location", authorizationURL);
+  return new NextResponse(null, {
+    status: 302,
+    headers: redirectHeaders,
   });
 }
 

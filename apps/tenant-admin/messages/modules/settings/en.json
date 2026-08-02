@@ -16,7 +16,9 @@
   },
   "social": {
     "title": "Connected accounts",
-    "description": "Connect a social account for faster sign-in. A recent authentication is required for this operation."
+    "description": "Connect a social account for faster sign-in. A recent authentication is required for this operation.",
+    "connect": "Connect",
+    "connected": "Connected"
   },
   "currentValue": "Current value",
   "newEmail": "New email",

@@ -197,6 +197,7 @@ export class ApiAuthRepository implements AuthRepository {
       tenant_slug: string;
       email?: string;
       mobile?: string;
+      social_providers?: string[];
       role: string;
       active?: boolean;
       created_at_iso: string;
@@ -217,6 +218,7 @@ export class ApiAuthRepository implements AuthRepository {
       tenant_slug: string;
       email?: string;
       mobile?: string;
+      social_providers?: string[];
       role: string;
       active?: boolean;
       created_at_iso: string;
@@ -298,6 +300,7 @@ function mapTenantUser(input: {
   tenant_slug: string;
   email?: string;
   mobile?: string;
+  social_providers?: string[];
   role: string;
   active?: boolean;
   created_at_iso: string;
@@ -309,6 +312,9 @@ function mapTenantUser(input: {
     tenantSlug: input.tenant_slug,
     email: input.email,
     mobile: input.mobile,
+    socialProviders: Array.isArray(input.social_providers)
+      ? input.social_providers.filter((provider): provider is string => typeof provider === "string")
+      : undefined,
     role: input.role,
     active: input.active ?? true,
     createdAtISO: input.created_at_iso,

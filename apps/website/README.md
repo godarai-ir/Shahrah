@@ -7,10 +7,10 @@ Create `apps/website/.env` or `apps/website/.env.local`:
 ```bash
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
 SHAHRAH_MASTER_KEY=replace-with-control-plane-master-key
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/shahrah
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/sharah_db?sslmode=disable
 BETTER_AUTH_SECRET=replace-with-at-least-32-random-bytes
-GODARAI_AUTH_BASE_URL=http://auth.localhost:3000
-GODARAI_TENANT_ORIGIN_TEMPLATE=http://{tenant}.localhost:3001
+GODARAI_AUTH_BASE_URL=http://localhost:3010
+GODARAI_TENANT_ORIGIN_TEMPLATE=http://{tenant}.localhost:3000
 SHAHRAH_TENANT_BASE_DOMAIN=localhost
 # Optional in production when the ingress uses a different trusted client-IP header:
 BETTER_AUTH_IP_ADDRESS_HEADERS=x-real-ip
@@ -33,6 +33,7 @@ SMTP_FROM=no-reply@shahrah.local
 Social sign-in is implemented with pinned `better-auth@1.6.25`. Register these
 exact OAuth/OIDC callback URLs with the providers (use HTTPS in production):
 
+- Local Google OAuth: `http://localhost:3010/api/auth/callback/google`
 - `https://auth.godarai.ir/api/auth/callback/google`
 - `https://auth.godarai.ir/api/auth/callback/github`
 - `https://auth.godarai.ir/api/auth/callback/microsoft`
@@ -94,10 +95,10 @@ repository root:
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the website or
-[http://tenant1.localhost:3001/login](http://tenant1.localhost:3001/login) for
-the provisioned local tenant. OAuth is served from
-[http://auth.localhost:3000](http://auth.localhost:3000).
+Open [http://localhost:3010](http://localhost:3010) for the website or
+[http://tenant1.localhost:3000/login](http://tenant1.localhost:3000/login) for
+the provisioned local tenant. Local OAuth is served from
+[http://localhost:3010](http://localhost:3010).
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
   }
   const result = await fetchControlPlaneJSON({
     tenantSlug: auth.tenantSlug,
-    userID: auth.user.id,
     method: "POST",
     path: "/api/v1/auth/social/link-ticket",
     body: { tenant_slug: auth.tenantSlug, user_id: auth.user.id },

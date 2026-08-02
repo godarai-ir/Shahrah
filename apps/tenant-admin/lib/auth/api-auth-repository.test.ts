@@ -96,6 +96,35 @@ test("maps OTP verification record from control-plane snake_case keys", async ()
   }
 });
 
+test("maps linked social providers onto the tenant user", async () => {
+  const restoreFetch = mockFetch(async (input, init) => {
+    const url = String(input);
+    if (url.includes("/api/v1/auth/user/user-1?") && init?.method === "GET") {
+      return jsonResponse({
+        id: "user-1",
+        tenant_slug: "tenant1",
+        email: "user@example.com",
+        role: "admin",
+        active: true,
+        social_providers: ["google"],
+        created_at_iso: "2026-05-09T10:00:00Z",
+        updated_at_iso: "2026-05-09T10:00:00Z",
+      });
+    }
+
+    return new Response("not found", { status: 404 });
+  });
+
+  try {
+    const repo = new ApiAuthRepository(BASE_URL, "master-key");
+    const user = await repo.getUser("tenant1", "user-1");
+
+    assert.deepEqual(user?.socialProviders, ["google"]);
+  } finally {
+    restoreFetch();
+  }
+});
+
 function mockFetch(
   handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
 ) {

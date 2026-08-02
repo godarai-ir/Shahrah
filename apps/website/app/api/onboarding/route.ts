@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { sendOnboardingOTPEmail } from "@/app/lib/email";
 import { callSocialAuthControlPlane } from "@/app/lib/social-auth/control-plane";
 import { socialAuth, socialAuthBaseURL } from "@/app/lib/social-auth/config";
+import { normalizeOnboardingLoginURL } from "@/app/lib/social-auth/onboarding-login-url";
+import { hasExpectedRequestOrigin } from "@/app/lib/social-auth/request-origin";
 
 type OnboardingAction = "check_slug" | "request_otp" | "verify_otp" | "provision_social";
 
@@ -44,9 +46,7 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "provision_social") {
-    const requestOrigin = new URL(request.url).origin;
-    const originHeader = request.headers.get("origin");
-    if (requestOrigin !== socialAuthBaseURL() || (originHeader && originHeader !== requestOrigin)) {
+    if (!hasExpectedRequestOrigin(request, socialAuthBaseURL())) {
       return NextResponse.json({ ok: false, error: "مبدا درخواست احراز هویت معتبر نیست." }, { status: 403 });
     }
     const session = await socialAuth.api.getSession({ headers: request.headers });
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: localizeUpstreamError(result.message, result.status) }, { status: result.status });
     }
-    return NextResponse.json(result.payload, { status: 201 });
+    return NextResponse.json(normalizeProvisionedPayload(result.payload), { status: 201 });
   }
 
   let upstream: Awaited<ReturnType<typeof callControlPlane>>;
@@ -86,7 +86,17 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json(sanitizeOnboardingPayload(upstream.payload), { status: upstream.status });
+  return NextResponse.json(
+    sanitizeOnboardingPayload(normalizeProvisionedPayload(upstream.payload)),
+    { status: upstream.status },
+  );
+}
+
+function normalizeProvisionedPayload(payload: unknown) {
+  return normalizeOnboardingLoginURL(
+    payload,
+    process.env.GODARAI_TENANT_ORIGIN_TEMPLATE ?? "https://{tenant}.godarai.ir",
+  );
 }
 
 function sanitizeOnboardingPayload(payload: unknown) {

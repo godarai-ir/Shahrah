@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle, Link2, Mail, Send, Smartphone } from "lucide-react";
 
-import { PageHeader, SettingsCard } from "@/components/app-ui";
+import { PageHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -17,6 +17,7 @@ type UserProfile = {
   id: string;
   email?: string;
   mobile?: string;
+  socialProviders?: string[];
   role: string;
 };
 
@@ -59,6 +60,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  const connectedSocialProviders = new Set(user.socialProviders ?? []);
 
   async function connectSocialAccount(provider: "google" | "github" | "microsoft") {
     setSocialLoading(provider);
@@ -150,7 +152,10 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           }),
         },
       );
-      setUser(result.user);
+      setUser((current) => ({
+        ...result.user,
+        socialProviders: result.user.socialProviders ?? current.socialProviders,
+      }));
 
       if (field === "email") {
         setEmailState((current) => ({
@@ -288,17 +293,90 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
       >
         <div className="grid gap-2 sm:grid-cols-3">
           {([
-            ["google", "Google", <span key="g" className="text-base font-bold">G</span>],
-            ["github", "GitHub", <span key="gh" className="text-xs font-bold" aria-hidden="true">GH</span>],
-            ["microsoft", "Microsoft", <span key="ms" className="grid grid-cols-2 gap-0.5" aria-hidden="true">{[0,1,2,3].map((item) => <i key={item} className="size-1.5 bg-current" />)}</span>],
-          ] as const).map(([provider, label, icon]) => (
-            <Button key={provider} type="button" variant="outline" onClick={() => void connectSocialAccount(provider)} disabled={socialLoading !== null}>
-              {socialLoading === provider ? <Spinner data-icon="inline-start" /> : icon}{label}
-            </Button>
-          ))}
+            ["google", "Google", <GoogleBrandIcon key="g" />],
+            ["github", "GitHub", <GithubBrandIcon key="gh" />],
+            ["microsoft", "Microsoft", <MicrosoftBrandIcon key="ms" />],
+          ] as const).map(([provider, label, icon]) => {
+            const isConnected = connectedSocialProviders.has(provider);
+
+            return (
+              <div
+                key={provider}
+                className={cn(
+                  "flex min-h-14 items-center justify-between gap-3 rounded-md border border-border bg-card p-3",
+                  isConnected && "border-success-soft-border bg-success-soft",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2" dir="ltr">
+                  {icon}
+                  <span className="truncate text-sm font-medium">{label}</span>
+                </span>
+                {isConnected ? (
+                  <StatusBadge status="success">{t("social.connected")}</StatusBadge>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void connectSocialAccount(provider)}
+                    disabled={socialLoading !== null}
+                    aria-busy={socialLoading === provider}
+                  >
+                    {socialLoading === provider ? <Spinner data-icon="inline-start" /> : null}
+                    {t("social.connect")}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </SettingsCard>
     </div>
+  );
+}
+
+function GoogleBrandIcon() {
+  return (
+    <svg className="size-5 shrink-0" viewBox="0 0 48 48" aria-hidden="true">
+      <path
+        fill="#FFC107"
+        d="M43.611 20H24v8h11.303C33.654 32.657 29.223 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-4Z"
+      />
+      <path
+        fill="#FF3D00"
+        d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4c-7.682 0-14.35 4.337-17.694 10.691Z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44Z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611 20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-4Z"
+      />
+    </svg>
+  );
+}
+
+function GithubBrandIcon() {
+  return (
+    <svg className="size-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 .7a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.23c-3.34.73-4.04-1.42-4.04-1.42-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23A11.5 11.5 0 0 1 12 6.5c1.02 0 2.04.14 3 .4 2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.3c0 .32.22.7.82.58A12 12 0 0 0 12 .7Z"
+      />
+    </svg>
+  );
+}
+
+function MicrosoftBrandIcon() {
+  return (
+    <svg className="size-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#F25022" d="M1 1h10v10H1z" />
+      <path fill="#7FBA00" d="M13 1h10v10H13z" />
+      <path fill="#00A4EF" d="M1 13h10v10H1z" />
+      <path fill="#FFB900" d="M13 13h10v10H13z" />
+    </svg>
   );
 }
 

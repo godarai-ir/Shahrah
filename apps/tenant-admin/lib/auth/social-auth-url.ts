@@ -10,7 +10,7 @@ export function resolveCentralSocialAuthBaseURL(
   environment: NodeJS.ProcessEnv = process.env,
 ): URL | null {
   const configured = environment.GODARAI_AUTH_BASE_URL?.trim();
-  const candidate = configured || (environment.NODE_ENV === "production" ? "" : "http://auth.localhost:3000");
+  const candidate = configured || (environment.NODE_ENV === "production" ? "" : "http://localhost:3010");
   if (!candidate) {
     return null;
   }

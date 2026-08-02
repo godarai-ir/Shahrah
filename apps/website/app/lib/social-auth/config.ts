@@ -8,7 +8,7 @@ export const SOCIAL_AUTH_PROVIDERS = ["google", "github", "microsoft"] as const;
 export type SocialAuthProvider = (typeof SOCIAL_AUTH_PROVIDERS)[number];
 
 const authBaseURL = normalizeOrigin(
-  process.env.GODARAI_AUTH_BASE_URL ?? "http://auth.localhost:3000",
+  process.env.GODARAI_AUTH_BASE_URL ?? "http://localhost:3010",
 );
 const clientIPAddressOptions = resolveClientIPAddressOptions();
 

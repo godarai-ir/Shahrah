@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { socialAuthBaseURL } from "@/app/lib/social-auth/config";
+import { resolveRequestOrigin } from "@/app/lib/social-auth/request-origin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const incoming = new URL(request.url);
-  if (incoming.origin !== new URL(socialAuthBaseURL()).origin) {
+  if (resolveRequestOrigin(request, incoming) !== new URL(socialAuthBaseURL()).origin) {
     return NextResponse.json({ error: "Invalid authentication origin." }, { status: 400 });
   }
 

@@ -70,8 +70,8 @@ Configure the tenant-admin connection in `apps/tenant-admin/.env.local`:
 
 ```bash
 SHAHRAH_CONTROL_PLANE_URL=http://127.0.0.1:4000
-SHAHRAH_MASTER_KEY=-sk-dev-master-key-12345
-GODARAI_AUTH_BASE_URL=http://auth.localhost:3000
+SHAHRAH_MASTER_KEY=sk-dev-master-key-12345
+GODARAI_AUTH_BASE_URL=http://localhost:3010
 MODEL_CATALOG_V2_ENABLED=true
 ```
 
@@ -123,10 +123,10 @@ map the tenant host after provisioning:
 
 Then run the app and open the provisioned tenant login URL:
 
-`http://mytenant.localhost:3001/login`
+`http://mytenant.localhost:3000/login`
 
 For the complete local OAuth flow, run `pnpm dev` from the repository root. It
-starts website/central-auth on port `3000` and tenant-admin on port `3001`.
+starts website/central-auth on port `3010` and tenant-admin on port `3000`.
 
 ## Commands
 

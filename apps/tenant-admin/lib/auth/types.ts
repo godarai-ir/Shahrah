@@ -11,6 +11,7 @@ export type TenantUser = {
   tenantSlug: string;
   email?: string;
   mobile?: string;
+  socialProviders?: string[];
   role: string;
   active: boolean;
   createdAtISO: string;

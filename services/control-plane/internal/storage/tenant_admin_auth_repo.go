@@ -360,16 +360,23 @@ func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID 
 		id, slug, email, mobile, role string
 		active                        bool
 		createdAt, updatedAt          time.Time
+		socialProviders               []string
 	)
 
 	queryErr := s.pool.QueryRow(ctx, `
 		SELECT u.user_id::text, t.slug, COALESCE(u.email, ''), COALESCE(u.mobile, ''),
-		       COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at
+		       COALESCE(u.role, 'member'), COALESCE(u.active, true), u.created_at, u.updated_at,
+		       COALESCE(ARRAY(
+		           SELECT DISTINCT a."providerId"
+		           FROM social_auth_accounts a
+		           WHERE a."userId" = u.account_id
+		           ORDER BY a."providerId"
+		       ), ARRAY[]::text[])
 		FROM users u
 		JOIN tenants t ON t.tenant_id = u.tenant_id
 		WHERE t.slug = $1 AND u.user_id::text = $2
 		LIMIT 1
-	`, strings.TrimSpace(strings.ToLower(tenantID)), strings.TrimSpace(userID)).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
+	`, strings.TrimSpace(strings.ToLower(tenantID)), strings.TrimSpace(userID)).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt, &socialProviders)
 	if queryErr != nil {
 		if queryErr == pgx.ErrNoRows {
 			return nil, nil
@@ -378,7 +385,10 @@ func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID 
 		return nil, queryErr
 	}
 
-	return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
+	result := buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt)
+	result["social_providers"] = socialProviders
+
+	return result, nil
 }
 
 // UpdateTenantAdminUserContactParams holds parameters for updating user contact.
