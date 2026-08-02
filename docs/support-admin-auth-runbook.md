@@ -15,7 +15,7 @@
 5. Provision a support-admin user using `admin:user:create`.
 6. Provision the model-discovery service key using `service-account:create`.
 7. Provision the control-plane service key using `go run ./services/control-plane/cmd/platform-service-account`.
-8. Provision the platform provider credential encryption keys described below.
+8. Provision the platform and tenant provider credential encryption keys described below.
 9. Run the `Sync Production Kubernetes Secrets` workflow.
 10. Deploy the GitOps values that enable `PLATFORM_PROVIDER_CREDENTIAL_MODE=platform_store`.
 11. Verify `/api/auth/me` and one read-only admin request on the dedicated support-admin origin before enabling mutations.
@@ -62,6 +62,46 @@ $fingerprintKey = [byte[]]::new(32)
 ```
 
 The secret-sync workflow validates that both values exist and writes them to `shahrah-secret`. It reaches the private Kubernetes API through the production bastion, using the PuTTY private key stored in the `PRODUCTION_BASTION_SSH_PRIVATE_KEY` GitHub Actions secret and a host-key fingerprint pinned in the workflow. GitOps injects the provider keys into control-plane and sets the active version to `prod-v1`. Keep old KEK versions in `PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON` during rotation until every stored DEK has been rewrapped; removing an in-use version makes existing provider credentials undecryptable.
+
+## Tenant provider credential encryption
+
+Tenant-owned provider API credentials use an independent envelope-encryption key set. Production requires these persistent GitHub Actions secrets:
+
+- `TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION`: the KEK version used for new credential writes; start with `prod-v1`.
+- `TENANT_PROVIDER_CREDENTIAL_KEKS_JSON`: a JSON object mapping every readable KEK version to a base64-encoded 32-byte AES key.
+- `TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY`: an independent base64-encoded key of at least 32 bytes.
+
+Generate the initial values into three separate files outside the repository. The script refuses an existing output directory, never prints secret values, and restricts filesystem access to the current user where the operating system supports it:
+
+```powershell
+.\scripts\generate-tenant-provider-credential-secrets.ps1 `
+  -OutputDirectory 'D:\secure-transfer\shahrah-tenant-provider-prod-v1'
+```
+
+The output directory contains:
+
+- `TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION.txt`
+- `TENANT_PROVIDER_CREDENTIAL_KEKS_JSON.json`
+- `TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY.txt`
+
+After copying the files into an encrypted secret manager and verifying the backup, register them as GitHub Actions secrets without placing their values on the command line:
+
+```powershell
+$secretDirectory = 'D:\secure-transfer\shahrah-tenant-provider-prod-v1'
+
+Get-Content -Raw (Join-Path $secretDirectory 'TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION.txt') |
+  gh secret set TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION --repo Delpak/Shahrah
+
+Get-Content -Raw (Join-Path $secretDirectory 'TENANT_PROVIDER_CREDENTIAL_KEKS_JSON.json') |
+  gh secret set TENANT_PROVIDER_CREDENTIAL_KEKS_JSON --repo Delpak/Shahrah
+
+Get-Content -Raw (Join-Path $secretDirectory 'TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY.txt') |
+  gh secret set TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY --repo Delpak/Shahrah
+```
+
+Run the `Sync Production Kubernetes Secrets` workflow after setting the three values. The workflow validates the JSON, ensures the active version is present, verifies each KEK decodes to exactly 32 bytes, verifies the fingerprint key decodes to at least 32 bytes, and writes the values to `shahrah-secret` without printing them.
+
+During rotation, add the new version to `TENANT_PROVIDER_CREDENTIAL_KEKS_JSON` before changing `TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION`. Keep every old KEK version until all credential records using it have been re-encrypted or rewrapped. Keep the fingerprint key stable unless a separate fingerprint migration has been designed.
 
 ## Database ownership and tenant data
 
