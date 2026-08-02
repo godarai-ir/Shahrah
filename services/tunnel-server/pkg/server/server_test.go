@@ -14,7 +14,8 @@ func TestHealthIsLocal(t *testing.T) {
 	t.Parallel()
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Fatalf("liveness must not call upstream: %s", r.URL.Path)
+		t.Errorf("liveness must not call upstream: %s", r.URL.Path)
+		return
 	}))
 	defer upstream.Close()
 
@@ -35,7 +36,8 @@ func TestReadinessChecksSilkRoad(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/ready" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ready","service":"silk-road"}`))
@@ -99,14 +101,16 @@ func TestDispatchForwardsTraceAndRequestHeaders(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/dispatch" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			return
 		}
 		gotTraceID = r.Header.Get("X-GodarAI-Trace-ID")
 		gotRequestID = r.Header.Get("X-Shahrah-Request-ID")
 
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&gotReq); err != nil {
-			t.Fatalf("decode request body: %v", err)
+			t.Errorf("decode request body: %v", err)
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -148,12 +152,14 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/dispatch" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			t.Fatal("response writer does not support flushing")
+			t.Error("response writer does not support flushing")
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("data: hello\n\n"))
@@ -197,12 +203,14 @@ func TestDispatchStreamingRelaysMultipleEventsWithoutTruncation(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/dispatch" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			t.Fatal("response writer does not support flushing")
+			t.Error("response writer does not support flushing")
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		for _, frame := range []string{

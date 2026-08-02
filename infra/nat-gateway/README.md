@@ -30,6 +30,8 @@ The subnet gateway and DHCP service remain enabled in the cloud control plane. N
 
 Before loading the firewall, validate it with `sudo nft -c -f /etc/nftables.conf`. The forward policy is drop, input/output remain accept, and only the three K3s node addresses can be masqueraded through `eth1`.
 
+TCP `1443` on the private interface is reserved for the Silk Road EU egress proxy. The input chain permits that port only from the three K3s node IPs and rejects every other source. The socket proxy and reverse tunnel are documented in [`../eu-egress-proxy/README.md`](../eu-egress-proxy/README.md).
+
 The Cloud-Init override also disables network hotplug updates. Arvan/OpenStack hotplug events otherwise regenerate `/etc/netplan/50-cloud-init.yaml` and can reintroduce DHCP and a private default route on `eth0`.
 
 The three node templates preserve their fixed private addresses, use `10.10.0.190` as the only default gateway, and use the Cloudflare pair `1.1.1.1` plus `1.0.0.1` as upstream DNS. They intentionally define only `eth1`: the nodes no longer have the old public `eth0` device, and keeping a stale MAC match makes `netplan apply` report that it cannot find a unique interface. Install `99-disable-network-config.cfg`, install the `upgraded-network` marker, and remove `/etc/udev/rules.d/90-cloud-init-hook-hotplug.rules` on every node so cloud boot/hotplug cannot overwrite the node route.

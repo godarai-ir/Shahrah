@@ -1,0 +1,11 @@
+[Unit]
+Description=Private listener for the Silk Road EU egress proxy
+
+[Socket]
+ListenStream=10.10.0.190:1443
+Accept=no
+NoDelay=true
+FreeBind=true
+
+[Install]
+WantedBy=sockets.target

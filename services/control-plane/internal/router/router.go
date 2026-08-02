@@ -816,7 +816,7 @@ func (r *Router) hydrateDynamicDeployment(dep platform.Deployment) *Deployment {
 	}
 
 	// Provider-account deployments may omit BYOK credentials; in that case, fall back
-	// to the shared provider configuration loaded from proxy_config/model_list.
+	// to a statically registered shared deployment when one was supplied by the caller.
 	if isProviderAccount {
 		if shared := r.findSharedProviderDeployment(dep.Provider, dep.Model); shared != nil {
 			if strings.TrimSpace(params.APIKey) == "" {

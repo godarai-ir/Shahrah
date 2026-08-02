@@ -43,12 +43,12 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 	record EncryptedCredential,
 	secrets map[string]string,
 ) (bool, string, string, ProbeMetadata) {
-	if p == nil || p.tunnel == nil || normalizeProvider(record.ProviderSlug) != "anthropic" {
-		success, category, summary := NewHTTPProber(nil).Probe(
-			ctx,
-			record,
-			secrets,
-		)
+	if p == nil || p.tunnel == nil {
+		return false, "network", "Provider validation could not reach Silk Road.", ProbeMetadata{}
+	}
+
+	if normalizeProvider(record.ProviderSlug) != "anthropic" {
+		success, category, summary := p.probeProvider(ctx, record, secrets)
 
 		return success, category, summary, ProbeMetadata{}
 	}
@@ -120,6 +120,94 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 	}
 
 	return true, "ok", "Anthropic credential accepted; Models, workspace:inference, and workspace:developer capabilities are available.", metadata
+}
+
+func (p *TunnelCredentialProber) probeProvider(
+	ctx context.Context,
+	record EncryptedCredential,
+	secrets map[string]string,
+) (bool, string, string) {
+	if _, ok := documentedProbe(record); !ok {
+		return false, "unsupported", "This provider authentication mode has no implemented non-billable validation probe."
+	}
+
+	deployment, ok := credentialProbeDeployment(record, secrets)
+	if !ok {
+		return false, "unsupported", "This provider authentication mode has no implemented non-billable validation probe."
+	}
+
+	response, err := p.tunnel.Proxy(ctx, platform.TunnelRequest{
+		Operation:  platform.ProviderOperationCredentialProbe,
+		Deployment: deployment,
+		Headers:    map[string]string{"Accept": "application/json"},
+	})
+	if err != nil {
+		return false, "network", "Provider validation could not reach Silk Road."
+	}
+
+	switch {
+	case response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices:
+		return true, "ok", "Provider accepted the credential."
+	case response.StatusCode == http.StatusUnauthorized:
+		return false, "invalid_credential", "Provider rejected the credential."
+	case response.StatusCode == http.StatusForbidden:
+		return false, "forbidden", "The credential authenticated but lacks permission for the validation endpoint."
+	case response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusPaymentRequired:
+		return true, "quota_exhausted", "Credential authenticated; quota or billing prevented the probe."
+	case response.StatusCode == http.StatusNotFound:
+		return false, "deployment_not_found", "The configured provider endpoint was not found."
+	default:
+		return false, "provider", fmt.Sprintf("Provider validation returned HTTP %d.", response.StatusCode)
+	}
+}
+
+func credentialProbeDeployment(
+	record EncryptedCredential,
+	secrets map[string]string,
+) (platform.Deployment, bool) {
+	deployment := platform.Deployment{
+		Provider:            record.ProviderSlug,
+		APIBase:             record.BaseURL,
+		APIVersion:          record.APIVersion,
+		ConnectionID:        record.ConnectionID,
+		CredentialVersionID: record.CredentialVersionID,
+		ProviderHeaders:     credentialProbeHeaders(record),
+	}
+
+	switch record.AuthMode {
+	case string(platform.ProviderAuthModeAPIKey):
+		deployment.ProviderAuth = &platform.ResolvedProviderAuth{
+			Mode:   string(platform.ProviderAuthModeAPIKey),
+			APIKey: strings.TrimSpace(secrets["api_key"]),
+		}
+	case "personal_access_token":
+		deployment.ProviderAuth = &platform.ResolvedProviderAuth{
+			Mode:   "personal_access_token",
+			APIKey: strings.TrimSpace(secrets["access_token"]),
+		}
+	default:
+		return platform.Deployment{}, false
+	}
+
+	return deployment, deployment.ProviderAuth.APIKey != ""
+}
+
+func credentialProbeHeaders(record EncryptedCredential) map[string]string {
+	headers := map[string]string{}
+
+	for name, value := range map[string]string{
+		"OpenAI-Organization": record.Organization,
+		"OpenAI-Project":      record.Project,
+		"HTTP-Referer":        record.HTTPReferer,
+		"X-OpenRouter-Title":  record.AppTitle,
+		"X-Client-Name":       record.ClientName,
+	} {
+		if value = strings.TrimSpace(value); value != "" {
+			headers[name] = value
+		}
+	}
+
+	return headers
 }
 
 func (p *TunnelCredentialProber) call(ctx context.Context, deployment platform.Deployment, operation platform.ProviderOperation, body []byte) ([]byte, map[string]string, string, string) {

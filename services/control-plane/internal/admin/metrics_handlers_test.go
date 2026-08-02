@@ -14,6 +14,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type metricsStoreMock struct {
@@ -81,7 +82,7 @@ func TestQueryModelMetrics_UsesTenantContext(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
 
@@ -101,7 +102,7 @@ func TestQueryModelMetrics_InvalidDatasource(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 }
 
@@ -124,7 +125,7 @@ func TestListModelMetricsFacets_UsesTenantContext(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var body platform.ModelMetricsFacets

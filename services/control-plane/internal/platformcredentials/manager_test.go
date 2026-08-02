@@ -2,6 +2,7 @@ package platformcredentials
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -61,18 +62,31 @@ func TestManagerWarmResolvePerformsNoLoadsOrDecrypts(t *testing.T) {
 
 	var group sync.WaitGroup
 	group.Add(resolves)
+	errors := make(chan error, resolves)
 
 	for range resolves {
 		go func() {
 			defer group.Done()
 
 			resolved, err := manager.Resolve("openai", "production")
-			require.NoError(t, err)
-			require.Equal(t, "sk-runtime", resolved.APIKey)
+			if err != nil {
+				errors <- err
+				return
+			}
+
+			if resolved.APIKey != "sk-runtime" {
+				errors <- fmt.Errorf("unexpected API key %q", resolved.APIKey)
+			}
 		}()
 	}
 
 	group.Wait()
+	close(errors)
+
+	for err := range errors {
+		require.NoError(t, err)
+	}
+
 	require.Zero(t, loader.calls.Load())
 	require.Zero(t, decrypter.calls.Load())
 }
@@ -87,18 +101,27 @@ func TestManagerCollapsesConcurrentReloadsAndSwapsAtomically(t *testing.T) {
 
 	var group sync.WaitGroup
 	group.Add(reloads)
+	errors := make(chan error, reloads)
 
 	for range reloads {
 		go func() {
 			defer group.Done()
 
-			require.NoError(t, manager.Reload(context.Background()))
+			if err := manager.Reload(context.Background()); err != nil {
+				errors <- err
+			}
 		}()
 	}
 
 	time.Sleep(20 * time.Millisecond)
 	close(gate)
 	group.Wait()
+	close(errors)
+
+	for err := range errors {
+		require.NoError(t, err)
+	}
+
 	require.Equal(t, int64(1), loader.calls.Load())
 	require.Equal(t, int64(1), decrypter.calls.Load())
 

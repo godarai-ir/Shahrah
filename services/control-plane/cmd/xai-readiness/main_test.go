@@ -28,11 +28,13 @@ func TestReadinessBlocksWithoutGatewayCredentials(t *testing.T) {
 func TestReadinessUsesOnlyGatewayCredentialAndRedactsReport(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer gateway-secret" {
-			t.Fatalf("unexpected authorization header")
+			t.Errorf("unexpected authorization header")
+			return
 		}
 
 		if r.Header.Get("x-godarai-provider-account") != "acct_xai" {
-			t.Fatalf("missing account affinity")
+			t.Errorf("missing account affinity")
+			return
 		}
 
 		if r.URL.Path == "/v1/batches/readiness-invalid/requests" {

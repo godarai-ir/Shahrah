@@ -64,8 +64,6 @@ Do not add undocumented fallback behavior that hides upstream contract drift.
 - `LOG_RETENTION_CLEANUP_ENABLED`: optional (`true` by default), enables entitlement-based cleanup for `request_logs_ch`
 - `LOG_RETENTION_CLEANUP_INTERVAL_MS`: optional, default `3600000`
 - `LOG_RETENTION_CLEANUP_TIMEOUT_MS`: optional, default `30000`
-- `OPENAI_API_KEY`: optional, used by the default OpenAI entries in `configs/proxy_config.yaml`
-- `ANTHROPIC_API_KEY`: optional, used by the default Anthropic entries in `configs/proxy_config.yaml`
 - `ANTHROPIC_NATIVE_API_ENABLED`: optional rollback switch for native Messages and Models routes; default `true`
 - `ANTHROPIC_FILES_API_ENABLED`: optional independent rollback switch for native Files routes; default `true`
 - `ANTHROPIC_BATCH_API_ENABLED`: optional independent rollback switch for native Message Batches routes and reconciliation worker; default `true`

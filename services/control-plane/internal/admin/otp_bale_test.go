@@ -27,7 +27,8 @@ func TestBaleSafirOTPSenderSendsDocumentedOTPPayload(t *testing.T) {
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
-			t.Fatalf("decode request: %v", err)
+			t.Errorf("decode request: %v", err)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")

@@ -13,6 +13,22 @@ type metadataProbeTunnel struct {
 	calls []platform.ProviderOperation
 }
 
+type recordingProbeTunnel struct {
+	request  platform.TunnelRequest
+	response platform.TunnelResponse
+}
+
+func (t *recordingProbeTunnel) Proxy(_ context.Context, request platform.TunnelRequest) (*platform.TunnelResponse, error) {
+	t.request = request
+	return &t.response, nil
+}
+
+func (*recordingProbeTunnel) Stream(context.Context, platform.TunnelRequest) (platform.TunnelStream, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (*recordingProbeTunnel) Healthy(context.Context) error { return nil }
+
 func (t *metadataProbeTunnel) Proxy(
 	_ context.Context,
 	request platform.TunnelRequest,
@@ -96,5 +112,46 @@ func TestTunnelCredentialProberReturnsSanitizedWIFMetadata(t *testing.T) {
 		metadata.WIFScopes[0] != "workspace:developer" ||
 		metadata.WIFScopes[1] != "workspace:inference" {
 		t.Fatalf("unexpected scopes: %#v", metadata.WIFScopes)
+	}
+}
+
+func TestTunnelCredentialProberRoutesGeminiProbeThroughSilkRoad(t *testing.T) {
+	t.Parallel()
+
+	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{StatusCode: 200}}
+	prober := NewTunnelCredentialProber(tunnel)
+	ok, category, _ := prober.Probe(context.Background(), EncryptedCredential{
+		Binding: Binding{
+			ProviderSlug:        "google-gemini",
+			AuthMode:            "api_key",
+			ConnectionID:        "connection-1",
+			CredentialVersionID: "credential-version-1",
+		},
+		BaseURL: "https://generativelanguage.googleapis.com",
+	}, map[string]string{"api_key": "gemini-secret"})
+
+	if !ok || category != "ok" {
+		t.Fatalf("probe failed: ok=%v category=%q", ok, category)
+	}
+
+	if tunnel.request.Operation != platform.ProviderOperationCredentialProbe {
+		t.Fatalf("operation = %q", tunnel.request.Operation)
+	}
+
+	if tunnel.request.Deployment.Provider != "google-gemini" ||
+		tunnel.request.Deployment.ProviderAuth == nil ||
+		tunnel.request.Deployment.ProviderAuth.APIKey != "gemini-secret" {
+		t.Fatalf("unexpected deployment: %#v", tunnel.request.Deployment)
+	}
+}
+
+func TestTunnelCredentialProberFailsClosedWithoutTunnel(t *testing.T) {
+	t.Parallel()
+
+	ok, category, _ := NewTunnelCredentialProber(nil).Probe(context.Background(), EncryptedCredential{
+		Binding: Binding{ProviderSlug: "google-gemini", AuthMode: "api_key"},
+	}, map[string]string{"api_key": "gemini-secret"})
+	if ok || category != "network" {
+		t.Fatalf("ok=%v category=%q, want false/network", ok, category)
 	}
 }

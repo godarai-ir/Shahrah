@@ -1,0 +1,1 @@
+restrict,port-forwarding,permitlisten="127.0.0.1:1443",from="130.185.121.142" ssh-ed25519 REPLACE_WITH_NODE4_PUBLIC_KEY node4-eu-reverse-proxy
