@@ -1,13 +1,16 @@
 package admin
 
 import (
+	"context"
 	"errors"
+	"mime/multipart"
 	"strconv"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -26,13 +29,40 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotImplemented, "wallet store not configured")
 	}
 
-	var req platform.CreateBankTransferRequest
-	if parseErr := c.BodyParser(&req); parseErr != nil {
+	var (
+		req           platform.CreateBankTransferRequest
+		receiptHeader *multipart.FileHeader
+	)
+	if strings.HasPrefix(strings.ToLower(c.Get(fiber.HeaderContentType)), "multipart/form-data") {
+		form, parseErr := c.MultipartForm()
+		if parseErr != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid multipart request body")
+		}
+
+		amountIRR, parseErr := strconv.ParseInt(strings.TrimSpace(firstFormValue(form.Value, "amount_irr")), 10, 64)
+		if parseErr != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "amount_irr must be an integer")
+		}
+		req.AmountIRR = amountIRR
+		req.TrackingNumber = strings.TrimSpace(firstFormValue(form.Value, "tracking_number"))
+		req.BankTransactionDateJalali = strings.TrimSpace(firstFormValue(form.Value, "bank_transaction_date_jalali"))
+
+		receipts := form.File["receipt_image"]
+		if len(receipts) > 1 {
+			return fiber.NewError(fiber.StatusBadRequest, "only one receipt_image is allowed")
+		}
+		if len(receipts) == 1 && receipts[0] != nil && receipts[0].Size > 0 {
+			receiptHeader = receipts[0]
+		}
+	} else if parseErr := c.BodyParser(&req); parseErr != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
 	req.TrackingNumber = strings.TrimSpace(req.TrackingNumber)
 	req.ReceiptFileURL = strings.TrimSpace(req.ReceiptFileURL)
+	if req.ReceiptFileURL != "" {
+		return fiber.NewError(fiber.StatusBadRequest, "receipt_file_url must be created by uploading receipt_image")
+	}
 
 	req.BankTransactionDateJalali = strings.TrimSpace(req.BankTransactionDateJalali)
 	if req.AmountIRR <= 0 || req.TrackingNumber == "" || req.BankTransactionDateJalali == "" {
@@ -46,12 +76,92 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 
 	req.BankTransactionAt = bankTransactionAt
 
+	var receipt *supportfiles.ReceiptUpload
+	if receiptHeader != nil {
+		if h.supportFiles == nil {
+			return fiber.NewError(fiber.StatusServiceUnavailable, "private file storage is not configured")
+		}
+		receipt, err = h.supportFiles.UploadReceiptImage(c.Context(), currentTenant.ID, receiptHeader)
+		if err != nil {
+			return mapBankTransferReceiptError(err)
+		}
+		req.ReceiptFileURL = "/api/wallet/bank-transfer-receipts/" + receipt.FileName
+	}
+
 	item, err := h.wallets.CreateBankTransferRequest(c.Context(), currentTenant.ID, req, billingActorID(c))
 	if err != nil {
+		if receipt != nil {
+			h.supportFiles.DeleteObject(context.WithoutCancel(c.Context()), receipt.ObjectKey)
+		}
 		return err
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(item)
+}
+
+func (h *Handlers) DownloadBankTransferReceipt(c *fiber.Ctx) error {
+	if err := requireBillingRead(c); err != nil {
+		return err
+	}
+	if h.wallets == nil {
+		return fiber.NewError(fiber.StatusNotImplemented, "wallet store not configured")
+	}
+
+	currentTenant, err := currentTenantOrErr(c)
+	if err != nil {
+		return err
+	}
+
+	fileName := strings.TrimSpace(c.Params("fileName"))
+	contentType, ok := supportfiles.ValidateBankTransferReceiptFileName(fileName)
+	if !ok {
+		return fiber.NewError(fiber.StatusNotFound, "bank transfer receipt not found")
+	}
+	if h.supportFiles == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "private file storage is not configured")
+	}
+	receiptURL := "/api/wallet/bank-transfer-receipts/" + fileName
+	exists, err := h.wallets.BankTransferReceiptExists(c.Context(), currentTenant.ID, receiptURL)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fiber.NewError(fiber.StatusNotFound, "bank transfer receipt not found")
+	}
+
+	objectKey := supportfiles.BankTransferReceiptObjectKey(currentTenant.ID, fileName)
+	object, err := h.supportFiles.Get(c.Context(), objectKey)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "bank transfer receipt not found")
+	}
+
+	c.Set(fiber.HeaderContentType, contentType)
+	c.Set(fiber.HeaderCacheControl, "private, max-age=3600")
+	c.Set("X-Content-Type-Options", "nosniff")
+	c.Context().SetBodyStream(object.Body, -1)
+
+	return nil
+}
+
+func firstFormValue(values map[string][]string, key string) string {
+	items := values[key]
+	if len(items) == 0 {
+		return ""
+	}
+	return items[0]
+}
+
+func mapBankTransferReceiptError(err error) error {
+	switch {
+	case errors.Is(err, supportfiles.ErrFileTooLarge):
+		return fiber.NewError(fiber.StatusRequestEntityTooLarge, "receipt image must be at most 2 MiB")
+	case errors.Is(err, supportfiles.ErrInvalidReceipt), errors.Is(err, supportfiles.ErrTypeNotAllowed), errors.Is(err, supportfiles.ErrInfected):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "receipt image is invalid")
+	case errors.Is(err, supportfiles.ErrNotConfigured), errors.Is(err, supportfiles.ErrScanFailed):
+		return fiber.NewError(fiber.StatusServiceUnavailable, "private file storage is unavailable")
+	default:
+		return fiber.NewError(fiber.StatusBadGateway, "receipt image could not be stored")
+	}
 }
 
 func (h *Handlers) ListBankTransfers(c *fiber.Ctx) error {

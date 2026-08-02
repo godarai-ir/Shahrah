@@ -10,7 +10,6 @@ import {
   Columns3,
   Download,
   Eye,
-  FileJson,
   Filter,
   FolderOpen,
   Maximize2,
@@ -25,11 +24,10 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CodeBlock, CodePanel, CompactValue, CopyAction, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CodeBlock, CompactValue, CopyAction, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import { Spinner } from "@/components/ui/spinner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -207,19 +205,6 @@ type LogDetail = {
   metadata?: Record<string, unknown>;
   actor?: Record<string, string>;
   scope?: Record<string, string>;
-};
-
-type ReplayDraft = {
-  log_id: string;
-  supported: boolean;
-  reason?: string;
-  route?: string;
-  request_type?: string;
-  model?: string;
-  provider?: string;
-  request_payload?: Record<string, unknown>;
-  safe_headers?: Record<string, string>;
-  warnings?: string[];
 };
 
 type Filters = {
@@ -407,7 +392,6 @@ export default function LogsCommandCenter({
   const [selectedLog, setSelectedLog] = useState<RequestLog | null>(null);
   const [detail, setDetail] = useState<LogDetail | null>(null);
   const [traceAvailable, setTraceAvailable] = useState(false);
-  const [replayDraft, setReplayDraft] = useState<ReplayDraft | null>(null);
   const [viewName, setViewName] = useState("");
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [savedViewsOpen, setSavedViewsOpen] = useState(false);
@@ -554,7 +538,6 @@ export default function LogsCommandCenter({
     setSelectedLog(item);
     setDetail(null);
     setTraceAvailable(false);
-    setReplayDraft(null);
     try {
       const payload = await fetchJSON<LogDetail>(`/api/logs/${encodeURIComponent(item.log_id)}`, { signal: controller.signal });
       if (!isCurrentRequest()) return;
@@ -585,7 +568,6 @@ export default function LogsCommandCenter({
     setSelectedLog(null);
     setDetail(null);
     setTraceAvailable(false);
-    setReplayDraft(null);
   }, []);
 
   const rows = logs.data ?? [];
@@ -806,14 +788,6 @@ export default function LogsCommandCenter({
     window.location.href = `/api/logs/exports/${encodeURIComponent(job.export_id)}/download`;
   }, [filters, includeContentExport, limit, offset]);
 
-  const createReplayDraft = useCallback(async () => {
-    if (!selectedLog) return;
-    const draft = await fetchJSON<ReplayDraft>(`/api/logs/${encodeURIComponent(selectedLog.log_id)}/replay-draft`, {
-      method: "POST",
-    });
-    setReplayDraft(draft);
-  }, [selectedLog]);
-
   return (
     <TooltipProvider delayDuration={120}>
     <div className="flex flex-col gap-4">
@@ -982,9 +956,7 @@ export default function LogsCommandCenter({
         selectedLog={selectedLog}
         detail={detail}
         traceAvailable={traceAvailable}
-        replayDraft={replayDraft}
         onClose={closeDetail}
-        onCreateReplayDraft={createReplayDraft}
         formatters={formatters}
         closeLabel={common("cancel")}
         t={t}
@@ -1820,9 +1792,7 @@ const LogDetailSheet = memo(function LogDetailSheet({
   selectedLog,
   detail,
   traceAvailable,
-  replayDraft,
   onClose,
-  onCreateReplayDraft,
   formatters,
   closeLabel,
   t,
@@ -1830,9 +1800,7 @@ const LogDetailSheet = memo(function LogDetailSheet({
   selectedLog: RequestLog | null;
   detail: LogDetail | null;
   traceAvailable: boolean;
-  replayDraft: ReplayDraft | null;
   onClose: () => void;
-  onCreateReplayDraft: () => Promise<void>;
   formatters: LogsFormatter;
   closeLabel: string;
   t: ReturnType<typeof useTranslations>;
@@ -1864,22 +1832,17 @@ const LogDetailSheet = memo(function LogDetailSheet({
               <MetricCard label={t("table.latency")} value={formatters.ms(detail.log.duration_ms)} />
               <MetricCard label={t("table.cost")} value={<CompactValue display={formatters.usdDisplay(detail.log.cost_usd ?? 0)} />} />
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              {traceAvailable && detail.log.trace_id ? <Button asChild size="sm" variant="outline"><Link href={`/traces/${detail.log.trace_id}`}>{t("actions.openTrace")}</Link></Button> : null}
-              <Button size="sm" variant="outline" onClick={() => void onCreateReplayDraft()}>
-                <FileJson className="h-4 w-4" />
-                {t("actions.replayDraft")}
-              </Button>
-            </div>
-            {replayDraft ? <ReplayDraftPanel draft={replayDraft} t={t} /> : null}
+            {traceAvailable && detail.log.trace_id ? (
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button asChild size="sm" variant="outline"><Link href={`/traces/${detail.log.trace_id}`}>{t("actions.openTrace")}</Link></Button>
+              </div>
+            ) : null}
             <Tabs defaultValue="summary" className="min-w-0">
-              <TabsList asChild className="w-full">
-                <ButtonGroup aria-label={t("detailTitle")} className="grid w-full grid-cols-2 sm:flex">
-                  <TabsTrigger value="summary">{t("tabs.summary")}</TabsTrigger>
-                  <TabsTrigger value="request">{t("content.request")}</TabsTrigger>
-                  <TabsTrigger value="response">{t("content.response")}</TabsTrigger>
-                  <TabsTrigger value="metadata">{t("tabs.metadata")}</TabsTrigger>
-                </ButtonGroup>
+              <TabsList variant="line" aria-label={t("detailTitle")} className="w-full justify-start overflow-x-auto">
+                <TabsTrigger value="summary">{t("tabs.summary")}</TabsTrigger>
+                <TabsTrigger value="request">{t("content.request")}</TabsTrigger>
+                <TabsTrigger value="response">{t("content.response")}</TabsTrigger>
+                <TabsTrigger value="metadata">{t("tabs.metadata")}</TabsTrigger>
               </TabsList>
               <TabsContent value="summary"><JSONBlock value={{ log: detail.log, actor: detail.actor, scope: detail.scope, content_visibility: detail.content_visibility }} /></TabsContent>
               <TabsContent value="request"><PayloadBlock available={detail.content_visibility.request_available} value={detail.request_payload} reason={detail.content_visibility.request_reason} hidden={t("content.hidden")} /></TabsContent>
@@ -2075,40 +2038,8 @@ function MonoText({ value }: { value?: string }) {
   return <span className="block max-w-40 truncate font-mono text-xs" dir="auto">{value || "-"}</span>;
 }
 
-function ReplayDraftPanel({ draft, t }: { draft: ReplayDraft; t: ReturnType<typeof useTranslations> }) {
-  const payload = {
-    log_id: draft.log_id,
-    route: draft.route,
-    request_type: draft.request_type,
-    model: draft.model,
-    provider: draft.provider,
-    safe_headers: draft.safe_headers ?? {},
-    request_payload: draft.request_payload ?? {},
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Alert variant={draft.supported ? "default" : "destructive"}>
-        <AlertTitle>{draft.supported ? t("replay.ready") : t("replay.unsupported")}</AlertTitle>
-        <AlertDescription>{replayDraftMessage(draft, t)}</AlertDescription>
-      </Alert>
-      {draft.supported ? <CodePanel title={t("replay.payloadTitle")} displayLanguage="JSON" code={JSON.stringify(payload, null, 2)} language="json" /> : null}
-    </div>
-  );
-}
-
 function JSONBlock({ value }: { value: unknown }) {
   return <CodeBlock code={JSON.stringify(value ?? {}, null, 2)} language="json" maxHeightClassName="max-h-[520px]" />;
-}
-
-function replayDraftMessage(draft: ReplayDraft, t: ReturnType<typeof useTranslations>) {
-  if (!draft.supported) {
-    if (draft.reason === "unsupported_route") return t("replay.reasons.unsupportedRoute");
-    if (draft.reason === "payload_hidden_or_unavailable") return t("replay.reasons.payloadUnavailable");
-    return draft.reason || t("replay.reasons.unknown");
-  }
-
-  return t("replay.readyDescription");
 }
 
 function PayloadBlock({ available, value, reason, hidden }: { available: boolean; value?: unknown; reason?: string; hidden: string }) {

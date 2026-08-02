@@ -4,15 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import { formatJson, JsonEditor } from "./JsonEditor";
 
 describe("JsonEditor", () => {
-  it("renders editable JSON with a direction-safe highlighted overlay", () => {
+  it("renders editable JSON in CodeMirror with direction-safe variable highlighting", () => {
     const { container } = render(
       <JsonEditor aria-label="Request JSON" value={'{"message":"سلام {{context}}"}'} variables={["context"]} onValueChange={() => undefined} />,
     );
 
-    const textarea = screen.getByRole("textbox", { name: "Request JSON" });
-    expect(textarea).toHaveAttribute("dir", "ltr");
-    expect(textarea).toHaveClass("peer", "text-transparent", "caret-foreground");
-    expect(textarea.nextElementSibling).toHaveClass("peer-focus-visible:ring-inset");
+    const editor = screen.getByRole("textbox", { name: "Request JSON" });
+    expect(editor).toHaveAttribute("contenteditable", "true");
+    expect(editor).toHaveAttribute("dir", "ltr");
+    expect(container.querySelector(".cm-editor")).toBeInTheDocument();
+    expect(container.querySelector("textarea")).not.toBeInTheDocument();
     expect(container.querySelector(".variable-placeholder")).toHaveTextContent("{{context}}");
   });
 

@@ -128,6 +128,38 @@ func TestUploadFilesDeletesEarlierObjectsWhenLaterUploadFails(t *testing.T) {
 	}
 }
 
+func TestUploadReceiptImageStoresPrivateBillingObject(t *testing.T) {
+	store := &memoryStore{}
+	service := New(store, scannerResult{clean: true})
+	files := multipartFiles(t, map[string][]byte{
+		"receipt.png": []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00},
+	})
+
+	upload, err := service.UploadReceiptImage(context.Background(), "tenant-id", files[0])
+	if err != nil {
+		t.Fatalf("UploadReceiptImage returned error: %v", err)
+	}
+	if upload.ContentType != "image/png" || upload.SizeBytes != files[0].Size {
+		t.Fatalf("unexpected receipt upload: %#v", upload)
+	}
+	if !strings.HasPrefix(upload.ObjectKey, "billing/receipts/tenant-id/") || len(store.puts) != 1 || store.puts[0] != upload.ObjectKey {
+		t.Fatalf("receipt was not stored under the private billing prefix: upload=%#v puts=%v", upload, store.puts)
+	}
+	if contentType, ok := ValidateBankTransferReceiptFileName(upload.FileName); !ok || contentType != "image/png" {
+		t.Fatalf("generated receipt filename is invalid: %q", upload.FileName)
+	}
+}
+
+func TestUploadReceiptImageRejectsNonImageContent(t *testing.T) {
+	service := New(&memoryStore{}, scannerResult{clean: true})
+	files := multipartFiles(t, map[string][]byte{"receipt.png": []byte("not an image")})
+
+	_, err := service.UploadReceiptImage(context.Background(), "tenant-id", files[0])
+	if !errors.Is(err, ErrInvalidReceipt) {
+		t.Fatalf("got %v want ErrInvalidReceipt", err)
+	}
+}
+
 func TestCleanupOrphansKeepsReferencedAndRecentObjects(t *testing.T) {
 	now := time.Now().UTC()
 	store := &memoryStore{objects: []ObjectInfo{

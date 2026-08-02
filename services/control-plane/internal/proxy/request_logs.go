@@ -267,3 +267,20 @@ func buildJSONResponseLogPayload(body []byte, fallback interface{}) map[string]i
 
 	return payload
 }
+
+// buildProviderHTTPErrorLogPayload preserves the provider response byte-for-byte
+// alongside its decoded JSON fields. Error responses to streaming requests are
+// not guaranteed to be JSON (some providers return SSE frames, HTML, or plain
+// text), so relying on JSON decoding alone can silently discard the only useful
+// diagnostic content.
+func buildProviderHTTPErrorLogPayload(body []byte, stream bool) map[string]interface{} {
+	payload := buildJSONResponseLogPayload(body, nil)
+	payload["outcome"] = "provider_http_error"
+	payload["stream"] = stream
+
+	if len(body) > 0 {
+		payload["raw_body"] = string(body)
+	}
+
+	return payload
+}

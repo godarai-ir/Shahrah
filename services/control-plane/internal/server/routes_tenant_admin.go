@@ -128,6 +128,7 @@ func registerTenantAdminRoutes(app *fiber.App, deps Dependencies) {
 	api.Get("/wallet/transactions", deps.AdminHandlers.ListWalletTransactions)
 	api.Get("/wallet/bank-transfers", deps.AdminHandlers.ListBankTransfers)
 	api.Post("/wallet/bank-transfers", deps.AdminHandlers.CreateBankTransfer)
+	api.Get("/wallet/bank-transfer-receipts/:fileName", deps.AdminHandlers.DownloadBankTransferReceipt)
 	api.Get("/wallet/topup/settings", deps.AdminHandlers.GetWalletTopUpSettings)
 	api.Put("/wallet/topup/settings", deps.AdminHandlers.UpdateWalletTopUpSettings)
 	api.Get("/wallet/topup/callback/:provider", deps.AdminHandlers.WalletTopUpCallback)

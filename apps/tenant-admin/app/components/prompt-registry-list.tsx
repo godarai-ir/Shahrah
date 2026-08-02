@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-import { type Prompt, type PromptTranslationFn } from "./prompt-management-shared";
+import { formatNumber, type Prompt, type PromptTranslationFn } from "./prompt-management-shared";
 
 type PromptRegistryListProps = {
   isLoading: boolean;
@@ -115,7 +115,7 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                   onClick={() => props.onRowClick(item)}
                 >
                   <TableCell className="whitespace-nowrap font-medium">{item.name}</TableCell>
-                  <TableCell className="whitespace-nowrap">{props.t("list.versionValue", { version: item.latest_version })}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatNumber(item.latest_version, props.locale)}</TableCell>
                   <TableCell className="hidden @lg:table-cell" onClick={(event) => event.stopPropagation()}>
                     {item.latest_version_detail?.fqn ? (
                       <div dir="ltr" className="flex min-w-0 items-center justify-start gap-1 text-start">

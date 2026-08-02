@@ -69,6 +69,18 @@ func (s *Store) ListBankTransferRequests(ctx context.Context, tenantID string, l
 	return items, rows.Err()
 }
 
+func (s *Store) BankTransferReceiptExists(ctx context.Context, tenantID string, receiptFileURL string) (bool, error) {
+	var exists bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM bank_transfer_requests
+			WHERE tenant_id::text = $1 AND receipt_file_url = $2
+		)
+	`, strings.TrimSpace(tenantID), strings.TrimSpace(receiptFileURL)).Scan(&exists)
+	return exists, err
+}
+
 func (s *Store) ApproveBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

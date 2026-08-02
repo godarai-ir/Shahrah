@@ -12,15 +12,20 @@ Required production settings:
 
 | Setting | Purpose |
 | --- | --- |
-| `SUPPORT_S3_ENDPOINT` | Private S3-compatible endpoint |
-| `SUPPORT_S3_REGION` | Bucket region, defaults to `us-east-1` |
-| `SUPPORT_S3_BUCKET` | Private attachment bucket |
-| `SUPPORT_S3_ACCESS_KEY` / `SUPPORT_S3_SECRET_KEY` | Storage credential |
-| `SUPPORT_S3_FORCE_PATH_STYLE` | Enable for MinIO |
+| `PRIVATE_FILES_S3_ENDPOINT` | Private S3-compatible endpoint |
+| `PRIVATE_FILES_S3_REGION` | Bucket region, defaults to `us-east-1` |
+| `PRIVATE_FILES_S3_BUCKET` | Private bucket shared by support attachments and billing receipts |
+| `PRIVATE_FILES_S3_ACCESS_KEY` / `PRIVATE_FILES_S3_SECRET_KEY` | Storage credential |
+| `PRIVATE_FILES_S3_FORCE_PATH_STYLE` | Enable for MinIO |
 | `SUPPORT_CLAMAV_ADDRESS` | ClamAV TCP address, for example `clamav:3310` |
 | `SUPPORT_CLAMAV_TIMEOUT` | Scan timeout, defaults to `30s` |
 | `SUPPORT_TICKETS_PER_USER_PER_HOUR` | Ticket-create rate limit, defaults to `10` |
 | `SUPPORT_MESSAGES_PER_USER_PER_TICKET_PER_HOUR` | Reply rate limit, defaults to `30` |
+
+The legacy `SUPPORT_S3_*` variables remain supported as fallbacks. Support
+attachments use the `support/` object prefix. Bank-transfer receipt images use
+the isolated `billing/receipts/` prefix; PostgreSQL stores only their private
+application URL and related metadata, not the file bytes.
 
 `SUPPORT_ATTACHMENT_ALLOW_UNSCANNED_DEV=true` is an explicit local/test bypass.
 It must not be set in production. If ClamAV is absent or fails, attachment

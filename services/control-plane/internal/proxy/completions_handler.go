@@ -530,9 +530,7 @@ func (h *CompletionsHandler) handleStream(
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
 
 		return writeTunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
-			responsePayload := buildJSONResponseLogPayload(body, map[string]interface{}{"stream": true, "outcome": "provider_http_error"})
-			responsePayload["stream"] = true
-			responsePayload["outcome"] = "provider_http_error"
+			responsePayload := buildProviderHTTPErrorLogPayload(body, true)
 
 			errorType := ErrorTypeMap[statusCode]
 			if strings.TrimSpace(errorType) == "" {

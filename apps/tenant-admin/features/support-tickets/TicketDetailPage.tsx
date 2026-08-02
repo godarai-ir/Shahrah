@@ -1,15 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import Link from "next/link";
-import { Download, File, Star } from "lucide-react";
+import { CalendarPlus, Clock3, Download, File, Flag, Headphones, LifeBuoy, LockKeyhole, MessagesSquare, Send, Star, Tag, UserRound } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { AppTextareaField, CopyableValue, DefinitionList, DefinitionListItem, EmptyState, PageContainer } from "@/components/app-ui";
+import { AppTextareaField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, PageContainer } from "@/components/app-ui";
 import { Attachment, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Message, MessageContent, MessageHeader } from "@/components/ui/message";
+import { cn } from "@/lib/utils";
 import { TicketStatusBadge } from "./TicketStatusBadge";
 import { createIdempotencyKey, readTicketResponse, type TicketDetail, type TicketMessage } from "./types";
 
@@ -73,28 +76,36 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
   return (
     <PageContainer size="readable">
       {error ? <p role="alert" className="rounded-xl border border-destructive-soft-border bg-destructive-soft p-4 text-sm text-destructive-soft-foreground">{error}</p> : null}
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle>{ticket.subject}</CardTitle>
-            <TicketStatusBadge status={ticket.status} label={t(`statuses.${ticket.status}`)} />
-          </div>
-          <CopyableValue value={ticket.public_id} labels={{ valueAriaLabel: t("fields.id"), copy: t("actions.copy"), copying: t("actions.copying"), copied: t("actions.copied") }} />
+          <EntityIdentityHeader
+            title={ticket.subject}
+            identifier={ticket.public_id}
+            status={<TicketStatusBadge status={ticket.status} label={t(`statuses.${ticket.status}`)} />}
+            leading={<span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary"><LifeBuoy aria-hidden="true" className="size-5" /></span>}
+            copy={{ copyLabel: t("actions.copy"), copyingLabel: t("actions.copying"), copiedLabel: t("actions.copied") }}
+          />
         </CardHeader>
-        <CardContent>
+        <CardContent className="border-t border-card-border pt-6">
           <DefinitionList columns={2}>
-            <DefinitionListItem label={t("fields.category")} value={t(`categories.${ticket.category}`)} />
-            <DefinitionListItem label={t("fields.priority")} value={t(`priorities.${ticket.priority}`)} />
-            <DefinitionListItem label={t("fields.createdAt")} value={formatDate(ticket.created_at)} />
-            <DefinitionListItem label={t("fields.lastActivity")} value={formatDate(ticket.last_message_at)} />
-            {ticket.resolved_at ? <DefinitionListItem label={t("fields.resolvedAt")} value={formatDate(ticket.resolved_at)} /> : null}
-            {ticket.closed_at ? <DefinitionListItem label={t("fields.closedAt")} value={formatDate(ticket.closed_at)} /> : null}
+            <DefinitionListItem icon={Tag} label={t("fields.category")} value={<Badge variant="info">{t(`categories.${ticket.category}`)}</Badge>} />
+            <DefinitionListItem icon={Flag} label={t("fields.priority")} value={<Badge variant={priorityBadgeVariant(ticket.priority)}>{t(`priorities.${ticket.priority}`)}</Badge>} />
+            <DefinitionListItem icon={CalendarPlus} label={t("fields.createdAt")} value={<DateTimeValue value={ticket.created_at} locale={locale} fallback={t("values.notAvailable")} format={{ dateStyle: "medium", timeStyle: "short" }} />} />
+            <DefinitionListItem icon={Clock3} label={t("fields.lastActivity")} value={<DateTimeValue value={ticket.last_message_at} locale={locale} fallback={t("values.notAvailable")} format={{ dateStyle: "medium", timeStyle: "short" }} />} />
+            {ticket.resolved_at ? <DefinitionListItem icon={Clock3} label={t("fields.resolvedAt")} value={<DateTimeValue value={ticket.resolved_at} locale={locale} format={{ dateStyle: "medium", timeStyle: "short" }} />} /> : null}
+            {ticket.closed_at ? <DefinitionListItem icon={LockKeyhole} label={t("fields.closedAt")} value={<DateTimeValue value={ticket.closed_at} locale={locale} format={{ dateStyle: "medium", timeStyle: "short" }} />} /> : null}
           </DefinitionList>
         </CardContent>
       </Card>
 
       <section className="flex flex-col gap-4" aria-labelledby="conversation-title">
-        <h2 id="conversation-title" className="text-lg font-semibold">{t("conversation.title")}</h2>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><MessagesSquare aria-hidden="true" className="size-4" /></span>
+            <h2 id="conversation-title" className="text-lg font-semibold">{t("conversation.title")}</h2>
+          </div>
+          <Badge variant="secondary" className="tabular-nums">{detail.messages.length}</Badge>
+        </div>
         {detail.messages.map((message) => <MessageCard key={message.id} message={message} currentUserID={currentUserID} formatDate={formatDate} />)}
       </section>
 
@@ -102,16 +113,16 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
 
       {canReply ? (
         <Card>
-          <CardHeader><CardTitle>{ticket.status === "resolved" ? t("reply.reopenTitle") : t("reply.title")}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Send aria-hidden="true" className="size-5 text-primary" />{ticket.status === "resolved" ? t("reply.reopenTitle") : t("reply.title")}</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={reply} className="flex flex-col gap-4">
               <AppTextareaField label={t("fields.message")} value={body} onChange={(event) => setBody(event.target.value)} maxLength={10000} rows={6} disabled={submitting} />
               <Input type="file" multiple disabled={submitting} accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.log,.json" aria-label={t("attachments.add")} onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 5))} />
-              <Button type="submit" className="self-end" disabled={submitting}>{submitting ? t("actions.submitting") : ticket.status === "resolved" ? t("actions.sendAndReopen") : t("actions.send")}</Button>
+              <Button type="submit" className="self-end" disabled={submitting}><Send aria-hidden="true" />{submitting ? t("actions.submitting") : ticket.status === "resolved" ? t("actions.sendAndReopen") : t("actions.send")}</Button>
             </form>
           </CardContent>
         </Card>
-      ) : <p className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">{t("reply.closed")}</p>}
+      ) : <p className="flex items-start gap-2 rounded-xl border border-neutral-soft-border bg-neutral-soft p-4 text-sm text-neutral-soft-foreground"><LockKeyhole aria-hidden="true" className="mt-0.5 size-4 shrink-0" />{t("reply.closed")}</p>}
     </PageContainer>
   );
 }
@@ -121,24 +132,27 @@ function MessageCard({ message, currentUserID, formatDate }: { message: TicketMe
   const support = message.author_type === "support_agent";
   const author = support ? t("conversation.support") : message.author_id === currentUserID ? t("conversation.you") : t("conversation.organization");
   return (
-    <article className={`flex ${support ? "justify-start" : "justify-end"}`}>
-      <div className="w-full max-w-3xl rounded-xl border border-border bg-card p-4 shadow-xs">
-        <header className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-          <strong>{author}</strong><time className="text-muted-foreground" dateTime={message.created_at}>{formatDate(message.created_at)}</time>
-        </header>
-        {message.body ? <p className="whitespace-pre-wrap break-words text-sm leading-7">{message.body}</p> : null}
-        {message.attachments.length ? <div className="mt-4 grid gap-2">{message.attachments.map((attachment) => (
-          <Attachment key={attachment.id} size="sm" state={attachment.scan_status === "clean" ? "done" : attachment.scan_status === "rejected" ? "error" : "processing"}>
-            <AttachmentMedia><File aria-hidden="true" /></AttachmentMedia>
-            <AttachmentContent>
-              <AttachmentTitle dir="auto">{attachment.original_filename}</AttachmentTitle>
-              <AttachmentDescription>{t(`attachments.scan.${attachment.scan_status}`)} · <span dir="ltr">{formatBytes(attachment.size_bytes)}</span></AttachmentDescription>
-            </AttachmentContent>
-            {attachment.scan_status === "clean" ? <AttachmentActions><Button asChild size="icon-sm" variant="outline"><a href={`/api/support/ticket-attachments/${encodeURIComponent(attachment.id)}/download`} aria-label={t("attachments.download", { name: attachment.original_filename })}><Download aria-hidden="true" /></a></Button></AttachmentActions> : null}
-          </Attachment>
-        ))}</div> : null}
-      </div>
-    </article>
+    <Message align={support ? "start" : "end"} role="article">
+      <MessageContent className="max-w-3xl group-data-[align=end]/message:ms-auto">
+        <MessageHeader className="flex-wrap justify-between gap-2 px-1">
+          <strong className="flex items-center gap-1.5 text-foreground">{support ? <Headphones aria-hidden="true" className="size-4 text-info-soft-foreground" /> : <UserRound aria-hidden="true" className="size-4 text-primary" />}{author}</strong>
+          <time dateTime={message.created_at}>{formatDate(message.created_at)}</time>
+        </MessageHeader>
+        <div className={cn("w-full rounded-xl border p-4 shadow-xs", support ? "border-info-soft-border bg-info-soft text-info-soft-foreground" : "border-card-border bg-card text-card-foreground")}>
+          {message.body ? <p className="whitespace-pre-wrap break-words text-sm leading-7">{message.body}</p> : null}
+          {message.attachments.length ? <div className="mt-4 grid gap-2">{message.attachments.map((attachment) => (
+            <Attachment key={attachment.id} size="sm" state={attachment.scan_status === "clean" ? "done" : attachment.scan_status === "rejected" ? "error" : "processing"}>
+              <AttachmentMedia><File aria-hidden="true" /></AttachmentMedia>
+              <AttachmentContent>
+                <AttachmentTitle dir="auto">{attachment.original_filename}</AttachmentTitle>
+                <AttachmentDescription>{t(`attachments.scan.${attachment.scan_status}`)} · <span dir="ltr">{formatBytes(attachment.size_bytes)}</span></AttachmentDescription>
+              </AttachmentContent>
+              {attachment.scan_status === "clean" ? <AttachmentActions><Button asChild size="icon-sm" variant="outline"><a href={`/api/support/ticket-attachments/${encodeURIComponent(attachment.id)}/download`} aria-label={t("attachments.download", { name: attachment.original_filename })}><Download aria-hidden="true" /></a></Button></AttachmentActions> : null}
+            </Attachment>
+          ))}</div> : null}
+        </div>
+      </MessageContent>
+    </Message>
   );
 }
 
@@ -198,4 +212,13 @@ function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / 1024 / 1024).toFixed(1)} MiB`;
+}
+
+function priorityBadgeVariant(priority: TicketDetail["ticket"]["priority"]): ComponentProps<typeof Badge>["variant"] {
+  switch (priority) {
+    case "urgent": return "destructive";
+    case "high": return "warning";
+    case "low": return "secondary";
+    default: return "outline";
+  }
 }

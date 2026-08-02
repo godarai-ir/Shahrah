@@ -86,6 +86,8 @@ describe("PromptRegistryListPage", () => {
     render(<PromptRegistryListPage />);
 
     expect(await screen.findByText("booking_greeting")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.queryByText("list.versionValue")).not.toBeInTheDocument();
     expect(screen.queryByText("playground.title")).not.toBeInTheDocument();
     expect(screen.queryByText("builder.titleNew")).not.toBeInTheDocument();
   });

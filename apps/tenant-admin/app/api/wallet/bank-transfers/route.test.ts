@@ -5,12 +5,14 @@ import { POST } from "./route";
 
 const readAuthFromRequestMock = vi.hoisted(() => vi.fn());
 const proxyToControlPlaneMock = vi.hoisted(() => vi.fn());
+const proxyToControlPlaneBodyStreamMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/request-auth", () => ({
   readAuthFromRequest: readAuthFromRequestMock,
 }));
 
 vi.mock("@/lib/control-plane", () => ({
   proxyToControlPlane: proxyToControlPlaneMock,
+  proxyToControlPlaneBodyStream: proxyToControlPlaneBodyStreamMock,
 }));
 
 describe("wallet/bank-transfers POST route", () => {
@@ -66,6 +68,34 @@ describe("wallet/bank-transfers POST route", () => {
     const response = await POST(request);
 
     expect(response.status).toBe(400);
+    expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
+  });
+
+  it("streams multipart receipt uploads to control-plane", async () => {
+    const formData = new FormData();
+    formData.set("amount_irr", "250000");
+    formData.set("tracking_number", "ABC-123");
+    formData.set("bank_transaction_date_jalali", "1405-04-17");
+    formData.set("receipt_image", new File(["image"], "receipt.png", { type: "image/png" }));
+    const request = new NextRequest("http://localhost/api/wallet/bank-transfers", {
+      method: "POST",
+      body: formData,
+    });
+
+    readAuthFromRequestMock.mockResolvedValueOnce({
+      ok: true,
+      tenantSlug: "tenant-one",
+    });
+    proxyToControlPlaneBodyStreamMock.mockResolvedValueOnce(new NextResponse(null, { status: 201 }));
+
+    const response = await POST(request);
+
+    expect(proxyToControlPlaneBodyStreamMock).toHaveBeenCalledWith({
+      request,
+      method: "POST",
+      path: "/api/v1/wallet/bank-transfers",
+    });
+    expect(response.status).toBe(201);
     expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
   });
 });

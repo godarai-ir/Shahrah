@@ -68,6 +68,7 @@ type walletStore interface {
 	ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error)
 	CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error)
 	ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error)
+	BankTransferReceiptExists(ctx context.Context, tenantID string, receiptFileURL string) (bool, error)
 	ApproveBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
 	RejectBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error)
 	RedeemGiftCode(ctx context.Context, tenantID string, code string, actor string) (*platform.GiftCodeRedemption, error)
@@ -275,8 +276,10 @@ type supportTicketStore interface {
 
 type supportAttachmentService interface {
 	UploadFiles(context.Context, string, string, []*multipart.FileHeader) ([]platform.SupportTicketAttachmentUpload, error)
+	UploadReceiptImage(context.Context, string, *multipart.FileHeader) (*supportfiles.ReceiptUpload, error)
 	Get(context.Context, string) (*supportfiles.ObjectReader, error)
 	DeleteUploads(context.Context, []platform.SupportTicketAttachmentUpload)
+	DeleteObject(context.Context, string)
 }
 
 type platformProviderCredentialService interface {

@@ -24,7 +24,6 @@
     "copiedLogId": "Log ID copied",
     "openTrace": "Trace",
     "copyLink": "Copy link",
-    "replayDraft": "Replay this request (test)",
     "saveView": "Save custom view",
     "savedViews": "Saved views",
     "expandChart": "Expand {chart}",
@@ -180,7 +179,7 @@
   "table": {
     "title": "Request Logs",
     "description": "{start} to {end} of {total}",
-    "status": "Status",
+    "status": "Status code",
     "time": "Time",
     "provider": "Provider",
     "model": "Model",
@@ -241,17 +240,6 @@
   "tabs": {
     "summary": "Summary",
     "metadata": "Metadata"
-  },
-  "replay": {
-    "ready": "Replay draft is ready",
-    "unsupported": "Replay is not supported",
-    "readyDescription": "This is only a safe draft for manual replay. Sensitive headers and credentials are omitted, and no request is executed automatically.",
-    "payloadTitle": "Draft payload",
-    "reasons": {
-      "unsupportedRoute": "This route type is not supported for replay.",
-      "payloadUnavailable": "The request payload is unavailable because of permissions or the logging policy.",
-      "unknown": "A replay draft cannot be created for this log."
-    }
   },
   "values": {
     "unknown": "Unknown",

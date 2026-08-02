@@ -1,82 +1,62 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest, NextResponse } from "next/server";
+import { describe, expect, it, vi } from "vitest";
 
-import { GET, saveReceiptImage } from "./route";
+import { GET } from "./route";
 
+const proxyToControlPlaneBodyStreamMock = vi.hoisted(() => vi.fn());
 const readAuthFromRequestMock = vi.hoisted(() => vi.fn());
 
+vi.mock("@/lib/control-plane", () => ({
+  proxyToControlPlaneBodyStream: proxyToControlPlaneBodyStreamMock,
+}));
 vi.mock("@/lib/auth/request-auth", () => ({
   readAuthFromRequest: readAuthFromRequestMock,
 }));
 
-const uploadDir = resolve(process.cwd(), "uploads", "bank-transfer-receipts");
-
 describe("bank transfer receipt files", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it("streams the tenant-scoped receipt from control-plane object storage", async () => {
+    const request = new NextRequest("http://localhost/api/wallet/bank-transfer-receipts/11111111-1111-4111-8111-111111111111.png");
+    proxyToControlPlaneBodyStreamMock.mockResolvedValueOnce(new NextResponse("image", {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    }));
+
+    const response = await GET(request, {
+      params: Promise.resolve({ fileName: "11111111-1111-4111-8111-111111111111.png" }),
+    });
+
+    expect(proxyToControlPlaneBodyStreamMock).toHaveBeenCalledWith({
+      request,
+      method: "GET",
+      path: "/api/v1/wallet/bank-transfer-receipts/11111111-1111-4111-8111-111111111111.png",
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
   });
 
-  it("does not serve a receipt owned by another tenant", async () => {
-    const fileName = `t_${tenantKey("tenant-two")}_11111111-1111-4111-8111-111111111111.png`;
+  it("keeps legacy local receipts readable for their owning tenant", async () => {
+    const fileName = `t_${tenantKey("tenant-one")}_11111111-1111-4111-8111-111111111111.png`;
+    const uploadDir = resolve(process.cwd(), "uploads", "bank-transfer-receipts");
     const filePath = resolve(uploadDir, fileName);
     await mkdir(uploadDir, { recursive: true });
     await writeFile(filePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    proxyToControlPlaneBodyStreamMock.mockResolvedValueOnce(new NextResponse(null, { status: 404 }));
+    readAuthFromRequestMock.mockResolvedValueOnce({ ok: true, tenantSlug: "tenant-one" });
 
     try {
-      readAuthFromRequestMock.mockResolvedValueOnce({
-        ok: true,
-        tenantSlug: "tenant-one",
-      });
-
-      const response = await GET(new NextRequest(`http://localhost/api/wallet/bank-transfer-receipts/${fileName}`), {
-        params: Promise.resolve({ fileName }),
-      });
-
-      expect(response.status).toBe(404);
-    } finally {
-      await rm(filePath, { force: true });
-    }
-  });
-
-  it("serves a valid receipt only to the tenant that uploaded it", async () => {
-    const file = new File([minimalPNG()], "receipt.png", { type: "image/png" });
-    const uploaded = await saveReceiptImage(file, "tenant-one");
-    const filePath = resolve(uploadDir, uploaded.fileName);
-
-    try {
-      readAuthFromRequestMock.mockResolvedValueOnce({
-        ok: true,
-        tenantSlug: "tenant-one",
-      });
-
-      const response = await GET(new NextRequest(`http://localhost${uploaded.url}`), {
-        params: Promise.resolve({ fileName: uploaded.fileName }),
-      });
+      const request = new NextRequest(`http://localhost/api/wallet/bank-transfer-receipts/${fileName}`);
+      const response = await GET(request, { params: Promise.resolve({ fileName }) });
 
       expect(response.status).toBe(200);
-      expect(response.headers.get("Content-Type")).toBe("image/png");
-      expect(uploaded.fileName).toMatch(new RegExp(`^t_${tenantKey("tenant-one")}_`));
+      expect(response.headers.get("content-type")).toBe("image/png");
     } finally {
       await rm(filePath, { force: true });
     }
-  });
-
-  it("rejects content that does not match the declared image type", async () => {
-    const file = new File([Buffer.from("not an image")], "receipt.png", { type: "image/png" });
-
-    await expect(saveReceiptImage(file, "tenant-one")).rejects.toThrow("معتبر");
   });
 });
 
 function tenantKey(tenantSlug: string): string {
   return Buffer.from(tenantSlug.trim().toLowerCase()).toString("base64url");
-}
-
-function minimalPNG(): Buffer {
-  return Buffer.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
-    0x49, 0x48, 0x44, 0x52,
-  ]);
 }

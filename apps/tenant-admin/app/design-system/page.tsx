@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Message, MessageContent, MessageHeader } from "@/components/ui/message";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -709,6 +710,32 @@ export default function DesignSystemPage() {
               </AttachmentAction>
             </AttachmentActions>
           </Attachment>
+        </AppCard>
+        <AppCard title="Message" description="Use Message for direction-aware conversation rows with sender metadata and a constrained surface.">
+          <div className="flex flex-col gap-4" dir="rtl">
+            <Message align="start">
+              <MessageContent className="max-w-xl">
+                <MessageHeader className="justify-between gap-2 px-1">
+                  <strong className="text-foreground">پشتیبانی</strong>
+                  <span>امروز، ۱۰:۳۰</span>
+                </MessageHeader>
+                <div className="w-full rounded-xl border border-card-border bg-card p-4 text-card-foreground shadow-xs">
+                  پاسخ شما دریافت شد و در حال بررسی است.
+                </div>
+              </MessageContent>
+            </Message>
+            <Message align="end">
+              <MessageContent className="max-w-xl group-data-[align=end]/message:ms-auto">
+                <MessageHeader className="justify-between gap-2 px-1">
+                  <strong className="text-foreground">شما</strong>
+                  <span>امروز، ۱۰:۳۲</span>
+                </MessageHeader>
+                <div className="w-full rounded-xl border border-card-border bg-card p-4 text-card-foreground shadow-xs">
+                  ممنون، منتظر پاسخ تیم پشتیبانی هستم.
+                </div>
+              </MessageContent>
+            </Message>
+          </div>
         </AppCard>
       </section>
     </PageContainer>

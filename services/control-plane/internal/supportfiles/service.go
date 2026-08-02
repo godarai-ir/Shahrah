@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	MaxFilesPerMessage = 5
-	MaxFileBytes       = int64(10 * 1024 * 1024)
-	MaxMessageBytes    = int64(25 * 1024 * 1024)
+	MaxFilesPerMessage   = 5
+	MaxFileBytes         = int64(10 * 1024 * 1024)
+	MaxMessageBytes      = int64(25 * 1024 * 1024)
+	MaxReceiptImageBytes = int64(2 * 1024 * 1024)
 )
 
 var (
@@ -40,6 +41,7 @@ var (
 	ErrTypeNotAllowed = errors.New("support attachment type not allowed")
 	ErrScanFailed     = errors.New("support attachment scan failed")
 	ErrInfected       = errors.New("support attachment infected")
+	ErrInvalidReceipt = errors.New("invalid bank transfer receipt")
 )
 
 type ObjectStore interface {
@@ -70,26 +72,33 @@ type ObjectReader struct {
 	Body io.ReadCloser
 }
 
+type ReceiptUpload struct {
+	FileName    string
+	ObjectKey   string
+	ContentType string
+	SizeBytes   int64
+}
+
 func New(store ObjectStore, scanner Scanner) *Service {
 	return &Service{store: store, scanner: scanner}
 }
 
 func NewFromEnv() (*Service, error) {
-	endpoint := strings.TrimSpace(os.Getenv("SUPPORT_S3_ENDPOINT"))
+	endpoint := firstEnv("PRIVATE_FILES_S3_ENDPOINT", "SUPPORT_S3_ENDPOINT")
 
-	bucket := strings.TrimSpace(os.Getenv("SUPPORT_S3_BUCKET"))
+	bucket := firstEnv("PRIVATE_FILES_S3_BUCKET", "SUPPORT_S3_BUCKET")
 	if endpoint == "" || bucket == "" {
 		return nil, nil
 	}
 
-	accessKey := strings.TrimSpace(os.Getenv("SUPPORT_S3_ACCESS_KEY"))
+	accessKey := firstEnv("PRIVATE_FILES_S3_ACCESS_KEY", "SUPPORT_S3_ACCESS_KEY")
 
-	secretKey := strings.TrimSpace(os.Getenv("SUPPORT_S3_SECRET_KEY"))
+	secretKey := firstEnv("PRIVATE_FILES_S3_SECRET_KEY", "SUPPORT_S3_SECRET_KEY")
 	if accessKey == "" || secretKey == "" {
-		return nil, fmt.Errorf("%w: SUPPORT_S3_ACCESS_KEY and SUPPORT_S3_SECRET_KEY are required", ErrNotConfigured)
+		return nil, fmt.Errorf("%w: private object-storage credentials are required", ErrNotConfigured)
 	}
 
-	region := strings.TrimSpace(os.Getenv("SUPPORT_S3_REGION"))
+	region := firstEnv("PRIVATE_FILES_S3_REGION", "SUPPORT_S3_REGION")
 	if region == "" {
 		region = "us-east-1"
 	}
@@ -98,7 +107,7 @@ func NewFromEnv() (*Service, error) {
 		BaseEndpoint: aws.String(endpoint),
 		Region:       region,
 		Credentials:  credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
-		UsePathStyle: boolEnv("SUPPORT_S3_FORCE_PATH_STYLE", true),
+		UsePathStyle: boolEnvFallback("PRIVATE_FILES_S3_FORCE_PATH_STYLE", "SUPPORT_S3_FORCE_PATH_STYLE", true),
 	})
 
 	var scanner Scanner
@@ -262,6 +271,99 @@ func (s *Service) Get(ctx context.Context, key string) (*ObjectReader, error) {
 	return &ObjectReader{Body: body}, nil
 }
 
+func (s *Service) UploadReceiptImage(ctx context.Context, tenantID string, header *multipart.FileHeader) (*ReceiptUpload, error) {
+	if s == nil || s.store == nil || s.scanner == nil {
+		return nil, ErrNotConfigured
+	}
+	if header == nil || header.Size <= 0 {
+		return nil, ErrInvalidReceipt
+	}
+	if header.Size > MaxReceiptImageBytes {
+		return nil, ErrFileTooLarge
+	}
+
+	originalFilename := sanitizeFilename(header.Filename)
+	contentType, err := validateFileType(header, originalFilename)
+	if err != nil || !isReceiptImageType(contentType) {
+		return nil, ErrInvalidReceipt
+	}
+
+	extension := receiptExtension(contentType)
+	fileName := uuid.NewString() + extension
+	objectKey := BankTransferReceiptObjectKey(tenantID, fileName)
+
+	uploadReader, err := header.Open()
+	if err != nil {
+		return nil, fmt.Errorf("open bank transfer receipt for upload: %w", err)
+	}
+	uploadErr := s.store.Put(ctx, objectKey, uploadReader, header.Size, contentType)
+	closeErr := uploadReader.Close()
+	if uploadErr != nil {
+		return nil, fmt.Errorf("store bank transfer receipt: %w", uploadErr)
+	}
+	if closeErr != nil {
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
+		return nil, fmt.Errorf("close bank transfer receipt after upload: %w", closeErr)
+	}
+
+	scanReader, err := header.Open()
+	if err != nil {
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
+		return nil, fmt.Errorf("open bank transfer receipt for scan: %w", err)
+	}
+	clean, scanResult, scanErr := s.scanner.Scan(ctx, io.LimitReader(scanReader, MaxReceiptImageBytes+1))
+	closeErr = scanReader.Close()
+	if scanErr != nil {
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
+		return nil, fmt.Errorf("%w: %v", ErrScanFailed, scanErr)
+	}
+	if closeErr != nil {
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
+		return nil, fmt.Errorf("close bank transfer receipt after scan: %w", closeErr)
+	}
+	if !clean {
+		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
+		return nil, fmt.Errorf("%w: %s", ErrInfected, scanResult)
+	}
+
+	return &ReceiptUpload{
+		FileName:    fileName,
+		ObjectKey:   objectKey,
+		ContentType: contentType,
+		SizeBytes:   header.Size,
+	}, nil
+}
+
+func (s *Service) DeleteObject(ctx context.Context, key string) {
+	if s == nil || s.store == nil || strings.TrimSpace(key) == "" {
+		return
+	}
+	_ = s.store.Delete(ctx, key) //nolint:errcheck // Compensating cleanup is best-effort.
+}
+
+func BankTransferReceiptObjectKey(tenantID, fileName string) string {
+	return fmt.Sprintf("billing/receipts/%s/%s", safePathSegment(tenantID), fileName)
+}
+
+func ValidateBankTransferReceiptFileName(fileName string) (string, bool) {
+	fileName = strings.TrimSpace(fileName)
+	extension := strings.ToLower(filepath.Ext(fileName))
+	contentTypes := map[string]string{
+		".jpg":  "image/jpeg",
+		".png":  "image/png",
+		".webp": "image/webp",
+		".gif":  "image/gif",
+	}
+	contentType, ok := contentTypes[extension]
+	if !ok {
+		return "", false
+	}
+	if _, err := uuid.Parse(strings.TrimSuffix(fileName, extension)); err != nil {
+		return "", false
+	}
+	return contentType, true
+}
+
 func (s *Service) DeleteUploads(ctx context.Context, uploads []platform.SupportTicketAttachmentUpload) {
 	if s == nil || s.store == nil {
 		return
@@ -318,6 +420,7 @@ func validateFileType(header *multipart.FileHeader, filename string) (string, er
 		"jpg":  {"image/jpeg"},
 		"jpeg": {"image/jpeg"},
 		"webp": {"image/webp"},
+		"gif":  {"image/gif"},
 		"txt":  {"text/plain"},
 		"csv":  {"text/plain", "text/csv", "application/csv"},
 		"log":  {"text/plain", "application/octet-stream"},
@@ -478,6 +581,46 @@ func bytesContainNUL(value []byte) bool {
 	}
 
 	return false
+}
+
+func isReceiptImageType(contentType string) bool {
+	switch contentType {
+	case "image/jpeg", "image/png", "image/webp", "image/gif":
+		return true
+	default:
+		return false
+	}
+}
+
+func receiptExtension(contentType string) string {
+	switch contentType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	default:
+		return ".bin"
+	}
+}
+
+func firstEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func boolEnvFallback(primary, legacy string, fallback bool) bool {
+	if strings.TrimSpace(os.Getenv(primary)) != "" {
+		return boolEnv(primary, fallback)
+	}
+	return boolEnv(legacy, fallback)
 }
 
 func boolEnv(key string, fallback bool) bool {

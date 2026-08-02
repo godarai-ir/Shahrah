@@ -1337,9 +1337,7 @@ func (h *ChatCompletionHandler) handleStream(
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
 
 		return writeTunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
-			responsePayload := buildJSONResponseLogPayload(body, map[string]interface{}{"stream": true, "outcome": "provider_http_error"})
-			responsePayload["stream"] = true
-			responsePayload["outcome"] = "provider_http_error"
+			responsePayload := buildProviderHTTPErrorLogPayload(body, true)
 
 			errorType := ErrorTypeMap[statusCode]
 			if strings.TrimSpace(errorType) == "" {
@@ -1886,7 +1884,7 @@ func logProviderFailureRequest(
 	logEntry.RequestID = tunnelReq.RequestID
 	logEntry.TraceID = tunnelReq.TraceID
 	logEntry.RequestBody = map[string]interface{}{"model": requestedModel}
-	logEntry.ResponseBody = map[string]interface{}{"error": parseGenericError(responseBody)}
+	logEntry.ResponseBody = buildProviderHTTPErrorLogPayload(responseBody, false)
 
 	if errType, ok := ErrorTypeMap[statusCode]; ok && strings.TrimSpace(errType) != "" {
 		logEntry.ErrorType = errType

@@ -41,12 +41,12 @@ services:
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-no-reply@shahrah.local}
-      SUPPORT_S3_ENDPOINT: http://minio:9000
-      SUPPORT_S3_REGION: us-east-1
-      SUPPORT_S3_BUCKET: godarai-support
-      SUPPORT_S3_ACCESS_KEY: ${SUPPORT_S3_ACCESS_KEY:-godarai-local}
-      SUPPORT_S3_SECRET_KEY: ${SUPPORT_S3_SECRET_KEY:-godarai-local-secret}
-      SUPPORT_S3_FORCE_PATH_STYLE: "true"
+      PRIVATE_FILES_S3_ENDPOINT: http://minio:9000
+      PRIVATE_FILES_S3_REGION: us-east-1
+      PRIVATE_FILES_S3_BUCKET: godarai-support
+      PRIVATE_FILES_S3_ACCESS_KEY: ${PRIVATE_FILES_S3_ACCESS_KEY:-godarai-local}
+      PRIVATE_FILES_S3_SECRET_KEY: ${PRIVATE_FILES_S3_SECRET_KEY:-godarai-local-secret}
+      PRIVATE_FILES_S3_FORCE_PATH_STYLE: "true"
       SUPPORT_CLAMAV_ADDRESS: clamav:3310
       BALE_OTP_ENABLED: ${BALE_OTP_ENABLED:-false}
       BALE_SAFIR_API_ACCESS_KEY: ${BALE_SAFIR_API_ACCESS_KEY:-}
@@ -327,8 +327,8 @@ services:
       - "${MINIO_API_HOST_PORT:-9002}:9000"
       - "${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
     environment:
-      MINIO_ROOT_USER: ${SUPPORT_S3_ACCESS_KEY:-godarai-local}
-      MINIO_ROOT_PASSWORD: ${SUPPORT_S3_SECRET_KEY:-godarai-local-secret}
+      MINIO_ROOT_USER: ${PRIVATE_FILES_S3_ACCESS_KEY:-godarai-local}
+      MINIO_ROOT_PASSWORD: ${PRIVATE_FILES_S3_SECRET_KEY:-godarai-local-secret}
     volumes:
       - miniodata:/data
     healthcheck:
@@ -351,8 +351,8 @@ services:
         mc mb --ignore-existing local/godarai-support &&
         mc anonymous set none local/godarai-support
     environment:
-      MINIO_ROOT_USER: ${SUPPORT_S3_ACCESS_KEY:-godarai-local}
-      MINIO_ROOT_PASSWORD: ${SUPPORT_S3_SECRET_KEY:-godarai-local-secret}
+      MINIO_ROOT_USER: ${PRIVATE_FILES_S3_ACCESS_KEY:-godarai-local}
+      MINIO_ROOT_PASSWORD: ${PRIVATE_FILES_S3_SECRET_KEY:-godarai-local-secret}
 
   clamav:
     logging: *default-logging

@@ -929,7 +929,13 @@ func TestChatCompletionHandler_LogsProviderAuthenticationFailures(t *testing.T) 
 	assert.Equal(t, "chat_completions", entry.RequestType)
 	assert.Equal(t, "gpt-4", entry.Model)
 	assert.Equal(t, map[string]interface{}{"model": "gpt-4"}, entry.RequestBody)
-	assert.Equal(t, map[string]interface{}{"error": "invalid x-api-key"}, entry.ResponseBody)
+	assert.Equal(t, "provider_http_error", entry.ResponseBody["outcome"])
+	assert.Equal(t, false, entry.ResponseBody["stream"])
+	assert.Equal(t, string(errorBody), entry.ResponseBody["raw_body"])
+	errorPayload, ok := entry.ResponseBody["error"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "invalid x-api-key", errorPayload["message"])
+	assert.Equal(t, "authentication_error", errorPayload["type"])
 	assert.Empty(t, mLogs.loggedSpends)
 }
 
@@ -2219,6 +2225,9 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 	assert.Equal(t, "failed", mLogs.loggedEntries[0].Status)
 	assert.Equal(t, http.StatusPaymentRequired, mLogs.loggedEntries[0].StatusCode)
 	assert.Equal(t, "provider_http_error", mLogs.loggedEntries[0].ResponseBody["outcome"])
+	assert.Equal(t, true, mLogs.loggedEntries[0].ResponseBody["stream"])
+	assert.Equal(t, `{"error":{"message":"Provider streaming payment required"}}`, mLogs.loggedEntries[0].ResponseBody["raw_body"])
+	require.IsType(t, map[string]interface{}{}, mLogs.loggedEntries[0].ResponseBody["error"])
 }
 
 func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {

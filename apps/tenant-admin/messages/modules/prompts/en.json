@@ -21,7 +21,7 @@
   "actions": {
     "cancel": "Cancel",
     "clearSearch": "Clear search",
-    "createPrompt": "Create Prompt",
+    "createPrompt": "New Prompt",
     "refresh": "Refresh",
     "copy": "Copy",
     "download": "Download",
