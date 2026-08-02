@@ -45,9 +45,16 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/chat/completions", r.URL.Path)
+		if r.URL.Path != "/v1/chat/completions" {
+			handlerErrors.Errorf("unexpected provider path %q", r.URL.Path)
+			http.Error(w, "unexpected provider path", http.StatusBadRequest)
+
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(contractsopenai.ChatCompletionResponse{
 			ID:      "chatcmpl-db",

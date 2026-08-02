@@ -26,7 +26,8 @@ func TestXAIDispatchForwardsAllowlistedConversationHeader(t *testing.T) {
 	var gotAuth, gotConversationID string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/chat/completions" {
-			t.Fatalf("unexpected path %s", r.URL.Path)
+			t.Errorf("unexpected path %s", r.URL.Path)
+			return
 		}
 		gotAuth = r.Header.Get("Authorization")
 		gotConversationID = r.Header.Get("x-grok-conv-id")

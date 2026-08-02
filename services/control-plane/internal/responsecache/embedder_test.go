@@ -3,9 +3,11 @@ package responsecache
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,17 +19,50 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 func TestArvanCloudBGEEmbedder(t *testing.T) {
+	handlerResult := make(chan error, 1)
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/embeddings", r.URL.Path)
-		assert.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
+		var handlerErr error
+		defer func() { handlerResult <- handlerErr }()
+
+		if r.URL.Path != "/v1/embeddings" {
+			handlerErr = fmt.Errorf("unexpected request path %q", r.URL.Path)
+			http.Error(w, handlerErr.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		if authorization := r.Header.Get("Authorization"); authorization != "Bearer secret" {
+			handlerErr = fmt.Errorf("unexpected authorization header %q", authorization)
+			http.Error(w, handlerErr.Error(), http.StatusBadRequest)
+
+			return
+		}
 
 		var request struct {
 			Model string   `json:"model"`
 			Input []string `json:"input"`
 		}
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
-		assert.Equal(t, "Bge-m3", request.Model)
-		assert.Equal(t, []string{"one", "two"}, request.Input)
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			handlerErr = fmt.Errorf("decode embedding request: %w", err)
+			http.Error(w, handlerErr.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		if request.Model != "Bge-m3" {
+			handlerErr = fmt.Errorf("unexpected model %q", request.Model)
+			http.Error(w, handlerErr.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		if !slices.Equal([]string{"one", "two"}, request.Input) {
+			handlerErr = fmt.Errorf("unexpected input %#v", request.Input)
+			http.Error(w, handlerErr.Error(), http.StatusBadRequest)
+
+			return
+		}
 
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{
 			map[string]interface{}{"index": 1, "embedding": []float32{0, 1}},
@@ -42,6 +77,7 @@ func TestArvanCloudBGEEmbedder(t *testing.T) {
 	require.NoError(t, err)
 	vectors, err := embedder.Embed(context.Background(), []string{"one", "two"})
 	require.NoError(t, err)
+	require.NoError(t, <-handlerResult)
 	assert.Equal(t, [][]float32{{1, 0}, {0, 1}}, vectors)
 }
 

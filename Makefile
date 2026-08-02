@@ -1,4 +1,4 @@
-.PHONY: help setup setup-full setup-local build run test-unit test-integration test-integration-db test fmt vet lint check docker-up docker-up-mailpit docker-up-pgadmin docker-down docker-migrate docker-logs docker-clean \
+.PHONY: help setup setup-full setup-local build run test-unit test-modules test-contracts test-tunnel-server test-tunnel-client test-silk-road test-integration test-integration-db test fmt vet lint check docker-up docker-up-mailpit docker-up-pgadmin docker-down docker-migrate docker-logs docker-clean \
 	migrate-install migrate-up migrate-down migrate-reset migrate-status migrate-create docker-migrate-up docker-model-discovery-migrate
 
 CONTROL_PLANE_DIR := services/control-plane
@@ -10,9 +10,9 @@ GO := go
 GOLANGCI_LINT := golangci-lint
 
 ifeq ($(OS),Windows_NT)
-GO_TEST_FLAGS :=
+GO_TEST_FLAGS := -shuffle=on
 else
-GO_TEST_FLAGS := -race
+GO_TEST_FLAGS := -race -shuffle=on
 endif
 
 # Migration configuration (goose)
@@ -49,8 +49,22 @@ build: ## Build the control-plane service
 run: ## Run the control-plane service locally
 	$(GO) -C $(CONTROL_PLANE_DIR) run ./cmd/server
 
-test-unit: ## Run control-plane unit tests
-	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/unit/...
+test-unit: ## Run all control-plane unit and package tests
+	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./cmd/... ./internal/... ./pkg/... ./tests/unit/...
+
+test-contracts: ## Run contracts module tests
+	$(GO) -C packages/contracts test -v $(GO_TEST_FLAGS) ./...
+
+test-tunnel-server: ## Run tunnel-server module tests
+	$(GO) -C services/tunnel-server test -v $(GO_TEST_FLAGS) ./...
+
+test-tunnel-client: ## Run tunnel-client module tests
+	$(GO) -C services/tunnel-client test -v $(GO_TEST_FLAGS) ./...
+
+test-silk-road: ## Run silk-road module tests
+	$(GO) -C services/silk-road test -v $(GO_TEST_FLAGS) ./...
+
+test-modules: test-contracts test-tunnel-server test-tunnel-client test-silk-road ## Run non-control-plane Go module tests
 
 test-integration: ## Run control-plane integration tests
 	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/integration/...
@@ -58,12 +72,20 @@ test-integration: ## Run control-plane integration tests
 test-integration-db: ## Run Postgres-backed control-plane integration tests (requires DATABASE_URL)
 	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/integration/... -run "PostgresBacked|StorageSchemaContract|ConcurrentWalletDebitUsesRowLock"
 
-test: test-unit ## Run default tests
+test: test-unit test-modules ## Run all non-infrastructure Go tests
 
-fmt: ## Format control-plane Go code
+fmt: ## Format all Go modules
+	$(GO) -C packages/contracts fmt ./...
+	$(GO) -C services/tunnel-server fmt ./...
+	$(GO) -C services/tunnel-client fmt ./...
+	$(GO) -C services/silk-road fmt ./...
 	$(GO) -C $(CONTROL_PLANE_DIR) fmt ./...
 
-vet: ## Run go vet for control-plane
+vet: ## Run go vet for all Go modules
+	$(GO) -C packages/contracts vet ./...
+	$(GO) -C services/tunnel-server vet ./...
+	$(GO) -C services/tunnel-client vet ./...
+	$(GO) -C services/silk-road vet ./...
 	$(GO) -C $(CONTROL_PLANE_DIR) vet ./...
 
 lint: ## Run golangci-lint for control-plane

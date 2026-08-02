@@ -14,7 +14,7 @@
     "clean:all": "node scripts/clean-workspace.mjs all",
     "clean:prune": "node scripts/clean-workspace.mjs prune",
     "reference:check": "node scripts/check-reference-markdown.mjs",
-    "dev": "pnpm --filter @shahrah/tenant-admin dev",
+    "dev": "turbo run dev --parallel --filter=@shahrah/website --filter=@shahrah/tenant-admin",
     "dev:model-discovery": "pnpm --filter model-discovery start:dev",
     "dev:model-discovery-web": "pnpm --filter @shahrah/model-discovery-web dev",
     "dev:support-admin": "pnpm --filter @shahrah/support-admin dev",

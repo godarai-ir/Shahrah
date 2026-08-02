@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupTraceV2TestApp(h *Handlers) *fiber.App {
@@ -50,13 +51,13 @@ func TestGetTraceFacetsV2_UsesTenantContextIsolation(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var payload platform.TraceFacetsV2Response
 
 	err = json.NewDecoder(resp.Body).Decode(&payload)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, payload.Data.Providers, 1)
 	assert.Equal(t, "openai", payload.Data.Providers[0].Value)
 }
@@ -87,13 +88,13 @@ func TestListRequestTracesV2_UsesTenantContextIsolation(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var payload platform.ListRequestTracesV2Response
 
 	err = json.NewDecoder(resp.Body).Decode(&payload)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, payload.Data, 1)
 	assert.Equal(t, "trace_1", payload.Data[0].TraceID)
 }
@@ -114,7 +115,7 @@ func TestGetRequestTraceV2_NotFound(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 }
 
@@ -142,13 +143,13 @@ func TestListRequestTraceAttemptsV2_ReturnsTenantScopedData(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var payload platform.TraceAttemptsV2Response
 
 	err = json.NewDecoder(resp.Body).Decode(&payload)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, payload.Data, 1)
 	assert.Equal(t, "openai", payload.Data[0].Provider)
 }

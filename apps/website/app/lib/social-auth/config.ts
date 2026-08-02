@@ -1,6 +1,7 @@
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 
+import { resolveClientIPAddressOptions } from "./client-ip-config";
 import { socialAuthPool } from "./database";
 
 export const SOCIAL_AUTH_PROVIDERS = ["google", "github", "microsoft"] as const;
@@ -9,6 +10,7 @@ export type SocialAuthProvider = (typeof SOCIAL_AUTH_PROVIDERS)[number];
 const authBaseURL = normalizeOrigin(
   process.env.GODARAI_AUTH_BASE_URL ?? "http://auth.localhost:3000",
 );
+const clientIPAddressOptions = resolveClientIPAddressOptions();
 
 const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
 
@@ -73,7 +75,7 @@ export const socialAuth = betterAuth({
     modelName: "social_auth_verifications",
   },
   rateLimit: {
-    enabled: true,
+    enabled: process.env.NODE_ENV === "production",
     storage: "database",
     modelName: "social_auth_rate_limits",
     window: 60,
@@ -84,6 +86,7 @@ export const socialAuth = betterAuth({
     },
   },
   advanced: {
+    ipAddress: clientIPAddressOptions,
     useSecureCookies: authBaseURL.startsWith("https://"),
     disableOriginCheck: false,
     defaultCookieAttributes: {

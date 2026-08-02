@@ -45,21 +45,25 @@ func TestProxyRawStreamsLengthPrefixedEnvelope(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/dispatch/raw" {
-			t.Fatalf("unexpected path: %s", request.URL.Path)
+			t.Errorf("unexpected path: %s", request.URL.Path)
+			return
 		}
 
 		var prefix [4]byte
 		if _, err := io.ReadFull(request.Body, prefix[:]); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 
 		metadata := make([]byte, binary.BigEndian.Uint32(prefix[:]))
 		if _, err := io.ReadFull(request.Body, metadata); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 
 		if err := json.Unmarshal(metadata, &received); err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 
 		raw, _ := io.ReadAll(request.Body)
@@ -93,14 +97,16 @@ func TestStreamIgnoresClientTimeoutWhileBodyIsOpen(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/dispatch" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			return
 		}
 
 		w.Header().Set("Content-Type", "text/event-stream")
 
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			t.Fatal("response writer does not support flushing")
+			t.Error("response writer does not support flushing")
+			return
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -171,7 +177,8 @@ func TestStreamSetsRequestStreamFlag(t *testing.T) {
 		defer r.Body.Close()
 
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode body: %v", err)
+			t.Errorf("decode body: %v", err)
+			return
 		}
 
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -249,7 +256,8 @@ func TestStreamPreservesHeadersAndMultiEventFrames(t *testing.T) {
 
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			t.Fatal("response writer does not support flushing")
+			t.Error("response writer does not support flushing")
+			return
 		}
 
 		w.WriteHeader(http.StatusOK)

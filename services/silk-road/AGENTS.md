@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Europe-side stateless provider proxy for Shahrah. This service receives tunnel dispatches and translates OpenAI-compatible payloads to upstream provider APIs.
+Europe-side stateless provider proxy for GodarAI. This service receives tunnel dispatches and translates OpenAI-compatible payloads to upstream provider APIs.
 
 ## Ownership
 

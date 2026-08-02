@@ -38,7 +38,8 @@ func TestLoadNobitexExchangeRateConfigUsesReachableDefaultBaseURL(t *testing.T) 
 func TestNobitexExchangeRateProcessorFetchesVWAP(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v2/trades/USDTIRT" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -116,7 +117,7 @@ func TestNobitexExchangeRateProcessorProcessUpsertsRate(t *testing.T) {
 
 func TestNobitexExchangeRateProcessorSkipsWhenLockUnavailable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("processor should not call Nobitex when lock is unavailable")
+		t.Error("processor should not call Nobitex when lock is unavailable")
 	}))
 	defer server.Close()
 

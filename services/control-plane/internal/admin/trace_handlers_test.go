@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type traceStoreMock struct {
@@ -127,7 +128,7 @@ func TestGetRequestTrace_UsesTenantContextIsolation(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
 
@@ -148,7 +149,7 @@ func TestGetRequestTrace_CrossTenantReturnsNotFound(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 }
 
@@ -169,7 +170,7 @@ func TestListTraceSpans_CrossTenantReturnsNotFound(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 }
 
@@ -200,13 +201,13 @@ func TestListTraceSpans_ReturnsTenantScopedData(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var payload platform.TraceSpansResponse
 
 	err = json.NewDecoder(resp.Body).Decode(&payload)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, payload.Data, 1)
 	assert.Equal(t, "trace_1", payload.Data[0].TraceID)
 }

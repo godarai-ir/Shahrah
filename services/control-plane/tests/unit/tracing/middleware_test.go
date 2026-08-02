@@ -28,7 +28,7 @@ func TestMiddlewarePropagatesTraceID(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, "trace_abc", resp.Header.Get(apiheaders.HeaderTraceID))
 	assert.Equal(t, 1, q.Len())
@@ -48,7 +48,7 @@ func TestMiddlewareGeneratesTraceIDWhenMissing(t *testing.T) {
 	resp, err := app.Test(req)
 	defer closeResponseBody(t, resp)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Header.Get(apiheaders.HeaderTraceID))
 }
 

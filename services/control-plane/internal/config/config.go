@@ -13,7 +13,6 @@ import (
 
 // Config represents the top-level configuration.
 type Config struct {
-	ModelList       []ModelDeployment      `mapstructure:"model_list"`
 	RouterSettings  RouterSettings         `mapstructure:"router_settings"`
 	ResponseCache   ResponseCacheSettings  `mapstructure:"response_cache"`
 	GeneralSettings GeneralSettings        `mapstructure:"general_settings"`
@@ -122,19 +121,17 @@ type ProviderEndpointConfig struct {
 
 // RouterSettings represents router-specific settings.
 type RouterSettings struct {
-	RoutingStrategy     string  `mapstructure:"routing_strategy"`
-	RedisHost           string  `mapstructure:"redis_host"`
-	RedisPort           int     `mapstructure:"redis_port"`
-	RedisPassword       string  `mapstructure:"redis_password"`
-	EnablePreCallChecks bool    `mapstructure:"enable_pre_call_checks"`
-	CooldownTime        float64 `mapstructure:"cooldown_time"`
-	NumRetries          int     `mapstructure:"num_retries"`
+	RoutingStrategy string  `mapstructure:"routing_strategy"`
+	RedisHost       string  `mapstructure:"redis_host"`
+	RedisPort       int     `mapstructure:"redis_port"`
+	RedisPassword   string  `mapstructure:"redis_password"`
+	CooldownTime    float64 `mapstructure:"cooldown_time"`
+	NumRetries      int     `mapstructure:"num_retries"`
 }
 
 // TenantSettings controls tenant resolution.
 type TenantSettings struct {
-	BaseDomain      string `mapstructure:"base_domain"`
-	AllowHeaderHint bool   `mapstructure:"allow_header_hint"`
+	AllowHeaderHint bool `mapstructure:"allow_header_hint"`
 }
 
 // TunnelSettings controls the local tunnel client integration.
@@ -151,12 +148,10 @@ type BillingSettings struct {
 
 // GeneralSettings represents general proxy settings.
 type GeneralSettings struct {
-	MasterKey                   string `mapstructure:"master_key"`
-	DatabaseURL                 string `mapstructure:"database_url"`
-	Host                        string `mapstructure:"host"`
-	Port                        int    `mapstructure:"port"`
-	ProxyBatchWriteAt           int    `mapstructure:"proxy_batch_write_at"`
-	DatabaseConnectionPoolLimit int    `mapstructure:"database_connection_pool_limit"`
+	MasterKey   string `mapstructure:"master_key"`
+	DatabaseURL string `mapstructure:"database_url"`
+	Host        string `mapstructure:"host"`
+	Port        int    `mapstructure:"port"`
 }
 
 // LoadConfig loads the configuration from YAML file and environment variables.
@@ -214,7 +209,6 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("response_cache.embedding_dimensions", 1024)
 	v.SetDefault("response_cache.embedding_timeout_seconds", 10)
 	v.SetDefault("response_cache.embedding_max_batch_size", 16)
-	v.SetDefault("tenant_settings.base_domain", "shahrah.local")
 	v.SetDefault("tenant_settings.allow_header_hint", true)
 	v.SetDefault("tunnel_settings.client_url", "http://127.0.0.1:8081")
 	v.SetDefault("tunnel_settings.timeout_seconds", 300)
@@ -263,12 +257,6 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 
 			return val
 		})
-	}
-
-	// Resolve model deployment params
-	for i := range cfg.ModelList {
-		cfg.ModelList[i].ProviderEndpoint.APIKey = resolveString(cfg.ModelList[i].ProviderEndpoint.APIKey)
-		cfg.ModelList[i].ProviderEndpoint.APIBase = resolveString(cfg.ModelList[i].ProviderEndpoint.APIBase)
 	}
 
 	cfg.RouterSettings.RedisHost = resolveString(cfg.RouterSettings.RedisHost)

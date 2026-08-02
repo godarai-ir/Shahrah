@@ -12,6 +12,10 @@ BETTER_AUTH_SECRET=replace-with-at-least-32-random-bytes
 GODARAI_AUTH_BASE_URL=http://auth.localhost:3000
 GODARAI_TENANT_ORIGIN_TEMPLATE=http://{tenant}.localhost:3001
 SHAHRAH_TENANT_BASE_DOMAIN=localhost
+# Optional in production when the ingress uses a different trusted client-IP header:
+BETTER_AUTH_IP_ADDRESS_HEADERS=x-real-ip
+# Required only when using a multi-hop x-forwarded-for chain; use exact proxy IPs/CIDRs:
+BETTER_AUTH_TRUSTED_PROXIES=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
@@ -38,6 +42,15 @@ receive only a hashed, single-use, 90-second handoff code. Run migration
 `056_social_auth.sql` before enabling any provider. Do not expose provider
 secrets, `BETTER_AUTH_SECRET`, `DATABASE_URL`, or the control-plane master key
 through `NEXT_PUBLIC_*` variables.
+
+Better Auth rate limiting resolves the client from `x-real-ip` by default. The
+production ingress must overwrite that header and prevent direct access to the
+website origin. If the ingress exposes a different single-value trusted header,
+set `BETTER_AUTH_IP_ADDRESS_HEADERS` accordingly. If it only exposes a multi-hop
+`x-forwarded-for` chain, set the header to `x-forwarded-for` and list the exact
+proxy addresses or CIDR ranges in `BETTER_AUTH_TRUSTED_PROXIES`; do not use a
+broad private-network range. Application rate limiting is enabled in production
+and disabled during local development.
 
 The GitHub Actions secret names used by the production sync workflow are
 `OAUTH_GITHUB_CLIENT_ID` and `OAUTH_GITHUB_CLIENT_SECRET`. The workflow maps
@@ -74,13 +87,17 @@ Mailpit endpoints:
 
 ## Getting Started
 
-First, run the development server:
+Run the website/central-auth server together with tenant-admin from the
+repository root:
 
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) for the website or
+[http://tenant1.localhost:3001/login](http://tenant1.localhost:3001/login) for
+the provisioned local tenant. OAuth is served from
+[http://auth.localhost:3000](http://auth.localhost:3000).
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

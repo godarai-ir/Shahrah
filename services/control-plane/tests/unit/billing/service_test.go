@@ -153,7 +153,7 @@ func TestBillingService_ShouldEstimateCost(t *testing.T) {
 			{Role: "user", Content: "hello world"},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Greater(t, out.TotalTokens, 0)
 	assert.Greater(t, out.TotalCostIRR, 0.0)
 }
@@ -471,7 +471,7 @@ func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
 	err := svc.CheckBudget(context.Background(), &platform.AuthContext{
 		TenantID: "tenant-1",
 	}, platform.UsageCostBreakdown{TotalCostIRR: 100})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestBillingService_ShouldCacheWalletForBudgetChecks(t *testing.T) {
@@ -487,7 +487,7 @@ func TestBillingService_ShouldCacheWalletForBudgetChecks(t *testing.T) {
 		err := svc.CheckBudget(context.Background(), &platform.AuthContext{
 			TenantID: "tenant-1",
 		}, platform.UsageCostBreakdown{TotalCostIRR: 100})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	assert.Equal(t, 1, store.walletCallCount())
@@ -506,7 +506,7 @@ func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 			TenantID:  "tenant-1",
 			TokenHash: "key-a",
 		}, "gpt-4", 500)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Nil(t, res)
 	}
 }

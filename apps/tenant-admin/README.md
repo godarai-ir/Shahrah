@@ -125,6 +125,9 @@ Then run the app and open the provisioned tenant login URL:
 
 `http://mytenant.localhost:3001/login`
 
+For the complete local OAuth flow, run `pnpm dev` from the repository root. It
+starts website/central-auth on port `3000` and tenant-admin on port `3001`.
+
 ## Commands
 
 Run from the repository root:
