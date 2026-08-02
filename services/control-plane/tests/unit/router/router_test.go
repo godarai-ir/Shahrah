@@ -42,11 +42,11 @@ func TestRouter_ShouldSelectDeployment(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, r)
 
 	dep, err := r.Route(context.Background(), "", "gpt-3.5-turbo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, "gpt-3.5-turbo", dep.ModelName)
 }
@@ -60,7 +60,7 @@ func TestRouter_ShouldReturnError_WhenModelNotFound(t *testing.T) {
 	settings := config.RouterSettings{}
 
 	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "", "unknown-model")
 	assert.Error(t, err)
@@ -89,11 +89,11 @@ func TestRouter_ShouldExcludeCooldownedDeployment(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// First, select the deployment
 	dep, err := r.Route(context.Background(), "", "test-model")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 
 	// Mark it as failed (adds to cooldown)
@@ -135,7 +135,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(modelList, settings, memCache, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Run 1000 selections, verify distribution roughly matches weights
 	highCount := 0
@@ -144,7 +144,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 
 	for i := 0; i < iterations; i++ {
 		dep, err := r.Route(context.Background(), "", "gpt-3.5-turbo")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		if dep.ID == "dep-high" {
 			highCount++
@@ -183,10 +183,10 @@ func TestRouter_ShouldMatchProviderScopedWildcardBeforeGlobalWildcard(t *testing
 	}
 
 	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "", "anthropic/claude-3-5-sonnet-latest")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, "dep-anthropic", dep.ID)
 	assert.Equal(t, "anthropic", dep.Provider)
@@ -273,10 +273,10 @@ func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, store, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, "provider-account:anthropic-1:anthropic/claude-3-haiku-20240307", dep.ID)
 	assert.Equal(t, "anthropic", dep.Provider)
@@ -298,7 +298,7 @@ func TestRouter_FQNWithoutExactDeploymentShouldNotUseWildcard(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, &staticDeploymentStore{}, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307")
 	assert.Error(t, err)
@@ -335,10 +335,10 @@ func TestRouter_FQNProviderAccountWithoutBYOKUsesSharedProviderKey(t *testing.T)
 	}
 
 	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, store, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-daring-lotus:gpt-5-nano")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, "provider-account:openai-1:gpt-5-nano", dep.ID)
 	assert.Equal(t, "openai", dep.Provider)
@@ -363,10 +363,10 @@ func TestRouter_CanonicalizesProviderPrefixedModelForProviderAccountDeployment(t
 	}
 
 	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-daring-lotus:gpt-4o-mini")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, "gpt-4o-mini", dep.Model)
 	assert.Equal(t, "gpt-4o-mini", dep.Params.Model)
@@ -391,11 +391,11 @@ func TestRouter_CachesTenantDeployments(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for i := 0; i < 2; i++ {
 		dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, dep)
 		assert.Equal(t, "tenant-openai-key", dep.Params.APIKey)
 	}
@@ -426,16 +426,16 @@ func TestRouter_ReloadsTenantDeploymentsAfterCacheInvalidation(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 
 	memCache.Delete(context.Background(), "deployments:tenant:tenant-1")
 
 	dep, err = r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 
 	assert.Equal(t, 2, store.callCount())
@@ -460,16 +460,16 @@ func TestRouter_ReloadsTenantDeploymentsAfterTTLExpiry(t *testing.T) {
 	}
 
 	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 
 	time.Sleep(1100 * time.Millisecond)
 
 	dep, err = r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 
 	assert.Equal(t, 2, store.callCount())

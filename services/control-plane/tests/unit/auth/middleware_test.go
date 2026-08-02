@@ -49,7 +49,7 @@ func TestInMemoryKeyStore_GetKeyByHash_ShouldReturnKey(t *testing.T) {
 	})
 
 	key, err := store.GetKeyByHash(context.Background(), hash)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "test-key", key.KeyAlias)
 	assert.Equal(t, "team", key.Role)
 }
@@ -76,7 +76,7 @@ func TestInMemoryKeyStore_BlockedKey_ShouldBeRetrieved(t *testing.T) {
 	})
 
 	key, err := store.GetKeyByHash(context.Background(), hash)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, key.Blocked)
 }
 
@@ -92,7 +92,7 @@ func TestInMemoryKeyStore_ExpiredKey_ShouldBeRetrieved(t *testing.T) {
 	})
 
 	key, err := store.GetKeyByHash(context.Background(), hash)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, time.Now().After(*key.ExpiresAt))
 }
 

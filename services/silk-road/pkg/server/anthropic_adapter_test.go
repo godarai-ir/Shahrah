@@ -635,11 +635,13 @@ func TestRawTunnelStreamsAnthropicFileUpload(t *testing.T) {
 	var received int
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/v1/files" || request.Method != http.MethodPost {
-			t.Fatalf("unexpected target: %s %s", request.Method, request.URL.Path)
+			t.Errorf("unexpected target: %s %s", request.Method, request.URL.Path)
+			return
 		}
 		data, err := io.ReadAll(request.Body)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 		received = len(data)
 		_, _ = io.WriteString(w, `{"id":"file_upstream","type":"file"}`)

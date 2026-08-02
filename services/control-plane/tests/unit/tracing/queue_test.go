@@ -5,6 +5,7 @@ import (
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestQueueDropsWhenFull(t *testing.T) {
@@ -22,10 +23,10 @@ func TestQueueDropsWhenFull(t *testing.T) {
 
 func TestQueueDequeueBatch(t *testing.T) {
 	q := tracing.NewQueue(10)
-	_ = q.Enqueue(tracing.SpanEvent{TraceID: "1"})
-	_ = q.Enqueue(tracing.SpanEvent{TraceID: "2"})
+	require.True(t, q.Enqueue(tracing.SpanEvent{TraceID: "1"}))
+	require.True(t, q.Enqueue(tracing.SpanEvent{TraceID: "2"}))
 	b := q.DequeueBatch(10)
-	assert.Len(t, b, 2)
+	require.Len(t, b, 2)
 	assert.Equal(t, "1", b[0].TraceID)
 	assert.Equal(t, "2", b[1].TraceID)
 }

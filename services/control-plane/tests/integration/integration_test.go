@@ -42,9 +42,16 @@ import (
 func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/chat/completions", r.URL.Path)
+		if r.URL.Path != "/v1/chat/completions" {
+			handlerErrors.Errorf("unexpected provider path %q", r.URL.Path)
+			http.Error(w, "unexpected provider path", http.StatusBadRequest)
+
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(contractsopenai.ChatCompletionResponse{
 			ID:      "chatcmpl-test",
@@ -123,7 +130,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 		RoutingStrategy: "simple-shuffle",
 		CooldownTime:    60,
 	}, memCache, modelStore, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	baseProxyDeps := proxy.BaseHandlerDependencies{
 		Router:        llmRouter,
@@ -179,12 +186,26 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/responses", r.URL.Path)
+		if r.URL.Path != "/v1/responses" {
+			handlerErrors.Errorf("unexpected provider path %q", r.URL.Path)
+			http.Error(w, "unexpected provider path", http.StatusBadRequest)
+
+			return
+		}
+
 		w.Header().Set("Content-Type", "text/event-stream")
+
 		flusher, ok := w.(http.Flusher)
-		require.True(t, ok)
+		if !ok {
+			handlerErrors.Errorf("provider response writer does not support flushing")
+			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
 
 		for _, frame := range []string{
@@ -235,9 +256,16 @@ func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/chat/completions", r.URL.Path)
+		if r.URL.Path != "/v1/chat/completions" {
+			handlerErrors.Errorf("unexpected provider path %q", r.URL.Path)
+			http.Error(w, "unexpected provider path", http.StatusBadRequest)
+
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(contractsopenai.ChatCompletionResponse{
 			ID:      "chatcmpl-managed",
@@ -463,10 +491,16 @@ func TestIntegration_VirtualModelCRUDSupportsWeightedStrategy(t *testing.T) {
 func TestIntegration_WeightedVirtualModelFallsBackInOrderAfterWeightedPrimary(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := cache.NewMemoryCache(logger)
+	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req contractsopenai.ChatCompletionRequest
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			handlerErrors.Errorf("decode provider request: %v", err)
+			http.Error(w, "invalid request", http.StatusBadRequest)
+
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 
@@ -2554,15 +2588,25 @@ func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
 		models = append(models, openAITestCatalogModel(model, now))
 	}
 
+	handlerErrors := newAsyncErrorCollector(t)
 	discovery := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/models/runtime-snapshot/openai", r.URL.Path)
+		if r.URL.Path != "/models/runtime-snapshot/openai" {
+			handlerErrors.Errorf("unexpected model discovery path %q", r.URL.Path)
+			http.Error(w, "unexpected model discovery path", http.StatusBadRequest)
+
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
+
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"provider":    "openai",
 			"revision":    "integration-openai-1",
 			"generatedAt": now,
 			"models":      models,
-		}))
+		}); err != nil {
+			handlerErrors.Errorf("encode model discovery response: %v", err)
+		}
 	}))
 	t.Cleanup(discovery.Close)
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", discovery.URL)

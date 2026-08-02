@@ -81,7 +81,8 @@ func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 		defer r.Body.Close()
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("read body: %v", err)
+			t.Errorf("read body: %v", err)
+			return
 		}
 		gotBody = string(bodyBytes)
 
@@ -137,7 +138,8 @@ func TestDispatchForwardsOpenAICompatibleToolsPayload(t *testing.T) {
 		defer r.Body.Close()
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("read body: %v", err)
+			t.Errorf("read body: %v", err)
+			return
 		}
 		gotBody = string(bodyBytes)
 
@@ -252,7 +254,8 @@ func TestDispatchUsesCohereRerankAdapter(t *testing.T) {
 		defer r.Body.Close()
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("read body: %v", err)
+			t.Errorf("read body: %v", err)
+			return
 		}
 		gotBody = string(bodyBytes)
 
@@ -601,7 +604,8 @@ func TestDispatchOpenAICompatibleForwardsAudioTranscriptionsMultipart(t *testing
 		defer r.Body.Close()
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("read body: %v", err)
+			t.Errorf("read body: %v", err)
+			return
 		}
 		gotBody = string(bodyBytes)
 
@@ -677,7 +681,8 @@ func TestDispatchDeepgramAudioTranscriptionsAdapter(t *testing.T) {
 		defer r.Body.Close()
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("read body: %v", err)
+			t.Errorf("read body: %v", err)
+			return
 		}
 		gotBody = string(bodyBytes)
 
@@ -737,19 +742,22 @@ func TestDispatchCohereAudioTranscriptionsAdapter(t *testing.T) {
 		gotAuth = r.Header.Get("Authorization")
 		gotPath = r.URL.Path
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
-			t.Fatalf("parse multipart: %v", err)
+			t.Errorf("parse multipart: %v", err)
+			return
 		}
 		gotModel = r.FormValue("model")
 		gotLanguage = r.FormValue("language")
 		file, header, err := r.FormFile("file")
 		if err != nil {
-			t.Fatalf("read file: %v", err)
+			t.Errorf("read file: %v", err)
+			return
 		}
 		gotFileContentType = header.Header.Get("Content-Type")
 		defer file.Close()
 		bodyBytes, err := io.ReadAll(file)
 		if err != nil {
-			t.Fatalf("read file body: %v", err)
+			t.Errorf("read file body: %v", err)
+			return
 		}
 		gotFile = string(bodyBytes)
 
@@ -813,7 +821,8 @@ func TestDispatchGoogleVertexAudioTranscriptionsAdapter(t *testing.T) {
 		defer r.Body.Close()
 		var body map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode body: %v", err)
+			t.Errorf("decode body: %v", err)
+			return
 		}
 		config, _ := body["config"].(map[string]interface{})
 		gotModel, _ = config["model"].(string)
@@ -949,7 +958,8 @@ func TestDispatchOpenAICompatibleForwardsAudioSpeechJSON(t *testing.T) {
 		defer r.Body.Close()
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("read body: %v", err)
+			t.Errorf("read body: %v", err)
+			return
 		}
 		gotBody = string(bodyBytes)
 
@@ -1008,7 +1018,8 @@ func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 		gotVersion = r.Header.Get("anthropic-version")
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode request: %v", err)
+			t.Errorf("decode request: %v", err)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -1079,7 +1090,8 @@ func TestDispatchAnthropicAdapterMapsExtendedThinking(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode request: %v", err)
+			t.Errorf("decode request: %v", err)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -1160,7 +1172,8 @@ func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode request: %v", err)
+			t.Errorf("decode request: %v", err)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -1217,7 +1230,8 @@ func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode request: %v", err)
+			t.Errorf("decode request: %v", err)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -1280,7 +1294,8 @@ func TestDispatchGeminiAdapterUsesOfficialOpenAICompatibility(t *testing.T) {
 		gotQueryKey = r.URL.Query().Get("key")
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode request: %v", err)
+			t.Errorf("decode request: %v", err)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -1336,7 +1351,8 @@ func TestDispatchGeminiAdapterPreservesDocumentedAudioPayload(t *testing.T) {
 		gotPath = r.URL.Path
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode request: %v", err)
+			t.Errorf("decode request: %v", err)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -1479,7 +1495,8 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			t.Fatal("response writer does not support flushing")
+			t.Error("response writer does not support flushing")
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("data: hello\n\n"))
@@ -1529,15 +1546,18 @@ func TestDispatchOpenAIResponsesStreamingRelaysMultipleEventsAndDone(t *testing.
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.URL.Path; got != "/responses" {
-			t.Fatalf("expected /responses path, got %q", got)
+			t.Errorf("expected /responses path, got %q", got)
+			return
 		}
 		if got := r.Header.Get("Accept"); got != "text/event-stream" {
-			t.Fatalf("unexpected Accept header: %q", got)
+			t.Errorf("unexpected Accept header: %q", got)
+			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			t.Fatal("response writer does not support flushing")
+			t.Error("response writer does not support flushing")
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		for _, frame := range []string{
