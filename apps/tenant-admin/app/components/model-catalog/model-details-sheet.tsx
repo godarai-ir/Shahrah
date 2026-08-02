@@ -13,6 +13,7 @@ import {
   getTenantApiBaseURL,
   resolveCurlGuideMode,
 } from "@/app/components/provider-account-wizard/utils";
+import { buildPlaygroundHref } from "@/app/components/playground-mode";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { CodePanel } from "@/components/app-ui/CodePanel";
 import { CopyableValue } from "@/components/app-ui/CopyableValue";
@@ -82,8 +83,8 @@ export function ModelDetailsSheet({
   }, [model, selectedAvailability]);
 
   const playgroundHref = selectedAvailability && code
-    ? `/playground?${new URLSearchParams({ model: selectedAvailability.fqn, mode: code.mode }).toString()}`
-    : "/playground";
+    ? buildPlaygroundHref(selectedAvailability.fqn, code.mode)
+    : null;
   const logsHref = selectedAvailability && model
     ? `/logs?${new URLSearchParams({ model: selectedAvailability.fqn, provider: model.provider }).toString()}`
     : "/logs";
@@ -213,12 +214,14 @@ export function ModelDetailsSheet({
         ) : null}
         {model && selectedAvailability ? (
           <SheetFooter className="shrink-0 border-t border-border bg-background p-4 sm:flex-row sm:flex-wrap">
-            <Button asChild>
-              <Link href={playgroundHref}>
-                <FlaskConical data-icon="inline-start" aria-hidden="true" />
-                {t("actions.openPlayground")}
-              </Link>
-            </Button>
+            {playgroundHref ? (
+              <Button asChild>
+                <Link href={playgroundHref}>
+                  <FlaskConical data-icon="inline-start" aria-hidden="true" />
+                  {t("actions.openPlayground")}
+                </Link>
+              </Button>
+            ) : null}
             <Button asChild variant="outline">
               <Link href={logsHref}>
                 <ScrollText data-icon="inline-start" aria-hidden="true" />

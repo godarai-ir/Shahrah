@@ -38,22 +38,24 @@ describe("provider account curl guide helpers", () => {
     expect(getCurlGuideEndpoint(mode)).toBe("/v1/moderations");
   });
 
-  it("detects moderation from types and capability values containing moderation", () => {
+  it("detects moderation from types when no endpoint mode is declared", () => {
     expect(resolveCurlGuideMode({
       provider: "openai",
       model: "omni-moderation-latest",
       display_name: "Omni Moderation",
       types: ["safety-moderation"],
     })).toBe("moderation");
+  });
 
+  it("keeps the declared endpoint mode ahead of secondary capabilities", () => {
     expect(resolveCurlGuideMode({
       provider: "openai",
-      model: "omni-moderation-latest",
-      display_name: "Omni Moderation",
+      model: "multimodal-chat",
+      display_name: "Multimodal Chat",
       mode: ["chat"],
       types: ["chat"],
-      capabilities: ["moderation"],
-    })).toBe("moderation");
+      capabilities: ["moderation", "stt", "tts", "image_generation"],
+    })).toBe("chat");
   });
 
   it("does not use moderation for non-moderation models", () => {
@@ -129,12 +131,13 @@ describe("provider account curl guide helpers", () => {
     expect(command).toContain('"response_format": "url"');
   });
 
-  it("detects image mode generically without provider-specific branching", () => {
+  it("detects image aliases from endpoint metadata without provider-specific branching", () => {
     expect(resolveCurlGuideMode({
       provider: "future-compatible-provider",
       model: "future-image-model",
       display_name: "Future Image Model",
-      types: ["image"],
+      mode: ["image"],
+      types: [],
     })).toBe("image_generation");
 
     expect(resolveCurlGuideMode({
@@ -143,7 +146,29 @@ describe("provider account curl guide helpers", () => {
       display_name: "Poster Maker",
       output_modalities: ["image"],
       types: [],
-    })).toBe("image_generation");
+    })).toBe("chat");
+  });
+
+  it("does not infer dedicated audio endpoints from multimodal chat content", () => {
+    expect(resolveCurlGuideMode({
+      provider: "google-gemini",
+      model: "gemini-3.5-flash-lite",
+      display_name: "Gemini 3.5 Flash Lite",
+      mode: ["chat", "responses"],
+      types: ["chat", "responses"],
+      input_modalities: ["text", "image", "audio", "video", "pdf"],
+      output_modalities: ["text"],
+    })).toBe("chat");
+
+    expect(resolveCurlGuideMode({
+      provider: "future-compatible-provider",
+      model: "multimodal-audio-chat",
+      display_name: "Multimodal Audio Chat",
+      mode: ["chat"],
+      types: [],
+      input_modalities: ["text"],
+      output_modalities: ["audio"],
+    })).toBe("chat");
   });
 
   it("builds multipart speech-to-text samples for audio transcription models", () => {

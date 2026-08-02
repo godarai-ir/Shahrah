@@ -1,8 +1,88 @@
 # GodarAI Google Gemini support evidence
 
-- Verified (UTC): 2026-07-31
+- Verified (UTC): 2026-08-02
 - Provider: Gemini Developer API (`google-gemini`)
 - Policy: Google-owned Gemini Developer API documentation is authoritative. Vertex AI and third-party registries are not used to infer Developer API behavior.
+
+## Current support summary
+
+GodarAI has a fixed allowlist of nine Gemini Developer API models. All nine model IDs were returned by a live Google model-list request on 2026-08-02. The gateway exposes both the native Gemini `v1beta` surface and a limited OpenAI-compatible surface. Requests for a model/endpoint combination that is not present in the model runtime profile fail closed before upstream dispatch.
+
+The production data plane does **not** currently import or use `google.golang.org/genai`. It constructs native Gemini and OpenAI-compatible requests with Go `net/http`. The official SDK was installed only in a temporary external probe at version `v1.66.0`; the probe files and dependency graph were removed after verification.
+
+The following status terms are used in this report:
+
+- **Implemented**: a public GodarAI route, tunnel operation, model guard, and runtime-profile endpoint exist in the repository.
+- **Upstream verified**: the operation was executed directly against Google with the supplied test credential. This does not replace an end-to-end test through a deployed GodarAI Control Plane and Silk Road.
+- **Contract verified**: repository unit/handler tests passed, but no live upstream request was sent for that operation.
+- **Not supported**: the combination is rejected by routing or by the model runtime profile.
+
+## Supported model and endpoint matrix
+
+This matrix describes the current GodarAI runtime contract, not every action returned by Google's model-list API.
+
+| Model | OpenAI-compatible endpoints | Native Gemini endpoints | Resource endpoints | Live upstream evidence on 2026-08-02 |
+| --- | --- | --- | --- | --- |
+| `gemini-3.1-pro-preview` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | model list and `countTokens` succeeded; generation returned `429 RESOURCE_EXHAUSTED` because this credential has zero Free Tier generation quota for the Pro model |
+| `gemini-3.5-flash` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | `countTokens` and SDK `generateContent` succeeded; generated text was `OK` |
+| `gemini-3.5-flash-lite` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | `countTokens`, SDK generation, SDK streaming, raw native REST, and raw OpenAI-compatible chat succeeded; outputs included `OK`, `STREAM_OK`, and `OPENAI_OK` |
+| `gemini-3.6-flash` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | `countTokens`, generation, and streaming returned successful upstream responses; the deliberately small output cap was partly consumed by thinking tokens |
+| `gemini-3-pro-image` | `POST /v1/images/generations` | `generateContent`, `streamGenerateContent`, `batchGenerateContent` | models, Interactions, Files, batches | model presence and advertised Google actions verified; image generation was not executed |
+| `gemini-3.1-flash-image` | `POST /v1/images/generations` | `generateContent`, `streamGenerateContent`, `batchGenerateContent` | models, Interactions, Files, batches | model presence and advertised Google actions verified; image generation was not executed |
+| `gemini-3.1-flash-lite-image` | `POST /v1/images/generations` | `generateContent`, `streamGenerateContent`, `batchGenerateContent` | models, Files, batches | model presence and advertised Google actions verified; image generation was not executed; Interactions is intentionally not enabled |
+| `gemini-3.1-flash-tts-preview` | none; `/v1/audio/speech` is not mapped to Gemini | `generateContent`, `streamGenerateContent`, `batchGenerateContent` | models, Interactions, batches | model presence and advertised Google actions verified; speech generation was not executed |
+| `gemini-embedding-2` | `POST /v1/embeddings` | `embedContent`, `batchEmbedContents` | models, Files, batches | SDK `embedContent` succeeded and returned a 3,072-dimensional vector; compatible embeddings and batch embedding were not executed |
+
+### Endpoint paths exposed by GodarAI
+
+| Surface | Method and path | Allowed models | Verification state |
+| --- | --- | --- | --- |
+| OpenAI-compatible chat | `POST /v1/chat/completions` | four text models | implemented and contract verified; direct Google compatibility request verified with `gemini-3.5-flash-lite` |
+| OpenAI-compatible embeddings | `POST /v1/embeddings` | `gemini-embedding-2` | implemented and contract verified; native SDK embedding verified, compatible endpoint not live-tested |
+| OpenAI-compatible image generation | `POST /v1/images/generations` | three image models | implemented and contract verified; not live-tested |
+| GodarAI model catalog | `GET /v1/models` | configured deployments and virtual models visible to the tenant | implemented; this is a local GodarAI catalog response, not a pass-through Google model-list request |
+| Native model list | `GET /v1beta/models` | response filtered to the nine-model allowlist | implemented and contract verified; direct Google model list verified |
+| Native model lookup | `GET /v1beta/models/{model}` | all nine allowlisted models | implemented and contract verified |
+| Native generation | `POST /v1beta/models/{model}:generateContent` | all models except `gemini-embedding-2` | implemented and contract verified; live text generation verified |
+| Native streaming generation | `POST /v1beta/models/{model}:streamGenerateContent` | all models except `gemini-embedding-2` | implemented over SSE and contract verified; live text streaming verified |
+| Native token count | `POST /v1beta/models/{model}:countTokens` | four text models only | implemented and contract verified; live token counting verified for all four text models |
+| Native embedding | `POST /v1beta/models/gemini-embedding-2:embedContent` | `gemini-embedding-2` | implemented and contract verified; live SDK embedding verified |
+| Native synchronous batch embedding | `POST /v1beta/models/gemini-embedding-2:batchEmbedContents` | `gemini-embedding-2` | implemented and contract verified; not live-tested |
+| Interactions create | `POST /v1beta/interactions` | text models, `gemini-3-pro-image`, `gemini-3.1-flash-image`, and TTS | implemented and contract verified; not live-tested |
+| Interactions lifecycle | `GET` or `DELETE /v1beta/interactions/{id}`; `POST /v1beta/interactions/{id}:cancel` | same Interactions-capable models; account selected by `x-godarai-provider-account` when required | implemented and contract verified; not live-tested |
+| File upload | `POST /upload/v1beta/files` | provider-account resource; uploaded files are usable as model input only where the model profile includes Files | implemented as a length-preserving raw upload and contract verified; not live-tested |
+| Files lifecycle | `GET /v1beta/files`, `GET` or `DELETE /v1beta/files/{id}` | provider-account resource; text, image, and embedding profiles advertise Files input | implemented and contract verified; not live-tested |
+| Explicit context cache | `POST` or `GET /v1beta/cachedContents`; `GET`, `PATCH`, or `DELETE /v1beta/cachedContents/{id}` | four text models | implemented and contract verified; not live-tested |
+| Batch submission | `POST /v1beta/models/{model}:batchGenerateContent` | generative text, image, and TTS models | implemented and contract verified; not live-tested |
+| Batch lifecycle | `GET /v1beta/batches`, `GET /v1beta/batches/{id}`, `POST /v1beta/batches/{id}:cancel` | operations belonging to the selected Gemini provider account | implemented and contract verified; not live-tested |
+
+### Explicitly unsupported combinations
+
+- `gemini-embedding-2` cannot use chat, content generation, streaming generation, image generation, TTS, Interactions, or explicit context caching.
+- Image and TTS models cannot use `/v1/chat/completions`; image models use `/v1/images/generations`, while TTS uses native `generateContent` or `streamGenerateContent`.
+- Only the four text models can use `countTokens` and explicit context caching in the current GodarAI runtime profiles, even if Google advertises additional actions for another model.
+- `gemini-3.1-flash-lite-image` cannot use Interactions.
+- OpenAI-compatible `/v1/audio/speech`, Responses API, legacy Completions, image edits/variations, Realtime/Live WebSocket, Imagen, and Veo are not part of the Gemini adapter surface.
+- Model aliases, `*-latest`, Gemma, agents, preview predecessors, and models outside the nine-ID allowlist are not routed.
+
+## Live verification record
+
+The temporary probe produced these non-secret results:
+
+- Google SDK model list: 58 models returned; all nine GodarAI IDs were present.
+- `gemini-3.5-flash-lite`: six input tokens counted; normal generation, streaming generation, raw REST token counting, and OpenAI-compatible chat succeeded.
+- `gemini-3.5-flash`: token counting and generation succeeded.
+- `gemini-3.6-flash`: token counting, generation, and streaming requests succeeded.
+- `gemini-3.1-pro-preview`: token counting succeeded; generation could not be exercised with the Free Tier credential because Google reported quota limit `0` for the Pro model.
+- `gemini-embedding-2`: embedding succeeded with 3,072 output dimensions.
+
+The following repository suites also passed:
+
+- `services/silk-road`: `go test ./pkg/server ./cmd/server`
+- `services/control-plane`: `go test ./internal/proxy ./tests/unit/providers`
+- `packages/contracts`: `go test ./platform`
+
+Media generation, Interactions, Files, caches, batch submission/lifecycle, compatible embeddings, and an end-to-end request through a running GodarAI deployment remain unverified by this live credential run. Their status is contract verified, not live verified.
 
 ## Curated model boundary
 
@@ -99,16 +179,18 @@ Search and Maps are billed per actual upstream query after the shared 5,000 mont
 
 ## Implemented GodarAI surface
 
-Before this change, GodarAI routed Gemini through the OpenAI-compatible adapter and exposed chat, embeddings, and image generation selectively. The implementation now keeps the distinction explicit:
+GodarAI keeps the native Gemini and OpenAI-compatible surfaces explicit:
 
 - **G/N** means Google native support routed through fixed `ProviderOperation` values for Interactions lifecycle, generate/stream content, count tokens, embeddings, models, Files, caches and Batch resources.
-- **G/O** means the documented compatibility operations (`chat/completions`, `embeddings`, image generation, model discovery) are routed through `/v1beta/openai`.
+- **G/O** means the documented compatibility operations (`chat/completions`, `embeddings`, and image generation) are routed through Google's `/v1beta/openai` surface. GodarAI model discovery remains local as described below.
 - The Control Plane and Silk Road share the exact Go allowlist; the TypeScript importer has an independently tested matching list. Unsupported combinations fail closed before dispatch.
 - Every curated Gemini YAML carries an explicit immutable `runtimeProfile` version 2. Import preserves prior profile versions and inserts the declared version; endpoint, transport, modality, tool, tier, quota and limit parity is enforced by tests.
 - Native API keys use `x-goog-api-key`; compatibility API keys use Bearer. An already-refreshed OAuth access token is carried only in the internal mTLS request and is never logged or persisted as a durable credential.
-- Native and OpenAI-compatible model-list responses are filtered to the allowlist, and model lookup fails closed. The dedicated importer owns catalog reconciliation; `--clear-missing` removes database model rows that no longer have a YAML profile.
+- The native `/v1beta/models` response is filtered to the allowlist, and native model lookup fails closed. The public OpenAI-compatible `GET /v1/models` endpoint is a tenant-scoped GodarAI catalog assembled from configured deployments and virtual models; it does not pass through Google's upstream list. The dedicated importer owns catalog reconciliation; `--clear-missing` removes database model rows that no longer have a YAML profile.
 - Gemini file uploads use the length-prefixed raw tunnel rather than JSON wrapping. Native generate, streaming generate, Interactions create, and embedding operations reserve budget and finalize against returned `usageMetadata`, including cached, thought, image/audio and Search-query usage when Google returns it.
 - An account-specific or undocumented limit remains discovery metadata, not a fabricated GodarAI enforcement ceiling.
+- The data plane currently uses direct REST through `net/http`, not `google.golang.org/genai`. This is a supported partner-integration architecture, but Google recommends the official SDK for enterprise gateways and requires partner traffic to identify the client with `x-goog-api-client`.
+- GodarAI does not currently add `x-goog-api-client` to Gemini native or compatibility requests. Adding a stable value such as `shahrah/<version>` to both request paths is tracked as integration debt; this absence does not invalidate the successful authentication and inference probes above.
 
 ## Operational and rollback notes
 
@@ -129,4 +211,6 @@ Before this change, GodarAI routed Gemini through the OpenAI-compatible adapter 
 - Pricing: <https://ai.google.dev/gemini-api/docs/pricing>
 - Rate limits: <https://ai.google.dev/gemini-api/docs/rate-limits>
 - Authentication: <https://ai.google.dev/gemini-api/docs/api-key> and <https://ai.google.dev/gemini-api/docs/oauth>
+- Official SDKs: <https://ai.google.dev/gemini-api/docs/libraries> and <https://pkg.go.dev/google.golang.org/genai>
+- Partner and gateway integration paths: <https://ai.google.dev/gemini-api/docs/partner-integration>
 - Lifecycle: <https://ai.google.dev/gemini-api/docs/deprecations> and <https://ai.google.dev/gemini-api/docs/changelog>

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { usePermissions } from "@/app/components/permissions-context";
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
+import { modelModesSupportPlaygroundMode, normalizePlaygroundMode } from "@/app/components/playground-mode";
 import {
   AppTextField,
   EmptyState,
@@ -68,7 +69,7 @@ export default function PlaygroundPage() {
   const canLoad = permissions.some((item) => item === "prompt:list" || item === "policy:list" || item === "policy:manage");
   const canOpenTrace = permissions.includes("settings:list");
   const consumeStream = usePlaygroundStream();
-  const [mode, setMode] = useState<PlaygroundMode>(() => searchParams.get("mode") === "image_generation" ? "image_generation" : "chat");
+  const [mode, setMode] = useState<PlaygroundMode>(() => normalizePlaygroundMode(searchParams.get("mode")) ?? "chat");
 
   const [columns, setColumns] = useState<PlaygroundColumnDraft[]>(() => [createPlaygroundColumn(t("option", { count: 1 }), locale === "fa" ? "شما یک دستیار دقیق و مفید هستید." : "You are a precise and helpful assistant.")]);
   const [results, setResults] = useState<Record<string, PlaygroundRunResult>>(() => ({ [columns[0].id]: emptyRunResult() }));
@@ -830,8 +831,7 @@ function modelSupportsPlaygroundMode(model: GatewayModel, mode: PlaygroundMode) 
   const supportedModes = [...(model.supported_modes ?? []), ...(model.types ?? [])]
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
-  if (supportedModes.length === 0) return mode === "chat";
-  return supportedModes.includes(mode);
+  return modelModesSupportPlaygroundMode(supportedModes, mode);
 }
 
 function isAbortError(error: unknown) { return error instanceof Error && error.name === "AbortError"; }

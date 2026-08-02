@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { modelModesSupportPlaygroundMode } from "@/app/components/playground-mode";
 import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { fetchControlPlaneJSON, proxyToControlPlane, proxyToControlPlaneStream } from "@/lib/control-plane";
@@ -209,7 +210,7 @@ async function validateImageModelCapability(request: NextRequest, tenantSlug: st
     return { ok: false as const, status: 400, message: "This model is not available in the current workspace." };
   }
   const modes = Array.isArray(model.supported_modes) ? model.supported_modes : Array.isArray(model.types) ? model.types : [];
-  if (!modes.some((value) => typeof value === "string" && value.trim().toLowerCase() === "image_generation")) {
+  if (!modelModesSupportPlaygroundMode(modes, "image_generation")) {
     return { ok: false as const, status: 400, message: "This model is not enabled for image generation in the current workspace." };
   }
   return { ok: true as const };

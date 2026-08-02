@@ -85,26 +85,33 @@ export function resolveCurlGuideMode(
     "provider" | "model" | "display_name" | "mode" | "modes" | "types" | "capabilities" | "features" | "input_modalities" | "output_modalities"
   >,
 ): SupportedCurlGuideMode {
-  const modes = [
-    ...getModelModes(model),
-    ...normalizeCapabilityList(model.types),
-    ...normalizeCapabilityList(model.capabilities),
-    ...normalizeCapabilityList(model.features),
+  const capabilityGroups = [
+    getModelModes(model),
+    normalizeCapabilityList(model.types),
+    normalizeCapabilityList(model.capabilities),
+    normalizeCapabilityList(model.features),
   ];
-  const inputModalities = normalizeCapabilityList(model.input_modalities);
-  const outputModalities = normalizeCapabilityList(model.output_modalities);
-  if (modes.some(isModerationCapability)) return "moderation";
-  if (modes.some(isTextToSpeechCapability)) return "text_to_speech";
-  if (modes.some(isAudioTranscriptionCapability)) return "audio_transcription";
-  if (inputModalities.includes("text") && outputModalities.includes("audio")) return "text_to_speech";
-  if (inputModalities.includes("audio") && outputModalities.includes("text")) return "audio_transcription";
-  if ([...modes, ...outputModalities].some(isImageGenerationCapability)) {
-    return "image_generation";
-  }
-  for (const mode of modes) {
-    if (isSupportedCurlGuideMode(mode)) return mode;
+
+  // Endpoint modes are authoritative. Modalities only describe supported
+  // content and cannot distinguish multimodal chat from dedicated audio or
+  // image endpoints.
+  for (const capabilities of capabilityGroups) {
+    const mode = resolveCurlGuideModeFromCapabilities(capabilities);
+    if (mode) return mode;
   }
   return "chat";
+}
+
+function resolveCurlGuideModeFromCapabilities(capabilities: string[]): SupportedCurlGuideMode | undefined {
+  for (const capability of capabilities) {
+    const normalized = normalizeCurlGuideCapability(capability);
+    if (isModerationCapability(normalized)) return "moderation";
+    if (isTextToSpeechCapability(normalized)) return "text_to_speech";
+    if (isAudioTranscriptionCapability(normalized)) return "audio_transcription";
+    if (isImageGenerationCapability(normalized)) return "image_generation";
+    if (isSupportedCurlGuideMode(normalized)) return normalized;
+  }
+  return undefined;
 }
 
 export function isSupportedCurlGuideMode(mode: string): mode is SupportedCurlGuideMode {

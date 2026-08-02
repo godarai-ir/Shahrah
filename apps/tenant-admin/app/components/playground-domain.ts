@@ -1,9 +1,10 @@
 import { extractPromptVariableNames, renderPromptText } from "./prompt-management-utils";
 import type { PromptManifest, PromptVersion } from "./prompt-management-shared";
+import type { PlaygroundMode } from "./playground-mode";
+
+export type { PlaygroundMode } from "./playground-mode";
 
 export type PlaygroundRole = "system" | "user" | "assistant" | "tool";
-
-export type PlaygroundMode = "chat" | "image_generation";
 
 export type PlaygroundMessage = {
   id: string;

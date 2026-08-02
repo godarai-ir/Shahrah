@@ -103,6 +103,7 @@ import {
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
 import { usePermissions } from "@/app/components/permissions-context";
+import { buildPlaygroundHref } from "@/app/components/playground-mode";
 import { canPermission } from "@/lib/authz";
 import { cn } from "@/lib/utils";
 
@@ -386,6 +387,14 @@ export default function ProviderAccountWizard(props?: {
       endpoint,
       payload: buildCurlGuidePayload(mode, fqn),
     });
+  }, [account, selectedModels]);
+  const overviewPlaygroundHref = useMemo(() => {
+    const model = selectedModels[0];
+    if (!account || !model) return null;
+    return buildPlaygroundHref(
+      `${account.provider}:${account.name}:${model.model}`,
+      resolveCurlGuideMode(model),
+    );
   }, [account, selectedModels]);
   const hasUnsavedModelChanges = Boolean(
     props?.catalogExperience
@@ -2565,17 +2574,14 @@ export default function ProviderAccountWizard(props?: {
                               />
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              <Button asChild>
-                                <Link
-                                  href={`/playground?${new URLSearchParams({
-                                    model: `${account.provider}:${account.name}:${selectedModels[0].model}`,
-                                    mode: resolveCurlGuideMode(selectedModels[0]),
-                                  }).toString()}`}
-                                >
-                                  <Play data-icon="inline-start" aria-hidden="true" />
-                                  {catalogT("actions.openPlayground")}
-                                </Link>
-                              </Button>
+                              {overviewPlaygroundHref ? (
+                                <Button asChild>
+                                  <Link href={overviewPlaygroundHref}>
+                                    <Play data-icon="inline-start" aria-hidden="true" />
+                                    {catalogT("actions.openPlayground")}
+                                  </Link>
+                                </Button>
+                              ) : null}
                               <Button asChild variant="outline">
                                 <Link
                                   href={`/logs?${new URLSearchParams({

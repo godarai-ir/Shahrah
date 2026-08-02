@@ -33,7 +33,7 @@ describe("playground run route", () => {
       ok: true,
       status: 200,
       payload: { data: [
-        { id: "gpt-image-1", supported_modes: ["image_generation"] },
+        { id: "gpt-image-1", supported_modes: ["image"] },
         { id: "dall-e-3", supported_modes: ["image_generation"] },
       ] },
       responseHeaders: {},
