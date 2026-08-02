@@ -122,6 +122,20 @@ Tables should have a toolbar/search/filter area, readable columns, row actions, 
 
 Loading states should use `Skeleton` or an established loading component. Empty states should use `EmptyState`. Error states should be visible, concise, and actionable. Destructive actions should use `ConfirmDialog`.
 
+### Dialog operation feedback
+
+When an operation is initiated from an open dialog, any success, warning, or
+error feedback that affects the user's next decision must be rendered inside
+that same dialog. Do not place the only operation notice in the page container
+behind the modal overlay. Keep the dialog open after a failed operation, place
+the notice near the dialog context and before its actions, and clear stale
+feedback when the dialog is dismissed or opened for a different resource.
+
+Page-level notices may be used after a successful operation closes the dialog,
+or as a secondary summary, but they must not be the only visible feedback while
+the dialog remains open. Use `OperationNotice` for dialog feedback and preserve
+its live-region and semantic alert behavior.
+
 ## RTL Rules
 
 See `RTL_GUIDELINES.md`.

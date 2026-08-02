@@ -185,6 +185,11 @@ Use `TypedConfirmDialog` only for high-impact destructive actions that require t
 
 Pass the localized input instruction separately from `expectedValue`. Confirmation remains disabled until the trimmed value matches exactly. Async confirmation disables dismissal, shows the shared `Spinner`, closes after success, and stays open when the promise rejects. Technical confirmation values default to LTR.
 
+Pass dialog-scoped operation feedback through `feedback`, normally as an
+`OperationNotice`. If confirmation fails while the dialog stays open, render
+the failure there instead of relying on a page-level notice behind the modal.
+Clear stale feedback when the dialog closes or switches to another resource.
+
 Use `UnsavedChangesDialog` when leaving, replacing, or closing an editable surface would discard dirty form state. Keep the pending continuation in the owning feature and run it through `onDiscard`; the dialog provides explicit “keep editing” and “discard changes” actions instead of relying on `window.confirm`.
 
 ## Copyable Values And One-Time Secrets

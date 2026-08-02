@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, GodarAILogo, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, GodarAILogo, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, type OperationNoticeValue, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -53,6 +53,7 @@ export default function DesignSystemPage() {
   const [demoSecret, setDemoSecret] = useState<string | null>(null);
   const [statusOption, setStatusOption] = useState<"metadata" | "full">("metadata");
   const [typedConfirmOpen, setTypedConfirmOpen] = useState(false);
+  const [typedConfirmNotice, setTypedConfirmNotice] = useState<OperationNoticeValue | null>(null);
   const [unsavedChangesOpen, setUnsavedChangesOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
@@ -290,7 +291,10 @@ export default function DesignSystemPage() {
           <Button type="button" variant="destructive" onClick={() => setTypedConfirmOpen(true)}>Delete demo team</Button>
           <TypedConfirmDialog
             open={typedConfirmOpen}
-            onOpenChange={setTypedConfirmOpen}
+            onOpenChange={(open) => {
+              setTypedConfirmOpen(open);
+              if (!open) setTypedConfirmNotice(null);
+            }}
             title="Delete demo team"
             description="This action cannot be undone."
             expectedValue="demo-team"
@@ -298,7 +302,14 @@ export default function DesignSystemPage() {
             cancelLabel="Cancel"
             confirmLabel="Delete"
             pendingLabel="Deleting"
-            onConfirm={() => undefined}
+            feedback={typedConfirmNotice ? (
+              <OperationNotice
+                notice={typedConfirmNotice}
+                labels={{ success: "Success", error: "Error", warning: "Warning", info: "Information" }}
+              />
+            ) : null}
+            onConfirm={() => Promise.reject(new Error("Demo dependency conflict"))}
+            onConfirmError={() => setTypedConfirmNotice({ kind: "error", message: "The resource is still referenced. Resolve its dependencies and try again." })}
           />
         </AppCard>
         <AppCard title="Form sheet" description="Standard shell for create and edit workflows.">

@@ -254,6 +254,9 @@
     "loadModels": "Models could not be loaded.",
     "loadDetails": "This provider account could not be loaded.",
     "connectionTest": "Connection test failed.",
+    "deleteActiveAccessKeys": "This provider account is still used by the allowed models of GodarAI access keys—personal access tokens (PATs) or virtual access tokens (VATs), not the provider API key. Remove these models from the dependent keys or revoke the keys, then try again.",
+    "deleteForbidden": "You do not have permission to delete this provider account.",
+    "deleteNotFound": "Provider account not found.",
     "deleteConflict": "This account could not be deleted. Remove dependent configuration and try again."
   },
   "values": {

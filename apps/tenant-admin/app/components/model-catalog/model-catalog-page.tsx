@@ -61,6 +61,7 @@ import {
 
 import { ModelDetailsSheet } from "./model-details-sheet";
 import { formatCatalogModelDisplayName } from "./formatters";
+import { classifyProviderAccountDeleteError } from "./provider-account-delete-error";
 import type {
   CatalogModel,
   CatalogModelResponse,
@@ -101,8 +102,25 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingModels, setLoadingModels] = useState(false);
   const [notice, setNotice] = useState<OperationNoticeValue | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<OperationNoticeValue | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TenantProviderAccount | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const localizeDeleteError = useCallback(
+    (error: unknown): string => {
+      switch (classifyProviderAccountDeleteError(error)) {
+        case "activeAccessKeys":
+          return t("errors.deleteActiveAccessKeys");
+        case "forbidden":
+          return t("errors.deleteForbidden");
+        case "notFound":
+          return t("errors.deleteNotFound");
+        default:
+          return t("errors.deleteConflict");
+      }
+    },
+    [t],
+  );
 
   const updateURL = useCallback(
     (
@@ -344,6 +362,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
       method: "DELETE",
     });
     setNotice({ kind: "success", message: t("notices.deleted", { account: deleteTarget.name }) });
+    setDeleteNotice(null);
     setDeleteTarget(null);
     setReloadKey((value) => value + 1);
   }
@@ -593,7 +612,11 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
               }, "push")
             }
             onTestConnection={(account) => void testConnection(account)}
-            onDelete={setDeleteTarget}
+            onDelete={(account) => {
+              setNotice(null);
+              setDeleteNotice(null);
+              setDeleteTarget(account);
+            }}
           />
         ) : (
           <ModelsTable
@@ -624,7 +647,10 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
       <TypedConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open) {
+            setDeleteNotice(null);
+            setDeleteTarget(null);
+          }
         }}
         title={t("delete.title")}
         description={deleteTarget ? t("delete.description", { account: deleteTarget.name }) : ""}
@@ -649,9 +675,20 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
             }}
           />
         ) : null}
+        feedback={deleteNotice ? (
+          <OperationNotice
+            notice={deleteNotice}
+            labels={{
+              success: t("notices.success"),
+              error: t("notices.error"),
+              warning: t("notices.warning"),
+              info: t("notices.info"),
+            }}
+          />
+        ) : null}
         onConfirm={deleteAccount}
         onConfirmError={(error) =>
-          setNotice({ kind: "error", message: normalizeError(error, t("errors.deleteConflict")) })
+          setDeleteNotice({ kind: "error", message: localizeDeleteError(error) })
         }
       />
     </PageContainer>

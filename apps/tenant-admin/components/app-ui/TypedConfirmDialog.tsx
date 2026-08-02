@@ -22,6 +22,7 @@ export type TypedConfirmDialogProps = {
   onConfirm: () => void | Promise<void>;
   onConfirmError?: (error: unknown) => void;
   warning?: React.ReactNode;
+  feedback?: React.ReactNode;
   disabled?: boolean;
   inputDir?: "rtl" | "ltr" | "auto";
 };
@@ -44,6 +45,7 @@ function TypedConfirmDialogState({
   onConfirm,
   onConfirmError,
   warning,
+  feedback,
   disabled,
   inputDir = "ltr",
 }: TypedConfirmDialogProps) {
@@ -82,6 +84,7 @@ function TypedConfirmDialogState({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {warning}
+        {feedback}
         <form className="flex flex-col gap-4" onSubmit={confirm}>
           <FieldGroup>
             <Field data-disabled={pending || disabled || undefined}>

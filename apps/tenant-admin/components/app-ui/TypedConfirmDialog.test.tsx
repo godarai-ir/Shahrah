@@ -63,4 +63,26 @@ describe("TypedConfirmDialog", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled();
   });
+
+  it("renders operation feedback inside the dialog", () => {
+    render(
+      <TypedConfirmDialog
+        open
+        onOpenChange={() => undefined}
+        title="Delete team"
+        description="This action cannot be undone."
+        expectedValue="platform"
+        inputLabel="Type platform to confirm"
+        cancelLabel="Cancel"
+        confirmLabel="Delete"
+        pendingLabel="Deleting"
+        onConfirm={() => undefined}
+        feedback={<div role="alert">The team is still referenced.</div>}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toContainElement(screen.getByRole("alert"));
+    expect(screen.getByText("The team is still referenced.")).toBeInTheDocument();
+  });
 });
