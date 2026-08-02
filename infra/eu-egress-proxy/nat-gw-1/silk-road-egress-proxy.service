@@ -1,0 +1,16 @@
+[Unit]
+Description=Bridge private Silk Road proxy traffic to the reverse SSH listener
+Requires=silk-road-egress-proxy.socket
+After=silk-road-egress-proxy.socket
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:1443
+DynamicUser=true
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6

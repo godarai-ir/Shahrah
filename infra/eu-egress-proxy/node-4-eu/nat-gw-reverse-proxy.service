@@ -1,0 +1,18 @@
+[Unit]
+Description=Reverse SSH tunnel from node-4-eu to nat-gw-1 for Silk Road egress
+After=network-online.target squid.service
+Wants=network-online.target
+Requires=squid.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -NT -i /root/.ssh/node4_to_nat_proxy -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -R 127.0.0.1:1443:127.0.0.1:443 root@188.121.120.198
+Restart=always
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

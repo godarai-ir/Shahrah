@@ -492,6 +492,7 @@ func (p *CreateKeyParams) Normalize() {
 type ProviderOperation string
 
 const (
+	ProviderOperationCredentialProbe                    ProviderOperation = "credential_probe"
 	ProviderOperationChatCompletions                    ProviderOperation = "chat_completions"
 	ProviderOperationXAIDeferredChatGet                 ProviderOperation = "xai_deferred_chat_get"
 	ProviderOperationOpenAICompletions                  ProviderOperation = "openai_completions"

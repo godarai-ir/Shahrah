@@ -40,6 +40,19 @@ func NewHandler(client *http.Client) http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		if payload.Operation == platform.ProviderOperationCredentialProbe {
+			resp, err := dispatchCredentialProbe(r.Context(), client, payload)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			defer resp.Body.Close()
+
+			copyHeaders(w.Header(), resp.Headers)
+			w.WriteHeader(resp.StatusCode)
+			relayBody(w, resp.Body, false)
+			return
+		}
 
 		adapter, err := registry.adapterFor(payload.Deployment.Provider)
 		if err != nil {
