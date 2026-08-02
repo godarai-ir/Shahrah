@@ -1,12 +1,12 @@
 # گزارش بررسی استقرار VPSهای Production
 
-تاریخ آخرین بررسی زنده: 2026-07-20
+تاریخ آخرین بررسی زنده: 2026-08-02
 
-دامنه بررسی: اتصال SSH به هفت VPS، تطبیق interface/MAC/IP داخل guest، بررسی route و Netplan، وضعیت سرویس‌های LB، ruleهای NAT، تست تفکیک‌شده egress، وضعیت K3s و تست‌های DNS و TCP/HTTP/HTTPS در سطح host و Pod. در 2026-07-20 آماده‌سازی و Cutover کامل `nat-gw-1` روی هر سه node و سپس بازیابی رخداد DNS/etcd/Longhorn نیز انجام شد. وضعیت Fixed IP و فایروال دیتابیس از پنل ابرآروان مشاهده شد؛ دسترسی مستقیم به Neutron API یا control plane داخلی ارائه‌دهنده وجود ندارد.
+دامنه بررسی: اتصال SSH به VPSهای production، تطبیق interface/MAC/IP داخل guest، بررسی route و Netplan، وضعیت سرویس‌های LB، ruleهای NAT، تست تفکیک‌شده egress، وضعیت K3s و تست‌های DNS و TCP/HTTP/HTTPS در سطح host و Pod. در 2026-07-20 آماده‌سازی و Cutover کامل `nat-gw-1` روی هر سه node و سپس بازیابی رخداد DNS/etcd/Longhorn انجام شد. در 2026-08-02 نیز مسیر اختصاصی خروج provider از `nat-gw-1` به `node-4-eu` نصب و از هر سه node اعتبارسنجی شد. وضعیت Fixed IP و فایروال دیتابیس از پنل ابرآروان مشاهده شد؛ دسترسی مستقیم به Neutron API یا control plane داخلی ارائه‌دهنده وجود ندارد.
 
 در این گزارش:
 
-- **مشاهده‌شده** یعنی در بررسی‌های زنده 2026-07-19 و 2026-07-20 مستقیماً اندازه‌گیری شده است.
+- **مشاهده‌شده** یعنی در بررسی‌های زنده 2026-07-19، 2026-07-20 و 2026-08-02 مستقیماً اندازه‌گیری شده است.
 - **اعلام‌شده از پنل** یعنی از اطلاعات یا تصویر پنل ابرآروان که مالک زیرساخت ارائه کرده استفاده شده است.
 - **استنباط** یعنی نتیجه فنی حاصل از چند مشاهده است، نه مشاهده مستقیم control plane ارائه‌دهنده.
 - **نامشخص** یعنی برای نتیجه قطعی به Neutron/OpenStack API یا تیم ارائه‌دهنده نیاز است.
@@ -17,6 +17,8 @@
 
 در 2026-07-20 Gateway با یک default route عمومی، forwarding، nftables و MASQUERADE محدود به سه node آماده شد و persistence آن پس از reboot تأیید شد. Port Security دقیقاً روی پورت خصوصی `10.10.0.190` غیرفعال و پورت اضافی `.181` حذف شد. Rollout به ترتیب `node-2`، `node-3` و `node-1` انجام شد؛ هر سه node و Podهای pinned روی آن‌ها DNS، HTTPS، Docker Registry و TCP دیتابیس را با موفقیت گذراندند.
 
+در 2026-08-02 listener خصوصی `10.10.0.190:1443` برای Silk Road روی `nat-gw-1` فعال شد. این listener با `systemd-socket-proxyd` به reverse SSH listener محلی و سپس Squid روی `node-4-eu` متصل است. NetworkPolicy خروج مستقیم Silk Road را می‌بندد و فقط DNS و endpoint خصوصی پراکسی را مجاز می‌کند. تست‌های pinned هر سه node خروج `130.185.121.142` با موقعیت `DE` را نشان دادند و probe مصنوعی Gemini به پاسخ واقعی provider رسید.
+
 نتیجه نهایی egress:
 
 - **مشاهده‌شده:** هر سه node فقط default route برابر `10.10.0.190` روی `eth1` دارند.
@@ -24,6 +26,7 @@
 - **مشاهده‌شده:** HTTPS، Docker Registry با پاسخ مورد انتظار `401` و TCP دیتابیس روی `5432` از host و Podهای pinned موفق است.
 - **مشاهده‌شده:** CoreDNS پس از rollout بدون upstream timeout جدید فعال است و `kubernetes.default` و hostname دیتابیس را resolve می‌کند.
 - **مشاهده‌شده:** LBها دیگر ترافیک production egress nodeها را حمل نمی‌کنند؛ سرویس NAT قدیمی آن‌ها فقط برای پنجره rollback فعال مانده است.
+- **مشاهده‌شده:** ترافیک provider متعلق به Silk Road از HTTP proxy خصوصی `10.10.0.190:1443` عبور می‌کند و با public source برابر `130.185.121.142` خارج می‌شود؛ خروج مستقیم Pod منتخب NetworkPolicy مسدود است.
 - **استنباط:** ایجاد Gateway دارای NIC عمومی، محدودیت private egress/SNAT شبکه ارائه‌دهنده را بدون تغییر subnet-wide route دور زده است.
 
 خرابی public edge مربوط به Floating IPها در 2026-07-20 با افزودن NIC و IPv4 عمومی مستقیم به هر دو LB دور زده شد. `godarai.ir` اکنون روی HTTPS پاسخ `200` می‌دهد و تست مستقیم با SNI روی هر دو IP جدید موفق است. Floating IPهای قبلی detach شده‌اند، ولی برای rollback حذف یا release نشده‌اند.
@@ -31,6 +34,8 @@
 در رخداد بعدی همان روز، توقف heartbeat روی `node-2` باعث از دسترس خارج‌شدن تنها replicaی CoreDNS، شکست DNS داخل Pod و پاسخ `503` برای tenantها شد. هم‌زمان فشار دیسک و I/O مانع rebuild شدن replicaهای Longhorn و پایداری etcd بود. پس از snapshot تازه etcd، بازیابی مرحله‌ای `node-2` و `node-3`، پاک‌سازی imageهای بلااستفاده و journalها، همه nodeها، volumeها و workloadها سالم شدند. CoreDNS اکنون با حداقل دو replica و PDB تحت مدیریت GitOps اجرا می‌شود.
 
 ## تاریخچه تغییرات مهم
+
+- **2026-08-02:** Squid و reverse SSH tunnel روی `node-4-eu` و socket bridge خصوصی روی `nat-gw-1` فعال شدند. nftables دسترسی TCP/1443 را به سه IP نود K3s محدود کرد. تست پراکسی از هر سه node مقدار `ip=130.185.121.142` و `loc=DE` برگرداند؛ probe مصنوعی Gemini نیز مسیر Tunnel Client، Tunnel Server و Silk Road تا provider را اثبات کرد. Argo CD در پایان `Synced/Healthy` و تمام replicaهای transport آماده بودند. reboot میزبان‌ها در این rollout انجام نشد.
 
 - **2026-07-16:** Port Security روی پورت‌های خصوصی `lb-1` و `lb-2` از پنل غیرفعال شد؛ HAProxy روی VIP `10.10.0.6:6443` قرار گرفت و failover کنترل‌شده Keepalived موفق بود.
 - **2026-07-16:** Public IPهای nodeهای K3s حذف شدند و default route آن‌ها به VIP `10.10.0.6` منتقل شد. در همان روز egress از مسیر NAT روی LBها سالم تست شده بود.

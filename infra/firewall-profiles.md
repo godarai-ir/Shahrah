@@ -155,7 +155,7 @@ Floating IPهای قبلی detach و صرفاً برای rollback حفظ شده�
 | Inbound | All | All | `10.10.0.22` |
 | Inbound | All | All | `10.10.0.23` |
 
-داخل Ubuntu، nftables ورودی و خروجی را در rollout اولیه باز نگه می‌دارد، forward policy برابر drop است و فقط سه node بالا به سمت interface عمومی MASQUERADE می‌شوند.
+داخل Ubuntu، forward policy برابر drop است و فقط سه node بالا به سمت interface عمومی MASQUERADE می‌شوند. از 2026-08-02، input chain پورت TCP/1443 را فقط برای `10.10.0.21`، `10.10.0.22` و `10.10.0.23` می‌پذیرد و همان پورت را برای سایر sourceها drop می‌کند. این listener خصوصی ورودی Silk Road به پراکسی خروجی اروپا است؛ سایر ورودی‌ها همچنان policy برابر accept دارند.
 
 ## پروفایل‌های K3s Node
 
