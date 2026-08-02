@@ -51,6 +51,7 @@ PowerShell:
 ```powershell
 go -C services/control-plane mod download
 go -C services/control-plane mod tidy
+putty.exe -load node-4-eu -l ubuntu -N -L 1443:127.0.0.1:443
 docker compose -f infra/compose/local.yml up -d postgres redis clickhouse silk-road tunnel-server tunnel-client control-plane
 docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
 docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql
@@ -58,6 +59,14 @@ go -C services/control-plane test -v -race ./tests/integration/...
 go -C services/control-plane test -v -race ./tests/unit/...
 go -C services/control-plane run ./cmd/server
 ```
+
+The local Silk Road service is fail-closed and sends provider traffic, including
+credential probes, through `http://host.docker.internal:1443`. Keep the PuTTY
+forward above running while using the local stack. It forwards the host listener
+to Squid on `node-4-eu`. Required mode prevents Silk Road from silently falling
+back to direct egress if a launch configuration does not provide a proxy URL.
+Override `SILK_ROAD_EGRESS_PROXY_URL` only when using another trusted development
+proxy.
 
 ### Persistent MVP Verification
 

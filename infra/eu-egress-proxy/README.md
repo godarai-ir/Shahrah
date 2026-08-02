@@ -15,6 +15,19 @@ The design has two fail-closed boundaries:
 
 No provider credential, private key, or proxy credential belongs in Git. Squid is bound only to loopback on `node-4-eu`; the gateway listener is private and its firewall accepts only K3s node source addresses.
 
+## Production status
+
+The path was installed and validated on 2026-08-02:
+
+- `squid.service` and `nat-gw-reverse-proxy.service` are enabled and active on `node-4-eu`.
+- `silk-road-egress-proxy.socket` is enabled and active on `nat-gw-1`; its socket-activated service became active after the first connection.
+- both `127.0.0.1:1443` and `10.10.0.190:1443` listen on `nat-gw-1`.
+- proxy smoke tests pinned to `node-1`, `node-2`, and `node-3` all reported public IP `130.185.121.142` and Cloudflare location `DE`.
+- direct HTTPS from a settled Pod selected by the Silk Road NetworkPolicy was blocked.
+- a synthetic `credential_probe` traversed Tunnel Client, Tunnel Server, Silk Road, Squid, and reached Gemini, which returned the expected invalid-key application response.
+
+The pre-change gateway firewall backup is `/etc/nftables.conf.pre-eu-egress-20260802T095559Z` on `nat-gw-1`. No reboot validation was performed during this rollout.
+
 ## Installed files
 
 | Repository file | Host | Target path |
@@ -25,15 +38,15 @@ No provider credential, private key, or proxy credential belongs in Git. Squid i
 | `nat-gw-1/silk-road-egress-proxy.service` | `nat-gw-1` | `/etc/systemd/system/silk-road-egress-proxy.service` |
 | `../nat-gateway/nftables.conf` | `nat-gw-1` | `/etc/nftables.conf` |
 
-The SSH private key remains at `/root/.ssh/node4_to_nat_proxy` on `node-4-eu`. Its public key on `nat-gw-1` must be restricted to the reverse listener and source address; see `nat-gw-1/authorized_keys.example`.
+The reverse tunnel runs as `ubuntu`. Its private key remains at `/home/ubuntu/.ssh/node4_to_nat_proxy` on `node-4-eu`; the public key is installed in `/home/ubuntu/.ssh/authorized_keys` on `nat-gw-1`. The key is restricted to source `130.185.121.142` and listener `127.0.0.1:1443`; see `nat-gw-1/authorized_keys.example`.
 
 ## Rollout order
 
 1. Install and validate Squid on `node-4-eu`.
-2. Install the restricted public key on `nat-gw-1`, then enable `nat-gw-reverse-proxy.service` on `node-4-eu`.
+2. Install the restricted public key for `ubuntu` on `nat-gw-1`, install the private key for `ubuntu` on `node-4-eu`, then enable `nat-gw-reverse-proxy.service`.
 3. Install both gateway units and enable only `silk-road-egress-proxy.socket`; the service is socket-activated.
 4. Validate and atomically load the tracked nftables rules.
-5. From each K3s node, verify `curl --proxy http://10.10.0.190:1443 https://www.cloudflare.com/cdn-cgi/trace` reports the EU address.
+5. From a NetworkPolicy-selected Pod pinned to each K3s node, verify direct HTTPS is blocked and `curl --proxy http://10.10.0.190:1443 https://www.cloudflare.com/cdn-cgi/trace` reports `ip=130.185.121.142` and `loc=DE`. Allow the K3s policy controller to converge before interpreting the result; the rollout test used 15 seconds.
 6. Merge/deploy the application change before the GitOps change. The application understands the explicit proxy and tunneled probe operation; the GitOps rollout makes both mandatory.
 7. Probe a provider credential and verify Silk Road logs report `egress proxy configured=true required=true` without logging the proxy URL or credentials.
 
@@ -47,8 +60,34 @@ ss -lntp | grep ':443\|:1443'
 
 # nat-gw-1
 systemctl is-active silk-road-egress-proxy.socket
+systemctl is-active silk-road-egress-proxy.service
 ss -lntp | grep '10.10.0.190:1443\|127.0.0.1:1443'
 sudo nft -c -f /etc/nftables.conf
+sudo nft list chain inet filter input
 ```
 
-Rollback the GitOps configuration first. Removing the required proxy environment variables restores the previous application egress behavior; only then disable the gateway socket or reverse tunnel.
+Silk Road readiness confirms the internal service chain, not live reachability of the external proxy. Verify the egress IP and inspect both `journalctl -u silk-road-egress-proxy.service` and `/var/log/squid/access.log` after changes. A missing gateway listener produces a `proxyconnect ... connection refused` dispatch error while the Pods can remain Ready.
+
+## Local development
+
+The local Compose stack also requires the EU proxy. Before starting the stack on
+Windows, connect the VPN and keep this forward running:
+
+```powershell
+putty.exe -load node-4-eu -l ubuntu -N -L 1443:127.0.0.1:443
+docker compose -f infra/compose/local.yml up -d silk-road tunnel-server tunnel-client control-plane
+```
+
+Compose gives Silk Road these defaults:
+
+```text
+SILK_ROAD_EGRESS_PROXY_URL=http://host.docker.internal:1443
+SILK_ROAD_EGRESS_PROXY_REQUIRED=true
+```
+
+The expected startup log is `egress proxy configured=true required=true`. This
+proxies provider dispatches and credential probes, but `/ready` still does not
+test external proxy reachability. Validate with a provider probe and confirm its
+CONNECT entry in `/var/log/squid/access.log` on `node-4-eu`.
+
+Rollback the GitOps configuration first. Removing the required proxy environment variables restores the previous application egress behavior; only then disable the gateway socket or reverse tunnel. Restore the timestamped nftables backup only after validating it with `sudo nft -c -f`.

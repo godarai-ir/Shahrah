@@ -30,6 +30,17 @@ Silk Road builds probe URLs from provider-specific contracts and enforces public
 - Host infrastructure must be healthy before the NetworkPolicy is enabled.
 - The Silk Road NetworkPolicy permits DNS and the private gateway endpoint only.
 - Direct provider egress is considered a configuration failure, not an automatic fallback.
-- Proxy health is observable through pod readiness/startup, systemd state, Squid access logs, and an external egress-IP probe.
+- Pod startup fails when required proxy configuration is absent or invalid, but Pod readiness does not test proxy reachability.
+- End-to-end proxy health is established through systemd state, both gateway listeners, nftables counters, Squid CONNECT logs, and an external egress-IP probe from a NetworkPolicy-selected Pod.
+
+## Production validation
+
+The production rollout was validated on 2026-08-02. Argo CD remained `Synced/Healthy`, all transport replicas were Ready, direct HTTPS from the settled Silk Road test Pod was blocked, and proxy tests from all three K3s nodes exited as `130.185.121.142` in `DE`.
+
+A synthetic Gemini `credential_probe`, injected at Tunnel Client with the same tunnel contract emitted by Control Plane, returned Gemini's `API_KEY_INVALID` application response. This proves the downstream path through Tunnel Client, Tunnel Server, Silk Road, the private gateway bridge, the reverse SSH tunnel, and Squid reached the provider. A production credential was not used or modified by this smoke test.
+
+The K3s policy controller showed a short convergence interval for a newly created diagnostic Pod. Operational smoke tests therefore wait 15 seconds after the Pod becomes Ready before asserting that direct egress is denied. The host allowlist on `nat-gw-1:1443` remains an independent boundary and accepts only the three K3s node addresses.
+
+When the private gateway listener was absent, Tunnel Client readiness still returned Silk Road health while provider dispatch failed with `proxyconnect tcp: dial tcp 10.10.0.190:1443: connect: connection refused`. Do not use `/ready` alone as an egress health signal.
 
 Host-level configuration and rollout commands live in [`../infra/eu-egress-proxy/README.md`](../infra/eu-egress-proxy/README.md).
