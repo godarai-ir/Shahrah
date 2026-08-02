@@ -194,6 +194,7 @@ func credentialProbeDeployment(
 
 func credentialProbeHeaders(record EncryptedCredential) map[string]string {
 	headers := map[string]string{}
+
 	for name, value := range map[string]string{
 		"OpenAI-Organization": record.Organization,
 		"OpenAI-Project":      record.Project,

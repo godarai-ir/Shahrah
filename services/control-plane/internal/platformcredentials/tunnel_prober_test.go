@@ -133,9 +133,11 @@ func TestTunnelCredentialProberRoutesGeminiProbeThroughSilkRoad(t *testing.T) {
 	if !ok || category != "ok" {
 		t.Fatalf("probe failed: ok=%v category=%q", ok, category)
 	}
+
 	if tunnel.request.Operation != platform.ProviderOperationCredentialProbe {
 		t.Fatalf("operation = %q", tunnel.request.Operation)
 	}
+
 	if tunnel.request.Deployment.Provider != "google-gemini" ||
 		tunnel.request.Deployment.ProviderAuth == nil ||
 		tunnel.request.Deployment.ProviderAuth.APIKey != "gemini-secret" {
