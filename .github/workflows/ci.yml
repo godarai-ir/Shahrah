@@ -2,10 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
-  workflow_dispatch:
+    branches: [main]
 
 permissions:
   contents: read
@@ -234,7 +233,7 @@ jobs:
     if: >-
       always() &&
       github.event_name == 'push' &&
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      github.ref == 'refs/heads/main' &&
       needs.changes.result == 'success' &&
       (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
       (needs.test.result == 'success' || needs.test.result == 'skipped') &&
