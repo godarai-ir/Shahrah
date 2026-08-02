@@ -68,4 +68,26 @@ sudo nft list chain inet filter input
 
 Silk Road readiness confirms the internal service chain, not live reachability of the external proxy. Verify the egress IP and inspect both `journalctl -u silk-road-egress-proxy.service` and `/var/log/squid/access.log` after changes. A missing gateway listener produces a `proxyconnect ... connection refused` dispatch error while the Pods can remain Ready.
 
+## Local development
+
+The local Compose stack also requires the EU proxy. Before starting the stack on
+Windows, connect the VPN and keep this forward running:
+
+```powershell
+putty.exe -load node-4-eu -l ubuntu -N -L 1443:127.0.0.1:443
+docker compose -f infra/compose/local.yml up -d silk-road tunnel-server tunnel-client control-plane
+```
+
+Compose gives Silk Road these defaults:
+
+```text
+SILK_ROAD_EGRESS_PROXY_URL=http://host.docker.internal:1443
+SILK_ROAD_EGRESS_PROXY_REQUIRED=true
+```
+
+The expected startup log is `egress proxy configured=true required=true`. This
+proxies provider dispatches and credential probes, but `/ready` still does not
+test external proxy reachability. Validate with a provider probe and confirm its
+CONNECT entry in `/var/log/squid/access.log` on `node-4-eu`.
+
 Rollback the GitOps configuration first. Removing the required proxy environment variables restores the previous application egress behavior; only then disable the gateway socket or reverse tunnel. Restore the timestamped nftables backup only after validating it with `sudo nft -c -f`.
