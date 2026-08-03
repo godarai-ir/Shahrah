@@ -39,7 +39,7 @@ export function SiteFooter() {
                 </svg>
               </a>
               <a
-                href="https://github.com/delpak/shahrah/"
+                href="https://github.com/godarai-ir"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={t('githubAria')}
@@ -76,7 +76,7 @@ export function SiteFooter() {
             <li><a href="/blog" className={footerLinkClass}>{t('blog')}</a></li>
             <li><Link href="/" className={footerLinkClass}>{t('catalog')}</Link></li>
             <li>
-              <a href="https://github.com/delpak/shahrah/" target="_blank" rel="noopener noreferrer" className={footerLinkClass}>
+              <a href="https://github.com/godarai-ir" target="_blank" rel="noopener noreferrer" className={footerLinkClass}>
                 {t('github')}
               </a>
             </li>

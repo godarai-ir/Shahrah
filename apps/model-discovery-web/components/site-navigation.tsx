@@ -8,7 +8,7 @@ import { GitHubIcon } from "@/components/github-icon";
 const links = [
   { href: "https://godarai.ir/docs", key: "useApi", external: true },
   { href: "/compare", key: "compare", external: false },
-  { href: "https://github.com/delpak/shahrah", key: "github", external: true },
+  { href: "https://github.com/godarai-ir", key: "github", external: true },
 ] as const;
 
 export function SiteNavigation() {
