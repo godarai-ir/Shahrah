@@ -1534,6 +1534,10 @@ func (s *integrationWalletStore) CreateBankTransferRequest(ctx context.Context, 
 	}, nil
 }
 
+func (s *integrationWalletStore) BankTransferReceiptExists(ctx context.Context, tenantID string, receiptFileURL string) (bool, error) {
+	return false, nil
+}
+
 func (s *integrationWalletStore) ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error) {
 	return []platform.BankTransferRequest{}, nil
 }

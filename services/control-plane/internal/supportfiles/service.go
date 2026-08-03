@@ -275,14 +275,17 @@ func (s *Service) UploadReceiptImage(ctx context.Context, tenantID string, heade
 	if s == nil || s.store == nil || s.scanner == nil {
 		return nil, ErrNotConfigured
 	}
+
 	if header == nil || header.Size <= 0 {
 		return nil, ErrInvalidReceipt
 	}
+
 	if header.Size > MaxReceiptImageBytes {
 		return nil, ErrFileTooLarge
 	}
 
 	originalFilename := sanitizeFilename(header.Filename)
+
 	contentType, err := validateFileType(header, originalFilename)
 	if err != nil || !isReceiptImageType(contentType) {
 		return nil, ErrInvalidReceipt
@@ -296,11 +299,14 @@ func (s *Service) UploadReceiptImage(ctx context.Context, tenantID string, heade
 	if err != nil {
 		return nil, fmt.Errorf("open bank transfer receipt for upload: %w", err)
 	}
+
 	uploadErr := s.store.Put(ctx, objectKey, uploadReader, header.Size, contentType)
 	closeErr := uploadReader.Close()
+
 	if uploadErr != nil {
 		return nil, fmt.Errorf("store bank transfer receipt: %w", uploadErr)
 	}
+
 	if closeErr != nil {
 		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
 		return nil, fmt.Errorf("close bank transfer receipt after upload: %w", closeErr)
@@ -311,16 +317,20 @@ func (s *Service) UploadReceiptImage(ctx context.Context, tenantID string, heade
 		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
 		return nil, fmt.Errorf("open bank transfer receipt for scan: %w", err)
 	}
+
 	clean, scanResult, scanErr := s.scanner.Scan(ctx, io.LimitReader(scanReader, MaxReceiptImageBytes+1))
 	closeErr = scanReader.Close()
+
 	if scanErr != nil {
 		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
 		return nil, fmt.Errorf("%w: %v", ErrScanFailed, scanErr)
 	}
+
 	if closeErr != nil {
 		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
 		return nil, fmt.Errorf("close bank transfer receipt after scan: %w", closeErr)
 	}
+
 	if !clean {
 		_ = s.store.Delete(context.WithoutCancel(ctx), objectKey) //nolint:errcheck // Compensating cleanup is best-effort.
 		return nil, fmt.Errorf("%w: %s", ErrInfected, scanResult)
@@ -338,6 +348,7 @@ func (s *Service) DeleteObject(ctx context.Context, key string) {
 	if s == nil || s.store == nil || strings.TrimSpace(key) == "" {
 		return
 	}
+
 	_ = s.store.Delete(ctx, key) //nolint:errcheck // Compensating cleanup is best-effort.
 }
 
@@ -354,13 +365,16 @@ func ValidateBankTransferReceiptFileName(fileName string) (string, bool) {
 		".webp": "image/webp",
 		".gif":  "image/gif",
 	}
+
 	contentType, ok := contentTypes[extension]
 	if !ok {
 		return "", false
 	}
+
 	if _, err := uuid.Parse(strings.TrimSuffix(fileName, extension)); err != nil {
 		return "", false
 	}
+
 	return contentType, true
 }
 
@@ -613,6 +627,7 @@ func firstEnv(keys ...string) string {
 			return value
 		}
 	}
+
 	return ""
 }
 
@@ -620,6 +635,7 @@ func boolEnvFallback(primary, legacy string, fallback bool) bool {
 	if strings.TrimSpace(os.Getenv(primary)) != "" {
 		return boolEnv(primary, fallback)
 	}
+
 	return boolEnv(legacy, fallback)
 }
 
