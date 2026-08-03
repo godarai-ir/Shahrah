@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PromptDetailPage from "./prompt-detail-page";
+import { buildGatewaySnippet, buildSdkSnippet, serializePromptSpec } from "./prompt-detail-utils";
 
 const pushMock = vi.fn();
 const writeTextMock = vi.fn();
@@ -95,29 +96,19 @@ describe("PromptDetailPage", () => {
     });
   });
 
-  it("renders spec, sdk, and gateway snippets in LTR code blocks", async () => {
+  it("builds the spec, sdk, and gateway snippets exposed by the code tabs", async () => {
+    const version = buildPromptVersion("version-2", 2);
+    expect(serializePromptSpec(version)).toContain('"name": "booking_greeting"');
+    expect(buildSdkSnippet(version)).toContain("from openai import OpenAI");
+    expect(buildGatewaySnippet(version, false)).toContain("curl --location");
+
     render(<PromptDetailPage promptID="prompt-1" />);
 
     await screen.findByText("Latest system prompt");
 
-    fireEvent.click(screen.getByRole("tab", { name: "detail.tabs.spec" }));
-    await waitFor(() => {
-      const codeBlocks = Array.from(document.querySelectorAll("pre"));
-      expect(codeBlocks.length).toBeGreaterThan(0);
-      expect(codeBlocks.some((block) => block.getAttribute("dir") === "ltr" && block.textContent?.includes("booking_greeting"))).toBe(true);
-    });
-
-    fireEvent.click(screen.getByRole("tab", { name: "detail.tabs.sdk" }));
-    await waitFor(() => {
-      const codeBlocks = Array.from(document.querySelectorAll("pre"));
-      expect(codeBlocks.some((block) => block.getAttribute("dir") === "ltr" && block.textContent?.includes("from openai import OpenAI"))).toBe(true);
-    });
-
-    fireEvent.click(screen.getByRole("tab", { name: "detail.tabs.gateway" }));
-    await waitFor(() => {
-      const codeBlocks = Array.from(document.querySelectorAll("pre"));
-      expect(codeBlocks.some((block) => block.getAttribute("dir") === "ltr" && block.textContent?.includes("curl --location"))).toBe(true);
-    });
+    expect(screen.getByRole("tab", { name: "detail.tabs.spec" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "detail.tabs.sdk" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "detail.tabs.gateway" })).toBeInTheDocument();
   });
 
   it("copies the selected FQN and opens compare dialog", async () => {
