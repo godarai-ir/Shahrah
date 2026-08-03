@@ -177,6 +177,7 @@ func TestUploadReceiptImageFailsClosedForInfectedOrUnavailableScanner(t *testing
 	} {
 		t.Run(name, func(t *testing.T) {
 			store := &memoryStore{}
+
 			_, err := New(store, testCase.scanner).UploadReceiptImage(context.Background(), "tenant-id", files[0])
 			if !errors.Is(err, testCase.expected) {
 				t.Fatalf("got %v want %v", err, testCase.expected)
