@@ -251,9 +251,13 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
 }
 
 /**
- * Relays an authenticated request and response body as streams. This is used
- * for multipart support-ticket uploads and private attachment downloads so
- * binary data is never decoded or re-encoded by the Next.js boundary.
+ * Relays authenticated binary traffic to the control plane. POST request
+ * bodies are buffered so the upstream request has an exact Content-Length;
+ * response bodies remain streamed for downloads and API responses.
+ *
+ * Fiber's StreamRequestBody mode can dispatch handlers before a chunked
+ * multipart request has fully arrived. Forwarding the incoming ReadableStream
+ * directly therefore makes MultipartForm observe an incomplete body.
  */
 export async function proxyToControlPlaneBodyStream(options: {
   request: NextRequest;
@@ -301,14 +305,18 @@ export async function proxyToControlPlaneBodyStream(options: {
   if (contentType) headers.set("content-type", contentType);
 
   try {
-    const init: RequestInit & { duplex?: "half" } = {
+    const body = options.method === "POST"
+      ? await options.request.arrayBuffer()
+      : undefined;
+    if (body) headers.set("content-length", String(body.byteLength));
+
+    const init: RequestInit = {
       method: options.method,
       headers,
-      body: options.method === "POST" ? options.request.body : undefined,
+      body,
       cache: "no-store",
       signal: options.request.signal,
     };
-    if (init.body) init.duplex = "half";
 
     const upstream = await fetch(new URL(normalizePath(options.path), getControlPlaneBaseURL()), init);
     const responseHeaders = new Headers();
