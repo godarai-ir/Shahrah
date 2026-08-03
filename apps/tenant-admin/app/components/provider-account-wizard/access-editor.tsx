@@ -11,6 +11,7 @@ import {
   type PrincipalSearchKind,
 } from "@/app/components/principal-search-input";
 import { PrincipalPicker } from "@/app/components/principal-picker";
+import { cn } from "@/lib/utils";
 import type { AccessPrincipal, AccessPrincipalCandidate } from "./types";
 export const AccessEditor = memo(function AccessEditor(props: {
   t: ReturnType<typeof useTranslations>;
@@ -24,13 +25,19 @@ export const AccessEditor = memo(function AccessEditor(props: {
   isSaving: boolean;
   canManage: boolean;
   showSaveAction?: boolean;
+  embedded?: boolean;
   isManagerRemovable?: (manager: AccessPrincipal) => boolean;
   getLockedManagerLabel?: (manager: AccessPrincipal) => string;
 }) {
   const ux = useTranslations("providerAccounts.ux");
 
   return (
-    <section className="space-y-5 rounded-lg border border-border/70 bg-background p-4 sm:p-5">
+    <section
+      className={cn(
+        "space-y-5",
+        !props.embedded && "rounded-lg border border-border/70 bg-background p-4 sm:p-5",
+      )}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <Alert variant="info" className="min-w-0 flex-1">
           <AlertDescription>{ux("access.description")}</AlertDescription>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Braces,
@@ -13,22 +14,28 @@ import {
   GitCompare,
   History,
   MessageSquareText,
-  PencilLine,
   Play,
   Settings2,
 } from "lucide-react";
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
-import { CodePanel, DefinitionList, DefinitionListItem, FormDialog, SectionHeader } from "@/components/app-ui";
+import { CodePanel, DateTimeValue, DefinitionList, DefinitionListItem, FormDialog, SectionHeader } from "@/components/app-ui";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -51,7 +58,6 @@ import {
   type PromptDetailTab,
 } from "./prompt-detail-utils";
 import {
-  formatDate,
   type Notice,
   type Prompt,
   type PromptTranslationFn,
@@ -100,6 +106,9 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
 
   const isSelectedLatestVersion =
     Boolean(selectedVersion) && typeof prompt?.latest_version === "number" && selectedVersion?.version === prompt.latest_version;
+  const selectedVersionPlaygroundHref = selectedVersion?.id
+    ? `/playground?${new URLSearchParams({ promptID: props.promptID, versionID: selectedVersion.id }).toString()}`
+    : "/playground";
 
   const filteredVersions = useMemo(() => {
     const query = versionSearch.trim().toLowerCase();
@@ -198,16 +207,34 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
 
   return (
     <div dir={pageDir} className="flex flex-col gap-5">
-      <section className="relative overflow-hidden rounded-2xl border bg-card">
-        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
-        <div className="relative flex flex-col gap-5 p-5">
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
-            <div className="min-w-0 flex flex-col gap-4">
-              <div className="text-xs text-muted-foreground">{t("detail.breadcrumb", { name: prompt?.name || t("header.title") })}</div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="min-w-0 break-words text-3xl font-semibold tracking-tight">{prompt?.name || t("header.title")}</h2>
+      <section className="overflow-hidden rounded-xl border border-card-border bg-card shadow-xs">
+        <div className="h-1 bg-primary" aria-hidden="true" />
+        <div className="flex flex-col gap-5 p-4 sm:p-6">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link href="/prompts">{t("header.title")}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage dir="auto">{prompt?.name || t("header.title")}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h2 className="min-w-0 break-words text-2xl font-semibold tracking-tight sm:text-3xl">
+                  {prompt?.name || t("header.title")}
+                </h2>
                 {selectedVersion ? (
                   <>
+                    <Badge variant="secondary">
+                      {t("list.versionValue", { version: selectedVersion.version })}
+                    </Badge>
                     <Badge variant={isSelectedLatestVersion ? "success" : "secondary"}>
                       {isSelectedLatestVersion ? t("detail.status.latest") : t("detail.status.previous")}
                     </Badge>
@@ -215,62 +242,34 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
                   </>
                 ) : null}
               </div>
-              <p className="max-w-3xl text-sm text-muted-foreground">
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
                 {selectedDescriptor?.description || prompt?.description || t("detail.description")}
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{selectedVersion ? t("list.versionValue", { version: selectedVersion.version }) : t("detail.empty")}</Badge>
-                <Badge variant="outline">{selectedDescriptor?.model || t("list.columns.model")}</Badge>
-              </div>
             </div>
 
-            <div className="rounded-xl border bg-background/80 p-4 shadow-sm backdrop-blur">
-              <div className="flex flex-col gap-2">
-                <Button type="button" onClick={() => router.push(`/playground?promptID=${encodeURIComponent(props.promptID)}${selectedVersion?.id ? `&versionID=${encodeURIComponent(selectedVersion.id)}` : ""}`)}>
-                  <Play data-icon="inline-start" />
-                  {t("actions.tryPrompt")}
-                </Button>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
-                    <History data-icon="inline-start" />
-                    {t("actions.versionHistory")}
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => void copySelectedFqn()} disabled={!selectedVersion?.fqn}>
-                    <Clipboard data-icon="inline-start" />
-                    {t("actions.copyFqn")}
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=create-version`)}>
-                    <FileCode2 data-icon="inline-start" />
-                    {t("actions.createVersion")}
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => router.push(`/prompts/${props.promptID}/edit?intent=edit-latest`)}>
-                    <PencilLine data-icon="inline-start" />
-                    {t("actions.editLatestVersion")}
-                  </Button>
-                </div>
-              </div>
+            <Button
+              type="button"
+              className="w-full lg:w-auto lg:shrink-0"
+              onClick={() => router.push(selectedVersionPlaygroundHref)}
+            >
+              <Play data-icon="inline-start" />
+              {t("actions.tryPrompt")}
+            </Button>
+          </div>
 
-              <Separator className="my-4" />
-
-              <DefinitionList>
-                <DefinitionListItem surface
-                  label={t("detail.summary.activeVersion")}
-                  value={selectedVersion ? t("list.versionValue", { version: selectedVersion.version }) : "-"}
-                />
-                <DefinitionListItem surface
-                  label={t("list.columns.model")}
-                  value={selectedDescriptor?.model || "-"}
-                  mono
-                  valueDir="ltr"
-                />
-                <DefinitionListItem surface
-                  label={t("versions.selectedFqn")}
-                  value={selectedVersion?.fqn || "-"}
-                  mono
-                  valueDir="ltr"
-                />
-              </DefinitionList>
-            </div>
+          <div className="grid grid-cols-1 gap-2 border-t border-border/60 pt-4 sm:grid-cols-2 xl:grid-cols-3">
+            <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => setHistoryOpen(true)}>
+              <History data-icon="inline-start" />
+              {t("actions.versionHistory")}
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => void copySelectedFqn()} disabled={!selectedVersion?.fqn}>
+              <Clipboard data-icon="inline-start" />
+              {t("actions.copyFqn")}
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => router.push(selectedVersionPlaygroundHref)}>
+              <FileCode2 data-icon="inline-start" />
+              {t("actions.createVersion")}
+            </Button>
           </div>
 
           {notice ? (
@@ -301,7 +300,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="prompt" forceMount>
+          <TabsContent value="prompt">
             <PromptContent
               descriptor={selectedDescriptor}
               locale={locale}
@@ -312,7 +311,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
             />
           </TabsContent>
 
-          <TabsContent value="spec" forceMount>
+          <TabsContent value="spec">
             <CodePanel
               actions={
                 <>
@@ -339,7 +338,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
             />
           </TabsContent>
 
-          <TabsContent value="sdk" forceMount>
+          <TabsContent value="sdk">
             <CodePanel
               actions={
                 <Button
@@ -360,7 +359,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
             />
           </TabsContent>
 
-          <TabsContent value="gateway" forceMount>
+          <TabsContent value="gateway">
             <GatewayContent
               selectedVersion={selectedVersion}
               t={t}
@@ -380,7 +379,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
           setCompareOpen(true);
           setHistoryOpen(false);
         }}
-        onCreateVersion={() => router.push(`/prompts/${props.promptID}/edit?intent=create-version`)}
+        onCreateVersion={() => router.push(selectedVersionPlaygroundHref)}
         onSelectVersion={(version) => {
           setSelectedVersionID(version.id);
           setHistoryOpen(false);
@@ -562,10 +561,23 @@ function PromptContent(props: {
           </CardHeader>
           <CardContent>
             <DefinitionList>
-            <DefinitionListItem surface mono valueDir="ltr" label={props.t("detail.summary.promptId")} value={props.prompt?.id || "-"} />
             <DefinitionListItem surface mono valueDir="ltr" label={props.t("versions.selectedFqn")} value={props.selectedVersion.fqn || "-"} />
-            <DefinitionListItem surface valueDir="ltr" label={props.t("list.columns.updatedAt")} value={formatDate(props.prompt?.updated_at, props.locale)} />
-            <DefinitionListItem surface valueDir="ltr" label={props.t("detail.summary.createdAt")} value={formatDate(props.selectedVersion.created_at, props.locale)} />
+            <div className="rounded-lg border border-border bg-muted/20 px-3 py-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs text-muted-foreground">{props.t("list.columns.updatedAt")}</dt>
+                  <dd className="mt-1 text-sm font-medium">
+                    <DateTimeValue value={props.prompt?.updated_at} locale={props.locale} fallback="-" />
+                  </dd>
+                </div>
+                <div className="border-t border-border/60 pt-3 sm:border-s sm:border-t-0 sm:ps-3 sm:pt-0">
+                  <dt className="text-xs text-muted-foreground">{props.t("detail.summary.createdAt")}</dt>
+                  <dd className="mt-1 text-sm font-medium">
+                    <DateTimeValue value={props.selectedVersion.created_at} locale={props.locale} fallback="-" />
+                  </dd>
+                </div>
+              </div>
+            </div>
             <DefinitionListItem surface
               label={props.t("detail.summary.versionAuthor")}
               value={props.userLabelByID[props.selectedVersion.created_by ?? ""] || props.selectedVersion.created_by || "-"}
@@ -639,7 +651,7 @@ function GatewayContent(props: {
           <TabsTrigger value="non-stream">{props.t("detail.gateway.nonStream")}</TabsTrigger>
           <TabsTrigger value="stream">{props.t("detail.gateway.stream")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="non-stream" forceMount>
+        <TabsContent value="non-stream">
           <CodePanel
             actions={
               <Button type="button" variant="outline" size="sm" onClick={() => props.onCopy(nonStreamingSnippet)}>
@@ -654,7 +666,7 @@ function GatewayContent(props: {
             title={props.t("detail.gateway.nonStream")}
           />
         </TabsContent>
-        <TabsContent value="stream" forceMount>
+        <TabsContent value="stream">
           <CodePanel
             actions={
               <Button type="button" variant="outline" size="sm" onClick={() => props.onCopy(streamingSnippet)}>
@@ -690,50 +702,69 @@ function PromptVersionHistorySheet(props: {
 }) {
   return (
     <Sheet open={props.isOpen} onOpenChange={(open) => { if (!open) props.onClose(); }}>
-      <SheetContent side="left" className="w-[94vw] max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <SheetTitle>{props.t("actions.versionHistory")}</SheetTitle>
-              <SheetDescription>{props.t("detail.historyDescription")}</SheetDescription>
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={props.onCompareOpen}>
-              <GitCompare data-icon="inline-start" />
-              {props.t("actions.compareVersions")}
-            </Button>
+      <SheetContent
+        side="left"
+        closeLabel={props.t("actions.close")}
+        className="flex h-full w-full flex-col overflow-hidden p-0 sm:max-w-lg"
+      >
+        <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-4 pt-5 sm:px-6">
+          <div className="flex items-center gap-2 pe-8">
+            <SheetTitle>{props.t("actions.versionHistory")}</SheetTitle>
+            <Badge variant="secondary">{new Intl.NumberFormat(props.locale).format(props.versions.length)}</Badge>
           </div>
+          <SheetDescription className="max-w-md leading-6">{props.t("detail.historyDescription")}</SheetDescription>
         </SheetHeader>
-        <div className="mt-6 flex flex-col gap-4">
-          <div className="flex flex-col gap-2 sm:flex-row">
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
+          <div className="flex shrink-0 flex-col gap-3">
             <Input
               value={props.search}
               onChange={(event) => props.setSearch(event.target.value)}
               placeholder={props.t("detail.historySearchPlaceholder")}
+              aria-label={props.t("detail.historySearchPlaceholder")}
             />
-            <Button type="button" className="shrink-0" onClick={props.onCreateVersion}>
-              {props.t("actions.createVersion")}
-            </Button>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button type="button" className="w-full" onClick={props.onCreateVersion}>
+                <FileCode2 data-icon="inline-start" />
+                {props.t("actions.createVersion")}
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={props.onCompareOpen}>
+                <GitCompare data-icon="inline-start" />
+                {props.t("actions.compareVersions")}
+              </Button>
+            </div>
           </div>
-          <ScrollArea className="h-[min(60dvh,28rem)] ps-3">
-            <div className="flex flex-col gap-2">
+
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-2 pe-3 pb-1">
               {props.versions.map((version) => (
                 <button
                   key={version.id}
                   type="button"
                   className={cn(
-                    "w-full rounded-xl border p-4 text-start transition hover:bg-accent",
-                    version.id === props.currentVersionID && "border-primary/40 bg-primary/5",
+                    "w-full rounded-lg border border-border bg-card p-3 text-start shadow-xs transition-colors hover:border-primary/40 hover:bg-muted/30 sm:p-4",
+                    version.id === props.currentVersionID && "border-primary-subtle-border border-s-2 border-s-primary bg-primary-soft",
                   )}
                   onClick={() => props.onSelectVersion(version)}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium">{props.t("versions.versionValue", { version: version.version })}</div>
-                    <div className="text-xs text-muted-foreground">{formatDate(version.created_at, props.locale)}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <Badge variant={version.id === props.currentVersionID ? "default" : "secondary"}>
+                      {props.t("versions.versionValue", { version: version.version })}
+                    </Badge>
+                    <DateTimeValue
+                      value={version.created_at}
+                      locale={props.locale}
+                      fallback="-"
+                      className="shrink-0 text-xs text-muted-foreground"
+                    />
                   </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
+                  <div className="mt-3 truncate text-sm font-medium text-foreground">
                     {props.userLabelByID[version.created_by ?? ""] || version.created_by || "-"}
                   </div>
-                  <div className="mt-2 truncate text-xs text-muted-foreground" dir="ltr">
+                  <div
+                    className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground"
+                    dir={version.commit_message ? "auto" : "ltr"}
+                  >
                     {version.commit_message || version.fqn}
                   </div>
                 </button>

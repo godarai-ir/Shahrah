@@ -178,6 +178,8 @@
   "create": {
     "chooseProvider": "Choose provider",
     "configureProvider": "Configure provider",
+    "providerPlaceholder": "?",
+    "stepProgress": "Step {current, number} of {total, number}",
     "summaryTitle": "Setup summary",
     "ready": "Ready to create",
     "incomplete": "Needs completion",

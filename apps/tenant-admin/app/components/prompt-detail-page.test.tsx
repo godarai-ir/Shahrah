@@ -140,12 +140,14 @@ describe("PromptDetailPage", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("routes edit actions to the editor and the selected version to Playground", async () => {
+  it("loads the selected prompt version in Playground when creating a version", async () => {
     render(<PromptDetailPage promptID="prompt-1" />);
 
     await screen.findByText("Latest system prompt");
-    fireEvent.click(screen.getByText("actions.editLatestVersion"));
-    expect(pushMock).toHaveBeenCalledWith("/prompts/prompt-1/edit?intent=edit-latest");
+    expect(screen.queryByText("actions.editLatestVersion")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("actions.createVersion"));
+    expect(pushMock).toHaveBeenCalledWith("/playground?promptID=prompt-1&versionID=version-2");
 
     fireEvent.click(screen.getByText("actions.tryPrompt"));
     expect(pushMock).toHaveBeenCalledWith("/playground?promptID=prompt-1&versionID=version-2");

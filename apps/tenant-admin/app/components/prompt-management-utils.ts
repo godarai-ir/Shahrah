@@ -41,7 +41,7 @@ export function buildPromptUsageSnippet(fqn: string, model?: string) {
   return `from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_SHAHRAH_API_KEY",
+    api_key="YOUR_GODARAI_API_KEY",
     base_url="https://TENANT.sharah.ir/v1"
 )
 

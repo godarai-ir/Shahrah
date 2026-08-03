@@ -11,6 +11,7 @@ import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message";
@@ -77,6 +78,20 @@ export default function DesignSystemPage() {
         titleAddon={<HelpLink href="/design-system">Title-level help</HelpLink>}
         actions={<Button>Primary action</Button>}
       />
+
+      <AppCard title="Breadcrumb" description="Linked hierarchy for nested detail pages, with an accessible current location.">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/prompts">Prompts</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>booking_greeting</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </AppCard>
 
       <section className="flex flex-col gap-4">
         <SectionHeader

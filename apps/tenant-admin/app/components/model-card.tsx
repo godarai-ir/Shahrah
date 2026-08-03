@@ -186,7 +186,7 @@ export function ModelCard(props: ModelCardProps) {
     invocationModes: "Invocation modes",
     fqn: "Model FQN",
     customPricing: "Custom pricing",
-    pricingPerMillion: "Cost (1M tokens)",
+    pricingPerMillion: "Cost per 1M tokens (some models use tiered pricing)",
     pricingPerToken: "Cost per token",
     modelId: "Model ID",
     providerId: "Provider ID",
@@ -264,6 +264,20 @@ export function ModelCard(props: ModelCardProps) {
 
   function renderSelectedControl(className?: string) {
     if (!showSelectedControl) return null;
+
+    if (props.selectedControlLabel === null) {
+      return (
+        <Switch
+          checked={props.isSelected === true}
+          onCheckedChange={(checked) => props.onSelectedChange?.(checked)}
+          aria-label={props.selectedCheckboxLabel ?? "Enabled"}
+          className={cn(
+            "border-muted-foreground/50 shadow-sm data-[state=checked]:border-primary data-[state=unchecked]:bg-muted",
+            className,
+          )}
+        />
+      );
+    }
 
     return (
       <label
@@ -424,7 +438,7 @@ export function ModelCard(props: ModelCardProps) {
       {hasUtilityActions ? (
         <>
           <Separator />
-          <CardFooter data-slot="model-card-actions" className="justify-end px-4 py-3">
+          <CardFooter data-slot="model-card-actions" className="justify-end p-4 pt-4 md:p-5 md:pt-5">
             {renderUtilityActions()}
           </CardFooter>
         </>

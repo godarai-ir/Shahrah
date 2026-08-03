@@ -37,6 +37,14 @@ the final level uses `BreadcrumbPage` so assistive technology receives
 `aria-current="page"`. Keep labels localized and preserve automatic direction
 for provider and model names.
 
+## Breadcrumb
+
+Use the shared `Breadcrumb` primitives for compact hierarchy on nested detail
+pages. Every ancestor must be a real link, while the current entity uses
+`BreadcrumbPage`. Do not reproduce breadcrumbs with plain text and separator
+characters; the shared separator preserves RTL direction and accessible
+navigation semantics.
+
 ## PageContainer
 
 Use `PageContainer` as the outer layout for route-level pages. The default `wide` size, standard padding, and default spacing produce the established `max-w-7xl` page rhythm. Use `readable` for focused content and `full` for embedded workflows that must consume their parent width.
@@ -131,7 +139,7 @@ Use `ExpirationDurationField` for relative token expiry values accepted by the A
 
 Use `ModelNameValue` for model identifiers in tables and compact metadata. It keeps the displayed identifier LTR, monospace, left-aligned, single-line, and directly copyable. Tables should scroll horizontally instead of breaking a technical identifier character-by-character on narrow screens. When the UI summarizes multiple models, pass the full comma-separated identifiers through `copyValue` while keeping the shorter summary in `value`.
 
-Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared syntax-highlighted `CodeBlock`; use `CodeBlock` alone only inside an existing panel that already supplies this hierarchy.
+Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared read-only CodeMirror-based `CodeViewer`, which provides line numbers, selection, search, keyboard focus, and horizontal scrolling for long technical lines. Use `CodeViewer` directly only inside an existing panel that already supplies this hierarchy. Keep `CodeBlock` for compact syntax-highlighted output that needs feature-owned term highlighting.
 
 Use `JsonEditorField` for editable JSON surfaces. It uses the shared CodeMirror 6 editor with JSON parsing and diagnostics, line numbers, bracket matching, LTR editing, optional prompt-variable decoration, and valid-JSON formatting on blur.
 
