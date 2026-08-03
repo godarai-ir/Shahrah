@@ -571,6 +571,7 @@ func main() {
 		HTTPMetrics:                httpMetrics,
 		Logger:                     logger,
 		PlatformServiceAccounts:    store,
+		ExchangeRates:              store,
 	})
 
 	runCtx, cancel := context.WithCancel(context.Background())

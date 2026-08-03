@@ -1,6 +1,7 @@
 "use client";
 
 import type { ResolvedTheme, ThemePreference } from '@shahrah/theme-sync';
+import { useQuery } from '@tanstack/react-query';
 import {
   applyThemePreference,
   getBrowserThemePreference,
@@ -24,6 +25,12 @@ import {
   DISPLAY_SETTINGS_STORAGE_KEY,
   ThemeMode,
 } from '@/lib/display-settings';
+import {
+  ExchangeRateAvailability,
+  ExchangeRateQuote,
+  fetchCurrentExchangeRate,
+  resolveExchangeRateAvailability,
+} from '@/lib/exchange-rate';
 
 const themeReadOptions = {
   defaultTheme: 'system' as const,
@@ -38,6 +45,8 @@ type DisplaySettingsContextValue = {
   setSettings: (next: DisplaySettings) => void;
   updateSettings: (patch: Partial<DisplaySettings>) => void;
   resetSettings: () => void;
+  exchangeRate: ExchangeRateQuote | null;
+  exchangeRateAvailability: ExchangeRateAvailability;
 };
 
 const DisplaySettingsContext = createContext<DisplaySettingsContextValue | null>(null);
@@ -68,6 +77,18 @@ function persistDisplaySettings(settings: DisplaySettings) {
 
 export function DisplaySettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettingsState] = useState<DisplaySettings>(DISPLAY_SETTINGS_DEFAULTS);
+  const exchangeRateQuery = useQuery({
+    queryKey: ['current-exchange-rate'],
+    queryFn: ({ signal }) => fetchCurrentExchangeRate(signal),
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: 1,
+  });
+  const exchangeRate = exchangeRateQuery.data ?? null;
+  const exchangeRateAvailability = resolveExchangeRateAvailability(
+    exchangeRate,
+    exchangeRateQuery.isPending,
+  );
   const systemPrefersDark = useSyncExternalStore(
     subscribeToThemePreference,
     getSystemPrefersDark,
@@ -138,7 +159,15 @@ export function DisplaySettingsProvider({ children }: { children: React.ReactNod
     applyThemePreference(preference);
   }, [resolvedTheme, settings.themeMode]);
 
-  const value = {settings, resolvedTheme, setSettings, updateSettings, resetSettings};
+  const value = {
+    settings,
+    resolvedTheme,
+    setSettings,
+    updateSettings,
+    resetSettings,
+    exchangeRate,
+    exchangeRateAvailability,
+  };
 
   return (
     <DisplaySettingsContext.Provider value={value}>

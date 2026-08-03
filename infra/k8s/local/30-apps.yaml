@@ -351,6 +351,12 @@ spec:
             - sh
             - -c
             - until nc -z model-discovery 3002; do echo waiting for model-discovery; sleep 2; done
+        - name: wait-for-control-plane
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - until nc -z control-plane 4000; do echo waiting for control-plane; sleep 2; done
       containers:
         - name: model-discovery-web
           image: shahrah/model-discovery-web:local
@@ -364,6 +370,11 @@ spec:
                 configMapKeyRef:
                   name: shahrah-config
                   key: MODEL_DISCOVERY_API_BASE_INTERNAL
+            - name: SHAHRAH_CONTROL_PLANE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: shahrah-config
+                  key: SHAHRAH_CONTROL_PLANE_URL
           readinessProbe:
             tcpSocket:
               port: 3000

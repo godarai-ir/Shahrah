@@ -25,6 +25,10 @@ func registerObservabilityRoutes(app *fiber.App, cfg *config.Config, deps Depend
 }
 
 func registerPublicAdminRoutes(app *fiber.App, deps Dependencies) {
+	if deps.ExchangeRates != nil {
+		app.Get("/api/v1/exchange-rates/current", currentExchangeRateHandler(deps.ExchangeRates))
+	}
+
 	if deps.AdminHandlers == nil {
 		return
 	}

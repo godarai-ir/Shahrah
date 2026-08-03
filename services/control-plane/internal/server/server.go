@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"io"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
@@ -58,6 +60,13 @@ type Dependencies struct {
 	HTTPMetrics                *prommetrics.HTTPMetrics
 	Logger                     *zap.Logger
 	PlatformServiceAccounts    auth.PlatformServiceAccountStore
+	ExchangeRates              ExchangeRateReader
+}
+
+// ExchangeRateReader exposes the persisted control-plane exchange-rate snapshot
+// without leaking storage details into the HTTP layer.
+type ExchangeRateReader interface {
+	GetLatestExchangeRate(ctx context.Context) (*platform.ExchangeRate, error)
 }
 
 type TraceHealthReporter interface {

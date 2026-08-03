@@ -11,7 +11,7 @@ import {
 
 export function useDisplayFormatters() {
   const t = useTranslations("Units");
-  const { settings } = useDisplaySettings();
+  const { settings, exchangeRate, exchangeRateAvailability } = useDisplaySettings();
 
   const priceLabels = useMemo(
     () => ({
@@ -28,9 +28,12 @@ export function useDisplayFormatters() {
 
   return {
     settings,
+    exchangeRate,
+    exchangeRateAvailability,
     formatDate: (value: string | null | undefined) => formatDisplayDate(value, settings),
-    formatPrice: (value: number | null | undefined) => formatDisplayPrice(value, settings, priceLabels),
+    formatPrice: (value: number | null | undefined) =>
+      formatDisplayPrice(value, settings, priceLabels, exchangeRate?.rate),
     formatPriceAmount: (value: number | null | undefined) =>
-      formatDisplayPriceAmount(value, settings, priceLabels),
+      formatDisplayPriceAmount(value, settings, priceLabels, exchangeRate?.rate),
   };
 }

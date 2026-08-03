@@ -23,6 +23,7 @@ The development server uses `http://localhost:3002/api/v1` for server-side model
 Environment variables:
 
 - `MODEL_DISCOVERY_API_BASE_INTERNAL`: server-to-server API base; defaults to `http://localhost:3002/api/v1` locally and `http://model-discovery:3002/api/v1` in production
+- `SHAHRAH_CONTROL_PLANE_URL`: server-only control-plane base used by the exchange-rate BFF; defaults to `http://localhost:4000` locally and `http://control-plane:4000` in production
 - `NEXT_PUBLIC_MODEL_DISCOVERY_API_BASE`: optional browser-visible API base; default `/catalog/api/v1`
 
 No model-discovery service-account credential belongs in this application.
@@ -38,6 +39,8 @@ No model-discovery service-account credential belongs in this application.
 - `/catalog/categories/[categorySlug]`
 
 The same-origin `/catalog/api/v1/[...path]` route only proxies allow-listed public GET endpoints. Paths containing `admin` are rejected.
+
+`GET /catalog/api/exchange-rate` is a dedicated same-origin BFF route. It validates and caches the public control-plane `USD→IRR` quote. The browser never calls Nobitex or receives a control-plane credential. IRR and toman display is unavailable when no valid quote exists; stale snapshots remain visible with their last update time.
 
 ## API contract
 

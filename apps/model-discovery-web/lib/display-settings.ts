@@ -26,14 +26,14 @@ export const DISPLAY_SETTINGS_DEFAULTS: DisplaySettings = {
 };
 
 const EMPTY = '-';
-const DEFAULT_USD_TO_IRR = 650000;
 
 export function formatDisplayPrice(
   value: number | null | undefined,
   settings: DisplaySettings,
   labels: DisplayPriceLabels,
+  usdToIrr?: number | null,
 ): string {
-  const amount = formatDisplayPriceAmount(value, settings, labels);
+  const amount = formatDisplayPriceAmount(value, settings, labels, usdToIrr);
   if (amount === EMPTY) return EMPTY;
 
   const unitLabel = settings.priceScale === 'PER_TOKEN' ? labels.perToken : labels.perMillionTokens;
@@ -44,6 +44,7 @@ export function formatDisplayPriceAmount(
   value: number | null | undefined,
   settings: DisplaySettings,
   labels: DisplayPriceLabels,
+  usdToIrr?: number | null,
 ): string {
   if (value === null || value === undefined) return EMPTY;
 
@@ -52,10 +53,13 @@ export function formatDisplayPriceAmount(
     transformed = transformed / 1_000_000;
   }
 
-  if (settings.currencyUnit === 'IRR') {
-    transformed = transformed * DEFAULT_USD_TO_IRR;
-  } else if (settings.currencyUnit === 'TOMAN') {
-    transformed = (transformed * DEFAULT_USD_TO_IRR) / 10;
+  if (settings.currencyUnit !== 'USD') {
+    if (!usdToIrr || !Number.isFinite(usdToIrr) || usdToIrr <= 0) return EMPTY;
+    transformed = transformed * usdToIrr;
+  }
+
+  if (settings.currencyUnit === 'TOMAN') {
+    transformed /= 10;
   }
 
   const fractionDigits = settings.priceScale === 'PER_TOKEN' ? 8 : 2;

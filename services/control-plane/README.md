@@ -228,6 +228,25 @@ Rollback notes:
 
 ## Wallet Top-up Flow (Implemented)
 
+### Public exchange-rate quote
+
+`GET /api/v1/exchange-rates/current` exposes the latest persisted Nobitex `USDTIRT` snapshot as a read-only, cacheable `USD→IRR` display quote. The contract includes `source`, `marketSymbol`, `pricingBasis`, `fetchedAt`, and `status`. `USDT_AS_USD_PROXY` makes the business assumption explicit. Snapshots up to 15 minutes old are `fresh`; older snapshots are `stale`. Missing, invalid, seed, or non-Nobitex snapshots return `503` instead of silently exposing the configured billing fallback.
+
+Example response:
+
+```json
+{
+  "base": "USD",
+  "quote": "IRR",
+  "rate": 1883500,
+  "source": "nobitex:USDTIRT",
+  "marketSymbol": "USDTIRT",
+  "pricingBasis": "USDT_AS_USD_PROXY",
+  "fetchedAt": "2026-08-03T10:30:00Z",
+  "status": "fresh"
+}
+```
+
 1. `POST /api/v1/wallet/topup/intents` creates a pending top-up intent from USD amount.
 2. Control-plane converts USD to IRR using current exchange rate, then applies tax/fee settings.
 3. Gateway create-payment is called (`mock`, `zarinpal`, `idpay`) and returns `payment_url` + `authority`.

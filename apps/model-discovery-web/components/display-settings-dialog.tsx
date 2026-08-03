@@ -13,9 +13,12 @@ import {
   Settings,
   SlidersHorizontal,
   Sun,
+  TriangleAlert,
+  WifiOff,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -35,11 +38,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useDisplaySettings } from "@/components/display-settings-provider";
-import { CurrencyUnit, DateCalendar, PriceScale, ThemeMode } from "@/lib/display-settings";
+import { CurrencyUnit, DateCalendar, formatDisplayDate, PriceScale, ThemeMode } from "@/lib/display-settings";
 
 export function DisplaySettingsDialog() {
   const t = useTranslations("DisplaySettings");
-  const { settings, updateSettings, resetSettings } = useDisplaySettings();
+  const {
+    settings,
+    updateSettings,
+    resetSettings,
+    exchangeRate,
+    exchangeRateAvailability,
+  } = useDisplaySettings();
+  const hasExchangeRate = exchangeRate !== null;
+  const fetchedAt = exchangeRate ? formatDisplayDate(exchangeRate.fetchedAt, settings) : null;
 
   return (
     <Dialog>
@@ -122,8 +133,8 @@ export function DisplaySettingsDialog() {
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="USD">{t("dollar")}</SelectItem>
-                  <SelectItem value="IRR">{t("rial")}</SelectItem>
-                  <SelectItem value="TOMAN">{t("toman")}</SelectItem>
+                  <SelectItem value="IRR" disabled={!hasExchangeRate}>{t("rial")}</SelectItem>
+                  <SelectItem value="TOMAN" disabled={!hasExchangeRate}>{t("toman")}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -175,6 +186,26 @@ export function DisplaySettingsDialog() {
             </Select>
           </SettingField>
         </div>
+
+        {exchangeRateAvailability === "stale" && fetchedAt ? (
+          <div className="px-6 pb-5">
+            <Alert>
+              <TriangleAlert aria-hidden="true" />
+              <AlertTitle>{t("rateStaleTitle")}</AlertTitle>
+              <AlertDescription>{t("rateStaleDescription", { date: fetchedAt })}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
+
+        {exchangeRateAvailability === "unavailable" ? (
+          <div className="px-6 pb-5">
+            <Alert>
+              <WifiOff aria-hidden="true" />
+              <AlertTitle>{t("rateUnavailableTitle")}</AlertTitle>
+              <AlertDescription>{t("rateUnavailableDescription")}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
 
         <DialogFooter className="justify-between border-t border-border bg-muted/25 px-6 py-4">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
