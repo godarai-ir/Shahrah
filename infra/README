@@ -152,7 +152,7 @@ The latest infrastructure diagram also clarifies that the current intended topol
 - public traffic enters through the two active floating IPs and lands on `lb-1` / `lb-2`
 - `HAProxy` + `Keepalived` is the host-level edge pattern; HAProxy is the public entry layer for ingress
 - PostgreSQL is external to the cluster
-- object storage / S3-compatible storage is external
+- private support and billing object storage is provided by in-cluster MinIO on Longhorn
 - backup storage is external
 - Longhorn-backed PVCs are intended for in-cluster persistent volumes
 
@@ -1162,7 +1162,7 @@ The infrastructure diagram implies this storage split:
 
 - Longhorn PVCs for in-cluster persistent workloads and internal tools
 - external PostgreSQL for primary relational data
-- external object storage / S3-compatible storage
+- in-cluster MinIO on Longhorn for private support and billing files
 - external backup storage
 
 This is a sensible direction for Shahrah and should remain the default assumption unless infra ownership changes.
