@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCreatedConnectionHref, getCreateStepState, shouldPersistCreateAccount } from "./create-flow";
+import { getCreateStepState, shouldPersistCreateAccount } from "./create-flow";
 
 describe("provider connection create flow", () => {
   it("keeps intermediate continue actions free of server account creation", () => {
@@ -14,11 +14,5 @@ describe("provider connection create flow", () => {
     expect(getCreateStepState({ activeStep: "models", step: "details", completedThrough: 1 })).toBe("complete");
     expect(getCreateStepState({ activeStep: "models", step: "models", completedThrough: 1 })).toBe("active");
     expect(getCreateStepState({ activeStep: "models", step: "access", completedThrough: 1 })).toBe("idle");
-  });
-
-  it("preserves the confirmed account name in the success redirect", () => {
-    expect(buildCreatedConnectionHref("Anthropic", "anthropic-brisk-orbit")).toBe(
-      "/provider-accounts?tab=connected&provider=anthropic&created=anthropic-brisk-orbit",
-    );
   });
 });

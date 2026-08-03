@@ -49,9 +49,9 @@ import {
   providerCredentialValuesForSchema,
   type ProviderCredentialValues,
 } from "@/app/components/provider-account-wizard/credential-schema";
-import { buildCreatedConnectionHref, getCreateStepState, shouldPersistCreateAccount } from "@/app/components/provider-account-wizard/create-flow";
+import { getCreateStepState, shouldPersistCreateAccount } from "@/app/components/provider-account-wizard/create-flow";
 import { ModelsEditor } from "@/app/components/provider-account-wizard/models-editor";
-import { EmptyOverview, ReadinessBadge, SummaryKPI } from "@/app/components/provider-account-wizard/overview";
+import { EmptyOverview, SummaryKPI } from "@/app/components/provider-account-wizard/overview";
 import { buildPrincipalSelectorLabels } from "@/app/components/provider-account-wizard/principal-labels";
 import { ProviderLogo } from "@/app/components/provider-account-wizard/provider-logo";
 import { ProviderCredentialSchemaFields } from "@/app/components/provider-account-wizard/provider-credential-schema-fields";
@@ -82,7 +82,6 @@ import { WIFCredentialStatus } from "@/app/components/provider-account-wizard/wi
 import {
   CreateFlowStepIndicator,
   type CreateWizardSectionID,
-  WizardPanel,
 } from "@/app/components/provider-account-wizard/wizard-layout";
 import {
   buildModelDiscoveryProviderHref,
@@ -114,7 +113,6 @@ export default function ProviderAccountWizard(props?: {
   initialProvider?: string;
   initialAccountID?: string;
   docsBaseHref?: string;
-  catalogExperience?: boolean;
   initialSection?: WorkspaceTab;
   currentUser?: {
     id: string;
@@ -142,9 +140,7 @@ export default function ProviderAccountWizard(props?: {
 
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(isCreateMode ? "setup" : "overview");
   const [setupStep, setSetupStep] = useState<SetupStep>(1);
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>(
-    props?.catalogExperience ? (props.initialSection ?? "overview") : "models",
-  );
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(props?.initialSection ?? "overview");
 
   const [isLoading, setIsLoading] = useState(Boolean(initialAccountID));
   const [isSavingModels, setIsSavingModels] = useState(false);
@@ -399,8 +395,7 @@ export default function ProviderAccountWizard(props?: {
     );
   }, [account, selectedModels]);
   const hasUnsavedModelChanges = Boolean(
-    props?.catalogExperience
-    && !isCreateMode
+    !isCreateMode
     && modelDraftBaselineRef.current
     && JSON.stringify(modelDrafts) !== modelDraftBaselineRef.current,
   );
@@ -410,8 +405,7 @@ export default function ProviderAccountWizard(props?: {
     values: providerCredentialValues,
   });
   const hasUnsavedCredentialChanges = Boolean(
-    props?.catalogExperience
-    && !isCreateMode
+    !isCreateMode
     && credentialDraftBaselineRef.current
     && credentialDraftFingerprint !== credentialFingerprint(credentialDraftBaselineRef.current),
   );
@@ -527,8 +521,7 @@ export default function ProviderAccountWizard(props?: {
         const createProviders = providerItems.filter(
           (item) => item.enabled && stringsEqualFold(item.provider, "azure") === false,
         );
-        const initialProvider =
-          currentProviderID || (props?.catalogExperience ? "" : createProviders[0]?.provider) || "";
+        const initialProvider = currentProviderID;
         setSelectedProviderID(initialProvider);
         setSelectedAccountID("");
         setAccount(null);
@@ -563,7 +556,7 @@ export default function ProviderAccountWizard(props?: {
         setAuthMode(initialAccount.auth_mode);
         setUsePlatformManagedCredentials(initialAccount.use_platform_managed_credentials);
         setWorkspaceMode("workspace");
-        setActiveTab(props?.catalogExperience ? (props.initialSection ?? "overview") : "models");
+        setActiveTab(props?.initialSection ?? "overview");
         return;
       }
 
@@ -580,7 +573,7 @@ export default function ProviderAccountWizard(props?: {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUserManager, fetchProviders, isCreateMode, loadProviderModels, props?.catalogExperience, props?.initialSection, t]);
+  }, [currentUserManager, fetchProviders, isCreateMode, loadProviderModels, props?.initialSection, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -821,14 +814,14 @@ export default function ProviderAccountWizard(props?: {
   }, [selectedAccountID, workspaceMode, handleLoadAccount]);
 
   useEffect(() => {
-    if (!props?.catalogExperience || isCreateMode) return;
+    if (isCreateMode) return;
     const preventUnload = (event: BeforeUnloadEvent) => {
       if (!hasUnsavedChanges) return;
       event.preventDefault();
     };
     window.addEventListener("beforeunload", preventUnload);
     return () => window.removeEventListener("beforeunload", preventUnload);
-  }, [hasUnsavedChanges, isCreateMode, props?.catalogExperience]);
+  }, [hasUnsavedChanges, isCreateMode]);
 
   function resetCredentialInputs() {
     setAPIKey("");
@@ -1229,7 +1222,6 @@ export default function ProviderAccountWizard(props?: {
     setIsActivating(true);
     try {
       if (!shouldPersistCreateAccount("activate")) return;
-      const confirmedName = name.trim();
       let accountID: string | null = selectedAccountID;
       if (!accountID) {
         accountID = await handleCreateAccount({ advanceToModels: false });
@@ -1240,25 +1232,21 @@ export default function ProviderAccountWizard(props?: {
       }
       const modelsOK = await handleSaveModels(accountID, { reload: false, announce: false });
       if (!modelsOK) {
-        if (isCreateMode && props?.catalogExperience) {
+        if (isCreateMode) {
           router.replace(`/provider-accounts?${new URLSearchParams({ account: accountID, section: "models" }).toString()}`);
         }
         return;
       }
       const accessOK = await handleSaveAccess(accountID, { reload: false, announce: false });
       if (!accessOK) {
-        if (isCreateMode && props?.catalogExperience) {
+        if (isCreateMode) {
           router.replace(`/provider-accounts?${new URLSearchParams({ account: accountID, section: "access" }).toString()}`);
         }
         return;
       }
       setSetupStep(5);
       if (isCreateMode) {
-        router.replace(
-          props?.catalogExperience
-            ? `/provider-accounts?${new URLSearchParams({ account: accountID, section: "overview" }).toString()}`
-            : buildCreatedConnectionHref(provider, confirmedName),
-        );
+        router.replace(`/provider-accounts?${new URLSearchParams({ account: accountID, section: "overview" }).toString()}`);
         return;
       }
       setWorkspaceMode("workspace");
@@ -1307,7 +1295,7 @@ export default function ProviderAccountWizard(props?: {
   }, [handleSaveAccess, selectedAccountID]);
 
   const handleManagersChange = useCallback((nextManagers: AccessPrincipal[]) => {
-    const mustKeepCurrentUser = isCreateMode && Boolean(props?.catalogExperience) && Boolean(currentUserManager);
+    const mustKeepCurrentUser = isCreateMode && Boolean(currentUserManager);
     const hasCurrentUser = !currentUserManager || nextManagers.some(
       (manager) => manager.type === "user" && manager.principal_id === currentUserManager.principal_id,
     );
@@ -1316,7 +1304,7 @@ export default function ProviderAccountWizard(props?: {
       : nextManagers;
     setManagers(normalizedManagers);
     handleAccessAutosave({ managers: normalizedManagers, users });
-  }, [currentUserManager, handleAccessAutosave, isCreateMode, props?.catalogExperience, users]);
+  }, [currentUserManager, handleAccessAutosave, isCreateMode, users]);
 
   const handleUsersChange = useCallback((nextUsers: AccessPrincipal[]) => {
     setUsers(nextUsers);
@@ -1335,7 +1323,7 @@ export default function ProviderAccountWizard(props?: {
 
   function applyWorkspaceTab(tab: WorkspaceTab) {
     setActiveTab(tab);
-    if (props?.catalogExperience && account) {
+    if (account) {
       router.push(
         `/provider-accounts?${new URLSearchParams({
           account: account.id,
@@ -1386,19 +1374,12 @@ export default function ProviderAccountWizard(props?: {
   ];
 
   const workspaceTabs: Array<{ id: WorkspaceTab; label: string; icon: typeof Layers3 }> = [
-    ...(props?.catalogExperience
-      ? [{ id: "overview" as const, label: catalogT("details.sections.overview"), icon: LayoutDashboard }]
-      : []),
+    { id: "overview", label: catalogT("details.sections.overview"), icon: LayoutDashboard },
     { id: "models", label: ux("tabs.models"), icon: Layers3 },
     { id: "access", label: ux("tabs.access"), icon: ShieldCheck },
+    { id: "credentials", label: ux("tabs.credentials"), icon: KeyRound },
   ];
-  if (props?.catalogExperience || !account?.use_platform_managed_credentials) {
-    workspaceTabs.push({ id: "credentials", label: ux("tabs.credentials"), icon: KeyRound });
-  }
-  const visibleActiveTab: WorkspaceTab =
-    account?.use_platform_managed_credentials && activeTab === "credentials" && !props?.catalogExperience
-      ? "models"
-      : activeTab;
+  const visibleActiveTab = activeTab;
   const principalSelectorLabels = useMemo(() => buildPrincipalSelectorLabels(t, ux), [t, ux]);
   const createHeaderProviderName = formatProviderDisplayName(
     activeProvider?.provider ?? provider,
@@ -1411,7 +1392,6 @@ export default function ProviderAccountWizard(props?: {
     { id: "review", number: 4, title: ux("integrations.wizard.reviewConfirm") },
   ];
   const activeCreateStepIndex = createWizardSteps.findIndex((step) => step.id === activeCreateSection);
-  const isModelsCreateSection = !props?.catalogExperience && activeCreateSection === "models";
   const createStepState = (stepID: CreateWizardSectionID) => {
     return getCreateStepState({
       activeStep: activeCreateSection,
@@ -1423,7 +1403,7 @@ export default function ProviderAccountWizard(props?: {
     const stepIndex = createWizardSteps.findIndex((step) => step.id === stepID);
     return stepIndex >= 0 && stepIndex <= Math.max(activeCreateStepIndex, furthestCreateStepIndex);
   };
-  const CreatePanel = props?.catalogExperience ? CatalogCreateSection : WizardPanel;
+  const CreatePanel = CatalogCreateSection;
   const catalogStepCount = createWizardSteps.length + 1;
   const catalogActiveStepNumber = provider ? Math.max(activeCreateStepIndex, 0) + 2 : 1;
   const catalogActiveStepTitle = provider
@@ -1478,94 +1458,58 @@ export default function ProviderAccountWizard(props?: {
           </Alert>
         ) : null}
 
-        <div
-          className={cn(
-            "min-w-0 flex-1",
-            props?.catalogExperience
-              ? "flex flex-col gap-4"
-              : "grid gap-4 xl:grid-cols-4 xl:gap-8",
-          )}
-        >
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           <nav
             aria-label={ux("integrations.pageTitle")}
-            className={cn(
-              "min-w-0",
-              !props?.catalogExperience && "xl:sticky xl:top-4 xl:col-span-1 xl:self-start",
-            )}
+            className="min-w-0"
           >
-            {props?.catalogExperience ? (
-              <>
-                <div className="rounded-xl border border-card-border bg-card p-4 shadow-xs xl:hidden">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {catalogStepProgressLabel}
-                    </span>
-                    <span className="text-sm font-semibold">{catalogActiveStepTitle}</span>
-                  </div>
-                  <Progress
-                    value={(catalogActiveStepNumber / catalogStepCount) * 100}
-                    className="mt-3 h-1.5"
-                    dir="ltr"
-                    aria-label={catalogStepProgressLabel}
-                  />
-                </div>
-                <div className="hidden grid-cols-5 gap-2 xl:grid">
-                  <CreateFlowStepIndicator
-                    number={1}
-                    title={catalogT("create.chooseProvider")}
-                    state={provider ? "complete" : "active"}
-                    variant="compact"
-                    onClick={resetCreateProviderSelection}
-                  />
-                  {createWizardSteps.map((step) => {
-                    const stepState = createStepState(step.id);
-                    const isStepOpenable = Boolean(provider) && canOpenCreateStep(step.id);
-                    return (
-                      <CreateFlowStepIndicator
-                        key={step.id}
-                        number={step.number + 1}
-                        title={step.title}
-                        state={provider ? stepState : "idle"}
-                        variant="compact"
-                        disabled={!isStepOpenable}
-                        onClick={() => {
-                          if (isStepOpenable) setActiveCreateSection(step.id);
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="overflow-x-auto pb-2 xl:overflow-visible">
-                <div className="flex min-w-max flex-row gap-3 py-2 xl:min-w-0 xl:flex-col xl:gap-5">
-                  {createWizardSteps.map((step) => {
-                    const stepState = createStepState(step.id);
-                    const isStepOpenable = canOpenCreateStep(step.id);
-                    return (
-                      <CreateFlowStepIndicator
-                        key={step.id}
-                        number={step.number}
-                        title={step.title}
-                        state={stepState}
-                        disabled={!isStepOpenable}
-                        onClick={() => {
-                          if (isStepOpenable) setActiveCreateSection(step.id);
-                        }}
-                      />
-                    );
-                  })}
-                </div>
+            <div className="rounded-xl border border-card-border bg-card p-4 shadow-xs xl:hidden">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {catalogStepProgressLabel}
+                </span>
+                <span className="text-sm font-semibold">{catalogActiveStepTitle}</span>
               </div>
-            )}
+              <Progress
+                value={(catalogActiveStepNumber / catalogStepCount) * 100}
+                className="mt-3 h-1.5"
+                dir="ltr"
+                aria-label={catalogStepProgressLabel}
+              />
+            </div>
+            <div className="hidden grid-cols-5 gap-2 xl:grid">
+              <CreateFlowStepIndicator
+                number={1}
+                title={catalogT("create.chooseProvider")}
+                state={provider ? "complete" : "active"}
+                variant="compact"
+                onClick={resetCreateProviderSelection}
+              />
+              {createWizardSteps.map((step) => {
+                const stepState = createStepState(step.id);
+                const isStepOpenable = Boolean(provider) && canOpenCreateStep(step.id);
+                return (
+                  <CreateFlowStepIndicator
+                    key={step.id}
+                    number={step.number + 1}
+                    title={step.title}
+                    state={provider ? stepState : "idle"}
+                    variant="compact"
+                    disabled={!isStepOpenable}
+                    onClick={() => {
+                      if (isStepOpenable) setActiveCreateSection(step.id);
+                    }}
+                  />
+                );
+              })}
+            </div>
           </nav>
 
-          <div className={isModelsCreateSection ? "min-w-0 xl:col-span-3 xl:flex xl:flex-col" : cn("min-w-0", !props?.catalogExperience && "xl:col-span-3")}>
-            <div className={isModelsCreateSection ? "mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 pb-2" : "mx-auto flex w-full max-w-5xl flex-col gap-6 pb-2"}>
+          <div className="min-w-0">
+            <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-2">
                 {!provider ? (
                   <CreatePanel
-                    title={props?.catalogExperience ? "" : ux("setup.selectProviderTitle")}
-                    description={props?.catalogExperience ? undefined : ux("setup.selectProviderDesc")}
+                    title=""
                     footer={
                       <Button type="button" variant="outline" asChild>
                         <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
@@ -1573,21 +1517,14 @@ export default function ProviderAccountWizard(props?: {
                     }
                   >
                     <div className="flex flex-col gap-4 sm:gap-5">
-                      {props?.catalogExperience ? (
-                        <DebouncedTextFilter
-                          label={catalogT("filters.search")}
-                          value={providerSearch}
-                          onValueChange={setProviderSearch}
-                          placeholder={catalogT("filters.searchProviderPicker")}
-                        />
-                      ) : null}
+                      <DebouncedTextFilter
+                        label={catalogT("filters.search")}
+                        value={providerSearch}
+                        onValueChange={setProviderSearch}
+                        placeholder={catalogT("filters.searchProviderPicker")}
+                      />
                       <div
-                        className={cn(
-                          "grid gap-3 sm:grid-cols-2",
-                          props?.catalogExperience
-                            ? "xl:grid-cols-3"
-                            : "md:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3",
-                        )}
+                        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
                       >
                         {isLoading ? Array.from({ length: 6 }).map((_, index) => (
                           <div key={`provider-picker-skeleton-${index}`} className="flex min-h-20 items-center gap-3 rounded-lg border border-card-border bg-background p-3">
@@ -1601,12 +1538,7 @@ export default function ProviderAccountWizard(props?: {
                             description={catalogT("empty.noResultsDescription")}
                             variant="inline"
                             density="compact"
-                            className={cn(
-                              "sm:col-span-2",
-                              props?.catalogExperience
-                                ? "xl:col-span-3"
-                                : "md:col-span-1 xl:col-span-2 2xl:col-span-3",
-                            )}
+                            className="sm:col-span-2 xl:col-span-3"
                           />
                         ) : visibleProviders.map((item) => {
                           const isSelected = stringsEqualFold(item.provider, provider);
@@ -1659,19 +1591,13 @@ export default function ProviderAccountWizard(props?: {
                     {activeCreateSection === "details" ? (
                       <CreatePanel
                         id="connection-details"
-                        title={props?.catalogExperience ? "" : ux("integrations.wizard.detailsTitle")}
+                        title=""
                         fillHeight={false}
                         footer={(
                           <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                            {props?.catalogExperience ? (
-                              <Button type="button" variant="outline" onClick={resetCreateProviderSelection}>
-                                {ux("actions.back")}
-                              </Button>
-                            ) : (
-                              <Button type="button" variant="outline" asChild>
-                                <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
-                              </Button>
-                            )}
+                            <Button type="button" variant="outline" onClick={resetCreateProviderSelection}>
+                              {ux("actions.back")}
+                            </Button>
                             <Button
                               type="button"
                               onClick={() => void handleContinueFromCreateDetails()}
@@ -1710,7 +1636,7 @@ export default function ProviderAccountWizard(props?: {
                             }}
                             placeholder={ux("placeholders.accountName")}
                             disabled={Boolean(selectedAccountID)}
-                            error={props?.catalogExperience && accountNameConflict ? t("messages.accountNameExists") : undefined}
+                            error={accountNameConflict ? t("messages.accountNameExists") : undefined}
                             containerClassName="max-w-2xl"
                           />
 
@@ -1887,9 +1813,8 @@ export default function ProviderAccountWizard(props?: {
                   {activeCreateSection === "models" ? (
                     <CreatePanel
                       id="model-provisioning"
-                      title={props?.catalogExperience ? "" : ux("integrations.wizard.modelsHeaderTitle")}
-                      description={props?.catalogExperience ? undefined : ux("integrations.wizard.modelsHeaderDescription")}
-                      fillHeight={!props?.catalogExperience}
+                      title=""
+                      fillHeight={false}
                       contentClassName="flex min-h-0 flex-1 flex-col"
                       footer={(
                         <div className="flex w-full flex-wrap items-center justify-between gap-3">
@@ -1967,8 +1892,8 @@ export default function ProviderAccountWizard(props?: {
                       isSaving={isSavingAccess}
                        canManage={canManageProviderAccount}
                        showSaveAction={false}
-                       embedded={props?.catalogExperience}
-                       isManagerRemovable={props?.catalogExperience && currentUserManager
+                       embedded
+                       isManagerRemovable={currentUserManager
                          ? (manager) => !(
                              manager.type === "user"
                              && manager.principal_id === currentUserManager.principal_id
@@ -1993,15 +1918,13 @@ export default function ProviderAccountWizard(props?: {
                             {ux("actions.back")}
                           </Button>
                           <div className="flex flex-wrap items-center justify-end gap-3">
-                            {props?.catalogExperience && !createReady ? (
+                            {!createReady ? (
                               <span className="text-sm text-muted-foreground">{catalogT("create.completeRequired")}</span>
                             ) : null}
                             <Button
                               type="button"
                               onClick={() => void handleFinishCreateFlow()}
-                              disabled={props?.catalogExperience
-                                ? !canCreateProviderAccount || !createReady || isActivating || isTesting || isLoading
-                                : !canManageProviderAccount || isActivating}
+                              disabled={!canCreateProviderAccount || !createReady || isActivating || isTesting || isLoading}
                               aria-busy={isActivating}
                             >
                               {isActivating ? ux("actions.activating") : ux("actions.activateAccount")}
@@ -2111,7 +2034,7 @@ export default function ProviderAccountWizard(props?: {
     );
   }
 
-  if (props?.catalogExperience && initialAccountID && !account) {
+  if (initialAccountID && !account) {
     return (
       <div id="tenant-provider-accounts" className="min-w-0">
         {isLoading ? (
@@ -2469,103 +2392,69 @@ export default function ProviderAccountWizard(props?: {
 
                 {workspaceMode === "workspace" && account ? (
                   <>
-                    {props?.catalogExperience ? (
-                      <EntityIdentityHeader
-                        title={<span dir="ltr">{account.name}</span>}
-                        identifier={`${account.provider}:${account.name}`}
-                        description={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
-                        leading={
-                          <ProviderLogo
-                            provider={account.provider}
-                            displayName={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
-                            logoURL={activeProvider?.logo_url}
-                            size={32}
-                          />
-                        }
-                        status={
-                          <StatusBadge
-                            status={readiness === "ready"
-                              ? "success"
-                              : readiness === "connection_failed" || readiness === "needs_credentials"
-                                ? "error"
-                                : "warning"}
-                          >
-                            {readiness === "ready"
-                              ? ux("readiness.ready")
-                              : readiness === "connection_failed"
-                                ? ux("readiness.connectionFailed")
-                                : readiness === "needs_credentials"
-                                  ? ux("readiness.needsCredentials")
-                                  : readiness === "needs_access"
-                                    ? ux("readiness.needsAccess")
-                                    : ux("readiness.pricingIncomplete")}
-                          </StatusBadge>
-                        }
-                        actions={
-                          <>
-                            <Button type="button" variant="outline" onClick={() => void handleTestCredentials()}>
-                              {catalogT("actions.connectionTest")}
-                            </Button>
-                            <Button type="button" variant="outline" onClick={() => navigateWorkspaceHref("/provider-accounts")}>
-                              {catalogT("actions.backToCatalog")}
-                            </Button>
-                          </>
-                        }
-                        className="rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5"
-                        titleClassName="text-lg sm:text-xl"
-                      />
-                    ) : null}
-                    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-card-border bg-card p-2 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-                      {props?.catalogExperience ? (
-                        <Tabs
-                          value={visibleActiveTab}
-                          onValueChange={(value) => navigateWorkspaceTab(value as WorkspaceTab)}
-                          className="min-w-0 flex-1"
+                    <EntityIdentityHeader
+                      title={<span dir="ltr">{account.name}</span>}
+                      identifier={`${account.provider}:${account.name}`}
+                      description={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
+                      leading={
+                        <ProviderLogo
+                          provider={account.provider}
+                          displayName={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
+                          logoURL={activeProvider?.logo_url}
+                          size={32}
+                        />
+                      }
+                      status={
+                        <StatusBadge
+                          status={readiness === "ready"
+                            ? "success"
+                            : readiness === "connection_failed" || readiness === "needs_credentials"
+                              ? "error"
+                              : "warning"}
                         >
-                          <TabsList variant="line" aria-label={catalogT("details.sectionsLabel")} className="scrollbar-hidden w-full max-w-full justify-start overflow-x-auto">
-                            {workspaceTabs.map((tab) => {
-                              const Icon = tab.icon;
-                              return (
-                                <TabsTrigger key={tab.id} value={tab.id}>
-                                  <Icon data-icon="inline-start" aria-hidden="true" />
-                                  {tab.label}
-                                </TabsTrigger>
-                              );
-                            })}
-                          </TabsList>
-                        </Tabs>
-                      ) : (
-                        <div className="flex flex-wrap items-center gap-2">
+                          {readiness === "ready"
+                            ? ux("readiness.ready")
+                            : readiness === "connection_failed"
+                              ? ux("readiness.connectionFailed")
+                              : readiness === "needs_credentials"
+                                ? ux("readiness.needsCredentials")
+                                : readiness === "needs_access"
+                                  ? ux("readiness.needsAccess")
+                                  : ux("readiness.pricingIncomplete")}
+                        </StatusBadge>
+                      }
+                      actions={
+                        <>
+                          <Button type="button" variant="outline" onClick={() => void handleTestCredentials()}>
+                            {catalogT("actions.connectionTest")}
+                          </Button>
+                          <Button type="button" variant="outline" onClick={() => navigateWorkspaceHref("/provider-accounts")}>
+                            {catalogT("actions.backToCatalog")}
+                          </Button>
+                        </>
+                      }
+                      className="rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5"
+                      titleClassName="text-lg sm:text-xl"
+                    />
+                    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-card-border bg-card p-2 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+                      <Tabs
+                        value={visibleActiveTab}
+                        onValueChange={(value) => navigateWorkspaceTab(value as WorkspaceTab)}
+                        className="min-w-0 flex-1"
+                      >
+                        <TabsList variant="line" aria-label={catalogT("details.sectionsLabel")} className="scrollbar-hidden w-full max-w-full justify-start overflow-x-auto">
                           {workspaceTabs.map((tab) => {
                             const Icon = tab.icon;
                             return (
-                              <Button
-                                key={tab.id}
-                                type="button"
-                                variant={visibleActiveTab === tab.id ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => navigateWorkspaceTab(tab.id)}
-                              >
-                                <Icon className="me-2 h-4 w-4" />
+                              <TabsTrigger key={tab.id} value={tab.id}>
+                                <Icon data-icon="inline-start" aria-hidden="true" />
                                 {tab.label}
-                              </Button>
+                              </TabsTrigger>
                             );
                           })}
-                        </div>
-                      )}
+                        </TabsList>
+                      </Tabs>
                       <div className="flex items-center gap-2 sm:shrink-0">
-                        {props?.catalogExperience ? null : (
-                          <ReadinessBadge
-                            readiness={readiness}
-                            labels={{
-                              ready: ux("readiness.ready"),
-                              connection_failed: ux("readiness.connectionFailed"),
-                              needs_credentials: ux("readiness.needsCredentials"),
-                              needs_access: ux("readiness.needsAccess"),
-                              pricing_incomplete: ux("readiness.pricingIncomplete"),
-                            }}
-                          />
-                        )}
                         <Button
                           type="button"
                           size="sm"
@@ -2577,7 +2466,7 @@ export default function ProviderAccountWizard(props?: {
                           }}
                         >
                           <Copy className="me-2 h-4 w-4" />
-                          {props?.catalogExperience ? catalogT("actions.copyConnectionIdentifier") : ux("actions.copyFqn")}
+                          {catalogT("actions.copyConnectionIdentifier")}
                         </Button>
                       </div>
                     </div>
@@ -2726,21 +2615,19 @@ export default function ProviderAccountWizard(props?: {
                           canManage={canManageProviderAccount}
                           showSaveAction={false}
                         />
-                        {props?.catalogExperience ? (
-                          <FormSection
-                            title={ux("accessTester.title")}
-                            description={ux("accessTester.description", {
-                              name: account.name,
-                              provider: account.provider,
-                            })}
-                          >
-                            <EffectiveAccessTester
-                              account={account}
-                              onSearchPrincipal={searchPrincipalCandidates}
-                              principalSelectorLabels={principalSelectorLabels}
-                            />
-                          </FormSection>
-                        ) : null}
+                        <FormSection
+                          title={ux("accessTester.title")}
+                          description={ux("accessTester.description", {
+                            name: account.name,
+                            provider: account.provider,
+                          })}
+                        >
+                          <EffectiveAccessTester
+                            account={account}
+                            onSearchPrincipal={searchPrincipalCandidates}
+                            principalSelectorLabels={principalSelectorLabels}
+                          />
+                        </FormSection>
                       </div>
                     ) : null}
 

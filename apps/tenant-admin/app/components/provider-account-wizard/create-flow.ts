@@ -20,12 +20,3 @@ export function getCreateStepState({
   const index = order.indexOf(step);
   return index >= 0 && index < completedThrough ? "complete" : "idle";
 }
-
-export function buildCreatedConnectionHref(provider: string, accountName: string): string {
-  const params = new URLSearchParams({
-    tab: "connected",
-    provider: provider.trim().toLowerCase(),
-    created: accountName.trim(),
-  });
-  return `/provider-accounts?${params.toString()}`;
-}

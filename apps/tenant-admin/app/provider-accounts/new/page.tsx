@@ -2,7 +2,6 @@ import ProviderAccountWizard from "@/app/components/provider-account-wizard";
 import AdminShell from "@/app/components/admin-shell";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
-import { isModelCatalogV2Enabled } from "@/lib/features/model-catalog";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
@@ -17,9 +16,7 @@ type NewProviderAccountPageProps = {
 export default async function NewProviderAccountPage({ searchParams }: NewProviderAccountPageProps) {
   const params = (await searchParams) ?? {};
   const auth = await requireAuth("/login?next=/provider-accounts/new");
-  const t = await getTranslations("providerAccounts");
   const catalogT = await getTranslations("modelCatalog");
-  const modelCatalogV2Enabled = isModelCatalogV2Enabled();
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
@@ -37,15 +34,14 @@ export default async function NewProviderAccountPage({ searchParams }: NewProvid
       tenantSlug={tenantSlug}
       currentUser={currentUser}
       pageHeader={{
-        title: modelCatalogV2Enabled ? catalogT("page.addTitle") : t("ux.panel.setupTitle"),
-        description: modelCatalogV2Enabled ? catalogT("page.addDescription") : t("ux.panel.setupHint"),
+        title: catalogT("page.addTitle"),
+        description: catalogT("page.addDescription"),
       }}
     >
       <ProviderAccountWizard
         mode="create"
         initialProvider={params.provider}
         docsBaseHref={docsBaseHref}
-        catalogExperience={modelCatalogV2Enabled}
         currentUser={currentUser}
       />
     </AdminShell>

@@ -1,11 +1,9 @@
 import ProviderAccountWizard from "@/app/components/provider-account-wizard";
 import AdminShell from "@/app/components/admin-shell";
-import LLMIntegrationsManagement from "@/app/components/llm-integrations-management";
 import { ModelCatalogPage } from "@/app/components/model-catalog/model-catalog-page";
 import type { WorkspaceTab } from "@/app/components/provider-account-wizard/types";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
-import { isModelCatalogV2Enabled } from "@/lib/features/model-catalog";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
@@ -14,19 +12,14 @@ export const dynamic = "force-dynamic";
 type ProviderAccountsPageProps = {
   searchParams?: Promise<{
     account?: string;
-    provider?: string;
-    tab?: string;
     section?: string;
-    created?: string;
   }>;
 };
 
 export default async function ProviderAccountsPage({ searchParams }: ProviderAccountsPageProps) {
   const params = (await searchParams) ?? {};
   const auth = await requireAuth("/login?next=/provider-accounts");
-  const t = await getTranslations("providerAccounts");
   const catalogT = await getTranslations("modelCatalog");
-  const modelCatalogV2Enabled = isModelCatalogV2Enabled();
   const tenantSlug = auth.tenantSlug;
   const requestHeaders = await headers();
   const docsBaseHref = buildDocsBaseHref(requestHeaders, tenantSlug);
@@ -49,14 +42,14 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
       tenantSlug={tenantSlug}
       currentUser={currentUser}
       pageHeader={params.account
-        ? {
-            title: modelCatalogV2Enabled ? catalogT("page.detailsTitle") : t("ux.panel.workspaceTitle"),
-            description: modelCatalogV2Enabled ? catalogT("page.detailsDescription") : t("ux.panel.workspaceHint"),
+          ? {
+            title: catalogT("page.detailsTitle"),
+            description: catalogT("page.detailsDescription"),
             helpHref: providerAccountsDocsHref,
           }
         : {
-            title: modelCatalogV2Enabled ? catalogT("page.title") : t("integrations.pageTitle"),
-            description: modelCatalogV2Enabled ? catalogT("page.description") : t("integrations.pageDescription"),
+            title: catalogT("page.title"),
+            description: catalogT("page.description"),
             helpHref: docsBaseHref,
           }}
     >
@@ -64,19 +57,11 @@ export default async function ProviderAccountsPage({ searchParams }: ProviderAcc
         <ProviderAccountWizard
           initialAccountID={params.account}
           initialSection={normalizeWorkspaceSection(params.section)}
-          catalogExperience={modelCatalogV2Enabled}
           currentUser={currentUser}
           docsBaseHref={docsBaseHref}
         />
-      ) : modelCatalogV2Enabled ? (
-        <ModelCatalogPage docsHref={providerAccountsDocsHref} />
       ) : (
-        <LLMIntegrationsManagement
-          initialProvider={params.provider}
-          initialTab={params.tab === "connected" ? "connected" : "all"}
-          docsHref={providerAccountsDocsHref}
-          initialCreatedAccount={params.created}
-        />
+        <ModelCatalogPage docsHref={providerAccountsDocsHref} />
       )}
     </AdminShell>
   );
