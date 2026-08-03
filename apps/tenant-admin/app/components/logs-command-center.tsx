@@ -24,7 +24,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CodeBlock, CompactValue, CopyAction, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CompactValue, CopyAction, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, JsonViewer, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1844,10 +1844,10 @@ const LogDetailSheet = memo(function LogDetailSheet({
                 <TabsTrigger value="response">{t("content.response")}</TabsTrigger>
                 <TabsTrigger value="metadata">{t("tabs.metadata")}</TabsTrigger>
               </TabsList>
-              <TabsContent value="summary"><JSONBlock value={{ log: detail.log, actor: detail.actor, scope: detail.scope, content_visibility: detail.content_visibility }} /></TabsContent>
-              <TabsContent value="request"><PayloadBlock available={detail.content_visibility.request_available} value={detail.request_payload} reason={detail.content_visibility.request_reason} hidden={t("content.hidden")} /></TabsContent>
-              <TabsContent value="response"><PayloadBlock available={detail.content_visibility.response_available} value={detail.response_payload} reason={detail.content_visibility.response_reason} hidden={t("content.hidden")} /></TabsContent>
-              <TabsContent value="metadata"><JSONBlock value={{ metadata: detail.metadata, request_payload_meta: detail.request_payload_meta, response_payload_meta: detail.response_payload_meta }} /></TabsContent>
+              <TabsContent value="summary"><JSONBlock label={t("tabs.summary")} value={{ log: detail.log, actor: detail.actor, scope: detail.scope, content_visibility: detail.content_visibility }} /></TabsContent>
+              <TabsContent value="request"><PayloadBlock label={t("content.request")} available={detail.content_visibility.request_available} value={detail.request_payload} reason={detail.content_visibility.request_reason} hidden={t("content.hidden")} /></TabsContent>
+              <TabsContent value="response"><PayloadBlock label={t("content.response")} available={detail.content_visibility.response_available} value={detail.response_payload} reason={detail.content_visibility.response_reason} hidden={t("content.hidden")} /></TabsContent>
+              <TabsContent value="metadata"><JSONBlock label={t("tabs.metadata")} value={{ metadata: detail.metadata, request_payload_meta: detail.request_payload_meta, response_payload_meta: detail.response_payload_meta }} /></TabsContent>
             </Tabs>
           </div>
         ) : (
@@ -2038,15 +2038,15 @@ function MonoText({ value }: { value?: string }) {
   return <span className="block max-w-40 truncate font-mono text-xs" dir="auto">{value || "-"}</span>;
 }
 
-function JSONBlock({ value }: { value: unknown }) {
-  return <CodeBlock code={JSON.stringify(value ?? {}, null, 2)} language="json" maxHeightClassName="max-h-[520px]" />;
+function JSONBlock({ label, value }: { label: string; value: unknown }) {
+  return <JsonViewer aria-label={label} value={value} maxHeight="520px" />;
 }
 
-function PayloadBlock({ available, value, reason, hidden }: { available: boolean; value?: unknown; reason?: string; hidden: string }) {
-  if (!available || !value) {
+function PayloadBlock({ label, available, value, reason, hidden }: { label: string; available: boolean; value?: unknown; reason?: string; hidden: string }) {
+  if (!available || value === undefined || value === null) {
     return <Alert><AlertTitle>{hidden}</AlertTitle><AlertDescription>{reason}</AlertDescription></Alert>;
   }
-  return <JSONBlock value={value} />;
+  return <JSONBlock label={label} value={value} />;
 }
 
 function normalizeLogs(payload: unknown): LogsResponse {

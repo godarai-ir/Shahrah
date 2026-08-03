@@ -113,7 +113,9 @@ Use `ModelNameValue` for model identifiers in tables and compact metadata. It ke
 
 Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared syntax-highlighted `CodeBlock`; use `CodeBlock` alone only inside an existing panel that already supplies this hierarchy.
 
-Use `JsonEditorField` for editable JSON surfaces. It uses the shared CodeMirror 6 editor with JSON parsing and diagnostics, line numbers, bracket matching, LTR editing, optional prompt-variable decoration, and valid-JSON formatting on blur. Keep read-only JSON on `CodeBlock` or `CodePanel`.
+Use `JsonEditorField` for editable JSON surfaces. It uses the shared CodeMirror 6 editor with JSON parsing and diagnostics, line numbers, bracket matching, LTR editing, optional prompt-variable decoration, and valid-JSON formatting on blur.
+
+Use `JsonViewer` for read-only structured JSON such as request payloads, response payloads, log summaries, and metadata. It provides CodeMirror syntax highlighting, line numbers, folding, search, selection, LTR rendering, and a bounded scroll area. Pass an accessible label for each viewer. Keep `CodeBlock` and `CodePanel` for non-JSON snippets or examples that need a title, language badge, copy action, or feature-owned actions.
 
 Use `TablePagination` for previous/next pagination. Pass localized summary and button labels from the feature namespace, and provide page/page-size values only when they add useful context.
 

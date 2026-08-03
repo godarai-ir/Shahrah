@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, GodarAILogo, HelpLink, IdentifierField, JsonEditorField, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, type OperationNoticeValue, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, GodarAILogo, HelpLink, IdentifierField, JsonEditorField, JsonViewer, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, type OperationNoticeValue, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -463,6 +463,13 @@ export default function DesignSystemPage() {
             <ExpirationDurationField defaultValue="30d" />
             <ModelNameValue value="openai:gpt-5-nano" />
           </FieldGroup>
+        </AppCard>
+        <AppCard title="JSON viewer" description="Use the read-only CodeMirror surface for structured JSON payloads and metadata.">
+          <JsonViewer
+            aria-label="Read-only JSON example"
+            value={{ log_id: "log_123", status_code: 200, metadata: { environment: "production" } }}
+            maxHeight="16rem"
+          />
         </AppCard>
         <AppCard>
           <EntityIdentityHeader title="Production service" identifier="svc_production" description="Primary gateway service identity." status={<StatusBadge status="active">Active</StatusBadge>} copy={{ copyLabel: "Copy identifier", copiedLabel: "Identifier copied" }} actions={<Button variant="outline" size="sm">Edit</Button>} />
