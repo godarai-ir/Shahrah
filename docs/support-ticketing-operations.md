@@ -38,6 +38,12 @@ starts ClamAV. Start it with:
 docker compose -f infra/compose/local.yml up -d minio minio-init clamav
 ```
 
+Production GitOps deploys the same dependency model in Kubernetes: a persistent
+MinIO StatefulSet, an idempotent bucket bootstrap Job, and an internal ClamAV
+service. The `PRIVATE_FILES_S3_ACCESS_KEY` and
+`PRIVATE_FILES_S3_SECRET_KEY` repository secrets are synchronized into the
+production application Secret before the GitOps change is rolled out.
+
 ## Multipart contract
 
 Ticket creation and message creation use `multipart/form-data`:
