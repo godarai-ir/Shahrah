@@ -163,6 +163,33 @@ func TestUploadReceiptImageRejectsNonImageContent(t *testing.T) {
 	}
 }
 
+func TestUploadReceiptImageFailsClosedForInfectedOrUnavailableScanner(t *testing.T) {
+	files := multipartFiles(t, map[string][]byte{
+		"receipt.png": {0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00},
+	})
+
+	for name, testCase := range map[string]struct {
+		scanner  Scanner
+		expected error
+	}{
+		"infected": {scanner: scannerResult{clean: false}, expected: ErrInfected},
+		"failure":  {scanner: scannerResult{err: errors.New("scanner unavailable")}, expected: ErrScanFailed},
+	} {
+		t.Run(name, func(t *testing.T) {
+			store := &memoryStore{}
+
+			_, err := New(store, testCase.scanner).UploadReceiptImage(context.Background(), "tenant-id", files[0])
+			if !errors.Is(err, testCase.expected) {
+				t.Fatalf("got %v want %v", err, testCase.expected)
+			}
+
+			if len(store.puts) != 1 || len(store.deletes) != 1 || store.puts[0] != store.deletes[0] {
+				t.Fatalf("failed receipt scan was not cleaned up: puts=%v deletes=%v", store.puts, store.deletes)
+			}
+		})
+	}
+}
+
 func TestCleanupOrphansKeepsReferencedAndRecentObjects(t *testing.T) {
 	now := time.Now().UTC()
 	store := &memoryStore{objects: []ObjectInfo{
