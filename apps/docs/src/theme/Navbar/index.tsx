@@ -6,7 +6,7 @@ import {
   subscribeToThemePreference,
 } from '@shahrah/theme-sync';
 import type {ThemePreference} from '@shahrah/theme-sync';
-import {useEffect, type ReactNode} from 'react';
+import {useEffect, useRef, type ReactNode} from 'react';
 import OriginalNavbar from '@theme-original/Navbar';
 import Link from '@docusaurus/Link';
 import {useColorMode} from '@docusaurus/theme-common';
@@ -18,6 +18,7 @@ const themeReadOptions = {
 
 function SharedThemeSync(): null {
   const {colorModeChoice, setColorMode} = useColorMode();
+  const didMount = useRef(false);
 
   useEffect(() => {
     const syncFromSharedPreference = () => {
@@ -32,6 +33,11 @@ function SharedThemeSync(): null {
   }, [setColorMode]);
 
   useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
+
     const preference: ThemePreference = colorModeChoice ?? 'system';
     setBrowserThemePreference(preference);
     applyThemePreference(preference);

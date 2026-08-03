@@ -98,6 +98,25 @@ function readLegacyThemes(storage, legacyStorageKeys, legacyJsonStorage) {
   return themes;
 }
 
+function getExplicitBrowserThemePreference({
+  legacyStorageKeys = [],
+  legacyJsonStorage = [],
+} = {}) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return undefined;
+  }
+
+  return (
+    readThemeCookie(document.cookie) ??
+    normalizeThemePreference(
+      safelyReadStorage(window.localStorage, SHARED_THEME_STORAGE_KEY),
+    ) ??
+    readLegacyThemes(window.localStorage, legacyStorageKeys, legacyJsonStorage)
+      .map(normalizeThemePreference)
+      .find(Boolean)
+  );
+}
+
 export function getBrowserThemePreference({
   defaultTheme = "system",
   legacyStorageKeys = [],
@@ -107,16 +126,11 @@ export function getBrowserThemePreference({
     return normalizeThemePreference(defaultTheme) ?? "system";
   }
 
-  return selectThemePreference({
-    cookieTheme: readThemeCookie(document.cookie),
-    storedTheme: safelyReadStorage(window.localStorage, SHARED_THEME_STORAGE_KEY),
-    legacyThemes: readLegacyThemes(
-      window.localStorage,
-      legacyStorageKeys,
-      legacyJsonStorage,
-    ),
-    defaultTheme,
-  });
+  return (
+    getExplicitBrowserThemePreference({legacyStorageKeys, legacyJsonStorage}) ??
+    normalizeThemePreference(defaultTheme) ??
+    "system"
+  );
 }
 
 function writeThemeCookie(preference) {
@@ -155,9 +169,13 @@ export function setBrowserThemePreference(preference, {emit = true} = {}) {
 }
 
 export function migrateBrowserThemePreference(options = {}) {
-  const preference = getBrowserThemePreference(options);
-  setBrowserThemePreference(preference, {emit: false});
-  return preference;
+  const explicitPreference = getExplicitBrowserThemePreference(options);
+  if (explicitPreference) {
+    setBrowserThemePreference(explicitPreference, {emit: false});
+    return explicitPreference;
+  }
+
+  return normalizeThemePreference(options.defaultTheme) ?? "system";
 }
 
 export function getSystemPrefersDark() {
@@ -177,8 +195,29 @@ export function applyThemePreference(preference, targetDocument = document) {
   root.dataset.theme = resolved;
   root.dataset.themeChoice = normalized;
   root.style.colorScheme = resolved;
+  applyThemeMetadata(resolved, targetDocument);
 
   return resolved;
+}
+
+function applyThemeMetadata(resolved, targetDocument) {
+  const themeColor = resolved === "dark" ? "#06182D" : "#FFFFFF";
+
+  targetDocument
+    .querySelectorAll('meta[name="theme-color"]')
+    .forEach((element) => element.setAttribute("content", themeColor));
+
+  targetDocument
+    .querySelectorAll('link[rel~="icon"]')
+    .forEach((element) => {
+      const media =
+        element.dataset.themeMedia ?? element.getAttribute("media") ?? "";
+      if (!media.includes("prefers-color-scheme")) return;
+
+      element.dataset.themeMedia = media;
+      const matchesTheme = media.includes(resolved);
+      element.setAttribute("media", matchesTheme ? "all" : "not all");
+    });
 }
 
 export function subscribeToThemePreference(callback) {
@@ -292,16 +331,16 @@ function themeBootstrap(config) {
     return undefined;
   }
 
-  var preference =
+  var explicitPreference =
     readCookie() ||
     normalize(readStorage(config.storageKey)) ||
-    readLegacyTheme() ||
-    config.defaultTheme;
+    readLegacyTheme();
+  var preference = explicitPreference || config.defaultTheme;
   var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   var resolved = preference === "system" ? (prefersDark ? "dark" : "light") : preference;
   var root = document.documentElement;
 
-  writeStorage(config.storageKey, preference);
+  if (explicitPreference) writeStorage(config.storageKey, preference);
   if (config.mirrorStorageKey) {
     writeStorage(
       config.mirrorStorageKey,
@@ -309,22 +348,49 @@ function themeBootstrap(config) {
     );
   }
 
-  var hostname = window.location.hostname.toLowerCase();
-  var attributes = [
-    encodeURIComponent(config.cookieName) + "=" + encodeURIComponent(preference),
-    "Path=/",
-    "Max-Age=" + config.cookieMaxAge,
-    "SameSite=Lax",
-  ];
-  if (hostname === "godarai.ir" || hostname.endsWith(".godarai.ir")) {
-    attributes.push("Domain=" + config.cookieDomain);
+  if (explicitPreference) {
+    var hostname = window.location.hostname.toLowerCase();
+    var attributes = [
+      encodeURIComponent(config.cookieName) + "=" + encodeURIComponent(preference),
+      "Path=/",
+      "Max-Age=" + config.cookieMaxAge,
+      "SameSite=Lax",
+    ];
+    if (hostname === "godarai.ir" || hostname.endsWith(".godarai.ir")) {
+      attributes.push("Domain=" + config.cookieDomain);
+    }
+    if (window.location.protocol === "https:") attributes.push("Secure");
+    document.cookie = attributes.join("; ");
   }
-  if (window.location.protocol === "https:") attributes.push("Secure");
-  document.cookie = attributes.join("; ");
 
   root.classList.remove("light", "dark");
   root.classList.add(resolved);
   root.setAttribute("data-theme", resolved);
   root.setAttribute("data-theme-choice", preference);
   root.style.colorScheme = resolved;
+
+  function syncMetadata() {
+    var activeTheme = root.getAttribute("data-theme") || resolved;
+    var themeColor = activeTheme === "dark" ? "#06182D" : "#FFFFFF";
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (element) {
+      element.setAttribute("content", themeColor);
+    });
+    document
+      .querySelectorAll('link[rel~="icon"]')
+      .forEach(function (element) {
+        var media =
+          element.getAttribute("data-theme-media") ||
+          element.getAttribute("media") ||
+          "";
+        if (!media.includes("prefers-color-scheme")) return;
+
+        element.setAttribute("data-theme-media", media);
+        element.setAttribute("media", media.includes(activeTheme) ? "all" : "not all");
+      });
+  }
+
+  syncMetadata();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncMetadata, {once: true});
+  }
 }

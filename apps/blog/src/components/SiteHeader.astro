@@ -21,7 +21,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
       </span>
       <span>
         <span class="block text-sm font-semibold text-brand-700">بلاگ گدارAI</span>
-        <span class="block text-xs text-slate-500">بلاگ فنی، آموزشی و تحلیلی</span>
+        <span class="hidden text-xs text-slate-500 sm:block">بلاگ فنی، آموزشی و تحلیلی</span>
       </span>
     </a>
 
@@ -50,9 +50,10 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
       </button>
       <a
         href="/blog"
-        class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        class="inline-flex items-center justify-center rounded-full bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:px-5"
       >
-        شروع مطالعه
+        <span class="sm:hidden">مطالعه</span>
+        <span class="hidden sm:inline">شروع مطالعه</span>
       </a>
     </div>
   </div>

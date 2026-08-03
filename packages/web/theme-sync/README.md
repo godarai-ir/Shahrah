@@ -8,6 +8,9 @@ tenant admin, model catalog, documentation, and blog.
 - Per-origin mirror: `localStorage["godarai-theme"]`.
 - Precedence: shared cookie, shared local storage, app-specific legacy storage,
   then `system`.
+- The implicit `system` fallback is not persisted. A shared cookie is created
+  only for an explicit user choice or a migrated legacy value, so visiting one
+  origin cannot hide an unmigrated preference on another subdomain.
 - The bootstrap script applies the resolved theme before hydration and migrates
   legacy values without deleting the old app settings.
 - Storage/custom events update same-origin tabs. Focus, visibility, and

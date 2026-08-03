@@ -72,6 +72,8 @@ test("bootstrap migrates a legacy JSON preference before the page renders", () =
     set cookie(value) {
       writtenCookie = value;
     },
+    readyState: "complete",
+    querySelectorAll: () => [],
     documentElement: {
       classList: {
         add: (...tokens) => tokens.forEach((token) => classes.add(token)),
