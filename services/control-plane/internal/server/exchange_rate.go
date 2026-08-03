@@ -10,19 +10,19 @@ import (
 
 const (
 	publicExchangeRateFreshFor = 15 * time.Minute
-	publicExchangeRateMax       = 1_000_000_000
-	publicExchangeRateCache     = "public, max-age=60, stale-while-revalidate=600"
+	publicExchangeRateMax      = 1_000_000_000
+	publicExchangeRateCache    = "public, max-age=60, stale-while-revalidate=600"
 )
 
 type currentExchangeRateResponse struct {
-	Base          string    `json:"base"`
-	Quote         string    `json:"quote"`
-	Rate          float64   `json:"rate"`
-	Source        string    `json:"source"`
-	MarketSymbol  string    `json:"marketSymbol"`
-	PricingBasis  string    `json:"pricingBasis"`
-	FetchedAt     time.Time `json:"fetchedAt"`
-	Status        string    `json:"status"`
+	Base         string    `json:"base"`
+	Quote        string    `json:"quote"`
+	Rate         float64   `json:"rate"`
+	Source       string    `json:"source"`
+	MarketSymbol string    `json:"marketSymbol"`
+	PricingBasis string    `json:"pricingBasis"`
+	FetchedAt    time.Time `json:"fetchedAt"`
+	Status       string    `json:"status"`
 }
 
 func currentExchangeRateHandler(reader ExchangeRateReader) fiber.Handler {
@@ -47,6 +47,7 @@ func currentExchangeRateHandlerWithClock(reader ExchangeRateReader, now func() t
 		}
 
 		c.Set(fiber.HeaderCacheControl, publicExchangeRateCache)
+
 		return c.JSON(currentExchangeRateResponse{
 			Base:         "USD",
 			Quote:        "IRR",

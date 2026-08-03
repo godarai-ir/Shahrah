@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -35,7 +36,9 @@ func TestCurrentExchangeRateEndpointReturnsPublicFreshNobitexQuote(t *testing.T)
 		}},
 	})
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/exchange-rates/current", nil))
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/exchange-rates/current", http.NoBody))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	require.Equal(t, publicExchangeRateCache, resp.Header.Get("Cache-Control"))
@@ -60,7 +63,9 @@ func TestCurrentExchangeRateHandlerMarksOldSnapshotStale(t *testing.T) {
 		FetchedAt: now.Add(-16 * time.Minute),
 	}}, func() time.Time { return now }))
 
-	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/", nil))
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/", http.NoBody))
+	defer closeResponseBody(t, resp)
+
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 
@@ -87,7 +92,10 @@ func TestCurrentExchangeRateEndpointRejectsUnavailableSnapshots(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := NewFiberApp(&config.Config{}, Dependencies{ExchangeRates: tt.reader})
-			resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/exchange-rates/current", nil))
+
+			resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/exchange-rates/current", http.NoBody))
+			defer closeResponseBody(t, resp)
+
 			require.NoError(t, err)
 			require.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
 		})
