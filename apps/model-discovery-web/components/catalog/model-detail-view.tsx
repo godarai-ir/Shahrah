@@ -8,7 +8,6 @@ import {
   Cpu,
   ExternalLink,
   Gauge,
-  Link2,
   ListTree,
   type LucideIcon,
   Network,
@@ -462,30 +461,20 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
             {(model.sources ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("noSources")}</p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <ul className="flex list-disc flex-col gap-3 ps-5 marker:text-muted-foreground">
                 {(model.sources ?? []).map((source, index) => {
                   const sourceUrl = safeUrl(source.url);
                   return (
-                    <article
+                    <li
                       key={source.id || `${source.url || "source"}-${index}`}
-                      dir="rtl"
-                      className="flex min-w-0 flex-col gap-2 rounded-lg bg-background/60 p-4 text-start"
+                      className="min-w-0 ps-1 text-sm"
                     >
-                      <div className="flex items-start gap-3">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                          <Link2 className="size-4" aria-hidden="true" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-medium">{source.title || tCommon("source")}</h3>
-                          <p className="text-xs text-muted-foreground">{source.sourceType || EMPTY}</p>
-                        </div>
-                      </div>
                       {sourceUrl ? <ExternalResource href={sourceUrl} label={tCommon("open")} showUrl /> : <p>{EMPTY}</p>}
-                      {source.notes ? <p className="text-sm leading-6 text-muted-foreground">{source.notes}</p> : null}
-                    </article>
+                      {source.notes ? <p className="mt-1 leading-6 text-muted-foreground">{source.notes}</p> : null}
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </SectionCard>
         </div>
@@ -523,10 +512,10 @@ function ExternalResource({ href, label, showUrl = false }: { href: string; labe
       dir={showUrl ? "ltr" : undefined}
       className={cn(
         "inline-flex min-w-0 items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        showUrl && "max-w-full overflow-x-auto whitespace-nowrap text-xs",
+        showUrl && "max-w-full items-start text-xs",
       )}
     >
-      <span>{showUrl ? href : label}</span>
+      <span className={cn(showUrl && "break-all text-start")}>{showUrl ? href : label}</span>
       <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
     </a>
   );
