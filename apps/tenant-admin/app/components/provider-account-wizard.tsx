@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronRight, Copy, ExternalLink, KeyRound, Layers3, LayoutDashboard, Play, ScrollText, ShieldCheck } from "lucide-react";
+import { ChevronRight, CircleDollarSign, Copy, ExternalLink, KeyRound, Layers3, LayoutDashboard, Play, ScrollText, SearchX, ShieldCheck, Users } from "lucide-react";
 
-import { AppSelectField, CodePanel, CopyableValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EntityIdentityHeader, FormSection, IdentifierField, OperationNotice, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { AppSelectField, CodePanel, CopyableValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSection, IdentifierField, MetricCard, OperationNotice, PageContainer, SectionHeader, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -708,7 +710,7 @@ export default function ProviderAccountWizard(props?: {
             setWorkspaceMode("overview");
           }
         }
-        setBanner({ kind: "success", message: t("messages.accountDeleteSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.accountDeleteSuccess") });
         setDeleteDialogOpen(false);
         setDeleteTargetAccount(null);
       } catch (error) {
@@ -789,7 +791,7 @@ export default function ProviderAccountWizard(props?: {
         },
       );
       if (options.announce ?? true) {
-        setBanner({ kind: "success", message: t("messages.accountLoadSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.accountLoadSuccess") });
       }
       if (options.reload ?? true) {
         await handleLoadAccount(accountID);
@@ -929,7 +931,7 @@ export default function ProviderAccountWizard(props?: {
         setSetupStep(3);
         setActiveCreateSection("models");
       }
-      setBanner({ kind: "success", message: options.successMessage ?? t("messages.accountCreateSuccess") });
+      showFeedbackToast({ kind: "success", title: options.successMessage ?? t("messages.accountCreateSuccess") });
       return newAccount.id;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.accountCreateFailed")) });
@@ -1057,7 +1059,7 @@ export default function ProviderAccountWizard(props?: {
       );
       modelDraftBaselineRef.current = JSON.stringify(draftOverride ?? modelDrafts);
       if (options.announce ?? true) {
-        setBanner({ kind: "success", message: t("messages.modelsSaveSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.modelsSaveSuccess") });
       }
       if (options.reload ?? true) {
         await handleLoadAccount(accountID);
@@ -1165,7 +1167,7 @@ export default function ProviderAccountWizard(props?: {
         { method: "PUT", body: JSON.stringify({ access: { managers: nextManagers, users: nextUsers } }) },
       );
       if (options.announce ?? true) {
-        setBanner({ kind: "success", message: t("messages.accessSaveSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.accessSaveSuccess") });
       }
       if (options.reload ?? true) {
         await handleLoadAccount(accountID);
@@ -1261,7 +1263,7 @@ export default function ProviderAccountWizard(props?: {
       }
       setWorkspaceMode("workspace");
       setActiveTab("models");
-      setBanner({ kind: "success", message: ux("messages.accountActivated") });
+      showFeedbackToast({ kind: "success", title: ux("messages.accountActivated") });
     } finally {
       setIsActivating(false);
     }
@@ -1422,140 +1424,155 @@ export default function ProviderAccountWizard(props?: {
     return stepIndex >= 0 && stepIndex <= Math.max(activeCreateStepIndex, furthestCreateStepIndex);
   };
   const CreatePanel = props?.catalogExperience ? CatalogCreateSection : WizardPanel;
+  const catalogStepCount = createWizardSteps.length + 1;
+  const catalogActiveStepNumber = provider ? Math.max(activeCreateStepIndex, 0) + 2 : 1;
+  const catalogActiveStepTitle = provider
+    ? createWizardSteps[activeCreateStepIndex]?.title ?? catalogT("create.configureProvider")
+    : catalogT("create.chooseProvider");
+  const catalogStepProgressLabel = catalogT("create.stepProgress", {
+    current: catalogActiveStepNumber,
+    total: catalogStepCount,
+  });
+  const resetCreateProviderSelection = () => {
+    setProvider("");
+    setSelectedProviderID("");
+    setFurthestCreateStepIndex(0);
+    setActiveCreateSection("details");
+  };
 
   if (isCreateMode) {
     return (
-      <main className="flex min-w-0 flex-1">
-        <section className="flex min-w-0 w-full flex-col rounded-xl border border-border bg-background">
-          <header className="flex min-h-14 shrink-0 items-center border-b border-border px-4 py-3">
-            <div className="flex min-w-0 items-center gap-2 text-xl">
-              <span className="text-muted-foreground">{ux("integrations.pageTitle")}</span>
-              <ChevronRight className="size-4 text-muted-foreground rtl:rotate-180" />
-              {provider ? (
-                <span className="flex min-w-0 items-center gap-2 font-semibold">
-                  <ProviderLogo
-                    provider={activeProvider?.provider ?? provider}
-                    displayName={createHeaderProviderName}
-                    logoURL={activeProvider?.logo_url}
-                    size={18}
-                    decorative
+      <PageContainer size="full" spacing="compact" padding="none">
+        <header className="flex min-h-14 items-center rounded-xl border border-card-border bg-card px-4 py-3 shadow-xs sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 text-base sm:text-lg">
+            <span className="shrink-0 text-muted-foreground">{ux("integrations.pageTitle")}</span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:rotate-180" />
+            {provider ? (
+              <span className="flex min-w-0 items-center gap-2 font-semibold">
+                <ProviderLogo
+                  provider={activeProvider?.provider ?? provider}
+                  displayName={createHeaderProviderName}
+                  logoURL={activeProvider?.logo_url}
+                  size={20}
+                  decorative
+                />
+                <span className="truncate" dir="ltr">{createHeaderProviderName}</span>
+              </span>
+            ) : (
+              <span className="truncate font-semibold">{catalogT("create.providerPlaceholder")}</span>
+            )}
+          </div>
+        </header>
+
+        {banner && banner.kind !== "success" ? (
+          <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
+            <AlertTitle>{banner.kind === "error" ? t("errorTitle") : t("successTitle")}</AlertTitle>
+            <AlertDescription>{banner.message}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {selectedAccountID ? (
+          <Alert variant="info">
+            <AlertTitle>{ux("integrations.wizard.draftSavedTitle")}</AlertTitle>
+            <AlertDescription>{ux("integrations.wizard.draftSavedDescription")}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div
+          className={cn(
+            "min-w-0 flex-1",
+            props?.catalogExperience
+              ? "flex flex-col gap-4"
+              : "grid gap-4 xl:grid-cols-4 xl:gap-8",
+          )}
+        >
+          <nav
+            aria-label={ux("integrations.pageTitle")}
+            className={cn(
+              "min-w-0",
+              !props?.catalogExperience && "xl:sticky xl:top-4 xl:col-span-1 xl:self-start",
+            )}
+          >
+            {props?.catalogExperience ? (
+              <>
+                <div className="rounded-xl border border-card-border bg-card p-4 shadow-xs xl:hidden">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {catalogStepProgressLabel}
+                    </span>
+                    <span className="text-sm font-semibold">{catalogActiveStepTitle}</span>
+                  </div>
+                  <Progress
+                    value={(catalogActiveStepNumber / catalogStepCount) * 100}
+                    className="mt-3 h-1.5"
+                    dir="ltr"
+                    aria-label={catalogStepProgressLabel}
                   />
-                  <span className="truncate" dir="ltr">{createHeaderProviderName}</span>
-                </span>
-              ) : (
-                <span className="font-semibold">{ux("setup.selectProviderTitle")}</span>
-              )}
-            </div>
-          </header>
-
-          {banner && banner.kind !== "success" ? (
-            <div className="shrink-0 px-4 pt-3">
-              <Alert variant={banner.kind === "error" ? "destructive" : "default"}>
-                <AlertTitle>{banner.kind === "error" ? t("errorTitle") : t("successTitle")}</AlertTitle>
-                <AlertDescription>{banner.message}</AlertDescription>
-              </Alert>
-            </div>
-          ) : null}
-
-          {selectedAccountID ? (
-            <div className="shrink-0 px-4 pt-3">
-              <Alert variant="info">
-                <AlertTitle>{ux("integrations.wizard.draftSavedTitle")}</AlertTitle>
-                <AlertDescription>{ux("integrations.wizard.draftSavedDescription")}</AlertDescription>
-              </Alert>
-            </div>
-          ) : null}
-
-          <div className="grid min-w-0 flex-1 gap-6 px-4 py-6 lg:grid-cols-4 xl:gap-10">
-            <aside className="min-w-0 lg:sticky lg:top-4 lg:col-span-1 lg:self-start">
-              <div className="overflow-x-auto pb-2 lg:overflow-visible">
-                <div className="flex min-w-max flex-row gap-3 py-2 lg:min-w-0 lg:flex-col lg:gap-5">
-                {props?.catalogExperience ? (
-                  <>
-                    <CreateFlowStepIndicator
-                      number={1}
-                      title={catalogT("create.chooseProvider")}
-                      state="complete"
-                      onClick={() => {
-                        setProvider("");
-                        setSelectedProviderID("");
-                        setActiveCreateSection("details");
-                      }}
-                    />
-                    <CreateFlowStepIndicator
-                      number={2}
-                      title={catalogT("create.configureProvider")}
-                      state="active"
-                      onClick={() => setActiveCreateSection(activeCreateSection)}
-                    />
-                  </>
-                ) : createWizardSteps.map((step) => {
-                  const stepState = createStepState(step.id);
-                  const isStepOpenable = canOpenCreateStep(step.id);
-                  return (
-                    <CreateFlowStepIndicator
-                      key={step.id}
-                      number={step.number}
-                      title={step.title}
-                      state={stepState}
-                      disabled={!isStepOpenable}
-                      onClick={() => {
-                        if (isStepOpenable) setActiveCreateSection(step.id);
-                      }}
-                    />
-                  );
-                })}
+                </div>
+                <div className="hidden grid-cols-5 gap-2 xl:grid">
+                  <CreateFlowStepIndicator
+                    number={1}
+                    title={catalogT("create.chooseProvider")}
+                    state={provider ? "complete" : "active"}
+                    variant="compact"
+                    onClick={resetCreateProviderSelection}
+                  />
+                  {createWizardSteps.map((step) => {
+                    const stepState = createStepState(step.id);
+                    const isStepOpenable = Boolean(provider) && canOpenCreateStep(step.id);
+                    return (
+                      <CreateFlowStepIndicator
+                        key={step.id}
+                        number={step.number + 1}
+                        title={step.title}
+                        state={provider ? stepState : "idle"}
+                        variant="compact"
+                        disabled={!isStepOpenable}
+                        onClick={() => {
+                          if (isStepOpenable) setActiveCreateSection(step.id);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="overflow-x-auto pb-2 xl:overflow-visible">
+                <div className="flex min-w-max flex-row gap-3 py-2 xl:min-w-0 xl:flex-col xl:gap-5">
+                  {createWizardSteps.map((step) => {
+                    const stepState = createStepState(step.id);
+                    const isStepOpenable = canOpenCreateStep(step.id);
+                    return (
+                      <CreateFlowStepIndicator
+                        key={step.id}
+                        number={step.number}
+                        title={step.title}
+                        state={stepState}
+                        disabled={!isStepOpenable}
+                        onClick={() => {
+                          if (isStepOpenable) setActiveCreateSection(step.id);
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
-              {props?.catalogExperience && provider ? (
-                <div className="mt-4 hidden lg:block">
-                  <CatalogCreateSummary
-                    title={catalogT("create.summaryTitle")}
-                    readinessLabel={readiness === "ready" && createReady
-                      ? catalogT("create.ready")
-                      : catalogT("create.incomplete")}
-                    ready={createReady}
-                    providerLabel={catalogT("create.summaryProvider")}
-                    provider={createHeaderProviderName}
-                    accountLabel={catalogT("create.summaryAccount")}
-                    account={name}
-                    credentialLabel={catalogT("create.summaryCredential")}
-                    credential={usePlatformManagedCredentials
-                      ? ux("review.godarKey")
-                      : createCredentialTestResult?.kind === "success"
-                        ? catalogT("create.preflightPassed")
-                        : createCredentialTestResult?.kind === "warning"
-                          ? catalogT("create.preflightUnsupported")
-                          : catalogT("create.preflightPending")}
-                    modelsLabel={catalogT("create.summaryModels")}
-                    models={new Intl.NumberFormat(locale).format(selectedModelCount)}
-                    pricingLabel={catalogT("create.summaryPricing")}
-                    pricing={new Intl.NumberFormat(locale).format(unresolvedPricingCount)}
-                    accessLabel={catalogT("create.summaryAccess")}
-                    access={`${new Intl.NumberFormat(locale).format(managers.length)} / ${new Intl.NumberFormat(locale).format(users.length)}`}
-                  />
-                </div>
-              ) : null}
-            </aside>
+            )}
+          </nav>
 
-            <div className={isModelsCreateSection ? "min-w-0 lg:col-span-3 lg:flex lg:flex-col" : "min-w-0 lg:col-span-3"}>
-              <div className={isModelsCreateSection ? "mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 pb-2" : "mx-auto flex w-full max-w-5xl flex-col gap-8 pb-2"}>
+          <div className={isModelsCreateSection ? "min-w-0 xl:col-span-3 xl:flex xl:flex-col" : cn("min-w-0", !props?.catalogExperience && "xl:col-span-3")}>
+            <div className={isModelsCreateSection ? "mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 pb-2" : "mx-auto flex w-full max-w-5xl flex-col gap-6 pb-2"}>
                 {!provider ? (
                   <CreatePanel
-                    title={ux("setup.selectProviderTitle")}
-                    description={ux("setup.selectProviderDesc")}
+                    title={props?.catalogExperience ? "" : ux("setup.selectProviderTitle")}
+                    description={props?.catalogExperience ? undefined : ux("setup.selectProviderDesc")}
                     footer={
-                      <>
-                        <Button type="button" variant="outline" asChild>
-                          <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
-                        </Button>
-                        <Button type="button" onClick={() => setSetupStep(2)} disabled={!provider}>
-                          {ux("actions.continue")}
-                        </Button>
-                      </>
+                      <Button type="button" variant="outline" asChild>
+                        <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
+                      </Button>
                     }
                   >
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 sm:gap-5">
                       {props?.catalogExperience ? (
                         <DebouncedTextFilter
                           label={catalogT("filters.search")}
@@ -1563,104 +1580,144 @@ export default function ProviderAccountWizard(props?: {
                           onValueChange={setProviderSearch}
                           placeholder={catalogT("filters.searchProviderPicker")}
                         />
-                       ) : null}
-                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                       {isLoading ? Array.from({ length: 6 }).map((_, index) => (
-                         <div key={`provider-picker-skeleton-${index}`} className="flex flex-col gap-4 rounded-xl border border-border p-4">
-                           <Skeleton className="size-8 rounded-lg" />
-                           <Skeleton className="h-5 w-32 max-w-full" />
-                         </div>
-                       )) : visibleProviders.map((item) => {
-                        const isSelected = stringsEqualFold(item.provider, provider);
-                        return (
-                          <button
-                            key={item.provider}
-                            type="button"
-                            className={`rounded-xl border p-4 text-start transition ${isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"}`}
-                            onClick={() => {
-                              const nextProvider = normalizeProviderSlug(item.provider);
-                              setProvider(nextProvider);
-                              setAuthMode(item.auth_modes?.[0] ?? "api_key");
-                              setName(generateProviderAccountName(nextProvider, existingAccountNames));
-                              setIsNameAutoGenerated(true);
-                              setSelectedProviderID(nextProvider);
-                               setUsePlatformManagedCredentials(true);
-                               setAPIKey("");
-                               setAPIKeyTestSucceeded(false);
-                               setCreateCredentialTestResult(null);
-                              void loadProviderModels(item.provider);
-                            }}
-                          >
-                            <ProviderLogo
-                              provider={item.provider}
-                               displayName={formatProviderDisplayName(item.provider, item.display_name)}
-                              logoURL={item.logo_url}
-                            />
-                             <p className="mt-4 font-medium" dir="ltr">
-                               {formatProviderDisplayName(item.provider, item.display_name)}
-                             </p>
-                          </button>
-                        );
-                      })}
+                      ) : null}
+                      <div
+                        className={cn(
+                          "grid gap-3 sm:grid-cols-2",
+                          props?.catalogExperience
+                            ? "xl:grid-cols-3"
+                            : "md:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3",
+                        )}
+                      >
+                        {isLoading ? Array.from({ length: 6 }).map((_, index) => (
+                          <div key={`provider-picker-skeleton-${index}`} className="flex min-h-20 items-center gap-3 rounded-lg border border-card-border bg-background p-3">
+                            <Skeleton className="size-10 shrink-0 rounded-lg" />
+                            <Skeleton className="h-4 w-32 max-w-full" />
+                          </div>
+                        )) : visibleProviders.length === 0 ? (
+                          <EmptyState
+                            icon={SearchX}
+                            title={catalogT("empty.noResultsTitle")}
+                            description={catalogT("empty.noResultsDescription")}
+                            variant="inline"
+                            density="compact"
+                            className={cn(
+                              "sm:col-span-2",
+                              props?.catalogExperience
+                                ? "xl:col-span-3"
+                                : "md:col-span-1 xl:col-span-2 2xl:col-span-3",
+                            )}
+                          />
+                        ) : visibleProviders.map((item) => {
+                          const isSelected = stringsEqualFold(item.provider, provider);
+                          return (
+                            <button
+                              key={item.provider}
+                              type="button"
+                              className={cn(
+                                "group flex min-h-20 min-w-0 items-center gap-3 rounded-lg border border-card-border bg-background p-3 text-start shadow-xs transition hover:border-primary/40 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px",
+                                isSelected && "border-primary bg-primary/10",
+                              )}
+                              onClick={() => {
+                                const nextProvider = normalizeProviderSlug(item.provider);
+                                setProvider(nextProvider);
+                                setAuthMode(item.auth_modes?.[0] ?? "api_key");
+                                setName(generateProviderAccountName(nextProvider, existingAccountNames));
+                                setIsNameAutoGenerated(true);
+                                setSelectedProviderID(nextProvider);
+                                setUsePlatformManagedCredentials(true);
+                                setAPIKey("");
+                                setAPIKeyTestSucceeded(false);
+                                 setCreateCredentialTestResult(null);
+                                 setFurthestCreateStepIndex(0);
+                                 setActiveCreateSection("details");
+                                 void loadProviderModels(item.provider);
+                              }}
+                            >
+                              <ProviderLogo
+                                provider={item.provider}
+                                displayName={formatProviderDisplayName(item.provider, item.display_name)}
+                                logoURL={item.logo_url}
+                                size={28}
+                                decorative
+                              />
+                              <p className="min-w-0 flex-1 truncate text-sm font-semibold" dir="ltr">
+                                {formatProviderDisplayName(item.provider, item.display_name)}
+                              </p>
+                              <ChevronRight
+                                aria-hidden="true"
+                                className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary rtl:rotate-180"
+                              />
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </CreatePanel>
                 ) : (
                   <>
-                    {props?.catalogExperience || activeCreateSection === "details" ? (
+                    {activeCreateSection === "details" ? (
                       <CreatePanel
-                    id="connection-details"
-                    title={ux("integrations.wizard.detailsTitle")}
-                    fillHeight={false}
-                    footer={props?.catalogExperience ? undefined : (
-                      <>
-                        <Button type="button" variant="outline" asChild>
-                          <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
-                        </Button>
-                        <Button type="button" onClick={() => void handleContinueFromCreateDetails()} disabled={!canCreateProviderAccount || !canContinueCreateDetails || (requiresSuccessfulCreatePreflight && !apiKeyTestSucceeded) || isLoading || isSavingCredentials || !provider || !name.trim()}>
-                          {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
-                        </Button>
-                      </>
-                    )}
-                  >
-                    <div className="flex flex-col gap-8">
-                      <div className="grid gap-5 md:grid-cols-5 md:items-start">
-                        <IdentifierField
-                          id="accountName"
-                          label={t("fields.accountName")}
-                          value={name}
-                          onChange={(event) => {
-                            setName(event.target.value);
-                            setIsNameAutoGenerated(false);
-                          }}
-                           placeholder={ux("placeholders.accountName")}
-                           disabled={Boolean(selectedAccountID)}
-                           error={props?.catalogExperience && accountNameConflict ? t("messages.accountNameExists") : undefined}
-                           containerClassName="md:col-span-4"
-                        />
+                        id="connection-details"
+                        title={props?.catalogExperience ? "" : ux("integrations.wizard.detailsTitle")}
+                        fillHeight={false}
+                        footer={(
+                          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                            {props?.catalogExperience ? (
+                              <Button type="button" variant="outline" onClick={resetCreateProviderSelection}>
+                                {ux("actions.back")}
+                              </Button>
+                            ) : (
+                              <Button type="button" variant="outline" asChild>
+                                <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              onClick={() => void handleContinueFromCreateDetails()}
+                              disabled={!canCreateProviderAccount || !canContinueCreateDetails || (requiresSuccessfulCreatePreflight && !apiKeyTestSucceeded) || isLoading || isSavingCredentials || !provider || !name.trim()}
+                            >
+                              {isLoading || isSavingCredentials ? t("saving") : ux("integrations.wizard.nextStep")}
+                            </Button>
+                          </div>
+                        )}
+                      >
+                        <div className="flex flex-col gap-6">
+                          <EntityIdentityHeader
+                            title={<span dir="ltr">{createHeaderProviderName}</span>}
+                            leading={(
+                              <div className="flex size-12 items-center justify-center rounded-lg border border-border bg-muted/30">
+                                <ProviderLogo
+                                  provider={activeProvider?.provider ?? provider}
+                                  displayName={createHeaderProviderName}
+                                  logoURL={activeProvider?.logo_url}
+                                  size={28}
+                                  decorative
+                                />
+                              </div>
+                            )}
+                            className="border-b border-border pb-5"
+                            titleClassName="flex h-12 items-center"
+                          />
 
-                        <div className="flex items-center gap-2 text-start md:col-span-1 md:justify-end md:pt-6">
-                          <div className="flex min-h-14 min-w-0 items-center">
-                            <h3 className="truncate text-2xl font-semibold" dir="auto">{createHeaderProviderName}</h3>
-                          </div>
-                          <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border bg-card">
-                            <ProviderLogo
-                              provider={activeProvider?.provider ?? provider}
-                              displayName={createHeaderProviderName}
-                              logoURL={activeProvider?.logo_url}
-                              size={30}
-                            />
-                          </div>
-                        </div>
-                      </div>
+                          <IdentifierField
+                            id="accountName"
+                            label={t("fields.accountName")}
+                            value={name}
+                            onChange={(event) => {
+                              setName(event.target.value);
+                              setIsNameAutoGenerated(false);
+                            }}
+                            placeholder={ux("placeholders.accountName")}
+                            disabled={Boolean(selectedAccountID)}
+                            error={props?.catalogExperience && accountNameConflict ? t("messages.accountNameExists") : undefined}
+                            containerClassName="max-w-2xl"
+                          />
 
                       <div className="text-start">
                         <FieldSet className="gap-0">
                           <FieldLegend className="mb-0">
-                            <span className="block">{ux("integrations.wizard.connectionMethodTitle")}</span>
-                            <span className="mt-1 block">
-                              {ux("integrations.wizard.useOwnApiKeyQuestion", { providerName: createHeaderProviderName })}
-                            </span>
+                            {ux("integrations.wizard.useOwnApiKeyQuestion", { providerName: createHeaderProviderName })}
                           </FieldLegend>
                           <FieldDescription className="mt-1 text-sm leading-6">
                             {ux.rich("integrations.wizard.useOwnApiKeyDescription", {
@@ -1689,40 +1746,58 @@ export default function ProviderAccountWizard(props?: {
                             disabled={!!account}
                             className="mt-4 grid gap-3 md:grid-cols-2"
                           >
-                            <FieldLabel htmlFor="create-own-api-key-byok" className="order-1 cursor-pointer">
-                              <Field orientation="horizontal" className="items-start">
-                                <RadioGroupItem id="create-own-api-key-byok" value="byok" className="mt-1" />
-                                <FieldContent className="min-w-0">
-                                  <FieldTitle>{ux("integrations.wizard.useOwnApiKeyYes")}</FieldTitle>
-                                  <FieldDescription className="text-sm leading-6">
-                                    {ux.rich("integrations.wizard.useOwnApiKeyYesDescription", {
-                                      byokLink: (chunks) => (
-                                        <a
-                                          href={`${docsBaseHref}/guides/byok`}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="font-medium text-primary underline-offset-4 hover:underline"
-                                        >
-                                          {chunks}
-                                        </a>
-                                      ),
-                                    })}
-                                  </FieldDescription>
-                                </FieldContent>
-                              </Field>
-                            </FieldLabel>
+                            <Field
+                              orientation="horizontal"
+                              className="relative order-1 cursor-pointer items-start rounded-md border border-border p-4 transition-colors hover:bg-muted/30 focus-within:ring-2 focus-within:ring-ring/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
+                            >
+                              <FieldLabel
+                                htmlFor="create-own-api-key-byok"
+                                className="absolute inset-0 size-full cursor-pointer rounded-md"
+                              >
+                                <span className="sr-only">{ux("integrations.wizard.useOwnApiKeyYes")}</span>
+                              </FieldLabel>
+                              <RadioGroupItem id="create-own-api-key-byok" value="byok" className="pointer-events-none relative z-10 mt-1" />
+                              <FieldContent className="pointer-events-none relative z-10 min-w-0">
+                                <FieldTitle>
+                                  {ux("integrations.wizard.useOwnApiKeyYes")}
+                                </FieldTitle>
+                                <FieldDescription className="text-sm leading-6">
+                                  {ux.rich("integrations.wizard.useOwnApiKeyYesDescription", {
+                                    byokLink: (chunks) => (
+                                      <a
+                                        href={`${docsBaseHref}/guides/byok`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="pointer-events-auto relative z-20 font-medium text-primary underline-offset-4 hover:underline"
+                                      >
+                                        {chunks}
+                                      </a>
+                                    ),
+                                  })}
+                                </FieldDescription>
+                              </FieldContent>
+                            </Field>
 
-                            <FieldLabel htmlFor="create-own-api-key-platform" className="order-3 cursor-pointer md:order-2">
-                              <Field orientation="horizontal" className="items-start">
-                                <RadioGroupItem id="create-own-api-key-platform" value="platform-managed" className="mt-1" />
-                                <FieldContent className="min-w-0">
-                                  <FieldTitle>{ux("integrations.wizard.useOwnApiKeyNo")}</FieldTitle>
-                                  <FieldDescription className="text-sm leading-6">
-                                    {ux("integrations.wizard.useOwnApiKeyNoDescription", { providerName: createHeaderProviderName })}
-                                  </FieldDescription>
-                                </FieldContent>
-                              </Field>
-                            </FieldLabel>
+                            <Field
+                              orientation="horizontal"
+                              className="relative order-3 cursor-pointer items-start rounded-md border border-border p-4 transition-colors hover:bg-muted/30 focus-within:ring-2 focus-within:ring-ring/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 md:order-2"
+                            >
+                              <FieldLabel
+                                htmlFor="create-own-api-key-platform"
+                                className="absolute inset-0 size-full cursor-pointer rounded-md"
+                              >
+                                <span className="sr-only">{ux("integrations.wizard.useOwnApiKeyNo")}</span>
+                              </FieldLabel>
+                              <RadioGroupItem id="create-own-api-key-platform" value="platform-managed" className="pointer-events-none relative z-10 mt-1" />
+                              <FieldContent className="pointer-events-none relative z-10 min-w-0">
+                                <FieldTitle>
+                                  {ux("integrations.wizard.useOwnApiKeyNo")}
+                                </FieldTitle>
+                                <FieldDescription className="text-sm leading-6">
+                                  {ux("integrations.wizard.useOwnApiKeyNoDescription", { providerName: createHeaderProviderName })}
+                                </FieldDescription>
+                              </FieldContent>
+                            </Field>
 
                             {!usePlatformManagedCredentials ? (
                               <FieldGroup className="order-2 rounded-e-lg border-s-2 border-primary/40 bg-muted/20 p-4 md:order-3 md:col-span-2 md:rounded-none md:border-s-0 md:bg-transparent md:p-0">
@@ -1809,35 +1884,35 @@ export default function ProviderAccountWizard(props?: {
                   </CreatePanel>
                     ) : null}
 
-                  {props?.catalogExperience || activeCreateSection === "models" ? (
+                  {activeCreateSection === "models" ? (
                     <CreatePanel
-                    id="model-provisioning"
-                    title={ux("integrations.wizard.modelsHeaderTitle")}
-                    description={ux("integrations.wizard.modelsHeaderDescription")}
-                    fillHeight={!props?.catalogExperience}
-                    contentClassName="flex min-h-0 flex-1 flex-col p-0"
-                    footer={props?.catalogExperience ? undefined : (
-                      <>
-                        <Button type="button" variant="outline" onClick={() => setActiveCreateSection("details")}>
-                          {ux("actions.back")}
-                        </Button>
-                        <div className="flex flex-wrap items-center justify-end gap-3">
-                          <span className={selectedModelCount > 0 ? "text-sm text-muted-foreground" : "text-sm text-destructive"}>
-                            {selectedModelCount > 0
-                              ? ux("integrations.wizard.selectedCount", { count: selectedModelCount })
-                              : ux("integrations.wizard.modelSelectionRequired")}
-                          </span>
-                          <Button
-                            type="button"
-                            onClick={() => void handleContinueFromCreateModels()}
-                            disabled={!canManageProviderAccount || selectedModelCount === 0 || isSavingModels}
-                          >
-                            {isSavingModels ? t("saving") : ux("actions.continue")}
+                      id="model-provisioning"
+                      title={props?.catalogExperience ? "" : ux("integrations.wizard.modelsHeaderTitle")}
+                      description={props?.catalogExperience ? undefined : ux("integrations.wizard.modelsHeaderDescription")}
+                      fillHeight={!props?.catalogExperience}
+                      contentClassName="flex min-h-0 flex-1 flex-col"
+                      footer={(
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                          <Button type="button" variant="outline" onClick={() => setActiveCreateSection("details")}>
+                            {ux("actions.back")}
                           </Button>
+                          <div className="flex flex-wrap items-center justify-end gap-3">
+                            {selectedModelCount === 0 ? (
+                              <span className="text-sm text-destructive">
+                                {ux("integrations.wizard.modelSelectionRequired")}
+                              </span>
+                            ) : null}
+                            <Button
+                              type="button"
+                              onClick={() => void handleContinueFromCreateModels()}
+                              disabled={!canManageProviderAccount || selectedModelCount === 0 || isSavingModels}
+                            >
+                              {isSavingModels ? t("saving") : ux("actions.continue")}
+                            </Button>
+                          </div>
                         </div>
-                      </>
-                    )}
-                  >
+                      )}
+                    >
                     <ModelsEditor
                       t={t}
                       account={account}
@@ -1856,30 +1931,30 @@ export default function ProviderAccountWizard(props?: {
                   </CreatePanel>
                   ) : null}
 
-                  {props?.catalogExperience || activeCreateSection === "access" ? (
+                  {activeCreateSection === "access" ? (
                     <CreatePanel
-                    id="access-permissions"
-                    title={ux("integrations.wizard.accessPermissions")}
-                    description={ux("integrations.wizard.accessPermissionsDescription")}
-                    fillHeight={false}
-                    footer={props?.catalogExperience ? undefined : (
-                      <>
-                        <Button type="button" variant="outline" onClick={() => setActiveCreateSection("models")}>
-                          {ux("actions.back")}
-                        </Button>
-                        <div className="flex flex-wrap items-center justify-end gap-3">
-                          {managers.length === 0 ? <span className="text-sm text-destructive">{ux("access.managerRequiredHint")}</span> : null}
-                          <Button
-                            type="button"
-                            onClick={() => void handleContinueFromCreateAccess()}
-                            disabled={!canManageProviderAccount || managers.length === 0 || isSavingAccess}
-                          >
-                            {isSavingAccess ? t("saving") : ux("actions.continue")}
+                      id="access-permissions"
+                      title={ux("integrations.wizard.accessPermissions")}
+                      description={ux("integrations.wizard.accessPermissionsDescription")}
+                      fillHeight={false}
+                      footer={(
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                          <Button type="button" variant="outline" onClick={() => setActiveCreateSection("models")}>
+                            {ux("actions.back")}
                           </Button>
+                          <div className="flex flex-wrap items-center justify-end gap-3">
+                            {managers.length === 0 ? <span className="text-sm text-destructive">{ux("access.managerRequiredHint")}</span> : null}
+                            <Button
+                              type="button"
+                              onClick={() => void handleContinueFromCreateAccess()}
+                              disabled={!canManageProviderAccount || managers.length === 0 || isSavingAccess}
+                            >
+                              {isSavingAccess ? t("saving") : ux("actions.continue")}
+                            </Button>
+                          </div>
                         </div>
-                      </>
-                    )}
-                  >
+                      )}
+                    >
                     <AccessEditor
                       t={t}
                       managers={managers}
@@ -1892,6 +1967,7 @@ export default function ProviderAccountWizard(props?: {
                       isSaving={isSavingAccess}
                        canManage={canManageProviderAccount}
                        showSaveAction={false}
+                       embedded={props?.catalogExperience}
                        isManagerRemovable={props?.catalogExperience && currentUserManager
                          ? (manager) => !(
                              manager.type === "user"
@@ -1905,23 +1981,35 @@ export default function ProviderAccountWizard(props?: {
                   </CreatePanel>
                   ) : null}
 
-                  {!props?.catalogExperience && activeCreateSection === "review" ? (
+                  {activeCreateSection === "review" ? (
                     <CreatePanel
-                    id="review-confirm"
-                    title={ux("integrations.wizard.reviewConfirm")}
-                    description={ux("integrations.wizard.reviewConfirmDescription")}
-                    fillHeight={false}
-                    footer={
-                      <>
-                        <Button type="button" variant="outline" onClick={() => setActiveCreateSection("access")}>
-                          {ux("actions.back")}
-                        </Button>
-                        <Button type="button" onClick={() => void handleFinishCreateFlow()} disabled={!canManageProviderAccount || isActivating}>
-                          {isActivating ? ux("actions.activating") : ux("actions.activateAccount")}
-                        </Button>
-                      </>
-                    }
-                  >
+                      id="review-confirm"
+                      title={ux("integrations.wizard.reviewConfirm")}
+                      description={ux("integrations.wizard.reviewConfirmDescription")}
+                      fillHeight={false}
+                      footer={(
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                          <Button type="button" variant="outline" onClick={() => setActiveCreateSection("access")}>
+                            {ux("actions.back")}
+                          </Button>
+                          <div className="flex flex-wrap items-center justify-end gap-3">
+                            {props?.catalogExperience && !createReady ? (
+                              <span className="text-sm text-muted-foreground">{catalogT("create.completeRequired")}</span>
+                            ) : null}
+                            <Button
+                              type="button"
+                              onClick={() => void handleFinishCreateFlow()}
+                              disabled={props?.catalogExperience
+                                ? !canCreateProviderAccount || !createReady || isActivating || isTesting || isLoading
+                                : !canManageProviderAccount || isActivating}
+                              aria-busy={isActivating}
+                            >
+                              {isActivating ? ux("actions.activating") : ux("actions.activateAccount")}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    >
                     <div className="space-y-4">
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         <SummaryKPI label={ux("kpi.credentialStatus")} value={account?.has_credential || usePlatformManagedCredentials || apiKey.trim() ? ux("readiness.ready") : ux("readiness.needsCredentials")} />
@@ -2014,62 +2102,12 @@ export default function ProviderAccountWizard(props?: {
                     </div>
                   </CreatePanel>
                   ) : null}
-                  {props?.catalogExperience ? (
-                    <>
-                      <div className="lg:hidden">
-                        <CatalogCreateSummary
-                          title={catalogT("create.summaryTitle")}
-                          readinessLabel={readiness === "ready" && createReady
-                            ? catalogT("create.ready")
-                            : catalogT("create.incomplete")}
-                          ready={createReady}
-                          providerLabel={catalogT("create.summaryProvider")}
-                          provider={createHeaderProviderName}
-                          accountLabel={catalogT("create.summaryAccount")}
-                          account={name}
-                          credentialLabel={catalogT("create.summaryCredential")}
-                          credential={usePlatformManagedCredentials
-                            ? ux("review.godarKey")
-                            : createCredentialTestResult?.kind === "success"
-                              ? catalogT("create.preflightPassed")
-                              : createCredentialTestResult?.kind === "warning"
-                                ? catalogT("create.preflightUnsupported")
-                                : catalogT("create.preflightPending")}
-                          modelsLabel={catalogT("create.summaryModels")}
-                          models={new Intl.NumberFormat(locale).format(selectedModelCount)}
-                          pricingLabel={catalogT("create.summaryPricing")}
-                          pricing={new Intl.NumberFormat(locale).format(unresolvedPricingCount)}
-                          accessLabel={catalogT("create.summaryAccess")}
-                          access={`${new Intl.NumberFormat(locale).format(managers.length)} / ${new Intl.NumberFormat(locale).format(users.length)}`}
-                        />
-                      </div>
-                      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background py-4">
-                        <Button type="button" variant="outline" asChild>
-                          <Link href="/provider-accounts">{ux("actions.cancelDelete")}</Link>
-                        </Button>
-                        <div className="flex flex-wrap items-center justify-end gap-3">
-                          {!createReady ? (
-                            <span className="text-sm text-muted-foreground">{catalogT("create.completeRequired")}</span>
-                          ) : null}
-                          <Button
-                            type="button"
-                            onClick={() => void handleFinishCreateFlow()}
-                            disabled={!canCreateProviderAccount || !createReady || isActivating || isTesting || isLoading}
-                            aria-busy={isActivating}
-                          >
-                            {isActivating ? ux("actions.activating") : ux("actions.activateAccount")}
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
                   </>
                 )}
               </div>
             </div>
           </div>
-        </section>
-      </main>
+        </PageContainer>
     );
   }
 
@@ -2473,16 +2511,18 @@ export default function ProviderAccountWizard(props?: {
                             </Button>
                           </>
                         }
+                        className="rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5"
+                        titleClassName="text-lg sm:text-xl"
                       />
                     ) : null}
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/20 p-3">
+                    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-card-border bg-card p-2 shadow-xs sm:flex-row sm:items-center sm:justify-between">
                       {props?.catalogExperience ? (
                         <Tabs
                           value={visibleActiveTab}
                           onValueChange={(value) => navigateWorkspaceTab(value as WorkspaceTab)}
-                          className="min-w-0"
+                          className="min-w-0 flex-1"
                         >
-                          <TabsList variant="line" aria-label={catalogT("details.sectionsLabel")} className="max-w-full overflow-x-auto">
+                          <TabsList variant="line" aria-label={catalogT("details.sectionsLabel")} className="scrollbar-hidden w-full max-w-full justify-start overflow-x-auto">
                             {workspaceTabs.map((tab) => {
                               const Icon = tab.icon;
                               return (
@@ -2513,7 +2553,7 @@ export default function ProviderAccountWizard(props?: {
                           })}
                         </div>
                       )}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 sm:shrink-0">
                         {props?.catalogExperience ? null : (
                           <ReadinessBadge
                             readiness={readiness}
@@ -2530,9 +2570,10 @@ export default function ProviderAccountWizard(props?: {
                           type="button"
                           size="sm"
                           variant="outline"
+                          className="w-full sm:w-auto"
                           onClick={() => {
                             void copyTextToClipboard(`${account.provider}:${account.name}`);
-                            setBanner({ kind: "success", message: ux("messages.fqnCopied") });
+                            showFeedbackToast({ kind: "success", title: ux("messages.fqnCopied") });
                           }}
                         >
                           <Copy className="me-2 h-4 w-4" />
@@ -2542,26 +2583,51 @@ export default function ProviderAccountWizard(props?: {
                     </div>
 
                     {visibleActiveTab === "overview" ? (
-                      <div className="flex flex-col gap-6">
-                        <DefinitionList columns={4}>
-                          <DefinitionListItem label={catalogT("details.modelCount")} value={new Intl.NumberFormat(locale).format(selectedModelCount)} valueDir="ltr" surface />
-                          <DefinitionListItem label={catalogT("details.managerCount")} value={new Intl.NumberFormat(locale).format(managers.length)} valueDir="ltr" surface />
-                          <DefinitionListItem label={catalogT("details.userCount")} value={new Intl.NumberFormat(locale).format(users.length)} valueDir="ltr" surface />
-                          <DefinitionListItem label={catalogT("details.unresolvedPricing")} value={new Intl.NumberFormat(locale).format(unresolvedPricingCount)} valueDir="ltr" surface />
-                        </DefinitionList>
-                        <DefinitionList columns={2}>
-                          <DefinitionListItem label={catalogT("columns.provider")} value={account.provider} valueDir="ltr" mono surface />
-                          <DefinitionListItem label={catalogT("columns.connectionIdentifier")} value={`${account.provider}:${account.name}`} valueDir="ltr" mono surface />
-                          <DefinitionListItem label={catalogT("details.authMode")} value={account.auth_mode} valueDir="ltr" mono surface />
-                          <DefinitionListItem
-                            label={catalogT("drawer.credentialSource")}
-                            value={account.use_platform_managed_credentials ? catalogT("credential.managed") : catalogT("credential.byok")}
-                            surface
+                      <div className="flex flex-col gap-4 sm:gap-6">
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                          <MetricCard
+                            label={catalogT("details.modelCount")}
+                            value={new Intl.NumberFormat(locale).format(selectedModelCount)}
+                            icon={Layers3}
+                            density="compact"
                           />
-                        </DefinitionList>
+                          <MetricCard
+                            label={catalogT("details.managerCount")}
+                            value={new Intl.NumberFormat(locale).format(managers.length)}
+                            icon={ShieldCheck}
+                            density="compact"
+                            tone="muted"
+                          />
+                          <MetricCard
+                            label={catalogT("details.userCount")}
+                            value={new Intl.NumberFormat(locale).format(users.length)}
+                            icon={Users}
+                            density="compact"
+                            tone="muted"
+                          />
+                          <MetricCard
+                            label={catalogT("details.unresolvedPricing")}
+                            value={new Intl.NumberFormat(locale).format(unresolvedPricingCount)}
+                            icon={CircleDollarSign}
+                            density="compact"
+                            tone={unresolvedPricingCount > 0 ? "warning" : "success"}
+                          />
+                        </div>
+                        <div className="grid min-w-0 gap-4 xl:grid-cols-3">
+                          <div className="min-w-0 rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5 xl:col-span-3">
+                            <DefinitionList columns={2}>
+                              <DefinitionListItem label={catalogT("columns.provider")} value={account.provider} valueDir="ltr" mono />
+                              <DefinitionListItem label={catalogT("columns.connectionIdentifier")} value={`${account.provider}:${account.name}`} valueDir="ltr" mono wrap />
+                              <DefinitionListItem label={catalogT("details.authMode")} value={account.auth_mode} valueDir="ltr" mono />
+                              <DefinitionListItem
+                                label={catalogT("drawer.credentialSource")}
+                                value={account.use_platform_managed_credentials ? catalogT("credential.managed") : catalogT("credential.byok")}
+                              />
+                            </DefinitionList>
+                          </div>
                         {selectedModels[0] ? (
-                          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
-                            <div>
+                          <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5 xl:col-span-3">
+                            <div className="min-w-0">
                               <h3 className="font-semibold">{catalogT("details.firstModel")}</h3>
                               <CopyableValue
                                 value={`${account.provider}:${account.name}:${selectedModels[0].model}`}
@@ -2573,16 +2639,16 @@ export default function ProviderAccountWizard(props?: {
                                 }}
                               />
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                               {overviewPlaygroundHref ? (
-                                <Button asChild>
+                                <Button asChild className="w-full sm:w-auto">
                                   <Link href={overviewPlaygroundHref}>
                                     <Play data-icon="inline-start" aria-hidden="true" />
                                     {catalogT("actions.openPlayground")}
                                   </Link>
                                 </Button>
                               ) : null}
-                              <Button asChild variant="outline">
+                              <Button asChild variant="outline" className="w-full sm:w-auto">
                                 <Link
                                   href={`/logs?${new URLSearchParams({
                                     model: `${account.provider}:${account.name}:${selectedModels[0].model}`,
@@ -2609,21 +2675,24 @@ export default function ProviderAccountWizard(props?: {
                             ) : null}
                           </div>
                         ) : (
-                          <OperationNotice
-                            notice={{ kind: "warning", message: catalogT("details.noModelRecovery") }}
-                            labels={{
-                              success: catalogT("notices.success"),
-                              error: catalogT("notices.error"),
-                              warning: catalogT("notices.warning"),
-                              info: catalogT("notices.info"),
-                            }}
-                            action={
-                              <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab("models")}>
-                                {catalogT("actions.manageModel")}
-                              </Button>
-                            }
-                          />
+                          <div className="xl:col-span-3">
+                            <OperationNotice
+                              notice={{ kind: "warning", message: catalogT("details.noModelRecovery") }}
+                              labels={{
+                                success: catalogT("notices.success"),
+                                error: catalogT("notices.error"),
+                                warning: catalogT("notices.warning"),
+                                info: catalogT("notices.info"),
+                              }}
+                              action={
+                                <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab("models")}>
+                                  {catalogT("actions.manageModel")}
+                                </Button>
+                              }
+                            />
+                          </div>
                         )}
+                        </div>
                       </div>
                     ) : null}
 
@@ -2870,12 +2939,16 @@ function CatalogCreateSection({
       className={cn("min-w-0", fillHeight && "flex min-h-0 flex-1 flex-col")}
     >
       <FormSection
-        title={title}
-        description={description}
-        actions={actions}
         footer={footer}
         className={cn(fillHeight && "min-h-0 flex-1", scrollable && "overflow-y-auto")}
       >
+        {title || description || actions ? (
+          <SectionHeader
+            title={title}
+            description={description}
+            action={actions}
+          />
+        ) : null}
         <div className={cn("min-w-0", contentClassName)}>{children}</div>
       </FormSection>
     </section>
@@ -2903,43 +2976,6 @@ function ProviderDetailsSkeleton({ label }: { label: string }) {
       </div>
       <Skeleton className="h-64 w-full rounded-xl" />
     </div>
-  );
-}
-
-function CatalogCreateSummary(props: {
-  title: string;
-  readinessLabel: string;
-  ready: boolean;
-  providerLabel: string;
-  provider: string;
-  accountLabel: string;
-  account: string;
-  credentialLabel: string;
-  credential: string;
-  modelsLabel: string;
-  models: string;
-  pricingLabel: string;
-  pricing: string;
-  accessLabel: string;
-  access: string;
-}) {
-  return (
-    <section className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">{props.title}</h2>
-        <StatusBadge status={props.ready ? "success" : "warning"}>
-          {props.readinessLabel}
-        </StatusBadge>
-      </div>
-      <DefinitionList>
-        <DefinitionListItem label={props.providerLabel} value={props.provider} valueDir="ltr" />
-        <DefinitionListItem label={props.accountLabel} value={props.account || "-"} valueDir="ltr" mono />
-        <DefinitionListItem label={props.credentialLabel} value={props.credential} />
-        <DefinitionListItem label={props.modelsLabel} value={props.models} valueDir="ltr" />
-        <DefinitionListItem label={props.pricingLabel} value={props.pricing} valueDir="ltr" />
-        <DefinitionListItem label={props.accessLabel} value={props.access} valueDir="ltr" />
-      </DefinitionList>
-    </section>
   );
 }
 

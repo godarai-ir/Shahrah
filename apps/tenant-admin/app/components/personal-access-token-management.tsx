@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
 import { AppCard, ConfirmDialog, DateTimeValue, EmptyState, ExpirationDurationField, FormSheet, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -69,6 +70,8 @@ export default function PersonalAccessTokenManagement(props: {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null);
   const [banner, setBanner] = useState<Banner | null>(props.initialError ? { kind: "error", message: props.initialError } : null);
+  const [createNotice, setCreateNotice] = useState<Banner | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<Banner | null>(null);
 
   async function load() {
     setIsLoading(true);
@@ -90,9 +93,10 @@ export default function PersonalAccessTokenManagement(props: {
   async function createPAT(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) {
-      setBanner({ kind: "error", message: t("messages.validation") });
+      setCreateNotice({ kind: "error", message: t("messages.validation") });
       return;
     }
+    setCreateNotice(null);
     setIsCreating(true);
     try {
       const created = await requestJSON<PATResponse>("/api/personal-access-tokens", {
@@ -104,10 +108,10 @@ export default function PersonalAccessTokenManagement(props: {
       setSecretDialogOpen(true);
       setName("");
       setExpiresIn("30d");
-      setBanner({ kind: "success", message: t("messages.createSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.createSuccess") });
       await load();
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.createError")) });
+      setCreateNotice({ kind: "error", message: normalizeError(error, t("messages.createError")) });
     } finally {
       setIsCreating(false);
     }
@@ -117,11 +121,11 @@ export default function PersonalAccessTokenManagement(props: {
     setIsDeleting(true);
     try {
       await requestJSON(`/api/personal-access-tokens/${encodeURIComponent(id)}`, { method: "DELETE" });
-      setBanner({ kind: "success", message: t("messages.revokeSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.revokeSuccess") });
       await load();
       return true;
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.revokeError")) });
+      setDeleteNotice({ kind: "error", message: normalizeError(error, t("messages.revokeError")) });
       return false;
     } finally {
       setIsDeleting(false);
@@ -133,10 +137,10 @@ export default function PersonalAccessTokenManagement(props: {
     try {
       await requestJSON("/api/personal-access-tokens/revoke-all", { method: "DELETE" });
       setTokens([]);
-      setBanner({ kind: "success", message: t("messages.revokeAllSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.revokeAllSuccess") });
       return true;
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.revokeAllError")) });
+      setDeleteNotice({ kind: "error", message: normalizeError(error, t("messages.revokeAllError")) });
       return false;
     } finally {
       setIsDeleting(false);
@@ -144,6 +148,7 @@ export default function PersonalAccessTokenManagement(props: {
   }
 
   function openDeleteDialog(intent: DeleteIntent) {
+    setDeleteNotice(null);
     setDeleteIntent(intent);
     setDeleteDialogOpen(true);
   }
@@ -165,7 +170,8 @@ export default function PersonalAccessTokenManagement(props: {
         description={t("create.description")}
       />
 
-      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating} closeLabel={t("oneTime.close")}>
+      <FormSheet open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateNotice(null); }} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating} closeLabel={t("oneTime.close")}>
+        <OperationNotice notice={createNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
         <form className="flex flex-col gap-4" onSubmit={createPAT}>
           <div className="grid gap-2">
             <label className="text-sm font-medium">{t("fields.name")}</label>
@@ -228,7 +234,10 @@ export default function PersonalAccessTokenManagement(props: {
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           setDeleteDialogOpen(open);
-          if (!open) setDeleteIntent(null);
+          if (!open) {
+            setDeleteIntent(null);
+            setDeleteNotice(null);
+          }
         }}
         title={t("deleteDialog.title")}
         description={deleteIntent?.type === "single"
@@ -240,6 +249,7 @@ export default function PersonalAccessTokenManagement(props: {
         pending={isDeleting}
         closeOnConfirm={false}
         onConfirm={confirmDelete}
+        feedback={<OperationNotice notice={deleteNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />}
       />
 
       <OneTimeSecretDialog
@@ -257,7 +267,7 @@ export default function PersonalAccessTokenManagement(props: {
           copied: t("oneTime.copied"),
         }}
         onClear={() => setNewSecret(null)}
-        onCopyError={() => setBanner({ kind: "error", message: t("oneTime.copyFailed") })}
+        onCopyError={() => showFeedbackToast({ kind: "error", title: t("alerts.error"), description: t("oneTime.copyFailed") })}
       />
     </div>
   );

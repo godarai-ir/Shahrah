@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppEmailField, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
+import { AppCard, AppEmailField, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, OperationNotice, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +113,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   const [roleFormOpen, setRoleFormOpen] = useState(false);
   const [selectedUserForRole, setSelectedUserForRole] = useState<TenantAdminUser | null>(null);
   const [selectedRoleName, setSelectedRoleName] = useState("");
+  const [roleError, setRoleError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [banner, setBanner] = useState<Banner | null>(
@@ -232,10 +234,7 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         }),
       });
       setLastInviteLink(response.link ?? null);
-      setBanner({
-        kind: "success",
-        message: t("messages.invitationSuccess"),
-      });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.invitationSuccess") });
       setInviteEmail("");
       setInviteRole(resolveDefaultInviteRole(availableRoles));
       setInviteOpen(false);
@@ -250,35 +249,32 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
   async function changeUserStatus(userID: string, activate: boolean) {
     if (!props.canManageUsers) return;
     setIsUpdatingUserID(userID);
-    setBanner(null);
     try {
       await requestJSON(`/api/users/${encodeURIComponent(userID)}/${activate ? "activate" : "deactivate"}`, {
         method: "POST",
       });
-      setBanner({
+      showFeedbackToast({
         kind: "success",
-        message: activate ? t("messages.activateSuccess") : t("messages.deactivateSuccess"),
+        title: t("alerts.success"),
+        description: activate ? t("messages.activateSuccess") : t("messages.deactivateSuccess"),
       });
       await loadUsers(offset, query.trim());
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message: normalizeError(error, t("messages.updateStatusError")),
-      });
+      showFeedbackToast({ kind: "error", title: t("alerts.error"), description: normalizeError(error, t("messages.updateStatusError")) });
     } finally {
       setIsUpdatingUserID(null);
     }
   }
 
   async function assignRole(user: TenantAdminUser, roleName: string) {
-    if (!props.canManageUsers) return;
+    if (!props.canManageUsers) return false;
     const email = (user.email ?? "").trim();
     if (!email) {
-      setBanner({ kind: "error", message: t("messages.roleAssignmentNeedsEmail") });
-      return;
+      setRoleError(t("messages.roleAssignmentNeedsEmail"));
+      return false;
     }
     setIsAssigningRoleUserID(user.id);
-    setBanner(null);
+    setRoleError(null);
     try {
       await requestJSON("/api/users/roles", {
         method: "PATCH",
@@ -288,13 +284,12 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
           resourceType: "tenant",
         }),
       });
-      setBanner({ kind: "success", message: t("messages.roleAssignmentSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.roleAssignmentSuccess") });
       await loadUsers(offset, query.trim());
+      return true;
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message: normalizeError(error, t("messages.roleAssignmentError")),
-      });
+      setRoleError(normalizeError(error, t("messages.roleAssignmentError")));
+      return false;
     } finally {
       setIsAssigningRoleUserID(null);
     }
@@ -305,13 +300,15 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
     const currentRole = (user.roles?.[0] ?? user.role ?? "").trim();
     setSelectedUserForRole(user);
     setSelectedRoleName(currentRole);
+    setRoleError(null);
     setRoleFormOpen(true);
   }
 
   async function submitRoleForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedUserForRole || !selectedRoleName) return;
-    await assignRole(selectedUserForRole, selectedRoleName);
+    const succeeded = await assignRole(selectedUserForRole, selectedRoleName);
+    if (!succeeded) return;
     setRoleFormOpen(false);
     setSelectedUserForRole(null);
   }
@@ -524,7 +521,8 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         actionLabel={t("usersPage.upgradeDialog.action")}
       />
 
-      <FormSheet open={roleFormOpen} onOpenChange={setRoleFormOpen} title={t("roleForm.title")} description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id} closeLabel={t("actions.close")}>
+      <FormSheet open={roleFormOpen} onOpenChange={(open) => { setRoleFormOpen(open); if (!open) setRoleError(null); }} title={t("roleForm.title")} description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id} closeLabel={t("actions.close")}>
+          <OperationNotice notice={roleError ? { kind: "error", message: roleError } : null} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
           <form className="flex flex-col gap-4" onSubmit={submitRoleForm}>
             <RadioGroup value={selectedRoleName} onValueChange={setSelectedRoleName} className="flex max-h-96 flex-col gap-3 overflow-auto pe-1">
               {availableRoles.map((role) => (

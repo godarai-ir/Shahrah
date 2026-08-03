@@ -9,8 +9,8 @@
   },
   "tabs": {
     "label": "نماهای کاتالوگ مدل",
-    "providers": "ارائه‌دهندگان",
-    "models": "مدل‌ها"
+    "providers": "حساب‌های کاربری ارائه‌دهندگان",
+    "models": "مدل‌های فضای کاری"
   },
   "loading": "در حال بارگذاری کاتالوگ مدل‌ها",
   "providers": {
@@ -178,6 +178,8 @@
   "create": {
     "chooseProvider": "انتخاب ارائه‌دهنده",
     "configureProvider": "پیکربندی ارائه‌دهنده",
+    "providerPlaceholder": "؟",
+    "stepProgress": "مرحله {current, number} از {total, number}",
     "summaryTitle": "خلاصه راه‌اندازی",
     "ready": "آماده ایجاد",
     "incomplete": "نیازمند تکمیل",
@@ -194,7 +196,7 @@
   },
   "actions": {
     "refresh": "بازخوانی",
-    "addProvider": "افزودن ارائه‌دهنده",
+    "addProvider": "ایجاد حساب ارائه‌دهنده",
     "clearFilters": "پاک‌کردن فیلترها",
     "openMenu": "عملیات {account}",
     "viewModels": "مشاهده مدل‌ها",
@@ -210,7 +212,7 @@
     "deleting": "در حال حذف...",
     "cancel": "انصراف",
     "modelDetails": "مشاهده جزئیات {model}",
-    "openPlayground": "بازکردن در Playground",
+    "openPlayground": "بازکردن در محیط آزمایش",
     "viewLogs": "مشاهده لاگ‌ها",
     "manageModel": "مدیریت مدل",
     "copyCode": "کپی کد",

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { SettingsAuditMeta, StatusOptionGroup } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,7 +79,6 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
   );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(props.initialError ?? null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(props.initialSettings?.updated_at ?? null);
   const [updatedBy, setUpdatedBy] = useState<string | null>(props.initialSettings?.updated_by_user_id ?? null);
@@ -123,7 +123,6 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
   async function save() {
     setSaving(true);
     setError(null);
-    setMessage(null);
 
     try {
       const payload = await requestJSON<RequestLoggingSettings>("/api/settings/request-logging", {
@@ -131,7 +130,7 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
         body: JSON.stringify({ logging_mode: loggingMode }),
       });
       applySettings(payload);
-      setMessage(t("messages.updated"));
+      showFeedbackToast({ kind: "success", title: t("messages.updated"), options: { id: "request-logging-updated" } });
     } catch (err) {
       setError(normalizeError(err, t("messages.updateFailed")));
     } finally {
@@ -147,11 +146,6 @@ export default function RequestLoggingSettingsPanel(props: RequestLoggingSetting
         </Alert>
       ) : null}
 
-      {message ? (
-        <Alert className="surface-primary-soft">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      ) : null}
 
       {error ? (
         <Alert variant="destructive">

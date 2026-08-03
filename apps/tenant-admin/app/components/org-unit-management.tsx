@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AppCard, AppSelectField, AppTextField, CommercialPlanUpgradeDialog, CompactValue, DateTimeValue, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -159,6 +160,8 @@ export default function OrgUnitManagement({
   const [banner, setBanner] = useState<Banner | null>(
     initialError ? { kind: "error", message: initialError } : null,
   );
+  const [overlayNotice, setOverlayNotice] = useState<Banner | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<Banner | null>(null);
 
   const [selectedOrgUnitID, setSelectedOrgUnitID] = useState<string | null>(
     initialOrgUnits[0]?.id ?? null,
@@ -395,23 +398,24 @@ export default function OrgUnitManagement({
     event.preventDefault();
     const validation = validateForm(form, orgUnits, t);
     if (validation) {
-      setBanner({ kind: "error", message: validation });
+      setOverlayNotice({ kind: "error", message: validation });
       return;
     }
 
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       const created = await requestJSON<OrgUnit>("/api/org-units", {
         method: "POST",
         body: JSON.stringify(buildPayload(form)),
       });
-      setBanner({ kind: "success", message: t("messages.createSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.createSuccess") });
       setCreateOpen(false);
       setForm(emptyForm);
       await loadOrgUnits(0, query.trim());
       setSelectedOrgUnitID(created.id);
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.createError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.createError")) });
     } finally {
       setIsSaving(false);
     }
@@ -422,10 +426,11 @@ export default function OrgUnitManagement({
     if (!selectedOrgUnit) return;
     const validation = validateForm(form, orgUnits, t, selectedOrgUnit.id);
     if (validation) {
-      setBanner({ kind: "error", message: validation });
+      setOverlayNotice({ kind: "error", message: validation });
       return;
     }
 
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       const updated = await requestJSON<OrgUnit>(`/api/org-units/${encodeURIComponent(selectedOrgUnit.id)}`, {
@@ -434,10 +439,10 @@ export default function OrgUnitManagement({
       });
       setSelectedOrgUnit(updated);
       setOrgUnits((items) => items.map((item) => (item.id === updated.id ? updated : item)));
-      setBanner({ kind: "success", message: t("messages.updateSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.updateSuccess") });
       setEditOpen(false);
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.updateError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.updateError")) });
     } finally {
       setIsSaving(false);
     }
@@ -447,14 +452,15 @@ export default function OrgUnitManagement({
     event.preventDefault();
     if (!selectedOrgUnit) return;
     if (!memberUserID.trim()) {
-      setBanner({ kind: "error", message: t("messages.selectUser") });
+      setOverlayNotice({ kind: "error", message: t("messages.selectUser") });
       return;
     }
     if (members.some((item) => item.user_id === memberUserID.trim())) {
-      setBanner({ kind: "error", message: t("messages.duplicateMember") });
+      setOverlayNotice({ kind: "error", message: t("messages.duplicateMember") });
       return;
     }
 
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       await requestJSON(`/api/org-units/${encodeURIComponent(selectedOrgUnit.id)}/members`, {
@@ -464,9 +470,9 @@ export default function OrgUnitManagement({
       await loadOrgUnitDetails(selectedOrgUnit.id);
       setMemberUserID("");
       setMemberRole("org_admin");
-      setBanner({ kind: "success", message: t("messages.memberAddSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.memberAddSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.memberAddError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.memberAddError")) });
     } finally {
       setIsSaving(false);
     }
@@ -481,9 +487,9 @@ export default function OrgUnitManagement({
         body: JSON.stringify({ role }),
       });
       await loadOrgUnitDetails(selectedOrgUnit.id);
-      setBanner({ kind: "success", message: t("messages.memberUpdateSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.memberUpdateSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.memberUpdateError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.memberUpdateError")) });
     } finally {
       setIsSaving(false);
     }
@@ -497,9 +503,9 @@ export default function OrgUnitManagement({
         method: "DELETE",
       });
       await loadOrgUnitDetails(selectedOrgUnit.id);
-      setBanner({ kind: "success", message: t("messages.memberRemoveSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.memberRemoveSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.memberRemoveError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.memberRemoveError")) });
     } finally {
       setIsSaving(false);
     }
@@ -508,7 +514,7 @@ export default function OrgUnitManagement({
   async function handleDelete() {
     if (!selectedOrgUnit) return;
     if (getTeamCount(selectedOrgUnit) > 0) {
-      setBanner({ kind: "warning", message: t("messages.deleteBlocked") });
+      setDeleteNotice({ kind: "warning", message: t("messages.deleteBlocked") });
       return;
     }
     setIsSaving(true);
@@ -516,12 +522,12 @@ export default function OrgUnitManagement({
       await requestJSON(`/api/org-units/${encodeURIComponent(selectedOrgUnit.id)}`, {
         method: "DELETE",
       });
-      setBanner({ kind: "success", message: t("messages.deleteSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.deleteSuccess") });
       setDeleteOpen(false);
       setSelectedOrgUnitID(null);
       await loadOrgUnits(0, query.trim());
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
+      setDeleteNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
       throw error;
     } finally {
       setIsSaving(false);
@@ -530,9 +536,10 @@ export default function OrgUnitManagement({
 
   function openCreate() {
     if (!canCreateOrgUnit) {
-      setBanner({
+      showFeedbackToast({
         kind: "error",
-        message: t("messages.permissionDenied"),
+        title: t("alerts.error"),
+        description: t("messages.permissionDenied"),
       });
       return;
     }
@@ -563,7 +570,8 @@ export default function OrgUnitManagement({
         description={t("subtitle")}
       />
 
-      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet open={createOpen} onOpenChange={(open) => { setCreateOpen(open); setOverlayNotice(null); }} title={t("create.title")} description={t("create.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+        <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
         <OrgUnitForm form={form} setForm={setForm} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
       </FormSheet>
 
@@ -833,11 +841,13 @@ export default function OrgUnitManagement({
         </aside>
       </section>
 
-      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet open={editOpen} onOpenChange={(open) => { setEditOpen(open); setOverlayNotice(null); }} title={t("edit.title")} description={t("edit.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+          <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
           <OrgUnitForm form={form} setForm={setForm} onSubmit={handleUpdate} isSaving={isSaving} submitLabel={t("edit.submit")} />
       </FormSheet>
 
-      <FormSheet open={memberOpen} onOpenChange={setMemberOpen} title={t("members.manageTitle")} description={t("members.manageDescription")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet open={memberOpen} onOpenChange={(open) => { setMemberOpen(open); setOverlayNotice(null); }} title={t("members.manageTitle")} description={t("members.manageDescription")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+          <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
           <form className="flex flex-col gap-4" onSubmit={handleAddMember}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="member-user">{t("members.user")}</Label>
@@ -906,7 +916,7 @@ export default function OrgUnitManagement({
 
       <TypedConfirmDialog
         open={deleteOpen}
-        onOpenChange={setDeleteOpen}
+        onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteNotice(null); }}
         title={t("delete.title")}
         description={t("delete.description")}
         expectedValue={selectedOrgUnit?.alias ?? ""}
@@ -921,6 +931,7 @@ export default function OrgUnitManagement({
         confirmLabel={t("delete.submit")}
         pendingLabel={t("actions.saving")}
         onConfirm={handleDelete}
+        feedback={<OperationNotice notice={deleteNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />}
         disabled={!selectedOrgUnit || !canDeleteOrgUnit || resolveTeamCount(selectedOrgUnit) > 0}
       />
 

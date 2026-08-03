@@ -152,6 +152,7 @@
     "ruleNotFound": "Budget limit rule not found.",
     "saveSuccess": "Budget limit rule saved successfully.",
     "saveError": "Failed to save budget limit rule.",
+    "deleteSuccess": "Budget limit rule deleted successfully.",
     "deleteError": "Failed to delete budget limit rule."
   },
   "deleteDialog": {

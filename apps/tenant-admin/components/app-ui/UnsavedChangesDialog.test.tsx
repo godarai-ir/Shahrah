@@ -9,7 +9,7 @@ describe("UnsavedChangesDialog", () => {
     const onOpenChange = vi.fn();
     render(<UnsavedChangesDialog open onOpenChange={onOpenChange} title="Unsaved changes" description="Your edits will be lost." stayLabel="Keep editing" discardLabel="Discard" onDiscard={onDiscard} />);
 
-    expect(screen.getByRole("dialog", { name: "Unsaved changes" })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Unsaved changes" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(onDiscard).toHaveBeenCalledOnce();
   });

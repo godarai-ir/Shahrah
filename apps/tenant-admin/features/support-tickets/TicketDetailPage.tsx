@@ -6,6 +6,7 @@ import { CalendarPlus, Clock3, Download, File, Flag, Headphones, LifeBuoy, LockK
 import { useLocale, useTranslations } from "next-intl";
 
 import { AppTextareaField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, PageContainer } from "@/components/app-ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Attachment, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
 
   return (
     <PageContainer size="readable">
-      {error ? <p role="alert" className="rounded-xl border border-destructive-soft-border bg-destructive-soft p-4 text-sm text-destructive-soft-foreground">{error}</p> : null}
+      {error ? <Alert variant="destructive"><AlertTitle>{t("states.errorTitle")}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
       <Card className="overflow-hidden">
         <CardHeader className="gap-3">
           <EntityIdentityHeader

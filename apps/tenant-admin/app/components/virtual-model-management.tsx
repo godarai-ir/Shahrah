@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, Route, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppNumberField, ChipInput, ConfirmDialog, DateTimeValue, EmptyState, FormSheet, IdentifierField, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { AppNumberField, ChipInput, ConfirmDialog, DateTimeValue, EmptyState, FormSheet, IdentifierField, ModelNameValue, OperationNotice, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet, FieldTitle } from "@/components/ui/field";
@@ -152,6 +153,8 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
   const [pendingDeleteItem, setPendingDeleteItem] = useState<VirtualModel | null>(null);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
+  const [loadNotice, setLoadNotice] = useState<Notice>(null);
+  const [deleteNotice, setDeleteNotice] = useState<Notice>(null);
 
   const [items, setItems] = useState<VirtualModel[]>([]);
   const [userLabelByID, setUserLabelByID] = useState<Record<string, string>>({});
@@ -207,7 +210,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
 
   async function loadList() {
     setIsLoading(true);
-    setNotice(null);
+    setLoadNotice(null);
     try {
       const res = await fetch("/api/virtual-models", { cache: "no-store" });
       const data = (await res.json().catch(() => ({}))) as VMResponse;
@@ -215,7 +218,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
       const rows = data.data ?? [];
       setItems(rows);
     } catch (error) {
-      setNotice({ kind: "error", message: normalizeError(error, t("messages.listLoadError")) });
+      setLoadNotice({ kind: "error", message: normalizeError(error, t("messages.listLoadError")) });
     } finally {
       setIsLoading(false);
     }
@@ -503,12 +506,12 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
         setSavedHash(JSON.stringify(next));
         setEditorOpen(false);
       }
-      setNotice({ kind: "success", message: t("messages.deleteSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.deleteSuccess") });
       setDeleteDialogOpen(false);
       setPendingDeleteItem(null);
       await loadList();
     } catch (error) {
-      setNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
+      setDeleteNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
       throw error;
     } finally {
       setIsDeleting(false);
@@ -546,10 +549,10 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
       const created = (await createRes.json().catch(() => ({}))) as Partial<VirtualModel>;
       if (!createRes.ok) throw new Error(readError(created, t("messages.copyError")));
 
-      setNotice({ kind: "success", message: t("messages.copySuccess", { alias: nextAlias }) });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.copySuccess", { alias: nextAlias }) });
       await loadList();
     } catch (error) {
-      setNotice({ kind: "error", message: normalizeError(error, t("messages.copyError")) });
+      showFeedbackToast({ kind: "error", title: t("alerts.error"), description: normalizeError(error, t("messages.copyError")) });
     } finally {
       setActingID("");
     }
@@ -557,6 +560,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
 
   return (
     <>
+      <OperationNotice notice={loadNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} className="mb-6" />
       <Card className="overflow-hidden">
         <CardHeader className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -634,7 +638,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                       className={cn(selectedID === item.id && "bg-muted/60")}
                     >
                       <TableCell>
-                        <ModelNameValue value={item.alias} onCopyError={() => setNotice({ kind: "error", message: t("messages.copyAliasError") })} />
+                        <ModelNameValue value={item.alias} onCopyError={() => showFeedbackToast({ kind: "error", title: t("alerts.error"), description: t("messages.copyAliasError") })} />
                       </TableCell>
                       <TableCell className="hidden @sm:table-cell">{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
                       <TableCell className="hidden @md:table-cell">{item.targets?.length ?? 0}</TableCell>
@@ -1113,6 +1117,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
           setDeleteDialogOpen(open);
           if (!open) {
             setPendingDeleteItem(null);
+            setDeleteNotice(null);
           }
         }}
         title={t("deleteDialog.title")}
@@ -1124,6 +1129,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
         confirmLabel={t("deleteDialog.confirm")}
         pendingLabel={t("deleteDialog.deleting")}
         onConfirm={deleteCurrent}
+        feedback={<OperationNotice notice={deleteNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />}
         disabled={!pendingDeleteItem?.id}
       />
     </>

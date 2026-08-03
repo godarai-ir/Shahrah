@@ -3,14 +3,16 @@
 import * as React from "react";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 type ConfirmDialogProps = {
@@ -19,7 +21,7 @@ type ConfirmDialogProps = {
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   title: React.ReactNode;
-  description?: React.ReactNode;
+  description: React.ReactNode;
   confirmLabel: React.ReactNode;
   cancelLabel: React.ReactNode;
   pendingLabel?: React.ReactNode;
@@ -30,6 +32,7 @@ type ConfirmDialogProps = {
   pending?: boolean;
   confirmDisabled?: boolean;
   closeOnConfirm?: boolean;
+  feedback?: React.ReactNode;
 };
 
 export function ConfirmDialog({
@@ -42,13 +45,13 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   pendingLabel,
-  closeLabel,
   onConfirm,
   onConfirmError,
   destructive = true,
   pending = false,
   confirmDisabled = false,
   closeOnConfirm = true,
+  feedback,
 }: ConfirmDialogProps) {
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
   const [internalPending, setInternalPending] = React.useState(false);
@@ -76,34 +79,38 @@ export function ConfirmDialog({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      <DialogContent
-        showCloseButton={!isPending}
-        closeLabel={closeLabel ?? (typeof cancelLabel === "string" ? cancelLabel : undefined)}
+    <AlertDialog open={isOpen} onOpenChange={handleOpenChange}>
+      {trigger ? <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger> : null}
+      <AlertDialogContent
         onEscapeKeyDown={(event) => isPending && event.preventDefault()}
-        onPointerDownOutside={(event) => isPending && event.preventDefault()}
-        {...(!description ? { "aria-describedby": undefined } : {})}
       >
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
-        </DialogHeader>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isPending}>
-            {cancelLabel}
-          </Button>
-          <Button
-            type="button"
-            variant={destructive ? "destructive" : "default"}
-            onClick={() => void handleConfirm()}
-            disabled={isPending || confirmDisabled}
-            aria-busy={isPending || undefined}
-          >
-            {isPending ? pendingLabel ?? confirmLabel : confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        {feedback}
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline" disabled={isPending}>
+              {cancelLabel}
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              type="button"
+              variant={destructive ? "destructive" : "default"}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirm();
+              }}
+              disabled={isPending || confirmDisabled}
+              aria-busy={isPending || undefined}
+            >
+              {isPending ? pendingLabel ?? confirmLabel : confirmLabel}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

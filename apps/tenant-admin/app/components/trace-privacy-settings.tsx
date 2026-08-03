@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { SettingsAuditMeta, StatusOptionGroup } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,7 +74,6 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
     props.initialSettings?.capture_policy ?? "metadata-only",
   );
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(props.initialError ?? null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(props.initialSettings?.updated_at ?? null);
   const [updatedBy, setUpdatedBy] = useState<string | null>(props.initialSettings?.updated_by_user_id ?? null);
@@ -81,7 +81,6 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
   async function save() {
     setSaving(true);
     setError(null);
-    setMessage(null);
     try {
       const payload = await requestJSON<TracePrivacySettings>("/api/settings/trace-privacy", {
         method: "PUT",
@@ -89,7 +88,7 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
       });
       setUpdatedAt(payload.updated_at ?? null);
       setUpdatedBy(payload.updated_by_user_id ?? props.currentUserID ?? null);
-      setMessage(t("messages.updated"));
+      showFeedbackToast({ kind: "success", title: t("messages.updated"), options: { id: "trace-privacy-updated" } });
     } catch (err) {
       setError(normalizeError(err, t("messages.updateFailed")));
     } finally {
@@ -106,11 +105,6 @@ export default function TracePrivacySettingsPanel(props: TracePrivacySettingsPro
 
   const content = (
     <div className="flex flex-col gap-4">
-        {message ? (
-          <Alert className="surface-primary-soft">
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        ) : null}
         {error ? (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

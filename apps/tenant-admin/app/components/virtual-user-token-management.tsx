@@ -12,11 +12,11 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, CopyAction, DateTimeValue, DisplayNameField, EmptyState, ExpirationDurationField, FormSheet, IdentifierField, ModelNameValue, OneTimeSecretDialog, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, DateTimeValue, DisplayNameField, EmptyState, ExpirationDurationField, FormSheet, IdentifierField, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -163,6 +163,9 @@ export default function VirtualUserTokenManagement({
   const [virtualUserForm, setVirtualUserForm] = useState(emptyVirtualUserForm);
   const [tokenForm, setTokenForm] = useState(emptyTokenForm);
   const [banner, setBanner] = useState<Banner | null>(initialError ? { kind: "error", message: initialError } : null);
+  const [overlayNotice, setOverlayNotice] = useState<Banner | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<Banner | null>(null);
+  const [actionNotice, setActionNotice] = useState<Banner | null>(null);
   const isVatFeatureEnabled = hasLoadedEntitlements
     ? readBooleanFeature(entitlements?.features?.[FEATURE_VAT_ENABLED], false)
     : null;
@@ -269,9 +272,10 @@ export default function VirtualUserTokenManagement({
     event.preventDefault();
     const validation = validateVirtualUserForm(virtualUserForm, t);
     if (validation) {
-      setBanner({ kind: "error", message: validation });
+      setOverlayNotice({ kind: "error", message: validation });
       return;
     }
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       const created = await requestJSON<VirtualUser>("/api/virtual-users", {
@@ -284,10 +288,10 @@ export default function VirtualUserTokenManagement({
       setSelectedID(created.id);
       setTokens([]);
       await loadAllowedModels(created.team_id ?? "");
-      setBanner({ kind: "success", message: t("messages.createUserSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.createUserSuccess") });
       await loadVirtualUsers(0, query.trim(), created.id);
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.createUserError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.createUserError")) });
     } finally {
       setIsSaving(false);
     }
@@ -298,9 +302,10 @@ export default function VirtualUserTokenManagement({
     if (!selectedVirtualUser) return;
     const validation = validateVirtualUserForm(virtualUserForm, t);
     if (validation) {
-      setBanner({ kind: "error", message: validation });
+      setOverlayNotice({ kind: "error", message: validation });
       return;
     }
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       const updated = await requestJSON<VirtualUser>(`/api/virtual-users/${encodeURIComponent(selectedVirtualUser.id)}`, {
@@ -309,9 +314,9 @@ export default function VirtualUserTokenManagement({
       });
       setVirtualUsers((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       setEditUserOpen(false);
-      setBanner({ kind: "success", message: t("messages.updateUserSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.updateUserSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.updateUserError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.updateUserError")) });
     } finally {
       setIsSaving(false);
     }
@@ -325,10 +330,10 @@ export default function VirtualUserTokenManagement({
       setSelectedID("");
       setTokens([]);
       setAllowedModels([]);
-      setBanner({ kind: "success", message: t("messages.deleteUserSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.deleteUserSuccess") });
       await loadVirtualUsers(0, query.trim());
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.deleteUserError")) });
+      setDeleteNotice({ kind: "error", message: normalizeError(error, t("messages.deleteUserError")) });
       throw error;
     } finally {
       setIsSaving(false);
@@ -339,13 +344,14 @@ export default function VirtualUserTokenManagement({
     event.preventDefault();
     if (!selectedVirtualUser) return;
     if (!selectedVirtualUser.team_id) {
-      setBanner({ kind: "warning", message: t("messages.teamRequired") });
+      setOverlayNotice({ kind: "warning", message: t("messages.teamRequired") });
       return;
     }
     if (!tokenForm.keyAlias.trim()) {
-      setBanner({ kind: "error", message: t("messages.tokenNameRequired") });
+      setOverlayNotice({ kind: "error", message: t("messages.tokenNameRequired") });
       return;
     }
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       const created = await requestJSON<VATToken>(`/api/virtual-users/${encodeURIComponent(selectedVirtualUser.id)}/tokens`, {
@@ -360,10 +366,10 @@ export default function VirtualUserTokenManagement({
       setSecretDialogOpen(Boolean(created.key));
       setTokenForm(emptyTokenForm);
       setCreateTokenOpen(false);
-      setBanner({ kind: "success", message: t("messages.createTokenSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.createTokenSuccess") });
       await loadTokens(selectedVirtualUser.id);
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.createTokenError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.createTokenError")) });
     } finally {
       setIsSaving(false);
     }
@@ -371,6 +377,7 @@ export default function VirtualUserTokenManagement({
 
   async function confirmTokenAction() {
     if (!selectedVirtualUser || !actionIntent) return;
+    setActionNotice(null);
     setIsSaving(true);
     try {
       if (actionIntent.type === "revoke") {
@@ -381,7 +388,7 @@ export default function VirtualUserTokenManagement({
             body: JSON.stringify({ reason: "tenant_admin_ui" }),
           },
         );
-        setBanner({ kind: "success", message: t("messages.revokeSuccess") });
+        showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.revokeSuccess") });
       } else {
         const rotated = await requestJSON<VATToken>(
           `/api/virtual-users/${encodeURIComponent(selectedVirtualUser.id)}/tokens/${encodeURIComponent(actionIntent.token.id)}/rotate`,
@@ -392,13 +399,13 @@ export default function VirtualUserTokenManagement({
         );
         setNewSecret(rotated.key ?? null);
         setSecretDialogOpen(Boolean(rotated.key));
-        setBanner({ kind: "success", message: t("messages.rotateSuccess") });
+        showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.rotateSuccess") });
       }
       setConfirmOpen(false);
       setActionIntent(null);
       await loadTokens(selectedVirtualUser.id);
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.tokenActionError")) });
+      setActionNotice({ kind: "error", message: normalizeError(error, t("messages.tokenActionError")) });
     } finally {
       setIsSaving(false);
     }
@@ -612,7 +619,7 @@ export default function VirtualUserTokenManagement({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Sheet open={createTokenOpen} onOpenChange={setCreateTokenOpen}>
+                    <Sheet open={createTokenOpen} onOpenChange={(open) => { setCreateTokenOpen(open); if (!open) setOverlayNotice(null); }}>
                       <Button
                         type="button"
                         onClick={openCreateToken}
@@ -626,6 +633,7 @@ export default function VirtualUserTokenManagement({
                           <SheetTitle>{t("createToken.title")}</SheetTitle>
                           <SheetDescription>{t("createToken.description")}</SheetDescription>
                         </SheetHeader>
+                        <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} className="mt-6" />
                         <TokenFormView
                           t={t}
                           form={tokenForm}
@@ -729,7 +737,8 @@ export default function VirtualUserTokenManagement({
         </div>
       </section>
 
-      <FormSheet open={createUserOpen} onOpenChange={setCreateUserOpen} title={t("createUser.title")} description={t("createUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
+      <FormSheet open={createUserOpen} onOpenChange={(open) => { setCreateUserOpen(open); if (!open) setOverlayNotice(null); }} title={t("createUser.title")} description={t("createUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
+          <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
           <VirtualUserFormView
             t={t}
             form={virtualUserForm}
@@ -742,7 +751,8 @@ export default function VirtualUserTokenManagement({
           />
       </FormSheet>
 
-      <FormSheet open={editUserOpen} onOpenChange={setEditUserOpen} title={t("editUser.title")} description={t("editUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
+      <FormSheet open={editUserOpen} onOpenChange={(open) => { setEditUserOpen(open); if (!open) setOverlayNotice(null); }} title={t("editUser.title")} description={t("editUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
+          <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
           <VirtualUserFormView
             t={t}
             form={virtualUserForm}
@@ -758,7 +768,7 @@ export default function VirtualUserTokenManagement({
       {selectedVirtualUser ? (
         <TypedConfirmDialog
           open={deleteUserOpen}
-          onOpenChange={setDeleteUserOpen}
+          onOpenChange={(open) => { setDeleteUserOpen(open); if (!open) setDeleteNotice(null); }}
           title={t("deleteUser.title")}
           description={t("deleteUser.description", { alias: selectedVirtualUser.alias })}
           expectedValue={selectedVirtualUser.alias}
@@ -767,6 +777,7 @@ export default function VirtualUserTokenManagement({
           confirmLabel={t("actions.deleteUser")}
           pendingLabel={t("actions.saving")}
           onConfirm={deleteVirtualUser}
+          feedback={<OperationNotice notice={deleteNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />}
           warning={activeTokenCount > 0 ? (
             <Alert variant="warning">
               <ShieldCheck />
@@ -777,35 +788,29 @@ export default function VirtualUserTokenManagement({
         />
       ) : null}
 
-      <Dialog
+      <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(open) => {
           if (isSaving) return;
           setConfirmOpen(open);
-          if (!open) setActionIntent(null);
+          if (!open) {
+            setActionIntent(null);
+            setActionNotice(null);
+          }
         }}
-      >
-        <DialogContent closeLabel={t("confirm.cancel")}>
-          <DialogHeader>
-            <DialogTitle>
-              {actionIntent?.type === "rotate" ? t("confirm.rotateTitle") : t("confirm.revokeTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {actionIntent?.type === "rotate"
-                ? t("confirm.rotateDescription", { name: actionIntent.token.key_alias })
-                : t("confirm.revokeDescription", { name: actionIntent?.token.key_alias ?? "" })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isSaving}>
-              {t("confirm.cancel")}
-            </Button>
-            <Button variant={actionIntent?.type === "revoke" ? "destructive" : "default"} onClick={() => void confirmTokenAction()} disabled={isSaving}>
-              {isSaving ? t("actions.saving") : t("confirm.confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={actionIntent?.type === "rotate" ? t("confirm.rotateTitle") : t("confirm.revokeTitle")}
+        description={actionIntent?.type === "rotate"
+          ? t("confirm.rotateDescription", { name: actionIntent.token.key_alias })
+          : t("confirm.revokeDescription", { name: actionIntent?.token.key_alias ?? "" })}
+        cancelLabel={t("confirm.cancel")}
+        confirmLabel={t("confirm.confirm")}
+        pendingLabel={t("actions.saving")}
+        pending={isSaving}
+        destructive={actionIntent?.type === "revoke"}
+        closeOnConfirm={false}
+        onConfirm={confirmTokenAction}
+        feedback={<OperationNotice notice={actionNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />}
+      />
 
       <OneTimeSecretDialog
         open={secretDialogOpen}
@@ -822,7 +827,7 @@ export default function VirtualUserTokenManagement({
           copied: t("oneTime.copied"),
         }}
         onClear={() => setNewSecret(null)}
-        onCopyError={() => setBanner({ kind: "error", message: t("oneTime.copyFailed") })}
+        onCopyError={() => showFeedbackToast({ kind: "error", title: t("alerts.error"), description: t("oneTime.copyFailed") })}
       />
 
       <CommercialPlanUpgradeDialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen} title={t("upgradeDialog.title")} description={t("upgradeDialog.description")} cancelLabel={t("upgradeDialog.cancel")} actionLabel={t("upgradeDialog.action")} />

@@ -8,6 +8,10 @@
   "help": "Help",
   "none": "-",
   "notSet": "Not set",
+  "feedback": {
+    "notifications": "Notifications",
+    "closeNotification": "Close notification"
+  },
   "expirationDuration": {
     "label": "Expires in",
     "examplesLabel": "Valid examples:",

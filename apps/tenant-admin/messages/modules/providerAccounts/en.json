@@ -348,7 +348,7 @@
         "invocationModes": "Modes",
         "fqn": "Model FQN",
         "customPricing": "Adjusted pricing",
-        "pricingPerMillion": "Cost (1M tokens)",
+        "pricingPerMillion": "Cost per 1M tokens (some models use tiered pricing)",
         "modelId": "Model ID",
         "providerId": "Provider ID",
         "apiMode": "API mode",
@@ -485,7 +485,7 @@
       "providerDescriptionFallback": "Connect this provider to route tenant traffic through Godar with managed credentials, model provisioning, and access control.",
       "wizard": {
         "integrationDetails": "Basic connection settings",
-        "modelProvisioning": "Model selection",
+        "modelProvisioning": "Select AI models",
         "accessPermissions": "Access permissions",
         "reviewConfirm": "Review and confirm",
         "detailsTitle": "Basic connection settings",

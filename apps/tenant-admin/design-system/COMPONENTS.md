@@ -365,12 +365,22 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 ### Toast Notifications
 
 ```tsx
-// Toast موفقیت
-<Toast variant="success" title="موفق" description="عملیات انجام شد" />
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 
-// Toast خطا
-<Toast variant="error" title="خطا" description="مشکلی پیش آمد" />
+showFeedbackToast({
+  kind: "success",
+  title: "موفق",
+  description: "عملیات انجام شد",
+});
+
+showFeedbackToast({
+  kind: "error",
+  title: "خطا",
+  description: "مشکلی پیش آمد",
+});
 ```
+
+Toast فقط برای نتیجه‌های موقتی و غیرمسدودکننده است. خطاهای قابل‌اصلاح فرم باید داخل همان فرم با `OperationNotice`، شرایط پایدار با `Alert` و تأیید عملیات مخرب با `ConfirmDialog` مبتنی بر `AlertDialog` نمایش داده شوند. کد feature نباید `sonner` را مستقیماً import کند.
 
 ---
 

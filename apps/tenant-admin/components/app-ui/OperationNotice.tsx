@@ -19,7 +19,12 @@ export function OperationNotice({ notice, labels, action, className }: Operation
   if (!notice) return null;
 
   return (
-    <Alert variant={variants[notice.kind]} className={className}>
+    <Alert
+      variant={variants[notice.kind]}
+      role={notice.kind === "error" ? "alert" : "status"}
+      aria-live={notice.kind === "error" ? "assertive" : "polite"}
+      className={className}
+    >
       <AlertTitle>{labels[notice.kind]}</AlertTitle>
       <AlertDescription>
         <div className="flex flex-wrap items-start justify-between gap-3">

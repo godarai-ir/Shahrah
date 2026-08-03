@@ -2,9 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle, Link2, Mail, Send, Smartphone } from "lucide-react";
+import { Link2, Mail, Send, Smartphone } from "lucide-react";
 
 import { PageHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -57,14 +58,15 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
     destinationMasked: "",
   });
   const [loadingField, setLoadingField] = useState<"email" | "mobile" | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<{
+    field: "email" | "mobile";
+    message: string;
+  } | null>(null);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const connectedSocialProviders = new Set(user.socialProviders ?? []);
 
   async function connectSocialAccount(provider: "google" | "github" | "microsoft") {
     setSocialLoading(provider);
-    setError(null);
     try {
       const result = await requestJSON<{ redirect_url: string }>("/api/auth/social/link-ticket", {
         method: "POST",
@@ -72,15 +74,18 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
       });
       window.location.assign(result.redirect_url);
     } catch (err) {
-      setError(normalizeError(err, common("requestError")));
+      showFeedbackToast({
+        kind: "error",
+        title: common("requestError"),
+        description: normalizeError(err, common("requestError")),
+      });
       setSocialLoading(null);
     }
   }
 
   async function handleRequestChange(field: "email" | "mobile") {
     setLoadingField(field);
-    setError(null);
-    setMessage(null);
+    setFieldError(null);
 
     const value = field === "email" ? emailState.value : mobileState.value;
     try {
@@ -113,7 +118,6 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
         }));
       }
 
-      setMessage(t("messages.sent", { destination: result.destination_masked }));
     } catch (err) {
       if (
         !mobileAuthUIEnabled &&
@@ -121,9 +125,9 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
         err instanceof Error &&
         /mobile|phone|موبایل|همراه/i.test(err.message)
       ) {
-        setError(t("errors.emailInvalid"));
+        setFieldError({ field, message: t("errors.emailInvalid") });
       } else {
-        setError(normalizeError(err, common("requestError")));
+        setFieldError({ field, message: normalizeError(err, common("requestError")) });
       }
     } finally {
       setLoadingField(null);
@@ -136,8 +140,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
   ) {
     event.preventDefault();
     setLoadingField(field);
-    setError(null);
-    setMessage(null);
+    setFieldError(null);
 
     const state = field === "email" ? emailState : mobileState;
     try {
@@ -174,9 +177,12 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           debugOTP: undefined,
         }));
       }
-      setMessage(field === "email" ? t("messages.emailSuccess") : t("messages.mobileSuccess"));
+      showFeedbackToast({
+        kind: "success",
+        title: field === "email" ? t("messages.emailSuccess") : t("messages.mobileSuccess"),
+      });
     } catch (err) {
-      setError(normalizeError(err, common("requestError")));
+      setFieldError({ field, message: normalizeError(err, common("requestError")) });
     } finally {
       setLoadingField(null);
     }
@@ -188,17 +194,6 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
         title={t("title")}
         description={<>{t("subtitle")} - {t("role")}: <b>{user.role}</b></>}
       />
-
-      {message ? (
-        <Alert variant="success" icon={<CheckCircle aria-hidden="true" />}>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      ) : null}
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
 
       <section className={cn("grid gap-6", mobileAuthUIEnabled && "lg:grid-cols-2")}>
         <ContactChangeCard
@@ -240,6 +235,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
           otpCodePlaceholder={t("otpCodePlaceholder")}
           devCodeLabel={t("devCode")}
           confirmLabel={t("confirmEmail")}
+          error={fieldError?.field === "email" ? fieldError.message : undefined}
         />
 
         {mobileAuthUIEnabled ? (
@@ -282,6 +278,7 @@ export default function ProfileSettings(props: ProfileSettingsProps) {
             otpCodePlaceholder={t("otpCodePlaceholder")}
             devCodeLabel={t("devCode")}
             confirmLabel={t("confirmMobile")}
+            error={fieldError?.field === "mobile" ? fieldError.message : undefined}
           />
         ) : null}
       </section>
@@ -409,6 +406,7 @@ type ContactChangeCardProps = {
   otpCodePlaceholder: string;
   devCodeLabel: string;
   confirmLabel: string;
+  error?: string;
 };
 
 function ContactChangeCard(props: ContactChangeCardProps) {
@@ -461,6 +459,12 @@ function ContactChangeCard(props: ContactChangeCardProps) {
         {props.isLoading ? <Spinner data-icon="inline-start" /> : <Send data-icon="inline-start" aria-hidden="true" />}
         {props.sendCodeLabel}
       </Button>
+
+      {props.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{props.error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {props.requestID ? (
         <form className="flex flex-col gap-4 rounded-md border border-border bg-background p-4" onSubmit={props.onVerify}>

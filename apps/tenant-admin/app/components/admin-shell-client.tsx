@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -142,7 +142,8 @@ export default function AdminShellClient({
 
   return (
     <PermissionsProvider permissions={permissions}>
-      <SidebarProvider className="bg-background">
+      <SidebarProvider defaultOpen={!pathname.startsWith("/playground")} className="bg-background">
+        <SidebarRouteStateSync pathname={pathname} />
         <a href="#main-content" className="skip-link">
           {t("skipToContent")}
         </a>
@@ -201,6 +202,26 @@ export default function AdminShellClient({
       </SidebarProvider>
     </PermissionsProvider>
   );
+}
+
+function SidebarRouteStateSync({ pathname }: { pathname: string }) {
+  const { setOpen, setOpenMobile } = useSidebar();
+  const previousPathname = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previousPathname.current === pathname) {
+      return;
+    }
+
+    previousPathname.current = pathname;
+
+    if (pathname.startsWith("/playground")) {
+      setOpen(false);
+      setOpenMobile(false);
+    }
+  }, [pathname, setOpen, setOpenMobile]);
+
+  return null;
 }
 
 type UserProfileMenuProps = {

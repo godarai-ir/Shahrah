@@ -3,11 +3,12 @@
 import type React from "react";
 import { CopyAction, TablePagination } from "@/components/app-ui";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Code2, ExternalLink, RotateCcw, Search, Settings, SlidersHorizontal, X } from "lucide-react";
+import { Code2, ExternalLink, LayoutGrid, RotateCcw, Search, Settings, SlidersHorizontal, Table2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { AppSelectField, EmptyState } from "@/components/app-ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -21,10 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -246,9 +249,22 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
       }),
     [displayCurrency, displayScale, model.public_pricing?.output_usd_per_1m, usdToIrr, ux],
   );
+  const modelIdentifier = normalizeProviderScopedModelName(model.provider, model.model);
+  const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
+    if (!canManage || (event.target as HTMLElement).closest("button, a, input, [role='checkbox']")) return;
+
+    setModelEnabled(model, draft, selectableOptions, !draft.enabled);
+  };
 
   return (
-    <tr className={cn("border-b border-border/60 align-top", draft.enabled && "bg-[var(--success-soft)]/45")}>
+    <tr
+      onClick={handleRowClick}
+      className={cn(
+        "border-b border-border/60 align-top transition-colors",
+        canManage && "cursor-pointer hover:bg-muted/30",
+        draft.enabled && "bg-[var(--success-soft)]/45",
+      )}
+    >
       <td className="px-2 py-3 text-center">
         <Checkbox
           checked={draft.enabled}
@@ -258,15 +274,23 @@ const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProp
           className="size-4"
         />
       </td>
-      <td className="px-3 py-3">
+      <td className="w-px whitespace-nowrap px-3 py-3">
         <div className="min-w-0 space-y-1">
-          <p className="line-clamp-2 text-sm font-semibold text-foreground" dir="ltr" title={model.display_name || model.model}>
+          <p className="whitespace-nowrap text-sm font-semibold text-foreground" dir="ltr" title={model.display_name || model.model}>
             {model.display_name || model.model}
           </p>
           {recommended ? <Badge className="mt-1" variant="secondary">{ux("models.card.recommended")}</Badge> : null}
-          <p className="truncate text-xs text-muted-foreground" dir="ltr" title={model.model}>
-            {normalizeProviderScopedModelName(model.provider, model.model)}
-          </p>
+          <div className="flex items-center gap-1" dir="ltr">
+            <p className="whitespace-nowrap text-xs text-muted-foreground" title={model.model}>
+              {modelIdentifier}
+            </p>
+            <CopyAction
+              value={modelIdentifier}
+              copyLabel={ux("models.card.copyId")}
+              copiedLabel={ux("models.card.copied")}
+              className="shrink-0"
+            />
+          </div>
         </div>
       </td>
       <td className="px-3 py-3 text-center">
@@ -385,16 +409,17 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           isSelected={displayDraft.enabled}
           onSelectedChange={(checked) => setModelEnabled(model, displayDraft, selectableOptions, checked)}
           selectedCheckboxLabel={`${ux("common.enabled")} ${model.display_name || model.model}`}
+          selectedControlLabel={null}
           pricingModeBadge={displayDraft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
           hasCustomPricing={displayDraft.pricingMode === "private"}
           showCopyAction={Boolean(account)}
           className={
             compact
               ? displayDraft.enabled
-                ? "border-success/40 self-start"
+                ? "self-start border-success-soft-border"
                 : "self-start"
               : displayDraft.enabled
-                ? "border-success/40"
+                ? "border-success-soft-border"
                 : undefined
           }
           footerActions={account ? (
@@ -498,7 +523,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   const [usdToIrr, setUsdToIrr] = useState(0);
   const [curlGuide, setCurlGuide] = useState<CurlGuide | null>(null);
   const [curlGuideShell, setCurlGuideShell] = useState<CurlGuideShell>("powershell");
-  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [priceDisplayOpen, setPriceDisplayOpen] = useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<"table" | "card">("table");
@@ -614,8 +638,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     () => Object.values(modelDrafts).filter((draft) => draft.enabled).length,
     [modelDrafts],
   );
-  const selectedOnlyActive = showSelectedOnly && enabledModelCount > 0;
-
   const allInputModalities = useMemo(
     () => Array.from(new Set(providerModels.flatMap((model) => model.input_modalities ?? []))),
     [providerModels],
@@ -639,10 +661,10 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       filterAndSortProviderModels({
         models: providerModels,
         filters: deferredFilters,
-        isSelectedOnly: selectedOnlyActive,
+        isSelectedOnly: false,
         isModelEnabled: (modelKey) => Boolean(modelDrafts[modelKey]?.enabled),
       }),
-    [deferredFilters, modelDrafts, providerModels, selectedOnlyActive],
+    [deferredFilters, modelDrafts, providerModels],
   );
   const renderedVisibleModels = useDeferredValue(visibleModels);
   const lastCompactPage = Math.max(0, Math.ceil(renderedVisibleModels.length / COMPACT_MODEL_PAGE_SIZE) - 1);
@@ -990,77 +1012,79 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     <Dialog open={curlGuide !== null} onOpenChange={(open) => { if (!open) setCurlGuide(null); }}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-xl border border-border bg-background p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl"
+        className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-4xl"
       >
-        <div className="custom-scrollbar max-h-[calc(100dvh-1rem)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100dvh-2rem)] sm:px-6 sm:py-5 lg:px-8 lg:py-6">
-          <div className="flex items-start justify-between gap-3">
-            <DialogHeader className="min-w-0 flex-1 items-end gap-1 text-end">
-              <div className="flex min-w-0 items-center justify-end gap-2">
-                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+        <div className="flex shrink-0 items-start gap-4 px-4 py-4 sm:px-6 sm:py-5">
+          <DialogHeader className="min-w-0 flex-1 items-start gap-1.5 text-start">
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
                   <Code2 aria-hidden="true" />
-                </span>
-                <DialogTitle className="min-w-0 text-end text-xl font-bold leading-7 tracking-normal text-foreground sm:text-2xl sm:leading-8">
-                  {ux("models.curlGuide.title")}
-                </DialogTitle>
-              </div>
-              <DialogDescription className="max-w-3xl text-end text-sm leading-6 text-muted-foreground">
-                {ux("models.curlGuide.descriptionPrefix")}{" "}
-                <span dir="ltr" className="font-medium text-primary">{curlGuide?.modelName ?? ""}</span>{" "}
-                {ux("models.curlGuide.descriptionSuffix")}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-10 shrink-0 rounded-xl bg-background shadow-sm"
-              >
-                <X />
-                <span className="sr-only">{ux("models.curlGuide.close")}</span>
-              </Button>
-            </DialogClose>
-          </div>
-
-          <div className="mt-3 flex min-w-0 items-center gap-2 sm:mt-4">
-            <div
-              dir="ltr"
-              title={curlGuide?.modelFqn ?? ""}
-              className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted/30 px-3 py-2 text-start font-mono text-xs font-semibold text-primary sm:rounded-xl sm:px-4 sm:py-2.5"
-            >
-              {curlGuide?.modelFqn}
+              </span>
+              <DialogTitle className="min-w-0 text-xl leading-7 sm:text-2xl sm:leading-8">
+                {ux("models.curlGuide.title")}
+              </DialogTitle>
             </div>
-            <CopyAction
-              value={curlGuide?.modelFqn ?? ""}
-              copyLabel={ux("models.card.copyFqn")}
-              copiedLabel={ux("models.card.copied")}
-              showLabel
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0 rounded-lg bg-background px-3 text-muted-foreground shadow-none sm:rounded-xl"
-              onCopied={() => props.setBanner({ kind: "success", message: ux("messages.fqnCopied") })}
-            />
-          </div>
+            <DialogDescription className="max-w-3xl text-start text-sm leading-6">
+              {ux("models.curlGuide.descriptionPrefix")}{" "}
+              <bdi dir="ltr" className="font-medium text-foreground">{curlGuide?.modelName ?? ""}</bdi>{" "}
+              {ux("models.curlGuide.descriptionSuffix")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogClose asChild>
+            <Button type="button" variant="ghost" size="icon" className="shrink-0" aria-label={ux("models.curlGuide.close")}>
+              <X aria-hidden="true" />
+            </Button>
+          </DialogClose>
+        </div>
 
-          <Alert variant="info" className="mt-3 rounded-xl bg-muted/30 px-3 py-2 text-end text-muted-foreground sm:mt-4">
-            <AlertDescription className="text-xs leading-5">
-              <span className="font-medium text-foreground">{ux("models.curlGuide.instructionsLabel")}: </span>
-              {ux("models.curlGuide.instructions")}
-            </AlertDescription>
-          </Alert>
+        <Separator />
 
-          <div className="mt-4 sm:mt-5">
-            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0">
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
+            <Field>
+              <FieldLabel htmlFor="curl-guide-model-fqn">{ux("models.curlGuide.modelFqnLabel")}</FieldLabel>
+              <InputGroup className="h-10 bg-muted/20">
+                <InputGroupInput
+                  id="curl-guide-model-fqn"
+                  readOnly
+                  value={curlGuide?.modelFqn ?? ""}
+                  dir="ltr"
+                  className="truncate font-mono text-xs font-semibold text-primary"
+                />
+                <InputGroupAddon align="inline-end" className="pe-1">
+                  <CopyAction
+                    value={curlGuide?.modelFqn ?? ""}
+                    copyLabel={ux("models.card.copyFqn")}
+                    copiedLabel={ux("models.card.copied")}
+                    showLabel
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shrink-0"
+                    onCopied={() => showFeedbackToast({ kind: "success", title: ux("messages.fqnCopied") })}
+                  />
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
+
+            <Alert variant="info">
+              <AlertTitle>{ux("models.curlGuide.instructionsLabel")}</AlertTitle>
+              <AlertDescription>{ux("models.curlGuide.instructions")}</AlertDescription>
+            </Alert>
+
+            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0 gap-3">
+              <TabsList className="w-full sm:w-fit">
+                <TabsTrigger value="powershell" className="min-w-0 sm:min-w-28">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
+                <TabsTrigger value="bash" className="min-w-0 sm:min-w-20">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
+              </TabsList>
               <TabsContent value="powershell" className="mt-0">
                 <CodeExampleBlock
                   title={ux("models.curlGuide.requestTitle")}
                   code={curlGuide?.commands.powershell ?? ""}
                   language={CURL_GUIDE_LANGUAGE.powershell}
                   shellLabel={ux("models.curlGuide.shells.powershell")}
-                  headerActions={renderCurlGuideHeaderActions()}
                   copyLabel={ux("models.curlGuide.copySample")}
                   copiedLabel={ux("models.card.copied")}
-                  onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                  onCopied={() => showFeedbackToast({ kind: "success", title: ux("messages.curlCopied") })}
                   footer={renderCurlGuideDocsFooter()}
                 />
               </TabsContent>
@@ -1070,16 +1094,15 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                   code={curlGuide?.commands.bash ?? ""}
                   language={CURL_GUIDE_LANGUAGE.bash}
                   shellLabel={ux("models.curlGuide.shells.bash")}
-                  headerActions={renderCurlGuideHeaderActions()}
                   copyLabel={ux("models.curlGuide.copySample")}
                   copiedLabel={ux("models.card.copied")}
-                  onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                  onCopied={() => showFeedbackToast({ kind: "success", title: ux("messages.curlCopied") })}
                   footer={renderCurlGuideDocsFooter()}
                 />
               </TabsContent>
             </Tabs>
             {curlGuide?.sampleResponse ? (
-              <div className="mt-5">
+              <div className="mt-1">
                 <CodeExampleBlock
                   title={ux("models.curlGuide.sampleResponse")}
                   code={curlGuide.sampleResponse}
@@ -1097,19 +1120,8 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   if (props.variant === "compact") {
     return (
       <>
-        <div className="shrink-0 bg-card px-4 py-3 shadow-sm md:sticky md:top-20 sm:px-5">
+        <div className="shrink-0 bg-card px-4 py-3 shadow-sm sm:px-5">
           <div className="flex flex-col gap-2.5">
-            <div className="flex justify-end">
-              <div className="relative w-full">
-                <Search className="pointer-events-none absolute end-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={filters.search}
-                  onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
-                  placeholder={props.t("step3.searchPlaceholder")}
-                  className="h-9 pe-9 text-start text-sm placeholder:text-start"
-                />
-              </div>
-            </div>
             {recommendedModel ? (
               <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm">
                 <span className="font-medium">{ux("models.recommendation.title")}: </span>
@@ -1155,28 +1167,52 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               className="flex flex-col gap-2 px-1 py-1 text-start text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={enabledModelCount > 0 ? "default" : "outline"} className="px-2 py-0 text-xs">
-                  {ux("integrations.wizard.selectedCountDetailed", {
-                    count: enabledModelCount,
-                    total: props.providerModels.length,
-                  })}
-                </Badge>
-                <ToggleGroup
-                  type="single"
-                  value={mobileViewMode}
-                  onValueChange={(value) => {
-                    if (value === "table" || value === "card") setMobileViewMode(value);
-                  }}
-                  aria-label={ux("integrations.wizard.viewMode")}
-                  className="inline-flex rounded-full border border-border/70 bg-muted/30 p-1"
-                >
-                  <ToggleGroupItem value="table" className="h-8 rounded-full px-3 text-xs data-[state=on]:bg-secondary">
-                    {ux("integrations.wizard.tableView")}
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="card" className="h-8 rounded-full px-3 text-xs data-[state=on]:bg-secondary">
-                    {ux("integrations.wizard.cardView")}
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                <TooltipProvider>
+                  <ToggleGroup
+                    type="single"
+                    value={mobileViewMode}
+                    onValueChange={(value) => {
+                      if (value === "table" || value === "card") setMobileViewMode(value);
+                    }}
+                    aria-label={ux("integrations.wizard.viewMode")}
+                    className="inline-flex rounded-full border border-border/70 bg-muted/30 p-1"
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem
+                          value="table"
+                          aria-label={ux("integrations.wizard.tableView")}
+                          className="size-8 rounded-full p-0 data-[state=on]:bg-secondary [&>svg]:size-4"
+                        >
+                          <Table2 aria-hidden="true" />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent>{ux("integrations.wizard.tableView")}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <ToggleGroupItem
+                          value="card"
+                          aria-label={ux("integrations.wizard.cardView")}
+                          className="size-8 rounded-full p-0 data-[state=on]:bg-secondary [&>svg]:size-4"
+                        >
+                          <LayoutGrid aria-hidden="true" />
+                        </ToggleGroupItem>
+                      </TooltipTrigger>
+                      <TooltipContent>{ux("integrations.wizard.cardView")}</TooltipContent>
+                    </Tooltip>
+                  </ToggleGroup>
+                </TooltipProvider>
+              </div>
+              <div className="relative w-full min-w-0 sm:w-auto sm:flex-1">
+                <Search className="pointer-events-none absolute end-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={filters.search}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+                  placeholder={props.t("step3.searchPlaceholder")}
+                  aria-label={props.t("step3.searchPlaceholder")}
+                  className="h-9 pe-9 text-start text-sm placeholder:text-start"
+                />
               </div>
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <label
@@ -1191,29 +1227,14 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                   />
                   <span>{ux("integrations.wizard.selectAll")}</span>
                 </label>
-                <label
-                  htmlFor="compact-selected-only-models"
-                  className="inline-flex cursor-pointer flex-row items-center gap-1.5 text-foreground has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50"
-                >
-                  <Checkbox
-                    id="compact-selected-only-models"
-                    checked={selectedOnlyActive}
-                    disabled={enabledModelCount === 0}
-                    onCheckedChange={(checked) => {
-                      setCompactPage(0);
-                      setShowSelectedOnly(checked === true);
-                    }}
-                  />
-                  <span>{ux("integrations.wizard.selectedOnly")}</span>
-                </label>
               </div>
             </div>
           </div>
         </div>
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3 sm:px-5">
-            <div className="flex min-h-full min-w-0 flex-col gap-2 pe-2">
+          <div className="min-h-0 flex-1 overflow-y-auto pb-3 pt-3">
+            <div className="flex min-h-full min-w-0 flex-col gap-2">
               {props.isLoadingModels ? (
                 <>
                   {Array.from({ length: 8 }).map((_, index) => (
@@ -1225,19 +1246,19 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
               ) : mobileViewMode === "table" ? (
                 <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full table-fixed border-collapse text-start">
+                    <table className="w-full table-auto border-collapse text-start">
                       <colgroup>
                         <col className="w-12" />
-                        <col />
+                        <col className="w-px" />
                         <col className="w-20" />
                         <col className="w-20" />
                         <col className="w-20" />
-                        <col className="hidden w-36 md:table-column" />
+                        <col className="hidden md:table-column" />
                       </colgroup>
                       <thead className="bg-muted/35 text-xs text-muted-foreground">
                         <tr>
                           <th className="px-2 py-2 text-center font-medium">{ux("common.enabled")}</th>
-                          <th className="px-3 py-2 text-start font-medium">{ux("models.card.modelId")}</th>
+                          <th className="w-px whitespace-nowrap px-3 py-2 text-start font-medium">{ux("models.card.modelId")}</th>
                           <th className="px-3 py-2 text-center font-medium">{ux("models.card.context")}</th>
                           <th className="px-3 py-2 text-start font-medium">{ux("models.labels.input")}</th>
                           <th className="px-3 py-2 text-start font-medium">{ux("models.labels.output")}</th>
@@ -1320,17 +1341,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         ) : null}
         {curlGuideDialog}
       </>
-    );
-  }
-
-  function renderCurlGuideHeaderActions() {
-    return (
-      <div className="flex min-w-0 shrink-0 justify-end">
-        <TabsList className="h-8 w-auto justify-start overflow-x-auto rounded-xl bg-muted/70 p-1">
-          <TabsTrigger value="powershell" className="min-w-24 rounded-lg px-2.5 text-xs font-semibold sm:min-w-28 sm:px-3">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
-          <TabsTrigger value="bash" className="min-w-16 rounded-lg px-2.5 text-xs sm:min-w-20 sm:px-3">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
-        </TabsList>
-      </div>
     );
   }
 

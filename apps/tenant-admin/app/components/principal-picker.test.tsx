@@ -54,7 +54,7 @@ describe("PrincipalPicker", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Search consumers" }));
     fireEvent.click(screen.getByRole("button", { name: "Add consumer" }));
-    expect(screen.getByRole("dialog", { name: "Grant access to everyone?" })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Grant access to everyone?" })).toBeInTheDocument();
     expect(setSelected).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirm broad access" }));

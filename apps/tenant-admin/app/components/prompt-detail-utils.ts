@@ -42,8 +42,8 @@ export function buildSdkSnippet(version: PromptVersion): string {
   return `from openai import OpenAI
 
 client = OpenAI(
-    api_key="YOUR_SHAHRAH_API_KEY",
-    base_url="https://TENANT.shahrah.ir/v1"
+    api_key="YOUR_GODARAI_API_KEY",
+    base_url="https://TENANT.godarai.ir/v1"
 )
 
 response = client.chat.completions.create(
@@ -64,8 +64,8 @@ export function buildGatewaySnippet(version: PromptVersion, stream: boolean): st
   const variableEntries = Object.keys(manifest.variables ?? {}).map((name) => `    "${name}": ${JSON.stringify(sampleVariableValue(name))}`);
   const promptVariables = variableEntries.length === 0 ? "  {}" : `  {\n${variableEntries.join(",\n")}\n  }`;
 
-  return `curl --location 'https://TENANT.shahrah.ir/v1/chat/completions' \\
-  --header 'Authorization: Bearer YOUR_SHAHRAH_API_KEY' \\
+  return `curl --location 'https://TENANT.godarai.ir/v1/chat/completions' \\
+  --header 'Authorization: Bearer YOUR_GODARAI_API_KEY' \\
   --header 'Content-Type: application/json' \\
   --data '{
   "model": "${model}",

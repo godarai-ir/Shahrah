@@ -193,6 +193,7 @@
     "loading": "Loading rate limiting rules...",
     "saveSuccess": "Rate limit rule saved successfully.",
     "saveError": "Failed to save rate limit rule.",
+    "deleteSuccess": "Rate limit rule deleted successfully.",
     "deleteError": "Failed to delete rate limit rule."
   },
   "deleteDialog": {

@@ -37,6 +37,14 @@ the final level uses `BreadcrumbPage` so assistive technology receives
 `aria-current="page"`. Keep labels localized and preserve automatic direction
 for provider and model names.
 
+## Breadcrumb
+
+Use the shared `Breadcrumb` primitives for compact hierarchy on nested detail
+pages. Every ancestor must be a real link, while the current entity uses
+`BreadcrumbPage`. Do not reproduce breadcrumbs with plain text and separator
+characters; the shared separator preserves RTL direction and accessible
+navigation semantics.
+
 ## PageContainer
 
 Use `PageContainer` as the outer layout for route-level pages. The default `wide` size, standard padding, and default spacing produce the established `max-w-7xl` page rhythm. Use `readable` for focused content and `full` for embedded workflows that must consume their parent width.
@@ -57,7 +65,21 @@ Use `density="compact"` for constrained pickers and small panels. Keep “no dat
 
 ## OperationNotice
 
-Use `OperationNotice` for transient operation feedback represented by a `kind` and `message`. Pass localized labels for success, error, warning, and info; keep notice state and dismissal behavior in the owning feature. Use raw `Alert` for persistent explanatory callouts that are not operation results.
+Choose feedback by its UX lifetime and scope:
+
+- Use `showFeedbackToast` for temporary, non-blocking operation results that do not require a decision. This includes successful create/update/delete/copy actions and failures whose originating surface has already closed or is otherwise unavailable. Import it only from `@/components/app-ui/feedback-toast`; feature code must not import `sonner` directly.
+- Use `OperationNotice` inside an open `FormSheet`, `FormDialog`, `Sheet`, or confirmation surface when the user must read and act on the result without losing their current context. Validation and retryable submit failures belong beside the form or action that caused them.
+- Use raw `Alert` for persistent explanatory, warning, degraded-state, or load-failure callouts that remain relevant until the underlying condition changes. A route-level load failure may stay near the affected content and should include an adjacent retry action when one is available.
+- Use `ConfirmDialog` for destructive or high-impact actions that require an explicit user decision. It is backed by `AlertDialog`; rejected confirmation requests stay open and render their `feedback` inside the dialog.
+
+Do not mirror one operation result simultaneously in a toast and an inline alert. Clear stale contextual feedback when its sheet or dialog closes or switches resources.
+
+```tsx
+showFeedbackToast({
+  kind: "success",
+  title: t("messages.saved"),
+});
+```
 
 ## AppCard / SettingsCard
 
@@ -72,6 +94,12 @@ Do not put cards inside cards. If a settings surface already has `SettingsCard`,
 Use for dashboard metrics with a label, value, optional description, optional trend, and optional icon.
 
 Use `density="compact"` for dense analytics grids and `tone` to communicate semantic icon emphasis. Do not create feature-local KPI wrappers only to rename `label`, `description`, or density props.
+
+## ModelCard
+
+Use the shared `ModelCard` for catalog and provider-account model grids. Keep the model identity, category badges, selection state, metrics, capability panels, and utility actions in the established hierarchy; do not rebuild the card inside individual model workflows.
+
+Pass the full model-aware text through `selectedCheckboxLabel` for the Switch accessible name and a concise localized label such as “Enabled” through `selectedControlLabel` for visible UI. Technical actions such as FQN copy and code examples belong in `footerActions`, while the model detail link stays beside the title. Keep model names and technical values LTR without changing the surrounding RTL layout.
 
 ## CompactValue
 
@@ -111,7 +139,7 @@ Use `ExpirationDurationField` for relative token expiry values accepted by the A
 
 Use `ModelNameValue` for model identifiers in tables and compact metadata. It keeps the displayed identifier LTR, monospace, left-aligned, single-line, and directly copyable. Tables should scroll horizontally instead of breaking a technical identifier character-by-character on narrow screens. When the UI summarizes multiple models, pass the full comma-separated identifiers through `copyValue` while keeping the shorter summary in `value`.
 
-Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared syntax-highlighted `CodeBlock`; use `CodeBlock` alone only inside an existing panel that already supplies this hierarchy.
+Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared read-only CodeMirror-based `CodeViewer`, which provides line numbers, selection, search, keyboard focus, and horizontal scrolling for long technical lines. Use `CodeViewer` directly only inside an existing panel that already supplies this hierarchy. Keep `CodeBlock` for compact syntax-highlighted output that needs feature-owned term highlighting.
 
 Use `JsonEditorField` for editable JSON surfaces. It uses the shared CodeMirror 6 editor with JSON parsing and diagnostics, line numbers, bracket matching, LTR editing, optional prompt-variable decoration, and valid-JSON formatting on blur.
 
@@ -175,7 +203,7 @@ For standalone loading feedback, pass a localized `label` to `Spinner`; this exp
 
 ## ConfirmDialog
 
-Use for destructive or high-impact confirmations. It composes the existing shadcn Dialog.
+Use for destructive or high-impact confirmations. It composes the shared shadcn `AlertDialog` primitives.
 
 Use `open` and `onOpenChange` for feature-controlled dialogs, or pass `trigger` for the standard trigger-based flow. `onConfirm` may return a promise; provide `pendingLabel` so the dialog disables dismissal and communicates progress while the operation runs.
 

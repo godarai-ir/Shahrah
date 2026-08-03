@@ -205,6 +205,15 @@ button:not(:disabled),
   scrollbar-color: color-mix(in oklab, var(--muted-foreground) 24%, transparent) transparent;
 }
 
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 /* ========================================
    UTILITY CLASSES
    ======================================== */

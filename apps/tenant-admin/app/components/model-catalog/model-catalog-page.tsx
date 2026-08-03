@@ -40,6 +40,7 @@ import { DebouncedTextFilter, FilterField } from "@/components/app-ui/FilterFiel
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { OperationNotice, type OperationNoticeValue } from "@/components/app-ui/OperationNotice";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { RefreshButton } from "@/components/app-ui/RefreshButton";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
@@ -361,7 +362,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
     await requestJSON(`/api/tenant-provider-accounts/${encodeURIComponent(deleteTarget.id)}`, {
       method: "DELETE",
     });
-    setNotice({ kind: "success", message: t("notices.deleted", { account: deleteTarget.name }) });
+    showFeedbackToast({ kind: "success", title: t("notices.deleted", { account: deleteTarget.name }) });
     setDeleteNotice(null);
     setDeleteTarget(null);
     setReloadKey((value) => value + 1);
@@ -385,22 +386,22 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
         }}
       />
 
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 md:flex-row md:items-center md:justify-between">
-        <Tabs value={state.tab} onValueChange={changeTab} className="min-w-0 max-w-full">
-          <TabsList variant="line" aria-label={t("tabs.label")}>
-            <TabsTrigger value="providers">
+      <div className="flex flex-col gap-3 rounded-xl border border-card-border bg-card p-3 shadow-xs sm:p-4 md:flex-row md:items-center md:justify-between">
+        <Tabs value={state.tab} onValueChange={changeTab} className="min-w-0 flex-1">
+          <TabsList variant="line" aria-label={t("tabs.label")} className="grid h-11 w-full grid-cols-2 gap-1 p-0 md:w-auto md:min-w-96">
+            <TabsTrigger value="providers" className="h-11 min-w-0 justify-center px-2 sm:px-4">
               <Network data-icon="inline-start" aria-hidden="true" />
-              {t("tabs.providers")}
-              <Badge variant="secondary">{formattedAccountCount}</Badge>
+              <span className="truncate">{t("tabs.providers")}</span>
+              <Badge variant="secondary" className="shrink-0">{formattedAccountCount}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="models">
+            <TabsTrigger value="models" className="h-11 min-w-0 justify-center px-2 sm:px-4">
               <Boxes data-icon="inline-start" aria-hidden="true" />
-              {t("tabs.models")}
-              <Badge variant="secondary">{formattedCatalogModelCount}</Badge>
+              <span className="truncate">{t("tabs.models")}</span>
+              <Badge variant="secondary" className="shrink-0">{formattedCatalogModelCount}</Badge>
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full items-center gap-2 md:w-auto md:shrink-0">
           <RefreshButton
             label={t("actions.refresh")}
             loadingLabel={t("loading")}
@@ -411,7 +412,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
               setReloadKey((value) => value + 1);
             }}
           />
-          <Button asChild>
+          <Button asChild className="min-w-0 flex-1 md:flex-none">
             <Link href="/provider-accounts/new">
               <Plus data-icon="inline-start" aria-hidden="true" />
               {t("actions.addProvider")}
@@ -422,17 +423,19 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
 
       <DataListPanel
         aria-label={state.tab === "providers" ? t("providers.ariaLabel") : t("models.ariaLabel")}
-        toolbarClassName="@container"
-        contentClassName="@container"
+        toolbarClassName="@container border-card-border shadow-xs"
+        contentClassName="@container border-card-border shadow-xs"
         toolbar={
-          <div className="flex min-w-0 flex-col gap-3">
-            <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-4">
-              <DebouncedTextFilter
-                label={t("filters.search")}
-                value={state.q}
-                onValueChange={(value) => updateURL({ q: value })}
-                placeholder={state.tab === "providers" ? t("filters.searchProviders") : t("filters.searchModels")}
-              />
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="grid gap-3 @lg:grid-cols-2 @4xl:grid-cols-6">
+              <div className="@4xl:col-span-2">
+                <DebouncedTextFilter
+                  label={t("filters.search")}
+                  value={state.q}
+                  onValueChange={(value) => updateURL({ q: value })}
+                  placeholder={state.tab === "providers" ? t("filters.searchProviders") : t("filters.searchModels")}
+                />
+              </div>
               <FilterField label={t("filters.provider")} htmlFor="model-catalog-provider-filter">
                 <FilterCombobox
                   id="model-catalog-provider-filter"
@@ -454,7 +457,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
                 />
               </FilterField>
               {state.tab === "providers" ? (
-                <div className="grid gap-2 @sm:grid-cols-2">
+                <>
                   <FilterField label={t("filters.credential")} htmlFor="model-catalog-credential-filter">
                     <FilterCombobox
                       id="model-catalog-credential-filter"
@@ -483,9 +486,9 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
                       searchable={false}
                     />
                   </FilterField>
-                </div>
+                </>
               ) : (
-                <div className="grid gap-2 @sm:grid-cols-2">
+                <>
                   <FilterField label={t("filters.sort")} htmlFor="model-catalog-sort">
                     <FilterCombobox
                       id="model-catalog-sort"
@@ -518,20 +521,19 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
                       searchable={false}
                     />
                   </FilterField>
-                </div>
+                </>
               )}
             </div>
-            <ActiveFilterChips
-              items={filterChips}
-              onRemove={removeFilter}
-              getRemoveLabel={(item) => t("filters.remove", { filter: item.label, value: item.value ?? "" })}
-            />
+            {filterChips.length > 0 ? (
+              <div className="border-t border-border/60 pt-3">
+                <ActiveFilterChips
+                  items={filterChips}
+                  onRemove={removeFilter}
+                  getRemoveLabel={(item) => t("filters.remove", { filter: item.label, value: item.value ?? "" })}
+                />
+              </div>
+            ) : null}
           </div>
-        }
-        toolbarMeta={
-          state.tab === "providers"
-            ? t("providers.resultCount", { count: filteredAccounts.length })
-            : t("models.resultCount", { count: filteredModelTotal })
         }
         loading={state.tab === "providers" ? loadingAccounts : loadingModels}
         loadingLabel={t("loading")}

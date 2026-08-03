@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { createThemeBootstrapScript } from "@shahrah/theme-sync";
 import { headers } from "next/headers";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
 import AppProviders from "@/app/components/app-providers";
 import { QueryProvider } from "@/app/components/query-provider";
@@ -95,6 +95,7 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const common = await getTranslations("common");
 
   return (
     <html
@@ -111,7 +112,12 @@ export default async function RootLayout({
         <AppProviders locale={locale} messages={messages}>
           <QueryProvider>
             {children}
-            <Toaster position="top-center" richColors />
+            <Toaster
+              position="top-center"
+              dir={getLocaleDirection(locale)}
+              containerAriaLabel={common("feedback.notifications")}
+              closeButtonAriaLabel={common("feedback.closeNotification")}
+            />
           </QueryProvider>
         </AppProviders>
       </body>
