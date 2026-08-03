@@ -11,7 +11,12 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
         <GodarAILogo
           decorative
           variant="light"
-          class="h-full w-auto max-w-full object-contain"
+          class="theme-logo-light h-full w-auto max-w-full object-contain"
+        />
+        <GodarAILogo
+          decorative
+          variant="dark"
+          class="theme-logo-dark h-full w-auto max-w-full object-contain"
         />
       </span>
       <span>
@@ -26,11 +31,29 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
       <a class="nav-link" href="/blog/search">جست‌وجو</a>
     </nav>
 
-    <a
-      href="/blog"
-      class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-    >
-      شروع مطالعه
-    </a>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        class="theme-toggle"
+        data-theme-toggle
+        aria-label="فعال‌کردن تم تیره"
+        title="فعال‌کردن تم تیره"
+        aria-pressed="false"
+      >
+        <svg data-theme-icon="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+        </svg>
+        <svg data-theme-icon="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path>
+        </svg>
+      </button>
+      <a
+        href="/blog"
+        class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      >
+        شروع مطالعه
+      </a>
+    </div>
   </div>
 </header>

@@ -3,10 +3,16 @@ import path from 'node:path';
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config, LoadContext, Plugin} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import {createThemeBootstrapScript} from '@shahrah/theme-sync';
 import {normalizeForSearch} from './src/search/normalize';
 import type {SearchData, SearchEntry} from './src/search/types';
 
 const localSearchPluginName = 'shahrah-local-search';
+const themeBootstrapScript = createThemeBootstrapScript({
+  defaultTheme: 'system',
+  legacyStorageKeys: ['theme', 'shahrah-theme', 'vite-ui-theme'],
+  mirrorStorageKey: 'theme',
+});
 
 function shahrahLocalSearchPlugin(context: LoadContext): Plugin {
   const docsDirectory = path.join(context.siteDir, 'docs');
@@ -188,6 +194,11 @@ const config: Config = {
     },
   },
   headTags: [
+    {
+      tagName: 'script',
+      attributes: {},
+      innerHTML: themeBootstrapScript,
+    },
     {
       tagName: 'link',
       attributes: {

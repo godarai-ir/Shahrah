@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { createThemeBootstrapScript } from "@shahrah/theme-sync";
 import { headers } from "next/headers";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
 import { getLocale, getMessages } from "next-intl/server";
@@ -10,6 +11,11 @@ import { getLocaleDirection } from "@/lib/locale-direction";
 import { resolveRequestOriginFromHeaders } from "@/lib/tenant";
 
 import "./globals.css";
+
+const themeBootstrapScript = createThemeBootstrapScript({
+  defaultTheme: "system",
+  legacyStorageKeys: ["shahrah-theme", "vite-ui-theme"],
+});
 
 const vazirmatn = Vazirmatn({
   variable: "--font-vazirmatn",
@@ -98,6 +104,9 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={`${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{__html: themeBootstrapScript}} />
+      </head>
       <body className="min-h-full bg-background text-foreground">
         <AppProviders locale={locale} messages={messages}>
           <QueryProvider>

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { createThemeBootstrapScript } from "@shahrah/theme-sync";
 import Link from "next/link";
 import localFont from "next/font/local";
 import { NextIntlClientProvider } from "next-intl";
@@ -13,6 +14,13 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteNavigation } from "@/components/site-navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GodarAILogo } from "@/components/godarai-logo";
+
+const themeBootstrapScript = createThemeBootstrapScript({
+  defaultTheme: "system",
+  legacyJsonStorage: [
+    {key: "model_discovery_web_display_settings_v1", property: "themeMode"},
+  ],
+});
 
 const sans = localFont({
   src: [
@@ -85,6 +93,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       suppressHydrationWarning
       className={`${sans.variable} antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{__html: themeBootstrapScript}} />
+      </head>
       <body className="site-canvas flex min-h-screen flex-col bg-background text-foreground">
         <NextIntlClientProvider locale={locale} messages={messages}>
           <QueryProvider>

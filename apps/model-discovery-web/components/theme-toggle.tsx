@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
   const t = useTranslations("DisplaySettings");
-  const { settings, updateSettings } = useDisplaySettings();
-  const isLight = settings.themeMode === "LIGHT";
+  const { resolvedTheme, updateSettings } = useDisplaySettings();
+  const isLight = resolvedTheme === "light";
 
   return (
     <Button

@@ -1,12 +1,27 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-
-type Theme = "dark" | "light";
+import type { ResolvedTheme, ThemePreference } from "@shahrah/theme-sync";
+import {
+  applyThemePreference,
+  getBrowserThemePreference,
+  getSystemPrefersDark,
+  migrateBrowserThemePreference,
+  resolveThemePreference,
+  setBrowserThemePreference,
+  subscribeToThemePreference,
+} from "@shahrah/theme-sync";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultTheme?: Theme;
+  defaultTheme?: ThemePreference;
   storageKey?: string;
   attribute?: string;
   enableSystem?: boolean;
@@ -14,12 +29,14 @@ type ThemeProviderProps = {
 };
 
 type ThemeProviderState = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  theme: ThemePreference;
+  resolvedTheme: ResolvedTheme;
+  setTheme: (theme: ThemePreference) => void;
 };
 
 const initialState: ThemeProviderState = {
-  theme: "light",
+  theme: "system",
+  resolvedTheme: "light",
   setTheme: () => null,
 };
 
@@ -27,48 +44,61 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "light",
+  defaultTheme = "system",
   storageKey = "shahrah-theme",
-  ...props
+  disableTransitionOnChange = false,
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(defaultTheme);
+  const readOptions = useMemo(
+    () => ({defaultTheme, legacyStorageKeys: [storageKey, "vite-ui-theme"]}),
+    [defaultTheme, storageKey],
+  );
+  const subscribe = useCallback(
+    (callback: () => void) => subscribeToThemePreference(callback),
+    [],
+  );
+  const getThemeSnapshot = useCallback(
+    () => getBrowserThemePreference(readOptions),
+    [readOptions],
+  );
+  const getResolvedSnapshot = useCallback(
+    () => resolveThemePreference(getThemeSnapshot(), getSystemPrefersDark()),
+    [getThemeSnapshot],
+  );
+  const theme = useSyncExternalStore(subscribe, getThemeSnapshot, () => defaultTheme);
+  const resolvedTheme = useSyncExternalStore(
+    subscribe,
+    getResolvedSnapshot,
+    () => resolveThemePreference(defaultTheme),
+  );
 
   useEffect(() => {
-    const storedTheme = localStorage.getItem(storageKey);
-
-    if (storedTheme === "dark" || storedTheme === "light") {
-      const frame = window.requestAnimationFrame(() => {
-        setTheme(storedTheme);
-      });
-
-      return () => window.cancelAnimationFrame(frame);
-    }
-  }, [storageKey]);
+    const migratedTheme = migrateBrowserThemePreference(readOptions);
+    applyThemePreference(migratedTheme);
+  }, [readOptions]);
 
   useEffect(() => {
-    const root = window.document.documentElement;
+    const root = document.documentElement;
+    if (disableTransitionOnChange) root.classList.add("transition-none");
 
-    if (props.disableTransitionOnChange) {
-      root.classList.add("transition-none");
-    }
+    applyThemePreference(theme);
 
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-
-    if (props.disableTransitionOnChange) {
-      // Force reflow
+    if (disableTransitionOnChange) {
       void root.offsetHeight;
       root.classList.remove("transition-none");
     }
-  }, [theme, props.disableTransitionOnChange]);
+  }, [disableTransitionOnChange, resolvedTheme, theme]);
 
-  const value = {
-    theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
-    },
-  };
+  const value = useMemo<ThemeProviderState>(
+    () => ({
+      theme,
+      resolvedTheme,
+      setTheme: (nextTheme) => {
+        const preference = setBrowserThemePreference(nextTheme);
+        applyThemePreference(preference);
+      },
+    }),
+    [resolvedTheme, theme],
+  );
 
   return (
     <ThemeProviderContext.Provider value={value}>

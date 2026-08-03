@@ -183,7 +183,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="shahrah-theme">
+    <ThemeProvider defaultTheme="system" storageKey="shahrah-theme">
     <main className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-950 transition-colors dark:bg-[#0B0F19] dark:text-white">
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute -right-32 -top-32 size-96 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/15" />

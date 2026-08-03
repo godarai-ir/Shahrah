@@ -1,10 +1,40 @@
 "use client";
 
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { DisplaySettings, DISPLAY_SETTINGS_DEFAULTS, DISPLAY_SETTINGS_STORAGE_KEY } from '@/lib/display-settings';
+import type { ResolvedTheme, ThemePreference } from '@shahrah/theme-sync';
+import {
+  applyThemePreference,
+  getBrowserThemePreference,
+  getSystemPrefersDark,
+  migrateBrowserThemePreference,
+  resolveThemePreference,
+  setBrowserThemePreference,
+  subscribeToThemePreference,
+} from '@shahrah/theme-sync';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import {
+  DisplaySettings,
+  DISPLAY_SETTINGS_DEFAULTS,
+  DISPLAY_SETTINGS_STORAGE_KEY,
+  ThemeMode,
+} from '@/lib/display-settings';
+
+const themeReadOptions = {
+  defaultTheme: 'system' as const,
+  legacyJsonStorage: [
+    {key: DISPLAY_SETTINGS_STORAGE_KEY, property: 'themeMode'},
+  ],
+};
 
 type DisplaySettingsContextValue = {
   settings: DisplaySettings;
+  resolvedTheme: ResolvedTheme;
   setSettings: (next: DisplaySettings) => void;
   updateSettings: (patch: Partial<DisplaySettings>) => void;
   resetSettings: () => void;
@@ -12,55 +42,103 @@ type DisplaySettingsContextValue = {
 
 const DisplaySettingsContext = createContext<DisplaySettingsContextValue | null>(null);
 
+function preferenceToThemeMode(preference: ThemePreference): ThemeMode {
+  return preference.toUpperCase() as ThemeMode;
+}
+
+function themeModeToPreference(themeMode: ThemeMode): ThemePreference {
+  return themeMode.toLowerCase() as ThemePreference;
+}
+
+function readLegacyDisplaySettings(): DisplaySettings {
+  try {
+    const raw = window.localStorage.getItem(DISPLAY_SETTINGS_STORAGE_KEY);
+    if (!raw) return DISPLAY_SETTINGS_DEFAULTS;
+
+    const parsed = JSON.parse(raw) as Partial<DisplaySettings>;
+    return {...DISPLAY_SETTINGS_DEFAULTS, ...parsed};
+  } catch {
+    return DISPLAY_SETTINGS_DEFAULTS;
+  }
+}
+
+function persistDisplaySettings(settings: DisplaySettings) {
+  window.localStorage.setItem(DISPLAY_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
 export function DisplaySettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettingsState] = useState<DisplaySettings>(DISPLAY_SETTINGS_DEFAULTS);
+  const systemPrefersDark = useSyncExternalStore(
+    subscribeToThemePreference,
+    getSystemPrefersDark,
+    () => false,
+  );
+  const resolvedTheme: ResolvedTheme = resolveThemePreference(
+    themeModeToPreference(settings.themeMode),
+    systemPrefersDark,
+  );
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(DISPLAY_SETTINGS_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<DisplaySettings>;
-      setSettingsState({ ...DISPLAY_SETTINGS_DEFAULTS, ...parsed });
-    } catch {
-      setSettingsState(DISPLAY_SETTINGS_DEFAULTS);
-    }
+    const syncFromSharedTheme = () => {
+      const nextPreference = getBrowserThemePreference(themeReadOptions);
+      const nextThemeMode = preferenceToThemeMode(nextPreference);
+      applyThemePreference(nextPreference);
+
+      setSettingsState((current) => {
+        if (current.themeMode === nextThemeMode) return current;
+        const next = {...current, themeMode: nextThemeMode};
+        persistDisplaySettings(next);
+        return next;
+      });
+    };
+
+    const unsubscribe = subscribeToThemePreference(syncFromSharedTheme);
+    const frame = window.requestAnimationFrame(() => {
+      const legacySettings = readLegacyDisplaySettings();
+      const preference = migrateBrowserThemePreference(themeReadOptions);
+      const migratedSettings = {
+        ...legacySettings,
+        themeMode: preferenceToThemeMode(preference),
+      };
+
+      persistDisplaySettings(migratedSettings);
+      setSettingsState(migratedSettings);
+      applyThemePreference(preference);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      unsubscribe();
+    };
   }, []);
 
   const setSettings = (next: DisplaySettings) => {
     setSettingsState(next);
-    window.localStorage.setItem(DISPLAY_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+    persistDisplaySettings(next);
+    setBrowserThemePreference(themeModeToPreference(next.themeMode));
   };
 
   const updateSettings = (patch: Partial<DisplaySettings>) => {
-    setSettingsState((prev) => {
-      const next = { ...prev, ...patch };
-      window.localStorage.setItem(DISPLAY_SETTINGS_STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+    const next = {...settings, ...patch};
+    setSettingsState(next);
+    persistDisplaySettings(next);
+    if (patch.themeMode) {
+      setBrowserThemePreference(themeModeToPreference(patch.themeMode));
+    }
   };
 
   const resetSettings = () => {
     setSettingsState(DISPLAY_SETTINGS_DEFAULTS);
-    window.localStorage.setItem(
-      DISPLAY_SETTINGS_STORAGE_KEY,
-      JSON.stringify(DISPLAY_SETTINGS_DEFAULTS),
-    );
+    persistDisplaySettings(DISPLAY_SETTINGS_DEFAULTS);
+    setBrowserThemePreference(themeModeToPreference(DISPLAY_SETTINGS_DEFAULTS.themeMode));
   };
 
-  const value = useMemo(
-    () => ({ settings, setSettings, updateSettings, resetSettings }),
-    [settings],
-  );
-
   useLayoutEffect(() => {
-    const root = document.documentElement;
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const useDark = settings.themeMode === 'DARK'
-      || (settings.themeMode === 'SYSTEM' && systemPrefersDark);
+    const preference = themeModeToPreference(settings.themeMode);
+    applyThemePreference(preference);
+  }, [resolvedTheme, settings.themeMode]);
 
-    root.classList.toggle('dark', useDark);
-    root.style.colorScheme = useDark ? 'dark' : 'light';
-  }, [settings.themeMode]);
+  const value = {settings, resolvedTheme, setSettings, updateSettings, resetSettings};
 
   return (
     <DisplaySettingsContext.Provider value={value}>
@@ -76,4 +154,3 @@ export function useDisplaySettings() {
   }
   return ctx;
 }
-

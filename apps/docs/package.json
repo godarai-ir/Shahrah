@@ -17,9 +17,11 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@shahrah/theme-sync": "workspace:*",
     "@docusaurus/core": "3.10.2",
     "@docusaurus/faster": "3.10.2",
     "@docusaurus/preset-classic": "3.10.2",
+    "@docusaurus/theme-common": "3.10.2",
     "@mdx-js/react": "^3.1.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.24.0",

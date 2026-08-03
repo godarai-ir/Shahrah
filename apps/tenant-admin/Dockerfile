@@ -6,6 +6,7 @@ RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/tenant-admin/package.json ./apps/tenant-admin/package.json
+COPY packages/web/theme-sync/package.json ./packages/web/theme-sync/package.json
 RUN --mount=type=cache,id=pnpm-cache-tenant-admin,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile --filter @shahrah/tenant-admin...
@@ -17,6 +18,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 
 COPY apps/tenant-admin ./apps/tenant-admin
+COPY packages/web/theme-sync ./packages/web/theme-sync
 RUN pnpm --filter @shahrah/tenant-admin build
 
 FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2 AS runtime

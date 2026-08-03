@@ -1,6 +1,7 @@
 ---
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
+import { createThemeBootstrapScript } from "@shahrah/theme-sync";
 import "../styles/global.css";
 
 interface Props {
@@ -22,11 +23,16 @@ const socialImage = new URL(
   image || `${basePath}/brand/social/og-image-light-1200x630.png`,
   site,
 ).toString();
+const themeBootstrapScript = createThemeBootstrapScript({
+  defaultTheme: "system",
+  legacyStorageKeys: ["shahrah-theme", "vite-ui-theme", "theme"],
+});
 ---
 
 <!doctype html>
 <html lang="fa" dir="rtl">
   <head>
+    <script is:inline set:html={themeBootstrapScript}></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href={`${basePath}/brand/icons/favicon.svg`} />
@@ -77,5 +83,45 @@ const socialImage = new URL(
       </main>
     </div>
     <SiteFooter />
+    <script>
+      import {
+        applyThemePreference,
+        getBrowserThemePreference,
+        migrateBrowserThemePreference,
+        setBrowserThemePreference,
+        subscribeToThemePreference,
+      } from "@shahrah/theme-sync";
+
+      const themeOptions = {
+        defaultTheme: "system" as const,
+        legacyStorageKeys: ["shahrah-theme", "vite-ui-theme", "theme"],
+      };
+
+      function updateThemeControls() {
+        const isDark = document.documentElement.dataset.theme === "dark";
+        document.querySelectorAll<HTMLButtonElement>("[data-theme-toggle]").forEach((button) => {
+          const label = isDark ? "فعال‌کردن تم روشن" : "فعال‌کردن تم تیره";
+          button.setAttribute("aria-label", label);
+          button.setAttribute("title", label);
+          button.setAttribute("aria-pressed", String(isDark));
+        });
+      }
+
+      function syncTheme() {
+        applyThemePreference(getBrowserThemePreference(themeOptions));
+        updateThemeControls();
+      }
+
+      migrateBrowserThemePreference(themeOptions);
+      syncTheme();
+      subscribeToThemePreference(syncTheme);
+
+      document.querySelectorAll<HTMLButtonElement>("[data-theme-toggle]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+          setBrowserThemePreference(nextTheme);
+        });
+      });
+    </script>
   </body>
 </html>

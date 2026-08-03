@@ -22,7 +22,7 @@ export const DISPLAY_SETTINGS_DEFAULTS: DisplaySettings = {
   dateCalendar: 'GREGORIAN',
   currencyUnit: 'USD',
   priceScale: 'PER_MILLION_TOKENS',
-  themeMode: 'LIGHT',
+  themeMode: 'SYSTEM',
 };
 
 const EMPTY = '-';

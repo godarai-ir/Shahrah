@@ -6,6 +6,10 @@
 !apps/
 !apps/model-discovery-web/
 !apps/model-discovery-web/**
+!packages/
+!packages/web/
+!packages/web/theme-sync/
+!packages/web/theme-sync/**
 
 apps/model-discovery-web/.agents/
 apps/model-discovery-web/.cursor/

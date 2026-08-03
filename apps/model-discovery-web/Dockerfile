@@ -7,12 +7,14 @@ RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/model-discovery-web/package.json ./apps/model-discovery-web/package.json
+COPY packages/web/theme-sync/package.json ./packages/web/theme-sync/package.json
 RUN --mount=type=cache,id=pnpm-cache-model-discovery-web,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile --filter @shahrah/model-discovery-web...
 
 FROM deps AS builder
 COPY apps/model-discovery-web ./apps/model-discovery-web
+COPY packages/web/theme-sync ./packages/web/theme-sync
 RUN pnpm --filter @shahrah/model-discovery-web build
 
 FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2 AS runner

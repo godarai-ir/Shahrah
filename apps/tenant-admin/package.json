@@ -19,6 +19,7 @@
     "test": "pnpm run test:full"
   },
   "dependencies": {
+    "@shahrah/theme-sync": "workspace:*",
     "@base-ui/react": "^1.0.0",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lint": "^6.9.7",

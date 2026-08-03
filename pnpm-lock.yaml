@@ -14,6 +14,9 @@ importers:
 
   apps/blog:
     dependencies:
+      '@shahrah/theme-sync':
+        specifier: workspace:*
+        version: link:../../packages/web/theme-sync
       astro:
         specifier: ^7.0.3
         version: 7.0.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@26.1.1)(aws4fetch@1.0.20)(ioredis@5.11.1)(jiti@2.7.0)(rollup@4.60.2)(terser@5.49.0)(tsx@4.22.4)(yaml@2.9.0)
@@ -42,9 +45,15 @@ importers:
       '@docusaurus/preset-classic':
         specifier: 3.10.2
         version: 3.10.2(@algolia/client-search@5.55.2)(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.15.43(@swc/helpers@0.5.15))(postcss@8.5.19)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@swc/helpers@0.5.15)(postcss@8.5.19))(@mdx-js/react@3.1.1(@types/react@19.2.17)(react@19.2.7))(@rspack/core@1.7.12(@swc/helpers@0.5.15))(@swc/core@1.15.43(@swc/helpers@0.5.15))(@types/react@19.2.17)(postcss@8.5.19)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(search-insights@2.17.3)(typescript@6.0.3)
+      '@docusaurus/theme-common':
+        specifier: 3.10.2
+        version: 3.10.2(@docusaurus/plugin-content-docs@3.10.2(@docusaurus/faster@3.10.2(@docusaurus/types@3.10.2(@swc/core@1.15.43(@swc/helpers@0.5.15))(postcss@8.5.19)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@swc/helpers@0.5.15)(postcss@8.5.19))(@mdx-js/react@3.1.1(@types/react@19.2.17)(react@19.2.7))(@rspack/core@1.7.12(@swc/helpers@0.5.15))(@swc/core@1.15.43(@swc/helpers@0.5.15))(postcss@8.5.19)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3))(@swc/core@1.15.43(@swc/helpers@0.5.15))(postcss@8.5.19)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@mdx-js/react':
         specifier: ^3.1.1
         version: 3.1.1(@types/react@19.2.17)(react@19.2.7)
+      '@shahrah/theme-sync':
+        specifier: workspace:*
+        version: link:../../packages/web/theme-sync
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -260,6 +269,9 @@ importers:
       '@radix-ui/react-select':
         specifier: ^2.2.6
         version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@shahrah/theme-sync':
+        specifier: workspace:*
+        version: link:../../packages/web/theme-sync
       '@tanstack/react-query':
         specifier: ^5.100.10
         version: 5.100.10(react@19.2.4)
@@ -430,6 +442,9 @@ importers:
       '@radix-ui/react-slot':
         specifier: ^1.2.4
         version: 1.2.4(@types/react@19.2.14)(react@19.2.4)
+      '@shahrah/theme-sync':
+        specifier: workspace:*
+        version: link:../../packages/web/theme-sync
       '@tanstack/react-query':
         specifier: ^5.100.10
         version: 5.100.10(react@19.2.4)
@@ -566,6 +581,9 @@ importers:
 
   apps/website:
     dependencies:
+      '@shahrah/theme-sync':
+        specifier: workspace:*
+        version: link:../../packages/web/theme-sync
       better-auth:
         specifier: 1.6.25
         version: 1.6.25(@prisma/client@7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(better-sqlite3@11.10.0)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3))(better-sqlite3@11.10.0)(mysql2@3.15.3)(next@16.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.22.0)(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(better-sqlite3@11.10.0)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@3.2.4(@types/debug@4.1.13)(@types/node@24.12.2)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(lightningcss@1.32.0)(msw@2.14.6(@types/node@24.12.2)(typescript@5.9.3))(terser@5.49.0)(tsx@4.22.4)(yaml@2.9.0))
@@ -666,6 +684,8 @@ importers:
         version: 7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(better-sqlite3@11.10.0)(magicast@0.5.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3)
 
   packages/web/eslint-config: {}
+
+  packages/web/theme-sync: {}
 
   packages/web/tsconfig: {}
 

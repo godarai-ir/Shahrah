@@ -1,79 +1,88 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from 'react';
-
-type Theme = 'dark' | 'light';
+import type { ThemePreference, ResolvedTheme } from '@shahrah/theme-sync';
+import {
+  applyThemePreference,
+  getBrowserThemePreference,
+  getSystemPrefersDark,
+  migrateBrowserThemePreference,
+  resolveThemePreference,
+  setBrowserThemePreference,
+  subscribeToThemePreference,
+} from '@shahrah/theme-sync';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
 
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultTheme?: Theme;
+  defaultTheme?: ThemePreference;
   storageKey?: string;
 };
 
 type ThemeProviderState = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  theme: ThemePreference;
+  resolvedTheme: ResolvedTheme;
+  setTheme: (theme: ThemePreference) => void;
 };
 
 const initialState: ThemeProviderState = {
-  theme: 'dark',
+  theme: 'system',
+  resolvedTheme: 'light',
   setTheme: () => null,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
-const themeChangeEvent = 'shahrah-theme-change';
-
-function readStoredTheme(storageKey: string, defaultTheme: Theme): Theme {
-  if (typeof window === 'undefined') {
-    return defaultTheme;
-  }
-
-  const storedTheme = window.localStorage.getItem(storageKey);
-
-  return storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : defaultTheme;
-}
 
 export function ThemeProvider({
   children,
-  defaultTheme = 'dark',
-  storageKey = 'vite-ui-theme',
-  ...props
+  defaultTheme = 'system',
+  storageKey = 'shahrah-theme',
 }: ThemeProviderProps) {
-  const subscribe = useCallback((callback: () => void) => {
-    window.addEventListener('storage', callback);
-    window.addEventListener(themeChangeEvent, callback);
-
-    return () => {
-      window.removeEventListener('storage', callback);
-      window.removeEventListener(themeChangeEvent, callback);
-    };
-  }, []);
-
-  const theme = useSyncExternalStore(
+  const readOptions = useMemo(
+    () => ({defaultTheme, legacyStorageKeys: [storageKey, 'vite-ui-theme', 'theme']}),
+    [defaultTheme, storageKey],
+  );
+  const subscribe = useCallback(
+    (callback: () => void) => subscribeToThemePreference(callback),
+    [],
+  );
+  const getThemeSnapshot = useCallback(
+    () => getBrowserThemePreference(readOptions),
+    [readOptions],
+  );
+  const getResolvedSnapshot = useCallback(
+    () => resolveThemePreference(getThemeSnapshot(), getSystemPrefersDark()),
+    [getThemeSnapshot],
+  );
+  const theme = useSyncExternalStore(subscribe, getThemeSnapshot, () => defaultTheme);
+  const resolvedTheme = useSyncExternalStore(
     subscribe,
-    () => readStoredTheme(storageKey, defaultTheme),
-    () => defaultTheme,
+    getResolvedSnapshot,
+    () => resolveThemePreference(defaultTheme),
   );
 
   useEffect(() => {
-    const root = window.document.documentElement;
+    const migratedTheme = migrateBrowserThemePreference(readOptions);
+    applyThemePreference(migratedTheme);
+  }, [readOptions]);
 
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-  }, [theme]);
+  useEffect(() => {
+    applyThemePreference(theme);
+  }, [resolvedTheme, theme]);
 
-  const value = {
-    theme,
-    setTheme: (theme: Theme) => {
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(storageKey, theme);
-        window.dispatchEvent(new Event(themeChangeEvent));
-      }
-    },
-  };
+  const value = useMemo<ThemeProviderState>(
+    () => ({
+      theme,
+      resolvedTheme,
+      setTheme: (nextTheme) => {
+        const preference = setBrowserThemePreference(nextTheme);
+        applyThemePreference(preference);
+      },
+    }),
+    [resolvedTheme, theme],
+  );
 
   return (
-    <ThemeProviderContext.Provider {...props} value={value}>
+    <ThemeProviderContext.Provider value={value}>
       {children}
     </ThemeProviderContext.Provider>
   );

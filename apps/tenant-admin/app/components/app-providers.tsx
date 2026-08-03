@@ -20,7 +20,7 @@ export default function AppProviders({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <Direction.Provider dir={getLocaleDirection(locale)}>
-        <ThemeProvider defaultTheme="light" disableTransitionOnChange>
+        <ThemeProvider defaultTheme="system" disableTransitionOnChange>
           {children}
         </ThemeProvider>
       </Direction.Provider>

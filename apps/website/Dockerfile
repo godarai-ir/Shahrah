@@ -6,6 +6,7 @@ RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/website/package.json ./apps/website/package.json
+COPY packages/web/theme-sync/package.json ./packages/web/theme-sync/package.json
 RUN --mount=type=cache,id=pnpm-cache-website,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile --filter @shahrah/website...
@@ -15,6 +16,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY apps/website ./apps/website
+COPY packages/web/theme-sync ./packages/web/theme-sync
 RUN pnpm --filter @shahrah/website build
 
 FROM node:22-alpine AS runtime
