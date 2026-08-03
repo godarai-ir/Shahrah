@@ -11,6 +11,7 @@ import {
   proxyPublicInvitationAcceptance,
   proxyToControlPlane,
   proxyToControlPlaneBinary,
+  proxyToControlPlaneBodyStream,
   proxyToControlPlaneStream,
 } from "@/lib/control-plane";
 
@@ -90,6 +91,41 @@ describe("authenticated control-plane proxy", () => {
     expect(response.status).toBe(200);
     const [, init] = fetchMock.mock.calls[0];
     expect(new Headers(init?.headers).get("x-godarai-user-id")).toBe("user-1");
+  });
+
+  it("buffers multipart uploads and forwards an exact content length", async () => {
+    readAuthFromRequestMock.mockResolvedValueOnce({
+      ok: true,
+      tenantSlug: "acme",
+      user: { id: "user-1" },
+    });
+    const form = new FormData();
+    form.set("payload", JSON.stringify({ subject: "A support ticket" }));
+    form.append("files", new File(["diagnostic-data"], "diagnostic.txt", { type: "text/plain" }));
+    const request = new NextRequest("http://acme.localhost/api/support/tickets", {
+      method: "POST",
+      headers: { host: "acme.localhost" },
+      body: form,
+    });
+    const expectedBody = await request.clone().arrayBuffer();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ ok: true }, { status: 201 }),
+    );
+
+    const response = await proxyToControlPlaneBodyStream({
+      request,
+      method: "POST",
+      path: "/api/v1/support/tickets",
+    });
+
+    expect(response.status).toBe(201);
+    const [, init] = fetchMock.mock.calls[0];
+    const upstreamHeaders = new Headers(init?.headers);
+    expect(init?.body).toBeInstanceOf(ArrayBuffer);
+    expect(init).not.toHaveProperty("duplex");
+    expect(upstreamHeaders.get("content-type")).toBe(request.headers.get("content-type"));
+    expect(upstreamHeaders.get("content-length")).toBe(String(expectedBody.byteLength));
+    expect(new Uint8Array(init?.body as ArrayBuffer)).toEqual(new Uint8Array(expectedBody));
   });
 
   it("parses a JSON response even when the upstream content type is missing", async () => {
