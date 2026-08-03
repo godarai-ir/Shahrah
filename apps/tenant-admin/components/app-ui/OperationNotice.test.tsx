@@ -12,10 +12,13 @@ describe("OperationNotice", () => {
   });
 
   it.each([
-    ["success", "Success"], ["error", "Error"], ["warning", "Warning"], ["info", "Information"],
-  ] as const)("maps %s feedback to its localized title", (kind, title) => {
+    ["success", "Success", "status"],
+    ["error", "Error", "alert"],
+    ["warning", "Warning", "status"],
+    ["info", "Information", "status"],
+  ] as const)("maps %s feedback to its localized title", (kind, title, role) => {
     render(<OperationNotice notice={{ kind, message: `${kind} message` }} labels={labels} />);
-    expect(screen.getByRole("alert")).toHaveTextContent(title);
-    expect(screen.getByRole("alert")).toHaveTextContent(`${kind} message`);
+    expect(screen.getByRole(role)).toHaveTextContent(title);
+    expect(screen.getByRole(role)).toHaveTextContent(`${kind} message`);
   });
 });

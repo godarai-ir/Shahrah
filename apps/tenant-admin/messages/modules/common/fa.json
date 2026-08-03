@@ -8,6 +8,10 @@
   "help": "راهنما",
   "none": "-",
   "notSet": "تعریف نشده",
+  "feedback": {
+    "notifications": "اعلان‌ها",
+    "closeNotification": "بستن اعلان"
+  },
   "expirationDuration": {
     "label": "زمان انقضا",
     "examplesLabel": "نمونه‌های معتبر:",

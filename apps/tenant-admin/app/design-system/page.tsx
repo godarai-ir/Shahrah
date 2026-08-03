@@ -7,6 +7,7 @@ import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSel
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -527,6 +528,14 @@ export default function DesignSystemPage() {
           notice={{ kind: "success", message: "The resource was updated successfully." }}
           labels={{ success: "Success", error: "Error", warning: "Warning", info: "Information" }}
         />
+        <AppCard title="Transient feedback" description="Use toast for non-blocking operation results.">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => showFeedbackToast({ kind: "success", title: "Saved successfully" })}>Success toast</Button>
+            <Button type="button" variant="outline" onClick={() => showFeedbackToast({ kind: "error", title: "Request failed", description: "Try the operation again." })}>Error toast</Button>
+            <Button type="button" variant="outline" onClick={() => showFeedbackToast({ kind: "warning", title: "Review required" })}>Warning toast</Button>
+            <Button type="button" variant="outline" onClick={() => showFeedbackToast({ kind: "info", title: "Background work started" })}>Info toast</Button>
+          </div>
+        </AppCard>
         <div className="grid gap-4 lg:grid-cols-3">
           <EmptyState icon={Inbox} title="No records yet" description="Use the surface variant for standalone empty states." primaryAction={<Button size="sm">Create</Button>} />
           <AppCard title="Loading">

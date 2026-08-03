@@ -68,14 +68,31 @@ describe("ModelCard", () => {
     );
 
     const title = screen.getByRole("heading", { name: "GPT-4.1 Mini" });
-    const titleRow = container.querySelector('[data-slot="model-card-title-row"]');
-    const tagRow = container.querySelector('[data-slot="model-card-tag-row"]');
+    const titleRow = container.querySelector<HTMLElement>('[data-slot="model-card-title-row"]');
+    const tagRow = container.querySelector<HTMLElement>('[data-slot="model-card-tag-row"]');
 
-    expect(title).toHaveClass("text-3xl", "md:text-3xl");
+    expect(title).toHaveClass("text-xl");
     expect(titleRow).toContainElement(screen.getByLabelText("Enabled"));
     expect(titleRow).toContainElement(tagRow);
     expect(within(tagRow as HTMLElement).getByText("Chat")).toBeInTheDocument();
     expect(within(tagRow as HTMLElement).getByText("Recommended")).toBeInTheDocument();
+  });
+
+  it("keeps the visible selection label concise while preserving the accessible model context", () => {
+    render(
+      <ModelCard
+        model={model}
+        isSelected
+        onSelectedChange={vi.fn()}
+        selectedCheckboxLabel="Enabled GPT-4.1 Mini"
+        selectedControlLabel="Enabled"
+        showCopyAction={false}
+      />,
+    );
+
+    expect(screen.getByText("Enabled")).toBeVisible();
+    expect(screen.getByLabelText("Enabled GPT-4.1 Mini")).toBeChecked();
+    expect(screen.queryByText("Enabled GPT-4.1 Mini")).not.toBeInTheDocument();
   });
 
   it("groups context, pricing, formats, capabilities, and invocation modes into readable panels", () => {

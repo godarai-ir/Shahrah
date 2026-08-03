@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import type { ProviderCatalogModel, ProviderCatalogProvider } from "@/app/components/provider-account-wizard/types";
 
@@ -189,7 +190,7 @@ export default function PromptBuilderPage(props: PromptBuilderPageProps) {
         router.push(`/prompts/${saved.prompt_id}`);
         return;
       }
-      setNotice({ kind: "success", message: t("messages.versionSaved") });
+      showFeedbackToast({ kind: "success", title: t("messages.versionSaved") });
       await Promise.all([loadPrompt(saved.prompt_id), loadVersions(saved.prompt_id, saved.id)]);
     } catch (error) {
       setNotice({ kind: "error", message: normalizeError(error, t("messages.savePromptError")) });
@@ -230,13 +231,13 @@ export default function PromptBuilderPage(props: PromptBuilderPageProps) {
   async function copySelectedFqn() {
     if (!selectedVersion?.fqn) return;
     await copyTextToClipboard(selectedVersion.fqn);
-    setNotice({ kind: "success", message: t("messages.fqnCopied") });
+    showFeedbackToast({ kind: "success", title: t("messages.fqnCopied") });
   }
 
   async function copySelectedSnippet() {
     if (!selectedVersion?.fqn) return;
     await copyTextToClipboard(buildPromptSnippet(selectedVersion.fqn, selectedVersion.model));
-    setNotice({ kind: "success", message: t("messages.snippetCopied") });
+    showFeedbackToast({ kind: "success", title: t("messages.snippetCopied") });
   }
 
   if (props.mode === "edit" && isPromptLoading) {

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
 
 import { AppNumberField, AppSelectField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -229,7 +230,7 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
       } else {
         await createBudgetLimitRule(normalized);
       }
-      setNotice({ kind: "success", message: t("messages.saveSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.saveSuccess") });
       if (onSaved) {
         await onSaved();
         return;

@@ -12,6 +12,7 @@ import {
 
 import { usePermissions } from "@/app/components/permissions-context";
 import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +120,8 @@ export default function TeamManagement({
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(initialError ? { kind: "error", message: initialError } : null);
+  const [overlayNotice, setOverlayNotice] = useState<Banner | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<Banner | null>(null);
 
   const [selectedTeamID, setSelectedTeamID] = useState<string | null>(initialTeams[0]?.id ?? null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(initialTeams[0] ?? null);
@@ -217,6 +220,7 @@ export default function TeamManagement({
       setTeams(next);
       setTotal(payload.total ?? next.length);
       setOffset(nextOffset);
+      setBanner(null);
       if (!selectedTeamID || !next.some((item) => item.id === selectedTeamID)) {
         setSelectedTeamID(next[0]?.id ?? null);
       }
@@ -245,6 +249,7 @@ export default function TeamManagement({
       setMembers(memberPayload.data ?? []);
       setUsers(userPayload.data ?? []);
       setTeams((prev) => prev.map((item) => (item.id === team.id ? team : item)));
+      setBanner(null);
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.detailLoadError")) });
     } finally {
@@ -260,17 +265,18 @@ export default function TeamManagement({
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validation = validateForm(form, teams, t);
-    if (validation) return setBanner({ kind: "error", message: validation });
+    if (validation) return setOverlayNotice({ kind: "error", message: validation });
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       const created = await requestJSON<Team>("/api/teams", { method: "POST", body: JSON.stringify(buildTeamPayload(form)) });
       setCreateOpen(false);
       setForm(emptyForm);
-      setBanner({ kind: "success", message: t("messages.createSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.createSuccess") });
       await loadTeams(0, query.trim());
       setSelectedTeamID(created.id);
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.createError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.createError")) });
     } finally {
       setIsSaving(false);
     }
@@ -280,7 +286,8 @@ export default function TeamManagement({
     event.preventDefault();
     if (!selectedTeam) return;
     const validation = validateForm(form, teams, t, selectedTeam.id);
-    if (validation) return setBanner({ kind: "error", message: validation });
+    if (validation) return setOverlayNotice({ kind: "error", message: validation });
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       const updated = await requestJSON<Team>(`/api/teams/${encodeURIComponent(selectedTeam.id)}`, {
@@ -290,9 +297,9 @@ export default function TeamManagement({
       setSelectedTeam(updated);
       setTeams((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       setEditOpen(false);
-      setBanner({ kind: "success", message: t("messages.updateSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.updateSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.updateError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.updateError")) });
     } finally {
       setIsSaving(false);
     }
@@ -302,7 +309,8 @@ export default function TeamManagement({
     event.preventDefault();
     if (!selectedTeam) return;
     const resolvedUserID = resolveMemberUserID(memberUserInput, memberCandidateOptions);
-    if (!resolvedUserID) return setBanner({ kind: "error", message: t("messages.selectUser") });
+    if (!resolvedUserID) return setOverlayNotice({ kind: "error", message: t("messages.selectUser") });
+    setOverlayNotice(null);
     setIsSaving(true);
     try {
       await requestJSON(`/api/teams/${encodeURIComponent(selectedTeam.id)}/members`, {
@@ -318,9 +326,9 @@ export default function TeamManagement({
       setMemberRole("team_member");
       setMemberPerms(DEFAULT_PERMISSIONS);
       await loadTeamDetails(selectedTeam.id);
-      setBanner({ kind: "success", message: t("messages.memberAddSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.memberAddSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.memberAddError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.memberAddError")) });
     } finally {
       setIsSaving(false);
     }
@@ -338,9 +346,9 @@ export default function TeamManagement({
         }),
       });
       await loadTeamDetails(selectedTeam.id);
-      setBanner({ kind: "success", message: t("messages.memberUpdateSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.memberUpdateSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.memberUpdateError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.memberUpdateError")) });
     } finally {
       setIsSaving(false);
     }
@@ -352,9 +360,9 @@ export default function TeamManagement({
     try {
       await requestJSON(`/api/teams/${encodeURIComponent(selectedTeam.id)}/members/${encodeURIComponent(userID)}`, { method: "DELETE" });
       await loadTeamDetails(selectedTeam.id);
-      setBanner({ kind: "success", message: t("messages.memberRemoveSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.memberRemoveSuccess") });
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.memberRemoveError")) });
+      setOverlayNotice({ kind: "error", message: normalizeError(error, t("messages.memberRemoveError")) });
     } finally {
       setIsSaving(false);
     }
@@ -365,10 +373,10 @@ export default function TeamManagement({
     setIsSaving(true);
     try {
       await requestJSON(`/api/teams/${encodeURIComponent(selectedTeam.id)}`, { method: "DELETE" });
-      setBanner({ kind: "success", message: t("messages.deleteSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.deleteSuccess") });
       await loadTeams(0, query.trim());
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
+      setDeleteNotice({ kind: "error", message: normalizeError(error, t("messages.deleteError")) });
       throw error;
     } finally {
       setIsSaving(false);
@@ -530,15 +538,18 @@ export default function TeamManagement({
         </div>
       </section>
 
-      <FormSheet open={createOpen} onOpenChange={setCreateOpen} title={t("create.title")} description={t("create.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet open={createOpen} onOpenChange={(open) => { setCreateOpen(open); setOverlayNotice(null); }} title={t("create.title")} description={t("create.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
+        <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
         <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
       </FormSheet>
 
-      <FormSheet open={editOpen} onOpenChange={setEditOpen} title={t("edit.title")} description={t("edit.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet open={editOpen} onOpenChange={(open) => { setEditOpen(open); setOverlayNotice(null); }} title={t("edit.title")} description={t("edit.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
+        <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
         <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} />
       </FormSheet>
 
-      <Sheet open={membersOpen} onOpenChange={setMembersOpen}><SheetContent side="left" closeLabel={t("actions.cancel")} className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
+      <Sheet open={membersOpen} onOpenChange={(open) => { setMembersOpen(open); setOverlayNotice(null); }}><SheetContent side="left" closeLabel={t("actions.cancel")} className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
+        <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} className="mt-6" />
         <form onSubmit={addMember} className="mt-6 flex flex-col gap-3">
           <FieldGroup className="gap-3">
             <Field>
@@ -557,7 +568,7 @@ export default function TeamManagement({
       {selectedTeam ? (
         <TypedConfirmDialog
           open={deleteOpen}
-          onOpenChange={setDeleteOpen}
+          onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteNotice(null); }}
           title={t("delete.title")}
           description={t("delete.description")}
           expectedValue={selectedTeam.alias}
@@ -566,6 +577,7 @@ export default function TeamManagement({
           confirmLabel={t("delete.submit")}
           pendingLabel={t("actions.saving")}
           onConfirm={handleDelete}
+          feedback={<OperationNotice notice={deleteNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />}
           disabled={!canDelete || getActiveKeys(selectedTeam) > 0 || members.length > 0 || getVirtualUsers(selectedTeam) > 0}
           warning={<Alert variant="warning"><AlertTriangle aria-hidden="true" /><AlertTitle>{t("delete.guardTitle")}</AlertTitle><AlertDescription>{t("delete.guardDescription")}</AlertDescription></Alert>}
         />

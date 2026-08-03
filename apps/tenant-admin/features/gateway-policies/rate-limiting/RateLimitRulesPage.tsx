@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Gauge, Pencil, Power, Trash2 } from "lucide-react";
 
-import { RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { OperationNotice, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
@@ -63,6 +64,7 @@ export function RateLimitRulesPage() {
   const [entitlements, setEntitlements] = useState<EffectiveEntitlements>(null);
   const [hasLoadedEntitlements, setHasLoadedEntitlements] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   async function load() {
     setIsLoading(true);
@@ -117,10 +119,12 @@ export function RateLimitRulesPage() {
     setIsDeleting(true);
     try {
       await deleteRateLimitRule(pendingDeleteRule.rule_id);
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.deleteSuccess") });
       setPendingDeleteRule(null);
       await load();
     } catch (error) {
-      setNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.deleteError") });
+      setDeleteNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.deleteError") });
+      throw error;
     } finally {
       setIsDeleting(false);
     }
@@ -162,7 +166,12 @@ export function RateLimitRulesPage() {
       }}
       deleteDialog={{
         open: pendingDeleteRule !== null,
-        onOpenChange: (open) => !open && setPendingDeleteRule(null),
+        onOpenChange: (open) => {
+          if (!open) {
+            setPendingDeleteRule(null);
+            setDeleteNotice(null);
+          }
+        },
         title: t("deleteDialog.title"),
         description: t("deleteDialog.description", { ruleId: pendingDeleteRule?.rule_id ?? "-" }),
         cancelLabel: t("deleteDialog.cancel"),
@@ -170,6 +179,7 @@ export function RateLimitRulesPage() {
         pendingLabel: t("deleteDialog.deleting"),
         pending: isDeleting,
         onConfirm: confirmDeleteRule,
+        feedback: <OperationNotice notice={deleteNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />,
       }}
       upgradeDialog={{
         open: isUpgradeDialogOpen,

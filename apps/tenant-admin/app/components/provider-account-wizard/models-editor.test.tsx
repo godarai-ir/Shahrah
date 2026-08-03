@@ -119,7 +119,9 @@ describe("ModelsEditor", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("models.curlGuide.title")).toBeInTheDocument();
-    expect(within(dialog).getByText("ai21:ai21-brisk-orbit:jamba-large-1.7")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("models.curlGuide.modelFqnLabel")).toHaveValue("ai21:ai21-brisk-orbit:jamba-large-1.7");
+    expect(within(dialog).getByRole("tablist")).toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "models.curlGuide.shells.powershell" })).toHaveAttribute("data-state", "active");
   });
 
   it("renders provider models in pages of 25 while preserving accessible model labels", () => {

@@ -28,7 +28,8 @@ import {
   stringsEqualFold,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
-import { EmptyState, FormSheet, HelpLink, ModelNameValue, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { EmptyState, FormSheet, HelpLink, ModelNameValue, OperationNotice, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -134,6 +135,7 @@ export default function LLMIntegrationsManagement(props: {
   const [providerFilters, setProviderFilters] = useState<string[]>(initialProviderFilters);
   const [isLoading, setIsLoading] = useState(true);
   const [banner, setBanner] = useState<Banner | null>(null);
+  const [disconnectNotice, setDisconnectNotice] = useState<Banner | null>(null);
   const [successCreatedName, setSuccessCreatedName] = useState(props.initialCreatedAccount?.trim() ?? "");
   const [deletingAccountID, setDeletingAccountID] = useState("");
   const didHandleCreatedAccountRef = useRef(false);
@@ -171,12 +173,12 @@ export default function LLMIntegrationsManagement(props: {
     if (!createdName || isLoading || didHandleCreatedAccountRef.current) return;
     didHandleCreatedAccountRef.current = true;
     setSuccessCreatedName(createdName);
-    setBanner({ kind: "success", message: copy("messages.connectionCreated", { name: createdName }) });
+    showFeedbackToast({ kind: "success", title: t("successTitle"), description: copy("messages.connectionCreated", { name: createdName }) });
     const params = new URLSearchParams(window.location.search);
     params.delete("created");
     const nextQuery = params.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-  }, [copy, isLoading, pathname, props.initialCreatedAccount, router]);
+  }, [copy, isLoading, pathname, props.initialCreatedAccount, router, t]);
 
   const providerOptions = useMemo(
     () => providers.map((item) => ({ slug: normalizeProviderSlug(item.provider), label: item.display_name })),
@@ -192,9 +194,10 @@ export default function LLMIntegrationsManagement(props: {
       );
       return unwrapData<AccessPrincipalCandidate[]>(response) ?? [];
     } catch (error) {
-      setBanner({
+      showFeedbackToast({
         kind: "error",
-        message: normalizeError(
+        title: t("errorTitle"),
+        description: normalizeError(
           error,
           kind === "user" ? t("messages.userSearchFailed") : t("messages.managerSearchFailed"),
         ),
@@ -246,14 +249,15 @@ export default function LLMIntegrationsManagement(props: {
 
   async function disconnectAccount(account: TenantProviderAccount) {
     setDeletingAccountID(account.id);
-    setBanner(null);
+    setDisconnectNotice(null);
     try {
       await requestJSON(`/api/tenant-provider-accounts/${encodeURIComponent(account.id)}`, { method: "DELETE" });
       setAccounts((current) => current.filter((item) => item.id !== account.id));
-      setBanner({ kind: "success", message: copy("messages.disconnectSuccess") });
+      showFeedbackToast({ kind: "success", title: t("successTitle"), description: copy("messages.disconnectSuccess") });
       setPendingDisconnectAccount(null);
     } catch (error) {
-      setBanner({ kind: "error", message: normalizeError(error, copy("messages.disconnectFailed")) });
+      setDisconnectNotice({ kind: "error", message: normalizeError(error, copy("messages.disconnectFailed")) });
+      throw error;
     } finally {
       setDeletingAccountID("");
     }
@@ -496,7 +500,10 @@ export default function LLMIntegrationsManagement(props: {
     <TypedConfirmDialog
       open={pendingDisconnectAccount !== null}
       onOpenChange={(open) => {
-        if (!open) setPendingDisconnectAccount(null);
+        if (!open) {
+          setPendingDisconnectAccount(null);
+          setDisconnectNotice(null);
+        }
       }}
       title={copy("messages.disconnectTitle")}
       description={copy("messages.disconnectConfirm", { name: pendingDisconnectAccount?.name ?? "" })}
@@ -506,6 +513,7 @@ export default function LLMIntegrationsManagement(props: {
       confirmLabel={copy("actions.disconnect")}
       pendingLabel={copy("actions.disconnecting")}
       onConfirm={() => pendingDisconnectAccount ? disconnectAccount(pendingDisconnectAccount) : undefined}
+      feedback={<OperationNotice notice={disconnectNotice} labels={{ success: t("successTitle"), error: t("errorTitle"), warning: t("errorTitle"), info: t("successTitle") }} />}
       disabled={!pendingDisconnectAccount}
       inputDir="auto"
     />

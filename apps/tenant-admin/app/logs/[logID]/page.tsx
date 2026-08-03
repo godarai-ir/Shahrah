@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import AdminShell from "@/app/components/admin-shell";
 import { CompactValue, DefinitionList, DefinitionListItem } from "@/components/app-ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { formatCompactCurrency, formatCompactNumber } from "@/lib/compact-number";
@@ -49,9 +50,10 @@ export default async function LogDetailPage({ params }: Params) {
     >
       <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
         {!result.ok ? (
-          <p className="rounded-xl border border-destructive-soft-border bg-destructive-soft p-4 text-sm text-destructive-soft-foreground">
-            {result.errorMessage ?? t("detailError")}
-          </p>
+          <Alert variant="destructive">
+            <AlertTitle>{t("detailError")}</AlertTitle>
+            <AlertDescription>{result.errorMessage ?? t("detailError")}</AlertDescription>
+          </Alert>
         ) : (
           <>
             <DefinitionList columns={4}>

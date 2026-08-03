@@ -67,6 +67,7 @@
   },
   "states": {
     "loading": "Loading tickets…",
+    "errorTitle": "Error",
     "emptyTitle": "No tickets yet",
     "emptyDescription": "Create a ticket when you need help from the GodarAI team.",
     "notFound": "Ticket not found"

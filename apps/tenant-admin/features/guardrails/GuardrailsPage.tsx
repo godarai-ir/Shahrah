@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, ConfirmDialog, CopyAction, DateTimeValue, DisplayNameField, EmptyState, FormSheet, HelpLink, IdentifierField, OperationNotice, SearchField } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -305,6 +306,8 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
   const [form, setForm] = useState<GuardrailFormInput>(emptyForm);
   const [formOpen, setFormOpen] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [formNotice, setFormNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   async function load() {
     setIsLoading(true);
@@ -344,9 +347,10 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
     if (isSaving) return;
     const validationError = validateForm(form, t);
     if (validationError) {
-      setNotice({ kind: "error", message: validationError });
+      setFormNotice({ kind: "error", message: validationError });
       return;
     }
+    setFormNotice(null);
     setIsSaving(true);
     try {
       const payload = buildPayload(form, editing ? "edit" : "create");
@@ -356,10 +360,10 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
         await createGuardrail(payload);
       }
       setFormOpen(false);
-      setNotice({ kind: "success", message: t("messages.saveSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.saveSuccess") });
       await load();
     } catch (error) {
-      setNotice({ kind: "error", message: localizedError(error, t("messages.saveError"), t) });
+      setFormNotice({ kind: "error", message: localizedError(error, t("messages.saveError"), t) });
     } finally {
       setIsSaving(false);
     }
@@ -371,10 +375,11 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
     try {
       await deleteGuardrail(pendingDelete.slug);
       setPendingDelete(null);
-      setNotice({ kind: "success", message: t("messages.deleteSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.deleteSuccess") });
       await load();
     } catch (error) {
-      setNotice({ kind: "error", message: localizedError(error, t("messages.deleteError"), t) });
+      setDeleteNotice({ kind: "error", message: localizedError(error, t("messages.deleteError"), t) });
+      throw error;
     } finally {
       setIsDeleting(false);
     }
@@ -470,7 +475,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
       <FormSheet
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={(open) => { setFormOpen(open); if (!open) setFormNotice(null); }}
         title={editing ? t("form.editTitle") : t("form.addTitle")}
         description={t("form.description")}
         size="lg"
@@ -488,6 +493,8 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
           </div>
         )}
       >
+            <OperationNotice notice={formNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
+
             <div className="grid gap-3 md:grid-cols-2">
               <DisplayNameField id="guardrail-name" label={t("form.name")} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               <IdentifierField
@@ -658,7 +665,12 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null);
+            setDeleteNotice(null);
+          }
+        }}
         title={t("deleteDialog.title")}
         description={t("deleteDialog.description", { name: pendingDelete?.name ?? "-" })}
         cancelLabel={t("actions.cancel")}
@@ -667,6 +679,7 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
         onConfirm={confirmDelete}
         pending={isDeleting}
         closeOnConfirm={false}
+        feedback={<OperationNotice notice={deleteNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />}
       />
     </>
   );

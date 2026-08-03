@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { normalizeError, requestJSON } from "@/app/components/provider-account-wizard/utils";
 import { ConfirmDialog, OperationNotice, PageContainer } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 
 import { PromptRegistryList } from "./prompt-registry-list";
 import type { Notice, Prompt } from "./prompt-management-shared";
@@ -15,7 +16,7 @@ export default function PromptRegistryListPage() {
   const t = useTranslations("prompts");
   const locale = useLocale();
   const router = useRouter();
-  const [notice, setNotice] = useState<Notice>(null);
+  const [deleteNotice, setDeleteNotice] = useState<Notice>(null);
   const [pendingDeletePrompt, setPendingDeletePrompt] = useState<Prompt | null>(null);
   const {
     errorMessage,
@@ -40,11 +41,6 @@ export default function PromptRegistryListPage() {
         notice={errorMessage ? { kind: "error", message: errorMessage } : null}
         labels={{ success: t("notice.successTitle"), error: t("notice.errorTitle"), warning: t("notice.errorTitle"), info: t("notice.successTitle") }}
       />
-      <OperationNotice
-        notice={notice}
-        labels={{ success: t("notice.successTitle"), error: t("notice.errorTitle"), warning: t("notice.errorTitle"), info: t("notice.successTitle") }}
-      />
-
       <PromptRegistryList
         isLoading={isLoading}
         locale={locale}
@@ -89,20 +85,21 @@ export default function PromptRegistryListPage() {
         t={t}
         userLabelByID={userLabelByID}
       />
-      <ConfirmDialog open={pendingDeletePrompt !== null} onOpenChange={(open) => { if (!open) setPendingDeletePrompt(null); }} title={t("actions.delete")} description={t("messages.deletePromptConfirm", { name: pendingDeletePrompt?.name ?? "" })} cancelLabel={t("actions.cancel")} confirmLabel={t("actions.delete")} pendingLabel={t("actions.delete")} onConfirm={() => pendingDeletePrompt ? deletePrompt(pendingDeletePrompt) : undefined} />
+      <ConfirmDialog open={pendingDeletePrompt !== null} onOpenChange={(open) => { if (!open) { setPendingDeletePrompt(null); setDeleteNotice(null); } }} title={t("actions.delete")} description={t("messages.deletePromptConfirm", { name: pendingDeletePrompt?.name ?? "" })} cancelLabel={t("actions.cancel")} confirmLabel={t("actions.delete")} pendingLabel={t("actions.delete")} onConfirm={() => pendingDeletePrompt ? deletePrompt(pendingDeletePrompt) : undefined} feedback={<OperationNotice notice={deleteNotice} labels={{ success: t("notice.successTitle"), error: t("notice.errorTitle"), warning: t("notice.errorTitle"), info: t("notice.successTitle") }} />} />
     </PageContainer>
   );
 
   async function deletePrompt(prompt: Prompt) {
     try {
       await requestJSON(`/api/prompts/${encodeURIComponent(prompt.id)}`, { method: "DELETE" });
-      setNotice({ kind: "success", message: t("messages.promptDeleted") });
+      showFeedbackToast({ kind: "success", title: t("notice.successTitle"), description: t("messages.promptDeleted") });
       const nextOffset = prompts.length === 1 ? Math.max(pageOffset - pageSize, 0) : pageOffset;
       setPageOffset(nextOffset);
       await loadPrompts(query, nextOffset, pageSize);
       setPendingDeletePrompt(null);
     } catch (error) {
-      setNotice({ kind: "error", message: normalizeError(error, t("messages.deletePromptError")) });
+      setDeleteNotice({ kind: "error", message: normalizeError(error, t("messages.deletePromptError")) });
+      throw error;
     }
   }
 }

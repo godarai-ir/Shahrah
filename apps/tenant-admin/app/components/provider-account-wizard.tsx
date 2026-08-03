@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ChevronRight, Copy, ExternalLink, KeyRound, Layers3, LayoutDashboard, Play, ScrollText, ShieldCheck } from "lucide-react";
 
 import { AppSelectField, CodePanel, CopyableValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EntityIdentityHeader, FormSection, IdentifierField, OperationNotice, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -708,7 +709,7 @@ export default function ProviderAccountWizard(props?: {
             setWorkspaceMode("overview");
           }
         }
-        setBanner({ kind: "success", message: t("messages.accountDeleteSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.accountDeleteSuccess") });
         setDeleteDialogOpen(false);
         setDeleteTargetAccount(null);
       } catch (error) {
@@ -789,7 +790,7 @@ export default function ProviderAccountWizard(props?: {
         },
       );
       if (options.announce ?? true) {
-        setBanner({ kind: "success", message: t("messages.accountLoadSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.accountLoadSuccess") });
       }
       if (options.reload ?? true) {
         await handleLoadAccount(accountID);
@@ -929,7 +930,7 @@ export default function ProviderAccountWizard(props?: {
         setSetupStep(3);
         setActiveCreateSection("models");
       }
-      setBanner({ kind: "success", message: options.successMessage ?? t("messages.accountCreateSuccess") });
+      showFeedbackToast({ kind: "success", title: options.successMessage ?? t("messages.accountCreateSuccess") });
       return newAccount.id;
     } catch (error) {
       setBanner({ kind: "error", message: normalizeError(error, t("messages.accountCreateFailed")) });
@@ -1057,7 +1058,7 @@ export default function ProviderAccountWizard(props?: {
       );
       modelDraftBaselineRef.current = JSON.stringify(draftOverride ?? modelDrafts);
       if (options.announce ?? true) {
-        setBanner({ kind: "success", message: t("messages.modelsSaveSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.modelsSaveSuccess") });
       }
       if (options.reload ?? true) {
         await handleLoadAccount(accountID);
@@ -1165,7 +1166,7 @@ export default function ProviderAccountWizard(props?: {
         { method: "PUT", body: JSON.stringify({ access: { managers: nextManagers, users: nextUsers } }) },
       );
       if (options.announce ?? true) {
-        setBanner({ kind: "success", message: t("messages.accessSaveSuccess") });
+        showFeedbackToast({ kind: "success", title: t("messages.accessSaveSuccess") });
       }
       if (options.reload ?? true) {
         await handleLoadAccount(accountID);
@@ -1261,7 +1262,7 @@ export default function ProviderAccountWizard(props?: {
       }
       setWorkspaceMode("workspace");
       setActiveTab("models");
-      setBanner({ kind: "success", message: ux("messages.accountActivated") });
+      showFeedbackToast({ kind: "success", title: ux("messages.accountActivated") });
     } finally {
       setIsActivating(false);
     }
@@ -2532,7 +2533,7 @@ export default function ProviderAccountWizard(props?: {
                           variant="outline"
                           onClick={() => {
                             void copyTextToClipboard(`${account.provider}:${account.name}`);
-                            setBanner({ kind: "success", message: ux("messages.fqnCopied") });
+                            showFeedbackToast({ kind: "success", title: ux("messages.fqnCopied") });
                           }}
                         >
                           <Copy className="me-2 h-4 w-4" />

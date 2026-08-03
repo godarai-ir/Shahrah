@@ -40,7 +40,8 @@ import {
   buildBashCurlGuideCommand,
   getTenantApiBaseURL,
 } from "@/app/components/provider-account-wizard/utils";
-import { AppCard, EmptyState, HelpLink, PageHeader, StatusBadge } from "@/components/app-ui";
+import { AppCard, EmptyState, HelpLink, OperationNotice, PageHeader, StatusBadge } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -91,6 +92,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   const common = useTranslations("common");
   const [resources, setResources] = useState(props.initialResources);
   const [banner, setBanner] = useState<Banner | null>(null);
+  const [patDialogNotice, setPatDialogNotice] = useState<Banner | null>(null);
   const [copiedKey, setCopiedKey] = useState("");
   const [isPatDialogOpen, setIsPatDialogOpen] = useState(false);
   const [patName, setPatName] = useState("quick-start");
@@ -220,9 +222,10 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
   async function createPat() {
     if (isCreatingPat) return;
     if (!patName.trim()) {
-      setBanner({ kind: "error", message: t("patDialog.validation") });
+      setPatDialogNotice({ kind: "error", message: t("patDialog.validation") });
       return;
     }
+    setPatDialogNotice(null);
     setIsCreatingPat(true);
     try {
       const payload = await requestJSON<{
@@ -245,15 +248,11 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
       if (isTestBenchOpen) {
         setLabBanner({ kind: "success", message: t("messages.patCreated") });
       } else {
-        setBanner({ kind: "success", message: t("messages.patCreated") });
+        showFeedbackToast({ kind: "success", title: t("messages.patCreated") });
       }
     } catch (error) {
       const message = normalizeError(error, t("messages.patCreateFailed"));
-      if (isTestBenchOpen) {
-        setLabBanner({ kind: "error", message });
-      } else {
-        setBanner({ kind: "error", message });
-      }
+      setPatDialogNotice({ kind: "error", message });
     } finally {
       setIsCreatingPat(false);
     }
@@ -496,12 +495,13 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
         </AppCard>
       </section>
 
-      <Dialog open={isPatDialogOpen} onOpenChange={setIsPatDialogOpen}>
+      <Dialog open={isPatDialogOpen} onOpenChange={(open) => { setIsPatDialogOpen(open); if (!open) setPatDialogNotice(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("patDialog.title")}</DialogTitle>
             <DialogDescription>{t("patDialog.description")}</DialogDescription>
           </DialogHeader>
+          <OperationNotice notice={patDialogNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="quick-start-pat-name">{t("patDialog.nameLabel")}</Label>

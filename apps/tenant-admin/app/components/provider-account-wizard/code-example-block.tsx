@@ -17,7 +17,6 @@ export function CodeExampleBlock(props: {
   shellLabel: string;
   className?: string;
   title?: React.ReactNode;
-  headerActions?: React.ReactNode;
   copyLabel?: string;
   copiedLabel?: string;
   onCopied?: () => void;
@@ -26,26 +25,24 @@ export function CodeExampleBlock(props: {
   return (
     <div
       className={cn(
-        "flex max-w-full min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-2.5 shadow-sm sm:gap-3 sm:rounded-2xl sm:p-4",
+        "flex max-w-full min-w-0 flex-col gap-3 rounded-lg border border-card-border bg-card p-3 shadow-xs sm:p-4",
         props.className,
       )}
     >
-      <div className="flex min-w-0 flex-row flex-nowrap items-center justify-between gap-2 sm:gap-3">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm sm:size-10">
+      <div className="flex min-w-0 flex-row flex-nowrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Code2 aria-hidden="true" />
           </span>
-          <div className="min-w-0 truncate whitespace-nowrap text-sm font-semibold text-foreground sm:text-base">{props.title ?? props.shellLabel}</div>
+          <div className="min-w-0 truncate text-sm font-semibold text-foreground sm:text-base">{props.title ?? props.shellLabel}</div>
         </div>
-        {props.headerActions ?? (
-          <div className="flex min-w-0 items-center gap-3">
-            <Badge variant="outline" className="px-2.5 py-0.5 font-mono text-xs">
-              {props.shellLabel}
-            </Badge>
-          </div>
-        )}
+        <div className="flex min-w-0 items-center">
+          <Badge variant="outline" className="font-mono">
+            {props.shellLabel}
+          </Badge>
+        </div>
       </div>
-      <div className="surface-demo relative overflow-hidden rounded-xl border shadow-[0_14px_36px_-24px_var(--surface-demo)]">
+      <div className="surface-demo relative overflow-hidden rounded-lg border shadow-xs">
         {props.copyLabel && props.copiedLabel ? (
           <CopyAction
             value={props.code}
@@ -54,7 +51,7 @@ export function CodeExampleBlock(props: {
             showLabel
             variant="outline"
             size="sm"
-            className="absolute right-2 top-2 h-8 rounded-lg border-[var(--surface-demo-border)] bg-background/10 px-2.5 text-xs text-[var(--surface-demo-foreground)] shadow-sm backdrop-blur hover:bg-background/20 hover:text-[var(--surface-demo-foreground)] sm:right-3 sm:top-3 sm:h-9 sm:rounded-xl sm:px-3"
+            className="absolute right-2 top-2 h-8 border-[var(--surface-demo-border)] bg-background/10 px-2.5 text-xs text-[var(--surface-demo-foreground)] shadow-xs backdrop-blur hover:bg-background/20 hover:text-[var(--surface-demo-foreground)] sm:right-3 sm:top-3 sm:h-9 sm:px-3"
             onCopied={props.onCopied}
           />
         ) : null}
@@ -67,7 +64,7 @@ export function CodeExampleBlock(props: {
           {({ className, style, tokens, getLineProps, getTokenProps }) => (
             <pre
               dir="ltr"
-              className={cn("custom-scrollbar max-h-[min(18rem,38dvh)] min-w-0 overflow-auto px-3 py-3 pe-24 text-start font-mono text-xs leading-6 [scrollbar-gutter:stable_both-edges] sm:px-4 sm:py-4 sm:pe-32", className)}
+              className={cn("custom-scrollbar max-h-[min(24rem,45dvh)] min-w-0 overflow-auto px-3 py-3 pe-24 text-start font-mono text-xs leading-6 [scrollbar-gutter:stable_both-edges] sm:px-4 sm:py-4 sm:pe-32", className)}
               style={{
                 ...style,
                 margin: 0,

@@ -18,6 +18,7 @@ import {
   UnsavedChangesDialog,
   getVariableColorStyle,
 } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -615,7 +616,7 @@ export default function PlaygroundPage() {
         }}
         t={t}
       />
-      <SavePromptDialog key={`save-${saveColumnID ?? "closed"}`} open={Boolean(saveColumnID)} onOpenChange={(open) => !open && setSaveColumnID(null)} column={columns.find((column) => column.id === saveColumnID) ?? null} promptTemplateLimit={promptTemplateLimit} promptTemplateCount={promptTemplateCount} onSaved={(saved) => { const target = columns.find((column) => column.id === saveColumnID); if (target) { if (!target.sourcePromptID) setPromptTemplateCount((current) => current === null ? current : current + 1); updateColumn({ ...target, sourcePromptID: saved.prompt_id, sourceVersionID: saved.id, sourceFQN: saved.fqn, sourcePromptName: saved.name, sourcePromptDescription: saved.description ?? "", dirty: false }); } setSaveColumnID(null); setNotice({ kind: "success", message: t("save.success") }); }} t={t} />
+      <SavePromptDialog key={`save-${saveColumnID ?? "closed"}`} open={Boolean(saveColumnID)} onOpenChange={(open) => !open && setSaveColumnID(null)} column={columns.find((column) => column.id === saveColumnID) ?? null} promptTemplateLimit={promptTemplateLimit} promptTemplateCount={promptTemplateCount} onSaved={(saved) => { const target = columns.find((column) => column.id === saveColumnID); if (target) { if (!target.sourcePromptID) setPromptTemplateCount((current) => current === null ? current : current + 1); updateColumn({ ...target, sourcePromptID: saved.prompt_id, sourceVersionID: saved.id, sourceFQN: saved.fqn, sourcePromptName: saved.name, sourcePromptDescription: saved.description ?? "", dirty: false }); } setSaveColumnID(null); showFeedbackToast({ kind: "success", title: t("save.success") }); }} t={t} />
       <LoadPromptDialog key={`load-${loadOpen ? "open" : "closed"}`} open={loadOpen} onOpenChange={setLoadOpen} onSelect={(version) => replaceActiveWithVersion(version)} t={t} />
       <UnsavedChangesDialog open={discardOpen} onOpenChange={(open) => { setDiscardOpen(open); if (!open) { setPendingVersion(null); setPendingHref(null); } }} title={t("dirty.title")} description={t("dirty.description")} stayLabel={t("actions.keepEditing")} discardLabel={t("actions.discard")} onDiscard={() => {
         if (pendingVersion) {

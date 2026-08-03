@@ -7,6 +7,7 @@ import { Inbox, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { AppSelectField, DataListPanel, EmptyState, PageContainer, TablePagination } from "@/components/app-ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -68,7 +69,7 @@ export function TicketListPage({ canReadAll }: { canReadAll: boolean }) {
           <Link href="/support/tickets/new"><Plus aria-hidden="true" />{t("actions.new")}</Link>
         </Button>
       </div>
-      {error ? <p role="alert" className="rounded-xl border border-destructive-soft-border bg-destructive-soft p-4 text-sm text-destructive-soft-foreground">{error}</p> : null}
+      {error ? <Alert variant="destructive"><AlertTitle>{t("states.errorTitle")}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
       <DataListPanel
         aria-label={t("list.title")}
         loading={loading}

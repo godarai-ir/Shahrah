@@ -24,7 +24,7 @@ describe("ConfirmDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(onConfirm).toHaveBeenCalledOnce();
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
   });
 
   it("shows pending state and prevents dismissal until async confirmation succeeds", async () => {
@@ -37,6 +37,7 @@ describe("ConfirmDialog", () => {
       <ConfirmDialog
         trigger={<Button>Open confirmation</Button>}
         title="Revoke token"
+        description="This token will stop working immediately."
         cancelLabel="Cancel"
         confirmLabel="Revoke"
         pendingLabel="Revoking"
@@ -52,7 +53,7 @@ describe("ConfirmDialog", () => {
     expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
 
     await act(async () => resolveConfirmation());
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
   });
 
   it("keeps the dialog open and reports rejected confirmations", async () => {
@@ -62,6 +63,7 @@ describe("ConfirmDialog", () => {
       <ConfirmDialog
         trigger={<Button>Open confirmation</Button>}
         title="Delete resource"
+        description="This action cannot be undone."
         cancelLabel="Cancel"
         confirmLabel="Delete"
         onConfirm={() => Promise.reject(new Error("Delete failed"))}
@@ -73,7 +75,7 @@ describe("ConfirmDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(onConfirmError).toHaveBeenCalledOnce());
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled();
   });
 });

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 import { AppSelectField, AppSwitchField, DisplayNameField, FormSection, IdentifierField, PageContainer, PageHeader, RemovableChipList } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -262,7 +263,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
       } else {
         await createRateLimitRule(normalized);
       }
-      setNotice({ kind: "success", message: t("messages.saveSuccess") });
+      showFeedbackToast({ kind: "success", title: t("alerts.success"), description: t("messages.saveSuccess") });
       if (onSaved) {
         await onSaved();
         return;

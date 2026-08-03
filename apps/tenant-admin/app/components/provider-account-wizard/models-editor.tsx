@@ -7,7 +7,8 @@ import { Code2, ExternalLink, RotateCcw, Search, Settings, SlidersHorizontal, X 
 import { useLocale, useTranslations } from "next-intl";
 
 import { AppSelectField, EmptyState } from "@/components/app-ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -21,10 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -385,16 +388,17 @@ const ModelListItem = memo(function ModelListItem(props: ModelListItemProps) {
           isSelected={displayDraft.enabled}
           onSelectedChange={(checked) => setModelEnabled(model, displayDraft, selectableOptions, checked)}
           selectedCheckboxLabel={`${ux("common.enabled")} ${model.display_name || model.model}`}
+          selectedControlLabel={ux("common.enabled")}
           pricingModeBadge={displayDraft.pricingMode === "private" ? ux("models.pricing.private") : undefined}
           hasCustomPricing={displayDraft.pricingMode === "private"}
           showCopyAction={Boolean(account)}
           className={
             compact
               ? displayDraft.enabled
-                ? "border-success/40 self-start"
+                ? "self-start border-success-soft-border"
                 : "self-start"
               : displayDraft.enabled
-                ? "border-success/40"
+                ? "border-success-soft-border"
                 : undefined
           }
           footerActions={account ? (
@@ -990,77 +994,79 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     <Dialog open={curlGuide !== null} onOpenChange={(open) => { if (!open) setCurlGuide(null); }}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-xl border border-border bg-background p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-2xl"
+        className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-4xl"
       >
-        <div className="custom-scrollbar max-h-[calc(100dvh-1rem)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100dvh-2rem)] sm:px-6 sm:py-5 lg:px-8 lg:py-6">
-          <div className="flex items-start justify-between gap-3">
-            <DialogHeader className="min-w-0 flex-1 items-end gap-1 text-end">
-              <div className="flex min-w-0 items-center justify-end gap-2">
-                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+        <div className="flex shrink-0 items-start gap-4 px-4 py-4 sm:px-6 sm:py-5">
+          <DialogHeader className="min-w-0 flex-1 items-start gap-1.5 text-start">
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
                   <Code2 aria-hidden="true" />
-                </span>
-                <DialogTitle className="min-w-0 text-end text-xl font-bold leading-7 tracking-normal text-foreground sm:text-2xl sm:leading-8">
-                  {ux("models.curlGuide.title")}
-                </DialogTitle>
-              </div>
-              <DialogDescription className="max-w-3xl text-end text-sm leading-6 text-muted-foreground">
-                {ux("models.curlGuide.descriptionPrefix")}{" "}
-                <span dir="ltr" className="font-medium text-primary">{curlGuide?.modelName ?? ""}</span>{" "}
-                {ux("models.curlGuide.descriptionSuffix")}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-10 shrink-0 rounded-xl bg-background shadow-sm"
-              >
-                <X />
-                <span className="sr-only">{ux("models.curlGuide.close")}</span>
-              </Button>
-            </DialogClose>
-          </div>
-
-          <div className="mt-3 flex min-w-0 items-center gap-2 sm:mt-4">
-            <div
-              dir="ltr"
-              title={curlGuide?.modelFqn ?? ""}
-              className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted/30 px-3 py-2 text-start font-mono text-xs font-semibold text-primary sm:rounded-xl sm:px-4 sm:py-2.5"
-            >
-              {curlGuide?.modelFqn}
+              </span>
+              <DialogTitle className="min-w-0 text-xl leading-7 sm:text-2xl sm:leading-8">
+                {ux("models.curlGuide.title")}
+              </DialogTitle>
             </div>
-            <CopyAction
-              value={curlGuide?.modelFqn ?? ""}
-              copyLabel={ux("models.card.copyFqn")}
-              copiedLabel={ux("models.card.copied")}
-              showLabel
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0 rounded-lg bg-background px-3 text-muted-foreground shadow-none sm:rounded-xl"
-              onCopied={() => props.setBanner({ kind: "success", message: ux("messages.fqnCopied") })}
-            />
-          </div>
+            <DialogDescription className="max-w-3xl text-start text-sm leading-6">
+              {ux("models.curlGuide.descriptionPrefix")}{" "}
+              <bdi dir="ltr" className="font-medium text-foreground">{curlGuide?.modelName ?? ""}</bdi>{" "}
+              {ux("models.curlGuide.descriptionSuffix")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogClose asChild>
+            <Button type="button" variant="ghost" size="icon" className="shrink-0" aria-label={ux("models.curlGuide.close")}>
+              <X aria-hidden="true" />
+            </Button>
+          </DialogClose>
+        </div>
 
-          <Alert variant="info" className="mt-3 rounded-xl bg-muted/30 px-3 py-2 text-end text-muted-foreground sm:mt-4">
-            <AlertDescription className="text-xs leading-5">
-              <span className="font-medium text-foreground">{ux("models.curlGuide.instructionsLabel")}: </span>
-              {ux("models.curlGuide.instructions")}
-            </AlertDescription>
-          </Alert>
+        <Separator />
 
-          <div className="mt-4 sm:mt-5">
-            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0">
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
+            <Field>
+              <FieldLabel htmlFor="curl-guide-model-fqn">{ux("models.curlGuide.modelFqnLabel")}</FieldLabel>
+              <InputGroup className="h-10 bg-muted/20">
+                <InputGroupInput
+                  id="curl-guide-model-fqn"
+                  readOnly
+                  value={curlGuide?.modelFqn ?? ""}
+                  dir="ltr"
+                  className="truncate font-mono text-xs font-semibold text-primary"
+                />
+                <InputGroupAddon align="inline-end" className="pe-1">
+                  <CopyAction
+                    value={curlGuide?.modelFqn ?? ""}
+                    copyLabel={ux("models.card.copyFqn")}
+                    copiedLabel={ux("models.card.copied")}
+                    showLabel
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shrink-0"
+                    onCopied={() => showFeedbackToast({ kind: "success", title: ux("messages.fqnCopied") })}
+                  />
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
+
+            <Alert variant="info">
+              <AlertTitle>{ux("models.curlGuide.instructionsLabel")}</AlertTitle>
+              <AlertDescription>{ux("models.curlGuide.instructions")}</AlertDescription>
+            </Alert>
+
+            <Tabs value={curlGuideShell} onValueChange={(value) => setCurlGuideShell(value as CurlGuideShell)} className="min-w-0 gap-3">
+              <TabsList className="w-full sm:w-fit">
+                <TabsTrigger value="powershell" className="min-w-0 sm:min-w-28">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
+                <TabsTrigger value="bash" className="min-w-0 sm:min-w-20">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
+              </TabsList>
               <TabsContent value="powershell" className="mt-0">
                 <CodeExampleBlock
                   title={ux("models.curlGuide.requestTitle")}
                   code={curlGuide?.commands.powershell ?? ""}
                   language={CURL_GUIDE_LANGUAGE.powershell}
                   shellLabel={ux("models.curlGuide.shells.powershell")}
-                  headerActions={renderCurlGuideHeaderActions()}
                   copyLabel={ux("models.curlGuide.copySample")}
                   copiedLabel={ux("models.card.copied")}
-                  onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                  onCopied={() => showFeedbackToast({ kind: "success", title: ux("messages.curlCopied") })}
                   footer={renderCurlGuideDocsFooter()}
                 />
               </TabsContent>
@@ -1070,16 +1076,15 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                   code={curlGuide?.commands.bash ?? ""}
                   language={CURL_GUIDE_LANGUAGE.bash}
                   shellLabel={ux("models.curlGuide.shells.bash")}
-                  headerActions={renderCurlGuideHeaderActions()}
                   copyLabel={ux("models.curlGuide.copySample")}
                   copiedLabel={ux("models.card.copied")}
-                  onCopied={() => props.setBanner({ kind: "success", message: ux("messages.curlCopied") })}
+                  onCopied={() => showFeedbackToast({ kind: "success", title: ux("messages.curlCopied") })}
                   footer={renderCurlGuideDocsFooter()}
                 />
               </TabsContent>
             </Tabs>
             {curlGuide?.sampleResponse ? (
-              <div className="mt-5">
+              <div className="mt-1">
                 <CodeExampleBlock
                   title={ux("models.curlGuide.sampleResponse")}
                   code={curlGuide.sampleResponse}
@@ -1320,17 +1325,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         ) : null}
         {curlGuideDialog}
       </>
-    );
-  }
-
-  function renderCurlGuideHeaderActions() {
-    return (
-      <div className="flex min-w-0 shrink-0 justify-end">
-        <TabsList className="h-8 w-auto justify-start overflow-x-auto rounded-xl bg-muted/70 p-1">
-          <TabsTrigger value="powershell" className="min-w-24 rounded-lg px-2.5 text-xs font-semibold sm:min-w-28 sm:px-3">{ux("models.curlGuide.shells.powershell")}</TabsTrigger>
-          <TabsTrigger value="bash" className="min-w-16 rounded-lg px-2.5 text-xs sm:min-w-20 sm:px-3">{ux("models.curlGuide.shells.bash")}</TabsTrigger>
-        </TabsList>
-      </div>
     );
   }
 

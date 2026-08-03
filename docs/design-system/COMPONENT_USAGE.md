@@ -57,7 +57,21 @@ Use `density="compact"` for constrained pickers and small panels. Keep “no dat
 
 ## OperationNotice
 
-Use `OperationNotice` for transient operation feedback represented by a `kind` and `message`. Pass localized labels for success, error, warning, and info; keep notice state and dismissal behavior in the owning feature. Use raw `Alert` for persistent explanatory callouts that are not operation results.
+Choose feedback by its UX lifetime and scope:
+
+- Use `showFeedbackToast` for temporary, non-blocking operation results that do not require a decision. This includes successful create/update/delete/copy actions and failures whose originating surface has already closed or is otherwise unavailable. Import it only from `@/components/app-ui/feedback-toast`; feature code must not import `sonner` directly.
+- Use `OperationNotice` inside an open `FormSheet`, `FormDialog`, `Sheet`, or confirmation surface when the user must read and act on the result without losing their current context. Validation and retryable submit failures belong beside the form or action that caused them.
+- Use raw `Alert` for persistent explanatory, warning, degraded-state, or load-failure callouts that remain relevant until the underlying condition changes. A route-level load failure may stay near the affected content and should include an adjacent retry action when one is available.
+- Use `ConfirmDialog` for destructive or high-impact actions that require an explicit user decision. It is backed by `AlertDialog`; rejected confirmation requests stay open and render their `feedback` inside the dialog.
+
+Do not mirror one operation result simultaneously in a toast and an inline alert. Clear stale contextual feedback when its sheet or dialog closes or switches resources.
+
+```tsx
+showFeedbackToast({
+  kind: "success",
+  title: t("messages.saved"),
+});
+```
 
 ## AppCard / SettingsCard
 
@@ -72,6 +86,12 @@ Do not put cards inside cards. If a settings surface already has `SettingsCard`,
 Use for dashboard metrics with a label, value, optional description, optional trend, and optional icon.
 
 Use `density="compact"` for dense analytics grids and `tone` to communicate semantic icon emphasis. Do not create feature-local KPI wrappers only to rename `label`, `description`, or density props.
+
+## ModelCard
+
+Use the shared `ModelCard` for catalog and provider-account model grids. Keep the model identity, category badges, selection state, metrics, capability panels, and utility actions in the established hierarchy; do not rebuild the card inside individual model workflows.
+
+Pass the full model-aware text through `selectedCheckboxLabel` for the Switch accessible name and a concise localized label such as “Enabled” through `selectedControlLabel` for visible UI. Technical actions such as FQN copy and code examples belong in `footerActions`, while the model detail link stays beside the title. Keep model names and technical values LTR without changing the surrounding RTL layout.
 
 ## CompactValue
 
@@ -175,7 +195,7 @@ For standalone loading feedback, pass a localized `label` to `Spinner`; this exp
 
 ## ConfirmDialog
 
-Use for destructive or high-impact confirmations. It composes the existing shadcn Dialog.
+Use for destructive or high-impact confirmations. It composes the shared shadcn `AlertDialog` primitives.
 
 Use `open` and `onOpenChange` for feature-controlled dialogs, or pass `trigger` for the standard trigger-based flow. `onConfirm` may return a promise; provide `pendingLabel` so the dialog disables dismissal and communicates progress while the operation runs.
 

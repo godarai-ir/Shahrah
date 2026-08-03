@@ -21,6 +21,7 @@ import {
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { CodePanel, DefinitionList, DefinitionListItem, FormDialog, SectionHeader } from "@/components/app-ui";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -410,7 +411,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
 
   async function copySelectedFqn() {
     if (!selectedVersion?.fqn) {
-      setNotice({ kind: "error", message: t("messages.fqnUnavailable") });
+      showFeedbackToast({ kind: "error", title: t("messages.fqnUnavailable") });
       return;
     }
     await copyText(selectedVersion.fqn, t("messages.fqnCopied"));
@@ -418,7 +419,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
 
   async function copyText(text: string, successMessage: string) {
     await copyTextToClipboard(text);
-    setNotice({ kind: "success", message: successMessage });
+    showFeedbackToast({ kind: "success", title: successMessage });
   }
 }
 

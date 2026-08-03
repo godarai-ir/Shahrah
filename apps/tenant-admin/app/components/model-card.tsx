@@ -33,7 +33,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +93,7 @@ type ModelCardProps = {
   isSelected?: boolean;
   onSelectedChange?: (checked: boolean) => void;
   selectedCheckboxLabel?: string;
+  selectedControlLabel?: ReactNode;
   isCompared?: boolean;
   onComparedChange?: (checked: boolean) => void;
   compareCheckboxLabel?: string;
@@ -250,7 +252,7 @@ export function ModelCard(props: ModelCardProps) {
     return (
       <ButtonGroup aria-label={`${model.name} ${labels.copyId}`}>
         {showCopyAction ? (
-          <Button variant="outline" size="sm" onClick={handleCopyModelId}>
+          <Button type="button" variant="outline" size="sm" onClick={handleCopyModelId}>
             {copied ? <CheckCircle2 className="text-success" data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
             {copied ? labels.copied : labels.copyId}
           </Button>
@@ -264,8 +266,18 @@ export function ModelCard(props: ModelCardProps) {
     if (!showSelectedControl) return null;
 
     return (
-      <label className={cn("inline-flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium", className)}>
-        <span>{props.selectedCheckboxLabel ?? "Enabled"}</span>
+      <label
+        className={cn(
+          "inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md border px-2.5 text-sm font-medium transition-colors",
+          props.isSelected
+            ? "border-success-soft-border bg-success-soft text-success-soft-foreground"
+            : "border-border bg-background text-foreground",
+          className,
+        )}
+      >
+        <span className="whitespace-nowrap">
+          {props.selectedControlLabel ?? props.selectedCheckboxLabel ?? "Enabled"}
+        </span>
         <Switch
           checked={props.isSelected === true}
           onCheckedChange={(checked) => props.onSelectedChange?.(checked)}
@@ -298,24 +310,24 @@ export function ModelCard(props: ModelCardProps) {
   return (
     <article
       className={cn(
-        "group w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-border/70 bg-card text-card-foreground",
+        "group w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-card-border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] hover:border-border hover:shadow-sm",
         model.recommended && "ring-1 ring-primary/30",
         isDeprecated && "border-warning/40 bg-warning/5",
-        props.stateBadge?.tone === "active" && "border-success/40",
+        props.stateBadge?.tone === "active" && "border-success-soft-border",
         props.stateBadge?.tone === "inactive" && "border-border bg-card",
         props.className,
       )}
     >
-      <CardHeader className="flex flex-col gap-3 px-3 pb-1 pt-3 sm:px-4">
-        <div data-slot="model-card-title-row" className="flex min-h-16 w-full min-w-0 items-center justify-between gap-3">
+      <CardHeader className="flex flex-col gap-3 p-4">
+        <div data-slot="model-card-title-row" className="flex w-full min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Avatar className="size-12 shrink-0 border border-border bg-muted">
+            <Avatar className="size-11 shrink-0 border border-border bg-muted">
               <AvatarImage src={model.provider.logoUrl} alt="" aria-hidden="true" />
-              <AvatarFallback className="text-base font-semibold">{initials(model.provider.name)}</AvatarFallback>
+              <AvatarFallback className="font-semibold">{initials(model.provider.name)}</AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <div className="flex min-w-0 items-center gap-2">
-                <CardTitle className="min-w-0 truncate text-3xl font-semibold md:text-3xl" title={model.name} dir="ltr">
+                <CardTitle className="min-w-0 truncate text-xl leading-7" title={model.name} dir="ltr">
                   {model.name}
                 </CardTitle>
                 {props.detailsHref ? (
@@ -330,7 +342,7 @@ export function ModelCard(props: ModelCardProps) {
                   </Button>
                 )}
               </div>
-              <div data-slot="model-card-tag-row" className="flex min-w-0 flex-wrap items-center gap-2">
+              <div data-slot="model-card-tag-row" className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {renderCategoryBadges()}
                 {props.hasCustomPricing ? (
                   <Badge className="gap-1" variant="warning">
@@ -354,18 +366,17 @@ export function ModelCard(props: ModelCardProps) {
           </div>
           {showSelectedControl ? (
             <div className="shrink-0">
-              {renderSelectedControl("min-h-8 rounded-md border border-border bg-background px-3 text-xs sm:text-sm")}
+              {renderSelectedControl()}
             </div>
           ) : null}
         </div>
-
-        {hasUtilityActions ? <div className="flex justify-end">{renderUtilityActions()}</div> : null}
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-2.5 px-3 pb-3 pt-0 sm:px-4">
-        <div className="grid min-w-0 grid-cols-2 gap-2.5">
-          <MetricPanel label={labels.context} value={formatTokenCount(model.contextWindow)} />
+      <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-0">
+        <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
+          <MetricPanel className="sm:col-span-1" label={labels.context} value={formatTokenCount(model.contextWindow)} />
           <PricePanel
+            className="sm:col-span-2"
             label={pricingDisplay.scale === "PER_TOKEN" ? labels.pricingPerToken : labels.pricingPerMillion}
             inputValue={formatPriceValueOnly(model.pricing?.inputPerMillion, pricingDisplay)}
             outputValue={formatPriceValueOnly(model.pricing?.outputPerMillion, pricingDisplay)}
@@ -375,7 +386,7 @@ export function ModelCard(props: ModelCardProps) {
           />
         </div>
 
-        <div className="grid min-w-0 grid-cols-2 gap-2.5">
+        <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2">
           <BadgePanel label={labels.inputFormats} values={model.inputModalities} kind="modality" tone="info" />
           <BadgePanel label={labels.outputFormats} values={model.outputModalities} kind="modality" tone="success" />
           <BadgePanel
@@ -409,6 +420,15 @@ export function ModelCard(props: ModelCardProps) {
 
         {props.extraContent}
       </CardContent>
+
+      {hasUtilityActions ? (
+        <>
+          <Separator />
+          <CardFooter data-slot="model-card-actions" className="justify-end px-4 py-3">
+            {renderUtilityActions()}
+          </CardFooter>
+        </>
+      ) : null}
     </article>
   );
 }
@@ -427,10 +447,10 @@ function BadgePanel(props: {
     <section
       aria-label={props.label}
       className={cn(
-        "flex min-w-0 flex-col gap-2.5 rounded-lg p-3",
-        tone === "neutral" && "bg-muted/15",
-        tone === "info" && "bg-info/5",
-        tone === "success" && "bg-success/5",
+        "flex min-w-0 flex-col gap-2.5 rounded-lg border p-3",
+        tone === "neutral" && "border-border/60 bg-muted/15",
+        tone === "info" && "border-info-soft-border bg-info-soft",
+        tone === "success" && "border-success-soft-border bg-success-soft",
       )}
     >
       <p className="text-xs font-medium text-muted-foreground">{props.label}</p>
@@ -440,7 +460,7 @@ function BadgePanel(props: {
             <Badge
               key={`${props.label}-${value}`}
               variant={badgeVariantForValue(props.kind, tone, value)}
-              className="gap-1.5 px-3 py-1 text-xs"
+              className="gap-1.5"
               title={value}
             >
               {props.kind === "capability" ? iconForCapability(value) : props.kind === "mode" ? iconForMode(value) : iconForModality(value)}
@@ -466,7 +486,7 @@ function PricePanel(props: {
   className?: string;
 }) {
   return (
-    <section aria-label={props.label} className={cn("flex min-w-0 flex-col gap-3 rounded-lg bg-muted/15 p-3", props.className)}>
+    <section aria-label={props.label} className={cn("flex min-w-0 flex-col gap-2.5 rounded-lg border border-border/60 bg-muted/15 p-3", props.className)}>
       <div className="flex min-w-0 items-center justify-between gap-2">
         <p className="min-w-0 text-xs font-medium leading-5 text-muted-foreground">{props.label}</p>
         <div className="flex shrink-0 items-center justify-center">
@@ -487,11 +507,11 @@ function PricePanel(props: {
   );
 }
 
-function MetricPanel(props: { label: string; value: string }) {
+function MetricPanel(props: { label: string; value: string; className?: string }) {
   return (
-    <section aria-label={props.label} className="flex min-h-24 min-w-0 flex-col items-center justify-center rounded-lg bg-muted/15 p-3 text-center">
+    <section aria-label={props.label} className={cn("flex min-h-20 min-w-0 flex-col items-center justify-center rounded-lg border border-border/60 bg-muted/15 p-3 text-center", props.className)}>
       <p className="text-xs font-medium text-muted-foreground">{props.label}</p>
-      <p className="mt-3 truncate text-xl font-semibold" dir="ltr" title={props.value}>{props.value}</p>
+      <p className="mt-2 truncate text-xl font-semibold" dir="ltr" title={props.value}>{props.value}</p>
     </section>
   );
 }

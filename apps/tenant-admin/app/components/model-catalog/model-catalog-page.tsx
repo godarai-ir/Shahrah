@@ -40,6 +40,7 @@ import { DebouncedTextFilter, FilterField } from "@/components/app-ui/FilterFiel
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { OperationNotice, type OperationNoticeValue } from "@/components/app-ui/OperationNotice";
+import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { RefreshButton } from "@/components/app-ui/RefreshButton";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
@@ -361,7 +362,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
     await requestJSON(`/api/tenant-provider-accounts/${encodeURIComponent(deleteTarget.id)}`, {
       method: "DELETE",
     });
-    setNotice({ kind: "success", message: t("notices.deleted", { account: deleteTarget.name }) });
+    showFeedbackToast({ kind: "success", title: t("notices.deleted", { account: deleteTarget.name }) });
     setDeleteNotice(null);
     setDeleteTarget(null);
     setReloadKey((value) => value + 1);

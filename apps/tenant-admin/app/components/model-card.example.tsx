@@ -5,7 +5,7 @@ import { mockModelCards } from "@/app/components/model-card.mock";
 
 export function ModelCardExampleGrid() {
   return (
-    <section className="grid max-w-6xl grid-cols-1 gap-4">
+    <section className="grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-2">
       {mockModelCards.map((model) => (
         <ModelCard
           key={model.id}

@@ -6,6 +6,7 @@ import { Paperclip, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { AppSelectField, AppTextField, AppTextareaField, FormSection, PageContainer } from "@/components/app-ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createIdempotencyKey, readTicketResponse, type TicketCategory, type TicketDetail } from "./types";
@@ -104,7 +105,7 @@ export function NewTicketPage() {
             ))}
           </div>
         </FormSection>
-        {error ? <p role="alert" className="rounded-xl border border-destructive-soft-border bg-destructive-soft p-4 text-sm text-destructive-soft-foreground">{error}</p> : null}
+        {error ? <Alert variant="destructive"><AlertTitle>{t("states.errorTitle")}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" disabled={submitting} onClick={() => router.back()}>{t("actions.cancel")}</Button>
           <Button type="submit" disabled={submitting}>{submitting ? t("actions.submitting") : t("actions.submit")}</Button>

@@ -40,6 +40,7 @@ export type GatewayPolicyDeleteDialog = {
   pendingLabel: string;
   pending: boolean;
   onConfirm: () => void | Promise<void>;
+  feedback?: React.ReactNode;
 };
 
 export type GatewayPolicyUpgradeDialog = {
@@ -167,6 +168,7 @@ export function GatewayPolicyRulesList({
         pending={deleteDialog.pending}
         closeOnConfirm={false}
         onConfirm={deleteDialog.onConfirm}
+        feedback={deleteDialog.feedback}
       />
 
       <CommercialPlanUpgradeDialog {...upgradeDialog} />
