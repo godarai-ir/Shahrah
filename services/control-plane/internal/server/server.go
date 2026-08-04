@@ -34,6 +34,11 @@ var redactedLogHeaders = map[string]struct{}{
 	"x-forwarded-access-token": {},
 }
 
+const (
+	defaultTunnelTimeout = 300 * time.Second
+	writeTimeoutMargin   = 10 * time.Second
+)
+
 // Dependencies contains the concrete services required by the control-plane server.
 type Dependencies struct {
 	AuthMiddleware             *auth.AuthMiddleware
@@ -85,7 +90,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 
 	app := fiber.New(fiber.Config{
 		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      60 * time.Second,
+		WriteTimeout:      serverWriteTimeout(cfg),
 		IdleTimeout:       120 * time.Second,
 		BodyLimit:         500 * 1024 * 1024,
 		StreamRequestBody: true,
@@ -141,6 +146,16 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 	registerProtectedRoutes(app, deps)
 
 	return app
+}
+
+func serverWriteTimeout(cfg *config.Config) time.Duration {
+	tunnelTimeout := defaultTunnelTimeout
+
+	if cfg != nil && cfg.TunnelSettings.Timeout > 0 {
+		tunnelTimeout = time.Duration(cfg.TunnelSettings.Timeout) * time.Second
+	}
+
+	return tunnelTimeout + writeTimeoutMargin
 }
 
 func providerPayloadLimitMiddleware() fiber.Handler {

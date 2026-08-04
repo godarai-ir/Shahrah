@@ -170,6 +170,24 @@ func TestNewFiberAppExposesPrometheusMetrics(t *testing.T) {
 	assert.Contains(t, payload, "shahrah_control_plane_http_requests_in_flight")
 }
 
+func TestNewFiberAppWriteTimeoutOutlivesTunnelRequest(t *testing.T) {
+	t.Parallel()
+
+	app := NewFiberApp(&config.Config{
+		TunnelSettings: config.TunnelSettings{Timeout: 420},
+	}, Dependencies{})
+
+	assert.Equal(t, 430*time.Second, app.Config().WriteTimeout)
+}
+
+func TestNewFiberAppWriteTimeoutUsesTunnelDefault(t *testing.T) {
+	t.Parallel()
+
+	app := NewFiberApp(&config.Config{}, Dependencies{})
+
+	assert.Equal(t, 310*time.Second, app.Config().WriteTimeout)
+}
+
 func TestReadyIncludesClickHouseSubsystemReadiness(t *testing.T) {
 	t.Parallel()
 

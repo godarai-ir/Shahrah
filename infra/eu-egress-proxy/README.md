@@ -36,6 +36,7 @@ The pre-change gateway firewall backup is `/etc/nftables.conf.pre-eu-egress-2026
 | `node-4-eu/nat-gw-reverse-proxy.service` | `node-4-eu` | `/etc/systemd/system/nat-gw-reverse-proxy.service` |
 | `nat-gw-1/silk-road-egress-proxy.socket` | `nat-gw-1` | `/etc/systemd/system/silk-road-egress-proxy.socket` |
 | `nat-gw-1/silk-road-egress-proxy.service` | `nat-gw-1` | `/etc/systemd/system/silk-road-egress-proxy.service` |
+| `nat-gw-1/60-reverse-tunnel-liveness.conf` | `nat-gw-1` | `/etc/ssh/sshd_config.d/60-reverse-tunnel-liveness.conf` |
 | `../nat-gateway/nftables.conf` | `nat-gw-1` | `/etc/nftables.conf` |
 
 The reverse tunnel runs as `ubuntu`. Its private key remains at `/home/ubuntu/.ssh/node4_to_nat_proxy` on `node-4-eu`; the public key is installed in `/home/ubuntu/.ssh/authorized_keys` on `nat-gw-1`. The key is restricted to source `130.185.121.142` and listener `127.0.0.1:1443`; see `nat-gw-1/authorized_keys.example`.
@@ -43,7 +44,7 @@ The reverse tunnel runs as `ubuntu`. Its private key remains at `/home/ubuntu/.s
 ## Rollout order
 
 1. Install and validate Squid on `node-4-eu`.
-2. Install the restricted public key for `ubuntu` on `nat-gw-1`, install the private key for `ubuntu` on `node-4-eu`, then enable `nat-gw-reverse-proxy.service`.
+2. Install the SSH liveness drop-in and restricted public key on `nat-gw-1`. Validate the SSH configuration with `sshd -t`, reload `ssh.service`, install the private key for `ubuntu` on `node-4-eu`, then enable `nat-gw-reverse-proxy.service`.
 3. Install both gateway units and enable only `silk-road-egress-proxy.socket`; the service is socket-activated.
 4. Validate and atomically load the tracked nftables rules.
 5. From a NetworkPolicy-selected Pod pinned to each K3s node, verify direct HTTPS is blocked and `curl --proxy http://10.10.0.190:1443 https://www.cloudflare.com/cdn-cgi/trace` reports `ip=130.185.121.142` and `loc=DE`. Allow the K3s policy controller to converge before interpreting the result; the rollout test used 15 seconds.
@@ -59,6 +60,8 @@ systemctl is-active squid nat-gw-reverse-proxy
 ss -lntp | grep ':443\|:1443'
 
 # nat-gw-1
+sudo sshd -t
+sudo sshd -T | grep 'clientaliveinterval\|clientalivecountmax\|tcpkeepalive'
 systemctl is-active silk-road-egress-proxy.socket
 systemctl is-active silk-road-egress-proxy.service
 ss -lntp | grep '10.10.0.190:1443\|127.0.0.1:1443'
