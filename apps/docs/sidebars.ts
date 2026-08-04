@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
         'virtual-model',
         'model-identifiers',
         'making-llm-requests-via-gateway',
+        'guides/api-testing-with-postman',
         'authentication',
         'guides/byok',
         'guides/byok-security',
