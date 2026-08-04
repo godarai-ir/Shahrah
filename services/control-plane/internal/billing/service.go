@@ -679,6 +679,10 @@ func (s *Service) EstimateCost(ctx context.Context, req openai.ChatCompletionReq
 		return platform.UsageCostBreakdown{}, err
 	}
 
+	if err := validateOpenAIServiceTier(req.Model, req.ServiceTier, price); err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
+
 	breakdown := costBreakdown(req.Model, promptTokens, outputTokens, price, rate.USDtoIRR)
 	if price.Provider == "anthropic" &&
 		strings.EqualFold(strings.TrimSpace(req.Speed), "fast") {
@@ -1272,25 +1276,18 @@ func openAIUsageCostBreakdown(
 	exchangeRate float64,
 	conditions map[string]string,
 ) (platform.UsageCostBreakdown, error) {
-	tier := strings.ToLower(strings.TrimSpace(usage.ServiceTier))
-	if tier == "" {
-		tier = strings.ToLower(strings.TrimSpace(conditions["service_tier"]))
+	requestedTier := strings.TrimSpace(usage.ServiceTier)
+	if requestedTier == "" {
+		requestedTier = strings.TrimSpace(conditions["service_tier"])
 	}
 
-	switch tier {
-	case "", "default", "standard":
-		tier = "standard"
-	case "batch", "flex", "priority":
-	case "fast":
-		// OpenAI accepts both values and currently reports "priority" in the
-		// response even when the request used the newer "fast" name.
-		tier = "priority"
-	default:
-		return platform.UsageCostBreakdown{}, fmt.Errorf(
-			"%w: unsupported OpenAI service tier %q",
-			ErrPricingUnavailable,
-			tier,
-		)
+	if err := validateOpenAIServiceTier(model, requestedTier, price); err != nil {
+		return platform.UsageCostBreakdown{}, err
+	}
+
+	tier, err := normalizeOpenAIServiceTier(requestedTier)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
 	}
 
 	promptAudio, promptCached, promptCacheWrite, completionAudio := 0, 0, 0, 0
@@ -1345,9 +1342,10 @@ func openAIUsageCostBreakdown(
 				cacheDimension = "speed_long_context_cache_read_tokens"
 				cacheWriteDimension = "speed_long_context_cache_write_tokens"
 			} else {
-				return platform.UsageCostBreakdown{}, fmt.Errorf(
-					"%w: OpenAI Fast/Priority processing does not support long-context requests",
-					ErrPricingUnavailable,
+				return platform.UsageCostBreakdown{}, newUnsupportedServiceTierError(
+					price,
+					model,
+					requestedTier,
 				)
 			}
 		case "batch":
@@ -1518,13 +1516,78 @@ func selectOpenAIRate(
 	if len(matches) != 1 {
 		return normalizedPricingRate{}, fmt.Errorf(
 			"%w: OpenAI rate selection for %s matched %d rates",
-			ErrPricingUnavailable,
+			ErrPricingRateUnavailable,
 			dimension,
 			len(matches),
 		)
 	}
 
 	return matches[0], nil
+}
+
+func normalizeOpenAIServiceTier(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "default", "standard":
+		return "standard", nil
+	case "batch", "flex", "priority":
+		return strings.ToLower(strings.TrimSpace(value)), nil
+	case "fast":
+		// OpenAI reports "priority" when the request uses the newer "fast" alias.
+		return "priority", nil
+	default:
+		return "", &UnsupportedServiceTierError{
+			Provider: "openai",
+			Tier:     value,
+		}
+	}
+}
+
+func validateOpenAIServiceTier(model, requestedTier string, price priceInfo) error {
+	if !strings.EqualFold(strings.TrimSpace(price.Provider), "openai") ||
+		strings.TrimSpace(requestedTier) == "" {
+		return nil
+	}
+
+	normalizedTier, err := normalizeOpenAIServiceTier(requestedTier)
+	if err != nil {
+		var tierErr *UnsupportedServiceTierError
+		if errors.As(err, &tierErr) {
+			tierErr.Model = openAIModelName(model, price)
+		}
+
+		return err
+	}
+
+	if price.RuntimeProfile == nil {
+		return nil
+	}
+
+	if price.RuntimeProfile.Profile.AllowsServiceTier(normalizedTier) {
+		return nil
+	}
+
+	return newUnsupportedServiceTierError(price, model, requestedTier)
+}
+
+func newUnsupportedServiceTierError(
+	price priceInfo,
+	model string,
+	tier string,
+) error {
+	return &UnsupportedServiceTierError{
+		Provider: price.Provider,
+		Model:    openAIModelName(model, price),
+		Tier:     tier,
+	}
+}
+
+func openAIModelName(model string, price priceInfo) string {
+	if price.RuntimeProfile != nil &&
+		strings.TrimSpace(price.RuntimeProfile.Slug) != "" {
+		return strings.TrimSpace(price.RuntimeProfile.Slug)
+	}
+
+	return normalizeCatalogPricingModelID(model, "openai")
 }
 
 func openAIRateConditionsMatch(
@@ -2501,7 +2564,11 @@ func (s *Service) modelPrice(
 		}
 
 		if !strings.EqualFold(strings.TrimSpace(item.Status), "active") {
-			return priceInfo{}, fmt.Errorf("%w: model lifecycle is %s", ErrPricingUnavailable, item.Status)
+			return priceInfo{}, fmt.Errorf(
+				"%w: model lifecycle is %s",
+				ErrPricingModelUnavailable,
+				item.Status,
+			)
 		}
 
 		inputRate := item.Rates["input_tokens"].UnitPriceUSD

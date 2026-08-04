@@ -208,7 +208,73 @@ func TestOpenAIRateSelectorIsConditionalAndFailsOnAmbiguity(t *testing.T) {
 		"priority",
 		map[string]string{"service_tier": "priority"},
 	)
-	require.ErrorIs(t, err, ErrPricingUnavailable)
+	require.ErrorIs(t, err, ErrPricingRateUnavailable)
+}
+
+func TestOpenAIGPT54NanoRejectsUnsupportedPriorityTier(t *testing.T) {
+	now := time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)
+	profile := completeDiscoveryRuntimeProfile(
+		now.Add(-time.Hour),
+		"manual",
+		[]string{"manual"},
+	)
+	profile.Profile.Endpoints = []string{"models", "chat_completions", "responses"}
+	profile.Profile.RequestControls = platform.ModelRuntimeRequestControls{
+		ServiceTierValues:  []string{"standard", "batch", "flex"},
+		InferenceGeoValues: []string{"global"},
+	}
+	rates := []discoveryPricingRate{
+		{Dimension: "input_tokens", Unit: "token", UnitPriceUSD: "0.0000002", Currency: "USD", Region: "global", SourceURL: "https://openai.com/api/pricing/"},
+		{Dimension: "output_tokens", Unit: "token", UnitPriceUSD: "0.00000125", Currency: "USD", Region: "global", SourceURL: "https://openai.com/api/pricing/"},
+		{Dimension: "batch_input_tokens", Unit: "token", UnitPriceUSD: "0.0000001", Currency: "USD", Region: "global", SourceURL: "https://openai.com/api/pricing/", Condition: map[string]interface{}{"service_tier": "batch"}},
+		{Dimension: "batch_output_tokens", Unit: "token", UnitPriceUSD: "0.000000625", Currency: "USD", Region: "global", SourceURL: "https://openai.com/api/pricing/", Condition: map[string]interface{}{"service_tier": "batch"}},
+		{Dimension: "flex_input_tokens", Unit: "token", UnitPriceUSD: "0.0000001", Currency: "USD", Region: "global", SourceURL: "https://openai.com/api/pricing/", Condition: map[string]interface{}{"service_tier": "flex"}},
+		{Dimension: "flex_output_tokens", Unit: "token", UnitPriceUSD: "0.000000625", Currency: "USD", Region: "global", SourceURL: "https://openai.com/api/pricing/", Condition: map[string]interface{}{"service_tier": "flex"}},
+	}
+	snapshot, err := normalizeCatalogPricingSnapshot(
+		discoveryRuntimeSnapshot{
+			Provider: "openai", Revision: "openai-gpt-5.4-nano",
+			GeneratedAt: now,
+			Models: []discoveryRuntimeModel{{
+				CanonicalID: "openai/gpt-5.4-nano", Slug: "gpt-5.4-nano",
+				Status: "active", RuntimeProfile: profile, PricingRates: rates,
+			}},
+		},
+		"openai",
+	)
+	require.NoError(t, err)
+
+	manager := &CatalogPricingSnapshotManager{
+		provider: "openai",
+		now:      func() time.Time { return now },
+	}
+	manager.state.Store(snapshot)
+	service := &Service{
+		defaultRate: platform.ExchangeRate{USDtoIRR: 1},
+		catalogPricing: map[string]*CatalogPricingSnapshotManager{
+			"openai": manager,
+		},
+	}
+	maxOutputTokens := 32
+	_, err = service.EstimateCost(
+		context.Background(),
+		contractsopenai.ChatCompletionRequest{
+			Model: "openai:openai-calm-oasis:gpt-5.4-nano",
+			Messages: []contractsopenai.ChatMessage{{
+				Role: "user", Content: "Reply with exactly OPENAI_TIER_OK.",
+			}},
+			ServiceTier: "priority",
+			MaxTokens:   &maxOutputTokens,
+		},
+	)
+	require.ErrorIs(t, err, ErrUnsupportedServiceTier)
+	require.NotErrorIs(t, err, ErrPricingUnavailable)
+	require.NotErrorIs(t, err, ErrPricingRateUnavailable)
+
+	var tierErr *UnsupportedServiceTierError
+	require.ErrorAs(t, err, &tierErr)
+	require.Equal(t, "gpt-5.4-nano", tierErr.Model)
+	require.Equal(t, "priority", tierErr.Tier)
 }
 
 func TestOpenAIUsagePricingMeasuresCacheAndAudioSeparately(t *testing.T) {
@@ -304,7 +370,7 @@ func TestOpenAIFastAliasAndUndiscountedCachedInput(t *testing.T) {
 		1,
 		nil,
 	)
-	require.ErrorIs(t, err, ErrPricingUnavailable)
+	require.ErrorIs(t, err, ErrUnsupportedServiceTier)
 }
 
 func TestApplyPricingOverridePinsPrivateRevisionAndRecalculates(t *testing.T) {

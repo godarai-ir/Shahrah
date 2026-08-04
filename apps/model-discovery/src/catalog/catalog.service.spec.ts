@@ -99,6 +99,78 @@ describe('CatalogService', () => {
     });
   });
 
+  it('fails the OpenAI snapshot when a declared tier has no rates', async () => {
+    const openAIProfile = {
+      ...validRuntimeProfile,
+      endpoints: ['models', 'responses'],
+      requestControls: {
+        serviceTierValues: ['standard', 'priority', 'fast'],
+        inferenceGeoValues: ['global'],
+        speedValues: [],
+        effectiveSpeed: {},
+      },
+    };
+    const prisma = {
+      model: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            canonicalId: 'openai/gpt-test',
+            slug: 'gpt-test',
+            status: 'active',
+            deprecationDate: null,
+            retirementDate: null,
+            replacementCanonicalId: null,
+            runtimeProfiles: [
+              {
+                version: 1,
+                profileJson: openAIProfile,
+                sourceUrl:
+                  'https://developers.openai.com/api/docs/models/gpt-test',
+                effectiveFrom: new Date(),
+              },
+            ],
+            pricingRates: [
+              {
+                dimension: 'input_tokens',
+                unit: 'token',
+                unitPriceUsd: { toString: () => '0.000001' },
+                currency: 'USD',
+                conditionJson: null,
+                region: 'global',
+                effectiveFrom: new Date(),
+                effectiveTo: null,
+                sourceUrl: 'https://developers.openai.com/api/docs/pricing',
+              },
+              {
+                dimension: 'output_tokens',
+                unit: 'token',
+                unitPriceUsd: { toString: () => '0.000002' },
+                currency: 'USD',
+                conditionJson: null,
+                region: 'global',
+                effectiveFrom: new Date(),
+                effectiveTo: null,
+                sourceUrl: 'https://developers.openai.com/api/docs/pricing',
+              },
+            ],
+            sources: [],
+          },
+        ]),
+      },
+    } as any;
+    const service = new CatalogService(prisma, {} as any);
+
+    await expect(service.runtimeSnapshot('openai')).rejects.toMatchObject({
+      response: {
+        code: 'runtime_snapshot_unavailable',
+        provider: 'openai',
+        model: 'openai/gpt-test',
+        reason: 'missing_tier_pricing',
+        missingDimensions: ['speed_input_tokens', 'speed_output_tokens'],
+      },
+    });
+  });
+
   it('fails the runtime snapshot when a stored profile is invalid', async () => {
     const prisma = {
       model: {

@@ -349,5 +349,6 @@ export const xaiProviderImporter = {
     api: 'batches',
   } as ProviderRateMapping['conditionJson'],
   rateMappings: XAI_RATE_MAPPINGS,
+  appendDerivedCostPricingRates: undefined,
   appendToolPricingRates,
 };

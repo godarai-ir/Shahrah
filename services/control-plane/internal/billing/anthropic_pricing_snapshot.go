@@ -3,7 +3,6 @@ package billing
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,8 +16,6 @@ import (
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/shopspring/decimal"
 )
-
-var ErrPricingUnavailable = errors.New("pricing_unavailable")
 
 const anthropicPricingMaxAge = 24 * time.Hour
 

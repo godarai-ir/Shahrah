@@ -5,6 +5,45 @@ import { ModelsQueryDto } from './dto/models-query.dto';
 import { createHash } from 'node:crypto';
 import { modelRuntimeProfileSchema } from './runtime-profile.schema';
 
+type OpenAIRuntimePricingModel = {
+  canonicalId: string;
+  runtimeProfile: {
+    profile: {
+      requestControls: { serviceTierValues: string[] };
+    };
+  };
+  pricingRates: Array<{
+    dimension: string;
+    currency: string;
+    region: string;
+  }>;
+};
+
+function missingOpenAITierPricing(model: OpenAIRuntimePricingModel): string[] {
+  const dimensions = new Set(
+    model.pricingRates
+      .filter((rate) => rate.currency === 'USD' && rate.region === 'global')
+      .map((rate) => rate.dimension),
+  );
+  const tiers = new Set(
+    model.runtimeProfile.profile.requestControls.serviceTierValues,
+  );
+  const required = new Set<string>();
+  const require = (...values: string[]) =>
+    values.forEach((value) => required.add(value));
+
+  if (tiers.has('standard')) require('input_tokens', 'output_tokens');
+  if (tiers.has('batch')) {
+    require('batch_input_tokens', 'batch_output_tokens');
+  }
+  if (tiers.has('flex')) require('flex_input_tokens', 'flex_output_tokens');
+  if (tiers.has('priority') || tiers.has('fast')) {
+    require('speed_input_tokens', 'speed_output_tokens');
+  }
+
+  return [...required].filter((dimension) => !dimensions.has(dimension));
+}
+
 @Injectable()
 export class CatalogService {
   constructor(
@@ -106,6 +145,20 @@ export class CatalogService {
         sources: row.sources.map((source) => source.url),
       };
     });
+    if (providerSlug === 'openai') {
+      for (const model of models) {
+        const missingDimensions = missingOpenAITierPricing(model);
+        if (missingDimensions.length > 0) {
+          throw new ServiceUnavailableException({
+            code: 'runtime_snapshot_unavailable',
+            provider: providerSlug,
+            model: model.canonicalId,
+            reason: 'missing_tier_pricing',
+            missingDimensions,
+          });
+        }
+      }
+    }
     if (providerSlug === 'anthropic' || providerSlug === 'xai') {
       for (const model of models) {
         const coreDimensions = new Set(

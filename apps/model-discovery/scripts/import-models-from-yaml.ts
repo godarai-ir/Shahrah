@@ -13,6 +13,10 @@ import { findMissingProviderSlugs } from '../src/catalog/provider-catalog-reconc
 import { anthropicProviderImporter } from './model-import/providers/anthropic';
 import { googleGeminiProviderImporter } from './model-import/providers/google-gemini';
 import {
+  OPENAI_PROVIDER_SLUG,
+  validateOpenAIProviderDirectory,
+} from './model-import/providers/openai';
+import {
   mistralAIProviderImporter,
   validateMistralAIProviderDirectory,
 } from './model-import/providers/mistral-ai';
@@ -514,6 +518,9 @@ async function parseProviderDir(
   providerDir: string,
 ): Promise<ImportProviderBatch> {
   const providerSlug = slugify(basename(providerDir));
+  if (providerSlug === OPENAI_PROVIDER_SLUG) {
+    await validateOpenAIProviderDirectory(dirname(providerDir));
+  }
   if (providerSlug === 'mistral-ai') {
     await validateMistralAIProviderDirectory(join(providerDir, '..'));
   }

@@ -32,6 +32,8 @@ export const OPENAI_SUPPORTED_MODEL_IDS = [
 type OpenAIYamlDocument = {
   model?: unknown;
   runtimeProfile?: unknown;
+  serviceTiers?: unknown;
+  costs?: unknown;
 };
 
 export type OpenAIProviderValidationResult = {
@@ -81,6 +83,80 @@ function formatValidationError(
   return `OpenAI model allowlist validation failed for ${providerDir}: ${details.join(
     ' ',
   )}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasNonNegativePrice(
+  records: Array<Record<string, unknown>>,
+  key: string,
+): boolean {
+  return records.some((record) => {
+    const value = record[key];
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  });
+}
+
+function validateTierPricing(document: OpenAIYamlDocument): string[] {
+  const tiers = Array.isArray(document.serviceTiers)
+    ? document.serviceTiers.filter(
+        (value): value is string => typeof value === 'string',
+      )
+    : [];
+  if (tiers.length === 0) return [];
+
+  const allowedTiers = new Set([
+    'standard',
+    'batch',
+    'flex',
+    'priority',
+    'fast',
+  ]);
+  const invalidTiers = tiers.filter((tier) => !allowedTiers.has(tier));
+  const costs = Array.isArray(document.costs)
+    ? document.costs.filter(isRecord)
+    : [];
+  const missing: string[] = invalidTiers.map(
+    (tier) => `unsupported_service_tier:${tier}`,
+  );
+  const requirePrices = (tier: string, keys: string[]) => {
+    if (!tiers.includes(tier)) return;
+    for (const key of keys) {
+      if (!hasNonNegativePrice(costs, key)) {
+        missing.push(`${tier}:${key}`);
+      }
+    }
+  };
+
+  requirePrices('standard', ['input_cost_per_token', 'output_cost_per_token']);
+  requirePrices('batch', [
+    'input_cost_per_token_batches',
+    'output_cost_per_token_batches',
+  ]);
+  requirePrices('flex', [
+    'input_cost_per_token_flex',
+    'output_cost_per_token_flex',
+  ]);
+
+  const priorityEnabled = tiers.includes('priority');
+  const fastEnabled = tiers.includes('fast');
+  if (priorityEnabled !== fastEnabled) {
+    missing.push('priority_fast_alias_pair');
+  }
+  if (priorityEnabled || fastEnabled) {
+    const priorityPricing = costs
+      .map((cost) => cost.priority_pricing)
+      .filter(isRecord);
+    for (const key of ['input_cost_per_token', 'output_cost_per_token']) {
+      if (!hasNonNegativePrice(priorityPricing, key)) {
+        missing.push(`priority:${key}`);
+      }
+    }
+  }
+
+  return missing;
 }
 
 export async function validateOpenAIProviderDirectory(
@@ -138,6 +214,24 @@ export async function validateOpenAIProviderDirectory(
       invalidFiles.push(`${relativeFile}(invalid_runtime_profile)`);
     } else if (runtimeProfile.data.version < 3) {
       invalidFiles.push(`${relativeFile}(runtime_profile_version)`);
+    } else {
+      const declaredTiers = Array.isArray(document.serviceTiers)
+        ? document.serviceTiers
+        : [];
+      if (
+        JSON.stringify(
+          runtimeProfile.data.requestControls.serviceTierValues,
+        ) !== JSON.stringify(declaredTiers)
+      ) {
+        invalidFiles.push(`${relativeFile}(service_tier_profile_mismatch)`);
+      }
+    }
+
+    const missingTierPricing = validateTierPricing(document);
+    if (missingTierPricing.length > 0) {
+      invalidFiles.push(
+        `${relativeFile}(missing_tier_pricing:${missingTierPricing.join('|')})`,
+      );
     }
   }
 

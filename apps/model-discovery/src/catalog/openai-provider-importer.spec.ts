@@ -6,6 +6,7 @@ import {
   OPENAI_SUPPORTED_MODEL_IDS,
   validateOpenAIProviderDirectory,
 } from '../../scripts/model-import/providers/openai';
+import { importProviderYaml } from '../../scripts/import-models-from-yaml';
 import { modelRuntimeProfileSchema } from './runtime-profile.schema';
 
 describe('OpenAI provider importer', () => {
@@ -140,6 +141,32 @@ describe('OpenAI provider importer', () => {
       await expect(validateOpenAIProviderDirectory(root)).rejects.toThrow(
         'malformed_yaml',
       );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('makes the generic production importer enforce tier pricing coverage', async () => {
+    const root = await copyProviderFixture();
+    const modelPath = join(root, 'openai', 'gpt-4.1.yaml');
+    const yaml = await readFile(modelPath, 'utf8');
+    try {
+      await writeFile(
+        modelPath,
+        yaml.replace(
+          /\n      priority_pricing:\r?\n(?:          .*\r?\n)+/,
+          '\n',
+        ),
+      );
+
+      await expect(
+        importProviderYaml({
+          providersRoot: root,
+          providerSlugs: ['openai'],
+          dryRun: true,
+          log: () => undefined,
+        }),
+      ).rejects.toThrow('missing_tier_pricing');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

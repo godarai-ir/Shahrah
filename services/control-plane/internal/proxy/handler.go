@@ -505,6 +505,34 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 }
 
 func writeBillingEstimateError(c *fiber.Ctx, err error) error {
+	var unsupportedTier *billing.UnsupportedServiceTierError
+	if errors.As(err, &unsupportedTier) {
+		return writeAPIError(
+			c,
+			fiber.StatusBadRequest,
+			unsupportedTier.PublicMessage(),
+			"invalid_request_error",
+		)
+	}
+
+	if errors.Is(err, billing.ErrPricingModelUnavailable) {
+		return writeAPIError(
+			c,
+			fiber.StatusServiceUnavailable,
+			"Provider pricing is unavailable for the requested model",
+			"pricing_unavailable",
+		)
+	}
+
+	if errors.Is(err, billing.ErrPricingRateUnavailable) {
+		return writeAPIError(
+			c,
+			fiber.StatusServiceUnavailable,
+			"Provider pricing is incomplete for the requested configuration",
+			"pricing_unavailable",
+		)
+	}
+
 	if errors.Is(err, billing.ErrPricingUnavailable) {
 		return writeAPIError(
 			c,

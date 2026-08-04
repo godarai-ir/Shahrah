@@ -133,7 +133,12 @@ func (m *CatalogPricingSnapshotManager) price(
 
 	item, ok := snapshot.Models[normalizeCatalogPricingModelID(model, m.provider)]
 	if !ok {
-		return anthropicPricingModel{}, nil, ErrPricingUnavailable
+		return anthropicPricingModel{}, nil, fmt.Errorf(
+			"%w: %s model %s is missing from the pricing snapshot",
+			ErrPricingModelUnavailable,
+			m.provider,
+			model,
+		)
 	}
 
 	return item, snapshot, nil
