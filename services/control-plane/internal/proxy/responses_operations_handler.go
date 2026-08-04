@@ -49,6 +49,14 @@ type responseDeploymentLister interface {
 	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
 }
 
+type responseProviderAuthResolver interface {
+	ResolveProviderAccountAuth(
+		ctx context.Context,
+		tenantID string,
+		modelFQN string,
+	) (*platform.ResolvedProviderAuth, error)
+}
+
 // HandleRetrieve implements GET /v1/responses/{response_id}.
 func (h *ResponsesHandler) HandleRetrieve(c *fiber.Ctx) error {
 	return h.handleResponseResourceOperation(c, platform.ProviderOperationOpenAIResponsesGet)
@@ -486,7 +494,60 @@ func (h *ResponsesHandler) resolveResponseDeployment(
 		}
 	}
 
-	return candidates[0], nil
+	deployment, err := h.hydrateResponseDeploymentAuth(ctx, tenantID, candidates[0])
+	if err != nil {
+		return platform.Deployment{}, err
+	}
+
+	return deployment, nil
+}
+
+func (h *ResponsesHandler) hydrateResponseDeploymentAuth(
+	ctx context.Context,
+	tenantID string,
+	deployment platform.Deployment,
+) (platform.Deployment, error) {
+	if deployment.CredentialSource != platform.CredentialSourceUserBYOK ||
+		strings.TrimSpace(deployment.APIKey) != "" ||
+		providerAuthHasCredential(deployment.ProviderAuth) {
+		return deployment, nil
+	}
+
+	resolver, ok := h.deployments.(responseProviderAuthResolver)
+	if !ok {
+		return platform.Deployment{}, fmt.Errorf("responses provider account credential resolution is unavailable")
+	}
+
+	modelFQN := strings.TrimSpace(deployment.ModelName)
+	if modelFQN == "" {
+		return platform.Deployment{}, fmt.Errorf("responses provider account model is unavailable")
+	}
+
+	resolved, err := resolver.ResolveProviderAccountAuth(ctx, tenantID, modelFQN)
+	if err != nil {
+		return platform.Deployment{}, fmt.Errorf("responses provider account credential resolution failed: %w", err)
+	}
+
+	if !providerAuthHasCredential(resolved) {
+		return platform.Deployment{}, fmt.Errorf("responses provider account credential is unavailable")
+	}
+
+	deployment.ProviderAuth = resolved
+
+	return deployment, nil
+}
+
+func providerAuthHasCredential(providerAuth *platform.ResolvedProviderAuth) bool {
+	if providerAuth == nil {
+		return false
+	}
+
+	switch strings.ToLower(strings.TrimSpace(providerAuth.Mode)) {
+	case string(platform.ProviderAuthModeAPIKey), "personal_access_token":
+		return strings.TrimSpace(providerAuth.APIKey) != ""
+	default:
+		return false
+	}
 }
 
 func (h *ResponsesHandler) responseResourceMapping(
