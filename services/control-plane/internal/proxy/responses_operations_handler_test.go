@@ -92,6 +92,7 @@ func (s *responseOperationResources) UpdateProviderNativeResourceStatus(
 
 type responseOperationDeployments struct {
 	deployments []platform.Deployment
+	authByModel map[string]*platform.ResolvedProviderAuth
 }
 
 func (s responseOperationDeployments) ListDeployments(
@@ -99,6 +100,21 @@ func (s responseOperationDeployments) ListDeployments(
 	_ string,
 ) ([]platform.Deployment, error) {
 	return append([]platform.Deployment(nil), s.deployments...), nil
+}
+
+func (s responseOperationDeployments) ResolveProviderAccountAuth(
+	_ context.Context,
+	_ string,
+	modelFQN string,
+) (*platform.ResolvedProviderAuth, error) {
+	providerAuth := s.authByModel[modelFQN]
+	if providerAuth == nil {
+		return nil, nil
+	}
+
+	cloned := *providerAuth
+
+	return &cloned, nil
 }
 
 func newResponseOperationsTestApp(
@@ -129,6 +145,18 @@ func newResponseOperationsTestApp(
 		ProviderAccountName: "primary-xai",
 	}
 	deployments := responseOperationDeployments{deployments: []platform.Deployment{deployment, xaiDeployment}}
+
+	return newResponseOperationsTestAppWithDeployments(t, tunnel, resources, deployments)
+}
+
+func newResponseOperationsTestAppWithDeployments(
+	t *testing.T,
+	tunnel platform.TunnelTransport,
+	resources *responseOperationResources,
+	deployments responseOperationDeployments,
+) *fiber.App {
+	t.Helper()
+
 	mem, err := cache.NewMemoryCache(zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter(
@@ -229,6 +257,58 @@ func TestOpenAIFileCreateUsesRawTunnelAndRecordsAffinity(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, openAIFileResourceKind, mapping.ResourceKind)
 	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
+}
+
+func TestOpenAIFileCreateHydratesProviderAccountAuth(t *testing.T) {
+	const (
+		modelFQN = "openai:primary-openai:gpt-4.1"
+		apiKey   = "resolved-openai-key"
+	)
+
+	resources := &responseOperationResources{}
+	tunnel := &rawSpeechTunnel{
+		captureTunnel: &captureTunnel{},
+		rawResp: &platform.TunnelRawResponse{
+			StatusCode: fiber.StatusOK,
+			Headers:    map[string]string{"content-type": "application/json"},
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{"id":"file_byok","status":"processed"}`))),
+		},
+	}
+	deployments := responseOperationDeployments{
+		deployments: []platform.Deployment{{
+			ID:                  "provider-account:acct_byok:gpt-4.1",
+			TenantID:            "tenant_a",
+			ModelName:           modelFQN,
+			Provider:            "openai",
+			Model:               "gpt-4.1",
+			CredentialSource:    platform.CredentialSourceUserBYOK,
+			ProviderAccountID:   "acct_byok",
+			ProviderAccountName: "primary-openai",
+		}},
+		authByModel: map[string]*platform.ResolvedProviderAuth{
+			modelFQN: {Mode: string(platform.ProviderAuthModeAPIKey), APIKey: apiKey},
+		},
+	}
+	app := newResponseOperationsTestAppWithDeployments(t, tunnel, resources, deployments)
+	requestBody, contentType := buildMultipartBody(
+		t,
+		map[string]string{"purpose": "batch"},
+		map[string][]byte{"file": []byte(`{"custom_id":"one"}`)},
+	)
+	req := httptest.NewRequest(http.MethodPost, "/v1/files", bytes.NewReader(requestBody))
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("x-godarai-provider", "openai")
+	req.Header.Set("x-godarai-provider-account", "primary-openai")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.NotNil(t, tunnel.lastReq.Deployment.ProviderAuth)
+	assert.Equal(t, string(platform.ProviderAuthModeAPIKey), tunnel.lastReq.Deployment.ProviderAuth.Mode)
+	assert.Equal(t, apiKey, tunnel.lastReq.Deployment.ProviderAuth.APIKey)
 }
 
 func TestXAIFileCreateUsesSelectedProviderAndRecordsAffinity(t *testing.T) {
