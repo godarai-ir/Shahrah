@@ -667,6 +667,12 @@ type ProviderOperationInput struct {
 	IncludeObfuscation  *bool    `json:"include_obfuscation,omitempty"`
 	StartingAfter       *int64   `json:"starting_after,omitempty"`
 	Stream              *bool    `json:"stream,omitempty"`
+	Page                *int     `json:"page,omitempty"`
+	PageSize            *int     `json:"page_size,omitempty"`
+	CreatedByMe         *bool    `json:"created_by_me,omitempty"`
+	OrderBy             string   `json:"order_by,omitempty"`
+	Status              string   `json:"status,omitempty"`
+	Model               string   `json:"model,omitempty"`
 }
 
 type AnthropicNativeResourceMapping struct {

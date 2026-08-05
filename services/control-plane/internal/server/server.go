@@ -58,6 +58,7 @@ type Dependencies struct {
 	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
 	AudioSpeechHandler         *proxy.AudioSpeechHandler
 	MistralOCRHandler          *proxy.MistralOCRHandler
+	MistralNativeHandler       *proxy.MistralNativeHandler
 	ModelsHandler              *proxy.ModelsHandler
 	AnthropicNativeHandler     *proxy.AnthropicNativeHandler
 	GeminiNativeHandler        *proxy.GeminiNativeHandler
@@ -92,7 +93,7 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      serverWriteTimeout(cfg),
 		IdleTimeout:       120 * time.Second,
-		BodyLimit:         500 * 1024 * 1024,
+		BodyLimit:         513 * 1024 * 1024,
 		StreamRequestBody: true,
 		ErrorHandler:      customErrorHandler,
 	})
@@ -163,7 +164,7 @@ func providerPayloadLimitMiddleware() fiber.Handler {
 		const (
 			normalLimit = int64(32 * 1024 * 1024)
 			batchLimit  = int64(256 * 1024 * 1024)
-			fileLimit   = int64(500 * 1024 * 1024)
+			fileLimit   = int64(513 * 1024 * 1024)
 		)
 
 		limit := normalLimit

@@ -547,6 +547,7 @@ func main() {
 	audioTranscriptionsHandler := proxy.NewAudioTranscriptionsHandlerWithDependencies(baseProxyDeps)
 	audioSpeechHandler := proxy.NewAudioSpeechHandlerWithDependencies(baseProxyDeps)
 	mistralOCRHandler := proxy.NewMistralOCRHandlerWithDependencies(baseProxyDeps)
+	mistralNativeHandler := proxy.NewMistralNativeHandler(baseProxyDeps, store)
 	modelsHandler := proxy.NewModelsHandler(runtimeDeploymentStore)
 	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseProxyDeps, store)
 	geminiNativeHandler := proxy.NewGeminiNativeHandler(baseProxyDeps, store)
@@ -602,6 +603,7 @@ func main() {
 		AudioTranscriptionsHandler: audioTranscriptionsHandler,
 		AudioSpeechHandler:         audioSpeechHandler,
 		MistralOCRHandler:          mistralOCRHandler,
+		MistralNativeHandler:       mistralNativeHandler,
 		ModelsHandler:              modelsHandler,
 		AnthropicNativeHandler:     anthropicNativeHandler,
 		GeminiNativeHandler:        geminiNativeHandler,
@@ -616,6 +618,7 @@ func main() {
 	defer cancel()
 
 	go anthropicNativeHandler.RunBatchWorker(runCtx, 15*time.Second)
+	go mistralNativeHandler.RunBatchWorker(runCtx, 15*time.Second)
 
 	store.StartTokenUsageFlusher(runCtx)
 	store.StartUsageCounterFlusher(runCtx)

@@ -381,7 +381,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 	case platform.ProviderOperationMistralFilesCreate:
 		return http.MethodPost, "/files", nil
 	case platform.ProviderOperationMistralFilesList:
-		return http.MethodGet, "/files", nil
+		return http.MethodGet, withListQuery("/files", input), nil
 	case platform.ProviderOperationMistralFilesGet, platform.ProviderOperationMistralFilesDelete,
 		platform.ProviderOperationMistralFilesContent, platform.ProviderOperationMistralFilesURL:
 		value, err := resource()
@@ -400,7 +400,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 	case platform.ProviderOperationMistralBatchCreate:
 		return http.MethodPost, "/batch/jobs", nil
 	case platform.ProviderOperationMistralBatchList:
-		return http.MethodGet, "/batch/jobs", nil
+		return http.MethodGet, withListQuery("/batch/jobs", input), nil
 	case platform.ProviderOperationMistralBatchGet, platform.ProviderOperationMistralBatchCancel,
 		platform.ProviderOperationMistralBatchDelete:
 		value, err := resource()
@@ -417,9 +417,9 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 	case platform.ProviderOperationMistralAgentsCreate:
 		return http.MethodPost, "/agents", nil
 	case platform.ProviderOperationMistralAgentsList:
-		return http.MethodGet, "/agents", nil
+		return http.MethodGet, withListQuery("/agents", input), nil
 	case platform.ProviderOperationMistralAgentsPages:
-		return http.MethodGet, "/agents/pages", nil
+		return http.MethodGet, withListQuery("/agents/pages", input), nil
 	case platform.ProviderOperationMistralAgentsGet, platform.ProviderOperationMistralAgentsUpdate,
 		platform.ProviderOperationMistralAgentsDelete:
 		value, err := resource()
@@ -436,7 +436,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 	case platform.ProviderOperationMistralConversationsCreate:
 		return http.MethodPost, "/conversations", nil
 	case platform.ProviderOperationMistralConversationsList:
-		return http.MethodGet, "/conversations", nil
+		return http.MethodGet, withListQuery("/conversations", input), nil
 	case platform.ProviderOperationMistralConversationsGet, platform.ProviderOperationMistralConversationsAppend,
 		platform.ProviderOperationMistralConversationsDelete, platform.ProviderOperationMistralConversationsHistory,
 		platform.ProviderOperationMistralConversationsMessages, platform.ProviderOperationMistralConversationsRestart:
@@ -525,6 +525,30 @@ func withListQuery(path string, input platform.ProviderOperationInput) string {
 	}
 	if input.Stream != nil {
 		query.Set("stream", strconv.FormatBool(*input.Stream))
+	}
+
+	if input.Page != nil {
+		query.Set("page", strconv.Itoa(*input.Page))
+	}
+
+	if input.PageSize != nil {
+		query.Set("page_size", strconv.Itoa(*input.PageSize))
+	}
+
+	if input.CreatedByMe != nil {
+		query.Set("created_by_me", strconv.FormatBool(*input.CreatedByMe))
+	}
+
+	if input.OrderBy != "" {
+		query.Set("order_by", input.OrderBy)
+	}
+
+	if input.Status != "" {
+		query.Set("status", input.Status)
+	}
+
+	if input.Model != "" {
+		query.Set("model", input.Model)
 	}
 	if encoded := query.Encode(); encoded != "" {
 		return path + "?" + encoded

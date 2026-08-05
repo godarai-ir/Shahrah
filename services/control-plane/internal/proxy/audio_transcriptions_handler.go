@@ -38,6 +38,7 @@ type AudioTranscriptionsHandler struct {
 	wallets    walletStore
 	logs       usageLogger
 	logger     *zap.Logger
+	resources  providerNativeResourceStore
 	emitMetric func(input metricsobs.BuildInput)
 }
 
@@ -76,6 +77,7 @@ func NewAudioTranscriptionsHandlerWithDependencies(deps BaseHandlerDependencies)
 		wallets:    deps.Wallets,
 		logs:       deps.logger(),
 		logger:     deps.Logger,
+		resources:  deps.ProviderResources,
 		emitMetric: deps.metricEmitter(),
 	}
 }
@@ -105,6 +107,33 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	if err != nil {
 		param, code := audioTranscriptionValidationErrorDetail(err)
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error", param, code)
+	}
+
+	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
+	if isJSONContentType(contentType) && strings.HasPrefix(strings.ToLower(providerModelID(reqMeta.Model)), "voxtral-mini-") {
+		var request map[string]interface{}
+		if json.Unmarshal(body, &request) == nil {
+			if publicID := strings.TrimSpace(stringFromMap(request, "file_id")); publicID != "" {
+				if h.resources == nil {
+					return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral file mapping is unavailable", "routing_error")
+				}
+
+				mapping, mappingErr := h.resources.GetProviderNativeResourceMapping(c.Context(), currentTenant.ID, mistralProviderName, mistralFileResourceKind, publicID)
+				if mappingErr != nil || mapping == nil {
+					return writeAPIError(c, fiber.StatusNotFound, "Referenced Mistral file was not found", "not_found_error")
+				}
+				if accountSelector != "" && !strings.EqualFold(accountSelector, mapping.ProviderAccountID) {
+					return writeAPIError(c, fiber.StatusBadRequest, "Referenced file belongs to a different provider account", "invalid_request_error")
+				}
+
+				accountSelector = mapping.ProviderAccountID
+				request["file_id"] = mapping.UpstreamID
+				body, err = json.Marshal(request)
+				if err != nil {
+					return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode audio transcription request", "invalid_request_error")
+				}
+			}
+		}
 	}
 
 	requestedModel := normalizeModelIdentifier(reqMeta.Model)
@@ -222,6 +251,11 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 
 	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("audio_transcriptions") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio transcriptions are disabled", "provider_disabled")
+	}
+	if isMistralProvider(dep.Provider) && accountSelector != "" &&
+		!strings.EqualFold(accountSelector, dep.ProviderAccountID) &&
+		!strings.EqualFold(accountSelector, dep.ProviderAccountName) {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral provider-account affinity could not be preserved", "routing_error")
 	}
 
 	if reqMeta.Stream && !providerSupport.Streaming {

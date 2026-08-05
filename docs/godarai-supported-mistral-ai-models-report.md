@@ -37,7 +37,7 @@ Importer اختصاصی فقط ۱۰ مدل زیر را می‌پذیرد و در
 | `POST /v1/ocr` | `POST /v1/ocr` | پیاده‌سازی شده؛ union رسمی `document`، انتخاب صفحه به‌شکل آرایه یا range string، enumها و وابستگی annotation prompt اعتبارسنجی و هزینه بر پایهٔ صفحه تسویه می‌شود. |
 | `POST /v1/audio/transcriptions` | `POST /v1/audio/transcriptions` | پیاده‌سازی شده؛ upload با multipart یا ارجاع `file_url`/`file_id` با JSON پذیرفته می‌شود. مصرف رسمی `prompt_audio_seconds` مبنای تسویه است. سقف فعلی ۶۰ دقیقه و ۵۰۰ MB اعمال‌شده در رزرو/پروفایل است. |
 | `POST /v1/audio/speech` | `POST /v1/audio/speech` | پیاده‌سازی شده؛ `voice_id` یا `ref_audio` و enum رسمی قالب صوتی اعمال می‌شود و پاسخ native JSON/base64 یا SSE بدون تبدیل قرارداد عبور می‌کند. |
-| Files، Batch، Agents و Conversations | مسیرهای native رسمی | قراردادهای ثابت و allowlist مسیر در Silk Road اضافه شده است؛ handler عمومی، مالکیت منبع و تسویهٔ async هنوز کامل نیست و این سطح نباید فعال شود. |
+| Files، Batch، Agents و Conversations | مسیرهای native رسمی | handlerهای عمومی، allowlist مسیر، ID opaque، مالکیت tenant/account، ارجاع متقابل منابع و reconciliation/تسویهٔ Batch پیاده‌سازی شده‌اند. هر سطح تا عبور contract/smoke زنده با feature flag مستقل پیش‌فرض خاموش است. ابزارهای داخلی پولی در Agents/Conversations تا وجود usage قابل اعتماد fail-closed می‌مانند. |
 
 ## اعتبارنامه و اتصال
 
@@ -64,7 +64,7 @@ Importer اختصاصی فقط ۱۰ مدل زیر را می‌پذیرد و در
 - `ocr_input_pages` و `ocr_annotated_pages`؛
 - نرخ‌های مستقل ابزارهای داخلی مانند `code_execution_calls`، `image_generation_outputs`، Web Search و Library در کاتالوگ ثبت می‌شوند، ولی تا تکمیل endpoint و استخراج مصرف فعال نمی‌شوند.
 
-تسویهٔ نهایی Chat، FIM، Embeddings، Moderation، OCR، Transcription و TTS از میزان مصرف پاسخ یا واحد واقعی همان modality استفاده می‌کند. مسیرهای صوتی token billing را اجرا نمی‌کنند: Transcription با ثانیه و TTS با تعداد نویسه تسویه می‌شوند. تسویهٔ چندمرحله‌ای Batch و نگاشت کامل مصرف ابزار در Agents هنوز شرط فعال‌سازی آن دو سطح است. `image_generation` نیز با وجود پشتیبانی رسمی در Chat، تا تکمیل Files و تسویهٔ خروجی تصویر fail-closed است.
+تسویهٔ نهایی Chat، FIM، Embeddings، Moderation، OCR، Transcription و TTS از میزان مصرف پاسخ یا واحد واقعی همان modality استفاده می‌کند. مسیرهای صوتی token billing را اجرا نمی‌کنند: Transcription با ثانیه و TTS با تعداد نویسه تسویه می‌شوند. Batch با reservation پایدار، polling، claim اتمیک و خواندن JSONL خروجی تسویه می‌شود؛ OCR و Transcription به‌ترتیب با صفحه و ثانیه و سایر endpointهای مجاز با usage توکنی نهایی می‌شوند. نگاشت کامل مصرف ابزارهای داخلی پولی در Agents همچنان شرط فعال‌سازی آن ابزارهاست و درخواست آن‌ها fail-closed است.
 
 ## بررسی نتیجه
 
@@ -105,8 +105,6 @@ go test ./cmd/server ./internal/admin ./internal/storage
 
 ## بدهی باقی‌مانده پیش از اعلام پشتیبانی کامل
 
-1. handler عمومی Files، Batch، Agents و Conversations با نگاشت مالکیت سازمان و حساب ارائه‌دهنده تکمیل شود.
-2. رزرو، poll/callback تکرارپذیر و تسویهٔ نتیجه/خطای Batch پیاده‌سازی شود.
-3. مصرف هر ابزار داخلی Agents به بُعد هزینهٔ رسمی همان ابزار نگاشت و آزمون شود.
-4. migration کاتالوگ روی staging اجرا و رکوردهای قدیمی فقط پس از dry-run غیرفعال شوند.
-5. ماتریس زندهٔ مدل × نقطه پایانی × نوع اعتبارنامه × انتقال با کلید staging سبز شود.
+1. مصرف هر ابزار داخلی Agents به بُعد هزینهٔ رسمی همان ابزار نگاشت و با پاسخ usage واقعی آزمون شود.
+2. migration کاتالوگ روی staging اجرا و رکوردهای قدیمی فقط پس از dry-run غیرفعال شوند.
+3. ماتریس زندهٔ مدل × نقطه پایانی × نوع اعتبارنامه × انتقال با کلید staging سبز شود.

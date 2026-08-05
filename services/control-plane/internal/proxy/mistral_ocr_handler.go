@@ -26,12 +26,13 @@ type MistralOCRHandler struct {
 	billing    budgeter
 	wallets    walletStore
 	logger     *zap.Logger
+	resources  providerNativeResourceStore
 	logs       usageLogger
 	emitMetric func(input metricsobs.BuildInput)
 }
 
 func NewMistralOCRHandlerWithDependencies(deps BaseHandlerDependencies) *MistralOCRHandler {
-	return &MistralOCRHandler{llmRouter: deps.Router, tunnel: deps.Tunnel, billing: deps.Billing, wallets: deps.Wallets, logger: deps.Logger, logs: deps.logger(), emitMetric: deps.metricEmitter()}
+	return &MistralOCRHandler{llmRouter: deps.Router, tunnel: deps.Tunnel, billing: deps.Billing, wallets: deps.Wallets, logger: deps.Logger, resources: deps.ProviderResources, logs: deps.logger(), emitMetric: deps.metricEmitter()}
 }
 
 func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
@@ -68,6 +69,32 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 
 	if err := validateMistralOCRRequest(request); err != nil {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error", "request", "invalid_request")
+	}
+
+	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
+	if document, ok := request["document"].(map[string]interface{}); ok &&
+		strings.EqualFold(stringFromMap(document, "type"), "file") {
+		if h.resources == nil {
+			return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral file mapping is unavailable", "routing_error")
+		}
+
+		publicID := strings.TrimSpace(stringFromMap(document, "file_id"))
+		mapping, mappingErr := h.resources.GetProviderNativeResourceMapping(c.Context(), currentTenant.ID, mistralProviderName, mistralFileResourceKind, publicID)
+		if mappingErr != nil || mapping == nil {
+			return writeAPIError(c, fiber.StatusNotFound, "Referenced Mistral file was not found", "not_found_error")
+		}
+		if accountSelector != "" && !strings.EqualFold(accountSelector, mapping.ProviderAccountID) {
+			return writeAPIError(c, fiber.StatusBadRequest, "Referenced file belongs to a different provider account", "invalid_request_error")
+		}
+
+		accountSelector = mapping.ProviderAccountID
+		document["file_id"] = mapping.UpstreamID
+		encodedBody, marshalErr := json.Marshal(request)
+		if marshalErr != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode OCR request", "invalid_request_error")
+		}
+
+		body = encodedBody
 	}
 
 	if access := modelAccessForType(authInfo, requestedModel, platform.ModelTypeOCR); !access.Allowed {
@@ -121,6 +148,10 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 
 	if !isMistralProvider(deployment.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, "OCR is only enabled for the Mistral AI provider", "invalid_request_error")
+	}
+	if accountSelector != "" && !strings.EqualFold(accountSelector, deployment.ProviderAccountID) &&
+		!strings.EqualFold(accountSelector, deployment.ProviderAccountName) {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral provider-account affinity could not be preserved", "routing_error")
 	}
 
 	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, deployment)

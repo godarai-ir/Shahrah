@@ -890,6 +890,16 @@ func (s *Service) FinalizeBatchFromUsage(ctx context.Context, model string, usag
 				estimated.PricingConditions,
 			)
 		}
+	} else if strings.EqualFold(price.Provider, "mistral-ai") || strings.EqualFold(price.Provider, "mistral") {
+		batchUsage := *usage
+		batchUsage.ServiceTier = "batch"
+		breakdown, err = mistralUsageCostBreakdown(
+			model,
+			&batchUsage,
+			price,
+			rate.USDtoIRR,
+			estimated.PricingConditions,
+		)
 	} else {
 		breakdown, err = anthropicUsageCostBreakdown(
 			model,

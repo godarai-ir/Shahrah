@@ -1,6 +1,6 @@
 # پلن پشتیبانی کامل از مدل‌های Mistral AI در گدارAI
 
-> وضعیت اجرا: فازهای کاتالوگ و endpointهای همگام اصلی پیاده‌سازی و بازبینی شده‌اند؛ Files، Batch، Agents، Conversations، تسویهٔ ابزارهای داخلی و smoke زنده هنوز gate نهایی‌اند. شواهد جاری در `docs/godarai-supported-mistral-ai-models-report.md` ثبت شده است.
+> وضعیت اجرا: فازهای کاتالوگ، endpointهای همگام و APIهای native مربوط به Files، Batch، Agents و Conversations پیاده‌سازی شده‌اند. این چهار سطح به‌صورت پیش‌فرض خاموش‌اند و rollout آن‌ها به contract/smoke زنده وابسته است. تسویهٔ ابزارهای داخلی پولی، اجرای migration کاتالوگ در staging و smoke زنده همچنان gate نهایی پشتیبانی کامل‌اند. شواهد جاری در `docs/godarai-supported-mistral-ai-models-report.md` ثبت شده است.
 > دامنه: تمام مدل‌های موجود در `apps/model-discovery/providers/mistral-ai/`  
 > تاریخ بررسی منابع: ۲۰۲۶-۰۷-۳۱  
 > پیش‌نیاز تحلیلی: `plans/mistral-provider-readiness-checklist.md`

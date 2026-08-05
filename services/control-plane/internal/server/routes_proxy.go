@@ -1,6 +1,10 @@
 package server
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	v1 := app.Group("/v1")
@@ -79,6 +83,29 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/ocr", deps.MistralOCRHandler.Handle)
 	}
 
+	if deps.MistralNativeHandler != nil {
+		native := deps.MistralNativeHandler.Handle
+		v1.Post("/batch/jobs", native)
+		v1.Get("/batch/jobs", native)
+		v1.Get("/batch/jobs/:id", native)
+		v1.Post("/batch/jobs/:id/cancel", native)
+		v1.Delete("/batch/jobs/:id", native)
+		v1.Post("/agents", native)
+		v1.Get("/agents", native)
+		v1.Get("/agents/pages", native)
+		v1.Get("/agents/:id", native)
+		v1.Patch("/agents/:id", native)
+		v1.Delete("/agents/:id", native)
+		v1.Post("/conversations", native)
+		v1.Get("/conversations", native)
+		v1.Get("/conversations/:id", native)
+		v1.Post("/conversations/:id", native)
+		v1.Delete("/conversations/:id", native)
+		v1.Get("/conversations/:id/history", native)
+		v1.Get("/conversations/:id/messages", native)
+		v1.Post("/conversations/:id/restart", native)
+	}
+
 	if deps.ModelsHandler != nil {
 		v1.Get("/models", func(c *fiber.Ctx) error {
 			if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
@@ -109,11 +136,17 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Get("/models/:id", requireAnthropicVersion)
 	}
 
-	if deps.ResponsesHandler != nil || deps.AnthropicNativeHandler != nil {
+	if deps.ResponsesHandler != nil || deps.AnthropicNativeHandler != nil || deps.MistralNativeHandler != nil {
 		fileHandler := func(openAI fiber.Handler) fiber.Handler {
 			return func(c *fiber.Ctx) error {
 				if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
 					return deps.AnthropicNativeHandler.Handle(c)
+				}
+				provider := strings.ToLower(strings.TrimSpace(c.Get("x-godarai-provider")))
+				fileID := strings.TrimSpace(c.Params("file_id"))
+				if deps.MistralNativeHandler != nil &&
+					(provider == "mistral" || provider == "mistral-ai" || strings.HasPrefix(fileID, "mfile_gdr_")) {
+					return deps.MistralNativeHandler.Handle(c)
 				}
 
 				if openAI == nil {
@@ -143,6 +176,9 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 		v1.Delete("/files/:file_id", fileHandler(deleteFile))
 		v1.Get("/files/:file_id/content", fileHandler(content))
+		if deps.MistralNativeHandler != nil {
+			v1.Get("/files/:id/url", deps.MistralNativeHandler.Handle)
+		}
 
 		if deps.ResponsesHandler != nil {
 			v1.Post("/files/:file_id/public-url", deps.ResponsesHandler.HandleFilePublicURLCreate)

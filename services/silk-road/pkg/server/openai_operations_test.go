@@ -82,3 +82,44 @@ func TestResolveOpenAIResponsesRetrievePreservesOfficialQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveMistralNativeOperationsUseFixedPaths(t *testing.T) {
+	createdByMe := true
+	page := 2
+	pageSize := 25
+
+	method, path, err := resolveOpenAIOperation(platform.TunnelRequest{
+		Operation: platform.ProviderOperationMistralAgentsList,
+		OperationInput: platform.ProviderOperationInput{
+			CreatedByMe: &createdByMe,
+			Page:        &page,
+			PageSize:    &pageSize,
+			OrderBy:     "created_at",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if method != http.MethodGet || !strings.HasPrefix(path, "/agents?") {
+		t.Fatalf("unexpected Mistral list target: %s %s", method, path)
+	}
+
+	for _, expected := range []string{"created_by_me=true", "page=2", "page_size=25", "order_by=created_at"} {
+		if !strings.Contains(path, expected) {
+			t.Fatalf("expected %q in %q", expected, path)
+		}
+	}
+
+	method, path, err = resolveOpenAIOperation(platform.TunnelRequest{
+		Operation:      platform.ProviderOperationMistralConversationsRestart,
+		OperationInput: platform.ProviderOperationInput{ResourceID: "conv/tenant-bound"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if method != http.MethodPost || path != "/conversations/conv%2Ftenant-bound/restart" {
+		t.Fatalf("unexpected Mistral resource target: %s %s", method, path)
+	}
+}
