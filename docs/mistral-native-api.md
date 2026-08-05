@@ -48,7 +48,7 @@ IDهای upstream هرگز به client برگردانده نمی‌شوند. گ�
 
 ## Batch و صورتحساب
 
-فقط endpointهای allowlist رسمی پذیرفته می‌شوند و eligibility مدل از runtime profile همان revision کنترل می‌شود. هنگام create هزینه به‌صورت محافظه‌کارانه reserve و نگاشت job با pricing revision ذخیره می‌شود.
+فقط endpointهای allowlist رسمی پذیرفته می‌شوند و eligibility مدل از runtime profile همان revision کنترل می‌شود. فایل JSONL با purpose برابر `batch` هنگام upload به‌صورت streaming اعتبارسنجی می‌شود؛ هر خط باید `body` داشته باشد، تعداد درخواست‌ها ثبت و ابزارهای داخلی پولی رد می‌شوند. برای جلوگیری از اختلاف مدل در routing و صورتحساب، در file batching باید `model` را هنگام ساخت job بفرستید و آن را داخل `body` فایل نگذارید (طبق مستندات Mistral این فیلد در فایل اختیاری است). فایل‌های قدیمی که این policy روی آن‌ها ثبت نشده باید دوباره upload شوند. هنگام create هزینه بر اساس تعداد درخواست‌ها و context window مدل به‌صورت محافظه‌کارانه reserve و نگاشت job با pricing revision ذخیره می‌شود.
 
 worker پس‌زمینه jobهای درحال اجرا را با claim اتمیک poll می‌کند. در موفقیت، فایل JSONL خروجی خوانده می‌شود؛ عملیات توکنی با usage تجمیعی، OCR با تعداد صفحه و Transcription با ثانیه تسویه می‌شوند. failure، timeout و cancellation reservation را آزاد می‌کنند. commit صورتحساب و تغییر terminal state قابل retry هستند.
 

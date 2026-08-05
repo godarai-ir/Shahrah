@@ -37,6 +37,11 @@ runtimeProfile:
     moderations: [model, input]
     chat_moderations: [model, input]
     batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  batch:
+    eligible: true
+    discounted: true
+    supportedEndpoints: [moderations, chat_moderations]
+    maxRequestBytes: 536870912
   limits:
     contextWindow: 131072
     maxOutputTokens: 0

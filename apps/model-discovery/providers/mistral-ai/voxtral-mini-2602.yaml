@@ -34,6 +34,11 @@ runtimeProfile:
   parameters:
     audio_transcriptions: [model, file, file_url, file_id, language, temperature, stream, diarize, context_bias, timestamp_granularities]
     batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  batch:
+    eligible: true
+    discounted: true
+    supportedEndpoints: [audio_transcriptions]
+    maxRequestBytes: 536870912
   limits:
     contextWindow: 0
     maxOutputTokens: 0

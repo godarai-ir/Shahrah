@@ -73,13 +73,18 @@ func (h *MistralNativeHandler) reconcileMistralBatches(ctx context.Context, reso
 
 	for index := range mappings {
 		mapping := &mappings[index]
+		fromStatuses := []string{mapping.Status}
+		if mapping.Status == "reconciling" {
+			fromStatuses = nil
+		}
+
 		claimed, claimErr := resources.ClaimProviderNativeResourceStatus(
 			ctx,
 			mapping.TenantID,
 			mistralProviderName,
 			mistralBatchResourceKind,
 			mapping.PublicID,
-			[]string{mapping.Status},
+			fromStatuses,
 			"reconciling",
 		)
 		if claimErr != nil {
@@ -93,7 +98,12 @@ func (h *MistralNativeHandler) reconcileMistralBatches(ctx context.Context, reso
 
 		if err := h.reconcileMistralBatch(ctx, resources, mapping); err != nil {
 			h.logMistralBatchWarning("Mistral batch item reconciliation failed", err)
-			_ = resources.UpdateProviderNativeResourceStatus(ctx, mapping.TenantID, mistralProviderName, mistralBatchResourceKind, mapping.PublicID, mapping.Status) //nolint:errcheck // A later reconciliation retries the provider request.
+			retryStatus := mapping.Status
+			if retryStatus == "reconciling" {
+				retryStatus = "in_progress"
+			}
+
+			_ = resources.UpdateProviderNativeResourceStatus(ctx, mapping.TenantID, mistralProviderName, mistralBatchResourceKind, mapping.PublicID, retryStatus) //nolint:errcheck // A later reconciliation retries the provider request.
 		}
 	}
 }
@@ -142,12 +152,12 @@ func (h *MistralNativeHandler) reconcileMistralBatch(ctx context.Context, resour
 }
 
 func (h *MistralNativeHandler) finalizeMistralBatch(ctx context.Context, resources mistralBatchResourceStore, request platform.TunnelRequest, statusBody []byte, mapping *platform.ProviderNativeResourceMapping) error {
-	if mapping.Reservation == nil || mapping.EstimatedUsage == nil {
-		return resources.UpdateProviderNativeResourceStatus(ctx, mapping.TenantID, mistralProviderName, mistralBatchResourceKind, mapping.PublicID, "success")
+	if mapping.EstimatedUsage == nil {
+		return fmt.Errorf("Mistral batch pricing snapshot is unavailable")
 	}
 
-	outputFiles := mistralResponseFileReferences(statusBody)
-	if len(outputFiles) == 0 {
+	outputFile := mistralBatchOutputFileID(statusBody)
+	if outputFile == "" {
 		return fmt.Errorf("successful Mistral batch did not include an output file")
 	}
 	rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
@@ -156,7 +166,7 @@ func (h *MistralNativeHandler) finalizeMistralBatch(ctx context.Context, resourc
 	}
 
 	request.Operation = platform.ProviderOperationMistralFilesContent
-	request.OperationInput.ResourceID = outputFiles[0]
+	request.OperationInput.ResourceID = outputFile
 	result, err := rawTunnel.ProxyRaw(ctx, request, nil, 0)
 	if err != nil {
 		return err
@@ -190,6 +200,10 @@ func (h *MistralNativeHandler) finalizeMistralBatch(ctx context.Context, resourc
 
 		finalized, err = priceMeteredUsage(ctx, h.billing, mapping.EstimatedUsage.Model, "audio_input_seconds", fmt.Sprintf("%g", metrics.AudioSeconds), *mapping.EstimatedUsage)
 	default:
+		if !metrics.HasTokenUsage {
+			return fmt.Errorf("Mistral batch output did not report token usage")
+		}
+
 		finalizer, ok := h.billing.(batchUsageFinalizer)
 		if !ok {
 			return fmt.Errorf("Mistral batch billing finalizer is unavailable")
@@ -200,11 +214,44 @@ func (h *MistralNativeHandler) finalizeMistralBatch(ctx context.Context, resourc
 	if err != nil {
 		return err
 	}
-	if err := commitBudgetOrDebit(ctx, h.logger, h.billing, h.wallets, mapping.Reservation, mapping.TenantID, finalized, mapping.ReservationID); err != nil {
+	if err := commitBudgetOrDebit(ctx, h.logger, h.billing, h.wallets, mapping.Reservation, mapping.TenantID, finalized, mapping.ReservationID, request.Deployment.BillingMode); err != nil {
 		return err
 	}
 
 	return resources.UpdateProviderNativeResourceStatus(ctx, mapping.TenantID, mistralProviderName, mistralBatchResourceKind, mapping.PublicID, "success")
+}
+
+func mistralBatchOutputFileID(body []byte) string {
+	var value interface{}
+	if json.Unmarshal(body, &value) != nil {
+		return ""
+	}
+
+	return findMistralOutputFileID(value)
+}
+
+func findMistralOutputFileID(value interface{}) string {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		for _, key := range []string{"output_file", "output_file_id"} {
+			if id := strings.TrimSpace(stringFromMap(typed, key)); id != "" {
+				return id
+			}
+		}
+		for _, child := range typed {
+			if id := findMistralOutputFileID(child); id != "" {
+				return id
+			}
+		}
+	case []interface{}:
+		for _, child := range typed {
+			if id := findMistralOutputFileID(child); id != "" {
+				return id
+			}
+		}
+	}
+
+	return ""
 }
 
 func parseMistralBatchUsage(reader io.Reader) (*contractsopenai.Usage, error) {
@@ -217,9 +264,10 @@ func parseMistralBatchUsage(reader io.Reader) (*contractsopenai.Usage, error) {
 }
 
 type mistralBatchMetrics struct {
-	Usage        *contractsopenai.Usage
-	Pages        int
-	AudioSeconds float64
+	Usage         *contractsopenai.Usage
+	Pages         int
+	AudioSeconds  float64
+	HasTokenUsage bool
 }
 
 func parseMistralBatchMetrics(reader io.Reader) (mistralBatchMetrics, error) {
@@ -233,7 +281,19 @@ func parseMistralBatchMetrics(reader io.Reader) (mistralBatchMetrics, error) {
 			return mistralBatchMetrics{}, err
 		}
 
-		accumulateMistralUsageValue(metrics.Usage, row)
+		if usage := mistralUsageFromValue(row); usage != nil {
+			maxInt := int(^uint(0) >> 1)
+			if metrics.Usage.PromptTokens > maxInt-usage.PromptTokens ||
+				metrics.Usage.CompletionTokens > maxInt-usage.CompletionTokens ||
+				metrics.Usage.TotalTokens > maxInt-usage.TotalTokens {
+				return mistralBatchMetrics{}, fmt.Errorf("Mistral batch token usage is too large")
+			}
+
+			metrics.Usage.PromptTokens += usage.PromptTokens
+			metrics.Usage.CompletionTokens += usage.CompletionTokens
+			metrics.Usage.TotalTokens += usage.TotalTokens
+			metrics.HasTokenUsage = true
+		}
 		accumulateMistralMeteredValue(&metrics, row)
 	}
 	if err := scanner.Err(); err != nil {
@@ -241,29 +301,6 @@ func parseMistralBatchMetrics(reader io.Reader) (mistralBatchMetrics, error) {
 	}
 
 	return metrics, nil
-}
-
-func accumulateMistralUsageValue(total *contractsopenai.Usage, value interface{}) {
-	switch typed := value.(type) {
-	case map[string]interface{}:
-		if rawUsage, ok := typed["usage"].(map[string]interface{}); ok {
-			prompt, _, _ := numberFromMap(rawUsage, "prompt_tokens")         //nolint:errcheck // Missing usage fields are zero.
-			completion, _, _ := numberFromMap(rawUsage, "completion_tokens") //nolint:errcheck // Missing usage fields are zero.
-			all, _, _ := numberFromMap(rawUsage, "total_tokens")             //nolint:errcheck // Missing usage fields are zero.
-			total.PromptTokens += int(prompt)
-			total.CompletionTokens += int(completion)
-			total.TotalTokens += int(all)
-
-			return
-		}
-		for _, child := range typed {
-			accumulateMistralUsageValue(total, child)
-		}
-	case []interface{}:
-		for _, child := range typed {
-			accumulateMistralUsageValue(total, child)
-		}
-	}
 }
 
 func accumulateMistralMeteredValue(metrics *mistralBatchMetrics, value interface{}) {

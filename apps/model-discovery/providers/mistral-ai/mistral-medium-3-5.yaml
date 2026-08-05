@@ -48,6 +48,11 @@ runtimeProfile:
     agents: [model, name, description, instructions, tools, completion_args, handoffs]
     files: [file, purpose, file_name]
     batches: [endpoint, input_files, requests, model, agent_id, metadata, timeout_hours]
+  batch:
+    eligible: true
+    discounted: true
+    supportedEndpoints: [chat_completions, conversations]
+    maxRequestBytes: 536870912
   limits:
     contextWindow: 262144
     maxOutputTokens: 0

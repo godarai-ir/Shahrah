@@ -36,6 +36,11 @@ runtimeProfile:
   parameters:
     embeddings: [model, input, metadata, output_dimension, output_dtype, encoding_format]
     batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  batch:
+    eligible: true
+    discounted: true
+    supportedEndpoints: [embeddings]
+    maxRequestBytes: 536870912
   limits:
     contextWindow: 8192
     maxOutputTokens: 0

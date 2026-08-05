@@ -63,6 +63,22 @@ const EXPECTED_ENDPOINTS: Record<string, string[]> = {
   'voxtral-mini-tts-2603': ['audio_speech'],
 };
 
+const EXPECTED_BATCH_ENDPOINTS: Record<string, string[]> = {
+  'codestral-2508': [
+    'chat_completions',
+    'fim_completions',
+    'conversations',
+  ],
+  'codestral-embed-2505': ['embeddings'],
+  'mistral-embed-2312': ['embeddings'],
+  'mistral-large-2512': ['chat_completions', 'conversations'],
+  'mistral-medium-3-5': ['chat_completions', 'conversations'],
+  'mistral-moderation-2603': ['moderations', 'chat_moderations'],
+  'mistral-ocr-4-0': ['ocr'],
+  'mistral-small-2603': ['chat_completions', 'conversations'],
+  'voxtral-mini-2602': ['audio_transcriptions'],
+};
+
 const REQUIRED_COST_KEYS: Record<string, string[]> = {
   'codestral-2508': ['input_cost_per_token', 'output_cost_per_token'],
   'codestral-embed-2505': ['input_cost_per_token'],
@@ -176,6 +192,20 @@ export async function validateMistralAIProviderDirectory(
         JSON.stringify([...expectedEndpoints].sort())
       ) {
         invalidFiles.push(`${relativeFile}(endpoint_matrix_mismatch)`);
+      }
+
+      const expectedBatchEndpoints = EXPECTED_BATCH_ENDPOINTS[modelId];
+      if (expectedBatchEndpoints) {
+        const batch = profile.data.batch;
+        const actualBatchEndpoints = [...batch.supportedEndpoints].sort();
+        if (
+          !batch.eligible ||
+          !batch.discounted ||
+          JSON.stringify(actualBatchEndpoints) !==
+            JSON.stringify([...expectedBatchEndpoints].sort())
+        ) {
+          invalidFiles.push(`${relativeFile}(batch_profile_mismatch)`);
+        }
       }
     }
     const sources = stringArray(document.sources);

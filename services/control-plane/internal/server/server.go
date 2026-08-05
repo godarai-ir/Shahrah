@@ -164,7 +164,8 @@ func providerPayloadLimitMiddleware() fiber.Handler {
 		const (
 			normalLimit = int64(32 * 1024 * 1024)
 			batchLimit  = int64(256 * 1024 * 1024)
-			fileLimit   = int64(513 * 1024 * 1024)
+			fileLimit   = int64(500 * 1024 * 1024)
+			mistralFile = int64(513 * 1024 * 1024)
 		)
 
 		limit := normalLimit
@@ -176,6 +177,10 @@ func providerPayloadLimitMiddleware() fiber.Handler {
 
 		if path == "/v1/files" && c.Method() == fiber.MethodPost {
 			limit = fileLimit
+			provider := strings.ToLower(strings.TrimSpace(c.Get("x-godarai-provider")))
+			if provider == "mistral" || provider == "mistral-ai" {
+				limit = mistralFile
+			}
 		}
 
 		contentLength := int64(c.Request().Header.ContentLength())

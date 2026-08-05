@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"strings"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -116,6 +117,7 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 	resourceKind := mistralOperationResourceKind(operation)
 	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
 	publicID := input.ResourceID
+	batchItems := 0
 
 	var resource *platform.ProviderNativeResourceMapping
 	if publicID != "" {
@@ -128,6 +130,19 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 		input.ResourceID = resource.UpstreamID
 		if model == "" {
 			model, _ = resource.Metadata["model"].(string)
+		}
+		if operation == platform.ProviderOperationMistralBatchDelete && !mistralBatchStatusIsTerminal(resource.Status) {
+			return writeAPIError(c, fiber.StatusConflict, "A Mistral batch can only be deleted after terminal settlement", "invalid_request_error")
+		}
+		if operation == platform.ProviderOperationMistralBatchCancel &&
+			(mistralBatchStatusIsTerminal(resource.Status) || strings.EqualFold(resource.Status, "reconciling")) {
+			return writeAPIError(c, fiber.StatusConflict, "A terminal or reconciling Mistral batch cannot be canceled", "invalid_request_error")
+		}
+	}
+	if operation == platform.ProviderOperationMistralBatchCreate {
+		batchItems, err = h.mistralBatchRequestCount(c.Context(), currentTenant.ID, body)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 		}
 	}
 
@@ -149,9 +164,11 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 			return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for this Mistral operation", "authorization_error")
 		}
 
-		body, err = rewriteMistralModel(body, officialModel)
-		if err != nil {
-			return writeAPIError(c, fiber.StatusBadRequest, "Invalid Mistral request body", "invalid_request_error")
+		if mistralRequestContainsModel(body) {
+			body, err = rewriteMistralModel(body, officialModel)
+			if err != nil {
+				return writeAPIError(c, fiber.StatusBadRequest, "Invalid Mistral request body", "invalid_request_error")
+			}
 		}
 	}
 
@@ -159,8 +176,12 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 		estimated   platform.UsageCostBreakdown
 		reservation *platform.BudgetReservation
 	)
-	if model != "" && (mistralOperationIsInference(operation) || operation == platform.ProviderOperationMistralBatchCreate || operation == platform.ProviderOperationMistralAgentsCreate) {
-		estimated, err = h.estimateAndValidate(c.Context(), operation, model, officialModel, body, deployment)
+	if model != "" && (mistralOperationIsInference(operation) || operation == platform.ProviderOperationMistralBatchCreate || operation == platform.ProviderOperationMistralAgentsCreate || operation == platform.ProviderOperationMistralAgentsUpdate) {
+		if h.billing == nil {
+			return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral runtime profile pricing is unavailable", "billing_error")
+		}
+
+		estimated, err = h.estimateAndValidate(c.Context(), operation, model, officialModel, body, deployment, batchItems)
 		if err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 		}
@@ -171,6 +192,11 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 		}
 
 		requestID := responseRequestID(c)
+		if estimated.Metadata == nil {
+			estimated.Metadata = make(map[string]interface{})
+		}
+		estimated.Metadata["request_id"] = requestID
+
 		var handled bool
 		reservation, handled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deployment.BillingMode)
 		if err != nil || handled {
@@ -207,7 +233,7 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 		return writeCompatibleProviderError(c, deployment.Provider, response.StatusCode, response.Body, response.Headers)
 	}
 
-	response.Body, err = h.persistAndRewriteResponse(c.Context(), currentTenant.ID, operation, deployment, response.Body, resource, reservation, estimated, model)
+	response.Body, err = h.persistAndRewriteResponse(c.Context(), currentTenant.ID, operation, deployment, response.Body, resource, reservation, estimated, model, nil)
 	if err != nil {
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "resource_mapping_error")
 
@@ -230,8 +256,7 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 	if resource != nil && mistralOperationDeletesResource(operation) {
 		status := "deleted"
 		if operation == platform.ProviderOperationMistralBatchCancel {
-			status = "canceled"
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, resource.Reservation, "batch_canceled")
+			status = "cancellation_requested"
 		}
 
 		_ = h.resources.UpdateProviderNativeResourceStatus(c.Context(), currentTenant.ID, mistralProviderName, resourceKind, publicID, status) //nolint:errcheck // Provider succeeded; reconciliation can repair local status.
@@ -321,7 +346,7 @@ func mistralDeploymentMatchesModel(deployment platform.Deployment, requested str
 		strings.EqualFold(providerModelID(requested), providerModelID(deployment.Model))
 }
 
-func (h *MistralNativeHandler) estimateAndValidate(ctx context.Context, operation platform.ProviderOperation, requestedModel, officialModel string, body []byte, deployment platform.Deployment) (platform.UsageCostBreakdown, error) {
+func (h *MistralNativeHandler) estimateAndValidate(ctx context.Context, operation platform.ProviderOperation, requestedModel, officialModel string, body []byte, deployment platform.Deployment, batchItems int) (platform.UsageCostBreakdown, error) {
 	if err := validateMistralNativePolicy(operation, body); err != nil {
 		return platform.UsageCostBreakdown{}, err
 	}
@@ -385,6 +410,28 @@ func (h *MistralNativeHandler) estimateAndValidate(ctx context.Context, operatio
 		}
 		estimated.Metadata["batch_endpoint"] = batchEndpoint
 		estimated.Metadata["batch_runtime_endpoint"] = target
+
+		if target != "ocr" && target != "audio_transcriptions" {
+			contextWindow := estimated.ModelRuntimeProfile.Profile.Limits.ContextWindow
+			maxInt := int(^uint(0) >> 1)
+			if batchItems <= 0 || contextWindow <= 0 || contextWindow > maxInt/2 || batchItems > maxInt/(contextWindow*2) {
+				return platform.UsageCostBreakdown{}, fmt.Errorf("a conservative Mistral batch reservation cannot be calculated")
+			}
+
+			finalizer, ok := h.billing.(batchUsageFinalizer)
+			if !ok {
+				return platform.UsageCostBreakdown{}, fmt.Errorf("Mistral batch billing finalizer is unavailable")
+			}
+
+			maximumTokens := batchItems * contextWindow
+			estimated, err = finalizer.FinalizeBatchFromUsage(ctx, billingModel, &contractsopenai.Usage{
+				PromptTokens: maximumTokens, CompletionTokens: maximumTokens,
+				TotalTokens: maximumTokens * 2,
+			}, estimated)
+			if err != nil {
+				return platform.UsageCostBreakdown{}, fmt.Errorf("Mistral batch reservation pricing is unavailable")
+			}
+		}
 	}
 
 	return estimated, nil
@@ -431,23 +478,51 @@ func mistralBatchRuntimeEndpoint(endpoint string) string {
 }
 
 func validateMistralNativePolicy(operation platform.ProviderOperation, body []byte) error {
-	if operation != platform.ProviderOperationMistralAgentsCreate &&
+	if operation != platform.ProviderOperationMistralBatchCreate &&
+		operation != platform.ProviderOperationMistralAgentsCreate &&
 		operation != platform.ProviderOperationMistralAgentsUpdate &&
 		!mistralOperationIsInference(operation) {
 		return nil
 	}
 
-	var request struct {
-		Tools []struct {
-			Type string `json:"type"`
-		} `json:"tools"`
-	}
+	var request interface{}
 	if err := json.Unmarshal(body, &request); err != nil {
 		return fmt.Errorf("invalid Mistral request body")
 	}
-	for _, tool := range request.Tools {
-		if !strings.EqualFold(strings.TrimSpace(tool.Type), "function") {
-			return fmt.Errorf("billable Mistral built-in tool %q is disabled until trustworthy per-tool usage is available", tool.Type)
+
+	return validateMistralToolsValue(request)
+}
+
+func validateMistralToolsValue(value interface{}) error {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		if tools, exists := typed["tools"]; exists {
+			items, ok := tools.([]interface{})
+			if !ok {
+				return fmt.Errorf("tools must be an array")
+			}
+			for _, item := range items {
+				tool, ok := item.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("tools must contain objects")
+				}
+
+				toolType := strings.TrimSpace(stringFromMap(tool, "type"))
+				if !strings.EqualFold(toolType, "function") {
+					return fmt.Errorf("billable Mistral built-in tool %q is disabled until trustworthy per-tool usage is available", toolType)
+				}
+			}
+		}
+		for _, child := range typed {
+			if err := validateMistralToolsValue(child); err != nil {
+				return err
+			}
+		}
+	case []interface{}:
+		for _, child := range typed {
+			if err := validateMistralToolsValue(child); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -463,9 +538,56 @@ func rewriteMistralModel(body []byte, model string) ([]byte, error) {
 	if err := json.Unmarshal(body, &request); err != nil {
 		return nil, err
 	}
-	request["model"] = model
+	rewriteMistralModelValue(request, model)
 
 	return json.Marshal(request)
+}
+
+func rewriteMistralModelValue(value interface{}, model string) {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		if _, exists := typed["model"]; exists {
+			typed["model"] = model
+		}
+		for _, child := range typed {
+			rewriteMistralModelValue(child, model)
+		}
+	case []interface{}:
+		for _, child := range typed {
+			rewriteMistralModelValue(child, model)
+		}
+	}
+}
+
+func mistralRequestContainsModel(body []byte) bool {
+	var value interface{}
+	if json.Unmarshal(body, &value) != nil {
+		return false
+	}
+
+	return mistralValueContainsModel(value)
+}
+
+func mistralValueContainsModel(value interface{}) bool {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		if model := strings.TrimSpace(stringFromMap(typed, "model")); model != "" {
+			return true
+		}
+		for _, child := range typed {
+			if mistralValueContainsModel(child) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, child := range typed {
+			if mistralValueContainsModel(child) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func mistralOperationDeletesResource(operation platform.ProviderOperation) bool {
@@ -474,6 +596,15 @@ func mistralOperationDeletesResource(operation platform.ProviderOperation) bool 
 		operation == platform.ProviderOperationMistralBatchDelete ||
 		operation == platform.ProviderOperationMistralAgentsDelete ||
 		operation == platform.ProviderOperationMistralConversationsDelete
+}
+
+func mistralBatchStatusIsTerminal(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "success", "succeeded", "completed", "failed", "timeout_exceeded", "cancelled", "canceled":
+		return true
+	default:
+		return false
+	}
 }
 
 func newMistralPublicID(kind string) string {
@@ -493,21 +624,12 @@ func newMistralPublicID(kind string) string {
 }
 
 func parseMistralNativeUsage(body []byte) *contractsopenai.Usage {
-	var response struct {
-		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			TotalTokens      int `json:"total_tokens"`
-		} `json:"usage"`
-	}
+	var response interface{}
 	if json.Unmarshal(body, &response) != nil {
 		return nil
 	}
 
-	return &contractsopenai.Usage{
-		PromptTokens: response.Usage.PromptTokens, CompletionTokens: response.Usage.CompletionTokens,
-		TotalTokens: response.Usage.TotalTokens,
-	}
+	return mistralUsageFromValue(response)
 }
 
 func (h *MistralNativeHandler) handleRaw(c *fiber.Ctx, tenantID string, operation platform.ProviderOperation, input platform.ProviderOperationInput) error {
@@ -535,8 +657,10 @@ func (h *MistralNativeHandler) handleRaw(c *fiber.Ctx, tenantID string, operatio
 
 	var reader io.Reader = bytes.NewReader(nil)
 	contentLength := int64(0)
+	uploadMetadata := map[string]interface{}(nil)
 	if operation == platform.ProviderOperationMistralFilesCreate {
-		if err := validateMistralFileUpload(c); err != nil {
+		uploadMetadata, err = validateMistralFileUpload(c)
+		if err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 		}
 
@@ -580,7 +704,7 @@ func (h *MistralNativeHandler) handleRaw(c *fiber.Ctx, tenantID string, operatio
 			return writeAPIError(c, fiber.StatusBadGateway, "Invalid Mistral Files response", "api_error")
 		}
 
-		body, err = h.persistAndRewriteResponse(c.Context(), tenantID, operation, deployment, body, nil, nil, platform.UsageCostBreakdown{}, "")
+		body, err = h.persistAndRewriteResponse(c.Context(), tenantID, operation, deployment, body, nil, nil, platform.UsageCostBreakdown{}, "", uploadMetadata)
 		if err != nil {
 			return writeAPIError(c, fiber.StatusBadGateway, "Failed to persist Mistral file mapping", "api_error")
 		}
@@ -599,26 +723,89 @@ func (h *MistralNativeHandler) handleRaw(c *fiber.Ctx, tenantID string, operatio
 	return nil
 }
 
-func validateMistralFileUpload(c *fiber.Ctx) error {
+func validateMistralFileUpload(c *fiber.Ctx) (map[string]interface{}, error) {
 	if !strings.HasPrefix(strings.ToLower(c.Get(fiber.HeaderContentType)), "multipart/form-data") {
-		return fmt.Errorf("multipart/form-data content type is required")
+		return nil, fmt.Errorf("multipart/form-data content type is required")
 	}
 	form, err := c.MultipartForm()
 	if err != nil || form == nil || len(form.File["file"]) != 1 {
-		return fmt.Errorf("exactly one file is required")
+		return nil, fmt.Errorf("exactly one file is required")
 	}
 	if form.File["file"][0].Size > 512*1024*1024 {
-		return fmt.Errorf("Mistral file uploads cannot exceed 512 MiB")
+		return nil, fmt.Errorf("Mistral file uploads cannot exceed 512 MiB")
 	}
 	purpose := ""
 	if values := form.Value["purpose"]; len(values) > 0 {
 		purpose = strings.ToLower(strings.TrimSpace(values[0]))
 	}
 	if purpose != "batch" && purpose != "ocr" {
-		return fmt.Errorf("purpose must be batch or ocr")
+		return nil, fmt.Errorf("purpose must be batch or ocr")
 	}
 
-	return nil
+	metadata := map[string]interface{}{"purpose": purpose}
+	if purpose == "batch" {
+		lines, validationErr := validateMistralBatchJSONL(form.File["file"][0])
+		if validationErr != nil {
+			return nil, validationErr
+		}
+
+		metadata["num_lines"] = lines
+		metadata["batch_policy_validated"] = true
+	}
+
+	return metadata, nil
+}
+
+func validateMistralBatchJSONL(fileHeader *multipart.FileHeader) (int, error) {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return 0, fmt.Errorf("batch input file cannot be opened")
+	}
+	defer file.Close() //nolint:errcheck // The multipart parser owns temporary-file cleanup.
+
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
+	lines := 0
+	for scanner.Scan() {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+
+		var request interface{}
+		if err := json.Unmarshal(line, &request); err != nil {
+			return 0, fmt.Errorf("batch input file contains invalid JSONL")
+		}
+		if err := validateMistralBatchFileRequest(request); err != nil {
+			return 0, err
+		}
+
+		lines++
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("batch input file cannot be validated: %w", err)
+	}
+	if lines == 0 {
+		return 0, fmt.Errorf("batch input file must contain at least one request")
+	}
+
+	return lines, nil
+}
+
+func validateMistralBatchFileRequest(value interface{}) error {
+	request, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("each batch input line must be a JSON object")
+	}
+	body, ok := request["body"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("each batch input line must contain a body object")
+	}
+	if strings.TrimSpace(stringFromMap(body, "model")) != "" {
+		return fmt.Errorf("model inside a batch input file is unsupported; set model when creating the batch job")
+	}
+
+	return validateMistralToolsValue(body)
 }
 
 func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.AuthContext, model string, request platform.TunnelRequest, reservation *platform.BudgetReservation, estimated platform.UsageCostBreakdown) error {
@@ -642,9 +829,11 @@ func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.Aut
 
 		var usage *contractsopenai.Usage
 		failed := false
+		chunks := stream.Chunks()
+		errors := stream.Errors()
 		for {
 			select {
-			case chunk, ok := <-stream.Chunks():
+			case chunk, ok := <-chunks:
 				if !ok {
 					if failed || usage == nil {
 						releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_incomplete")
@@ -680,10 +869,17 @@ func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.Aut
 
 				_, _ = writer.Write(data) //nolint:errcheck // A downstream disconnect terminates the stream.
 				_ = writer.Flush()        //nolint:errcheck // A downstream disconnect terminates the stream.
-			case streamErr, ok := <-stream.Errors():
-				if ok && streamErr != nil {
-					releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_error")
+			case streamErr, ok := <-errors:
+				if !ok {
+					errors = nil
+
+					continue
 				}
+				if streamErr == nil {
+					continue
+				}
+
+				releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_error")
 
 				return
 			}

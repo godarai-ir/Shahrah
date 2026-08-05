@@ -116,6 +116,9 @@ func mistralRequestModel(operation platform.ProviderOperation, body []byte) (str
 	}
 
 	model := normalizeModelIdentifier(stringFromMap(request, "model"))
+	if model == "" && operation == platform.ProviderOperationMistralBatchCreate {
+		model = mistralNestedRequestModel(request["requests"])
+	}
 	stream, _ := request["stream"].(bool)
 
 	switch operation {
@@ -128,6 +131,38 @@ func mistralRequestModel(operation platform.ProviderOperation, body []byte) (str
 	}
 
 	return model, stream, nil
+}
+
+func mistralNestedRequestModel(value interface{}) string {
+	requests, ok := value.([]interface{})
+	if !ok {
+		return ""
+	}
+
+	model := ""
+	for _, raw := range requests {
+		item, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		candidate := normalizeModelIdentifier(stringFromMap(item, "model"))
+		if candidate == "" {
+			if body, ok := item["body"].(map[string]interface{}); ok {
+				candidate = normalizeModelIdentifier(stringFromMap(body, "model"))
+			}
+		}
+		if candidate == "" {
+			continue
+		}
+		if model != "" && !strings.EqualFold(model, candidate) {
+			return ""
+		}
+
+		model = candidate
+	}
+
+	return model
 }
 
 func mistralOperationResourceKind(operation platform.ProviderOperation) string {

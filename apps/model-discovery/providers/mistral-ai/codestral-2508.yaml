@@ -52,6 +52,11 @@ runtimeProfile:
     fim_completions: [model, prompt, suffix, temperature, top_p, max_tokens, min_tokens, stream, stop, random_seed, metadata, prompt_cache_key]
     conversations: [model, inputs, stream, tools, completion_args]
     batches: [endpoint, input_files, requests, model, metadata, timeout_hours]
+  batch:
+    eligible: true
+    discounted: true
+    supportedEndpoints: [chat_completions, fim_completions, conversations]
+    maxRequestBytes: 536870912
   limits:
     contextWindow: 131072
     maxOutputTokens: 0
