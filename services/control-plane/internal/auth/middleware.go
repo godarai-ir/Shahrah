@@ -20,6 +20,21 @@ import (
 // AuthContextKey is the key type for auth context in Fiber Locals.
 type AuthContextKey struct{}
 
+type delegatedRequestContextKey struct{}
+
+// MarkDelegatedRequest records that the request was authenticated through the
+// master-key delegated-user path.
+func MarkDelegatedRequest(c *fiber.Ctx) {
+	c.Locals(delegatedRequestContextKey{}, true)
+}
+
+// IsDelegatedRequest reports whether the trusted delegated-user path authenticated the request.
+func IsDelegatedRequest(c *fiber.Ctx) bool {
+	delegated, ok := c.Locals(delegatedRequestContextKey{}).(bool)
+
+	return ok && delegated
+}
+
 // ErrInvalidAPIKey is returned when the API key is invalid.
 var ErrInvalidAPIKey = errors.New("invalid API key")
 
@@ -145,6 +160,7 @@ func (m *AuthMiddleware) handleMasterKeyRequest(c *fiber.Ctx) error {
 	}
 
 	c.Locals(AuthContextKey{}, resolved)
+	MarkDelegatedRequest(c)
 
 	if err := CheckRouteAuthorization(c.Method(), c.Path(), resolved); err != nil {
 		return writeAuthError(c, fiber.StatusForbidden, err.Error(), "authorization_error")

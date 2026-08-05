@@ -16,6 +16,7 @@ func TestBuildChatCompletionPayloadPreservesFutureOpenAIFields(t *testing.T) {
 		"max_completion_tokens":123,
 		"prediction":{"type":"content","content":"expected"},
 		"future_parameter":{"revision":2},
+		"metadata":{"customer_tag":"preserved"},
 		"prompt_version_fqn":"internal",
 		"prompt_variables":{"name":"value"}
 	}`), &request))
@@ -29,6 +30,30 @@ func TestBuildChatCompletionPayloadPreservesFutureOpenAIFields(t *testing.T) {
 	require.JSONEq(t, `123`, string(got["max_completion_tokens"]))
 	require.JSONEq(t, `{"type":"content","content":"expected"}`, string(got["prediction"]))
 	require.JSONEq(t, `{"revision":2}`, string(got["future_parameter"]))
+	require.JSONEq(t, `{"customer_tag":"preserved"}`, string(got["metadata"]))
 	require.NotContains(t, got, "prompt_version_fqn")
 	require.NotContains(t, got, "prompt_variables")
+}
+
+func TestBuildChatCompletionPayloadDoesNotInventMetadataOrStoreForProviders(t *testing.T) {
+	t.Parallel()
+
+	request := contractsopenai.ChatCompletionRequest{
+		Model:    "public-model",
+		Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "hello"}},
+	}
+
+	for _, providerModel := range []string{"openai/gpt-5.6-terra", "google/gemini-3.6-flash"} {
+		t.Run(providerModel, func(t *testing.T) {
+			t.Parallel()
+
+			payload, err := buildChatCompletionPayload(request, providerModel, "")
+			require.NoError(t, err)
+
+			var got map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(payload, &got))
+			require.NotContains(t, got, "metadata")
+			require.NotContains(t, got, "store")
+		})
+	}
 }

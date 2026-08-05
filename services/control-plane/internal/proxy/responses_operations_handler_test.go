@@ -16,6 +16,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
@@ -99,6 +100,26 @@ func (s responseOperationDeployments) ListDeployments(
 	_ string,
 ) ([]platform.Deployment, error) {
 	return append([]platform.Deployment(nil), s.deployments...), nil
+}
+
+type responseOperationCredentialLoader struct {
+	records []platformcredentials.EncryptedCredential
+}
+
+func (l responseOperationCredentialLoader) LoadActivePlatformCredentials(
+	_ context.Context,
+) ([]platformcredentials.EncryptedCredential, error) {
+	return append([]platformcredentials.EncryptedCredential(nil), l.records...), nil
+}
+
+type responseOperationCredentialDecrypter struct {
+	apiKey string
+}
+
+func (d responseOperationCredentialDecrypter) Decrypt(
+	_ platformcredentials.EncryptedCredential,
+) (map[string]string, error) {
+	return map[string]string{"api_key": d.apiKey}, nil
 }
 
 func newResponseOperationsTestApp(
@@ -229,6 +250,109 @@ func TestOpenAIFileCreateUsesRawTunnelAndRecordsAffinity(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, openAIFileResourceKind, mapping.ResourceKind)
 	assert.Equal(t, "acct_1", mapping.ProviderAccountID)
+}
+
+func TestOpenAIFileCreateHydratesPlatformManagedCredential(t *testing.T) {
+	const (
+		modelFQN = "openai:openai-calm-oasis:gpt-4.1"
+		apiKey   = "platform-openai-key"
+	)
+
+	resources := &responseOperationResources{}
+	tunnel := &rawSpeechTunnel{
+		captureTunnel: &captureTunnel{},
+		rawResp: &platform.TunnelRawResponse{
+			StatusCode: fiber.StatusOK,
+			Headers:    map[string]string{"content-type": "application/json"},
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{"id":"file_platform","status":"processed"}`))),
+		},
+	}
+	deployments := responseOperationDeployments{deployments: []platform.Deployment{{
+		ID:                  "provider-account:acct_platform:gpt-4.1",
+		TenantID:            "tenant_a",
+		ModelName:           modelFQN,
+		Provider:            "openai",
+		Model:               "gpt-4.1",
+		APIBase:             "https://api.openai.com/v1",
+		CredentialSource:    platform.CredentialSourceGodarManagedKey,
+		BillingMode:         platform.BillingModeWalletBilled,
+		ProviderAccountID:   "acct_platform",
+		ProviderAccountName: "openai-calm-oasis",
+	}}}
+	mem, err := cache.NewMemoryCache(zap.NewNop())
+	require.NoError(t, err)
+	rt, err := router.NewRouter(
+		nil,
+		config.RouterSettings{CooldownTime: 60, NumRetries: 1},
+		mem,
+		deployments,
+		zap.NewNop(),
+	)
+	require.NoError(t, err)
+
+	credentialManager := platformcredentials.NewManager(
+		responseOperationCredentialLoader{records: []platformcredentials.EncryptedCredential{{
+			Binding: platformcredentials.Binding{
+				ProviderSlug:        "openai",
+				Environment:         platform.ProviderCredentialEnvironmentProd,
+				ConnectionID:        "connection_openai",
+				CredentialVersionID: "credential_openai_v1",
+				CredentialVersion:   1,
+				AuthMode:            string(platform.ProviderAuthModeAPIKey),
+			},
+		}}},
+		responseOperationCredentialDecrypter{apiKey: apiKey},
+		nil,
+	)
+	require.NoError(t, credentialManager.Reload(t.Context()))
+	rt.SetPlatformCredentialResolver(
+		credentialManager,
+		platform.ProviderCredentialModeStore,
+		platform.ProviderCredentialEnvironmentProd,
+	)
+
+	handler := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
+		Router:            rt,
+		Tunnel:            tunnel,
+		Billing:           &testBudgeter{},
+		Wallets:           &testWallets{},
+		ProviderResources: resources,
+		Deployments:       deployments,
+		RequestLogger:     &testLogs{},
+		SpendLogger:       &testLogs{},
+		Logger:            zap.NewNop(),
+	})
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{TenantID: "tenant_a"})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
+		return c.Next()
+	})
+	app.Post("/v1/files", handler.HandleFileCreate)
+
+	requestBody, contentType := buildMultipartBody(
+		t,
+		map[string]string{"purpose": "batch"},
+		map[string][]byte{"file": []byte(`{"custom_id":"one"}`)},
+	)
+	req := httptest.NewRequest(http.MethodPost, "/v1/files", bytes.NewReader(requestBody))
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("x-godarai-provider", "openai")
+	req.Header.Set("x-godarai-provider-account", "openai-calm-oasis")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.NotNil(t, tunnel.lastReq.Deployment.ProviderAuth)
+	assert.Equal(t, string(platform.ProviderAuthModeAPIKey), tunnel.lastReq.Deployment.ProviderAuth.Mode)
+	assert.Equal(t, apiKey, tunnel.lastReq.Deployment.ProviderAuth.APIKey)
+	assert.Empty(t, tunnel.lastReq.Deployment.APIKey)
+	assert.Equal(t, platform.CredentialSourcePlatformManaged, tunnel.lastReq.Deployment.CredentialSource)
+	assert.Equal(t, "acct_platform", tunnel.lastReq.Deployment.ProviderAccountID)
 }
 
 func TestXAIFileCreateUsesSelectedProviderAndRecordsAffinity(t *testing.T) {
@@ -801,4 +925,24 @@ func TestResolveResponseDeploymentPinsXAIProviderAccount(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "xai_dep", deployment.ID)
+}
+
+func TestResolveResponseDeploymentFailsClosedWithoutProviderAccountRouter(t *testing.T) {
+	handler := &ResponsesHandler{deployments: responseOperationDeployments{deployments: []platform.Deployment{{
+		ID:                  "provider-account:acct_1:gpt-4.1",
+		ModelName:           "openai:primary-openai:gpt-4.1",
+		Provider:            "openai",
+		Model:               "gpt-4.1",
+		ProviderAccountID:   "acct_1",
+		ProviderAccountName: "primary-openai",
+	}}}}
+
+	_, err := handler.resolveResponseDeployment(
+		context.Background(),
+		"tenant_a",
+		"openai",
+		"primary-openai",
+		"",
+	)
+	require.EqualError(t, err, "responses provider account routing is unavailable")
 }

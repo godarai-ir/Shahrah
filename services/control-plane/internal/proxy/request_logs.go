@@ -167,6 +167,8 @@ func buildRequestLogEntry(
 		entry.Metadata = enrichDeploymentBillingMetadata(entry.Metadata, deployment)
 	}
 
+	entry.Metadata = enrichPlaygroundObservability(c, entry.Metadata)
+
 	return entry
 }
 

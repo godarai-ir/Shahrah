@@ -335,7 +335,6 @@ export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, compar
     model: column.selectedModel.trim(),
     messages: renderedMessages,
     ...buildParameters(column, true),
-    metadata: metadata.value,
   };
   if (column.config.stream) request.stream_options = { include_usage: true };
   if (toolsResult.tools.length) request.tools = toolsResult.tools;
@@ -349,6 +348,7 @@ export function validateAndBuildRunPayload(column: PlaygroundColumnDraft, compar
       column_id: column.id,
       request,
       godarai: {
+        observability: { tags: metadata.value },
         cache_config: column.config.cacheEnabled ? {
           type: column.config.cacheType,
           ttl: Number(column.config.cacheTTL),

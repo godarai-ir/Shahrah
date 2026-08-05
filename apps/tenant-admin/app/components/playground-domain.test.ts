@@ -86,16 +86,21 @@ describe("playground domain", () => {
     column.selectedModel = "openai:gpt-test";
     column.messages[1].content = "Hello {{name}}";
     column.variableValues = { tone: "brief", name: "Ada" };
+    column.config.metadata = [{ id: "metadata-1", key: "experiment", value: "a" }];
 
     expect(getColumnVariables(column)).toEqual(["name", "tone"]);
     const built = validateAndBuildRunPayload(column, "comparison_1");
     expect(built.ok).toBe(true);
     if (!built.ok) return;
+    expect(built.payload.mode).toBe("chat");
+    if (built.payload.mode !== "chat") return;
     expect(built.payload.request.messages).toEqual([
       { role: "system", content: "Use brief" },
       { role: "user", content: "Hello Ada" },
     ]);
     expect(built.payload.request.stream_options).toEqual({ include_usage: true });
+    expect(built.payload.request).not.toHaveProperty("metadata");
+    expect(built.payload.godarai.observability).toEqual({ tags: { experiment: "a" } });
   });
 
   it("keeps immutable clone identifiers and stores tools in the manifest parameters", () => {

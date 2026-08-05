@@ -79,13 +79,13 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 		body, marshalErr := json.Marshal(map[string]interface{}{
 			"model":    "gpt-4",
 			"messages": []map[string]string{{"role": "user", "content": "hello"}},
-			"metadata": map[string]string{"source": "tenant_admin_playground", "client_run_id": runID},
 		})
 		require.NoError(t, marshalErr)
 
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
+		req.Header.Set(apiheaders.HeaderPlaygroundObservability, `{"source":"tenant_admin_playground","client_run_id":"`+runID+`","tags":{"experiment":"a"}}`)
 		resp, requestErr := app.Test(req)
 		require.NoError(t, requestErr)
 		t.Cleanup(func() { closeResponseBody(t, resp) })
@@ -112,6 +112,10 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 	assert.Equal(t, 0.01, metricInputs[1].AvoidedCostUSD)
 	assert.Equal(t, 8500.0, metricInputs[1].AvoidedCostIRR)
 	assert.Equal(t, 2, metricInputs[1].AvoidedInputTokens)
+	assert.NotContains(t, string(tunnel.lastRequest.Body), "metadata")
+	assert.Equal(t, "run-1", tunnel.lastRequest.RequestMetadata["playground_client_run_id"])
+	assert.Equal(t, "run-2", logs.loggedSpends[1].RequestMetadata["playground_client_run_id"])
+	assert.Equal(t, "run-2", metricInputs[1].Metadata["playground_client_run_id"])
 }
 
 func (m *mockTunnelTransport) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
@@ -291,6 +295,7 @@ func setupTestApp(t *testing.T, handler *proxy.ChatCompletionHandler) *fiber.App
 			TenantID:      "tenant-1",
 			AllowedModels: []string{"*"},
 		})
+		auth.MarkDelegatedRequest(c)
 
 		return c.Next()
 	})

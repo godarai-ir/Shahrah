@@ -486,7 +486,58 @@ func (h *ResponsesHandler) resolveResponseDeployment(
 		}
 	}
 
-	return candidates[0], nil
+	return h.hydrateResponseProviderAccountDeployment(ctx, tenantID, candidates[0])
+}
+
+func (h *ResponsesHandler) hydrateResponseProviderAccountDeployment(
+	ctx context.Context,
+	tenantID string,
+	deployment platform.Deployment,
+) (platform.Deployment, error) {
+	if !strings.HasPrefix(strings.TrimSpace(deployment.ID), "provider-account:") {
+		return deployment, nil
+	}
+
+	if h.llmRouter == nil {
+		return platform.Deployment{}, fmt.Errorf("responses provider account routing is unavailable")
+	}
+
+	modelName := strings.TrimSpace(deployment.ModelName)
+	if modelName == "" || modelName == "*" {
+		return platform.Deployment{}, fmt.Errorf("responses provider account model is unavailable")
+	}
+
+	routed, err := h.llmRouter.Route(ctx, tenantID, modelName)
+	if err != nil {
+		return platform.Deployment{}, fmt.Errorf("responses provider account routing is unavailable: %w", err)
+	}
+
+	if routed == nil {
+		return platform.Deployment{}, fmt.Errorf("responses provider account routing is unavailable")
+	}
+
+	hydrated := toContractDeployment(routed)
+	if !responseProviderAccountMatches(deployment, hydrated) {
+		return platform.Deployment{}, fmt.Errorf("responses provider account routing changed account affinity")
+	}
+
+	return hydrated, nil
+}
+
+func responseProviderAccountMatches(expected platform.Deployment, actual platform.Deployment) bool {
+	if !strings.EqualFold(strings.TrimSpace(expected.Provider), strings.TrimSpace(actual.Provider)) {
+		return false
+	}
+
+	if accountID := strings.TrimSpace(expected.ProviderAccountID); accountID != "" {
+		return strings.EqualFold(accountID, strings.TrimSpace(actual.ProviderAccountID))
+	}
+
+	if accountName := strings.TrimSpace(expected.ProviderAccountName); accountName != "" {
+		return strings.EqualFold(accountName, strings.TrimSpace(actual.ProviderAccountName))
+	}
+
+	return strings.EqualFold(strings.TrimSpace(expected.ID), strings.TrimSpace(actual.ID))
 }
 
 func (h *ResponsesHandler) responseResourceMapping(

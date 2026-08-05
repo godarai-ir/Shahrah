@@ -2563,7 +2563,7 @@ func (s *Service) modelPrice(
 			return priceInfo{}, err
 		}
 
-		if !strings.EqualFold(strings.TrimSpace(item.Status), "active") {
+		if !catalogPricingModelStatusBillable(item.Status) {
 			return priceInfo{}, fmt.Errorf(
 				"%w: model lifecycle is %s",
 				ErrPricingModelUnavailable,
@@ -2593,6 +2593,15 @@ func (s *Service) modelPrice(
 	}
 
 	return modelPriceFromRegistry(model), nil
+}
+
+func catalogPricingModelStatusBillable(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "active", "preview":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Service) pinnedOrCurrentModelPrice(

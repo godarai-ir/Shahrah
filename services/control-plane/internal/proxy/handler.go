@@ -211,6 +211,10 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	tracing.SetTenantForTrace(c, currentTenant.ID)
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
+	if err := parsePlaygroundObservability(c); err != nil {
+		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
 	originalBody := append([]byte(nil), c.Body()...)
 
 	var req contractsopenai.ChatCompletionRequest
@@ -409,6 +413,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}),
 	}
 	baseReq.RequestMetadata = enrichPromptMetadata(c, baseReq.RequestMetadata)
+	baseReq.RequestMetadata = enrichPlaygroundObservability(c, baseReq.RequestMetadata)
 
 	routeStart := time.Now()
 
@@ -1052,10 +1057,10 @@ func (h *ChatCompletionHandler) handleSync(
 	guardrailSelection guardrails.RequestSelection,
 ) error {
 	providerStart := time.Now()
-	providerAttrs := map[string]interface{}{
+	providerAttrs := enrichPlaygroundObservability(c, map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceChatRequestPayload(req),
-	}
+	})
 
 	var resp *platform.TunnelResponse
 	if vmResp, ok := c.Locals("vm_resp").(*platform.TunnelResponse); ok && vmResp != nil {
@@ -1239,13 +1244,13 @@ func (h *ChatCompletionHandler) handleSync(
 		CostUSD:            finalCost.TotalCostUSD,
 		CacheMode:          cacheMetricString(c, "response_cache_type"),
 		CacheStatus:        cacheMetricString(c, "response_cache_status"),
-		Metadata: enrichMetricMetadataForDeployment(enrichResponseCacheMetadata(c, map[string]interface{}{
+		Metadata: enrichMetricMetadataForDeployment(copyPlaygroundObservability(enrichResponseCacheMetadata(c, map[string]interface{}{
 			"endpoint":    "/v1/chat/completions",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
 			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
-		}), tunnelReq.Deployment),
+		}), tunnelReq.RequestMetadata), tunnelReq.Deployment),
 	})
 
 	// Forward allowed provider response headers
@@ -1277,6 +1282,7 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 		"cache_type": result.CacheType, "cache_embedding_latency_ms": result.EmbeddingLatencyMS,
 		"cached_trace_id": entry.TraceID, "tenant_slug": tenantSlug, "key_type": authInfo.KeyType,
 	}
+	metadata = enrichPlaygroundObservability(c, metadata)
 	logEntry := buildRequestLogEntry(c, authInfo, platform.Deployment{Provider: entry.Provider, Model: entry.ProviderModel}, req.Model, "/v1/chat/completions", "chat_completions", "success", fiber.StatusOK, start, responseTimeMS)
 	logEntry.RequestID = requestID
 	logEntry.TraceID = entry.TraceID
@@ -1338,12 +1344,12 @@ func (h *ChatCompletionHandler) handleStream(
 
 	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
 	if err != nil {
-		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, enrichPlaygroundObservability(c, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
 			"request_payload": buildTraceChatRequestPayload(req),
 			"stream":          true,
 			"error":           err.Error(),
-		})
+		}))
 
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
 		logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", fiber.StatusBadGateway, "stream_open_error", map[string]interface{}{
@@ -1356,12 +1362,12 @@ func (h *ChatCompletionHandler) handleStream(
 	}
 
 	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
-		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, map[string]interface{}{
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, enrichPlaygroundObservability(c, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
 			"request_payload": buildTraceChatRequestPayload(req),
 			"stream":          true,
 			"status_code":     statusCode,
-		})
+		}))
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
 
 		return writeTunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
@@ -1376,11 +1382,11 @@ func (h *ChatCompletionHandler) handleStream(
 		})
 	}
 
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, enrichPlaygroundObservability(c, map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
 		"request_payload": buildTraceChatRequestPayload(req),
 		"stream":          true,
-	})
+	}))
 
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
@@ -1484,13 +1490,13 @@ func (h *ChatCompletionHandler) handleStream(
 				InputTokens:        finalCost.InputTokens,
 				OutputTokens:       finalCost.OutputTokens,
 				CostUSD:            finalCost.TotalCostUSD,
-				Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
+				Metadata: enrichMetricMetadataForDeployment(copyPlaygroundObservability(map[string]interface{}{
 					"endpoint":    "/v1/chat/completions",
 					"key_type":    authInfo.KeyType,
 					"team_id":     authInfo.TeamID,
 					"org_unit_id": authInfo.OrgUnitID,
 					"tenant_slug": tenantSlug,
-				}, tunnelReq.Deployment),
+				}, tunnelReq.RequestMetadata), tunnelReq.Deployment),
 			})
 			finalizedCost = finalCost
 
