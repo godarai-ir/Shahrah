@@ -34,4 +34,3 @@ ON CONFLICT ("providerId", "authMode", "version") DO UPDATE SET
   "runtimeReady" = EXCLUDED."runtimeReady",
   "fieldsJson" = EXCLUDED."fieldsJson",
   "updatedAt" = CURRENT_TIMESTAMP;
-

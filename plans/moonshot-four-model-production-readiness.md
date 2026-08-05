@@ -1,6 +1,6 @@
 # Moonshot four-model production-readiness plan
 
-Status: implemented behind release gates  
+Status: implemented behind release gates
 Last verified against official provider sources: 2026-08-05
 
 ## Scope
