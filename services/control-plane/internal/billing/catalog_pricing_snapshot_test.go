@@ -142,6 +142,29 @@ func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *test
 		final.Components[1].Dimension,
 		final.Components[2].Dimension,
 	})
+
+	thinkingUsage := &contractsopenai.Usage{
+		PromptTokens: 6, CompletionTokens: 4, TotalTokens: 130,
+	}
+	inferredReasoning, changed := NormalizeGoogleGeminiOpenAIUsage(thinkingUsage)
+	require.True(t, changed)
+	require.Equal(t, 120, inferredReasoning)
+
+	thinkingFinal, err := service.FinalizeFromUsage(
+		context.Background(),
+		"google-gemini/gemini-3.1-pro-preview",
+		thinkingUsage,
+		estimated,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 6, thinkingFinal.InputTokens)
+	require.Equal(t, 124, thinkingFinal.OutputTokens)
+	require.Equal(t, 130, thinkingFinal.TotalTokens)
+	require.Len(t, thinkingFinal.Components, 2)
+	require.Equal(t, "input_tokens", thinkingFinal.Components[0].Dimension)
+	require.Equal(t, "6", thinkingFinal.Components[0].Quantity)
+	require.Equal(t, "output_tokens", thinkingFinal.Components[1].Dimension)
+	require.Equal(t, "124", thinkingFinal.Components[1].Quantity)
 }
 
 func TestCatalogPricingModelStatusBillability(t *testing.T) {

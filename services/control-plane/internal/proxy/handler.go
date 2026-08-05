@@ -1133,6 +1133,9 @@ func (h *ChatCompletionHandler) handleSync(
 		}
 	}
 
+	usageRepair := normalizeGoogleGeminiUsage(tunnelReq.Deployment.Provider, completion.Usage)
+	logGoogleGeminiUsageRepair(h.logger, tunnelReq.RequestID, usageRepair)
+
 	providerAttrs["response_payload"] = buildTraceChatResponsePayload(completion)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
@@ -1219,8 +1222,15 @@ func (h *ChatCompletionHandler) handleSync(
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
+
 	logEntry.RequestBody = buildChatRequestLogPayload(req, originalBody)
-	logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, completion)
+
+	if usageRepair.applied {
+		logEntry.ResponseBody = buildJSONResponseLogPayload(nil, completion)
+	} else {
+		logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, completion)
+	}
+
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
@@ -1436,6 +1446,7 @@ func (h *ChatCompletionHandler) handleStream(
 		usageCapture := &streamUsageCapture{
 			tier: responseHeaderValue(streamHeaders, "x-gemini-service-tier"),
 		}
+		streamUsageNormalizer := newGoogleGeminiStreamUsageNormalizer(tunnelReq.Deployment.Provider)
 
 		defer func() {
 			if !budgetCommitted {
@@ -1526,29 +1537,56 @@ func (h *ChatCompletionHandler) handleStream(
 			select {
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
+					pending := streamUsageNormalizer.Flush()
+					if len(pending) > 0 {
+						responseCapture.Append(pending)
+						usageCapture.Add(pending)
+
+						if writeErr := writeBufferedBytes(w, pending); writeErr != nil {
+							h.logger.Warn("failed to write pending streaming data", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+							logStreamFailure("stream_write_error", writeErr.Error())
+
+							return
+						}
+					}
+
 					finalizeAndLogSuccess()
+
 					return
 				}
 
 				if len(chunk.Data) > 0 {
-					responseCapture.Append(chunk.Data)
-					usageCapture.Add(chunk.Data)
+					streamData, repairs := streamUsageNormalizer.Add(chunk.Data)
+					for _, repair := range repairs {
+						logGoogleGeminiUsageRepair(h.logger, tunnelReq.RequestID, repair)
+					}
 
-					if chunk.IsDone && includeStreamTelemetry && isStreamDoneMarker(chunk.Data) {
+					if chunk.IsDone {
+						streamData = append(streamData, streamUsageNormalizer.Flush()...)
+					}
+
+					if len(streamData) == 0 && !chunk.IsDone {
+						continue
+					}
+
+					responseCapture.Append(streamData)
+					usageCapture.Add(streamData)
+
+					if chunk.IsDone && includeStreamTelemetry && isStreamDoneMarker(streamData) {
 						finalCost := finalizeAndLogSuccess()
 						if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
 							h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 							return
 						}
 
-						if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
+						if writeErr := writeBufferedBytes(w, streamData); writeErr != nil {
 							h.logger.Warn("failed to write streaming done chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						}
 
 						return
 					}
 
-					if writeErr := writeBufferedBytes(w, chunk.Data); writeErr != nil {
+					if writeErr := writeBufferedBytes(w, streamData); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
 						releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_write_failed")
 						logStreamFailure("stream_write_error", writeErr.Error())

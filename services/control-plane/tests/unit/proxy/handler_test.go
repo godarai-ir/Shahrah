@@ -258,15 +258,24 @@ func (s *fakeTunnelStream) Close() error {
 func newTestRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
 	t.Helper()
 
+	return newProviderTestRouter(t, logger, "gpt-4", "openai", "openai/gpt-4")
+}
+
+func newProviderTestRouter(t *testing.T, logger *zap.Logger, modelName string, provider string, providerModel string) *llmrouter.Router {
+	t.Helper()
+
 	memCache, err := mcache.NewMemoryCache(logger)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, memCache.Close())
+	})
 
 	modelList := []config.ModelDeployment{
 		{
-			ModelName: "gpt-4",
+			ModelName: modelName,
 			ProviderEndpoint: config.ProviderEndpointConfig{
-				Provider: "openai",
-				Model:    "openai/gpt-4",
+				Provider: provider,
+				Model:    providerModel,
 				RPM:      1000,
 			},
 			ModelInfo: map[string]interface{}{"id": "dep-1"},
@@ -283,6 +292,44 @@ func newTestRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
 	require.NoError(t, err)
 
 	return r
+}
+
+func googleGeminiTestRuntimeProfile(model string) platform.ModelRuntimeProfileBinding {
+	return platform.ModelRuntimeProfileBinding{
+		Provider:        "google-gemini",
+		CatalogRevision: "gemini-test-revision",
+		CanonicalID:     "google-gemini/" + model,
+		Slug:            model,
+		ProfileVersion:  1,
+		EffectiveFrom:   time.Now().UTC(),
+		Profile: platform.ModelRuntimeProfile{
+			Version:   1,
+			Endpoints: []string{"chat_completions"},
+			Thinking: platform.ModelRuntimeThinkingProfile{
+				DefaultMode:  "disabled",
+				AllowedModes: []string{"disabled"},
+			},
+			Sampling: platform.ModelRuntimeSamplingProfile{
+				Parameters: []string{"temperature", "top_p", "top_k"},
+			},
+			Tools: platform.ModelRuntimeToolsProfile{
+				Custom: true, Parallel: true, StructuredOutput: true,
+			},
+			Modalities: platform.ModelRuntimeModalities{
+				Input: []string{"text"}, Output: []string{"text"},
+			},
+			RequestControls: platform.ModelRuntimeRequestControls{
+				ServiceTierValues:  []string{"standard", "flex", "priority"},
+				InferenceGeoValues: []string{"global"},
+			},
+			Limits: platform.ModelRuntimeLimits{
+				ContextWindow: 1_000_000, MaxOutputTokens: 64_000,
+				MessagesBytes: 32 * 1024 * 1024,
+				BatchBytes:    256 * 1024 * 1024,
+				FileBytes:     500 * 1024 * 1024,
+			},
+		},
+	}
 }
 
 func setupTestApp(t *testing.T, handler *proxy.ChatCompletionHandler) *fiber.App {
@@ -2178,6 +2225,130 @@ func TestChatCompletionHandler_StreamSuccessRelaysChunksWithoutPanic(t *testing.
 	assert.Equal(t, true, mLogs.loggedEntries[0].RequestBody["stream"])
 	assert.Equal(t, "completed", mLogs.loggedEntries[0].ResponseBody["outcome"])
 	assert.Contains(t, mLogs.loggedEntries[0].ResponseBody["raw_stream"], `"content":"Salam"`)
+}
+
+func TestChatCompletionHandler_NormalizesGoogleGeminiUsageBeforeBillingAndResponse(t *testing.T) {
+	logger := zap.NewNop()
+	r := newProviderTestRouter(t, logger, "gemini-3.6-flash", "google-gemini", "google-gemini/gemini-3.6-flash")
+	runtimeProfile := googleGeminiTestRuntimeProfile("gemini-3.6-flash")
+
+	providerBody, err := json.Marshal(contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-gemini",
+		Object:  "chat.completion",
+		Created: 1234567890,
+		Model:   "gemini-3.6-flash",
+		Choices: []contractsopenai.Choice{{
+			Index:        0,
+			Message:      &contractsopenai.ChatMessage{Role: "assistant", Content: "Here is the"},
+			FinishReason: "length",
+		}},
+		Usage: &contractsopenai.Usage{PromptTokens: 6, CompletionTokens: 4, TotalTokens: 130},
+	})
+	require.NoError(t, err)
+
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{
+		StatusCode: http.StatusOK,
+		Headers:    map[string]string{},
+		Body:       providerBody,
+	}}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{
+		InputTokens: 6, OutputTokens: 124, TotalTokens: 130,
+		PricingRevision:     runtimeProfile.CatalogRevision,
+		ModelRuntimeProfile: &runtimeProfile,
+	}}
+	mLogs := &mockLogger{}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, &mockWalletStore{}, mLogs, logger)
+	app := setupTestApp(t, handler)
+
+	payload, err := json.Marshal(map[string]interface{}{
+		"model":    "gemini-3.6-flash",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Return JSON."}},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var completion contractsopenai.ChatCompletionResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&completion))
+	require.NotNil(t, completion.Usage)
+	assert.Equal(t, 6, completion.Usage.PromptTokens)
+	assert.Equal(t, 124, completion.Usage.CompletionTokens)
+	assert.Equal(t, 130, completion.Usage.TotalTokens)
+	require.NotNil(t, completion.Usage.CompletionTokensDetails)
+	assert.Equal(t, 120, completion.Usage.CompletionTokensDetails.ReasoningTokens)
+	assert.Equal(t, completion.Usage.TotalTokens, completion.Usage.PromptTokens+completion.Usage.CompletionTokens)
+
+	require.NotNil(t, mBilling.finalizedUsage)
+	assert.Equal(t, 124, mBilling.finalizedUsage.CompletionTokens)
+	assert.Equal(t, 120, mBilling.finalizedUsage.CompletionTokensDetails.ReasoningTokens)
+
+	require.Len(t, mLogs.loggedEntries, 1)
+	loggedUsage, ok := mLogs.loggedEntries[0].ResponseBody["usage"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, float64(6), loggedUsage["prompt_tokens"])
+	assert.Equal(t, float64(124), loggedUsage["completion_tokens"])
+	assert.Equal(t, float64(130), loggedUsage["total_tokens"])
+}
+
+func TestChatCompletionHandler_NormalizesGoogleGeminiStreamingUsage(t *testing.T) {
+	logger := zap.NewNop()
+	r := newProviderTestRouter(t, logger, "gemini-3.6-flash", "google-gemini", "google-gemini/gemini-3.6-flash")
+	runtimeProfile := googleGeminiTestRuntimeProfile("gemini-3.6-flash")
+
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 3, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-gemini\",\"object\":\"chat.completion.chunk\",\"model\":\"gemini-3.6-flash\",\"choices\":[],\"usage\":{\"prompt_tokens\":6,")}
+
+	stream.chunks <- platform.TunnelChunk{Data: []byte("\"completion_tokens\":4,\"total_tokens\":130}}\n\n")}
+
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
+
+	close(stream.chunks)
+
+	mTunnel := &mockTunnelTransport{stream: stream}
+	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{
+		InputTokens: 6, OutputTokens: 124, TotalTokens: 130,
+		PricingRevision:     runtimeProfile.CatalogRevision,
+		ModelRuntimeProfile: &runtimeProfile,
+	}}
+	handler := proxy.NewChatCompletionHandler(r, mTunnel, mBilling, &mockWalletStore{}, &mockLogger{}, logger)
+	app := setupTestApp(t, handler)
+
+	payload, err := json.Marshal(map[string]interface{}{
+		"model":    "gemini-3.6-flash",
+		"stream":   true,
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Return JSON."}},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"completion_tokens":124`)
+	assert.Contains(t, string(body), `"reasoning_tokens":120`)
+	assert.Contains(t, string(body), `"total_tokens":130`)
+	assert.Contains(t, string(body), "data: [DONE]")
+
+	require.NotNil(t, mBilling.finalizedUsage)
+	assert.Equal(t, 6, mBilling.finalizedUsage.PromptTokens)
+	assert.Equal(t, 124, mBilling.finalizedUsage.CompletionTokens)
+	assert.Equal(t, 130, mBilling.finalizedUsage.TotalTokens)
+	require.NotNil(t, mBilling.finalizedUsage.CompletionTokensDetails)
+	assert.Equal(t, 120, mBilling.finalizedUsage.CompletionTokensDetails.ReasoningTokens)
 }
 
 func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *testing.T) {

@@ -40,7 +40,10 @@ var tokenMappers = map[string]TokenFieldMapper{
 
 func googleGeminiTokenMapper(rawUsage map[string]interface{}) *contractsopenai.Usage {
 	if _, compatible := rawUsage["prompt_tokens"]; compatible {
-		return standardTokenMapper(rawUsage)
+		usage := standardTokenMapper(rawUsage)
+		NormalizeGoogleGeminiOpenAIUsage(usage)
+
+		return usage
 	}
 
 	metadata := rawUsage
@@ -83,6 +86,38 @@ func googleGeminiTokenMapper(rawUsage map[string]interface{}) *contractsopenai.U
 	}
 
 	return usage
+}
+
+// NormalizeGoogleGeminiOpenAIUsage repairs Gemini's OpenAI-compatible usage
+// when hidden thinking tokens are included in total_tokens but omitted from
+// completion_tokens. It returns the inferred reasoning-token count and whether
+// a repair was applied.
+func NormalizeGoogleGeminiOpenAIUsage(usage *contractsopenai.Usage) (int, bool) {
+	if usage == nil || usage.PromptTokens < 0 || usage.CompletionTokens < 0 || usage.TotalTokens < 0 {
+		return 0, false
+	}
+
+	if usage.TotalTokens < usage.PromptTokens {
+		return 0, false
+	}
+
+	canonicalCompletionTokens := usage.TotalTokens - usage.PromptTokens
+	if canonicalCompletionTokens <= usage.CompletionTokens {
+		return 0, false
+	}
+
+	inferredReasoningTokens := canonicalCompletionTokens - usage.CompletionTokens
+	usage.CompletionTokens = canonicalCompletionTokens
+
+	if usage.CompletionTokensDetails == nil {
+		usage.CompletionTokensDetails = &contractsopenai.UsageTokenDetails{}
+	}
+
+	if usage.CompletionTokensDetails.ReasoningTokens < inferredReasoningTokens {
+		usage.CompletionTokensDetails.ReasoningTokens = inferredReasoningTokens
+	}
+
+	return inferredReasoningTokens, true
 }
 
 func usageInt(values map[string]interface{}, key string) int {
