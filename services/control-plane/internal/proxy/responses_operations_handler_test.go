@@ -358,6 +358,7 @@ func TestOpenAIFileCreateHydratesPlatformManagedCredential(t *testing.T) {
 		return c.Next()
 	})
 	app.Post("/v1/files", handler.HandleFileCreate)
+
 	requestBody, contentType := buildMultipartBody(
 		t,
 		map[string]string{"purpose": "batch"},
