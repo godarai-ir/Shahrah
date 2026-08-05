@@ -17,6 +17,10 @@
 - `icons/android-chrome-*`: آیکن‌های PWA
 - `icons/maskable-icon-*`: آیکن‌های Maskable با محدوده امن
 - `social/og-image-*`: تصاویر 1200×630 برای Open Graph
+- `social/style-guide/STYLE-GUIDE-fa.md`: مرجع اجرایی هویت بصری شبکه‌های اجتماعی
+- `social/style-guide/GodarAI-Social-Media-Style-Guide-fa.pptx`: نسخه بصری و قابل‌ویرایش راهنما
+- `social/style-guide/GodarAI-Social-Media-Style-Guide-fa.pdf`: نسخه نهایی مناسب مطالعه و اشتراک‌گذاری
+- `social/style-guide/social-tokens.json`: توکن‌های رنگ، تایپوگرافی، گرید، ابعاد و قالب‌ها
 - `web/site.webmanifest`: مانیفست آماده PWA
 - `web/html-head-snippet.html`: تگ‌های پیشنهادی `<head>`
 - `web/GodarAILogo.tsx`: نمونه استفاده در Next.js
@@ -35,6 +39,12 @@
 برای فاوآیکن، فایل `favicon.svg` انتخاب اول است و `favicon.ico` به‌عنوان fallback نگه داشته شود. فایل ICO روی یک کاشی سرمه‌ای ساخته شده تا در نوار مرورگر روشن و تیره خوانا بماند.
 
 برای PWA، آیکن‌های `maskable` عمداً پس‌زمینه غیرشفاف و فاصله امن بیشتری دارند. PNGهای پوشه `png/` شفاف هستند.
+
+## راهنمای شبکه‌های اجتماعی
+
+پیش از ساخت پست، کاروسل، کاور ویدئو یا محتوای داده‌محور، راهنمای پوشه
+`social/style-guide/` را مبنا قرار دهید. منبع نشان همچنان همین بسته است و راهنما
+اجازه بازطراحی، تغییر رنگ یا تغییر نسبت نشان را نمی‌دهد.
 
 ## نکته درباره SVG
 
