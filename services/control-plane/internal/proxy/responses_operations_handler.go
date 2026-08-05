@@ -49,6 +49,14 @@ type responseDeploymentLister interface {
 	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
 }
 
+type responseProviderAuthResolver interface {
+	ResolveProviderAccountAuth(
+		ctx context.Context,
+		tenantID string,
+		modelFQN string,
+	) (*platform.ResolvedProviderAuth, error)
+}
+
 // HandleRetrieve implements GET /v1/responses/{response_id}.
 func (h *ResponsesHandler) HandleRetrieve(c *fiber.Ctx) error {
 	return h.handleResponseResourceOperation(c, platform.ProviderOperationOpenAIResponsesGet)
@@ -486,7 +494,12 @@ func (h *ResponsesHandler) resolveResponseDeployment(
 		}
 	}
 
-	return h.hydrateResponseProviderAccountDeployment(ctx, tenantID, candidates[0])
+	deployment, err := h.hydrateResponseProviderAccountDeployment(ctx, tenantID, candidates[0])
+	if err != nil {
+		return platform.Deployment{}, err
+	}
+
+	return h.hydrateResponseDeploymentAuth(ctx, tenantID, deployment)
 }
 
 func (h *ResponsesHandler) hydrateResponseProviderAccountDeployment(
@@ -538,6 +551,54 @@ func responseProviderAccountMatches(expected platform.Deployment, actual platfor
 	}
 
 	return strings.EqualFold(strings.TrimSpace(expected.ID), strings.TrimSpace(actual.ID))
+}
+
+func (h *ResponsesHandler) hydrateResponseDeploymentAuth(
+	ctx context.Context,
+	tenantID string,
+	deployment platform.Deployment,
+) (platform.Deployment, error) {
+	if deployment.CredentialSource != platform.CredentialSourceUserBYOK ||
+		strings.TrimSpace(deployment.APIKey) != "" ||
+		providerAuthHasCredential(deployment.ProviderAuth) {
+		return deployment, nil
+	}
+
+	resolver, ok := h.deployments.(responseProviderAuthResolver)
+	if !ok {
+		return platform.Deployment{}, fmt.Errorf("responses provider account credential resolution is unavailable")
+	}
+
+	modelFQN := strings.TrimSpace(deployment.ModelName)
+	if modelFQN == "" {
+		return platform.Deployment{}, fmt.Errorf("responses provider account model is unavailable")
+	}
+
+	resolved, err := resolver.ResolveProviderAccountAuth(ctx, tenantID, modelFQN)
+	if err != nil {
+		return platform.Deployment{}, fmt.Errorf("responses provider account credential resolution failed: %w", err)
+	}
+
+	if !providerAuthHasCredential(resolved) {
+		return platform.Deployment{}, fmt.Errorf("responses provider account credential is unavailable")
+	}
+
+	deployment.ProviderAuth = resolved
+
+	return deployment, nil
+}
+
+func providerAuthHasCredential(providerAuth *platform.ResolvedProviderAuth) bool {
+	if providerAuth == nil {
+		return false
+	}
+
+	switch strings.ToLower(strings.TrimSpace(providerAuth.Mode)) {
+	case string(platform.ProviderAuthModeAPIKey), "personal_access_token":
+		return strings.TrimSpace(providerAuth.APIKey) != ""
+	default:
+		return false
+	}
 }
 
 func (h *ResponsesHandler) responseResourceMapping(
