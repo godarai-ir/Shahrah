@@ -33,7 +33,6 @@ const CHAT_REQUEST_FIELDS = new Set([
   "tools",
   "tool_choice",
   "parallel_tool_calls",
-  "metadata",
 ]);
 const IMAGE_REQUEST_FIELDS = new Set([
   "model",
@@ -50,7 +49,8 @@ const IMAGE_REQUEST_FIELDS = new Set([
 const ENVELOPE_FIELDS = new Set(["mode", "client_run_id", "comparison_id", "column_id", "request", "godarai"]);
 const MESSAGE_FIELDS = new Set(["role", "content", "tool_call_id"]);
 const CACHE_FIELDS = new Set(["type", "ttl", "namespace", "similarity_threshold"]);
-const GODARAI_FIELDS = new Set(["cache_config", "guardrails"]);
+const GODARAI_FIELDS = new Set(["cache_config", "guardrails", "observability"]);
+const OBSERVABILITY_FIELDS = new Set(["tags"]);
 const GUARDRAIL_FIELDS = new Set(["input", "output", "scope"]);
 const RESERVED_METADATA_KEYS = new Set(["source", "client_run_id", "comparison_id", "column_id", "__proto__", "prototype", "constructor"]);
 
@@ -61,6 +61,9 @@ type PlaygroundRunPayload = {
   column_id?: string;
   request?: Record<string, unknown>;
   godarai?: {
+    observability?: {
+      tags?: Record<string, unknown>;
+    } | null;
     cache_config?: Record<string, unknown> | null;
     guardrails?: {
       input?: string[];
@@ -96,6 +99,9 @@ export async function POST(request: NextRequest) {
     }
   }
   const upstreamHeaders = new Headers();
+  if (mode === "chat") {
+    upstreamHeaders.set("x-godarai-playground-observability", JSON.stringify(buildObservabilityContext(body!)));
+  }
   if (mode === "chat" && body?.request?.stream === true) {
     upstreamHeaders.set("x-godarai-include-stream-telemetry", "true");
   }
@@ -114,10 +120,7 @@ export async function POST(request: NextRequest) {
 
   const upstreamRequest: Record<string, unknown> = mode === "image_generation"
     ? { ...(body!.request as Record<string, unknown>) }
-    : {
-        ...(body!.request as Record<string, unknown>),
-        metadata: sanitizeMetadata(body!.request!.metadata, body!),
-      };
+    : { ...(body!.request as Record<string, unknown>) };
   const proxyOptions = {
     request,
     method: "POST" as const,
@@ -185,8 +188,6 @@ function validatePayload(body: PlaygroundRunPayload | null): { ok: true } | { ok
       if (toolError) return { ok: false, message: toolError };
     }
   }
-  const metadataError = validateMetadata(body.request.metadata);
-  if (metadataError) return { ok: false, message: metadataError };
   const godaraiError = validateGodaraiOptions(body.godarai);
   if (godaraiError) return { ok: false, message: godaraiError };
   return { ok: true };
@@ -284,6 +285,13 @@ function validateGodaraiOptions(value: unknown): string | null {
   if (!isRecord(value)) return "godarai must be an object.";
   const unsupported = Object.keys(value).filter((key) => !GODARAI_FIELDS.has(key));
   if (unsupported.length) return `Unsupported godarai fields: ${unsupported.join(", ")}`;
+  if (value.observability !== undefined && value.observability !== null) {
+    if (!isRecord(value.observability)) return "observability must be an object.";
+    const observabilityUnsupported = Object.keys(value.observability).filter((key) => !OBSERVABILITY_FIELDS.has(key));
+    if (observabilityUnsupported.length) return `Unsupported observability fields: ${observabilityUnsupported.join(", ")}`;
+    const metadataError = validateMetadata(value.observability.tags);
+    if (metadataError) return metadataError;
+  }
   if (value.cache_config !== undefined && value.cache_config !== null) {
     if (!isRecord(value.cache_config)) return "cache_config must be an object.";
     const cacheUnsupported = Object.keys(value.cache_config).filter((key) => !CACHE_FIELDS.has(key));
@@ -338,19 +346,12 @@ function normalizeStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim() !== "").slice(0, 100) : [];
 }
 
-function sanitizeMetadata(value: unknown, envelope: PlaygroundRunPayload): Record<string, string | number | boolean> {
-  const output: Record<string, string | number | boolean> = { source: "tenant_admin_playground" };
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    for (const [key, entry] of Object.entries(value).slice(0, 20)) {
-      const normalizedKey = key.toLowerCase();
-      if (!/^[A-Za-z0-9_.-]{1,64}$/.test(key) || normalizedKey.includes("authorization") || RESERVED_METADATA_KEYS.has(normalizedKey)) continue;
-      if (typeof entry === "string") output[key] = entry.slice(0, 256);
-      if (typeof entry === "number" && Number.isFinite(entry)) output[key] = entry;
-      if (typeof entry === "boolean") output[key] = entry;
-    }
-  }
-  if (typeof envelope.client_run_id === "string") output.client_run_id = envelope.client_run_id.slice(0, 100);
-  if (typeof envelope.comparison_id === "string") output.comparison_id = envelope.comparison_id.slice(0, 100);
-  if (typeof envelope.column_id === "string") output.column_id = envelope.column_id.slice(0, 100);
-  return output;
+function buildObservabilityContext(envelope: PlaygroundRunPayload) {
+  return {
+    source: "tenant_admin_playground",
+    ...(typeof envelope.client_run_id === "string" ? { client_run_id: envelope.client_run_id } : {}),
+    ...(typeof envelope.comparison_id === "string" ? { comparison_id: envelope.comparison_id } : {}),
+    ...(typeof envelope.column_id === "string" ? { column_id: envelope.column_id } : {}),
+    tags: envelope.godarai?.observability?.tags ?? {},
+  };
 }

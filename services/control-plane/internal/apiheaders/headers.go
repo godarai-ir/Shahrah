@@ -9,19 +9,20 @@ import (
 
 // HTTP header names used by the control plane.
 const (
-	HeaderTraceID         = "x-godarai-trace-id"
-	HeaderTenant          = "x-godarai-tenant"
-	HeaderCacheConfig     = "x-godarai-cache-config"
-	HeaderCacheStatus     = "x-godarai-cache-status"
-	HeaderCachedTraceID   = "x-godarai-cached-trace-id"
-	HeaderCacheSimilarity = "x-godarai-cache-similarity-score"
-	HeaderCostUSD         = "x-godarai-cost-usd"
-	HeaderCostIRR         = "x-godarai-cost-irr"
-	HeaderStreamTelemetry = "x-godarai-include-stream-telemetry"
-	HeaderGuardrails      = "x-godarai-guardrails"
-	HeaderGuardrailsScope = "x-godarai-guardrails-scope"
-	HeaderUserID          = "x-godarai-user-id"
-	LegacyHeaderUserID    = "x-shahrah-user-id"
+	HeaderTraceID                 = "x-godarai-trace-id"
+	HeaderTenant                  = "x-godarai-tenant"
+	HeaderCacheConfig             = "x-godarai-cache-config"
+	HeaderCacheStatus             = "x-godarai-cache-status"
+	HeaderCachedTraceID           = "x-godarai-cached-trace-id"
+	HeaderCacheSimilarity         = "x-godarai-cache-similarity-score"
+	HeaderCostUSD                 = "x-godarai-cost-usd"
+	HeaderCostIRR                 = "x-godarai-cost-irr"
+	HeaderStreamTelemetry         = "x-godarai-include-stream-telemetry"
+	HeaderPlaygroundObservability = "x-godarai-playground-observability"
+	HeaderGuardrails              = "x-godarai-guardrails"
+	HeaderGuardrailsScope         = "x-godarai-guardrails-scope"
+	HeaderUserID                  = "x-godarai-user-id"
+	LegacyHeaderUserID            = "x-shahrah-user-id"
 )
 
 // GetFirst returns the first non-empty header value among the provided keys.
@@ -53,6 +54,11 @@ func GetUserID(c *fiber.Ctx) string {
 // GetCacheConfig returns the cache configuration header value.
 func GetCacheConfig(c *fiber.Ctx) string {
 	return GetFirst(c, HeaderCacheConfig)
+}
+
+// GetPlaygroundObservability returns the internal Playground observability context.
+func GetPlaygroundObservability(c *fiber.Ctx) string {
+	return GetFirst(c, HeaderPlaygroundObservability)
 }
 
 // GetGuardrails returns the guardrails header value.

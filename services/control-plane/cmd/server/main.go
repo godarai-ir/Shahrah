@@ -247,6 +247,25 @@ func main() {
 		go xaiPricing.Run(pricingCtx, 5*time.Minute)
 	}
 
+	moonshotPricing, moonshotPricingErr :=
+		billing.NewCatalogPricingSnapshotManagerFromEnv("moonshot", nil)
+	if moonshotPricingErr != nil {
+		logger.Warn(
+			"Moonshot pricing is unavailable; Moonshot requests will fail closed until configuration is restored",
+			zap.Error(moonshotPricingErr),
+		)
+	} else {
+		billingService.SetCatalogPricingSnapshotManager("moonshot", moonshotPricing)
+
+		if moonshotPricingErr := moonshotPricing.Reload(ctx); moonshotPricingErr != nil {
+			logger.Warn(
+				"Initial Moonshot pricing snapshot is unavailable; background refresh will retry",
+				zap.Error(moonshotPricingErr),
+			)
+		}
+		go moonshotPricing.Run(pricingCtx, 5*time.Minute)
+	}
+
 	mistralPricing, mistralPricingErr :=
 		billing.NewCatalogPricingSnapshotManagerFromEnv("mistral-ai", nil)
 	if mistralPricingErr != nil {

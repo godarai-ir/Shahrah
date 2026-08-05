@@ -1,0 +1,68 @@
+model: kimi-k2.7-code-highspeed
+status: active
+supportedModes: [chat]
+modalities:
+  input: [text]
+  output: [text]
+features:
+  - function_calling
+  - parallel_function_calling
+  - tool_choice
+  - system_messages
+  - prompt_caching
+  - structured_output
+  - json_output
+tools: [function_calling]
+params:
+  - key: temperature
+    defaultValue: 1
+    supportedValues: [1]
+  - key: top_p
+    defaultValue: 0.95
+    supportedValues: [0.95]
+costs:
+  - region: '*'
+    effective_from: 2026-07-29
+    input_cost_per_token: 0.0000019
+    cache_read_input_token_cost: 0.00000038
+    output_cost_per_token: 0.000008
+limits:
+  context_window: 262144
+  max_input_tokens: 262144
+sources:
+  - https://platform.kimi.ai/docs/guide/kimi-k2-7-code-quickstart
+  - https://platform.kimi.ai/docs/api/models-overview
+  - https://platform.kimi.ai/docs/api/chat
+  - https://www.kimi.com/resources/kimi-k2-7-code-pricing
+runtimeProfile:
+  version: 1
+  aliases: []
+  endpoints: [models, chat_completions]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive]
+    manualDeprecated: false
+    effortValues: []
+    alwaysEnabled: true
+  assistantPrefill: false
+  sampling:
+    parameters: [temperature, top_p]
+    disallowedWithThinking: []
+  tools:
+    custom: true
+    server: false
+    parallel: true
+    structuredOutput: true
+    supported: [function_calling]
+  modalities:
+    input: [text]
+    output: [text]
+  unsupportedParameters: [reasoning_effort]
+  minimumRetentionDays: 0
+  zdrEligible: false
+  limits:
+    contextWindow: 262144
+    maxInputTokens: 262144
+    maxOutputTokens: 0

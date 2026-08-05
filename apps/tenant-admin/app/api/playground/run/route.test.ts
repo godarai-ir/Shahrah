@@ -53,7 +53,7 @@ describe("playground run route", () => {
     expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed envelope IDs instead of throwing while sanitizing metadata", async () => {
+  it("rejects malformed envelope IDs", async () => {
     const response = await POST(requestFor({
       client_run_id: 42,
       request: { model: "gpt-test", messages: [{ role: "user", content: "hi" }] },
@@ -63,7 +63,7 @@ describe("playground run route", () => {
     expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
   });
 
-  it("rejects attempts to override trusted playground metadata", async () => {
+  it("rejects provider metadata and attempts to override trusted playground fields", async () => {
     const response = await POST(requestFor({
       request: {
         model: "gpt-test",
@@ -95,16 +95,25 @@ describe("playground run route", () => {
       client_run_id: "run-1",
       comparison_id: "cmp-1",
       column_id: "column-1",
-      request: { model: "gpt-test", messages: [{ role: "user", content: "hi" }], stream: true, stream_options: { include_usage: true }, metadata: { experiment: "a" } },
+      request: { model: "gpt-test", messages: [{ role: "user", content: "hi" }], stream: true, stream_options: { include_usage: true } },
+      godarai: { observability: { tags: { experiment: "a" } } },
     });
     await POST(request);
 
     expect(proxyToControlPlaneStreamMock).toHaveBeenCalledOnce();
     const options = proxyToControlPlaneStreamMock.mock.calls[0][0];
     expect(options.path).toBe("/v1/chat/completions");
-    expect(options.body.metadata).toEqual({ source: "tenant_admin_playground", experiment: "a", client_run_id: "run-1", comparison_id: "cmp-1", column_id: "column-1" });
+    expect(options.body).not.toHaveProperty("metadata");
+    expect(options.body).not.toHaveProperty("store");
     expect(options.body.stream_options).toEqual({ include_usage: true });
     expect(options.upstreamHeaders.get("x-godarai-include-stream-telemetry")).toBe("true");
+    expect(JSON.parse(options.upstreamHeaders.get("x-godarai-playground-observability"))).toEqual({
+      source: "tenant_admin_playground",
+      client_run_id: "run-1",
+      comparison_id: "cmp-1",
+      column_id: "column-1",
+      tags: { experiment: "a" },
+    });
     expect(options.exposeResponseHeaders).toContain("x-godarai-cost-irr");
   });
 
@@ -175,6 +184,12 @@ describe("playground run route", () => {
 
     expect(response.status).toBe(400);
     expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
+
+    const forged = await POST(requestFor({
+      request: { model: "gpt-test", messages: [{ role: "user", content: "hi" }] },
+      godarai: { observability: { tags: { source: "attacker" } } },
+    }));
+    expect(forged.status).toBe(400);
   });
 });
 

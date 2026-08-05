@@ -285,13 +285,18 @@ func sanitizeMetadata(in map[string]interface{}) map[string]interface{} {
 	}
 
 	allowed := map[string]struct{}{
-		"environment": {},
-		"feature":     {},
-		"endpoint":    {},
-		"key_type":    {},
-		"org_unit_id": {},
-		"team_id":     {},
-		"tenant_slug": {},
+		"environment":              {},
+		"feature":                  {},
+		"endpoint":                 {},
+		"key_type":                 {},
+		"org_unit_id":              {},
+		"team_id":                  {},
+		"tenant_slug":              {},
+		"playground_source":        {},
+		"playground_client_run_id": {},
+		"playground_comparison_id": {},
+		"playground_column_id":     {},
+		"playground_tags":          {},
 	}
 	out := make(map[string]interface{}, len(in))
 	count := 0

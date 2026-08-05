@@ -427,6 +427,8 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		return modelsProbe(base, "https://api.groq.com/openai/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "mistral-ai":
 		return modelsProbe(base, "https://api.mistral.ai/v1", "bearer-api-key"), record.AuthMode == "api_key"
+	case "moonshot":
+		return modelsProbe(base, "https://api.moonshot.ai/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "openai":
 		return modelsProbe(base, "https://api.openai.com/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "openrouter":
@@ -464,7 +466,7 @@ func safeProbeURL(providerSlug, raw string) bool {
 	exact := map[string]string{
 		"ai21": "api.ai21.com", "anthropic": "api.anthropic.com", "cerebras": "api.cerebras.ai",
 		"cohere": "api.cohere.com", "deepinfra": "api.deepinfra.com", "google-gemini": "generativelanguage.googleapis.com",
-		"groq": "api.groq.com", "mistral-ai": "api.mistral.ai", "openai": "api.openai.com",
+		"groq": "api.groq.com", "mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
 		"openrouter": "openrouter.ai", "perplexity-ai": "api.perplexity.ai", "together-ai": "api.together.xyz", "xai": "api.x.ai",
 	}
 	if expected := exact[normalizeProvider(providerSlug)]; expected != "" {

@@ -183,6 +183,7 @@ func TestDocumentedHTTPProbeCoverageForRuntimeReadyDirectAuthModes(t *testing.T)
 		{Binding: Binding{ProviderSlug: "google-gemini", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "groq", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "mistral-ai", AuthMode: "api_key"}},
+		{Binding: Binding{ProviderSlug: "moonshot", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "openai", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "openrouter", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "together-ai", AuthMode: "api_key"}},

@@ -44,6 +44,7 @@ func newProviderRegistry() *providerRegistry {
 			"groq":             newOpenAICompatibleAdapter("https://api.groq.com/openai/v1"),
 			"mistral":          newMistralAdapter(),
 			"mistral-ai":       newMistralAdapter(),
+			"moonshot":         newMoonshotAdapter(),
 			"openrouter":       newOpenAICompatibleAdapter("https://openrouter.ai/api/v1"),
 			"perplexity":       newOpenAICompatibleAdapter("https://api.perplexity.ai"),
 			"perplexityai":     newOpenAICompatibleAdapter("https://api.perplexity.ai"),

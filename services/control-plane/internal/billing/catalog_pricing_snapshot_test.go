@@ -70,9 +70,9 @@ func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *test
 			Provider: "google-gemini", Revision: "gemini-revision-1",
 			GeneratedAt: now,
 			Models: []discoveryRuntimeModel{{
-				CanonicalID:    "google-gemini/gemini-3.1-flash-lite",
-				Slug:           "gemini-3.1-flash-lite",
-				Status:         "active",
+				CanonicalID:    "google-gemini/gemini-3.1-pro-preview",
+				Slug:           "gemini-3.1-pro-preview",
+				Status:         "preview",
 				RuntimeProfile: profile,
 				PricingRates:   rates,
 			}},
@@ -96,7 +96,7 @@ func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *test
 	estimated, err := service.EstimateCost(
 		context.Background(),
 		contractsopenai.ChatCompletionRequest{
-			Model: "google-gemini/gemini-3.1-flash-lite",
+			Model: "google-gemini/gemini-3.1-pro-preview",
 		},
 	)
 	require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *test
 	flexEstimated, err := service.EstimateCost(
 		context.Background(),
 		contractsopenai.ChatCompletionRequest{
-			Model:       "google-gemini/gemini-3.1-flash-lite",
+			Model:       "google-gemini/gemini-3.1-pro-preview",
 			ServiceTier: "flex",
 		},
 	)
@@ -118,7 +118,7 @@ func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *test
 
 	final, err := service.FinalizeFromUsage(
 		context.Background(),
-		"google-gemini/gemini-3.1-flash-lite",
+		"google-gemini/gemini-3.1-pro-preview",
 		&contractsopenai.Usage{
 			PromptTokens:     100,
 			CompletionTokens: 20,
@@ -142,6 +142,31 @@ func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *test
 		final.Components[1].Dimension,
 		final.Components[2].Dimension,
 	})
+}
+
+func TestCatalogPricingModelStatusBillability(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		status   string
+		billable bool
+	}{
+		{name: "active", status: "active", billable: true},
+		{name: "preview", status: "preview", billable: true},
+		{name: "normalized preview", status: " Preview ", billable: true},
+		{name: "deprecated", status: "deprecated", billable: false},
+		{name: "unavailable", status: "unavailable", billable: false},
+		{name: "missing", status: "", billable: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tt.billable, catalogPricingModelStatusBillable(tt.status))
+		})
+	}
 }
 
 func TestCatalogPricingSnapshotRejectsDuplicateDimensions(t *testing.T) {
