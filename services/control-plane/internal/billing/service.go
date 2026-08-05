@@ -1162,6 +1162,10 @@ func usageCostBreakdown(
 			return mistralUsageCostBreakdown(model, usage, price, exchangeRate, conditions)
 		}
 
+		if price.Provider == "moonshot" {
+			return moonshotUsageCostBreakdown(model, usage, price, exchangeRate)
+		}
+
 		return costBreakdown(
 			model,
 			usage.PromptTokens,
@@ -1172,6 +1176,74 @@ func usageCostBreakdown(
 	}
 
 	return anthropicUsageCostBreakdown(model, usage, price, exchangeRate, false, conditions)
+}
+
+func moonshotUsageCostBreakdown(
+	model string,
+	usage *openai.Usage,
+	price priceInfo,
+	exchangeRate float64,
+) (platform.UsageCostBreakdown, error) {
+	if usage == nil {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: Moonshot usage is missing", ErrPricingUnavailable)
+	}
+
+	cached := 0
+	if usage.PromptTokensDetails != nil {
+		cached = usage.PromptTokensDetails.CachedTokens
+	}
+
+	if cached < 0 || cached > usage.PromptTokens {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: invalid Moonshot cached token usage", ErrPricingUnavailable)
+	}
+
+	quantities := map[string]int64{
+		"input_tokens":      int64(usage.PromptTokens - cached),
+		"cache_read_tokens": int64(cached),
+		"output_tokens":     int64(usage.CompletionTokens),
+	}
+	dimensions := []string{"input_tokens", "cache_read_tokens", "output_tokens"}
+	components := make([]platform.UsageCostComponent, 0, len(dimensions))
+	inputExact, outputExact := decimal.Zero, decimal.Zero
+
+	for _, dimension := range dimensions {
+		quantity := quantities[dimension]
+		if quantity == 0 {
+			continue
+		}
+
+		rate, ok := price.Rates[dimension]
+		if !ok || len(rate.Condition) != 0 {
+			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing Moonshot rate for %s", ErrPricingUnavailable, dimension)
+		}
+
+		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+		if dimension == "output_tokens" {
+			outputExact = outputExact.Add(cost)
+		} else {
+			inputExact = inputExact.Add(cost)
+		}
+
+		components = append(components, usageCostComponent(dimension, quantity, rate))
+	}
+
+	inputUSD, _ := inputExact.Float64()
+	outputUSD, _ := outputExact.Float64()
+	totalUSD := inputUSD + outputUSD
+
+	totalTokens := usage.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+
+	return platform.UsageCostBreakdown{
+		Model: model, InputTokens: usage.PromptTokens, OutputTokens: usage.CompletionTokens,
+		TotalTokens: totalTokens, CacheReadInputTokens: cached,
+		InputCostUSD: inputUSD, OutputCostUSD: outputUSD, TotalCostUSD: totalUSD,
+		ExchangeRate: exchangeRate, TotalCostIRR: totalUSD * exchangeRate,
+		PricingRevision: price.Revision, ModelRuntimeProfile: price.RuntimeProfile,
+		PricingSnapshot: usagePricingSnapshot(price), Components: components,
+	}, nil
 }
 
 func mistralUsageCostBreakdown(model string, usage *openai.Usage, price priceInfo, exchangeRate float64, conditions map[string]string) (platform.UsageCostBreakdown, error) {
@@ -2631,6 +2703,9 @@ func catalogPricingProvider(model string) string {
 	case strings.HasPrefix(value, "xai/"),
 		strings.HasPrefix(value, "xai:"):
 		return "xai"
+	case strings.HasPrefix(value, "moonshot/"),
+		strings.HasPrefix(value, "moonshot:"):
+		return "moonshot"
 	case strings.HasPrefix(value, "mistral-ai/"),
 		strings.HasPrefix(value, "mistral-ai:"),
 		strings.HasPrefix(value, "mistral/"),

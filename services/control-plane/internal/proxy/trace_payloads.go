@@ -24,18 +24,19 @@ func buildTraceChatRequestPayload(req contractsopenai.ChatCompletionRequest) map
 	}
 
 	return map[string]interface{}{
-		"model":               req.Model,
-		"messages":            messages,
-		"max_tokens":          req.MaxTokens,
-		"reasoning_effort":    req.ReasoningEffort,
-		"thinking":            summarizeThinkingConfig(req.Thinking),
-		"temperature":         req.Temperature,
-		"top_p":               req.TopP,
-		"stream":              req.Stream,
-		"response_format":     summarizeResponseFormat(req.ResponseFormat),
-		"tools":               summarizeToolDefinitions(req.Tools),
-		"tool_choice":         req.ToolChoice,
-		"parallel_tool_calls": req.ParallelToolCalls,
+		"model":                 req.Model,
+		"messages":              messages,
+		"max_tokens":            req.MaxTokens,
+		"max_completion_tokens": req.MaxCompletionTokens,
+		"reasoning_effort":      req.ReasoningEffort,
+		"thinking":              summarizeThinkingConfig(req.Thinking),
+		"temperature":           req.Temperature,
+		"top_p":                 req.TopP,
+		"stream":                req.Stream,
+		"response_format":       summarizeResponseFormat(req.ResponseFormat),
+		"tools":                 summarizeToolDefinitions(req.Tools),
+		"tool_choice":           req.ToolChoice,
+		"parallel_tool_calls":   req.ParallelToolCalls,
 	}
 }
 

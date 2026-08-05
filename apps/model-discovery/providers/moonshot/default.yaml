@@ -1,0 +1,19 @@
+documentation:
+  - https://platform.kimi.ai/docs/llms.txt
+  - https://platform.kimi.ai/docs/openapi.json
+  - https://platform.kimi.ai/docs/models
+  - https://platform.kimi.ai/docs/api/models-overview
+  - https://platform.kimi.ai/docs/api/chat
+  - https://platform.kimi.ai/docs/pricing/limits
+messages:
+  options: [system, user, assistant, tool]
+params:
+  - key: max_completion_tokens
+    minValue: 1
+  - key: stream
+    type: boolean
+  - key: stream_options
+  - key: response_format
+  - key: tools
+  - key: tool_choice
+  - key: prompt_cache_key

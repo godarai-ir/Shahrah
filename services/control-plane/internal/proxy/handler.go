@@ -602,6 +602,10 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through GodarAI chat completions", provider), "invalid_request_error")
 	}
 
+	if chatRequestHasVideo(req) && !supportsChatVideoProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support video input through GodarAI chat completions", provider), "invalid_request_error")
+	}
+
 	if chatRequestHasFile(req) && !supportsChatFileProvider(provider) {
 		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support file input through GodarAI chat completions", provider), "invalid_request_error")
 	}
@@ -674,6 +678,17 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 		}
 	}
 
+	if strings.EqualFold(strings.TrimSpace(provider), "moonshot") {
+		if err := validateMoonshotChatRuntimeProfile(req, runtimeProfile); err != nil {
+			return true, writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				err.Error(),
+				"invalid_request_error",
+			)
+		}
+	}
+
 	if isMistralProvider(provider) {
 		if err := validateMistralChatRuntimeProfile(req, runtimeProfile); err != nil {
 			return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
@@ -742,6 +757,10 @@ func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatComplet
 
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return true, writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
+	}
+
+	if req.MaxCompletionTokens != nil && *req.MaxCompletionTokens < 1 {
+		return true, writeAPIError(c, fiber.StatusBadRequest, "max_completion_tokens must be at least 1", "invalid_request_error")
 	}
 
 	if err := validateReasoningEffort(req.ReasoningEffort); err != nil {
@@ -1983,6 +2002,16 @@ func chatRequestHasImage(req contractsopenai.ChatCompletionRequest) bool {
 	return false
 }
 
+func chatRequestHasVideo(req contractsopenai.ChatCompletionRequest) bool {
+	for _, msg := range req.Messages {
+		if contractsopenai.ChatContentHasVideo(msg.Content) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func chatRequestHasFile(req contractsopenai.ChatCompletionRequest) bool {
 	for _, msg := range req.Messages {
 		if contractsopenai.ChatContentHasFile(msg.Content) {
@@ -2043,16 +2072,20 @@ func thinkingConfigEnabled(value *contractsopenai.ThinkingConfig) bool {
 
 func supportsChatImageProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
 		return true
 	default:
 		return false
 	}
 }
 
+func supportsChatVideoProvider(provider string) bool {
+	return strings.EqualFold(strings.TrimSpace(provider), "moonshot")
+}
+
 func supportsChatToolsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2061,7 +2094,7 @@ func supportsChatToolsProvider(provider string) bool {
 
 func supportsChatResponseFormatProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2070,7 +2103,7 @@ func supportsChatResponseFormatProvider(provider string) bool {
 
 func supportsChatExtendedThinkingProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
 		return true
 	default:
 		return false

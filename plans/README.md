@@ -116,6 +116,7 @@ graph TB
 ## Active Provider Readiness Plans
 
 - [xAI four-model full-support execution plan](xai-four-model-production-readiness.md): production-readiness work for `grok-4.3`, `grok-4.5`, `grok-imagine-image`, and `grok-imagine-image-quality`.
+- [Moonshot four-model production-readiness plan](moonshot-four-model-production-readiness.md): guarded delivery and release gates for `kimi-k3`, `kimi-k2.7-code`, `kimi-k2.7-code-highspeed`, and `kimi-k2.6`.
 
 ## LiteLLM Inspiration
 

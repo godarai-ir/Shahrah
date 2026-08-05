@@ -24,6 +24,10 @@ import {
   validateXAIProviderDirectory,
   xaiProviderImporter,
 } from './model-import/providers/xai';
+import {
+  MOONSHOT_PROVIDER_SLUG,
+  validateMoonshotProviderDirectory,
+} from './model-import/providers/moonshot';
 import type {
   ProviderPricingRate,
   ProviderRateMapping,
@@ -536,6 +540,9 @@ async function parseProviderDir(
             : undefined;
   if (providerSlug === xaiProviderImporter.slug) {
     await validateXAIProviderDirectory(dirname(providerDir));
+  }
+  if (providerSlug === MOONSHOT_PROVIDER_SLUG) {
+    await validateMoonshotProviderDirectory(dirname(providerDir));
   }
   const defaultPath = join(providerDir, 'default.yaml');
   let defaultDoc: StringRecord | undefined;
@@ -1302,7 +1309,7 @@ async function importProviderBatch(
       name: batch.name,
       status: 'active',
       supportsByok: true,
-      supportsRegionalRouting: true,
+      supportsRegionalRouting: batch.slug !== MOONSHOT_PROVIDER_SLUG,
       docsUrl: batch.docsUrl,
       websiteUrl: batch.websiteUrl,
     },
@@ -1312,7 +1319,7 @@ async function importProviderBatch(
       websiteUrl: batch.websiteUrl,
       status: 'active',
       supportsByok: true,
-      supportsRegionalRouting: true,
+      supportsRegionalRouting: batch.slug !== MOONSHOT_PROVIDER_SLUG,
     },
   });
 

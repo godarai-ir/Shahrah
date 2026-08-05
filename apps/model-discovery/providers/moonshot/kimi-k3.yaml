@@ -1,0 +1,68 @@
+model: kimi-k3
+status: active
+supportedModes: [chat]
+modalities:
+  input: [text, image, video]
+  output: [text]
+features:
+  - function_calling
+  - parallel_function_calling
+  - tool_choice
+  - system_messages
+  - prompt_caching
+  - structured_output
+  - json_output
+tools: [function_calling]
+params:
+  - key: reasoning_effort
+    defaultValue: max
+    supportedValues: [low, high, max]
+  - key: max_completion_tokens
+    maxValue: 1048576
+costs:
+  - region: '*'
+    effective_from: 2026-07-28
+    input_cost_per_token: 0.000003
+    cache_read_input_token_cost: 0.0000003
+    output_cost_per_token: 0.000015
+limits:
+  context_window: 1048576
+  max_input_tokens: 1048576
+  max_output_tokens: 1048576
+sources:
+  - https://platform.kimi.ai/docs/guide/kimi-k3-quickstart
+  - https://platform.kimi.ai/docs/api/models-overview
+  - https://platform.kimi.ai/docs/api/chat
+  - https://www.kimi.com/resources/kimi-k3-pricing
+runtimeProfile:
+  version: 1
+  aliases: []
+  endpoints: [models, chat_completions]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive]
+    manualDeprecated: false
+    effortValues: [low, high, max]
+    alwaysEnabled: true
+  assistantPrefill: false
+  sampling:
+    parameters: []
+    disallowedWithThinking: [temperature, top_p]
+  tools:
+    custom: true
+    server: false
+    parallel: true
+    structuredOutput: true
+    supported: [function_calling]
+  modalities:
+    input: [text, image, video]
+    output: [text]
+  unsupportedParameters: []
+  minimumRetentionDays: 0
+  zdrEligible: false
+  limits:
+    contextWindow: 1048576
+    maxInputTokens: 1048576
+    maxOutputTokens: 1048576

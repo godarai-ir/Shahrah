@@ -14,7 +14,7 @@ func runtimeProfilesFromEstimate(
 	estimated platform.UsageCostBreakdown,
 ) ([]platform.ModelRuntimeProfileBinding, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
-	if provider != "anthropic" && provider != "xai" && !isGoogleGeminiProvider(provider) && !isMistralProvider(provider) {
+	if provider != "anthropic" && provider != "xai" && provider != "moonshot" && !isGoogleGeminiProvider(provider) && !isMistralProvider(provider) {
 		return nil, nil
 	}
 
@@ -23,6 +23,8 @@ func runtimeProfilesFromEstimate(
 		providerLabel = "Google Gemini"
 	} else if provider == "xai" {
 		providerLabel = "xAI"
+	} else if provider == "moonshot" {
+		providerLabel = "Moonshot"
 	} else if isMistralProvider(provider) {
 		providerLabel = "Mistral AI"
 	}

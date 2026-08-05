@@ -173,6 +173,8 @@ func allowedProviderAPIBaseHosts(provider string) []string {
 		return []string{"api.groq.com"}
 	case "mistral":
 		return []string{"api.mistral.ai"}
+	case "moonshot":
+		return []string{"api.moonshot.ai"}
 	case "sambanova":
 		return []string{"api.sambanova.ai"}
 	case "togetherai":

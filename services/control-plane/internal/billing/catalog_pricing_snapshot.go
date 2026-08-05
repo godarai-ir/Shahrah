@@ -231,6 +231,10 @@ func normalizeCatalogPricingSnapshot(
 			return nil, fmt.Errorf("%w: incomplete Mistral AI pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
 
+		if provider == "moonshot" && !moonshotPricingDimensionsComplete(rates) {
+			return nil, fmt.Errorf("%w: incomplete Moonshot pricing for %s", ErrPricingUnavailable, item.CanonicalID)
+		}
+
 		model := anthropicPricingModel{
 			CanonicalID:    item.CanonicalID,
 			Slug:           item.Slug,
@@ -252,6 +256,17 @@ func normalizeCatalogPricingSnapshot(
 		GeneratedAt: payload.GeneratedAt,
 		Models:      models,
 	}, nil
+}
+
+func moonshotPricingDimensionsComplete(rates map[string]normalizedPricingRate) bool {
+	for _, dimension := range []string{"input_tokens", "cache_read_tokens", "output_tokens"} {
+		rate, ok := rates[dimension]
+		if !ok || rate.UnitPriceUSD.IsNegative() || len(rate.Condition) != 0 {
+			return false
+		}
+	}
+
+	return true
 }
 
 func mistralPricingDimensionsComplete(profile platform.ModelRuntimeProfile, rates map[string]normalizedPricingRate) bool {

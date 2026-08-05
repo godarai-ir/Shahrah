@@ -8,32 +8,33 @@ import (
 
 // ChatCompletionRequest mirrors OpenAI's chat completion request format.
 type ChatCompletionRequest struct {
-	Model             string                     `json:"model"`
-	Messages          []ChatMessage              `json:"messages"`
-	Stream            bool                       `json:"stream,omitempty"`
-	StreamOptions     *StreamOptions             `json:"stream_options,omitempty"`
-	Temperature       *float64                   `json:"temperature,omitempty"`
-	TopP              *float64                   `json:"top_p,omitempty"`
-	TopK              *int                       `json:"top_k,omitempty"`
-	MaxTokens         *int                       `json:"max_tokens,omitempty"`
-	Stop              interface{}                `json:"stop,omitempty"`
-	ReasoningEffort   string                     `json:"reasoning_effort,omitempty"`
-	Thinking          *ThinkingConfig            `json:"thinking,omitempty"`
-	ParallelToolCalls *bool                      `json:"parallel_tool_calls,omitempty"`
-	ResponseFormat    interface{}                `json:"response_format,omitempty"`
-	OutputConfig      map[string]interface{}     `json:"output_config,omitempty"`
-	Tools             []ToolDefinition           `json:"tools,omitempty"`
-	ToolChoice        interface{}                `json:"tool_choice,omitempty"`
-	CacheControl      map[string]interface{}     `json:"cache_control,omitempty"`
-	ExtraBody         map[string]interface{}     `json:"extra_body,omitempty"`
-	ServiceTier       string                     `json:"service_tier,omitempty"`
-	Speed             string                     `json:"speed,omitempty"`
-	InferenceGeo      string                     `json:"inference_geo,omitempty"`
-	Metadata          map[string]interface{}     `json:"metadata,omitempty"`
-	User              string                     `json:"user,omitempty"`
-	PromptVersionFQN  string                     `json:"prompt_version_fqn,omitempty"`
-	PromptVariables   map[string]string          `json:"prompt_variables,omitempty"`
-	AdditionalFields  map[string]json.RawMessage `json:"-"`
+	Model               string                     `json:"model"`
+	Messages            []ChatMessage              `json:"messages"`
+	Stream              bool                       `json:"stream,omitempty"`
+	StreamOptions       *StreamOptions             `json:"stream_options,omitempty"`
+	Temperature         *float64                   `json:"temperature,omitempty"`
+	TopP                *float64                   `json:"top_p,omitempty"`
+	TopK                *int                       `json:"top_k,omitempty"`
+	MaxTokens           *int                       `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int                       `json:"max_completion_tokens,omitempty"`
+	Stop                interface{}                `json:"stop,omitempty"`
+	ReasoningEffort     string                     `json:"reasoning_effort,omitempty"`
+	Thinking            *ThinkingConfig            `json:"thinking,omitempty"`
+	ParallelToolCalls   *bool                      `json:"parallel_tool_calls,omitempty"`
+	ResponseFormat      interface{}                `json:"response_format,omitempty"`
+	OutputConfig        map[string]interface{}     `json:"output_config,omitempty"`
+	Tools               []ToolDefinition           `json:"tools,omitempty"`
+	ToolChoice          interface{}                `json:"tool_choice,omitempty"`
+	CacheControl        map[string]interface{}     `json:"cache_control,omitempty"`
+	ExtraBody           map[string]interface{}     `json:"extra_body,omitempty"`
+	ServiceTier         string                     `json:"service_tier,omitempty"`
+	Speed               string                     `json:"speed,omitempty"`
+	InferenceGeo        string                     `json:"inference_geo,omitempty"`
+	Metadata            map[string]interface{}     `json:"metadata,omitempty"`
+	User                string                     `json:"user,omitempty"`
+	PromptVersionFQN    string                     `json:"prompt_version_fqn,omitempty"`
+	PromptVariables     map[string]string          `json:"prompt_variables,omitempty"`
+	AdditionalFields    map[string]json.RawMessage `json:"-"`
 }
 
 // UnmarshalJSON retains fields added by OpenAI after this contract was
@@ -122,6 +123,7 @@ type ChatContentPart struct {
 	Type       string          `json:"type"`
 	Text       string          `json:"text,omitempty"`
 	ImageURL   *ChatImageURL   `json:"image_url,omitempty"`
+	VideoURL   *ChatVideoURL   `json:"video_url,omitempty"`
 	File       *ChatFile       `json:"file,omitempty"`
 	InputAudio *ChatInputAudio `json:"input_audio,omitempty"`
 }
@@ -130,6 +132,11 @@ type ChatContentPart struct {
 type ChatImageURL struct {
 	URL    string `json:"url"`
 	Detail string `json:"detail,omitempty"`
+}
+
+// ChatVideoURL contains a video URL or data URL for multimodal requests.
+type ChatVideoURL struct {
+	URL string `json:"url"`
 }
 
 // ChatFile contains an OpenAI-compatible file reference or inline file data.
@@ -200,6 +207,29 @@ func ChatContentImageCount(content interface{}) int {
 // ChatContentHasImage reports whether content contains any image_url part.
 func ChatContentHasImage(content interface{}) bool {
 	return ChatContentImageCount(content) > 0
+}
+
+// ChatContentVideoCount returns the number of video_url parts in content.
+func ChatContentVideoCount(content interface{}) int {
+	parts, ok, err := ChatContentParts(content)
+	if !ok || err != nil {
+		return 0
+	}
+
+	count := 0
+
+	for _, part := range parts {
+		if part.Type == "video_url" {
+			count++
+		}
+	}
+
+	return count
+}
+
+// ChatContentHasVideo reports whether content contains any video_url part.
+func ChatContentHasVideo(content interface{}) bool {
+	return ChatContentVideoCount(content) > 0
 }
 
 // ChatContentFileCount returns the number of file parts in content.
@@ -278,6 +308,10 @@ func validateChatContentParts(parts []ChatContentPart) ([]ChatContentPart, bool,
 			if part.ImageURL == nil || strings.TrimSpace(part.ImageURL.URL) == "" {
 				return nil, true, fmt.Errorf("content part[%d].image_url.url is required", i)
 			}
+		case "video_url":
+			if part.VideoURL == nil || strings.TrimSpace(part.VideoURL.URL) == "" {
+				return nil, true, fmt.Errorf("content part[%d].video_url.url is required", i)
+			}
 		case "file":
 			if part.File == nil {
 				return nil, true, fmt.Errorf("content part[%d].file is required", i)
@@ -310,7 +344,12 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 	if !ok {
 		return ChatContentPart{}, fmt.Errorf("must be an object")
 	}
-	partType, _ := m["type"].(string)
+
+	partType, ok := m["type"].(string)
+	if !ok {
+		return ChatContentPart{}, fmt.Errorf("type must be a string")
+	}
+
 	part := ChatContentPart{Type: strings.TrimSpace(partType)}
 	switch part.Type {
 	case "text":
@@ -328,6 +367,24 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 		}
 		if detail, ok := imageURL["detail"].(string); ok {
 			part.ImageURL.Detail = detail
+		}
+	case "video_url":
+		videoValue, ok := m["video_url"]
+		if !ok {
+			return ChatContentPart{}, fmt.Errorf("video_url is required")
+		}
+
+		part.VideoURL = &ChatVideoURL{}
+
+		switch videoURL := videoValue.(type) {
+		case string:
+			part.VideoURL.URL = videoURL
+		case map[string]interface{}:
+			if rawURL, ok := videoURL["url"].(string); ok {
+				part.VideoURL.URL = rawURL
+			}
+		default:
+			return ChatContentPart{}, fmt.Errorf("video_url must be a string or object")
 		}
 	case "file":
 		file, ok := m["file"].(map[string]interface{})

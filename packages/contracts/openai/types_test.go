@@ -115,6 +115,37 @@ func TestChatMessageContentUnmarshalInputAudioPart(t *testing.T) {
 	}
 }
 
+func TestChatMessageContentUnmarshalVideoPart(t *testing.T) {
+	var req ChatCompletionRequest
+
+	err := json.Unmarshal([]byte(`{
+		"model":"kimi-k3",
+		"max_completion_tokens":64,
+		"messages":[{
+			"role":"user",
+			"content":[
+				{"type":"text","text":"Describe this clip."},
+				{"type":"video_url","video_url":{"url":"https://example.com/clip.mp4"}}
+			]
+		}]
+	}`), &req)
+	if err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if req.MaxCompletionTokens == nil || *req.MaxCompletionTokens != 64 {
+		t.Fatalf("max_completion_tokens was not preserved: %#v", req.MaxCompletionTokens)
+	}
+
+	if got := ChatContentVideoCount(req.Messages[0].Content); got != 1 {
+		t.Fatalf("ChatContentVideoCount = %d, want 1", got)
+	}
+
+	if err := ValidateChatMessageContent(req.Messages[0].Content); err != nil {
+		t.Fatalf("ValidateChatMessageContent: %v", err)
+	}
+}
+
 func TestChatMessageContentRejectsFilePartWithoutDataOrID(t *testing.T) {
 	content := []interface{}{
 		map[string]interface{}{"type": "file", "file": map[string]interface{}{"filename": "guide.pdf"}},
