@@ -138,6 +138,21 @@ func (d responseOperationCredentialDecrypter) Decrypt(
 	return map[string]string{"api_key": d.apiKey}, nil
 }
 
+func (s responseOperationDeployments) ResolveProviderAccountAuth(
+	_ context.Context,
+	_ string,
+	modelFQN string,
+) (*platform.ResolvedProviderAuth, error) {
+	providerAuth := s.authByModel[modelFQN]
+	if providerAuth == nil {
+		return nil, nil
+	}
+
+	cloned := *providerAuth
+
+	return &cloned, nil
+}
+
 func newResponseOperationsTestApp(
 	t *testing.T,
 	tunnel platform.TunnelTransport,
@@ -358,7 +373,6 @@ func TestOpenAIFileCreateHydratesPlatformManagedCredential(t *testing.T) {
 		return c.Next()
 	})
 	app.Post("/v1/files", handler.HandleFileCreate)
-
 	requestBody, contentType := buildMultipartBody(
 		t,
 		map[string]string{"purpose": "batch"},
