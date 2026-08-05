@@ -1,0 +1,27 @@
+documentation:
+  - https://api-docs.deepseek.com/quick_start/pricing
+  - https://api-docs.deepseek.com/api/list-models
+  - https://api-docs.deepseek.com/api/create-chat-completion
+  - https://api-docs.deepseek.com/api/create-response
+  - https://api-docs.deepseek.com/guides/responses_api
+  - https://api-docs.deepseek.com/guides/thinking_mode
+  - https://api-docs.deepseek.com/guides/tool_calls
+  - https://api-docs.deepseek.com/guides/json_mode
+  - https://api-docs.deepseek.com/guides/kv_cache
+messages:
+  options: [system, user, assistant, tool]
+params:
+  - key: max_tokens
+    minValue: 1
+  - key: stream
+    type: boolean
+  - key: stream_options
+  - key: thinking
+  - key: reasoning_effort
+  - key: response_format
+  - key: tools
+  - key: tool_choice
+  - key: temperature
+  - key: top_p
+  - key: presence_penalty
+  - key: frequency_penalty

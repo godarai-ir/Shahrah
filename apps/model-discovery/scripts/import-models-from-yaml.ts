@@ -28,6 +28,10 @@ import {
   MOONSHOT_PROVIDER_SLUG,
   validateMoonshotProviderDirectory,
 } from './model-import/providers/moonshot';
+import {
+  DEEPSEEK_PROVIDER_SLUG,
+  validateDeepSeekProviderDirectory,
+} from './model-import/providers/deepseek';
 import type {
   ProviderPricingRate,
   ProviderRateMapping,
@@ -543,6 +547,9 @@ async function parseProviderDir(
   }
   if (providerSlug === MOONSHOT_PROVIDER_SLUG) {
     await validateMoonshotProviderDirectory(dirname(providerDir));
+  }
+  if (providerSlug === DEEPSEEK_PROVIDER_SLUG) {
+    await validateDeepSeekProviderDirectory(dirname(providerDir));
   }
   const defaultPath = join(providerDir, 'default.yaml');
   let defaultDoc: StringRecord | undefined;
@@ -1309,7 +1316,9 @@ async function importProviderBatch(
       name: batch.name,
       status: 'active',
       supportsByok: true,
-      supportsRegionalRouting: batch.slug !== MOONSHOT_PROVIDER_SLUG,
+      supportsRegionalRouting:
+        batch.slug !== MOONSHOT_PROVIDER_SLUG &&
+        batch.slug !== DEEPSEEK_PROVIDER_SLUG,
       docsUrl: batch.docsUrl,
       websiteUrl: batch.websiteUrl,
     },
@@ -1319,7 +1328,9 @@ async function importProviderBatch(
       websiteUrl: batch.websiteUrl,
       status: 'active',
       supportsByok: true,
-      supportsRegionalRouting: batch.slug !== MOONSHOT_PROVIDER_SLUG,
+      supportsRegionalRouting:
+        batch.slug !== MOONSHOT_PROVIDER_SLUG &&
+        batch.slug !== DEEPSEEK_PROVIDER_SLUG,
     },
   });
 

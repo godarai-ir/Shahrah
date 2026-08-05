@@ -18,6 +18,7 @@ func TestValidateProviderAPIBaseAllowsOfficialProviderHosts(t *testing.T) {
 		{name: "groq", provider: "groq", raw: "https://api.groq.com/openai/v1", want: "https://api.groq.com/openai/v1"},
 		{name: "xai", provider: "xai", raw: "https://api.x.ai/v1/", want: "https://api.x.ai/v1"},
 		{name: "moonshot", provider: "moonshot", raw: "https://api.moonshot.ai/v1/", want: "https://api.moonshot.ai/v1"},
+		{name: "deepseek", provider: "deepseek", raw: "https://api.deepseek.com/", want: "https://api.deepseek.com"},
 		{name: "mistral canonical", provider: "mistral-ai", raw: "https://api.mistral.ai/v1/", want: "https://api.mistral.ai/v1"},
 		{name: "mistral legacy alias", provider: "mistral", raw: "https://api.mistral.ai/v1", want: "https://api.mistral.ai/v1"},
 		{name: "azure", provider: "azure", raw: "https://tenant.openai.azure.com/openai/deployments/gpt", want: "https://tenant.openai.azure.com/openai/deployments/gpt"},
@@ -52,5 +53,16 @@ func TestValidateProviderAPIBaseRejectsSSRFTargets(t *testing.T) {
 			require.Error(t, err)
 			assert.ErrorIs(t, err, ErrInvalidProviderAPIBase)
 		})
+	}
+}
+
+func TestValidateProviderAPIBaseRejectsNonCanonicalDeepSeekURLs(t *testing.T) {
+	for _, raw := range []string{
+		"https://api.deepseek.com:8443",
+		"https://api.deepseek.com/v1",
+		"https://api.deepseek.com.evil.example",
+	} {
+		_, err := ValidateProviderAPIBase("deepseek", raw)
+		require.ErrorIs(t, err, ErrInvalidProviderAPIBase)
 	}
 }

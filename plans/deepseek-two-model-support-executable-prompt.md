@@ -3,7 +3,7 @@
 ## Ready-to-use prompt
 
 ```md
-You are working inside the Shahrah/GodarAI repository as a senior product-minded Go platform engineer. Implement production-gated direct DeepSeek support end to end. Do not stop at an analysis or a plan: make the code, catalog, migrations, tests, documentation, readiness tooling, and rollout controls complete within the approved scope.
+You are working inside the GodarAI repository as a senior product-minded Go platform engineer. Implement production-gated direct DeepSeek support end to end. Do not stop at an analysis or a plan: make the code, catalog, migrations, tests, documentation, readiness tooling, and rollout controls complete within the approved scope.
 
 ## Objective
 

@@ -689,6 +689,17 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 		}
 	}
 
+	if strings.EqualFold(strings.TrimSpace(provider), "deepseek") {
+		if err := validateDeepSeekChatRuntimeProfile(req, runtimeProfile); err != nil {
+			return true, writeAPIError(
+				c,
+				fiber.StatusBadRequest,
+				err.Error(),
+				"invalid_request_error",
+			)
+		}
+	}
+
 	if isMistralProvider(provider) {
 		if err := validateMistralChatRuntimeProfile(req, runtimeProfile); err != nil {
 			return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
@@ -726,6 +737,62 @@ func buildChatRequestLogPayload(req contractsopenai.ChatCompletionRequest, origi
 		"model":    req.Model,
 		"messages": req.Messages,
 	})
+}
+
+func buildProviderChatRequestLogPayload(provider string, req contractsopenai.ChatCompletionRequest, originalBody []byte) map[string]interface{} {
+	if isDeepSeekProvider(provider) {
+		return buildProviderTraceChatRequestPayload(provider, req)
+	}
+
+	return buildChatRequestLogPayload(req, originalBody)
+}
+
+func buildProviderChatResponseLogPayload(
+	provider string,
+	body []byte,
+	fallback contractsopenai.ChatCompletionResponse,
+) map[string]interface{} {
+	if !isDeepSeekProvider(provider) {
+		return buildJSONResponseLogPayload(body, fallback)
+	}
+
+	completion := fallback
+	if completion.Model == "" && len(completion.Choices) == 0 && completion.Usage == nil {
+		if err := json.Unmarshal(body, &completion); err != nil {
+			return map[string]interface{}{
+				"body_bytes": len(body),
+				"redacted":   true,
+			}
+		}
+	}
+
+	return buildProviderTraceChatResponsePayload(provider, completion)
+}
+
+func buildProviderHTTPErrorLogPayloadForProvider(provider string, statusCode int, body []byte, stream bool) map[string]interface{} {
+	if isDeepSeekProvider(provider) {
+		return map[string]interface{}{
+			"outcome":     "provider_http_error",
+			"status_code": statusCode,
+			"body_bytes":  len(body),
+			"stream":      stream,
+			"redacted":    true,
+		}
+	}
+
+	return buildProviderHTTPErrorLogPayload(body, stream)
+}
+
+func buildProviderStreamLogPayload(provider string, status string, payload map[string]interface{}) map[string]interface{} {
+	if !isDeepSeekProvider(provider) {
+		return payload
+	}
+
+	return map[string]interface{}{
+		"stream":   true,
+		"outcome":  status,
+		"redacted": true,
+	}
 }
 
 func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest) (bool, error) {
@@ -1078,7 +1145,7 @@ func (h *ChatCompletionHandler) handleSync(
 	providerStart := time.Now()
 	providerAttrs := enrichPlaygroundObservability(c, map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
-		"request_payload": buildTraceChatRequestPayload(req),
+		"request_payload": buildProviderTraceChatRequestPayload(tunnelReq.Deployment.Provider, req),
 	})
 
 	var resp *platform.TunnelResponse
@@ -1105,7 +1172,7 @@ func (h *ChatCompletionHandler) handleSync(
 	}
 
 	if resp.StatusCode >= httpErrorFloor {
-		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
+		providerAttrs["response_payload"] = buildProviderTraceErrorPayload(tunnelReq.Deployment.Provider, resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 		logProviderFailureRequest(h.logger, h.logs, c, authInfo, tunnelReq, req.Model, "/v1/chat/completions", "chat_completions", resp.StatusCode, resp.Body, start)
 
@@ -1119,7 +1186,7 @@ func (h *ChatCompletionHandler) handleSync(
 	var completion contractsopenai.ChatCompletionResponse
 	if err := json.Unmarshal(resp.Body, &completion); err != nil {
 		providerAttrs["error"] = "failed to decode provider response"
-		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(fiber.StatusBadGateway, resp.Body)
+		providerAttrs["response_payload"] = buildProviderTraceErrorPayload(tunnelReq.Deployment.Provider, fiber.StatusBadGateway, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
 
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode provider response", "api_error")
@@ -1136,7 +1203,7 @@ func (h *ChatCompletionHandler) handleSync(
 	usageRepair := normalizeGoogleGeminiUsage(tunnelReq.Deployment.Provider, completion.Usage)
 	logGoogleGeminiUsageRepair(h.logger, tunnelReq.RequestID, usageRepair)
 
-	providerAttrs["response_payload"] = buildTraceChatResponsePayload(completion)
+	providerAttrs["response_payload"] = buildProviderTraceChatResponsePayload(tunnelReq.Deployment.Provider, completion)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
 	billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
@@ -1171,7 +1238,7 @@ func (h *ChatCompletionHandler) handleSync(
 			logEntry.InputTokens = finalCost.InputTokens
 			logEntry.OutputTokens = finalCost.OutputTokens
 			logEntry.TotalTokens = finalCost.TotalTokens
-			logEntry.RequestBody = buildChatRequestLogPayload(req, originalBody)
+			logEntry.RequestBody = buildProviderChatRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
 			logEntry.ResponseBody = map[string]interface{}{"guardrail_status": "blocked"}
 			logEntry.ErrorType = "guardrail_blocked"
 			logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
@@ -1223,12 +1290,12 @@ func (h *ChatCompletionHandler) handleSync(
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
 
-	logEntry.RequestBody = buildChatRequestLogPayload(req, originalBody)
+	logEntry.RequestBody = buildProviderChatRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
 
 	if usageRepair.applied {
-		logEntry.ResponseBody = buildJSONResponseLogPayload(nil, completion)
+		logEntry.ResponseBody = buildProviderChatResponseLogPayload(tunnelReq.Deployment.Provider, nil, completion)
 	} else {
-		logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, completion)
+		logEntry.ResponseBody = buildProviderChatResponseLogPayload(tunnelReq.Deployment.Provider, resp.Body, completion)
 	}
 
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
@@ -1291,7 +1358,7 @@ func (h *ChatCompletionHandler) handleSync(
 	responseStart := time.Now()
 	err = c.Status(resp.StatusCode).JSON(completion)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
-		"response_payload": buildTraceChatResponsePayload(completion),
+		"response_payload": buildProviderTraceChatResponsePayload(tunnelReq.Deployment.Provider, completion),
 	})
 
 	return err
@@ -1315,8 +1382,8 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	logEntry := buildRequestLogEntry(c, authInfo, platform.Deployment{Provider: entry.Provider, Model: entry.ProviderModel}, req.Model, "/v1/chat/completions", "chat_completions", "success", fiber.StatusOK, start, responseTimeMS)
 	logEntry.RequestID = requestID
 	logEntry.TraceID = entry.TraceID
-	logEntry.RequestBody = buildChatRequestLogPayload(req, originalBody)
-	logEntry.ResponseBody = buildJSONResponseLogPayload(entry.Response, map[string]interface{}{"cache_status": "hit"})
+	logEntry.RequestBody = buildProviderChatRequestLogPayload(entry.Provider, req, originalBody)
+	logEntry.ResponseBody = buildProviderChatResponseLogPayload(entry.Provider, entry.Response, contractsopenai.ChatCompletionResponse{})
 	logEntry.CacheStatus = "hit"
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
@@ -1367,7 +1434,7 @@ func (h *ChatCompletionHandler) handleStream(
 	requestLogBase := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "failed", 0, start, 0)
 	requestLogBase.RequestID = tunnelReq.RequestID
 	requestLogBase.TraceID = tunnelReq.TraceID
-	requestLogBase.RequestBody = buildChatRequestLogPayload(req, originalBody)
+	requestLogBase.RequestBody = buildProviderChatRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
 
 	providerStart := time.Now()
 
@@ -1375,7 +1442,7 @@ func (h *ChatCompletionHandler) handleStream(
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, enrichPlaygroundObservability(c, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
-			"request_payload": buildTraceChatRequestPayload(req),
+			"request_payload": buildProviderTraceChatRequestPayload(tunnelReq.Deployment.Provider, req),
 			"stream":          true,
 			"error":           err.Error(),
 		}))
@@ -1393,14 +1460,14 @@ func (h *ChatCompletionHandler) handleStream(
 	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, enrichPlaygroundObservability(c, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
-			"request_payload": buildTraceChatRequestPayload(req),
+			"request_payload": buildProviderTraceChatRequestPayload(tunnelReq.Deployment.Provider, req),
 			"stream":          true,
 			"status_code":     statusCode,
 		}))
 		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
 
 		return writeTunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
-			responsePayload := buildProviderHTTPErrorLogPayload(body, true)
+			responsePayload := buildProviderHTTPErrorLogPayloadForProvider(tunnelReq.Deployment.Provider, statusCode, body, true)
 
 			errorType := ErrorTypeMap[statusCode]
 			if strings.TrimSpace(errorType) == "" {
@@ -1413,7 +1480,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, enrichPlaygroundObservability(c, map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
-		"request_payload": buildTraceChatRequestPayload(req),
+		"request_payload": buildProviderTraceChatRequestPayload(tunnelReq.Deployment.Provider, req),
 		"stream":          true,
 	}))
 
@@ -1435,6 +1502,7 @@ func (h *ChatCompletionHandler) handleStream(
 		logStreamFailure := func(errorType string, message string) {
 			payload := responseCapture.Payload("failed")
 			payload["error"] = map[string]interface{}{"message": message, "type": errorType}
+			payload = buildProviderStreamLogPayload(tunnelReq.Deployment.Provider, "failed", payload)
 			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", fiber.StatusOK, errorType, payload, nil)
 		}
 
@@ -1501,7 +1569,8 @@ func (h *ChatCompletionHandler) handleStream(
 				CompletionStart: start,
 				CompletionEnd:   time.Now(),
 			})
-			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "success", fiber.StatusOK, "", responseCapture.Payload("completed"), &finalCost)
+			responsePayload := buildProviderStreamLogPayload(tunnelReq.Deployment.Provider, "completed", responseCapture.Payload("completed"))
+			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "success", fiber.StatusOK, "", responsePayload, &finalCost)
 			h.emitModelMetric(metricsobs.BuildInput{
 				TS:                 time.Now().UTC(),
 				TenantID:           authInfo.TenantID,
@@ -1975,7 +2044,7 @@ func logProviderFailureRequest(
 	logEntry.RequestID = tunnelReq.RequestID
 	logEntry.TraceID = tunnelReq.TraceID
 	logEntry.RequestBody = map[string]interface{}{"model": requestedModel}
-	logEntry.ResponseBody = buildProviderHTTPErrorLogPayload(responseBody, false)
+	logEntry.ResponseBody = buildProviderHTTPErrorLogPayloadForProvider(tunnelReq.Deployment.Provider, statusCode, responseBody, false)
 
 	if errType, ok := ErrorTypeMap[statusCode]; ok && strings.TrimSpace(errType) != "" {
 		logEntry.ErrorType = errType
@@ -2123,7 +2192,7 @@ func supportsChatVideoProvider(provider string) bool {
 
 func supportsChatToolsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
+	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2132,7 +2201,7 @@ func supportsChatToolsProvider(provider string) bool {
 
 func supportsChatResponseFormatProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
+	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2141,7 +2210,7 @@ func supportsChatResponseFormatProvider(provider string) bool {
 
 func supportsChatExtendedThinkingProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
+	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
 		return true
 	default:
 		return false

@@ -37,6 +37,7 @@ const sidebars: SidebarsConfig = {
         'provider-models-catalog',
         'provider-models-concepts',
         'provider-models-compare',
+        'providers/deepseek',
         'providers/moonshot',
       ],
     },

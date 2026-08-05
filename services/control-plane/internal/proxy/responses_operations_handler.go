@@ -149,6 +149,10 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "routing_error")
 	}
 
+	if !supportsResponseResourcesProvider(deployment.Provider) {
+		return writeAPIError(c, fiber.StatusNotImplemented, "Responses resource operations are not enabled for this provider", "invalid_request_error")
+	}
+
 	requestID := responseRequestID(c)
 
 	tunnelReq := platform.TunnelRequest{
@@ -287,7 +291,7 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 			return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 		}
 
-		if !supportsResponsesProvider(deployment.Provider) {
+		if !supportsResponseResourcesProvider(deployment.Provider) {
 			return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", deployment.Provider), "invalid_request_error")
 		}
 
@@ -441,7 +445,7 @@ func (h *ResponsesHandler) resolveResponseDeployment(
 	candidates := make([]platform.Deployment, 0, len(deployments))
 	for _, deployment := range deployments {
 		provider := strings.ToLower(strings.TrimSpace(deployment.Provider))
-		if !supportsResponsesProvider(provider) || provider == "mock" {
+		if !supportsResponsesCreateProvider(provider) || provider == "mock" {
 			continue
 		}
 
@@ -869,7 +873,7 @@ func (h *ResponsesHandler) recordResponseMapping(
 	if h.resources == nil ||
 		strings.TrimSpace(responseID) == "" ||
 		strings.TrimSpace(deployment.ProviderAccountID) == "" ||
-		!supportsResponsesProvider(deployment.Provider) {
+		!supportsResponseResourcesProvider(deployment.Provider) {
 		return
 	}
 
@@ -940,6 +944,7 @@ func (h *ResponsesHandler) newResponseStreamObserver(
 	onResponse ...func(contractsopenai.Response),
 ) func([]byte) {
 	canRecordMapping := h.resources != nil &&
+		supportsResponseResourcesProvider(deployment.Provider) &&
 		strings.TrimSpace(deployment.ProviderAccountID) != ""
 	if !canRecordMapping && len(onResponse) == 0 {
 		return nil

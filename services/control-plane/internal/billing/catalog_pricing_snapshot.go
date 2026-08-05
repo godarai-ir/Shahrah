@@ -235,6 +235,10 @@ func normalizeCatalogPricingSnapshot(
 			return nil, fmt.Errorf("%w: incomplete Moonshot pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
 
+		if provider == "deepseek" && !deepSeekPricingDimensionsComplete(rates) {
+			return nil, fmt.Errorf("%w: incomplete DeepSeek pricing for %s", ErrPricingUnavailable, item.CanonicalID)
+		}
+
 		model := anthropicPricingModel{
 			CanonicalID:    item.CanonicalID,
 			Slug:           item.Slug,
@@ -262,6 +266,17 @@ func moonshotPricingDimensionsComplete(rates map[string]normalizedPricingRate) b
 	for _, dimension := range []string{"input_tokens", "cache_read_tokens", "output_tokens"} {
 		rate, ok := rates[dimension]
 		if !ok || rate.UnitPriceUSD.IsNegative() || len(rate.Condition) != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func deepSeekPricingDimensionsComplete(rates map[string]normalizedPricingRate) bool {
+	for _, dimension := range []string{"input_tokens", "cache_read_tokens", "output_tokens"} {
+		rate, ok := rates[dimension]
+		if !ok || !rate.UnitPriceUSD.IsPositive() || len(rate.Condition) != 0 || strings.TrimSpace(rate.SourceURL) == "" {
 			return false
 		}
 	}

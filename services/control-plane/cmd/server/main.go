@@ -266,6 +266,25 @@ func main() {
 		go moonshotPricing.Run(pricingCtx, 5*time.Minute)
 	}
 
+	deepSeekPricing, deepSeekPricingErr :=
+		billing.NewCatalogPricingSnapshotManagerFromEnv("deepseek", nil)
+	if deepSeekPricingErr != nil {
+		logger.Warn(
+			"DeepSeek pricing is unavailable; DeepSeek requests will fail closed until configuration is restored",
+			zap.Error(deepSeekPricingErr),
+		)
+	} else {
+		billingService.SetCatalogPricingSnapshotManager("deepseek", deepSeekPricing)
+
+		if deepSeekPricingErr := deepSeekPricing.Reload(ctx); deepSeekPricingErr != nil {
+			logger.Warn(
+				"Initial DeepSeek pricing snapshot is unavailable; background refresh will retry",
+				zap.Error(deepSeekPricingErr),
+			)
+		}
+		go deepSeekPricing.Run(pricingCtx, 5*time.Minute)
+	}
+
 	mistralPricing, mistralPricingErr :=
 		billing.NewCatalogPricingSnapshotManagerFromEnv("mistral-ai", nil)
 	if mistralPricingErr != nil {

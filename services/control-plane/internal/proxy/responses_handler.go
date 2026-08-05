@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// ResponsesHandler serves OpenAI's responses API for OpenAI-native models.
+// ResponsesHandler serves the OpenAI-compatible Responses API.
 type ResponsesHandler struct {
 	llmRouter   *router.Router
 	tunnel      platform.TunnelTransport
@@ -67,7 +67,7 @@ func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTranspo
 	})
 }
 
-// Handle processes an OpenAI responses request.
+// Handle processes an OpenAI-compatible Responses request.
 func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
 
@@ -215,7 +215,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		tunnelDeployment = toContractDeployment(dep)
 	}
 
-	if !supportsResponsesProvider(tunnelDeployment.Provider) {
+	if !supportsResponsesCreateProvider(tunnelDeployment.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", tunnelDeployment.Provider), "invalid_request_error")
 	}
 
@@ -287,6 +287,17 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
 	}
 
+	if isDeepSeekProvider(tunnelReq.Deployment.Provider) {
+		if len(tunnelReq.ModelRuntimeProfiles) != 1 {
+			return writeAPIError(c, fiber.StatusServiceUnavailable, "DeepSeek model runtime profile is unavailable", "runtime_profile_unavailable")
+		}
+
+		validationErr := validateDeepSeekResponsesRuntimeProfile(payload, &tunnelReq.ModelRuntimeProfiles[0])
+		if validationErr != nil {
+			return writeAPIError(c, fiber.StatusBadRequest, validationErr.Error(), "invalid_request_error")
+		}
+	}
+
 	if !budgetReservationAttempted {
 		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
 		if err != nil || budgetResponseHandled {
@@ -321,7 +332,7 @@ func (h *ResponsesHandler) handleSync(
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
-		"request_payload": buildTraceResponseRequestPayload(req),
+		"request_payload": buildProviderTraceResponseRequestPayload(tunnelReq.Deployment.Provider, req),
 	}
 
 	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
@@ -333,7 +344,7 @@ func (h *ResponsesHandler) handleSync(
 	}
 
 	if resp.StatusCode >= httpErrorFloor {
-		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(resp.StatusCode, resp.Body)
+		providerAttrs["response_payload"] = buildProviderTraceErrorPayload(tunnelReq.Deployment.Provider, resp.StatusCode, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 
 		return writeOpenAIProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
@@ -344,13 +355,13 @@ func (h *ResponsesHandler) handleSync(
 	unmarshalErr := json.Unmarshal(resp.Body, &response)
 	if unmarshalErr != nil {
 		providerAttrs["error"] = "failed to decode provider response"
-		providerAttrs["response_payload"] = buildTraceProviderErrorPayload(fiber.StatusBadGateway, resp.Body)
+		providerAttrs["response_payload"] = buildProviderTraceErrorPayload(tunnelReq.Deployment.Provider, fiber.StatusBadGateway, resp.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
 
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode provider response", "api_error")
 	}
 
-	providerAttrs["response_payload"] = buildTraceResponsePayload(response)
+	providerAttrs["response_payload"] = buildProviderTraceResponsePayload(tunnelReq.Deployment.Provider, response)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
 	h.recordResponseMapping(c.Context(), authInfo.TenantID, tunnelReq.Deployment, response.ID, response.Status, response.Model)
 
@@ -379,8 +390,8 @@ func (h *ResponsesHandler) handleSync(
 	logEntry.InputTokens = finalCost.InputTokens
 	logEntry.OutputTokens = finalCost.OutputTokens
 	logEntry.TotalTokens = finalCost.TotalTokens
-	logEntry.RequestBody = buildResponseRequestLogPayload(req, originalBody)
-	logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, response)
+	logEntry.RequestBody = buildProviderResponseRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
+	logEntry.ResponseBody = buildProviderResponseLogPayload(tunnelReq.Deployment.Provider, resp.Body, response)
 	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
@@ -436,7 +447,7 @@ func (h *ResponsesHandler) handleSync(
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	err = c.Send(resp.Body)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
-		"response_payload": buildTraceResponsePayload(response),
+		"response_payload": buildProviderTraceResponsePayload(tunnelReq.Deployment.Provider, response),
 	})
 
 	return err
@@ -472,6 +483,22 @@ func buildResponseRequestLogPayload(req contractsopenai.ResponseRequest, origina
 	})
 }
 
+func buildProviderResponseRequestLogPayload(provider string, req contractsopenai.ResponseRequest, originalBody []byte) map[string]interface{} {
+	if isDeepSeekProvider(provider) {
+		return buildProviderTraceResponseRequestPayload(provider, req)
+	}
+
+	return buildResponseRequestLogPayload(req, originalBody)
+}
+
+func buildProviderResponseLogPayload(provider string, body []byte, response contractsopenai.Response) map[string]interface{} {
+	if isDeepSeekProvider(provider) {
+		return buildProviderTraceResponsePayload(provider, response)
+	}
+
+	return buildJSONResponseLogPayload(body, response)
+}
+
 func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.ResponseRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 
@@ -479,7 +506,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
-			"request_payload": buildTraceResponseRequestPayload(req),
+			"request_payload": buildProviderTraceResponseRequestPayload(tunnelReq.Deployment.Provider, req),
 			"stream":          true,
 			"error":           err.Error(),
 		})
@@ -492,7 +519,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	if statusCode := stream.StatusCode(); statusCode >= httpErrorFloor {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, statusCode, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
-			"request_payload": buildTraceResponseRequestPayload(req),
+			"request_payload": buildProviderTraceResponseRequestPayload(tunnelReq.Deployment.Provider, req),
 			"stream":          true,
 			"status_code":     statusCode,
 		})
@@ -503,7 +530,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusOK, map[string]interface{}{
 		"provider":        tunnelReq.Deployment.Provider,
-		"request_payload": buildTraceResponseRequestPayload(req),
+		"request_payload": buildProviderTraceResponseRequestPayload(tunnelReq.Deployment.Provider, req),
 		"stream":          true,
 	})
 
@@ -519,7 +546,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 
 		budgetCommitted := false
 
-		var completedResponse *contractsopenai.Response
+		var terminalResponse *contractsopenai.Response
 
 		defer func() {
 			if !budgetCommitted {
@@ -532,13 +559,35 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				return
 			}
 
+			if isDeepSeekProvider(tunnelReq.Deployment.Provider) && terminalResponse == nil {
+				h.logger.Warn(
+					"deepseek Responses stream closed without a terminal event",
+					zap.String("request_id", tunnelReq.RequestID),
+				)
+
+				framed, frameErr := frameOpenAIResponseStreamError(
+					fmt.Errorf("provider stream closed without a terminal Responses event"),
+				)
+				if frameErr != nil {
+					h.logger.Warn("failed to frame incomplete DeepSeek Responses stream", zap.Error(frameErr))
+
+					return
+				}
+
+				if writeErr := writeBufferedBytes(w, framed); writeErr != nil {
+					h.logger.Warn("failed to write incomplete DeepSeek Responses stream error", zap.Error(writeErr))
+				}
+
+				return
+			}
+
 			billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
 
 			var finalUsage *contractsopenai.Usage
-			if completedResponse != nil {
-				finalUsage = responseUsageWithToolsToOpenAI(*completedResponse)
+			if terminalResponse != nil {
+				finalUsage = responseUsageWithToolsToOpenAI(*terminalResponse)
 				if finalUsage != nil {
-					finalUsage.ServiceTier = completedResponse.ServiceTier
+					finalUsage.ServiceTier = terminalResponse.ServiceTier
 				}
 			}
 
@@ -616,9 +665,9 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				authInfo.TenantID,
 				tunnelReq.Deployment,
 				func(response contractsopenai.Response) {
-					if response.Usage != nil {
+					if isTerminalResponseStatus(response.Status) {
 						responseCopy := response
-						completedResponse = &responseCopy
+						terminalResponse = &responseCopy
 					}
 				},
 			),
@@ -631,6 +680,15 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	return nil
 }
 
+func isTerminalResponseStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "completed", "incomplete", "failed":
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *ResponsesHandler) emitModelMetric(input metricsobs.BuildInput) {
 	if h.emitMetric == nil {
 		return
@@ -639,9 +697,18 @@ func (h *ResponsesHandler) emitModelMetric(input metricsobs.BuildInput) {
 	h.emitMetric(input)
 }
 
-func supportsResponsesProvider(provider string) bool {
+func supportsResponsesCreateProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "xai", "mock":
+	case "openai", "xai", "deepseek", "mock":
+		return true
+	default:
+		return false
+	}
+}
+
+func supportsResponseResourcesProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai", "xai":
 		return true
 	default:
 		return false
@@ -726,10 +793,22 @@ func responseUsageToOpenAI(usage *contractsopenai.ResponseUsage) *contractsopena
 		NumServerSideToolsUsed: usage.NumServerSideToolsUsed,
 	}
 	if usage.InputDetails != nil {
+		cachedTokens := usage.InputDetails.CachedTokens
+
+		if cachedTokens < 0 {
+			cachedTokens = 0
+		}
+
+		if cachedTokens > usage.InputTokens {
+			cachedTokens = usage.InputTokens
+		}
+
 		result.PromptTokensDetails = &contractsopenai.UsageTokenDetails{
-			CachedTokens:     usage.InputDetails.CachedTokens,
+			CachedTokens:     cachedTokens,
 			CacheWriteTokens: usage.InputDetails.CacheWriteTokens,
 		}
+		result.PromptCacheHitTokens = cachedTokens
+		result.PromptCacheMissTokens = usage.InputTokens - cachedTokens
 	}
 
 	if usage.OutputDetails != nil {

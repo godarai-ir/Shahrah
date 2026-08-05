@@ -9,54 +9,6 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-func runtimeProfilesFromEstimate(
-	provider, model string,
-	estimated platform.UsageCostBreakdown,
-) ([]platform.ModelRuntimeProfileBinding, error) {
-	provider = strings.ToLower(strings.TrimSpace(provider))
-	if provider != "anthropic" && provider != "xai" && provider != "moonshot" && !isGoogleGeminiProvider(provider) && !isMistralProvider(provider) {
-		return nil, nil
-	}
-
-	providerLabel := "Anthropic"
-	if isGoogleGeminiProvider(provider) {
-		providerLabel = "Google Gemini"
-	} else if provider == "xai" {
-		providerLabel = "xAI"
-	} else if provider == "moonshot" {
-		providerLabel = "Moonshot"
-	} else if isMistralProvider(provider) {
-		providerLabel = "Mistral AI"
-	}
-
-	if estimated.ModelRuntimeProfile == nil {
-		return nil, fmt.Errorf("%s model runtime profile is unavailable", providerLabel)
-	}
-
-	binding := *estimated.ModelRuntimeProfile
-	if err := binding.Validate(); err != nil ||
-		binding.CatalogRevision != estimated.PricingRevision ||
-		!binding.MatchesModel(model) ||
-		!runtimeProfileProviderMatches(provider, binding.Provider) {
-		return nil, fmt.Errorf("%s model runtime profile is invalid", providerLabel)
-	}
-
-	return []platform.ModelRuntimeProfileBinding{binding}, nil
-}
-
-func runtimeProfileProviderMatches(deploymentProvider, bindingProvider string) bool {
-	if strings.EqualFold(
-		strings.TrimSpace(deploymentProvider),
-		strings.TrimSpace(bindingProvider),
-	) {
-		return true
-	}
-
-	return isGoogleGeminiProvider(deploymentProvider) &&
-		isGoogleGeminiProvider(bindingProvider) ||
-		isMistralProvider(deploymentProvider) && isMistralProvider(bindingProvider)
-}
-
 func validateAnthropicChatRuntimeProfile(
 	req contractsopenai.ChatCompletionRequest,
 	binding *platform.ModelRuntimeProfileBinding,

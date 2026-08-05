@@ -1,0 +1,204 @@
+---
+title: اتصال DeepSeek و استفاده از مدل‌های V4
+description: راه‌اندازی DeepSeek در گدارAI و استفاده امن از deepseek-v4-flash و deepseek-v4-pro در گفتگو، پاسخ جریانی، تفکر و ابزارها.
+---
+
+# اتصال DeepSeek و استفاده از مدل‌های V4
+
+در پایان این راهنما، یک حساب DeepSeek را به گدارAI متصل می‌کنید، هر دو مدل را از مسیر Chat Completions فرا می‌خوانید و برای `deepseek-v4-flash` از Responses API استفاده می‌کنید.
+
+این صفحه در ۱۴ مرداد ۱۴۰۵ با [فهرست و قیمت رسمی مدل‌ها](https://api-docs.deepseek.com/quick_start/pricing)، [قرارداد Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion)، [قرارداد Responses API](https://api-docs.deepseek.com/api/create-response)، [راهنمای Responses API](https://api-docs.deepseek.com/guides/responses_api)، [راهنمای تفکر](https://api-docs.deepseek.com/guides/thinking_mode) و [فهرست تغییرات DeepSeek](https://api-docs.deepseek.com/updates) تطبیق داده شده است.
+
+:::warning وضعیت انتشار
+
+پشتیبانی گدارAI پشت گیت انتشار است. `deepseek-v4-flash` در مستندات DeepSeek نسخه آزمایشی عمومی است و انتشار رسمی `deepseek-v4-pro` هنوز نیازمند تأیید زنده است؛ عبور یک آزمون اتصال به‌تنهایی مجوز استفاده عملیاتی نیست.
+
+:::
+
+## مدل‌های فعال
+
+| مدل                 | شناسه کامل نمونه                     |    پنجره زمینه | بیشینه خروجی | Chat Completions | Responses create |
+| ------------------- | ------------------------------------ | -------------: | -----------: | :--------------: | :--------------: |
+| `deepseek-v4-flash` | `deepseek:primary:deepseek-v4-flash` | ۱٬۰۴۸٬۵۷۶ توکن | ۳۹۳٬۲۱۶ توکن |        ✓         |        ✓         |
+| `deepseek-v4-pro`   | `deepseek:primary:deepseek-v4-pro`   | ۱٬۰۴۸٬۵۷۶ توکن | ۳۹۳٬۲۱۶ توکن |        ✓         |        —         |
+
+هر دو مدل فقط ورودی و خروجی متن، فراخوانی تابع، انتخاب ابزار و خروجی JSON Object را در دامنه فعلی گدارAI می‌پذیرند.
+
+## پیش‌نیازها
+
+- یک حساب DeepSeek با کلید دسترسی فعال؛
+- دسترسی مدیریت حساب ارائه‌دهنده در گدارAI؛
+- توکن مجازی گدارAI برای فراخوانی مدل؛
+- شناسه حساب ارائه‌دهنده که جای `primary` در شناسه کامل قرار می‌گیرد.
+
+## ساخت حساب ارائه‌دهنده
+
+1. بخش «اتصال‌دهنده‌های LLM» را باز و `DeepSeek` را انتخاب کنید.
+2. برای BYOK، کلید دسترسی DeepSeek را وارد کنید. برای اعتبار مدیریت‌شده پلتفرم، گزینه مربوط را فقط در محیطی انتخاب کنید که جداسازی شناسه کاربر فعال شده است.
+3. نشانی پایه را روی `https://api.deepseek.com` نگه دارید.
+4. آزمون اتصال را اجرا کنید. گدارAI با `GET /models` اتصال را بدون مصرف توکن بررسی می‌کند.
+5. مطمئن شوید پاسخ فهرست مدل، شناسه مدل انتخاب‌شده را دارد.
+
+گدارAI فقط میزبان رسمی `api.deepseek.com` را می‌پذیرد. کلید DeepSeek را در کد مصرف‌کننده، بدنه درخواست یا سرآیند `Authorization` گدارAI قرار ندهید.
+
+## ارسال درخواست همگام
+
+```bash
+curl "https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions" \
+  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "x-godarai-provider: deepseek" \
+  -H "x-godarai-provider-account: primary" \
+  -d '{
+    "model": "deepseek-v4-flash",
+    "messages": [{"role": "user", "content": "سه ریسک این سفارش را خلاصه کن."}],
+    "thinking": {"type": "enabled"},
+    "reasoning_effort": "high",
+    "max_tokens": 256
+  }'
+```
+
+مقدارهای پذیرفته‌شده `reasoning_effort` برابر `low`، `high`، `xhigh` و `max` هستند. DeepSeek برخی مقدارها را در `deepseek-v4-pro` به تلاش واقعی دیگری نگاشت می‌کند؛ بنابراین گدارAI آن‌ها را به‌عنوان سطح بومی مستقل معرفی نمی‌کند.
+
+برای غیرفعال‌کردن تفکر، `thinking: {"type":"disabled"}` را بفرستید و `reasoning_effort` را حذف کنید. `temperature`، `top_p`، `presence_penalty` و `frequency_penalty` هنگام فعال‌بودن تفکر بی‌اثرند و گدارAI آن‌ها را پیش از ارسال رد می‌کند.
+
+## استفاده از Responses API در Flash
+
+مسیر `POST /v1/responses` فقط برای `deepseek-v4-flash` فعال است. این مسیر در DeepSeek بدون وضعیت است: گدارAI `store`، `previous_response_id`، `conversation` و عملیات دریافت، حذف، لغو یا compact کردن Response را نمی‌پذیرد.
+
+```bash
+curl "https://YOUR_WORKSPACE.godarai.ir/v1/responses" \
+  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "x-godarai-provider: deepseek" \
+  -H "x-godarai-provider-account: primary" \
+  -d '{
+    "model": "deepseek-v4-flash",
+    "input": "سه ریسک این سفارش را خلاصه کن.",
+    "reasoning": {"effort": "high"},
+    "max_output_tokens": 256
+  }'
+```
+
+مقدارهای رسمی `reasoning.effort` در این مسیر `none`، `minimal`، `low`، `medium`، `high`، `xhigh` و `max` هستند. وقتی تفکر فعال است، `temperature` و `top_p` اثری ندارند و گدارAI آن‌ها را رد می‌کند. در دامنه فعلی، ورودی متن، پیام‌های متنی، آیتم‌های حلقه تابع، ابزار تابع و قالب‌های `text`، `json_object` و `json_schema` فعال‌اند؛ ابزارهای میزبانی‌شده مانند جست‌وجوی وب هنوز گیت مستقل دارند.
+
+برای پاسخ جریانی، `"stream": true` را بفرستید. پایان جریان با رویداد `response.completed`، `response.incomplete` یا `response.failed` مشخص می‌شود؛ Responses API دیپ‌سیک نشانگر `[DONE]` ندارد.
+
+درخواست همین مسیر برای `deepseek-v4-pro` پیش از ارسال به DeepSeek رد می‌شود.
+
+## دریافت پاسخ جریانی
+
+```bash
+curl -N "https://YOUR_WORKSPACE.godarai.ir/v1/chat/completions" \
+  -H "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "x-godarai-provider: deepseek" \
+  -H "x-godarai-provider-account: primary" \
+  -d '{
+    "model": "deepseek-v4-pro",
+    "messages": [{"role": "user", "content": "یک برنامه پاسخ‌گویی به قطعی سرویس بنویس."}],
+    "stream": true,
+    "stream_options": {"include_usage": true},
+    "max_tokens": 512
+  }'
+```
+
+رویدادها را تا `[DONE]` بخوانید. خط‌های خالی و توضیح `: keep-alive` فقط اتصال را زنده نگه می‌دارند و پاسخ مدل نیستند.
+
+## حفظ استدلال در حلقه ابزار
+
+اگر مدل در حالت تفکر `tool_calls` برگرداند، پیام `assistant` را همراه `reasoning_content` بدون تغییر در درخواست بعدی قرار دهید. حذف این فیلد در حلقه ابزار باعث خطای ۴۰۰ DeepSeek می‌شود.
+
+```json
+{
+	"model": "deepseek-v4-pro",
+	"messages": [
+		{ "role": "user", "content": "وضعیت سفارش 123 را بررسی کن." },
+		{
+			"role": "assistant",
+			"content": "",
+			"reasoning_content": "...",
+			"tool_calls": [
+				{
+					"id": "call_1",
+					"type": "function",
+					"function": {
+						"name": "get_order",
+						"arguments": "{\"id\":\"123\"}"
+					}
+				}
+			]
+		},
+		{ "role": "tool", "tool_call_id": "call_1", "content": "ارسال شد" }
+	],
+	"tools": [
+		{
+			"type": "function",
+			"function": {
+				"name": "get_order",
+				"description": "وضعیت سفارش را برمی‌گرداند",
+				"parameters": {
+					"type": "object",
+					"properties": { "id": { "type": "string" } },
+					"required": ["id"]
+				}
+			}
+		}
+	]
+}
+```
+
+گدارAI `reasoning_content` را برای رفت‌وبرگشت قرارداد حفظ می‌کند، اما آن را مانند متن عادی در گزارش رخداد ثبت نمی‌کند.
+
+## خروجی JSON Object
+
+برای دریافت JSON معتبر، `response_format: {"type":"json_object"}` را بفرستید و واژه JSON و ساختار مورد انتظار را در پیام کاربر یا پیام سیستمی توضیح دهید. `json_schema` و حالت `strict` در این دامنه فعال نیستند.
+
+## قیمت کاتالوگ
+
+مبالغ زیر دلار به‌ازای یک میلیون توکن و مربوط به نرخ رسمی مشاهده‌شده در ۱۴ مرداد ۱۴۰۵ هستند:
+
+| مدل                 | ورودی بدون اصابت به حافظه نهان | ورودی با اصابت | خروجی |
+| ------------------- | -----------------------------: | -------------: | ----: |
+| `deepseek-v4-flash` |                           ۰٫۱۴ |         ۰٫۰۰۲۸ |  ۰٫۲۸ |
+| `deepseek-v4-pro`   |                          ۰٫۴۳۵ |       ۰٫۰۰۳۶۲۵ |  ۰٫۸۷ |
+
+گدارAI `prompt_cache_miss_tokens`، `prompt_cache_hit_tokens` و `completion_tokens` را جدا محاسبه می‌کند. توکن‌های استدلال در خروجی گزارش‌شده ارائه‌دهنده قرار دارند و دوباره شمرده نمی‌شوند. مبلغ ریالی با نرخ تبدیل جاری کیف پول نمایش داده می‌شود.
+
+DeepSeek سیاست آتی قیمت دوبرابری در ساعت اوج را اعلام کرده، اما تاریخ اجرا نداده است. گدارAI این شرط را تا انتشار تاریخ رسمی فعال نمی‌کند.
+
+## قابلیت‌های خارج از دامنه
+
+- Responses API برای `deepseek-v4-pro` و عملیات stateful روی Response؛
+- مسیر سازگار با Anthropic؛
+- FIM Completion و Chat Prefix Completion؛
+- حالت آزمایشی `strict` برای ابزار؛
+- جست‌وجوی وب، اجرای کد، Files، Batch، Embeddings، تصویر، صدا و ابزارهای میزبانی‌شده؛
+- شناسه‌های قدیمی `deepseek-chat`، `deepseek-reasoner` و `deepseek-coder`.
+
+گدارAI درخواست قابل‌صورتحساب `POST /chat/completions` را خودکار تکرار نمی‌کند. فقط خواندن فهرست مدل ممکن است یک تلاش دوباره محدود داشته باشد.
+
+## رفع مشکل‌های رایج
+
+| نشانه                          | علت محتمل                                   | راه‌حل                                                                         |
+| ------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| مدل پیدا نمی‌شود               | شناسه قدیمی یا حساب اشتباه انتخاب شده است   | یکی از دو شناسه دقیق بالا و حساب ارائه‌دهنده درست را بفرستید.                  |
+| خطای ۴۰۰ در دور دوم ابزار      | `reasoning_content` پیام دستیار حذف شده است | پیام دستیار قبلی را کامل و بدون تغییر برگردانید.                               |
+| پارامتر نمونه‌برداری رد می‌شود | تفکر فعال است                               | پارامتر را حذف یا تفکر را صریح غیرفعال کنید.                                   |
+| اعتبار مدیریت‌شده کار نمی‌کند  | راز HMAC جداسازی محیط تنظیم نشده است        | از BYOK استفاده کنید یا از مدیر پلتفرم بخواهید گیت جداسازی را فعال کند.        |
+| خطای ۴۰۲                       | موجودی DeepSeek کافی نیست                   | موجودی حساب ارائه‌دهنده را بررسی کنید.                                         |
+| خطای ۴۲۹ یا ۵۰۳                | ظرفیت یا هم‌زمانی حساب پر شده است           | درخواست را با تأخیر کنترل‌شده و فقط پس از مشخص‌بودن نتیجه قبلی دوباره بفرستید. |
+
+## پرسش‌های پرتکرار
+
+### آیا می‌توانم `user_id` دلخواه بفرستم؟
+
+خیر. گدارAI این فیلد را برای جلوگیری از افشای اطلاعات هویتی و جداسازی امن حساب‌های مشترک مدیریت می‌کند.
+
+### آیا نام مدل جداگانه‌ای برای حالت تفکر وجود دارد؟
+
+خیر. تفکر یک حالت همان مدل است؛ از `thinking` و `reasoning_effort` استفاده کنید.
+
+### آیا عبور آزمون اتصال یعنی مدل آماده تولید است؟
+
+خیر. آزمون اتصال فقط دسترسی و فهرست مدل را بررسی می‌کند. تطبیق صورتحساب، حریم خصوصی، بار، هشدارها و تأیید مالکان انتشار جداگانه لازم است.

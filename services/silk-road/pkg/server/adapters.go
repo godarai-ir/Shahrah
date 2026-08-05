@@ -51,6 +51,7 @@ func newProviderRegistry() *providerRegistry {
 			"perplexity-ai":    newOpenAICompatibleAdapter("https://api.perplexity.ai"),
 			"sambanova":        newOpenAICompatibleAdapter(""),
 			"deepinfra":        newOpenAICompatibleAdapter("https://api.deepinfra.com/v1/openai"),
+			"deepseek":         newDeepSeekAdapter(),
 			"fireworks":        newOpenAICompatibleAdapter(""),
 			"togetherai":       newOpenAICompatibleAdapter("https://api.together.xyz/v1"),
 			"together-ai":      newOpenAICompatibleAdapter("https://api.together.xyz/v1"),

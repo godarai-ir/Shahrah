@@ -180,6 +180,7 @@ func TestDocumentedHTTPProbeCoverageForRuntimeReadyDirectAuthModes(t *testing.T)
 		{Binding: Binding{ProviderSlug: "cohere", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "databricks", AuthMode: "personal_access_token"}, BaseURL: "https://workspace.cloud.databricks.com/serving-endpoints/example"},
 		{Binding: Binding{ProviderSlug: "deepinfra", AuthMode: "api_key"}},
+		{Binding: Binding{ProviderSlug: "deepseek", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "google-gemini", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "groq", AuthMode: "api_key"}},
 		{Binding: Binding{ProviderSlug: "mistral-ai", AuthMode: "api_key"}},

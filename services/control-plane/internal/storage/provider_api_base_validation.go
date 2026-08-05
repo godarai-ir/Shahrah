@@ -53,6 +53,11 @@ func ValidateProviderAPIBase(provider string, raw string) (string, error) {
 		return "", fmt.Errorf("%w: host is not allowed for provider %q", ErrInvalidProviderAPIBase, strings.TrimSpace(provider))
 	}
 
+	if normalizeProviderAPIBaseProvider(provider) == "deepseek" &&
+		(parsed.Port() != "" || parsed.EscapedPath() != "" && parsed.EscapedPath() != "/") {
+		return "", fmt.Errorf("%w: DeepSeek requires its canonical host without a port or path", ErrInvalidProviderAPIBase)
+	}
+
 	parsed.Scheme = "https"
 	parsed.Host = strings.ToLower(parsed.Host)
 
@@ -191,6 +196,8 @@ func allowedProviderAPIBaseHosts(provider string) []string {
 		return []string{"api.perplexity.ai"}
 	case "deepinfra":
 		return []string{"api.deepinfra.com"}
+	case "deepseek":
+		return []string{"api.deepseek.com"}
 	case "fireworks":
 		return []string{"api.fireworks.ai"}
 	case "xai":

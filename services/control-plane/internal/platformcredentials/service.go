@@ -409,6 +409,8 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 		return probeSpec{url: parsed.String(), auth: "bearer-access-token"}, true
 	case "deepinfra":
 		return modelsProbe(base, "https://api.deepinfra.com/v1/openai", "bearer-api-key"), record.AuthMode == "api_key"
+	case "deepseek":
+		return modelsProbe(base, "https://api.deepseek.com", "bearer-api-key"), record.AuthMode == "api_key"
 	case "google-gemini":
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com"
@@ -465,7 +467,7 @@ func safeProbeURL(providerSlug, raw string) bool {
 
 	exact := map[string]string{
 		"ai21": "api.ai21.com", "anthropic": "api.anthropic.com", "cerebras": "api.cerebras.ai",
-		"cohere": "api.cohere.com", "deepinfra": "api.deepinfra.com", "google-gemini": "generativelanguage.googleapis.com",
+		"cohere": "api.cohere.com", "deepinfra": "api.deepinfra.com", "deepseek": "api.deepseek.com", "google-gemini": "generativelanguage.googleapis.com",
 		"groq": "api.groq.com", "mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
 		"openrouter": "openrouter.ai", "perplexity-ai": "api.perplexity.ai", "together-ai": "api.together.xyz", "xai": "api.x.ai",
 	}

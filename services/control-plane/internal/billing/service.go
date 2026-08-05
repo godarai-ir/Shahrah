@@ -1166,6 +1166,10 @@ func usageCostBreakdown(
 			return moonshotUsageCostBreakdown(model, usage, price, exchangeRate)
 		}
 
+		if price.Provider == "deepseek" {
+			return deepSeekUsageCostBreakdown(model, usage, price, exchangeRate)
+		}
+
 		return costBreakdown(
 			model,
 			usage.PromptTokens,
@@ -1239,6 +1243,72 @@ func moonshotUsageCostBreakdown(
 	return platform.UsageCostBreakdown{
 		Model: model, InputTokens: usage.PromptTokens, OutputTokens: usage.CompletionTokens,
 		TotalTokens: totalTokens, CacheReadInputTokens: cached,
+		InputCostUSD: inputUSD, OutputCostUSD: outputUSD, TotalCostUSD: totalUSD,
+		ExchangeRate: exchangeRate, TotalCostIRR: totalUSD * exchangeRate,
+		PricingRevision: price.Revision, ModelRuntimeProfile: price.RuntimeProfile,
+		PricingSnapshot: usagePricingSnapshot(price), Components: components,
+	}, nil
+}
+
+func deepSeekUsageCostBreakdown(
+	model string,
+	usage *openai.Usage,
+	price priceInfo,
+	exchangeRate float64,
+) (platform.UsageCostBreakdown, error) {
+	if usage == nil {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: DeepSeek usage is missing", ErrPricingUnavailable)
+	}
+
+	hit := usage.PromptCacheHitTokens
+
+	miss := usage.PromptCacheMissTokens
+	if hit < 0 || miss < 0 || hit+miss != usage.PromptTokens {
+		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: invalid DeepSeek cache token usage", ErrPricingUnavailable)
+	}
+
+	quantities := map[string]int64{
+		"input_tokens":      int64(miss),
+		"cache_read_tokens": int64(hit),
+		"output_tokens":     int64(usage.CompletionTokens),
+	}
+	dimensions := []string{"input_tokens", "cache_read_tokens", "output_tokens"}
+	components := make([]platform.UsageCostComponent, 0, len(dimensions))
+	inputExact, outputExact := decimal.Zero, decimal.Zero
+
+	for _, dimension := range dimensions {
+		quantity := quantities[dimension]
+		if quantity == 0 {
+			continue
+		}
+
+		rate, ok := price.Rates[dimension]
+		if !ok || len(rate.Condition) != 0 {
+			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing DeepSeek rate for %s", ErrPricingUnavailable, dimension)
+		}
+
+		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+		if dimension == "output_tokens" {
+			outputExact = outputExact.Add(cost)
+		} else {
+			inputExact = inputExact.Add(cost)
+		}
+
+		components = append(components, usageCostComponent(dimension, quantity, rate))
+	}
+
+	inputUSD, _ := inputExact.Float64()
+	outputUSD, _ := outputExact.Float64()
+	totalUSD := inputUSD + outputUSD
+
+	totalTokens := usage.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+
+	return platform.UsageCostBreakdown{
+		Model: model, InputTokens: usage.PromptTokens, OutputTokens: usage.CompletionTokens,
+		TotalTokens: totalTokens, CacheReadInputTokens: hit,
 		InputCostUSD: inputUSD, OutputCostUSD: outputUSD, TotalCostUSD: totalUSD,
 		ExchangeRate: exchangeRate, TotalCostIRR: totalUSD * exchangeRate,
 		PricingRevision: price.Revision, ModelRuntimeProfile: price.RuntimeProfile,
@@ -2706,6 +2776,9 @@ func catalogPricingProvider(model string) string {
 	case strings.HasPrefix(value, "moonshot/"),
 		strings.HasPrefix(value, "moonshot:"):
 		return "moonshot"
+	case strings.HasPrefix(value, "deepseek/"),
+		strings.HasPrefix(value, "deepseek:"):
+		return "deepseek"
 	case strings.HasPrefix(value, "mistral-ai/"),
 		strings.HasPrefix(value, "mistral-ai:"),
 		strings.HasPrefix(value, "mistral/"),

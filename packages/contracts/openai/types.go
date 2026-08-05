@@ -614,6 +614,8 @@ type Usage struct {
 	CacheCreation5mInputTokens int                `json:"cache_creation_5m_input_tokens,omitempty"`
 	CacheCreation1hInputTokens int                `json:"cache_creation_1h_input_tokens,omitempty"`
 	CacheReadInputTokens       int                `json:"cache_read_input_tokens,omitempty"`
+	PromptCacheHitTokens       int                `json:"prompt_cache_hit_tokens,omitempty"`
+	PromptCacheMissTokens      int                `json:"prompt_cache_miss_tokens,omitempty"`
 	ServerToolUse              map[string]int     `json:"server_tool_use,omitempty"`
 	NumServerSideToolsUsed     int                `json:"num_server_side_tools_used,omitempty"`
 	CostInUSDTicks             int64              `json:"cost_in_usd_ticks,omitempty"`
@@ -825,8 +827,10 @@ type ResponseRequest struct {
 	Input              interface{}            `json:"input"`
 	Instructions       string                 `json:"instructions,omitempty"`
 	MaxOutputTokens    *int                   `json:"max_output_tokens,omitempty"`
+	Reasoning          *ResponseReasoning     `json:"reasoning,omitempty"`
 	Temperature        *float64               `json:"temperature,omitempty"`
 	TopP               *float64               `json:"top_p,omitempty"`
+	TopLogprobs        *int                   `json:"top_logprobs,omitempty"`
 	Text               *ResponseTextConfig    `json:"text,omitempty"`
 	Tools              []ToolDefinition       `json:"tools,omitempty"`
 	ToolChoice         interface{}            `json:"tool_choice,omitempty"`
@@ -835,6 +839,12 @@ type ResponseRequest struct {
 	Stream             bool                   `json:"stream,omitempty"`
 	User               string                 `json:"user,omitempty"`
 	ServiceTier        string                 `json:"service_tier,omitempty"`
+}
+
+// ResponseReasoning contains Responses API reasoning controls.
+type ResponseReasoning struct {
+	Effort  string `json:"effort,omitempty"`
+	Summary string `json:"summary,omitempty"`
 }
 
 // ResponseTextConfig contains text output formatting options for the Responses API.

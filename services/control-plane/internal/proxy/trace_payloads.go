@@ -9,6 +9,218 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 )
 
+func buildProviderTraceChatRequestPayload(provider string, req contractsopenai.ChatCompletionRequest) map[string]interface{} {
+	if !isDeepSeekProvider(provider) {
+		return buildTraceChatRequestPayload(req)
+	}
+
+	roles := make([]string, 0, len(req.Messages))
+	reasoningMessageCount := 0
+	toolCallCount := 0
+	toolResultCount := 0
+
+	for _, message := range req.Messages {
+		roles = append(roles, message.Role)
+		if strings.TrimSpace(message.ReasoningContent) != "" || len(message.ThinkingBlocks) > 0 {
+			reasoningMessageCount++
+		}
+
+		toolCallCount += len(message.ToolCalls)
+		if strings.EqualFold(strings.TrimSpace(message.Role), "tool") {
+			toolResultCount++
+		}
+	}
+
+	return map[string]interface{}{
+		"model":                   req.Model,
+		"message_count":           len(req.Messages),
+		"message_roles":           roles,
+		"reasoning_message_count": reasoningMessageCount,
+		"tool_call_count":         toolCallCount,
+		"tool_result_count":       toolResultCount,
+		"tool_definition_count":   len(req.Tools),
+		"max_tokens":              req.MaxTokens,
+		"reasoning_effort":        req.ReasoningEffort,
+		"thinking":                summarizeDeepSeekThinkingConfig(req.Thinking),
+		"stream":                  req.Stream,
+		"response_format":         summarizeDeepSeekResponseFormat(req.ResponseFormat),
+		"redacted":                true,
+	}
+}
+
+func summarizeDeepSeekThinkingConfig(value *contractsopenai.ThinkingConfig) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	return map[string]interface{}{"type": value.Type}
+}
+
+func summarizeDeepSeekResponseFormat(value interface{}) interface{} {
+	format, ok := value.(map[string]interface{})
+	if !ok {
+		return map[string]interface{}{"present": value != nil}
+	}
+
+	formatType, ok := format["type"].(string)
+	if !ok {
+		return map[string]interface{}{"present": true}
+	}
+
+	return map[string]interface{}{"type": formatType}
+}
+
+func buildProviderTraceChatResponsePayload(provider string, resp contractsopenai.ChatCompletionResponse) map[string]interface{} {
+	if !isDeepSeekProvider(provider) {
+		return buildTraceChatResponsePayload(resp)
+	}
+
+	choices := make([]map[string]interface{}, 0, len(resp.Choices))
+	for _, choice := range resp.Choices {
+		item := map[string]interface{}{
+			"index":         choice.Index,
+			"finish_reason": choice.FinishReason,
+		}
+		if choice.Message != nil {
+			item["reasoning_present"] = strings.TrimSpace(choice.Message.ReasoningContent) != "" || len(choice.Message.ThinkingBlocks) > 0
+			item["tool_call_count"] = len(choice.Message.ToolCalls)
+			item["refusal_present"] = strings.TrimSpace(choice.Message.Refusal) != ""
+		}
+
+		choices = append(choices, item)
+	}
+
+	usage := map[string]interface{}{}
+	if resp.Usage != nil {
+		usage["prompt_tokens"] = resp.Usage.PromptTokens
+		usage["completion_tokens"] = resp.Usage.CompletionTokens
+		usage["total_tokens"] = resp.Usage.TotalTokens
+		usage["prompt_cache_hit_tokens"] = resp.Usage.PromptCacheHitTokens
+		usage["prompt_cache_miss_tokens"] = resp.Usage.PromptCacheMissTokens
+	}
+
+	return map[string]interface{}{
+		"model":    resp.Model,
+		"choices":  choices,
+		"usage":    usage,
+		"redacted": true,
+	}
+}
+
+func buildProviderTraceErrorPayload(provider string, statusCode int, body []byte) map[string]interface{} {
+	if !isDeepSeekProvider(provider) {
+		return buildTraceProviderErrorPayload(statusCode, body)
+	}
+
+	return map[string]interface{}{
+		"status_code": statusCode,
+		"body_bytes":  len(body),
+		"redacted":    true,
+	}
+}
+
+func buildProviderTraceResponseRequestPayload(provider string, req contractsopenai.ResponseRequest) map[string]interface{} {
+	if !isDeepSeekProvider(provider) {
+		return buildTraceResponseRequestPayload(req)
+	}
+
+	inputType, inputCount, itemTypes := summarizeDeepSeekResponseInput(req.Input)
+
+	toolTypes := make([]string, 0, len(req.Tools))
+	for _, tool := range req.Tools {
+		toolTypes = append(toolTypes, tool.Type)
+	}
+
+	reasoningEffort := ""
+	if req.Reasoning != nil {
+		reasoningEffort = req.Reasoning.Effort
+	}
+
+	return map[string]interface{}{
+		"model":                req.Model,
+		"input_type":           inputType,
+		"input_count":          inputCount,
+		"input_item_types":     itemTypes,
+		"instructions_present": strings.TrimSpace(req.Instructions) != "",
+		"instructions_bytes":   len([]byte(req.Instructions)),
+		"max_output_tokens":    req.MaxOutputTokens,
+		"reasoning_effort":     reasoningEffort,
+		"stream":               req.Stream,
+		"text":                 summarizeResponseTextConfig(req.Text),
+		"tool_count":           len(req.Tools),
+		"tool_types":           toolTypes,
+		"top_logprobs":         req.TopLogprobs,
+		"redacted":             true,
+	}
+}
+
+func summarizeDeepSeekResponseInput(input interface{}) (string, int, []string) {
+	switch value := input.(type) {
+	case string:
+		return "string", 1, nil
+	case []interface{}:
+		itemTypes := make([]string, 0, len(value))
+		for _, item := range value {
+			object, ok := item.(map[string]interface{})
+			if !ok {
+				itemTypes = append(itemTypes, "unknown")
+
+				continue
+			}
+
+			itemType := "unknown"
+			if rawType, exists := object["type"]; exists {
+				itemType = strings.TrimSpace(fmt.Sprint(rawType))
+			} else if _, hasRole := object["role"]; hasRole {
+				itemType = "message"
+			}
+
+			itemTypes = append(itemTypes, itemType)
+		}
+
+		return "items", len(value), itemTypes
+	case nil:
+		return "none", 0, nil
+	default:
+		return "unknown", 1, nil
+	}
+}
+
+func buildProviderTraceResponsePayload(provider string, resp contractsopenai.Response) map[string]interface{} {
+	if !isDeepSeekProvider(provider) {
+		return buildTraceResponsePayload(resp)
+	}
+
+	outputTypes := make([]string, 0, len(resp.Output))
+	for _, item := range resp.Output {
+		outputTypes = append(outputTypes, item.Type)
+	}
+
+	usage := map[string]interface{}{}
+	if resp.Usage != nil {
+		usage["input_tokens"] = resp.Usage.InputTokens
+		usage["output_tokens"] = resp.Usage.OutputTokens
+		usage["total_tokens"] = resp.Usage.TotalTokens
+
+		if resp.Usage.InputDetails != nil {
+			usage["cached_tokens"] = resp.Usage.InputDetails.CachedTokens
+		}
+
+		if resp.Usage.OutputDetails != nil {
+			usage["reasoning_tokens"] = resp.Usage.OutputDetails.ReasoningTokens
+		}
+	}
+
+	return map[string]interface{}{
+		"model":        resp.Model,
+		"status":       resp.Status,
+		"output_count": len(resp.Output),
+		"output_types": outputTypes,
+		"usage":        usage,
+		"redacted":     true,
+	}
+}
+
 func buildTraceChatRequestPayload(req contractsopenai.ChatCompletionRequest) map[string]interface{} {
 	messages := make([]map[string]interface{}, 0, len(req.Messages))
 	for _, msg := range req.Messages {
