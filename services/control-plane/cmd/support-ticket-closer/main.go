@@ -27,7 +27,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	if err != nil {
 		logger.Fatal("initialize storage", zap.Error(err))
 	}

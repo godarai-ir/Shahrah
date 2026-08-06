@@ -61,7 +61,7 @@ type Store struct {
 	runtimeProfileInvalidator RuntimeProfileInvalidator
 }
 
-// StoreDependencies contains the non-database collaborators required by repositories.
+// StoreDependencies contains the optional non-database collaborators used by repositories.
 type StoreDependencies struct {
 	Cache                     cache.Cache
 	RequestLoggingModeTTL     time.Duration
@@ -71,22 +71,13 @@ type StoreDependencies struct {
 	TokenUsageMetrics         TokenUsageMetrics
 }
 
-// NewStore creates a new PostgreSQL store.
+// NewStore creates a new PostgreSQL store with an explicit dependency set.
 func NewStore(
 	ctx context.Context,
 	databaseURL string,
 	logger *zap.Logger,
-	dependencies ...StoreDependencies,
+	dependencies StoreDependencies,
 ) (*Store, error) {
-	if len(dependencies) > 1 {
-		return nil, fmt.Errorf("initialize store: expected at most one dependency set, got %d", len(dependencies))
-	}
-
-	deps := StoreDependencies{}
-	if len(dependencies) == 1 {
-		deps = dependencies[0]
-	}
-
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
@@ -104,14 +95,14 @@ func NewStore(
 	}
 
 	requestLoggingModeTTL := secondsEnvOrDefault("REQUEST_LOG_MODE_CACHE_TTL_SECONDS", 60*time.Second)
-	if deps.RequestLoggingModeTTL > 0 {
-		requestLoggingModeTTL = deps.RequestLoggingModeTTL
+	if dependencies.RequestLoggingModeTTL > 0 {
+		requestLoggingModeTTL = dependencies.RequestLoggingModeTTL
 	}
 
 	store := &Store{
 		pool:                      pool,
 		logger:                    logger,
-		entitlementCache:          deps.Cache,
+		entitlementCache:          dependencies.Cache,
 		requestLoggingModeTTL:     requestLoggingModeTTL,
 		tokenUsageEnabled:         boolEnvOrDefault("TOKEN_USAGE_AGGREGATION_ENABLED", true),
 		tokenUsageFailOpen:        boolEnvOrDefault("TOKEN_USAGE_REDIS_FAIL_OPEN", true),
@@ -129,10 +120,10 @@ func NewStore(
 		authzTenantEpoch:          make(map[string]uint64),
 		authzCacheTTL:             60 * time.Second,
 		authzCacheMaxEntries:      5000,
-		runtimeProfileInvalidator: deps.RuntimeProfileInvalidator,
-		tokenUsageMetrics:         deps.TokenUsageMetrics,
+		runtimeProfileInvalidator: dependencies.RuntimeProfileInvalidator,
+		tokenUsageMetrics:         dependencies.TokenUsageMetrics,
 	}
-	if tokenUsageCache, ok := deps.Cache.(cache.TokenUsageCache); ok {
+	if tokenUsageCache, ok := dependencies.Cache.(cache.TokenUsageCache); ok {
 		store.tokenUsageCache = tokenUsageCache
 	}
 
@@ -145,23 +136,28 @@ func NewStore(
 		logger.Warn("clickhouse observability backend unavailable; continuing without clickhouse-backed traces, metrics, and logs", zap.Error(err))
 	}
 
-	store.PlanRepository = newPlanRepository(pool, logger, deps.Cache, deps.RuntimeProfileInvalidator)
+	store.PlanRepository = newPlanRepository(
+		pool,
+		logger,
+		dependencies.Cache,
+		dependencies.RuntimeProfileInvalidator,
+	)
 	store.WalletRepository = newWalletRepository(
 		pool,
 		store.clickhouse,
 		store.clickHouseMetricsReady(),
 		logger,
-		deps.Cache,
+		dependencies.Cache,
 	)
 	store.SupportRepository = newSupportRepository(pool, store.PlanRepository, store.WalletRepository)
 	store.ProviderAccountRepository = newProviderAccountRepository(
 		pool,
 		logger,
-		deps.RuntimeProfileInvalidator,
+		dependencies.RuntimeProfileInvalidator,
 		store.invalidateDeploymentCache,
 		store.warmDeploymentCacheAsync,
-		deps.TenantCredentialStore,
-		deps.TenantProviderProber,
+		dependencies.TenantCredentialStore,
+		dependencies.TenantProviderProber,
 	)
 
 	return store, nil

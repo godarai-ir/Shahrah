@@ -247,7 +247,7 @@ func (s *SupportRepository) AdjustTenantWallet(ctx context.Context, tenantID str
 		return nil, err
 	}
 
-	s.invalidateWalletCache(ctx, tenantID)
+	s.wallets.invalidateWalletCache(ctx, tenantID)
 
 	return &result, nil
 }
@@ -292,7 +292,7 @@ func (s *SupportRepository) ChangeTenantStatus(ctx context.Context, tenantID, ta
 		return nil, err
 	}
 
-	s.invalidateTenantRuntimeProfile(ctx, tenantID, eventType)
+	s.plans.invalidateTenantRuntimeProfile(ctx, tenantID, eventType)
 
 	return s.GetSupportTenantSummary(ctx, tenantID)
 }
@@ -350,9 +350,9 @@ func (s *SupportRepository) SetTenantSubscriptionCancellation(ctx context.Contex
 		return nil, err
 	}
 
-	s.invalidateTenantEntitlements(ctx, tenantID)
+	s.plans.invalidateTenantEntitlements(ctx, tenantID)
 
-	return s.GetTenantSubscription(ctx, tenantID)
+	return s.plans.GetTenantSubscription(ctx, tenantID)
 }
 
 func (s *SupportRepository) ListTenantSubscriptionPaymentIntents(ctx context.Context, tenantID string, limit, offset int) ([]platform.SubscriptionPaymentIntent, error) {

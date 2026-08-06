@@ -57,9 +57,9 @@ type WalletRepository struct {
 
 // SupportRepository persists support tickets and support-only tenant operations.
 type SupportRepository struct {
-	pool *pgxpool.Pool
-	*PlanRepository
-	*WalletRepository
+	pool    *pgxpool.Pool
+	plans   *PlanRepository
+	wallets *WalletRepository
 }
 
 // ProviderAccountRepository persists tenant provider accounts and encrypted credential versions.
@@ -126,9 +126,9 @@ func newSupportRepository(
 	wallets *WalletRepository,
 ) *SupportRepository {
 	return &SupportRepository{
-		pool:             pool,
-		PlanRepository:   plans,
-		WalletRepository: wallets,
+		pool:    pool,
+		plans:   plans,
+		wallets: wallets,
 	}
 }
 

@@ -210,7 +210,7 @@ func TestIntegration_ExchangeRateUpsertMaintainsSingleCurrentRowPerSource(t *tes
 
 	logger, _ := zap.NewDevelopment()
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -249,7 +249,7 @@ func TestIntegration_OnboardingPendingRequestReusedAndExpiresAfterFiveMinutes(t 
 
 	logger, _ := zap.NewDevelopment()
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -320,7 +320,7 @@ func TestIntegration_OnboardingExpiredOTPIsRejected(t *testing.T) {
 
 	logger, _ := zap.NewDevelopment()
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -358,7 +358,7 @@ func TestIntegration_OnboardingVerifyProvisionsSelectedPlanTrialAndCredit(t *tes
 
 	logger, _ := zap.NewDevelopment()
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -418,7 +418,7 @@ func TestIntegration_TenantAdminInvitations_ValidationAndDedupe(t *testing.T) {
 
 	logger, _ := zap.NewDevelopment()
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -703,7 +703,7 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	ctx := context.Background()
 
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 
@@ -1601,7 +1601,7 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cach
 	t.Helper()
 
 	ctx := context.Background()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 	t.Cleanup(store.Close)
 

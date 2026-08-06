@@ -36,7 +36,7 @@ func run() error {
 	}
 	defer logger.Sync() //nolint:errcheck // Best-effort flush during command shutdown.
 
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	if err != nil {
 		return fmt.Errorf("initialize storage: %w", err)
 	}

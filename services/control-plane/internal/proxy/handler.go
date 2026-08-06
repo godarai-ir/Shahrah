@@ -203,10 +203,11 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return err
 	}
 
+	reservationToRelease := admitted.reservation
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
-			h.pipeline.Release(c.Context(), admitted.reservation, "request_not_committed")
+			h.pipeline.Release(c.Context(), reservationToRelease, "request_not_committed")
 		}
 	}()
 
@@ -214,6 +215,8 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	if err != nil || routed.responseHandled {
 		return err
 	}
+
+	reservationToRelease = routed.reservation
 
 	if prepared.request.Stream {
 		releaseBudgetOnExit = false
@@ -1116,6 +1119,7 @@ func (h *ChatCompletionHandler) handleStream(
 		}
 
 		budgetCommitted := false
+		budgetReleaseReason := "stream_not_committed"
 		finalized := false
 
 		var finalizedCost platform.UsageCostBreakdown
@@ -1127,7 +1131,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 		defer func() {
 			if !budgetCommitted {
-				h.pipeline.Release(requestCtx, budgetReservation, "stream_not_committed")
+				h.pipeline.Release(requestCtx, budgetReservation, budgetReleaseReason)
 			}
 		}()
 
@@ -1222,6 +1226,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 						if writeErr := writeBufferedBytes(w, pending); writeErr != nil {
 							h.logger.Warn("failed to write pending streaming data", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+							budgetReleaseReason = "stream_write_failed"
 							logStreamFailure("stream_write_error", writeErr.Error())
 
 							return
@@ -1266,7 +1271,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 					if writeErr := writeBufferedBytes(w, streamData); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-						h.pipeline.Release(requestCtx, budgetReservation, "stream_write_failed")
+						budgetReleaseReason = "stream_write_failed"
 						logStreamFailure("stream_write_error", writeErr.Error())
 
 						return
@@ -1285,7 +1290,7 @@ func (h *ChatCompletionHandler) handleStream(
 				}
 			case err, ok := <-stream.Errors():
 				if ok && err != nil {
-					h.pipeline.Release(requestCtx, budgetReservation, "stream_error")
+					budgetReleaseReason = "stream_error"
 
 					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
 						Error: contractsopenai.ErrorInfo{

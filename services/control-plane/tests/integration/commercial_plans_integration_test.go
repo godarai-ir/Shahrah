@@ -91,7 +91,7 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 
 	ctx := context.Background()
 	logger := zap.NewNop()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{})
 	require.NoError(t, err)
 
 	defer store.Close()
