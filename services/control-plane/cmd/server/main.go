@@ -39,7 +39,6 @@ import (
 	"go.uber.org/zap"
 )
 
-//nolint:govet // Startup wiring intentionally keeps short-lived branch errors close to their handling.
 func main() {
 	logger, err := zap.NewProduction()
 	if err != nil {
