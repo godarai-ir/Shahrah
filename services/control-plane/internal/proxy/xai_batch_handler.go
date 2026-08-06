@@ -61,6 +61,7 @@ func (h *ResponsesHandler) handleXAIBatchResource(c *fiber.Ctx, operation platfo
 	if !ok {
 		return nil
 	}
+
 	if h.resources == nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "xAI Batch routing state is unavailable", "routing_error")
 	}

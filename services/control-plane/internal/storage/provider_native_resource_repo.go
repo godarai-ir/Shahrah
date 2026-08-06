@@ -208,6 +208,7 @@ func (s *Store) ListProviderNativeResourceMappings(
 	defer rows.Close()
 
 	mappings := make([]platform.ProviderNativeResourceMapping, 0)
+
 	for rows.Next() {
 		var (
 			mapping                          platform.ProviderNativeResourceMapping
@@ -300,6 +301,7 @@ func (s *Store) ListPendingProviderNativeResourceMappings(
 	defer rows.Close()
 
 	mappings := make([]platform.ProviderNativeResourceMapping, 0)
+
 	for rows.Next() {
 		var (
 			mapping                          platform.ProviderNativeResourceMapping

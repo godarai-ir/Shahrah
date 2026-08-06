@@ -21,6 +21,7 @@ func TestMistralNativeFeatureFlagsDefaultOff(t *testing.T) {
 	}
 
 	t.Setenv("SHAHRAH_MISTRAL_FILES_ENABLED", "true")
+
 	if !mistralNativeFeatureEnabled("FILES") {
 		t.Fatal("explicitly enabled native Files API was rejected")
 	}
@@ -33,9 +34,11 @@ func TestMistralOperationParserUsesPublicResourceID(t *testing.T) {
 		if err != nil {
 			return err
 		}
+
 		if operation != platform.ProviderOperationMistralConversationsRestart {
 			t.Fatalf("operation = %s", operation)
 		}
+
 		if input.ResourceID != "mconv_gdr_owned" {
 			t.Fatalf("resource id = %q", input.ResourceID)
 		}
@@ -44,11 +47,12 @@ func TestMistralOperationParserUsesPublicResourceID(t *testing.T) {
 	})
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/conversations/mconv_gdr_owned/restart", bytes.NewBufferString(`{"inputs":"continue"}`))
+
 	response, err := app.Test(request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close() //nolint:errcheck // Test cleanup is best-effort.
+	defer response.Body.Close()
 
 	if response.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("status = %d", response.StatusCode)
@@ -57,6 +61,7 @@ func TestMistralOperationParserUsesPublicResourceID(t *testing.T) {
 
 func TestRewriteMistralListFiltersUnknownUpstreamResources(t *testing.T) {
 	body := []byte(`{"data":[{"id":"upstream-owned"},{"id":"upstream-other"}],"total":99}`)
+
 	rewritten, err := rewriteMistralOwnedListResponseJSON(
 		body,
 		map[string]string{"upstream-owned": "magent_gdr_owned", "related-file": "mfile_gdr_related"},
@@ -66,12 +71,15 @@ func TestRewriteMistralListFiltersUnknownUpstreamResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if strings.Contains(string(rewritten), "upstream-") || strings.Contains(string(rewritten), "other") {
 		t.Fatalf("upstream or unowned resource leaked: %s", rewritten)
 	}
+
 	if !strings.Contains(string(rewritten), "magent_gdr_owned") {
 		t.Fatalf("public id missing: %s", rewritten)
 	}
+
 	if !strings.Contains(string(rewritten), `"total":1`) {
 		t.Fatalf("owned count was not sanitized: %s", rewritten)
 	}
@@ -82,6 +90,7 @@ func TestMistralResponseIdentityUsesConversationID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if id != "conv-upstream" || status != "active" {
 		t.Fatalf("identity = %q, %q", id, status)
 	}
@@ -89,10 +98,12 @@ func TestMistralResponseIdentityUsesConversationID(t *testing.T) {
 
 func TestMistralFileMetadataRetainsBatchLineCount(t *testing.T) {
 	metadata := mistralResponseResourceMetadata([]byte(`{"id":"file-upstream","num_lines":12,"filename":"input.jsonl"}`))
+
 	lines, ok := mistralMetadataPositiveInt(metadata, "num_lines")
 	if !ok || lines != 12 {
 		t.Fatalf("num_lines = %d, %v", lines, ok)
 	}
+
 	if _, leaked := metadata["id"]; leaked {
 		t.Fatal("upstream id leaked into resource metadata")
 	}
@@ -100,10 +111,12 @@ func TestMistralFileMetadataRetainsBatchLineCount(t *testing.T) {
 
 func TestMistralNestedBatchModel(t *testing.T) {
 	body := []byte(`{"endpoint":"/v1/chat/completions","requests":[{"body":{"model":"mistral-large-2512"}}]}`)
+
 	model, _, err := mistralRequestModel(platform.ProviderOperationMistralBatchCreate, body)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if model != "mistral-large-2512" {
 		t.Fatalf("model = %q", model)
 	}
@@ -111,6 +124,7 @@ func TestMistralNestedBatchModel(t *testing.T) {
 
 func TestMistralNestedBuiltInToolIsRejected(t *testing.T) {
 	body := []byte(`{"requests":[{"body":{"tools":[{"type":"web_search"}]}}]}`)
+
 	err := validateMistralNativePolicy(platform.ProviderOperationMistralBatchCreate, body)
 	if err == nil || !strings.Contains(err.Error(), "web_search") {
 		t.Fatalf("error = %v", err)
@@ -122,6 +136,7 @@ func TestMistralBatchFileRequiresJobLevelModel(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"custom_id":"1","body":{"model":"mistral-small-latest","messages":[]}}`), &value); err != nil {
 		t.Fatal(err)
 	}
+
 	err := validateMistralBatchFileRequest(value)
 	if err == nil || !strings.Contains(err.Error(), "creating the batch job") {
 		t.Fatalf("error = %v", err)
@@ -129,26 +144,26 @@ func TestMistralBatchFileRequiresJobLevelModel(t *testing.T) {
 }
 
 func TestMistralBatchTerminalStatuses(t *testing.T) {
-	for _, status := range []string{"SUCCESS", "failed", "timeout_exceeded", "CANCELLED"} {
+	for _, status := range []string{"SUCCESS", "failed", "timeout_exceeded", "CANCELLED"} { //nolint:misspell // Verify Mistral's alternate provider spelling.
 		if !mistralBatchStatusIsTerminal(status) {
 			t.Fatalf("terminal status rejected: %s", status)
 		}
 	}
+
 	if mistralBatchStatusIsTerminal("running") {
 		t.Fatal("running batch was considered terminal")
 	}
 }
 
 func TestMistralBatchUsageAggregatesJSONLResponses(t *testing.T) {
-	input := strings.Join([]string{
-		`{"response":{"body":{"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13}}}}`,
-		`{"result":{"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}}`,
-	}, "\n")
+	input := `{"response":{"body":{"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13}}}}` + "\n" +
+		`{"result":{"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}}`
 
 	usage, err := parseMistralBatchUsage(strings.NewReader(input))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if usage.PromptTokens != 15 || usage.CompletionTokens != 5 || usage.TotalTokens != 20 {
 		t.Fatalf("unexpected usage: %+v", usage)
 	}
@@ -159,6 +174,7 @@ func TestMistralUsageRejectsIncompleteTokenAccounting(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"usage":{"total_tokens":12}}`), &value); err != nil {
 		t.Fatal(err)
 	}
+
 	if usage := mistralUsageFromValue(value); usage != nil {
 		t.Fatalf("incomplete usage was accepted: %+v", usage)
 	}

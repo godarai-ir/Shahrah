@@ -13,6 +13,7 @@ import (
 
 func (h *MistralNativeHandler) rewriteMistralSSEChunk(ctx context.Context, tenantID string, request platform.TunnelRequest, chunk []byte, model string) ([]byte, *contractsopenai.Usage, error) {
 	lines := bytes.Split(chunk, []byte("\n"))
+
 	var latestUsage *contractsopenai.Usage
 
 	for index, line := range lines {
@@ -30,11 +31,13 @@ func (h *MistralNativeHandler) rewriteMistralSSEChunk(ctx context.Context, tenan
 		if json.Unmarshal(payload, &value) != nil {
 			continue
 		}
+
 		if usage := mistralUsageFromValue(value); usage != nil {
 			latestUsage = usage
 		}
 
 		known := make(map[string]string)
+
 		if request.OperationInput.ResourceID != "" {
 			mapping, err := h.resources.GetProviderNativeResourceMappingByUpstream(
 				ctx,
@@ -76,13 +79,17 @@ func (h *MistralNativeHandler) rewriteMistralSSEChunk(ctx context.Context, tenan
 		}
 
 		value = rewriteMistralResponseValue(value, known, false)
+
 		rewritten, err := json.Marshal(value)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		prefixLength := bytes.Index(line, []byte("data:"))
-		prefix := line[:prefixLength]
+		prefix, _, found := bytes.Cut(line, []byte("data:"))
+		if !found {
+			continue
+		}
+
 		lines[index] = append(append(prefix, []byte("data: ")...), rewritten...)
 	}
 
@@ -94,9 +101,11 @@ func mistralConversationIDFromValue(value interface{}) string {
 	if !ok {
 		return ""
 	}
+
 	if id := strings.TrimSpace(stringFromMap(object, "conversation_id")); id != "" {
 		return id
 	}
+
 	if eventType := strings.ToLower(strings.TrimSpace(stringFromMap(object, "type"))); strings.Contains(eventType, "conversation") {
 		return strings.TrimSpace(stringFromMap(object, "id"))
 	}
@@ -109,6 +118,7 @@ func mistralUsageFromValue(value interface{}) *contractsopenai.Usage {
 	case map[string]interface{}:
 		if raw, ok := typed["usage"].(map[string]interface{}); ok {
 			prompt, promptOK := mistralNonnegativeTokenCount(raw, "prompt_tokens")
+
 			completion, completionOK := mistralNonnegativeTokenCount(raw, "completion_tokens")
 			if promptOK && completionOK {
 				total, totalOK := mistralNonnegativeTokenCount(raw, "total_tokens")
@@ -124,6 +134,7 @@ func mistralUsageFromValue(value interface{}) *contractsopenai.Usage {
 				return &contractsopenai.Usage{PromptTokens: prompt, CompletionTokens: completion, TotalTokens: total}
 			}
 		}
+
 		for _, child := range typed {
 			if usage := mistralUsageFromValue(child); usage != nil {
 				return usage
@@ -180,31 +191,35 @@ func (h *MistralNativeHandler) rewriteRequestReferences(
 		if err != nil || mapping == nil {
 			return "", fmt.Errorf("%s references a missing or inaccessible resource", field)
 		}
+
 		if accountID != "" && !strings.EqualFold(accountID, mapping.ProviderAccountID) {
 			return "", fmt.Errorf("all referenced resources must belong to the selected provider account")
 		}
 
 		accountID = mapping.ProviderAccountID
 		if model == "" && kind == mistralAgentResourceKind {
-			model, _ = mapping.Metadata["model"].(string)
+			model = stringFromMap(mapping.Metadata, "model")
 		}
 
 		return mapping.UpstreamID, nil
 	}
 
 	var rewriteValue func(value interface{}) error
+
 	rewriteValue = func(value interface{}) error {
 		switch typed := value.(type) {
 		case map[string]interface{}:
 			for field, child := range typed {
 				canonical := strings.ToLower(strings.TrimSpace(field))
 				kind := ""
+
 				switch canonical {
 				case "file_id":
 					kind = mistralFileResourceKind
 				case "agent_id":
 					kind = mistralAgentResourceKind
 				}
+
 				if kind != "" {
 					publicID, ok := child.(string)
 					if !ok || strings.TrimSpace(publicID) == "" {
@@ -217,6 +232,7 @@ func (h *MistralNativeHandler) rewriteRequestReferences(
 					}
 
 					typed[field] = upstreamID
+
 					continue
 				}
 
@@ -230,6 +246,7 @@ func (h *MistralNativeHandler) rewriteRequestReferences(
 					if canonical == "handoffs" {
 						kind = mistralAgentResourceKind
 					}
+
 					for index, rawID := range values {
 						publicID, ok := rawID.(string)
 						if !ok || strings.TrimSpace(publicID) == "" {
@@ -245,6 +262,7 @@ func (h *MistralNativeHandler) rewriteRequestReferences(
 					}
 
 					typed[field] = values
+
 					continue
 				}
 
@@ -283,9 +301,11 @@ func (h *MistralNativeHandler) mistralBatchRequestCount(ctx context.Context, ten
 	if err := json.Unmarshal(body, &request); err != nil {
 		return 0, fmt.Errorf("invalid Mistral batch request")
 	}
+
 	if len(request.Requests) > 0 {
 		return len(request.Requests), nil
 	}
+
 	if len(request.InputFiles) == 0 {
 		return 0, fmt.Errorf("input_files or requests is required")
 	}
@@ -297,6 +317,7 @@ func (h *MistralNativeHandler) mistralBatchRequestCount(ctx context.Context, ten
 
 	count := 0
 	maxInt := int(^uint(0) >> 1)
+
 	for _, publicID := range request.InputFiles {
 		mapping, err := h.resources.GetProviderNativeResourceMapping(
 			ctx,
@@ -308,8 +329,9 @@ func (h *MistralNativeHandler) mistralBatchRequestCount(ctx context.Context, ten
 		if err != nil || mapping == nil {
 			return 0, fmt.Errorf("input_files references a missing or inaccessible resource")
 		}
-		policyValidated, _ := mapping.Metadata["batch_policy_validated"].(bool)
-		if !policyValidated {
+
+		policyValidated, validPolicy := mapping.Metadata["batch_policy_validated"].(bool)
+		if !validPolicy || !policyValidated {
 			return 0, fmt.Errorf("input file was not validated for Mistral batch policy; upload it again")
 		}
 
@@ -317,8 +339,9 @@ func (h *MistralNativeHandler) mistralBatchRequestCount(ctx context.Context, ten
 		if !ok {
 			return 0, fmt.Errorf("input file line count is unavailable; retrieve the file after processing and retry")
 		}
+
 		if count > maxInt-lines {
-			return 0, fmt.Errorf("Mistral batch request count is too large")
+			return 0, fmt.Errorf("mistral batch request count is too large")
 		}
 
 		count += lines
@@ -334,6 +357,7 @@ func mistralMetadataPositiveInt(metadata map[string]interface{}, key string) (in
 	}
 
 	var number int
+
 	switch typed := value.(type) {
 	case int:
 		number = typed
@@ -373,6 +397,7 @@ func (h *MistralNativeHandler) persistAndRewriteResponse(
 	}
 
 	kind := mistralOperationResourceKind(operation)
+
 	mappings, err := h.resources.ListProviderNativeResourceMappings(
 		ctx,
 		tenantID,
@@ -388,6 +413,7 @@ func (h *MistralNativeHandler) persistAndRewriteResponse(
 
 	owned := mappingsByUpstream(mappings)
 	known := cloneMistralIDMap(owned)
+
 	if mistralOperationIsCreate(operation) {
 		upstreamID, status, err := mistralResponseIdentity(body)
 		if err != nil {
@@ -398,18 +424,22 @@ func (h *MistralNativeHandler) persistAndRewriteResponse(
 		if model != "" {
 			metadata["model"] = model
 		}
+
 		if operation == platform.ProviderOperationMistralFilesCreate {
 			for key, value := range mistralResponseResourceMetadata(body) {
 				metadata[key] = value
 			}
+
 			for key, value := range extraMetadata {
 				metadata[key] = value
 			}
 		}
+
 		if operation == platform.ProviderOperationMistralBatchCreate {
 			if endpoint, ok := estimated.Metadata["batch_endpoint"].(string); ok && endpoint != "" {
 				metadata["endpoint"] = endpoint
 			}
+
 			if endpoint, ok := estimated.Metadata["batch_runtime_endpoint"].(string); ok && endpoint != "" {
 				metadata["runtime_endpoint"] = endpoint
 			}
@@ -423,11 +453,13 @@ func (h *MistralNativeHandler) persistAndRewriteResponse(
 		}
 		if operation == platform.ProviderOperationMistralBatchCreate {
 			created.PricingRevision = estimated.PricingRevision
+
 			created.EstimatedUsage = &estimated
 			if requestID, ok := estimated.Metadata["request_id"].(string); ok {
 				created.ReservationID = requestID
 			}
 		}
+
 		if reservation != nil {
 			created.ReservationID = reservation.ID
 			created.Reservation = reservation
@@ -440,28 +472,35 @@ func (h *MistralNativeHandler) persistAndRewriteResponse(
 
 		known[upstreamID] = persisted.PublicID
 	}
+
 	if resource != nil {
 		known[resource.UpstreamID] = resource.PublicID
 		status := mistralResponseStatus(body)
+
 		workerMustSettle := kind == mistralBatchResourceKind && mistralBatchStatusIsTerminal(status)
 		if status != "" && status != resource.Status && !workerMustSettle {
 			_ = h.resources.UpdateProviderNativeResourceStatus(ctx, tenantID, mistralProviderName, kind, resource.PublicID, status) //nolint:errcheck // The provider response remains authoritative; the worker retries reconciliation.
 			resource.Status = status
 		}
+
 		if operation == platform.ProviderOperationMistralAgentsUpdate && model != "" {
 			updated := *resource
 			updated.Metadata = cloneMistralMetadata(resource.Metadata)
+
 			updated.Metadata["model"] = model
 			if _, updateErr := h.resources.UpsertProviderNativeResourceMapping(ctx, updated); updateErr != nil {
 				return nil, updateErr
 			}
 		}
+
 		if operation == platform.ProviderOperationMistralFilesGet {
 			updated := *resource
+
 			updated.Metadata = cloneMistralMetadata(resource.Metadata)
 			for key, value := range mistralResponseResourceMetadata(body) {
 				updated.Metadata[key] = value
 			}
+
 			if _, updateErr := h.resources.UpsertProviderNativeResourceMapping(ctx, updated); updateErr != nil {
 				return nil, updateErr
 			}
@@ -503,6 +542,7 @@ func (h *MistralNativeHandler) persistAndRewriteResponse(
 		if listErr != nil {
 			return nil, listErr
 		}
+
 		for upstreamID, publicID := range mappingsByUpstream(related) {
 			known[upstreamID] = publicID
 		}
@@ -571,11 +611,13 @@ func mistralResponseIdentity(body []byte) (string, string, error) {
 	if upstreamID == "" {
 		upstreamID = strings.TrimSpace(stringFromMap(response, "batch_id"))
 	}
+
 	if upstreamID == "" {
 		upstreamID = strings.TrimSpace(stringFromMap(response, "conversation_id"))
 	}
+
 	if upstreamID == "" {
-		return "", "", fmt.Errorf("Mistral resource response is missing id")
+		return "", "", fmt.Errorf("mistral resource response is missing id")
 	}
 
 	status := strings.ToLower(strings.TrimSpace(stringFromMap(response, "status")))
@@ -602,6 +644,7 @@ func mistralResponseResourceMetadata(body []byte) map[string]interface{} {
 	}
 
 	metadata := make(map[string]interface{})
+
 	for _, key := range []string{"bytes", "size", "num_lines", "purpose", "filename", "file_name", "sample_type"} {
 		if value, exists := response[key]; exists {
 			metadata[key] = value
@@ -652,6 +695,7 @@ func rewriteMistralResponseValueOwned(value interface{}, known, owned map[string
 	switch typed := value.(type) {
 	case map[string]interface{}:
 		ownedCount := -1
+
 		for key, child := range typed {
 			if array, ok := child.([]interface{}); ok && filterList && mistralListField(key) {
 				filtered := filterMistralOwnedList(array, known, owned)
@@ -663,10 +707,12 @@ func rewriteMistralResponseValueOwned(value interface{}, known, owned map[string
 
 			typed[key] = rewriteMistralResponseValueOwned(child, known, owned, false)
 		}
+
 		if filterList {
 			if ownedCount < 0 {
 				ownedCount = len(owned)
 			}
+
 			for _, key := range []string{"total", "total_count", "count"} {
 				if _, exists := typed[key]; exists {
 					typed[key] = ownedCount
@@ -679,6 +725,7 @@ func rewriteMistralResponseValueOwned(value interface{}, known, owned map[string
 		if filterList {
 			return filterMistralOwnedList(typed, known, owned)
 		}
+
 		for index, child := range typed {
 			typed[index] = rewriteMistralResponseValueOwned(child, known, owned, false)
 		}
@@ -707,6 +754,7 @@ func filterMistralOwnedList(values []interface{}, known, owned map[string]string
 		if upstreamID == "" {
 			upstreamID = strings.TrimSpace(stringFromMap(object, "batch_id"))
 		}
+
 		if _, ok := owned[upstreamID]; !ok {
 			continue
 		}

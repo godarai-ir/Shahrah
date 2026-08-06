@@ -110,30 +110,10 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	accountSelector := strings.TrimSpace(c.Get("x-godarai-provider-account"))
-	if isJSONContentType(contentType) && strings.HasPrefix(strings.ToLower(providerModelID(reqMeta.Model)), "voxtral-mini-") {
-		var request map[string]interface{}
-		if json.Unmarshal(body, &request) == nil {
-			if publicID := strings.TrimSpace(stringFromMap(request, "file_id")); publicID != "" {
-				if h.resources == nil {
-					return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral file mapping is unavailable", "routing_error")
-				}
 
-				mapping, mappingErr := h.resources.GetProviderNativeResourceMapping(c.Context(), currentTenant.ID, mistralProviderName, mistralFileResourceKind, publicID)
-				if mappingErr != nil || mapping == nil {
-					return writeAPIError(c, fiber.StatusNotFound, "Referenced Mistral file was not found", "not_found_error")
-				}
-				if accountSelector != "" && !strings.EqualFold(accountSelector, mapping.ProviderAccountID) {
-					return writeAPIError(c, fiber.StatusBadRequest, "Referenced file belongs to a different provider account", "invalid_request_error")
-				}
-
-				accountSelector = mapping.ProviderAccountID
-				request["file_id"] = mapping.UpstreamID
-				body, err = json.Marshal(request)
-				if err != nil {
-					return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode audio transcription request", "invalid_request_error")
-				}
-			}
-		}
+	body, accountSelector, err = h.rewriteMistralAudioFileReference(c, currentTenant.ID, contentType, reqMeta.Model, body, accountSelector)
+	if err != nil {
+		return err
 	}
 
 	requestedModel := normalizeModelIdentifier(reqMeta.Model)
@@ -252,6 +232,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("audio_transcriptions") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio transcriptions are disabled", "provider_disabled")
 	}
+
 	if isMistralProvider(dep.Provider) && accountSelector != "" &&
 		!strings.EqualFold(accountSelector, dep.ProviderAccountID) &&
 		!strings.EqualFold(accountSelector, dep.ProviderAccountName) {
@@ -352,6 +333,61 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	return err
+}
+
+func (h *AudioTranscriptionsHandler) rewriteMistralAudioFileReference(
+	c *fiber.Ctx,
+	tenantID string,
+	contentType string,
+	model string,
+	body []byte,
+	accountSelector string,
+) ([]byte, string, error) {
+	if !isJSONContentType(contentType) ||
+		!strings.HasPrefix(strings.ToLower(providerModelID(model)), "voxtral-mini-") {
+		return body, accountSelector, nil
+	}
+
+	request, ok := decodeAudioTranscriptionJSONObject(body)
+	if !ok {
+		return body, accountSelector, nil
+	}
+
+	publicID := strings.TrimSpace(stringFromMap(request, "file_id"))
+	if publicID == "" {
+		return body, accountSelector, nil
+	}
+
+	if h.resources == nil {
+		return nil, "", writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral file mapping is unavailable", "routing_error")
+	}
+
+	mapping, err := h.resources.GetProviderNativeResourceMapping(c.Context(), tenantID, mistralProviderName, mistralFileResourceKind, publicID)
+	if err != nil || mapping == nil {
+		return nil, "", writeAPIError(c, fiber.StatusNotFound, "Referenced Mistral file was not found", "not_found_error")
+	}
+
+	if accountSelector != "" && !strings.EqualFold(accountSelector, mapping.ProviderAccountID) {
+		return nil, "", writeAPIError(c, fiber.StatusBadRequest, "Referenced file belongs to a different provider account", "invalid_request_error")
+	}
+
+	request["file_id"] = mapping.UpstreamID
+
+	rewritten, err := json.Marshal(request)
+	if err != nil {
+		return nil, "", writeAPIError(c, fiber.StatusBadRequest, "Failed to encode audio transcription request", "invalid_request_error")
+	}
+
+	return rewritten, mapping.ProviderAccountID, nil
+}
+
+func decodeAudioTranscriptionJSONObject(body []byte) (map[string]interface{}, bool) {
+	var destination map[string]interface{}
+	if json.Unmarshal(body, &destination) != nil {
+		return nil, false
+	}
+
+	return destination, true
 }
 
 func (h *AudioTranscriptionsHandler) handleSync(

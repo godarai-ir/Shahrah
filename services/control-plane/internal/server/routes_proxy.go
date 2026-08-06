@@ -171,7 +171,9 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 				if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
 					return deps.AnthropicNativeHandler.Handle(c)
 				}
+
 				provider := strings.ToLower(strings.TrimSpace(c.Get("x-godarai-provider")))
+
 				fileID := strings.TrimSpace(c.Params("file_id"))
 				if deps.MistralNativeHandler != nil &&
 					(provider == "mistral" || provider == "mistral-ai" || strings.HasPrefix(fileID, "mfile_gdr_")) {
@@ -205,6 +207,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 		v1.Delete("/files/:file_id", fileHandler(deleteFile))
 		v1.Get("/files/:file_id/content", fileHandler(content))
+
 		if deps.MistralNativeHandler != nil {
 			v1.Get("/files/:id/url", deps.MistralNativeHandler.Handle)
 		}

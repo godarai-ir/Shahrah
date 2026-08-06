@@ -177,6 +177,7 @@ func providerPayloadLimitMiddleware() fiber.Handler {
 
 		if path == "/v1/files" && c.Method() == fiber.MethodPost {
 			limit = fileLimit
+
 			provider := strings.ToLower(strings.TrimSpace(c.Get("x-godarai-provider")))
 			if provider == "mistral" || provider == "mistral-ai" {
 				limit = mistralFile

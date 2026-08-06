@@ -36,9 +36,11 @@ func mistralOperationFromRequest(c *fiber.Ctx) (platform.ProviderOperation, plat
 	if page > 0 {
 		input.Page = &page
 	}
+
 	if pageSize > 0 {
 		input.PageSize = &pageSize
 	}
+
 	if createdByMe != "" {
 		value := strings.EqualFold(createdByMe, "true")
 		if !value && !strings.EqualFold(createdByMe, "false") {
@@ -48,60 +50,98 @@ func mistralOperationFromRequest(c *fiber.Ctx) (platform.ProviderOperation, plat
 		input.CreatedByMe = &value
 	}
 
+	method := c.Method()
+
 	path := strings.TrimSuffix(c.Path(), "/")
+	for _, resolve := range []func(string, string) (platform.ProviderOperation, bool){
+		mistralFileOperation,
+		mistralBatchOperation,
+		mistralAgentOperation,
+		mistralConversationOperation,
+	} {
+		if operation, ok := resolve(method, path); ok {
+			return operation, input, nil
+		}
+	}
+
+	return "", input, fmt.Errorf("unsupported Mistral operation")
+}
+
+func mistralFileOperation(method, path string) (platform.ProviderOperation, bool) {
 	switch {
-	case c.Method() == fiber.MethodPost && path == "/v1/files":
-		return platform.ProviderOperationMistralFilesCreate, input, nil
-	case c.Method() == fiber.MethodGet && path == "/v1/files":
-		return platform.ProviderOperationMistralFilesList, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasSuffix(path, "/content"):
-		return platform.ProviderOperationMistralFilesContent, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasSuffix(path, "/url"):
-		return platform.ProviderOperationMistralFilesURL, input, nil
-	case c.Method() == fiber.MethodDelete && strings.HasPrefix(path, "/v1/files/"):
-		return platform.ProviderOperationMistralFilesDelete, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasPrefix(path, "/v1/files/"):
-		return platform.ProviderOperationMistralFilesGet, input, nil
-	case c.Method() == fiber.MethodPost && path == "/v1/batch/jobs":
-		return platform.ProviderOperationMistralBatchCreate, input, nil
-	case c.Method() == fiber.MethodGet && path == "/v1/batch/jobs":
-		return platform.ProviderOperationMistralBatchList, input, nil
-	case c.Method() == fiber.MethodPost && strings.HasSuffix(path, "/cancel"):
-		return platform.ProviderOperationMistralBatchCancel, input, nil
-	case c.Method() == fiber.MethodDelete && strings.HasPrefix(path, "/v1/batch/jobs/"):
-		return platform.ProviderOperationMistralBatchDelete, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasPrefix(path, "/v1/batch/jobs/"):
-		return platform.ProviderOperationMistralBatchGet, input, nil
-	case c.Method() == fiber.MethodPost && path == "/v1/agents":
-		return platform.ProviderOperationMistralAgentsCreate, input, nil
-	case c.Method() == fiber.MethodGet && path == "/v1/agents":
-		return platform.ProviderOperationMistralAgentsList, input, nil
-	case c.Method() == fiber.MethodGet && path == "/v1/agents/pages":
-		return platform.ProviderOperationMistralAgentsPages, input, nil
-	case c.Method() == fiber.MethodPatch && strings.HasPrefix(path, "/v1/agents/"):
-		return platform.ProviderOperationMistralAgentsUpdate, input, nil
-	case c.Method() == fiber.MethodDelete && strings.HasPrefix(path, "/v1/agents/"):
-		return platform.ProviderOperationMistralAgentsDelete, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasPrefix(path, "/v1/agents/"):
-		return platform.ProviderOperationMistralAgentsGet, input, nil
-	case c.Method() == fiber.MethodPost && path == "/v1/conversations":
-		return platform.ProviderOperationMistralConversationsCreate, input, nil
-	case c.Method() == fiber.MethodGet && path == "/v1/conversations":
-		return platform.ProviderOperationMistralConversationsList, input, nil
-	case c.Method() == fiber.MethodPost && strings.HasSuffix(path, "/restart"):
-		return platform.ProviderOperationMistralConversationsRestart, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasSuffix(path, "/history"):
-		return platform.ProviderOperationMistralConversationsHistory, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasSuffix(path, "/messages"):
-		return platform.ProviderOperationMistralConversationsMessages, input, nil
-	case c.Method() == fiber.MethodPost && strings.HasPrefix(path, "/v1/conversations/"):
-		return platform.ProviderOperationMistralConversationsAppend, input, nil
-	case c.Method() == fiber.MethodDelete && strings.HasPrefix(path, "/v1/conversations/"):
-		return platform.ProviderOperationMistralConversationsDelete, input, nil
-	case c.Method() == fiber.MethodGet && strings.HasPrefix(path, "/v1/conversations/"):
-		return platform.ProviderOperationMistralConversationsGet, input, nil
+	case method == fiber.MethodPost && path == "/v1/files":
+		return platform.ProviderOperationMistralFilesCreate, true
+	case method == fiber.MethodGet && path == "/v1/files":
+		return platform.ProviderOperationMistralFilesList, true
+	case method == fiber.MethodGet && strings.HasSuffix(path, "/content"):
+		return platform.ProviderOperationMistralFilesContent, true
+	case method == fiber.MethodGet && strings.HasSuffix(path, "/url"):
+		return platform.ProviderOperationMistralFilesURL, true
+	case method == fiber.MethodDelete && strings.HasPrefix(path, "/v1/files/"):
+		return platform.ProviderOperationMistralFilesDelete, true
+	case method == fiber.MethodGet && strings.HasPrefix(path, "/v1/files/"):
+		return platform.ProviderOperationMistralFilesGet, true
 	default:
-		return "", input, fmt.Errorf("unsupported Mistral operation")
+		return "", false
+	}
+}
+
+func mistralBatchOperation(method, path string) (platform.ProviderOperation, bool) {
+	switch {
+	case method == fiber.MethodPost && path == "/v1/batch/jobs":
+		return platform.ProviderOperationMistralBatchCreate, true
+	case method == fiber.MethodGet && path == "/v1/batch/jobs":
+		return platform.ProviderOperationMistralBatchList, true
+	case method == fiber.MethodPost && strings.HasSuffix(path, "/cancel"):
+		return platform.ProviderOperationMistralBatchCancel, true
+	case method == fiber.MethodDelete && strings.HasPrefix(path, "/v1/batch/jobs/"):
+		return platform.ProviderOperationMistralBatchDelete, true
+	case method == fiber.MethodGet && strings.HasPrefix(path, "/v1/batch/jobs/"):
+		return platform.ProviderOperationMistralBatchGet, true
+	default:
+		return "", false
+	}
+}
+
+func mistralAgentOperation(method, path string) (platform.ProviderOperation, bool) {
+	switch {
+	case method == fiber.MethodPost && path == "/v1/agents":
+		return platform.ProviderOperationMistralAgentsCreate, true
+	case method == fiber.MethodGet && path == "/v1/agents":
+		return platform.ProviderOperationMistralAgentsList, true
+	case method == fiber.MethodGet && path == "/v1/agents/pages":
+		return platform.ProviderOperationMistralAgentsPages, true
+	case method == fiber.MethodPatch && strings.HasPrefix(path, "/v1/agents/"):
+		return platform.ProviderOperationMistralAgentsUpdate, true
+	case method == fiber.MethodDelete && strings.HasPrefix(path, "/v1/agents/"):
+		return platform.ProviderOperationMistralAgentsDelete, true
+	case method == fiber.MethodGet && strings.HasPrefix(path, "/v1/agents/"):
+		return platform.ProviderOperationMistralAgentsGet, true
+	default:
+		return "", false
+	}
+}
+
+func mistralConversationOperation(method, path string) (platform.ProviderOperation, bool) {
+	switch {
+	case method == fiber.MethodPost && path == "/v1/conversations":
+		return platform.ProviderOperationMistralConversationsCreate, true
+	case method == fiber.MethodGet && path == "/v1/conversations":
+		return platform.ProviderOperationMistralConversationsList, true
+	case method == fiber.MethodPost && strings.HasSuffix(path, "/restart"):
+		return platform.ProviderOperationMistralConversationsRestart, true
+	case method == fiber.MethodGet && strings.HasSuffix(path, "/history"):
+		return platform.ProviderOperationMistralConversationsHistory, true
+	case method == fiber.MethodGet && strings.HasSuffix(path, "/messages"):
+		return platform.ProviderOperationMistralConversationsMessages, true
+	case method == fiber.MethodPost && strings.HasPrefix(path, "/v1/conversations/"):
+		return platform.ProviderOperationMistralConversationsAppend, true
+	case method == fiber.MethodDelete && strings.HasPrefix(path, "/v1/conversations/"):
+		return platform.ProviderOperationMistralConversationsDelete, true
+	case method == fiber.MethodGet && strings.HasPrefix(path, "/v1/conversations/"):
+		return platform.ProviderOperationMistralConversationsGet, true
+	default:
+		return "", false
 	}
 }
 
@@ -119,7 +159,11 @@ func mistralRequestModel(operation platform.ProviderOperation, body []byte) (str
 	if model == "" && operation == platform.ProviderOperationMistralBatchCreate {
 		model = mistralNestedRequestModel(request["requests"])
 	}
-	stream, _ := request["stream"].(bool)
+
+	stream, ok := request["stream"].(bool)
+	if !ok {
+		stream = false
+	}
 
 	switch operation {
 	case platform.ProviderOperationMistralAgentsCreate,
@@ -140,6 +184,7 @@ func mistralNestedRequestModel(value interface{}) string {
 	}
 
 	model := ""
+
 	for _, raw := range requests {
 		item, ok := raw.(map[string]interface{})
 		if !ok {
@@ -152,9 +197,11 @@ func mistralNestedRequestModel(value interface{}) string {
 				candidate = normalizeModelIdentifier(stringFromMap(body, "model"))
 			}
 		}
+
 		if candidate == "" {
 			continue
 		}
+
 		if model != "" && !strings.EqualFold(model, candidate) {
 			return ""
 		}
