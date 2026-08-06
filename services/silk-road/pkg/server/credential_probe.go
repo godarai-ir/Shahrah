@@ -103,6 +103,8 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 		spec = credentialProbeSpec{url: parsed.String(), auth: "bearer"}
 	case "deepinfra":
 		spec = credentialModelsProbe(base, "https://api.deepinfra.com/v1/openai")
+	case "deepseek":
+		spec = credentialModelsProbe(base, "https://api.deepseek.com")
 	case "google-gemini":
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com"
@@ -119,6 +121,8 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 		spec = credentialModelsProbe(base, "https://api.groq.com/openai/v1")
 	case "mistral-ai":
 		spec = credentialModelsProbe(base, "https://api.mistral.ai/v1")
+	case "moonshot":
+		spec = credentialModelsProbe(base, "https://api.moonshot.ai/v1")
 	case "openai":
 		spec = credentialModelsProbe(base, "https://api.openai.com/v1")
 	case "openrouter":
@@ -183,8 +187,9 @@ func safeCredentialProbeURL(provider, raw string) bool {
 
 	exact := map[string]string{
 		"cerebras": "api.cerebras.ai", "cohere": "api.cohere.com",
-		"deepinfra": "api.deepinfra.com", "google-gemini": "generativelanguage.googleapis.com",
-		"groq": "api.groq.com", "mistral-ai": "api.mistral.ai", "openai": "api.openai.com",
+		"deepinfra": "api.deepinfra.com", "deepseek": "api.deepseek.com",
+		"google-gemini": "generativelanguage.googleapis.com", "groq": "api.groq.com",
+		"mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
 		"openrouter": "openrouter.ai", "together-ai": "api.together.xyz", "xai": "api.x.ai",
 	}
 	if expected := exact[provider]; expected != "" {
