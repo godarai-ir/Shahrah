@@ -190,6 +190,25 @@ func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, sourc
 	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv(), loadPricingCacheConfigFromEnv())
 }
 
+// NewServiceWithRepositories creates a billing service with explicit feature repositories.
+func NewServiceWithRepositories(
+	c cache.Cache,
+	wallets walletStore,
+	entitlements entitlementStore,
+	defaultUSDtoIRR float64,
+	source string,
+) *Service {
+	return newService(
+		c,
+		wallets,
+		entitlements,
+		defaultUSDtoIRR,
+		source,
+		loadExchangeRateCacheConfigFromEnv(),
+		loadPricingCacheConfigFromEnv(),
+	)
+}
+
 // NewServiceWithExchangeRateCacheConfig creates a billing service with explicit cache settings.
 func NewServiceWithExchangeRateCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig) *Service {
 	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, exchangeRateCacheConfig, loadPricingCacheConfigFromEnv())
@@ -202,6 +221,18 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 		entitlements = resolvedEntitlements
 	}
 
+	return newService(c, store, entitlements, defaultUSDtoIRR, source, exchangeRateCacheConfig, pricingCacheConfig)
+}
+
+func newService(
+	c cache.Cache,
+	wallets walletStore,
+	entitlements entitlementStore,
+	defaultUSDtoIRR float64,
+	source string,
+	exchangeRateCacheConfig ExchangeRateCacheConfig,
+	pricingCacheConfig PricingCacheConfig,
+) *Service {
 	defaultRate := platform.ExchangeRate{
 		USDtoIRR: defaultUSDtoIRR,
 		Source:   source,
@@ -209,7 +240,7 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 
 	svc := &Service{
 		cache:                c,
-		store:                store,
+		store:                wallets,
 		entitlements:         entitlements,
 		defaultRate:          defaultRate,
 		walletCacheTTL:       secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
@@ -217,7 +248,7 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 		rateLimitFailOpen:    boolEnvOrDefault("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 		catalogPricing:       make(map[string]*CatalogPricingSnapshotManager),
 	}
-	svc.exchangeRateCache = newExchangeRateCache(store, c, defaultRate, exchangeRateCacheConfig)
+	svc.exchangeRateCache = newExchangeRateCache(wallets, c, defaultRate, exchangeRateCacheConfig)
 	svc.pricingCache = newPricingCache(c, pricingCacheConfig, modelPriceFromRegistry)
 
 	return svc

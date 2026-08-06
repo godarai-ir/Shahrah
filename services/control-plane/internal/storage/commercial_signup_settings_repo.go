@@ -2,14 +2,12 @@ package storage
 
 import (
 	"context"
-	"errors"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 )
 
-var ErrInvalidSignupCredit = errors.New("signup credit must be a non-negative whole IRR amount")
-
-func (s *Store) GetCommercialSignupSettings(ctx context.Context) (*platform.CommercialSignupSettings, error) {
+func (s *PlanRepository) GetCommercialSignupSettings(ctx context.Context) (*platform.CommercialSignupSettings, error) {
 	var out platform.CommercialSignupSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -20,9 +18,9 @@ func (s *Store) GetCommercialSignupSettings(ctx context.Context) (*platform.Comm
 	return &out, err
 }
 
-func (s *Store) UpdateCommercialSignupSettings(ctx context.Context, credit int64, actor string) (*platform.CommercialSignupSettings, error) {
+func (s *PlanRepository) UpdateCommercialSignupSettings(ctx context.Context, credit int64, actor string) (*platform.CommercialSignupSettings, error) {
 	if credit < 0 || credit > 999999999999999999 {
-		return nil, ErrInvalidSignupCredit
+		return nil, billingdomain.ErrInvalidSignupCredit
 	}
 
 	var out platform.CommercialSignupSettings

@@ -9,6 +9,8 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"github.com/gofiber/fiber/v2"
@@ -465,9 +467,9 @@ func mapBillingError(err error) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "billing profile is invalid")
 	case errors.Is(err, storage.ErrBankTransferNotFound):
 		return fiber.NewError(fiber.StatusNotFound, "bank transfer request not found")
-	case errors.Is(err, storage.ErrInsufficientWalletBalance):
+	case errors.Is(err, billingdomain.ErrInsufficientWalletBalance):
 		return fiber.NewError(fiber.StatusConflict, "insufficient wallet balance")
-	case errors.Is(err, storage.ErrInvalidTenantStatusChange):
+	case errors.Is(err, supportdomain.ErrInvalidTenantStatusChange):
 		return fiber.NewError(fiber.StatusConflict, err.Error())
 	default:
 		return err

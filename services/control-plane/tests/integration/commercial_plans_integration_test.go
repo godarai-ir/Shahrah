@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/google/uuid"
@@ -25,7 +26,10 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 
 	ctx := context.Background()
 	logger := zap.NewNop()
-	store, err := storage.NewStore(ctx, databaseURL, logger)
+	mem, err := testcache.New(t, logger)
+	require.NoError(t, err)
+
+	store, err := storage.NewStore(ctx, databaseURL, logger, storage.StoreDependencies{Cache: mem})
 	require.NoError(t, err)
 
 	defer store.Close()
@@ -35,12 +39,6 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 
 	defer pool.Close()
 
-	mem, err := testcache.New(t, logger)
-	require.NoError(t, err)
-
-	defer mem.Close()
-
-	store.SetEntitlementCache(mem)
 	resetPersistentState(t, pool)
 
 	plans, err := store.ListPublicCommercialPlans(ctx)
@@ -124,7 +122,7 @@ func TestIntegration_PublishedVersionAndPeriodEndDowngrade(t *testing.T) {
 	_, err = store.PublishPlanVersion(ctx, planSlug, version.Version)
 	require.NoError(t, err)
 	_, err = store.UpsertPlanEntitlement(ctx, planSlug, version.Version, platform.UpsertPlanEntitlementRequest{FeatureKey: platform.FeatureUsersMax, Value: 6})
-	assert.ErrorIs(t, err, storage.ErrPlanVersionPublished)
+	assert.ErrorIs(t, err, billingdomain.ErrPlanVersionPublished)
 
 	tenant := createIntegrationTenant(t, pool, "downgrade-"+uuid.NewString()[:8])
 	paymentChange, err := store.PrepareTenantSubscriptionChange(ctx, tenant.ID, platform.ChangeTenantSubscriptionRequest{

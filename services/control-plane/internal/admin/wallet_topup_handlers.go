@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -581,7 +581,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		providerName = "mock"
 	}
 
-	intent, err := h.wallets.CreateWalletTopUpIntent(c.Context(), storage.CreateTopUpIntentParams{
+	intent, err := h.wallets.CreateWalletTopUpIntent(c.Context(), billingdomain.CreateTopUpIntentParams{
 		TenantID:     currentTenant.ID,
 		Provider:     providerName,
 		AmountUSD:    amountUSD,
@@ -661,7 +661,7 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 
 	intent, alreadyProcessed, err := h.wallets.CompleteWalletTopUpByAuthority(c.Context(), authority, verifyRes.Raw, verifyRes.RefID, verifyRes.GatewayTxnID, verifyRes.CardMask, verifyRes.PayerPhone)
 	if err != nil {
-		if errors.Is(err, storage.ErrTopUpIntentNotFound) {
+		if errors.Is(err, billingdomain.ErrTopUpIntentNotFound) {
 			return h.redirectTopUpResult(c, authority, "failed", "intent_not_found")
 		}
 

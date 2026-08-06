@@ -32,7 +32,7 @@ func (p *recordingTenantCredentialProber) Probe(
 }
 
 func TestProviderConnectionPreflightDoesNotRequirePersistence(t *testing.T) {
-	store := &Store{}
+	store := &ProviderAccountRepository{}
 
 	managed, err := store.TestProviderConnection(context.Background(), platform.TestProviderConnectionRequest{
 		Provider:                      "openai",
@@ -67,7 +67,7 @@ func TestProviderConnectionPreflightUsesSharedProberForGoogleGemini(t *testing.T
 	prober := &recordingTenantCredentialProber{
 		success: true, category: "ok", summary: "Provider accepted the credential.",
 	}
-	store := &Store{tenantProviderProber: prober}
+	store := &ProviderAccountRepository{tenantProviderProber: prober}
 
 	result, err := store.TestProviderConnection(context.Background(), platform.TestProviderConnectionRequest{
 		Provider: "google-gemini",
@@ -100,7 +100,7 @@ func TestProviderConnectionPreflightPreservesUnsupportedCategory(t *testing.T) {
 	prober := &recordingTenantCredentialProber{
 		category: "unsupported", summary: "This provider authentication mode has no implemented non-billable validation probe.",
 	}
-	store := &Store{tenantProviderProber: prober}
+	store := &ProviderAccountRepository{tenantProviderProber: prober}
 
 	result, err := store.TestProviderConnection(context.Background(), platform.TestProviderConnectionRequest{
 		Provider:    "deepgram",
@@ -118,7 +118,7 @@ func TestProviderConnectionPreflightPreservesUnsupportedCategory(t *testing.T) {
 
 func TestProviderConnectionPreflightMapsPersonalAccessTokenForSharedProber(t *testing.T) {
 	prober := &recordingTenantCredentialProber{success: true, category: "ok", summary: "accepted"}
-	store := &Store{tenantProviderProber: prober}
+	store := &ProviderAccountRepository{tenantProviderProber: prober}
 
 	result, err := store.TestProviderConnection(context.Background(), platform.TestProviderConnectionRequest{
 		Provider: "databricks",

@@ -10,7 +10,7 @@ import (
 const exchangeRateUpdateAdvisoryLockKey = "exchange_rate_update:nobitex"
 
 // TryExchangeRateUpdateLock acquires a PostgreSQL advisory lock for exchange-rate refresh work.
-func (s *Store) TryExchangeRateUpdateLock(ctx context.Context) (bool, func(), error) {
+func (s *WalletRepository) TryExchangeRateUpdateLock(ctx context.Context) (bool, func(), error) {
 	conn, err := s.pool.Acquire(ctx)
 	if err != nil {
 		return false, nil, err

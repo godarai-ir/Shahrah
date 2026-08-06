@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -37,7 +37,7 @@ func (h *Handlers) UpdatePlatformCommercialSignupSettings(c *fiber.Ctx) error {
 
 	item, err := store.UpdateCommercialSignupSettings(c.Context(), *req.SignupCreditIRR, strings.TrimSpace(c.Get("x-shahrah-actor-id")))
 	if err != nil {
-		if err == storage.ErrInvalidSignupCredit {
+		if err == billingdomain.ErrInvalidSignupCredit {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 

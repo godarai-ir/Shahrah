@@ -23,8 +23,9 @@ type TokenUsageMetrics interface {
 
 // StartTokenUsageFlusher periodically persists Redis token usage aggregates to PostgreSQL.
 func (s *Store) StartTokenUsageFlusher(ctx context.Context) {
-	s.startPeriodicFlusher(
+	startPeriodicFlusher(
 		ctx,
+		s.logger,
 		s.tokenUsageEnabled && s.tokenUsageCache != nil,
 		s.tokenUsageFlushInterval,
 		"token usage",

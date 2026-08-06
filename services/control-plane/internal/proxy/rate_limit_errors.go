@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -25,7 +25,7 @@ func writeBudgetCheckError(c *fiber.Ctx, err error) error {
 }
 
 func budgetCheckErrorResponse(err error) (int, string, string) {
-	if errors.Is(err, billing.ErrBudgetExceeded) || errors.Is(err, storage.ErrInsufficientWalletBalance) {
+	if errors.Is(err, billing.ErrBudgetExceeded) || errors.Is(err, billingdomain.ErrInsufficientWalletBalance) {
 		return fiber.StatusPaymentRequired, err.Error(), "budget_exceeded"
 	}
 

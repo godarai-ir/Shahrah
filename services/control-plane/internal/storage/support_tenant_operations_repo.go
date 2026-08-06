@@ -9,16 +9,11 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	"github.com/jackc/pgx/v5"
 )
 
-var (
-	ErrTenantNotFound             = errors.New("tenant not found")
-	ErrInvalidTenantStatusChange  = errors.New("invalid tenant status change")
-	ErrIdempotencyPayloadConflict = errors.New("idempotency key was already used with a different payload")
-)
-
-func (s *Store) ListSupportTenants(ctx context.Context, query, status, plan string, limit, offset int) ([]platform.SupportTenantSummary, error) {
+func (s *SupportRepository) ListSupportTenants(ctx context.Context, query, status, plan string, limit, offset int) ([]platform.SupportTenantSummary, error) {
 	query = strings.TrimSpace(query)
 	status = strings.TrimSpace(strings.ToLower(status))
 	plan = strings.TrimSpace(strings.ToLower(plan))
@@ -64,7 +59,7 @@ func (s *Store) ListSupportTenants(ctx context.Context, query, status, plan stri
 	return items, rows.Err()
 }
 
-func (s *Store) GetSupportTenantSummary(ctx context.Context, tenantID string) (*platform.SupportTenantSummary, error) {
+func (s *SupportRepository) GetSupportTenantSummary(ctx context.Context, tenantID string) (*platform.SupportTenantSummary, error) {
 	var item platform.SupportTenantSummary
 
 	err := s.pool.QueryRow(ctx, `
@@ -89,13 +84,13 @@ func (s *Store) GetSupportTenantSummary(ctx context.Context, tenantID string) (*
 		&item.WalletBalanceMinor, &item.WalletPendingMinor, &item.UsageUsed,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrTenantNotFound
+		return nil, supportdomain.ErrTenantNotFound
 	}
 
 	return &item, err
 }
 
-func (s *Store) GetTenantOwnerContact(ctx context.Context, tenantID string) (*platform.TenantOwnerContact, error) {
+func (s *SupportRepository) GetTenantOwnerContact(ctx context.Context, tenantID string) (*platform.TenantOwnerContact, error) {
 	var owner platform.TenantOwnerContact
 
 	err := s.pool.QueryRow(ctx, `
@@ -123,7 +118,7 @@ func (s *Store) GetTenantOwnerContact(ctx context.Context, tenantID string) (*pl
 	return &owner, err
 }
 
-func (s *Store) ListTenantEvents(ctx context.Context, tenantID string, limit, offset int) ([]platform.TenantEvent, error) {
+func (s *SupportRepository) ListTenantEvents(ctx context.Context, tenantID string, limit, offset int) ([]platform.TenantEvent, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT event_id::text, tenant_id::text, event_type, severity,
 		       COALESCE(actor_id, ''), COALESCE(actor_role, ''), COALESCE(reason, ''),
@@ -158,7 +153,7 @@ func (s *Store) ListTenantEvents(ctx context.Context, tenantID string, limit, of
 	return items, rows.Err()
 }
 
-func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req platform.WalletAdjustmentRequest, actor platform.SupportActor) (*platform.WalletAdjustmentResult, error) {
+func (s *SupportRepository) AdjustTenantWallet(ctx context.Context, tenantID string, req platform.WalletAdjustmentRequest, actor platform.SupportActor) (*platform.WalletAdjustmentResult, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -184,7 +179,7 @@ func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req pla
 		&existing.Transaction.Status, &existing.Transaction.Description, &existing.Transaction.CreatedAt)
 	if err == nil {
 		if existingDirection != req.Direction || existingAmount != req.AmountMinor || existingReason != req.Reason {
-			return nil, ErrIdempotencyPayloadConflict
+			return nil, supportdomain.ErrIdempotencyPayloadConflict
 		}
 
 		existing.Idempotent = true
@@ -257,7 +252,7 @@ func (s *Store) AdjustTenantWallet(ctx context.Context, tenantID string, req pla
 	return &result, nil
 }
 
-func (s *Store) ChangeTenantStatus(ctx context.Context, tenantID, target, reason string, actor platform.SupportActor) (*platform.SupportTenantSummary, error) {
+func (s *SupportRepository) ChangeTenantStatus(ctx context.Context, tenantID, target, reason string, actor platform.SupportActor) (*platform.SupportTenantSummary, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -267,7 +262,7 @@ func (s *Store) ChangeTenantStatus(ctx context.Context, tenantID, target, reason
 	var current string
 	if err := tx.QueryRow(ctx, `SELECT status FROM tenants WHERE tenant_id::text = $1 FOR UPDATE`, tenantID).Scan(&current); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrTenantNotFound
+			return nil, supportdomain.ErrTenantNotFound
 		}
 
 		return nil, err
@@ -275,7 +270,7 @@ func (s *Store) ChangeTenantStatus(ctx context.Context, tenantID, target, reason
 
 	valid := (current == "active" && target == "suspended") || (current == "suspended" && target == "active")
 	if !valid {
-		return nil, fmt.Errorf("%w: %s to %s", ErrInvalidTenantStatusChange, current, target)
+		return nil, fmt.Errorf("%w: %s to %s", supportdomain.ErrInvalidTenantStatusChange, current, target)
 	}
 
 	if _, err := tx.Exec(ctx, `UPDATE tenants SET status = $2, updated_at = NOW() WHERE tenant_id::text = $1`, tenantID, target); err != nil {
@@ -302,7 +297,7 @@ func (s *Store) ChangeTenantStatus(ctx context.Context, tenantID, target, reason
 	return s.GetSupportTenantSummary(ctx, tenantID)
 }
 
-func (s *Store) SetTenantSubscriptionCancellation(ctx context.Context, tenantID string, cancel bool, reason string, actor platform.SupportActor) (*platform.TenantSubscription, error) {
+func (s *SupportRepository) SetTenantSubscriptionCancellation(ctx context.Context, tenantID string, cancel bool, reason string, actor platform.SupportActor) (*platform.TenantSubscription, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -323,7 +318,7 @@ func (s *Store) SetTenantSubscriptionCancellation(ctx context.Context, tenantID 
 	}
 
 	if current == cancel {
-		return nil, ErrInvalidTenantStatusChange
+		return nil, supportdomain.ErrInvalidTenantStatusChange
 	}
 
 	if _, err := tx.Exec(ctx, `UPDATE tenant_subscriptions SET cancel_at_period_end = $2, updated_at = NOW() WHERE subscription_id::text = $1`, subscriptionID, cancel); err != nil {
@@ -360,7 +355,7 @@ func (s *Store) SetTenantSubscriptionCancellation(ctx context.Context, tenantID 
 	return s.GetTenantSubscription(ctx, tenantID)
 }
 
-func (s *Store) ListTenantSubscriptionPaymentIntents(ctx context.Context, tenantID string, limit, offset int) ([]platform.SubscriptionPaymentIntent, error) {
+func (s *SupportRepository) ListTenantSubscriptionPaymentIntents(ctx context.Context, tenantID string, limit, offset int) ([]platform.SubscriptionPaymentIntent, error) {
 	rows, err := s.pool.Query(ctx, subscriptionPaymentIntentSelect+`
 		WHERE spi.tenant_id::text = $1
 		ORDER BY spi.created_at DESC, spi.payment_intent_id DESC

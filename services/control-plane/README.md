@@ -47,6 +47,23 @@ Do not add a second provider registry or direct provider client tree under the
 control-plane. Extend `internal/providerregistry`, the relevant proxy contract,
 and the Silk Road adapter instead.
 
+## Storage Architecture
+
+`internal/storage.Store` owns the PostgreSQL and ClickHouse connections and is
+kept as a compatibility facade for older consumers. New code must depend on a
+feature repository instead of adding methods or business state to `Store`:
+
+- `PlanRepository`: plans, subscriptions, entitlements, and usage counters
+- `WalletRepository`: wallets, billing records, top-ups, and exchange rates
+- `SupportRepository`: support tickets and support-only tenant operations
+- `ProviderAccountRepository`: provider accounts and encrypted tenant credentials
+
+Business rules belong in `internal/domain/<feature>`. Repositories load and
+persist state; they must not define transition matrices or entitlement
+precedence. Supply cache, metrics, credential, probing, and invalidation
+collaborators through `storage.StoreDependencies` at construction time. Do not
+add post-construction setters to storage.
+
 ## Required Configuration
 
 - `DATABASE_URL`: required, startup fails fast when missing or unreachable

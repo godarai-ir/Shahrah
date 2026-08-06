@@ -6,7 +6,7 @@ import (
 )
 
 func (s *Store) invalidateTenantRuntimeProfile(ctx context.Context, tenantID string, reason string) {
-	if s == nil || s.runtimeProfiles == nil {
+	if s == nil || s.runtimeProfileInvalidator == nil {
 		return
 	}
 
@@ -15,5 +15,5 @@ func (s *Store) invalidateTenantRuntimeProfile(ctx context.Context, tenantID str
 		return
 	}
 
-	s.runtimeProfiles.Invalidate(ctx, tenantID, reason)
+	s.runtimeProfileInvalidator.Invalidate(ctx, tenantID, reason)
 }

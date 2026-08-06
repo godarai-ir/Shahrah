@@ -7,16 +7,12 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-var (
-	ErrSubscriptionPaymentIntentNotFound = errors.New("subscription payment intent not found")
-	ErrPlanPriceUnavailable              = errors.New("plan price is not configured")
-)
-
-func (s *Store) PrepareTenantSubscriptionChange(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest, callbackURL string, returnURL string) (*platform.SubscriptionChangeResult, error) {
+func (s *PlanRepository) PrepareTenantSubscriptionChange(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest, callbackURL string, returnURL string) (*platform.SubscriptionChangeResult, error) {
 	req.PlanSlug = normalizePlanSlug(req.PlanSlug)
 	if req.PlanSlug == "free" || req.PlanSlug == "" {
 		req.PlanSlug = "developer"
@@ -30,7 +26,7 @@ func (s *Store) PrepareTenantSubscriptionChange(ctx context.Context, tenantID st
 	}
 
 	current, currentErr := s.GetTenantSubscription(ctx, tenantID)
-	if currentErr != nil && !errors.Is(currentErr, ErrSubscriptionNotFound) {
+	if currentErr != nil && !errors.Is(currentErr, billingdomain.ErrSubscriptionNotFound) {
 		return nil, currentErr
 	}
 
@@ -63,7 +59,7 @@ func (s *Store) PrepareTenantSubscriptionChange(ctx context.Context, tenantID st
 	}
 
 	if price.AmountMinor == nil {
-		return nil, ErrPlanPriceUnavailable
+		return nil, billingdomain.ErrPlanPriceUnavailable
 	}
 
 	if *price.AmountMinor == 0 {
@@ -92,7 +88,7 @@ func (s *Store) PrepareTenantSubscriptionChange(ctx context.Context, tenantID st
 	return &platform.SubscriptionChangeResult{Mode: "payment_required", PaymentIntent: intent}, nil
 }
 
-func (s *Store) createSubscriptionPaymentIntent(ctx context.Context, tenantID string, target *platform.CommercialPlan, interval, provider, callbackURL, returnURL string, priceSnapshot, metadata map[string]interface{}) (*platform.SubscriptionPaymentIntent, error) {
+func (s *PlanRepository) createSubscriptionPaymentIntent(ctx context.Context, tenantID string, target *platform.CommercialPlan, interval, provider, callbackURL, returnURL string, priceSnapshot, metadata map[string]interface{}) (*platform.SubscriptionPaymentIntent, error) {
 	if metadata == nil {
 		metadata = map[string]interface{}{}
 	}
@@ -124,7 +120,7 @@ func (s *Store) createSubscriptionPaymentIntent(ctx context.Context, tenantID st
 	return s.GetSubscriptionPaymentIntentByPublicID(ctx, publicID)
 }
 
-func (s *Store) AttachSubscriptionPaymentGatewayData(ctx context.Context, publicID string, authority string, paymentURL string, raw map[string]interface{}) error {
+func (s *PlanRepository) AttachSubscriptionPaymentGatewayData(ctx context.Context, publicID string, authority string, paymentURL string, raw map[string]interface{}) error {
 	payload := marshalJSONBestEffort(raw)
 
 	result, err := s.pool.Exec(ctx, `
@@ -139,23 +135,23 @@ func (s *Store) AttachSubscriptionPaymentGatewayData(ctx context.Context, public
 	}
 
 	if result.RowsAffected() == 0 {
-		return ErrSubscriptionPaymentIntentNotFound
+		return billingdomain.ErrSubscriptionPaymentIntentNotFound
 	}
 
 	return nil
 }
 
-func (s *Store) GetSubscriptionPaymentIntentByAuthority(ctx context.Context, authority string) (*platform.SubscriptionPaymentIntent, error) {
+func (s *PlanRepository) GetSubscriptionPaymentIntentByAuthority(ctx context.Context, authority string) (*platform.SubscriptionPaymentIntent, error) {
 	row := s.pool.QueryRow(ctx, subscriptionPaymentIntentSelect+` WHERE spi.authority = $1 LIMIT 1`, authority)
 	return scanSubscriptionPaymentIntent(row)
 }
 
-func (s *Store) GetSubscriptionPaymentIntentByPublicID(ctx context.Context, publicID string) (*platform.SubscriptionPaymentIntent, error) {
+func (s *PlanRepository) GetSubscriptionPaymentIntentByPublicID(ctx context.Context, publicID string) (*platform.SubscriptionPaymentIntent, error) {
 	row := s.pool.QueryRow(ctx, subscriptionPaymentIntentSelect+` WHERE spi.public_id::text = $1 LIMIT 1`, publicID)
 	return scanSubscriptionPaymentIntent(row)
 }
 
-func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID string, gatewayTxnID string, cardMask string, payerPhone string) (*platform.SubscriptionPaymentIntent, *platform.TenantSubscription, bool, error) {
+func (s *PlanRepository) CompleteSubscriptionPaymentByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID string, gatewayTxnID string, cardMask string, payerPhone string) (*platform.SubscriptionPaymentIntent, *platform.TenantSubscription, bool, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, nil, false, err
@@ -165,7 +161,7 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 	intent, err := scanSubscriptionPaymentIntent(tx.QueryRow(ctx, subscriptionPaymentIntentSelect+` WHERE spi.authority = $1 FOR UPDATE`, authority))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil, false, ErrSubscriptionPaymentIntentNotFound
+			return nil, nil, false, billingdomain.ErrSubscriptionPaymentIntentNotFound
 		}
 
 		return nil, nil, false, err
@@ -287,7 +283,7 @@ func (s *Store) CompleteSubscriptionPaymentByAuthority(ctx context.Context, auth
 	return completed, subscription, false, err
 }
 
-func (s *Store) MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
+func (s *PlanRepository) MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
 	payload := marshalJSONBestEffort(raw)
 
 	result, err := s.pool.Exec(ctx, `
@@ -302,13 +298,13 @@ func (s *Store) MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, au
 	}
 
 	if result.RowsAffected() == 0 {
-		return ErrSubscriptionPaymentIntentNotFound
+		return billingdomain.ErrSubscriptionPaymentIntentNotFound
 	}
 
 	return nil
 }
 
-func (s *Store) planPriceForVersion(ctx context.Context, versionID, interval string) (*platform.PlanPrice, error) {
+func (s *PlanRepository) planPriceForVersion(ctx context.Context, versionID, interval string) (*platform.PlanPrice, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT price_id::text, version_id::text, billing_interval, currency,
 		       amount_minor::double precision, discount_percent::double precision, created_at, updated_at
@@ -321,7 +317,7 @@ func (s *Store) planPriceForVersion(ctx context.Context, versionID, interval str
 	)
 	if err := row.Scan(&item.ID, &item.VersionID, &item.BillingInterval, &item.Currency, &amount, &item.DiscountPercent, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrPlanPriceUnavailable
+			return nil, billingdomain.ErrPlanPriceUnavailable
 		}
 
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 )
 
 func TestSupportTicketTransitionMatrix(t *testing.T) {
@@ -31,8 +32,8 @@ func TestSupportTicketTransitionMatrix(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := validSupportTicketTransition(test.current, test.next, test.supportActor); got != test.allowed {
-				t.Fatalf("validSupportTicketTransition(%q, %q, %v) = %v want %v", test.current, test.next, test.supportActor, got, test.allowed)
+			if got := supportdomain.CanTransitionTicket(test.current, test.next, test.supportActor); got != test.allowed {
+				t.Fatalf("CanTransitionTicket(%q, %q, %v) = %v want %v", test.current, test.next, test.supportActor, got, test.allowed)
 			}
 		})
 	}

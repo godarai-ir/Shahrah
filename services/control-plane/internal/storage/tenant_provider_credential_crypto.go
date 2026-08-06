@@ -23,7 +23,7 @@ type tenantCredentialCacheEntry struct {
 	expiresAt time.Time
 }
 
-func (s *Store) writeTenantCredentialVersion(
+func (s *ProviderAccountRepository) writeTenantCredentialVersion(
 	ctx context.Context,
 	tx pgx.Tx,
 	tenantID string,
@@ -117,7 +117,7 @@ func (s *Store) writeTenantCredentialVersion(
 	return encrypted.DisplayHint, nil
 }
 
-func (s *Store) clearTenantCredentialVersion(
+func (s *ProviderAccountRepository) clearTenantCredentialVersion(
 	ctx context.Context,
 	tx pgx.Tx,
 	tenantID string,
@@ -142,7 +142,7 @@ func (s *Store) clearTenantCredentialVersion(
 	return err
 }
 
-func (s *Store) resolveTenantProviderAccountAPIKey(
+func (s *ProviderAccountRepository) resolveTenantProviderAccountAPIKey(
 	ctx context.Context,
 	tenantID string,
 	accountID string,

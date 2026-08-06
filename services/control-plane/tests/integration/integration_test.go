@@ -25,6 +25,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	controlserver "github.com/Delpak/shahrah/services/control-plane/internal/server"
@@ -1418,7 +1419,7 @@ func (s *integrationWalletStore) TopUpWallet(ctx context.Context, tenantID strin
 func (s *integrationWalletStore) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
 	amount := int64(math.Round(breakdown.TotalCostIRR))
 	if s.wallet.BalanceIRR < amount {
-		return nil, storage.ErrInsufficientWalletBalance
+		return nil, billingdomain.ErrInsufficientWalletBalance
 	}
 
 	s.debits = append(s.debits, breakdown)
@@ -1459,7 +1460,7 @@ func (s *integrationWalletStore) UpdateWalletTopUpSettings(ctx context.Context, 
 	return &s.settings, nil
 }
 
-func (s *integrationWalletStore) CreateWalletTopUpIntent(ctx context.Context, p storage.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
+func (s *integrationWalletStore) CreateWalletTopUpIntent(ctx context.Context, p billingdomain.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
 	return &platform.WalletTopUpIntent{
 		ID:           "intent-1",
 		PublicID:     "intent-public-1",

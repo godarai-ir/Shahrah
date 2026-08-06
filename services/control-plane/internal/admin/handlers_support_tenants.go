@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -284,11 +285,11 @@ func supportActor(c *fiber.Ctx) platform.SupportActor {
 
 func mapSupportTenantError(err error) error {
 	switch {
-	case errors.Is(err, storage.ErrTenantNotFound), errors.Is(err, pgx.ErrNoRows):
+	case errors.Is(err, supportdomain.ErrTenantNotFound), errors.Is(err, pgx.ErrNoRows):
 		return fiber.NewError(fiber.StatusNotFound, "tenant not found")
-	case errors.Is(err, storage.ErrInsufficientWalletBalance):
+	case errors.Is(err, billingdomain.ErrInsufficientWalletBalance):
 		return fiber.NewError(fiber.StatusConflict, "insufficient wallet balance")
-	case errors.Is(err, storage.ErrIdempotencyPayloadConflict), errors.Is(err, storage.ErrInvalidTenantStatusChange):
+	case errors.Is(err, supportdomain.ErrIdempotencyPayloadConflict), errors.Is(err, supportdomain.ErrInvalidTenantStatusChange):
 		return fiber.NewError(fiber.StatusConflict, err.Error())
 	default:
 		return err

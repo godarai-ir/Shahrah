@@ -83,7 +83,7 @@ func (c *entitlementTestCache) Close() error {
 func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 	ctx := context.Background()
 	limit := 10.0
-	store := &Store{
+	store := &PlanRepository{
 		entitlementCache:    newEntitlementTestCache(),
 		entitlementCacheTTL: time.Minute,
 	}
@@ -143,7 +143,7 @@ func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 
 func TestInvalidateEffectiveEntitlementsDeletesCache(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &PlanRepository{
 		entitlementCache:    newEntitlementTestCache(),
 		entitlementCacheTTL: time.Minute,
 	}
@@ -161,7 +161,7 @@ func TestInvalidateEffectiveEntitlementsDeletesCache(t *testing.T) {
 
 func TestEffectiveEntitlementsCacheHonorsTTL(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &PlanRepository{
 		entitlementCache:    newEntitlementTestCache(),
 		entitlementCacheTTL: 10 * time.Millisecond,
 	}

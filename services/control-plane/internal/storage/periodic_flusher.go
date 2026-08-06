@@ -7,8 +7,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Store) startPeriodicFlusher(
+func startPeriodicFlusher(
 	ctx context.Context,
+	logger *zap.Logger,
 	enabled bool,
 	interval time.Duration,
 	name string,
@@ -30,14 +31,14 @@ func (s *Store) startPeriodicFlusher(
 
 				cancel()
 
-				if err != nil && s.logger != nil {
-					s.logger.Warn(name+" shutdown flush failed", zap.Error(err))
+				if err != nil && logger != nil {
+					logger.Warn(name+" shutdown flush failed", zap.Error(err))
 				}
 
 				return
 			case <-ticker.C:
-				if err := flush(ctx); err != nil && s.logger != nil {
-					s.logger.Warn(name+" flush failed", zap.Error(err))
+				if err := flush(ctx); err != nil && logger != nil {
+					logger.Warn(name+" flush failed", zap.Error(err))
 				}
 			}
 		}

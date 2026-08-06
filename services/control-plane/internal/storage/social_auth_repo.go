@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -166,7 +167,7 @@ func (s *Store) ProvisionSocialTenant(ctx context.Context, p ProvisionSocialTena
 	}
 
 	if subscriptionResult.RowsAffected() == 0 {
-		return nil, ErrPlanNotFound
+		return nil, billingdomain.ErrPlanNotFound
 	}
 
 	if _, err := tx.Exec(ctx, `

@@ -49,7 +49,7 @@ func TestUsageCounterRedisPathBuildsKeyAndCounter(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)
 	fake := &fakeUsageCounterCache{result: &cache.UsageCounterResult{Allowed: true, Used: 7}}
-	store := &Store{
+	store := &PlanRepository{
 		usageCounterCache:     fake,
 		usageCountersEnabled:  true,
 		usageCounterKeyPrefix: "test-usage",
@@ -84,7 +84,7 @@ func TestUsageCounterRedisPathBuildsKeyAndCounter(t *testing.T) {
 
 func TestUsageCounterRedisFailOpen(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &PlanRepository{
 		usageCounterCache:     &fakeUsageCounterCache{err: errors.New("redis down")},
 		usageCountersEnabled:  true,
 		usageCountersFailOpen: true,
@@ -107,7 +107,7 @@ func TestUsageCounterRedisFailOpen(t *testing.T) {
 }
 
 func TestUsageCounterKeyRoundTrip(t *testing.T) {
-	store := &Store{usageCounterKeyPrefix: "usage"}
+	store := &PlanRepository{usageCounterKeyPrefix: "usage"}
 	windowStart := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	key := store.usageCounterKey("tenant-1", "gateway.requests.monthly", windowStart)
 

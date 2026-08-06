@@ -8,15 +8,13 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-// ErrInsufficientWalletBalance indicates a debit was attempted with insufficient funds.
-var ErrInsufficientWalletBalance = errors.New("insufficient wallet balance")
-
 // GetWallet retrieves or creates the tenant wallet.
-func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+func (s *WalletRepository) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
 	wallet, err := s.getWalletLedger(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -25,7 +23,7 @@ func (s *Store) GetWallet(ctx context.Context, tenantID string) (*platform.Walle
 	return s.decorateWalletWithLiveState(ctx, wallet)
 }
 
-func (s *Store) getWalletLedger(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+func (s *WalletRepository) getWalletLedger(ctx context.Context, tenantID string) (*platform.Wallet, error) {
 	ctx, cancel := withHotPathDBTimeout(ctx)
 	defer cancel()
 
@@ -45,7 +43,7 @@ func (s *Store) getWalletLedger(ctx context.Context, tenantID string) (*platform
 }
 
 // TopUpWallet records a completed stub top-up.
-func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR float64, metadata map[string]interface{}) (*platform.Transaction, error) {
+func (s *WalletRepository) TopUpWallet(ctx context.Context, tenantID string, amountIRR float64, metadata map[string]interface{}) (*platform.Transaction, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -80,7 +78,7 @@ func (s *Store) TopUpWallet(ctx context.Context, tenantID string, amountIRR floa
 }
 
 // DebitWallet debits the tenant wallet for inference usage.
-func (s *Store) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
+func (s *WalletRepository) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
 	ctx, cancel := withHotPathDBTimeout(ctx)
 	defer cancel()
 
@@ -196,7 +194,7 @@ func appendWalletTransactionTx(ctx context.Context, tx pgx.Tx, p walletTransacti
 
 	after := balance + delta
 	if after < 0 {
-		return nil, ErrInsufficientWalletBalance
+		return nil, billingdomain.ErrInsufficientWalletBalance
 	}
 
 	if _, err := tx.Exec(ctx, `

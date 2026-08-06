@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -142,7 +143,7 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	}
 
 	if !planExists {
-		return nil, ErrPlanNotFound
+		return nil, billingdomain.ErrPlanNotFound
 	}
 
 	_, lockErr := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, p.TenantSlug)
@@ -441,7 +442,7 @@ func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnb
 	}
 
 	if subscriptionResult.RowsAffected() == 0 {
-		return nil, ErrPlanNotFound
+		return nil, billingdomain.ErrPlanNotFound
 	}
 
 	if _, err := tx.Exec(ctx, `

@@ -63,12 +63,6 @@ func main() {
 
 	ctx := context.Background()
 
-	store, err := storage.NewStore(ctx, cfg.GeneralSettings.DatabaseURL, logger)
-	if err != nil {
-		logger.Fatal("Failed to initialize storage", zap.Error(err))
-	}
-	defer store.Close()
-
 	tenantCredentialStore, tenantCredentialErr :=
 		tenantcredentials.NewEncryptedStoreFromEnv()
 	if tenantCredentialErr != nil {
@@ -76,8 +70,6 @@ func main() {
 			"Tenant provider credential encryption is unavailable; new tenant API keys will be rejected",
 			zap.Error(tenantCredentialErr),
 		)
-	} else {
-		store.SetTenantCredentialStore(tenantCredentialStore)
 	}
 
 	httpMetrics := prommetrics.NewHTTPMetrics()
@@ -121,9 +113,34 @@ func main() {
 		}
 	}()
 
+	tunnelClient := tunneltransport.NewHTTPTransport(
+		cfg.TunnelSettings.ClientURL,
+		time.Duration(cfg.TunnelSettings.Timeout)*time.Second,
+	)
+	tenantProviderProber := platformcredentials.NewTunnelCredentialProber(tunnelClient)
+
+	var runtimeProfiles *runtimeprofile.Manager
+
+	store, err := storage.NewStore(ctx, cfg.GeneralSettings.DatabaseURL, logger, storage.StoreDependencies{
+		Cache:                 dualCache,
+		RequestLoggingModeTTL: time.Duration(cfg.RequestLogs.ModeCacheTTLSeconds) * time.Second,
+		RuntimeProfileInvalidator: storage.RuntimeProfileInvalidatorFunc(
+			func(invalidationCtx context.Context, tenantID string, reason string) {
+				if runtimeProfiles != nil {
+					runtimeProfiles.Invalidate(invalidationCtx, tenantID, reason)
+				}
+			},
+		),
+		TenantCredentialStore: tenantCredentialStore,
+		TenantProviderProber:  tenantProviderProber,
+		TokenUsageMetrics:     httpMetrics,
+	})
+	if err != nil {
+		logger.Fatal("Failed to initialize storage", zap.Error(err))
+	}
+	defer store.Close()
+
 	_, sharedResponseCacheAvailable := dualCache.(*cache.DualCache)
-	store.SetEntitlementCache(dualCache)
-	store.SetRequestLoggingModeCacheTTL(time.Duration(cfg.RequestLogs.ModeCacheTTLSeconds) * time.Second)
 
 	credentialRuntime := initializePlatformCredentialRuntime(ctx, store, dualCache, httpMetrics, logger)
 	defer credentialRuntime.cancel()
@@ -142,8 +159,7 @@ func main() {
 		logger.Warn("Tenant runtime profile L2 disabled because cache does not support distributed operations")
 	}
 
-	runtimeProfiles := runtimeprofile.NewManager(runtimeprofile.NewCompiler(store), store, distributedRuntimeProfileCache, logger, runtimeProfileCfg)
-	store.SetRuntimeProfileManager(runtimeProfiles)
+	runtimeProfiles = runtimeprofile.NewManager(runtimeprofile.NewCompiler(store), store, distributedRuntimeProfileCache, logger, runtimeProfileCfg)
 	runtimeDeploymentStore := runtimeprofile.NewDeploymentStore(runtimeProfiles, store)
 
 	llmRouter, err := router.NewRouter(nil, cfg.RouterSettings, dualCache, runtimeDeploymentStore, logger)
@@ -162,7 +178,13 @@ func main() {
 	})
 	tenantMiddleware.SetRuntimeProfiles(runtimeProfiles)
 
-	billingService := billing.NewService(dualCache, store, cfg.BillingSettings.DefaultUSDtoIRR, cfg.BillingSettings.RateSource)
+	billingService := billing.NewServiceWithRepositories(
+		dualCache,
+		store.WalletRepository,
+		store.PlanRepository,
+		cfg.BillingSettings.DefaultUSDtoIRR,
+		cfg.BillingSettings.RateSource,
+	)
 	billingService.SetRuntimeProfiles(runtimeProfiles)
 
 	pricingCtx, cancelPricing := context.WithCancel(ctx)
@@ -175,10 +197,10 @@ func main() {
 		logger,
 	)
 
-	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
+	subscriptionProcessor := billing.NewSubscriptionProcessor(store.PlanRepository, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
 		billing.LoadNobitexExchangeRateConfigFromEnv(cfg.BillingSettings.RateSource),
-		store,
+		store.WalletRepository,
 		logger,
 	)
 
@@ -187,7 +209,7 @@ func main() {
 		walletSettlementProcessor = billing.NewWalletSettlementProcessor(
 			billing.LoadWalletSettlementConfigFromEnv(),
 			liveBudgetCache,
-			store,
+			store.WalletRepository,
 			logger,
 		)
 	}
@@ -203,16 +225,11 @@ func main() {
 		defer walletSettlementProcessor.Stop()
 	}
 
-	tunnelClient := tunneltransport.NewHTTPTransport(cfg.TunnelSettings.ClientURL, time.Duration(cfg.TunnelSettings.Timeout)*time.Second)
 	if credentialRuntime.service != nil {
-		credentialRuntime.service.SetProber(platformcredentials.NewTunnelCredentialProber(tunnelClient))
+		credentialRuntime.service.SetProber(tenantProviderProber)
 	}
 
-	store.SetTenantProviderCredentialProber(platformcredentials.NewTunnelCredentialProber(tunnelClient))
-
 	metricsCfg := metricsobs.LoadConfigFromEnv()
-
-	store.SetTokenUsageMetrics(httpMetrics)
 
 	var (
 		emitMetric func(input metricsobs.BuildInput)
@@ -269,8 +286,8 @@ func main() {
 	adminDeps := admin.Dependencies{
 		Keys:             store,
 		Models:           store,
-		Wallets:          store,
-		ProviderAccounts: store,
+		Wallets:          store.WalletRepository,
+		ProviderAccounts: store.ProviderAccountRepository,
 		ProviderSchemas:  providerSchemaCatalog,
 		OrgUnits:         store,
 		Memberships:      store,
@@ -286,10 +303,10 @@ func main() {
 		RequestLogging:   store,
 		Prompts:          store,
 		Roles:            store,
-		Plans:            store,
-		Entitlements:     store,
-		SupportTenants:   store,
-		SupportTickets:   store,
+		Plans:            store.PlanRepository,
+		Entitlements:     store.PlanRepository,
+		SupportTenants:   store.SupportRepository,
+		SupportTickets:   store.SupportRepository,
 		SupportFiles:     supportFileService,
 	}
 	if platformCredentialService != nil {

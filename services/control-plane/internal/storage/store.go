@@ -10,7 +10,6 @@ import (
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
-	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
@@ -18,37 +17,33 @@ import (
 
 // Store provides PostgreSQL-backed persistence for the control-plane.
 type Store struct {
-	pool                       *pgxpool.Pool
-	clickhouse                 *sql.DB
-	clickhouseReady            bool
-	clickhouseTraceReady       bool
-	clickhouseMetricsReady     bool
-	clickhouseLogsReady        bool
-	logger                     *zap.Logger
-	entitlementCache           cache.Cache
-	entitlementCacheTTL        time.Duration
-	entitlementLoadGroup       singleflight.Group
-	requestLoggingModeTTL      time.Duration
-	requestLoggingModeGroup    singleflight.Group
-	usageCounterCache          cache.UsageCounterCache
-	usageCountersEnabled       bool
-	usageCountersFailOpen      bool
-	usageCounterKeyPrefix      string
-	usageCounterFlushInterval  time.Duration
-	usageCounterFlushBatchSize int
-	usageCounterTTLBuffer      time.Duration
-	tokenUsageCache            cache.TokenUsageCache
-	tokenUsageMetrics          TokenUsageMetrics
-	tokenUsageEnabled          bool
-	tokenUsageFailOpen         bool
-	tokenUsageKeyPrefix        string
-	tokenUsageFlushInterval    time.Duration
-	tokenUsageFlushBatchSize   int
-	tokenUsageDeltaTTL         time.Duration
-	lastUsedFlushInterval      time.Duration
-	lastUsedTTL                time.Duration
-	lastUsedFallbackMu         sync.Mutex
-	lastUsedFallback           map[string]time.Time
+	*PlanRepository
+	*WalletRepository
+	*SupportRepository
+	*ProviderAccountRepository
+
+	pool                     *pgxpool.Pool
+	clickhouse               *sql.DB
+	clickhouseReady          bool
+	clickhouseTraceReady     bool
+	clickhouseMetricsReady   bool
+	clickhouseLogsReady      bool
+	logger                   *zap.Logger
+	entitlementCache         cache.Cache
+	requestLoggingModeTTL    time.Duration
+	requestLoggingModeGroup  singleflight.Group
+	tokenUsageCache          cache.TokenUsageCache
+	tokenUsageMetrics        TokenUsageMetrics
+	tokenUsageEnabled        bool
+	tokenUsageFailOpen       bool
+	tokenUsageKeyPrefix      string
+	tokenUsageFlushInterval  time.Duration
+	tokenUsageFlushBatchSize int
+	tokenUsageDeltaTTL       time.Duration
+	lastUsedFlushInterval    time.Duration
+	lastUsedTTL              time.Duration
+	lastUsedFallbackMu       sync.Mutex
+	lastUsedFallback         map[string]time.Time
 
 	hotPathCacheMu       sync.Mutex
 	hotPathCacheTTL      time.Duration
@@ -63,54 +58,35 @@ type Store struct {
 	authzCacheTTL        time.Duration
 	authzCacheMaxEntries int
 
-	runtimeProfiles *runtimeprofile.Manager
-
-	tenantCredentialStore     *platformcredentials.EncryptedDBSecretStore
-	tenantCredentialCacheMu   sync.Mutex
-	tenantCredentialCache     map[string]tenantCredentialCacheEntry
-	tenantCredentialCacheTTL  time.Duration
-	tenantCredentialLoadGroup singleflight.Group
-	tenantProviderProber      platformcredentials.CredentialProber
+	runtimeProfileInvalidator RuntimeProfileInvalidator
 }
 
-// SetEntitlementCache attaches the shared control-plane cache used by entitlement resolution.
-func (s *Store) SetEntitlementCache(c cache.Cache) {
-	s.entitlementCache = c
-	if usageCounterCache, ok := c.(cache.UsageCounterCache); ok {
-		s.usageCounterCache = usageCounterCache
-	}
-
-	if tokenUsageCache, ok := c.(cache.TokenUsageCache); ok {
-		s.tokenUsageCache = tokenUsageCache
-	}
-}
-
-// SetRequestLoggingModeCacheTTL overrides the tenant request logging mode cache TTL.
-func (s *Store) SetRequestLoggingModeCacheTTL(ttl time.Duration) {
-	if ttl > 0 {
-		s.requestLoggingModeTTL = ttl
-	}
-}
-
-// SetTokenUsageMetrics attaches token usage aggregation metric hooks.
-func (s *Store) SetTokenUsageMetrics(metrics TokenUsageMetrics) {
-	s.tokenUsageMetrics = metrics
-}
-
-func (s *Store) SetRuntimeProfileManager(manager *runtimeprofile.Manager) {
-	s.runtimeProfiles = manager
-}
-
-func (s *Store) SetTenantCredentialStore(secretStore *platformcredentials.EncryptedDBSecretStore) {
-	s.tenantCredentialStore = secretStore
-}
-
-func (s *Store) SetTenantProviderCredentialProber(prober platformcredentials.CredentialProber) {
-	s.tenantProviderProber = prober
+// StoreDependencies contains the non-database collaborators required by repositories.
+type StoreDependencies struct {
+	Cache                     cache.Cache
+	RequestLoggingModeTTL     time.Duration
+	RuntimeProfileInvalidator RuntimeProfileInvalidator
+	TenantCredentialStore     *platformcredentials.EncryptedDBSecretStore
+	TenantProviderProber      platformcredentials.CredentialProber
+	TokenUsageMetrics         TokenUsageMetrics
 }
 
 // NewStore creates a new PostgreSQL store.
-func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Store, error) {
+func NewStore(
+	ctx context.Context,
+	databaseURL string,
+	logger *zap.Logger,
+	dependencies ...StoreDependencies,
+) (*Store, error) {
+	if len(dependencies) > 1 {
+		return nil, fmt.Errorf("initialize store: expected at most one dependency set, got %d", len(dependencies))
+	}
+
+	deps := StoreDependencies{}
+	if len(dependencies) == 1 {
+		deps = dependencies[0]
+	}
+
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
@@ -127,36 +103,39 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	store := &Store{
-		pool:                       pool,
-		logger:                     logger,
-		entitlementCacheTTL:        secondsEnvOrDefault("ENTITLEMENT_CACHE_TTL_SECONDS", 60*time.Second),
-		requestLoggingModeTTL:      secondsEnvOrDefault("REQUEST_LOG_MODE_CACHE_TTL_SECONDS", 60*time.Second),
-		usageCountersEnabled:       boolEnvOrDefault("USAGE_COUNTER_REDIS_ENABLED", true),
-		usageCountersFailOpen:      boolEnvOrDefault("USAGE_COUNTER_REDIS_FAIL_OPEN", false),
-		usageCounterKeyPrefix:      stringEnvOrDefault("USAGE_COUNTER_REDIS_KEY_PREFIX", "usage"),
-		usageCounterFlushInterval:  secondsEnvOrDefault("USAGE_COUNTER_FLUSH_INTERVAL_SECONDS", 5*time.Second),
-		usageCounterFlushBatchSize: intEnvOrDefault("USAGE_COUNTER_FLUSH_BATCH_SIZE", 500),
-		usageCounterTTLBuffer:      secondsEnvOrDefault("USAGE_COUNTER_TTL_BUFFER_SECONDS", 3600*time.Second),
-		tokenUsageEnabled:          boolEnvOrDefault("TOKEN_USAGE_AGGREGATION_ENABLED", true),
-		tokenUsageFailOpen:         boolEnvOrDefault("TOKEN_USAGE_REDIS_FAIL_OPEN", true),
-		tokenUsageKeyPrefix:        stringEnvOrDefault("TOKEN_USAGE_REDIS_KEY_PREFIX", "usage"),
-		tokenUsageFlushInterval:    secondsEnvOrDefault("TOKEN_USAGE_FLUSH_INTERVAL_SECONDS", 5*time.Second),
-		tokenUsageFlushBatchSize:   intEnvOrDefault("TOKEN_USAGE_FLUSH_BATCH_SIZE", 500),
-		tokenUsageDeltaTTL:         secondsEnvOrDefault("TOKEN_USAGE_DELTA_TTL_SECONDS", 86400*time.Second),
-		lastUsedFlushInterval:      secondsEnvOrDefault("TOKEN_LAST_USED_FLUSH_INTERVAL_SECONDS", 60*time.Second),
-		lastUsedTTL:                secondsEnvOrDefault("TOKEN_LAST_USED_TTL_SECONDS", 86400*time.Second),
-		lastUsedFallback:           make(map[string]time.Time),
-		hotPathCacheTTL:            secondsEnvOrDefault("MODEL_LIST_CACHE_TTL_SECONDS", 30*time.Second),
-		hotPathCacheStaleTTL:       secondsEnvOrDefault("MODEL_LIST_CACHE_STALE_SECONDS", 10*time.Second),
-		hotPathCache:               make(map[string]hotPathCacheEntry),
-		authzCache:                 make(map[string]authzCacheEntry),
-		authzTenantEpoch:           make(map[string]uint64),
-		authzCacheTTL:              60 * time.Second,
-		authzCacheMaxEntries:       5000,
-		tenantCredentialCache:      make(map[string]tenantCredentialCacheEntry),
-		tenantCredentialCacheTTL:   secondsEnvOrDefault("TENANT_PROVIDER_CREDENTIAL_CACHE_TTL_SECONDS", 60*time.Second),
+	requestLoggingModeTTL := secondsEnvOrDefault("REQUEST_LOG_MODE_CACHE_TTL_SECONDS", 60*time.Second)
+	if deps.RequestLoggingModeTTL > 0 {
+		requestLoggingModeTTL = deps.RequestLoggingModeTTL
 	}
+
+	store := &Store{
+		pool:                      pool,
+		logger:                    logger,
+		entitlementCache:          deps.Cache,
+		requestLoggingModeTTL:     requestLoggingModeTTL,
+		tokenUsageEnabled:         boolEnvOrDefault("TOKEN_USAGE_AGGREGATION_ENABLED", true),
+		tokenUsageFailOpen:        boolEnvOrDefault("TOKEN_USAGE_REDIS_FAIL_OPEN", true),
+		tokenUsageKeyPrefix:       stringEnvOrDefault("TOKEN_USAGE_REDIS_KEY_PREFIX", "usage"),
+		tokenUsageFlushInterval:   secondsEnvOrDefault("TOKEN_USAGE_FLUSH_INTERVAL_SECONDS", 5*time.Second),
+		tokenUsageFlushBatchSize:  intEnvOrDefault("TOKEN_USAGE_FLUSH_BATCH_SIZE", 500),
+		tokenUsageDeltaTTL:        secondsEnvOrDefault("TOKEN_USAGE_DELTA_TTL_SECONDS", 86400*time.Second),
+		lastUsedFlushInterval:     secondsEnvOrDefault("TOKEN_LAST_USED_FLUSH_INTERVAL_SECONDS", 60*time.Second),
+		lastUsedTTL:               secondsEnvOrDefault("TOKEN_LAST_USED_TTL_SECONDS", 86400*time.Second),
+		lastUsedFallback:          make(map[string]time.Time),
+		hotPathCacheTTL:           secondsEnvOrDefault("MODEL_LIST_CACHE_TTL_SECONDS", 30*time.Second),
+		hotPathCacheStaleTTL:      secondsEnvOrDefault("MODEL_LIST_CACHE_STALE_SECONDS", 10*time.Second),
+		hotPathCache:              make(map[string]hotPathCacheEntry),
+		authzCache:                make(map[string]authzCacheEntry),
+		authzTenantEpoch:          make(map[string]uint64),
+		authzCacheTTL:             60 * time.Second,
+		authzCacheMaxEntries:      5000,
+		runtimeProfileInvalidator: deps.RuntimeProfileInvalidator,
+		tokenUsageMetrics:         deps.TokenUsageMetrics,
+	}
+	if tokenUsageCache, ok := deps.Cache.(cache.TokenUsageCache); ok {
+		store.tokenUsageCache = tokenUsageCache
+	}
+
 	if err := store.initClickHouseWithRetry(ctx); err != nil {
 		if boolEnvOrDefault("CLICKHOUSE_REQUIRED", false) {
 			pool.Close()
@@ -165,6 +144,25 @@ func NewStore(ctx context.Context, databaseURL string, logger *zap.Logger) (*Sto
 
 		logger.Warn("clickhouse observability backend unavailable; continuing without clickhouse-backed traces, metrics, and logs", zap.Error(err))
 	}
+
+	store.PlanRepository = newPlanRepository(pool, logger, deps.Cache, deps.RuntimeProfileInvalidator)
+	store.WalletRepository = newWalletRepository(
+		pool,
+		store.clickhouse,
+		store.clickHouseMetricsReady(),
+		logger,
+		deps.Cache,
+	)
+	store.SupportRepository = newSupportRepository(pool, store.PlanRepository, store.WalletRepository)
+	store.ProviderAccountRepository = newProviderAccountRepository(
+		pool,
+		logger,
+		deps.RuntimeProfileInvalidator,
+		store.invalidateDeploymentCache,
+		store.warmDeploymentCacheAsync,
+		deps.TenantCredentialStore,
+		deps.TenantProviderProber,
+	)
 
 	return store, nil
 }

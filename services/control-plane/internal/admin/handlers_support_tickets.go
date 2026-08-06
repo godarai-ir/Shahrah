@@ -18,8 +18,8 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
+	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"github.com/gofiber/fiber/v2"
 )
@@ -550,9 +550,9 @@ func (h *Handlers) TriagePlatformSupportTicket(c *fiber.Ctx) error {
 
 	ticket, err := store.TriageSupportTicket(c.Context(), c.Params("ticketID"), req, actor)
 	if err != nil {
-		if errors.Is(err, storage.ErrSupportTicketStaleVersion) {
+		if errors.Is(err, supportdomain.ErrSupportTicketStaleVersion) {
 			prommetrics.RecordSupportTransition("stale")
-		} else if errors.Is(err, storage.ErrSupportTicketInvalidTransition) {
+		} else if errors.Is(err, supportdomain.ErrSupportTicketInvalidTransition) {
 			prommetrics.RecordSupportTransition("invalid")
 		} else {
 			prommetrics.RecordSupportTransition("error")
@@ -1086,21 +1086,21 @@ func mapSupportTicketError(c *fiber.Ctx, err error) error {
 	}
 
 	switch {
-	case errors.Is(err, storage.ErrSupportTicketNotFound):
+	case errors.Is(err, supportdomain.ErrSupportTicketNotFound):
 		return writeSupportTicketError(c, fiber.StatusNotFound, "support_ticket_not_found", "support ticket not found")
-	case errors.Is(err, storage.ErrSupportTicketForbidden):
+	case errors.Is(err, supportdomain.ErrSupportTicketForbidden):
 		return writeSupportTicketError(c, fiber.StatusForbidden, "support_ticket_forbidden", "support ticket access denied")
-	case errors.Is(err, storage.ErrSupportTicketClosed):
+	case errors.Is(err, supportdomain.ErrSupportTicketClosed):
 		return writeSupportTicketError(c, fiber.StatusConflict, "support_ticket_closed", "support ticket is closed")
-	case errors.Is(err, storage.ErrSupportTicketInvalidTransition):
+	case errors.Is(err, supportdomain.ErrSupportTicketInvalidTransition):
 		return writeSupportTicketError(c, fiber.StatusUnprocessableEntity, "support_ticket_invalid_transition", "invalid support ticket status transition")
-	case errors.Is(err, storage.ErrSupportTicketRatingNotAllowed):
+	case errors.Is(err, supportdomain.ErrSupportTicketRatingNotAllowed):
 		return writeSupportTicketError(c, fiber.StatusUnprocessableEntity, "support_ticket_rating_not_allowed", "support ticket rating is not allowed")
-	case errors.Is(err, storage.ErrSupportTicketStaleVersion):
+	case errors.Is(err, supportdomain.ErrSupportTicketStaleVersion):
 		return writeSupportTicketError(c, fiber.StatusConflict, "support_ticket_stale_version", "support ticket changed; refresh and retry")
-	case errors.Is(err, storage.ErrSupportTicketIdempotency):
+	case errors.Is(err, supportdomain.ErrSupportTicketIdempotency):
 		return writeSupportTicketError(c, fiber.StatusConflict, "idempotency_conflict", "idempotency key was already used with another payload")
-	case errors.Is(err, storage.ErrSupportTicketRateLimited):
+	case errors.Is(err, supportdomain.ErrSupportTicketRateLimited):
 		return writeSupportTicketError(c, fiber.StatusTooManyRequests, "rate_limit_exceeded", "support ticket rate limit exceeded")
 	case errors.Is(err, supportfiles.ErrTooManyFiles):
 		return writeSupportTicketError(c, fiber.StatusBadRequest, "support_attachment_too_many", "too many attachments")

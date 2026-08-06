@@ -22,6 +22,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	controlserver "github.com/Delpak/shahrah/services/control-plane/internal/server"
@@ -748,7 +749,7 @@ func TestIntegration_ConcurrentWalletDebitUsesRowLock(t *testing.T) {
 			switch {
 			case debitErr == nil:
 				successes++
-			case errors.Is(debitErr, storage.ErrInsufficientWalletBalance):
+			case errors.Is(debitErr, billingdomain.ErrInsufficientWalletBalance):
 				insufficient++
 			default:
 				otherErrors = append(otherErrors, debitErr)

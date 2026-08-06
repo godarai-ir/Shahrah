@@ -21,7 +21,7 @@ var (
 )
 
 // CreateTenantProviderAccount creates a provider account for the tenant.
-func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string, req platform.CreateTenantProviderAccountRequest) (*platform.TenantProviderAccount, error) {
+func (s *ProviderAccountRepository) CreateTenantProviderAccount(ctx context.Context, tenantID string, req platform.CreateTenantProviderAccountRequest) (*platform.TenantProviderAccount, error) {
 	if err := validateProviderConfigAPIBase(req.Provider, req.ProviderConfig, "api_base", "base_url"); err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (s *Store) CreateTenantProviderAccount(ctx context.Context, tenantID string
 }
 
 // ListTenantProviderAccounts lists provider accounts scoped to one tenant.
-func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string) ([]platform.TenantProviderAccount, error) {
+func (s *ProviderAccountRepository) ListTenantProviderAccounts(ctx context.Context, tenantID string) ([]platform.TenantProviderAccount, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT account_id::text, tenant_id::text, provider, name, auth_mode, provider_config, COALESCE(credential_hint, ''),
 		       has_credential, use_platform_managed_credentials, credential_rotation_required, created_at, updated_at
@@ -181,7 +181,7 @@ func (s *Store) ListTenantProviderAccounts(ctx context.Context, tenantID string)
 // ListTenantProviderAccountCatalogRecords returns all provider accounts and
 // their enabled models in one tenant-scoped query. Accounts without models
 // still produce one record so callers can derive an actionable readiness.
-func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, tenantID string) ([]platform.TenantProviderAccountCatalogRecord, error) {
+func (s *ProviderAccountRepository) ListTenantProviderAccountCatalogRecords(ctx context.Context, tenantID string) ([]platform.TenantProviderAccountCatalogRecord, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH access_counts AS (
 			SELECT account_id,
@@ -278,7 +278,7 @@ func (s *Store) ListTenantProviderAccountCatalogRecords(ctx context.Context, ten
 }
 
 // GetTenantProviderAccountDetails returns account, selected models, and access control.
-func (s *Store) GetTenantProviderAccountDetails(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccountDetailsResponse, error) {
+func (s *ProviderAccountRepository) GetTenantProviderAccountDetails(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccountDetailsResponse, error) {
 	account, err := s.getTenantProviderAccount(ctx, tenantID, accountID)
 	if err != nil {
 		return nil, err
@@ -302,7 +302,7 @@ func (s *Store) GetTenantProviderAccountDetails(ctx context.Context, tenantID st
 }
 
 // UpdateTenantProviderAccountCredentials updates auth mode, provider config, and credentials for one account.
-func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.UpdateTenantProviderAccountCredentialsRequest) (*platform.TenantProviderAccount, error) {
+func (s *ProviderAccountRepository) UpdateTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.UpdateTenantProviderAccountCredentialsRequest) (*platform.TenantProviderAccount, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -451,7 +451,7 @@ func (s *Store) UpdateTenantProviderAccountCredentials(ctx context.Context, tena
 }
 
 // UpsertTenantProviderAccountModels replaces model selection for one provider account.
-func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID string, accountID string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error) {
+func (s *ProviderAccountRepository) UpsertTenantProviderAccountModels(ctx context.Context, tenantID string, accountID string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -570,7 +570,7 @@ func (s *Store) UpsertTenantProviderAccountModels(ctx context.Context, tenantID 
 }
 
 // UpdateTenantProviderAccountAccess replaces manager/user access assignments for one account.
-func (s *Store) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID string, accountID string, access platform.TenantProviderAccountAccessControl) (*platform.TenantProviderAccountAccessControl, error) {
+func (s *ProviderAccountRepository) UpdateTenantProviderAccountAccess(ctx context.Context, tenantID string, accountID string, access platform.TenantProviderAccountAccessControl) (*platform.TenantProviderAccountAccessControl, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -677,7 +677,7 @@ func insertAccessRules(ctx context.Context, tx pgx.Tx, tenantID string, accountI
 }
 
 // TestTenantProviderAccountCredentials validates whether the account can reach its upstream provider.
-func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
+func (s *ProviderAccountRepository) TestTenantProviderAccountCredentials(ctx context.Context, tenantID string, accountID string, req platform.TestTenantProviderAccountCredentialsRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
 	var (
 		provider                      string
 		authMode                      string
@@ -754,7 +754,7 @@ func (s *Store) TestTenantProviderAccountCredentials(ctx context.Context, tenant
 
 // TestProviderConnection validates write-only credentials without persisting
 // the request or creating a tenant provider account.
-func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestProviderConnectionRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
+func (s *ProviderAccountRepository) TestProviderConnection(ctx context.Context, req platform.TestProviderConnectionRequest) (*platform.TestTenantProviderAccountCredentialsResponse, error) {
 	if req.UsePlatformManagedCredentials {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
@@ -795,7 +795,7 @@ func (s *Store) TestProviderConnection(ctx context.Context, req platform.TestPro
 	return tenantProviderCredentialTestResponse(success, category, message, metadata), nil
 }
 
-func (s *Store) tenantProviderCredentialProber() platformcredentials.CredentialProber {
+func (s *ProviderAccountRepository) tenantProviderCredentialProber() platformcredentials.CredentialProber {
 	if s.tenantProviderProber != nil {
 		return s.tenantProviderProber
 	}
@@ -901,7 +901,7 @@ func tenantProviderProbeCredential(provider, connectionID, authMode string, conf
 	}
 }
 
-func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccount, error) {
+func (s *ProviderAccountRepository) getTenantProviderAccount(ctx context.Context, tenantID string, accountID string) (*platform.TenantProviderAccount, error) {
 	var (
 		account        platform.TenantProviderAccount
 		providerCfgRaw []byte
@@ -937,7 +937,7 @@ func (s *Store) getTenantProviderAccount(ctx context.Context, tenantID string, a
 	return &account, nil
 }
 
-func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID string) ([]platform.TenantProviderAccountModel, error) {
+func (s *ProviderAccountRepository) listTenantProviderAccountModels(ctx context.Context, accountID string) ([]platform.TenantProviderAccountModel, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT model,
 		       enabled,
@@ -1009,7 +1009,7 @@ func (s *Store) listTenantProviderAccountModels(ctx context.Context, accountID s
 	return items, rows.Err()
 }
 
-func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID string) (platform.TenantProviderAccountAccessControl, error) {
+func (s *ProviderAccountRepository) listTenantProviderAccountAccess(ctx context.Context, accountID string) (platform.TenantProviderAccountAccessControl, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT role, access_scope, COALESCE(model, ''), principal_type, COALESCE(principal_id, ''), COALESCE(display_name, '')
 		FROM tenant_provider_account_access
@@ -1066,7 +1066,7 @@ func (s *Store) listTenantProviderAccountAccess(ctx context.Context, accountID s
 }
 
 // IsTenantProviderAccountManager returns true when the given user/team is in manager bucket for the account.
-func (s *Store) IsTenantProviderAccountManager(ctx context.Context, tenantID string, accountID string, userID string, teamID string) (bool, error) {
+func (s *ProviderAccountRepository) IsTenantProviderAccountManager(ctx context.Context, tenantID string, accountID string, userID string, teamID string) (bool, error) {
 	normalizedUserID := strings.TrimSpace(userID)
 
 	normalizedTeamID := strings.TrimSpace(teamID)
@@ -1118,7 +1118,7 @@ func (s *Store) IsTenantProviderAccountManager(ctx context.Context, tenantID str
 }
 
 // DeleteTenantProviderAccount deletes one provider account scoped to a tenant.
-func (s *Store) DeleteTenantProviderAccount(ctx context.Context, tenantID string, accountID string) error {
+func (s *ProviderAccountRepository) DeleteTenantProviderAccount(ctx context.Context, tenantID string, accountID string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -1235,7 +1235,7 @@ func insertAccessRows(ctx context.Context, tx pgx.Tx, tenantID string, accountID
 }
 
 // ListTenantProviderAccountEffectiveModels resolves model access visibility for debugging/admin observability.
-func (s *Store) ListTenantProviderAccountEffectiveModels(ctx context.Context, tenantID string, accountID string, keyType string, userID string, teamID string) ([]platform.EffectiveModelView, error) {
+func (s *ProviderAccountRepository) ListTenantProviderAccountEffectiveModels(ctx context.Context, tenantID string, accountID string, keyType string, userID string, teamID string) ([]platform.EffectiveModelView, error) {
 	// Ensure account exists and belongs to tenant.
 	if _, err := s.getTenantProviderAccount(ctx, tenantID, accountID); err != nil {
 		return nil, err

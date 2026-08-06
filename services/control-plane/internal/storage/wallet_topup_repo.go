@@ -2,33 +2,15 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 )
 
-var ErrTopUpIntentNotFound = errors.New("top-up intent not found")
-
-type CreateTopUpIntentParams struct {
-	TenantID     string
-	Provider     string
-	AmountUSD    float64
-	AmountIRR    float64
-	ExchangeRate float64
-	TaxPercent   float64
-	FeePercent   float64
-	TaxAmountIRR float64
-	FeeAmountIRR float64
-	PayableIRR   float64
-	CallbackURL  string
-	ReturnURL    string
-	Metadata     map[string]interface{}
-}
-
-func (s *Store) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTopUpSettings, error) {
+func (s *WalletRepository) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTopUpSettings, error) {
 	var out platform.WalletTopUpSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -44,7 +26,7 @@ func (s *Store) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTop
 	return &out, nil
 }
 
-func (s *Store) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, taxPercent, feePercent float64) (*platform.WalletTopUpSettings, error) {
+func (s *WalletRepository) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, taxPercent, feePercent float64) (*platform.WalletTopUpSettings, error) {
 	var out platform.WalletTopUpSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -64,7 +46,7 @@ func (s *Store) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, t
 	return &out, nil
 }
 
-func (s *Store) CreateWalletTopUpIntent(ctx context.Context, p CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
+func (s *WalletRepository) CreateWalletTopUpIntent(ctx context.Context, p billingdomain.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
 	metaRaw := marshalJSONBestEffort(p.Metadata)
 
 	var out platform.WalletTopUpIntent
@@ -125,7 +107,7 @@ func (s *Store) CreateWalletTopUpIntent(ctx context.Context, p CreateTopUpIntent
 	return &out, nil
 }
 
-func (s *Store) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error {
+func (s *WalletRepository) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error {
 	rawPayload := marshalJSONBestEffort(raw)
 
 	res, err := s.pool.Exec(ctx, `
@@ -141,13 +123,13 @@ func (s *Store) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID
 	}
 
 	if res.RowsAffected() == 0 {
-		return ErrTopUpIntentNotFound
+		return billingdomain.ErrTopUpIntentNotFound
 	}
 
 	return nil
 }
 
-func (s *Store) GetWalletTopUpIntentByAuthority(ctx context.Context, authority string) (*platform.WalletTopUpIntent, error) {
+func (s *WalletRepository) GetWalletTopUpIntentByAuthority(ctx context.Context, authority string) (*platform.WalletTopUpIntent, error) {
 	var (
 		out             platform.WalletTopUpIntent
 		walletTxID      *string
@@ -255,7 +237,7 @@ func (s *Store) GetWalletTopUpIntentByAuthority(ctx context.Context, authority s
 	return &out, nil
 }
 
-func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error) {
+func (s *WalletRepository) CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, false, err
@@ -441,7 +423,7 @@ func (s *Store) CompleteWalletTopUpByAuthority(ctx context.Context, authority st
 	return &intent, false, nil
 }
 
-func (s *Store) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
+func (s *WalletRepository) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
 	rawPayload := marshalJSONBestEffort(raw)
 
 	res, err := s.pool.Exec(ctx, `
@@ -457,13 +439,13 @@ func (s *Store) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority 
 	}
 
 	if res.RowsAffected() == 0 {
-		return ErrTopUpIntentNotFound
+		return billingdomain.ErrTopUpIntentNotFound
 	}
 
 	return nil
 }
 
-func (s *Store) ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error) {
+func (s *WalletRepository) ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -505,6 +487,6 @@ func (s *Store) ListWalletTransactions(ctx context.Context, tenantID string, lim
 	return out, nil
 }
 
-func (s *Store) BuildTopUpCallbackURL(baseURL, provider string) string {
+func (s *WalletRepository) BuildTopUpCallbackURL(baseURL, provider string) string {
 	return fmt.Sprintf("%s/api/v1/wallet/topup/callback/%s", baseURL, provider)
 }

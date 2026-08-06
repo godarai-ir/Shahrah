@@ -16,7 +16,7 @@ type providerAccountRuntimeRecord struct {
 
 // ResolveProviderAccountAPIKey preserves the resolver contract while reading
 // only the active encrypted tenant credential version.
-func (s *Store) ResolveProviderAccountAPIKey(
+func (s *ProviderAccountRepository) ResolveProviderAccountAPIKey(
 	ctx context.Context,
 	tenantID string,
 	modelFQN string,
@@ -34,7 +34,7 @@ func (s *Store) ResolveProviderAccountAPIKey(
 	return s.resolveTenantProviderAccountAPIKey(ctx, tenantID, record.accountID)
 }
 
-func (s *Store) ResolveProviderAccountAuth(
+func (s *ProviderAccountRepository) ResolveProviderAccountAuth(
 	ctx context.Context,
 	tenantID string,
 	modelFQN string,
@@ -91,7 +91,7 @@ func (s *Store) ResolveProviderAccountAuth(
 	}
 }
 
-func (s *Store) resolveProviderAccountRuntimeRecord(
+func (s *ProviderAccountRepository) resolveProviderAccountRuntimeRecord(
 	ctx context.Context,
 	tenantID string,
 	modelFQN string,

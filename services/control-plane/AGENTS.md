@@ -27,6 +27,13 @@ This is the backend source of truth for platform behavior. Frontends should cons
 7. Keep canonical provider identities in `internal/providerregistry`. Provider
    HTTP adapters belong behind the tunnel in `services/silk-road`, not in a
    second control-plane provider registry.
+8. Add persistence to the narrow feature repository (`PlanRepository`,
+   `WalletRepository`, `SupportRepository`, or `ProviderAccountRepository`),
+   not directly to `storage.Store`.
+9. Keep transition, validation, and precedence rules in
+   `internal/domain/<feature>`; storage loads and persists state.
+10. Inject storage collaborators through `storage.StoreDependencies`; do not
+    add post-construction setter injection.
 
 ## Current Entry Points
 

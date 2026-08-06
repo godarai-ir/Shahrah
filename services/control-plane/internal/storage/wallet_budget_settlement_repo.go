@@ -10,7 +10,7 @@ import (
 )
 
 // ApplyWalletBudgetSettlement mirrors committed budget-window spend into the ledger wallet balance.
-func (s *Store) ApplyWalletBudgetSettlement(ctx context.Context, snapshot cache.BudgetWindowSnapshot) error {
+func (s *WalletRepository) ApplyWalletBudgetSettlement(ctx context.Context, snapshot cache.BudgetWindowSnapshot) error {
 	tenantID, windowID, err := parseBudgetWindowIdentity(snapshot.WindowKey)
 	if err != nil {
 		return err

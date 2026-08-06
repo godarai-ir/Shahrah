@@ -13,19 +13,9 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-)
-
-var (
-	ErrSupportTicketNotFound          = errors.New("support ticket not found")
-	ErrSupportTicketForbidden         = errors.New("support ticket forbidden")
-	ErrSupportTicketClosed            = errors.New("support ticket is closed")
-	ErrSupportTicketInvalidTransition = errors.New("invalid support ticket status transition")
-	ErrSupportTicketRatingNotAllowed  = errors.New("support ticket rating not allowed")
-	ErrSupportTicketStaleVersion      = errors.New("support ticket stale version")
-	ErrSupportTicketRateLimited       = errors.New("support ticket rate limit exceeded")
-	ErrSupportTicketIdempotency       = errors.New("support ticket idempotency conflict")
 )
 
 const supportTicketSelect = `
@@ -140,7 +130,7 @@ func scanSupportTicket(row supportTicketRowScanner) (*platform.SupportTicket, er
 	return &item, nil
 }
 
-func (s *Store) ListSupportTickets(ctx context.Context, params platform.SupportTicketListParams) ([]platform.SupportTicket, int, error) {
+func (s *SupportRepository) ListSupportTickets(ctx context.Context, params platform.SupportTicketListParams) ([]platform.SupportTicket, int, error) {
 	if params.Limit <= 0 {
 		params.Limit = 25
 	}
@@ -190,7 +180,7 @@ func (s *Store) ListSupportTickets(ctx context.Context, params platform.SupportT
 	return items, total, rows.Err()
 }
 
-func (s *Store) CountSupportTickets(ctx context.Context, params platform.SupportTicketListParams) (*platform.SupportTicketCounts, error) {
+func (s *SupportRepository) CountSupportTickets(ctx context.Context, params platform.SupportTicketListParams) (*platform.SupportTicketCounts, error) {
 	params.Queue = ""
 	params.Status = ""
 	where, args := supportTicketWhere(params, false)
@@ -297,7 +287,7 @@ func supportTicketWhere(params platform.SupportTicketListParams, includeStatus b
 	return " WHERE " + strings.Join(conditions, " AND "), args
 }
 
-func (s *Store) GetSupportTicket(ctx context.Context, tenantID, ticketRef, requesterUserID string, readAll bool) (*platform.SupportTicket, error) {
+func (s *SupportRepository) GetSupportTicket(ctx context.Context, tenantID, ticketRef, requesterUserID string, readAll bool) (*platform.SupportTicket, error) {
 	conditions := []string{"(st.ticket_id::text = $1 OR UPPER(st.public_id) = UPPER($1))"}
 
 	args := []interface{}{strings.TrimSpace(ticketRef)}
@@ -313,14 +303,14 @@ func (s *Store) GetSupportTicket(ctx context.Context, tenantID, ticketRef, reque
 
 	item, err := scanSupportTicket(s.pool.QueryRow(ctx, supportTicketSelect+" WHERE "+strings.Join(conditions, " AND ")+" LIMIT 1", args...))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrSupportTicketNotFound
+		return nil, supportdomain.ErrSupportTicketNotFound
 	}
 
 	return item, err
 }
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) CreateSupportTicket(
+func (s *SupportRepository) CreateSupportTicket(
 	ctx context.Context,
 	tenantID string,
 	requesterUserID string,
@@ -345,7 +335,7 @@ func (s *Store) CreateSupportTicket(
 	`, tenantID, requesterUserID, req.IdempotencyKey).Scan(&existingID, &existingHash)
 	if err == nil {
 		if existingHash != req.RequestHash {
-			return nil, false, ErrSupportTicketIdempotency
+			return nil, false, supportdomain.ErrSupportTicketIdempotency
 		}
 
 		if err := tx.Commit(ctx); err != nil {
@@ -372,7 +362,7 @@ func (s *Store) CreateSupportTicket(
 		}
 
 		if recent >= maxTicketsPerHour {
-			return nil, false, ErrSupportTicketRateLimited
+			return nil, false, supportdomain.ErrSupportTicketRateLimited
 		}
 	}
 
@@ -425,7 +415,7 @@ func (s *Store) CreateSupportTicket(
 	return detail, false, err
 }
 
-func (s *Store) GetSupportTicketDetail(ctx context.Context, tenantID, ticketRef, requesterUserID string, readAll bool) (*platform.SupportTicketDetail, error) {
+func (s *SupportRepository) GetSupportTicketDetail(ctx context.Context, tenantID, ticketRef, requesterUserID string, readAll bool) (*platform.SupportTicketDetail, error) {
 	ticket, err := s.GetSupportTicket(ctx, tenantID, ticketRef, requesterUserID, readAll)
 	if err != nil {
 		return nil, err
@@ -440,7 +430,7 @@ func (s *Store) GetSupportTicketDetail(ctx context.Context, tenantID, ticketRef,
 }
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) ListSupportTicketMessages(ctx context.Context, ticketID string, limit, offset int) ([]platform.SupportTicketMessage, error) {
+func (s *SupportRepository) ListSupportTicketMessages(ctx context.Context, ticketID string, limit, offset int) ([]platform.SupportTicketMessage, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -552,7 +542,7 @@ func (s *Store) ListSupportTicketMessages(ctx context.Context, ticketID string, 
 }
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) AddSupportTicketMessage(
+func (s *SupportRepository) AddSupportTicketMessage(
 	ctx context.Context,
 	tenantID string,
 	ticketRef string,
@@ -583,7 +573,7 @@ func (s *Store) AddSupportTicketMessage(
 	`, ticket.ID, actor.Type, actor.ID, req.IdempotencyKey).Scan(&existingMessageID, &existingHash)
 	if err == nil {
 		if existingHash != req.RequestHash {
-			return nil, false, ErrSupportTicketIdempotency
+			return nil, false, supportdomain.ErrSupportTicketIdempotency
 		}
 
 		if err := tx.Commit(ctx); err != nil {
@@ -602,11 +592,11 @@ func (s *Store) AddSupportTicketMessage(
 	now := time.Now().UTC()
 
 	if ticket.Status == platform.SupportTicketStatusClosed {
-		return nil, false, ErrSupportTicketClosed
+		return nil, false, supportdomain.ErrSupportTicketClosed
 	}
 
 	if ticket.Status == platform.SupportTicketStatusResolved && ticket.ResolvedAt != nil && now.Sub(ticket.ResolvedAt.UTC()) > 7*24*time.Hour {
-		return nil, false, ErrSupportTicketClosed
+		return nil, false, supportdomain.ErrSupportTicketClosed
 	}
 
 	if maxMessagesPerHour > 0 {
@@ -621,7 +611,7 @@ func (s *Store) AddSupportTicketMessage(
 		}
 
 		if recent >= maxMessagesPerHour {
-			return nil, false, ErrSupportTicketRateLimited
+			return nil, false, supportdomain.ErrSupportTicketRateLimited
 		}
 	}
 
@@ -636,8 +626,8 @@ func (s *Store) AddSupportTicketMessage(
 		nextStatus = platform.SupportTicketStatusInProgress
 	}
 
-	if !validSupportTicketTransition(ticket.Status, nextStatus, actor.Type == platform.SupportTicketAuthorSupportAgent) {
-		return nil, false, ErrSupportTicketInvalidTransition
+	if !supportdomain.CanTransitionTicket(ticket.Status, nextStatus, actor.Type == platform.SupportTicketAuthorSupportAgent) {
+		return nil, false, supportdomain.ErrSupportTicketInvalidTransition
 	}
 
 	messageID := uuid.NewString()
@@ -689,7 +679,7 @@ func (s *Store) AddSupportTicketMessage(
 	return detail, false, err
 }
 
-func (s *Store) TriageSupportTicket(ctx context.Context, ticketRef string, req platform.TriageSupportTicketRequest, actor platform.SupportTicketActor) (*platform.SupportTicket, error) {
+func (s *SupportRepository) TriageSupportTicket(ctx context.Context, ticketRef string, req platform.TriageSupportTicketRequest, actor platform.SupportTicketActor) (*platform.SupportTicket, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -717,18 +707,18 @@ func (s *Store) TriageSupportTicket(ctx context.Context, ticketRef string, req p
 	}
 
 	if req.Version <= 0 || ticket.Version != req.Version {
-		return nil, ErrSupportTicketStaleVersion
+		return nil, supportdomain.ErrSupportTicketStaleVersion
 	}
 
 	nextStatus := ticket.Status
 	if req.Status != nil {
 		nextStatus = strings.TrimSpace(*req.Status)
-		if !validSupportTicketTransition(ticket.Status, nextStatus, true) {
-			return nil, ErrSupportTicketInvalidTransition
+		if !supportdomain.CanTransitionTicket(ticket.Status, nextStatus, true) {
+			return nil, supportdomain.ErrSupportTicketInvalidTransition
 		}
 
 		if ticket.Status == platform.SupportTicketStatusClosed && nextStatus == platform.SupportTicketStatusOpen {
-			return nil, ErrSupportTicketInvalidTransition
+			return nil, supportdomain.ErrSupportTicketInvalidTransition
 		}
 	}
 
@@ -778,7 +768,7 @@ func (s *Store) TriageSupportTicket(ctx context.Context, ticketRef string, req p
 	return s.GetSupportTicket(ctx, "", ticket.ID, "", true)
 }
 
-func (s *Store) ReopenSupportTicket(ctx context.Context, ticketRef string, req platform.ReopenSupportTicketRequest, actor platform.SupportTicketActor) (*platform.SupportTicket, error) {
+func (s *SupportRepository) ReopenSupportTicket(ctx context.Context, ticketRef string, req platform.ReopenSupportTicketRequest, actor platform.SupportTicketActor) (*platform.SupportTicket, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -806,11 +796,11 @@ func (s *Store) ReopenSupportTicket(ctx context.Context, ticketRef string, req p
 	}
 
 	if ticket.Version != req.Version {
-		return nil, ErrSupportTicketStaleVersion
+		return nil, supportdomain.ErrSupportTicketStaleVersion
 	}
 
 	if ticket.Status != platform.SupportTicketStatusClosed || strings.TrimSpace(req.Reason) == "" {
-		return nil, ErrSupportTicketInvalidTransition
+		return nil, supportdomain.ErrSupportTicketInvalidTransition
 	}
 
 	if _, err := tx.Exec(ctx, `
@@ -839,7 +829,7 @@ func (s *Store) ReopenSupportTicket(ctx context.Context, ticketRef string, req p
 	return s.GetSupportTicket(ctx, "", ticket.ID, "", true)
 }
 
-func (s *Store) RateSupportTicket(ctx context.Context, tenantID, ticketRef, requesterUserID string, req platform.RateSupportTicketRequest, actor platform.SupportTicketActor) (*platform.SupportTicket, error) {
+func (s *SupportRepository) RateSupportTicket(ctx context.Context, tenantID, ticketRef, requesterUserID string, req platform.RateSupportTicketRequest, actor platform.SupportTicketActor) (*platform.SupportTicket, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -874,11 +864,11 @@ func (s *Store) RateSupportTicket(ctx context.Context, tenantID, ticketRef, requ
 	now := time.Now().UTC()
 
 	if ticket.Status != platform.SupportTicketStatusResolved && ticket.Status != platform.SupportTicketStatusClosed {
-		return nil, ErrSupportTicketRatingNotAllowed
+		return nil, supportdomain.ErrSupportTicketRatingNotAllowed
 	}
 
 	if ticket.Status == platform.SupportTicketStatusClosed && (ticket.ClosedAt == nil || now.Sub(ticket.ClosedAt.UTC()) > 30*24*time.Hour) {
-		return nil, ErrSupportTicketRatingNotAllowed
+		return nil, supportdomain.ErrSupportTicketRatingNotAllowed
 	}
 
 	if _, err := tx.Exec(ctx, `
@@ -930,7 +920,7 @@ func (s *Store) RateSupportTicket(ctx context.Context, tenantID, ticketRef, requ
 	return s.GetSupportTicket(ctx, tenantID, ticket.ID, requesterUserID, false)
 }
 
-func (s *Store) ListSupportTicketAttachmentObjectKeys(ctx context.Context) (map[string]struct{}, error) {
+func (s *SupportRepository) ListSupportTicketAttachmentObjectKeys(ctx context.Context) (map[string]struct{}, error) {
 	rows, err := s.pool.Query(ctx, `SELECT object_key FROM support_ticket_attachments`)
 	if err != nil {
 		return nil, err
@@ -951,7 +941,7 @@ func (s *Store) ListSupportTicketAttachmentObjectKeys(ctx context.Context) (map[
 	return keys, rows.Err()
 }
 
-func (s *Store) ListSupportTicketEvents(ctx context.Context, ticketID string, limit, offset int) ([]platform.SupportTicketEvent, error) {
+func (s *SupportRepository) ListSupportTicketEvents(ctx context.Context, ticketID string, limit, offset int) ([]platform.SupportTicketEvent, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -1008,7 +998,7 @@ func (s *Store) ListSupportTicketEvents(ctx context.Context, ticketID string, li
 	return items, rows.Err()
 }
 
-func (s *Store) GetSupportTicketAttachment(ctx context.Context, tenantID, attachmentID, requesterUserID string, readAll bool) (*platform.SupportTicketAttachmentObject, error) {
+func (s *SupportRepository) GetSupportTicketAttachment(ctx context.Context, tenantID, attachmentID, requesterUserID string, readAll bool) (*platform.SupportTicketAttachmentObject, error) {
 	args := []interface{}{strings.TrimSpace(attachmentID)}
 	conditions := []string{"sta.attachment_id::text = $1"}
 
@@ -1050,7 +1040,7 @@ func (s *Store) GetSupportTicketAttachment(ctx context.Context, tenantID, attach
 		&item.ObjectKey,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrSupportTicketNotFound
+		return nil, supportdomain.ErrSupportTicketNotFound
 	}
 
 	if err != nil {
@@ -1065,7 +1055,7 @@ func (s *Store) GetSupportTicketAttachment(ctx context.Context, tenantID, attach
 	return &item, nil
 }
 
-func (s *Store) RecordSupportTicketAttachmentDownload(ctx context.Context, attachment *platform.SupportTicketAttachmentObject, actor platform.SupportTicketActor, outcome string) error {
+func (s *SupportRepository) RecordSupportTicketAttachmentDownload(ctx context.Context, attachment *platform.SupportTicketAttachmentObject, actor platform.SupportTicketActor, outcome string) error {
 	if attachment == nil {
 		return nil
 	}
@@ -1084,7 +1074,7 @@ func (s *Store) RecordSupportTicketAttachmentDownload(ctx context.Context, attac
 	return err
 }
 
-func (s *Store) CloseResolvedSupportTickets(ctx context.Context, before time.Time, batchSize int) (int, error) {
+func (s *SupportRepository) CloseResolvedSupportTickets(ctx context.Context, before time.Time, batchSize int) (int, error) {
 	if batchSize <= 0 {
 		batchSize = 100
 	}
@@ -1204,7 +1194,7 @@ func lockSupportTicketTx(ctx context.Context, tx pgx.Tx, tenantID, ticketRef, re
 		&item.Version,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrSupportTicketNotFound
+		return nil, supportdomain.ErrSupportTicketNotFound
 	}
 
 	if err != nil {
@@ -1308,7 +1298,7 @@ func supportMutationReplayTx(
 	}
 
 	if existingHash != requestHash {
-		return false, ErrSupportTicketIdempotency
+		return false, supportdomain.ErrSupportTicketIdempotency
 	}
 
 	return true, nil
@@ -1331,39 +1321,6 @@ func recordSupportMutationTx(
 	`, ticketID, actor.Type, actor.ID, operation, idempotencyKey, requestHash)
 
 	return err
-}
-
-func validSupportTicketTransition(current, next string, supportActor bool) bool {
-	if current == next {
-		return true
-	}
-
-	switch current {
-	case platform.SupportTicketStatusOpen:
-		return supportActor && (next == platform.SupportTicketStatusInProgress ||
-			next == platform.SupportTicketStatusWaitingForCustomer ||
-			next == platform.SupportTicketStatusResolved)
-	case platform.SupportTicketStatusInProgress:
-		return supportActor && (next == platform.SupportTicketStatusOpen ||
-			next == platform.SupportTicketStatusWaitingForCustomer ||
-			next == platform.SupportTicketStatusResolved)
-	case platform.SupportTicketStatusWaitingForCustomer:
-		if next == platform.SupportTicketStatusOpen {
-			return true
-		}
-
-		return supportActor && (next == platform.SupportTicketStatusInProgress || next == platform.SupportTicketStatusResolved)
-	case platform.SupportTicketStatusResolved:
-		if next == platform.SupportTicketStatusOpen {
-			return true
-		}
-
-		return supportActor && next == platform.SupportTicketStatusClosed
-	case platform.SupportTicketStatusClosed:
-		return false
-	default:
-		return false
-	}
 }
 
 func newSupportTicketPublicID() (string, error) {
