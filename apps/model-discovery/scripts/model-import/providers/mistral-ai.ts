@@ -64,11 +64,7 @@ const EXPECTED_ENDPOINTS: Record<string, string[]> = {
 };
 
 const EXPECTED_BATCH_ENDPOINTS: Record<string, string[]> = {
-  'codestral-2508': [
-    'chat_completions',
-    'fim_completions',
-    'conversations',
-  ],
+  'codestral-2508': ['chat_completions', 'fim_completions', 'conversations'],
   'codestral-embed-2505': ['embeddings'],
   'mistral-embed-2312': ['embeddings'],
   'mistral-large-2512': ['chat_completions', 'conversations'],
@@ -77,6 +73,19 @@ const EXPECTED_BATCH_ENDPOINTS: Record<string, string[]> = {
   'mistral-ocr-4-0': ['ocr'],
   'mistral-small-2603': ['chat_completions', 'conversations'],
   'voxtral-mini-2602': ['audio_transcriptions'],
+};
+
+export const MISTRAL_AI_RUNTIME_PROFILE_VERSIONS: Record<string, number> = {
+  'codestral-2508': 3,
+  'codestral-embed-2505': 3,
+  'mistral-embed-2312': 3,
+  'mistral-large-2512': 3,
+  'mistral-medium-3-5': 3,
+  'mistral-moderation-2603': 3,
+  'mistral-ocr-4-0': 3,
+  'mistral-small-2603': 3,
+  'voxtral-mini-2602': 3,
+  'voxtral-mini-tts-2603': 2,
 };
 
 const REQUIRED_COST_KEYS: Record<string, string[]> = {
@@ -182,8 +191,12 @@ export async function validateMistralAIProviderDirectory(
     const profile = modelRuntimeProfileSchema.safeParse(
       document.runtimeProfile,
     );
-    if (!profile.success || profile.data.version < 2) {
+    if (!profile.success) {
       invalidFiles.push(`${relativeFile}(invalid_runtime_profile)`);
+    } else if (
+      profile.data.version !== MISTRAL_AI_RUNTIME_PROFILE_VERSIONS[modelId]
+    ) {
+      invalidFiles.push(`${relativeFile}(runtime_profile_version)`);
     } else {
       const expectedEndpoints = EXPECTED_ENDPOINTS[modelId] ?? [];
       const actualEndpoints = [...profile.data.endpoints].sort();

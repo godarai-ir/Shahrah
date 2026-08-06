@@ -8,6 +8,12 @@ import {normalizeForSearch} from './src/search/normalize';
 import type {SearchData, SearchEntry} from './src/search/types';
 
 const localSearchPluginName = 'shahrah-local-search';
+const socialLinks = {
+  linkedin: 'https://www.linkedin.com/company/godarai/',
+  telegram: 'https://t.me/godarai',
+  github: 'https://github.com/godarai-ir',
+} as const;
+const socialLinkUrls = Object.values(socialLinks);
 const themeBootstrapScript = createThemeBootstrapScript({
   defaultTheme: 'system',
   legacyStorageKeys: ['theme', 'shahrah-theme', 'vite-ui-theme'],
@@ -283,6 +289,7 @@ const config: Config = {
         alternateName: 'GodarAI',
         url: 'https://godarai.ir',
         logo: 'https://godarai.ir/docs/brand/svg/godarai-mark-light.svg',
+        sameAs: socialLinkUrls,
       }),
     },
     {
@@ -306,7 +313,6 @@ const config: Config = {
         docs: {
           sidebarPath: './sidebars.ts',
           routeBasePath: '/',
-          editUrl: 'https://github.com/Delpak/shahrah/tree/main/apps/docs/',
         },
         blog: false,
         sitemap: {
@@ -363,7 +369,7 @@ const config: Config = {
           label: 'جستجو',
         },
         {
-          href: 'https://github.com/Delpak/shahrah',
+          href: socialLinks.github,
           label: 'گیت‌هاب',
           position: 'right',
         },
@@ -388,18 +394,26 @@ const config: Config = {
               label: 'سایت اصلی',
               href: 'https://godarai.ir',
             },
-          ],
-        },
-        {
-          title: 'لینک‌های کمکی',
-          items: [
             {
               label: 'بلاگ',
               href: 'https://godarai.ir/blog',
             },
+          ],
+        },
+        {
+          title: 'شبکه‌های اجتماعی',
+          items: [
+            {
+              label: 'لینکدین',
+              href: socialLinks.linkedin,
+            },
+            {
+              label: 'تلگرام',
+              href: socialLinks.telegram,
+            },
             {
               label: 'گیت‌هاب',
-              href: 'https://github.com/Delpak/shahrah',
+              href: socialLinks.github,
             },
           ],
         },

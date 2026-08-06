@@ -2,6 +2,7 @@
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import { createThemeBootstrapScript } from "@shahrah/theme-sync";
+import { socialLinkUrls } from "../utils/social-links";
 import "../styles/global.css";
 
 interface Props {
@@ -27,6 +28,14 @@ const themeBootstrapScript = createThemeBootstrapScript({
   defaultTheme: "system",
   legacyStorageKeys: ["shahrah-theme", "vite-ui-theme", "theme"],
 });
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "گدارAI",
+  alternateName: "GodarAI",
+  url: "https://godarai.ir",
+  sameAs: socialLinkUrls,
+};
 ---
 
 <!doctype html>
@@ -66,6 +75,7 @@ const themeBootstrapScript = createThemeBootstrapScript({
     <meta name="twitter:image" content={socialImage} />
     <meta name="twitter:image:alt" content={`لوگوی گدارAI — ${title}`} />
     {canonical && <link rel="canonical" href={canonical} />}
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(organizationJsonLd)} />
     <slot name="head" />
   </head>
   <body class="text-right">

@@ -19,7 +19,7 @@ modalities:
 sources:
   - https://docs.mistral.ai/models/model-cards/mistral-small-4-0-26-03
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: [mistral-small-latest]
   endpoints: [chat_completions, conversations, agents, files, batches]
   transports: [http, sse]

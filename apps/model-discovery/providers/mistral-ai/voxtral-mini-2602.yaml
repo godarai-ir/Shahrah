@@ -13,7 +13,7 @@ features: [timestamps]
 sources:
   - https://docs.mistral.ai/models/model-cards/voxtral-mini-transcribe-26-02
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: [voxtral-mini-latest]
   endpoints: [audio_transcriptions, batches]
   transports: [http, sse]

@@ -15,7 +15,7 @@ modalities:
 sources:
   - https://docs.mistral.ai/models/model-cards/mistral-embed-23-12
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: [mistral-embed]
   endpoints: [embeddings, batches]
   transports: [http]

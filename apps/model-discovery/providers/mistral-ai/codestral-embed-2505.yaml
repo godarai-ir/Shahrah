@@ -15,7 +15,7 @@ modalities:
 sources:
   - https://docs.mistral.ai/models/model-cards/codestral-embed-25-05
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: [codestral-embed]
   endpoints: [embeddings, batches]
   transports: [http]

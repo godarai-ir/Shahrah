@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ExternalLink } from "lucide-react";
 import { GitHubIcon } from "@/components/github-icon";
+import { SOCIAL_LINKS } from "@/lib/social-links";
 
 const links = [
   { href: "https://godarai.ir/docs", key: "useApi", external: true },
   { href: "/compare", key: "compare", external: false },
-  { href: "https://github.com/godarai-ir", key: "github", external: true },
+  { href: SOCIAL_LINKS.github, key: "github", external: true },
 ] as const;
 
 export function SiteNavigation() {

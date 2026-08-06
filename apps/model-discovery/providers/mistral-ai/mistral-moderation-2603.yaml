@@ -15,7 +15,7 @@ modalities:
 sources:
   - https://docs.mistral.ai/models/model-cards/mistral-moderation-26-03
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: []
   endpoints: [moderations, chat_moderations, batches]
   transports: [http]

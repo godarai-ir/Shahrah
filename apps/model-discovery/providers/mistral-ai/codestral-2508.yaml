@@ -27,7 +27,7 @@ modalities:
 sources:
   - https://docs.mistral.ai/models/model-cards/codestral-25-08
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: [codestral-latest]
   endpoints: [chat_completions, fim_completions, conversations, batches]
   transports: [http, sse]

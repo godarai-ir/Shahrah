@@ -14,6 +14,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteNavigation } from "@/components/site-navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GodarAILogo } from "@/components/godarai-logo";
+import { SOCIAL_LINK_URLS } from "@/lib/social-links";
 
 const themeBootstrapScript = createThemeBootstrapScript({
   defaultTheme: "system",
@@ -21,6 +22,15 @@ const themeBootstrapScript = createThemeBootstrapScript({
     {key: "model_discovery_web_display_settings_v1", property: "themeMode"},
   ],
 });
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "گدارAI",
+  alternateName: "GodarAI",
+  url: "https://godarai.ir",
+  sameAs: SOCIAL_LINK_URLS,
+};
 
 const sans = localFont({
   src: [
@@ -95,6 +105,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     >
       <head>
         <script dangerouslySetInnerHTML={{__html: themeBootstrapScript}} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
       </head>
       <body className="site-canvas flex min-h-screen flex-col bg-background text-foreground">
         <NextIntlClientProvider locale={locale} messages={messages}>

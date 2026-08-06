@@ -14,7 +14,7 @@ features: [bbox_extraction, annotations]
 sources:
   - https://docs.mistral.ai/models/model-cards/ocr-4-0
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: [mistral-ocr-latest, mistral-ocr-4]
   endpoints: [ocr, files, batches]
   transports: [http]

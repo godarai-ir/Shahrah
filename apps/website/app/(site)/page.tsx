@@ -1,6 +1,7 @@
 ﻿import type { Metadata } from "next";
 import { Home } from '@/app/pages/Home';
 import { buildMetadata } from "@/app/lib/seo";
+import { SOCIAL_LINK_URLS } from "@/app/lib/social-links";
 
 export const metadata: Metadata = buildMetadata({
   title: "درگاه مدل‌های زبانی برای تیم‌های ایرانی",
@@ -19,7 +20,7 @@ export default function Page() {
     description:
       "درگاه مدل‌های زبانی برای توسعه‌دهندگان و کسب‌وکارهای ایرانی.",
     areaServed: "IR",
-    sameAs: [],
+    sameAs: SOCIAL_LINK_URLS,
   };
 
   return (

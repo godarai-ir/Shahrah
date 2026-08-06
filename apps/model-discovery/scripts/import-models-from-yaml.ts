@@ -10,6 +10,10 @@ import {
   type ModelRuntimeProfile,
 } from '../src/catalog/runtime-profile.schema';
 import { findMissingProviderSlugs } from '../src/catalog/provider-catalog-reconciliation';
+import {
+  assertRuntimeProfileVersionIsImmutable,
+  stableJson,
+} from '../src/catalog/runtime-profile-immutability';
 import { anthropicProviderImporter } from './model-import/providers/anthropic';
 import { googleGeminiProviderImporter } from './model-import/providers/google-gemini';
 import {
@@ -277,20 +281,6 @@ function toDate(input: unknown): Date | undefined {
   const dt = new Date(input);
   if (Number.isNaN(dt.getTime())) return undefined;
   return dt;
-}
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableJson(item)).join(',')}]`;
-  }
-  if (value !== null && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value);
 }
 
 function inferDateFromName(name: string): Date | undefined {
@@ -1471,15 +1461,11 @@ async function importProviderBatch(
             },
           },
         });
-      if (
-        existingRuntimeProfile &&
-        stableJson(existingRuntimeProfile.profileJson) !==
-          stableJson(row.runtimeProfile)
-      ) {
-        throw new Error(
-          `${row.canonicalId}: runtime profile version ${row.runtimeProfile.version} is immutable; increment runtimeProfile.version`,
-        );
-      }
+      assertRuntimeProfileVersionIsImmutable(
+        row.canonicalId,
+        existingRuntimeProfile,
+        row.runtimeProfile,
+      );
       await prisma.modelRuntimeProfile.upsert({
         where: {
           modelId_version: {

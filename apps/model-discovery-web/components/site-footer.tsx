@@ -3,6 +3,7 @@ import { useTranslations } from 'next-intl';
 
 import { GitHubIcon } from '@/components/github-icon';
 import { GodarAILogo } from '@/components/godarai-logo';
+import { SOCIAL_LINKS } from '@/lib/social-links';
 
 const footerLinkClass =
   'text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
@@ -28,27 +29,7 @@ export function SiteFooter() {
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="https://x.com/r_delpak"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t('xAria')}
-                className={footerLinkClass}
-              >
-                <svg className="size-4 md:size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
-                </svg>
-              </a>
-              <a
-                href="https://github.com/godarai-ir"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t('githubAria')}
-                className={footerLinkClass}
-              >
-                <GitHubIcon className="size-4 md:size-5" aria-hidden="true" />
-              </a>
-              <a
-                href="https://www.linkedin.com/company/godarai/"
+                href={SOCIAL_LINKS.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={t('linkedinAria')}
@@ -57,6 +38,26 @@ export function SiteFooter() {
                 <svg className="size-4 md:size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V8.98h3.42v1.57h.05c.48-.9 1.64-1.85 3.37-1.85 3.61 0 4.27 2.37 4.27 5.46v6.29ZM5.32 7.41a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12Zm1.78 13.04H3.54V8.98H7.1v11.47Z" />
                 </svg>
+              </a>
+              <a
+                href={SOCIAL_LINKS.telegram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('telegramAria')}
+                className={footerLinkClass}
+              >
+                <svg className="size-4 md:size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21.94 4.66c.26-1.21-.44-1.69-1.21-1.4L2.4 10.33c-1.25.49-1.23 1.19-.21 1.5l4.71 1.47 10.91-6.88c.52-.31.99-.14.6.21l-8.84 7.98-.33 4.67c.48 0 .69-.22.96-.48l2.31-2.25 4.8 3.55c.89.49 1.52.24 1.75-.82l2.88-14.62Z" />
+                </svg>
+              </a>
+              <a
+                href={SOCIAL_LINKS.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('githubAria')}
+                className={footerLinkClass}
+              >
+                <GitHubIcon className="size-4 md:size-5" aria-hidden="true" />
               </a>
             </div>
           </div>
@@ -76,7 +77,7 @@ export function SiteFooter() {
             <li><a href="/blog" className={footerLinkClass}>{t('blog')}</a></li>
             <li><Link href="/" className={footerLinkClass}>{t('catalog')}</Link></li>
             <li>
-              <a href="https://github.com/godarai-ir" target="_blank" rel="noopener noreferrer" className={footerLinkClass}>
+              <a href={SOCIAL_LINKS.github} target="_blank" rel="noopener noreferrer" className={footerLinkClass}>
                 {t('github')}
               </a>
             </li>

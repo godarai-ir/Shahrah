@@ -1,6 +1,7 @@
 'use client';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { SOCIAL_LINKS } from '@/app/lib/social-links';
 import { GodarAILogo } from './GodarAILogo';
 
 export function Trust() {
@@ -46,12 +47,17 @@ export function Footer() {
               درگاه مدل‌های زبانی برای اتصال، مسیریابی، کنترل هزینه و پایش مصرف مدل‌ها در تیم‌های ایرانی.
             </p>
             <div className="flex items-center gap-3">
-              <a href="https://x.com/r_delpak" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+              <a href={SOCIAL_LINKS.linkedin} target="_blank" rel="noopener noreferrer" aria-label="گدارAI در لینکدین" className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                 <svg className="h-4 w-4 md:h-5 md:w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
+                  <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V8.98h3.42v1.57h.05c.48-.9 1.64-1.85 3.37-1.85 3.61 0 4.27 2.37 4.27 5.46v6.29ZM5.32 7.41a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12Zm1.78 13.04H3.54V8.98H7.1v11.47Z" />
                 </svg>
               </a>
-              <a href="https://github.com/godarai-ir" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+              <a href={SOCIAL_LINKS.telegram} target="_blank" rel="noopener noreferrer" aria-label="گدارAI در تلگرام" className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+                <svg className="h-4 w-4 md:h-5 md:w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21.94 4.66c.26-1.21-.44-1.69-1.21-1.4L2.4 10.33c-1.25.49-1.23 1.19-.21 1.5l4.71 1.47 10.91-6.88c.52-.31.99-.14.6.21l-8.84 7.98-.33 4.67c.48 0 .69-.22.96-.48l2.31-2.25 4.8 3.55c.89.49 1.52.24 1.75-.82l2.88-14.62Z" />
+                </svg>
+              </a>
+              <a href={SOCIAL_LINKS.github} target="_blank" rel="noopener noreferrer" aria-label="گدارAI در گیت‌هاب" className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                 <svg className="h-4 w-4 md:h-5 md:w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
                 </svg>
@@ -78,7 +84,7 @@ export function Footer() {
               <li><Link href="/docs" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">مستندات</Link></li>
               <li><Link href="/blog" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">وبلاگ</Link></li>
               <li><Link href="/catalog" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">کاتالوگ مدل‌ها</Link></li>
-              <li><a href="https://github.com/godarai-ir" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">گیت‌هاب</a></li>
+              <li><a href={SOCIAL_LINKS.github} target="_blank" rel="noopener noreferrer" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">گیت‌هاب</a></li>
             </ul>
           </div>
 
