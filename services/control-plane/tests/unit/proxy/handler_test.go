@@ -414,6 +414,7 @@ func TestChatCompletionHandlerReportsMissingRuntimeProfileAsServiceUnavailable(t
 
 			response, err := app.Test(request)
 			require.NoError(t, err)
+
 			defer closeResponseBody(t, response)
 
 			body, err := io.ReadAll(response.Body)

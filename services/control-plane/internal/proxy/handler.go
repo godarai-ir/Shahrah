@@ -427,10 +427,21 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return dependencyErr
 	}
 
+	if handled, validationErr := h.validateChatDeploymentRequest(
+		c,
+		currentTenant.ID,
+		requestedModel,
+		req,
+		deployment,
+	); handled || validationErr != nil {
+		return validationErr
+	}
+
 	runtimeModel := ""
 	if deployment != nil {
 		runtimeModel = strings.TrimSpace(deployment.Model)
 	}
+
 	if runtimeModel == "" || runtimeModel == "*" {
 		runtimeModel = resolvedModel
 	}
@@ -457,10 +468,8 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		runtimeProfile = &runtimeProfiles[0]
 	}
 
-	if handled, validationErr := h.validateChatDeployment(
+	if handled, validationErr := h.validateChatRuntimeProfile(
 		c,
-		currentTenant.ID,
-		requestedModel,
 		req,
 		deployment,
 		runtimeProfile,
@@ -592,13 +601,12 @@ func (h *ChatCompletionHandler) routeChatCandidates(
 	return nil, routeErr
 }
 
-func (h *ChatCompletionHandler) validateChatDeployment(
+func (h *ChatCompletionHandler) validateChatDeploymentRequest(
 	c *fiber.Ctx,
 	tenantID string,
 	requestedModel string,
 	req contractsopenai.ChatCompletionRequest,
 	deployment *router.Deployment,
-	runtimeProfile *platform.ModelRuntimeProfileBinding,
 ) (bool, error) {
 	if deployment == nil {
 		emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, tenantID)
@@ -643,6 +651,32 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
 
+	if strings.EqualFold(strings.TrimSpace(provider), "xai") &&
+		chatRequestDeferred(req) &&
+		(h.resources == nil || h.deployments == nil || strings.TrimSpace(deployment.ProviderAccountID) == "") {
+		return true, writeAPIError(
+			c,
+			fiber.StatusServiceUnavailable,
+			"Deferred chat completion routing state is unavailable",
+			"routing_error",
+		)
+	}
+
+	return false, nil
+}
+
+func (h *ChatCompletionHandler) validateChatRuntimeProfile(
+	c *fiber.Ctx,
+	req contractsopenai.ChatCompletionRequest,
+	deployment *router.Deployment,
+	runtimeProfile *platform.ModelRuntimeProfileBinding,
+) (bool, error) {
+	if deployment == nil {
+		return false, nil
+	}
+
+	provider := deployment.Provider
+
 	if strings.EqualFold(strings.TrimSpace(provider), "anthropic") {
 		if err := validateAnthropicChatRuntimeProfile(
 			req,
@@ -678,15 +712,6 @@ func (h *ChatCompletionHandler) validateChatDeployment(
 				fiber.StatusBadRequest,
 				err.Error(),
 				"invalid_request_error",
-			)
-		}
-
-		if chatRequestDeferred(req) && (h.resources == nil || h.deployments == nil || strings.TrimSpace(deployment.ProviderAccountID) == "") {
-			return true, writeAPIError(
-				c,
-				fiber.StatusServiceUnavailable,
-				"Deferred chat completion routing state is unavailable",
-				"routing_error",
 			)
 		}
 	}

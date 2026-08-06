@@ -39,7 +39,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//nolint:gocyclo,govet // Startup wiring intentionally keeps component construction and failure handling in one place. Short-lived branch errors are checked immediately.
+//nolint:govet // Startup wiring intentionally keeps short-lived branch errors close to their handling.
 func main() {
 	logger, err := zap.NewProduction()
 	if err != nil {

@@ -156,6 +156,7 @@ func FromModelIdentifier(model string) (Definition, bool) {
 // canonicalizes the provider slug.
 func SplitQualifiedModel(model string) (Definition, string, bool) {
 	model = strings.TrimSpace(model)
+
 	separator := strings.IndexByte(model, '/')
 	if separator <= 0 || separator == len(model)-1 {
 		return Definition{}, "", false

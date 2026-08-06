@@ -14,6 +14,7 @@ func TestDefinitionsCoverFirstClassProviders(t *testing.T) {
 	}
 
 	got := make(map[string]bool, len(definitions))
+
 	for _, definition := range Definitions() {
 		if definition.PricingSnapshot == "" {
 			t.Fatalf("provider %q has no pricing snapshot", definition.Slug)

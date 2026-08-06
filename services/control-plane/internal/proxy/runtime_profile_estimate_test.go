@@ -37,6 +37,7 @@ func TestRuntimeProfilesFromEstimateUsesRegistryForFirstClassProviders(t *testin
 			}
 
 			binding := runtimeProfileBindingForProvider(test.provider, test.model)
+
 			profiles, err := runtimeProfilesFromEstimate(
 				test.provider,
 				test.model,
