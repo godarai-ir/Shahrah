@@ -19,7 +19,7 @@ import (
 const (
 	openAIBatchResourceKind = "batch"
 	openAIFileResourceKind  = "file"
-	xAIFileUploadMaxBytes   = int64(48 * 1024 * 1024)
+	xAIFileUploadMaxBytes   = int64(50_000_000)
 )
 
 func (h *ResponsesHandler) HandleBatchCreate(c *fiber.Ctx) error {
@@ -330,7 +330,7 @@ func (h *ResponsesHandler) handleOpenAIRawResource(
 		}
 
 		if strings.EqualFold(providerSelector, "xai") && contentLength > xAIFileUploadMaxBytes {
-			return writeAPIError(c, fiber.StatusRequestEntityTooLarge, "xAI file uploads cannot exceed 48 MiB", "invalid_request_error")
+			return writeAPIError(c, fiber.StatusRequestEntityTooLarge, "xAI file uploads cannot exceed 50 MB", "invalid_request_error")
 		}
 	}
 

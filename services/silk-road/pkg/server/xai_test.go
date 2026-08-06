@@ -66,6 +66,82 @@ func TestXAIDispatchFailsClosedWithoutRuntimeProfile(t *testing.T) {
 	}
 }
 
+func TestXAIModelDiscoveryUsesOfficialEndpoints(t *testing.T) {
+	tests := []struct {
+		operation platform.ProviderOperation
+		resource  string
+		path      string
+	}{
+		{operation: platform.ProviderOperationOpenAIModelsList, path: "/models"},
+		{operation: platform.ProviderOperationOpenAIModelsGet, resource: "grok-4.5", path: "/models/grok-4.5"},
+		{operation: platform.ProviderOperationXAILanguageModelsList, path: "/language-models"},
+		{operation: platform.ProviderOperationXAILanguageModelsGet, resource: "grok-4.3", path: "/language-models/grok-4.3"},
+		{operation: platform.ProviderOperationXAIImageGenerationModelsList, path: "/image-generation-models"},
+		{operation: platform.ProviderOperationXAIImageGenerationModelsGet, resource: "grok-imagine-image", path: "/image-generation-models/grok-imagine-image"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != test.path {
+					t.Fatalf("unexpected path %s", r.URL.Path)
+				}
+
+				_, _ = io.WriteString(w, `{"data":[]}`)
+			}))
+			defer server.Close()
+
+			payload := xaiTestPayload("grok-4.5", test.operation, "")
+			payload.Deployment.APIBase = server.URL
+			payload.OperationInput.ResourceID = test.resource
+
+			response, err := newXAIAdapter().Dispatch(context.Background(), server.Client(), payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if closeErr := response.Body.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+		})
+	}
+}
+
+func TestXAIChunkedFileOperationsUseOfficialEndpoints(t *testing.T) {
+	tests := []struct {
+		operation platform.ProviderOperation
+		path      string
+	}{
+		{operation: platform.ProviderOperationXAIFilesInitialize, path: "/files:initialize"},
+		{operation: platform.ProviderOperationXAIFilesUploadChunks, path: "/files:uploadChunks"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != test.path || r.Method != http.MethodPost {
+					t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+				}
+
+				_, _ = io.WriteString(w, `{}`)
+			}))
+			defer server.Close()
+
+			payload := xaiTestPayload("grok-4.5", test.operation, `{"part":"opaque"}`)
+			payload.Deployment.APIBase = server.URL
+
+			response, err := newXAIAdapter().Dispatch(context.Background(), server.Client(), payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if closeErr := response.Body.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+		})
+	}
+}
+
 func TestXAIChatRejectsModelSpecificUnsupportedParameters(t *testing.T) {
 	for name, test := range map[string]struct {
 		body string
@@ -364,14 +440,14 @@ func xaiTestPayload(model string, operation platform.ProviderOperation, body str
 func xaiTestRuntimeProfile(model string) platform.ModelRuntimeProfileBinding {
 	isImage := strings.HasPrefix(model, "grok-imagine-image")
 	aliases := []string(nil)
-	endpoints := []string{"models", "chat_completions", "deferred_chat_completions", "responses", "responses_compact", "files", "file_public_urls", "batches", "batch_requests", "batch_results"}
+	endpoints := []string{"models", "language_models", "chat_completions", "deferred_chat_completions", "responses", "responses_compact", "files", "file_public_urls", "batches", "batch_requests", "batch_results"}
 	transports := []string{"http", "sse"}
 	efforts := []string{"low", "medium", "high"}
 	tools := []string{"function_calling", "web_search", "x_search", "code_execution", "file_search", "mcp"}
 	modalities := platform.ModelRuntimeModalities{Input: []string{"text", "image"}, Output: []string{"text"}}
 	thinking := platform.ModelRuntimeThinkingProfile{DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, EffortValues: efforts, AlwaysEnabled: true}
 	imageControls := platform.ModelRuntimeImageControls{}
-	batchEndpoints := []string{"chat_completions"}
+	batchEndpoints := []string{"chat_completions", "responses"}
 	if isImage {
 		endpoints = []string{"models", "image_generation_models", "image_generations", "image_edits", "files", "file_public_urls", "batches", "batch_requests", "batch_results"}
 		transports = []string{"http"}
@@ -411,13 +487,13 @@ func xaiTestRuntimeProfile(model string) platform.ModelRuntimeProfileBinding {
 		DeferredCompletions: platform.ModelRuntimeDeferredProfile{Eligible: !isImage, RetentionSeconds: 86400, MaximumRetrievals: 1},
 		ImageControls:       imageControls,
 		Batch: platform.ModelRuntimeBatchProfile{
-			Eligible:           model != "grok-4.5",
+			Eligible:           true,
 			Discounted:         model == "grok-4.3",
 			SupportedEndpoints: batchEndpoints,
 			MaxRequestBytes:    25 * 1024 * 1024,
 		},
 		UnsupportedParameters: []string{"logprobs", "top_logprobs", "presence_penalty", "frequency_penalty", "stop"},
-		Limits:                platform.ModelRuntimeLimits{MessagesBytes: 32 * 1024 * 1024, BatchBytes: 25 * 1024 * 1024, FileBytes: 48 * 1024 * 1024},
+		Limits:                platform.ModelRuntimeLimits{MessagesBytes: 32 * 1024 * 1024, BatchBytes: 25 * 1024 * 1024, FileBytes: 50_000_000},
 	}
 	return platform.ModelRuntimeProfileBinding{
 		Provider:        "xai",

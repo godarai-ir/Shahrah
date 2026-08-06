@@ -197,12 +197,14 @@ export async function validateXAIProviderDirectory(
     if (costs.length !== 1 || missingCosts.length > 0) {
       invalid.push(`${relativeFile}(pricing:${missingCosts.join(',')})`);
     }
+    if (profile.success && !profile.data.batch.eligible) {
+      invalid.push(`${relativeFile}(batch_required)`);
+    }
     if (
-      model === 'grok-4.5' &&
       profile.success &&
-      profile.data.batch.eligible
+      profile.data.batch.discounted !== (model === 'grok-4.3')
     ) {
-      invalid.push(`${relativeFile}(batch_unsupported)`);
+      invalid.push(`${relativeFile}(batch_discount)`);
     }
   }
 

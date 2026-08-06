@@ -164,6 +164,10 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		}
 	case platform.ProviderOperationOpenAIFilesCreate:
 		return http.MethodPost, "/files", nil
+	case platform.ProviderOperationXAIFilesInitialize:
+		return http.MethodPost, "/files:initialize", nil
+	case platform.ProviderOperationXAIFilesUploadChunks:
+		return http.MethodPost, "/files:uploadChunks", nil
 	case platform.ProviderOperationOpenAIFilesList:
 		return http.MethodGet, withListQuery("/files", input), nil
 	case platform.ProviderOperationOpenAIFilesGet,
@@ -372,6 +376,24 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 			return "", "", err
 		}
 		return http.MethodGet, "/models/" + value, nil
+	case platform.ProviderOperationXAILanguageModelsList:
+		return http.MethodGet, "/language-models", nil
+	case platform.ProviderOperationXAILanguageModelsGet:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+
+		return http.MethodGet, "/language-models/" + value, nil
+	case platform.ProviderOperationXAIImageGenerationModelsList:
+		return http.MethodGet, "/image-generation-models", nil
+	case platform.ProviderOperationXAIImageGenerationModelsGet:
+		value, err := resource()
+		if err != nil {
+			return "", "", err
+		}
+
+		return http.MethodGet, "/image-generation-models/" + value, nil
 	case platform.ProviderOperationMistralFIM:
 		return http.MethodPost, "/fim/completions", nil
 	case platform.ProviderOperationMistralChatModerations:

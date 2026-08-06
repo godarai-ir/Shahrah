@@ -209,6 +209,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 				"message_batches",
 				"files",
 				"models",
+				"language_models",
 				"chat_completions",
 				"deferred_chat_completions",
 				"completions",

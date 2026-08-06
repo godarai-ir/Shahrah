@@ -34,6 +34,8 @@ describe('xAI provider importer', () => {
         exactProviderCost: true,
         requiredResponseFields: ['cost_in_usd_ticks'],
       });
+      expect(profile.batch.eligible).toBe(true);
+      expect(profile.batch.discounted).toBe(model === 'grok-4.3');
     }
   });
 
@@ -78,7 +80,7 @@ describe('xAI provider importer', () => {
     ]);
   });
 
-  it('rejects empty documents, stale provider sources, and unsupported 4.5 Batch', async () => {
+  it('rejects empty documents and stale provider sources', async () => {
     const root = await mkdtemp(join(tmpdir(), 'xai-import-'));
     await cp(join(providersRoot, 'xai'), join(root, 'xai'), {
       recursive: true,

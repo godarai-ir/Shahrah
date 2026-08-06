@@ -234,6 +234,7 @@ func newResponseOperationsTestAppWithDeployments(
 	app.Get("/v1/batches/:batch_id/requests", h.HandleXAIBatchRequestsList)
 	app.Post("/v1/batches/:batch_id/requests", h.HandleXAIBatchRequestsAdd)
 	app.Get("/v1/batches/:batch_id/results", h.HandleXAIBatchResults)
+	app.Post("/v1/batches/*", h.HandleXAIBatchCancelColon)
 	app.Post("/v1/files", h.HandleFileCreate)
 	app.Get("/v1/files", h.HandleFileList)
 	app.Get("/v1/files/:file_id", h.HandleFileGet)
@@ -242,6 +243,14 @@ func newResponseOperationsTestAppWithDeployments(
 	app.Get("/v1/files/:file_id/content", h.HandleFileContent)
 	app.Post("/v1/files/:file_id/public-url", h.HandleFilePublicURLCreate)
 	app.Post("/v1/files/:file_id/public-url/revoke", h.HandleFilePublicURLRevoke)
+	app.Get("/v1/models", h.HandleXAIModelsList)
+	app.Get("/v1/models/:model_id", h.HandleXAIModelsGet)
+	app.Get("/v1/language-models", h.HandleXAILanguageModelsList)
+	app.Get("/v1/language-models/:model_id", h.HandleXAILanguageModelsGet)
+	app.Get("/v1/image-generation-models", h.HandleXAIImageGenerationModelsList)
+	app.Get("/v1/image-generation-models/:model_id", h.HandleXAIImageGenerationModelsGet)
+	app.Post("/v1/files\\:initialize", h.HandleXAIFileInitialize)
+	app.Post("/v1/files\\:uploadChunks", h.HandleXAIFileUploadChunks)
 
 	return app
 }
@@ -452,9 +461,10 @@ func TestXAIFileCreateUsesSelectedProviderAndRecordsAffinity(t *testing.T) {
 	req.Header.Set("x-godarai-provider", "xai")
 
 	resp, err := app.Test(req)
+	require.NoError(t, err)
+
 	defer closeResponseBody(t, resp)
 
-	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "xai", tunnel.lastReq.Deployment.Provider)
 	assert.Equal(t, "xai_acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
@@ -636,7 +646,7 @@ func TestOpenAIBatchOperationsArePublicAndAccountBound(t *testing.T) {
 	assert.Equal(t, openAIBatchResourceKind, mapping.ResourceKind)
 }
 
-func TestXAIBatchCreateFailsClosedUntilSettlementIsReady(t *testing.T) {
+func TestXAIBatchCreateWithoutRequestsIsPublicAndAccountBound(t *testing.T) {
 	resources := &responseOperationResources{}
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
@@ -653,9 +663,149 @@ func TestXAIBatchCreateFailsClosedUntilSettlementIsReady(t *testing.T) {
 	defer closeResponseBody(t, resp)
 
 	require.NoError(t, err)
-	require.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	assert.Equal(t, platform.ProviderOperationXAIBatchesCreate, tunnel.lastReq.Operation)
+	assert.Equal(t, "xai_acct_1", tunnel.lastReq.Deployment.ProviderAccountID)
+
+	mapping, ok := resources.mappings["batch_xai"]
+	require.True(t, ok)
+	assert.Equal(t, "xai", mapping.Provider)
+}
+
+func TestXAIBatchListAcceptsOfficialThousandItemLimit(t *testing.T) {
+	app := fiber.New()
+	app.Get("/", func(c *fiber.Ctx) error {
+		input, err := xaiBatchListOperationInput(c, platform.ProviderOperationXAIBatchResults)
+		require.NoError(t, err)
+		assert.Equal(t, 1000, input.Limit)
+
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/?limit=1000", http.NoBody))
+	require.NoError(t, err)
+
+	defer closeResponseBody(t, resp)
+
+	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+}
+
+func TestXAIBatchListRecordsAffinityAndCanonicalCancelRoute(t *testing.T) {
+	resources := &responseOperationResources{}
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Body:       []byte(`{"batches":[{"batch_id":"batch_xai","state":{"num_requests":2,"num_pending":1}}]}`),
+	}}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+
+	listRequest := httptest.NewRequest(http.MethodGet, "/v1/batches", http.NoBody)
+	listRequest.Header.Set("x-godarai-provider", "xai")
+	listResponse, err := app.Test(listRequest)
+	require.NoError(t, err)
+
+	defer closeResponseBody(t, listResponse)
+
+	require.Equal(t, fiber.StatusOK, listResponse.StatusCode)
+	require.Equal(t, "processing", resources.mappings["batch_xai"].Status)
+
+	tunnel.resp.Body = []byte(`{"batch_id":"batch_xai","cancel_time":"2026-08-06","state":{}}`)
+	cancelRequest := httptest.NewRequest(http.MethodPost, "/v1/batches/batch_xai:cancel", http.NoBody)
+	cancelResponse, err := app.Test(cancelRequest)
+	require.NoError(t, err)
+
+	defer closeResponseBody(t, cancelResponse)
+
+	require.Equal(t, fiber.StatusOK, cancelResponse.StatusCode)
+	assert.Equal(t, platform.ProviderOperationXAIBatchesCancel, tunnel.lastReq.Operation)
+	assert.Equal(t, "batch_xai", tunnel.lastReq.OperationInput.ResourceID)
+}
+
+func TestXAIBatchAddFailsClosedForWalletBilledAccount(t *testing.T) {
+	resources := &responseOperationResources{mappings: map[string]platform.ProviderNativeResourceMapping{
+		"batch_xai": {
+			PublicID: "batch_xai", TenantID: "tenant_a", Provider: "xai",
+			ProviderAccountID: "xai_acct_1", ResourceKind: openAIBatchResourceKind,
+			UpstreamID: "batch_xai", Status: "created",
+		},
+	}}
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK}}
+	app := newResponseOperationsTestApp(t, tunnel, resources)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/batches/batch_xai/requests",
+		bytes.NewBufferString(`{"batch_requests":[{"batch_request_id":"one","batch_request":{"chat_get_completion":{"model":"grok-4.3","messages":[]}}}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+	require.NoError(t, err)
+
+	defer closeResponseBody(t, response)
+
+	require.Equal(t, fiber.StatusServiceUnavailable, response.StatusCode)
 	assert.Empty(t, tunnel.lastReq.Operation)
-	assert.Empty(t, resources.mappings)
+}
+
+func TestXAIModelDiscoveryOperationsUseSelectedAccount(t *testing.T) {
+	tests := []struct {
+		path      string
+		operation platform.ProviderOperation
+		resource  string
+	}{
+		{path: "/v1/models", operation: platform.ProviderOperationOpenAIModelsList},
+		{path: "/v1/models/grok-4.5", operation: platform.ProviderOperationOpenAIModelsGet, resource: "grok-4.5"},
+		{path: "/v1/language-models", operation: platform.ProviderOperationXAILanguageModelsList},
+		{path: "/v1/language-models/grok-4.3", operation: platform.ProviderOperationXAILanguageModelsGet, resource: "grok-4.3"},
+		{path: "/v1/image-generation-models", operation: platform.ProviderOperationXAIImageGenerationModelsList},
+		{path: "/v1/image-generation-models/grok-imagine-image", operation: platform.ProviderOperationXAIImageGenerationModelsGet, resource: "grok-imagine-image"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Body: []byte(`{"data":[]}`)}}
+			app := newResponseOperationsTestApp(t, tunnel, &responseOperationResources{})
+			req := httptest.NewRequest(http.MethodGet, test.path, http.NoBody)
+			req.Header.Set("x-godarai-provider-account", "xai_acct_1")
+			resp, err := app.Test(req)
+			require.NoError(t, err)
+
+			defer closeResponseBody(t, resp)
+
+			require.Equal(t, fiber.StatusOK, resp.StatusCode)
+			assert.Equal(t, test.operation, tunnel.lastReq.Operation)
+			assert.Equal(t, test.resource, tunnel.lastReq.OperationInput.ResourceID)
+			assert.Equal(t, "xai", tunnel.lastReq.Deployment.Provider)
+		})
+	}
+}
+
+func TestXAIChunkedFileOperationsUseFixedUpstreamRoutes(t *testing.T) {
+	tests := []struct {
+		path      string
+		operation platform.ProviderOperation
+	}{
+		{path: "/v1/files:initialize", operation: platform.ProviderOperationXAIFilesInitialize},
+		{path: "/v1/files:uploadChunks", operation: platform.ProviderOperationXAIFilesUploadChunks},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Body: []byte(`{}`)}}
+			app := newResponseOperationsTestApp(t, tunnel, &responseOperationResources{})
+			request := httptest.NewRequest(http.MethodPost, test.path, bytes.NewBufferString(`{"part":"opaque"}`))
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("x-godarai-provider-account", "xai_acct_1")
+
+			response, err := app.Test(request)
+			require.NoError(t, err)
+
+			defer closeResponseBody(t, response)
+
+			require.Equal(t, fiber.StatusOK, response.StatusCode)
+			assert.Equal(t, test.operation, tunnel.lastReq.Operation)
+			assert.JSONEq(t, `{"part":"opaque"}`, string(tunnel.lastReq.Body))
+		})
+	}
 }
 
 func TestParseXAIBatchRequestsRejectsUnknownSurface(t *testing.T) {
@@ -666,12 +816,13 @@ func TestParseXAIBatchRequestsRejectsUnknownSurface(t *testing.T) {
 		{"batch_request_id":"four","batch_request":{"image_edit":{"model":"grok-imagine-image-quality"}}}
 	]}`))
 	require.NoError(t, err)
-	require.Equal(t, []xaiBatchModelRequest{
-		{Model: "grok-4.3", Endpoint: "chat_completions"},
-		{Model: "grok-4.3", Endpoint: "responses"},
-		{Model: "grok-imagine-image", Endpoint: "image_generations"},
-		{Model: "grok-imagine-image-quality", Endpoint: "image_edits"},
-	}, requests)
+	require.Len(t, requests, 4)
+	require.Equal(t, "grok-4.3", requests[0].Model)
+	require.Equal(t, "chat_completions", requests[0].Endpoint)
+	require.Positive(t, requests[0].PayloadBytes)
+	require.Equal(t, "responses", requests[1].Endpoint)
+	require.Equal(t, "image_generations", requests[2].Endpoint)
+	require.Equal(t, "image_edits", requests[3].Endpoint)
 
 	_, err = parseXAIBatchRequests([]byte(`{"batch_requests":[{"batch_request":{"unknown":{"model":"grok-4.3"}}}]}`))
 	require.ErrorContains(t, err, "unsupported xAI batch request type")

@@ -630,6 +630,9 @@ func xaiRuntimeEndpoint(operation platform.ProviderOperation) string {
 		platform.ProviderOperationOpenAIFilesDelete,
 		platform.ProviderOperationOpenAIFilesContent:
 		return "files"
+	case platform.ProviderOperationXAIFilesInitialize,
+		platform.ProviderOperationXAIFilesUploadChunks:
+		return "files"
 	case platform.ProviderOperationXAIFilesUpdate:
 		return "files"
 	case platform.ProviderOperationXAIFilePublicURLCreate,
@@ -637,6 +640,10 @@ func xaiRuntimeEndpoint(operation platform.ProviderOperation) string {
 		return "file_public_urls"
 	case platform.ProviderOperationOpenAIModelsList, platform.ProviderOperationOpenAIModelsGet:
 		return "models"
+	case platform.ProviderOperationXAILanguageModelsList, platform.ProviderOperationXAILanguageModelsGet:
+		return "language_models"
+	case platform.ProviderOperationXAIImageGenerationModelsList, platform.ProviderOperationXAIImageGenerationModelsGet:
+		return "image_generation_models"
 	default:
 		return ""
 	}

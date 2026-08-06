@@ -65,9 +65,13 @@ runtimeProfile:
   endpoints:
     [
       models,
+      language_models,
       chat_completions,
       deferred_chat_completions,
       responses,
+      batches,
+      batch_requests,
+      batch_results,
     ]
   transports: [http, sse]
   lifecycle: active
@@ -101,7 +105,7 @@ runtimeProfile:
     longContextThresholdTokens: 200000
     appliesToAllTokens: true
   batch:
-    eligible: false
+    eligible: true
     discounted: true
     supportedEndpoints: [chat_completions, responses]
     maxRequestBytes: 26214400
@@ -127,4 +131,4 @@ runtimeProfile:
     maxOutputTokens: 0
     messagesBytes: 33554432
     batchBytes: 26214400
-    fileBytes: 50331648
+    fileBytes: 50000000

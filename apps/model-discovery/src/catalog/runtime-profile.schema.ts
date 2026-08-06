@@ -35,6 +35,7 @@ const endpointSchema = z.enum([
   'message_batches',
   'files',
   'models',
+  'language_models',
   'chat_completions',
   'deferred_chat_completions',
   'completions',

@@ -50,6 +50,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Get("/batches/:batch_id/requests", deps.ResponsesHandler.HandleXAIBatchRequestsList)
 		v1.Post("/batches/:batch_id/requests", deps.ResponsesHandler.HandleXAIBatchRequestsAdd)
 		v1.Get("/batches/:batch_id/results", deps.ResponsesHandler.HandleXAIBatchResults)
+		v1.Post("/batches/*", deps.ResponsesHandler.HandleXAIBatchCancelColon)
 	}
 
 	if deps.EmbeddingsHandler != nil {
@@ -106,14 +107,31 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/conversations/:id/restart", native)
 	}
 
-	if deps.ModelsHandler != nil {
+	if deps.ModelsHandler != nil || deps.ResponsesHandler != nil {
 		v1.Get("/models", func(c *fiber.Ctx) error {
 			if deps.AnthropicNativeHandler != nil && c.Get("anthropic-version") != "" {
 				return deps.AnthropicNativeHandler.Handle(c)
 			}
 
+			if deps.ResponsesHandler != nil && strings.EqualFold(strings.TrimSpace(c.Get("x-godarai-provider")), "xai") {
+				return deps.ResponsesHandler.HandleXAIModelsList(c)
+			}
+
+			if deps.ModelsHandler == nil {
+				return fiber.ErrNotFound
+			}
+
 			return deps.ModelsHandler.Handle(c)
 		})
+	}
+
+	if deps.ResponsesHandler != nil {
+		v1.Get("/language-models", deps.ResponsesHandler.HandleXAILanguageModelsList)
+		v1.Get("/language-models/:model_id", deps.ResponsesHandler.HandleXAILanguageModelsGet)
+		v1.Get("/image-generation-models", deps.ResponsesHandler.HandleXAIImageGenerationModelsList)
+		v1.Get("/image-generation-models/:model_id", deps.ResponsesHandler.HandleXAIImageGenerationModelsGet)
+		v1.Post("/files\\:initialize", deps.ResponsesHandler.HandleXAIFileInitialize)
+		v1.Post("/files\\:uploadChunks", deps.ResponsesHandler.HandleXAIFileUploadChunks)
 	}
 
 	if deps.AnthropicNativeHandler != nil {
@@ -126,14 +144,25 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/messages/batches/:id/cancel", native)
 		v1.Get("/messages/batches/:id/results", native)
 
-		requireAnthropicVersion := func(c *fiber.Ctx) error {
-			if c.Get("anthropic-version") == "" {
-				return c.Next()
+		v1.Get("/models/:id", func(c *fiber.Ctx) error {
+			if c.Get("anthropic-version") != "" {
+				return native(c)
 			}
 
-			return native(c)
-		}
-		v1.Get("/models/:id", requireAnthropicVersion)
+			if deps.ResponsesHandler != nil && strings.EqualFold(strings.TrimSpace(c.Get("x-godarai-provider")), "xai") {
+				return deps.ResponsesHandler.HandleXAIModelsGet(c)
+			}
+
+			return fiber.ErrNotFound
+		})
+	} else if deps.ResponsesHandler != nil {
+		v1.Get("/models/:id", func(c *fiber.Ctx) error {
+			if !strings.EqualFold(strings.TrimSpace(c.Get("x-godarai-provider")), "xai") {
+				return fiber.ErrNotFound
+			}
+
+			return deps.ResponsesHandler.HandleXAIModelsGet(c)
+		})
 	}
 
 	if deps.ResponsesHandler != nil || deps.AnthropicNativeHandler != nil || deps.MistralNativeHandler != nil {

@@ -35,6 +35,7 @@ sources:
   - https://docs.x.ai/developers/model-capabilities/images/editing
   - https://docs.x.ai/developers/rest-api-reference/inference/images
   - https://docs.x.ai/developers/model-capabilities/imagine/files/outputs
+  - https://docs.x.ai/developers/rest-api-reference/files/upload
   - https://docs.x.ai/developers/advanced-api-usage/batch-api
   - https://docs.x.ai/developers/migration/may-15-retirement
 runtimeProfile:
@@ -53,6 +54,9 @@ runtimeProfile:
       image_edits,
       files,
       file_public_urls,
+      batches,
+      batch_requests,
+      batch_results,
     ]
   transports: [http]
   lifecycle: active
@@ -81,7 +85,7 @@ runtimeProfile:
   contextPricing:
     appliesToAllTokens: true
   batch:
-    eligible: false
+    eligible: true
     discounted: false
     supportedEndpoints: [image_generations, image_edits]
     maxRequestBytes: 26214400
@@ -122,4 +126,4 @@ runtimeProfile:
     maxOutputTokens: 0
     messagesBytes: 33554432
     batchBytes: 26214400
-    fileBytes: 50331648
+    fileBytes: 50000000

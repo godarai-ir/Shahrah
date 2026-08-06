@@ -62,6 +62,8 @@ sources:
   - https://docs.x.ai/developers/pricing
   - https://docs.x.ai/developers/rest-api-reference/inference/chat
   - https://docs.x.ai/developers/files
+  - https://docs.x.ai/developers/rest-api-reference/files/upload
+  - https://docs.x.ai/developers/advanced-api-usage/batch-api
   - https://docs.x.ai/developers/cost-tracking
 runtimeProfile:
   version: 3
@@ -69,12 +71,16 @@ runtimeProfile:
   endpoints:
     [
       models,
+      language_models,
       chat_completions,
       deferred_chat_completions,
       responses,
       responses_compact,
       files,
       file_public_urls,
+      batches,
+      batch_requests,
+      batch_results,
     ]
   transports: [http, sse]
   lifecycle: active
@@ -119,9 +125,10 @@ runtimeProfile:
     longContextThresholdTokens: 200000
     appliesToAllTokens: true
   batch:
-    eligible: false
+    eligible: true
     discounted: false
-    supportedEndpoints: []
+    supportedEndpoints: [chat_completions, responses]
+    maxRequestBytes: 26214400
   deferredCompletions:
     eligible: true
     retentionSeconds: 86400
@@ -144,4 +151,4 @@ runtimeProfile:
     maxOutputTokens: 0
     messagesBytes: 33554432
     batchBytes: 26214400
-    fileBytes: 50331648
+    fileBytes: 50000000
