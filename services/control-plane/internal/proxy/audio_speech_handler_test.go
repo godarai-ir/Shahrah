@@ -12,12 +12,12 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +40,7 @@ func (t *rawSpeechTunnel) ProxyRaw(_ context.Context, req platform.TunnelRequest
 func newAudioSpeechTestApp(t *testing.T, modelName string, provider string, deploymentModel string, tunnel platform.TunnelTransport, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: modelName,

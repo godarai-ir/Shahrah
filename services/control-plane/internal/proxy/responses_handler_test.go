@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -81,7 +82,7 @@ func (t *captureTunnel) Healthy(_ context.Context) error { return nil }
 func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, logsOpt ...*testLogs) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 
 	modelName := "gpt-4o"
@@ -468,7 +469,7 @@ func TestResponsesHandlerRejectsDeepSeekProBeforeDispatch(t *testing.T) {
 }
 
 func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing.T) {
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: "gpt-4o-mini",
@@ -636,7 +637,7 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	wallets := &testWallets{}
 	logs := &testLogs{}
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: "gpt-4o",

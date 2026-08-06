@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +35,7 @@ func TestIntegration_CommercialPlanSeedOverrideAndMonthlyQuota(t *testing.T) {
 
 	defer pool.Close()
 
-	mem, err := cache.NewMemoryCache(logger)
+	mem, err := testcache.New(t, logger)
 	require.NoError(t, err)
 
 	defer mem.Close()

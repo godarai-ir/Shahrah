@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
@@ -49,7 +51,7 @@ func (m *mockTunnelTransport) Proxy(ctx context.Context, req platform.TunnelRequ
 
 func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T) {
 	logger := zap.NewNop()
-	store, err := mcache.NewMemoryCache(logger)
+	store, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	r := newTestRouter(t, logger)
@@ -264,7 +266,7 @@ func newTestRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
 func newProviderTestRouter(t *testing.T, logger *zap.Logger, modelName string, provider string, providerModel string) *llmrouter.Router {
 	t.Helper()
 
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, memCache.Close())
@@ -429,7 +431,7 @@ func TestChatCompletionHandlerReportsMissingRuntimeProfileAsServiceUnavailable(t
 
 func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{
@@ -514,7 +516,7 @@ func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t
 
 func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{
@@ -1939,7 +1941,7 @@ func TestChatCompletionHandler_RoundTripsOpenAICompatibleExtendedThinking(t *tes
 
 func TestChatCompletionHandler_RejectsExtendedThinkingForUnsupportedProvider(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
 		ModelName: "command-r",
@@ -1980,7 +1982,7 @@ func TestChatCompletionHandler_RejectsExtendedThinkingForUnsupportedProvider(t *
 
 func TestChatCompletionHandler_RejectsImageInputForUnsupportedProvider(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
 		ModelName: "command-r",
@@ -2025,7 +2027,7 @@ func TestChatCompletionHandler_RejectsImageInputForUnsupportedProvider(t *testin
 
 func TestChatCompletionHandler_RejectsFileInputForUnsupportedProvider(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
 		ModelName: "command-r",
@@ -2070,7 +2072,7 @@ func TestChatCompletionHandler_RejectsFileInputForUnsupportedProvider(t *testing
 
 func TestChatCompletionHandler_RejectsFileIDForGeminiAdapter(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
 		ModelName: "gemini-1.5-flash",
@@ -2119,7 +2121,7 @@ func TestChatCompletionHandler_RejectsFileIDForGeminiAdapter(t *testing.T) {
 
 func TestChatCompletionHandler_RejectsToolsForNativeProviderWithoutAdapter(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
 		ModelName: "claude-3-haiku",
@@ -2160,7 +2162,7 @@ func TestChatCompletionHandler_RejectsToolsForNativeProviderWithoutAdapter(t *te
 
 func TestChatCompletionHandler_RejectsResponseFormatForNativeProviderWithoutAdapter(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, err := mcache.NewMemoryCache(logger)
+	memCache, err := testcache.New(t, logger)
 	require.NoError(t, err)
 	r, err := llmrouter.NewRouter([]config.ModelDeployment{{
 		ModelName: "claude-3-haiku",

@@ -10,7 +10,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -141,7 +141,7 @@ func (s *entitlementWalletStoreStub) entitlementCallCounts() (int, int) {
 
 func TestBillingService_ShouldEstimateCost(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -160,7 +160,7 @@ func TestBillingService_ShouldEstimateCost(t *testing.T) {
 
 func TestBillingService_ShouldEstimateCostWithPer1KScaling(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -190,7 +190,7 @@ func TestBillingService_ShouldEstimateCostWithPer1KScaling(t *testing.T) {
 
 func TestBillingService_ShouldEstimateEmbeddingCost(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -208,7 +208,7 @@ func TestBillingService_ShouldEstimateEmbeddingCost(t *testing.T) {
 
 func TestBillingService_ShouldCacheExchangeRateAcrossCostEstimations(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "db"},
@@ -234,7 +234,7 @@ func TestBillingService_ShouldCacheExchangeRateAcrossCostEstimations(t *testing.
 
 func TestBillingService_ShouldUseStaleExchangeRateAndRefreshAsync(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rates: []*platform.ExchangeRate{
@@ -268,7 +268,7 @@ func TestBillingService_ShouldUseStaleExchangeRateAndRefreshAsync(t *testing.T) 
 
 func TestBillingService_ShouldFallbackToDefaultRateWhenExchangeRateUnavailable(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &walletStoreStub{
 		wallet:  &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rateErr: errors.New("db unavailable"),
@@ -289,7 +289,7 @@ func TestBillingService_ShouldFallbackToDefaultRateWhenExchangeRateUnavailable(t
 
 func TestBillingService_ShouldKeepStaleExchangeRateWhenAsyncRefreshFails(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rates: []*platform.ExchangeRate{
@@ -327,7 +327,7 @@ func TestBillingService_ShouldKeepStaleExchangeRateWhenAsyncRefreshFails(t *test
 
 func TestBillingService_ShouldCoalesceConcurrentExchangeRateMisses(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "db"},
@@ -364,7 +364,7 @@ func TestBillingService_ShouldCoalesceConcurrentExchangeRateMisses(t *testing.T)
 
 func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -389,7 +389,7 @@ func TestBillingService_ShouldFinalizeCostWithPer1KScaling(t *testing.T) {
 
 func TestBillingService_ShouldFinalizeImageCostWithImagePricing(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -410,7 +410,7 @@ func TestBillingService_ShouldFinalizeImageCostWithImagePricing(t *testing.T) {
 
 func TestBillingService_ShouldUseProviderImageCostTicksWhenAvailable(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -430,7 +430,7 @@ func TestBillingService_ShouldUseProviderImageCostTicksWhenAvailable(t *testing.
 
 func TestBillingService_ShouldChargeImageUsageWhenOnlyTotalTokensAreReturned(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1_000_000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -448,7 +448,7 @@ func TestBillingService_ShouldChargeImageUsageWhenOnlyTotalTokensAreReturned(t *
 
 func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 10},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -462,7 +462,7 @@ func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T
 
 func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -476,7 +476,7 @@ func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
 
 func TestBillingService_ShouldCacheWalletForBudgetChecks(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -495,7 +495,7 @@ func TestBillingService_ShouldCacheWalletForBudgetChecks(t *testing.T) {
 
 func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	svc := billing.NewService(memCache, &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
@@ -513,7 +513,7 @@ func TestBillingService_ShouldSkipLegacyRateLimits(t *testing.T) {
 
 func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &entitlementWalletStoreStub{
 		walletStoreStub: walletStoreStub{
 			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
@@ -543,7 +543,7 @@ func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.
 
 func TestBillingService_ShouldRejectWhenSubscriptionQuotaIsConsumed(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &entitlementWalletStoreStub{
 		walletStoreStub: walletStoreStub{
 			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
@@ -568,7 +568,7 @@ func TestBillingService_ShouldRejectWhenSubscriptionQuotaIsConsumed(t *testing.T
 
 func TestBillingService_ShouldRejectInactiveSubscription(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &entitlementWalletStoreStub{
 		walletStoreStub: walletStoreStub{
 			wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},

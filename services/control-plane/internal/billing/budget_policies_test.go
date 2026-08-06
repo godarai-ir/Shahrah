@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"go.uber.org/zap"
 )
 
 func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {
 }
 
 func TestReserveBudgetIgnoresNonMatchingPolicyConditions(t *testing.T) {
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestReserveBudgetIgnoresNonMatchingPolicyConditions(t *testing.T) {
 }
 
 func TestReserveBudgetMatchesMetadataAndRequestTypeConditions(t *testing.T) {
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestReserveBudgetMatchesMetadataAndRequestTypeConditions(t *testing.T) {
 }
 
 func TestReserveBudgetRollsBackAlreadyReservedPolicyTargetsOnFailure(t *testing.T) {
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}

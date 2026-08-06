@@ -79,7 +79,10 @@ The temporary probe produced these non-secret results:
 The following repository suites also passed:
 
 - `services/silk-road`: `go test ./pkg/server ./cmd/server`
-- `services/control-plane`: `go test ./internal/proxy ./tests/unit/providers`
+- `services/control-plane`: proxy tests and the then-existing direct-provider
+  adapter suite (historical verification; the unused adapter suite was later
+  removed, and current provider identity coverage lives in
+  `./internal/providerregistry`)
 - `packages/contracts`: `go test ./platform`
 
 Media generation, Interactions, Files, caches, batch submission/lifecycle, compatible embeddings, and an end-to-end request through a running GodarAI deployment remain unverified by this live credential run. Their status is contract verified, not live verified.

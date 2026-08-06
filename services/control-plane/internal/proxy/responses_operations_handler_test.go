@@ -13,13 +13,13 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -178,7 +178,7 @@ func newResponseOperationsTestAppWithDeployments(
 ) *fiber.App {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter(
 		nil,
@@ -316,7 +316,7 @@ func TestOpenAIFileCreateHydratesPlatformManagedCredential(t *testing.T) {
 		ProviderAccountID:   "acct_platform",
 		ProviderAccountName: "openai-calm-oasis",
 	}}}
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter(
 		nil,

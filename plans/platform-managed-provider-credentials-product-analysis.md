@@ -455,7 +455,8 @@ runtime به جای دریافت map آزاد، یک `ResolvedProviderAuth` type
 - `services/control-plane/internal/router/router.go`
 - `services/control-plane/internal/storage/deployment_repo.go`
 - `services/control-plane/internal/storage/provider_account_runtime_repo.go`
-- `services/control-plane/internal/providers/`
+- `services/control-plane/internal/providerregistry/`
+- `services/control-plane/internal/proxy/`
 - `packages/database/schema.prisma`
 - `apps/support-admin/app/admin/providers/page.tsx`
 - `apps/support-admin/lib/admin-auth.ts`

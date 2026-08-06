@@ -18,11 +18,15 @@ This is the backend source of truth for platform behavior. Frontends should cons
 ## Working Rules
 
 1. Treat `internal/` as service-private implementation.
-2. Keep shared public types in `pkg/types` intentionally small and stable.
+2. Keep shared public types in `packages/contracts`; do not create a parallel
+   control-plane type package.
 3. Do not edit applied migration files in place.
 4. Preserve secret redaction in logs and headers.
 5. Prefer explicit contract tests over undocumented fallback behavior.
 6. Use `MASTER_KEY` only as a bootstrap/admin credential; platform workloads should use scoped service accounts.
+7. Keep canonical provider identities in `internal/providerregistry`. Provider
+   HTTP adapters belong behind the tunnel in `services/silk-road`, not in a
+   second control-plane provider registry.
 
 ## Current Entry Points
 

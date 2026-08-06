@@ -6,7 +6,8 @@ This service contains the current Go implementation for Shahrah's API gateway an
 
 - `cmd/server`: entrypoint
 - `internal`: service-private implementation
-- `pkg/types`: shared public types for this module
+- `../../packages/contracts`: shared public API and platform contracts
+- `internal/providerregistry`: canonical provider identities and capabilities
 - `configs`: local config templates
 - `tests`: unit and integration tests
 
@@ -34,6 +35,17 @@ When changing `model-discovery` usage in `control-plane`:
 3. Extend or adjust the OpenAPI contract assertions for any new upstream endpoint or critical parameter constraint.
 
 Do not add undocumented fallback behavior that hides upstream contract drift.
+
+## Provider Architecture
+
+The control-plane does not own direct provider HTTP adapters. It validates,
+routes, prices, and sends provider operations through `platform.TunnelTransport`.
+Canonical provider names and aliases live in `internal/providerregistry`; the
+upstream provider adapters live behind the tunnel in `services/silk-road`.
+
+Do not add a second provider registry or direct provider client tree under the
+control-plane. Extend `internal/providerregistry`, the relevant proxy contract,
+and the Silk Road adapter instead.
 
 ## Required Configuration
 

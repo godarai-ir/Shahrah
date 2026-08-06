@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	"go.uber.org/zap"
 )
 
@@ -21,7 +22,7 @@ func TestPricingCacheKeyNormalizesModel(t *testing.T) {
 func TestPricingCacheHitAvoidsLoader(t *testing.T) {
 	ctx := context.Background()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +50,7 @@ func TestPricingCacheHitAvoidsLoader(t *testing.T) {
 func TestPricingCacheConcurrentMissIsCoalesced(t *testing.T) {
 	ctx := context.Background()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -303,7 +303,7 @@ OpenAPI رسمی batch این endpointها را می‌پذیرد:
 | host allowlist | صحیح: `api.mistral.ai` |
 | platform-managed probe | صحیح: canonical `mistral-ai`، `/models`، bearer |
 | Silk Road adapter | هر دو alias `mistral` و `mistral-ai` را می‌پذیرد |
-| legacy direct adapter | فقط `mistral` ثبت شده است |
+| legacy direct adapter | حذف شده؛ مسیر production از Tunnel و Silk Road عبور می‌کند |
 | BYOK tenant connection test | ناقص: validator فقط `mistral` را می‌شناسد، نه `mistral-ai` |
 
 شواهد:
@@ -312,7 +312,7 @@ OpenAPI رسمی batch این endpointها را می‌پذیرد:
 - BYOK validator: `services/control-plane/internal/storage/provider_credential_validation.go:104-118`
 - tenant test alias را بدون normalization می‌فرستد: `services/control-plane/internal/storage/tenant_provider_account_repo.go:748,827`
 - base URL normalization: `services/control-plane/internal/storage/provider_api_base_validation.go:169-170,204-205`
-- legacy adapter: `services/control-plane/internal/providers/mistral/client.go:20,33,75`
+- legacy direct adapter: removed after confirming it had no production importer
 
 نتیجه: schema اتصال درست است، ولی flow آزمون BYOK canonical یک شکاف اجرایی دارد.
 

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
@@ -210,7 +212,7 @@ func (t *testTunnel) Healthy(_ context.Context) error { return nil }
 func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, logsOpt ...*testLogs) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: "gpt-4",
@@ -257,7 +259,7 @@ func newCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, lo
 func newChatCompletionsTestApp(t *testing.T, tunnelResp *platform.TunnelResponse, logs *testLogs) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: "gpt-4",
@@ -433,7 +435,7 @@ func TestCompletionsTracingLifecycle_ProviderErrorIncludesProviderSpan(t *testin
 func newCompletionsStreamingApp(t *testing.T, tunnel platform.TunnelTransport, wallets *testWallets, logs *testLogs) *fiber.App {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: "gpt-4",
@@ -644,7 +646,7 @@ func TestCompletionsHandlerBYOKProviderAccountSkipsWalletBudgetAndDebit(t *testi
 		ProviderAccountName: "personal-openai",
 	}}}
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, store, zap.NewNop())
 	require.NoError(t, err)
@@ -708,7 +710,7 @@ func TestCompletionsHandlerBYOKProviderAccountStreamLogsSpendOnDone(t *testing.T
 		ProviderAccountName: "personal-openai",
 	}}}
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, store, zap.NewNop())
 	require.NoError(t, err)

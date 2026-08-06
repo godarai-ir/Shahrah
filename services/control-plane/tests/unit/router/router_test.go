@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	llmrouter "github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ import (
 // TestRouter_ShouldSelectDeployment verifies that the router selects a healthy deployment.
 func TestRouter_ShouldSelectDeployment(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{
 		{
@@ -54,7 +54,7 @@ func TestRouter_ShouldSelectDeployment(t *testing.T) {
 // TestRouter_ShouldReturnError_WhenModelNotFound verifies that the router returns an error for unknown models.
 func TestRouter_ShouldReturnError_WhenModelNotFound(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{}
 	settings := config.RouterSettings{}
@@ -71,7 +71,7 @@ func TestRouter_ShouldReturnError_WhenModelNotFound(t *testing.T) {
 // TestRouter_ShouldExcludeCooldownedDeployment verifies that cooldowned deployments are excluded from routing.
 func TestRouter_ShouldExcludeCooldownedDeployment(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{
 		{
@@ -109,7 +109,7 @@ func TestRouter_ShouldExcludeCooldownedDeployment(t *testing.T) {
 // TestRouter_WeightedSelection_ShouldPreferHigherWeight verifies weighted selection favors higher weight deployments.
 func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{
 		{
@@ -161,7 +161,7 @@ func TestRouter_WeightedSelection_ShouldPreferHigherWeight(t *testing.T) {
 
 func TestRouter_ShouldMatchProviderScopedWildcardBeforeGlobalWildcard(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{
 		{
@@ -246,7 +246,7 @@ func (s *staticDeploymentStore) setError(err error) {
 
 func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{
 		{
@@ -284,7 +284,7 @@ func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
 
 func TestRouter_FQNWithoutExactDeploymentShouldNotUseWildcard(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{
 		{
@@ -308,7 +308,7 @@ func TestRouter_FQNWithoutExactDeploymentShouldNotUseWildcard(t *testing.T) {
 
 func TestRouter_FQNProviderAccountWithoutBYOKUsesSharedProviderKey(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	modelList := []config.ModelDeployment{
 		{
@@ -347,7 +347,7 @@ func TestRouter_FQNProviderAccountWithoutBYOKUsesSharedProviderKey(t *testing.T)
 
 func TestRouter_CanonicalizesProviderPrefixedModelForProviderAccountDeployment(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
@@ -376,7 +376,7 @@ func TestRouter_CachesTenantDeployments(t *testing.T) {
 	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "30")
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
@@ -411,7 +411,7 @@ func TestRouter_ReloadsTenantDeploymentsAfterCacheInvalidation(t *testing.T) {
 	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "30")
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
@@ -445,7 +445,7 @@ func TestRouter_ReloadsTenantDeploymentsAfterTTLExpiry(t *testing.T) {
 	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "1")
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
@@ -479,7 +479,7 @@ func TestRouter_UsesLastKnownGoodDeploymentsWhenStoreFails(t *testing.T) {
 	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "0")
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &staticDeploymentStore{
 		deployments: []platform.Deployment{
 			{
@@ -513,7 +513,7 @@ func TestRouter_UsesResolvedLastKnownGoodRouteAfterSanitizedCacheExpires(t *test
 	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "30")
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	deployment := platform.Deployment{
 		ID:        "provider-account:openai-1:gpt-4o-mini",
 		TenantID:  "tenant-1",
@@ -551,7 +551,7 @@ func TestRouter_ReturnsDependencyUnavailableWithoutLastKnownGoodSnapshot(t *test
 	t.Setenv("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", "0")
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	store := &staticDeploymentStore{err: errors.New("database unavailable")}
 
 	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)

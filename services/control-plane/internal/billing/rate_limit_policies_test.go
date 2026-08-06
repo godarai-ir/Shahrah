@@ -9,6 +9,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"go.uber.org/zap"
 )
 
@@ -234,7 +235,7 @@ func TestCheckRateLimitCacheErrorCanFailOpen(t *testing.T) {
 func newRateLimitPolicyTestService(t *testing.T, rules []platform.RateLimitRule) *Service {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}

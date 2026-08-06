@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	basecache "github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -37,7 +38,7 @@ func (e *testEmbedder) Identity() EmbeddingIdentity {
 func newTestService(t *testing.T, embedder Embedder) *Service {
 	t.Helper()
 
-	store, err := basecache.NewMemoryCache(zap.NewNop())
+	store, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 

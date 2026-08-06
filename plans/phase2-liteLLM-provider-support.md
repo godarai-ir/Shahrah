@@ -1,8 +1,15 @@
 # Phase 2: LiteLLM Provider Support - Implementation Plan
 
-> **Status:** Draft
+> **Status:** Superseded
 > **Created:** 2026-04-26
 > **Priority:** P0 - Core feature for GodarAI gateway
+
+> This document describes an abandoned direct-adapter design. The
+> `services/control-plane/internal/providers` tree was removed because it had no
+> production importer. Current control-plane code uses
+> `internal/providerregistry` for canonical provider capabilities and dispatches
+> requests through the tunnel to provider adapters in `services/silk-road`.
+> Paths and implementation steps below are retained only as historical context.
 
 ---
 

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
@@ -136,7 +138,7 @@ func TestXAIImageFileOutputsAreRecordedForLaterFilesOperations(t *testing.T) {
 func newImagesTestAppWithBudgeter(t *testing.T, modelName string, provider string, deploymentModel string, tunnel *captureTunnel, b budgeter, logs *testLogs, allowedTypes []string, emitMetric ...func(input metricsobs.BuildInput)) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter([]config.ModelDeployment{{
 		ModelName: modelName,

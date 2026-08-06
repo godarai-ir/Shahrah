@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"go.uber.org/zap"
 )
 
 func TestReserveBudgetSeedsWalletOnceThenUsesAllowanceWindow(t *testing.T) {
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestReserveBudgetSeedsWalletOnceThenUsesAllowanceWindow(t *testing.T) {
 }
 
 func TestReserveBudgetReturnsBudgetExceededWhenAllowanceExhausted(t *testing.T) {
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}

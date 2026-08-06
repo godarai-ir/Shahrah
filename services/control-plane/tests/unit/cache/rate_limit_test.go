@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -13,7 +14,7 @@ import (
 
 func TestMemoryCache_CheckRateLimit(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	mem, err := cache.NewMemoryCache(logger)
+	mem, err := testcache.New(t, logger)
 	require.NoError(t, err)
 
 	key := "rpm:key:test:gpt-4"
@@ -44,7 +45,7 @@ func TestMemoryCache_CheckRateLimit(t *testing.T) {
 
 func TestMemoryCache_CheckSlidingWindowRateLimitWithWeight(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	mem, err := cache.NewMemoryCache(logger)
+	mem, err := testcache.New(t, logger)
 	require.NoError(t, err)
 
 	key := "tpm:key:test:gpt-4"

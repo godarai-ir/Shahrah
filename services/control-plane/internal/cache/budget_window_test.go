@@ -9,10 +9,20 @@ import (
 )
 
 func TestMemoryBudgetWindowReserveCommitReleaseIdempotent(t *testing.T) {
-	mem, err := NewMemoryCache(zap.NewNop())
+	mem, err := NewMemoryCacheWithConfig(zap.NewNop(), MemoryCacheConfig{
+		NumCounters: 1_000,
+		MaxCost:     10_000,
+		BufferItems: 64,
+	})
 	if err != nil {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
+
+	t.Cleanup(func() {
+		if closeErr := mem.Close(); closeErr != nil {
+			t.Errorf("close test memory cache: %v", closeErr)
+		}
+	})
 
 	ctx := context.Background()
 	windowEnd := time.Now().UTC().Add(time.Hour)

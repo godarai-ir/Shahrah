@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
@@ -44,7 +46,7 @@ func TestIntegration_PostgresBackedOnboardingFlow(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -538,7 +540,7 @@ func TestIntegration_InviteTenantUser_InvalidEmailRejectedWithoutSideEffects(t *
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -578,7 +580,7 @@ func TestIntegration_RoleCatalogAndUserRoleAssignment(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -665,7 +667,7 @@ func TestIntegration_UpdateUserRoles_ValidationAndAuth(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -780,7 +782,7 @@ func TestIntegration_ProviderAccountAccessAndModelSelectionHardening(t *testing.
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -929,7 +931,7 @@ func TestIntegration_EffectiveModelsAccessMatrix_PAT_VAT_UserTeam(t *testing.T) 
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -1140,7 +1142,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistIsApplied(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -1226,7 +1228,7 @@ func TestIntegration_EffectiveModels_PATKeyAllowlistAcceptsFQN(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -1311,7 +1313,7 @@ func TestIntegration_DeleteTenantProviderAccount_Success(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -1378,7 +1380,7 @@ func TestIntegration_DeleteTenantProviderAccount_ForbiddenForNonManager(t *testi
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -1447,7 +1449,7 @@ func TestIntegration_DeleteTenantProviderAccount_NotFound(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -1462,7 +1464,7 @@ func TestIntegration_DeleteTenantProviderAccount_ConflictWhenReferencedByActiveK
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 
@@ -1521,7 +1523,7 @@ func TestIntegration_PostgresBackedVirtualModelWeightedRoundTrip(t *testing.T) {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	app, pool := newPersistentIntegrationApp(t, logger, memCache, databaseURL)
 	resetPersistentState(t, pool)
 

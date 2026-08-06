@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"go.uber.org/zap"
 )
 
 func TestIntegration_BillingReportEndpointsUseJalaliContract(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -65,7 +65,7 @@ func TestIntegration_BillingReportEndpointsUseJalaliContract(t *testing.T) {
 
 func TestIntegration_CreateBankTransferAcceptsJalaliDate(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()

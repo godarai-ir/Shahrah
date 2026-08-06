@@ -8,10 +8,10 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,7 +25,7 @@ func TestXAIDeferredCompletionLifecycleIsOwnedAndExactlyOnce(t *testing.T) {
 		APIKey: "test-key", ProviderAccountID: "xai_acct_1", BillingMode: platform.BillingModeWalletBilled,
 	}
 	deployments := responseOperationDeployments{deployments: []platform.Deployment{deployment}}
-	mem, err := cache.NewMemoryCache(zap.NewNop())
+	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 	rt, err := router.NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, deployments, zap.NewNop())
 	require.NoError(t, err)

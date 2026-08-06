@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
+
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
@@ -41,7 +43,7 @@ import (
 
 func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +187,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 
 func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +257,7 @@ func TestIntegration_EndToEndResponsesStreaming(t *testing.T) {
 
 func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -338,7 +340,7 @@ func TestIntegration_TenantOnboardingFlowViaManagementAPIs(t *testing.T) {
 
 func TestIntegration_ChatCompletionRejectsInsufficientWalletBalance(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -384,7 +386,7 @@ func TestIntegration_ChatCompletionRejectsInsufficientWalletBalance(t *testing.T
 
 func TestIntegration_CreateServiceAccountKeyRequiresTeamID(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -397,7 +399,7 @@ func TestIntegration_CreateServiceAccountKeyRequiresTeamID(t *testing.T) {
 
 func TestIntegration_CreateServiceAccountKey(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -423,7 +425,7 @@ func TestIntegration_CreateServiceAccountKey(t *testing.T) {
 
 func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -445,7 +447,7 @@ func TestIntegration_CreateVATKeyViaCanonicalEndpoint(t *testing.T) {
 
 func TestIntegration_VirtualModelCRUDSupportsWeightedStrategy(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -490,7 +492,7 @@ func TestIntegration_VirtualModelCRUDSupportsWeightedStrategy(t *testing.T) {
 
 func TestIntegration_WeightedVirtualModelFallsBackInOrderAfterWeightedPrimary(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 	handlerErrors := newAsyncErrorCollector(t)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -575,7 +577,7 @@ func TestIntegration_WeightedVirtualModelFallsBackInOrderAfterWeightedPrimary(t 
 
 func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -675,7 +677,7 @@ func TestIntegration_PersonalAccessTokenLifecycle(t *testing.T) {
 
 func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -692,7 +694,7 @@ func TestIntegration_InviteTenantUserViaCanonicalInvitationEndpoint(t *testing.T
 
 func TestIntegration_OrgUnitCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -727,7 +729,7 @@ func TestIntegration_OrgUnitCRUD(t *testing.T) {
 
 func TestIntegration_VirtualUserCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -766,7 +768,7 @@ func TestIntegration_VirtualUserCRUD(t *testing.T) {
 
 func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -832,7 +834,7 @@ func TestIntegration_VirtualUserTokenLifecycle(t *testing.T) {
 
 func TestIntegration_OrgUnitMembershipCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -871,7 +873,7 @@ func TestIntegration_OrgUnitMembershipCRUD(t *testing.T) {
 
 func TestIntegration_TeamMembershipCRUD(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -907,7 +909,7 @@ func TestIntegration_TeamMembershipCRUD(t *testing.T) {
 
 func TestIntegration_RBACDeniesTeamMemberOnVirtualUsers(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -928,7 +930,7 @@ func TestIntegration_RBACDeniesTeamMemberOnVirtualUsers(t *testing.T) {
 
 func TestIntegration_RBACAllowsTeamAdminOnTeamMembers(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -949,7 +951,7 @@ func TestIntegration_RBACAllowsTeamAdminOnTeamMembers(t *testing.T) {
 
 func TestIntegration_ListTenantUsers(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -967,7 +969,7 @@ func TestIntegration_ListTenantUsers(t *testing.T) {
 
 func TestIntegration_InviteTenantUser(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -985,7 +987,7 @@ func TestIntegration_InviteTenantUser(t *testing.T) {
 
 func TestIntegration_AcceptTenantUserInvitation(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -1006,7 +1008,7 @@ func TestIntegration_AcceptTenantUserInvitation(t *testing.T) {
 
 func TestIntegration_ActivateDeactivateTenantUser(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer provider.Close()
@@ -1032,7 +1034,7 @@ func TestIntegration_ActivateDeactivateTenantUser(t *testing.T) {
 
 func TestIntegration_LegacyCompletionsEnforcesAllowedModels(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -1060,7 +1062,7 @@ func TestIntegration_LegacyCompletionsEnforcesAllowedModels(t *testing.T) {
 
 func TestIntegration_LegacyCompletionsSetsFinalCostHeaders(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	memCache, _ := cache.NewMemoryCache(logger)
+	memCache, _ := testcache.New(t, logger)
 
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

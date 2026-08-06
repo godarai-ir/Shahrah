@@ -21,6 +21,22 @@ type MemoryCache struct {
 	budgetReservations map[string]memoryBudgetReservation
 }
 
+// MemoryCacheConfig controls the bounded resources allocated by MemoryCache.
+type MemoryCacheConfig struct {
+	NumCounters int64
+	MaxCost     int64
+	BufferItems int64
+}
+
+// DefaultMemoryCacheConfig returns the production cache sizing defaults.
+func DefaultMemoryCacheConfig() MemoryCacheConfig {
+	return MemoryCacheConfig{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	}
+}
+
 type fixedWindowCounter struct {
 	count     int64
 	expiresAt time.Time
@@ -52,10 +68,15 @@ type memoryBudgetReservation struct {
 
 // NewMemoryCache creates a new in-memory cache using Ristretto v2.
 func NewMemoryCache(logger *zap.Logger) (*MemoryCache, error) {
+	return NewMemoryCacheWithConfig(logger, DefaultMemoryCacheConfig())
+}
+
+// NewMemoryCacheWithConfig creates an in-memory cache with explicit resource bounds.
+func NewMemoryCacheWithConfig(logger *zap.Logger, cfg MemoryCacheConfig) (*MemoryCache, error) {
 	cache, err := ristretto.NewCache(&ristretto.Config[string, any]{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M)
-		MaxCost:     1 << 30, // maximum cost of cache (1GB)
-		BufferItems: 64,      // number of keys per Get buffer
+		NumCounters: cfg.NumCounters,
+		MaxCost:     cfg.MaxCost,
+		BufferItems: cfg.BufferItems,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ristretto v2 cache: %w", err)
