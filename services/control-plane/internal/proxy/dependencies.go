@@ -87,6 +87,10 @@ func (d BaseHandlerDependencies) metricEmitter() func(input metricsobs.BuildInpu
 	return d.EmitMetric
 }
 
+func (d BaseHandlerDependencies) requestPipeline() *RequestPipeline {
+	return NewRequestPipeline(d.Tunnel, d.Billing, d.Wallets, d.Logger)
+}
+
 func newChatVirtualModelDeps(store interface {
 	GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
 }) (virtualmodels.VirtualModelResolver, virtualmodels.RoutingEngine, virtualmodels.FallbackExecutor) {

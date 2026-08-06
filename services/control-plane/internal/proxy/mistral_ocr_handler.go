@@ -22,9 +22,8 @@ const mistralOCRReservationPages = 100
 // exposing an arbitrary provider path.
 type MistralOCRHandler struct {
 	llmRouter  *router.Router
-	tunnel     platform.TunnelTransport
+	pipeline   *RequestPipeline
 	billing    budgeter
-	wallets    walletStore
 	logger     *zap.Logger
 	resources  providerNativeResourceStore
 	logs       usageLogger
@@ -32,7 +31,7 @@ type MistralOCRHandler struct {
 }
 
 func NewMistralOCRHandlerWithDependencies(deps BaseHandlerDependencies) *MistralOCRHandler {
-	return &MistralOCRHandler{llmRouter: deps.Router, tunnel: deps.Tunnel, billing: deps.Billing, wallets: deps.Wallets, logger: deps.Logger, resources: deps.ProviderResources, logs: deps.logger(), emitMetric: deps.metricEmitter()}
+	return &MistralOCRHandler{llmRouter: deps.Router, pipeline: deps.requestPipeline(), billing: deps.Billing, logger: deps.Logger, resources: deps.ProviderResources, logs: deps.logger(), emitMetric: deps.metricEmitter()}
 }
 
 func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
@@ -169,15 +168,15 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	reservation, handled, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deployment.BillingMode)
-	if err != nil || handled {
-		return err
+	reservation, err := h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deployment.BillingMode))
+	if err != nil {
+		return writeBudgetCheckError(c, err)
 	}
 
 	committed := false
 	defer func() {
 		if !committed {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "ocr_request_not_committed")
+			h.pipeline.Release(c.Context(), reservation, "ocr_request_not_committed")
 		}
 	}()
 
@@ -200,7 +199,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 	}
 	tunnelRequest.RequestMetadata = enrichRequestMetadataForDeployment(tunnelRequest.RequestMetadata, tunnelRequest.Deployment)
 
-	response, err := h.tunnel.Proxy(c.Context(), tunnelRequest)
+	response, err := h.pipeline.Dispatch(c.Context(), tunnelRequest)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Mistral OCR tunnel request failed", "api_error")
 	}
@@ -219,7 +218,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize Mistral OCR usage", "billing_error")
 	}
 
-	if err := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, reservation, currentTenant.ID, finalCost, requestID, deployment.BillingMode); err != nil {
+	if err := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: reservation, TenantID: currentTenant.ID, Actual: finalCost, RequestID: requestID, BillingMode: deployment.BillingMode}); err != nil {
 		return writeBudgetCheckError(c, err)
 	}
 

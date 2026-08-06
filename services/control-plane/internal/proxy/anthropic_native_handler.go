@@ -38,9 +38,8 @@ type AnthropicNativeHandler struct {
 	router           *router.Router
 	deployments      anthropicDeploymentLister
 	resources        anthropicNativeResourceStore
-	tunnel           platform.TunnelTransport
+	pipeline         *RequestPipeline
 	billing          budgeter
-	wallets          walletStore
 	runtimeProfiles  anthropicModelRuntimeProfileResolver
 	logger           *zap.Logger
 	nativeEnabled    bool
@@ -53,8 +52,8 @@ func NewAnthropicNativeHandler(deps BaseHandlerDependencies, deployments anthrop
 	resources, _ := deployments.(anthropicNativeResourceStore) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 
 	return &AnthropicNativeHandler{
-		router: deps.Router, deployments: deployments, tunnel: deps.Tunnel,
-		resources: resources, billing: deps.Billing, wallets: deps.Wallets,
+		router: deps.Router, deployments: deployments, pipeline: deps.requestPipeline(),
+		resources: resources, billing: deps.Billing,
 		runtimeProfiles: deps.AnthropicRuntimeProfiles, logger: deps.Logger,
 		nativeEnabled:    anthropicFeatureEnabled("ANTHROPIC_NATIVE_API_ENABLED", true),
 		filesEnabled:     anthropicFeatureEnabled("ANTHROPIC_FILES_API_ENABLED", true),
@@ -63,7 +62,6 @@ func NewAnthropicNativeHandler(deps BaseHandlerDependencies, deployments anthrop
 	}
 }
 
-//nolint:gocyclo // The handler mirrors the provider operation matrix and keeps shared settlement logic visible.
 func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 	if strings.TrimSpace(c.Get("anthropic-version")) == "" {
 		return writeAnthropicError(c, fiber.StatusBadRequest, "invalid_request_error", "anthropic-version is required")
@@ -218,23 +216,15 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 			}
 		}
 
-		var handled bool
-
-		reservation, handled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deployment.BillingMode)
-		if err != nil || handled {
-			return err
+		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deployment.BillingMode))
+		if err != nil {
+			return writeBudgetCheckError(c, err)
 		}
 	}
 
 	if anthropicOperationNeedsModelRuntimeProfile(operation) {
 		if h.runtimeProfiles == nil {
-			releaseBudgetBestEffort(
-				c.Context(),
-				h.logger,
-				h.billing,
-				reservation,
-				"runtime_profile_unavailable",
-			)
+			h.pipeline.Release(c.Context(), reservation, "runtime_profile_unavailable")
 
 			return writeAnthropicError(
 				c,
@@ -252,13 +242,7 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 				expectedRevision,
 			)
 		if err != nil {
-			releaseBudgetBestEffort(
-				c.Context(),
-				h.logger,
-				h.billing,
-				reservation,
-				"runtime_profile_unavailable",
-			)
+			h.pipeline.Release(c.Context(), reservation, "runtime_profile_unavailable")
 
 			return writeAnthropicError(
 				c,
@@ -273,14 +257,14 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 		return h.proxyStream(c, tunnelRequest, reservation, estimated, authInfo, officialModels[0])
 	}
 
-	response, err := h.tunnel.Proxy(c.Context(), tunnelRequest)
+	response, err := h.pipeline.Dispatch(c.Context(), tunnelRequest)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "tunnel_error")
+		h.pipeline.Release(c.Context(), reservation, "tunnel_error")
 		return writeAnthropicError(c, fiber.StatusBadGateway, "api_error", "Tunnel request failed")
 	}
 
 	if response.StatusCode >= fiber.StatusBadRequest {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
 		forwardProviderHeaders(c, response.Headers)
 
 		return c.Status(response.StatusCode).Send(response.Body)
@@ -288,7 +272,7 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 
 	response.Body, err = h.rewriteNativeResponse(c.Context(), operation, currentTenant.ID, deployment.ProviderAccountID, response.Body, reservation, estimated, resourceMapping)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "resource_mapping_error")
+		h.pipeline.Release(c.Context(), reservation, "resource_mapping_error")
 		return writeAnthropicError(c, fiber.StatusBadGateway, "api_error", "Failed to persist native resource mapping")
 	}
 
@@ -297,17 +281,17 @@ func (h *AnthropicNativeHandler) Handle(c *fiber.Ctx) error {
 
 		finalized, finalizeErr := h.billing.FinalizeFromUsage(c.Context(), officialModels[0], usage, estimated)
 		if finalizeErr != nil {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "usage_finalize_error")
+			h.pipeline.Release(c.Context(), reservation, "usage_finalize_error")
 			return writeAnthropicBillingError(c, finalizeErr)
 		}
 
-		if err := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, reservation, currentTenant.ID, finalized, requestID, deployment.BillingMode); err != nil {
+		if err := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: reservation, TenantID: currentTenant.ID, Actual: finalized, RequestID: requestID, BillingMode: deployment.BillingMode}); err != nil {
 			return writeAnthropicError(c, fiber.StatusPaymentRequired, "billing_error", err.Error())
 		}
 	}
 
 	if operation == platform.ProviderOperationAnthropicBatchesCancel && resourceMapping != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, resourceMapping.Reservation, "batch_canceled")
+		h.pipeline.Release(c.Context(), resourceMapping.Reservation, "batch_canceled")
 		_ = h.resources.UpdateAnthropicBatchStatus(c.Context(), currentTenant.ID, resourceMapping.PublicID, "canceled") //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 	}
 
@@ -506,14 +490,14 @@ func uniqueAnthropicAccounts(deployments []platform.Deployment) map[string]struc
 }
 
 func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelRequest, reservation *platform.BudgetReservation, estimated platform.UsageCostBreakdown, authInfo *platform.AuthContext, model string) error {
-	stream, err := h.tunnel.Stream(c.Context(), request)
+	stream, err := h.pipeline.DispatchStream(c.Context(), request)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "stream_open_failed")
+		h.pipeline.Release(c.Context(), reservation, "stream_open_failed")
 		return writeAnthropicError(c, fiber.StatusBadGateway, "api_error", "Tunnel stream failed")
 	}
 
 	if stream.StatusCode() >= fiber.StatusBadRequest {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
 		return writeTunnelStreamHTTPError(c, h.logger, stream, nil)
 	}
 
@@ -533,17 +517,24 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
 					if failed || usage == nil {
-						releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_incomplete")
+						h.pipeline.Release(context.Background(), reservation, "stream_incomplete")
 						return
 					}
 
 					finalized, finalizeErr := h.billing.FinalizeFromUsage(context.Background(), model, usage, estimated)
 					if finalizeErr != nil {
-						releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "usage_finalize_error")
+						h.pipeline.Release(context.Background(), reservation, "usage_finalize_error")
 						return
 					}
 
-					_ = commitBudgetOrDebit(context.Background(), h.logger, h.billing, h.wallets, reservation, authInfo.TenantID, finalized, request.RequestID, request.Deployment.BillingMode) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
+					settlement := SettlementRequest{
+						Reservation: reservation,
+						TenantID:    authInfo.TenantID,
+						Actual:      finalized,
+						RequestID:   request.RequestID,
+						BillingMode: request.Deployment.BillingMode,
+					}
+					_ = h.pipeline.Settle(context.Background(), settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
 
 					return
 				}
@@ -562,7 +553,7 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 				}
 			case streamErr, ok := <-stream.Errors():
 				if ok && streamErr != nil {
-					releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_error")
+					h.pipeline.Release(context.Background(), reservation, "stream_error")
 				}
 
 				return

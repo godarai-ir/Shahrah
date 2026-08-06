@@ -32,9 +32,8 @@ const (
 // AudioSpeechHandler serves OpenAI-compatible text-to-speech requests.
 type AudioSpeechHandler struct {
 	llmRouter  *router.Router
-	tunnel     platform.TunnelTransport
+	pipeline   *RequestPipeline
 	billing    budgeter
-	wallets    walletStore
 	logs       usageLogger
 	logger     *zap.Logger
 	emitMetric func(input metricsobs.BuildInput)
@@ -71,9 +70,8 @@ func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 func NewAudioSpeechHandlerWithDependencies(deps BaseHandlerDependencies) *AudioSpeechHandler {
 	return &AudioSpeechHandler{
 		llmRouter:  deps.Router,
-		tunnel:     deps.Tunnel,
+		pipeline:   deps.requestPipeline(),
 		billing:    deps.Billing,
-		wallets:    deps.Wallets,
 		logs:       deps.logger(),
 		logger:     deps.Logger,
 		emitMetric: deps.metricEmitter(),
@@ -165,30 +163,29 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var (
-		budgetReservation     *platform.BudgetReservation
-		budgetResponseHandled bool
+		budgetReservation *platform.BudgetReservation
 	)
 
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
 
-		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-		if err != nil || budgetResponseHandled {
-			return err
+		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID))
+		if err != nil {
+			return writeBudgetCheckError(c, err)
 		}
 	}
 
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "request_not_committed")
+			h.pipeline.Release(c.Context(), budgetReservation, "request_not_committed")
 		}
 	}()
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	if healthErr := h.tunnel.Healthy(c.Context()); healthErr != nil {
+	if healthErr := h.pipeline.EnsureReady(c.Context()); healthErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
@@ -273,9 +270,9 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
-		if err != nil || budgetResponseHandled {
-			return err
+		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment)))
+		if err != nil {
+			return writeBudgetCheckError(c, err)
 		}
 	}
 
@@ -304,8 +301,8 @@ func (h *AudioSpeechHandler) handleSync(
 	originalBody []byte,
 	originalContentType string,
 ) error {
-	if rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport); ok {
-		return h.handleRawSync(c, rawTunnel, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, start, tenantSlug, originalBody, originalContentType)
+	if h.pipeline.HasRawTransport() {
+		return h.handleRawSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, start, tenantSlug, originalBody, originalContentType)
 	}
 
 	providerStart := time.Now()
@@ -314,7 +311,7 @@ func (h *AudioSpeechHandler) handleSync(
 		"request_payload": buildTraceAudioSpeechRequestPayload(originalBody, originalContentType, tunnelReq.RequestMetadata),
 	}
 
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
+	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
@@ -355,7 +352,7 @@ func (h *AudioSpeechHandler) handleSync(
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech metered usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
+	if debitErr := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: budgetReservation, TenantID: authInfo.TenantID, Actual: finalCost, RequestID: tunnelReq.RequestID, BillingMode: deploymentBillingMode(tunnelReq.Deployment)}); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
@@ -437,7 +434,6 @@ func (h *AudioSpeechHandler) handleSync(
 
 func (h *AudioSpeechHandler) handleRawSync(
 	c *fiber.Ctx,
-	rawTunnel platform.TunnelRawTransport,
 	requestedModel string,
 	authInfo *platform.AuthContext,
 	estimated platform.UsageCostBreakdown,
@@ -455,7 +451,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 		"raw_stream":      true,
 	}
 
-	resp, err := rawTunnel.ProxyRaw(c.Context(), tunnelReq, bytes.NewReader(tunnelReq.Body), int64(len(tunnelReq.Body)))
+	resp, err := h.pipeline.DispatchRaw(c.Context(), tunnelReq, bytes.NewReader(tunnelReq.Body), int64(len(tunnelReq.Body)))
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
@@ -494,7 +490,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize text to speech metered usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
+	if debitErr := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: budgetReservation, TenantID: authInfo.TenantID, Actual: finalCost, RequestID: tunnelReq.RequestID, BillingMode: deploymentBillingMode(tunnelReq.Deployment)}); debitErr != nil {
 		_ = resp.Body.Close() //nolint:errcheck // Cleanup is best-effort and cannot change the completed operation.
 		return writeBudgetCheckError(c, debitErr)
 	}
@@ -570,7 +566,7 @@ func (h *AudioSpeechHandler) handleStream(
 ) error {
 	providerStart := time.Now()
 
-	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
+	stream, err := h.pipeline.DispatchStream(c.Context(), tunnelReq)
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
@@ -579,7 +575,7 @@ func (h *AudioSpeechHandler) handleStream(
 			"error":           err.Error(),
 		})
 
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
+		h.pipeline.Release(c.Context(), budgetReservation, "stream_open_failed")
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -591,7 +587,7 @@ func (h *AudioSpeechHandler) handleStream(
 			"stream":          true,
 			"status_code":     statusCode,
 		})
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), budgetReservation, "provider_http_error")
 
 		return writeTunnelStreamHTTPError(c, h.logger, stream)
 	}
@@ -615,7 +611,7 @@ func (h *AudioSpeechHandler) handleStream(
 		budgetCommitted := false
 		defer func() {
 			if !budgetCommitted {
-				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
+				h.pipeline.Release(requestCtx, budgetReservation, "stream_not_committed")
 			}
 		}()
 
@@ -638,7 +634,7 @@ func (h *AudioSpeechHandler) handleStream(
 				}
 			}
 
-			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
+			if debitErr := h.pipeline.Settle(requestCtx, SettlementRequest{Reservation: budgetReservation, TenantID: authInfo.TenantID, Actual: finalCost, RequestID: tunnelReq.RequestID, BillingMode: deploymentBillingMode(tunnelReq.Deployment)}); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming text to speech request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 				return
 			}

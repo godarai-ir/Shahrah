@@ -12,7 +12,7 @@ import (
 )
 
 func (h *AnthropicNativeHandler) RunBatchWorker(ctx context.Context, interval time.Duration) {
-	if h == nil || h.resources == nil || h.tunnel == nil || !h.batchesEnabled {
+	if h == nil || h.resources == nil || !h.pipeline.HasTransport() || !h.batchesEnabled {
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *AnthropicNativeHandler) reconcileAnthropicBatch(ctx context.Context, ma
 		Deployment:     *deployment,
 	}
 
-	response, err := h.tunnel.Proxy(ctx, request)
+	response, err := h.pipeline.Dispatch(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -90,14 +90,13 @@ func (h *AnthropicNativeHandler) reconcileAnthropicBatch(ctx context.Context, ma
 			return h.resources.UpdateAnthropicBatchStatus(ctx, mapping.TenantID, mapping.PublicID, "ended")
 		}
 
-		rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
-		if !ok {
+		if !h.pipeline.HasRawTransport() {
 			return fmt.Errorf("raw tunnel streaming is unavailable for batch reconciliation")
 		}
 
 		request.Operation = platform.ProviderOperationAnthropicBatchesResults
 
-		results, err := rawTunnel.ProxyRaw(ctx, request, nil, 0)
+		results, err := h.pipeline.DispatchRaw(ctx, request, nil, 0)
 		if err != nil {
 			return err
 		}

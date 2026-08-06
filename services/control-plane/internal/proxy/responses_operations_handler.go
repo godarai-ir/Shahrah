@@ -195,7 +195,7 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 		}
 	}
 
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	if err := h.pipeline.EnsureReady(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
@@ -203,7 +203,7 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 		return h.relayResponseOperationStream(c, tunnelReq)
 	}
 
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
+	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -382,11 +382,11 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 		}
 	}
 
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	if err := h.pipeline.EnsureReady(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
+	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -831,7 +831,7 @@ func (h *ResponsesHandler) relayResponseOperationStream(
 	c *fiber.Ctx,
 	tunnelReq platform.TunnelRequest,
 ) error {
-	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
+	stream, err := h.pipeline.DispatchStream(c.Context(), tunnelReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}

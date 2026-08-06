@@ -30,9 +30,8 @@ import (
 // ImagesHandler serves image generation and edit requests.
 type ImagesHandler struct {
 	llmRouter  *router.Router
-	tunnel     platform.TunnelTransport
+	pipeline   *RequestPipeline
 	billing    budgeter
-	wallets    walletStore
 	logs       usageLogger
 	resources  providerNativeResourceStore
 	logger     *zap.Logger
@@ -68,9 +67,8 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 func NewImagesHandlerWithDependencies(deps BaseHandlerDependencies) *ImagesHandler {
 	return &ImagesHandler{
 		llmRouter:  deps.Router,
-		tunnel:     deps.Tunnel,
+		pipeline:   deps.requestPipeline(),
 		billing:    deps.Billing,
-		wallets:    deps.Wallets,
 		logs:       deps.logger(),
 		resources:  deps.ProviderResources,
 		logger:     deps.Logger,
@@ -249,21 +247,21 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	budgetReservation, budgetResponseHandled, err := reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(contractDeployment))
-	if err != nil || budgetResponseHandled {
-		return err
+	budgetReservation, err := h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(contractDeployment)))
+	if err != nil {
+		return writeBudgetCheckError(c, err)
 	}
 
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "request_not_committed")
+			h.pipeline.Release(c.Context(), budgetReservation, "request_not_committed")
 		}
 	}()
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	tunnelErr := h.tunnel.Healthy(c.Context())
+	tunnelErr := h.pipeline.EnsureReady(c.Context())
 	if tunnelErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
@@ -368,7 +366,7 @@ func (h *ImagesHandler) handleSync(
 		"request_payload": buildTraceImageRequestPayload(op.Name, tunnelReq.Body, contentType, tunnelReq.RequestMetadata),
 	}
 
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
+	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
@@ -398,7 +396,7 @@ func (h *ImagesHandler) handleSync(
 
 	metadata := enrichPricingMetadata(withImageResponseMetadata(tunnelReq.RequestMetadata, resp.Body), auth.GetAuthInfo(c), requestedModel)
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
+	if debitErr := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: budgetReservation, TenantID: authInfo.TenantID, Actual: finalCost, RequestID: tunnelReq.RequestID, BillingMode: deploymentBillingMode(tunnelReq.Deployment)}); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 

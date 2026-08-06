@@ -199,11 +199,11 @@ func (h *ResponsesHandler) handleOpenAIJSONResource(
 			"resource_kind":          resourceKind,
 		}, deployment),
 	}
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	if err := h.pipeline.EnsureReady(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
+	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -267,8 +267,7 @@ func (h *ResponsesHandler) handleOpenAIRawResource(
 		return nil
 	}
 
-	rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
-	if !ok {
+	if !h.pipeline.HasRawTransport() {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Raw tunnel streaming is unavailable", "tunnel_unavailable")
 	}
 
@@ -334,7 +333,7 @@ func (h *ResponsesHandler) handleOpenAIRawResource(
 		}
 	}
 
-	resp, err := rawTunnel.ProxyRaw(c.Context(), tunnelReq, bodyReader, contentLength)
+	resp, err := h.pipeline.DispatchRaw(c.Context(), tunnelReq, bodyReader, contentLength)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}

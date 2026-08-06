@@ -23,16 +23,15 @@ import (
 // registered in routes_proxy.go. It never accepts an arbitrary upstream URL.
 type GeminiNativeHandler struct {
 	deployments     anthropicDeploymentLister
-	tunnel          platform.TunnelTransport
+	pipeline        *RequestPipeline
 	billing         budgeter
-	wallets         walletStore
 	runtimeProfiles anthropicModelRuntimeProfileResolver
 	logger          *zap.Logger
 }
 
 func NewGeminiNativeHandler(deps BaseHandlerDependencies, deployments anthropicDeploymentLister) *GeminiNativeHandler {
 	return &GeminiNativeHandler{
-		deployments: deployments, tunnel: deps.Tunnel, billing: deps.Billing, wallets: deps.Wallets,
+		deployments: deployments, pipeline: deps.requestPipeline(), billing: deps.Billing,
 		runtimeProfiles: deps.AnthropicRuntimeProfiles, logger: deps.Logger,
 	}
 }
@@ -90,11 +89,9 @@ func (h *GeminiNativeHandler) Handle(c *fiber.Ctx) error {
 			return writeGeminiError(c, fiber.StatusServiceUnavailable, "PRICING_UNAVAILABLE", "Gemini pricing is unavailable")
 		}
 
-		var handled bool
-
-		reservation, handled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deployment.BillingMode)
-		if err != nil || handled {
-			return err
+		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deployment.BillingMode))
+		if err != nil {
+			return writeBudgetCheckError(c, err)
 		}
 	}
 
@@ -104,14 +101,14 @@ func (h *GeminiNativeHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	if profileModel != "" && h.runtimeProfiles == nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "runtime_profile_unavailable")
+		h.pipeline.Release(c.Context(), reservation, "runtime_profile_unavailable")
 		return writeGeminiError(c, fiber.StatusServiceUnavailable, "RUNTIME_PROFILE_UNAVAILABLE", "The Gemini runtime profile is unavailable")
 	}
 
 	if profileModel != "" {
 		request.ModelRuntimeProfiles, err = h.runtimeProfiles.ResolveModelRuntimeProfiles([]string{profileModel}, "")
 		if err != nil {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "runtime_profile_unavailable")
+			h.pipeline.Release(c.Context(), reservation, "runtime_profile_unavailable")
 			return writeGeminiError(c, fiber.StatusServiceUnavailable, "RUNTIME_PROFILE_UNAVAILABLE", "The Gemini runtime profile is unavailable")
 		}
 	}
@@ -120,24 +117,24 @@ func (h *GeminiNativeHandler) Handle(c *fiber.Ctx) error {
 		return h.proxyStream(c, request, reservation, estimated, authInfo, profileModel)
 	}
 
-	response, err := h.tunnel.Proxy(c.Context(), request)
+	response, err := h.pipeline.Dispatch(c.Context(), request)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "tunnel_error")
+		h.pipeline.Release(c.Context(), reservation, "tunnel_error")
 		return writeGeminiError(c, fiber.StatusBadGateway, "UPSTREAM_UNAVAILABLE", "Gemini tunnel request failed")
 	}
 
 	if response.StatusCode >= fiber.StatusBadRequest {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
 	} else if reservation != nil {
 		usage := parseGeminiNativeUsage(response.Body)
 
 		finalized, finalizeErr := h.billing.FinalizeFromUsage(c.Context(), profileModel, usage, estimated)
 		if finalizeErr != nil {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "usage_finalize_error")
+			h.pipeline.Release(c.Context(), reservation, "usage_finalize_error")
 			return writeGeminiError(c, fiber.StatusBadGateway, "BILLING_ERROR", "Failed to finalize Gemini usage")
 		}
 
-		if err := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, reservation, currentTenant.ID, finalized, requestID, deployment.BillingMode); err != nil {
+		if err := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: reservation, TenantID: currentTenant.ID, Actual: finalized, RequestID: requestID, BillingMode: deployment.BillingMode}); err != nil {
 			return writeGeminiError(c, fiber.StatusPaymentRequired, "BILLING_ERROR", err.Error())
 		}
 	}
@@ -251,14 +248,13 @@ func (h *GeminiNativeHandler) estimateCost(ctx context.Context, operation platfo
 }
 
 func (h *GeminiNativeHandler) proxyRawFileUpload(c *fiber.Ctx, request platform.TunnelRequest) error {
-	rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
-	if !ok {
+	if !h.pipeline.HasRawTransport() {
 		return writeGeminiError(c, fiber.StatusServiceUnavailable, "TUNNEL_UNAVAILABLE", "Raw Gemini file upload is unavailable")
 	}
 
 	body := append([]byte(nil), c.Body()...)
 
-	response, err := rawTunnel.ProxyRaw(c.Context(), request, bytes.NewReader(body), int64(len(body)))
+	response, err := h.pipeline.DispatchRaw(c.Context(), request, bytes.NewReader(body), int64(len(body)))
 	if err != nil {
 		return writeGeminiError(c, fiber.StatusBadGateway, "UPSTREAM_UNAVAILABLE", "Gemini file upload failed")
 	}
@@ -283,14 +279,14 @@ func (h *GeminiNativeHandler) proxyRawFileUpload(c *fiber.Ctx, request platform.
 }
 
 func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelRequest, reservation *platform.BudgetReservation, estimated platform.UsageCostBreakdown, authInfo *platform.AuthContext, model string) error {
-	stream, err := h.tunnel.Stream(c.Context(), request)
+	stream, err := h.pipeline.DispatchStream(c.Context(), request)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "stream_open_failed")
+		h.pipeline.Release(c.Context(), reservation, "stream_open_failed")
 		return writeGeminiError(c, fiber.StatusBadGateway, "UPSTREAM_UNAVAILABLE", "Gemini stream failed")
 	}
 
 	if stream.StatusCode() >= fiber.StatusBadRequest {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
 		return writeTunnelStreamHTTPError(c, h.logger, stream, nil)
 	}
 
@@ -310,11 +306,18 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 				if !ok {
 					if reservation != nil {
 						if failed || usage == nil {
-							releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_incomplete")
+							h.pipeline.Release(context.Background(), reservation, "stream_incomplete")
 						} else if finalized, finalizeErr := h.billing.FinalizeFromUsage(context.Background(), model, usage, estimated); finalizeErr != nil {
-							releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "usage_finalize_error")
+							h.pipeline.Release(context.Background(), reservation, "usage_finalize_error")
 						} else {
-							_ = commitBudgetOrDebit(context.Background(), h.logger, h.billing, h.wallets, reservation, authInfo.TenantID, finalized, request.RequestID, request.Deployment.BillingMode) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
+							settlement := SettlementRequest{
+								Reservation: reservation,
+								TenantID:    authInfo.TenantID,
+								Actual:      finalized,
+								RequestID:   request.RequestID,
+								BillingMode: request.Deployment.BillingMode,
+							}
+							_ = h.pipeline.Settle(context.Background(), settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
 						}
 					}
 
@@ -335,7 +338,7 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 				}
 			case streamErr, ok := <-stream.Errors():
 				if ok && streamErr != nil {
-					releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_error")
+					h.pipeline.Release(context.Background(), reservation, "stream_error")
 				}
 
 				return

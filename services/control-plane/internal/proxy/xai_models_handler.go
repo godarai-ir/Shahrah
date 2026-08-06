@@ -91,11 +91,11 @@ func (h *ResponsesHandler) handleXAIModelResource(
 		}, deployment),
 	}
 
-	if healthyErr := h.tunnel.Healthy(c.Context()); healthyErr != nil {
+	if healthyErr := h.pipeline.EnsureReady(c.Context()); healthyErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
-	response, err := h.tunnel.Proxy(c.Context(), request)
+	response, err := h.pipeline.Dispatch(c.Context(), request)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}

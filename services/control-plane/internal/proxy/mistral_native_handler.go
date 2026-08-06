@@ -47,9 +47,8 @@ type MistralNativeHandler struct {
 	router        *router.Router
 	deployments   responseDeploymentLister
 	resources     mistralNativeResourceStore
-	tunnel        platform.TunnelTransport
+	pipeline      *RequestPipeline
 	billing       budgeter
-	wallets       walletStore
 	logger        *zap.Logger
 	filesEnabled  bool
 	batchEnabled  bool
@@ -62,7 +61,7 @@ func NewMistralNativeHandler(deps BaseHandlerDependencies, deployments responseD
 
 	return &MistralNativeHandler{
 		router: deps.Router, deployments: deployments, resources: resources,
-		tunnel: deps.Tunnel, billing: deps.Billing, wallets: deps.Wallets,
+		pipeline: deps.requestPipeline(), billing: deps.Billing,
 		logger:        deps.Logger,
 		filesEnabled:  mistralNativeFeatureEnabled("FILES"),
 		batchEnabled:  mistralNativeFeatureEnabled("BATCH"),
@@ -213,11 +212,9 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 
 		estimated.Metadata["request_id"] = requestID
 
-		var handled bool
-
-		reservation, handled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deployment.BillingMode)
-		if err != nil || handled {
-			return err
+		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deployment.BillingMode))
+		if err != nil {
+			return writeBudgetCheckError(c, err)
 		}
 	}
 
@@ -239,22 +236,22 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 		return h.handleStream(c, authInfo, model, tunnelRequest, reservation, estimated)
 	}
 
-	response, err := h.tunnel.Proxy(c.Context(), tunnelRequest)
+	response, err := h.pipeline.Dispatch(c.Context(), tunnelRequest)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "tunnel_error")
+		h.pipeline.Release(c.Context(), reservation, "tunnel_error")
 
 		return writeAPIError(c, fiber.StatusBadGateway, "Mistral tunnel request failed", "api_error")
 	}
 
 	if response.StatusCode >= httpErrorFloor {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
 
 		return writeCompatibleProviderError(c, deployment.Provider, response.StatusCode, response.Body, response.Headers)
 	}
 
 	response.Body, err = h.persistAndRewriteResponse(c.Context(), currentTenant.ID, operation, deployment, response.Body, resource, reservation, estimated, model, nil)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "resource_mapping_error")
+		h.pipeline.Release(c.Context(), reservation, "resource_mapping_error")
 
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to persist Mistral resource mapping", "api_error")
 	}
@@ -264,12 +261,12 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 
 		finalized, finalizeErr := h.billing.FinalizeFromUsage(c.Context(), billingModelForDeployment(model, deployment), usage, estimated)
 		if finalizeErr != nil {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "usage_finalize_error")
+			h.pipeline.Release(c.Context(), reservation, "usage_finalize_error")
 
 			return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize Mistral usage", "billing_error")
 		}
 
-		if err := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, reservation, currentTenant.ID, finalized, requestID, deployment.BillingMode); err != nil {
+		if err := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: reservation, TenantID: currentTenant.ID, Actual: finalized, RequestID: requestID, BillingMode: deployment.BillingMode}); err != nil {
 			return writeBudgetCheckError(c, err)
 		}
 	}
@@ -679,8 +676,7 @@ func parseMistralNativeUsage(body []byte) *contractsopenai.Usage {
 }
 
 func (h *MistralNativeHandler) handleRaw(c *fiber.Ctx, tenantID string, operation platform.ProviderOperation, input platform.ProviderOperationInput) error {
-	rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
-	if !ok {
+	if !h.pipeline.HasRawTransport() {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Raw tunnel streaming is unavailable", "tunnel_unavailable")
 	}
 
@@ -728,7 +724,7 @@ func (h *MistralNativeHandler) handleRaw(c *fiber.Ctx, tenantID string, operatio
 		}, deployment),
 	}
 
-	response, err := rawTunnel.ProxyRaw(c.Context(), request, reader, contentLength)
+	response, err := h.pipeline.DispatchRaw(c.Context(), request, reader, contentLength)
 	if err != nil || response == nil || response.Body == nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Mistral raw tunnel request failed", "api_error")
 	}
@@ -872,15 +868,15 @@ func validateMistralBatchFileRequest(value interface{}) error {
 }
 
 func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.AuthContext, model string, request platform.TunnelRequest, reservation *platform.BudgetReservation, estimated platform.UsageCostBreakdown) error {
-	stream, err := h.tunnel.Stream(c.Context(), request)
+	stream, err := h.pipeline.DispatchStream(c.Context(), request)
 	if err != nil {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "stream_open_failed")
+		h.pipeline.Release(c.Context(), reservation, "stream_open_failed")
 
 		return writeAPIError(c, fiber.StatusBadGateway, "Mistral tunnel stream failed", "api_error")
 	}
 
 	if stream.StatusCode() >= httpErrorFloor {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, reservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
 
 		return writeTunnelStreamHTTPError(c, h.logger, stream, nil)
 	}
@@ -902,26 +898,33 @@ func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.Aut
 			case chunk, ok := <-chunks:
 				if !ok {
 					if failed || usage == nil {
-						releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_incomplete")
+						h.pipeline.Release(context.Background(), reservation, "stream_incomplete")
 
 						return
 					}
 
 					finalized, finalizeErr := h.billing.FinalizeFromUsage(context.Background(), billingModelForDeployment(model, request.Deployment), usage, estimated)
 					if finalizeErr != nil {
-						releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "usage_finalize_error")
+						h.pipeline.Release(context.Background(), reservation, "usage_finalize_error")
 
 						return
 					}
 
-					_ = commitBudgetOrDebit(context.Background(), h.logger, h.billing, h.wallets, reservation, authInfo.TenantID, finalized, request.RequestID, request.Deployment.BillingMode) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+					settlement := SettlementRequest{
+						Reservation: reservation,
+						TenantID:    authInfo.TenantID,
+						Actual:      finalized,
+						RequestID:   request.RequestID,
+						BillingMode: request.Deployment.BillingMode,
+					}
+					_ = h.pipeline.Settle(context.Background(), settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
 
 					return
 				}
 
 				data, parsedUsage, rewriteErr := h.rewriteMistralSSEChunk(context.Background(), authInfo.TenantID, request, chunk.Data, model)
 				if rewriteErr != nil {
-					releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_resource_mapping_error")
+					h.pipeline.Release(context.Background(), reservation, "stream_resource_mapping_error")
 
 					return
 				}
@@ -947,7 +950,7 @@ func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.Aut
 					continue
 				}
 
-				releaseBudgetBestEffort(context.Background(), h.logger, h.billing, reservation, "stream_error")
+				h.pipeline.Release(context.Background(), reservation, "stream_error")
 
 				return
 			}

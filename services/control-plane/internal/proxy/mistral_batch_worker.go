@@ -41,7 +41,7 @@ func (h *MistralNativeHandler) RunBatchWorker(ctx context.Context, interval time
 	}
 
 	resources, ok := h.resources.(mistralBatchResourceStore)
-	if !ok || h.tunnel == nil || h.billing == nil || !h.batchEnabled {
+	if !ok || !h.pipeline.HasTransport() || h.billing == nil || !h.batchEnabled {
 		return
 	}
 
@@ -132,7 +132,7 @@ func (h *MistralNativeHandler) reconcileMistralBatch(ctx context.Context, resour
 		Deployment:     deployment,
 	}
 
-	response, err := h.tunnel.Proxy(ctx, request)
+	response, err := h.pipeline.Dispatch(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (h *MistralNativeHandler) reconcileMistralBatch(ctx context.Context, resour
 	case "success", "succeeded", "completed":
 		return h.finalizeMistralBatch(ctx, resources, request, response.Body, mapping)
 	case "failed", "timeout_exceeded", "cancelled", "canceled": //nolint:misspell // Mistral may return either provider spelling.
-		releaseBudgetBestEffort(ctx, h.logger, h.billing, mapping.Reservation, "batch_"+status)
+		h.pipeline.Release(ctx, mapping.Reservation, "batch_"+status)
 
 		return resources.UpdateProviderNativeResourceStatus(ctx, mapping.TenantID, mistralProviderName, mistralBatchResourceKind, mapping.PublicID, status)
 	case "cancellation_requested", "canceling":
@@ -170,15 +170,14 @@ func (h *MistralNativeHandler) finalizeMistralBatch(ctx context.Context, resourc
 		return fmt.Errorf("successful Mistral batch did not include an output file")
 	}
 
-	rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
-	if !ok {
+	if !h.pipeline.HasRawTransport() {
 		return fmt.Errorf("raw tunnel streaming is unavailable for Mistral batch settlement")
 	}
 
 	request.Operation = platform.ProviderOperationMistralFilesContent
 	request.OperationInput.ResourceID = outputFile
 
-	result, err := rawTunnel.ProxyRaw(ctx, request, nil, 0)
+	result, err := h.pipeline.DispatchRaw(ctx, request, nil, 0)
 	if err != nil {
 		return err
 	}
@@ -229,7 +228,7 @@ func (h *MistralNativeHandler) finalizeMistralBatch(ctx context.Context, resourc
 		return err
 	}
 
-	if err := commitBudgetOrDebit(ctx, h.logger, h.billing, h.wallets, mapping.Reservation, mapping.TenantID, finalized, mapping.ReservationID, request.Deployment.BillingMode); err != nil {
+	if err := h.pipeline.Settle(ctx, SettlementRequest{Reservation: mapping.Reservation, TenantID: mapping.TenantID, Actual: finalized, RequestID: mapping.ReservationID, BillingMode: request.Deployment.BillingMode}); err != nil {
 		return err
 	}
 

@@ -220,7 +220,7 @@ func (h *AnthropicNativeHandler) finalizeBatchResultsReader(ctx context.Context,
 		return err
 	}
 
-	if err := commitBudgetOrDebit(ctx, h.logger, h.billing, h.wallets, mapping.Reservation, mapping.TenantID, finalized, mapping.ReservationID); err != nil {
+	if err := h.pipeline.Settle(ctx, SettlementRequest{Reservation: mapping.Reservation, TenantID: mapping.TenantID, Actual: finalized, RequestID: mapping.ReservationID}); err != nil {
 		return err
 	}
 
@@ -232,8 +232,7 @@ func (h *AnthropicNativeHandler) handleRawOperation(c *fiber.Ctx, tenantID strin
 		return writeAnthropicError(c, fiber.StatusServiceUnavailable, "api_error", "Native resource mapping is unavailable")
 	}
 
-	rawTunnel, ok := h.tunnel.(platform.TunnelRawTransport)
-	if !ok {
+	if !h.pipeline.HasRawTransport() {
 		return writeAnthropicError(c, fiber.StatusServiceUnavailable, "api_error", "Raw tunnel streaming is unavailable")
 	}
 
@@ -291,7 +290,7 @@ func (h *AnthropicNativeHandler) handleRawOperation(c *fiber.Ctx, tenantID strin
 		contentLength = int64(c.Request().Header.ContentLength())
 	}
 
-	response, err := rawTunnel.ProxyRaw(c.Context(), request, body, contentLength)
+	response, err := h.pipeline.DispatchRaw(c.Context(), request, body, contentLength)
 	if err != nil {
 		return writeAnthropicError(c, fiber.StatusBadGateway, "api_error", "Raw tunnel request failed")
 	}
@@ -365,7 +364,7 @@ func (h *AnthropicNativeHandler) handleRawOperation(c *fiber.Ctx, tenantID strin
 			return
 		}
 
-		if commitBudgetOrDebit(context.Background(), h.logger, h.billing, h.wallets, mapping.Reservation, tenantID, finalized, mapping.ReservationID) == nil {
+		if h.pipeline.Settle(context.Background(), SettlementRequest{Reservation: mapping.Reservation, TenantID: tenantID, Actual: finalized, RequestID: mapping.ReservationID}) == nil {
 			_ = h.resources.UpdateAnthropicBatchStatus(context.Background(), tenantID, mapping.PublicID, "ended") //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 		}
 	})

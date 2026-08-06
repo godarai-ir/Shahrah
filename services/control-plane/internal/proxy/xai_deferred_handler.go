@@ -117,7 +117,7 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	}
 
 	if mapping.ExpiresAt != nil && time.Now().UTC().After(*mapping.ExpiresAt) {
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, mapping.Reservation, "deferred_completion_expired")
+		h.pipeline.Release(c.Context(), mapping.Reservation, "deferred_completion_expired")
 		_ = h.resources.UpdateProviderNativeResourceStatus(c.Context(), currentTenant.ID, "xai", xaiDeferredResourceKind, publicID, "expired") //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
 
 		return writeAPIError(c, fiber.StatusGone, "Deferred completion has expired", "invalid_request_error")
@@ -145,11 +145,11 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 			"resource_kind":          xaiDeferredResourceKind,
 		}, deployment),
 	}
-	if err := h.tunnel.Healthy(c.Context()); err != nil {
+	if err := h.pipeline.EnsureReady(c.Context()); err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
+	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -190,7 +190,7 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 		originalRequestID = requestID
 	}
 
-	if err := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, mapping.Reservation, currentTenant.ID, finalCost, originalRequestID, billingMode); err != nil {
+	if err := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: mapping.Reservation, TenantID: currentTenant.ID, Actual: finalCost, RequestID: originalRequestID, BillingMode: billingMode}); err != nil {
 		return writeBudgetCheckError(c, err)
 	}
 

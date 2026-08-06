@@ -14,7 +14,6 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
-	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
@@ -24,7 +23,6 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
-	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -121,9 +119,8 @@ type promptResolver interface {
 // ChatCompletionHandler serves chat completion requests.
 type ChatCompletionHandler struct {
 	llmRouter     *router.Router
-	tunnel        platform.TunnelTransport
+	pipeline      *RequestPipeline
 	billing       budgeter
-	wallets       walletStore
 	logs          usageLogger
 	logger        *zap.Logger
 	vmResolver    virtualmodels.VirtualModelResolver
@@ -154,9 +151,8 @@ func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *
 
 	return &ChatCompletionHandler{
 		llmRouter:     deps.Base.Router,
-		tunnel:        deps.Base.Tunnel,
+		pipeline:      deps.Base.requestPipeline(),
 		billing:       deps.Base.Billing,
-		wallets:       deps.Base.Wallets,
 		logs:          deps.Base.logger(),
 		logger:        deps.Base.Logger,
 		vmResolver:    resolver,
@@ -191,339 +187,63 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 	})
 }
 
-// Handle processes a chat completion request.
-//
-//nolint:gocyclo // The request pipeline intentionally keeps its ordered validation and settlement stages together.
+// Handle executes the explicit chat request pipeline.
 func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
-	startTime := time.Now()
-
-	authInfo := auth.GetAuthInfo(c)
-	if authInfo == nil {
-		return writeAPIError(c, fiber.StatusUnauthorized, "Authentication required", "authentication_error")
-	}
-
-	currentTenant := tenant.FromContext(c)
-	if currentTenant == nil {
-		return writeAPIError(c, fiber.StatusBadRequest, "Tenant resolution required", "invalid_request_error")
-	}
-
-	authInfo.TenantID = currentTenant.ID
-	tracing.SetTenantForTrace(c, currentTenant.ID)
-	tenantSlug := strings.TrimSpace(currentTenant.Slug)
-
-	if err := parsePlaygroundObservability(c); err != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
-	}
-
-	originalBody := append([]byte(nil), c.Body()...)
-
-	var req contractsopenai.ChatCompletionRequest
-	if err := json.Unmarshal(originalBody, &req); err != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
-	}
-
-	if err := h.applyPromptVersion(c, currentTenant.ID, &req); err != nil {
+	prepared, err := h.prepareChatRequest(c, time.Now())
+	if err != nil || prepared.responseHandled {
 		return err
 	}
 
-	if req.Model == "" {
-		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
+	admitted, err := h.admitChatRequest(c, prepared)
+	if admitted.cacheRelease != nil {
+		defer admitted.cacheRelease()
 	}
 
-	requestedModel := normalizeModelIdentifier(req.Model)
-
-	routeCandidates := modelRoutingCandidates(requestedModel)
-	if len(routeCandidates) == 0 {
-		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
-	}
-
-	resolvedModel := providerModelID(requestedModel)
-	tracing.SetModelForTrace(c, requestedModel)
-
-	if handled, err := validateChatCompletionRequest(c, req); handled || err != nil {
+	if err != nil || admitted.responseHandled {
 		return err
-	}
-
-	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeChat)
-	if !modelAccess.Allowed {
-		if modelAccess.UnsupportedVMMode {
-			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeChat, modelAccess.ExposedModes)
-		}
-
-		denyReason := denyReasonForModel(authInfo)
-		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
-
-		const message = "Model access denied or unsupported for chat completions"
-		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/chat/completions", "chat_completions", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
-
-		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
-	}
-
-	guardrailSelection, err := h.parseGuardrails(c)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
-	}
-
-	if h.guardrails != nil && !guardrailSelection.Empty() {
-		guardrailOverrides, resolveErr := h.resolveTenantGuardrails(c.Context(), currentTenant.ID, guardrailSelection)
-		if resolveErr != nil {
-			return writeAPIError(c, fiber.StatusBadGateway, "Failed to resolve guardrails", "guardrail_resolution_error")
-		}
-
-		c.Locals("guardrail_overrides", guardrailOverrides)
-		inputResult, inputErr := h.guardrails.ApplyInputWithGuardrails(req, guardrailSelection, guardrailOverrides)
-		h.recordGuardrailChecks(c, inputResult.Checks)
-
-		if inputErr != nil {
-			return writeGuardrailError(c, fiber.StatusBadRequest, "Request blocked by GodarAI guardrail", inputResult.Checks)
-		}
-
-		req = inputResult.Request
-	}
-
-	if req.Stream && len(guardrailSelection.LLMOutput) > 0 {
-		return writeAPIError(c, fiber.StatusBadRequest, "Streaming with output guardrails is not supported in this MVP", "invalid_request_error")
-	}
-
-	var cacheConfig *responsecache.RequestConfig
-
-	if rawCacheConfig := apiheaders.GetCacheConfig(c); rawCacheConfig != "" && h.responseCache != nil {
-		parsed, parseErr := h.responseCache.ParseHeader(rawCacheConfig)
-		if parseErr != nil {
-			return writeAPIError(c, fiber.StatusBadRequest, parseErr.Error(), "invalid_request_error")
-		}
-
-		cacheConfig = &parsed
-
-		if !h.responseCache.Enabled() || req.Stream || chatRequestHasExtendedThinking(req) {
-			c.Set(apiheaders.HeaderCacheStatus, "bypass")
-
-			cacheConfig = nil
-		}
-	}
-
-	authStart := time.Now()
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": requestedModel})
-
-	quotaStart := time.Now()
-	estimateReq := req
-	estimateReq.Model = billingEstimateModel(requestedModel)
-
-	estimated, err := h.billing.EstimateCost(c.Context(), estimateReq)
-	if err != nil {
-		return writeBillingEstimateError(c, err)
-	}
-
-	estimated.Metadata = req.Metadata
-	if estimated.ModelRuntimeProfile != nil &&
-		strings.EqualFold(
-			strings.TrimSpace(estimated.ModelRuntimeProfile.Provider),
-			"anthropic",
-		) {
-		pricingConditions, policyErr :=
-			anthropicOpenAIToolPricingPolicy(req)
-		if policyErr != nil {
-			return writeAPIError(
-				c,
-				fiber.StatusBadRequest,
-				policyErr.Error(),
-				"invalid_request_error",
-			)
-		}
-
-		estimated.PricingConditions = mergePricingConditions(
-			estimated.PricingConditions,
-			pricingConditions,
-		)
-		estimated.Speed = estimated.ModelRuntimeProfile.Profile.EffectiveSpeed(
-			req.Speed,
-		)
-		estimated.Metadata = withAnthropicEffectiveSpeedMetadata(
-			estimated.Metadata,
-			req.Speed,
-			estimated.Speed,
-		)
-	}
-
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
-	setRateLimitHeaders(c, rateLimit)
-
-	if err != nil {
-		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/chat/completions", "chat_completions", startTime, quotaStart, rateLimit, err)
-		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
-	}
-
-	cachePending, cacheRelease, cacheHandled, cacheErr := h.handleResponseCacheLookup(c, req, originalBody, authInfo, currentTenant.ID, requestedModel, cacheConfig, startTime, tenantSlug)
-	if cacheRelease != nil {
-		defer cacheRelease()
-	}
-
-	if cacheErr != nil || cacheHandled {
-		return cacheErr
-	}
-
-	requestID := tracing.TraceIDFromContext(c)
-	if requestID == "" {
-		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
-	}
-
-	var (
-		budgetReservation     *platform.BudgetReservation
-		budgetResponseHandled bool
-	)
-
-	budgetReservationAttempted := false
-
-	deferBudgetUntilRoute := shouldDeferBudgetReservationUntilRoute(requestedModel) || h.shouldDeferBudgetForVirtualModel(c.Context(), currentTenant.ID, authInfo, requestedModel)
-	if !deferBudgetUntilRoute {
-		budgetReservationAttempted = true
-
-		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-		if err != nil || budgetResponseHandled {
-			return err
-		}
 	}
 
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "request_not_committed")
+			h.pipeline.Release(c.Context(), admitted.reservation, "request_not_committed")
 		}
 	}()
 
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
-
-	tunnelErr := h.tunnel.Healthy(c.Context())
-	if tunnelErr != nil {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
+	routed, err := h.routeChatRequest(c, prepared, admitted)
+	if err != nil || routed.responseHandled {
+		return err
 	}
 
-	baseReq := platform.TunnelRequest{
-		RequestID: requestID,
-		TenantID:  currentTenant.ID,
-		TraceID:   requestID,
-		Stream:    req.Stream,
-		Operation: platform.ProviderOperationChatCompletions,
-		Headers: map[string]string{
-			"Content-Type": "application/json",
-		},
-		RequestMetadata: enrichResponseCacheMetadata(c, map[string]interface{}{
-			"tenant_slug": apiheaders.GetTenant(c),
-			"model":       requestedModel,
-		}),
-	}
-	baseReq.RequestMetadata = enrichPromptMetadata(c, baseReq.RequestMetadata)
-	baseReq.RequestMetadata = enrichPlaygroundObservability(c, baseReq.RequestMetadata)
-
-	routeStart := time.Now()
-
-	deployment, isVirtual, routeErr := h.tryRouteVirtualModel(c, currentTenant.ID, authInfo, requestedModel, req, resolvedModel, baseReq, routeStart)
-	if routeErr != nil {
-		return routeErr
-	}
-
-	deployment, routeErr = h.routeChatCandidates(c.Context(), currentTenant.ID, routeCandidates, deployment)
-	if handled, dependencyErr := writeRoutingDependencyUnavailable(c, h.logger, routeErr, requestedModel, currentTenant.ID); handled {
-		return dependencyErr
-	}
-
-	if handled, validationErr := h.validateChatDeploymentRequest(
-		c,
-		currentTenant.ID,
-		requestedModel,
-		req,
-		deployment,
-	); handled || validationErr != nil {
-		return validationErr
-	}
-
-	runtimeModel := ""
-	if deployment != nil {
-		runtimeModel = strings.TrimSpace(deployment.Model)
-	}
-
-	if runtimeModel == "" || runtimeModel == "*" {
-		runtimeModel = resolvedModel
-	}
-
-	runtimeProfiles := []platform.ModelRuntimeProfileBinding(nil)
-	if deployment != nil {
-		runtimeProfiles, err = runtimeProfilesFromEstimate(
-			deployment.Provider,
-			runtimeModel,
-			estimated,
-		)
-		if err != nil {
-			return writeAPIError(
-				c,
-				fiber.StatusServiceUnavailable,
-				err.Error(),
-				"runtime_profile_unavailable",
-			)
-		}
-	}
-
-	var runtimeProfile *platform.ModelRuntimeProfileBinding
-	if len(runtimeProfiles) == 1 {
-		runtimeProfile = &runtimeProfiles[0]
-	}
-
-	if handled, validationErr := h.validateChatRuntimeProfile(
-		c,
-		req,
-		deployment,
-		runtimeProfile,
-	); handled || validationErr != nil {
-		return validationErr
-	}
-
-	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, deployment)
-	if err != nil {
-		return writeBillingEstimateError(c, err)
-	}
-
-	if !isVirtual {
-		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
-	}
-
-	payload, err := buildChatCompletionPayload(req, deployment.Model, resolvedModel)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusBadRequest, "Failed to encode request", "invalid_request_error")
-	}
-
-	tunnelReq := baseReq
-	tunnelReq.Body = payload
-
-	tunnelReq.Deployment = toContractDeployment(deployment)
-	if strings.EqualFold(strings.TrimSpace(deployment.Provider), "xai") {
-		payload, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, deployment.ProviderAccountID, payload)
-		if err != nil {
-			return writeXAIFileReferenceError(c, err)
-		}
-
-		tunnelReq.Body = payload
-		if conversationID := strings.TrimSpace(c.Get("x-grok-conv-id")); conversationID != "" {
-			tunnelReq.Headers["x-grok-conv-id"] = conversationID
-		}
-	}
-
-	tunnelReq.ModelRuntimeProfiles = runtimeProfiles
-
-	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
-
-	if !budgetReservationAttempted {
-		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
-		if err != nil || budgetResponseHandled {
-			return err
-		}
-	}
-
-	if req.Stream {
+	if prepared.request.Stream {
 		releaseBudgetOnExit = false
-		return h.handleStream(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+
+		return h.handleStream(
+			c,
+			prepared.request,
+			prepared.originalBody,
+			prepared.authInfo,
+			routed.estimated,
+			routed.tunnelRequest,
+			routed.reservation,
+			prepared.startedAt,
+			prepared.tenantSlug,
+		)
 	}
 
-	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, cachePending, guardrailSelection)
+	err = h.handleSync(
+		c,
+		prepared.request,
+		prepared.originalBody,
+		prepared.authInfo,
+		routed.estimated,
+		routed.tunnelRequest,
+		routed.reservation,
+		prepared.startedAt,
+		prepared.tenantSlug,
+		admitted.cachePending,
+		prepared.guardrailSelection,
+	)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -1044,7 +764,7 @@ func (h *ChatCompletionHandler) executeVirtualModelRoute(
 
 		tunnelReq.Body = payload
 
-		return h.tunnel.Proxy(callCtx, tunnelReq)
+		return h.pipeline.Dispatch(callCtx, tunnelReq)
 	})
 	if execErr == nil && resp != nil && selectedDep != nil {
 		h.recordVirtualModelRoute(c, vm, selectedDep, resp, fallbackCount, failureReason, routeStart, fromSnapshot)
@@ -1169,239 +889,90 @@ func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, te
 
 func (h *ChatCompletionHandler) handleSync(
 	c *fiber.Ctx,
-	req contractsopenai.ChatCompletionRequest,
+	request contractsopenai.ChatCompletionRequest,
 	originalBody []byte,
 	authInfo *platform.AuthContext,
 	estimated platform.UsageCostBreakdown,
-	tunnelReq platform.TunnelRequest,
-	budgetReservation *platform.BudgetReservation,
-	start time.Time,
+	tunnelRequest platform.TunnelRequest,
+	reservation *platform.BudgetReservation,
+	startedAt time.Time,
 	tenantSlug string,
 	cachePending *responsecache.Pending,
 	guardrailSelection guardrails.RequestSelection,
 ) error {
-	providerStart := time.Now()
-	providerAttrs := enrichPlaygroundObservability(c, map[string]interface{}{
-		"provider":        tunnelReq.Deployment.Provider,
-		"request_payload": buildProviderTraceChatRequestPayload(tunnelReq.Deployment.Provider, req),
-	})
-
-	var resp *platform.TunnelResponse
-	if vmResp, ok := c.Locals("vm_resp").(*platform.TunnelResponse); ok && vmResp != nil {
-		resp = vmResp
-	} else {
-		var err error
-
-		resp, err = h.tunnel.Proxy(c.Context(), tunnelReq)
-		if err != nil {
-			providerAttrs["error"] = err.Error()
-			tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
-			h.llmRouter.MarkFailed(c.Context(), &router.Deployment{ID: tunnelReq.Deployment.ID}, err.Error())
-
-			return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
-		}
+	result, err := h.executeChatProvider(
+		c,
+		request,
+		originalBody,
+		authInfo,
+		estimated,
+		tunnelRequest,
+		reservation,
+		startedAt,
+	)
+	if err != nil || result.handled {
+		return err
 	}
 
-	if resp == nil {
-		providerAttrs["error"] = "tunnel returned an empty response"
-		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+	var responseHandled bool
 
-		return writeAPIError(c, fiber.StatusBadGateway, "Tunnel returned an empty response", "api_error")
-	}
-
-	if resp.StatusCode >= httpErrorFloor {
-		providerAttrs["response_payload"] = buildProviderTraceErrorPayload(tunnelReq.Deployment.Provider, resp.StatusCode, resp.Body)
-		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
-		logProviderFailureRequest(h.logger, h.logs, c, authInfo, tunnelReq, req.Model, "/v1/chat/completions", "chat_completions", resp.StatusCode, resp.Body, start)
-
-		return transformProviderError(c, resp.StatusCode, resp.Body, resp.Headers)
-	}
-
-	if strings.EqualFold(strings.TrimSpace(tunnelReq.Deployment.Provider), "xai") && chatRequestDeferred(req) {
-		return h.handleXAIDeferredCreate(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, resp, start)
-	}
-
-	var completion contractsopenai.ChatCompletionResponse
-	if err := json.Unmarshal(resp.Body, &completion); err != nil {
-		providerAttrs["error"] = "failed to decode provider response"
-		providerAttrs["response_payload"] = buildProviderTraceErrorPayload(tunnelReq.Deployment.Provider, fiber.StatusBadGateway, resp.Body)
-		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
-
-		return writeAPIError(c, fiber.StatusBadGateway, "Failed to decode provider response", "api_error")
-	}
-
-	if completion.Usage != nil {
-		if tier := responseHeaderValue(resp.Headers, "x-gemini-service-tier"); tier != "" {
-			completion.Usage.ServiceTier = tier
-		} else if completion.Usage.ServiceTier == "" {
-			completion.Usage.ServiceTier = completion.ServiceTier
-		}
-	}
-
-	usageRepair := normalizeGoogleGeminiUsage(tunnelReq.Deployment.Provider, completion.Usage)
-	logGoogleGeminiUsageRepair(h.logger, tunnelReq.RequestID, usageRepair)
-
-	providerAttrs["response_payload"] = buildProviderTraceChatResponsePayload(tunnelReq.Deployment.Provider, completion)
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
-
-	billingModel := billingModelForDeployment(req.Model, tunnelReq.Deployment)
-
-	finalCost, err := h.billing.FinalizeFromUsage(c.Context(), billingModel, completion.Usage, estimated)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
-	}
-
-	tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, completion.Usage)
-
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
-		return writeBudgetCheckError(c, debitErr)
-	}
-
-	if h.guardrails != nil && len(guardrailSelection.LLMOutput) > 0 {
-		guardrailOverrides := map[string]guardrails.Guardrail(nil)
-		if overrides, ok := c.Locals("guardrail_overrides").(map[string]guardrails.Guardrail); ok {
-			guardrailOverrides = overrides
-		}
-
-		outputResult, outputErr := h.guardrails.ApplyOutputWithGuardrails(completion, guardrailSelection, guardrailOverrides)
-		h.recordGuardrailChecks(c, outputResult.Checks)
-
-		if outputErr != nil {
-			responseTimeMS := int(time.Since(start).Milliseconds())
-			logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "blocked", fiber.StatusBadRequest, start, responseTimeMS)
-			logEntry.RequestID = tunnelReq.RequestID
-			logEntry.TraceID = tunnelReq.TraceID
-			logEntry.CostUSD = finalCost.TotalCostUSD
-			logEntry.CostIRR = finalCost.TotalCostIRR
-			logEntry.InputTokens = finalCost.InputTokens
-			logEntry.OutputTokens = finalCost.OutputTokens
-			logEntry.TotalTokens = finalCost.TotalTokens
-			logEntry.RequestBody = buildProviderChatRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
-			logEntry.ResponseBody = map[string]interface{}{"guardrail_status": "blocked"}
-			logEntry.ErrorType = "guardrail_blocked"
-			logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
-			logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
-				RequestID:       tunnelReq.RequestID,
-				TokenHash:       authInfo.TokenHash,
-				TenantID:        authInfo.TenantID,
-				OrganizationID:  authInfo.OrganizationID,
-				TeamID:          authInfo.TeamID,
-				Model:           req.Model,
-				InputTokens:     finalCost.InputTokens,
-				OutputTokens:    finalCost.OutputTokens,
-				TotalTokens:     finalCost.TotalTokens,
-				CostUSD:         finalCost.TotalCostUSD,
-				CostIRR:         finalCost.TotalCostIRR,
-				ResponseTimeMS:  responseTimeMS,
-				Status:          "blocked",
-				RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
-				UsageBreakdown:  &finalCost,
-				PricingSnapshot: finalCost.PricingSnapshot,
-				CompletionStart: start,
-				CompletionEnd:   time.Now(),
-			})
-
-			return writeGuardrailError(c, fiber.StatusBadRequest, "Response blocked by GodarAI guardrail", outputResult.Checks)
-		}
-
-		if outputResult.Response != nil {
-			completion = *outputResult.Response
-		}
+	result.completion, responseHandled, err = h.applyChatOutputGuardrails(
+		c,
+		request,
+		originalBody,
+		authInfo,
+		result.tunnelRequest,
+		guardrailSelection,
+		result.completion,
+		result.finalCost,
+		startedAt,
+	)
+	if err != nil || responseHandled {
+		return err
 	}
 
 	if cachePending != nil && h.responseCache != nil {
-		cachedBody, marshalErr := json.Marshal(completion)
+		cachedBody, marshalErr := json.Marshal(result.completion)
 		if marshalErr == nil {
-			if cacheErr := h.responseCache.Store(c.Context(), cachePending, cachedBody, tunnelReq.TraceID, tunnelReq.Deployment.Provider, tunnelReq.Deployment.Model, finalCost, "gateway-pricing-v1"); cacheErr != nil {
+			cacheErr := h.responseCache.Store(
+				c.Context(),
+				cachePending,
+				cachedBody,
+				result.tunnelRequest.TraceID,
+				result.tunnelRequest.Deployment.Provider,
+				result.tunnelRequest.Deployment.Model,
+				result.finalCost,
+				"gateway-pricing-v1",
+			)
+			if cacheErr != nil {
 				h.logger.Warn("Response cache store failed", zap.Error(cacheErr))
 			}
 		}
 	}
 
-	responseTimeMS := int(time.Since(start).Milliseconds())
-	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "success", resp.StatusCode, start, responseTimeMS)
-	logEntry.RequestID = tunnelReq.RequestID
-	logEntry.TraceID = tunnelReq.TraceID
-	logEntry.CostUSD = finalCost.TotalCostUSD
-	logEntry.CostIRR = finalCost.TotalCostIRR
-	logEntry.InputTokens = finalCost.InputTokens
-	logEntry.OutputTokens = finalCost.OutputTokens
-	logEntry.TotalTokens = finalCost.TotalTokens
+	h.observeSuccessfulChat(
+		c,
+		request,
+		originalBody,
+		authInfo,
+		result.tunnelRequest,
+		result,
+		startedAt,
+		tenantSlug,
+	)
 
-	logEntry.RequestBody = buildProviderChatRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
-
-	if usageRepair.applied {
-		logEntry.ResponseBody = buildProviderChatResponseLogPayload(tunnelReq.Deployment.Provider, nil, completion)
-	} else {
-		logEntry.ResponseBody = buildProviderChatResponseLogPayload(tunnelReq.Deployment.Provider, resp.Body, completion)
-	}
-
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
-	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
-		RequestID:       tunnelReq.RequestID,
-		TokenHash:       authInfo.TokenHash,
-		TenantID:        authInfo.TenantID,
-		OrganizationID:  authInfo.OrganizationID,
-		TeamID:          authInfo.TeamID,
-		Model:           req.Model,
-		InputTokens:     finalCost.InputTokens,
-		OutputTokens:    finalCost.OutputTokens,
-		TotalTokens:     finalCost.TotalTokens,
-		CostUSD:         finalCost.TotalCostUSD,
-		CostIRR:         finalCost.TotalCostIRR,
-		ResponseTimeMS:  responseTimeMS,
-		Status:          "success",
-		RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo, req.Model),
-		UsageBreakdown:  &finalCost,
-		PricingSnapshot: finalCost.PricingSnapshot,
-		CompletionStart: start,
-		CompletionEnd:   time.Now(),
-	})
-	h.emitModelMetric(metricsobs.BuildInput{
-		TS:                 time.Now().UTC(),
-		TenantID:           authInfo.TenantID,
-		RequestID:          tunnelReq.RequestID,
-		ModelName:          req.Model,
-		VirtualModelName:   modelMetricVirtualName(c, req.Model),
-		ProviderName:       tunnelReq.Deployment.Provider,
-		ProviderModelName:  tunnelReq.Deployment.Model,
-		RequestType:        "chat_completions",
-		UserID:             authInfo.UserID,
-		VirtualAccountID:   authInfo.KeyID,
-		VirtualAccountName: authInfo.KeyAlias,
-		TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
-		TeamNames:          []string{},
-		StatusCode:         resp.StatusCode,
-		LatencyMS:          responseTimeMS,
-		InputTokens:        finalCost.InputTokens,
-		OutputTokens:       finalCost.OutputTokens,
-		CostUSD:            finalCost.TotalCostUSD,
-		CacheMode:          cacheMetricString(c, "response_cache_type"),
-		CacheStatus:        cacheMetricString(c, "response_cache_status"),
-		Metadata: enrichMetricMetadataForDeployment(copyPlaygroundObservability(enrichResponseCacheMetadata(c, map[string]interface{}{
-			"endpoint":    "/v1/chat/completions",
-			"key_type":    authInfo.KeyType,
-			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
-			"tenant_slug": tenantSlug,
-		}), tunnelReq.RequestMetadata), tunnelReq.Deployment),
-	})
-
-	// Forward allowed provider response headers
-	forwardProviderHeaders(c, resp.Headers)
-
-	setTraceHeaders(c, tunnelReq.TraceID)
-	setCostHeaders(c, finalCost)
+	forwardProviderHeaders(c, result.response.Headers)
+	setTraceHeaders(c, result.tunnelRequest.TraceID)
+	setCostHeaders(c, result.finalCost)
 
 	responseStart := time.Now()
-	err = c.Status(resp.StatusCode).JSON(completion)
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, resp.StatusCode, map[string]interface{}{
-		"response_payload": buildProviderTraceChatResponsePayload(tunnelReq.Deployment.Provider, completion),
+	err = c.Status(result.response.StatusCode).JSON(result.completion)
+	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "response.write", "internal", responseStart, result.response.StatusCode, map[string]interface{}{
+		"response_payload": buildProviderTraceChatResponsePayload(result.tunnelRequest.Deployment.Provider, result.completion),
 	})
 
 	return err
 }
-
 func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, result responsecache.Result, start time.Time, tenantSlug string) error {
 	entry := result.Entry
 
@@ -1476,7 +1047,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 	providerStart := time.Now()
 
-	stream, err := h.tunnel.Stream(c.Context(), tunnelReq)
+	stream, err := h.pipeline.DispatchStream(c.Context(), tunnelReq)
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, enrichPlaygroundObservability(c, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
@@ -1485,7 +1056,7 @@ func (h *ChatCompletionHandler) handleStream(
 			"error":           err.Error(),
 		}))
 
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "stream_open_failed")
+		h.pipeline.Release(c.Context(), budgetReservation, "stream_open_failed")
 		logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", fiber.StatusBadGateway, "stream_open_error", map[string]interface{}{
 			"stream":  true,
 			"outcome": "open_failed",
@@ -1502,7 +1073,7 @@ func (h *ChatCompletionHandler) handleStream(
 			"stream":          true,
 			"status_code":     statusCode,
 		}))
-		releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "provider_http_error")
+		h.pipeline.Release(c.Context(), budgetReservation, "provider_http_error")
 
 		return writeTunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
 			responsePayload := buildProviderHTTPErrorLogPayloadForProvider(tunnelReq.Deployment.Provider, statusCode, body, true)
@@ -1556,7 +1127,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 		defer func() {
 			if !budgetCommitted {
-				releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_not_committed")
+				h.pipeline.Release(requestCtx, budgetReservation, "stream_not_committed")
 			}
 		}()
 
@@ -1581,7 +1152,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 			tunnelReq.RequestMetadata = withXAIUsageMetadata(tunnelReq.RequestMetadata, tunnelReq.Deployment.Provider, capturedUsage)
 
-			if debitErr := commitBudgetOrDebit(requestCtx, h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
+			if debitErr := h.pipeline.Settle(requestCtx, SettlementRequest{Reservation: budgetReservation, TenantID: authInfo.TenantID, Actual: finalCost, RequestID: tunnelReq.RequestID, BillingMode: deploymentBillingMode(tunnelReq.Deployment)}); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
 			} else {
 				budgetCommitted = true
@@ -1695,7 +1266,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 					if writeErr := writeBufferedBytes(w, streamData); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-						releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_write_failed")
+						h.pipeline.Release(requestCtx, budgetReservation, "stream_write_failed")
 						logStreamFailure("stream_write_error", writeErr.Error())
 
 						return
@@ -1714,7 +1285,7 @@ func (h *ChatCompletionHandler) handleStream(
 				}
 			case err, ok := <-stream.Errors():
 				if ok && err != nil {
-					releaseBudgetBestEffort(requestCtx, h.logger, h.billing, budgetReservation, "stream_error")
+					h.pipeline.Release(requestCtx, budgetReservation, "stream_error")
 
 					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
 						Error: contractsopenai.ErrorInfo{

@@ -22,9 +22,8 @@ import (
 // EmbeddingsHandler serves embeddings requests.
 type EmbeddingsHandler struct {
 	llmRouter  *router.Router
-	tunnel     platform.TunnelTransport
+	pipeline   *RequestPipeline
 	billing    budgeter
-	wallets    walletStore
 	logs       usageLogger
 	logger     *zap.Logger
 	emitMetric func(input metricsobs.BuildInput)
@@ -63,9 +62,8 @@ func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransp
 func NewEmbeddingsHandlerWithDependencies(deps BaseHandlerDependencies) *EmbeddingsHandler {
 	return &EmbeddingsHandler{
 		llmRouter:  deps.Router,
-		tunnel:     deps.Tunnel,
+		pipeline:   deps.requestPipeline(),
 		billing:    deps.Billing,
-		wallets:    deps.Wallets,
 		logs:       deps.logger(),
 		logger:     deps.Logger,
 		emitMetric: deps.metricEmitter(),
@@ -151,30 +149,29 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	var (
-		budgetReservation     *platform.BudgetReservation
-		budgetResponseHandled bool
+		budgetReservation *platform.BudgetReservation
 	)
 
 	budgetReservationAttempted := false
 	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
 		budgetReservationAttempted = true
 
-		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID)
-		if err != nil || budgetResponseHandled {
-			return err
+		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID))
+		if err != nil {
+			return writeBudgetCheckError(c, err)
 		}
 	}
 
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
-			releaseBudgetBestEffort(c.Context(), h.logger, h.billing, budgetReservation, "request_not_committed")
+			h.pipeline.Release(c.Context(), budgetReservation, "request_not_committed")
 		}
 	}()
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStart, fiber.StatusOK, map[string]interface{}{"estimated_tokens": estimated.TotalTokens})
 
-	tunnelErr := h.tunnel.Healthy(c.Context())
+	tunnelErr := h.pipeline.EnsureReady(c.Context())
 	if tunnelErr != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
@@ -283,9 +280,9 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 
 	if !budgetReservationAttempted {
-		budgetReservation, budgetResponseHandled, err = reserveBudgetForRequest(c, h.billing, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment))
-		if err != nil || budgetResponseHandled {
-			return err
+		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment)))
+		if err != nil {
+			return writeBudgetCheckError(c, err)
 		}
 	}
 
@@ -314,7 +311,7 @@ func (h *EmbeddingsHandler) handleSync(
 		"request_payload": buildTraceEmbeddingRequestPayload(req),
 	}
 
-	resp, err := h.tunnel.Proxy(c.Context(), tunnelReq)
+	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
@@ -348,7 +345,7 @@ func (h *EmbeddingsHandler) handleSync(
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize usage", "billing_error")
 	}
 
-	if debitErr := commitBudgetOrDebit(c.Context(), h.logger, h.billing, h.wallets, budgetReservation, authInfo.TenantID, finalCost, tunnelReq.RequestID, deploymentBillingMode(tunnelReq.Deployment)); debitErr != nil {
+	if debitErr := h.pipeline.Settle(c.Context(), SettlementRequest{Reservation: budgetReservation, TenantID: authInfo.TenantID, Actual: finalCost, RequestID: tunnelReq.RequestID, BillingMode: deploymentBillingMode(tunnelReq.Deployment)}); debitErr != nil {
 		return writeBudgetCheckError(c, debitErr)
 	}
 
