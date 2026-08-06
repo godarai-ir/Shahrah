@@ -1,7 +1,26 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { createThemeBootstrapScript } from "@shahrah/theme-sync";
 import "./globals.css";
 import { defaultSocialImage, siteUrl } from "@/app/lib/seo";
+
+const googleAnalyticsId = "G-2WM5KBCXPY";
+const googleAnalyticsBootstrapScript = `
+if (window.location.hostname === "godarai.ir") {
+  var googleTag = document.createElement("script");
+  googleTag.async = true;
+  googleTag.src = "https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}";
+  document.head.appendChild(googleTag);
+
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer.push(arguments); };
+  window.gtag("js", new Date());
+  window.gtag("config", "${googleAnalyticsId}", {
+    allow_google_signals: false,
+    allow_ad_personalization_signals: false
+  });
+}
+`;
 
 const themeBootstrapScript = createThemeBootstrapScript({
   defaultTheme: "system",
@@ -84,7 +103,14 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{__html: themeBootstrapScript}} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{ __html: googleAnalyticsBootstrapScript }}
+        />
+      </body>
     </html>
   );
 }
