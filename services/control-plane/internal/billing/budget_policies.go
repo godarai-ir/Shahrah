@@ -30,7 +30,7 @@ type budgetReservationTarget struct {
 	seedFromWallet bool
 }
 
-func (s *Service) budgetReservationTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
+func (s *BudgetService) budgetReservationTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
 	tenantTarget := s.tenantCreditTarget(auth.TenantID, reservationID, breakdown.TotalCostIRR, now)
 
 	policyTargets, err := s.budgetPolicyTargets(ctx, auth, breakdown, reservationID, now)
@@ -45,7 +45,7 @@ func (s *Service) budgetReservationTargets(ctx context.Context, auth *platform.A
 	return targets, nil
 }
 
-func (s *Service) tenantCreditTarget(tenantID string, reservationID string, estimatedIRR float64, now time.Time) budgetReservationTarget {
+func (s *BudgetService) tenantCreditTarget(tenantID string, reservationID string, estimatedIRR float64, now time.Time) budgetReservationTarget {
 	windowID, windowEnd := budgetWindowForTime(now)
 
 	ttl := time.Until(windowEnd.Add(s.budgetWindowTTLGrace))
@@ -73,7 +73,7 @@ func (s *Service) tenantCreditTarget(tenantID string, reservationID string, esti
 	}
 }
 
-func (s *Service) budgetPolicyTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
+func (s *BudgetService) budgetPolicyTargets(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, reservationID string, now time.Time) ([]budgetReservationTarget, error) {
 	if s.runtimeProfiles == nil || auth == nil || strings.TrimSpace(auth.TenantID) == "" {
 		return nil, nil
 	}
@@ -152,7 +152,7 @@ func (s *Service) budgetPolicyTargets(ctx context.Context, auth *platform.AuthCo
 	return targets, nil
 }
 
-func (s *Service) reserveBudgetTarget(ctx context.Context, budgetCache budgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
+func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache budgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
 	if !target.seedFromWallet {
 		if seedErr := s.seedBudgetTarget(ctx, budgetCache, target); seedErr != nil {
 			return nil, seedErr
@@ -194,7 +194,7 @@ func (s *Service) reserveBudgetTarget(ctx context.Context, budgetCache budgetWin
 	return result, nil
 }
 
-func (s *Service) seedBudgetTarget(ctx context.Context, budgetCache budgetWindowCache, target budgetReservationTarget) error {
+func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache budgetWindowCache, target budgetReservationTarget) error {
 	if target.seedFromWallet {
 		return s.seedBudgetWindow(ctx, budgetCache, target.tenantID, target.WindowID, target.WindowKey, target.expiresAt, target.ttl)
 	}
@@ -217,7 +217,7 @@ func (s *Service) seedBudgetTarget(ctx context.Context, budgetCache budgetWindow
 	return nil
 }
 
-func (s *Service) releaseBudgetTargetsBestEffort(ctx context.Context, budgetCache budgetWindowCache, targets []budgetReservationTarget, now time.Time) error {
+func (s *BudgetService) releaseBudgetTargetsBestEffort(ctx context.Context, budgetCache budgetWindowCache, targets []budgetReservationTarget, now time.Time) error {
 	var releaseErrors []error
 
 	for i := len(targets) - 1; i >= 0; i-- {

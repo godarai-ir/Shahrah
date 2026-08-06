@@ -204,6 +204,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	reservationToRelease := admitted.reservation
+
 	releaseBudgetOnExit := true
 	defer func() {
 		if releaseBudgetOnExit {
@@ -1226,7 +1227,9 @@ func (h *ChatCompletionHandler) handleStream(
 
 						if writeErr := writeBufferedBytes(w, pending); writeErr != nil {
 							h.logger.Warn("failed to write pending streaming data", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+
 							budgetReleaseReason = "stream_write_failed"
+
 							logStreamFailure("stream_write_error", writeErr.Error())
 
 							return
@@ -1271,7 +1274,9 @@ func (h *ChatCompletionHandler) handleStream(
 
 					if writeErr := writeBufferedBytes(w, streamData); writeErr != nil {
 						h.logger.Warn("failed to write streaming chunk", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+
 						budgetReleaseReason = "stream_write_failed"
+
 						logStreamFailure("stream_write_error", writeErr.Error())
 
 						return

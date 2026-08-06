@@ -31,7 +31,7 @@ type rateLimitPolicy struct {
 	conditionsKey string
 }
 
-func (s *Service) checkRateLimitPolicies(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) (*cache.RateLimitResult, error) {
+func (s *RateLimiter) checkRateLimitPolicies(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) (*cache.RateLimitResult, error) {
 	if s == nil || s.runtimeProfiles == nil || auth == nil || strings.TrimSpace(auth.TenantID) == "" {
 		return nil, nil
 	}
@@ -100,7 +100,7 @@ func (s *Service) checkRateLimitPolicies(ctx context.Context, auth *platform.Aut
 	return result, nil
 }
 
-func (s *Service) matchRateLimitRule(rule platform.RateLimitRule, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, now time.Time) (rateLimitPolicy, bool, error) {
+func (s *RateLimiter) matchRateLimitRule(rule platform.RateLimitRule, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, now time.Time) (rateLimitPolicy, bool, error) {
 	if !rule.Enabled {
 		return rateLimitPolicy{}, false, nil
 	}
@@ -237,7 +237,7 @@ func parseRateLimitWindow(limit map[string]interface{}) (time.Duration, error) {
 	return time.Duration(value) * unit, nil
 }
 
-func (s *Service) applyRateLimitPolicy(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, policy rateLimitPolicy) (*cache.RateLimitResult, error) {
+func (s *RateLimiter) applyRateLimitPolicy(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, policy rateLimitPolicy) (*cache.RateLimitResult, error) {
 	if s.cache == nil {
 		if s.rateLimitFailOpen {
 			return nil, nil
@@ -279,7 +279,7 @@ func (s *Service) applyRateLimitPolicy(ctx context.Context, auth *platform.AuthC
 	return result, nil
 }
 
-func (s *Service) applyRateLimitCounter(ctx context.Context, tenantID string, policy rateLimitPolicy, kind string, scopeHash string, weight int64) (*cache.RateLimitResult, error) {
+func (s *RateLimiter) applyRateLimitCounter(ctx context.Context, tenantID string, policy rateLimitPolicy, kind string, scopeHash string, weight int64) (*cache.RateLimitResult, error) {
 	key := fmt.Sprintf("ratelimit:tenant:%s:rule:%s:scope:%s:%s", strings.TrimSpace(tenantID), policy.ruleID, scopeHash, kind)
 	if kind == rateLimitKindTPM || policy.algorithm == "sliding_window" {
 		result, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, key, policyLimit(policy, kind), weight, policy.window)

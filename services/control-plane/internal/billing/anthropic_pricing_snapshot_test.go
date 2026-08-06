@@ -150,8 +150,10 @@ func TestAnthropicEstimatePinsRuntimeProfileToPricingRevision(t *testing.T) {
 	manager := &AnthropicPricingSnapshotManager{now: time.Now}
 	manager.state.Store(snapshot)
 	service := &Service{
-		defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
-		anthropicPricing: manager,
+		PricingEngine: &PricingEngine{
+			defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
+			anthropicPricing: manager,
+		},
 	}
 
 	estimated, err := service.EstimateCost(
@@ -247,8 +249,10 @@ func TestAnthropicFinalizeUsesPinnedDecimalSnapshotAndCacheDimensions(
 	manager := &AnthropicPricingSnapshotManager{now: time.Now}
 	manager.state.Store(snapshot)
 	service := &Service{
-		defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
-		anthropicPricing: manager,
+		PricingEngine: &PricingEngine{
+			defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
+			anthropicPricing: manager,
+		},
 	}
 
 	estimated, err := service.EstimateCost(
@@ -400,8 +404,10 @@ func anthropicBillingTestService(
 	manager := &AnthropicPricingSnapshotManager{now: time.Now}
 	manager.state.Store(snapshot)
 	service := &Service{
-		defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
-		anthropicPricing: manager,
+		PricingEngine: &PricingEngine{
+			defaultRate:      platform.ExchangeRate{USDtoIRR: 1},
+			anthropicPricing: manager,
+		},
 	}
 	estimated, err := service.EstimateCost(
 		context.Background(),

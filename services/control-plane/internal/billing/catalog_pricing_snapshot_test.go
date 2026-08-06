@@ -87,9 +87,11 @@ func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *test
 	}
 	manager.state.Store(snapshot)
 	service := &Service{
-		defaultRate: platform.ExchangeRate{USDtoIRR: 1},
-		catalogPricing: map[string]*CatalogPricingSnapshotManager{
-			"google-gemini": manager,
+		PricingEngine: &PricingEngine{
+			defaultRate: platform.ExchangeRate{USDtoIRR: 1},
+			catalogPricing: map[string]*CatalogPricingSnapshotManager{
+				"google-gemini": manager,
+			},
 		},
 	}
 
@@ -298,9 +300,11 @@ func TestOpenAIGPT54NanoRejectsUnsupportedPriorityTier(t *testing.T) {
 	}
 	manager.state.Store(snapshot)
 	service := &Service{
-		defaultRate: platform.ExchangeRate{USDtoIRR: 1},
-		catalogPricing: map[string]*CatalogPricingSnapshotManager{
-			"openai": manager,
+		PricingEngine: &PricingEngine{
+			defaultRate: platform.ExchangeRate{USDtoIRR: 1},
+			catalogPricing: map[string]*CatalogPricingSnapshotManager{
+				"openai": manager,
+			},
 		},
 	}
 	maxOutputTokens := 32
@@ -422,7 +426,7 @@ func TestOpenAIFastAliasAndUndiscountedCachedInput(t *testing.T) {
 }
 
 func TestApplyPricingOverridePinsPrivateRevisionAndRecalculates(t *testing.T) {
-	service := &Service{}
+	service := &Service{PricingEngine: &PricingEngine{}}
 	estimated := platform.UsageCostBreakdown{
 		ExchangeRate:    2,
 		PricingRevision: "openai-public-1",
