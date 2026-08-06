@@ -33,7 +33,7 @@ sources:
   - https://docs.x.ai/developers/rest-api-reference/files/upload
   - https://docs.x.ai/developers/advanced-api-usage/batch-api
 runtimeProfile:
-  version: 3
+  version: 4
   aliases: [grok-imagine-image-2026-03-02]
   endpoints:
     [

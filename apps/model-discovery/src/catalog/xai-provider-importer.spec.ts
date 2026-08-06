@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import {
+  XAI_RUNTIME_PROFILE_VERSIONS,
   XAI_SUPPORTED_MODEL_IDS,
   validateXAIProviderDirectory,
   xaiProviderImporter,
@@ -22,13 +23,13 @@ describe('xAI provider importer', () => {
     );
   });
 
-  it('keeps model YAML aliases and version 3 runtime contracts synchronized', async () => {
+  it('keeps model YAML aliases and reviewed runtime versions synchronized', async () => {
     for (const model of XAI_SUPPORTED_MODEL_IDS) {
       const document = parse(
         await readFile(join(providersRoot, 'xai', `${model}.yaml`), 'utf8'),
       ) as { aliases?: string[]; runtimeProfile?: unknown };
       const profile = modelRuntimeProfileSchema.parse(document.runtimeProfile);
-      expect(profile.version).toBe(3);
+      expect(profile.version).toBe(XAI_RUNTIME_PROFILE_VERSIONS[model]);
       expect(profile.aliases).toEqual(document.aliases);
       expect(profile.usageAccounting).toMatchObject({
         exactProviderCost: true,
@@ -36,6 +37,28 @@ describe('xAI provider importer', () => {
       });
       expect(profile.batch.eligible).toBe(true);
       expect(profile.batch.discounted).toBe(model === 'grok-4.3');
+    }
+  });
+
+  it('rejects a downgraded xAI runtime profile before import', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'xai-profile-version-'));
+    await cp(join(providersRoot, 'xai'), join(root, 'xai'), {
+      recursive: true,
+    });
+
+    const modelPath = join(root, 'xai', 'grok-4.3.yaml');
+    try {
+      const yaml = await readFile(modelPath, 'utf8');
+      await writeFile(
+        modelPath,
+        yaml.replace(/(runtimeProfile:\s*\r?\n\s*version:) 4/, '$1 3'),
+      );
+
+      await expect(validateXAIProviderDirectory(root)).rejects.toThrow(
+        'runtime_profile_version',
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 

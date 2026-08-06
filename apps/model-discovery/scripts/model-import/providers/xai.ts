@@ -13,6 +13,13 @@ export const XAI_SUPPORTED_MODEL_IDS = [
   'grok-imagine-image-quality',
 ] as const;
 
+export const XAI_RUNTIME_PROFILE_VERSIONS: Record<string, number> = {
+  'grok-4.3': 4,
+  'grok-4.5': 4,
+  'grok-imagine-image': 4,
+  'grok-imagine-image-quality': 4,
+};
+
 type StringRecord = Record<string, unknown>;
 type XAIYamlDocument = {
   model?: unknown;
@@ -160,8 +167,12 @@ export async function validateXAIProviderDirectory(
     const profile = modelRuntimeProfileSchema.safeParse(
       document?.runtimeProfile,
     );
-    if (!profile.success || profile.data.version < 3) {
+    if (!profile.success) {
       invalid.push(`${relativeFile}(runtime_profile)`);
+      continue;
+    }
+    if (profile.data.version !== XAI_RUNTIME_PROFILE_VERSIONS[model]) {
+      invalid.push(`${relativeFile}(runtime_profile_version)`);
       continue;
     }
     const declaredAliases = asStrings(document?.aliases);

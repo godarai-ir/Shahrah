@@ -39,7 +39,7 @@ sources:
   - https://docs.x.ai/developers/advanced-api-usage/batch-api
   - https://docs.x.ai/developers/migration/may-15-retirement
 runtimeProfile:
-  version: 3
+  version: 4
   aliases:
     [
       grok-imagine-image-quality-20260403,
