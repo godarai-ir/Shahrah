@@ -1,22 +1,34 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { BadgePercent, CreditCard, Landmark, TestTubeDiagonal, WalletCards } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { SettingsCard } from "@/components/app-ui";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
+import { convertTomanToUSD, formatApproximateUSD, parsePositiveToman } from "@/lib/topup-currency";
 import { cn } from "@/lib/utils";
 
 type TopUpIntentResponse = {
   payment_url?: string;
+};
+
+type CurrentExchangeRate = {
+  base: "USD";
+  quote: "IRR";
+  rate: number;
+  source: string;
+  fetchedAt: string;
+  status: "fresh" | "stale";
 };
 
 type Props = {
@@ -33,11 +45,14 @@ type ProviderOption = {
 
 export default function TopUpPanel(props: Props) {
   const t = useTranslations("topupPage");
+  const locale = useLocale();
 
   const [amountToman, setAmountToman] = useState("");
   const [provider, setProvider] = useState("mock");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(props.initialError);
+  const [exchangeRate, setExchangeRate] = useState<CurrentExchangeRate | null>(null);
+  const [exchangeRateLoading, setExchangeRateLoading] = useState(true);
 
   const quickAmounts = [
     { value: "1000000", label: t("quickAmounts.oneMillion") },
@@ -64,12 +79,50 @@ export default function TopUpPanel(props: Props) {
     },
   ];
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/exchange-rates/current", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("exchange rate unavailable");
+
+        const payload = await response.json() as unknown;
+        const parsed = parseCurrentExchangeRate(payload);
+        if (!parsed) throw new Error("invalid exchange rate response");
+
+        setExchangeRate(parsed);
+      } catch {
+        if (!controller.signal.aborted) setExchangeRate(null);
+      } finally {
+        if (!controller.signal.aborted) setExchangeRateLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, []);
+
+  const parsedToman = parsePositiveToman(amountToman);
+  const estimatedUSD = parsedToman !== null && exchangeRate
+    ? convertTomanToUSD(parsedToman, exchangeRate.rate)
+    : null;
+  const approximateUSD = estimatedUSD === null ? null : formatApproximateUSD(estimatedUSD);
+  const rateToman = exchangeRate
+    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(exchangeRate.rate / 10)
+    : null;
+  const syncedAt = exchangeRate
+    ? new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date(exchangeRate.fetchedAt))
+    : null;
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    const toman = Number(amountToman.replaceAll(",", ""));
-    if (!Number.isFinite(toman) || toman <= 0) {
+    const toman = parsePositiveToman(amountToman);
+    if (toman === null) {
       setError(t("messages.amountInvalid"));
       return;
     }
@@ -135,8 +188,8 @@ export default function TopUpPanel(props: Props) {
         }
       >
         <form onSubmit={onSubmit} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="amountToman">{t("amountLabel")}</Label>
+          <Field>
+            <FieldLabel htmlFor="amountToman">{t("amountLabel")}</FieldLabel>
             <Input
               id="amountToman"
               dir="ltr"
@@ -158,7 +211,52 @@ export default function TopUpPanel(props: Props) {
                 </Button>
               ))}
             </div>
-          </div>
+
+            <div
+              className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3"
+              role="status"
+              aria-live="polite"
+            >
+              {exchangeRateLoading ? (
+                <>
+                  <span className="sr-only">{t("exchangeRate.loading")}</span>
+                  <Skeleton className="h-5 w-48 max-w-full" />
+                  <Skeleton className="h-4 w-64 max-w-full" />
+                </>
+              ) : exchangeRate && rateToman && syncedAt ? (
+                <>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-foreground">{t("exchangeRate.liveLabel")}</span>
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
+                        {t("exchangeRate.rateValue", { rate: rateToman })}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                      <span>{t("exchangeRate.source", { source: t("exchangeRate.nobitex") })}</span>
+                      <span aria-hidden="true">•</span>
+                      <span>{t("exchangeRate.syncedAt", { time: syncedAt })}</span>
+                    </div>
+                  </div>
+
+                  {approximateUSD ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                      <span className="text-sm text-muted-foreground">{t("exchangeRate.estimatedUSD")}</span>
+                      <strong className="text-base font-semibold tabular-nums text-foreground" dir="ltr">
+                        {approximateUSD}
+                      </strong>
+                    </div>
+                  ) : null}
+
+                  {exchangeRate.status === "stale" ? (
+                    <p className="text-xs leading-5 text-warning">{t("exchangeRate.stale")}</p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-xs leading-5 text-muted-foreground">{t("exchangeRate.unavailable")}</p>
+              )}
+            </div>
+          </Field>
 
           <div className="flex flex-col gap-3">
             <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
@@ -216,4 +314,27 @@ export default function TopUpPanel(props: Props) {
       </SettingsCard>
     </div>
   );
+}
+
+function parseCurrentExchangeRate(value: unknown): CurrentExchangeRate | null {
+  if (!value || typeof value !== "object") return null;
+
+  const candidate = value as Partial<CurrentExchangeRate>;
+  const fetchedAt = typeof candidate.fetchedAt === "string" ? new Date(candidate.fetchedAt) : null;
+  const source = typeof candidate.source === "string" ? candidate.source.trim().toLowerCase() : "";
+  if (
+    candidate.base !== "USD" ||
+    candidate.quote !== "IRR" ||
+    typeof candidate.rate !== "number" ||
+    !Number.isFinite(candidate.rate) ||
+    candidate.rate <= 0 ||
+    !source.startsWith("nobitex:") ||
+    !fetchedAt ||
+    Number.isNaN(fetchedAt.getTime()) ||
+    (candidate.status !== "fresh" && candidate.status !== "stale")
+  ) {
+    return null;
+  }
+
+  return candidate as CurrentExchangeRate;
 }

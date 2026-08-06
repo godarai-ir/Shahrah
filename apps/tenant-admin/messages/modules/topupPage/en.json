@@ -9,6 +9,17 @@
   "taxNotice": "A 10% value-added tax will be added to this amount.",
   "submit": "Continue to gateway",
   "submitLoading": "Creating payment...",
+  "exchangeRate": {
+    "liveLabel": "Live dollar rate",
+    "rateValue": "USD 1 ≈ {rate} toman",
+    "estimatedUSD": "Approximate top-up equivalent",
+    "source": "Source: {source}",
+    "nobitex": "Nobitex",
+    "syncedAt": "Synced: {time}",
+    "loading": "Loading the live dollar rate...",
+    "unavailable": "The live dollar rate is unavailable; you can still continue with the top-up.",
+    "stale": "The latest recorded rate needs an update; the dollar amount remains approximate."
+  },
   "quickAmounts": {
     "oneMillion": "1 million toman",
     "threeMillion": "3 million toman",
