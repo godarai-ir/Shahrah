@@ -1,6 +1,6 @@
 'use client';
 
-import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Lock, Database } from 'lucide-react';
+import { Moon, Sun, Menu, X, ArrowLeft, ChevronDown, Activity, Network, ShieldCheck, TerminalSquare, Lock, Database, CalendarDays } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -47,7 +47,7 @@ export function Navbar() {
               />
               <span className="truncate font-bold text-lg sm:text-xl text-slate-900 dark:text-white">گدارAI</span>
             </Link>
-            <div className="hidden md:flex items-center gap-6 h-16">
+            <div className="hidden lg:flex items-center gap-6 h-16">
               <div className="relative group/features h-full flex items-center">
                 <button className="text-sm font-medium text-slate-600 dark:text-gray-300 group-hover/features:text-indigo-500 dark:group-hover/features:text-indigo-400 transition-colors flex items-center gap-1">
                   امکانات
@@ -82,13 +82,20 @@ export function Navbar() {
           </div>
 
           {/* Actions */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-4">
             <button
               onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
               className="flex items-center justify-center p-2 rounded-full text-slate-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               {resolvedTheme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
+            <Link
+              href="/demo"
+              className="flex items-center gap-2 rounded-lg border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50 dark:border-indigo-500/30 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+            >
+              رزرو وقت دمو
+              <CalendarDays className="h-4 w-4" />
+            </Link>
             {actionLinks.map((item) => (
               <Link
                 key={item.href}
@@ -106,7 +113,7 @@ export function Navbar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex shrink-0 items-center gap-2 md:hidden">
+          <div className="flex shrink-0 items-center gap-2 lg:hidden">
             <button
               aria-label={isOpen ? "Close menu" : "Open menu"}
               aria-expanded={isOpen}
@@ -129,7 +136,7 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div id="mobile-menu" className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F19] overflow-y-auto max-h-[calc(100vh-64px)]">
+        <div id="mobile-menu" className="lg:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F19] overflow-y-auto max-h-[calc(100vh-64px)]">
           <div className="px-4 pt-2 pb-6 flex flex-col gap-3">
             {mobileFeatures.map((feature) => (
               <Link
@@ -162,6 +169,10 @@ export function Navbar() {
             </div>
             <div className="border-t border-gray-200 dark:border-gray-800 pt-4 flex flex-col gap-4">
               <Link href="/login" className="block min-h-12 rounded-lg border border-gray-200 px-4 py-3 text-center text-sm font-medium text-slate-700 dark:border-gray-800 dark:text-gray-200" onClick={() => setIsOpen(false)}>ورود</Link>
+              <Link href="/demo" className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-indigo-200 px-4 py-3 text-center text-sm font-medium text-indigo-700 dark:border-indigo-500/30 dark:text-indigo-300" onClick={() => setIsOpen(false)}>
+                رزرو وقت دمو
+                <CalendarDays className="h-4 w-4" />
+              </Link>
               <Link href="/onboarding" className="block min-h-12 rounded-lg bg-indigo-500 px-4 py-3 text-center text-sm font-medium text-white" onClick={() => setIsOpen(false)}>۱۵ روز رایگان شروع کنید</Link>
             </div>
           </div>

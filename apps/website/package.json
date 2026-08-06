@@ -10,6 +10,7 @@
     "test": "node --import tsx --test app/lib/social-auth/client-ip-config.test.ts"
   },
   "dependencies": {
+    "@calcom/embed-react": "^1.5.3",
     "@shahrah/theme-sync": "workspace:*",
     "better-auth": "1.6.25",
     "clsx": "^2.1.1",

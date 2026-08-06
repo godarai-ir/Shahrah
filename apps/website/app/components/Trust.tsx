@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { SOCIAL_LINKS } from '@/app/lib/social-links';
 import { GodarAILogo } from './GodarAILogo';
@@ -19,10 +19,16 @@ export function Trust() {
           <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-6 sm:mb-8">
             مسیر مصرف مدل‌ها را قابل مدیریت کنید
           </h3>
-          <Link href="/pricing" className="flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 px-8 py-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-base sm:text-lg transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] hover:-translate-y-1">
-            ۱۵ روز آزمایشی شروع کنید.
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
+          <div className="flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
+            <Link href="/pricing" className="flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 px-8 py-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-base sm:text-lg transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] hover:-translate-y-1">
+              ۱۵ روز آزمایشی شروع کنید.
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <Link href="/demo" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-8 py-4 text-base font-medium text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-indigo-500/10 sm:w-auto sm:text-lg">
+              رزرو وقت دمو
+              <CalendarDays className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
       </div>
     </section>
@@ -33,6 +39,16 @@ export function Footer() {
   return (
     <footer className="bg-slate-50 dark:bg-[#0B0F19] border-t border-gray-200 dark:border-gray-800 py-8 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-500/20 dark:bg-indigo-500/10 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="font-bold text-slate-950 dark:text-white">گدارAI را متناسب با نیاز تیم خود ببینید</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">یک جلسه خصوصی ۶۰ دقیقه‌ای با تیم ما رزرو کنید.</p>
+          </div>
+          <Link href="/demo" className="flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 sm:w-auto">
+            رزرو وقت دمو
+            <CalendarDays className="w-5 h-5" />
+          </Link>
+        </div>
         <div className="mb-6 grid grid-cols-3 gap-x-4 gap-y-6 md:grid-cols-4 md:gap-6">
           <div className="col-span-3 md:col-span-1">
             <div className="mb-3 flex items-center gap-2">
@@ -93,6 +109,7 @@ export function Footer() {
             <ul className="space-y-1.5 text-xs md:space-y-2 md:text-sm">
               <li><Link href="/about" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">درباره ما</Link></li>
               <li><Link href="/contact" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">تماس با ما</Link></li>
+              <li><Link href="/demo" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">رزرو وقت دمو</Link></li>
               <li><Link href="/terms" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">قوانین و مقررات</Link></li>
               <li><Link href="/privacy" className="text-slate-600 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400">حریم خصوصی</Link></li>
             </ul>

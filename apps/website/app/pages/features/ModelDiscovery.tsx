@@ -661,7 +661,7 @@ export function ModelDiscovery() {
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <Link
-              href="/contact"
+              href="/demo"
               className="flex min-h-12 w-full items-center justify-center rounded-xl border-2 border-white/30 bg-transparent px-8 py-4 text-lg font-bold text-white transition-all hover:border-white active:scale-95 sm:w-auto"
             >
               درخواست دمو
