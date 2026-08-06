@@ -110,3 +110,54 @@ func TestRouterNoCredentialMockBypassesPlatformCredentialResolution(t *testing.T
 	assert.Equal(t, platform.BillingModeExternalBilled, dep.BillingMode)
 	assert.Equal(t, "acct_mock", dep.ProviderAccountID)
 }
+
+func TestRouterParsesFirstClassProviderModelsThroughRegistry(t *testing.T) {
+	tests := []struct {
+		qualifiedModel string
+		provider       string
+		officialModel  string
+	}{
+		{qualifiedModel: "openai/gpt-5", provider: "openai", officialModel: "gpt-5"},
+		{qualifiedModel: "anthropic/claude-opus-5", provider: "anthropic", officialModel: "claude-opus-5"},
+		{qualifiedModel: "xai/grok-4.5", provider: "xai", officialModel: "grok-4.5"},
+		{qualifiedModel: "deepseek/deepseek-v4-flash", provider: "deepseek", officialModel: "deepseek-v4-flash"},
+		{qualifiedModel: "moonshot/kimi-k3", provider: "moonshot", officialModel: "kimi-k3"},
+		{qualifiedModel: "gemini/gemini-3.5-flash", provider: "google-gemini", officialModel: "gemini-3.5-flash"},
+		{qualifiedModel: "mistral/mistral-large-2607", provider: "mistral-ai", officialModel: "mistral-large-2607"},
+	}
+
+	models := make([]config.ModelDeployment, 0, len(tests))
+	for _, test := range tests {
+		models = append(models, config.ModelDeployment{
+			ModelName: test.qualifiedModel,
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Model:  test.qualifiedModel,
+				APIKey: "provider-key",
+				RPM:    1000,
+			},
+			ModelInfo: map[string]interface{}{"id": test.qualifiedModel},
+		})
+	}
+
+	rt, err := NewRouter(
+		models,
+		config.RouterSettings{CooldownTime: 60, NumRetries: 1},
+		newRouterTestCache(t),
+		nil,
+		zap.NewNop(),
+	)
+	require.NoError(t, err)
+
+	for _, test := range tests {
+		t.Run(test.provider, func(t *testing.T) {
+			deployment, err := rt.Route(
+				context.Background(),
+				"tenant_a",
+				test.qualifiedModel,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, test.provider, deployment.Provider)
+			assert.Equal(t, test.officialModel, deployment.Model)
+		})
+	}
+}

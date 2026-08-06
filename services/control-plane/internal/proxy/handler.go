@@ -427,13 +427,43 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		return dependencyErr
 	}
 
+	runtimeModel := ""
+	if deployment != nil {
+		runtimeModel = strings.TrimSpace(deployment.Model)
+	}
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = resolvedModel
+	}
+
+	runtimeProfiles := []platform.ModelRuntimeProfileBinding(nil)
+	if deployment != nil {
+		runtimeProfiles, err = runtimeProfilesFromEstimate(
+			deployment.Provider,
+			runtimeModel,
+			estimated,
+		)
+		if err != nil {
+			return writeAPIError(
+				c,
+				fiber.StatusServiceUnavailable,
+				err.Error(),
+				"runtime_profile_unavailable",
+			)
+		}
+	}
+
+	var runtimeProfile *platform.ModelRuntimeProfileBinding
+	if len(runtimeProfiles) == 1 {
+		runtimeProfile = &runtimeProfiles[0]
+	}
+
 	if handled, validationErr := h.validateChatDeployment(
 		c,
 		currentTenant.ID,
 		requestedModel,
 		req,
 		deployment,
-		estimated.ModelRuntimeProfile,
+		runtimeProfile,
 	); handled || validationErr != nil {
 		return validationErr
 	}
@@ -468,24 +498,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	runtimeModel := strings.TrimSpace(deployment.Model)
-	if runtimeModel == "" || runtimeModel == "*" {
-		runtimeModel = resolvedModel
-	}
-
-	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
-		deployment.Provider,
-		runtimeModel,
-		estimated,
-	)
-	if err != nil {
-		return writeAPIError(
-			c,
-			fiber.StatusServiceUnavailable,
-			err.Error(),
-			"runtime_profile_unavailable",
-		)
-	}
+	tunnelReq.ModelRuntimeProfiles = runtimeProfiles
 
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 

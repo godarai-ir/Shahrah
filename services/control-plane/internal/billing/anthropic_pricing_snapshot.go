@@ -360,11 +360,3 @@ func normalizeAnthropicPricingModelID(model string) string {
 
 	return value
 }
-
-func isAnthropicModel(model string) bool {
-	value := strings.ToLower(strings.TrimSpace(model))
-
-	return strings.HasPrefix(value, "anthropic/") ||
-		strings.HasPrefix(value, "anthropic:") ||
-		strings.HasPrefix(value, "claude-")
-}

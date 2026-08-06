@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providerregistry"
 )
 
 // splitModelFQN parses a model in provider:account_alias:model_id format.
@@ -53,18 +54,7 @@ func providerModelID(model string) string {
 func billingEstimateModel(model string) string {
 	model = normalizeModelIdentifier(model)
 
-	provider, _, _, ok := splitModelFQN(model)
-	if ok && (isGoogleGeminiProvider(provider) || isMistralProvider(provider) || strings.EqualFold(provider, "openai") || strings.EqualFold(provider, "xai")) {
-		return model
-	}
-
-	value := strings.ToLower(model)
-	if strings.HasPrefix(value, "google-gemini/") ||
-		strings.HasPrefix(value, "gemini/") ||
-		strings.HasPrefix(value, "mistral-ai/") ||
-		strings.HasPrefix(value, "mistral/") ||
-		strings.HasPrefix(value, "openai/") ||
-		strings.HasPrefix(value, "xai/") {
+	if _, ok := providerregistry.FromModelIdentifier(model); ok {
 		return model
 	}
 
@@ -72,12 +62,7 @@ func billingEstimateModel(model string) string {
 }
 
 func isMistralProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "mistral-ai", "mistral":
-		return true
-	default:
-		return false
-	}
+	return providerregistry.Matches(provider, "mistral-ai")
 }
 
 func isMistralModelIdentifier(model string) bool {
@@ -100,10 +85,5 @@ func isMistralModelIdentifier(model string) bool {
 }
 
 func isGoogleGeminiProvider(provider string) bool {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "google-gemini", "gemini":
-		return true
-	default:
-		return false
-	}
+	return providerregistry.Matches(provider, "google-gemini")
 }

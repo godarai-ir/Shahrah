@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providerregistry"
 )
 
 var (
@@ -505,17 +506,17 @@ func hasSecretConfig(config map[string]interface{}) bool {
 
 func normalizeProvider(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
+	if definition, ok := providerregistry.Lookup(value); ok {
+		return definition.Slug
+	}
+
 	switch value {
 	case "azure":
 		return "azure-open-ai"
 	case "bedrock":
 		return "aws-bedrock"
-	case "gemini":
-		return "google-gemini"
 	case "vertexai":
 		return "google-vertex"
-	case "mistral":
-		return "mistral-ai"
 	case "togetherai":
 		return "together-ai"
 	case "perplexity", "perplexityai":

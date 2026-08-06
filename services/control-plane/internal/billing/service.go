@@ -15,6 +15,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providerregistry"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/shopspring/decimal"
 )
@@ -2681,7 +2682,8 @@ func (s *Service) modelPrice(
 	ctx context.Context,
 	model string,
 ) (priceInfo, error) {
-	if isAnthropicModel(model) {
+	provider, hasProvider := providerregistry.FromModelIdentifier(model)
+	if hasProvider && provider.PricingSnapshot == providerregistry.PricingSnapshotAnthropic {
 		if s == nil || s.anthropicPricing == nil {
 			return priceInfo{}, ErrPricingUnavailable
 		}
@@ -2705,12 +2707,12 @@ func (s *Service) modelPrice(
 		}, nil
 	}
 
-	if provider := catalogPricingProvider(model); provider != "" {
-		if s == nil || s.catalogPricing == nil || s.catalogPricing[provider] == nil {
+	if hasProvider && provider.PricingSnapshot == providerregistry.PricingSnapshotCatalog {
+		if s == nil || s.catalogPricing == nil || s.catalogPricing[provider.Slug] == nil {
 			return priceInfo{}, ErrPricingUnavailable
 		}
 
-		item, snapshot, err := s.catalogPricing[provider].price(model)
+		item, snapshot, err := s.catalogPricing[provider.Slug].price(model)
 		if err != nil {
 			return priceInfo{}, err
 		}
@@ -2735,7 +2737,7 @@ func (s *Service) modelPrice(
 			RateList:       item.RateList,
 			Revision:       snapshot.Revision,
 			GeneratedAt:    snapshot.GeneratedAt,
-			Provider:       provider,
+			Provider:       provider.Slug,
 			RuntimeProfile: item.RuntimeProfile,
 		}, nil
 	}
@@ -2761,8 +2763,8 @@ func (s *Service) pinnedOrCurrentModelPrice(
 	model string,
 	estimated platform.UsageCostBreakdown,
 ) (priceInfo, error) {
-	if (!isAnthropicModel(model) && catalogPricingProvider(model) == "") ||
-		estimated.PricingSnapshot == nil {
+	_, hasProvider := providerregistry.FromModelIdentifier(model)
+	if !hasProvider || estimated.PricingSnapshot == nil {
 		return s.modelPrice(ctx, model)
 	}
 
@@ -2770,36 +2772,12 @@ func (s *Service) pinnedOrCurrentModelPrice(
 }
 
 func catalogPricingProvider(model string) string {
-	value := strings.ToLower(strings.TrimSpace(model))
-	switch {
-	case strings.HasPrefix(value, "google-gemini/"),
-		strings.HasPrefix(value, "google-gemini:"),
-		strings.HasPrefix(value, "gemini/"),
-		strings.HasPrefix(value, "gemini:"):
-		return "google-gemini"
-	case strings.HasPrefix(value, "openai/"),
-		strings.HasPrefix(value, "openai:"):
-		return "openai"
-	case strings.HasPrefix(value, "xai/"),
-		strings.HasPrefix(value, "xai:"):
-		return "xai"
-	case strings.HasPrefix(value, "moonshot/"),
-		strings.HasPrefix(value, "moonshot:"):
-		return "moonshot"
-	case strings.HasPrefix(value, "deepseek/"),
-		strings.HasPrefix(value, "deepseek:"):
-		return "deepseek"
-	case strings.HasPrefix(value, "mistral-ai/"),
-		strings.HasPrefix(value, "mistral-ai:"),
-		strings.HasPrefix(value, "mistral/"),
-		strings.HasPrefix(value, "mistral:"),
-		strings.HasPrefix(value, "mistral-"),
-		strings.HasPrefix(value, "codestral-"),
-		strings.HasPrefix(value, "voxtral-"):
-		return "mistral-ai"
-	default:
+	provider, ok := providerregistry.FromModelIdentifier(model)
+	if !ok || provider.PricingSnapshot != providerregistry.PricingSnapshotCatalog {
 		return ""
 	}
+
+	return provider.Slug
 }
 
 func decimalToPerThousand(value decimal.Decimal) float64 {

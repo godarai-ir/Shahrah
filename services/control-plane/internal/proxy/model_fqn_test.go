@@ -29,25 +29,29 @@ func TestBillingModelForDeployment_UsesProviderAndWildcardFallback(t *testing.T)
 	}
 }
 
-func TestBillingEstimateModel_PreservesGoogleGeminiFQN(t *testing.T) {
-	got := billingEstimateModel(
+func TestBillingEstimateModelPreservesFirstClassProviderFQN(t *testing.T) {
+	models := []string{
+		"openai:production:gpt-5",
+		"anthropic:production:claude-opus-5",
+		"xai:production:grok-4.5",
+		"deepseek:production:deepseek-v4-flash",
+		"moonshot:production:kimi-k3",
 		"google-gemini:production:gemini-3.1-pro-preview",
-	)
-	if got != "google-gemini:production:gemini-3.1-pro-preview" {
-		t.Fatalf("expected Gemini FQN to be preserved, got %q", got)
+		"mistral-ai:production:mistral-large-2607",
+	}
+
+	for _, model := range models {
+		t.Run(model, func(t *testing.T) {
+			if got := billingEstimateModel(model); got != model {
+				t.Fatalf("expected provider FQN %q to be preserved, got %q", model, got)
+			}
+		})
 	}
 }
 
-func TestBillingEstimateModel_PreservesOpenAIFQN(t *testing.T) {
-	got := billingEstimateModel("openai:production:gpt-4o-mini")
-	if got != "openai:production:gpt-4o-mini" {
-		t.Fatalf("expected OpenAI FQN to be preserved, got %q", got)
-	}
-}
-
-func TestBillingEstimateModel_PreservesXAIFQN(t *testing.T) {
-	got := billingEstimateModel("xai:production:grok-4.5")
-	if got != "xai:production:grok-4.5" {
-		t.Fatalf("expected xAI FQN to be preserved, got %q", got)
+func TestBillingEstimateModelStripsUnsupportedProviderFQN(t *testing.T) {
+	got := billingEstimateModel("legacy:production:legacy-chat")
+	if got != "legacy-chat" {
+		t.Fatalf("expected unsupported provider FQN to use its official model, got %q", got)
 	}
 }

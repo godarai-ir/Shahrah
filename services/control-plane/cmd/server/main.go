@@ -25,6 +25,7 @@ import (
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providerregistry"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -168,141 +169,12 @@ func main() {
 	pricingCtx, cancelPricing := context.WithCancel(ctx)
 	defer cancelPricing()
 
-	anthropicPricing, pricingErr :=
-		billing.NewAnthropicPricingSnapshotManagerFromEnv(nil)
-	if pricingErr != nil {
-		logger.Warn(
-			"Anthropic pricing is unavailable; Anthropic requests will fail closed until configuration is restored",
-			zap.Error(pricingErr),
-		)
-	} else {
-		billingService.SetAnthropicPricingSnapshotManager(anthropicPricing)
-
-		if pricingErr := anthropicPricing.Reload(ctx); pricingErr != nil {
-			logger.Warn(
-				"Initial Anthropic pricing snapshot is unavailable; background refresh will retry",
-				zap.Error(pricingErr),
-			)
-		}
-		go anthropicPricing.Run(pricingCtx, 5*time.Minute)
-	}
-
-	geminiPricing, pricingErr :=
-		billing.NewCatalogPricingSnapshotManagerFromEnv("google-gemini", nil)
-	if pricingErr != nil {
-		logger.Warn(
-			"Google Gemini pricing is unavailable; Google Gemini requests will fail closed until configuration is restored",
-			zap.Error(pricingErr),
-		)
-	} else {
-		billingService.SetCatalogPricingSnapshotManager(
-			"google-gemini",
-			geminiPricing,
-		)
-
-		if pricingErr := geminiPricing.Reload(ctx); pricingErr != nil {
-			logger.Warn(
-				"Initial Google Gemini pricing snapshot is unavailable; background refresh will retry",
-				zap.Error(pricingErr),
-			)
-		}
-		go geminiPricing.Run(pricingCtx, 5*time.Minute)
-	}
-
-	openAIPricing, openAIPricingErr :=
-		billing.NewCatalogPricingSnapshotManagerFromEnv("openai", nil)
-	if openAIPricingErr != nil {
-		logger.Warn(
-			"OpenAI pricing is unavailable; OpenAI requests will fail closed until configuration is restored",
-			zap.Error(openAIPricingErr),
-		)
-	} else {
-		billingService.SetCatalogPricingSnapshotManager("openai", openAIPricing)
-
-		if openAIPricingErr := openAIPricing.Reload(ctx); openAIPricingErr != nil {
-			logger.Warn(
-				"Initial OpenAI pricing snapshot is unavailable; background refresh will retry",
-				zap.Error(openAIPricingErr),
-			)
-		}
-		go openAIPricing.Run(pricingCtx, 5*time.Minute)
-	}
-
-	xaiPricing, xaiPricingErr :=
-		billing.NewCatalogPricingSnapshotManagerFromEnv("xai", nil)
-	if xaiPricingErr != nil {
-		logger.Warn(
-			"xAI pricing is unavailable; xAI requests will fail closed until configuration is restored",
-			zap.Error(xaiPricingErr),
-		)
-	} else {
-		billingService.SetCatalogPricingSnapshotManager("xai", xaiPricing)
-
-		if xaiPricingErr := xaiPricing.Reload(ctx); xaiPricingErr != nil {
-			logger.Warn(
-				"Initial xAI pricing snapshot is unavailable; background refresh will retry",
-				zap.Error(xaiPricingErr),
-			)
-		}
-		go xaiPricing.Run(pricingCtx, 5*time.Minute)
-	}
-
-	moonshotPricing, moonshotPricingErr :=
-		billing.NewCatalogPricingSnapshotManagerFromEnv("moonshot", nil)
-	if moonshotPricingErr != nil {
-		logger.Warn(
-			"Moonshot pricing is unavailable; Moonshot requests will fail closed until configuration is restored",
-			zap.Error(moonshotPricingErr),
-		)
-	} else {
-		billingService.SetCatalogPricingSnapshotManager("moonshot", moonshotPricing)
-
-		if moonshotPricingErr := moonshotPricing.Reload(ctx); moonshotPricingErr != nil {
-			logger.Warn(
-				"Initial Moonshot pricing snapshot is unavailable; background refresh will retry",
-				zap.Error(moonshotPricingErr),
-			)
-		}
-		go moonshotPricing.Run(pricingCtx, 5*time.Minute)
-	}
-
-	deepSeekPricing, deepSeekPricingErr :=
-		billing.NewCatalogPricingSnapshotManagerFromEnv("deepseek", nil)
-	if deepSeekPricingErr != nil {
-		logger.Warn(
-			"DeepSeek pricing is unavailable; DeepSeek requests will fail closed until configuration is restored",
-			zap.Error(deepSeekPricingErr),
-		)
-	} else {
-		billingService.SetCatalogPricingSnapshotManager("deepseek", deepSeekPricing)
-
-		if deepSeekPricingErr := deepSeekPricing.Reload(ctx); deepSeekPricingErr != nil {
-			logger.Warn(
-				"Initial DeepSeek pricing snapshot is unavailable; background refresh will retry",
-				zap.Error(deepSeekPricingErr),
-			)
-		}
-		go deepSeekPricing.Run(pricingCtx, 5*time.Minute)
-	}
-
-	mistralPricing, mistralPricingErr :=
-		billing.NewCatalogPricingSnapshotManagerFromEnv("mistral-ai", nil)
-	if mistralPricingErr != nil {
-		logger.Warn(
-			"Mistral AI pricing is unavailable; Mistral AI requests will fail closed until configuration is restored",
-			zap.Error(mistralPricingErr),
-		)
-	} else {
-		billingService.SetCatalogPricingSnapshotManager("mistral-ai", mistralPricing)
-
-		if mistralPricingErr := mistralPricing.Reload(ctx); mistralPricingErr != nil {
-			logger.Warn(
-				"Initial Mistral AI pricing snapshot is unavailable; background refresh will retry",
-				zap.Error(mistralPricingErr),
-			)
-		}
-		go mistralPricing.Run(pricingCtx, 5*time.Minute)
-	}
+	anthropicPricing := configureProviderPricingSnapshots(
+		ctx,
+		pricingCtx,
+		billingService,
+		logger,
+	)
 
 	subscriptionProcessor := billing.NewSubscriptionProcessor(store, logger, time.Minute)
 	nobitexExchangeRateProcessor := billing.NewNobitexExchangeRateProcessor(
@@ -647,6 +519,70 @@ func main() {
 	if err := app.Listen(addr); err != nil {
 		logger.Fatal("Server failed to start", zap.Error(err))
 	}
+}
+
+func configureProviderPricingSnapshots(
+	ctx context.Context,
+	runCtx context.Context,
+	billingService *billing.Service,
+	logger *zap.Logger,
+) *billing.AnthropicPricingSnapshotManager {
+	var anthropicPricing *billing.AnthropicPricingSnapshotManager
+
+	for _, provider := range providerregistry.PricingProviders() {
+		switch provider.PricingSnapshot {
+		case providerregistry.PricingSnapshotAnthropic:
+			manager, managerErr := billing.NewAnthropicPricingSnapshotManagerFromEnv(nil)
+			if managerErr != nil {
+				logger.Warn(
+					provider.DisplayName+" pricing is unavailable; requests will fail closed until configuration is restored",
+					zap.Error(managerErr),
+				)
+
+				continue
+			}
+
+			billingService.SetAnthropicPricingSnapshotManager(manager)
+			anthropicPricing = manager
+
+			reloadErr := manager.Reload(ctx)
+			if reloadErr != nil {
+				logger.Warn(
+					"Initial "+provider.DisplayName+" pricing snapshot is unavailable; background refresh will retry",
+					zap.Error(reloadErr),
+				)
+			}
+
+			go manager.Run(runCtx, 5*time.Minute)
+		case providerregistry.PricingSnapshotCatalog:
+			manager, managerErr := billing.NewCatalogPricingSnapshotManagerFromEnv(
+				provider.Slug,
+				nil,
+			)
+			if managerErr != nil {
+				logger.Warn(
+					provider.DisplayName+" pricing is unavailable; requests will fail closed until configuration is restored",
+					zap.Error(managerErr),
+				)
+
+				continue
+			}
+
+			billingService.SetCatalogPricingSnapshotManager(provider.Slug, manager)
+
+			reloadErr := manager.Reload(ctx)
+			if reloadErr != nil {
+				logger.Warn(
+					"Initial "+provider.DisplayName+" pricing snapshot is unavailable; background refresh will retry",
+					zap.Error(reloadErr),
+				)
+			}
+
+			go manager.Run(runCtx, 5*time.Minute)
+		}
+	}
+
+	return anthropicPricing
 }
 
 func splitCSVEnv(key string) []string {

@@ -17,6 +17,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providerregistry"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
@@ -145,24 +146,32 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 			deployment.Provider = md.ProviderEndpoint.Provider
 			deployment.Model = canonicalProviderModel(deployment.Provider, modelParts)
 		} else {
-			// Parse from the exact provider slugs currently owned by model-discovery.
-			providerPrefixes := []string{
-				"ai21/", "anthropic/", "aws-bedrock/", "azure-ai-foundry/", "azure-open-ai/",
-				"cerebras/", "cohere/", "databricks/", "deepgram/", "deepinfra/", "elevenlabs/",
-				"google-gemini/", "google-vertex/", "groq/", "mistral-ai/", "openai/", "openrouter/",
-				"perplexity-ai/", "sambanova/", "together-ai/", "xai/",
-				// Staged aliases retained for already-deployed configuration.
-				"azure/", "mistral/", "togetherai/", "vertexai/", "gemini/", "bedrock/",
+			definition, officialModel, firstClass :=
+				providerregistry.SplitQualifiedModel(modelParts)
+			if firstClass {
+				deployment.Provider = definition.Slug
+				deployment.Model = officialModel
 			}
-			found := false
 
-			for _, prefix := range providerPrefixes {
-				if len(modelParts) > len(prefix) && strings.HasPrefix(modelParts, prefix) {
-					deployment.Provider = strings.TrimSuffix(prefix, "/")
-					deployment.Model = strings.TrimPrefix(modelParts, prefix)
-					found = true
+			// Parse legacy providers that are outside the first-class registry.
+			providerPrefixes := []string{
+				"ai21/", "aws-bedrock/", "azure-ai-foundry/", "azure-open-ai/",
+				"cerebras/", "cohere/", "databricks/", "deepgram/", "deepinfra/", "elevenlabs/",
+				"google-vertex/", "groq/", "openrouter/", "perplexity-ai/", "sambanova/", "together-ai/",
+				// Staged aliases retained for already-deployed configuration.
+				"azure/", "togetherai/", "vertexai/", "bedrock/",
+			}
+			found := firstClass
 
-					break
+			if !found {
+				for _, prefix := range providerPrefixes {
+					if len(modelParts) > len(prefix) && strings.HasPrefix(modelParts, prefix) {
+						deployment.Provider = strings.TrimSuffix(prefix, "/")
+						deployment.Model = strings.TrimPrefix(modelParts, prefix)
+						found = true
+
+						break
+					}
 				}
 			}
 

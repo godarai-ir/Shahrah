@@ -359,6 +359,73 @@ func setupTestApp(t *testing.T, handler *proxy.ChatCompletionHandler) *fiber.App
 	return app
 }
 
+func TestChatCompletionHandlerReportsMissingRuntimeProfileAsServiceUnavailable(t *testing.T) {
+	tests := []struct {
+		provider string
+		model    string
+	}{
+		{provider: "anthropic", model: "claude-opus-5"},
+		{provider: "xai", model: "grok-4.5"},
+		{provider: "deepseek", model: "deepseek-v4-flash"},
+		{provider: "moonshot", model: "kimi-k3"},
+		{provider: "google-gemini", model: "gemini-3.5-flash"},
+		{provider: "mistral-ai", model: "mistral-large-2607"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.provider, func(t *testing.T) {
+			logger := zap.NewNop()
+			modelFQN := test.provider + ":production:" + test.model
+			r := newProviderTestRouter(
+				t,
+				logger,
+				modelFQN,
+				test.provider,
+				test.model,
+			)
+			tunnel := &mockTunnelTransport{}
+			billing := &mockBilling{cost: platform.UsageCostBreakdown{
+				InputTokens:  10,
+				OutputTokens: 5,
+				TotalTokens:  15,
+			}}
+			handler := proxy.NewChatCompletionHandler(
+				r,
+				tunnel,
+				billing,
+				&mockWalletStore{},
+				&mockLogger{},
+				logger,
+			)
+			app := setupTestApp(t, handler)
+
+			payload, err := json.Marshal(map[string]interface{}{
+				"model":    modelFQN,
+				"messages": []map[string]string{{"role": "user", "content": "Hello"}},
+			})
+			require.NoError(t, err)
+
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/v1/chat/completions",
+				bytes.NewReader(payload),
+			)
+			request.Header.Set("Content-Type", "application/json")
+
+			response, err := app.Test(request)
+			require.NoError(t, err)
+			defer closeResponseBody(t, response)
+
+			body, err := io.ReadAll(response.Body)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusServiceUnavailable, response.StatusCode)
+			assert.Contains(t, string(body), "runtime_profile_unavailable")
+			assert.Equal(t, modelFQN, billing.estimateModel)
+			assert.Zero(t, tunnel.proxyCalls)
+		})
+	}
+}
+
 func TestChatCompletionHandler_RoutesFQNThroughWildcardAsOfficialProviderModel(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, err := mcache.NewMemoryCache(logger)
