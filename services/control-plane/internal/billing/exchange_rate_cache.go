@@ -27,16 +27,22 @@ type exchangeRateCacheEntry struct {
 }
 
 type exchangeRateCache struct {
-	store       walletStore
-	cache       cache.Cache
-	defaultRate platform.ExchangeRate
-	cfg         ExchangeRateCacheConfig
-	now         func() time.Time
+	store         walletStore
+	cache         cache.Cache
+	defaultRate   platform.ExchangeRate
+	cfg           ExchangeRateCacheConfig
+	now           func() time.Time
+	refreshCtx    context.Context
+	refreshCancel context.CancelFunc
 
 	mu         sync.RWMutex
 	entry      *exchangeRateCacheEntry
 	refreshing bool
+	closed     bool
 	loadMu     sync.Mutex
+	refreshWG  sync.WaitGroup
+	closeOnce  sync.Once
+	done       chan struct{}
 }
 
 func loadExchangeRateCacheConfigFromEnv() ExchangeRateCacheConfig {
@@ -60,13 +66,17 @@ func normalizeExchangeRateCacheConfig(cfg ExchangeRateCacheConfig) ExchangeRateC
 
 func newExchangeRateCache(store walletStore, c cache.Cache, defaultRate platform.ExchangeRate, cfg ExchangeRateCacheConfig) *exchangeRateCache {
 	defaultRate = cloneExchangeRate(defaultRate)
+	refreshCtx, cancel := context.WithCancel(context.Background())
 
 	return &exchangeRateCache{
-		store:       store,
-		cache:       c,
-		defaultRate: defaultRate,
-		cfg:         normalizeExchangeRateCacheConfig(cfg),
-		now:         time.Now,
+		store:         store,
+		cache:         c,
+		defaultRate:   defaultRate,
+		cfg:           normalizeExchangeRateCacheConfig(cfg),
+		now:           time.Now,
+		refreshCtx:    refreshCtx,
+		refreshCancel: cancel,
+		done:          make(chan struct{}),
 	}
 }
 
@@ -139,22 +149,24 @@ func (c *exchangeRateCache) refreshSync(ctx context.Context) *platform.ExchangeR
 
 func (c *exchangeRateCache) refreshAsync() {
 	c.mu.Lock()
-	if c.refreshing {
+	if c.closed || c.refreshing {
 		c.mu.Unlock()
 		return
 	}
 
 	c.refreshing = true
+	c.refreshWG.Add(1)
 	c.mu.Unlock()
 
 	go func() {
+		defer c.refreshWG.Done()
 		defer func() {
 			c.mu.Lock()
 			c.refreshing = false
 			c.mu.Unlock()
 		}()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(c.refreshCtx, 2*time.Second)
 		defer cancel()
 
 		c.loadMu.Lock()
@@ -162,6 +174,35 @@ func (c *exchangeRateCache) refreshAsync() {
 
 		_ = c.loadAndStoreLocked(ctx, false)
 	}()
+}
+
+func (c *exchangeRateCache) shutdown(ctx context.Context) error {
+	if c == nil {
+		return nil
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	c.closeOnce.Do(func() {
+		c.mu.Lock()
+		c.closed = true
+		c.refreshCancel()
+		c.mu.Unlock()
+
+		go func() {
+			c.refreshWG.Wait()
+			close(c.done)
+		}()
+	})
+
+	select {
+	case <-c.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (c *exchangeRateCache) loadAndStoreLocked(ctx context.Context, fallbackDefault bool) *platform.ExchangeRate {

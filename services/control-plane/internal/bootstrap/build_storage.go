@@ -139,6 +139,7 @@ func (b *builder) buildStorage() error {
 		CacheTTL:        5 * time.Minute,
 		RuntimeProfiles: b.runtimeProfiles,
 	})
+
 	b.billing = billing.NewServiceWithRepositoriesAndRuntimeProfiles(
 		sharedCache,
 		store.WalletRepository,
@@ -147,6 +148,11 @@ func (b *builder) buildStorage() error {
 		b.cfg.BillingSettings.DefaultUSDtoIRR,
 		b.cfg.BillingSettings.RateSource,
 	)
+	if err := b.lifecycle.AddResource("billing", func(ctx context.Context) error {
+		return b.billing.Shutdown(ctx)
+	}); err != nil {
+		return err
+	}
 
 	anthropicPricing, pricingErr := b.configureProviderPricingSnapshots()
 	b.anthropicPricing = anthropicPricing

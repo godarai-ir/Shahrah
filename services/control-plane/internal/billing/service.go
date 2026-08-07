@@ -200,6 +200,15 @@ func newService(
 	}
 }
 
+// Shutdown cancels and drains background billing work.
+func (s *Service) Shutdown(ctx context.Context) error {
+	if s == nil || s.PricingEngine == nil || s.exchangeRateCache == nil {
+		return nil
+	}
+
+	return s.exchangeRateCache.shutdown(ctx)
+}
+
 func (s *PricingEngine) SetAnthropicPricingSnapshotManager(
 	manager *AnthropicPricingSnapshotManager,
 ) {

@@ -80,6 +80,14 @@ func (s *walletStoreStub) walletCallCount() int {
 	return s.walletCalls
 }
 
+func registerBillingShutdown(t *testing.T, svc *billing.Service) {
+	t.Helper()
+
+	t.Cleanup(func() {
+		require.NoError(t, svc.Shutdown(context.Background()))
+	})
+}
+
 type entitlementWalletStoreStub struct {
 	walletStoreStub
 	effective  *platform.EffectiveEntitlementsResponse
@@ -246,6 +254,7 @@ func TestBillingService_ShouldUseStaleExchangeRateAndRefreshAsync(t *testing.T) 
 		FreshTTL: time.Nanosecond,
 		MaxStale: time.Hour,
 	})
+	registerBillingShutdown(t, svc)
 
 	first, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	require.NoError(t, err)
@@ -300,6 +309,7 @@ func TestBillingService_ShouldKeepStaleExchangeRateWhenAsyncRefreshFails(t *test
 		FreshTTL: time.Nanosecond,
 		MaxStale: time.Hour,
 	})
+	registerBillingShutdown(t, svc)
 
 	first, err := svc.EstimateCost(context.Background(), openai.ChatCompletionRequest{Model: "gpt-3.5-turbo"})
 	require.NoError(t, err)
