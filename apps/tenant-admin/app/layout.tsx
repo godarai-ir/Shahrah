@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { createThemeBootstrapScript } from "@shahrah/theme-sync";
 import { headers } from "next/headers";
 import { JetBrains_Mono, Vazirmatn } from "next/font/google";
+import localFont from "next/font/local";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
 import AppProviders from "@/app/components/app-providers";
@@ -15,6 +16,14 @@ import "./globals.css";
 const themeBootstrapScript = createThemeBootstrapScript({
   defaultTheme: "system",
   legacyStorageKeys: ["shahrah-theme", "vite-ui-theme"],
+});
+
+const estedad = localFont({
+  src: "./fonts/Estedad-Variable.woff2",
+  variable: "--font-estedad",
+  weight: "100 900",
+  style: "normal",
+  display: "swap",
 });
 
 const vazirmatn = Vazirmatn({
@@ -103,7 +112,7 @@ export default async function RootLayout({
       dir={getLocaleDirection(locale)}
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
+      className={`${estedad.variable} ${vazirmatn.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{__html: themeBootstrapScript}} />

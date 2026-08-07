@@ -14,7 +14,7 @@ This guide is the implementation contract for GodarAI tenant-admin UI work in th
 | Utilities | `lib/utils.ts` exports `cn()` with `clsx` and `tailwind-merge`. |
 | Tokens | `app/globals.css` imports `design-system/tokens.css`, which defines shadcn semantic tokens for neutral core surfaces, indigo primary actions, cyan chart colors, success, warning, info, destructive, borders, inputs, sidebar colors, radius, shadows, and typography. |
 | Dark mode | Token values exist under `.dark`, Tailwind has `@custom-variant dark (&:is(.dark *));`, and `ThemeProvider` plus `ThemeToggle` are available. |
-| Typography | `app/layout.tsx` loads `Vazirmatn` and `JetBrains_Mono` through `next/font/google`; `--font-sans` maps to Vazirmatn and `--font-mono` maps to JetBrains Mono. |
+| Typography | `app/layout.tsx` loads the official Estedad variable webfont through `next/font/local`; the existing `Vazirmatn` and `JetBrains_Mono` setup remains available through `next/font/google`. `--font-sans` maps to Estedad with Vazirmatn as its retained fallback, and `--font-mono` maps to JetBrains Mono. |
 | RTL | shadcn config enables RTL, the app root renders `dir="rtl"`, and `lang` comes from `next-intl`. |
 | Page patterns | Product pages now use the tenant-admin shell, operational dashboard pages, and form/list/detail workflows; new UI should extend those patterns rather than the original starter. |
 | Naming | Current conventions are root-level `app`, `components`, `components/ui`, `lib`, and `@/*` imports. |
@@ -37,7 +37,7 @@ Next.js 16 note: follow the local docs in `node_modules/next/dist/docs/` before 
 
 ## 2. Visual Identity
 
-GodarAI tenant-admin uses Vazirmatn typography, neutral application surfaces, crisp data cards, indigo primary actions and selection in both themes, a restrained cyan chart scale, and independent semantic operational states. Tenant-admin should feel like a focused control plane for teams running LLM-powered products—precise, reliable, modern, and enterprise-ready, with enough density to compare providers, models, traces, cost, and limits quickly.
+GodarAI tenant-admin uses Estedad typography, neutral application surfaces, crisp data cards, indigo primary actions and selection in both themes, a restrained cyan chart scale, and independent semantic operational states. Tenant-admin should feel like a focused control plane for teams running LLM-powered products—precise, reliable, modern, and enterprise-ready, with enough density to compare providers, models, traces, cost, and limits quickly.
 
 Use restrained 10px cards, thin semantic borders, compact controls, meaningful icons, readable tables, and status colors that serve operations. The sidebar remains distinct through a neutral surface, border, active indigo marker, and quiet texture; the main canvas stays intentionally quieter. Green, amber, and red communicate operational meaning. Low-contrast geometric grids may appear on the shell and authentication canvases, but never compete with dense content.
 
@@ -164,16 +164,17 @@ For every new or changed color token or component:
 
 ## 4. Typography
 
-Current fonts are loaded through `next/font/google` in `app/layout.tsx`. Keep using `next/font` for app-wide fonts because it self-hosts optimized font assets and avoids layout shift. Do not add external font files or network CSS unless explicitly approved.
+App-wide fonts are loaded through `next/font` in `app/layout.tsx`: Estedad uses the official local variable webfont, while the retained Vazirmatn fallback and JetBrains Mono use `next/font/google`. Keep using `next/font` because it self-hosts optimized font assets and avoids layout shift. Do not add runtime font requests or network CSS.
 
 | Text type | Rule |
 | --- | --- |
-| Product UI | Use `font-sans`; currently Vazirmatn via `--font-sans`, matching the website and Persian-first product tone. |
-| Persian/Farsi | Vazirmatn is installed through `next/font/google` with Arabic and Latin subsets. Test digits, diacritics, line-height, and mixed Persian/English strings. |
-| English | Vazirmatn is acceptable for bilingual product UI; technical Latin strings should use `font-mono` where scanability matters. |
+| Product UI | Use `font-sans`; Estedad is the primary face via `--font-sans`, with Vazirmatn retained as the first fallback during evaluation. |
+| Persian/Farsi | Estedad is loaded from the official variable WOFF2 with weights 100–900. Test digits, diacritics, line-height, and mixed Persian/English strings. |
+| English | Estedad supports bilingual product UI; technical Latin strings should use `font-mono` where scanability matters. |
 | Code and IDs | Use `font-mono`; current token maps to JetBrains Mono. |
-| Headings | Keep compact: page titles `text-2xl font-semibold`, section titles `text-base` to `text-lg font-semibold`, card titles `text-sm` to `text-base font-medium`. |
-| Body | Default `text-sm` for app content; `text-base` only for dense explanatory pages or major empty states. |
+| Headings | Use weight 600 or 700 and keep them compact: page titles `text-2xl font-bold`, section titles `text-base` to `text-lg font-semibold`, and card titles `text-sm` to `text-base font-semibold`. |
+| Body and interface text | Use weight 400 for normal text and 400 or 500 for interface text. Default to `text-sm` for app content; use `text-base` only for dense explanatory pages or major empty states. |
+| Buttons | Use weight 500 by default and 600 only when stronger action emphasis is needed. |
 | Tables | `text-sm`, compact row height, `font-mono` for IDs, endpoints, model names, and request IDs. |
 | Metrics | Use `text-2xl font-semibold` for primary dashboard values; pair with `text-xs` or `text-sm text-muted-foreground` labels. |
 | Helper text | `text-xs` or `text-sm text-muted-foreground`; keep it short and actionable. |

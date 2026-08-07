@@ -16,7 +16,7 @@ WCAG 2.2 ساخته می‌شوند.
 | بخش | قبل | بعد |
 |-----|-----|-----|
 | پالت رنگی | Cobalt/Graphite | Neutral/Indigo با نمودارهای Cyan |
-| تایپوگرافی | Vazirmatn (بدون وزن) | Vazirmatn (9 وزن) |
+| تایپوگرافی | Vazirmatn | Estedad متغیر (وزن‌های 100 تا 900) با fallback موقت Vazirmatn |
 | گوشه‌ها | `rounded-md` | `rounded-lg` و `rounded-xl` |
 | سایه‌ها | `shadow-sm` ساده | سایه‌های سفارشی با glow |
 | انیمیشن‌ها | بدون انیمیشن | Microinteractions هدفمند |
@@ -416,6 +416,7 @@ pnpm build
 
 - [WCAG 2.2 Guidelines](https://www.w3.org/TR/WCAG22/)
 - [OKLCH Color Space](https://oklch.com/)
-- [Vazirmatn Font](https://github.com/rastikerdar/vazirmatn)
+- [Estedad Font](https://github.com/aminabedi68/Estedad)
+- [Vazirmatn Font](https://github.com/rastikerdar/vazirmatn) — fallback موقت در دورهٔ ارزیابی
 - [TailwindCSS Documentation](https://tailwindcss.com/)
 - [Radix UI Primitives](https://www.radix-ui.com/)

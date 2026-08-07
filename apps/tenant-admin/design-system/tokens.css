@@ -226,7 +226,7 @@
    ======================================== */
 
 :root {
-  --font-sans: var(--font-vazirmatn), 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-estedad), 'Estedad', var(--font-vazirmatn), 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, monospace;
 
   /* Font weights */
