@@ -34,6 +34,9 @@ type APIErrorPayload = {
 
 const CONTROL_PLANE_USER_ID_HEADER = "x-godarai-user-id";
 const LEGACY_CONTROL_PLANE_USER_ID_HEADER = "x-shahrah-user-id";
+const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
+const SSE_READY_COMMENT = new TextEncoder().encode(": gateway-ready\n\n");
+const SSE_HEARTBEAT_COMMENT = new TextEncoder().encode(": keep-alive\n\n");
 
 export type ControlPlaneResponse = {
   ok: boolean;
@@ -168,14 +171,19 @@ export async function proxyToControlPlaneStream(options: ProxyOptions) {
       signal: options.request.signal,
     });
 
+    const contentType = upstream.headers.get("content-type") || "text/event-stream; charset=utf-8";
     const responseHeaders = new Headers({
-      "Content-Type": upstream.headers.get("content-type") || "text/event-stream; charset=utf-8",
+      "Content-Type": contentType,
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
     });
     copySafeOperationalHeaders(upstream.headers, responseHeaders, options.exposeResponseHeaders);
 
-    return new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders });
+    const responseBody = upstream.ok && isEventStreamContentType(contentType) && upstream.body
+      ? createSSEHeartbeatStream(upstream.body, { signal: options.request.signal })
+      : upstream.body;
+
+    return new NextResponse(responseBody, { status: upstream.status, headers: responseHeaders });
   } catch (error) {
     if (options.request.signal.aborted) {
       return new NextResponse(null, { status: 499 });
@@ -183,6 +191,133 @@ export async function proxyToControlPlaneStream(options: ProxyOptions) {
     const message = error instanceof Error ? error.message : "اتصال به API مدیریت control-plane برقرار نشد.";
     return NextResponse.json({ error: { message } }, { status: 502 });
   }
+}
+
+type SSEHeartbeatStreamOptions = {
+  signal?: AbortSignal;
+  heartbeatIntervalMs?: number;
+};
+
+/**
+ * Keeps an SSE response live without inserting comments inside a partial event.
+ */
+export function createSSEHeartbeatStream(
+  source: ReadableStream<Uint8Array>,
+  options: SSEHeartbeatStreamOptions = {},
+): ReadableStream<Uint8Array> {
+  const reader = source.getReader();
+  const boundary = createSSEFrameBoundaryTracker();
+  const intervalMs = options.heartbeatIntervalMs ?? SSE_HEARTBEAT_INTERVAL_MS;
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  let stopped = false;
+  let removeAbortListener: () => void = () => undefined;
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const stop = () => {
+        if (stopped) return;
+        stopped = true;
+        if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer);
+        removeAbortListener();
+      };
+
+      const cancelUpstream = (reason?: unknown) => {
+        void reader.cancel(reason).catch(() => undefined);
+      };
+
+      const abort = () => {
+        if (stopped) return;
+        const reason = options.signal?.reason ?? new DOMException("The operation was aborted.", "AbortError");
+        stop();
+        cancelUpstream(reason);
+        controller.error(reason);
+      };
+
+      if (options.signal) {
+        if (options.signal.aborted) {
+          abort();
+          return;
+        }
+        options.signal.addEventListener("abort", abort, { once: true });
+        removeAbortListener = () => options.signal?.removeEventListener("abort", abort);
+      }
+
+      controller.enqueue(SSE_READY_COMMENT.slice());
+      if (intervalMs > 0) {
+        heartbeatTimer = setInterval(() => {
+          if (!stopped && boundary.atFrameBoundary()) {
+            controller.enqueue(SSE_HEARTBEAT_COMMENT.slice());
+          }
+        }, intervalMs);
+      }
+
+      void (async () => {
+        try {
+          while (!stopped) {
+            const { done, value } = await reader.read();
+            if (stopped) return;
+            if (done) {
+              stop();
+              controller.close();
+              return;
+            }
+            if (value.byteLength === 0) continue;
+            boundary.observe(value);
+            controller.enqueue(value);
+          }
+        } catch (error) {
+          if (stopped) return;
+          stop();
+          controller.error(error);
+        }
+      })();
+    },
+    async cancel(reason) {
+      if (stopped) return;
+      stopped = true;
+      if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer);
+      removeAbortListener();
+      await reader.cancel(reason);
+    },
+  });
+}
+
+function isEventStreamContentType(contentType: string): boolean {
+  return contentType.toLowerCase().includes("text/event-stream");
+}
+
+function createSSEFrameBoundaryTracker() {
+  let lineHasContent = false;
+  let previousWasCarriageReturn = false;
+  let frameBoundary = true;
+
+  const endLine = () => {
+    frameBoundary = !lineHasContent;
+    lineHasContent = false;
+  };
+
+  return {
+    observe(chunk: Uint8Array) {
+      for (const byte of chunk) {
+        if (byte === 13) {
+          endLine();
+          previousWasCarriageReturn = true;
+          continue;
+        }
+        if (byte === 10) {
+          if (!previousWasCarriageReturn) endLine();
+          previousWasCarriageReturn = false;
+          continue;
+        }
+        previousWasCarriageReturn = false;
+        lineHasContent = true;
+        frameBoundary = false;
+      }
+    },
+    atFrameBoundary() {
+      return frameBoundary;
+    },
+  };
 }
 
 export async function proxyToControlPlaneBinary(options: ProxyOptions) {

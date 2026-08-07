@@ -8,6 +8,7 @@ vi.mock("@/lib/auth/request-auth", () => ({
 }));
 
 import {
+  createSSEHeartbeatStream,
   proxyPublicInvitationAcceptance,
   proxyToControlPlane,
   proxyToControlPlaneBinary,
@@ -244,12 +245,186 @@ describe("authenticated control-plane proxy", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.text()).resolves.toBe(streamBody);
+    await expect(response.text()).resolves.toBe(`: gateway-ready\n\n${streamBody}`);
+    expect(response.headers.get("cache-control")).toBe("no-cache, no-transform");
+    expect(response.headers.get("x-accel-buffering")).toBe("no");
     expect(response.headers.get("x-godarai-cost-irr")).toBe("1200");
     expect(response.headers.has("x-internal-secret")).toBe(false);
     expect(response.headers.has("set-cookie")).toBe(false);
     const [, init] = fetchMock.mock.calls[0];
     expect(init?.body).toBe(JSON.stringify({ model: "gpt-test", stream: true }));
+  });
+
+  it("emits periodic SSE heartbeats while an upstream stream is idle", async () => {
+    vi.useFakeTimers();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let sourceController: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        sourceController = controller;
+      },
+    });
+    const reader = createSSEHeartbeatStream(source, { heartbeatIntervalMs: 1_000 }).getReader();
+
+    try {
+      const ready = await reader.read();
+      expect(decoder.decode(ready.value)).toBe(": gateway-ready\n\n");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      const heartbeat = await reader.read();
+      expect(decoder.decode(heartbeat.value)).toBe(": keep-alive\n\n");
+
+      sourceController?.enqueue(encoder.encode("data: {\"choices\":[]}\n\n"));
+      const data = await reader.read();
+      expect(decoder.decode(data.value)).toBe("data: {\"choices\":[]}\n\n");
+      sourceController?.close();
+      await expect(reader.read()).resolves.toMatchObject({ done: true });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never inserts a heartbeat inside a partial SSE event", async () => {
+    vi.useFakeTimers();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let sourceController: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        sourceController = controller;
+      },
+    });
+    const reader = createSSEHeartbeatStream(source, { heartbeatIntervalMs: 1_000 }).getReader();
+
+    try {
+      await reader.read();
+      sourceController?.enqueue(encoder.encode("data: {\"choices\":"));
+      const partial = await reader.read();
+      expect(decoder.decode(partial.value)).toBe("data: {\"choices\":");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      sourceController?.enqueue(encoder.encode("[]}\n\n"));
+      const remainder = await reader.read();
+      expect(decoder.decode(remainder.value)).toBe("[]}\n\n");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      const heartbeat = await reader.read();
+      expect(decoder.decode(heartbeat.value)).toBe(": keep-alive\n\n");
+      await reader.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels the upstream SSE reader and heartbeat timer when the client disconnects", async () => {
+    vi.useFakeTimers();
+    const cancel = vi.fn();
+    const source = new ReadableStream<Uint8Array>({ cancel });
+    const reader = createSSEHeartbeatStream(source, { heartbeatIntervalMs: 1_000 }).getReader();
+
+    try {
+      await reader.read();
+      await reader.cancel("client disconnected");
+
+      expect(cancel).toHaveBeenCalledWith("client disconnected");
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels the upstream SSE reader when the request signal is aborted", async () => {
+    vi.useFakeTimers();
+    const cancel = vi.fn();
+    const abortController = new AbortController();
+    const source = new ReadableStream<Uint8Array>({ cancel });
+    const reader = createSSEHeartbeatStream(source, {
+      heartbeatIntervalMs: 1_000,
+      signal: abortController.signal,
+    }).getReader();
+
+    try {
+      await reader.read();
+      const pendingRead = reader.read();
+      abortController.abort(new DOMException("request aborted", "AbortError"));
+
+      await expect(pendingRead).rejects.toMatchObject({ name: "AbortError" });
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps concurrent SSE heartbeat timers isolated", async () => {
+    vi.useFakeTimers();
+    const firstReader = createSSEHeartbeatStream(new ReadableStream<Uint8Array>(), { heartbeatIntervalMs: 1_000 }).getReader();
+    const secondReader = createSSEHeartbeatStream(new ReadableStream<Uint8Array>(), { heartbeatIntervalMs: 1_000 }).getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      await firstReader.read();
+      await secondReader.read();
+      expect(vi.getTimerCount()).toBe(2);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(decoder.decode((await firstReader.read()).value)).toBe(": keep-alive\n\n");
+      expect(decoder.decode((await secondReader.read()).value)).toBe(": keep-alive\n\n");
+
+      await firstReader.cancel();
+      expect(vi.getTimerCount()).toBe(1);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(decoder.decode((await secondReader.read()).value)).toBe(": keep-alive\n\n");
+      await secondReader.cancel();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("propagates an upstream SSE failure and clears its heartbeat timer", async () => {
+    vi.useFakeTimers();
+    let sourceController: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        sourceController = controller;
+      },
+    });
+    const reader = createSSEHeartbeatStream(source, { heartbeatIntervalMs: 1_000 }).getReader();
+
+    try {
+      await reader.read();
+      const pendingRead = reader.read();
+      sourceController?.error(new Error("upstream stream failed"));
+
+      await expect(pendingRead).rejects.toThrow("upstream stream failed");
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not prepend SSE comments to a non-SSE upstream error", async () => {
+    readAuthFromRequestMock.mockResolvedValueOnce({
+      ok: true,
+      tenantSlug: "acme",
+      user: { id: "user-1" },
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ error: { message: "provider rejected request" } }, { status: 429 }),
+    );
+
+    const response = await proxyToControlPlaneStream({
+      request: tenantRequest("/api/playground/run"),
+      method: "POST",
+      path: "/v1/chat/completions",
+      body: { model: "gpt-test", stream: true },
+    });
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({ error: { message: "provider rejected request" } });
   });
 
   it("preserves public invitation acceptance through its fixed allowlisted upstream path", async () => {
