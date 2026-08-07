@@ -201,6 +201,13 @@ func (h *ChatCompletionHandler) admitChatRequest(
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": prepared.requestedModel})
 
 	quotaStart := time.Now()
+	isVirtualModel := h.virtualModelForBudgetDecision(
+		c.Context(),
+		prepared.tenant.ID,
+		prepared.authInfo,
+		prepared.requestedModel,
+	) != nil
+
 	estimateRequest := prepared.request
 	estimateRequest.Model = billingEstimateModel(prepared.requestedModel)
 
@@ -211,9 +218,13 @@ func (h *ChatCompletionHandler) admitChatRequest(
 
 	estimated.Metadata = prepared.request.Metadata
 
-	estimated, handled, err := applyAnthropicChatPricingPolicy(c, prepared.request, estimated)
-	if err != nil || handled {
-		return handledAdmittedChatRequest(admittedChatRequest{}, err)
+	if !isVirtualModel {
+		var handled bool
+
+		estimated, handled, err = applyAnthropicChatPricingPolicy(c, prepared.request, estimated)
+		if err != nil || handled {
+			return handledAdmittedChatRequest(admittedChatRequest{}, err)
+		}
 	}
 
 	rateLimit, err := h.billing.CheckRateLimit(c.Context(), prepared.authInfo, prepared.requestedModel, estimated.TotalTokens)
@@ -242,8 +253,7 @@ func (h *ChatCompletionHandler) admitChatRequest(
 		admitted.requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
 	}
 
-	deferBudgetUntilRoute := shouldDeferBudgetReservationUntilRoute(prepared.requestedModel) ||
-		h.shouldDeferBudgetForVirtualModel(c.Context(), prepared.tenant.ID, prepared.authInfo, prepared.requestedModel)
+	deferBudgetUntilRoute := shouldDeferBudgetReservationUntilRoute(prepared.requestedModel) || isVirtualModel
 	if !deferBudgetUntilRoute {
 		admitted.reservationAttempted = true
 
@@ -263,21 +273,33 @@ func applyAnthropicChatPricingPolicy(
 	request contractsopenai.ChatCompletionRequest,
 	estimated platform.UsageCostBreakdown,
 ) (platform.UsageCostBreakdown, bool, error) {
+	estimated, err := applyAnthropicChatPricingEstimate(request, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
+	return estimated, false, nil
+}
+
+func applyAnthropicChatPricingEstimate(
+	request contractsopenai.ChatCompletionRequest,
+	estimated platform.UsageCostBreakdown,
+) (platform.UsageCostBreakdown, error) {
 	if estimated.ModelRuntimeProfile == nil ||
 		!strings.EqualFold(strings.TrimSpace(estimated.ModelRuntimeProfile.Provider), "anthropic") {
-		return estimated, false, nil
+		return estimated, nil
 	}
 
 	pricingConditions, err := anthropicOpenAIToolPricingPolicy(request)
 	if err != nil {
-		return platform.UsageCostBreakdown{}, true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+		return platform.UsageCostBreakdown{}, err
 	}
 
 	estimated.PricingConditions = mergePricingConditions(estimated.PricingConditions, pricingConditions)
 	estimated.Speed = estimated.ModelRuntimeProfile.Profile.EffectiveSpeed(request.Speed)
 	estimated.Metadata = withAnthropicEffectiveSpeedMetadata(estimated.Metadata, request.Speed, estimated.Speed)
 
-	return estimated, false, nil
+	return estimated, nil
 }
 
 func (h *ChatCompletionHandler) routeChatRequest(
@@ -322,41 +344,52 @@ func (h *ChatCompletionHandler) routeChatRequest(
 		return handledRoutedChatRequest(dependencyErr)
 	}
 
-	if handled, validationErr := h.validateChatDeploymentRequest(c, prepared.tenant.ID, prepared.requestedModel, prepared.request, deployment); handled || validationErr != nil {
-		return handledRoutedChatRequest(validationErr)
-	}
+	var runtimeProfiles []platform.ModelRuntimeProfileBinding
 
-	runtimeModel := strings.TrimSpace(deployment.Model)
-	if runtimeModel == "" || runtimeModel == "*" {
-		runtimeModel = prepared.resolvedModel
-	}
+	var routedEstimate platform.UsageCostBreakdown
 
-	runtimeProfiles, err := runtimeProfilesFromEstimate(deployment.Provider, runtimeModel, admitted.estimated)
-	if err != nil {
-		return handledRoutedChatRequest(writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable"))
-	}
+	budgetBillingMode := deploymentBillingMode(toContractDeployment(deployment))
 
-	var runtimeProfile *platform.ModelRuntimeProfileBinding
-	if len(runtimeProfiles) == 1 {
-		runtimeProfile = &runtimeProfiles[0]
-	}
+	if isVirtual {
+		routedEstimate, budgetBillingMode, err = h.preflightVirtualChatTargets(
+			c,
+			prepared.tenant.ID,
+			prepared.request,
+		)
+		if err != nil {
+			return handledRoutedChatRequest(writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted"))
+		}
+	} else {
+		if handled, validationErr := h.validateChatDeploymentRequest(c, prepared.tenant.ID, prepared.requestedModel, prepared.request, deployment); handled || validationErr != nil {
+			return handledRoutedChatRequest(validationErr)
+		}
 
-	if handled, validationErr := h.validateChatRuntimeProfile(c, prepared.request, deployment, runtimeProfile); handled || validationErr != nil {
-		return handledRoutedChatRequest(validationErr)
-	}
+		runtimeModel := strings.TrimSpace(deployment.Model)
+		if runtimeModel == "" || runtimeModel == "*" {
+			runtimeModel = prepared.resolvedModel
+		}
 
-	routedEstimate, err := applyDeploymentPricingOverride(c.Context(), h.pipeline, admitted.estimated, deployment)
-	if err != nil {
-		return handledRoutedChatRequest(writeBillingEstimateError(c, err))
+		runtimeProfiles, err = runtimeProfilesFromEstimate(deployment.Provider, runtimeModel, admitted.estimated)
+		if err != nil {
+			return handledRoutedChatRequest(writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable"))
+		}
+
+		var runtimeProfile *platform.ModelRuntimeProfileBinding
+		if len(runtimeProfiles) == 1 {
+			runtimeProfile = &runtimeProfiles[0]
+		}
+
+		if handled, validationErr := h.validateChatRuntimeProfile(c, prepared.request, deployment, runtimeProfile); handled || validationErr != nil {
+			return handledRoutedChatRequest(validationErr)
+		}
+
+		routedEstimate, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, admitted.estimated, deployment)
+		if err != nil {
+			return handledRoutedChatRequest(writeBillingEstimateError(c, err))
+		}
 	}
 
 	estimated := routedEstimate
-	if isVirtual {
-		// Retry/fallback may select a deployment with a different private-pricing
-		// policy. Preserve the catalog estimate so dispatch can apply the policy
-		// of the deployment that actually receives the request.
-		estimated = admitted.estimated
-	}
 
 	if !isVirtual {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": deployment.Provider, "deployment_id": deployment.ID})
@@ -371,7 +404,7 @@ func (h *ChatCompletionHandler) routeChatRequest(
 	tunnelRequest.Body = payload
 	tunnelRequest.Deployment = toContractDeployment(deployment)
 
-	if strings.EqualFold(strings.TrimSpace(deployment.Provider), "xai") {
+	if !isVirtual && strings.EqualFold(strings.TrimSpace(deployment.Provider), "xai") {
 		payload, err = rewriteXAIFileReferences(c.Context(), h.resources, prepared.tenant.ID, deployment.ProviderAccountID, payload)
 		if err != nil {
 			return handledRoutedChatRequest(writeXAIFileReferenceError(c, err))
@@ -388,7 +421,7 @@ func (h *ChatCompletionHandler) routeChatRequest(
 
 	reservation := admitted.reservation
 	if !admitted.reservationAttempted {
-		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, prepared.authInfo, routedEstimate, admitted.requestID, deploymentBillingMode(tunnelRequest.Deployment)))
+		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, prepared.authInfo, routedEstimate, admitted.requestID, budgetBillingMode))
 		if err != nil {
 			return handledRoutedChatRequest(writeBudgetCheckError(c, err))
 		}

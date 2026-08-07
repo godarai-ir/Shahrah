@@ -150,7 +150,6 @@ func (h *ChatCompletionHandler) dispatchChatProvider(
 	}
 
 	selectedRequest := baseRequest
-	baseEstimate := estimated
 	selectedEstimate := estimated
 
 	response, selectedDeployment, fallbackCount, failureReason, err := h.vmExec.ExecuteSync(
@@ -162,12 +161,11 @@ func (h *ChatCompletionHandler) dispatchChatProvider(
 				c,
 				baseRequest.TenantID,
 				request,
-				baseEstimate,
 				baseRequest,
 				deployment,
 			)
 			if prepareErr != nil {
-				return nil, prepareErr
+				return nil, virtualmodels.WithoutRetry(prepareErr)
 			}
 
 			selectedRequest = candidateRequest

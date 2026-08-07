@@ -3,6 +3,7 @@ package virtualmodels_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
@@ -281,6 +282,50 @@ func TestExecutorSyncRetryDelayHonorsContextCancellation(t *testing.T) {
 	assert.Equal(t, 1, attempts)
 }
 
+func TestExecutorSyncSkipsRetriesForMarkedError(t *testing.T) {
+	exec := virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
+	targets := []platform.VirtualModelTarget{
+		{
+			Provider: "openai",
+			Model:    "gpt-4o",
+			Policy: platform.VirtualModelPolicy{
+				Retry:    platform.VirtualModelRetryPolicy{Attempts: 3},
+				Fallback: platform.VirtualModelFallbackPolicy{Candidate: true},
+			},
+		},
+		{
+			Provider: "anthropic",
+			Model:    "claude-sonnet",
+			Policy: platform.VirtualModelPolicy{
+				Retry:    platform.VirtualModelRetryPolicy{Attempts: 1},
+				Fallback: platform.VirtualModelFallbackPolicy{Candidate: true},
+			},
+		},
+	}
+	firstTargetAttempts := 0
+
+	response, deployment, fallbackCount, _, err := exec.ExecuteSync(
+		context.Background(),
+		targets,
+		func(_ context.Context, deployment *router.Deployment) (*platform.TunnelResponse, error) {
+			if deployment.Provider == "openai" {
+				firstTargetAttempts++
+
+				return nil, virtualmodels.WithoutRetry(errors.New("target preparation failed"))
+			}
+
+			return &platform.TunnelResponse{StatusCode: http.StatusOK}, nil
+		},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	assert.Equal(t, "anthropic", deployment.Provider)
+	assert.Equal(t, 1, fallbackCount)
+	assert.Equal(t, 1, firstTargetAttempts)
+}
+
 func TestExecutorSyncFallsBackAfterEmptyResponse(t *testing.T) {
 	exec := virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
 	targets := []platform.VirtualModelTarget{
@@ -402,6 +447,50 @@ func TestExecutorStreamFallsBackBeforeCommitAndClosesFailedStream(t *testing.T) 
 	assert.Equal(t, 1, fallbackCount)
 	assert.True(t, failed.closed)
 	assert.False(t, succeeded.closed)
+}
+
+func TestExecutorStreamSkipsRetriesForMarkedError(t *testing.T) {
+	exec := virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
+	targets := []platform.VirtualModelTarget{
+		{
+			Provider: "openai",
+			Model:    "gpt-4o",
+			Policy: platform.VirtualModelPolicy{
+				Retry:    platform.VirtualModelRetryPolicy{Attempts: 3},
+				Fallback: platform.VirtualModelFallbackPolicy{Candidate: true},
+			},
+		},
+		{
+			Provider: "anthropic",
+			Model:    "claude-sonnet",
+			Policy: platform.VirtualModelPolicy{
+				Retry:    platform.VirtualModelRetryPolicy{Attempts: 1},
+				Fallback: platform.VirtualModelFallbackPolicy{Candidate: true},
+			},
+		},
+	}
+	firstTargetAttempts := 0
+	want := newExecutorTestStream(http.StatusOK)
+
+	stream, deployment, fallbackCount, _, err := exec.ExecuteStream(
+		context.Background(),
+		targets,
+		func(_ context.Context, deployment *router.Deployment) (platform.TunnelStream, error) {
+			if deployment.Provider == "openai" {
+				firstTargetAttempts++
+
+				return nil, virtualmodels.WithoutRetry(errors.New("target preparation failed"))
+			}
+
+			return want, nil
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Same(t, want, stream)
+	assert.Equal(t, "anthropic", deployment.Provider)
+	assert.Equal(t, 1, fallbackCount)
+	assert.Equal(t, 1, firstTargetAttempts)
 }
 
 func TestExecutorStreamReturnsNonFallbackHTTPErrorToCaller(t *testing.T) {

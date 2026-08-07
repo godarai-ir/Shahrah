@@ -746,27 +746,6 @@ func (h *ChatCompletionHandler) prepareVirtualModelRoute(
 	return firstDeployment, nil
 }
 
-func (h *ChatCompletionHandler) shouldDeferBudgetForVirtualModel(ctx context.Context, tenantID string, authInfo *platform.AuthContext, requestedModel string) bool {
-	vm := h.virtualModelForBudgetDecision(ctx, tenantID, authInfo, requestedModel)
-	if vm == nil || h.vmEngine == nil {
-		return false
-	}
-
-	targets, err := h.vmEngine.SelectTargets(vm)
-	if err != nil || len(targets) == 0 {
-		return false
-	}
-
-	for _, target := range targets {
-		dep := h.resolveVirtualDeployment(ctx, tenantID, deploymentFromVirtualTarget(target))
-		if dep == nil || deploymentBillingMode(toContractDeployment(dep)) != platform.BillingModeExternalBilled {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (h *ChatCompletionHandler) virtualModelForBudgetDecision(ctx context.Context, tenantID string, authInfo *platform.AuthContext, requestedModel string) *platform.VirtualModel {
 	if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
 		return snapshotVM
@@ -784,6 +763,167 @@ func (h *ChatCompletionHandler) virtualModelForBudgetDecision(ctx context.Contex
 	return vm
 }
 
+func (h *ChatCompletionHandler) preflightVirtualChatTargets(
+	c *fiber.Ctx,
+	tenantID string,
+	request contractsopenai.ChatCompletionRequest,
+) (platform.UsageCostBreakdown, string, error) {
+	state := existingRequestContext(c)
+	if state == nil || len(state.virtualModelTargets) == 0 {
+		return platform.UsageCostBreakdown{}, "", virtualmodels.ErrNoEligibleTargets
+	}
+
+	preparations := make(map[string]virtualChatTargetPreparation, len(state.virtualModelTargets))
+
+	var (
+		walletEstimate    platform.UsageCostBreakdown
+		externalEstimate  platform.UsageCostBreakdown
+		lastErr           error
+		attemptedTargets  int
+		hasWalletTarget   bool
+		hasExternalTarget bool
+	)
+
+	for targetIndex := range state.virtualModelTargets {
+		target := state.virtualModelTargets[targetIndex]
+		if targetIndex > 0 && !target.Policy.Fallback.Candidate {
+			continue
+		}
+
+		attemptedTargets++
+
+		targetDeployment := deploymentFromVirtualTarget(target)
+		key := virtualChatTargetKey(targetDeployment)
+		preparation := virtualChatTargetPreparation{}
+
+		resolved, err := resolveVirtualDeploymentStrict(c.Context(), h.llmRouter, tenantID, targetDeployment)
+		if err == nil {
+			preparation.deployment = resolved
+			preparation.estimated, preparation.runtimeProfiles, err = h.estimateVirtualChatTarget(
+				c.Context(),
+				request,
+				resolved,
+			)
+		}
+
+		if err != nil {
+			preparation.err = fmt.Errorf("prepare virtual model target %s: %w", target.Model, err)
+			preparations[key] = preparation
+			lastErr = preparation.err
+
+			continue
+		}
+
+		preparations[key] = preparation
+
+		billingMode := deploymentBillingMode(toContractDeployment(resolved))
+		if billingMode == platform.BillingModeExternalBilled {
+			if !hasExternalTarget {
+				externalEstimate = preparation.estimated
+				hasExternalTarget = true
+			}
+
+			continue
+		}
+
+		if !hasWalletTarget || isHigherVirtualModelBudgetEstimate(preparation.estimated, walletEstimate) {
+			walletEstimate = preparation.estimated
+			hasWalletTarget = true
+		}
+	}
+
+	state.virtualChatTargets = preparations
+
+	if hasWalletTarget {
+		return walletEstimate, platform.BillingModeWalletBilled, nil
+	}
+
+	if hasExternalTarget {
+		return externalEstimate, platform.BillingModeExternalBilled, nil
+	}
+
+	fallbackCount := attemptedTargets - 1
+	if fallbackCount < 0 {
+		fallbackCount = 0
+	}
+
+	failureReason := "no virtual model target passed preparation"
+	if lastErr != nil {
+		failureReason = lastErr.Error()
+	}
+
+	setVirtualModelFailure(c, fallbackCount, failureReason)
+
+	return platform.UsageCostBreakdown{}, "", fmt.Errorf("%w: %s", virtualmodels.ErrFallbackExhausted, failureReason)
+}
+
+func (h *ChatCompletionHandler) estimateVirtualChatTarget(
+	ctx context.Context,
+	request contractsopenai.ChatCompletionRequest,
+	deployment *router.Deployment,
+) (platform.UsageCostBreakdown, []platform.ModelRuntimeProfileBinding, error) {
+	if deployment == nil {
+		return platform.UsageCostBreakdown{}, nil, errors.New("virtual model target deployment is unavailable")
+	}
+
+	if _, _, err := h.chatDeploymentRequestValidationError(request, deployment); err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	estimateRequest := request
+	estimateRequest.Model = billingEstimateModel(deployment.ModelName)
+
+	estimated, err := h.billing.EstimateCost(ctx, estimateRequest)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	estimated.Metadata = request.Metadata
+
+	estimated, err = applyAnthropicChatPricingEstimate(request, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	estimated, err = applyDeploymentPricingOverride(ctx, h.pipeline, estimated, deployment)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	runtimeModel := strings.TrimSpace(deployment.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = providerModelID(deployment.ModelName)
+	}
+
+	runtimeProfiles, err := runtimeProfilesFromEstimate(deployment.Provider, runtimeModel, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	var runtimeProfile *platform.ModelRuntimeProfileBinding
+	if len(runtimeProfiles) == 1 {
+		runtimeProfile = &runtimeProfiles[0]
+	}
+
+	if err := chatRuntimeProfileValidationError(request, deployment, runtimeProfile); err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	return estimated, runtimeProfiles, nil
+}
+
+func isHigherVirtualModelBudgetEstimate(candidate, current platform.UsageCostBreakdown) bool {
+	if candidate.TotalCostIRR != current.TotalCostIRR {
+		return candidate.TotalCostIRR > current.TotalCostIRR
+	}
+
+	if candidate.TotalCostUSD != current.TotalCostUSD {
+		return candidate.TotalCostUSD > current.TotalCostUSD
+	}
+
+	return candidate.TotalTokens > current.TotalTokens
+}
+
 func deploymentFromVirtualTarget(target platform.VirtualModelTarget) *router.Deployment {
 	provider := strings.TrimSpace(target.Provider)
 
@@ -796,7 +936,7 @@ func deploymentFromVirtualTarget(target platform.VirtualModelTarget) *router.Dep
 		modelForProvider = official
 	}
 
-	return &router.Deployment{
+	deployment := &router.Deployment{
 		ID:        target.ID,
 		ModelName: target.Model,
 		Provider:  provider,
@@ -804,6 +944,9 @@ func deploymentFromVirtualTarget(target platform.VirtualModelTarget) *router.Dep
 		Healthy:   true,
 		Weight:    target.Weight,
 	}
+	deployment.Params.Timeout = target.Policy.TimeoutSec
+
+	return deployment
 }
 
 func recordVirtualModelSelection(
@@ -839,26 +982,6 @@ func recordVirtualModelSelection(
 	}
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_virtual_model", "internal", routeStart, fiber.StatusOK, metadata)
-}
-
-func (h *ChatCompletionHandler) resolveVirtualDeployment(ctx context.Context, tenantID string, dep *router.Deployment) *router.Deployment {
-	if h == nil || h.llmRouter == nil || dep == nil {
-		return dep
-	}
-
-	modelName := strings.TrimSpace(dep.ModelName)
-	if modelName == "" {
-		return dep
-	}
-
-	resolved, err := h.llmRouter.Route(ctx, tenantID, modelName)
-	if err != nil || resolved == nil {
-		return dep
-	}
-
-	*dep = *resolved
-
-	return dep
 }
 
 func (h *ChatCompletionHandler) handleSync(
@@ -1347,7 +1470,6 @@ func (h *ChatCompletionHandler) dispatchChatStream(
 	}
 
 	selectedRequest := baseRequest
-	baseEstimate := estimated
 	selectedEstimate := estimated
 
 	stream, selectedDeployment, fallbackCount, failureReason, err := h.vmExec.ExecuteStream(
@@ -1359,12 +1481,11 @@ func (h *ChatCompletionHandler) dispatchChatStream(
 				c,
 				tenantID,
 				req,
-				baseEstimate,
 				baseRequest,
 				deployment,
 			)
 			if prepareErr != nil {
-				return nil, prepareErr
+				return nil, virtualmodels.WithoutRetry(prepareErr)
 			}
 
 			selectedRequest = candidateRequest
@@ -1406,13 +1527,35 @@ func (h *ChatCompletionHandler) prepareVirtualChatRequest(
 	c *fiber.Ctx,
 	tenantID string,
 	req contractsopenai.ChatCompletionRequest,
-	estimated platform.UsageCostBreakdown,
 	baseRequest platform.TunnelRequest,
 	deployment *router.Deployment,
 ) (platform.TunnelRequest, platform.UsageCostBreakdown, error) {
-	resolved, err := resolveVirtualDeploymentStrict(ctx, h.llmRouter, tenantID, deployment)
-	if err != nil {
-		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	targetKey := virtualChatTargetKey(deployment)
+
+	var preparation virtualChatTargetPreparation
+
+	state := existingRequestContext(c)
+	if state != nil && state.virtualChatTargets != nil {
+		preparation = state.virtualChatTargets[targetKey]
+	}
+
+	if preparation.err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, preparation.err
+	}
+
+	resolved := preparation.deployment
+	if resolved == nil {
+		var err error
+
+		resolved, err = resolveVirtualDeploymentStrict(ctx, h.llmRouter, tenantID, deployment)
+		if err != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+		}
+
+		preparation.estimated, preparation.runtimeProfiles, err = h.estimateVirtualChatTarget(ctx, req, resolved)
+		if err != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+		}
 	}
 
 	*deployment = *resolved
@@ -1449,24 +1592,11 @@ func (h *ChatCompletionHandler) prepareVirtualChatRequest(
 
 	candidateRequest.Body = payload
 
-	candidateEstimate, err := applyDeploymentPricingOverride(ctx, h.pipeline, estimated, resolved)
-	if err != nil {
-		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
-	}
-
-	runtimeModel := strings.TrimSpace(resolved.Model)
-	if runtimeModel == "" || runtimeModel == "*" {
-		runtimeModel = providerModelID(resolved.ModelName)
-	}
-
-	candidateRequest.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
-		resolved.Provider,
-		runtimeModel,
-		candidateEstimate,
+	candidateEstimate := preparation.estimated
+	candidateRequest.ModelRuntimeProfiles = append(
+		[]platform.ModelRuntimeProfileBinding(nil),
+		preparation.runtimeProfiles...,
 	)
-	if err != nil {
-		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
-	}
 
 	var runtimeProfile *platform.ModelRuntimeProfileBinding
 	if len(candidateRequest.ModelRuntimeProfiles) == 1 {

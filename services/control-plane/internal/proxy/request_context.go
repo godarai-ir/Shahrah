@@ -13,6 +13,7 @@ type chatRequestContextKey struct{}
 type chatRequestContext struct {
 	virtualModel         *platform.VirtualModel
 	virtualModelTargets  []platform.VirtualModelTarget
+	virtualChatTargets   map[string]virtualChatTargetPreparation
 	virtualModelRouteAt  time.Time
 	virtualModelSnapshot bool
 	virtualModelActive   bool

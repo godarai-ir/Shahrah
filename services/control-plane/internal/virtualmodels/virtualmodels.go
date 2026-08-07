@@ -354,6 +354,33 @@ type Executor struct {
 	normalizer ErrorNormalizer
 }
 
+type withoutRetryError struct {
+	err error
+}
+
+func (e *withoutRetryError) Error() string {
+	return e.err.Error()
+}
+
+func (e *withoutRetryError) Unwrap() error {
+	return e.err
+}
+
+// WithoutRetry marks an error so the executor proceeds to the next fallback target without retrying the current target.
+func WithoutRetry(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return &withoutRetryError{err: err}
+}
+
+func isWithoutRetry(err error) bool {
+	var marked *withoutRetryError
+
+	return errors.As(err, &marked)
+}
+
 func NewExecutor(normalizer ErrorNormalizer) *Executor {
 	return &Executor{normalizer: normalizer}
 }
@@ -385,6 +412,9 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 			resp, err := doCall(ctx, dep)
 			if err != nil {
 				lastReason = err.Error()
+				if isWithoutRetry(err) {
+					break
+				}
 
 				if attempt < retries {
 					if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {
@@ -468,6 +498,9 @@ func (e *Executor) ExecuteStream(
 			stream, err := doCall(ctx, deployment)
 			if err != nil {
 				lastReason = err.Error()
+				if isWithoutRetry(err) {
+					break
+				}
 
 				if attempt < retries {
 					if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {

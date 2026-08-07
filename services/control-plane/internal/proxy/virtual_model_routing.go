@@ -17,6 +17,13 @@ type virtualModelRoutePlan struct {
 	fromSnapshot bool
 }
 
+type virtualChatTargetPreparation struct {
+	deployment      *router.Deployment
+	estimated       platform.UsageCostBreakdown
+	runtimeProfiles []platform.ModelRuntimeProfileBinding
+	err             error
+}
+
 func resolveVirtualModelRoutePlan(
 	ctx context.Context,
 	authInfo *platform.AuthContext,
@@ -125,6 +132,18 @@ func cloneStringMap(input map[string]string) map[string]string {
 	}
 
 	return out
+}
+
+func virtualChatTargetKey(deployment *router.Deployment) string {
+	if deployment == nil {
+		return ""
+	}
+
+	return strings.Join([]string{
+		strings.TrimSpace(deployment.ID),
+		strings.TrimSpace(deployment.Provider),
+		strings.TrimSpace(deployment.ModelName),
+	}, "\x00")
 }
 
 func deleteHeaderFold(headers map[string]string, name string) {

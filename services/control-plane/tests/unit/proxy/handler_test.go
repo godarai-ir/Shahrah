@@ -40,6 +40,7 @@ type mockTunnelTransport struct {
 	proxyErr       error
 	streamErr      error
 	lastRequest    platform.TunnelRequest
+	proxyRequests  []platform.TunnelRequest
 	streamRequests []platform.TunnelRequest
 	proxyCalls     int
 }
@@ -75,6 +76,7 @@ func newTestChatCompletionHandler(
 
 func (m *mockTunnelTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	m.lastRequest = req
+	m.proxyRequests = append(m.proxyRequests, req)
 
 	m.proxyCalls++
 	if len(m.responses) > 0 {
@@ -185,17 +187,32 @@ func (m *mockTunnelTransport) Healthy(ctx context.Context) error { return nil }
 
 // mockBilling implements budgeter interface for testing.
 type mockBilling struct {
-	cost           platform.UsageCostBreakdown
-	estimateErr    error
-	rateLimitErr   error
-	rateLimitRes   *mcache.RateLimitResult
-	budgetErr      error
-	estimateModel  string
-	finalizedUsage *contractsopenai.Usage
+	cost              platform.UsageCostBreakdown
+	costs             map[string]platform.UsageCostBreakdown
+	estimateErr       error
+	estimateErrs      map[string]error
+	rateLimitErr      error
+	rateLimitRes      *mcache.RateLimitResult
+	budgetErr         error
+	budgetEstimate    *platform.UsageCostBreakdown
+	estimateModel     string
+	estimateModels    []string
+	finalizedUsage    *contractsopenai.Usage
+	finalizedEstimate *platform.UsageCostBreakdown
 }
 
 func (m *mockBilling) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
 	m.estimateModel = req.Model
+	m.estimateModels = append(m.estimateModels, req.Model)
+
+	if err, ok := m.estimateErrs[req.Model]; ok {
+		return platform.UsageCostBreakdown{}, err
+	}
+
+	if cost, ok := m.costs[req.Model]; ok {
+		return cost, nil
+	}
+
 	return m.cost, m.estimateErr
 }
 
@@ -209,10 +226,16 @@ func (m *mockBilling) CheckRateLimit(ctx context.Context, authCtx *platform.Auth
 }
 
 func (m *mockBilling) CheckBudget(ctx context.Context, authCtx *platform.AuthContext, breakdown platform.UsageCostBreakdown) error {
+	breakdownCopy := breakdown
+	m.budgetEstimate = &breakdownCopy
+
 	return m.budgetErr
 }
 
 func (m *mockBilling) FinalizeFromUsage(ctx context.Context, model string, usage *contractsopenai.Usage, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
+	estimatedCopy := estimated
+	m.finalizedEstimate = &estimatedCopy
+
 	if usage != nil {
 		usageCopy := *usage
 		m.finalizedUsage = &usageCopy
@@ -223,6 +246,160 @@ func (m *mockBilling) FinalizeFromUsage(ctx context.Context, model string, usage
 
 func (m *mockBilling) FinalizeImageUsage(ctx context.Context, model string, usage *contractsopenai.Usage, providerCostUSDTicks *int64, estimated platform.UsageCostBreakdown) (platform.UsageCostBreakdown, error) {
 	return m.cost, nil
+}
+
+func newDeepSeekOpenAIVirtualModelRouter(t *testing.T, logger *zap.Logger) *llmrouter.Router {
+	t.Helper()
+
+	memCache, err := testcache.New(t, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, memCache.Close()) })
+
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{
+		{
+			ModelName: "deepseek:deepseek-ember-harbor:deepseek-v4-flash",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "deepseek",
+				Model:    "deepseek/deepseek-v4-flash",
+				APIKey:   "deepseek-key",
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-deepseek"},
+		},
+		{
+			ModelName: "openai:openai-calm-oasis:gpt-5.4-nano",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "openai",
+				Model:    "openai/gpt-5.4-nano",
+				APIKey:   "openai-key",
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-openai"},
+		},
+	}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	return r
+}
+
+func deepSeekOpenAIVirtualModel() *platform.VirtualModel {
+	return &platform.VirtualModel{
+		ID:              "vm-hi",
+		TenantID:        "tenant-1",
+		Alias:           "hi-vm",
+		RoutingStrategy: "priority",
+		Enabled:         true,
+		ExposedModes:    []string{"chat", "responses"},
+		Targets: []platform.VirtualModelTarget{
+			{
+				ID:       "target-deepseek",
+				Order:    1,
+				Provider: "deepseek",
+				Model:    "deepseek:deepseek-ember-harbor:deepseek-v4-flash",
+				Policy: platform.VirtualModelPolicy{
+					Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429, 500, 502, 503}},
+					Fallback: platform.VirtualModelFallbackPolicy{Candidate: true, StatusCodes: []int{429, 500, 502, 503, 504}},
+				},
+			},
+			{
+				ID:       "target-openai",
+				Order:    2,
+				Provider: "openai",
+				Model:    "openai:openai-calm-oasis:gpt-5.4-nano",
+				Policy: platform.VirtualModelPolicy{
+					Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429, 500, 502, 503}},
+					Fallback: platform.VirtualModelFallbackPolicy{Candidate: true, StatusCodes: []int{429, 500, 502, 503, 504}},
+				},
+			},
+		},
+	}
+}
+
+func deepSeekFlashRuntimeCost() platform.UsageCostBreakdown {
+	binding := platform.ModelRuntimeProfileBinding{
+		Provider:        "deepseek",
+		CatalogRevision: "deepseek-test-revision",
+		CanonicalID:     "deepseek/deepseek-v4-flash",
+		Slug:            "deepseek-v4-flash",
+		ProfileVersion:  2,
+		EffectiveFrom:   time.Now().UTC(),
+		Profile: platform.ModelRuntimeProfile{
+			Version:    2,
+			Endpoints:  []string{"models", "chat_completions", "responses"},
+			Transports: []string{"http", "sse"},
+			Lifecycle:  "preview",
+			Thinking: platform.ModelRuntimeThinkingProfile{
+				DefaultMode:  "adaptive",
+				AllowedModes: []string{"adaptive", "disabled"},
+				EffortValues: []string{"low", "high", "xhigh", "max"},
+			},
+			Sampling: platform.ModelRuntimeSamplingProfile{
+				Parameters:             []string{"temperature", "top_p"},
+				DisallowedWithThinking: []string{"temperature", "top_p"},
+			},
+			Tools: platform.ModelRuntimeToolsProfile{
+				Custom:           true,
+				StructuredOutput: true,
+				Supported:        []string{"function_calling"},
+			},
+			Modalities: platform.ModelRuntimeModalities{Input: []string{"text"}, Output: []string{"text"}},
+			Limits: platform.ModelRuntimeLimits{
+				ContextWindow:   1_048_576,
+				MaxInputTokens:  1_048_576,
+				MaxOutputTokens: 393_216,
+				MessagesBytes:   32 * 1024 * 1024,
+				BatchBytes:      256 * 1024 * 1024,
+				FileBytes:       500 * 1024 * 1024,
+			},
+		},
+	}
+
+	return platform.UsageCostBreakdown{
+		Model:               "deepseek:deepseek-ember-harbor:deepseek-v4-flash",
+		TotalTokens:         2,
+		TotalCostIRR:        200,
+		PricingRevision:     binding.CatalogRevision,
+		ModelRuntimeProfile: &binding,
+	}
+}
+
+func newDeepSeekOpenAIVirtualChatApp(
+	t *testing.T,
+	tunnel *mockTunnelTransport,
+	billing *mockBilling,
+	logs *mockLogger,
+) *fiber.App {
+	t.Helper()
+
+	logger := zap.NewNop()
+	handler := newTestChatCompletionHandler(
+		newDeepSeekOpenAIVirtualModelRouter(t, logger),
+		tunnel,
+		billing,
+		&mockWalletStore{},
+		logs,
+		logger,
+		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
+	)
+
+	return setupTestApp(t, handler)
+}
+
+func successfulChatTunnelResponse(t *testing.T, model string) *platform.TunnelResponse {
+	t.Helper()
+
+	body, err := json.Marshal(contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-virtual-target",
+		Object:  "chat.completion",
+		Model:   model,
+		Choices: []contractsopenai.Choice{{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "ok"}, FinishReason: "stop"}},
+		Usage:   &contractsopenai.Usage{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+	})
+	require.NoError(t, err)
+
+	return &platform.TunnelResponse{
+		StatusCode: http.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       body,
+	}
 }
 
 // mockWalletStore implements walletStore interface.
@@ -887,6 +1064,281 @@ func TestChatCompletionHandler_VirtualModelSyncFallsBackAtProviderDispatch(t *te
 	assert.Equal(t, "gpt-4o-mini", outbound.Model)
 	require.NotEmpty(t, logs.loggedEntries)
 	assert.Equal(t, 1, logs.loggedEntries[len(logs.loggedEntries)-1].FallbackCount)
+}
+
+func TestChatCompletionHandler_VirtualModelUsesTargetSpecificDeepSeekRuntimeProfile(t *testing.T) {
+	deepSeekModel := "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+	openAIModel := "openai:openai-calm-oasis:gpt-5.4-nano"
+	tunnel := &mockTunnelTransport{response: successfulChatTunnelResponse(t, "deepseek-v4-flash")}
+	billing := &mockBilling{
+		cost: platform.UsageCostBreakdown{Model: "hi-vm", TotalTokens: 2, TotalCostIRR: 100},
+		costs: map[string]platform.UsageCostBreakdown{
+			deepSeekModel: deepSeekFlashRuntimeCost(),
+			openAIModel:   {Model: openAIModel, TotalTokens: 2, TotalCostIRR: 150},
+		},
+	}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{"hi-vm": deepSeekOpenAIVirtualModel()}}
+	app := newDeepSeekOpenAIVirtualChatApp(t, tunnel, billing, logs)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.proxyRequests, 1)
+	assert.Equal(t, "deepseek", tunnel.proxyRequests[0].Deployment.Provider)
+	assert.Equal(t, "deepseek-v4-flash", tunnel.proxyRequests[0].Deployment.Model)
+	require.Len(t, tunnel.proxyRequests[0].ModelRuntimeProfiles, 1)
+	assert.Equal(t, "deepseek-v4-flash", tunnel.proxyRequests[0].ModelRuntimeProfiles[0].Slug)
+	assert.Contains(t, billing.estimateModels, "hi-vm")
+	assert.Contains(t, billing.estimateModels, deepSeekModel)
+	require.NotNil(t, billing.budgetEstimate)
+	assert.Equal(t, deepSeekModel, billing.budgetEstimate.Model)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, deepSeekModel, billing.finalizedEstimate.Model)
+
+	var outbound contractsopenai.ChatCompletionRequest
+	require.NoError(t, json.Unmarshal(tunnel.proxyRequests[0].Body, &outbound))
+	assert.Equal(t, "deepseek-v4-flash", outbound.Model)
+}
+
+func TestChatCompletionHandler_VirtualModelDoesNotApplyAliasRuntimePolicy(t *testing.T) {
+	openAIModel := "openai:openai-calm-oasis:gpt-5.4-nano"
+	virtualModel := deepSeekOpenAIVirtualModel()
+	virtualModel.Targets = []platform.VirtualModelTarget{virtualModel.Targets[1]}
+
+	tunnel := &mockTunnelTransport{response: successfulChatTunnelResponse(t, "gpt-5.4-nano")}
+	billing := &mockBilling{
+		cost: platform.UsageCostBreakdown{
+			Model:               "hi-vm",
+			TotalTokens:         2,
+			TotalCostIRR:        100,
+			ModelRuntimeProfile: &platform.ModelRuntimeProfileBinding{Provider: "anthropic"},
+		},
+		costs: map[string]platform.UsageCostBreakdown{
+			openAIModel: {Model: openAIModel, TotalTokens: 2, TotalCostIRR: 150},
+		},
+	}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{"hi-vm": virtualModel}}
+	app := newDeepSeekOpenAIVirtualChatApp(t, tunnel, billing, logs)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","messages":[{"role":"user","content":"hello"}],"tools":[{"type":"code_execution_20260521","name":"code_execution"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.proxyRequests, 1)
+	assert.Equal(t, "openai", tunnel.proxyRequests[0].Deployment.Provider)
+}
+
+func TestChatCompletionHandler_VirtualModelFallsBackWhenDeepSeekPreparationFails(t *testing.T) {
+	deepSeekModel := "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+	openAIModel := "openai:openai-calm-oasis:gpt-5.4-nano"
+	tunnel := &mockTunnelTransport{response: successfulChatTunnelResponse(t, "gpt-5.4-nano")}
+	billing := &mockBilling{
+		cost: platform.UsageCostBreakdown{Model: "hi-vm", TotalTokens: 2, TotalCostIRR: 100},
+		costs: map[string]platform.UsageCostBreakdown{
+			deepSeekModel: {Model: deepSeekModel, TotalTokens: 2, TotalCostIRR: 200},
+			openAIModel:   {Model: openAIModel, TotalTokens: 2, TotalCostIRR: 150},
+		},
+	}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{"hi-vm": deepSeekOpenAIVirtualModel()}}
+	app := newDeepSeekOpenAIVirtualChatApp(t, tunnel, billing, logs)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.proxyRequests, 1)
+	assert.Equal(t, "openai", tunnel.proxyRequests[0].Deployment.Provider)
+	assert.Equal(t, "gpt-5.4-nano", tunnel.proxyRequests[0].Deployment.Model)
+	require.NotNil(t, billing.budgetEstimate)
+	assert.Equal(t, openAIModel, billing.budgetEstimate.Model)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, openAIModel, billing.finalizedEstimate.Model)
+	require.NotEmpty(t, logs.loggedEntries)
+	assert.Equal(t, 1, logs.loggedEntries[len(logs.loggedEntries)-1].FallbackCount)
+}
+
+func TestChatCompletionHandler_VirtualModelFallsBackFromDeepSeekProviderFailure(t *testing.T) {
+	deepSeekModel := "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+	openAIModel := "openai:openai-calm-oasis:gpt-5.4-nano"
+	tunnel := &mockTunnelTransport{responses: []*platform.TunnelResponse{
+		{StatusCode: http.StatusInternalServerError, Body: []byte(`{"error":{"message":"deepseek unavailable"}}`)},
+		successfulChatTunnelResponse(t, "gpt-5.4-nano"),
+	}}
+	billing := &mockBilling{
+		cost: platform.UsageCostBreakdown{Model: "hi-vm", TotalTokens: 2, TotalCostIRR: 100},
+		costs: map[string]platform.UsageCostBreakdown{
+			deepSeekModel: deepSeekFlashRuntimeCost(),
+			openAIModel:   {Model: openAIModel, TotalTokens: 2, TotalCostIRR: 150},
+		},
+	}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{"hi-vm": deepSeekOpenAIVirtualModel()}}
+	app := newDeepSeekOpenAIVirtualChatApp(t, tunnel, billing, logs)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.proxyRequests, 2)
+	assert.Equal(t, "deepseek", tunnel.proxyRequests[0].Deployment.Provider)
+	assert.Equal(t, "openai", tunnel.proxyRequests[1].Deployment.Provider)
+	require.NotNil(t, billing.budgetEstimate)
+	assert.Equal(t, deepSeekModel, billing.budgetEstimate.Model)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, openAIModel, billing.finalizedEstimate.Model)
+	require.NotEmpty(t, logs.loggedEntries)
+	assert.Equal(t, 1, logs.loggedEntries[len(logs.loggedEntries)-1].FallbackCount)
+}
+
+func TestChatCompletionHandler_VirtualModelReturnsErrorOnlyAfterAllTargetsFail(t *testing.T) {
+	deepSeekModel := "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+	openAIModel := "openai:openai-calm-oasis:gpt-5.4-nano"
+	tunnel := &mockTunnelTransport{responses: []*platform.TunnelResponse{
+		{StatusCode: http.StatusInternalServerError, Body: []byte(`{"error":{"message":"deepseek unavailable"}}`)},
+		{StatusCode: http.StatusInternalServerError, Body: []byte(`{"error":{"message":"openai unavailable"}}`)},
+	}}
+	billing := &mockBilling{
+		cost: platform.UsageCostBreakdown{Model: "hi-vm", TotalTokens: 2, TotalCostIRR: 100},
+		costs: map[string]platform.UsageCostBreakdown{
+			deepSeekModel: deepSeekFlashRuntimeCost(),
+			openAIModel:   {Model: openAIModel, TotalTokens: 2, TotalCostIRR: 150},
+		},
+	}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{"hi-vm": deepSeekOpenAIVirtualModel()}}
+	app := newDeepSeekOpenAIVirtualChatApp(t, tunnel, billing, logs)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadGateway, response.StatusCode, string(body))
+	assert.Contains(t, string(body), "fallback_exhausted")
+	require.Len(t, tunnel.proxyRequests, 2)
+	assert.Equal(t, "deepseek", tunnel.proxyRequests[0].Deployment.Provider)
+	assert.Equal(t, "openai", tunnel.proxyRequests[1].Deployment.Provider)
+}
+
+func TestChatCompletionHandler_VirtualModelStreamFallsBackWhenDeepSeekPreparationFails(t *testing.T) {
+	deepSeekModel := "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+	openAIModel := "openai:openai-calm-oasis:gpt-5.4-nano"
+
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
+
+	close(stream.chunks)
+
+	tunnel := &mockTunnelTransport{stream: stream}
+	billing := &mockBilling{
+		cost: platform.UsageCostBreakdown{Model: "hi-vm", TotalTokens: 2, TotalCostIRR: 100},
+		costs: map[string]platform.UsageCostBreakdown{
+			deepSeekModel: {Model: deepSeekModel, TotalTokens: 2, TotalCostIRR: 200},
+			openAIModel:   {Model: openAIModel, TotalTokens: 2, TotalCostIRR: 150},
+		},
+	}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{"hi-vm": deepSeekOpenAIVirtualModel()}}
+	app := newDeepSeekOpenAIVirtualChatApp(t, tunnel, billing, logs)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","stream":true,"messages":[{"role":"user","content":"hello"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request, int((5 * time.Second).Milliseconds()))
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.streamRequests, 1)
+	assert.Equal(t, "openai", tunnel.streamRequests[0].Deployment.Provider)
+	assert.True(t, stream.closed)
+}
+
+func TestChatCompletionHandler_DirectDeepSeekModelStillUsesRuntimeProfile(t *testing.T) {
+	deepSeekModel := "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+	logger := zap.NewNop()
+	tunnel := &mockTunnelTransport{response: successfulChatTunnelResponse(t, "deepseek-v4-flash")}
+	billing := &mockBilling{costs: map[string]platform.UsageCostBreakdown{deepSeekModel: deepSeekFlashRuntimeCost()}}
+	handler := newTestChatCompletionHandler(
+		newDeepSeekOpenAIVirtualModelRouter(t, logger),
+		tunnel,
+		billing,
+		&mockWalletStore{},
+		&mockLogger{},
+		logger,
+		proxy.ChatCompletionDependencies{},
+	)
+	app := setupTestApp(t, handler)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"deepseek:deepseek-ember-harbor:deepseek-v4-flash","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.proxyRequests, 1)
+	require.Len(t, tunnel.proxyRequests[0].ModelRuntimeProfiles, 1)
+	assert.Equal(t, "deepseek-v4-flash", tunnel.proxyRequests[0].ModelRuntimeProfiles[0].Slug)
 }
 
 func TestChatCompletionHandler_VirtualModelStreamsWithoutAliasDeployment(t *testing.T) {
