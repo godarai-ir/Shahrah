@@ -161,6 +161,7 @@ func (p *anthropicTunnelCredentialProber) Probe(
 
 	models, headers, category, summary := p.call(ctx, deployment, platform.ProviderOperationAnthropicModelsList, nil)
 	metadata := anthropicWIFProbeMetadata(headers)
+
 	if category != "ok" {
 		return ProbeResult{
 			Authenticated: category != "invalid_credential" && category != "network",
