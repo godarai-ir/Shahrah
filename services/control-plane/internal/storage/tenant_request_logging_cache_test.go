@@ -8,10 +8,10 @@ import (
 
 func TestResolveTenantRequestLoggingModeUsesCache(t *testing.T) {
 	ctx := context.Background()
-	store := &ObservabilityRepository{
+	store := composeObservabilityRepository(&observabilityState{
 		entitlementCache:      newEntitlementTestCache(),
 		requestLoggingModeTTL: time.Minute,
-	}
+	})
 	store.cacheTenantRequestLoggingMode(ctx, "tenant-1", RequestLoggingModeFullContent, true)
 
 	mode, ok, err := store.ResolveTenantRequestLoggingMode(ctx, "tenant-1")
@@ -30,10 +30,10 @@ func TestResolveTenantRequestLoggingModeUsesCache(t *testing.T) {
 
 func TestInvalidateTenantRequestLoggingModeDeletesCache(t *testing.T) {
 	ctx := context.Background()
-	store := &ObservabilityRepository{
+	store := composeObservabilityRepository(&observabilityState{
 		entitlementCache:      newEntitlementTestCache(),
 		requestLoggingModeTTL: time.Minute,
-	}
+	})
 	store.cacheTenantRequestLoggingMode(ctx, "tenant-1", RequestLoggingModeFullContent, true)
 	store.invalidateTenantRequestLoggingMode(ctx, "tenant-1")
 

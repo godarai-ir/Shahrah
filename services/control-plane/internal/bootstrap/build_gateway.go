@@ -37,7 +37,7 @@ func (b *builder) buildGateway() error {
 		b.tunnel,
 		b.billing,
 		billingCapabilities,
-		b.store.WalletRepository,
+		b.store.WalletLedgerRepository,
 		b.logger,
 		proxy.RequestPipelineConfig{DetachedWorkTimeout: b.cfg.Runtime.GatewayDetachedWorkTimeout},
 	)
@@ -49,7 +49,7 @@ func (b *builder) buildGateway() error {
 		RawTunnel:                b.tunnel,
 		Billing:                  b.billing,
 		BillingCapabilities:      billingCapabilities,
-		Wallets:                  b.store.WalletRepository,
+		Wallets:                  b.store.WalletLedgerRepository,
 		AnthropicRuntimeProfiles: b.anthropicPricing,
 		ProviderResources:        b.store.ProviderResourceRepository,
 		AnthropicResources:       b.store.ProviderResourceRepository,
@@ -124,7 +124,7 @@ func (b *builder) buildGateway() error {
 		TenantResolver:             b.tenantMiddleware,
 		TracingMiddleware:          b.tracingMiddleware,
 		TraceHealth:                b.traceHealth,
-		ClickHouseHealth:           b.store.ObservabilityRepository,
+		ClickHouseHealth:           b.store.ObservabilityHealthRepository,
 		ManagementRoutes:           b.managementRoutes,
 		ProxyHandler:               chatHandler,
 		CompletionsHandler:         completionsHandler,
@@ -144,7 +144,7 @@ func (b *builder) buildGateway() error {
 		HTTPMetrics:                b.httpMetrics,
 		Logger:                     b.logger,
 		PlatformServiceAccounts:    b.store.PlatformServiceAccountRepository,
-		ExchangeRates:              b.store.WalletRepository,
+		ExchangeRates:              b.store.ExchangeRateRepository,
 		GatewayMaxInFlight:         &b.cfg.Runtime.GatewayMaxInFlight,
 	}
 

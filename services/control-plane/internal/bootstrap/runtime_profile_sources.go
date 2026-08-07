@@ -15,7 +15,7 @@ type runtimeProfileSources struct {
 	auth     *storage.RuntimeProfileRepository
 	models   *virtualmodels.Service
 	policies *policies.Service
-	plans    *storage.PlanRepository
+	plans    *storage.EntitlementRepository
 }
 
 func newRuntimeProfileSources(
@@ -28,7 +28,7 @@ func newRuntimeProfileSources(
 		auth:     store.RuntimeProfileRepository,
 		models:   models,
 		policies: policyApplication,
-		plans:    store.PlanRepository,
+		plans:    store.EntitlementRepository,
 	}
 }
 

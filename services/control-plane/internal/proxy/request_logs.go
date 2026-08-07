@@ -8,6 +8,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -232,11 +233,8 @@ func logPreProviderRejection(
 }
 
 func buildJSONRequestLogPayload(body []byte, overrides map[string]interface{}) map[string]interface{} {
-	payload := map[string]interface{}{}
-
-	if err := json.Unmarshal(body, &payload); err != nil {
-		payload["raw_body"] = string(body)
-	}
+	payload := make(map[string]interface{}, len(overrides)+1)
+	payload[observability.LazyJSONPayloadField] = json.RawMessage(body)
 
 	for key, value := range overrides {
 		payload[key] = value
@@ -246,25 +244,65 @@ func buildJSONRequestLogPayload(body []byte, overrides map[string]interface{}) m
 }
 
 func buildJSONResponseLogPayload(body []byte, fallback interface{}) map[string]interface{} {
-	payload := map[string]interface{}{}
-	if err := json.Unmarshal(body, &payload); err == nil {
-		return payload
+	payload := map[string]interface{}{
+		observability.LazyJSONPayloadField: json.RawMessage(body),
 	}
-
-	if fallback == nil {
-		return payload
-	}
-
-	encoded, err := json.Marshal(fallback)
-	if err != nil {
-		return payload
-	}
-
-	if err := json.Unmarshal(encoded, &payload); err != nil {
-		return map[string]interface{}{"value": fallback}
+	if fallback != nil {
+		payload[observability.LazyJSONFallbackField] = fallback
 	}
 
 	return payload
+}
+
+func materializeLazyLogPayload(payload map[string]interface{}) map[string]interface{} {
+	if len(payload) == 0 {
+		return payload
+	}
+
+	rawValue, lazy := payload[observability.LazyJSONPayloadField]
+	if !lazy {
+		return payload
+	}
+
+	var raw []byte
+
+	switch typed := rawValue.(type) {
+	case json.RawMessage:
+		raw = typed
+	case []byte:
+		raw = typed
+	case string:
+		raw = []byte(typed)
+	}
+
+	out := make(map[string]interface{}, len(payload))
+	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
+		out = make(map[string]interface{}, len(payload))
+		if fallback, ok := payload[observability.LazyJSONFallbackField]; ok {
+			encoded, marshalErr := json.Marshal(fallback)
+			if marshalErr == nil {
+				if unmarshalErr := json.Unmarshal(encoded, &out); unmarshalErr != nil {
+					out = make(map[string]interface{}, len(payload))
+				}
+			}
+
+			if len(out) == 0 {
+				out["value"] = fallback
+			}
+		} else if len(raw) > 0 {
+			out["raw_body"] = string(raw)
+		}
+	}
+
+	for key, value := range payload {
+		if key == observability.LazyJSONPayloadField || key == observability.LazyJSONFallbackField {
+			continue
+		}
+
+		out[key] = value
+	}
+
+	return out
 }
 
 // buildProviderHTTPErrorLogPayload preserves the provider response byte-for-byte

@@ -9,10 +9,11 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 type createModelRequest struct {
@@ -62,7 +63,7 @@ func (h *Handlers) CreateModel(c *fiber.Ctx) error {
 		ModelInfo:  req.ModelInfo,
 	})
 	if err != nil {
-		if errors.Is(err, storage.ErrInvalidProviderAPIBase) {
+		if errors.Is(err, provideraccounts.ErrInvalidAPIBase) {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 
@@ -216,7 +217,7 @@ func (h *Handlers) CreateVirtualModel(c *fiber.Ctx) error {
 
 	item, err := h.models.CreateVirtualModel(c.Context(), currentTenant.ID, req, actor)
 	if err != nil {
-		if errors.Is(err, storage.ErrInvalidVirtualModelModes) {
+		if errors.Is(err, virtualmodels.ErrInvalidModes) {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 
@@ -271,7 +272,7 @@ func (h *Handlers) GetVirtualModel(c *fiber.Ctx) error {
 
 	item, err := h.models.GetVirtualModel(c.Context(), currentTenant.ID, id)
 	if err != nil {
-		if errors.Is(err, storage.ErrVirtualModelNotFound) {
+		if errors.Is(err, virtualmodels.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
 		}
 
@@ -308,7 +309,7 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 	if req.RoutingStrategy == nil && len(req.Targets) > 0 {
 		existing, err := h.models.GetVirtualModel(c.Context(), currentTenant.ID, id)
 		if err != nil {
-			if errors.Is(err, storage.ErrVirtualModelNotFound) {
+			if errors.Is(err, virtualmodels.ErrNotFound) {
 				return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
 			}
 
@@ -326,11 +327,11 @@ func (h *Handlers) UpdateVirtualModel(c *fiber.Ctx) error {
 
 	item, err := h.models.UpdateVirtualModel(c.Context(), currentTenant.ID, id, req, actor)
 	if err != nil {
-		if errors.Is(err, storage.ErrVirtualModelNotFound) {
+		if errors.Is(err, virtualmodels.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
 		}
 
-		if errors.Is(err, storage.ErrInvalidVirtualModelModes) {
+		if errors.Is(err, virtualmodels.ErrInvalidModes) {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 
@@ -359,7 +360,7 @@ func (h *Handlers) DeleteVirtualModel(c *fiber.Ctx) error {
 	}
 
 	if err := h.models.DeleteVirtualModel(c.Context(), currentTenant.ID, id); err != nil {
-		if errors.Is(err, storage.ErrVirtualModelNotFound) || errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, virtualmodels.ErrNotFound) || errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual model not found")
 		}
 
@@ -523,7 +524,7 @@ func (h *Handlers) CreateRateLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.CreateRateLimitRule(c.Context(), currentTenant.ID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "ثبت قانون انجام نشد. لطفا فیلدهای قانون و شرایط را دوباره بررسی کنید.")
 		}
 
@@ -550,7 +551,7 @@ func (h *Handlers) GetRateLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.GetRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
 
@@ -587,7 +588,7 @@ func (h *Handlers) UpdateRateLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.UpdateRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
 
@@ -613,7 +614,7 @@ func (h *Handlers) DeleteRateLimitRule(c *fiber.Ctx) error {
 	}
 
 	if err := h.policies.DeleteRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
 
@@ -731,7 +732,7 @@ func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.CreateBudgetLimitRule(c.Context(), currentTenant.ID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "failed to create budget limit rule")
 		}
 
@@ -758,7 +759,7 @@ func (h *Handlers) GetBudgetLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.GetBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
 
@@ -794,7 +795,7 @@ func (h *Handlers) UpdateBudgetLimitRule(c *fiber.Ctx) error {
 
 	item, err := h.policies.UpdateBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
 
@@ -820,7 +821,7 @@ func (h *Handlers) DeleteBudgetLimitRule(c *fiber.Ctx) error {
 	}
 
 	if err := h.policies.DeleteBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
 

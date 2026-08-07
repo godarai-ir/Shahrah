@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -37,7 +38,7 @@ func (s *PolicyRepository) CreateTenantGuardrail(ctx context.Context, tenantID s
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanTenantGuardrail(rows)
@@ -83,7 +84,7 @@ func (s *PolicyRepository) GetTenantGuardrailBySlug(ctx context.Context, tenantI
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanTenantGuardrail(rows)
@@ -162,7 +163,7 @@ func (s *PolicyRepository) UpdateTenantGuardrailBySlug(ctx context.Context, tena
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanTenantGuardrail(rows)
@@ -178,7 +179,7 @@ func (s *PolicyRepository) DeleteTenantGuardrailBySlug(ctx context.Context, tena
 	}
 
 	if result.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "guardrail.deleted")

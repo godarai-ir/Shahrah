@@ -17,12 +17,12 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -1318,28 +1318,30 @@ func (h *ChatCompletionHandler) handleStream(
 }
 
 type streamUsageCapture struct {
-	buffer string
+	buffer []byte
 	usage  *contractsopenai.Usage
 	tier   string
 }
 
 func (capture *streamUsageCapture) Add(data []byte) {
-	capture.buffer += string(data)
+	capture.buffer = append(capture.buffer, data...)
+	consumed := 0
+
 	for {
-		frame, rest, ok := takeSSEFrame(capture.buffer)
+		frame, frameBytes, ok := takeSSEFrameBytes(capture.buffer[consumed:])
 		if !ok {
-			return
+			break
 		}
 
-		capture.buffer = rest
+		consumed += frameBytes
 
-		payload := streamFrameData(frame)
-		if payload == "" || payload == "[DONE]" {
+		payload := streamFrameDataBytes(frame)
+		if len(payload) == 0 || bytes.Equal(payload, []byte("[DONE]")) {
 			continue
 		}
 
 		var chunk contractsopenai.StreamChunk
-		if err := json.Unmarshal([]byte(payload), &chunk); err == nil && chunk.Usage != nil {
+		if err := json.Unmarshal(payload, &chunk); err == nil && chunk.Usage != nil {
 			usage := *chunk.Usage
 			if capture.tier != "" {
 				usage.ServiceTier = capture.tier
@@ -1349,6 +1351,11 @@ func (capture *streamUsageCapture) Add(data []byte) {
 
 			capture.usage = &usage
 		}
+	}
+
+	if consumed > 0 {
+		remaining := copy(capture.buffer, capture.buffer[consumed:])
+		capture.buffer = capture.buffer[:remaining]
 	}
 }
 
@@ -1388,6 +1395,65 @@ func takeSSEFrame(buffer string) (string, string, bool) {
 	}
 
 	return buffer[:index], buffer[index+delimiterLength:], true
+}
+
+func takeSSEFrameBytes(buffer []byte) ([]byte, int, bool) {
+	newlineIndex := bytes.Index(buffer, []byte("\n\n"))
+	carriageReturnIndex := bytes.Index(buffer, []byte("\r\n\r\n"))
+	index := newlineIndex
+	delimiterLength := 2
+
+	if carriageReturnIndex >= 0 && (index < 0 || carriageReturnIndex < index) {
+		index = carriageReturnIndex
+		delimiterLength = 4
+	}
+
+	if index < 0 {
+		return nil, 0, false
+	}
+
+	return buffer[:index], index + delimiterLength, true
+}
+
+func streamFrameDataBytes(frame []byte) []byte {
+	lines := bytes.Split(frame, []byte{'\n'})
+	data := make([][]byte, 0, len(lines))
+	totalBytes := 0
+
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if !bytes.HasPrefix(line, []byte("data:")) {
+			continue
+		}
+
+		value := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+		data = append(data, value)
+		totalBytes += len(value)
+	}
+
+	if len(data) == 1 {
+		return data[0]
+	}
+
+	if len(data) > 1 {
+		joined := make([]byte, 0, totalBytes+len(data)-1)
+		for index, value := range data {
+			if index > 0 {
+				joined = append(joined, '\n')
+			}
+
+			joined = append(joined, value...)
+		}
+
+		return joined
+	}
+
+	trimmed := bytes.TrimSpace(frame)
+	if bytes.HasPrefix(trimmed, []byte{'{'}) || bytes.Equal(trimmed, []byte("[DONE]")) {
+		return trimmed
+	}
+
+	return nil
 }
 
 func streamFrameData(frame string) string {
@@ -1620,7 +1686,14 @@ func toContractDeployment(dep *router.Deployment) platform.Deployment {
 }
 
 func logRequestBestEffort(logger *zap.Logger, logs usageLogger, ctx context.Context, entry platform.RequestLogEntry) {
-	if err := logs.LogRequest(ctx, entry); err != nil && logger != nil && !errors.Is(err, storage.ErrLogStoreUnavailable) {
+	if sink, ok := logs.(interface {
+		SupportsLazyRequestLogPayload() bool
+	}); !ok || !sink.SupportsLazyRequestLogPayload() {
+		entry.RequestBody = materializeLazyLogPayload(entry.RequestBody)
+		entry.ResponseBody = materializeLazyLogPayload(entry.ResponseBody)
+	}
+
+	if err := logs.LogRequest(ctx, entry); err != nil && logger != nil && !errors.Is(err, observability.ErrLogStoreUnavailable) {
 		logger.Warn("failed to log request", zap.Error(err), zap.String("request_id", entry.RequestID))
 	}
 }

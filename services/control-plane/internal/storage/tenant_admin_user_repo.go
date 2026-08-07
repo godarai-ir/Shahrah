@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -19,14 +21,14 @@ import (
 const invitationTTL = 7 * 24 * time.Hour
 
 var (
-	ErrInvalidInvitationToken    = errors.New("invalid tenant admin invitation token")
-	ErrInvitationExpired         = errors.New("tenant admin invitation expired")
-	ErrInvitationAlreadyUsed     = errors.New("tenant admin invitation already used")
-	ErrInvitationContactTaken    = errors.New("tenant admin invitation contact already used")
-	ErrInvitationAlreadyPending  = errors.New("tenant admin invitation already pending")
-	ErrTenantMemberAlreadyExists = errors.New("tenant admin user already member of tenant")
-	ErrTenantMemberDeactivated   = errors.New("tenant admin user is deactivated")
-	ErrInvalidInvitationEmail    = errors.New("invalid tenant admin invitation email")
+	ErrInvalidInvitationToken    = tenantadmin.ErrInvalidInvitationToken
+	ErrInvitationExpired         = tenantadmin.ErrInvitationExpired
+	ErrInvitationAlreadyUsed     = tenantadmin.ErrInvitationAlreadyUsed
+	ErrInvitationContactTaken    = tenantadmin.ErrInvitationContactTaken
+	ErrInvitationAlreadyPending  = tenantadmin.ErrInvitationAlreadyPending
+	ErrTenantMemberAlreadyExists = tenantadmin.ErrTenantMemberAlreadyExists
+	ErrTenantMemberDeactivated   = tenantadmin.ErrTenantMemberDeactivated
+	ErrInvalidInvitationEmail    = tenantadmin.ErrInvalidInvitationEmail
 )
 
 func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
@@ -124,7 +126,7 @@ func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, te
 
 	userID = strings.TrimSpace(userID)
 	if tenantSlug == "" || userID == "" {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var (
@@ -349,7 +351,7 @@ func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context,
 	}
 
 	if invitation.TenantID != tenantID || invitation.TenantSlug != tenantSlug {
-		return nil, nil, pgx.ErrNoRows
+		return nil, nil, apperrors.ErrNotFound
 	}
 
 	if status != "pending" {
@@ -402,7 +404,7 @@ func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, te
 
 	userID = strings.TrimSpace(userID)
 	if tenantSlug == "" || userID == "" {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	rows, err := s.pool.Query(ctx, `
@@ -421,7 +423,7 @@ func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, te
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var (

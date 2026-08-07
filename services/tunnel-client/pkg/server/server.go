@@ -17,18 +17,24 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 		client = &http.Client{Timeout: 5 * time.Minute}
 	}
 
+	streamClient := clientForStream(client, true)
+
 	mux := http.NewServeMux()
 	metrics := newHTTPMetrics("tunnel-client")
 	mux.Handle("/metrics", metrics.handler())
+
 	localHealth := func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"healthy","service":"tunnel-client"}`))
+
+		if _, err := w.Write([]byte(`{"status":"healthy","service":"tunnel-client"}`)); err != nil {
+			return
+		}
 	}
 	mux.HandleFunc("/health", localHealth)
 	mux.HandleFunc("/live", localHealth)
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, serverURL+"/ready", nil)
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, serverURL+"/ready", http.NoBody)
 		if err != nil {
 			http.Error(w, "dependency unavailable", http.StatusServiceUnavailable)
 			return
@@ -39,7 +45,7 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 			http.Error(w, "dependency unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		defer resp.Body.Close()
+		defer closeBody(resp.Body)
 
 		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 			http.Error(w, "dependency unavailable", http.StatusServiceUnavailable)
@@ -48,7 +54,10 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
-		_, _ = io.Copy(w, resp.Body)
+
+		if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+			return
+		}
 	})
 
 	mux.HandleFunc("/dispatch", func(w http.ResponseWriter, r *http.Request) {
@@ -57,9 +66,10 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
 		var payload platform.TunnelRequest
-		if err := json.Unmarshal(body, &payload); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr != nil {
+			http.Error(w, unmarshalErr.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -68,16 +78,17 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-GodarAI-Trace-ID", payload.TraceID)
 		req.Header.Set("X-Shahrah-Request-ID", payload.RequestID)
 
-		resp, err := clientForStream(client, payload.Stream).Do(req)
+		resp, err := selectHTTPClient(client, streamClient, payload.Stream).Do(req)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
-		defer resp.Body.Close()
+		defer closeBody(resp.Body)
 
 		copyHeaders(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
@@ -89,17 +100,22 @@ func NewHandler(serverURL string, client *http.Client) http.Handler {
 			http.Error(w, "invalid raw tunnel request", http.StatusBadRequest)
 			return
 		}
+
 		req.ContentLength = r.ContentLength
 		req.Header.Set("Content-Type", "application/vnd.godarai.tunnel-stream")
-		resp, err := clientForStream(client, true).Do(req)
+		stream := strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Shahrah-Tunnel-Stream")), "true")
+		req.Header.Set("X-Shahrah-Tunnel-Stream", r.Header.Get("X-Shahrah-Tunnel-Stream"))
+
+		resp, err := streamClient.Do(req)
 		if err != nil {
 			http.Error(w, "raw tunnel dependency unavailable", http.StatusBadGateway)
 			return
 		}
-		defer resp.Body.Close()
+		defer closeBody(resp.Body)
+
 		copyHeaders(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
-		relayBody(w, resp.Body, true)
+		relayBody(w, resp.Body, stream || responseIsEventStream(resp.Header))
 	})
 
 	return metrics.wrap(mux)
@@ -117,15 +133,27 @@ func clientForStream(base *http.Client, stream bool) *http.Client {
 	if !stream {
 		return base
 	}
+
 	if base == nil {
 		return &http.Client{}
 	}
+
 	clone := *base
 	clone.Timeout = 0
+
 	if clone.Transport == nil {
 		clone.Transport = http.DefaultTransport
 	}
+
 	return &clone
+}
+
+func selectHTTPClient(regular, streaming *http.Client, stream bool) *http.Client {
+	if stream {
+		return streaming
+	}
+
+	return regular
 }
 
 func responseIsEventStream(headers http.Header) bool {
@@ -134,13 +162,19 @@ func responseIsEventStream(headers http.Header) bool {
 
 func relayBody(w http.ResponseWriter, body io.Reader, flush bool) {
 	if !flush {
-		_, _ = io.Copy(w, body)
+		if _, err := io.Copy(w, body); err != nil {
+			return
+		}
+
 		return
 	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		_, _ = io.Copy(w, body)
+		if _, err := io.Copy(w, body); err != nil {
+			return
+		}
+
 		return
 	}
 
@@ -151,10 +185,22 @@ func relayBody(w http.ResponseWriter, body io.Reader, flush bool) {
 			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
 				return
 			}
+
 			flusher.Flush()
 		}
+
 		if err != nil {
 			return
 		}
+	}
+}
+
+func closeBody(body io.Closer) {
+	if body == nil {
+		return
+	}
+
+	if err := body.Close(); err != nil {
+		return
 	}
 }

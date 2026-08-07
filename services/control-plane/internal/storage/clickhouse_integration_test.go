@@ -36,14 +36,14 @@ func TestClickHouseObservabilityIntegration(t *testing.T) {
 	require.NoError(t, waitForClickHouse(ctx, db))
 	require.NoError(t, applyClickHouseMigrations(ctx, db))
 
-	store := &ObservabilityRepository{
+	store := composeObservabilityRepository(&observabilityState{
 		clickhouse:             db,
 		clickhouseReady:        true,
 		clickhouseTraceReady:   true,
 		clickhouseMetricsReady: true,
 		clickhouseLogsReady:    true,
 		logger:                 zap.NewNop(),
-	}
+	})
 
 	require.NoError(t, store.ensureClickHouseMetricsSchema(ctx))
 	require.NoError(t, store.ensureClickHouseTraceSchema(ctx))

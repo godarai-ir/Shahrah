@@ -44,7 +44,7 @@ func (b *builder) buildWorkers() error {
 		return err
 	}
 
-	tokenUsage := b.store.ObservabilityRepository
+	tokenUsage := b.store.TokenUsageRepository
 	if err := b.lifecycle.AddWorker("token usage flusher", func(ctx context.Context) error {
 		tokenUsage.StartTokenUsageFlusher(ctx)
 
@@ -61,7 +61,7 @@ func (b *builder) buildWorkers() error {
 }
 
 func (b *builder) buildBillingWorkers() error {
-	subscriptions := billing.NewSubscriptionProcessor(b.store.PlanRepository, b.logger, time.Minute)
+	subscriptions := billing.NewSubscriptionProcessor(b.store.SubscriptionRepository, b.logger, time.Minute)
 	if err := b.lifecycle.AddWorker("subscription processor", func(context.Context) error {
 		subscriptions.Start()
 
@@ -94,7 +94,7 @@ func (b *builder) buildBillingWorkers() error {
 			Timeout:   b.cfg.Runtime.NobitexExchangeRateTimeout,
 			MinTrades: b.cfg.Runtime.NobitexExchangeRateMinTrades,
 		},
-		b.store.WalletRepository,
+		b.store.ExchangeRateRepository,
 		b.logger,
 	)
 	if err := b.lifecycle.AddWorker("exchange rate processor", func(context.Context) error {
@@ -128,7 +128,7 @@ func (b *builder) buildBillingWorkers() error {
 	settlement := billing.NewWalletSettlementProcessor(
 		settlementCfg,
 		liveBudgetCache,
-		b.store.WalletRepository,
+		b.store.WalletLedgerRepository,
 		b.logger,
 	)
 
@@ -170,7 +170,7 @@ func (b *builder) buildMetricsWorkers() error {
 
 	queue := metricsobs.NewQueue(cfg.QueueCapacity)
 
-	processor := metricsobs.NewProcessor(cfg, queue, b.store.ObservabilityRepository, b.logger, dlq)
+	processor := metricsobs.NewProcessor(cfg, queue, b.store.MetricsRepository, b.logger, dlq)
 	if err := b.lifecycle.AddWorker("metrics processor", func(context.Context) error {
 		processor.Start()
 
@@ -186,7 +186,7 @@ func (b *builder) buildMetricsWorkers() error {
 
 	reconciler := metricsobs.NewCostReconciler(
 		b.cfg.Observability.MetricsReconcile,
-		&costReconcileAdapter{store: b.store.ObservabilityRepository},
+		&costReconcileAdapter{store: b.store.MetricsRepository},
 		b.logger,
 	)
 
@@ -202,9 +202,9 @@ func (b *builder) buildMetricsWorkers() error {
 }
 
 func (b *builder) buildAsyncLoggers() error {
-	b.requestLogger = b.store.ObservabilityRepository
+	b.requestLogger = b.store.RequestLogRepository
 	if b.cfg.RequestLogs.AsyncEnabled {
-		writer := proxy.NewManagedAsyncRequestLogWriter(b.store.ObservabilityRepository, proxy.AsyncRequestLogConfig{
+		writer := proxy.NewManagedAsyncRequestLogWriter(b.store.RequestLogRepository, proxy.AsyncRequestLogConfig{
 			QueueSize:      b.cfg.RequestLogs.QueueSize,
 			Workers:        b.cfg.RequestLogs.Workers,
 			BatchSize:      b.cfg.RequestLogs.BatchSize,
@@ -225,12 +225,12 @@ func (b *builder) buildAsyncLoggers() error {
 		}
 	}
 
-	b.spendLogger = b.store.ObservabilityRepository
+	b.spendLogger = b.store.SpendRepository
 	if !b.cfg.SpendLogs.AsyncEnabled {
 		return nil
 	}
 
-	writer := proxy.NewManagedAsyncSpendLogWriter(b.store.ObservabilityRepository, proxy.AsyncSpendLogConfig{
+	writer := proxy.NewManagedAsyncSpendLogWriter(b.store.SpendRepository, proxy.AsyncSpendLogConfig{
 		QueueSize:      b.cfg.SpendLogs.QueueSize,
 		Workers:        b.cfg.SpendLogs.Workers,
 		BatchSize:      b.cfg.SpendLogs.BatchSize,
@@ -254,9 +254,9 @@ func (b *builder) buildTracingWorkers() error {
 	queue := tracing.NewQueue(cfg.QueueCapacity)
 	sampler := tracing.NewSampler(cfg.DefaultSampleRate, cfg.SlowRequest.Milliseconds())
 	privacy := tracing.NewPrivacyManager(cfg)
-	privacy.SetTenantPolicyResolver(newTenantTracePolicyResolver(b.store.ObservabilityRepository))
+	privacy.SetTenantPolicyResolver(newTenantTracePolicyResolver(b.store.ObservabilitySettingsRepository))
 
-	exporter, err := tracing.NewReliableExporter(cfg, b.store.ObservabilityRepository, b.logger)
+	exporter, err := tracing.NewReliableExporter(cfg, b.store.TraceRepository, b.logger)
 	if err != nil {
 		return fmt.Errorf("initialize tracing exporter: %w", err)
 	}

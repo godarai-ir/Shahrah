@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -20,7 +20,7 @@ func (h *Handlers) ListRequestTracesV2(c *fiber.Ctx) error {
 		func(params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error) {
 			return h.traces.ListRequestTracesV2(c.Context(), params)
 		},
-		storage.ErrTraceStoreUnavailable,
+		observability.ErrTraceStoreUnavailable,
 		func(params platform.ListRequestTracesV2Params) (int, int) { return params.Limit, params.Offset },
 		func(items []platform.RequestTraceV2, total, limit, offset int, nextOffset *int) error {
 			return c.JSON(platform.ListRequestTracesV2Response{
@@ -54,7 +54,7 @@ func (h *Handlers) GetTraceFacetsV2(c *fiber.Ctx) error {
 
 	facets, err := h.traces.GetTraceFacetsV2(c.Context(), params)
 	if err != nil {
-		if errors.Is(err, storage.ErrTraceStoreUnavailable) {
+		if errors.Is(err, observability.ErrTraceStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 		}
 

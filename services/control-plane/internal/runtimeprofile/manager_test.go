@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +25,143 @@ func TestManagerReturnsL1ProfileWithoutL2OrStore(t *testing.T) {
 	if profile.Version != 4 {
 		t.Fatalf("expected L1 version 4, got %d", profile.Version)
 	}
+}
+
+func TestManagerSnapshotIsBorrowedWhileGetRemainsIsolated(t *testing.T) {
+	manager := NewManager(nil, nil, nil, zap.NewNop(), Config{StaleGrace: time.Minute, VersionCheckInterval: time.Minute})
+	manager.setL1("tenant-1", &Profile{
+		TenantID:        "tenant-1",
+		Version:         4,
+		ProviderAPIKeys: map[string]string{"deployment-1": "secret"},
+	})
+
+	first, err := manager.GetSnapshot(context.Background(), "tenant-1")
+	if err != nil {
+		t.Fatalf("GetSnapshot returned error: %v", err)
+	}
+
+	second, err := manager.GetSnapshot(context.Background(), "tenant-1")
+	if err != nil {
+		t.Fatalf("GetSnapshot returned error: %v", err)
+	}
+
+	if first != second {
+		t.Fatal("expected hot-path snapshot reads to reuse the immutable profile")
+	}
+
+	isolated, err := manager.Get(context.Background(), "tenant-1")
+	if err != nil {
+		t.Fatalf("Get returned error: %v", err)
+	}
+
+	isolated.ProviderAPIKeys["deployment-1"] = "changed"
+	if first.ProviderAPIKeys["deployment-1"] != "secret" {
+		t.Fatal("expected compatibility Get to return an isolated clone")
+	}
+}
+
+func TestManagerVersionCheckDoesNotDeleteNewerConcurrentSnapshot(t *testing.T) {
+	cache := &blockingVersionCache{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	manager := NewManager(nil, nil, cache, zap.NewNop(), Config{
+		StaleGrace:           time.Minute,
+		VersionCheckInterval: time.Hour,
+	})
+	manager.setL1("tenant-1", &Profile{TenantID: "tenant-1", Version: 1})
+
+	manager.mu.Lock()
+	entry := manager.l1["tenant-1"]
+	entry.loadedAt = time.Now().Add(-2 * time.Hour)
+	manager.l1["tenant-1"] = entry
+	manager.mu.Unlock()
+
+	type lookupResult struct {
+		profile *Profile
+		ok      bool
+	}
+
+	result := make(chan lookupResult, 1)
+
+	go func() {
+		profile, ok := manager.getL1(t.Context(), "tenant-1")
+		result <- lookupResult{profile: profile, ok: ok}
+	}()
+
+	<-cache.started
+	manager.setL1("tenant-1", &Profile{TenantID: "tenant-1", Version: 2})
+	close(cache.release)
+
+	loaded := <-result
+	if !loaded.ok || loaded.profile == nil || loaded.profile.Version != 2 {
+		t.Fatalf("expected concurrent version 2 snapshot to survive, got profile=%+v ok=%t", loaded.profile, loaded.ok)
+	}
+}
+
+func BenchmarkManagerProfileReads(b *testing.B) {
+	manager := NewManager(nil, nil, nil, zap.NewNop(), Config{StaleGrace: time.Hour, VersionCheckInterval: time.Hour})
+	manager.setL1("tenant-1", benchmarkProfile())
+
+	ctx := context.Background()
+
+	b.Run("isolated_clone", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for b.Loop() {
+			if _, err := manager.Get(ctx, "tenant-1"); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("immutable_snapshot", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for b.Loop() {
+			if _, err := manager.GetSnapshot(ctx, "tenant-1"); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+func benchmarkProfile() *Profile {
+	profile := &Profile{
+		TenantID:        "tenant-1",
+		Version:         1,
+		AuthByTokenHash: make(map[string]platform.AuthContext, 100),
+		VirtualModels:   make(map[string]platform.VirtualModel, 20),
+		Deployments:     make([]platform.Deployment, 20),
+		Guardrails:      make(map[string]platform.TenantGuardrail, 10),
+		RateLimitRules:  make([]platform.RateLimitRule, 10),
+		BudgetRules:     make([]platform.BudgetLimitRule, 10),
+		ProviderAPIKeys: make(map[string]string, 20),
+	}
+
+	for i := range 100 {
+		key := "token-" + strconv.Itoa(i)
+		profile.AuthByTokenHash[key] = platform.AuthContext{
+			TenantID:          profile.TenantID,
+			KeyID:             "key-" + strconv.Itoa(i),
+			Permissions:       []string{"models:read", "models:invoke"},
+			AllowedModels:     []string{"openai:account:gpt-4o", "anthropic:account:claude"},
+			AllowedModelTypes: map[string][]string{"openai:account:gpt-4o": {"chat"}},
+		}
+	}
+
+	for i := range 20 {
+		id := strconv.Itoa(i)
+		profile.Deployments[i] = platform.Deployment{ID: "deployment-" + id, ModelName: "model-" + id, ModelInfo: map[string]interface{}{"context_window": 128000}}
+		profile.ProviderAPIKeys["deployment-"+id] = "secret"
+	}
+
+	for i := range 10 {
+		profile.RateLimitRules[i] = platform.RateLimitRule{ID: "rate-" + strconv.Itoa(i), Conditions: map[string]interface{}{"model": "model"}, Limit: map[string]interface{}{"rpm": 1000}}
+		profile.BudgetRules[i] = platform.BudgetLimitRule{ID: "budget-" + strconv.Itoa(i), Conditions: map[string]interface{}{"model": "model"}, Alerts: map[string]interface{}{"threshold": 80}}
+	}
+
+	return profile
 }
 
 func TestManagerLoadsProfileFromL2(t *testing.T) {
@@ -137,6 +276,23 @@ func (s *fakeProfileStore) LoadLatestTenantRuntimeProfile(context.Context, strin
 type fakeDistributedCache struct {
 	values    map[string]string
 	published string
+}
+
+type blockingVersionCache struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (c *blockingVersionCache) DistributedGet(context.Context, string) (string, error) {
+	c.once.Do(func() { close(c.started) })
+	<-c.release
+
+	return "2", nil
+}
+
+func (*blockingVersionCache) DistributedSet(context.Context, string, interface{}, time.Duration) error {
+	return nil
 }
 
 func newFakeDistributedCache() *fakeDistributedCache {

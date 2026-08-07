@@ -13,7 +13,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-func (s *ObservabilityRepository) ensureClickHouseMetricsSchema(ctx context.Context) error {
+func (s *MetricsRepository) ensureClickHouseMetricsSchema(ctx context.Context) error {
 	if err := s.validateClickHouseColumns(ctx, "gateway_model_events", []string{
 		"event_id", "ts", "tenant_id", "request_id", "model_name", "virtual_model_name", "provider_name", "provider_model_name",
 		"request_type", "user_id", "user_email", "virtual_account_id", "virtual_account_name", "team_ids", "team_names",
@@ -50,7 +50,7 @@ const modelMetricInsertColumns = `
 const modelMetricInsertPlaceholders = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 const modelMetricInsertArgCount = 36
 
-func (s *ObservabilityRepository) insertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error {
+func (s *MetricsRepository) insertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -123,7 +123,7 @@ func modelMetricInsertArgs(ev platform.ModelMetricEvent) []interface{} {
 	}
 }
 
-func (s *ObservabilityRepository) queryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
+func (s *MetricsRepository) queryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
 	if req.Type == "timeseries" {
 		return s.queryModelMetricsTimeseries(ctx, tenantID, req)
 	}
@@ -131,7 +131,7 @@ func (s *ObservabilityRepository) queryModelMetrics(ctx context.Context, tenantI
 	return s.queryModelMetricsDistribution(ctx, tenantID, req)
 }
 
-func (s *ObservabilityRepository) listModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
+func (s *MetricsRepository) listModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
 	models, err := queryDistinctMetricValues(ctx, s.clickhouse, "model_name", tenantID)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func queryDistinctMetricValues(ctx context.Context, db *sql.DB, column, tenantID
 	return values, rows.Err()
 }
 
-func (s *ObservabilityRepository) queryModelMetricsDistribution(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
+func (s *MetricsRepository) queryModelMetricsDistribution(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
 	if query, args, ok, err := buildModelMetricsAggregateQuery(tenantID, req, false); err != nil {
 		return nil, err
 	} else if ok {
@@ -225,7 +225,7 @@ func (s *ObservabilityRepository) queryModelMetricsDistribution(ctx context.Cont
 	return queryRowsAsMaps(ctx, s.clickhouse, query, args...)
 }
 
-func (s *ObservabilityRepository) queryModelMetricsTimeseries(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
+func (s *MetricsRepository) queryModelMetricsTimeseries(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
 	if query, args, ok, err := buildModelMetricsAggregateQuery(tenantID, req, true); err != nil {
 		return nil, err
 	} else if ok {

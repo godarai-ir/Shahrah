@@ -13,6 +13,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/policies"
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
+	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
@@ -87,6 +88,13 @@ func (b *builder) buildStorage() error {
 	}
 
 	b.modelApplication = modelApplication
+
+	providerAccountApplication, err := provideraccounts.NewService(store.ProviderAccountRepository)
+	if err != nil {
+		return fmt.Errorf("initialize provider-account application service: %w", err)
+	}
+
+	b.providerAccountApplication = providerAccountApplication
 
 	iamApplication, iamErr := iam.NewService(store.IAMRepository, store.AuthRepository)
 	if iamErr != nil {
@@ -174,6 +182,7 @@ func (b *builder) buildStorage() error {
 		sharedCache,
 		router.Dependencies{
 			DeploymentStore:                   b.runtimeDeploymentStore,
+			DeploymentSnapshots:               b.runtimeDeploymentStore,
 			ProviderAccountAuthResolver:       b.runtimeDeploymentStore,
 			ProviderAccountCredentialPolicy:   router.ProviderAccountCredentialsFailOpen,
 			RequireProviderAccountCredentials: true,

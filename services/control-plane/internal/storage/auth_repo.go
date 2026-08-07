@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 // GetKeyByHash retrieves a key by its hashed token.
@@ -173,12 +173,12 @@ func (s *AuthRepository) ResolveTenantUserAuth(ctx context.Context, tenantID, us
 
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	tenantID = tenantUUID.String()
@@ -204,7 +204,7 @@ func (s *AuthRepository) ResolveTenantUserAuth(ctx context.Context, tenantID, us
 	}
 
 	if !active || strings.EqualFold(role, "deactivated") {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	resolvedRoles, resolvedPermissions, err := s.GetEffectivePermissionsForUser(ctx, tenantID, userID, role)

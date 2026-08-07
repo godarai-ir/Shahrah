@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/google/uuid"
@@ -18,7 +19,7 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-func (s *PlanRepository) ListFeatureCatalog(ctx context.Context) ([]platform.FeatureDefinition, error) {
+func (s *PlanCatalogRepository) ListFeatureCatalog(ctx context.Context) ([]platform.FeatureDefinition, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT feature_key, value_type, default_value, allow_override, COALESCE(category, ''), COALESCE(description, ''),
 		       created_at, updated_at
@@ -44,15 +45,15 @@ func (s *PlanRepository) ListFeatureCatalog(ctx context.Context) ([]platform.Fea
 	return items, rows.Err()
 }
 
-func (s *PlanRepository) ListPublicCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error) {
+func (s *PlanCatalogRepository) ListPublicCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error) {
 	return s.listCommercialPlans(ctx, true)
 }
 
-func (s *PlanRepository) ListPlatformCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error) {
+func (s *PlanCatalogRepository) ListPlatformCommercialPlans(ctx context.Context) ([]platform.CommercialPlan, error) {
 	return s.listCommercialPlans(ctx, false)
 }
 
-func (s *PlanRepository) listCommercialPlans(ctx context.Context, publishedOnly bool) ([]platform.CommercialPlan, error) {
+func (s *PlanCatalogRepository) listCommercialPlans(ctx context.Context, publishedOnly bool) ([]platform.CommercialPlan, error) {
 	conditions := []string{}
 	if publishedOnly {
 		conditions = append(conditions, "p.active = true", "pv.status = 'published'")
@@ -132,7 +133,7 @@ func (s *PlanRepository) listCommercialPlans(ctx context.Context, publishedOnly 
 	return out, nil
 }
 
-func (s *PlanRepository) CreateCommercialPlan(ctx context.Context, req platform.CreateCommercialPlanRequest) (*platform.CommercialPlan, error) {
+func (s *PlanCatalogRepository) CreateCommercialPlan(ctx context.Context, req platform.CreateCommercialPlanRequest) (*platform.CommercialPlan, error) {
 	slug := normalizePlanSlug(req.Slug)
 
 	displayName := strings.TrimSpace(req.DisplayName)
@@ -164,7 +165,7 @@ func (s *PlanRepository) CreateCommercialPlan(ctx context.Context, req platform.
 	return &item, nil
 }
 
-func (s *PlanRepository) UpdateCommercialPlan(ctx context.Context, planSlug string, req platform.UpdateCommercialPlanRequest) (*platform.CommercialPlan, error) {
+func (s *PlanCatalogRepository) UpdateCommercialPlan(ctx context.Context, planSlug string, req platform.UpdateCommercialPlanRequest) (*platform.CommercialPlan, error) {
 	var item platform.CommercialPlan
 
 	err := s.pool.QueryRow(ctx, `
@@ -190,7 +191,7 @@ func (s *PlanRepository) UpdateCommercialPlan(ctx context.Context, planSlug stri
 	return &item, nil
 }
 
-func (s *PlanRepository) DeactivateCommercialPlan(ctx context.Context, planSlug string) error {
+func (s *PlanCatalogRepository) DeactivateCommercialPlan(ctx context.Context, planSlug string) error {
 	result, err := s.pool.Exec(ctx, `UPDATE commercial_plans SET active = false, updated_at = NOW() WHERE slug = $1`, normalizePlanSlug(planSlug))
 	if err != nil {
 		return err
@@ -203,7 +204,7 @@ func (s *PlanRepository) DeactivateCommercialPlan(ctx context.Context, planSlug 
 	return nil
 }
 
-func (s *PlanRepository) CreatePlanVersion(ctx context.Context, planSlug string, req platform.CreatePlanVersionRequest) (*platform.PlanVersion, error) {
+func (s *PlanCatalogRepository) CreatePlanVersion(ctx context.Context, planSlug string, req platform.CreatePlanVersionRequest) (*platform.PlanVersion, error) {
 	planID, err := s.planIDBySlug(ctx, planSlug)
 	if err != nil {
 		return nil, err
@@ -265,7 +266,7 @@ func (s *PlanRepository) CreatePlanVersion(ctx context.Context, planSlug string,
 	return &item, nil
 }
 
-func (s *PlanRepository) PublishPlanVersion(ctx context.Context, planSlug string, version int) (*platform.PlanVersion, error) {
+func (s *PlanCatalogRepository) PublishPlanVersion(ctx context.Context, planSlug string, version int) (*platform.PlanVersion, error) {
 	planID, err := s.planIDBySlug(ctx, planSlug)
 	if err != nil {
 		return nil, err
@@ -309,7 +310,7 @@ func (s *PlanRepository) PublishPlanVersion(ctx context.Context, planSlug string
 	return &item, nil
 }
 
-func (s *PlanRepository) UpsertPlanEntitlement(ctx context.Context, planSlug string, version int, req platform.UpsertPlanEntitlementRequest) (*platform.PlanEntitlement, error) {
+func (s *PlanCatalogRepository) UpsertPlanEntitlement(ctx context.Context, planSlug string, version int, req platform.UpsertPlanEntitlementRequest) (*platform.PlanEntitlement, error) {
 	versionID, status, err := s.planVersionBySlugAndNumber(ctx, planSlug, version)
 	if err != nil {
 		return nil, err
@@ -337,7 +338,7 @@ func (s *PlanRepository) UpsertPlanEntitlement(ctx context.Context, planSlug str
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanPlanEntitlement(rows)
@@ -345,12 +346,12 @@ func (s *PlanRepository) UpsertPlanEntitlement(ctx context.Context, planSlug str
 		return nil, err
 	}
 
-	s.invalidateEntitlementsForPlan(ctx, planSlug)
+	s.entitlements.invalidateEntitlementsForPlan(ctx, planSlug)
 
 	return item, nil
 }
 
-func (s *PlanRepository) UpsertPlanPrice(ctx context.Context, planSlug string, version int, req platform.UpsertPlanPriceRequest) (*platform.PlanPrice, error) {
+func (s *PlanCatalogRepository) UpsertPlanPrice(ctx context.Context, planSlug string, version int, req platform.UpsertPlanPriceRequest) (*platform.PlanPrice, error) {
 	versionID, status, err := s.planVersionBySlugAndNumber(ctx, planSlug, version)
 	if err != nil {
 		return nil, err
@@ -379,13 +380,13 @@ func (s *PlanRepository) UpsertPlanPrice(ctx context.Context, planSlug string, v
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanPlanPrice(rows)
 }
 
-func (s *PlanRepository) GetTenantSubscription(ctx context.Context, tenantID string) (*platform.TenantSubscription, error) {
+func (s *SubscriptionRepository) GetTenantSubscription(ctx context.Context, tenantID string) (*platform.TenantSubscription, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT ts.subscription_id::text, ts.tenant_id::text, ts.plan_id::text, p.slug, p.display_name,
 		       ts.version_id::text, pv.version, ts.status, ts.billing_interval,
@@ -413,7 +414,7 @@ func (s *PlanRepository) GetTenantSubscription(ctx context.Context, tenantID str
 	return scanTenantSubscription(rows)
 }
 
-func (s *PlanRepository) ChangeTenantSubscription(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest) (*platform.TenantSubscription, error) {
+func (s *SubscriptionRepository) ChangeTenantSubscription(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest) (*platform.TenantSubscription, error) {
 	req.PlanSlug = normalizePlanSlug(req.PlanSlug)
 	if req.PlanSlug == "free" {
 		req.PlanSlug = "developer"
@@ -423,7 +424,7 @@ func (s *PlanRepository) ChangeTenantSubscription(ctx context.Context, tenantID 
 		req.BillingInterval = "monthly"
 	}
 
-	target, err := s.publishedPlanBySlug(ctx, req.PlanSlug)
+	target, err := s.catalog.publishedPlanBySlug(ctx, req.PlanSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +465,7 @@ func (s *PlanRepository) ChangeTenantSubscription(ctx context.Context, tenantID 
 				return nil, eventErr
 			}
 
-			s.invalidateTenantEntitlements(ctx, tenantID)
+			s.entitlements.invalidateTenantEntitlements(ctx, tenantID)
 
 			return s.GetTenantSubscription(ctx, tenantID)
 		}
@@ -488,11 +489,11 @@ func subscriptionStatusIsCurrent(status string) bool {
 	}
 }
 
-func (s *PlanRepository) UpsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error) {
+func (s *SubscriptionRepository) UpsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error) {
 	return s.upsertTenantSubscription(ctx, req, actor)
 }
 
-func (s *PlanRepository) upsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error) {
+func (s *SubscriptionRepository) upsertTenantSubscription(ctx context.Context, req platform.UpsertTenantSubscriptionRequest, actor string) (*platform.TenantSubscription, error) {
 	req.PlanSlug = normalizePlanSlug(req.PlanSlug)
 	if req.PlanSlug == "free" || req.PlanSlug == "" {
 		req.PlanSlug = "developer"
@@ -505,7 +506,7 @@ func (s *PlanRepository) upsertTenantSubscription(ctx context.Context, req platf
 		status = "active"
 	}
 
-	target, err := s.publishedPlanBySlug(ctx, req.PlanSlug)
+	target, err := s.catalog.publishedPlanBySlug(ctx, req.PlanSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -522,7 +523,7 @@ func (s *PlanRepository) upsertTenantSubscription(ctx context.Context, req platf
 		periodEnd = *req.PeriodEnd
 	}
 
-	priceSnapshot, err := s.priceSnapshotForVersion(ctx, target.Versions[0].ID, interval)
+	priceSnapshot, err := s.catalog.priceSnapshotForVersion(ctx, target.Versions[0].ID, interval)
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +562,7 @@ func (s *PlanRepository) upsertTenantSubscription(ctx context.Context, req platf
 		return nil, err
 	}
 
-	s.invalidateTenantEntitlements(ctx, req.TenantID)
+	s.entitlements.invalidateTenantEntitlements(ctx, req.TenantID)
 
 	if eventErr := s.insertSubscriptionEvent(ctx, req.TenantID, subscriptionID, "subscription_changed", actor, map[string]interface{}{
 		"plan_slug":        req.PlanSlug,
@@ -573,7 +574,7 @@ func (s *PlanRepository) upsertTenantSubscription(ctx context.Context, req platf
 	return s.GetTenantSubscription(ctx, req.TenantID)
 }
 
-func (s *PlanRepository) ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
+func (s *EntitlementRepository) ResolveEffectiveEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
 	base, err := s.resolveEffectiveEntitlementsBase(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -583,7 +584,7 @@ func (s *PlanRepository) ResolveEffectiveEntitlements(ctx context.Context, tenan
 }
 
 // ResolveEffectiveEntitlementLimits returns subscription and feature limits without usage counters.
-func (s *PlanRepository) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
+func (s *EntitlementRepository) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
 	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 
@@ -604,7 +605,7 @@ func (s *PlanRepository) ResolveEffectiveEntitlementLimits(ctx context.Context, 
 	}, nil
 }
 
-func (s *PlanRepository) resolveEffectiveEntitlementsBase(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
+func (s *EntitlementRepository) resolveEffectiveEntitlementsBase(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
 	if cached, ok := s.getCachedEntitlements(ctx, tenantID); ok {
 		return cached, nil
 	}
@@ -646,8 +647,8 @@ func (s *PlanRepository) resolveEffectiveEntitlementsBase(ctx context.Context, t
 	return cloneEffectiveEntitlements(resolved), nil
 }
 
-func (s *PlanRepository) resolveEffectiveEntitlementsFromDB(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
-	subscription, err := s.GetTenantSubscription(ctx, tenantID)
+func (s *EntitlementRepository) resolveEffectiveEntitlementsFromDB(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, error) {
+	subscription, err := s.subscriptions.GetTenantSubscription(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -722,10 +723,10 @@ func (s *PlanRepository) resolveEffectiveEntitlementsFromDB(ctx context.Context,
 	return resolved, nil
 }
 
-func (s *PlanRepository) withCurrentUsageCounters(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) (*platform.EffectiveEntitlementsResponse, error) {
+func (s *EntitlementRepository) withCurrentUsageCounters(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) (*platform.EffectiveEntitlementsResponse, error) {
 	out := cloneEffectiveEntitlements(resolved)
 
-	usageCounters, err := s.listCurrentUsageCounters(ctx, out.TenantID, out.Features)
+	usageCounters, err := s.usageCounters.listCurrentUsageCounters(ctx, out.TenantID, out.Features)
 	if err != nil {
 		return nil, err
 	}
@@ -736,7 +737,7 @@ func (s *PlanRepository) withCurrentUsageCounters(ctx context.Context, resolved 
 	return out, nil
 }
 
-func (s *PlanRepository) getCachedEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, bool) {
+func (s *EntitlementRepository) getCachedEntitlements(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementsResponse, bool) {
 	if s.entitlementCache == nil {
 		return nil, false
 	}
@@ -766,7 +767,7 @@ func (s *PlanRepository) getCachedEntitlements(ctx context.Context, tenantID str
 	return cloneEffectiveEntitlements(&out), true
 }
 
-func (s *PlanRepository) cacheEntitlements(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) {
+func (s *EntitlementRepository) cacheEntitlements(ctx context.Context, resolved *platform.EffectiveEntitlementsResponse) {
 	if s.entitlementCache == nil || resolved == nil {
 		return
 	}
@@ -782,11 +783,11 @@ func (s *PlanRepository) cacheEntitlements(ctx context.Context, resolved *platfo
 	s.entitlementCache.Set(ctx, entitlementCacheKey(resolved.TenantID), string(raw), s.entitlementCacheTTL)
 }
 
-func (s *PlanRepository) InvalidateEffectiveEntitlements(ctx context.Context, tenantID string) {
+func (s *EntitlementRepository) InvalidateEffectiveEntitlements(ctx context.Context, tenantID string) {
 	s.invalidateTenantEntitlements(ctx, tenantID)
 }
 
-func (s *PlanRepository) invalidateTenantEntitlements(ctx context.Context, tenantID string) {
+func (s *EntitlementRepository) invalidateTenantEntitlements(ctx context.Context, tenantID string) {
 	if s.entitlementCache != nil && strings.TrimSpace(tenantID) != "" {
 		s.entitlementCache.Delete(ctx, entitlementCacheKey(tenantID))
 	}
@@ -794,7 +795,7 @@ func (s *PlanRepository) invalidateTenantEntitlements(ctx context.Context, tenan
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "entitlements.updated")
 }
 
-func (s *PlanRepository) invalidateEntitlementsForPlan(ctx context.Context, planSlug string) {
+func (s *EntitlementRepository) invalidateEntitlementsForPlan(ctx context.Context, planSlug string) {
 	if s.entitlementCache == nil {
 		return
 	}
@@ -891,7 +892,7 @@ func entitlementCacheKey(tenantID string) string {
 	return "entitlements:tenant:" + strings.TrimSpace(tenantID)
 }
 
-func (s *PlanRepository) listCurrentUsageCounters(ctx context.Context, tenantID string, features map[string]interface{}) ([]platform.UsageCounter, error) {
+func (s *UsageCounterRepository) listCurrentUsageCounters(ctx context.Context, tenantID string, features map[string]interface{}) ([]platform.UsageCounter, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT feature_key, window_start, window_end, used::double precision
 		FROM tenant_usage_counters
@@ -923,7 +924,7 @@ func (s *PlanRepository) listCurrentUsageCounters(ctx context.Context, tenantID 
 	return items, rows.Err()
 }
 
-func (s *PlanRepository) UpsertTenantEntitlementOverride(ctx context.Context, req platform.UpsertTenantEntitlementOverrideRequest) (*platform.TenantEntitlementOverride, error) {
+func (s *EntitlementRepository) UpsertTenantEntitlementOverride(ctx context.Context, req platform.UpsertTenantEntitlementOverrideRequest) (*platform.TenantEntitlementOverride, error) {
 	allowOverride, err := s.featureAllowsOverride(ctx, req.FeatureKey)
 	if err != nil {
 		return nil, err
@@ -959,7 +960,7 @@ func (s *PlanRepository) UpsertTenantEntitlementOverride(ctx context.Context, re
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanTenantEntitlementOverride(rows)
@@ -969,7 +970,7 @@ func (s *PlanRepository) UpsertTenantEntitlementOverride(ctx context.Context, re
 
 	s.invalidateTenantEntitlements(ctx, req.TenantID)
 
-	if eventErr := s.insertSubscriptionEvent(ctx, req.TenantID, "", "entitlement_override_upserted", req.CreatedBy, map[string]interface{}{
+	if eventErr := s.subscriptions.insertSubscriptionEvent(ctx, req.TenantID, "", "entitlement_override_upserted", req.CreatedBy, map[string]interface{}{
 		"feature_key": req.FeatureKey,
 		"reason":      req.Reason,
 	}); eventErr != nil {
@@ -979,7 +980,7 @@ func (s *PlanRepository) UpsertTenantEntitlementOverride(ctx context.Context, re
 	return item, nil
 }
 
-func (s *PlanRepository) DeleteTenantEntitlementOverride(ctx context.Context, tenantID string, featureKey string, actor string) error {
+func (s *EntitlementRepository) DeleteTenantEntitlementOverride(ctx context.Context, tenantID string, featureKey string, actor string) error {
 	result, err := s.pool.Exec(ctx, `
 		UPDATE tenant_entitlement_overrides
 		SET active = false, updated_at = NOW()
@@ -990,17 +991,17 @@ func (s *PlanRepository) DeleteTenantEntitlementOverride(ctx context.Context, te
 	}
 
 	if result.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	s.invalidateTenantEntitlements(ctx, tenantID)
 
-	return s.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
+	return s.subscriptions.insertSubscriptionEvent(ctx, tenantID, "", "entitlement_override_deleted", actor, map[string]interface{}{
 		"feature_key": featureKey,
 	})
 }
 
-func (s *PlanRepository) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+func (s *UsageCounterRepository) CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
 	if s.usageCountersEnabled && s.usageCounterCache != nil {
 		counter, allowed, err := s.checkAndIncrementTenantUsageCounterRedis(ctx, tenantID, featureKey, limit, increment, now)
 		if err == nil {
@@ -1027,7 +1028,7 @@ func (s *PlanRepository) CheckAndIncrementTenantUsageCounter(ctx context.Context
 	return s.checkAndIncrementTenantUsageCounterDB(ctx, tenantID, featureKey, limit, increment, now)
 }
 
-func (s *PlanRepository) checkAndIncrementTenantUsageCounterRedis(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+func (s *UsageCounterRepository) checkAndIncrementTenantUsageCounterRedis(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
 	windowStart, windowEnd := usageCounterMonthWindow(now)
 
 	ttl := windowEnd.Sub(now) + s.usageCounterTTLBuffer
@@ -1056,7 +1057,7 @@ func (s *PlanRepository) checkAndIncrementTenantUsageCounterRedis(ctx context.Co
 	}, result.Allowed, nil
 }
 
-func (s *PlanRepository) checkAndIncrementTenantUsageCounterDB(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
+func (s *UsageCounterRepository) checkAndIncrementTenantUsageCounterDB(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
 	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 
@@ -1129,7 +1130,7 @@ func usageCounterMonthWindow(now time.Time) (time.Time, time.Time) {
 	return windowStart, windowStart.AddDate(0, 1, 0)
 }
 
-func (s *PlanRepository) CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error) {
+func (s *EntitlementRepository) CountActiveTenantUsers(ctx context.Context, tenantID string) (int, error) {
 	var count int
 	if err := s.pool.QueryRow(ctx, `
 		SELECT COUNT(1)
@@ -1143,7 +1144,7 @@ func (s *PlanRepository) CountActiveTenantUsers(ctx context.Context, tenantID st
 }
 
 // ProcessSubscriptionTransitions applies scheduled downgrades and expires ended subscriptions.
-func (s *PlanRepository) ProcessSubscriptionTransitions(ctx context.Context, now time.Time, limit int) (int, error) {
+func (s *SubscriptionRepository) ProcessSubscriptionTransitions(ctx context.Context, now time.Time, limit int) (int, error) {
 	ctx, cancel := withStoreTimeout(ctx, s.subscriptionDBTimeout)
 	defer cancel()
 
@@ -1303,7 +1304,7 @@ func (s *PlanRepository) ProcessSubscriptionTransitions(ctx context.Context, now
 	}
 
 	for _, tenantID := range tenantIDs {
-		s.invalidateTenantEntitlements(ctx, tenantID)
+		s.entitlements.invalidateTenantEntitlements(ctx, tenantID)
 	}
 
 	return len(items), nil
@@ -1407,7 +1408,7 @@ func issueHybridInvoiceForSubscriptionTx(ctx context.Context, tx pgx.Tx, subscri
 	return nil
 }
 
-func (s *PlanRepository) planIDBySlug(ctx context.Context, slug string) (string, error) {
+func (s *PlanCatalogRepository) planIDBySlug(ctx context.Context, slug string) (string, error) {
 	var id string
 	if err := s.pool.QueryRow(ctx, `SELECT plan_id::text FROM commercial_plans WHERE slug = $1`, normalizePlanSlug(slug)).Scan(&id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1420,7 +1421,7 @@ func (s *PlanRepository) planIDBySlug(ctx context.Context, slug string) (string,
 	return id, nil
 }
 
-func (s *PlanRepository) planVersionBySlugAndNumber(ctx context.Context, slug string, version int) (string, string, error) {
+func (s *PlanCatalogRepository) planVersionBySlugAndNumber(ctx context.Context, slug string, version int) (string, string, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT pv.version_id::text, pv.status
 		FROM plan_versions pv
@@ -1445,7 +1446,7 @@ func (s *PlanRepository) planVersionBySlugAndNumber(ctx context.Context, slug st
 	return id, status, nil
 }
 
-func (s *PlanRepository) publishedPlanBySlug(ctx context.Context, slug string) (*platform.CommercialPlan, error) {
+func (s *PlanCatalogRepository) publishedPlanBySlug(ctx context.Context, slug string) (*platform.CommercialPlan, error) {
 	plans, err := s.ListPublicCommercialPlans(ctx)
 	if err != nil {
 		return nil, err
@@ -1464,7 +1465,7 @@ func (s *PlanRepository) publishedPlanBySlug(ctx context.Context, slug string) (
 	return nil, billingdomain.ErrPlanNotFound
 }
 
-func (s *PlanRepository) listPlanPricesForVersion(ctx context.Context, versionID string) ([]platform.PlanPrice, error) {
+func (s *PlanCatalogRepository) listPlanPricesForVersion(ctx context.Context, versionID string) ([]platform.PlanPrice, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT price_id::text, version_id::text, billing_interval, currency, amount_minor, discount_percent, created_at, updated_at
 		FROM plan_prices
@@ -1490,7 +1491,7 @@ func (s *PlanRepository) listPlanPricesForVersion(ctx context.Context, versionID
 	return out, rows.Err()
 }
 
-func (s *PlanRepository) listPlanFeatureMapForVersion(ctx context.Context, versionID string) (map[string]interface{}, error) {
+func (s *PlanCatalogRepository) listPlanFeatureMapForVersion(ctx context.Context, versionID string) (map[string]interface{}, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT feature_key, value_json
 		FROM plan_entitlements
@@ -1519,7 +1520,7 @@ func (s *PlanRepository) listPlanFeatureMapForVersion(ctx context.Context, versi
 	return out, rows.Err()
 }
 
-func (s *PlanRepository) priceSnapshotForVersion(ctx context.Context, versionID, interval string) (map[string]interface{}, error) {
+func (s *PlanCatalogRepository) priceSnapshotForVersion(ctx context.Context, versionID, interval string) (map[string]interface{}, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT billing_interval, currency, amount_minor, discount_percent
 		FROM plan_prices
@@ -1561,7 +1562,7 @@ func (s *PlanRepository) priceSnapshotForVersion(ctx context.Context, versionID,
 	return out, nil
 }
 
-func (s *PlanRepository) featureAllowsOverride(ctx context.Context, key string) (bool, error) {
+func (s *EntitlementRepository) featureAllowsOverride(ctx context.Context, key string) (bool, error) {
 	var allow bool
 	if err := s.pool.QueryRow(ctx, `SELECT allow_override FROM feature_catalog WHERE feature_key = $1`, strings.TrimSpace(key)).Scan(&allow); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1574,7 +1575,7 @@ func (s *PlanRepository) featureAllowsOverride(ctx context.Context, key string) 
 	return allow, nil
 }
 
-func (s *PlanRepository) insertSubscriptionEvent(ctx context.Context, tenantID, subscriptionID, eventType, actor string, payload map[string]interface{}) error {
+func (s *SubscriptionRepository) insertSubscriptionEvent(ctx context.Context, tenantID, subscriptionID, eventType, actor string, payload map[string]interface{}) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO subscription_events (tenant_id, subscription_id, event_type, actor, payload, created_at)
 		VALUES ($1::uuid, $2::uuid, $3, NULLIF($4, ''), $5, NOW())

@@ -40,7 +40,7 @@ sync or streaming lifecycle.
 | `internal/bootstrap` | Construction order, dependency wiring, lifecycle registration | Business rules or environment parsing helpers |
 | `internal/<feature>` | Domain policy, application service, consumer-owned ports | Fiber or database-driver errors |
 | `internal/management/<feature>` | HTTP routes and transport mapping | SQL and transaction orchestration |
-| `internal/storage` | Legacy persistence adapters during migration | New business state on `Store` |
+| `internal/storage` | Focused persistence adapters and compatibility compositions | Domain errors, transport mapping, or new feature methods on compatibility facades |
 | `internal/proxy` | Gateway protocol adapters and shared execution pipeline | Provider HTTP adapters owned by Silk Road |
 | `packages/contracts` | Shared public API contracts | Control-plane implementation details |
 
@@ -74,6 +74,20 @@ provider-native resources, platform credentials, runtime-profile persistence,
 and database health each have dedicated repositories. `storage.Store` now owns
 only construction-time compatibility and resource shutdown; feature code must
 not accept it.
+
+Management and gateway transport packages have a zero-tolerance dependency
+boundary: production files in `internal/admin` and `internal/proxy` must not
+import `internal/storage`, `pgx`, or `pgconn`. Feature packages own canonical
+errors and validation; storage adapters translate driver failures before they
+cross an application port.
+
+Commercial, wallet, and observability persistence is split by capability. The
+legacy `PlanRepository`, `WalletRepository`, and `ObservabilityRepository`
+types are composition-only compatibility values and must not gain receiver
+methods. Runtime wiring prefers focused repositories such as
+`SubscriptionRepository`, `EntitlementRepository`, `WalletLedgerRepository`,
+`ExchangeRateRepository`, `TraceRepository`, `RequestLogRepository`, and
+`MetricsRepository`.
 
 ## Configuration rule
 

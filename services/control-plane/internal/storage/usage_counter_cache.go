@@ -19,7 +19,7 @@ type usageCounterKeyParts struct {
 }
 
 // StartUsageCounterFlusher periodically persists dirty Redis usage counters to PostgreSQL.
-func (s *PlanRepository) StartUsageCounterFlusher(ctx context.Context) {
+func (s *UsageCounterRepository) StartUsageCounterFlusher(ctx context.Context) {
 	startPeriodicFlusher(
 		ctx,
 		s.logger,
@@ -31,7 +31,7 @@ func (s *PlanRepository) StartUsageCounterFlusher(ctx context.Context) {
 }
 
 // FlushUsageCounters persists a bounded batch of Redis usage counters to PostgreSQL.
-func (s *PlanRepository) FlushUsageCounters(ctx context.Context) error {
+func (s *UsageCounterRepository) FlushUsageCounters(ctx context.Context) error {
 	if s.usageCounterCache == nil {
 		return nil
 	}
@@ -74,7 +74,7 @@ func (s *PlanRepository) FlushUsageCounters(ctx context.Context) error {
 	return nil
 }
 
-func (s *PlanRepository) upsertUsageCounterSnapshot(ctx context.Context, parts usageCounterKeyParts, used float64) error {
+func (s *UsageCounterRepository) upsertUsageCounterSnapshot(ctx context.Context, parts usageCounterKeyParts, used float64) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO tenant_usage_counters (tenant_id, feature_key, window_start, window_end, used, created_at, updated_at)
 		VALUES ($1::uuid, $2, $3, $4, $5, NOW(), NOW())
@@ -85,15 +85,15 @@ func (s *PlanRepository) upsertUsageCounterSnapshot(ctx context.Context, parts u
 	return err
 }
 
-func (s *PlanRepository) usageCounterDirtySetKey() string {
+func (s *UsageCounterRepository) usageCounterDirtySetKey() string {
 	return strings.TrimSuffix(s.usageCounterKeyPrefix, ":") + ":dirty"
 }
 
-func (s *PlanRepository) usageCounterKey(tenantID string, featureKey string, windowStart time.Time) string {
+func (s *UsageCounterRepository) usageCounterKey(tenantID string, featureKey string, windowStart time.Time) string {
 	return fmt.Sprintf("%s:tenant:%s:feature:%s:window:%d", strings.TrimSuffix(s.usageCounterKeyPrefix, ":"), strings.TrimSpace(tenantID), strings.TrimSpace(featureKey), windowStart.UTC().Unix())
 }
 
-func (s *PlanRepository) parseUsageCounterKey(key string) (usageCounterKeyParts, error) {
+func (s *UsageCounterRepository) parseUsageCounterKey(key string) (usageCounterKeyParts, error) {
 	prefix := strings.TrimSuffix(s.usageCounterKeyPrefix, ":") + ":tenant:"
 	if !strings.HasPrefix(key, prefix) {
 		return usageCounterKeyParts{}, fmt.Errorf("missing usage counter prefix")

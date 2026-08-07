@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providernative"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -437,7 +437,7 @@ func (h *ResponsesHandler) providerResourceMapping(
 			continue
 		}
 
-		if !errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
+		if !errors.Is(err, providernative.ErrResourceNotFound) {
 			return nil, writeAPIError(c, fiber.StatusServiceUnavailable, "provider resource routing state is unavailable", "routing_error")
 		}
 	}

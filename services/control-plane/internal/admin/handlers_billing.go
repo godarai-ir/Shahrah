@@ -8,13 +8,12 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
@@ -74,7 +73,7 @@ func (h *Handlers) CreateBankTransfer(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "amount_irr, tracking_number, and bank_transaction_date_jalali are required")
 	}
 
-	bankTransactionAt, err := storage.ParseJalaliDateAtTehranMidday(req.BankTransactionDateJalali)
+	bankTransactionAt, err := billingdomain.ParseJalaliDateAtTehranMidday(req.BankTransactionDateJalali)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "bank_transaction_date_jalali must be a valid Jalali date in YYYY-MM-DD format")
 	}
@@ -296,7 +295,7 @@ func (h *Handlers) GetBillingProfile(c *fiber.Ctx) error {
 
 	item, err := h.wallets.GetBillingProfile(c.Context(), currentTenant.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return c.JSON(fiber.Map{"data": nil})
 		}
 
@@ -350,7 +349,7 @@ func (h *Handlers) GetBillingUsageSummary(c *fiber.Ctx) error {
 
 	item, err := h.wallets.GetBillingUsageSummary(c.Context(), currentTenant.ID, preset)
 	if err != nil {
-		if errors.Is(err, storage.ErrBillingReportPresetInvalid) {
+		if errors.Is(err, billingdomain.ErrBillingReportPresetInvalid) {
 			return fiber.NewError(fiber.StatusBadRequest, "preset is invalid")
 		}
 
@@ -386,7 +385,7 @@ func (h *Handlers) GetBillingMonthlyUsage(c *fiber.Ctx) error {
 
 	item, err := h.wallets.GetMonthlyUsageDetail(c.Context(), currentTenant.ID, jalaliYear, jalaliMonth)
 	if err != nil {
-		if errors.Is(err, storage.ErrBillingJalaliMonthInvalid) {
+		if errors.Is(err, billingdomain.ErrBillingJalaliMonthInvalid) {
 			return fiber.NewError(fiber.StatusBadRequest, "jalali_year and jalali_month must describe a valid Jalali month")
 		}
 
@@ -461,11 +460,11 @@ func billingActorID(c *fiber.Ctx) string {
 
 func mapBillingError(err error) error {
 	switch {
-	case errors.Is(err, storage.ErrFinancialCodeInvalid):
+	case errors.Is(err, billingdomain.ErrFinancialCodeInvalid):
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "code is invalid or not redeemable")
-	case errors.Is(err, storage.ErrBillingProfileInvalid):
+	case errors.Is(err, billingdomain.ErrBillingProfileInvalid):
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "billing profile is invalid")
-	case errors.Is(err, storage.ErrBankTransferNotFound):
+	case errors.Is(err, billingdomain.ErrBankTransferNotFound):
 		return fiber.NewError(fiber.StatusNotFound, "bank transfer request not found")
 	case errors.Is(err, billingdomain.ErrInsufficientWalletBalance):
 		return fiber.NewError(fiber.StatusConflict, "insufficient wallet balance")

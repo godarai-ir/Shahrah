@@ -83,10 +83,10 @@ func (c *entitlementTestCache) Close() error {
 func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 	ctx := context.Background()
 	limit := 10.0
-	store := &PlanRepository{
+	store := composePlanRepository(&planState{
 		entitlementCache:    newEntitlementTestCache(),
 		entitlementCacheTTL: time.Minute,
-	}
+	})
 
 	resolved := &platform.EffectiveEntitlementsResponse{
 		TenantID: "tenant-1",
@@ -143,10 +143,10 @@ func TestEffectiveEntitlementsCacheOmitsUsageAndClones(t *testing.T) {
 
 func TestInvalidateEffectiveEntitlementsDeletesCache(t *testing.T) {
 	ctx := context.Background()
-	store := &PlanRepository{
+	store := composePlanRepository(&planState{
 		entitlementCache:    newEntitlementTestCache(),
 		entitlementCacheTTL: time.Minute,
-	}
+	})
 
 	store.cacheEntitlements(ctx, &platform.EffectiveEntitlementsResponse{
 		TenantID: "tenant-1",
@@ -161,10 +161,10 @@ func TestInvalidateEffectiveEntitlementsDeletesCache(t *testing.T) {
 
 func TestEffectiveEntitlementsCacheHonorsTTL(t *testing.T) {
 	ctx := context.Background()
-	store := &PlanRepository{
+	store := composePlanRepository(&planState{
 		entitlementCache:    newEntitlementTestCache(),
 		entitlementCacheTTL: 10 * time.Millisecond,
-	}
+	})
 
 	store.cacheEntitlements(ctx, &platform.EffectiveEntitlementsResponse{
 		TenantID: "tenant-1",
@@ -193,7 +193,7 @@ func TestInvalidateDeploymentCacheDeletesTenantSnapshot(t *testing.T) {
 func TestInvalidateWalletCacheDeletesTenantBalance(t *testing.T) {
 	ctx := context.Background()
 	testCache := newEntitlementTestCache()
-	store := &WalletRepository{entitlementCache: testCache}
+	store := composeWalletRepository(&walletState{entitlementCache: testCache})
 
 	testCache.Set(ctx, walletCacheKey("tenant-1"), &platform.Wallet{TenantID: "tenant-1"}, time.Minute)
 	store.invalidateWalletCache(ctx, "tenant-1")

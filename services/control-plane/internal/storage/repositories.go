@@ -30,8 +30,7 @@ func (f RuntimeProfileInvalidatorFunc) Invalidate(ctx context.Context, tenantID 
 	}
 }
 
-// PlanRepository persists commercial plans, subscriptions, and entitlement sources.
-type PlanRepository struct {
+type planState struct {
 	pool                       *pgxpool.Pool
 	logger                     *zap.Logger
 	entitlementCache           cache.Cache
@@ -47,10 +46,33 @@ type PlanRepository struct {
 	runtimeProfileInvalidator  RuntimeProfileInvalidator
 	hotPathDBTimeout           time.Duration
 	subscriptionDBTimeout      time.Duration
+	catalog                    *PlanCatalogRepository
+	subscriptions              *SubscriptionRepository
+	entitlements               *EntitlementRepository
+	usageCounters              *UsageCounterRepository
 }
 
-// WalletRepository persists wallet state and payment intents.
-type WalletRepository struct {
+// PlanCatalogRepository persists commercial plan definitions and versions.
+type PlanCatalogRepository struct{ *planState }
+
+// SubscriptionRepository persists tenant subscriptions and payment transitions.
+type SubscriptionRepository struct{ *planState }
+
+// EntitlementRepository resolves and persists tenant entitlement state.
+type EntitlementRepository struct{ *planState }
+
+// UsageCounterRepository persists and flushes entitlement usage counters.
+type UsageCounterRepository struct{ *planState }
+
+// PlanRepository is a compatibility composition of focused commercial capabilities.
+type PlanRepository struct {
+	*PlanCatalogRepository
+	*SubscriptionRepository
+	*EntitlementRepository
+	*UsageCounterRepository
+}
+
+type walletState struct {
 	pool                   *pgxpool.Pool
 	clickhouse             *sql.DB
 	clickhouseMetricsReady bool
@@ -58,6 +80,28 @@ type WalletRepository struct {
 	entitlementCache       cache.Cache
 	budgetWindowTTLGrace   time.Duration
 	hotPathDBTimeout       time.Duration
+	ledger                 *WalletLedgerRepository
+	rates                  *ExchangeRateRepository
+}
+
+// WalletLedgerRepository persists wallet balances, ledger entries, and budget settlements.
+type WalletLedgerRepository struct{ *walletState }
+
+// ExchangeRateRepository persists exchange rates and coordinates rate updates.
+type ExchangeRateRepository struct{ *walletState }
+
+// WalletPaymentRepository persists wallet top-up intents and gateway state.
+type WalletPaymentRepository struct{ *walletState }
+
+// FinancialRepository persists financial profiles, codes, invoices, and bank transfers.
+type FinancialRepository struct{ *walletState }
+
+// WalletRepository is a compatibility composition of focused wallet capabilities.
+type WalletRepository struct {
+	*WalletLedgerRepository
+	*ExchangeRateRepository
+	*WalletPaymentRepository
+	*FinancialRepository
 }
 
 // SupportRepository persists support tickets and support-only tenant operations.
@@ -145,8 +189,7 @@ type ModelRepository struct {
 	runtimeProfileInvalidator RuntimeProfileInvalidator
 }
 
-// ObservabilityRepository persists logs, traces, metrics, and usage aggregates.
-type ObservabilityRepository struct {
+type observabilityState struct {
 	pool                     *pgxpool.Pool
 	clickhouse               *sql.DB
 	clickhouseReady          bool
@@ -171,6 +214,50 @@ type ObservabilityRepository struct {
 	lastUsedFallback         map[string]time.Time
 	config                   Config
 	retention                *RetentionRepository
+	health                   *ObservabilityHealthRepository
+	traces                   *TraceRepository
+	requestLogs              *RequestLogRepository
+	logManagement            *LogManagementRepository
+	metrics                  *MetricsRepository
+	spend                    *SpendRepository
+	settings                 *ObservabilitySettingsRepository
+	tokenUsage               *TokenUsageRepository
+}
+
+// ObservabilityHealthRepository owns ClickHouse initialization and readiness.
+type ObservabilityHealthRepository struct{ *observabilityState }
+
+// TraceRepository persists request traces and spans.
+type TraceRepository struct{ *observabilityState }
+
+// RequestLogRepository persists and queries request logs.
+type RequestLogRepository struct{ *observabilityState }
+
+// LogManagementRepository persists saved log views and export jobs.
+type LogManagementRepository struct{ *observabilityState }
+
+// MetricsRepository persists and queries model metrics.
+type MetricsRepository struct{ *observabilityState }
+
+// SpendRepository persists spend records.
+type SpendRepository struct{ *observabilityState }
+
+// ObservabilitySettingsRepository persists tenant capture and logging settings.
+type ObservabilitySettingsRepository struct{ *observabilityState }
+
+// TokenUsageRepository aggregates token spend and key activity.
+type TokenUsageRepository struct{ *observabilityState }
+
+// ObservabilityRepository is a compatibility composition of focused observability capabilities.
+type ObservabilityRepository struct {
+	*ObservabilityHealthRepository
+	*TraceRepository
+	*RequestLogRepository
+	*LogManagementRepository
+	*MetricsRepository
+	*SpendRepository
+	*ObservabilitySettingsRepository
+	*TokenUsageRepository
 }
 
 // PlatformCredentialRepository persists platform-managed provider credentials.
@@ -208,7 +295,7 @@ func newPlanRepository(
 	invalidator RuntimeProfileInvalidator,
 	storageConfig Config,
 ) *PlanRepository {
-	repository := &PlanRepository{
+	state := &planState{
 		pool:                       pool,
 		logger:                     logger,
 		entitlementCache:           sharedCache,
@@ -225,10 +312,28 @@ func newPlanRepository(
 	}
 
 	if usageCounterCache, ok := sharedCache.(cache.UsageCounterCache); ok {
-		repository.usageCounterCache = usageCounterCache
+		state.usageCounterCache = usageCounterCache
 	}
 
-	return repository
+	return composePlanRepository(state)
+}
+
+func composePlanRepository(state *planState) *PlanRepository {
+	catalog := &PlanCatalogRepository{planState: state}
+	subscriptions := &SubscriptionRepository{planState: state}
+	entitlements := &EntitlementRepository{planState: state}
+	usageCounters := &UsageCounterRepository{planState: state}
+	state.catalog = catalog
+	state.subscriptions = subscriptions
+	state.entitlements = entitlements
+	state.usageCounters = usageCounters
+
+	return &PlanRepository{
+		PlanCatalogRepository:  catalog,
+		SubscriptionRepository: subscriptions,
+		EntitlementRepository:  entitlements,
+		UsageCounterRepository: usageCounters,
+	}
 }
 
 func newWalletRepository(
@@ -239,7 +344,7 @@ func newWalletRepository(
 	sharedCache cache.Cache,
 	storageConfig Config,
 ) *WalletRepository {
-	return &WalletRepository{
+	state := &walletState{
 		pool:                   pool,
 		clickhouse:             clickhouse,
 		clickhouseMetricsReady: clickhouseMetricsReady,
@@ -247,6 +352,22 @@ func newWalletRepository(
 		entitlementCache:       sharedCache,
 		budgetWindowTTLGrace:   storageConfig.Wallets.BudgetWindowTTLGrace,
 		hotPathDBTimeout:       storageConfig.HotPath.DatabaseTimeout,
+	}
+
+	return composeWalletRepository(state)
+}
+
+func composeWalletRepository(state *walletState) *WalletRepository {
+	ledger := &WalletLedgerRepository{walletState: state}
+	rates := &ExchangeRateRepository{walletState: state}
+	state.ledger = ledger
+	state.rates = rates
+
+	return &WalletRepository{
+		WalletLedgerRepository:  ledger,
+		ExchangeRateRepository:  rates,
+		WalletPaymentRepository: &WalletPaymentRepository{walletState: state},
+		FinancialRepository:     &FinancialRepository{walletState: state},
 	}
 }
 
@@ -372,7 +493,7 @@ func newObservabilityRepository(
 	requestLoggingModeTTL time.Duration,
 	storageConfig Config,
 ) *ObservabilityRepository {
-	repository := &ObservabilityRepository{
+	state := &observabilityState{
 		pool:                     pool,
 		logger:                   logger,
 		entitlementCache:         sharedCache,
@@ -391,10 +512,40 @@ func newObservabilityRepository(
 	}
 
 	if tokenUsageCache, ok := sharedCache.(cache.TokenUsageCache); ok {
-		repository.tokenUsageCache = tokenUsageCache
+		state.tokenUsageCache = tokenUsageCache
 	}
 
-	return repository
+	return composeObservabilityRepository(state)
+}
+
+func composeObservabilityRepository(state *observabilityState) *ObservabilityRepository {
+	health := &ObservabilityHealthRepository{observabilityState: state}
+	traces := &TraceRepository{observabilityState: state}
+	requestLogs := &RequestLogRepository{observabilityState: state}
+	logManagement := &LogManagementRepository{observabilityState: state}
+	metrics := &MetricsRepository{observabilityState: state}
+	spend := &SpendRepository{observabilityState: state}
+	settings := &ObservabilitySettingsRepository{observabilityState: state}
+	tokenUsage := &TokenUsageRepository{observabilityState: state}
+	state.health = health
+	state.traces = traces
+	state.requestLogs = requestLogs
+	state.logManagement = logManagement
+	state.metrics = metrics
+	state.spend = spend
+	state.settings = settings
+	state.tokenUsage = tokenUsage
+
+	return &ObservabilityRepository{
+		ObservabilityHealthRepository:   health,
+		TraceRepository:                 traces,
+		RequestLogRepository:            requestLogs,
+		LogManagementRepository:         logManagement,
+		MetricsRepository:               metrics,
+		SpendRepository:                 spend,
+		ObservabilitySettingsRepository: settings,
+		TokenUsageRepository:            tokenUsage,
+	}
 }
 
 func newPlatformCredentialRepository(pool *pgxpool.Pool, logger *zap.Logger) *PlatformCredentialRepository {
@@ -437,7 +588,7 @@ func (r *ProviderAccountRepository) warmDeploymentCacheAsync(tenantID string) {
 	}
 }
 
-func (r *PlanRepository) invalidateTenantRuntimeProfile(
+func (r *planState) invalidateTenantRuntimeProfile(
 	ctx context.Context,
 	tenantID string,
 	reason string,
@@ -560,7 +711,7 @@ func (r *ModelRepository) invalidateTenantRuntimeProfile(
 	r.runtimeProfileInvalidator.Invalidate(ctx, tenantID, reason)
 }
 
-func (r *WalletRepository) invalidateWalletCache(ctx context.Context, tenantID string) {
+func (r *WalletLedgerRepository) invalidateWalletCache(ctx context.Context, tenantID string) {
 	if r == nil || r.entitlementCache == nil {
 		return
 	}

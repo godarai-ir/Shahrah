@@ -9,7 +9,7 @@ import (
 )
 
 func TestUpdateCommercialSignupSettingsRejectsInvalidCreditBeforePersistence(t *testing.T) {
-	store := &PlanRepository{}
+	store := composePlanRepository(&planState{})
 	for _, credit := range []int64{-1, 1000000000000000000} {
 		_, err := store.UpdateCommercialSignupSettings(context.Background(), credit, "test")
 		assert.ErrorIs(t, err, billingdomain.ErrInvalidSignupCredit)

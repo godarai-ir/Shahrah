@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -82,6 +83,21 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 		return nil, fmt.Errorf("list runtime budget-limit rules: %w", err)
 	}
 
+	sort.SliceStable(rateRules, func(i, j int) bool {
+		if rateRules[i].Priority == rateRules[j].Priority {
+			return runtimeRateLimitRuleID(rateRules[i]) < runtimeRateLimitRuleID(rateRules[j])
+		}
+
+		return rateRules[i].Priority < rateRules[j].Priority
+	})
+	sort.SliceStable(budgetRules, func(i, j int) bool {
+		if budgetRules[i].Priority == budgetRules[j].Priority {
+			return runtimeBudgetRuleID(budgetRules[i]) < runtimeBudgetRuleID(budgetRules[j])
+		}
+
+		return budgetRules[i].Priority < budgetRules[j].Priority
+	})
+
 	now := c.now().UTC()
 	profile := &Profile{
 		TenantID:        tenantID,
@@ -149,6 +165,43 @@ func (c *Compiler) Compile(ctx context.Context, tenantID string, version int64) 
 	profile.Checksum = checksumProfile(profile)
 
 	return profile, nil
+}
+
+func sortProfilePolicies(profile *Profile) {
+	if profile == nil {
+		return
+	}
+
+	sort.SliceStable(profile.RateLimitRules, func(i, j int) bool {
+		if profile.RateLimitRules[i].Priority == profile.RateLimitRules[j].Priority {
+			return runtimeRateLimitRuleID(profile.RateLimitRules[i]) < runtimeRateLimitRuleID(profile.RateLimitRules[j])
+		}
+
+		return profile.RateLimitRules[i].Priority < profile.RateLimitRules[j].Priority
+	})
+	sort.SliceStable(profile.BudgetRules, func(i, j int) bool {
+		if profile.BudgetRules[i].Priority == profile.BudgetRules[j].Priority {
+			return runtimeBudgetRuleID(profile.BudgetRules[i]) < runtimeBudgetRuleID(profile.BudgetRules[j])
+		}
+
+		return profile.BudgetRules[i].Priority < profile.BudgetRules[j].Priority
+	})
+}
+
+func runtimeRateLimitRuleID(rule platform.RateLimitRule) string {
+	if strings.TrimSpace(rule.RuleID) != "" {
+		return strings.TrimSpace(rule.RuleID)
+	}
+
+	return strings.TrimSpace(rule.ID)
+}
+
+func runtimeBudgetRuleID(rule platform.BudgetLimitRule) string {
+	if strings.TrimSpace(rule.RuleID) != "" {
+		return strings.TrimSpace(rule.RuleID)
+	}
+
+	return strings.TrimSpace(rule.ID)
 }
 
 func checksumProfile(profile *Profile) string {

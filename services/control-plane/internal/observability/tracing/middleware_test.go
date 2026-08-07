@@ -3,6 +3,7 @@ package tracing
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +14,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type privacyResolverCounter struct {
+	calls atomic.Int64
+}
+
+func (r *privacyResolverCounter) ResolveTenantPolicy(string) (CapturePolicy, bool) {
+	r.calls.Add(1)
+
+	return CapturePolicySampledRedacted, true
+}
 
 func TestMiddleware_UsesResolvedTenantContextForRootSpan(t *testing.T) {
 	app := fiber.New()
@@ -84,4 +95,36 @@ func TestRecordStepSpan_UsesResolvedTenantContext(t *testing.T) {
 	assert.Equal(t, "10f8c4d0-b67d-47bc-bb6c-88172b7c6ec6", batch[1].TenantID)
 	assert.Equal(t, "gateway.request", batch[0].Name)
 	assert.Equal(t, "admin.query", batch[1].Name)
+}
+
+func TestRecordStepSpanDefersPrivacyWorkForUnsampledRequest(t *testing.T) {
+	app := fiber.New()
+	queue := NewQueue(16)
+	privacy := NewPrivacyManager(DefaultConfig())
+	resolver := &privacyResolverCounter{}
+	privacy.SetTenantPolicyResolver(resolver)
+
+	app.Use(Middleware(queue, NewSampler(0, 60_000), 60_000, privacy))
+	app.Get("/v1/models", func(c *fiber.Ctx) error {
+		SetTenantForTrace(c, "tenant-1")
+		RecordStepSpan(
+			c,
+			QueueFromContext(c),
+			"",
+			"models.list",
+			"internal",
+			time.Now(),
+			fiber.StatusOK,
+			map[string]interface{}{payloadRequestKey: map[string]interface{}{"api_key": "secret"}},
+		)
+
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/v1/models", http.NoBody))
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Zero(t, resolver.calls.Load())
+	assert.Zero(t, queue.Len())
 }

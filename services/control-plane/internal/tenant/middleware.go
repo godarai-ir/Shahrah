@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -32,27 +33,40 @@ type Cache interface {
 	Delete(ctx context.Context, key string)
 }
 
+const defaultLocalCacheMaxEntries = 4096
+
 // MiddlewareConfig holds configuration for the middleware.
 type MiddlewareConfig struct {
-	AllowHeaderHint bool
-	CacheTTL        time.Duration
-	RuntimeProfiles RuntimeProfileGetter
+	AllowHeaderHint      bool
+	CacheTTL             time.Duration
+	LocalCacheTTL        time.Duration
+	LocalCacheMaxEntries int
+	RuntimeProfiles      RuntimeProfileGetter
+}
+
+type localTenantEntry struct {
+	tenant    platform.Tenant
+	expiresAt time.Time
 }
 
 // Middleware resolves tenants from host and optional local-dev header hints.
 type Middleware struct {
-	store           Store
-	cache           Cache
-	runtimeProfiles RuntimeProfileGetter
-	defaultTenant   string
-	allowHeaderHint bool
-	cacheTTL        time.Duration
-	loadGroup       singleflight.Group
+	store                Store
+	cache                Cache
+	runtimeProfiles      RuntimeProfileGetter
+	defaultTenant        string
+	allowHeaderHint      bool
+	cacheTTL             time.Duration
+	localCacheTTL        time.Duration
+	localCacheMaxEntries int
+	localMu              sync.RWMutex
+	localTenants         map[string]localTenantEntry
+	loadGroup            singleflight.Group
 }
 
 // RuntimeProfileGetter resolves compiled tenant state.
 type RuntimeProfileGetter interface {
-	Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
+	GetSnapshot(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
 }
 
 // NewMiddleware creates a new tenant middleware without caching.
@@ -60,10 +74,13 @@ type RuntimeProfileGetter interface {
 // Deprecated: Use NewMiddlewareWithCache instead.
 func NewMiddleware(store Store, defaultTenant string, allowHeaderHint bool) *Middleware {
 	return &Middleware{
-		store:           store,
-		defaultTenant:   strings.TrimSpace(defaultTenant),
-		allowHeaderHint: allowHeaderHint,
-		cacheTTL:        5 * time.Minute, // default TTL
+		store:                store,
+		defaultTenant:        strings.TrimSpace(defaultTenant),
+		allowHeaderHint:      allowHeaderHint,
+		cacheTTL:             5 * time.Minute, // default TTL
+		localCacheTTL:        time.Second,
+		localCacheMaxEntries: defaultLocalCacheMaxEntries,
+		localTenants:         make(map[string]localTenantEntry),
 	}
 }
 
@@ -74,12 +91,29 @@ func NewMiddlewareWithCache(store Store, c Cache, cfg MiddlewareConfig) *Middlew
 		cacheTTL = 5 * time.Minute
 	}
 
+	localCacheTTL := cfg.LocalCacheTTL
+	if localCacheTTL <= 0 {
+		localCacheTTL = time.Second
+	}
+
+	if localCacheTTL > cacheTTL {
+		localCacheTTL = cacheTTL
+	}
+
+	localCacheMaxEntries := cfg.LocalCacheMaxEntries
+	if localCacheMaxEntries <= 0 {
+		localCacheMaxEntries = defaultLocalCacheMaxEntries
+	}
+
 	return &Middleware{
-		store:           store,
-		cache:           c,
-		runtimeProfiles: cfg.RuntimeProfiles,
-		allowHeaderHint: cfg.AllowHeaderHint,
-		cacheTTL:        cacheTTL,
+		store:                store,
+		cache:                c,
+		runtimeProfiles:      cfg.RuntimeProfiles,
+		allowHeaderHint:      cfg.AllowHeaderHint,
+		cacheTTL:             cacheTTL,
+		localCacheTTL:        localCacheTTL,
+		localCacheMaxEntries: localCacheMaxEntries,
+		localTenants:         make(map[string]localTenantEntry),
 	}
 }
 
@@ -105,21 +139,8 @@ func (m *Middleware) Handle() fiber.Handler {
 
 		host = normalizeTenantHost(host)
 
-		// Check cache first
-		if m.cache != nil {
-			cacheKey := cacheKeyForHost(host)
-			if cached, found := m.cache.Get(c.Context(), cacheKey); found && cached != nil {
-				if tenant, ok := tenantFromCache(cached); ok {
-					if !isActiveTenant(tenant) {
-						return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
-					}
-
-					c.Locals(ContextKey{}, tenant)
-					m.attachRuntimeProfile(c, tenant)
-
-					return c.Next()
-				}
-			}
+		if tenant, found := m.localTenant(host); found {
+			return m.continueWithTenant(c, tenant)
 		}
 
 		tenant, err := m.resolveTenant(c.Context(), host)
@@ -127,29 +148,105 @@ func (m *Middleware) Handle() fiber.Handler {
 			return fiber.NewError(fiber.StatusNotFound, "tenant not found")
 		}
 
-		// Check tenant status
-		if !isActiveTenant(tenant) {
-			return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
-		}
+		m.rememberLocalTenant(host, tenant)
 
-		c.Locals(ContextKey{}, tenant)
-		m.attachRuntimeProfile(c, tenant)
-
-		return c.Next()
+		return m.continueWithTenant(c, tenant)
 	}
 }
 
-func (m *Middleware) attachRuntimeProfile(c *fiber.Ctx, tenant *platform.Tenant) {
+func (m *Middleware) continueWithTenant(c *fiber.Ctx, resolved *platform.Tenant) error {
+	tenant := resolved
+
+	profile := m.runtimeProfile(c, tenant)
+	if profile != nil && profile.Tenant.ID == tenant.ID {
+		tenant = cloneTenant(&profile.Tenant)
+	}
+
+	if !isActiveTenant(tenant) {
+		return fiber.NewError(fiber.StatusForbidden, fmt.Sprintf("tenant is not active (status: %s)", tenant.Status))
+	}
+
+	c.Locals(ContextKey{}, tenant)
+
+	if profile != nil {
+		c.Locals(RuntimeProfileContextKey{}, profile)
+	}
+
+	return c.Next()
+}
+
+func (m *Middleware) runtimeProfile(c *fiber.Ctx, tenant *platform.Tenant) *runtimeprofile.Profile {
 	if m == nil || m.runtimeProfiles == nil || tenant == nil {
-		return
+		return nil
 	}
 
-	profile, err := m.runtimeProfiles.Get(c.Context(), tenant.ID)
+	profile, err := m.runtimeProfiles.GetSnapshot(c.Context(), tenant.ID)
 	if err != nil || profile == nil {
+		return nil
+	}
+
+	return profile
+}
+
+func (m *Middleware) localTenant(host string) (*platform.Tenant, bool) {
+	if m == nil || m.localCacheTTL <= 0 {
+		return nil, false
+	}
+
+	key := cacheKeyForHost(host)
+
+	m.localMu.RLock()
+	entry, ok := m.localTenants[key]
+	m.localMu.RUnlock()
+
+	now := time.Now()
+	if !ok || now.After(entry.expiresAt) {
+		if ok {
+			m.localMu.Lock()
+			if current, exists := m.localTenants[key]; exists && current.expiresAt.Equal(entry.expiresAt) && now.After(current.expiresAt) {
+				delete(m.localTenants, key)
+			}
+			m.localMu.Unlock()
+		}
+
+		return nil, false
+	}
+
+	return cloneTenant(&entry.tenant), true
+}
+
+func (m *Middleware) rememberLocalTenant(host string, tenant *platform.Tenant) {
+	if m == nil || tenant == nil || m.localCacheTTL <= 0 || !isActiveTenant(tenant) {
 		return
 	}
 
-	c.Locals(RuntimeProfileContextKey{}, profile)
+	entry := localTenantEntry{
+		tenant:    *tenant,
+		expiresAt: time.Now().Add(m.localCacheTTL),
+	}
+
+	key := cacheKeyForHost(host)
+
+	maxEntries := m.localCacheMaxEntries
+	if maxEntries <= 0 {
+		maxEntries = defaultLocalCacheMaxEntries
+	}
+
+	m.localMu.Lock()
+	if _, exists := m.localTenants[key]; !exists && len(m.localTenants) >= maxEntries {
+		m.evictOneLocalTenantLocked()
+	}
+
+	m.localTenants[key] = entry
+	m.localMu.Unlock()
+}
+
+func (m *Middleware) evictOneLocalTenantLocked() {
+	for key := range m.localTenants {
+		delete(m.localTenants, key)
+
+		return
+	}
 }
 
 func (m *Middleware) resolveTenant(ctx context.Context, host string) (*platform.Tenant, error) {
@@ -248,12 +345,25 @@ func isTenantResolutionBypassed(path string) bool {
 // InvalidateTenant removes the cached tenant entries.
 // Call this after updating a tenant via admin API.
 func (m *Middleware) InvalidateTenant(ctx context.Context, slug, tenantID string) {
-	if m.cache == nil {
-		return
-	}
+	hostKey := cacheKeyForHost(slug)
+	hostKeys := map[string]struct{}{hostKey: {}}
 
-	m.cache.Delete(ctx, cacheKeyForHost(slug))
-	m.cache.Delete(ctx, cacheKeyForID(tenantID))
+	m.localMu.Lock()
+	for key, entry := range m.localTenants {
+		if key == hostKey || strings.EqualFold(strings.TrimSpace(entry.tenant.ID), strings.TrimSpace(tenantID)) {
+			hostKeys[key] = struct{}{}
+			delete(m.localTenants, key)
+		}
+	}
+	m.localMu.Unlock()
+
+	if m.cache != nil {
+		for key := range hostKeys {
+			m.cache.Delete(ctx, key)
+		}
+
+		m.cache.Delete(ctx, cacheKeyForID(tenantID))
+	}
 }
 
 // FromContext returns the current tenant from locals.

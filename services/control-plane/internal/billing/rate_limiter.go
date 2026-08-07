@@ -79,7 +79,7 @@ func (s *RateLimiter) resolveEffectiveEntitlementLimits(
 	tenantID string,
 ) (*platform.EffectiveEntitlementLimits, error) {
 	if s.runtimeProfiles != nil {
-		profile, err := s.runtimeProfiles.Get(ctx, tenantID)
+		profile, err := s.runtimeProfiles.GetSnapshot(ctx, tenantID)
 		if err == nil && profile != nil && profile.Entitlements != nil {
 			out := *profile.Entitlements
 			out.Features = cloneInterfaceMap(profile.Entitlements.Features)

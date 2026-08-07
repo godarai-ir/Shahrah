@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"go.uber.org/zap"
 )
 
@@ -29,16 +29,21 @@ type AsyncRequestLogConfig struct {
 }
 
 type AsyncRequestLogWriter struct {
-	underlying RequestLogger
-	batch      RequestLogBatchWriter
-	cfg        AsyncRequestLogConfig
-	logger     *zap.Logger
-	queue      chan platform.RequestLogEntry
-	wg         sync.WaitGroup
-	lifecycle  sync.Mutex
-	started    bool
-	closed     atomic.Bool
+	underlying             RequestLogger
+	batch                  RequestLogBatchWriter
+	cfg                    AsyncRequestLogConfig
+	logger                 *zap.Logger
+	queue                  chan platform.RequestLogEntry
+	queueMu                sync.RWMutex
+	wg                     sync.WaitGroup
+	lifecycle              sync.Mutex
+	started                bool
+	closed                 atomic.Bool
+	underlyingSupportsLazy bool
 }
+
+// SupportsLazyRequestLogPayload reports that payload decoding runs in the background worker.
+func (*AsyncRequestLogWriter) SupportsLazyRequestLogPayload() bool { return true }
 
 func NewAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger) *AsyncRequestLogWriter {
 	w := NewManagedAsyncRequestLogWriter(underlying, cfg, logger)
@@ -56,10 +61,11 @@ func NewManagedAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestL
 	}
 
 	w := &AsyncRequestLogWriter{
-		underlying: underlying,
-		cfg:        cfg,
-		logger:     logger,
-		queue:      make(chan platform.RequestLogEntry, cfg.QueueSize),
+		underlying:             underlying,
+		cfg:                    cfg,
+		logger:                 logger,
+		queue:                  make(chan platform.RequestLogEntry, cfg.QueueSize),
+		underlyingSupportsLazy: requestLoggerSupportsLazyPayload(underlying),
 	}
 	if batch, ok := underlying.(RequestLogBatchWriter); ok {
 		w.batch = batch
@@ -113,6 +119,9 @@ func (w *AsyncRequestLogWriter) LogRequest(ctx context.Context, entry platform.R
 		return nil
 	}
 
+	w.queueMu.RLock()
+	defer w.queueMu.RUnlock()
+
 	if w.closed.Load() {
 		if w.cfg.DropOnFull {
 			return nil
@@ -155,7 +164,9 @@ func (w *AsyncRequestLogWriter) Stop(ctx context.Context) error {
 		return nil
 	}
 
+	w.queueMu.Lock()
 	close(w.queue)
+	w.queueMu.Unlock()
 	w.lifecycle.Unlock()
 
 	done := make(chan struct{})
@@ -222,6 +233,13 @@ func (w *AsyncRequestLogWriter) flushBatch(ctx context.Context, entries []platfo
 		return
 	}
 
+	if !w.underlyingSupportsLazy {
+		for index := range entries {
+			entries[index].RequestBody = materializeLazyLogPayload(entries[index].RequestBody)
+			entries[index].ResponseBody = materializeLazyLogPayload(entries[index].ResponseBody)
+		}
+	}
+
 	var err error
 	if w.batch != nil {
 		err = w.batch.LogRequests(ctx, entries)
@@ -235,10 +253,18 @@ func (w *AsyncRequestLogWriter) flushBatch(ctx context.Context, entries []platfo
 	}
 
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return
 		}
 
 		w.logger.Warn("failed to flush product request log batch", zap.Error(err), zap.Int("batch_size", len(entries)))
 	}
+}
+
+func requestLoggerSupportsLazyPayload(logger RequestLogger) bool {
+	sink, ok := logger.(interface {
+		SupportsLazyRequestLogPayload() bool
+	})
+
+	return ok && sink.SupportsLazyRequestLogPayload()
 }

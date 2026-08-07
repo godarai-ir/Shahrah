@@ -6,9 +6,11 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 )
 
-var ErrInvalidProviderAPIBase = errors.New("invalid provider api_base")
+var ErrInvalidProviderAPIBase = provideraccounts.ErrInvalidAPIBase
 var ErrInvalidAnthropicWIFConfig = errors.New("invalid anthropic WIF config")
 
 func ValidateProviderAPIBase(provider string, raw string) (string, error) {

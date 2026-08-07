@@ -8,13 +8,14 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 var (
-	ErrVirtualModelNotFound     = errors.New("virtual model not found")
-	ErrInvalidVirtualModelModes = errors.New("invalid virtual model modes")
+	ErrVirtualModelNotFound     = virtualmodels.ErrNotFound
+	ErrInvalidVirtualModelModes = virtualmodels.ErrInvalidModes
 )
 
 func (s *ModelRepository) CreateVirtualModel(ctx context.Context, tenantID string, req platform.CreateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {

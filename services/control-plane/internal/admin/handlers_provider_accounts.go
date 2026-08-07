@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/modelid"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 )
 
@@ -453,7 +453,7 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 
 	details, err := store.GetTenantProviderAccountDetails(c.Context(), currentTenant.ID, accountID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -494,7 +494,7 @@ func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
 
 	details, err := store.GetTenantProviderAccountDetails(c.Context(), currentTenant.ID, accountID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -506,7 +506,7 @@ func (h *Handlers) DeleteTenantProviderAccount(c *fiber.Ctx) error {
 	}
 
 	if err := store.DeleteTenantProviderAccount(c.Context(), currentTenant.ID, accountID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -555,7 +555,7 @@ func (h *Handlers) GetTenantProviderAccountEffectiveModels(c *fiber.Ctx) error {
 
 	items, err := store.ListTenantProviderAccountEffectiveModels(c.Context(), currentTenant.ID, accountID, keyType, userID, teamID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -620,7 +620,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 
 	details, err := store.GetTenantProviderAccountDetails(c.Context(), currentTenant.ID, accountID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -681,7 +681,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 
 	items, err := store.UpsertTenantProviderAccountModels(c.Context(), currentTenant.ID, accountID, normalizedModels)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -829,7 +829,7 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 
 	access, err := store.UpdateTenantProviderAccountAccess(c.Context(), currentTenant.ID, accountID, req.Access)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -1323,7 +1323,7 @@ func (h *Handlers) TestTenantProviderAccountCredentials(c *fiber.Ctx) error {
 
 	result, err := store.TestTenantProviderAccountCredentials(c.Context(), currentTenant.ID, accountID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 
@@ -1375,7 +1375,7 @@ func (h *Handlers) UpdateTenantProviderAccountCredentials(c *fiber.Ctx) error {
 
 	account, err := store.UpdateTenantProviderAccountCredentials(c.Context(), currentTenant.ID, accountID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider account not found")
 		}
 

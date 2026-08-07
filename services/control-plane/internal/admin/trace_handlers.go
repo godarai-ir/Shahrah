@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -68,7 +68,7 @@ func (h *Handlers) ListRequestTraces(c *fiber.Ctx) error {
 		Offset:     offset,
 	})
 	if err != nil {
-		if errors.Is(err, storage.ErrTraceStoreUnavailable) {
+		if errors.Is(err, observability.ErrTraceStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 		}
 

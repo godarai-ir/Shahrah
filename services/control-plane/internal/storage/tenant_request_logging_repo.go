@@ -8,30 +8,22 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/jackc/pgx/v5"
 )
 
 const (
-	RequestLoggingModeNone            = "none"
-	RequestLoggingModeMetadataOnly    = "metadata-only"
-	RequestLoggingModeRedactedContent = "redacted-content"
-	RequestLoggingModeFullContent     = "full-content"
+	RequestLoggingModeNone            = observability.RequestLoggingModeNone
+	RequestLoggingModeMetadataOnly    = observability.RequestLoggingModeMetadataOnly
+	RequestLoggingModeRedactedContent = observability.RequestLoggingModeRedactedContent
+	RequestLoggingModeFullContent     = observability.RequestLoggingModeFullContent
 )
 
 func NormalizeRequestLoggingMode(raw string) string {
-	switch strings.TrimSpace(strings.ToLower(raw)) {
-	case RequestLoggingModeNone:
-		return RequestLoggingModeNone
-	case RequestLoggingModeRedactedContent:
-		return RequestLoggingModeRedactedContent
-	case RequestLoggingModeFullContent:
-		return RequestLoggingModeFullContent
-	default:
-		return RequestLoggingModeMetadataOnly
-	}
+	return observability.NormalizeRequestLoggingMode(raw)
 }
 
-func (s *ObservabilityRepository) GetTenantRequestLoggingSettings(ctx context.Context, tenantID string) (*platform.TenantRequestLoggingSettings, error) {
+func (s *ObservabilitySettingsRepository) GetTenantRequestLoggingSettings(ctx context.Context, tenantID string) (*platform.TenantRequestLoggingSettings, error) {
 	var out platform.TenantRequestLoggingSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -49,7 +41,7 @@ func (s *ObservabilityRepository) GetTenantRequestLoggingSettings(ctx context.Co
 	return &out, nil
 }
 
-func (s *ObservabilityRepository) UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID, loggingMode, updatedByUserID string) (*platform.TenantRequestLoggingSettings, error) {
+func (s *ObservabilitySettingsRepository) UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID, loggingMode, updatedByUserID string) (*platform.TenantRequestLoggingSettings, error) {
 	var out platform.TenantRequestLoggingSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -72,7 +64,7 @@ func (s *ObservabilityRepository) UpsertTenantRequestLoggingSettings(ctx context
 	return &out, nil
 }
 
-func (s *ObservabilityRepository) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, error) {
+func (s *ObservabilitySettingsRepository) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return "", false, nil
@@ -113,7 +105,7 @@ type cachedRequestLoggingMode struct {
 	OK   bool
 }
 
-func (s *ObservabilityRepository) resolveTenantRequestLoggingModeFromDB(ctx context.Context, tenantID string) (string, bool, error) {
+func (s *ObservabilitySettingsRepository) resolveTenantRequestLoggingModeFromDB(ctx context.Context, tenantID string) (string, bool, error) {
 	var (
 		mode      string
 		updatedAt time.Time
@@ -138,7 +130,7 @@ func (s *ObservabilityRepository) resolveTenantRequestLoggingModeFromDB(ctx cont
 	return NormalizeRequestLoggingMode(mode), true, nil
 }
 
-func (s *ObservabilityRepository) getCachedTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, bool) {
+func (s *ObservabilitySettingsRepository) getCachedTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, bool) {
 	if s.entitlementCache == nil {
 		return "", false, false
 	}
@@ -160,7 +152,7 @@ func (s *ObservabilityRepository) getCachedTenantRequestLoggingMode(ctx context.
 	return NormalizeRequestLoggingMode(raw), true, true
 }
 
-func (s *ObservabilityRepository) cacheTenantRequestLoggingMode(ctx context.Context, tenantID string, mode string, ok bool) {
+func (s *ObservabilitySettingsRepository) cacheTenantRequestLoggingMode(ctx context.Context, tenantID string, mode string, ok bool) {
 	if s.entitlementCache == nil {
 		return
 	}
@@ -173,7 +165,7 @@ func (s *ObservabilityRepository) cacheTenantRequestLoggingMode(ctx context.Cont
 	s.entitlementCache.Set(ctx, requestLoggingModeCacheKey(tenantID), value, s.requestLoggingModeTTL)
 }
 
-func (s *ObservabilityRepository) invalidateTenantRequestLoggingMode(ctx context.Context, tenantID string) {
+func (s *ObservabilitySettingsRepository) invalidateTenantRequestLoggingMode(ctx context.Context, tenantID string) {
 	if s.entitlementCache != nil && strings.TrimSpace(tenantID) != "" {
 		s.entitlementCache.Delete(ctx, requestLoggingModeCacheKey(tenantID))
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/jackc/pgx/v5"
 )
@@ -14,7 +15,7 @@ import (
 func (s *TenantRepository) GetTenantByID(ctx context.Context, tenantID string) (*platform.Tenant, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var tenant platform.Tenant

@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) ListRequestLogsV2(c *fiber.Ctx) error {
@@ -38,7 +38,7 @@ func (h *Handlers) ListRequestLogsV2(c *fiber.Ctx) error {
 		c, requireLogsMetadataRead, h.logs != nil, "log store not configured",
 		parse,
 		list,
-		storage.ErrLogStoreUnavailable,
+		observability.ErrLogStoreUnavailable,
 		pagination,
 		respond,
 	)
@@ -67,11 +67,11 @@ func (h *Handlers) GetRequestLogV2(c *fiber.Ctx) error {
 
 	item, err := h.logs.GetRequestLogV2(c.Context(), currentTenant.ID, logID, includeContent)
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
 
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "log not found")
 		}
 
@@ -105,7 +105,7 @@ func (h *Handlers) GetRequestLogFacetsV2(c *fiber.Ctx) error {
 
 	facets, err := h.logs.GetRequestLogFacetsV2(c.Context(), params)
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
 
@@ -139,7 +139,7 @@ func (h *Handlers) GetRequestLogSummaryV2(c *fiber.Ctx) error {
 
 	summary, err := h.logs.GetRequestLogSummaryV2(c.Context(), params)
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
 
@@ -173,7 +173,7 @@ func (h *Handlers) GetRequestLogRangeStatsV2(c *fiber.Ctx) error {
 
 	stats, err := h.logs.GetRequestLogRangeStatsV2(c.Context(), params)
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
 
@@ -217,7 +217,7 @@ func (h *Handlers) GetRequestLogAnalyticsV2(c *fiber.Ctx) error {
 		IntervalSeconds:         interval,
 	})
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
 
@@ -301,7 +301,7 @@ func (h *Handlers) UpdateSavedLogViewV2(c *fiber.Ctx) error {
 
 	item, err := h.logs.UpdateSavedLogViewV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("viewID")), req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "saved view not found")
 		}
 
@@ -327,7 +327,7 @@ func (h *Handlers) DeleteSavedLogViewV2(c *fiber.Ctx) error {
 
 	err := h.logs.DeleteSavedLogViewV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("viewID")))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "saved view not found")
 		}
 
@@ -426,7 +426,7 @@ func (h *Handlers) CancelLogExportV2(c *fiber.Ctx) error {
 
 	item, err := h.logs.CancelLogExportV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("exportID")))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "export not found")
 		}
 
@@ -472,7 +472,7 @@ func (h *Handlers) DownloadLogExportV2(c *fiber.Ctx) error {
 
 	items, _, err := h.logs.ListRequestLogsV2(c.Context(), params)
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
 
@@ -525,11 +525,11 @@ func (h *Handlers) CreateRequestLogReplayDraftV2(c *fiber.Ctx) error {
 
 	detail, err := h.logs.GetRequestLogV2(c.Context(), currentTenant.ID, logID, true)
 	if err != nil {
-		if errors.Is(err, storage.ErrLogStoreUnavailable) {
+		if errors.Is(err, observability.ErrLogStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "log store not configured")
 		}
 
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "log not found")
 		}
 
@@ -709,7 +709,7 @@ func (h *Handlers) getLogExportJob(c *fiber.Ctx) (*platform.LogExportJobV2, erro
 
 	item, err := h.logs.GetLogExportV2(c.Context(), currentTenant.ID, strings.TrimSpace(c.Params("exportID")))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return nil, fiber.NewError(fiber.StatusNotFound, "export not found")
 		}
 

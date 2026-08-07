@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providernative"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -81,7 +81,7 @@ func rewriteXAIFileReferenceValue(
 				}
 
 				mapping, err := resources.GetProviderNativeResourceMapping(ctx, tenantID, "xai", openAIFileResourceKind, strings.TrimSpace(publicID))
-				if errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
+				if errors.Is(err, providernative.ErrResourceNotFound) {
 					return false, errXAIFileNotOwned
 				}
 

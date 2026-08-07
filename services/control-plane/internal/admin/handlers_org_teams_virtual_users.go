@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) ListOrgUnits(c *fiber.Ctx) error {
@@ -137,7 +137,7 @@ func (h *Handlers) GetTeam(c *fiber.Ctx) error {
 
 	item, err := h.teams.GetTeam(c.Context(), currentTenant.ID, teamID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "team not found")
 		}
 
@@ -181,7 +181,7 @@ func (h *Handlers) DeleteTeam(c *fiber.Ctx) error {
 	}
 
 	if err := h.teams.DeleteTeam(c.Context(), currentTenant.ID, teamID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "team not found")
 		}
 
@@ -212,7 +212,7 @@ func (h *Handlers) GetTeamPermissions(c *fiber.Ctx) error {
 
 	item, err := h.teams.GetTeamPermissions(c.Context(), currentTenant.ID, teamID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "team not found")
 		}
 
@@ -299,7 +299,7 @@ func (h *Handlers) GetOrgUnit(c *fiber.Ctx) error {
 
 	item, err := h.orgUnits.GetOrgUnit(c.Context(), currentTenant.ID, orgUnitID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "org unit not found")
 		}
 
@@ -343,7 +343,7 @@ func (h *Handlers) DeleteOrgUnit(c *fiber.Ctx) error {
 	}
 
 	if err := h.orgUnits.DeleteOrgUnit(c.Context(), currentTenant.ID, orgUnitID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "org unit not found")
 		}
 
@@ -417,7 +417,7 @@ func (h *Handlers) AddOrgUnitMember(c *fiber.Ctx) error {
 
 	item, err := h.orgUnits.AddOrgUnitMembership(c.Context(), currentTenant.ID, orgUnitID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "user not found for this tenant")
 		}
 
@@ -464,7 +464,7 @@ func (h *Handlers) UpdateOrgUnitMember(c *fiber.Ctx) error {
 
 	item, err := h.orgUnits.UpdateOrgUnitMembership(c.Context(), currentTenant.ID, orgUnitID, userID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "org unit membership not found")
 		}
 
@@ -590,7 +590,7 @@ func (h *Handlers) UpdateTeamMember(c *fiber.Ctx) error {
 
 	item, err := h.memberships.UpdateTeamMembership(c.Context(), currentTenant.ID, teamID, userID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "team membership not found")
 		}
 
@@ -691,7 +691,7 @@ func (h *Handlers) GetVirtualUser(c *fiber.Ctx) error {
 
 	item, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, virtualUserID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
 		}
 
@@ -735,7 +735,7 @@ func (h *Handlers) DeleteVirtualUser(c *fiber.Ctx) error {
 	}
 
 	if err := h.virtualUsers.DeleteVirtualUser(c.Context(), currentTenant.ID, virtualUserID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
 		}
 

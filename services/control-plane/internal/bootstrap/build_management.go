@@ -36,7 +36,7 @@ func (b *builder) buildManagement() error {
 		Catalog: admin.CatalogDependencies{
 			Models:              b.modelApplication,
 			Policies:            b.policyApplication,
-			ProviderAccounts:    b.store.ProviderAccountRepository,
+			ProviderAccounts:    b.providerAccountApplication,
 			ProviderSchemas:     b.credentialRuntime.schemas,
 			ProviderCredentials: b.credentialRuntime.service,
 			Prompts:             b.promptApplication,
@@ -65,11 +65,11 @@ func (b *builder) buildManagement() error {
 			LoginDiscovery: b.store.TenantRepository,
 		},
 		Observability: admin.ObservabilityDependencies{
-			Traces:         b.store.ObservabilityRepository,
+			Traces:         b.store.TraceRepository,
 			Logs:           b.store.ObservabilityRepository,
-			Metrics:        b.store.ObservabilityRepository,
-			TracePrivacy:   b.store.ObservabilityRepository,
-			RequestLogging: b.store.ObservabilityRepository,
+			Metrics:        b.store.MetricsRepository,
+			TracePrivacy:   b.store.ObservabilitySettingsRepository,
+			RequestLogging: b.store.ObservabilitySettingsRepository,
 		},
 		Support: admin.SupportDependencies{
 			Tenants: b.store.SupportRepository,

@@ -23,7 +23,7 @@ type budgetWindowSettlementState struct {
 	LastSettledAt *time.Time
 }
 
-func (s *WalletRepository) decorateWalletWithLiveState(ctx context.Context, wallet *platform.Wallet) (*platform.Wallet, error) {
+func (s *WalletLedgerRepository) decorateWalletWithLiveState(ctx context.Context, wallet *platform.Wallet) (*platform.Wallet, error) {
 	if wallet == nil {
 		return nil, nil
 	}
@@ -92,7 +92,7 @@ func (s *WalletRepository) decorateWalletWithLiveState(ctx context.Context, wall
 	return wallet, nil
 }
 
-func (s *WalletRepository) getBudgetWindowSettlement(ctx context.Context, tenantID string, windowID string) (*budgetWindowSettlementState, error) {
+func (s *WalletLedgerRepository) getBudgetWindowSettlement(ctx context.Context, tenantID string, windowID string) (*budgetWindowSettlementState, error) {
 	if s == nil || s.pool == nil {
 		return &budgetWindowSettlementState{}, nil
 	}
@@ -121,7 +121,7 @@ func (s *WalletRepository) getBudgetWindowSettlement(ctx context.Context, tenant
 	}, nil
 }
 
-func (s *WalletRepository) syncCurrentBudgetWindowAllowance(ctx context.Context, tenantID string) {
+func (s *WalletLedgerRepository) syncCurrentBudgetWindowAllowance(ctx context.Context, tenantID string) {
 	liveCache, ok := s.entitlementCache.(budgetWindowStateCache)
 	if !ok || liveCache == nil {
 		return

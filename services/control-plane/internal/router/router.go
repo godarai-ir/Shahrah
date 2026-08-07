@@ -55,6 +55,11 @@ type DeploymentStore interface {
 	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
 }
 
+// DeploymentSnapshotStore provides a versioned immutable deployment snapshot for hot-path routing.
+type DeploymentSnapshotStore interface {
+	DeploymentSnapshot(ctx context.Context, tenantID string) ([]platform.Deployment, int64, error)
+}
+
 // ProviderAccountAPIKeyResolver resolves legacy API-key-only provider accounts.
 type ProviderAccountAPIKeyResolver interface {
 	ResolveProviderAccountAPIKey(ctx context.Context, tenantID string, modelFQN string) (string, error)
@@ -84,6 +89,7 @@ const (
 // Dependencies declares Router capabilities that are not part of static routing configuration.
 type Dependencies struct {
 	DeploymentStore                   DeploymentStore
+	DeploymentSnapshots               DeploymentSnapshotStore
 	ProviderAccountAuthResolver       ProviderAccountAuthResolver
 	LegacyProviderAccountAPIKey       ProviderAccountAPIKeyResolver
 	ProviderAccountCredentialPolicy   ProviderAccountCredentialPolicy
@@ -96,27 +102,29 @@ type Dependencies struct {
 
 // Router is the main LLM request router.
 type Router struct {
-	mu                            sync.RWMutex
-	deployments                   map[string][]*Deployment // model_name -> deployments
-	cooldowns                     *CooldownCache
-	strategy                      RoutingStrategy
-	fallbacks                     map[string][]string
-	numRetries                    int
-	timeout                       time.Duration
-	cache                         cache.Cache
-	logger                        *zap.Logger
-	store                         DeploymentStore
-	providerAccountAuthResolver   ProviderAccountAuthResolver
-	providerAccountAPIKeyResolver ProviderAccountAPIKeyResolver
-	providerAccountPolicy         ProviderAccountCredentialPolicy
-	dynamicTTL                    time.Duration
-	loadGroup                     singleflight.Group
-	platformCredentials           *platformcredentials.Manager
-	platformCredentialMode        string
-	platformCredentialEnvironment string
-	lastKnownGoodDeployments      map[string][]platform.Deployment
-	lastKnownGoodRoutes           map[string]*Deployment
-	deploymentFallbackActive      map[string]bool
+	mu                             sync.RWMutex
+	deployments                    map[string][]*Deployment // model_name -> deployments
+	cooldowns                      *CooldownCache
+	strategy                       RoutingStrategy
+	fallbacks                      map[string][]string
+	numRetries                     int
+	timeout                        time.Duration
+	cache                          cache.Cache
+	logger                         *zap.Logger
+	store                          DeploymentStore
+	deploymentSnapshots            DeploymentSnapshotStore
+	providerAccountAuthResolver    ProviderAccountAuthResolver
+	providerAccountAPIKeyResolver  ProviderAccountAPIKeyResolver
+	providerAccountPolicy          ProviderAccountCredentialPolicy
+	dynamicTTL                     time.Duration
+	loadGroup                      singleflight.Group
+	platformCredentials            *platformcredentials.Manager
+	platformCredentialMode         string
+	platformCredentialEnvironment  string
+	lastKnownGoodDeployments       map[string][]platform.Deployment
+	lastKnownGoodDeploymentVersion map[string]int64
+	lastKnownGoodRoutes            map[string]*Deployment
+	deploymentFallbackActive       map[string]bool
 }
 
 // NewRouter creates a new Router instance.
@@ -163,22 +171,24 @@ func NewRouterWithDependencies(
 	}
 
 	r := &Router{
-		deployments:                   make(map[string][]*Deployment),
-		fallbacks:                     make(map[string][]string),
-		numRetries:                    settings.NumRetries,
-		cache:                         c,
-		logger:                        logger,
-		store:                         dependencies.DeploymentStore,
-		providerAccountAuthResolver:   dependencies.ProviderAccountAuthResolver,
-		providerAccountAPIKeyResolver: dependencies.LegacyProviderAccountAPIKey,
-		providerAccountPolicy:         providerAccountPolicy,
-		platformCredentials:           dependencies.PlatformCredentials,
-		platformCredentialMode:        platformCredentialMode,
-		platformCredentialEnvironment: platformCredentialEnvironment,
-		dynamicTTL:                    deploymentCacheTTL,
-		lastKnownGoodDeployments:      make(map[string][]platform.Deployment),
-		lastKnownGoodRoutes:           make(map[string]*Deployment),
-		deploymentFallbackActive:      make(map[string]bool),
+		deployments:                    make(map[string][]*Deployment),
+		fallbacks:                      make(map[string][]string),
+		numRetries:                     settings.NumRetries,
+		cache:                          c,
+		logger:                         logger,
+		store:                          dependencies.DeploymentStore,
+		deploymentSnapshots:            dependencies.DeploymentSnapshots,
+		providerAccountAuthResolver:    dependencies.ProviderAccountAuthResolver,
+		providerAccountAPIKeyResolver:  dependencies.LegacyProviderAccountAPIKey,
+		providerAccountPolicy:          providerAccountPolicy,
+		platformCredentials:            dependencies.PlatformCredentials,
+		platformCredentialMode:         platformCredentialMode,
+		platformCredentialEnvironment:  platformCredentialEnvironment,
+		dynamicTTL:                     deploymentCacheTTL,
+		lastKnownGoodDeployments:       make(map[string][]platform.Deployment),
+		lastKnownGoodDeploymentVersion: make(map[string]int64),
+		lastKnownGoodRoutes:            make(map[string]*Deployment),
+		deploymentFallbackActive:       make(map[string]bool),
 	}
 
 	// Initialize cooldown cache
@@ -299,8 +309,8 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 
 	dynamicIDs := make(map[string]struct{})
 
-	if r.store != nil && tenantID != "" {
-		dynamic, err := r.listCachedDeployments(ctx, tenantID)
+	if (r.store != nil || r.deploymentSnapshots != nil) && tenantID != "" {
+		dynamic, snapshotVersion, err := r.listCachedDeployments(ctx, tenantID)
 		storeFailed := err != nil
 		hasResolvedFallback := false
 
@@ -324,7 +334,7 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 				hasResolvedFallback = true
 			}
 		} else {
-			r.rememberDeploymentSnapshot(tenantID, dynamic)
+			r.rememberDeploymentSnapshot(tenantID, dynamic, snapshotVersion)
 		}
 
 		for _, dep := range dynamic {
@@ -407,14 +417,22 @@ func (r *Router) Route(ctx context.Context, tenantID, modelName string) (*Deploy
 	return r.finalizeRoute(ctx, tenantID, modelName, selected, dynamicIDs)
 }
 
-func (r *Router) rememberDeploymentSnapshot(tenantID string, deployments []platform.Deployment) {
+func (r *Router) rememberDeploymentSnapshot(tenantID string, deployments []platform.Deployment, version int64) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return
 	}
 
 	r.mu.Lock()
+	if version > 0 && r.lastKnownGoodDeploymentVersion[tenantID] == version {
+		r.deploymentFallbackActive[tenantID] = false
+		r.mu.Unlock()
+
+		return
+	}
+
 	r.lastKnownGoodDeployments[tenantID] = cloneDeployments(deployments)
+	r.lastKnownGoodDeploymentVersion[tenantID] = version
 	r.deploymentFallbackActive[tenantID] = false
 
 	allowedIDs := make(map[string]struct{}, len(deployments))
@@ -660,16 +678,22 @@ func providerConnectionHeaders(resolved platformcredentials.ResolvedCredential) 
 	return headers
 }
 
-func (r *Router) listCachedDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+func (r *Router) listCachedDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, int64, error) {
 	tenantID = strings.TrimSpace(tenantID)
+	if r.deploymentSnapshots != nil {
+		return r.deploymentSnapshots.DeploymentSnapshot(ctx, tenantID)
+	}
+
 	if r.cache == nil || r.dynamicTTL <= 0 {
-		return r.store.ListDeployments(ctx, tenantID)
+		deployments, err := r.store.ListDeployments(ctx, tenantID)
+
+		return deployments, 0, err
 	}
 
 	key := deploymentCacheKey(tenantID)
 	if cached, ok := r.cache.Get(ctx, key); ok {
 		if deployments, ok := deploymentsFromCache(cached); ok {
-			return cloneDeployments(deployments), nil
+			return cloneDeployments(deployments), 0, nil
 		}
 	}
 
@@ -693,15 +717,15 @@ func (r *Router) listCachedDeployments(ctx context.Context, tenantID string) ([]
 		return deployments, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	deployments, ok := value.([]platform.Deployment)
 	if !ok {
-		return nil, fmt.Errorf("unexpected deployment cache type for tenant %s", tenantID)
+		return nil, 0, fmt.Errorf("unexpected deployment cache type for tenant %s", tenantID)
 	}
 
-	return cloneDeployments(deployments), nil
+	return cloneDeployments(deployments), 0, nil
 }
 
 func deploymentsFromCache(value interface{}) ([]platform.Deployment, bool) {

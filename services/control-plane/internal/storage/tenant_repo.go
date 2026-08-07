@@ -6,14 +6,14 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/jackc/pgx/v5"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 )
 
 // GetTenantByHost resolves a tenant from the request host.
 func (s *TenantRepository) GetTenantByHost(ctx context.Context, host string) (*platform.Tenant, error) {
 	slug := tenantSlugFromHost(host)
 	if slug == "" {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var tenant platform.Tenant
@@ -34,7 +34,7 @@ func (s *TenantRepository) GetTenantByHost(ctx context.Context, host string) (*p
 func (s *TenantRepository) GetTenantBySlug(ctx context.Context, slug string) (*platform.Tenant, error) {
 	slug = strings.TrimSpace(strings.ToLower(slug))
 	if slug == "" {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var tenant platform.Tenant

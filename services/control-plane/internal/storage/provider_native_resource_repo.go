@@ -8,10 +8,12 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providernative"
 	"github.com/jackc/pgx/v5"
 )
 
-var ErrProviderNativeResourceNotFound = errors.New("provider native resource not found")
+// ErrProviderNativeResourceNotFound is retained for storage-adapter compatibility.
+var ErrProviderNativeResourceNotFound = providernative.ErrResourceNotFound
 
 func (s *ProviderResourceRepository) UpsertProviderNativeResourceMapping(
 	ctx context.Context,

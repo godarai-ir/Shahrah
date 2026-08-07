@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -44,7 +44,7 @@ func (h *Handlers) QueryModelMetrics(c *fiber.Ctx) error {
 
 	items, err := h.metrics.QueryModelMetrics(c.Context(), currentTenant.ID, req)
 	if err != nil {
-		if errors.Is(err, storage.ErrMetricsStoreUnavailable) {
+		if errors.Is(err, observability.ErrMetricsStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
 		}
 
@@ -145,7 +145,7 @@ func (h *Handlers) ListModelMetricsFacets(c *fiber.Ctx) error {
 
 	facets, err := h.metrics.ListModelMetricsFacets(c.Context(), currentTenant.ID)
 	if err != nil {
-		if errors.Is(err, storage.ErrMetricsStoreUnavailable) {
+		if errors.Is(err, observability.ErrMetricsStoreUnavailable) {
 			return fiber.NewError(fiber.StatusNotImplemented, "metrics store not configured")
 		}
 

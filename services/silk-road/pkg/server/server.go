@@ -16,14 +16,20 @@ func NewHandler(client *http.Client) http.Handler {
 	if client == nil {
 		client = &http.Client{Timeout: 5 * time.Minute}
 	}
+
+	streamClient := clientForStream(client, true)
 	registry := newProviderRegistry()
 
 	mux := http.NewServeMux()
 	metrics := newHTTPMetrics("silk-road")
 	mux.Handle("/metrics", metrics.handler())
+
 	localHealth := func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"healthy","service":"silk-road"}`))
+
+		if _, err := w.Write([]byte(`{"status":"healthy","service":"silk-road"}`)); err != nil {
+			return
+		}
 	}
 	mux.HandleFunc("/health", localHealth)
 	mux.HandleFunc("/live", localHealth)
@@ -35,22 +41,25 @@ func NewHandler(client *http.Client) http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
 		var payload platform.TunnelRequest
-		if err := json.Unmarshal(body, &payload); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		if unmarshalErr := json.Unmarshal(body, &payload); unmarshalErr != nil {
+			http.Error(w, unmarshalErr.Error(), http.StatusBadRequest)
 			return
 		}
+
 		if payload.Operation == platform.ProviderOperationCredentialProbe {
-			resp, err := dispatchCredentialProbe(r.Context(), client, payload)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+			probeResp, probeErr := dispatchCredentialProbe(r.Context(), client, payload)
+			if probeErr != nil {
+				http.Error(w, probeErr.Error(), http.StatusBadRequest)
 				return
 			}
-			defer resp.Body.Close()
+			defer closeBody(probeResp.Body)
 
-			copyHeaders(w.Header(), resp.Headers)
-			w.WriteHeader(resp.StatusCode)
-			relayBody(w, resp.Body, false)
+			copyHeaders(w.Header(), probeResp.Headers)
+			w.WriteHeader(probeResp.StatusCode)
+			relayBody(w, probeResp.Body, false)
+
 			return
 		}
 
@@ -60,12 +69,12 @@ func NewHandler(client *http.Client) http.Handler {
 			return
 		}
 
-		resp, err := adapter.Dispatch(r.Context(), clientForStream(client, payload.Stream), payload)
+		resp, err := adapter.Dispatch(r.Context(), selectHTTPClient(client, streamClient, payload.Stream), payload)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
-		defer resp.Body.Close()
+		defer closeBody(resp.Body)
 
 		copyHeaders(w.Header(), resp.Headers)
 		w.WriteHeader(resp.StatusCode)
@@ -77,44 +86,71 @@ func NewHandler(client *http.Client) http.Handler {
 			http.Error(w, "invalid raw tunnel envelope", http.StatusBadRequest)
 			return
 		}
+
 		metadataLength := int(binary.BigEndian.Uint32(lengthPrefix[:]))
 		if metadataLength <= 0 || metadataLength > 256*1024 {
 			http.Error(w, "raw tunnel metadata exceeds limit", http.StatusBadRequest)
 			return
 		}
+
 		metadata := make([]byte, metadataLength)
 		if _, err := io.ReadFull(r.Body, metadata); err != nil {
 			http.Error(w, "invalid raw tunnel metadata", http.StatusBadRequest)
 			return
 		}
+
 		var payload platform.TunnelRequest
-		if err := json.Unmarshal(metadata, &payload); err != nil {
+		if unmarshalErr := json.Unmarshal(metadata, &payload); unmarshalErr != nil {
 			http.Error(w, "invalid raw tunnel metadata", http.StatusBadRequest)
 			return
 		}
-		adapter, err := registry.adapterFor(payload.Deployment.Provider)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		rawAdapter, ok := adapter.(rawProviderAdapter)
-		if !ok {
-			http.Error(w, "provider does not support raw tunnel operations", http.StatusBadRequest)
-			return
-		}
+
 		rawLength := int64(-1)
 		if r.ContentLength >= int64(4+metadataLength) {
 			rawLength = r.ContentLength - int64(4+metadataLength)
 		}
-		resp, err := rawAdapter.DispatchRaw(r.Context(), clientForStream(client, true), payload, r.Body, rawLength)
-		if err != nil {
+
+		var (
+			resp        *adapterResponse
+			dispatchErr error
+		)
+		if payload.Operation == platform.ProviderOperationCredentialProbe {
+			payload.Body, dispatchErr = io.ReadAll(r.Body)
+			if dispatchErr == nil {
+				resp, dispatchErr = dispatchCredentialProbe(r.Context(), streamClient, payload)
+			}
+		} else {
+			adapter, adapterErr := registry.adapterFor(payload.Deployment.Provider)
+			if adapterErr != nil {
+				http.Error(w, adapterErr.Error(), http.StatusBadRequest)
+				return
+			}
+
+			if rawAdapter, ok := adapter.(rawProviderAdapter); ok {
+				resp, dispatchErr = rawAdapter.DispatchRaw(r.Context(), streamClient, payload, r.Body, rawLength)
+			} else {
+				payload.Body, dispatchErr = io.ReadAll(r.Body)
+				if dispatchErr == nil {
+					resp, dispatchErr = adapter.Dispatch(r.Context(), streamClient, payload)
+				}
+			}
+		}
+
+		if dispatchErr != nil {
 			http.Error(w, "raw provider operation failed", http.StatusBadGateway)
 			return
 		}
-		defer resp.Body.Close()
+
+		if resp == nil || resp.Body == nil {
+			http.Error(w, "raw provider returned an empty response", http.StatusBadGateway)
+			return
+		}
+
+		defer closeBody(resp.Body)
+
 		copyHeaders(w.Header(), resp.Headers)
 		w.WriteHeader(resp.StatusCode)
-		relayBody(w, resp.Body, true)
+		relayBody(w, resp.Body, payload.Stream || responseIsEventStream(resp.Headers))
 	})
 
 	return metrics.wrap(mux)
@@ -132,15 +168,27 @@ func clientForStream(base *http.Client, stream bool) *http.Client {
 	if !stream {
 		return base
 	}
+
 	if base == nil {
 		return &http.Client{}
 	}
+
 	clone := *base
 	clone.Timeout = 0
+
 	if clone.Transport == nil {
 		clone.Transport = http.DefaultTransport
 	}
+
 	return &clone
+}
+
+func selectHTTPClient(regular, streaming *http.Client, stream bool) *http.Client {
+	if stream {
+		return streaming
+	}
+
+	return regular
 }
 
 func responseIsEventStream(headers http.Header) bool {
@@ -149,13 +197,19 @@ func responseIsEventStream(headers http.Header) bool {
 
 func relayBody(w http.ResponseWriter, body io.Reader, flush bool) {
 	if !flush {
-		_, _ = io.Copy(w, body)
+		if _, err := io.Copy(w, body); err != nil {
+			return
+		}
+
 		return
 	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		_, _ = io.Copy(w, body)
+		if _, err := io.Copy(w, body); err != nil {
+			return
+		}
+
 		return
 	}
 
@@ -166,10 +220,22 @@ func relayBody(w http.ResponseWriter, body io.Reader, flush bool) {
 			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
 				return
 			}
+
 			flusher.Flush()
 		}
+
 		if err != nil {
 			return
 		}
+	}
+}
+
+func closeBody(body io.Closer) {
+	if body == nil {
+		return
+	}
+
+	if err := body.Close(); err != nil {
+		return
 	}
 }

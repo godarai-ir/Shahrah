@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -79,7 +80,7 @@ func (s *IAMRepository) GetOrgUnit(ctx context.Context, tenantID string, orgUnit
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanOrgUnit(rows)
@@ -130,7 +131,7 @@ func (s *IAMRepository) UpdateOrgUnit(ctx context.Context, tenantID string, orgU
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanOrgUnit(rows)
@@ -146,7 +147,7 @@ func (s *IAMRepository) DeleteOrgUnit(ctx context.Context, tenantID string, orgU
 	}
 
 	if command.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	return nil
@@ -181,7 +182,7 @@ func (s *IAMRepository) CreateTeam(ctx context.Context, tenantID string, req pla
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanTeam(rows)
@@ -222,7 +223,7 @@ func (s *IAMRepository) GetTeam(ctx context.Context, tenantID string, teamID str
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanTeam(rows)
@@ -293,7 +294,7 @@ func (s *IAMRepository) UpdateTeam(ctx context.Context, tenantID string, teamID 
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanTeam(rows)
@@ -309,7 +310,7 @@ func (s *IAMRepository) DeleteTeam(ctx context.Context, tenantID string, teamID 
 	}
 
 	if command.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	return nil
@@ -367,7 +368,7 @@ func (s *IAMRepository) CreateVirtualUser(ctx context.Context, tenantID string, 
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanVirtualUser(rows)
@@ -409,7 +410,7 @@ func (s *IAMRepository) GetVirtualUser(ctx context.Context, tenantID string, vir
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanVirtualUser(rows)
@@ -479,7 +480,7 @@ func (s *IAMRepository) UpdateVirtualUser(ctx context.Context, tenantID string, 
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return scanVirtualUser(rows)
@@ -495,7 +496,7 @@ func (s *IAMRepository) DeleteVirtualUser(ctx context.Context, tenantID string, 
 	}
 
 	if command.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "virtual_user.deleted")
@@ -547,7 +548,7 @@ func (s *IAMRepository) AddOrgUnitMembership(ctx context.Context, tenantID strin
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var item platform.OrgUnitMembership
@@ -576,7 +577,7 @@ func (s *IAMRepository) ensurePlatformUserForMembership(ctx context.Context, ten
 	}
 
 	if !exists {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	return nil
@@ -595,7 +596,7 @@ func (s *IAMRepository) UpdateOrgUnitMembership(ctx context.Context, tenantID st
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var item platform.OrgUnitMembership
@@ -616,7 +617,7 @@ func (s *IAMRepository) DeleteOrgUnitMembership(ctx context.Context, tenantID st
 	}
 
 	if command.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	return nil
@@ -667,7 +668,7 @@ func (s *IAMRepository) AddTeamMembership(ctx context.Context, tenantID string, 
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var item platform.TeamMembership
@@ -692,7 +693,7 @@ func (s *IAMRepository) UpdateTeamMembership(ctx context.Context, tenantID strin
 	defer currentRows.Close()
 
 	if !currentRows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var current platform.TeamMembership
@@ -725,7 +726,7 @@ func (s *IAMRepository) UpdateTeamMembership(ctx context.Context, tenantID strin
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	var item platform.TeamMembership
@@ -746,7 +747,7 @@ func (s *IAMRepository) DeleteTeamMembership(ctx context.Context, tenantID strin
 	}
 
 	if command.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	return nil

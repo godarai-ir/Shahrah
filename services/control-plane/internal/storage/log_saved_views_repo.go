@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
-func (s *ObservabilityRepository) ListSavedLogViewsV2(ctx context.Context, tenantID string, userID string) ([]platform.SavedLogViewV2, error) {
+func (s *LogManagementRepository) ListSavedLogViewsV2(ctx context.Context, tenantID string, userID string) ([]platform.SavedLogViewV2, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT saved_view_id, tenant_id, name, coalesce(description, ''), filters_json, visible_columns_json,
 		       shared_scope, coalesce(created_by_user_id::text, ''), created_at, updated_at
@@ -38,10 +38,10 @@ func (s *ObservabilityRepository) ListSavedLogViewsV2(ctx context.Context, tenan
 	return items, rows.Err()
 }
 
-func (s *ObservabilityRepository) CreateSavedLogViewV2(ctx context.Context, tenantID string, userID string, req platform.CreateSavedLogViewV2Request) (*platform.SavedLogViewV2, error) {
+func (s *LogManagementRepository) CreateSavedLogViewV2(ctx context.Context, tenantID string, userID string, req platform.CreateSavedLogViewV2Request) (*platform.SavedLogViewV2, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	scope := normalizeSavedLogViewScope(req.SharedScope)
@@ -66,7 +66,7 @@ func (s *ObservabilityRepository) CreateSavedLogViewV2(ctx context.Context, tena
 	return scanSavedLogView(row)
 }
 
-func (s *ObservabilityRepository) UpdateSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string, req platform.UpdateSavedLogViewV2Request) (*platform.SavedLogViewV2, error) {
+func (s *LogManagementRepository) UpdateSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string, req platform.UpdateSavedLogViewV2Request) (*platform.SavedLogViewV2, error) {
 	current, err := s.getSavedLogViewV2(ctx, tenantID, savedViewID)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (s *ObservabilityRepository) UpdateSavedLogViewV2(ctx context.Context, tena
 	return scanSavedLogView(row)
 }
 
-func (s *ObservabilityRepository) DeleteSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string) error {
+func (s *LogManagementRepository) DeleteSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string) error {
 	tag, err := s.pool.Exec(ctx, `
 		DELETE FROM tenant_log_saved_views
 		WHERE tenant_id = $1 AND saved_view_id = $2
@@ -123,13 +123,13 @@ func (s *ObservabilityRepository) DeleteSavedLogViewV2(ctx context.Context, tena
 	}
 
 	if tag.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	return nil
 }
 
-func (s *ObservabilityRepository) ListLogExportsV2(ctx context.Context, tenantID string, limit int) ([]platform.LogExportJobV2, error) {
+func (s *LogManagementRepository) ListLogExportsV2(ctx context.Context, tenantID string, limit int) ([]platform.LogExportJobV2, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 25
 	}
@@ -161,7 +161,7 @@ func (s *ObservabilityRepository) ListLogExportsV2(ctx context.Context, tenantID
 	return items, rows.Err()
 }
 
-func (s *ObservabilityRepository) CreateLogExportV2(ctx context.Context, tenantID string, userID string, req platform.CreateLogExportV2Request) (*platform.LogExportJobV2, error) {
+func (s *LogManagementRepository) CreateLogExportV2(ctx context.Context, tenantID string, userID string, req platform.CreateLogExportV2Request) (*platform.LogExportJobV2, error) {
 	format := strings.TrimSpace(strings.ToLower(req.Format))
 	if format != "jsonl" && format != "csv" {
 		format = "csv"
@@ -187,7 +187,7 @@ func (s *ObservabilityRepository) CreateLogExportV2(ctx context.Context, tenantI
 	return scanLogExportJob(row)
 }
 
-func (s *ObservabilityRepository) GetLogExportV2(ctx context.Context, tenantID string, exportID string) (*platform.LogExportJobV2, error) {
+func (s *LogManagementRepository) GetLogExportV2(ctx context.Context, tenantID string, exportID string) (*platform.LogExportJobV2, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT export_id, tenant_id, filters_json, format, include_content, status, row_count,
 		       coalesce(created_by_user_id::text, ''), created_at, completed_at
@@ -198,7 +198,7 @@ func (s *ObservabilityRepository) GetLogExportV2(ctx context.Context, tenantID s
 	return scanLogExportJob(row)
 }
 
-func (s *ObservabilityRepository) CancelLogExportV2(ctx context.Context, tenantID string, exportID string) (*platform.LogExportJobV2, error) {
+func (s *LogManagementRepository) CancelLogExportV2(ctx context.Context, tenantID string, exportID string) (*platform.LogExportJobV2, error) {
 	row := s.pool.QueryRow(ctx, `
 		UPDATE tenant_log_export_jobs
 		SET status = CASE WHEN status = 'completed' THEN status ELSE 'canceled' END
@@ -210,7 +210,7 @@ func (s *ObservabilityRepository) CancelLogExportV2(ctx context.Context, tenantI
 	return scanLogExportJob(row)
 }
 
-func (s *ObservabilityRepository) getSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string) (*platform.SavedLogViewV2, error) {
+func (s *LogManagementRepository) getSavedLogViewV2(ctx context.Context, tenantID string, savedViewID string) (*platform.SavedLogViewV2, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT saved_view_id, tenant_id, name, coalesce(description, ''), filters_json, visible_columns_json,
 		       shared_scope, coalesce(created_by_user_id::text, ''), created_at, updated_at

@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *PlanRepository) PrepareTenantSubscriptionChange(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest, callbackURL string, returnURL string) (*platform.SubscriptionChangeResult, error) {
+func (s *SubscriptionRepository) PrepareTenantSubscriptionChange(ctx context.Context, tenantID string, req platform.ChangeTenantSubscriptionRequest, callbackURL string, returnURL string) (*platform.SubscriptionChangeResult, error) {
 	req.PlanSlug = normalizePlanSlug(req.PlanSlug)
 	if req.PlanSlug == "free" || req.PlanSlug == "" {
 		req.PlanSlug = "developer"
@@ -20,7 +20,7 @@ func (s *PlanRepository) PrepareTenantSubscriptionChange(ctx context.Context, te
 
 	req.BillingInterval = normalizeBillingInterval(req.BillingInterval)
 
-	target, err := s.publishedPlanBySlug(ctx, req.PlanSlug)
+	target, err := s.catalog.publishedPlanBySlug(ctx, req.PlanSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (s *PlanRepository) PrepareTenantSubscriptionChange(ctx context.Context, te
 	return &platform.SubscriptionChangeResult{Mode: "payment_required", PaymentIntent: intent}, nil
 }
 
-func (s *PlanRepository) createSubscriptionPaymentIntent(ctx context.Context, tenantID string, target *platform.CommercialPlan, interval, provider, callbackURL, returnURL string, priceSnapshot, metadata map[string]interface{}) (*platform.SubscriptionPaymentIntent, error) {
+func (s *SubscriptionRepository) createSubscriptionPaymentIntent(ctx context.Context, tenantID string, target *platform.CommercialPlan, interval, provider, callbackURL, returnURL string, priceSnapshot, metadata map[string]interface{}) (*platform.SubscriptionPaymentIntent, error) {
 	if metadata == nil {
 		metadata = map[string]interface{}{}
 	}
@@ -120,7 +120,7 @@ func (s *PlanRepository) createSubscriptionPaymentIntent(ctx context.Context, te
 	return s.GetSubscriptionPaymentIntentByPublicID(ctx, publicID)
 }
 
-func (s *PlanRepository) AttachSubscriptionPaymentGatewayData(ctx context.Context, publicID string, authority string, paymentURL string, raw map[string]interface{}) error {
+func (s *SubscriptionRepository) AttachSubscriptionPaymentGatewayData(ctx context.Context, publicID string, authority string, paymentURL string, raw map[string]interface{}) error {
 	payload := marshalJSONBestEffort(raw)
 
 	result, err := s.pool.Exec(ctx, `
@@ -141,17 +141,17 @@ func (s *PlanRepository) AttachSubscriptionPaymentGatewayData(ctx context.Contex
 	return nil
 }
 
-func (s *PlanRepository) GetSubscriptionPaymentIntentByAuthority(ctx context.Context, authority string) (*platform.SubscriptionPaymentIntent, error) {
+func (s *SubscriptionRepository) GetSubscriptionPaymentIntentByAuthority(ctx context.Context, authority string) (*platform.SubscriptionPaymentIntent, error) {
 	row := s.pool.QueryRow(ctx, subscriptionPaymentIntentSelect+` WHERE spi.authority = $1 LIMIT 1`, authority)
 	return scanSubscriptionPaymentIntent(row)
 }
 
-func (s *PlanRepository) GetSubscriptionPaymentIntentByPublicID(ctx context.Context, publicID string) (*platform.SubscriptionPaymentIntent, error) {
+func (s *SubscriptionRepository) GetSubscriptionPaymentIntentByPublicID(ctx context.Context, publicID string) (*platform.SubscriptionPaymentIntent, error) {
 	row := s.pool.QueryRow(ctx, subscriptionPaymentIntentSelect+` WHERE spi.public_id::text = $1 LIMIT 1`, publicID)
 	return scanSubscriptionPaymentIntent(row)
 }
 
-func (s *PlanRepository) CompleteSubscriptionPaymentByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID string, gatewayTxnID string, cardMask string, payerPhone string) (*platform.SubscriptionPaymentIntent, *platform.TenantSubscription, bool, error) {
+func (s *SubscriptionRepository) CompleteSubscriptionPaymentByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID string, gatewayTxnID string, cardMask string, payerPhone string) (*platform.SubscriptionPaymentIntent, *platform.TenantSubscription, bool, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, nil, false, err
@@ -271,7 +271,7 @@ func (s *PlanRepository) CompleteSubscriptionPaymentByAuthority(ctx context.Cont
 		return nil, nil, false, commitErr
 	}
 
-	s.invalidateTenantEntitlements(ctx, intent.TenantID)
+	s.entitlements.invalidateTenantEntitlements(ctx, intent.TenantID)
 
 	completed, err := s.GetSubscriptionPaymentIntentByAuthority(ctx, authority)
 	if err != nil {
@@ -283,7 +283,7 @@ func (s *PlanRepository) CompleteSubscriptionPaymentByAuthority(ctx context.Cont
 	return completed, subscription, false, err
 }
 
-func (s *PlanRepository) MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
+func (s *SubscriptionRepository) MarkSubscriptionPaymentFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
 	payload := marshalJSONBestEffort(raw)
 
 	result, err := s.pool.Exec(ctx, `
@@ -304,7 +304,7 @@ func (s *PlanRepository) MarkSubscriptionPaymentFailedByAuthority(ctx context.Co
 	return nil
 }
 
-func (s *PlanRepository) planPriceForVersion(ctx context.Context, versionID, interval string) (*platform.PlanPrice, error) {
+func (s *SubscriptionRepository) planPriceForVersion(ctx context.Context, versionID, interval string) (*platform.PlanPrice, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT price_id::text, version_id::text, billing_interval, currency,
 		       amount_minor::double precision, discount_percent::double precision, created_at, updated_at

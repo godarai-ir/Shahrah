@@ -78,7 +78,7 @@ func (s *BudgetService) budgetPolicyTargets(ctx context.Context, auth *platform.
 		return nil, nil
 	}
 
-	profile, err := s.runtimeProfiles.Get(ctx, auth.TenantID)
+	profile, err := s.runtimeProfiles.GetSnapshot(ctx, auth.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: profile budget rules unavailable: %v", ErrBudgetUnavailable, err)
 	}
@@ -87,17 +87,8 @@ func (s *BudgetService) budgetPolicyTargets(ctx context.Context, auth *platform.
 		return nil, nil
 	}
 
-	rules := append([]platform.BudgetLimitRule(nil), profile.BudgetRules...)
-	sort.SliceStable(rules, func(i, j int) bool {
-		if rules[i].Priority == rules[j].Priority {
-			return rules[i].RuleID < rules[j].RuleID
-		}
-
-		return rules[i].Priority < rules[j].Priority
-	})
-
-	targets := make([]budgetReservationTarget, 0, len(rules))
-	for _, rule := range rules {
+	targets := make([]budgetReservationTarget, 0, len(profile.BudgetRules))
+	for _, rule := range profile.BudgetRules {
 		if !rule.Enabled || !rule.BlockOnBudgetExceed || rule.LimitTo <= 0 {
 			continue
 		}

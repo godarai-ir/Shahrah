@@ -19,9 +19,12 @@ import (
 
 const (
 	maxStoreReceiverMethods                = 1
-	maxAdminPersistenceImports             = 29
+	maxAdminPersistenceImports             = 0
+	maxProxyPersistenceImports             = 0
 	maxDirectEnvironmentReadsOutsideConfig = 0
-	maxOversizedProductionFiles            = 29
+	maxOversizedProductionFiles            = 28
+	maxFocusedRepositoryMethods            = 25
+	maxApplicationPortMethods              = 10
 	oversizedFileLineThreshold             = 800
 )
 
@@ -41,6 +44,117 @@ func TestAdminPersistenceImportsCannotGrow(t *testing.T) {
 		"github.com/jackc/pgx/v5/pgconn": {},
 	})
 	require.LessOrEqual(t, count, maxAdminPersistenceImports, "translate persistence errors behind application ports and lower the ratchet")
+}
+
+func TestProxyPersistenceImportsCannotGrow(t *testing.T) {
+	t.Parallel()
+
+	count := countImports(t, filepath.Join(moduleRoot(t), "internal", "proxy"), map[string]struct{}{
+		"github.com/Delpak/shahrah/services/control-plane/internal/storage": {},
+		"github.com/jackc/pgx/v5":        {},
+		"github.com/jackc/pgx/v5/pgconn": {},
+	})
+	require.LessOrEqual(t, count, maxProxyPersistenceImports, "proxy adapters must depend on application ports")
+}
+
+func TestLegacyGodRepositoriesHaveNoReceiverMethods(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join(moduleRoot(t), "internal", "storage")
+	for _, receiver := range []string{"PlanRepository", "WalletRepository", "ObservabilityRepository"} {
+		count := countReceiverMethods(t, root, receiver)
+		require.Zero(t, count, "%s must remain a capability composition", receiver)
+	}
+}
+
+func TestFocusedRepositoriesStayFocused(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join(moduleRoot(t), "internal", "storage")
+
+	repositories := []string{
+		"PlanCatalogRepository",
+		"SubscriptionRepository",
+		"EntitlementRepository",
+		"UsageCounterRepository",
+		"WalletLedgerRepository",
+		"ExchangeRateRepository",
+		"WalletPaymentRepository",
+		"FinancialRepository",
+		"ObservabilityHealthRepository",
+		"TraceRepository",
+		"RequestLogRepository",
+		"LogManagementRepository",
+		"MetricsRepository",
+		"SpendRepository",
+		"ObservabilitySettingsRepository",
+		"TokenUsageRepository",
+	}
+	for _, receiver := range repositories {
+		count := countReceiverMethods(t, root, receiver)
+		require.LessOrEqual(t, count, maxFocusedRepositoryMethods, "%s must be split by capability", receiver)
+	}
+}
+
+func TestApplicationServicesDoNotEmbedRepositories(t *testing.T) {
+	t.Parallel()
+
+	root := moduleRoot(t)
+	for _, packageName := range []string{"iam", "policies", "provideraccounts", "tenantadmin", "virtualmodels"} {
+		file := filepath.Join(root, "internal", packageName, "service.go")
+		parsed := parseGoFile(t, file)
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			typeSpec, ok := node.(*ast.TypeSpec)
+			if !ok || typeSpec.Name.Name != "Service" {
+				return true
+			}
+
+			service, ok := typeSpec.Type.(*ast.StructType)
+			require.True(t, ok, "%s.Service must be a struct", packageName)
+
+			for _, field := range service.Fields.List {
+				require.NotEmpty(t, field.Names, "%s.Service must use named private ports instead of embedding repositories", packageName)
+			}
+
+			return false
+		})
+	}
+}
+
+func TestApplicationPortsStayUseCaseFocused(t *testing.T) {
+	t.Parallel()
+
+	root := moduleRoot(t)
+	for _, packageName := range []string{"iam", "policies", "provideraccounts", "tenantadmin", "virtualmodels"} {
+		file := filepath.Join(root, "internal", packageName, "service.go")
+		parsed := parseGoFile(t, file)
+
+		for _, declaration := range parsed.Decls {
+			general, ok := declaration.(*ast.GenDecl)
+			if !ok || general.Tok != token.TYPE {
+				continue
+			}
+
+			for _, specification := range general.Specs {
+				typeSpec, ok := specification.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+
+				port, ok := typeSpec.Type.(*ast.InterfaceType)
+				if !ok {
+					continue
+				}
+
+				methodCount := 0
+				for _, method := range port.Methods.List {
+					methodCount += len(method.Names)
+				}
+
+				require.LessOrEqual(t, methodCount, maxApplicationPortMethods, "%s.%s must be split by use case", packageName, typeSpec.Name.Name)
+			}
+		}
+	}
 }
 
 func TestEnvironmentReadsStayAtConfigurationEdge(t *testing.T) {

@@ -22,7 +22,7 @@ type TokenUsageMetrics interface {
 }
 
 // StartTokenUsageFlusher periodically persists Redis token usage aggregates to PostgreSQL.
-func (s *ObservabilityRepository) StartTokenUsageFlusher(ctx context.Context) {
+func (s *TokenUsageRepository) StartTokenUsageFlusher(ctx context.Context) {
 	startPeriodicFlusher(
 		ctx,
 		s.logger,
@@ -34,7 +34,7 @@ func (s *ObservabilityRepository) StartTokenUsageFlusher(ctx context.Context) {
 }
 
 // FlushTokenUsageAggregates persists one bounded Redis batch for spend and last-used aggregates.
-func (s *ObservabilityRepository) FlushTokenUsageAggregates(ctx context.Context) error {
+func (s *TokenUsageRepository) FlushTokenUsageAggregates(ctx context.Context) error {
 	if s.tokenUsageCache == nil {
 		return nil
 	}
@@ -46,7 +46,7 @@ func (s *ObservabilityRepository) FlushTokenUsageAggregates(ctx context.Context)
 	return s.flushKeyLastUsed(ctx)
 }
 
-func (s *ObservabilityRepository) queueTokenSpendDelta(ctx context.Context, tokenHash string, deltaUSD float64) error {
+func (s *TokenUsageRepository) queueTokenSpendDelta(ctx context.Context, tokenHash string, deltaUSD float64) error {
 	tokenHash = strings.TrimSpace(tokenHash)
 	if tokenHash == "" || deltaUSD <= 0 {
 		return nil
@@ -80,7 +80,67 @@ func (s *ObservabilityRepository) queueTokenSpendDelta(ctx context.Context, toke
 	return err
 }
 
-func (s *ObservabilityRepository) queueKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
+func (s *TokenUsageRepository) queueTokenSpendDeltas(ctx context.Context, deltas map[string]float64) error {
+	if len(deltas) == 0 || !s.tokenUsageEnabled || s.tokenUsageCache == nil {
+		return nil
+	}
+
+	batchCache, ok := s.tokenUsageCache.(cache.TokenUsageBatchCache)
+	if !ok {
+		for tokenHash, deltaUSD := range deltas {
+			if err := s.queueTokenSpendDelta(ctx, tokenHash, deltaUSD); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	now := time.Now().UTC().Unix()
+	dirtySetKey := s.tokenSpendDirtySetKey()
+
+	requests := make([]cache.TokenSpendDeltaRequest, 0, len(deltas))
+	for tokenHash, deltaUSD := range deltas {
+		tokenHash = strings.TrimSpace(tokenHash)
+		if tokenHash == "" || deltaUSD <= 0 {
+			continue
+		}
+
+		requests = append(requests, cache.TokenSpendDeltaRequest{
+			DeltaKey:    s.tokenSpendDeltaKey(tokenHash),
+			DirtySetKey: dirtySetKey,
+			DeltaUSD:    deltaUSD,
+			TTL:         s.tokenUsageDeltaTTL,
+			Score:       now,
+		})
+	}
+
+	if err := batchCache.QueueTokenSpendDeltas(ctx, requests); err != nil {
+		if s.tokenUsageMetrics != nil {
+			s.tokenUsageMetrics.IncTokenSpendRedisFallback()
+		}
+
+		if s.logger != nil {
+			s.logger.Warn("redis token spend batch aggregation unavailable; spend log remains source of truth", zap.Error(err))
+		}
+
+		if s.tokenUsageFailOpen {
+			return nil
+		}
+
+		return err
+	}
+
+	if s.tokenUsageMetrics != nil {
+		for range requests {
+			s.tokenUsageMetrics.IncTokenSpendQueued()
+		}
+	}
+
+	return nil
+}
+
+func (s *TokenUsageRepository) queueKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
 	keyID = strings.TrimSpace(keyID)
 	if keyID == "" || usedAt.IsZero() {
 		return nil
@@ -118,7 +178,7 @@ func (s *ObservabilityRepository) queueKeyLastUsed(ctx context.Context, keyID st
 	return err
 }
 
-func (s *ObservabilityRepository) touchKeyLastUsedFallback(ctx context.Context, keyID string, usedAt time.Time) error {
+func (s *TokenUsageRepository) touchKeyLastUsedFallback(ctx context.Context, keyID string, usedAt time.Time) error {
 	interval := s.lastUsedFlushInterval
 	if interval <= 0 {
 		interval = time.Minute
@@ -146,7 +206,7 @@ func (s *ObservabilityRepository) touchKeyLastUsedFallback(ctx context.Context, 
 	return s.updateKeyLastUsedBatch(ctx, []keyLastUsedUpdate{{KeyID: keyID, UsedAt: usedAt.UTC()}})
 }
 
-func (s *ObservabilityRepository) flushTokenSpendDeltas(ctx context.Context) error {
+func (s *TokenUsageRepository) flushTokenSpendDeltas(ctx context.Context) error {
 	start := time.Now()
 
 	deltas, err := s.tokenUsageCache.DrainTokenSpendDeltas(ctx, s.tokenSpendDirtySetKey(), s.tokenUsageFlushBatchSize)
@@ -192,7 +252,7 @@ func (s *ObservabilityRepository) flushTokenSpendDeltas(ctx context.Context) err
 	return err
 }
 
-func (s *ObservabilityRepository) flushKeyLastUsed(ctx context.Context) error {
+func (s *TokenUsageRepository) flushKeyLastUsed(ctx context.Context) error {
 	start := time.Now()
 
 	snapshots, err := s.tokenUsageCache.DrainKeyLastUsed(ctx, s.keyLastUsedDirtySetKey(), s.tokenUsageFlushBatchSize)
@@ -248,7 +308,7 @@ type keyLastUsedUpdate struct {
 	UsedAt time.Time
 }
 
-func (s *ObservabilityRepository) updateTokenSpendBatch(ctx context.Context, updates []tokenSpendUpdate) error {
+func (s *TokenUsageRepository) updateTokenSpendBatch(ctx context.Context, updates []tokenSpendUpdate) error {
 	if len(updates) == 0 {
 		return nil
 	}
@@ -277,7 +337,7 @@ func (s *ObservabilityRepository) updateTokenSpendBatch(ctx context.Context, upd
 	return err
 }
 
-func (s *ObservabilityRepository) updateKeyLastUsedBatch(ctx context.Context, updates []keyLastUsedUpdate) error {
+func (s *TokenUsageRepository) updateKeyLastUsedBatch(ctx context.Context, updates []keyLastUsedUpdate) error {
 	if len(updates) == 0 {
 		return nil
 	}
@@ -307,7 +367,7 @@ func (s *ObservabilityRepository) updateKeyLastUsedBatch(ctx context.Context, up
 	return err
 }
 
-func (s *ObservabilityRepository) restoreTokenSpendDeltas(ctx context.Context, updates []tokenSpendUpdate) {
+func (s *TokenUsageRepository) restoreTokenSpendDeltas(ctx context.Context, updates []tokenSpendUpdate) {
 	for _, update := range updates {
 		if err := s.tokenUsageCache.QueueTokenSpendDelta(ctx, s.tokenSpendDeltaKey(update.TokenHash), s.tokenSpendDirtySetKey(), update.DeltaUSD, s.tokenUsageDeltaTTL, time.Now().UTC().Unix()); err != nil && s.logger != nil {
 			s.logger.Error("failed to restore drained token spend delta", zap.Error(err))
@@ -315,7 +375,7 @@ func (s *ObservabilityRepository) restoreTokenSpendDeltas(ctx context.Context, u
 	}
 }
 
-func (s *ObservabilityRepository) restoreKeyLastUsed(ctx context.Context, updates []keyLastUsedUpdate) {
+func (s *TokenUsageRepository) restoreKeyLastUsed(ctx context.Context, updates []keyLastUsedUpdate) {
 	for _, update := range updates {
 		if _, err := s.tokenUsageCache.QueueKeyLastUsed(ctx, s.keyLastUsedKey(update.KeyID), s.keyLastUsedDirtySetKey(), update.UsedAt.UTC().UnixMilli(), s.lastUsedTTL); err != nil && s.logger != nil {
 			s.logger.Error("failed to restore drained key last-used timestamp", zap.Error(err))
@@ -323,15 +383,15 @@ func (s *ObservabilityRepository) restoreKeyLastUsed(ctx context.Context, update
 	}
 }
 
-func (s *ObservabilityRepository) tokenSpendDirtySetKey() string {
+func (s *TokenUsageRepository) tokenSpendDirtySetKey() string {
 	return s.tokenUsagePrefix() + ":token_spend_delta:dirty"
 }
 
-func (s *ObservabilityRepository) tokenSpendDeltaKey(tokenHash string) string {
+func (s *TokenUsageRepository) tokenSpendDeltaKey(tokenHash string) string {
 	return s.tokenUsagePrefix() + ":token_spend_delta:" + strings.TrimSpace(tokenHash)
 }
 
-func (s *ObservabilityRepository) parseTokenSpendDeltaKey(key string) (string, error) {
+func (s *TokenUsageRepository) parseTokenSpendDeltaKey(key string) (string, error) {
 	prefix := s.tokenUsagePrefix() + ":token_spend_delta:"
 	if !strings.HasPrefix(key, prefix) {
 		return "", fmt.Errorf("missing token spend prefix")
@@ -345,15 +405,15 @@ func (s *ObservabilityRepository) parseTokenSpendDeltaKey(key string) (string, e
 	return tokenHash, nil
 }
 
-func (s *ObservabilityRepository) keyLastUsedDirtySetKey() string {
+func (s *TokenUsageRepository) keyLastUsedDirtySetKey() string {
 	return s.tokenUsagePrefix() + ":key_last_used:dirty"
 }
 
-func (s *ObservabilityRepository) keyLastUsedKey(keyID string) string {
+func (s *TokenUsageRepository) keyLastUsedKey(keyID string) string {
 	return s.tokenUsagePrefix() + ":key_last_used:" + strings.TrimSpace(keyID)
 }
 
-func (s *ObservabilityRepository) parseKeyLastUsedKey(key string) (string, error) {
+func (s *TokenUsageRepository) parseKeyLastUsedKey(key string) (string, error) {
 	prefix := s.tokenUsagePrefix() + ":key_last_used:"
 	if !strings.HasPrefix(key, prefix) {
 		return "", fmt.Errorf("missing key last-used prefix")
@@ -367,7 +427,7 @@ func (s *ObservabilityRepository) parseKeyLastUsedKey(key string) (string, error
 	return keyID, nil
 }
 
-func (s *ObservabilityRepository) tokenUsagePrefix() string {
+func (s *TokenUsageRepository) tokenUsagePrefix() string {
 	return strings.TrimSuffix(s.tokenUsageKeyPrefix, ":")
 }
 

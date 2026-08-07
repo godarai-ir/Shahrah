@@ -108,8 +108,8 @@ func NewStore(
 	)
 	store.WalletRepository = newWalletRepository(
 		pool,
-		observability.clickhouse,
-		observability.clickHouseMetricsReady(),
+		observability.ObservabilityHealthRepository.clickhouse,
+		observability.ObservabilityHealthRepository.clickHouseMetricsReady(),
 		logger,
 		dependencies.Cache,
 		storageConfig,
@@ -145,11 +145,11 @@ func NewStore(
 	store.PolicyRepository = newPolicyRepository(pool, dependencies.RuntimeProfileInvalidator)
 	store.RetentionRepository = newRetentionRepository(
 		pool,
-		observability.clickhouse,
-		observability.clickHouseLogsReady(),
+		observability.ObservabilityHealthRepository.clickhouse,
+		observability.ObservabilityHealthRepository.clickHouseLogsReady(),
 		logger,
 	)
-	observability.retention = store.RetentionRepository
+	observability.ObservabilityHealthRepository.retention = store.RetentionRepository
 	store.PlatformCredentialRepository = newPlatformCredentialRepository(pool, logger)
 	store.ProviderResourceRepository = newProviderResourceRepository(pool)
 	store.RuntimeProfileRepository = newRuntimeProfileRepository(
@@ -178,8 +178,8 @@ func NewMetricsStore(ctx context.Context, logger *zap.Logger, storageConfig Conf
 
 // Close closes the store.
 func (s *Store) Close() {
-	if s.ObservabilityRepository != nil && s.ObservabilityRepository.clickhouse != nil {
-		closeBestEffort(s.ObservabilityRepository.clickhouse)
+	if s.ObservabilityRepository != nil && s.ObservabilityHealthRepository.clickhouse != nil {
+		closeBestEffort(s.ObservabilityHealthRepository.clickhouse)
 	}
 
 	if s.pool != nil {

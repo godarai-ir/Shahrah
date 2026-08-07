@@ -10,17 +10,19 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	"github.com/jackc/pgx/v5"
 )
 
 var (
-	ErrBankTransferNotFound  = errors.New("bank transfer request not found")
-	ErrFinancialCodeInvalid  = errors.New("financial code is invalid")
-	ErrBillingProfileInvalid = errors.New("billing profile is invalid")
+	ErrBankTransferNotFound  = billingdomain.ErrBankTransferNotFound
+	ErrFinancialCodeInvalid  = billingdomain.ErrFinancialCodeInvalid
+	ErrBillingProfileInvalid = billingdomain.ErrBillingProfileInvalid
 )
 
-func (s *WalletRepository) CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error) {
+func (s *FinancialRepository) CreateBankTransferRequest(ctx context.Context, tenantID string, req platform.CreateBankTransferRequest, actor string) (*platform.BankTransferRequest, error) {
 	meta := marshalJSONBestEffort(req.Metadata)
 
 	return scanBankTransferRequest(s.pool.QueryRow(ctx, `
@@ -36,7 +38,7 @@ func (s *WalletRepository) CreateBankTransferRequest(ctx context.Context, tenant
 	`, tenantID, req.AmountIRR, strings.TrimSpace(req.TrackingNumber), req.BankTransactionAt, strings.TrimSpace(req.ReceiptFileURL), meta, strings.TrimSpace(actor)))
 }
 
-func (s *WalletRepository) ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error) {
+func (s *FinancialRepository) ListBankTransferRequests(ctx context.Context, tenantID string, limit int) ([]platform.BankTransferRequest, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -70,7 +72,7 @@ func (s *WalletRepository) ListBankTransferRequests(ctx context.Context, tenantI
 	return items, rows.Err()
 }
 
-func (s *WalletRepository) BankTransferReceiptExists(ctx context.Context, tenantID string, receiptFileURL string) (bool, error) {
+func (s *FinancialRepository) BankTransferReceiptExists(ctx context.Context, tenantID string, receiptFileURL string) (bool, error) {
 	var exists bool
 
 	err := s.pool.QueryRow(ctx, `
@@ -84,7 +86,7 @@ func (s *WalletRepository) BankTransferReceiptExists(ctx context.Context, tenant
 	return exists, err
 }
 
-func (s *WalletRepository) ApproveBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error) {
+func (s *FinancialRepository) ApproveBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -159,12 +161,12 @@ func (s *WalletRepository) ApproveBankTransferRequest(ctx context.Context, tenan
 		return nil, err
 	}
 
-	s.invalidateWalletCache(ctx, tenantID)
+	s.ledger.invalidateWalletCache(ctx, tenantID)
 
 	return s.GetBankTransferRequest(ctx, tenantID, item.ID)
 }
 
-func (s *WalletRepository) RejectBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error) {
+func (s *FinancialRepository) RejectBankTransferRequest(ctx context.Context, tenantID string, requestID string, req platform.ReviewBankTransferRequest, actor platform.SupportActor) (*platform.BankTransferRequest, error) {
 	reason := strings.TrimSpace(req.Reason)
 	if reason == "" {
 		reason = "rejected by financial review"
@@ -199,7 +201,7 @@ func (s *WalletRepository) RejectBankTransferRequest(ctx context.Context, tenant
 	return item, rows.Err()
 }
 
-func (s *WalletRepository) GetBankTransferRequest(ctx context.Context, tenantID string, requestID string) (*platform.BankTransferRequest, error) {
+func (s *FinancialRepository) GetBankTransferRequest(ctx context.Context, tenantID string, requestID string) (*platform.BankTransferRequest, error) {
 	item, err := scanBankTransferRequest(s.pool.QueryRow(ctx, `
 		SELECT bank_transfer_request_id::text, public_id::text, tenant_id::text, amount_irr::bigint,
 		       tracking_number, bank_transaction_at, COALESCE(receipt_file_url, ''), status,
@@ -215,7 +217,7 @@ func (s *WalletRepository) GetBankTransferRequest(ctx context.Context, tenantID 
 	return item, err
 }
 
-func (s *WalletRepository) RedeemGiftCode(ctx context.Context, tenantID string, code string, actor string) (*platform.GiftCodeRedemption, error) {
+func (s *FinancialRepository) RedeemGiftCode(ctx context.Context, tenantID string, code string, actor string) (*platform.GiftCodeRedemption, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -304,12 +306,12 @@ func (s *WalletRepository) RedeemGiftCode(ctx context.Context, tenantID string, 
 		return nil, err
 	}
 
-	s.invalidateWalletCache(ctx, tenantID)
+	s.ledger.invalidateWalletCache(ctx, tenantID)
 
 	return &redemption, nil
 }
 
-func (s *WalletRepository) RedeemDiscountCode(ctx context.Context, tenantID string, code string, actor string) (*platform.DiscountRedemption, error) {
+func (s *FinancialRepository) RedeemDiscountCode(ctx context.Context, tenantID string, code string, actor string) (*platform.DiscountRedemption, error) {
 	var (
 		item        platform.DiscountRedemption
 		wasInserted bool
@@ -369,7 +371,7 @@ func (s *WalletRepository) RedeemDiscountCode(ctx context.Context, tenantID stri
 	return &item, nil
 }
 
-func (s *WalletRepository) GetBillingProfile(ctx context.Context, tenantID string) (*platform.BillingProfile, error) {
+func (s *FinancialRepository) GetBillingProfile(ctx context.Context, tenantID string) (*platform.BillingProfile, error) {
 	item, err := scanBillingProfile(s.pool.QueryRow(ctx, `
 		SELECT billing_profile_id::text, tenant_id::text, profile_type, data,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
@@ -377,13 +379,13 @@ func (s *WalletRepository) GetBillingProfile(ctx context.Context, tenantID strin
 		WHERE tenant_id::text = $1
 	`, tenantID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	return item, err
 }
 
-func (s *WalletRepository) UpsertBillingProfile(ctx context.Context, tenantID string, req platform.UpsertBillingProfileRequest, actor string) (*platform.BillingProfile, error) {
+func (s *FinancialRepository) UpsertBillingProfile(ctx context.Context, tenantID string, req platform.UpsertBillingProfileRequest, actor string) (*platform.BillingProfile, error) {
 	profileType := strings.TrimSpace(strings.ToLower(req.ProfileType))
 	if profileType != "individual" && profileType != "company" {
 		return nil, ErrBillingProfileInvalid
@@ -406,7 +408,7 @@ func (s *WalletRepository) UpsertBillingProfile(ctx context.Context, tenantID st
 	`, tenantID, profileType, marshalJSONBestEffort(req.Data), strings.TrimSpace(actor)))
 }
 
-func (s *WalletRepository) ListInvoices(ctx context.Context, tenantID string, limit int) ([]platform.Invoice, error) {
+func (s *FinancialRepository) ListInvoices(ctx context.Context, tenantID string, limit int) ([]platform.Invoice, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -435,7 +437,7 @@ func (s *WalletRepository) ListInvoices(ctx context.Context, tenantID string, li
 	return items, rows.Err()
 }
 
-func (s *WalletRepository) ListDiscountRedemptions(ctx context.Context, tenantID string, limit int) ([]platform.DiscountRedemption, error) {
+func (s *FinancialRepository) ListDiscountRedemptions(ctx context.Context, tenantID string, limit int) ([]platform.DiscountRedemption, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -468,7 +470,7 @@ func (s *WalletRepository) ListDiscountRedemptions(ctx context.Context, tenantID
 	return items, rows.Err()
 }
 
-func (s *WalletRepository) GetBillingUsageSummary(ctx context.Context, tenantID string, rangeKey string) (*platform.BillingUsageSummary, error) {
+func (s *FinancialRepository) GetBillingUsageSummary(ctx context.Context, tenantID string, rangeKey string) (*platform.BillingUsageSummary, error) {
 	start, end, normalized, err := BillingReportWindow(time.Now().UTC(), rangeKey)
 	if err != nil {
 		return nil, err
@@ -494,7 +496,7 @@ func (s *WalletRepository) GetBillingUsageSummary(ctx context.Context, tenantID 
 	return out, nil
 }
 
-func (s *WalletRepository) GetMonthlyUsageDetail(ctx context.Context, tenantID string, jalaliYear int, jalaliMonth int) (*platform.MonthlyUsageDetail, error) {
+func (s *FinancialRepository) GetMonthlyUsageDetail(ctx context.Context, tenantID string, jalaliYear int, jalaliMonth int) (*platform.MonthlyUsageDetail, error) {
 	start, end, err := JalaliMonthWindow(jalaliYear, jalaliMonth)
 	if err != nil {
 		return nil, err
@@ -527,12 +529,12 @@ func (s *WalletRepository) GetMonthlyUsageDetail(ctx context.Context, tenantID s
 	return out, nil
 }
 
-func (s *WalletRepository) queryBillingProviderUsage(ctx context.Context, tenantID string, start time.Time, end time.Time) ([]platform.BillingProviderUsage, error) {
+func (s *FinancialRepository) queryBillingProviderUsage(ctx context.Context, tenantID string, start time.Time, end time.Time) ([]platform.BillingProviderUsage, error) {
 	if !s.clickhouseMetricsReady {
 		return s.queryBillingUsageFromWallet(ctx, tenantID, start, end)
 	}
 
-	rate, err := s.GetLatestExchangeRate(ctx)
+	rate, err := s.rates.GetLatestExchangeRate(ctx)
 	if err != nil || rate == nil || rate.USDtoIRR <= 0 {
 		rate = &platform.ExchangeRate{USDtoIRR: 0}
 	}
@@ -594,7 +596,7 @@ func (s *WalletRepository) queryBillingProviderUsage(ctx context.Context, tenant
 	return items, nil
 }
 
-func (s *WalletRepository) queryBillingUsageFromWallet(ctx context.Context, tenantID string, start time.Time, end time.Time) ([]platform.BillingProviderUsage, error) {
+func (s *FinancialRepository) queryBillingUsageFromWallet(ctx context.Context, tenantID string, start time.Time, end time.Time) ([]platform.BillingProviderUsage, error) {
 	var item platform.BillingProviderUsage
 
 	item.ProviderName = "gateway"
@@ -665,7 +667,7 @@ func billingIRRString(value string) int64 {
 	return int64(math.Round(parsed))
 }
 
-func (s *WalletRepository) sumGiftCredits(ctx context.Context, tenantID string, start time.Time, end time.Time) (int64, error) {
+func (s *FinancialRepository) sumGiftCredits(ctx context.Context, tenantID string, start time.Time, end time.Time) (int64, error) {
 	var out int64
 
 	err := s.pool.QueryRow(ctx, `

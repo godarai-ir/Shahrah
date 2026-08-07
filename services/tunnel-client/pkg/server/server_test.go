@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
@@ -253,5 +254,25 @@ func TestDispatchStreamingRelaysMultipleEventsWithoutTruncation(t *testing.T) {
 	bodyText := rec.Body.String()
 	if !strings.Contains(bodyText, "event: response.created") || !strings.Contains(bodyText, "data: [DONE]") {
 		t.Fatalf("expected full SSE relay without truncation, got %q", bodyText)
+	}
+}
+
+func TestRawDispatchIsNotCutOffByRegularClientTimeout(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+
+		if _, err := w.Write([]byte("raw-response")); err != nil {
+			return
+		}
+	}))
+	defer upstream.Close()
+
+	handler := NewHandler(upstream.URL, &http.Client{Timeout: 10 * time.Millisecond})
+	request := httptest.NewRequest(http.MethodPost, "/dispatch/raw", strings.NewReader("raw-envelope"))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK || recorder.Body.String() != "raw-response" {
+		t.Fatalf("expected long-running raw response, got status=%d body=%q", recorder.Code, recorder.Body.String())
 	}
 }

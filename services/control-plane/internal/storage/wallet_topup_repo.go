@@ -10,7 +10,7 @@ import (
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 )
 
-func (s *WalletRepository) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTopUpSettings, error) {
+func (s *WalletPaymentRepository) GetWalletTopUpSettings(ctx context.Context) (*platform.WalletTopUpSettings, error) {
 	var out platform.WalletTopUpSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -26,7 +26,7 @@ func (s *WalletRepository) GetWalletTopUpSettings(ctx context.Context) (*platfor
 	return &out, nil
 }
 
-func (s *WalletRepository) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, taxPercent, feePercent float64) (*platform.WalletTopUpSettings, error) {
+func (s *WalletPaymentRepository) UpdateWalletTopUpSettings(ctx context.Context, minUSD, maxUSD, taxPercent, feePercent float64) (*platform.WalletTopUpSettings, error) {
 	var out platform.WalletTopUpSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -46,7 +46,7 @@ func (s *WalletRepository) UpdateWalletTopUpSettings(ctx context.Context, minUSD
 	return &out, nil
 }
 
-func (s *WalletRepository) CreateWalletTopUpIntent(ctx context.Context, p billingdomain.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
+func (s *WalletPaymentRepository) CreateWalletTopUpIntent(ctx context.Context, p billingdomain.CreateTopUpIntentParams) (*platform.WalletTopUpIntent, error) {
 	metaRaw := marshalJSONBestEffort(p.Metadata)
 
 	var out platform.WalletTopUpIntent
@@ -107,7 +107,7 @@ func (s *WalletRepository) CreateWalletTopUpIntent(ctx context.Context, p billin
 	return &out, nil
 }
 
-func (s *WalletRepository) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error {
+func (s *WalletPaymentRepository) AttachWalletTopUpGatewayData(ctx context.Context, intentPublicID, authority, paymentURL string, raw map[string]interface{}) error {
 	rawPayload := marshalJSONBestEffort(raw)
 
 	res, err := s.pool.Exec(ctx, `
@@ -129,7 +129,7 @@ func (s *WalletRepository) AttachWalletTopUpGatewayData(ctx context.Context, int
 	return nil
 }
 
-func (s *WalletRepository) GetWalletTopUpIntentByAuthority(ctx context.Context, authority string) (*platform.WalletTopUpIntent, error) {
+func (s *WalletPaymentRepository) GetWalletTopUpIntentByAuthority(ctx context.Context, authority string) (*platform.WalletTopUpIntent, error) {
 	var (
 		out             platform.WalletTopUpIntent
 		walletTxID      *string
@@ -237,7 +237,7 @@ func (s *WalletRepository) GetWalletTopUpIntentByAuthority(ctx context.Context, 
 	return &out, nil
 }
 
-func (s *WalletRepository) CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error) {
+func (s *WalletPaymentRepository) CompleteWalletTopUpByAuthority(ctx context.Context, authority string, verifyRaw map[string]interface{}, refID, gatewayTxnID, cardMask, payerPhone string) (*platform.WalletTopUpIntent, bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, false, err
@@ -409,7 +409,7 @@ func (s *WalletRepository) CompleteWalletTopUpByAuthority(ctx context.Context, a
 		return nil, false, err
 	}
 
-	s.invalidateWalletCache(ctx, intent.TenantID)
+	s.ledger.invalidateWalletCache(ctx, intent.TenantID)
 
 	intent.Status = platform.WalletTopUpStatusCompleted
 	intent.RefID = refID
@@ -423,7 +423,7 @@ func (s *WalletRepository) CompleteWalletTopUpByAuthority(ctx context.Context, a
 	return &intent, false, nil
 }
 
-func (s *WalletRepository) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
+func (s *WalletPaymentRepository) MarkWalletTopUpFailedByAuthority(ctx context.Context, authority string, reason string, raw map[string]interface{}) error {
 	rawPayload := marshalJSONBestEffort(raw)
 
 	res, err := s.pool.Exec(ctx, `
@@ -445,7 +445,7 @@ func (s *WalletRepository) MarkWalletTopUpFailedByAuthority(ctx context.Context,
 	return nil
 }
 
-func (s *WalletRepository) ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error) {
+func (s *WalletPaymentRepository) ListWalletTransactions(ctx context.Context, tenantID string, limit int) ([]platform.Transaction, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
@@ -487,6 +487,6 @@ func (s *WalletRepository) ListWalletTransactions(ctx context.Context, tenantID 
 	return out, nil
 }
 
-func (s *WalletRepository) BuildTopUpCallbackURL(baseURL, provider string) string {
+func (s *WalletPaymentRepository) BuildTopUpCallbackURL(baseURL, provider string) string {
 	return fmt.Sprintf("%s/api/v1/wallet/topup/callback/%s", baseURL, provider)
 }

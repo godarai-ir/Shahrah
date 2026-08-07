@@ -196,7 +196,7 @@ type staticRuntimeProfiles struct {
 	err     error
 }
 
-func (s staticRuntimeProfiles) Get(context.Context, string) (*runtimeprofile.Profile, error) {
+func (s staticRuntimeProfiles) GetSnapshot(context.Context, string) (*runtimeprofile.Profile, error) {
 	return s.profile, s.err
 }
 

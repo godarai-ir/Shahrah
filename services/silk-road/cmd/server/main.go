@@ -14,6 +14,7 @@ import (
 
 func main() {
 	addr := getenv("SILK_ROAD_ADDR", ":8083")
+
 	client, proxyConfigured, proxyRequired, err := providerHTTPClient(5 * time.Minute)
 	if err != nil {
 		log.Fatalf("configure provider HTTP client: %v", err)
@@ -29,13 +30,26 @@ func providerHTTPClient(timeout time.Duration) (*http.Client, bool, bool, error)
 		return nil, false, false, fmt.Errorf("SILK_ROAD_EGRESS_PROXY_REQUIRED: %w", err)
 	}
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if ok {
+		transport = transport.Clone()
+	} else {
+		transport = &http.Transport{Proxy: http.ProxyFromEnvironment}
+	}
+
+	transport.MaxIdleConns = 1024
+	transport.MaxIdleConnsPerHost = 256
+	transport.IdleConnTimeout = 90 * time.Second
+	transport.ForceAttemptHTTP2 = true
+
 	rawProxyURL := os.Getenv("SILK_ROAD_EGRESS_PROXY_URL")
 	if rawProxyURL == "" {
 		if required {
 			return nil, false, true, fmt.Errorf("SILK_ROAD_EGRESS_PROXY_URL is required")
 		}
+
 		transport.Proxy = http.ProxyFromEnvironment
+
 		return &http.Client{Timeout: timeout, Transport: transport}, false, false, nil
 	}
 
@@ -43,7 +57,9 @@ func providerHTTPClient(timeout time.Duration) (*http.Client, bool, bool, error)
 	if err != nil || proxyURL.Host == "" || (proxyURL.Scheme != "http" && proxyURL.Scheme != "https") {
 		return nil, false, required, fmt.Errorf("SILK_ROAD_EGRESS_PROXY_URL must be an absolute HTTP(S) URL")
 	}
+
 	transport.Proxy = http.ProxyURL(proxyURL)
+
 	return &http.Client{Timeout: timeout, Transport: transport}, true, required, nil
 }
 
@@ -51,5 +67,6 @@ func getenv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
+
 	return fallback
 }

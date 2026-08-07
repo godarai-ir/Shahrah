@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 var tenantGuardrailSlugPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{1,95}$`)
@@ -88,7 +88,7 @@ func (h *Handlers) GetTenantGuardrail(c *fiber.Ctx) error {
 
 	item, err := h.policies.GetTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
 		}
 
@@ -126,7 +126,7 @@ func (h *Handlers) UpdateTenantGuardrail(c *fiber.Ctx) error {
 
 	item, err := h.policies.UpdateTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug, req, actor)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
 		}
 
@@ -152,7 +152,7 @@ func (h *Handlers) DeleteTenantGuardrail(c *fiber.Ctx) error {
 	}
 
 	if err := h.policies.DeleteTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
 		}
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -51,7 +52,7 @@ func (s *PolicyRepository) CreateBudgetLimitRule(ctx context.Context, tenantID s
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanBudgetLimitRule(rows)
@@ -95,7 +96,7 @@ func (s *PolicyRepository) GetBudgetLimitRuleByRuleID(ctx context.Context, tenan
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanBudgetLimitRule(rows)
@@ -169,7 +170,7 @@ func (s *PolicyRepository) UpdateBudgetLimitRuleByRuleID(ctx context.Context, te
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanBudgetLimitRule(rows)
@@ -234,7 +235,7 @@ func (s *PolicyRepository) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Conte
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, pgx.ErrNoRows
+		return nil, apperrors.ErrNotFound
 	}
 
 	item, err := scanBudgetLimitRule(rows)
@@ -257,7 +258,7 @@ func (s *PolicyRepository) DeleteBudgetLimitRuleByRuleID(ctx context.Context, te
 	}
 
 	if result.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	s.invalidateTenantRuntimeProfile(ctx, tenantID, "budget_limit_rule.deleted")

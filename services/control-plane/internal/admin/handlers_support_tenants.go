@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	supportdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/support"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) ListPlatformTenants(c *fiber.Ctx) error {
@@ -285,7 +285,7 @@ func supportActor(c *fiber.Ctx) platform.SupportActor {
 
 func mapSupportTenantError(err error) error {
 	switch {
-	case errors.Is(err, supportdomain.ErrTenantNotFound), errors.Is(err, pgx.ErrNoRows):
+	case errors.Is(err, supportdomain.ErrTenantNotFound), errors.Is(err, apperrors.ErrNotFound):
 		return fiber.NewError(fiber.StatusNotFound, "tenant not found")
 	case errors.Is(err, billingdomain.ErrInsufficientWalletBalance):
 		return fiber.NewError(fiber.StatusConflict, "insufficient wallet balance")

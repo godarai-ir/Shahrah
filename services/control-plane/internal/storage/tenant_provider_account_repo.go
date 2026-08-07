@@ -8,17 +8,43 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
+	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
 
 var (
-	ErrInvalidAccessPrincipal            = errors.New("invalid access principal")
+	ErrInvalidAccessPrincipal            = provideraccounts.ErrInvalidAccessPrincipal
 	ErrModelNotAllowedForProviderAccount = errors.New("model is not allowed for provider account")
-	ErrPrivatePricingRequiresCredential  = errors.New("private pricing requires a provider account with user-owned credentials")
-	ErrProviderAccountDependencyConflict = errors.New("provider account has active dependencies")
+	ErrPrivatePricingRequiresCredential  = provideraccounts.ErrPrivatePricingRequiresCredential
+	ErrProviderAccountDependencyConflict = provideraccounts.ErrDependencyConflict
 )
+
+// TranslateProviderAccountError translates driver failures at the persistence boundary.
+func (s *ProviderAccountRepository) TranslateProviderAccountError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperrors.ErrNotFound
+	}
+
+	var postgresError *pgconn.PgError
+	if errors.As(err, &postgresError) {
+		switch postgresError.Code {
+		case "23505":
+			return fmt.Errorf("%w: %v", provideraccounts.ErrAlreadyExists, err)
+		case "23514", "23502", "22P02":
+			return fmt.Errorf("%w: %v", provideraccounts.ErrInvalidPayload, err)
+		}
+	}
+
+	return err
+}
 
 // CreateTenantProviderAccount creates a provider account for the tenant.
 func (s *ProviderAccountRepository) CreateTenantProviderAccount(ctx context.Context, tenantID string, req platform.CreateTenantProviderAccountRequest) (*platform.TenantProviderAccount, error) {
@@ -1172,7 +1198,7 @@ func (s *ProviderAccountRepository) DeleteTenantProviderAccount(ctx context.Cont
 	}
 
 	if cmd.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return apperrors.ErrNotFound
 	}
 
 	if err := tx.Commit(ctx); err != nil {

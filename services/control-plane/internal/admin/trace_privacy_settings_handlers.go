@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 type updateTracePrivacySettingsRequest struct {
@@ -29,7 +29,7 @@ func (h *Handlers) GetTenantTracePrivacySettings(c *fiber.Ctx) error {
 
 	item, err := h.tracePrivacy.GetTenantTracePrivacySettings(c.Context(), currentTenant.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return c.JSON(fiber.Map{
 				"tenant_id":      currentTenant.ID,
 				"capture_policy": "metadata-only",

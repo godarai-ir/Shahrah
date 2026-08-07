@@ -7,7 +7,7 @@ import (
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 )
 
-func (s *PlanRepository) GetCommercialSignupSettings(ctx context.Context) (*platform.CommercialSignupSettings, error) {
+func (s *PlanCatalogRepository) GetCommercialSignupSettings(ctx context.Context) (*platform.CommercialSignupSettings, error) {
 	var out platform.CommercialSignupSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -18,7 +18,7 @@ func (s *PlanRepository) GetCommercialSignupSettings(ctx context.Context) (*plat
 	return &out, err
 }
 
-func (s *PlanRepository) UpdateCommercialSignupSettings(ctx context.Context, credit int64, actor string) (*platform.CommercialSignupSettings, error) {
+func (s *PlanCatalogRepository) UpdateCommercialSignupSettings(ctx context.Context, credit int64, actor string) (*platform.CommercialSignupSettings, error) {
 	if credit < 0 || credit > 999999999999999999 {
 		return nil, billingdomain.ErrInvalidSignupCredit
 	}

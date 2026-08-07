@@ -9,19 +9,20 @@ import (
 )
 
 // LogSpend writes the spend log entry.
-func (s *ObservabilityRepository) LogSpend(ctx context.Context, log platform.SpendLog) error {
+func (s *SpendRepository) LogSpend(ctx context.Context, log platform.SpendLog) error {
 	return s.LogSpends(ctx, []platform.SpendLog{log})
 }
 
 // LogSpends writes spend log entries in one PostgreSQL batch.
-func (s *ObservabilityRepository) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
+func (s *SpendRepository) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 	if len(logs) == 0 {
 		return nil
 	}
 
 	values := make([]string, 0, len(logs))
-
 	args := make([]interface{}, 0, len(logs)*spendLogInsertColumnCount)
+	spendDeltas := make(map[string]float64, len(logs))
+
 	for i, log := range logs {
 		values = append(values, spendLogInsertPlaceholders(i, spendLogInsertColumnCount))
 		args = append(args,
@@ -44,6 +45,11 @@ func (s *ObservabilityRepository) LogSpends(ctx context.Context, logs []platform
 			log.CompletionStart,
 			log.CompletionEnd,
 		)
+
+		tokenHash := strings.TrimSpace(log.TokenHash)
+		if tokenHash != "" && log.CostUSD > 0 {
+			spendDeltas[tokenHash] += log.CostUSD
+		}
 	}
 
 	if _, err := s.pool.Exec(ctx, `
@@ -57,13 +63,7 @@ func (s *ObservabilityRepository) LogSpends(ctx context.Context, logs []platform
 		return err
 	}
 
-	for _, log := range logs {
-		if err := s.queueTokenSpendDelta(ctx, log.TokenHash, log.CostUSD); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return s.tokenUsage.queueTokenSpendDeltas(ctx, spendDeltas)
 }
 
 const spendLogInsertColumnCount = 18

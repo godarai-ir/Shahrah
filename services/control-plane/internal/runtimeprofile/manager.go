@@ -82,6 +82,17 @@ func NewManager(compiler *Compiler, store Store, cache DistributedCache, logger 
 }
 
 func (m *Manager) Get(ctx context.Context, tenantID string) (*Profile, error) {
+	profile, err := m.GetSnapshot(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	return cloneProfile(profile), nil
+}
+
+// GetSnapshot returns the immutable in-memory profile snapshot for hot-path readers.
+// Callers must never mutate the returned profile or any nested map or slice.
+func (m *Manager) GetSnapshot(ctx context.Context, tenantID string) (*Profile, error) {
 	if m == nil {
 		return nil, ErrProfileUnavailable
 	}
@@ -136,11 +147,11 @@ func (m *Manager) Get(ctx context.Context, tenantID string) (*Profile, error) {
 		return nil, ErrProfileUnavailable
 	}
 
-	return cloneProfile(profile), nil
+	return profile, nil
 }
 
 func (m *Manager) GetAuthByTokenHash(ctx context.Context, tenantID, tokenHash string) (*platform.AuthContext, error) {
-	profile, err := m.Get(ctx, tenantID)
+	profile, err := m.GetSnapshot(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -229,41 +240,64 @@ func (m *Manager) CompileAndPublish(ctx context.Context, tenantID string, reason
 }
 
 func (m *Manager) getL1(ctx context.Context, tenantID string) (*Profile, bool) {
-	m.mu.RLock()
-	entry, ok := m.l1[tenantID]
-	m.mu.RUnlock()
+	for {
+		m.mu.RLock()
+		entry, ok := m.l1[tenantID]
+		m.mu.RUnlock()
 
-	if !ok || entry.profile == nil {
-		return nil, false
-	}
+		if !ok || entry.profile == nil {
+			return nil, false
+		}
 
-	now := time.Now()
-	if !entry.expiresAt.IsZero() && now.After(entry.expiresAt) {
-		m.mu.Lock()
-		delete(m.l1, tenantID)
-		m.mu.Unlock()
-
-		return nil, false
-	}
-
-	if m.cache != nil && time.Since(entry.loadedAt) >= m.cfg.VersionCheckInterval {
-		if active, err := m.activeVersion(ctx, tenantID); err == nil && active > entry.profile.Version {
-			m.mu.Lock()
-			delete(m.l1, tenantID)
-			m.mu.Unlock()
+		now := time.Now()
+		if !entry.expiresAt.IsZero() && now.After(entry.expiresAt) {
+			if !m.deleteObservedL1Entry(tenantID, entry.profile) {
+				continue
+			}
 
 			return nil, false
 		}
 
-		m.mu.Lock()
-		if current, ok := m.l1[tenantID]; ok {
-			current.loadedAt = now
-			m.l1[tenantID] = current
+		if m.cache != nil && now.Sub(entry.loadedAt) >= m.cfg.VersionCheckInterval {
+			if active, err := m.activeVersion(ctx, tenantID); err == nil && active > entry.profile.Version {
+				if !m.deleteObservedL1Entry(tenantID, entry.profile) {
+					continue
+				}
+
+				return nil, false
+			}
+
+			currentUnchanged := false
+
+			m.mu.Lock()
+			if current, exists := m.l1[tenantID]; exists && current.profile == entry.profile {
+				current.loadedAt = now
+				m.l1[tenantID] = current
+				currentUnchanged = true
+			}
+			m.mu.Unlock()
+
+			if !currentUnchanged {
+				continue
+			}
 		}
-		m.mu.Unlock()
+
+		return entry.profile, true
+	}
+}
+
+func (m *Manager) deleteObservedL1Entry(tenantID string, observed *Profile) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	current, ok := m.l1[tenantID]
+	if !ok || current.profile != observed {
+		return false
 	}
 
-	return cloneProfile(entry.profile), true
+	delete(m.l1, tenantID)
+
+	return true
 }
 
 func (m *Manager) setL1(tenantID string, profile *Profile) {
@@ -271,8 +305,11 @@ func (m *Manager) setL1(tenantID string, profile *Profile) {
 		return
 	}
 
+	snapshot := cloneProfile(profile)
+	sortProfilePolicies(snapshot)
+
 	m.mu.Lock()
-	m.l1[tenantID] = l1Entry{profile: cloneProfile(profile), loadedAt: time.Now(), expiresAt: time.Now().Add(m.cfg.StaleGrace)}
+	m.l1[tenantID] = l1Entry{profile: snapshot, loadedAt: time.Now(), expiresAt: time.Now().Add(m.cfg.StaleGrace)}
 	m.mu.Unlock()
 }
 

@@ -29,6 +29,22 @@ var (
 	ErrSocialHandoffInvalid = errors.New("social handoff is invalid, expired, or already consumed")
 	// ErrSocialLinkConflict indicates a conflicting social identity link.
 	ErrSocialLinkConflict = errors.New("user or social account is already linked to another account")
+	// ErrInvalidInvitationToken indicates an invalid tenant-member invitation token.
+	ErrInvalidInvitationToken = errors.New("invalid tenant admin invitation token")
+	// ErrInvitationExpired indicates an expired tenant-member invitation.
+	ErrInvitationExpired = errors.New("tenant admin invitation expired")
+	// ErrInvitationAlreadyUsed indicates a consumed tenant-member invitation.
+	ErrInvitationAlreadyUsed = errors.New("tenant admin invitation already used")
+	// ErrInvitationContactTaken indicates an invitation contact used by another member.
+	ErrInvitationContactTaken = errors.New("tenant admin invitation contact already used")
+	// ErrInvitationAlreadyPending indicates an existing pending invitation.
+	ErrInvitationAlreadyPending = errors.New("tenant admin invitation already pending")
+	// ErrTenantMemberAlreadyExists indicates an existing tenant member.
+	ErrTenantMemberAlreadyExists = errors.New("tenant admin user already member of tenant")
+	// ErrTenantMemberDeactivated indicates a deactivated tenant member.
+	ErrTenantMemberDeactivated = errors.New("tenant admin user is deactivated")
+	// ErrInvalidInvitationEmail indicates an invalid invitation email address.
+	ErrInvalidInvitationEmail = errors.New("invalid tenant admin invitation email")
 )
 
 // TenantAdminOTPResponse is the result of creating an OTP request.

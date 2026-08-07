@@ -6,9 +6,8 @@ import (
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func requireTenantAdminOrHigher(c *fiber.Ctx) error {
@@ -264,34 +263,32 @@ func mapProviderAccountStoreError(err error) error {
 		return nil
 	}
 
-	if errors.Is(err, storage.ErrInvalidAccessPrincipal) {
+	if errors.Is(err, provideraccounts.ErrInvalidAccessPrincipal) {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	if errors.Is(err, storage.ErrInvalidProviderAPIBase) {
+	if errors.Is(err, provideraccounts.ErrInvalidAPIBase) {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	if errors.Is(err, storage.ErrProviderConfigContainsSecret) {
+	if errors.Is(err, provideraccounts.ErrConfigContainsSecret) {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	if errors.Is(err, storage.ErrPrivatePricingRequiresCredential) {
+	if errors.Is(err, provideraccounts.ErrPrivatePricingRequiresCredential) {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	if errors.Is(err, storage.ErrProviderAccountDependencyConflict) {
+	if errors.Is(err, provideraccounts.ErrDependencyConflict) {
 		return fiber.NewError(fiber.StatusConflict, "provider account is referenced by active keys; revoke or update keys first")
 	}
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case "23505":
-			return fiber.NewError(fiber.StatusConflict, "resource already exists")
-		case "23514", "23502", "22P02":
-			return fiber.NewError(fiber.StatusBadRequest, "invalid provider account payload")
-		}
+	if errors.Is(err, provideraccounts.ErrAlreadyExists) {
+		return fiber.NewError(fiber.StatusConflict, "resource already exists")
+	}
+
+	if errors.Is(err, provideraccounts.ErrInvalidPayload) {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid provider account payload")
 	}
 
 	return err

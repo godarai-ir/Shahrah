@@ -12,7 +12,7 @@ import (
 )
 
 // GetLatestExchangeRate returns the newest current rate, with legacy history fallback.
-func (s *WalletRepository) GetLatestExchangeRate(ctx context.Context) (*platform.ExchangeRate, error) {
+func (s *ExchangeRateRepository) GetLatestExchangeRate(ctx context.Context) (*platform.ExchangeRate, error) {
 	rate, err := s.getLatestCurrentExchangeRate(ctx)
 	if err == nil {
 		return rate, nil
@@ -25,7 +25,7 @@ func (s *WalletRepository) GetLatestExchangeRate(ctx context.Context) (*platform
 	return s.getLatestLegacyExchangeRate(ctx)
 }
 
-func (s *WalletRepository) getLatestCurrentExchangeRate(ctx context.Context) (*platform.ExchangeRate, error) {
+func (s *ExchangeRateRepository) getLatestCurrentExchangeRate(ctx context.Context) (*platform.ExchangeRate, error) {
 	var rate platform.ExchangeRate
 
 	err := s.pool.QueryRow(ctx, `
@@ -41,7 +41,7 @@ func (s *WalletRepository) getLatestCurrentExchangeRate(ctx context.Context) (*p
 	return &rate, nil
 }
 
-func (s *WalletRepository) getLatestLegacyExchangeRate(ctx context.Context) (*platform.ExchangeRate, error) {
+func (s *ExchangeRateRepository) getLatestLegacyExchangeRate(ctx context.Context) (*platform.ExchangeRate, error) {
 	var rate platform.ExchangeRate
 
 	err := s.pool.QueryRow(ctx, `
@@ -58,7 +58,7 @@ func (s *WalletRepository) getLatestLegacyExchangeRate(ctx context.Context) (*pl
 }
 
 // UpsertExchangeRate stores the latest exchange rate for a source.
-func (s *WalletRepository) UpsertExchangeRate(ctx context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
+func (s *ExchangeRateRepository) UpsertExchangeRate(ctx context.Context, rate platform.ExchangeRate) (*platform.ExchangeRate, error) {
 	if rate.ID == "" {
 		rate.ID = uuid.NewString()
 	}
@@ -89,7 +89,7 @@ func (s *WalletRepository) UpsertExchangeRate(ctx context.Context, rate platform
 	return &rate, nil
 }
 
-func (s *WalletRepository) insertLegacyExchangeRate(ctx context.Context, rate platform.ExchangeRate, source string) (*platform.ExchangeRate, error) {
+func (s *ExchangeRateRepository) insertLegacyExchangeRate(ctx context.Context, rate platform.ExchangeRate, source string) (*platform.ExchangeRate, error) {
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO exchange_rates (rate_id, usd_to_irr, source, fetched_at)
 		VALUES ($1, $2, $3, NOW())

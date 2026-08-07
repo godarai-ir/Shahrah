@@ -11,7 +11,7 @@ import (
 )
 
 type tenantTracePolicyResolver struct {
-	store *storage.ObservabilityRepository
+	store *storage.ObservabilitySettingsRepository
 	mu    sync.RWMutex
 	cache map[string]tenantPolicyCache
 	ttl   time.Duration
@@ -22,7 +22,7 @@ type tenantPolicyCache struct {
 	expiresAt time.Time
 }
 
-func newTenantTracePolicyResolver(store *storage.ObservabilityRepository) *tenantTracePolicyResolver {
+func newTenantTracePolicyResolver(store *storage.ObservabilitySettingsRepository) *tenantTracePolicyResolver {
 	return &tenantTracePolicyResolver{
 		store: store,
 		cache: map[string]tenantPolicyCache{},

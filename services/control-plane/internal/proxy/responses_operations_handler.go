@@ -16,7 +16,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providernative"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -139,7 +139,7 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 			accountSelector = mapping.ProviderAccountID
 			providerSelector = mapping.Provider
 			operationInput.ResourceID = mapping.UpstreamID
-		case mappingErr != nil && !errors.Is(mappingErr, storage.ErrProviderNativeResourceNotFound):
+		case mappingErr != nil && !errors.Is(mappingErr, providernative.ErrResourceNotFound):
 			return writeAPIError(c, fiber.StatusServiceUnavailable, "Response routing state is unavailable", "routing_error")
 		}
 	}
@@ -611,7 +611,7 @@ func (h *ResponsesHandler) responseResourceMapping(
 	publicID string,
 ) (*platform.ProviderNativeResourceMapping, error) {
 	if h.resources == nil {
-		return nil, storage.ErrProviderNativeResourceNotFound
+		return nil, providernative.ErrResourceNotFound
 	}
 
 	var found *platform.ProviderNativeResourceMapping
@@ -624,7 +624,7 @@ func (h *ResponsesHandler) responseResourceMapping(
 			responsesResourceKind,
 			publicID,
 		)
-		if errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
+		if errors.Is(err, providernative.ErrResourceNotFound) {
 			continue
 		}
 
@@ -644,7 +644,7 @@ func (h *ResponsesHandler) responseResourceMapping(
 	}
 
 	if found == nil {
-		return nil, storage.ErrProviderNativeResourceNotFound
+		return nil, providernative.ErrResourceNotFound
 	}
 
 	return found, nil
@@ -694,7 +694,7 @@ func (h *ResponsesHandler) resolveResponseCreateDeployment(
 			if model, ok := mapping.Metadata["model"].(string); ok {
 				mappedModel = normalizeModelIdentifier(model)
 			}
-		case err != nil && !errors.Is(err, storage.ErrProviderNativeResourceNotFound):
+		case err != nil && !errors.Is(err, providernative.ErrResourceNotFound):
 			return nil, "", "", fmt.Errorf("response routing state is unavailable")
 		}
 	}
@@ -917,7 +917,7 @@ func (h *ResponsesHandler) updateResponseMappingStatus(
 		responsesResourceKind,
 		responseID,
 		status,
-	); err != nil && !errors.Is(err, storage.ErrProviderNativeResourceNotFound) && h.logger != nil {
+	); err != nil && !errors.Is(err, providernative.ErrResourceNotFound) && h.logger != nil {
 		h.logger.Warn("failed to update OpenAI response routing state")
 	}
 }

@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) ListPublicCommercialPlans(c *fiber.Ctx) error {
@@ -512,7 +512,7 @@ func platformActor(c *fiber.Ctx) string {
 
 func mapPlanStoreError(err error) error {
 	switch {
-	case errors.Is(err, billingdomain.ErrPlanNotFound), errors.Is(err, billingdomain.ErrPlanVersionNotFound), errors.Is(err, billingdomain.ErrSubscriptionNotFound), errors.Is(err, pgx.ErrNoRows):
+	case errors.Is(err, billingdomain.ErrPlanNotFound), errors.Is(err, billingdomain.ErrPlanVersionNotFound), errors.Is(err, billingdomain.ErrSubscriptionNotFound), errors.Is(err, apperrors.ErrNotFound):
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	case errors.Is(err, billingdomain.ErrPlanVersionPublished), errors.Is(err, billingdomain.ErrFeatureOverrideForbidden):
 		return fiber.NewError(fiber.StatusForbidden, err.Error())

@@ -9,15 +9,19 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
 const logPayloadMaxBytes = 32 * 1024
 const requestLogInsertColumnCount = 40
 
-func (s *ObservabilityRepository) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
+// SupportsLazyRequestLogPayload reports that the repository materializes payloads after enqueue.
+func (*RequestLogRepository) SupportsLazyRequestLogPayload() bool { return true }
+
+func (s *RequestLogRepository) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
 	return s.validateClickHouseColumns(ctx, "request_logs_ch", []string{
 		"log_id", "tenant_id", "request_id", "trace_id", "token_hash", "organization_id", "org_unit_id", "team_id",
 		"actor_type", "actor_id", "provider", "provider_model", "model", "virtual_model", "route", "request_type",
@@ -30,12 +34,12 @@ func (s *ObservabilityRepository) ensureClickHouseRequestLogsSchema(ctx context.
 }
 
 // LogRequest writes the normalized request log entry to ClickHouse.
-func (s *ObservabilityRepository) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
+func (s *RequestLogRepository) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
 	return s.LogRequests(ctx, []platform.RequestLogEntry{entry})
 }
 
 // LogRequests writes normalized request log entries to ClickHouse in one batch.
-func (s *ObservabilityRepository) LogRequests(ctx context.Context, entries []platform.RequestLogEntry) error {
+func (s *RequestLogRepository) LogRequests(ctx context.Context, entries []platform.RequestLogEntry) error {
 	if !s.clickHouseLogsReady() {
 		return ErrLogStoreUnavailable
 	}
@@ -71,7 +75,7 @@ func (s *ObservabilityRepository) LogRequests(ctx context.Context, entries []pla
 	return err
 }
 
-func (s *ObservabilityRepository) requestLogInsertArgs(ctx context.Context, entry platform.RequestLogEntry) ([]interface{}, error) {
+func (s *RequestLogRepository) requestLogInsertArgs(ctx context.Context, entry platform.RequestLogEntry) ([]interface{}, error) {
 	logID := strings.TrimSpace(entry.LogID)
 	if logID == "" {
 		logID = "log_" + uuid.NewString()
@@ -84,7 +88,7 @@ func (s *ObservabilityRepository) requestLogInsertArgs(ctx context.Context, entr
 
 	loggingMode := RequestLoggingModeMetadataOnly
 
-	if mode, ok, err := s.ResolveTenantRequestLoggingMode(ctx, entry.TenantID); err != nil {
+	if mode, ok, err := s.settings.ResolveTenantRequestLoggingMode(ctx, entry.TenantID); err != nil {
 		if s.logger != nil {
 			s.logger.Warn("failed to resolve tenant request logging mode; using metadata-only", zap.Error(err), zap.String("tenant_id", entry.TenantID))
 		}
@@ -159,7 +163,7 @@ func requestLogInsertPlaceholders(columns int) string {
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
-func (s *ObservabilityRepository) listRequestLogsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
+func (s *RequestLogRepository) listRequestLogsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
 	if params.Limit <= 0 {
 		params.Limit = 50
 	}
@@ -240,7 +244,7 @@ func (s *ObservabilityRepository) listRequestLogsV2FromClickHouse(ctx context.Co
 	return items, approximateWindowedTotal(params.Offset, len(items), hasMore), nil
 }
 
-func (s *ObservabilityRepository) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
+func (s *RequestLogRepository) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
 	var (
 		item                platform.RequestLogDetailV2
 		statusCode          int32
@@ -286,7 +290,7 @@ func (s *ObservabilityRepository) getRequestLogV2FromClickHouse(ctx context.Cont
 	)
 	if err != nil {
 		if errorsIsNoRows(err) {
-			return nil, pgx.ErrNoRows
+			return nil, apperrors.ErrNotFound
 		}
 
 		return nil, err
@@ -337,7 +341,7 @@ func (s *ObservabilityRepository) getRequestLogV2FromClickHouse(ctx context.Cont
 	return &item, nil
 }
 
-func (s *ObservabilityRepository) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {
+func (s *RequestLogRepository) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params)
 
 	providers, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "provider"), args...)
@@ -410,7 +414,7 @@ func (s *ObservabilityRepository) getRequestLogFacetsV2FromClickHouse(ctx contex
 	}, nil
 }
 
-func (s *ObservabilityRepository) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
+func (s *RequestLogRepository) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params)
 
 	var (
@@ -514,7 +518,7 @@ func (s *ObservabilityRepository) getRequestLogSummaryV2FromClickHouse(ctx conte
 	return summary, nil
 }
 
-func (s *ObservabilityRepository) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
+func (s *RequestLogRepository) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params)
 
 	var (
@@ -569,7 +573,7 @@ func (s *ObservabilityRepository) getRequestLogRangeStatsV2FromClickHouse(ctx co
 	}, nil
 }
 
-func (s *ObservabilityRepository) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
+func (s *RequestLogRepository) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params.ListRequestLogsV2Params)
 	groupColumn := normalizeLogAnalyticsGroupBy(params.GroupBy)
 
@@ -597,7 +601,7 @@ func (s *ObservabilityRepository) getRequestLogAnalyticsV2FromClickHouse(ctx con
 	return s.queryRequestLogAnalyticsTimeseries(ctx, whereSQL, groupColumn, intervalSeconds, args...)
 }
 
-func (s *ObservabilityRepository) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL, groupColumn string, intervalSeconds int, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
+func (s *RequestLogRepository) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL, groupColumn string, intervalSeconds int, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
 	groupSelect := "''"
 	groupBy := "bucket"
 
@@ -674,7 +678,7 @@ func (s *ObservabilityRepository) queryRequestLogAnalyticsTimeseries(ctx context
 	return out, rows.Err()
 }
 
-func (s *ObservabilityRepository) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL, groupColumn string, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
+func (s *RequestLogRepository) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL, groupColumn string, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
 	query := fmt.Sprintf(`
 		SELECT
 			ifNull(nullIf(%s, ''), '') AS analytics_group,
@@ -745,6 +749,19 @@ func prepareRequestLogPayload(mode string, payload map[string]interface{}) (map[
 		return nil, map[string]interface{}{"present": false}, false
 	}
 
+	rawPayload, lazy := lazyJSONPayload(payload)
+	if lazy && (mode == RequestLoggingModeNone || mode == RequestLoggingModeMetadataOnly) {
+		return nil, map[string]interface{}{
+			"present":   true,
+			"bytes":     len(rawPayload),
+			"truncated": len(rawPayload) > logPayloadMaxBytes,
+		}, false
+	}
+
+	if lazy {
+		payload = materializeLazyJSONPayload(payload, rawPayload)
+	}
+
 	raw := marshalJSONBestEffort(payload)
 	meta := map[string]interface{}{
 		"present":   true,
@@ -761,6 +778,49 @@ func prepareRequestLogPayload(mode string, payload map[string]interface{}) (map[
 	default:
 		return capPayloadMap(payload, logPayloadMaxBytes), meta, len(raw) > logPayloadMaxBytes
 	}
+}
+
+func lazyJSONPayload(payload map[string]interface{}) ([]byte, bool) {
+	value, ok := payload[observability.LazyJSONPayloadField]
+	if !ok {
+		return nil, false
+	}
+
+	switch typed := value.(type) {
+	case json.RawMessage:
+		return typed, true
+	case []byte:
+		return typed, true
+	case string:
+		return []byte(typed), true
+	default:
+		return nil, false
+	}
+}
+
+func materializeLazyJSONPayload(payload map[string]interface{}, raw []byte) map[string]interface{} {
+	out := make(map[string]interface{}, len(payload))
+	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
+		out = make(map[string]interface{}, len(payload))
+		if fallback, ok := payload[observability.LazyJSONFallbackField]; ok {
+			encoded := marshalJSONBestEffort(fallback)
+			if unmarshalErr := json.Unmarshal(encoded, &out); unmarshalErr != nil {
+				out["value"] = fallback
+			}
+		} else if len(raw) > 0 {
+			out["raw_body"] = string(raw)
+		}
+	}
+
+	for key, value := range payload {
+		if key == observability.LazyJSONPayloadField || key == observability.LazyJSONFallbackField {
+			continue
+		}
+
+		out[key] = value
+	}
+
+	return out
 }
 
 func capPayloadMap(payload map[string]interface{}, maxBytes int) map[string]interface{} {

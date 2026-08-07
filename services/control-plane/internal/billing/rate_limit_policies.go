@@ -3,12 +3,12 @@ package billing
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 )
 
 const (
@@ -17,18 +17,30 @@ const (
 )
 
 type rateLimitPolicy struct {
-	rpm           int64
-	tpm           int64
-	window        time.Duration
-	algorithm     string
-	scopeFields   []string
-	retryAfter    bool
-	softLimit     bool
-	conflict      platform.RateLimitConflictBehavior
-	response      platform.RateLimitResponseBehavior
-	ruleID        string
-	priority      int
-	conditionsKey string
+	rpm         int64
+	tpm         int64
+	window      time.Duration
+	algorithm   string
+	scopeFields []string
+	retryAfter  bool
+	softLimit   bool
+	conflict    platform.RateLimitConflictBehavior
+	response    platform.RateLimitResponseBehavior
+	ruleID      string
+	priority    int
+}
+
+type compiledRateLimitRule struct {
+	rule     platform.RateLimitRule
+	policy   rateLimitPolicy
+	parseErr error
+}
+
+type compiledRateLimitProfile struct {
+	version  int64
+	checksum string
+	profile  *runtimeprofile.Profile
+	rules    []compiledRateLimitRule
 }
 
 func (s *RateLimiter) checkRateLimitPolicies(ctx context.Context, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown) (*cache.RateLimitResult, error) {
@@ -36,7 +48,7 @@ func (s *RateLimiter) checkRateLimitPolicies(ctx context.Context, auth *platform
 		return nil, nil
 	}
 
-	profile, err := s.runtimeProfiles.Get(ctx, auth.TenantID)
+	profile, err := s.runtimeProfiles.GetSnapshot(ctx, auth.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("load runtime profile for rate limits: %w", err)
 	}
@@ -45,21 +57,14 @@ func (s *RateLimiter) checkRateLimitPolicies(ctx context.Context, auth *platform
 		return nil, nil
 	}
 
-	rules := append([]platform.RateLimitRule(nil), profile.RateLimitRules...)
-	sort.SliceStable(rules, func(i, j int) bool {
-		if rules[i].Priority == rules[j].Priority {
-			return rateLimitRuleID(rules[i]) < rateLimitRuleID(rules[j])
-		}
-
-		return rules[i].Priority < rules[j].Priority
-	})
+	rules := s.compiledRateLimitRules(profile)
 
 	now := time.Now().UTC()
 
 	var result *cache.RateLimitResult
 
 	for _, rule := range rules {
-		policy, ok, err := s.matchRateLimitRule(rule, auth, breakdown, now)
+		policy, ok, err := matchCompiledRateLimitRule(rule, auth, breakdown, now)
 		if err != nil {
 			return nil, err
 		}
@@ -100,37 +105,73 @@ func (s *RateLimiter) checkRateLimitPolicies(ctx context.Context, auth *platform
 	return result, nil
 }
 
-func (s *RateLimiter) matchRateLimitRule(rule platform.RateLimitRule, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, now time.Time) (rateLimitPolicy, bool, error) {
-	if !rule.Enabled {
+func (s *RateLimiter) compiledRateLimitRules(profile *runtimeprofile.Profile) []compiledRateLimitRule {
+	tenantID := strings.TrimSpace(profile.TenantID)
+
+	s.policyCacheMu.RLock()
+	cached, ok := s.policyCache[tenantID]
+	s.policyCacheMu.RUnlock()
+
+	sameChecksum := profile.Checksum != "" && cached.checksum == profile.Checksum
+	if ok && cached.version == profile.Version && (sameChecksum || cached.profile == profile) {
+		return cached.rules
+	}
+
+	rules := make([]compiledRateLimitRule, 0, len(profile.RateLimitRules))
+	for _, rule := range profile.RateLimitRules {
+		compiled := compiledRateLimitRule{rule: rule}
+		if rule.Enabled {
+			compiled.policy, compiled.parseErr = parseRateLimitPolicy(rule)
+			compiled.policy.scopeFields = rateLimitScopeFields(rule)
+		}
+
+		rules = append(rules, compiled)
+	}
+
+	s.policyCacheMu.Lock()
+	if s.policyCache == nil {
+		s.policyCache = make(map[string]compiledRateLimitProfile)
+	}
+
+	s.policyCache[tenantID] = compiledRateLimitProfile{
+		version:  profile.Version,
+		checksum: profile.Checksum,
+		profile:  profile,
+		rules:    rules,
+	}
+	s.policyCacheMu.Unlock()
+
+	return rules
+}
+
+func matchCompiledRateLimitRule(rule compiledRateLimitRule, auth *platform.AuthContext, breakdown platform.UsageCostBreakdown, now time.Time) (rateLimitPolicy, bool, error) {
+	source := rule.rule
+	if !source.Enabled {
 		return rateLimitPolicy{}, false, nil
 	}
 
-	if rule.EffectiveFrom != nil && now.Before(rule.EffectiveFrom.UTC()) {
+	if source.EffectiveFrom != nil && now.Before(source.EffectiveFrom.UTC()) {
 		return rateLimitPolicy{}, false, nil
 	}
 
-	if rule.ExpiresAt != nil && !now.Before(rule.ExpiresAt.UTC()) {
+	if source.ExpiresAt != nil && !now.Before(source.ExpiresAt.UTC()) {
 		return rateLimitPolicy{}, false, nil
 	}
 
-	matches, err := rateLimitRuleMatches(rule, auth, breakdown)
+	matches, err := rateLimitRuleMatches(source, auth, breakdown)
 	if err != nil || !matches {
 		return rateLimitPolicy{}, matches, err
 	}
 
-	policy, err := parseRateLimitPolicy(rule)
-	if err != nil {
-		return rateLimitPolicy{}, false, err
+	if rule.parseErr != nil {
+		return rateLimitPolicy{}, false, rule.parseErr
 	}
 
-	if policy.rpm <= 0 && policy.tpm <= 0 {
+	if rule.policy.rpm <= 0 && rule.policy.tpm <= 0 {
 		return rateLimitPolicy{}, false, nil
 	}
 
-	policy.scopeFields = rateLimitScopeFields(rule)
-	policy.conditionsKey = rateLimitConditionsKey(rule)
-
-	return policy, true, nil
+	return rule.policy, true, nil
 }
 
 func parseRateLimitPolicy(rule platform.RateLimitRule) (rateLimitPolicy, error) {
@@ -247,6 +288,11 @@ func (s *RateLimiter) applyRateLimitPolicy(ctx context.Context, auth *platform.A
 	}
 
 	scopeHash := rateLimitScopeHash(auth, breakdown, policy.scopeFields)
+	if policy.rpm > 0 && policy.tpm > 0 {
+		if batchChecker, ok := s.cache.(cache.RateLimitBatchChecker); ok {
+			return s.applyCombinedRateLimitPolicy(ctx, batchChecker, auth, breakdown, policy, scopeHash)
+		}
+	}
 
 	var result *cache.RateLimitResult
 
@@ -279,8 +325,62 @@ func (s *RateLimiter) applyRateLimitPolicy(ctx context.Context, auth *platform.A
 	return result, nil
 }
 
+func (s *RateLimiter) applyCombinedRateLimitPolicy(
+	ctx context.Context,
+	checker cache.RateLimitBatchChecker,
+	auth *platform.AuthContext,
+	breakdown platform.UsageCostBreakdown,
+	policy rateLimitPolicy,
+	scopeHash string,
+) (*cache.RateLimitResult, error) {
+	tokenWeight := int64(breakdown.TotalTokens)
+	if tokenWeight <= 0 {
+		tokenWeight = 1
+	}
+
+	checks := []cache.RateLimitCheck{
+		{
+			Key:     rateLimitCounterKey(auth.TenantID, policy.ruleID, scopeHash, rateLimitKindRPM),
+			Limit:   policy.rpm,
+			Weight:  1,
+			Window:  policy.window,
+			Sliding: policy.algorithm == "sliding_window",
+		},
+		{
+			Key:     rateLimitCounterKey(auth.TenantID, policy.ruleID, scopeHash, rateLimitKindTPM),
+			Limit:   policy.tpm,
+			Weight:  tokenWeight,
+			Window:  policy.window,
+			Sliding: true,
+		},
+	}
+
+	results, err := checker.CheckRateLimits(ctx, checks)
+	if err != nil {
+		return nil, err
+	}
+
+	var mostRestrictive *cache.RateLimitResult
+
+	for index, result := range results {
+		kind := rateLimitKindRPM
+		if index == 1 {
+			kind = rateLimitKindTPM
+		}
+
+		result = decoratePolicyRateLimitResult(result, policy, kind)
+		mostRestrictive = mostRestrictiveRateLimitResult(mostRestrictive, result)
+
+		if result != nil && !result.Allowed {
+			return result, nil
+		}
+	}
+
+	return mostRestrictive, nil
+}
+
 func (s *RateLimiter) applyRateLimitCounter(ctx context.Context, tenantID string, policy rateLimitPolicy, kind string, scopeHash string, weight int64) (*cache.RateLimitResult, error) {
-	key := fmt.Sprintf("ratelimit:tenant:%s:rule:%s:scope:%s:%s", strings.TrimSpace(tenantID), policy.ruleID, scopeHash, kind)
+	key := rateLimitCounterKey(tenantID, policy.ruleID, scopeHash, kind)
 	if kind == rateLimitKindTPM || policy.algorithm == "sliding_window" {
 		result, err := s.cache.CheckSlidingWindowRateLimitWithWeight(ctx, key, policyLimit(policy, kind), weight, policy.window)
 		return decoratePolicyRateLimitResult(result, policy, kind), err
@@ -289,6 +389,16 @@ func (s *RateLimiter) applyRateLimitCounter(ctx context.Context, tenantID string
 	result, err := s.cache.CheckRateLimit(ctx, key, policyLimit(policy, kind), policy.window)
 
 	return decoratePolicyRateLimitResult(result, policy, kind), err
+}
+
+func rateLimitCounterKey(tenantID, ruleID, scopeHash, kind string) string {
+	hashTag := shortHash(strings.Join([]string{
+		strings.TrimSpace(tenantID),
+		strings.TrimSpace(ruleID),
+		strings.TrimSpace(scopeHash),
+	}, "|"))
+
+	return fmt.Sprintf("ratelimit:{%s}:%s", hashTag, strings.TrimSpace(kind))
 }
 
 func decoratePolicyRateLimitResult(result *cache.RateLimitResult, policy rateLimitPolicy, kind string) *cache.RateLimitResult {
@@ -402,17 +512,6 @@ func rateLimitScopeHash(auth *platform.AuthContext, breakdown platform.UsageCost
 	}
 
 	return shortHash(strings.Join(parts, "|"))
-}
-
-func rateLimitConditionsKey(rule platform.RateLimitRule) string {
-	keys := make([]string, 0, len(rule.Conditions))
-	for key := range rule.Conditions {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-
-	return strings.Join(keys, ",")
 }
 
 func rateLimitRuleID(rule platform.RateLimitRule) string {

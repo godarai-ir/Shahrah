@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -43,7 +44,7 @@ type BudgetWindowCache interface {
 
 // RuntimeProfileStore resolves compiled billing state.
 type RuntimeProfileStore interface {
-	Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
+	GetSnapshot(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
 }
 
 // PricingEngine estimates and finalizes provider usage costs.
@@ -72,6 +73,8 @@ type RateLimiter struct {
 	entitlements      entitlementStore
 	runtimeProfiles   RuntimeProfileStore
 	rateLimitFailOpen bool
+	policyCacheMu     sync.RWMutex
+	policyCache       map[string]compiledRateLimitProfile
 }
 
 // Service is the compatibility facade for focused billing components.
@@ -217,6 +220,7 @@ func newService(
 			entitlements:      dependencies.Entitlements,
 			runtimeProfiles:   dependencies.RuntimeProfiles,
 			rateLimitFailOpen: serviceConfig.RateLimitFailOpen,
+			policyCache:       make(map[string]compiledRateLimitProfile),
 		},
 	}
 }

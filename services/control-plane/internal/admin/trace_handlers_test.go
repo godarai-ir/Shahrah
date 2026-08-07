@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +36,7 @@ func (m *traceStoreMock) GetRequestTrace(ctx context.Context, tenantID string, t
 		return m.getFn(ctx, tenantID, traceID)
 	}
 
-	return nil, pgx.ErrNoRows
+	return nil, apperrors.ErrNotFound
 }
 
 func (m *traceStoreMock) ListTraceSpans(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error) {
@@ -44,7 +44,7 @@ func (m *traceStoreMock) ListTraceSpans(ctx context.Context, tenantID string, tr
 		return m.listSpansFn(ctx, tenantID, traceID)
 	}
 
-	return nil, pgx.ErrNoRows
+	return nil, apperrors.ErrNotFound
 }
 
 func (m *traceStoreMock) ListRequestTracesV2(ctx context.Context, params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error) {
@@ -60,7 +60,7 @@ func (m *traceStoreMock) GetRequestTraceV2(ctx context.Context, tenantID string,
 		return m.getV2Fn(ctx, tenantID, traceID)
 	}
 
-	return nil, pgx.ErrNoRows
+	return nil, apperrors.ErrNotFound
 }
 
 func (m *traceStoreMock) ListTraceTimelineV2(ctx context.Context, tenantID string, traceID string) ([]platform.TraceSpan, error) {
@@ -68,7 +68,7 @@ func (m *traceStoreMock) ListTraceTimelineV2(ctx context.Context, tenantID strin
 		return m.listTimelineV2Fn(ctx, tenantID, traceID)
 	}
 
-	return nil, pgx.ErrNoRows
+	return nil, apperrors.ErrNotFound
 }
 
 func (m *traceStoreMock) ListTraceAttemptsV2(ctx context.Context, tenantID string, traceID string) ([]platform.TraceAttemptV2, error) {
@@ -76,7 +76,7 @@ func (m *traceStoreMock) ListTraceAttemptsV2(ctx context.Context, tenantID strin
 		return m.listAttemptsV2Fn(ctx, tenantID, traceID)
 	}
 
-	return nil, pgx.ErrNoRows
+	return nil, apperrors.ErrNotFound
 }
 
 func (m *traceStoreMock) GetTraceFacetsV2(ctx context.Context, params platform.ListRequestTracesV2Params) (*platform.TraceFacetsV2, error) {
@@ -138,7 +138,7 @@ func TestGetRequestTrace_CrossTenantReturnsNotFound(t *testing.T) {
 			assert.Equal(t, "tenant_a", tenantID)
 			assert.Equal(t, "foreign_trace", traceID)
 
-			return nil, pgx.ErrNoRows
+			return nil, apperrors.ErrNotFound
 		},
 	}
 	h := &Handlers{observabilityState: observabilityState{traces: mock}}
@@ -159,7 +159,7 @@ func TestListTraceSpans_CrossTenantReturnsNotFound(t *testing.T) {
 			assert.Equal(t, "tenant_a", tenantID)
 			assert.Equal(t, "foreign_trace", traceID)
 
-			return nil, pgx.ErrNoRows
+			return nil, apperrors.ErrNotFound
 		},
 	}
 	h := &Handlers{observabilityState: observabilityState{traces: mock}}

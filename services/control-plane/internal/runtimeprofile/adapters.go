@@ -17,7 +17,7 @@ func NewVirtualModelStore(manager *Manager) *VirtualModelStore {
 }
 
 func (s *VirtualModelStore) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
-	profile, err := s.manager.Get(ctx, tenantID)
+	profile, err := s.manager.GetSnapshot(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func NewGuardrailResolver(manager *Manager) *GuardrailResolver {
 }
 
 func (r *GuardrailResolver) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error) {
-	profile, err := r.manager.Get(ctx, tenantID)
+	profile, err := r.manager.GetSnapshot(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (s *DeploymentStore) ResolveProviderAccountAuth(
 }
 
 func (s *DeploymentStore) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
-	profile, err := s.manager.Get(ctx, tenantID)
+	profile, err := s.manager.GetSnapshot(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +122,22 @@ func (s *DeploymentStore) ListDeployments(ctx context.Context, tenantID string) 
 	return cloneDeployments(profile.Deployments), nil
 }
 
+// DeploymentSnapshot returns the immutable deployment slice owned by the active runtime profile.
+// Callers must not mutate the returned slice or any nested values.
+func (s *DeploymentStore) DeploymentSnapshot(
+	ctx context.Context,
+	tenantID string,
+) ([]platform.Deployment, int64, error) {
+	profile, err := s.manager.GetSnapshot(ctx, tenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return profile.Deployments, profile.Version, nil
+}
+
 func (s *DeploymentStore) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
-	profile, err := s.manager.Get(ctx, tenantID)
+	profile, err := s.manager.GetSnapshot(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +159,7 @@ func (s *DeploymentStore) ListVirtualModels(ctx context.Context, tenantID string
 }
 
 func (s *DeploymentStore) ResolveProviderAccountAPIKey(ctx context.Context, tenantID, modelFQN string) (string, error) {
-	profile, err := s.manager.Get(ctx, tenantID)
+	profile, err := s.manager.GetSnapshot(ctx, tenantID)
 	if err != nil {
 		return "", err
 	}
@@ -162,7 +176,7 @@ func NewEntitlementResolver(manager *Manager) *EntitlementResolver {
 }
 
 func (r *EntitlementResolver) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
-	profile, err := r.manager.Get(ctx, tenantID)
+	profile, err := r.manager.GetSnapshot(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}

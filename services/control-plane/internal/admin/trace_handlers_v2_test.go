@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -105,7 +105,7 @@ func TestGetRequestTraceV2_NotFound(t *testing.T) {
 			assert.Equal(t, "tenant_a", tenantID)
 			assert.Equal(t, "trace_missing", traceID)
 
-			return nil, pgx.ErrNoRows
+			return nil, apperrors.ErrNotFound
 		},
 	}
 	app := setupTraceV2TestApp(&Handlers{observabilityState: observabilityState{traces: mock}})

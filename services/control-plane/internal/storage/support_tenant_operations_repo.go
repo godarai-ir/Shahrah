@@ -292,7 +292,7 @@ func (s *SupportRepository) ChangeTenantStatus(ctx context.Context, tenantID, ta
 		return nil, err
 	}
 
-	s.plans.invalidateTenantRuntimeProfile(ctx, tenantID, eventType)
+	s.plans.PlanCatalogRepository.invalidateTenantRuntimeProfile(ctx, tenantID, eventType)
 
 	return s.GetSupportTenantSummary(ctx, tenantID)
 }

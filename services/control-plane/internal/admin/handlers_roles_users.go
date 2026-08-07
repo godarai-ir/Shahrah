@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) ListRoles(c *fiber.Ctx) error {
@@ -101,9 +102,9 @@ func (h *Handlers) CreateRole(c *fiber.Ctx) error {
 	item, err := h.roles.CreateRole(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		switch {
-		case errors.Is(err, storage.ErrInvalidRoleName):
+		case errors.Is(err, iam.ErrInvalidRoleName):
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid role name")
-		case errors.Is(err, storage.ErrInvalidPermission):
+		case errors.Is(err, iam.ErrInvalidPermission):
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid permission set")
 		default:
 			return err
@@ -141,11 +142,11 @@ func (h *Handlers) UpdateRole(c *fiber.Ctx) error {
 	item, err := h.roles.UpdateRole(c.Context(), currentTenant.ID, roleID, req)
 	if err != nil {
 		switch {
-		case errors.Is(err, storage.ErrRoleNotFound):
+		case errors.Is(err, iam.ErrRoleNotFound):
 			return fiber.NewError(fiber.StatusNotFound, "role not found")
-		case errors.Is(err, storage.ErrRoleImmutable):
+		case errors.Is(err, iam.ErrRoleImmutable):
 			return fiber.NewError(fiber.StatusForbidden, "system role cannot be modified")
-		case errors.Is(err, storage.ErrInvalidPermission):
+		case errors.Is(err, iam.ErrInvalidPermission):
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid permission set")
 		default:
 			return err
@@ -190,11 +191,11 @@ func (h *Handlers) UpdateUserRoles(c *fiber.Ctx) error {
 	out, err := h.roles.UpdateUserRoles(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		switch {
-		case errors.Is(err, storage.ErrInvalidUserRoleUpdate), errors.Is(err, storage.ErrInvalidRoleName), errors.Is(err, storage.ErrInvalidResourceType):
+		case errors.Is(err, iam.ErrInvalidUserRoleUpdate), errors.Is(err, iam.ErrInvalidRoleName), errors.Is(err, iam.ErrInvalidResourceType):
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "missing or invalid fields for role update")
-		case errors.Is(err, storage.ErrRoleNotFound):
+		case errors.Is(err, iam.ErrRoleNotFound):
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "one or more roles not found")
-		case errors.Is(err, storage.ErrUserNotFound):
+		case errors.Is(err, iam.ErrUserNotFound):
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		default:
 			return err
@@ -262,7 +263,7 @@ func (h *Handlers) GetCurrentUserPermissions(c *fiber.Ctx) error {
 		permissions = append(permissions, fallbackPerms[role]...)
 	}
 
-	catalogItems := storage.ListPermissionCatalog()
+	catalogItems := iam.ListPermissionCatalog()
 
 	catalog := make([]platform.PermissionDefinition, 0, len(catalogItems))
 	for _, item := range catalogItems {
@@ -341,7 +342,7 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "either email or mobile is required")
 	}
 
-	if req.Email != "" && !storage.IsValidEmailAddress(req.Email) {
+	if req.Email != "" && !tenantadmin.IsValidEmailAddress(req.Email) {
 		return fiber.NewError(fiber.StatusBadRequest, "Please enter a valid email address.")
 	}
 
@@ -352,13 +353,13 @@ func (h *Handlers) InviteTenantUser(c *fiber.Ctx) error {
 	invitation, link, err := h.users.InviteTenantAdminUser(c.Context(), currentTenant.ID, currentTenant.Slug, req)
 	if err != nil {
 		switch {
-		case errors.Is(err, storage.ErrInvalidInvitationEmail):
+		case errors.Is(err, tenantadmin.ErrInvalidInvitationEmail):
 			return fiber.NewError(fiber.StatusBadRequest, "Please enter a valid email address.")
-		case errors.Is(err, storage.ErrTenantMemberAlreadyExists):
+		case errors.Is(err, tenantadmin.ErrTenantMemberAlreadyExists):
 			return fiber.NewError(fiber.StatusConflict, "This user is already a member of this tenant.")
-		case errors.Is(err, storage.ErrTenantMemberDeactivated):
+		case errors.Is(err, tenantadmin.ErrTenantMemberDeactivated):
 			return fiber.NewError(fiber.StatusConflict, "This user is deactivated and cannot receive an invitation.")
-		case errors.Is(err, storage.ErrInvitationAlreadyPending):
+		case errors.Is(err, tenantadmin.ErrInvitationAlreadyPending):
 			return fiber.NewError(fiber.StatusConflict, "An invitation has already been sent to this email.")
 		default:
 			return err
@@ -406,15 +407,15 @@ func (h *Handlers) AcceptTenantUserInvitation(c *fiber.Ctx) error {
 	invitation, user, err := h.users.AcceptTenantAdminInvitation(c.Context(), currentTenant.ID, currentTenant.Slug, req.Token)
 	if err != nil {
 		switch {
-		case errors.Is(err, storage.ErrInvalidInvitationToken):
+		case errors.Is(err, tenantadmin.ErrInvalidInvitationToken):
 			return fiber.NewError(fiber.StatusBadRequest, "invalid invitation token")
-		case errors.Is(err, storage.ErrInvitationExpired):
+		case errors.Is(err, tenantadmin.ErrInvitationExpired):
 			return fiber.NewError(fiber.StatusGone, "invitation expired")
-		case errors.Is(err, storage.ErrInvitationAlreadyUsed):
+		case errors.Is(err, tenantadmin.ErrInvitationAlreadyUsed):
 			return fiber.NewError(fiber.StatusConflict, "invitation already used")
-		case errors.Is(err, storage.ErrInvitationContactTaken):
+		case errors.Is(err, tenantadmin.ErrInvitationContactTaken):
 			return fiber.NewError(fiber.StatusConflict, "invitation contact already belongs to another account")
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, apperrors.ErrNotFound):
 			return fiber.NewError(fiber.StatusNotFound, "invitation not found")
 		default:
 			return err
@@ -463,7 +464,7 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 
 	target, err := h.users.GetTenantAdminUserRecord(c.Context(), currentTenant.Slug, userID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 
@@ -476,7 +477,7 @@ func (h *Handlers) setTenantUserActive(c *fiber.Ctx, active bool) error {
 
 	user, err := h.users.SetTenantAdminUserActive(c.Context(), currentTenant.Slug, userID, active)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "user not found")
 		}
 

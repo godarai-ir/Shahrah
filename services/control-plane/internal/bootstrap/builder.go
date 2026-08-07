@@ -18,6 +18,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/policies"
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
+	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
@@ -37,32 +38,33 @@ type builder struct {
 	logger    *zap.Logger
 	lifecycle *Lifecycle
 
-	cache                  cache.Cache
-	store                  *storage.Store
-	tunnel                 *tunneltransport.HTTPTransport
-	tenantProviderProber   *platformcredentials.TunnelCredentialProber
-	credentialRuntime      platformCredentialRuntime
-	runtimeProfiles        *runtimeprofile.Manager
-	runtimeDeploymentStore *runtimeprofile.DeploymentStore
-	router                 *router.Router
-	authMiddleware         *auth.AuthMiddleware
-	tenantMiddleware       *tenant.Middleware
-	billing                *billing.Service
-	anthropicPricing       *billing.AnthropicPricingSnapshotManager
-	httpMetrics            *prommetrics.HTTPMetrics
-	emitMetric             func(metricsobs.BuildInput)
-	requestLogger          proxy.RequestLogger
-	spendLogger            proxy.SpendLogger
-	managementRoutes       *management.Routes
-	promptApplication      *prompts.Service
-	iamApplication         *iam.Service
-	tenantAdminApplication *tenantadmin.Service
-	policyApplication      *policies.Service
-	modelApplication       *virtualmodels.Service
-	tracingMiddleware      fiber.Handler
-	traceHealth            *tracing.ReliableExporter
-	serverDependencies     server.Dependencies
-	httpApp                *fiber.App
+	cache                      cache.Cache
+	store                      *storage.Store
+	tunnel                     *tunneltransport.HTTPTransport
+	tenantProviderProber       *platformcredentials.TunnelCredentialProber
+	credentialRuntime          platformCredentialRuntime
+	runtimeProfiles            *runtimeprofile.Manager
+	runtimeDeploymentStore     *runtimeprofile.DeploymentStore
+	router                     *router.Router
+	authMiddleware             *auth.AuthMiddleware
+	tenantMiddleware           *tenant.Middleware
+	billing                    *billing.Service
+	anthropicPricing           *billing.AnthropicPricingSnapshotManager
+	httpMetrics                *prommetrics.HTTPMetrics
+	emitMetric                 func(metricsobs.BuildInput)
+	requestLogger              proxy.RequestLogger
+	spendLogger                proxy.SpendLogger
+	managementRoutes           *management.Routes
+	promptApplication          *prompts.Service
+	iamApplication             *iam.Service
+	tenantAdminApplication     *tenantadmin.Service
+	policyApplication          *policies.Service
+	modelApplication           *virtualmodels.Service
+	providerAccountApplication *provideraccounts.Service
+	tracingMiddleware          fiber.Handler
+	traceHealth                *tracing.ReliableExporter
+	serverDependencies         server.Dependencies
+	httpApp                    *fiber.App
 }
 
 // Build assembles and validates the complete control-plane application.

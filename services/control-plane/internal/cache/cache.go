@@ -25,6 +25,20 @@ type RateLimitResult struct {
 	Algorithm  string
 }
 
+// RateLimitCheck describes one counter in an atomic multi-dimensional rate-limit decision.
+type RateLimitCheck struct {
+	Key     string
+	Limit   int64
+	Weight  int64
+	Window  time.Duration
+	Sliding bool
+}
+
+// RateLimitBatchChecker evaluates ordered counters in one backend round trip.
+type RateLimitBatchChecker interface {
+	CheckRateLimits(ctx context.Context, checks []RateLimitCheck) ([]*RateLimitResult, error)
+}
+
 // UsageCounterRequest describes an atomic fixed-window usage counter update.
 type UsageCounterRequest struct {
 	Key         string
@@ -112,6 +126,15 @@ type TokenSpendDelta struct {
 	DeltaUSD float64
 }
 
+// TokenSpendDeltaRequest describes one token-spend delta queued for aggregation.
+type TokenSpendDeltaRequest struct {
+	DeltaKey    string
+	DirtySetKey string
+	DeltaUSD    float64
+	TTL         time.Duration
+	Score       int64
+}
+
 // KeyLastUsedSnapshot is the newest last-used timestamp drained for one key.
 type KeyLastUsedSnapshot struct {
 	Key          string
@@ -131,6 +154,11 @@ type TokenUsageCache interface {
 	DrainTokenSpendDeltas(ctx context.Context, dirtySetKey string, batchSize int) ([]TokenSpendDelta, error)
 	QueueKeyLastUsed(ctx context.Context, lastUsedKey string, dirtySetKey string, usedAtUnix int64, ttl time.Duration) (bool, error)
 	DrainKeyLastUsed(ctx context.Context, dirtySetKey string, batchSize int) ([]KeyLastUsedSnapshot, error)
+}
+
+// TokenUsageBatchCache queues multiple token-spend deltas in one network round trip.
+type TokenUsageBatchCache interface {
+	QueueTokenSpendDeltas(ctx context.Context, requests []TokenSpendDeltaRequest) error
 }
 
 // BudgetWindowInspector exposes live tenant budget window state for UI and settlement flows.
@@ -418,6 +446,80 @@ redis.call('PEXPIRE', key, windowMs * 2)
 redis.call('PEXPIRE', seqKey, windowMs * 2)
 
 return {1, total + weight, windowMs}
+`
+
+const combinedRateLimitScript = `
+local nowMs = tonumber(ARGV[1])
+local out = {}
+
+for index, key in ipairs(KEYS) do
+  local offset = 2 + ((index - 1) * 4)
+  local algorithm = ARGV[offset]
+  local limit = tonumber(ARGV[offset + 1])
+  local windowMs = tonumber(ARGV[offset + 2])
+  local weight = tonumber(ARGV[offset + 3])
+  if weight < 1 then
+    weight = 1
+  end
+
+  local allowed = 0
+  local current = 0
+  local resetIn = windowMs
+
+  if algorithm == 'sliding' then
+    local windowStart = nowMs - windowMs
+    redis.call('ZREMRANGEBYSCORE', key, 0, windowStart)
+    local entries = redis.call('ZRANGE', key, 0, -1)
+    for _, entry in ipairs(entries) do
+      local entryWeight = string.match(entry, ':(%d+):')
+      if entryWeight then
+        current = current + tonumber(entryWeight)
+      else
+        current = current + 1
+      end
+    end
+
+    if (current + weight) <= limit then
+      local seqKey = key .. ':seq'
+      local seq = redis.call('INCR', seqKey)
+      local member = tostring(nowMs) .. ':' .. tostring(weight) .. ':' .. tostring(seq)
+      redis.call('ZADD', key, nowMs, member)
+      redis.call('PEXPIRE', key, windowMs * 2)
+      redis.call('PEXPIRE', seqKey, windowMs * 2)
+      current = current + weight
+      allowed = 1
+    else
+      local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+      if oldest and #oldest >= 2 then
+        resetIn = (tonumber(oldest[2]) + windowMs) - nowMs
+        if resetIn < 0 then
+          resetIn = 0
+        end
+      end
+    end
+  else
+    current = tonumber(redis.call('GET', key) or '0')
+    resetIn = redis.call('PTTL', key)
+    if current < limit then
+      current = redis.call('INCR', key)
+      resetIn = redis.call('PTTL', key)
+      if resetIn < 0 then
+        redis.call('PEXPIRE', key, windowMs)
+        resetIn = windowMs
+      end
+      allowed = 1
+    end
+  end
+
+  table.insert(out, allowed)
+  table.insert(out, current)
+  table.insert(out, resetIn)
+  if allowed == 0 then
+    break
+  end
+end
+
+return out
 `
 
 const usageCounterScript = `
@@ -868,6 +970,40 @@ func (d *DualCache) QueueTokenSpendDelta(ctx context.Context, deltaKey string, d
 	return d.redis.Eval(ctx, queueTokenSpendDeltaScript, []string{deltaKey, dirtySetKey}, deltaUSD, ttl.Milliseconds(), score).Err()
 }
 
+// QueueTokenSpendDeltas pipelines token-spend deltas into one Redis round trip.
+func (d *DualCache) QueueTokenSpendDeltas(ctx context.Context, requests []TokenSpendDeltaRequest) error {
+	if len(requests) == 0 {
+		return nil
+	}
+
+	for _, request := range requests {
+		if request.DeltaKey == "" || request.DirtySetKey == "" {
+			return fmt.Errorf("token spend delta key and dirty set key are required")
+		}
+
+		if request.TTL <= 0 {
+			return fmt.Errorf("token spend delta ttl must be positive")
+		}
+	}
+
+	_, err := d.redis.Pipelined(ctx, func(pipe redis.Pipeliner) error {
+		for _, request := range requests {
+			pipe.Eval(
+				ctx,
+				queueTokenSpendDeltaScript,
+				[]string{request.DeltaKey, request.DirtySetKey},
+				request.DeltaUSD,
+				request.TTL.Milliseconds(),
+				request.Score,
+			)
+		}
+
+		return nil
+	})
+
+	return err
+}
+
 // DrainTokenSpendDeltas atomically drains a bounded batch of token spend deltas.
 func (d *DualCache) DrainTokenSpendDeltas(ctx context.Context, dirtySetKey string, batchSize int) ([]TokenSpendDelta, error) {
 	values, err := drainFlatPairs(ctx, d.redis, drainTokenSpendDeltasScript, dirtySetKey, batchSize)
@@ -1302,6 +1438,97 @@ func (d *DualCache) CheckSlidingWindowRateLimitWithWeight(ctx context.Context, k
 		Limit:   limit,
 		ResetAt: time.Now().Add(resetIn),
 	}, nil
+}
+
+// CheckRateLimits evaluates ordered fixed or sliding counters in one Redis script.
+func (d *DualCache) CheckRateLimits(ctx context.Context, checks []RateLimitCheck) ([]*RateLimitResult, error) {
+	if len(checks) == 0 {
+		return nil, nil
+	}
+
+	keys := make([]string, 0, len(checks))
+	args := make([]interface{}, 0, 1+len(checks)*4)
+	args = append(args, time.Now().UnixMilli())
+
+	for _, check := range checks {
+		if check.Key == "" || check.Limit <= 0 || check.Window <= 0 {
+			return nil, fmt.Errorf("rate-limit batch check is invalid")
+		}
+
+		algorithm := "fixed"
+		if check.Sliding {
+			algorithm = "sliding"
+		}
+
+		keys = append(keys, check.Key)
+		args = append(args, algorithm, check.Limit, check.Window.Milliseconds(), maxInt64(check.Weight, 1))
+	}
+
+	values, err := d.redis.Eval(ctx, combinedRateLimitScript, keys, args...).Int64Slice()
+	if err != nil {
+		return d.checkRateLimitsInMemory(ctx, checks)
+	}
+
+	if len(values)%3 != 0 || len(values) == 0 {
+		return nil, fmt.Errorf("unexpected redis combined rate-limit result length: %d", len(values))
+	}
+
+	now := time.Now()
+
+	results := make([]*RateLimitResult, 0, len(values)/3)
+	for index := 0; index < len(values); index += 3 {
+		check := checks[index/3]
+		results = append(results, &RateLimitResult{
+			Allowed: values[index] == 1,
+			Current: values[index+1],
+			Limit:   check.Limit,
+			ResetAt: now.Add(time.Duration(values[index+2]) * time.Millisecond),
+		})
+	}
+
+	return results, nil
+}
+
+func (d *DualCache) checkRateLimitsInMemory(ctx context.Context, checks []RateLimitCheck) ([]*RateLimitResult, error) {
+	results := make([]*RateLimitResult, 0, len(checks))
+	for _, check := range checks {
+		var (
+			result *RateLimitResult
+			err    error
+		)
+
+		if check.Sliding {
+			result, err = d.memory.CheckSlidingWindowRateLimitWithWeight(
+				ctx,
+				check.Key,
+				check.Limit,
+				check.Weight,
+				check.Window,
+			)
+		} else {
+			result, err = d.memory.CheckRateLimit(ctx, check.Key, check.Limit, check.Window)
+		}
+
+		if err != nil {
+			return results, err
+		}
+
+		results = append(results, result)
+
+		if result != nil && !result.Allowed {
+			break
+		}
+	}
+
+	return results, nil
+}
+
+func maxInt64(value, minimum int64) int64 {
+	if value < minimum {
+		return minimum
+	}
+
+	return value
 }
 
 // Close closes both memory and Redis caches.

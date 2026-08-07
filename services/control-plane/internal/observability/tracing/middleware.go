@@ -150,12 +150,6 @@ func RecordStepSpan(c *fiber.Ctx, queue *Queue, parentSpanID, name, kind string,
 
 	spanID := nextSpanID(c, traceID)
 
-	privacy := PrivacyFromContext(c)
-	if privacy != nil {
-		policy := privacy.ResolvePolicyForTenant(tenantID)
-		attrs = privacy.Apply(traceID, spanID, name, attrs, policy)
-	}
-
 	appendStepSpan(c, SpanEvent{
 		TraceID:      traceID,
 		SpanID:       spanID,
@@ -197,7 +191,18 @@ func flushStepBuffer(c *fiber.Ctx, queue *Queue) {
 		buffer = currentBuffer
 	}
 
+	privacy := PrivacyFromContext(c)
+	policy := CapturePolicyNone
+
+	if privacy != nil && len(buffer) > 0 {
+		policy = privacy.ResolvePolicyForTenant(buffer[0].TenantID)
+	}
+
 	for _, ev := range buffer {
+		if privacy != nil {
+			ev.Attributes = privacy.Apply(ev.TraceID, ev.SpanID, ev.Name, ev.Attributes, policy)
+		}
+
 		ev.Sampled = true
 		_ = queue.Enqueue(ev)
 	}

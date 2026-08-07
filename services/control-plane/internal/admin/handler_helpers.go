@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 type tenantListParams struct {
@@ -176,7 +176,7 @@ func handleScopedEnabledUpdate(
 
 	item, err := update(c.Context(), currentTenant.ID, itemID, req.Enabled)
 	if err != nil {
-		if strings.TrimSpace(notFoundMessage) != "" && errors.Is(err, pgx.ErrNoRows) {
+		if strings.TrimSpace(notFoundMessage) != "" && errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, notFoundMessage)
 		}
 
@@ -219,7 +219,7 @@ func handleTenantScopedUpdate[T any](
 
 	item, err := update(c.Context(), currentTenant.ID, itemID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, notFoundMessage)
 		}
 
@@ -248,7 +248,7 @@ func handleTenantMembershipDelete(
 	}
 
 	if err := deleteFn(c.Context(), currentTenant.ID, parentID, userID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, notFoundMessage)
 		}
 
@@ -345,11 +345,11 @@ func handleTraceCollection[T any](
 }
 
 func traceLookupError(err error) error {
-	if errors.Is(err, storage.ErrTraceStoreUnavailable) {
+	if errors.Is(err, observability.ErrTraceStoreUnavailable) {
 		return fiber.NewError(fiber.StatusNotImplemented, "trace store not configured")
 	}
 
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, apperrors.ErrNotFound) {
 		return fiber.NewError(fiber.StatusNotFound, "trace not found")
 	}
 

@@ -16,4 +16,7 @@ var (
 	ErrSubscriptionPaymentIntentNotFound = errors.New("subscription payment intent not found")
 	ErrTenantQuotaExceeded               = errors.New("tenant quota exceeded")
 	ErrTopUpIntentNotFound               = errors.New("top-up intent not found")
+	ErrBankTransferNotFound              = errors.New("bank transfer request not found")
+	ErrFinancialCodeInvalid              = errors.New("financial code is invalid")
+	ErrBillingProfileInvalid             = errors.New("billing profile is invalid")
 )

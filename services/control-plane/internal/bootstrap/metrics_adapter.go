@@ -9,7 +9,7 @@ import (
 )
 
 type costReconcileAdapter struct {
-	store *storage.ObservabilityRepository
+	store *storage.MetricsRepository
 }
 
 func (a *costReconcileAdapter) ListSpendCostByTenantAndDay(

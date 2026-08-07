@@ -1,14 +1,13 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/Delpak/shahrah/services/control-plane/internal/provideraccounts"
 )
 
-var ErrProviderConfigContainsSecret = errors.New(
-	"provider_config must not contain credentials",
-)
+var ErrProviderConfigContainsSecret = provideraccounts.ErrConfigContainsSecret
 
 var providerConfigSecretKeys = map[string]struct{}{
 	"api_key":       {},

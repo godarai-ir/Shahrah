@@ -3,10 +3,10 @@ package admin
 import (
 	"errors"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 type updateRequestLoggingSettingsRequest struct {
@@ -29,10 +29,10 @@ func (h *Handlers) GetTenantRequestLoggingSettings(c *fiber.Ctx) error {
 
 	item, err := h.requestLogging.GetTenantRequestLoggingSettings(c.Context(), currentTenant.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return c.JSON(fiber.Map{
 				"tenant_id":    currentTenant.ID,
-				"logging_mode": storage.RequestLoggingModeMetadataOnly,
+				"logging_mode": observability.RequestLoggingModeMetadataOnly,
 			})
 		}
 
@@ -61,9 +61,9 @@ func (h *Handlers) UpdateTenantRequestLoggingSettings(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	loggingMode := storage.NormalizeRequestLoggingMode(req.LoggingMode)
+	loggingMode := observability.NormalizeRequestLoggingMode(req.LoggingMode)
 	switch loggingMode {
-	case storage.RequestLoggingModeNone, storage.RequestLoggingModeMetadataOnly, storage.RequestLoggingModeRedactedContent, storage.RequestLoggingModeFullContent:
+	case observability.RequestLoggingModeNone, observability.RequestLoggingModeMetadataOnly, observability.RequestLoggingModeRedactedContent, observability.RequestLoggingModeFullContent:
 	default:
 		return fiber.NewError(fiber.StatusBadRequest, "invalid logging_mode")
 	}

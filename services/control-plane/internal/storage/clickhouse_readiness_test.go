@@ -14,13 +14,13 @@ func TestClickHouseReadinessReportSeparatesSubsystems(t *testing.T) {
 
 	defer closeBestEffort(db)
 
-	store := &ObservabilityRepository{
+	store := composeObservabilityRepository(&observabilityState{
 		clickhouse:             db,
 		clickhouseReady:        true,
 		clickhouseTraceReady:   false,
 		clickhouseMetricsReady: true,
 		clickhouseLogsReady:    true,
-	}
+	})
 
 	report := store.ClickHouseReadinessReport()
 
@@ -28,13 +28,13 @@ func TestClickHouseReadinessReportSeparatesSubsystems(t *testing.T) {
 	assert.Equal(t, false, report["traces"])
 	assert.Equal(t, true, report["metrics"])
 	assert.Equal(t, true, report["logs"])
-	assert.False(t, store.clickHouseTraceReady())
-	assert.True(t, store.clickHouseMetricsReady())
-	assert.True(t, store.clickHouseLogsReady())
+	assert.False(t, store.ObservabilityHealthRepository.clickHouseTraceReady())
+	assert.True(t, store.ObservabilityHealthRepository.clickHouseMetricsReady())
+	assert.True(t, store.ObservabilityHealthRepository.clickHouseLogsReady())
 }
 
 func TestClickHouseReadinessReportNilStore(t *testing.T) {
-	var store *ObservabilityRepository
+	var store *ObservabilityHealthRepository
 
 	report := store.ClickHouseReadinessReport()
 

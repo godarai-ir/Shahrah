@@ -29,6 +29,21 @@ type fakeTokenUsageCache struct {
 	}
 }
 
+type fakeBatchTokenUsageCache struct {
+	*fakeTokenUsageCache
+	requests []cache.TokenSpendDeltaRequest
+	err      error
+}
+
+func (f *fakeBatchTokenUsageCache) QueueTokenSpendDeltas(
+	_ context.Context,
+	requests []cache.TokenSpendDeltaRequest,
+) error {
+	f.requests = append([]cache.TokenSpendDeltaRequest(nil), requests...)
+
+	return f.err
+}
+
 func (f *fakeTokenUsageCache) QueueTokenSpendDelta(_ context.Context, deltaKey string, dirtySetKey string, deltaUSD float64, ttl time.Duration, score int64) error {
 	f.queueSpend.deltaKey = deltaKey
 	f.queueSpend.dirtyKey = dirtySetKey
@@ -59,7 +74,7 @@ func (f *fakeTokenUsageCache) DrainKeyLastUsed(context.Context, string, int) ([]
 }
 
 func TestTokenUsageKeyRoundTrip(t *testing.T) {
-	store := &ObservabilityRepository{tokenUsageKeyPrefix: "usage:"}
+	store := composeObservabilityRepository(&observabilityState{tokenUsageKeyPrefix: "usage:"})
 
 	spendKey := store.tokenSpendDeltaKey("hash-1")
 
@@ -99,13 +114,13 @@ func TestTokenUsageKeyRoundTrip(t *testing.T) {
 func TestQueueTokenSpendDeltaUsesRedisAndFailOpen(t *testing.T) {
 	ctx := context.Background()
 	fake := &fakeTokenUsageCache{}
-	store := &ObservabilityRepository{
+	store := composeObservabilityRepository(&observabilityState{
 		tokenUsageCache:     fake,
 		tokenUsageEnabled:   true,
 		tokenUsageFailOpen:  true,
 		tokenUsageKeyPrefix: "test-usage",
 		tokenUsageDeltaTTL:  time.Hour,
-	}
+	})
 
 	if err := store.queueTokenSpendDelta(ctx, "hash-1", 1.25); err != nil {
 		t.Fatal(err)
@@ -133,22 +148,50 @@ func TestQueueTokenSpendDeltaUsesRedisAndFailOpen(t *testing.T) {
 		t.Fatalf("expected fail-open nil error, got %v", err)
 	}
 
-	store.tokenUsageFailOpen = false
+	store.TokenUsageRepository.tokenUsageFailOpen = false
 	if err := store.queueTokenSpendDelta(ctx, "hash-1", 1.25); err == nil {
 		t.Fatal("expected fail-closed error")
+	}
+}
+
+func TestQueueTokenSpendDeltasUsesOneBatch(t *testing.T) {
+	fake := &fakeBatchTokenUsageCache{fakeTokenUsageCache: &fakeTokenUsageCache{}}
+	store := composeObservabilityRepository(&observabilityState{
+		tokenUsageCache:     fake,
+		tokenUsageEnabled:   true,
+		tokenUsageKeyPrefix: "test-usage",
+		tokenUsageDeltaTTL:  time.Hour,
+	})
+
+	err := store.queueTokenSpendDeltas(t.Context(), map[string]float64{
+		"hash-1": 1.5,
+		"hash-2": 2.5,
+	})
+	if err != nil {
+		t.Fatalf("queue batch: %v", err)
+	}
+
+	if len(fake.requests) != 2 {
+		t.Fatalf("expected one batch with two deltas, got %#v", fake.requests)
+	}
+
+	for _, request := range fake.requests {
+		if request.DirtySetKey != "test-usage:token_spend_delta:dirty" {
+			t.Fatalf("unexpected dirty set key: %s", request.DirtySetKey)
+		}
 	}
 }
 
 func TestQueueKeyLastUsedUsesRedis(t *testing.T) {
 	ctx := context.Background()
 	fake := &fakeTokenUsageCache{}
-	store := &ObservabilityRepository{
+	store := composeObservabilityRepository(&observabilityState{
 		tokenUsageCache:     fake,
 		tokenUsageEnabled:   true,
 		tokenUsageFailOpen:  true,
 		tokenUsageKeyPrefix: "test-usage",
 		lastUsedTTL:         time.Hour,
-	}
+	})
 	usedAt := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 
 	if err := store.queueKeyLastUsed(ctx, "key-1", usedAt); err != nil {

@@ -2,7 +2,9 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
@@ -725,6 +728,71 @@ func TestDispatchDeepgramAudioTranscriptionsAdapter(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"text":"سلام از دیپ‌گرام"`) {
 		t.Fatalf("expected normalized transcript response, got %s", rec.Body.String())
+	}
+}
+
+func TestRawDispatchFallsBackForAdapterWithoutStreamingInterface(t *testing.T) {
+	t.Parallel()
+
+	receivedBody := ""
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer closeBody(r.Body)
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read provider body: %v", err)
+			return
+		}
+
+		receivedBody = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		time.Sleep(50 * time.Millisecond)
+
+		if _, writeErr := w.Write([]byte(`{"results":{"channels":[{"alternatives":[{"transcript":"ok"}]}]}}`)); writeErr != nil {
+			t.Errorf("write provider response: %v", writeErr)
+		}
+	}))
+	defer upstream.Close()
+
+	const boundary = "raw-audio-boundary"
+
+	rawBody := audioMultipartPayloadBody(boundary, nil, "sample.wav", "audio/wav", "raw-audio")
+
+	metadata, err := json.Marshal(platform.TunnelRequest{
+		Deployment: platform.Deployment{
+			Provider: "deepgram",
+			APIBase:  upstream.URL,
+			APIKey:   "provider-key",
+			Model:    "deepgram/nova-3-general",
+		},
+		Headers: map[string]string{"Content-Type": "multipart/form-data; boundary=" + boundary},
+		RequestMetadata: map[string]interface{}{
+			"provider_endpoint_path": "/audio/transcriptions",
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
+
+	var prefix [4]byte
+	binary.BigEndian.PutUint32(prefix[:], uint32(len(metadata)))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/dispatch/raw",
+		io.MultiReader(bytes.NewReader(prefix[:]), bytes.NewReader(metadata), bytes.NewReader(rawBody)),
+	)
+	req.ContentLength = int64(len(prefix) + len(metadata) + len(rawBody))
+	recorder := httptest.NewRecorder()
+	NewHandler(&http.Client{Timeout: 10 * time.Millisecond}).ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+
+	if receivedBody != "raw-audio" {
+		t.Fatalf("expected fallback adapter body %q, got %q", "raw-audio", receivedBody)
 	}
 }
 

@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,33 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"go.uber.org/zap"
 )
+
+type batchRateLimitCache struct {
+	cache.Cache
+	calls  int
+	checks []cache.RateLimitCheck
+}
+
+func (c *batchRateLimitCache) CheckRateLimits(
+	_ context.Context,
+	checks []cache.RateLimitCheck,
+) ([]*cache.RateLimitResult, error) {
+	c.calls++
+
+	c.checks = append([]cache.RateLimitCheck(nil), checks...)
+
+	results := make([]*cache.RateLimitResult, 0, len(checks))
+	for _, check := range checks {
+		results = append(results, &cache.RateLimitResult{
+			Allowed: true,
+			Current: check.Weight,
+			Limit:   check.Limit,
+			ResetAt: time.Now().Add(check.Window),
+		})
+	}
+
+	return results, nil
+}
 
 func TestCheckRateLimitAllowsWhenRuntimeProfileHasNoRules(t *testing.T) {
 	service := newRateLimitPolicyTestService(t, nil)
@@ -48,6 +76,75 @@ func TestCheckRateLimitEnforcesRPMPolicy(t *testing.T) {
 
 	if result == nil || result.Allowed || result.Limit != 2 || !result.RetryAfter {
 		t.Fatalf("unexpected exhausted result: %+v", result)
+	}
+}
+
+func TestCheckRateLimitCombinesRPMAndTPMInOneBackendCall(t *testing.T) {
+	memory, err := testcache.New(t, zap.NewNop())
+	if err != nil {
+		t.Fatalf("create memory cache: %v", err)
+	}
+
+	combined := &batchRateLimitCache{Cache: memory}
+	service := newRateLimitPolicyTestServiceWithCache(t, combined, []platform.RateLimitRule{{
+		RuleID:  "combined",
+		Enabled: true,
+		Limit: map[string]interface{}{
+			"rpm": float64(10),
+			"tpm": float64(1000),
+		},
+	}})
+
+	_, err = service.CheckRateLimit(
+		t.Context(),
+		&platform.AuthContext{TenantID: "tenant-1"},
+		"gpt-test",
+		25,
+	)
+	if err != nil {
+		t.Fatalf("check combined rate limit: %v", err)
+	}
+
+	if combined.calls != 1 || len(combined.checks) != 2 {
+		t.Fatalf("expected one backend call with two checks, got calls=%d checks=%#v", combined.calls, combined.checks)
+	}
+
+	firstHashTag := strings.SplitN(combined.checks[0].Key, "}:", 2)[0]
+	secondHashTag := strings.SplitN(combined.checks[1].Key, "}:", 2)[0]
+
+	if firstHashTag != secondHashTag {
+		t.Fatalf("expected Redis hash-tag co-location, got %q and %q", combined.checks[0].Key, combined.checks[1].Key)
+	}
+}
+
+func TestCompiledRateLimitRulesRefreshWhenVersionIsReused(t *testing.T) {
+	limiter := &RateLimiter{policyCache: make(map[string]compiledRateLimitProfile)}
+	first := &runtimeprofile.Profile{
+		TenantID: "tenant-1",
+		Version:  7,
+		Checksum: "checksum-a",
+		RateLimitRules: []platform.RateLimitRule{{
+			RuleID:  "rpm",
+			Enabled: true,
+			Limit:   map[string]interface{}{"rpm": 10},
+		}},
+	}
+	second := &runtimeprofile.Profile{
+		TenantID: "tenant-1",
+		Version:  7,
+		Checksum: "checksum-b",
+		RateLimitRules: []platform.RateLimitRule{{
+			RuleID:  "rpm",
+			Enabled: true,
+			Limit:   map[string]interface{}{"rpm": 25},
+		}},
+	}
+
+	firstRules := limiter.compiledRateLimitRules(first)
+	secondRules := limiter.compiledRateLimitRules(second)
+
+	if firstRules[0].policy.rpm != 10 || secondRules[0].policy.rpm != 25 {
+		t.Fatalf("expected policy cache refresh, got first=%d second=%d", firstRules[0].policy.rpm, secondRules[0].policy.rpm)
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/providernative"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 )
@@ -104,7 +104,7 @@ func (h *ChatCompletionHandler) HandleXAIDeferredGet(c *fiber.Ctx) error {
 	publicID := strings.TrimSpace(c.Params("request_id"))
 
 	mapping, err := h.resources.GetProviderNativeResourceMapping(c.Context(), currentTenant.ID, "xai", xaiDeferredResourceKind, publicID)
-	if errors.Is(err, storage.ErrProviderNativeResourceNotFound) {
+	if errors.Is(err, providernative.ErrResourceNotFound) {
 		return writeAPIError(c, fiber.StatusNotFound, "Deferred completion not found", "invalid_request_error")
 	}
 

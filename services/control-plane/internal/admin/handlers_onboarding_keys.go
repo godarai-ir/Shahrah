@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 func (h *Handlers) CheckTenantSlugAvailability(c *fiber.Ctx) error {
@@ -161,7 +161,7 @@ func (h *Handlers) createKey(c *fiber.Ctx, forcedKeyType string) error {
 	if req.KeyType == platform.KeyTypeVAT && req.VirtualUserID != "" && h.virtualUsers != nil {
 		virtualUser, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, req.VirtualUserID)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, apperrors.ErrNotFound) {
 				return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
 			}
 
@@ -264,7 +264,7 @@ func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
 
 	virtualUser, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, virtualUserID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
 		}
 
@@ -331,7 +331,7 @@ func (h *Handlers) CreateVirtualUserToken(c *fiber.Ctx) error {
 
 	created, err := h.keys.CreateKey(c.Context(), req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
 		}
 
@@ -403,7 +403,7 @@ func (h *Handlers) UpdateVirtualUserToken(c *fiber.Ctx) error {
 
 	virtualUser, err := h.virtualUsers.GetVirtualUser(c.Context(), currentTenant.ID, virtualUserID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual user not found")
 		}
 
@@ -444,7 +444,7 @@ func (h *Handlers) UpdateVirtualUserToken(c *fiber.Ctx) error {
 
 	updated, err := h.keys.UpdateVATToken(c.Context(), currentTenant.ID, virtualUserID, tokenID, req)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual user token not found")
 		}
 
@@ -524,7 +524,7 @@ func (h *Handlers) RotateVirtualUserToken(c *fiber.Ctx) error {
 
 	created, err := h.keys.RotateVATToken(c.Context(), currentTenant.ID, virtualUserID, tokenID, actorUserID, req.GracePeriod)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "virtual user token not found")
 		}
 

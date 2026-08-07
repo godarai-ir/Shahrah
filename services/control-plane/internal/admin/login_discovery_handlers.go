@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apperrors"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
 )
 
 type loginDiscoveryTenant struct {
@@ -64,7 +64,7 @@ func (h *Handlers) DiscoverTenantByName(c *fiber.Ctx) error {
 
 	item, err := store.GetTenantBySlug(c.Context(), slug)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			return c.JSON(fiber.Map{"exists": false})
 		}
 

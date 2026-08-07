@@ -14,7 +14,7 @@ import (
 )
 
 // GetWallet retrieves or creates the tenant wallet.
-func (s *WalletRepository) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+func (s *WalletLedgerRepository) GetWallet(ctx context.Context, tenantID string) (*platform.Wallet, error) {
 	wallet, err := s.getWalletLedger(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -23,7 +23,7 @@ func (s *WalletRepository) GetWallet(ctx context.Context, tenantID string) (*pla
 	return s.decorateWalletWithLiveState(ctx, wallet)
 }
 
-func (s *WalletRepository) getWalletLedger(ctx context.Context, tenantID string) (*platform.Wallet, error) {
+func (s *WalletLedgerRepository) getWalletLedger(ctx context.Context, tenantID string) (*platform.Wallet, error) {
 	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 
@@ -43,7 +43,7 @@ func (s *WalletRepository) getWalletLedger(ctx context.Context, tenantID string)
 }
 
 // TopUpWallet records a completed stub top-up.
-func (s *WalletRepository) TopUpWallet(ctx context.Context, tenantID string, amountIRR float64, metadata map[string]interface{}) (*platform.Transaction, error) {
+func (s *WalletLedgerRepository) TopUpWallet(ctx context.Context, tenantID string, amountIRR float64, metadata map[string]interface{}) (*platform.Transaction, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (s *WalletRepository) TopUpWallet(ctx context.Context, tenantID string, amo
 }
 
 // DebitWallet debits the tenant wallet for inference usage.
-func (s *WalletRepository) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
+func (s *WalletLedgerRepository) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
 	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 

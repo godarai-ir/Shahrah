@@ -12,7 +12,6 @@ import (
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"go.uber.org/zap"
 )
@@ -160,6 +159,14 @@ type usageLoggers struct {
 	spend    SpendLogger
 }
 
+func (l usageLoggers) SupportsLazyRequestLogPayload() bool {
+	sink, ok := l.requests.(interface {
+		SupportsLazyRequestLogPayload() bool
+	})
+
+	return ok && sink.SupportsLazyRequestLogPayload()
+}
+
 func (l usageLoggers) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
 	if l.requests == nil {
 		return nil
@@ -211,7 +218,7 @@ func newChatVirtualModelDeps(store interface {
 	}
 
 	options := []virtualmodels.ResolverOption{virtualmodels.WithNotFoundError(func(err error) bool {
-		return errors.Is(err, storage.ErrVirtualModelNotFound)
+		return errors.Is(err, virtualmodels.ErrNotFound)
 	})}
 	if hitTTL > 0 && negativeTTL > 0 {
 		options = append(options, virtualmodels.WithAliasCacheTTLs(hitTTL, negativeTTL))

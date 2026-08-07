@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/observability"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -136,4 +137,56 @@ func TestAsyncRequestLogWriterQueueFullBehavior(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 	require.NoError(t, writer.LogRequest(context.Background(), platform.RequestLogEntry{RequestID: "req-2"}))
 	require.ErrorIs(t, writer.LogRequest(context.Background(), platform.RequestLogEntry{RequestID: "req-3"}), ErrRequestLogQueueFull)
+}
+
+func TestAsyncRequestLogWriterMaterializesLazyPayloadForGenericSink(t *testing.T) {
+	sink := &requestLogSink{}
+	writer := NewManagedAsyncRequestLogWriter(sink, AsyncRequestLogConfig{}, zap.NewNop())
+	entries := []platform.RequestLogEntry{{
+		RequestBody: buildJSONRequestLogPayload(
+			[]byte(`{"model":"original","messages":[]}`),
+			map[string]interface{}{"model": "override"},
+		),
+	}}
+
+	writer.flushBatch(t.Context(), entries)
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+
+	require.Len(t, sink.batches, 1)
+	require.Equal(t, "override", sink.batches[0][0].RequestBody["model"])
+	require.NotContains(t, sink.batches[0][0].RequestBody, observability.LazyJSONPayloadField)
+}
+
+func TestAsyncRequestLogWriterStopIsSafeDuringConcurrentEnqueue(t *testing.T) {
+	sink := &requestLogSink{}
+	writer := NewAsyncRequestLogWriter(sink, AsyncRequestLogConfig{
+		QueueSize:     256,
+		Workers:       1,
+		BatchSize:     32,
+		FlushInterval: time.Hour,
+		DropOnFull:    true,
+	}, zap.NewNop())
+
+	var producers sync.WaitGroup
+
+	start := make(chan struct{})
+
+	for index := 0; index < 32; index++ {
+		producers.Add(1)
+		go func() {
+			defer producers.Done()
+
+			<-start
+
+			for request := 0; request < 100; request++ {
+				_ = writer.LogRequest(t.Context(), platform.RequestLogEntry{RequestID: "request"})
+			}
+		}()
+	}
+
+	close(start)
+	require.NoError(t, writer.Stop(t.Context()))
+	producers.Wait()
 }
