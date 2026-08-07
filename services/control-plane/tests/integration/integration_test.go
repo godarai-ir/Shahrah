@@ -43,6 +43,24 @@ import (
 	"go.uber.org/zap"
 )
 
+type integrationCache interface {
+	cache.Cache
+	billing.BudgetWindowCache
+}
+
+func integrationBillingCapabilities(service *billing.Service) proxy.BillingCapabilities {
+	return proxy.BillingCapabilities{
+		MeteredUsage:             service,
+		MeteredUsagePolicy:       proxy.CapabilityFailClosed,
+		DeploymentPricing:        service,
+		RequireDeploymentPricing: true,
+		BudgetReservations:       service,
+		BudgetReservationPolicy:  proxy.CapabilityFailClosed,
+		BatchUsage:               service,
+		BatchUsagePolicy:         proxy.CapabilityFailClosed,
+	}
+}
+
 func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := testcache.New(t, logger)
@@ -118,7 +136,11 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 		rate:   &platform.ExchangeRate{ID: "rate-1", USDtoIRR: 850000, Source: "test", FetchedAt: time.Now()},
 	}
 
-	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")
+	billingSvc := billing.NewServiceWithDependencies(billing.Dependencies{
+		Cache:         memCache,
+		BudgetWindows: memCache,
+		Wallets:       walletStore,
+	}, 850000, "test")
 	configureOpenAITestCatalog(t, billingSvc)
 
 	llmRouter, err := router.NewRouter([]config.ModelDeployment{{
@@ -137,13 +159,14 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	require.NoError(t, err)
 
 	baseProxyDeps := proxy.BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-		Billing:       billingSvc,
-		Wallets:       walletStore,
-		RequestLogger: walletStore,
-		SpendLogger:   walletStore,
-		Logger:        logger,
+		Router:              llmRouter,
+		Tunnel:              tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Billing:             billingSvc,
+		BillingCapabilities: integrationBillingCapabilities(billingSvc),
+		Wallets:             walletStore,
+		RequestLogger:       walletStore,
+		SpendLogger:         walletStore,
+		Logger:              logger,
 	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(authStore, "sk-master", logger),
@@ -2484,7 +2507,7 @@ func (s *integrationKeyStore) DeleteVirtualUser(ctx context.Context, tenantID st
 	return pgx.ErrNoRows
 }
 
-func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, providerURL string) (*fiber.App, *integrationKeyStore, *integrationModelStore, *integrationWalletStore) {
+func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache integrationCache, providerURL string) (*fiber.App, *integrationKeyStore, *integrationModelStore, *integrationWalletStore) {
 	t.Helper()
 
 	silkRoad := httptest.NewServer(silkserver.NewHandler(nil))
@@ -2532,7 +2555,11 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 		},
 	}
 
-	billingSvc := billing.NewService(memCache, walletStore, 850000, "test")
+	billingSvc := billing.NewServiceWithDependencies(billing.Dependencies{
+		Cache:         memCache,
+		BudgetWindows: memCache,
+		Wallets:       walletStore,
+	}, 850000, "test")
 	configureOpenAITestCatalog(t, billingSvc)
 
 	llmRouter, err := router.NewRouter(nil, config.RouterSettings{
@@ -2542,13 +2569,14 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 	require.NoError(t, err)
 
 	baseProxyDeps := proxy.BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-		Billing:       billingSvc,
-		Wallets:       walletStore,
-		RequestLogger: walletStore,
-		SpendLogger:   walletStore,
-		Logger:        logger,
+		Router:              llmRouter,
+		Tunnel:              tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Billing:             billingSvc,
+		BillingCapabilities: integrationBillingCapabilities(billingSvc),
+		Wallets:             walletStore,
+		RequestLogger:       walletStore,
+		SpendLogger:         walletStore,
+		Logger:              logger,
 	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(keyStore, "sk-master", logger),

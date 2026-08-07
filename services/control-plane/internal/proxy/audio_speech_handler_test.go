@@ -60,7 +60,32 @@ func newAudioSpeechTestApp(t *testing.T, modelName string, provider string, depl
 		allowedTypes = []string{string(platform.ModelTypeTextToSpeech)}
 	}
 
-	h := NewAudioSpeechHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop(), emitMetric...)
+	var rawTunnel platform.TunnelRawTransport
+	if candidate, ok := tunnel.(platform.TunnelRawTransport); ok {
+		rawTunnel = candidate
+	}
+
+	var metricEmitter func(input metricsobs.BuildInput)
+	if len(emitMetric) > 0 {
+		metricEmitter = emitMetric[0]
+	}
+
+	billing := &testBudgeter{}
+	h := NewAudioSpeechHandlerWithDependencies(BaseHandlerDependencies{
+		Router:    rt,
+		Tunnel:    tunnel,
+		RawTunnel: rawTunnel,
+		Billing:   billing,
+		BillingCapabilities: BillingCapabilities{
+			MeteredUsage:       billing,
+			MeteredUsagePolicy: CapabilityFailClosed,
+		},
+		Wallets:       &testWallets{},
+		RequestLogger: logs,
+		SpendLogger:   logs,
+		Logger:        zap.NewNop(),
+		EmitMetric:    metricEmitter,
+	})
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 

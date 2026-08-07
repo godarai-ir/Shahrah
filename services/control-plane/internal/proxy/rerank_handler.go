@@ -47,14 +47,15 @@ func NewRerankHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 	}
 
 	return NewRerankHandlerWithDependencies(BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunnel,
-		Billing:       billing,
-		Wallets:       wallets,
-		RequestLogger: logs,
-		SpendLogger:   logs,
-		Logger:        logger,
-		EmitMetric:    metricEmitter,
+		Router:              llmRouter,
+		Tunnel:              tunnel,
+		Billing:             billing,
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             wallets,
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              logger,
+		EmitMetric:          metricEmitter,
 	})
 }
 

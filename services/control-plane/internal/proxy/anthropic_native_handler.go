@@ -49,11 +49,9 @@ type AnthropicNativeHandler struct {
 }
 
 func NewAnthropicNativeHandler(deps BaseHandlerDependencies, deployments anthropicDeploymentLister) *AnthropicNativeHandler {
-	resources, _ := deployments.(anthropicNativeResourceStore) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
-
 	return &AnthropicNativeHandler{
 		router: deps.Router, deployments: deployments, pipeline: deps.requestPipeline(),
-		resources: resources, billing: deps.Billing,
+		resources: deps.AnthropicResources, billing: deps.Billing,
 		runtimeProfiles: deps.AnthropicRuntimeProfiles, logger: deps.Logger,
 		nativeEnabled:    anthropicFeatureEnabled("ANTHROPIC_NATIVE_API_ENABLED", true),
 		filesEnabled:     anthropicFeatureEnabled("ANTHROPIC_FILES_API_ENABLED", true),

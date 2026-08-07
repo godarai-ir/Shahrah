@@ -55,14 +55,15 @@ func NewAudioSpeechHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 	}
 
 	return NewAudioSpeechHandlerWithDependencies(BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunnel,
-		Billing:       billing,
-		Wallets:       wallets,
-		RequestLogger: logs,
-		SpendLogger:   logs,
-		Logger:        logger,
-		EmitMetric:    metricEmitter,
+		Router:              llmRouter,
+		Tunnel:              tunnel,
+		Billing:             billing,
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             wallets,
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              logger,
+		EmitMetric:          metricEmitter,
 	})
 }
 
@@ -137,7 +138,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	estimated, err = priceMeteredUsage(
 		c.Context(),
-		h.billing,
+		h.pipeline,
 		billingEstimateModel(requestedModel),
 		"speech_input_characters",
 		strconv.Itoa(audioSpeechInputCharacters(reqMeta.Metadata)),
@@ -223,7 +224,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
@@ -342,7 +343,7 @@ func (h *AudioSpeechHandler) handleSync(
 
 	finalCost, err = priceMeteredUsage(
 		c.Context(),
-		h.billing,
+		h.pipeline,
 		billingModelForDeployment(requestedModel, tunnelReq.Deployment),
 		"speech_input_characters",
 		strconv.Itoa(audioSpeechInputCharacters(tunnelReq.RequestMetadata)),
@@ -479,7 +480,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 
 	finalCost, err := priceMeteredUsage(
 		c.Context(),
-		h.billing,
+		h.pipeline,
 		billingModelForDeployment(requestedModel, tunnelReq.Deployment),
 		"speech_input_characters",
 		strconv.Itoa(audioSpeechInputCharacters(tunnelReq.RequestMetadata)),

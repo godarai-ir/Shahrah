@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	llmrouter "github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
@@ -244,6 +245,25 @@ func (s *staticDeploymentStore) setError(err error) {
 	s.mu.Unlock()
 }
 
+func newRouterWithStaticDeploymentStore(
+	modelList []config.ModelDeployment,
+	c cache.Cache,
+	store *staticDeploymentStore,
+	logger *zap.Logger,
+) (*llmrouter.Router, error) {
+	return llmrouter.NewRouterWithDependencies(
+		modelList,
+		config.RouterSettings{},
+		c,
+		llmrouter.Dependencies{
+			DeploymentStore:                 store,
+			LegacyProviderAccountAPIKey:     store,
+			ProviderAccountCredentialPolicy: llmrouter.ProviderAccountCredentialsFailOpen,
+		},
+		logger,
+	)
+}
+
 func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := testcache.New(t, logger)
@@ -272,7 +292,7 @@ func TestRouter_FQNShouldNotFallBackToGlobalWildcard(t *testing.T) {
 		},
 	}
 
-	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(modelList, memCache, store, logger)
 	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307")
@@ -297,7 +317,7 @@ func TestRouter_FQNWithoutExactDeploymentShouldNotUseWildcard(t *testing.T) {
 		},
 	}
 
-	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, &staticDeploymentStore{}, logger)
+	r, err := newRouterWithStaticDeploymentStore(modelList, memCache, &staticDeploymentStore{}, logger)
 	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "anthropic:anthropic-sunny-zephyr:claude-3-haiku-20240307")
@@ -334,7 +354,7 @@ func TestRouter_FQNProviderAccountWithoutBYOKUsesSharedProviderKey(t *testing.T)
 		},
 	}
 
-	r, err := llmrouter.NewRouter(modelList, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(modelList, memCache, store, logger)
 	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-daring-lotus:gpt-5-nano")
@@ -362,7 +382,7 @@ func TestRouter_CanonicalizesProviderPrefixedModelForProviderAccountDeployment(t
 		},
 	}
 
-	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(nil, memCache, store, logger)
 	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-daring-lotus:gpt-4o-mini")
@@ -390,7 +410,7 @@ func TestRouter_CachesTenantDeployments(t *testing.T) {
 		},
 	}
 
-	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(nil, memCache, store, logger)
 	require.NoError(t, err)
 
 	for i := 0; i < 2; i++ {
@@ -425,7 +445,7 @@ func TestRouter_ReloadsTenantDeploymentsAfterCacheInvalidation(t *testing.T) {
 		},
 	}
 
-	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(nil, memCache, store, logger)
 	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
@@ -459,7 +479,7 @@ func TestRouter_ReloadsTenantDeploymentsAfterTTLExpiry(t *testing.T) {
 		},
 	}
 
-	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(nil, memCache, store, logger)
 	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
@@ -493,7 +513,7 @@ func TestRouter_UsesLastKnownGoodDeploymentsWhenStoreFails(t *testing.T) {
 		},
 	}
 
-	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(nil, memCache, store, logger)
 	require.NoError(t, err)
 
 	first, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")
@@ -530,7 +550,7 @@ func TestRouter_UsesResolvedLastKnownGoodRouteAfterSanitizedCacheExpires(t *test
 	require.NoError(t, err)
 	memCache.Set(context.Background(), "deployments:tenant:tenant-1", string(raw), 30*time.Second)
 
-	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(nil, memCache, store, logger)
 	require.NoError(t, err)
 
 	first, err := r.Route(context.Background(), "tenant-1", deployment.ModelName)
@@ -554,7 +574,7 @@ func TestRouter_ReturnsDependencyUnavailableWithoutLastKnownGoodSnapshot(t *test
 	memCache, _ := testcache.New(t, logger)
 	store := &staticDeploymentStore{err: errors.New("database unavailable")}
 
-	r, err := llmrouter.NewRouter(nil, config.RouterSettings{}, memCache, store, logger)
+	r, err := newRouterWithStaticDeploymentStore(nil, memCache, store, logger)
 	require.NoError(t, err)
 
 	dep, err := r.Route(context.Background(), "tenant-1", "openai:openai-main:gpt-4o-mini")

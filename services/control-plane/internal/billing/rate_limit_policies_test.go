@@ -246,10 +246,14 @@ func newRateLimitPolicyTestService(t *testing.T, rules []platform.RateLimitRule)
 func newRateLimitPolicyTestServiceWithCache(t *testing.T, c cache.Cache, rules []platform.RateLimitRule) *Service {
 	t.Helper()
 
-	service := newPolicyTestService(c, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
-		TenantID:       "tenant-1",
-		RateLimitRules: rules,
-	}})
+	service := NewServiceWithDependencies(Dependencies{
+		Cache:   c,
+		Wallets: &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}},
+		RuntimeProfiles: staticRuntimeProfiles{profile: &runtimeprofile.Profile{
+			TenantID:       "tenant-1",
+			RateLimitRules: rules,
+		}},
+	}, 850000, "test")
 
 	return service
 }

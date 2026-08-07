@@ -180,25 +180,36 @@ func newResponseOperationsTestAppWithDeployments(
 
 	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
-	rt, err := router.NewRouter(
+	rt, err := router.NewRouterWithDependencies(
 		nil,
 		config.RouterSettings{CooldownTime: 60, NumRetries: 1},
 		mem,
-		deployments,
+		router.Dependencies{
+			DeploymentStore:                 deployments,
+			ProviderAccountAuthResolver:     deployments,
+			ProviderAccountCredentialPolicy: router.ProviderAccountCredentialsFailOpen,
+		},
 		zap.NewNop(),
 	)
 	require.NoError(t, err)
 
+	var rawTunnel platform.TunnelRawTransport
+	if candidate, ok := tunnel.(platform.TunnelRawTransport); ok {
+		rawTunnel = candidate
+	}
+
 	h := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
-		Router:            rt,
-		Tunnel:            tunnel,
-		Billing:           &testBudgeter{},
-		Wallets:           &testWallets{},
-		ProviderResources: resources,
-		Deployments:       deployments,
-		RequestLogger:     &testLogs{},
-		SpendLogger:       &testLogs{},
-		Logger:            zap.NewNop(),
+		Router:               rt,
+		Tunnel:               tunnel,
+		RawTunnel:            rawTunnel,
+		Billing:              &testBudgeter{},
+		Wallets:              &testWallets{},
+		ProviderResources:    resources,
+		Deployments:          deployments,
+		ResponseProviderAuth: deployments,
+		RequestLogger:        &testLogs{},
+		SpendLogger:          &testLogs{},
+		Logger:               zap.NewNop(),
 	})
 
 	app := fiber.New()
@@ -318,14 +329,6 @@ func TestOpenAIFileCreateHydratesPlatformManagedCredential(t *testing.T) {
 	}}}
 	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
-	rt, err := router.NewRouter(
-		nil,
-		config.RouterSettings{CooldownTime: 60, NumRetries: 1},
-		mem,
-		deployments,
-		zap.NewNop(),
-	)
-	require.NoError(t, err)
 
 	credentialManager := platformcredentials.NewManager(
 		responseOperationCredentialLoader{records: []platformcredentials.EncryptedCredential{{
@@ -342,22 +345,33 @@ func TestOpenAIFileCreateHydratesPlatformManagedCredential(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, credentialManager.Reload(t.Context()))
-	rt.SetPlatformCredentialResolver(
-		credentialManager,
-		platform.ProviderCredentialModeStore,
-		platform.ProviderCredentialEnvironmentProd,
+
+	rt, err := router.NewRouterWithDependencies(
+		nil,
+		config.RouterSettings{CooldownTime: 60, NumRetries: 1},
+		mem,
+		router.Dependencies{
+			DeploymentStore:               deployments,
+			PlatformCredentials:           credentialManager,
+			PlatformCredentialMode:        platform.ProviderCredentialModeStore,
+			PlatformCredentialEnvironment: platform.ProviderCredentialEnvironmentProd,
+		},
+		zap.NewNop(),
 	)
+	require.NoError(t, err)
 
 	handler := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
-		Router:            rt,
-		Tunnel:            tunnel,
-		Billing:           &testBudgeter{},
-		Wallets:           &testWallets{},
-		ProviderResources: resources,
-		Deployments:       deployments,
-		RequestLogger:     &testLogs{},
-		SpendLogger:       &testLogs{},
-		Logger:            zap.NewNop(),
+		Router:               rt,
+		Tunnel:               tunnel,
+		RawTunnel:            tunnel,
+		Billing:              &testBudgeter{},
+		Wallets:              &testWallets{},
+		ProviderResources:    resources,
+		Deployments:          deployments,
+		ResponseProviderAuth: deployments,
+		RequestLogger:        &testLogs{},
+		SpendLogger:          &testLogs{},
+		Logger:               zap.NewNop(),
 	})
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {

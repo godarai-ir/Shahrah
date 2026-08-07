@@ -47,14 +47,15 @@ func NewEmbeddingsHandler(llmRouter *router.Router, tunnel platform.TunnelTransp
 	}
 
 	return NewEmbeddingsHandlerWithDependencies(BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunnel,
-		Billing:       billing,
-		Wallets:       wallets,
-		RequestLogger: logs,
-		SpendLogger:   logs,
-		Logger:        logger,
-		EmitMetric:    metricEmitter,
+		Router:              llmRouter,
+		Tunnel:              tunnel,
+		Billing:             billing,
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             wallets,
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              logger,
+		EmitMetric:          metricEmitter,
 	})
 }
 
@@ -228,7 +229,7 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}

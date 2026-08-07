@@ -339,7 +339,7 @@ func (h *ChatCompletionHandler) routeChatRequest(
 		return handledRoutedChatRequest(validationErr)
 	}
 
-	estimated, err := applyDeploymentPricingOverride(c.Context(), h.billing, admitted.estimated, deployment)
+	estimated, err := applyDeploymentPricingOverride(c.Context(), h.pipeline, admitted.estimated, deployment)
 	if err != nil {
 		return handledRoutedChatRequest(writeBillingEstimateError(c, err))
 	}

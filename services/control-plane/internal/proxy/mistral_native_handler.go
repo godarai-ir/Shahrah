@@ -46,7 +46,7 @@ type mistralNativeResourceStore interface {
 type MistralNativeHandler struct {
 	router        *router.Router
 	deployments   responseDeploymentLister
-	resources     mistralNativeResourceStore
+	resources     mistralBatchResourceStore
 	pipeline      *RequestPipeline
 	billing       budgeter
 	logger        *zap.Logger
@@ -57,10 +57,8 @@ type MistralNativeHandler struct {
 }
 
 func NewMistralNativeHandler(deps BaseHandlerDependencies, deployments responseDeploymentLister) *MistralNativeHandler {
-	resources, _ := deps.ProviderResources.(mistralNativeResourceStore) //nolint:errcheck // Capability detection intentionally fails closed in Handle.
-
 	return &MistralNativeHandler{
-		router: deps.Router, deployments: deployments, resources: resources,
+		router: deps.Router, deployments: deployments, resources: deps.MistralResources,
 		pipeline: deps.requestPipeline(), billing: deps.Billing,
 		logger:        deps.Logger,
 		filesEnabled:  mistralNativeFeatureEnabled("FILES"),
@@ -403,9 +401,9 @@ func (h *MistralNativeHandler) estimateAndValidate(ctx context.Context, operatio
 
 	switch target {
 	case "ocr":
-		estimated, err = priceMeteredUsage(ctx, h.billing, billingModel, "ocr_input_pages", "100", platform.UsageCostBreakdown{Model: billingModel, Endpoint: "/v1/batch/jobs", RequestType: "batch"})
+		estimated, err = priceMeteredUsage(ctx, h.pipeline, billingModel, "ocr_input_pages", "100", platform.UsageCostBreakdown{Model: billingModel, Endpoint: "/v1/batch/jobs", RequestType: "batch"})
 	case "audio_transcriptions":
-		estimated, err = priceMeteredUsage(ctx, h.billing, billingModel, "audio_input_seconds", "3600", platform.UsageCostBreakdown{Model: billingModel, Endpoint: "/v1/batch/jobs", RequestType: "batch"})
+		estimated, err = priceMeteredUsage(ctx, h.pipeline, billingModel, "audio_input_seconds", "3600", platform.UsageCostBreakdown{Model: billingModel, Endpoint: "/v1/batch/jobs", RequestType: "batch"})
 	default:
 		estimated, err = h.billing.EstimateCost(ctx, contractsopenai.ChatCompletionRequest{
 			Model:    billingModel,
@@ -454,8 +452,8 @@ func (h *MistralNativeHandler) estimateAndValidate(ctx context.Context, operatio
 				return platform.UsageCostBreakdown{}, fmt.Errorf("a conservative Mistral batch reservation cannot be calculated")
 			}
 
-			finalizer, ok := h.billing.(batchUsageFinalizer)
-			if !ok {
+			finalizer := h.pipeline.batchUsageFinalizer()
+			if finalizer == nil {
 				return platform.UsageCostBreakdown{}, fmt.Errorf("mistral batch billing finalizer is unavailable")
 			}
 

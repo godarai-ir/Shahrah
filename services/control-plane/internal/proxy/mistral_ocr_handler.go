@@ -115,7 +115,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 
 	var err error
 
-	estimated, err = priceMeteredUsage(c.Context(), h.billing, billingEstimateModel(requestedModel), dimension, strconv.Itoa(pageEstimate), estimated)
+	estimated, err = priceMeteredUsage(c.Context(), h.pipeline, billingEstimateModel(requestedModel), dimension, strconv.Itoa(pageEstimate), estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral OCR pricing is unavailable", "billing_error")
 	}
@@ -158,7 +158,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral provider-account affinity could not be preserved", "routing_error")
 	}
 
-	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, deployment)
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, deployment)
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}
@@ -213,7 +213,7 @@ func (h *MistralOCRHandler) Handle(c *fiber.Ctx) error {
 		actualPages = pageEstimate
 	}
 
-	finalCost, err := priceMeteredUsage(c.Context(), h.billing, billingModelForDeployment(requestedModel, tunnelRequest.Deployment), dimension, strconv.Itoa(actualPages), estimated)
+	finalCost, err := priceMeteredUsage(c.Context(), h.pipeline, billingModelForDeployment(requestedModel, tunnelRequest.Deployment), dimension, strconv.Itoa(actualPages), estimated)
 	if err != nil {
 		return writeAPIError(c, fiber.StatusBadGateway, "Failed to finalize Mistral OCR usage", "billing_error")
 	}

@@ -22,27 +22,29 @@ import (
 
 // ResponsesHandler serves the OpenAI-compatible Responses API.
 type ResponsesHandler struct {
-	llmRouter   *router.Router
-	pipeline    *RequestPipeline
-	billing     budgeter
-	resources   providerNativeResourceStore
-	deployments responseDeploymentLister
-	logs        usageLogger
-	logger      *zap.Logger
-	emitMetric  func(input metricsobs.BuildInput)
+	llmRouter    *router.Router
+	pipeline     *RequestPipeline
+	billing      budgeter
+	resources    providerNativeResourceStore
+	deployments  responseDeploymentLister
+	providerAuth responseProviderAuthResolver
+	logs         usageLogger
+	logger       *zap.Logger
+	emitMetric   func(input metricsobs.BuildInput)
 }
 
 // NewResponsesHandlerWithDependencies creates a responses handler from explicit dependencies.
 func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *ResponsesHandler {
 	return &ResponsesHandler{
-		llmRouter:   deps.Router,
-		pipeline:    deps.requestPipeline(),
-		billing:     deps.Billing,
-		resources:   deps.ProviderResources,
-		deployments: deps.Deployments,
-		logs:        deps.logger(),
-		logger:      deps.Logger,
-		emitMetric:  deps.metricEmitter(),
+		llmRouter:    deps.Router,
+		pipeline:     deps.requestPipeline(),
+		billing:      deps.Billing,
+		resources:    deps.ProviderResources,
+		deployments:  deps.Deployments,
+		providerAuth: deps.ResponseProviderAuth,
+		logs:         deps.logger(),
+		logger:       deps.Logger,
+		emitMetric:   deps.metricEmitter(),
 	}
 }
 
@@ -54,14 +56,15 @@ func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTranspo
 	}
 
 	return NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunnel,
-		Billing:       billing,
-		Wallets:       wallets,
-		RequestLogger: logs,
-		SpendLogger:   logs,
-		Logger:        logger,
-		EmitMetric:    metricEmitter,
+		Router:              llmRouter,
+		Tunnel:              tunnel,
+		Billing:             billing,
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             wallets,
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              logger,
+		EmitMetric:          metricEmitter,
 	})
 }
 
@@ -217,7 +220,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	if dep != nil {
-		estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+		estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
 		if err != nil {
 			return writeBillingEstimateError(c, err)
 		}

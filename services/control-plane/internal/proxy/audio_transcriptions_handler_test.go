@@ -47,7 +47,26 @@ func newAudioTranscriptionsTestApp(t *testing.T, modelName string, provider stri
 		allowedTypes = []string{string(platform.ModelTypeAudioTranscription)}
 	}
 
-	h := NewAudioTranscriptionsHandler(rt, tunnel, &testBudgeter{}, &testWallets{}, logs, zap.NewNop(), emitMetric...)
+	var metricEmitter func(input metricsobs.BuildInput)
+	if len(emitMetric) > 0 {
+		metricEmitter = emitMetric[0]
+	}
+
+	billing := &testBudgeter{}
+	h := NewAudioTranscriptionsHandlerWithDependencies(BaseHandlerDependencies{
+		Router:  rt,
+		Tunnel:  tunnel,
+		Billing: billing,
+		BillingCapabilities: BillingCapabilities{
+			MeteredUsage:       billing,
+			MeteredUsagePolicy: CapabilityFailClosed,
+		},
+		Wallets:       &testWallets{},
+		RequestLogger: logs,
+		SpendLogger:   logs,
+		Logger:        zap.NewNop(),
+		EmitMetric:    metricEmitter,
+	})
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 

@@ -72,7 +72,10 @@ func (t *pipelineTunnel) Healthy(context.Context) error {
 func TestRequestPipelineReserveAndSettleWithReservationManager(t *testing.T) {
 	reservation := &platform.BudgetReservation{ID: "reservation-1"}
 	manager := &pipelineBudgetManager{reservation: reservation}
-	pipeline := NewRequestPipeline(nil, manager, &testWallets{}, nil)
+	pipeline := NewRequestPipeline(nil, nil, manager, BillingCapabilities{
+		BudgetReservations:      manager,
+		BudgetReservationPolicy: CapabilityFailClosed,
+	}, &testWallets{}, nil)
 	authInfo := &platform.AuthContext{TenantID: "tenant-1"}
 	estimated := platform.UsageCostBreakdown{TotalCostIRR: 1000}
 
@@ -101,7 +104,10 @@ func TestRequestPipelineReserveAndSettleWithReservationManager(t *testing.T) {
 func TestRequestPipelineExternalBillingSkipsReserveAndReleasesExistingReservation(t *testing.T) {
 	reservation := &platform.BudgetReservation{ID: "reservation-1"}
 	manager := &pipelineBudgetManager{reservation: reservation}
-	pipeline := NewRequestPipeline(nil, manager, nil, nil)
+	pipeline := NewRequestPipeline(nil, nil, manager, BillingCapabilities{
+		BudgetReservations:      manager,
+		BudgetReservationPolicy: CapabilityFailClosed,
+	}, nil, nil)
 
 	actualReservation, err := pipeline.Reserve(t.Context(), BudgetRequest{
 		BillingMode: platform.BillingModeExternalBilled,
@@ -121,7 +127,9 @@ func TestRequestPipelineExternalBillingSkipsReserveAndReleasesExistingReservatio
 
 func TestRequestPipelineFallsBackToWalletDebit(t *testing.T) {
 	wallets := &testWallets{}
-	pipeline := NewRequestPipeline(nil, &testBudgeter{}, wallets, nil)
+	pipeline := NewRequestPipeline(nil, nil, &testBudgeter{}, BillingCapabilities{
+		BudgetReservationPolicy: CapabilityFailOpen,
+	}, wallets, nil)
 	actual := platform.UsageCostBreakdown{TotalCostIRR: 500}
 
 	err := pipeline.Settle(t.Context(), SettlementRequest{
@@ -144,7 +152,7 @@ func TestRequestPipelineDispatchKeepsProviderResponseRaw(t *testing.T) {
 		Body:       []byte(`{"provider_specific":true}`),
 	}
 	tunnel := &pipelineTunnel{response: response}
-	pipeline := NewRequestPipeline(tunnel, &testBudgeter{}, nil, nil)
+	pipeline := NewRequestPipeline(tunnel, nil, &testBudgeter{}, BillingCapabilities{}, nil, nil)
 	request := platform.TunnelRequest{RequestID: "request-1", Body: []byte(`{"raw":true}`)}
 
 	actual, err := pipeline.Dispatch(t.Context(), request)

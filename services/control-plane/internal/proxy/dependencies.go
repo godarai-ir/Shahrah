@@ -4,6 +4,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
@@ -32,15 +33,88 @@ type anthropicModelRuntimeProfileResolver interface {
 	) ([]platform.ModelRuntimeProfileBinding, error)
 }
 
+// CapabilityPolicy defines how an unavailable optional gateway capability is handled.
+type CapabilityPolicy string
+
+const (
+	// CapabilityDisabled makes the capability intentionally unavailable.
+	CapabilityDisabled CapabilityPolicy = "disabled"
+	// CapabilityFailOpen uses the compatibility path when the capability is unavailable.
+	CapabilityFailOpen CapabilityPolicy = "fail_open"
+	// CapabilityFailClosed rejects work when the capability is unavailable.
+	CapabilityFailClosed CapabilityPolicy = "fail_closed"
+)
+
+// BillingCapabilities declares optional billing behavior used by the request pipeline.
+type BillingCapabilities struct {
+	MeteredUsage             meteredUsageBudgeter
+	MeteredUsagePolicy       CapabilityPolicy
+	DeploymentPricing        deploymentPricingBudgeter
+	RequireDeploymentPricing bool
+	BudgetReservations       budgetReservationManager
+	BudgetReservationPolicy  CapabilityPolicy
+	BatchUsage               batchUsageFinalizer
+	BatchUsagePolicy         CapabilityPolicy
+}
+
+// Validate verifies that required billing capabilities are available at startup.
+func (c BillingCapabilities) Validate() error {
+	if c.RequireDeploymentPricing && c.DeploymentPricing == nil {
+		return errors.New("deployment pricing capability is required")
+	}
+
+	if err := validateCapability("metered usage pricing", c.MeteredUsagePolicy, c.MeteredUsage != nil); err != nil {
+		return err
+	}
+
+	if err := validateCapability("budget reservations", c.BudgetReservationPolicy, c.BudgetReservations != nil); err != nil {
+		return err
+	}
+
+	return validateCapability("batch usage finalization", c.BatchUsagePolicy, c.BatchUsage != nil)
+}
+
+func validateCapability(name string, policy CapabilityPolicy, available bool) error {
+	if policy == "" {
+		policy = CapabilityDisabled
+	}
+
+	switch policy {
+	case CapabilityDisabled, CapabilityFailOpen:
+		return nil
+	case CapabilityFailClosed:
+		if !available {
+			return fmt.Errorf("%s capability is required by fail-closed policy", name)
+		}
+
+		return nil
+	default:
+		return fmt.Errorf("unsupported %s capability policy %q", name, policy)
+	}
+}
+
+func compatibilityBillingCapabilities() BillingCapabilities {
+	return BillingCapabilities{
+		MeteredUsagePolicy:      CapabilityFailOpen,
+		BudgetReservationPolicy: CapabilityFailOpen,
+		BatchUsagePolicy:        CapabilityDisabled,
+	}
+}
+
 // BaseHandlerDependencies groups shared proxy handler dependencies.
 type BaseHandlerDependencies struct {
 	Router                   *router.Router
 	Tunnel                   platform.TunnelTransport
+	RawTunnel                platform.TunnelRawTransport
 	Billing                  budgeter
+	BillingCapabilities      BillingCapabilities
 	Wallets                  walletStore
 	AnthropicRuntimeProfiles anthropicModelRuntimeProfileResolver
 	ProviderResources        providerNativeResourceStore
+	AnthropicResources       anthropicNativeResourceStore
+	MistralResources         mistralBatchResourceStore
 	Deployments              responseDeploymentLister
+	ResponseProviderAuth     responseProviderAuthResolver
 	RequestLogger            RequestLogger
 	SpendLogger              SpendLogger
 	Logger                   *zap.Logger
@@ -92,7 +166,7 @@ func (d BaseHandlerDependencies) metricEmitter() func(input metricsobs.BuildInpu
 }
 
 func (d BaseHandlerDependencies) requestPipeline() *RequestPipeline {
-	return NewRequestPipeline(d.Tunnel, d.Billing, d.Wallets, d.Logger)
+	return NewRequestPipeline(d.Tunnel, d.RawTunnel, d.Billing, d.BillingCapabilities, d.Wallets, d.Logger)
 }
 
 func newChatVirtualModelDeps(store interface {

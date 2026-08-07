@@ -459,9 +459,14 @@ func TestBillingService_ShouldChargeImageUsageWhenOnlyTotalTokensAreReturned(t *
 func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := testcache.New(t, logger)
-	svc := billing.NewService(memCache, &walletStoreStub{
+	store := &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 10},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}
+	svc := billing.NewServiceWithDependencies(billing.Dependencies{
+		Cache:         memCache,
+		BudgetWindows: memCache,
+		Wallets:       store,
 	}, 850000, "test")
 
 	err := svc.CheckBudget(context.Background(), &platform.AuthContext{
@@ -473,9 +478,14 @@ func TestBillingService_ShouldRejectWhenWalletBalanceIsInsufficient(t *testing.T
 func TestBillingService_ShouldAllowWhenWalletBalanceIsSufficient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	memCache, _ := testcache.New(t, logger)
-	svc := billing.NewService(memCache, &walletStoreStub{
+	store := &walletStoreStub{
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
+	}
+	svc := billing.NewServiceWithDependencies(billing.Dependencies{
+		Cache:         memCache,
+		BudgetWindows: memCache,
+		Wallets:       store,
 	}, 850000, "test")
 
 	err := svc.CheckBudget(context.Background(), &platform.AuthContext{
@@ -491,7 +501,11 @@ func TestBillingService_ShouldCacheWalletForBudgetChecks(t *testing.T) {
 		wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000000},
 		rate:   &platform.ExchangeRate{USDtoIRR: 850000, Source: "test"},
 	}
-	svc := billing.NewService(memCache, store, 850000, "test")
+	svc := billing.NewServiceWithDependencies(billing.Dependencies{
+		Cache:         memCache,
+		BudgetWindows: memCache,
+		Wallets:       store,
+	}, 850000, "test")
 
 	for i := 0; i < 2; i++ {
 		err := svc.CheckBudget(context.Background(), &platform.AuthContext{
@@ -537,7 +551,7 @@ func TestBillingService_ShouldAllowTrialWhenSubscriptionQuotaRemains(t *testing.
 			},
 		},
 	}
-	svc := billing.NewService(memCache, store, 850000, "test")
+	svc := billing.NewServiceWithRepositories(memCache, store, store, 850000, "test")
 
 	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
 	require.NoError(t, err)
@@ -567,7 +581,7 @@ func TestBillingService_ShouldRejectWhenSubscriptionQuotaIsConsumed(t *testing.T
 			},
 		},
 	}
-	svc := billing.NewService(memCache, store, 850000, "test")
+	svc := billing.NewServiceWithRepositories(memCache, store, store, 850000, "test")
 
 	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
 	assert.ErrorIs(t, err, billing.ErrRateLimitExceeded)
@@ -589,7 +603,7 @@ func TestBillingService_ShouldRejectInactiveSubscription(t *testing.T) {
 			Features:     map[string]interface{}{},
 		},
 	}
-	svc := billing.NewService(memCache, store, 850000, "test")
+	svc := billing.NewServiceWithRepositories(memCache, store, store, 850000, "test")
 
 	res, err := svc.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-4", 500)
 	assert.ErrorIs(t, err, billing.ErrSubscriptionInactive)

@@ -115,18 +115,26 @@ func (b *builder) buildStorage() error {
 	)
 	b.runtimeDeploymentStore = runtimeprofile.NewDeploymentStore(b.runtimeProfiles, store)
 
-	applicationRouter, routerErr := router.NewRouter(nil, b.cfg.RouterSettings, sharedCache, b.runtimeDeploymentStore, b.logger)
+	applicationRouter, routerErr := router.NewRouterWithDependencies(
+		nil,
+		b.cfg.RouterSettings,
+		sharedCache,
+		router.Dependencies{
+			DeploymentStore:                   b.runtimeDeploymentStore,
+			ProviderAccountAuthResolver:       b.runtimeDeploymentStore,
+			ProviderAccountCredentialPolicy:   router.ProviderAccountCredentialsFailOpen,
+			RequireProviderAccountCredentials: true,
+			PlatformCredentials:               b.credentialRuntime.manager,
+			PlatformCredentialMode:            b.credentialRuntime.mode,
+			PlatformCredentialEnvironment:     strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_ENVIRONMENT")),
+		},
+		b.logger,
+	)
 	if routerErr != nil {
 		return fmt.Errorf("initialize router: %w", routerErr)
 	}
 
 	b.router = applicationRouter
-
-	b.router.SetPlatformCredentialResolver(
-		b.credentialRuntime.manager,
-		b.credentialRuntime.mode,
-		strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_ENVIRONMENT")),
-	)
 
 	b.authMiddleware = auth.NewAuthMiddlewareWithRuntimeProfiles(
 		store,
@@ -140,11 +148,14 @@ func (b *builder) buildStorage() error {
 		RuntimeProfiles: b.runtimeProfiles,
 	})
 
-	b.billing = billing.NewServiceWithRepositoriesAndRuntimeProfiles(
-		sharedCache,
-		store.WalletRepository,
-		store.PlanRepository,
-		b.runtimeProfiles,
+	b.billing = billing.NewServiceWithDependencies(
+		billing.Dependencies{
+			Cache:           sharedCache,
+			BudgetWindows:   sharedCache,
+			Wallets:         store.WalletRepository,
+			Entitlements:    store.PlanRepository,
+			RuntimeProfiles: b.runtimeProfiles,
+		},
 		b.cfg.BillingSettings.DefaultUSDtoIRR,
 		b.cfg.BillingSettings.RateSource,
 	)
@@ -160,9 +171,14 @@ func (b *builder) buildStorage() error {
 	return pricingErr
 }
 
-func (b *builder) buildCache() (cache.Cache, error) {
+type controlPlaneCache interface {
+	cache.Cache
+	billing.BudgetWindowCache
+}
+
+func (b *builder) buildCache() (controlPlaneCache, error) {
 	var (
-		sharedCache cache.Cache
+		sharedCache controlPlaneCache
 		err         error
 	)
 

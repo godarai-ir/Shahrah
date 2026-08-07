@@ -33,7 +33,8 @@ type entitlementStore interface {
 	CheckAndIncrementTenantUsageCounter(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error)
 }
 
-type budgetWindowCache interface {
+// BudgetWindowCache provides atomic spend-allowance operations.
+type BudgetWindowCache interface {
 	SeedBudgetWindow(ctx context.Context, seed cache.BudgetWindowSeed) (*cache.BudgetWindowResult, error)
 	ReserveBudget(ctx context.Context, req cache.BudgetReservationRequest) (*cache.BudgetWindowResult, error)
 	CommitBudget(ctx context.Context, req cache.BudgetCommitRequest) (*cache.BudgetWindowResult, error)
@@ -57,6 +58,7 @@ type PricingEngine struct {
 // BudgetService owns budget admission, reservation, and settlement.
 type BudgetService struct {
 	cache                cache.Cache
+	budgetWindows        BudgetWindowCache
 	store                walletStore
 	entitlements         entitlementStore
 	runtimeProfiles      RuntimeProfileStore
@@ -79,6 +81,15 @@ type Service struct {
 	*RateLimiter
 }
 
+// Dependencies declares the storage and runtime capabilities used by billing.
+type Dependencies struct {
+	Cache           cache.Cache
+	BudgetWindows   BudgetWindowCache
+	Wallets         walletStore
+	Entitlements    entitlementStore
+	RuntimeProfiles RuntimeProfileStore
+}
+
 // NewService creates a billing enforcement service.
 func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string) *Service {
 	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv(), loadPricingCacheConfigFromEnv())
@@ -92,19 +103,11 @@ func NewServiceWithRuntimeProfiles(
 	defaultUSDtoIRR float64,
 	source string,
 ) *Service {
-	var entitlements entitlementStore
-	if resolvedEntitlements, ok := store.(entitlementStore); ok {
-		entitlements = resolvedEntitlements
-	}
-
-	return NewServiceWithRepositoriesAndRuntimeProfiles(
-		c,
-		store,
-		entitlements,
-		runtimeProfiles,
-		defaultUSDtoIRR,
-		source,
-	)
+	return NewServiceWithDependencies(Dependencies{
+		Cache:           c,
+		Wallets:         store,
+		RuntimeProfiles: runtimeProfiles,
+	}, defaultUSDtoIRR, source)
 }
 
 // NewServiceWithRepositories creates a billing service with explicit feature repositories.
@@ -134,11 +137,18 @@ func NewServiceWithRepositoriesAndRuntimeProfiles(
 	defaultUSDtoIRR float64,
 	source string,
 ) *Service {
+	return NewServiceWithDependencies(Dependencies{
+		Cache:           c,
+		Wallets:         wallets,
+		Entitlements:    entitlements,
+		RuntimeProfiles: runtimeProfiles,
+	}, defaultUSDtoIRR, source)
+}
+
+// NewServiceWithDependencies creates a billing service with explicit capabilities.
+func NewServiceWithDependencies(dependencies Dependencies, defaultUSDtoIRR float64, source string) *Service {
 	return newService(
-		c,
-		wallets,
-		entitlements,
-		runtimeProfiles,
+		dependencies,
 		defaultUSDtoIRR,
 		source,
 		loadExchangeRateCacheConfigFromEnv(),
@@ -153,19 +163,11 @@ func NewServiceWithExchangeRateCacheConfig(c cache.Cache, store walletStore, def
 
 // NewServiceWithCacheConfig creates a billing service with explicit hot-path cache settings.
 func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig, pricingCacheConfig PricingCacheConfig) *Service {
-	var entitlements entitlementStore
-	if resolvedEntitlements, ok := store.(entitlementStore); ok {
-		entitlements = resolvedEntitlements
-	}
-
-	return newService(c, store, entitlements, nil, defaultUSDtoIRR, source, exchangeRateCacheConfig, pricingCacheConfig)
+	return newService(Dependencies{Cache: c, Wallets: store}, defaultUSDtoIRR, source, exchangeRateCacheConfig, pricingCacheConfig)
 }
 
 func newService(
-	c cache.Cache,
-	wallets walletStore,
-	entitlements entitlementStore,
-	runtimeProfiles RuntimeProfileStore,
+	dependencies Dependencies,
 	defaultUSDtoIRR float64,
 	source string,
 	exchangeRateCacheConfig ExchangeRateCacheConfig,
@@ -179,22 +181,23 @@ func newService(
 	return &Service{
 		PricingEngine: &PricingEngine{
 			defaultRate:       defaultRate,
-			exchangeRateCache: newExchangeRateCache(wallets, c, defaultRate, exchangeRateCacheConfig),
-			pricingCache:      newPricingCache(c, pricingCacheConfig, modelPriceFromRegistry),
+			exchangeRateCache: newExchangeRateCache(dependencies.Wallets, dependencies.Cache, defaultRate, exchangeRateCacheConfig),
+			pricingCache:      newPricingCache(dependencies.Cache, pricingCacheConfig, modelPriceFromRegistry),
 			catalogPricing:    make(map[string]*CatalogPricingSnapshotManager),
 		},
 		BudgetService: &BudgetService{
-			cache:                c,
-			store:                wallets,
-			entitlements:         entitlements,
-			runtimeProfiles:      runtimeProfiles,
+			cache:                dependencies.Cache,
+			budgetWindows:        dependencies.BudgetWindows,
+			store:                dependencies.Wallets,
+			entitlements:         dependencies.Entitlements,
+			runtimeProfiles:      dependencies.RuntimeProfiles,
 			walletCacheTTL:       secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
 			budgetWindowTTLGrace: secondsEnvOrDefault("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 86400*time.Second),
 		},
 		RateLimiter: &RateLimiter{
-			cache:             c,
-			entitlements:      entitlements,
-			runtimeProfiles:   runtimeProfiles,
+			cache:             dependencies.Cache,
+			entitlements:      dependencies.Entitlements,
+			runtimeProfiles:   dependencies.RuntimeProfiles,
 			rateLimitFailOpen: boolEnvOrDefault("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 		},
 	}

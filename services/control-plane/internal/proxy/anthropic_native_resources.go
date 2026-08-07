@@ -161,8 +161,8 @@ func (h *AnthropicNativeHandler) finalizeBatchResults(ctx context.Context, body 
 }
 
 func (h *AnthropicNativeHandler) finalizeBatchResultsReader(ctx context.Context, reader io.Reader, mapping *platform.AnthropicNativeResourceMapping) error {
-	finalizer, ok := h.billing.(batchUsageFinalizer)
-	if !ok {
+	finalizer := h.pipeline.batchUsageFinalizer()
+	if finalizer == nil {
 		return fmt.Errorf("batch billing finalizer is unavailable")
 	}
 
@@ -354,8 +354,8 @@ func (h *AnthropicNativeHandler) handleRawOperation(c *fiber.Ctx, tenantID strin
 			return
 		}
 
-		finalizer, ok := h.billing.(batchUsageFinalizer)
-		if !ok {
+		finalizer := h.pipeline.batchUsageFinalizer()
+		if finalizer == nil {
 			return
 		}
 

@@ -12,14 +12,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func newPolicyTestService(c cache.Cache, runtimeProfiles RuntimeProfileStore) *Service {
-	return NewServiceWithRuntimeProfiles(
-		c,
-		&budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}},
-		runtimeProfiles,
-		850000,
-		"test",
-	)
+func newPolicyTestService(c *cache.MemoryCache, runtimeProfiles RuntimeProfileStore) *Service {
+	return NewServiceWithDependencies(Dependencies{
+		Cache:           c,
+		BudgetWindows:   c,
+		Wallets:         &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}},
+		RuntimeProfiles: runtimeProfiles,
+	}, 850000, "test")
 }
 
 func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {

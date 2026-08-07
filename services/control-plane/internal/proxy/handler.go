@@ -60,18 +60,13 @@ type meteredUsageBudgeter interface {
 
 func priceMeteredUsage(
 	ctx context.Context,
-	budget budgeter,
+	pipeline *RequestPipeline,
 	model string,
 	dimension string,
 	quantity string,
 	estimated platform.UsageCostBreakdown,
 ) (platform.UsageCostBreakdown, error) {
-	metered, ok := budget.(meteredUsageBudgeter)
-	if !ok {
-		return estimated, nil
-	}
-
-	return metered.PriceMeteredUsage(
+	return pipeline.priceMeteredUsage(
 		ctx,
 		model,
 		dimension,
@@ -82,20 +77,11 @@ func priceMeteredUsage(
 
 func applyDeploymentPricingOverride(
 	ctx context.Context,
-	budget budgeter,
+	pipeline *RequestPipeline,
 	estimated platform.UsageCostBreakdown,
 	deployment *router.Deployment,
 ) (platform.UsageCostBreakdown, error) {
-	if deployment == nil || deployment.PricingMode != platform.PricingModePrivate {
-		return estimated, nil
-	}
-
-	overrider, ok := budget.(deploymentPricingBudgeter)
-	if !ok {
-		return platform.UsageCostBreakdown{}, fmt.Errorf("private pricing override is unavailable")
-	}
-
-	return overrider.ApplyPricingOverride(ctx, estimated, deployment.EffectivePricing)
+	return pipeline.applyDeploymentPricingOverride(ctx, estimated, deployment)
 }
 
 type walletStore interface {
@@ -166,14 +152,15 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 
 	return NewChatCompletionHandlerWithDependencies(ChatCompletionDependencies{
 		Base: BaseHandlerDependencies{
-			Router:        llmRouter,
-			Tunnel:        tunnel,
-			Billing:       budget,
-			Wallets:       wallets,
-			RequestLogger: logs,
-			SpendLogger:   logs,
-			Logger:        logger,
-			EmitMetric:    metricEmitter,
+			Router:              llmRouter,
+			Tunnel:              tunnel,
+			Billing:             budget,
+			BillingCapabilities: compatibilityBillingCapabilities(),
+			Wallets:             wallets,
+			RequestLogger:       logs,
+			SpendLogger:         logs,
+			Logger:              logger,
+			EmitMetric:          metricEmitter,
 		},
 	})
 }

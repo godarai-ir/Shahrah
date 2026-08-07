@@ -23,17 +23,34 @@ func (b *builder) buildGateway() error {
 	}
 
 	baseDependencies := proxy.BaseHandlerDependencies{
-		Router:                   b.router,
-		Tunnel:                   b.tunnel,
-		Billing:                  b.billing,
+		Router:    b.router,
+		Tunnel:    b.tunnel,
+		RawTunnel: b.tunnel,
+		Billing:   b.billing,
+		BillingCapabilities: proxy.BillingCapabilities{
+			MeteredUsage:             b.billing,
+			MeteredUsagePolicy:       proxy.CapabilityFailClosed,
+			DeploymentPricing:        b.billing,
+			RequireDeploymentPricing: true,
+			BudgetReservations:       b.billing,
+			BudgetReservationPolicy:  proxy.CapabilityFailClosed,
+			BatchUsage:               b.billing,
+			BatchUsagePolicy:         proxy.CapabilityFailClosed,
+		},
 		Wallets:                  b.store,
 		AnthropicRuntimeProfiles: b.anthropicPricing,
 		ProviderResources:        b.store,
+		AnthropicResources:       b.store,
+		MistralResources:         b.store,
 		Deployments:              b.runtimeDeploymentStore,
+		ResponseProviderAuth:     b.runtimeDeploymentStore,
 		RequestLogger:            b.requestLogger,
 		SpendLogger:              b.spendLogger,
 		Logger:                   b.logger,
 		EmitMetric:               b.emitMetric,
+	}
+	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {
+		return fmt.Errorf("validate gateway billing capabilities: %w", err)
 	}
 
 	chatHandler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{

@@ -51,14 +51,15 @@ func NewCompletionsHandler(llmRouter *router.Router, tunnel platform.TunnelTrans
 	}
 
 	return NewCompletionsHandlerWithDependencies(BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunnel,
-		Billing:       billing,
-		Wallets:       wallets,
-		RequestLogger: logs,
-		SpendLogger:   logs,
-		Logger:        logger,
-		EmitMetric:    metricEmitter,
+		Router:              llmRouter,
+		Tunnel:              tunnel,
+		Billing:             billing,
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             wallets,
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              logger,
+		EmitMetric:          metricEmitter,
 	})
 }
 
@@ -232,7 +233,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI FIM completions are disabled", "provider_disabled")
 	}
 
-	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}

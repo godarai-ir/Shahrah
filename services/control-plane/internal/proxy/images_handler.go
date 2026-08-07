@@ -52,14 +52,15 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 	}
 
 	return NewImagesHandlerWithDependencies(BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunnel,
-		Billing:       billing,
-		Wallets:       wallets,
-		RequestLogger: logs,
-		SpendLogger:   logs,
-		Logger:        logger,
-		EmitMetric:    metricEmitter,
+		Router:              llmRouter,
+		Tunnel:              tunnel,
+		Billing:             billing,
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             wallets,
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              logger,
+		EmitMetric:          metricEmitter,
 	})
 }
 
@@ -192,7 +193,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		estimated = finalizedEstimate
 	}
 
-	estimated, err = applyDeploymentPricingOverride(c.Context(), h.billing, estimated, dep)
+	estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
 	if err != nil {
 		return writeBillingEstimateError(c, err)
 	}

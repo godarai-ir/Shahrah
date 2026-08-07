@@ -568,8 +568,8 @@ func (h *ResponsesHandler) hydrateResponseDeploymentAuth(
 		return deployment, nil
 	}
 
-	resolver, ok := h.deployments.(responseProviderAuthResolver)
-	if !ok {
+	resolver := h.providerAuth
+	if resolver == nil {
 		return platform.Deployment{}, fmt.Errorf("responses provider account credential resolution is unavailable")
 	}
 

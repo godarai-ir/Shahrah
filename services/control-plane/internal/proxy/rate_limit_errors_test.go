@@ -78,7 +78,11 @@ func TestBudgetCheckErrorResponseMapsBudgetUnavailableToServiceUnavailable(t *te
 func TestRequestPipelineReserveErrorCanBeWrittenAtHTTPEdge(t *testing.T) {
 	app := fiber.New()
 	reachedProvider := false
-	pipeline := NewRequestPipeline(nil, &rejectingBudgetManager{}, nil, nil)
+	manager := &rejectingBudgetManager{}
+	pipeline := NewRequestPipeline(nil, nil, manager, BillingCapabilities{
+		BudgetReservations:      manager,
+		BudgetReservationPolicy: CapabilityFailClosed,
+	}, nil, nil)
 
 	app.Post("/", func(c *fiber.Ctx) error {
 		_, err := pipeline.Reserve(c.Context(), budgetRequestFromHTTP(

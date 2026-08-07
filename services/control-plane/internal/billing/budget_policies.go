@@ -152,7 +152,7 @@ func (s *BudgetService) budgetPolicyTargets(ctx context.Context, auth *platform.
 	return targets, nil
 }
 
-func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache budgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
+func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget, reservationID string, now time.Time) (*cache.BudgetWindowResult, error) {
 	if !target.seedFromWallet {
 		if seedErr := s.seedBudgetTarget(ctx, budgetCache, target); seedErr != nil {
 			return nil, seedErr
@@ -194,7 +194,7 @@ func (s *BudgetService) reserveBudgetTarget(ctx context.Context, budgetCache bud
 	return result, nil
 }
 
-func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache budgetWindowCache, target budgetReservationTarget) error {
+func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache BudgetWindowCache, target budgetReservationTarget) error {
 	if target.seedFromWallet {
 		return s.seedBudgetWindow(ctx, budgetCache, target.tenantID, target.WindowID, target.WindowKey, target.expiresAt, target.ttl)
 	}
@@ -217,7 +217,7 @@ func (s *BudgetService) seedBudgetTarget(ctx context.Context, budgetCache budget
 	return nil
 }
 
-func (s *BudgetService) releaseBudgetTargetsBestEffort(ctx context.Context, budgetCache budgetWindowCache, targets []budgetReservationTarget, now time.Time) error {
+func (s *BudgetService) releaseBudgetTargetsBestEffort(ctx context.Context, budgetCache BudgetWindowCache, targets []budgetReservationTarget, now time.Time) error {
 	var releaseErrors []error
 
 	for i := len(targets) - 1; i >= 0; i-- {

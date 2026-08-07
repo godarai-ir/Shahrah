@@ -57,16 +57,42 @@ type DeploymentStore interface {
 	ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error)
 }
 
-type byokCredentialResolver interface {
+// ProviderAccountAPIKeyResolver resolves legacy API-key-only provider accounts.
+type ProviderAccountAPIKeyResolver interface {
 	ResolveProviderAccountAPIKey(ctx context.Context, tenantID string, modelFQN string) (string, error)
 }
 
-type byokAuthResolver interface {
+// ProviderAccountAuthResolver resolves provider-account authentication material.
+type ProviderAccountAuthResolver interface {
 	ResolveProviderAccountAuth(
 		ctx context.Context,
 		tenantID string,
 		modelFQN string,
 	) (*platform.ResolvedProviderAuth, error)
+}
+
+// ProviderAccountCredentialPolicy defines how provider-account resolution failures are handled.
+type ProviderAccountCredentialPolicy string
+
+const (
+	// ProviderAccountCredentialsDisabled disables provider-account credential resolution.
+	ProviderAccountCredentialsDisabled ProviderAccountCredentialPolicy = "disabled"
+	// ProviderAccountCredentialsFailOpen keeps shared provider credentials when resolution fails.
+	ProviderAccountCredentialsFailOpen ProviderAccountCredentialPolicy = "fail_open"
+	// ProviderAccountCredentialsFailClosed rejects routing when resolution fails.
+	ProviderAccountCredentialsFailClosed ProviderAccountCredentialPolicy = "fail_closed"
+)
+
+// Dependencies declares Router capabilities that are not part of static routing configuration.
+type Dependencies struct {
+	DeploymentStore                   DeploymentStore
+	ProviderAccountAuthResolver       ProviderAccountAuthResolver
+	LegacyProviderAccountAPIKey       ProviderAccountAPIKeyResolver
+	ProviderAccountCredentialPolicy   ProviderAccountCredentialPolicy
+	RequireProviderAccountCredentials bool
+	PlatformCredentials               *platformcredentials.Manager
+	PlatformCredentialMode            string
+	PlatformCredentialEnvironment     string
 }
 
 // Router is the main LLM request router.
@@ -81,6 +107,9 @@ type Router struct {
 	cache                         cache.Cache
 	logger                        *zap.Logger
 	store                         DeploymentStore
+	providerAccountAuthResolver   ProviderAccountAuthResolver
+	providerAccountAPIKeyResolver ProviderAccountAPIKeyResolver
+	providerAccountPolicy         ProviderAccountCredentialPolicy
 	dynamicTTL                    time.Duration
 	loadGroup                     singleflight.Group
 	platformCredentials           *platformcredentials.Manager
@@ -91,33 +120,58 @@ type Router struct {
 	deploymentFallbackActive      map[string]bool
 }
 
-func (r *Router) SetPlatformCredentialResolver(manager *platformcredentials.Manager, mode, environment string) {
-	r.platformCredentials = manager
-
-	r.platformCredentialMode = strings.TrimSpace(mode)
-	if r.platformCredentialMode == "" {
-		r.platformCredentialMode = platform.ProviderCredentialModeEnv
-	}
-
-	r.platformCredentialEnvironment = strings.TrimSpace(environment)
-	if r.platformCredentialEnvironment == "" {
-		r.platformCredentialEnvironment = platform.ProviderCredentialEnvironmentProd
-	}
-}
-
 // NewRouter creates a new Router instance.
 func NewRouter(modelList []config.ModelDeployment, settings config.RouterSettings, c cache.Cache, store DeploymentStore, logger *zap.Logger) (*Router, error) {
+	return NewRouterWithDependencies(modelList, settings, c, Dependencies{
+		DeploymentStore:                 store,
+		ProviderAccountCredentialPolicy: ProviderAccountCredentialsDisabled,
+	}, logger)
+}
+
+// NewRouterWithDependencies creates a Router with explicit optional capability policies.
+func NewRouterWithDependencies(
+	modelList []config.ModelDeployment,
+	settings config.RouterSettings,
+	c cache.Cache,
+	dependencies Dependencies,
+	logger *zap.Logger,
+) (*Router, error) {
+	providerAccountPolicy := dependencies.ProviderAccountCredentialPolicy
+	if providerAccountPolicy == "" {
+		providerAccountPolicy = ProviderAccountCredentialsDisabled
+	}
+
+	if err := validateDependencies(dependencies, providerAccountPolicy); err != nil {
+		return nil, err
+	}
+
+	platformCredentialMode := strings.TrimSpace(dependencies.PlatformCredentialMode)
+	if platformCredentialMode == "" {
+		platformCredentialMode = platform.ProviderCredentialModeEnv
+	}
+
+	platformCredentialEnvironment := strings.TrimSpace(dependencies.PlatformCredentialEnvironment)
+	if platformCredentialEnvironment == "" {
+		platformCredentialEnvironment = platform.ProviderCredentialEnvironmentProd
+	}
+
 	r := &Router{
-		deployments:              make(map[string][]*Deployment),
-		fallbacks:                make(map[string][]string),
-		numRetries:               settings.NumRetries,
-		cache:                    c,
-		logger:                   logger,
-		store:                    store,
-		dynamicTTL:               secondsEnvOrDefault("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", 30*time.Second),
-		lastKnownGoodDeployments: make(map[string][]platform.Deployment),
-		lastKnownGoodRoutes:      make(map[string]*Deployment),
-		deploymentFallbackActive: make(map[string]bool),
+		deployments:                   make(map[string][]*Deployment),
+		fallbacks:                     make(map[string][]string),
+		numRetries:                    settings.NumRetries,
+		cache:                         c,
+		logger:                        logger,
+		store:                         dependencies.DeploymentStore,
+		providerAccountAuthResolver:   dependencies.ProviderAccountAuthResolver,
+		providerAccountAPIKeyResolver: dependencies.LegacyProviderAccountAPIKey,
+		providerAccountPolicy:         providerAccountPolicy,
+		platformCredentials:           dependencies.PlatformCredentials,
+		platformCredentialMode:        platformCredentialMode,
+		platformCredentialEnvironment: platformCredentialEnvironment,
+		dynamicTTL:                    secondsEnvOrDefault("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", 30*time.Second),
+		lastKnownGoodDeployments:      make(map[string][]platform.Deployment),
+		lastKnownGoodRoutes:           make(map[string]*Deployment),
+		deploymentFallbackActive:      make(map[string]bool),
 	}
 
 	// Initialize cooldown cache
@@ -201,6 +255,29 @@ func NewRouter(modelList []config.ModelDeployment, settings config.RouterSetting
 	}
 
 	return r, nil
+}
+
+func validateDependencies(dependencies Dependencies, policy ProviderAccountCredentialPolicy) error {
+	switch policy {
+	case ProviderAccountCredentialsDisabled,
+		ProviderAccountCredentialsFailOpen,
+		ProviderAccountCredentialsFailClosed:
+	default:
+		return fmt.Errorf("unsupported provider-account credential policy %q", policy)
+	}
+
+	resolverAvailable := dependencies.ProviderAccountAuthResolver != nil ||
+		dependencies.LegacyProviderAccountAPIKey != nil
+	if dependencies.RequireProviderAccountCredentials && policy == ProviderAccountCredentialsDisabled {
+		return errors.New("required provider-account credentials cannot be disabled")
+	}
+
+	if (dependencies.RequireProviderAccountCredentials || policy == ProviderAccountCredentialsFailClosed) &&
+		!resolverAvailable {
+		return errors.New("provider-account credential resolver is required")
+	}
+
+	return nil
 }
 
 // Route selects a deployment for the given model name.
@@ -475,7 +552,10 @@ func dynamicDeploymentNeedsResolvedCredential(deployment *Deployment) bool {
 }
 
 func (r *Router) applyCredentials(ctx context.Context, tenantID, modelName string, selected *Deployment) (*Deployment, error) {
-	selected = r.applyBYOK(ctx, tenantID, modelName, selected)
+	selected, err := r.applyBYOK(ctx, tenantID, modelName, selected)
+	if err != nil {
+		return nil, err
+	}
 
 	noCredential := selected != nil &&
 		selected.ProviderAuth != nil &&
@@ -949,17 +1029,11 @@ func (r *Router) canResolveProviderAccountCredential(modelName string) bool {
 }
 
 func (r *Router) hasProviderAccountCredentialResolver() bool {
-	if r == nil || r.store == nil {
+	if r == nil || r.providerAccountPolicy == ProviderAccountCredentialsDisabled {
 		return false
 	}
 
-	if _, ok := r.store.(byokAuthResolver); ok {
-		return true
-	}
-
-	_, legacy := r.store.(byokCredentialResolver)
-
-	return legacy
+	return r.providerAccountAuthResolver != nil || r.providerAccountAPIKeyResolver != nil
 }
 
 func (r *Router) findSharedProviderDeployment(provider string, model string) *Deployment {
@@ -994,33 +1068,32 @@ func (r *Router) findSharedProviderDeployment(provider string, model string) *De
 	return wildcard
 }
 
-func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep *Deployment) *Deployment {
-	if dep == nil || r.store == nil || strings.TrimSpace(tenantID) == "" {
-		return dep
+func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep *Deployment) (*Deployment, error) {
+	if dep == nil || r.providerAccountPolicy == ProviderAccountCredentialsDisabled || strings.TrimSpace(tenantID) == "" {
+		return dep, nil
 	}
 
 	if !isModelFQN(modelName) {
-		return dep
+		return dep, nil
 	}
 
 	var resolved *platform.ResolvedProviderAuth
 
-	if resolver, ok := r.store.(byokAuthResolver); ok {
-		auth, err := resolver.ResolveProviderAccountAuth(ctx, tenantID, modelName)
+	if r.providerAccountAuthResolver != nil {
+		auth, err := r.providerAccountAuthResolver.ResolveProviderAccountAuth(ctx, tenantID, modelName)
 		if err != nil || auth == nil {
-			return dep
+			return r.handleProviderAccountResolutionFailure(dep, err)
 		}
 
 		resolved = auth
 	} else {
-		resolver, ok := r.store.(byokCredentialResolver)
-		if !ok {
-			return dep
+		if r.providerAccountAPIKeyResolver == nil {
+			return r.handleProviderAccountResolutionFailure(dep, errors.New("provider-account credential resolver is unavailable"))
 		}
 
-		apiKey, err := resolver.ResolveProviderAccountAPIKey(ctx, tenantID, modelName)
+		apiKey, err := r.providerAccountAPIKeyResolver.ResolveProviderAccountAPIKey(ctx, tenantID, modelName)
 		if err != nil || strings.TrimSpace(apiKey) == "" {
-			return dep
+			return r.handleProviderAccountResolutionFailure(dep, err)
 		}
 
 		resolved = &platform.ResolvedProviderAuth{
@@ -1031,7 +1104,7 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 
 	if resolved.Mode == string(platform.ProviderAuthModeAPIKey) &&
 		strings.TrimSpace(resolved.APIKey) == "" {
-		return dep
+		return r.handleProviderAccountResolutionFailure(dep, errors.New("resolved provider-account API key is empty"))
 	}
 
 	cloned := *dep
@@ -1047,7 +1120,19 @@ func (r *Router) applyBYOK(ctx context.Context, tenantID, modelName string, dep 
 	cloned.BillingMode = platform.BillingModeExternalBilled
 	cloned.ProviderAuth = resolved
 
-	return &cloned
+	return &cloned, nil
+}
+
+func (r *Router) handleProviderAccountResolutionFailure(dep *Deployment, err error) (*Deployment, error) {
+	if r.providerAccountPolicy == ProviderAccountCredentialsFailClosed {
+		if err == nil {
+			err = errors.New("provider-account credentials were not found")
+		}
+
+		return nil, fmt.Errorf("%w: %v", ErrDependencyUnavailable, err)
+	}
+
+	return dep, nil
 }
 
 func isModelFQN(model string) bool {

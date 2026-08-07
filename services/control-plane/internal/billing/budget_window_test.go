@@ -17,7 +17,11 @@ func TestReserveBudgetSeedsWalletOnceThenUsesAllowanceWindow(t *testing.T) {
 	}
 
 	store := &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 100}}
-	service := NewService(mem, store, 850000, "test")
+	service := NewServiceWithDependencies(Dependencies{
+		Cache:         mem,
+		BudgetWindows: mem,
+		Wallets:       store,
+	}, 850000, "test")
 
 	auth := &platform.AuthContext{TenantID: "tenant-1", TokenHash: "hash-1"}
 
@@ -62,7 +66,11 @@ func TestReserveBudgetReturnsBudgetExceededWhenAllowanceExhausted(t *testing.T) 
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
 
-	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 10}}, 850000, "test")
+	service := NewServiceWithDependencies(Dependencies{
+		Cache:         mem,
+		BudgetWindows: mem,
+		Wallets:       &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 10}},
+	}, 850000, "test")
 
 	_, err = service.ReserveBudget(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, platform.UsageCostBreakdown{TotalCostIRR: 11}, "req-1")
 	if !errors.Is(err, ErrBudgetExceeded) {

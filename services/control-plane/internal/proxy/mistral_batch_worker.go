@@ -40,8 +40,8 @@ func (h *MistralNativeHandler) RunBatchWorker(ctx context.Context, interval time
 		return
 	}
 
-	resources, ok := h.resources.(mistralBatchResourceStore)
-	if !ok || !h.pipeline.HasTransport() || h.billing == nil || !h.batchEnabled {
+	resources := h.resources
+	if resources == nil || !h.pipeline.HasTransport() || h.billing == nil || !h.batchEnabled {
 		return
 	}
 
@@ -204,20 +204,20 @@ func (h *MistralNativeHandler) finalizeMistralBatch(ctx context.Context, resourc
 			return fmt.Errorf("mistral OCR batch output did not report processed pages")
 		}
 
-		finalized, err = priceMeteredUsage(ctx, h.billing, mapping.EstimatedUsage.Model, "ocr_input_pages", fmt.Sprintf("%d", metrics.Pages), *mapping.EstimatedUsage)
+		finalized, err = priceMeteredUsage(ctx, h.pipeline, mapping.EstimatedUsage.Model, "ocr_input_pages", fmt.Sprintf("%d", metrics.Pages), *mapping.EstimatedUsage)
 	case "audio_transcriptions":
 		if metrics.AudioSeconds <= 0 {
 			return fmt.Errorf("mistral transcription batch output did not report audio seconds")
 		}
 
-		finalized, err = priceMeteredUsage(ctx, h.billing, mapping.EstimatedUsage.Model, "audio_input_seconds", fmt.Sprintf("%g", metrics.AudioSeconds), *mapping.EstimatedUsage)
+		finalized, err = priceMeteredUsage(ctx, h.pipeline, mapping.EstimatedUsage.Model, "audio_input_seconds", fmt.Sprintf("%g", metrics.AudioSeconds), *mapping.EstimatedUsage)
 	default:
 		if !metrics.HasTokenUsage {
 			return fmt.Errorf("mistral batch output did not report token usage")
 		}
 
-		finalizer, ok := h.billing.(batchUsageFinalizer)
-		if !ok {
+		finalizer := h.pipeline.batchUsageFinalizer()
+		if finalizer == nil {
 			return fmt.Errorf("mistral batch billing finalizer is unavailable")
 		}
 

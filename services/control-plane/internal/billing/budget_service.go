@@ -49,8 +49,8 @@ func (s *BudgetService) ReserveBudget(
 		return nil, ErrBudgetExceeded
 	}
 
-	budgetCache, ok := s.cache.(budgetWindowCache)
-	if !ok || budgetCache == nil {
+	budgetCache := s.budgetWindows
+	if budgetCache == nil {
 		return nil, ErrBudgetUnavailable
 	}
 
@@ -123,8 +123,8 @@ func (s *BudgetService) CommitBudget(
 		return nil
 	}
 
-	budgetCache, ok := s.cache.(budgetWindowCache)
-	if !ok || budgetCache == nil {
+	budgetCache := s.budgetWindows
+	if budgetCache == nil {
 		return ErrBudgetUnavailable
 	}
 
@@ -170,8 +170,8 @@ func (s *BudgetService) ReleaseBudget(
 		return nil
 	}
 
-	budgetCache, ok := s.cache.(budgetWindowCache)
-	if !ok || budgetCache == nil {
+	budgetCache := s.budgetWindows
+	if budgetCache == nil {
 		return ErrBudgetUnavailable
 	}
 
@@ -204,7 +204,7 @@ func (s *BudgetService) ReleaseBudget(
 
 func (s *BudgetService) seedBudgetWindow(
 	ctx context.Context,
-	budgetCache budgetWindowCache,
+	budgetCache BudgetWindowCache,
 	tenantID string,
 	windowID string,
 	windowKey string,

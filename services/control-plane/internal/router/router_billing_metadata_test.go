@@ -99,9 +99,17 @@ func TestRouterNoCredentialMockBypassesPlatformCredentialResolution(t *testing.T
 			Mode: string(platform.ProviderAuthModeNoCredential),
 		},
 	}}}
-	rt, err := NewRouter(nil, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, newRouterTestCache(t), store, zap.NewNop())
+	rt, err := NewRouterWithDependencies(
+		nil,
+		config.RouterSettings{CooldownTime: 60, NumRetries: 1},
+		newRouterTestCache(t),
+		Dependencies{
+			DeploymentStore:        store,
+			PlatformCredentialMode: platform.ProviderCredentialModeStore,
+		},
+		zap.NewNop(),
+	)
 	require.NoError(t, err)
-	rt.SetPlatformCredentialResolver(nil, platform.ProviderCredentialModeStore, platform.ProviderCredentialEnvironmentProd)
 
 	dep, err := rt.Route(context.Background(), "tenant_a", "mock:loadtest:chat")
 	require.NoError(t, err)

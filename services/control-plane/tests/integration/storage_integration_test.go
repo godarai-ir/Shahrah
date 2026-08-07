@@ -20,7 +20,6 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
-	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/management"
@@ -1598,7 +1597,7 @@ func createIntegrationTenant(t *testing.T, pool *pgxpool.Pool, slug string) *pla
 	return &tenant
 }
 
-func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, databaseURL string) (*fiber.App, *pgxpool.Pool) {
+func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache integrationCache, databaseURL string) (*fiber.App, *pgxpool.Pool) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -1623,15 +1622,20 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cach
 	}, memCache, store, logger)
 	require.NoError(t, err)
 
-	billingSvc := billing.NewService(memCache, store, 850000, "test")
-	baseProxyDeps := proxy.BaseHandlerDependencies{
-		Router:        llmRouter,
-		Tunnel:        tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
-		Billing:       billingSvc,
+	billingSvc := billing.NewServiceWithDependencies(billing.Dependencies{
+		Cache:         memCache,
+		BudgetWindows: memCache,
 		Wallets:       store,
-		RequestLogger: store,
-		SpendLogger:   store,
-		Logger:        logger,
+	}, 850000, "test")
+	baseProxyDeps := proxy.BaseHandlerDependencies{
+		Router:              llmRouter,
+		Tunnel:              tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Billing:             billingSvc,
+		BillingCapabilities: integrationBillingCapabilities(billingSvc),
+		Wallets:             store,
+		RequestLogger:       store,
+		SpendLogger:         store,
+		Logger:              logger,
 	}
 	app := controlserver.NewFiberApp(&config.Config{}, controlserver.Dependencies{
 		AuthMiddleware: auth.NewAuthMiddleware(store, "sk-master", logger),

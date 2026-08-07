@@ -7,10 +7,16 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"go.uber.org/zap"
 )
 
 var errTunnelTransportUnavailable = errors.New("tunnel transport is unavailable")
+
+var (
+	errMeteredUsagePricingUnavailable = errors.New("metered usage pricing capability is unavailable")
+	errBudgetReservationUnavailable   = errors.New("budget reservation capability is unavailable")
+)
 
 // BudgetRequest is the normalized input for the pipeline budget stage.
 type BudgetRequest struct {
@@ -32,24 +38,30 @@ type SettlementRequest struct {
 // RequestPipeline owns the shared reserve, dispatch, and settlement lifecycle.
 // Operation-specific payload decoding and response encoding remain in handlers.
 type RequestPipeline struct {
-	tunnel  platform.TunnelTransport
-	billing budgeter
-	wallets walletStore
-	logger  *zap.Logger
+	tunnel              platform.TunnelTransport
+	rawTunnel           platform.TunnelRawTransport
+	billing             budgeter
+	billingCapabilities BillingCapabilities
+	wallets             walletStore
+	logger              *zap.Logger
 }
 
 // NewRequestPipeline constructs the shared gateway request pipeline.
 func NewRequestPipeline(
 	tunnel platform.TunnelTransport,
+	rawTunnel platform.TunnelRawTransport,
 	billing budgeter,
+	billingCapabilities BillingCapabilities,
 	wallets walletStore,
 	logger *zap.Logger,
 ) *RequestPipeline {
 	return &RequestPipeline{
-		tunnel:  tunnel,
-		billing: billing,
-		wallets: wallets,
-		logger:  logger,
+		tunnel:              tunnel,
+		rawTunnel:           rawTunnel,
+		billing:             billing,
+		billingCapabilities: billingCapabilities,
+		wallets:             wallets,
+		logger:              logger,
 	}
 }
 
@@ -59,8 +71,13 @@ func (p *RequestPipeline) Reserve(ctx context.Context, input BudgetRequest) (*pl
 		return nil, nil
 	}
 
-	if manager, ok := p.billing.(budgetReservationManager); ok {
-		return manager.ReserveBudget(ctx, input.Auth, input.Estimated, input.RequestID)
+	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
+	if reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil {
+		return p.billingCapabilities.BudgetReservations.ReserveBudget(ctx, input.Auth, input.Estimated, input.RequestID)
+	}
+
+	if reservationPolicy == CapabilityFailClosed {
+		return nil, errBudgetReservationUnavailable
 	}
 
 	if err := p.billing.CheckBudget(ctx, input.Auth, input.Estimated); err != nil {
@@ -78,8 +95,13 @@ func (p *RequestPipeline) Settle(ctx context.Context, input SettlementRequest) e
 		return nil
 	}
 
-	if manager, ok := p.billing.(budgetReservationManager); ok && input.Reservation != nil {
-		return manager.CommitBudget(ctx, input.Reservation, input.Actual)
+	reservationPolicy := normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy)
+	if reservationPolicy != CapabilityDisabled && p.billingCapabilities.BudgetReservations != nil && input.Reservation != nil {
+		return p.billingCapabilities.BudgetReservations.CommitBudget(ctx, input.Reservation, input.Actual)
+	}
+
+	if input.Reservation != nil && reservationPolicy == CapabilityFailClosed {
+		return errBudgetReservationUnavailable
 	}
 
 	if p.wallets == nil {
@@ -104,8 +126,12 @@ func (p *RequestPipeline) Release(
 		return
 	}
 
-	manager, ok := p.billing.(budgetReservationManager)
-	if !ok {
+	if normalizedCapabilityPolicy(p.billingCapabilities.BudgetReservationPolicy) == CapabilityDisabled {
+		return
+	}
+
+	manager := p.billingCapabilities.BudgetReservations
+	if manager == nil {
 		return
 	}
 
@@ -117,6 +143,58 @@ func (p *RequestPipeline) Release(
 			zap.String("reason", reason),
 		)
 	}
+}
+
+func (p *RequestPipeline) priceMeteredUsage(
+	ctx context.Context,
+	model string,
+	dimension string,
+	quantity string,
+	estimated platform.UsageCostBreakdown,
+) (platform.UsageCostBreakdown, error) {
+	if p != nil &&
+		normalizedCapabilityPolicy(p.billingCapabilities.MeteredUsagePolicy) != CapabilityDisabled &&
+		p.billingCapabilities.MeteredUsage != nil {
+		return p.billingCapabilities.MeteredUsage.PriceMeteredUsage(ctx, model, dimension, quantity, estimated)
+	}
+
+	if p != nil && normalizedCapabilityPolicy(p.billingCapabilities.MeteredUsagePolicy) == CapabilityFailClosed {
+		return platform.UsageCostBreakdown{}, errMeteredUsagePricingUnavailable
+	}
+
+	return estimated, nil
+}
+
+func (p *RequestPipeline) applyDeploymentPricingOverride(
+	ctx context.Context,
+	estimated platform.UsageCostBreakdown,
+	deployment *router.Deployment,
+) (platform.UsageCostBreakdown, error) {
+	if deployment == nil || deployment.PricingMode != platform.PricingModePrivate {
+		return estimated, nil
+	}
+
+	if p == nil || p.billingCapabilities.DeploymentPricing == nil {
+		return platform.UsageCostBreakdown{}, errors.New("private pricing override capability is unavailable")
+	}
+
+	return p.billingCapabilities.DeploymentPricing.ApplyPricingOverride(ctx, estimated, deployment.EffectivePricing)
+}
+
+func (p *RequestPipeline) batchUsageFinalizer() batchUsageFinalizer {
+	if p == nil || normalizedCapabilityPolicy(p.billingCapabilities.BatchUsagePolicy) == CapabilityDisabled {
+		return nil
+	}
+
+	return p.billingCapabilities.BatchUsage
+}
+
+func normalizedCapabilityPolicy(policy CapabilityPolicy) CapabilityPolicy {
+	if policy == "" {
+		return CapabilityDisabled
+	}
+
+	return policy
 }
 
 // EnsureReady verifies that the dispatch transport is healthy.
@@ -163,23 +241,16 @@ func (p *RequestPipeline) DispatchRaw(
 		return nil, errTunnelTransportUnavailable
 	}
 
-	rawTunnel, ok := p.tunnel.(platform.TunnelRawTransport)
-	if !ok {
+	if p.rawTunnel == nil {
 		return nil, errTunnelTransportUnavailable
 	}
 
-	return rawTunnel.ProxyRaw(ctx, request, body, contentLength)
+	return p.rawTunnel.ProxyRaw(ctx, request, body, contentLength)
 }
 
 // HasRawTransport reports whether raw body dispatch is supported.
 func (p *RequestPipeline) HasRawTransport() bool {
-	if p == nil || p.tunnel == nil {
-		return false
-	}
-
-	_, ok := p.tunnel.(platform.TunnelRawTransport)
-
-	return ok
+	return p != nil && p.rawTunnel != nil
 }
 
 // HasTransport reports whether dispatch can be attempted.
