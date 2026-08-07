@@ -110,8 +110,19 @@ export type TenantProviderAccount = {
 
 export type CredentialTestResult = {
   success: boolean;
+  authenticated?: boolean;
+  ready?: boolean;
+  category?: string;
   unsupported?: boolean;
   message?: string;
+  details?: {
+    authenticated: boolean;
+    ready: boolean;
+    permissions?: string[];
+    credential_disabled?: boolean;
+    credential_blocked?: boolean;
+    account_blocked?: boolean;
+  };
   wif_effective_scopes?: string[];
   wif_expires_at?: string;
   wif_last_refresh_at?: string;

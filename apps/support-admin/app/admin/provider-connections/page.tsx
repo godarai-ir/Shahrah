@@ -49,10 +49,22 @@ type CredentialVersion = {
 
 type CredentialTestResult = {
   success: boolean;
+  authenticated: boolean;
+  ready: boolean;
   category: string;
   summary: string;
   version: number;
   validated: boolean;
+  details?: CredentialProbeDetails;
+};
+
+type CredentialProbeDetails = {
+  authenticated: boolean;
+  ready: boolean;
+  permissions?: string[];
+  credential_disabled?: boolean;
+  credential_blocked?: boolean;
+  account_blocked?: boolean;
 };
 
 type ProviderConnection = {

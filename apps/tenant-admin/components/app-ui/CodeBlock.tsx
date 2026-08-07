@@ -2,17 +2,18 @@
 
 import * as React from "react";
 import { Highlight, themes } from "prism-react-renderer";
-import { Prism } from "prismjs";
+import Prism from "prismjs";
 import "prismjs/components/prism-bash";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-markdown";
 import "prismjs/components/prism-powershell";
 import "prismjs/components/prism-python";
+import "prismjs/components/prism-typescript";
 
 import { cn } from "@/lib/utils";
 
-export type CodeLanguage = "bash" | "javascript" | "json" | "markdown" | "powershell" | "python";
+export type CodeLanguage = "bash" | "javascript" | "json" | "markdown" | "powershell" | "python" | "text" | "typescript";
 export type CodeBlockProps = {
   code: string;
   language: CodeLanguage;

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPlaygroundColumn, type PlaygroundRunResult } from "./playground-domain";
 import { PlaygroundOutputPanel } from "./playground-column";
 
-describe("playground image output", () => {
+describe("playground output", () => {
   beforeEach(() => {
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 0));
     vi.stubGlobal("cancelAnimationFrame", (handle: number) => window.clearTimeout(handle));
@@ -53,5 +53,41 @@ describe("playground image output", () => {
 
     rendered.unmount();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:generated-image");
+  });
+
+  it("renders chat responses as Markdown with formatted code", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    const result: PlaygroundRunResult = {
+      status: "success",
+      responseText: "## TypeScript\n\n```typescript\nconst typed: boolean = true;\n```",
+      rawResponse: {},
+      toolCalls: [],
+      generatedImages: [],
+    };
+
+    const { container } = render(
+      <PlaygroundOutputPanel
+        column={column}
+        mode="chat"
+        result={result}
+        locale="en"
+        readOnly={false}
+        canSave={false}
+        canLoad={false}
+        canOpenTrace={false}
+        comparison={false}
+        onChange={vi.fn()}
+        onRun={vi.fn()}
+        onStop={vi.fn()}
+        onOpenModel={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenSave={vi.fn()}
+        onOpenLoad={vi.fn()}
+        t={(key) => key}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { level: 2, name: "TypeScript" })).toBeInTheDocument();
+    expect(container.querySelector(".token.keyword")).toHaveTextContent("const");
   });
 });

@@ -141,6 +141,8 @@ Use `ModelNameValue` for model identifiers in tables and compact metadata. It ke
 
 Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared read-only CodeMirror-based `CodeViewer`, which provides line numbers, selection, search, keyboard focus, and horizontal scrolling for long technical lines. Use `CodeViewer` directly only inside an existing panel that already supplies this hierarchy. Keep `CodeBlock` for compact syntax-highlighted output that needs feature-owned term highlighting.
 
+Use `MarkdownRenderer` for safe presentation of model-generated Markdown. It renders CommonMark and GFM structures through `react-markdown` and `remark-gfm`, keeps raw HTML inert, and delegates fenced code to the shared Prism-based `CodeBlock`. Use it for assistant responses and other read-only Markdown output; keep editable source in a code or text editor.
+
 Use `JsonEditorField` for editable JSON surfaces. It uses the shared CodeMirror 6 editor with JSON parsing and diagnostics, line numbers, bracket matching, LTR editing, optional prompt-variable decoration, and valid-JSON formatting on blur.
 
 Use `JsonViewer` for read-only structured JSON such as request payloads, response payloads, log summaries, and metadata. It provides CodeMirror syntax highlighting, line numbers, folding, search, selection, LTR rendering, and a bounded scroll area. Pass an accessible label for each viewer. Keep `CodeBlock` and `CodePanel` for non-JSON snippets or examples that need a title, language badge, copy action, or feature-owned actions.

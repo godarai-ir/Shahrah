@@ -8,6 +8,7 @@ import {
   EmptyState,
   formatJson,
   JsonEditorField,
+  MarkdownRenderer,
   PromptMessageEditor,
   RunTelemetryStrip,
   StatusBadge,
@@ -286,7 +287,7 @@ export function PlaygroundOutputPanel(props: PlaygroundColumnProps) {
                 {props.mode === "image_generation" && result.generatedImages.length ? (
                   <GeneratedImageGallery images={result.generatedImages} t={props.t} />
                 ) : null}
-                {props.mode === "chat" && result.responseText ? <div className="whitespace-pre-wrap text-sm leading-7" dir="auto">{result.responseText}</div> : null}
+                {props.mode === "chat" && result.responseText ? <MarkdownRenderer content={result.responseText} /> : null}
                 {props.mode === "chat" && result.toolCalls.length ? (
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground">{props.t("settings.tools")}</p>
