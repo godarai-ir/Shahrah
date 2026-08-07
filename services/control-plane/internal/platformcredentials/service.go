@@ -65,12 +65,6 @@ func NewService(repo Repository, secrets *EncryptedDBSecretStore, manager *Manag
 	return &Service{repo: repo, secrets: secrets, manager: manager, publisher: publisher, catalog: catalog, prober: prober}
 }
 
-func (s *Service) SetProber(prober CredentialProber) {
-	if s != nil && prober != nil {
-		s.prober = prober
-	}
-}
-
 func (s *Service) Schemas(ctx context.Context, providerSlug string) ([]platform.ProviderConnectionSchema, error) {
 	if s.catalog == nil {
 		return nil, ErrNotFound

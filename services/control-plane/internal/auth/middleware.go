@@ -63,26 +63,34 @@ type KeyInfo struct {
 // AuthMiddleware validates API keys on incoming requests.
 type AuthMiddleware struct {
 	keyStore        KeyStore
-	runtimeProfiles runtimeProfileLookup
+	runtimeProfiles RuntimeProfileLookup
 	masterKey       string
 	logger          *zap.Logger
 }
 
-type runtimeProfileLookup interface {
+// RuntimeProfileLookup resolves compiled authentication state.
+type RuntimeProfileLookup interface {
 	GetAuthByTokenHash(ctx context.Context, tenantID string, tokenHash string) (*platform.AuthContext, error)
 }
 
 // NewAuthMiddleware creates a new auth middleware.
 func NewAuthMiddleware(keyStore KeyStore, masterKey string, logger *zap.Logger) *AuthMiddleware {
-	return &AuthMiddleware{
-		keyStore:  keyStore,
-		masterKey: masterKey,
-		logger:    logger,
-	}
+	return NewAuthMiddlewareWithRuntimeProfiles(keyStore, masterKey, logger, nil)
 }
 
-func (m *AuthMiddleware) SetRuntimeProfiles(runtimeProfiles runtimeProfileLookup) {
-	m.runtimeProfiles = runtimeProfiles
+// NewAuthMiddlewareWithRuntimeProfiles creates fully wired auth middleware.
+func NewAuthMiddlewareWithRuntimeProfiles(
+	keyStore KeyStore,
+	masterKey string,
+	logger *zap.Logger,
+	runtimeProfiles RuntimeProfileLookup,
+) *AuthMiddleware {
+	return &AuthMiddleware{
+		keyStore:        keyStore,
+		runtimeProfiles: runtimeProfiles,
+		masterKey:       masterKey,
+		logger:          logger,
+	}
 }
 
 // Middleware returns the Fiber middleware handler.

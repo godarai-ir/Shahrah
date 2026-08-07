@@ -41,10 +41,20 @@ type AsyncSpendLogWriter struct {
 	logger     *zap.Logger
 	queue      chan platform.SpendLog
 	wg         sync.WaitGroup
+	lifecycle  sync.Mutex
+	started    bool
 	closed     atomic.Bool
 }
 
 func NewAsyncSpendLogWriter(underlying SpendLogger, cfg AsyncSpendLogConfig, logger *zap.Logger, metrics SpendLogMetrics) *AsyncSpendLogWriter {
+	w := NewManagedAsyncSpendLogWriter(underlying, cfg, logger, metrics)
+	w.Start()
+
+	return w
+}
+
+// NewManagedAsyncSpendLogWriter creates a writer whose workers are started explicitly.
+func NewManagedAsyncSpendLogWriter(underlying SpendLogger, cfg AsyncSpendLogConfig, logger *zap.Logger, metrics SpendLogMetrics) *AsyncSpendLogWriter {
 	cfg = normalizeAsyncSpendLogConfig(cfg)
 
 	if logger == nil {
@@ -62,12 +72,27 @@ func NewAsyncSpendLogWriter(underlying SpendLogger, cfg AsyncSpendLogConfig, log
 		w.batch = batch
 	}
 
-	for i := 0; i < cfg.Workers; i++ {
+	return w
+}
+
+// Start starts the writer workers once.
+func (w *AsyncSpendLogWriter) Start() {
+	if w == nil {
+		return
+	}
+
+	w.lifecycle.Lock()
+	defer w.lifecycle.Unlock()
+
+	if w.started || w.closed.Load() {
+		return
+	}
+
+	w.started = true
+	for i := 0; i < w.cfg.Workers; i++ {
 		w.wg.Add(1)
 		go w.worker()
 	}
-
-	return w
 }
 
 func normalizeAsyncSpendLogConfig(cfg AsyncSpendLogConfig) AsyncSpendLogConfig {
@@ -124,11 +149,19 @@ func (w *AsyncSpendLogWriter) LogSpend(ctx context.Context, log platform.SpendLo
 }
 
 func (w *AsyncSpendLogWriter) Stop(ctx context.Context) error {
-	if w == nil || !w.closed.CompareAndSwap(false, true) {
+	if w == nil {
+		return nil
+	}
+
+	w.lifecycle.Lock()
+	if !w.closed.CompareAndSwap(false, true) {
+		w.lifecycle.Unlock()
+
 		return nil
 	}
 
 	close(w.queue)
+	w.lifecycle.Unlock()
 
 	done := make(chan struct{})
 

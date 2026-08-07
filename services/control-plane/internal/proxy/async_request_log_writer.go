@@ -35,10 +35,20 @@ type AsyncRequestLogWriter struct {
 	logger     *zap.Logger
 	queue      chan platform.RequestLogEntry
 	wg         sync.WaitGroup
+	lifecycle  sync.Mutex
+	started    bool
 	closed     atomic.Bool
 }
 
 func NewAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger) *AsyncRequestLogWriter {
+	w := NewManagedAsyncRequestLogWriter(underlying, cfg, logger)
+	w.Start()
+
+	return w
+}
+
+// NewManagedAsyncRequestLogWriter creates a writer whose workers are started explicitly.
+func NewManagedAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger) *AsyncRequestLogWriter {
 	cfg = normalizeAsyncRequestLogConfig(cfg)
 
 	if logger == nil {
@@ -55,12 +65,27 @@ func NewAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfi
 		w.batch = batch
 	}
 
-	for i := 0; i < cfg.Workers; i++ {
+	return w
+}
+
+// Start starts the writer workers once.
+func (w *AsyncRequestLogWriter) Start() {
+	if w == nil {
+		return
+	}
+
+	w.lifecycle.Lock()
+	defer w.lifecycle.Unlock()
+
+	if w.started || w.closed.Load() {
+		return
+	}
+
+	w.started = true
+	for i := 0; i < w.cfg.Workers; i++ {
 		w.wg.Add(1)
 		go w.worker()
 	}
-
-	return w
 }
 
 func normalizeAsyncRequestLogConfig(cfg AsyncRequestLogConfig) AsyncRequestLogConfig {
@@ -119,11 +144,19 @@ func (w *AsyncRequestLogWriter) LogRequest(ctx context.Context, entry platform.R
 }
 
 func (w *AsyncRequestLogWriter) Stop(ctx context.Context) error {
-	if w == nil || !w.closed.CompareAndSwap(false, true) {
+	if w == nil {
+		return nil
+	}
+
+	w.lifecycle.Lock()
+	if !w.closed.CompareAndSwap(false, true) {
+		w.lifecycle.Unlock()
+
 		return nil
 	}
 
 	close(w.queue)
+	w.lifecycle.Unlock()
 
 	done := make(chan struct{})
 

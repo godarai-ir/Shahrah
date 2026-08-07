@@ -6,7 +6,9 @@ import (
 	"errors"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
+	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
@@ -53,6 +55,8 @@ type ChatCompletionDependencies struct {
 	}
 	GuardrailResolver guardrailResolver
 	PromptResolver    promptResolver
+	Guardrails        *guardrails.Engine
+	ResponseCache     *responsecache.Service
 }
 
 type usageLoggers struct {

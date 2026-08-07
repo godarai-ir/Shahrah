@@ -40,7 +40,8 @@ type budgetWindowCache interface {
 	ReleaseBudget(ctx context.Context, req cache.BudgetReleaseRequest) (*cache.BudgetWindowResult, error)
 }
 
-type runtimeProfileStore interface {
+// RuntimeProfileStore resolves compiled billing state.
+type RuntimeProfileStore interface {
 	Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
 }
 
@@ -58,7 +59,7 @@ type BudgetService struct {
 	cache                cache.Cache
 	store                walletStore
 	entitlements         entitlementStore
-	runtimeProfiles      runtimeProfileStore
+	runtimeProfiles      RuntimeProfileStore
 	walletCacheTTL       time.Duration
 	budgetWindowTTLGrace time.Duration
 }
@@ -67,7 +68,7 @@ type BudgetService struct {
 type RateLimiter struct {
 	cache             cache.Cache
 	entitlements      entitlementStore
-	runtimeProfiles   runtimeProfileStore
+	runtimeProfiles   RuntimeProfileStore
 	rateLimitFailOpen bool
 }
 
@@ -83,6 +84,29 @@ func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, sourc
 	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv(), loadPricingCacheConfigFromEnv())
 }
 
+// NewServiceWithRuntimeProfiles creates a billing service with compiled policy state.
+func NewServiceWithRuntimeProfiles(
+	c cache.Cache,
+	store walletStore,
+	runtimeProfiles RuntimeProfileStore,
+	defaultUSDtoIRR float64,
+	source string,
+) *Service {
+	var entitlements entitlementStore
+	if resolvedEntitlements, ok := store.(entitlementStore); ok {
+		entitlements = resolvedEntitlements
+	}
+
+	return NewServiceWithRepositoriesAndRuntimeProfiles(
+		c,
+		store,
+		entitlements,
+		runtimeProfiles,
+		defaultUSDtoIRR,
+		source,
+	)
+}
+
 // NewServiceWithRepositories creates a billing service with explicit feature repositories.
 func NewServiceWithRepositories(
 	c cache.Cache,
@@ -91,10 +115,30 @@ func NewServiceWithRepositories(
 	defaultUSDtoIRR float64,
 	source string,
 ) *Service {
+	return NewServiceWithRepositoriesAndRuntimeProfiles(
+		c,
+		wallets,
+		entitlements,
+		nil,
+		defaultUSDtoIRR,
+		source,
+	)
+}
+
+// NewServiceWithRepositoriesAndRuntimeProfiles creates a fully wired billing service.
+func NewServiceWithRepositoriesAndRuntimeProfiles(
+	c cache.Cache,
+	wallets walletStore,
+	entitlements entitlementStore,
+	runtimeProfiles RuntimeProfileStore,
+	defaultUSDtoIRR float64,
+	source string,
+) *Service {
 	return newService(
 		c,
 		wallets,
 		entitlements,
+		runtimeProfiles,
 		defaultUSDtoIRR,
 		source,
 		loadExchangeRateCacheConfigFromEnv(),
@@ -114,13 +158,14 @@ func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR
 		entitlements = resolvedEntitlements
 	}
 
-	return newService(c, store, entitlements, defaultUSDtoIRR, source, exchangeRateCacheConfig, pricingCacheConfig)
+	return newService(c, store, entitlements, nil, defaultUSDtoIRR, source, exchangeRateCacheConfig, pricingCacheConfig)
 }
 
 func newService(
 	c cache.Cache,
 	wallets walletStore,
 	entitlements entitlementStore,
+	runtimeProfiles RuntimeProfileStore,
 	defaultUSDtoIRR float64,
 	source string,
 	exchangeRateCacheConfig ExchangeRateCacheConfig,
@@ -142,29 +187,16 @@ func newService(
 			cache:                c,
 			store:                wallets,
 			entitlements:         entitlements,
+			runtimeProfiles:      runtimeProfiles,
 			walletCacheTTL:       secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
 			budgetWindowTTLGrace: secondsEnvOrDefault("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 86400*time.Second),
 		},
 		RateLimiter: &RateLimiter{
 			cache:             c,
 			entitlements:      entitlements,
+			runtimeProfiles:   runtimeProfiles,
 			rateLimitFailOpen: boolEnvOrDefault("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
 		},
-	}
-}
-
-// SetRuntimeProfiles configures the shared entitlement and policy snapshot source.
-func (s *Service) SetRuntimeProfiles(runtimeProfiles runtimeProfileStore) {
-	if s == nil {
-		return
-	}
-
-	if s.BudgetService != nil {
-		s.BudgetService.runtimeProfiles = runtimeProfiles
-	}
-
-	if s.RateLimiter != nil {
-		s.RateLimiter.runtimeProfiles = runtimeProfiles
 	}
 }
 

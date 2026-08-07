@@ -36,20 +36,22 @@ type Cache interface {
 type MiddlewareConfig struct {
 	AllowHeaderHint bool
 	CacheTTL        time.Duration
+	RuntimeProfiles RuntimeProfileGetter
 }
 
 // Middleware resolves tenants from host and optional local-dev header hints.
 type Middleware struct {
 	store           Store
 	cache           Cache
-	runtimeProfiles runtimeProfileGetter
+	runtimeProfiles RuntimeProfileGetter
 	defaultTenant   string
 	allowHeaderHint bool
 	cacheTTL        time.Duration
 	loadGroup       singleflight.Group
 }
 
-type runtimeProfileGetter interface {
+// RuntimeProfileGetter resolves compiled tenant state.
+type RuntimeProfileGetter interface {
 	Get(ctx context.Context, tenantID string) (*runtimeprofile.Profile, error)
 }
 
@@ -75,13 +77,10 @@ func NewMiddlewareWithCache(store Store, c Cache, cfg MiddlewareConfig) *Middlew
 	return &Middleware{
 		store:           store,
 		cache:           c,
+		runtimeProfiles: cfg.RuntimeProfiles,
 		allowHeaderHint: cfg.AllowHeaderHint,
 		cacheTTL:        cacheTTL,
 	}
-}
-
-func (m *Middleware) SetRuntimeProfiles(runtimeProfiles runtimeProfileGetter) {
-	m.runtimeProfiles = runtimeProfiles
 }
 
 // Handle resolves and stores the tenant context.

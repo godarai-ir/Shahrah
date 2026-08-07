@@ -115,7 +115,6 @@ type promptResolver interface {
 	GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn string) (*platform.PromptVersion, error)
 }
 
-// ChatCompletionHandler handles chat completion requests.
 // ChatCompletionHandler serves chat completion requests.
 type ChatCompletionHandler struct {
 	llmRouter     *router.Router
@@ -135,16 +134,6 @@ type ChatCompletionHandler struct {
 	deployments   responseDeploymentLister
 }
 
-// SetResponseCache enables opt-in response caching without changing existing constructor callers.
-func (h *ChatCompletionHandler) SetResponseCache(service *responsecache.Service) {
-	h.responseCache = service
-}
-
-// SetGuardrails enables per-request LLM guardrail evaluation.
-func (h *ChatCompletionHandler) SetGuardrails(engine *guardrails.Engine) {
-	h.guardrails = engine
-}
-
 // NewChatCompletionHandlerWithDependencies creates a chat handler from explicit dependencies.
 func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *ChatCompletionHandler {
 	resolver, engine, exec := newChatVirtualModelDeps(deps.VirtualModelStore)
@@ -161,6 +150,8 @@ func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *
 		emitMetric:    deps.Base.metricEmitter(),
 		guardrailRepo: deps.GuardrailResolver,
 		prompts:       deps.PromptResolver,
+		guardrails:    deps.Guardrails,
+		responseCache: deps.ResponseCache,
 		resources:     deps.Base.ProviderResources,
 		deployments:   deps.Base.Deployments,
 	}

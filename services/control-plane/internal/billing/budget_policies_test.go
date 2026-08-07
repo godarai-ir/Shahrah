@@ -6,10 +6,21 @@ import (
 	"testing"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/testcache"
 	"go.uber.org/zap"
 )
+
+func newPolicyTestService(c cache.Cache, runtimeProfiles RuntimeProfileStore) *Service {
+	return NewServiceWithRuntimeProfiles(
+		c,
+		&budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}},
+		runtimeProfiles,
+		850000,
+		"test",
+	)
+}
 
 func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {
 	mem, err := testcache.New(t, zap.NewNop())
@@ -17,8 +28,7 @@ func TestReserveBudgetEnforcesScopedTeamPolicyWindow(t *testing.T) {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
 
-	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
-	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
+	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
 		BudgetRules: []platform.BudgetLimitRule{{
 			RuleID:              "team-monthly",
@@ -57,8 +67,7 @@ func TestReserveBudgetIgnoresNonMatchingPolicyConditions(t *testing.T) {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
 
-	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
-	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
+	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
 		BudgetRules: []platform.BudgetLimitRule{{
 			RuleID:              "expensive-model",
@@ -91,8 +100,7 @@ func TestReserveBudgetMatchesMetadataAndRequestTypeConditions(t *testing.T) {
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
 
-	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
-	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
+	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
 		BudgetRules: []platform.BudgetLimitRule{{
 			RuleID:              "project-chat",
@@ -138,8 +146,7 @@ func TestReserveBudgetRollsBackAlreadyReservedPolicyTargetsOnFailure(t *testing.
 		t.Fatalf("NewMemoryCache returned error: %v", err)
 	}
 
-	service := NewService(mem, &budgetWindowWalletStore{wallet: &platform.Wallet{TenantID: "tenant-1", BalanceIRR: 1000}}, 850000, "test")
-	service.SetRuntimeProfiles(staticRuntimeProfiles{profile: &runtimeprofile.Profile{
+	service := newPolicyTestService(mem, staticRuntimeProfiles{profile: &runtimeprofile.Profile{
 		TenantID: "tenant-1",
 		BudgetRules: []platform.BudgetLimitRule{
 			{
