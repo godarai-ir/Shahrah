@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
-	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
@@ -46,8 +46,7 @@ type Dependencies struct {
 	TracingMiddleware          fiber.Handler
 	TraceHealth                TraceHealthReporter
 	ClickHouseHealth           ClickHouseHealthReporter
-	AdminHandlers              *admin.Handlers
-	AuthHandlers               *admin.AuthHandlers
+	ManagementRoutes           *management.Routes
 	ProxyHandler               *proxy.ChatCompletionHandler
 	CompletionsHandler         *proxy.CompletionsHandler
 	ResponsesHandler           *proxy.ResponsesHandler

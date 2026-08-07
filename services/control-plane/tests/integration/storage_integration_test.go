@@ -23,6 +23,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	controlserver "github.com/Delpak/shahrah/services/control-plane/internal/server"
@@ -1637,27 +1638,37 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache cach
 		TenantResolver: tenantmw.NewMiddlewareWithCache(store, nil, tenantmw.MiddlewareConfig{
 			AllowHeaderHint: true,
 		}),
-		AdminHandlers: admin.New(admin.Dependencies{
-			Keys:             store,
-			Models:           store,
-			Wallets:          store,
-			ProviderAccounts: store,
-			OrgUnits:         store,
-			Memberships:      store,
-			Users:            store,
-			VirtualUsers:     store,
-			Teams:            store,
-			Onboarding:       store,
-			LoginDiscovery:   store,
-			Traces:           store,
-			Metrics:          store,
-			TracePrivacy:     store,
-			Prompts:          store,
-			Roles:            store,
-			Plans:            store,
-			Entitlements:     store,
-			SupportTenants:   store,
-		}),
+		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
+			IAM: admin.IAMDependencies{
+				Keys:         store,
+				OrgUnits:     store,
+				Memberships:  store,
+				Users:        store,
+				VirtualUsers: store,
+				Teams:        store,
+				Roles:        store,
+			},
+			Catalog: admin.CatalogDependencies{
+				Models:           store,
+				ProviderAccounts: store,
+				Prompts:          store,
+			},
+			Billing: admin.BillingDependencies{
+				Wallets:      store,
+				Plans:        store,
+				Entitlements: store,
+			},
+			Onboarding: admin.OnboardingDependencies{
+				Onboarding:     store,
+				LoginDiscovery: store,
+			},
+			Observability: admin.ObservabilityDependencies{
+				Traces:       store,
+				Metrics:      store,
+				TracePrivacy: store,
+			},
+			Support: admin.SupportDependencies{Tenants: store},
+		})),
 		ProxyHandler:       proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{Base: baseProxyDeps, VirtualModelStore: store, GuardrailResolver: store, PromptResolver: store}),
 		CompletionsHandler: proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps),
 		ModelsHandler:      proxy.NewModelsHandler(store),

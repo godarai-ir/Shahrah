@@ -45,7 +45,7 @@ func TestGetTraceFacetsV2_UsesTenantContextIsolation(t *testing.T) {
 			}, nil
 		},
 	}
-	app := setupTraceV2TestApp(&Handlers{traces: mock})
+	app := setupTraceV2TestApp(&Handlers{observabilityState: observabilityState{traces: mock}})
 	req := httptest.NewRequest("GET", "/api/v2/traces/facets", http.NoBody)
 
 	resp, err := app.Test(req)
@@ -80,7 +80,7 @@ func TestListRequestTracesV2_UsesTenantContextIsolation(t *testing.T) {
 			}}, 1, nil
 		},
 	}
-	app := setupTraceV2TestApp(&Handlers{traces: mock})
+	app := setupTraceV2TestApp(&Handlers{observabilityState: observabilityState{traces: mock}})
 
 	req := httptest.NewRequest("GET", "/api/v2/traces?provider=openai&request_id=req_123&error_code=provider_error", http.NoBody)
 	req.Header.Set("x-godarai-tenant", "tenant_b")
@@ -108,7 +108,7 @@ func TestGetRequestTraceV2_NotFound(t *testing.T) {
 			return nil, pgx.ErrNoRows
 		},
 	}
-	app := setupTraceV2TestApp(&Handlers{traces: mock})
+	app := setupTraceV2TestApp(&Handlers{observabilityState: observabilityState{traces: mock}})
 
 	req := httptest.NewRequest("GET", "/api/v2/traces/trace_missing", http.NoBody)
 
@@ -136,7 +136,7 @@ func TestListRequestTraceAttemptsV2_ReturnsTenantScopedData(t *testing.T) {
 			}}, nil
 		},
 	}
-	app := setupTraceV2TestApp(&Handlers{traces: mock})
+	app := setupTraceV2TestApp(&Handlers{observabilityState: observabilityState{traces: mock}})
 
 	req := httptest.NewRequest("GET", "/api/v2/traces/trace_1/attempts", http.NoBody)
 

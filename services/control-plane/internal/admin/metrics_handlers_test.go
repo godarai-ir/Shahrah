@@ -62,7 +62,7 @@ func TestQueryModelMetrics_UsesTenantContext(t *testing.T) {
 			return []map[string]interface{}{{"countModelName": 1}}, nil
 		},
 	}
-	h := &Handlers{metrics: mock}
+	h := &Handlers{observabilityState: observabilityState{metrics: mock}}
 	app := setupMetricsTestApp(h)
 
 	body := map[string]interface{}{
@@ -87,7 +87,7 @@ func TestQueryModelMetrics_UsesTenantContext(t *testing.T) {
 }
 
 func TestQueryModelMetrics_InvalidDatasource(t *testing.T) {
-	h := &Handlers{metrics: &metricsStoreMock{}}
+	h := &Handlers{observabilityState: observabilityState{metrics: &metricsStoreMock{}}}
 	app := setupMetricsTestApp(h)
 	body := map[string]interface{}{
 		"startTs":    time.Now().Add(-time.Hour).UTC().Format(time.RFC3339),
@@ -117,7 +117,7 @@ func TestListModelMetricsFacets_UsesTenantContext(t *testing.T) {
 			}, nil
 		},
 	}
-	h := &Handlers{metrics: mock}
+	h := &Handlers{observabilityState: observabilityState{metrics: mock}}
 	app := setupMetricsTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/metrics/facets", http.NoBody)

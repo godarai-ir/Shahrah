@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
@@ -48,8 +48,7 @@ type builder struct {
 	emitMetric             func(metricsobs.BuildInput)
 	requestLogger          proxy.RequestLogger
 	spendLogger            proxy.SpendLogger
-	adminHandlers          *admin.Handlers
-	authHandlers           *admin.AuthHandlers
+	managementRoutes       *management.Routes
 	tracingMiddleware      fiber.Handler
 	traceHealth            *tracing.ReliableExporter
 	serverDependencies     server.Dependencies

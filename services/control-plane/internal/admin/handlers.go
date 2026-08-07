@@ -297,91 +297,158 @@ type platformProviderCredentialService interface {
 	Revoke(context.Context, string, int64, int64, platformcredentials.Actor, string) (*platform.PlatformProviderConnection, error)
 }
 
-type Dependencies struct {
-	Keys                keyStore
-	Models              modelStore
-	Wallets             walletStore
-	ProviderAccounts    providerAccountStore
-	ProviderSchemas     platformcredentials.SchemaCatalog
-	OrgUnits            orgUnitStore
-	Memberships         membershipStore
-	Users               userStore
-	VirtualUsers        virtualUserStore
-	Teams               teamStore
-	Onboarding          onboardingStore
-	LoginDiscovery      loginDiscoveryStore
-	Traces              traceStore
-	Logs                logsStore
-	Metrics             metricsStore
-	TracePrivacy        tracePrivacyStore
-	RequestLogging      requestLoggingSettingsStore
-	Prompts             promptStore
-	Roles               roleStore
-	Plans               planStore
-	Entitlements        entitlementResolverStore
-	SupportTenants      supportTenantOperationsStore
-	SupportTickets      supportTicketStore
-	SupportFiles        supportAttachmentService
-	ProviderCredentials platformProviderCredentialService
+// IAMDependencies contains identity and access management ports.
+type IAMDependencies struct {
+	Keys         keyStore
+	OrgUnits     orgUnitStore
+	Memberships  membershipStore
+	Users        userStore
+	VirtualUsers virtualUserStore
+	Teams        teamStore
+	Roles        roleStore
 }
 
-// Handlers serves bootstrap management APIs.
-type Handlers struct {
-	keys                keyStore
+// CatalogDependencies contains model, prompt, and provider catalog ports.
+type CatalogDependencies struct {
+	Models              modelStore
+	ProviderAccounts    providerAccountStore
+	ProviderSchemas     platformcredentials.SchemaCatalog
+	ProviderCredentials platformProviderCredentialService
+	Prompts             promptStore
+}
+
+// BillingDependencies contains wallet, plan, and entitlement ports.
+type BillingDependencies struct {
+	Wallets      walletStore
+	Plans        planStore
+	Entitlements entitlementResolverStore
+}
+
+// OnboardingDependencies contains onboarding and login discovery ports.
+type OnboardingDependencies struct {
+	Onboarding     onboardingStore
+	LoginDiscovery loginDiscoveryStore
+}
+
+// ObservabilityDependencies contains logs, traces, metrics, and settings ports.
+type ObservabilityDependencies struct {
+	Traces         traceStore
+	Logs           logsStore
+	Metrics        metricsStore
+	TracePrivacy   tracePrivacyStore
+	RequestLogging requestLoggingSettingsStore
+}
+
+// SupportDependencies contains tenant support and attachment ports.
+type SupportDependencies struct {
+	Tenants supportTenantOperationsStore
+	Tickets supportTicketStore
+	Files   supportAttachmentService
+}
+
+// Dependencies groups management ports by feature boundary.
+type Dependencies struct {
+	IAM           IAMDependencies
+	Catalog       CatalogDependencies
+	Billing       BillingDependencies
+	Onboarding    OnboardingDependencies
+	Observability ObservabilityDependencies
+	Support       SupportDependencies
+}
+
+type iamState struct {
+	keys         keyStore
+	orgUnits     orgUnitStore
+	memberships  membershipStore
+	users        userStore
+	virtualUsers virtualUserStore
+	teams        teamStore
+	roles        roleStore
+}
+
+type catalogState struct {
 	models              modelStore
-	wallets             walletStore
 	providerAccounts    providerAccountStore
 	providerSchemas     platformcredentials.SchemaCatalog
-	orgUnits            orgUnitStore
-	memberships         membershipStore
-	users               userStore
-	virtualUsers        virtualUserStore
-	teams               teamStore
-	onboarding          onboardingStore
-	loginDiscovery      loginDiscoveryStore
-	traces              traceStore
-	logs                logsStore
-	metrics             metricsStore
-	tracePrivacy        tracePrivacyStore
-	requestLogging      requestLoggingSettingsStore
-	prompts             promptStore
-	roles               roleStore
-	plans               planStore
-	entitlements        entitlementResolverStore
-	supportTenants      supportTenantOperationsStore
-	supportTickets      supportTicketStore
-	supportFiles        supportAttachmentService
 	providerCredentials platformProviderCredentialService
+	prompts             promptStore
+}
+
+type billingState struct {
+	wallets      walletStore
+	plans        planStore
+	entitlements entitlementResolverStore
+}
+
+type onboardingState struct {
+	onboarding     onboardingStore
+	loginDiscovery loginDiscoveryStore
+}
+
+type observabilityState struct {
+	traces         traceStore
+	logs           logsStore
+	metrics        metricsStore
+	tracePrivacy   tracePrivacyStore
+	requestLogging requestLoggingSettingsStore
+}
+
+type supportState struct {
+	supportTenants supportTenantOperationsStore
+	supportTickets supportTicketStore
+	supportFiles   supportAttachmentService
+}
+
+// Handlers serves management APIs while retaining feature-owned state.
+type Handlers struct {
+	iamState
+	catalogState
+	billingState
+	onboardingState
+	observabilityState
+	supportState
 }
 
 // New creates a management handlers bundle.
 func New(deps Dependencies) *Handlers {
 	return &Handlers{
-		keys:                deps.Keys,
-		models:              deps.Models,
-		wallets:             deps.Wallets,
-		providerAccounts:    deps.ProviderAccounts,
-		providerSchemas:     deps.ProviderSchemas,
-		orgUnits:            deps.OrgUnits,
-		memberships:         deps.Memberships,
-		users:               deps.Users,
-		virtualUsers:        deps.VirtualUsers,
-		teams:               deps.Teams,
-		onboarding:          deps.Onboarding,
-		loginDiscovery:      deps.LoginDiscovery,
-		traces:              deps.Traces,
-		logs:                deps.Logs,
-		metrics:             deps.Metrics,
-		tracePrivacy:        deps.TracePrivacy,
-		requestLogging:      deps.RequestLogging,
-		prompts:             deps.Prompts,
-		roles:               deps.Roles,
-		plans:               deps.Plans,
-		entitlements:        deps.Entitlements,
-		supportTenants:      deps.SupportTenants,
-		supportTickets:      deps.SupportTickets,
-		supportFiles:        deps.SupportFiles,
-		providerCredentials: deps.ProviderCredentials,
+		iamState: iamState{
+			keys:         deps.IAM.Keys,
+			orgUnits:     deps.IAM.OrgUnits,
+			memberships:  deps.IAM.Memberships,
+			users:        deps.IAM.Users,
+			virtualUsers: deps.IAM.VirtualUsers,
+			teams:        deps.IAM.Teams,
+			roles:        deps.IAM.Roles,
+		},
+		catalogState: catalogState{
+			models:              deps.Catalog.Models,
+			providerAccounts:    deps.Catalog.ProviderAccounts,
+			providerSchemas:     deps.Catalog.ProviderSchemas,
+			providerCredentials: deps.Catalog.ProviderCredentials,
+			prompts:             deps.Catalog.Prompts,
+		},
+		billingState: billingState{
+			wallets:      deps.Billing.Wallets,
+			plans:        deps.Billing.Plans,
+			entitlements: deps.Billing.Entitlements,
+		},
+		onboardingState: onboardingState{
+			onboarding:     deps.Onboarding.Onboarding,
+			loginDiscovery: deps.Onboarding.LoginDiscovery,
+		},
+		observabilityState: observabilityState{
+			traces:         deps.Observability.Traces,
+			logs:           deps.Observability.Logs,
+			metrics:        deps.Observability.Metrics,
+			tracePrivacy:   deps.Observability.TracePrivacy,
+			requestLogging: deps.Observability.RequestLogging,
+		},
+		supportState: supportState{
+			supportTenants: deps.Support.Tenants,
+			supportTickets: deps.Support.Tickets,
+			supportFiles:   deps.Support.Files,
+		},
 	}
 }
 

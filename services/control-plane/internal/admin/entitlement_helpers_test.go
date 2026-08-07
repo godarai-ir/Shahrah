@@ -26,7 +26,7 @@ func (m entitlementResolverMock) CountActiveTenantUsers(context.Context, string)
 }
 
 func TestEntitlementGateRejectsDisabledVAT(t *testing.T) {
-	h := &Handlers{entitlements: entitlementResolverMock{effective: activeEntitlements(map[string]interface{}{platform.FeatureVATEnabled: false})}}
+	h := &Handlers{billingState: billingState{entitlements: entitlementResolverMock{effective: activeEntitlements(map[string]interface{}{platform.FeatureVATEnabled: false})}}}
 	app := fiber.New()
 	app.Post("/vat", func(c *fiber.Ctx) error { return h.requireVATEnabled(c, "tenant-1") })
 
@@ -40,7 +40,7 @@ func TestEntitlementGateRejectsDisabledVAT(t *testing.T) {
 func TestEntitlementGateAllowsTeamRateLimitRules(t *testing.T) {
 	effective := activeEntitlements(map[string]interface{}{platform.FeatureRateLimitRulesEnabled: true})
 	effective.Subscription.Status = "trialing"
-	h := &Handlers{entitlements: entitlementResolverMock{effective: effective}}
+	h := &Handlers{billingState: billingState{entitlements: entitlementResolverMock{effective: effective}}}
 	app := fiber.New()
 	app.Post("/rules", func(c *fiber.Ctx) error {
 		if err := h.requireEntitlementEnabled(c, "tenant-1", platform.FeatureRateLimitRulesEnabled); err != nil {
@@ -58,7 +58,7 @@ func TestEntitlementGateAllowsTeamRateLimitRules(t *testing.T) {
 }
 
 func TestEntitlementLimitUsesEffectiveOverrideValue(t *testing.T) {
-	h := &Handlers{entitlements: entitlementResolverMock{effective: activeEntitlements(map[string]interface{}{platform.FeatureUsersMax: float64(10)})}}
+	h := &Handlers{billingState: billingState{entitlements: entitlementResolverMock{effective: activeEntitlements(map[string]interface{}{platform.FeatureUsersMax: float64(10)})}}}
 	app := fiber.New()
 	app.Post("/users/:used", func(c *fiber.Ctx) error {
 		used := 9

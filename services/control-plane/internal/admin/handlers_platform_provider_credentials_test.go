@@ -10,7 +10,7 @@ import (
 func TestRequirePlatformProviderCredentialsRejectsTypedNilService(t *testing.T) {
 	t.Parallel()
 
-	handlers := New(Dependencies{ProviderCredentials: (*platformcredentials.Service)(nil)})
+	handlers := New(Dependencies{Catalog: CatalogDependencies{ProviderCredentials: (*platformcredentials.Service)(nil)}})
 
 	service, err := handlers.requirePlatformProviderCredentials()
 	if service != nil {

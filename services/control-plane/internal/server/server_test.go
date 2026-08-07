@@ -15,6 +15,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
 	controlauth "github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	tenantmw "github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
@@ -282,10 +283,12 @@ func TestNewFiberAppRegistersPromptRoutes(t *testing.T) {
 	t.Parallel()
 
 	app := NewFiberApp(&config.Config{}, Dependencies{
-		AdminHandlers: admin.New(admin.Dependencies{
-			Keys:           publicLoginDiscoveryStore{},
-			LoginDiscovery: publicLoginDiscoveryStore{},
-		}),
+		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
+			IAM: admin.IAMDependencies{Keys: publicLoginDiscoveryStore{}},
+			Onboarding: admin.OnboardingDependencies{
+				LoginDiscovery: publicLoginDiscoveryStore{},
+			},
+		})),
 	})
 
 	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/v1/prompts", http.NoBody))
@@ -304,7 +307,9 @@ func TestTenantAdminPATRevokeAllRouteUsesSpecificHandler(t *testing.T) {
 		return c.Next()
 	})
 	registerTenantAdminRoutes(app, Dependencies{
-		AdminHandlers: admin.New(admin.Dependencies{Keys: patRouteStore{}}),
+		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
+			IAM: admin.IAMDependencies{Keys: patRouteStore{}},
+		})),
 	})
 
 	req := httptest.NewRequest(fiber.MethodDelete, "/api/v1/personal-access-tokens/revoke/all", http.NoBody)
@@ -391,7 +396,10 @@ func TestLoginDiscoveryRoutesArePublic(t *testing.T) {
 
 	store := publicLoginDiscoveryStore{}
 	app := NewFiberApp(&config.Config{}, Dependencies{
-		AdminHandlers:  admin.New(admin.Dependencies{Keys: store, LoginDiscovery: store}),
+		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
+			IAM:        admin.IAMDependencies{Keys: store},
+			Onboarding: admin.OnboardingDependencies{LoginDiscovery: store},
+		})),
 		TenantResolver: tenantmw.NewMiddlewareWithCache(tenantLookupAlwaysFails{}, nil, tenantmw.MiddlewareConfig{}),
 	})
 

@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/admin"
+	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"go.uber.org/zap"
 )
@@ -13,35 +14,62 @@ func (b *builder) buildManagement() error {
 	}
 
 	dependencies := admin.Dependencies{
-		Keys:                b.store,
-		Models:              b.store,
-		Wallets:             b.store.WalletRepository,
-		ProviderAccounts:    b.store.ProviderAccountRepository,
-		ProviderSchemas:     b.credentialRuntime.schemas,
-		ProviderCredentials: b.credentialRuntime.service,
-		OrgUnits:            b.store,
-		Memberships:         b.store,
-		Users:               b.store,
-		VirtualUsers:        b.store,
-		Teams:               b.store,
-		Onboarding:          b.store,
-		LoginDiscovery:      b.store,
-		Traces:              b.store,
-		Logs:                b.store,
-		Metrics:             b.store,
-		TracePrivacy:        b.store,
-		RequestLogging:      b.store,
-		Prompts:             b.store,
-		Roles:               b.store,
-		Plans:               b.store.PlanRepository,
-		Entitlements:        b.store.PlanRepository,
-		SupportTenants:      b.store.SupportRepository,
-		SupportTickets:      b.store.SupportRepository,
-		SupportFiles:        supportFileService,
+		IAM: admin.IAMDependencies{
+			Keys:         b.store,
+			OrgUnits:     b.store,
+			Memberships:  b.store,
+			Users:        b.store,
+			VirtualUsers: b.store,
+			Teams:        b.store,
+			Roles:        b.store,
+		},
+		Catalog: admin.CatalogDependencies{
+			Models:              b.store,
+			ProviderAccounts:    b.store.ProviderAccountRepository,
+			ProviderSchemas:     b.credentialRuntime.schemas,
+			ProviderCredentials: b.credentialRuntime.service,
+			Prompts:             b.store,
+		},
+		Billing: admin.BillingDependencies{
+			Wallets:      b.store.WalletRepository,
+			Plans:        b.store.PlanRepository,
+			Entitlements: b.store.PlanRepository,
+		},
+		Onboarding: admin.OnboardingDependencies{
+			Onboarding:     b.store,
+			LoginDiscovery: b.store,
+		},
+		Observability: admin.ObservabilityDependencies{
+			Traces:         b.store,
+			Logs:           b.store,
+			Metrics:        b.store,
+			TracePrivacy:   b.store,
+			RequestLogging: b.store,
+		},
+		Support: admin.SupportDependencies{
+			Tenants: b.store.SupportRepository,
+			Tickets: b.store.SupportRepository,
+			Files:   supportFileService,
+		},
 	}
 
-	b.adminHandlers = admin.New(dependencies)
-	b.authHandlers = admin.NewAuthHandlers(b.store, admin.NewTenantAdminOTPNotifierFromEnv())
+	adminHandlers := admin.New(dependencies)
+	authHandlers := admin.NewAuthHandlers(b.store, admin.NewTenantAdminOTPNotifierFromEnv())
+
+	managementRoutes, err := management.New(management.Dependencies{
+		Auth:          authHandlers,
+		Billing:       adminHandlers,
+		Catalog:       adminHandlers,
+		IAM:           adminHandlers,
+		Observability: adminHandlers,
+		Onboarding:    adminHandlers,
+		Support:       adminHandlers,
+	})
+	if err != nil {
+		return err
+	}
+
+	b.managementRoutes = managementRoutes
 
 	return nil
 }

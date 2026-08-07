@@ -26,6 +26,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	controlserver "github.com/Delpak/shahrah/services/control-plane/internal/server"
@@ -149,11 +150,11 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 		TenantResolver: tenantmw.NewMiddlewareWithCache(tenantStore, nil, tenantmw.MiddlewareConfig{
 			AllowHeaderHint: true,
 		}),
-		AdminHandlers: admin.New(admin.Dependencies{
-			Keys:    noopKeyStore{},
-			Models:  modelStore,
-			Wallets: walletStore,
-		}),
+		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
+			IAM:     admin.IAMDependencies{Keys: noopKeyStore{}},
+			Catalog: admin.CatalogDependencies{Models: modelStore},
+			Billing: admin.BillingDependencies{Wallets: walletStore},
+		})),
 		ProxyHandler: proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
 			Base: baseProxyDeps,
 		}),
@@ -2554,15 +2555,17 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache cache.Cache, p
 		TenantResolver: tenantmw.NewMiddlewareWithCache(tenantStore, nil, tenantmw.MiddlewareConfig{
 			AllowHeaderHint: true,
 		}),
-		AdminHandlers: admin.New(admin.Dependencies{
-			Keys:         keyStore,
-			Models:       modelStore,
-			Wallets:      walletStore,
-			OrgUnits:     keyStore,
-			Memberships:  keyStore,
-			VirtualUsers: keyStore,
-			Users:        modelStore,
-		}),
+		ManagementRoutes: management.NewHandlerRoutes(admin.New(admin.Dependencies{
+			IAM: admin.IAMDependencies{
+				Keys:         keyStore,
+				OrgUnits:     keyStore,
+				Memberships:  keyStore,
+				VirtualUsers: keyStore,
+				Users:        modelStore,
+			},
+			Catalog: admin.CatalogDependencies{Models: modelStore},
+			Billing: admin.BillingDependencies{Wallets: walletStore},
+		})),
 		ProxyHandler: proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
 			Base:              baseProxyDeps,
 			VirtualModelStore: modelStore,

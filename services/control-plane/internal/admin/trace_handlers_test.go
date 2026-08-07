@@ -118,7 +118,7 @@ func TestGetRequestTrace_UsesTenantContextIsolation(t *testing.T) {
 			}, nil
 		},
 	}
-	h := &Handlers{traces: mock}
+	h := &Handlers{observabilityState: observabilityState{traces: mock}}
 	app := setupTraceTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1", http.NoBody)
@@ -141,7 +141,7 @@ func TestGetRequestTrace_CrossTenantReturnsNotFound(t *testing.T) {
 			return nil, pgx.ErrNoRows
 		},
 	}
-	h := &Handlers{traces: mock}
+	h := &Handlers{observabilityState: observabilityState{traces: mock}}
 	app := setupTraceTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace", http.NoBody)
@@ -162,7 +162,7 @@ func TestListTraceSpans_CrossTenantReturnsNotFound(t *testing.T) {
 			return nil, pgx.ErrNoRows
 		},
 	}
-	h := &Handlers{traces: mock}
+	h := &Handlers{observabilityState: observabilityState{traces: mock}}
 	app := setupTraceTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/foreign_trace/spans", http.NoBody)
@@ -193,7 +193,7 @@ func TestListTraceSpans_ReturnsTenantScopedData(t *testing.T) {
 			}}, nil
 		},
 	}
-	h := &Handlers{traces: mock}
+	h := &Handlers{observabilityState: observabilityState{traces: mock}}
 	app := setupTraceTestApp(h)
 
 	req := httptest.NewRequest("GET", "/api/v1/traces/trace_1/spans", http.NoBody)
