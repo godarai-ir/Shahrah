@@ -26,6 +26,10 @@ type SpendLogger interface {
 	LogSpend(ctx context.Context, log platform.SpendLog) error
 }
 
+type virtualModelStore interface {
+	GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
+}
+
 type anthropicModelRuntimeProfileResolver interface {
 	ResolveModelRuntimeProfiles(
 		models []string,
@@ -103,25 +107,28 @@ func compatibilityBillingCapabilities() BillingCapabilities {
 
 // BaseHandlerDependencies groups shared proxy handler dependencies.
 type BaseHandlerDependencies struct {
-	Pipeline                 *RequestPipeline
-	Router                   *router.Router
-	Tunnel                   platform.TunnelTransport
-	RawTunnel                platform.TunnelRawTransport
-	Billing                  budgeter
-	BillingCapabilities      BillingCapabilities
-	Wallets                  walletStore
-	AnthropicRuntimeProfiles anthropicModelRuntimeProfileResolver
-	ProviderResources        providerNativeResourceStore
-	AnthropicResources       anthropicNativeResourceStore
-	MistralResources         mistralBatchResourceStore
-	Deployments              responseDeploymentLister
-	ResponseProviderAuth     responseProviderAuthResolver
-	RequestLogger            RequestLogger
-	SpendLogger              SpendLogger
-	Logger                   *zap.Logger
-	EmitMetric               func(input metricsobs.BuildInput)
-	PipelineConfig           RequestPipelineConfig
-	ProviderFeatures         ProviderFeatureConfig
+	Pipeline                  *RequestPipeline
+	Router                    *router.Router
+	Tunnel                    platform.TunnelTransport
+	RawTunnel                 platform.TunnelRawTransport
+	Billing                   budgeter
+	BillingCapabilities       BillingCapabilities
+	Wallets                   walletStore
+	AnthropicRuntimeProfiles  anthropicModelRuntimeProfileResolver
+	ProviderResources         providerNativeResourceStore
+	AnthropicResources        anthropicNativeResourceStore
+	MistralResources          mistralBatchResourceStore
+	Deployments               responseDeploymentLister
+	ResponseProviderAuth      responseProviderAuthResolver
+	RequestLogger             RequestLogger
+	SpendLogger               SpendLogger
+	Logger                    *zap.Logger
+	EmitMetric                func(input metricsobs.BuildInput)
+	PipelineConfig            RequestPipelineConfig
+	ProviderFeatures          ProviderFeatureConfig
+	VirtualModelStore         virtualModelStore
+	VirtualModelAliasCacheTTL time.Duration
+	VirtualModelNegativeTTL   time.Duration
 }
 
 // ProviderFeatureConfig is an immutable provider endpoint rollout snapshot.
@@ -142,10 +149,8 @@ type ProviderFeatureConfig struct {
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.
 type ChatCompletionDependencies struct {
-	Base              BaseHandlerDependencies
-	VirtualModelStore interface {
-		GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
-	}
+	Base                      BaseHandlerDependencies
+	VirtualModelStore         virtualModelStore
 	GuardrailResolver         guardrailResolver
 	PromptResolver            promptResolver
 	Guardrails                *guardrails.Engine
@@ -210,9 +215,7 @@ func (d BaseHandlerDependencies) requestPipeline() *RequestPipeline {
 	)
 }
 
-func newChatVirtualModelDeps(store interface {
-	GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
-}, hitTTL time.Duration, negativeTTL time.Duration) (virtualmodels.VirtualModelResolver, virtualmodels.RoutingEngine, virtualmodels.FallbackExecutor) {
+func newVirtualModelDeps(store virtualModelStore, hitTTL time.Duration, negativeTTL time.Duration) (virtualmodels.VirtualModelResolver, virtualmodels.RoutingEngine, virtualmodels.FallbackExecutor) {
 	if store == nil {
 		return nil, nil, nil
 	}

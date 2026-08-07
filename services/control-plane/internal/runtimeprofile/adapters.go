@@ -24,7 +24,7 @@ func (s *VirtualModelStore) GetVirtualModelByAlias(ctx context.Context, tenantID
 
 	vm, ok := profile.VirtualModels[strings.TrimSpace(alias)]
 	if !ok {
-		return nil, ErrProfileUnavailable
+		return nil, nil
 	}
 
 	out := cloneVirtualModel(vm)

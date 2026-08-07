@@ -123,10 +123,25 @@ type ChatCompletionHandler struct {
 
 // NewChatCompletionHandlerWithDependencies creates a chat handler from explicit dependencies.
 func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *ChatCompletionHandler {
-	resolver, engine, exec := newChatVirtualModelDeps(
-		deps.VirtualModelStore,
-		deps.VirtualModelAliasCacheTTL,
-		deps.VirtualModelNegativeTTL,
+	virtualModelStore := deps.VirtualModelStore
+	if virtualModelStore == nil {
+		virtualModelStore = deps.Base.VirtualModelStore
+	}
+
+	aliasCacheTTL := deps.VirtualModelAliasCacheTTL
+	if aliasCacheTTL <= 0 {
+		aliasCacheTTL = deps.Base.VirtualModelAliasCacheTTL
+	}
+
+	negativeCacheTTL := deps.VirtualModelNegativeTTL
+	if negativeCacheTTL <= 0 {
+		negativeCacheTTL = deps.Base.VirtualModelNegativeTTL
+	}
+
+	resolver, engine, exec := newVirtualModelDeps(
+		virtualModelStore,
+		aliasCacheTTL,
+		negativeCacheTTL,
 	)
 
 	return &ChatCompletionHandler{
@@ -322,55 +337,67 @@ func (h *ChatCompletionHandler) validateChatDeploymentRequest(
 		return true, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
 	}
 
+	statusCode, errorType, validationErr := h.chatDeploymentRequestValidationError(req, deployment)
+	if validationErr != nil {
+		message := validationErr.Error()
+		if message != "" {
+			message = strings.ToUpper(message[:1]) + message[1:]
+		}
+
+		return true, writeAPIError(c, statusCode, message, errorType)
+	}
+
+	return false, nil
+}
+
+func (h *ChatCompletionHandler) chatDeploymentRequestValidationError(
+	req contractsopenai.ChatCompletionRequest,
+	deployment *router.Deployment,
+) (int, string, error) {
 	provider := deployment.Provider
 	if isMistralProvider(provider) && !mistralEndpointEnabled(h.providerFeatures, "chat_completions") {
-		return true, writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI chat completions are disabled", "provider_disabled")
+		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("mistral AI chat completions are disabled")
 	}
 
 	if chatRequestHasImage(req) && !supportsChatImageProvider(provider) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support image input through GodarAI chat completions", provider), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support image input through GodarAI chat completions", provider)
 	}
 
 	if chatRequestHasVideo(req) && !supportsChatVideoProvider(provider) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support video input through GodarAI chat completions", provider), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support video input through GodarAI chat completions", provider)
 	}
 
 	if chatRequestHasFile(req) && !supportsChatFileProvider(provider) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support file input through GodarAI chat completions", provider), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support file input through GodarAI chat completions", provider)
 	}
 
 	if chatRequestHasInputAudio(req) && !supportsChatInputAudioProvider(provider) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support input_audio through GodarAI chat completions", provider), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support input_audio through GodarAI chat completions", provider)
 	}
 
 	if chatRequestHasTools(req) && !supportsChatToolsProvider(provider) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support tools through GodarAI chat completions", provider), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support tools through GodarAI chat completions", provider)
 	}
 
 	if chatRequestHasResponseFormat(req) && !supportsChatResponseFormatProvider(provider) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support response_format through GodarAI chat completions", provider), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support response_format through GodarAI chat completions", provider)
 	}
 
 	if chatRequestHasExtendedThinking(req) && !supportsChatExtendedThinkingProvider(provider) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, fmt.Sprintf("Provider %s does not support extended thinking through GodarAI chat completions", provider), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support extended thinking through GodarAI chat completions", provider)
 	}
 
 	if err := validateProviderMediaInput(req, provider); err != nil {
-		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+		return fiber.StatusBadRequest, "invalid_request_error", err
 	}
 
 	if strings.EqualFold(strings.TrimSpace(provider), "xai") &&
 		chatRequestDeferred(req) &&
 		(h.resources == nil || h.deployments == nil || strings.TrimSpace(deployment.ProviderAccountID) == "") {
-		return true, writeAPIError(
-			c,
-			fiber.StatusServiceUnavailable,
-			"Deferred chat completion routing state is unavailable",
-			"routing_error",
-		)
+		return fiber.StatusServiceUnavailable, "routing_error", errors.New("deferred chat completion routing state is unavailable")
 	}
 
-	return false, nil
+	return 0, "", nil
 }
 
 func (h *ChatCompletionHandler) validateChatRuntimeProfile(
@@ -379,80 +406,55 @@ func (h *ChatCompletionHandler) validateChatRuntimeProfile(
 	deployment *router.Deployment,
 	runtimeProfile *platform.ModelRuntimeProfileBinding,
 ) (bool, error) {
+	if err := chatRuntimeProfileValidationError(req, deployment, runtimeProfile); err != nil {
+		return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
+	}
+
+	return false, nil
+}
+
+func chatRuntimeProfileValidationError(
+	req contractsopenai.ChatCompletionRequest,
+	deployment *router.Deployment,
+	runtimeProfile *platform.ModelRuntimeProfileBinding,
+) error {
 	if deployment == nil {
-		return false, nil
+		return nil
 	}
 
 	provider := deployment.Provider
 
 	if strings.EqualFold(strings.TrimSpace(provider), "anthropic") {
-		if err := validateAnthropicChatRuntimeProfile(
+		return validateAnthropicChatRuntimeProfile(
 			req,
 			runtimeProfile,
-		); err != nil {
-			return true, writeAPIError(
-				c,
-				fiber.StatusBadRequest,
-				err.Error(),
-				"invalid_request_error",
-			)
-		}
+		)
 	}
 
 	if isGoogleGeminiProvider(provider) {
-		if err := validateGoogleGeminiChatRuntimeProfile(
+		return validateGoogleGeminiChatRuntimeProfile(
 			req,
 			runtimeProfile,
-		); err != nil {
-			return true, writeAPIError(
-				c,
-				fiber.StatusBadRequest,
-				err.Error(),
-				"invalid_request_error",
-			)
-		}
+		)
 	}
 
 	if strings.EqualFold(strings.TrimSpace(provider), "xai") {
-		if err := validateXAIChatRuntimeProfile(req, runtimeProfile); err != nil {
-			return true, writeAPIError(
-				c,
-				fiber.StatusBadRequest,
-				err.Error(),
-				"invalid_request_error",
-			)
-		}
+		return validateXAIChatRuntimeProfile(req, runtimeProfile)
 	}
 
 	if strings.EqualFold(strings.TrimSpace(provider), "moonshot") {
-		if err := validateMoonshotChatRuntimeProfile(req, runtimeProfile); err != nil {
-			return true, writeAPIError(
-				c,
-				fiber.StatusBadRequest,
-				err.Error(),
-				"invalid_request_error",
-			)
-		}
+		return validateMoonshotChatRuntimeProfile(req, runtimeProfile)
 	}
 
 	if strings.EqualFold(strings.TrimSpace(provider), "deepseek") {
-		if err := validateDeepSeekChatRuntimeProfile(req, runtimeProfile); err != nil {
-			return true, writeAPIError(
-				c,
-				fiber.StatusBadRequest,
-				err.Error(),
-				"invalid_request_error",
-			)
-		}
+		return validateDeepSeekChatRuntimeProfile(req, runtimeProfile)
 	}
 
 	if isMistralProvider(provider) {
-		if err := validateMistralChatRuntimeProfile(req, runtimeProfile); err != nil {
-			return true, writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
-		}
+		return validateMistralChatRuntimeProfile(req, runtimeProfile)
 	}
 
-	return false, nil
+	return nil
 }
 
 func buildChatCompletionPayload(req contractsopenai.ChatCompletionRequest, deploymentModel string, fallbackModel string) ([]byte, error) {
@@ -692,80 +694,56 @@ func (h *ChatCompletionHandler) tryRouteVirtualModel(
 	tenantID string,
 	authInfo *platform.AuthContext,
 	requestedModel string,
-	req contractsopenai.ChatCompletionRequest,
-	resolvedModel string,
-	baseReq platform.TunnelRequest,
 	routeStart time.Time,
 ) (*router.Deployment, bool, error) {
-	if req.Stream || h.vmEngine == nil || h.vmExec == nil {
+	if h.vmEngine == nil || h.vmExec == nil {
 		return nil, false, nil
 	}
 
-	if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
-		deployment, err := h.executeVirtualModelRoute(c, tenantID, snapshotVM, req, resolvedModel, baseReq, routeStart, true)
-		if err != nil || deployment != nil {
-			return deployment, deployment != nil, err
+	plan, resolveErr := resolveVirtualModelRoutePlan(
+		c.Context(),
+		authInfo,
+		h.vmResolver,
+		h.vmEngine,
+		tenantID,
+		requestedModel,
+	)
+	if errors.Is(resolveErr, virtualmodels.ErrNotVirtualModel) {
+		return nil, false, nil
+	}
+
+	if errors.Is(resolveErr, virtualmodels.ErrDisabledVirtualModel) {
+		return nil, false, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("Virtual model is disabled: %s", requestedModel), "virtual_model_disabled")
+	}
+
+	if resolveErr != nil {
+		if errors.Is(resolveErr, virtualmodels.ErrNoEligibleTargets) {
+			return nil, false, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No eligible targets for virtual model: %s", requestedModel), "virtual_model_no_eligible_targets")
 		}
+
+		return nil, false, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("Virtual model routing is unavailable for model: %s", requestedModel), "virtual_model_routing_unavailable")
 	}
 
-	if h.vmResolver == nil {
-		return nil, false, nil
-	}
+	deployment, err := h.prepareVirtualModelRoute(c, tenantID, plan, routeStart)
 
-	vm, resolveErr := h.vmResolver.Resolve(c.Context(), tenantID, requestedModel)
-	if resolveErr == nil {
-		deployment, err := h.executeVirtualModelRoute(c, tenantID, vm, req, resolvedModel, baseReq, routeStart, false)
-
-		return deployment, deployment != nil, err
-	}
-
-	return nil, false, nil
+	return deployment, deployment != nil, err
 }
 
-func (h *ChatCompletionHandler) executeVirtualModelRoute(
+func (h *ChatCompletionHandler) prepareVirtualModelRoute(
 	c *fiber.Ctx,
 	tenantID string,
-	vm *platform.VirtualModel,
-	req contractsopenai.ChatCompletionRequest,
-	resolvedModel string,
-	baseReq platform.TunnelRequest,
+	plan *virtualModelRoutePlan,
 	routeStart time.Time,
-	fromSnapshot bool,
 ) (*router.Deployment, error) {
-	targets, selErr := h.vmEngine.SelectTargets(vm)
-	if selErr != nil {
-		targets = nil
+	firstDeployment := resolveFirstVirtualDeployment(c.Context(), tenantID, plan.targets, h.llmRouter)
+
+	if firstDeployment == nil {
+		return nil, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available target deployment for virtual model: %s", plan.model.Alias), "virtual_model_target_unavailable")
 	}
 
-	if targets == nil {
-		return nil, nil
-	}
+	setVirtualModelRoutePlan(c, plan.model, plan.targets, plan.fromSnapshot, routeStart)
 
-	resp, selectedDep, fallbackCount, failureReason, execErr := h.vmExec.ExecuteSync(c.Context(), targets, func(callCtx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error) {
-		dep = h.resolveVirtualDeployment(callCtx, tenantID, dep)
-		tunnelReq := baseReq
-		tunnelReq.Deployment = toContractDeployment(dep)
-		tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
-
-		payload, payloadErr := buildChatCompletionPayload(req, dep.Model, resolvedModel)
-		if payloadErr != nil {
-			return nil, payloadErr
-		}
-
-		tunnelReq.Body = payload
-
-		return h.pipeline.Dispatch(callCtx, tunnelReq)
-	})
-	if execErr == nil && resp != nil && selectedDep != nil {
-		h.recordVirtualModelRoute(c, vm, selectedDep, resp, fallbackCount, failureReason, routeStart, fromSnapshot)
-		return selectedDep, nil
-	}
-
-	if errors.Is(execErr, virtualmodels.ErrFallbackExhausted) {
-		return nil, writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
-	}
-
-	return nil, nil
+	return firstDeployment, nil
 }
 
 func (h *ChatCompletionHandler) shouldDeferBudgetForVirtualModel(ctx context.Context, tenantID string, authInfo *platform.AuthContext, requestedModel string) bool {
@@ -828,25 +806,33 @@ func deploymentFromVirtualTarget(target platform.VirtualModelTarget) *router.Dep
 	}
 }
 
-func (h *ChatCompletionHandler) recordVirtualModelRoute(
+func recordVirtualModelSelection(
 	c *fiber.Ctx,
 	vm *platform.VirtualModel,
 	selectedDep *router.Deployment,
-	resp *platform.TunnelResponse,
 	fallbackCount int,
 	failureReason string,
 	routeStart time.Time,
 	fromSnapshot bool,
+	stream bool,
 ) {
-	setVirtualModelRequestContext(c, resp, fallbackCount, failureReason)
+	state := requestContext(c)
+	state.virtualModel = vm
+	state.virtualModelActive = true
+	state.fallbackCount = fallbackCount
+	state.failureReason = failureReason
 
 	metadata := map[string]interface{}{
-		"virtual_model":     vm.Alias,
-		"routing_strategy":  vm.RoutingStrategy,
-		"selected_provider": selectedDep.Provider,
-		"selected_model":    selectedDep.Model,
-		"fallback_count":    fallbackCount,
-		"failure_reason":    failureReason,
+		"virtual_model":          vm.Alias,
+		"virtual_model_id":       vm.ID,
+		"virtual_model_version":  vm.Version,
+		"routing_strategy":       vm.RoutingStrategy,
+		"selected_provider":      selectedDep.Provider,
+		"selected_model":         selectedDep.Model,
+		"selected_deployment_id": selectedDep.ID,
+		"fallback_count":         fallbackCount,
+		"failure_reason":         failureReason,
+		"stream":                 stream,
 	}
 	if fromSnapshot {
 		metadata["snapshot"] = true
@@ -964,6 +950,8 @@ func (h *ChatCompletionHandler) handleSync(
 func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, result responsecache.Result, start time.Time, tenantSlug string) error {
 	entry := result.Entry
 
+	h.markVirtualModelCacheHit(c, authInfo, req.Model)
+
 	requestID := tracing.TraceIDFromContext(c)
 	if requestID == "" {
 		requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
@@ -991,7 +979,8 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	})
 	h.emitModelMetric(metricsobs.BuildInput{
 		TS: time.Now().UTC(), TenantID: authInfo.TenantID, RequestID: requestID, ModelName: req.Model,
-		ProviderName: entry.Provider, ProviderModelName: entry.ProviderModel, RequestType: "chat_completions",
+		VirtualModelName: modelMetricVirtualName(c, req.Model),
+		ProviderName:     entry.Provider, ProviderModelName: entry.ProviderModel, RequestType: "chat_completions",
 		UserID: authInfo.UserID, VirtualAccountID: authInfo.KeyID, VirtualAccountName: authInfo.KeyAlias,
 		TeamIDs: nonEmptySlice([]string{authInfo.TeamID}), StatusCode: fiber.StatusOK, LatencyMS: responseTimeMS,
 		CostUSD:   0,
@@ -1016,6 +1005,28 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	return c.Status(fiber.StatusOK).Send(entry.Response)
 }
 
+func (h *ChatCompletionHandler) markVirtualModelCacheHit(
+	c *fiber.Ctx,
+	authInfo *platform.AuthContext,
+	requestedModel string,
+) {
+	virtualModel, _ := buildVirtualModelFromSnapshot(authInfo, requestedModel)
+	if virtualModel == nil && h.vmResolver != nil {
+		resolved, err := h.vmResolver.Resolve(c.Context(), authInfo.TenantID, requestedModel)
+		if err == nil {
+			virtualModel = resolved
+		}
+	}
+
+	if virtualModel == nil {
+		return
+	}
+
+	state := requestContext(c)
+	state.virtualModel = virtualModel
+	state.virtualModelActive = true
+}
+
 func (h *ChatCompletionHandler) handleStream(
 	c *fiber.Ctx,
 	req contractsopenai.ChatCompletionRequest,
@@ -1028,14 +1039,14 @@ func (h *ChatCompletionHandler) handleStream(
 	tenantSlug string,
 ) error {
 	includeStreamTelemetry := strings.EqualFold(strings.TrimSpace(c.Get(apiheaders.HeaderStreamTelemetry)), "true")
+	providerStart := time.Now()
+
+	stream, tunnelReq, estimated, err := h.dispatchChatStream(c, authInfo.TenantID, req, estimated, tunnelReq)
 	requestLogBase := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/chat/completions", "chat_completions", "failed", 0, start, 0)
 	requestLogBase.RequestID = tunnelReq.RequestID
 	requestLogBase.TraceID = tunnelReq.TraceID
 	requestLogBase.RequestBody = buildProviderChatRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
 
-	providerStart := time.Now()
-
-	stream, err := h.pipeline.DispatchStream(c.Context(), tunnelReq)
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, enrichPlaygroundObservability(c, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
@@ -1050,6 +1061,10 @@ func (h *ChatCompletionHandler) handleStream(
 			"outcome": "open_failed",
 			"error":   map[string]interface{}{"message": err.Error(), "type": "stream_open_error"},
 		}, nil)
+
+		if errors.Is(err, virtualmodels.ErrFallbackExhausted) {
+			return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted before streaming began", "fallback_exhausted")
+		}
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -1317,6 +1332,154 @@ func (h *ChatCompletionHandler) handleStream(
 	return nil
 }
 
+func (h *ChatCompletionHandler) dispatchChatStream(
+	c *fiber.Ctx,
+	tenantID string,
+	req contractsopenai.ChatCompletionRequest,
+	estimated platform.UsageCostBreakdown,
+	baseRequest platform.TunnelRequest,
+) (platform.TunnelStream, platform.TunnelRequest, platform.UsageCostBreakdown, error) {
+	state := existingRequestContext(c)
+	if state == nil || state.virtualModel == nil || len(state.virtualModelTargets) == 0 {
+		stream, err := h.pipeline.DispatchStream(c.Context(), baseRequest)
+
+		return stream, baseRequest, estimated, err
+	}
+
+	selectedRequest := baseRequest
+	baseEstimate := estimated
+	selectedEstimate := estimated
+
+	stream, selectedDeployment, fallbackCount, failureReason, err := h.vmExec.ExecuteStream(
+		c.Context(),
+		state.virtualModelTargets,
+		func(callContext context.Context, deployment *router.Deployment) (platform.TunnelStream, error) {
+			candidateRequest, candidateEstimate, prepareErr := h.prepareVirtualChatRequest(
+				callContext,
+				c,
+				tenantID,
+				req,
+				baseEstimate,
+				baseRequest,
+				deployment,
+			)
+			if prepareErr != nil {
+				return nil, prepareErr
+			}
+
+			selectedRequest = candidateRequest
+			selectedEstimate = candidateEstimate
+
+			return h.pipeline.DispatchStream(callContext, candidateRequest)
+		},
+	)
+	if err != nil {
+		setVirtualModelFailure(c, fallbackCount, failureReason)
+
+		return nil, selectedRequest, selectedEstimate, err
+	}
+
+	if selectedDeployment == nil {
+		if stream != nil {
+			closeStreamBestEffort(h.logger, stream)
+		}
+
+		return nil, selectedRequest, selectedEstimate, errors.New("virtual model stream selected no deployment")
+	}
+
+	recordVirtualModelSelection(
+		c,
+		state.virtualModel,
+		selectedDeployment,
+		fallbackCount,
+		failureReason,
+		state.virtualModelRouteAt,
+		state.virtualModelSnapshot,
+		true,
+	)
+
+	return stream, selectedRequest, selectedEstimate, nil
+}
+
+func (h *ChatCompletionHandler) prepareVirtualChatRequest(
+	ctx context.Context,
+	c *fiber.Ctx,
+	tenantID string,
+	req contractsopenai.ChatCompletionRequest,
+	estimated platform.UsageCostBreakdown,
+	baseRequest platform.TunnelRequest,
+	deployment *router.Deployment,
+) (platform.TunnelRequest, platform.UsageCostBreakdown, error) {
+	resolved, err := resolveVirtualDeploymentStrict(ctx, h.llmRouter, tenantID, deployment)
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	}
+
+	*deployment = *resolved
+
+	if _, _, validationErr := h.chatDeploymentRequestValidationError(req, resolved); validationErr != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, validationErr
+	}
+
+	candidateRequest := baseRequest
+	candidateRequest.Deployment = toContractDeployment(resolved)
+	candidateRequest.Headers = cloneStringMap(baseRequest.Headers)
+	candidateRequest.RequestMetadata = replaceDeploymentRequestMetadata(
+		baseRequest.RequestMetadata,
+		candidateRequest.Deployment,
+	)
+
+	payload, err := buildChatCompletionPayload(req, resolved.Model, providerModelID(resolved.ModelName))
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, fmt.Errorf("build virtual model chat target payload: %w", err)
+	}
+
+	deleteHeaderFold(candidateRequest.Headers, "x-grok-conv-id")
+
+	if strings.EqualFold(strings.TrimSpace(resolved.Provider), "xai") {
+		payload, err = rewriteXAIFileReferences(ctx, h.resources, tenantID, resolved.ProviderAccountID, payload)
+		if err != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+		}
+
+		if conversationID := strings.TrimSpace(c.Get("x-grok-conv-id")); conversationID != "" {
+			candidateRequest.Headers["x-grok-conv-id"] = conversationID
+		}
+	}
+
+	candidateRequest.Body = payload
+
+	candidateEstimate, err := applyDeploymentPricingOverride(ctx, h.pipeline, estimated, resolved)
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	}
+
+	runtimeModel := strings.TrimSpace(resolved.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = providerModelID(resolved.ModelName)
+	}
+
+	candidateRequest.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+		resolved.Provider,
+		runtimeModel,
+		candidateEstimate,
+	)
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	}
+
+	var runtimeProfile *platform.ModelRuntimeProfileBinding
+	if len(candidateRequest.ModelRuntimeProfiles) == 1 {
+		runtimeProfile = &candidateRequest.ModelRuntimeProfiles[0]
+	}
+
+	if err := chatRuntimeProfileValidationError(req, resolved, runtimeProfile); err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	}
+
+	return candidateRequest, candidateEstimate, nil
+}
+
 type streamUsageCapture struct {
 	buffer []byte
 	usage  *contractsopenai.Usage
@@ -1521,7 +1684,7 @@ func modelMetricVirtualName(c *fiber.Ctx, fallback string) string {
 		return ""
 	}
 
-	if state := existingRequestContext(c); state != nil && state.virtualModelResponse != nil {
+	if state := existingRequestContext(c); state != nil && state.virtualModelActive {
 		return fallback
 	}
 

@@ -3,7 +3,9 @@ package proxy
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -31,10 +34,19 @@ type ResponsesHandler struct {
 	logs         usageLogger
 	logger       *zap.Logger
 	emitMetric   func(input metricsobs.BuildInput)
+	vmResolver   virtualmodels.VirtualModelResolver
+	vmEngine     virtualmodels.RoutingEngine
+	vmExec       virtualmodels.FallbackExecutor
 }
 
 // NewResponsesHandlerWithDependencies creates a responses handler from explicit dependencies.
 func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *ResponsesHandler {
+	resolver, engine, executor := newVirtualModelDeps(
+		deps.VirtualModelStore,
+		deps.VirtualModelAliasCacheTTL,
+		deps.VirtualModelNegativeTTL,
+	)
+
 	return &ResponsesHandler{
 		llmRouter:    deps.Router,
 		pipeline:     deps.requestPipeline(),
@@ -45,6 +57,9 @@ func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *Response
 		logs:         deps.logger(),
 		logger:       deps.Logger,
 		emitMetric:   deps.metricEmitter(),
+		vmResolver:   resolver,
+		vmEngine:     engine,
+		vmExec:       executor,
 	}
 }
 
@@ -66,6 +81,57 @@ func NewResponsesHandler(llmRouter *router.Router, tunnel platform.TunnelTranspo
 		Logger:              logger,
 		EmitMetric:          metricEmitter,
 	})
+}
+
+func (h *ResponsesHandler) routeResponseVirtualModel(
+	c *fiber.Ctx,
+	authInfo *platform.AuthContext,
+	tenantID string,
+	requestedModel string,
+	routeStart time.Time,
+) (*router.Deployment, bool, error) {
+	if h.vmEngine == nil || h.vmExec == nil {
+		return nil, false, nil
+	}
+
+	plan, err := resolveVirtualModelRoutePlan(
+		c.Context(),
+		authInfo,
+		h.vmResolver,
+		h.vmEngine,
+		tenantID,
+		requestedModel,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, virtualmodels.ErrNotVirtualModel):
+			return nil, false, nil
+		case errors.Is(err, virtualmodels.ErrDisabledVirtualModel):
+			return nil, false, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("Virtual model is disabled: %s", requestedModel), "virtual_model_disabled")
+		case errors.Is(err, virtualmodels.ErrNoEligibleTargets):
+			return nil, false, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No eligible targets for virtual model: %s", requestedModel), "virtual_model_no_eligible_targets")
+		default:
+			return nil, false, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("Virtual model routing is unavailable for model: %s", requestedModel), "virtual_model_routing_unavailable")
+		}
+	}
+
+	firstDeployment := resolveFirstVirtualDeployment(c.Context(), tenantID, plan.targets, h.llmRouter)
+
+	if firstDeployment == nil {
+		return nil, false, writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available target deployment for virtual model: %s", requestedModel), "virtual_model_target_unavailable")
+	}
+
+	setVirtualModelRoutePlan(c, plan.model, plan.targets, plan.fromSnapshot, routeStart)
+
+	return firstDeployment, true, nil
+}
+
+func (h *ResponsesHandler) resolveResponseVirtualDeployment(
+	ctx context.Context,
+	tenantID string,
+	deployment *router.Deployment,
+) (*router.Deployment, error) {
+	return resolveVirtualDeploymentStrict(ctx, h.llmRouter, tenantID, deployment)
 }
 
 // Handle processes an OpenAI-compatible Responses request.
@@ -163,7 +229,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	)
 
 	budgetReservationAttempted := false
-	if !shouldDeferBudgetReservationUntilRoute(requestedModel) {
+
+	deferBudgetUntilRoute := shouldDeferBudgetReservationUntilRoute(requestedModel) ||
+		h.shouldDeferResponsesBudgetForVirtualModel(c.Context(), authInfo, currentTenant.ID, requestedModel)
+	if !deferBudgetUntilRoute {
 		budgetReservationAttempted = true
 
 		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID))
@@ -191,25 +260,33 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	var (
 		dep              *router.Deployment
 		tunnelDeployment platform.Deployment
+		isVirtual        bool
 	)
 	if resolvedDeployment != nil {
 		tunnelDeployment = *resolvedDeployment
 	} else {
-		for _, candidate := range modelRoutingCandidates(requestedModel) {
-			dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
-			if err == nil {
-				break
-			}
+		dep, isVirtual, err = h.routeResponseVirtualModel(c, authInfo, currentTenant.ID, requestedModel, routeStart)
+		if err != nil {
+			return err
 		}
 
-		if err != nil || dep == nil {
-			if handled, dependencyErr := writeRoutingDependencyUnavailable(c, h.logger, err, requestedModel, currentTenant.ID); handled {
-				return dependencyErr
+		if !isVirtual {
+			for _, candidate := range modelRoutingCandidates(requestedModel) {
+				dep, err = h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
+				if err == nil {
+					break
+				}
 			}
 
-			emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
+			if err != nil || dep == nil {
+				if handled, dependencyErr := writeRoutingDependencyUnavailable(c, h.logger, err, requestedModel, currentTenant.ID); handled {
+					return dependencyErr
+				}
 
-			return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+				emitDenyCounter(h.logger, denyReasonUnknownModel, requestedModel, currentTenant.ID)
+
+				return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+			}
 		}
 
 		tunnelDeployment = toContractDeployment(dep)
@@ -219,14 +296,24 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", tunnelDeployment.Provider), "invalid_request_error")
 	}
 
+	dispatchEstimate := estimated
+
+	routedEstimate := estimated
 	if dep != nil {
-		estimated, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
+		routedEstimate, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
 		if err != nil {
 			return writeBillingEstimateError(c, err)
 		}
+
+		dispatchEstimate = routedEstimate
+		if isVirtual {
+			dispatchEstimate = estimated
+		}
 	}
 
-	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": tunnelDeployment.Provider, "deployment_id": tunnelDeployment.ID})
+	if !isVirtual {
+		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": tunnelDeployment.Provider, "deployment_id": tunnelDeployment.ID})
+	}
 
 	payload := originalBody
 
@@ -249,7 +336,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	if strings.EqualFold(strings.TrimSpace(tunnelDeployment.Provider), "xai") {
+	if !isVirtual && strings.EqualFold(strings.TrimSpace(tunnelDeployment.Provider), "xai") {
 		payload, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, tunnelDeployment.ProviderAccountID, payload)
 		if err != nil {
 			return writeXAIFileReferenceError(c, err)
@@ -299,7 +386,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	if !budgetReservationAttempted {
-		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment)))
+		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, routedEstimate, requestID, deploymentBillingMode(tunnelReq.Deployment)))
 		if err != nil {
 			return writeBudgetCheckError(c, err)
 		}
@@ -307,15 +394,281 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	if req.Stream {
 		releaseBudgetOnExit = false
-		return h.handleStream(c, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+		return h.handleStream(c, req, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug)
 	}
 
-	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, req, originalBody, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
 
 	return err
+}
+
+func (h *ResponsesHandler) shouldDeferResponsesBudgetForVirtualModel(
+	ctx context.Context,
+	authInfo *platform.AuthContext,
+	tenantID string,
+	requestedModel string,
+) bool {
+	plan, err := resolveVirtualModelRoutePlan(
+		ctx,
+		authInfo,
+		h.vmResolver,
+		h.vmEngine,
+		tenantID,
+		requestedModel,
+	)
+	if err != nil {
+		return false
+	}
+
+	for targetIndex := range plan.targets {
+		deployment, resolveErr := resolveVirtualDeploymentStrict(
+			ctx,
+			h.llmRouter,
+			tenantID,
+			deploymentFromVirtualTarget(plan.targets[targetIndex]),
+		)
+		if resolveErr != nil || deploymentBillingMode(toContractDeployment(deployment)) != platform.BillingModeExternalBilled {
+			return false
+		}
+	}
+
+	return len(plan.targets) > 0
+}
+
+func (h *ResponsesHandler) dispatchResponseSync(
+	c *fiber.Ctx,
+	tenantID string,
+	req contractsopenai.ResponseRequest,
+	estimated platform.UsageCostBreakdown,
+	baseRequest platform.TunnelRequest,
+) (*platform.TunnelResponse, platform.TunnelRequest, platform.UsageCostBreakdown, error) {
+	selectedEstimate := estimated
+	response, selectedRequest, err := h.dispatchVirtualResponseSync(
+		c,
+		baseRequest,
+		func(callContext context.Context, deployment *router.Deployment) (platform.TunnelRequest, error) {
+			candidateRequest, candidateEstimate, prepareErr := h.prepareVirtualResponseRequest(
+				callContext,
+				tenantID,
+				req,
+				estimated,
+				baseRequest,
+				deployment,
+			)
+			if prepareErr == nil {
+				selectedEstimate = candidateEstimate
+			}
+
+			return candidateRequest, prepareErr
+		},
+	)
+
+	return response, selectedRequest, selectedEstimate, err
+}
+
+func (h *ResponsesHandler) dispatchVirtualResponseSync(
+	c *fiber.Ctx,
+	baseRequest platform.TunnelRequest,
+	prepare func(context.Context, *router.Deployment) (platform.TunnelRequest, error),
+) (*platform.TunnelResponse, platform.TunnelRequest, error) {
+	state := existingRequestContext(c)
+	if state == nil || state.virtualModel == nil || len(state.virtualModelTargets) == 0 {
+		response, err := h.pipeline.Dispatch(c.Context(), baseRequest)
+
+		return response, baseRequest, err
+	}
+
+	selectedRequest := baseRequest
+
+	response, selectedDeployment, fallbackCount, failureReason, err := h.vmExec.ExecuteSync(
+		c.Context(),
+		state.virtualModelTargets,
+		func(callContext context.Context, deployment *router.Deployment) (*platform.TunnelResponse, error) {
+			candidateRequest, prepareErr := prepare(callContext, deployment)
+			if prepareErr != nil {
+				return nil, prepareErr
+			}
+
+			selectedRequest = candidateRequest
+
+			return h.pipeline.Dispatch(callContext, candidateRequest)
+		},
+	)
+	if err != nil {
+		setVirtualModelFailure(c, fallbackCount, failureReason)
+
+		return nil, selectedRequest, err
+	}
+
+	if selectedDeployment == nil {
+		return nil, selectedRequest, errors.New("virtual model response selected no deployment")
+	}
+
+	recordVirtualModelSelection(
+		c,
+		state.virtualModel,
+		selectedDeployment,
+		fallbackCount,
+		failureReason,
+		state.virtualModelRouteAt,
+		state.virtualModelSnapshot,
+		false,
+	)
+
+	return response, selectedRequest, nil
+}
+
+func (h *ResponsesHandler) dispatchResponseStream(
+	c *fiber.Ctx,
+	tenantID string,
+	req contractsopenai.ResponseRequest,
+	estimated platform.UsageCostBreakdown,
+	baseRequest platform.TunnelRequest,
+) (platform.TunnelStream, platform.TunnelRequest, platform.UsageCostBreakdown, error) {
+	state := existingRequestContext(c)
+	if state == nil || state.virtualModel == nil || len(state.virtualModelTargets) == 0 {
+		stream, err := h.pipeline.DispatchStream(c.Context(), baseRequest)
+
+		return stream, baseRequest, estimated, err
+	}
+
+	selectedRequest := baseRequest
+	baseEstimate := estimated
+	selectedEstimate := estimated
+
+	stream, selectedDeployment, fallbackCount, failureReason, err := h.vmExec.ExecuteStream(
+		c.Context(),
+		state.virtualModelTargets,
+		func(callContext context.Context, deployment *router.Deployment) (platform.TunnelStream, error) {
+			candidateRequest, candidateEstimate, prepareErr := h.prepareVirtualResponseRequest(
+				callContext,
+				tenantID,
+				req,
+				baseEstimate,
+				baseRequest,
+				deployment,
+			)
+			if prepareErr != nil {
+				return nil, prepareErr
+			}
+
+			selectedRequest = candidateRequest
+			selectedEstimate = candidateEstimate
+
+			return h.pipeline.DispatchStream(callContext, candidateRequest)
+		},
+	)
+	if err != nil {
+		setVirtualModelFailure(c, fallbackCount, failureReason)
+
+		return nil, selectedRequest, selectedEstimate, err
+	}
+
+	if selectedDeployment == nil {
+		if stream != nil {
+			closeStreamBestEffort(h.logger, stream)
+		}
+
+		return nil, selectedRequest, selectedEstimate, errors.New("virtual model response stream selected no deployment")
+	}
+
+	recordVirtualModelSelection(
+		c,
+		state.virtualModel,
+		selectedDeployment,
+		fallbackCount,
+		failureReason,
+		state.virtualModelRouteAt,
+		state.virtualModelSnapshot,
+		true,
+	)
+
+	return stream, selectedRequest, selectedEstimate, nil
+}
+
+func (h *ResponsesHandler) prepareVirtualResponseRequest(
+	ctx context.Context,
+	tenantID string,
+	req contractsopenai.ResponseRequest,
+	estimated platform.UsageCostBreakdown,
+	baseRequest platform.TunnelRequest,
+	deployment *router.Deployment,
+) (platform.TunnelRequest, platform.UsageCostBreakdown, error) {
+	resolved, err := h.resolveResponseVirtualDeployment(ctx, tenantID, deployment)
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	}
+
+	if !supportsResponsesCreateProvider(resolved.Provider) {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, fmt.Errorf("responses API is not enabled for provider: %s", resolved.Provider)
+	}
+
+	*deployment = *resolved
+
+	candidateRequest := baseRequest
+	candidateRequest.Deployment = toContractDeployment(resolved)
+	candidateRequest.ModelRuntimeProfiles = nil
+	candidateRequest.RequestMetadata = replaceDeploymentRequestMetadata(candidateRequest.RequestMetadata, candidateRequest.Deployment)
+
+	payload := append([]byte(nil), baseRequest.Body...)
+
+	if strings.TrimSpace(req.Model) != "" {
+		outboundModel := strings.TrimSpace(resolved.Model)
+		if outboundModel == "" || outboundModel == "*" {
+			outboundModel = providerModelID(resolved.ModelName)
+		}
+
+		payload, err = rewriteOpenAIJSONModel(payload, outboundModel)
+		if err != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, fmt.Errorf("rewrite virtual model response target: %w", err)
+		}
+	}
+
+	if strings.EqualFold(strings.TrimSpace(resolved.Provider), "xai") {
+		payload, err = rewriteXAIFileReferences(ctx, h.resources, tenantID, resolved.ProviderAccountID, payload)
+		if err != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+		}
+	}
+
+	candidateRequest.Body = payload
+
+	candidateEstimate, err := applyDeploymentPricingOverride(ctx, h.pipeline, estimated, resolved)
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	}
+
+	runtimeModel := strings.TrimSpace(resolved.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = providerModelID(resolved.ModelName)
+	}
+
+	candidateRequest.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+		resolved.Provider,
+		runtimeModel,
+		candidateEstimate,
+	)
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	}
+
+	if isDeepSeekProvider(resolved.Provider) {
+		if len(candidateRequest.ModelRuntimeProfiles) != 1 {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, errors.New("deepseek model runtime profile is unavailable")
+		}
+
+		if validationErr := validateDeepSeekResponsesRuntimeProfile(
+			payload,
+			&candidateRequest.ModelRuntimeProfiles[0],
+		); validationErr != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, validationErr
+		}
+	}
+
+	return candidateRequest, candidateEstimate, nil
 }
 
 func (h *ResponsesHandler) handleSync(
@@ -335,10 +688,17 @@ func (h *ResponsesHandler) handleSync(
 		"request_payload": buildProviderTraceResponseRequestPayload(tunnelReq.Deployment.Provider, req),
 	}
 
-	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
+	resp, tunnelReq, estimated, err := h.dispatchResponseSync(c, authInfo.TenantID, req, estimated, tunnelReq)
+	providerAttrs["provider"] = tunnelReq.Deployment.Provider
+	providerAttrs["request_payload"] = buildProviderTraceResponseRequestPayload(tunnelReq.Deployment.Provider, req)
+
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
+
+		if errors.Is(err, virtualmodels.ErrFallbackExhausted) {
+			return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
+		}
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -363,7 +723,7 @@ func (h *ResponsesHandler) handleSync(
 
 	providerAttrs["response_payload"] = buildProviderTraceResponsePayload(tunnelReq.Deployment.Provider, response)
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, resp.StatusCode, providerAttrs)
-	h.recordResponseMapping(c.Context(), authInfo.TenantID, tunnelReq.Deployment, response.ID, response.Status, response.Model)
+	h.recordResponseMapping(c.Context(), authInfo.TenantID, tunnelReq.Deployment, response.ID, response.Status, req.Model)
 
 	finalUsage := responseUsageWithToolsToOpenAI(response)
 	if finalUsage != nil {
@@ -416,6 +776,7 @@ func (h *ResponsesHandler) handleSync(
 		TenantID:           authInfo.TenantID,
 		RequestID:          tunnelReq.RequestID,
 		ModelName:          req.Model,
+		VirtualModelName:   modelMetricVirtualName(c, req.Model),
 		ProviderName:       tunnelReq.Deployment.Provider,
 		ProviderModelName:  tunnelReq.Deployment.Model,
 		RequestType:        "responses",
@@ -502,7 +863,7 @@ func buildProviderResponseLogPayload(provider string, body []byte, response cont
 func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.ResponseRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
 	providerStart := time.Now()
 
-	stream, err := h.pipeline.DispatchStream(c.Context(), tunnelReq)
+	stream, tunnelReq, estimated, err := h.dispatchResponseStream(c, authInfo.TenantID, req, estimated, tunnelReq)
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
@@ -512,6 +873,10 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 		})
 
 		h.pipeline.Release(c.Context(), budgetReservation, "stream_open_failed")
+
+		if errors.Is(err, virtualmodels.ErrFallbackExhausted) {
+			return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted before streaming began", "fallback_exhausted")
+		}
 
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -539,6 +904,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	c.Set("Connection", "keep-alive")
 	setTraceHeaders(c, tunnelReq.TraceID)
 	forwardProviderHeaders(c, stream.Headers())
+	virtualModelName := modelMetricVirtualName(c, req.Model)
 
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
@@ -630,6 +996,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				TenantID:           authInfo.TenantID,
 				RequestID:          tunnelReq.RequestID,
 				ModelName:          req.Model,
+				VirtualModelName:   virtualModelName,
 				ProviderName:       tunnelReq.Deployment.Provider,
 				ProviderModelName:  tunnelReq.Deployment.Model,
 				RequestType:        "responses",
@@ -664,6 +1031,7 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				requestCtx,
 				authInfo.TenantID,
 				tunnelReq.Deployment,
+				req.Model,
 				func(response contractsopenai.Response) {
 					if isTerminalResponseStatus(response.Status) {
 						responseCopy := response

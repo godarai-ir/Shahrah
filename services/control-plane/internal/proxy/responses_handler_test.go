@@ -33,6 +33,18 @@ type captureTunnel struct {
 	lastReq   platform.TunnelRequest
 }
 
+type responsesVirtualModelStore struct {
+	model *platform.VirtualModel
+}
+
+func (s responsesVirtualModelStore) GetVirtualModelByAlias(_ context.Context, _, alias string) (*platform.VirtualModel, error) {
+	if s.model == nil || s.model.Alias != alias {
+		return nil, nil
+	}
+
+	return s.model, nil
+}
+
 type xaiResponsesBudgeter struct{ testBudgeter }
 
 type deepSeekResponsesBudgeter struct{ testBudgeter }
@@ -141,6 +153,72 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, l
 	return app, q
 }
 
+func newVirtualResponsesTestApp(t *testing.T, tunnel *captureTunnel, logs *testLogs) *fiber.App {
+	t.Helper()
+
+	mem, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mem.Close()) })
+
+	rt, err := router.NewRouter([]config.ModelDeployment{{
+		ModelName: "openai:production:gpt-4o",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "openai",
+			Model:    "openai/gpt-4o",
+			APIKey:   "test-key",
+		},
+	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	require.NoError(t, err)
+
+	virtualModel := &platform.VirtualModel{
+		ID:              "vm-hi",
+		TenantID:        "tenant_a",
+		Alias:           "hi-vm",
+		RoutingStrategy: "priority",
+		Enabled:         true,
+		ExposedModes:    []string{"chat", "responses"},
+		Targets: []platform.VirtualModelTarget{{
+			ID:       "target-openai",
+			Order:    1,
+			Provider: "openai",
+			Model:    "openai:production:gpt-4o",
+			Policy: platform.VirtualModelPolicy{
+				Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429}},
+				Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429}, Candidate: true},
+			},
+		}},
+	}
+	handler := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
+		Router:            rt,
+		Tunnel:            tunnel,
+		Billing:           &testBudgeter{},
+		Wallets:           &testWallets{},
+		RequestLogger:     logs,
+		SpendLogger:       logs,
+		Logger:            zap.NewNop(),
+		VirtualModelStore: responsesVirtualModelStore{model: virtualModel},
+	})
+
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
+		return c.Next()
+	})
+	app.Post("/v1/responses", handler.Handle)
+	app.Post("/v1/responses/compact", handler.HandleCompact)
+	app.Post("/v1/responses/input_tokens", handler.HandleInputTokens)
+
+	return app
+}
+
 func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	payload := contractsopenai.Response{
 		ID:        "resp_1",
@@ -200,6 +278,111 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	assert.Equal(t, "resp_1", logs.loggedEntries[0].ResponseBody["id"])
 	assert.Equal(t, "response", logs.loggedEntries[0].ResponseBody["object"])
 	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
+}
+
+func TestResponsesHandlerVirtualModelSyncRoutesTargetWithoutAliasDeployment(t *testing.T) {
+	providerResponse, err := json.Marshal(contractsopenai.Response{
+		ID:        "resp_vm",
+		Object:    "response",
+		CreatedAt: time.Now().Unix(),
+		Model:     "gpt-4o",
+		Status:    "completed",
+		Usage:     &contractsopenai.ResponseUsage{InputTokens: 1, OutputTokens: 1, TotalTokens: 2},
+	})
+	require.NoError(t, err)
+
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       providerResponse,
+	}}
+	logs := &testLogs{}
+	app := newVirtualResponsesTestApp(t, tunnel, logs)
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"hi-vm","input":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode, string(body))
+	assert.NotEqual(t, "hi-vm", tunnel.lastReq.Deployment.ModelName)
+
+	var outbound map[string]interface{}
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	assert.NotEqual(t, "hi-vm", outbound["model"])
+	assert.Contains(t, outbound["model"], "gpt-4o")
+
+	entries := logs.requestEntries()
+	require.NotEmpty(t, entries)
+	assert.Equal(t, "hi-vm", entries[len(entries)-1].VirtualModel)
+}
+
+func TestResponsesHandlerVirtualModelStreamRoutesTargetWithoutAliasDeployment(t *testing.T) {
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
+	stream.chunks <- platform.TunnelChunk{
+		Data:   []byte("event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_vm_stream\",\"model\":\"gpt-4o\",\"status\":\"completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2}}}\n\n"),
+		IsDone: true,
+	}
+
+	close(stream.chunks)
+
+	tunnel := &captureTunnel{stream: stream}
+	logs := &testLogs{}
+	app := newVirtualResponsesTestApp(t, tunnel, logs)
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"hi-vm","input":"hello","stream":true}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode, string(body))
+	assert.Contains(t, string(body), "response.completed")
+	assert.NotEqual(t, "hi-vm", tunnel.lastReq.Deployment.ModelName)
+
+	var outbound map[string]interface{}
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	assert.NotEqual(t, "hi-vm", outbound["model"])
+	assert.Contains(t, outbound["model"], "gpt-4o")
+	assert.True(t, stream.closed)
+}
+
+func TestResponsesHandlerVirtualModelCompactRoutesTargetWithoutAliasDeployment(t *testing.T) {
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       []byte(`{"id":"resp_compact_vm","object":"response.compaction"}`),
+	}}
+	logs := &testLogs{}
+	app := newVirtualResponsesTestApp(t, tunnel, logs)
+	req := httptest.NewRequest(
+		"POST",
+		"/v1/responses/compact",
+		bytes.NewBufferString(`{"model":"hi-vm","input":"hello"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode, string(body))
+	assert.NotEqual(t, "hi-vm", tunnel.lastReq.Deployment.ModelName)
+
+	var outbound map[string]interface{}
+	require.NoError(t, json.Unmarshal(tunnel.lastReq.Body, &outbound))
+	assert.NotEqual(t, "hi-vm", outbound["model"])
+	assert.Contains(t, outbound["model"], "gpt-4o")
 }
 
 func TestResponseUsagePreservesCacheWriteTokensForBilling(t *testing.T) {

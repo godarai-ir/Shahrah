@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +14,7 @@ import (
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -40,11 +43,22 @@ func (h *ChatCompletionHandler) executeChatProvider(
 		"request_payload": buildProviderTraceChatRequestPayload(tunnelRequest.Deployment.Provider, request),
 	})
 
-	response, err := h.dispatchChatProvider(c, tunnelRequest)
+	response, tunnelRequest, estimated, err := h.dispatchChatProvider(c, request, estimated, tunnelRequest)
+	providerAttrs["provider"] = tunnelRequest.Deployment.Provider
+	providerAttrs["request_payload"] = buildProviderTraceChatRequestPayload(tunnelRequest.Deployment.Provider, request)
+
 	if err != nil {
 		providerAttrs["error"] = err.Error()
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, providerAttrs)
-		h.llmRouter.MarkFailed(c.Context(), &router.Deployment{ID: tunnelRequest.Deployment.ID}, err.Error())
+
+		state := existingRequestContext(c)
+		if state == nil || state.virtualModel == nil {
+			h.llmRouter.MarkFailed(c.Context(), &router.Deployment{ID: tunnelRequest.Deployment.ID}, err.Error())
+		}
+
+		if errors.Is(err, virtualmodels.ErrFallbackExhausted) {
+			return chatProviderResult{handled: true}, writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
+		}
 
 		return chatProviderResult{handled: true}, writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
@@ -124,13 +138,66 @@ func (h *ChatCompletionHandler) executeChatProvider(
 
 func (h *ChatCompletionHandler) dispatchChatProvider(
 	c *fiber.Ctx,
-	tunnelRequest platform.TunnelRequest,
-) (*platform.TunnelResponse, error) {
-	if state := existingRequestContext(c); state != nil && state.virtualModelResponse != nil {
-		return state.virtualModelResponse, nil
+	request contractsopenai.ChatCompletionRequest,
+	estimated platform.UsageCostBreakdown,
+	baseRequest platform.TunnelRequest,
+) (*platform.TunnelResponse, platform.TunnelRequest, platform.UsageCostBreakdown, error) {
+	state := existingRequestContext(c)
+	if state == nil || state.virtualModel == nil || len(state.virtualModelTargets) == 0 {
+		response, err := h.pipeline.Dispatch(c.Context(), baseRequest)
+
+		return response, baseRequest, estimated, err
 	}
 
-	return h.pipeline.Dispatch(c.Context(), tunnelRequest)
+	selectedRequest := baseRequest
+	baseEstimate := estimated
+	selectedEstimate := estimated
+
+	response, selectedDeployment, fallbackCount, failureReason, err := h.vmExec.ExecuteSync(
+		c.Context(),
+		state.virtualModelTargets,
+		func(callContext context.Context, deployment *router.Deployment) (*platform.TunnelResponse, error) {
+			candidateRequest, candidateEstimate, prepareErr := h.prepareVirtualChatRequest(
+				callContext,
+				c,
+				baseRequest.TenantID,
+				request,
+				baseEstimate,
+				baseRequest,
+				deployment,
+			)
+			if prepareErr != nil {
+				return nil, prepareErr
+			}
+
+			selectedRequest = candidateRequest
+			selectedEstimate = candidateEstimate
+
+			return h.pipeline.Dispatch(callContext, candidateRequest)
+		},
+	)
+	if err != nil {
+		setVirtualModelFailure(c, fallbackCount, failureReason)
+
+		return nil, selectedRequest, selectedEstimate, err
+	}
+
+	if selectedDeployment == nil {
+		return nil, selectedRequest, selectedEstimate, errors.New("virtual model chat selected no deployment")
+	}
+
+	recordVirtualModelSelection(
+		c,
+		state.virtualModel,
+		selectedDeployment,
+		fallbackCount,
+		failureReason,
+		state.virtualModelRouteAt,
+		state.virtualModelSnapshot,
+		false,
+	)
+
+	return response, selectedRequest, selectedEstimate, nil
 }
 
 func (h *ChatCompletionHandler) applyChatOutputGuardrails(

@@ -17,7 +17,9 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/providernative"
+	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -261,7 +263,10 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 		return writeAPIError(c, fiber.StatusBadRequest, "Model is required", "invalid_request_error")
 	}
 
-	var deployment platform.Deployment
+	var (
+		deployment platform.Deployment
+		isVirtual  bool
+	)
 
 	if requestedModel != "" {
 		modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeResponses)
@@ -273,25 +278,41 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 			return writeAPIError(c, fiber.StatusForbidden, "Model access denied or unsupported for responses", "authorization_error")
 		}
 
-		var routedErr error
+		virtualDeployment, virtual, routeErr := h.routeResponseVirtualModel(
+			c,
+			authInfo,
+			currentTenant.ID,
+			requestedModel,
+			time.Now(),
+		)
+		if routeErr != nil {
+			return routeErr
+		}
 
-		for _, candidate := range modelRoutingCandidates(requestedModel) {
-			routed, routeErr := h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
-			if routeErr == nil && routed != nil {
-				deployment = toContractDeployment(routed)
-				routedErr = nil
+		isVirtual = virtual
+		if isVirtual {
+			deployment = toContractDeployment(virtualDeployment)
+		} else {
+			var routedErr error
 
-				break
+			for _, candidate := range modelRoutingCandidates(requestedModel) {
+				routed, candidateErr := h.llmRouter.Route(c.Context(), currentTenant.ID, candidate)
+				if candidateErr == nil && routed != nil {
+					deployment = toContractDeployment(routed)
+					routedErr = nil
+
+					break
+				}
+
+				routedErr = candidateErr
 			}
 
-			routedErr = routeErr
+			if routedErr != nil || deployment.Provider == "" {
+				return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
+			}
 		}
 
-		if routedErr != nil || deployment.Provider == "" {
-			return writeAPIError(c, fiber.StatusServiceUnavailable, fmt.Sprintf("No available deployment for model: %s", requestedModel), "routing_error")
-		}
-
-		if !supportsResponseResourcesProvider(deployment.Provider) {
+		if !isVirtual && !supportsResponseResourcesProvider(deployment.Provider) {
 			return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", deployment.Provider), "invalid_request_error")
 		}
 
@@ -342,7 +363,7 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 			"provider_endpoint_path": endpoint,
 		}, deployment),
 	}
-	if strings.EqualFold(strings.TrimSpace(deployment.Provider), "xai") {
+	if !isVirtual && strings.EqualFold(strings.TrimSpace(deployment.Provider), "xai") {
 		var responseRequest contractsopenai.ResponseRequest
 		if err := json.Unmarshal(body, &responseRequest); err != nil {
 			return writeAPIError(c, fiber.StatusBadRequest, "Invalid request body", "invalid_request_error")
@@ -386,8 +407,17 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Tunnel path unavailable", "tunnel_unavailable")
 	}
 
-	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
+	resp, _, err := h.dispatchResponseBodyOperationSync(
+		c,
+		currentTenant.ID,
+		requestedModel,
+		tunnelReq,
+	)
 	if err != nil {
+		if errors.Is(err, virtualmodels.ErrFallbackExhausted) {
+			return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
+		}
+
 		return writeAPIError(c, fiber.StatusBadGateway, fmt.Sprintf("Tunnel error: %v", err), "api_error")
 	}
 
@@ -401,6 +431,120 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 
 	return c.Send(resp.Body)
+}
+
+func (h *ResponsesHandler) dispatchResponseBodyOperationSync(
+	c *fiber.Ctx,
+	tenantID string,
+	requestedModel string,
+	baseRequest platform.TunnelRequest,
+) (*platform.TunnelResponse, platform.TunnelRequest, error) {
+	return h.dispatchVirtualResponseSync(
+		c,
+		baseRequest,
+		func(callContext context.Context, deployment *router.Deployment) (platform.TunnelRequest, error) {
+			return h.prepareVirtualResponseBodyOperationRequest(
+				callContext,
+				tenantID,
+				requestedModel,
+				baseRequest,
+				deployment,
+			)
+		},
+	)
+}
+
+func (h *ResponsesHandler) prepareVirtualResponseBodyOperationRequest(
+	ctx context.Context,
+	tenantID string,
+	requestedModel string,
+	baseRequest platform.TunnelRequest,
+	deployment *router.Deployment,
+) (platform.TunnelRequest, error) {
+	resolved, err := h.resolveResponseVirtualDeployment(ctx, tenantID, deployment)
+	if err != nil {
+		return platform.TunnelRequest{}, err
+	}
+
+	if !supportsResponseResourcesProvider(resolved.Provider) {
+		return platform.TunnelRequest{}, fmt.Errorf("responses API is not enabled for provider: %s", resolved.Provider)
+	}
+
+	*deployment = *resolved
+
+	candidateRequest := baseRequest
+	candidateRequest.Deployment = toContractDeployment(resolved)
+	candidateRequest.ModelRuntimeProfiles = nil
+	candidateRequest.RequestMetadata = replaceDeploymentRequestMetadata(candidateRequest.RequestMetadata, candidateRequest.Deployment)
+
+	outboundModel := strings.TrimSpace(resolved.Model)
+	if outboundModel == "" || outboundModel == "*" {
+		outboundModel = providerModelID(resolved.ModelName)
+	}
+
+	candidateRequest.Body, err = rewriteOpenAIJSONModel(baseRequest.Body, outboundModel)
+	if err != nil {
+		return platform.TunnelRequest{}, fmt.Errorf("rewrite virtual model response operation target: %w", err)
+	}
+
+	if !strings.EqualFold(strings.TrimSpace(resolved.Provider), "xai") {
+		return candidateRequest, nil
+	}
+
+	candidateRequest.Body, err = rewriteXAIFileReferences(
+		ctx,
+		h.resources,
+		tenantID,
+		resolved.ProviderAccountID,
+		candidateRequest.Body,
+	)
+	if err != nil {
+		return platform.TunnelRequest{}, err
+	}
+
+	var responseRequest contractsopenai.ResponseRequest
+	if decodeErr := json.Unmarshal(candidateRequest.Body, &responseRequest); decodeErr != nil {
+		return platform.TunnelRequest{}, fmt.Errorf("decode virtual model response operation: %w", decodeErr)
+	}
+
+	estimateRequest := responseRequestToChatCompletion(
+		responseRequest,
+		billingModelForDeployment(requestedModel, candidateRequest.Deployment),
+	)
+
+	estimated, err := h.billing.EstimateCost(ctx, estimateRequest)
+	if err != nil {
+		return platform.TunnelRequest{}, err
+	}
+
+	runtimeModel := strings.TrimSpace(resolved.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = providerModelID(resolved.ModelName)
+	}
+
+	candidateRequest.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
+		resolved.Provider,
+		runtimeModel,
+		estimated,
+	)
+	if err != nil {
+		return platform.TunnelRequest{}, err
+	}
+
+	if len(candidateRequest.ModelRuntimeProfiles) != 1 {
+		return platform.TunnelRequest{}, errors.New("xAI model runtime profile is unavailable")
+	}
+
+	profile := candidateRequest.ModelRuntimeProfiles[0].Profile
+	if candidateRequest.Operation == platform.ProviderOperationOpenAIResponsesCompact && !profile.ResponseResources.Compact {
+		return platform.TunnelRequest{}, errors.New("model does not support Responses compaction")
+	}
+
+	if candidateRequest.Operation == platform.ProviderOperationOpenAIResponsesInputTokens && !profile.ResponseResources.CountInputTokens {
+		return platform.TunnelRequest{}, errors.New("model does not support Responses input token counting")
+	}
+
+	return candidateRequest, nil
 }
 
 func responsesRequestContext(c *fiber.Ctx) (*platform.AuthContext, *platform.Tenant, bool) {
@@ -941,6 +1085,7 @@ func (h *ResponsesHandler) newResponseStreamObserver(
 	_ context.Context,
 	tenantID string,
 	deployment platform.Deployment,
+	requestedModel string,
 	onResponse ...func(contractsopenai.Response),
 ) func([]byte) {
 	canRecordMapping := h.resources != nil &&
@@ -988,6 +1133,11 @@ func (h *ResponsesHandler) newResponseStreamObserver(
 				}
 
 				if canRecordMapping && !recorded {
+					mappingModel := strings.TrimSpace(requestedModel)
+					if mappingModel == "" {
+						mappingModel = event.Response.Model
+					}
+
 					recordCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					h.recordResponseMapping(
 						recordCtx,
@@ -995,7 +1145,7 @@ func (h *ResponsesHandler) newResponseStreamObserver(
 						deployment,
 						event.Response.ID,
 						event.Response.Status,
-						event.Response.Model,
+						mappingModel,
 					)
 					cancel()
 

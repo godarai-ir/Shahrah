@@ -306,7 +306,13 @@ func (h *ChatCompletionHandler) routeChatRequest(
 
 	routeStart := time.Now()
 
-	deployment, isVirtual, err := h.tryRouteVirtualModel(c, prepared.tenant.ID, prepared.authInfo, prepared.requestedModel, prepared.request, prepared.resolvedModel, baseRequest, routeStart)
+	deployment, isVirtual, err := h.tryRouteVirtualModel(
+		c,
+		prepared.tenant.ID,
+		prepared.authInfo,
+		prepared.requestedModel,
+		routeStart,
+	)
 	if err != nil {
 		return handledRoutedChatRequest(err)
 	}
@@ -339,9 +345,17 @@ func (h *ChatCompletionHandler) routeChatRequest(
 		return handledRoutedChatRequest(validationErr)
 	}
 
-	estimated, err := applyDeploymentPricingOverride(c.Context(), h.pipeline, admitted.estimated, deployment)
+	routedEstimate, err := applyDeploymentPricingOverride(c.Context(), h.pipeline, admitted.estimated, deployment)
 	if err != nil {
 		return handledRoutedChatRequest(writeBillingEstimateError(c, err))
+	}
+
+	estimated := routedEstimate
+	if isVirtual {
+		// Retry/fallback may select a deployment with a different private-pricing
+		// policy. Preserve the catalog estimate so dispatch can apply the policy
+		// of the deployment that actually receives the request.
+		estimated = admitted.estimated
 	}
 
 	if !isVirtual {
@@ -374,7 +388,7 @@ func (h *ChatCompletionHandler) routeChatRequest(
 
 	reservation := admitted.reservation
 	if !admitted.reservationAttempted {
-		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, prepared.authInfo, estimated, admitted.requestID, deploymentBillingMode(tunnelRequest.Deployment)))
+		reservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, prepared.authInfo, routedEstimate, admitted.requestID, deploymentBillingMode(tunnelRequest.Deployment)))
 		if err != nil {
 			return handledRoutedChatRequest(writeBudgetCheckError(c, err))
 		}

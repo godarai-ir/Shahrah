@@ -44,6 +44,7 @@ type ErrorNormalizer interface {
 
 type FallbackExecutor interface {
 	ExecuteSync(ctx context.Context, targets []platform.VirtualModelTarget, doCall func(ctx context.Context, dep *router.Deployment) (*platform.TunnelResponse, error)) (*platform.TunnelResponse, *router.Deployment, int, string, error)
+	ExecuteStream(ctx context.Context, targets []platform.VirtualModelTarget, doCall func(ctx context.Context, dep *router.Deployment) (platform.TunnelStream, error)) (platform.TunnelStream, *router.Deployment, int, string, error)
 }
 
 type Resolver struct {
@@ -136,7 +137,14 @@ func (r *Resolver) Resolve(ctx context.Context, tenantID, alias string) (*platfo
 			return nil, err
 		}
 
-		if vm != nil && vm.Enabled {
+		if vm == nil {
+			entry := aliasCacheEntry{notFound: true}
+			r.setCached(key, entry, r.negativeCacheTTL)
+
+			return entry, nil
+		}
+
+		if vm.Enabled {
 			entry := aliasCacheEntry{vm: cloneVirtualModel(vm)}
 			r.setCached(key, entry, r.cacheTTL)
 
@@ -356,12 +364,12 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 
 	for idx := range targets {
 		target := &targets[idx]
-		if idx > 0 {
-			fallbackCount++
-		}
-
 		if !target.Policy.Fallback.Candidate && idx > 0 {
 			continue
+		}
+
+		if idx > 0 {
+			fallbackCount++
 		}
 
 		retries := target.Policy.Retry.Attempts
@@ -379,7 +387,24 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 				lastReason = err.Error()
 
 				if attempt < retries {
-					sleepRetryDelay(delay)
+					if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {
+						return nil, nil, fallbackCount, lastReason, waitErr
+					}
+
+					continue
+				}
+
+				break
+			}
+
+			if resp == nil {
+				lastReason = "provider returned an empty response"
+
+				if attempt < retries {
+					if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {
+						return nil, nil, fallbackCount, lastReason, waitErr
+					}
+
 					continue
 				}
 
@@ -391,13 +416,107 @@ func (e *Executor) ExecuteSync(ctx context.Context, targets []platform.VirtualMo
 			}
 
 			if e.normalizer.ShouldRetryOnStatus(resp.StatusCode, target) && attempt < retries {
-				sleepRetryDelay(delay)
+				if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {
+					return nil, nil, fallbackCount, lastReason, waitErr
+				}
+
 				continue
 			}
 
 			lastReason = "status_error"
 			if !e.normalizer.ShouldFallbackOnStatus(resp.StatusCode, target) {
 				return resp, dep, fallbackCount, lastReason, nil
+			}
+
+			break
+		}
+	}
+
+	return nil, nil, fallbackCount, lastReason, ErrFallbackExhausted
+}
+
+// ExecuteStream opens a provider stream and applies retry and fallback policies
+// before the caller commits any bytes to the downstream client.
+func (e *Executor) ExecuteStream(
+	ctx context.Context,
+	targets []platform.VirtualModelTarget,
+	doCall func(context.Context, *router.Deployment) (platform.TunnelStream, error),
+) (platform.TunnelStream, *router.Deployment, int, string, error) {
+	fallbackCount := 0
+	lastReason := ""
+
+	for idx := range targets {
+		target := &targets[idx]
+		if !target.Policy.Fallback.Candidate && idx > 0 {
+			continue
+		}
+
+		if idx > 0 {
+			fallbackCount++
+		}
+
+		retries := target.Policy.Retry.Attempts
+		if retries <= 0 {
+			retries = 1
+		}
+
+		delay := time.Duration(target.Policy.Retry.DelayMS) * time.Millisecond
+
+		for attempt := 1; attempt <= retries; attempt++ {
+			deployment := buildDeployment(target)
+
+			stream, err := doCall(ctx, deployment)
+			if err != nil {
+				lastReason = err.Error()
+
+				if attempt < retries {
+					if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {
+						return nil, nil, fallbackCount, lastReason, waitErr
+					}
+
+					continue
+				}
+
+				break
+			}
+
+			if stream == nil {
+				lastReason = "provider returned an empty stream"
+
+				if attempt < retries {
+					if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {
+						return nil, nil, fallbackCount, lastReason, waitErr
+					}
+
+					continue
+				}
+
+				break
+			}
+
+			statusCode := stream.StatusCode()
+			if statusCode < 400 {
+				return stream, deployment, fallbackCount, lastReason, nil
+			}
+
+			shouldRetry := e.normalizer.ShouldRetryOnStatus(statusCode, target) && attempt < retries
+
+			shouldFallback := e.normalizer.ShouldFallbackOnStatus(statusCode, target)
+			if !shouldRetry && !shouldFallback {
+				return stream, deployment, fallbackCount, "status_error", nil
+			}
+
+			lastReason = "status_error"
+			if closeErr := stream.Close(); closeErr != nil {
+				lastReason = closeErr.Error()
+			}
+
+			if shouldRetry {
+				if waitErr := waitRetryDelay(ctx, delay); waitErr != nil {
+					return nil, nil, fallbackCount, lastReason, waitErr
+				}
+
+				continue
 			}
 
 			break
@@ -432,9 +551,19 @@ func buildDeployment(target *platform.VirtualModelTarget) *router.Deployment {
 	}
 }
 
-func sleepRetryDelay(delay time.Duration) {
-	if delay > 0 {
-		time.Sleep(delay)
+func waitRetryDelay(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 

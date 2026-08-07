@@ -148,6 +148,10 @@ func buildRequestLogEntry(
 
 	if c != nil {
 		if state := existingRequestContext(c); state != nil {
+			if state.virtualModel != nil {
+				entry.VirtualModel = strings.TrimSpace(state.virtualModel.Alias)
+			}
+
 			entry.FallbackCount = state.fallbackCount
 			entry.FallbackStatus = fallbackStatusFromReason(state.failureReason, entry.FallbackCount)
 		}

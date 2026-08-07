@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"time"
+
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/gofiber/fiber/v2"
@@ -9,7 +11,11 @@ import (
 type chatRequestContextKey struct{}
 
 type chatRequestContext struct {
-	virtualModelResponse *platform.TunnelResponse
+	virtualModel         *platform.VirtualModel
+	virtualModelTargets  []platform.VirtualModelTarget
+	virtualModelRouteAt  time.Time
+	virtualModelSnapshot bool
+	virtualModelActive   bool
 	fallbackCount        int
 	failureReason        string
 	guardrailOverrides   map[string]guardrails.Guardrail
@@ -60,9 +66,24 @@ func existingRequestContext(c *fiber.Ctx) *chatRequestContext {
 	return state
 }
 
-func setVirtualModelRequestContext(c *fiber.Ctx, response *platform.TunnelResponse, fallbackCount int, failureReason string) {
+func setVirtualModelRoutePlan(
+	c *fiber.Ctx,
+	model *platform.VirtualModel,
+	targets []platform.VirtualModelTarget,
+	fromSnapshot bool,
+	routeStart time.Time,
+) {
 	state := requestContext(c)
-	state.virtualModelResponse = response
+	state.virtualModel = model
+
+	state.virtualModelTargets = append([]platform.VirtualModelTarget(nil), targets...)
+	state.virtualModelSnapshot = fromSnapshot
+	state.virtualModelRouteAt = routeStart
+	state.virtualModelActive = model != nil
+}
+
+func setVirtualModelFailure(c *fiber.Ctx, fallbackCount int, failureReason string) {
+	state := requestContext(c)
 	state.fallbackCount = fallbackCount
 	state.failureReason = failureReason
 }

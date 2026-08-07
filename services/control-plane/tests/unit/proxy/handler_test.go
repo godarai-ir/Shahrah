@@ -33,12 +33,15 @@ import (
 
 // mockTunnelTransport implements platform.TunnelTransport for testing.
 type mockTunnelTransport struct {
-	response    *platform.TunnelResponse
-	stream      platform.TunnelStream
-	proxyErr    error
-	streamErr   error
-	lastRequest platform.TunnelRequest
-	proxyCalls  int
+	response       *platform.TunnelResponse
+	responses      []*platform.TunnelResponse
+	stream         platform.TunnelStream
+	streams        []platform.TunnelStream
+	proxyErr       error
+	streamErr      error
+	lastRequest    platform.TunnelRequest
+	streamRequests []platform.TunnelRequest
+	proxyCalls     int
 }
 
 func newTestChatCompletionHandler(
@@ -72,7 +75,14 @@ func newTestChatCompletionHandler(
 
 func (m *mockTunnelTransport) Proxy(ctx context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	m.lastRequest = req
+
 	m.proxyCalls++
+	if len(m.responses) > 0 {
+		response := m.responses[0]
+		m.responses = m.responses[1:]
+
+		return response, m.proxyErr
+	}
 
 	return m.response, m.proxyErr
 }
@@ -159,6 +169,15 @@ func TestChatCompletionHandler_SimpleCacheHitSkipsProviderAndWallet(t *testing.T
 
 func (m *mockTunnelTransport) Stream(ctx context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
 	m.lastRequest = req
+
+	m.streamRequests = append(m.streamRequests, req)
+	if len(m.streams) > 0 {
+		stream := m.streams[0]
+		m.streams = m.streams[1:]
+
+		return stream, m.streamErr
+	}
+
 	return m.stream, m.streamErr
 }
 
@@ -243,7 +262,7 @@ func (m *mockLogger) GetVirtualModelByAlias(ctx context.Context, tenantID string
 		}
 	}
 
-	return nil, errors.New("virtual model not found")
+	return nil, nil
 }
 
 func (m *mockLogger) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error) {
@@ -656,6 +675,7 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 					Provider: "mistral-ai",
 					Model:    "mistral-ai:mistral-ai-eager-harbor:ministral-8b-2512",
 					Policy: platform.VirtualModelPolicy{
+						TimeoutSec: 7,
 						Retry: platform.VirtualModelRetryPolicy{
 							Attempts:    1,
 							StatusCodes: []int{429, 500},
@@ -705,6 +725,333 @@ func TestChatCompletionHandler_VirtualModelSendsSelectedProviderModel(t *testing
 	assert.Equal(t, "mistral-ai", mTunnel.lastRequest.Deployment.Provider)
 	assert.Equal(t, "ministral-8b-2512", mTunnel.lastRequest.Deployment.Model)
 	assert.Equal(t, "sk-mistral-provider", mTunnel.lastRequest.Deployment.APIKey)
+	assert.Equal(t, 7.0, mTunnel.lastRequest.Deployment.TimeoutSec)
+}
+
+func TestChatCompletionHandler_VirtualModelDoesNotCallProviderWhenBudgetCheckFails(t *testing.T) {
+	logger := zap.NewNop()
+	r := newProviderTestRouter(
+		t,
+		logger,
+		"openai:production:gpt-4o",
+		"openai",
+		"openai/gpt-4o",
+	)
+	tunnel := &mockTunnelTransport{}
+	billing := &mockBilling{
+		cost:      platform.UsageCostBreakdown{TotalTokens: 2},
+		budgetErr: errors.New("budget exhausted"),
+	}
+	wallet := &mockWalletStore{}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
+		"hi-vm": {
+			ID:              "vm-hi",
+			TenantID:        "tenant-1",
+			Alias:           "hi-vm",
+			RoutingStrategy: "priority",
+			Enabled:         true,
+			Targets: []platform.VirtualModelTarget{{
+				ID:       "target-openai",
+				Order:    1,
+				Provider: "openai",
+				Model:    "openai:production:gpt-4o",
+				Policy: platform.VirtualModelPolicy{
+					Retry:    platform.VirtualModelRetryPolicy{Attempts: 1},
+					Fallback: platform.VirtualModelFallbackPolicy{Candidate: true},
+				},
+			}},
+		},
+	}}
+	handler := newTestChatCompletionHandler(
+		r,
+		tunnel,
+		billing,
+		wallet,
+		logs,
+		logger,
+		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
+	)
+	app := setupTestApp(t, handler)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	assert.NotEqual(t, http.StatusOK, resp.StatusCode)
+	assert.Zero(t, tunnel.proxyCalls)
+}
+
+func TestChatCompletionHandler_VirtualModelSyncFallsBackAtProviderDispatch(t *testing.T) {
+	logger := zap.NewNop()
+	memCache, err := testcache.New(t, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, memCache.Close()) })
+
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{
+		{
+			ModelName: "openai:primary:gpt-4o",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "openai",
+				Model:    "openai/gpt-4o",
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-primary"},
+		},
+		{
+			ModelName: "openai:fallback:gpt-4o-mini",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "openai",
+				Model:    "openai/gpt-4o-mini",
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-fallback"},
+		},
+	}, config.RouterSettings{RoutingStrategy: "simple-shuffle", CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	successBody, err := json.Marshal(contractsopenai.ChatCompletionResponse{
+		ID:      "chatcmpl-fallback",
+		Object:  "chat.completion",
+		Model:   "gpt-4o-mini",
+		Choices: []contractsopenai.Choice{{Index: 0, Message: &contractsopenai.ChatMessage{Role: "assistant", Content: "ok"}, FinishReason: "stop"}},
+		Usage:   &contractsopenai.Usage{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+	})
+	require.NoError(t, err)
+
+	tunnel := &mockTunnelTransport{responses: []*platform.TunnelResponse{
+		{StatusCode: http.StatusTooManyRequests, Body: []byte(`{"error":{"message":"busy"}}`)},
+		{StatusCode: http.StatusOK, Body: successBody},
+	}}
+	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 2}}
+	wallet := &mockWalletStore{}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
+		"hi-vm": {
+			ID:              "vm-hi",
+			TenantID:        "tenant-1",
+			Alias:           "hi-vm",
+			RoutingStrategy: "priority",
+			Enabled:         true,
+			Targets: []platform.VirtualModelTarget{
+				{
+					ID: "target-primary", Order: 1, Provider: "openai", Model: "openai:primary:gpt-4o",
+					Policy: platform.VirtualModelPolicy{
+						Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429}},
+						Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429}, Candidate: true},
+					},
+				},
+				{
+					ID: "target-fallback", Order: 2, Provider: "openai", Model: "openai:fallback:gpt-4o-mini",
+					Policy: platform.VirtualModelPolicy{
+						Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429}},
+						Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429}, Candidate: true},
+					},
+				},
+			},
+		},
+	}}
+	handler := newTestChatCompletionHandler(
+		r,
+		tunnel,
+		billing,
+		wallet,
+		logs,
+		logger,
+		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
+	)
+	app := setupTestApp(t, handler)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		bytes.NewBufferString(`{"model":"hi-vm","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, string(responseBody))
+	assert.Equal(t, 2, tunnel.proxyCalls)
+	assert.Contains(t, tunnel.lastRequest.Deployment.ModelName, "fallback")
+
+	var outbound contractsopenai.ChatCompletionRequest
+	require.NoError(t, json.Unmarshal(tunnel.lastRequest.Body, &outbound))
+	assert.Equal(t, "gpt-4o-mini", outbound.Model)
+	require.NotEmpty(t, logs.loggedEntries)
+	assert.Equal(t, 1, logs.loggedEntries[len(logs.loggedEntries)-1].FallbackCount)
+}
+
+func TestChatCompletionHandler_VirtualModelStreamsWithoutAliasDeployment(t *testing.T) {
+	logger := zap.NewNop()
+	r := newProviderTestRouter(
+		t,
+		logger,
+		"openai:production:gpt-4o",
+		"openai",
+		"openai/gpt-4o",
+	)
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
+
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"id\":\"chatcmpl-vm\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"}}]}\n\n")}
+
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
+
+	close(stream.chunks)
+
+	tunnel := &mockTunnelTransport{stream: stream}
+	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 1}}
+	wallet := &mockWalletStore{}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
+		"hi-vm": {
+			ID:              "vm-hi",
+			TenantID:        "tenant-1",
+			Alias:           "hi-vm",
+			RoutingStrategy: "priority",
+			Enabled:         true,
+			ExposedModes:    []string{"chat", "responses"},
+			Targets: []platform.VirtualModelTarget{{
+				ID:       "target-openai",
+				Order:    1,
+				Provider: "openai",
+				Model:    "openai:production:gpt-4o",
+				Policy: platform.VirtualModelPolicy{
+					Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429}},
+					Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429}, Candidate: true},
+				},
+			}},
+		},
+	}}
+	handler := newTestChatCompletionHandler(
+		r,
+		tunnel,
+		billing,
+		wallet,
+		logs,
+		logger,
+		proxy.ChatCompletionDependencies{VirtualModelStore: logs},
+	)
+	app := setupTestApp(t, handler)
+
+	payload, err := json.Marshal(map[string]interface{}{
+		"model":    "hi-vm",
+		"stream":   true,
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, string(responseBody))
+	assert.Contains(t, string(responseBody), `"content":"ok"`)
+	require.Len(t, tunnel.streamRequests, 1)
+	assert.Equal(t, "openai", tunnel.lastRequest.Deployment.Provider)
+	assert.NotEqual(t, "hi-vm", tunnel.lastRequest.Deployment.ModelName)
+
+	var outbound contractsopenai.ChatCompletionRequest
+	require.NoError(t, json.Unmarshal(tunnel.lastRequest.Body, &outbound))
+	assert.NotEqual(t, "hi-vm", outbound.Model)
+	assert.Contains(t, outbound.Model, "gpt-4o")
+	require.NotEmpty(t, logs.loggedEntries)
+	assert.Equal(t, "hi-vm", logs.loggedEntries[len(logs.loggedEntries)-1].VirtualModel)
+}
+
+func TestChatCompletionHandler_VirtualModelStreamFallsBackBeforeCommit(t *testing.T) {
+	logger := zap.NewNop()
+	memCache, err := testcache.New(t, logger)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, memCache.Close()) })
+
+	r, err := llmrouter.NewRouter([]config.ModelDeployment{
+		{
+			ModelName: "openai:primary:gpt-4o",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "openai",
+				Model:    "openai/gpt-4o",
+				APIKey:   "primary-key",
+			},
+		},
+		{
+			ModelName: "openai:fallback:gpt-4o-mini",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "openai",
+				Model:    "openai/gpt-4o-mini",
+				APIKey:   "fallback-key",
+			},
+		},
+	}, config.RouterSettings{CooldownTime: 60}, memCache, nil, logger)
+	require.NoError(t, err)
+
+	failed := newFakeTunnelStream(map[string]string{"content-type": "application/json"}, 0, 0)
+	failed.statusCode = http.StatusTooManyRequests
+
+	succeeded := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
+	succeeded.chunks <- platform.TunnelChunk{Data: []byte("data: [DONE]\n\n"), IsDone: true}
+
+	close(succeeded.chunks)
+
+	tunnel := &mockTunnelTransport{streams: []platform.TunnelStream{failed, succeeded}}
+	billing := &mockBilling{cost: platform.UsageCostBreakdown{TotalTokens: 1}}
+	wallet := &mockWalletStore{}
+	logs := &mockLogger{virtualModels: map[string]*platform.VirtualModel{
+		"hi-vm": {
+			ID: "vm-hi", TenantID: "tenant-1", Alias: "hi-vm", RoutingStrategy: "priority", Enabled: true,
+			ExposedModes: []string{"chat"},
+			Targets: []platform.VirtualModelTarget{
+				{
+					ID: "primary", Order: 1, Provider: "openai", Model: "openai:primary:gpt-4o",
+					Policy: platform.VirtualModelPolicy{
+						Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429}},
+						Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429}, Candidate: true},
+					},
+				},
+				{
+					ID: "fallback", Order: 2, Provider: "openai", Model: "openai:fallback:gpt-4o-mini",
+					Policy: platform.VirtualModelPolicy{
+						Retry:    platform.VirtualModelRetryPolicy{Attempts: 1, StatusCodes: []int{429}},
+						Fallback: platform.VirtualModelFallbackPolicy{StatusCodes: []int{429}, Candidate: true},
+					},
+				},
+			},
+		},
+	}}
+	handler := newTestChatCompletionHandler(r, tunnel, billing, wallet, logs, logger, proxy.ChatCompletionDependencies{VirtualModelStore: logs})
+	app := setupTestApp(t, handler)
+	payload := []byte(`{"model":"hi-vm","stream":true,"messages":[{"role":"user","content":"hello"}]}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, resp)
+
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, string(responseBody))
+	assert.Len(t, tunnel.streamRequests, 2)
+	assert.True(t, failed.closed)
+	assert.True(t, succeeded.closed)
+	assert.Contains(t, tunnel.lastRequest.Deployment.ModelName, "fallback")
+	require.NotEmpty(t, logs.loggedEntries)
+	assert.Equal(t, 1, logs.loggedEntries[len(logs.loggedEntries)-1].FallbackCount)
 }
 
 func TestChatCompletionHandler_ShouldRejectEmptyMessages(t *testing.T) {
