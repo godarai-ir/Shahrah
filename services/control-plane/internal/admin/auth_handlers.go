@@ -10,15 +10,14 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -26,41 +25,53 @@ import (
 type AuthStore interface {
 	CreateTenantAdminCaptcha(ctx context.Context) (string, string, time.Time, error)
 	ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer string) (bool, error)
-	CreateTenantAdminOTPRequest(ctx context.Context, params storage.TenantAdminOTPRequestParams) (*storage.TenantAdminOTPResponse, error)
-	VerifyTenantAdminOTPRequest(ctx context.Context, params storage.VerifyTenantAdminOTPRequestParams) (*storage.TenantAdminOTPVerification, error)
-	CreateTenantAdminSession(ctx context.Context, params storage.CreateTenantAdminSessionParams) (*storage.TenantAdminSessionResponse, error)
-	GetTenantAdminSession(ctx context.Context, id string) (*storage.TenantAdminSessionResponse, error)
+	CreateTenantAdminOTPRequest(ctx context.Context, params tenantadmin.TenantAdminOTPRequestParams) (*tenantadmin.TenantAdminOTPResponse, error)
+	VerifyTenantAdminOTPRequest(ctx context.Context, params tenantadmin.VerifyTenantAdminOTPRequestParams) (*tenantadmin.TenantAdminOTPVerification, error)
+	CreateTenantAdminSession(ctx context.Context, params tenantadmin.CreateTenantAdminSessionParams) (*tenantadmin.TenantAdminSessionResponse, error)
+	GetTenantAdminSession(ctx context.Context, id string) (*tenantadmin.TenantAdminSessionResponse, error)
 	RevokeTenantAdminSession(ctx context.Context, id string) error
-	FindOrCreateTenantAdminUser(ctx context.Context, params storage.FindOrCreateTenantAdminUserParams) (*storage.TenantAdminUserResponse, error)
-	GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (*storage.TenantAdminUserResponse, error)
-	UpdateTenantAdminUserContact(ctx context.Context, params storage.UpdateTenantAdminUserContactParams) (*storage.TenantAdminUserResponse, error)
-	TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (*storage.TenantAdminUserResponse, error)
+	FindOrCreateTenantAdminUser(ctx context.Context, params tenantadmin.FindOrCreateTenantAdminUserParams) (*tenantadmin.TenantAdminUserResponse, error)
+	GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (*tenantadmin.TenantAdminUserResponse, error)
+	UpdateTenantAdminUserContact(ctx context.Context, params tenantadmin.UpdateTenantAdminUserContactParams) (*tenantadmin.TenantAdminUserResponse, error)
+	TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (*tenantadmin.TenantAdminUserResponse, error)
 }
 
 type socialAuthStore interface {
-	ProvisionSocialTenant(ctx context.Context, params storage.ProvisionSocialTenantParams) (*storage.ProvisionedTenant, error)
-	CreateSocialLoginHandoff(ctx context.Context, tenantSlug, accountID string) (*storage.SocialHandoff, error)
-	RedeemSocialLoginHandoff(ctx context.Context, tenantSlug, code string) (*storage.RedeemedSocialHandoff, error)
-	CreateSocialLinkTicket(ctx context.Context, tenantSlug, userID string) (*storage.SocialHandoff, error)
-	CompleteSocialLink(ctx context.Context, ticketCode, accountID string) (*storage.SocialHandoff, error)
+	ProvisionSocialTenant(ctx context.Context, params tenantadmin.ProvisionSocialTenantParams) (*tenantadmin.ProvisionedTenant, error)
+	CreateSocialLoginHandoff(ctx context.Context, tenantSlug, accountID string) (*tenantadmin.SocialHandoff, error)
+	RedeemSocialLoginHandoff(ctx context.Context, tenantSlug, code string) (*tenantadmin.RedeemedSocialHandoff, error)
+	CreateSocialLinkTicket(ctx context.Context, tenantSlug, userID string) (*tenantadmin.SocialHandoff, error)
+	CompleteSocialLink(ctx context.Context, ticketCode, accountID string) (*tenantadmin.SocialHandoff, error)
 }
 
 // AuthHandlers provides HTTP handlers for tenant-admin auth API.
 type AuthHandlers struct {
-	store       AuthStore
-	socialStore socialAuthStore
-	otpNotifier TenantAdminOTPNotifier
-	otpLimiter  *authRateLimiter
+	store          AuthStore
+	socialStore    socialAuthStore
+	otpNotifier    TenantAdminOTPNotifier
+	otpLimiter     *authRateLimiter
+	exposeDebugOTP bool
+}
+
+// AuthHandlersConfig contains immutable authentication transport settings.
+type AuthHandlersConfig struct {
+	ExposeDebugOTP bool
 }
 
 func NewAuthHandlers(store AuthStore, otpNotifier TenantAdminOTPNotifier) *AuthHandlers {
+	return NewAuthHandlersWithConfig(store, otpNotifier, AuthHandlersConfig{})
+}
+
+// NewAuthHandlersWithConfig creates tenant-admin auth handlers with explicit settings.
+func NewAuthHandlersWithConfig(store AuthStore, otpNotifier TenantAdminOTPNotifier, cfg AuthHandlersConfig) *AuthHandlers {
 	socialStore, _ := store.(socialAuthStore) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 
 	return &AuthHandlers{
-		store:       store,
-		socialStore: socialStore,
-		otpNotifier: otpNotifier,
-		otpLimiter:  newAuthRateLimiter(),
+		store:          store,
+		socialStore:    socialStore,
+		otpNotifier:    otpNotifier,
+		otpLimiter:     newAuthRateLimiter(),
+		exposeDebugOTP: cfg.ExposeDebugOTP,
 	}
 }
 
@@ -360,12 +371,12 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 	}
 
 	if strings.TrimSpace(strings.ToLower(body.Purpose)) == "login" {
-		if _, userErr := h.store.FindOrCreateTenantAdminUser(c.Context(), storage.FindOrCreateTenantAdminUserParams{
+		if _, userErr := h.store.FindOrCreateTenantAdminUser(c.Context(), tenantadmin.FindOrCreateTenantAdminUserParams{
 			TenantSlug: tenantSlug,
 			Channel:    channel,
 			Identifier: body.Identifier,
 		}); userErr != nil {
-			if errors.Is(userErr, storage.ErrTenantAdminUserNotFound) {
+			if errors.Is(userErr, tenantadmin.ErrTenantAdminUserNotFound) {
 				return c.JSON(buildGenericTenantAdminOTPResponse(channel, body.Identifier))
 			}
 
@@ -373,7 +384,7 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		}
 	}
 
-	result, err := h.store.CreateTenantAdminOTPRequest(c.Context(), storage.TenantAdminOTPRequestParams{
+	result, err := h.store.CreateTenantAdminOTPRequest(c.Context(), tenantadmin.TenantAdminOTPRequestParams{
 		TenantSlug:   tenantSlug,
 		Purpose:      body.Purpose,
 		Channel:      channel,
@@ -394,20 +405,11 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		}
 	}
 
-	if debugOTPExposureEnabled() && otpCode != "" {
+	if h.exposeDebugOTP && otpCode != "" {
 		result.DebugOTP = otpCode
 	}
 
 	return c.JSON(result)
-}
-
-func debugOTPExposureEnabled() bool {
-	nodeEnv := strings.ToLower(strings.TrimSpace(os.Getenv("NODE_ENV")))
-	if nodeEnv != "development" && nodeEnv != "test" {
-		return false
-	}
-
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("SHAHRAH_EXPOSE_DEBUG_OTP")), "true")
 }
 
 func buildGenericTenantAdminOTPResponse(channel, identifier string) fiber.Map {
@@ -473,7 +475,7 @@ func (h *AuthHandlers) VerifyOTPRequest(c *fiber.Ctx) error {
 		return err
 	}
 
-	result, err := h.store.VerifyTenantAdminOTPRequest(c.Context(), storage.VerifyTenantAdminOTPRequestParams{
+	result, err := h.store.VerifyTenantAdminOTPRequest(c.Context(), tenantadmin.VerifyTenantAdminOTPRequestParams{
 		TenantSlug: tenantSlug,
 		RequestID:  body.RequestID,
 		OTPCode:    body.OTPCode,
@@ -502,7 +504,7 @@ func (h *AuthHandlers) CreateSession(c *fiber.Ctx) error {
 		return err
 	}
 
-	result, err := h.store.CreateTenantAdminSession(c.Context(), storage.CreateTenantAdminSessionParams{
+	result, err := h.store.CreateTenantAdminSession(c.Context(), tenantadmin.CreateTenantAdminSessionParams{
 		TenantSlug: tenantSlug,
 		UserID:     body.UserID,
 	})
@@ -562,13 +564,13 @@ func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 		return err
 	}
 
-	user, err := h.store.FindOrCreateTenantAdminUser(c.Context(), storage.FindOrCreateTenantAdminUserParams{
+	user, err := h.store.FindOrCreateTenantAdminUser(c.Context(), tenantadmin.FindOrCreateTenantAdminUserParams{
 		TenantSlug: tenantSlug,
 		Channel:    body.Channel,
 		Identifier: body.Identifier,
 	})
 	if err != nil {
-		if errors.Is(err, storage.ErrTenantAdminUserNotFound) {
+		if errors.Is(err, tenantadmin.ErrTenantAdminUserNotFound) {
 			return fiber.NewError(fiber.StatusForbidden, "You do not have access to this tenant.")
 		}
 
@@ -617,7 +619,7 @@ func (h *AuthHandlers) UpdateUserContact(c *fiber.Ctx) error {
 		return err
 	}
 
-	user, err := h.store.UpdateTenantAdminUserContact(c.Context(), storage.UpdateTenantAdminUserContactParams{
+	user, err := h.store.UpdateTenantAdminUserContact(c.Context(), tenantadmin.UpdateTenantAdminUserContactParams{
 		TenantSlug: tenantSlug,
 		UserID:     userID,
 		Field:      body.Field,

@@ -29,7 +29,7 @@ var (
 	ErrInvalidInvitationEmail    = errors.New("invalid tenant admin invitation email")
 )
 
-func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
+func (s *TenantAdminRepository) ListTenantAdminUsers(ctx context.Context, tenantSlug string, query string, limit int, offset int) ([]platform.TenantAdminUser, int, error) {
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 	query = strings.TrimSpace(strings.ToLower(query))
 
@@ -119,7 +119,7 @@ func (s *Store) ListTenantAdminUsers(ctx context.Context, tenantSlug string, que
 	return items, total, nil
 }
 
-func (s *Store) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string, userID string) (*platform.TenantAdminUser, error) {
+func (s *TenantAdminRepository) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string, userID string) (*platform.TenantAdminUser, error) {
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 
 	userID = strings.TrimSpace(userID)
@@ -171,7 +171,7 @@ func (s *Store) GetTenantAdminUserRecord(ctx context.Context, tenantSlug string,
 	return &item, nil
 }
 
-func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error) {
+func (s *TenantAdminRepository) InviteTenantAdminUser(ctx context.Context, tenantID string, tenantSlug string, req platform.InviteTenantAdminUserRequest) (*platform.TenantAdminInvitation, string, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 	email := strings.TrimSpace(strings.ToLower(req.Email))
@@ -302,7 +302,7 @@ func (s *Store) InviteTenantAdminUser(ctx context.Context, tenantID string, tena
 	return invitation, link, nil
 }
 
-func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error) {
+func (s *TenantAdminRepository) AcceptTenantAdminInvitation(ctx context.Context, tenantID string, tenantSlug string, token string) (*platform.TenantAdminInvitation, *platform.TenantAdminUser, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 
@@ -397,7 +397,7 @@ func (s *Store) AcceptTenantAdminInvitation(ctx context.Context, tenantID string
 	return &invitation, user, nil
 }
 
-func (s *Store) SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error) {
+func (s *TenantAdminRepository) SetTenantAdminUserActive(ctx context.Context, tenantSlug string, userID string, active bool) (*platform.TenantAdminUser, error) {
 	tenantSlug = strings.TrimSpace(strings.ToLower(tenantSlug))
 
 	userID = strings.TrimSpace(userID)

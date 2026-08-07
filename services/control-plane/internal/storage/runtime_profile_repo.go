@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) GetTenantByID(ctx context.Context, tenantID string) (*platform.Tenant, error) {
+func (s *TenantRepository) GetTenantByID(ctx context.Context, tenantID string) (*platform.Tenant, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return nil, pgx.ErrNoRows
@@ -32,7 +32,7 @@ func (s *Store) GetTenantByID(ctx context.Context, tenantID string) (*platform.T
 	return &tenant, nil
 }
 
-func (s *Store) ListRuntimeAuthContexts(ctx context.Context, tenantID string) ([]platform.AuthContext, error) {
+func (s *RuntimeProfileRepository) ListRuntimeAuthContexts(ctx context.Context, tenantID string) ([]platform.AuthContext, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return nil, nil
@@ -77,7 +77,7 @@ func (s *Store) ListRuntimeAuthContexts(ctx context.Context, tenantID string) ([
 
 	out := make([]platform.AuthContext, 0, len(tokenHashes))
 	for _, tokenHash := range tokenHashes {
-		authContext, err := s.GetKeyByHash(ctx, tokenHash)
+		authContext, err := s.auth.GetKeyByHash(ctx, tokenHash)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				continue
@@ -96,7 +96,7 @@ func (s *Store) ListRuntimeAuthContexts(ctx context.Context, tenantID string) ([
 	return out, nil
 }
 
-func (s *Store) ListEnabledTenantGuardrails(ctx context.Context, tenantID string) ([]platform.TenantGuardrail, error) {
+func (s *PolicyRepository) ListEnabledTenantGuardrails(ctx context.Context, tenantID string) ([]platform.TenantGuardrail, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT guardrail_id::text, tenant_id::text, slug, name, COALESCE(description, ''), guardrail_type,
 		       operation, enforcement, enabled, config_json, COALESCE(created_by, ''), COALESCE(updated_by, ''),
@@ -124,7 +124,7 @@ func (s *Store) ListEnabledTenantGuardrails(ctx context.Context, tenantID string
 	return items, rows.Err()
 }
 
-func (s *Store) NextTenantRuntimeProfileVersion(ctx context.Context, tenantID string) (int64, error) {
+func (s *RuntimeProfileRepository) NextTenantRuntimeProfileVersion(ctx context.Context, tenantID string) (int64, error) {
 	var version int64
 
 	err := s.pool.QueryRow(ctx, `
@@ -136,7 +136,7 @@ func (s *Store) NextTenantRuntimeProfileVersion(ctx context.Context, tenantID st
 	return version, err
 }
 
-func (s *Store) SaveTenantRuntimeProfile(ctx context.Context, stored runtimeprofile.StoredProfile) error {
+func (s *RuntimeProfileRepository) SaveTenantRuntimeProfile(ctx context.Context, stored runtimeprofile.StoredProfile) error {
 	if stored.CompiledAt.IsZero() {
 		stored.CompiledAt = time.Now().UTC()
 	}
@@ -167,7 +167,7 @@ func (s *Store) SaveTenantRuntimeProfile(ctx context.Context, stored runtimeprof
 	return err
 }
 
-func (s *Store) LoadLatestTenantRuntimeProfile(ctx context.Context, tenantID string) (*runtimeprofile.StoredProfile, error) {
+func (s *RuntimeProfileRepository) LoadLatestTenantRuntimeProfile(ctx context.Context, tenantID string) (*runtimeprofile.StoredProfile, error) {
 	var stored runtimeprofile.StoredProfile
 
 	err := s.pool.QueryRow(ctx, `

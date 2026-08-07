@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) CreateBudgetLimitRule(ctx context.Context, tenantID string, req platform.CreateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error) {
+func (s *PolicyRepository) CreateBudgetLimitRule(ctx context.Context, tenantID string, req platform.CreateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error) {
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
@@ -62,7 +62,7 @@ func (s *Store) CreateBudgetLimitRule(ctx context.Context, tenantID string, req 
 	return item, err
 }
 
-func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.BudgetLimitRule, int, error) {
+func (s *PolicyRepository) ListBudgetLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.BudgetLimitRule, int, error) {
 	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
 	return listSearchResults(ctx, s.pool, `
@@ -81,7 +81,7 @@ func (s *Store) ListBudgetLimitRules(ctx context.Context, tenantID string, query
 	`, []any{tenantID, q, like, limit, offset}, limit, scanBudgetLimitRule)
 }
 
-func (s *Store) GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.BudgetLimitRule, error) {
+func (s *PolicyRepository) GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.BudgetLimitRule, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, tenant_id::text, rule_id, COALESCE(name,''), COALESCE(description,''), enabled, priority,
 		       conditions_json, limit_to, unit, budget_applies_per, block_on_budget_exceed, alerts_json, created_at, updated_at
@@ -106,7 +106,7 @@ func (s *Store) GetBudgetLimitRuleByRuleID(ctx context.Context, tenantID string,
 	return item, err
 }
 
-func (s *Store) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error) {
+func (s *PolicyRepository) UpdateBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateBudgetLimitRuleRequest) (*platform.BudgetLimitRule, error) {
 	current, err := s.GetBudgetLimitRuleByRuleID(ctx, tenantID, ruleID)
 	if err != nil {
 		return nil, err
@@ -220,7 +220,7 @@ func optionalBudgetLimitUnit(value *platform.BudgetLimitUnit, fallback platform.
 	return *value
 }
 
-func (s *Store) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.BudgetLimitRule, error) {
+func (s *PolicyRepository) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.BudgetLimitRule, error) {
 	rows, err := s.pool.Query(ctx, `
 		UPDATE budget_limit_rules
 		SET enabled = $3, updated_at = NOW()
@@ -247,7 +247,7 @@ func (s *Store) UpdateBudgetLimitRuleStatusByRuleID(ctx context.Context, tenantI
 	return item, nil
 }
 
-func (s *Store) DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error {
+func (s *PolicyRepository) DeleteBudgetLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error {
 	result, err := s.pool.Exec(ctx, `
 		DELETE FROM budget_limit_rules
 		WHERE tenant_id = $1::uuid AND rule_id = $2

@@ -59,7 +59,7 @@ func (f *fakeTokenUsageCache) DrainKeyLastUsed(context.Context, string, int) ([]
 }
 
 func TestTokenUsageKeyRoundTrip(t *testing.T) {
-	store := &Store{tokenUsageKeyPrefix: "usage:"}
+	store := &ObservabilityRepository{tokenUsageKeyPrefix: "usage:"}
 
 	spendKey := store.tokenSpendDeltaKey("hash-1")
 
@@ -99,7 +99,7 @@ func TestTokenUsageKeyRoundTrip(t *testing.T) {
 func TestQueueTokenSpendDeltaUsesRedisAndFailOpen(t *testing.T) {
 	ctx := context.Background()
 	fake := &fakeTokenUsageCache{}
-	store := &Store{
+	store := &ObservabilityRepository{
 		tokenUsageCache:     fake,
 		tokenUsageEnabled:   true,
 		tokenUsageFailOpen:  true,
@@ -142,7 +142,7 @@ func TestQueueTokenSpendDeltaUsesRedisAndFailOpen(t *testing.T) {
 func TestQueueKeyLastUsedUsesRedis(t *testing.T) {
 	ctx := context.Background()
 	fake := &fakeTokenUsageCache{}
-	store := &Store{
+	store := &ObservabilityRepository{
 		tokenUsageCache:     fake,
 		tokenUsageEnabled:   true,
 		tokenUsageFailOpen:  true,

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -57,24 +55,20 @@ type DLQConfig struct {
 	ClaimMinIdle     time.Duration
 }
 
-func loadDLQConfigFromEnv() DLQConfig {
+// DefaultDLQConfig returns durable queue defaults without reading process-global state.
+func DefaultDLQConfig() DLQConfig {
 	return DLQConfig{
-		Backend:          strings.ToLower(stringEnvOrDefault("METRICS_MODEL_DLQ_BACKEND", "disabled")),
-		Address:          strings.TrimSpace(os.Getenv("METRICS_MODEL_DLQ_REDIS_ADDR")),
-		SentinelAddrs:    splitCSV(os.Getenv("METRICS_MODEL_DLQ_REDIS_SENTINEL_ADDRS")),
-		MasterName:       stringEnvOrDefault("METRICS_MODEL_DLQ_REDIS_MASTER_NAME", "mymaster"),
-		Username:         strings.TrimSpace(os.Getenv("METRICS_MODEL_DLQ_REDIS_USERNAME")),
-		Password:         os.Getenv("METRICS_MODEL_DLQ_REDIS_PASSWORD"),
-		SentinelPassword: os.Getenv("METRICS_MODEL_DLQ_REDIS_SENTINEL_PASSWORD"),
-		Stream:           stringEnvOrDefault("METRICS_MODEL_DLQ_STREAM", defaultDLQStream),
-		PoisonStream:     stringEnvOrDefault("METRICS_MODEL_DLQ_POISON_STREAM", defaultPoisonStream),
-		Group:            stringEnvOrDefault("METRICS_MODEL_DLQ_GROUP", defaultDLQGroup),
-		MaxLen:           int64EnvOrDefault("METRICS_MODEL_DLQ_MAXLEN", 10_000),
-		Retention:        durationEnvOrDefault("METRICS_MODEL_DLQ_RETENTION", 7*24*time.Hour),
-		EnqueueTimeout:   durationMillisEnvOrDefault("METRICS_MODEL_DLQ_ENQUEUE_TIMEOUT_MS", 250*time.Millisecond),
-		ReadBatchSize:    int64EnvOrDefault("METRICS_MODEL_DLQ_READ_BATCH_SIZE", 50),
-		ReadBlock:        durationEnvOrDefault("METRICS_MODEL_DLQ_READ_BLOCK", 5*time.Second),
-		ClaimMinIdle:     durationEnvOrDefault("METRICS_MODEL_DLQ_CLAIM_MIN_IDLE", 60*time.Second),
+		Backend:        "disabled",
+		MasterName:     "mymaster",
+		Stream:         defaultDLQStream,
+		PoisonStream:   defaultPoisonStream,
+		Group:          defaultDLQGroup,
+		MaxLen:         10_000,
+		Retention:      7 * 24 * time.Hour,
+		EnqueueTimeout: 250 * time.Millisecond,
+		ReadBatchSize:  50,
+		ReadBlock:      5 * time.Second,
+		ClaimMinIdle:   60 * time.Second,
 	}
 }
 
@@ -196,39 +190,6 @@ func (d *RedisStreamDLQ) Close() error {
 	}
 
 	return d.client.Close()
-}
-
-func splitCSV(value string) []string {
-	parts := strings.Split(value, ",")
-
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if value := strings.TrimSpace(part); value != "" {
-			out = append(out, value)
-		}
-	}
-
-	return out
-}
-
-func int64EnvOrDefault(key string, fallback int64) int64 {
-	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil && parsed > 0 {
-			return parsed
-		}
-	}
-
-	return fallback
-}
-
-func durationEnvOrDefault(key string, fallback time.Duration) time.Duration {
-	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-		if parsed, err := time.ParseDuration(value); err == nil && parsed > 0 {
-			return parsed
-		}
-	}
-
-	return fallback
 }
 
 func truncateError(value string, limit int) string {

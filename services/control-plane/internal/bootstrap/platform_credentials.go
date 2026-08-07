@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"go.uber.org/zap"
@@ -25,13 +25,15 @@ type platformCredentialRuntime struct {
 
 func newPlatformCredentialRuntime(
 	ctx context.Context,
-	store *storage.Store,
+	store *storage.PlatformCredentialRepository,
 	sharedCache cache.Cache,
 	metrics platformcredentials.Metrics,
 	prober platformcredentials.CredentialProber,
 	logger *zap.Logger,
+	settings config.CredentialSettings,
+	discovery config.AdminDiscoverySettings,
 ) (platformCredentialRuntime, error) {
-	mode := strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_MODE"))
+	mode := strings.TrimSpace(settings.PlatformMode)
 	if mode == "" {
 		mode = platform.ProviderCredentialModeEnv
 	}
@@ -45,22 +47,28 @@ func newPlatformCredentialRuntime(
 	}
 
 	runtime := platformCredentialRuntime{mode: mode}
-	schemas, schemaErr := platformcredentials.NewModelDiscoverySchemaCatalogFromEnv(nil)
+	schemas, schemaErr := platformcredentials.NewModelDiscoverySchemaCatalog(
+		discovery.BaseURL,
+		discovery.Token,
+		nil,
+	)
 	runtime.schemas = schemas
 
 	if schemaErr != nil {
 		logger.Warn("Provider connection schema catalog is unavailable", zap.Error(schemaErr))
 	}
 
-	credentialsConfigured := mode != platform.ProviderCredentialModeEnv ||
-		strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON")) != ""
+	credentialsConfigured := mode != platform.ProviderCredentialModeEnv || settings.PlatformKEKsJSON != ""
 	if !credentialsConfigured {
 		return runtime, nil
 	}
 
-	keks, kekErr := platformcredentials.NewEnvironmentKEKProviderFromEnv()
+	keks, kekErr := platformcredentials.NewEnvironmentKEKProvider(
+		settings.PlatformActiveVersion,
+		settings.PlatformKEKsJSON,
+	)
 
-	fingerprintKey, fingerprintErr := platformcredentials.FingerprintKeyFromEnv()
+	fingerprintKey, fingerprintErr := platformcredentials.DecodeFingerprintKey(settings.PlatformFingerprintKey)
 	if kekErr != nil || fingerprintErr != nil {
 		if mode == platform.ProviderCredentialModeStore {
 			return platformCredentialRuntime{}, errors.New("platform provider credential bootstrap keys are invalid")

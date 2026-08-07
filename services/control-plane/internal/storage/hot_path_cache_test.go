@@ -11,7 +11,7 @@ import (
 
 func TestListDeploymentsReturnsCachedDefensiveCopy(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL: time.Minute,
 		hotPathCache:    make(map[string]hotPathCacheEntry),
 	}
@@ -53,7 +53,7 @@ func TestListDeploymentsReturnsCachedDefensiveCopy(t *testing.T) {
 
 func TestListVirtualModelsReturnsCachedDefensiveCopy(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL: time.Minute,
 		hotPathCache:    make(map[string]hotPathCacheEntry),
 	}
@@ -111,7 +111,7 @@ func TestListVirtualModelsReturnsCachedDefensiveCopy(t *testing.T) {
 }
 
 func TestHotPathCacheHonorsTTL(t *testing.T) {
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL: 10 * time.Millisecond,
 		hotPathCache:    make(map[string]hotPathCacheEntry),
 	}
@@ -131,7 +131,7 @@ func TestHotPathCacheHonorsTTL(t *testing.T) {
 
 func TestListDeploymentsReturnsStaleSnapshotImmediately(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL:      time.Minute,
 		hotPathCacheStaleTTL: time.Minute,
 		hotPathCache:         make(map[string]hotPathCacheEntry),
@@ -159,7 +159,7 @@ func TestListDeploymentsReturnsStaleSnapshotImmediately(t *testing.T) {
 
 func TestListVirtualModelsReturnsStaleSnapshotImmediately(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL:      time.Minute,
 		hotPathCacheStaleTTL: time.Minute,
 		hotPathCache:         make(map[string]hotPathCacheEntry),
@@ -186,7 +186,7 @@ func TestListVirtualModelsReturnsStaleSnapshotImmediately(t *testing.T) {
 }
 
 func TestHotPathCacheMissesAfterStaleWindow(t *testing.T) {
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL:      time.Minute,
 		hotPathCacheStaleTTL: time.Minute,
 		hotPathCache:         make(map[string]hotPathCacheEntry),
@@ -208,7 +208,7 @@ func TestHotPathCacheMissesAfterStaleWindow(t *testing.T) {
 }
 
 func TestHotPathRefreshAsyncCoalescesRefreshes(t *testing.T) {
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL:      time.Minute,
 		hotPathCacheStaleTTL: time.Minute,
 		hotPathCache:         make(map[string]hotPathCacheEntry),
@@ -273,7 +273,7 @@ func TestHotPathRefreshAsyncCoalescesRefreshes(t *testing.T) {
 
 func TestInvalidateVirtualModelsCacheDeletesTenantSnapshot(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL: time.Minute,
 		hotPathCache:    make(map[string]hotPathCacheEntry),
 	}
@@ -289,7 +289,7 @@ func TestInvalidateVirtualModelsCacheDeletesTenantSnapshot(t *testing.T) {
 
 func TestInvalidateDeploymentCacheDeletesLocalTenantSnapshot(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ModelRepository{
 		hotPathCacheTTL: time.Minute,
 		hotPathCache:    make(map[string]hotPathCacheEntry),
 	}

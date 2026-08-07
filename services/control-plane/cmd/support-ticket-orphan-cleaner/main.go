@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
+
+	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
 	"go.uber.org/zap"
@@ -25,7 +28,7 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	databaseURL := strings.TrimSpace(controlconfig.Environment("DATABASE_URL"))
 	if databaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
@@ -42,7 +45,19 @@ func run() error {
 	}
 	defer store.Close()
 
-	files, err := supportfiles.NewFromEnv()
+	fileSettings := config.LoadSupportFileSettings()
+
+	files, err := supportfiles.NewFromConfig(supportfiles.Config{
+		Endpoint:       fileSettings.Endpoint,
+		Bucket:         fileSettings.Bucket,
+		AccessKey:      fileSettings.AccessKey,
+		SecretKey:      fileSettings.SecretKey,
+		Region:         fileSettings.Region,
+		ForcePathStyle: fileSettings.ForcePathStyle,
+		ClamAVAddress:  fileSettings.ClamAVAddress,
+		ClamAVTimeout:  fileSettings.ClamAVTimeout,
+		AllowUnscanned: fileSettings.AllowUnscanned,
+	})
 	if err != nil {
 		return fmt.Errorf("initialize attachment storage: %w", err)
 	}
@@ -69,7 +84,7 @@ func run() error {
 }
 
 func durationEnv(key string, fallback time.Duration) time.Duration {
-	value := strings.TrimSpace(os.Getenv(key))
+	value := strings.TrimSpace(controlconfig.Environment(key))
 	if value == "" {
 		return fallback
 	}

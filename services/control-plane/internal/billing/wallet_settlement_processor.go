@@ -3,8 +3,6 @@ package billing
 import (
 	"context"
 	"errors"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,16 +25,6 @@ type WalletSettlementConfig struct {
 	Interval  time.Duration
 	Timeout   time.Duration
 	BatchSize int
-}
-
-// LoadWalletSettlementConfigFromEnv reads settlement worker config from environment variables.
-func LoadWalletSettlementConfigFromEnv() WalletSettlementConfig {
-	return WalletSettlementConfig{
-		Enabled:   boolEnv("WALLET_BUDGET_SETTLEMENT_ENABLED", true),
-		Interval:  secondsEnv("WALLET_BUDGET_SETTLEMENT_INTERVAL_SECONDS", 300*time.Second),
-		Timeout:   secondsEnv("WALLET_BUDGET_SETTLEMENT_TIMEOUT_SECONDS", 30*time.Second),
-		BatchSize: intEnv("WALLET_BUDGET_SETTLEMENT_BATCH_SIZE", 200),
-	}
 }
 
 // WalletSettlementProcessor mirrors committed credit-window spend into wallet ledger rows.
@@ -167,46 +155,4 @@ func (p *WalletSettlementProcessor) processWithTimeout(ctx context.Context) {
 	if settled > 0 {
 		p.logger.Info("wallet budget settlements applied", zap.Int("windows", settled), zap.Duration("elapsed", time.Since(started)))
 	}
-}
-
-func boolEnv(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	parsed, err := strconv.ParseBool(raw)
-	if err != nil {
-		return fallback
-	}
-
-	return parsed
-}
-
-func secondsEnv(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	value, err := strconv.Atoi(raw)
-	if err != nil || value <= 0 {
-		return fallback
-	}
-
-	return time.Duration(value) * time.Second
-}
-
-func intEnv(key string, fallback int) int {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	value, err := strconv.Atoi(raw)
-	if err != nil || value <= 0 {
-		return fallback
-	}
-
-	return value
 }

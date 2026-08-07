@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) CreateTenantGuardrail(ctx context.Context, tenantID string, req platform.CreateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error) {
+func (s *PolicyRepository) CreateTenantGuardrail(ctx context.Context, tenantID string, req platform.CreateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error) {
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
@@ -48,7 +48,7 @@ func (s *Store) CreateTenantGuardrail(ctx context.Context, tenantID string, req 
 	return item, err
 }
 
-func (s *Store) ListTenantGuardrails(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.TenantGuardrail, int, error) {
+func (s *PolicyRepository) ListTenantGuardrails(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.TenantGuardrail, int, error) {
 	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
 	return listSearchResults(ctx, s.pool, `
@@ -68,7 +68,7 @@ func (s *Store) ListTenantGuardrails(ctx context.Context, tenantID string, query
 	`, []any{tenantID, q, like, limit, offset}, limit, scanTenantGuardrail)
 }
 
-func (s *Store) GetTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) (*platform.TenantGuardrail, error) {
+func (s *PolicyRepository) GetTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) (*platform.TenantGuardrail, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT guardrail_id::text, tenant_id::text, slug, name, COALESCE(description, ''), guardrail_type,
 		       operation, enforcement, enabled, config_json, COALESCE(created_by, ''), COALESCE(updated_by, ''),
@@ -94,7 +94,7 @@ func (s *Store) GetTenantGuardrailBySlug(ctx context.Context, tenantID string, s
 	return item, err
 }
 
-func (s *Store) UpdateTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string, req platform.UpdateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error) {
+func (s *PolicyRepository) UpdateTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string, req platform.UpdateTenantGuardrailRequest, actor string) (*platform.TenantGuardrail, error) {
 	current, err := s.GetTenantGuardrailBySlug(ctx, tenantID, slug)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func (s *Store) UpdateTenantGuardrailBySlug(ctx context.Context, tenantID string
 	return scanTenantGuardrail(rows)
 }
 
-func (s *Store) DeleteTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) error {
+func (s *PolicyRepository) DeleteTenantGuardrailBySlug(ctx context.Context, tenantID string, slug string) error {
 	result, err := s.pool.Exec(ctx, `
 		DELETE FROM tenant_guardrails
 		WHERE tenant_id = $1::uuid AND slug = $2
@@ -186,7 +186,7 @@ func (s *Store) DeleteTenantGuardrailBySlug(ctx context.Context, tenantID string
 	return nil
 }
 
-func (s *Store) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error) {
+func (s *PolicyRepository) ListEnabledTenantGuardrailsBySlugs(ctx context.Context, tenantID string, slugs []string) ([]platform.TenantGuardrail, error) {
 	if len(slugs) == 0 {
 		return nil, nil
 	}

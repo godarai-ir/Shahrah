@@ -8,8 +8,8 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/supportfiles"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -36,6 +36,9 @@ type modelStore interface {
 	UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error)
 	DeleteVirtualModel(ctx context.Context, tenantID string, id string) error
 	ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error)
+}
+
+type policyStore interface {
 	CreateRateLimitRule(ctx context.Context, tenantID string, req platform.CreateRateLimitRuleRequest) (*platform.RateLimitRule, error)
 	ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error)
 	GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error)
@@ -203,12 +206,13 @@ type promptStore interface {
 	ListPromptVersions(ctx context.Context, tenantID string, promptID string, limit int, offset int) ([]platform.PromptVersion, int, error)
 	GetPromptVersion(ctx context.Context, tenantID string, versionID string) (*platform.PromptVersion, error)
 	GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn string) (*platform.PromptVersion, error)
+	RenderPromptVersion(ctx context.Context, tenantID string, versionID string, req platform.RenderPromptVersionRequest) (*platform.RenderPromptVersionResponse, error)
 }
 
 type onboardingStore interface {
-	CheckTenantSlugAvailability(ctx context.Context, slug string) (*storage.TenantSlugAvailability, error)
-	CreateOnboardingOTP(ctx context.Context, req storage.CreateOnboardingOTPParams) (*storage.OnboardingOTP, error)
-	VerifyOnboardingOTPAndProvision(ctx context.Context, req storage.VerifyOnboardingOTPParams) (*storage.ProvisionedTenant, error)
+	CheckTenantSlugAvailability(ctx context.Context, slug string) (*tenantadmin.TenantSlugAvailability, error)
+	CreateOnboardingOTP(ctx context.Context, req tenantadmin.CreateOnboardingOTPParams) (*tenantadmin.OnboardingOTP, error)
+	VerifyOnboardingOTPAndProvision(ctx context.Context, req tenantadmin.VerifyOnboardingOTPParams) (*tenantadmin.ProvisionedTenant, error)
 }
 
 type loginDiscoveryStore interface {
@@ -311,10 +315,12 @@ type IAMDependencies struct {
 // CatalogDependencies contains model, prompt, and provider catalog ports.
 type CatalogDependencies struct {
 	Models              modelStore
+	Policies            policyStore
 	ProviderAccounts    providerAccountStore
 	ProviderSchemas     platformcredentials.SchemaCatalog
 	ProviderCredentials platformProviderCredentialService
 	Prompts             promptStore
+	Discovery           DiscoveryConfig
 }
 
 // BillingDependencies contains wallet, plan, and entitlement ports.
@@ -322,6 +328,7 @@ type BillingDependencies struct {
 	Wallets      walletStore
 	Plans        planStore
 	Entitlements entitlementResolverStore
+	Payment      PaymentConfig
 }
 
 // OnboardingDependencies contains onboarding and login discovery ports.
@@ -344,6 +351,7 @@ type SupportDependencies struct {
 	Tenants supportTenantOperationsStore
 	Tickets supportTicketStore
 	Files   supportAttachmentService
+	Limits  SupportLimitsConfig
 }
 
 // Dependencies groups management ports by feature boundary.
@@ -368,16 +376,19 @@ type iamState struct {
 
 type catalogState struct {
 	models              modelStore
+	policies            policyStore
 	providerAccounts    providerAccountStore
 	providerSchemas     platformcredentials.SchemaCatalog
 	providerCredentials platformProviderCredentialService
 	prompts             promptStore
+	discovery           DiscoveryConfig
 }
 
 type billingState struct {
 	wallets      walletStore
 	plans        planStore
 	entitlements entitlementResolverStore
+	payment      PaymentConfig
 }
 
 type onboardingState struct {
@@ -397,6 +408,7 @@ type supportState struct {
 	supportTenants supportTenantOperationsStore
 	supportTickets supportTicketStore
 	supportFiles   supportAttachmentService
+	limits         SupportLimitsConfig
 }
 
 // Handlers serves management APIs while retaining feature-owned state.
@@ -423,15 +435,18 @@ func New(deps Dependencies) *Handlers {
 		},
 		catalogState: catalogState{
 			models:              deps.Catalog.Models,
+			policies:            deps.Catalog.Policies,
 			providerAccounts:    deps.Catalog.ProviderAccounts,
 			providerSchemas:     deps.Catalog.ProviderSchemas,
 			providerCredentials: deps.Catalog.ProviderCredentials,
 			prompts:             deps.Catalog.Prompts,
+			discovery:           deps.Catalog.Discovery,
 		},
 		billingState: billingState{
 			wallets:      deps.Billing.Wallets,
 			plans:        deps.Billing.Plans,
 			entitlements: deps.Billing.Entitlements,
+			payment:      deps.Billing.Payment.withDefaults(),
 		},
 		onboardingState: onboardingState{
 			onboarding:     deps.Onboarding.Onboarding,
@@ -448,6 +463,7 @@ func New(deps Dependencies) *Handlers {
 			supportTenants: deps.Support.Tenants,
 			supportTickets: deps.Support.Tickets,
 			supportFiles:   deps.Support.Files,
+			limits:         deps.Support.Limits.withDefaults(),
 		},
 	}
 }

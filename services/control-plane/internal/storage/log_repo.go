@@ -9,12 +9,12 @@ import (
 )
 
 // LogSpend writes the spend log entry.
-func (s *Store) LogSpend(ctx context.Context, log platform.SpendLog) error {
+func (s *ObservabilityRepository) LogSpend(ctx context.Context, log platform.SpendLog) error {
 	return s.LogSpends(ctx, []platform.SpendLog{log})
 }
 
 // LogSpends writes spend log entries in one PostgreSQL batch.
-func (s *Store) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
+func (s *ObservabilityRepository) LogSpends(ctx context.Context, logs []platform.SpendLog) error {
 	if len(logs) == 0 {
 		return nil
 	}

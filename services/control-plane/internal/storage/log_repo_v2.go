@@ -9,7 +9,7 @@ import (
 
 var ErrLogStoreUnavailable = errors.New("log store unavailable")
 
-func (s *Store) ListRequestLogsV2(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
+func (s *ObservabilityRepository) ListRequestLogsV2(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
 	if !s.clickHouseLogsReady() {
 		return nil, 0, ErrLogStoreUnavailable
 	}
@@ -17,7 +17,7 @@ func (s *Store) ListRequestLogsV2(ctx context.Context, params platform.ListReque
 	return s.listRequestLogsV2FromClickHouse(ctx, params)
 }
 
-func (s *Store) GetRequestLogV2(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
+func (s *ObservabilityRepository) GetRequestLogV2(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
 	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
@@ -25,7 +25,7 @@ func (s *Store) GetRequestLogV2(ctx context.Context, tenantID, logID string, inc
 	return s.getRequestLogV2FromClickHouse(ctx, tenantID, logID, includeContent)
 }
 
-func (s *Store) GetRequestLogFacetsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {
+func (s *ObservabilityRepository) GetRequestLogFacetsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {
 	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
@@ -33,7 +33,7 @@ func (s *Store) GetRequestLogFacetsV2(ctx context.Context, params platform.ListR
 	return s.getRequestLogFacetsV2FromClickHouse(ctx, params)
 }
 
-func (s *Store) GetRequestLogSummaryV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
+func (s *ObservabilityRepository) GetRequestLogSummaryV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
 	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
@@ -41,7 +41,7 @@ func (s *Store) GetRequestLogSummaryV2(ctx context.Context, params platform.List
 	return s.getRequestLogSummaryV2FromClickHouse(ctx, params)
 }
 
-func (s *Store) GetRequestLogRangeStatsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
+func (s *ObservabilityRepository) GetRequestLogRangeStatsV2(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
 	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}
@@ -49,7 +49,7 @@ func (s *Store) GetRequestLogRangeStatsV2(ctx context.Context, params platform.L
 	return s.getRequestLogRangeStatsV2FromClickHouse(ctx, params)
 }
 
-func (s *Store) GetRequestLogAnalyticsV2(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
+func (s *ObservabilityRepository) GetRequestLogAnalyticsV2(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
 	if !s.clickHouseLogsReady() {
 		return nil, ErrLogStoreUnavailable
 	}

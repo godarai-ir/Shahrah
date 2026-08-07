@@ -3,17 +3,18 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"go.uber.org/zap"
 )
 
 func main() {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	databaseURL := strings.TrimSpace(controlconfig.Environment("DATABASE_URL"))
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is required")
 	}
@@ -45,7 +46,7 @@ func main() {
 }
 
 func positiveIntEnv(key string, fallback int) int {
-	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv(key)))
+	value, err := strconv.Atoi(strings.TrimSpace(controlconfig.Environment(key)))
 	if err != nil || value <= 0 {
 		return fallback
 	}

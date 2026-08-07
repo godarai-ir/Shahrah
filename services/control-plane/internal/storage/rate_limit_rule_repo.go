@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) CreateRateLimitRule(ctx context.Context, tenantID string, req platform.CreateRateLimitRuleRequest) (*platform.RateLimitRule, error) {
+func (s *PolicyRepository) CreateRateLimitRule(ctx context.Context, tenantID string, req platform.CreateRateLimitRuleRequest) (*platform.RateLimitRule, error) {
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
@@ -78,7 +78,7 @@ func (s *Store) CreateRateLimitRule(ctx context.Context, tenantID string, req pl
 	return item, err
 }
 
-func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error) {
+func (s *PolicyRepository) ListRateLimitRules(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RateLimitRule, int, error) {
 	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
 	return listSearchResults(ctx, s.pool, `
@@ -98,7 +98,7 @@ func (s *Store) ListRateLimitRules(ctx context.Context, tenantID string, query s
 	`, []any{tenantID, q, like, limit, offset}, limit, scanRateLimitRule)
 }
 
-func (s *Store) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error) {
+func (s *PolicyRepository) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) (*platform.RateLimitRule, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, tenant_id::text, rule_id, COALESCE(name,''), COALESCE(description,''), enabled, priority,
 		       conditions_json, limit_json, conflict_behavior, response_behavior, soft_limit, retry_after_header,
@@ -124,7 +124,7 @@ func (s *Store) GetRateLimitRuleByRuleID(ctx context.Context, tenantID string, r
 	return item, err
 }
 
-func (s *Store) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateRateLimitRuleRequest) (*platform.RateLimitRule, error) {
+func (s *PolicyRepository) UpdateRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string, req platform.UpdateRateLimitRuleRequest) (*platform.RateLimitRule, error) {
 	current, err := s.GetRateLimitRuleByRuleID(ctx, tenantID, ruleID)
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ func optionalRateLimitResponseBehavior(value *platform.RateLimitResponseBehavior
 	return *value
 }
 
-func (s *Store) UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.RateLimitRule, error) {
+func (s *PolicyRepository) UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID string, ruleID string, enabled bool) (*platform.RateLimitRule, error) {
 	rows, err := s.pool.Query(ctx, `
 		UPDATE rate_limit_rules
 		SET enabled = $3, updated_at = NOW()
@@ -244,7 +244,7 @@ func (s *Store) UpdateRateLimitRuleStatusByRuleID(ctx context.Context, tenantID 
 	return scanRateLimitRule(rows)
 }
 
-func (s *Store) DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error {
+func (s *PolicyRepository) DeleteRateLimitRuleByRuleID(ctx context.Context, tenantID string, ruleID string) error {
 	result, err := s.pool.Exec(ctx, `
 		DELETE FROM rate_limit_rules
 		WHERE tenant_id = $1::uuid AND rule_id = $2

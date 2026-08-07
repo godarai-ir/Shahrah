@@ -584,7 +584,7 @@ func (s *PlanRepository) ResolveEffectiveEntitlements(ctx context.Context, tenan
 
 // ResolveEffectiveEntitlementLimits returns subscription and feature limits without usage counters.
 func (s *PlanRepository) ResolveEffectiveEntitlementLimits(ctx context.Context, tenantID string) (*platform.EffectiveEntitlementLimits, error) {
-	ctx, cancel := withHotPathDBTimeout(ctx)
+	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 
 	base, err := s.resolveEffectiveEntitlementsBase(ctx, tenantID)
@@ -1057,7 +1057,7 @@ func (s *PlanRepository) checkAndIncrementTenantUsageCounterRedis(ctx context.Co
 }
 
 func (s *PlanRepository) checkAndIncrementTenantUsageCounterDB(ctx context.Context, tenantID string, featureKey string, limit float64, increment float64, now time.Time) (*platform.UsageCounter, bool, error) {
-	ctx, cancel := withHotPathDBTimeout(ctx)
+	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -1144,7 +1144,7 @@ func (s *PlanRepository) CountActiveTenantUsers(ctx context.Context, tenantID st
 
 // ProcessSubscriptionTransitions applies scheduled downgrades and expires ended subscriptions.
 func (s *PlanRepository) ProcessSubscriptionTransitions(ctx context.Context, now time.Time, limit int) (int, error) {
-	ctx, cancel := withSubscriptionLifecycleDBTimeout(ctx)
+	ctx, cancel := withStoreTimeout(ctx, s.subscriptionDBTimeout)
 	defer cancel()
 
 	if limit <= 0 || limit > 1000 {

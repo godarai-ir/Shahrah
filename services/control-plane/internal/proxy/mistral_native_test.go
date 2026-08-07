@@ -13,16 +13,15 @@ import (
 )
 
 func TestMistralNativeFeatureFlagsDefaultOff(t *testing.T) {
-	t.Setenv("SHAHRAH_MISTRAL_ENABLED", "true")
-	t.Setenv("SHAHRAH_MISTRAL_FILES_ENABLED", "")
+	features := ProviderFeatureConfig{Configured: true, MistralEnabled: true}
 
-	if mistralNativeFeatureEnabled("FILES") {
+	if mistralNativeFeatureEnabled(features, "FILES") {
 		t.Fatal("native Files API must default off")
 	}
 
-	t.Setenv("SHAHRAH_MISTRAL_FILES_ENABLED", "true")
+	features.MistralFilesEnabled = true
 
-	if !mistralNativeFeatureEnabled("FILES") {
+	if !mistralNativeFeatureEnabled(features, "FILES") {
 		t.Fatal("explicitly enabled native Files API was rejected")
 	}
 }

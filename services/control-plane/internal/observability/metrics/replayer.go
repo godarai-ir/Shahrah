@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -55,7 +54,7 @@ type Replayer struct {
 }
 
 // NewReplayer verifies Redis and creates the consumer group if needed.
-func NewReplayer(ctx context.Context, cfg DLQConfig, exporter DeduplicatingExporter, logger *zap.Logger) (*Replayer, error) {
+func NewReplayer(ctx context.Context, cfg DLQConfig, exporter DeduplicatingExporter, logger *zap.Logger, consumerName string) (*Replayer, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -65,7 +64,7 @@ func NewReplayer(ctx context.Context, cfg DLQConfig, exporter DeduplicatingExpor
 		return nil, err
 	}
 
-	consumer := strings.TrimSpace(os.Getenv("HOSTNAME"))
+	consumer := strings.TrimSpace(consumerName)
 	if consumer == "" {
 		consumer = "metrics-dlq-replayer"
 	}

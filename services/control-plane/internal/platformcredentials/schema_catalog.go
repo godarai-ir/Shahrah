@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -35,8 +34,9 @@ type ModelDiscoverySchemaCatalog struct {
 	cache   map[string]schemaCacheEntry
 }
 
-func NewModelDiscoverySchemaCatalogFromEnv(client *http.Client) (*ModelDiscoverySchemaCatalog, error) {
-	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL")), "/")
+// NewModelDiscoverySchemaCatalog creates an operator-only discovery schema catalog.
+func NewModelDiscoverySchemaCatalog(baseURL, token string, client *http.Client) (*ModelDiscoverySchemaCatalog, error) {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" {
 		return nil, fmt.Errorf("model-discovery schema catalog is not configured")
 	}
@@ -56,7 +56,7 @@ func NewModelDiscoverySchemaCatalogFromEnv(client *http.Client) (*ModelDiscovery
 
 	return &ModelDiscoverySchemaCatalog{
 		baseURL: baseURL,
-		token:   strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_TOKEN")),
+		token:   strings.TrimSpace(token),
 		client:  client,
 		ttl:     5 * time.Minute,
 		cache:   make(map[string]schemaCacheEntry),

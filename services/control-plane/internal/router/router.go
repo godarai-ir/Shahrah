@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -93,6 +91,7 @@ type Dependencies struct {
 	PlatformCredentials               *platformcredentials.Manager
 	PlatformCredentialMode            string
 	PlatformCredentialEnvironment     string
+	DeploymentCacheTTL                *time.Duration
 }
 
 // Router is the main LLM request router.
@@ -155,6 +154,14 @@ func NewRouterWithDependencies(
 		platformCredentialEnvironment = platform.ProviderCredentialEnvironmentProd
 	}
 
+	deploymentCacheTTL := 30 * time.Second
+	if dependencies.DeploymentCacheTTL != nil {
+		deploymentCacheTTL = *dependencies.DeploymentCacheTTL
+		if deploymentCacheTTL < 0 {
+			deploymentCacheTTL = 30 * time.Second
+		}
+	}
+
 	r := &Router{
 		deployments:                   make(map[string][]*Deployment),
 		fallbacks:                     make(map[string][]string),
@@ -168,7 +175,7 @@ func NewRouterWithDependencies(
 		platformCredentials:           dependencies.PlatformCredentials,
 		platformCredentialMode:        platformCredentialMode,
 		platformCredentialEnvironment: platformCredentialEnvironment,
-		dynamicTTL:                    secondsEnvOrDefault("ROUTER_DEPLOYMENT_CACHE_TTL_SECONDS", 30*time.Second),
+		dynamicTTL:                    deploymentCacheTTL,
 		lastKnownGoodDeployments:      make(map[string][]platform.Deployment),
 		lastKnownGoodRoutes:           make(map[string]*Deployment),
 		deploymentFallbackActive:      make(map[string]bool),
@@ -1151,18 +1158,4 @@ func canonicalProviderModel(provider string, model string) string {
 	}
 
 	return modelid.CanonicalOfficialModel(provider, model)
-}
-
-func secondsEnvOrDefault(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	seconds, err := strconv.Atoi(raw)
-	if err != nil || seconds < 0 {
-		return fallback
-	}
-
-	return time.Duration(seconds) * time.Second
 }

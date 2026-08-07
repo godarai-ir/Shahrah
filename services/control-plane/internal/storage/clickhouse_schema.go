@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func (s *Store) validateClickHouseColumns(ctx context.Context, table string, columns []string) error {
+func (s *ObservabilityRepository) validateClickHouseColumns(ctx context.Context, table string, columns []string) error {
 	if strings.TrimSpace(table) == "" || len(columns) == 0 {
 		return fmt.Errorf("invalid clickhouse schema validation target")
 	}
@@ -51,7 +51,7 @@ func (s *Store) validateClickHouseColumns(ctx context.Context, table string, col
 	return nil
 }
 
-func (s *Store) validateClickHouseObject(ctx context.Context, name string) error {
+func (s *ObservabilityRepository) validateClickHouseObject(ctx context.Context, name string) error {
 	var count uint64
 	if err := s.clickhouse.QueryRowContext(ctx, `
 		SELECT count()

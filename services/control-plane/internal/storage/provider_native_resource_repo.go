@@ -13,7 +13,7 @@ import (
 
 var ErrProviderNativeResourceNotFound = errors.New("provider native resource not found")
 
-func (s *Store) UpsertProviderNativeResourceMapping(
+func (s *ProviderResourceRepository) UpsertProviderNativeResourceMapping(
 	ctx context.Context,
 	mapping platform.ProviderNativeResourceMapping,
 ) (*platform.ProviderNativeResourceMapping, error) {
@@ -73,7 +73,7 @@ func (s *Store) UpsertProviderNativeResourceMapping(
 	return &mapping, nil
 }
 
-func (s *Store) GetProviderNativeResourceMapping(
+func (s *ProviderResourceRepository) GetProviderNativeResourceMapping(
 	ctx context.Context,
 	tenantID string,
 	provider string,
@@ -123,7 +123,7 @@ func (s *Store) GetProviderNativeResourceMapping(
 	return &mapping, nil
 }
 
-func (s *Store) GetProviderNativeResourceMappingByUpstream(
+func (s *ProviderResourceRepository) GetProviderNativeResourceMappingByUpstream(
 	ctx context.Context,
 	tenantID string,
 	provider string,
@@ -175,7 +175,7 @@ func (s *Store) GetProviderNativeResourceMappingByUpstream(
 	return &mapping, nil
 }
 
-func (s *Store) ListProviderNativeResourceMappings(
+func (s *ProviderResourceRepository) ListProviderNativeResourceMappings(
 	ctx context.Context,
 	tenantID string,
 	provider string,
@@ -246,7 +246,7 @@ func (s *Store) ListProviderNativeResourceMappings(
 	return mappings, nil
 }
 
-func (s *Store) ClaimProviderNativeResourceStatus(
+func (s *ProviderResourceRepository) ClaimProviderNativeResourceStatus(
 	ctx context.Context,
 	tenantID string,
 	provider string,
@@ -272,7 +272,7 @@ func (s *Store) ClaimProviderNativeResourceStatus(
 	return tag.RowsAffected() == 1, nil
 }
 
-func (s *Store) ListPendingProviderNativeResourceMappings(
+func (s *ProviderResourceRepository) ListPendingProviderNativeResourceMappings(
 	ctx context.Context,
 	provider string,
 	resourceKind string,
@@ -339,7 +339,7 @@ func (s *Store) ListPendingProviderNativeResourceMappings(
 	return mappings, nil
 }
 
-func (s *Store) UpdateProviderNativeResourceStatus(
+func (s *ProviderResourceRepository) UpdateProviderNativeResourceStatus(
 	ctx context.Context,
 	tenantID string,
 	provider string,

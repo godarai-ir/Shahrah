@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
+
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -67,9 +69,9 @@ func parseFlags() config {
 
 	cfg.tenant = strings.TrimSpace(cfg.tenant)
 	cfg.confirm = strings.TrimSpace(cfg.confirm)
-	cfg.databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	cfg.clickHouseDSN = strings.TrimSpace(os.Getenv("CLICKHOUSE_DSN"))
-	cfg.supportDatabaseURL = strings.TrimSpace(os.Getenv("SUPPORT_ADMIN_DATABASE_URL"))
+	cfg.databaseURL = strings.TrimSpace(controlconfig.Environment("DATABASE_URL"))
+	cfg.clickHouseDSN = strings.TrimSpace(controlconfig.Environment("CLICKHOUSE_DSN"))
+	cfg.supportDatabaseURL = strings.TrimSpace(controlconfig.Environment("SUPPORT_ADMIN_DATABASE_URL"))
 
 	return cfg
 }

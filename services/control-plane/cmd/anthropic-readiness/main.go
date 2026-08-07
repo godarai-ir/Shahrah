@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
 )
 
 var defaultModels = []string{
@@ -172,16 +174,16 @@ func loadConfig() (config, error) {
 	flag.StringVar(&cfg.baseURL, "base-url", envOr("GODARAI_BASE_URL", "http://localhost:3002"), "GodarAI control-plane base URL")
 	flag.StringVar(&cfg.authLabel, "auth-label", envOr("GODARAI_ANTHROPIC_AUTH_LABEL", "unspecified"), "sanitized label such as api_key or wif")
 	flag.StringVar(&modelCSV, "models", strings.Join(defaultModels, ","), "comma-separated GodarAI Anthropic model FQNs")
-	flag.StringVar(&cfg.providerAccount, "provider-account", os.Getenv("GODARAI_ANTHROPIC_PROVIDER_ACCOUNT"), "provider account selector required by Files API")
+	flag.StringVar(&cfg.providerAccount, "provider-account", controlconfig.Environment("GODARAI_ANTHROPIC_PROVIDER_ACCOUNT"), "provider account selector required by Files API")
 	flag.StringVar(&cfg.reportPath, "report", "anthropic-readiness-report.json", "sanitized JSON report path")
-	flag.StringVar(&cfg.workspaceID, "workspace-id", os.Getenv("ANTHROPIC_ADMIN_WORKSPACE_ID"), "optional Anthropic workspace ID for Rate Limits API")
+	flag.StringVar(&cfg.workspaceID, "workspace-id", controlconfig.Environment("ANTHROPIC_ADMIN_WORKSPACE_ID"), "optional Anthropic workspace ID for Rate Limits API")
 	flag.BoolVar(&cfg.runResources, "run-resources", false, "run live Files and Message Batch lifecycle checks (may incur cost)")
 	flag.BoolVar(&cfg.test300K, "test-300k", false, "create a 300k max-output Batch check on eligible models (may incur cost)")
 	flag.DurationVar(&cfg.timeout, "timeout", 20*time.Minute, "overall matrix timeout")
 	flag.Parse()
 
-	cfg.virtualKey = strings.TrimSpace(os.Getenv("GODARAI_VIRTUAL_KEY"))
-	cfg.adminKey = strings.TrimSpace(os.Getenv("ANTHROPIC_ADMIN_KEY"))
+	cfg.virtualKey = strings.TrimSpace(controlconfig.Environment("GODARAI_VIRTUAL_KEY"))
+	cfg.adminKey = strings.TrimSpace(controlconfig.Environment("ANTHROPIC_ADMIN_KEY"))
 	cfg.baseURL = strings.TrimRight(strings.TrimSpace(cfg.baseURL), "/")
 
 	cfg.models = splitCSV(modelCSV)
@@ -881,7 +883,7 @@ func nonEmpty(values []string) []string {
 }
 
 func envOr(name, fallback string) string {
-	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+	if value := strings.TrimSpace(controlconfig.Environment(name)); value != "" {
 		return value
 	}
 

@@ -3,9 +3,6 @@ package billing
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -45,10 +42,10 @@ type exchangeRateCache struct {
 	done       chan struct{}
 }
 
-func loadExchangeRateCacheConfigFromEnv() ExchangeRateCacheConfig {
+func defaultExchangeRateCacheConfig() ExchangeRateCacheConfig {
 	return ExchangeRateCacheConfig{
-		FreshTTL: secondsEnvOrDefault("BILLING_EXCHANGE_RATE_CACHE_TTL_SECONDS", 60*time.Second),
-		MaxStale: secondsEnvOrDefault("BILLING_EXCHANGE_RATE_CACHE_MAX_STALE_SECONDS", 10*time.Minute),
+		FreshTTL: time.Minute,
+		MaxStale: 10 * time.Minute,
 	}
 }
 
@@ -305,18 +302,4 @@ func cloneExchangeRate(rate platform.ExchangeRate) platform.ExchangeRate {
 		Source:    rate.Source,
 		FetchedAt: rate.FetchedAt,
 	}
-}
-
-func secondsEnvOrDefault(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	seconds, err := strconv.Atoi(raw)
-	if err != nil || seconds <= 0 {
-		return fallback
-	}
-
-	return time.Duration(seconds) * time.Second
 }

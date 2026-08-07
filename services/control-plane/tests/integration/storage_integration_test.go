@@ -23,6 +23,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/management"
+	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	controlserver "github.com/Delpak/shahrah/services/control-plane/internal/server"
@@ -1627,6 +1628,9 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 		BudgetWindows: memCache,
 		Wallets:       store,
 	}, 850000, "test")
+	promptApplication, err := prompts.NewService(store.PromptRepository)
+	require.NoError(t, err)
+
 	baseProxyDeps := proxy.BaseHandlerDependencies{
 		Router:              llmRouter,
 		Tunnel:              tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
@@ -1653,9 +1657,9 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 				Roles:        store,
 			},
 			Catalog: admin.CatalogDependencies{
-				Models:           store,
+				Models:           store.ModelRepository,
 				ProviderAccounts: store,
-				Prompts:          store,
+				Prompts:          promptApplication,
 			},
 			Billing: admin.BillingDependencies{
 				Wallets:      store,
@@ -1673,7 +1677,7 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 			},
 			Support: admin.SupportDependencies{Tenants: store},
 		})),
-		ProxyHandler:       proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{Base: baseProxyDeps, VirtualModelStore: store, GuardrailResolver: store, PromptResolver: store}),
+		ProxyHandler:       proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{Base: baseProxyDeps, VirtualModelStore: store, GuardrailResolver: store, PromptResolver: promptApplication}),
 		CompletionsHandler: proxy.NewCompletionsHandlerWithDependencies(baseProxyDeps),
 		ModelsHandler:      proxy.NewModelsHandler(store),
 		Logger:             logger,

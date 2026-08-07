@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +27,24 @@ const (
 	defaultSupportTicketPageSize = 25
 	maxSupportTicketPageSize     = 100
 )
+
+// SupportLimitsConfig contains immutable support abuse-control limits.
+type SupportLimitsConfig struct {
+	TicketsPerUserPerHour           int
+	MessagesPerUserPerTicketPerHour int
+}
+
+func (c SupportLimitsConfig) withDefaults() SupportLimitsConfig {
+	if c.TicketsPerUserPerHour <= 0 {
+		c.TicketsPerUserPerHour = 10
+	}
+
+	if c.MessagesPerUserPerTicketPerHour <= 0 {
+		c.MessagesPerUserPerTicketPerHour = 30
+	}
+
+	return c
+}
 
 func (h *Handlers) ListTenantSupportTickets(c *fiber.Ctx) error {
 	currentTenant, err := currentTenantOrErr(c)
@@ -112,7 +129,7 @@ func (h *Handlers) CreateTenantSupportTicket(c *fiber.Ctx) error {
 		req,
 		uploads,
 		tenantSupportTicketActor(c),
-		intEnv("SUPPORT_TICKETS_PER_USER_PER_HOUR", 10),
+		h.limits.TicketsPerUserPerHour,
 	)
 	if err != nil {
 		h.deleteSupportUploads(uploads)
@@ -260,7 +277,7 @@ func (h *Handlers) AddTenantSupportTicketMessage(c *fiber.Ctx) error {
 		uploads,
 		tenantSupportTicketActor(c),
 		readAll,
-		intEnv("SUPPORT_MESSAGES_PER_USER_PER_TICKET_PER_HOUR", 30),
+		h.limits.MessagesPerUserPerTicketPerHour,
 	)
 	if err != nil {
 		h.deleteSupportUploads(uploads)
@@ -481,7 +498,7 @@ func (h *Handlers) AddPlatformSupportTicketMessage(c *fiber.Ctx) error {
 		uploads,
 		platformSupportTicketActor(c),
 		true,
-		intEnv("SUPPORT_MESSAGES_PER_USER_PER_TICKET_PER_HOUR", 30),
+		h.limits.MessagesPerUserPerTicketPerHour,
 	)
 	if err != nil {
 		h.deleteSupportUploads(uploads)
@@ -1053,20 +1070,6 @@ func contentDispositionAttachment(filename string) string {
 	escaped := url.QueryEscape(filename)
 
 	return fmt.Sprintf("attachment; filename=\"attachment\"; filename*=UTF-8''%s", escaped)
-}
-
-func intEnv(key string, fallback int) int {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	value, err := strconv.Atoi(raw)
-	if err != nil || value <= 0 {
-		return fallback
-	}
-
-	return value
 }
 
 func writeSupportTicketError(c *fiber.Ctx, status int, code, message string) error {

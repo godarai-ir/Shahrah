@@ -17,7 +17,7 @@ import (
 const logPayloadMaxBytes = 32 * 1024
 const requestLogInsertColumnCount = 40
 
-func (s *Store) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
+func (s *ObservabilityRepository) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
 	return s.validateClickHouseColumns(ctx, "request_logs_ch", []string{
 		"log_id", "tenant_id", "request_id", "trace_id", "token_hash", "organization_id", "org_unit_id", "team_id",
 		"actor_type", "actor_id", "provider", "provider_model", "model", "virtual_model", "route", "request_type",
@@ -30,12 +30,12 @@ func (s *Store) ensureClickHouseRequestLogsSchema(ctx context.Context) error {
 }
 
 // LogRequest writes the normalized request log entry to ClickHouse.
-func (s *Store) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
+func (s *ObservabilityRepository) LogRequest(ctx context.Context, entry platform.RequestLogEntry) error {
 	return s.LogRequests(ctx, []platform.RequestLogEntry{entry})
 }
 
 // LogRequests writes normalized request log entries to ClickHouse in one batch.
-func (s *Store) LogRequests(ctx context.Context, entries []platform.RequestLogEntry) error {
+func (s *ObservabilityRepository) LogRequests(ctx context.Context, entries []platform.RequestLogEntry) error {
 	if !s.clickHouseLogsReady() {
 		return ErrLogStoreUnavailable
 	}
@@ -71,7 +71,7 @@ func (s *Store) LogRequests(ctx context.Context, entries []platform.RequestLogEn
 	return err
 }
 
-func (s *Store) requestLogInsertArgs(ctx context.Context, entry platform.RequestLogEntry) ([]interface{}, error) {
+func (s *ObservabilityRepository) requestLogInsertArgs(ctx context.Context, entry platform.RequestLogEntry) ([]interface{}, error) {
 	logID := strings.TrimSpace(entry.LogID)
 	if logID == "" {
 		logID = "log_" + uuid.NewString()
@@ -159,7 +159,7 @@ func requestLogInsertPlaceholders(columns int) string {
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
-func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
+func (s *ObservabilityRepository) listRequestLogsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) ([]platform.RequestLogV2, int, error) {
 	if params.Limit <= 0 {
 		params.Limit = 50
 	}
@@ -240,7 +240,7 @@ func (s *Store) listRequestLogsV2FromClickHouse(ctx context.Context, params plat
 	return items, approximateWindowedTotal(params.Offset, len(items), hasMore), nil
 }
 
-func (s *Store) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
+func (s *ObservabilityRepository) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, logID string, includeContent bool) (*platform.RequestLogDetailV2, error) {
 	var (
 		item                platform.RequestLogDetailV2
 		statusCode          int32
@@ -337,7 +337,7 @@ func (s *Store) getRequestLogV2FromClickHouse(ctx context.Context, tenantID, log
 	return &item, nil
 }
 
-func (s *Store) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {
+func (s *ObservabilityRepository) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogFacetsV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params)
 
 	providers, err := queryLogFacetStringRows(ctx, s.clickhouse, buildRequestLogFacetStringQuery(whereSQL, "provider"), args...)
@@ -410,7 +410,7 @@ func (s *Store) getRequestLogFacetsV2FromClickHouse(ctx context.Context, params 
 	}, nil
 }
 
-func (s *Store) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
+func (s *ObservabilityRepository) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogSummaryV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params)
 
 	var (
@@ -514,7 +514,7 @@ func (s *Store) getRequestLogSummaryV2FromClickHouse(ctx context.Context, params
 	return summary, nil
 }
 
-func (s *Store) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
+func (s *ObservabilityRepository) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, params platform.ListRequestLogsV2Params) (*platform.LogRangeStatsV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params)
 
 	var (
@@ -569,7 +569,7 @@ func (s *Store) getRequestLogRangeStatsV2FromClickHouse(ctx context.Context, par
 	}, nil
 }
 
-func (s *Store) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
+func (s *ObservabilityRepository) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, params platform.LogAnalyticsV2Params) ([]platform.LogAnalyticsPointV2, error) {
 	whereSQL, args := buildRequestLogsWhere(params.ListRequestLogsV2Params)
 	groupColumn := normalizeLogAnalyticsGroupBy(params.GroupBy)
 
@@ -597,7 +597,7 @@ func (s *Store) getRequestLogAnalyticsV2FromClickHouse(ctx context.Context, para
 	return s.queryRequestLogAnalyticsTimeseries(ctx, whereSQL, groupColumn, intervalSeconds, args...)
 }
 
-func (s *Store) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL, groupColumn string, intervalSeconds int, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
+func (s *ObservabilityRepository) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL, groupColumn string, intervalSeconds int, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
 	groupSelect := "''"
 	groupBy := "bucket"
 
@@ -674,7 +674,7 @@ func (s *Store) queryRequestLogAnalyticsTimeseries(ctx context.Context, whereSQL
 	return out, rows.Err()
 }
 
-func (s *Store) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL, groupColumn string, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
+func (s *ObservabilityRepository) queryRequestLogAnalyticsBreakdown(ctx context.Context, whereSQL, groupColumn string, args ...interface{}) ([]platform.LogAnalyticsPointV2, error) {
 	query := fmt.Sprintf(`
 		SELECT
 			ifNull(nullIf(%s, ''), '') AS analytics_group,

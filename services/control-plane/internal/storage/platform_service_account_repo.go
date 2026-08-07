@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) GetPlatformServiceAccountByTokenHash(ctx context.Context, tokenHash string) (*auth.PlatformServiceAccountCredential, error) {
+func (s *PlatformServiceAccountRepository) GetPlatformServiceAccountByTokenHash(ctx context.Context, tokenHash string) (*auth.PlatformServiceAccountCredential, error) {
 	var credential auth.PlatformServiceAccountCredential
 
 	err := s.pool.QueryRow(ctx, `

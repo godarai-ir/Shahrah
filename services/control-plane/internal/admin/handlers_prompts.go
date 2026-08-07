@@ -7,10 +7,8 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (h *Handlers) ListPrompts(c *fiber.Ctx) error {
@@ -256,12 +254,7 @@ func (h *Handlers) RenderPromptVersion(c *fiber.Ctx) error {
 		}
 	}
 
-	version, err := store.GetPromptVersion(c.Context(), currentTenant.ID, versionID)
-	if err != nil {
-		return mapPromptStoreError(err)
-	}
-
-	rendered, err := prompts.Render(*version, req.Variables, req.Messages, req.Model)
+	rendered, err := store.RenderPromptVersion(c.Context(), currentTenant.ID, versionID, req)
 	if err != nil {
 		return mapPromptStoreError(err)
 	}
@@ -317,7 +310,7 @@ func mapPromptStoreError(err error) error {
 		return nil
 	}
 
-	if errors.Is(err, storage.ErrPromptNotFound) {
+	if errors.Is(err, prompts.ErrNotFound) {
 		return fiber.NewError(fiber.StatusNotFound, "prompt not found")
 	}
 
@@ -325,16 +318,16 @@ func mapPromptStoreError(err error) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case "23505":
-			return fiber.NewError(fiber.StatusConflict, "prompt already exists")
-		case "23514", "23502", "22P02":
-			return fiber.NewError(fiber.StatusBadRequest, "invalid prompt payload")
-		case "42P01", "42703":
-			return fiber.NewError(fiber.StatusServiceUnavailable, "prompt storage migration has not been applied")
-		}
+	if errors.Is(err, prompts.ErrConflict) {
+		return fiber.NewError(fiber.StatusConflict, "prompt already exists")
+	}
+
+	if errors.Is(err, prompts.ErrInvalidPersistenceData) {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid prompt payload")
+	}
+
+	if prompts.IsUnavailable(err) {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "prompt storage is unavailable")
 	}
 
 	return err

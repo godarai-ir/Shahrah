@@ -13,16 +13,23 @@ import (
 
 // Config represents the top-level configuration.
 type Config struct {
-	RouterSettings  RouterSettings         `mapstructure:"router_settings"`
-	ResponseCache   ResponseCacheSettings  `mapstructure:"response_cache"`
-	GeneralSettings GeneralSettings        `mapstructure:"general_settings"`
-	Profiling       ProfilingSettings      `mapstructure:"profiling"`
-	OperationalLogs OperationalLogSettings `mapstructure:"operational_logging"`
-	RequestLogs     RequestLogSettings     `mapstructure:"request_logs"`
-	SpendLogs       SpendLogSettings       `mapstructure:"spend_logs"`
-	TenantSettings  TenantSettings         `mapstructure:"tenant_settings"`
-	TunnelSettings  TunnelSettings         `mapstructure:"tunnel_settings"`
-	BillingSettings BillingSettings        `mapstructure:"billing_settings"`
+	RouterSettings   RouterSettings          `mapstructure:"router_settings"`
+	ResponseCache    ResponseCacheSettings   `mapstructure:"response_cache"`
+	GeneralSettings  GeneralSettings         `mapstructure:"general_settings"`
+	Profiling        ProfilingSettings       `mapstructure:"profiling"`
+	OperationalLogs  OperationalLogSettings  `mapstructure:"operational_logging"`
+	RequestLogs      RequestLogSettings      `mapstructure:"request_logs"`
+	SpendLogs        SpendLogSettings        `mapstructure:"spend_logs"`
+	TenantSettings   TenantSettings          `mapstructure:"tenant_settings"`
+	TunnelSettings   TunnelSettings          `mapstructure:"tunnel_settings"`
+	BillingSettings  BillingSettings         `mapstructure:"billing_settings"`
+	Storage          StorageSettings         `mapstructure:"-"`
+	Runtime          RuntimeSettings         `mapstructure:"-"`
+	Observability    ObservabilitySettings   `mapstructure:"-"`
+	Admin            AdminSettings           `mapstructure:"-"`
+	Credentials      CredentialSettings      `mapstructure:"-"`
+	SupportFiles     SupportFileSettings     `mapstructure:"-"`
+	ProviderFeatures ProviderFeatureSettings `mapstructure:"-"`
 }
 
 // ProfilingSettings controls opt-in runtime profiling endpoints and sampling.
@@ -238,6 +245,14 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	if err := resolveEnvVars(cfg, logger); err != nil {
 		return nil, fmt.Errorf("error resolving environment variables: %w", err)
 	}
+
+	cfg.Storage = LoadStorageSettings()
+	cfg.Runtime = LoadRuntimeSettings()
+	cfg.Credentials = LoadCredentialSettings()
+	cfg.SupportFiles = LoadSupportFileSettings()
+	cfg.ProviderFeatures = LoadProviderFeatureSettings()
+	cfg.Observability = LoadObservabilitySettings()
+	cfg.Admin = LoadAdminSettings()
 
 	return cfg, nil
 }

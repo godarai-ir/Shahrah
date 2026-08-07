@@ -2647,10 +2647,9 @@ func configureOpenAITestCatalog(t *testing.T, service *billing.Service) {
 		}
 	}))
 	t.Cleanup(discovery.Close)
-	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", discovery.URL)
-
-	manager, err := billing.NewCatalogPricingSnapshotManagerFromEnv(
+	manager, err := billing.NewCatalogPricingSnapshotManager(
 		"openai",
+		discovery.URL,
 		discovery.Client(),
 	)
 	require.NoError(t, err)

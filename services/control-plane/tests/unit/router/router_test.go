@@ -251,6 +251,8 @@ func newRouterWithStaticDeploymentStore(
 	store *staticDeploymentStore,
 	logger *zap.Logger,
 ) (*llmrouter.Router, error) {
+	deploymentCacheTTL := config.LoadRuntimeSettings().RouterDeploymentCacheTTL
+
 	return llmrouter.NewRouterWithDependencies(
 		modelList,
 		config.RouterSettings{},
@@ -259,6 +261,7 @@ func newRouterWithStaticDeploymentStore(
 			DeploymentStore:                 store,
 			LegacyProviderAccountAPIKey:     store,
 			ProviderAccountCredentialPolicy: llmrouter.ProviderAccountCredentialsFailOpen,
+			DeploymentCacheTTL:              &deploymentCacheTTL,
 		},
 		logger,
 	)

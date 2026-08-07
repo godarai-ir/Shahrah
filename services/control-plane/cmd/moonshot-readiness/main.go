@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
 )
 
 const defaultSpendCeilingUSD = 0.10
@@ -91,11 +93,11 @@ func main() {
 }
 
 func runFromEnvironment(ctx context.Context, client *http.Client, timeout time.Duration) (readinessReport, error) {
-	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("GODARAI_BASE_URL")), "/")
-	virtualKey := strings.TrimSpace(os.Getenv("GODARAI_VIRTUAL_KEY"))
-	account := strings.TrimSpace(os.Getenv("GODARAI_MOONSHOT_PROVIDER_ACCOUNT"))
+	baseURL := strings.TrimRight(strings.TrimSpace(controlconfig.Environment("GODARAI_BASE_URL")), "/")
+	virtualKey := strings.TrimSpace(controlconfig.Environment("GODARAI_VIRTUAL_KEY"))
+	account := strings.TrimSpace(controlconfig.Environment("GODARAI_MOONSHOT_PROVIDER_ACCOUNT"))
 
-	ceiling, err := spendCeiling(os.Getenv("GODARAI_MOONSHOT_MAX_SPEND_USD"))
+	ceiling, err := spendCeiling(controlconfig.Environment("GODARAI_MOONSHOT_MAX_SPEND_USD"))
 	if err != nil {
 		return readinessReport{}, err
 	}
@@ -254,7 +256,7 @@ func spendCeiling(raw string) (float64, error) {
 func safeError(err error) string {
 	message := err.Error()
 
-	for _, secret := range []string{os.Getenv("GODARAI_VIRTUAL_KEY"), os.Getenv("MOONSHOT_API_KEY")} {
+	for _, secret := range []string{controlconfig.Environment("GODARAI_VIRTUAL_KEY"), controlconfig.Environment("MOONSHOT_API_KEY")} {
 		if secret != "" {
 			message = strings.ReplaceAll(message, secret, "[REDACTED]")
 		}

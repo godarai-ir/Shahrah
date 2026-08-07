@@ -11,18 +11,16 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-var ErrPromptNotFound = errors.New("prompt not found")
+// ErrPromptNotFound is retained while older consumers migrate to prompts.ErrNotFound.
+var ErrPromptNotFound = prompts.ErrNotFound
 
-func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug string, req platform.CreatePromptRequest, actor string) (*platform.PromptVersion, error) {
-	if err := prompts.ValidateManifest(req.Manifest); err != nil {
-		return nil, err
-	}
-
+func (s *PromptRepository) CreatePrompt(ctx context.Context, tenantID string, tenantSlug string, req platform.CreatePromptRequest, actor string) (*platform.PromptVersion, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 	defer rollbackTxBestEffort(ctx, tx)
 
@@ -37,12 +35,12 @@ func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug st
 		RETURNING id::text
 	`, tenantID, req.Manifest.Name, slug, description, strings.TrimSpace(actor)).Scan(&promptID)
 	if err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	item, err := insertPromptVersion(ctx, tx, tenantID, tenantSlug, promptID, 1, req.Manifest, req.CommitMessage, actor)
 	if err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	if _, err := tx.Exec(ctx, `
@@ -50,24 +48,20 @@ func (s *Store) CreatePrompt(ctx context.Context, tenantID string, tenantSlug st
 		SET latest_version = 1, updated_at = NOW(), description = $3
 		WHERE tenant_id = $1::uuid AND id = $2::uuid
 	`, tenantID, promptID, description); err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	return item, nil
 }
 
-func (s *Store) CreatePromptVersion(ctx context.Context, tenantID string, tenantSlug string, promptID string, req platform.CreatePromptVersionRequest, actor string) (*platform.PromptVersion, error) {
-	if err := prompts.ValidateManifest(req.Manifest); err != nil {
-		return nil, err
-	}
-
+func (s *PromptRepository) CreatePromptVersion(ctx context.Context, tenantID string, tenantSlug string, promptID string, req platform.CreatePromptVersionRequest, actor string) (*platform.PromptVersion, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 	defer rollbackTxBestEffort(ctx, tx)
 
@@ -81,17 +75,17 @@ func (s *Store) CreatePromptVersion(ctx context.Context, tenantID string, tenant
 	`, tenantID, promptID).Scan(&latest)
 	if queryErr != nil {
 		if errors.Is(queryErr, pgx.ErrNoRows) {
-			return nil, ErrPromptNotFound
+			return nil, prompts.ErrNotFound
 		}
 
-		return nil, queryErr
+		return nil, mapPromptRepositoryError(queryErr)
 	}
 
 	nextVersion := latest + 1
 
 	item, err := insertPromptVersion(ctx, tx, tenantID, tenantSlug, promptID, nextVersion, req.Manifest, req.CommitMessage, actor)
 	if err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	if _, err := tx.Exec(ctx, `
@@ -99,11 +93,11 @@ func (s *Store) CreatePromptVersion(ctx context.Context, tenantID string, tenant
 		SET name = $3, slug = $4, description = $5, latest_version = $6, updated_at = NOW()
 		WHERE tenant_id = $1::uuid AND id = $2::uuid
 	`, tenantID, promptID, req.Manifest.Name, prompts.NormalizeSlug(req.Manifest.Name), strings.TrimSpace(req.Manifest.Description), nextVersion); err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	return item, nil
@@ -169,7 +163,7 @@ func insertPromptVersion(ctx context.Context, tx pgx.Tx, tenantID string, tenant
 	return &item, nil
 }
 
-func (s *Store) ListPrompts(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Prompt, int, error) {
+func (s *PromptRepository) ListPrompts(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Prompt, int, error) {
 	query = strings.TrimSpace(query)
 
 	if limit <= 0 {
@@ -194,7 +188,7 @@ func (s *Store) ListPrompts(ctx context.Context, tenantID string, query string, 
 
 	var total int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM prompts p WHERE p.tenant_id = $1::uuid`+countFilter, countArgs...).Scan(&total); err != nil {
-		return nil, 0, err
+		return nil, 0, mapPromptRepositoryError(err)
 	}
 
 	rows, err := s.pool.Query(ctx, `
@@ -216,7 +210,7 @@ func (s *Store) ListPrompts(ctx context.Context, tenantID string, query string, 
 		LIMIT $2 OFFSET $3
 	`, args...)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, mapPromptRepositoryError(err)
 	}
 	defer rows.Close()
 
@@ -225,16 +219,16 @@ func (s *Store) ListPrompts(ctx context.Context, tenantID string, query string, 
 	for rows.Next() {
 		item, err := scanPromptWithLatest(rows)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, mapPromptRepositoryError(err)
 		}
 
 		items = append(items, item)
 	}
 
-	return items, total, rows.Err()
+	return items, total, mapPromptRepositoryError(rows.Err())
 }
 
-func (s *Store) GetPrompt(ctx context.Context, tenantID string, promptID string) (*platform.Prompt, error) {
+func (s *PromptRepository) GetPrompt(ctx context.Context, tenantID string, promptID string) (*platform.Prompt, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT p.id::text, p.tenant_id::text, p.name, p.slug, p.description, p.latest_version, p.created_by, p.created_at, p.updated_at,
 		       pv.id::text, pv.prompt_id::text, COALESCE(pv.version, 0), COALESCE(pv.fqn, ''), COALESCE(pv.version_alias, ''),
@@ -252,36 +246,40 @@ func (s *Store) GetPrompt(ctx context.Context, tenantID string, promptID string)
 		WHERE p.tenant_id = $1::uuid AND p.id = $2::uuid
 	`, tenantID, promptID)
 	if err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, ErrPromptNotFound
+		return nil, prompts.ErrNotFound
 	}
 
 	item, err := scanPromptWithLatest(rows)
 	if err != nil {
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
-	return &item, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, mapPromptRepositoryError(err)
+	}
+
+	return &item, nil
 }
 
-func (s *Store) DeletePrompt(ctx context.Context, tenantID string, promptID string) error {
+func (s *PromptRepository) DeletePrompt(ctx context.Context, tenantID string, promptID string) error {
 	cmd, err := s.pool.Exec(ctx, `DELETE FROM prompts WHERE tenant_id = $1::uuid AND id = $2::uuid`, tenantID, promptID)
 	if err != nil {
-		return err
+		return mapPromptRepositoryError(err)
 	}
 
 	if cmd.RowsAffected() == 0 {
-		return ErrPromptNotFound
+		return prompts.ErrNotFound
 	}
 
 	return nil
 }
 
-func (s *Store) ListPromptVersions(ctx context.Context, tenantID string, promptID string, limit int, offset int) ([]platform.PromptVersion, int, error) {
+func (s *PromptRepository) ListPromptVersions(ctx context.Context, tenantID string, promptID string, limit int, offset int) ([]platform.PromptVersion, int, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -292,7 +290,7 @@ func (s *Store) ListPromptVersions(ctx context.Context, tenantID string, promptI
 
 	var total int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM prompt_versions WHERE tenant_id = $1::uuid AND prompt_id = $2::uuid`, tenantID, promptID).Scan(&total); err != nil {
-		return nil, 0, err
+		return nil, 0, mapPromptRepositoryError(err)
 	}
 
 	rows, err := s.pool.Query(ctx, `
@@ -304,7 +302,7 @@ func (s *Store) ListPromptVersions(ctx context.Context, tenantID string, promptI
 		LIMIT $3 OFFSET $4
 	`, tenantID, promptID, limit, offset)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, mapPromptRepositoryError(err)
 	}
 	defer rows.Close()
 
@@ -313,16 +311,16 @@ func (s *Store) ListPromptVersions(ctx context.Context, tenantID string, promptI
 	for rows.Next() {
 		item, err := scanPromptVersion(rows)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, mapPromptRepositoryError(err)
 		}
 
 		items = append(items, item)
 	}
 
-	return items, total, rows.Err()
+	return items, total, mapPromptRepositoryError(rows.Err())
 }
 
-func (s *Store) GetPromptVersion(ctx context.Context, tenantID string, versionID string) (*platform.PromptVersion, error) {
+func (s *PromptRepository) GetPromptVersion(ctx context.Context, tenantID string, versionID string) (*platform.PromptVersion, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT id::text, tenant_id::text, prompt_id::text, version, fqn, version_alias, name, description,
 		       messages, variables, model, parameters, metadata, manifest, commit_message, created_by, created_at
@@ -333,20 +331,16 @@ func (s *Store) GetPromptVersion(ctx context.Context, tenantID string, versionID
 	item, err := scanPromptVersion(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrPromptNotFound
+			return nil, prompts.ErrNotFound
 		}
 
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	return &item, nil
 }
 
-func (s *Store) GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn string) (*platform.PromptVersion, error) {
-	if _, err := prompts.ParseFQN(fqn); err != nil {
-		return nil, err
-	}
-
+func (s *PromptRepository) GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn string) (*platform.PromptVersion, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT id::text, tenant_id::text, prompt_id::text, version, fqn, version_alias, name, description,
 		       messages, variables, model, parameters, metadata, manifest, commit_message, created_by, created_at
@@ -357,10 +351,10 @@ func (s *Store) GetPromptVersionByFQN(ctx context.Context, tenantID string, fqn 
 	item, err := scanPromptVersion(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrPromptNotFound
+			return nil, prompts.ErrNotFound
 		}
 
-		return nil, err
+		return nil, mapPromptRepositoryError(err)
 	}
 
 	return &item, nil
@@ -545,10 +539,26 @@ func parsePromptManifest(raw []byte, fallback platform.PromptVersion) platform.P
 	}
 }
 
-func PromptStorageErrorMessage(err error) string {
-	if errors.Is(err, ErrPromptNotFound) {
-		return "prompt not found"
+func mapPromptRepositoryError(err error) error {
+	if err == nil {
+		return nil
 	}
 
-	return fmt.Sprintf("%v", err)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return prompts.ErrNotFound
+	}
+
+	var postgresErr *pgconn.PgError
+	if errors.As(err, &postgresErr) {
+		switch postgresErr.Code {
+		case "23505":
+			return fmt.Errorf("%w: %v", prompts.ErrConflict, err)
+		case "23514", "23502", "22P02":
+			return fmt.Errorf("%w: %v", prompts.ErrInvalidPersistenceData, err)
+		case "42P01", "42703":
+			return fmt.Errorf("%w: %v", prompts.ErrStorageUnavailable, err)
+		}
+	}
+
+	return fmt.Errorf("prompt repository: %w", err)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -24,37 +25,24 @@ const (
 )
 
 var (
-	ErrSocialAccountInvalid = errors.New("social account is missing or its email is not verified")
-	ErrSocialAccessDenied   = errors.New("social account is not linked to this tenant")
-	ErrSocialHandoffInvalid = errors.New("social handoff is invalid, expired, or already consumed")
-	ErrSocialLinkConflict   = errors.New("user or social account is already linked to another account")
+	ErrSocialAccountInvalid = tenantadmin.ErrSocialAccountInvalid
+	ErrSocialAccessDenied   = tenantadmin.ErrSocialAccessDenied
+	ErrSocialHandoffInvalid = tenantadmin.ErrSocialHandoffInvalid
+	ErrSocialLinkConflict   = tenantadmin.ErrSocialLinkConflict
 )
 
-type ProvisionSocialTenantParams struct {
-	AccountID    string `json:"account_id"`
-	TenantSlug   string `json:"tenant_slug"`
-	TenantDomain string `json:"tenant_domain"`
-	PlanSlug     string `json:"plan_slug"`
-}
-
-type SocialHandoff struct {
-	Code       string    `json:"code"`
-	TenantSlug string    `json:"tenant_slug"`
-	UserID     string    `json:"user_id"`
-	ExpiresAt  time.Time `json:"expires_at"`
-}
-
-type RedeemedSocialHandoff struct {
-	Session *TenantAdminSessionResponse `json:"session"`
-	User    *TenantAdminUserResponse    `json:"user"`
-}
+type (
+	ProvisionSocialTenantParams = tenantadmin.ProvisionSocialTenantParams
+	SocialHandoff               = tenantadmin.SocialHandoff
+	RedeemedSocialHandoff       = tenantadmin.RedeemedSocialHandoff
+)
 
 // ProvisionSocialTenant atomically provisions a tenant for a Better Auth user
 // whose provider has supplied a verified email, then issues a short-lived
 // one-time handoff. OAuth tokens never leave the central auth service.
 //
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) ProvisionSocialTenant(ctx context.Context, p ProvisionSocialTenantParams) (*ProvisionedTenant, error) {
+func (s *TenantAdminRepository) ProvisionSocialTenant(ctx context.Context, p ProvisionSocialTenantParams) (*ProvisionedTenant, error) {
 	p.AccountID = strings.TrimSpace(p.AccountID)
 	p.TenantSlug = normalizeOnboardingSlug(p.TenantSlug)
 	p.TenantDomain = strings.TrimSpace(strings.ToLower(p.TenantDomain))
@@ -213,7 +201,7 @@ func (s *Store) ProvisionSocialTenant(ctx context.Context, p ProvisionSocialTena
 }
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) CreateSocialLoginHandoff(ctx context.Context, tenantSlug, accountID string) (*SocialHandoff, error) {
+func (s *TenantAdminRepository) CreateSocialLoginHandoff(ctx context.Context, tenantSlug, accountID string) (*SocialHandoff, error) {
 	tenantSlug = normalizeOnboardingSlug(tenantSlug)
 	accountID = strings.TrimSpace(accountID)
 
@@ -250,7 +238,7 @@ func (s *Store) CreateSocialLoginHandoff(ctx context.Context, tenantSlug, accoun
 }
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) CreateSocialLinkTicket(ctx context.Context, tenantSlug, userID string) (*SocialHandoff, error) {
+func (s *TenantAdminRepository) CreateSocialLinkTicket(ctx context.Context, tenantSlug, userID string) (*SocialHandoff, error) {
 	tenantSlug = normalizeOnboardingSlug(tenantSlug)
 	userID = strings.TrimSpace(userID)
 
@@ -285,7 +273,7 @@ func (s *Store) CreateSocialLinkTicket(ctx context.Context, tenantSlug, userID s
 }
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) CompleteSocialLink(ctx context.Context, ticketCode, accountID string) (*SocialHandoff, error) {
+func (s *TenantAdminRepository) CompleteSocialLink(ctx context.Context, ticketCode, accountID string) (*SocialHandoff, error) {
 	accountID = strings.TrimSpace(accountID)
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -340,7 +328,7 @@ func (s *Store) CompleteSocialLink(ctx context.Context, ticketCode, accountID st
 }
 
 //nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
-func (s *Store) RedeemSocialLoginHandoff(ctx context.Context, tenantSlug, code string) (*RedeemedSocialHandoff, error) {
+func (s *TenantAdminRepository) RedeemSocialLoginHandoff(ctx context.Context, tenantSlug, code string) (*RedeemedSocialHandoff, error) {
 	tenantSlug = normalizeOnboardingSlug(tenantSlug)
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})

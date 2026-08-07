@@ -39,9 +39,11 @@ setup: setup-local ## Default local setup without remote-sensitive tidy
 
 setup-local: ## Download control-plane dependencies (local-safe, no tidy)
 	$(GO) -C $(CONTROL_PLANE_DIR) mod download
+	$(GO) -C $(CONTROL_PLANE_DIR)/tests/integration mod download
 
 setup-full: ## Download and tidy control-plane dependencies (may require VCS access)
 	$(GO) -C $(CONTROL_PLANE_DIR) mod tidy
+	$(GO) -C $(CONTROL_PLANE_DIR)/tests/integration mod tidy
 
 build: ## Build the control-plane service
 	$(GO) -C $(CONTROL_PLANE_DIR) build -o ../../bin/control-plane ./cmd/server
@@ -67,10 +69,10 @@ test-silk-road: ## Run silk-road module tests
 test-modules: test-contracts test-tunnel-server test-tunnel-client test-silk-road ## Run non-control-plane Go module tests
 
 test-integration: ## Run control-plane integration tests
-	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/integration/...
+	$(GO) -C $(CONTROL_PLANE_DIR)/tests/integration test -v $(GO_TEST_FLAGS) ./...
 
 test-integration-db: ## Run Postgres-backed control-plane integration tests (requires DATABASE_URL)
-	$(GO) -C $(CONTROL_PLANE_DIR) test -v $(GO_TEST_FLAGS) ./tests/integration/... -run "PostgresBacked|StorageSchemaContract|ConcurrentWalletDebitUsesRowLock"
+	$(GO) -C $(CONTROL_PLANE_DIR)/tests/integration test -v $(GO_TEST_FLAGS) ./... -run "PostgresBacked|StorageSchemaContract|ConcurrentWalletDebitUsesRowLock"
 
 test: test-unit test-modules ## Run all non-infrastructure Go tests
 
@@ -80,6 +82,7 @@ fmt: ## Format all Go modules
 	$(GO) -C services/tunnel-client fmt ./...
 	$(GO) -C services/silk-road fmt ./...
 	$(GO) -C $(CONTROL_PLANE_DIR) fmt ./...
+	$(GO) -C $(CONTROL_PLANE_DIR)/tests/integration fmt ./...
 
 vet: ## Run go vet for all Go modules
 	$(GO) -C packages/contracts vet ./...
@@ -87,9 +90,11 @@ vet: ## Run go vet for all Go modules
 	$(GO) -C services/tunnel-client vet ./...
 	$(GO) -C services/silk-road vet ./...
 	$(GO) -C $(CONTROL_PLANE_DIR) vet ./...
+	$(GO) -C $(CONTROL_PLANE_DIR)/tests/integration vet ./...
 
 lint: ## Run golangci-lint for control-plane
 	cd $(CONTROL_PLANE_DIR) && $(GOLANGCI_LINT) run ./...
+	cd $(CONTROL_PLANE_DIR)/tests/integration && $(GOLANGCI_LINT) run ./...
 
 check: fmt vet lint test ## Run the default checks
 

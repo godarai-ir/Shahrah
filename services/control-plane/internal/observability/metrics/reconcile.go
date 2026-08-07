@@ -33,10 +33,10 @@ type ReconcileConfig struct {
 	RunForPreviousDayUTC bool
 }
 
-// LoadReconcileConfigFromEnv builds the reconciliation configuration from environment variables.
-func LoadReconcileConfigFromEnv() ReconcileConfig {
+// DefaultReconcileConfig returns reconciliation defaults without reading process-global state.
+func DefaultReconcileConfig() ReconcileConfig {
 	return ReconcileConfig{
-		Enabled:              os.Getenv("METRICS_RECONCILE_ENABLED") == "true",
+		Enabled:              false,
 		Interval:             1 * time.Hour,
 		ThresholdUSD:         0.01,
 		ReportPath:           "./tmp/model-metrics-reconcile.json",

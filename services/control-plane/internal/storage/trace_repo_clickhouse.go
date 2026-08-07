@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -15,8 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Store) initClickHouse(ctx context.Context) error {
-	dsn := strings.TrimSpace(os.Getenv("CLICKHOUSE_DSN"))
+func (s *ObservabilityRepository) initClickHouse(ctx context.Context) error {
+	dsn := strings.TrimSpace(s.config.ClickHouse.DSN)
 	if dsn == "" {
 		return fmt.Errorf("CLICKHOUSE_DSN is required for clickhouse observability storage")
 	}
@@ -60,7 +59,7 @@ func (s *Store) initClickHouse(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) enableClickHouseSubsystem(ctx context.Context, name string, validate func(context.Context) error) bool {
+func (s *ObservabilityRepository) enableClickHouseSubsystem(ctx context.Context, name string, validate func(context.Context) error) bool {
 	if err := validate(ctx); err != nil {
 		logger := s.logger
 		if logger == nil {
@@ -75,19 +74,19 @@ func (s *Store) enableClickHouseSubsystem(ctx context.Context, name string, vali
 	return true
 }
 
-func (s *Store) clickHouseTraceReady() bool {
+func (s *ObservabilityRepository) clickHouseTraceReady() bool {
 	return s != nil && s.clickhouse != nil && s.clickhouseTraceReady
 }
 
-func (s *Store) clickHouseMetricsReady() bool {
+func (s *ObservabilityRepository) clickHouseMetricsReady() bool {
 	return s != nil && s.clickhouse != nil && s.clickhouseMetricsReady
 }
 
-func (s *Store) clickHouseLogsReady() bool {
+func (s *ObservabilityRepository) clickHouseLogsReady() bool {
 	return s != nil && s.clickhouse != nil && s.clickhouseLogsReady
 }
 
-func (s *Store) ClickHouseReadinessReport() map[string]interface{} {
+func (s *ObservabilityRepository) ClickHouseReadinessReport() map[string]interface{} {
 	if s == nil {
 		return map[string]interface{}{
 			"connected": false,
@@ -105,7 +104,7 @@ func (s *Store) ClickHouseReadinessReport() map[string]interface{} {
 	}
 }
 
-func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
+func (s *ObservabilityRepository) ensureClickHouseTraceSchema(ctx context.Context) error {
 	if err := s.validateClickHouseColumns(ctx, "request_traces_ch", []string{
 		"trace_id", "tenant_id", "request_id", "model", "route", "status_code", "started_at",
 		"duration_ms", "error_code", "sampled", "retention_days",
@@ -119,7 +118,7 @@ func (s *Store) ensureClickHouseTraceSchema(ctx context.Context) error {
 	})
 }
 
-func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEvent) error {
+func (s *ObservabilityRepository) exportToClickHouse(ctx context.Context, batch []tracing.SpanEvent) error {
 	if len(batch) == 0 {
 		return nil
 	}
@@ -242,8 +241,12 @@ func (s *Store) exportToClickHouse(ctx context.Context, batch []tracing.SpanEven
 	return nil
 }
 
-func (s *Store) traceRetentionDaysForInsert(ctx context.Context, tenantID string) uint16 {
-	days, err := s.ResolveTraceRetentionDays(ctx, tenantID)
+func (s *ObservabilityRepository) traceRetentionDaysForInsert(ctx context.Context, tenantID string) uint16 {
+	if s.retention == nil {
+		return 0
+	}
+
+	days, err := s.retention.ResolveTraceRetentionDays(ctx, tenantID)
 	if err != nil {
 		logger := s.logger
 		if logger == nil {
@@ -280,7 +283,7 @@ func clickHouseTraceRetentionDaysValue(days *int) uint16 {
 
 const tenantVisibleGatewayRouteWhere = "startsWith(route, '/v1/')"
 
-func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params platform.ListRequestTracesParams) ([]platform.RequestTrace, int, error) {
+func (s *ObservabilityRepository) listRequestTracesFromClickHouse(ctx context.Context, params platform.ListRequestTracesParams) ([]platform.RequestTrace, int, error) {
 	if params.Limit <= 0 {
 		params.Limit = 50
 	}
@@ -383,7 +386,7 @@ func (s *Store) listRequestTracesFromClickHouse(ctx context.Context, params plat
 	return items, approximateWindowedTotal(params.Offset, len(items), hasMore), nil
 }
 
-func (s *Store) getRequestTraceFromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTrace, error) {
+func (s *ObservabilityRepository) getRequestTraceFromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTrace, error) {
 	var (
 		item    platform.RequestTrace
 		sampled uint8
@@ -418,7 +421,7 @@ func (s *Store) getRequestTraceFromClickHouse(ctx context.Context, tenantID, tra
 	return &item, nil
 }
 
-func (s *Store) listTraceSpansFromClickHouse(ctx context.Context, tenantID, traceID string) ([]platform.TraceSpan, error) {
+func (s *ObservabilityRepository) listTraceSpansFromClickHouse(ctx context.Context, tenantID, traceID string) ([]platform.TraceSpan, error) {
 	if _, err := s.getRequestTraceFromClickHouse(ctx, tenantID, traceID); err != nil {
 		return nil, err
 	}
@@ -471,7 +474,7 @@ func (s *Store) listTraceSpansFromClickHouse(ctx context.Context, tenantID, trac
 	return out, rows.Err()
 }
 
-func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error) {
+func (s *ObservabilityRepository) listRequestTracesV2FromClickHouse(ctx context.Context, params platform.ListRequestTracesV2Params) ([]platform.RequestTraceV2, int, error) {
 	if params.Limit <= 0 {
 		params.Limit = 50
 	}
@@ -608,13 +611,13 @@ func (s *Store) listRequestTracesV2FromClickHouse(ctx context.Context, params pl
 	return items, int(total), nil
 }
 
-func (s *Store) initClickHouseWithRetry(ctx context.Context) error {
-	attempts := intEnvOrDefault("CLICKHOUSE_INIT_ATTEMPTS", 10)
+func (s *ObservabilityRepository) initClickHouseWithRetry(ctx context.Context) error {
+	attempts := s.config.ClickHouse.Attempts
 	if attempts < 1 {
 		attempts = 1
 	}
 
-	delay := secondsEnvOrDefault("CLICKHOUSE_INIT_RETRY_SECONDS", time.Second)
+	delay := s.config.ClickHouse.RetryDelay
 
 	var lastErr error
 
@@ -646,7 +649,7 @@ func (s *Store) initClickHouseWithRetry(ctx context.Context) error {
 	return lastErr
 }
 
-func (s *Store) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTraceDetailV2, error) {
+func (s *ObservabilityRepository) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, traceID string) (*platform.RequestTraceDetailV2, error) {
 	trace, err := s.getRequestTraceFromClickHouse(ctx, tenantID, traceID)
 	if err != nil {
 		return nil, err
@@ -717,7 +720,7 @@ func (s *Store) getRequestTraceV2FromClickHouse(ctx context.Context, tenantID, t
 	return detail, nil
 }
 
-func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID, traceID string) ([]platform.TraceAttemptV2, error) {
+func (s *ObservabilityRepository) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID, traceID string) ([]platform.TraceAttemptV2, error) {
 	if _, err := s.getRequestTraceFromClickHouse(ctx, tenantID, traceID); err != nil {
 		return nil, err
 	}
@@ -785,7 +788,7 @@ func (s *Store) listTraceAttemptsV2FromClickHouse(ctx context.Context, tenantID,
 	return out, rows.Err()
 }
 
-func (s *Store) getTraceFacetsV2FromClickHouse(ctx context.Context, params platform.ListRequestTracesV2Params) (*platform.TraceFacetsV2, error) {
+func (s *ObservabilityRepository) getTraceFacetsV2FromClickHouse(ctx context.Context, params platform.ListRequestTracesV2Params) (*platform.TraceFacetsV2, error) {
 	baseWhereSQL, baseArgs := buildTraceV2BaseWhere(params)
 	dedupSubquery := buildTraceDedupeSubquery(baseWhereSQL)
 	providerSubquery := `
@@ -857,7 +860,7 @@ func (s *Store) getTraceFacetsV2FromClickHouse(ctx context.Context, params platf
 	}, nil
 }
 
-func (s *Store) getTraceUsageFromPostgres(ctx context.Context, tenantID, requestID string) (*platform.TraceUsageV2, error) {
+func (s *ObservabilityRepository) getTraceUsageFromPostgres(ctx context.Context, tenantID, requestID string) (*platform.TraceUsageV2, error) {
 	if strings.TrimSpace(requestID) == "" {
 		return nil, nil
 	}
@@ -931,7 +934,7 @@ func (s *Store) getTraceUsageFromPostgres(ctx context.Context, tenantID, request
 	return item, nil
 }
 
-func (s *Store) getTraceMetricFromClickHouse(ctx context.Context, tenantID, requestID string) (*platform.TraceMetricV2, error) {
+func (s *ObservabilityRepository) getTraceMetricFromClickHouse(ctx context.Context, tenantID, requestID string) (*platform.TraceMetricV2, error) {
 	if strings.TrimSpace(requestID) == "" {
 		return nil, nil
 	}

@@ -4,12 +4,13 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -30,15 +31,30 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	store, err := storage.NewMetricsStore(ctx, logger)
+	storageSettings := config.LoadStorageSettings()
+	storageConfig := storage.DefaultConfig()
+	storageConfig.ClickHouse = storage.ClickHouseConfig{
+		DSN:        storageSettings.ClickHouseDSN,
+		Required:   true,
+		Attempts:   storageSettings.ClickHouseAttempts,
+		RetryDelay: storageSettings.ClickHouseRetryDelay,
+	}
+
+	store, err := storage.NewMetricsStore(ctx, logger, storageConfig)
 	if err != nil {
 		logger.Fatal("initialize storage", zap.Error(err))
 	}
 	defer store.Close()
 
-	dlqCfg := metricsobs.LoadConfigFromEnv().DLQ
+	dlqCfg := config.LoadObservabilitySettings().Metrics.DLQ
 
-	replayer, err := metricsobs.NewReplayer(ctx, dlqCfg, store, logger)
+	replayer, err := metricsobs.NewReplayer(
+		ctx,
+		dlqCfg,
+		store.ObservabilityRepository,
+		logger,
+		controlconfig.Environment("HOSTNAME"),
+	)
 	if err != nil {
 		logger.Fatal("initialize Redis Stream DLQ replayer", zap.Error(err))
 	}
@@ -100,7 +116,7 @@ func main() {
 }
 
 func stringEnvOrDefault(key, fallback string) string {
-	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+	if value := strings.TrimSpace(controlconfig.Environment(key)); value != "" {
 		return value
 	}
 

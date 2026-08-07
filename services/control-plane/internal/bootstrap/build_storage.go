@@ -3,20 +3,24 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
+	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
+	"github.com/Delpak/shahrah/services/control-plane/internal/policies"
+	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenantcredentials"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +43,11 @@ func (b *builder) buildStorage() error {
 	)
 	b.tenantProviderProber = platformcredentials.NewTunnelCredentialProber(b.tunnel)
 
-	tenantCredentialStore, credentialErr := tenantcredentials.NewEncryptedStoreFromEnv()
+	tenantCredentialStore, credentialErr := tenantcredentials.NewEncryptedStore(
+		b.cfg.Credentials.TenantActiveVersion,
+		b.cfg.Credentials.TenantKEKsJSON,
+		b.cfg.Credentials.TenantFingerprintKey,
+	)
 	if credentialErr != nil {
 		b.logger.Warn(
 			"Tenant provider credential encryption is unavailable; new tenant API keys will be rejected",
@@ -52,6 +60,7 @@ func (b *builder) buildStorage() error {
 		b.cfg.GeneralSettings.DatabaseURL,
 		b.logger,
 		storage.StoreDependencies{
+			Config:                storageConfig(b.cfg.Storage),
 			Cache:                 sharedCache,
 			RequestLoggingModeTTL: time.Duration(b.cfg.RequestLogs.ModeCacheTTLSeconds) * time.Second,
 			RuntimeProfileInvalidator: storage.RuntimeProfileInvalidatorFunc(
@@ -71,6 +80,41 @@ func (b *builder) buildStorage() error {
 	}
 
 	b.store = store
+
+	modelApplication, modelErr := virtualmodels.NewService(store.ModelRepository)
+	if modelErr != nil {
+		return fmt.Errorf("initialize model application: %w", modelErr)
+	}
+
+	b.modelApplication = modelApplication
+
+	iamApplication, iamErr := iam.NewService(store.IAMRepository, store.AuthRepository)
+	if iamErr != nil {
+		return fmt.Errorf("initialize IAM application: %w", iamErr)
+	}
+
+	b.iamApplication = iamApplication
+
+	tenantAdminApplication, tenantAdminErr := tenantadmin.NewService(store.TenantAdminRepository)
+	if tenantAdminErr != nil {
+		return fmt.Errorf("initialize tenant-admin application: %w", tenantAdminErr)
+	}
+
+	b.tenantAdminApplication = tenantAdminApplication
+
+	policyApplication, policyErr := policies.NewService(store.PolicyRepository)
+	if policyErr != nil {
+		return fmt.Errorf("initialize policy application: %w", policyErr)
+	}
+
+	b.policyApplication = policyApplication
+
+	promptApplication, promptErr := prompts.NewService(store.PromptRepository)
+	if promptErr != nil {
+		return fmt.Errorf("initialize prompt application: %w", promptErr)
+	}
+
+	b.promptApplication = promptApplication
 	if err := b.lifecycle.AddResource("storage", func(context.Context) error {
 		store.Close()
 
@@ -81,11 +125,13 @@ func (b *builder) buildStorage() error {
 
 	credentialRuntime, credentialErr := newPlatformCredentialRuntime(
 		b.ctx,
-		store,
+		store.PlatformCredentialRepository,
 		sharedCache,
 		b.httpMetrics,
 		b.tenantProviderProber,
 		b.logger,
+		b.cfg.Credentials,
+		b.cfg.Admin.Discovery,
 	)
 	if credentialErr != nil {
 		return credentialErr
@@ -97,7 +143,11 @@ func (b *builder) buildStorage() error {
 		return err
 	}
 
-	runtimeProfileCfg := runtimeprofile.LoadConfigFromEnv()
+	runtimeProfileCfg := runtimeprofile.Config{
+		VersionCheckInterval: b.cfg.Runtime.RuntimeProfileVersionCheck,
+		StaleGrace:           b.cfg.Runtime.RuntimeProfileStaleGrace,
+		L2TTL:                b.cfg.Runtime.RuntimeProfileL2TTL,
+	}
 
 	var distributedCache runtimeprofile.DistributedCache
 	if candidate, ok := sharedCache.(runtimeprofile.DistributedCache); ok {
@@ -107,13 +157,16 @@ func (b *builder) buildStorage() error {
 	}
 
 	b.runtimeProfiles = runtimeprofile.NewManager(
-		runtimeprofile.NewCompiler(store),
-		store,
+		runtimeprofile.NewCompiler(newRuntimeProfileSources(store, b.modelApplication, b.policyApplication)),
+		store.RuntimeProfileRepository,
 		distributedCache,
 		b.logger,
 		runtimeProfileCfg,
 	)
-	b.runtimeDeploymentStore = runtimeprofile.NewDeploymentStore(b.runtimeProfiles, store)
+	b.runtimeDeploymentStore = runtimeprofile.NewDeploymentStore(
+		b.runtimeProfiles,
+		store.ProviderAccountRepository,
+	)
 
 	applicationRouter, routerErr := router.NewRouterWithDependencies(
 		nil,
@@ -126,7 +179,8 @@ func (b *builder) buildStorage() error {
 			RequireProviderAccountCredentials: true,
 			PlatformCredentials:               b.credentialRuntime.manager,
 			PlatformCredentialMode:            b.credentialRuntime.mode,
-			PlatformCredentialEnvironment:     strings.TrimSpace(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_ENVIRONMENT")),
+			PlatformCredentialEnvironment:     b.cfg.Runtime.PlatformCredentialEnv,
+			DeploymentCacheTTL:                &b.cfg.Runtime.RouterDeploymentCacheTTL,
 		},
 		b.logger,
 	)
@@ -137,12 +191,12 @@ func (b *builder) buildStorage() error {
 	b.router = applicationRouter
 
 	b.authMiddleware = auth.NewAuthMiddlewareWithRuntimeProfiles(
-		store,
+		b.iamApplication,
 		b.cfg.GeneralSettings.MasterKey,
 		b.logger,
 		b.runtimeProfiles,
 	)
-	b.tenantMiddleware = tenant.NewMiddlewareWithCache(store, sharedCache, tenant.MiddlewareConfig{
+	b.tenantMiddleware = tenant.NewMiddlewareWithCache(store.TenantRepository, sharedCache, tenant.MiddlewareConfig{
 		AllowHeaderHint: b.cfg.TenantSettings.AllowHeaderHint,
 		CacheTTL:        5 * time.Minute,
 		RuntimeProfiles: b.runtimeProfiles,
@@ -155,6 +209,19 @@ func (b *builder) buildStorage() error {
 			Wallets:         store.WalletRepository,
 			Entitlements:    store.PlanRepository,
 			RuntimeProfiles: b.runtimeProfiles,
+			Config: &billing.ServiceConfig{
+				ExchangeRateCache: billing.ExchangeRateCacheConfig{
+					FreshTTL: b.cfg.Runtime.BillingExchangeRateTTL,
+					MaxStale: b.cfg.Runtime.BillingExchangeRateStale,
+				},
+				PricingCache: billing.PricingCacheConfig{
+					Enabled: b.cfg.Runtime.BillingPricingCacheEnabled,
+					TTL:     b.cfg.Runtime.BillingPricingCacheTTL,
+				},
+				WalletCacheTTL:    b.cfg.Runtime.BillingWalletCacheTTL,
+				BudgetWindowGrace: b.cfg.Storage.BudgetWindowTTLGrace,
+				RateLimitFailOpen: b.cfg.Runtime.RateLimitPolicyFailOpen,
+			},
 		},
 		b.cfg.BillingSettings.DefaultUSDtoIRR,
 		b.cfg.BillingSettings.RateSource,
@@ -182,12 +249,12 @@ func (b *builder) buildCache() (controlPlaneCache, error) {
 		err         error
 	)
 
-	if sentinelAddrs := splitCSVEnv("REDIS_SENTINEL_ADDRS"); len(sentinelAddrs) > 0 {
+	if sentinelAddrs := b.cfg.Runtime.RedisSentinelAddresses; len(sentinelAddrs) > 0 {
 		sharedCache, err = cache.NewDualCacheWithSentinel(
 			sentinelAddrs,
-			stringEnvOrDefault("REDIS_MASTER_NAME", "mymaster"),
+			b.cfg.Runtime.RedisMasterName,
 			b.cfg.RouterSettings.RedisPassword,
-			os.Getenv("REDIS_SENTINEL_PASSWORD"),
+			b.cfg.Runtime.RedisSentinelPassword,
 			b.logger,
 		)
 	} else if b.cfg.RouterSettings.RedisHost != "" {
@@ -208,4 +275,56 @@ func (b *builder) buildCache() (controlPlaneCache, error) {
 	b.logger.Warn("Failed to initialize shared Redis cache, falling back to memory-only", zap.Error(err))
 
 	return cache.NewMemoryCache(b.logger)
+}
+
+func storageConfig(settings config.StorageSettings) *storage.Config {
+	return &storage.Config{
+		Postgres: storage.PostgresConfig{
+			MaxConnections:    settings.PostgresMaxConnections,
+			MinConnections:    settings.PostgresMinConnections,
+			MaxLifetime:       settings.PostgresMaxLifetime,
+			MaxIdleTime:       settings.PostgresMaxIdleTime,
+			HealthCheckPeriod: settings.PostgresHealthCheckPeriod,
+		},
+		ClickHouse: storage.ClickHouseConfig{
+			DSN:        settings.ClickHouseDSN,
+			Required:   settings.ClickHouseRequired,
+			Attempts:   settings.ClickHouseAttempts,
+			RetryDelay: settings.ClickHouseRetryDelay,
+		},
+		TokenUsage: storage.TokenUsageConfig{
+			Enabled:          settings.TokenUsageEnabled,
+			FailOpen:         settings.TokenUsageFailOpen,
+			KeyPrefix:        settings.TokenUsageKeyPrefix,
+			FlushInterval:    settings.TokenUsageFlushInterval,
+			FlushBatchSize:   settings.TokenUsageFlushBatchSize,
+			DeltaTTL:         settings.TokenUsageDeltaTTL,
+			LastUsedInterval: settings.LastUsedFlushInterval,
+			LastUsedTTL:      settings.LastUsedTTL,
+			UsageCounters:    settings.UsageCountersEnabled,
+			CountersFailOpen: settings.UsageCountersFailOpen,
+			CounterKeyPrefix: settings.UsageCounterKeyPrefix,
+			CounterInterval:  settings.UsageCounterFlushInterval,
+			CounterBatchSize: settings.UsageCounterFlushBatchSize,
+			CounterTTLBuffer: settings.UsageCounterTTLBuffer,
+		},
+		HotPath: storage.HotPathConfig{
+			RequestLoggingModeTTL:        settings.RequestLoggingModeTTL,
+			ModelCacheTTL:                settings.ModelCacheTTL,
+			ModelCacheStaleTTL:           settings.ModelCacheStaleTTL,
+			DatabaseTimeout:              settings.GatewayDatabaseTimeout,
+			SubscriptionLifecycleTimeout: settings.SubscriptionDatabaseTimeout,
+			AuthorizationCacheTTL:        settings.AuthorizationCacheTTL,
+			AuthorizationCacheMaxEntries: settings.AuthorizationCacheMaxEntries,
+		},
+		Plans: storage.PlanRepositoryConfig{
+			EntitlementCacheTTL: settings.EntitlementCacheTTL,
+		},
+		Wallets: storage.WalletRepositoryConfig{
+			BudgetWindowTTLGrace: settings.BudgetWindowTTLGrace,
+		},
+		ProviderAccount: storage.ProviderAccountRepositoryConfig{
+			CredentialCacheTTL: settings.TenantCredentialCacheTTL,
+		},
+	}
 }

@@ -66,6 +66,7 @@ type Dependencies struct {
 	Logger                     *zap.Logger
 	PlatformServiceAccounts    auth.PlatformServiceAccountStore
 	ExchangeRates              ExchangeRateReader
+	GatewayMaxInFlight         *int
 }
 
 // ExchangeRateReader exposes the persisted control-plane exchange-rate snapshot
@@ -131,7 +132,12 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 
 	registerPublicRoutes(app, cfg, deps, httpMetrics)
 
-	if backpressure := newGatewayBackpressureMiddleware(httpMetrics); backpressure != nil {
+	maxInFlight := defaultGatewayMaxInFlight
+	if deps.GatewayMaxInFlight != nil {
+		maxInFlight = *deps.GatewayMaxInFlight
+	}
+
+	if backpressure := newGatewayBackpressureMiddleware(maxInFlight, httpMetrics); backpressure != nil {
 		app.Use(backpressure)
 	}
 

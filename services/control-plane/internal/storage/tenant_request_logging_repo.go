@@ -31,7 +31,7 @@ func NormalizeRequestLoggingMode(raw string) string {
 	}
 }
 
-func (s *Store) GetTenantRequestLoggingSettings(ctx context.Context, tenantID string) (*platform.TenantRequestLoggingSettings, error) {
+func (s *ObservabilityRepository) GetTenantRequestLoggingSettings(ctx context.Context, tenantID string) (*platform.TenantRequestLoggingSettings, error) {
 	var out platform.TenantRequestLoggingSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -49,7 +49,7 @@ func (s *Store) GetTenantRequestLoggingSettings(ctx context.Context, tenantID st
 	return &out, nil
 }
 
-func (s *Store) UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID, loggingMode, updatedByUserID string) (*platform.TenantRequestLoggingSettings, error) {
+func (s *ObservabilityRepository) UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID, loggingMode, updatedByUserID string) (*platform.TenantRequestLoggingSettings, error) {
 	var out platform.TenantRequestLoggingSettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -72,7 +72,7 @@ func (s *Store) UpsertTenantRequestLoggingSettings(ctx context.Context, tenantID
 	return &out, nil
 }
 
-func (s *Store) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, error) {
+func (s *ObservabilityRepository) ResolveTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
 		return "", false, nil
@@ -113,7 +113,7 @@ type cachedRequestLoggingMode struct {
 	OK   bool
 }
 
-func (s *Store) resolveTenantRequestLoggingModeFromDB(ctx context.Context, tenantID string) (string, bool, error) {
+func (s *ObservabilityRepository) resolveTenantRequestLoggingModeFromDB(ctx context.Context, tenantID string) (string, bool, error) {
 	var (
 		mode      string
 		updatedAt time.Time
@@ -138,7 +138,7 @@ func (s *Store) resolveTenantRequestLoggingModeFromDB(ctx context.Context, tenan
 	return NormalizeRequestLoggingMode(mode), true, nil
 }
 
-func (s *Store) getCachedTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, bool) {
+func (s *ObservabilityRepository) getCachedTenantRequestLoggingMode(ctx context.Context, tenantID string) (string, bool, bool) {
 	if s.entitlementCache == nil {
 		return "", false, false
 	}
@@ -160,7 +160,7 @@ func (s *Store) getCachedTenantRequestLoggingMode(ctx context.Context, tenantID 
 	return NormalizeRequestLoggingMode(raw), true, true
 }
 
-func (s *Store) cacheTenantRequestLoggingMode(ctx context.Context, tenantID string, mode string, ok bool) {
+func (s *ObservabilityRepository) cacheTenantRequestLoggingMode(ctx context.Context, tenantID string, mode string, ok bool) {
 	if s.entitlementCache == nil {
 		return
 	}
@@ -173,7 +173,7 @@ func (s *Store) cacheTenantRequestLoggingMode(ctx context.Context, tenantID stri
 	s.entitlementCache.Set(ctx, requestLoggingModeCacheKey(tenantID), value, s.requestLoggingModeTTL)
 }
 
-func (s *Store) invalidateTenantRequestLoggingMode(ctx context.Context, tenantID string) {
+func (s *ObservabilityRepository) invalidateTenantRequestLoggingMode(ctx context.Context, tenantID string) {
 	if s.entitlementCache != nil && strings.TrimSpace(tenantID) != "" {
 		s.entitlementCache.Delete(ctx, requestLoggingModeCacheKey(tenantID))
 	}

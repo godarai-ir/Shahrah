@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -86,19 +85,12 @@ type AnthropicPricingSnapshotManager struct {
 	state    atomic.Pointer[anthropicPricingSnapshot]
 }
 
-func NewAnthropicPricingSnapshotManagerFromEnv(
+// NewAnthropicPricingSnapshotManager creates a discovery-backed pricing snapshot manager.
+func NewAnthropicPricingSnapshotManager(
+	baseURL string,
 	client *http.Client,
 ) (*AnthropicPricingSnapshotManager, error) {
-	base := strings.TrimRight(
-		strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL")),
-		"/",
-	)
-	if base == "" {
-		base = strings.TrimRight(
-			strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_URL")),
-			"/",
-		)
-	}
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 
 	if base == "" {
 		return nil, fmt.Errorf("%w: model discovery URL is missing", ErrPricingUnavailable)

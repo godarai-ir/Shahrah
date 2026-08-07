@@ -14,7 +14,7 @@ func TestClickHouseReadinessReportSeparatesSubsystems(t *testing.T) {
 
 	defer closeBestEffort(db)
 
-	store := &Store{
+	store := &ObservabilityRepository{
 		clickhouse:             db,
 		clickhouseReady:        true,
 		clickhouseTraceReady:   false,
@@ -34,7 +34,7 @@ func TestClickHouseReadinessReportSeparatesSubsystems(t *testing.T) {
 }
 
 func TestClickHouseReadinessReportNilStore(t *testing.T) {
-	var store *Store
+	var store *ObservabilityRepository
 
 	report := store.ClickHouseReadinessReport()
 

@@ -17,6 +17,16 @@ import (
 const TypeChatPrompt = "chat_prompt"
 
 var (
+	// ErrNotFound indicates that a tenant-scoped prompt or version does not exist.
+	ErrNotFound = errors.New("prompt not found")
+	// ErrConflict indicates that a prompt violates a persistence uniqueness constraint.
+	ErrConflict = errors.New("prompt already exists")
+	// ErrInvalidPersistenceData indicates that prompt data cannot satisfy the persistence schema.
+	ErrInvalidPersistenceData = errors.New("invalid prompt persistence data")
+	// ErrStorageUnavailable indicates that prompt persistence is not ready.
+	ErrStorageUnavailable = errors.New("prompt storage unavailable")
+	// ErrRepositoryUnavailable indicates that the prompt application has no repository.
+	ErrRepositoryUnavailable = errors.New("prompt repository unavailable")
 	// ErrInvalidManifest indicates the prompt manifest failed validation.
 	ErrInvalidManifest = errors.New("invalid prompt manifest")
 	// ErrMissingVariable indicates rendering could not resolve one or more variables.

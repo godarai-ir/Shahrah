@@ -120,7 +120,7 @@ const traceRetentionPolicySQL = `
 `
 
 // ListTraceRetentionPolicies resolves the current effective trace retention for every subscribed tenant.
-func (s *Store) ListTraceRetentionPolicies(ctx context.Context) ([]tracing.TraceRetentionPolicy, error) {
+func (s *RetentionRepository) ListTraceRetentionPolicies(ctx context.Context) ([]tracing.TraceRetentionPolicy, error) {
 	values, err := s.listRetentionPolicyValues(ctx, platform.FeatureTracesRetentionDays, tracing.ParseTraceRetentionDays, "trace")
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (s *Store) ListTraceRetentionPolicies(ctx context.Context) ([]tracing.Trace
 
 // ResolveTraceRetentionDays resolves the current effective trace TTL value for a tenant.
 // A nil return means unlimited retention and is stored as retention_days = 0 in ClickHouse.
-func (s *Store) ResolveTraceRetentionDays(ctx context.Context, tenantID string) (*int, error) {
+func (s *RetentionRepository) ResolveTraceRetentionDays(ctx context.Context, tenantID string) (*int, error) {
 	var raw []byte
 	if err := s.pool.QueryRow(ctx, traceRetentionPolicySQL, platform.FeatureTracesRetentionDays, tenantID).Scan(&raw); err != nil {
 		if err == pgx.ErrNoRows {

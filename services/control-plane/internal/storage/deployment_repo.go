@@ -12,7 +12,7 @@ import (
 )
 
 // CreateDeployment stores a model deployment for a tenant.
-func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (*platform.Deployment, error) {
+func (s *ModelRepository) CreateDeployment(ctx context.Context, dep platform.Deployment) (*platform.Deployment, error) {
 	if dep.ID == "" {
 		dep.ID = uuid.NewString()
 	}
@@ -62,7 +62,7 @@ func (s *Store) CreateDeployment(ctx context.Context, dep platform.Deployment) (
 }
 
 // ListDeployments returns tenant-specific deployments.
-func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+func (s *ModelRepository) ListDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	cacheKey := deploymentCacheKey(tenantID)
 
 	return loadHotPathList(
@@ -75,7 +75,7 @@ func (s *Store) ListDeployments(ctx context.Context, tenantID string) ([]platfor
 	)
 }
 
-func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+func (s *ModelRepository) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(tenant_id::text, ''), model_name, provider, model,
 		       provider_config, COALESCE(model_info, '{}')
@@ -138,7 +138,7 @@ func (s *Store) listDeploymentsFromDB(ctx context.Context, tenantID string) ([]p
 	return deps, nil
 }
 
-func (s *Store) listProviderAccountDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
+func (s *ModelRepository) listProviderAccountDeployments(ctx context.Context, tenantID string) ([]platform.Deployment, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, nil
 	}

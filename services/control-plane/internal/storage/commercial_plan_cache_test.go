@@ -180,7 +180,7 @@ func TestEffectiveEntitlementsCacheHonorsTTL(t *testing.T) {
 func TestInvalidateDeploymentCacheDeletesTenantSnapshot(t *testing.T) {
 	ctx := context.Background()
 	testCache := newEntitlementTestCache()
-	store := &Store{entitlementCache: testCache}
+	store := &ModelRepository{sharedCache: testCache}
 
 	testCache.Set(ctx, deploymentCacheKey("tenant-1"), []platform.Deployment{{ID: "dep-1"}}, time.Minute)
 	store.invalidateDeploymentCache(ctx, "tenant-1")
@@ -193,7 +193,7 @@ func TestInvalidateDeploymentCacheDeletesTenantSnapshot(t *testing.T) {
 func TestInvalidateWalletCacheDeletesTenantBalance(t *testing.T) {
 	ctx := context.Background()
 	testCache := newEntitlementTestCache()
-	store := &Store{entitlementCache: testCache}
+	store := &WalletRepository{entitlementCache: testCache}
 
 	testCache.Set(ctx, walletCacheKey("tenant-1"), &platform.Wallet{TenantID: "tenant-1"}, time.Minute)
 	store.invalidateWalletCache(ctx, "tenant-1")

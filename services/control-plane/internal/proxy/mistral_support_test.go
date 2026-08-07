@@ -147,16 +147,19 @@ func TestMistralFIMValidatesTokenBounds(t *testing.T) {
 }
 
 func TestMistralFeatureFlagsFailClosed(t *testing.T) {
-	t.Setenv("SHAHRAH_MISTRAL_ENABLED", "true")
-	t.Setenv("SHAHRAH_MISTRAL_OCR_ENABLED", "not-a-boolean")
+	features := ProviderFeatureConfig{
+		Configured:       true,
+		MistralEnabled:   true,
+		MistralEndpoints: map[string]bool{"ocr": false},
+	}
 
-	if mistralEndpointEnabled("ocr") {
+	if mistralEndpointEnabled(features, "ocr") {
 		t.Fatal("invalid endpoint feature flag must fail closed")
 	}
 
-	t.Setenv("SHAHRAH_MISTRAL_OCR_ENABLED", "true")
+	features.MistralEndpoints["ocr"] = true
 
-	if !mistralEndpointEnabled("ocr") {
+	if !mistralEndpointEnabled(features, "ocr") {
 		t.Fatal("enabled endpoint feature flag was rejected")
 	}
 }

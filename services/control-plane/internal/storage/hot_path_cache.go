@@ -84,10 +84,10 @@ func walletCacheKey(tenantID string) string {
 	return "wallet:tenant:" + strings.TrimSpace(tenantID)
 }
 
-func (s *Store) invalidateDeploymentCache(ctx context.Context, tenantID string) {
+func (s *ModelRepository) invalidateDeploymentCache(ctx context.Context, tenantID string) {
 	s.deleteLocalHotPathCache(deploymentCacheKey(tenantID))
 
-	if s == nil || s.entitlementCache == nil {
+	if s == nil || s.sharedCache == nil {
 		return
 	}
 
@@ -96,32 +96,14 @@ func (s *Store) invalidateDeploymentCache(ctx context.Context, tenantID string) 
 		return
 	}
 
-	s.entitlementCache.Delete(ctx, deploymentCacheKey(tenantID))
+	s.sharedCache.Delete(ctx, deploymentCacheKey(tenantID))
 }
 
-func (s *Store) invalidateVirtualModelsCache(_ context.Context, tenantID string) {
+func (s *ModelRepository) invalidateVirtualModelsCache(_ context.Context, tenantID string) {
 	s.deleteLocalHotPathCache(virtualModelsCacheKey(tenantID))
 }
 
-func (s *Store) invalidateWalletCache(ctx context.Context, tenantID string) {
-	if s == nil || s.entitlementCache == nil {
-		return
-	}
-
-	tenantID = strings.TrimSpace(tenantID)
-	if tenantID == "" {
-		return
-	}
-
-	s.entitlementCache.Delete(ctx, walletCacheKey(tenantID))
-
-	wallets := s.WalletRepository
-	if wallets != nil {
-		wallets.syncCurrentBudgetWindowAllowance(ctx, tenantID)
-	}
-}
-
-func (s *Store) getCachedDeployments(key string) ([]platform.Deployment, hotPathCacheState) {
+func (s *ModelRepository) getCachedDeployments(key string) ([]platform.Deployment, hotPathCacheState) {
 	value, state := s.getLocalHotPathCache(key)
 	if state == hotPathCacheMiss {
 		return nil, hotPathCacheMiss
@@ -136,11 +118,11 @@ func (s *Store) getCachedDeployments(key string) ([]platform.Deployment, hotPath
 	return cloneDeployments(deps), state
 }
 
-func (s *Store) cacheDeployments(key string, deps []platform.Deployment) {
+func (s *ModelRepository) cacheDeployments(key string, deps []platform.Deployment) {
 	s.setLocalHotPathCache(key, cloneDeployments(deps))
 }
 
-func (s *Store) getCachedVirtualModels(key string) ([]platform.VirtualModel, hotPathCacheState) {
+func (s *ModelRepository) getCachedVirtualModels(key string) ([]platform.VirtualModel, hotPathCacheState) {
 	value, state := s.getLocalHotPathCache(key)
 	if state == hotPathCacheMiss {
 		return nil, hotPathCacheMiss
@@ -155,11 +137,11 @@ func (s *Store) getCachedVirtualModels(key string) ([]platform.VirtualModel, hot
 	return cloneVirtualModels(models), state
 }
 
-func (s *Store) cacheVirtualModels(key string, models []platform.VirtualModel) {
+func (s *ModelRepository) cacheVirtualModels(key string, models []platform.VirtualModel) {
 	s.setLocalHotPathCache(key, cloneVirtualModels(models))
 }
 
-func (s *Store) getLocalHotPathCache(key string) (interface{}, hotPathCacheState) {
+func (s *ModelRepository) getLocalHotPathCache(key string) (interface{}, hotPathCacheState) {
 	if s == nil || strings.TrimSpace(key) == "" {
 		return nil, hotPathCacheMiss
 	}
@@ -195,7 +177,7 @@ func (s *Store) getLocalHotPathCache(key string) (interface{}, hotPathCacheState
 	return entry.value, hotPathCacheFresh
 }
 
-func (s *Store) setLocalHotPathCache(key string, value interface{}) {
+func (s *ModelRepository) setLocalHotPathCache(key string, value interface{}) {
 	if s == nil || strings.TrimSpace(key) == "" || s.hotPathCacheTTL <= 0 {
 		return
 	}
@@ -222,7 +204,7 @@ func (s *Store) setLocalHotPathCache(key string, value interface{}) {
 	}
 }
 
-func (s *Store) deleteLocalHotPathCache(key string) {
+func (s *ModelRepository) deleteLocalHotPathCache(key string) {
 	if s == nil || strings.TrimSpace(key) == "" {
 		return
 	}
@@ -235,7 +217,7 @@ func (s *Store) deleteLocalHotPathCache(key string) {
 	}
 }
 
-func (s *Store) refreshHotPathCacheAsync(key string, refresh func(context.Context) error) <-chan singleflight.Result {
+func (s *ModelRepository) refreshHotPathCacheAsync(key string, refresh func(context.Context) error) <-chan singleflight.Result {
 	if s == nil || strings.TrimSpace(key) == "" || refresh == nil {
 		return nil
 	}
@@ -248,7 +230,7 @@ func (s *Store) refreshHotPathCacheAsync(key string, refresh func(context.Contex
 	})
 }
 
-func (s *Store) hotPathRefreshTimeout() time.Duration {
+func (s *ModelRepository) hotPathRefreshTimeout() time.Duration {
 	if s == nil {
 		return 30 * time.Second
 	}
@@ -265,12 +247,12 @@ func (s *Store) hotPathRefreshTimeout() time.Duration {
 	return timeout
 }
 
-func (s *Store) warmDeploymentCacheAsync(tenantID string) {
+func (s *ModelRepository) warmDeploymentCacheAsync(tenantID string) {
 	cacheKey := deploymentCacheKey(tenantID)
 	s.refreshDeploymentsCacheAsync(tenantID, cacheKey)
 }
 
-func (s *Store) refreshDeploymentsCacheAsync(tenantID string, cacheKey string) {
+func (s *ModelRepository) refreshDeploymentsCacheAsync(tenantID string, cacheKey string) {
 	if s == nil || s.pool == nil {
 		return
 	}
@@ -287,12 +269,12 @@ func (s *Store) refreshDeploymentsCacheAsync(tenantID string, cacheKey string) {
 	})
 }
 
-func (s *Store) warmVirtualModelsCacheAsync(tenantID string) {
+func (s *ModelRepository) warmVirtualModelsCacheAsync(tenantID string) {
 	cacheKey := virtualModelsCacheKey(tenantID)
 	s.refreshVirtualModelsCacheAsync(tenantID, cacheKey)
 }
 
-func (s *Store) refreshVirtualModelsCacheAsync(tenantID string, cacheKey string) {
+func (s *ModelRepository) refreshVirtualModelsCacheAsync(tenantID string, cacheKey string) {
 	if s == nil || s.pool == nil {
 		return
 	}

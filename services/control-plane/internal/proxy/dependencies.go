@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
@@ -103,6 +104,7 @@ func compatibilityBillingCapabilities() BillingCapabilities {
 
 // BaseHandlerDependencies groups shared proxy handler dependencies.
 type BaseHandlerDependencies struct {
+	Pipeline                 *RequestPipeline
 	Router                   *router.Router
 	Tunnel                   platform.TunnelTransport
 	RawTunnel                platform.TunnelRawTransport
@@ -119,6 +121,24 @@ type BaseHandlerDependencies struct {
 	SpendLogger              SpendLogger
 	Logger                   *zap.Logger
 	EmitMetric               func(input metricsobs.BuildInput)
+	PipelineConfig           RequestPipelineConfig
+	ProviderFeatures         ProviderFeatureConfig
+}
+
+// ProviderFeatureConfig is an immutable provider endpoint rollout snapshot.
+type ProviderFeatureConfig struct {
+	Configured                   bool
+	MistralEnabled               bool
+	MistralEndpoints             map[string]bool
+	MistralFilesEnabled          bool
+	MistralBatchEnabled          bool
+	MistralAgentsEnabled         bool
+	MistralConversationsEnabled  bool
+	MistralConversationStreaming bool
+	AnthropicNativeEnabled       bool
+	AnthropicFilesEnabled        bool
+	AnthropicBatchesEnabled      bool
+	AnthropicAccountIDs          []string
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.
@@ -127,10 +147,12 @@ type ChatCompletionDependencies struct {
 	VirtualModelStore interface {
 		GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
 	}
-	GuardrailResolver guardrailResolver
-	PromptResolver    promptResolver
-	Guardrails        *guardrails.Engine
-	ResponseCache     *responsecache.Service
+	GuardrailResolver         guardrailResolver
+	PromptResolver            promptResolver
+	Guardrails                *guardrails.Engine
+	ResponseCache             *responsecache.Service
+	VirtualModelAliasCacheTTL time.Duration
+	VirtualModelNegativeTTL   time.Duration
 }
 
 type usageLoggers struct {
@@ -166,17 +188,34 @@ func (d BaseHandlerDependencies) metricEmitter() func(input metricsobs.BuildInpu
 }
 
 func (d BaseHandlerDependencies) requestPipeline() *RequestPipeline {
-	return NewRequestPipeline(d.Tunnel, d.RawTunnel, d.Billing, d.BillingCapabilities, d.Wallets, d.Logger)
+	if d.Pipeline != nil {
+		return d.Pipeline
+	}
+
+	return NewRequestPipelineWithConfig(
+		d.Tunnel,
+		d.RawTunnel,
+		d.Billing,
+		d.BillingCapabilities,
+		d.Wallets,
+		d.Logger,
+		d.PipelineConfig,
+	)
 }
 
 func newChatVirtualModelDeps(store interface {
 	GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error)
-}) (virtualmodels.VirtualModelResolver, virtualmodels.RoutingEngine, virtualmodels.FallbackExecutor) {
+}, hitTTL time.Duration, negativeTTL time.Duration) (virtualmodels.VirtualModelResolver, virtualmodels.RoutingEngine, virtualmodels.FallbackExecutor) {
 	if store == nil {
 		return nil, nil, nil
 	}
 
-	return virtualmodels.NewResolver(store, virtualmodels.WithNotFoundError(func(err error) bool {
+	options := []virtualmodels.ResolverOption{virtualmodels.WithNotFoundError(func(err error) bool {
 		return errors.Is(err, storage.ErrVirtualModelNotFound)
-	})), virtualmodels.NewRoutingEngine(), virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
+	})}
+	if hitTTL > 0 && negativeTTL > 0 {
+		options = append(options, virtualmodels.WithAliasCacheTTLs(hitTTL, negativeTTL))
+	}
+
+	return virtualmodels.NewResolver(store, options...), virtualmodels.NewRoutingEngine(), virtualmodels.NewExecutor(virtualmodels.NewDefaultErrorNormalizer())
 }

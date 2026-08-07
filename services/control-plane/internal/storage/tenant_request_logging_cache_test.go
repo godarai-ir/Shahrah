@@ -8,7 +8,7 @@ import (
 
 func TestResolveTenantRequestLoggingModeUsesCache(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ObservabilityRepository{
 		entitlementCache:      newEntitlementTestCache(),
 		requestLoggingModeTTL: time.Minute,
 	}
@@ -30,7 +30,7 @@ func TestResolveTenantRequestLoggingModeUsesCache(t *testing.T) {
 
 func TestInvalidateTenantRequestLoggingModeDeletesCache(t *testing.T) {
 	ctx := context.Background()
-	store := &Store{
+	store := &ObservabilityRepository{
 		entitlementCache:      newEntitlementTestCache(),
 		requestLoggingModeTTL: time.Minute,
 	}

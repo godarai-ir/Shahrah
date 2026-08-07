@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,10 +25,10 @@ type pricingCache struct {
 	group  singleflight.Group
 }
 
-func loadPricingCacheConfigFromEnv() PricingCacheConfig {
+func defaultPricingCacheConfig() PricingCacheConfig {
 	return PricingCacheConfig{
-		Enabled: boolEnvOrDefault("BILLING_PRICING_CACHE_ENABLED", true),
-		TTL:     secondsEnvOrDefault("BILLING_PRICING_CACHE_TTL_SECONDS", 300*time.Second),
+		Enabled: true,
+		TTL:     5 * time.Minute,
 	}
 }
 
@@ -147,18 +145,4 @@ func pricingCacheKey(model string) string {
 	}
 
 	return fmt.Sprintf("pricing:%s", normalized)
-}
-
-func boolEnvOrDefault(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	value, err := strconv.ParseBool(raw)
-	if err != nil {
-		return fallback
-	}
-
-	return value
 }

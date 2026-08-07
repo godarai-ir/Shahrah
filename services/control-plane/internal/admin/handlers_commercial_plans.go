@@ -284,7 +284,7 @@ func (h *Handlers) ChangeTenantSubscription(c *fiber.Ctx) error {
 
 	providerName := strings.ToLower(strings.TrimSpace(req.Provider))
 	if providerName == "" {
-		providerName = defaultSubscriptionPaymentProvider()
+		providerName = h.payment.DefaultSubscriptionProvider
 	}
 
 	req.Provider = providerName
@@ -305,7 +305,7 @@ func (h *Handlers) ChangeTenantSubscription(c *fiber.Ctx) error {
 		return c.JSON(result)
 	}
 
-	provider := selectProvider(providerName)
+	provider := h.selectPaymentProvider(providerName)
 	payable := result.PaymentIntent.AmountMinor
 	paymentInput := &platform.WalletTopUpIntent{
 		PublicID: result.PaymentIntent.PublicID, TenantID: result.PaymentIntent.TenantID,
@@ -356,7 +356,7 @@ func (h *Handlers) SubscriptionPaymentCallback(c *fiber.Ctx) error {
 		PayableIRR: intent.AmountMinor, CallbackURL: intent.CallbackURL, ReturnURL: intent.ReturnURL,
 	})
 
-	verifyRes, err := selectProvider(providerName).VerifyPayment(c, authority)
+	verifyRes, err := h.selectPaymentProvider(providerName).VerifyPayment(c, authority)
 	if err != nil {
 		if markErr := store.MarkSubscriptionPaymentFailedByAuthority(c.Context(), authority, err.Error(), map[string]interface{}{"provider": providerName}); markErr != nil {
 			return markErr

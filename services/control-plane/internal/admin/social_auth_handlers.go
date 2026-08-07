@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -13,7 +13,7 @@ func (h *AuthHandlers) ProvisionSocialTenant(c *fiber.Ctx) error {
 		return fiber.ErrNotImplemented
 	}
 
-	var body storage.ProvisionSocialTenantParams
+	var body tenantadmin.ProvisionSocialTenantParams
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
@@ -112,13 +112,13 @@ func (h *AuthHandlers) CompleteSocialLink(c *fiber.Ctx) error {
 
 func socialAuthHTTPError(err error) error {
 	switch {
-	case errors.Is(err, storage.ErrTenantSlugInvalid), errors.Is(err, storage.ErrSocialAccountInvalid):
+	case errors.Is(err, tenantadmin.ErrTenantSlugInvalid), errors.Is(err, tenantadmin.ErrSocialAccountInvalid):
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	case errors.Is(err, storage.ErrTenantSlugTaken), errors.Is(err, storage.ErrSocialLinkConflict):
+	case errors.Is(err, tenantadmin.ErrTenantSlugTaken), errors.Is(err, tenantadmin.ErrSocialLinkConflict):
 		return fiber.NewError(fiber.StatusConflict, err.Error())
-	case errors.Is(err, storage.ErrSocialAccessDenied):
+	case errors.Is(err, tenantadmin.ErrSocialAccessDenied):
 		return fiber.NewError(fiber.StatusForbidden, err.Error())
-	case errors.Is(err, storage.ErrSocialHandoffInvalid):
+	case errors.Is(err, tenantadmin.ErrSocialHandoffInvalid):
 		return fiber.NewError(fiber.StatusUnauthorized, err.Error())
 	default:
 		if strings.Contains(strings.ToLower(err.Error()), "plan") {

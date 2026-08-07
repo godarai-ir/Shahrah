@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -44,63 +45,21 @@ type TenantAdminSession struct {
 	CreatedAt  time.Time
 }
 
-// TenantAdminOTPResponse is the public result of creating an OTP request.
-type TenantAdminOTPResponse struct {
-	RequestID         string `json:"request_id"`
-	Channel           string `json:"channel"`
-	DestinationMasked string `json:"destination_masked"`
-	ExpiresInSeconds  int    `json:"expires_in_seconds"`
-	OTPCode           string `json:"-"`
-	DebugOTP          string `json:"debug_otp,omitempty"`
-}
+type (
+	// TenantAdminOTPResponse is retained for storage compatibility.
+	TenantAdminOTPResponse = tenantadmin.TenantAdminOTPResponse
+	// TenantAdminOTPVerification is retained for storage compatibility.
+	TenantAdminOTPVerification = tenantadmin.TenantAdminOTPVerification
+	// TenantAdminOTPRecordResponse is retained for storage compatibility.
+	TenantAdminOTPRecordResponse = tenantadmin.TenantAdminOTPRecordResponse
+	// TenantAdminSessionResponse is retained for storage compatibility.
+	TenantAdminSessionResponse = tenantadmin.TenantAdminSessionResponse
+	// TenantAdminUserResponse is retained for storage compatibility.
+	TenantAdminUserResponse = tenantadmin.TenantAdminUserResponse
+)
 
-// TenantAdminOTPVerification is the typed result of verifying an OTP request.
-type TenantAdminOTPVerification struct {
-	OK     bool                          `json:"ok"`
-	Error  string                        `json:"error,omitempty"`
-	Record *TenantAdminOTPRecordResponse `json:"record,omitempty"`
-}
-
-// TenantAdminOTPRecordResponse is the public representation of a verified OTP record.
-type TenantAdminOTPRecordResponse struct {
-	ID           string  `json:"id"`
-	TenantSlug   string  `json:"tenant_slug"`
-	Purpose      string  `json:"purpose"`
-	Channel      string  `json:"channel"`
-	Identifier   string  `json:"identifier"`
-	UserID       *string `json:"user_id"`
-	PendingValue *string `json:"pending_value"`
-	OTPCode      string  `json:"otp_code"`
-	Attempts     int     `json:"attempts"`
-	ExpiresAtISO string  `json:"expires_at_iso"`
-	CreatedAtISO string  `json:"created_at_iso"`
-}
-
-// TenantAdminSessionResponse is the public representation of a tenant-admin session.
-type TenantAdminSessionResponse struct {
-	ID           string `json:"id"`
-	TenantSlug   string `json:"tenant_slug"`
-	UserID       string `json:"user_id"`
-	CreatedAtISO string `json:"created_at_iso"`
-	ExpiresAtISO string `json:"expires_at_iso"`
-}
-
-// TenantAdminUserResponse is the public representation of a tenant-admin user.
-type TenantAdminUserResponse struct {
-	ID              string   `json:"id"`
-	TenantSlug      string   `json:"tenant_slug"`
-	Email           string   `json:"email"`
-	Mobile          string   `json:"mobile"`
-	Role            string   `json:"role"`
-	Active          bool     `json:"active"`
-	SocialProviders []string `json:"social_providers,omitempty"`
-	CreatedAtISO    string   `json:"created_at_iso"`
-	UpdatedAtISO    string   `json:"updated_at_iso"`
-	LastLoginAtISO  string   `json:"last_login_at_iso,omitempty"`
-}
-
-// ErrTenantAdminUserNotFound indicates that an active tenant member could not be found.
-var ErrTenantAdminUserNotFound = errors.New("tenant member not found")
+// ErrTenantAdminUserNotFound is retained for storage compatibility.
+var ErrTenantAdminUserNotFound = tenantadmin.ErrTenantAdminUserNotFound
 
 const (
 	tenantAdminCaptchaTTL     = 2 * time.Minute
@@ -110,7 +69,7 @@ const (
 )
 
 // CreateCaptcha creates a captcha challenge and returns the ID, answer, and expiry.
-func (s *Store) CreateTenantAdminCaptcha(ctx context.Context) (string, string, time.Time, error) {
+func (s *TenantAdminRepository) CreateTenantAdminCaptcha(ctx context.Context) (string, string, time.Time, error) {
 	id := generateTenantAdminID()
 	answer := generateCaptchaAnswer(5)
 	expiresAt := time.Now().Add(tenantAdminCaptchaTTL)
@@ -127,7 +86,7 @@ func (s *Store) CreateTenantAdminCaptcha(ctx context.Context) (string, string, t
 }
 
 // ConsumeTenantAdminCaptcha verifies and deletes the captcha.
-func (s *Store) ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer string) (bool, error) {
+func (s *TenantAdminRepository) ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer string) (bool, error) {
 	var (
 		storedAnswer string
 		expiresAt    time.Time
@@ -155,18 +114,11 @@ func (s *Store) ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer
 	return storedAnswer == answer, nil
 }
 
-// TenantAdminOTPRequestParams holds parameters for creating an OTP request.
-type TenantAdminOTPRequestParams struct {
-	TenantSlug   string
-	Purpose      string
-	Channel      string
-	Identifier   string
-	UserID       *string
-	PendingValue *string
-}
+// TenantAdminOTPRequestParams is retained for storage compatibility.
+type TenantAdminOTPRequestParams = tenantadmin.TenantAdminOTPRequestParams
 
 // CreateTenantAdminOTPRequest creates an OTP request.
-func (s *Store) CreateTenantAdminOTPRequest(ctx context.Context, params TenantAdminOTPRequestParams) (*TenantAdminOTPResponse, error) {
+func (s *TenantAdminRepository) CreateTenantAdminOTPRequest(ctx context.Context, params TenantAdminOTPRequestParams) (*TenantAdminOTPResponse, error) {
 	id := generateTenantAdminID()
 	otpCode := generateOTPCode()
 	expiresAt := time.Now().Add(tenantAdminOTPTTL)
@@ -194,17 +146,11 @@ func (s *Store) CreateTenantAdminOTPRequest(ctx context.Context, params TenantAd
 	}, nil
 }
 
-// VerifyTenantAdminOTPRequestParams holds parameters for verifying an OTP.
-type VerifyTenantAdminOTPRequestParams struct {
-	TenantSlug string
-	RequestID  string
-	OTPCode    string
-	Purpose    string
-	UserID     *string
-}
+// VerifyTenantAdminOTPRequestParams is retained for storage compatibility.
+type VerifyTenantAdminOTPRequestParams = tenantadmin.VerifyTenantAdminOTPRequestParams
 
 // VerifyTenantAdminOTPRequest verifies an OTP request.
-func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTenantAdminOTPRequestParams) (*TenantAdminOTPVerification, error) {
+func (s *TenantAdminRepository) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTenantAdminOTPRequestParams) (*TenantAdminOTPVerification, error) {
 	var (
 		record  TenantAdminOTPRequest
 		otpCode string
@@ -291,14 +237,11 @@ func failedTenantAdminOTPVerification(message string) *TenantAdminOTPVerificatio
 	return &TenantAdminOTPVerification{Error: message}
 }
 
-// CreateTenantAdminSessionParams holds parameters for creating a session.
-type CreateTenantAdminSessionParams struct {
-	TenantSlug string
-	UserID     string
-}
+// CreateTenantAdminSessionParams is retained for storage compatibility.
+type CreateTenantAdminSessionParams = tenantadmin.CreateTenantAdminSessionParams
 
 // CreateTenantAdminSession creates a session.
-func (s *Store) CreateTenantAdminSession(ctx context.Context, params CreateTenantAdminSessionParams) (*TenantAdminSessionResponse, error) {
+func (s *TenantAdminRepository) CreateTenantAdminSession(ctx context.Context, params CreateTenantAdminSessionParams) (*TenantAdminSessionResponse, error) {
 	id, err := generateTenantAdminSessionID()
 	if err != nil {
 		return nil, err
@@ -325,7 +268,7 @@ func (s *Store) CreateTenantAdminSession(ctx context.Context, params CreateTenan
 }
 
 // GetTenantAdminSession retrieves a session by ID.
-func (s *Store) GetTenantAdminSession(ctx context.Context, id string) (*TenantAdminSessionResponse, error) {
+func (s *TenantAdminRepository) GetTenantAdminSession(ctx context.Context, id string) (*TenantAdminSessionResponse, error) {
 	var session TenantAdminSession
 
 	queryErr := s.pool.QueryRow(ctx, `
@@ -358,20 +301,16 @@ func (s *Store) GetTenantAdminSession(ctx context.Context, id string) (*TenantAd
 }
 
 // RevokeTenantAdminSession deletes a session.
-func (s *Store) RevokeTenantAdminSession(ctx context.Context, id string) error {
+func (s *TenantAdminRepository) RevokeTenantAdminSession(ctx context.Context, id string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM tenant_admin_sessions WHERE id = $1`, id)
 	return err
 }
 
-// FindOrCreateTenantAdminUserParams holds parameters for finding or creating a user.
-type FindOrCreateTenantAdminUserParams struct {
-	TenantSlug string
-	Channel    string
-	Identifier string
-}
+// FindOrCreateTenantAdminUserParams is retained for storage compatibility.
+type FindOrCreateTenantAdminUserParams = tenantadmin.FindOrCreateTenantAdminUserParams
 
 // FindOrCreateTenantAdminUser finds an active tenant user for login.
-func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCreateTenantAdminUserParams) (*TenantAdminUserResponse, error) {
+func (s *TenantAdminRepository) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCreateTenantAdminUserParams) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool
@@ -426,7 +365,7 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 }
 
 // GetTenantAdminUser retrieves a user by ID.
-func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (*TenantAdminUserResponse, error) {
+func (s *TenantAdminRepository) GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool
@@ -462,16 +401,11 @@ func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID 
 	return result, nil
 }
 
-// UpdateTenantAdminUserContactParams holds parameters for updating user contact.
-type UpdateTenantAdminUserContactParams struct {
-	TenantSlug string
-	UserID     string
-	Field      string
-	Value      string
-}
+// UpdateTenantAdminUserContactParams is retained for storage compatibility.
+type UpdateTenantAdminUserContactParams = tenantadmin.UpdateTenantAdminUserContactParams
 
 // UpdateTenantAdminUserContact updates a user's contact field.
-func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateTenantAdminUserContactParams) (*TenantAdminUserResponse, error) {
+func (s *TenantAdminRepository) UpdateTenantAdminUserContact(ctx context.Context, params UpdateTenantAdminUserContactParams) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool
@@ -504,7 +438,7 @@ func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateT
 }
 
 // TouchTenantAdminLastLogin updates the user's last login timestamp.
-func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (*TenantAdminUserResponse, error) {
+func (s *TenantAdminRepository) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool

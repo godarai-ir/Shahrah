@@ -44,33 +44,49 @@ type mistralNativeResourceStore interface {
 // MistralNativeHandler exposes fixed Mistral-native resource APIs while
 // preserving tenant ownership, provider-account affinity, and billing.
 type MistralNativeHandler struct {
-	router        *router.Router
-	deployments   responseDeploymentLister
-	resources     mistralBatchResourceStore
-	pipeline      *RequestPipeline
-	billing       budgeter
-	logger        *zap.Logger
-	filesEnabled  bool
-	batchEnabled  bool
-	agentsEnabled bool
-	convsEnabled  bool
+	router                *router.Router
+	deployments           responseDeploymentLister
+	resources             mistralBatchResourceStore
+	pipeline              *RequestPipeline
+	billing               budgeter
+	logger                *zap.Logger
+	filesEnabled          bool
+	batchEnabled          bool
+	agentsEnabled         bool
+	convsEnabled          bool
+	conversationStreaming bool
 }
 
 func NewMistralNativeHandler(deps BaseHandlerDependencies, deployments responseDeploymentLister) *MistralNativeHandler {
 	return &MistralNativeHandler{
 		router: deps.Router, deployments: deployments, resources: deps.MistralResources,
 		pipeline: deps.requestPipeline(), billing: deps.Billing,
-		logger:        deps.Logger,
-		filesEnabled:  mistralNativeFeatureEnabled("FILES"),
-		batchEnabled:  mistralNativeFeatureEnabled("BATCH"),
-		agentsEnabled: mistralNativeFeatureEnabled("AGENTS"),
-		convsEnabled:  mistralNativeFeatureEnabled("CONVERSATIONS"),
+		logger:                deps.Logger,
+		filesEnabled:          mistralNativeFeatureEnabled(deps.ProviderFeatures, "FILES"),
+		batchEnabled:          mistralNativeFeatureEnabled(deps.ProviderFeatures, "BATCH"),
+		agentsEnabled:         mistralNativeFeatureEnabled(deps.ProviderFeatures, "AGENTS"),
+		convsEnabled:          mistralNativeFeatureEnabled(deps.ProviderFeatures, "CONVERSATIONS"),
+		conversationStreaming: deps.ProviderFeatures.Configured && deps.ProviderFeatures.MistralConversationStreaming,
 	}
 }
 
-func mistralNativeFeatureEnabled(surface string) bool {
-	return mistralBooleanEnvironment("SHAHRAH_MISTRAL_ENABLED", true) &&
-		mistralBooleanEnvironment("SHAHRAH_MISTRAL_"+surface+"_ENABLED", false)
+func mistralNativeFeatureEnabled(config ProviderFeatureConfig, surface string) bool {
+	if !config.Configured || !config.MistralEnabled {
+		return false
+	}
+
+	switch strings.ToUpper(strings.TrimSpace(surface)) {
+	case "FILES":
+		return config.MistralFilesEnabled
+	case "BATCH":
+		return config.MistralBatchEnabled
+	case "AGENTS":
+		return config.MistralAgentsEnabled
+	case "CONVERSATIONS":
+		return config.MistralConversationsEnabled
+	default:
+		return false
+	}
 }
 
 //nolint:gocyclo,cyclop,funlen // This is an operation dispatcher; helpers own validation and mutations.
@@ -109,7 +125,7 @@ func (h *MistralNativeHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusBadRequest, err.Error(), "invalid_request_error")
 	}
 
-	if stream && !mistralBooleanEnvironment("SHAHRAH_MISTRAL_CONVERSATIONS_STREAMING_ENABLED", false) {
+	if stream && !h.conversationStreaming {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral conversation streaming settlement is disabled", "billing_unavailable")
 	}
 
@@ -896,14 +912,17 @@ func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.Aut
 			case chunk, ok := <-chunks:
 				if !ok {
 					if failed || usage == nil {
-						h.pipeline.Release(context.Background(), reservation, "stream_incomplete")
+						h.pipeline.ReleaseDetached(reservation, "stream_incomplete")
 
 						return
 					}
 
-					finalized, finalizeErr := h.billing.FinalizeFromUsage(context.Background(), billingModelForDeployment(model, request.Deployment), usage, estimated)
+					detachedContext, cancel := h.pipeline.DetachedContext()
+
+					finalized, finalizeErr := h.billing.FinalizeFromUsage(detachedContext, billingModelForDeployment(model, request.Deployment), usage, estimated)
 					if finalizeErr != nil {
-						h.pipeline.Release(context.Background(), reservation, "usage_finalize_error")
+						h.pipeline.Release(detachedContext, reservation, "usage_finalize_error")
+						cancel()
 
 						return
 					}
@@ -915,14 +934,20 @@ func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.Aut
 						RequestID:   request.RequestID,
 						BillingMode: request.Deployment.BillingMode,
 					}
-					_ = h.pipeline.Settle(context.Background(), settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+					_ = h.pipeline.Settle(detachedContext, settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+
+					cancel()
 
 					return
 				}
 
-				data, parsedUsage, rewriteErr := h.rewriteMistralSSEChunk(context.Background(), authInfo.TenantID, request, chunk.Data, model)
+				chunkContext, cancel := h.pipeline.DetachedContext()
+				data, parsedUsage, rewriteErr := h.rewriteMistralSSEChunk(chunkContext, authInfo.TenantID, request, chunk.Data, model)
+
+				cancel()
+
 				if rewriteErr != nil {
-					h.pipeline.Release(context.Background(), reservation, "stream_resource_mapping_error")
+					h.pipeline.ReleaseDetached(reservation, "stream_resource_mapping_error")
 
 					return
 				}
@@ -948,7 +973,7 @@ func (h *MistralNativeHandler) handleStream(c *fiber.Ctx, authInfo *platform.Aut
 					continue
 				}
 
-				h.pipeline.Release(context.Background(), reservation, "stream_error")
+				h.pipeline.ReleaseDetached(reservation, "stream_error")
 
 				return
 			}

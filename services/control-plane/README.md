@@ -4,6 +4,9 @@ This service contains the current Go implementation for Shahrah's API gateway an
 
 ## Structure
 
+The enforced dependency map and change recipes are documented in
+[ARCHITECTURE.md](/D:/source/Shahrah/services/control-plane/ARCHITECTURE.md).
+
 - `cmd/server`: entrypoint
 - `internal`: service-private implementation
 - `../../packages/contracts`: shared public API and platform contracts

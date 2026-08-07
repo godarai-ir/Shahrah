@@ -103,43 +103,49 @@ type promptResolver interface {
 
 // ChatCompletionHandler serves chat completion requests.
 type ChatCompletionHandler struct {
-	llmRouter     *router.Router
-	pipeline      *RequestPipeline
-	billing       budgeter
-	logs          usageLogger
-	logger        *zap.Logger
-	vmResolver    virtualmodels.VirtualModelResolver
-	vmEngine      virtualmodels.RoutingEngine
-	vmExec        virtualmodels.FallbackExecutor
-	emitMetric    func(input metricsobs.BuildInput)
-	responseCache *responsecache.Service
-	guardrails    *guardrails.Engine
-	guardrailRepo guardrailResolver
-	prompts       promptResolver
-	resources     providerNativeResourceStore
-	deployments   responseDeploymentLister
+	llmRouter        *router.Router
+	pipeline         *RequestPipeline
+	billing          budgeter
+	logs             usageLogger
+	logger           *zap.Logger
+	vmResolver       virtualmodels.VirtualModelResolver
+	vmEngine         virtualmodels.RoutingEngine
+	vmExec           virtualmodels.FallbackExecutor
+	emitMetric       func(input metricsobs.BuildInput)
+	responseCache    *responsecache.Service
+	guardrails       *guardrails.Engine
+	guardrailRepo    guardrailResolver
+	prompts          promptResolver
+	resources        providerNativeResourceStore
+	deployments      responseDeploymentLister
+	providerFeatures ProviderFeatureConfig
 }
 
 // NewChatCompletionHandlerWithDependencies creates a chat handler from explicit dependencies.
 func NewChatCompletionHandlerWithDependencies(deps ChatCompletionDependencies) *ChatCompletionHandler {
-	resolver, engine, exec := newChatVirtualModelDeps(deps.VirtualModelStore)
+	resolver, engine, exec := newChatVirtualModelDeps(
+		deps.VirtualModelStore,
+		deps.VirtualModelAliasCacheTTL,
+		deps.VirtualModelNegativeTTL,
+	)
 
 	return &ChatCompletionHandler{
-		llmRouter:     deps.Base.Router,
-		pipeline:      deps.Base.requestPipeline(),
-		billing:       deps.Base.Billing,
-		logs:          deps.Base.logger(),
-		logger:        deps.Base.Logger,
-		vmResolver:    resolver,
-		vmEngine:      engine,
-		vmExec:        exec,
-		emitMetric:    deps.Base.metricEmitter(),
-		guardrailRepo: deps.GuardrailResolver,
-		prompts:       deps.PromptResolver,
-		guardrails:    deps.Guardrails,
-		responseCache: deps.ResponseCache,
-		resources:     deps.Base.ProviderResources,
-		deployments:   deps.Base.Deployments,
+		llmRouter:        deps.Base.Router,
+		pipeline:         deps.Base.requestPipeline(),
+		billing:          deps.Base.Billing,
+		logs:             deps.Base.logger(),
+		logger:           deps.Base.Logger,
+		vmResolver:       resolver,
+		vmEngine:         engine,
+		vmExec:           exec,
+		emitMetric:       deps.Base.metricEmitter(),
+		guardrailRepo:    deps.GuardrailResolver,
+		prompts:          deps.PromptResolver,
+		guardrails:       deps.Guardrails,
+		responseCache:    deps.ResponseCache,
+		resources:        deps.Base.ProviderResources,
+		deployments:      deps.Base.Deployments,
+		providerFeatures: deps.Base.ProviderFeatures,
 	}
 }
 
@@ -317,7 +323,7 @@ func (h *ChatCompletionHandler) validateChatDeploymentRequest(
 	}
 
 	provider := deployment.Provider
-	if isMistralProvider(provider) && !mistralEndpointEnabled("chat_completions") {
+	if isMistralProvider(provider) && !mistralEndpointEnabled(h.providerFeatures, "chat_completions") {
 		return true, writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI chat completions are disabled", "provider_disabled")
 	}
 

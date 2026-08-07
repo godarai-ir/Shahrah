@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"strings"
 )
@@ -26,13 +25,6 @@ type KeyEncryptionKeyProvider interface {
 type EnvironmentKEKProvider struct {
 	active string
 	keys   map[string][]byte
-}
-
-func NewEnvironmentKEKProviderFromEnv() (*EnvironmentKEKProvider, error) {
-	return NewEnvironmentKEKProvider(
-		os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION"),
-		os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_KEKS_JSON"),
-	)
 }
 
 func NewEnvironmentKEKProvider(active, encodedJSON string) (*EnvironmentKEKProvider, error) {
@@ -88,8 +80,9 @@ func NewEncryptedDBSecretStore(keks KeyEncryptionKeyProvider, fingerprintKey []b
 	return &EncryptedDBSecretStore{keks: keks, fingerprintKey: append([]byte(nil), fingerprintKey...), random: rand.Reader}, nil
 }
 
-func FingerprintKeyFromEnv() ([]byte, error) {
-	key, err := base64.StdEncoding.DecodeString(os.Getenv("PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY"))
+// DecodeFingerprintKey validates an injected base64 fingerprint key.
+func DecodeFingerprintKey(encoded string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil || len(key) < 32 {
 		return nil, ErrInvalidKEK
 	}

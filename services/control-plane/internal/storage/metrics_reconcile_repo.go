@@ -11,7 +11,7 @@ type ReconcileTenantCostRow struct {
 	CostUSD  float64
 }
 
-func (s *Store) ListSpendCostByTenantAndDay(ctx context.Context, day time.Time) ([]ReconcileTenantCostRow, error) {
+func (s *ObservabilityRepository) ListSpendCostByTenantAndDay(ctx context.Context, day time.Time) ([]ReconcileTenantCostRow, error) {
 	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 
@@ -40,7 +40,7 @@ func (s *Store) ListSpendCostByTenantAndDay(ctx context.Context, day time.Time) 
 	return out, rows.Err()
 }
 
-func (s *Store) ListMetricsCostByTenantAndDay(ctx context.Context, day time.Time) ([]ReconcileTenantCostRow, error) {
+func (s *ObservabilityRepository) ListMetricsCostByTenantAndDay(ctx context.Context, day time.Time) ([]ReconcileTenantCostRow, error) {
 	if !s.clickHouseMetricsReady() {
 		return nil, ErrMetricsStoreUnavailable
 	}

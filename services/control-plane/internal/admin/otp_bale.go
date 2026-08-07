@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -32,6 +30,13 @@ type baleSafirOTPSender struct {
 	endpoint     string
 	client       *http.Client
 	requestID    func() string
+}
+
+// OTPMobileConfig contains immutable Bale Safir delivery settings.
+type OTPMobileConfig struct {
+	Enabled      bool
+	APIAccessKey string
+	BotID        int64
 }
 
 type baleSafirOTPRequest struct {
@@ -59,29 +64,20 @@ type baleSafirError struct {
 	Description string `json:"description"`
 }
 
-func newBaleSafirOTPSenderFromEnv() OTPMobileSender {
-	apiAccessKey := strings.TrimSpace(os.Getenv("BALE_SAFIR_API_ACCESS_KEY"))
-	botIDRaw := strings.TrimSpace(os.Getenv("BALE_SAFIR_BOT_ID"))
-	enabledRaw := strings.TrimSpace(os.Getenv("BALE_OTP_ENABLED"))
-
-	enabled := apiAccessKey != "" || botIDRaw != ""
-	if enabledRaw != "" {
-		enabled = strings.EqualFold(enabledRaw, "true")
-	}
-
-	botID, err := strconv.ParseInt(botIDRaw, 10, 64)
-	if err != nil || botID <= 0 {
+func newBaleSafirOTPSender(cfg OTPMobileConfig) OTPMobileSender {
+	var err error
+	if cfg.BotID <= 0 {
 		err = fmt.Errorf("BALE_SAFIR_BOT_ID must be a positive integer")
 	}
 
-	if apiAccessKey == "" {
+	if strings.TrimSpace(cfg.APIAccessKey) == "" {
 		err = fmt.Errorf("BALE_SAFIR_API_ACCESS_KEY is required")
 	}
 
 	return &baleSafirOTPSender{
-		enabled:      enabled,
-		apiAccessKey: apiAccessKey,
-		botID:        botID,
+		enabled:      cfg.Enabled,
+		apiAccessKey: strings.TrimSpace(cfg.APIAccessKey),
+		botID:        cfg.BotID,
 		configErr:    err,
 		endpoint:     baleSafirSendMessageURL,
 		client: &http.Client{

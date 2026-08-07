@@ -32,13 +32,14 @@ const (
 
 // AudioTranscriptionsHandler serves OpenAI-compatible speech-to-text requests.
 type AudioTranscriptionsHandler struct {
-	llmRouter  *router.Router
-	pipeline   *RequestPipeline
-	billing    budgeter
-	logs       usageLogger
-	logger     *zap.Logger
-	resources  providerNativeResourceStore
-	emitMetric func(input metricsobs.BuildInput)
+	llmRouter        *router.Router
+	pipeline         *RequestPipeline
+	billing          budgeter
+	logs             usageLogger
+	logger           *zap.Logger
+	resources        providerNativeResourceStore
+	emitMetric       func(input metricsobs.BuildInput)
+	providerFeatures ProviderFeatureConfig
 }
 
 type audioTranscriptionMetadata struct {
@@ -71,13 +72,14 @@ func NewAudioTranscriptionsHandler(llmRouter *router.Router, tunnel platform.Tun
 // NewAudioTranscriptionsHandlerWithDependencies creates an audio transcriptions handler from explicit dependencies.
 func NewAudioTranscriptionsHandlerWithDependencies(deps BaseHandlerDependencies) *AudioTranscriptionsHandler {
 	return &AudioTranscriptionsHandler{
-		llmRouter:  deps.Router,
-		pipeline:   deps.requestPipeline(),
-		billing:    deps.Billing,
-		logs:       deps.logger(),
-		logger:     deps.Logger,
-		resources:  deps.ProviderResources,
-		emitMetric: deps.metricEmitter(),
+		llmRouter:        deps.Router,
+		pipeline:         deps.requestPipeline(),
+		billing:          deps.Billing,
+		logs:             deps.logger(),
+		logger:           deps.Logger,
+		resources:        deps.ProviderResources,
+		emitMetric:       deps.metricEmitter(),
+		providerFeatures: deps.ProviderFeatures,
 	}
 }
 
@@ -227,7 +229,7 @@ func (h *AudioTranscriptionsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusNotImplemented, providerSupport.Message, "invalid_request_error")
 	}
 
-	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled("audio_transcriptions") {
+	if isMistralProvider(dep.Provider) && !mistralEndpointEnabled(h.providerFeatures, "audio_transcriptions") {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI audio transcriptions are disabled", "provider_disabled")
 	}
 

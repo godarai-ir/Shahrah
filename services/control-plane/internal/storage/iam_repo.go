@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error) {
+func (s *IAMRepository) CreateOrgUnit(ctx context.Context, tenantID string, req platform.CreateOrgUnitRequest) (*platform.OrgUnit, error) {
 	metadata, err := mergeDisplayNameMetadata(req.Metadata, req.DisplayName)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (s *Store) CreateOrgUnit(ctx context.Context, tenantID string, req platform
 	return &item, nil
 }
 
-func (s *Store) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
+func (s *IAMRepository) ListOrgUnits(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.OrgUnit, int, error) {
 	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
 	return listSearchResults(ctx, s.pool, `
@@ -66,7 +66,7 @@ func (s *Store) ListOrgUnits(ctx context.Context, tenantID string, query string,
 	`, []any{tenantID, q, like, limit, offset}, limit, scanOrgUnit)
 }
 
-func (s *Store) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
+func (s *IAMRepository) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID string) (*platform.OrgUnit, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT organization_id::text, tenant_id::text, organization_alias, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM organizations
@@ -85,7 +85,7 @@ func (s *Store) GetOrgUnit(ctx context.Context, tenantID string, orgUnitID strin
 	return scanOrgUnit(rows)
 }
 
-func (s *Store) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error) {
+func (s *IAMRepository) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID string, req platform.UpdateOrgUnitRequest) (*platform.OrgUnit, error) {
 	current, err := s.GetOrgUnit(ctx, tenantID, orgUnitID)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (s *Store) UpdateOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 	return scanOrgUnit(rows)
 }
 
-func (s *Store) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error {
+func (s *IAMRepository) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID string) error {
 	command, err := s.pool.Exec(ctx, `
 		DELETE FROM organizations
 		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid
@@ -152,7 +152,7 @@ func (s *Store) DeleteOrgUnit(ctx context.Context, tenantID string, orgUnitID st
 	return nil
 }
 
-func (s *Store) CreateTeam(ctx context.Context, tenantID string, req platform.CreateTeamRequest) (*platform.Team, error) {
+func (s *IAMRepository) CreateTeam(ctx context.Context, tenantID string, req platform.CreateTeamRequest) (*platform.Team, error) {
 	metadata, err := mergeDisplayNameMetadata(req.Metadata, req.DisplayName)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (s *Store) CreateTeam(ctx context.Context, tenantID string, req platform.Cr
 	return scanTeam(rows)
 }
 
-func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Team, int, error) {
+func (s *IAMRepository) ListTeams(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.Team, int, error) {
 	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
 	return listSearchResults(ctx, s.pool, `
@@ -207,7 +207,7 @@ func (s *Store) ListTeams(ctx context.Context, tenantID string, query string, li
 	`, []any{tenantID, q, like, limit, offset}, limit, scanTeam)
 }
 
-func (s *Store) GetTeam(ctx context.Context, tenantID string, teamID string) (*platform.Team, error) {
+func (s *IAMRepository) GetTeam(ctx context.Context, tenantID string, teamID string) (*platform.Team, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT team_id::text, tenant_id::text, COALESCE(team_alias, ''), COALESCE(org_unit_id::text, ''), workspace_type,
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(models, '{}'), COALESCE(team_member_permissions, '{}'),
@@ -228,7 +228,7 @@ func (s *Store) GetTeam(ctx context.Context, tenantID string, teamID string) (*p
 	return scanTeam(rows)
 }
 
-func (s *Store) UpdateTeam(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamRequest) (*platform.Team, error) {
+func (s *IAMRepository) UpdateTeam(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamRequest) (*platform.Team, error) {
 	current, err := s.GetTeam(ctx, tenantID, teamID)
 	if err != nil {
 		return nil, err
@@ -299,7 +299,7 @@ func (s *Store) UpdateTeam(ctx context.Context, tenantID string, teamID string, 
 	return scanTeam(rows)
 }
 
-func (s *Store) DeleteTeam(ctx context.Context, tenantID string, teamID string) error {
+func (s *IAMRepository) DeleteTeam(ctx context.Context, tenantID string, teamID string) error {
 	command, err := s.pool.Exec(ctx, `
 		DELETE FROM teams
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid
@@ -315,7 +315,7 @@ func (s *Store) DeleteTeam(ctx context.Context, tenantID string, teamID string) 
 	return nil
 }
 
-func (s *Store) GetTeamPermissions(ctx context.Context, tenantID string, teamID string) (*platform.TeamPermissionsResponse, error) {
+func (s *IAMRepository) GetTeamPermissions(ctx context.Context, tenantID string, teamID string) (*platform.TeamPermissionsResponse, error) {
 	var permissions []string
 	if err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(team_member_permissions, '{}')
@@ -332,7 +332,7 @@ func (s *Store) GetTeamPermissions(ctx context.Context, tenantID string, teamID 
 	}, nil
 }
 
-func (s *Store) UpdateTeamPermissions(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamPermissionsRequest) (*platform.TeamPermissionsResponse, error) {
+func (s *IAMRepository) UpdateTeamPermissions(ctx context.Context, tenantID string, teamID string, req platform.UpdateTeamPermissionsRequest) (*platform.TeamPermissionsResponse, error) {
 	var permissions []string
 	if err := s.pool.QueryRow(ctx, `
 		UPDATE teams
@@ -350,7 +350,7 @@ func (s *Store) UpdateTeamPermissions(ctx context.Context, tenantID string, team
 	}, nil
 }
 
-func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req platform.CreateVirtualUserRequest) (*platform.VirtualUser, error) {
+func (s *IAMRepository) CreateVirtualUser(ctx context.Context, tenantID string, req platform.CreateVirtualUserRequest) (*platform.VirtualUser, error) {
 	rawMetadata, err := marshalJSONObject(req.Metadata)
 	if err != nil {
 		return nil, err
@@ -378,7 +378,7 @@ func (s *Store) CreateVirtualUser(ctx context.Context, tenantID string, req plat
 	return item, err
 }
 
-func (s *Store) ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error) {
+func (s *IAMRepository) ListVirtualUsers(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.VirtualUser, int, error) {
 	q, like, limit, offset := normalizePagedQuery(query, limit, offset)
 
 	return listSearchResults(ctx, s.pool, `
@@ -396,7 +396,7 @@ func (s *Store) ListVirtualUsers(ctx context.Context, tenantID string, query str
 	`, []any{tenantID, q, like, limit, offset}, limit, scanVirtualUser)
 }
 
-func (s *Store) GetVirtualUser(ctx context.Context, tenantID string, virtualUserID string) (*platform.VirtualUser, error) {
+func (s *IAMRepository) GetVirtualUser(ctx context.Context, tenantID string, virtualUserID string) (*platform.VirtualUser, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT virtual_user_id::text, tenant_id::text, COALESCE(team_id::text, ''), COALESCE(org_unit_id::text, ''), alias, COALESCE(display_name, ''), active, COALESCE(metadata, '{}'::jsonb), created_at, updated_at
 		FROM virtual_users
@@ -420,7 +420,7 @@ func (s *Store) GetVirtualUser(ctx context.Context, tenantID string, virtualUser
 	return item, err
 }
 
-func (s *Store) UpdateVirtualUser(ctx context.Context, tenantID string, virtualUserID string, req platform.UpdateVirtualUserRequest) (*platform.VirtualUser, error) {
+func (s *IAMRepository) UpdateVirtualUser(ctx context.Context, tenantID string, virtualUserID string, req platform.UpdateVirtualUserRequest) (*platform.VirtualUser, error) {
 	current, err := s.GetVirtualUser(ctx, tenantID, virtualUserID)
 	if err != nil {
 		return nil, err
@@ -485,7 +485,7 @@ func (s *Store) UpdateVirtualUser(ctx context.Context, tenantID string, virtualU
 	return scanVirtualUser(rows)
 }
 
-func (s *Store) DeleteVirtualUser(ctx context.Context, tenantID string, virtualUserID string) error {
+func (s *IAMRepository) DeleteVirtualUser(ctx context.Context, tenantID string, virtualUserID string) error {
 	command, err := s.pool.Exec(ctx, `
 		DELETE FROM virtual_users
 		WHERE tenant_id = $1::uuid AND virtual_user_id = $2::uuid
@@ -503,7 +503,7 @@ func (s *Store) DeleteVirtualUser(ctx context.Context, tenantID string, virtualU
 	return nil
 }
 
-func (s *Store) ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error) {
+func (s *IAMRepository) ListOrgUnitMemberships(ctx context.Context, tenantID string, orgUnitID string) ([]platform.OrgUnitMembership, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, tenant_id::text, organization_id::text, user_id::text, COALESCE(role, 'member'), created_at, updated_at
 		FROM organization_memberships
@@ -529,7 +529,7 @@ func (s *Store) ListOrgUnitMemberships(ctx context.Context, tenantID string, org
 	return items, rows.Err()
 }
 
-func (s *Store) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
+func (s *IAMRepository) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, req platform.CreateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
 	if err := s.ensurePlatformUserForMembership(ctx, tenantID, req.UserID); err != nil {
 		return nil, err
 	}
@@ -558,7 +558,7 @@ func (s *Store) AddOrgUnitMembership(ctx context.Context, tenantID string, orgUn
 	return &item, nil
 }
 
-func (s *Store) ensurePlatformUserForMembership(ctx context.Context, tenantID, userID string) error {
+func (s *IAMRepository) ensurePlatformUserForMembership(ctx context.Context, tenantID, userID string) error {
 	if _, err := uuid.Parse(strings.TrimSpace(userID)); err != nil {
 		return err
 	}
@@ -582,7 +582,7 @@ func (s *Store) ensurePlatformUserForMembership(ctx context.Context, tenantID, u
 	return nil
 }
 
-func (s *Store) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
+func (s *IAMRepository) UpdateOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string, req platform.UpdateOrgUnitMembershipRequest) (*platform.OrgUnitMembership, error) {
 	rows, err := s.pool.Query(ctx, `
 		UPDATE organization_memberships
 		SET role = $4, updated_at = NOW()
@@ -606,7 +606,7 @@ func (s *Store) UpdateOrgUnitMembership(ctx context.Context, tenantID string, or
 	return &item, nil
 }
 
-func (s *Store) DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error {
+func (s *IAMRepository) DeleteOrgUnitMembership(ctx context.Context, tenantID string, orgUnitID string, userID string) error {
 	command, err := s.pool.Exec(ctx, `
 		DELETE FROM organization_memberships
 		WHERE tenant_id = $1::uuid AND organization_id = $2::uuid AND user_id = $3::uuid
@@ -622,7 +622,7 @@ func (s *Store) DeleteOrgUnitMembership(ctx context.Context, tenantID string, or
 	return nil
 }
 
-func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error) {
+func (s *IAMRepository) ListTeamMemberships(ctx context.Context, tenantID string, teamID string) ([]platform.TeamMembership, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT tm.team_membership_id::text, tm.tenant_id::text, tm.team_id::text, tm.user_id::text,
 		       COALESCE(NULLIF(u.user_alias, ''), NULLIF(u.email, ''), NULLIF(u.mobile, ''), ''),
@@ -652,7 +652,7 @@ func (s *Store) ListTeamMemberships(ctx context.Context, tenantID string, teamID
 	return items, rows.Err()
 }
 
-func (s *Store) AddTeamMembership(ctx context.Context, tenantID string, teamID string, req platform.CreateTeamMembershipRequest) (*platform.TeamMembership, error) {
+func (s *IAMRepository) AddTeamMembership(ctx context.Context, tenantID string, teamID string, req platform.CreateTeamMembershipRequest) (*platform.TeamMembership, error) {
 	rows, err := s.pool.Query(ctx, `
 		INSERT INTO team_memberships (team_membership_id, tenant_id, team_id, user_id, role, team_member_permissions, created_at, updated_at)
 		VALUES ($1, $2::uuid, $3::uuid, $4::uuid, $5, $6, NOW(), NOW())
@@ -678,7 +678,7 @@ func (s *Store) AddTeamMembership(ctx context.Context, tenantID string, teamID s
 	return &item, nil
 }
 
-func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamID string, userID string, req platform.UpdateTeamMembershipRequest) (*platform.TeamMembership, error) {
+func (s *IAMRepository) UpdateTeamMembership(ctx context.Context, tenantID string, teamID string, userID string, req platform.UpdateTeamMembershipRequest) (*platform.TeamMembership, error) {
 	currentRows, err := s.pool.Query(ctx, `
 		SELECT team_membership_id::text, tenant_id::text, team_id::text, user_id::text, role, COALESCE(team_member_permissions, '{}'),
 		       COALESCE(spend, 0.0), created_at, updated_at
@@ -736,7 +736,7 @@ func (s *Store) UpdateTeamMembership(ctx context.Context, tenantID string, teamI
 	return &item, nil
 }
 
-func (s *Store) DeleteTeamMembership(ctx context.Context, tenantID string, teamID string, userID string) error {
+func (s *IAMRepository) DeleteTeamMembership(ctx context.Context, tenantID string, teamID string, userID string) error {
 	command, err := s.pool.Exec(ctx, `
 		DELETE FROM team_memberships
 		WHERE tenant_id = $1::uuid AND team_id = $2::uuid AND user_id = $3::uuid

@@ -24,7 +24,7 @@ func (s *WalletRepository) GetWallet(ctx context.Context, tenantID string) (*pla
 }
 
 func (s *WalletRepository) getWalletLedger(ctx context.Context, tenantID string) (*platform.Wallet, error) {
-	ctx, cancel := withHotPathDBTimeout(ctx)
+	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 
 	var wallet platform.Wallet
@@ -79,7 +79,7 @@ func (s *WalletRepository) TopUpWallet(ctx context.Context, tenantID string, amo
 
 // DebitWallet debits the tenant wallet for inference usage.
 func (s *WalletRepository) DebitWallet(ctx context.Context, tenantID string, breakdown platform.UsageCostBreakdown, requestID string) (*platform.Transaction, error) {
-	ctx, cancel := withHotPathDBTimeout(ctx)
+	ctx, cancel := withStoreTimeout(ctx, s.hotPathDBTimeout)
 	defer cancel()
 
 	tx, err := s.pool.Begin(ctx)

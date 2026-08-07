@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -53,10 +51,10 @@ func NewAnthropicNativeHandler(deps BaseHandlerDependencies, deployments anthrop
 		router: deps.Router, deployments: deployments, pipeline: deps.requestPipeline(),
 		resources: deps.AnthropicResources, billing: deps.Billing,
 		runtimeProfiles: deps.AnthropicRuntimeProfiles, logger: deps.Logger,
-		nativeEnabled:    anthropicFeatureEnabled("ANTHROPIC_NATIVE_API_ENABLED", true),
-		filesEnabled:     anthropicFeatureEnabled("ANTHROPIC_FILES_API_ENABLED", true),
-		batchesEnabled:   anthropicFeatureEnabled("ANTHROPIC_BATCH_API_ENABLED", true),
-		accountAllowlist: anthropicAccountAllowlist(),
+		nativeEnabled:    !deps.ProviderFeatures.Configured || deps.ProviderFeatures.AnthropicNativeEnabled,
+		filesEnabled:     !deps.ProviderFeatures.Configured || deps.ProviderFeatures.AnthropicFilesEnabled,
+		batchesEnabled:   !deps.ProviderFeatures.Configured || deps.ProviderFeatures.AnthropicBatchesEnabled,
+		accountAllowlist: anthropicAccountAllowlist(deps.ProviderFeatures.AnthropicAccountIDs),
 	}
 }
 
@@ -315,24 +313,10 @@ func anthropicOperationNeedsModelRuntimeProfile(
 	}
 }
 
-func anthropicFeatureEnabled(name string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(name))
-	if raw == "" {
-		return fallback
-	}
-
-	value, err := strconv.ParseBool(raw)
-	if err != nil {
-		return false
-	}
-
-	return value
-}
-
-func anthropicAccountAllowlist() map[string]struct{} {
+func anthropicAccountAllowlist(accountIDs []string) map[string]struct{} {
 	values := map[string]struct{}{}
 
-	for _, value := range strings.Split(os.Getenv("ANTHROPIC_NATIVE_ACCOUNT_ALLOWLIST"), ",") {
+	for _, value := range accountIDs {
 		if id := strings.TrimSpace(value); id != "" {
 			values[id] = struct{}{}
 		}
@@ -515,13 +499,17 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
 					if failed || usage == nil {
-						h.pipeline.Release(context.Background(), reservation, "stream_incomplete")
+						h.pipeline.ReleaseDetached(reservation, "stream_incomplete")
 						return
 					}
 
-					finalized, finalizeErr := h.billing.FinalizeFromUsage(context.Background(), model, usage, estimated)
+					detachedContext, cancel := h.pipeline.DetachedContext()
+
+					finalized, finalizeErr := h.billing.FinalizeFromUsage(detachedContext, model, usage, estimated)
 					if finalizeErr != nil {
-						h.pipeline.Release(context.Background(), reservation, "usage_finalize_error")
+						h.pipeline.Release(detachedContext, reservation, "usage_finalize_error")
+						cancel()
+
 						return
 					}
 
@@ -532,7 +520,9 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 						RequestID:   request.RequestID,
 						BillingMode: request.Deployment.BillingMode,
 					}
-					_ = h.pipeline.Settle(context.Background(), settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+					_ = h.pipeline.Settle(detachedContext, settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+
+					cancel()
 
 					return
 				}
@@ -551,7 +541,7 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 				}
 			case streamErr, ok := <-stream.Errors():
 				if ok && streamErr != nil {
-					h.pipeline.Release(context.Background(), reservation, "stream_error")
+					h.pipeline.ReleaseDetached(reservation, "stream_error")
 				}
 
 				return

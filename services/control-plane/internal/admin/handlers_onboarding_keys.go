@@ -7,8 +7,8 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
-	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -35,7 +35,7 @@ func (h *Handlers) RequestOnboardingOTP(c *fiber.Ctx) error {
 		return err
 	}
 
-	var req storage.CreateOnboardingOTPParams
+	var req tenantadmin.CreateOnboardingOTPParams
 
 	parseErr := c.BodyParser(&req)
 	if parseErr != nil {
@@ -45,9 +45,9 @@ func (h *Handlers) RequestOnboardingOTP(c *fiber.Ctx) error {
 	resp, err := store.CreateOnboardingOTP(c.Context(), req)
 	if err != nil {
 		switch {
-		case errors.Is(err, storage.ErrTenantSlugInvalid):
+		case errors.Is(err, tenantadmin.ErrTenantSlugInvalid):
 			return fiber.NewError(fiber.StatusBadRequest, "tenant slug is invalid or reserved")
-		case errors.Is(err, storage.ErrTenantSlugTaken):
+		case errors.Is(err, tenantadmin.ErrTenantSlugTaken):
 			return fiber.NewError(fiber.StatusConflict, "tenant slug is already taken")
 		case errors.Is(err, billingdomain.ErrPlanNotFound):
 			return fiber.NewError(fiber.StatusBadRequest, "selected commercial plan is unavailable")
@@ -69,7 +69,7 @@ func (h *Handlers) VerifyOnboardingOTP(c *fiber.Ctx) error {
 		return err
 	}
 
-	var req storage.VerifyOnboardingOTPParams
+	var req tenantadmin.VerifyOnboardingOTPParams
 
 	parseErr := c.BodyParser(&req)
 	if parseErr != nil {
@@ -79,11 +79,11 @@ func (h *Handlers) VerifyOnboardingOTP(c *fiber.Ctx) error {
 	resp, err := store.VerifyOnboardingOTPAndProvision(c.Context(), req)
 	if err != nil {
 		switch {
-		case errors.Is(err, storage.ErrOnboardingNotFound):
+		case errors.Is(err, tenantadmin.ErrOnboardingNotFound):
 			return fiber.NewError(fiber.StatusNotFound, "onboarding request not found")
-		case errors.Is(err, storage.ErrOnboardingExpired):
+		case errors.Is(err, tenantadmin.ErrOnboardingExpired):
 			return fiber.NewError(fiber.StatusGone, "onboarding request expired")
-		case errors.Is(err, storage.ErrOnboardingOTPFailed):
+		case errors.Is(err, tenantadmin.ErrOnboardingOTPFailed):
 			return fiber.NewError(fiber.StatusBadRequest, "invalid onboarding otp")
 		case errors.Is(err, billingdomain.ErrPlanNotFound):
 			return fiber.NewError(fiber.StatusBadRequest, "selected commercial plan is unavailable")

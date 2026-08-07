@@ -3,21 +3,14 @@ package tenantcredentials
 import (
 	"encoding/base64"
 	"errors"
-	"os"
-	"strings"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 )
 
 var ErrUnavailable = errors.New("tenant_credential_encryption_unavailable")
 
-// NewEncryptedStoreFromEnv creates the tenant envelope-encryption store. Tenant
-// keys are intentionally separate from platform credential keys.
-func NewEncryptedStoreFromEnv() (*platformcredentials.EncryptedDBSecretStore, error) {
-	active := strings.TrimSpace(os.Getenv("TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION"))
-	encodedKeys := strings.TrimSpace(os.Getenv("TENANT_PROVIDER_CREDENTIAL_KEKS_JSON"))
-
-	encodedFingerprint := strings.TrimSpace(os.Getenv("TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY"))
+// NewEncryptedStore creates the tenant envelope-encryption store from injected secrets.
+func NewEncryptedStore(active, encodedKeys, encodedFingerprint string) (*platformcredentials.EncryptedDBSecretStore, error) {
 	if active == "" || encodedKeys == "" || encodedFingerprint == "" {
 		return nil, ErrUnavailable
 	}

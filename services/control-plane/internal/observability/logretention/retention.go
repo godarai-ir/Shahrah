@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,18 +40,13 @@ type RetentionCleaner struct {
 	once   sync.Once
 }
 
-func LoadConfigFromEnv() Config {
-	cfg := Config{
+// DefaultConfig returns log-retention settings without reading process-global state.
+func DefaultConfig() Config {
+	return Config{
 		CleanupEnabled:  true,
 		CleanupInterval: time.Hour,
 		CleanupTimeout:  30 * time.Second,
 	}
-
-	cfg.CleanupEnabled = boolEnvOrDefault("LOG_RETENTION_CLEANUP_ENABLED", cfg.CleanupEnabled)
-	cfg.CleanupInterval = durationMillisEnvOrDefault("LOG_RETENTION_CLEANUP_INTERVAL_MS", cfg.CleanupInterval)
-	cfg.CleanupTimeout = durationMillisEnvOrDefault("LOG_RETENTION_CLEANUP_TIMEOUT_MS", cfg.CleanupTimeout)
-
-	return cfg
 }
 
 func NewRetentionCleaner(cfg Config, store RetentionStore, logger *zap.Logger) *RetentionCleaner {
@@ -236,24 +230,4 @@ func positiveRetentionDays(value int) (*int, bool) {
 
 func maxIntValue() int64 {
 	return int64(^uint(0) >> 1)
-}
-
-func durationMillisEnvOrDefault(key string, fallback time.Duration) time.Duration {
-	if v := os.Getenv(key); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			return time.Duration(parsed) * time.Millisecond
-		}
-	}
-
-	return fallback
-}
-
-func boolEnvOrDefault(key string, fallback bool) bool {
-	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-		if parsed, err := strconv.ParseBool(v); err == nil {
-			return parsed
-		}
-	}
-
-	return fallback
 }

@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Store) CreatePlatformProviderConnection(ctx context.Context, request platform.CreatePlatformProviderConnectionRequest, actor platformcredentials.Actor, idempotencyKey string) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) CreatePlatformProviderConnection(ctx context.Context, request platform.CreatePlatformProviderConnectionRequest, actor platformcredentials.Actor, idempotencyKey string) (*platform.PlatformProviderConnection, error) {
 	configJSON, err := json.Marshal(request.Config)
 	if err != nil {
 		return nil, fmt.Errorf("encode platform provider connection config: %w", err)
@@ -78,7 +78,7 @@ func (s *Store) CreatePlatformProviderConnection(ctx context.Context, request pl
 	return s.GetPlatformProviderConnection(ctx, connectionID)
 }
 
-func (s *Store) UpdatePlatformProviderConnection(ctx context.Context, id string, request platform.UpdatePlatformProviderConnectionRequest, actor platformcredentials.Actor) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) UpdatePlatformProviderConnection(ctx context.Context, id string, request platform.UpdatePlatformProviderConnectionRequest, actor platformcredentials.Actor) (*platform.PlatformProviderConnection, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (s *Store) UpdatePlatformProviderConnection(ctx context.Context, id string,
 	return s.GetPlatformProviderConnection(ctx, id)
 }
 
-func (s *Store) ListPlatformProviderConnections(ctx context.Context, provider, environment string) ([]platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) ListPlatformProviderConnections(ctx context.Context, provider, environment string) ([]platform.PlatformProviderConnection, error) {
 	rows, err := s.pool.Query(ctx, platformConnectionSelect+`
 		WHERE ($1='' OR c.provider_slug=$1) AND ($2='' OR c.environment=$2)
 		ORDER BY c.provider_slug, c.environment, c.is_primary DESC, c.priority DESC, c.name`, provider, environment)
@@ -157,7 +157,7 @@ func (s *Store) ListPlatformProviderConnections(ctx context.Context, provider, e
 	return items, rows.Err()
 }
 
-func (s *Store) GetPlatformProviderConnection(ctx context.Context, id string) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) GetPlatformProviderConnection(ctx context.Context, id string) (*platform.PlatformProviderConnection, error) {
 	connection, err := scanPlatformConnection(s.pool.QueryRow(ctx, platformConnectionSelect+` WHERE c.connection_id=$1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, platformcredentials.ErrNotFound
@@ -223,7 +223,7 @@ func (s *Store) GetPlatformProviderConnection(ctx context.Context, id string) (*
 	return connection, nil
 }
 
-func (s *Store) CreatePlatformProviderCredentialVersion(
+func (s *PlatformCredentialRepository) CreatePlatformProviderCredentialVersion(
 	ctx context.Context,
 	connectionID string,
 	secrets map[string]string,
@@ -326,7 +326,7 @@ func (s *Store) CreatePlatformProviderCredentialVersion(
 	return nil, platformcredentials.ErrNotFound
 }
 
-func (s *Store) GetPlatformProviderCredential(ctx context.Context, connectionID string, version int64) (platformcredentials.EncryptedCredential, error) {
+func (s *PlatformCredentialRepository) GetPlatformProviderCredential(ctx context.Context, connectionID string, version int64) (platformcredentials.EncryptedCredential, error) {
 	var (
 		record     platformcredentials.EncryptedCredential
 		configJSON []byte
@@ -348,7 +348,7 @@ func (s *Store) GetPlatformProviderCredential(ctx context.Context, connectionID 
 	return record, err
 }
 
-func (s *Store) SetPlatformProviderCredentialTestResult(ctx context.Context, connectionID string, version int64, success bool, category, summary string, actor platformcredentials.Actor) (*platform.PlatformProviderCredentialTestResult, error) {
+func (s *PlatformCredentialRepository) SetPlatformProviderCredentialTestResult(ctx context.Context, connectionID string, version int64, success bool, category, summary string, actor platformcredentials.Actor) (*platform.PlatformProviderCredentialTestResult, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -399,15 +399,15 @@ func (s *Store) SetPlatformProviderCredentialTestResult(ctx context.Context, con
 	return &platform.PlatformProviderCredentialTestResult{Success: success, Category: category, Summary: truncate(summary, 255), TestedAt: time.Now().UTC(), Version: version, Validated: success}, nil
 }
 
-func (s *Store) ActivatePlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, idempotencyKey, reason string) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) ActivatePlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, idempotencyKey, reason string) (*platform.PlatformProviderConnection, error) {
 	return s.activatePlatformProviderCredential(ctx, connectionID, version, revision, actor, idempotencyKey, reason, "activate")
 }
 
-func (s *Store) RollbackPlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, reason string) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) RollbackPlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, reason string) (*platform.PlatformProviderConnection, error) {
 	return s.activatePlatformProviderCredential(ctx, connectionID, version, revision, actor, "", reason, "rollback")
 }
 
-func (s *Store) activatePlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, idempotencyKey, reason, action string) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) activatePlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, idempotencyKey, reason, action string) (*platform.PlatformProviderConnection, error) {
 	requestHash := ""
 
 	if idempotencyKey != "" {
@@ -503,7 +503,7 @@ func (s *Store) activatePlatformProviderCredential(ctx context.Context, connecti
 	return s.GetPlatformProviderConnection(ctx, connectionID)
 }
 
-func (s *Store) DisablePlatformProviderConnection(ctx context.Context, connectionID string, revision int64, actor platformcredentials.Actor, reason string) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) DisablePlatformProviderConnection(ctx context.Context, connectionID string, revision int64, actor platformcredentials.Actor, reason string) (*platform.PlatformProviderConnection, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -534,7 +534,7 @@ func (s *Store) DisablePlatformProviderConnection(ctx context.Context, connectio
 	return s.GetPlatformProviderConnection(ctx, connectionID)
 }
 
-func (s *Store) RevokePlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, reason string) (*platform.PlatformProviderConnection, error) {
+func (s *PlatformCredentialRepository) RevokePlatformProviderCredential(ctx context.Context, connectionID string, version, revision int64, actor platformcredentials.Actor, reason string) (*platform.PlatformProviderConnection, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -585,7 +585,7 @@ func (s *Store) RevokePlatformProviderCredential(ctx context.Context, connection
 	return s.GetPlatformProviderConnection(ctx, connectionID)
 }
 
-func (s *Store) LoadActivePlatformCredentials(ctx context.Context) ([]platformcredentials.EncryptedCredential, error) {
+func (s *PlatformCredentialRepository) LoadActivePlatformCredentials(ctx context.Context) ([]platformcredentials.EncryptedCredential, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT c.provider_slug,c.environment,c.connection_id,v.credential_version_id,v.version,
 		       c.auth_mode,c.schema_version,c.config_json,v.ciphertext,v.data_nonce,v.wrapped_dek,
@@ -809,7 +809,7 @@ func platformCredentialRequestHash(value interface{}) (string, error) {
 	return hex.EncodeToString(digest[:]), nil
 }
 
-func (s *Store) rollbackPlatformCredentialTx(ctx context.Context, tx pgx.Tx) {
+func (s *PlatformCredentialRepository) rollbackPlatformCredentialTx(ctx context.Context, tx pgx.Tx) {
 	err := tx.Rollback(ctx)
 	if err != nil && !errors.Is(err, pgx.ErrTxClosed) && s.logger != nil {
 		s.logger.Warn("failed to rollback platform credential transaction", zap.Error(err))

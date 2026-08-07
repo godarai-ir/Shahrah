@@ -1,8 +1,6 @@
 package server
 
 import (
-	"os"
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,8 +14,7 @@ type backpressureMetrics interface {
 	IncBackpressureRejected()
 }
 
-func newGatewayBackpressureMiddleware(metrics ...backpressureMetrics) fiber.Handler {
-	limit := gatewayMaxInFlightFromEnv()
+func newGatewayBackpressureMiddleware(limit int, metrics ...backpressureMetrics) fiber.Handler {
 	if limit <= 0 {
 		return nil
 	}
@@ -66,20 +63,6 @@ func newGatewayBackpressureMiddleware(metrics ...backpressureMetrics) fiber.Hand
 
 func isGatewayBackpressurePath(path string) bool {
 	return path == "/v1" || strings.HasPrefix(path, "/v1/")
-}
-
-func gatewayMaxInFlightFromEnv() int {
-	raw := strings.TrimSpace(os.Getenv("GATEWAY_MAX_IN_FLIGHT_REQUESTS"))
-	if raw == "" {
-		return defaultGatewayMaxInFlight
-	}
-
-	value, err := strconv.Atoi(raw)
-	if err != nil || value < 0 {
-		return defaultGatewayMaxInFlight
-	}
-
-	return value
 }
 
 func isBackpressureExemptPath(path string) bool {

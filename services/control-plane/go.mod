@@ -5,9 +5,6 @@ go 1.26.3
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.46.0
 	github.com/Delpak/shahrah/packages/contracts v0.0.0
-	github.com/Delpak/shahrah/services/silk-road v0.0.0-00010101000000-000000000000
-	github.com/Delpak/shahrah/services/tunnel-client v0.0.0-00010101000000-000000000000
-	github.com/Delpak/shahrah/services/tunnel-server v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go-v2 v1.43.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.31
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.1
@@ -30,12 +27,6 @@ require (
 )
 
 replace github.com/Delpak/shahrah/packages/contracts => ../../packages/contracts
-
-replace github.com/Delpak/shahrah/services/silk-road => ../silk-road
-
-replace github.com/Delpak/shahrah/services/tunnel-client => ../tunnel-client
-
-replace github.com/Delpak/shahrah/services/tunnel-server => ../tunnel-server
 
 require (
 	github.com/ClickHouse/ch-go v0.71.0 // indirect

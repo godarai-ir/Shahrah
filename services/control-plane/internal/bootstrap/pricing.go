@@ -15,7 +15,7 @@ func (b *builder) configureProviderPricingSnapshots() (*billing.AnthropicPricing
 	for _, provider := range providerregistry.PricingProviders() {
 		switch provider.PricingSnapshot {
 		case providerregistry.PricingSnapshotAnthropic:
-			manager, err := billing.NewAnthropicPricingSnapshotManagerFromEnv(nil)
+			manager, err := billing.NewAnthropicPricingSnapshotManager(b.cfg.Admin.Discovery.BaseURL, nil)
 			if err != nil {
 				b.logger.Warn(
 					provider.DisplayName+" pricing is unavailable; requests will fail closed until configuration is restored",
@@ -36,7 +36,11 @@ func (b *builder) configureProviderPricingSnapshots() (*billing.AnthropicPricing
 			}
 
 		case providerregistry.PricingSnapshotCatalog:
-			manager, err := billing.NewCatalogPricingSnapshotManagerFromEnv(provider.Slug, nil)
+			manager, err := billing.NewCatalogPricingSnapshotManager(
+				provider.Slug,
+				b.cfg.Admin.Discovery.BaseURL,
+				nil,
+			)
 			if err != nil {
 				b.logger.Warn(
 					provider.DisplayName+" pricing is unavailable; requests will fail closed until configuration is restored",

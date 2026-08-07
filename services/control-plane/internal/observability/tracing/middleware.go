@@ -39,7 +39,7 @@ func Middleware(queue *Queue, sampler *Sampler, slowMS int64, privacy ...*Privac
 	}
 
 	if privacyManager == nil {
-		cfg := LoadConfigFromEnv()
+		cfg := DefaultConfig()
 		privacyManager = NewPrivacyManager(cfg)
 	}
 

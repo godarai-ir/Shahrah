@@ -30,7 +30,7 @@ func (h *Handlers) ListProviderCatalog(c *fiber.Ctx) error {
 		return err
 	}
 
-	items, err := discoveryProviders(c.Context())
+	items, err := discoveryProviders(c.Context(), h.discovery)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
@@ -68,7 +68,7 @@ func (h *Handlers) GetProviderCatalogStats(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"data": fiber.Map{
-			"cache_ttl_sec": int64(discoveryCacheTTL().Seconds()),
+			"cache_ttl_sec": int64(h.discovery.CacheTTL.Seconds()),
 			"counters":      discoveryTelemetrySnapshot(),
 		},
 	})
@@ -84,7 +84,7 @@ func (h *Handlers) GetProviderCatalogDisplaySettings(c *fiber.Ctx) error {
 		return err
 	}
 
-	settings, err := discoveryDisplaySettings(c.Context())
+	settings, err := discoveryDisplaySettings(c.Context(), h.discovery)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider catalog display settings not found")
@@ -111,7 +111,7 @@ func (h *Handlers) ListProviderModelsCatalog(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "provider is required")
 	}
 
-	items, err := discoveryProviderModels(c.Context(), provider)
+	items, err := discoveryProviderModels(c.Context(), provider, h.discovery)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "provider model catalog not found")
@@ -180,14 +180,14 @@ func (h *Handlers) GetProviderCatalogAsset(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid provider catalog asset name")
 	}
 
-	baseURL := getDiscoveryBaseURL()
+	baseURL := h.discovery.normalized().BaseURL
 	if baseURL == "" {
 		return fiber.NewError(fiber.StatusBadGateway, "model-discovery service unavailable")
 	}
 
 	rawURL := baseURL + "/providers/assets/" + url.PathEscape(bucket) + "/" + url.PathEscape(fileName)
 
-	body, status, contentType, err := discoveryFetch(c.Context(), rawURL)
+	body, status, contentType, err := discoveryFetch(c.Context(), rawURL, h.discovery)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
@@ -246,7 +246,7 @@ func (h *Handlers) CreateTenantProviderAccount(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "auth_mode is required")
 	}
 
-	exists, err := discoveryProviderExists(c.Context(), req.Provider)
+	exists, err := discoveryProviderExists(c.Context(), req.Provider, h.discovery)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, err.Error())
 	}
@@ -306,7 +306,7 @@ func (h *Handlers) ListTenantProviderAccounts(c *fiber.Ctx) error {
 		return recordErr
 	}
 
-	catalog := loadTenantProviderCatalogModels(c.Context(), records)
+	catalog := loadTenantProviderCatalogModels(c.Context(), records, h.discovery)
 	summaries := buildTenantProviderAccountSummaries(records, catalog)
 
 	return c.JSON(platform.TenantProviderAccountListResponse{Data: items, Summaries: summaries})
@@ -343,7 +343,7 @@ func (h *Handlers) ListTenantProviderAccountModels(c *fiber.Ctx) error {
 		return err
 	}
 
-	catalog := loadTenantProviderCatalogModels(c.Context(), records)
+	catalog := loadTenantProviderCatalogModels(c.Context(), records, h.discovery)
 	items := buildTenantProviderAccountModelCatalog(records, catalog, query)
 	total := len(items)
 
@@ -391,7 +391,7 @@ func (h *Handlers) TestProviderConnection(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "auth_mode is required")
 	}
 
-	providers, err := discoveryProviders(c.Context())
+	providers, err := discoveryProviders(c.Context(), h.discovery)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, "provider catalog is unavailable")
 	}
@@ -461,7 +461,7 @@ func (h *Handlers) GetTenantProviderAccount(c *fiber.Ctx) error {
 	}
 
 	if details != nil {
-		if enriched, enrichErr := enrichTenantProviderAccountModels(c.Context(), details.Account.Provider, details.Models); enrichErr == nil {
+		if enriched, enrichErr := enrichTenantProviderAccountModels(c.Context(), details.Account.Provider, details.Models, h.discovery); enrichErr == nil {
 			details.Models = enriched
 		}
 	}
@@ -627,7 +627,7 @@ func (h *Handlers) UpsertTenantProviderAccountModels(c *fiber.Ctx) error {
 		return mapProviderAccountStoreError(err)
 	}
 
-	normalizedModels, invalidModels, invalidCapabilities, err := resolveProviderAccountModelSelections(c.Context(), details.Account.Provider, req.Models)
+	normalizedModels, invalidModels, invalidCapabilities, err := resolveProviderAccountModelSelections(c.Context(), details.Account.Provider, req.Models, h.discovery)
 	if err != nil {
 		if errors.Is(err, errDiscoveryNotFound) {
 			return fiber.NewError(fiber.StatusBadRequest, "provider model catalog not found")
@@ -839,8 +839,8 @@ func (h *Handlers) UpdateTenantProviderAccountAccess(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"access": access})
 }
 
-func enrichTenantProviderAccountModels(ctx context.Context, provider string, models []platform.TenantProviderAccountModel) ([]platform.TenantProviderAccountModel, error) {
-	catalog, err := discoveryProviderModels(ctx, provider)
+func enrichTenantProviderAccountModels(ctx context.Context, provider string, models []platform.TenantProviderAccountModel, cfg DiscoveryConfig) ([]platform.TenantProviderAccountModel, error) {
+	catalog, err := discoveryProviderModels(ctx, provider, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -965,7 +965,7 @@ func csvValueSet(raw string, normalizeProvider bool) map[string]struct{} {
 	return out
 }
 
-func loadTenantProviderCatalogModels(ctx context.Context, records []platform.TenantProviderAccountCatalogRecord) tenantProviderCatalogLookup {
+func loadTenantProviderCatalogModels(ctx context.Context, records []platform.TenantProviderAccountCatalogRecord, cfg DiscoveryConfig) tenantProviderCatalogLookup {
 	providers := make(map[string]struct{})
 
 	for _, record := range records {
@@ -981,7 +981,7 @@ func loadTenantProviderCatalogModels(ctx context.Context, records []platform.Ten
 
 	out := make(tenantProviderCatalogLookup, len(providers))
 	for provider := range providers {
-		models, err := discoveryProviderModels(ctx, provider)
+		models, err := discoveryProviderModels(ctx, provider, cfg)
 		if err != nil {
 			continue
 		}

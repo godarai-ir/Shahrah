@@ -17,7 +17,7 @@ var (
 	ErrInvalidVirtualModelModes = errors.New("invalid virtual model modes")
 )
 
-func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req platform.CreateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
+func (s *ModelRepository) CreateVirtualModel(ctx context.Context, tenantID string, req platform.CreateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
 	id := uuid.NewString()
 	alias := strings.TrimSpace(req.Alias)
 
@@ -85,7 +85,7 @@ func (s *Store) CreateVirtualModel(ctx context.Context, tenantID string, req pla
 	return out, nil
 }
 
-func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
+func (s *ModelRepository) ListVirtualModels(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
 	cacheKey := virtualModelsCacheKey(tenantID)
 
 	return loadHotPathList(
@@ -98,7 +98,7 @@ func (s *Store) ListVirtualModels(ctx context.Context, tenantID string) ([]platf
 	)
 }
 
-func (s *Store) listVirtualModelsFromDB(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
+func (s *ModelRepository) listVirtualModelsFromDB(ctx context.Context, tenantID string) ([]platform.VirtualModel, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT virtual_model_id::text, tenant_id::text, alias, routing_strategy, enabled, COALESCE(exposed_modes, '{}'), version,
 		       COALESCE(created_by, ''), COALESCE(updated_by, ''), created_at, updated_at
@@ -141,7 +141,7 @@ func (s *Store) listVirtualModelsFromDB(ctx context.Context, tenantID string) ([
 	return out, nil
 }
 
-func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
+func (s *ModelRepository) GetVirtualModel(ctx context.Context, tenantID string, id string) (*platform.VirtualModel, error) {
 	var vm platform.VirtualModel
 
 	err := s.pool.QueryRow(ctx, `
@@ -173,7 +173,7 @@ func (s *Store) GetVirtualModel(ctx context.Context, tenantID string, id string)
 	return &vm, nil
 }
 
-func (s *Store) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
+func (s *ModelRepository) GetVirtualModelByAlias(ctx context.Context, tenantID string, alias string) (*platform.VirtualModel, error) {
 	var vm platform.VirtualModel
 
 	err := s.pool.QueryRow(ctx, `
@@ -205,7 +205,7 @@ func (s *Store) GetVirtualModelByAlias(ctx context.Context, tenantID string, ali
 	return &vm, nil
 }
 
-func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
+func (s *ModelRepository) UpdateVirtualModel(ctx context.Context, tenantID string, id string, req platform.UpdateVirtualModelRequest, actor string) (*platform.VirtualModel, error) {
 	curr, err := s.GetVirtualModel(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
@@ -287,7 +287,7 @@ func (s *Store) UpdateVirtualModel(ctx context.Context, tenantID string, id stri
 	return s.GetVirtualModel(ctx, tenantID, id)
 }
 
-func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id string) error {
+func (s *ModelRepository) DeleteVirtualModel(ctx context.Context, tenantID string, id string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -324,7 +324,7 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, tenantID string, id stri
 	return nil
 }
 
-func (s *Store) ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error) {
+func (s *ModelRepository) ListVirtualModelsForPrincipal(ctx context.Context, tenantID string, userID string, teamID string) ([]platform.VirtualModel, error) {
 	normalizedUserID := strings.TrimSpace(userID)
 	normalizedTeamID := strings.TrimSpace(teamID)
 
@@ -542,7 +542,7 @@ func insertVirtualModelAccessRows(ctx context.Context, tx pgx.Tx, tenantID strin
 	return nil
 }
 
-func (s *Store) listVirtualModelAccess(ctx context.Context, vmID string) (platform.TenantProviderAccountAccessControl, error) {
+func (s *ModelRepository) listVirtualModelAccess(ctx context.Context, vmID string) (platform.TenantProviderAccountAccessControl, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT role, principal_type, COALESCE(principal_id, ''), COALESCE(display_name, '')
 		FROM virtual_model_access
@@ -591,7 +591,7 @@ func (s *Store) listVirtualModelAccess(ctx context.Context, vmID string) (platfo
 	return access, nil
 }
 
-func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]platform.VirtualModelTarget, error) {
+func (s *ModelRepository) listVirtualModelTargets(ctx context.Context, vmID string) ([]platform.VirtualModelTarget, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT target_id::text, target_order, COALESCE(weight, 0), provider, model, COALESCE(timeout_sec, 0),
 		       retry_attempts, retry_delay_ms, retry_status_codes, fallback_status_codes, fallback_candidate
@@ -630,7 +630,7 @@ func (s *Store) listVirtualModelTargets(ctx context.Context, vmID string) ([]pla
 	return out, rows.Err()
 }
 
-func (s *Store) resolveVirtualModelExposedModes(ctx context.Context, tenantID string, targets []platform.VirtualModelTarget, requested []string) ([]string, error) {
+func (s *ModelRepository) resolveVirtualModelExposedModes(ctx context.Context, tenantID string, targets []platform.VirtualModelTarget, requested []string) ([]string, error) {
 	intersection, err := s.virtualModelTargetModeIntersection(ctx, tenantID, targets)
 	if err != nil {
 		return nil, err
@@ -659,7 +659,7 @@ func (s *Store) resolveVirtualModelExposedModes(ctx context.Context, tenantID st
 	return requested, nil
 }
 
-func (s *Store) virtualModelTargetModeIntersection(ctx context.Context, tenantID string, targets []platform.VirtualModelTarget) ([]string, error) {
+func (s *ModelRepository) virtualModelTargetModeIntersection(ctx context.Context, tenantID string, targets []platform.VirtualModelTarget) ([]string, error) {
 	if len(targets) == 0 {
 		return nil, fmt.Errorf("%w: at least one target is required", ErrInvalidVirtualModelModes)
 	}
@@ -690,7 +690,7 @@ func (s *Store) virtualModelTargetModeIntersection(ctx context.Context, tenantID
 	return intersection, nil
 }
 
-func (s *Store) supportedModesForVirtualModelTarget(ctx context.Context, tenantID string, target platform.VirtualModelTarget) ([]string, error) {
+func (s *ModelRepository) supportedModesForVirtualModelTarget(ctx context.Context, tenantID string, target platform.VirtualModelTarget) ([]string, error) {
 	provider, accountAlias, officialModel, ok := modelid.SplitModelFQN(strings.TrimSpace(target.Model))
 	if !ok {
 		return nil, fmt.Errorf("%w: target.model must use provider:account_alias:model_id format", ErrInvalidVirtualModelModes)

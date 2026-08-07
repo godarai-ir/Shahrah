@@ -6,14 +6,13 @@ import (
 )
 
 func TestNewResendOTPEmailSenderUsesGodarAINotificationsDefaults(t *testing.T) {
-	t.Setenv("RESEND_API_KEY", "test-api-key")
-	t.Setenv("RESEND_FROM_EMAIL", "noreply@godarai.ir")
-	t.Setenv("RESEND_FROM_NAME", "")
-	t.Setenv("RESEND_REPLY_TO", "")
-
-	sender, ok := newResendOTPEmailSenderFromEnv().(*resendOTPEmailSender)
+	sender, ok := newResendOTPEmailSender(OTPEmailConfig{
+		Enabled:         true,
+		ResendAPIKey:    "test-api-key",
+		ResendFromEmail: "noreply@godarai.ir",
+	}).(*resendOTPEmailSender)
 	if !ok {
-		t.Fatal("newResendOTPEmailSenderFromEnv returned an unexpected sender type")
+		t.Fatal("newResendOTPEmailSender returned an unexpected sender type")
 	}
 
 	if sender.fromEmail != defaultResendFromEmail {

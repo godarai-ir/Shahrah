@@ -305,10 +305,12 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
 					if reservation != nil {
+						detachedContext, cancel := h.pipeline.DetachedContext()
+
 						if failed || usage == nil {
-							h.pipeline.Release(context.Background(), reservation, "stream_incomplete")
-						} else if finalized, finalizeErr := h.billing.FinalizeFromUsage(context.Background(), model, usage, estimated); finalizeErr != nil {
-							h.pipeline.Release(context.Background(), reservation, "usage_finalize_error")
+							h.pipeline.Release(detachedContext, reservation, "stream_incomplete")
+						} else if finalized, finalizeErr := h.billing.FinalizeFromUsage(detachedContext, model, usage, estimated); finalizeErr != nil {
+							h.pipeline.Release(detachedContext, reservation, "usage_finalize_error")
 						} else {
 							settlement := SettlementRequest{
 								Reservation: reservation,
@@ -317,8 +319,10 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 								RequestID:   request.RequestID,
 								BillingMode: request.Deployment.BillingMode,
 							}
-							_ = h.pipeline.Settle(context.Background(), settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+							_ = h.pipeline.Settle(detachedContext, settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
 						}
+
+						cancel()
 					}
 
 					return
@@ -338,7 +342,7 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 				}
 			case streamErr, ok := <-stream.Errors():
 				if ok && streamErr != nil {
-					h.pipeline.Release(context.Background(), reservation, "stream_error")
+					h.pipeline.ReleaseDetached(reservation, "stream_error")
 				}
 
 				return

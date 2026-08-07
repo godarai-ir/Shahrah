@@ -10,7 +10,7 @@ import (
 )
 
 // GetTenantByHost resolves a tenant from the request host.
-func (s *Store) GetTenantByHost(ctx context.Context, host string) (*platform.Tenant, error) {
+func (s *TenantRepository) GetTenantByHost(ctx context.Context, host string) (*platform.Tenant, error) {
 	slug := tenantSlugFromHost(host)
 	if slug == "" {
 		return nil, pgx.ErrNoRows
@@ -31,7 +31,7 @@ func (s *Store) GetTenantByHost(ctx context.Context, host string) (*platform.Ten
 	return nil, err
 }
 
-func (s *Store) GetTenantBySlug(ctx context.Context, slug string) (*platform.Tenant, error) {
+func (s *TenantRepository) GetTenantBySlug(ctx context.Context, slug string) (*platform.Tenant, error) {
 	slug = strings.TrimSpace(strings.ToLower(slug))
 	if slug == "" {
 		return nil, pgx.ErrNoRows
@@ -52,7 +52,7 @@ func (s *Store) GetTenantBySlug(ctx context.Context, slug string) (*platform.Ten
 	return nil, err
 }
 
-func (s *Store) ListTenantsByAdminIdentifier(ctx context.Context, channel string, identifier string) ([]platform.Tenant, error) {
+func (s *TenantRepository) ListTenantsByAdminIdentifier(ctx context.Context, channel string, identifier string) ([]platform.Tenant, error) {
 	channel = strings.TrimSpace(strings.ToLower(channel))
 
 	identifier = strings.TrimSpace(identifier)

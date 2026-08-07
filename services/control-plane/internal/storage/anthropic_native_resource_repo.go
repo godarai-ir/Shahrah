@@ -11,7 +11,7 @@ import (
 
 var ErrAnthropicNativeResourceNotFound = errors.New("anthropic native resource not found")
 
-func (s *Store) UpsertAnthropicFileMapping(ctx context.Context, mapping platform.AnthropicNativeResourceMapping) (*platform.AnthropicNativeResourceMapping, error) {
+func (s *ProviderResourceRepository) UpsertAnthropicFileMapping(ctx context.Context, mapping platform.AnthropicNativeResourceMapping) (*platform.AnthropicNativeResourceMapping, error) {
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO anthropic_file_mappings (
 			public_id, tenant_id, provider_account_id, upstream_id, status
@@ -27,7 +27,7 @@ func (s *Store) UpsertAnthropicFileMapping(ctx context.Context, mapping platform
 	return &mapping, err
 }
 
-func (s *Store) GetAnthropicFileMapping(ctx context.Context, tenantID, publicID string) (*platform.AnthropicNativeResourceMapping, error) {
+func (s *ProviderResourceRepository) GetAnthropicFileMapping(ctx context.Context, tenantID, publicID string) (*platform.AnthropicNativeResourceMapping, error) {
 	var mapping platform.AnthropicNativeResourceMapping
 
 	err := s.pool.QueryRow(ctx, `
@@ -45,7 +45,7 @@ func (s *Store) GetAnthropicFileMapping(ctx context.Context, tenantID, publicID 
 	return &mapping, err
 }
 
-func (s *Store) UpsertAnthropicBatchMapping(ctx context.Context, mapping platform.AnthropicNativeResourceMapping) (*platform.AnthropicNativeResourceMapping, error) {
+func (s *ProviderResourceRepository) UpsertAnthropicBatchMapping(ctx context.Context, mapping platform.AnthropicNativeResourceMapping) (*platform.AnthropicNativeResourceMapping, error) {
 	estimated, err := json.Marshal(mapping.EstimatedUsage)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (s *Store) UpsertAnthropicBatchMapping(ctx context.Context, mapping platfor
 	return &mapping, err
 }
 
-func (s *Store) GetAnthropicBatchMapping(ctx context.Context, tenantID, publicID string) (*platform.AnthropicNativeResourceMapping, error) {
+func (s *ProviderResourceRepository) GetAnthropicBatchMapping(ctx context.Context, tenantID, publicID string) (*platform.AnthropicNativeResourceMapping, error) {
 	var (
 		mapping                platform.AnthropicNativeResourceMapping
 		estimated, reservation []byte
@@ -128,7 +128,7 @@ func (s *Store) GetAnthropicBatchMapping(ctx context.Context, tenantID, publicID
 	return &mapping, nil
 }
 
-func (s *Store) UpdateAnthropicBatchStatus(ctx context.Context, tenantID, publicID, status string) error {
+func (s *ProviderResourceRepository) UpdateAnthropicBatchStatus(ctx context.Context, tenantID, publicID, status string) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE anthropic_batch_mappings
 		SET status = $3,
@@ -143,7 +143,7 @@ func (s *Store) UpdateAnthropicBatchStatus(ctx context.Context, tenantID, public
 	return err
 }
 
-func (s *Store) ListPendingAnthropicBatchMappings(ctx context.Context, limit int) ([]platform.AnthropicNativeResourceMapping, error) {
+func (s *ProviderResourceRepository) ListPendingAnthropicBatchMappings(ctx context.Context, limit int) ([]platform.AnthropicNativeResourceMapping, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}

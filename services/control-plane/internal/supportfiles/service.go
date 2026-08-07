@@ -13,9 +13,7 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -68,6 +66,19 @@ type Service struct {
 	scanner Scanner
 }
 
+// Config contains injected private object-storage and scanning settings.
+type Config struct {
+	Endpoint       string
+	Bucket         string
+	AccessKey      string
+	SecretKey      string
+	Region         string
+	ForcePathStyle bool
+	ClamAVAddress  string
+	ClamAVTimeout  time.Duration
+	AllowUnscanned bool
+}
+
 type ObjectReader struct {
 	Body io.ReadCloser
 }
@@ -83,46 +94,45 @@ func New(store ObjectStore, scanner Scanner) *Service {
 	return &Service{store: store, scanner: scanner}
 }
 
-func NewFromEnv() (*Service, error) {
-	endpoint := firstEnv("PRIVATE_FILES_S3_ENDPOINT", "SUPPORT_S3_ENDPOINT")
-
-	bucket := firstEnv("PRIVATE_FILES_S3_BUCKET", "SUPPORT_S3_BUCKET")
-	if endpoint == "" || bucket == "" {
+// NewFromConfig creates a support attachment service from injected settings.
+func NewFromConfig(cfg Config) (*Service, error) {
+	if cfg.Endpoint == "" || cfg.Bucket == "" {
 		return nil, nil
 	}
 
-	accessKey := firstEnv("PRIVATE_FILES_S3_ACCESS_KEY", "SUPPORT_S3_ACCESS_KEY")
-
-	secretKey := firstEnv("PRIVATE_FILES_S3_SECRET_KEY", "SUPPORT_S3_SECRET_KEY")
-	if accessKey == "" || secretKey == "" {
+	if cfg.AccessKey == "" || cfg.SecretKey == "" {
 		return nil, fmt.Errorf("%w: private object-storage credentials are required", ErrNotConfigured)
 	}
 
-	region := firstEnv("PRIVATE_FILES_S3_REGION", "SUPPORT_S3_REGION")
-	if region == "" {
-		region = "us-east-1"
+	if cfg.Region == "" {
+		cfg.Region = "us-east-1"
 	}
 
 	client := s3.New(s3.Options{
-		BaseEndpoint: aws.String(endpoint),
-		Region:       region,
-		Credentials:  credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
-		UsePathStyle: boolEnvFallback("PRIVATE_FILES_S3_FORCE_PATH_STYLE", "SUPPORT_S3_FORCE_PATH_STYLE", true),
+		BaseEndpoint: aws.String(cfg.Endpoint),
+		Region:       cfg.Region,
+		Credentials:  credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, ""),
+		UsePathStyle: cfg.ForcePathStyle,
 	})
 
 	var scanner Scanner
-	if address := strings.TrimSpace(os.Getenv("SUPPORT_CLAMAV_ADDRESS")); address != "" {
+
+	if address := strings.TrimSpace(cfg.ClamAVAddress); address != "" {
+		if cfg.ClamAVTimeout <= 0 {
+			cfg.ClamAVTimeout = 30 * time.Second
+		}
+
 		scanner = &ClamAVScanner{
 			Address: address,
-			Timeout: durationEnv("SUPPORT_CLAMAV_TIMEOUT", 30*time.Second),
+			Timeout: cfg.ClamAVTimeout,
 		}
-	} else if boolEnv("SUPPORT_ATTACHMENT_ALLOW_UNSCANNED_DEV", false) {
+	} else if cfg.AllowUnscanned {
 		scanner = DevelopmentScanner{}
 	} else {
 		scanner = UnavailableScanner{}
 	}
 
-	return New(&S3ObjectStore{Client: client, Bucket: bucket}, scanner), nil
+	return New(&S3ObjectStore{Client: client, Bucket: cfg.Bucket}, scanner), nil
 }
 
 func (s *Service) UploadFiles(
@@ -619,52 +629,6 @@ func receiptExtension(contentType string) string {
 	default:
 		return ".bin"
 	}
-}
-
-func firstEnv(keys ...string) string {
-	for _, key := range keys {
-		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-			return value
-		}
-	}
-
-	return ""
-}
-
-func boolEnvFallback(primary, legacy string, fallback bool) bool {
-	if strings.TrimSpace(os.Getenv(primary)) != "" {
-		return boolEnv(primary, fallback)
-	}
-
-	return boolEnv(legacy, fallback)
-}
-
-func boolEnv(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	value, err := strconv.ParseBool(raw)
-	if err != nil {
-		return fallback
-	}
-
-	return value
-}
-
-func durationEnv(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	value, err := time.ParseDuration(raw)
-	if err != nil || value <= 0 {
-		return fallback
-	}
-
-	return value
 }
 
 type S3ObjectStore struct {

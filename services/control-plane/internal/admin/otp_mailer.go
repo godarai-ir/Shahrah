@@ -6,8 +6,6 @@ import (
 	"mime"
 	"net/http"
 	"net/smtp"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +23,7 @@ type smtpOTPEmailSender struct {
 	from    string
 	user    string
 	pass    string
+	brand   OTPBrandConfig
 }
 
 type resendOTPEmailSender struct {
@@ -34,6 +33,30 @@ type resendOTPEmailSender struct {
 	fromName  string
 	replyTo   string
 	client    *resend.Client
+	brand     OTPBrandConfig
+}
+
+// OTPBrandConfig controls links and assets rendered into OTP email messages.
+type OTPBrandConfig struct {
+	LogoURL          string
+	WorkspaceURL     string
+	TenantBaseDomain string
+}
+
+// OTPEmailConfig contains immutable email delivery settings.
+type OTPEmailConfig struct {
+	Production      bool
+	Enabled         bool
+	SMTPHost        string
+	SMTPPort        int
+	SMTPFrom        string
+	SMTPUser        string
+	SMTPPassword    string
+	ResendAPIKey    string
+	ResendFromEmail string
+	ResendFromName  string
+	ResendReplyTo   string
+	Brand           OTPBrandConfig
 }
 
 type tenantAdminOTPEmail struct {
@@ -49,53 +72,43 @@ const defaultResendFromEmail = "auth@notifications.godarai.ir"
 const defaultResendFromName = tenantAdminEmailBrandName
 const defaultResendReplyTo = tenantAdminEmailSupportEmail
 
-func NewOTPEmailSenderFromEnv() OTPEmailSender {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("NODE_ENV")), "production") {
-		return newResendOTPEmailSenderFromEnv()
+// NewOTPEmailSender creates an email sender from an immutable configuration snapshot.
+func NewOTPEmailSender(cfg OTPEmailConfig) OTPEmailSender {
+	if cfg.Production {
+		return newResendOTPEmailSender(cfg)
 	}
 
-	return newSMTPOTPEmailSenderFromEnv()
+	return newSMTPOTPEmailSender(cfg)
 }
 
-func newSMTPOTPEmailSenderFromEnv() OTPEmailSender {
-	enabled := strings.EqualFold(strings.TrimSpace(os.Getenv("EMAIL_SENDING_ENABLED")), "true")
-	if v := strings.TrimSpace(os.Getenv("EMAIL_SENDING_ENABLED")); v == "" {
-		enabled = true
-	}
-
-	port := 1025
-
-	if raw := strings.TrimSpace(os.Getenv("SMTP_PORT")); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
-			port = parsed
-		}
+func newSMTPOTPEmailSender(cfg OTPEmailConfig) OTPEmailSender {
+	port := cfg.SMTPPort
+	if port <= 0 {
+		port = 1025
 	}
 
 	return &smtpOTPEmailSender{
-		enabled: enabled,
-		host:    defaultIfEmpty(strings.TrimSpace(os.Getenv("SMTP_HOST")), "127.0.0.1"),
+		enabled: cfg.Enabled,
+		host:    defaultIfEmpty(strings.TrimSpace(cfg.SMTPHost), "127.0.0.1"),
 		port:    port,
-		from:    defaultIfEmpty(strings.TrimSpace(os.Getenv("SMTP_FROM")), "no-reply@shahrah.local"),
-		user:    strings.TrimSpace(os.Getenv("SMTP_USER")),
-		pass:    strings.TrimSpace(os.Getenv("SMTP_PASS")),
+		from:    defaultIfEmpty(strings.TrimSpace(cfg.SMTPFrom), "no-reply@shahrah.local"),
+		user:    strings.TrimSpace(cfg.SMTPUser),
+		pass:    strings.TrimSpace(cfg.SMTPPassword),
+		brand:   cfg.Brand,
 	}
 }
 
-func newResendOTPEmailSenderFromEnv() OTPEmailSender {
-	enabled := strings.EqualFold(strings.TrimSpace(os.Getenv("EMAIL_SENDING_ENABLED")), "true")
-	if v := strings.TrimSpace(os.Getenv("EMAIL_SENDING_ENABLED")); v == "" {
-		enabled = true
-	}
-
+func newResendOTPEmailSender(cfg OTPEmailConfig) OTPEmailSender {
 	return &resendOTPEmailSender{
-		enabled:   enabled,
-		apiKey:    strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
-		fromEmail: resolveResendFromEmail(os.Getenv("RESEND_FROM_EMAIL")),
-		fromName:  defaultIfEmpty(strings.TrimSpace(os.Getenv("RESEND_FROM_NAME")), defaultResendFromName),
-		replyTo:   defaultIfEmpty(strings.TrimSpace(os.Getenv("RESEND_REPLY_TO")), defaultResendReplyTo),
+		enabled:   cfg.Enabled,
+		apiKey:    strings.TrimSpace(cfg.ResendAPIKey),
+		fromEmail: resolveResendFromEmail(cfg.ResendFromEmail),
+		fromName:  defaultIfEmpty(strings.TrimSpace(cfg.ResendFromName), defaultResendFromName),
+		replyTo:   defaultIfEmpty(strings.TrimSpace(cfg.ResendReplyTo), defaultResendReplyTo),
 		client: resend.NewCustomClient(&http.Client{
 			Timeout: 10 * time.Second,
-		}, strings.TrimSpace(os.Getenv("RESEND_API_KEY"))),
+		}, strings.TrimSpace(cfg.ResendAPIKey)),
+		brand: cfg.Brand,
 	}
 }
 
@@ -118,7 +131,7 @@ func (s *smtpOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, ot
 		return nil
 	}
 
-	email := renderTenantAdminOTPEmail(tenantSlug, otpCode, expiresInMinutes)
+	email := renderTenantAdminOTPEmail(tenantSlug, otpCode, expiresInMinutes, s.brand)
 	boundary := fmt.Sprintf("tenant-admin-otp-%d", time.Now().UnixNano())
 
 	message := strings.Join([]string{
@@ -165,7 +178,7 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 		return fmt.Errorf("RESEND_API_KEY is required when NODE_ENV=production")
 	}
 
-	email := renderTenantAdminOTPEmail(tenantSlug, otpCode, expiresInMinutes)
+	email := renderTenantAdminOTPEmail(tenantSlug, otpCode, expiresInMinutes, s.brand)
 
 	payload := &resend.SendEmailRequest{
 		From:    fmt.Sprintf("%s <%s>", s.fromName, s.fromEmail),
@@ -189,11 +202,16 @@ func (s *resendOTPEmailSender) SendTenantAdminOTP(to string, tenantSlug string, 
 	return nil
 }
 
-func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinutes int) tenantAdminOTPEmail {
+func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinutes int, brandOptions ...OTPBrandConfig) tenantAdminOTPEmail {
+	brand := OTPBrandConfig{}
+	if len(brandOptions) > 0 {
+		brand = brandOptions[0]
+	}
+
 	tenantSlug = normalizeEmailTextLine(tenantSlug)
 	otpCode = normalizeEmailTextLine(otpCode)
-	workspaceURL := resolveTenantAdminWorkspaceURL(tenantSlug)
-	logoURL := resolveTenantAdminEmailLogoURL(workspaceURL)
+	workspaceURL := resolveTenantAdminWorkspaceURL(tenantSlug, brand)
+	logoURL := resolveTenantAdminEmailLogoURL(workspaceURL, brand)
 	subject := fmt.Sprintf("کد ورود یک\u200cبارمصرف %s", tenantAdminEmailBrandName)
 	text := strings.Join([]string{
 		fmt.Sprintf("کد ورود یک\u200cبارمصرف شما برای فضای کاری «%s»: %s", tenantSlug, otpCode),
@@ -298,12 +316,8 @@ func renderTenantAdminOTPEmail(tenantSlug string, otpCode string, expiresInMinut
 	return tenantAdminOTPEmail{subject: subject, text: text, html: htmlBody}
 }
 
-func resolveTenantAdminEmailLogoURL(workspaceURL string) string {
-	if value := strings.TrimSpace(os.Getenv("GODARAI_EMAIL_LOGO_URL")); value != "" {
-		return value
-	}
-
-	if value := strings.TrimSpace(os.Getenv("SHAHRAH_EMAIL_LOGO_URL")); value != "" {
+func resolveTenantAdminEmailLogoURL(workspaceURL string, brand OTPBrandConfig) string {
+	if value := strings.TrimSpace(brand.LogoURL); value != "" {
 		return value
 	}
 
@@ -314,20 +328,12 @@ func resolveTenantAdminEmailLogoURL(workspaceURL string) string {
 	return strings.TrimRight(workspaceURL, "/") + "/brand/mini_logo.png"
 }
 
-func resolveTenantAdminWorkspaceURL(tenantSlug string) string {
-	if value := strings.TrimSpace(os.Getenv("NEXT_PUBLIC_TENANT_ADMIN_URL")); value != "" {
+func resolveTenantAdminWorkspaceURL(tenantSlug string, brand OTPBrandConfig) string {
+	if value := strings.TrimSpace(brand.WorkspaceURL); value != "" {
 		return value
 	}
 
-	if value := strings.TrimSpace(os.Getenv("SHAHRAH_TENANT_ADMIN_URL")); value != "" {
-		return value
-	}
-
-	baseDomain := strings.TrimSpace(os.Getenv("SHAHRAH_TENANT_BASE_DOMAIN"))
-	if baseDomain == "" {
-		baseDomain = strings.TrimSpace(os.Getenv("TENANT_BASE_DOMAIN"))
-	}
-
+	baseDomain := strings.TrimSpace(brand.TenantBaseDomain)
 	if baseDomain == "" {
 		baseDomain = "godarai.ir"
 	}

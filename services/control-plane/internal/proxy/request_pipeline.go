@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
@@ -35,6 +36,11 @@ type SettlementRequest struct {
 	BillingMode string
 }
 
+// RequestPipelineConfig controls shared gateway lifecycle behavior.
+type RequestPipelineConfig struct {
+	DetachedWorkTimeout time.Duration
+}
+
 // RequestPipeline owns the shared reserve, dispatch, and settlement lifecycle.
 // Operation-specific payload decoding and response encoding remain in handlers.
 type RequestPipeline struct {
@@ -44,6 +50,7 @@ type RequestPipeline struct {
 	billingCapabilities BillingCapabilities
 	wallets             walletStore
 	logger              *zap.Logger
+	detachedWorkTimeout time.Duration
 }
 
 // NewRequestPipeline constructs the shared gateway request pipeline.
@@ -55,6 +62,31 @@ func NewRequestPipeline(
 	wallets walletStore,
 	logger *zap.Logger,
 ) *RequestPipeline {
+	return NewRequestPipelineWithConfig(
+		tunnel,
+		rawTunnel,
+		billing,
+		billingCapabilities,
+		wallets,
+		logger,
+		RequestPipelineConfig{},
+	)
+}
+
+// NewRequestPipelineWithConfig constructs one configured gateway request pipeline.
+func NewRequestPipelineWithConfig(
+	tunnel platform.TunnelTransport,
+	rawTunnel platform.TunnelRawTransport,
+	billing budgeter,
+	billingCapabilities BillingCapabilities,
+	wallets walletStore,
+	logger *zap.Logger,
+	config RequestPipelineConfig,
+) *RequestPipeline {
+	if config.DetachedWorkTimeout <= 0 {
+		config.DetachedWorkTimeout = 5 * time.Second
+	}
+
 	return &RequestPipeline{
 		tunnel:              tunnel,
 		rawTunnel:           rawTunnel,
@@ -62,7 +94,26 @@ func NewRequestPipeline(
 		billingCapabilities: billingCapabilities,
 		wallets:             wallets,
 		logger:              logger,
+		detachedWorkTimeout: config.DetachedWorkTimeout,
 	}
+}
+
+// DetachedContext creates a bounded context for settlement after client disconnect.
+func (p *RequestPipeline) DetachedContext() (context.Context, context.CancelFunc) {
+	timeout := 5 * time.Second
+	if p != nil && p.detachedWorkTimeout > 0 {
+		timeout = p.detachedWorkTimeout
+	}
+
+	return context.WithTimeout(context.Background(), timeout)
+}
+
+// ReleaseDetached bounds reservation cleanup that must survive client disconnect.
+func (p *RequestPipeline) ReleaseDetached(reservation *platform.BudgetReservation, reason string) {
+	ctx, cancel := p.DetachedContext()
+	defer cancel()
+
+	p.Release(ctx, reservation, reason)
 }
 
 // Reserve executes the budget admission stage without depending on HTTP.

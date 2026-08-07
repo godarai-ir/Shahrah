@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/stretchr/testify/assert"
@@ -72,7 +75,7 @@ func TestResolveProviderAccountModelSelections_ExpandsCatalogMetadata(t *testing
 			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeChat},
 			PricingMode:           platform.PricingModePublic,
 		},
-	})
+	}, discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	require.Empty(t, invalid)
 	require.Empty(t, invalidCapabilities)
@@ -125,7 +128,7 @@ func TestResolveProviderAccountModelSelections_RejectsInvalidCapabilities(t *tes
 			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeRerank},
 			PricingMode:           platform.PricingModePublic,
 		},
-	})
+	}, discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	require.Equal(t, []string{"gpt-4.1-mini-2"}, invalid)
@@ -155,7 +158,7 @@ func TestResolveProviderAccountModelSelections_PreservesResponsesAsIndependentTy
 			EffectiveCapabilities: []platform.ModelType{platform.ModelTypeChat, "responses"},
 			PricingMode:           platform.PricingModePublic,
 		},
-	})
+	}, discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	require.Empty(t, invalid)
 	require.Empty(t, invalidCapabilities)
@@ -167,7 +170,7 @@ func TestDiscoveryProviders_FailsWithoutFallbackWhenDiscoveryUnavailable(t *test
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", "http://127.0.0.1:1")
 	invalidateDiscoveryCache()
 
-	items, err := discoveryProviders(context.Background())
+	items, err := discoveryProviders(context.Background(), discoveryConfigFromTestEnv())
 	require.Error(t, err)
 	require.Nil(t, items)
 	assert.ErrorIs(t, err, errDiscoveryUnavailable)
@@ -186,7 +189,7 @@ func TestDiscoveryFetch_DoesNotForwardMasterKey(t *testing.T) {
 	t.Setenv("SHAHRAH_DISCOVERY_TOKEN", "")
 	t.Setenv("MASTER_KEY", "must-not-leave-control-plane")
 
-	_, status, _, err := discoveryFetch(context.Background(), server.URL)
+	_, status, _, err := discoveryFetch(context.Background(), server.URL, discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, status)
 	assert.Empty(t, authorization)
@@ -205,7 +208,7 @@ func TestDiscoveryFetch_ForwardsExplicitDiscoveryToken(t *testing.T) {
 	t.Setenv("SHAHRAH_DISCOVERY_TOKEN", "explicit-discovery-service-token")
 	t.Setenv("MASTER_KEY", "must-not-leave-control-plane")
 
-	_, status, _, err := discoveryFetch(context.Background(), server.URL)
+	_, status, _, err := discoveryFetch(context.Background(), server.URL, discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, status)
 	assert.Equal(t, "Bearer explicit-discovery-service-token", authorization)
@@ -226,7 +229,7 @@ func TestDiscoveryProviderExists_NormalizesLegacyProviderSlug(t *testing.T) {
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
 	invalidateDiscoveryCache()
 
-	exists, err := discoveryProviderExists(context.Background(), "perplexity")
+	exists, err := discoveryProviderExists(context.Background(), "perplexity", discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	assert.True(t, exists)
 }
@@ -235,7 +238,7 @@ func TestDiscoveryProviderExists_AllowsInternalMockWithoutDiscovery(t *testing.T
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", "http://127.0.0.1:1")
 	invalidateDiscoveryCache()
 
-	exists, err := discoveryProviderExists(context.Background(), " mock ")
+	exists, err := discoveryProviderExists(context.Background(), " mock ", DiscoveryConfig{})
 	require.NoError(t, err)
 	assert.True(t, exists)
 }
@@ -244,7 +247,7 @@ func TestDiscoveryProviderModels_ReturnsInternalMockWithoutDiscovery(t *testing.
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", "http://127.0.0.1:1")
 	invalidateDiscoveryCache()
 
-	items, err := discoveryProviderModels(context.Background(), "mock")
+	items, err := discoveryProviderModels(context.Background(), "mock", DiscoveryConfig{})
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 
@@ -289,7 +292,7 @@ func TestDiscoveryProviderModels_NormalizesLegacyProviderSlug(t *testing.T) {
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
 	invalidateDiscoveryCache()
 
-	items, err := discoveryProviderModels(context.Background(), "perplexity")
+	items, err := discoveryProviderModels(context.Background(), "perplexity", discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	assert.Equal(t, "perplexity-ai", items[0].Provider)
@@ -343,7 +346,7 @@ func TestDiscoveryProviders_EmptyCatalogReturnsDiscoveryUnavailable(t *testing.T
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
 	invalidateDiscoveryCache()
 
-	items, err := discoveryProviders(context.Background())
+	items, err := discoveryProviders(context.Background(), discoveryConfigFromTestEnv())
 	require.Error(t, err)
 	require.Nil(t, items)
 	assert.ErrorIs(t, err, errDiscoveryUnavailable)
@@ -393,9 +396,22 @@ func TestDiscoveryProviderModels_FallbackQueryUsesPaginationLimit100(t *testing.
 	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
 	invalidateDiscoveryCache()
 
-	items, err := discoveryProviderModels(context.Background(), "azure-ai-foundry")
+	items, err := discoveryProviderModels(context.Background(), "azure-ai-foundry", discoveryConfigFromTestEnv())
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	assert.Equal(t, "azure-ai-foundry", items[0].Provider)
 	assert.Equal(t, "azure-ai-foundry/model-a", items[0].Model)
+}
+
+func discoveryConfigFromTestEnv() DiscoveryConfig {
+	baseURL := strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL"))
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_URL"))
+	}
+
+	return DiscoveryConfig{
+		BaseURL:  baseURL,
+		Token:    strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_TOKEN")),
+		CacheTTL: 5 * time.Minute,
+	}
 }

@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
 )
 
 const (
@@ -122,8 +124,8 @@ func parseConfig(args []string) (readinessConfig, error) {
 	set.SetOutput(io.Discard)
 
 	config := readinessConfig{}
-	set.StringVar(&config.BaseURL, "base-url", os.Getenv("GODARAI_BASE_URL"), "GodarAI base URL")
-	set.StringVar(&config.ProviderAccount, "provider-account", os.Getenv("GODARAI_DEEPSEEK_PROVIDER_ACCOUNT"), "DeepSeek provider account")
+	set.StringVar(&config.BaseURL, "base-url", controlconfig.Environment("GODARAI_BASE_URL"), "GodarAI base URL")
+	set.StringVar(&config.ProviderAccount, "provider-account", controlconfig.Environment("GODARAI_DEEPSEEK_PROVIDER_ACCOUNT"), "DeepSeek provider account")
 	set.StringVar(&config.ReportPath, "report", "deepseek-readiness-report.json", "sanitized JSON report path")
 	set.DurationVar(&config.Timeout, "timeout", 90*time.Second, "total readiness timeout")
 
@@ -131,11 +133,11 @@ func parseConfig(args []string) (readinessConfig, error) {
 		return readinessConfig{}, err
 	}
 
-	config.VirtualKey = strings.TrimSpace(os.Getenv("GODARAI_VIRTUAL_KEY"))
+	config.VirtualKey = strings.TrimSpace(controlconfig.Environment("GODARAI_VIRTUAL_KEY"))
 	config.BaseURL = strings.TrimRight(strings.TrimSpace(config.BaseURL), "/")
 	config.ProviderAccount = strings.TrimSpace(config.ProviderAccount)
 
-	ceiling, err := strconv.ParseFloat(strings.TrimSpace(os.Getenv("GODARAI_DEEPSEEK_MAX_SPEND_USD")), 64)
+	ceiling, err := strconv.ParseFloat(strings.TrimSpace(controlconfig.Environment("GODARAI_DEEPSEEK_MAX_SPEND_USD")), 64)
 	if err != nil || ceiling < deepSeekReadinessEstimatedMaximumUSD || ceiling > deepSeekReadinessMaximumCeilingUSD {
 		return readinessConfig{}, fmt.Errorf(
 			"GODARAI_DEEPSEEK_MAX_SPEND_USD must be at least %.6f and no more than %.0f",

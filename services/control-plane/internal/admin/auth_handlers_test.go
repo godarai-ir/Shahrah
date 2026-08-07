@@ -139,10 +139,7 @@ func TestCreateOTPRequestSendsMobileOTPThroughNotifier(t *testing.T) {
 }
 
 func TestCreateOTPRequestDoesNotExposeDebugOTPWhenNodeEnvIsEmpty(t *testing.T) {
-	t.Setenv("NODE_ENV", "")
-	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "true")
-
-	status, payload := performCreateOTPRequest(t)
+	status, payload := performCreateOTPRequest(t, false)
 	if status != fiber.StatusOK {
 		t.Fatalf("status = %d, want %d", status, fiber.StatusOK)
 	}
@@ -157,36 +154,27 @@ func TestCreateOTPRequestDoesNotExposeDebugOTPWhenNodeEnvIsEmpty(t *testing.T) {
 }
 
 func TestCreateOTPRequestRequiresExplicitDebugOTPOptIn(t *testing.T) {
-	t.Setenv("NODE_ENV", "development")
-	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "")
-
-	_, payload := performCreateOTPRequest(t)
+	_, payload := performCreateOTPRequest(t, false)
 	if _, exists := payload["debug_otp"]; exists {
 		t.Fatal("debug_otp was exposed without explicit opt-in")
 	}
 }
 
 func TestCreateOTPRequestExposesDebugOTPOnlyWithNonProductionOptIn(t *testing.T) {
-	t.Setenv("NODE_ENV", "development")
-	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "true")
-
-	_, payload := performCreateOTPRequest(t)
+	_, payload := performCreateOTPRequest(t, true)
 	if got := payload["debug_otp"]; got != "123456" {
 		t.Fatalf("debug_otp = %v, want 123456", got)
 	}
 }
 
 func TestCreateOTPRequestNeverExposesDebugOTPInProduction(t *testing.T) {
-	t.Setenv("NODE_ENV", "production")
-	t.Setenv("SHAHRAH_EXPOSE_DEBUG_OTP", "true")
-
-	_, payload := performCreateOTPRequest(t)
+	_, payload := performCreateOTPRequest(t, false)
 	if _, exists := payload["debug_otp"]; exists {
 		t.Fatal("debug_otp was exposed in production")
 	}
 }
 
-func performCreateOTPRequest(t *testing.T) (int, map[string]interface{}) {
+func performCreateOTPRequest(t *testing.T, exposeDebugOTP bool) (int, map[string]interface{}) {
 	t.Helper()
 
 	store := &authHandlerTestStore{createOTPResult: &storage.TenantAdminOTPResponse{
@@ -196,7 +184,7 @@ func performCreateOTPRequest(t *testing.T) (int, map[string]interface{}) {
 		ExpiresInSeconds:  300,
 		OTPCode:           "123456",
 	}}
-	handler := NewAuthHandlers(store, nil)
+	handler := NewAuthHandlersWithConfig(store, nil, AuthHandlersConfig{ExposeDebugOTP: exposeDebugOTP})
 	app := fiber.New()
 	app.Post("/auth/otp/request", handler.CreateOTPRequest)
 

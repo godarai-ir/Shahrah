@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) GetTenantTracePrivacySettings(ctx context.Context, tenantID string) (*platform.TenantTracePrivacySettings, error) {
+func (s *ObservabilityRepository) GetTenantTracePrivacySettings(ctx context.Context, tenantID string) (*platform.TenantTracePrivacySettings, error) {
 	var out platform.TenantTracePrivacySettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -25,7 +25,7 @@ func (s *Store) GetTenantTracePrivacySettings(ctx context.Context, tenantID stri
 	return &out, nil
 }
 
-func (s *Store) UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, capturePolicy, updatedByUserID string) (*platform.TenantTracePrivacySettings, error) {
+func (s *ObservabilityRepository) UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, capturePolicy, updatedByUserID string) (*platform.TenantTracePrivacySettings, error) {
 	var out platform.TenantTracePrivacySettings
 
 	err := s.pool.QueryRow(ctx, `
@@ -44,7 +44,7 @@ func (s *Store) UpsertTenantTracePrivacySettings(ctx context.Context, tenantID, 
 	return &out, nil
 }
 
-func (s *Store) ResolveTenantTraceCapturePolicy(ctx context.Context, tenantID string) (string, bool, error) {
+func (s *ObservabilityRepository) ResolveTenantTraceCapturePolicy(ctx context.Context, tenantID string) (string, bool, error) {
 	var (
 		policy    string
 		updatedAt time.Time

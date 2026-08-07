@@ -10,18 +10,23 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
+	"github.com/Delpak/shahrah/services/control-plane/internal/iam"
 	"github.com/Delpak/shahrah/services/control-plane/internal/management"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
+	"github.com/Delpak/shahrah/services/control-plane/internal/policies"
+	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
 	"github.com/Delpak/shahrah/services/control-plane/internal/storage"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
+	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
@@ -49,6 +54,11 @@ type builder struct {
 	requestLogger          proxy.RequestLogger
 	spendLogger            proxy.SpendLogger
 	managementRoutes       *management.Routes
+	promptApplication      *prompts.Service
+	iamApplication         *iam.Service
+	tenantAdminApplication *tenantadmin.Service
+	policyApplication      *policies.Service
+	modelApplication       *virtualmodels.Service
 	tracingMiddleware      fiber.Handler
 	traceHealth            *tracing.ReliableExporter
 	serverDependencies     server.Dependencies

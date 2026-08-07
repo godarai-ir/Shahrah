@@ -10,9 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,6 +24,20 @@ var errDiscoveryNotFound = errors.New("discovery resource not found")
 var errDiscoveryUnavailable = errors.New("model-discovery service unavailable")
 
 const discoveryTimeout = 8 * time.Second
+
+// DiscoveryConfig contains immutable model-discovery client and cache settings.
+type DiscoveryConfig struct {
+	BaseURL  string
+	Token    string
+	CacheTTL time.Duration
+}
+
+func (c DiscoveryConfig) normalized() DiscoveryConfig {
+	c.BaseURL = strings.TrimSuffix(strings.TrimSpace(c.BaseURL), "/")
+	c.Token = strings.TrimSpace(c.Token)
+
+	return c
+}
 
 const (
 	internalMockProvider = "mock"
@@ -111,12 +123,12 @@ func normalizeProviderSlug(value string) string {
 	}
 }
 
-func discoveryProviderExists(ctx context.Context, provider string) (bool, error) {
+func discoveryProviderExists(ctx context.Context, provider string, cfg DiscoveryConfig) (bool, error) {
 	if normalizeProviderSlug(provider) == internalMockProvider {
 		return true, nil
 	}
 
-	items, err := discoveryProviders(ctx)
+	items, err := discoveryProviders(ctx, cfg)
 	if err != nil {
 		return false, err
 	}
@@ -131,20 +143,21 @@ func discoveryProviderExists(ctx context.Context, provider string) (bool, error)
 	return false, nil
 }
 
-func discoveryProviders(ctx context.Context) ([]platform.ProviderCatalogProvider, error) {
-	if cached, ok := getCachedProviders(); ok {
+func discoveryProviders(ctx context.Context, cfg DiscoveryConfig) ([]platform.ProviderCatalogProvider, error) {
+	cfg = cfg.normalized()
+
+	if cached, ok := getCachedProviders(cfg.CacheTTL); ok {
 		atomic.AddUint64(&discoveryTelemetry.providersCacheHit, 1)
 		return cached, nil
 	}
 
 	atomic.AddUint64(&discoveryTelemetry.providersCacheMiss, 1)
 
-	baseURL := getDiscoveryBaseURL()
-	if baseURL == "" {
+	if cfg.BaseURL == "" {
 		return nil, fmt.Errorf("%w: SHAHRAH_MODEL_DISCOVERY_URL is not configured; retry after restoring model-discovery connectivity", errDiscoveryUnavailable)
 	}
 
-	body, status, err := discoveryGET(ctx, baseURL+"/providers")
+	body, status, err := discoveryGET(ctx, cfg.BaseURL+"/providers", cfg)
 	if err != nil {
 		atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 		return nil, fmt.Errorf("%w: failed to fetch providers; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, err)
@@ -177,7 +190,9 @@ func discoveryProviders(ctx context.Context) ([]platform.ProviderCatalogProvider
 	return normalized, nil
 }
 
-func discoveryProviderModels(ctx context.Context, provider string) ([]platform.ProviderCatalogModel, error) {
+func discoveryProviderModels(ctx context.Context, provider string, cfg DiscoveryConfig) ([]platform.ProviderCatalogModel, error) {
+	cfg = cfg.normalized()
+
 	normalizedProvider := normalizeProviderSlug(provider)
 	if normalizedProvider == "" {
 		return nil, fmt.Errorf("provider is required")
@@ -223,21 +238,20 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 		}}, nil
 	}
 
-	if cached, ok := getCachedProviderModels(normalizedProvider); ok {
+	if cached, ok := getCachedProviderModels(normalizedProvider, cfg.CacheTTL); ok {
 		atomic.AddUint64(&discoveryTelemetry.modelsCacheHit, 1)
 		return cached, nil
 	}
 
 	atomic.AddUint64(&discoveryTelemetry.modelsCacheMiss, 1)
 
-	baseURL := getDiscoveryBaseURL()
-	if baseURL == "" {
+	if cfg.BaseURL == "" {
 		return nil, fmt.Errorf("%w: SHAHRAH_MODEL_DISCOVERY_URL is not configured; retry after restoring model-discovery connectivity", errDiscoveryUnavailable)
 	}
 
-	body, status, err := discoveryGET(ctx, baseURL+"/providers/"+url.PathEscape(normalizedProvider)+"/models")
+	body, status, err := discoveryGET(ctx, cfg.BaseURL+"/providers/"+url.PathEscape(normalizedProvider)+"/models", cfg)
 	if err == nil && status == http.StatusNotFound {
-		items, queryErr := discoveryProviderModelsByQuery(ctx, baseURL, normalizedProvider)
+		items, queryErr := discoveryProviderModelsByQuery(ctx, cfg.BaseURL, normalizedProvider, cfg)
 		if queryErr != nil {
 			return nil, queryErr
 		}
@@ -283,7 +297,7 @@ func discoveryProviderModels(ctx context.Context, provider string) ([]platform.P
 	return items, nil
 }
 
-func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provider string) ([]platform.ProviderCatalogModel, error) {
+func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provider string, cfg DiscoveryConfig) ([]platform.ProviderCatalogModel, error) {
 	const (
 		pageSize = 100
 		maxPages = 20
@@ -293,7 +307,7 @@ func discoveryProviderModelsByQuery(ctx context.Context, baseURL string, provide
 	for page := 1; page <= maxPages; page++ {
 		queryURL := fmt.Sprintf("%s/models?provider=%s&limit=%d&page=%d", baseURL, url.QueryEscape(provider), pageSize, page)
 
-		body, status, err := discoveryGET(ctx, queryURL)
+		body, status, err := discoveryGET(ctx, queryURL, cfg)
 		if err != nil {
 			atomic.AddUint64(&discoveryTelemetry.discoveryError, 1)
 			return nil, fmt.Errorf("%w: failed to fetch models for provider %q; retry after restoring model-discovery connectivity: %v", errDiscoveryUnavailable, provider, err)
@@ -347,8 +361,7 @@ func invalidateDiscoveryCache() {
 	discoveryCache.models = make(map[string]cachedModels)
 }
 
-func getCachedProviders() ([]platform.ProviderCatalogProvider, bool) {
-	ttl := discoveryCacheTTL()
+func getCachedProviders(ttl time.Duration) ([]platform.ProviderCatalogProvider, bool) {
 	if ttl <= 0 {
 		return nil, false
 	}
@@ -380,8 +393,7 @@ func setCachedProviders(items []platform.ProviderCatalogProvider) {
 	discoveryCache.providersAt = time.Now().UTC()
 }
 
-func getCachedProviderModels(provider string) ([]platform.ProviderCatalogModel, bool) {
-	ttl := discoveryCacheTTL()
+func getCachedProviderModels(provider string, ttl time.Duration) ([]platform.ProviderCatalogModel, bool) {
 	if ttl <= 0 {
 		return nil, false
 	}
@@ -416,24 +428,6 @@ func setCachedProviderModels(provider string, items []platform.ProviderCatalogMo
 	}
 }
 
-func discoveryCacheTTL() time.Duration {
-	raw := strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_CACHE_TTL_SEC"))
-	if raw == "" {
-		return 5 * time.Minute
-	}
-
-	n, err := strconv.Atoi(raw)
-	if err != nil || n < 0 {
-		return 5 * time.Minute
-	}
-
-	if n == 0 {
-		return 0
-	}
-
-	return time.Duration(n) * time.Second
-}
-
 func discoveryTelemetrySnapshot() map[string]uint64 {
 	return map[string]uint64{
 		"providers_cache_hit":  atomic.LoadUint64(&discoveryTelemetry.providersCacheHit),
@@ -445,8 +439,8 @@ func discoveryTelemetrySnapshot() map[string]uint64 {
 	}
 }
 
-func resolveProviderAccountModelSelections(ctx context.Context, provider string, selections []platform.UpsertTenantProviderAccountModelSelection) ([]platform.TenantProviderAccountModel, []string, map[string][]string, error) {
-	catalog, err := discoveryProviderModels(ctx, provider)
+func resolveProviderAccountModelSelections(ctx context.Context, provider string, selections []platform.UpsertTenantProviderAccountModelSelection, cfg DiscoveryConfig) ([]platform.TenantProviderAccountModel, []string, map[string][]string, error) {
+	catalog, err := discoveryProviderModels(ctx, provider, cfg)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -541,27 +535,12 @@ func resolveProviderAccountModelSelections(ctx context.Context, provider string,
 	return resolved, invalid, invalidCapabilities, nil
 }
 
-func getDiscoveryBaseURL() string {
-	baseURL := strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL"))
-	if baseURL == "" {
-		baseURL = strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_URL"))
-	}
-
-	if baseURL == "" {
-		return ""
-	}
-
-	baseURL = strings.TrimSuffix(baseURL, "/")
-
-	return baseURL
-}
-
-func discoveryGET(ctx context.Context, rawURL string) ([]byte, int, error) {
-	body, status, _, err := discoveryFetch(ctx, rawURL)
+func discoveryGET(ctx context.Context, rawURL string, cfg DiscoveryConfig) ([]byte, int, error) {
+	body, status, _, err := discoveryFetch(ctx, rawURL, cfg)
 	return body, status, err
 }
 
-func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, error) {
+func discoveryFetch(ctx context.Context, rawURL string, cfg DiscoveryConfig) ([]byte, int, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if err != nil {
 		return nil, 0, "", err
@@ -569,9 +548,8 @@ func discoveryFetch(ctx context.Context, rawURL string) ([]byte, int, string, er
 
 	req.Header.Set("Accept", "application/json")
 
-	token := strings.TrimSpace(os.Getenv("SHAHRAH_DISCOVERY_TOKEN"))
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+	if strings.TrimSpace(cfg.Token) != "" {
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(cfg.Token))
 	}
 
 	client := &http.Client{Timeout: discoveryTimeout}
@@ -813,13 +791,13 @@ func mapDiscoveryModels(items []modelDiscoveryModel) []platform.ProviderCatalogM
 	return out
 }
 
-func discoveryDisplaySettings(ctx context.Context) (*platform.ProviderCatalogDisplaySettings, error) {
-	baseURL := getDiscoveryBaseURL()
-	if baseURL == "" {
+func discoveryDisplaySettings(ctx context.Context, cfg DiscoveryConfig) (*platform.ProviderCatalogDisplaySettings, error) {
+	cfg = cfg.normalized()
+	if cfg.BaseURL == "" {
 		return nil, errDiscoveryNotFound
 	}
 
-	body, status, err := discoveryGET(ctx, baseURL+"/settings/display")
+	body, status, err := discoveryGET(ctx, cfg.BaseURL+"/settings/display", cfg)
 	if err != nil {
 		return nil, err
 	}

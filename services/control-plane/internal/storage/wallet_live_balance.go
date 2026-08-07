@@ -146,7 +146,7 @@ func (s *WalletRepository) syncCurrentBudgetWindowAllowance(ctx context.Context,
 		return
 	}
 
-	ttlGrace := secondsEnvOrDefault("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 86400*time.Second)
+	ttlGrace := s.budgetWindowTTLGrace
 
 	ttl := time.Until(windowEnd.Add(ttlGrace))
 	if ttl <= 0 {

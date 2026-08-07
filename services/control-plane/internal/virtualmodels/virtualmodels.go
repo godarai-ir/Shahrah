@@ -5,9 +5,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
-	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -74,8 +72,8 @@ type StrategyRoutingEngine struct {
 func NewResolver(repo VirtualModelRepository, opts ...ResolverOption) *Resolver {
 	r := &Resolver{
 		repo:             repo,
-		cacheTTL:         secondsEnvOrDefault("VIRTUAL_MODEL_ALIAS_CACHE_TTL_SECONDS", 60*time.Second),
-		negativeCacheTTL: secondsEnvOrDefault("VIRTUAL_MODEL_ALIAS_NEGATIVE_CACHE_TTL_SECONDS", 10*time.Second),
+		cacheTTL:         time.Minute,
+		negativeCacheTTL: 10 * time.Second,
 		cache:            make(map[string]aliasCacheEntry),
 	}
 
@@ -230,20 +228,6 @@ func virtualModelAliasCacheKey(tenantID, alias string) string {
 	alias = strings.TrimSpace(alias)
 
 	return tenantID + "\x00" + alias
-}
-
-func secondsEnvOrDefault(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	seconds, err := strconv.Atoi(raw)
-	if err != nil || seconds <= 0 {
-		return fallback
-	}
-
-	return time.Duration(seconds) * time.Second
 }
 
 func cloneVirtualModel(in *platform.VirtualModel) *platform.VirtualModel {

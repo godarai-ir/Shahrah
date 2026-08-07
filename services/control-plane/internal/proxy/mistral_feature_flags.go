@@ -1,28 +1,24 @@
 package proxy
 
 import (
-	"os"
-	"strconv"
 	"strings"
 )
 
-func mistralEndpointEnabled(endpoint string) bool {
-	if !mistralBooleanEnvironment("SHAHRAH_MISTRAL_ENABLED", true) {
+func mistralEndpointEnabled(config ProviderFeatureConfig, endpoint string) bool {
+	if !config.Configured {
+		return true
+	}
+
+	if !config.MistralEnabled {
 		return false
 	}
 
-	key := "SHAHRAH_MISTRAL_" + strings.ToUpper(strings.NewReplacer("/", "_", "-", "_", " ", "_").Replace(strings.TrimSpace(endpoint))) + "_ENABLED"
+	endpoint = strings.ToLower(strings.TrimSpace(endpoint))
+	enabled, found := config.MistralEndpoints[endpoint]
 
-	return mistralBooleanEnvironment(key, true)
-}
-
-func mistralBooleanEnvironment(key string, fallback bool) bool {
-	raw, exists := os.LookupEnv(key)
-	if !exists || strings.TrimSpace(raw) == "" {
-		return fallback
+	if !found {
+		return true
 	}
 
-	value, err := strconv.ParseBool(strings.TrimSpace(raw))
-
-	return err == nil && value
+	return enabled
 }

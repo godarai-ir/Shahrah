@@ -10,11 +10,11 @@ import (
 
 var ErrMetricsStoreUnavailable = errors.New("metrics store unavailable")
 
-func (s *Store) InsertModelMetricEvent(ctx context.Context, ev platform.ModelMetricEvent) error {
+func (s *ObservabilityRepository) InsertModelMetricEvent(ctx context.Context, ev platform.ModelMetricEvent) error {
 	return s.InsertModelMetricEvents(ctx, []platform.ModelMetricEvent{ev})
 }
 
-func (s *Store) InsertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error {
+func (s *ObservabilityRepository) InsertModelMetricEvents(ctx context.Context, events []platform.ModelMetricEvent) error {
 	if !s.clickHouseMetricsReady() {
 		return ErrMetricsStoreUnavailable
 	}
@@ -24,7 +24,7 @@ func (s *Store) InsertModelMetricEvents(ctx context.Context, events []platform.M
 
 // InsertModelMetricEventWithDedupToken writes one replayed event idempotently.
 // ClickHouse uses this token to ignore retries of the same insert block.
-func (s *Store) InsertModelMetricEventWithDedupToken(ctx context.Context, ev platform.ModelMetricEvent, token string) error {
+func (s *ObservabilityRepository) InsertModelMetricEventWithDedupToken(ctx context.Context, ev platform.ModelMetricEvent, token string) error {
 	if !s.clickHouseMetricsReady() {
 		return ErrMetricsStoreUnavailable
 	}
@@ -40,7 +40,7 @@ func (s *Store) InsertModelMetricEventWithDedupToken(ctx context.Context, ev pla
 	return s.insertModelMetricEvents(ctx, []platform.ModelMetricEvent{ev})
 }
 
-func (s *Store) QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
+func (s *ObservabilityRepository) QueryModelMetrics(ctx context.Context, tenantID string, req platform.MetricsQueryRequest) ([]map[string]interface{}, error) {
 	if !s.clickHouseMetricsReady() {
 		return nil, ErrMetricsStoreUnavailable
 	}
@@ -48,7 +48,7 @@ func (s *Store) QueryModelMetrics(ctx context.Context, tenantID string, req plat
 	return s.queryModelMetrics(ctx, tenantID, req)
 }
 
-func (s *Store) ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
+func (s *ObservabilityRepository) ListModelMetricsFacets(ctx context.Context, tenantID string) (*platform.ModelMetricsFacets, error) {
 	if !s.clickHouseMetricsReady() {
 		return nil, ErrMetricsStoreUnavailable
 	}

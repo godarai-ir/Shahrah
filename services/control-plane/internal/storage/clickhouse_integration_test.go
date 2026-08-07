@@ -36,7 +36,7 @@ func TestClickHouseObservabilityIntegration(t *testing.T) {
 	require.NoError(t, waitForClickHouse(ctx, db))
 	require.NoError(t, applyClickHouseMigrations(ctx, db))
 
-	store := &Store{
+	store := &ObservabilityRepository{
 		clickhouse:             db,
 		clickhouseReady:        true,
 		clickhouseTraceReady:   true,
@@ -203,7 +203,7 @@ func splitSQLStatements(raw string) []string {
 	return out
 }
 
-func insertClickHouseMetrics(t *testing.T, ctx context.Context, store *Store, tenantID string, start time.Time) {
+func insertClickHouseMetrics(t *testing.T, ctx context.Context, store *ObservabilityRepository, tenantID string, start time.Time) {
 	t.Helper()
 
 	err := store.InsertModelMetricEvents(ctx, []platform.ModelMetricEvent{
@@ -304,7 +304,7 @@ func insertClickHouseTraces(t *testing.T, ctx context.Context, db *sql.DB, tenan
 	require.NoError(t, err)
 }
 
-func assertClickHouseMetricsQueries(t *testing.T, ctx context.Context, store *Store, tenantID string, start time.Time) {
+func assertClickHouseMetricsQueries(t *testing.T, ctx context.Context, store *ObservabilityRepository, tenantID string, start time.Time) {
 	t.Helper()
 
 	aggregateRows, err := store.QueryModelMetrics(ctx, tenantID, platform.MetricsQueryRequest{
@@ -333,7 +333,7 @@ func assertClickHouseMetricsQueries(t *testing.T, ctx context.Context, store *St
 	require.Equal(t, uint64(1), numericMapValue(t, arrayFilterRows[0], "countModelName"))
 }
 
-func assertClickHouseLogQueries(t *testing.T, ctx context.Context, store *Store, tenantID string, start time.Time) {
+func assertClickHouseLogQueries(t *testing.T, ctx context.Context, store *ObservabilityRepository, tenantID string, start time.Time) {
 	t.Helper()
 
 	from := start
@@ -353,7 +353,7 @@ func assertClickHouseLogQueries(t *testing.T, ctx context.Context, store *Store,
 	require.Equal(t, "openai", logs[0].Provider)
 }
 
-func assertClickHouseTraceQueries(t *testing.T, ctx context.Context, store *Store, tenantID string, start time.Time) {
+func assertClickHouseTraceQueries(t *testing.T, ctx context.Context, store *ObservabilityRepository, tenantID string, start time.Time) {
 	t.Helper()
 
 	from := start

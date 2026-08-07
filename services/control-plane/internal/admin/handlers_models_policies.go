@@ -483,7 +483,7 @@ func (h *Handlers) ListRateLimitRules(c *fiber.Ctx) error {
 		return err
 	}
 
-	items, total, err := h.models.ListRateLimitRules(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	items, total, err := h.policies.ListRateLimitRules(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
 	if err != nil {
 		return err
 	}
@@ -521,7 +521,7 @@ func (h *Handlers) CreateRateLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, validateErr.Error())
 	}
 
-	item, err := h.models.CreateRateLimitRule(c.Context(), currentTenant.ID, req)
+	item, err := h.policies.CreateRateLimitRule(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "ثبت قانون انجام نشد. لطفا فیلدهای قانون و شرایط را دوباره بررسی کنید.")
@@ -548,7 +548,7 @@ func (h *Handlers) GetRateLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
 
-	item, err := h.models.GetRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
+	item, err := h.policies.GetRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
@@ -585,7 +585,7 @@ func (h *Handlers) UpdateRateLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, validateErr.Error())
 	}
 
-	item, err := h.models.UpdateRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
+	item, err := h.policies.UpdateRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
@@ -612,7 +612,7 @@ func (h *Handlers) DeleteRateLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
 
-	if err := h.models.DeleteRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
+	if err := h.policies.DeleteRateLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "rate limit rule not found")
 		}
@@ -629,7 +629,7 @@ func (h *Handlers) UpdateRateLimitRuleStatus(c *fiber.Ctx) error {
 	}
 
 	return handleScopedEnabledUpdate(c, "rate limit rule not found", func(ctx context.Context, tenantID, itemID string, enabled bool) (interface{}, error) {
-		return h.models.UpdateRateLimitRuleStatusByRuleID(ctx, tenantID, itemID, enabled)
+		return h.policies.UpdateRateLimitRuleStatusByRuleID(ctx, tenantID, itemID, enabled)
 	})
 }
 
@@ -692,7 +692,7 @@ func (h *Handlers) ListBudgetLimitRules(c *fiber.Ctx) error {
 		return err
 	}
 
-	items, total, err := h.models.ListBudgetLimitRules(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	items, total, err := h.policies.ListBudgetLimitRules(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
 	if err != nil {
 		return err
 	}
@@ -729,7 +729,7 @@ func (h *Handlers) CreateBudgetLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	item, err := h.models.CreateBudgetLimitRule(c.Context(), currentTenant.ID, req)
+	item, err := h.policies.CreateBudgetLimitRule(c.Context(), currentTenant.ID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "failed to create budget limit rule")
@@ -756,7 +756,7 @@ func (h *Handlers) GetBudgetLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
 
-	item, err := h.models.GetBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
+	item, err := h.policies.GetBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
@@ -792,7 +792,7 @@ func (h *Handlers) UpdateBudgetLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	item, err := h.models.UpdateBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
+	item, err := h.policies.UpdateBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
@@ -819,7 +819,7 @@ func (h *Handlers) DeleteBudgetLimitRule(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "id is required")
 	}
 
-	if err := h.models.DeleteBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
+	if err := h.policies.DeleteBudgetLimitRuleByRuleID(c.Context(), currentTenant.ID, ruleID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "budget limit rule not found")
 		}
@@ -836,7 +836,7 @@ func (h *Handlers) UpdateBudgetLimitRuleStatus(c *fiber.Ctx) error {
 	}
 
 	return handleScopedEnabledUpdate(c, "budget limit rule not found", func(ctx context.Context, tenantID, itemID string, enabled bool) (interface{}, error) {
-		return h.models.UpdateBudgetLimitRuleStatusByRuleID(ctx, tenantID, itemID, enabled)
+		return h.policies.UpdateBudgetLimitRuleStatusByRuleID(ctx, tenantID, itemID, enabled)
 	})
 }
 

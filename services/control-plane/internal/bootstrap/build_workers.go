@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
@@ -30,7 +31,7 @@ func (b *builder) buildWorkers() error {
 		return err
 	}
 
-	retention := logretention.NewRetentionCleaner(logretention.LoadConfigFromEnv(), b.store, b.logger)
+	retention := logretention.NewRetentionCleaner(b.cfg.Observability.LogRetention, b.store.RetentionRepository, b.logger)
 	if err := b.lifecycle.AddWorker("log retention cleaner", func(context.Context) error {
 		retention.Start()
 
@@ -43,8 +44,9 @@ func (b *builder) buildWorkers() error {
 		return err
 	}
 
+	tokenUsage := b.store.ObservabilityRepository
 	if err := b.lifecycle.AddWorker("token usage flusher", func(ctx context.Context) error {
-		b.store.StartTokenUsageFlusher(ctx)
+		tokenUsage.StartTokenUsageFlusher(ctx)
 
 		return nil
 	}, nil); err != nil {
@@ -72,8 +74,26 @@ func (b *builder) buildBillingWorkers() error {
 		return err
 	}
 
+	nobitexSource := b.cfg.Runtime.NobitexExchangeRateSource
+	if nobitexSource == "" {
+		nobitexSource = "nobitex:" + b.cfg.Runtime.NobitexExchangeRateSymbol
+	}
+
+	nobitexEnabled := b.cfg.Runtime.NobitexExchangeRateEnabled
+	if !b.cfg.Runtime.NobitexExchangeRateConfigured {
+		nobitexEnabled = strings.EqualFold(b.cfg.BillingSettings.RateSource, "nobitex")
+	}
+
 	exchangeRates := billing.NewNobitexExchangeRateProcessor(
-		billing.LoadNobitexExchangeRateConfigFromEnv(b.cfg.BillingSettings.RateSource),
+		billing.NobitexExchangeRateConfig{
+			Enabled:   nobitexEnabled,
+			BaseURL:   b.cfg.Runtime.NobitexExchangeRateBaseURL,
+			Symbol:    b.cfg.Runtime.NobitexExchangeRateSymbol,
+			Source:    nobitexSource,
+			Interval:  b.cfg.Runtime.NobitexExchangeRateInterval,
+			Timeout:   b.cfg.Runtime.NobitexExchangeRateTimeout,
+			MinTrades: b.cfg.Runtime.NobitexExchangeRateMinTrades,
+		},
 		b.store.WalletRepository,
 		b.logger,
 	)
@@ -89,7 +109,12 @@ func (b *builder) buildBillingWorkers() error {
 		return err
 	}
 
-	settlementCfg := billing.LoadWalletSettlementConfigFromEnv()
+	settlementCfg := billing.WalletSettlementConfig{
+		Enabled:   b.cfg.Runtime.WalletSettlementEnabled,
+		Interval:  b.cfg.Runtime.WalletSettlementInterval,
+		Timeout:   b.cfg.Runtime.WalletSettlementTimeout,
+		BatchSize: b.cfg.Runtime.WalletSettlementBatchSize,
+	}
 
 	liveBudgetCache, ok := b.cache.(cache.BudgetWindowInspector)
 	if !ok {
@@ -119,7 +144,7 @@ func (b *builder) buildBillingWorkers() error {
 }
 
 func (b *builder) buildMetricsWorkers() error {
-	cfg := metricsobs.LoadConfigFromEnv()
+	cfg := b.cfg.Observability.Metrics
 	if !cfg.Enabled {
 		return nil
 	}
@@ -145,7 +170,7 @@ func (b *builder) buildMetricsWorkers() error {
 
 	queue := metricsobs.NewQueue(cfg.QueueCapacity)
 
-	processor := metricsobs.NewProcessor(cfg, queue, b.store, b.logger, dlq)
+	processor := metricsobs.NewProcessor(cfg, queue, b.store.ObservabilityRepository, b.logger, dlq)
 	if err := b.lifecycle.AddWorker("metrics processor", func(context.Context) error {
 		processor.Start()
 
@@ -160,8 +185,8 @@ func (b *builder) buildMetricsWorkers() error {
 	}
 
 	reconciler := metricsobs.NewCostReconciler(
-		metricsobs.LoadReconcileConfigFromEnv(),
-		&costReconcileAdapter{store: b.store},
+		b.cfg.Observability.MetricsReconcile,
+		&costReconcileAdapter{store: b.store.ObservabilityRepository},
 		b.logger,
 	)
 
@@ -177,9 +202,9 @@ func (b *builder) buildMetricsWorkers() error {
 }
 
 func (b *builder) buildAsyncLoggers() error {
-	b.requestLogger = b.store
+	b.requestLogger = b.store.ObservabilityRepository
 	if b.cfg.RequestLogs.AsyncEnabled {
-		writer := proxy.NewManagedAsyncRequestLogWriter(b.store, proxy.AsyncRequestLogConfig{
+		writer := proxy.NewManagedAsyncRequestLogWriter(b.store.ObservabilityRepository, proxy.AsyncRequestLogConfig{
 			QueueSize:      b.cfg.RequestLogs.QueueSize,
 			Workers:        b.cfg.RequestLogs.Workers,
 			BatchSize:      b.cfg.RequestLogs.BatchSize,
@@ -200,12 +225,12 @@ func (b *builder) buildAsyncLoggers() error {
 		}
 	}
 
-	b.spendLogger = b.store
+	b.spendLogger = b.store.ObservabilityRepository
 	if !b.cfg.SpendLogs.AsyncEnabled {
 		return nil
 	}
 
-	writer := proxy.NewManagedAsyncSpendLogWriter(b.store, proxy.AsyncSpendLogConfig{
+	writer := proxy.NewManagedAsyncSpendLogWriter(b.store.ObservabilityRepository, proxy.AsyncSpendLogConfig{
 		QueueSize:      b.cfg.SpendLogs.QueueSize,
 		Workers:        b.cfg.SpendLogs.Workers,
 		BatchSize:      b.cfg.SpendLogs.BatchSize,
@@ -225,13 +250,13 @@ func (b *builder) buildAsyncLoggers() error {
 }
 
 func (b *builder) buildTracingWorkers() error {
-	cfg := tracing.LoadConfigFromEnv()
+	cfg := b.cfg.Observability.Tracing
 	queue := tracing.NewQueue(cfg.QueueCapacity)
 	sampler := tracing.NewSampler(cfg.DefaultSampleRate, cfg.SlowRequest.Milliseconds())
 	privacy := tracing.NewPrivacyManager(cfg)
-	privacy.SetTenantPolicyResolver(newTenantTracePolicyResolver(b.store))
+	privacy.SetTenantPolicyResolver(newTenantTracePolicyResolver(b.store.ObservabilityRepository))
 
-	exporter, err := tracing.NewReliableExporter(cfg, b.store, b.logger)
+	exporter, err := tracing.NewReliableExporter(cfg, b.store.ObservabilityRepository, b.logger)
 	if err != nil {
 		return fmt.Errorf("initialize tracing exporter: %w", err)
 	}

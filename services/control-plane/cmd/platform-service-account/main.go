@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
+
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -26,7 +28,7 @@ func main() {
 
 	flag.Parse()
 
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	databaseURL := strings.TrimSpace(controlconfig.Environment("DATABASE_URL"))
 	if databaseURL == "" {
 		fatal("DATABASE_URL is required")
 	}

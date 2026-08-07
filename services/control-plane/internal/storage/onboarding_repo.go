@@ -13,6 +13,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	billingdomain "github.com/Delpak/shahrah/services/control-plane/internal/domain/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenantadmin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -23,50 +24,22 @@ const (
 )
 
 var (
-	ErrTenantSlugInvalid   = errors.New("tenant slug is invalid or reserved")
-	ErrTenantSlugTaken     = errors.New("tenant slug is already taken")
-	ErrOnboardingNotFound  = errors.New("onboarding request not found")
-	ErrOnboardingExpired   = errors.New("onboarding request expired")
-	ErrOnboardingOTPFailed = errors.New("invalid onboarding otp")
+	ErrTenantSlugInvalid   = tenantadmin.ErrTenantSlugInvalid
+	ErrTenantSlugTaken     = tenantadmin.ErrTenantSlugTaken
+	ErrOnboardingNotFound  = tenantadmin.ErrOnboardingNotFound
+	ErrOnboardingExpired   = tenantadmin.ErrOnboardingExpired
+	ErrOnboardingOTPFailed = tenantadmin.ErrOnboardingOTPFailed
 )
 
-type TenantSlugAvailability struct {
-	Slug      string `json:"slug"`
-	Available bool   `json:"available"`
-	Reason    string `json:"reason,omitempty"`
-}
+type (
+	TenantSlugAvailability    = tenantadmin.TenantSlugAvailability
+	CreateOnboardingOTPParams = tenantadmin.CreateOnboardingOTPParams
+	OnboardingOTP             = tenantadmin.OnboardingOTP
+	VerifyOnboardingOTPParams = tenantadmin.VerifyOnboardingOTPParams
+	ProvisionedTenant         = tenantadmin.ProvisionedTenant
+)
 
-type CreateOnboardingOTPParams struct {
-	TenantSlug   string                 `json:"tenant_slug"`
-	TenantDomain string                 `json:"tenant_domain"`
-	PlanSlug     string                 `json:"plan_slug"`
-	Email        string                 `json:"email"`
-	Mobile       string                 `json:"mobile"`
-	CustomerName string                 `json:"customer_name"`
-	Metadata     map[string]interface{} `json:"metadata"`
-}
-
-type OnboardingOTP struct {
-	RequestID         string `json:"request_id"`
-	TenantSlug        string `json:"tenant_slug"`
-	Channel           string `json:"channel"`
-	DestinationMasked string `json:"destination_masked"`
-	ExpiresInSeconds  int    `json:"expires_in_seconds"`
-	AlreadyPending    bool   `json:"already_pending,omitempty"`
-	DebugOTP          string `json:"debug_otp,omitempty"`
-}
-
-type VerifyOnboardingOTPParams struct {
-	RequestID string `json:"request_id"`
-	OTPCode   string `json:"otp_code"`
-}
-
-type ProvisionedTenant struct {
-	Tenant   platform.Tenant `json:"tenant"`
-	LoginURL string          `json:"login_url"`
-}
-
-func (s *Store) CheckTenantSlugAvailability(ctx context.Context, slug string) (*TenantSlugAvailability, error) {
+func (s *TenantAdminRepository) CheckTenantSlugAvailability(ctx context.Context, slug string) (*TenantSlugAvailability, error) {
 	slug = normalizeOnboardingSlug(slug)
 	if !tenant.ValidateTenantSlug(slug) {
 		return &TenantSlugAvailability{Slug: slug, Available: false, Reason: "invalid_or_reserved"}, nil
@@ -95,7 +68,7 @@ func (s *Store) CheckTenantSlugAvailability(ctx context.Context, slug string) (*
 	return &TenantSlugAvailability{Slug: slug, Available: true}, nil
 }
 
-func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPParams) (*OnboardingOTP, error) {
+func (s *TenantAdminRepository) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPParams) (*OnboardingOTP, error) {
 	p.TenantSlug = normalizeOnboardingSlug(p.TenantSlug)
 	p.TenantDomain = strings.TrimSpace(strings.ToLower(p.TenantDomain))
 	p.PlanSlug = strings.TrimSpace(strings.ToLower(p.PlanSlug))
@@ -233,7 +206,7 @@ func (s *Store) CreateOnboardingOTP(ctx context.Context, p CreateOnboardingOTPPa
 	}, nil
 }
 
-func (s *Store) expirePendingOnboardingRequests(ctx context.Context) error {
+func (s *TenantAdminRepository) expirePendingOnboardingRequests(ctx context.Context) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE tenant_onboarding_requests
 		SET status = 'expired', updated_at = NOW()
@@ -318,7 +291,7 @@ func sameOnboardingRequester(existingEmail, existingMobile, requestedEmail, requ
 	return false
 }
 
-func (s *Store) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnboardingOTPParams) (*ProvisionedTenant, error) {
+func (s *TenantAdminRepository) VerifyOnboardingOTPAndProvision(ctx context.Context, p VerifyOnboardingOTPParams) (*ProvisionedTenant, error) {
 	requestID := strings.TrimSpace(p.RequestID)
 
 	otpCode := strings.TrimSpace(p.OTPCode)

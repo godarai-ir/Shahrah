@@ -282,7 +282,7 @@ var systemRolePermissions = map[string][]string{
 	},
 }
 
-func (s *Store) ListRoles(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RoleDefinition, int, error) {
+func (s *AuthRepository) ListRoles(ctx context.Context, tenantID string, query string, limit int, offset int) ([]platform.RoleDefinition, int, error) {
 	query = strings.TrimSpace(strings.ToLower(query))
 
 	if limit <= 0 {
@@ -360,7 +360,7 @@ func (s *Store) ListRoles(ctx context.Context, tenantID string, query string, li
 	return items, total, rows.Err()
 }
 
-func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.CreateRoleRequest) (*platform.RoleDefinition, error) {
+func (s *AuthRepository) CreateRole(ctx context.Context, tenantID string, req platform.CreateRoleRequest) (*platform.RoleDefinition, error) {
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, err
 	}
@@ -431,7 +431,7 @@ func (s *Store) CreateRole(ctx context.Context, tenantID string, req platform.Cr
 	return &item, nil
 }
 
-func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, req platform.UpdateRoleRequest) (*platform.RoleDefinition, error) {
+func (s *AuthRepository) UpdateRole(ctx context.Context, tenantID string, roleID string, req platform.UpdateRoleRequest) (*platform.RoleDefinition, error) {
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, err
 	}
@@ -574,7 +574,7 @@ func (s *Store) UpdateRole(ctx context.Context, tenantID string, roleID string, 
 	return &updated, nil
 }
 
-func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platform.UpdateUserRolesRequest) (*platform.UpdateUserRolesResponse, error) {
+func (s *AuthRepository) UpdateUserRoles(ctx context.Context, tenantID string, req platform.UpdateUserRolesRequest) (*platform.UpdateUserRolesResponse, error) {
 	if err := s.ensureSystemRoles(ctx, tenantID); err != nil {
 		return nil, err
 	}
@@ -690,7 +690,7 @@ func (s *Store) UpdateUserRoles(ctx context.Context, tenantID string, req platfo
 	}, nil
 }
 
-func (s *Store) ListUserRoleNamesByUserIDs(ctx context.Context, tenantID string, userIDs []string) (map[string][]string, error) {
+func (s *AuthRepository) ListUserRoleNamesByUserIDs(ctx context.Context, tenantID string, userIDs []string) (map[string][]string, error) {
 	out := make(map[string][]string, len(userIDs))
 	if len(userIDs) == 0 {
 		return out, nil
@@ -740,7 +740,7 @@ func (s *Store) ListUserRoleNamesByUserIDs(ctx context.Context, tenantID string,
 	return out, rows.Err()
 }
 
-func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID string, userID string, fallbackRole string) ([]string, []string, error) {
+func (s *AuthRepository) GetEffectivePermissionsForUser(ctx context.Context, tenantID string, userID string, fallbackRole string) ([]string, []string, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	userID = strings.TrimSpace(userID)
 
@@ -846,7 +846,7 @@ func (s *Store) GetEffectivePermissionsForUser(ctx context.Context, tenantID str
 	return roleNames, permissions, nil
 }
 
-func (s *Store) ensureSystemRoles(ctx context.Context, tenantID string) error {
+func (s *AuthRepository) ensureSystemRoles(ctx context.Context, tenantID string) error {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err

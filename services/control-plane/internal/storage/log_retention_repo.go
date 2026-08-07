@@ -11,7 +11,7 @@ import (
 )
 
 // ListLogRetentionPolicies resolves the current effective request log retention for every tenant.
-func (s *Store) ListLogRetentionPolicies(ctx context.Context) ([]logretention.LogRetentionPolicy, error) {
+func (s *RetentionRepository) ListLogRetentionPolicies(ctx context.Context) ([]logretention.LogRetentionPolicy, error) {
 	values, err := s.listRetentionPolicyValues(ctx, platform.FeatureLogsRetentionDays, logretention.ParseLogRetentionDays, "log")
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ type retentionPolicyValue struct {
 	days     *int
 }
 
-func (s *Store) listRetentionPolicyValues(
+func (s *RetentionRepository) listRetentionPolicyValues(
 	ctx context.Context,
 	featureKey string,
 	parse func(interface{}) (*int, bool),
@@ -73,8 +73,8 @@ func (s *Store) listRetentionPolicyValues(
 }
 
 // DeleteLogDataBefore deletes tenant-scoped request log rows older than cutoff from ClickHouse.
-func (s *Store) DeleteLogDataBefore(ctx context.Context, tenantID string, cutoff time.Time) error {
-	if !s.clickHouseLogsReady() {
+func (s *RetentionRepository) DeleteLogDataBefore(ctx context.Context, tenantID string, cutoff time.Time) error {
+	if !s.clickhouseLogsReady || s.clickhouse == nil {
 		return ErrLogStoreUnavailable
 	}
 

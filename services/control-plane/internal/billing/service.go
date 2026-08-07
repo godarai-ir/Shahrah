@@ -88,11 +88,21 @@ type Dependencies struct {
 	Wallets         walletStore
 	Entitlements    entitlementStore
 	RuntimeProfiles RuntimeProfileStore
+	Config          *ServiceConfig
+}
+
+// ServiceConfig controls billing hot paths without reading process state.
+type ServiceConfig struct {
+	ExchangeRateCache ExchangeRateCacheConfig
+	PricingCache      PricingCacheConfig
+	WalletCacheTTL    time.Duration
+	BudgetWindowGrace time.Duration
+	RateLimitFailOpen bool
 }
 
 // NewService creates a billing enforcement service.
 func NewService(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string) *Service {
-	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, loadExchangeRateCacheConfigFromEnv(), loadPricingCacheConfigFromEnv())
+	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, defaultExchangeRateCacheConfig(), defaultPricingCacheConfig())
 }
 
 // NewServiceWithRuntimeProfiles creates a billing service with compiled policy state.
@@ -147,32 +157,40 @@ func NewServiceWithRepositoriesAndRuntimeProfiles(
 
 // NewServiceWithDependencies creates a billing service with explicit capabilities.
 func NewServiceWithDependencies(dependencies Dependencies, defaultUSDtoIRR float64, source string) *Service {
+	serviceConfig := defaultServiceConfig()
+	if dependencies.Config != nil {
+		serviceConfig = *dependencies.Config
+	}
+
 	return newService(
 		dependencies,
 		defaultUSDtoIRR,
 		source,
-		loadExchangeRateCacheConfigFromEnv(),
-		loadPricingCacheConfigFromEnv(),
+		serviceConfig,
 	)
 }
 
 // NewServiceWithExchangeRateCacheConfig creates a billing service with explicit cache settings.
 func NewServiceWithExchangeRateCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig) *Service {
-	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, exchangeRateCacheConfig, loadPricingCacheConfigFromEnv())
+	return NewServiceWithCacheConfig(c, store, defaultUSDtoIRR, source, exchangeRateCacheConfig, defaultPricingCacheConfig())
 }
 
 // NewServiceWithCacheConfig creates a billing service with explicit hot-path cache settings.
 func NewServiceWithCacheConfig(c cache.Cache, store walletStore, defaultUSDtoIRR float64, source string, exchangeRateCacheConfig ExchangeRateCacheConfig, pricingCacheConfig PricingCacheConfig) *Service {
-	return newService(Dependencies{Cache: c, Wallets: store}, defaultUSDtoIRR, source, exchangeRateCacheConfig, pricingCacheConfig)
+	serviceConfig := defaultServiceConfig()
+	serviceConfig.ExchangeRateCache = exchangeRateCacheConfig
+	serviceConfig.PricingCache = pricingCacheConfig
+
+	return newService(Dependencies{Cache: c, Wallets: store}, defaultUSDtoIRR, source, serviceConfig)
 }
 
 func newService(
 	dependencies Dependencies,
 	defaultUSDtoIRR float64,
 	source string,
-	exchangeRateCacheConfig ExchangeRateCacheConfig,
-	pricingCacheConfig PricingCacheConfig,
+	serviceConfig ServiceConfig,
 ) *Service {
+	serviceConfig = normalizeServiceConfig(serviceConfig)
 	defaultRate := platform.ExchangeRate{
 		USDtoIRR: defaultUSDtoIRR,
 		Source:   source,
@@ -181,8 +199,8 @@ func newService(
 	return &Service{
 		PricingEngine: &PricingEngine{
 			defaultRate:       defaultRate,
-			exchangeRateCache: newExchangeRateCache(dependencies.Wallets, dependencies.Cache, defaultRate, exchangeRateCacheConfig),
-			pricingCache:      newPricingCache(dependencies.Cache, pricingCacheConfig, modelPriceFromRegistry),
+			exchangeRateCache: newExchangeRateCache(dependencies.Wallets, dependencies.Cache, defaultRate, serviceConfig.ExchangeRateCache),
+			pricingCache:      newPricingCache(dependencies.Cache, serviceConfig.PricingCache, modelPriceFromRegistry),
 			catalogPricing:    make(map[string]*CatalogPricingSnapshotManager),
 		},
 		BudgetService: &BudgetService{
@@ -191,16 +209,40 @@ func newService(
 			store:                dependencies.Wallets,
 			entitlements:         dependencies.Entitlements,
 			runtimeProfiles:      dependencies.RuntimeProfiles,
-			walletCacheTTL:       secondsEnvOrDefault("BILLING_WALLET_CACHE_TTL_SECONDS", 5*time.Second),
-			budgetWindowTTLGrace: secondsEnvOrDefault("BILLING_BUDGET_WINDOW_GRACE_SECONDS", 86400*time.Second),
+			walletCacheTTL:       serviceConfig.WalletCacheTTL,
+			budgetWindowTTLGrace: serviceConfig.BudgetWindowGrace,
 		},
 		RateLimiter: &RateLimiter{
 			cache:             dependencies.Cache,
 			entitlements:      dependencies.Entitlements,
 			runtimeProfiles:   dependencies.RuntimeProfiles,
-			rateLimitFailOpen: boolEnvOrDefault("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", false),
+			rateLimitFailOpen: serviceConfig.RateLimitFailOpen,
 		},
 	}
+}
+
+func defaultServiceConfig() ServiceConfig {
+	return ServiceConfig{
+		ExchangeRateCache: defaultExchangeRateCacheConfig(),
+		PricingCache:      defaultPricingCacheConfig(),
+		WalletCacheTTL:    5 * time.Second,
+		BudgetWindowGrace: 24 * time.Hour,
+	}
+}
+
+func normalizeServiceConfig(cfg ServiceConfig) ServiceConfig {
+	cfg.ExchangeRateCache = normalizeExchangeRateCacheConfig(cfg.ExchangeRateCache)
+
+	cfg.PricingCache = normalizePricingCacheConfig(cfg.PricingCache)
+	if cfg.WalletCacheTTL <= 0 {
+		cfg.WalletCacheTTL = 5 * time.Second
+	}
+
+	if cfg.BudgetWindowGrace <= 0 {
+		cfg.BudgetWindowGrace = 24 * time.Hour
+	}
+
+	return cfg
 }
 
 // Shutdown cancels and drains background billing work.

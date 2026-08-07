@@ -13,10 +13,11 @@ type tenantAdminOTPNotifier struct {
 	mobile OTPMobileSender
 }
 
-func NewTenantAdminOTPNotifierFromEnv() TenantAdminOTPNotifier {
+// NewTenantAdminOTPNotifier creates a notifier from immutable delivery settings.
+func NewTenantAdminOTPNotifier(emailConfig OTPEmailConfig, mobileConfig OTPMobileConfig) TenantAdminOTPNotifier {
 	return &tenantAdminOTPNotifier{
-		email:  NewOTPEmailSenderFromEnv(),
-		mobile: newBaleSafirOTPSenderFromEnv(),
+		email:  NewOTPEmailSender(emailConfig),
+		mobile: newBaleSafirOTPSender(mobileConfig),
 	}
 }
 

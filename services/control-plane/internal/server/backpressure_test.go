@@ -53,7 +53,7 @@ func TestGatewayBackpressureRejectsWhenFull(t *testing.T) {
 
 	app := fiber.New()
 	metrics := &backpressureMetricsStub{}
-	app.Use(newGatewayBackpressureMiddleware(metrics))
+	app.Use(newGatewayBackpressureMiddleware(1, metrics))
 
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -122,7 +122,7 @@ func TestGatewayBackpressureExemptsHealthAndMetrics(t *testing.T) {
 	t.Setenv("GATEWAY_MAX_IN_FLIGHT_REQUESTS", "1")
 
 	app := fiber.New()
-	app.Use(newGatewayBackpressureMiddleware())
+	app.Use(newGatewayBackpressureMiddleware(1))
 
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -176,7 +176,7 @@ func TestGatewayBackpressureReleasesAfterHandlerError(t *testing.T) {
 	t.Setenv("GATEWAY_MAX_IN_FLIGHT_REQUESTS", "1")
 
 	app := fiber.New()
-	app.Use(newGatewayBackpressureMiddleware())
+	app.Use(newGatewayBackpressureMiddleware(1))
 	app.Get("/v1/fail", func(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "boom")
 	})
@@ -207,7 +207,7 @@ func TestGatewayBackpressureDoesNotThrottleAdminAuth(t *testing.T) {
 	t.Setenv("GATEWAY_MAX_IN_FLIGHT_REQUESTS", "1")
 
 	app := fiber.New()
-	app.Use(newGatewayBackpressureMiddleware())
+	app.Use(newGatewayBackpressureMiddleware(1))
 
 	entered := make(chan struct{})
 	release := make(chan struct{})

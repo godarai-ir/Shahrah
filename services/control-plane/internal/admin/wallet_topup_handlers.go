@@ -8,10 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -58,9 +55,42 @@ type paymentProvider interface {
 }
 
 type mockProvider struct{}
-type zarinpalProvider struct{}
-type idpayProvider struct{}
+type zarinpalProvider struct {
+	merchantID string
+	baseURL    string
+}
+type idpayProvider struct {
+	apiKey  string
+	baseURL string
+	sandbox bool
+}
 type unsupportedProvider struct{ name string }
+
+// PaymentConfig contains immutable wallet and subscription gateway settings.
+type PaymentConfig struct {
+	FallbackUSDtoIRR            float64
+	DefaultSubscriptionProvider string
+	ZarinpalMerchantID          string
+	ZarinpalBaseURL             string
+	IDPayAPIKey                 string
+	IDPayBaseURL                string
+	IDPaySandbox                bool
+}
+
+func (c PaymentConfig) withDefaults() PaymentConfig {
+	if c.FallbackUSDtoIRR <= 0 {
+		c.FallbackUSDtoIRR = 1850000
+	}
+
+	if strings.TrimSpace(c.DefaultSubscriptionProvider) == "" {
+		c.DefaultSubscriptionProvider = "mock"
+	}
+
+	c.ZarinpalBaseURL = defaultIfEmpty(strings.TrimSpace(c.ZarinpalBaseURL), "https://api.zarinpal.com")
+	c.IDPayBaseURL = defaultIfEmpty(strings.TrimSpace(c.IDPayBaseURL), "https://api.idpay.ir/v1.1")
+
+	return c
+}
 
 func (m *mockProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUpIntent) (*paymentCreateResult, error) {
 	auth := "mock_" + randomToken(12)
@@ -109,32 +139,33 @@ func (u *unsupportedProvider) VerifyPayment(c *fiber.Ctx, authority string) (*pa
 	return nil, fmt.Errorf("provider %s not configured yet", u.name)
 }
 
-func selectProvider(name string) paymentProvider {
+func (h *Handlers) selectPaymentProvider(name string) paymentProvider {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "", "mock":
 		return &mockProvider{}
 	case "zarinpal":
-		return &zarinpalProvider{}
+		return &zarinpalProvider{
+			merchantID: strings.TrimSpace(h.payment.ZarinpalMerchantID),
+			baseURL:    h.payment.ZarinpalBaseURL,
+		}
 	case "idpay":
-		return &idpayProvider{}
+		return &idpayProvider{
+			apiKey:  strings.TrimSpace(h.payment.IDPayAPIKey),
+			baseURL: h.payment.IDPayBaseURL,
+			sandbox: h.payment.IDPaySandbox,
+		}
 	default:
 		return &unsupportedProvider{name: name}
 	}
 }
 
 func (p *zarinpalProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUpIntent) (*paymentCreateResult, error) {
-	merchantID := strings.TrimSpace(os.Getenv("ZARINPAL_MERCHANT_ID"))
-	if merchantID == "" {
+	if p.merchantID == "" {
 		return nil, errors.New("ZARINPAL_MERCHANT_ID is not set")
 	}
 
-	baseURL := strings.TrimSpace(os.Getenv("ZARINPAL_BASE_URL"))
-	if baseURL == "" {
-		baseURL = "https://api.zarinpal.com"
-	}
-
 	reqPayload := map[string]interface{}{
-		"merchant_id":  merchantID,
+		"merchant_id":  p.merchantID,
 		"amount":       int64(intent.PayableIRR),
 		"callback_url": intent.CallbackURL,
 		"description":  fmt.Sprintf("GodarAI wallet topup %s", intent.PublicID),
@@ -144,7 +175,7 @@ func (p *zarinpalProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTo
 		},
 	}
 
-	respBody, statusCode, err := postJSON(baseURL+"/pg/v4/payment/request.json", reqPayload, nil)
+	respBody, statusCode, err := postJSON(p.baseURL+"/pg/v4/payment/request.json", reqPayload, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -197,23 +228,17 @@ func (p *zarinpalProvider) VerifyPayment(c *fiber.Ctx, authority string) (*payme
 		return nil, errors.New("topup intent not loaded")
 	}
 
-	merchantID := strings.TrimSpace(os.Getenv("ZARINPAL_MERCHANT_ID"))
-	if merchantID == "" {
+	if p.merchantID == "" {
 		return nil, errors.New("ZARINPAL_MERCHANT_ID is not set")
 	}
 
-	baseURL := strings.TrimSpace(os.Getenv("ZARINPAL_BASE_URL"))
-	if baseURL == "" {
-		baseURL = "https://api.zarinpal.com"
-	}
-
 	verifyPayload := map[string]interface{}{
-		"merchant_id": merchantID,
+		"merchant_id": p.merchantID,
 		"amount":      int64(topup.PayableIRR),
 		"authority":   authority,
 	}
 
-	respBody, statusCode, err := postJSON(baseURL+"/pg/v4/payment/verify.json", verifyPayload, nil)
+	respBody, statusCode, err := postJSON(p.baseURL+"/pg/v4/payment/verify.json", verifyPayload, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -250,14 +275,8 @@ func (p *zarinpalProvider) VerifyPayment(c *fiber.Ctx, authority string) (*payme
 }
 
 func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUpIntent) (*paymentCreateResult, error) {
-	apiKey := strings.TrimSpace(os.Getenv("IDPAY_API_KEY"))
-	if apiKey == "" {
+	if p.apiKey == "" {
 		return nil, errors.New("IDPAY_API_KEY is not set")
-	}
-
-	baseURL := strings.TrimSpace(os.Getenv("IDPAY_BASE_URL"))
-	if baseURL == "" {
-		baseURL = "https://api.idpay.ir/v1.1"
 	}
 
 	orderID := "topup_" + intent.PublicID
@@ -272,14 +291,14 @@ func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUp
 	}
 
 	headers := map[string]string{
-		"X-API-KEY":    apiKey,
+		"X-API-KEY":    p.apiKey,
 		"Content-Type": "application/json",
 	}
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("IDPAY_SANDBOX")), "true") {
+	if p.sandbox {
 		headers["X-SANDBOX"] = "1"
 	}
 
-	respBody, statusCode, err := postJSON(baseURL+"/payment", reqPayload, headers)
+	respBody, statusCode, err := postJSON(p.baseURL+"/payment", reqPayload, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -313,8 +332,7 @@ func (p *idpayProvider) CreatePayment(c *fiber.Ctx, intent *platform.WalletTopUp
 }
 
 func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentVerifyResult, error) {
-	apiKey := strings.TrimSpace(os.Getenv("IDPAY_API_KEY"))
-	if apiKey == "" {
+	if p.apiKey == "" {
 		return nil, errors.New("IDPAY_API_KEY is not set")
 	}
 
@@ -323,25 +341,20 @@ func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentV
 		return nil, errors.New("topup intent not loaded")
 	}
 
-	baseURL := strings.TrimSpace(os.Getenv("IDPAY_BASE_URL"))
-	if baseURL == "" {
-		baseURL = "https://api.idpay.ir/v1.1"
-	}
-
 	reqPayload := map[string]interface{}{
 		"id":       authority,
 		"order_id": "topup_" + topup.PublicID,
 	}
 
 	headers := map[string]string{
-		"X-API-KEY":    apiKey,
+		"X-API-KEY":    p.apiKey,
 		"Content-Type": "application/json",
 	}
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("IDPAY_SANDBOX")), "true") {
+	if p.sandbox {
 		headers["X-SANDBOX"] = "1"
 	}
 
-	respBody, statusCode, err := postJSON(baseURL+"/payment/verify", reqPayload, headers)
+	respBody, statusCode, err := postJSON(p.baseURL+"/payment/verify", reqPayload, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -449,31 +462,6 @@ func calculatePayableIRR(amountIRR int64, taxPercent, feePercent float64) (taxIR
 	return
 }
 
-func fallbackUSDtoIRRRate() float64 {
-	const defaultRate = 1850000.0
-
-	raw := strings.TrimSpace(os.Getenv("BILLING_SETTINGS_DEFAULT_USD_TO_IRR"))
-	if raw == "" {
-		return defaultRate
-	}
-
-	parsed, err := strconv.ParseFloat(raw, 64)
-	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) || parsed <= 0 {
-		return defaultRate
-	}
-
-	return parsed
-}
-
-func defaultSubscriptionPaymentProvider() string {
-	provider := strings.TrimSpace(strings.ToLower(os.Getenv("SUBSCRIPTION_PAYMENT_PROVIDER")))
-	if provider == "" {
-		provider = "mock"
-	}
-
-	return provider
-}
-
 func resolveExternalBaseURL(c *fiber.Ctx) string {
 	forwardedHost := firstForwardedValue(c.Get("X-Forwarded-Host"))
 
@@ -505,14 +493,14 @@ func firstForwardedValue(raw string) string {
 	return ""
 }
 
-func resolveUSDtoIRRRate(c *fiber.Ctx, store walletStore) (*platform.ExchangeRate, error) {
+func resolveUSDtoIRRRate(c *fiber.Ctx, store walletStore, fallback float64) (*platform.ExchangeRate, error) {
 	rate, err := store.GetLatestExchangeRate(c.Context())
 	if err == nil && rate != nil && rate.USDtoIRR > 0 {
 		return rate, nil
 	}
 
 	return &platform.ExchangeRate{
-		USDtoIRR:  fallbackUSDtoIRRRate(),
+		USDtoIRR:  fallback,
 		Source:    "static-fallback",
 		FetchedAt: time.Now(),
 	}, nil
@@ -538,7 +526,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		return err
 	}
 
-	rate, err := resolveUSDtoIRRRate(c, h.wallets)
+	rate, err := resolveUSDtoIRRRate(c, h.wallets, h.payment.FallbackUSDtoIRR)
 	if err != nil || rate == nil || rate.USDtoIRR <= 0 {
 		return fiber.NewError(fiber.StatusBadGateway, "failed to resolve exchange rate")
 	}
@@ -588,7 +576,7 @@ func (h *Handlers) CreateWalletTopUpIntent(c *fiber.Ctx) error {
 		return err
 	}
 
-	provider := selectProvider(providerName)
+	provider := h.selectPaymentProvider(providerName)
 
 	payRes, err := provider.CreatePayment(c, intent)
 	if err != nil {
@@ -623,7 +611,7 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 		setTopUpIntent(c, intent)
 	}
 
-	provider := selectProvider(providerName)
+	provider := h.selectPaymentProvider(providerName)
 
 	verifyRes, err := provider.VerifyPayment(c, authority)
 	if err != nil {

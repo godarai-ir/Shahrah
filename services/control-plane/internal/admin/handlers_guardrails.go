@@ -28,7 +28,7 @@ func (h *Handlers) ListTenantGuardrails(c *fiber.Ctx) error {
 		return err
 	}
 
-	items, total, err := h.models.ListTenantGuardrails(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
+	items, total, err := h.policies.ListTenantGuardrails(c.Context(), currentTenant.ID, params.Query, params.Limit, params.Offset)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (h *Handlers) CreateTenantGuardrail(c *fiber.Ctx) error {
 
 	actor := delegatedUserID(c)
 
-	item, err := h.models.CreateTenantGuardrail(c.Context(), currentTenant.ID, req, actor)
+	item, err := h.policies.CreateTenantGuardrail(c.Context(), currentTenant.ID, req, actor)
 	if err != nil {
 		return mapProviderAccountStoreError(err)
 	}
@@ -86,7 +86,7 @@ func (h *Handlers) GetTenantGuardrail(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "slug is required")
 	}
 
-	item, err := h.models.GetTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug)
+	item, err := h.policies.GetTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
@@ -124,7 +124,7 @@ func (h *Handlers) UpdateTenantGuardrail(c *fiber.Ctx) error {
 
 	actor := delegatedUserID(c)
 
-	item, err := h.models.UpdateTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug, req, actor)
+	item, err := h.policies.UpdateTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug, req, actor)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
@@ -151,7 +151,7 @@ func (h *Handlers) DeleteTenantGuardrail(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "slug is required")
 	}
 
-	if err := h.models.DeleteTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug); err != nil {
+	if err := h.policies.DeleteTenantGuardrailBySlug(c.Context(), currentTenant.ID, slug); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fiber.NewError(fiber.StatusNotFound, "guardrail not found")
 		}

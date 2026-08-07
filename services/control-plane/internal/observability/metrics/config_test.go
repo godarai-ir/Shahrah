@@ -7,17 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLoadDLQConfigFromEnvUsesProductionStreamDefaults(t *testing.T) {
-	t.Setenv("METRICS_MODEL_DLQ_BACKEND", "redis_stream")
-	t.Setenv("METRICS_MODEL_DLQ_REDIS_SENTINEL_ADDRS", "redis-0:26379, redis-1:26379")
-	t.Setenv("METRICS_MODEL_DLQ_MAXLEN", "10000")
-	t.Setenv("METRICS_MODEL_DLQ_RETENTION", "168h")
-	t.Setenv("METRICS_MODEL_DLQ_ENQUEUE_TIMEOUT_MS", "250")
+func TestDefaultDLQConfigUsesProductionStreamDefaults(t *testing.T) {
+	cfg := DefaultDLQConfig()
 
-	cfg := LoadConfigFromEnv().DLQ
-
-	assert.Equal(t, "redis_stream", cfg.Backend)
-	assert.Equal(t, []string{"redis-0:26379", "redis-1:26379"}, cfg.SentinelAddrs)
+	assert.Equal(t, "disabled", cfg.Backend)
 	assert.Equal(t, defaultDLQStream, cfg.Stream)
 	assert.Equal(t, defaultPoisonStream, cfg.PoisonStream)
 	assert.Equal(t, int64(10_000), cfg.MaxLen)

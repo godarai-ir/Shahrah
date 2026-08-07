@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,34 +37,6 @@ type NobitexExchangeRateConfig struct {
 	Interval  time.Duration
 	Timeout   time.Duration
 	MinTrades int
-}
-
-// LoadNobitexExchangeRateConfigFromEnv reads Nobitex updater settings.
-func LoadNobitexExchangeRateConfigFromEnv(rateSource string) NobitexExchangeRateConfig {
-	symbol := strings.ToUpper(strings.TrimSpace(os.Getenv("NOBITEX_EXCHANGE_RATE_SYMBOL")))
-	if symbol == "" {
-		symbol = defaultNobitexSymbol
-	}
-
-	source := strings.TrimSpace(os.Getenv("NOBITEX_EXCHANGE_RATE_SOURCE"))
-	if source == "" {
-		source = "nobitex:" + symbol
-	}
-
-	baseURL := strings.TrimSpace(os.Getenv("NOBITEX_EXCHANGE_RATE_BASE_URL"))
-	if baseURL == "" {
-		baseURL = defaultNobitexBaseURL
-	}
-
-	return NobitexExchangeRateConfig{
-		Enabled:   boolEnv("NOBITEX_EXCHANGE_RATE_ENABLED", strings.EqualFold(strings.TrimSpace(rateSource), "nobitex")),
-		BaseURL:   baseURL,
-		Symbol:    symbol,
-		Source:    source,
-		Interval:  secondsEnv("NOBITEX_EXCHANGE_RATE_INTERVAL_SECONDS", defaultNobitexInterval),
-		Timeout:   secondsEnv("NOBITEX_EXCHANGE_RATE_TIMEOUT_SECONDS", defaultNobitexTimeout),
-		MinTrades: intEnv("NOBITEX_EXCHANGE_RATE_MIN_TRADES", 1),
-	}
 }
 
 // NobitexExchangeRateProcessor periodically fetches USDTIRT market trades and stores a rate snapshot.

@@ -20,6 +20,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	controlconfig "github.com/Delpak/shahrah/services/control-plane/internal/config/environment"
 )
 
 type config struct {
@@ -209,7 +211,7 @@ func run() int {
 func parseFlags() config {
 	var cfg config
 	flag.StringVar(&cfg.URL, "url", "http://127.0.0.1:4000/v1/chat/completions", "chat completions endpoint")
-	flag.StringVar(&cfg.APIKey, "api-key", os.Getenv("SHAHRAH_LOADTEST_API_KEY"), "benchmark API key")
+	flag.StringVar(&cfg.APIKey, "api-key", controlconfig.Environment("SHAHRAH_LOADTEST_API_KEY"), "benchmark API key")
 	flag.StringVar(&cfg.Tenant, "tenant", "loadtest", "tenant header value")
 	flag.StringVar(&cfg.Model, "model", "mock:loadtest:mock-model", "model alias")
 	flag.StringVar(&cfg.ReportPath, "report", "artifacts/loadtest/report.json", "JSON report path")

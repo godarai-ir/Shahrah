@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -27,8 +26,10 @@ type CatalogPricingSnapshotManager struct {
 	state    atomic.Pointer[anthropicPricingSnapshot]
 }
 
-func NewCatalogPricingSnapshotManagerFromEnv(
+// NewCatalogPricingSnapshotManager creates a provider-scoped discovery snapshot manager.
+func NewCatalogPricingSnapshotManager(
 	provider string,
+	baseURL string,
 	client *http.Client,
 ) (*CatalogPricingSnapshotManager, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
@@ -36,13 +37,7 @@ func NewCatalogPricingSnapshotManagerFromEnv(
 		return nil, fmt.Errorf("%w: snapshot provider is missing", ErrPricingUnavailable)
 	}
 
-	base := strings.TrimRight(
-		strings.TrimSpace(firstNonEmptyEnvironment(
-			"SHAHRAH_MODEL_DISCOVERY_URL",
-			"SHAHRAH_DISCOVERY_URL",
-		)),
-		"/",
-	)
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if base == "" {
 		return nil, fmt.Errorf("%w: model discovery URL is missing", ErrPricingUnavailable)
 	}
@@ -351,14 +346,4 @@ func normalizeCatalogPricingModelID(model, provider string) string {
 	}
 
 	return value
-}
-
-func firstNonEmptyEnvironment(keys ...string) string {
-	for _, key := range keys {
-		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-			return value
-		}
-	}
-
-	return ""
 }

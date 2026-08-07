@@ -13,9 +13,11 @@ import (
 )
 
 func TestLoadNobitexExchangeRateConfigUsesReachableDefaultBaseURL(t *testing.T) {
-	t.Setenv("NOBITEX_EXCHANGE_RATE_BASE_URL", "")
-
-	cfg := LoadNobitexExchangeRateConfigFromEnv("nobitex")
+	cfg := NobitexExchangeRateConfig{
+		Enabled: true,
+		BaseURL: defaultNobitexBaseURL,
+		Symbol:  defaultNobitexSymbol,
+	}
 
 	if !cfg.Enabled {
 		t.Fatal("expected Nobitex exchange rate updater to be enabled")

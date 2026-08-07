@@ -220,12 +220,12 @@ func TestCheckRateLimitCacheErrorFailsClosedByDefault(t *testing.T) {
 }
 
 func TestCheckRateLimitCacheErrorCanFailOpen(t *testing.T) {
-	t.Setenv("RATE_LIMIT_POLICY_REDIS_FAIL_OPEN", "true")
 	service := newRateLimitPolicyTestServiceWithCache(t, &errorRateLimitCache{}, []platform.RateLimitRule{{
 		RuleID:  "rpm",
 		Enabled: true,
 		Limit:   map[string]interface{}{"rpm": 1},
 	}})
+	service.rateLimitFailOpen = true
 
 	if _, err := service.CheckRateLimit(context.Background(), &platform.AuthContext{TenantID: "tenant-1"}, "gpt-test", 10); err != nil {
 		t.Fatalf("expected fail-open request to be allowed, got %v", err)

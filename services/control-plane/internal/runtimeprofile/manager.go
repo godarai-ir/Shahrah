@@ -3,8 +3,6 @@ package runtimeprofile
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -52,14 +50,6 @@ type l1Entry struct {
 	profile   *Profile
 	loadedAt  time.Time
 	expiresAt time.Time
-}
-
-func LoadConfigFromEnv() Config {
-	return Config{
-		VersionCheckInterval: secondsEnv("TENANT_RUNTIME_PROFILE_VERSION_CHECK_SECONDS", time.Second),
-		StaleGrace:           secondsEnv("TENANT_RUNTIME_PROFILE_STALE_GRACE_SECONDS", 300*time.Second),
-		L2TTL:                secondsEnv("TENANT_RUNTIME_PROFILE_L2_TTL_SECONDS", 3600*time.Second),
-	}
 }
 
 func NewManager(compiler *Compiler, store Store, cache DistributedCache, logger *zap.Logger, cfg Config) *Manager {
@@ -395,18 +385,4 @@ func decodeProfile(raw []byte) (*Profile, error) {
 	}
 
 	return &profile, nil
-}
-
-func secondsEnv(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-
-	seconds, err := strconv.Atoi(raw)
-	if err != nil || seconds <= 0 {
-		return fallback
-	}
-
-	return time.Duration(seconds) * time.Second
 }

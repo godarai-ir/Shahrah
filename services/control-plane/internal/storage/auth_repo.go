@@ -16,7 +16,7 @@ import (
 )
 
 // GetKeyByHash retrieves a key by its hashed token.
-func (s *Store) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error) {
+func (s *AuthRepository) GetKeyByHash(ctx context.Context, hash string) (*platform.AuthContext, error) {
 	var (
 		auth        platform.AuthContext
 		expiresAt   *time.Time
@@ -163,7 +163,7 @@ func runtimePolicyByModel(runtimeModels []runtimeAllowedModelPolicy, model strin
 
 // ResolveTenantUserAuth builds an auth context for a tenant-bound user.
 // This is used when tenant-admin calls control-plane with master key + x-godarai-user-id.
-func (s *Store) ResolveTenantUserAuth(ctx context.Context, tenantID, userID string) (*platform.AuthContext, error) {
+func (s *AuthRepository) ResolveTenantUserAuth(ctx context.Context, tenantID, userID string) (*platform.AuthContext, error) {
 	tenantID = strings.TrimSpace(tenantID)
 
 	userID = strings.TrimSpace(userID)
@@ -235,7 +235,7 @@ type runtimeAllowedModelPolicy struct {
 	PricingResolved bool
 }
 
-func (s *Store) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, tenantID, teamID, userID string) ([]runtimeAllowedModelPolicy, bool, error) {
+func (s *AuthRepository) listRuntimeAllowedModelsByProviderAccount(ctx context.Context, tenantID, teamID, userID string) ([]runtimeAllowedModelPolicy, bool, error) {
 	var hasEnabledModels bool
 	if err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -445,7 +445,7 @@ func parseVirtualModelSnapshots(raw []byte) map[string]platform.VirtualModelSnap
 
 // ListAllowedModelFQNs returns tenant-scoped model FQNs allowed for a principal.
 // Exactly one principal dimension should be used: PAT(userID) or VAT(teamID).
-func (s *Store) ListAllowedModelFQNs(ctx context.Context, tenantID, userID, teamID string) ([]string, error) {
+func (s *AuthRepository) ListAllowedModelFQNs(ctx context.Context, tenantID, userID, teamID string) ([]string, error) {
 	policies, _, err := s.listRuntimeAllowedModelsByProviderAccount(ctx, tenantID, strings.TrimSpace(teamID), strings.TrimSpace(userID))
 	if err != nil {
 		return nil, err
@@ -472,7 +472,7 @@ func (s *Store) ListAllowedModelFQNs(ctx context.Context, tenantID, userID, team
 }
 
 // CreateKey creates a tenant-scoped virtual key.
-func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) (*platform.CreatedKey, error) {
+func (s *AuthRepository) CreateKey(ctx context.Context, params platform.CreateKeyParams) (*platform.CreatedKey, error) {
 	params.Normalize()
 
 	if params.KeyType == platform.KeyTypeVAT && params.VirtualUserID != "" {
@@ -560,7 +560,7 @@ func (s *Store) CreateKey(ctx context.Context, params platform.CreateKeyParams) 
 }
 
 // ListKeys returns created keys for the tenant.
-func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.CreatedKey, error) {
+func (s *AuthRepository) ListKeys(ctx context.Context, tenantID string) ([]platform.CreatedKey, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
 		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
@@ -606,11 +606,11 @@ func (s *Store) ListKeys(ctx context.Context, tenantID string) ([]platform.Creat
 	return keys, rows.Err()
 }
 
-func (s *Store) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
+func (s *AuthRepository) TouchKeyLastUsed(ctx context.Context, keyID string, usedAt time.Time) error {
 	return s.queueKeyLastUsed(ctx, keyID, usedAt)
 }
 
-func (s *Store) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
+func (s *AuthRepository) PATExists(ctx context.Context, tenantID string, userID string, name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return false, nil
@@ -633,7 +633,7 @@ func (s *Store) PATExists(ctx context.Context, tenantID string, userID string, n
 	return exists, err
 }
 
-func (s *Store) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+func (s *AuthRepository) ListPATs(ctx context.Context, tenantID string, userID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
 	query = strings.TrimSpace(query)
 
 	if limit <= 0 {
@@ -710,7 +710,7 @@ func (s *Store) ListPATs(ctx context.Context, tenantID string, userID string, qu
 	return items, total, rows.Err()
 }
 
-func (s *Store) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
+func (s *AuthRepository) RevokePAT(ctx context.Context, tenantID string, userID string, keyID string, revokedByUserID string) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE verification_tokens
 		SET revoked_at = NOW(),
@@ -734,7 +734,7 @@ func (s *Store) RevokePAT(ctx context.Context, tenantID string, userID string, k
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *Store) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
+func (s *AuthRepository) RevokeAllPATs(ctx context.Context, tenantID string, userID string, revokedByUserID string) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE verification_tokens
 		SET revoked_at = NOW(),
@@ -757,7 +757,7 @@ func (s *Store) RevokeAllPATs(ctx context.Context, tenantID string, userID strin
 	return tag.RowsAffected(), nil
 }
 
-func (s *Store) ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
+func (s *AuthRepository) ListVATTokens(ctx context.Context, tenantID string, virtualUserID string, query string, limit int, offset int) ([]platform.CreatedKey, int, error) {
 	query = strings.TrimSpace(query)
 	virtualUserID = strings.TrimSpace(virtualUserID)
 
@@ -825,7 +825,7 @@ func (s *Store) ListVATTokens(ctx context.Context, tenantID string, virtualUserI
 	return items, total, rows.Err()
 }
 
-func (s *Store) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
+func (s *AuthRepository) UpdateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, req platform.UpdateVATTokenRequest) (*platform.CreatedKey, error) {
 	keyAlias := strings.TrimSpace(req.KeyAlias)
 
 	models := req.AllowedModels
@@ -893,7 +893,7 @@ func (s *Store) UpdateVATToken(ctx context.Context, tenantID string, virtualUser
 	return item, nil
 }
 
-func (s *Store) RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error) {
+func (s *AuthRepository) RevokeVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, revokedByUserID string, reason string) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE verification_tokens
 		SET revoked_at = NOW(),
@@ -918,7 +918,7 @@ func (s *Store) RevokeVATToken(ctx context.Context, tenantID string, virtualUser
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *Store) RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*platform.CreatedKey, error) {
+func (s *AuthRepository) RotateVATToken(ctx context.Context, tenantID string, virtualUserID string, keyID string, rotatedByUserID string, gracePeriod string) (*platform.CreatedKey, error) {
 	current, err := s.getVATToken(ctx, tenantID, virtualUserID, keyID)
 	if err != nil {
 		return nil, err
@@ -994,7 +994,7 @@ func (s *Store) RotateVATToken(ctx context.Context, tenantID string, virtualUser
 	return created, err
 }
 
-func (s *Store) getVATToken(ctx context.Context, tenantID, virtualUserID, keyID string) (*platform.CreatedKey, error) {
+func (s *AuthRepository) getVATToken(ctx context.Context, tenantID, virtualUserID, keyID string) (*platform.CreatedKey, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT id::text, COALESCE(key_alias, ''), COALESCE(key_name, ''), tenant_id::text,
 		       COALESCE(models, '{}'), COALESCE(team_id::text, ''), COALESCE(organization_id::text, ''),
@@ -1041,7 +1041,7 @@ func scanCreatedKey(scanner createdKeyScanner) (*platform.CreatedKey, error) {
 	return &item, nil
 }
 
-func (s *Store) resolveVATVirtualUserScope(ctx context.Context, tenantID, virtualUserID, requestedTeamID, requestedOrgID string) (string, string, error) {
+func (s *AuthRepository) resolveVATVirtualUserScope(ctx context.Context, tenantID, virtualUserID, requestedTeamID, requestedOrgID string) (string, string, error) {
 	if _, err := uuid.Parse(strings.TrimSpace(virtualUserID)); err != nil {
 		return "", "", fmt.Errorf("virtual_user_id must be a UUID")
 	}
