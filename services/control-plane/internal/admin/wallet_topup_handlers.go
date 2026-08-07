@@ -192,13 +192,7 @@ func (p *zarinpalProvider) VerifyPayment(c *fiber.Ctx, authority string) (*payme
 		}, nil
 	}
 
-	intent := c.Locals("topup_intent")
-
-	topup := (*platform.WalletTopUpIntent)(nil)
-	if loadedTopup, ok := intent.(*platform.WalletTopUpIntent); ok {
-		topup = loadedTopup
-	}
-
+	topup := topUpIntentFromContext(c)
 	if topup == nil {
 		return nil, errors.New("topup intent not loaded")
 	}
@@ -324,13 +318,7 @@ func (p *idpayProvider) VerifyPayment(c *fiber.Ctx, authority string) (*paymentV
 		return nil, errors.New("IDPAY_API_KEY is not set")
 	}
 
-	intent := c.Locals("topup_intent")
-
-	topup := (*platform.WalletTopUpIntent)(nil)
-	if loadedTopup, ok := intent.(*platform.WalletTopUpIntent); ok {
-		topup = loadedTopup
-	}
-
+	topup := topUpIntentFromContext(c)
 	if topup == nil {
 		return nil, errors.New("topup intent not loaded")
 	}
@@ -632,7 +620,7 @@ func (h *Handlers) WalletTopUpCallback(c *fiber.Ctx) error {
 
 	intent, err := h.wallets.GetWalletTopUpIntentByAuthority(c.Context(), authority)
 	if err == nil && intent != nil {
-		c.Locals("topup_intent", intent)
+		setTopUpIntent(c, intent)
 	}
 
 	provider := selectProvider(providerName)

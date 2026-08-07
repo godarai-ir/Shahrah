@@ -135,7 +135,7 @@ func (h *ChatCompletionHandler) prepareChatRequest(
 			return handledPreparedChatRequest(writeAPIError(c, fiber.StatusBadGateway, "Failed to resolve guardrails", "guardrail_resolution_error"))
 		}
 
-		c.Locals("guardrail_overrides", guardrailOverrides)
+		setGuardrailOverrides(c, guardrailOverrides)
 		inputResult, inputErr := h.guardrails.ApplyInputWithGuardrails(request, guardrailSelection, guardrailOverrides)
 		h.recordGuardrailChecks(c, inputResult.Checks)
 

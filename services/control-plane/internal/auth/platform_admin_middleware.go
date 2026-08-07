@@ -19,7 +19,8 @@ func PlatformAdminAuthMiddleware(masterKey string, serviceAccounts PlatformServi
 		}
 
 		if strings.TrimSpace(masterKey) != "" && secureTokenEqual(apiKey, masterKey) {
-			c.Locals("platform_service_account_id", "master-key")
+			setPlatformServiceAccountContext(c, PlatformServiceAccountContext{ID: "master-key"})
+
 			return c.Next()
 		}
 
@@ -41,8 +42,10 @@ func PlatformAdminAuthMiddleware(masterKey string, serviceAccounts PlatformServi
 			return fiber.NewError(fiber.StatusForbidden, "platform service account lacks required scope")
 		}
 
-		c.Locals("platform_service_account_id", credential.CredentialID)
-		c.Locals("platform_service_account_name", credential.AccountName)
+		setPlatformServiceAccountContext(c, PlatformServiceAccountContext{
+			ID:   credential.CredentialID,
+			Name: credential.AccountName,
+		})
 
 		return c.Next()
 	}

@@ -351,7 +351,7 @@ func (h *Handlers) SubscriptionPaymentCallback(c *fiber.Ctx) error {
 		return h.redirectSubscriptionPaymentResult(c, store, authority, "failed", "intent_not_found")
 	}
 
-	c.Locals("topup_intent", &platform.WalletTopUpIntent{
+	setTopUpIntent(c, &platform.WalletTopUpIntent{
 		PublicID: intent.PublicID, TenantID: intent.TenantID, Provider: intent.Provider,
 		PayableIRR: intent.AmountMinor, CallbackURL: intent.CallbackURL, ReturnURL: intent.ReturnURL,
 	})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -42,6 +43,64 @@ type TenantAdminSession struct {
 	ExpiresAt  time.Time
 	CreatedAt  time.Time
 }
+
+// TenantAdminOTPResponse is the public result of creating an OTP request.
+type TenantAdminOTPResponse struct {
+	RequestID         string `json:"request_id"`
+	Channel           string `json:"channel"`
+	DestinationMasked string `json:"destination_masked"`
+	ExpiresInSeconds  int    `json:"expires_in_seconds"`
+	OTPCode           string `json:"-"`
+	DebugOTP          string `json:"debug_otp,omitempty"`
+}
+
+// TenantAdminOTPVerification is the typed result of verifying an OTP request.
+type TenantAdminOTPVerification struct {
+	OK     bool                          `json:"ok"`
+	Error  string                        `json:"error,omitempty"`
+	Record *TenantAdminOTPRecordResponse `json:"record,omitempty"`
+}
+
+// TenantAdminOTPRecordResponse is the public representation of a verified OTP record.
+type TenantAdminOTPRecordResponse struct {
+	ID           string  `json:"id"`
+	TenantSlug   string  `json:"tenant_slug"`
+	Purpose      string  `json:"purpose"`
+	Channel      string  `json:"channel"`
+	Identifier   string  `json:"identifier"`
+	UserID       *string `json:"user_id"`
+	PendingValue *string `json:"pending_value"`
+	OTPCode      string  `json:"otp_code"`
+	Attempts     int     `json:"attempts"`
+	ExpiresAtISO string  `json:"expires_at_iso"`
+	CreatedAtISO string  `json:"created_at_iso"`
+}
+
+// TenantAdminSessionResponse is the public representation of a tenant-admin session.
+type TenantAdminSessionResponse struct {
+	ID           string `json:"id"`
+	TenantSlug   string `json:"tenant_slug"`
+	UserID       string `json:"user_id"`
+	CreatedAtISO string `json:"created_at_iso"`
+	ExpiresAtISO string `json:"expires_at_iso"`
+}
+
+// TenantAdminUserResponse is the public representation of a tenant-admin user.
+type TenantAdminUserResponse struct {
+	ID              string   `json:"id"`
+	TenantSlug      string   `json:"tenant_slug"`
+	Email           string   `json:"email"`
+	Mobile          string   `json:"mobile"`
+	Role            string   `json:"role"`
+	Active          bool     `json:"active"`
+	SocialProviders []string `json:"social_providers,omitempty"`
+	CreatedAtISO    string   `json:"created_at_iso"`
+	UpdatedAtISO    string   `json:"updated_at_iso"`
+	LastLoginAtISO  string   `json:"last_login_at_iso,omitempty"`
+}
+
+// ErrTenantAdminUserNotFound indicates that an active tenant member could not be found.
+var ErrTenantAdminUserNotFound = errors.New("tenant member not found")
 
 const (
 	tenantAdminCaptchaTTL     = 2 * time.Minute
@@ -107,7 +166,7 @@ type TenantAdminOTPRequestParams struct {
 }
 
 // CreateTenantAdminOTPRequest creates an OTP request.
-func (s *Store) CreateTenantAdminOTPRequest(ctx context.Context, params TenantAdminOTPRequestParams) (map[string]interface{}, error) {
+func (s *Store) CreateTenantAdminOTPRequest(ctx context.Context, params TenantAdminOTPRequestParams) (*TenantAdminOTPResponse, error) {
 	id := generateTenantAdminID()
 	otpCode := generateOTPCode()
 	expiresAt := time.Now().Add(tenantAdminOTPTTL)
@@ -126,12 +185,12 @@ func (s *Store) CreateTenantAdminOTPRequest(ctx context.Context, params TenantAd
 		return nil, fmt.Errorf("create OTP request: %w", err)
 	}
 
-	return map[string]interface{}{
-		"request_id":         id,
-		"channel":            channel,
-		"destination_masked": maskTenantAdminIdentifier(channel, params.Identifier),
-		"expires_in_seconds": int(tenantAdminOTPTTL.Seconds()),
-		"otp_code":           otpCode,
+	return &TenantAdminOTPResponse{
+		RequestID:         id,
+		Channel:           channel,
+		DestinationMasked: maskTenantAdminIdentifier(channel, params.Identifier),
+		ExpiresInSeconds:  int(tenantAdminOTPTTL.Seconds()),
+		OTPCode:           otpCode,
 	}, nil
 }
 
@@ -145,7 +204,7 @@ type VerifyTenantAdminOTPRequestParams struct {
 }
 
 // VerifyTenantAdminOTPRequest verifies an OTP request.
-func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTenantAdminOTPRequestParams) (map[string]interface{}, error) {
+func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTenantAdminOTPRequestParams) (*TenantAdminOTPVerification, error) {
 	var (
 		record  TenantAdminOTPRequest
 		otpCode string
@@ -162,22 +221,22 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 	)
 	if queryErr != nil {
 		if queryErr == pgx.ErrNoRows {
-			return map[string]interface{}{"ok": false, "error": "درخواست OTP معتبر نیست یا منقضی شده است."}, nil
+			return failedTenantAdminOTPVerification("درخواست OTP معتبر نیست یا منقضی شده است."), nil
 		}
 
 		return nil, queryErr
 	}
 
 	if record.TenantSlug != params.TenantSlug {
-		return map[string]interface{}{"ok": false, "error": "این درخواست OTP مربوط به Tenant فعلی نیست."}, nil
+		return failedTenantAdminOTPVerification("این درخواست OTP مربوط به Tenant فعلی نیست."), nil
 	}
 
 	if record.Purpose != params.Purpose {
-		return map[string]interface{}{"ok": false, "error": "کاربرد OTP با درخواست فعلی هم\u200cخوانی ندارد."}, nil
+		return failedTenantAdminOTPVerification("کاربرد OTP با درخواست فعلی هم\u200cخوانی ندارد."), nil
 	}
 
 	if params.UserID != nil && (record.UserID == nil || *record.UserID != *params.UserID) {
-		return map[string]interface{}{"ok": false, "error": "این درخواست OTP متعلق به کاربر فعلی نیست."}, nil
+		return failedTenantAdminOTPVerification("این درخواست OTP متعلق به کاربر فعلی نیست."), nil
 	}
 
 	if time.Now().After(record.ExpiresAt) {
@@ -185,7 +244,7 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 			return nil, err
 		}
 
-		return map[string]interface{}{"ok": false, "error": "کد OTP منقضی شده است."}, nil
+		return failedTenantAdminOTPVerification("کد OTP منقضی شده است."), nil
 	}
 
 	if params.OTPCode != otpCode {
@@ -195,14 +254,14 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 				return nil, err
 			}
 
-			return map[string]interface{}{"ok": false, "error": "تعداد تلاش بیش از حد مجاز است. دوباره OTP بگیرید."}, nil
+			return failedTenantAdminOTPVerification("تعداد تلاش بیش از حد مجاز است. دوباره OTP بگیرید."), nil
 		}
 
 		if _, err := s.pool.Exec(ctx, `UPDATE tenant_admin_otp_requests SET attempts = $1 WHERE id = $2`, nextAttempts, params.RequestID); err != nil {
 			return nil, err
 		}
 
-		return map[string]interface{}{"ok": false, "error": "کد OTP اشتباه است."}, nil
+		return failedTenantAdminOTPVerification("کد OTP اشتباه است."), nil
 	}
 
 	// OTP is correct - delete the record
@@ -210,22 +269,26 @@ func (s *Store) VerifyTenantAdminOTPRequest(ctx context.Context, params VerifyTe
 		return nil, err
 	}
 
-	return map[string]interface{}{
-		"ok": true,
-		"record": map[string]interface{}{
-			"id":             record.ID,
-			"tenant_slug":    record.TenantSlug,
-			"purpose":        record.Purpose,
-			"channel":        record.Channel,
-			"identifier":     record.Identifier,
-			"user_id":        record.UserID,
-			"pending_value":  record.PendingValue,
-			"otp_code":       otpCode,
-			"attempts":       record.Attempts,
-			"expires_at_iso": record.ExpiresAt.Format(time.RFC3339),
-			"created_at_iso": record.CreatedAt.Format(time.RFC3339),
+	return &TenantAdminOTPVerification{
+		OK: true,
+		Record: &TenantAdminOTPRecordResponse{
+			ID:           record.ID,
+			TenantSlug:   record.TenantSlug,
+			Purpose:      record.Purpose,
+			Channel:      record.Channel,
+			Identifier:   record.Identifier,
+			UserID:       record.UserID,
+			PendingValue: record.PendingValue,
+			OTPCode:      otpCode,
+			Attempts:     record.Attempts,
+			ExpiresAtISO: record.ExpiresAt.Format(time.RFC3339),
+			CreatedAtISO: record.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
+}
+
+func failedTenantAdminOTPVerification(message string) *TenantAdminOTPVerification {
+	return &TenantAdminOTPVerification{Error: message}
 }
 
 // CreateTenantAdminSessionParams holds parameters for creating a session.
@@ -235,7 +298,7 @@ type CreateTenantAdminSessionParams struct {
 }
 
 // CreateTenantAdminSession creates a session.
-func (s *Store) CreateTenantAdminSession(ctx context.Context, params CreateTenantAdminSessionParams) (map[string]interface{}, error) {
+func (s *Store) CreateTenantAdminSession(ctx context.Context, params CreateTenantAdminSessionParams) (*TenantAdminSessionResponse, error) {
 	id, err := generateTenantAdminSessionID()
 	if err != nil {
 		return nil, err
@@ -252,17 +315,17 @@ func (s *Store) CreateTenantAdminSession(ctx context.Context, params CreateTenan
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
-	return map[string]interface{}{
-		"id":             id,
-		"tenant_slug":    params.TenantSlug,
-		"user_id":        params.UserID,
-		"created_at_iso": now.Format(time.RFC3339),
-		"expires_at_iso": expiresAt.Format(time.RFC3339),
+	return &TenantAdminSessionResponse{
+		ID:           id,
+		TenantSlug:   params.TenantSlug,
+		UserID:       params.UserID,
+		CreatedAtISO: now.Format(time.RFC3339),
+		ExpiresAtISO: expiresAt.Format(time.RFC3339),
 	}, nil
 }
 
 // GetTenantAdminSession retrieves a session by ID.
-func (s *Store) GetTenantAdminSession(ctx context.Context, id string) (map[string]interface{}, error) {
+func (s *Store) GetTenantAdminSession(ctx context.Context, id string) (*TenantAdminSessionResponse, error) {
 	var session TenantAdminSession
 
 	queryErr := s.pool.QueryRow(ctx, `
@@ -285,12 +348,12 @@ func (s *Store) GetTenantAdminSession(ctx context.Context, id string) (map[strin
 		return nil, nil
 	}
 
-	return map[string]interface{}{
-		"id":             session.ID,
-		"tenant_slug":    session.TenantSlug,
-		"user_id":        session.UserID,
-		"created_at_iso": session.CreatedAt.Format(time.RFC3339),
-		"expires_at_iso": session.ExpiresAt.Format(time.RFC3339),
+	return &TenantAdminSessionResponse{
+		ID:           session.ID,
+		TenantSlug:   session.TenantSlug,
+		UserID:       session.UserID,
+		CreatedAtISO: session.CreatedAt.Format(time.RFC3339),
+		ExpiresAtISO: session.ExpiresAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -308,7 +371,7 @@ type FindOrCreateTenantAdminUserParams struct {
 }
 
 // FindOrCreateTenantAdminUser finds an active tenant user for login.
-func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCreateTenantAdminUserParams) (map[string]interface{}, error) {
+func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCreateTenantAdminUserParams) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool
@@ -332,7 +395,11 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 			LIMIT 1
 		`, tenantSlug, identifier).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
 		if err == nil {
-			return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
+			return buildTenantAdminUserResponse(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
+		}
+
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("find tenant admin user by mobile: %w", err)
 		}
 	} else {
 		err := s.pool.QueryRow(ctx, `
@@ -347,15 +414,19 @@ func (s *Store) FindOrCreateTenantAdminUser(ctx context.Context, params FindOrCr
 			LIMIT 1
 		`, tenantSlug, identifier).Scan(&id, &slug, &email, &mobile, &role, &active, &createdAt, &updatedAt)
 		if err == nil {
-			return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
+			return buildTenantAdminUserResponse(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
+		}
+
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("find tenant admin user by email: %w", err)
 		}
 	}
 
-	return nil, fmt.Errorf("tenant member not found")
+	return nil, ErrTenantAdminUserNotFound
 }
 
 // GetTenantAdminUser retrieves a user by ID.
-func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error) {
+func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool
@@ -385,8 +456,8 @@ func (s *Store) GetTenantAdminUser(ctx context.Context, tenantID string, userID 
 		return nil, queryErr
 	}
 
-	result := buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt)
-	result["social_providers"] = socialProviders
+	result := buildTenantAdminUserResponse(slug, id, email, mobile, role, active, createdAt, updatedAt)
+	result.SocialProviders = socialProviders
 
 	return result, nil
 }
@@ -400,7 +471,7 @@ type UpdateTenantAdminUserContactParams struct {
 }
 
 // UpdateTenantAdminUserContact updates a user's contact field.
-func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateTenantAdminUserContactParams) (map[string]interface{}, error) {
+func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateTenantAdminUserContactParams) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool
@@ -429,11 +500,11 @@ func (s *Store) UpdateTenantAdminUserContact(ctx context.Context, params UpdateT
 		return nil, fmt.Errorf("update user contact: %w", err)
 	}
 
-	return buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
+	return buildTenantAdminUserResponse(slug, id, email, mobile, role, active, createdAt, updatedAt), nil
 }
 
 // TouchTenantAdminLastLogin updates the user's last login timestamp.
-func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error) {
+func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (*TenantAdminUserResponse, error) {
 	var (
 		id, slug, email, mobile, role string
 		active                        bool
@@ -456,13 +527,13 @@ func (s *Store) TouchTenantAdminLastLogin(ctx context.Context, tenantID string, 
 		return nil, queryErr
 	}
 
-	result := buildTenantAdminUserMap(slug, id, email, mobile, role, active, createdAt, updatedAt)
-	result["last_login_at_iso"] = time.Now().Format(time.RFC3339)
+	result := buildTenantAdminUserResponse(slug, id, email, mobile, role, active, createdAt, updatedAt)
+	result.LastLoginAtISO = time.Now().Format(time.RFC3339)
 
 	return result, nil
 }
 
-func buildTenantAdminUserMap(
+func buildTenantAdminUserResponse(
 	tenantSlug string,
 	id string,
 	email string,
@@ -471,16 +542,16 @@ func buildTenantAdminUserMap(
 	active bool,
 	createdAt time.Time,
 	updatedAt time.Time,
-) map[string]interface{} {
-	return map[string]interface{}{
-		"id":             id,
-		"tenant_slug":    tenantSlug,
-		"email":          email,
-		"mobile":         mobile,
-		"role":           role,
-		"active":         active,
-		"created_at_iso": createdAt.Format(time.RFC3339),
-		"updated_at_iso": updatedAt.Format(time.RFC3339),
+) *TenantAdminUserResponse {
+	return &TenantAdminUserResponse{
+		ID:           id,
+		TenantSlug:   tenantSlug,
+		Email:        email,
+		Mobile:       mobile,
+		Role:         role,
+		Active:       active,
+		CreatedAtISO: createdAt.Format(time.RFC3339),
+		UpdatedAtISO: updatedAt.Format(time.RFC3339),
 	}
 }
 

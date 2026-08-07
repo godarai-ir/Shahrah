@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -25,15 +26,15 @@ import (
 type AuthStore interface {
 	CreateTenantAdminCaptcha(ctx context.Context) (string, string, time.Time, error)
 	ConsumeTenantAdminCaptcha(ctx context.Context, id string, answer string) (bool, error)
-	CreateTenantAdminOTPRequest(ctx context.Context, params storage.TenantAdminOTPRequestParams) (map[string]interface{}, error)
-	VerifyTenantAdminOTPRequest(ctx context.Context, params storage.VerifyTenantAdminOTPRequestParams) (map[string]interface{}, error)
-	CreateTenantAdminSession(ctx context.Context, params storage.CreateTenantAdminSessionParams) (map[string]interface{}, error)
-	GetTenantAdminSession(ctx context.Context, id string) (map[string]interface{}, error)
+	CreateTenantAdminOTPRequest(ctx context.Context, params storage.TenantAdminOTPRequestParams) (*storage.TenantAdminOTPResponse, error)
+	VerifyTenantAdminOTPRequest(ctx context.Context, params storage.VerifyTenantAdminOTPRequestParams) (*storage.TenantAdminOTPVerification, error)
+	CreateTenantAdminSession(ctx context.Context, params storage.CreateTenantAdminSessionParams) (*storage.TenantAdminSessionResponse, error)
+	GetTenantAdminSession(ctx context.Context, id string) (*storage.TenantAdminSessionResponse, error)
 	RevokeTenantAdminSession(ctx context.Context, id string) error
-	FindOrCreateTenantAdminUser(ctx context.Context, params storage.FindOrCreateTenantAdminUserParams) (map[string]interface{}, error)
-	GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error)
-	UpdateTenantAdminUserContact(ctx context.Context, params storage.UpdateTenantAdminUserContactParams) (map[string]interface{}, error)
-	TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (map[string]interface{}, error)
+	FindOrCreateTenantAdminUser(ctx context.Context, params storage.FindOrCreateTenantAdminUserParams) (*storage.TenantAdminUserResponse, error)
+	GetTenantAdminUser(ctx context.Context, tenantID string, userID string) (*storage.TenantAdminUserResponse, error)
+	UpdateTenantAdminUserContact(ctx context.Context, params storage.UpdateTenantAdminUserContactParams) (*storage.TenantAdminUserResponse, error)
+	TouchTenantAdminLastLogin(ctx context.Context, tenantID string, userID string) (*storage.TenantAdminUserResponse, error)
 }
 
 type socialAuthStore interface {
@@ -364,7 +365,7 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 			Channel:    channel,
 			Identifier: body.Identifier,
 		}); userErr != nil {
-			if strings.Contains(strings.ToLower(userErr.Error()), "tenant member not found") {
+			if errors.Is(userErr, storage.ErrTenantAdminUserNotFound) {
 				return c.JSON(buildGenericTenantAdminOTPResponse(channel, body.Identifier))
 			}
 
@@ -384,17 +385,8 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create OTP request")
 	}
 
-	destination := ""
-	if value, ok := result["destination_masked"].(string); ok {
-		destination = value
-	}
-
-	otpCode := ""
-	if value, ok := result["otp_code"].(string); ok {
-		otpCode = value
-	}
-
-	delete(result, "otp_code")
+	destination := result.DestinationMasked
+	otpCode := result.OTPCode
 
 	if h.otpNotifier != nil && otpCode != "" {
 		if err := h.otpNotifier.SendTenantAdminOTP(channel, body.Identifier, tenantSlug, otpCode, 5); err != nil {
@@ -403,7 +395,7 @@ func (h *AuthHandlers) CreateOTPRequest(c *fiber.Ctx) error {
 	}
 
 	if debugOTPExposureEnabled() && otpCode != "" {
-		result["debug_otp"] = otpCode
+		result.DebugOTP = otpCode
 	}
 
 	return c.JSON(result)
@@ -576,7 +568,7 @@ func (h *AuthHandlers) FindOrCreateUser(c *fiber.Ctx) error {
 		Identifier: body.Identifier,
 	})
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "tenant member not found") {
+		if errors.Is(err, storage.ErrTenantAdminUserNotFound) {
 			return fiber.NewError(fiber.StatusForbidden, "You do not have access to this tenant.")
 		}
 

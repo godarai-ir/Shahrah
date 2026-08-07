@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	typedmetadata "github.com/Delpak/shahrah/services/control-plane/internal/metadata"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +47,7 @@ func TestOpenAIImageCostBreakdownPricesModalitiesAndCachesSeparately(t *testing.
 		usage.TotalTokens,
 		price,
 		1,
-		nil,
+		typedmetadata.Wrap(nil),
 		"standard",
 	)
 	require.NoError(t, err)
@@ -80,7 +81,7 @@ func TestOpenAIImageCostBreakdownSelectsBatchDimensions(t *testing.T) {
 	}
 
 	got, err := openAIImageCostBreakdown(
-		"gpt-image-2", usage, 330, 300, 630, price, 1, nil, "batch",
+		"gpt-image-2", usage, 330, 300, 630, price, 1, typedmetadata.Wrap(nil), "batch",
 	)
 	require.NoError(t, err)
 	require.InDelta(t, 0.00557625, got.TotalCostUSD, 0.0000000001)

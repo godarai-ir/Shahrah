@@ -606,11 +606,11 @@ func (h *ChatCompletionHandler) applyPromptVersion(c *fiber.Ctx, tenantID string
 
 	req.Model = rendered.Model
 	req.Messages = rendered.Messages
-	c.Locals("prompt_metadata", map[string]interface{}{
-		"prompt_id":         rendered.PromptID,
-		"prompt_version_id": rendered.PromptVersionID,
-		"prompt_fqn":        rendered.PromptFQN,
-		"prompt_version":    promptVersion.Version,
+	setPromptRequestMetadata(c, promptRequestMetadata{
+		promptID:        rendered.PromptID,
+		promptVersionID: rendered.PromptVersionID,
+		promptFQN:       rendered.PromptFQN,
+		promptVersion:   promptVersion.Version,
 	})
 
 	return nil
@@ -645,9 +645,11 @@ func (h *ChatCompletionHandler) handleResponseCacheLookup(
 	cacheResult, cachePending, lookupErr := h.responseCache.Lookup(c.Context(), cacheScope, req, *cacheConfig)
 
 	c.Set(apiheaders.HeaderCacheStatus, cacheResult.Status)
-	c.Locals("response_cache_status", cacheResult.Status)
-	c.Locals("response_cache_type", cacheConfig.Type)
-	c.Locals("response_cache_embedding_latency_ms", cacheResult.EmbeddingLatencyMS)
+	setResponseCacheRequestMetadata(c, responseCacheRequestMetadata{
+		status:             cacheResult.Status,
+		cacheType:          cacheConfig.Type,
+		embeddingLatencyMS: cacheResult.EmbeddingLatencyMS,
+	})
 
 	if lookupErr != nil {
 		h.logger.Warn("Response cache lookup failed", zap.String("cache_type", cacheConfig.Type), zap.Error(lookupErr))
@@ -830,9 +832,7 @@ func (h *ChatCompletionHandler) recordVirtualModelRoute(
 	routeStart time.Time,
 	fromSnapshot bool,
 ) {
-	c.Locals("vm_resp", resp)
-	c.Locals("vm_fallback_count", fallbackCount)
-	c.Locals("vm_failure_reason", failureReason)
+	setVirtualModelRequestContext(c, resp, fallbackCount, failureReason)
 
 	metadata := map[string]interface{}{
 		"virtual_model":     vm.Alias,
@@ -1449,11 +1449,7 @@ func modelMetricVirtualName(c *fiber.Ctx, fallback string) string {
 		return ""
 	}
 
-	if v, ok := c.Locals("vm_failure_reason").(string); ok && v != "" {
-		_ = v
-	}
-
-	if v, ok := c.Locals("vm_resp").(*platform.TunnelResponse); ok && v != nil {
+	if state := existingRequestContext(c); state != nil && state.virtualModelResponse != nil {
 		return fallback
 	}
 
@@ -1481,16 +1477,10 @@ func enrichResponseCacheMetadata(c *fiber.Ctx, metadata map[string]interface{}) 
 		return metadata
 	}
 
-	if value := c.Locals("response_cache_status"); value != nil {
-		metadata["cache_status"] = value
-	}
-
-	if value := c.Locals("response_cache_type"); value != nil {
-		metadata["cache_type"] = value
-	}
-
-	if value := c.Locals("response_cache_embedding_latency_ms"); value != nil {
-		metadata["cache_embedding_latency_ms"] = value
+	if state := existingRequestContext(c); state != nil && state.responseCacheSet {
+		metadata["cache_status"] = state.responseCache.status
+		metadata["cache_type"] = state.responseCache.cacheType
+		metadata["cache_embedding_latency_ms"] = state.responseCache.embeddingLatencyMS
 	}
 
 	return metadata
@@ -1505,26 +1495,32 @@ func enrichPromptMetadata(c *fiber.Ctx, metadata map[string]interface{}) map[str
 		return metadata
 	}
 
-	if raw, ok := c.Locals("prompt_metadata").(map[string]interface{}); ok {
-		for key, value := range raw {
-			metadata[key] = value
-		}
+	if state := existingRequestContext(c); state != nil && state.promptSet {
+		metadata["prompt_id"] = state.prompt.promptID
+		metadata["prompt_version_id"] = state.prompt.promptVersionID
+		metadata["prompt_fqn"] = state.prompt.promptFQN
+		metadata["prompt_version"] = state.prompt.promptVersion
 	}
 
 	return metadata
 }
 
-func cacheMetricString(c *fiber.Ctx, key string) string {
-	if c == nil {
+func responseCacheStatus(c *fiber.Ctx) string {
+	state := existingRequestContext(c)
+	if state == nil {
 		return ""
 	}
 
-	value := ""
-	if localValue, ok := c.Locals(key).(string); ok {
-		value = localValue
+	return state.responseCache.status
+}
+
+func responseCacheType(c *fiber.Ctx) string {
+	state := existingRequestContext(c)
+	if state == nil {
+		return ""
 	}
 
-	return value
+	return state.responseCache.cacheType
 }
 
 func cacheMatchForResult(result responsecache.Result) string {

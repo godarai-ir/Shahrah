@@ -6,6 +6,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	typedmetadata "github.com/Delpak/shahrah/services/control-plane/internal/metadata"
 	"github.com/Delpak/shahrah/services/control-plane/internal/providerregistry"
 )
 
@@ -23,7 +24,7 @@ type pricingUsageInput struct {
 	price        priceInfo
 	exchangeRate float64
 	conditions   map[string]string
-	metadata     map[string]interface{}
+	metadata     typedmetadata.Object
 }
 
 type pricingImageInput struct {
@@ -267,7 +268,8 @@ func (xAIPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.Usage
 
 	breakdown, err = reconcileXAIProviderCost(breakdown, input.usage.CostInUSDTicks, input.exchangeRate)
 	if err == nil {
-		breakdown.Metadata["num_server_side_tools_used"] = input.usage.NumServerSideToolsUsed
+		metadata := typedmetadata.Wrap(breakdown.Metadata)
+		metadata.Set(billingMetadataServerSideToolsUsed, input.usage.NumServerSideToolsUsed)
 	}
 
 	return breakdown, err
@@ -480,7 +482,7 @@ func applyReportedProviderCost(
 	breakdown platform.UsageCostBreakdown,
 	providerCostUSDTicks *int64,
 	exchangeRate float64,
-	metadata map[string]interface{},
+	metadata typedmetadata.Object,
 ) platform.UsageCostBreakdown {
 	if providerCostUSDTicks == nil || *providerCostUSDTicks < 0 {
 		return breakdown
@@ -492,11 +494,12 @@ func applyReportedProviderCost(
 
 	breakdown.TotalCostIRR = totalUSD * exchangeRate
 	if breakdown.Metadata == nil {
-		breakdown.Metadata = cloneUsageMetadata(metadata)
+		breakdown.Metadata = metadata.CloneValues()
 	}
 
-	breakdown.Metadata["provider_cost_in_usd_ticks"] = *providerCostUSDTicks
-	breakdown.Metadata["provider_cost_exact"] = true
+	resultMetadata := typedmetadata.Wrap(breakdown.Metadata)
+	resultMetadata.Set(billingMetadataProviderCostUSDTicks, *providerCostUSDTicks)
+	resultMetadata.Set(billingMetadataProviderCostExact, true)
 
 	return breakdown
 }

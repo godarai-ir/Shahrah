@@ -7,6 +7,7 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	typedmetadata "github.com/Delpak/shahrah/services/control-plane/internal/metadata"
 	"github.com/Delpak/shahrah/services/control-plane/internal/providerregistry"
 	"github.com/shopspring/decimal"
 )
@@ -73,7 +74,7 @@ func (s *PricingEngine) FinalizeFromUsage(ctx context.Context, model string, usa
 		price:        price,
 		exchangeRate: rate.USDtoIRR,
 		conditions:   estimated.PricingConditions,
-		metadata:     estimated.Metadata,
+		metadata:     typedmetadata.Wrap(estimated.Metadata),
 	})
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
@@ -105,7 +106,7 @@ func (s *PricingEngine) FinalizeBatchFromUsage(ctx context.Context, model string
 		price:        price,
 		exchangeRate: rate.USDtoIRR,
 		conditions:   estimated.PricingConditions,
-		metadata:     estimated.Metadata,
+		metadata:     typedmetadata.Wrap(estimated.Metadata),
 	})
 	if err != nil {
 		return platform.UsageCostBreakdown{}, err
@@ -138,7 +139,7 @@ func (s *PricingEngine) FinalizeImageUsage(ctx context.Context, model string, us
 			price:        price,
 			exchangeRate: rate.USDtoIRR,
 			conditions:   estimated.PricingConditions,
-			metadata:     estimated.Metadata,
+			metadata:     typedmetadata.Wrap(estimated.Metadata),
 		},
 		inputTokens:          inputTokens,
 		outputTokens:         outputTokens,

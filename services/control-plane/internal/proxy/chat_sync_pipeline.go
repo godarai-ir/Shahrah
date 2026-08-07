@@ -126,8 +126,8 @@ func (h *ChatCompletionHandler) dispatchChatProvider(
 	c *fiber.Ctx,
 	tunnelRequest platform.TunnelRequest,
 ) (*platform.TunnelResponse, error) {
-	if response, ok := c.Locals("vm_resp").(*platform.TunnelResponse); ok && response != nil {
-		return response, nil
+	if state := existingRequestContext(c); state != nil && state.virtualModelResponse != nil {
+		return state.virtualModelResponse, nil
 	}
 
 	return h.pipeline.Dispatch(c.Context(), tunnelRequest)
@@ -149,8 +149,8 @@ func (h *ChatCompletionHandler) applyChatOutputGuardrails(
 	}
 
 	guardrailOverrides := map[string]guardrails.Guardrail(nil)
-	if overrides, ok := c.Locals("guardrail_overrides").(map[string]guardrails.Guardrail); ok {
-		guardrailOverrides = overrides
+	if state := existingRequestContext(c); state != nil {
+		guardrailOverrides = state.guardrailOverrides
 	}
 
 	outputResult, err := h.guardrails.ApplyOutputWithGuardrails(completion, selection, guardrailOverrides)
@@ -280,8 +280,8 @@ func (h *ChatCompletionHandler) observeSuccessfulChat(
 		InputTokens:        result.finalCost.InputTokens,
 		OutputTokens:       result.finalCost.OutputTokens,
 		CostUSD:            result.finalCost.TotalCostUSD,
-		CacheMode:          cacheMetricString(c, "response_cache_type"),
-		CacheStatus:        cacheMetricString(c, "response_cache_status"),
+		CacheMode:          responseCacheType(c),
+		CacheStatus:        responseCacheStatus(c),
 		Metadata: enrichMetricMetadataForDeployment(copyPlaygroundObservability(enrichResponseCacheMetadata(c, map[string]interface{}{
 			"endpoint":    "/v1/chat/completions",
 			"key_type":    authInfo.KeyType,

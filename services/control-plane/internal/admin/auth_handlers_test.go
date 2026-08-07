@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -14,7 +13,7 @@ import (
 )
 
 func TestCreateOTPRequestHidesUnknownLoginAccountBeforeCreatingOTP(t *testing.T) {
-	store := &authHandlerTestStore{findUserErr: errors.New("tenant member not found")}
+	store := &authHandlerTestStore{findUserErr: storage.ErrTenantAdminUserNotFound}
 	handler := NewAuthHandlers(store, nil)
 	app := fiber.New()
 	app.Post("/auth/otp/request", handler.CreateOTPRequest)
@@ -61,12 +60,12 @@ func TestCreateOTPRequestHidesUnknownLoginAccountBeforeCreatingOTP(t *testing.T)
 }
 
 func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
-	store := &authHandlerTestStore{createOTPResult: map[string]interface{}{
-		"request_id":         "req-1",
-		"channel":            "email",
-		"destination_masked": "ra***@example.com",
-		"expires_in_seconds": 300,
-		"otp_code":           "123456",
+	store := &authHandlerTestStore{createOTPResult: &storage.TenantAdminOTPResponse{
+		RequestID:         "req-1",
+		Channel:           "email",
+		DestinationMasked: "ra***@example.com",
+		ExpiresInSeconds:  300,
+		OTPCode:           "123456",
 	}}
 	handler := NewAuthHandlers(store, nil)
 	app := fiber.New()
@@ -103,12 +102,12 @@ func TestCreateOTPRequestRateLimitsRepeatedLoginAttempts(t *testing.T) {
 }
 
 func TestCreateOTPRequestSendsMobileOTPThroughNotifier(t *testing.T) {
-	store := &authHandlerTestStore{createOTPResult: map[string]interface{}{
-		"request_id":         "req-mobile-1",
-		"channel":            "mobile",
-		"destination_masked": "091****789",
-		"expires_in_seconds": 300,
-		"otp_code":           "654321",
+	store := &authHandlerTestStore{createOTPResult: &storage.TenantAdminOTPResponse{
+		RequestID:         "req-mobile-1",
+		Channel:           "mobile",
+		DestinationMasked: "091****789",
+		ExpiresInSeconds:  300,
+		OTPCode:           "654321",
 	}}
 	notifier := &authHandlerTestOTPNotifier{}
 	handler := NewAuthHandlers(store, notifier)
@@ -190,12 +189,12 @@ func TestCreateOTPRequestNeverExposesDebugOTPInProduction(t *testing.T) {
 func performCreateOTPRequest(t *testing.T) (int, map[string]interface{}) {
 	t.Helper()
 
-	store := &authHandlerTestStore{createOTPResult: map[string]interface{}{
-		"request_id":         "req-1",
-		"channel":            "email",
-		"destination_masked": "u***@example.com",
-		"expires_in_seconds": 300,
-		"otp_code":           "123456",
+	store := &authHandlerTestStore{createOTPResult: &storage.TenantAdminOTPResponse{
+		RequestID:         "req-1",
+		Channel:           "email",
+		DestinationMasked: "u***@example.com",
+		ExpiresInSeconds:  300,
+		OTPCode:           "123456",
 	}}
 	handler := NewAuthHandlers(store, nil)
 	app := fiber.New()
@@ -228,7 +227,7 @@ type authHandlerTestStore struct {
 	findUserErr     error
 	createOTPCalled bool
 	createOTPCalls  int
-	createOTPResult map[string]interface{}
+	createOTPResult *storage.TenantAdminOTPResponse
 }
 
 type authHandlerTestOTPNotifier struct {
@@ -253,7 +252,7 @@ func (s *authHandlerTestStore) ConsumeTenantAdminCaptcha(context.Context, string
 	return true, nil
 }
 
-func (s *authHandlerTestStore) CreateTenantAdminOTPRequest(context.Context, storage.TenantAdminOTPRequestParams) (map[string]interface{}, error) {
+func (s *authHandlerTestStore) CreateTenantAdminOTPRequest(context.Context, storage.TenantAdminOTPRequestParams) (*storage.TenantAdminOTPResponse, error) {
 	s.createOTPCalled = true
 
 	s.createOTPCalls++
@@ -261,18 +260,18 @@ func (s *authHandlerTestStore) CreateTenantAdminOTPRequest(context.Context, stor
 		return s.createOTPResult, nil
 	}
 
-	return map[string]interface{}{}, nil
+	return &storage.TenantAdminOTPResponse{}, nil
 }
 
-func (s *authHandlerTestStore) VerifyTenantAdminOTPRequest(context.Context, storage.VerifyTenantAdminOTPRequestParams) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (s *authHandlerTestStore) VerifyTenantAdminOTPRequest(context.Context, storage.VerifyTenantAdminOTPRequestParams) (*storage.TenantAdminOTPVerification, error) {
+	return &storage.TenantAdminOTPVerification{}, nil
 }
 
-func (s *authHandlerTestStore) CreateTenantAdminSession(context.Context, storage.CreateTenantAdminSessionParams) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (s *authHandlerTestStore) CreateTenantAdminSession(context.Context, storage.CreateTenantAdminSessionParams) (*storage.TenantAdminSessionResponse, error) {
+	return &storage.TenantAdminSessionResponse{}, nil
 }
 
-func (s *authHandlerTestStore) GetTenantAdminSession(context.Context, string) (map[string]interface{}, error) {
+func (s *authHandlerTestStore) GetTenantAdminSession(context.Context, string) (*storage.TenantAdminSessionResponse, error) {
 	return nil, nil
 }
 
@@ -280,22 +279,22 @@ func (s *authHandlerTestStore) RevokeTenantAdminSession(context.Context, string)
 	return nil
 }
 
-func (s *authHandlerTestStore) FindOrCreateTenantAdminUser(context.Context, storage.FindOrCreateTenantAdminUserParams) (map[string]interface{}, error) {
+func (s *authHandlerTestStore) FindOrCreateTenantAdminUser(context.Context, storage.FindOrCreateTenantAdminUserParams) (*storage.TenantAdminUserResponse, error) {
 	if s.findUserErr != nil {
 		return nil, s.findUserErr
 	}
 
-	return map[string]interface{}{"id": "user-1"}, nil
+	return &storage.TenantAdminUserResponse{ID: "user-1"}, nil
 }
 
-func (s *authHandlerTestStore) GetTenantAdminUser(context.Context, string, string) (map[string]interface{}, error) {
+func (s *authHandlerTestStore) GetTenantAdminUser(context.Context, string, string) (*storage.TenantAdminUserResponse, error) {
 	return nil, nil
 }
 
-func (s *authHandlerTestStore) UpdateTenantAdminUserContact(context.Context, storage.UpdateTenantAdminUserContactParams) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (s *authHandlerTestStore) UpdateTenantAdminUserContact(context.Context, storage.UpdateTenantAdminUserContactParams) (*storage.TenantAdminUserResponse, error) {
+	return &storage.TenantAdminUserResponse{}, nil
 }
 
-func (s *authHandlerTestStore) TouchTenantAdminLastLogin(context.Context, string, string) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (s *authHandlerTestStore) TouchTenantAdminLastLogin(context.Context, string, string) (*storage.TenantAdminUserResponse, error) {
+	return &storage.TenantAdminUserResponse{}, nil
 }

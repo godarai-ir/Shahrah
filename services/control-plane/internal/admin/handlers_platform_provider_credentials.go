@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/platformcredentials"
 	"github.com/gofiber/fiber/v2"
 )
@@ -233,9 +234,9 @@ func isNilPlatformProviderCredentialService(service platformProviderCredentialSe
 }
 
 func platformCredentialActor(c *fiber.Ctx) platformcredentials.Actor {
-	serviceAccountID, ok := c.Locals("platform_service_account_id").(string)
-	if !ok {
-		serviceAccountID = ""
+	serviceAccountID := ""
+	if account := auth.PlatformServiceAccountFromContext(c); account != nil {
+		serviceAccountID = account.ID
 	}
 
 	return platformcredentials.Actor{ID: strings.TrimSpace(c.Get("x-shahrah-actor-id")), Role: strings.TrimSpace(c.Get("x-shahrah-actor-role")), ServiceAccountID: serviceAccountID, RequestID: strings.TrimSpace(c.Get("x-request-id")), SourceIP: c.IP()}

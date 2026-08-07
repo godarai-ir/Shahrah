@@ -146,16 +146,13 @@ func buildRequestLogEntry(
 	}
 
 	if c != nil {
-		if value, ok := c.Locals("vm_fallback_count").(int); ok {
-			entry.FallbackCount = value
+		if state := existingRequestContext(c); state != nil {
+			entry.FallbackCount = state.fallbackCount
+			entry.FallbackStatus = fallbackStatusFromReason(state.failureReason, entry.FallbackCount)
 		}
 
-		if value, ok := c.Locals("vm_failure_reason").(string); ok {
-			entry.FallbackStatus = fallbackStatusFromReason(value, entry.FallbackCount)
-		}
-
-		entry.CacheStatus = cacheMetricString(c, "response_cache_status")
-		entry.CacheMode = cacheMetricString(c, "response_cache_type")
+		entry.CacheStatus = responseCacheStatus(c)
+		entry.CacheMode = responseCacheType(c)
 	}
 
 	entry.LoadBalanceStatus = "inactive"

@@ -5,6 +5,7 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	typedmetadata "github.com/Delpak/shahrah/services/control-plane/internal/metadata"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
@@ -22,11 +23,11 @@ func TestXAIImageCostBreakdownSelectsResolutionAndReferenceRates(t *testing.T) {
 		RateList: []normalizedPricingRate{input, oneK, twoK},
 	}
 
-	got, err := xAIImageCostBreakdown("grok-imagine-image-quality", 0, 0, 0, price, 1, map[string]interface{}{
+	got, err := xAIImageCostBreakdown("grok-imagine-image-quality", 0, 0, 0, price, 1, typedmetadata.Wrap(map[string]interface{}{
 		"image_count": 2,
 		"n":           3,
 		"resolution":  "2k",
-	})
+	}))
 	require.NoError(t, err)
 	require.InDelta(t, 0.23, got.TotalCostUSD, 1e-12)
 	require.InDelta(t, 0.02, got.InputCostUSD, 1e-12)

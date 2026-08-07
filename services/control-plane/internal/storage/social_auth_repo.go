@@ -45,8 +45,8 @@ type SocialHandoff struct {
 }
 
 type RedeemedSocialHandoff struct {
-	Session map[string]interface{} `json:"session"`
-	User    map[string]interface{} `json:"user"`
+	Session *TenantAdminSessionResponse `json:"session"`
+	User    *TenantAdminUserResponse    `json:"user"`
 }
 
 // ProvisionSocialTenant atomically provisions a tenant for a Better Auth user
@@ -400,8 +400,14 @@ func (s *Store) RedeemSocialLoginHandoff(ctx context.Context, tenantSlug, code s
 	}
 
 	return &RedeemedSocialHandoff{
-		Session: map[string]interface{}{"id": sessionID, "tenant_slug": tenantSlug, "user_id": userID, "created_at_iso": now.Format(time.RFC3339), "expires_at_iso": expiresAt.Format(time.RFC3339)},
-		User:    buildTenantAdminUserMap(tenantSlug, userID, email, mobile, role, active, createdAt, updatedAt),
+		Session: &TenantAdminSessionResponse{
+			ID:           sessionID,
+			TenantSlug:   tenantSlug,
+			UserID:       userID,
+			CreatedAtISO: now.Format(time.RFC3339),
+			ExpiresAtISO: expiresAt.Format(time.RFC3339),
+		},
+		User: buildTenantAdminUserResponse(tenantSlug, userID, email, mobile, role, active, createdAt, updatedAt),
 	}, nil
 }
 

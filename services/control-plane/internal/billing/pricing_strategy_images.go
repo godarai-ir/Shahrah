@@ -1,7 +1,6 @@
 package billing
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -9,7 +8,22 @@ import (
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	typedmetadata "github.com/Delpak/shahrah/services/control-plane/internal/metadata"
 	"github.com/shopspring/decimal"
+)
+
+const (
+	billingMetadataImageCount              typedmetadata.Key = "image_count"
+	billingMetadataOutputCount             typedmetadata.Key = "n"
+	billingMetadataResolution              typedmetadata.Key = "resolution"
+	billingMetadataSize                    typedmetadata.Key = "size"
+	billingMetadataEstimatedImageTokens    typedmetadata.Key = "estimated_image_input_tokens"
+	billingMetadataProviderCostUSDTicks    typedmetadata.Key = "provider_cost_in_usd_ticks"
+	billingMetadataProviderCostUSD         typedmetadata.Key = "provider_cost_usd"
+	billingMetadataCatalogEstimatedCostUSD typedmetadata.Key = "catalog_estimated_cost_usd"
+	billingMetadataReconciliationDeltaUSD  typedmetadata.Key = "provider_cost_reconciliation_delta_usd"
+	billingMetadataProviderCostExact       typedmetadata.Key = "provider_cost_exact"
+	billingMetadataServerSideToolsUsed     typedmetadata.Key = "num_server_side_tools_used"
 )
 
 func imageUsageTokenBreakdown(usage *openai.Usage, estimated platform.UsageCostBreakdown) (int, int, int) {
@@ -48,16 +62,18 @@ func xAIImageCostBreakdown(
 	totalTokens int,
 	price priceInfo,
 	exchangeRate float64,
-	metadata map[string]interface{},
+	metadata typedmetadata.Object,
 ) (platform.UsageCostBreakdown, error) {
-	inputImages := intFromBillingMetadata(metadata["image_count"])
+	inputImages, _ := metadata.Int(billingMetadataImageCount)
 
-	outputImages := intFromBillingMetadata(metadata["n"])
+	outputImages, _ := metadata.Int(billingMetadataOutputCount)
 	if outputImages <= 0 {
 		outputImages = 1
 	}
 
-	resolution := strings.ToLower(strings.TrimSpace(stringFromBillingMetadata(metadata["resolution"])))
+	resolution, _ := metadata.String(billingMetadataResolution)
+
+	resolution = strings.ToLower(strings.TrimSpace(resolution))
 	if resolution == "" {
 		resolution = "1k"
 	}
@@ -87,7 +103,7 @@ func xAIImageCostBreakdown(
 	totalUSD := inputUSD + outputUSD
 
 	return platform.UsageCostBreakdown{
-		Model: model, Metadata: cloneUsageMetadata(metadata),
+		Model: model, Metadata: metadata.CloneValues(),
 		InputTokens: inputTokens, OutputTokens: outputTokens, TotalTokens: totalTokens,
 		InputCostUSD: inputUSD, OutputCostUSD: outputUSD, TotalCostUSD: totalUSD,
 		ExchangeRate: exchangeRate, TotalCostIRR: totalUSD * exchangeRate,
@@ -147,11 +163,12 @@ func reconcileXAIProviderCost(breakdown platform.UsageCostBreakdown, ticks int64
 		breakdown.Metadata = map[string]interface{}{}
 	}
 
-	breakdown.Metadata["provider_cost_in_usd_ticks"] = ticks
-	breakdown.Metadata["provider_cost_usd"] = exactUSD.String()
-	breakdown.Metadata["catalog_estimated_cost_usd"] = decimal.NewFromFloat(catalogTotalUSD).String()
-	breakdown.Metadata["provider_cost_reconciliation_delta_usd"] = delta.String()
-	breakdown.Metadata["provider_cost_exact"] = true
+	metadata := typedmetadata.Wrap(breakdown.Metadata)
+	metadata.Set(billingMetadataProviderCostUSDTicks, ticks)
+	metadata.Set(billingMetadataProviderCostUSD, exactUSD.String())
+	metadata.Set(billingMetadataCatalogEstimatedCostUSD, decimal.NewFromFloat(catalogTotalUSD).String())
+	metadata.Set(billingMetadataReconciliationDeltaUSD, delta.String())
+	metadata.Set(billingMetadataProviderCostExact, true)
 
 	return breakdown, nil
 }
@@ -174,11 +191,6 @@ func mergePricingMetadata(base map[string]interface{}, provider map[string]inter
 	return output
 }
 
-func stringFromBillingMetadata(value interface{}) string {
-	text, _ := value.(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
-	return text
-}
-
 func openAIImageCostBreakdown(
 	model string,
 	usage *openai.Usage,
@@ -187,7 +199,7 @@ func openAIImageCostBreakdown(
 	totalTokens int,
 	price priceInfo,
 	exchangeRate float64,
-	metadata map[string]interface{},
+	metadata typedmetadata.Object,
 	serviceTier string,
 ) (platform.UsageCostBreakdown, error) {
 	textInputTokens := inputTokens
@@ -211,8 +223,9 @@ func openAIImageCostBreakdown(
 		}
 	}
 
-	if imageInputTokens == 0 && intFromBillingMetadata(metadata["image_count"]) > 0 {
-		estimatedImageTokens := intFromBillingMetadata(metadata["estimated_image_input_tokens"])
+	imageCount, _ := metadata.Int(billingMetadataImageCount)
+	if imageInputTokens == 0 && imageCount > 0 {
+		estimatedImageTokens, _ := metadata.Int(billingMetadataEstimatedImageTokens)
 		if estimatedImageTokens > inputTokens {
 			estimatedImageTokens = inputTokens
 		}
@@ -313,22 +326,6 @@ func openAIImageCostBreakdown(
 	}, nil
 }
 
-func intFromBillingMetadata(value interface{}) int {
-	switch typed := value.(type) {
-	case int:
-		return typed
-	case int64:
-		return int(typed)
-	case float64:
-		return int(typed)
-	case json.Number:
-		parsed, _ := typed.Int64() //nolint:errcheck // Failure is intentionally handled by the surrounding best-effort path.
-		return int(parsed)
-	default:
-		return 0
-	}
-}
-
 func googleGeminiImageCostBreakdown(
 	model string,
 	inputTokens int,
@@ -336,7 +333,7 @@ func googleGeminiImageCostBreakdown(
 	totalTokens int,
 	price priceInfo,
 	exchangeRate float64,
-	metadata map[string]interface{},
+	metadata typedmetadata.Object,
 ) (platform.UsageCostBreakdown, error) {
 	quantities := make(map[string]int64)
 
@@ -356,13 +353,8 @@ func googleGeminiImageCostBreakdown(
 
 	imageCount := int64(1)
 
-	if raw, ok := metadata["n"]; ok {
-		switch value := raw.(type) {
-		case int:
-			imageCount = int64(value)
-		case float64:
-			imageCount = int64(value)
-		}
+	if value, ok := metadata.Int(billingMetadataOutputCount); ok {
+		imageCount = int64(value)
 	}
 
 	if imageCount < 1 {
@@ -450,9 +442,9 @@ func googleGeminiImageCostBreakdown(
 
 func googleGeminiImageDimension(
 	price priceInfo,
-	metadata map[string]interface{},
+	metadata typedmetadata.Object,
 ) string {
-	size, _ := metadata["size"].(string) //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
+	size, _ := metadata.String(billingMetadataSize)
 
 	size = strings.ToLower(strings.TrimSpace(size))
 	switch {
