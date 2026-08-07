@@ -11,55 +11,134 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
+// TunnelCredentialProber dispatches provider-specific probes through Silk Road.
 type TunnelCredentialProber struct {
-	tunnel platform.TunnelTransport
+	registry *CredentialProberRegistry
 }
 
-type ProbeMetadata struct {
-	WIFExpiresAt   *time.Time
-	WIFRefreshedAt *time.Time
-	WIFScopes      []string
-}
-
-type DetailedCredentialProber interface {
-	ProbeDetailed(
-		context.Context,
-		EncryptedCredential,
-		map[string]string,
-	) (bool, string, string, ProbeMetadata)
-}
-
+// NewTunnelCredentialProber creates the production provider-prober registry.
 func NewTunnelCredentialProber(tunnel platform.TunnelTransport) *TunnelCredentialProber {
-	return &TunnelCredentialProber{tunnel: tunnel}
+	generic := &genericTunnelCredentialProber{tunnel: tunnel}
+	registry := NewCredentialProberRegistry(generic)
+	registry.Register("anthropic", &anthropicTunnelCredentialProber{tunnel: tunnel})
+	registry.Register("xai", &xaiTunnelCredentialProber{tunnel: tunnel})
+
+	return &TunnelCredentialProber{registry: registry}
 }
 
-func (p *TunnelCredentialProber) Probe(ctx context.Context, record EncryptedCredential, secrets map[string]string) (bool, string, string) {
-	success, category, summary, _ := p.ProbeDetailed(ctx, record, secrets)
-	return success, category, summary
+// Register installs or replaces a provider-specific tunnel prober.
+func (p *TunnelCredentialProber) Register(provider string, prober CredentialProber) {
+	if p == nil || p.registry == nil {
+		return
+	}
+
+	p.registry.Register(provider, prober)
 }
 
-func (p *TunnelCredentialProber) ProbeDetailed(
+// Probe validates a credential with its provider-specific implementation.
+func (p *TunnelCredentialProber) Probe(
 	ctx context.Context,
 	record EncryptedCredential,
 	secrets map[string]string,
-) (bool, string, string, ProbeMetadata) {
-	if p == nil || p.tunnel == nil {
-		return false, "network", "Provider validation could not reach Silk Road.", ProbeMetadata{}
+) ProbeResult {
+	if p == nil || p.registry == nil {
+		return ProbeResult{
+			Category: "network",
+			Summary:  "Provider validation could not reach Silk Road.",
+		}
 	}
 
-	if normalizeProvider(record.ProviderSlug) != "anthropic" {
-		success, category, summary := p.probeProvider(ctx, record, secrets)
+	return p.registry.Probe(ctx, record, secrets)
+}
 
-		return success, category, summary, ProbeMetadata{}
+type genericTunnelCredentialProber struct {
+	tunnel platform.TunnelTransport
+}
+
+func (p *genericTunnelCredentialProber) Probe(
+	ctx context.Context,
+	record EncryptedCredential,
+	secrets map[string]string,
+) ProbeResult {
+	if p == nil || p.tunnel == nil {
+		return ProbeResult{Category: "network", Summary: "Provider validation could not reach Silk Road."}
+	}
+
+	if _, ok := documentedProbe(record); !ok {
+		return unsupportedProbeResult()
+	}
+
+	deployment, ok := credentialProbeDeployment(record, secrets)
+	if !ok {
+		return unsupportedProbeResult()
+	}
+
+	response, err := p.tunnel.Proxy(ctx, platform.TunnelRequest{
+		Operation:  platform.ProviderOperationCredentialProbe,
+		Deployment: deployment,
+		Headers:    map[string]string{"Accept": "application/json"},
+	})
+	if err != nil {
+		return ProbeResult{Category: "network", Summary: "Provider validation could not reach Silk Road."}
+	}
+
+	return genericProbeResult(response.StatusCode)
+}
+
+type xaiTunnelCredentialProber struct {
+	tunnel platform.TunnelTransport
+}
+
+func (p *xaiTunnelCredentialProber) Probe(
+	ctx context.Context,
+	record EncryptedCredential,
+	secrets map[string]string,
+) ProbeResult {
+	if p == nil || p.tunnel == nil {
+		return ProbeResult{Category: "network", Summary: "xAI validation could not reach Silk Road."}
+	}
+
+	deployment, ok := credentialProbeDeployment(record, secrets)
+	if !ok {
+		return unsupportedProbeResult()
+	}
+
+	response, err := p.tunnel.Proxy(ctx, platform.TunnelRequest{
+		Operation:  platform.ProviderOperationCredentialProbe,
+		Deployment: deployment,
+		Headers:    map[string]string{"Accept": "application/json"},
+	})
+	if err != nil {
+		return ProbeResult{Category: "network", Summary: "xAI validation could not reach Silk Road."}
+	}
+
+	return classifyXAIAPIKeyProbe(response.StatusCode, response.Body, record.ModelHint)
+}
+
+type anthropicTunnelCredentialProber struct {
+	tunnel platform.TunnelTransport
+}
+
+func (p *anthropicTunnelCredentialProber) Probe(
+	ctx context.Context,
+	record EncryptedCredential,
+	secrets map[string]string,
+) ProbeResult {
+	if p == nil || p.tunnel == nil {
+		return ProbeResult{Category: "network", Summary: "Anthropic validation could not reach Silk Road."}
 	}
 
 	deployment := platform.Deployment{
-		Provider: "anthropic", APIBase: record.BaseURL, APIVersion: record.APIVersion,
-		ConnectionID: record.ConnectionID, CredentialVersionID: record.CredentialVersionID,
+		Provider:            "anthropic",
+		APIBase:             record.BaseURL,
+		APIVersion:          record.APIVersion,
+		ConnectionID:        record.ConnectionID,
+		CredentialVersionID: record.CredentialVersionID,
 		ProviderHeaders: map[string]string{
 			"Anthropic-Beta-Allowlist": "files-api-2025-04-14",
 		},
 	}
+
 	switch record.AuthMode {
 	case "api_key":
 		deployment.ProviderAuth = &platform.ResolvedProviderAuth{
@@ -77,14 +156,18 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 			},
 		}
 	default:
-		return false, "unsupported", "Anthropic authentication mode is not supported.", ProbeMetadata{}
+		return ProbeResult{Category: "unsupported", Summary: "Anthropic authentication mode is not supported."}
 	}
 
 	models, headers, category, summary := p.call(ctx, deployment, platform.ProviderOperationAnthropicModelsList, nil)
-
 	metadata := anthropicWIFProbeMetadata(headers)
 	if category != "ok" {
-		return false, category, summary, metadata
+		return ProbeResult{
+			Authenticated: category != "invalid_credential" && category != "network",
+			Category:      category,
+			Summary:       summary,
+			Metadata:      metadata,
+		}
 	}
 
 	var modelList struct {
@@ -94,7 +177,12 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 	}
 	if err := json.Unmarshal(models, &modelList); err != nil || len(modelList.Data) == 0 ||
 		strings.TrimSpace(modelList.Data[0].ID) == "" {
-		return false, "provider", "Anthropic Models API returned no probeable model.", metadata
+		return ProbeResult{
+			Authenticated: true,
+			Category:      "provider",
+			Summary:       "Anthropic Models API returned no probeable model.",
+			Metadata:      metadata,
+		}
 	}
 
 	countBody, _ := json.Marshal(map[string]interface{}{ //nolint:errcheck // The value is composed exclusively of JSON-safe fields.
@@ -105,59 +193,56 @@ func (p *TunnelCredentialProber) ProbeDetailed(
 	})
 	if _, _, category, summary = p.call(ctx, deployment, platform.ProviderOperationAnthropicCountTokens, countBody); category != "ok" {
 		if category == "forbidden" {
-			return false, "missing_scope", "Credential is missing workspace:inference.", metadata
+			category = "missing_scope"
+			summary = "Credential is missing workspace:inference."
 		}
 
-		return false, category, summary, metadata
+		return ProbeResult{Authenticated: true, Category: category, Summary: summary, Metadata: metadata}
 	}
 
 	if _, _, category, summary = p.call(ctx, deployment, platform.ProviderOperationAnthropicFilesList, nil); category != "ok" {
 		if category == "forbidden" {
-			return false, "missing_scope", "Credential is missing workspace:developer.", metadata
+			category = "missing_scope"
+			summary = "Credential is missing workspace:developer."
 		}
 
-		return false, category, summary, metadata
+		return ProbeResult{Authenticated: true, Category: category, Summary: summary, Metadata: metadata}
 	}
 
-	return true, "ok", "Anthropic credential accepted; Models, workspace:inference, and workspace:developer capabilities are available.", metadata
+	return ProbeResult{
+		Authenticated: true,
+		Ready:         true,
+		Category:      "ok",
+		Summary:       "Anthropic credential accepted; Models, workspace:inference, and workspace:developer capabilities are available.",
+		Metadata:      metadata,
+	}
 }
 
-func (p *TunnelCredentialProber) probeProvider(
+func (p *anthropicTunnelCredentialProber) call(
 	ctx context.Context,
-	record EncryptedCredential,
-	secrets map[string]string,
-) (bool, string, string) {
-	if _, ok := documentedProbe(record); !ok {
-		return false, "unsupported", "This provider authentication mode has no implemented non-billable validation probe."
-	}
-
-	deployment, ok := credentialProbeDeployment(record, secrets)
-	if !ok {
-		return false, "unsupported", "This provider authentication mode has no implemented non-billable validation probe."
-	}
-
+	deployment platform.Deployment,
+	operation platform.ProviderOperation,
+	body []byte,
+) ([]byte, map[string]string, string, string) {
 	response, err := p.tunnel.Proxy(ctx, platform.TunnelRequest{
-		Operation:  platform.ProviderOperationCredentialProbe,
-		Deployment: deployment,
-		Headers:    map[string]string{"Accept": "application/json"},
+		Operation: operation, Deployment: deployment, Body: body,
+		Headers: map[string]string{"content-type": "application/json"},
 	})
 	if err != nil {
-		return false, "network", "Provider validation could not reach Silk Road."
+		return nil, nil, "network", "Anthropic validation could not reach Silk Road."
 	}
 
 	switch {
 	case response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices:
-		return true, "ok", "Provider accepted the credential."
+		return response.Body, response.Headers, "ok", ""
 	case response.StatusCode == http.StatusUnauthorized:
-		return false, "invalid_credential", "Provider rejected the credential."
+		return nil, response.Headers, "invalid_credential", "Anthropic rejected the credential."
 	case response.StatusCode == http.StatusForbidden:
-		return false, "forbidden", "The credential authenticated but lacks permission for the validation endpoint."
+		return nil, response.Headers, "forbidden", "Anthropic credential lacks permission for a required capability."
 	case response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusPaymentRequired:
-		return true, "quota_exhausted", "Credential authenticated; quota or billing prevented the probe."
-	case response.StatusCode == http.StatusNotFound:
-		return false, "deployment_not_found", "The configured provider endpoint was not found."
+		return response.Body, response.Headers, "ok", ""
 	default:
-		return false, "provider", fmt.Sprintf("Provider validation returned HTTP %d.", response.StatusCode)
+		return nil, response.Headers, "provider", fmt.Sprintf("Anthropic validation returned HTTP %d.", response.StatusCode)
 	}
 }
 
@@ -210,26 +295,20 @@ func credentialProbeHeaders(record EncryptedCredential) map[string]string {
 	return headers
 }
 
-func (p *TunnelCredentialProber) call(ctx context.Context, deployment platform.Deployment, operation platform.ProviderOperation, body []byte) ([]byte, map[string]string, string, string) {
-	response, err := p.tunnel.Proxy(ctx, platform.TunnelRequest{
-		Operation: operation, Deployment: deployment, Body: body,
-		Headers: map[string]string{"content-type": "application/json"},
-	})
-	if err != nil {
-		return nil, nil, "network", "Anthropic validation could not reach Silk Road."
-	}
-
+func genericProbeResult(status int) ProbeResult {
 	switch {
-	case response.StatusCode >= 200 && response.StatusCode < 300:
-		return response.Body, response.Headers, "ok", ""
-	case response.StatusCode == http.StatusUnauthorized:
-		return nil, response.Headers, "invalid_credential", "Anthropic rejected the credential."
-	case response.StatusCode == http.StatusForbidden:
-		return nil, response.Headers, "forbidden", "Anthropic credential lacks permission for a required capability."
-	case response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusPaymentRequired:
-		return response.Body, response.Headers, "ok", ""
+	case status >= http.StatusOK && status < http.StatusMultipleChoices:
+		return ProbeResult{Authenticated: true, Ready: true, Category: "ok", Summary: "Provider accepted the credential."}
+	case status == http.StatusUnauthorized:
+		return ProbeResult{Category: "invalid_credential", Summary: "Provider rejected the credential."}
+	case status == http.StatusForbidden:
+		return ProbeResult{Authenticated: true, Category: "forbidden", Summary: "The credential authenticated but lacks permission for the validation endpoint."}
+	case status == http.StatusTooManyRequests || status == http.StatusPaymentRequired:
+		return ProbeResult{Authenticated: true, Ready: true, Category: "quota_exhausted", Summary: "Credential authenticated; quota or billing prevented the probe."}
+	case status == http.StatusNotFound:
+		return ProbeResult{Category: "deployment_not_found", Summary: "The configured provider endpoint was not found."}
 	default:
-		return nil, response.Headers, "provider", fmt.Sprintf("Anthropic validation returned HTTP %d.", response.StatusCode)
+		return ProbeResult{Category: "provider", Summary: fmt.Sprintf("Provider validation returned HTTP %d.", status)}
 	}
 }
 

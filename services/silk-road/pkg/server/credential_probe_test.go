@@ -59,6 +59,14 @@ func TestDispatchCredentialProbeBuildsProviderRequest(t *testing.T) {
 			headerName:  "Authorization",
 			headerValue: "Bearer test-deepseek-key",
 		},
+		{
+			name:        "xAI key status",
+			provider:    "xai",
+			wantURL:     "https://api.x.ai/v1/api-key",
+			apiKey:      "test-xai-key",
+			headerName:  "Authorization",
+			headerValue: "Bearer test-xai-key",
+		},
 	}
 
 	for _, test := range tests {

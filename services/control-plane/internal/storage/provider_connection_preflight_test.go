@@ -11,7 +11,7 @@ import (
 type recordingTenantCredentialProber struct {
 	record   platformcredentials.EncryptedCredential
 	secrets  map[string]string
-	success  bool
+	ready    bool
 	category string
 	summary  string
 }
@@ -20,7 +20,7 @@ func (p *recordingTenantCredentialProber) Probe(
 	_ context.Context,
 	record platformcredentials.EncryptedCredential,
 	secrets map[string]string,
-) (bool, string, string) {
+) platformcredentials.ProbeResult {
 	p.record = record
 
 	p.secrets = make(map[string]string, len(secrets))
@@ -28,7 +28,12 @@ func (p *recordingTenantCredentialProber) Probe(
 		p.secrets[key] = value
 	}
 
-	return p.success, p.category, p.summary
+	return platformcredentials.ProbeResult{
+		Authenticated: p.ready,
+		Ready:         p.ready,
+		Category:      p.category,
+		Summary:       p.summary,
+	}
 }
 
 func TestProviderConnectionPreflightDoesNotRequirePersistence(t *testing.T) {
@@ -65,13 +70,14 @@ func TestProviderConnectionPreflightDoesNotRequirePersistence(t *testing.T) {
 
 func TestProviderConnectionPreflightUsesSharedProberForGoogleGemini(t *testing.T) {
 	prober := &recordingTenantCredentialProber{
-		success: true, category: "ok", summary: "Provider accepted the credential.",
+		ready: true, category: "ok", summary: "Provider accepted the credential.",
 	}
 	store := &ProviderAccountRepository{tenantProviderProber: prober}
 
 	result, err := store.TestProviderConnection(context.Background(), platform.TestProviderConnectionRequest{
-		Provider: "google-gemini",
-		AuthMode: platform.ProviderAuthModeAPIKey,
+		Provider:  "google-gemini",
+		AuthMode:  platform.ProviderAuthModeAPIKey,
+		ModelHint: "gemini-3.5-flash",
 		ProviderConfig: map[string]interface{}{
 			"native_base_url": "https://generativelanguage.googleapis.com",
 		},
@@ -87,7 +93,8 @@ func TestProviderConnectionPreflightUsesSharedProberForGoogleGemini(t *testing.T
 
 	if prober.record.ProviderSlug != "google-gemini" ||
 		prober.record.BaseURL != "https://generativelanguage.googleapis.com" ||
-		prober.record.AuthMode != "api_key" {
+		prober.record.AuthMode != "api_key" ||
+		prober.record.ModelHint != "gemini-3.5-flash" {
 		t.Fatalf("unexpected probe record: %#v", prober.record)
 	}
 
@@ -117,7 +124,7 @@ func TestProviderConnectionPreflightPreservesUnsupportedCategory(t *testing.T) {
 }
 
 func TestProviderConnectionPreflightMapsPersonalAccessTokenForSharedProber(t *testing.T) {
-	prober := &recordingTenantCredentialProber{success: true, category: "ok", summary: "accepted"}
+	prober := &recordingTenantCredentialProber{ready: true, category: "ok", summary: "accepted"}
 	store := &ProviderAccountRepository{tenantProviderProber: prober}
 
 	result, err := store.TestProviderConnection(context.Background(), platform.TestProviderConnectionRequest{

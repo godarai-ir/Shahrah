@@ -3,7 +3,7 @@ package platformcredentials
 import (
 	"context"
 	"errors"
-	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -42,10 +42,6 @@ type Repository interface {
 	DisablePlatformProviderConnection(context.Context, string, int64, Actor, string) (*platform.PlatformProviderConnection, error)
 	RevokePlatformProviderCredential(context.Context, string, int64, int64, Actor, string) (*platform.PlatformProviderConnection, error)
 	ActiveCredentialLoader
-}
-
-type CredentialProber interface {
-	Probe(context.Context, EncryptedCredential, map[string]string) (bool, string, string)
 }
 
 type Service struct {
@@ -174,9 +170,26 @@ func (s *Service) TestCredential(ctx context.Context, connectionID string, versi
 	}
 	defer clearSecretMap(secrets)
 
-	success, category, summary := s.prober.Probe(ctx, record, secrets)
+	result := s.prober.Probe(ctx, record, secrets)
 
-	return s.repo.SetPlatformProviderCredentialTestResult(ctx, connectionID, version, success, category, summary, actor)
+	stored, err := s.repo.SetPlatformProviderCredentialTestResult(
+		ctx,
+		connectionID,
+		version,
+		result.Ready,
+		result.Category,
+		result.Summary,
+		actor,
+	)
+	if err != nil || stored == nil {
+		return stored, err
+	}
+
+	stored.Authenticated = result.Authenticated
+	stored.Ready = result.Ready
+	stored.Details = result.PlatformDetails()
+
+	return stored, nil
 }
 
 func (s *Service) Activate(ctx context.Context, connectionID string, version, revision int64, actor Actor, idempotencyKey, reason string) (*platform.PlatformProviderConnection, error) {
@@ -259,27 +272,31 @@ func (s *Service) afterLifecycleMutation(ctx context.Context, connection *platfo
 
 type HTTPProber struct{ client *http.Client }
 
-func NewHTTPProber(client *http.Client) *HTTPProber {
+func NewHTTPProber(client *http.Client) *CredentialProberRegistry {
 	if client == nil {
 		client = &http.Client{Timeout: 6 * time.Second}
 	}
 
-	return &HTTPProber{client: client}
+	generic := &HTTPProber{client: client}
+	registry := NewCredentialProberRegistry(generic)
+	registry.Register("xai", &xaiHTTPProber{client: client})
+
+	return registry
 }
 
-func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secrets map[string]string) (bool, string, string) {
+func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secrets map[string]string) ProbeResult {
 	spec, ok := documentedProbe(record)
 	if !ok {
-		return false, "unsupported", "This provider authentication mode has no implemented non-billable validation probe."
+		return unsupportedProbeResult()
 	}
 
 	if !safeProbeURL(record.ProviderSlug, spec.url) {
-		return false, "configuration", "Provider base URL is not allowed."
+		return ProbeResult{Category: "configuration", Summary: "Provider base URL is not allowed."}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.url, http.NoBody)
 	if err != nil {
-		return false, "configuration", "Provider validation endpoint is invalid."
+		return ProbeResult{Category: "configuration", Summary: "Provider validation endpoint is invalid."}
 	}
 
 	switch spec.auth {
@@ -307,27 +324,61 @@ func (p *HTTPProber) Probe(ctx context.Context, record EncryptedCredential, secr
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return false, "network", "Provider validation could not reach the upstream service."
+		return ProbeResult{Category: "network", Summary: "Provider validation could not reach the upstream service."}
 	}
 
 	if closeErr := resp.Body.Close(); closeErr != nil {
-		return false, "network", "Provider validation response could not be closed."
+		return ProbeResult{Category: "network", Summary: "Provider validation response could not be closed."}
 	}
 
-	switch {
-	case resp.StatusCode >= 200 && resp.StatusCode < 300:
-		return true, "ok", "Provider accepted the credential."
-	case resp.StatusCode == http.StatusUnauthorized:
-		return false, "invalid_credential", "Provider rejected the credential."
-	case resp.StatusCode == http.StatusForbidden:
-		return false, "forbidden", "The credential authenticated but lacks permission for the validation endpoint."
-	case resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusPaymentRequired:
-		return true, "quota_exhausted", "Credential authenticated; quota or billing prevented the probe."
-	case resp.StatusCode == http.StatusNotFound:
-		return false, "deployment_not_found", "The configured provider endpoint was not found."
-	default:
-		return false, "provider", fmt.Sprintf("Provider validation returned HTTP %d.", resp.StatusCode)
+	return genericProbeResult(resp.StatusCode)
+}
+
+type xaiHTTPProber struct{ client *http.Client }
+
+func (p *xaiHTTPProber) Probe(
+	ctx context.Context,
+	record EncryptedCredential,
+	secrets map[string]string,
+) ProbeResult {
+	spec, ok := documentedProbe(record)
+	if !ok {
+		return unsupportedProbeResult()
 	}
+
+	if !safeProbeURL(record.ProviderSlug, spec.url) {
+		return ProbeResult{Category: "configuration", Summary: "xAI base URL is not allowed."}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.url, http.NoBody)
+	if err != nil {
+		return ProbeResult{Category: "configuration", Summary: "xAI validation endpoint is invalid."}
+	}
+
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(secrets["api_key"]))
+	req.Header.Set("Accept", "application/json")
+
+	if strings.TrimSpace(secrets["api_key"]) == "" {
+		return unsupportedProbeResult()
+	}
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return ProbeResult{Category: "network", Summary: "xAI validation could not reach the upstream service."}
+	}
+
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
+	closeErr := resp.Body.Close()
+
+	if readErr != nil {
+		return ProbeResult{Category: "network", Summary: "xAI validation response could not be read."}
+	}
+
+	if closeErr != nil {
+		return ProbeResult{Category: "network", Summary: "xAI validation response could not be closed."}
+	}
+
+	return classifyXAIAPIKeyProbe(resp.StatusCode, body, record.ModelHint)
 }
 
 func applyProbeMetadataHeaders(req *http.Request, record EncryptedCredential) {
@@ -435,7 +486,11 @@ func documentedProbe(record EncryptedCredential) (probeSpec, bool) {
 	case "together-ai":
 		return modelsProbe(base, "https://api.together.xyz/v1", "bearer-api-key"), record.AuthMode == "api_key"
 	case "xai":
-		return modelsProbe(base, "https://api.x.ai/v1", "bearer-api-key"), record.AuthMode == "api_key"
+		if base == "" {
+			base = "https://api.x.ai/v1"
+		}
+
+		return probeSpec{url: strings.TrimRight(base, "/") + "/api-key", auth: "bearer-api-key"}, record.AuthMode == "api_key"
 	default:
 		return probeSpec{}, false
 	}

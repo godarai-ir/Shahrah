@@ -28,6 +28,7 @@ type Binding struct {
 
 type EncryptedCredential struct {
 	Binding
+	ModelHint        string
 	BaseURL          string
 	APIVersion       string
 	Organization     string

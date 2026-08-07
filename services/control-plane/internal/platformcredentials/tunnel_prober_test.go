@@ -3,6 +3,7 @@ package platformcredentials
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -74,7 +75,7 @@ func TestTunnelCredentialProberReturnsSanitizedWIFMetadata(t *testing.T) {
 	tunnel := &metadataProbeTunnel{}
 	prober := NewTunnelCredentialProber(tunnel)
 
-	ok, category, _, metadata := prober.ProbeDetailed(
+	result := prober.Probe(
 		context.Background(),
 		EncryptedCredential{
 			Binding: Binding{
@@ -90,28 +91,28 @@ func TestTunnelCredentialProberReturnsSanitizedWIFMetadata(t *testing.T) {
 		},
 		nil,
 	)
-	if !ok || category != "ok" {
-		t.Fatalf("probe failed: ok=%v category=%q", ok, category)
+	if !result.Ready || result.Category != "ok" {
+		t.Fatalf("probe failed: ready=%v category=%q", result.Ready, result.Category)
 	}
 
 	if len(tunnel.calls) != 3 {
 		t.Fatalf("expected three capability probes, got %d", len(tunnel.calls))
 	}
 
-	if metadata.WIFExpiresAt == nil ||
-		!metadata.WIFExpiresAt.Equal(time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)) {
-		t.Fatalf("unexpected expiry: %#v", metadata.WIFExpiresAt)
+	if result.Metadata.WIFExpiresAt == nil ||
+		!result.Metadata.WIFExpiresAt.Equal(time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected expiry: %#v", result.Metadata.WIFExpiresAt)
 	}
 
-	if metadata.WIFRefreshedAt == nil ||
-		!metadata.WIFRefreshedAt.Equal(time.Date(2026, 7, 29, 11, 0, 0, 0, time.UTC)) {
-		t.Fatalf("unexpected refresh time: %#v", metadata.WIFRefreshedAt)
+	if result.Metadata.WIFRefreshedAt == nil ||
+		!result.Metadata.WIFRefreshedAt.Equal(time.Date(2026, 7, 29, 11, 0, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected refresh time: %#v", result.Metadata.WIFRefreshedAt)
 	}
 
-	if len(metadata.WIFScopes) != 2 ||
-		metadata.WIFScopes[0] != "workspace:developer" ||
-		metadata.WIFScopes[1] != "workspace:inference" {
-		t.Fatalf("unexpected scopes: %#v", metadata.WIFScopes)
+	if len(result.Metadata.WIFScopes) != 2 ||
+		result.Metadata.WIFScopes[0] != "workspace:developer" ||
+		result.Metadata.WIFScopes[1] != "workspace:inference" {
+		t.Fatalf("unexpected scopes: %#v", result.Metadata.WIFScopes)
 	}
 }
 
@@ -120,7 +121,7 @@ func TestTunnelCredentialProberRoutesGeminiProbeThroughSilkRoad(t *testing.T) {
 
 	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{StatusCode: 200}}
 	prober := NewTunnelCredentialProber(tunnel)
-	ok, category, _ := prober.Probe(context.Background(), EncryptedCredential{
+	result := prober.Probe(context.Background(), EncryptedCredential{
 		Binding: Binding{
 			ProviderSlug:        "google-gemini",
 			AuthMode:            "api_key",
@@ -130,8 +131,8 @@ func TestTunnelCredentialProberRoutesGeminiProbeThroughSilkRoad(t *testing.T) {
 		BaseURL: "https://generativelanguage.googleapis.com",
 	}, map[string]string{"api_key": "gemini-secret"})
 
-	if !ok || category != "ok" {
-		t.Fatalf("probe failed: ok=%v category=%q", ok, category)
+	if !result.Ready || result.Category != "ok" {
+		t.Fatalf("probe failed: ready=%v category=%q", result.Ready, result.Category)
 	}
 
 	if tunnel.request.Operation != platform.ProviderOperationCredentialProbe {
@@ -148,10 +149,42 @@ func TestTunnelCredentialProberRoutesGeminiProbeThroughSilkRoad(t *testing.T) {
 func TestTunnelCredentialProberFailsClosedWithoutTunnel(t *testing.T) {
 	t.Parallel()
 
-	ok, category, _ := NewTunnelCredentialProber(nil).Probe(context.Background(), EncryptedCredential{
+	result := NewTunnelCredentialProber(nil).Probe(context.Background(), EncryptedCredential{
 		Binding: Binding{ProviderSlug: "google-gemini", AuthMode: "api_key"},
 	}, map[string]string{"api_key": "gemini-secret"})
-	if ok || category != "network" {
-		t.Fatalf("ok=%v category=%q, want false/network", ok, category)
+	if result.Ready || result.Category != "network" {
+		t.Fatalf("ready=%v category=%q, want false/network", result.Ready, result.Category)
+	}
+}
+
+func TestTunnelCredentialProberUsesDedicatedXAIKeyStatusProbe(t *testing.T) {
+	t.Parallel()
+
+	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{
+		StatusCode: http.StatusOK,
+		Body: []byte(`{
+			"api_key_disabled": false,
+			"api_key_blocked": false,
+			"team_blocked": true,
+			"acls": ["api-key:model:*", "api-key:endpoint:*"]
+		}`),
+	}}
+	prober := NewTunnelCredentialProber(tunnel)
+
+	result := prober.Probe(context.Background(), EncryptedCredential{
+		Binding:   Binding{ProviderSlug: "xai", AuthMode: "api_key"},
+		ModelHint: "grok-4.3",
+	}, map[string]string{"api_key": "xai-secret"})
+
+	if !result.Authenticated || result.Ready || result.Category != "team_blocked" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+
+	if result.Metadata.AccountBlocked == nil || !*result.Metadata.AccountBlocked {
+		t.Fatalf("expected blocked team metadata: %#v", result.Metadata)
+	}
+
+	if tunnel.request.Operation != platform.ProviderOperationCredentialProbe {
+		t.Fatalf("operation = %q", tunnel.request.Operation)
 	}
 }

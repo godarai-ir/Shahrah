@@ -142,13 +142,26 @@ type CreatePlatformProviderCredentialVersionRequest struct {
 	ExpiresAt *time.Time        `json:"expires_at,omitempty"`
 }
 
+// ProviderCredentialProbeDetails contains sanitized credential readiness data.
+type ProviderCredentialProbeDetails struct {
+	Authenticated      bool     `json:"authenticated"`
+	Ready              bool     `json:"ready"`
+	Permissions        []string `json:"permissions,omitempty"`
+	CredentialDisabled *bool    `json:"credential_disabled,omitempty"`
+	CredentialBlocked  *bool    `json:"credential_blocked,omitempty"`
+	AccountBlocked     *bool    `json:"account_blocked,omitempty"`
+}
+
 type PlatformProviderCredentialTestResult struct {
-	Success   bool      `json:"success"`
-	Category  string    `json:"category"`
-	Summary   string    `json:"summary"`
-	TestedAt  time.Time `json:"tested_at"`
-	Version   int64     `json:"version"`
-	Validated bool      `json:"validated"`
+	Success       bool                            `json:"success"`
+	Authenticated bool                            `json:"authenticated"`
+	Ready         bool                            `json:"ready"`
+	Category      string                          `json:"category"`
+	Summary       string                          `json:"summary"`
+	TestedAt      time.Time                       `json:"tested_at"`
+	Version       int64                           `json:"version"`
+	Validated     bool                            `json:"validated"`
+	Details       *ProviderCredentialProbeDetails `json:"details,omitempty"`
 }
 
 type PlatformProviderCredentialActionRequest struct {

@@ -698,6 +698,7 @@ func (s *ProviderAccountRepository) TestTenantProviderAccountCredentials(ctx con
 	if usePlatformManagedCredentials {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
+			Ready:   true,
 			Message: "platform-managed credentials are enabled; no tenant provider credential is required",
 		}, nil
 	}
@@ -706,6 +707,7 @@ func (s *ProviderAccountRepository) TestTenantProviderAccountCredentials(ctx con
 	if normalizedAuthMode == string(platform.ProviderAuthModeNoCredential) {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
+			Ready:   true,
 			Message: "this provider connection does not require a credential",
 		}, nil
 	}
@@ -742,14 +744,14 @@ func (s *ProviderAccountRepository) TestTenantProviderAccountCredentials(ctx con
 		}
 	}
 
-	success, category, message, metadata := probeTenantProviderCredential(
+	result := probeTenantProviderCredential(
 		ctx,
 		s.tenantProviderCredentialProber(),
-		tenantProviderProbeCredential(provider, accountID, normalizedAuthMode, providerConfig),
+		tenantProviderProbeCredential(provider, accountID, normalizedAuthMode, req.ModelHint, providerConfig),
 		secrets,
 	)
 
-	return tenantProviderCredentialTestResponse(success, category, message, metadata), nil
+	return tenantProviderCredentialTestResponse(result), nil
 }
 
 // TestProviderConnection validates write-only credentials without persisting
@@ -758,6 +760,7 @@ func (s *ProviderAccountRepository) TestProviderConnection(ctx context.Context, 
 	if req.UsePlatformManagedCredentials {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
+			Ready:   true,
 			Message: "platform-managed credentials are enabled; no tenant provider credential is required",
 		}, nil
 	}
@@ -765,6 +768,7 @@ func (s *ProviderAccountRepository) TestProviderConnection(ctx context.Context, 
 	if req.AuthMode == platform.ProviderAuthModeNoCredential {
 		return &platform.TestTenantProviderAccountCredentialsResponse{
 			Success: true,
+			Ready:   true,
 			Message: "this provider connection does not require a credential",
 		}, nil
 	}
@@ -780,19 +784,20 @@ func (s *ProviderAccountRepository) TestProviderConnection(ctx context.Context, 
 		}, nil
 	}
 
-	success, category, message, metadata := probeTenantProviderCredential(
+	result := probeTenantProviderCredential(
 		ctx,
 		s.tenantProviderCredentialProber(),
 		tenantProviderProbeCredential(
 			strings.TrimSpace(req.Provider),
 			"preflight",
 			string(req.AuthMode),
+			req.ModelHint,
 			req.ProviderConfig,
 		),
 		secrets,
 	)
 
-	return tenantProviderCredentialTestResponse(success, category, message, metadata), nil
+	return tenantProviderCredentialTestResponse(result), nil
 }
 
 func (s *ProviderAccountRepository) tenantProviderCredentialProber() platformcredentials.CredentialProber {
@@ -854,38 +859,34 @@ func probeTenantProviderCredential(
 	prober platformcredentials.CredentialProber,
 	record platformcredentials.EncryptedCredential,
 	secrets map[string]string,
-) (bool, string, string, platformcredentials.ProbeMetadata) {
-	if detailed, ok := prober.(platformcredentials.DetailedCredentialProber); ok {
-		return detailed.ProbeDetailed(ctx, record, secrets)
-	}
-
-	success, category, summary := prober.Probe(ctx, record, secrets)
-
-	return success, category, summary, platformcredentials.ProbeMetadata{}
+) platformcredentials.ProbeResult {
+	return prober.Probe(ctx, record, secrets)
 }
 
 func tenantProviderCredentialTestResponse(
-	success bool,
-	category string,
-	message string,
-	metadata platformcredentials.ProbeMetadata,
+	result platformcredentials.ProbeResult,
 ) *platform.TestTenantProviderAccountCredentialsResponse {
 	return &platform.TestTenantProviderAccountCredentialsResponse{
-		Success:            success,
-		Unsupported:        strings.EqualFold(strings.TrimSpace(category), "unsupported"),
-		Message:            message,
-		WIFEffectiveScopes: metadata.WIFScopes,
-		WIFExpiresAt:       metadata.WIFExpiresAt,
-		WIFLastRefreshAt:   metadata.WIFRefreshedAt,
+		Success:            result.Ready,
+		Authenticated:      result.Authenticated,
+		Ready:              result.Ready,
+		Category:           result.Category,
+		Unsupported:        strings.EqualFold(strings.TrimSpace(result.Category), "unsupported"),
+		Message:            result.Summary,
+		Details:            result.PlatformDetails(),
+		WIFEffectiveScopes: result.Metadata.WIFScopes,
+		WIFExpiresAt:       result.Metadata.WIFExpiresAt,
+		WIFLastRefreshAt:   result.Metadata.WIFRefreshedAt,
 	}
 }
 
-func tenantProviderProbeCredential(provider, connectionID, authMode string, config map[string]interface{}) platformcredentials.EncryptedCredential {
+func tenantProviderProbeCredential(provider, connectionID, authMode, modelHint string, config map[string]interface{}) platformcredentials.EncryptedCredential {
 	return platformcredentials.EncryptedCredential{
 		Binding: platformcredentials.Binding{
 			ProviderSlug: strings.TrimSpace(provider), ConnectionID: connectionID,
 			CredentialVersionID: "probe", AuthMode: strings.TrimSpace(authMode),
 		},
+		ModelHint:        strings.TrimSpace(modelHint),
 		BaseURL:          firstString(config, nil, "api_base", "native_base_url", "base_url", "endpoint", "serving_endpoint_url"),
 		APIVersion:       firstString(config, nil, "api_version"),
 		Organization:     firstString(config, nil, "organization", "openai_organization"),

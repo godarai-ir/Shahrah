@@ -135,7 +135,14 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 	case "together-ai":
 		spec = credentialModelsProbe(base, "https://api.together.xyz/v1")
 	case "xai":
-		spec = credentialModelsProbe(base, "https://api.x.ai/v1")
+		if base == "" {
+			base = "https://api.x.ai/v1"
+		}
+
+		spec = credentialProbeSpec{
+			url:  strings.TrimRight(base, "/") + "/api-key",
+			auth: "bearer",
+		}
 	default:
 		return credentialProbeSpec{}, fmt.Errorf("provider credential probe is unsupported")
 	}

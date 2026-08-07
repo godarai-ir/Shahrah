@@ -61,9 +61,9 @@ func TestDocumentedProviderProbesUseExactAuthentication(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{}`)), Request: req}, nil
 			})}
 
-			ok, category, _ := NewHTTPProber(client).Probe(context.Background(), test.record, test.secrets)
-			if !ok || category != "ok" {
-				t.Fatalf("probe failed: ok=%v category=%q", ok, category)
+			result := NewHTTPProber(client).Probe(context.Background(), test.record, test.secrets)
+			if !result.Ready || result.Category != "ok" {
+				t.Fatalf("probe failed: ready=%v category=%q", result.Ready, result.Category)
 			}
 
 			if request == nil || request.Header.Get(test.headerName) != test.header {
@@ -88,13 +88,13 @@ func TestOpenAIProbePreservesConnectionMetadataHeaders(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{}`)), Request: req}, nil
 	})}
 
-	ok, category, _ := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
+	result := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
 		Binding:      Binding{ProviderSlug: "openai", AuthMode: "api_key"},
 		Organization: "org-test",
 		Project:      "project-test",
 	}, map[string]string{"api_key": "openai-secret"})
-	if !ok || category != "ok" {
-		t.Fatalf("probe failed: ok=%v category=%q", ok, category)
+	if !result.Ready || result.Category != "ok" {
+		t.Fatalf("probe failed: ready=%v category=%q", result.Ready, result.Category)
 	}
 }
 
@@ -107,11 +107,11 @@ func TestUnsupportedProviderProbeDoesNotPerformNetworkIO(t *testing.T) {
 		return nil, nil
 	})}
 
-	ok, category, _ := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
+	result := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
 		Binding: Binding{ProviderSlug: "deepgram", AuthMode: "api_key"},
 	}, map[string]string{"api_key": "secret"})
-	if ok || category != "unsupported" || calls != 0 {
-		t.Fatalf("unsupported probe must fail without network I/O: ok=%v category=%q calls=%d", ok, category, calls)
+	if result.Ready || result.Category != "unsupported" || calls != 0 {
+		t.Fatalf("unsupported probe must fail without network I/O: ready=%v category=%q calls=%d", result.Ready, result.Category, calls)
 	}
 }
 
@@ -142,11 +142,11 @@ func TestHTTPProberClassifiesProviderResponses(t *testing.T) {
 				return &http.Response{StatusCode: test.status, Header: make(http.Header), Body: http.NoBody, Request: req}, nil
 			})}
 
-			success, category, _ := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
+			result := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
 				Binding: Binding{ProviderSlug: "openai", AuthMode: "api_key"},
 			}, map[string]string{"api_key": "secret"})
-			if success != test.success || category != test.category {
-				t.Fatalf("unexpected classification: success=%v category=%q", success, category)
+			if result.Ready != test.success || result.Category != test.category {
+				t.Fatalf("unexpected classification: ready=%v category=%q", result.Ready, result.Category)
 			}
 		})
 	}
@@ -161,12 +161,47 @@ func TestHTTPProberRejectsUnsafeBaseURLBeforeNetworkIO(t *testing.T) {
 		return nil, nil
 	})}
 
-	ok, category, _ := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
+	result := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
 		Binding: Binding{ProviderSlug: "openai", AuthMode: "api_key"},
 		BaseURL: "https://127.0.0.1/v1",
 	}, map[string]string{"api_key": "secret"})
-	if ok || category != "configuration" || calls != 0 {
-		t.Fatalf("unsafe URL must fail without network I/O: ok=%v category=%q calls=%d", ok, category, calls)
+	if result.Ready || result.Category != "configuration" || calls != 0 {
+		t.Fatalf("unsafe URL must fail without network I/O: ready=%v category=%q calls=%d", result.Ready, result.Category, calls)
+	}
+}
+
+func TestXAIHTTPProberUsesKeyStatusEndpoint(t *testing.T) {
+	t.Parallel()
+
+	var request *http.Request
+
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		request = req
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body: io.NopCloser(strings.NewReader(`{
+				"api_key_disabled": false,
+				"api_key_blocked": false,
+				"team_blocked": false,
+				"acls": ["api-key:model:grok-4.3", "api-key:endpoint:chat"]
+			}`)),
+			Request: req,
+		}, nil
+	})}
+
+	result := NewHTTPProber(client).Probe(context.Background(), EncryptedCredential{
+		Binding:   Binding{ProviderSlug: "xai", AuthMode: "api_key"},
+		ModelHint: "grok-4.3",
+	}, map[string]string{"api_key": "xai-secret"})
+
+	if !result.Authenticated || !result.Ready || result.Category != "ok" {
+		t.Fatalf("unexpected xAI result: %#v", result)
+	}
+
+	if request == nil || request.URL.String() != "https://api.x.ai/v1/api-key" {
+		t.Fatalf("unexpected xAI probe request: %#v", request)
 	}
 }
 

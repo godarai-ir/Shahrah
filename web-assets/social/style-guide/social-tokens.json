@@ -1,249 +1,155 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "name": "GodarAI Social Media Visual System",
+  "name": "GodarAI Contemporary Geometric Lithography",
   "version": "1.0.0",
-  "updated": "2026-08-06",
+  "updated": "2026-08-07",
   "direction": "rtl",
   "brandName": {
     "fa": "گدارAI",
     "latin": "GodarAI"
   },
-  "concept": {
-    "promise": "کنترل هوشمند جریان AI",
-    "layers": [
-      "flow",
-      "control",
-      "clarity"
-    ],
-    "visualDirection": [
-      "Intelligent Flow",
-      "Editorial Technology"
+  "style": {
+    "name": "Contemporary Geometric Lithography",
+    "nameFa": "چاپ‌سنگی هندسی معاصر",
+    "status": "primary",
+    "personality": [
+      "intelligent-not-cold",
+      "precise-not-dry",
+      "artistic-not-decorative",
+      "premium-not-luxurious",
+      "abstract-not-meaningless",
+      "calm-deep-reflective"
     ]
   },
   "color": {
-    "brand": {
-      "cyan": "#00C9EB",
-      "cyanBright": "#05D1EE",
-      "cyanDeep": "#00BCE1",
-      "navy": "#012651",
-      "navyTop": "#022A57",
-      "navyBottom": "#011D40",
-      "darkBackground": "#06182D",
-      "offWhite": "#F6FBFF",
-      "ice": "#D9EEFF",
-      "white": "#FFFFFF"
-    },
-    "role": {
-      "darkCanvas": "#06182D",
-      "darkTextPrimary": "#F6FBFF",
-      "darkTextSecondary": "#D9EEFF",
-      "darkAccent": "#00C9EB",
-      "lightCanvas": "#F6FBFF",
-      "lightTextPrimary": "#012651",
-      "lightAccentDecorativeOnly": "#00C9EB"
-    },
-    "contrast": {
-      "cyanOnDarkBackground": 8.97,
-      "cyanOnNavy": 7.55,
-      "cyanOnWhite": 1.99,
-      "navyOnWhite": 15.03,
-      "iceOnDarkBackground": 14.98,
-      "offWhiteOnDarkBackground": 17.14,
-      "minimumText": 4.5,
-      "minimumMeaningfulGraphic": 3.0
+    "deepNavy": "#06182D",
+    "darkBlue": "#012651",
+    "cyan": "#00C9EB",
+    "mutedCobalt": null,
+    "paleIcyBlue": "#D9EEFF",
+    "warmOffWhite": "#F6FBFF",
+    "mutedViolet": null,
+    "usagePercent": {
+      "navyAndDarkBlue": [60, 70],
+      "warmOffWhiteAndNeutrals": [20, 30],
+      "cyanMaximum": 10,
+      "mutedViolet": "details-only"
     }
   },
-  "typography": {
-    "persian": {
-      "family": "Vazirmatn",
-      "fallback": [
-        "Tahoma",
-        "Arial",
-        "sans-serif"
-      ],
-      "weights": {
-        "regular": 400,
-        "medium": 500,
-        "semibold": 600,
-        "bold": 700,
-        "extrabold": 800,
-        "black": 900
-      }
-    },
-    "technical": {
-      "family": "JetBrains Mono",
-      "fallback": [
-        "Consolas",
-        "monospace"
-      ],
-      "direction": "ltr"
-    },
-    "scale1200x1500": {
-      "heroNumberPx": [
-        144,
-        200
-      ],
-      "headlinePx": [
-        76,
-        96
-      ],
-      "carouselTitlePx": [
-        56,
-        72
-      ],
-      "subtitlePx": [
-        40,
-        48
-      ],
-      "bodyPx": [
-        30,
-        36
-      ],
-      "labelPx": [
-        24,
-        28
-      ],
-      "footnotePx": [
-        20,
-        24
-      ],
-      "minimumBodyPx": 28
-    }
-  },
-  "logo": {
-    "source": "web-assets/svg",
-    "intrinsicRatio": {
-      "width": 336,
-      "height": 247
-    },
-    "defaultPlacement": "top-left",
-    "alternatePlacement": "bottom-left-signature",
-    "clearSpace": "0.25x logo height",
-    "master1200x1500": {
-      "preferredHeightPx": 72,
-      "minimumHeightPx": 56
-    },
-    "master1200x1200": {
-      "preferredHeightPx": 64,
-      "minimumHeightPx": 48
-    },
-    "variants": {
-      "lightCanvas": "godarai-mark-light.svg",
-      "darkCanvas": "godarai-mark-dark.svg",
-      "monoLightCanvas": "godarai-mark-mono-navy.svg",
-      "monoDarkCanvas": "godarai-mark-mono-white.svg"
-    }
-  },
-  "layout": {
-    "baseGridPx": 4,
-    "spacingPx": [
-      8,
-      12,
-      16,
-      24,
-      32,
-      48,
-      64,
-      96
+  "form": {
+    "allowed": [
+      "large-circles-and-semicircles",
+      "rectangles-and-flat-planes",
+      "geometric-cuts",
+      "thick-arcs",
+      "overlapping-layers",
+      "incomplete-frames",
+      "engraved-lines",
+      "hatching-and-parallel-lines",
+      "printed-plates-and-inked-surfaces"
     ],
-    "radiusPx": [
-      12,
-      16,
-      24
+    "primaryFormCount": [3, 5],
+    "oneDominantForm": true,
+    "flatGraphicControlled": true
+  },
+  "texture": {
+    "required": [
+      "warm-matte-paper",
+      "fine-ink-grain",
+      "hand-hatching",
+      "subtle-print-misregistration",
+      "slightly-rough-edges",
+      "minor-ink-density-variation",
+      "ink-pressure-transfer"
     ],
-    "master1200x1500": {
-      "widthPx": 1200,
-      "heightPx": 1500,
-      "columns": 12,
-      "marginPx": 96,
-      "gutterPx": 24,
-      "signatureBandMaxPx": 120
-    },
-    "master1200x1200": {
-      "widthPx": 1200,
-      "heightPx": 1200,
-      "columns": 12,
-      "marginPx": 84,
-      "gutterPx": 24
-    },
-    "textVisualRatio": "60:40"
+    "target": "contemporary-hand-print",
+    "avoid": ["dirty", "aged", "vintage-nostalgia"]
   },
-  "format": {
-    "feedPortrait": {
-      "widthPx": 1200,
-      "heightPx": 1500,
-      "ratio": "4:5"
-    },
-    "feedSquare": {
-      "widthPx": 1200,
-      "heightPx": 1200,
-      "ratio": "1:1"
-    },
-    "openGraph": {
-      "widthPx": 1200,
-      "heightPx": 630,
-      "ratio": "1.91:1"
-    },
-    "storyReel": {
-      "widthPx": 1080,
-      "heightPx": 1920,
-      "ratio": "9:16",
-      "safeAreaHouseRulePx": {
-        "top": 250,
-        "right": 120,
-        "bottom": 320,
-        "left": 120
-      }
-    },
-    "linkedinDocument": {
-      "preferredRatio": "4:5",
-      "houseRulePages": {
-        "minimum": 6,
-        "maximum": 12
-      },
-      "officialLimitMb": 100,
-      "officialLimitPages": 300,
-      "allPagesSameSize": true,
-      "preferredFormat": "pdf"
-    }
+  "composition": {
+    "generousNegativeSpace": true,
+    "forcedSymmetry": false,
+    "edgeCropping": true,
+    "permanentCentering": false,
+    "flatEditorial": true
   },
-  "flowMotif": {
-    "maximumPrimaryPaths": 5,
-    "maximumHighlightedPaths": 1,
-    "crossingRequiresNode": true,
-    "avoidBehindDenseText": true,
-    "defaultNarrativeDirection": "right-to-left"
+  "depth": {
+    "matte": true,
+    "limited": true,
+    "allowed": ["very-soft-flat-shadows", "subtle-ink-layer-difference"],
+    "forbidden": [
+      "cinematic-lighting",
+      "glossy-reflections",
+      "transparent-glass",
+      "chrome",
+      "volumetric-light",
+      "neon",
+      "strong-realistic-shadows"
+    ]
   },
-  "templates": [
-    "S01-single-post",
-    "S02-carousel-cover",
-    "S03-carousel-inner",
-    "S04-feature",
-    "S05-comparison",
-    "S06-quote",
-    "S07-data",
-    "S08-release",
-    "S09-provider-model",
-    "S10-event",
-    "S11-video-cover",
-    "S12-demo-cta"
+  "forbiddenConcepts": [
+    "gateway",
+    "portal",
+    "bridge",
+    "road",
+    "path",
+    "route",
+    "flow",
+    "stream",
+    "river",
+    "wave",
+    "glowing-focal-point",
+    "light-dots",
+    "stars",
+    "nodes",
+    "network",
+    "circuitry",
+    "robot",
+    "brain",
+    "globe",
+    "shield",
+    "lock",
+    "hologram",
+    "generic-ai-imagery",
+    "motion",
+    "transition",
+    "chaos-versus-order",
+    "glossy-3d",
+    "photorealism",
+    "text-in-base-image",
+    "watermark"
   ],
-  "export": {
-    "colorProfile": "sRGB",
-    "staticPreferred": [
-      "png",
-      "jpg"
-    ],
-    "carouselPreferred": "pdf",
-    "fileNamePattern": "YYYY-MM-DD_platform_template_topic_lang_version.ext"
+  "signatureMinimumCount": 3,
+  "signature": [
+    "deep-navy-background",
+    "flat-geometric-forms",
+    "engraved-lines",
+    "hand-print-texture",
+    "cyan-as-ink-layer",
+    "incomplete-border-or-crop",
+    "significant-negative-space",
+    "restrained-palette",
+    "contemporary-art-print-feel"
+  ],
+  "typography": {
+    "persian": "Vazirmatn",
+    "technical": "JetBrains Mono",
+    "baseImageContainsText": false
   },
-  "governance": {
-    "variableClaimsRequireDatedSource": true,
-    "templatePromotionMinimumReuseCount": 3,
-    "realContentPilotCount": {
-      "minimum": 10,
-      "maximum": 15
-    },
-    "reviewCadence": "quarterly"
+  "formats": {
+    "feedPortrait": { "width": 1200, "height": 1500, "ratio": "4:5" },
+    "feedSquare": { "width": 1200, "height": 1200, "ratio": "1:1" },
+    "articleLandscape": { "width": 1200, "height": 630, "ratio": "1.91:1" },
+    "storyReel": { "width": 1080, "height": 1920, "ratio": "9:16" }
+  },
+  "exploratoryDirections": [
+    "Minimal Digital Painting",
+    "Contemporary Watercolor",
+    "Contemporary Material Abstraction",
+    "Stone Texture Variant"
+  ],
+  "archive": {
+    "promptFile": "PROMPTS.md",
+    "moodboardIndex": "moodboards/README.md",
+    "originalImageDirectory": "moodboards/originals"
   }
 }
