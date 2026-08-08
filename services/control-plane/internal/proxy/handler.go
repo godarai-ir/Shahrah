@@ -14,6 +14,7 @@ import (
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
+	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/billing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
@@ -23,6 +24,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/prompts"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
+	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -188,12 +190,29 @@ func NewChatCompletionHandler(llmRouter *router.Router, tunnel platform.TunnelTr
 
 // Handle executes the explicit chat request pipeline.
 func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
-	prepared, err := h.prepareChatRequest(c, time.Now())
+	startedAt := time.Now()
+
+	var requestLog *requestLogLifecycle
+
+	if authInfo := auth.GetAuthInfo(c); authInfo != nil {
+		if currentTenant := tenant.FromContext(c); currentTenant != nil {
+			authInfo.TenantID = currentTenant.ID
+			requestLog = newRequestLogLifecycle(h.logger, h.logs, c, authInfo, "/v1/chat/completions", "chat_completions", startedAt)
+			requestLog.SetRequestBody(buildJSONRequestLogPayload(append([]byte(nil), c.Body()...), nil))
+
+			defer requestLog.FinalizeFromFiber()
+		}
+	}
+
+	prepared, err := h.prepareChatRequest(c, startedAt, requestLog)
 	if err != nil || prepared.responseHandled {
 		return err
 	}
 
-	admitted, err := h.admitChatRequest(c, prepared)
+	requestLog.SetModel(prepared.requestedModel)
+	requestLog.SetRequestBody(buildChatRequestLogPayload(prepared.request, prepared.originalBody))
+
+	admitted, err := h.admitChatRequest(c, prepared, requestLog)
 	if admitted.cacheRelease != nil {
 		defer admitted.cacheRelease()
 	}
@@ -217,9 +236,14 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	reservationToRelease = routed.reservation
+	requestLog.SetDeployment(routed.tunnelRequest.Deployment)
+	requestLog.SetRequestIDs(routed.tunnelRequest.RequestID, routed.tunnelRequest.TraceID)
+	requestLog.SetRequestBody(buildProviderChatRequestLogPayload(routed.tunnelRequest.Deployment.Provider, prepared.request, prepared.originalBody))
 
 	if prepared.request.Stream {
 		releaseBudgetOnExit = false
+
+		requestLog.MarkFinalized()
 
 		return h.handleStream(
 			c,
@@ -246,6 +270,7 @@ func (h *ChatCompletionHandler) Handle(c *fiber.Ctx) error {
 		prepared.tenantSlug,
 		admitted.cachePending,
 		prepared.guardrailSelection,
+		requestLog,
 	)
 	if err == nil {
 		releaseBudgetOnExit = false
@@ -634,6 +659,7 @@ func (h *ChatCompletionHandler) handleResponseCacheLookup(
 	cacheConfig *responsecache.RequestConfig,
 	startTime time.Time,
 	tenantSlug string,
+	requestLog *requestLogLifecycle,
 ) (*responsecache.Pending, func(), bool, error) {
 	if cacheConfig == nil {
 		return nil, nil, false, nil
@@ -662,7 +688,7 @@ func (h *ChatCompletionHandler) handleResponseCacheLookup(
 	if lookupErr != nil {
 		h.logger.Warn("Response cache lookup failed", zap.String("cache_type", cacheConfig.Type), zap.Error(lookupErr))
 	} else if cacheResult.Entry != nil {
-		return cachePending, nil, true, h.handleCacheHit(c, req, originalBody, authInfo, cacheResult, startTime, tenantSlug)
+		return cachePending, nil, true, h.handleCacheHit(c, req, originalBody, authInfo, cacheResult, startTime, tenantSlug, requestLog)
 	}
 
 	if cacheResult.Status == "bypass" {
@@ -683,7 +709,7 @@ func (h *ChatCompletionHandler) handleResponseCacheLookup(
 
 	if secondErr == nil && secondResult.Entry != nil {
 		c.Set(apiheaders.HeaderCacheStatus, "hit")
-		return cachePending, release, true, h.handleCacheHit(c, req, originalBody, authInfo, secondResult, startTime, tenantSlug)
+		return cachePending, release, true, h.handleCacheHit(c, req, originalBody, authInfo, secondResult, startTime, tenantSlug, requestLog)
 	}
 
 	return cachePending, release, false, nil
@@ -996,6 +1022,7 @@ func (h *ChatCompletionHandler) handleSync(
 	tenantSlug string,
 	cachePending *responsecache.Pending,
 	guardrailSelection guardrails.RequestSelection,
+	requestLog *requestLogLifecycle,
 ) error {
 	result, err := h.executeChatProvider(
 		c,
@@ -1006,6 +1033,7 @@ func (h *ChatCompletionHandler) handleSync(
 		tunnelRequest,
 		reservation,
 		startedAt,
+		requestLog,
 	)
 	if err != nil || result.handled {
 		return err
@@ -1023,6 +1051,7 @@ func (h *ChatCompletionHandler) handleSync(
 		result.completion,
 		result.finalCost,
 		startedAt,
+		requestLog,
 	)
 	if err != nil || responseHandled {
 		return err
@@ -1056,6 +1085,7 @@ func (h *ChatCompletionHandler) handleSync(
 		result,
 		startedAt,
 		tenantSlug,
+		requestLog,
 	)
 
 	forwardProviderHeaders(c, result.response.Headers)
@@ -1070,7 +1100,7 @@ func (h *ChatCompletionHandler) handleSync(
 
 	return err
 }
-func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, result responsecache.Result, start time.Time, tenantSlug string) error {
+func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai.ChatCompletionRequest, originalBody []byte, authInfo *platform.AuthContext, result responsecache.Result, start time.Time, tenantSlug string, requestLog *requestLogLifecycle) error {
 	entry := result.Entry
 
 	h.markVirtualModelCacheHit(c, authInfo, req.Model)
@@ -1093,7 +1123,7 @@ func (h *ChatCompletionHandler) handleCacheHit(c *fiber.Ctx, req contractsopenai
 	logEntry.RequestBody = buildProviderChatRequestLogPayload(entry.Provider, req, originalBody)
 	logEntry.ResponseBody = buildProviderChatResponseLogPayload(entry.Provider, entry.Response, contractsopenai.ChatCompletionResponse{})
 	logEntry.CacheStatus = "hit"
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: requestID, TokenHash: authInfo.TokenHash, TenantID: authInfo.TenantID,
 		OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID, Model: req.Model,
@@ -2118,6 +2148,7 @@ func logProviderFailureRequest(
 	statusCode int,
 	responseBody []byte,
 	start time.Time,
+	requestLogs ...*requestLogLifecycle,
 ) {
 	responseTimeMS := int(time.Since(start).Milliseconds())
 	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, requestedModel, route, requestType, "failed", statusCode, start, responseTimeMS)
@@ -2130,6 +2161,12 @@ func logProviderFailureRequest(
 		logEntry.ErrorType = errType
 	} else {
 		logEntry.ErrorType = "api_error"
+	}
+
+	if len(requestLogs) > 0 && requestLogs[0] != nil {
+		requestLogs[0].FinalizeEntry(c.Context(), logEntry)
+
+		return
 	}
 
 	logRequestBestEffort(logger, logs, c.Context(), logEntry)

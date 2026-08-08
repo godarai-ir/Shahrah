@@ -72,6 +72,18 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	startTime := time.Now()
 
 	originalBody := append([]byte(nil), c.Body()...)
+	authInfo := auth.GetAuthInfo(c)
+	currentTenant := tenant.FromContext(c)
+
+	var requestLog *requestLogLifecycle
+
+	if authInfo != nil && currentTenant != nil {
+		authInfo.TenantID = currentTenant.ID
+		requestLog = newRequestLogLifecycle(h.logger, h.logs, c, authInfo, "/v1/completions", "completions", startTime)
+		requestLog.SetRequestBody(buildJSONRequestLogPayload(originalBody, nil))
+
+		defer requestLog.FinalizeFromFiber()
+	}
 
 	var req contractsopenai.CompletionRequest
 	if err := json.Unmarshal(originalBody, &req); err != nil {
@@ -84,6 +96,8 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	requestedModel := normalizeModelIdentifier(req.Model)
+	requestLog.SetModel(requestedModel)
+	requestLog.SetRequestBody(buildCompletionRequestLogPayload(req, originalBody))
 
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
@@ -98,13 +112,11 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	// Get auth context from middleware
-	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {
 		return writeAPIError(c, fiber.StatusUnauthorized, "authentication required", "authentication_error")
 	}
 
 	// Get tenant context
-	currentTenant := tenant.FromContext(c)
 	if currentTenant == nil {
 		return writeAPIError(c, fiber.StatusBadRequest, "tenant resolution required", "invalid_request_error")
 	}
@@ -124,6 +136,7 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 
 		const message = "model access denied or unsupported for completions"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/completions", "completions", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
+		requestLog.MarkFinalized()
 
 		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
@@ -176,7 +189,10 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
-		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/completions", "completions", startTime, quotaStart, rateLimit, err)
+		if recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/completions", "completions", startTime, quotaStart, rateLimit, err) {
+			requestLog.MarkFinalized()
+		}
+
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
@@ -300,6 +316,8 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+	requestLog.SetDeployment(tunnelReq.Deployment)
+	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
 
 	if !budgetReservationAttempted {
 		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment)))
@@ -311,10 +329,13 @@ func (h *CompletionsHandler) Handle(c *fiber.Ctx) error {
 	// Execute request
 	if req.Stream {
 		releaseBudgetOnExit = false
+
+		requestLog.MarkFinalized()
+
 		return h.handleStream(c, chatReq, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
 	}
 
-	err = h.handleSync(c, chatReq, originalBody, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, chatReq, originalBody, req, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, requestLog)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -333,6 +354,7 @@ func (h *CompletionsHandler) handleSync(
 	budgetReservation *platform.BudgetReservation,
 	start time.Time,
 	tenantSlug string,
+	requestLog *requestLogLifecycle,
 ) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
@@ -406,21 +428,20 @@ func (h *CompletionsHandler) handleSync(
 	setCostHeaders(c, finalCost)
 	setTraceHeaders(c, tunnelReq.RequestID)
 
-	// Log asynchronously
 	responseTimeMS := int(time.Since(start).Milliseconds())
+	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/completions", "completions", "success", resp.StatusCode, start, responseTimeMS)
+	logEntry.RequestID = tunnelReq.RequestID
+	logEntry.TraceID = tunnelReq.TraceID
+	logEntry.CostUSD = finalCost.TotalCostUSD
+	logEntry.CostIRR = finalCost.TotalCostIRR
+	logEntry.InputTokens = finalCost.InputTokens
+	logEntry.OutputTokens = finalCost.OutputTokens
+	logEntry.TotalTokens = finalCost.TotalTokens
+	logEntry.RequestBody = buildCompletionRequestLogPayload(clientReq, originalBody)
+	logEntry.ResponseBody = buildJSONResponseLogPayload(nil, completionResp)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
+
 	go func() {
-		logEntry := buildRequestLogEntry(nil, authInfo, tunnelReq.Deployment, req.Model, "/v1/completions", "completions", "success", resp.StatusCode, start, responseTimeMS)
-		logEntry.RequestID = tunnelReq.RequestID
-		logEntry.TraceID = tunnelReq.TraceID
-		logEntry.CostUSD = finalCost.TotalCostUSD
-		logEntry.CostIRR = finalCost.TotalCostIRR
-		logEntry.InputTokens = finalCost.InputTokens
-		logEntry.OutputTokens = finalCost.OutputTokens
-		logEntry.TotalTokens = finalCost.TotalTokens
-		logEntry.Status = fmt.Sprintf("%d", resp.StatusCode)
-		logEntry.RequestBody = buildCompletionRequestLogPayload(clientReq, originalBody)
-		logEntry.ResponseBody = buildJSONResponseLogPayload(nil, completionResp)
-		logRequestBestEffort(h.logger, h.logs, context.Background(), logEntry)
 		logSpendBestEffort(h.logger, h.logs, context.Background(), platform.SpendLog{
 			RequestID:       tunnelReq.RequestID,
 			TokenHash:       authInfo.TokenHash,

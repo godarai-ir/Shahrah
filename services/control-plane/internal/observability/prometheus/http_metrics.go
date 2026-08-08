@@ -51,6 +51,11 @@ type HTTPMetrics struct {
 	spendLogFlushDuration                prom.Histogram
 	spendLogFlushBatchSize               prom.Histogram
 	spendLogFlushErrors                  prom.Counter
+	requestLogQueuedTotal                prom.Counter
+	requestLogDroppedTotal               prom.Counter
+	requestLogFlushDuration              prom.Histogram
+	requestLogFlushBatchSize             prom.Histogram
+	requestLogFlushErrors                prom.Counter
 	keyLastUsedQueuedTotal               prom.Counter
 	keyLastUsedSkippedTotal              prom.Counter
 	keyLastUsedFallbackTotal             prom.Counter
@@ -165,6 +170,28 @@ func NewHTTPMetrics() *HTTPMetrics {
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "spend_log_flush_errors_total",
 		Help: "Total asynchronous spend log flush failures.",
 	})
+	requestLogQueuedTotal := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "request_log_queued_total",
+		Help: "Total request logs queued for asynchronous persistence.",
+	})
+	requestLogDroppedTotal := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "request_log_dropped_total",
+		Help: "Total request logs dropped before persistence because the async queue was full or closed.",
+	})
+	requestLogFlushDuration := prom.NewHistogram(prom.HistogramOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "request_log_flush_duration_seconds",
+		Help:    "Duration of asynchronous request log flushes.",
+		Buckets: prom.DefBuckets,
+	})
+	requestLogFlushBatchSize := prom.NewHistogram(prom.HistogramOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "request_log_flush_batch_size",
+		Help:    "Number of request logs persisted in each asynchronous flush.",
+		Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000},
+	})
+	requestLogFlushErrors := prom.NewCounter(prom.CounterOpts{
+		Namespace: "shahrah", Subsystem: "control_plane", Name: "request_log_flush_errors_total",
+		Help: "Total asynchronous request log flush failures.",
+	})
 	keyLastUsedQueuedTotal := prom.NewCounter(prom.CounterOpts{
 		Namespace: "shahrah", Subsystem: "control_plane", Name: "key_last_used_queued_total",
 		Help: "Total key last-used timestamps queued for Redis aggregation.",
@@ -270,6 +297,7 @@ func NewHTTPMetrics() *HTTPMetrics {
 		requestsTotal, requestDuration, inflight, backpressureInFlight, backpressureRejectedTotal,
 		tokenSpendQueuedTotal, tokenSpendFallbackTotal, tokenSpendFlushDuration, tokenSpendFlushBatchSize, tokenSpendFlushErrors,
 		spendLogQueuedTotal, spendLogDroppedTotal, spendLogFlushDuration, spendLogFlushBatchSize, spendLogFlushErrors,
+		requestLogQueuedTotal, requestLogDroppedTotal, requestLogFlushDuration, requestLogFlushBatchSize, requestLogFlushErrors,
 		keyLastUsedQueuedTotal, keyLastUsedSkippedTotal, keyLastUsedFallbackTotal, keyLastUsedFlushDuration, keyLastUsedFlushBatchSize, keyLastUsedFlushErrors,
 		platformCredentialResolves, platformCredentialSnapshotLoads, platformCredentialSnapshotDuration,
 		platformCredentialSnapshotEntries, platformCredentialSnapshotAge,
@@ -296,6 +324,11 @@ func NewHTTPMetrics() *HTTPMetrics {
 		spendLogFlushDuration:                spendLogFlushDuration,
 		spendLogFlushBatchSize:               spendLogFlushBatchSize,
 		spendLogFlushErrors:                  spendLogFlushErrors,
+		requestLogQueuedTotal:                requestLogQueuedTotal,
+		requestLogDroppedTotal:               requestLogDroppedTotal,
+		requestLogFlushDuration:              requestLogFlushDuration,
+		requestLogFlushBatchSize:             requestLogFlushBatchSize,
+		requestLogFlushErrors:                requestLogFlushErrors,
 		keyLastUsedQueuedTotal:               keyLastUsedQueuedTotal,
 		keyLastUsedSkippedTotal:              keyLastUsedSkippedTotal,
 		keyLastUsedFallbackTotal:             keyLastUsedFallbackTotal,
@@ -568,6 +601,39 @@ func (m *HTTPMetrics) ObserveSpendLogFlush(batchSize int, duration time.Duration
 
 	if err != nil && m.spendLogFlushErrors != nil {
 		m.spendLogFlushErrors.Inc()
+	}
+}
+
+// IncRequestLogQueued records one request log accepted by the async persistence queue.
+func (m *HTTPMetrics) IncRequestLogQueued() {
+	if m != nil && m.requestLogQueuedTotal != nil {
+		m.requestLogQueuedTotal.Inc()
+	}
+}
+
+// IncRequestLogDropped records one request log dropped before persistence.
+func (m *HTTPMetrics) IncRequestLogDropped() {
+	if m != nil && m.requestLogDroppedTotal != nil {
+		m.requestLogDroppedTotal.Inc()
+	}
+}
+
+// ObserveRequestLogFlush records one async request log flush attempt.
+func (m *HTTPMetrics) ObserveRequestLogFlush(batchSize int, duration time.Duration, err error) {
+	if m == nil {
+		return
+	}
+
+	if m.requestLogFlushDuration != nil {
+		m.requestLogFlushDuration.Observe(duration.Seconds())
+	}
+
+	if m.requestLogFlushBatchSize != nil {
+		m.requestLogFlushBatchSize.Observe(float64(batchSize))
+	}
+
+	if err != nil && m.requestLogFlushErrors != nil {
+		m.requestLogFlushErrors.Inc()
 	}
 }
 

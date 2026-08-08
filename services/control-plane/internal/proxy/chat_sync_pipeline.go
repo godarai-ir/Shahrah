@@ -36,6 +36,7 @@ func (h *ChatCompletionHandler) executeChatProvider(
 	tunnelRequest platform.TunnelRequest,
 	reservation *platform.BudgetReservation,
 	startedAt time.Time,
+	requestLog *requestLogLifecycle,
 ) (chatProviderResult, error) {
 	providerStart := time.Now()
 	providerAttrs := enrichPlaygroundObservability(c, map[string]interface{}{
@@ -44,6 +45,9 @@ func (h *ChatCompletionHandler) executeChatProvider(
 	})
 
 	response, tunnelRequest, estimated, err := h.dispatchChatProvider(c, request, estimated, tunnelRequest)
+	requestLog.SetDeployment(tunnelRequest.Deployment)
+	requestLog.SetRequestIDs(tunnelRequest.RequestID, tunnelRequest.TraceID)
+	requestLog.SetRequestBody(buildProviderChatRequestLogPayload(tunnelRequest.Deployment.Provider, request, originalBody))
 	providerAttrs["provider"] = tunnelRequest.Deployment.Provider
 	providerAttrs["request_payload"] = buildProviderTraceChatRequestPayload(tunnelRequest.Deployment.Provider, request)
 
@@ -73,13 +77,15 @@ func (h *ChatCompletionHandler) executeChatProvider(
 	if response.StatusCode >= httpErrorFloor {
 		providerAttrs["response_payload"] = buildProviderTraceErrorPayload(tunnelRequest.Deployment.Provider, response.StatusCode, response.Body)
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, response.StatusCode, providerAttrs)
-		logProviderFailureRequest(h.logger, h.logs, c, authInfo, tunnelRequest, request.Model, "/v1/chat/completions", "chat_completions", response.StatusCode, response.Body, startedAt)
+		logProviderFailureRequest(h.logger, h.logs, c, authInfo, tunnelRequest, request.Model, "/v1/chat/completions", "chat_completions", response.StatusCode, response.Body, startedAt, requestLog)
 
 		return chatProviderResult{handled: true}, transformProviderError(c, response.StatusCode, response.Body, response.Headers)
 	}
 
 	if strings.EqualFold(strings.TrimSpace(tunnelRequest.Deployment.Provider), "xai") && chatRequestDeferred(request) {
 		err = h.handleXAIDeferredCreate(c, request, originalBody, authInfo, estimated, tunnelRequest, reservation, response, startedAt)
+
+		requestLog.MarkFinalized()
 
 		return chatProviderResult{handled: true}, err
 	}
@@ -208,6 +214,7 @@ func (h *ChatCompletionHandler) applyChatOutputGuardrails(
 	completion contractsopenai.ChatCompletionResponse,
 	finalCost platform.UsageCostBreakdown,
 	startedAt time.Time,
+	requestLog *requestLogLifecycle,
 ) (contractsopenai.ChatCompletionResponse, bool, error) {
 	if h.guardrails == nil || len(selection.LLMOutput) == 0 {
 		return completion, false, nil
@@ -222,7 +229,7 @@ func (h *ChatCompletionHandler) applyChatOutputGuardrails(
 	h.recordGuardrailChecks(c, outputResult.Checks)
 
 	if err != nil {
-		h.observeBlockedChat(c, request, originalBody, authInfo, tunnelRequest, finalCost, startedAt)
+		h.observeBlockedChat(c, request, originalBody, authInfo, tunnelRequest, finalCost, startedAt, requestLog)
 
 		return contractsopenai.ChatCompletionResponse{}, true, writeGuardrailError(c, fiber.StatusBadRequest, "Response blocked by GodarAI guardrail", outputResult.Checks)
 	}
@@ -242,6 +249,7 @@ func (h *ChatCompletionHandler) observeBlockedChat(
 	tunnelRequest platform.TunnelRequest,
 	finalCost platform.UsageCostBreakdown,
 	startedAt time.Time,
+	requestLog *requestLogLifecycle,
 ) {
 	responseTimeMS := int(time.Since(startedAt).Milliseconds())
 	logEntry := buildRequestLogEntry(c, authInfo, tunnelRequest.Deployment, request.Model, "/v1/chat/completions", "chat_completions", "blocked", fiber.StatusBadRequest, startedAt, responseTimeMS)
@@ -255,7 +263,7 @@ func (h *ChatCompletionHandler) observeBlockedChat(
 	logEntry.RequestBody = buildProviderChatRequestLogPayload(tunnelRequest.Deployment.Provider, request, originalBody)
 	logEntry.ResponseBody = map[string]interface{}{"guardrail_status": "blocked"}
 	logEntry.ErrorType = "guardrail_blocked"
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelRequest.RequestID,
 		TokenHash:       authInfo.TokenHash,
@@ -287,6 +295,7 @@ func (h *ChatCompletionHandler) observeSuccessfulChat(
 	result chatProviderResult,
 	startedAt time.Time,
 	tenantSlug string,
+	requestLog *requestLogLifecycle,
 ) {
 	responseTimeMS := int(time.Since(startedAt).Milliseconds())
 	logEntry := buildRequestLogEntry(c, authInfo, tunnelRequest.Deployment, request.Model, "/v1/chat/completions", "chat_completions", "success", result.response.StatusCode, startedAt, responseTimeMS)
@@ -305,7 +314,7 @@ func (h *ChatCompletionHandler) observeSuccessfulChat(
 		logEntry.ResponseBody = buildProviderChatResponseLogPayload(tunnelRequest.Deployment.Provider, result.response.Body, result.completion)
 	}
 
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelRequest.RequestID,
 		TokenHash:       authInfo.TokenHash,

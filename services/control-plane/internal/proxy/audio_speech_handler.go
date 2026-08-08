@@ -4,6 +4,7 @@ package proxy
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -101,6 +102,10 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	contentType := strings.TrimSpace(c.Get(fiber.HeaderContentType))
 	body := append([]byte(nil), c.Body()...)
+	requestLog := newRequestLogLifecycle(h.logger, h.logs, c, authInfo, "/v1"+audioSpeechPath, audioSpeechRequestType, startTime)
+	requestLog.SetRequestBody(buildTraceAudioSpeechRequestPayload(body, contentType, nil))
+
+	defer requestLog.FinalizeFromFiber()
 
 	reqMeta, err := extractAudioSpeechMetadata(body, contentType)
 	if err != nil {
@@ -109,6 +114,8 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	requestedModel := normalizeModelIdentifier(reqMeta.Model)
+	requestLog.SetModel(requestedModel)
+	requestLog.SetRequestBody(buildTraceAudioSpeechRequestPayload(body, contentType, reqMeta.Metadata))
 
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
@@ -128,6 +135,7 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 		const message = "Model access denied or unsupported for text to speech"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1"+audioSpeechPath, audioSpeechRequestType, fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
+		requestLog.MarkFinalized()
 
 		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
@@ -156,7 +164,10 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
-		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1"+audioSpeechPath, audioSpeechRequestType, startTime, quotaStart, rateLimit, err)
+		if recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1"+audioSpeechPath, audioSpeechRequestType, startTime, quotaStart, rateLimit, err) {
+			requestLog.MarkFinalized()
+		}
+
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
@@ -271,6 +282,9 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+	requestLog.SetDeployment(tunnelReq.Deployment)
+	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
+	requestLog.SetRequestBody(buildTraceAudioSpeechRequestPayload(body, contentType, tunnelReq.RequestMetadata))
 
 	if !budgetReservationAttempted {
 		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment)))
@@ -281,10 +295,10 @@ func (h *AudioSpeechHandler) Handle(c *fiber.Ctx) error {
 
 	if reqMeta.Stream {
 		releaseBudgetOnExit = false
-		return h.handleStream(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, body, contentType)
+		return h.handleStream(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, body, contentType, requestLog)
 	}
 
-	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, body, contentType)
+	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, body, contentType, requestLog)
 	if err == nil && c.Response().StatusCode() < httpErrorFloor {
 		releaseBudgetOnExit = false
 	}
@@ -303,9 +317,10 @@ func (h *AudioSpeechHandler) handleSync(
 	tenantSlug string,
 	originalBody []byte,
 	originalContentType string,
+	requestLog *requestLogLifecycle,
 ) error {
 	if h.pipeline.HasRawTransport() {
-		return h.handleRawSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, start, tenantSlug, originalBody, originalContentType)
+		return h.handleRawSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, start, tenantSlug, originalBody, originalContentType, requestLog)
 	}
 
 	providerStart := time.Now()
@@ -370,7 +385,7 @@ func (h *AudioSpeechHandler) handleSync(
 	logEntry.TotalTokens = finalCost.TotalTokens
 	logEntry.RequestBody = buildTraceAudioSpeechRequestPayload(originalBody, originalContentType, tunnelReq.RequestMetadata)
 	logEntry.ResponseBody = responseSummary
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
@@ -446,6 +461,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 	tenantSlug string,
 	originalBody []byte,
 	originalContentType string,
+	requestLog *requestLogLifecycle,
 ) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
@@ -510,7 +526,7 @@ func (h *AudioSpeechHandler) handleRawSync(
 	logEntry.TotalTokens = finalCost.TotalTokens
 	logEntry.RequestBody = buildTraceAudioSpeechRequestPayload(originalBody, originalContentType, tunnelReq.RequestMetadata)
 	logEntry.ResponseBody = responseSummary
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID: tunnelReq.RequestID, TokenHash: authInfo.TokenHash,
 		TenantID: authInfo.TenantID, OrganizationID: authInfo.OrganizationID, TeamID: authInfo.TeamID,
@@ -566,6 +582,7 @@ func (h *AudioSpeechHandler) handleStream(
 	tenantSlug string,
 	originalBody []byte,
 	originalContentType string,
+	requestLog *requestLogLifecycle,
 ) error {
 	providerStart := time.Now()
 
@@ -606,10 +623,13 @@ func (h *AudioSpeechHandler) handleStream(
 	c.Set("Connection", "keep-alive")
 	setTraceHeaders(c, tunnelReq.TraceID)
 	forwardProviderHeaders(c, stream.Headers())
+	requestLog.HandOff()
 
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
+		responseCapture := &streamResponseLogCapture{}
 
 		budgetCommitted := false
 		defer func() {
@@ -639,6 +659,8 @@ func (h *AudioSpeechHandler) handleStream(
 
 			if debitErr := h.pipeline.Settle(requestCtx, SettlementRequest{Reservation: budgetReservation, TenantID: authInfo.TenantID, Actual: finalCost, RequestID: tunnelReq.RequestID, BillingMode: deploymentBillingMode(tunnelReq.Deployment)}); debitErr != nil {
 				h.logger.Warn("failed to commit budget for streaming text to speech request", zap.Error(debitErr), zap.String("request_id", tunnelReq.RequestID))
+				requestLog.Finalize(context.Background(), "failed", fiber.StatusOK, "billing_error", responseCapture.Payload("billing_error"), nil)
+
 				return
 			}
 
@@ -687,11 +709,16 @@ func (h *AudioSpeechHandler) handleStream(
 					"stream_format": "sse",
 				}, tunnelReq.Deployment),
 			})
+			requestLog.Finalize(context.Background(), "success", fiber.StatusOK, "", responseCapture.Payload("completed"), &finalCost)
 
 			budgetCommitted = true
 		}
 
-		relayTunnelStream(stream, w, commitEstimatedBudget, h.logger, tunnelReq.RequestID, "text_to_speech")
+		relayTunnelStream(stream, w, commitEstimatedBudget, h.logger, tunnelReq.RequestID, "text_to_speech", responseCapture.Append)
+
+		if !requestLog.Finalized() {
+			requestLog.Finalize(context.Background(), "failed", fiber.StatusOK, "streaming_error", responseCapture.Payload("interrupted"), nil)
+		}
 	})
 
 	responseStart := time.Now()

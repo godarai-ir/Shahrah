@@ -211,7 +211,7 @@ func (b *builder) buildAsyncLoggers() error {
 			FlushInterval:  time.Duration(b.cfg.RequestLogs.FlushIntervalMS) * time.Millisecond,
 			EnqueueTimeout: time.Duration(b.cfg.RequestLogs.EnqueueTimeoutMS) * time.Millisecond,
 			DropOnFull:     b.cfg.RequestLogs.DropOnFull,
-		}, b.logger)
+		}, b.logger, b.httpMetrics)
 		b.requestLogger = writer
 
 		if err := b.lifecycle.AddWorker("async request logger", func(context.Context) error {

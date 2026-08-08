@@ -92,6 +92,10 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	originalBody := append([]byte(nil), c.Body()...)
+	requestLog := newRequestLogLifecycle(h.logger, h.logs, c, authInfo, "/v1/moderations", "moderations", startTime)
+	requestLog.SetRequestBody(buildJSONRequestLogPayload(originalBody, nil))
+
+	defer requestLog.FinalizeFromFiber()
 
 	req, err := parseModerationRequest(originalBody)
 	if err != nil {
@@ -103,6 +107,8 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	requestedModel := normalizeModelIdentifier(req.Model)
+	requestLog.SetModel(requestedModel)
+	requestLog.SetRequestBody(buildModerationRequestLogPayload(req, originalBody))
 
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
@@ -122,6 +128,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 
 		const message = "Model access denied or unsupported for moderations"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/moderations", "moderations", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
+		requestLog.MarkFinalized()
 
 		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
@@ -144,7 +151,10 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
-		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/moderations", "moderations", startTime, quotaStart, rateLimit, err)
+		if recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/moderations", "moderations", startTime, quotaStart, rateLimit, err) {
+			requestLog.MarkFinalized()
+		}
+
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
@@ -273,6 +283,8 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+	requestLog.SetDeployment(tunnelReq.Deployment)
+	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
 
 	if !budgetReservationAttempted {
 		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, estimated, requestID, deploymentBillingMode(tunnelReq.Deployment)))
@@ -281,7 +293,7 @@ func (h *ModerationsHandler) Handle(c *fiber.Ctx) error {
 		}
 	}
 
-	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, req, originalBody, authInfo, estimated, tunnelReq, budgetReservation, startTime, tenantSlug, requestLog)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -299,6 +311,7 @@ func (h *ModerationsHandler) handleSync(
 	budgetReservation *platform.BudgetReservation,
 	start time.Time,
 	tenantSlug string,
+	requestLog *requestLogLifecycle,
 ) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
@@ -355,7 +368,7 @@ func (h *ModerationsHandler) handleSync(
 	logEntry.TotalTokens = finalCost.TotalTokens
 	logEntry.RequestBody = buildModerationRequestLogPayload(req, originalBody)
 	logEntry.ResponseBody = buildJSONResponseLogPayload(resp.Body, response)
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,

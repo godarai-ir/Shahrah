@@ -26,10 +26,10 @@ func recordRateLimitRejection(
 	quotaStartedAt time.Time,
 	result *cache.RateLimitResult,
 	err error,
-) {
+) bool {
 	statusCode := rateLimitErrorStatus(err)
 	if statusCode != fiber.StatusTooManyRequests || !errors.Is(err, billing.ErrRateLimitExceeded) {
-		return
+		return false
 	}
 
 	requestID := tracing.TraceIDFromContext(c)
@@ -90,4 +90,6 @@ func recordRateLimitRejection(
 	}
 
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "quota.check", "internal", quotaStartedAt, statusCode, metadata)
+
+	return true
 }

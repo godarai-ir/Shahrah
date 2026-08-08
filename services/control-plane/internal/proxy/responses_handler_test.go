@@ -524,6 +524,48 @@ func TestResponsesHandlerPreservesOpenAIErrorContract(t *testing.T) {
 	assert.JSONEq(t, string(upstreamBody), string(received))
 }
 
+func TestResponsesHandlerLogsVirtualModelProviderValidationErrorExactlyOnce(t *testing.T) {
+	upstreamBody := []byte(`{"error":{"message":"Unsupported parameter: 'messages'. In the Responses API, this parameter has moved to 'input'.","type":"invalid_request_error","param":null,"code":"unsupported_parameter"}}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusBadRequest,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       upstreamBody,
+	}}
+	logs := &testLogs{}
+	app := newVirtualResponsesTestApp(t, tunnel, logs)
+
+	requestBody := `{"model":"hi-vm","messages":[{"role":"user","content":"در مورد علوم computer یک جمله بگو"}]}`
+	request := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(requestBody))
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+	require.NoError(t, err)
+
+	defer closeResponseBody(t, response)
+
+	require.Equal(t, fiber.StatusBadRequest, response.StatusCode)
+
+	responseBody, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(upstreamBody), string(responseBody))
+
+	entries := logs.requestEntries()
+	require.Len(t, entries, 1)
+
+	entry := entries[0]
+	assert.Equal(t, "failed", entry.Status)
+	assert.Equal(t, fiber.StatusBadRequest, entry.StatusCode)
+	assert.Equal(t, "invalid_request_error", entry.ErrorType)
+	assert.Equal(t, "hi-vm", entry.Model)
+	assert.Equal(t, "hi-vm", entry.VirtualModel)
+	assert.Contains(t, entry.RequestBody, "messages")
+
+	errorPayload, ok := entry.ResponseBody["error"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "unsupported_parameter", errorPayload["code"])
+	assert.Contains(t, errorPayload, "param")
+}
+
 func TestResponsesHandlerRejectsNonOpenAIProvider(t *testing.T) {
 	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
 		StatusCode: fiber.StatusOK,
@@ -725,7 +767,8 @@ func TestResponsesHandlerStreamSuccess(t *testing.T) {
 	close(stream.chunks)
 
 	tunnel := &captureTunnel{stream: stream}
-	app, _ := newResponsesTestApp(t, "openai", tunnel)
+	logs := &testLogs{}
+	app, _ := newResponsesTestApp(t, "openai", tunnel, logs)
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -745,6 +788,11 @@ func TestResponsesHandlerStreamSuccess(t *testing.T) {
 	assert.Contains(t, bodyText, "event: response.created")
 	assert.Contains(t, bodyText, `response.output_text.delta`)
 	assert.True(t, stream.closed)
+
+	entries := logs.requestEntries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "success", entries[0].Status)
+	assert.Equal(t, fiber.StatusOK, entries[0].StatusCode)
 }
 
 func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
@@ -752,7 +800,8 @@ func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 	stream.errors <- errors.New("responses stream failed")
 
 	tunnel := &captureTunnel{stream: stream}
-	app, _ := newResponsesTestApp(t, "openai", tunnel)
+	logs := &testLogs{}
+	app, _ := newResponsesTestApp(t, "openai", tunnel, logs)
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -771,6 +820,12 @@ func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {
 	assert.Contains(t, string(body), `"param":null`)
 	assert.Contains(t, string(body), `"sequence_number":0`)
 	assert.True(t, stream.closed)
+
+	entries := logs.requestEntries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "failed", entries[0].Status)
+	assert.Equal(t, fiber.StatusOK, entries[0].StatusCode)
+	assert.Equal(t, "streaming_error", entries[0].ErrorType)
 }
 
 func TestDeepSeekResponsesStreamRequiresTerminalEvent(t *testing.T) {
@@ -803,6 +858,11 @@ func TestDeepSeekResponsesStreamRequiresTerminalEvent(t *testing.T) {
 	assert.Contains(t, string(body), "without a terminal Responses event")
 	assert.Empty(t, logs.loggedSpends)
 	assert.True(t, stream.closed)
+
+	entries := logs.requestEntries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "failed", entries[0].Status)
+	assert.Equal(t, "stream_incomplete", entries[0].ErrorType)
 }
 
 func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
@@ -868,6 +928,8 @@ func TestResponsesHandlerStreamCloseFinalizesWithoutPanic(t *testing.T) {
 	assert.NotContains(t, strings.ToLower(string(body)), "panic")
 	assert.Len(t, wallets.debits, 1)
 	assert.Len(t, logs.loggedSpends, 1)
+	assert.Len(t, logs.loggedEntries, 1)
+	assert.Equal(t, "success", logs.loggedEntries[0].Status)
 	assert.Equal(t, 7, logs.loggedSpends[0].InputTokens)
 	assert.Equal(t, 3, logs.loggedSpends[0].OutputTokens)
 	assert.Equal(t, 10, logs.loggedSpends[0].TotalTokens)

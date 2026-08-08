@@ -153,6 +153,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	tenantSlug := strings.TrimSpace(currentTenant.Slug)
 
 	originalBody := append([]byte(nil), c.Body()...)
+	requestLog := newRequestLogLifecycle(h.logger, h.logs, c, authInfo, "/v1/responses", "responses", startTime)
+	requestLog.SetRequestBody(buildJSONRequestLogPayload(originalBody, nil))
+
+	defer requestLog.FinalizeFromFiber()
 
 	var req contractsopenai.ResponseRequest
 	if err := json.Unmarshal(originalBody, &req); err != nil {
@@ -161,6 +165,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	modelWasProvided := strings.TrimSpace(req.Model) != ""
 	requestedModel := normalizeModelIdentifier(req.Model)
+	requestLog.SetModel(requestedModel)
 
 	resolvedDeployment, effectiveModel, upstreamPreviousResponseID, err := h.resolveResponseCreateDeployment(
 		c.Context(),
@@ -175,6 +180,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	requestedModel = effectiveModel
 	req.Model = requestedModel
+	requestLog.SetModel(requestedModel)
 
 	if requestedModel == "" {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Unable to determine the model for Responses routing and billing", "routing_error")
@@ -193,6 +199,7 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 		const message = "Model access denied or unsupported for responses"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/responses", "responses", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
+		requestLog.MarkFinalized()
 
 		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
@@ -215,7 +222,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
-		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/responses", "responses", startTime, quotaStart, rateLimit, err)
+		if recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/responses", "responses", startTime, quotaStart, rateLimit, err) {
+			requestLog.MarkFinalized()
+		}
+
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
@@ -359,6 +369,9 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		},
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+	requestLog.SetDeployment(tunnelReq.Deployment)
+	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
+	requestLog.SetRequestBody(buildProviderResponseRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody))
 
 	runtimeModel := strings.TrimSpace(tunnelReq.Deployment.Model)
 	if runtimeModel == "" || runtimeModel == "*" {
@@ -394,10 +407,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	if req.Stream {
 		releaseBudgetOnExit = false
-		return h.handleStream(c, req, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug)
+		return h.handleStream(c, req, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug, requestLog)
 	}
 
-	err = h.handleSync(c, req, originalBody, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug)
+	err = h.handleSync(c, req, originalBody, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug, requestLog)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -681,6 +694,7 @@ func (h *ResponsesHandler) handleSync(
 	budgetReservation *platform.BudgetReservation,
 	start time.Time,
 	tenantSlug string,
+	requestLog *requestLogLifecycle,
 ) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
@@ -691,6 +705,9 @@ func (h *ResponsesHandler) handleSync(
 	resp, tunnelReq, estimated, err := h.dispatchResponseSync(c, authInfo.TenantID, req, estimated, tunnelReq)
 	providerAttrs["provider"] = tunnelReq.Deployment.Provider
 	providerAttrs["request_payload"] = buildProviderTraceResponseRequestPayload(tunnelReq.Deployment.Provider, req)
+	requestLog.SetDeployment(tunnelReq.Deployment)
+	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
+	requestLog.SetRequestBody(buildProviderResponseRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody))
 
 	if err != nil {
 		providerAttrs["error"] = err.Error()
@@ -752,7 +769,7 @@ func (h *ResponsesHandler) handleSync(
 	logEntry.TotalTokens = finalCost.TotalTokens
 	logEntry.RequestBody = buildProviderResponseRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody)
 	logEntry.ResponseBody = buildProviderResponseLogPayload(tunnelReq.Deployment.Provider, resp.Body, response)
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,
@@ -860,10 +877,24 @@ func buildProviderResponseLogPayload(provider string, body []byte, response cont
 	return buildJSONResponseLogPayload(body, response)
 }
 
-func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.ResponseRequest, authInfo *platform.AuthContext, estimated platform.UsageCostBreakdown, tunnelReq platform.TunnelRequest, budgetReservation *platform.BudgetReservation, start time.Time, tenantSlug string) error {
+func (h *ResponsesHandler) handleStream(
+	c *fiber.Ctx,
+	req contractsopenai.ResponseRequest,
+	authInfo *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+	tunnelReq platform.TunnelRequest,
+	budgetReservation *platform.BudgetReservation,
+	start time.Time,
+	tenantSlug string,
+	requestLog *requestLogLifecycle,
+) error {
 	providerStart := time.Now()
 
 	stream, tunnelReq, estimated, err := h.dispatchResponseStream(c, authInfo.TenantID, req, estimated, tunnelReq)
+	requestLog.SetDeployment(tunnelReq.Deployment)
+	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
+	requestLog.SetRequestBody(buildProviderResponseRequestLogPayload(tunnelReq.Deployment.Provider, req, tunnelReq.Body))
+
 	if err != nil {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, fiber.StatusBadGateway, map[string]interface{}{
 			"provider":        tunnelReq.Deployment.Provider,
@@ -906,9 +937,13 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 	forwardProviderHeaders(c, stream.Headers())
 	virtualModelName := modelMetricVirtualName(c, req.Model)
 
+	requestLog.HandOff()
+
 	requestCtx := c.Context()
 	requestCtx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
+		responseCapture := &streamResponseLogCapture{}
 
 		budgetCommitted := false
 
@@ -943,6 +978,14 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				if writeErr := writeBufferedBytes(w, framed); writeErr != nil {
 					h.logger.Warn("failed to write incomplete DeepSeek Responses stream error", zap.Error(writeErr))
 				}
+
+				responseCapture.Append(framed)
+				failurePayload := responseCapture.Payload("failed")
+				failurePayload["error"] = map[string]interface{}{
+					"message": "provider stream closed without a terminal Responses event",
+					"type":    "stream_incomplete",
+				}
+				requestLog.Finalize(context.Background(), "failed", fiber.StatusOK, "stream_incomplete", failurePayload, nil)
 
 				return
 			}
@@ -991,6 +1034,9 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				CompletionStart: start,
 				CompletionEnd:   time.Now(),
 			})
+
+			responsePayload := responseCapture.Payload("completed")
+			requestLog.Finalize(context.Background(), "success", fiber.StatusOK, "", responsePayload, &finalCost)
 			h.emitModelMetric(metricsobs.BuildInput{
 				TS:                 time.Now().UTC(),
 				TenantID:           authInfo.TenantID,
@@ -1027,6 +1073,9 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 			tunnelReq.RequestID,
 			"responses",
 			frameOpenAIResponseStreamError,
+			func(data []byte) {
+				responseCapture.Append(data)
+			},
 			h.newResponseStreamObserver(
 				requestCtx,
 				authInfo.TenantID,
@@ -1040,6 +1089,15 @@ func (h *ResponsesHandler) handleStream(c *fiber.Ctx, req contractsopenai.Respon
 				},
 			),
 		)
+
+		if !requestLog.Finalized() {
+			failurePayload := responseCapture.Payload("failed")
+			failurePayload["error"] = map[string]interface{}{
+				"message": "provider response stream was interrupted",
+				"type":    "streaming_error",
+			}
+			requestLog.Finalize(context.Background(), "failed", fiber.StatusOK, "streaming_error", failurePayload, nil)
+		}
 	})
 
 	responseStart := time.Now()

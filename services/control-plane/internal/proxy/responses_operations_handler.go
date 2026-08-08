@@ -104,12 +104,19 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 	c *fiber.Ctx,
 	operation platform.ProviderOperation,
 ) error {
+	startedAt := time.Now()
+
 	authInfo, currentTenant, ok := responsesRequestContext(c)
 	if !ok {
 		return nil
 	}
 
+	requestLog := newRequestLogLifecycle(h.logger, h.logs, c, authInfo, c.Path(), string(operation), startedAt)
+	defer requestLog.FinalizeFromFiber()
+
 	publicID := strings.TrimSpace(c.Params("response_id"))
+	requestLog.SetRequestBody(map[string]interface{}{"response_id": publicID})
+
 	if publicID == "" {
 		return writeAPIError(c, fiber.StatusBadRequest, "response_id is required", "invalid_request_error")
 	}
@@ -131,6 +138,7 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 		case mappingErr == nil && mapping != nil:
 			if model, _ := mapping.Metadata["model"].(string); strings.TrimSpace(model) != "" { //nolint:errcheck // Optional metadata uses the zero value when absent or mismatched.
 				resourceModel = normalizeModelIdentifier(model)
+				requestLog.SetModel(resourceModel)
 
 				modelAccess := modelAccessForType(authInfo, normalizeModelIdentifier(model), platform.ModelTypeResponses)
 				if !modelAccess.Allowed {
@@ -156,6 +164,9 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 	}
 
 	requestID := responseRequestID(c)
+
+	requestLog.SetDeployment(deployment)
+	requestLog.SetRequestIDs(requestID, requestID)
 
 	tunnelReq := platform.TunnelRequest{
 		RequestID:      requestID,
@@ -202,7 +213,7 @@ func (h *ResponsesHandler) handleResponseResourceOperation(
 	}
 
 	if stream {
-		return h.relayResponseOperationStream(c, tunnelReq)
+		return h.relayResponseOperationStream(c, tunnelReq, requestLog)
 	}
 
 	resp, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
@@ -236,6 +247,8 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 	endpoint string,
 	requireModel bool,
 ) error {
+	startedAt := time.Now()
+
 	authInfo, currentTenant, ok := responsesRequestContext(c)
 	if !ok {
 		return nil
@@ -244,6 +257,10 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 	var err error
 
 	body := append([]byte(nil), c.Body()...)
+	requestLog := newRequestLogLifecycle(h.logger, h.logs, c, authInfo, "/v1"+endpoint, string(operation), startedAt)
+	requestLog.SetRequestBody(buildJSONRequestLogPayload(body, nil))
+
+	defer requestLog.FinalizeFromFiber()
 
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(body, &object); err != nil {
@@ -257,6 +274,7 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 		}
 
 		requestedModel = normalizeModelIdentifier(requestedModel)
+		requestLog.SetModel(requestedModel)
 	}
 
 	if requireModel && requestedModel == "" {
@@ -348,6 +366,9 @@ func (h *ResponsesHandler) handleResponseBodyOperation(
 	}
 
 	requestID := responseRequestID(c)
+
+	requestLog.SetDeployment(deployment)
+	requestLog.SetRequestIDs(requestID, requestID)
 
 	tunnelReq := platform.TunnelRequest{
 		RequestID:  requestID,
@@ -974,6 +995,7 @@ func responseOperationPath(operation platform.ProviderOperation, responseID stri
 func (h *ResponsesHandler) relayResponseOperationStream(
 	c *fiber.Ctx,
 	tunnelReq platform.TunnelRequest,
+	requestLog *requestLogLifecycle,
 ) error {
 	stream, err := h.pipeline.DispatchStream(c.Context(), tunnelReq)
 	if err != nil {
@@ -989,18 +1011,36 @@ func (h *ResponsesHandler) relayResponseOperationStream(
 	c.Set(fiber.HeaderConnection, "keep-alive")
 	forwardProviderHeaders(c, stream.Headers())
 	setTraceHeaders(c, tunnelReq.TraceID)
+
+	requestLog.HandOff()
 	c.Context().SetBodyStreamWriter(func(writer *bufio.Writer) {
 		defer closeStreamBestEffort(h.logger, stream)
+
+		capture := &streamResponseLogCapture{}
 
 		relayTunnelStreamWithErrorFramer(
 			stream,
 			writer,
-			func() {},
+			func() {
+				requestLog.Finalize(context.Background(), "success", fiber.StatusOK, "", capture.Payload("completed"), nil)
+			},
 			h.logger,
 			tunnelReq.RequestID,
 			"responses_retrieve",
 			frameOpenAIResponseStreamError,
+			func(data []byte) {
+				capture.Append(data)
+			},
 		)
+
+		if !requestLog.Finalized() {
+			failurePayload := capture.Payload("failed")
+			failurePayload["error"] = map[string]interface{}{
+				"message": "provider response stream was interrupted",
+				"type":    "streaming_error",
+			}
+			requestLog.Finalize(context.Background(), "failed", fiber.StatusOK, "streaming_error", failurePayload, nil)
+		}
 	})
 
 	return nil

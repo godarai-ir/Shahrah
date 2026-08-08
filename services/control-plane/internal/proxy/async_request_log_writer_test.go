@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ type requestLogSink struct {
 	singles int
 	batches [][]platform.RequestLogEntry
 	block   chan struct{}
+	err     error
 }
 
 func (s *requestLogSink) LogRequest(context.Context, platform.RequestLogEntry) error {
@@ -25,7 +27,7 @@ func (s *requestLogSink) LogRequest(context.Context, platform.RequestLogEntry) e
 
 	s.singles++
 
-	return nil
+	return s.err
 }
 
 func (s *requestLogSink) LogRequests(_ context.Context, entries []platform.RequestLogEntry) error {
@@ -40,7 +42,49 @@ func (s *requestLogSink) LogRequests(_ context.Context, entries []platform.Reque
 
 	s.batches = append(s.batches, copied)
 
-	return nil
+	return s.err
+}
+
+type requestLogMetricsSink struct {
+	mu       sync.Mutex
+	queued   int
+	dropped  int
+	flushes  int
+	failures int
+	batches  []int
+}
+
+func (m *requestLogMetricsSink) IncRequestLogQueued() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.queued++
+}
+
+func (m *requestLogMetricsSink) IncRequestLogDropped() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.dropped++
+}
+
+func (m *requestLogMetricsSink) ObserveRequestLogFlush(batchSize int, _ time.Duration, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.flushes++
+	m.batches = append(m.batches, batchSize)
+
+	if err != nil {
+		m.failures++
+	}
+}
+
+func (m *requestLogMetricsSink) snapshot() (queued, dropped, flushes, failures int, batches []int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.queued, m.dropped, m.flushes, m.failures, append([]int(nil), m.batches...)
 }
 
 func (s *requestLogSink) count() int {
@@ -137,6 +181,48 @@ func TestAsyncRequestLogWriterQueueFullBehavior(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 	require.NoError(t, writer.LogRequest(context.Background(), platform.RequestLogEntry{RequestID: "req-2"}))
 	require.ErrorIs(t, writer.LogRequest(context.Background(), platform.RequestLogEntry{RequestID: "req-3"}), ErrRequestLogQueueFull)
+}
+
+func TestAsyncRequestLogWriterReportsQueueAndFlushMetrics(t *testing.T) {
+	sink := &requestLogSink{err: errors.New("storage unavailable")}
+	metrics := &requestLogMetricsSink{}
+	writer := NewManagedAsyncRequestLogWriter(sink, AsyncRequestLogConfig{}, zap.NewNop(), metrics)
+
+	writer.flushBatch(t.Context(), []platform.RequestLogEntry{{RequestID: "req-1"}})
+
+	queued, dropped, flushes, failures, batches := metrics.snapshot()
+	require.Equal(t, 0, queued)
+	require.Equal(t, 0, dropped)
+	require.Equal(t, 1, flushes)
+	require.Equal(t, 1, failures)
+	require.Equal(t, []int{1}, batches)
+}
+
+func TestAsyncRequestLogWriterReportsDroppedEntries(t *testing.T) {
+	block := make(chan struct{})
+	sink := &requestLogSink{block: block}
+	metrics := &requestLogMetricsSink{}
+	writer := NewAsyncRequestLogWriter(sink, AsyncRequestLogConfig{
+		QueueSize:     1,
+		Workers:       1,
+		BatchSize:     1,
+		FlushInterval: time.Hour,
+		DropOnFull:    false,
+	}, zap.NewNop(), metrics)
+
+	defer func() {
+		close(block)
+		require.NoError(t, writer.Stop(t.Context()))
+	}()
+
+	require.NoError(t, writer.LogRequest(t.Context(), platform.RequestLogEntry{RequestID: "req-1"}))
+	require.Eventually(t, func() bool { return len(writer.queue) == 0 }, time.Second, 10*time.Millisecond)
+	require.NoError(t, writer.LogRequest(t.Context(), platform.RequestLogEntry{RequestID: "req-2"}))
+	require.ErrorIs(t, writer.LogRequest(t.Context(), platform.RequestLogEntry{RequestID: "req-3"}), ErrRequestLogQueueFull)
+
+	queued, dropped, _, _, _ := metrics.snapshot()
+	require.Equal(t, 2, queued)
+	require.Equal(t, 1, dropped)
 }
 
 func TestAsyncRequestLogWriterMaterializesLazyPayloadForGenericSink(t *testing.T) {

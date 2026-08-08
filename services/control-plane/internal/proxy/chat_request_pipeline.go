@@ -66,6 +66,7 @@ func handledRoutedChatRequest(err error) (routedChatRequest, error) {
 func (h *ChatCompletionHandler) prepareChatRequest(
 	c *fiber.Ctx,
 	startedAt time.Time,
+	requestLog *requestLogLifecycle,
 ) (preparedChatRequest, error) {
 	authInfo := auth.GetAuthInfo(c)
 	if authInfo == nil {
@@ -120,6 +121,7 @@ func (h *ChatCompletionHandler) prepareChatRequest(
 
 		const message = "Model access denied or unsupported for chat completions"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/chat/completions", "chat_completions", fiber.StatusForbidden, "authorization_error", message, denyReason, startedAt)
+		requestLog.MarkFinalized()
 
 		return handledPreparedChatRequest(writeAPIError(c, fiber.StatusForbidden, message, "authorization_error"))
 	}
@@ -196,6 +198,7 @@ func (h *ChatCompletionHandler) chatResponseCacheConfig(
 func (h *ChatCompletionHandler) admitChatRequest(
 	c *fiber.Ctx,
 	prepared preparedChatRequest,
+	requestLog *requestLogLifecycle,
 ) (admittedChatRequest, error) {
 	authStart := time.Now()
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "auth.validate", "internal", authStart, fiber.StatusOK, map[string]interface{}{"model": prepared.requestedModel})
@@ -231,12 +234,14 @@ func (h *ChatCompletionHandler) admitChatRequest(
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
-		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, prepared.authInfo, prepared.requestedModel, "/v1/chat/completions", "chat_completions", prepared.startedAt, quotaStart, rateLimit, err)
+		if recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, prepared.authInfo, prepared.requestedModel, "/v1/chat/completions", "chat_completions", prepared.startedAt, quotaStart, rateLimit, err) {
+			requestLog.MarkFinalized()
+		}
 
 		return handledAdmittedChatRequest(admittedChatRequest{}, writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error"))
 	}
 
-	cachePending, cacheRelease, cacheHandled, cacheErr := h.handleResponseCacheLookup(c, prepared.request, prepared.originalBody, prepared.authInfo, prepared.tenant.ID, prepared.requestedModel, prepared.cacheConfig, prepared.startedAt, prepared.tenantSlug)
+	cachePending, cacheRelease, cacheHandled, cacheErr := h.handleResponseCacheLookup(c, prepared.request, prepared.originalBody, prepared.authInfo, prepared.tenant.ID, prepared.requestedModel, prepared.cacheConfig, prepared.startedAt, prepared.tenantSlug, requestLog)
 
 	admitted := admittedChatRequest{
 		estimated:       estimated,

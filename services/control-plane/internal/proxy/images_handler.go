@@ -111,6 +111,10 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 	contentType := strings.TrimSpace(c.Get(fiber.HeaderContentType))
 	body := append([]byte(nil), c.Body()...)
+	requestLog := newRequestLogLifecycle(h.logger, h.logs, c, authInfo, "/v1"+op.Path, op.RequestType, startTime)
+	requestLog.SetRequestBody(buildImageRequestLogPayload(body, contentType, "", op.Name, nil))
+
+	defer requestLog.FinalizeFromFiber()
 
 	requestedModel, metadata, err := extractImageRequestMetadata(c, body, contentType, op)
 	if err != nil {
@@ -119,6 +123,8 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	}
 
 	requestedModel = normalizeModelIdentifier(requestedModel)
+	requestLog.SetModel(requestedModel)
+	requestLog.SetRequestBody(buildImageRequestLogPayload(body, contentType, requestedModel, op.Name, metadata))
 
 	routeCandidates := modelRoutingCandidates(requestedModel)
 	if len(routeCandidates) == 0 {
@@ -138,6 +144,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 
 		const message = "Model access denied or unsupported for image generation"
 		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, c.Path(), "images", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
+		requestLog.MarkFinalized()
 
 		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
 	}
@@ -172,6 +179,8 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	contractDeployment := toContractDeployment(dep)
+	requestLog.SetDeployment(contractDeployment)
+
 	outboundModel := providerOutboundModel(requestedModel, dep)
 
 	estimated := estimateImageCostFallback(requestedModel, metadata)
@@ -239,7 +248,10 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	setRateLimitHeaders(c, rateLimit)
 
 	if err != nil {
-		recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1"+op.Path, op.RequestType, startTime, quotaStart, rateLimit, err)
+		if recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1"+op.Path, op.RequestType, startTime, quotaStart, rateLimit, err) {
+			requestLog.MarkFinalized()
+		}
+
 		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 	}
 
@@ -321,6 +333,9 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 	}
 
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
+	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
+	requestLog.SetRequestBody(buildImageRequestLogPayload(body, contentType, requestedModel, op.Name, tunnelReq.RequestMetadata))
+
 	if strings.EqualFold(strings.TrimSpace(tunnelReq.Deployment.Provider), "xai") && isJSONContentType(outboundContentType) {
 		tunnelReq.Body, err = rewriteXAIFileReferences(c.Context(), h.resources, currentTenant.ID, tunnelReq.Deployment.ProviderAccountID, tunnelReq.Body)
 		if err != nil {
@@ -328,7 +343,7 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		}
 	}
 
-	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType, body, contentType)
+	err = h.handleSync(c, requestedModel, authInfo, estimated, tunnelReq, budgetReservation, op, startTime, tenantSlug, outboundContentType, body, contentType, requestLog)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
@@ -360,6 +375,7 @@ func (h *ImagesHandler) handleSync(
 	contentType string,
 	originalBody []byte,
 	originalContentType string,
+	requestLog *requestLogLifecycle,
 ) error {
 	providerStart := time.Now()
 	providerAttrs := map[string]interface{}{
@@ -412,7 +428,7 @@ func (h *ImagesHandler) handleSync(
 	logEntry.TotalTokens = finalCost.TotalTokens
 	logEntry.RequestBody = buildImageRequestLogPayload(originalBody, originalContentType, requestedModel, op.Name, tunnelReq.RequestMetadata)
 	logEntry.ResponseBody = buildTraceImageResponsePayload(resp.Body)
-	logRequestBestEffort(h.logger, h.logs, c.Context(), logEntry)
+	requestLog.FinalizeEntry(c.Context(), logEntry)
 	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
 		RequestID:       tunnelReq.RequestID,
 		TokenHash:       authInfo.TokenHash,

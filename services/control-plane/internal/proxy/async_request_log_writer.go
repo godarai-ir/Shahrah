@@ -18,6 +18,12 @@ type RequestLogBatchWriter interface {
 	LogRequests(ctx context.Context, entries []platform.RequestLogEntry) error
 }
 
+type RequestLogMetrics interface {
+	IncRequestLogQueued()
+	IncRequestLogDropped()
+	ObserveRequestLogFlush(batchSize int, duration time.Duration, err error)
+}
+
 type AsyncRequestLogConfig struct {
 	Enabled        bool
 	QueueSize      int
@@ -33,6 +39,7 @@ type AsyncRequestLogWriter struct {
 	batch                  RequestLogBatchWriter
 	cfg                    AsyncRequestLogConfig
 	logger                 *zap.Logger
+	metrics                RequestLogMetrics
 	queue                  chan platform.RequestLogEntry
 	queueMu                sync.RWMutex
 	wg                     sync.WaitGroup
@@ -45,15 +52,15 @@ type AsyncRequestLogWriter struct {
 // SupportsLazyRequestLogPayload reports that payload decoding runs in the background worker.
 func (*AsyncRequestLogWriter) SupportsLazyRequestLogPayload() bool { return true }
 
-func NewAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger) *AsyncRequestLogWriter {
-	w := NewManagedAsyncRequestLogWriter(underlying, cfg, logger)
+func NewAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger, metrics ...RequestLogMetrics) *AsyncRequestLogWriter {
+	w := NewManagedAsyncRequestLogWriter(underlying, cfg, logger, metrics...)
 	w.Start()
 
 	return w
 }
 
 // NewManagedAsyncRequestLogWriter creates a writer whose workers are started explicitly.
-func NewManagedAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger) *AsyncRequestLogWriter {
+func NewManagedAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestLogConfig, logger *zap.Logger, metrics ...RequestLogMetrics) *AsyncRequestLogWriter {
 	cfg = normalizeAsyncRequestLogConfig(cfg)
 
 	if logger == nil {
@@ -67,6 +74,10 @@ func NewManagedAsyncRequestLogWriter(underlying RequestLogger, cfg AsyncRequestL
 		queue:                  make(chan platform.RequestLogEntry, cfg.QueueSize),
 		underlyingSupportsLazy: requestLoggerSupportsLazyPayload(underlying),
 	}
+	if len(metrics) > 0 {
+		w.metrics = metrics[0]
+	}
+
 	if batch, ok := underlying.(RequestLogBatchWriter); ok {
 		w.batch = batch
 	}
@@ -136,6 +147,7 @@ func (w *AsyncRequestLogWriter) LogRequest(ctx context.Context, entry platform.R
 
 		select {
 		case w.queue <- entry:
+			w.recordQueued()
 			return nil
 		case <-timer.C:
 			return w.handleQueueFull()
@@ -146,6 +158,7 @@ func (w *AsyncRequestLogWriter) LogRequest(ctx context.Context, entry platform.R
 
 	select {
 	case w.queue <- entry:
+		w.recordQueued()
 		return nil
 	default:
 		return w.handleQueueFull()
@@ -185,6 +198,7 @@ func (w *AsyncRequestLogWriter) Stop(ctx context.Context) error {
 }
 
 func (w *AsyncRequestLogWriter) handleQueueFull() error {
+	w.recordDropped()
 	w.logger.Warn("product request log queue full; dropping log")
 
 	if w.cfg.DropOnFull {
@@ -192,6 +206,18 @@ func (w *AsyncRequestLogWriter) handleQueueFull() error {
 	}
 
 	return ErrRequestLogQueueFull
+}
+
+func (w *AsyncRequestLogWriter) recordQueued() {
+	if w.metrics != nil {
+		w.metrics.IncRequestLogQueued()
+	}
+}
+
+func (w *AsyncRequestLogWriter) recordDropped() {
+	if w.metrics != nil {
+		w.metrics.IncRequestLogDropped()
+	}
 }
 
 func (w *AsyncRequestLogWriter) worker() {
@@ -240,6 +266,8 @@ func (w *AsyncRequestLogWriter) flushBatch(ctx context.Context, entries []platfo
 		}
 	}
 
+	startedAt := time.Now()
+
 	var err error
 	if w.batch != nil {
 		err = w.batch.LogRequests(ctx, entries)
@@ -250,6 +278,10 @@ func (w *AsyncRequestLogWriter) flushBatch(ctx context.Context, entries []platfo
 				break
 			}
 		}
+	}
+
+	if w.metrics != nil {
+		w.metrics.ObserveRequestLogFlush(len(entries), time.Since(startedAt), err)
 	}
 
 	if err != nil {
