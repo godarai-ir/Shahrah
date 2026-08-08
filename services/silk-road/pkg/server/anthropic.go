@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -162,12 +163,16 @@ func (block *anthropicContentBlock) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
-	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
 	*block = anthropicContentBlock(decoded)
-	block.ProviderData = raw
+	if isAnthropicServerContentBlock(decoded.Type) {
+		var raw map[string]interface{}
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return err
+		}
+
+		block.ProviderData = raw
+	}
+
 	return nil
 }
 
@@ -177,13 +182,26 @@ func (delta *anthropicStreamDelta) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
-	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
 	*delta = anthropicStreamDelta(decoded)
-	delta.ProviderData = raw
+	if anthropicDeltaCarriesProviderData(decoded.Type) {
+		var raw map[string]interface{}
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return err
+		}
+
+		delta.ProviderData = raw
+	}
+
 	return nil
+}
+
+func anthropicDeltaCarriesProviderData(deltaType string) bool {
+	switch deltaType {
+	case "", "text_delta", "thinking_delta", "signature_delta", "input_json_delta":
+		return false
+	default:
+		return true
+	}
 }
 
 func newAnthropicAdapter() providerAdapter {
@@ -211,12 +229,6 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 		"messages",
 	)
 	if err != nil {
-		return nil, err
-	}
-	if err := validateAnthropicOpenAIRequestWithProfile(
-		openAIReq,
-		runtimeProfile,
-	); err != nil {
 		return nil, err
 	}
 	if len(payload.Body) > runtimeProfile.Profile.Limits.MessagesBytes {
@@ -260,7 +272,7 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 	if resp.StatusCode >= http.StatusBadRequest {
 		return &adapterResponse{
 			StatusCode: resp.StatusCode,
-			Headers:    resp.Header.Clone(),
+			Headers:    resp.Header,
 			Body:       resp.Body,
 		}, nil
 	}
@@ -349,7 +361,8 @@ func (a *anthropicAdapter) dispatchNative(ctx context.Context, client *http.Clie
 		return nil, err
 	}
 	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
-	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+
+	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 }
 
 func prepareAnthropicCapabilityBetaHeaders(
@@ -462,7 +475,8 @@ func (a *anthropicAdapter) DispatchRaw(ctx context.Context, client *http.Client,
 		return nil, err
 	}
 	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
-	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+
+	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 }
 
 func (a *anthropicAdapter) addWIFStatusHeaders(
@@ -693,7 +707,7 @@ func adaptAnthropicSyncResponse(resp *http.Response, model string) (*adapterResp
 		return nil, fmt.Errorf("encode openai response: %w", err)
 	}
 
-	headers := resp.Header.Clone()
+	headers := resp.Header
 	headers.Set("Content-Type", "application/json")
 	headers.Set("Content-Length", fmt.Sprintf("%d", len(body)))
 	return &adapterResponse{
@@ -704,7 +718,7 @@ func adaptAnthropicSyncResponse(resp *http.Response, model string) (*adapterResp
 }
 
 func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterResponse {
-	headers := resp.Header.Clone()
+	headers := resp.Header
 	headers.Set("Content-Type", "text/event-stream")
 	headers.Del("Content-Length")
 
@@ -713,15 +727,25 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 		defer resp.Body.Close()
 		defer pipeWriter.Close()
 
-		reader := bufio.NewReader(resp.Body)
-		var currentEvent string
+		reader := bufio.NewReaderSize(resp.Body, relayBufferSize)
+
+		frameBuffer := acquireSSEFrameBuffer()
+		defer releaseSSEFrameBuffer(frameBuffer)
+
+		var (
+			currentEvent string
+			overflow     []byte
+		)
 		streamID := ""
 		streamModel := model
 		completed := false
 		var latestUsage anthropicUsage
 
+		created := time.Now().Unix()
+
 		for {
-			line, err := reader.ReadString('\n')
+			line, nextOverflow, err := readAnthropicSSELine(reader, overflow)
+			overflow = nextOverflow
 			if err != nil {
 				if err == io.EOF {
 					if completed {
@@ -736,19 +760,19 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 				return
 			}
 
-			trimmed := strings.TrimSpace(line)
+			trimmed := bytes.TrimSpace(line)
 			switch {
-			case trimmed == "":
+			case len(trimmed) == 0:
 				currentEvent = ""
-			case strings.HasPrefix(trimmed, "event:"):
-				currentEvent = strings.TrimSpace(strings.TrimPrefix(trimmed, "event:"))
-			case strings.HasPrefix(trimmed, "data:"):
-				data := strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))
-				if data == "" || data == "[DONE]" {
+			case bytes.HasPrefix(trimmed, []byte("event:")):
+				currentEvent = anthropicSSEEventName(bytes.TrimSpace(trimmed[len("event:"):]))
+			case bytes.HasPrefix(trimmed, []byte("data:")):
+				data := bytes.TrimSpace(trimmed[len("data:"):])
+				if len(data) == 0 || bytes.Equal(data, []byte("[DONE]")) {
 					continue
 				}
 				var evt anthropicStreamEvent
-				if err := json.Unmarshal([]byte(data), &evt); err != nil {
+				if err := json.Unmarshal(data, &evt); err != nil {
 					_ = pipeWriter.CloseWithError(fmt.Errorf("decode anthropic SSE event: %w", err))
 					return
 				}
@@ -762,10 +786,10 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 				case "message_start":
 					latestUsage = evt.Message.Usage
 					chunk := contractsopenai.StreamChunk{
-						ID: streamID, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: streamModel,
+						ID: streamID, Object: "chat.completion.chunk", Created: created, Model: streamModel,
 						Choices: []contractsopenai.Choice{{Index: 0, Delta: &contractsopenai.ChatMessage{Role: "assistant"}}},
 					}
-					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+					if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
 						return
 					}
 				case "content_block_start":
@@ -775,7 +799,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 						) && len(evt.ContentBlock.ProviderData) > 0 {
 							chunk := contractsopenai.StreamChunk{
 								ID: streamID, Object: "chat.completion.chunk",
-								Created: time.Now().Unix(), Model: streamModel,
+								Created: created, Model: streamModel,
 								Choices: []contractsopenai.Choice{{
 									Index: evt.Index,
 									Delta: &contractsopenai.ChatMessage{
@@ -785,7 +809,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 									},
 								}},
 							}
-							if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+							if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
 								return
 							}
 						}
@@ -797,7 +821,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 						arguments = nil
 					}
 					chunk := contractsopenai.StreamChunk{
-						ID: streamID, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: streamModel,
+						ID: streamID, Object: "chat.completion.chunk", Created: created, Model: streamModel,
 						Choices: []contractsopenai.Choice{{
 							Index: 0,
 							Delta: &contractsopenai.ChatMessage{ToolCalls: []contractsopenai.ToolCall{{
@@ -806,7 +830,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 							}}},
 						}},
 					}
-					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+					if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
 						return
 					}
 				case "content_block_delta":
@@ -848,14 +872,14 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 					chunk := contractsopenai.StreamChunk{
 						ID:      streamID,
 						Object:  "chat.completion.chunk",
-						Created: time.Now().Unix(),
+						Created: created,
 						Model:   streamModel,
 						Choices: []contractsopenai.Choice{{
 							Index: evt.Index,
 							Delta: delta,
 						}},
 					}
-					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+					if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
 						return
 					}
 				case "message_delta":
@@ -877,7 +901,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 					chunk := contractsopenai.StreamChunk{
 						ID:      streamID,
 						Object:  "chat.completion.chunk",
-						Created: time.Now().Unix(),
+						Created: created,
 						Model:   streamModel,
 						Choices: []contractsopenai.Choice{{
 							Index:        0,
@@ -885,7 +909,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 							FinishReason: mapAnthropicStopReason(evt.Delta.StopReason),
 						}},
 					}
-					if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+					if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
 						return
 					}
 				case "message_stop":
@@ -893,10 +917,10 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 					usage := openAIUsageFromAnthropic(latestUsage)
 					if usage.TotalTokens > 0 {
 						chunk := contractsopenai.StreamChunk{
-							ID: streamID, Object: "chat.completion.chunk", Created: time.Now().Unix(), Model: streamModel,
+							ID: streamID, Object: "chat.completion.chunk", Created: created, Model: streamModel,
 							Choices: []contractsopenai.Choice{}, Usage: usage,
 						}
-						if err := writeSSEChunk(pipeWriter, chunk); err != nil {
+						if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
 							return
 						}
 					}
@@ -912,10 +936,13 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 							errorType = evt.Error.Type
 						}
 					}
-					encoded, _ := json.Marshal(contractsopenai.APIError{Error: contractsopenai.ErrorInfo{
+
+					apiError := contractsopenai.APIError{Error: contractsopenai.ErrorInfo{
 						Message: message, Type: errorType, Code: "anthropic_stream_error",
-					}})
-					_, _ = pipeWriter.Write([]byte("data: " + string(encoded) + "\n\n"))
+					}}
+					if writeErr := writeSSEJSON(pipeWriter, frameBuffer, apiError); writeErr != nil {
+						return
+					}
 					return
 				}
 			}
@@ -929,19 +956,88 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 	}
 }
 
-func writeSSEChunk(w io.Writer, chunk contractsopenai.StreamChunk) error {
-	encoded, err := json.Marshal(chunk)
+const maxRetainedSSEFrameBuffer = 256 * 1024
+
+var sseFrameBufferPool = sync.Pool{
+	New: func() any {
+		return &bytes.Buffer{}
+	},
+}
+
+func acquireSSEFrameBuffer() *bytes.Buffer {
+	buffer, ok := sseFrameBufferPool.Get().(*bytes.Buffer)
+	if !ok {
+		return &bytes.Buffer{}
+	}
+
+	return buffer
+}
+
+func readAnthropicSSELine(reader *bufio.Reader, overflow []byte) ([]byte, []byte, error) {
+	line, err := reader.ReadSlice('\n')
+	if err != bufio.ErrBufferFull {
+		return line, overflow[:0], err
+	}
+
+	overflow = append(overflow[:0], line...)
+	for err == bufio.ErrBufferFull {
+		line, err = reader.ReadSlice('\n')
+		overflow = append(overflow, line...)
+	}
+
+	return overflow, overflow, err
+}
+
+func anthropicSSEEventName(raw []byte) string {
+	switch {
+	case bytes.Equal(raw, []byte("message_start")):
+		return "message_start"
+	case bytes.Equal(raw, []byte("content_block_start")):
+		return "content_block_start"
+	case bytes.Equal(raw, []byte("content_block_delta")):
+		return "content_block_delta"
+	case bytes.Equal(raw, []byte("content_block_stop")):
+		return "content_block_stop"
+	case bytes.Equal(raw, []byte("message_delta")):
+		return "message_delta"
+	case bytes.Equal(raw, []byte("message_stop")):
+		return "message_stop"
+	case bytes.Equal(raw, []byte("error")):
+		return "error"
+	case bytes.Equal(raw, []byte("ping")):
+		return "ping"
+	default:
+		return string(raw)
+	}
+}
+
+func writeSSEChunk(w io.Writer, buffer *bytes.Buffer, chunk contractsopenai.StreamChunk) error {
+	return writeSSEJSON(w, buffer, chunk)
+}
+
+func writeSSEJSON(w io.Writer, buffer *bytes.Buffer, value any) error {
+	encoded, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	if _, err := w.Write([]byte("data: ")); err != nil {
-		return err
-	}
-	if _, err := w.Write(encoded); err != nil {
-		return err
-	}
-	_, err = w.Write([]byte("\n\n"))
+
+	buffer.Reset()
+	buffer.WriteString("data: ")
+	buffer.Write(encoded)
+	buffer.WriteString("\n\n")
+
+	_, err = w.Write(buffer.Bytes())
+
 	return err
+}
+
+func releaseSSEFrameBuffer(buffer *bytes.Buffer) {
+	if buffer.Cap() > maxRetainedSSEFrameBuffer {
+		return
+	}
+
+	buffer.Reset()
+	sseFrameBufferPool.Put(buffer)
 }
 
 func eventType(explicit string, fallback string) string {
@@ -1563,8 +1659,20 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	if responseModel == "" {
 		responseModel = model
 	}
-	content := ""
-	reasoningContent := ""
+
+	contentSize := 0
+	reasoningSize := 0
+
+	for _, block := range resp.Content {
+		contentSize += len(block.Text)
+		reasoningSize += len(block.Thinking)
+	}
+
+	var content strings.Builder
+	content.Grow(contentSize)
+
+	var reasoningContent strings.Builder
+	reasoningContent.Grow(reasoningSize)
 	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
 	toolCalls := make([]contractsopenai.ToolCall, 0)
 	citations := make([]interface{}, 0)
@@ -1572,12 +1680,12 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	for _, block := range resp.Content {
 		switch block.Type {
 		case "text":
-			content += block.Text
+			content.WriteString(block.Text)
 		case "thinking":
 			thinkingBlock := contractsopenai.ThinkingBlock{"type": block.Type}
 			if block.Thinking != "" {
 				thinkingBlock["thinking"] = block.Thinking
-				reasoningContent += block.Thinking
+				reasoningContent.WriteString(block.Thinking)
 			}
 			if block.Signature != "" {
 				thinkingBlock["signature"] = block.Signature
@@ -1605,17 +1713,17 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 				providerContent = append(providerContent, block.ProviderData)
 			}
 		default:
-			content += block.Text
+			content.WriteString(block.Text)
 		}
 		citations = append(citations, block.Citations...)
 	}
 
 	message := &contractsopenai.ChatMessage{
 		Role:    "assistant",
-		Content: content,
+		Content: content.String(),
 	}
-	if reasoningContent != "" {
-		message.ReasoningContent = reasoningContent
+	if reasoningContent.Len() > 0 {
+		message.ReasoningContent = reasoningContent.String()
 	}
 	if len(thinkingBlocks) > 0 {
 		message.ThinkingBlocks = thinkingBlocks

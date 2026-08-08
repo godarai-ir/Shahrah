@@ -53,6 +53,8 @@ func normalizeMistralJSONRequest(
 	if operation == platform.ProviderOperationOpenAIEmbeddings {
 		aliases = append(aliases, [2]string{"dimensions", "output_dimension"})
 	}
+
+	changed := false
 	for _, alias := range aliases {
 		from, hasFrom := object[alias[0]]
 		_, hasTo := object[alias[1]]
@@ -62,7 +64,14 @@ func normalizeMistralJSONRequest(
 		if hasFrom {
 			object[alias[1]] = from
 			delete(object, alias[0])
+
+			changed = true
 		}
 	}
+
+	if !changed {
+		return body, nil
+	}
+
 	return json.Marshal(object)
 }

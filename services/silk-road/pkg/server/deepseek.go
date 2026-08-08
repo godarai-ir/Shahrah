@@ -43,13 +43,14 @@ func (a *deepSeekAdapter) Dispatch(
 	client *http.Client,
 	payload platform.TunnelRequest,
 ) (*adapterResponse, error) {
-	if err := validateDeepSeekDispatch(payload); err != nil {
+	decodedBody, err := validateDeepSeekDispatchBody(payload)
+	if err != nil {
 		return nil, err
 	}
 
 	if payload.Operation == platform.ProviderOperationChatCompletions ||
 		payload.Operation == platform.ProviderOperationOpenAIResponsesCreate {
-		body, err := deepSeekRequestBody(payload)
+		body, err := deepSeekRequestBodyFromDecoded(payload, decodedBody)
 		if err != nil {
 			return nil, err
 		}
@@ -90,30 +91,41 @@ func (a *deepSeekAdapter) Dispatch(
 }
 
 func validateDeepSeekDispatch(payload platform.TunnelRequest) error {
+	_, err := validateDeepSeekDispatchBody(payload)
+
+	return err
+}
+
+func validateDeepSeekDispatchBody(payload platform.TunnelRequest) (map[string]json.RawMessage, error) {
 	switch payload.Operation {
 	case platform.ProviderOperationChatCompletions,
 		platform.ProviderOperationOpenAIResponsesCreate,
 		platform.ProviderOperationOpenAIModelsList:
 	default:
-		return fmt.Errorf("deepseek_unsupported_operation: %s", payload.Operation)
+		return nil, fmt.Errorf("deepseek_unsupported_operation: %s", payload.Operation)
 	}
 
 	if err := validateDeepSeekBaseURL(payload.Deployment.APIBase); err != nil {
-		return err
+		return nil, err
 	}
 
 	if payload.Operation == platform.ProviderOperationOpenAIModelsList {
-		return nil
+		return nil, nil
 	}
 
-	model := deepSeekRequestModel(payload)
+	body, err := decodeDeepSeekRequestBody(payload.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	model := deepSeekRequestModelFromDecoded(payload, body)
 	if payload.Operation == platform.ProviderOperationOpenAIResponsesCreate && model != deepSeekFlashModelID {
-		return fmt.Errorf("deepseek_unsupported_responses_model: %s", model)
+		return nil, fmt.Errorf("deepseek_unsupported_responses_model: %s", model)
 	}
 
 	if payload.Operation == platform.ProviderOperationChatCompletions &&
 		model != deepSeekFlashModelID && model != deepSeekProModelID {
-		return fmt.Errorf("deepseek_unsupported_model: %s", model)
+		return nil, fmt.Errorf("deepseek_unsupported_model: %s", model)
 	}
 
 	endpoint := "chat_completions"
@@ -124,7 +136,7 @@ func validateDeepSeekDispatch(payload platform.TunnelRequest) error {
 	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
 	if !ok || binding.Validate() != nil || !strings.EqualFold(binding.Provider, deepSeekProviderName) ||
 		!binding.Profile.AllowsEndpoint(endpoint) {
-		return fmt.Errorf("deepseek_runtime_profile_missing: %s", model)
+		return nil, fmt.Errorf("deepseek_runtime_profile_missing: %s", model)
 	}
 
 	transport := "http"
@@ -133,10 +145,10 @@ func validateDeepSeekDispatch(payload platform.TunnelRequest) error {
 	}
 
 	if !binding.Profile.AllowsTransport(transport) {
-		return fmt.Errorf("deepseek_unsupported_transport: %s", transport)
+		return nil, fmt.Errorf("deepseek_unsupported_transport: %s", transport)
 	}
 
-	return nil
+	return body, nil
 }
 
 func validateDeepSeekBaseURL(raw string) error {
@@ -156,11 +168,28 @@ func validateDeepSeekBaseURL(raw string) error {
 }
 
 func deepSeekRequestBody(payload platform.TunnelRequest) ([]byte, error) {
+	body, err := decodeDeepSeekRequestBody(payload.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return deepSeekRequestBodyFromDecoded(payload, body)
+}
+
+func decodeDeepSeekRequestBody(bodyBytes []byte) (map[string]json.RawMessage, error) {
 	var body map[string]json.RawMessage
-	if err := json.Unmarshal(payload.Body, &body); err != nil {
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
 		return nil, fmt.Errorf("deepseek_invalid_json: %w", err)
 	}
 
+	if body == nil {
+		return nil, fmt.Errorf("deepseek_invalid_json: request body must be an object")
+	}
+
+	return body, nil
+}
+
+func deepSeekRequestBodyFromDecoded(payload platform.TunnelRequest, body map[string]json.RawMessage) ([]byte, error) {
 	identityField := "user_id"
 	reservedFields := []string{"user_id"}
 
@@ -226,13 +255,20 @@ func deepSeekOpaqueUserID(tenantID, accountID, secret string) (string, error) {
 }
 
 func deepSeekRequestModel(payload platform.TunnelRequest) string {
+	var body map[string]json.RawMessage
+	if json.Unmarshal(payload.Body, &body) != nil {
+		return strings.ToLower(strings.TrimSpace(payload.Deployment.Model))
+	}
+
+	return deepSeekRequestModelFromDecoded(payload, body)
+}
+
+func deepSeekRequestModelFromDecoded(payload platform.TunnelRequest, body map[string]json.RawMessage) string {
 	model := strings.ToLower(strings.TrimSpace(payload.Deployment.Model))
 
-	var request struct {
-		Model string `json:"model"`
-	}
-	if json.Unmarshal(payload.Body, &request) == nil && strings.TrimSpace(request.Model) != "" {
-		model = strings.ToLower(strings.TrimSpace(request.Model))
+	var requestedModel string
+	if json.Unmarshal(body["model"], &requestedModel) == nil && strings.TrimSpace(requestedModel) != "" {
+		model = strings.ToLower(strings.TrimSpace(requestedModel))
 	}
 
 	return model

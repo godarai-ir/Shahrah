@@ -101,7 +101,7 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 	}
 	return &adapterResponse{
 		StatusCode: resp.StatusCode,
-		Headers:    resp.Header.Clone(),
+		Headers:    resp.Header,
 		Body:       resp.Body,
 	}, nil
 }
@@ -143,7 +143,8 @@ func (a *openAICompatibleAdapter) DispatchRaw(ctx context.Context, client *http.
 	if err != nil {
 		return nil, err
 	}
-	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+
+	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 }
 
 func resolveBaseURL(explicit string, fallback string) (string, error) {

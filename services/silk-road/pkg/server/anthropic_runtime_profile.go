@@ -85,12 +85,13 @@ func validateAnthropicRequestWithRuntimeProfile(
 		!profile.AssistantPrefill {
 		return fmt.Errorf("model does not support assistant message prefill")
 	}
-	if anthropicMessageImageCount(req.Messages) > 0 &&
-		!profile.AllowsInputModality("image") {
+
+	imageCount, fileCount := anthropicMessageMediaCounts(req.Messages)
+	if imageCount > 0 && !profile.AllowsInputModality("image") {
 		return fmt.Errorf("model does not support image input")
 	}
-	if anthropicMessageFileCount(req.Messages) > 0 &&
-		!profile.AllowsInputModality("pdf") {
+
+	if fileCount > 0 && !profile.AllowsInputModality("pdf") {
 		return fmt.Errorf("model does not support PDF input")
 	}
 	for _, tool := range req.Tools {
@@ -485,22 +486,26 @@ func anthropicRuntimeProfilePayloadLimit(
 	return limit
 }
 
-func anthropicMessageImageCount(
+func anthropicMessageMediaCounts(
 	messages []contractsopenai.ChatMessage,
-) int {
-	total := 0
+) (int, int) {
+	imageCount := 0
+	fileCount := 0
 	for _, message := range messages {
-		total += contractsopenai.ChatContentImageCount(message.Content)
-	}
-	return total
-}
+		parts, ok, err := contractsopenai.ChatContentParts(message.Content)
+		if !ok || err != nil {
+			continue
+		}
 
-func anthropicMessageFileCount(
-	messages []contractsopenai.ChatMessage,
-) int {
-	total := 0
-	for _, message := range messages {
-		total += contractsopenai.ChatContentFileCount(message.Content)
+		for _, part := range parts {
+			switch part.Type {
+			case "image_url":
+				imageCount++
+			case "file":
+				fileCount++
+			}
+		}
 	}
-	return total
+
+	return imageCount, fileCount
 }

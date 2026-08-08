@@ -41,7 +41,20 @@ func (a *xaiAdapter) Dispatch(ctx context.Context, client *http.Client, payload 
 			return nil, err
 		}
 	}
-	model := xaiRequestModel(payload)
+
+	model := strings.TrimSpace(payload.Deployment.Model)
+
+	var requestBody map[string]json.RawMessage
+
+	if xaiOperationRequiresModel(payload.Operation) {
+		decodedBody, decodeErr := decodeXAIRequestBody(payload.Body)
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+
+		requestBody = decodedBody
+		model = xaiRequestModelFromDecoded(payload, requestBody)
+	}
 	binding, err := validateXAIRuntimeProfile(payload, model, endpoint)
 	if err != nil {
 		return nil, err
@@ -54,7 +67,7 @@ func (a *xaiAdapter) Dispatch(ctx context.Context, client *http.Client, payload 
 		return nil, fmt.Errorf("xai_image_edits_require_json")
 	}
 	if binding != nil {
-		if err := validateXAIRequestBody(payload, binding.Profile); err != nil {
+		if err := validateXAIRequestBodyDecoded(requestBody, payload.Operation, binding.Profile); err != nil {
 			return nil, err
 		}
 	}
@@ -131,16 +144,22 @@ func xaiRetryDelay(value string) time.Duration {
 }
 
 func xaiRequestModel(payload platform.TunnelRequest) string {
+	body, err := decodeXAIRequestBody(payload.Body)
+	if err != nil {
+		return strings.TrimSpace(payload.Deployment.Model)
+	}
+
+	return xaiRequestModelFromDecoded(payload, body)
+}
+
+func xaiRequestModelFromDecoded(payload platform.TunnelRequest, body map[string]json.RawMessage) string {
 	model := strings.TrimSpace(payload.Deployment.Model)
-	if len(payload.Body) == 0 {
-		return model
+
+	var requestedModel string
+	if json.Unmarshal(body["model"], &requestedModel) == nil && strings.TrimSpace(requestedModel) != "" {
+		return strings.TrimSpace(requestedModel)
 	}
-	var body struct {
-		Model string `json:"model"`
-	}
-	if json.Unmarshal(payload.Body, &body) == nil && strings.TrimSpace(body.Model) != "" {
-		return strings.TrimSpace(body.Model)
-	}
+
 	return model
 }
 
@@ -195,29 +214,52 @@ func validateXAIConversationHeader(payload platform.TunnelRequest, binding *plat
 }
 
 func validateXAIRequestBody(payload platform.TunnelRequest, profile platform.ModelRuntimeProfile) error {
-	if len(payload.Body) == 0 {
+	body, err := decodeXAIRequestBody(payload.Body)
+	if err != nil {
+		return err
+	}
+
+	return validateXAIRequestBodyDecoded(body, payload.Operation, profile)
+}
+
+func decodeXAIRequestBody(bodyBytes []byte) (map[string]json.RawMessage, error) {
+	if len(bodyBytes) == 0 {
+		return nil, nil
+	}
+
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		return nil, fmt.Errorf("xai_invalid_json: %w", err)
+	}
+
+	return body, nil
+}
+
+func validateXAIRequestBodyDecoded(
+	body map[string]json.RawMessage,
+	operation platform.ProviderOperation,
+	profile platform.ModelRuntimeProfile,
+) error {
+	if len(body) == 0 {
 		return nil
 	}
-	switch payload.Operation {
+
+	switch operation {
 	case platform.ProviderOperationChatCompletions:
-		return validateXAIChatRequestBody(payload.Body, profile)
+		return validateXAIChatRequestBody(body, profile)
 	case platform.ProviderOperationOpenAIResponsesCreate,
 		platform.ProviderOperationOpenAIResponsesCompact,
 		platform.ProviderOperationOpenAIResponsesInputTokens:
-		return validateXAIResponsesRequestBody(payload.Body, profile)
+		return validateXAIResponsesRequestBody(body, profile)
 	case platform.ProviderOperationOpenAIImagesGenerations,
 		platform.ProviderOperationOpenAIImagesEdits:
-		return validateXAIImageRequestBody(payload.Body, payload.Operation, profile)
+		return validateXAIImageRequestBody(body, operation, profile)
 	default:
 		return nil
 	}
 }
 
-func validateXAIChatRequestBody(bodyBytes []byte, profile platform.ModelRuntimeProfile) error {
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return fmt.Errorf("xai_invalid_json: %w", err)
-	}
+func validateXAIChatRequestBody(body map[string]json.RawMessage, profile platform.ModelRuntimeProfile) error {
 	for _, parameter := range profile.UnsupportedParameters {
 		if _, present := body[parameter]; present {
 			return fmt.Errorf("xai_unsupported_parameter: %s", parameter)
@@ -272,11 +314,7 @@ func validateXAIChatRequestBody(bodyBytes []byte, profile platform.ModelRuntimeP
 	return nil
 }
 
-func validateXAIResponsesRequestBody(bodyBytes []byte, profile platform.ModelRuntimeProfile) error {
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return fmt.Errorf("xai_invalid_json: %w", err)
-	}
+func validateXAIResponsesRequestBody(body map[string]json.RawMessage, profile platform.ModelRuntimeProfile) error {
 	for _, parameter := range profile.UnsupportedParameters {
 		if _, present := body[parameter]; present {
 			return fmt.Errorf("xai_unsupported_parameter: %s", parameter)
@@ -377,11 +415,7 @@ func validateXAIResponsesInput(value interface{}, profile platform.ModelRuntimeP
 	return nil
 }
 
-func validateXAIImageRequestBody(bodyBytes []byte, operation platform.ProviderOperation, profile platform.ModelRuntimeProfile) error {
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return fmt.Errorf("xai_invalid_json: %w", err)
-	}
+func validateXAIImageRequestBody(body map[string]json.RawMessage, operation platform.ProviderOperation, profile platform.ModelRuntimeProfile) error {
 	allowedFields := map[string]struct{}{
 		"model": {}, "prompt": {}, "n": {}, "aspect_ratio": {}, "resolution": {},
 		"response_format": {}, "storage_options": {}, "stream": {},

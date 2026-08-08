@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -50,7 +51,28 @@ func (a *cohereAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	}
 	return &adapterResponse{
 		StatusCode: resp.StatusCode,
-		Headers:    resp.Header.Clone(),
+		Headers:    resp.Header,
 		Body:       resp.Body,
 	}, nil
+}
+
+func (a *cohereAdapter) DispatchRaw(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	body io.Reader,
+	contentLength int64,
+) (*adapterResponse, error) {
+	if openAICompatiblePath(payload) == audioTranscriptionsPath {
+		return cohereAudioTranscriptionsDispatchRaw(ctx, client, payload, body)
+	}
+
+	buffered, err := readBufferedProviderBody(body, contentLength)
+	if err != nil {
+		return nil, err
+	}
+
+	payload.Body = buffered
+
+	return a.Dispatch(ctx, client, payload)
 }

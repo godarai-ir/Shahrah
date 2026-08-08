@@ -38,14 +38,19 @@ func (a *moonshotAdapter) Dispatch(
 	}
 
 	if endpoint == "chat_completions" {
-		model := moonshotRequestModel(payload)
+		body, err := decodeMoonshotChatBody(payload.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		model := moonshotRequestModelFromDecoded(payload, body)
 
 		binding, err := validateMoonshotRuntimeProfile(payload, model, endpoint)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := validateMoonshotChatBody(payload.Body, model, binding.Profile); err != nil {
+		if err := validateMoonshotChatBodyDecoded(body, model, binding.Profile); err != nil {
 			return nil, err
 		}
 	}
@@ -123,13 +128,20 @@ func moonshotRuntimeEndpoint(operation platform.ProviderOperation) string {
 }
 
 func moonshotRequestModel(payload platform.TunnelRequest) string {
+	body, err := decodeMoonshotChatBody(payload.Body)
+	if err != nil {
+		return strings.TrimSpace(payload.Deployment.Model)
+	}
+
+	return moonshotRequestModelFromDecoded(payload, body)
+}
+
+func moonshotRequestModelFromDecoded(payload platform.TunnelRequest, body map[string]json.RawMessage) string {
 	model := strings.TrimSpace(payload.Deployment.Model)
 
-	var request struct {
-		Model string `json:"model"`
-	}
-	if json.Unmarshal(payload.Body, &request) == nil && strings.TrimSpace(request.Model) != "" {
-		model = strings.TrimSpace(request.Model)
+	var requestedModel string
+	if json.Unmarshal(body["model"], &requestedModel) == nil && strings.TrimSpace(requestedModel) != "" {
+		model = strings.TrimSpace(requestedModel)
 	}
 
 	return model
@@ -174,11 +186,28 @@ func validateMoonshotChatBody(
 	model string,
 	profile platform.ModelRuntimeProfile,
 ) error {
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return fmt.Errorf("moonshot_invalid_json: %w", err)
+	body, err := decodeMoonshotChatBody(bodyBytes)
+	if err != nil {
+		return err
 	}
 
+	return validateMoonshotChatBodyDecoded(body, model, profile)
+}
+
+func decodeMoonshotChatBody(bodyBytes []byte) (map[string]json.RawMessage, error) {
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		return nil, fmt.Errorf("moonshot_invalid_json: %w", err)
+	}
+
+	return body, nil
+}
+
+func validateMoonshotChatBodyDecoded(
+	body map[string]json.RawMessage,
+	model string,
+	profile platform.ModelRuntimeProfile,
+) error {
 	for _, parameter := range profile.UnsupportedParameters {
 		if _, present := body[parameter]; present {
 			return fmt.Errorf("moonshot_unsupported_parameter: %s", parameter)

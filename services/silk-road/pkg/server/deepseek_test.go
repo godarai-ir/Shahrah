@@ -193,6 +193,17 @@ func TestDeepSeekBYOKDoesNotRequireSharedCredentialIsolationSecret(t *testing.T)
 	}
 }
 
+func TestDeepSeekRejectsNullJSONBody(t *testing.T) {
+	t.Parallel()
+
+	payload := deepSeekTestPayload("tenant-a", "deepseek-v4-flash")
+	payload.Body = []byte("null")
+
+	if err := validateDeepSeekDispatch(payload); err == nil || !strings.Contains(err.Error(), "deepseek_invalid_json") {
+		t.Fatalf("null request body must be rejected, got %v", err)
+	}
+}
+
 func TestDeepSeekAdapterRetriesOnlyModelsList(t *testing.T) {
 	var modelListAttempts atomic.Int32
 

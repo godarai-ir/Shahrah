@@ -59,7 +59,7 @@ func dispatchCredentialProbe(
 
 	return &adapterResponse{
 		StatusCode: resp.StatusCode,
-		Headers:    resp.Header.Clone(),
+		Headers:    resp.Header,
 		Body:       resp.Body,
 	}, nil
 }

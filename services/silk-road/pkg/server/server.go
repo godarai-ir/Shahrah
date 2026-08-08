@@ -3,15 +3,32 @@ package server
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
+
+const relayBufferSize = 32 * 1024
+
+const (
+	maxJSONTunnelEnvelopeBytes   = 96 * 1024 * 1024
+	maxBufferedProviderBodyBytes = 64 * 1024 * 1024
+)
+
+var errBufferedProviderBodyTooLarge = fmt.Errorf("buffered provider body exceeds %d bytes", maxBufferedProviderBodyBytes)
+
+var relayBufferPool = sync.Pool{
+	New: func() any {
+		return new([relayBufferSize]byte)
+	},
+}
 
 // NewHandler builds the Silk Road HTTP handler.
 func NewHandler(client *http.Client) http.Handler {
@@ -38,8 +55,22 @@ func NewHandler(client *http.Client) http.Handler {
 	mux.HandleFunc("/ready", localHealth)
 
 	mux.HandleFunc("/dispatch", func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > maxJSONTunnelEnvelopeBytes {
+			http.Error(w, "JSON tunnel envelope exceeds limit", http.StatusRequestEntityTooLarge)
+
+			return
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, maxJSONTunnelEnvelopeBytes)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
+			var maxBytesError *http.MaxBytesError
+			if errors.As(err, &maxBytesError) {
+				http.Error(w, "JSON tunnel envelope exceeds limit", http.StatusRequestEntityTooLarge)
+
+				return
+			}
+
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -123,7 +154,7 @@ func NewHandler(client *http.Client) http.Handler {
 			dispatchErr error
 		)
 		if payload.Operation == platform.ProviderOperationCredentialProbe {
-			payload.Body, dispatchErr = io.ReadAll(r.Body)
+			payload.Body, dispatchErr = readBufferedProviderBody(r.Body, rawLength)
 			if dispatchErr == nil {
 				resp, dispatchErr = dispatchCredentialProbe(r.Context(), streamClient, payload)
 			}
@@ -137,7 +168,7 @@ func NewHandler(client *http.Client) http.Handler {
 			if rawAdapter, ok := adapter.(rawProviderAdapter); ok {
 				resp, dispatchErr = rawAdapter.DispatchRaw(r.Context(), streamClient, payload, r.Body, rawLength)
 			} else {
-				payload.Body, dispatchErr = io.ReadAll(r.Body)
+				payload.Body, dispatchErr = readBufferedProviderBody(r.Body, rawLength)
 				if dispatchErr == nil {
 					resp, dispatchErr = adapter.Dispatch(r.Context(), streamClient, payload)
 				}
@@ -145,6 +176,11 @@ func NewHandler(client *http.Client) http.Handler {
 		}
 
 		if dispatchErr != nil {
+			if errors.Is(dispatchErr, errBufferedProviderBodyTooLarge) {
+				http.Error(w, dispatchErr.Error(), http.StatusRequestEntityTooLarge)
+
+				return
+			}
 			http.Error(w, "raw provider operation failed", http.StatusBadGateway)
 			return
 		}
@@ -168,6 +204,23 @@ func NewHandler(client *http.Client) http.Handler {
 	})
 
 	return metrics.wrap(mux)
+}
+
+func readBufferedProviderBody(body io.Reader, contentLength int64) ([]byte, error) {
+	if contentLength > maxBufferedProviderBodyBytes {
+		return nil, errBufferedProviderBodyTooLarge
+	}
+
+	buffered, err := io.ReadAll(io.LimitReader(body, maxBufferedProviderBodyBytes+1))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(buffered) > maxBufferedProviderBodyBytes {
+		return nil, errBufferedProviderBodyTooLarge
+	}
+
+	return buffered, nil
 }
 
 func copyHeaders(dst http.Header, src http.Header) {
@@ -240,7 +293,10 @@ func relayBody(w http.ResponseWriter, body io.Reader, flush bool) error {
 		return nil
 	}
 
-	buf := make([]byte, 32*1024)
+	buffer := acquireRelayBuffer()
+	defer relayBufferPool.Put(buffer)
+
+	buf := buffer[:]
 	for {
 		n, err := body.Read(buf)
 		if n > 0 {
@@ -259,6 +315,15 @@ func relayBody(w http.ResponseWriter, body io.Reader, flush bool) error {
 			return fmt.Errorf("read streaming response body: %w", err)
 		}
 	}
+}
+
+func acquireRelayBuffer() *[relayBufferSize]byte {
+	buffer, ok := relayBufferPool.Get().(*[relayBufferSize]byte)
+	if !ok {
+		return new([relayBufferSize]byte)
+	}
+
+	return buffer
 }
 
 func closeBody(body io.Closer) {

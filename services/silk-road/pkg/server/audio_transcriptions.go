@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -19,6 +20,13 @@ import (
 
 const audioTranscriptionsPath = "/audio/transcriptions"
 
+const (
+	maxAudioFileBytes      = 25 * 1024 * 1024
+	maxAudioFormFieldBytes = 64 * 1024
+	maxAudioFormFields     = 64
+	maxAudioFormBytes      = 1024 * 1024
+)
+
 type deepgramAudioTranscriptionsAdapter struct{}
 
 type googleVertexSpeechAdapter struct{}
@@ -28,6 +36,11 @@ type audioMultipartPayload struct {
 	File        []byte
 	ContentType string
 	Filename    string
+}
+
+type audioFormBudget struct {
+	bytes  int
+	fields int
 }
 
 func newDeepgramAudioTranscriptionsAdapter() providerAdapter {
@@ -51,6 +64,39 @@ func (a *deepgramAudioTranscriptionsAdapter) Dispatch(ctx context.Context, clien
 		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
 	}
 
+	return dispatchDeepgramAudioTranscription(ctx, client, payload, form, bytes.NewReader(form.File))
+}
+
+func (a *deepgramAudioTranscriptionsAdapter) DispatchRaw(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	body io.Reader,
+	_ int64,
+) (*adapterResponse, error) {
+	if openAICompatiblePath(payload) != audioTranscriptionsPath {
+		return errorAdapterResponse(http.StatusBadRequest, "deepgram adapter only supports audio transcriptions"), nil
+	}
+
+	if payload.Stream {
+		return errorAdapterResponse(http.StatusBadRequest, "streaming audio transcriptions are not supported for provider: deepgram"), nil
+	}
+
+	form, file, err := parseAudioMultipartStream(payload, body)
+	if err != nil {
+		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
+	}
+
+	return dispatchDeepgramAudioTranscription(ctx, client, payload, form, file)
+}
+
+func dispatchDeepgramAudioTranscription(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	form audioMultipartPayload,
+	file io.Reader,
+) (*adapterResponse, error) {
 	target, err := resolveBaseURL(payload.Deployment.APIBase, "https://api.deepgram.com")
 	if err != nil {
 		return nil, err
@@ -61,7 +107,7 @@ func (a *deepgramAudioTranscriptionsAdapter) Dispatch(ctx context.Context, clien
 		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(form.File))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, file)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +121,7 @@ func (a *deepgramAudioTranscriptionsAdapter) Dispatch(ctx context.Context, clien
 		return nil, err
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+		return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 	}
 
 	return normalizeDeepgramTranscriptionResponse(resp)
@@ -94,18 +140,53 @@ func (a *googleVertexSpeechAdapter) Dispatch(ctx context.Context, client *http.C
 		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
 	}
 
+	return dispatchGoogleVertexTranscription(ctx, client, payload, form, bytes.NewReader(form.File))
+}
+
+func (a *googleVertexSpeechAdapter) DispatchRaw(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	body io.Reader,
+	_ int64,
+) (*adapterResponse, error) {
+	if openAICompatiblePath(payload) != audioTranscriptionsPath {
+		return errorAdapterResponse(http.StatusBadRequest, "google vertex speech adapter only supports audio transcriptions"), nil
+	}
+
+	if payload.Stream {
+		return errorAdapterResponse(http.StatusBadRequest, "streaming audio transcriptions are not supported for provider: google-vertex"), nil
+	}
+
+	form, file, err := parseAudioMultipartStream(payload, body)
+	if err != nil {
+		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
+	}
+
+	return dispatchGoogleVertexTranscription(ctx, client, payload, form, file)
+}
+
+func dispatchGoogleVertexTranscription(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	form audioMultipartPayload,
+	file io.Reader,
+) (*adapterResponse, error) {
 	endpoint, err := googleVertexRecognizeURL(payload.Deployment)
 	if err != nil {
 		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
 	}
 
-	body, err := googleVertexRecognizeBody(payload.Deployment, form)
+	body, err := googleVertexRecognizeBody(payload.Deployment, form, file)
 	if err != nil {
 		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, body)
 	if err != nil {
+		closeBody(body)
+
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -118,7 +199,7 @@ func (a *googleVertexSpeechAdapter) Dispatch(ctx context.Context, client *http.C
 		return nil, err
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+		return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 	}
 
 	return normalizeGoogleVertexTranscriptionResponse(resp)
@@ -133,6 +214,35 @@ func cohereAudioTranscriptionsDispatch(ctx context.Context, client *http.Client,
 	if err != nil {
 		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
 	}
+
+	return dispatchCohereAudioTranscription(ctx, client, payload, form, bytes.NewReader(form.File))
+}
+
+func cohereAudioTranscriptionsDispatchRaw(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	body io.Reader,
+) (*adapterResponse, error) {
+	if payload.Stream {
+		return errorAdapterResponse(http.StatusBadRequest, "streaming audio transcriptions are not supported for provider: cohere"), nil
+	}
+
+	form, file, err := parseAudioMultipartStream(payload, body)
+	if err != nil {
+		return errorAdapterResponse(http.StatusBadRequest, err.Error()), nil
+	}
+
+	return dispatchCohereAudioTranscription(ctx, client, payload, form, file)
+}
+
+func dispatchCohereAudioTranscription(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	form audioMultipartPayload,
+	file io.Reader,
+) (*adapterResponse, error) {
 	if strings.TrimSpace(firstAudioFormValue(form.Fields, "language")) == "" {
 		return errorAdapterResponse(http.StatusBadRequest, "language is required for cohere audio transcriptions"), nil
 	}
@@ -142,13 +252,12 @@ func cohereAudioTranscriptionsDispatch(ctx context.Context, client *http.Client,
 		return nil, err
 	}
 
-	body, contentType, err := cohereAudioTranscriptionsBody(payload.Deployment, form)
-	if err != nil {
-		return nil, err
-	}
+	body, contentType := cohereAudioTranscriptionsBody(payload.Deployment, form, file)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(target, "/v2/audio/transcriptions"), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(target, "/v2/audio/transcriptions"), body)
 	if err != nil {
+		closeBody(body)
+
 		return nil, err
 	}
 	req.Header.Set("Content-Type", contentType)
@@ -161,11 +270,12 @@ func cohereAudioTranscriptionsDispatch(ctx context.Context, client *http.Client,
 	if err != nil {
 		return nil, err
 	}
-	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header.Clone(), Body: resp.Body}, nil
+
+	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 }
 
 func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartPayload, error) {
-	contentType := strings.TrimSpace(payload.Headers["Content-Type"])
+	contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type"))
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		return audioMultipartPayload{}, fmt.Errorf("invalid multipart content type: %w", err)
@@ -173,6 +283,8 @@ func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartP
 	if !strings.EqualFold(mediaType, "multipart/form-data") || strings.TrimSpace(params["boundary"]) == "" {
 		return audioMultipartPayload{}, fmt.Errorf("multipart/form-data content type is required")
 	}
+
+	var budget audioFormBudget
 
 	reader := multipart.NewReader(bytes.NewReader(payload.Body), params["boundary"])
 	out := audioMultipartPayload{Fields: map[string][]string{}}
@@ -190,7 +302,13 @@ func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartP
 		if name == "" {
 			continue
 		}
-		data, err := io.ReadAll(part)
+
+		limit := int64(maxAudioFormFieldBytes)
+		if name == "file" {
+			limit = maxAudioFileBytes
+		}
+
+		data, err := readLimitedAudioPart(part, limit)
 		if err != nil {
 			return audioMultipartPayload{}, fmt.Errorf("read multipart field %q: %w", name, err)
 		}
@@ -202,7 +320,9 @@ func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartP
 			continue
 		}
 
-		out.Fields[name] = append(out.Fields[name], string(data))
+		if err := appendAudioFormField(out.Fields, &budget, name, data); err != nil {
+			return audioMultipartPayload{}, err
+		}
 	}
 
 	if len(out.File) == 0 {
@@ -210,6 +330,101 @@ func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartP
 	}
 
 	return out, nil
+}
+
+// parseAudioMultipartStream relies on the tunnel producer writing form metadata
+// before the file part so the file can be relayed without buffering it first.
+func parseAudioMultipartStream(
+	payload platform.TunnelRequest,
+	body io.Reader,
+) (audioMultipartPayload, io.Reader, error) {
+	contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type"))
+
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return audioMultipartPayload{}, nil, fmt.Errorf("invalid multipart content type: %w", err)
+	}
+
+	if !strings.EqualFold(mediaType, "multipart/form-data") || strings.TrimSpace(params["boundary"]) == "" {
+		return audioMultipartPayload{}, nil, fmt.Errorf("multipart/form-data content type is required")
+	}
+
+	var budget audioFormBudget
+
+	reader := multipart.NewReader(body, params["boundary"])
+	out := audioMultipartPayload{Fields: map[string][]string{}}
+
+	for {
+		part, partErr := reader.NextPart()
+		if partErr == io.EOF {
+			return audioMultipartPayload{}, nil, fmt.Errorf("file is required")
+		}
+
+		if partErr != nil {
+			return audioMultipartPayload{}, nil, fmt.Errorf("invalid multipart request body: %w", partErr)
+		}
+
+		name := strings.TrimSpace(part.FormName())
+		if name == "" {
+			continue
+		}
+
+		if name == "file" {
+			var firstByte [1]byte
+			if _, readErr := io.ReadFull(part, firstByte[:]); readErr != nil {
+				return audioMultipartPayload{}, nil, fmt.Errorf("file is required")
+			}
+
+			out.Filename = part.FileName()
+			out.ContentType = strings.TrimSpace(part.Header.Get("Content-Type"))
+			file := io.MultiReader(bytes.NewReader(firstByte[:]), part)
+
+			return out, &hardLimitReader{reader: file, remaining: maxAudioFileBytes}, nil
+		}
+
+		data, readErr := readLimitedAudioPart(part, maxAudioFormFieldBytes)
+		if readErr != nil {
+			return audioMultipartPayload{}, nil, fmt.Errorf("read multipart field %q: %w", name, readErr)
+		}
+
+		if err := appendAudioFormField(out.Fields, &budget, name, data); err != nil {
+			return audioMultipartPayload{}, nil, err
+		}
+	}
+}
+
+func appendAudioFormField(
+	fields map[string][]string,
+	budget *audioFormBudget,
+	name string,
+	data []byte,
+) error {
+	budget.fields++
+	if budget.fields > maxAudioFormFields {
+		return fmt.Errorf("multipart form exceeds %d fields", maxAudioFormFields)
+	}
+
+	budget.bytes += len(name) + len(data)
+	if budget.bytes > maxAudioFormBytes {
+		return fmt.Errorf("multipart form fields exceed %d bytes", maxAudioFormBytes)
+	}
+
+	fields[name] = append(fields[name], string(data))
+
+	return nil
+}
+
+func readLimitedAudioPart(part io.Reader, maximum int64) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(part, maximum+1))
+	if err != nil {
+		return nil, err
+	}
+
+	if int64(len(data)) > maximum {
+		return nil, fmt.Errorf("multipart field exceeds %d bytes", maximum)
+	}
+
+	return data, nil
 }
 
 func deepgramListenURL(base string, model string, form audioMultipartPayload) (string, error) {
@@ -234,40 +449,61 @@ func deepgramListenURL(base string, model string, form audioMultipartPayload) (s
 	return endpoint.String(), nil
 }
 
-func cohereAudioTranscriptionsBody(deployment platform.Deployment, form audioMultipartPayload) ([]byte, string, error) {
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
+func cohereAudioTranscriptionsBody(
+	deployment platform.Deployment,
+	form audioMultipartPayload,
+	file io.Reader,
+) (io.ReadCloser, string) {
+	pipeReader, pipeWriter := io.Pipe()
+	writer := multipart.NewWriter(pipeWriter)
+	contentType := writer.FormDataContentType()
 
+	go func() {
+		writeErr := writeCohereAudioMultipart(writer, deployment, form, file)
+		if writeErr == nil {
+			writeErr = writer.Close()
+		}
+
+		if writeErr != nil {
+			_ = pipeWriter.CloseWithError(writeErr)
+
+			return
+		}
+
+		closeBody(pipeWriter)
+	}()
+
+	return pipeReader, contentType
+}
+
+func writeCohereAudioMultipart(
+	writer *multipart.Writer,
+	deployment platform.Deployment,
+	form audioMultipartPayload,
+	file io.Reader,
+) error {
 	for key, values := range form.Fields {
 		if key == "model" || key == "model[]" || strings.HasPrefix(key, "model[") {
 			continue
 		}
 		for _, value := range values {
 			if err := writer.WriteField(key, value); err != nil {
-				_ = writer.Close()
-				return nil, "", err
+				return err
 			}
 		}
 	}
 	if err := writer.WriteField("model", stripProviderModelPrefix(deployment.Model, "cohere")); err != nil {
-		_ = writer.Close()
-		return nil, "", err
+		return err
 	}
 
 	part, err := createAudioFilePart(writer, "file", form)
 	if err != nil {
-		_ = writer.Close()
-		return nil, "", err
-	}
-	if _, err := part.Write(form.File); err != nil {
-		_ = writer.Close()
-		return nil, "", err
-	}
-	if err := writer.Close(); err != nil {
-		return nil, "", err
+		return err
 	}
 
-	return buf.Bytes(), writer.FormDataContentType(), nil
+	_, err = io.Copy(part, file)
+
+	return err
 }
 
 func googleVertexRecognizeURL(deployment platform.Deployment) (string, error) {
@@ -320,7 +556,11 @@ func createAudioFilePart(writer *multipart.Writer, field string, form audioMulti
 	return writer.CreatePart(header)
 }
 
-func googleVertexRecognizeBody(deployment platform.Deployment, form audioMultipartPayload) ([]byte, error) {
+func googleVertexRecognizeBody(
+	deployment platform.Deployment,
+	form audioMultipartPayload,
+	file io.Reader,
+) (io.ReadCloser, error) {
 	config := map[string]interface{}{}
 	if model := strings.TrimSpace(stripProviderModelPrefix(deployment.Model, "google-vertex")); model != "" {
 		config["model"] = model
@@ -329,14 +569,58 @@ func googleVertexRecognizeBody(deployment platform.Deployment, form audioMultipa
 		config["languageCodes"] = []string{language}
 	}
 
-	body := map[string]interface{}{
-		"content": base64.StdEncoding.EncodeToString(form.File),
-	}
-	if len(config) > 0 {
-		body["config"] = config
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
 	}
 
-	return json.Marshal(body)
+	pipeReader, pipeWriter := io.Pipe()
+	go func() {
+		writeErr := writeGoogleVertexRecognizeBody(pipeWriter, file, configJSON, len(config) > 0)
+		if writeErr != nil {
+			_ = pipeWriter.CloseWithError(writeErr)
+
+			return
+		}
+
+		closeBody(pipeWriter)
+	}()
+
+	return pipeReader, nil
+}
+
+func writeGoogleVertexRecognizeBody(
+	w io.Writer,
+	file io.Reader,
+	configJSON []byte,
+	hasConfig bool,
+) error {
+	if _, err := io.WriteString(w, `{"content":"`); err != nil {
+		return err
+	}
+
+	encoder := base64.NewEncoder(base64.StdEncoding, w)
+	if _, err := io.Copy(encoder, file); err != nil {
+		return errors.Join(err, encoder.Close())
+	}
+
+	if err := encoder.Close(); err != nil {
+		return err
+	}
+
+	if hasConfig {
+		if _, err := io.WriteString(w, `","config":`); err != nil {
+			return err
+		}
+
+		if _, err := w.Write(configJSON); err != nil {
+			return err
+		}
+	}
+
+	_, err := io.WriteString(w, `}`)
+
+	return err
 }
 
 func normalizeDeepgramTranscriptionResponse(resp *http.Response) (*adapterResponse, error) {
@@ -352,7 +636,7 @@ func normalizeDeepgramTranscriptionResponse(resp *http.Response) (*adapterRespon
 		return nil, err
 	}
 
-	headers := cloneJSONHeaders(resp.Header)
+	headers := normalizeJSONHeaders(resp.Header)
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: headers, Body: io.NopCloser(bytes.NewReader(out))}, nil
 }
 
@@ -369,7 +653,7 @@ func normalizeGoogleVertexTranscriptionResponse(resp *http.Response) (*adapterRe
 		return nil, err
 	}
 
-	headers := cloneJSONHeaders(resp.Header)
+	headers := normalizeJSONHeaders(resp.Header)
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: headers, Body: io.NopCloser(bytes.NewReader(out))}, nil
 }
 
@@ -433,10 +717,10 @@ func errorAdapterResponse(status int, message string) *adapterResponse {
 	}
 }
 
-func cloneJSONHeaders(headers http.Header) http.Header {
-	out := headers.Clone()
-	out.Set("Content-Type", "application/json")
-	return out
+func normalizeJSONHeaders(headers http.Header) http.Header {
+	headers.Set("Content-Type", "application/json")
+
+	return headers
 }
 
 func audioProviderModel(model string) string {

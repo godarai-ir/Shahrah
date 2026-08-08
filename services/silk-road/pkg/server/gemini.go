@@ -92,7 +92,8 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	if err != nil {
 		return nil, err
 	}
-	result := &adapterResponse{StatusCode: response.StatusCode, Headers: response.Header.Clone(), Body: response.Body}
+
+	result := &adapterResponse{StatusCode: response.StatusCode, Headers: response.Header, Body: response.Body}
 	if payload.Operation == platform.ProviderOperationGeminiModelsList && response.StatusCode < http.StatusBadRequest {
 		return filterGeminiModelListResponse(result)
 	}
@@ -122,7 +123,8 @@ func (a *geminiAdapter) DispatchRaw(ctx context.Context, client *http.Client, pa
 	if err != nil {
 		return nil, err
 	}
-	return &adapterResponse{StatusCode: response.StatusCode, Headers: response.Header.Clone(), Body: response.Body}, nil
+
+	return &adapterResponse{StatusCode: response.StatusCode, Headers: response.Header, Body: response.Body}, nil
 }
 
 func isSupportedGeminiModel(model string) bool {
