@@ -303,7 +303,7 @@ OpenAPI رسمی batch این endpointها را می‌پذیرد:
 | host allowlist | صحیح: `api.mistral.ai` |
 | platform-managed probe | صحیح: canonical `mistral-ai`، `/models`، bearer |
 | Silk Road adapter | هر دو alias `mistral` و `mistral-ai` را می‌پذیرد |
-| legacy direct adapter | حذف شده؛ مسیر production از Tunnel و Silk Road عبور می‌کند |
+| legacy direct adapter | حذف شده؛ مسیر production از Control Plane و Silk Road عبور می‌کند |
 | BYOK tenant connection test | ناقص: validator فقط `mistral` را می‌شناسد، نه `mistral-ai` |
 
 شواهد:

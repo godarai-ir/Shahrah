@@ -70,7 +70,7 @@ Record `verified_at`, source URL, effective date if stated, API-format scope, an
 - Both models advertise 1M context, maximum 384K output, text output, Thinking/Non-Thinking, JSON Output, and caller-defined function tools.
 - Thinking is enabled by default. Current effort behavior is model-specific and must be represented and tested per the live official matrix; do not pretend compatibility-mapped values are distinct native effort levels.
 - In thinking mode, sampling parameters documented as ignored must not be presented to GodarAI users as effective controls.
-- In a thinking-mode tool loop, the provider requires `reasoning_content` to be passed back in subsequent tool requests. Preserve it losslessly in the API contract and tunnel, but never log it as ordinary trace content.
+- In a thinking-mode tool loop, the provider requires `reasoning_content` to be passed back in subsequent tool requests. Preserve it losslessly in the API contract and provider-egress request, but never log it as ordinary trace content.
 - Context caching is automatic. Usage exposes separate cache-hit and cache-miss input token counts.
 - Current documented direct prices per 1M tokens are:
   - Flash: cache-hit input `$0.0028`, cache-miss input `$0.14`, output `$0.28`.
@@ -172,7 +172,7 @@ Exit evidence:
 - Reject userinfo, fragments, unexpected schemes/ports, deceptive suffixes, and arbitrary paths according to existing SSRF/base-URL validation.
 - Use `GET /models` as the read-only credential probe. Verify the response contains the configured canonical model before claiming readiness.
 - Cover success, 401, 402, 429, 5xx, timeout, malformed JSON, wrong model list, wrong host, and secret redaction.
-- Do not print, return, persist in plaintext, or place the provider key in the tunnel payload outside the existing encrypted credential mechanism.
+- Do not print, return, or persist the provider key; carry it only inside the restricted provider-egress request contract.
 - Because platform-managed credentials can be shared across GodarAI tenants, use DeepSeek's documented `user_id` isolation safely:
   - never forward raw email, phone, tenant name, or another PII value;
   - derive or reuse a stable opaque tenant/account-scoped identifier using an existing approved HMAC/pseudonymization facility;
@@ -335,7 +335,7 @@ Do not label the provider or either model production-ready until all are complet
 4. Cache miss/hit/output charges reconciled against the DeepSeek account/dashboard for each model.
 5. IRR wallet settlement reconciled with exact USD provider cost and current FX policy.
 6. Tenant isolation and pseudonymous `user_id` privacy review approved.
-7. Error, timeout, keep-alive, cancellation, SSE, and 429 behavior verified through the Iran-Europe tunnel.
+7. Error, timeout, keep-alive, cancellation, SSE, and 429 behavior verified through the European provider-egress path.
 8. Logs/traces/readiness reports reviewed for secret, reasoning, tool, and prompt leakage.
 9. Dashboards, alerts, on-call ownership, kill switches, and rollback drill complete.
 10. Product, engineering, security/privacy, finance, and operations approvals attached.
@@ -348,7 +348,7 @@ The task is complete only when:
 
 - direct DeepSeek exists as a real provider in the catalog and provider-account flows;
 - exactly the two target models are importable, discoverable, selectable, routable, billable, observable, and documented;
-- Chat sync/SSE, Thinking, tools, JSON, cache accounting, and errors work end to end through Control Plane -> tunnel -> Silk Road -> provider mock/live readiness path;
+- Chat sync/SSE, Thinking, tools, JSON, cache accounting, and errors work end to end through Control Plane -> Silk Road -> provider mock/live readiness path;
 - required prices are exact, sourced, versioned, and fail closed;
 - platform-managed credentials cannot cause cross-tenant cache/identity leakage;
 - no legacy/third-party model is mislabeled as direct DeepSeek;

@@ -49,7 +49,7 @@ All seven are zero bytes as of the analysis date. The three Aura files are modif
 
 ### Sources reviewed
 
-- Current GodarAI model discovery, control-plane, Silk Road tunnel, billing, contracts, tests, Postman collections, documentation, and related plans.
+- Current GodarAI model discovery, control-plane, Silk Road provider egress, billing, contracts, tests, Postman collections, documentation, and related plans.
 - Repository LiteLLM notes in [`.llmLite_docs/providers/deepgram.md`](../.llmLite_docs/providers/deepgram.md), [audio transcription](../.llmLite_docs/audio_transcription.md), [text to speech](../.llmLite_docs/text_to_speech.md), [model discovery](../.llmLite_docs/proxy/model_discovery.md), and [credential UI](../.llmLite_docs/proxy/ui_credentials.md). These are comparative evidence only: the local LiteLLM material covers Deepgram prerecorded transcription but does not provide full Flux or Aura support.
 - Existing GodarAI architecture and credential plans, especially [the repository plan index](README.md), [provider support](phase2-liteLLM-provider-support.md), [platform-managed credentials](platform-managed-provider-credentials-product-analysis.md), and [provider credential matrix](platform-managed-provider-credentials-provider-matrix.md).
 - Official Deepgram documentation and pricing, verified 2026-08-01. Direct links appear beside the facts they support.
@@ -68,14 +68,14 @@ The existing prerecorded request path is:
 Client
   -> control-plane POST /v1/audio/transcriptions
   -> model/deployment routing and wallet reservation
-  -> mTLS tunnel request
+  -> direct HTTP provider-egress request
   -> Silk Road Deepgram adapter
   -> POST https://api.deepgram.com/v1/listen
   -> response collapsed to {"text":"..."}
   -> estimated-usage billing finalization
 ```
 
-The control plane mounts only the audio transcription and speech HTTP endpoints; there is no model-facing realtime WebSocket route in the proxy registration ([`routes_proxy.go:68-74`](../services/control-plane/internal/server/routes_proxy.go#L68)). Although shared contracts define tunnel WebSocket interfaces ([`types.go:700-741`](../packages/contracts/platform/types.go#L700)), the readiness command reports WebSocket support as false ([`openai-readiness/main.go:115-129`](../services/control-plane/cmd/openai-readiness/main.go#L115)). A contract without an implementation does not make Flux routable.
+The control plane mounts only the audio transcription and speech HTTP endpoints; there is no model-facing realtime WebSocket route in the proxy registration ([`routes_proxy.go:68-74`](../services/control-plane/internal/server/routes_proxy.go#L68)). Although shared contracts define provider-egress WebSocket interfaces ([`types.go:700-741`](../packages/contracts/platform/types.go#L700)), the readiness command reports WebSocket support as false ([`openai-readiness/main.go:115-129`](../services/control-plane/cmd/openai-readiness/main.go#L115)). A contract without an implementation does not make Flux routable.
 
 The router recognizes a `deepgram/` model prefix and can resolve either tenant or platform credentials ([`router.go:129-173`](../services/control-plane/internal/router/router.go#L129), [`router.go:467-533`](../services/control-plane/internal/router/router.go#L467)). Deployment contracts already carry API base, credential source, billing mode, and resolved provider auth ([`types.go:260-289`](../packages/contracts/platform/types.go#L260)). These are useful primitives, but they do not compensate for the missing endpoint adapters, model profiles, and billing rules.
 
@@ -96,7 +96,7 @@ Deepgram documents Nova-3 as supporting prerecorded and streaming transcription,
 | GodarAI model | Deepgram modality and transport | Current status | Evidence-backed gap | Target state |
 |---|---|---|---|---|
 | `deepgram/nova-3` | Audio or media URL → transcript; REST prerecorded and WebSocket streaming | **Partial** | Uploaded binary REST only; one parameter; normalized text only; no exact duration/channel usage; no URL, callback, intelligence fields, diarization, keyterm, or live stream | Complete REST file/URL transcription, rich/native responses, supported options, exact billing, and realtime WS |
-| `deepgram/flux-general-en` | Live English audio → transcript and turn events; WebSocket `/v2/listen` only | **Unsupported** | No public or tunnel WS data plane; current adapter rejects streaming and builds `/v1/listen` | Bidirectional WS, binary audio frames, Flux configuration/events, backpressure, reconnect and billing |
+| `deepgram/flux-general-en` | Live English audio → transcript and turn events; WebSocket `/v2/listen` only | **Unsupported** | No public or provider-egress WS data plane; current adapter rejects streaming and builds `/v1/listen` | Bidirectional WS, binary audio frames, Flux configuration/events, backpressure, reconnect and billing |
 | `deepgram/flux-general-multi` | Live multilingual audio → transcript and turn events; WebSocket `/v2/listen` only | **Unsupported** | Same transport gap; no multilingual/language-hint metadata or contract | Same as Flux English plus supported multilingual configuration and catalog metadata |
 | `deepgram/aura-2-arcas-en` | English text → audio; REST chunked response and WS streaming | **Unsupported** | TTS allowlist rejects provider; no adapter; catalog file empty | REST and WS TTS, voice/model validation, output controls, header-based usage |
 | `deepgram/aura-2-javier-es` | Mexican Spanish text → audio; REST and WS | **Unsupported** | Same as above; language metadata absent | Same as above with `es-MX` voice metadata |
@@ -253,7 +253,7 @@ Required behavior:
 - Normalize Deepgram errors into GodarAI's error envelope while retaining `provider=deepgram`, safe provider code, request ID, HTTP status, and retryability. Never return secrets or the original authorization header.
 - Treat validation/auth/permission/unsupported media/payload-too-large errors as non-retryable. Retry transport failures, 429, and selected 5xx responses only when the operation is safe; honor `Retry-After` and use bounded jittered backoff.
 - Do not blindly retry a partially consumed realtime or streaming TTS session. Emit a terminal event with provider request ID and billed/processed usage so the client can decide whether to start a new session.
-- Enforce per-model limits before dispatch. Deepgram documents prerecorded files up to 2 GB and provider concurrency constraints ([prerecorded audio guide](https://developers.deepgram.com/docs/pre-recorded-audio), [API rate limits](https://developers.deepgram.com/reference/api-rate-limits), verified 2026-08-01), but accepting 2 GB into the current in-memory `[]byte` tunnel contract would be a denial-of-service risk. GodarAI should choose a lower configurable public limit and stream or spool content instead of `io.ReadAll`.
+- Enforce per-model limits before dispatch. Deepgram documents prerecorded files up to 2 GB and provider concurrency constraints ([prerecorded audio guide](https://developers.deepgram.com/docs/pre-recorded-audio), [API rate limits](https://developers.deepgram.com/reference/api-rate-limits), verified 2026-08-01), but accepting 2 GB into the current in-memory `[]byte` provider-egress contract would be a denial-of-service risk. GodarAI should choose a lower configurable public limit and stream or spool content instead of `io.ReadAll`.
 - Add tenant and credential-level concurrency controls for REST and WebSocket sessions. Feed 429/limit observations into health and circuit-breaker state without globally disabling every region or credential.
 - Make timeouts phase-specific: upload, provider first byte, total prerecorded processing, WS handshake, idle, and maximum session lifetime.
 
@@ -292,7 +292,7 @@ Observability should distinguish `route`, `credential`, `connect`, `upload`, `pr
 3. Add conditional and additive rate support, plus `audio_input_seconds`. Tie non-public plan pricing to a provider connection/deployment override.
 4. Implement Deepgram platform/BYOK validation and regional host policy.
 5. Refactor Silk Road's Deepgram registration into a provider adapter that dispatches prerecorded STT, realtime STT/Flux, REST TTS, and realtime TTS by operation.
-6. Change tunnel request bodies from required in-memory byte slices to bounded streaming readers or safe spool handles. Implement the WebSocket tunnel interface end to end.
+6. Change provider-egress request bodies from required in-memory byte slices to bounded streaming readers or safe spool handles. Implement the WebSocket provider-egress interface end to end.
 7. Preserve raw provider usage and response metadata internally before applying normalized/native response selection.
 8. Add Deepgram-aware error parsing and safe response header extraction.
 
@@ -328,7 +328,7 @@ Observability should distinguish `route`, `credential`, `connect`, `upload`, `pr
 
 #### Phase 3 — Realtime data plane
 
-- Implement authenticated public and tunnel WebSockets, connection limits, backpressure, cancellation, idle/session timeouts, and trace events.
+- Implement authenticated public and provider-egress WebSockets, connection limits, backpressure, cancellation, idle/session timeouts, and trace events.
 - Add Nova-3 `/v1/listen`, Flux `/v2/listen`, and Aura realtime adapters.
 - Preserve Flux turn events and Deepgram control/event semantics through normalized/native modes.
 - Implement realtime exact-usage accounting and reconciliation.
@@ -353,7 +353,7 @@ The existing Deepgram Postman collection is a disabled placeholder rather than e
 - **Credential tests:** valid/invalid/revoked key; insufficient scope; NA/EU/AU hosts; blocked arbitrary host; rotation; BYOK versus platform-funded selection; no secret in errors/traces.
 - **Adapter unit/golden tests:** every request mapping and response/error shape; binary and URL STT; rich fields; Aura formats/headers; Flux and WS event sequences.
 - **Billing tests:** mono/multi, tier, MIP, multiple channels, redaction/keyterm/diarization combinations, exact seconds/chars, interrupted streams, stale/missing/ambiguous prices, and estimate-to-final reconciliation.
-- **Transport tests:** large input without full memory buffering, slow upload/download, slow WS client, backpressure, cancellation, half-close, idle timeout, close codes, 429, 5xx, network reset, and tunnel loss.
+- **Transport tests:** large input without full memory buffering, slow upload/download, slow WS client, backpressure, cancellation, half-close, idle timeout, close codes, 429, 5xx, network reset, and provider-egress loss.
 - **Security tests:** multipart and JSON limits, malicious media URL, callback SSRF controls if introduced, oversized WS frame, zip/decode bombs, header injection, cross-tenant request IDs, and logging assertions.
 - **Provider contract tests:** scheduled, credential-gated tests against Deepgram's live sandbox/account. Record provider request IDs, not media or transcript content.
 - **UI/docs tests:** provider credential wizard, region/tier/MIP settings, model availability, language/voice labels, unsupported-feature messages, curl/OpenAI SDK examples, and RTL layout where UI changes occur.
@@ -381,7 +381,7 @@ The existing Deepgram Postman collection is a disabled placeholder rather than e
 | Risk | Consequence | Mitigation |
 |---|---|---|
 | Empty/deleted catalog state is imported accidentally | Models disappear or remain archived/unroutable | Resolve scope; add provider completeness validation; review generated diff before import |
-| Realtime implemented as an HTTP-stream variant | Flux still cannot work and event semantics are lost | Implement true bidirectional WS through control plane and tunnel |
+| Realtime implemented as an HTTP-stream variant | Flux still cannot work and event semantics are lost | Implement true bidirectional WS through control plane and provider egress |
 | Provider response normalized too early | Lost usage, timestamps, speakers, intelligence fields, request IDs | Capture immutable provider metadata first; normalize at the public boundary |
 | Pricing falls back to zero or one unconditional rate | Wallet leakage and margin loss | Deepgram fail-closed selection, exact quantities, additive components, immutable snapshots |
 | Large files remain in memory | Process exhaustion and tenant denial of service | Lower bounded limit plus streaming/spooling and backpressure |

@@ -110,7 +110,7 @@
 | Audio و Video | نامرتبط | برای این ۱۱ مدل Modality رسمی نیستند. |
 | Streaming | بسته در کد | Eventها، Thinking، Tool Delta، Usage، Request ID و خطای میانه Stream حفظ می‌شوند. |
 | API بومی | بسته در کد | Messages، Count Tokens، Models، Files و Message Batches عرضه شده‌اند. |
-| Tunnel بزرگ | بسته در کد | Upload/Download بدون `io.ReadAll` و با Backpressure عبور می‌کند. |
+| Provider-egress payload بزرگ | بسته در کد | Upload/Download بدون `io.ReadAll` و با Backpressure عبور می‌کند. |
 | Retry | بسته | فقط عملیات اثبات‌شده Idempotent Retry می‌شوند. |
 | Rate Limit response | بسته | Headerهای درخواست، Token، Input/Output، Priority، Fast و `Retry-After` منتقل می‌شوند. |
 | Rate Limit Admin Snapshot در Runtime | ناقص | دریافت در ابزار Readiness وجود دارد، اما منبع سیاست Runtime نشده است. |

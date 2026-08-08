@@ -83,16 +83,6 @@
             "max_cpu_percent": 0,
             "max_memory_mib": 99.51
           },
-          "tunnel-client": {
-            "average_cpu_percent": 3.5127272727272727,
-            "max_cpu_percent": 6.28,
-            "max_memory_mib": 13.05
-          },
-          "tunnel-server": {
-            "average_cpu_percent": 2.7627272727272727,
-            "max_cpu_percent": 3.92,
-            "max_memory_mib": 12.74
-          },
           "typesense": {
             "average_cpu_percent": 0.37454545454545457,
             "max_cpu_percent": 0.81,
@@ -172,16 +162,6 @@
             "max_cpu_percent": 0,
             "max_memory_mib": 99.51
           },
-          "tunnel-client": {
-            "average_cpu_percent": 3.415593220338983,
-            "max_cpu_percent": 10.39,
-            "max_memory_mib": 13.12
-          },
-          "tunnel-server": {
-            "average_cpu_percent": 2.4750847457627123,
-            "max_cpu_percent": 7.83,
-            "max_memory_mib": 12.95
-          },
           "typesense": {
             "average_cpu_percent": 0.38728813559322045,
             "max_cpu_percent": 0.99,
@@ -260,16 +240,6 @@
             "average_cpu_percent": 0,
             "max_cpu_percent": 0,
             "max_memory_mib": 98.22
-          },
-          "tunnel-client": {
-            "average_cpu_percent": 4.363333333333333,
-            "max_cpu_percent": 4.8,
-            "max_memory_mib": 0
-          },
-          "tunnel-server": {
-            "average_cpu_percent": 5.12,
-            "max_cpu_percent": 6.92,
-            "max_memory_mib": 12.68
           },
           "typesense": {
             "average_cpu_percent": 0.3033333333333333,

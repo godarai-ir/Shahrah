@@ -27,8 +27,6 @@ NODE_SHARED_PATHS = (
 GO_PATHS = (
     "services/control-plane/",
     "services/silk-road/",
-    "services/tunnel-client/",
-    "services/tunnel-server/",
     "packages/contracts/",
     "db/",
     ".golangci.yml",

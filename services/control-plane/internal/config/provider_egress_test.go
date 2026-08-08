@@ -9,7 +9,6 @@ import (
 
 func TestResolveEnvVarsUsesSilkRoadProviderEgressURL(t *testing.T) {
 	t.Setenv("SILK_ROAD_URL", "http://silk-road:8083")
-	t.Setenv("TUNNEL_CLIENT_URL", "http://legacy-tunnel-client:8081")
 
 	cfg := &Config{
 		ProviderEgress: ProviderEgressSettings{URL: "${SILK_ROAD_URL}"},

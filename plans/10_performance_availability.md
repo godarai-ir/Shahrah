@@ -15,7 +15,7 @@ This document describes the performance requirements and availability architectu
 | Rate Limit Check | < 1ms | < 2ms | < 5ms | Redis + Lua |
 | Budget Check | < 2ms | < 5ms | < 10ms | Redis cache |
 | Request Routing | < 1ms | < 3ms | < 5ms | In-memory |
-| Tunnel Forward (Iran→EU) | < 30ms | < 80ms | < 120ms | Network latency |
+| Provider Egress Forward (Iran→EU) | < 30ms | < 80ms | < 120ms | Network latency |
 | Response Relay (EU→Iran) | < 30ms | < 80ms | < 120ms | Network latency |
 | **Total Control Plane** | **< 7ms** | **< 18ms** | **< 30ms** | Excluding provider |
 | **Target Control Plane** | **< 3ms** | **< 10ms** | **< 15ms** | Optimized goal |
@@ -26,7 +26,7 @@ This document describes the performance requirements and availability architectu
 |--------|--------|-------|
 | Requests/sec (single instance) | 10,000+ | Control plane only |
 | Concurrent connections | 50,000+ | Including streaming |
-| Tunnel throughput | 100,000+ req/sec | Iran-Europe link |
+| Provider-egress throughput | 100,000+ req/sec | Iran-Europe link |
 | Streaming tokens/sec | 1,000,000+ | Aggregate across tenants |
 
 ### 1.3 Availability Requirements
@@ -35,7 +35,7 @@ This document describes the performance requirements and availability architectu
 |---------|-----------|-------------------|-------|
 | API Gateway | 99.99% | 4.3 minutes | Core entry point |
 | Control Plane | 99.99% | 4.3 minutes | Business logic |
-| Tunnel Service | 99.95% | 21.6 minutes | Iran-Europe link |
+| Provider Egress | 99.95% | 21.6 minutes | Iran-Europe link |
 | Silk Road (EU) | 99.95% | 21.6 minutes | Reverse proxy |
 | Database | 99.99% | 4.3 minutes | PostgreSQL |
 | Redis Cache | 99.9% | 43.2 minutes | Caching layer |
@@ -395,11 +395,11 @@ func ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Forward to tunnel (async via goroutine + channel)
+	// Forward to provider egress (async via goroutine + channel)
 	w.Header().Set("Content-Type", "text/event-stream")
 	flusher := w.(http.Flusher)
 
-	responseStream, err := tunnelClient.SendRequest(ctx, r)
+	responseStream, err := providerEgress.SendRequest(ctx, r)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -463,31 +463,26 @@ graph TB
         B2 --> D1
         B3 --> D1
         
-        B1 --> E1[Tunnel Client 1]
-        B2 --> E2[Tunnel Client 2]
-        B3 --> E3[Tunnel Client 3]
+        B1 --> E1[Silk Road 1]
+        B2 --> E2[Silk Road 2]
+        B3 --> E1
     end
     
     subgraph "Iran DC - Standby"
         A4[API Gateway 4] --> B4[Control Plane 4]
         B4 --> C2[(PostgreSQL Standby)]
         B4 --> D2[(Redis Standby)]
-        B4 --> E4[Tunnel Client 4]
+        B4 --> E2
     end
     
-    subgraph "Europe DC"
-        F1[Tunnel Server 1] --> G1[Silk Road 1]
-        F2[Tunnel Server 2] --> G2[Silk Road 2]
-        F3[Tunnel Server 3] --> G3[Silk Road 3]
+    subgraph "European Egress"
+        F1[EU Egress Proxy]
     end
     
-    E1 -. gRPC .-> F1
-    E2 -. gRPC .-> F2
-    E3 -. gRPC .-> F3
+    E1 -. HTTP CONNECT .-> F1
+    E2 -. HTTP CONNECT .-> F1
     
-    G1 --> H[OpenAI/Anthropic/etc.]
-    G2 --> H
-    G3 --> H
+    F1 --> H[OpenAI/Anthropic/etc.]
     
     style A1 fill:#4caf50
     style A2 fill:#4caf50
@@ -533,36 +528,37 @@ func (r *RedisHA) GetClient() *redis.Client {
 func (r *RedisHA) Ping(ctx context.Context) error {
 	return r.client.Ping(ctx).Err()
 }
+```
 
-### 3.5 Tunnel Service High Availability
+### 3.5 Provider Egress High Availability
 
 ```mermaid
 graph TB
     subgraph "Iran"
-        TC1[Tunnel Client 1] -. "Connection 1" .-> TS1
-        TC2[Tunnel Client 2] -. "Connection 2" .-> TS2
-        TC3[Tunnel Client 3] -. "Connection 3" .-> TS3
+        CP1[Control Plane 1] --> SR1[Silk Road 1]
+        CP2[Control Plane 2] --> SR2[Silk Road 2]
+        CP3[Control Plane 3] --> SR3[Silk Road 3]
     end
     
     subgraph "Europe"
-        TS1[Tunnel Server 1]
-        TS2[Tunnel Server 2]
-        TS3[Tunnel Server 3]
+        EG1[EU Egress Proxy 1]
+        EG2[EU Egress Proxy 2]
+        EG3[EU Egress Proxy 3]
     end
     
-    TC1 -. "Heartbeat" .-> HB{Health Check}
-    TC2 -. "Heartbeat" .-> HB
-    TC3 -. "Heartbeat" .-> HB
+    SR1 -. "HTTP CONNECT" .-> EG1
+    SR2 -. "HTTP CONNECT" .-> EG2
+    SR3 -. "HTTP CONNECT" .-> EG3
     
-    HB -. "Reconnect if down" .-> TC1
-    HB -. "Reconnect if down" .-> TC2
-    HB -. "Reconnect if down" .-> TC3
+    EG1 -. "Heartbeat" .-> HB{Health Check}
+    EG2 -. "Heartbeat" .-> HB
+    EG3 -. "Heartbeat" .-> HB
 ```
 
-#### Tunnel Client with Automatic Reconnection
+#### Provider Egress with Automatic Reconnection
 
 ```go
-package tunnel
+package egress
 
 import (
 	"context"
@@ -572,38 +568,38 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// TunnelClientHA is a high availability tunnel client with automatic reconnection.
-type TunnelClientHA struct {
-	servers        []string
-	currentServer  string
+// ProviderEgressHA is a high availability provider-egress client with automatic reconnection.
+type ProviderEgressHA struct {
+	endpoints       []string
+	currentEndpoint string
 	conn           *Connection
 	reconnectCh    chan struct{}
 	mu             sync.Mutex
 }
 
-// NewTunnelClientHA creates a new HA tunnel client.
-func NewTunnelClientHA(servers []string) *TunnelClientHA {
-	return &TunnelClientHA{
-		servers:     servers,
+// NewProviderEgressHA creates a new HA provider-egress client.
+func NewProviderEgressHA(endpoints []string) *ProviderEgressHA {
+	return &ProviderEgressHA{
+		endpoints:   endpoints,
 		reconnectCh: make(chan struct{}, 1),
 	}
 }
 
-// Connect connects to a tunnel server with exponential backoff retry.
-func (c *TunnelClientHA) Connect(ctx context.Context) error {
+// Connect connects to a provider-egress endpoint with exponential backoff retry.
+func (c *ProviderEgressHA) Connect(ctx context.Context) error {
 	var lastErr error
 	for attempt := 0; attempt < 5; attempt++ {
-		for _, server := range c.servers {
-			conn, err := c.createConnection(ctx, server)
+		for _, endpoint := range c.endpoints {
+			conn, err := c.createConnection(ctx, endpoint)
 			if err != nil {
-				log.Error().Err(err).Str("server", server).Msg("Failed to connect")
+				log.Error().Err(err).Str("endpoint", endpoint).Msg("Failed to connect")
 				lastErr = err
 				continue
 			}
 
 			c.mu.Lock()
 			c.conn = conn
-			c.currentServer = server
+			c.currentEndpoint = endpoint
 			c.mu.Unlock()
 
 			go c.maintainConnection(ctx)
@@ -621,11 +617,11 @@ func (c *TunnelClientHA) Connect(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	return fmt.Errorf("all tunnel servers unreachable: %w", lastErr)
+	return fmt.Errorf("all provider-egress endpoints unreachable: %w", lastErr)
 }
 
 // maintainConnection monitors and reconnects if connection is lost.
-func (c *TunnelClientHA) maintainConnection(ctx context.Context) {
+func (c *ProviderEgressHA) maintainConnection(ctx context.Context) {
 	for {
 		select {
 		case <-c.reconnectCh:
@@ -641,7 +637,7 @@ func (c *TunnelClientHA) maintainConnection(ctx context.Context) {
 }
 
 // SendWithFallback sends a request with automatic server fallback.
-func (c *TunnelClientHA) SendWithFallback(ctx context.Context, req *TunnelRequest) (*TunnelResponse, error) {
+func (c *ProviderEgressHA) SendWithFallback(ctx context.Context, req *ProviderRequest) (*ProviderResponse, error) {
 	c.mu.Lock()
 	conn := c.conn
 	c.mu.Unlock()
@@ -867,11 +863,11 @@ var (
 		[]string{"cache_layer"},
 	)
 
-	// Tunnel metrics
-	TunnelLatency = prometheus.NewHistogramVec(
+	// Provider-egress metrics
+	ProviderEgressLatency = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "shahrah_tunnel_latency_seconds",
-			Help:    "Tunnel round-trip latency",
+			Name:    "shahrah_provider_egress_latency_seconds",
+			Help:    "Provider-egress round-trip latency",
 			Buckets: []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0},
 		},
 		nil,
@@ -899,7 +895,7 @@ func init() {
 		RequestRate,
 		CacheHitRate,
 		CacheMissRate,
-		TunnelLatency,
+		ProviderEgressLatency,
 		ConnectionPoolActive,
 		ConnectionPoolIdle,
 	)
@@ -941,9 +937,9 @@ func ProcessRequestWithTracing(ctx context.Context, r *http.Request) (*Response,
 		return nil, err
 	}
 
-	// Tunnel forward
-	_, childSpan = tracer.Start(ctx, "tunnel_forward")
-	response, err = tunnel.Send(ctx, r)
+	// Provider-egress forward
+	_, childSpan = tracer.Start(ctx, "provider_egress_forward")
+	response, err = providerEgress.Send(ctx, r)
 	childSpan.End()
 
 	return response, err
@@ -967,9 +963,9 @@ dashboard:
       type: graph
       query: rate(shahrah_cache_hits_total[5m]) / (rate(shahrah_cache_hits_total[5m]) + rate(shahrah_cache_misses_total[5m]))
     
-    - title: "Tunnel Latency"
+    - title: "Provider Egress Latency"
       type: graph
-      query: histogram_quantile(0.95, rate(shahrah_tunnel_latency_seconds_bucket[5m]))
+      query: histogram_quantile(0.95, rate(shahrah_provider_egress_latency_seconds_bucket[5m]))
     
     - title: "Active Connections"
       type: graph
@@ -988,7 +984,7 @@ dashboard:
 |-----------|-----|--------|---------|---------|
 | API Gateway (per instance) | 2 cores | 4 GB | 1 Gbps | 50 GB |
 | Control Plane (per instance) | 4 cores | 8 GB | 1 Gbps | 100 GB |
-| Tunnel Client (per instance) | 2 cores | 4 GB | 1 Gbps | 20 GB |
+| EU Egress Proxy (per instance) | 2 cores | 4 GB | 1 Gbps | 20 GB |
 | PostgreSQL (primary) | 8 cores | 32 GB | 10 Gbps | 1 TB SSD |
 | Redis (per node) | 2 cores | 16 GB | 1 Gbps | 50 GB |
 | Silk Road (per instance) | 4 cores | 8 GB | 10 Gbps | 20 GB |
@@ -1044,7 +1040,7 @@ spec:
 | Control Plane | 10 min | 0 | Stateless, auto-recreate |
 | PostgreSQL | 15 min | 5 min | Streaming replication + PITR |
 | Redis | 5 min | 0 | Sentinel + persistence |
-| Tunnel Service | 10 min | 0 | Multi-instance, auto-reconnect |
+| Provider Egress | 10 min | 0 | Multi-instance, auto-reconnect |
 
 ### 7.2 Backup Strategy
 
@@ -1074,7 +1070,7 @@ redis_backup:
 | Kill Control Plane instance | Traffic shifts to remaining instances | Weekly |
 | Database failover | Automatic promotion of standby | Monthly |
 | Redis master failover | Sentinel promotes slave | Monthly |
-| Tunnel connection drop | Automatic reconnection within 30s | Weekly |
+| Provider-egress connection drop | Automatic reconnection within 30s | Weekly |
 | Network partition Iran-EU | Graceful degradation | Quarterly |
 
 ### 8.2 Chaos Testing Tool

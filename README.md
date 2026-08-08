@@ -22,8 +22,6 @@ shahrah/
 
 - `services/control-plane`: existing Go gateway/control-plane service
 - `services/silk-road`: stateless provider-egress and adapter service
-- `services/tunnel-client`: retired HTTP relay retained temporarily for rollback
-- `services/tunnel-server`: retired HTTP relay retained temporarily for rollback
 - `services/sync-worker`: background worker scaffold
 
 ## Current Apps

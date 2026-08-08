@@ -47,7 +47,7 @@ is an API authority for this implementation.
 | Credentials | BYOK and platform-managed API keys, official-host validation, read-only model-list probe and write-only secret schema.                                                                                           |
 | Isolation   | Platform-managed dispatch requires `DEEPSEEK_USER_ID_HMAC_SECRET`; a tenant/account-scoped opaque `user_id` is injected only in Silk Road. Missing isolation configuration fails closed; BYOK remains available. |
 | Runtime     | Dedicated validation for model, endpoint, transport, roles, limits, thinking/effort, ineffective sampling, function tools and output formats; Responses create is pinned to Flash.                              |
-| Tunnel      | Dedicated adapter with fixed paths, Bearer injection, exact body preservation, keep-alive passthrough, no billable POST retry and one bounded safe-read retry.                                                   |
+| Provider egress | Dedicated adapter with fixed paths, Bearer injection, exact body preservation, keep-alive passthrough, no billable POST retry and one bounded safe-read retry.                                                |
 | Billing     | Exact decimal catalog rates; cache-hit, cache-miss and output usage dimensions; cache mismatch, missing provenance or zero pricing fails closed.                                                                 |
 | Privacy     | Caller `user_id`/`user` is rejected; raw tenant identity, keys, prompts, tool data and reasoning are excluded from provider-specific operational fields.                                                         |
 

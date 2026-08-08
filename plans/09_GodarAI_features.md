@@ -11,7 +11,7 @@ This document maps LiteLLM's comprehensive feature set to GodarAI's planned feat
 | LiteLLM Feature | GodarAI Equivalent | Notes |
 |-----------------|-------------------|-------|
 | OpenAI-compatible interface | ✅ Direct mapping | Same API contract |
-| 100+ LLM provider support | ✅ Core feature | Via Silk Road tunnel |
+| 100+ LLM provider support | ✅ Core feature | Via Silk Road provider egress |
 | Provider-specific transformations | ✅ Core feature | In Iran Control Plane |
 | Streaming support | ✅ Direct mapping | SSE streaming |
 | Function/Tool calling | ✅ Direct mapping | OpenAI format |
@@ -758,11 +758,12 @@ model GodarAIAgent {
 
 ## 7. GodarAI-Unique Features
 
-### 7.1 Iran-Europe Tunnel
+### 7.1 Controlled European Provider Egress
 
 - **Not in LiteLLM**: Unique to GodarAI
 - Enables access to sanctioned LLM providers
-- Bidirectional gRPC streaming
+- Direct Control Plane dispatch to stateless Silk Road adapters
+- Explicit European HTTP proxy for provider-bound traffic
 
 ### 7.2 Rial Wallet & Iranian Payment
 

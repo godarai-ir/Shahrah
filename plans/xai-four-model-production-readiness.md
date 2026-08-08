@@ -801,7 +801,7 @@ Only then may all four models be labeled `production-ready`.
 
 ### 7.2 Contract and integration tests
 
-- Control Plane -> tunnel -> Silk Road -> xAI mock for every fixed operation;
+- Control Plane -> Silk Road -> xAI mock for every fixed operation;
 - exact upstream method, path, query, body, headers, and content type;
 - sync and SSE golden responses;
 - Responses state transitions and opaque content preservation;

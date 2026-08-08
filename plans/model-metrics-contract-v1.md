@@ -50,7 +50,7 @@ All timestamps are UTC and RFC3339-compatible.
 - `provider_error`: upstream/provider failures (`5xx`, provider bad gateway)
 - `provider_timeout`: upstream timeout/cancel
 - `routing_error`: route/fallback resolution failure
-- `tunnel_unavailable`: tunnel path unavailable
+- `tunnel_unavailable`: provider-egress path unavailable (legacy externally visible error code)
 - `internal_error`: unexpected internal error before provider call
 
 ## Metadata Whitelist Policy v1

@@ -56,7 +56,7 @@ from claiming compatibility that does not exist.
 ## Explicitly represented but not falsely enabled
 
 - AWS SigV4/temporary-role credentials are an official production path, but the
-  current stateless tunnel does not sign requests. `aws_sigv4` is a non-ready
+  current stateless Silk Road adapter does not sign requests. `aws_sigv4` is a non-ready
   schema until signing and refresh are implemented.
 - Azure Entra client credentials are official, but require token acquisition and
   refresh. `entra_client_credentials` is a non-ready schema for both Azure

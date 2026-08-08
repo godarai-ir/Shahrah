@@ -32,8 +32,6 @@ Workflow file: `.github/workflows/gitops-staging-release.yml`
 - `blog`
 - `tenant-admin`
 
-The retired `tunnel-client` and `tunnel-server` source modules remain testable for rollback, but they are not release IDs and have no Helm workloads or image-tag keys.
-
 ## Workflow: Production
 Workflow file: `.github/workflows/gitops-promote-production.yml`
 

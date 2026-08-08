@@ -46,7 +46,7 @@ graph TB
     end
     
     subgraph "Silk Road Service - Europe"
-        H -. Tunnel .-> L[Silk Road Proxy]
+        H -. Provider Egress .-> L[Silk Road Proxy]
         L --> M[LLM Providers]
     end
     

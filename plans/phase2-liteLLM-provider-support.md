@@ -8,7 +8,7 @@
 > `services/control-plane/internal/providers` tree was removed because it had no
 > production importer. Current control-plane code uses
 > `internal/providerregistry` for canonical provider capabilities and dispatches
-> requests through the tunnel to provider adapters in `services/silk-road`.
+> requests directly to provider adapters in `services/silk-road`.
 > Paths and implementation steps below are retained only as historical context.
 
 ---
@@ -560,10 +560,8 @@ services/control-plane/tests/unit/providers/
 **Flow to test:**
 ```
 Control Plane (proxy handler)
-  -> Tunnel (HTTP)
-    -> Tunnel Server (relay)
-      -> Provider Adapter
-        -> Upstream LLM Provider
+  -> Silk Road (provider adapter)
+    -> Upstream LLM Provider
 ```
 
 **Integration test file:**
@@ -602,9 +600,9 @@ flowchart TD
         J[Cooldown Cache]
     end
 
-    subgraph Tunnel
-        K[Tunnel Transport]
-        L[HTTP Tunnel]
+    subgraph Provider Egress
+        K[Silk Road HTTP Endpoint]
+        L[Explicit HTTP Proxy]
     end
 
     subgraph "Provider Adapters"
@@ -621,14 +619,15 @@ flowchart TD
         W[Cohere Adapter]
     end
 
+    X[Upstream LLM Providers]
+
     A --> B
     B --> C --> D --> E --> F --> G
     G --> H
     H --> I
     H --> J
     H --> K
-    K --> L
-    L --> M
+    K --> M
     
     M --> N
     M --> O
@@ -640,6 +639,17 @@ flowchart TD
     M --> U
     M --> V
     M --> W
+    N --> L
+    O --> L
+    P --> L
+    Q --> L
+    R --> L
+    S --> L
+    T --> L
+    U --> L
+    V --> L
+    W --> L
+    L --> X
 ```
 
 ---
@@ -704,7 +714,7 @@ flowchart TD
 - [ ] Usage fields normalized for billing
 - [ ] Pricing available for common models
 - [ ] Unit tests pass per adapter
-- [ ] E2E test flow works: control-plane -> tunnel -> adapter -> provider
+- [ ] E2E test flow works: control-plane -> Silk Road adapter -> provider
 
 ---
 

@@ -47,7 +47,7 @@
 | routing | مسیر upstream، content type، SSE/multipart و timeout صحیح |
 | billing | نرخ معتبر، واحد مصرف، رزرو، تسویه و refund/reconciliation آزموده‌شده |
 | observability | usage، هزینه، endpoint، model و credential قابل ردیابی بدون ثبت محتوای حساس |
-| verification | unit، contract، integration، tunnel و smoke زنده موفق |
+| verification | unit، contract، integration، provider-egress و smoke زنده موفق |
 
 پرچم عمومی `supported` نباید مستقل از این readiness matrix باشد. نبود runtime profile یا نرخ لازم باید به خطای روشن و fail-closed منجر شود، نه هزینه‌ی صفر یا ارسال درخواست ناقص.
 
@@ -153,7 +153,7 @@
 - `file`، `file_url` و `file_id` در transcription دقیقاً طبق قرارداد رسمی و به‌صورت mutually exclusive اعتبارسنجی شوند.
 - `voice_id` و `ref_audio` در TTS حفظ شوند؛ مقدار OpenAI-style `voice` نباید با حدس نگاشت شود.
 
-### ۶.۴. adapter و tunnel
+### ۶.۴. adapter و provider egress
 
 در Silk Road یک adapter یا profile اختصاصی Mistral ایجاد شود که این موارد را تضمین کند:
 
@@ -191,7 +191,7 @@
 | Moderation | `services/control-plane/internal/proxy/moderations_handler.go` | Mistral raw/chat moderation و قرارداد پاسخ صحیح |
 | Audio | `services/control-plane/internal/proxy/audio_transcriptions_handler.go` و `audio_speech_handler.go` | file reference، streaming، JSON/base64 audio، voice cloning و usage |
 | قراردادها | `packages/contracts/openai/` به‌همراه package اختصاصی Mistral | typeهای native و mappingهای compatible بدون حذف فیلد |
-| tunnel | `services/silk-road/pkg/server/adapters.go` و `openai_compatible.go` یا adapter اختصاصی | path/content-type/SSE/multipart/JSON و header policy |
+| provider egress | `services/silk-road/pkg/server/adapters.go` و `openai_compatible.go` یا adapter اختصاصی | path/content-type/SSE/multipart/JSON و header policy |
 | credential | `services/control-plane/internal/platformcredentials/` و `internal/storage/provider_credential_validation.go` | canonicalization، probe، BYOK و Platform-managed |
 | billing | `services/control-plane/internal/billing/pricing.go`، `service.go` و `catalog_pricing_snapshot.go` | حذف fallback صفر، snapshot کاتالوگ Mistral و settlement چندبعدی |
 

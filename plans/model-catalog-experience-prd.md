@@ -1453,7 +1453,7 @@ eventهای پیشنهادی بدون داده‌ی حساس:
 - [ ] provider picker فقط از catalog موجود تغذیه می‌شود.
 - [ ] روش BYOK/managed براساس schema/entitlement محدود می‌شود.
 - [ ] duplicate account name قبل از submit پیام روشن دارد.
-- [ ] credential test error با network/tunnel error اشتباه نمی‌شود.
+- [ ] credential test error با network/provider-egress error اشتباه نمی‌شود.
 - [ ] حداقل یک model و access معتبر لازم است.
 - [ ] submit چندباره account تکراری نمی‌سازد.
 - [ ] شکست مرحله‌ی models/access account نیمه‌کاره را با recovery CTA نشان می‌دهد.

@@ -315,7 +315,7 @@ runtime به جای دریافت map آزاد، یک `ResolvedProviderAuth` type
 ## الزامات غیرعملکردی و امنیتی
 
 - secret در log، trace، audit payload، error، cache distributed و analytics ظاهر نشود؛
-- TLS برای browser-to-support-admin و service-to-service؛ mTLS برای tunnel؛
+- TLS برای browser-to-support-admin و service-to-service؛ محدودسازی شبکه برای provider egress؛
 - read APIها فقط metadata redacted برگردانند؛
 - rotation بدون downtime و با rollback؛
 - optimistic locking برای جلوگیری از overwrite هم‌زمان؛
@@ -426,7 +426,7 @@ runtime به جای دریافت map آزاد، یک `ResolvedProviderAuth` type
 ### تصمیم فنی لازم
 
 - KEK با KMS نگه‌داری شود یا در MVP با deployment secret؟
-- secret در control-plane resolve و از tunnel عبور کند یا در egress resolve شود؟
+- secret در control-plane resolve و با درخواست provider-egress حمل شود یا در egress resolve شود؟
 - invalidation runtime با event bus انجام شود یا cache TTL کوتاه برای MVP کافی است؟
 - adapterهای Azure Entra و AWS SigV4 در چه فازی production-ready می‌شوند؟
 

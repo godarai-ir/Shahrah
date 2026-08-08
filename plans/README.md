@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains the foundational documentation for **Shahrah** (شاهراه), a unified LLM gateway framework designed for the Iranian market. GodarAI is inspired by LiteLLM's architecture while introducing unique features for the Iranian market including Rial wallet payments, Iran-Europe tunnel service for bypassing sanctions, and multi-tenant subdomain isolation.
+This directory contains the foundational documentation for **Shahrah** (شاهراه), a unified LLM gateway framework designed for the Iranian market. GodarAI is inspired by LiteLLM's architecture while introducing unique features for the Iranian market including Rial wallet payments, controlled European provider egress, and multi-tenant subdomain isolation.
 
 ## Document Index
 
@@ -11,7 +11,6 @@ This directory contains the foundational documentation for **Shahrah** (شاهر
 | 1 | Iranian Payment System (Wallet & Billing) | [`01_iranian_payment_system.md`](01_iranian_payment_system.md) | ✅ Complete |
 | 2 | Multi-Tenant Architecture with On-Premise Support | [`02_multi_tenant_architecture.md`](02_multi_tenant_architecture.md) | ✅ Complete |
 | 3 | Subdomain-Based Tenant Access | [`03_subdomain_tenant_access.md`](03_subdomain_tenant_access.md) | ✅ Complete |
-| 4 | Microservices Architecture with Iran-Europe Tunnel | [`04_microservices_architecture.md`](04_microservices_architecture.md) | ✅ Complete |
 | 5 | Admin Panel for GodarAI Management | [`05_admin_panel.md`](05_admin_panel.md) | ✅ Complete |
 | 6 | Docusaurus Documentation System | [`06_docusaurus_documentation.md`](06_docusaurus_documentation.md) | ✅ Complete |
 | 7 | Blog Service (Future) | [`07_blog_service.md`](07_blog_service.md) | ✅ Complete |
@@ -35,14 +34,14 @@ graph TB
         E --> F[Auth Service]
         F --> G[Rate Limiter]
         G --> H[Billing Service]
-        H --> I[Tunnel Client]
+        H --> I[Silk Road]
         
         D --> J[Support Panel]
         J --> K[(Admin DB)]
     end
     
-    subgraph "Tunnel Layer"
-        I -. gRPC .-> L[Tunnel Server - Europe]
+    subgraph "Provider Egress"
+        I -. HTTP CONNECT .-> L[EU Egress Proxy]
     end
     
     subgraph "Europe Services (Silk Road)"
@@ -77,17 +76,17 @@ graph TB
 - **On-Premise Ready**: Architecture designed for future extraction to dedicated deployments
 - **Subdomain Access**: `tenant.sharah.ir` for API, `tenant.app.sharah.ir` for admin
 
-### 3. Iran-Europe Tunnel
-- **gRPC Bidirectional Streaming**: Low-latency, secure tunnel between Iran and Europe
-- **Silk Road Proxy**: Stateless reverse proxy in Europe, no business logic
-- **mTLS Security**: Mutual TLS authentication between tunnel endpoints
+### 3. Controlled European Provider Egress
+- **Direct Internal Dispatch**: Control Plane sends provider operations directly to Silk Road
+- **Stateless Silk Road**: Provider adapters and request forwarding run without persistent application state
+- **Restricted Egress**: Provider traffic exits through the explicitly configured European proxy path
 
 ### 4. Technology Stack
 - **Backend**: Go (chi router, net/http) for both GodarAI Control Plane and Silk Road
 - **Frontend**: Next.js + TailwindCSS + shadcn/ui for admin panels
 - **Database**: PostgreSQL with Prisma ORM (Python) / GORM (Go)
 - **Cache**: Redis Cluster with Sentinel (go-redis)
-- **RPC**: gRPC with Protocol Buffers for Iran-Europe tunnel
+- **Provider Egress**: HTTP dispatch to Silk Road with an explicit HTTP proxy for European egress
 - **SDKs**: Turborepo monorepo with TypeScript, Python, Next.js, NestJS packages
 
 ## Performance Targets
@@ -105,7 +104,7 @@ graph TB
    - Core project structure and monorepo setup
    - Database schema (Prisma)
    - Tenant resolution middleware
-   - Tunnel gRPC protocol
+   - Provider-egress transport and proxy policy
    - Payment gateway integration
 3. **Iterative Development**: Build in phases, starting with MVP features
 

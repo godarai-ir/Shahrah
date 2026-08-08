@@ -100,12 +100,6 @@ jobs:
           - module: packages/contracts
             coverage_flag: contracts
             dependency_file: packages/contracts/go.mod
-          - module: services/tunnel-server
-            coverage_flag: tunnel-server
-            dependency_file: services/tunnel-server/go.mod
-          - module: services/tunnel-client
-            coverage_flag: tunnel-client
-            dependency_file: services/tunnel-client/go.mod
           - module: services/silk-road
             coverage_flag: silk-road
             dependency_file: services/silk-road/go.mod
