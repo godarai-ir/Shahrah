@@ -106,6 +106,9 @@ jobs:
           - module: services/control-plane
             coverage_flag: control-plane
             dependency_file: services/control-plane/go.sum
+          - module: services/control-plane/tests/openai-sdk-contract
+            coverage_flag: openai-sdk-contract
+            dependency_file: services/control-plane/tests/openai-sdk-contract/go.sum
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -127,6 +130,11 @@ jobs:
 
       - name: Run full module tests
         run: go test -p=2 -v -race -shuffle=on -coverprofile=coverage.out -covermode=atomic ./...
+        working-directory: ${{ matrix.module }}
+
+      - name: Verify live OpenAI Responses contract
+        if: matrix.module == 'services/control-plane'
+        run: go run ./cmd/openai-readiness -report "${{ runner.temp }}/openai-readiness-report.json"
         working-directory: ${{ matrix.module }}
 
       - name: Upload coverage to Codecov

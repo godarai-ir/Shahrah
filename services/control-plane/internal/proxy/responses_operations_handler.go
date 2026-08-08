@@ -1017,17 +1017,41 @@ func (h *ResponsesHandler) relayResponseOperationStream(
 		defer closeStreamBestEffort(h.logger, stream)
 
 		capture := &streamResponseLogCapture{}
+		streamState := &openAIResponseStreamState{}
 
 		relayTunnelStreamWithErrorFramer(
 			stream,
 			writer,
 			func() {
+				if streamState.TerminalEventType() == "" {
+					framed, frameErr := frameOpenAIResponseStreamError(
+						errors.New("provider stream closed without a terminal Responses event"),
+						streamState.NextSequenceNumber(),
+					)
+					if frameErr != nil {
+						h.logger.Warn("failed to frame incomplete Responses resource stream")
+
+						return
+					}
+
+					if writeErr := writeBufferedBytes(writer, framed); writeErr != nil {
+						h.logger.Warn("failed to write incomplete Responses resource stream error")
+					}
+
+					capture.Append(framed)
+
+					return
+				}
+
 				requestLog.Finalize(context.Background(), "success", fiber.StatusOK, "", capture.Payload("completed"), nil)
 			},
 			h.logger,
 			tunnelReq.RequestID,
 			"responses_retrieve",
-			frameOpenAIResponseStreamError,
+			func(streamErr error) ([]byte, error) {
+				return frameOpenAIResponseStreamError(streamErr, streamState.NextSequenceNumber())
+			},
+			streamState.Observe,
 			func(data []byte) {
 				capture.Append(data)
 			},
@@ -1158,48 +1182,41 @@ func (h *ResponsesHandler) newResponseStreamObserver(
 			frame := pending[:end]
 			pending = pending[end+delimiterWidth:]
 
-			for _, line := range bytes.Split(frame, []byte("\n")) {
-				line = bytes.TrimSpace(line)
-				if !bytes.HasPrefix(line, []byte("data:")) {
-					continue
+			var event struct {
+				Response contractsopenai.Response `json:"response"`
+			}
+			if json.Unmarshal(responseSSEData(frame), &event) != nil ||
+				strings.TrimSpace(event.Response.ID) == "" {
+				continue
+			}
+
+			if canRecordMapping && !recorded {
+				mappingModel := strings.TrimSpace(requestedModel)
+				if mappingModel == "" {
+					mappingModel = event.Response.Model
 				}
 
-				var event struct {
-					Response contractsopenai.Response `json:"response"`
-				}
-				if json.Unmarshal(bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:"))), &event) != nil ||
-					strings.TrimSpace(event.Response.ID) == "" {
-					continue
-				}
+				recordCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				h.recordResponseMapping(
+					recordCtx,
+					tenantID,
+					deployment,
+					event.Response.ID,
+					event.Response.Status,
+					mappingModel,
+				)
+				cancel()
 
-				if canRecordMapping && !recorded {
-					mappingModel := strings.TrimSpace(requestedModel)
-					if mappingModel == "" {
-						mappingModel = event.Response.Model
-					}
+				recorded = true
+			} else if canRecordMapping && strings.TrimSpace(event.Response.Status) != "" {
+				statusCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				h.updateResponseMappingStatus(statusCtx, tenantID, deployment.Provider, event.Response.ID, event.Response.Status)
+				cancel()
+			}
 
-					recordCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					h.recordResponseMapping(
-						recordCtx,
-						tenantID,
-						deployment,
-						event.Response.ID,
-						event.Response.Status,
-						mappingModel,
-					)
-					cancel()
-
-					recorded = true
-				} else if canRecordMapping && strings.TrimSpace(event.Response.Status) != "" {
-					statusCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					h.updateResponseMappingStatus(statusCtx, tenantID, deployment.Provider, event.Response.ID, event.Response.Status)
-					cancel()
-				}
-
-				for _, observe := range onResponse {
-					if observe != nil {
-						observe(event.Response)
-					}
+			for _, observe := range onResponse {
+				if observe != nil {
+					observe(event.Response)
 				}
 			}
 		}
@@ -1207,17 +1224,74 @@ func (h *ResponsesHandler) newResponseStreamObserver(
 }
 
 func responseSSEFrameBoundary(data []byte) (int, int) {
-	lf := bytes.Index(data, []byte("\n\n"))
+	for index := 0; index < len(data); index++ {
+		firstWidth := responseSSELineEndingWidth(data[index:])
+		if firstWidth == 0 {
+			continue
+		}
 
-	crlf := bytes.Index(data, []byte("\r\n\r\n"))
-	switch {
-	case lf < 0:
-		return crlf, 4
-	case crlf < 0:
-		return lf, 2
-	case crlf < lf:
-		return crlf, 4
-	default:
-		return lf, 2
+		secondIndex := index + firstWidth
+		if secondIndex >= len(data) {
+			return -1, 0
+		}
+
+		secondWidth := responseSSELineEndingWidth(data[secondIndex:])
+		if secondWidth > 0 {
+			return index, firstWidth + secondWidth
+		}
+
+		index = secondIndex - 1
 	}
+
+	return -1, 0
+}
+
+func responseSSELineEndingWidth(data []byte) int {
+	if len(data) == 0 {
+		return 0
+	}
+
+	switch data[0] {
+	case '\n':
+		return 1
+	case '\r':
+		if len(data) > 1 && data[1] == '\n' {
+			return 2
+		}
+
+		return 1
+	default:
+		return 0
+	}
+}
+
+func responseSSELines(frame []byte) [][]byte {
+	normalized := bytes.ReplaceAll(frame, []byte("\r\n"), []byte("\n"))
+	normalized = bytes.ReplaceAll(normalized, []byte("\r"), []byte("\n"))
+
+	return bytes.Split(normalized, []byte("\n"))
+}
+
+func responseSSEEventType(frame []byte) string {
+	for _, line := range responseSSELines(frame) {
+		line = bytes.TrimSpace(line)
+		if bytes.HasPrefix(line, []byte("event:")) {
+			return string(bytes.TrimSpace(bytes.TrimPrefix(line, []byte("event:"))))
+		}
+	}
+
+	return ""
+}
+
+func responseSSEData(frame []byte) []byte {
+	dataLines := make([][]byte, 0, 1)
+
+	for _, line := range responseSSELines(frame) {
+		line = bytes.TrimSpace(line)
+		if bytes.HasPrefix(line, []byte("data:")) {
+			dataLines = append(dataLines, bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:"))))
+		}
+	}
+
+	return bytes.Join(dataLines, []byte("\n"))
 }

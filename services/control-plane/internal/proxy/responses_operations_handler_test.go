@@ -931,7 +931,10 @@ func TestResponsesResourceOperationsArePublicAndAccountBound(t *testing.T) {
 func TestResponsesRetrieveSupportsSSEContinuation(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
 	stream.chunks <- platform.TunnelChunk{
-		Data:   []byte("event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n"),
+		Data: []byte("event: response.output_text.delta\n" +
+			"data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\",\"sequence_number\":0}\n\n" +
+			"event: response.completed\n" +
+			"data: {\"type\":\"response.completed\",\"sequence_number\":1,\"response\":{\"id\":\"resp_upstream\",\"object\":\"response\",\"model\":\"gpt-4o\",\"status\":\"completed\"}}\n\n"),
 		IsDone: true,
 	}
 
@@ -967,6 +970,8 @@ func TestResponsesRetrieveSupportsSSEContinuation(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(body), "response.output_text.delta")
+	assert.Contains(t, string(body), "response.completed")
+	assert.NotContains(t, string(body), "event: error\n")
 }
 
 func TestResponsesBodyOperationsPreserveOfficialPayloads(t *testing.T) {

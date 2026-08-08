@@ -1242,6 +1242,7 @@ func (h *ResponsesHandler) handleStream(
 		defer closeStreamBestEffort(h.logger, stream)
 
 		responseCapture := &streamResponseLogCapture{}
+		streamState := &openAIResponseStreamState{}
 
 		budgetCommitted := false
 
@@ -1258,23 +1259,25 @@ func (h *ResponsesHandler) handleStream(
 				return
 			}
 
-			if isDeepSeekProvider(tunnelReq.Deployment.Provider) && terminalResponse == nil {
+			if streamState.TerminalEventType() == "" {
 				h.logger.Warn(
-					"deepseek Responses stream closed without a terminal event",
+					"Responses stream closed without a terminal event",
 					zap.String("request_id", tunnelReq.RequestID),
+					zap.String("provider", tunnelReq.Deployment.Provider),
 				)
 
 				framed, frameErr := frameOpenAIResponseStreamError(
 					fmt.Errorf("provider stream closed without a terminal Responses event"),
+					streamState.NextSequenceNumber(),
 				)
 				if frameErr != nil {
-					h.logger.Warn("failed to frame incomplete DeepSeek Responses stream", zap.Error(frameErr))
+					h.logger.Warn("failed to frame incomplete Responses stream", zap.Error(frameErr))
 
 					return
 				}
 
 				if writeErr := writeBufferedBytes(w, framed); writeErr != nil {
-					h.logger.Warn("failed to write incomplete DeepSeek Responses stream error", zap.Error(writeErr))
+					h.logger.Warn("failed to write incomplete Responses stream error", zap.Error(writeErr))
 				}
 
 				responseCapture.Append(framed)
@@ -1370,7 +1373,10 @@ func (h *ResponsesHandler) handleStream(
 			h.logger,
 			tunnelReq.RequestID,
 			"responses",
-			frameOpenAIResponseStreamError,
+			func(streamErr error) ([]byte, error) {
+				return frameOpenAIResponseStreamError(streamErr, streamState.NextSequenceNumber())
+			},
+			streamState.Observe,
 			func(data []byte) {
 				responseCapture.Append(data)
 			},

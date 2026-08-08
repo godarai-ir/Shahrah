@@ -1512,11 +1512,11 @@ func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing
 	assert.Equal(t, "gpt-4o-mini", outbound.Model)
 }
 
-func TestResponsesHandlerStreamSuccess(t *testing.T) {
+func TestResponsesHandlerStreamWithoutTerminalEventEmitsOrderedError(t *testing.T) {
 	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
 	stream.chunks <- platform.TunnelChunk{Data: []byte("event: response.created\n")}
 
-	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\"}\n\n"), IsDone: true}
+	stream.chunks <- platform.TunnelChunk{Data: []byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"Salam\",\"sequence_number\":7}\n\n"), IsDone: true}
 
 	close(stream.chunks)
 
@@ -1544,12 +1544,49 @@ func TestResponsesHandlerStreamSuccess(t *testing.T) {
 	bodyText := string(body)
 	assert.Contains(t, bodyText, "event: response.created")
 	assert.Contains(t, bodyText, `response.output_text.delta`)
+	assert.Contains(t, bodyText, "event: error\n")
+	assert.Contains(t, bodyText, `"sequence_number":8`)
 	assert.True(t, stream.closed)
 
 	entries := logs.requestEntries()
 	require.Len(t, entries, 1)
-	assert.Equal(t, "success", entries[0].Status)
+	assert.Equal(t, "failed", entries[0].Status)
 	assert.Equal(t, fiber.StatusOK, entries[0].StatusCode)
+}
+
+func TestResponsesHandlerStreamSuccessRequiresTerminalEvent(t *testing.T) {
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 2, 0)
+	stream.chunks <- platform.TunnelChunk{Data: []byte("event: response.created\ndata: {\"type\":\"response.created\",\"sequence_number\":0,\"response\":{\"id\":\"resp_success\",\"object\":\"response\",\"model\":\"gpt-4o\",\"status\":\"in_progress\"}}\n\n")}
+
+	completedEvent := "event: response.completed\n" +
+		"data: {\"type\":\"response.completed\",\"sequence_number\":1," +
+		"\"response\":{\"id\":\"resp_success\",\"object\":\"response\",\"model\":\"gpt-4o\"," +
+		"\"status\":\"completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2}}}\n\n"
+	stream.chunks <- platform.TunnelChunk{Data: []byte(completedEvent), IsDone: true}
+
+	close(stream.chunks)
+
+	tunnel := &captureTunnel{stream: stream}
+	logs := &testLogs{}
+	app, _ := newResponsesTestApp(t, "openai", tunnel, logs)
+
+	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `response.completed`)
+	assert.NotContains(t, string(body), "event: error\n")
+
+	entries := logs.requestEntries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "success", entries[0].Status)
 }
 
 func TestResponsesHandlerStreamErrorWritesStreamingErrorEvent(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -191,11 +192,11 @@ type openAIResponseErrorEvent struct {
 	SequenceNumber int64   `json:"sequence_number"`
 }
 
-func frameOpenAIResponseStreamError(streamErr error) ([]byte, error) {
+func frameOpenAIResponseStreamError(streamErr error, sequenceNumber int64) ([]byte, error) {
 	payload, err := json.Marshal(openAIResponseErrorEvent{
 		Type:           "error",
 		Message:        streamErr.Error(),
-		SequenceNumber: 0,
+		SequenceNumber: sequenceNumber,
 	})
 	if err != nil {
 		return nil, err
@@ -207,4 +208,137 @@ func frameOpenAIResponseStreamError(streamErr error) ([]byte, error) {
 		payload,
 		[]byte("\n\n"),
 	}, nil), nil
+}
+
+type openAIResponseStreamState struct {
+	pending            []byte
+	nextSequenceNumber int64
+	terminalEventType  string
+	partialEventType   string
+}
+
+func (state *openAIResponseStreamState) Observe(chunk []byte) {
+	if state == nil || len(chunk) == 0 {
+		return
+	}
+
+	state.pending = append(state.pending, chunk...)
+	for {
+		end, delimiterWidth := responseSSEFrameBoundary(state.pending)
+		if end < 0 {
+			if len(state.pending) > 256*1024 {
+				if eventType := state.inspectFrame(state.pending, state.partialEventType); eventType != "" {
+					state.partialEventType = eventType
+				}
+
+				state.pending = append([]byte(nil), state.pending[len(state.pending)-64*1024:]...)
+			}
+
+			return
+		}
+
+		state.observeFrame(state.pending[:end])
+		state.pending = state.pending[end+delimiterWidth:]
+	}
+}
+
+func (state *openAIResponseStreamState) observeFrame(frame []byte) {
+	eventType := state.inspectFrame(frame, state.partialEventType)
+	state.partialEventType = ""
+
+	if isTerminalOpenAIResponseEvent(eventType) {
+		state.terminalEventType = eventType
+	}
+}
+
+func (state *openAIResponseStreamState) inspectFrame(frame []byte, fallbackEventType string) string {
+	eventType := fallbackEventType
+	if observedEventType := responseSSEEventType(frame); observedEventType != "" {
+		eventType = observedEventType
+	}
+
+	var envelope struct {
+		Type           string `json:"type"`
+		SequenceNumber *int64 `json:"sequence_number"`
+	}
+
+	if sequenceNumber, ok := responseSSESequenceNumber(frame); ok && sequenceNumber >= state.nextSequenceNumber {
+		state.nextSequenceNumber = sequenceNumber + 1
+	}
+
+	data := responseSSEData(frame)
+	if len(data) > 0 && json.Unmarshal(data, &envelope) == nil {
+		if envelope.Type != "" {
+			eventType = envelope.Type
+		}
+
+		if envelope.SequenceNumber != nil && *envelope.SequenceNumber >= state.nextSequenceNumber {
+			state.nextSequenceNumber = *envelope.SequenceNumber + 1
+		}
+	}
+
+	return eventType
+}
+
+func responseSSESequenceNumber(frame []byte) (int64, bool) {
+	const marker = `"sequence_number"`
+
+	markerIndex := bytes.Index(frame, []byte(marker))
+	if markerIndex < 0 {
+		return 0, false
+	}
+
+	remainder := frame[markerIndex+len(marker):]
+
+	colonIndex := bytes.IndexByte(remainder, ':')
+	if colonIndex < 0 {
+		return 0, false
+	}
+
+	remainder = bytes.TrimLeft(remainder[colonIndex+1:], " \t\r\n")
+
+	end := 0
+	if len(remainder) > 0 && remainder[0] == '-' {
+		end++
+	}
+
+	for end < len(remainder) && remainder[end] >= '0' && remainder[end] <= '9' {
+		end++
+	}
+
+	if end == 0 || (end == 1 && remainder[0] == '-') {
+		return 0, false
+	}
+
+	sequenceNumber, err := strconv.ParseInt(string(remainder[:end]), 10, 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return sequenceNumber, true
+}
+
+func (state *openAIResponseStreamState) NextSequenceNumber() int64 {
+	if state == nil {
+		return 0
+	}
+
+	return state.nextSequenceNumber
+}
+
+func (state *openAIResponseStreamState) TerminalEventType() string {
+	if state == nil {
+		return ""
+	}
+
+	return state.terminalEventType
+}
+
+func isTerminalOpenAIResponseEvent(eventType string) bool {
+	switch eventType {
+	case "response.completed", "response.failed", "response.incomplete", "error":
+		return true
+	default:
+		return false
+	}
 }
