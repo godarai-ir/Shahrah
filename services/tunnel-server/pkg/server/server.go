@@ -3,7 +3,9 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -92,7 +94,13 @@ func NewHandler(silkRoadURL string, client *http.Client) http.Handler {
 
 		copyHeaders(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
-		relayBody(w, resp.Body, payload.Stream || responseIsEventStream(resp.Header))
+		relayBodyOrAbort(
+			w,
+			resp.Body,
+			payload.Stream || responseIsEventStream(resp.Header),
+			payload.RequestID,
+			payload.TraceID,
+		)
 	})
 	mux.HandleFunc("/dispatch/raw", func(w http.ResponseWriter, r *http.Request) {
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, silkRoadURL+"/dispatch/raw", r.Body)
@@ -105,6 +113,8 @@ func NewHandler(silkRoadURL string, client *http.Client) http.Handler {
 		req.Header.Set("Content-Type", "application/vnd.godarai.tunnel-stream")
 		stream := strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Shahrah-Tunnel-Stream")), "true")
 		req.Header.Set("X-Shahrah-Tunnel-Stream", r.Header.Get("X-Shahrah-Tunnel-Stream"))
+		req.Header.Set("X-GodarAI-Trace-ID", r.Header.Get("X-GodarAI-Trace-ID"))
+		req.Header.Set("X-Shahrah-Request-ID", r.Header.Get("X-Shahrah-Request-ID"))
 
 		resp, err := streamClient.Do(req)
 		if err != nil {
@@ -115,7 +125,13 @@ func NewHandler(silkRoadURL string, client *http.Client) http.Handler {
 
 		copyHeaders(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
-		relayBody(w, resp.Body, stream || responseIsEventStream(resp.Header))
+		relayBodyOrAbort(
+			w,
+			resp.Body,
+			stream || responseIsEventStream(resp.Header),
+			r.Header.Get("X-Shahrah-Request-ID"),
+			r.Header.Get("X-GodarAI-Trace-ID"),
+		)
 	})
 
 	return metrics.wrap(mux)
@@ -160,22 +176,35 @@ func responseIsEventStream(headers http.Header) bool {
 	return strings.Contains(strings.ToLower(headers.Get("Content-Type")), "text/event-stream")
 }
 
-func relayBody(w http.ResponseWriter, body io.Reader, flush bool) {
+func relayBodyOrAbort(
+	w http.ResponseWriter,
+	body io.Reader,
+	flush bool,
+	requestID string,
+	traceID string,
+) {
+	if err := relayBody(w, body, flush); err != nil {
+		log.Printf("tunnel response relay failed request_id=%q trace_id=%q: %v", requestID, traceID, err)
+		panic(http.ErrAbortHandler)
+	}
+}
+
+func relayBody(w http.ResponseWriter, body io.Reader, flush bool) error {
 	if !flush {
 		if _, err := io.Copy(w, body); err != nil {
-			return
+			return fmt.Errorf("relay response body: %w", err)
 		}
 
-		return
+		return nil
 	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		if _, err := io.Copy(w, body); err != nil {
-			return
+			return fmt.Errorf("relay streaming response body: %w", err)
 		}
 
-		return
+		return nil
 	}
 
 	buf := make([]byte, 32*1024)
@@ -183,14 +212,18 @@ func relayBody(w http.ResponseWriter, body io.Reader, flush bool) {
 		n, err := body.Read(buf)
 		if n > 0 {
 			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
-				return
+				return fmt.Errorf("write streaming response body: %w", writeErr)
 			}
 
 			flusher.Flush()
 		}
 
+		if err == io.EOF {
+			return nil
+		}
+
 		if err != nil {
-			return
+			return fmt.Errorf("read streaming response body: %w", err)
 		}
 	}
 }

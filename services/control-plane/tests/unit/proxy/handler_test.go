@@ -3318,7 +3318,7 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 	require.IsType(t, map[string]interface{}{}, mLogs.loggedEntries[0].ResponseBody["error"])
 }
 
-func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {
+func TestChatCompletionHandler_StreamCloseWithoutDoneFailsWithoutBilling(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	r := newTestRouter(t, logger)
 
@@ -3352,10 +3352,15 @@ func TestChatCompletionHandler_StreamCloseFinalizesWithoutPanic(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(body), `"content":"Salam"`)
+	assert.Contains(t, string(body), `"code":"stream_incomplete"`)
 	assert.NotContains(t, strings.ToLower(string(body)), "panic")
-	assert.Len(t, mWallet.debitCalls, 1)
-	assert.Len(t, mLogs.loggedSpends, 1)
+	assert.Empty(t, mWallet.debitCalls)
+	assert.Empty(t, mLogs.loggedSpends)
 	assert.True(t, stream.closed)
+	require.Len(t, mLogs.loggedEntries, 1)
+	assert.Equal(t, "failed", mLogs.loggedEntries[0].Status)
+	assert.Equal(t, "stream_closed_without_completion", mLogs.loggedEntries[0].ErrorType)
+	assert.Equal(t, "failed", mLogs.loggedEntries[0].ResponseBody["outcome"])
 }
 
 func TestChatCompletionHandler_StreamErrorWritesStreamingErrorEvent(t *testing.T) {
@@ -3389,6 +3394,7 @@ func TestChatCompletionHandler_StreamErrorWritesStreamingErrorEvent(t *testing.T
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(body), `"type":"streaming_error"`)
+	assert.Contains(t, string(body), `"code":"stream_interrupted"`)
 	assert.True(t, stream.closed)
 	require.Len(t, mLogs.loggedEntries, 1)
 	assert.Equal(t, "failed", mLogs.loggedEntries[0].Status)

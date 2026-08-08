@@ -1234,22 +1234,52 @@ func (h *ChatCompletionHandler) handleStream(
 		defer closeStreamBestEffort(h.logger, stream)
 
 		responseCapture := &streamResponseLogCapture{}
-		logStreamFailure := func(errorType string, message string) {
-			payload := responseCapture.Payload("failed")
-			payload["error"] = map[string]interface{}{"message": message, "type": errorType}
-			payload = buildProviderStreamLogPayload(tunnelReq.Deployment.Provider, "failed", payload)
-			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", fiber.StatusOK, errorType, payload, nil)
-		}
-
 		budgetCommitted := false
 		budgetReleaseReason := "stream_not_committed"
 		finalized := false
 
 		var finalizedCost platform.UsageCostBreakdown
 
+		logStreamFailure := func(errorType string, message string) {
+			payload := responseCapture.Payload("failed")
+			payload["error"] = map[string]interface{}{"message": message, "type": errorType}
+			payload = buildProviderStreamLogPayload(tunnelReq.Deployment.Provider, "failed", payload)
+			logStreamingRequestBestEffort(h.logger, h.logs, context.Background(), requestLogBase, "failed", fiber.StatusOK, errorType, payload, nil)
+		}
+		writeStreamFailure := func(errorType string, code string, publicMessage string, logMessage string) {
+			budgetReleaseReason = "stream_error"
+			if code == "stream_incomplete" {
+				budgetReleaseReason = "stream_incomplete"
+			}
+
+			errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
+				Error: contractsopenai.ErrorInfo{
+					Message: publicMessage,
+					Type:    "streaming_error",
+					Code:    code,
+				},
+			})
+			if marshalErr != nil {
+				h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
+				logStreamFailure(errorType, logMessage)
+
+				return
+			}
+
+			streamErrorEvent := bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)
+			responseCapture.Append(streamErrorEvent)
+
+			if writeErr := writeBufferedBytes(w, streamErrorEvent); writeErr != nil {
+				h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+			}
+
+			logStreamFailure(errorType, logMessage)
+		}
+
 		usageCapture := &streamUsageCapture{
 			tier: responseHeaderValue(streamHeaders, "x-gemini-service-tier"),
 		}
+		completionCapture := &streamCompletionCapture{}
 		streamUsageNormalizer := newGoogleGeminiStreamUsageNormalizer(tunnelReq.Deployment.Provider)
 
 		defer func() {
@@ -1338,14 +1368,41 @@ func (h *ChatCompletionHandler) handleStream(
 			return finalizedCost
 		}
 
-		for {
+		streamChunks := stream.Chunks()
+		streamErrors := stream.Errors()
+
+		finishStreamAfterTransportEnd := func() {
+			completionCapture.Finish()
+
+			if completionCapture.Completed() {
+				finalCost := finalizeAndLogSuccess()
+				if includeStreamTelemetry {
+					if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
+						h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
+					}
+				}
+
+				return
+			}
+
+			const logMessage = "provider stream closed without a completion marker"
+			writeStreamFailure(
+				"stream_closed_without_completion",
+				"stream_incomplete",
+				"The upstream response stream ended before completion.",
+				logMessage,
+			)
+		}
+
+		for streamChunks != nil {
 			select {
-			case chunk, ok := <-stream.Chunks():
+			case chunk, ok := <-streamChunks:
 				if !ok {
 					pending := streamUsageNormalizer.Flush()
 					if len(pending) > 0 {
 						responseCapture.Append(pending)
 						usageCapture.Add(pending)
+						completionCapture.Add(pending)
 
 						if writeErr := writeBufferedBytes(w, pending); writeErr != nil {
 							h.logger.Warn("failed to write pending streaming data", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
@@ -1358,7 +1415,24 @@ func (h *ChatCompletionHandler) handleStream(
 						}
 					}
 
-					finalizeAndLogSuccess()
+					if streamErrors != nil {
+						select {
+						case streamErr, errorsOpen := <-streamErrors:
+							if errorsOpen && streamErr != nil {
+								writeStreamFailure(
+									"streaming_error",
+									"stream_interrupted",
+									"The upstream response stream was interrupted.",
+									streamErr.Error(),
+								)
+
+								return
+							}
+						default:
+						}
+					}
+
+					finishStreamAfterTransportEnd()
 
 					return
 				}
@@ -1379,6 +1453,7 @@ func (h *ChatCompletionHandler) handleStream(
 
 					responseCapture.Append(streamData)
 					usageCapture.Add(streamData)
+					completionCapture.Add(streamData)
 
 					if chunk.IsDone && includeStreamTelemetry && isStreamDoneMarker(streamData) {
 						finalCost := finalizeAndLogSuccess()
@@ -1406,43 +1481,35 @@ func (h *ChatCompletionHandler) handleStream(
 				}
 
 				if chunk.IsDone {
-					finalCost := finalizeAndLogSuccess()
-					if includeStreamTelemetry {
-						if writeErr := writeStreamTelemetryEvent(w, finalCost); writeErr != nil {
-							h.logger.Warn("failed to write streaming telemetry", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-						}
-					}
+					finishStreamAfterTransportEnd()
 
 					return
 				}
-			case err, ok := <-stream.Errors():
-				if ok && err != nil {
-					budgetReleaseReason = "stream_error"
+			case streamErr, ok := <-streamErrors:
+				if !ok {
+					streamErrors = nil
 
-					errorPayload, marshalErr := json.Marshal(contractsopenai.APIError{
-						Error: contractsopenai.ErrorInfo{
-							Message: err.Error(),
-							Type:    "streaming_error",
-						},
-					})
-					if marshalErr != nil {
-						h.logger.Warn("failed to encode streaming error payload", zap.Error(marshalErr), zap.String("request_id", tunnelReq.RequestID))
-						logStreamFailure("streaming_error", err.Error())
-
-						return
-					}
-
-					streamErrorEvent := bytes.Join([][]byte{[]byte("data: "), errorPayload, []byte("\n\n")}, nil)
-					responseCapture.Append(streamErrorEvent)
-
-					if writeErr := writeBufferedBytes(w, streamErrorEvent); writeErr != nil {
-						h.logger.Warn("failed to write streaming error payload", zap.Error(writeErr), zap.String("request_id", tunnelReq.RequestID))
-					}
-
-					logStreamFailure("streaming_error", err.Error())
-				} else {
-					logStreamFailure("stream_closed_without_completion", "provider stream closed without a completion marker")
+					continue
 				}
+
+				if streamErr == nil {
+					continue
+				}
+
+				completionCapture.Finish()
+
+				if completionCapture.Completed() {
+					finishStreamAfterTransportEnd()
+
+					return
+				}
+
+				writeStreamFailure(
+					"streaming_error",
+					"stream_interrupted",
+					"The upstream response stream was interrupted.",
+					streamErr.Error(),
+				)
 
 				return
 			}
@@ -1614,6 +1681,54 @@ type streamUsageCapture struct {
 	buffer []byte
 	usage  *contractsopenai.Usage
 	tier   string
+}
+
+type streamCompletionCapture struct {
+	buffer    []byte
+	completed bool
+}
+
+func (capture *streamCompletionCapture) Add(data []byte) {
+	if capture == nil || capture.completed || len(data) == 0 {
+		return
+	}
+
+	capture.buffer = append(capture.buffer, data...)
+	consumed := 0
+
+	for {
+		frame, frameBytes, ok := takeSSEFrameBytes(capture.buffer[consumed:])
+		if !ok {
+			break
+		}
+
+		consumed += frameBytes
+
+		if bytes.Equal(streamFrameDataBytes(frame), []byte("[DONE]")) {
+			capture.completed = true
+
+			break
+		}
+	}
+
+	if consumed > 0 {
+		remaining := copy(capture.buffer, capture.buffer[consumed:])
+		capture.buffer = capture.buffer[:remaining]
+	}
+}
+
+func (capture *streamCompletionCapture) Finish() {
+	if capture == nil || capture.completed || len(capture.buffer) == 0 {
+		return
+	}
+
+	payload := streamFrameDataBytes(capture.buffer)
+	capture.completed = bytes.Equal(payload, []byte("[DONE]"))
+	capture.buffer = capture.buffer[:0]
+}
+
+func (capture *streamCompletionCapture) Completed() bool {
+	return capture != nil && capture.completed
 }
 
 func (capture *streamUsageCapture) Add(data []byte) {

@@ -62,6 +62,8 @@ export async function consumePlaygroundStream(response: Response, options: Consu
         }
 
         const chunk = JSON.parse(data) as Record<string, unknown>;
+        const streamError = extractStreamError(chunk, options.disconnectedMessage);
+        if (streamError) throw new Error(streamError);
         snapshot.responseID = typeof chunk.id === "string" ? chunk.id : snapshot.responseID;
         snapshot.responseModel = typeof chunk.model === "string" ? chunk.model : snapshot.responseModel;
         if (chunk.usage && typeof chunk.usage === "object") snapshot.usage = chunk.usage as Record<string, unknown>;
@@ -97,6 +99,14 @@ export async function consumePlaygroundStream(response: Response, options: Consu
   } finally {
     reader.releaseLock();
   }
+}
+
+function extractStreamError(chunk: Record<string, unknown>, disconnectedMessage: string): string | undefined {
+  if (!chunk.error || typeof chunk.error !== "object" || Array.isArray(chunk.error)) return undefined;
+  const error = chunk.error as Record<string, unknown>;
+  const code = typeof error.code === "string" ? error.code : "";
+  if (code === "stream_incomplete" || code === "stream_interrupted") return disconnectedMessage;
+  return typeof error.message === "string" && error.message.trim() ? error.message : disconnectedMessage;
 }
 
 export function createDeltaRenderQueue(onAppend: (delta: string) => void, scheduleFrame: FrameScheduler = scheduleBrowserFrame, signal?: AbortSignal) {

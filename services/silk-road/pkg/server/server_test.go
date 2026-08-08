@@ -1609,6 +1609,42 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 	}
 }
 
+func TestRelayBodyOrAbortPreservesUpstreamReadFailure(t *testing.T) {
+	t.Parallel()
+
+	recorder := httptest.NewRecorder()
+	reader := &terminalErrorReader{data: []byte("data: partial\n\n")}
+
+	defer func() {
+		recovered := recover()
+		if recovered != http.ErrAbortHandler {
+			t.Fatalf("expected http.ErrAbortHandler, got %#v", recovered)
+		}
+
+		if recorder.Body.String() != "data: partial\n\n" {
+			t.Fatalf("expected partial response to be preserved, got %q", recorder.Body.String())
+		}
+	}()
+
+	relayBodyOrAbort(recorder, reader, true, "req_stream_failure", "trace_stream_failure")
+	t.Fatal("expected relayBodyOrAbort to abort the downstream response")
+}
+
+type terminalErrorReader struct {
+	data []byte
+	sent bool
+}
+
+func (r *terminalErrorReader) Read(buffer []byte) (int, error) {
+	if r.sent {
+		return 0, io.ErrUnexpectedEOF
+	}
+
+	r.sent = true
+
+	return copy(buffer, r.data), nil
+}
+
 func TestDispatchOpenAIResponsesStreamingRelaysMultipleEventsAndDone(t *testing.T) {
 	t.Parallel()
 

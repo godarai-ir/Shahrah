@@ -72,4 +72,28 @@ describe("playground stream rendering", () => {
       costIRR: 357,
     });
   });
+
+  it("surfaces an interrupted stream event with the localized disconnect message", async () => {
+    const encoder = new TextEncoder();
+    const response = new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode([
+          'data: {"choices":[{"delta":{"content":"partial"}}]}',
+          'data: {"error":{"message":"The upstream response stream was interrupted.","type":"streaming_error","code":"stream_interrupted"}}',
+          "",
+        ].join("\n\n")));
+        controller.close();
+      },
+    }), { headers: { "Content-Type": "text/event-stream" } });
+
+    await expect(consumePlaygroundStream(response, {
+      signal: new AbortController().signal,
+      disconnectedMessage: "localized disconnect",
+      onUpdate: () => undefined,
+      scheduleFrame: (callback) => {
+        queueMicrotask(callback);
+        return () => undefined;
+      },
+    })).rejects.toThrow("localized disconnect");
+  });
 });

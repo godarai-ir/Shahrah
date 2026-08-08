@@ -157,6 +157,8 @@ func (t *HTTPTransport) dispatchRaw(
 
 	httpReq.Header.Set("Content-Type", "application/vnd.godarai.tunnel-stream")
 	httpReq.Header.Set("X-Shahrah-Tunnel-Stream", strconv.FormatBool(req.Stream))
+	httpReq.Header.Set("X-GodarAI-Trace-ID", req.TraceID)
+	httpReq.Header.Set("X-Shahrah-Request-ID", req.RequestID)
 
 	client := t.client
 	if disableClientTimeout {

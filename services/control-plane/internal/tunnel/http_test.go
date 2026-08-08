@@ -261,12 +261,18 @@ func TestStreamIgnoresClientTimeoutWhileBodyIsOpen(t *testing.T) {
 func TestStreamSetsRequestStreamFlag(t *testing.T) {
 	t.Parallel()
 
-	var payload platform.TunnelRequest
+	var (
+		payload   platform.TunnelRequest
+		requestID string
+		traceID   string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		payload, _ = decodeRawTunnelRequest(t, r.Body)
+		requestID = r.Header.Get("X-Shahrah-Request-ID")
+		traceID = r.Header.Get("X-GodarAI-Trace-ID")
 
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("data: ok\n\n"))
@@ -275,7 +281,10 @@ func TestStreamSetsRequestStreamFlag(t *testing.T) {
 
 	transport := NewHTTPTransport(upstream.URL, time.Second)
 
-	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{})
+	stream, err := transport.Stream(context.Background(), platform.TunnelRequest{
+		RequestID: "req_stream_headers",
+		TraceID:   "trace_stream_headers",
+	})
 	if err != nil {
 		t.Fatalf("stream request failed: %v", err)
 	}
@@ -287,6 +296,10 @@ func TestStreamSetsRequestStreamFlag(t *testing.T) {
 
 	if !payload.Stream {
 		t.Fatal("expected stream flag to be forced on outbound tunnel request")
+	}
+
+	if requestID != "req_stream_headers" || traceID != "trace_stream_headers" {
+		t.Fatalf("expected request correlation headers, got request_id=%q trace_id=%q", requestID, traceID)
 	}
 }
 
