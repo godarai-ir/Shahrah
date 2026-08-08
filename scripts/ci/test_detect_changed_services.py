@@ -85,10 +85,10 @@ class SelectChangedServicesTests(unittest.TestCase):
 
         self.assertEqual(
             selected,
-            ["control-plane", "silk-road", "tunnel-client", "tunnel-server"],
+            ["control-plane", "silk-road"],
         )
 
-    def test_transport_change_also_rebuilds_control_plane(self):
+    def test_silk_road_change_rebuilds_only_silk_road(self):
         selected, _, _ = DETECTOR.select_changed_services(
             DETECTOR.SERVICES,
             "",
@@ -96,7 +96,7 @@ class SelectChangedServicesTests(unittest.TestCase):
             lambda _base: ["services/silk-road/pkg/server/server.go"],
         )
 
-        self.assertEqual(selected, ["control-plane", "silk-road"])
+        self.assertEqual(selected, ["silk-road"])
 
     def test_turbo_configuration_does_not_rebuild_runtime_images(self):
         selected, _, _ = DETECTOR.select_changed_services(

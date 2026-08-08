@@ -49,8 +49,8 @@ tenant_settings:
   base_domain: "shahrah.local"
   allow_header_hint: true
 
-tunnel_settings:
-  client_url: ${TUNNEL_CLIENT_URL}
+provider_egress:
+  url: ${SILK_ROAD_URL}
   timeout_seconds: 300
 
 billing_settings:

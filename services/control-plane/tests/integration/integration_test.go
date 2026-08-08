@@ -34,8 +34,6 @@ import (
 	tenantmw "github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
 	silkserver "github.com/Delpak/shahrah/services/silk-road/pkg/server"
-	tclientserver "github.com/Delpak/shahrah/services/tunnel-client/pkg/server"
-	tserverserver "github.com/Delpak/shahrah/services/tunnel-server/pkg/server"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
@@ -100,12 +98,6 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 	silkRoad := httptest.NewServer(silkserver.NewHandler(nil))
 	defer silkRoad.Close()
 
-	tunnelServer := httptest.NewServer(tserverserver.NewHandler(silkRoad.URL, nil))
-	defer tunnelServer.Close()
-
-	tunnelClient := httptest.NewServer(tclientserver.NewHandler(tunnelServer.URL, nil))
-	defer tunnelClient.Close()
-
 	tenantStore := integrationTenantStore{
 		tenant: &platform.Tenant{ID: "tenant-1", Slug: "default", Domain: "default", Status: "active", CreatedAt: time.Now()},
 	}
@@ -160,7 +152,7 @@ func TestIntegration_EndToEndChatCompletion(t *testing.T) {
 
 	baseProxyDeps := proxy.BaseHandlerDependencies{
 		Router:              llmRouter,
-		Tunnel:              tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Tunnel:              tunneltransport.NewHTTPTransport(silkRoad.URL, 30*time.Second),
 		Billing:             billingSvc,
 		BillingCapabilities: integrationBillingCapabilities(billingSvc),
 		Wallets:             walletStore,
@@ -2512,10 +2504,6 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache integrationCac
 
 	silkRoad := httptest.NewServer(silkserver.NewHandler(nil))
 	t.Cleanup(silkRoad.Close)
-	tunnelServer := httptest.NewServer(tserverserver.NewHandler(silkRoad.URL, nil))
-	t.Cleanup(tunnelServer.Close)
-	tunnelClient := httptest.NewServer(tclientserver.NewHandler(tunnelServer.URL, nil))
-	t.Cleanup(tunnelClient.Close)
 
 	tenantStore := integrationTenantStore{
 		tenant: &platform.Tenant{ID: "tenant-1", Slug: "default", Domain: "default", Status: "active", CreatedAt: time.Now()},
@@ -2570,7 +2558,7 @@ func newIntegrationApp(t *testing.T, logger *zap.Logger, memCache integrationCac
 
 	baseProxyDeps := proxy.BaseHandlerDependencies{
 		Router:              llmRouter,
-		Tunnel:              tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Tunnel:              tunneltransport.NewHTTPTransport(silkRoad.URL, 30*time.Second),
 		Billing:             billingSvc,
 		BillingCapabilities: integrationBillingCapabilities(billingSvc),
 		Wallets:             walletStore,

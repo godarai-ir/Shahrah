@@ -18,7 +18,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-// HTTPTransport sends requests to the local tunnel-client service.
+// HTTPTransport sends provider operations directly to Silk Road.
 type HTTPTransport struct {
 	baseURL      string
 	client       *http.Client
@@ -32,7 +32,7 @@ const (
 	defaultStreamReadBuffer    = 32 * 1024
 )
 
-// HTTPTransportConfig controls connection reuse between the control-plane and tunnel-client.
+// HTTPTransportConfig controls connection reuse between Control Plane and Silk Road.
 type HTTPTransportConfig struct {
 	RequestTimeout      time.Duration
 	MaxIdleConns        int
@@ -41,7 +41,7 @@ type HTTPTransportConfig struct {
 	IdleConnTimeout     time.Duration
 }
 
-// NewHTTPTransport creates a transport client for the tunnel-client service.
+// NewHTTPTransport creates a transport client for Silk Road.
 func NewHTTPTransport(baseURL string, timeout time.Duration) *HTTPTransport {
 	return NewHTTPTransportWithConfig(baseURL, HTTPTransportConfig{RequestTimeout: timeout})
 }
@@ -266,7 +266,7 @@ func (t *HTTPTransport) Stream(ctx context.Context, req platform.TunnelRequest) 
 	return stream, nil
 }
 
-// Healthy checks the tunnel-client health endpoint.
+// Healthy checks the Silk Road health endpoint.
 func (t *HTTPTransport) Healthy(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.baseURL+"/health", http.NoBody)
 	if err != nil {
@@ -280,7 +280,7 @@ func (t *HTTPTransport) Healthy(ctx context.Context) error {
 	defer closeBody(resp.Body)
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return fmt.Errorf("tunnel client unhealthy: %d", resp.StatusCode)
+		return fmt.Errorf("silk road unhealthy: %d", resp.StatusCode)
 	}
 
 	return nil

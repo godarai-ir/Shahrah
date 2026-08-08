@@ -72,7 +72,7 @@ add post-construction setters to storage.
 - `DATABASE_URL`: required, startup fails fast when missing or unreachable
 - `MASTER_KEY`: required for `/api/v1/*` management APIs
 - `SHAHRAH_DISCOVERY_TOKEN`: optional dedicated model-discovery service credential; never falls back to `MASTER_KEY`. Leave unset while control-plane only consumes public catalog endpoints.
-- `TUNNEL_CLIENT_URL`: control-plane hop into the tunnel client
+- `SILK_ROAD_URL`: direct provider-egress endpoint used by control-plane
 - `REDIS_HOST` and `REDIS_PASSWORD`: optional, memory cache is used when Redis is not configured
 - `TOKEN_USAGE_AGGREGATION_ENABLED`: optional (`true` by default), queues token spend and key last-used aggregates through Redis instead of updating `verification_tokens` per request
 - `TOKEN_USAGE_REDIS_FAIL_OPEN`: optional (`true` by default), keeps gateway traffic moving when Redis aggregation is unavailable; `spend_logs` remains the billing source of truth

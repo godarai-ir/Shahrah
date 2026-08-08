@@ -15,8 +15,6 @@ on:
           - support-admin
           - support-admin-migrate
           - silk-road
-          - tunnel-client
-          - tunnel-server
           - goose
           - docs
           - website
@@ -74,8 +72,6 @@ jobs:
               "support-admin": "support-admin",
               "support-admin-migrate": "support-admin",
               "silk-road": "silk-road",
-              "tunnel-client": "tunnel-client",
-              "tunnel-server": "tunnel-server",
               "goose": "goose",
               "docs": "docs",
               "website": "website",
@@ -127,8 +123,6 @@ jobs:
               "support-admin": "supportAdmin.image.tag",
               "support-admin-migrate": "migrations.supportAdmin.image.tag",
               "silk-road": "silkRoad.image.tag",
-              "tunnel-client": "tunnelClient.image.tag",
-              "tunnel-server": "tunnelServer.image.tag",
               "goose": "migrations.mainDb.image.tag",
               "docs": "docs.image.tag",
               "website": "website.image.tag",

@@ -34,7 +34,8 @@ services:
       PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY: ${PLATFORM_PROVIDER_CREDENTIAL_FINGERPRINT_KEY:-JCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQ=}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-provider-placeholder}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-ant-provider-placeholder}
-      TUNNEL_CLIENT_URL: http://tunnel-client:8081
+      SILK_ROAD_URL: http://silk-road:8083
+      TUNNEL_CLIENT_URL: http://silk-road:8083 # Temporary compatibility for pre-provider_egress images.
       SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://model-discovery:3002/api/v1}
       SHAHRAH_DISCOVERY_TOKEN: ${SHAHRAH_DISCOVERY_TOKEN:-}
       EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}
@@ -64,7 +65,7 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
-      tunnel-client:
+      silk-road:
         condition: service_started
       mailpit:
         condition: service_started
@@ -187,36 +188,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
-  tunnel-client:
-    logging: *default-logging
-    build:
-      context: ../../
-      dockerfile: services/tunnel-client/Dockerfile
-    ports:
-      - "8081:8081"
-    environment:
-      TUNNEL_CLIENT_ADDR: :8081
-      TUNNEL_SERVER_URL: http://tunnel-server:8082
-    depends_on:
-      tunnel-server:
-        condition: service_started
-    restart: unless-stopped
-
-  tunnel-server:
-    logging: *default-logging
-    build:
-      context: ../../
-      dockerfile: services/tunnel-server/Dockerfile
-    ports:
-      - "8082:8082"
-    environment:
-      TUNNEL_SERVER_ADDR: :8082
-      SILK_ROAD_URL: http://silk-road:8083
-    depends_on:
-      silk-road:
-        condition: service_started
-    restart: unless-stopped
 
   silk-road:
     logging: *default-logging

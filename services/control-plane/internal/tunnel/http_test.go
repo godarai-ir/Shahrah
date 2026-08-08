@@ -52,7 +52,7 @@ func TestOpenAIRequestsReachTunnelWithoutReleaseGate(t *testing.T) {
 }
 
 func TestHTTPTransportUsesConfiguredSharedConnectionPool(t *testing.T) {
-	transport := NewHTTPTransportWithConfig("http://tunnel-client", HTTPTransportConfig{
+	transport := NewHTTPTransportWithConfig("http://silk-road", HTTPTransportConfig{
 		RequestTimeout:      time.Second,
 		MaxIdleConns:        300,
 		MaxIdleConnsPerHost: 200,

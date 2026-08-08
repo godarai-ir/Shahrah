@@ -1,6 +1,6 @@
 # Shahrah
 
-Shahrah is now organized as a monorepo for the full platform: control plane, tunnel services, admin panels, docs, blog, SDKs, shared contracts, and infrastructure.
+Shahrah is organized as a monorepo for the full platform: control plane, provider egress, admin panels, docs, blog, SDKs, shared contracts, and infrastructure.
 
 ## Repository Layout
 
@@ -21,9 +21,9 @@ shahrah/
 ## Current Services
 
 - `services/control-plane`: existing Go gateway/control-plane service
-- `services/tunnel-client`: Iran-side tunnel client
-- `services/tunnel-server`: Europe-side tunnel server
-- `services/silk-road`: Europe-side provider proxy
+- `services/silk-road`: stateless provider-egress and adapter service
+- `services/tunnel-client`: retired HTTP relay retained temporarily for rollback
+- `services/tunnel-server`: retired HTTP relay retained temporarily for rollback
 - `services/sync-worker`: background worker scaffold
 
 ## Current Apps
@@ -52,7 +52,7 @@ PowerShell:
 go -C services/control-plane mod download
 go -C services/control-plane mod tidy
 putty.exe -load node-4-eu -l ubuntu -N -L 1443:127.0.0.1:443
-docker compose -f infra/compose/local.yml up -d postgres redis clickhouse silk-road tunnel-server tunnel-client control-plane
+docker compose -f infra/compose/local.yml up -d postgres redis clickhouse silk-road control-plane
 docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/001_initial.sql
 docker compose -f infra/compose/local.yml exec postgres psql -U postgres -d llmproxy -f /docker-entrypoint-initdb.d/002_platform_foundations.sql
 go -C services/control-plane test -v -race ./tests/integration/...
@@ -82,7 +82,7 @@ Required runtime configuration:
 
 - `DATABASE_URL`
 - `MASTER_KEY`
-- `TUNNEL_CLIENT_URL`
+- `SILK_ROAD_URL`
 - `OPENAI_API_KEY` only if using the sample static model entries in `services/control-plane/configs/proxy_config.yaml`
 
 Minimal onboarding flow is documented in `services/control-plane/README.md`.
@@ -172,7 +172,7 @@ Source files are under [`infra/clickhouse/migrations`](infra/clickhouse/migratio
 ## Next Migration Steps
 
 1. Replace remaining framework starter assets and sample content with Shahrah-specific UI and docs.
-2. Add generated protobuf artifacts and stronger tunnel transport semantics on top of the current HTTP-backed local chain.
+2. Remove the retired tunnel relay source modules after the direct Silk Road path completes its rollback window.
 3. Split shared Go utilities from `services/control-plane/internal` into `packages/go/` only when another service actually needs them.
 4. Add per-service CI once new services become real modules.
 

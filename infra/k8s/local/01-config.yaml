@@ -27,12 +27,9 @@ data:
   TYPESENSE_READY_STRICT: "true"
   TYPESENSE_DATA_DIR: /data
   TYPESENSE_ENABLE_CORS: "true"
-  TUNNEL_CLIENT_ADDR: :8081
-  TUNNEL_SERVER_ADDR: :8082
-  TUNNEL_SERVER_URL: http://tunnel-server:8082
-  TUNNEL_CLIENT_URL: http://tunnel-client:8081
   SILK_ROAD_ADDR: :8083
   SILK_ROAD_URL: http://silk-road:8083
+  TUNNEL_CLIENT_URL: http://silk-road:8083 # Temporary compatibility for pre-provider_egress images.
   SMTP_HOST: mailpit
   SMTP_PORT: "1025"
   SMTP_FROM: no-reply@shahrah.local

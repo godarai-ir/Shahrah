@@ -114,9 +114,12 @@ func relayTunnelStreamWithErrorFramer(
 	errorFramer tunnelStreamErrorFramer,
 	observers ...func([]byte),
 ) {
+	chunks := stream.Chunks()
+	streamErrors := stream.Errors()
+
 	for {
 		select {
-		case chunk, ok := <-stream.Chunks():
+		case chunk, ok := <-chunks:
 			if !ok {
 				onSuccess()
 
@@ -142,8 +145,13 @@ func relayTunnelStreamWithErrorFramer(
 
 				return
 			}
-		case streamErr, ok := <-stream.Errors():
-			if ok && streamErr != nil {
+		case streamErr, ok := <-streamErrors:
+			if !ok {
+				streamErrors = nil
+				continue
+			}
+
+			if streamErr != nil {
 				var (
 					framed []byte
 					err    error

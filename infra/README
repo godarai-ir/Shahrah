@@ -58,8 +58,6 @@ The local manifests define these Shahrah workloads:
 - `model-discovery`
 - `support-admin`
 - `silk-road`
-- `tunnel-server`
-- `tunnel-client`
 
 They also define these in-cluster stateful dependencies:
 
@@ -95,8 +93,6 @@ The Helm chart includes a broader workload set than `infra/k8s/local`:
 - `model-discovery`
 - `support-admin`
 - `silk-road`
-- `tunnel-server`
-- `tunnel-client`
 - `tenant-admin`
 - `website`
 - `blog`
@@ -269,7 +265,7 @@ Confirmed production domain decision:
 - current GitOps public routing stays path-based on that same domain
 - `tenant-admin` stays wildcard-based on `*.godarai.ir`
 
-`model-discovery`, `silk-road`, `tunnel-server`, and `tunnel-client` stay internal. `model-discovery-web` exposes only the public read contract.
+`model-discovery` and `silk-road` stay internal. `model-discovery-web` exposes only the public read contract.
 
 The current production values in `D:\source\shahrah-gitops\helm\shahrah\values.production.yaml` are already aligned to `godarai.ir`.
 
@@ -881,8 +877,6 @@ Production Shahrah deployment currently depends on:
 - `model-discovery-web`
 - `support-admin`
 - `silk-road`
-- `tunnel-server`
-- `tunnel-client`
 - `tenant-admin`
 - `website`
 - `blog`
@@ -905,8 +899,6 @@ Current image sources in the repo:
 - `apps/model-discovery/Dockerfile`
 - `apps/model-discovery-web/Dockerfile`
 - `apps/support-admin/Dockerfile`
-- `services/tunnel-client/Dockerfile`
-- `services/tunnel-server/Dockerfile`
 - `services/silk-road/Dockerfile`
 - `infra/compose/images/goose.Dockerfile`
 
@@ -919,8 +911,6 @@ Build and publish images with immutable tags, for example Git SHA tags:
 - `model-discovery-migrate`
 - `model-discovery-web`
 - `support-admin`
-- `tunnel-client`
-- `tunnel-server`
 - `silk-road`
 - `goose`
 - `tenant-admin`
@@ -975,8 +965,6 @@ The current `ConfigMap` shows these core app settings:
 - `TYPESENSE_COLLECTION_MODELS`
 - `TYPESENSE_READS_ENABLED`
 - `TYPESENSE_READY_STRICT`
-- `TUNNEL_SERVER_URL`
-- `TUNNEL_CLIENT_URL`
 - `SILK_ROAD_URL`
 - `SMTP_HOST`
 - `SMTP_PORT`
@@ -1199,8 +1187,6 @@ Recommended internal-only services:
 
 - `model-discovery`
 - `silk-road`
-- `tunnel-server`
-- `tunnel-client`
 - `postgres`
 - `redis`
 - `clickhouse`

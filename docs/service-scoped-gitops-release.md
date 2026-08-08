@@ -26,13 +26,13 @@ Workflow file: `.github/workflows/gitops-staging-release.yml`
 - `support-admin`
 - `support-admin-migrate`
 - `silk-road`
-- `tunnel-client`
-- `tunnel-server`
 - `goose`
 - `docs`
 - `website`
 - `blog`
 - `tenant-admin`
+
+The retired `tunnel-client` and `tunnel-server` source modules remain testable for rollback, but they are not release IDs and have no Helm workloads or image-tag keys.
 
 ## Workflow: Production
 Workflow file: `.github/workflows/gitops-promote-production.yml`

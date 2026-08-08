@@ -50,8 +50,6 @@ The following images come from compose `build:` entries and must exist in your c
 - `shahrah/model-discovery-migrate:latest`
 - `shahrah/model-discovery-web:latest`
 - `shahrah/support-admin:latest`
-- `compose-tunnel-client:latest`
-- `shahrah/tunnel-server:latest`
 - `shahrah/silk-road:latest`
 - `shahrah/goose:latest`
 
@@ -64,8 +62,6 @@ docker build -t shahrah/model-discovery-migrate:local --target migrate -f apps/m
 docker build -t shahrah/model-discovery-web:local -f apps/model-discovery-web/Dockerfile .
 docker build -t shahrah/support-admin-migrate:local --target migrate -f apps/support-admin/Dockerfile .
 docker build -t shahrah/support-admin:local -f apps/support-admin/Dockerfile .
-docker build -t registry-def882af9a-shahrah-local.apps.ir-central1.arvancaas.ir/shahrah-local/tunnel-client:latest -f services/tunnel-client/Dockerfile services/tunnel-client --push
-docker build -t shahrah/tunnel-server:local -f services/tunnel-server/Dockerfile services/tunnel-server
 docker build -t shahrah/silk-road:local -f services/silk-road/Dockerfile .
 docker build -t shahrah/goose:local -f infra/compose/images/goose.Dockerfile .
 ```
@@ -76,8 +72,6 @@ docker tag shahrah/model-discovery:local        $REG/$NS/model-discovery:local
 docker tag shahrah/model-discovery-migrate:local $REG/$NS/model-discovery-migrate:local
 docker tag shahrah/model-discovery-web:local    $REG/$NS/model-discovery-web:local
 docker tag shahrah/support-admin:local          $REG/$NS/support-admin:local
-docker tag shahrah/tunnel-client:local          $REG/$NS/tunnel-client:local
-docker tag shahrah/tunnel-server:local          $REG/$NS/tunnel-server:local
 docker tag shahrah/silk-road:local              $REG/$NS/silk-road:local
 docker tag shahrah/goose:local                  $REG/$NS/goose:local
 
@@ -86,8 +80,6 @@ docker push $REG/$NS/model-discovery:local
 docker push $REG/$NS/model-discovery-migrate:local
 docker push $REG/$NS/model-discovery-web:local
 docker push $REG/$NS/support-admin:local
-docker push $REG/$NS/tunnel-client:local
-docker push $REG/$NS/tunnel-server:local
 docker push $REG/$NS/silk-road:local
 docker push $REG/$NS/goose:local
 ## Access Services

@@ -6,8 +6,6 @@ require (
 	github.com/Delpak/shahrah/packages/contracts v0.0.0
 	github.com/Delpak/shahrah/services/control-plane v0.0.0
 	github.com/Delpak/shahrah/services/silk-road v0.0.0-00010101000000-000000000000
-	github.com/Delpak/shahrah/services/tunnel-client v0.0.0-00010101000000-000000000000
-	github.com/Delpak/shahrah/services/tunnel-server v0.0.0-00010101000000-000000000000
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
@@ -101,7 +99,3 @@ replace github.com/Delpak/shahrah/packages/contracts => ../../../../packages/con
 replace github.com/Delpak/shahrah/services/control-plane => ../..
 
 replace github.com/Delpak/shahrah/services/silk-road => ../../../silk-road
-
-replace github.com/Delpak/shahrah/services/tunnel-client => ../../../tunnel-client
-
-replace github.com/Delpak/shahrah/services/tunnel-server => ../../../tunnel-server

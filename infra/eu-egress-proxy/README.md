@@ -1,9 +1,9 @@
 # Silk Road EU egress proxy
 
-Production provider traffic leaves Europe through an explicit HTTP CONNECT proxy. This path is intentionally scoped to Silk Road; control-plane probes use the same tunnel dispatch path as inference requests.
+Production provider traffic leaves Europe through an explicit HTTP CONNECT proxy. This path is intentionally scoped to Silk Road; Control Plane probes use the same direct provider-egress dispatch path as inference requests.
 
 ```text
-control-plane -> tunnel-client -> tunnel-server -> silk-road
+control-plane -> silk-road
   -> 10.10.0.190:1443 -> nat-gw-1 loopback:1443
   -> reverse SSH tunnel -> node-4-eu loopback:443 -> Squid -> provider HTTPS API
 ```
@@ -24,7 +24,7 @@ The path was installed and validated on 2026-08-02:
 - both `127.0.0.1:1443` and `10.10.0.190:1443` listen on `nat-gw-1`.
 - proxy smoke tests pinned to `node-1`, `node-2`, and `node-3` all reported public IP `130.185.121.142` and Cloudflare location `DE`.
 - direct HTTPS from a settled Pod selected by the Silk Road NetworkPolicy was blocked.
-- a synthetic `credential_probe` traversed Tunnel Client, Tunnel Server, Silk Road, Squid, and reached Gemini, which returned the expected invalid-key application response.
+- before the internal relay removal, a synthetic `credential_probe` traversed the legacy relays and Silk Road, then reached Gemini through Squid and returned the expected invalid-key application response. This validates the Silk Road-to-provider segment, not the new direct in-cluster hop.
 
 The pre-change gateway firewall backup is `/etc/nftables.conf.pre-eu-egress-20260802T095559Z` on `nat-gw-1`. No reboot validation was performed during this rollout.
 
@@ -48,7 +48,7 @@ The reverse tunnel runs as `ubuntu`. Its private key remains at `/home/ubuntu/.s
 3. Install both gateway units and enable only `silk-road-egress-proxy.socket`; the service is socket-activated.
 4. Validate and atomically load the tracked nftables rules.
 5. From a NetworkPolicy-selected Pod pinned to each K3s node, verify direct HTTPS is blocked and `curl --proxy http://10.10.0.190:1443 https://www.cloudflare.com/cdn-cgi/trace` reports `ip=130.185.121.142` and `loc=DE`. Allow the K3s policy controller to converge before interpreting the result; the rollout test used 15 seconds.
-6. Merge/deploy the application change before the GitOps change. The application understands the explicit proxy and tunneled probe operation; the GitOps rollout makes both mandatory.
+6. Publish the direct-egress Control Plane image, then roll it out with the GitOps change. Keep the temporary `TUNNEL_CLIENT_URL=http://silk-road:8083` alias for one release so the previous Control Plane image can also operate while relay workloads are pruned.
 7. Probe a provider credential and verify Silk Road logs report `egress proxy configured=true required=true` without logging the proxy URL or credentials.
 
 ## Host verification
@@ -69,7 +69,7 @@ sudo nft -c -f /etc/nftables.conf
 sudo nft list chain inet filter input
 ```
 
-Silk Road readiness confirms the internal service chain, not live reachability of the external proxy. Verify the egress IP and inspect both `journalctl -u silk-road-egress-proxy.service` and `/var/log/squid/access.log` after changes. A missing gateway listener produces a `proxyconnect ... connection refused` dispatch error while the Pods can remain Ready.
+Silk Road readiness confirms only the local process, not live reachability of the external proxy. Verify the egress IP and inspect both `journalctl -u silk-road-egress-proxy.service` and `/var/log/squid/access.log` after changes. A missing gateway listener produces a `proxyconnect ... connection refused` dispatch error while the Pods can remain Ready.
 
 ## Local development
 
@@ -78,7 +78,7 @@ Windows, connect the VPN and keep this forward running:
 
 ```powershell
 putty.exe -load node-4-eu -l ubuntu -N -L 1443:127.0.0.1:443
-docker compose -f infra/compose/local.yml up -d silk-road tunnel-server tunnel-client control-plane
+docker compose -f infra/compose/local.yml up -d silk-road control-plane
 ```
 
 Compose gives Silk Road these defaults:

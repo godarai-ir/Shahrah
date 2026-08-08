@@ -83,8 +83,6 @@ Manual promotion intentionally updates one service at a time. A single SemVer ta
 - `support-admin-*`
 - `support-admin-migrate-*` (`migrate` target)
 - `silk-road-*`
-- `tunnel-client-*`
-- `tunnel-server-*`
 - `goose-*`
 - `docs-*`
 - `website-*`

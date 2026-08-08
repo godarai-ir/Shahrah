@@ -39,8 +39,8 @@ func (b *builder) buildStorage() error {
 	}
 
 	b.tunnel = tunneltransport.NewHTTPTransport(
-		b.cfg.TunnelSettings.ClientURL,
-		time.Duration(b.cfg.TunnelSettings.Timeout)*time.Second,
+		b.cfg.ProviderEgress.URL,
+		time.Duration(b.cfg.ProviderEgress.Timeout)*time.Second,
 	)
 	b.tenantProviderProber = platformcredentials.NewTunnelCredentialProber(b.tunnel)
 

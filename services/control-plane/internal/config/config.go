@@ -21,7 +21,7 @@ type Config struct {
 	RequestLogs      RequestLogSettings      `mapstructure:"request_logs"`
 	SpendLogs        SpendLogSettings        `mapstructure:"spend_logs"`
 	TenantSettings   TenantSettings          `mapstructure:"tenant_settings"`
-	TunnelSettings   TunnelSettings          `mapstructure:"tunnel_settings"`
+	ProviderEgress   ProviderEgressSettings  `mapstructure:"provider_egress"`
 	BillingSettings  BillingSettings         `mapstructure:"billing_settings"`
 	Storage          StorageSettings         `mapstructure:"-"`
 	Runtime          RuntimeSettings         `mapstructure:"-"`
@@ -141,10 +141,10 @@ type TenantSettings struct {
 	AllowHeaderHint bool `mapstructure:"allow_header_hint"`
 }
 
-// TunnelSettings controls the local tunnel client integration.
-type TunnelSettings struct {
-	ClientURL string `mapstructure:"client_url"`
-	Timeout   int    `mapstructure:"timeout_seconds"`
+// ProviderEgressSettings controls the direct Silk Road integration.
+type ProviderEgressSettings struct {
+	URL     string `mapstructure:"url"`
+	Timeout int    `mapstructure:"timeout_seconds"`
 }
 
 // BillingSettings controls exchange rate and pricing behavior.
@@ -217,8 +217,8 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	v.SetDefault("response_cache.embedding_timeout_seconds", 10)
 	v.SetDefault("response_cache.embedding_max_batch_size", 16)
 	v.SetDefault("tenant_settings.allow_header_hint", true)
-	v.SetDefault("tunnel_settings.client_url", "http://127.0.0.1:8081")
-	v.SetDefault("tunnel_settings.timeout_seconds", 300)
+	v.SetDefault("provider_egress.url", "http://127.0.0.1:8083")
+	v.SetDefault("provider_egress.timeout_seconds", 300)
 	v.SetDefault("billing_settings.default_usd_to_irr", 850000.0)
 	v.SetDefault("billing_settings.rate_source", "static")
 
@@ -280,7 +280,7 @@ func resolveEnvVars(cfg *Config, logger *zap.Logger) error {
 	cfg.ResponseCache.EmbeddingAPIKey = resolveString(cfg.ResponseCache.EmbeddingAPIKey)
 	cfg.GeneralSettings.MasterKey = resolveString(cfg.GeneralSettings.MasterKey)
 	cfg.GeneralSettings.DatabaseURL = resolveString(cfg.GeneralSettings.DatabaseURL)
-	cfg.TunnelSettings.ClientURL = resolveString(cfg.TunnelSettings.ClientURL)
+	cfg.ProviderEgress.URL = resolveString(cfg.ProviderEgress.URL)
 
 	return nil
 }

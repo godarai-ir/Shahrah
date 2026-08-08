@@ -35,8 +35,8 @@ var redactedLogHeaders = map[string]struct{}{
 }
 
 const (
-	defaultTunnelTimeout = 300 * time.Second
-	writeTimeoutMargin   = 10 * time.Second
+	defaultProviderEgressTimeout = 300 * time.Second
+	writeTimeoutMargin           = 10 * time.Second
 )
 
 // Dependencies contains the concrete services required by the control-plane server.
@@ -155,13 +155,13 @@ func NewFiberApp(cfg *config.Config, deps Dependencies) *fiber.App {
 }
 
 func serverWriteTimeout(cfg *config.Config) time.Duration {
-	tunnelTimeout := defaultTunnelTimeout
+	providerEgressTimeout := defaultProviderEgressTimeout
 
-	if cfg != nil && cfg.TunnelSettings.Timeout > 0 {
-		tunnelTimeout = time.Duration(cfg.TunnelSettings.Timeout) * time.Second
+	if cfg != nil && cfg.ProviderEgress.Timeout > 0 {
+		providerEgressTimeout = time.Duration(cfg.ProviderEgress.Timeout) * time.Second
 	}
 
-	return tunnelTimeout + writeTimeoutMargin
+	return providerEgressTimeout + writeTimeoutMargin
 }
 
 func providerPayloadLimitMiddleware() fiber.Handler {

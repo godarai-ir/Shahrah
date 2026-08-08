@@ -31,8 +31,6 @@ import (
 	tenantmw "github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	tunneltransport "github.com/Delpak/shahrah/services/control-plane/internal/tunnel"
 	silkserver "github.com/Delpak/shahrah/services/silk-road/pkg/server"
-	tclientserver "github.com/Delpak/shahrah/services/tunnel-client/pkg/server"
-	tserverserver "github.com/Delpak/shahrah/services/tunnel-server/pkg/server"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -1612,10 +1610,6 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 
 	silkRoad := httptest.NewServer(silkserver.NewHandler(nil))
 	t.Cleanup(silkRoad.Close)
-	tunnelServer := httptest.NewServer(tserverserver.NewHandler(silkRoad.URL, nil))
-	t.Cleanup(tunnelServer.Close)
-	tunnelClient := httptest.NewServer(tclientserver.NewHandler(tunnelServer.URL, nil))
-	t.Cleanup(tunnelClient.Close)
 
 	llmRouter, err := router.NewRouter(nil, config.RouterSettings{
 		RoutingStrategy: "simple-shuffle",
@@ -1633,7 +1627,7 @@ func newPersistentIntegrationApp(t *testing.T, logger *zap.Logger, memCache inte
 
 	baseProxyDeps := proxy.BaseHandlerDependencies{
 		Router:              llmRouter,
-		Tunnel:              tunneltransport.NewHTTPTransport(tunnelClient.URL, 30*time.Second),
+		Tunnel:              tunneltransport.NewHTTPTransport(silkRoad.URL, 30*time.Second),
 		Billing:             billingSvc,
 		BillingCapabilities: integrationBillingCapabilities(billingSvc),
 		Wallets:             store,

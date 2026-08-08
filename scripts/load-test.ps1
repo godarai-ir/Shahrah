@@ -60,7 +60,7 @@ try {
         throw "Go is not installed or is not on PATH"
     }
 
-    $services = @("postgres", "redis", "clickhouse", "mailpit", "silk-road", "tunnel-server", "tunnel-client", "control-plane")
+    $services = @("postgres", "redis", "clickhouse", "mailpit", "silk-road", "control-plane")
     if ($SkipBuild) {
         Invoke-Compose -ComposeArgs (@("up", "-d", "--no-build") + $services)
     } else {

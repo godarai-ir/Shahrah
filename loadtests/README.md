@@ -37,7 +37,7 @@ The control-plane exposes `/debug/pprof/*` only when explicitly enabled.
 For cost-safe local load testing, start the stack with the load-test override. This override routes static model traffic to Silk Road's mock provider and enables pprof for the control-plane:
 
 ```powershell
-docker compose -f infra/compose/local.yml -f infra/compose/loadtest.override.yml up --build control-plane tunnel-client tunnel-server silk-road
+docker compose -f infra/compose/local.yml -f infra/compose/loadtest.override.yml up --build control-plane silk-road
 ```
 
 The mock provider is disabled in normal compose/prod paths. It is only registered when `SILK_ROAD_ENABLE_MOCK_PROVIDER=true`, and each request must also match both `SILK_ROAD_MOCK_ALLOWED_TENANT_IDS` and `SILK_ROAD_MOCK_ALLOWED_DEPLOYMENT_IDS`. Missing allowlists fail closed with HTTP 403. The load-test override allows all local tenants but only the static deployment ID `loadtest-mock-1`; production must use an exact tenant ID instead of `*`.
