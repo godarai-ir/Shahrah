@@ -207,6 +207,34 @@ console.log(response.output_text);
 
 نکته آموزشی: `max_output_tokens` را با `max_tokens` در `Chat Completions` اشتباه نگیرید. هر دو سقف خروجی را کنترل می‌کنند، اما نام پارامترها در قراردادها متفاوت است.
 
+## حافظه نهان پاسخ
+
+برای جلوگیری از فراخوانی دوباره ارائه‌دهنده در درخواست‌های تکراری، سرآیند `x-godarai-cache-config` را همراه `POST /v1/responses` بفرستید. حالت `simple` کل بدنه درخواست را با تطبیق دقیق بررسی می‌کند؛ حالت `smart` متن آخرین ورودی کاربر را به‌صورت معنایی مقایسه می‌کند و بقیه پارامترها باید یکسان بمانند.
+
+<Tabs className="api-code-tabs" groupId="responses-cache-language" queryString="language">
+<TabItem value="rest" label="REST API">
+
+```bash
+curl --request POST "https://YOUR_WORKSPACE.godarai.ir/v1/responses" \
+  --header "Authorization: Bearer YOUR_GODARAI_TOKEN" \
+  --header "Content-Type: application/json" \
+  --header 'x-godarai-cache-config: {"type":"simple","ttl":600,"namespace":"support"}' \
+  --data '{
+    "model": "openai:default:gpt-4o-mini",
+    "instructions": "پاسخ را کوتاه و دقیق بنویس.",
+    "input": "چطور رمز عبورم را بازیابی کنم؟"
+  }'
+```
+
+</TabItem>
+</Tabs>
+
+همین درخواست را دوباره بفرستید. در درخواست نخست، سرآیند پاسخ `x-godarai-cache-status: miss` است؛ پس از ذخیره پاسخ، درخواست یکسان با `x-godarai-cache-status: hit` برمی‌گردد. در پاسخ برگرفته از حافظه نهان، `x-godarai-cached-trace-id` نیز شناسه رد درخواست اصلی را نشان می‌دهد.
+
+برای تطبیق معنایی، مقدار `type` را به `smart` تغییر دهید و در صورت نیاز `similarity_threshold` را تنظیم کنید. درخواست‌های جریانی، درخواست‌های دارای `background: true` و درخواست‌هایی که `conversation` یا `previous_response_id` دارند، در هر دو حالت با وضعیت `bypass` به مسیر عادی ارائه‌دهنده می‌روند. در حالت `smart`، درخواست‌های دارای `tools` یا `tool_choice` و ورودی‌های تصویری، فایلی یا غیرمتنی نیز از حافظه نهان عبور می‌کنند.
+
+جزئیات `ttl`، `namespace`، آستانه شباهت و عیب‌یابی را در [راهنمای حافظه نهان پاسخ](/guides/caching) بخوانید.
+
 ## پاسخ جریانی
 
 <Tabs className="api-code-tabs" groupId="responses-api-language" queryString="language">

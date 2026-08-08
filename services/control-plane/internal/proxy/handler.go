@@ -1163,21 +1163,7 @@ func (h *ChatCompletionHandler) markVirtualModelCacheHit(
 	authInfo *platform.AuthContext,
 	requestedModel string,
 ) {
-	virtualModel, _ := buildVirtualModelFromSnapshot(authInfo, requestedModel)
-	if virtualModel == nil && h.vmResolver != nil {
-		resolved, err := h.vmResolver.Resolve(c.Context(), authInfo.TenantID, requestedModel)
-		if err == nil {
-			virtualModel = resolved
-		}
-	}
-
-	if virtualModel == nil {
-		return
-	}
-
-	state := requestContext(c)
-	state.virtualModel = virtualModel
-	state.virtualModelActive = true
+	markVirtualModelCacheHit(c, authInfo, requestedModel, h.vmResolver)
 }
 
 func (h *ChatCompletionHandler) handleStream(
@@ -2070,21 +2056,7 @@ func billingModelForDeployment(requestedModel string, deployment platform.Deploy
 }
 
 func (h *ChatCompletionHandler) virtualModelCacheVersion(ctx context.Context, authInfo *platform.AuthContext, tenantID, model string) string {
-	if authInfo == nil {
-		return ""
-	}
-
-	if snapshot, ok := authInfo.VirtualModelSnapshots[model]; ok {
-		return fmt.Sprintf("%s:%d", snapshot.VirtualModelID, snapshot.Version)
-	}
-
-	if h.vmResolver != nil {
-		if virtualModel, err := h.vmResolver.Resolve(ctx, tenantID, model); err == nil && virtualModel != nil {
-			return fmt.Sprintf("%s:%d", virtualModel.ID, virtualModel.Version)
-		}
-	}
-
-	return ""
+	return virtualModelCacheVersion(ctx, authInfo, tenantID, model, h.vmResolver)
 }
 
 func toContractDeployment(dep *router.Deployment) platform.Deployment {

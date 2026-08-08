@@ -63,6 +63,7 @@ func (b *builder) buildGateway() error {
 		VirtualModelStore:         runtimeprofile.NewVirtualModelStore(b.runtimeProfiles),
 		VirtualModelAliasCacheTTL: b.cfg.Runtime.VirtualModelAliasCacheTTL,
 		VirtualModelNegativeTTL:   b.cfg.Runtime.VirtualModelNegativeTTL,
+		ResponseCache:             responseCache,
 		ProviderFeatures: proxy.ProviderFeatureConfig{
 			Configured:                   true,
 			MistralEnabled:               b.cfg.ProviderFeatures.MistralEnabled,
@@ -87,7 +88,7 @@ func (b *builder) buildGateway() error {
 		GuardrailResolver:         runtimeprofile.NewGuardrailResolver(b.runtimeProfiles),
 		PromptResolver:            b.promptApplication,
 		Guardrails:                guardrails.NewDefaultEngine(),
-		ResponseCache:             responseCache,
+		ResponseCache:             baseDependencies.ResponseCache,
 		VirtualModelAliasCacheTTL: b.cfg.Runtime.VirtualModelAliasCacheTTL,
 		VirtualModelNegativeTTL:   b.cfg.Runtime.VirtualModelNegativeTTL,
 	})

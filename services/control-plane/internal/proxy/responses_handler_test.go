@@ -16,9 +16,11 @@ import (
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
+	"github.com/Delpak/shahrah/services/control-plane/internal/apiheaders"
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	"github.com/Delpak/shahrah/services/control-plane/internal/config"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
@@ -35,6 +37,26 @@ type captureTunnel struct {
 	streamErr error
 	lastReq   platform.TunnelRequest
 	requests  []platform.TunnelRequest
+}
+
+type fixedResponsesCacheEmbedder struct{}
+
+func (e *fixedResponsesCacheEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	vectors := make([][]float32, len(texts))
+	for index := range texts {
+		vectors[index] = []float32{1, 0}
+	}
+
+	return vectors, nil
+}
+
+func (e *fixedResponsesCacheEmbedder) Identity() responsecache.EmbeddingIdentity {
+	return responsecache.EmbeddingIdentity{
+		Provider:   "test",
+		Model:      "fixed",
+		Revision:   "v1",
+		Dimensions: 2,
+	}
 }
 
 type responsesVirtualModelStore struct {
@@ -186,6 +208,20 @@ func (t *captureTunnel) Healthy(_ context.Context) error { return nil }
 func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, logsOpt ...*testLogs) (*fiber.App, *tracing.Queue) {
 	t.Helper()
 
+	app, queue, _ := newResponsesTestAppWithCache(t, provider, tunnel, nil, logsOpt...)
+
+	return app, queue
+}
+
+func newResponsesTestAppWithCache(
+	t *testing.T,
+	provider string,
+	tunnel *captureTunnel,
+	cacheService *responsecache.Service,
+	logsOpt ...*testLogs,
+) (*fiber.App, *tracing.Queue, *testWallets) {
+	t.Helper()
+
 	mem, err := testcache.New(t, zap.NewNop())
 	require.NoError(t, err)
 
@@ -218,7 +254,18 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, l
 		logs = logsOpt[0]
 	}
 
-	h := NewResponsesHandler(rt, tunnel, billing, &testWallets{}, logs, zap.NewNop())
+	wallets := &testWallets{}
+	h := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
+		Router:              rt,
+		Tunnel:              tunnel,
+		Billing:             billing,
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             wallets,
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              zap.NewNop(),
+		ResponseCache:       cacheService,
+	})
 	q := tracing.NewQueue(64)
 	s := tracing.NewSampler(1.0, 1500)
 
@@ -242,7 +289,27 @@ func newResponsesTestApp(t *testing.T, provider string, tunnel *captureTunnel, l
 	})
 	app.Post("/v1/responses", h.Handle)
 
-	return app, q
+	return app, q, wallets
+}
+
+func newResponsesCacheService(t *testing.T, embedder responsecache.Embedder) *responsecache.Service {
+	t.Helper()
+
+	store, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+
+	service, err := responsecache.NewService(store, embedder, responsecache.Config{
+		Enabled:               true,
+		DefaultTTL:            time.Minute,
+		MinTTL:                time.Second,
+		MaxTTL:                time.Hour,
+		MaxResponseBytes:      1 << 20,
+		MaxSemanticCandidates: 10,
+	})
+	require.NoError(t, err)
+
+	return service
 }
 
 func newVirtualResponsesTestApp(t *testing.T, tunnel *captureTunnel, logs *testLogs) *fiber.App {
@@ -559,6 +626,151 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	assert.Equal(t, "resp_1", logs.loggedEntries[0].ResponseBody["id"])
 	assert.Equal(t, "response", logs.loggedEntries[0].ResponseBody["object"])
 	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
+}
+
+func TestResponsesHandlerSimpleCacheHitSkipsProviderAndWallet(t *testing.T) {
+	providerBody := []byte(`{
+		"id":"resp_cache",
+		"object":"response",
+		"created_at":1700000000,
+		"model":"gpt-4o",
+		"status":"completed",
+		"output":[],
+		"usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5},
+		"future_response_field":{"preserved":true}
+	}`)
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       providerBody,
+	}}
+	logs := &testLogs{}
+	cacheService := newResponsesCacheService(t, nil)
+	app, _, wallets := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService, logs)
+
+	makeRequest := func() (int, http.Header, []byte) {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/v1/responses",
+			bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","future_request_field":{"mode":"official"}}`),
+		)
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
+
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+
+		statusCode := resp.StatusCode
+		headers := resp.Header.Clone()
+		closeResponseBody(t, resp)
+
+		return statusCode, headers, body
+	}
+
+	firstStatus, firstHeaders, firstBody := makeRequest()
+	assert.Equal(t, fiber.StatusOK, firstStatus)
+	assert.Equal(t, "miss", firstHeaders.Get(apiheaders.HeaderCacheStatus))
+	assert.JSONEq(t, string(providerBody), string(firstBody))
+
+	secondStatus, secondHeaders, secondBody := makeRequest()
+	assert.Equal(t, fiber.StatusOK, secondStatus)
+	assert.Equal(t, "hit", secondHeaders.Get(apiheaders.HeaderCacheStatus))
+	assert.NotEmpty(t, secondHeaders.Get(apiheaders.HeaderCachedTraceID))
+	assert.JSONEq(t, string(providerBody), string(secondBody))
+	assert.Len(t, tunnel.requests, 1)
+	assert.Len(t, wallets.debits, 1)
+	require.Len(t, logs.loggedSpends, 2)
+	assert.Zero(t, logs.loggedSpends[1].CostUSD)
+	require.Len(t, logs.loggedEntries, 2)
+	assert.Equal(t, "hit", logs.loggedEntries[1].CacheStatus)
+}
+
+func TestResponsesHandlerSmartCacheReturnsSemanticHit(t *testing.T) {
+	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "gpt-4o")}
+	cacheService := newResponsesCacheService(t, &fixedResponsesCacheEmbedder{})
+	app, _, wallets := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
+
+	makeRequest := func(input string) http.Header {
+		body, err := json.Marshal(map[string]interface{}{
+			"model":        "gpt-4o",
+			"input":        input,
+			"instructions": "be helpful",
+		})
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"smart","ttl":60,"similarity_threshold":0.9}`)
+
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+
+		headers := resp.Header.Clone()
+		closeResponseBody(t, resp)
+
+		return headers
+	}
+
+	firstHeaders := makeRequest("reset my password")
+	assert.Equal(t, "miss", firstHeaders.Get(apiheaders.HeaderCacheStatus))
+
+	secondHeaders := makeRequest("password recovery")
+	assert.Equal(t, "hit", secondHeaders.Get(apiheaders.HeaderCacheStatus))
+	assert.NotEmpty(t, secondHeaders.Get(apiheaders.HeaderCacheSimilarity))
+	assert.Len(t, tunnel.requests, 1)
+	assert.Len(t, wallets.debits, 1)
+}
+
+func TestResponsesHandlerRejectsInvalidCacheConfig(t *testing.T) {
+	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "gpt-4o")}
+	cacheService := newResponsesCacheService(t, nil)
+	app, _, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"gpt-4o","input":"hello"}`),
+	)
+	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"unknown"}`)
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	assert.Empty(t, tunnel.requests)
+}
+
+func TestResponsesHandlerBypassesCacheForBackgroundRequests(t *testing.T) {
+	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "gpt-4o")}
+	cacheService := newResponsesCacheService(t, nil)
+	app, _, wallets := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService)
+
+	makeRequest := func() http.Header {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/v1/responses",
+			bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","background":true}`),
+		)
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
+
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+
+		headers := resp.Header.Clone()
+		closeResponseBody(t, resp)
+
+		return headers
+	}
+
+	assert.Equal(t, "bypass", makeRequest().Get(apiheaders.HeaderCacheStatus))
+	assert.Equal(t, "bypass", makeRequest().Get(apiheaders.HeaderCacheStatus))
+	assert.Len(t, tunnel.requests, 2)
+	assert.Len(t, wallets.debits, 2)
 }
 
 func TestResponsesHandlerVirtualModelBudgetDeferralDoesNotSelectTargets(t *testing.T) {
@@ -1310,10 +1522,12 @@ func TestResponsesHandlerStreamSuccess(t *testing.T) {
 
 	tunnel := &captureTunnel{stream: stream}
 	logs := &testLogs{}
-	app, _ := newResponsesTestApp(t, "openai", tunnel, logs)
+	cacheService := newResponsesCacheService(t, nil)
+	app, _, _ := newResponsesTestAppWithCache(t, "openai", tunnel, cacheService, logs)
 
 	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-4o","input":"hello","stream":true}`))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(apiheaders.HeaderCacheConfig, `{"type":"simple","ttl":60}`)
 
 	resp, err := app.Test(req, int((5 * time.Second).Milliseconds()))
 	defer closeResponseBody(t, resp)
@@ -1321,6 +1535,7 @@ func TestResponsesHandlerStreamSuccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
+	assert.Equal(t, "bypass", resp.Header.Get(apiheaders.HeaderCacheStatus))
 	assert.Equal(t, "/responses", tunnel.lastReq.RequestMetadata["provider_endpoint_path"])
 
 	body, err := io.ReadAll(resp.Body)

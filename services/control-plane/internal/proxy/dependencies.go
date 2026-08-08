@@ -129,6 +129,7 @@ type BaseHandlerDependencies struct {
 	VirtualModelStore         virtualModelStore
 	VirtualModelAliasCacheTTL time.Duration
 	VirtualModelNegativeTTL   time.Duration
+	ResponseCache             *responsecache.Service
 }
 
 // ProviderFeatureConfig is an immutable provider endpoint rollout snapshot.

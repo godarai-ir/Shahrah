@@ -129,6 +129,194 @@ func TestSmartCacheBypassesUnsafeRequests(t *testing.T) {
 	assert.Equal(t, "bypass", result.Status)
 }
 
+func TestResponsesSimpleCachePreservesUnknownFieldsInFingerprint(t *testing.T) {
+	service := newTestService(t, nil)
+	cfg, err := service.ParseHeader(`{"type":"simple","ttl":60}`)
+	require.NoError(t, err)
+
+	req := contractsopenai.ResponseRequest{Model: "gpt-4", Input: "hello"}
+	scope := Scope{TenantID: "tenant-1", KeyID: "key-1", Model: "gpt-4"}
+	firstBody := []byte(`{"model":"gpt-4","input":"hello","future_field":{"mode":"strict"}}`)
+	result, pending, err := service.LookupResponse(context.Background(), scope, req, firstBody, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "miss", result.Status)
+	require.NoError(t, service.Store(
+		context.Background(),
+		pending,
+		[]byte(`{"id":"resp_cached"}`),
+		"trace-original",
+		"openai",
+		"gpt-4",
+		platform.UsageCostBreakdown{TotalCostUSD: 0.01},
+		"test-pricing-v1",
+	))
+
+	reorderedBody := []byte(`{"future_field":{"mode":"strict"},"input":"hello","model":"gpt-4"}`)
+	result, _, err = service.LookupResponse(context.Background(), scope, req, reorderedBody, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, result.Entry)
+	assert.Equal(t, "trace-original", result.Entry.TraceID)
+
+	changedBody := []byte(`{"model":"gpt-4","input":"hello","future_field":{"mode":"relaxed"}}`)
+	result, _, err = service.LookupResponse(context.Background(), scope, req, changedBody, cfg)
+	require.NoError(t, err)
+	assert.Nil(t, result.Entry)
+}
+
+func TestResponsesSmartCacheMatchesOnlyFinalUserText(t *testing.T) {
+	embedder := &testEmbedder{vectors: map[string][]float32{
+		"reset my password": {1, 0},
+		"password recovery": {0.99, 0.01},
+	}}
+	service := newTestService(t, embedder)
+	cfg, err := service.ParseHeader(`{"type":"smart","ttl":60,"similarity_threshold":0.9}`)
+	require.NoError(t, err)
+
+	scope := Scope{TenantID: "tenant-1", KeyID: "key-1", Model: "gpt-4"}
+	baseReq := contractsopenai.ResponseRequest{Model: "gpt-4", Input: "reset my password", Instructions: "helpful"}
+	baseBody := []byte(`{"model":"gpt-4","input":"reset my password","instructions":"helpful"}`)
+	_, pending, err := service.LookupResponse(context.Background(), scope, baseReq, baseBody, cfg)
+	require.NoError(t, err)
+	require.NoError(t, service.Store(
+		context.Background(),
+		pending,
+		[]byte(`{"id":"resp_cached"}`),
+		"trace-original",
+		"openai",
+		"gpt-4",
+		platform.UsageCostBreakdown{TotalCostUSD: 0.01},
+		"test-pricing-v1",
+	))
+
+	paraphraseReq := baseReq
+	paraphraseReq.Input = "password recovery"
+	paraphraseBody := []byte(`{"model":"gpt-4","input":"password recovery","instructions":"helpful"}`)
+	result, _, err := service.LookupResponse(context.Background(), scope, paraphraseReq, paraphraseBody, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, result.Entry)
+	assert.True(t, result.Semantic)
+	assert.GreaterOrEqual(t, result.Similarity, 0.9)
+
+	changedInstructions := []byte(`{"model":"gpt-4","input":"password recovery","instructions":"different"}`)
+	result, _, err = service.LookupResponse(context.Background(), scope, paraphraseReq, changedInstructions, cfg)
+	require.NoError(t, err)
+	assert.Nil(t, result.Entry)
+}
+
+func TestResponsesSmartCacheSupportsTextMessagesAndBypassesMultimodalInput(t *testing.T) {
+	embedder := &testEmbedder{vectors: map[string][]float32{
+		"reset my password": {1, 0},
+		"password recovery": {0.99, 0.01},
+	}}
+	service := newTestService(t, embedder)
+	cfg, err := service.ParseHeader(`{"type":"smart","ttl":60}`)
+	require.NoError(t, err)
+
+	scope := Scope{TenantID: "tenant-1", KeyID: "key-1", Model: "gpt-4"}
+	baseBody := []byte(`{"model":"gpt-4","input":[{"role":"user","content":[{"type":"input_text","text":"reset my password"}]}]}`)
+	baseReq := contractsopenai.ResponseRequest{Model: "gpt-4", Input: []interface{}{
+		map[string]interface{}{"role": "user", "content": []interface{}{map[string]interface{}{"type": "input_text", "text": "reset my password"}}},
+	}}
+	_, pending, err := service.LookupResponse(context.Background(), scope, baseReq, baseBody, cfg)
+	require.NoError(t, err)
+	require.NoError(t, service.Store(
+		context.Background(),
+		pending,
+		[]byte(`{"id":"resp_cached"}`),
+		"trace-original",
+		"openai",
+		"gpt-4",
+		platform.UsageCostBreakdown{},
+		"test-pricing-v1",
+	))
+
+	paraphraseBody := []byte(`{"model":"gpt-4","input":[{"role":"user","content":[{"type":"input_text","text":"password recovery"}]}]}`)
+	result, _, err := service.LookupResponse(context.Background(), scope, baseReq, paraphraseBody, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, result.Entry)
+	assert.True(t, result.Semantic)
+
+	multimodalBody := []byte(`{"model":"gpt-4","input":[{"role":"user","content":[{"type":"input_text","text":"password recovery"},{"type":"input_image","image_url":"https://example.com/a.png"}]}]}`)
+	result, _, err = service.LookupResponse(context.Background(), scope, baseReq, multimodalBody, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "bypass", result.Status)
+}
+
+func TestResponsesCacheBypassesRequestsThatUseProviderState(t *testing.T) {
+	service := newTestService(t, &testEmbedder{})
+	scope := Scope{TenantID: "tenant-1", KeyID: "key-1", Model: "gpt-4"}
+
+	tests := []struct {
+		name string
+		req  contractsopenai.ResponseRequest
+		body string
+	}{
+		{
+			name: "previous response",
+			req: contractsopenai.ResponseRequest{
+				Model:              "gpt-4",
+				Input:              "continue",
+				PreviousResponseID: "resp_previous",
+			},
+			body: `{"model":"gpt-4","input":"continue","previous_response_id":"resp_previous"}`,
+		},
+		{
+			name: "background mode",
+			req:  contractsopenai.ResponseRequest{Model: "gpt-4", Input: "hello"},
+			body: `{"model":"gpt-4","input":"hello","background":true}`,
+		},
+		{
+			name: "conversation ID",
+			req:  contractsopenai.ResponseRequest{Model: "gpt-4", Input: "hello"},
+			body: `{"model":"gpt-4","input":"hello","conversation":"conv_1"}`,
+		},
+		{
+			name: "conversation object",
+			req:  contractsopenai.ResponseRequest{Model: "gpt-4", Input: "hello"},
+			body: `{"model":"gpt-4","input":"hello","conversation":{"id":"conv_1"}}`,
+		},
+	}
+
+	for _, cacheType := range []string{"simple", "smart"} {
+		t.Run(cacheType, func(t *testing.T) {
+			cfg, err := service.ParseHeader(`{"type":"` + cacheType + `","ttl":60}`)
+			require.NoError(t, err)
+
+			for _, test := range tests {
+				t.Run(test.name, func(t *testing.T) {
+					result, pending, lookupErr := service.LookupResponse(
+						context.Background(),
+						scope,
+						test.req,
+						[]byte(test.body),
+						cfg,
+					)
+					require.NoError(t, lookupErr)
+					assert.Equal(t, "bypass", result.Status)
+					assert.Nil(t, pending)
+				})
+			}
+		})
+	}
+}
+
+func TestResponsesCacheAllowsDisabledBackgroundMode(t *testing.T) {
+	service := newTestService(t, nil)
+	cfg, err := service.ParseHeader(`{"type":"simple","ttl":60}`)
+	require.NoError(t, err)
+
+	result, pending, err := service.LookupResponse(
+		context.Background(),
+		Scope{TenantID: "tenant-1", KeyID: "key-1", Model: "gpt-4"},
+		contractsopenai.ResponseRequest{Model: "gpt-4", Input: "hello"},
+		[]byte(`{"model":"gpt-4","input":"hello","background":false}`),
+		cfg,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "miss", result.Status)
+	assert.NotNil(t, pending)
+}
+
 func TestAcquireMissWaitsAndRespectsCancellation(t *testing.T) {
 	service := newTestService(t, nil)
 	cfg, _ := service.ParseHeader(`{"type":"simple"}`)

@@ -16,6 +16,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/auth"
 	metricsobs "github.com/Delpak/shahrah/services/control-plane/internal/observability/metrics"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
+	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/router"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/Delpak/shahrah/services/control-plane/internal/virtualmodels"
@@ -25,18 +26,19 @@ import (
 
 // ResponsesHandler serves the OpenAI-compatible Responses API.
 type ResponsesHandler struct {
-	llmRouter    *router.Router
-	pipeline     *RequestPipeline
-	billing      budgeter
-	resources    providerNativeResourceStore
-	deployments  responseDeploymentLister
-	providerAuth responseProviderAuthResolver
-	logs         usageLogger
-	logger       *zap.Logger
-	emitMetric   func(input metricsobs.BuildInput)
-	vmResolver   virtualmodels.VirtualModelResolver
-	vmEngine     virtualmodels.RoutingEngine
-	vmExec       virtualmodels.FallbackExecutor
+	llmRouter     *router.Router
+	pipeline      *RequestPipeline
+	billing       budgeter
+	resources     providerNativeResourceStore
+	deployments   responseDeploymentLister
+	providerAuth  responseProviderAuthResolver
+	logs          usageLogger
+	logger        *zap.Logger
+	emitMetric    func(input metricsobs.BuildInput)
+	vmResolver    virtualmodels.VirtualModelResolver
+	vmEngine      virtualmodels.RoutingEngine
+	vmExec        virtualmodels.FallbackExecutor
+	responseCache *responsecache.Service
 }
 
 // NewResponsesHandlerWithDependencies creates a responses handler from explicit dependencies.
@@ -48,18 +50,19 @@ func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *Response
 	)
 
 	return &ResponsesHandler{
-		llmRouter:    deps.Router,
-		pipeline:     deps.requestPipeline(),
-		billing:      deps.Billing,
-		resources:    deps.ProviderResources,
-		deployments:  deps.Deployments,
-		providerAuth: deps.ResponseProviderAuth,
-		logs:         deps.logger(),
-		logger:       deps.Logger,
-		emitMetric:   deps.metricEmitter(),
-		vmResolver:   resolver,
-		vmEngine:     engine,
-		vmExec:       executor,
+		llmRouter:     deps.Router,
+		pipeline:      deps.requestPipeline(),
+		billing:       deps.Billing,
+		resources:     deps.ProviderResources,
+		deployments:   deps.Deployments,
+		providerAuth:  deps.ResponseProviderAuth,
+		logs:          deps.logger(),
+		logger:        deps.Logger,
+		emitMetric:    deps.metricEmitter(),
+		vmResolver:    resolver,
+		vmEngine:      engine,
+		vmExec:        executor,
+		responseCache: deps.ResponseCache,
 	}
 }
 
@@ -188,20 +191,9 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	tracing.SetModelForTrace(c, requestedModel)
 
-	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeResponses)
-	if !modelAccess.Allowed {
-		if modelAccess.UnsupportedVMMode {
-			return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeResponses, modelAccess.ExposedModes)
-		}
-
-		denyReason := denyReasonForModel(authInfo)
-		emitDenyCounter(h.logger, denyReason, requestedModel, currentTenant.ID)
-
-		const message = "Model access denied or unsupported for responses"
-		logPreProviderRejection(h.logger, h.logs, c, authInfo, requestedModel, "/v1/responses", "responses", fiber.StatusForbidden, "authorization_error", message, denyReason, startTime)
-		requestLog.MarkFinalized()
-
-		return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
+	authorizationErr := h.authorizeResponsesModel(c, authInfo, currentTenant.ID, requestedModel, startTime, requestLog)
+	if authorizationErr != nil {
+		return authorizationErr
 	}
 
 	authStart := time.Now()
@@ -218,16 +210,29 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 
 	estimated.Metadata = req.Metadata
 
-	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimated.TotalTokens)
-	setRateLimitHeaders(c, rateLimit)
-
-	if err != nil {
-		if recordRateLimitRejection(c, h.logger, h.logs, h.emitMetric, authInfo, requestedModel, "/v1/responses", "responses", startTime, quotaStart, rateLimit, err) {
-			requestLog.MarkFinalized()
-		}
-
-		return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
+	rateLimitErr := h.checkResponsesRateLimit(c, authInfo, requestedModel, estimated.TotalTokens, startTime, quotaStart, requestLog)
+	if rateLimitErr != nil {
+		return rateLimitErr
 	}
+
+	cacheAdmission, cacheRelease, cacheErr := h.admitResponsesCache(
+		c,
+		req,
+		originalBody,
+		authInfo,
+		currentTenant.ID,
+		requestedModel,
+		startTime,
+		tenantSlug,
+		requestLog,
+	)
+	defer cacheRelease()
+
+	if cacheErr != nil || cacheAdmission.handled {
+		return cacheErr
+	}
+
+	cachePending := cacheAdmission.pending
 
 	requestID := tracing.TraceIDFromContext(c)
 	if requestID == "" {
@@ -369,11 +374,11 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		Deployment: tunnelDeployment,
 		Headers:    responseProviderHeaders(c),
 		Body:       payload,
-		RequestMetadata: map[string]interface{}{
+		RequestMetadata: enrichResponseCacheMetadata(c, map[string]interface{}{
 			"tenant_slug":            apiheaders.GetTenant(c),
 			"model":                  requestedModel,
 			"provider_endpoint_path": "/responses",
-		},
+		}),
 	}
 	tunnelReq.RequestMetadata = enrichRequestMetadataForDeployment(tunnelReq.RequestMetadata, tunnelReq.Deployment)
 	requestLog.SetDeployment(tunnelReq.Deployment)
@@ -404,12 +409,88 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		return h.handleStream(c, req, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug, requestLog)
 	}
 
-	err = h.handleSync(c, req, originalBody, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug, requestLog)
+	err = h.handleSync(c, req, originalBody, authInfo, dispatchEstimate, tunnelReq, budgetReservation, startTime, tenantSlug, cachePending, requestLog)
 	if err == nil {
 		releaseBudgetOnExit = false
 	}
 
 	return err
+}
+
+func (h *ResponsesHandler) authorizeResponsesModel(
+	c *fiber.Ctx,
+	authInfo *platform.AuthContext,
+	tenantID string,
+	requestedModel string,
+	startTime time.Time,
+	requestLog *requestLogLifecycle,
+) error {
+	modelAccess := modelAccessForType(authInfo, requestedModel, platform.ModelTypeResponses)
+	if modelAccess.Allowed {
+		return nil
+	}
+
+	if modelAccess.UnsupportedVMMode {
+		return writeUnsupportedModelModeError(c, requestedModel, platform.ModelTypeResponses, modelAccess.ExposedModes)
+	}
+
+	denyReason := denyReasonForModel(authInfo)
+	emitDenyCounter(h.logger, denyReason, requestedModel, tenantID)
+
+	const message = "Model access denied or unsupported for responses"
+	logPreProviderRejection(
+		h.logger,
+		h.logs,
+		c,
+		authInfo,
+		requestedModel,
+		"/v1/responses",
+		"responses",
+		fiber.StatusForbidden,
+		"authorization_error",
+		message,
+		denyReason,
+		startTime,
+	)
+	requestLog.MarkFinalized()
+
+	return writeAPIError(c, fiber.StatusForbidden, message, "authorization_error")
+}
+
+func (h *ResponsesHandler) checkResponsesRateLimit(
+	c *fiber.Ctx,
+	authInfo *platform.AuthContext,
+	requestedModel string,
+	estimatedTokens int,
+	startTime time.Time,
+	quotaStart time.Time,
+	requestLog *requestLogLifecycle,
+) error {
+	rateLimit, err := h.billing.CheckRateLimit(c.Context(), authInfo, requestedModel, estimatedTokens)
+	setRateLimitHeaders(c, rateLimit)
+
+	if err == nil {
+		return nil
+	}
+
+	if recordRateLimitRejection(
+		c,
+		h.logger,
+		h.logs,
+		h.emitMetric,
+		authInfo,
+		requestedModel,
+		"/v1/responses",
+		"responses",
+		startTime,
+		quotaStart,
+		rateLimit,
+		err,
+	) {
+		requestLog.MarkFinalized()
+	}
+
+	return writeAPIError(c, rateLimitErrorStatus(err), err.Error(), "rate_limit_error")
 }
 
 func (h *ResponsesHandler) shouldDeferResponsesBudgetForVirtualModel(
@@ -892,6 +973,7 @@ func (h *ResponsesHandler) handleSync(
 	budgetReservation *platform.BudgetReservation,
 	start time.Time,
 	tenantSlug string,
+	cachePending *responsecache.Pending,
 	requestLog *requestLogLifecycle,
 ) error {
 	providerStart := time.Now()
@@ -956,6 +1038,22 @@ func (h *ResponsesHandler) handleSync(
 		return writeBudgetCheckError(c, debitErr)
 	}
 
+	if cachePending != nil && h.responseCache != nil && strings.EqualFold(strings.TrimSpace(response.Status), "completed") {
+		cacheErr := h.responseCache.Store(
+			c.Context(),
+			cachePending,
+			resp.Body,
+			tunnelReq.TraceID,
+			tunnelReq.Deployment.Provider,
+			tunnelReq.Deployment.Model,
+			finalCost,
+			"gateway-pricing-v1",
+		)
+		if cacheErr != nil {
+			h.logger.Warn("Response cache store failed", zap.Error(cacheErr))
+		}
+	}
+
 	responseTimeMS := int(time.Since(start).Milliseconds())
 	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, req.Model, "/v1/responses", "responses", "success", resp.StatusCode, start, responseTimeMS)
 	logEntry.RequestID = tunnelReq.RequestID
@@ -1004,13 +1102,15 @@ func (h *ResponsesHandler) handleSync(
 		InputTokens:        finalCost.InputTokens,
 		OutputTokens:       finalCost.OutputTokens,
 		CostUSD:            finalCost.TotalCostUSD,
-		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
+		CacheMode:          responseCacheType(c),
+		CacheStatus:        responseCacheStatus(c),
+		Metadata: enrichMetricMetadataForDeployment(enrichResponseCacheMetadata(c, map[string]interface{}{
 			"endpoint":    "/v1/responses",
 			"key_type":    authInfo.KeyType,
 			"team_id":     authInfo.TeamID,
 			"org_unit_id": authInfo.OrgUnitID,
 			"tenant_slug": tenantSlug,
-		}, tunnelReq.Deployment),
+		}), tunnelReq.Deployment),
 	})
 
 	forwardProviderHeaders(c, resp.Headers)

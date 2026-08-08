@@ -176,7 +176,7 @@ Successful inference should create a wallet debit plus request and spend log rec
 
 ## Gateway Response Caching
 
-Response caching is disabled by default and can be enabled with `response_cache.enabled` in `configs/proxy_config.yaml`. Clients opt in per non-streaming chat request:
+Response caching is disabled by default and can be enabled with `response_cache.enabled` in `configs/proxy_config.yaml`. Clients opt in per non-streaming Chat Completions or Responses request. This Chat Completions example uses exact matching:
 
 ```bash
 curl -s http://localhost:4000/v1/chat/completions \
@@ -187,6 +187,8 @@ curl -s http://localhost:4000/v1/chat/completions \
 ```
 
 Use `type: smart` with an optional `similarity_threshold` from `0.80` through `1.0` for semantic matching. Smart caching first checks the exact request and then embeds only the final user text with the Iran-hosted ArvanCloud `Bge-m3` service. All prior messages and request parameters remain exact-match constraints. Streaming, multimodal, and tool requests bypass smart caching.
+
+The same header contract applies to `POST /v1/responses`. Exact matching fingerprints the complete JSON request, including forward-compatible fields. Smart matching supports string `input` and text-only final user messages while preserving all other Responses fields as exact-match constraints. Responses requests with `background: true`, `conversation`, or `previous_response_id` bypass both cache modes because they create or continue provider-managed state.
 
 Response headers are:
 

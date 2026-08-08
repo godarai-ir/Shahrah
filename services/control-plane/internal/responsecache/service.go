@@ -45,6 +45,7 @@ type Scope struct {
 	Namespace    string
 	Model        string
 	ModelVersion string
+	Operation    string `json:"operation,omitempty"`
 }
 
 type Entry struct {
@@ -103,6 +104,12 @@ type Service struct {
 type distributedStore interface {
 	DistributedGet(ctx context.Context, key string) (string, error)
 	DistributedSet(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+}
+
+type requestFingerprint struct {
+	exact        interface{}
+	semantic     interface{}
+	semanticText string
 }
 
 func NewService(store basecache.Cache, embedder Embedder, cfg Config) (*Service, error) {
@@ -195,6 +202,9 @@ func (s *Service) ParseHeader(raw string) (RequestConfig, error) {
 }
 
 func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.ChatCompletionRequest, cfg RequestConfig) (Result, *Pending, error) {
+	fingerprintReq := cacheFingerprintRequest(req)
+	fingerprint := requestFingerprint{exact: fingerprintReq}
+
 	if cfg.Type == "smart" {
 		if req.Stream || len(req.Tools) > 0 || req.ToolChoice != nil || len(req.Messages) == 0 || s.embedder == nil {
 			return Result{Status: "bypass", CacheType: cfg.Type}, nil, nil
@@ -204,8 +214,19 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 		if strings.ToLower(strings.TrimSpace(last.Role)) != "user" || contractsopenai.ChatContentHasImage(last.Content) || contractsopenai.ChatContentHasFile(last.Content) || contractsopenai.ChatContentText(last.Content) == "" {
 			return Result{Status: "bypass", CacheType: cfg.Type}, nil, nil
 		}
+
+		fingerprint.semanticText = contractsopenai.ChatContentText(last.Content)
+		parameterReq := fingerprintReq
+
+		parameterReq.Messages = append([]contractsopenai.ChatMessage(nil), req.Messages...)
+		parameterReq.Messages[len(parameterReq.Messages)-1].Content = "__semantic_final_user_text__"
+		fingerprint.semantic = parameterReq
 	}
 
+	return s.lookup(ctx, scope, fingerprint, cfg)
+}
+
+func (s *Service) lookup(ctx context.Context, scope Scope, fingerprint requestFingerprint, cfg RequestConfig) (Result, *Pending, error) {
 	scope.Namespace = cfg.Namespace
 
 	scopeHash, err := hashJSON(scope)
@@ -213,12 +234,10 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 		return Result{}, nil, err
 	}
 
-	fingerprintReq := cacheFingerprintRequest(req)
-
 	exactHash, err := hashJSON(struct {
 		Version string
-		Request contractsopenai.ChatCompletionRequest
-	}{schemaVersion, fingerprintReq})
+		Request interface{}
+	}{schemaVersion, fingerprint.exact})
 	if err != nil {
 		return Result{}, nil, err
 	}
@@ -234,17 +253,10 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 		return Result{Status: "miss", CacheType: cfg.Type}, pending, nil
 	}
 
-	last := req.Messages[len(req.Messages)-1]
-	text := contractsopenai.ChatContentText(last.Content)
-	parameterReq := fingerprintReq
-
-	parameterReq.Messages = append([]contractsopenai.ChatMessage(nil), req.Messages...)
-	parameterReq.Messages[len(parameterReq.Messages)-1].Content = "__semantic_final_user_text__"
-
 	parameterHash, err := hashJSON(struct {
 		Version string
-		Request contractsopenai.ChatCompletionRequest
-	}{schemaVersion, parameterReq})
+		Request interface{}
+	}{schemaVersion, fingerprint.semantic})
 	if err != nil {
 		return Result{}, pending, err
 	}
@@ -257,7 +269,7 @@ func (s *Service) Lookup(ctx context.Context, scope Scope, req contractsopenai.C
 	pending.parameterHash = parameterHash
 	pending.semanticKey = fmt.Sprintf("%s:%s:semantic:%s:%s:%s", s.cfg.KeyPrefix, schemaVersion, scopeHash, parameterHash, embeddingIDHash)
 	embeddingStart := time.Now()
-	vectors, err := s.embedder.Embed(ctx, []string{text})
+	vectors, err := s.embedder.Embed(ctx, []string{fingerprint.semanticText})
 	embeddingLatencyMS := time.Since(embeddingStart).Milliseconds()
 
 	if err != nil || len(vectors) != 1 {
