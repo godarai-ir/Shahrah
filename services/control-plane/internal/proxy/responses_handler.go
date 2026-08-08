@@ -302,24 +302,31 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		tunnelDeployment = toContractDeployment(dep)
 	}
 
-	if !supportsResponsesCreateProvider(tunnelDeployment.Provider) {
+	if !isVirtual && !supportsResponsesCreateProvider(tunnelDeployment.Provider) {
 		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", tunnelDeployment.Provider), "invalid_request_error")
 	}
 
-	dispatchEstimate := estimated
-
 	routedEstimate := estimated
-	if dep != nil {
+	budgetBillingMode := deploymentBillingMode(tunnelDeployment)
+
+	if isVirtual {
+		routedEstimate, budgetBillingMode, err = h.preflightVirtualResponseTargets(
+			c,
+			currentTenant.ID,
+			req,
+			originalBody,
+		)
+		if err != nil {
+			return writeAPIError(c, fiber.StatusBadGateway, "Virtual model fallback exhausted", "fallback_exhausted")
+		}
+	} else if dep != nil {
 		routedEstimate, err = applyDeploymentPricingOverride(c.Context(), h.pipeline, estimated, dep)
 		if err != nil {
 			return writeBillingEstimateError(c, err)
 		}
-
-		dispatchEstimate = routedEstimate
-		if isVirtual {
-			dispatchEstimate = estimated
-		}
 	}
+
+	dispatchEstimate := routedEstimate
 
 	if !isVirtual {
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": tunnelDeployment.Provider, "deployment_id": tunnelDeployment.ID})
@@ -373,33 +380,20 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	requestLog.SetRequestIDs(tunnelReq.RequestID, tunnelReq.TraceID)
 	requestLog.SetRequestBody(buildProviderResponseRequestLogPayload(tunnelReq.Deployment.Provider, req, originalBody))
 
-	runtimeModel := strings.TrimSpace(tunnelReq.Deployment.Model)
-	if runtimeModel == "" || runtimeModel == "*" {
-		runtimeModel = providerModelID(requestedModel)
-	}
-
-	tunnelReq.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
-		tunnelReq.Deployment.Provider,
-		runtimeModel,
-		estimated,
-	)
-	if err != nil {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
-	}
-
-	if isDeepSeekProvider(tunnelReq.Deployment.Provider) {
-		if len(tunnelReq.ModelRuntimeProfiles) != 1 {
-			return writeAPIError(c, fiber.StatusServiceUnavailable, "DeepSeek model runtime profile is unavailable", "runtime_profile_unavailable")
-		}
-
-		validationErr := validateDeepSeekResponsesRuntimeProfile(payload, &tunnelReq.ModelRuntimeProfiles[0])
-		if validationErr != nil {
-			return writeAPIError(c, fiber.StatusBadRequest, validationErr.Error(), "invalid_request_error")
+	if !isVirtual {
+		if handled, validationErr := h.prepareDirectResponseRuntimeProfiles(
+			c,
+			&tunnelReq,
+			requestedModel,
+			payload,
+			estimated,
+		); handled || validationErr != nil {
+			return validationErr
 		}
 	}
 
 	if !budgetReservationAttempted {
-		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, routedEstimate, requestID, deploymentBillingMode(tunnelReq.Deployment)))
+		budgetReservation, err = h.pipeline.Reserve(c.Context(), budgetRequestFromHTTP(c, authInfo, routedEstimate, requestID, budgetBillingMode))
 		if err != nil {
 			return writeBudgetCheckError(c, err)
 		}
@@ -424,31 +418,236 @@ func (h *ResponsesHandler) shouldDeferResponsesBudgetForVirtualModel(
 	tenantID string,
 	requestedModel string,
 ) bool {
-	plan, err := resolveVirtualModelRoutePlan(
-		ctx,
-		authInfo,
-		h.vmResolver,
-		h.vmEngine,
-		tenantID,
-		requestedModel,
-	)
-	if err != nil {
+	if snapshotVM, ok := buildVirtualModelFromSnapshot(authInfo, requestedModel); ok {
+		return snapshotVM != nil
+	}
+
+	if h.vmResolver == nil {
 		return false
 	}
 
-	for targetIndex := range plan.targets {
-		deployment, resolveErr := resolveVirtualDeploymentStrict(
-			ctx,
-			h.llmRouter,
-			tenantID,
-			deploymentFromVirtualTarget(plan.targets[targetIndex]),
-		)
-		if resolveErr != nil || deploymentBillingMode(toContractDeployment(deployment)) != platform.BillingModeExternalBilled {
-			return false
+	virtualModel, err := h.vmResolver.Resolve(ctx, tenantID, requestedModel)
+
+	return err == nil && virtualModel != nil
+}
+
+func (h *ResponsesHandler) prepareDirectResponseRuntimeProfiles(
+	c *fiber.Ctx,
+	tunnelRequest *platform.TunnelRequest,
+	requestedModel string,
+	payload []byte,
+	estimated platform.UsageCostBreakdown,
+) (bool, error) {
+	runtimeModel := strings.TrimSpace(tunnelRequest.Deployment.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = providerModelID(requestedModel)
+	}
+
+	runtimeProfiles, err := runtimeProfilesFromEstimate(
+		tunnelRequest.Deployment.Provider,
+		runtimeModel,
+		estimated,
+	)
+	if err != nil {
+		return true, writeAPIError(c, fiber.StatusServiceUnavailable, err.Error(), "runtime_profile_unavailable")
+	}
+
+	tunnelRequest.ModelRuntimeProfiles = runtimeProfiles
+	if !isDeepSeekProvider(tunnelRequest.Deployment.Provider) {
+		return false, nil
+	}
+
+	if len(tunnelRequest.ModelRuntimeProfiles) != 1 {
+		return true, writeAPIError(c, fiber.StatusServiceUnavailable, "DeepSeek model runtime profile is unavailable", "runtime_profile_unavailable")
+	}
+
+	validationErr := validateDeepSeekResponsesRuntimeProfile(payload, &tunnelRequest.ModelRuntimeProfiles[0])
+	if validationErr != nil {
+		return true, writeAPIError(c, fiber.StatusBadRequest, validationErr.Error(), "invalid_request_error")
+	}
+
+	return false, nil
+}
+
+func (h *ResponsesHandler) preflightVirtualResponseTargets(
+	c *fiber.Ctx,
+	tenantID string,
+	request contractsopenai.ResponseRequest,
+	body []byte,
+) (platform.UsageCostBreakdown, string, error) {
+	state := existingRequestContext(c)
+	if state == nil || len(state.virtualModelTargets) == 0 {
+		return platform.UsageCostBreakdown{}, "", virtualmodels.ErrNoEligibleTargets
+	}
+
+	preparations := make(map[string]virtualResponseTargetPreparation, len(state.virtualModelTargets))
+
+	var (
+		walletEstimate    platform.UsageCostBreakdown
+		externalEstimate  platform.UsageCostBreakdown
+		lastErr           error
+		attemptedTargets  int
+		hasWalletTarget   bool
+		hasExternalTarget bool
+	)
+
+	for targetIndex := range state.virtualModelTargets {
+		target := state.virtualModelTargets[targetIndex]
+		if targetIndex > 0 && !target.Policy.Fallback.Candidate {
+			continue
+		}
+
+		attemptedTargets++
+
+		targetDeployment := deploymentFromVirtualTarget(target)
+		key := virtualModelTargetKey(targetDeployment)
+		preparation := virtualResponseTargetPreparation{}
+
+		resolved, err := resolveVirtualDeploymentStrict(c.Context(), h.llmRouter, tenantID, targetDeployment)
+		if err == nil {
+			preparation.deployment = resolved
+			preparation.estimated, preparation.runtimeProfiles, err = h.estimateVirtualResponseTarget(
+				c.Context(),
+				request,
+				body,
+				resolved,
+			)
+		}
+
+		if err != nil {
+			preparation.err = fmt.Errorf("prepare virtual model target %s: %w", target.Model, err)
+			preparations[key] = preparation
+			lastErr = preparation.err
+
+			continue
+		}
+
+		preparations[key] = preparation
+
+		billingMode := deploymentBillingMode(toContractDeployment(resolved))
+		if billingMode == platform.BillingModeExternalBilled {
+			if !hasExternalTarget {
+				externalEstimate = preparation.estimated
+				hasExternalTarget = true
+			}
+
+			continue
+		}
+
+		if !hasWalletTarget || isHigherVirtualModelBudgetEstimate(preparation.estimated, walletEstimate) {
+			walletEstimate = preparation.estimated
+			hasWalletTarget = true
 		}
 	}
 
-	return len(plan.targets) > 0
+	state.virtualResponseTargets = preparations
+
+	if hasWalletTarget {
+		return walletEstimate, platform.BillingModeWalletBilled, nil
+	}
+
+	if hasExternalTarget {
+		return externalEstimate, platform.BillingModeExternalBilled, nil
+	}
+
+	fallbackCount := attemptedTargets - 1
+	if fallbackCount < 0 {
+		fallbackCount = 0
+	}
+
+	failureReason := "no virtual model target passed preparation"
+	if lastErr != nil {
+		failureReason = lastErr.Error()
+	}
+
+	setVirtualModelFailure(c, fallbackCount, failureReason)
+
+	return platform.UsageCostBreakdown{}, "", fmt.Errorf("%w: %s", virtualmodels.ErrFallbackExhausted, failureReason)
+}
+
+func (h *ResponsesHandler) estimateVirtualResponseTarget(
+	ctx context.Context,
+	request contractsopenai.ResponseRequest,
+	body []byte,
+	deployment *router.Deployment,
+) (platform.UsageCostBreakdown, []platform.ModelRuntimeProfileBinding, error) {
+	if deployment == nil {
+		return platform.UsageCostBreakdown{}, nil, errors.New("virtual model target deployment is unavailable")
+	}
+
+	if !supportsResponsesCreateProvider(deployment.Provider) {
+		return platform.UsageCostBreakdown{}, nil, fmt.Errorf("responses API is not enabled for provider: %s", deployment.Provider)
+	}
+
+	targetBody, err := buildVirtualResponseTargetPayload(request, body, deployment)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	estimateRequest := responseRequestToChatCompletion(
+		request,
+		billingEstimateModel(deployment.ModelName),
+	)
+
+	estimated, err := h.billing.EstimateCost(ctx, estimateRequest)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	estimated.Metadata = request.Metadata
+
+	estimated, err = applyDeploymentPricingOverride(ctx, h.pipeline, estimated, deployment)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	runtimeModel := strings.TrimSpace(deployment.Model)
+	if runtimeModel == "" || runtimeModel == "*" {
+		runtimeModel = providerModelID(deployment.ModelName)
+	}
+
+	runtimeProfiles, err := runtimeProfilesFromEstimate(deployment.Provider, runtimeModel, estimated)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, nil, err
+	}
+
+	if isDeepSeekProvider(deployment.Provider) {
+		if len(runtimeProfiles) != 1 {
+			return platform.UsageCostBreakdown{}, nil, errors.New("deepseek model runtime profile is unavailable")
+		}
+
+		if validationErr := validateDeepSeekResponsesRuntimeProfile(
+			targetBody,
+			&runtimeProfiles[0],
+		); validationErr != nil {
+			return platform.UsageCostBreakdown{}, nil, validationErr
+		}
+	}
+
+	return estimated, runtimeProfiles, nil
+}
+
+func buildVirtualResponseTargetPayload(
+	request contractsopenai.ResponseRequest,
+	body []byte,
+	deployment *router.Deployment,
+) ([]byte, error) {
+	payload := append([]byte(nil), body...)
+	if strings.TrimSpace(request.Model) == "" {
+		return payload, nil
+	}
+
+	outboundModel := strings.TrimSpace(deployment.Model)
+	if outboundModel == "" || outboundModel == "*" {
+		outboundModel = providerModelID(deployment.ModelName)
+	}
+
+	payload, err := rewriteOpenAIJSONModel(payload, outboundModel)
+	if err != nil {
+		return nil, fmt.Errorf("rewrite virtual model response target: %w", err)
+	}
+
+	return payload, nil
 }
 
 func (h *ResponsesHandler) dispatchResponseSync(
@@ -465,9 +664,9 @@ func (h *ResponsesHandler) dispatchResponseSync(
 		func(callContext context.Context, deployment *router.Deployment) (platform.TunnelRequest, error) {
 			candidateRequest, candidateEstimate, prepareErr := h.prepareVirtualResponseRequest(
 				callContext,
+				c,
 				tenantID,
 				req,
-				estimated,
 				baseRequest,
 				deployment,
 			)
@@ -549,7 +748,6 @@ func (h *ResponsesHandler) dispatchResponseStream(
 	}
 
 	selectedRequest := baseRequest
-	baseEstimate := estimated
 	selectedEstimate := estimated
 
 	stream, selectedDeployment, fallbackCount, failureReason, err := h.vmExec.ExecuteStream(
@@ -558,9 +756,9 @@ func (h *ResponsesHandler) dispatchResponseStream(
 		func(callContext context.Context, deployment *router.Deployment) (platform.TunnelStream, error) {
 			candidateRequest, candidateEstimate, prepareErr := h.prepareVirtualResponseRequest(
 				callContext,
+				c,
 				tenantID,
 				req,
-				baseEstimate,
 				baseRequest,
 				deployment,
 			)
@@ -604,40 +802,59 @@ func (h *ResponsesHandler) dispatchResponseStream(
 
 func (h *ResponsesHandler) prepareVirtualResponseRequest(
 	ctx context.Context,
+	c *fiber.Ctx,
 	tenantID string,
 	req contractsopenai.ResponseRequest,
-	estimated platform.UsageCostBreakdown,
 	baseRequest platform.TunnelRequest,
 	deployment *router.Deployment,
 ) (platform.TunnelRequest, platform.UsageCostBreakdown, error) {
-	resolved, err := h.resolveResponseVirtualDeployment(ctx, tenantID, deployment)
-	if err != nil {
-		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+	targetKey := virtualModelTargetKey(deployment)
+
+	var preparation virtualResponseTargetPreparation
+
+	state := existingRequestContext(c)
+	if state != nil && state.virtualResponseTargets != nil {
+		preparation = state.virtualResponseTargets[targetKey]
 	}
 
-	if !supportsResponsesCreateProvider(resolved.Provider) {
-		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, fmt.Errorf("responses API is not enabled for provider: %s", resolved.Provider)
+	if preparation.err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, preparation.err
+	}
+
+	resolved := preparation.deployment
+	if resolved == nil {
+		var err error
+
+		resolved, err = h.resolveResponseVirtualDeployment(ctx, tenantID, deployment)
+		if err != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+		}
+
+		preparation.estimated, preparation.runtimeProfiles, err = h.estimateVirtualResponseTarget(
+			ctx,
+			req,
+			baseRequest.Body,
+			resolved,
+		)
+		if err != nil {
+			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
+		}
 	}
 
 	*deployment = *resolved
 
 	candidateRequest := baseRequest
 	candidateRequest.Deployment = toContractDeployment(resolved)
-	candidateRequest.ModelRuntimeProfiles = nil
+
+	candidateRequest.ModelRuntimeProfiles = append(
+		[]platform.ModelRuntimeProfileBinding(nil),
+		preparation.runtimeProfiles...,
+	)
 	candidateRequest.RequestMetadata = replaceDeploymentRequestMetadata(candidateRequest.RequestMetadata, candidateRequest.Deployment)
 
-	payload := append([]byte(nil), baseRequest.Body...)
-
-	if strings.TrimSpace(req.Model) != "" {
-		outboundModel := strings.TrimSpace(resolved.Model)
-		if outboundModel == "" || outboundModel == "*" {
-			outboundModel = providerModelID(resolved.ModelName)
-		}
-
-		payload, err = rewriteOpenAIJSONModel(payload, outboundModel)
-		if err != nil {
-			return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, fmt.Errorf("rewrite virtual model response target: %w", err)
-		}
+	payload, err := buildVirtualResponseTargetPayload(req, baseRequest.Body, resolved)
+	if err != nil {
+		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
 	}
 
 	if strings.EqualFold(strings.TrimSpace(resolved.Provider), "xai") {
@@ -648,25 +865,6 @@ func (h *ResponsesHandler) prepareVirtualResponseRequest(
 	}
 
 	candidateRequest.Body = payload
-
-	candidateEstimate, err := applyDeploymentPricingOverride(ctx, h.pipeline, estimated, resolved)
-	if err != nil {
-		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
-	}
-
-	runtimeModel := strings.TrimSpace(resolved.Model)
-	if runtimeModel == "" || runtimeModel == "*" {
-		runtimeModel = providerModelID(resolved.ModelName)
-	}
-
-	candidateRequest.ModelRuntimeProfiles, err = runtimeProfilesFromEstimate(
-		resolved.Provider,
-		runtimeModel,
-		candidateEstimate,
-	)
-	if err != nil {
-		return platform.TunnelRequest{}, platform.UsageCostBreakdown{}, err
-	}
 
 	if isDeepSeekProvider(resolved.Provider) {
 		if len(candidateRequest.ModelRuntimeProfiles) != 1 {
@@ -681,7 +879,7 @@ func (h *ResponsesHandler) prepareVirtualResponseRequest(
 		}
 	}
 
-	return candidateRequest, candidateEstimate, nil
+	return candidateRequest, preparation.estimated, nil
 }
 
 func (h *ResponsesHandler) handleSync(

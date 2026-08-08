@@ -24,6 +24,13 @@ type virtualChatTargetPreparation struct {
 	err             error
 }
 
+type virtualResponseTargetPreparation struct {
+	deployment      *router.Deployment
+	estimated       platform.UsageCostBreakdown
+	runtimeProfiles []platform.ModelRuntimeProfileBinding
+	err             error
+}
+
 func resolveVirtualModelRoutePlan(
 	ctx context.Context,
 	authInfo *platform.AuthContext,
@@ -134,7 +141,7 @@ func cloneStringMap(input map[string]string) map[string]string {
 	return out
 }
 
-func virtualChatTargetKey(deployment *router.Deployment) string {
+func virtualModelTargetKey(deployment *router.Deployment) string {
 	if deployment == nil {
 		return ""
 	}

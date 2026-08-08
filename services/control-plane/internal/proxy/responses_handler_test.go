@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -28,9 +29,12 @@ import (
 
 type captureTunnel struct {
 	resp      *platform.TunnelResponse
+	responses []*platform.TunnelResponse
 	stream    platform.TunnelStream
+	streams   []platform.TunnelStream
 	streamErr error
 	lastReq   platform.TunnelRequest
+	requests  []platform.TunnelRequest
 }
 
 type responsesVirtualModelStore struct {
@@ -45,9 +49,39 @@ func (s responsesVirtualModelStore) GetVirtualModelByAlias(_ context.Context, _,
 	return s.model, nil
 }
 
+type responsesVirtualModelResolver struct {
+	model *platform.VirtualModel
+	calls int
+}
+
+func (r *responsesVirtualModelResolver) Resolve(_ context.Context, _, _ string) (*platform.VirtualModel, error) {
+	r.calls++
+
+	return r.model, nil
+}
+
+type trackingResponsesRoutingEngine struct {
+	calls int
+}
+
+func (e *trackingResponsesRoutingEngine) SelectTargets(_ *platform.VirtualModel) ([]platform.VirtualModelTarget, error) {
+	e.calls++
+
+	return nil, nil
+}
+
 type xaiResponsesBudgeter struct{ testBudgeter }
 
 type deepSeekResponsesBudgeter struct{ testBudgeter }
+
+type targetAwareResponsesBudgeter struct {
+	testBudgeter
+	costs             map[string]platform.UsageCostBreakdown
+	estimateErrs      map[string]error
+	estimateModels    []string
+	budgetEstimate    *platform.UsageCostBreakdown
+	finalizedEstimate *platform.UsageCostBreakdown
+}
 
 func (b *xaiResponsesBudgeter) EstimateCost(ctx context.Context, req contractsopenai.ChatCompletionRequest) (platform.UsageCostBreakdown, error) {
 	estimated, err := b.testBudgeter.EstimateCost(ctx, req)
@@ -75,13 +109,71 @@ func (b *deepSeekResponsesBudgeter) EstimateCost(ctx context.Context, req contra
 	return estimated, nil
 }
 
+func (b *targetAwareResponsesBudgeter) EstimateCost(
+	ctx context.Context,
+	req contractsopenai.ChatCompletionRequest,
+) (platform.UsageCostBreakdown, error) {
+	b.estimateModels = append(b.estimateModels, req.Model)
+
+	if err, ok := b.estimateErrs[req.Model]; ok {
+		return platform.UsageCostBreakdown{}, err
+	}
+
+	if cost, ok := b.costs[req.Model]; ok {
+		return cost, nil
+	}
+
+	return b.testBudgeter.EstimateCost(ctx, req)
+}
+
+func (b *targetAwareResponsesBudgeter) CheckBudget(
+	_ context.Context,
+	_ *platform.AuthContext,
+	estimated platform.UsageCostBreakdown,
+) error {
+	copyEstimate := estimated
+	b.budgetEstimate = &copyEstimate
+
+	return nil
+}
+
+func (b *targetAwareResponsesBudgeter) FinalizeFromUsage(
+	ctx context.Context,
+	model string,
+	usage *contractsopenai.Usage,
+	estimated platform.UsageCostBreakdown,
+) (platform.UsageCostBreakdown, error) {
+	copyEstimate := estimated
+	b.finalizedEstimate = &copyEstimate
+
+	return b.testBudgeter.FinalizeFromUsage(ctx, model, usage, estimated)
+}
+
 func (t *captureTunnel) Proxy(_ context.Context, req platform.TunnelRequest) (*platform.TunnelResponse, error) {
 	t.lastReq = req
+
+	t.requests = append(t.requests, req)
+	if len(t.responses) > 0 {
+		response := t.responses[0]
+		t.responses = t.responses[1:]
+
+		return response, nil
+	}
+
 	return t.resp, nil
 }
 
 func (t *captureTunnel) Stream(_ context.Context, req platform.TunnelRequest) (platform.TunnelStream, error) {
 	t.lastReq = req
+
+	t.requests = append(t.requests, req)
+	if len(t.streams) > 0 {
+		stream := t.streams[0]
+		t.streams = t.streams[1:]
+
+		return stream, t.streamErr
+	}
+
 	if t.stream != nil || t.streamErr != nil {
 		return t.stream, t.streamErr
 	}
@@ -219,6 +311,195 @@ func newVirtualResponsesTestApp(t *testing.T, tunnel *captureTunnel, logs *testL
 	return app
 }
 
+func newRuntimeProfileVirtualResponsesTestApp(
+	t *testing.T,
+	tunnel *captureTunnel,
+	billing budgeter,
+	targets []platform.VirtualModelTarget,
+) *fiber.App {
+	t.Helper()
+
+	mem, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mem.Close()) })
+
+	rt, err := router.NewRouter([]config.ModelDeployment{
+		{
+			ModelName: "deepseek:deepseek-ember-harbor:deepseek-v4-flash",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "deepseek",
+				Model:    "deepseek/deepseek-v4-flash",
+				APIKey:   "deepseek-key",
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-deepseek"},
+		},
+		{
+			ModelName: "openai:openai-calm-oasis:gpt-5.4-nano",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "openai",
+				Model:    "openai/gpt-5.4-nano",
+				APIKey:   "openai-key",
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-openai"},
+		},
+		{
+			ModelName: "xai:xai-silent-river:grok-4.5",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: "xai",
+				Model:    "xai/grok-4.5",
+				APIKey:   "xai-key",
+			},
+			ModelInfo: map[string]interface{}{"id": "dep-xai"},
+		},
+	}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	require.NoError(t, err)
+
+	virtualModel := &platform.VirtualModel{
+		ID:              "vm-hi",
+		TenantID:        "tenant_a",
+		Alias:           "hi-vm",
+		RoutingStrategy: "priority",
+		Enabled:         true,
+		ExposedModes:    []string{"chat", "responses"},
+		Targets:         targets,
+	}
+	logs := &testLogs{}
+	handler := NewResponsesHandlerWithDependencies(BaseHandlerDependencies{
+		Router:            rt,
+		Tunnel:            tunnel,
+		Billing:           billing,
+		Wallets:           &testWallets{},
+		RequestLogger:     logs,
+		SpendLogger:       logs,
+		Logger:            zap.NewNop(),
+		VirtualModelStore: responsesVirtualModelStore{model: virtualModel},
+	})
+
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
+		return c.Next()
+	})
+	app.Post("/v1/responses", handler.Handle)
+
+	return app
+}
+
+func newDirectDeepSeekResponsesTestApp(
+	t *testing.T,
+	tunnel *captureTunnel,
+	billing budgeter,
+) *fiber.App {
+	t.Helper()
+
+	mem, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mem.Close()) })
+
+	rt, err := router.NewRouter([]config.ModelDeployment{{
+		ModelName: "deepseek:deepseek-ember-harbor:deepseek-v4-flash",
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: "deepseek",
+			Model:    "deepseek/deepseek-v4-flash",
+			APIKey:   "deepseek-key",
+		},
+		ModelInfo: map[string]interface{}{"id": "dep-deepseek"},
+	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	require.NoError(t, err)
+
+	handler := NewResponsesHandler(
+		rt,
+		tunnel,
+		billing,
+		&testWallets{},
+		&testLogs{},
+		zap.NewNop(),
+	)
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
+		return c.Next()
+	})
+	app.Post("/v1/responses", handler.Handle)
+
+	return app
+}
+
+func runtimeProfileVirtualTarget(id string, order int, provider, model string) platform.VirtualModelTarget {
+	return platform.VirtualModelTarget{
+		ID:       id,
+		Order:    order,
+		Provider: provider,
+		Model:    model,
+		Policy: platform.VirtualModelPolicy{
+			Retry: platform.VirtualModelRetryPolicy{
+				Attempts:    1,
+				StatusCodes: []int{429, 500, 502, 503},
+			},
+			Fallback: platform.VirtualModelFallbackPolicy{
+				Candidate:   true,
+				StatusCodes: []int{429, 500, 502, 503, 504},
+			},
+		},
+	}
+}
+
+func successfulResponsesTunnelResponse(t *testing.T, model string) *platform.TunnelResponse {
+	t.Helper()
+
+	body, err := json.Marshal(contractsopenai.Response{
+		ID:        "resp_virtual",
+		Object:    "response",
+		CreatedAt: time.Now().Unix(),
+		Model:     model,
+		Status:    "completed",
+		Usage: &contractsopenai.ResponseUsage{
+			InputTokens:  2,
+			OutputTokens: 1,
+			TotalTokens:  3,
+		},
+	})
+	require.NoError(t, err)
+
+	return &platform.TunnelResponse{
+		StatusCode: fiber.StatusOK,
+		Headers:    map[string]string{"content-type": "application/json"},
+		Body:       body,
+	}
+}
+
+func profiledResponsesCost(
+	model string,
+	costIRR float64,
+	binding platform.ModelRuntimeProfileBinding,
+) platform.UsageCostBreakdown {
+	return platform.UsageCostBreakdown{
+		Model:               model,
+		InputTokens:         2,
+		OutputTokens:        1,
+		TotalTokens:         3,
+		TotalCostIRR:        costIRR,
+		PricingRevision:     binding.CatalogRevision,
+		ModelRuntimeProfile: &binding,
+	}
+}
+
 func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	payload := contractsopenai.Response{
 		ID:        "resp_1",
@@ -278,6 +559,26 @@ func TestResponsesHandlerSyncSuccess(t *testing.T) {
 	assert.Equal(t, "resp_1", logs.loggedEntries[0].ResponseBody["id"])
 	assert.Equal(t, "response", logs.loggedEntries[0].ResponseBody["object"])
 	assert.NotContains(t, logs.loggedEntries[0].ResponseBody, "result_count")
+}
+
+func TestResponsesHandlerVirtualModelBudgetDeferralDoesNotSelectTargets(t *testing.T) {
+	resolver := &responsesVirtualModelResolver{model: &platform.VirtualModel{Alias: "hi-vm"}}
+	engine := &trackingResponsesRoutingEngine{}
+	handler := &ResponsesHandler{
+		vmResolver: resolver,
+		vmEngine:   engine,
+	}
+
+	deferred := handler.shouldDeferResponsesBudgetForVirtualModel(
+		context.Background(),
+		nil,
+		"tenant_a",
+		"hi-vm",
+	)
+
+	assert.True(t, deferred)
+	assert.Equal(t, 1, resolver.calls)
+	assert.Zero(t, engine.calls)
 }
 
 func TestResponsesHandlerVirtualModelSyncRoutesTargetWithoutAliasDeployment(t *testing.T) {
@@ -352,6 +653,247 @@ func TestResponsesHandlerVirtualModelStreamRoutesTargetWithoutAliasDeployment(t 
 	assert.NotEqual(t, "hi-vm", outbound["model"])
 	assert.Contains(t, outbound["model"], "gpt-4o")
 	assert.True(t, stream.closed)
+}
+
+func TestResponsesHandlerVirtualModelUsesTargetSpecificDeepSeekRuntimeProfile(t *testing.T) {
+	const (
+		deepSeekModel = "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+		openAIModel   = "openai:openai-calm-oasis:gpt-5.4-nano"
+	)
+
+	deepSeekProfile := deepSeekProxyRuntimeProfile("deepseek-v4-flash")
+	billing := &targetAwareResponsesBudgeter{costs: map[string]platform.UsageCostBreakdown{
+		"hi-vm":       {Model: "hi-vm", TotalTokens: 3, TotalCostIRR: 100},
+		deepSeekModel: profiledResponsesCost(deepSeekModel, 200, deepSeekProfile),
+		openAIModel:   {Model: openAIModel, TotalTokens: 3, TotalCostIRR: 150},
+	}}
+	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "deepseek-v4-flash")}
+	app := newRuntimeProfileVirtualResponsesTestApp(t, tunnel, billing, []platform.VirtualModelTarget{
+		runtimeProfileVirtualTarget("target-deepseek", 1, "deepseek", deepSeekModel),
+		runtimeProfileVirtualTarget("target-openai", 2, "openai", openAIModel),
+	})
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"hi-vm","instructions":"Be concise.","input":"hello"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.requests, 1)
+	assert.Equal(t, "deepseek", tunnel.requests[0].Deployment.Provider)
+	assert.Equal(t, "deepseek-v4-flash", tunnel.requests[0].Deployment.Model)
+	require.Len(t, tunnel.requests[0].ModelRuntimeProfiles, 1)
+	assert.Equal(t, "deepseek-v4-flash", tunnel.requests[0].ModelRuntimeProfiles[0].Slug)
+	assert.Contains(t, billing.estimateModels, "hi-vm")
+	assert.Contains(t, billing.estimateModels, deepSeekModel)
+	require.NotNil(t, billing.budgetEstimate)
+	assert.Equal(t, deepSeekModel, billing.budgetEstimate.Model)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, deepSeekModel, billing.finalizedEstimate.Model)
+
+	var outbound contractsopenai.ResponseRequest
+	require.NoError(t, json.Unmarshal(tunnel.requests[0].Body, &outbound))
+	assert.Equal(t, "deepseek-v4-flash", outbound.Model)
+}
+
+func TestResponsesHandlerVirtualModelStreamsWithTargetSpecificDeepSeekRuntimeProfile(t *testing.T) {
+	const deepSeekModel = "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+
+	deepSeekProfile := deepSeekProxyRuntimeProfile("deepseek-v4-flash")
+	billing := &targetAwareResponsesBudgeter{costs: map[string]platform.UsageCostBreakdown{
+		"hi-vm":       {Model: "hi-vm", TotalTokens: 3, TotalCostIRR: 100},
+		deepSeekModel: profiledResponsesCost(deepSeekModel, 200, deepSeekProfile),
+	}}
+
+	stream := newFakeTunnelStream(map[string]string{"content-type": "text/event-stream"}, 1, 0)
+	stream.chunks <- platform.TunnelChunk{
+		Data:   []byte("event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ds_stream\",\"object\":\"response\",\"model\":\"deepseek-v4-flash\",\"status\":\"completed\",\"usage\":{\"input_tokens\":2,\"output_tokens\":1,\"total_tokens\":3}}}\n\n"),
+		IsDone: true,
+	}
+
+	close(stream.chunks)
+
+	tunnel := &captureTunnel{stream: stream}
+	app := newRuntimeProfileVirtualResponsesTestApp(t, tunnel, billing, []platform.VirtualModelTarget{
+		runtimeProfileVirtualTarget("target-deepseek", 1, "deepseek", deepSeekModel),
+	})
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"hi-vm","input":"hello","stream":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request, int((5 * time.Second).Milliseconds()))
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, response.StatusCode, string(body))
+	assert.Contains(t, string(body), "response.completed")
+	require.Len(t, tunnel.requests, 1)
+	require.Len(t, tunnel.requests[0].ModelRuntimeProfiles, 1)
+	assert.Equal(t, "deepseek-v4-flash", tunnel.requests[0].ModelRuntimeProfiles[0].Slug)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, deepSeekModel, billing.finalizedEstimate.Model)
+	assert.True(t, stream.closed)
+}
+
+func TestResponsesHandlerVirtualModelFallsBackWhenDeepSeekPreparationFails(t *testing.T) {
+	const (
+		deepSeekModel = "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+		openAIModel   = "openai:openai-calm-oasis:gpt-5.4-nano"
+	)
+
+	billing := &targetAwareResponsesBudgeter{costs: map[string]platform.UsageCostBreakdown{
+		"hi-vm":       {Model: "hi-vm", TotalTokens: 3, TotalCostIRR: 100},
+		deepSeekModel: {Model: deepSeekModel, TotalTokens: 3, TotalCostIRR: 200},
+		openAIModel:   {Model: openAIModel, TotalTokens: 3, TotalCostIRR: 150},
+	}}
+	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "gpt-5.4-nano")}
+	app := newRuntimeProfileVirtualResponsesTestApp(t, tunnel, billing, []platform.VirtualModelTarget{
+		runtimeProfileVirtualTarget("target-deepseek", 1, "deepseek", deepSeekModel),
+		runtimeProfileVirtualTarget("target-openai", 2, "openai", openAIModel),
+	})
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"hi-vm","input":"hello"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.requests, 1)
+	assert.Equal(t, "openai", tunnel.requests[0].Deployment.Provider)
+	assert.Contains(t, billing.estimateModels, deepSeekModel)
+	assert.Contains(t, billing.estimateModels, openAIModel)
+	require.NotNil(t, billing.budgetEstimate)
+	assert.Equal(t, openAIModel, billing.budgetEstimate.Model)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, openAIModel, billing.finalizedEstimate.Model)
+}
+
+func TestResponsesHandlerVirtualModelFallsBackFromDeepSeekProviderFailure(t *testing.T) {
+	const (
+		deepSeekModel = "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+		openAIModel   = "openai:openai-calm-oasis:gpt-5.4-nano"
+	)
+
+	deepSeekProfile := deepSeekProxyRuntimeProfile("deepseek-v4-flash")
+	billing := &targetAwareResponsesBudgeter{costs: map[string]platform.UsageCostBreakdown{
+		"hi-vm":       {Model: "hi-vm", TotalTokens: 3, TotalCostIRR: 100},
+		deepSeekModel: profiledResponsesCost(deepSeekModel, 200, deepSeekProfile),
+		openAIModel:   {Model: openAIModel, TotalTokens: 3, TotalCostIRR: 150},
+	}}
+	tunnel := &captureTunnel{responses: []*platform.TunnelResponse{
+		{StatusCode: fiber.StatusInternalServerError, Body: []byte(`{"error":{"message":"deepseek unavailable"}}`)},
+		successfulResponsesTunnelResponse(t, "gpt-5.4-nano"),
+	}}
+	app := newRuntimeProfileVirtualResponsesTestApp(t, tunnel, billing, []platform.VirtualModelTarget{
+		runtimeProfileVirtualTarget("target-deepseek", 1, "deepseek", deepSeekModel),
+		runtimeProfileVirtualTarget("target-openai", 2, "openai", openAIModel),
+	})
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"hi-vm","input":"hello"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.requests, 2)
+	assert.Equal(t, "deepseek", tunnel.requests[0].Deployment.Provider)
+	assert.Equal(t, "openai", tunnel.requests[1].Deployment.Provider)
+	require.NotNil(t, billing.budgetEstimate)
+	assert.Equal(t, deepSeekModel, billing.budgetEstimate.Model)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, openAIModel, billing.finalizedEstimate.Model)
+}
+
+func TestResponsesHandlerVirtualModelUsesTargetSpecificXAIRuntimeProfile(t *testing.T) {
+	const xaiModel = "xai:xai-silent-river:grok-4.5"
+
+	xaiProfile := xaiProxyTestRuntimeProfile()
+	billing := &targetAwareResponsesBudgeter{costs: map[string]platform.UsageCostBreakdown{
+		"hi-vm":  {Model: "hi-vm", TotalTokens: 3, TotalCostIRR: 100},
+		xaiModel: profiledResponsesCost(xaiModel, 250, xaiProfile),
+	}}
+	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "grok-4.5")}
+	app := newRuntimeProfileVirtualResponsesTestApp(t, tunnel, billing, []platform.VirtualModelTarget{
+		runtimeProfileVirtualTarget("target-xai", 1, "xai", xaiModel),
+	})
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"hi-vm","input":"hello"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, response.StatusCode, string(body))
+	require.Len(t, tunnel.requests, 1)
+	assert.Equal(t, "xai", tunnel.requests[0].Deployment.Provider)
+	require.Len(t, tunnel.requests[0].ModelRuntimeProfiles, 1)
+	assert.Equal(t, "grok-4.5", tunnel.requests[0].ModelRuntimeProfiles[0].Slug)
+	require.NotNil(t, billing.finalizedEstimate)
+	assert.Equal(t, xaiModel, billing.finalizedEstimate.Model)
+}
+
+func TestResponsesHandlerDirectDeepSeekStillFailsClosedWithoutRuntimeProfile(t *testing.T) {
+	const deepSeekModel = "deepseek:deepseek-ember-harbor:deepseek-v4-flash"
+
+	billing := &targetAwareResponsesBudgeter{costs: map[string]platform.UsageCostBreakdown{
+		deepSeekModel: {Model: deepSeekModel, TotalTokens: 3, TotalCostIRR: 200},
+	}}
+	tunnel := &captureTunnel{resp: successfulResponsesTunnelResponse(t, "deepseek-v4-flash")}
+	app := newDirectDeepSeekResponsesTestApp(t, tunnel, billing)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		bytes.NewBufferString(`{"model":"deepseek:deepseek-ember-harbor:deepseek-v4-flash","input":"hello"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+
+	require.NoError(t, err)
+	defer closeResponseBody(t, response)
+
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusServiceUnavailable, response.StatusCode, string(body))
+	assert.Contains(t, string(body), "runtime_profile_unavailable")
+	assert.Empty(t, tunnel.requests)
 }
 
 func TestResponsesHandlerVirtualModelCompactRoutesTargetWithoutAliasDeployment(t *testing.T) {

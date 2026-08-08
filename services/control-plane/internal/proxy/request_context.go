@@ -11,19 +11,20 @@ import (
 type chatRequestContextKey struct{}
 
 type chatRequestContext struct {
-	virtualModel         *platform.VirtualModel
-	virtualModelTargets  []platform.VirtualModelTarget
-	virtualChatTargets   map[string]virtualChatTargetPreparation
-	virtualModelRouteAt  time.Time
-	virtualModelSnapshot bool
-	virtualModelActive   bool
-	fallbackCount        int
-	failureReason        string
-	guardrailOverrides   map[string]guardrails.Guardrail
-	prompt               promptRequestMetadata
-	promptSet            bool
-	responseCache        responseCacheRequestMetadata
-	responseCacheSet     bool
+	virtualModel           *platform.VirtualModel
+	virtualModelTargets    []platform.VirtualModelTarget
+	virtualChatTargets     map[string]virtualChatTargetPreparation
+	virtualResponseTargets map[string]virtualResponseTargetPreparation
+	virtualModelRouteAt    time.Time
+	virtualModelSnapshot   bool
+	virtualModelActive     bool
+	fallbackCount          int
+	failureReason          string
+	guardrailOverrides     map[string]guardrails.Guardrail
+	prompt                 promptRequestMetadata
+	promptSet              bool
+	responseCache          responseCacheRequestMetadata
+	responseCacheSet       bool
 }
 
 type promptRequestMetadata struct {

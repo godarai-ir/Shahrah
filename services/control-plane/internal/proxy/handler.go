@@ -819,7 +819,7 @@ func (h *ChatCompletionHandler) preflightVirtualChatTargets(
 		attemptedTargets++
 
 		targetDeployment := deploymentFromVirtualTarget(target)
-		key := virtualChatTargetKey(targetDeployment)
+		key := virtualModelTargetKey(targetDeployment)
 		preparation := virtualChatTargetPreparation{}
 
 		resolved, err := resolveVirtualDeploymentStrict(c.Context(), h.llmRouter, tenantID, targetDeployment)
@@ -1627,7 +1627,7 @@ func (h *ChatCompletionHandler) prepareVirtualChatRequest(
 	baseRequest platform.TunnelRequest,
 	deployment *router.Deployment,
 ) (platform.TunnelRequest, platform.UsageCostBreakdown, error) {
-	targetKey := virtualChatTargetKey(deployment)
+	targetKey := virtualModelTargetKey(deployment)
 
 	var preparation virtualChatTargetPreparation
 
