@@ -35,7 +35,6 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-provider-placeholder}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-ant-provider-placeholder}
       SILK_ROAD_URL: http://silk-road:8083
-      TUNNEL_CLIENT_URL: http://silk-road:8083 # Temporary compatibility for pre-provider_egress images.
       SHAHRAH_MODEL_DISCOVERY_URL: ${SHAHRAH_MODEL_DISCOVERY_URL:-http://model-discovery:3002/api/v1}
       SHAHRAH_DISCOVERY_TOKEN: ${SHAHRAH_DISCOVERY_TOKEN:-}
       EMAIL_SENDING_ENABLED: ${EMAIL_SENDING_ENABLED:-true}

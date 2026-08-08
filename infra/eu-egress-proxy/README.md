@@ -48,7 +48,7 @@ The reverse tunnel runs as `ubuntu`. Its private key remains at `/home/ubuntu/.s
 3. Install both gateway units and enable only `silk-road-egress-proxy.socket`; the service is socket-activated.
 4. Validate and atomically load the tracked nftables rules.
 5. From a NetworkPolicy-selected Pod pinned to each K3s node, verify direct HTTPS is blocked and `curl --proxy http://10.10.0.190:1443 https://www.cloudflare.com/cdn-cgi/trace` reports `ip=130.185.121.142` and `loc=DE`. Allow the K3s policy controller to converge before interpreting the result; the rollout test used 15 seconds.
-6. Publish the direct-egress Control Plane image, then roll it out with the GitOps change. Keep the temporary `TUNNEL_CLIENT_URL=http://silk-road:8083` alias for one release so the previous Control Plane image can also operate while relay workloads are pruned.
+6. Publish and roll out the direct-egress Control Plane image before removing the compatibility alias. After every Control Plane Pod has completed a full release on the new image, keep `SILK_ROAD_URL` as the only provider-egress endpoint.
 7. Probe a provider credential and verify Silk Road logs report `egress proxy configured=true required=true` without logging the proxy URL or credentials.
 
 ## Host verification

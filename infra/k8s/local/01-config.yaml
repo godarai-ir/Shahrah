@@ -29,7 +29,6 @@ data:
   TYPESENSE_ENABLE_CORS: "true"
   SILK_ROAD_ADDR: :8083
   SILK_ROAD_URL: http://silk-road:8083
-  TUNNEL_CLIENT_URL: http://silk-road:8083 # Temporary compatibility for pre-provider_egress images.
   SMTP_HOST: mailpit
   SMTP_PORT: "1025"
   SMTP_FROM: no-reply@shahrah.local

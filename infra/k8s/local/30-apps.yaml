@@ -258,11 +258,6 @@ spec:
                 configMapKeyRef:
                   name: shahrah-config
                   key: SILK_ROAD_URL
-            - name: TUNNEL_CLIENT_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: shahrah-config
-                  key: TUNNEL_CLIENT_URL
             - name: SHAHRAH_MODEL_DISCOVERY_URL
               valueFrom:
                 configMapKeyRef:
