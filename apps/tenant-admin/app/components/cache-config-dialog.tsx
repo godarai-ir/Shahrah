@@ -1,6 +1,9 @@
 "use client";
 
-import { AppSelectField, AppSwitchField, AppTextField, FormDialog } from "@/components/app-ui";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { FormDialog } from "@/components/app-ui/FormDialog";
 import { Button } from "@/components/ui/button";
 
 import type { BuilderState, PromptTranslationFn } from "./prompt-management-shared";

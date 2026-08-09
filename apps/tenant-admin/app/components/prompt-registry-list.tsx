@@ -3,18 +3,15 @@
 import { Plus, ScrollText } from "lucide-react";
 import Link from "next/link";
 
-import {
-  AppCard,
-  AppSelectField,
-  CopyAction,
-  DateTimeValue,
-  RefreshButton,
-  RowActionsMenu,
-  SearchField,
-  TableEmptyRow,
-  TableLoadingRows,
-  TablePagination,
-} from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { CopyAction } from "@/components/app-ui/CopyAction";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { RefreshButton } from "@/components/app-ui/RefreshButton";
+import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
+import { SearchField } from "@/components/app-ui/SearchField";
+import { TablePagination } from "@/components/app-ui/TablePagination";
+import { TableEmptyRow, TableLoadingRows } from "@/components/app-ui/TableStateRows";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";

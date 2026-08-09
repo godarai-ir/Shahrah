@@ -7,15 +7,13 @@ import { Plus, ShieldCheck } from "lucide-react";
 import RoleCreateManagement from "@/app/components/roles-create-management";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import {
-  AppCard,
-  AppSelectField,
-  CommercialPlanUpgradeDialog,
-  EmptyState,
-  PageContainer,
-  RowActionsMenu,
-  SearchField,
-} from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { PageContainer } from "@/components/app-ui/PageContainer";
+import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
+import { SearchField } from "@/components/app-ui/SearchField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

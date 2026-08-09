@@ -42,6 +42,12 @@
     "status": "وضعیت",
     "actions": "اقدامات"
   },
+  "pagination": {
+    "label": "صفحه‌بندی مدل‌های مجازی",
+    "summary": "{start, number} تا {end, number} از {total, number}",
+    "previous": "قبلی",
+    "next": "بعدی"
+  },
   "form": {
     "createTitle": "ایجاد مدل مجازی",
     "editTitle": "ویرایش مدل مجازی",

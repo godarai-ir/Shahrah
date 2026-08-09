@@ -1,0 +1,5 @@
+{
+  "maxFirstLoadUncompressedJsBytes": 1900000,
+  "maxInitialChunkBytes": 500000,
+  "maxStaticJsBytes": 8000000
+}

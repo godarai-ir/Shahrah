@@ -47,6 +47,8 @@ type ModelCatalogExplorerProps = {
   onDeleteAccount: (account: TenantProviderAccount) => void;
 };
 
+const MODEL_PAGE_SIZE = 50;
+
 export function ModelCatalogExplorer({
   accounts,
   docsHref,
@@ -68,7 +70,9 @@ export function ModelCatalogExplorer({
   const t = useTranslations("modelCatalog");
   const locale = useLocale();
   const [mobileStep, setMobileStep] = useState("providers");
-  const formatCount = (value: number) => new Intl.NumberFormat(locale).format(value);
+  const [modelPagination, setModelPagination] = useState({ accountID: "", page: 0 });
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const formatCount = (value: number) => numberFormatter.format(value);
   const providers = useMemo(() => {
     const counts = new Map<string, number>();
     for (const account of accounts) counts.set(account.provider, (counts.get(account.provider) ?? 0) + 1);
@@ -86,6 +90,14 @@ export function ModelCatalogExplorer({
       ?? selectedModel?.availability[0]
       ?? null,
     [selectedAccountID, selectedModel],
+  );
+  const modelPageCount = Math.max(1, Math.ceil(models.length / MODEL_PAGE_SIZE));
+  const effectiveModelPage = modelPagination.accountID === selectedAccountID
+    ? Math.min(modelPagination.page, modelPageCount - 1)
+    : 0;
+  const visibleModels = useMemo(
+    () => models.slice(effectiveModelPage * MODEL_PAGE_SIZE, (effectiveModelPage + 1) * MODEL_PAGE_SIZE),
+    [effectiveModelPage, models],
   );
 
   return (
@@ -190,6 +202,7 @@ export function ModelCatalogExplorer({
               className="h-auto w-full justify-start px-3 py-3 text-start"
               aria-pressed={selected}
               onClick={() => {
+                setModelPagination({ accountID: account.id, page: 0 });
                 onSelectAccount(account.id);
                 setMobileStep("models");
               }}
@@ -233,7 +246,8 @@ export function ModelCatalogExplorer({
             notice={{ kind: "error", message: modelLoadError }}
             labels={{ success: t("notices.success"), error: t("notices.error"), warning: t("notices.warning"), info: t("notices.info") }}
           />
-        ) : selectedAccountID && models.length > 0 ? models.map((model) => {
+        ) : selectedAccountID && models.length > 0 ? <>
+          {visibleModels.map((model) => {
           const metadata = providerBySlug.get(model.provider);
           const displayName = formatProviderDisplayName(model.provider, metadata?.display_name);
           const modelName = formatCatalogModelDisplayName(model.model, model.display_name);
@@ -262,7 +276,43 @@ export function ModelCatalogExplorer({
               />
             </div>
           );
-        }) : !loadingModels ? (
+          })}
+          {modelPageCount > 1 ? (
+            <nav className="mt-3 flex items-center justify-between gap-2 border-t pt-3" aria-label={t("pagination.label")}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={effectiveModelPage === 0}
+                onClick={() => setModelPagination({
+                  accountID: selectedAccountID,
+                  page: Math.max(0, effectiveModelPage - 1),
+                })}
+              >
+                {t("pagination.previous")}
+              </Button>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {t("pagination.summary", {
+                  start: effectiveModelPage * MODEL_PAGE_SIZE + 1,
+                  end: Math.min((effectiveModelPage + 1) * MODEL_PAGE_SIZE, models.length),
+                  total: models.length,
+                })}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={effectiveModelPage >= modelPageCount - 1}
+                onClick={() => setModelPagination({
+                  accountID: selectedAccountID,
+                  page: Math.min(modelPageCount - 1, effectiveModelPage + 1),
+                })}
+              >
+                {t("pagination.next")}
+              </Button>
+            </nav>
+          ) : null}
+        </> : !loadingModels ? (
           <EmptyState
             variant="inline"
             density="compact"

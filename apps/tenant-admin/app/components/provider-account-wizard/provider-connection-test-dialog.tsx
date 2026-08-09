@@ -4,14 +4,10 @@ import { FormEvent, useState } from "react";
 import { Activity } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import {
-  AppTextField,
-  DefinitionList,
-  DefinitionListItem,
-  FormDialog,
-  OperationNotice,
-  type OperationNoticeValue,
-} from "@/components/app-ui";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
+import { FormDialog } from "@/components/app-ui/FormDialog";
+import { OperationNotice, type OperationNoticeValue } from "@/components/app-ui/OperationNotice";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { TenantProviderAccount } from "@/app/components/provider-account-wizard/types";

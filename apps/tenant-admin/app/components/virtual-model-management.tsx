@@ -5,7 +5,20 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, CheckCircle2, Copy, Edit3, Plus, Route, Save, Search, Trash2, XCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AppNumberField, ChipInput, ConfirmDialog, DateTimeValue, EmptyState, FormSheet, IdentifierField, ModelNameValue, OperationNotice, RefreshButton, RowActionsMenu, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { AppNumberField } from "@/components/app-ui/AppNumberField";
+import { ChipInput } from "@/components/app-ui/ChipInput";
+import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { FormSheet } from "@/components/app-ui/FormSheet";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { ModelNameValue } from "@/components/app-ui/ModelNameValue";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { RefreshButton } from "@/components/app-ui/RefreshButton";
+import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
+import { TypedConfirmDialog } from "@/components/app-ui/TypedConfirmDialog";
+import { UnsavedChangesDialog } from "@/components/app-ui/UnsavedChangesDialog";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,6 +85,8 @@ type AccountDetailsResponse = {
     models?: TenantProviderAccountModel[];
   };
 };
+
+const LIST_PAGE_SIZE = 50;
 
 type FormState = {
   id?: string;
@@ -164,6 +179,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
   const [form, setForm] = useState<FormState>(() => makeDefaultForm(defaultEveryoneLabel));
   const [savedHash, setSavedHash] = useState(() => JSON.stringify(makeDefaultForm(defaultEveryoneLabel)));
   const [editorOpen, setEditorOpen] = useState(false);
+  const [listPage, setListPage] = useState(0);
   const [pendingDiscardAction, setPendingDiscardAction] = useState<null | (() => void | Promise<void>)>(null);
   const [disableConfirmOpen, setDisableConfirmOpen] = useState(false);
 
@@ -205,8 +221,17 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
     if (!q) return items;
     return items.filter((item) => item.alias.toLowerCase().includes(q));
   }, [items, query]);
+  const listPageCount = Math.max(1, Math.ceil(filtered.length / LIST_PAGE_SIZE));
+  const effectiveListPage = Math.min(listPage, listPageCount - 1);
+  const visibleItems = useMemo(
+    () => filtered.slice(effectiveListPage * LIST_PAGE_SIZE, (effectiveListPage + 1) * LIST_PAGE_SIZE),
+    [effectiveListPage, filtered],
+  );
 
-  const principalSelectorLabels = buildPrincipalSelectorLabels(principalT, principalUx);
+  const principalSelectorLabels = useMemo(
+    () => buildPrincipalSelectorLabels(principalT, principalUx),
+    [principalT, principalUx],
+  );
 
   async function loadList() {
     setIsLoading(true);
@@ -262,31 +287,31 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
       const accountsData = (await accountsRes.json().catch(() => ({}))) as AccountsResponse;
       if (!accountsRes.ok) throw new Error(readError(accountsData, t("messages.listLoadError")));
       const accounts = accountsData.data ?? [];
-      const allSelections = await Promise.all(
-        accounts.map(async (account) => {
+      const accountDetails = await mapWithConcurrency(
+        accounts,
+        4,
+        async (account) => {
           const detailRes = await fetch(`/api/tenant-provider-accounts/${encodeURIComponent(account.id)}`, { cache: "no-store" });
           const detailData = (await detailRes.json().catch(() => ({}))) as AccountDetailsResponse;
-          if (!detailRes.ok) return [] as ModelSelection[];
+          if (!detailRes.ok) return null;
           const payload = detailData.data ?? detailData;
-          const models = payload.models ?? [];
-          return models
+          return { account, models: payload.models ?? [] };
+        },
+      );
+      const availableAccountDetails = accountDetails.filter((item) => item !== null);
+      const allSelections = availableAccountDetails.map(({ account, models }) =>
+        models
             .filter((item) => item.enabled)
             .map<ModelSelection>((item) => ({
               id: `${account.id}:${item.model}`,
               name: `${account.provider}:${account.name}:${item.model}`,
               kind: "provider_allowed",
               secondary: `${account.provider}/${account.name}`,
-            }));
-        }),
+            })),
       );
       setProviderAllowedModels(allSelections.flat());
-      const modeEntries = await Promise.all(
-        accounts.map(async (account) => {
-          const detailRes = await fetch(`/api/tenant-provider-accounts/${encodeURIComponent(account.id)}`, { cache: "no-store" });
-          const detailData = (await detailRes.json().catch(() => ({}))) as AccountDetailsResponse;
-          if (!detailRes.ok) return [] as Array<[string, string[]]>;
-          const payload = detailData.data ?? detailData;
-          return (payload.models ?? [])
+      const modeEntries = availableAccountDetails.map(({ account, models }) =>
+        models
             .filter((item) => item.enabled)
             .flatMap((item): Array<[string, string[]]> => {
               const rawFQN = `${account.provider}:${account.name}:${item.model}`;
@@ -295,8 +320,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                 [rawFQN, modes],
                 [canonicalModelFQN(rawFQN), modes],
               ];
-            });
-        }),
+            }),
       );
       setProviderModelModes(Object.fromEntries(modeEntries.flat()));
     } catch {
@@ -569,7 +593,10 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                 <Search className="pointer-events-none absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setListPage(0);
+                  }}
                   className="ps-9"
                   placeholder={t("searchPlaceholder")}
                   aria-label={t("searchPlaceholder")}
@@ -599,7 +626,10 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
               description={query ? t("empty.noResultsDescription") : t("empty.description")}
               primaryAction={
                 query ? (
-                  <Button type="button" variant="outline" onClick={() => setQuery("")}>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setQuery("");
+                    setListPage(0);
+                  }}>
                     {t("actions.clearSearch")}
                   </Button>
                 ) : (
@@ -632,7 +662,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((item) => (
+                  {visibleItems.map((item) => (
                     <TableRow
                       key={item.id}
                       className={cn(selectedID === item.id && "bg-muted/60")}
@@ -689,6 +719,35 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                   ))}
                 </TableBody>
               </Table>
+              {listPageCount > 1 ? (
+                <nav className="flex items-center justify-between gap-3 border-t p-3" aria-label={t("pagination.label")}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={effectiveListPage === 0}
+                    onClick={() => setListPage(Math.max(0, effectiveListPage - 1))}
+                  >
+                    {t("pagination.previous")}
+                  </Button>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {t("pagination.summary", {
+                      start: effectiveListPage * LIST_PAGE_SIZE + 1,
+                      end: Math.min((effectiveListPage + 1) * LIST_PAGE_SIZE, filtered.length),
+                      total: filtered.length,
+                    })}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={effectiveListPage >= listPageCount - 1}
+                    onClick={() => setListPage(Math.min(listPageCount - 1, effectiveListPage + 1))}
+                  >
+                    {t("pagination.next")}
+                  </Button>
+                </nav>
+              ) : null}
             </div>
           )}
         </CardContent>
@@ -1141,6 +1200,26 @@ function parseStatusCodes(input: string): number[] {
     .split(/[,\s]+/)
     .map((value) => Number(value.trim()))
     .filter((value) => Number.isInteger(value) && value >= 100 && value <= 599);
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }));
+
+  return results;
 }
 
 function readError(payload: unknown, fallback: string) {

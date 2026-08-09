@@ -51,6 +51,12 @@
     "status": "Status",
     "actions": "Actions"
   },
+  "pagination": {
+    "label": "Virtual model pagination",
+    "summary": "{start, number}–{end, number} of {total, number}",
+    "previous": "Previous",
+    "next": "Next"
+  },
   "form": {
     "createTitle": "Create virtual model",
     "editTitle": "Edit virtual model",

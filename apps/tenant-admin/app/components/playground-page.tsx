@@ -8,16 +8,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePermissions } from "@/app/components/permissions-context";
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { modelModesSupportPlaygroundMode, normalizePlaygroundMode } from "@/app/components/playground-mode";
-import {
-  AppTextField,
-  EmptyState,
-  FormDialog,
-  OperationNotice,
-  ResizableSplitPane,
-  SearchPickerDialog,
-  UnsavedChangesDialog,
-  getVariableColorStyle,
-} from "@/components/app-ui";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { FormDialog } from "@/components/app-ui/FormDialog";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { ResizableSplitPane } from "@/components/app-ui/ResizableSplitPane";
+import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
+import { UnsavedChangesDialog } from "@/components/app-ui/UnsavedChangesDialog";
+import { getVariableColorStyle } from "@/components/app-ui/VariableTextarea";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -593,7 +591,7 @@ export default function PlaygroundPage() {
         </div>
       )}
 
-      <div className="sticky bottom-0 z-10 hidden items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:flex">
+      <div className="sticky bottom-0 z-10 hidden items-center gap-3 border-t border-border bg-background px-4 py-3 md:flex">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">{columns.length > 1 ? t("billable") : t("shortcutHint")}</p>
         {anyRunning ? <Button type="button" variant="destructive" onClick={columns.length > 1 ? stopAll : () => stopColumn(activeColumn.id)}><Square data-icon="inline-start" />{columns.length > 1 ? t("actions.stopAll") : t("actions.stop")}</Button> : <Button type="button" aria-label={columns.length > 1 ? t("actions.runAllShortcut") : t("actions.runShortcut")} title={columns.length > 1 ? t("actions.runAllShortcut") : t("actions.runShortcut")} disabled={!canRun || !columns.every((column) => column.selectedModel)} onClick={() => columns.length > 1 ? void runAll() : void runColumn(activeColumn)}><Play data-icon="inline-start" />{columns.length > 1 ? t("actions.runAll") : t("actions.run")}</Button>}
       </div>

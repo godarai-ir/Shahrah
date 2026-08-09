@@ -16,7 +16,14 @@ import {
   YAxis,
 } from "recharts";
 
-import { AppCard, CatalogFilterCombobox, CompactValue, DateTimeRangeField, EmptyState, FilterCombobox, MetricCard, PageHeader } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { CatalogFilterCombobox } from "@/components/app-ui/CatalogFilterCombobox";
+import { CompactValue } from "@/components/app-ui/CompactValue";
+import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
+import { MetricCard } from "@/components/app-ui/MetricCard";
+import { PageHeader } from "@/components/app-ui/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +50,8 @@ import {
 const VIEW_BY = ["modelName", "virtualModelName", "userEmail", "virtualAccount", "team"] as const;
 const PCTS = ["p50", "p75", "p90", "p99"] as const;
 const RANGE_PRESETS = ["last15m", "last1h", "last24h", "yesterday", "last3d", "last7d", "last14d", "last30d", "custom"] as const;
-const INTERVAL_SECONDS = 300;
+const MIN_INTERVAL_SECONDS = 300;
+const MAX_CHART_POINTS = 360;
 const DEFAULT_RANGE_MS = 24 * 60 * 60 * 1000;
 const ALL_MODELS_VALUE = "__all_models__";
 const ALL_PROVIDERS_VALUE = "__all_providers__";
@@ -231,6 +239,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
     const queryRequestIDFilter = filterOverride?.requestID ?? requestIDFilter;
     const queryViewBy = viewByOverride ?? viewBy;
     if (!queryFrom || !queryTo) return;
+    const intervalInSeconds = resolveMetricsIntervalSeconds(queryFrom, queryTo);
     if (options?.syncURL) {
       syncMetricsURL({ from: queryFrom, to: queryTo }, {
         model: queryModelFilter,
@@ -288,7 +297,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           ],
           groupBy: [queryViewBy],
           filters,
-          intervalInSeconds: INTERVAL_SECONDS,
+          intervalInSeconds,
         }, common("requestError")),
         postMetricsQuery({
           startTs: queryFrom,
@@ -322,7 +331,7 @@ export default function ModelMetricsDashboard(props: ModelMetricsDashboardProps)
           ],
           groupBy: ["cacheMode"],
           filters,
-          intervalInSeconds: INTERVAL_SECONDS,
+          intervalInSeconds,
         }, common("requestError")),
       ]);
 
@@ -779,6 +788,13 @@ function rangeForPreset(preset: Exclude<RangePreset, "custom">) {
     from: new Date(now.getTime() - durationMs).toISOString(),
     to: now.toISOString(),
   };
+}
+
+export function resolveMetricsIntervalSeconds(from: string, to: string) {
+  const durationSeconds = Math.max(0, (new Date(to).getTime() - new Date(from).getTime()) / 1_000);
+  if (!Number.isFinite(durationSeconds)) return MIN_INTERVAL_SECONDS;
+  const targetInterval = Math.ceil(durationSeconds / MAX_CHART_POINTS);
+  return Math.max(MIN_INTERVAL_SECONDS, Math.ceil(targetInterval / 60) * 60);
 }
 
 function formatPercent(value: number, locale: string) {

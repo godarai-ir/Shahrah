@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { BadgePercent, CreditCard, Landmark, TestTubeDiagonal, WalletCards } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { SettingsCard } from "@/components/app-ui";
+import { SettingsCard } from "@/components/app-ui/SettingsCard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";

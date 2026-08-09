@@ -1,0 +1,44 @@
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
+import { headers } from "next/headers";
+
+import { loadAdminShellData, getAppVersion } from "@/app/components/admin-shell-data";
+import AdminShellClient from "@/app/components/admin-shell-client";
+import { buildDocsHref } from "@/app/components/admin-shell";
+import { requireAuth } from "@/lib/auth/session";
+import { pickMessages } from "@/lib/pick-messages";
+
+const SHELL_MESSAGE_NAMESPACES = ["common", "theme", "shell"] as const;
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const auth = await requireAuth("/login");
+  const [locale, allMessages, requestHeaders, shellData] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    headers(),
+    loadAdminShellData(auth.tenantSlug, auth.user.id),
+  ]);
+  const messages = pickMessages(allMessages, SHELL_MESSAGE_NAMESPACES);
+  const currentUser = {
+    id: auth.user.id,
+    email: auth.user.email,
+    mobile: auth.user.mobile,
+    role: auth.user.role,
+  };
+
+  return (
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <AdminShellClient
+        tenantSlug={auth.tenantSlug}
+        currentUser={currentUser}
+        permissions={shellData.permissions}
+        walletSummary={shellData.walletSummary}
+        subscriptionSummary={shellData.subscriptionSummary}
+        docsHref={buildDocsHref(requestHeaders, auth.tenantSlug)}
+        appVersion={getAppVersion()}
+      >
+        {children}
+      </AdminShellClient>
+    </NextIntlClientProvider>
+  );
+}

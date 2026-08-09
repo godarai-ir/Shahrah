@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CircleDollarSign, Copy, Pencil, Power, Trash2 } from "lucide-react";
 
-import { CopyAction, OperationNotice, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { CopyAction } from "@/components/app-ui/CopyAction";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";

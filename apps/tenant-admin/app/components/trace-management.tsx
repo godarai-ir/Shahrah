@@ -8,7 +8,14 @@ import { useLocale, useTranslations } from "next-intl";
 
 import TracePrivacySettingsPanel, { type TracePrivacySettings } from "@/app/components/trace-privacy-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ActiveFilterChips, AppSelectField, CatalogFilterCombobox, CompactValue, DateTimeRangeField, FilterField, MetricCard, PageContainer } from "@/components/app-ui";
+import { ActiveFilterChips } from "@/components/app-ui/ActiveFilterChips";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { CatalogFilterCombobox } from "@/components/app-ui/CatalogFilterCombobox";
+import { CompactValue } from "@/components/app-ui/CompactValue";
+import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
+import { FilterField } from "@/components/app-ui/FilterField";
+import { MetricCard } from "@/components/app-ui/MetricCard";
+import { PageContainer } from "@/components/app-ui/PageContainer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

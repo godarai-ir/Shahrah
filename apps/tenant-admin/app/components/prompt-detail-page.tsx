@@ -20,7 +20,11 @@ import {
 
 import { normalizeError, requestJSON, unwrapData } from "@/app/components/provider-account-wizard/utils";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
-import { CodePanel, DateTimeValue, DefinitionList, DefinitionListItem, FormDialog, SectionHeader } from "@/components/app-ui";
+import { CodePanel } from "@/components/app-ui/CodePanel";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
+import { FormDialog } from "@/components/app-ui/FormDialog";
+import { SectionHeader } from "@/components/app-ui/SectionHeader";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

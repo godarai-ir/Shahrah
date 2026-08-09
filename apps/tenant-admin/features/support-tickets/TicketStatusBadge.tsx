@@ -1,4 +1,4 @@
-import { StatusBadge } from "@/components/app-ui";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import type { TicketStatus } from "./types";
 
 const tone: Record<TicketStatus, "active" | "pending" | "warning" | "success" | "neutral"> = {

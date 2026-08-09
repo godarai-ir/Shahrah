@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
@@ -24,7 +25,20 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { ActiveFilterChips, AppCard, AppSelectField, AppTextField, CompactValue, CopyAction, DateTimeRangeField, DebouncedTextFilter, EmptyState, FilterCombobox, FilterField, FormDialog, JsonViewer, MetricCard, PageHeader, RangeFilterField, StatusBadge } from "@/components/app-ui";
+import { ActiveFilterChips } from "@/components/app-ui/ActiveFilterChips";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { CompactValue } from "@/components/app-ui/CompactValue";
+import { CopyAction } from "@/components/app-ui/CopyAction";
+import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
+import { DebouncedTextFilter, FilterField, RangeFilterField } from "@/components/app-ui/FilterField";
+import { FormDialog } from "@/components/app-ui/FormDialog";
+import { MetricCard } from "@/components/app-ui/MetricCard";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +52,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -57,6 +72,14 @@ import { usePermissions } from "@/app/components/permissions-context";
 import { canAnyPermission } from "@/lib/authz";
 import { formatCompactCurrency, formatCompactIrr, formatCompactNumber, formatExactIrr, type CompactDisplayValue } from "@/lib/compact-number";
 import { cn } from "@/lib/utils";
+
+const JsonViewer = dynamic(
+  () => import("@/components/app-ui/JsonViewer").then((module) => module.JsonViewer),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-40 animate-pulse rounded-xl border bg-muted/35" aria-hidden="true" />,
+  },
+);
 
 type RequestLog = {
   log_id: string;
@@ -246,6 +269,9 @@ type LogsCommandCenterProps = {
   initialSummary?: unknown;
   initialFacets?: unknown;
   initialSavedViews?: unknown;
+  initialTimeseries?: unknown;
+  initialBreakdown?: unknown;
+  initialRangeStats?: unknown;
   initialError?: string;
 };
 
@@ -351,12 +377,16 @@ const chartConfig = {
   cacheHit: { label: "Cache hit", color: "var(--chart-2)" },
   cacheMiss: { label: "Cache miss", color: "var(--chart-5)" },
 } satisfies ChartConfig;
+const MAX_CHART_POINTS = 360;
 
 export default function LogsCommandCenter({
   initialLogs,
   initialSummary,
   initialFacets,
   initialSavedViews,
+  initialTimeseries,
+  initialBreakdown,
+  initialRangeStats,
   initialError,
 }: LogsCommandCenterProps) {
   const t = useTranslations("logs");
@@ -385,10 +415,10 @@ export default function LogsCommandCenter({
   }, [filters, pathname, router, searchParams]);
   const [summary, setSummary] = useState<Summary>(() => normalizeData<Summary>(initialSummary));
   const [facets, setFacets] = useState<LogFacets>(() => normalizeData<LogFacets>(initialFacets));
-  const [rangeStats, setRangeStats] = useState<LogRangeStats>({});
+  const [rangeStats, setRangeStats] = useState<LogRangeStats>(() => normalizeData<LogRangeStats>(initialRangeStats));
   const [savedViews, setSavedViews] = useState<SavedView[]>(() => normalizeDataList<SavedView>(initialSavedViews));
-  const [timeseries, setTimeseries] = useState<AnalyticsPoint[]>([]);
-  const [breakdown, setBreakdown] = useState<AnalyticsPoint[]>([]);
+  const [timeseries, setTimeseries] = useState<AnalyticsPoint[]>(() => limitChartPoints(normalizeDataList<AnalyticsPoint>(initialTimeseries)));
+  const [breakdown, setBreakdown] = useState<AnalyticsPoint[]>(() => normalizeDataList<AnalyticsPoint>(initialBreakdown));
   const [selectedLog, setSelectedLog] = useState<RequestLog | null>(null);
   const [detail, setDetail] = useState<LogDetail | null>(null);
   const [traceAvailable, setTraceAvailable] = useState(false);
@@ -411,6 +441,15 @@ export default function LogsCommandCenter({
   const rangeStatsRequestRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailRequestRef = useRef(0);
+  const hasCompleteInitialDataRef = useRef(
+    initialLogs !== undefined
+      && initialSummary !== undefined
+      && initialFacets !== undefined
+      && initialTimeseries !== undefined
+      && initialBreakdown !== undefined
+      && !initialError,
+  );
+  const hasInitialRangeStatsRef = useRef(initialRangeStats !== undefined);
 
   const formatters = useMemo(() => createLogFormatters(locale), [locale]);
   const timeseriesChartData = useMemo(() => formatTimeseries(timeseries, formatters), [timeseries, formatters]);
@@ -439,11 +478,8 @@ export default function LogsCommandCenter({
     setTimeseriesUnavailable(false);
     setBreakdownUnavailable(false);
     try {
-      const logsPayload = await fetchJSON<LogsResponse>(`/api/logs?${nextQueryString}`, { signal: controller.signal });
-      if (!isCurrentRequest()) return;
-      setLogs(logsPayload);
-
-      const [summaryResult, facetsResult, timeseriesResult, breakdownResult] = await Promise.allSettled([
+      const [logsResult, summaryResult, facetsResult, timeseriesResult, breakdownResult] = await Promise.allSettled([
+        fetchJSON<LogsResponse>(`/api/logs?${nextQueryString}`, { signal: controller.signal }),
         fetchJSON<{ data: Summary }>(`/api/logs/summary?${nextBaseQueryString}`, { signal: controller.signal }),
         fetchJSON<{ data: LogFacets }>(`/api/logs/facets?${nextBaseQueryString}`, { signal: controller.signal }),
         fetchJSON<{ data: AnalyticsPoint[] }>(`/api/logs/analytics?type=timeseries&group_by=&interval_seconds=3600&${nextBaseQueryString}`, { signal: controller.signal }),
@@ -451,10 +487,12 @@ export default function LogsCommandCenter({
       ]);
 
       if (!isCurrentRequest()) return;
+      if (logsResult.status === "rejected") throw logsResult.reason;
+      setLogs(logsResult.value);
       if (summaryResult.status === "fulfilled") setSummary(summaryResult.value.data ?? {});
       else setSummaryUnavailable(true);
       if (facetsResult.status === "fulfilled") setFacets(facetsResult.value.data ?? {});
-      if (timeseriesResult.status === "fulfilled") setTimeseries(timeseriesResult.value.data ?? []);
+      if (timeseriesResult.status === "fulfilled") setTimeseries(limitChartPoints(timeseriesResult.value.data ?? []));
       else setTimeseriesUnavailable(true);
       if (breakdownResult.status === "fulfilled") setBreakdown(breakdownResult.value.data ?? []);
       else setBreakdownUnavailable(true);
@@ -493,6 +531,11 @@ export default function LogsCommandCenter({
   }, [loadData, loadRangeStats]);
 
   useEffect(() => {
+    if (hasCompleteInitialDataRef.current) {
+      hasCompleteInitialDataRef.current = false;
+      return;
+    }
+
     let disposed = false;
     queueMicrotask(() => {
       if (!disposed) void loadData();
@@ -505,6 +548,11 @@ export default function LogsCommandCenter({
   }, [loadData]);
 
   useEffect(() => {
+    if (hasInitialRangeStatsRef.current) {
+      hasInitialRangeStatsRef.current = false;
+      return;
+    }
+
     let disposed = false;
     queueMicrotask(() => {
       if (!disposed) void loadRangeStats();
@@ -2304,6 +2352,15 @@ function formatTimeseries(points: AnalyticsPoint[], formatters: LogsFormatter) {
     latency: Math.round(point.latency_p95_ms ?? 0),
     cost: Number((point.cost_usd ?? 0).toFixed(4)),
   }));
+}
+
+function limitChartPoints<T>(points: T[]): T[] {
+  if (points.length <= MAX_CHART_POINTS) return points;
+  const step = (points.length - 1) / (MAX_CHART_POINTS - 1);
+  return Array.from(
+    { length: MAX_CHART_POINTS },
+    (_, index) => points[Math.round(index * step)],
+  );
 }
 
 function formatExactCurrencyValue(value: number, locale: string) {

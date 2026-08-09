@@ -3,7 +3,9 @@
 import { ExternalLink } from "lucide-react";
 import type { ChangeEvent } from "react";
 
-import { AppCodeTextareaField, AppTextField, ChipInput } from "@/components/app-ui";
+import { AppCodeTextareaField } from "@/components/app-ui/AppCodeTextareaField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { ChipInput } from "@/components/app-ui/ChipInput";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import type { ProviderConnectionSchema, ProviderConnectionSchemaField } from "./types";
 import type { ProviderCredentialValues } from "./credential-schema";

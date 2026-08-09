@@ -10,7 +10,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { SettingsAuditMeta, StatusOptionGroup } from "@/components/app-ui";
+import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
+import { StatusOptionGroup } from "@/components/app-ui/StatusOptionGroup";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

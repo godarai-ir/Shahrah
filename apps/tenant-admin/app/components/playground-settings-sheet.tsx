@@ -3,7 +3,13 @@
 import * as React from "react";
 import { CircleHelp, Plus, Trash2, Wrench } from "lucide-react";
 
-import { AppCodeTextareaField, AppNumberField, AppSelectField, AppSwitchField, AppTextField, EmptyState, HelpLink } from "@/components/app-ui";
+import { AppCodeTextareaField } from "@/components/app-ui/AppCodeTextareaField";
+import { AppNumberField } from "@/components/app-ui/AppNumberField";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { HelpLink } from "@/components/app-ui/HelpLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";

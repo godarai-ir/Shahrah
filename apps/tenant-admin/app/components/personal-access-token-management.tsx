@@ -4,7 +4,17 @@ import { FormEvent, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { KeyRound, Plus, RefreshCcw, Trash2 } from "lucide-react";
 
-import { AppCard, ConfirmDialog, DateTimeValue, EmptyState, ExpirationDurationField, FormSheet, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { ExpirationDurationField } from "@/components/app-ui/ExpirationDurationField";
+import { FormSheet } from "@/components/app-ui/FormSheet";
+import { OneTimeSecretDialog } from "@/components/app-ui/OneTimeSecretDialog";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { SearchField } from "@/components/app-ui/SearchField";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

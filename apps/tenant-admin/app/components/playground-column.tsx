@@ -1,21 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, Play, Plus, Save, Settings2, Square, Trash2 } from "lucide-react";
 
-import {
-  CopyAction,
-  EmptyState,
-  formatJson,
-  JsonEditorField,
-  MarkdownRenderer,
-  PromptMessageEditor,
-  RunTelemetryStrip,
-  StatusBadge,
-  VariableTextareaField,
-  type PromptMessageRole,
-  type RunTelemetryItem,
-} from "@/components/app-ui";
+import { CopyAction } from "@/components/app-ui/CopyAction";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { formatJson, JsonEditorField } from "@/components/app-ui/JsonEditor";
+import { PromptMessageEditor, type PromptMessageRole } from "@/components/app-ui/PromptMessageEditor";
+import { RunTelemetryStrip, type RunTelemetryItem } from "@/components/app-ui/RunTelemetryStrip";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
+import { VariableTextareaField } from "@/components/app-ui/VariableTextarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +30,14 @@ import {
   type PlaygroundMode,
   type PlaygroundRunResult,
 } from "./playground-domain";
+
+const MarkdownRenderer = dynamic(
+  () => import("@/components/app-ui/MarkdownRenderer").then((module) => module.MarkdownRenderer),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-24 animate-pulse rounded-xl bg-muted/35" aria-hidden="true" />,
+  },
+);
 
 type Translation = (key: string, values?: Record<string, string | number>) => string;
 

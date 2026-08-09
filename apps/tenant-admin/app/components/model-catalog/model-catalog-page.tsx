@@ -224,16 +224,25 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
   useEffect(() => {
     if (state.tab !== "models") return;
     if (!selectedProvider || !selectedAccountID) {
-      setModels([]);
-      setLoadedModelScope("");
-      setModelLoadError(null);
-      setLoadingModels(false);
-      return;
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setModels([]);
+        setLoadedModelScope("");
+        setModelLoadError(null);
+        setLoadingModels(false);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
     let cancelled = false;
     const controller = new AbortController();
-    setLoadingModels(true);
-    setModelLoadError(null);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoadingModels(true);
+      setModelLoadError(null);
+    });
     requestAllAccountModels(selectedProvider, selectedAccountID, controller.signal)
       .then((accountModels) => {
         if (cancelled) return;

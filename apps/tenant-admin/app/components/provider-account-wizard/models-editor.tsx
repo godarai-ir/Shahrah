@@ -1,12 +1,14 @@
 ﻿"use client";
 
 import type React from "react";
-import { CopyAction, TablePagination } from "@/components/app-ui";
+import { CopyAction } from "@/components/app-ui/CopyAction";
+import { TablePagination } from "@/components/app-ui/TablePagination";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Code2, ExternalLink, LayoutGrid, RotateCcw, Search, Settings, SlidersHorizontal, Table2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { AppSelectField, EmptyState } from "@/components/app-ui";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { EmptyState } from "@/components/app-ui/EmptyState";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -634,10 +636,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     });
   }, [buildModelFqn, tenantBaseUrl]);
 
-  const enabledModelCount = useMemo(
-    () => Object.values(modelDrafts).filter((draft) => draft.enabled).length,
-    [modelDrafts],
-  );
   const allInputModalities = useMemo(
     () => Array.from(new Set(providerModels.flatMap((model) => model.input_modalities ?? []))),
     [providerModels],

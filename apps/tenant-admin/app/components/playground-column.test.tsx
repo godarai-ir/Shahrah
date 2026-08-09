@@ -55,7 +55,7 @@ describe("playground output", () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:generated-image");
   });
 
-  it("renders chat responses as Markdown with formatted code", () => {
+  it("renders chat responses as Markdown with formatted code", async () => {
     const column = createPlaygroundColumn("Option 1", "System");
     const result: PlaygroundRunResult = {
       status: "success",
@@ -87,7 +87,13 @@ describe("playground output", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { level: 2, name: "TypeScript" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole(
+        "heading",
+        { level: 2, name: "TypeScript" },
+        { timeout: 10_000 },
+      ),
+    ).toBeInTheDocument();
     expect(container.querySelector(".token.keyword")).toHaveTextContent("const");
   });
 });

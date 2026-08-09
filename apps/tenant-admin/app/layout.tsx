@@ -6,9 +6,9 @@ import localFont from "next/font/local";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
 import AppProviders from "@/app/components/app-providers";
-import { QueryProvider } from "@/app/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { getLocaleDirection } from "@/lib/locale-direction";
+import { pickMessages } from "@/lib/pick-messages";
 import { resolveRequestOriginFromHeaders } from "@/lib/tenant";
 
 import "./globals.css";
@@ -17,6 +17,8 @@ const themeBootstrapScript = createThemeBootstrapScript({
   defaultTheme: "system",
   legacyStorageKeys: ["shahrah-theme", "vite-ui-theme"],
 });
+
+const ROOT_MESSAGE_NAMESPACES = ["common", "theme", "login", "invite"] as const;
 
 const estedad = localFont({
   src: "./fonts/Estedad-Variable.woff2",
@@ -103,7 +105,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const locale = await getLocale();
-  const messages = await getMessages();
+  const messages = pickMessages(await getMessages(), ROOT_MESSAGE_NAMESPACES);
   const common = await getTranslations("common");
 
   return (
@@ -119,15 +121,13 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full bg-background text-foreground">
         <AppProviders locale={locale} messages={messages}>
-          <QueryProvider>
-            {children}
-            <Toaster
-              position="top-center"
-              dir={getLocaleDirection(locale)}
-              containerAriaLabel={common("feedback.notifications")}
-              closeButtonAriaLabel={common("feedback.closeNotification")}
-            />
-          </QueryProvider>
+          {children}
+          <Toaster
+            position="top-center"
+            dir={getLocaleDirection(locale)}
+            containerAriaLabel={common("feedback.notifications")}
+            closeButtonAriaLabel={common("feedback.closeNotification")}
+          />
         </AppProviders>
       </body>
     </html>

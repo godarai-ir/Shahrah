@@ -17,7 +17,8 @@ import {
 } from "recharts";
 import { Activity, ChartNoAxesCombined } from "lucide-react";
 
-import { AppCard, EmptyState } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { EmptyState } from "@/components/app-ui/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import {
   ChartContainer,

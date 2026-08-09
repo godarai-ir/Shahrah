@@ -4,7 +4,16 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info, Plus, UsersRound } from "lucide-react";
 
-import { AppCard, AppEmailField, AppSelectField, CommercialPlanUpgradeDialog, FormSheet, OperationNotice, RowActionsMenu, SearchField, TableEmptyRow, TableLoadingRows, TablePagination } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { AppEmailField } from "@/components/app-ui/AppEmailField";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
+import { FormSheet } from "@/components/app-ui/FormSheet";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
+import { SearchField } from "@/components/app-ui/SearchField";
+import { TablePagination } from "@/components/app-ui/TablePagination";
+import { TableEmptyRow, TableLoadingRows } from "@/components/app-ui/TableStateRows";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

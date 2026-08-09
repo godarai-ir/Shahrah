@@ -5,7 +5,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { normalizeError, requestJSON } from "@/app/components/provider-account-wizard/utils";
-import { ConfirmDialog, OperationNotice, PageContainer } from "@/components/app-ui";
+import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { PageContainer } from "@/components/app-ui/PageContainer";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 
 import { PromptRegistryList } from "./prompt-registry-list";

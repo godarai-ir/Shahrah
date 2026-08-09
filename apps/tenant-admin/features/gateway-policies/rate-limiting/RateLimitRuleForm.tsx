@@ -7,7 +7,14 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
-import { AppSelectField, AppSwitchField, DisplayNameField, FormSection, IdentifierField, PageContainer, PageHeader, RemovableChipList } from "@/components/app-ui";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
+import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
+import { FormSection } from "@/components/app-ui/FormSection";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { PageContainer } from "@/components/app-ui/PageContainer";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { RemovableChipList } from "@/components/app-ui/RemovableChipList";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

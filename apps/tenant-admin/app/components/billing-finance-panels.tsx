@@ -6,7 +6,15 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, BarChart3, Building2, CreditCard, Download, FileImage, FileText, Landmark, ReceiptText, Tag, TicketPercent, Trash2, Upload, WalletCards, type LucideIcon } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-import { AppCard, AppSelectField, AppTextField, CopyableValue, DisplayNameField, FormSection, MetricCard, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { CopyableValue } from "@/components/app-ui/CopyableValue";
+import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
+import { FormSection } from "@/components/app-ui/FormSection";
+import { MetricCard } from "@/components/app-ui/MetricCard";
+import { SettingsCard } from "@/components/app-ui/SettingsCard";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Attachment,

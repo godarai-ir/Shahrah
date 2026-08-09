@@ -12,7 +12,27 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AppCard, AppSelectField, AppTextField, CheckboxOptionList, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, DateTimeValue, DisplayNameField, EmptyState, ExpirationDurationField, FormSheet, IdentifierField, ModelNameValue, OneTimeSecretDialog, OperationNotice, PageHeader, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { AppTextField } from "@/components/app-ui/AppTextField";
+import { CheckboxOptionList } from "@/components/app-ui/CheckboxOptionList";
+import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
+import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
+import { CopyAction } from "@/components/app-ui/CopyAction";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { ExpirationDurationField } from "@/components/app-ui/ExpirationDurationField";
+import { FormSheet } from "@/components/app-ui/FormSheet";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { ModelNameValue } from "@/components/app-ui/ModelNameValue";
+import { OneTimeSecretDialog } from "@/components/app-ui/OneTimeSecretDialog";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { SearchField } from "@/components/app-ui/SearchField";
+import { StatusBadge as AppStatusBadge } from "@/components/app-ui/StatusBadge";
+import { TableEmptyRow, TableLoadingRows } from "@/components/app-ui/TableStateRows";
+import { TypedConfirmDialog } from "@/components/app-ui/TypedConfirmDialog";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

@@ -8,7 +8,7 @@ import "prismjs/components/prism-json";
 import "prismjs/components/prism-powershell";
 import { Code2 } from "lucide-react";
 
-import { CopyAction } from "@/components/app-ui";
+import { CopyAction } from "@/components/app-ui/CopyAction";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 export function CodeExampleBlock(props: {

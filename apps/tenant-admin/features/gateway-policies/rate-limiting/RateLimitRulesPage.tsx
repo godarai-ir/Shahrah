@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Gauge, Pencil, Power, Trash2 } from "lucide-react";
 
-import { OperationNotice, RowActionsMenu, StatusBadge } from "@/components/app-ui";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";

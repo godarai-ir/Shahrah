@@ -4,7 +4,9 @@ import { FormEvent, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link2, Mail, Send, Smartphone } from "lucide-react";
 
-import { PageHeader, SettingsCard, StatusBadge } from "@/components/app-ui";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { SettingsCard } from "@/components/app-ui/SettingsCard";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

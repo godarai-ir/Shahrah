@@ -5,7 +5,12 @@ import Link from "next/link";
 import { CalendarPlus, Clock3, Download, File, Flag, Headphones, LifeBuoy, LockKeyhole, MessagesSquare, Send, Star, Tag, UserRound } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { AppTextareaField, DateTimeValue, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, PageContainer } from "@/components/app-ui";
+import { AppTextareaField } from "@/components/app-ui/AppTextField";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { EntityIdentityHeader } from "@/components/app-ui/EntityIdentityHeader";
+import { PageContainer } from "@/components/app-ui/PageContainer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Attachment, AttachmentActions, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Badge } from "@/components/ui/badge";

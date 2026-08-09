@@ -1,6 +1,6 @@
 import { LucideIcon } from "lucide-react";
-import { MetricCard } from "@/components/app-ui";
-import { StatusBadge } from "@/components/app-ui";
+import { MetricCard } from "@/components/app-ui/MetricCard";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { cn } from "@/lib/utils";
 
 type StatCardProps = {

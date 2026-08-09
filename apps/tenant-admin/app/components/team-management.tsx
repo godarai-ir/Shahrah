@@ -11,7 +11,25 @@ import {
 } from "lucide-react";
 
 import { usePermissions } from "@/app/components/permissions-context";
-import { AppCard, AppSelectField, CheckboxOptionList, CommercialPlanUpgradeDialog, DateTimeValue, DisplayNameField, EmptyState, FilterCombobox, FormSheet, IdentifierField, OperationNotice, PageHeader, RefreshButton, RowActionsMenu, SearchField, StatusBadge as AppStatusBadge, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { CheckboxOptionList } from "@/components/app-ui/CheckboxOptionList";
+import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
+import { FormSheet } from "@/components/app-ui/FormSheet";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { RefreshButton } from "@/components/app-ui/RefreshButton";
+import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
+import { SearchField } from "@/components/app-ui/SearchField";
+import { StatusBadge as AppStatusBadge } from "@/components/app-ui/StatusBadge";
+import { TablePagination } from "@/components/app-ui/TablePagination";
+import { TableEmptyRow, TableLoadingRows } from "@/components/app-ui/TableStateRows";
+import { TypedConfirmDialog } from "@/components/app-ui/TypedConfirmDialog";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

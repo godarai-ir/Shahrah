@@ -7,7 +7,12 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, X } from "lucide-react";
 
-import { AppNumberField, AppSelectField, FormSection, IdentifierField, PageContainer, PageHeader } from "@/components/app-ui";
+import { AppNumberField } from "@/components/app-ui/AppNumberField";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { FormSection } from "@/components/app-ui/FormSection";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { PageContainer } from "@/components/app-ui/PageContainer";
+import { PageHeader } from "@/components/app-ui/PageHeader";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

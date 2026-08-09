@@ -27,8 +27,16 @@ export type VariableTextareaFieldProps = VariableTextareaProps & {
 };
 
 export function VariableTextarea({ variables, containerClassName, overlayClassName, className, value, defaultValue, dir, disabled, onScroll, ...props }: VariableTextareaProps) {
-  const [scrollPosition, setScrollPosition] = React.useState({ left: 0, top: 0 });
+  const overlayContentRef = React.useRef<HTMLDivElement>(null);
+  const animationFrameRef = React.useRef<number | null>(null);
   const text = value === undefined ? String(defaultValue ?? "") : String(value ?? "");
+
+  React.useEffect(
+    () => () => {
+      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+    },
+    [],
+  );
 
   return (
     <div className={cn("relative rounded-md", disabled && "opacity-50", containerClassName)}>
@@ -39,7 +47,14 @@ export function VariableTextarea({ variables, containerClassName, overlayClassNa
         dir={dir}
         disabled={disabled}
         onScroll={(event) => {
-          setScrollPosition({ left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop });
+          const { scrollLeft, scrollTop } = event.currentTarget;
+          if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = requestAnimationFrame(() => {
+            if (overlayContentRef.current) {
+              overlayContentRef.current.style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px)`;
+            }
+            animationFrameRef.current = null;
+          });
           onScroll?.(event);
         }}
         className={cn(
@@ -56,8 +71,8 @@ export function VariableTextarea({ variables, containerClassName, overlayClassNa
         )}
       >
         <div
+          ref={overlayContentRef}
           className="min-h-full whitespace-pre-wrap break-words"
-          style={{ transform: `translate(${-scrollPosition.left}px, ${-scrollPosition.top}px)` }}
         >
           {renderVariableText(text, variables)}
         </div>

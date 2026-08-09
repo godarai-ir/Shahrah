@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import type { ProviderCatalogModel } from "@/app/components/provider-account-wizard/types";
-import { SearchPickerDialog } from "@/components/app-ui";
+import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 

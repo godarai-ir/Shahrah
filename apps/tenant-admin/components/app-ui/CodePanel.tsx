@@ -1,7 +1,6 @@
 import * as React from "react";
 
-import type { CodeBlockProps } from "@/components/app-ui/CodeBlock";
-import { CodeViewer } from "@/components/app-ui/CodeViewer";
+import { CodeBlock, type CodeBlockProps } from "@/components/app-ui/CodeBlock";
 import { CopyAction, type CopyActionProps } from "@/components/app-ui/CopyAction";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,11 +33,13 @@ export function CodePanel({ title, titleHidden = false, description, displayLang
         </div>
       </CardHeader>
       <CardContent className={cn("p-4", contentClassName)}>
-        <CodeViewer
-          value={codeBlockProps.code}
+        <CodeBlock
+          code={codeBlockProps.code}
           language={codeBlockProps.language}
-          containerClassName={codeBlockProps.className}
-          aria-label={typeof title === "string" ? title : undefined}
+          className={codeBlockProps.className}
+          highlightedTerms={codeBlockProps.highlightedTerms}
+          maxHeightClassName={codeBlockProps.maxHeightClassName}
+          preClassName={codeBlockProps.preClassName}
         />
       </CardContent>
     </Card>

@@ -2,7 +2,9 @@
 
 import { AlertCircle } from "lucide-react";
 
-import { AppSelectField, CheckboxOptionList, FormDialog } from "@/components/app-ui";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { CheckboxOptionList } from "@/components/app-ui/CheckboxOptionList";
+import { FormDialog } from "@/components/app-ui/FormDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 

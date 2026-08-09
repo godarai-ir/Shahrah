@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 
-import { DisplayNameField } from "@/components/app-ui";
+import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { hideMobileIdentity } from "@/lib/auth/mobile-auth-ui";

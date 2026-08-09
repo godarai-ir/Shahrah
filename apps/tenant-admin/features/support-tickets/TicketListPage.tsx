@@ -6,7 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Inbox, Plus } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { AppSelectField, DataListPanel, EmptyState, PageContainer, TablePagination } from "@/components/app-ui";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { DataListPanel } from "@/components/app-ui/DataListPanel";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { PageContainer } from "@/components/app-ui/PageContainer";
+import { TablePagination } from "@/components/app-ui/TablePagination";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

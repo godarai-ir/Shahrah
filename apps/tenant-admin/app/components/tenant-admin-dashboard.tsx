@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   BookOpen,
@@ -11,12 +12,22 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { AppCard, CompactValue, MetricCard, RefreshButton } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { CompactValue } from "@/components/app-ui/CompactValue";
+import { MetricCard } from "@/components/app-ui/MetricCard";
+import { RefreshButton } from "@/components/app-ui/RefreshButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCompactNumber } from "@/lib/compact-number";
-import { DashboardAnalytics } from "./dashboard-analytics";
+
+const DynamicDashboardAnalytics = dynamic(
+  () => import("./dashboard-analytics").then((module) => module.DashboardAnalytics),
+  {
+    ssr: false,
+    loading: () => <DashboardAnalyticsPlaceholder />,
+  },
+);
 
 type TenantSubscription = {
   plan_slug?: string;
@@ -27,6 +38,14 @@ type TenantSubscription = {
   current_period_end?: string;
   trial_started_at?: string;
   trial_ends_at?: string;
+};
+
+type DashboardAnalyticsProps = {
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  currentUsage: number | null;
+  requestLimit: number | null;
+  refreshKey: number;
 };
 
 type UsageCounter = {
@@ -232,7 +251,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
         </Alert>
       ) : null}
 
-      <DashboardAnalytics
+      <DeferredDashboardAnalytics
         currentPeriodStart={subscription?.current_period_start}
         currentPeriodEnd={subscription?.current_period_end}
         currentUsage={requestUsageValue}
@@ -259,6 +278,54 @@ function UsageSummaryCard(props: {
       icon={props.icon}
       tone={props.tone}
     />
+  );
+}
+
+function DashboardAnalyticsPlaceholder() {
+  return (
+    <section className="grid min-h-96 gap-4" aria-hidden="true">
+      <div className="min-h-72 animate-pulse rounded-xl border bg-muted/35" />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="min-h-64 animate-pulse rounded-xl border bg-muted/35" />
+        <div className="min-h-64 animate-pulse rounded-xl border bg-muted/35" />
+      </div>
+    </section>
+  );
+}
+
+function DeferredDashboardAnalytics(props: DashboardAnalyticsProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    const target = containerRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") {
+      let disposed = false;
+      queueMicrotask(() => {
+        if (!disposed) setShouldLoad(true);
+      });
+      return () => {
+        disposed = true;
+      };
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setShouldLoad(true);
+        observer.disconnect();
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(target);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef}>
+      {shouldLoad ? <DynamicDashboardAnalytics {...props} /> : <DashboardAnalyticsPlaceholder />}
+    </div>
   );
 }
 

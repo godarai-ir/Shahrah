@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Plus } from "lucide-react";
 
-import { DisplayNameField, FormSheet, IdentifierField, PermissionEditor, PermissionSummary } from "@/components/app-ui";
+import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
+import { FormSheet } from "@/components/app-ui/FormSheet";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { PermissionEditor } from "@/components/app-ui/PermissionEditor";
+import { PermissionSummary } from "@/components/app-ui/PermissionSummary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";

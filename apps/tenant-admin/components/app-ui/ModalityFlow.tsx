@@ -40,7 +40,7 @@ export function ModalityFlow({
 
   return (
     <TooltipProvider>
-      <div className={cn("flex items-center gap-2", className)} dir="rtl">
+      <div className={cn("flex items-center gap-2", className)}>
         <ModalityGroup
           modalities={inputs}
           groupLabel={inputLabel}

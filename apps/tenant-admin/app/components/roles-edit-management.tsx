@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 
-import { DisplayNameField, FormSection, getPermissionSelectionSummary, IdentifierField, PageContainer, PageHeader, PermissionEditor, PermissionSummary } from "@/components/app-ui";
+import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
+import { FormSection } from "@/components/app-ui/FormSection";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { PageContainer } from "@/components/app-ui/PageContainer";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { PermissionEditor } from "@/components/app-ui/PermissionEditor";
+import { getPermissionSelectionSummary, PermissionSummary } from "@/components/app-ui/PermissionSummary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

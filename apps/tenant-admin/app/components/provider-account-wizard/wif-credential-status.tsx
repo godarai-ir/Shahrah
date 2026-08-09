@@ -2,11 +2,8 @@
 
 import { useLocale, useTranslations } from "next-intl";
 
-import {
-  DateTimeValue,
-  DefinitionList,
-  DefinitionListItem,
-} from "@/components/app-ui";
+import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
+import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
 import type { CredentialTestResult } from "@/app/components/provider-account-wizard/types";
 
 export function WIFCredentialStatus({

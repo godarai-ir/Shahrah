@@ -4,7 +4,8 @@ import { BookOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
-import { EntityIdentityHeader, StatusBadge } from "@/components/app-ui";
+import { EntityIdentityHeader } from "@/components/app-ui/EntityIdentityHeader";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";

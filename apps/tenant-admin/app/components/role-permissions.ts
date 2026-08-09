@@ -1,4 +1,5 @@
-import type { PermissionEditorLabels, PermissionOption, PermissionSummaryLabels } from "@/components/app-ui";
+import { type PermissionEditorLabels, type PermissionOption } from "@/components/app-ui/PermissionEditor";
+import { type PermissionSummaryLabels } from "@/components/app-ui/PermissionSummary";
 
 const REMOVED_PERMISSIONS = new Set(["provider_account:use_integrations"]);
 

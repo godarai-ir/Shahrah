@@ -23,7 +23,8 @@ import {
   Users,
 } from "lucide-react";
 
-import { CodeBlock, CodePanel } from "@/components/app-ui";
+import { CodeBlock } from "@/components/app-ui/CodeBlock";
+import { CodePanel } from "@/components/app-ui/CodePanel";
 import {
   deriveQuickStartJourney,
   type QuickStartAction,
@@ -40,7 +41,12 @@ import {
   buildBashCurlGuideCommand,
   getTenantApiBaseURL,
 } from "@/app/components/provider-account-wizard/utils";
-import { AppCard, EmptyState, HelpLink, OperationNotice, PageHeader, StatusBadge } from "@/components/app-ui";
+import { AppCard } from "@/components/app-ui/AppCard";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { HelpLink } from "@/components/app-ui/HelpLink";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { PageHeader } from "@/components/app-ui/PageHeader";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

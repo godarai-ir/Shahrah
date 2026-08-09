@@ -40,9 +40,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick, type AdminNavItem } from "@/app/components/admin-shell-nav";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
-import { ShellPageHeading, type ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
+import { ShellPageHeading } from "@/components/app-ui/ShellPageHeading";
 import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
 import { PermissionsProvider } from "@/app/components/permissions-context";
+import { AdminShellPageProvider, useAdminShellPage } from "@/app/components/admin-shell-page-context";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
@@ -70,8 +71,6 @@ type AdminShellClientProps = {
   };
   docsHref: string;
   appVersion: string;
-  pageHeader?: ShellPageMetadata;
-  contentPadding?: "default" | "none";
 };
 
 const moneyFormatter = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
@@ -114,6 +113,16 @@ const SIDEBAR_NAV_GROUPS: Array<{
 ];
 
 export default function AdminShellClient({
+  ...props
+}: AdminShellClientProps) {
+  return (
+    <AdminShellPageProvider>
+      <AdminShellClientContent {...props} />
+    </AdminShellPageProvider>
+  );
+}
+
+function AdminShellClientContent({
   children,
   tenantSlug,
   currentUser,
@@ -122,12 +131,11 @@ export default function AdminShellClient({
   subscriptionSummary,
   docsHref,
   appVersion,
-  pageHeader,
-  contentPadding = "default",
 }: AdminShellClientProps) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations("shell");
+  const { pageHeader, contentPadding } = useAdminShellPage();
 
   const userIdentity =
     currentUser.email ?? (mobileAuthUIEnabled ? currentUser.mobile : undefined) ?? currentUser.id;
@@ -163,7 +171,7 @@ export default function AdminShellClient({
           tabIndex={-1}
           className="theme-canvas min-w-0 rounded-none bg-background"
         >
-          <header className="sticky top-0 z-10 border-b border-border/80 bg-background/90 px-4 py-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 md:px-6">
+          <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-2.5 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <SidebarTrigger
                 className="border border-border bg-card shadow-xs"
@@ -195,7 +203,7 @@ export default function AdminShellClient({
             contentPadding === "none" && "overflow-hidden",
           )}>
             <PageHeaderInShellProvider enabled={Boolean(pageHeader)}>
-              <div className={cn("w-full animate-fade-in", contentPadding === "none" && "h-full")}>{children}</div>
+              <div className={cn("w-full", contentPadding === "none" && "h-full")}>{children}</div>
             </PageHeaderInShellProvider>
           </div>
         </SidebarInset>

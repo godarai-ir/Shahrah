@@ -4,7 +4,8 @@ import { useState } from "react";
 import { ShieldCheck, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { AppSelectField, OperationNotice, type OperationNoticeValue } from "@/components/app-ui";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { OperationNotice, type OperationNoticeValue } from "@/components/app-ui/OperationNotice";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";

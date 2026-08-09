@@ -7,7 +7,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronRight, CircleDollarSign, ExternalLink, KeyRound, Layers3, LayoutDashboard, SearchX, ShieldCheck, Users } from "lucide-react";
 
-import { AppSelectField, CopyAction, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSection, IdentifierField, MetricCard, OperationNotice, PageContainer, SectionHeader, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { AppSelectField } from "@/components/app-ui/AppSelectField";
+import { CopyAction } from "@/components/app-ui/CopyAction";
+import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
+import { EmptyState } from "@/components/app-ui/EmptyState";
+import { EntityIdentityHeader } from "@/components/app-ui/EntityIdentityHeader";
+import { DebouncedTextFilter } from "@/components/app-ui/FilterField";
+import { FormSection } from "@/components/app-ui/FormSection";
+import { IdentifierField } from "@/components/app-ui/IdentifierField";
+import { MetricCard } from "@/components/app-ui/MetricCard";
+import { OperationNotice } from "@/components/app-ui/OperationNotice";
+import { PageContainer } from "@/components/app-ui/PageContainer";
+import { SectionHeader } from "@/components/app-ui/SectionHeader";
+import { StatusBadge } from "@/components/app-ui/StatusBadge";
+import { TypedConfirmDialog } from "@/components/app-ui/TypedConfirmDialog";
+import { UnsavedChangesDialog } from "@/components/app-ui/UnsavedChangesDialog";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -367,16 +381,20 @@ export default function ProviderAccountWizard(props?: {
     () => providerModels.filter((model) => modelDrafts[model.model]?.enabled),
     [modelDrafts, providerModels],
   );
+  const modelDraftFingerprint = useMemo(() => JSON.stringify(modelDrafts), [modelDrafts]);
   const hasUnsavedModelChanges = Boolean(
     !isCreateMode
     && modelDraftBaselineRef.current
-    && JSON.stringify(modelDrafts) !== modelDraftBaselineRef.current,
+    && modelDraftFingerprint !== modelDraftBaselineRef.current,
   );
-  const credentialDraftFingerprint = credentialFingerprint({
-    authMode,
-    usePlatformManagedCredentials,
-    values: providerCredentialValues,
-  });
+  const credentialDraftFingerprint = useMemo(
+    () => credentialFingerprint({
+      authMode,
+      usePlatformManagedCredentials,
+      values: providerCredentialValues,
+    }),
+    [authMode, providerCredentialValues, usePlatformManagedCredentials],
+  );
   const hasUnsavedCredentialChanges = Boolean(
     !isCreateMode
     && credentialDraftBaselineRef.current

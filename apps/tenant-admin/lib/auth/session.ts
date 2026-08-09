@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { resolveTenantSlugFromHeaders } from "@/lib/tenant";
 import { getAuthService } from "./factory";
@@ -13,7 +14,7 @@ export type AuthContext = {
   user: TenantUser;
 };
 
-export async function getAuthContext(): Promise<AuthContext | null> {
+export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
   const cookieStore = await cookies();
   const sessionID = cookieStore.get(TENANT_ADMIN_SESSION_COOKIE)?.value;
   if (!sessionID) {
@@ -25,7 +26,7 @@ export async function getAuthContext(): Promise<AuthContext | null> {
 
   const authService = getAuthService();
   return authService.getAuthContext(sessionID, hintedTenantSlug);
-}
+});
 
 export async function requireAuth(redirectTo = "/login") {
   const auth = await getAuthContext();
