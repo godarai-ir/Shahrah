@@ -29,6 +29,13 @@ indigo actions, restrained cyan data-visualization colors, and independent
 semantic operational states. The result should feel precise, calm, and
 purpose-built for infrastructure work rather than like a generic SaaS template.
 
+The theme baseline is the shadcn Create preset `b1s92eQBk` (`Nova`, neutral
+surfaces, indigo actions, cyan charts, subtle menu accents). Product tokens
+adapt that baseline to the GodarAI brand: ice-blue application surfaces in
+light mode, the brand dark navy canvas in dark mode, and brand cyan for data
+visualization and focus emphasis. Keep the Persian product fonts and existing
+RTL component implementation when refreshing the preset.
+
 - Use the 4px spacing grid and prefer 8, 12, 16, 24, and 32px intervals.
 - Default cards use a 10px radius, a one-pixel semantic border, and a very
   restrained shadow. Elevation must communicate hierarchy, not decoration.
