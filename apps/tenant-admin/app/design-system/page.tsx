@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Activity, AlertTriangle, CheckCircle2, Database, Inbox, KeyRound, Shield, Trash2, Upload, X } from "lucide-react";
 
-import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, GodarAILogo, HelpLink, IdentifierField, JsonEditorField, JsonViewer, MarkdownRenderer, MetricCard, ModelNameValue, OneTimeSecretDialog, OperationNotice, type OperationNoticeValue, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { ActiveFilterChips, AppCard, AppCodeTextareaField, AppEmailField, AppSelectField, AppSwitchField, AppTextField, AppTextareaField, CheckboxOptionList, ChipInput, CodePanel, CompactValue, CommercialPlanUpgradeDialog, ConfirmDialog, CopyAction, CopyableValue, DataListPanel, DateTimeRangeField, DateTimeValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, DisplayNameField, EmptyState, EntityIdentityHeader, ExpirationDurationField, FilterCombobox, FormDialog, FormSection, FormSheet, GodarAILogo, HelpLink, IdentifierField, JsonEditorField, JsonViewer, MarkdownRenderer, MetricCard, ModelNameValue, ModalityFlow, OneTimeSecretDialog, OperationNotice, type OperationNoticeValue, PageContainer, PageHeader, PermissionEditor, PermissionSummary, PromptMessageEditor, RangeFilterField, RefreshButton, RemovableChipList, ResizableSplitPane, RowActionsMenu, RunTelemetryStrip, SearchField, SectionHeader, SettingsCard, ShellPageHeading, StatusBadge, StatusOptionGroup, TabbedCodePanel, TableEmptyRow, TableLoadingRows, TablePagination, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { SearchPickerDialog } from "@/components/app-ui/SearchPickerDialog";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { SettingsAuditMeta } from "@/components/app-ui/SettingsAuditMeta";
@@ -500,6 +500,7 @@ export default function DesignSystemPage() {
         <AppCard title="Chip input"><div className="flex flex-col gap-4"><ChipInput value={["429", "500"]} onValueChange={() => undefined} getRemoveLabel={(value) => `Remove ${value}`} placeholder="Add status code" /><RemovableChipList items={[{ value: "openai", label: "OpenAI", removeLabel: "Remove OpenAI" }]} onRemove={() => undefined} variant="outline" /></div></AppCard>
         <AppCard title="Settings audit metadata"><SettingsAuditMeta updatedAt="2025-03-12T09:30:00Z" updatedBy="Tenant admin" updatedAtLabel="Updated" updatedByLabel="By" fallback="Not set" locale="en" /></AppCard>
         <CodePanel title="Gateway request" description="A reusable titled code surface with optional actions." displayLanguage="cURL" code={'curl "$GATEWAY_URL/v1/models"'} language="bash" copy={{ copyLabel: "Copy code", copiedLabel: "Code copied" }} />
+        <TabbedCodePanel title="Shell examples" tabsLabel="Shell" tabs={[{ value: "bash", label: "Bash", language: "bash", code: "curl https://gateway.example/v1/models" }, { value: "powershell", label: "PowerShell", language: "powershell", code: "Invoke-RestMethod https://gateway.example/v1/models" }]} copy={{ copyLabel: "Copy code", copiedLabel: "Code copied" }} />
       </section>
 
       <section className="flex flex-col gap-4">
@@ -524,6 +525,16 @@ export default function DesignSystemPage() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="Status badges and states" />
+        <AppCard title="Modality flow" description="Icon-only model input and output modalities with accessible tooltips.">
+          <ModalityFlow
+            inputModalities={["text", "image", "pdf", "video"]}
+            outputModalities={["text", "audio"]}
+            inputLabel="Input"
+            outputLabel="Output"
+            emptyLabel="N/A"
+            getModalityLabel={(modality) => modality}
+          />
+        </AppCard>
         <div className="flex flex-wrap gap-2" aria-label="Semantic metadata chips">
           <Badge variant="info">Informational capability</Badge>
           <Badge variant="success">Recommended choice</Badge>

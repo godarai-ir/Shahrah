@@ -139,7 +139,9 @@ Use `ExpirationDurationField` for relative token expiry values accepted by the A
 
 Use `ModelNameValue` for model identifiers in tables and compact metadata. It keeps the displayed identifier LTR, monospace, left-aligned, single-line, and directly copyable. Tables should scroll horizontally instead of breaking a technical identifier character-by-character on narrow screens. When the UI summarizes multiple models, pass the full comma-separated identifiers through `copyValue` while keeping the shorter summary in `value`.
 
-Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared read-only CodeMirror-based `CodeViewer`, which provides line numbers, selection, search, keyboard focus, and horizontal scrolling for long technical lines. Use `CodeViewer` directly only inside an existing panel that already supplies this hierarchy. Keep `CodeBlock` for compact syntax-highlighted output that needs feature-owned term highlighting.
+Use `CodePanel` for titled snippets, raw API responses, and examples that need a language badge, description, copy action, or feature-owned actions. It composes the shared read-only CodeMirror-based `CodeViewer`, which provides line numbers, selection, search, keyboard focus, and horizontal scrolling for long technical lines. Set `titleHidden` when the surrounding context already provides a visible heading; the title remains available to assistive technology and labels the editor. Use `CodeViewer` directly only inside an existing panel that already supplies this hierarchy. Keep `CodeBlock` for compact syntax-highlighted output that needs feature-owned term highlighting.
+
+Use `TabbedCodePanel` when equivalent code examples are available in multiple languages or shells. It keeps every example in one `CodePanel`, renders the choices through the shared Tabs primitives, and updates the CodeMirror surface and copy action together when the active tab changes. Keep tab labels concise, provide a localized `tabsLabel`, and do not render one card per language.
 
 Use `MarkdownRenderer` for safe presentation of model-generated Markdown. It renders CommonMark and GFM structures through `react-markdown` and `remark-gfm`, keeps raw HTML inert, and delegates fenced code to the shared Prism-based `CodeBlock`. Use it for assistant responses and other read-only Markdown output; keep editable source in a code or text editor.
 
@@ -190,6 +192,17 @@ they remain visually distinct from neutral metadata.
 Use `EndpointModeBadgeList` when a model supports multiple endpoint modes. It
 deduplicates values, wraps responsively, and supports an optional display
 limit. Do not recreate endpoint-mode chips with feature-local `Badge` loops.
+
+## ModalityFlow
+
+Use `ModalityFlow` for compact model input/output modality summaries in tables
+and dense metadata surfaces. It keeps inputs on the right and outputs on the
+left, separates them with a directional arrow, and exposes every icon through
+a keyboard-accessible localized tooltip. Modality icons use semantic Badge
+variants for color coding, including a dedicated PDF document mark. Pass
+localized input, output, empty, and modality labels from the owning feature;
+do not recreate modality icon mappings or merge both sides into one
+undifferentiated badge list.
 
 ## StatusOptionGroup
 

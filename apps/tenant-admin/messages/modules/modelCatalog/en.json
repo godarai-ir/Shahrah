@@ -2,14 +2,14 @@
   "page": {
     "title": "Model Catalog",
     "description": "Manage provider connections and every model available to this tenant.",
-    "detailsTitle": "Provider details",
+    "detailsTitle": "AI provider and models",
     "detailsDescription": "Review readiness and manage models, access, and credentials.",
     "addTitle": "Add AI provider",
     "addDescription": "Choose a provider, configure its connection, provision models, and grant access."
   },
   "tabs": {
     "label": "Model catalog views",
-    "providers": "AI Providers",
+    "providers": "Provider account",
     "models": "Models"
   },
   "loading": "Loading model catalog",
@@ -21,12 +21,33 @@
     "ariaLabel": "Tenant model catalog",
     "resultCount": "{count, plural, =0 {No models} one {# model} other {# models}}"
   },
+  "explorer": {
+    "ariaLabel": "Workspace model hierarchy",
+    "providers": "Providers",
+    "accounts": "Accounts",
+    "models": "Active models",
+    "profile": "Model profile",
+    "modelCount": "{count, plural, =0 {No active models} one {# active model} other {# active models}}",
+    "emptyProviders": "No providers available",
+    "emptyProvidersDescription": "Create a provider account before browsing models.",
+    "selectProvider": "Select a provider",
+    "selectProviderDescription": "Accounts for the selected provider will appear here.",
+    "emptyAccounts": "No accounts available",
+    "emptyAccountsDescription": "No account has been created for this provider yet.",
+    "selectAccount": "Select an account",
+    "selectAccountDescription": "Models enabled for the selected account will appear here.",
+    "emptyModels": "No active models",
+    "emptyModelsDescription": "No model has been enabled for this account yet.",
+    "selectModel": "Select a model",
+    "selectModelDescription": "The selected model profile will appear here."
+  },
   "filters": {
     "search": "Search",
     "searchProviders": "Search provider or account name",
     "searchModels": "Search model or provider",
     "searchProviderPicker": "Search AI providers",
     "provider": "Provider",
+    "providers": "Providers",
     "account": "Account",
     "credential": "Credential",
     "readiness": "Readiness",
@@ -52,10 +73,10 @@
   },
   "columns": {
     "name": "Name",
-    "connectionIdentifier": "Connection identifier",
+    "connectionIdentifier": "Technical identifier",
     "models": "Models",
-    "credential": "Credential type",
-    "readiness": "Readiness",
+    "credential": "Credential",
+    "readiness": "Status",
     "updated": "Updated",
     "actions": "Actions",
     "model": "Model",
@@ -81,7 +102,9 @@
   },
   "pricing": {
     "input": "Input",
-    "output": "Output"
+    "output": "Output",
+    "inputPerMillion": "Input / 1M",
+    "outputPerMillion": "Output / 1M"
   },
   "modalities": {
     "text": "Text",
@@ -129,8 +152,10 @@
     "capabilityReadinessDescription": "Contract support by endpoint, modality, and transport. Live validation remains separate.",
     "deprecated": "This model is deprecated. Plan to move workloads to a supported model.",
     "deprecatedWithReplacement": "This model is deprecated. Recommended replacement: {replacement}.",
-    "bashExample": "Bash example",
-    "powershellExample": "PowerShell example"
+    "codeExample": "Code example",
+    "codeExampleTabs": "Code example shell",
+    "bash": "Bash",
+    "powershell": "PowerShell"
   },
   "rates": {
     "dimension": "Dimension",
@@ -166,6 +191,7 @@
     "managerCount": "Managers",
     "userCount": "Users",
     "unresolvedPricing": "Unresolved pricing",
+    "none": "None",
     "authMode": "Authentication mode",
     "firstModel": "First active model",
     "quickCode": "Quick request",
@@ -200,11 +226,13 @@
     "clearFilters": "Clear filters",
     "openMenu": "Actions for {account}",
     "viewModels": "View models",
+    "manage": "Manage",
     "details": "Details",
     "effectiveAccess": "Effective access test",
     "connectionTest": "Connection test",
     "backToCatalog": "Back to catalog",
     "copyConnectionIdentifier": "Copy connection identifier",
+    "copyModelIdentifier": "Copy model technical identifier",
     "copyFqn": "Copy model FQN",
     "retry": "Try again",
     "docs": "Docs",

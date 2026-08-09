@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 export type CodePanelProps = CodeBlockProps & {
   title: React.ReactNode;
+  titleHidden?: boolean;
   description?: React.ReactNode;
   displayLanguage?: React.ReactNode;
   actions?: React.ReactNode;
@@ -17,14 +18,14 @@ export type CodePanelProps = CodeBlockProps & {
   contentClassName?: string;
 };
 
-export function CodePanel({ title, description, displayLanguage, actions, copy, cardClassName, contentClassName, ...codeBlockProps }: CodePanelProps) {
+export function CodePanel({ title, titleHidden = false, description, displayLanguage, actions, copy, cardClassName, contentClassName, ...codeBlockProps }: CodePanelProps) {
   return (
     <Card className={cn("shadow-none", cardClassName)}>
       <CardHeader className="border-b">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-col gap-1">
+          <div className={cn("flex min-w-0 flex-col gap-1", titleHidden && !description && !displayLanguage && "sr-only")}>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <CardTitle className="text-base">{title}</CardTitle>
+              <CardTitle className={cn("text-base", titleHidden && "sr-only")}>{title}</CardTitle>
               {displayLanguage ? <Badge variant="outline" className="font-mono">{displayLanguage}</Badge> : null}
             </div>
             {description ? <CardDescription>{description}</CardDescription> : null}

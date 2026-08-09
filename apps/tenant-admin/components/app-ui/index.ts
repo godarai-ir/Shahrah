@@ -10,6 +10,7 @@ export { AppTextField, AppTextareaField, type AppTextFieldProps, type AppTextare
 export { CompactValue } from "./CompactValue";
 export { CodeBlock, type CodeBlockProps, type CodeLanguage } from "./CodeBlock";
 export { CodePanel, type CodePanelProps } from "./CodePanel";
+export { TabbedCodePanel, type CodePanelTab, type TabbedCodePanelProps } from "./TabbedCodePanel";
 export { CodeViewer, type CodeViewerProps } from "./CodeViewer";
 export { CheckboxOptionList, type CheckboxOption, type CheckboxOptionListProps } from "./CheckboxOptionList";
 export { ChipInput, type ChipInputProps } from "./ChipInput";
@@ -38,6 +39,7 @@ export { JsonViewer, serializeJson, type JsonViewerProps } from "./JsonViewer";
 export { MetricCard, type MetricCardProps } from "./MetricCard";
 export { MarkdownRenderer, type MarkdownRendererProps } from "./MarkdownRenderer";
 export { ModelNameValue, type ModelNameValueProps } from "./ModelNameValue";
+export { ModalityFlow, type ModalityFlowProps } from "./ModalityFlow";
 export { OneTimeSecretDialog, type OneTimeSecretDialogProps } from "./OneTimeSecretDialog";
 export { OperationNotice, type OperationNoticeKind, type OperationNoticeLabels, type OperationNoticeProps, type OperationNoticeValue } from "./OperationNotice";
 export { PageHeader } from "./PageHeader";

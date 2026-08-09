@@ -7,15 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
-export type FilterFieldProps = React.ComponentProps<typeof Field> & { label: React.ReactNode; htmlFor?: string };
+export type FilterFieldProps = React.ComponentProps<typeof Field> & {
+  label: React.ReactNode;
+  htmlFor?: string;
+  hideLabel?: boolean;
+};
 
-export function FilterField({ label, htmlFor, className, children, ...props }: FilterFieldProps) {
-  return <Field className={cn("min-w-0 gap-1", className)} {...props}><FieldLabel htmlFor={htmlFor} className="text-xs text-muted-foreground">{label}</FieldLabel>{children}</Field>;
+export function FilterField({ label, htmlFor, hideLabel = false, className, children, ...props }: FilterFieldProps) {
+  return <Field className={cn("min-w-0 gap-1", className)} {...props}><FieldLabel htmlFor={htmlFor} className={cn("text-xs text-muted-foreground", hideLabel && "sr-only")}>{label}</FieldLabel>{children}</Field>;
 }
 
-export type DebouncedTextFilterProps = Omit<React.ComponentProps<typeof Input>, "value" | "onChange"> & { label: React.ReactNode; value: string; onValueChange: (value: string) => void; debounceMs?: number; mono?: boolean };
+export type DebouncedTextFilterProps = Omit<React.ComponentProps<typeof Input>, "value" | "onChange"> & { label: React.ReactNode; value: string; onValueChange: (value: string) => void; debounceMs?: number; mono?: boolean; hideLabel?: boolean };
 
-export function DebouncedTextFilter({ label, value, onValueChange, debounceMs = 350, mono, id, className, ...props }: DebouncedTextFilterProps) {
+export function DebouncedTextFilter({ label, value, onValueChange, debounceMs = 350, mono, hideLabel = false, id, className, ...props }: DebouncedTextFilterProps) {
   const generatedID = React.useId();
   const controlID = id ?? generatedID;
   const [draftState, setDraftState] = React.useState({ confirmed: value, draft: value });
@@ -30,7 +34,7 @@ export function DebouncedTextFilter({ label, value, onValueChange, debounceMs = 
     }, debounceMs);
     return () => window.clearTimeout(timer);
   }, [debounceMs, draft, value]);
-  return <FilterField label={label} htmlFor={controlID}><Input id={controlID} value={draft} onChange={(event) => setDraftState({ confirmed: value, draft: event.target.value })} dir={mono ? "ltr" : props.dir} className={cn("h-8 text-xs", mono && "text-start font-mono", className)} {...props} /></FilterField>;
+  return <FilterField label={label} htmlFor={controlID} hideLabel={hideLabel}><Input id={controlID} value={draft} onChange={(event) => setDraftState({ confirmed: value, draft: event.target.value })} dir={mono ? "ltr" : props.dir} className={cn("h-8 text-xs", mono && "text-start font-mono", className)} {...props} /></FilterField>;
 }
 
 export type RangeFilterFieldProps = { label: React.ReactNode; value: [number, number]; min: number; max: number; step?: number; disabled?: boolean; minLabel: string; maxLabel: string; formatValue: (value: number) => React.ReactNode; onValueChange?: (value: [number, number]) => void; onValueCommit: (value: [number, number]) => void };

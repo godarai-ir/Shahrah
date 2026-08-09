@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { copyTextToClipboard } from "@/components/app-ui/CopyableValue";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronRight, CircleDollarSign, Copy, ExternalLink, KeyRound, Layers3, LayoutDashboard, Play, ScrollText, SearchX, ShieldCheck, Users } from "lucide-react";
+import { ChevronRight, CircleDollarSign, ExternalLink, KeyRound, Layers3, LayoutDashboard, SearchX, ShieldCheck, Users } from "lucide-react";
 
-import { AppSelectField, CodePanel, CopyableValue, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSection, IdentifierField, MetricCard, OperationNotice, PageContainer, SectionHeader, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
+import { AppSelectField, CopyAction, DebouncedTextFilter, DefinitionList, DefinitionListItem, EmptyState, EntityIdentityHeader, FormSection, IdentifierField, MetricCard, OperationNotice, PageContainer, SectionHeader, StatusBadge, TypedConfirmDialog, UnsavedChangesDialog } from "@/components/app-ui";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -85,26 +84,20 @@ import {
 } from "@/app/components/provider-account-wizard/wizard-layout";
 import {
   buildModelDiscoveryProviderHref,
-  buildBashCurlGuideCommand,
-  buildCurlGuidePayload,
   extractMessageFromPayload,
   formatDisplayPrice,
   formatProviderDisplayName,
   generateProviderAccountName,
-  getCurlGuideEndpoint,
-  getTenantApiBaseURL,
   normalizeError,
   normalizeProviderSlug,
   parseResponsePayload,
   requestJSON,
-  resolveCurlGuideMode,
   shouldGenerateProviderAccountName,
   stringsEqualFold,
   toNumberOrUndefined,
   unwrapData,
 } from "@/app/components/provider-account-wizard/utils";
 import { usePermissions } from "@/app/components/permissions-context";
-import { buildPlaygroundHref } from "@/app/components/playground-mode";
 import { canPermission } from "@/lib/authz";
 import { cn } from "@/lib/utils";
 
@@ -374,26 +367,6 @@ export default function ProviderAccountWizard(props?: {
     () => providerModels.filter((model) => modelDrafts[model.model]?.enabled),
     [modelDrafts, providerModels],
   );
-  const overviewQuickCode = useMemo(() => {
-    const model = selectedModels[0];
-    if (!account || !model) return null;
-    const fqn = `${account.provider}:${account.name}:${model.model}`;
-    const mode = resolveCurlGuideMode(model);
-    const endpoint = getCurlGuideEndpoint(mode);
-    return buildBashCurlGuideCommand({
-      baseUrl: getTenantApiBaseURL(),
-      endpoint,
-      payload: buildCurlGuidePayload(mode, fqn),
-    });
-  }, [account, selectedModels]);
-  const overviewPlaygroundHref = useMemo(() => {
-    const model = selectedModels[0];
-    if (!account || !model) return null;
-    return buildPlaygroundHref(
-      `${account.provider}:${account.name}:${model.model}`,
-      resolveCurlGuideMode(model),
-    );
-  }, [account, selectedModels]);
   const hasUnsavedModelChanges = Boolean(
     !isCreateMode
     && modelDraftBaselineRef.current
@@ -2392,50 +2365,6 @@ export default function ProviderAccountWizard(props?: {
 
                 {workspaceMode === "workspace" && account ? (
                   <>
-                    <EntityIdentityHeader
-                      title={<span dir="ltr">{account.name}</span>}
-                      identifier={`${account.provider}:${account.name}`}
-                      description={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
-                      leading={
-                        <ProviderLogo
-                          provider={account.provider}
-                          displayName={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
-                          logoURL={activeProvider?.logo_url}
-                          size={32}
-                        />
-                      }
-                      status={
-                        <StatusBadge
-                          status={readiness === "ready"
-                            ? "success"
-                            : readiness === "connection_failed" || readiness === "needs_credentials"
-                              ? "error"
-                              : "warning"}
-                        >
-                          {readiness === "ready"
-                            ? ux("readiness.ready")
-                            : readiness === "connection_failed"
-                              ? ux("readiness.connectionFailed")
-                              : readiness === "needs_credentials"
-                                ? ux("readiness.needsCredentials")
-                                : readiness === "needs_access"
-                                  ? ux("readiness.needsAccess")
-                                  : ux("readiness.pricingIncomplete")}
-                        </StatusBadge>
-                      }
-                      actions={
-                        <>
-                          <Button type="button" variant="outline" onClick={() => void handleTestCredentials()}>
-                            {catalogT("actions.connectionTest")}
-                          </Button>
-                          <Button type="button" variant="outline" onClick={() => navigateWorkspaceHref("/provider-accounts")}>
-                            {catalogT("actions.backToCatalog")}
-                          </Button>
-                        </>
-                      }
-                      className="rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5"
-                      titleClassName="text-lg sm:text-xl"
-                    />
                     <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-card-border bg-card p-2 shadow-xs sm:flex-row sm:items-center sm:justify-between">
                       <Tabs
                         value={visibleActiveTab}
@@ -2454,26 +2383,64 @@ export default function ProviderAccountWizard(props?: {
                           })}
                         </TabsList>
                       </Tabs>
-                      <div className="flex items-center gap-2 sm:shrink-0">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="w-full sm:w-auto"
-                          onClick={() => {
-                            void copyTextToClipboard(`${account.provider}:${account.name}`);
-                            showFeedbackToast({ kind: "success", title: ux("messages.fqnCopied") });
-                          }}
-                        >
-                          <Copy className="me-2 h-4 w-4" />
-                          {catalogT("actions.copyConnectionIdentifier")}
-                        </Button>
-                      </div>
                     </div>
+                    <EntityIdentityHeader
+                      title={<span dir="ltr">{account.name}</span>}
+                      description={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
+                      leading={
+                        <ProviderLogo
+                          provider={account.provider}
+                          displayName={formatProviderDisplayName(account.provider, activeProvider?.display_name)}
+                          logoURL={activeProvider?.logo_url}
+                          size={32}
+                        />
+                      }
+                      status={
+                        <>
+                          <CopyAction
+                            value={`${account.provider}:${account.name}`}
+                            copyLabel={catalogT("actions.copyConnectionIdentifier")}
+                            copyingLabel={catalogT("actions.copying")}
+                            copiedLabel={catalogT("actions.copied")}
+                          />
+                          <StatusBadge
+                            status={readiness === "ready"
+                              ? "success"
+                              : readiness === "connection_failed" || readiness === "needs_credentials"
+                                ? "error"
+                                : "warning"}
+                          >
+                            {readiness === "ready"
+                              ? ux("readiness.ready")
+                              : readiness === "connection_failed"
+                                ? ux("readiness.connectionFailed")
+                                : readiness === "needs_credentials"
+                                  ? ux("readiness.needsCredentials")
+                                  : readiness === "needs_access"
+                                    ? ux("readiness.needsAccess")
+                                    : ux("readiness.pricingIncomplete")}
+                          </StatusBadge>
+                        </>
+                      }
+                      actions={
+                        <>
+                          {!account.use_platform_managed_credentials ? (
+                            <Button type="button" variant="outline" onClick={() => void handleTestCredentials()}>
+                              {catalogT("actions.connectionTest")}
+                            </Button>
+                          ) : null}
+                          <Button type="button" variant="outline" onClick={() => navigateWorkspaceHref("/provider-accounts")}>
+                            {catalogT("actions.backToCatalog")}
+                          </Button>
+                        </>
+                      }
+                      className="rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5"
+                      titleClassName="text-lg sm:text-xl"
+                    />
 
                     {visibleActiveTab === "overview" ? (
                       <div className="flex flex-col gap-4 sm:gap-6">
-                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
                           <MetricCard
                             label={catalogT("details.modelCount")}
                             value={new Intl.NumberFormat(locale).format(selectedModelCount)}
@@ -2496,7 +2463,9 @@ export default function ProviderAccountWizard(props?: {
                           />
                           <MetricCard
                             label={catalogT("details.unresolvedPricing")}
-                            value={new Intl.NumberFormat(locale).format(unresolvedPricingCount)}
+                            value={unresolvedPricingCount === 0
+                              ? catalogT("details.none")
+                              : new Intl.NumberFormat(locale).format(unresolvedPricingCount)}
                             icon={CircleDollarSign}
                             density="compact"
                             tone={unresolvedPricingCount > 0 ? "warning" : "success"}
@@ -2505,8 +2474,6 @@ export default function ProviderAccountWizard(props?: {
                         <div className="grid min-w-0 gap-4 xl:grid-cols-3">
                           <div className="min-w-0 rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5 xl:col-span-3">
                             <DefinitionList columns={2}>
-                              <DefinitionListItem label={catalogT("columns.provider")} value={account.provider} valueDir="ltr" mono />
-                              <DefinitionListItem label={catalogT("columns.connectionIdentifier")} value={`${account.provider}:${account.name}`} valueDir="ltr" mono wrap />
                               <DefinitionListItem label={catalogT("details.authMode")} value={account.auth_mode} valueDir="ltr" mono />
                               <DefinitionListItem
                                 label={catalogT("drawer.credentialSource")}
@@ -2514,73 +2481,24 @@ export default function ProviderAccountWizard(props?: {
                               />
                             </DefinitionList>
                           </div>
-                        {selectedModels[0] ? (
-                          <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-card-border bg-card p-4 shadow-xs sm:p-5 xl:col-span-3">
-                            <div className="min-w-0">
-                              <h3 className="font-semibold">{catalogT("details.firstModel")}</h3>
-                              <CopyableValue
-                                value={`${account.provider}:${account.name}:${selectedModels[0].model}`}
+                          {!selectedModels[0] ? (
+                            <div className="xl:col-span-3">
+                              <OperationNotice
+                                notice={{ kind: "warning", message: catalogT("details.noModelRecovery") }}
                                 labels={{
-                                  valueAriaLabel: catalogT("drawer.fqn"),
-                                  copy: catalogT("actions.copyFqn"),
-                                  copying: catalogT("actions.copying"),
-                                  copied: catalogT("actions.copied"),
+                                  success: catalogT("notices.success"),
+                                  error: catalogT("notices.error"),
+                                  warning: catalogT("notices.warning"),
+                                  info: catalogT("notices.info"),
                                 }}
+                                action={
+                                  <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab("models")}>
+                                    {catalogT("actions.manageModel")}
+                                  </Button>
+                                }
                               />
                             </div>
-                            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                              {overviewPlaygroundHref ? (
-                                <Button asChild className="w-full sm:w-auto">
-                                  <Link href={overviewPlaygroundHref}>
-                                    <Play data-icon="inline-start" aria-hidden="true" />
-                                    {catalogT("actions.openPlayground")}
-                                  </Link>
-                                </Button>
-                              ) : null}
-                              <Button asChild variant="outline" className="w-full sm:w-auto">
-                                <Link
-                                  href={`/logs?${new URLSearchParams({
-                                    model: `${account.provider}:${account.name}:${selectedModels[0].model}`,
-                                    provider: account.provider,
-                                  }).toString()}`}
-                                >
-                                  <ScrollText data-icon="inline-start" aria-hidden="true" />
-                                  {catalogT("actions.viewLogs")}
-                                </Link>
-                              </Button>
-                            </div>
-                            {overviewQuickCode ? (
-                              <CodePanel
-                                title={catalogT("details.quickCode")}
-                                displayLanguage="Bash"
-                                language="bash"
-                                code={overviewQuickCode}
-                                copy={{
-                                  copyLabel: catalogT("actions.copyCode"),
-                                  copyingLabel: catalogT("actions.copying"),
-                                  copiedLabel: catalogT("actions.copied"),
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div className="xl:col-span-3">
-                            <OperationNotice
-                              notice={{ kind: "warning", message: catalogT("details.noModelRecovery") }}
-                              labels={{
-                                success: catalogT("notices.success"),
-                                error: catalogT("notices.error"),
-                                warning: catalogT("notices.warning"),
-                                info: catalogT("notices.info"),
-                              }}
-                              action={
-                                <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab("models")}>
-                                  {catalogT("actions.manageModel")}
-                                </Button>
-                              }
-                            />
-                          </div>
-                        )}
+                          ) : null}
                         </div>
                       </div>
                     ) : null}

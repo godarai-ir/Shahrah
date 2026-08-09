@@ -9,7 +9,6 @@ import {
   Boxes,
   CircleGauge,
   Eye,
-  FileSearch,
   KeyRound,
   Layers3,
   Network,
@@ -45,11 +44,9 @@ import { PageContainer } from "@/components/app-ui/PageContainer";
 import { RefreshButton } from "@/components/app-ui/RefreshButton";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
-import { TablePagination } from "@/components/app-ui/TablePagination";
 import { TypedConfirmDialog } from "@/components/app-ui/TypedConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -60,13 +57,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { ModelDetailsSheet } from "./model-details-sheet";
-import { formatCatalogModelDisplayName } from "./formatters";
+import { ModelCatalogExplorer } from "./model-catalog-explorer";
 import { classifyProviderAccountDeleteError } from "./provider-account-delete-error";
 import type {
   CatalogModel,
   CatalogModelResponse,
-  ModelAvailability,
   ProviderAccountsResponse,
 } from "./types";
 import {
@@ -74,8 +69,6 @@ import {
   patchModelCatalogURL,
   type ModelCatalogTab,
 } from "./url-state";
-
-const MODEL_PAGE_SIZE = 50;
 
 type ModelCatalogPageProps = {
   docsHref: string;
@@ -98,10 +91,10 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
   const [providers, setProviders] = useState<ProviderCatalogProvider[]>([]);
   const [models, setModels] = useState<CatalogModel[]>([]);
   const [catalogModelTotal, setCatalogModelTotal] = useState(0);
-  const [filteredModelTotal, setFilteredModelTotal] = useState(0);
-  const [modelOffset, setModelOffset] = useState(0);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
-  const [loadingModels, setLoadingModels] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(true);
+  const [loadedModelScope, setLoadedModelScope] = useState("");
+  const [modelLoadError, setModelLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<OperationNoticeValue | null>(null);
   const [deleteNotice, setDeleteNotice] = useState<OperationNoticeValue | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TenantProviderAccount | null>(null);
@@ -128,9 +121,6 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
       patch: Record<string, string | string[] | null | undefined>,
       mode: "push" | "replace" = "replace",
     ) => {
-      if (["q", "providers", "accounts", "sort", "order"].some((key) => key in patch)) {
-        setModelOffset(0);
-      }
       const next = patchModelCatalogURL(new URLSearchParams(queryString), patch);
       const href = next ? `${pathname}?${next}` : pathname;
       if (mode === "push") router.push(href);
@@ -180,51 +170,6 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
     };
   }, [reloadKey, t]);
 
-  useEffect(() => {
-    if (state.tab !== "models") return;
-    let cancelled = false;
-    const params = new URLSearchParams({
-      limit: String(MODEL_PAGE_SIZE),
-      offset: String(modelOffset),
-      sort: state.sort,
-      order: state.order,
-    });
-    if (state.q) params.set("q", state.q);
-    if (state.providers.length) params.set("providers", state.providers.join(","));
-    if (state.accounts.length) params.set("account_ids", state.accounts.join(","));
-    void Promise.resolve().then(() => {
-      if (!cancelled) setLoadingModels(true);
-      return requestJSON<CatalogModelResponse>(`/api/tenant-provider-account-models?${params.toString()}`);
-    })
-      .then((payload) => {
-        if (cancelled) return;
-        setModels(payload.data ?? []);
-        setFilteredModelTotal(payload.total ?? 0);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setModels([]);
-        setFilteredModelTotal(0);
-        setNotice({ kind: "error", message: normalizeError(error, t("errors.loadModels")) });
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingModels(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    modelOffset,
-    reloadKey,
-    state.accounts,
-    state.order,
-    state.providers,
-    state.q,
-    state.sort,
-    state.tab,
-    t,
-  ]);
-
   const providerBySlug = useMemo(
     () => new Map(providers.map((provider) => [provider.provider, provider])),
     [providers],
@@ -244,20 +189,71 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
       .map(([value, label]) => ({ value, label }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [accounts, providers]);
-  const accountOptions = useMemo(
-    () =>
-      accounts
-        .map((account) => {
-          const providerMetadata = providerBySlug.get(account.provider);
-          const providerName = formatProviderDisplayName(account.provider, providerMetadata?.display_name);
-          return {
-            value: account.id,
-            label: `${account.name} · ${providerName}`,
-          };
-        })
-        .sort((a, b) => a.label.localeCompare(b.label)),
+  const accountProviderSlugs = useMemo(
+    () => [...new Set(accounts.map((account) => account.provider))]
+      .sort((a, b) => formatProviderDisplayName(a, providerBySlug.get(a)?.display_name)
+        .localeCompare(formatProviderDisplayName(b, providerBySlug.get(b)?.display_name))),
     [accounts, providerBySlug],
   );
+  const selectedProvider = accountProviderSlugs.includes(state.modelProvider)
+    ? state.modelProvider
+    : accountProviderSlugs[0] ?? "";
+  const selectedProviderAccounts = useMemo(
+    () => accounts.filter((account) => account.provider === selectedProvider),
+    [accounts, selectedProvider],
+  );
+  const selectedAccountID = selectedProviderAccounts.some((account) => account.id === state.modelAccount)
+    ? state.modelAccount
+    : selectedProviderAccounts[0]?.id ?? "";
+  const selectedModelScope = selectedProvider && selectedAccountID
+    ? `${selectedProvider}:${selectedAccountID}`
+    : "";
+  const modelsPending = loadingModels || loadedModelScope !== selectedModelScope;
+
+  useEffect(() => {
+    if (state.tab !== "models" || loadingAccounts) return;
+    if (selectedProvider !== state.modelProvider) {
+      updateURL({ model_provider: selectedProvider || null, model_account: null, model: null });
+      return;
+    }
+    if (selectedAccountID !== state.modelAccount) {
+      updateURL({ model_account: selectedAccountID || null, model: null });
+    }
+  }, [loadingAccounts, selectedAccountID, selectedProvider, state.modelAccount, state.modelProvider, state.tab, updateURL]);
+
+  useEffect(() => {
+    if (state.tab !== "models") return;
+    if (!selectedProvider || !selectedAccountID) {
+      setModels([]);
+      setLoadedModelScope("");
+      setModelLoadError(null);
+      setLoadingModels(false);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    setLoadingModels(true);
+    setModelLoadError(null);
+    requestAllAccountModels(selectedProvider, selectedAccountID, controller.signal)
+      .then((accountModels) => {
+        if (cancelled) return;
+        setModels(accountModels);
+        setLoadedModelScope(selectedModelScope);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setModels([]);
+        setLoadedModelScope(selectedModelScope);
+        setModelLoadError(normalizeError(error, t("errors.loadModels")));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingModels(false);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [reloadKey, selectedAccountID, selectedModelScope, selectedProvider, state.tab, t]);
   const filteredAccounts = useMemo(() => {
     const query = state.q.toLocaleLowerCase();
     return accounts.filter((account) => {
@@ -274,13 +270,23 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
     });
   }, [accounts, state.accounts, state.credential, state.providers, state.q, state.readiness, summaries]);
 
-  const selectedModel = useMemo(
-    () =>
-      models.find(
-        (model) => model.provider === state.modelProvider && model.model === state.model,
-      ) ?? null,
-    [models, state.model, state.modelProvider],
+  const accountModels = useMemo(
+    () => models.filter(
+      (model) => model.provider === selectedProvider
+        && model.availability.some((availability) => availability.account_id === selectedAccountID),
+    ),
+    [models, selectedAccountID, selectedProvider],
   );
+  const selectedModel = useMemo(
+    () => accountModels.find((model) => model.model === state.model) ?? accountModels[0] ?? null,
+    [accountModels, state.model],
+  );
+
+  useEffect(() => {
+    if (state.tab !== "models" || modelsPending) return;
+    const nextModel = selectedModel?.model ?? "";
+    if (nextModel !== state.model) updateURL({ model: nextModel || null });
+  }, [modelsPending, selectedModel, state.model, state.tab, updateURL]);
   const filterChips = useMemo<ActiveFilterChip[]>(() => {
     const chips: ActiveFilterChip[] = [];
     for (const provider of state.providers) {
@@ -331,6 +337,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
 
   function changeTab(tab: string) {
     const nextTab = tab as ModelCatalogTab;
+    if (nextTab === "models") setLoadingModels(true);
     updateURL({
       tab: nextTab,
       account: null,
@@ -369,8 +376,6 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
   }
 
   const noResults = (state.q || filterChips.length > 0) && filteredAccounts.length === 0;
-  const modelStart = filteredModelTotal === 0 ? 0 : modelOffset + 1;
-  const modelEnd = Math.min(modelOffset + MODEL_PAGE_SIZE, filteredModelTotal);
   const formattedAccountCount = new Intl.NumberFormat(locale).format(accounts.length);
   const formattedCatalogModelCount = new Intl.NumberFormat(locale).format(catalogModelTotal);
 
@@ -386,7 +391,7 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
         }}
       />
 
-      <div className="flex flex-col gap-3 rounded-xl border border-card-border bg-card p-3 shadow-xs sm:p-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <Tabs value={state.tab} onValueChange={changeTab} className="min-w-0 flex-1">
           <TabsList variant="line" aria-label={t("tabs.label")} className="grid h-11 w-full grid-cols-2 gap-1 p-0 md:w-auto md:min-w-96">
             <TabsTrigger value="providers" className="h-11 min-w-0 justify-center px-2 sm:px-4">
@@ -421,198 +426,79 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
         </div>
       </div>
 
-      <DataListPanel
-        aria-label={state.tab === "providers" ? t("providers.ariaLabel") : t("models.ariaLabel")}
-        toolbarClassName="@container border-card-border shadow-xs"
-        contentClassName="@container border-card-border shadow-xs"
-        toolbar={
-          <div className="flex min-w-0 flex-col gap-4">
-            <div className="grid gap-3 @lg:grid-cols-2 @4xl:grid-cols-6">
-              <div className="@4xl:col-span-2">
+      {state.tab === "providers" ? (
+        <DataListPanel
+          aria-label={t("providers.ariaLabel")}
+          toolbarClassName="@container rounded-none border-0 bg-transparent p-0 shadow-none"
+          contentClassName="@container border-card-border shadow-xs"
+          toolbar={
+            <div className="flex min-w-0 flex-col gap-4">
+              <div className="grid gap-3 @lg:grid-cols-2">
                 <DebouncedTextFilter
                   label={t("filters.search")}
+                  hideLabel
                   value={state.q}
                   onValueChange={(value) => updateURL({ q: value })}
-                  placeholder={state.tab === "providers" ? t("filters.searchProviders") : t("filters.searchModels")}
+                  placeholder={t("filters.searchProviders")}
                 />
+                <FilterField label={t("filters.provider")} htmlFor="model-catalog-provider-filter" hideLabel>
+                  <FilterCombobox
+                    id="model-catalog-provider-filter"
+                    options={providerOptions.filter((option) => !state.providers.includes(option.value))}
+                    value=""
+                    onValueChange={(value) => updateURL({ providers: [...state.providers, value] })}
+                    placeholder={t("filters.providers")}
+                    emptyText={t("filters.noProvider")}
+                  />
+                </FilterField>
               </div>
-              <FilterField label={t("filters.provider")} htmlFor="model-catalog-provider-filter">
-                <FilterCombobox
-                  id="model-catalog-provider-filter"
-                  options={providerOptions.filter((option) => !state.providers.includes(option.value))}
-                  value=""
-                  onValueChange={(value) => updateURL({ providers: [...state.providers, value] })}
-                  placeholder={t("filters.addProvider")}
-                  emptyText={t("filters.noProvider")}
-                />
-              </FilterField>
-              <FilterField label={t("filters.account")} htmlFor="model-catalog-account-filter">
-                <FilterCombobox
-                  id="model-catalog-account-filter"
-                  options={accountOptions.filter((option) => !state.accounts.includes(option.value))}
-                  value=""
-                  onValueChange={(value) => updateURL({ accounts: [...state.accounts, value] })}
-                  placeholder={t("filters.addAccount")}
-                  emptyText={t("filters.noAccount")}
-                />
-              </FilterField>
-              {state.tab === "providers" ? (
-                <>
-                  <FilterField label={t("filters.credential")} htmlFor="model-catalog-credential-filter">
-                    <FilterCombobox
-                      id="model-catalog-credential-filter"
-                      options={[
-                        { value: "managed", label: t("credential.managed") },
-                        { value: "byok", label: t("credential.byok") },
-                      ]}
-                      value={state.credential}
-                      onValueChange={(value) => updateURL({ credential: value })}
-                      placeholder={t("filters.any")}
-                      emptyText={t("filters.noResult")}
-                      searchable={false}
-                    />
-                  </FilterField>
-                  <FilterField label={t("filters.readiness")} htmlFor="model-catalog-readiness-filter">
-                    <FilterCombobox
-                      id="model-catalog-readiness-filter"
-                      options={READINESS_VALUES.map((value) => ({
-                        value,
-                        label: readinessLabel(t, value),
-                      }))}
-                      value={state.readiness}
-                      onValueChange={(value) => updateURL({ readiness: value })}
-                      placeholder={t("filters.any")}
-                      emptyText={t("filters.noResult")}
-                      searchable={false}
-                    />
-                  </FilterField>
-                </>
-              ) : (
-                <>
-                  <FilterField label={t("filters.sort")} htmlFor="model-catalog-sort">
-                    <FilterCombobox
-                      id="model-catalog-sort"
-                      options={[
-                        "name",
-                        "provider",
-                        "availability",
-                        "context",
-                        "input_price",
-                        "output_price",
-                      ].map((value) => ({ value, label: t(`sort.${value}`) }))}
-                      value={state.sort}
-                      onValueChange={(value) => updateURL({ sort: value })}
-                      placeholder={t("filters.sort")}
-                      emptyText={t("filters.noResult")}
-                      searchable={false}
-                    />
-                  </FilterField>
-                  <FilterField label={t("filters.order")} htmlFor="model-catalog-order">
-                    <FilterCombobox
-                      id="model-catalog-order"
-                      options={[
-                        { value: "asc", label: t("sort.asc") },
-                        { value: "desc", label: t("sort.desc") },
-                      ]}
-                      value={state.order}
-                      onValueChange={(value) => updateURL({ order: value })}
-                      placeholder={t("filters.order")}
-                      emptyText={t("filters.noResult")}
-                      searchable={false}
-                    />
-                  </FilterField>
-                </>
-              )}
+              {filterChips.length > 0 ? (
+                <div className="border-t border-border/60 pt-3">
+                  <ActiveFilterChips items={filterChips} onRemove={removeFilter} getRemoveLabel={(item) => t("filters.remove", { filter: item.label, value: item.value ?? "" })} />
+                </div>
+              ) : null}
             </div>
-            {filterChips.length > 0 ? (
-              <div className="border-t border-border/60 pt-3">
-                <ActiveFilterChips
-                  items={filterChips}
-                  onRemove={removeFilter}
-                  getRemoveLabel={(item) => t("filters.remove", { filter: item.label, value: item.value ?? "" })}
-                />
-              </div>
-            ) : null}
-          </div>
-        }
-        loading={state.tab === "providers" ? loadingAccounts : loadingModels}
-        loadingLabel={t("loading")}
-        loadingRows={7}
-        empty={state.tab === "providers" ? filteredAccounts.length === 0 : models.length === 0}
-        emptyState={
-          <EmptyState
-            icon={state.tab === "providers" ? Network : Boxes}
-            title={
-              noResults || state.q || filterChips.length
-                ? t("empty.noResultsTitle")
-                : state.tab === "providers"
-                  ? t("empty.noProvidersTitle")
-                  : t("empty.noModelsTitle")
-            }
-            description={
-              noResults || state.q || filterChips.length
-                ? t("empty.noResultsDescription")
-                : state.tab === "providers"
-                  ? t("empty.noProvidersDescription")
-                  : t("empty.noModelsDescription")
-            }
-            primaryAction={
-              state.q || filterChips.length ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => updateURL({ q: null, providers: null, accounts: null, credential: null, readiness: null })}
-                >
+          }
+          loading={loadingAccounts}
+          loadingLabel={t("loading")}
+          loadingRows={7}
+          empty={filteredAccounts.length === 0}
+          emptyState={
+            <EmptyState
+              icon={Network}
+              title={noResults || state.q || filterChips.length ? t("empty.noResultsTitle") : t("empty.noProvidersTitle")}
+              description={noResults || state.q || filterChips.length ? t("empty.noResultsDescription") : t("empty.noProvidersDescription")}
+              primaryAction={state.q || filterChips.length ? (
+                <Button type="button" variant="outline" onClick={() => updateURL({ q: null, providers: null, accounts: null, credential: null, readiness: null })}>
                   {t("actions.clearFilters")}
                 </Button>
               ) : (
-                <Button asChild>
-                  <Link href="/provider-accounts/new">
-                    <Plus data-icon="inline-start" aria-hidden="true" />
-                    {t("actions.addProvider")}
-                  </Link>
-                </Button>
-              )
-            }
-          />
-        }
-        pagination={
-          state.tab === "models" && filteredModelTotal > MODEL_PAGE_SIZE ? (
-            <TablePagination
-              label={t("pagination.label")}
-              summary={t("pagination.summary", {
-                start: modelStart,
-                end: modelEnd,
-                total: filteredModelTotal,
-              })}
-              previousLabel={t("pagination.previous")}
-              nextLabel={t("pagination.next")}
-              onPrevious={() => setModelOffset((value) => Math.max(0, value - MODEL_PAGE_SIZE))}
-              onNext={() => setModelOffset((value) => value + MODEL_PAGE_SIZE)}
-              canPrevious={modelOffset > 0}
-              canNext={modelEnd < filteredModelTotal}
-              disabled={loadingModels}
-              page={Math.floor(modelOffset / MODEL_PAGE_SIZE) + 1}
-              pageSize={MODEL_PAGE_SIZE}
-              pageSizeLabel={t("pagination.pageSize")}
+                <Button asChild><Link href="/provider-accounts/new"><Plus data-icon="inline-start" aria-hidden="true" />{t("actions.addProvider")}</Link></Button>
+              )}
             />
-          ) : null
-        }
-      >
-        {state.tab === "providers" ? (
+          }
+        >
           <ProvidersTable
             accounts={filteredAccounts}
             summaries={summaries}
             providerBySlug={providerBySlug}
             docsHref={docsHref}
-            onViewModels={(account) =>
+            onViewModels={(account) => {
+              setLoadingModels(true);
               updateURL({
                 tab: "models",
-                accounts: [account.id],
+                q: null,
+                providers: null,
+                accounts: null,
+                credential: null,
+                readiness: null,
                 account: null,
                 section: null,
-              }, "push")
-            }
+                model_provider: account.provider,
+                model_account: account.id,
+                model: null,
+              }, "push");
+            }}
             onTestConnection={(account) => void testConnection(account)}
             onDelete={(account) => {
               setNotice(null);
@@ -620,31 +506,37 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
               setDeleteTarget(account);
             }}
           />
-        ) : (
-          <ModelsTable
-            models={models}
-            providerBySlug={providerBySlug}
-            onOpen={(model, availability) =>
-              updateURL({
-                model_provider: model.provider,
-                model: model.model,
-                model_account: availability.account_id,
-              }, "push")
-            }
-          />
-        )}
-      </DataListPanel>
-
-      <ModelDetailsSheet
-        model={selectedModel}
-        accountID={state.modelAccount}
-        onAccountChange={(accountID) => updateURL({ model_account: accountID })}
-        onOpenChange={(open) => {
-          if (!open) {
-            updateURL({ model_provider: null, model: null, model_account: null });
-          }
-        }}
-      />
+        </DataListPanel>
+      ) : (
+        <ModelCatalogExplorer
+          accounts={accounts}
+          docsHref={docsHref}
+          summaries={summaries}
+          models={accountModels}
+          providerBySlug={providerBySlug}
+          selectedProvider={selectedProvider}
+          selectedAccountID={selectedAccountID}
+          selectedModel={selectedModel}
+          loadingAccounts={loadingAccounts}
+          loadingModels={modelsPending}
+          modelLoadError={modelLoadError}
+          onSelectProvider={(provider) => {
+            setLoadingModels(true);
+            updateURL({ model_provider: provider, model_account: null, model: null }, "push");
+          }}
+          onSelectAccount={(accountID) => {
+            setLoadingModels(true);
+            updateURL({ model_provider: selectedProvider, model_account: accountID, model: null }, "push");
+          }}
+          onSelectModel={(model) => updateURL({ model_provider: selectedProvider, model_account: selectedAccountID, model: model.model }, "push")}
+          onTestConnection={(account) => void testConnection(account)}
+          onDeleteAccount={(account) => {
+            setNotice(null);
+            setDeleteNotice(null);
+            setDeleteTarget(account);
+          }}
+        />
+      )}
 
       <TypedConfirmDialog
         open={Boolean(deleteTarget)}
@@ -695,6 +587,39 @@ export function ModelCatalogPage({ docsHref }: ModelCatalogPageProps) {
       />
     </PageContainer>
   );
+}
+
+async function requestAllAccountModels(
+  provider: string,
+  accountID: string,
+  signal: AbortSignal,
+): Promise<CatalogModel[]> {
+  const pageSize = 100;
+  const models: CatalogModel[] = [];
+  let offset = 0;
+  let total = 0;
+
+  do {
+    const params = new URLSearchParams({
+      limit: String(pageSize),
+      offset: String(offset),
+      sort: "name",
+      order: "asc",
+      providers: provider,
+      account_ids: accountID,
+    });
+    const payload = await requestJSON<CatalogModelResponse>(
+      `/api/tenant-provider-account-models?${params.toString()}`,
+      { signal },
+    );
+    const page = payload.data ?? [];
+    models.push(...page);
+    total = payload.total ?? models.length;
+    offset += page.length;
+    if (page.length === 0) break;
+  } while (offset < total);
+
+  return models;
 }
 
 type ProvidersTableProps = {
@@ -829,181 +754,6 @@ function ProvidersTable({
   );
 }
 
-type ModelsTableProps = {
-  models: CatalogModel[];
-  providerBySlug: Map<string, ProviderCatalogProvider>;
-  onOpen: (model: CatalogModel, availability: ModelAvailability) => void;
-};
-
-function ModelsTable({ models, providerBySlug, onOpen }: ModelsTableProps) {
-  const t = useTranslations("modelCatalog");
-  return (
-    <Table className="table-fixed">
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t("columns.model")}</TableHead>
-          <TableHead className="hidden @lg:table-cell">{t("columns.provider")}</TableHead>
-          <TableHead className="w-28">{t("columns.availability")}</TableHead>
-          <TableHead className="hidden @2xl:table-cell">{t("columns.modalities")}</TableHead>
-          <TableHead className="hidden @5xl:table-cell">{t("columns.context")}</TableHead>
-          <TableHead className="hidden w-32 @2xl:table-cell">{t("columns.pricing")}</TableHead>
-          <TableHead className="w-16"><span className="sr-only">{t("columns.actions")}</span></TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {models.map((model) => {
-          const provider = providerBySlug.get(model.provider);
-          const availability = model.availability[0];
-          return (
-            <TableRow key={`${model.provider}:${model.model}`}>
-              <TableCell>
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-col text-start hover:underline"
-                  onClick={() => {
-                    if (availability) onOpen(model, availability);
-                  }}
-                >
-                  <span className="max-w-52 truncate font-medium sm:max-w-80" dir="ltr" title={formatCatalogModelDisplayName(model.model, model.display_name)}>
-                    {formatCatalogModelDisplayName(model.model, model.display_name)}
-                  </span>
-                  <code className="max-w-52 truncate text-xs text-muted-foreground sm:max-w-80" dir="ltr" title={model.model}>
-                    {model.model}
-                  </code>
-                  <span className="text-xs text-muted-foreground md:hidden" dir="ltr">
-                    {formatProviderDisplayName(model.provider, provider?.display_name)}
-                  </span>
-                </button>
-              </TableCell>
-              <TableCell className="hidden @lg:table-cell">
-                <div className="flex items-center gap-2" dir="ltr">
-                  <ProviderLogo
-                    provider={model.provider}
-                    displayName={formatProviderDisplayName(model.provider, provider?.display_name)}
-                    logoURL={provider?.logo_url}
-                  />
-                  <span>{formatProviderDisplayName(model.provider, provider?.display_name)}</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <AvailabilityPopover model={model} onOpen={onOpen} />
-              </TableCell>
-              <TableCell className="hidden @2xl:table-cell">
-                <div className="flex max-w-60 flex-wrap gap-1">
-                  {[...(model.input_modalities ?? []), ...(model.output_modalities ?? [])]
-                    .filter((value, index, values) => values.indexOf(value) === index)
-                    .map((modality) => (
-                      <Badge key={modality} variant="outline" title={modality}>
-                        {formatModalityLabel(t, modality)}
-                      </Badge>
-                    ))}
-                </div>
-              </TableCell>
-              <TableCell className="hidden @5xl:table-cell" dir="ltr">{formatContext(model.context_window, t("values.na"))}</TableCell>
-              <TableCell className="hidden @2xl:table-cell">
-                <div className="flex flex-col text-xs" dir="ltr">
-                  <span>{t("pricing.input")}: {formatPrice(availability?.effective_pricing?.input_usd_per_1m, t("values.na"))}</span>
-                  <span>{t("pricing.output")}: {formatPrice(availability?.effective_pricing?.output_usd_per_1m, t("values.na"))}</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                {availability ? (
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={t("actions.modelDetails", { model: formatCatalogModelDisplayName(model.model, model.display_name) })}
-                    onClick={() => onOpen(model, availability)}
-                  >
-                    <FileSearch aria-hidden="true" />
-                  </Button>
-                ) : null}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  );
-}
-
-function AvailabilityPopover({
-  model,
-  onOpen,
-}: {
-  model: CatalogModel;
-  onOpen: (model: CatalogModel, availability: ModelAvailability) => void;
-}) {
-  const t = useTranslations("modelCatalog");
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          <Network data-icon="inline-start" aria-hidden="true" />
-          {t("availability.count", { count: model.availability.length })}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 max-w-full sm:w-96">
-        <div className="flex flex-col gap-3">
-          <div>
-            <h3 className="font-semibold">{t("availability.title")}</h3>
-            <p className="text-sm text-muted-foreground">{t("availability.description")}</p>
-          </div>
-          <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
-            {model.availability.map((availability) => (
-              <div
-                key={availability.account_id}
-                className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-3 text-start transition-colors hover:bg-accent"
-              >
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-col gap-2 text-start"
-                  aria-label={t("availability.openAccount", { account: availability.account_name })}
-                  onClick={() => onOpen(model, availability)}
-                >
-                  <span className="flex w-full items-center justify-between gap-2">
-                    <span className="truncate font-medium" dir="ltr">{availability.account_name}</span>
-                    <ReadinessBadge readiness={availability.readiness} />
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t(`credential.${availability.credential_source === "managed" ? "managed" : "byok"}`)}
-                    {" · "}
-                    {availability.pricing_resolved ? t("availability.pricingReady") : t("availability.pricingMissing")}
-                  </span>
-                </button>
-                <div className="flex min-w-0 items-center gap-1" dir="ltr">
-                  <code className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={availability.fqn}>
-                    {availability.fqn}
-                  </code>
-                  <CopyAction
-                    value={availability.fqn}
-                    copyLabel={t("actions.copyFqn")}
-                    copyingLabel={t("actions.copying")}
-                    copiedLabel={t("actions.copied")}
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {t("pricing.input")}: {formatPrice(availability.effective_pricing?.input_usd_per_1m, t("values.na"))}
-                  {" · "}
-                  {t("pricing.output")}: {formatPrice(availability.effective_pricing?.output_usd_per_1m, t("values.na"))}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-const READINESS_VALUES: ProviderAccountReadiness[] = [
-  "ready",
-  "needs_models",
-  "needs_credentials",
-  "needs_access",
-  "pricing_incomplete",
-];
-
 function ReadinessBadge({ readiness }: { readiness: ProviderAccountReadiness }) {
   const t = useTranslations("modelCatalog");
   const status = readiness === "ready"
@@ -1033,32 +783,4 @@ function readinessLabel(
   readiness: ProviderAccountReadiness,
 ): string {
   return t(`readiness.${readiness}`);
-}
-
-function formatPrice(value: number | undefined, fallback: string): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value)}`;
-}
-
-function formatContext(value: number | undefined, fallback: string): string {
-  return typeof value === "number" ? new Intl.NumberFormat("en-US").format(value) : fallback;
-}
-
-function formatModalityLabel(t: ReturnType<typeof useTranslations>, value: string): string {
-  switch (value.trim().toLowerCase().replaceAll("-", "_")) {
-    case "text":
-      return t("modalities.text");
-    case "image":
-      return t("modalities.image");
-    case "audio":
-      return t("modalities.audio");
-    case "video":
-      return t("modalities.video");
-    case "pdf":
-      return t("modalities.pdf");
-    case "text_to_speech":
-      return t("modalities.textToSpeech");
-    default:
-      return value.replaceAll("_", " ");
-  }
 }

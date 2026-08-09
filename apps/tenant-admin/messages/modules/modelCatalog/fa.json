@@ -2,14 +2,14 @@
   "page": {
     "title": "کاتالوگ مدل‌ها",
     "description": "اتصال‌های ارائه‌دهنده و همه مدل‌های در دسترس این مستأجر را مدیریت کنید.",
-    "detailsTitle": "جزئیات ارائه‌دهنده",
+    "detailsTitle": "ارائه‌دهنده و مدل‌های AI",
     "detailsDescription": "آمادگی را بررسی و مدل‌ها، دسترسی و اعتبارنامه‌ها را مدیریت کنید.",
     "addTitle": "افزودن ارائه‌دهنده هوش مصنوعی",
     "addDescription": "ارائه‌دهنده را انتخاب کنید، اتصال را بسازید، مدل‌ها را آماده و دسترسی را اعطا کنید."
   },
   "tabs": {
     "label": "نماهای کاتالوگ مدل",
-    "providers": "حساب‌های کاربری ارائه‌دهندگان",
+    "providers": "حساب کاربری ارائه‌دهندگان",
     "models": "مدل‌های فضای کاری"
   },
   "loading": "در حال بارگذاری کاتالوگ مدل‌ها",
@@ -21,12 +21,33 @@
     "ariaLabel": "کاتالوگ مدل‌های مستأجر",
     "resultCount": "{count, number} مدل"
   },
+  "explorer": {
+    "ariaLabel": "مرور سلسله‌مراتبی مدل‌های فضای کاری",
+    "providers": "ارائه‌دهندگان",
+    "accounts": "حساب‌ها",
+    "models": "مدل‌های فعال",
+    "profile": "پروفایل مدل",
+    "modelCount": "{count, number} مدل فعال",
+    "emptyProviders": "ارائه‌دهنده‌ای وجود ندارد",
+    "emptyProvidersDescription": "برای مشاهده مدل‌ها ابتدا یک حساب ارائه‌دهنده ایجاد کنید.",
+    "selectProvider": "یک ارائه‌دهنده انتخاب کنید",
+    "selectProviderDescription": "حساب‌های ارائه‌دهنده انتخاب‌شده در این ستون نمایش داده می‌شوند.",
+    "emptyAccounts": "حسابی وجود ندارد",
+    "emptyAccountsDescription": "برای این ارائه‌دهنده هنوز حسابی ساخته نشده است.",
+    "selectAccount": "یک حساب انتخاب کنید",
+    "selectAccountDescription": "مدل‌های فعال حساب انتخاب‌شده در این ستون نمایش داده می‌شوند.",
+    "emptyModels": "مدل فعالی وجود ندارد",
+    "emptyModelsDescription": "هنوز مدلی روی این حساب فعال نشده است.",
+    "selectModel": "یک مدل انتخاب کنید",
+    "selectModelDescription": "پروفایل مدل انتخاب‌شده در این ستون نمایش داده می‌شود."
+  },
   "filters": {
     "search": "جست‌وجو",
     "searchProviders": "جست‌وجوی ارائه‌دهنده یا نام حساب",
     "searchModels": "جست‌وجوی مدل یا ارائه‌دهنده",
     "searchProviderPicker": "جست‌وجوی ارائه‌دهندگان هوش مصنوعی",
     "provider": "ارائه‌دهنده",
+    "providers": "ارائه‌دهندگان",
     "account": "حساب",
     "credential": "اعتبارنامه",
     "readiness": "آمادگی",
@@ -52,10 +73,10 @@
   },
   "columns": {
     "name": "نام",
-    "connectionIdentifier": "شناسه اتصال",
+    "connectionIdentifier": "شناسه فنی",
     "models": "مدل‌ها",
-    "credential": "نوع اعتبارنامه",
-    "readiness": "آمادگی",
+    "credential": "اعتبارنامه",
+    "readiness": "وضعیت",
     "updated": "آخرین تغییر",
     "actions": "عملیات",
     "model": "مدل",
@@ -81,7 +102,9 @@
   },
   "pricing": {
     "input": "ورودی",
-    "output": "خروجی"
+    "output": "خروجی",
+    "inputPerMillion": "ورودی / ۱M",
+    "outputPerMillion": "خروجی / ۱M"
   },
   "modalities": {
     "text": "متن",
@@ -129,8 +152,10 @@
     "capabilityReadinessDescription": "پشتیبانی قراردادی به تفکیک endpoint، مدالیتی و transport؛ اعتبارسنجی زنده جداگانه نمایش داده می‌شود.",
     "deprecated": "این مدل منسوخ شده است. بارهای کاری را به یک مدل پشتیبانی‌شده منتقل کنید.",
     "deprecatedWithReplacement": "این مدل منسوخ شده است. جایگزین پیشنهادی: {replacement}.",
-    "bashExample": "نمونه Bash",
-    "powershellExample": "نمونه PowerShell"
+    "codeExample": "نمونه کد",
+    "codeExampleTabs": "نوع پوسته نمونه کد",
+    "bash": "Bash",
+    "powershell": "PowerShell"
   },
   "rates": {
     "dimension": "بُعد",
@@ -166,6 +191,7 @@
     "managerCount": "مدیران",
     "userCount": "کاربران",
     "unresolvedPricing": "قیمت‌های نامشخص",
+    "none": "ندارد",
     "authMode": "روش احراز هویت",
     "firstModel": "اولین مدل فعال",
     "quickCode": "درخواست سریع",
@@ -200,11 +226,13 @@
     "clearFilters": "پاک‌کردن فیلترها",
     "openMenu": "عملیات {account}",
     "viewModels": "مشاهده مدل‌ها",
+    "manage": "مدیریت",
     "details": "جزئیات",
     "effectiveAccess": "آزمون دسترسی مؤثر",
     "connectionTest": "آزمون اتصال",
     "backToCatalog": "بازگشت به کاتالوگ",
     "copyConnectionIdentifier": "کپی شناسه اتصال",
+    "copyModelIdentifier": "کپی شناسه فنی مدل",
     "copyFqn": "کپی FQN مدل",
     "retry": "تلاش دوباره",
     "docs": "مستندات",

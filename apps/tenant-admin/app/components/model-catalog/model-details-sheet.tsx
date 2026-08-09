@@ -15,21 +15,21 @@ import {
 } from "@/app/components/provider-account-wizard/utils";
 import { buildPlaygroundHref } from "@/app/components/playground-mode";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
-import { CodePanel } from "@/components/app-ui/CodePanel";
-import { CopyableValue } from "@/components/app-ui/CopyableValue";
 import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
+import { ModalityFlow } from "@/components/app-ui/ModalityFlow";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
+import { TabbedCodePanel } from "@/components/app-ui/TabbedCodePanel";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import type { CatalogModel } from "./types";
 import { formatCatalogModelDisplayName } from "./formatters";
@@ -49,48 +49,6 @@ export function ModelDetailsSheet({
 }: ModelDetailsSheetProps) {
   const t = useTranslations("modelCatalog");
   const locale = useLocale();
-  const selectedAvailability = useMemo(() => {
-    if (!model) return null;
-    return model.availability.find((item) => item.account_id === accountID) ?? model.availability[0] ?? null;
-  }, [accountID, model]);
-
-  const code = useMemo(() => {
-    if (!model || !selectedAvailability) return null;
-    const mode = resolveCurlGuideMode({
-      provider: model.provider,
-      model: model.model,
-      display_name: model.display_name,
-      mode: model.mode,
-      types: model.types,
-      capabilities: model.capabilities,
-      features: model.features,
-      input_modalities: model.input_modalities,
-      output_modalities: model.output_modalities,
-    });
-    const endpoint = getCurlGuideEndpoint(mode);
-    const baseUrl = getTenantApiBaseURL();
-    const payload = buildCurlGuidePayload(mode, selectedAvailability.fqn);
-    return {
-      mode,
-      bash: buildBashCurlGuideCommand({ baseUrl, endpoint, payload }),
-      powershell: buildPowerShellCurlGuideCommand({
-        baseUrl,
-        endpoint,
-        mode,
-        modelFqn: selectedAvailability.fqn,
-      }),
-    };
-  }, [model, selectedAvailability]);
-
-  const playgroundHref = selectedAvailability && code
-    ? buildPlaygroundHref(selectedAvailability.fqn, code.mode)
-    : null;
-  const logsHref = selectedAvailability && model
-    ? `/logs?${new URLSearchParams({ model: selectedAvailability.fqn, provider: model.provider }).toString()}`
-    : "/logs";
-  const manageHref = selectedAvailability
-    ? `/provider-accounts?${new URLSearchParams({ account: selectedAvailability.account_id, section: "models" }).toString()}`
-    : "/provider-accounts";
 
   return (
     <Sheet open={Boolean(model)} onOpenChange={onOpenChange}>
@@ -113,137 +71,157 @@ export function ModelDetailsSheet({
           <SheetDescription>{t("drawer.description")}</SheetDescription>
         </SheetHeader>
 
-        {model && selectedAvailability ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
-            <div className="flex flex-col gap-2">
-              <AppSelectField
-                id="model-catalog-account"
-                label={t("drawer.account")}
-                value={selectedAvailability.account_id}
-                onValueChange={onAccountChange}
-                optionTextDir="ltr"
-                options={model.availability.map((availability) => ({
-                  value: availability.account_id,
-                  label: availability.account_name,
-                }))}
-              />
-            </div>
-
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">{t("drawer.fqn")}</p>
-              <CopyableValue
-                value={selectedAvailability.fqn}
-                labels={{
-                  valueAriaLabel: t("drawer.fqn"),
-                  copy: t("actions.copyFqn"),
-                  copying: t("actions.copying"),
-                  copied: t("actions.copied"),
-                }}
-              />
-            </div>
-
-            {model.is_deprecated ? (
-              <OperationNotice
-                notice={{
-                  kind: "warning",
-                  message: model.replacement_model
-                    ? t("drawer.deprecatedWithReplacement", { replacement: model.replacement_model })
-                    : t("drawer.deprecated"),
-                }}
-                labels={{
-                  success: t("notices.success"),
-                  error: t("notices.error"),
-                  warning: t("notices.warning"),
-                  info: t("notices.info"),
-                }}
-                action={<TriangleAlert aria-hidden="true" />}
-              />
-            ) : null}
-
-            <DefinitionList columns={2}>
-              <DefinitionListItem label={t("columns.provider")} value={model.provider} valueDir="ltr" mono surface />
-              <DefinitionListItem label={t("columns.context")} value={formatContext(model.context_window, t("values.na"))} valueDir="ltr" surface />
-              <DefinitionListItem label={t("drawer.inputModalities")} value={formatModalityList(model.input_modalities, t)} surface />
-              <DefinitionListItem label={t("drawer.outputModalities")} value={formatModalityList(model.output_modalities, t)} surface />
-              <DefinitionListItem label={t("drawer.capabilities")} value={formatCapabilityList(selectedAvailability.effective_capabilities, t)} valueDir="auto" surface />
-              <DefinitionListItem label={t("drawer.credentialSource")} value={t(`credential.${credentialKey(selectedAvailability.credential_source)}`)} surface />
-              <DefinitionListItem label={t("drawer.publicInputPrice")} value={formatPrice(model.public_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-              <DefinitionListItem label={t("drawer.publicOutputPrice")} value={formatPrice(model.public_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-              <DefinitionListItem label={t("drawer.effectiveInputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-              <DefinitionListItem label={t("drawer.effectiveOutputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-            </DefinitionList>
-
-            <PricingRatesTable
-              publicRates={model.public_pricing?.rates ?? []}
-              effectiveRates={selectedAvailability.effective_pricing?.rates ?? []}
-              t={t}
-            />
-
-            <CapabilityReadinessTable
-              rows={selectedAvailability.capability_readiness ?? model.readiness ?? []}
-              t={t}
-            />
-
-            {code ? (
-              <div className="flex flex-col gap-4">
-                <CodePanel
-                  title={t("drawer.bashExample")}
-                  displayLanguage="Bash"
-                  language="bash"
-                  code={code.bash}
-                  copy={{
-                    copyLabel: t("actions.copyCode"),
-                    copyingLabel: t("actions.copying"),
-                    copiedLabel: t("actions.copied"),
-                  }}
-                />
-                <CodePanel
-                  title={t("drawer.powershellExample")}
-                  displayLanguage="PowerShell"
-                  language="powershell"
-                  code={code.powershell}
-                  copy={{
-                    copyLabel: t("actions.copyCode"),
-                    copyingLabel: t("actions.copying"),
-                    copiedLabel: t("actions.copied"),
-                  }}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {model && selectedAvailability ? (
-          <SheetFooter className="shrink-0 border-t border-border bg-background p-4 sm:flex-row sm:flex-wrap">
-            {playgroundHref ? (
-              <Button asChild>
-                <Link href={playgroundHref}>
-                  <FlaskConical data-icon="inline-start" aria-hidden="true" />
-                  {t("actions.openPlayground")}
-                </Link>
-              </Button>
-            ) : null}
-            <Button asChild variant="outline">
-              <Link href={logsHref}>
-                <ScrollText data-icon="inline-start" aria-hidden="true" />
-                {t("actions.viewLogs")}
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={manageHref}>
-                <Settings2 data-icon="inline-start" aria-hidden="true" />
-                {t("actions.manageModel")}
-              </Link>
-            </Button>
-            <Button asChild variant="ghost">
-              <a href="/docs/guides/tenant-team-account-model" target="_blank" rel="noreferrer">
-                <ExternalLink data-icon="inline-end" aria-hidden="true" />
-                {t("actions.docs")}
-              </a>
-            </Button>
-          </SheetFooter>
+        {model ? (
+          <ModelProfile
+            model={model}
+            accountID={accountID}
+            onAccountChange={onAccountChange}
+            className="min-h-0 flex-1 overflow-y-auto px-6 pb-6"
+          />
         ) : null}
       </SheetContent>
     </Sheet>
+  );
+}
+
+export type ModelProfileProps = {
+  model: CatalogModel;
+  accountID: string;
+  onAccountChange?: (accountID: string) => void;
+  showAccountSelector?: boolean;
+  className?: string;
+};
+
+export function ModelProfile({
+  model,
+  accountID,
+  onAccountChange,
+  showAccountSelector = true,
+  className,
+}: ModelProfileProps) {
+  const t = useTranslations("modelCatalog");
+  const selectedAvailability = useMemo(
+    () => model.availability.find((item) => item.account_id === accountID) ?? model.availability[0] ?? null,
+    [accountID, model],
+  );
+  const code = useMemo(() => {
+    if (!selectedAvailability) return null;
+    const mode = resolveCurlGuideMode({
+      provider: model.provider,
+      model: model.model,
+      display_name: model.display_name,
+      mode: model.mode,
+      types: model.types,
+      capabilities: model.capabilities,
+      features: model.features,
+      input_modalities: model.input_modalities,
+      output_modalities: model.output_modalities,
+    });
+    const endpoint = getCurlGuideEndpoint(mode);
+    const baseUrl = getTenantApiBaseURL();
+    const payload = buildCurlGuidePayload(mode, selectedAvailability.fqn);
+    return {
+      mode,
+      bash: buildBashCurlGuideCommand({ baseUrl, endpoint, payload }),
+      powershell: buildPowerShellCurlGuideCommand({ baseUrl, endpoint, mode, modelFqn: selectedAvailability.fqn }),
+    };
+  }, [model, selectedAvailability]);
+
+  if (!selectedAvailability) return null;
+
+  const playgroundHref = code ? buildPlaygroundHref(selectedAvailability.fqn, code.mode) : null;
+  const logsHref = `/logs?${new URLSearchParams({ model: selectedAvailability.fqn, provider: model.provider }).toString()}`;
+  const manageHref = `/provider-accounts?${new URLSearchParams({ account: selectedAvailability.account_id, section: "models" }).toString()}`;
+
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-6", className)}>
+      {showAccountSelector && onAccountChange && model.availability.length > 1 ? (
+        <AppSelectField
+          id="model-catalog-account"
+          label={t("drawer.account")}
+          value={selectedAvailability.account_id}
+          onValueChange={onAccountChange}
+          optionTextDir="ltr"
+          options={model.availability.map((availability) => ({
+            value: availability.account_id,
+            label: availability.account_name,
+          }))}
+        />
+      ) : null}
+
+      {model.is_deprecated ? (
+        <OperationNotice
+          notice={{
+            kind: "warning",
+            message: model.replacement_model
+              ? t("drawer.deprecatedWithReplacement", { replacement: model.replacement_model })
+              : t("drawer.deprecated"),
+          }}
+          labels={{ success: t("notices.success"), error: t("notices.error"), warning: t("notices.warning"), info: t("notices.info") }}
+          action={<TriangleAlert aria-hidden="true" />}
+        />
+      ) : null}
+
+      <DefinitionList columns={4}>
+        <DefinitionListItem label={t("columns.context")} value={formatContext(model.context_window, t("values.na"))} valueDir="ltr" surface />
+        <DefinitionListItem
+          label={t("columns.modalities")}
+          value={(
+            <ModalityFlow
+              inputModalities={model.input_modalities}
+              outputModalities={model.output_modalities}
+              inputLabel={t("drawer.inputModalities")}
+              outputLabel={t("drawer.outputModalities")}
+              emptyLabel={t("values.na")}
+              getModalityLabel={(modality) => formatModalityLabel(modality, t)}
+              className="mt-1 flex-wrap"
+            />
+          )}
+          className="sm:col-span-2"
+          wrap
+          surface
+        />
+        <DefinitionListItem label={t("drawer.capabilities")} value={formatCapabilityList(selectedAvailability.effective_capabilities, t)} valueDir="auto" surface />
+        <DefinitionListItem label={t("drawer.credentialSource")} value={t(`credential.${credentialKey(selectedAvailability.credential_source)}`)} surface />
+        <DefinitionListItem label={t("drawer.publicInputPrice")} value={formatPrice(model.public_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
+        <DefinitionListItem label={t("drawer.publicOutputPrice")} value={formatPrice(model.public_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
+        {hasDifferentPrice(
+          selectedAvailability.effective_pricing?.input_usd_per_1m,
+          model.public_pricing?.input_usd_per_1m,
+        ) ? (
+          <DefinitionListItem label={t("drawer.effectiveInputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
+        ) : null}
+        {hasDifferentPrice(
+          selectedAvailability.effective_pricing?.output_usd_per_1m,
+          model.public_pricing?.output_usd_per_1m,
+        ) ? (
+          <DefinitionListItem label={t("drawer.effectiveOutputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
+        ) : null}
+      </DefinitionList>
+
+      <PricingRatesTable publicRates={model.public_pricing?.rates ?? []} effectiveRates={selectedAvailability.effective_pricing?.rates ?? []} t={t} />
+      <CapabilityReadinessTable rows={selectedAvailability.capability_readiness ?? model.readiness ?? []} t={t} />
+
+      {code ? (
+        <TabbedCodePanel
+          title={t("drawer.codeExample")}
+          titleHidden
+          tabsLabel={t("drawer.codeExampleTabs")}
+          tabs={[
+            { value: "bash", label: t("drawer.bash"), language: "bash", code: code.bash },
+            { value: "powershell", label: t("drawer.powershell"), language: "powershell", code: code.powershell },
+          ]}
+          copy={{ copyLabel: t("actions.copyCode"), copyingLabel: t("actions.copying"), copiedLabel: t("actions.copied") }}
+        />
+      ) : null}
+
+      <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        {playgroundHref ? <Button asChild><Link href={playgroundHref}><FlaskConical data-icon="inline-start" aria-hidden="true" />{t("actions.openPlayground")}</Link></Button> : null}
+        <Button asChild variant="outline"><Link href={logsHref}><ScrollText data-icon="inline-start" aria-hidden="true" />{t("actions.viewLogs")}</Link></Button>
+        <Button asChild variant="outline"><Link href={manageHref}><Settings2 data-icon="inline-start" aria-hidden="true" />{t("actions.manageModel")}</Link></Button>
+        <Button asChild variant="ghost"><a href="/docs/guides/tenant-team-account-model" target="_blank" rel="noreferrer"><ExternalLink data-icon="inline-end" aria-hidden="true" />{t("actions.docs")}</a></Button>
+      </div>
+    </div>
   );
 }
 
@@ -366,29 +344,32 @@ function formatContext(value: number | undefined, fallback: string): string {
   return typeof value === "number" ? new Intl.NumberFormat("en-US").format(value) : fallback;
 }
 
-function formatModalityList(
-  values: string[] | undefined,
+function formatModalityLabel(
+  value: string,
   t: ReturnType<typeof useTranslations>,
 ): string {
-  if (!values?.length) return t("values.na");
-  return values.map((value) => {
-    switch (value.trim().toLowerCase().replaceAll("-", "_")) {
-      case "text":
-        return t("modalities.text");
-      case "image":
-        return t("modalities.image");
-      case "audio":
-        return t("modalities.audio");
-      case "video":
-        return t("modalities.video");
-      case "pdf":
-        return t("modalities.pdf");
-      case "text_to_speech":
-        return t("modalities.textToSpeech");
-      default:
-        return value.replaceAll("_", " ");
-    }
-  }).join("، ");
+  switch (value.trim().toLowerCase().replaceAll("-", "_")) {
+    case "text":
+      return t("modalities.text");
+    case "image":
+      return t("modalities.image");
+    case "audio":
+      return t("modalities.audio");
+    case "video":
+      return t("modalities.video");
+    case "pdf":
+      return t("modalities.pdf");
+    case "text_to_speech":
+      return t("modalities.textToSpeech");
+    default:
+      return value.replaceAll("_", " ");
+  }
+}
+
+function hasDifferentPrice(effective: number | undefined, publicPrice: number | undefined): boolean {
+  return typeof effective === "number"
+    && Number.isFinite(effective)
+    && effective !== publicPrice;
 }
 
 function formatCapabilityList(
