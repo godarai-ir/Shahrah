@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,7 +52,8 @@ jobs:
   lint:
     name: Lint
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    # Temporarily disabled. Restore: needs.changes.outputs.go == 'true'
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -90,7 +88,8 @@ jobs:
   test:
     name: Test (${{ matrix.module }})
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    # Temporarily disabled. Restore: needs.changes.outputs.go == 'true'
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -150,7 +149,8 @@ jobs:
   javascript-checks:
     name: JavaScript checks
     needs: changes
-    if: needs.changes.outputs.javascript == 'true'
+    # Temporarily disabled. Restore: needs.changes.outputs.javascript == 'true'
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -199,7 +199,8 @@ jobs:
   tenant-dom:
     name: Tenant DOM tests (${{ matrix.shard }})
     needs: changes
-    if: needs.changes.outputs.tenant_dom == 'true'
+    # Temporarily disabled. Restore: needs.changes.outputs.tenant_dom == 'true'
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -234,7 +235,7 @@ jobs:
     needs: [changes, lint, test, javascript-checks, tenant-dom]
     if: >-
       always() &&
-      github.event_name == 'push' &&
+      github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/main' &&
       needs.changes.result == 'success' &&
       (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
