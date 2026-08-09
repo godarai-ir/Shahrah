@@ -1,4 +1,4 @@
-import InviteAcceptPanel from "@/app/components/invite-accept-panel";
+import InviteAcceptPanel from "@/features/auth/InviteAcceptPanel";
 
 type InvitePageProps = {
   searchParams?: Promise<{

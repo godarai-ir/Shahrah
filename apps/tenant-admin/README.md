@@ -1,5 +1,7 @@
 # Tenant Admin
 
+Architecture and dependency rules are documented in [ARCHITECTURE.md](./ARCHITECTURE.md). New feature code must follow those executable boundaries even while legacy files are migrated from `app/components`.
+
 ## Purpose
 
 - API key management

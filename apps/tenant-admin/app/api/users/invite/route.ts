@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
@@ -11,6 +12,11 @@ type InvitePayload = {
   role?: unknown;
   accept_invite_client_url?: unknown;
 };
+
+const inviteUpstreamResponseSchema = z.object({
+  link: z.string().optional(),
+  invitation: z.object({ role: z.string().optional() }).optional(),
+});
 
 function resolveInviteBaseURL(request: NextRequest) {
   const configured = process.env.SHAHRAH_INVITE_BASE_URL?.trim();
@@ -90,10 +96,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payload =
-      upstream.payload && typeof upstream.payload === "object"
-        ? (upstream.payload as { link?: string; invitation?: { role?: string } })
-        : undefined;
+    const parsedPayload = inviteUpstreamResponseSchema.safeParse(upstream.payload);
+    const payload = parsedPayload.success ? parsedPayload.data : undefined;
 
   if (payload?.link) {
     try {

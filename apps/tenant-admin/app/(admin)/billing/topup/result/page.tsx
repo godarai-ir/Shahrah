@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 

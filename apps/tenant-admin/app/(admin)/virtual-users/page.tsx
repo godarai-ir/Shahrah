@@ -1,41 +1,13 @@
-import AdminShell from "@/app/components/admin-shell";
-import VirtualUserTokenManagement from "@/app/components/virtual-user-token-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import VirtualUserTokenManagement from "@/features/virtual-users/VirtualUserTokenManagement";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-
-type VirtualUser = {
-  id: string;
-  tenant_id: string;
-  alias: string;
-  display_name?: string;
-  org_unit_id?: string;
-  team_id?: string;
-  active: boolean;
-  metadata?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-};
-
-type Team = {
-  id: string;
-  alias: string;
-  display_name?: string;
-  org_unit_id?: string | null;
-};
-
-type OrgUnit = {
-  id: string;
-  alias: string;
-  display_name?: string;
-};
-
-type ListResponse<T> = {
-  data?: T[];
-  total?: number;
-};
+import { parseVirtualUserListPayload } from "@/features/virtual-users/api";
+import { parseTeamListPayload } from "@/features/teams/api";
+import { parseOrgUnitListPayload } from "@/features/org-units/api";
 
 export const dynamic = "force-dynamic";
 
@@ -75,9 +47,9 @@ export default async function VirtualUsersPage() {
     }),
   ]);
 
-  const virtualUsersPayload = (virtualUsersResult.payload ?? {}) as ListResponse<VirtualUser>;
-  const teamsPayload = (teamsResult.payload ?? {}) as ListResponse<Team>;
-  const orgUnitsPayload = (orgUnitsResult.payload ?? {}) as ListResponse<OrgUnit>;
+  const virtualUsersPayload = parseVirtualUserListPayload(virtualUsersResult.payload);
+  const teamsPayload = parseTeamListPayload(teamsResult.payload);
+  const orgUnitsPayload = parseOrgUnitListPayload(orgUnitsResult.payload);
   const initialVirtualUsers = virtualUsersResult.ok ? virtualUsersPayload.data ?? [] : [];
   const currentUser = {
     id: auth.user.id,

@@ -42,3 +42,8 @@ export async function readAuthFromRequest(request: NextRequest) {
     user: ctx.user,
   };
 }
+
+export type AuthenticatedRequestContext = Extract<
+  Awaited<ReturnType<typeof readAuthFromRequest>>,
+  { ok: true }
+>;

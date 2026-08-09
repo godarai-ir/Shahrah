@@ -1,10 +1,10 @@
-import AdminShell from "@/app/components/admin-shell";
-import { BillingProfilePanel } from "@/app/components/billing-finance-panels";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import { BillingProfilePanel } from "@/features/billing/BillingFinancePanels";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { type BillingProfile } from "@/app/billing/_shared";
+import { parseBillingProfile } from "@/features/billing/api";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export default async function BillingProfilePage() {
   await requirePermissionOr403(tenantSlug, auth.user.id, ["billing:profile_manage", "billing:manage", "settings:manage"]);
 
   const response = await fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/billing/profile", userID: auth.user.id });
-  const initialProfile = response.ok ? (response.payload as BillingProfile) : null;
+  const initialProfile = response.ok ? parseBillingProfile(response.payload) : null;
   const initialError = response.ok || response.status === 404 ? null : response.errorMessage ?? "پروفایل مالی دریافت نشد.";
 
   return (

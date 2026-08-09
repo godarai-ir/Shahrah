@@ -6,11 +6,12 @@ import {
   resolveRequestOriginFromHeaders,
   resolveTenantSlugFromHeaders,
 } from "@/lib/tenant";
+import { z } from "zod";
 
-type RedeemedHandoff = {
-  session: { id: string; expires_at_iso: string };
-  user: { id: string; tenant_slug: string };
-};
+const redeemedHandoffSchema = z.object({
+  session: z.object({ id: z.string(), expires_at_iso: z.string() }),
+  user: z.object({ id: z.string(), tenant_slug: z.string() }),
+});
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,11 @@ export async function GET(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.redirect(new URL("/login?social_error=expired", requestOrigin), 303);
   }
-  const payload = result.payload as RedeemedHandoff;
+  const parsed = redeemedHandoffSchema.safeParse(result.payload);
+  if (!parsed.success) {
+    return NextResponse.redirect(new URL("/login?social_error=invalid", requestOrigin), 303);
+  }
+  const payload = parsed.data;
   const response = NextResponse.redirect(new URL(nextPath, requestOrigin), 303);
   response.cookies.set({
     name: TENANT_ADMIN_SESSION_COOKIE,

@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { TicketListPage } from "@/features/support-tickets/TicketListPage";
 import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";

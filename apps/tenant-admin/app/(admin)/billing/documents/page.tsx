@@ -1,10 +1,10 @@
-import AdminShell from "@/app/components/admin-shell";
-import { BillingDocumentsPanel } from "@/app/components/billing-finance-panels";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import { BillingDocumentsPanel } from "@/features/billing/BillingFinancePanels";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { type DiscountRedemption, type Invoice, type WalletTransaction, unwrapList } from "@/app/billing/_shared";
+import { parseDiscountRedemptions, parseInvoices, parseWalletTransactions } from "@/features/billing/api";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +28,9 @@ export default async function BillingDocumentsPage() {
       <div className="space-y-6">
         <PageHeader title="اسناد مالی" description="فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری." />
         <BillingDocumentsPanel
-          invoices={invoicesResponse.ok ? unwrapList<Invoice>(invoicesResponse.payload) : []}
-          transactions={transactionsResponse.ok ? unwrapList<WalletTransaction>(transactionsResponse.payload) : []}
-          discounts={discountsResponse.ok ? unwrapList<DiscountRedemption>(discountsResponse.payload) : []}
+          invoices={invoicesResponse.ok ? parseInvoices(invoicesResponse.payload) : []}
+          transactions={transactionsResponse.ok ? parseWalletTransactions(transactionsResponse.payload) : []}
+          discounts={discountsResponse.ok ? parseDiscountRedemptions(discountsResponse.payload) : []}
         />
       </div>
     </AdminShell>

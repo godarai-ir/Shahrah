@@ -1,30 +1,12 @@
-import AdminShell from "@/app/components/admin-shell";
-import UsersAccessManagement from "@/app/components/users-access-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import UsersAccessManagement from "@/features/users/UsersAccessManagement";
 import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-
-type TenantAdminUser = {
-  id: string;
-  tenant_slug: string;
-  email?: string;
-  mobile?: string;
-  role: string;
-  active: boolean;
-  last_login_at?: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type TenantAdminUserListResponse = {
-  data?: TenantAdminUser[];
-  total?: number;
-  limit?: number;
-  offset?: number;
-};
+import { parseUserListPayload } from "@/features/users/api";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +28,7 @@ export default async function UsersPage() {
     path: "/api/v1/users?limit=25&offset=0",
   });
 
-  const payload = (usersResult.payload ?? {}) as TenantAdminUserListResponse;
+  const payload = parseUserListPayload(usersResult.payload);
   const initialUsers = usersResult.ok ? payload.data ?? [] : [];
   const initialTotal = usersResult.ok ? payload.total ?? initialUsers.length : 0;
   const initialError = usersResult.ok ? null : usersResult.errorMessage ?? "Request failed.";

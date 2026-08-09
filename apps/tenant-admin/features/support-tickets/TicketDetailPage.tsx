@@ -20,7 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Message, MessageContent, MessageHeader } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
 import { TicketStatusBadge } from "./TicketStatusBadge";
-import { createIdempotencyKey, readTicketResponse, type TicketDetail, type TicketMessage } from "./types";
+import { getTicket, rateTicket, replyToTicket } from "./api";
+import { createIdempotencyKey, type TicketDetail, type TicketMessage } from "./types";
 
 export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string; currentUserID: string }) {
   const t = useTranslations("support");
@@ -37,7 +38,7 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
     setLoading(true);
     setError("");
     try {
-      setDetail(await readTicketResponse<TicketDetail>(await fetch(`/api/support/tickets/${encodeURIComponent(ticketID)}`, { cache: "no-store" })));
+      setDetail(await getTicket(ticketID));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("errors.load"));
     } finally {
@@ -58,9 +59,7 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
     form.set("payload", JSON.stringify({ body, idempotency_key: replyKey.current }));
     files.forEach((file) => form.append("files", file));
     try {
-      const next = await readTicketResponse<TicketDetail>(await fetch(`/api/support/tickets/${encodeURIComponent(ticketID)}/messages`, {
-        method: "POST", body: form, headers: { "Idempotency-Key": replyKey.current },
-      }));
+      const next = await replyToTicket(ticketID, form, replyKey.current);
       setDetail(next);
       setBody("");
       setFiles([]);
@@ -175,12 +174,7 @@ function RatingForm({ ticketID, initialScore, initialComment, onSaved }: { ticke
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/support/tickets/${encodeURIComponent(ticketID)}/rating`, {
-        method: "PUT",
-        headers: { "content-type": "application/json", "Idempotency-Key": createIdempotencyKey() },
-        body: JSON.stringify({ score, comment }),
-      });
-      const ticket = await readTicketResponse<TicketDetail["ticket"]>(response);
+      const ticket = await rateTicket(ticketID, { score, comment }, createIdempotencyKey());
       onSaved({ ticket, messages: [] });
       setMessage(t("rating.saved"));
     } catch (cause) {

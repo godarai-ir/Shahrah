@@ -1,16 +1,23 @@
-import type { RateLimitRule } from "./ruleTypes";
+import { z } from "zod";
+
+import { APIClientError, requestParsedJSON } from "@/lib/http/api-client";
+
 import type { RateLimitRuleFormInput } from "./ruleValidation";
+import { rateLimitRuleResponseSchema } from "./ruleValidation";
 
-type ListResponse = {
-  data: RateLimitRule[];
-  total: number;
-  limit: number;
-  offset: number;
-};
-
-type EffectiveEntitlements = {
-  features?: Record<string, unknown>;
-} | null;
+const listResponseSchema = z.object({
+  data: z.array(rateLimitRuleResponseSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+});
+const effectiveEntitlementsSchema = z.object({
+  features: z.record(z.string(), z.unknown()).optional(),
+}).nullable();
+const successResponseSchema = z.union([
+  z.object({ success: z.literal(true) }),
+  z.object({}).strict().transform(() => ({ success: true as const })),
+]);
 
 function mapAPIErrorToFa(message: string, status?: number): string {
   const m = message.toLowerCase();
@@ -49,67 +56,50 @@ function sanitizeServerMessage(message: string | undefined, status?: number): st
   return normalized;
 }
 
-async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = new Headers(options?.headers ?? {});
-  if (options?.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+async function requestRateLimitJSON<T>(schema: z.ZodType<T>, path: string, options?: RequestInit): Promise<T> {
+  try {
+    return await requestParsedJSON(schema, path, options);
+  } catch (error) {
+    if (!(error instanceof APIClientError)) throw error;
+    const message = sanitizeServerMessage(error.message, error.status);
+    throw new Error(mapAPIErrorToFa(message, error.status), { cause: error });
   }
-  const response = await fetch(path, { ...options, headers, cache: "no-store" });
-  const text = await response.text();
-  let payload: Record<string, unknown> = {};
-  if (text.trim()) {
-    try {
-      payload = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      payload = { message: text };
-    }
-  }
-  if (!response.ok) {
-    const rawMessage = sanitizeServerMessage(
-      (payload?.error as { message?: string } | undefined)?.message ??
-        (payload?.message as string | undefined) ??
-        `Request failed (${response.status})`,
-      response.status,
-    );
-    throw new Error(mapAPIErrorToFa(rawMessage, response.status));
-  }
-  return payload as T;
 }
 
 export function listRateLimitRules(query = "") {
-  return requestJSON<ListResponse>(`/api/gateway-policies/rate-limit-rules?query=${encodeURIComponent(query)}`);
+  return requestRateLimitJSON(listResponseSchema, `/api/gateway-policies/rate-limit-rules?query=${encodeURIComponent(query)}`);
 }
 
 export function getRateLimitEntitlements() {
-  return requestJSON<EffectiveEntitlements>("/api/entitlements");
+  return requestRateLimitJSON(effectiveEntitlementsSchema, "/api/entitlements");
 }
 
 export function getRateLimitRule(id: string) {
-  return requestJSON<RateLimitRule>(`/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}`);
+  return requestRateLimitJSON(rateLimitRuleResponseSchema, `/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}`);
 }
 
 export function createRateLimitRule(body: RateLimitRuleFormInput) {
-  return requestJSON<RateLimitRule>("/api/gateway-policies/rate-limit-rules", {
+  return requestRateLimitJSON(rateLimitRuleResponseSchema, "/api/gateway-policies/rate-limit-rules", {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 export function updateRateLimitRule(id: string, body: Partial<RateLimitRuleFormInput>) {
-  return requestJSON<RateLimitRule>(`/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}`, {
+  return requestRateLimitJSON(rateLimitRuleResponseSchema, `/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
 }
 
 export function deleteRateLimitRule(id: string) {
-  return requestJSON<{ success: true }>(`/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}`, {
+  return requestRateLimitJSON(successResponseSchema, `/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 }
 
 export function updateRateLimitRuleStatus(id: string, enabled: boolean) {
-  return requestJSON<RateLimitRule>(`/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}/status`, {
+  return requestRateLimitJSON(rateLimitRuleResponseSchema, `/api/gateway-policies/rate-limit-rules/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),
   });

@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { z } from "zod";
 
 export type PermissionDefinition = {
   key: string;
@@ -12,6 +13,11 @@ export type MePermissionsResponse = {
   permissions?: string[];
   catalog?: PermissionDefinition[];
 };
+
+const mePermissionsSchema = z.object({
+  permissions: z.array(z.string()).optional(),
+  catalog: z.array(z.object({ key: z.string(), group: z.string(), description: z.string().optional() })).optional(),
+});
 
 const PERMISSIONS_TTL_MS = 60_000;
 const MAX_CACHE_ENTRIES = 4000;
@@ -41,7 +47,9 @@ const loadMePermissionsRequestScoped = cache(async (tenantSlug: string, userID: 
     throw new Error(upstream.errorMessage ?? `Request failed (${upstream.status})`);
   }
 
-  const payload = (upstream.payload ?? {}) as MePermissionsResponse;
+  const parsed = mePermissionsSchema.safeParse(upstream.payload ?? {});
+  if (!parsed.success) throw new Error("Unexpected permissions response contract");
+  const payload = parsed.data;
   if (permissionsTTLCache.size >= MAX_CACHE_ENTRIES) {
     for (const [key, value] of permissionsTTLCache.entries()) {
       if (value.expiresAt <= now) {

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { readAuthFromRequest } from "@/lib/auth/request-auth";
+import { readAuthFromRequest, type AuthenticatedRequestContext } from "@/lib/auth/request-auth";
 import { assertTenantMatch, ensureTenantFromHeaders } from "@/lib/tenant";
 
 type ProxyOptions = {
   request: NextRequest;
+  auth?: AuthenticatedRequestContext;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
@@ -76,7 +77,7 @@ export async function proxyToControlPlane(options: ProxyOptions) {
     );
   }
 
-  const auth = await readAuthFromRequest(options.request);
+  const auth = options.auth ?? await readAuthFromRequest(options.request);
   if (!auth.ok) {
     return NextResponse.json(
       { error: { message: auth.message } },
@@ -123,7 +124,7 @@ export async function proxyToControlPlaneStream(options: ProxyOptions) {
     return NextResponse.json({ error: { message: tenantResolution.message } }, { status: tenantResolution.status });
   }
 
-  const auth = await readAuthFromRequest(options.request);
+  const auth = options.auth ?? await readAuthFromRequest(options.request);
   if (!auth.ok) {
     return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
   }
@@ -329,7 +330,7 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
     );
   }
 
-  const auth = await readAuthFromRequest(options.request);
+  const auth = options.auth ?? await readAuthFromRequest(options.request);
   if (!auth.ok) {
     return NextResponse.json(
       { error: { message: auth.message } },
@@ -396,6 +397,7 @@ export async function proxyToControlPlaneBinary(options: ProxyOptions) {
  */
 export async function proxyToControlPlaneBodyStream(options: {
   request: NextRequest;
+  auth?: AuthenticatedRequestContext;
   method: "GET" | "POST";
   path: string;
 }) {
@@ -404,7 +406,7 @@ export async function proxyToControlPlaneBodyStream(options: {
     return NextResponse.json({ error: { message: tenantResolution.message } }, { status: tenantResolution.status });
   }
 
-  const auth = await readAuthFromRequest(options.request);
+  const auth = options.auth ?? await readAuthFromRequest(options.request);
   if (!auth.ok) {
     return NextResponse.json({ error: { message: auth.message } }, { status: auth.status });
   }
@@ -583,7 +585,7 @@ async function fetchControlPlaneRaw(
 
   if (!masterKey) {
     const message =
-      "Ø¨Ø±Ø§ÛŒ routeÙ‡Ø§ÛŒ tenant-admin Ø¨Ø§ÛŒØ¯ SHAHRAH_MASTER_KEY ÛŒØ§ MASTER_KEY ØªÙ†Ø¸ÛŒÙ… Ø´ÙˆØ¯.";
+      "برای routeهای tenant-admin باید SHAHRAH_MASTER_KEY یا MASTER_KEY تنظیم شود.";
     return {
       ok: false,
       status: 500,
@@ -636,7 +638,7 @@ async function fetchControlPlaneRaw(
       const text = new TextDecoder().decode(body);
       const payload = parsePayload(text, contentType);
       errorMessage =
-        extractErrorMessage(payload) ?? `Ø®Ø·Ø§ÛŒ Ø³Ø±ÙˆÛŒØ³ Ø¨Ø§Ù„Ø§Ø¯Ø³ØªÛŒ: ${upstream.status}`;
+        extractErrorMessage(payload) ?? `خطای سرویس بالادستی: ${upstream.status}`;
     }
 
     return {
@@ -652,7 +654,7 @@ async function fetchControlPlaneRaw(
     const message =
       error instanceof Error
         ? error.message
-        : "Ø§ØªØµØ§Ù„ Ø¨Ù‡ API Ù…Ø¯ÛŒØ±ÛŒØª control-plane Ø¨Ø±Ù‚Ø±Ø§Ø± Ù†Ø´Ø¯.";
+        : "اتصال به API مدیریت control-plane برقرار نشد.";
     return {
       ok: false,
       status: 502,

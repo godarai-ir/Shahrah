@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
-import AdminShell from "@/app/components/admin-shell";
-import PlaygroundPage from "@/app/components/playground-page";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import PlaygroundPage from "@/features/playground/PlaygroundPage";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 

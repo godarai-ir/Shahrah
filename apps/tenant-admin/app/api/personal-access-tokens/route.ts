@@ -47,14 +47,14 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => null)) as CreatePATPayload | null;
   if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: { message: "???? ??????? ??????? ???." } }, { status: 400 });
+    return NextResponse.json({ error: { message: "Invalid request payload." } }, { status: 400 });
   }
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const expiresIn = typeof body.expires_in === "string" ? body.expires_in.trim() : "";
 
   if (!name) {
-    return NextResponse.json({ error: { message: "????? name ?????? ???." } }, { status: 400 });
+    return NextResponse.json({ error: { message: "The name field is required." } }, { status: 400 });
   }
   if ("models" in body || "allowed_models" in body) {
     return NextResponse.json({

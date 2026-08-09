@@ -37,7 +37,7 @@ describe("RateLimitRuleForm", () => {
   it("adds and removes condition rows", async () => {
     render(<RateLimitRuleForm />);
     fireEvent.click(screen.getByText("Add Filter"));
-    expect(screen.getByRole("button", { name: "Add", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Add$/ })).toBeDisabled();
     expect(screen.getAllByLabelText("Remove filter")).toHaveLength(1);
     fireEvent.click(screen.getByLabelText("Remove filter"));
     expect(screen.queryByLabelText("Remove filter")).toBeNull();

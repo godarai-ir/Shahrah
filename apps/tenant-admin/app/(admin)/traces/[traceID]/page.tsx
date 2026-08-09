@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { CompactValue } from "@/components/app-ui/CompactValue";
 import { DefinitionList, DefinitionListItem as CompactField } from "@/components/app-ui/DefinitionList";
 import { PageContainer } from "@/components/app-ui/PageContainer";
@@ -35,89 +35,14 @@ import { requireAuth } from "@/lib/auth/session";
 import { formatCompactCurrency, formatCompactIrr, formatCompactNumber } from "@/lib/compact-number";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { cn } from "@/lib/utils";
-
-type RequestTraceV2 = {
-  trace_id: string;
-  tenant_id: string;
-  request_id?: string;
-  model?: string;
-  provider?: string;
-  route: string;
-  status_code: number;
-  started_at: string;
-  duration_ms: number;
-  error_code?: string;
-  sampled: boolean;
-  attempts: number;
-};
-
-type TraceSummaryV2 = {
-  spans_count: number;
-  attempts_count: number;
-  errors_count: number;
-};
-
-type TraceUsageV2 = {
-  model?: string;
-  input_tokens?: number;
-  output_tokens?: number;
-  total_tokens?: number;
-  cost_usd?: number;
-  cost_irr?: number;
-  response_time_ms?: number;
-  status?: string;
-  metadata?: Record<string, unknown>;
-};
-
-type TraceMetricV2 = {
-  request_type?: string;
-  provider_name?: string;
-  provider_model_name?: string;
-  error_type?: string;
-  latency_ms?: number;
-  input_tokens?: number;
-  output_tokens?: number;
-  cost_usd?: number;
-  ttft_ms?: number;
-  itl_ms?: number;
-  tpot_ms?: number;
-  virtual_model_name?: string;
-};
-
-type TraceDetailV2Response = {
-  trace: RequestTraceV2;
-  summary: TraceSummaryV2;
-  usage?: TraceUsageV2;
-  metric?: TraceMetricV2;
-};
-
-type TraceSpan = {
-  span_id: string;
-  trace_id: string;
-  parent_span_id?: string;
-  name: string;
-  kind: string;
-  started_at: string;
-  duration_ms: number;
-  status: string;
-  attributes: Record<string, unknown>;
-};
-
-type TraceAttempt = {
-  attempt_no: number;
-  trace_id: string;
-  provider?: string;
-  model?: string;
-  started_at: string;
-  duration_ms: number;
-  status: string;
-  retry_reason?: string;
-  fallback_reason?: string;
-  attributes?: Record<string, unknown>;
-};
-
-type SpanResponse = { data?: TraceSpan[] };
-type AttemptResponse = { data?: TraceAttempt[] };
+import {
+  parseTraceAttempts,
+  parseTraceDetail,
+  parseTraceSpans,
+  type TraceDetailV2Response,
+  type TraceSpan,
+  type RequestTraceV2,
+} from "@/features/traces/detail-contracts";
 
 type Params = { params: Promise<{ traceID: string }> };
 type MetadataSource = "span" | "usage";
@@ -156,11 +81,9 @@ export default async function TraceDetailPage({ params }: Params) {
     }),
   ]);
 
-  const detail = (traceResult.ok ? traceResult.payload : null) as TraceDetailV2Response | null;
-  const spansPayload = (timelineResult.payload ?? {}) as SpanResponse;
-  const attemptsPayload = (attemptsResult.payload ?? {}) as AttemptResponse;
-  const spans = timelineResult.ok ? spansPayload.data ?? [] : [];
-  const attempts = attemptsResult.ok ? attemptsPayload.data ?? [] : [];
+  const detail = traceResult.ok ? parseTraceDetail(traceResult.payload) : null;
+  const spans = timelineResult.ok ? parseTraceSpans(timelineResult.payload) : [];
+  const attempts = attemptsResult.ok ? parseTraceAttempts(attemptsResult.payload) : [];
   const sortedSpans = sortSpans(spans);
   const waterfallRows = buildWaterfallRows(sortedSpans);
   const hasNonZeroSpanOffset = waterfallRows.some((row) => row.offsetMS > 0);

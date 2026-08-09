@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TicketStatusBadge } from "./TicketStatusBadge";
-import { readTicketResponse, type TicketListResponse, type TicketStatus } from "./types";
+import { listTickets } from "./api";
+import { type TicketListResponse, type TicketStatus } from "./types";
 
 export function TicketListPage({ canReadAll }: { canReadAll: boolean }) {
   const t = useTranslations("support");
@@ -40,8 +41,7 @@ export function TicketListPage({ canReadAll }: { canReadAll: boolean }) {
     params.set("limit", "25");
     setLoading(true);
     setError("");
-    fetch(`/api/support/tickets?${params}`, { cache: "no-store", signal: controller.signal })
-      .then(readTicketResponse<TicketListResponse>)
+    listTickets(params, controller.signal)
       .then(setResult)
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : t("errors.load"));

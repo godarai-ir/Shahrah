@@ -11,7 +11,6 @@ import type {
   CreateSessionParams,
   FindOrCreateUserParams,
   NormalizedIdentifier,
-  OTPRecord,
   TenantSession,
   TenantUser,
   UpdateUserContactParams,
@@ -19,6 +18,38 @@ import type {
   VerifyResult,
 } from "./types";
 import type { AuthRepository } from "./repository";
+import { z } from "zod";
+
+const captchaChallengeSchema = z.object({
+  captcha_id: z.string(), image_data_url: z.string(), expires_in_seconds: z.number(),
+});
+const consumeResultSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true) }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
+const createOTPResultSchema = z.object({
+  request_id: z.string(), channel: z.enum(["email", "mobile"]), destination_masked: z.string(),
+  expires_in_seconds: z.number(), debug_otp: z.string().optional(),
+});
+const rawOTPRecordSchema = z.object({
+  id: z.string(), tenant_slug: z.string(), purpose: z.enum(["login", "change_email", "change_mobile"]),
+  channel: z.enum(["email", "mobile"]), identifier: z.string(),
+  user_id: z.string().nullish().transform((value) => value ?? undefined),
+  pending_value: z.string().nullish().transform((value) => value ?? undefined),
+  otp_code: z.string(), attempts: z.number(),
+  expires_at_iso: z.string(), created_at_iso: z.string(),
+});
+const verifyOTPResponseSchema = z.object({
+  ok: z.boolean(), error: z.string().optional(), record: rawOTPRecordSchema.optional(),
+});
+const rawSessionSchema = z.object({
+  id: z.string(), tenant_slug: z.string(), user_id: z.string(), created_at_iso: z.string(), expires_at_iso: z.string(),
+});
+const rawUserSchema = z.object({
+  id: z.string(), tenant_slug: z.string(), email: z.string().optional(), mobile: z.string().optional(),
+  social_providers: z.array(z.string()).optional(), role: z.string(), active: z.boolean().optional(),
+  created_at_iso: z.string(), updated_at_iso: z.string(), last_login_at_iso: z.string().optional(),
+});
 
 export class ApiAuthRepository implements AuthRepository {
   constructor(
@@ -33,34 +64,39 @@ export class ApiAuthRepository implements AuthRepository {
     };
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
     const res = await fetch(`${this.baseURL}${path}`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(body),
     });
+    const payload = await res.json().catch(() => null) as unknown;
     if (!res.ok) {
-      const errBody = await res.json().catch(() => null);
       throw new Error(
-        `Auth API error: ${res.status} ${res.statusText}${errBody ? ` - ${JSON.stringify(errBody)}` : ""}`,
+        `Auth API error: ${res.status} ${res.statusText}${payload ? ` - ${JSON.stringify(payload)}` : ""}`,
       );
     }
-    return res.json() as Promise<T>;
+    const parsed = schema.safeParse(payload);
+    if (!parsed.success) throw new Error(`Unexpected auth API response contract from ${path}`);
+    return parsed.data;
   }
 
-  private async get<T>(path: string): Promise<T> {
+  private async get<T>(path: string, schema: z.ZodType<T>): Promise<T | null> {
     const res = await fetch(`${this.baseURL}${path}`, {
       method: "GET",
       headers: this.headers(),
     });
     if (!res.ok) {
-      if (res.status === 404) return null as unknown as T;
+      if (res.status === 404) return null;
       const errBody = await res.json().catch(() => null);
       throw new Error(
         `Auth API error: ${res.status} ${res.statusText}${errBody ? ` - ${JSON.stringify(errBody)}` : ""}`,
       );
     }
-    return res.json() as Promise<T>;
+    const payload = await res.json().catch(() => null) as unknown;
+    const parsed = schema.safeParse(payload);
+    if (!parsed.success) throw new Error(`Unexpected auth API response contract from ${path}`);
+    return parsed.data;
   }
 
   private async delete(path: string): Promise<void> {
@@ -78,47 +114,36 @@ export class ApiAuthRepository implements AuthRepository {
 
   // CAPTCHA
   async createCaptchaChallenge(): Promise<CaptchaChallenge> {
-    return this.post<CaptchaChallenge>("/api/v1/auth/captcha/create", {});
+    return this.post("/api/v1/auth/captcha/create", {}, captchaChallengeSchema);
   }
 
   async consumeCaptcha(id: string, answer: string): Promise<ConsumeResult> {
-    return this.post<ConsumeResult>("/api/v1/auth/captcha/consume", {
+    return this.post("/api/v1/auth/captcha/consume", {
       captcha_id: id,
       answer,
-    });
+    }, consumeResultSchema);
   }
 
   // OTP
   async createOTPRequest(params: CreateOTPParams): Promise<CreateOTPResult> {
-    return this.post<CreateOTPResult>("/api/v1/auth/otp/request", {
+    return this.post("/api/v1/auth/otp/request", {
       tenant_slug: params.tenantSlug,
       purpose: params.purpose,
       channel: params.channel,
       identifier: params.identifier,
       user_id: params.userID,
       pending_value: params.pendingValue,
-    });
+    }, createOTPResultSchema);
   }
 
   async verifyOTPRequest(params: VerifyOTPParams): Promise<VerifyResult> {
-    const res = await this.post<{
-      ok: boolean;
-      error?: string;
-      record?: Omit<OTPRecord, "expiresAtISO" | "createdAtISO"> & {
-        tenant_slug: string;
-        user_id?: string;
-        pending_value?: string;
-        otp_code: string;
-        expires_at_iso: string;
-        created_at_iso: string;
-      };
-    }>("/api/v1/auth/otp/verify", {
+    const res = await this.post("/api/v1/auth/otp/verify", {
       tenant_slug: params.tenantSlug,
       request_id: params.requestID,
       otp_code: params.otpCode,
       purpose: params.purpose,
       user_id: params.userID,
-    });
+    }, verifyOTPResponseSchema);
 
     if (!res.ok || !res.record) {
       return { ok: false, error: res.error ?? "Verification failed" };
@@ -144,16 +169,10 @@ export class ApiAuthRepository implements AuthRepository {
 
   // Session
   async createSession(params: CreateSessionParams): Promise<TenantSession> {
-    const response = await this.post<{
-      id: string;
-      tenant_slug: string;
-      user_id: string;
-      created_at_iso: string;
-      expires_at_iso: string;
-    }>("/api/v1/auth/session", {
+    const response = await this.post("/api/v1/auth/session", {
       tenant_slug: params.tenantSlug,
       user_id: params.userID,
-    });
+    }, rawSessionSchema);
 
     return {
       id: response.id,
@@ -165,13 +184,7 @@ export class ApiAuthRepository implements AuthRepository {
   }
 
   async getSession(id: string): Promise<TenantSession | null> {
-    const response = await this.get<{
-      id: string;
-      tenant_slug: string;
-      user_id: string;
-      created_at_iso: string;
-      expires_at_iso: string;
-    } | null>(`/api/v1/auth/session/${id}`);
+    const response = await this.get(`/api/v1/auth/session/${id}`, rawSessionSchema);
 
     if (!response) {
       return null;
@@ -192,63 +205,33 @@ export class ApiAuthRepository implements AuthRepository {
 
   // User
   async findOrCreateUser(params: FindOrCreateUserParams): Promise<TenantUser> {
-    const response = await this.post<{
-      id: string;
-      tenant_slug: string;
-      email?: string;
-      mobile?: string;
-      social_providers?: string[];
-      role: string;
-      active?: boolean;
-      created_at_iso: string;
-      updated_at_iso: string;
-      last_login_at_iso?: string;
-    }>("/api/v1/auth/user/find-or-create", {
+    const response = await this.post("/api/v1/auth/user/find-or-create", {
       tenant_slug: params.tenantSlug,
       channel: params.channel,
       identifier: params.identifier,
-    });
+    }, rawUserSchema);
 
     return mapTenantUser(response);
   }
 
   async getUser(tenantSlug: string, userID: string): Promise<TenantUser | null> {
-    const response = await this.get<{
-      id: string;
-      tenant_slug: string;
-      email?: string;
-      mobile?: string;
-      social_providers?: string[];
-      role: string;
-      active?: boolean;
-      created_at_iso: string;
-      updated_at_iso: string;
-      last_login_at_iso?: string;
-    } | null>(
+    const response = await this.get(
       `/api/v1/auth/user/${encodeURIComponent(userID)}?tenant_slug=${encodeURIComponent(tenantSlug)}`,
+      rawUserSchema,
     );
 
     return response ? mapTenantUser(response) : null;
   }
 
   async updateUserContact(params: UpdateUserContactParams): Promise<TenantUser> {
-    const response = await this.post<{
-      id: string;
-      tenant_slug: string;
-      email?: string;
-      mobile?: string;
-      role: string;
-      active?: boolean;
-      created_at_iso: string;
-      updated_at_iso: string;
-      last_login_at_iso?: string;
-    }>(
+    const response = await this.post(
       `/api/v1/auth/user/${encodeURIComponent(params.userID)}/update-contact`,
       {
         tenant_slug: params.tenantSlug,
         field: params.field,
         value: params.value,
       },
+      rawUserSchema,
     );
 
     return mapTenantUser(response);
@@ -258,19 +241,10 @@ export class ApiAuthRepository implements AuthRepository {
     tenantSlug: string,
     userID: string,
   ): Promise<TenantUser | null> {
-    const response = await this.post<{
-      id: string;
-      tenant_slug: string;
-      email?: string;
-      mobile?: string;
-      role: string;
-      active?: boolean;
-      created_at_iso: string;
-      updated_at_iso: string;
-      last_login_at_iso?: string;
-    } | null>(
+    const response = await this.post(
       `/api/v1/auth/user/${encodeURIComponent(userID)}/touch-last-login`,
       { tenant_slug: tenantSlug },
+      rawUserSchema.nullable(),
     );
 
     return response ? mapTenantUser(response) : null;

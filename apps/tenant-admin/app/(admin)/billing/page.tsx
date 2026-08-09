@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ComponentType } from "react";
 import { BarChart3, CreditCard, FileText, Landmark, LineChart, WalletCards } from "lucide-react";
 
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { AppCard } from "@/components/app-ui/AppCard";
 import { MetricCard } from "@/components/app-ui/MetricCard";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { buildControlPlaneBillingSummaryPath, type BillingUsageSummary, type WalletPayload, formatIRR } from "@/app/billing/_shared";
+import { buildControlPlaneBillingSummaryPath, formatIRR } from "@/features/billing/domain";
+import { parseBillingSummary, parseWallet } from "@/features/billing/api";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,8 @@ export default async function BillingDashboardPage() {
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneBillingSummaryPath("current_month"), userID: auth.user.id }),
   ]);
 
-  const wallet = walletResponse.ok ? (walletResponse.payload as WalletPayload) : null;
-  const summary = summaryResponse.ok ? (summaryResponse.payload as BillingUsageSummary) : null;
+  const wallet = walletResponse.ok ? parseWallet(walletResponse.payload) : null;
+  const summary = summaryResponse.ok ? parseBillingSummary(summaryResponse.payload) : null;
   const availableBalance = Number(wallet?.available_balance_irr ?? wallet?.balance_irr ?? 0);
 
   return (

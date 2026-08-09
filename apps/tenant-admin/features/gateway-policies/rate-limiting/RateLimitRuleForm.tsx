@@ -26,14 +26,13 @@ import {
   PrincipalEntitySelect,
   type PrincipalEntitySelection,
   type PrincipalEntitySelectLabels,
-  type PrincipalSearchKind,
-  type PrincipalSearchOption,
-} from "@/app/components/principal-search-input";
-import { ModelEntitySelect, type ModelEntitySelectLabels, type ModelSelection } from "@/app/components/model-entity-select";
+} from "@/components/app-ui/PrincipalEntitySelect";
+import { ModelEntitySelect, type ModelEntitySelectLabels, type ModelSelection } from "@/components/app-ui/ModelEntitySelect";
 
 import { createRateLimitRule, updateRateLimitRule } from "./ruleApi";
 import type { RateLimitCondition, RateLimitRule } from "./ruleTypes";
 import { rateLimitRuleSchema, type RateLimitRuleFormInput } from "./ruleValidation";
+import { loadPolicyModelOptions, searchPolicyPrincipals as searchPrincipals } from "../lookups";
 
 const fieldOptions = ["subject", "model", "metadata"] as const;
 
@@ -52,55 +51,6 @@ function toSubjectSelection(token: string): PrincipalEntitySelection {
     principal_id: principalId,
     display_name: principalId,
   };
-}
-
-async function requestJSON<T>(path: string): Promise<T> {
-  const response = await fetch(path, { cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload?.error?.message ?? payload?.message ?? `Request failed (${response.status})`);
-  }
-  return payload as T;
-}
-
-async function searchPrincipals(kind: PrincipalSearchKind, query: string): Promise<PrincipalSearchOption[]> {
-  if (kind === "user" || kind === "team") {
-    const payload = await requestJSON<{ data?: Array<{ principal_id: string; display_name: string; secondary?: string; type?: string }> }>(
-      `/api/access-principals?kind=${kind}&q=${encodeURIComponent(query)}&limit=20`,
-    );
-    return (payload.data ?? []).map((item) => ({
-      principal_id: item.principal_id,
-      display_name: item.display_name,
-      secondary: item.secondary,
-      type: kind,
-    }));
-  }
-
-  if (kind === "org_unit") {
-    const payload = await requestJSON<{ data?: Array<{ id: string; alias: string; display_name?: string }> }>("/api/gateway/lookups/organization-units");
-    const q = query.trim().toLowerCase();
-    return (payload.data ?? [])
-      .filter((item) => {
-        const label = `${item.display_name ?? ""} ${item.alias}`.toLowerCase();
-        return label.includes(q);
-      })
-      .slice(0, 20)
-      .map((item) => ({ principal_id: item.id, display_name: item.display_name || item.alias, secondary: item.alias, type: "org_unit" }));
-  }
-
-  if (kind === "virtual_account") {
-    const payload = await requestJSON<{ data?: Array<{ id: string; alias: string; display_name?: string }> }>("/api/gateway/lookups/virtual-accounts");
-    const q = query.trim().toLowerCase();
-    return (payload.data ?? [])
-      .filter((item) => {
-        const label = `${item.display_name ?? ""} ${item.alias}`.toLowerCase();
-        return label.includes(q);
-      })
-      .slice(0, 20)
-      .map((item) => ({ principal_id: item.id, display_name: item.display_name || item.alias, secondary: item.alias, type: "virtual_account" }));
-  }
-
-  return [];
 }
 
 type RateLimitRuleFormProps = {
@@ -202,33 +152,9 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
 
   useEffect(() => {
     void (async () => {
-      try {
-        const modelsPayload = await requestJSON<{ data?: Array<{ id?: string; model?: string; name?: string; provider_name?: string; provider?: string }> }>("/api/gateway/lookups/models");
-        const nextAllowed = (modelsPayload.data ?? [])
-          .map((item) => {
-            const name = item.model ?? item.name ?? item.id ?? "";
-            return {
-              id: name,
-              name,
-              kind: "provider_allowed" as const,
-              secondary: item.provider_name ?? item.provider,
-            };
-          })
-          .filter((item) => item.name);
-        setProviderAllowedModels(nextAllowed);
-      } catch {}
-
-      try {
-        const virtualPayload = await requestJSON<{ data?: Array<{ id?: string; alias?: string }> }>("/api/virtual-models");
-        const nextVirtual = (virtualPayload.data ?? [])
-          .map((item) => {
-            const id = item.id ?? item.alias ?? "";
-            const name = item.alias ?? item.id ?? "";
-            return { id, name, kind: "virtual_model" as const };
-          })
-          .filter((item) => item.id && item.name);
-        setVirtualModels(nextVirtual);
-      } catch {}
+      const options = await loadPolicyModelOptions();
+      setProviderAllowedModels(options.providerAllowedModels);
+      setVirtualModels(options.virtualModels);
     })();
   }, []);
 

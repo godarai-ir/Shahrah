@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { CompactValue } from "@/components/app-ui/CompactValue";
 import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

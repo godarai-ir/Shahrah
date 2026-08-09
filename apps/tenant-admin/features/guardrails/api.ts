@@ -1,70 +1,42 @@
-import type { GuardrailPayload, TenantGuardrail } from "./types";
+import { z } from "zod";
 
-type ListResponse = {
-  data: TenantGuardrail[];
-  total: number;
-  limit: number;
-  offset: number;
-};
+import { APIClientError, requestParsedJSON } from "@/lib/http/api-client";
 
-export class GuardrailAPIError extends Error {
-  status: number;
+import { type GuardrailPayload, tenantGuardrailSchema } from "./types";
 
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "GuardrailAPIError";
-    this.status = status;
-  }
-}
+const listResponseSchema = z.object({
+  data: z.array(tenantGuardrailSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+});
+const successResponseSchema = z.union([
+  z.object({ success: z.literal(true) }),
+  z.object({}).strict().transform(() => ({ success: true as const })),
+]);
 
-async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = new Headers(options?.headers ?? {});
-  if (options?.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(path, { ...options, headers, cache: "no-store" });
-  const text = await response.text();
-  let payload: Record<string, unknown> = {};
-  if (text.trim()) {
-    try {
-      payload = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      payload = { message: text };
-    }
-  }
-
-  if (!response.ok) {
-    const rawMessage =
-      (payload?.error as { message?: string } | undefined)?.message ??
-      (payload?.message as string | undefined) ??
-      `Request failed (${response.status})`;
-    throw new GuardrailAPIError(rawMessage, response.status);
-  }
-
-  return payload as T;
-}
+export { APIClientError as GuardrailAPIError };
 
 export function listGuardrails(query = "") {
-  return requestJSON<ListResponse>(`/api/guardrails?query=${encodeURIComponent(query)}`);
+  return requestParsedJSON(listResponseSchema, `/api/guardrails?query=${encodeURIComponent(query)}`);
 }
 
 export function createGuardrail(body: GuardrailPayload) {
-  return requestJSON<TenantGuardrail>("/api/guardrails", {
+  return requestParsedJSON(tenantGuardrailSchema, "/api/guardrails", {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 export function updateGuardrail(slug: string, body: GuardrailPayload) {
-  return requestJSON<TenantGuardrail>(`/api/guardrails/${encodeURIComponent(slug)}`, {
+  return requestParsedJSON(tenantGuardrailSchema, `/api/guardrails/${encodeURIComponent(slug)}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
 }
 
 export function deleteGuardrail(slug: string) {
-  return requestJSON<{ success: true }>(`/api/guardrails/${encodeURIComponent(slug)}`, {
+  return requestParsedJSON(successResponseSchema, `/api/guardrails/${encodeURIComponent(slug)}`, {
     method: "DELETE",
   });
 }

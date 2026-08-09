@@ -1,7 +1,7 @@
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { getTranslations } from "next-intl/server";
-import ProfileSettings from "@/app/components/profile-settings";
-import { loadSettingsShell } from "@/app/settings/_shared";
+import ProfileSettings from "@/features/profile/ProfileSettings";
+import { loadSettingsShell } from "@/features/settings/server";
 
 export const dynamic = "force-dynamic";
 

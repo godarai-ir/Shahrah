@@ -61,23 +61,6 @@ export type TicketListResponse = {
   next_cursor?: string;
 };
 
-export async function readTicketResponse<T>(response: Response): Promise<T> {
-  const payload = (await response.json().catch(() => null)) as
-    | T
-    | { error?: { message?: string }; message?: string; details?: { error?: { message?: string } } }
-    | null;
-  if (!response.ok) {
-    const errorPayload = payload as { error?: { message?: string }; message?: string; details?: { error?: { message?: string } } } | null;
-    throw new Error(
-      errorPayload?.error?.message ??
-        errorPayload?.details?.error?.message ??
-        errorPayload?.message ??
-        `Request failed (${response.status})`,
-    );
-  }
-  return payload as T;
-}
-
 export function createIdempotencyKey(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

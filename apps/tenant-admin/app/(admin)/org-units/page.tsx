@@ -1,27 +1,11 @@
-import AdminShell from "@/app/components/admin-shell";
-import OrgUnitManagement from "@/app/components/org-unit-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import OrgUnitManagement from "@/features/org-units/OrgUnitManagement";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-
-type OrgUnit = {
-  id: string;
-  tenant_id: string;
-  alias: string;
-  display_name?: string;
-  metadata?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-};
-
-type OrgUnitListResponse = {
-  data?: OrgUnit[];
-  total?: number;
-  limit?: number;
-  offset?: number;
-};
+import { parseOrgUnitListPayload } from "@/features/org-units/api";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +25,7 @@ export default async function OrgUnitsPage() {
     userID: auth.user.id,
   });
 
-  const payload = (orgUnitsResult.payload ?? {}) as OrgUnitListResponse;
+  const payload = parseOrgUnitListPayload(orgUnitsResult.payload);
   const initialOrgUnits = orgUnitsResult.ok ? payload.data ?? [] : [];
   const initialTotal = orgUnitsResult.ok ? payload.total ?? initialOrgUnits.length : 0;
   const initialError = orgUnitsResult.ok ? null : orgUnitsResult.errorMessage ?? "Request failed.";

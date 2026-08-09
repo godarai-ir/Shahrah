@@ -1,32 +1,13 @@
-import AdminShell, { buildDocsHref } from "@/app/components/admin-shell";
+import AdminShell, { buildDocsHref } from "@/features/admin-shell/AdminShell";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
-import TraceManagement from "@/app/components/trace-management";
-import { loadTracePrivacySettings, type TracePrivacySettingsData } from "@/app/settings/_shared";
+import TraceManagement from "@/features/traces/TraceManagement";
+import { loadTracePrivacySettings } from "@/features/settings/server";
+import { parseTraceListPayload, parseTracePrivacySettings } from "@/features/traces/api";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-
-type RequestTrace = {
-  trace_id: string;
-  tenant_id: string;
-  request_id?: string;
-  model?: string;
-  provider?: string;
-  route: string;
-  status_code: number;
-  started_at: string;
-  duration_ms: number;
-  error_code?: string;
-  sampled: boolean;
-  attempts?: number;
-};
-
-type TraceListResponse = {
-  data?: RequestTrace[];
-  total?: number;
-};
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +31,7 @@ export default async function TracesPage({
   });
 
   const tracePrivacyResult = await loadTracePrivacySettings(tenantSlug, auth.user.id);
-  const payload = (tracesResult.payload ?? {}) as TraceListResponse;
+  const payload = parseTraceListPayload(tracesResult.payload);
   const params = (await searchParams) ?? {};
   const currentUser = {
     id: auth.user.id,
@@ -69,7 +50,7 @@ export default async function TracesPage({
         initialData={tracesResult.ok ? payload.data ?? [] : []}
         initialTotal={tracesResult.ok ? payload.total ?? 0 : 0}
         initialError={tracesResult.ok ? null : tracesResult.errorMessage ?? "Request failed."}
-        initialTracePrivacySettings={tracePrivacyResult.ok ? (tracePrivacyResult.payload as TracePrivacySettingsData) : null}
+        initialTracePrivacySettings={tracePrivacyResult.ok ? parseTracePrivacySettings(tracePrivacyResult.payload) : null}
         initialTracePrivacyError={tracePrivacyResult.ok ? null : tracePrivacyResult.errorMessage ?? "Failed to load tracing privacy settings."}
         initialTracePrivacyOpen={params.tracePrivacy === "open"}
         currentUserID={currentUser.id}

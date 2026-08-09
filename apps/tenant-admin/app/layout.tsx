@@ -5,7 +5,7 @@ import { JetBrains_Mono, Vazirmatn } from "next/font/google";
 import localFont from "next/font/local";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
-import AppProviders from "@/app/components/app-providers";
+import AppProviders from "@/components/providers/AppProviders";
 import { Toaster } from "@/components/ui/sonner";
 import { getLocaleDirection } from "@/lib/locale-direction";
 import { pickMessages } from "@/lib/pick-messages";

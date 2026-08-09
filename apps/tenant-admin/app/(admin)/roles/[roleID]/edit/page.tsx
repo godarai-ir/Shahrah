@@ -1,38 +1,13 @@
 import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
 
-import AdminShell from "@/app/components/admin-shell";
-import RoleEditManagement from "@/app/components/roles-edit-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import RoleEditManagement from "@/features/roles/RolesEditManagement";
+import { mePermissionsResponseSchema, roleListSchema } from "@/features/roles/contracts";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-
-type RoleDefinition = {
-  id: string;
-  tenant_id: string;
-  name: string;
-  display_name: string;
-  description?: string;
-  is_system: boolean;
-  permissions: string[];
-  created_at: string;
-  updated_at: string;
-};
-
-type RoleListResponse = {
-  data?: RoleDefinition[];
-};
-
-type PermissionDefinition = {
-  key: string;
-  group: string;
-  description?: string;
-};
-
-type MePermissionsResponse = {
-  catalog?: PermissionDefinition[];
-};
 
 type PageProps = {
   params: Promise<{
@@ -60,17 +35,18 @@ export default async function EditRolePage({ params }: PageProps) {
     notFound();
   }
 
-  const rolesPayload = (rolesResult.payload ?? {}) as RoleListResponse;
-  const role = (rolesPayload.data ?? []).find((item) => item.id === roleID);
+  const rolesPayload = roleListSchema.safeParse(rolesResult.payload);
+  const role = rolesPayload.success
+    ? (rolesPayload.data.data ?? []).find((item) => item.id === roleID)
+    : undefined;
   if (!role) {
     notFound();
   }
 
-  const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id) as MePermissionsResponse;
-  const initialPermissionCatalog = (permissionsPayload.catalog ?? []).map((item) => ({
-    ...item,
-    description: item.description ?? "",
-  }));
+  const permissionsPayload = mePermissionsResponseSchema.safeParse(
+    await getCurrentMePermissions(tenantSlug, auth.user.id),
+  );
+  const initialPermissionCatalog = permissionsPayload.success ? permissionsPayload.data.catalog ?? [] : [];
 
   const currentUser = {
     id: auth.user.id,

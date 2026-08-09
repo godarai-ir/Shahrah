@@ -1,6 +1,6 @@
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { getTranslations } from "next-intl/server";
-import ModelMetricsDashboard from "@/app/components/model-metrics-dashboard";
+import ModelMetricsDashboard from "@/features/metrics/ModelMetricsDashboard";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 

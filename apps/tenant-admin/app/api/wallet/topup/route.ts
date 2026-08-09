@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";
+import { withRequestAuth } from "@/lib/http/server/route-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -13,59 +13,54 @@ type TopUpPayload = {
   metadata?: unknown;
 };
 
-export async function POST(request: NextRequest) {
-  const auth = await readAuthFromRequest(request);
-  if (!auth.ok) {
-    return NextResponse.json(
-      { error: { message: auth.message } },
-      { status: auth.status },
-    );
-  }
+export function POST(request: NextRequest) {
+  return withRequestAuth(request, async (auth) => {
+    const body = (await request.json().catch(() => null)) as TopUpPayload | null;
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: { message: "بدنه درخواست نامعتبر است." } },
+        { status: 400 },
+      );
+    }
 
-  const body = (await request.json().catch(() => null)) as TopUpPayload | null;
-  if (!body || typeof body !== "object") {
-    return NextResponse.json(
-      { error: { message: "بدنه درخواست نامعتبر است." } },
-      { status: 400 },
-    );
-  }
+    const amountIRR = parseAmount(body.amount_irr);
+    const amountUSD = parseAmount(body.amount_usd);
+    if ((amountIRR === null || amountIRR <= 0) && (amountUSD === null || amountUSD <= 0)) {
+      return NextResponse.json(
+        { error: { message: "مقدار amount_irr باید یک عدد مثبت باشد." } },
+        { status: 400 },
+      );
+    }
 
-  const amountIRR = parseAmount(body.amount_irr);
-  const amountUSD = parseAmount(body.amount_usd);
-  if ((amountIRR === null || amountIRR <= 0) && (amountUSD === null || amountUSD <= 0)) {
-    return NextResponse.json(
-      { error: { message: "مقدار amount_irr باید یک عدد مثبت باشد." } },
-      { status: 400 },
-    );
-  }
+    const provider =
+      typeof body.provider === "string" && body.provider.trim() !== ""
+        ? body.provider.trim().toLowerCase()
+        : "mock";
 
-  const provider =
-    typeof body.provider === "string" && body.provider.trim() !== ""
-      ? body.provider.trim().toLowerCase()
-      : "mock";
+    const returnURL =
+      typeof body.return_url === "string" && body.return_url.trim() !== ""
+        ? body.return_url.trim()
+        : undefined;
 
-  const returnURL =
-    typeof body.return_url === "string" && body.return_url.trim() !== ""
-      ? body.return_url.trim()
-      : undefined;
+    const metadata =
+      body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
+        ? body.metadata
+        : {};
 
-  const metadata =
-    body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
-      ? body.metadata
-      : {};
-
-  return proxyToControlPlane({
-    request,
-    method: "POST",
-    path: "/api/v1/wallet/topup/intents",
-    body: {
-      ...(amountIRR !== null && amountIRR > 0
-        ? { amount_irr: Math.round(amountIRR) }
-        : { amount_usd: amountUSD }),
-      provider,
-      return_url: returnURL,
-      metadata,
-    },
+    return proxyToControlPlane({
+      request,
+      auth,
+      method: "POST",
+      path: "/api/v1/wallet/topup/intents",
+      body: {
+        ...(amountIRR !== null && amountIRR > 0
+          ? { amount_irr: Math.round(amountIRR) }
+          : { amount_usd: amountUSD }),
+        provider,
+        return_url: returnURL,
+        metadata,
+      },
+    });
   });
 }
 

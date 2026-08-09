@@ -79,7 +79,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
-import { ModelCardExampleGrid } from "@/app/components/model-card.example";
+import { ModelCardExampleGrid } from "@/components/app-ui/ModelCard.example";
 import { formatCompactCurrency, formatCompactIrr, formatCompactNumber } from "@/lib/compact-number";
 
 const tokens = [

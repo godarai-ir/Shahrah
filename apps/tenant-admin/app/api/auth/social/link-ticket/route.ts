@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { isSocialAuthProvider, resolveCentralSocialAuthBaseURL } from "@/lib/auth/social-auth-url";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
+import { z } from "zod";
 
-type LinkTicket = { code: string; expires_at: string };
+const linkTicketSchema = z.object({ code: z.string(), expires_at: z.string() });
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,11 @@ export async function POST(request: NextRequest) {
     requestHeaders: request.headers,
   });
   if (!result.ok) return NextResponse.json({ error: { message: result.errorMessage } }, { status: result.status });
-  const ticket = result.payload as LinkTicket;
+  const parsedTicket = linkTicketSchema.safeParse(result.payload);
+  if (!parsedTicket.success) {
+    return NextResponse.json({ error: { message: "پاسخ سرویس احراز هویت نامعتبر است." } }, { status: 502 });
+  }
+  const ticket = parsedTicket.data;
   const redirectURL = new URL("/auth/social/start", authBase);
   redirectURL.searchParams.set("flow", "link");
   redirectURL.searchParams.set("provider", provider);

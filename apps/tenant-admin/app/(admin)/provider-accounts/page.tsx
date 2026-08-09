@@ -1,8 +1,8 @@
-import ProviderAccountWizard from "@/app/components/provider-account-wizard";
-import AdminShell from "@/app/components/admin-shell";
-import { QueryProvider } from "@/app/components/query-provider";
-import { ModelCatalogPage } from "@/app/components/model-catalog/model-catalog-page";
-import type { WorkspaceTab } from "@/app/components/provider-account-wizard/types";
+import ProviderAccountWizard from "@/features/provider-accounts/ProviderAccountWizard";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { ModelCatalogPage } from "@/features/provider-accounts/model-catalog/model-catalog-page";
+import type { WorkspaceTab } from "@/features/provider-accounts/types";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { headers } from "next/headers";

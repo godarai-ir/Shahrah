@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { modelModesSupportPlaygroundMode } from "@/app/components/playground-mode";
+import { modelModesSupportPlaygroundMode } from "@/lib/playground-mode";
 import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
 import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { fetchControlPlaneJSON, proxyToControlPlane, proxyToControlPlaneStream } from "@/lib/control-plane";

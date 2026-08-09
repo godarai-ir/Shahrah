@@ -1,5 +1,5 @@
-import AdminShell from "@/app/components/admin-shell";
-import { ReportsPanel } from "@/app/components/billing-finance-panels";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import { ReportsPanel } from "@/features/billing/BillingFinancePanels";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
@@ -8,9 +8,8 @@ import {
   buildControlPlaneBillingMonthlyPath,
   buildControlPlaneBillingSummaryPath,
   getCurrentJalaliMonthSelection,
-  type BillingUsageSummary,
-  type MonthlyUsageDetail,
-} from "@/app/billing/_shared";
+} from "@/features/billing/domain";
+import { parseBillingSummary, parseMonthlyUsage } from "@/features/billing/api";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +39,8 @@ export default async function BillingReportsPage() {
       <div className="space-y-6">
         <PageHeader title="گزارش‌های مالی" description="مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید." />
         <ReportsPanel
-          initialSummary={summaryResponse.ok ? (summaryResponse.payload as BillingUsageSummary) : null}
-          initialMonthly={monthlyResponse.ok ? (monthlyResponse.payload as MonthlyUsageDetail) : null}
+          initialSummary={summaryResponse.ok ? parseBillingSummary(summaryResponse.payload) : null}
+          initialMonthly={monthlyResponse.ok ? parseMonthlyUsage(monthlyResponse.payload) : null}
           initialError={initialError}
         />
       </div>

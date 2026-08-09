@@ -1,76 +1,58 @@
-import type { BudgetLimitRule } from "./ruleTypes";
+import { z } from "zod";
+
+import { requestParsedJSON } from "@/lib/http/api-client";
+
 import type { BudgetLimitRuleFormInput } from "./ruleValidation";
+import { budgetLimitRuleResponseSchema } from "./ruleValidation";
 
-type ListResponse = {
-  data: BudgetLimitRule[];
-  total: number;
-  limit: number;
-  offset: number;
-};
-
-type EffectiveEntitlements = {
-  features?: Record<string, unknown>;
-} | null;
-
-async function requestJSON<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = new Headers(options?.headers ?? {});
-  if (options?.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  const response = await fetch(path, { ...options, headers, cache: "no-store" });
-  const text = await response.text();
-  let payload: Record<string, unknown> = {};
-  if (text.trim()) {
-    try {
-      payload = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      payload = { message: text };
-    }
-  }
-  if (!response.ok) {
-    const message =
-      (payload?.error as { message?: string } | undefined)?.message ??
-      (payload?.message as string | undefined) ??
-      `Request failed (${response.status})`;
-    throw new Error(message);
-  }
-  return payload as T;
-}
+const listResponseSchema = z.object({
+  data: z.array(budgetLimitRuleResponseSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+});
+const effectiveEntitlementsSchema = z.object({
+  features: z.record(z.string(), z.unknown()).optional(),
+}).nullable();
+const successResponseSchema = z.union([
+  z.object({ success: z.literal(true) }),
+  z.object({}).strict().transform(() => ({ success: true as const })),
+]);
 
 export function listBudgetLimitRules(query = "") {
-  return requestJSON<ListResponse>(`/api/gateway-policies/budget-limit-rules?query=${encodeURIComponent(query)}`);
+  return requestParsedJSON(listResponseSchema, `/api/gateway-policies/budget-limit-rules?query=${encodeURIComponent(query)}`);
 }
 
 export function getBudgetLimitEntitlements() {
-  return requestJSON<EffectiveEntitlements>("/api/entitlements");
+  return requestParsedJSON(effectiveEntitlementsSchema, "/api/entitlements");
 }
 
 export function getBudgetLimitRule(id: string) {
-  return requestJSON<BudgetLimitRule>(`/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}`);
+  return requestParsedJSON(budgetLimitRuleResponseSchema, `/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}`);
 }
 
 export function createBudgetLimitRule(body: BudgetLimitRuleFormInput) {
-  return requestJSON<BudgetLimitRule>("/api/gateway-policies/budget-limit-rules", {
+  return requestParsedJSON(budgetLimitRuleResponseSchema, "/api/gateway-policies/budget-limit-rules", {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 export function updateBudgetLimitRule(id: string, body: Partial<BudgetLimitRuleFormInput>) {
-  return requestJSON<BudgetLimitRule>(`/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}`, {
+  return requestParsedJSON(budgetLimitRuleResponseSchema, `/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
 }
 
 export function deleteBudgetLimitRule(id: string) {
-  return requestJSON<{ success: true }>(`/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}`, {
+  return requestParsedJSON(successResponseSchema, `/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 }
 
 export function updateBudgetLimitRuleStatus(id: string, enabled: boolean) {
-  return requestJSON<BudgetLimitRule>(`/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}/status`, {
+  return requestParsedJSON(budgetLimitRuleResponseSchema, `/api/gateway-policies/budget-limit-rules/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),
   });

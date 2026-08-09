@@ -1,7 +1,7 @@
-import AdminShell from "@/app/components/admin-shell";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-import PromptRegistryListPage from "@/app/components/prompt-registry-list-page";
+import PromptRegistryListPage from "@/features/prompts/PromptRegistryListPage";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 

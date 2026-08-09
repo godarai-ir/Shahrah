@@ -1,37 +1,12 @@
-import AdminShell from "@/app/components/admin-shell";
-import TeamManagement from "@/app/components/team-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import TeamManagement from "@/features/teams/TeamManagement";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-
-type Team = {
-  id: string;
-  tenant_id: string;
-  alias: string;
-  display_name?: string;
-  org_unit_id?: string | null;
-  workspace_type?: string;
-  metadata?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-};
-
-type TeamListResponse = {
-  data?: Team[];
-  total?: number;
-};
-
-type OrgUnit = {
-  id: string;
-  alias: string;
-  display_name?: string;
-};
-
-type OrgUnitListResponse = {
-  data?: OrgUnit[];
-};
+import { parseTeamListPayload } from "@/features/teams/api";
+import { parseOrgUnitListPayload } from "@/features/org-units/api";
 export const dynamic = "force-dynamic";
 
 export default async function TeamsPage() {
@@ -58,8 +33,8 @@ export default async function TeamsPage() {
     }),
   ]);
 
-  const teamsPayload = (teamsResult.payload ?? {}) as TeamListResponse;
-  const orgUnitsPayload = (orgUnitsResult.payload ?? {}) as OrgUnitListResponse;
+  const teamsPayload = parseTeamListPayload(teamsResult.payload);
+  const orgUnitsPayload = parseOrgUnitListPayload(orgUnitsResult.payload);
   const initialTeams = teamsResult.ok ? teamsPayload.data ?? [] : [];
   const initialTotal = teamsResult.ok ? teamsPayload.total ?? initialTeams.length : 0;
   const initialError = teamsResult.ok ? null : teamsResult.errorMessage ?? "Request failed.";

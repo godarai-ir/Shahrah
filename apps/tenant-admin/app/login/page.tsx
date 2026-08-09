@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
-import LoginForm from "@/app/components/login-form";
+import LoginForm from "@/features/auth/LoginForm";
 import { getAuthContext } from "@/lib/auth/session";
 import { getAuthService } from "@/lib/auth/factory";
 import { decodeLoginIdentifierParam } from "@/lib/auth/login-prefill";

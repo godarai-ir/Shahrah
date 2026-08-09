@@ -1,34 +1,13 @@
-import TenantAdminDashboard from "@/app/components/tenant-admin-dashboard";
-import AdminShell from "@/app/components/admin-shell";
+import TenantAdminDashboard from "@/features/dashboard/TenantAdminDashboard";
+import AdminShell from "@/features/admin-shell/AdminShell";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { requireAuth } from "@/lib/auth/session";
 import { getTranslations } from "next-intl/server";
-
-type TenantSubscription = {
-  plan_slug?: string;
-  plan_display_name?: string;
-  status: string;
-  billing_interval: string;
-  current_period_start?: string;
-  current_period_end?: string;
-  trial_started_at?: string;
-  trial_ends_at?: string;
-};
-
-type EffectiveEntitlements = {
-  subscription?: TenantSubscription | null;
-  features?: Record<string, unknown>;
-  usage_counters?: Array<{
-    feature_key: string;
-    used: number;
-    limit?: number | null;
-    window_end?: string;
-  }>;
-};
-
-type TenantAdminUserListResponse = {
-  total?: number;
-};
+import {
+  effectiveEntitlementsSchema,
+  tenantAdminUserListResponseSchema,
+  tenantSubscriptionSchema,
+} from "@/features/dashboard/contracts";
 
 export const dynamic = "force-dynamic";
 
@@ -57,9 +36,12 @@ export default async function Home() {
       userID: auth.user.id,
     }),
   ]);
-  const initialSubscription = subscriptionResult.ok ? (subscriptionResult.payload as TenantSubscription) : null;
-  const initialEntitlements = entitlementsResult.ok ? (entitlementsResult.payload as EffectiveEntitlements) : null;
-  const initialUsersTotal = usersResult.ok ? ((usersResult.payload as TenantAdminUserListResponse).total ?? 0) : null;
+  const parsedSubscription = tenantSubscriptionSchema.safeParse(subscriptionResult.payload);
+  const parsedEntitlements = effectiveEntitlementsSchema.safeParse(entitlementsResult.payload);
+  const parsedUsers = tenantAdminUserListResponseSchema.safeParse(usersResult.payload);
+  const initialSubscription = subscriptionResult.ok && parsedSubscription.success ? parsedSubscription.data : null;
+  const initialEntitlements = entitlementsResult.ok && parsedEntitlements.success ? parsedEntitlements.data : null;
+  const initialUsersTotal = usersResult.ok && parsedUsers.success ? parsedUsers.data.total ?? 0 : null;
 
   const errorMessage =
     subscriptionResult.errorMessage ??

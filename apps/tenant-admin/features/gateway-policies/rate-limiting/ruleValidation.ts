@@ -81,4 +81,10 @@ export const rateLimitRuleSchema = z.object({
   expires_at: z.string().optional(),
 });
 
+export const rateLimitRuleResponseSchema = rateLimitRuleSchema.extend({
+  id: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
 export type RateLimitRuleFormInput = z.input<typeof rateLimitRuleSchema>;

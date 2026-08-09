@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const name = request.nextUrl.searchParams.get("name")?.trim() ?? "";
   if (!name) {
-    return NextResponse.json({ error: { message: "????? name ?????? ???." } }, { status: 400 });
+    return NextResponse.json({ error: { message: "The name field is required." } }, { status: 400 });
   }
 
   return proxyToControlPlane({

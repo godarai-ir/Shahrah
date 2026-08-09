@@ -100,4 +100,10 @@ export const budgetLimitRuleSchema = z.object({
     .default({ enabled: false }),
 });
 
+export const budgetLimitRuleResponseSchema = budgetLimitRuleSchema.extend({
+  id: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
 export type BudgetLimitRuleFormInput = z.input<typeof budgetLimitRuleSchema>;

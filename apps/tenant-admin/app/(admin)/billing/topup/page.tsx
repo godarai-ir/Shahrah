@@ -1,5 +1,5 @@
-import AdminShell from "@/app/components/admin-shell";
-import TopUpPanel from "@/app/components/topup-panel";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import TopUpPanel from "@/features/billing/TopUpPanel";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { getTranslations } from "next-intl/server";

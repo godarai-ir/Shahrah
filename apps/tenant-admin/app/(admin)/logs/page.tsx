@@ -1,8 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 
-import AdminShell, { buildDocsHref } from "@/app/components/admin-shell";
-import LogsCommandCenter from "@/app/components/logs-command-center";
+import AdminShell, { buildDocsHref } from "@/features/admin-shell/AdminShell";
+import LogsCommandCenter from "@/features/logs/LogsCommandCenter";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";

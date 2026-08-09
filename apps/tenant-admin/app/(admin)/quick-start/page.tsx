@@ -1,10 +1,14 @@
-import AdminShell from "@/app/components/admin-shell";
-import QuickStartManagement from "@/app/components/quick-start-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import QuickStartManagement from "@/features/quick-start/QuickStartManagement";
 import {
-  type QuickStartEntitlements,
   type QuickStartResources,
-  type QuickStartSubscription,
-} from "@/app/components/quick-start-journey";
+} from "@/features/quick-start/journey";
+import {
+  countQuickStartResources,
+  parseAllowedModelIDs,
+  parseQuickStartEntitlements,
+  parseQuickStartSubscription,
+} from "@/features/quick-start/api";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
@@ -12,15 +16,6 @@ import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
-
-type DataList<T> = {
-  data?: T[];
-  total?: number;
-};
-
-type AllowedModel = {
-  id: string;
-};
 
 export default async function QuickStartPage() {
   const auth = await requireAuth("/login?next=/quick-start");
@@ -120,20 +115,20 @@ export default async function QuickStartPage() {
     }),
   ]);
 
-  const initialSubscription = subscriptionResult.ok ? (subscriptionResult.payload as QuickStartSubscription) : null;
-  const initialEntitlements = entitlementsResult.ok ? (entitlementsResult.payload as QuickStartEntitlements) : null;
+  const initialSubscription = subscriptionResult.ok ? parseQuickStartSubscription(subscriptionResult.payload) : null;
+  const initialEntitlements = entitlementsResult.ok ? parseQuickStartEntitlements(entitlementsResult.payload) : null;
 
   const initialResources: QuickStartResources = {
-    providerAccountCount: countList(providerAccountsResult.payload),
-    personalAccessTokenCount: countList(patsResult.payload),
-    virtualUserCount: countList(virtualUsersResult.payload),
-    teamCount: countList(teamsResult.payload),
-    orgUnitCount: countList(orgUnitsResult.payload),
-    rateLimitRuleCount: countList(rateRulesResult.payload),
-    budgetLimitRuleCount: countList(budgetRulesResult.payload),
-    guardrailCount: countList(guardrailsResult.payload),
-    allowedPatModels: allowedModelIDs(allowedPatModelsResult.payload),
-    allowedVatModels: allowedModelIDs(allowedVatModelsResult.payload),
+    providerAccountCount: countQuickStartResources(providerAccountsResult.payload),
+    personalAccessTokenCount: countQuickStartResources(patsResult.payload),
+    virtualUserCount: countQuickStartResources(virtualUsersResult.payload),
+    teamCount: countQuickStartResources(teamsResult.payload),
+    orgUnitCount: countQuickStartResources(orgUnitsResult.payload),
+    rateLimitRuleCount: countQuickStartResources(rateRulesResult.payload),
+    budgetLimitRuleCount: countQuickStartResources(budgetRulesResult.payload),
+    guardrailCount: countQuickStartResources(guardrailsResult.payload),
+    allowedPatModels: parseAllowedModelIDs(allowedPatModelsResult.payload),
+    allowedVatModels: parseAllowedModelIDs(allowedVatModelsResult.payload),
   };
 
   const currentUser = {
@@ -162,25 +157,6 @@ export default async function QuickStartPage() {
 
 function canAnyPermission(permissions: string[], required: string[]): boolean {
   return required.some((permission) => permissions.includes(permission.trim().toLowerCase()));
-}
-
-function countList(payload: unknown): number {
-  if (!payload || typeof payload !== "object") return 0;
-  const candidate = payload as DataList<unknown>;
-  if (typeof candidate.total === "number" && Number.isFinite(candidate.total)) {
-    return candidate.total;
-  }
-  if (Array.isArray(candidate.data)) {
-    return candidate.data.length;
-  }
-  return 0;
-}
-
-function allowedModelIDs(payload: unknown): string[] {
-  if (!payload || typeof payload !== "object") return [];
-  const candidate = payload as DataList<AllowedModel>;
-  if (!Array.isArray(candidate.data)) return [];
-  return candidate.data.map((item) => item.id?.trim()).filter(Boolean);
 }
 
 function emptyResponse() {

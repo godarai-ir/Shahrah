@@ -1,10 +1,11 @@
-import AdminShell from "@/app/components/admin-shell";
-import { BankTransferPanel } from "@/app/components/billing-finance-panels";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import { BankTransferPanel } from "@/features/billing/BillingFinancePanels";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { type BankTransferRequest, unwrapList } from "@/app/billing/_shared";
+import { type BankTransferRequest } from "@/features/billing/domain";
+import { parseBankTransfers } from "@/features/billing/api";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function BankTransferPage() {
   let items: BankTransferRequest[] = [];
   const response = await fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/wallet/bank-transfers", userID: auth.user.id });
   if (response.ok) {
-    items = unwrapList<BankTransferRequest>(response.payload);
+    items = parseBankTransfers(response.payload);
   } else {
     initialError = response.errorMessage ?? "واریزهای بانکی دریافت نشد.";
   }

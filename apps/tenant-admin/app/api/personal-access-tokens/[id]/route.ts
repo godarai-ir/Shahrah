@@ -17,7 +17,7 @@ export async function DELETE(
   const params = await context.params;
   const id = params.id?.trim() ?? "";
   if (!id) {
-    return NextResponse.json({ error: { message: "????? ???? ?????? ???." } }, { status: 400 });
+    return NextResponse.json({ error: { message: "Invalid token identifier." } }, { status: 400 });
   }
 
   return proxyToControlPlane({

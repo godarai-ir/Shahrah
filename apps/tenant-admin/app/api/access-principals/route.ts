@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { readAuthFromRequest } from "@/lib/auth/request-auth";
 import { proxyToControlPlane } from "@/lib/control-plane";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const auth = await readAuthFromRequest(request);
-  if (!auth.ok) {
-    return NextResponse.json(
-      { error: { message: auth.message } },
-      { status: auth.status },
-    );
-  }
 
   const url = new URL(request.url);
   const kind = (url.searchParams.get("kind") ?? "").trim().toLowerCase();

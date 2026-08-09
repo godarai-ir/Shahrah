@@ -12,6 +12,8 @@ Private tenant-facing admin console for Shahrah. This app owns:
 
 This is a Next.js App Router app with `next-intl` for UI copy.
 
+Read `ARCHITECTURE.md` before changing application structure, feature ownership, data fetching, API contracts, or client/server boundaries. Its dependency direction is enforced by `pnpm run validate:architecture`.
+
 ## Non-Negotiable Defaults
 
 1. Never ship hardcoded user-facing strings in components.
@@ -100,6 +102,7 @@ validation and do not repeatedly run repository-wide commands.
 8. If a full command is unexpectedly slow, do not immediately rerun the same
    command. Report the elapsed time, preserve any output, and use the narrower
    checks above to identify whether linting, type checking, or bundling is slow.
+9. Run `pnpm --filter @shahrah/tenant-admin validate:source-encoding` for source or locale changes. App lint runs it automatically.
 
 ## Commands
 

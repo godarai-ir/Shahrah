@@ -1,5 +1,5 @@
-import AdminShell from "@/app/components/admin-shell";
-import VirtualModelManagement from "@/app/components/virtual-model-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import VirtualModelManagement from "@/features/virtual-models/VirtualModelManagement";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { headers } from "next/headers";

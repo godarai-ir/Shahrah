@@ -1,25 +1,10 @@
-import AdminShell from "@/app/components/admin-shell";
-import PersonalAccessTokenManagement from "@/app/components/personal-access-token-management";
+import AdminShell from "@/features/admin-shell/AdminShell";
+import PersonalAccessTokenManagement from "@/features/personal-access-tokens/PersonalAccessTokenManagement";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
-
-type CreatedKey = {
-  id: string;
-  key_alias: string;
-  key_name?: string;
-  key_type?: string;
-  created_at?: string;
-  expires_at?: string;
-  last_used_at?: string;
-  revoked_at?: string;
-};
-
-type PATListResponse = {
-  data?: CreatedKey[];
-  total?: number;
-};
+import { parsePersonalAccessTokenListPayload } from "@/features/personal-access-tokens/api";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +22,7 @@ export default async function PersonalAccessTokensPage() {
     userID: auth.user.id,
   });
 
-  const patPayload = (patsResult.payload ?? {}) as PATListResponse;
+  const patPayload = parsePersonalAccessTokenListPayload(patsResult.payload);
 
   const currentUser = {
     id: auth.user.id,

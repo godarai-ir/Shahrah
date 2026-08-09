@@ -37,6 +37,7 @@ describe("provider-connections/test POST route", () => {
 
     expect(proxyToControlPlaneMock).toHaveBeenCalledWith({
       request,
+      auth: { ok: true, user: { id: "user-1" } },
       method: "POST",
       path: "/api/v1/provider-connections/test",
       body: {

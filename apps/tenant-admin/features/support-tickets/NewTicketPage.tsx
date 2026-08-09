@@ -12,7 +12,8 @@ import { PageContainer } from "@/components/app-ui/PageContainer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createIdempotencyKey, readTicketResponse, type TicketCategory, type TicketDetail } from "./types";
+import { createTicket } from "./api";
+import { createIdempotencyKey, type TicketCategory } from "./types";
 
 const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -52,12 +53,7 @@ export function NewTicketPage() {
     form.set("payload", JSON.stringify({ subject: trimmedSubject, category, body, idempotency_key: idempotencyKey.current }));
     files.forEach((file) => form.append("files", file));
     try {
-      const response = await fetch("/api/support/tickets", {
-        method: "POST",
-        body: form,
-        headers: { "Idempotency-Key": idempotencyKey.current },
-      });
-      const detail = await readTicketResponse<TicketDetail>(response);
+      const detail = await createTicket(form, idempotencyKey.current);
       router.push(`/support/tickets/${detail.ticket.public_id}`);
       router.refresh();
     } catch (cause) {

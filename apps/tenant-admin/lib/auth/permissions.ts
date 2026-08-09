@@ -1,8 +1,9 @@
 import { forbidden } from "next/navigation";
 
 import { getCurrentMePermissions, getNormalizedPermissionSet } from "@/lib/auth/me-permissions";
+import type { Permission } from "@/lib/permissions";
 
-export async function requirePermissionOr403(tenantSlug: string, userID: string, required: string[]) {
+export async function requirePermissionOr403(tenantSlug: string, userID: string, required: readonly Permission[]) {
   try {
     const payload = await getCurrentMePermissions(tenantSlug, userID);
     const permissionSet = getNormalizedPermissionSet(payload);

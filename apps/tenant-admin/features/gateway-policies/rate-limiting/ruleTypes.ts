@@ -1,64 +1,19 @@
-export type RateLimitConditionField = "subject" | "model" | "metadata";
+import type { z } from "zod";
 
-export type RateLimitConditionOperator =
-  | "in"
-  | "not_in"
-  | "equals"
-  | "not_equals"
-  | "contains"
-  | "starts_with"
-  | "ends_with"
-  | "exists"
-  | "not_exists"
-  | "gt"
-  | "gte"
-  | "lt"
-  | "lte";
+import type {
+  rateLimitConditionSchema,
+  rateLimitRuleResponseSchema,
+  rateLimitRuleSchema,
+} from "./ruleValidation";
 
-export type RateLimitCondition = {
-  field: RateLimitConditionField;
-  operator: RateLimitConditionOperator;
-  values?: string[];
-  value?: string | number | boolean;
-  metadataKey?: string;
-  subjectKind?: "user" | "team" | "virtual_account" | "organization_unit";
-};
-
-export type RateLimitConditionGroup = {
-  combinator: "AND";
-  conditions: RateLimitCondition[];
-};
-
-export type RateLimitConfig = {
-  dimension: "requests" | "tokens";
-  max: number;
-  window: {
-    value: number;
-    unit: "second" | "minute" | "hour" | "day" | "week" | "month";
-  };
-};
-
-export type RateLimitConflictBehavior = "first_match" | "most_restrictive" | "apply_all";
-export type RateLimitResponseBehavior = "return_429";
-
-export type RateLimitRule = {
-  id: string;
-  rule_id: string;
-  name?: string;
-  description?: string;
-  enabled: boolean;
-  priority: number;
-  conditions: RateLimitConditionGroup;
-  limit: RateLimitConfig;
-  conflict_behavior: RateLimitConflictBehavior;
-  response_behavior: RateLimitResponseBehavior;
-  soft_limit: boolean;
-  retry_after_header: boolean;
-  effective_from?: string;
-  expires_at?: string;
-  created_at: string;
-  updated_at: string;
-};
+export type RateLimitCondition = z.infer<typeof rateLimitConditionSchema>;
+export type RateLimitConditionField = RateLimitCondition["field"];
+export type RateLimitConditionOperator = RateLimitCondition["operator"];
+export type RateLimitConditionGroup = z.infer<typeof rateLimitRuleSchema>["conditions"];
+export type RateLimitConfig = z.infer<typeof rateLimitRuleSchema>["limit"];
+export type RateLimitConflictBehavior = z.infer<typeof rateLimitRuleSchema>["conflict_behavior"];
+export type RateLimitResponseBehavior = z.infer<typeof rateLimitRuleSchema>["response_behavior"];
+export type RateLimitRule = z.infer<typeof rateLimitRuleResponseSchema>;
 
 export type GatewayRequestContext = {
   subject?: string;

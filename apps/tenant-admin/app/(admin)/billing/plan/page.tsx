@@ -1,5 +1,5 @@
-import AdminShell, { buildDocsHref } from "@/app/components/admin-shell";
-import PlanManagement from "@/app/components/plan-management";
+import AdminShell, { buildDocsHref } from "@/features/admin-shell/AdminShell";
+import PlanManagement from "@/features/billing/PlanManagement";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";

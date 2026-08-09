@@ -2,9 +2,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { headers } from "next/headers";
 
-import { loadAdminShellData, getAppVersion } from "@/app/components/admin-shell-data";
-import AdminShellClient from "@/app/components/admin-shell-client";
-import { buildDocsHref } from "@/app/components/admin-shell";
+import { loadAdminShellData, getAppVersion } from "@/features/admin-shell/data";
+import AdminShellClient from "@/features/admin-shell/AdminShellClient";
+import { buildDocsHref } from "@/features/admin-shell/AdminShell";
 import { requireAuth } from "@/lib/auth/session";
 import { pickMessages } from "@/lib/pick-messages";
 

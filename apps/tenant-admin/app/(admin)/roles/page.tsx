@@ -1,31 +1,12 @@
-import AdminShell, { buildDocsHref } from "@/app/components/admin-shell";
+import AdminShell, { buildDocsHref } from "@/features/admin-shell/AdminShell";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
-import RolesPermissionsManagement from "@/app/components/roles-permissions-management";
+import RolesPermissionsManagement from "@/features/roles/RolesPermissionsManagement";
+import { mePermissionsResponseSchema, roleListSchema } from "@/features/roles/contracts";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { getCurrentMePermissions } from "@/lib/auth/me-permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-
-type RoleDefinition = {
-  id: string;
-  tenant_id: string;
-  name: string;
-  display_name: string;
-  description?: string;
-  is_system: boolean;
-  permissions: string[];
-  created_at: string;
-  updated_at: string;
-};
-
-type RoleListResponse = {
-  data?: RoleDefinition[];
-};
-
-type MePermissionsResponse = {
-  catalog?: Array<{ key: string; group: string; description?: string }>;
-};
 
 export const dynamic = "force-dynamic";
 
@@ -43,14 +24,13 @@ export default async function RolesPage() {
     path: "/api/v1/roles?limit=200&offset=0",
   });
 
-  const payload = (rolesResult.payload ?? {}) as RoleListResponse;
-  const initialRoles = rolesResult.ok ? payload.data ?? [] : [];
+  const parsedRoles = roleListSchema.safeParse(rolesResult.payload);
+  const initialRoles = rolesResult.ok && parsedRoles.success ? parsedRoles.data.data ?? [] : [];
   const initialError = rolesResult.ok ? null : rolesResult.errorMessage ?? "Request failed.";
-  const permissionsPayload = await getCurrentMePermissions(tenantSlug, auth.user.id) as MePermissionsResponse;
-  const initialPermissionCatalog = (permissionsPayload.catalog ?? []).map((item) => ({
-    ...item,
-    description: item.description ?? "",
-  }));
+  const permissionsPayload = mePermissionsResponseSchema.safeParse(
+    await getCurrentMePermissions(tenantSlug, auth.user.id),
+  );
+  const initialPermissionCatalog = permissionsPayload.success ? permissionsPayload.data.catalog ?? [] : [];
   const currentUser = {
     id: auth.user.id,
     email: auth.user.email,
