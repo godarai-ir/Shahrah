@@ -24,10 +24,41 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if value == "" {
 			return "", fmt.Errorf("%s is required for %s", name, payload.Operation)
 		}
+
 		return url.PathEscape(value), nil
 	}
 	resource := func() (string, error) { return id(input.ResourceID, "resource_id") }
 	parent := func() (string, error) { return id(input.ParentResourceID, "parent_resource_id") }
+
+	operation := string(payload.Operation)
+	switch {
+	case strings.HasPrefix(operation, "mistral_"):
+		return resolveMistralOperation(payload, input, resource)
+	case strings.HasPrefix(operation, "openai_files_"),
+		strings.HasPrefix(operation, "xai_files_"),
+		strings.HasPrefix(operation, "xai_file_"),
+		strings.HasPrefix(operation, "openai_uploads_"):
+		return resolveFileOperation(payload, input, resource)
+	case strings.HasPrefix(operation, "openai_vector_store"):
+		return resolveVectorStoreOperation(payload, input, resource, parent)
+	case strings.HasPrefix(operation, "openai_container"):
+		return resolveContainerOperation(payload, input, resource, parent)
+	case strings.HasPrefix(operation, "openai_videos_"),
+		strings.HasPrefix(operation, "openai_models_"),
+		strings.HasPrefix(operation, "xai_language_models_"),
+		strings.HasPrefix(operation, "xai_image_generation_models_"):
+		return resolveMediaAndModelOperation(payload, input, resource)
+	default:
+		return resolveCoreOpenAIOperation(payload, input, resource, parent)
+	}
+}
+
+func resolveCoreOpenAIOperation(
+	payload platform.TunnelRequest,
+	input platform.ProviderOperationInput,
+	resource func() (string, error),
+	parent func() (string, error),
+) (string, string, error) {
 	switch payload.Operation {
 	case platform.ProviderOperationChatCompletions:
 		return http.MethodPost, "/chat/completions", nil
@@ -36,6 +67,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		return http.MethodGet, "/chat/deferred-completion/" + value, nil
 	case platform.ProviderOperationOpenAICompletions:
 		return http.MethodPost, "/completions", nil
@@ -49,7 +81,9 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
+
 		switch payload.Operation {
 		case platform.ProviderOperationOpenAIResponsesDelete:
 			method = http.MethodDelete
@@ -58,6 +92,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		case platform.ProviderOperationOpenAIResponsesInputItems:
 			suffix = "/input_items"
 		}
+
 		return method, withListQuery("/responses/"+value+suffix, input), nil
 	case platform.ProviderOperationOpenAIResponsesCompact:
 		return http.MethodPost, "/responses/compact", nil
@@ -74,12 +109,16 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method := http.MethodGet
-		if payload.Operation == platform.ProviderOperationOpenAIConversationsUpdate {
+
+		switch payload.Operation {
+		case platform.ProviderOperationOpenAIConversationsUpdate:
 			method = http.MethodPost
-		} else if payload.Operation == platform.ProviderOperationOpenAIConversationsDelete {
+		case platform.ProviderOperationOpenAIConversationsDelete:
 			method = http.MethodDelete
 		}
+
 		return method, "/conversations/" + value, nil
 	case platform.ProviderOperationOpenAIConversationItemsCreate,
 		platform.ProviderOperationOpenAIConversationItemsList:
@@ -87,10 +126,12 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method := http.MethodPost
 		if payload.Operation == platform.ProviderOperationOpenAIConversationItemsList {
 			method = http.MethodGet
 		}
+
 		return method, withListQuery("/conversations/"+value+"/items", input), nil
 	case platform.ProviderOperationOpenAIConversationItemsGet,
 		platform.ProviderOperationOpenAIConversationItemsDelete:
@@ -98,14 +139,17 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		itemID, err := resource()
 		if err != nil {
 			return "", "", err
 		}
+
 		method := http.MethodGet
 		if payload.Operation == platform.ProviderOperationOpenAIConversationItemsDelete {
 			method = http.MethodDelete
 		}
+
 		return method, "/conversations/" + parentID + "/items/" + itemID, nil
 	case platform.ProviderOperationOpenAIEmbeddings:
 		return http.MethodPost, "/embeddings", nil
@@ -133,9 +177,11 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		if payload.Operation == platform.ProviderOperationOpenAIBatchesCancel {
 			return http.MethodPost, "/batches/" + value + "/cancel", nil
 		}
+
 		return http.MethodGet, "/batches/" + value, nil
 	case platform.ProviderOperationXAIBatchesCreate:
 		return http.MethodPost, "/batches", nil
@@ -150,6 +196,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		switch payload.Operation {
 		case platform.ProviderOperationXAIBatchRequestsList:
 			return http.MethodGet, withListQuery("/batches/"+value+"/requests", input), nil
@@ -162,6 +209,17 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		default:
 			return http.MethodGet, "/batches/" + value, nil
 		}
+	default:
+		return "", "", fmt.Errorf("unsupported or missing fixed provider operation %q", payload.Operation)
+	}
+}
+
+func resolveFileOperation(
+	payload platform.TunnelRequest,
+	input platform.ProviderOperationInput,
+	resource func() (string, error),
+) (string, string, error) {
+	switch payload.Operation {
 	case platform.ProviderOperationOpenAIFilesCreate:
 		return http.MethodPost, "/files", nil
 	case platform.ProviderOperationXAIFilesInitialize:
@@ -177,12 +235,16 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
-		if payload.Operation == platform.ProviderOperationOpenAIFilesDelete {
+
+		switch payload.Operation {
+		case platform.ProviderOperationOpenAIFilesDelete:
 			method = http.MethodDelete
-		} else if payload.Operation == platform.ProviderOperationOpenAIFilesContent {
+		case platform.ProviderOperationOpenAIFilesContent:
 			suffix = "/content"
 		}
+
 		return method, "/files/" + value + suffix, nil
 	case platform.ProviderOperationXAIFilePublicURLCreate,
 		platform.ProviderOperationXAIFilePublicURLRevoke:
@@ -190,16 +252,19 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		suffix := "/public-url"
 		if payload.Operation == platform.ProviderOperationXAIFilePublicURLRevoke {
 			suffix += "/revoke"
 		}
+
 		return http.MethodPost, "/files/" + value + suffix, nil
 	case platform.ProviderOperationXAIFilesUpdate:
 		value, err := resource()
 		if err != nil {
 			return "", "", err
 		}
+
 		return http.MethodPut, "/files/" + value, nil
 	case platform.ProviderOperationOpenAIUploadsCreate:
 		return http.MethodPost, "/uploads", nil
@@ -210,13 +275,29 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		suffix := "/parts"
-		if payload.Operation == platform.ProviderOperationOpenAIUploadsComplete {
+
+		switch payload.Operation {
+		case platform.ProviderOperationOpenAIUploadsComplete:
 			suffix = "/complete"
-		} else if payload.Operation == platform.ProviderOperationOpenAIUploadsCancel {
+		case platform.ProviderOperationOpenAIUploadsCancel:
 			suffix = "/cancel"
 		}
+
 		return http.MethodPost, "/uploads/" + value + suffix, nil
+	default:
+		return "", "", fmt.Errorf("unsupported or missing fixed provider operation %q", payload.Operation)
+	}
+}
+
+func resolveVectorStoreOperation(
+	payload platform.TunnelRequest,
+	input platform.ProviderOperationInput,
+	resource func() (string, error),
+	parent func() (string, error),
+) (string, string, error) {
+	switch payload.Operation {
 	case platform.ProviderOperationOpenAIVectorStoresCreate:
 		return http.MethodPost, "/vector_stores", nil
 	case platform.ProviderOperationOpenAIVectorStoresList:
@@ -229,7 +310,9 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
+
 		switch payload.Operation {
 		case platform.ProviderOperationOpenAIVectorStoresUpdate:
 			method = http.MethodPost
@@ -238,6 +321,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		case platform.ProviderOperationOpenAIVectorStoresSearch:
 			method, suffix = http.MethodPost, "/search"
 		}
+
 		return method, "/vector_stores/" + value + suffix, nil
 	case platform.ProviderOperationOpenAIVectorStoreFilesCreate,
 		platform.ProviderOperationOpenAIVectorStoreFilesList:
@@ -245,10 +329,12 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method := http.MethodPost
 		if payload.Operation == platform.ProviderOperationOpenAIVectorStoreFilesList {
 			method = http.MethodGet
 		}
+
 		return method, withListQuery("/vector_stores/"+value+"/files", input), nil
 	case platform.ProviderOperationOpenAIVectorStoreFilesGet,
 		platform.ProviderOperationOpenAIVectorStoreFilesUpdate,
@@ -258,11 +344,14 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		fileID, err := resource()
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
+
 		switch payload.Operation {
 		case platform.ProviderOperationOpenAIVectorStoreFilesUpdate:
 			method = http.MethodPost
@@ -271,6 +360,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		case platform.ProviderOperationOpenAIVectorStoreFilesContent:
 			suffix = "/content"
 		}
+
 		return method, "/vector_stores/" + storeID + "/files/" + fileID + suffix, nil
 	case platform.ProviderOperationOpenAIVectorStoreFileBatchesCreate,
 		platform.ProviderOperationOpenAIVectorStoreFileBatchesList:
@@ -278,10 +368,12 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method := http.MethodPost
 		if payload.Operation == platform.ProviderOperationOpenAIVectorStoreFileBatchesList {
 			method = http.MethodGet
 		}
+
 		return method, withListQuery("/vector_stores/"+value+"/file_batches", input), nil
 	case platform.ProviderOperationOpenAIVectorStoreFileBatchesGet,
 		platform.ProviderOperationOpenAIVectorStoreFileBatchesCancel:
@@ -289,16 +381,29 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		batchID, err := resource()
 		if err != nil {
 			return "", "", err
 		}
-		suffix := ""
+
 		if payload.Operation == platform.ProviderOperationOpenAIVectorStoreFileBatchesCancel {
-			suffix = "/cancel"
-			return http.MethodPost, "/vector_stores/" + storeID + "/file_batches/" + batchID + suffix, nil
+			return http.MethodPost, "/vector_stores/" + storeID + "/file_batches/" + batchID + "/cancel", nil
 		}
+
 		return http.MethodGet, "/vector_stores/" + storeID + "/file_batches/" + batchID, nil
+	default:
+		return "", "", fmt.Errorf("unsupported or missing fixed provider operation %q", payload.Operation)
+	}
+}
+
+func resolveContainerOperation(
+	payload platform.TunnelRequest,
+	input platform.ProviderOperationInput,
+	resource func() (string, error),
+	parent func() (string, error),
+) (string, string, error) {
+	switch payload.Operation {
 	case platform.ProviderOperationOpenAIContainersCreate:
 		return http.MethodPost, "/containers", nil
 	case platform.ProviderOperationOpenAIContainersList:
@@ -309,9 +414,11 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		if payload.Operation == platform.ProviderOperationOpenAIContainersDelete {
 			return http.MethodDelete, "/containers/" + value, nil
 		}
+
 		return http.MethodGet, "/containers/" + value, nil
 	case platform.ProviderOperationOpenAIContainerFilesCreate,
 		platform.ProviderOperationOpenAIContainerFilesList:
@@ -319,10 +426,12 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method := http.MethodPost
 		if payload.Operation == platform.ProviderOperationOpenAIContainerFilesList {
 			method = http.MethodGet
 		}
+
 		return method, withListQuery("/containers/"+value+"/files", input), nil
 	case platform.ProviderOperationOpenAIContainerFilesGet,
 		platform.ProviderOperationOpenAIContainerFilesDelete,
@@ -331,17 +440,33 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		fileID, err := resource()
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
-		if payload.Operation == platform.ProviderOperationOpenAIContainerFilesDelete {
+
+		switch payload.Operation {
+		case platform.ProviderOperationOpenAIContainerFilesDelete:
 			method = http.MethodDelete
-		} else if payload.Operation == platform.ProviderOperationOpenAIContainerFilesContent {
+		case platform.ProviderOperationOpenAIContainerFilesContent:
 			suffix = "/content"
 		}
+
 		return method, "/containers/" + containerID + "/files/" + fileID + suffix, nil
+	default:
+		return "", "", fmt.Errorf("unsupported or missing fixed provider operation %q", payload.Operation)
+	}
+}
+
+func resolveMediaAndModelOperation(
+	payload platform.TunnelRequest,
+	input platform.ProviderOperationInput,
+	resource func() (string, error),
+) (string, string, error) {
+	switch payload.Operation {
 	case platform.ProviderOperationOpenAIVideosCreate:
 		return http.MethodPost, "/videos", nil
 	case platform.ProviderOperationOpenAIVideosList:
@@ -354,7 +479,9 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
+
 		switch payload.Operation {
 		case platform.ProviderOperationOpenAIVideosDelete:
 			method = http.MethodDelete
@@ -363,6 +490,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		case platform.ProviderOperationOpenAIVideosRemix:
 			method, suffix = http.MethodPost, "/remix"
 		}
+
 		return method, "/videos/" + value + suffix, nil
 	case platform.ProviderOperationOpenAIVideosEdit:
 		return http.MethodPost, "/videos/edits", nil
@@ -375,6 +503,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		return http.MethodGet, "/models/" + value, nil
 	case platform.ProviderOperationXAILanguageModelsList:
 		return http.MethodGet, "/language-models", nil
@@ -394,6 +523,17 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		}
 
 		return http.MethodGet, "/image-generation-models/" + value, nil
+	default:
+		return "", "", fmt.Errorf("unsupported or missing fixed provider operation %q", payload.Operation)
+	}
+}
+
+func resolveMistralOperation(
+	payload platform.TunnelRequest,
+	input platform.ProviderOperationInput,
+	resource func() (string, error),
+) (string, string, error) {
+	switch payload.Operation {
 	case platform.ProviderOperationMistralFIM:
 		return http.MethodPost, "/fim/completions", nil
 	case platform.ProviderOperationMistralChatModerations:
@@ -410,14 +550,18 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
-		if payload.Operation == platform.ProviderOperationMistralFilesDelete {
+
+		switch payload.Operation {
+		case platform.ProviderOperationMistralFilesDelete:
 			method = http.MethodDelete
-		} else if payload.Operation == platform.ProviderOperationMistralFilesContent {
+		case platform.ProviderOperationMistralFilesContent:
 			suffix = "/content"
-		} else if payload.Operation == platform.ProviderOperationMistralFilesURL {
+		case platform.ProviderOperationMistralFilesURL:
 			suffix = "/url"
 		}
+
 		return method, "/files/" + value + suffix, nil
 	case platform.ProviderOperationMistralBatchCreate:
 		return http.MethodPost, "/batch/jobs", nil
@@ -429,12 +573,16 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
-		if payload.Operation == platform.ProviderOperationMistralBatchCancel {
+
+		switch payload.Operation {
+		case platform.ProviderOperationMistralBatchCancel:
 			method, suffix = http.MethodPost, "/cancel"
-		} else if payload.Operation == platform.ProviderOperationMistralBatchDelete {
+		case platform.ProviderOperationMistralBatchDelete:
 			method = http.MethodDelete
 		}
+
 		return method, "/batch/jobs/" + value + suffix, nil
 	case platform.ProviderOperationMistralAgentsCreate:
 		return http.MethodPost, "/agents", nil
@@ -448,12 +596,16 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method := http.MethodGet
-		if payload.Operation == platform.ProviderOperationMistralAgentsUpdate {
+
+		switch payload.Operation {
+		case platform.ProviderOperationMistralAgentsUpdate:
 			method = http.MethodPatch
-		} else if payload.Operation == platform.ProviderOperationMistralAgentsDelete {
+		case platform.ProviderOperationMistralAgentsDelete:
 			method = http.MethodDelete
 		}
+
 		return method, "/agents/" + value, nil
 	case platform.ProviderOperationMistralConversationsCreate:
 		return http.MethodPost, "/conversations", nil
@@ -466,7 +618,9 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		if err != nil {
 			return "", "", err
 		}
+
 		method, suffix := http.MethodGet, ""
+
 		switch payload.Operation {
 		case platform.ProviderOperationMistralConversationsAppend:
 			method = http.MethodPost
@@ -479,6 +633,7 @@ func resolveOpenAIOperation(payload platform.TunnelRequest) (string, string, err
 		case platform.ProviderOperationMistralConversationsRestart:
 			method, suffix = http.MethodPost, "/restart"
 		}
+
 		return method, "/conversations/" + value + suffix, nil
 	default:
 		return "", "", fmt.Errorf("unsupported or missing fixed provider operation %q", payload.Operation)
@@ -505,6 +660,7 @@ func resolveLegacyOpenAICompatibleOperation(metadata map[string]interface{}) (st
 	if _, ok := allowed[path]; !ok {
 		return "", "", fmt.Errorf("unsupported legacy provider endpoint %q", path)
 	}
+
 	return http.MethodPost, path, nil
 }
 
@@ -513,38 +669,49 @@ func withListQuery(path string, input platform.ProviderOperationInput) string {
 	if input.BeforeID != "" {
 		query.Set("before", input.BeforeID)
 	}
+
 	if input.AfterID != "" {
 		query.Set("after", input.AfterID)
 	}
+
 	if input.Limit > 0 {
 		query.Set("limit", strconv.Itoa(input.Limit))
 	}
+
 	if input.Order != "" {
 		query.Set("order", input.Order)
 	}
+
 	if input.Purpose != "" {
 		query.Set("purpose", input.Purpose)
 	}
+
 	if input.PaginationToken != "" {
 		query.Set("pagination_token", input.PaginationToken)
 	}
+
 	if input.SortBy != "" {
 		query.Set("sort_by", input.SortBy)
 	}
+
 	if input.Filter != "" {
 		query.Set("filter", input.Filter)
 	}
+
 	for _, include := range input.Include {
 		if value := strings.TrimSpace(include); value != "" {
 			query.Add("include", value)
 		}
 	}
+
 	if input.IncludeObfuscation != nil {
 		query.Set("include_obfuscation", strconv.FormatBool(*input.IncludeObfuscation))
 	}
+
 	if input.StartingAfter != nil {
 		query.Set("starting_after", strconv.FormatInt(*input.StartingAfter, 10))
 	}
+
 	if input.Stream != nil {
 		query.Set("stream", strconv.FormatBool(*input.Stream))
 	}
@@ -572,8 +739,10 @@ func withListQuery(path string, input platform.ProviderOperationInput) string {
 	if input.Model != "" {
 		query.Set("model", input.Model)
 	}
+
 	if encoded := query.Encode(); encoded != "" {
 		return path + "?" + encoded
 	}
+
 	return path
 }

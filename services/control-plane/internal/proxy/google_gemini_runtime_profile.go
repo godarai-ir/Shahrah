@@ -31,19 +31,6 @@ func validateGoogleGeminiChatRuntimeProfile(
 		)
 	}
 
-	if req.Temperature != nil &&
-		!profile.AllowsSamplingParameter("temperature") {
-		return fmt.Errorf("model does not support temperature")
-	}
-
-	if req.TopP != nil && !profile.AllowsSamplingParameter("top_p") {
-		return fmt.Errorf("model does not support top_p")
-	}
-
-	if req.TopK != nil && !profile.AllowsSamplingParameter("top_k") {
-		return fmt.Errorf("model does not support top_k")
-	}
-
 	if chatRequestHasImage(req) && !profile.AllowsInputModality("image") {
 		return fmt.Errorf("model does not support image input")
 	}

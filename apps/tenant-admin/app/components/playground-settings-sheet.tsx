@@ -91,8 +91,8 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
             <TabsContent value="model" className="flex flex-col gap-5 p-4">
               <AppSwitchField surface={false} label={props.t("settings.stream")} checked={config.stream} disabled={props.readOnly} onCheckedChange={(stream) => changeConfig({ stream })} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <AppNumberField label={props.t("settings.temperature")} value={config.temperature} min={0} max={2} step={0.1} disabled={props.readOnly} onChange={(event) => changeConfig({ temperature: event.target.value })} />
-                <AppNumberField label={props.t("settings.topP")} value={config.topP} min={0} max={1} step={0.05} disabled={props.readOnly} onChange={(event) => changeConfig({ topP: event.target.value })} />
+                <AppNumberField label={props.t("settings.temperature")} value={config.temperature} step={0.1} disabled={props.readOnly} onChange={(event) => changeConfig({ temperature: event.target.value })} />
+                <AppNumberField label={props.t("settings.topP")} value={config.topP} step={0.05} disabled={props.readOnly} onChange={(event) => changeConfig({ topP: event.target.value })} />
                 <AppNumberField label={props.t("settings.maxTokens")} value={config.maxTokens} min={1} step={1} disabled={props.readOnly} onChange={(event) => changeConfig({ maxTokens: event.target.value })} />
                 <AppSelectField label={props.t("settings.reasoning")} value={config.reasoningEffort || "default"} disabled={props.readOnly} onValueChange={(value) => changeConfig({ reasoningEffort: value === "default" ? "" : value })} options={[
                   { value: "default", label: props.t("settings.reasoningNone") }, { value: "low", label: "low" }, { value: "medium", label: "medium" }, { value: "high", label: "high" },

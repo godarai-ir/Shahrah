@@ -19,6 +19,7 @@ import (
 
 func TestAnthropicInterruptedStreamRemainsAnError(t *testing.T) {
 	t.Parallel()
+
 	upstream := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
@@ -32,10 +33,12 @@ func TestAnthropicInterruptedStreamRemainsAnError(t *testing.T) {
 		}, "\n"))),
 	}
 	response := adaptAnthropicStreamResponse(upstream, "claude-sonnet-4-6")
+
 	body, err := io.ReadAll(response.Body)
 	if err == nil {
 		t.Fatal("interrupted stream must surface a reader error")
 	}
+
 	text := string(body)
 	if strings.Contains(text, "data: [DONE]") {
 		t.Fatalf("interrupted stream must not be marked successful: %s", text)
@@ -48,7 +51,9 @@ func TestAnthropic500MBUploadUsesBoundedMemory(t *testing.T) {
 	}
 
 	const fileBytes = int64(500 * 1024 * 1024)
+
 	var received atomic.Int64
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(
 		w http.ResponseWriter,
 		request *http.Request,
@@ -58,7 +63,9 @@ func TestAnthropic500MBUploadUsesBoundedMemory(t *testing.T) {
 			t.Errorf("upstream copy: %v", err)
 			return
 		}
+
 		received.Store(count)
+
 		_, _ = io.WriteString(w, `{"id":"file_upstream","type":"file"}`)
 	}))
 	defer upstream.Close()
@@ -80,6 +87,7 @@ func TestAnthropic500MBUploadUsesBoundedMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var prefix [4]byte
 	binary.BigEndian.PutUint32(prefix[:], uint32(len(metadata)))
 	body := io.MultiReader(
@@ -89,14 +97,19 @@ func TestAnthropic500MBUploadUsesBoundedMemory(t *testing.T) {
 	)
 
 	runtime.GC()
+
 	var before runtime.MemStats
 	runtime.ReadMemStats(&before)
+
 	var peak atomic.Uint64
 	peak.Store(before.Alloc)
+
 	done := make(chan struct{})
+
 	go func() {
 		ticker := time.NewTicker(2 * time.Millisecond)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-done:
@@ -104,6 +117,7 @@ func TestAnthropic500MBUploadUsesBoundedMemory(t *testing.T) {
 			case <-ticker.C:
 				var current runtime.MemStats
 				runtime.ReadMemStats(&current)
+
 				for {
 					known := peak.Load()
 					if current.Alloc <= known || peak.CompareAndSwap(known, current.Alloc) {
@@ -128,6 +142,7 @@ func TestAnthropic500MBUploadUsesBoundedMemory(t *testing.T) {
 			recorder.Body.String(),
 		)
 	}
+
 	if growth := peak.Load() - before.Alloc; growth > 96*1024*1024 {
 		t.Fatalf("heap grew by %d bytes while streaming 500MB", growth)
 	}
@@ -139,5 +154,6 @@ func (zeroReleaseReader) Read(buffer []byte) (int, error) {
 	for index := range buffer {
 		buffer[index] = 0
 	}
+
 	return len(buffer), nil
 }

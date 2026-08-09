@@ -24,5 +24,6 @@ func IsSupportedGoogleGeminiModel(model string) bool {
 			return true
 		}
 	}
+
 	return false
 }

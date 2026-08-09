@@ -1,16 +1,138 @@
 package openai
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
 )
+
+func TestChatCompletionRequestPreservesModelDecodingControlsVerbatim(t *testing.T) {
+	payload := []byte(`{
+		"model":"provider-model",
+		"messages":[{"role":"user","content":"hello"}],
+		"temperature":7.25,
+		"top_p":-0.5,
+		"top_k":"provider-native",
+		"presence_penalty":3,
+		"frequency_penalty":-4,
+		"seed":"stable-seed",
+		"random_seed":42,
+		"stop":{"provider":"native"},
+		"logit_bias":{"42":100},
+		"logprobs":"provider-default",
+		"top_logprobs":99
+	}`)
+
+	var req ChatCompletionRequest
+	if err := json.Unmarshal(payload, &req); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	raw, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var original map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &original); err != nil {
+		t.Fatalf("unmarshal original: %v", err)
+	}
+
+	var roundTripped map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &roundTripped); err != nil {
+		t.Fatalf("unmarshal round trip: %v", err)
+	}
+
+	for name := range original {
+		if !IsModelDecodingPassThroughParameter(name) {
+			continue
+		}
+
+		if !bytes.Equal(original[name], roundTripped[name]) {
+			t.Fatalf("%s changed: got %s, want %s", name, roundTripped[name], original[name])
+		}
+	}
+}
+
+func TestChatCompletionRequestDoesNotInjectModelDecodingControls(t *testing.T) {
+	var req ChatCompletionRequest
+	if err := json.Unmarshal([]byte(`{"model":"provider-model","messages":[{"role":"user","content":"hello"}]}`), &req); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	raw, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatalf("unmarshal fields: %v", err)
+	}
+
+	for _, name := range []string{
+		"temperature", "top_p", "top_k", "presence_penalty",
+		"frequency_penalty", "seed", "random_seed", "stop",
+		"logit_bias", "logprobs", "top_logprobs",
+	} {
+		if _, present := fields[name]; present {
+			t.Fatalf("%s was injected: %s", name, raw)
+		}
+	}
+}
+
+func TestChatCompletionResponsePreservesProviderLogprobs(t *testing.T) {
+	payload := []byte(`{
+		"id":"chatcmpl-provider","object":"chat.completion","created":1,"model":"provider-model",
+		"choices":[{
+			"index":0,
+			"message":{"role":"assistant","content":"hello"},
+			"finish_reason":"stop",
+			"logprobs":{"content":[{"token":"hello","logprob":-0.1,"provider_detail":{"rank":1}}]}
+		}]
+	}`)
+
+	var response ChatCompletionResponse
+	if err := json.Unmarshal(payload, &response); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal response: %v", err)
+	}
+
+	var original map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &original); err != nil {
+		t.Fatalf("decode original: %v", err)
+	}
+
+	var roundTripped map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &roundTripped); err != nil {
+		t.Fatalf("decode round trip: %v", err)
+	}
+
+	var originalChoices, roundTrippedChoices []map[string]json.RawMessage
+	if err := json.Unmarshal(original["choices"], &originalChoices); err != nil {
+		t.Fatalf("decode original choices: %v", err)
+	}
+
+	if err := json.Unmarshal(roundTripped["choices"], &roundTrippedChoices); err != nil {
+		t.Fatalf("decode round-trip choices: %v", err)
+	}
+
+	if !bytes.Equal(originalChoices[0]["logprobs"], roundTrippedChoices[0]["logprobs"]) {
+		t.Fatalf("logprobs changed: got %s, want %s", roundTrippedChoices[0]["logprobs"], originalChoices[0]["logprobs"])
+	}
+}
 
 func TestChatCompletionRequestPreservesStreamUsageOption(t *testing.T) {
 	var req ChatCompletionRequest
 	if err := json.Unmarshal([]byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}],"stream":true,"stream_options":{"include_usage":true}}`), &req); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if req.StreamOptions == nil || !req.StreamOptions.IncludeUsage {
 		t.Fatalf("stream_options.include_usage was not preserved: %#v", req.StreamOptions)
 	}
@@ -18,13 +140,16 @@ func TestChatCompletionRequestPreservesStreamUsageOption(t *testing.T) {
 
 func TestChatMessageContentUnmarshalString(t *testing.T) {
 	var req ChatCompletionRequest
+
 	err := json.Unmarshal([]byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`), &req)
 	if err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if got := ChatContentText(req.Messages[0].Content); got != "hello" {
 		t.Fatalf("ChatContentText = %q, want hello", got)
 	}
+
 	if err := ValidateChatMessageContent(req.Messages[0].Content); err != nil {
 		t.Fatalf("ValidateChatMessageContent: %v", err)
 	}
@@ -32,6 +157,7 @@ func TestChatMessageContentUnmarshalString(t *testing.T) {
 
 func TestChatMessageContentUnmarshalMultimodalParts(t *testing.T) {
 	var req ChatCompletionRequest
+
 	err := json.Unmarshal([]byte(`{
 		"model":"gpt-4o-mini",
 		"messages":[{
@@ -45,12 +171,15 @@ func TestChatMessageContentUnmarshalMultimodalParts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if got := ChatContentText(req.Messages[0].Content); got != "Describe this image." {
 		t.Fatalf("ChatContentText = %q", got)
 	}
+
 	if got := ChatContentImageCount(req.Messages[0].Content); got != 1 {
 		t.Fatalf("ChatContentImageCount = %d, want 1", got)
 	}
+
 	if err := ValidateChatMessageContent(req.Messages[0].Content); err != nil {
 		t.Fatalf("ValidateChatMessageContent: %v", err)
 	}
@@ -58,6 +187,7 @@ func TestChatMessageContentUnmarshalMultimodalParts(t *testing.T) {
 
 func TestChatMessageContentUnmarshalFilePart(t *testing.T) {
 	var req ChatCompletionRequest
+
 	err := json.Unmarshal([]byte(`{
 		"model":"gpt-4o-mini",
 		"messages":[{
@@ -71,12 +201,15 @@ func TestChatMessageContentUnmarshalFilePart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if got := ChatContentText(req.Messages[0].Content); got != "Summarize this PDF." {
 		t.Fatalf("ChatContentText = %q", got)
 	}
+
 	if got := ChatContentFileCount(req.Messages[0].Content); got != 1 {
 		t.Fatalf("ChatContentFileCount = %d, want 1", got)
 	}
+
 	if err := ValidateChatMessageContent(req.Messages[0].Content); err != nil {
 		t.Fatalf("ValidateChatMessageContent: %v", err)
 	}
@@ -84,6 +217,7 @@ func TestChatMessageContentUnmarshalFilePart(t *testing.T) {
 
 func TestChatMessageContentUnmarshalInputAudioPart(t *testing.T) {
 	var req ChatCompletionRequest
+
 	err := json.Unmarshal([]byte(`{
 		"model":"gemini-3.1-flash-lite-preview",
 		"messages":[{
@@ -98,18 +232,22 @@ func TestChatMessageContentUnmarshalInputAudioPart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	parts, ok, err := ChatContentParts(req.Messages[0].Content)
 	if err != nil || !ok {
 		t.Fatalf("ChatContentParts: ok=%v err=%v", ok, err)
 	}
+
 	if parts[1].InputAudio == nil ||
 		parts[1].InputAudio.Data != "UklGRg==" ||
 		parts[1].InputAudio.Format != "wav" {
 		t.Fatalf("input_audio was not preserved: %#v", parts[1])
 	}
+
 	if req.ExtraBody["google"] == nil {
 		t.Fatalf("extra_body was not preserved: %#v", req.ExtraBody)
 	}
+
 	if err := ValidateChatMessageContent(req.Messages[0].Content); err != nil {
 		t.Fatalf("ValidateChatMessageContent: %v", err)
 	}
@@ -150,6 +288,7 @@ func TestChatMessageContentRejectsFilePartWithoutDataOrID(t *testing.T) {
 	content := []interface{}{
 		map[string]interface{}{"type": "file", "file": map[string]interface{}{"filename": "guide.pdf"}},
 	}
+
 	err := ValidateChatMessageContent(content)
 	if err == nil {
 		t.Fatal("expected validation error")
@@ -160,10 +299,12 @@ func TestRedactChatContentRedactsDataURL(t *testing.T) {
 	redacted := RedactChatContent([]interface{}{
 		map[string]interface{}{"type": "image_url", "image_url": map[string]interface{}{"url": "data:image/png;base64,AAAA"}},
 	})
+
 	raw, err := json.Marshal(redacted)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	if got := string(raw); got != `[{"image_url":{"url":"data:image/png;base64,[redacted]"},"type":"image_url"}]` {
 		t.Fatalf("unexpected redacted content: %s", got)
 	}
@@ -173,10 +314,12 @@ func TestRedactChatContentRedactsFileDataURL(t *testing.T) {
 	redacted := RedactChatContent([]interface{}{
 		map[string]interface{}{"type": "file", "file": map[string]interface{}{"filename": "guide.pdf", "file_data": "data:application/pdf;base64,JVBERi0x"}},
 	})
+
 	raw, err := json.Marshal(redacted)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	if got := string(raw); got != `[{"file":{"file_data":"data:application/pdf;base64,[redacted]","filename":"guide.pdf"},"type":"file"}]` {
 		t.Fatalf("unexpected redacted content: %s", got)
 	}
@@ -186,10 +329,12 @@ func TestRedactChatContentRedactsInputAudio(t *testing.T) {
 	redacted := RedactChatContent([]interface{}{
 		map[string]interface{}{"type": "input_audio", "input_audio": map[string]interface{}{"data": "UklGRg==", "format": "wav"}},
 	})
+
 	raw, err := json.Marshal(redacted)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	if got := string(raw); got != `[{"input_audio":{"data":"[REDACTED]","format":"wav"},"type":"input_audio"}]` {
 		t.Fatalf("unexpected redacted content: %s", got)
 	}
@@ -200,6 +345,7 @@ func TestParseFileDataURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseFileDataURL: %v", err)
 	}
+
 	if mediaType != "application/pdf" || data != "JVBERi0x" {
 		t.Fatalf("unexpected parsed file data URL: mediaType=%q data=%q", mediaType, data)
 	}
@@ -230,15 +376,19 @@ func TestChatCompletionToolsRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(payload, &req); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if req.ParallelToolCalls == nil || *req.ParallelToolCalls {
 		t.Fatalf("parallel_tool_calls was not preserved: %#v", req.ParallelToolCalls)
 	}
+
 	if len(req.Tools) != 1 || req.Tools[0].Function == nil || req.Tools[0].Function.Strict == nil || !*req.Tools[0].Function.Strict {
 		t.Fatalf("tool definition was not preserved: %#v", req.Tools)
 	}
+
 	if len(req.Messages) != 3 || len(req.Messages[1].ToolCalls) != 1 {
 		t.Fatalf("assistant tool calls were not preserved: %#v", req.Messages)
 	}
+
 	if got := req.Messages[2].ToolCallID; got != "call_123" {
 		t.Fatalf("tool_call_id = %q, want call_123", got)
 	}
@@ -247,6 +397,7 @@ func TestChatCompletionToolsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	for _, want := range []string{`"tools"`, `"tool_choice"`, `"tool_calls"`, `"tool_call_id":"call_123"`, `"parallel_tool_calls":false`, `"strict":true`} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("round-trip payload missing %s: %s", want, raw)
@@ -272,16 +423,20 @@ func TestChatCompletionResponseToolCallsRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(payload, &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if len(resp.Choices) != 1 || resp.Choices[0].Message == nil || len(resp.Choices[0].Message.ToolCalls) != 1 {
 		t.Fatalf("tool calls were not preserved: %#v", resp.Choices)
 	}
+
 	if got := resp.Choices[0].FinishReason; got != "tool_calls" {
 		t.Fatalf("finish_reason = %q, want tool_calls", got)
 	}
+
 	raw, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	if !strings.Contains(string(raw), `"tool_calls"`) || !strings.Contains(string(raw), `"finish_reason":"tool_calls"`) {
 		t.Fatalf("round-trip response missing tool call fields: %s", raw)
 	}
@@ -305,13 +460,16 @@ func TestChatCompletionResponseRefusalRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(payload, &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if got := resp.Choices[0].Message.Refusal; got != "I cannot help with that request." {
 		t.Fatalf("refusal = %q", got)
 	}
+
 	raw, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	if !strings.Contains(string(raw), `"refusal":"I cannot help with that request."`) {
 		t.Fatalf("round-trip response missing refusal: %s", raw)
 	}
@@ -340,16 +498,20 @@ func TestChatCompletionExtendedThinkingRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(payload, &req); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if req.ReasoningEffort != "high" {
 		t.Fatalf("reasoning_effort = %q", req.ReasoningEffort)
 	}
+
 	if req.Thinking == nil || req.Thinking.BudgetTokens != 3200 || req.Thinking.Display != "omitted" {
 		t.Fatalf("thinking config was not preserved: %#v", req.Thinking)
 	}
+
 	assistant := req.Messages[1]
 	if assistant.ReasoningContent != "private reasoning" || len(assistant.ThinkingBlocks) != 2 {
 		t.Fatalf("thinking fields were not preserved: %#v", assistant)
 	}
+
 	if assistant.ThinkingBlocks[0]["signature"] != "sig_123" || assistant.ThinkingBlocks[1]["data"] != "opaque_blob" {
 		t.Fatalf("thinking block details were not preserved: %#v", assistant.ThinkingBlocks)
 	}
@@ -358,6 +520,7 @@ func TestChatCompletionExtendedThinkingRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	for _, want := range []string{`"reasoning_effort":"high"`, `"thinking"`, `"budget_tokens":3200`, `"reasoning_content":"private reasoning"`, `"thinking_blocks"`, `"signature":"sig_123"`, `"type":"redacted_thinking"`} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("round-trip request missing %s: %s", want, raw)
@@ -388,17 +551,21 @@ func TestChatCompletionResponseExtendedThinkingRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(payload, &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	msg := resp.Choices[0].Message
 	if msg == nil || msg.ReasoningContent != "reasoning text" || len(msg.ThinkingBlocks) != 1 {
 		t.Fatalf("thinking response was not preserved: %#v", resp.Choices)
 	}
+
 	if msg.ThinkingBlocks[0]["signature"] != "sig_456" {
 		t.Fatalf("signature was not preserved: %#v", msg.ThinkingBlocks)
 	}
+
 	raw, err := json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	if !strings.Contains(string(raw), `"thinking_blocks"`) || !strings.Contains(string(raw), `"reasoning_content":"reasoning text"`) {
 		t.Fatalf("round-trip response missing thinking fields: %s", raw)
 	}
@@ -422,13 +589,16 @@ func TestResponseRequestTextFormatRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(payload, &req); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if req.Text == nil || req.Text.Format == nil {
 		t.Fatalf("text.format was not preserved: %#v", req.Text)
 	}
+
 	raw, err := json.Marshal(req)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+
 	for _, want := range []string{`"text"`, `"format"`, `"type":"json_schema"`, `"strict":true`} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("round-trip response request missing %s: %s", want, raw)
@@ -438,19 +608,24 @@ func TestResponseRequestTextFormatRoundTrip(t *testing.T) {
 
 func TestModerationResponseRoundTrip(t *testing.T) {
 	payload := []byte(`{"id":"modr_1","model":"omni-moderation-latest","results":[{"flagged":true,"categories":{"self-harm/intent":true},"category_scores":{"self-harm/intent":0.98}}]}`)
+
 	var resp ModerationResponse
 	if err := json.Unmarshal(payload, &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+
 	if resp.ID != "modr_1" || resp.Model != "omni-moderation-latest" {
 		t.Fatalf("unexpected response metadata: %#v", resp)
 	}
+
 	if len(resp.Results) != 1 || !resp.Results[0].Flagged {
 		t.Fatalf("unexpected results: %#v", resp.Results)
 	}
+
 	if !resp.Results[0].Categories["self-harm/intent"] {
 		t.Fatalf("category not preserved: %#v", resp.Results[0].Categories)
 	}
+
 	if resp.Results[0].CategoryScores["self-harm/intent"] != 0.98 {
 		t.Fatalf("score not preserved: %#v", resp.Results[0].CategoryScores)
 	}
@@ -471,13 +646,16 @@ func TestRerankRequestResponseRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(payload, &req); err != nil {
 		t.Fatalf("unmarshal request: %v", err)
 	}
+
 	if req.Model != "rerank-multilingual-v3.0" || req.Query == "" || len(req.Documents) != 2 {
 		t.Fatalf("unexpected request: %#v", req)
 	}
+
 	raw, err := json.Marshal(req)
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
 	}
+
 	for _, want := range []string{`"query":"Where is Tehran?"`, `"documents"`, `"top_n":1`, `"return_documents":true`} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("round-trip request missing %s: %s", want, raw)
@@ -485,21 +663,24 @@ func TestRerankRequestResponseRoundTrip(t *testing.T) {
 	}
 
 	var resp RerankResponse
-	if err := json.Unmarshal([]byte(`{
+	if unmarshalErr := json.Unmarshal([]byte(`{
 		"id":"rerank_123",
 		"results":[{"index":0,"relevance_score":0.98,"document":{"text":"Tehran is the capital of Iran."}}],
 		"meta":{"billed_units":{"search_units":1}},
 		"usage":{"prompt_tokens":20,"completion_tokens":0,"total_tokens":20}
-	}`), &resp); err != nil {
-		t.Fatalf("unmarshal response: %v", err)
+	}`), &resp); unmarshalErr != nil {
+		t.Fatalf("unmarshal response: %v", unmarshalErr)
 	}
+
 	if resp.ID != "rerank_123" || len(resp.Results) != 1 || resp.Results[0].Index != 0 || resp.Results[0].Document == nil {
 		t.Fatalf("unexpected response: %#v", resp)
 	}
+
 	raw, err = json.Marshal(resp)
 	if err != nil {
 		t.Fatalf("marshal response: %v", err)
 	}
+
 	for _, want := range []string{`"id":"rerank_123"`, `"relevance_score":0.98`, `"document"`, `"meta"`, `"usage"`} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("round-trip response missing %s: %s", want, raw)
@@ -517,10 +698,12 @@ func TestXAIUsageFieldsRoundTrip(t *testing.T) {
 			if err := json.Unmarshal(payload, target); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
+
 			raw, err := json.Marshal(target)
 			if err != nil {
 				t.Fatalf("marshal: %v", err)
 			}
+
 			for _, want := range []string{`"cost_in_usd_ticks":123456789`, `"num_server_side_tools_used":2`} {
 				if !strings.Contains(string(raw), want) {
 					t.Fatalf("round-trip usage missing %s: %s", want, raw)

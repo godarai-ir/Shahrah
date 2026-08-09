@@ -14,11 +14,13 @@ func TestSupportedGoogleGeminiModelIDsAreExact(t *testing.T) {
 	if len(SupportedGoogleGeminiModelIDs) != len(expected) {
 		t.Fatalf("unexpected model count %d", len(SupportedGoogleGeminiModelIDs))
 	}
+
 	for index, model := range expected {
 		if SupportedGoogleGeminiModelIDs[index] != model || !IsSupportedGoogleGeminiModel(model) {
 			t.Fatalf("allowlist mismatch at %d", index)
 		}
 	}
+
 	for _, model := range []string{"gemini-latest", "gemini-3.1-pro-preview-customtools", "models/veo-3.1"} {
 		if IsSupportedGoogleGeminiModel(model) {
 			t.Fatalf("unexpected model %q", model)
@@ -47,16 +49,20 @@ func TestGoogleGeminiRuntimeProfileV2JSONParity(t *testing.T) {
 		"zdrEligible":false,
 		"limits":{"contextWindow":1048576,"maxInputTokens":1048576,"maxOutputTokens":65536,"messagesBytes":33554432,"batchBytes":2000000000,"fileBytes":2000000000}
 	}`
+
 	var profile ModelRuntimeProfile
 	if err := json.Unmarshal([]byte(payload), &profile); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := profile.Validate(); err != nil {
 		t.Fatal(err)
 	}
+
 	if profile.Version != 2 || !profile.AllowsEndpoint("interactions") || !profile.AllowsTransport("sse") || !profile.AllowsTool("google_maps") {
 		t.Fatalf("Gemini runtime profile parity failed: %+v", profile)
 	}
+
 	if len(profile.ReferenceRateLimits) != 1 || profile.ReferenceRateLimits[0].FileStorageBytes != 20000000000 {
 		t.Fatalf("Gemini rate-limit parity failed: %+v", profile.ReferenceRateLimits)
 	}

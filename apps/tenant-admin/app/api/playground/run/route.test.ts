@@ -117,6 +117,34 @@ describe("playground run route", () => {
     expect(options.exposeResponseHeaders).toContain("x-godarai-cost-irr");
   });
 
+  it("passes model decoding controls through without semantic validation", async () => {
+    const decodingControls = {
+      temperature: 7.25,
+      top_p: -0.5,
+      top_k: "provider-native",
+      presence_penalty: 3,
+      frequency_penalty: -4,
+      seed: "stable-seed",
+      random_seed: 42,
+      stop: { provider: "native" },
+      logit_bias: { 42: 100 },
+      logprobs: "provider-default",
+      top_logprobs: 99,
+    };
+
+    const response = await POST(requestFor({
+      request: {
+        model: "gpt-test",
+        messages: [{ role: "user", content: "hi" }],
+        ...decodingControls,
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(proxyToControlPlaneMock).toHaveBeenCalledOnce();
+    expect(proxyToControlPlaneMock.mock.calls[0][0].body).toMatchObject(decodingControls);
+  });
+
   it("routes image generation through the dedicated non-streaming endpoint", async () => {
     await POST(requestFor({
       mode: "image_generation",

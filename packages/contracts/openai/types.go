@@ -42,16 +42,47 @@ type ChatCompletionRequest struct {
 // while unknown fields are relayed losslessly by MarshalJSON.
 func (r *ChatCompletionRequest) UnmarshalJSON(data []byte) error {
 	type requestAlias ChatCompletionRequest
-	var decoded requestAlias
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
+
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
+
+	// Decode pass-through controls on a best-effort basis. Their original JSON
+	// remains in AdditionalFields so provider-specific types and values can be
+	// relayed without Shahrah becoming their semantic validator.
+	decodedFields := make(map[string]json.RawMessage, len(fields))
+	for key, value := range fields {
+		if IsModelDecodingPassThroughParameter(key) {
+			continue
+		}
+
+		decodedFields[key] = value
+	}
+
+	decodedJSON, err := json.Marshal(decodedFields)
+	if err != nil {
+		return err
+	}
+
+	var decoded requestAlias
+	if err := json.Unmarshal(decodedJSON, &decoded); err != nil {
+		return err
+	}
+
+	decodeOptionalFloat64(fields["temperature"], &decoded.Temperature)
+	decodeOptionalFloat64(fields["top_p"], &decoded.TopP)
+	decodeOptionalInt(fields["top_k"], &decoded.TopK)
+
+	if raw := fields["stop"]; len(raw) > 0 {
+		if err := json.Unmarshal(raw, &decoded.Stop); err != nil {
+			decoded.Stop = nil
+		}
+	}
+
 	*r = ChatCompletionRequest(decoded)
 	r.AdditionalFields = fields
+
 	return nil
 }
 
@@ -60,23 +91,82 @@ func (r *ChatCompletionRequest) UnmarshalJSON(data []byte) error {
 // rewrite routing fields and apply policy transformations.
 func (r ChatCompletionRequest) MarshalJSON() ([]byte, error) {
 	type requestAlias ChatCompletionRequest
+
 	knownJSON, err := json.Marshal(requestAlias(r))
 	if err != nil {
 		return nil, err
 	}
+
 	var known map[string]json.RawMessage
 	if err := json.Unmarshal(knownJSON, &known); err != nil {
 		return nil, err
 	}
+
 	merged := make(map[string]json.RawMessage, len(r.AdditionalFields)+len(known))
 	for key, value := range r.AdditionalFields {
 		merged[key] = append(json.RawMessage(nil), value...)
 	}
+
 	for key, value := range known {
+		if IsModelDecodingPassThroughParameter(key) {
+			if _, present := merged[key]; present {
+				continue
+			}
+		}
+
 		merged[key] = value
 	}
+
 	delete(merged, "AdditionalFields")
+
 	return json.Marshal(merged)
+}
+
+// IsModelDecodingPassThroughParameter reports whether a model-owned decoding
+// control must be relayed without gateway-level semantic validation.
+func IsModelDecodingPassThroughParameter(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "temperature",
+		"top_p",
+		"top_k",
+		"presence_penalty",
+		"frequency_penalty",
+		"seed",
+		"random_seed",
+		"stop",
+		"logit_bias",
+		"logprobs",
+		"top_logprobs":
+		return true
+	default:
+		return false
+	}
+}
+
+func decodeOptionalFloat64(raw json.RawMessage, target **float64) {
+	if len(raw) == 0 {
+		return
+	}
+
+	var value *float64
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return
+	}
+
+	*target = value
+}
+
+func decodeOptionalInt(raw json.RawMessage, target **int) {
+	if len(raw) == 0 {
+		return
+	}
+
+	var value *int
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return
+	}
+
+	*target = value
 }
 
 // StreamOptions configures optional fields emitted by compatible streaming providers.
@@ -173,18 +263,21 @@ func ChatContentText(content interface{}) string {
 				parts = append(parts, strings.TrimSpace(part.Text))
 			}
 		}
+
 		return strings.Join(parts, "\n")
 	default:
 		parts, ok, err := ChatContentParts(v)
 		if !ok || err != nil {
 			return ""
 		}
+
 		texts := make([]string, 0, len(parts))
 		for _, part := range parts {
 			if part.Type == "text" && strings.TrimSpace(part.Text) != "" {
 				texts = append(texts, strings.TrimSpace(part.Text))
 			}
 		}
+
 		return strings.Join(texts, "\n")
 	}
 }
@@ -195,12 +288,15 @@ func ChatContentImageCount(content interface{}) int {
 	if !ok || err != nil {
 		return 0
 	}
+
 	count := 0
+
 	for _, part := range parts {
 		if part.Type == "image_url" {
 			count++
 		}
 	}
+
 	return count
 }
 
@@ -238,12 +334,15 @@ func ChatContentFileCount(content interface{}) int {
 	if !ok || err != nil {
 		return 0
 	}
+
 	count := 0
+
 	for _, part := range parts {
 		if part.Type == "file" {
 			count++
 		}
 	}
+
 	return count
 }
 
@@ -258,12 +357,15 @@ func ChatContentInputAudioCount(content interface{}) int {
 	if !ok || err != nil {
 		return 0
 	}
+
 	count := 0
+
 	for _, part := range parts {
 		if part.Type == "input_audio" {
 			count++
 		}
 	}
+
 	return count
 }
 
@@ -288,8 +390,10 @@ func ChatContentParts(content interface{}) ([]ChatContentPart, bool, error) {
 			if err != nil {
 				return nil, true, fmt.Errorf("content part[%d]: %w", i, err)
 			}
+
 			parts = append(parts, part)
 		}
+
 		return validateChatContentParts(parts)
 	default:
 		return nil, false, fmt.Errorf("content must be a string or an array of content parts")
@@ -316,7 +420,9 @@ func validateChatContentParts(parts []ChatContentPart) ([]ChatContentPart, bool,
 			if part.File == nil {
 				return nil, true, fmt.Errorf("content part[%d].file is required", i)
 			}
+
 			hasFileData := strings.TrimSpace(part.File.FileData) != ""
+
 			hasFileID := strings.TrimSpace(part.File.FileID) != ""
 			if !hasFileData && !hasFileID {
 				return nil, true, fmt.Errorf("content part[%d].file.file_data or file.file_id is required", i)
@@ -325,14 +431,17 @@ func validateChatContentParts(parts []ChatContentPart) ([]ChatContentPart, bool,
 			if part.InputAudio == nil || strings.TrimSpace(part.InputAudio.Data) == "" {
 				return nil, true, fmt.Errorf("content part[%d].input_audio.data is required", i)
 			}
+
 			if strings.TrimSpace(part.InputAudio.Format) == "" {
 				return nil, true, fmt.Errorf("content part[%d].input_audio.format is required", i)
 			}
 		default:
 			return nil, true, fmt.Errorf("content part[%d].type %q is not supported", i, part.Type)
 		}
+
 		parts[i] = part
 	}
+
 	return parts, true, nil
 }
 
@@ -340,6 +449,7 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 	if part, ok := raw.(ChatContentPart); ok {
 		return part, nil
 	}
+
 	m, ok := raw.(map[string]interface{})
 	if !ok {
 		return ChatContentPart{}, fmt.Errorf("must be an object")
@@ -361,10 +471,12 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 		if !ok {
 			return ChatContentPart{}, fmt.Errorf("image_url must be an object")
 		}
+
 		part.ImageURL = &ChatImageURL{}
 		if url, ok := imageURL["url"].(string); ok {
 			part.ImageURL.URL = url
 		}
+
 		if detail, ok := imageURL["detail"].(string); ok {
 			part.ImageURL.Detail = detail
 		}
@@ -391,13 +503,16 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 		if !ok {
 			return ChatContentPart{}, fmt.Errorf("file must be an object")
 		}
+
 		part.File = &ChatFile{}
 		if filename, ok := file["filename"].(string); ok {
 			part.File.Filename = filename
 		}
+
 		if fileData, ok := file["file_data"].(string); ok {
 			part.File.FileData = fileData
 		}
+
 		if fileID, ok := file["file_id"].(string); ok {
 			part.File.FileID = fileID
 		}
@@ -406,14 +521,17 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 		if !ok {
 			return ChatContentPart{}, fmt.Errorf("input_audio must be an object")
 		}
+
 		part.InputAudio = &ChatInputAudio{}
 		if data, ok := inputAudio["data"].(string); ok {
 			part.InputAudio.Data = data
 		}
+
 		if format, ok := inputAudio["format"].(string); ok {
 			part.InputAudio.Format = format
 		}
 	}
+
 	return part, nil
 }
 
@@ -429,6 +547,7 @@ func RedactChatContent(content interface{}) interface{} {
 		if ok && err == nil {
 			return redactChatContentParts(parts)
 		}
+
 		return content
 	}
 }
@@ -440,52 +559,65 @@ func redactChatContentParts(parts []ChatContentPart) []map[string]interface{} {
 		if part.Type == "text" {
 			item["text"] = part.Text
 		}
+
 		if part.Type == "image_url" && part.ImageURL != nil {
 			imageURL := map[string]interface{}{"url": RedactDataURL(part.ImageURL.URL)}
 			if part.ImageURL.Detail != "" {
 				imageURL["detail"] = part.ImageURL.Detail
 			}
+
 			item["image_url"] = imageURL
 		}
+
 		if part.Type == "file" && part.File != nil {
 			file := map[string]interface{}{}
 			if part.File.Filename != "" {
 				file["filename"] = part.File.Filename
 			}
+
 			if part.File.FileData != "" {
 				file["file_data"] = RedactDataURL(part.File.FileData)
 			}
+
 			if part.File.FileID != "" {
 				file["file_id"] = part.File.FileID
 			}
+
 			item["file"] = file
 		}
+
 		if part.Type == "input_audio" && part.InputAudio != nil {
 			item["input_audio"] = map[string]interface{}{
 				"data":   "[REDACTED]",
 				"format": part.InputAudio.Format,
 			}
 		}
+
 		out = append(out, item)
 	}
+
 	return out
 }
 
 // RedactDataURL removes inline base64 payloads from data URLs.
 func RedactDataURL(value string) string {
 	trimmed := strings.TrimSpace(value)
+
 	lower := strings.ToLower(trimmed)
 	if !strings.HasPrefix(lower, "data:") {
 		return value
 	}
+
 	comma := strings.Index(trimmed, ",")
 	if comma < 0 {
 		return "data:[redacted]"
 	}
+
 	prefix := trimmed[:comma]
 	if strings.Contains(strings.ToLower(prefix), ";base64") {
 		return prefix + ",[redacted]"
 	}
+
 	return "data:[redacted]"
 }
 
@@ -504,30 +636,38 @@ func parseBase64DataURL(value string, field string) (string, string, error) {
 	if !strings.HasPrefix(strings.ToLower(trimmed), "data:") {
 		return "", "", fmt.Errorf("%s must be a data URL", field)
 	}
+
 	comma := strings.Index(trimmed, ",")
 	if comma < 0 {
 		return "", "", fmt.Errorf("data URL is missing payload")
 	}
+
 	meta := trimmed[len("data:"):comma]
 	data := strings.TrimSpace(trimmed[comma+1:])
 	metaParts := strings.Split(meta, ";")
+
 	mediaType := strings.TrimSpace(metaParts[0])
 	if mediaType == "" {
 		mediaType = "application/octet-stream"
 	}
+
 	base64Encoded := false
+
 	for _, part := range metaParts[1:] {
 		if strings.EqualFold(strings.TrimSpace(part), "base64") {
 			base64Encoded = true
 			break
 		}
 	}
+
 	if !base64Encoded {
 		return "", "", fmt.Errorf("data URL must be base64 encoded")
 	}
+
 	if data == "" {
 		return "", "", fmt.Errorf("data URL payload is empty")
 	}
+
 	return mediaType, data, nil
 }
 
@@ -597,10 +737,11 @@ type ChatCompletionResponse struct {
 
 // Choice represents a single choice in a chat completion response.
 type Choice struct {
-	Index        int          `json:"index"`
-	Message      *ChatMessage `json:"message,omitempty"`
-	Delta        *ChatMessage `json:"delta,omitempty"`
-	FinishReason string       `json:"finish_reason,omitempty"`
+	Index        int             `json:"index"`
+	Message      *ChatMessage    `json:"message,omitempty"`
+	Delta        *ChatMessage    `json:"delta,omitempty"`
+	FinishReason string          `json:"finish_reason,omitempty"`
+	Logprobs     json.RawMessage `json:"logprobs,omitempty"`
 }
 
 // Usage represents token usage statistics.
@@ -698,37 +839,47 @@ type CompletionRequest struct {
 
 func (r *CompletionRequest) UnmarshalJSON(data []byte) error {
 	type requestAlias CompletionRequest
+
 	var decoded requestAlias
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
+
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
+
 	*r = CompletionRequest(decoded)
 	r.AdditionalFields = fields
+
 	return nil
 }
 
 func (r CompletionRequest) MarshalJSON() ([]byte, error) {
 	type requestAlias CompletionRequest
+
 	knownJSON, err := json.Marshal(requestAlias(r))
 	if err != nil {
 		return nil, err
 	}
+
 	var known map[string]json.RawMessage
 	if err := json.Unmarshal(knownJSON, &known); err != nil {
 		return nil, err
 	}
+
 	merged := make(map[string]json.RawMessage, len(r.AdditionalFields)+len(known))
 	for key, value := range r.AdditionalFields {
 		merged[key] = append(json.RawMessage(nil), value...)
 	}
+
 	for key, value := range known {
 		merged[key] = value
 	}
+
 	delete(merged, "AdditionalFields")
+
 	return json.Marshal(merged)
 }
 
@@ -922,31 +1073,39 @@ type ImageRequest struct {
 
 func (r *ImageRequest) UnmarshalJSON(data []byte) error {
 	type alias ImageRequest
+
 	var a alias
 	if err := json.Unmarshal(data, &a); err != nil {
 		return err
 	}
+
 	var raw map[string]interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+
 	for _, key := range []string{"model", "prompt", "image", "mask", "n", "size", "quality", "response_format", "user"} {
 		delete(raw, key)
 	}
+
 	*r = ImageRequest(a)
 	r.Extra = raw
+
 	return nil
 }
 
 func (r ImageRequest) MarshalJSON() ([]byte, error) {
 	type alias ImageRequest
+
 	base, err := structToMap(alias(r))
 	if err != nil {
 		return nil, err
 	}
+
 	for k, v := range r.Extra {
 		base[k] = v
 	}
+
 	return json.Marshal(base)
 }
 
@@ -961,31 +1120,39 @@ type ImageResponse struct {
 
 func (r *ImageResponse) UnmarshalJSON(data []byte) error {
 	type alias ImageResponse
+
 	var a alias
 	if err := json.Unmarshal(data, &a); err != nil {
 		return err
 	}
+
 	var raw map[string]interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+
 	for _, key := range []string{"created", "data", "usage"} {
 		delete(raw, key)
 	}
+
 	*r = ImageResponse(a)
 	r.Extra = raw
+
 	return nil
 }
 
 func (r ImageResponse) MarshalJSON() ([]byte, error) {
 	type alias ImageResponse
+
 	base, err := structToMap(alias(r))
 	if err != nil {
 		return nil, err
 	}
+
 	for k, v := range r.Extra {
 		base[k] = v
 	}
+
 	return json.Marshal(base)
 }
 
@@ -1000,31 +1167,39 @@ type ImageData struct {
 
 func (d *ImageData) UnmarshalJSON(data []byte) error {
 	type alias ImageData
+
 	var a alias
 	if err := json.Unmarshal(data, &a); err != nil {
 		return err
 	}
+
 	var raw map[string]interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+
 	for _, key := range []string{"url", "b64_json", "revised_prompt", "mime_type"} {
 		delete(raw, key)
 	}
+
 	*d = ImageData(a)
 	d.Extra = raw
+
 	return nil
 }
 
 func (d ImageData) MarshalJSON() ([]byte, error) {
 	type alias ImageData
+
 	base, err := structToMap(alias(d))
 	if err != nil {
 		return nil, err
 	}
+
 	for k, v := range d.Extra {
 		base[k] = v
 	}
+
 	return json.Marshal(base)
 }
 
@@ -1033,9 +1208,11 @@ func structToMap(v interface{}) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	out := map[string]interface{}{}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }

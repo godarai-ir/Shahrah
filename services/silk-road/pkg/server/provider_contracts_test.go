@@ -12,7 +12,9 @@ import (
 
 func TestRegistryContainsEveryDatabaseProviderMarkedRuntimeReady(t *testing.T) {
 	t.Parallel()
+
 	registry := newProviderRegistry()
+
 	providers := []string{
 		"anthropic", "azure-open-ai", "cerebras",
 		"cohere", "databricks", "deepinfra", "google-gemini", "groq", "mistral-ai",
@@ -22,6 +24,7 @@ func TestRegistryContainsEveryDatabaseProviderMarkedRuntimeReady(t *testing.T) {
 		provider := provider
 		t.Run(provider, func(t *testing.T) {
 			t.Parallel()
+
 			if _, err := registry.adapterFor(provider); err != nil {
 				t.Fatalf("runtime-ready provider %q has no adapter: %v", provider, err)
 			}
@@ -31,17 +34,21 @@ func TestRegistryContainsEveryDatabaseProviderMarkedRuntimeReady(t *testing.T) {
 
 func TestAzureOpenAIUsesDocumentedAPIKeyHeaderAndDeploymentRoute(t *testing.T) {
 	t.Parallel()
+
 	var gotHeader, gotPath, gotVersion string
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotHeader = r.Header.Get("api-key")
 		gotPath = r.URL.Path
 		gotVersion = r.URL.Query().Get("api-version")
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{}`)
 	}))
 	defer upstream.Close()
 
 	adapter := newAzureOpenAIAdapter()
+
 	response, err := adapter.Dispatch(context.Background(), upstream.Client(), platform.TunnelRequest{
 		Deployment: platform.Deployment{
 			Provider:   "azure-open-ai",
@@ -58,12 +65,15 @@ func TestAzureOpenAIUsesDocumentedAPIKeyHeaderAndDeploymentRoute(t *testing.T) {
 		t.Fatalf("dispatch: %v", err)
 	}
 	defer response.Body.Close()
+
 	if gotHeader != "azure-secret" {
 		t.Fatalf("unexpected api-key header %q", gotHeader)
 	}
+
 	if gotPath != "/openai/deployments/gpt-4o-production/chat/completions" {
 		t.Fatalf("unexpected Azure deployment path %q", gotPath)
 	}
+
 	if gotVersion != "2024-10-21" {
 		t.Fatalf("unexpected api-version %q", gotVersion)
 	}
@@ -71,7 +81,8 @@ func TestAzureOpenAIUsesDocumentedAPIKeyHeaderAndDeploymentRoute(t *testing.T) {
 
 func TestDocumentedOptionalHeadersAreProviderScoped(t *testing.T) {
 	t.Parallel()
-	req := httptest.NewRequest(http.MethodPost, "https://example.com", nil)
+
+	req := httptest.NewRequest(http.MethodPost, "https://example.com", http.NoBody)
 	applyDocumentedProviderHeaders(req, platform.Deployment{
 		Provider: "openrouter",
 		ProviderHeaders: map[string]string{
@@ -80,9 +91,11 @@ func TestDocumentedOptionalHeadersAreProviderScoped(t *testing.T) {
 			"OpenAI-Project":     "must-not-cross-provider-boundary",
 		},
 	})
+
 	if req.Header.Get("HTTP-Referer") != "https://godarai.example" || req.Header.Get("X-OpenRouter-Title") != "GodarAI" {
 		t.Fatal("OpenRouter documented headers were not applied")
 	}
+
 	if req.Header.Get("OpenAI-Project") != "" {
 		t.Fatal("OpenAI-only header crossed the provider boundary")
 	}
@@ -107,7 +120,9 @@ func TestGeminiAdapterCarriesDocumentedOpenAICompatibleEndpointsAndStreaming(t *
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			var gotPath, gotAuthorization, gotAccept string
+
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotPath = r.URL.Path
 				gotAuthorization = r.Header.Get("Authorization")
@@ -121,7 +136,9 @@ func TestGeminiAdapterCarriesDocumentedOpenAICompatibleEndpointsAndStreaming(t *
 			if tt.path != "" {
 				metadata["provider_endpoint_path"] = tt.path
 			}
+
 			adapter := newGeminiAdapter()
+
 			response, err := adapter.Dispatch(context.Background(), upstream.Client(), platform.TunnelRequest{
 				Stream: tt.stream,
 				Deployment: platform.Deployment{
@@ -136,12 +153,15 @@ func TestGeminiAdapterCarriesDocumentedOpenAICompatibleEndpointsAndStreaming(t *
 				t.Fatalf("dispatch: %v", err)
 			}
 			defer response.Body.Close()
+
 			if gotPath != tt.wantPath {
 				t.Fatalf("path=%q want=%q", gotPath, tt.wantPath)
 			}
+
 			if gotAuthorization != "Bearer gemini-secret" {
 				t.Fatalf("authorization=%q", gotAuthorization)
 			}
+
 			if tt.stream && gotAccept != "text/event-stream" {
 				t.Fatalf("stream accept=%q", gotAccept)
 			}

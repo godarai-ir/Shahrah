@@ -61,40 +61,48 @@ func TestConvertToAnthropicRequestMapsToolsStructuredOutputAndParameters(t *test
 		}},
 	}
 
-	// Adaptive thinking and sampling cannot be combined.
 	profile := anthropicTestRuntimeProfile(request.Model)
-	if _, err := convertToAnthropicRequest(request, profile.Profile); err == nil {
-		t.Fatal("expected adaptive thinking sampling conflict")
-	}
-	request.TopK = nil
+
 	converted, err := convertToAnthropicRequest(request, profile.Profile)
 	if err != nil {
 		t.Fatalf("convertToAnthropicRequest: %v", err)
 	}
+
 	if converted.Thinking == nil || converted.Thinking.Type != "adaptive" {
 		t.Fatalf("unexpected thinking: %#v", converted.Thinking)
 	}
+
+	if converted.TopK == nil || *converted.TopK != topK {
+		t.Fatalf("top_k was not preserved: %#v", converted.TopK)
+	}
+
 	if converted.ToolChoice == nil || converted.ToolChoice.Type != "tool" ||
 		converted.ToolChoice.Name != "weather" || !converted.ToolChoice.DisableParallelToolUse {
 		t.Fatalf("unexpected tool choice: %#v", converted.ToolChoice)
 	}
+
 	if len(converted.Tools) != 1 || converted.Tools[0].Name != "weather" {
 		t.Fatalf("unexpected tools: %#v", converted.Tools)
 	}
+
 	if converted.Output == nil || converted.Output.Effort != "high" {
 		t.Fatalf("unexpected output config: %#v", converted.Output)
 	}
+
 	format, ok := converted.Output.Format.(map[string]interface{})
 	if !ok || format["type"] != "json_schema" {
 		t.Fatalf("unexpected output format: %#v", converted.Output.Format)
 	}
+
 	schema := format["schema"].(map[string]interface{})
 	if schema["type"] != "object" {
 		t.Fatalf("schema semantics were not preserved: %#v", schema)
 	}
+
 	if converted.Metadata == nil || converted.Metadata.UserID != "external-user" {
 		t.Fatalf("unexpected metadata: %#v", converted.Metadata)
 	}
+
 	if converted.InferenceGeo != "us" || len(converted.Stop) != 2 {
 		t.Fatalf("parameters were not preserved: %#v", converted)
 	}
@@ -118,6 +126,7 @@ func TestConvertToAnthropicRequestMapsToolMessages(t *testing.T) {
 			{Role: "tool", ToolCallID: "toolu_1", Content: `{"temperature":31}`},
 		},
 	}
+
 	converted, err := convertToAnthropicRequest(
 		request,
 		anthropicTestRuntimeProfile(request.Model).Profile,
@@ -125,9 +134,11 @@ func TestConvertToAnthropicRequestMapsToolMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("convertToAnthropicRequest: %v", err)
 	}
+
 	if got := converted.Messages[0].Content[0]; got.Type != "tool_use" || got.ID != "toolu_1" {
 		t.Fatalf("unexpected tool_use: %#v", got)
 	}
+
 	if got := converted.Messages[1]; got.Role != "user" ||
 		got.Content[0].Type != "tool_result" || got.Content[0].ToolUseID != "toolu_1" {
 		t.Fatalf("unexpected tool_result: %#v", got)
@@ -139,6 +150,7 @@ func TestConvertAnthropicResponseMapsToolUseAndFullUsage(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"city":"Tehran"}`), &input); err != nil {
 		t.Fatal(err)
 	}
+
 	response := anthropicResponse{
 		ID:         "msg_1",
 		StopReason: "tool_use",
@@ -160,11 +172,13 @@ func TestConvertAnthropicResponseMapsToolUseAndFullUsage(t *testing.T) {
 	if converted.Choices[0].FinishReason != "tool_calls" {
 		t.Fatalf("unexpected finish reason: %s", converted.Choices[0].FinishReason)
 	}
+
 	calls := converted.Choices[0].Message.ToolCalls
 	if len(calls) != 1 || calls[0].Function.Name != "weather" ||
 		calls[0].Function.Arguments != `{"city":"Tehran"}` {
 		t.Fatalf("unexpected tool calls: %#v", calls)
 	}
+
 	if converted.Usage.CacheCreation5mInputTokens != 10 ||
 		converted.Usage.CacheCreation1hInputTokens != 20 ||
 		converted.Usage.CacheReadInputTokens != 40 ||
@@ -206,10 +220,10 @@ func TestAnthropicConversionUsesRuntimeProfileInsteadOfModelName(t *testing.T) {
 		request,
 		binding.Profile,
 	)
-
 	if err != nil {
 		t.Fatalf("convertToAnthropicRequest: %v", err)
 	}
+
 	if converted.Thinking == nil ||
 		converted.Thinking.Type != "adaptive" ||
 		converted.Speed != "fast" {
@@ -236,7 +250,7 @@ func TestAnthropicConversionRejectsProfileDisallowedAssistantPrefill(
 	}
 }
 
-func TestAnthropicConversionRejectsProfileDisallowedSamplingParameter(
+func TestAnthropicConversionPassesProfileDisallowedSamplingParameter(
 	t *testing.T,
 ) {
 	topK := 10
@@ -248,10 +262,118 @@ func TestAnthropicConversionRejectsProfileDisallowedSamplingParameter(
 	binding := anthropicTestRuntimeProfile(request.Model)
 	binding.Profile.Sampling.Parameters = []string{"temperature", "top_p"}
 
-	_, err := convertToAnthropicRequest(request, binding.Profile)
+	converted, err := convertToAnthropicRequest(request, binding.Profile)
+	if err != nil {
+		t.Fatalf("unexpected top_k rejection: %v", err)
+	}
 
-	if err == nil || !strings.Contains(err.Error(), "top_k") {
-		t.Fatalf("expected top_k rejection, got %v", err)
+	if converted.TopK == nil || *converted.TopK != topK {
+		t.Fatalf("top_k was not preserved: %#v", converted.TopK)
+	}
+}
+
+func TestAnthropicConversionRelaysRawModelDecodingControls(t *testing.T) {
+	payload := []byte(`{
+		"model":"claude-future-model",
+		"messages":[{"role":"user","content":"test"}],
+		"temperature":"provider-native",
+		"top_p":-0.5,
+		"top_k":"provider-native",
+		"presence_penalty":3,
+		"frequency_penalty":-4,
+		"seed":"stable-seed",
+		"random_seed":42,
+		"stop":{"provider":"native"},
+		"logit_bias":{"42":100},
+		"logprobs":"provider-default",
+		"top_logprobs":99
+	}`)
+
+	var request contractsopenai.ChatCompletionRequest
+	if err := json.Unmarshal(payload, &request); err != nil {
+		t.Fatalf("decode request: %v", err)
+	}
+
+	binding := anthropicTestRuntimeProfile(request.Model)
+
+	converted, err := convertToAnthropicRequest(request, binding.Profile)
+	if err != nil {
+		t.Fatalf("convert request: %v", err)
+	}
+
+	encoded, err := json.Marshal(converted)
+	if err != nil {
+		t.Fatalf("encode converted request: %v", err)
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatalf("decode converted fields: %v", err)
+	}
+
+	for _, name := range []string{
+		"temperature", "top_p", "top_k", "presence_penalty",
+		"frequency_penalty", "seed", "random_seed", "logit_bias",
+		"logprobs", "top_logprobs", "stop_sequences",
+	} {
+		if _, present := fields[name]; !present {
+			t.Fatalf("%s was not relayed: %s", name, encoded)
+		}
+	}
+
+	var original map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &original); err != nil {
+		t.Fatalf("decode original fields: %v", err)
+	}
+
+	if !bytes.Equal(fields["stop_sequences"], original["stop"]) {
+		t.Fatalf("stop changed: got %s, want %s", fields["stop_sequences"], original["stop"])
+	}
+}
+
+func TestAnthropicConversionPreservesRawStopPresence(t *testing.T) {
+	tests := []struct {
+		name     string
+		stop     string
+		expected string
+	}{
+		{name: "null", stop: `null`, expected: `null`},
+		{name: "empty string", stop: `""`, expected: `[""]`},
+		{name: "string", stop: `"done"`, expected: `["done"]`},
+		{name: "array", stop: `["done","stop"]`, expected: `["done","stop"]`},
+		{name: "provider native object", stop: `{"provider":"native"}`, expected: `{"provider":"native"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload := []byte(`{"model":"claude-future-model","messages":[{"role":"user","content":"test"}],"stop":` + tt.stop + `}`)
+
+			var request contractsopenai.ChatCompletionRequest
+			if err := json.Unmarshal(payload, &request); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+
+			binding := anthropicTestRuntimeProfile(request.Model)
+
+			converted, err := convertToAnthropicRequest(request, binding.Profile)
+			if err != nil {
+				t.Fatalf("convert request: %v", err)
+			}
+
+			encoded, err := json.Marshal(converted)
+			if err != nil {
+				t.Fatalf("encode converted request: %v", err)
+			}
+
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(encoded, &fields); err != nil {
+				t.Fatalf("decode converted fields: %v", err)
+			}
+
+			if !bytes.Equal(fields["stop_sequences"], json.RawMessage(tt.expected)) {
+				t.Fatalf("stop_sequences = %s, want %s", fields["stop_sequences"], tt.expected)
+			}
+		})
 	}
 }
 
@@ -274,10 +396,10 @@ func TestAnthropicConversionPreservesTypedServerTool(t *testing.T) {
 	binding.Profile.Tools.Server = true
 
 	converted, err := convertToAnthropicRequest(request, binding.Profile)
-
 	if err != nil {
 		t.Fatalf("convertToAnthropicRequest: %v", err)
 	}
+
 	if len(converted.Tools) != 1 ||
 		converted.Tools[0].Type != "web_search_20260209" ||
 		converted.Tools[0].Name != "web_search" ||
@@ -323,10 +445,12 @@ func TestAnthropicResponsePreservesServerToolBlocks(t *testing.T) {
 	}
 
 	converted := convertToOpenAIResponse(response, "claude-opus-4-7")
+
 	message := converted.Choices[0].Message
 	if message == nil || len(message.ProviderContent) != 2 {
 		t.Fatalf("server-tool content was not preserved: %#v", message)
 	}
+
 	if converted.Usage == nil ||
 		converted.Usage.ServerToolUse["web_search_requests"] != 1 {
 		t.Fatalf("server-tool usage was not preserved: %#v", converted.Usage)
@@ -366,6 +490,7 @@ func TestAnthropicNativeToolValidationFailsClosedForKnownIncompatibility(
 	); err == nil {
 		t.Fatal("expected known unsupported native tool to be rejected")
 	}
+
 	if err := validateAnthropicNativeTools(
 		[]json.RawMessage{json.RawMessage(
 			`{"type":"future_native_tool_20270101","name":"future"}`,
@@ -377,7 +502,7 @@ func TestAnthropicNativeToolValidationFailsClosedForKnownIncompatibility(
 }
 
 func TestAnthropicBetaHeadersIntersectAccountAndRuntimeProfile(t *testing.T) {
-	request := httptest.NewRequest(http.MethodPost, "/", nil)
+	request := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
 	binding := anthropicTestRuntimeProfile("claude-opus-4-7")
 	binding.Profile.BetaHeaders = []string{"model-approved"}
 	payload := platform.TunnelRequest{
@@ -401,13 +526,16 @@ func TestAnthropicBetaHeadersIntersectAccountAndRuntimeProfile(t *testing.T) {
 
 func TestAnthropicDispatchFailsClosedWithoutRuntimeProfile(t *testing.T) {
 	called := false
+
 	upstream := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, _ *http.Request) {
 			called = true
+
 			w.WriteHeader(http.StatusOK)
 		},
 	))
 	defer upstream.Close()
+
 	adapter := &anthropicAdapter{}
 
 	_, err := adapter.Dispatch(
@@ -428,6 +556,7 @@ func TestAnthropicDispatchFailsClosedWithoutRuntimeProfile(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "runtime profile") {
 		t.Fatalf("expected missing runtime profile error, got %v", err)
 	}
+
 	if called {
 		t.Fatal("upstream must not be called without a runtime profile")
 	}
@@ -439,14 +568,17 @@ func anthropicTestRuntimeProfile(
 	defaultMode := "manual"
 	allowedModes := []string{"manual", "disabled"}
 	assistantPrefill := true
+
 	if strings.Contains(model, "-4-6") || strings.Contains(model, "-4-7") {
 		defaultMode = "adaptive"
 		allowedModes = []string{"adaptive", "manual", "disabled"}
 		assistantPrefill = false
 	}
+
 	if strings.Contains(model, "-4-7") {
 		allowedModes = []string{"adaptive"}
 	}
+
 	binding := platform.ModelRuntimeProfileBinding{
 		Provider:        "anthropic",
 		CatalogRevision: "test-runtime-revision",
@@ -486,11 +618,13 @@ func anthropicTestRuntimeProfile(
 			},
 		},
 	}
+
 	return binding
 }
 
 func TestAnthropicTypedOperationBuildsFixedPathAndFiltersBeta(t *testing.T) {
 	var gotMethod, gotPath, gotQuery, gotAPIKey, gotAuthorization, gotBeta string
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		gotMethod, gotPath, gotQuery = request.Method, request.URL.Path, request.URL.RawQuery
 		gotAPIKey = request.Header.Get("x-api-key")
@@ -502,6 +636,7 @@ func TestAnthropicTypedOperationBuildsFixedPathAndFiltersBeta(t *testing.T) {
 	defer upstream.Close()
 
 	adapter := &anthropicAdapter{}
+
 	response, err := adapter.Dispatch(t.Context(), upstream.Client(), platform.TunnelRequest{
 		Operation: platform.ProviderOperationAnthropicFilesList,
 		OperationInput: platform.ProviderOperationInput{
@@ -525,13 +660,16 @@ func TestAnthropicTypedOperationBuildsFixedPathAndFiltersBeta(t *testing.T) {
 		t.Fatalf("Dispatch: %v", err)
 	}
 	defer response.Body.Close()
+
 	if gotMethod != http.MethodGet || gotPath != "/v1/files" ||
 		!strings.Contains(gotQuery, "after_id=file_1") || !strings.Contains(gotQuery, "limit=12") {
 		t.Fatalf("unexpected upstream target: %s %s?%s", gotMethod, gotPath, gotQuery)
 	}
+
 	if gotAPIKey != "sk-ant-provider" || gotAuthorization != "" {
 		t.Fatalf("provider auth isolation failed: x-api-key=%q authorization=%q", gotAPIKey, gotAuthorization)
 	}
+
 	if gotBeta != "files-api-2025-04-14" {
 		t.Fatalf("unexpected beta header: %q", gotBeta)
 	}
@@ -548,6 +686,7 @@ func TestAnthropicBatchAutomaticallyEnablesModelScoped300KOutputBeta(
 	t *testing.T,
 ) {
 	gotBeta := ""
+
 	upstream := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, request *http.Request) {
 			gotBeta = request.Header.Get("anthropic-beta")
@@ -569,6 +708,7 @@ func TestAnthropicBatchAutomaticallyEnablesModelScoped300KOutputBeta(
 		Endpoints:       []string{"message_batches"},
 		MaxOutputTokens: 300000,
 	}}
+
 	response, err := (&anthropicAdapter{}).Dispatch(
 		t.Context(),
 		upstream.Client(),
@@ -593,6 +733,7 @@ func TestAnthropicBatchAutomaticallyEnablesModelScoped300KOutputBeta(
 		t.Fatalf("Dispatch: %v", err)
 	}
 	defer response.Body.Close()
+
 	if gotBeta != "output-300k-2026-03-24" {
 		t.Fatalf("expected 300k beta header, got %q", gotBeta)
 	}
@@ -611,6 +752,7 @@ func TestAnthropicBatchRejects300KOutputWithoutAccountAllowlist(
 		Endpoints:       []string{"message_batches"},
 		MaxOutputTokens: 300000,
 	}}
+
 	_, err := (&anthropicAdapter{}).Dispatch(
 		t.Context(),
 		http.DefaultClient,
@@ -632,17 +774,21 @@ func TestAnthropicBatchRejects300KOutputWithoutAccountAllowlist(
 
 func TestRawTunnelStreamsAnthropicFileUpload(t *testing.T) {
 	payloadBytes := bytes.Repeat([]byte("x"), 2*1024*1024)
+
 	var received int
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/v1/files" || request.Method != http.MethodPost {
 			t.Errorf("unexpected target: %s %s", request.Method, request.URL.Path)
 			return
 		}
+
 		data, err := io.ReadAll(request.Body)
 		if err != nil {
 			t.Error(err)
 			return
 		}
+
 		received = len(data)
 		_, _ = io.WriteString(w, `{"id":"file_upstream","type":"file"}`)
 	}))
@@ -659,6 +805,7 @@ func TestRawTunnelStreamsAnthropicFileUpload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var prefix [4]byte
 	binary.BigEndian.PutUint32(prefix[:], uint32(len(metadata)))
 	body := io.MultiReader(bytes.NewReader(prefix[:]), bytes.NewReader(metadata), bytes.NewReader(payloadBytes))
@@ -666,6 +813,7 @@ func TestRawTunnelStreamsAnthropicFileUpload(t *testing.T) {
 	request.ContentLength = int64(4 + len(metadata) + len(payloadBytes))
 	recorder := httptest.NewRecorder()
 	NewHandler(nil).ServeHTTP(recorder, request)
+
 	if recorder.Code != http.StatusOK || received != len(payloadBytes) {
 		t.Fatalf("raw upload failed: status=%d received=%d body=%s", recorder.Code, received, recorder.Body.String())
 	}

@@ -26,9 +26,19 @@ func TestMoonshotRegistryUsesDedicatedAdapter(t *testing.T) {
 func TestMoonshotDispatchUsesCanonicalChatEndpointAndBearerAuth(t *testing.T) {
 	var gotPath, gotAuthorization string
 
+	var gotBody []byte
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		gotPath = request.URL.Path
 		gotAuthorization = request.Header.Get("Authorization")
+
+		var readErr error
+
+		gotBody, readErr = io.ReadAll(request.Body)
+		if readErr != nil {
+			t.Errorf("read request: %v", readErr)
+		}
+
 		w.Header().Set("x-request-id", "moonshot-request-1")
 
 		if _, writeErr := io.WriteString(w, `{"id":"chatcmpl_moonshot"}`); writeErr != nil {
@@ -37,7 +47,13 @@ func TestMoonshotDispatchUsesCanonicalChatEndpointAndBearerAuth(t *testing.T) {
 	}))
 	defer server.Close()
 
-	payload := moonshotTestPayload("kimi-k3", `{"model":"kimi-k3","messages":[{"role":"user","content":"hello"}],"reasoning_effort":"low"}`)
+	payload := moonshotTestPayload("kimi-k3", `{
+		"model":"kimi-k3","messages":[{"role":"user","content":"hello"}],
+		"reasoning_effort":"low","temperature":7.25,"top_p":-0.5,"top_k":"native",
+		"presence_penalty":3,"frequency_penalty":-4,"seed":"stable","random_seed":42,
+		"stop":{"provider":"native"},"logit_bias":{"42":100},
+		"logprobs":"provider-default","top_logprobs":99
+	}`)
 	payload.Deployment.APIBase = server.URL
 	payload.Deployment.APIKey = "moonshot-secret"
 
@@ -58,6 +74,12 @@ func TestMoonshotDispatchUsesCanonicalChatEndpointAndBearerAuth(t *testing.T) {
 	if response.Headers.Get("x-request-id") != "moonshot-request-1" {
 		t.Fatal("expected provider request ID to be preserved")
 	}
+
+	for _, name := range []string{"temperature", "top_p", "top_k", "presence_penalty", "frequency_penalty", "seed", "random_seed", "stop", "logit_bias", "logprobs", "top_logprobs"} {
+		if !strings.Contains(string(gotBody), `"`+name+`"`) {
+			t.Fatalf("%s was not relayed: %s", name, gotBody)
+		}
+	}
 }
 
 func TestMoonshotRejectsModelSpecificParametersBeforeDispatch(t *testing.T) {
@@ -69,8 +91,6 @@ func TestMoonshotRejectsModelSpecificParametersBeforeDispatch(t *testing.T) {
 	}{
 		{name: "K3 rejects thinking", model: "kimi-k3", body: `{"model":"kimi-k3","messages":[{"role":"user","content":"hi"}],"thinking":{"type":"enabled"}}`, want: "moonshot_k3_thinking_parameter_unsupported"},
 		{name: "K2.7 rejects reasoning effort", model: "kimi-k2.7-code", body: `{"model":"kimi-k2.7-code","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"low"}`, want: "moonshot_unsupported_parameter: reasoning_effort"},
-		{name: "K2.7 fixed temperature", model: "kimi-k2.7-code", body: `{"model":"kimi-k2.7-code","messages":[{"role":"user","content":"hi"}],"temperature":0.7}`, want: "moonshot_temperature_must_equal_1"},
-		{name: "K2.6 non-thinking temperature", model: "kimi-k2.6", body: `{"model":"kimi-k2.6","messages":[{"role":"user","content":"hi"}],"thinking":{"type":"disabled"},"temperature":1}`, want: "moonshot_temperature_must_equal_0.6"},
 		{name: "K2.7 required tool choice", model: "kimi-k2.7-code", body: `{"model":"kimi-k2.7-code","messages":[{"role":"user","content":"hi"}],"tool_choice":"required"}`, want: "moonshot_tool_choice_required_unsupported"},
 	}
 

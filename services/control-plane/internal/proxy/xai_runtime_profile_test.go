@@ -24,13 +24,11 @@ func TestValidateXAIChatRuntimeProfileEnforcesModelContract(t *testing.T) {
 			raw:       `{"model":"grok-4.5","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"none"}`,
 			wantError: "reasoning_effort=none",
 		},
-		"logprobs are explicit unsupported": {
-			raw:       `{"model":"grok-4.5","messages":[{"role":"user","content":"hi"}],"logprobs":true}`,
-			wantError: "does not support logprobs",
+		"logprobs pass through": {
+			raw: `{"model":"grok-4.5","messages":[{"role":"user","content":"hi"}],"logprobs":true}`,
 		},
-		"reasoning penalties are unsupported": {
-			raw:       `{"model":"grok-4.5","messages":[{"role":"user","content":"hi"}],"presence_penalty":0.5}`,
-			wantError: "does not support presence_penalty",
+		"reasoning penalties pass through": {
+			raw: `{"model":"grok-4.5","messages":[{"role":"user","content":"hi"}],"presence_penalty":0.5}`,
 		},
 		"unknown server tool": {
 			raw:       `{"model":"grok-4.5","messages":[{"role":"user","content":"hi"}],"tools":[{"type":"unknown_search"}]}`,

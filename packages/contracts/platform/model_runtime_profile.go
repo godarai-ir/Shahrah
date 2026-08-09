@@ -177,30 +177,56 @@ func (binding ModelRuntimeProfileBinding) Validate() error {
 	if strings.TrimSpace(binding.Provider) == "" {
 		return fmt.Errorf("model runtime profile provider is required")
 	}
+
 	if strings.TrimSpace(binding.CatalogRevision) == "" {
 		return fmt.Errorf("model runtime profile catalog revision is required")
 	}
+
 	if strings.TrimSpace(binding.CanonicalID) == "" ||
 		strings.TrimSpace(binding.Slug) == "" {
 		return fmt.Errorf("model runtime profile identity is required")
 	}
+
 	if binding.ProfileVersion <= 0 ||
 		binding.Profile.Version != binding.ProfileVersion {
 		return fmt.Errorf("model runtime profile version mismatch")
 	}
+
 	if binding.EffectiveFrom.IsZero() {
 		return fmt.Errorf("model runtime profile effective time is required")
 	}
+
 	return binding.Profile.Validate()
 }
 
 func (profile ModelRuntimeProfile) Validate() error {
+	validators := []func() error{
+		profile.validateIdentityAndEndpoints,
+		profile.validateThinking,
+		profile.validateSamplingToolsAliasesAndHeaders,
+		profile.validateResourcePolicies,
+		profile.validateModalitiesAndRequestControls,
+		profile.validateBetaCapabilitiesAndLimits,
+	}
+
+	for _, validate := range validators {
+		if err := validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (profile ModelRuntimeProfile) validateIdentityAndEndpoints() error {
 	if profile.Version <= 0 {
 		return fmt.Errorf("model runtime profile version must be positive")
 	}
+
 	if len(profile.Endpoints) == 0 {
 		return fmt.Errorf("model runtime profile endpoints are required")
 	}
+
 	for _, endpoint := range profile.Endpoints {
 		if !containsRuntimeValue(
 			[]string{
@@ -257,23 +283,31 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported model endpoint %q", endpoint)
 		}
 	}
+
 	for _, transport := range profile.Transports {
 		if !containsRuntimeValue([]string{"http", "sse", "websocket"}, transport) {
 			return fmt.Errorf("unsupported model transport %q", transport)
 		}
 	}
+
 	if profile.Lifecycle != "" && !containsRuntimeValue(
 		[]string{"active", "preview", "deprecated", "retired", "unavailable"},
 		profile.Lifecycle,
 	) {
 		return fmt.Errorf("unsupported model lifecycle %q", profile.Lifecycle)
 	}
+
+	return nil
+}
+
+func (profile ModelRuntimeProfile) validateThinking() error {
 	if !containsRuntimeValue(
 		profile.Thinking.AllowedModes,
 		profile.Thinking.DefaultMode,
 	) {
 		return fmt.Errorf("default thinking mode must be allowed")
 	}
+
 	for _, mode := range profile.Thinking.AllowedModes {
 		if !containsRuntimeValue(
 			[]string{"adaptive", "manual", "disabled"},
@@ -282,6 +316,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported thinking mode %q", mode)
 		}
 	}
+
 	for _, effort := range profile.Thinking.EffortValues {
 		if !containsRuntimeValue(
 			[]string{"none", "minimal", "low", "medium", "high", "xhigh", "max"},
@@ -290,15 +325,18 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported effort value %q", effort)
 		}
 	}
+
 	if profile.Thinking.AlwaysEnabled &&
 		(len(profile.Thinking.AllowedModes) != 1 ||
 			!profile.AllowsThinkingMode("adaptive")) {
 		return fmt.Errorf("always-enabled thinking must allow only adaptive mode")
 	}
+
 	if profile.Thinking.DisabledMaxEffort != "" {
 		if !profile.AllowsThinkingMode("disabled") {
 			return fmt.Errorf("disabled max effort requires disabled thinking mode")
 		}
+
 		if !containsRuntimeValue(
 			[]string{"low", "medium", "high", "xhigh", "max"},
 			profile.Thinking.DisabledMaxEffort,
@@ -309,16 +347,23 @@ func (profile ModelRuntimeProfile) Validate() error {
 			)
 		}
 	}
+
 	for _, mode := range profile.Thinking.ReasoningModes {
 		if !containsRuntimeValue([]string{"standard", "pro"}, mode) {
 			return fmt.Errorf("unsupported reasoning mode %q", mode)
 		}
 	}
+
 	for _, value := range profile.Thinking.ContextValues {
 		if !containsRuntimeValue([]string{"auto", "current_turn", "all_turns"}, value) {
 			return fmt.Errorf("unsupported reasoning context %q", value)
 		}
 	}
+
+	return nil
+}
+
+func (profile ModelRuntimeProfile) validateSamplingToolsAliasesAndHeaders() error {
 	for _, parameter := range append(
 		append(
 			[]string(nil),
@@ -333,6 +378,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported sampling parameter %q", parameter)
 		}
 	}
+
 	for _, tool := range profile.Tools.Supported {
 		if !containsRuntimeValue(
 			[]string{
@@ -368,57 +414,76 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported model tool %q", tool)
 		}
 	}
+
 	seenAliases := map[string]struct{}{}
+
 	for _, alias := range profile.Aliases {
 		alias = strings.TrimSpace(alias)
 		if alias == "" {
 			return fmt.Errorf("model alias cannot be empty")
 		}
+
 		if _, exists := seenAliases[alias]; exists {
 			return fmt.Errorf("duplicate model alias %q", alias)
 		}
+
 		seenAliases[alias] = struct{}{}
 	}
+
 	for _, header := range profile.RequestHeaders.Allowed {
 		if strings.TrimSpace(header) == "" || strings.ContainsAny(header, "\r\n") {
 			return fmt.Errorf("invalid provider request header %q", header)
 		}
 	}
+
 	for endpoint, headers := range profile.RequestHeaders.ByEndpoint {
 		if !profile.AllowsEndpoint(endpoint) {
 			return fmt.Errorf("request header policy uses unsupported endpoint %q", endpoint)
 		}
+
 		for _, header := range headers {
 			if strings.TrimSpace(header) == "" || strings.ContainsAny(header, "\r\n") {
 				return fmt.Errorf("invalid provider request header %q", header)
 			}
 		}
 	}
+
+	return nil
+}
+
+func (profile ModelRuntimeProfile) validateResourcePolicies() error {
 	if profile.ContextPricing.LongContextThresholdTokens < 0 {
 		return fmt.Errorf("long-context threshold cannot be negative")
 	}
+
 	if profile.Batch.Eligible && len(profile.Batch.SupportedEndpoints) == 0 {
 		return fmt.Errorf("eligible batch profile requires supported endpoints")
 	}
+
 	for _, endpoint := range profile.Batch.SupportedEndpoints {
 		if !profile.AllowsEndpoint(endpoint) {
 			return fmt.Errorf("batch profile uses unsupported endpoint %q", endpoint)
 		}
 	}
+
 	if profile.Batch.MaxRequestBytes < 0 || profile.DeferredCompletions.RetentionSeconds < 0 || profile.DeferredCompletions.MaximumRetrievals < 0 {
 		return fmt.Errorf("runtime retention and request limits cannot be negative")
 	}
+
 	if profile.ImageControls.EditTransport != "" && profile.ImageControls.EditTransport != "json" && profile.ImageControls.EditTransport != "multipart" {
 		return fmt.Errorf("unsupported image edit transport %q", profile.ImageControls.EditTransport)
 	}
+
 	if profile.ImageControls.MaximumOutputs < 0 || profile.ImageControls.MaximumReferenceImages < 0 {
 		return fmt.Errorf("image control limits cannot be negative")
 	}
+
 	for _, field := range profile.UsageAccounting.RequiredResponseFields {
 		if !containsRuntimeValue([]string{"cost_in_usd_ticks", "num_server_side_tools_used", "service_tier"}, field) {
 			return fmt.Errorf("unsupported required usage field %q", field)
 		}
 	}
+
 	for tool, version := range profile.Tools.PreferredVersions {
 		if !profile.AllowsTool(tool) {
 			return fmt.Errorf(
@@ -426,6 +491,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 				tool,
 			)
 		}
+
 		if strings.TrimSpace(version) == "" ||
 			strings.ContainsAny(version, ",\r\n") {
 			return fmt.Errorf(
@@ -435,13 +501,20 @@ func (profile ModelRuntimeProfile) Validate() error {
 			)
 		}
 	}
+
 	if profile.MinimumRetentionDays < 0 {
 		return fmt.Errorf("minimum retention days cannot be negative")
 	}
+
+	return nil
+}
+
+func (profile ModelRuntimeProfile) validateModalitiesAndRequestControls() error {
 	if len(profile.Modalities.Input) == 0 ||
 		len(profile.Modalities.Output) == 0 {
 		return fmt.Errorf("model runtime profile modalities are required")
 	}
+
 	for _, modality := range profile.Modalities.Input {
 		if !containsRuntimeValue(
 			[]string{"unknown", "text", "image", "pdf", "document", "audio", "video", "code"},
@@ -450,6 +523,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported input modality %q", modality)
 		}
 	}
+
 	for _, modality := range profile.Modalities.Output {
 		if !containsRuntimeValue(
 			[]string{"unknown", "text", "image", "audio", "video", "embedding", "code", "document", "moderation_result"},
@@ -458,16 +532,19 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported output modality %q", modality)
 		}
 	}
+
 	for endpoint, parameters := range profile.Parameters {
 		if !profile.AllowsEndpoint(endpoint) {
 			return fmt.Errorf("parameter policy uses unsupported endpoint %q", endpoint)
 		}
+
 		for _, parameter := range parameters {
 			if strings.TrimSpace(parameter) == "" {
 				return fmt.Errorf("empty parameter in endpoint %q", endpoint)
 			}
 		}
 	}
+
 	for _, value := range profile.RequestControls.ServiceTierValues {
 		if !containsRuntimeValue(
 			[]string{"auto", "standard_only", "default", "standard", "batch", "flex", "priority", "fast"},
@@ -476,16 +553,19 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("unsupported service tier %q", value)
 		}
 	}
+
 	for _, value := range profile.RequestControls.InferenceGeoValues {
 		if !containsRuntimeValue([]string{"global", "us"}, value) {
 			return fmt.Errorf("unsupported inference geo %q", value)
 		}
 	}
+
 	for _, value := range profile.RequestControls.SpeedValues {
 		if !containsRuntimeValue([]string{"standard", "fast"}, value) {
 			return fmt.Errorf("unsupported speed %q", value)
 		}
 	}
+
 	for requested, effective := range profile.RequestControls.EffectiveSpeed {
 		if !profile.AllowsSpeed(requested) {
 			return fmt.Errorf(
@@ -493,16 +573,23 @@ func (profile ModelRuntimeProfile) Validate() error {
 				requested,
 			)
 		}
+
 		if !containsRuntimeValue([]string{"standard", "fast"}, effective) {
 			return fmt.Errorf("unsupported effective speed %q", effective)
 		}
 	}
+
+	return nil
+}
+
+func (profile ModelRuntimeProfile) validateBetaCapabilitiesAndLimits() error {
 	for _, header := range profile.BetaHeaders {
 		if strings.TrimSpace(header) == "" ||
 			strings.ContainsAny(header, ",\r\n") {
 			return fmt.Errorf("invalid beta header %q", header)
 		}
 	}
+
 	for _, capability := range profile.BetaCapabilities {
 		if !profile.AllowsBetaHeader(capability.Header) {
 			return fmt.Errorf(
@@ -510,12 +597,14 @@ func (profile ModelRuntimeProfile) Validate() error {
 				capability.Header,
 			)
 		}
+
 		if len(capability.Endpoints) == 0 {
 			return fmt.Errorf(
 				"beta capability %q requires endpoints",
 				capability.Header,
 			)
 		}
+
 		for _, endpoint := range capability.Endpoints {
 			if !profile.AllowsEndpoint(endpoint) {
 				return fmt.Errorf(
@@ -525,6 +614,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 				)
 			}
 		}
+
 		if capability.MaxOutputTokens < 0 {
 			return fmt.Errorf(
 				"beta capability %q max output tokens cannot be negative",
@@ -532,34 +622,44 @@ func (profile ModelRuntimeProfile) Validate() error {
 			)
 		}
 	}
+
 	seenRateLimitTiers := map[int]struct{}{}
 	seenUsageTiers := map[string]struct{}{}
+
 	for _, limits := range profile.ReferenceRateLimits {
 		if limits.Tier == 0 && strings.TrimSpace(limits.UsageTier) == "" {
 			return fmt.Errorf("reference rate-limit tier identity is required")
 		}
+
 		if limits.Tier < 0 || limits.Tier > 5 {
 			return fmt.Errorf("reference rate-limit tier must be between 1 and 5")
 		}
+
 		if limits.Tier > 0 {
 			if _, exists := seenRateLimitTiers[limits.Tier]; exists {
 				return fmt.Errorf("duplicate reference rate-limit tier %d", limits.Tier)
 			}
+
 			seenRateLimitTiers[limits.Tier] = struct{}{}
 		}
+
 		usageTier := strings.ToLower(strings.TrimSpace(limits.UsageTier))
 		if usageTier != "" {
 			if !containsRuntimeValue([]string{"free", "tier_1", "tier_2", "tier_3"}, usageTier) {
 				return fmt.Errorf("unsupported reference usage tier %q", limits.UsageTier)
 			}
+
 			if _, exists := seenUsageTiers[usageTier]; exists {
 				return fmt.Errorf("duplicate reference usage tier %q", usageTier)
 			}
+
 			seenUsageTiers[usageTier] = struct{}{}
 		}
+
 		if limits.Scope != "" && limits.Scope != "project" {
 			return fmt.Errorf("unsupported reference rate-limit scope %q", limits.Scope)
 		}
+
 		if limits.RequestsPerMinute < 0 ||
 			limits.RequestsPerDay < 0 ||
 			limits.TokensPerMinute < 0 ||
@@ -573,6 +673,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 			return fmt.Errorf("reference rate-limit values cannot be negative")
 		}
 	}
+
 	if profile.Limits.ContextWindow < 0 ||
 		profile.Limits.MaxInputTokens < 0 ||
 		profile.Limits.MaxInputCharacters < 0 ||
@@ -583,6 +684,7 @@ func (profile ModelRuntimeProfile) Validate() error {
 		profile.Limits.FileBytes <= 0 {
 		return fmt.Errorf("model runtime profile limits must be positive")
 	}
+
 	return nil
 }
 
@@ -591,15 +693,18 @@ func (binding ModelRuntimeProfileBinding) MatchesModel(model string) bool {
 	if normalized == "" {
 		return false
 	}
+
 	if normalized == normalizeRuntimeModelID(binding.CanonicalID, binding.Provider) ||
 		normalized == normalizeRuntimeModelID(binding.Slug, binding.Provider) {
 		return true
 	}
+
 	for _, alias := range binding.Profile.Aliases {
 		if normalized == normalizeRuntimeModelID(alias, binding.Provider) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -629,6 +734,7 @@ func (profile ModelRuntimeProfile) AllowsDisabledEffort(effort string) bool {
 	if profile.Thinking.DisabledMaxEffort == "" || effort == "" {
 		return true
 	}
+
 	return runtimeEffortRank(effort) <=
 		runtimeEffortRank(profile.Thinking.DisabledMaxEffort)
 }
@@ -668,6 +774,7 @@ func (profile ModelRuntimeProfile) AllowsParameter(endpoint, parameter string) b
 			return containsRuntimeValue(parameters, parameter)
 		}
 	}
+
 	return false
 }
 
@@ -698,14 +805,17 @@ func (profile ModelRuntimeProfile) EffectiveSpeed(value string) string {
 	if requested == "" {
 		return ""
 	}
+
 	for key, effective := range profile.RequestControls.EffectiveSpeed {
 		if strings.EqualFold(strings.TrimSpace(key), requested) {
 			return strings.ToLower(strings.TrimSpace(effective))
 		}
 	}
+
 	if profile.AllowsSpeed(requested) {
 		return requested
 	}
+
 	return ""
 }
 
@@ -720,8 +830,10 @@ func (profile ModelRuntimeProfile) MaxOutputTokensFor(
 			!containsRuntimeValue(betaHeaders, capability.Header) {
 			continue
 		}
+
 		limit = capability.MaxOutputTokens
 	}
+
 	return limit
 }
 
@@ -732,12 +844,14 @@ func (profile ModelRuntimeProfile) RequiredBetaHeaderForOutput(
 	if maxOutputTokens <= profile.Limits.MaxOutputTokens {
 		return ""
 	}
+
 	for _, capability := range profile.BetaCapabilities {
 		if capability.MaxOutputTokens >= maxOutputTokens &&
 			containsRuntimeValue(capability.Endpoints, endpoint) {
 			return capability.Header
 		}
 	}
+
 	return ""
 }
 
@@ -751,6 +865,7 @@ func FindModelRuntimeProfile(
 			return &binding, true
 		}
 	}
+
 	return nil, false
 }
 
@@ -759,11 +874,13 @@ func containsRuntimeValue(values []string, expected string) bool {
 	if expected == "" {
 		return false
 	}
+
 	for _, value := range values {
 		if strings.ToLower(strings.TrimSpace(value)) == expected {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -773,6 +890,8 @@ func normalizeRuntimeModelID(model string, provider string) string {
 		parts := strings.SplitN(value, ":", 3)
 		value = strings.TrimSpace(parts[2])
 	}
+
 	prefix := strings.ToLower(strings.TrimSpace(provider)) + "/"
+
 	return strings.TrimPrefix(value, prefix)
 }

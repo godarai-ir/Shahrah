@@ -587,14 +587,6 @@ func validateChatCompletionRequest(c *fiber.Ctx, req contractsopenai.ChatComplet
 		}
 	}
 
-	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, "temperature must be between 0 and 2", "invalid_request_error")
-	}
-
-	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
-		return true, writeAPIError(c, fiber.StatusBadRequest, "top_p must be between 0 and 1", "invalid_request_error")
-	}
-
 	if req.MaxTokens != nil && *req.MaxTokens < 1 {
 		return true, writeAPIError(c, fiber.StatusBadRequest, "max_tokens must be at least 1", "invalid_request_error")
 	}
@@ -1217,7 +1209,7 @@ func (h *ChatCompletionHandler) handleStream(
 		}))
 		h.pipeline.Release(c.Context(), budgetReservation, "provider_http_error")
 
-		return writeTunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
+		return writeOpenAITunnelStreamHTTPError(c, h.logger, stream, func(statusCode int, body []byte) {
 			responsePayload := buildProviderHTTPErrorLogPayloadForProvider(tunnelReq.Deployment.Provider, statusCode, body, true)
 
 			errorType := ErrorTypeMap[statusCode]

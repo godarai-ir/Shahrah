@@ -23,6 +23,7 @@ func TestProviderHTTPClientUsesExplicitProxy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("providerHTTPClient: %v", err)
 	}
+
 	if !configured || !required {
 		t.Fatalf("configured=%t required=%t, want true/true", configured, required)
 	}
@@ -31,14 +32,17 @@ func TestProviderHTTPClientUsesExplicitProxy(t *testing.T) {
 	if !ok {
 		t.Fatalf("transport type = %T", client.Transport)
 	}
-	request, err := http.NewRequest(http.MethodGet, "https://example.com", nil)
+
+	request, err := http.NewRequest(http.MethodGet, "https://example.com", http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	proxyURL, err := transport.Proxy(request)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if got := proxyURL.String(); got != "http://10.10.0.190:1443" {
 		t.Fatalf("proxy URL = %q", got)
 	}

@@ -71,6 +71,7 @@ func (m *httpMetrics) wrap(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
+
 		m.finish(key, status, time.Since(start).Seconds())
 	})
 }
@@ -85,6 +86,7 @@ func (m *httpMetrics) finish(key metricKey, status int, duration float64) {
 	value.requestCounter(status).Add(1)
 	value.durationCount.Add(1)
 	addAtomicFloat64(&value.durationSum, duration)
+
 	for i, upperBound := range requestDurationBuckets {
 		if duration <= upperBound {
 			value.durationBucket[i].Add(1)
@@ -178,6 +180,7 @@ func (m *httpMetrics) writePrometheus(w http.ResponseWriter) {
 		if keys[i].route == keys[j].route {
 			return keys[i].method < keys[j].method
 		}
+
 		return keys[i].route < keys[j].route
 	})
 
@@ -194,6 +197,7 @@ func (m *httpMetrics) writePrometheus(w http.ResponseWriter) {
 			return true
 		})
 		sort.Ints(statuses)
+
 		for _, status := range statuses {
 			counter, _ := value.requests.Load(status)
 			writeMetricFormat(&output, "shahrah_transport_http_requests_total{service=%s,route=%s,method=%s,status_code=%q} %d\n", service, strconv.Quote(key.route), strconv.Quote(key.method), strconv.Itoa(status), checkedMetricCounter(counter).Load())
@@ -202,8 +206,10 @@ func (m *httpMetrics) writePrometheus(w http.ResponseWriter) {
 
 	writeMetricText(&output, "# HELP shahrah_transport_http_request_duration_seconds HTTP request duration for Shahrah transport services.")
 	writeMetricText(&output, "# TYPE shahrah_transport_http_request_duration_seconds histogram")
+
 	for _, key := range keys {
 		value := m.value(key)
+
 		labels := fmt.Sprintf("service=%s,route=%s,method=%s", service, strconv.Quote(key.route), strconv.Quote(key.method))
 		for i, upperBound := range requestDurationBuckets {
 			writeMetricFormat(&output, "shahrah_transport_http_request_duration_seconds_bucket{%s,le=%q} %d\n", labels, strconv.FormatFloat(upperBound, 'g', -1, 64), value.durationBucket[i].Load())
@@ -216,6 +222,7 @@ func (m *httpMetrics) writePrometheus(w http.ResponseWriter) {
 
 	writeMetricText(&output, "# HELP shahrah_transport_http_requests_in_flight Current in-flight HTTP requests in Shahrah transport services.")
 	writeMetricText(&output, "# TYPE shahrah_transport_http_requests_in_flight gauge")
+
 	for _, key := range keys {
 		value := m.value(key)
 		writeMetricFormat(&output, "shahrah_transport_http_requests_in_flight{service=%s,route=%s,method=%s} %d\n", service, strconv.Quote(key.route), strconv.Quote(key.method), value.inFlight.Load())
@@ -264,6 +271,7 @@ func (w *metricResponseWriter) WriteHeader(status int) {
 	if w.status != 0 {
 		return
 	}
+
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
 }
@@ -272,6 +280,7 @@ func (w *metricResponseWriter) Write(body []byte) (int, error) {
 	if w.status == 0 {
 		w.WriteHeader(http.StatusOK)
 	}
+
 	return w.ResponseWriter.Write(body)
 }
 
@@ -291,6 +300,7 @@ func (w *metricResponseWriter) Flush() {
 	if w.status == 0 {
 		w.WriteHeader(http.StatusOK)
 	}
+
 	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
 		flusher.Flush()
 	}
@@ -301,6 +311,7 @@ func (w *metricResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if !ok {
 		return nil, nil, http.ErrNotSupported
 	}
+
 	return hijacker.Hijack()
 }
 

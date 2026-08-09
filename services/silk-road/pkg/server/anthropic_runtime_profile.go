@@ -19,30 +19,34 @@ func anthropicRuntimeProfileForModel(
 	)
 	if !ok {
 		return nil, fmt.Errorf(
-			"Anthropic model runtime profile is missing for %s",
+			"anthropic model runtime profile is missing for %s",
 			model,
 		)
 	}
+
 	if err := binding.Validate(); err != nil {
 		return nil, fmt.Errorf(
-			"invalid Anthropic model runtime profile: %w",
+			"invalid anthropic model runtime profile: %w",
 			err,
 		)
 	}
+
 	for _, candidate := range payload.ModelRuntimeProfiles {
 		if candidate.CatalogRevision != binding.CatalogRevision {
 			return nil, fmt.Errorf(
-				"Anthropic model runtime profiles use mixed revisions",
+				"anthropic model runtime profiles use mixed revisions",
 			)
 		}
 	}
+
 	if !binding.Profile.AllowsEndpoint(endpoint) {
 		return nil, fmt.Errorf(
-			"Anthropic model %s does not support endpoint %s",
+			"anthropic model %s does not support endpoint %s",
 			model,
 			endpoint,
 		)
 	}
+
 	return binding, nil
 }
 
@@ -51,8 +55,9 @@ func validateAnthropicOpenAIRequestWithProfile(
 	binding *platform.ModelRuntimeProfileBinding,
 ) error {
 	if binding == nil {
-		return fmt.Errorf("Anthropic model runtime profile is required")
+		return fmt.Errorf("anthropic model runtime profile is required")
 	}
+
 	return validateAnthropicRequestWithRuntimeProfile(req, binding.Profile)
 }
 
@@ -67,16 +72,7 @@ func validateAnthropicRequestWithRuntimeProfile(
 			profile.Limits.MaxOutputTokens,
 		)
 	}
-	if req.Temperature != nil &&
-		!profile.AllowsSamplingParameter("temperature") {
-		return fmt.Errorf("model does not support temperature")
-	}
-	if req.TopP != nil && !profile.AllowsSamplingParameter("top_p") {
-		return fmt.Errorf("model does not support top_p")
-	}
-	if req.TopK != nil && !profile.AllowsSamplingParameter("top_k") {
-		return fmt.Errorf("model does not support top_k")
-	}
+
 	if len(req.Messages) > 0 &&
 		strings.EqualFold(
 			strings.TrimSpace(req.Messages[len(req.Messages)-1].Role),
@@ -94,19 +90,23 @@ func validateAnthropicRequestWithRuntimeProfile(
 	if fileCount > 0 && !profile.AllowsInputModality("pdf") {
 		return fmt.Errorf("model does not support PDF input")
 	}
+
 	for _, tool := range req.Tools {
 		if strings.EqualFold(strings.TrimSpace(tool.Type), "function") {
 			if !profile.Tools.Custom {
 				return fmt.Errorf("model does not support custom tools")
 			}
+
 			continue
 		}
+
 		if isSupportedAnthropicServerToolType(
 			strings.ToLower(strings.TrimSpace(tool.Type)),
 		) {
 			if !profile.Tools.Server {
 				return fmt.Errorf("model does not support server tools")
 			}
+
 			if len(profile.Tools.Supported) > 0 &&
 				!profile.AllowsTool(
 					anthropicServerToolCapability(tool.Type),
@@ -116,25 +116,31 @@ func validateAnthropicRequestWithRuntimeProfile(
 					tool.Type,
 				)
 			}
+
 			continue
 		}
+
 		return fmt.Errorf("unsupported Anthropic tool type %q", tool.Type)
 	}
+
 	if req.ParallelToolCalls != nil &&
 		*req.ParallelToolCalls &&
 		!profile.Tools.Parallel {
 		return fmt.Errorf("model does not support parallel tool calls")
 	}
+
 	if (req.ResponseFormat != nil ||
 		(req.OutputConfig != nil && req.OutputConfig["format"] != nil)) &&
 		!profile.Tools.StructuredOutput {
 		return fmt.Errorf("model does not support structured output")
 	}
+
 	if rawOutputEffort, present := req.OutputConfig["effort"]; present {
 		outputEffort, ok := rawOutputEffort.(string)
 		if !ok {
 			return fmt.Errorf("output_config.effort must be a string")
 		}
+
 		normalized := normalizeAnthropicEffort(outputEffort)
 		if normalized == "" || !profile.AllowsEffort(normalized) {
 			return fmt.Errorf(
@@ -142,6 +148,7 @@ func validateAnthropicRequestWithRuntimeProfile(
 				outputEffort,
 			)
 		}
+
 		if req.Thinking != nil &&
 			strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") &&
 			!profile.AllowsDisabledEffort(normalized) {
@@ -151,18 +158,22 @@ func validateAnthropicRequestWithRuntimeProfile(
 			)
 		}
 	}
+
 	if value := strings.ToLower(strings.TrimSpace(req.ServiceTier)); value != "" &&
 		!profile.AllowsServiceTier(value) {
 		return fmt.Errorf("unsupported service_tier %q", value)
 	}
+
 	if value := strings.ToLower(strings.TrimSpace(req.InferenceGeo)); value != "" &&
 		!profile.AllowsInferenceGeo(value) {
 		return fmt.Errorf("unsupported inference_geo %q", value)
 	}
+
 	if value := strings.ToLower(strings.TrimSpace(req.Speed)); value != "" &&
 		!profile.AllowsSpeed(value) {
 		return fmt.Errorf("unsupported speed %q", value)
 	}
+
 	return validateAnthropicThinkingWithRuntimeProfile(req, profile)
 }
 
@@ -177,6 +188,7 @@ func anthropicServerToolCapability(value string) string {
 			return capability
 		}
 	}
+
 	return ""
 }
 
@@ -185,6 +197,7 @@ func validateAnthropicThinkingWithRuntimeProfile(
 	profile platform.ModelRuntimeProfile,
 ) error {
 	mode := ""
+
 	if req.Thinking != nil {
 		switch strings.ToLower(strings.TrimSpace(req.Thinking.Type)) {
 		case "", "enabled":
@@ -205,13 +218,16 @@ func validateAnthropicThinkingWithRuntimeProfile(
 	) || anthropicReasoningEffortEnabled(req.ReasoningEffort) {
 		mode = profile.Thinking.DefaultMode
 	}
+
 	if mode != "" && !profile.AllowsThinkingMode(mode) {
 		return fmt.Errorf("model does not support %s thinking", mode)
 	}
+
 	effort := normalizeAnthropicEffort(req.ReasoningEffort)
 	if effort != "" && !profile.AllowsEffort(effort) {
 		return fmt.Errorf("model does not support reasoning_effort=%s", effort)
 	}
+
 	if mode == "" || mode == "disabled" {
 		if mode == "disabled" && !profile.AllowsDisabledEffort(effort) {
 			return fmt.Errorf(
@@ -219,33 +235,10 @@ func validateAnthropicThinkingWithRuntimeProfile(
 				effort,
 			)
 		}
+
 		return nil
 	}
-	for _, parameter := range profile.Sampling.DisallowedWithThinking {
-		switch strings.ToLower(strings.TrimSpace(parameter)) {
-		case "temperature":
-			if req.Temperature != nil {
-				return fmt.Errorf(
-					"temperature cannot be combined with %s thinking",
-					mode,
-				)
-			}
-		case "top_p":
-			if req.TopP != nil {
-				return fmt.Errorf(
-					"top_p cannot be combined with %s thinking",
-					mode,
-				)
-			}
-		case "top_k":
-			if req.TopK != nil {
-				return fmt.Errorf(
-					"top_k cannot be combined with %s thinking",
-					mode,
-				)
-			}
-		}
-	}
+
 	return nil
 }
 
@@ -274,6 +267,7 @@ func validateAnthropicNativeRuntimeProfiles(
 		if err := json.Unmarshal(payload.Body, &batch); err != nil {
 			return fmt.Errorf("invalid Anthropic batch request")
 		}
+
 		for index, item := range batch.Requests {
 			if err := validateAnthropicNativeMessageBody(
 				payload,
@@ -284,6 +278,7 @@ func validateAnthropicNativeRuntimeProfiles(
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -312,6 +307,7 @@ func validateAnthropicNativeMessageBody(
 	if err := json.Unmarshal(body, &request); err != nil {
 		return fmt.Errorf("invalid Anthropic request")
 	}
+
 	binding, err := anthropicRuntimeProfileForModel(
 		payload,
 		request.Model,
@@ -320,12 +316,14 @@ func validateAnthropicNativeMessageBody(
 	if err != nil {
 		return err
 	}
+
 	effectiveProfile := binding.Profile
 	effectiveProfile.Limits.MaxOutputTokens =
 		binding.Profile.MaxOutputTokensFor(
 			endpoint,
 			anthropicRequestedBetaHeaders(payload),
 		)
+
 	chatRequest := contractsopenai.ChatCompletionRequest{
 		Model:        request.Model,
 		MaxTokens:    request.MaxTokens,
@@ -344,9 +342,11 @@ func validateAnthropicNativeMessageBody(
 	); err != nil {
 		return err
 	}
+
 	if request.OutputConfig["format"] != nil {
 		chatRequest.ResponseFormat = request.OutputConfig["format"]
 	}
+
 	for _, message := range request.Messages {
 		chatRequest.Messages = append(
 			chatRequest.Messages,
@@ -359,13 +359,16 @@ func validateAnthropicNativeMessageBody(
 			!binding.Profile.AllowsInputModality("image") {
 			return fmt.Errorf("model does not support image input")
 		}
+
 		if containsAnthropicContentType(message.Content, "document") &&
 			!binding.Profile.AllowsInputModality("pdf") {
 			return fmt.Errorf("model does not support PDF input")
 		}
 	}
+
 	effectiveBinding := *binding
 	effectiveBinding.Profile = effectiveProfile
+
 	return validateAnthropicOpenAIRequestWithProfile(
 		chatRequest,
 		&effectiveBinding,
@@ -383,13 +386,16 @@ func validateAnthropicNativeTools(
 		if err := json.Unmarshal(rawTool, &tool); err != nil {
 			return fmt.Errorf("invalid Anthropic tool %d", index)
 		}
+
 		toolType := strings.ToLower(strings.TrimSpace(tool.Type))
 		if toolType == "" {
 			if !profile.Tools.Custom {
 				return fmt.Errorf("model does not support custom tools")
 			}
+
 			continue
 		}
+
 		capability := anthropicNativeToolCapability(toolType)
 		// Unknown provider-native tool variants are passed through. This keeps
 		// the native tunnel forward compatible while known model/tool
@@ -397,6 +403,7 @@ func validateAnthropicNativeTools(
 		if capability == "" || len(profile.Tools.Supported) == 0 {
 			continue
 		}
+
 		if !profile.AllowsTool(capability) {
 			return fmt.Errorf(
 				"model does not support Anthropic native tool %q",
@@ -404,6 +411,7 @@ func validateAnthropicNativeTools(
 			)
 		}
 	}
+
 	return nil
 }
 
@@ -412,6 +420,7 @@ func anthropicNativeToolCapability(toolType string) string {
 	if toolType == "mcp_toolset" {
 		return "mcp"
 	}
+
 	for prefix, capability := range map[string]string{
 		"web_search_":       "web_search",
 		"web_fetch_":        "web_fetch",
@@ -427,6 +436,7 @@ func anthropicNativeToolCapability(toolType string) string {
 			return capability
 		}
 	}
+
 	return ""
 }
 
@@ -434,10 +444,12 @@ func anthropicRequestedBetaHeaders(
 	payload platform.TunnelRequest,
 ) []string {
 	set := commaSeparatedSet(headerValue(payload.Headers, "anthropic-beta"))
+
 	values := make([]string, 0, len(set))
 	for value := range set {
 		values = append(values, value)
 	}
+
 	return values
 }
 
@@ -445,17 +457,20 @@ func containsAnthropicContentType(content []byte, expected string) bool {
 	if len(content) == 0 {
 		return false
 	}
+
 	var blocks []struct {
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal(content, &blocks); err != nil {
 		return false
 	}
+
 	for _, block := range blocks {
 		if strings.EqualFold(strings.TrimSpace(block.Type), expected) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -469,8 +484,10 @@ func anthropicRuntimeProfilePayloadLimit(
 	fallback int64,
 ) int64 {
 	limit := fallback
+
 	for _, binding := range payload.ModelRuntimeProfiles {
 		candidate := 0
+
 		switch payload.Operation {
 		case platform.ProviderOperationAnthropicMessages,
 			platform.ProviderOperationAnthropicCountTokens:
@@ -478,11 +495,13 @@ func anthropicRuntimeProfilePayloadLimit(
 		case platform.ProviderOperationAnthropicBatchesCreate:
 			candidate = binding.Profile.Limits.BatchBytes
 		}
+
 		if candidate > 0 &&
 			(limit <= 0 || int64(candidate) < limit) {
 			limit = int64(candidate)
 		}
 	}
+
 	return limit
 }
 
@@ -491,6 +510,7 @@ func anthropicMessageMediaCounts(
 ) (int, int) {
 	imageCount := 0
 	fileCount := 0
+
 	for _, message := range messages {
 		parts, ok, err := contractsopenai.ChatContentParts(message.Content)
 		if !ok || err != nil {

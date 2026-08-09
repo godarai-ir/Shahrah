@@ -119,6 +119,24 @@ func TestValidateManifestRejectsInvalidCacheAndStreamingOutputGuardrails(t *test
 	}
 }
 
+func TestValidateManifestDoesNotApplyProviderSamplingRanges(t *testing.T) {
+	temperature := 7.25
+	topP := -0.5
+
+	err := ValidateManifest(platform.PromptManifest{
+		Type:     TypeChatPrompt,
+		Name:     "provider_sampling",
+		Messages: []contractsopenai.ChatMessage{{Role: "user", Content: "hello"}},
+		ModelSettings: &platform.PromptModelSettings{
+			Temperature: &temperature,
+			TopP:        &topP,
+		},
+	})
+	if err != nil {
+		t.Fatalf("provider sampling controls were rejected: %v", err)
+	}
+}
+
 func TestRenderFallsBackToManifestMessages(t *testing.T) {
 	rendered, err := Render(platform.PromptVersion{
 		Manifest: platform.PromptManifest{

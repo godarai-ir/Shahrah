@@ -44,10 +44,9 @@ func TestAnthropicChatValidationUsesPinnedRuntimeProfile(t *testing.T) {
 	topK := 10
 	request.TopK = &topK
 	binding.Profile.Sampling.Parameters = []string{"temperature", "top_p"}
-	require.ErrorContains(
+	require.NoError(
 		t,
 		validateAnthropicChatRuntimeProfile(request, &binding),
-		"top_k",
 	)
 }
 

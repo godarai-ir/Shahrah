@@ -1574,10 +1574,13 @@ func TestChatCompletionHandler_ShouldRejectMissingMessageRole(t *testing.T) {
 	assert.Contains(t, apiErr.Error.Message, "message[0].role is required")
 }
 
-func TestChatCompletionHandler_ShouldRejectInvalidTemperature(t *testing.T) {
+func TestChatCompletionHandler_ShouldPassThroughTemperatureWithoutRangeValidation(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	r := newTestRouter(t, logger)
-	mTunnel := &mockTunnelTransport{}
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{
+		StatusCode: http.StatusOK,
+		Body:       []byte(`{"id":"chatcmpl-pass-through","object":"chat.completion","model":"gpt-4","choices":[]}`),
+	}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
 	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
@@ -1602,21 +1605,22 @@ func TestChatCompletionHandler_ShouldRejectInvalidTemperature(t *testing.T) {
 			defer closeResponseBody(t, resp)
 
 			require.NoError(t, err)
-			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-			var apiErr contractsopenai.APIError
-
-			err = json.NewDecoder(resp.Body).Decode(&apiErr)
-			require.NoError(t, err)
-			assert.Contains(t, apiErr.Error.Message, "temperature must be between 0 and 2")
+			var outbound map[string]interface{}
+			require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))
+			assert.Equal(t, temp, outbound["temperature"])
 		})
 	}
 }
 
-func TestChatCompletionHandler_ShouldRejectInvalidTopP(t *testing.T) {
+func TestChatCompletionHandler_ShouldPassThroughTopPWithoutRangeValidation(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	r := newTestRouter(t, logger)
-	mTunnel := &mockTunnelTransport{}
+	mTunnel := &mockTunnelTransport{response: &platform.TunnelResponse{
+		StatusCode: http.StatusOK,
+		Body:       []byte(`{"id":"chatcmpl-pass-through","object":"chat.completion","model":"gpt-4","choices":[]}`),
+	}}
 	mBilling := &mockBilling{cost: platform.UsageCostBreakdown{TotalCostUSD: 0.001, TotalTokens: 100}}
 	mWallet := &mockWalletStore{}
 	mLogs := &mockLogger{}
@@ -1641,13 +1645,11 @@ func TestChatCompletionHandler_ShouldRejectInvalidTopP(t *testing.T) {
 			defer closeResponseBody(t, resp)
 
 			require.NoError(t, err)
-			assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-			var apiErr contractsopenai.APIError
-
-			err = json.NewDecoder(resp.Body).Decode(&apiErr)
-			require.NoError(t, err)
-			assert.Contains(t, apiErr.Error.Message, "top_p must be between 0 and 1")
+			var outbound map[string]interface{}
+			require.NoError(t, json.Unmarshal(mTunnel.lastRequest.Body, &outbound))
+			assert.Equal(t, topP, outbound["top_p"])
 		})
 	}
 }
@@ -1842,6 +1844,49 @@ func TestChatCompletionHandler_ShouldTransformProviderError(t *testing.T) {
 	assert.Equal(t, "100", resp.Header.Get("X-Ratelimit-Limit"))
 	assert.Equal(t, "0", resp.Header.Get("X-Ratelimit-Remaining"))
 	assert.Equal(t, "trace-123", resp.Header.Get("X-Trace-Id"))
+}
+
+func TestChatCompletionHandler_ShouldPreserveProviderJSONError(t *testing.T) {
+	logger, _ := zap.NewDevelopment()
+	r := newTestRouter(t, logger)
+
+	errorBody := []byte(`{"error":{"message":"provider rejected sampling","type":"invalid_request_error","code":"provider_sampling_error","future":{"retryable":false}},"request_id":"provider-request-1"}`)
+	mTunnel := &mockTunnelTransport{
+		response: &platform.TunnelResponse{
+			StatusCode: http.StatusBadRequest,
+			Headers:    map[string]string{"X-Request-Id": "provider-request-1"},
+			Body:       errorBody,
+		},
+	}
+	handler := proxy.NewChatCompletionHandler(
+		r,
+		mTunnel,
+		&mockBilling{cost: platform.UsageCostBreakdown{}},
+		&mockWalletStore{},
+		&mockLogger{},
+		logger,
+	)
+	app := setupTestApp(t, handler)
+
+	payload, err := json.Marshal(map[string]interface{}{
+		"model":    "gpt-4",
+		"messages": []interface{}{map[string]interface{}{"role": "user", "content": "Hello"}},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+
+	defer closeResponseBody(t, resp)
+
+	actualBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.JSONEq(t, string(errorBody), string(actualBody))
+	assert.Equal(t, "provider-request-1", resp.Header.Get("X-Request-Id"))
 }
 
 func TestChatCompletionHandler_LogsProviderAuthenticationFailures(t *testing.T) {
@@ -3273,8 +3318,10 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 	}, 1, 0)
 
 	stream.statusCode = http.StatusPaymentRequired
+
+	providerError := `{"error":{"message":"Provider streaming payment required","code":"provider_payment_required","future":{"retryable":true}},"request_id":"provider-request-1"}`
 	stream.chunks <- platform.TunnelChunk{
-		Data:   []byte(`{"error":{"message":"Provider streaming payment required"}}`),
+		Data:   []byte(providerError),
 		IsDone: true,
 	}
 
@@ -3303,9 +3350,9 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 	assert.Equal(t, http.StatusPaymentRequired, resp.StatusCode)
 	assert.Equal(t, "provider-request-1", resp.Header.Get("X-Request-Id"))
 
-	var apiErr contractsopenai.APIError
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiErr))
-	assert.Equal(t, "Provider streaming payment required", apiErr.Error.Message)
+	actualBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.JSONEq(t, providerError, string(actualBody))
 	assert.True(t, stream.closed)
 	assert.Empty(t, mWallet.debitCalls)
 	assert.Empty(t, mLogs.loggedSpends)
@@ -3314,7 +3361,7 @@ func TestChatCompletionHandler_StreamHTTPErrorReturnsProviderErrorEnvelope(t *te
 	assert.Equal(t, http.StatusPaymentRequired, mLogs.loggedEntries[0].StatusCode)
 	assert.Equal(t, "provider_http_error", mLogs.loggedEntries[0].ResponseBody["outcome"])
 	assert.Equal(t, true, mLogs.loggedEntries[0].ResponseBody["stream"])
-	assert.Equal(t, `{"error":{"message":"Provider streaming payment required"}}`, mLogs.loggedEntries[0].ResponseBody["raw_body"])
+	assert.Equal(t, providerError, mLogs.loggedEntries[0].ResponseBody["raw_body"])
 	require.IsType(t, map[string]interface{}{}, mLogs.loggedEntries[0].ResponseBody["error"])
 }
 

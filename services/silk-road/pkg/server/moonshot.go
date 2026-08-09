@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
@@ -127,15 +127,6 @@ func moonshotRuntimeEndpoint(operation platform.ProviderOperation) string {
 	}
 }
 
-func moonshotRequestModel(payload platform.TunnelRequest) string {
-	body, err := decodeMoonshotChatBody(payload.Body)
-	if err != nil {
-		return strings.TrimSpace(payload.Deployment.Model)
-	}
-
-	return moonshotRequestModelFromDecoded(payload, body)
-}
-
 func moonshotRequestModelFromDecoded(payload platform.TunnelRequest, body map[string]json.RawMessage) string {
 	model := strings.TrimSpace(payload.Deployment.Model)
 
@@ -181,19 +172,6 @@ func validateMoonshotRuntimeProfile(
 	return binding, nil
 }
 
-func validateMoonshotChatBody(
-	bodyBytes []byte,
-	model string,
-	profile platform.ModelRuntimeProfile,
-) error {
-	body, err := decodeMoonshotChatBody(bodyBytes)
-	if err != nil {
-		return err
-	}
-
-	return validateMoonshotChatBodyDecoded(body, model, profile)
-}
-
 func decodeMoonshotChatBody(bodyBytes []byte) (map[string]json.RawMessage, error) {
 	var body map[string]json.RawMessage
 	if err := json.Unmarshal(bodyBytes, &body); err != nil {
@@ -209,6 +187,10 @@ func validateMoonshotChatBodyDecoded(
 	profile platform.ModelRuntimeProfile,
 ) error {
 	for _, parameter := range profile.UnsupportedParameters {
+		if contractsopenai.IsModelDecodingPassThroughParameter(parameter) {
+			continue
+		}
+
 		if _, present := body[parameter]; present {
 			return fmt.Errorf("moonshot_unsupported_parameter: %s", parameter)
 		}
@@ -223,7 +205,7 @@ func validateMoonshotChatBodyDecoded(
 		return err
 	}
 
-	if err := validateMoonshotSampling(body, normalizedModel); err != nil {
+	if err := validateMoonshotFixedCommon(body); err != nil {
 		return err
 	}
 
@@ -354,72 +336,12 @@ func validateMoonshotThinking(
 	return nil
 }
 
-func validateMoonshotSampling(body map[string]json.RawMessage, model string) error {
-	if model == "kimi-k3" {
-		for _, key := range []string{"temperature", "top_p"} {
-			if _, present := body[key]; present {
-				return fmt.Errorf("moonshot_unsupported_parameter: %s", key)
-			}
-		}
-
-		return validateMoonshotFixedCommon(body)
-	}
-
-	expectedTemperature := 1.0
-
-	if model == "kimi-k2.6" {
-		var thinking struct {
-			Type string `json:"type"`
-		}
-		if json.Unmarshal(body["thinking"], &thinking) == nil && strings.EqualFold(thinking.Type, "disabled") {
-			expectedTemperature = 0.6
-		}
-	}
-
-	if err := requireMoonshotFloat(body, "temperature", expectedTemperature); err != nil {
-		return err
-	}
-
-	if err := requireMoonshotFloat(body, "top_p", 0.95); err != nil {
-		return err
-	}
-
-	return validateMoonshotFixedCommon(body)
-}
-
 func validateMoonshotFixedCommon(body map[string]json.RawMessage) error {
 	if raw := body["n"]; len(raw) > 0 {
 		var value int
 		if json.Unmarshal(raw, &value) != nil || value != 1 {
 			return fmt.Errorf("moonshot_n_must_equal_one")
 		}
-	}
-
-	for _, key := range []string{"presence_penalty", "frequency_penalty"} {
-		if raw := body[key]; len(raw) > 0 {
-			var value float64
-			if json.Unmarshal(raw, &value) != nil || value != 0 {
-				return fmt.Errorf("moonshot_%s_must_equal_zero", key)
-			}
-		}
-	}
-
-	return nil
-}
-
-func requireMoonshotFloat(
-	body map[string]json.RawMessage,
-	key string,
-	expected float64,
-) error {
-	raw := body[key]
-	if len(raw) == 0 {
-		return nil
-	}
-
-	var value float64
-	if json.Unmarshal(raw, &value) != nil || math.Abs(value-expected) > 1e-9 {
-		return fmt.Errorf("moonshot_%s_must_equal_%g", key, expected)
 	}
 
 	return nil

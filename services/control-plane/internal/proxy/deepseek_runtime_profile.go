@@ -48,6 +48,10 @@ func validateDeepSeekResponsesRuntimeProfile(
 			continue
 		}
 
+		if contractsopenai.IsModelDecodingPassThroughParameter(parameter) {
+			continue
+		}
+
 		if !profile.AllowsParameter(deepSeekResponsesEndpoint, parameter) {
 			return fmt.Errorf("deepseek Responses parameter %s is unsupported or gateway-managed", parameter)
 		}
@@ -108,32 +112,15 @@ func validateDeepSeekResponseNumericControls(
 		return fmt.Errorf("requested output tokens exceed model limit %d", profile.Limits.MaxOutputTokens)
 	}
 
-	if req.Temperature != nil && (*req.Temperature < 0 || *req.Temperature > 2) {
-		return fmt.Errorf("deepseek Responses temperature must be between 0 and 2")
-	}
-
-	if req.TopP != nil && (*req.TopP < 0 || *req.TopP > 1) {
-		return fmt.Errorf("deepseek Responses top_p must be between 0 and 1")
-	}
-
-	if req.TopLogprobs != nil && (*req.TopLogprobs < 0 || *req.TopLogprobs > 20) {
-		return fmt.Errorf("deepseek Responses top_logprobs must be between 0 and 20")
-	}
-
 	return nil
 }
 
 func validateDeepSeekResponseReasoning(req contractsopenai.ResponseRequest) error {
-	effort := ""
 	if req.Reasoning != nil {
-		effort = strings.ToLower(strings.TrimSpace(req.Reasoning.Effort))
+		effort := strings.ToLower(strings.TrimSpace(req.Reasoning.Effort))
 		if effort != "" && !isSupportedDeepSeekResponseEffort(effort) {
 			return fmt.Errorf("unsupported deepseek Responses reasoning effort %q", req.Reasoning.Effort)
 		}
-	}
-
-	if effort != "none" && (req.Temperature != nil || req.TopP != nil) {
-		return fmt.Errorf("temperature and top_p are ineffective while deepseek Responses thinking is enabled")
 	}
 
 	return nil
@@ -359,7 +346,7 @@ func validateDeepSeekChatRuntimeProfile(
 		return fmt.Errorf("deepseek supports max_tokens, not max_completion_tokens")
 	}
 
-	if req.TopK != nil || req.ServiceTier != "" || req.Speed != "" || req.InferenceGeo != "" ||
+	if req.ServiceTier != "" || req.Speed != "" || req.InferenceGeo != "" ||
 		len(req.OutputConfig) > 0 || len(req.CacheControl) > 0 || len(req.ExtraBody) > 0 {
 		return fmt.Errorf("request contains a parameter outside the enabled deepseek chat scope")
 	}
@@ -440,18 +427,6 @@ func validateDeepSeekThinkingRequest(
 
 	if !enabled && effort != "" {
 		return fmt.Errorf("reasoning_effort requires deepseek thinking to be enabled")
-	}
-
-	if enabled {
-		if req.Temperature != nil || req.TopP != nil {
-			return fmt.Errorf("temperature and top_p are ineffective in deepseek thinking mode")
-		}
-
-		for _, parameter := range []string{"presence_penalty", "frequency_penalty"} {
-			if _, present := req.AdditionalFields[parameter]; present {
-				return fmt.Errorf("%s is ineffective in deepseek thinking mode", parameter)
-			}
-		}
 	}
 
 	return nil

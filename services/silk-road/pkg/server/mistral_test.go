@@ -39,16 +39,20 @@ func TestNormalizeMistralJSONRequestMapsCompatibilityAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var got map[string]interface{}
 	if err := json.Unmarshal(body, &got); err != nil {
 		t.Fatal(err)
 	}
+
 	if got["output_dimension"] != float64(256) || got["random_seed"] != float64(7) || got["output_dtype"] != "int8" {
 		t.Fatalf("unexpected normalized request: %#v", got)
 	}
+
 	if _, exists := got["dimensions"]; exists {
 		t.Fatal("dimensions alias was not removed")
 	}
+
 	if _, exists := got["seed"]; exists {
 		t.Fatal("seed alias was not removed")
 	}

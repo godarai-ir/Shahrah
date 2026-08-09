@@ -155,14 +155,6 @@ func validateManifestModelSettings(settings *platform.PromptModelSettings) error
 		return nil
 	}
 
-	if settings.Temperature != nil && (*settings.Temperature < 0 || *settings.Temperature > 2) {
-		return fmt.Errorf("%w: model_settings.temperature must be between 0 and 2", ErrInvalidManifest)
-	}
-
-	if settings.TopP != nil && (*settings.TopP < 0 || *settings.TopP > 1) {
-		return fmt.Errorf("%w: model_settings.top_p must be between 0 and 1", ErrInvalidManifest)
-	}
-
 	if settings.MaxTokens != nil && *settings.MaxTokens < 1 {
 		return fmt.Errorf("%w: model_settings.max_tokens must be at least 1", ErrInvalidManifest)
 	}

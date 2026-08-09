@@ -45,9 +45,11 @@ func newMockAdapter(cfg mockConfig) providerAdapter {
 	if cfg.ErrorStatus < 400 || cfg.ErrorStatus > 599 {
 		cfg.ErrorStatus = http.StatusTooManyRequests
 	}
+
 	if cfg.ErrorRate < 0 {
 		cfg.ErrorRate = 0
 	}
+
 	if cfg.ErrorRate > 1 {
 		cfg.ErrorRate = 1
 	}
@@ -105,6 +107,7 @@ func (a *mockAdapter) Dispatch(ctx context.Context, _ *http.Client, payload plat
 
 func (a *mockAdapter) requestAllowed(payload platform.TunnelRequest) bool {
 	tenantID := strings.TrimSpace(payload.TenantID)
+
 	deploymentID := strings.TrimSpace(payload.Deployment.ID)
 	if tenantID == "" || deploymentID == "" {
 		return false
@@ -117,6 +120,7 @@ func (a *mockAdapter) requestAllowed(payload platform.TunnelRequest) bool {
 	}
 
 	_, ok := a.cfg.AllowedDeploymentIDs[deploymentID]
+
 	return ok
 }
 
@@ -195,6 +199,7 @@ func mockResponseBody(payload platform.TunnelRequest) map[string]interface{} {
 func mockEmbeddingsBody(payload platform.TunnelRequest) map[string]interface{} {
 	model := mockRequestModel(payload)
 	count := mockEmbeddingInputCount(payload)
+
 	data := make([]map[string]interface{}, 0, count)
 	for i := 0; i < count; i++ {
 		data = append(data, map[string]interface{}{
@@ -217,6 +222,7 @@ func mockEmbeddingsBody(payload platform.TunnelRequest) map[string]interface{} {
 
 func mockModerationsBody(payload platform.TunnelRequest) map[string]interface{} {
 	model := mockRequestModel(payload)
+
 	return map[string]interface{}{
 		"id":    "modr_mock",
 		"model": model,
@@ -238,6 +244,7 @@ func mockModerationsBody(payload platform.TunnelRequest) map[string]interface{} 
 
 func mockRerankBody(payload platform.TunnelRequest) map[string]interface{} {
 	count := mockRerankDocumentCount(payload)
+
 	results := make([]map[string]interface{}, 0, count)
 	for i := 0; i < count; i++ {
 		results = append(results, map[string]interface{}{
@@ -279,9 +286,11 @@ func mockRequestModel(payload platform.TunnelRequest) string {
 			return strings.TrimSpace(model)
 		}
 	}
+
 	if strings.TrimSpace(payload.Deployment.Model) != "" {
 		return strings.TrimSpace(payload.Deployment.Model)
 	}
+
 	return "mock-model"
 }
 
@@ -311,14 +320,20 @@ func mockRerankDocumentCount(payload platform.TunnelRequest) int {
 		return 1
 	}
 
-	docs, _ := raw["documents"].([]interface{})
+	docs, ok := raw["documents"].([]interface{})
+	if !ok {
+		return 1
+	}
+
 	topN := len(docs)
 	if topN == 0 {
 		topN = 1
 	}
+
 	if rawTopN, ok := raw["top_n"].(float64); ok && int(rawTopN) > 0 && int(rawTopN) < topN {
 		topN = int(rawTopN)
 	}
+
 	return topN
 }
 
@@ -344,10 +359,12 @@ func intEnv(key string, fallback int) int {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.Atoi(raw)
 	if err != nil {
 		return fallback
 	}
+
 	return value
 }
 
@@ -356,20 +373,24 @@ func floatEnv(key string, fallback float64) float64 {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
 		return fallback
 	}
+
 	return value
 }
 
 func csvSetEnv(key string) map[string]struct{} {
 	values := make(map[string]struct{})
+
 	for _, item := range strings.Split(os.Getenv(key), ",") {
 		if normalized := strings.TrimSpace(item); normalized != "" {
 			values[normalized] = struct{}{}
 		}
 	}
+
 	return values
 }
 

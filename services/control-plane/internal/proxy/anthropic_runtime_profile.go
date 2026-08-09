@@ -34,19 +34,6 @@ func validateAnthropicChatRuntimeProfile(
 		)
 	}
 
-	if req.Temperature != nil &&
-		!profile.AllowsSamplingParameter("temperature") {
-		return fmt.Errorf("model does not support temperature")
-	}
-
-	if req.TopP != nil && !profile.AllowsSamplingParameter("top_p") {
-		return fmt.Errorf("model does not support top_p")
-	}
-
-	if req.TopK != nil && !profile.AllowsSamplingParameter("top_k") {
-		return fmt.Errorf("model does not support top_k")
-	}
-
 	if len(req.Messages) > 0 &&
 		strings.EqualFold(
 			strings.TrimSpace(req.Messages[len(req.Messages)-1].Role),
@@ -190,32 +177,6 @@ func validateAnthropicThinkingAgainstProfile(
 		}
 
 		return nil
-	}
-
-	for _, parameter := range profile.Sampling.DisallowedWithThinking {
-		switch strings.ToLower(strings.TrimSpace(parameter)) {
-		case "temperature":
-			if req.Temperature != nil {
-				return fmt.Errorf(
-					"temperature cannot be combined with %s thinking",
-					mode,
-				)
-			}
-		case "top_p":
-			if req.TopP != nil {
-				return fmt.Errorf(
-					"top_p cannot be combined with %s thinking",
-					mode,
-				)
-			}
-		case "top_k":
-			if req.TopK != nil {
-				return fmt.Errorf(
-					"top_k cannot be combined with %s thinking",
-					mode,
-				)
-			}
-		}
 	}
 
 	return nil

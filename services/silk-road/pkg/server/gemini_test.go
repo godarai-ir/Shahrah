@@ -17,6 +17,7 @@ func TestGeminiNativeUsesNativePathAndAPIKeyHeader(t *testing.T) {
 		assertEqual(t, "/v1beta/models/gemini-3.6-flash:generateContent", r.URL.Path)
 		assertEqual(t, "native-secret", r.Header.Get("x-goog-api-key"))
 		assertEqual(t, "", r.Header.Get("Authorization"))
+
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer server.Close()
@@ -32,6 +33,7 @@ func TestGeminiCompatibilityUsesOpenAIPathAndBearerAPIKey(t *testing.T) {
 		assertEqual(t, "/v1beta/openai/chat/completions", r.URL.Path)
 		assertEqual(t, "Bearer compat-secret", r.Header.Get("Authorization"))
 		assertEqual(t, "", r.Header.Get("x-goog-api-key"))
+
 		_, _ = w.Write([]byte(`{"choices":[]}`))
 	}))
 	defer server.Close()
@@ -40,26 +42,32 @@ func TestGeminiCompatibilityUsesOpenAIPathAndBearerAPIKey(t *testing.T) {
 	payload.Deployment.ProviderAuth.APIKey = "compat-secret"
 	response, err := newGeminiAdapter().Dispatch(context.Background(), server.Client(), payload)
 	assertNoError(t, err)
+
 	_ = response.Body.Close()
 }
 
 func TestGeminiOAuthUsesBearerForNativeAndCompatibility(t *testing.T) {
 	paths := make([]string, 0, 2)
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
 		assertEqual(t, "Bearer short-lived", r.Header.Get("Authorization"))
 		assertEqual(t, "", r.Header.Get("x-goog-api-key"))
+
 		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
+
 	for _, operation := range []platform.ProviderOperation{platform.ProviderOperationGeminiCountTokens, platform.ProviderOperationChatCompletions} {
 		payload := geminiTestPayload(server.URL, operation, "gemini-3.6-flash")
 		payload.Deployment.ProviderAuth = &platform.ResolvedProviderAuth{Mode: string(platform.ProviderAuthModeOAuthAccessToken), OAuthAccessToken: "short-lived"}
 		response, err := newGeminiAdapter().Dispatch(context.Background(), server.Client(), payload)
 		assertNoError(t, err)
+
 		_ = response.Body.Close()
 	}
-	assertEqual(t, strings.Join([]string{"/v1beta/models/gemini-3.6-flash:countTokens", "/v1beta/openai/chat/completions"}, ","), strings.Join(paths, ","))
+
+	assertEqual(t, "/v1beta/models/gemini-3.6-flash:countTokens"+","+"/v1beta/openai/chat/completions", strings.Join(paths, ","))
 }
 
 func TestGeminiFailsClosedForUnknownModelAndUnsupportedCombination(t *testing.T) {
@@ -77,10 +85,12 @@ func TestGeminiModelListFiltersNonAllowlistedModels(t *testing.T) {
 		_, _ = w.Write([]byte(`{"models":[{"name":"models/gemini-3.6-flash"},{"name":"models/gemini-2.5-pro"}],"nextPageToken":"next"}`))
 	}))
 	defer server.Close()
+
 	response, err := newGeminiAdapter().Dispatch(context.Background(), server.Client(), geminiTestPayload(server.URL, platform.ProviderOperationGeminiModelsList, ""))
 	assertNoError(t, err)
 	body, err := io.ReadAll(response.Body)
 	assertNoError(t, err)
+
 	if !strings.Contains(string(body), "gemini-3.6-flash") || !strings.Contains(string(body), "nextPageToken") || strings.Contains(string(body), "gemini-2.5-pro") {
 		t.Fatalf("unexpected filtered response: %s", body)
 	}
@@ -91,10 +101,12 @@ func TestGeminiOpenAIModelListFiltersNonAllowlistedModels(t *testing.T) {
 		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"gemini-3.6-flash"},{"id":"gemini-2.5-pro"}]}`))
 	}))
 	defer server.Close()
+
 	response, err := newGeminiAdapter().Dispatch(context.Background(), server.Client(), geminiTestPayload(server.URL, platform.ProviderOperationOpenAIModelsList, ""))
 	assertNoError(t, err)
 	body, err := io.ReadAll(response.Body)
 	assertNoError(t, err)
+
 	if !strings.Contains(string(body), "gemini-3.6-flash") || strings.Contains(string(body), "gemini-2.5-pro") {
 		t.Fatalf("unexpected filtered response: %s", body)
 	}
@@ -115,18 +127,21 @@ func TestGeminiBaseURLNormalizationDoesNotDuplicateVersionOrOpenAI(t *testing.T)
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 func assertEqual[T comparable](t *testing.T, expected, actual T) {
 	t.Helper()
+
 	if expected != actual {
 		t.Fatalf("expected %v, got %v", expected, actual)
 	}
 }
 func assertErrorContains(t *testing.T, err error, value string) {
 	t.Helper()
+
 	if err == nil || !strings.Contains(err.Error(), value) {
 		t.Fatalf("expected error containing %q, got %v", value, err)
 	}
@@ -134,6 +149,7 @@ func assertErrorContains(t *testing.T, err error, value string) {
 
 func geminiTestPayload(baseURL string, operation platform.ProviderOperation, model string) platform.TunnelRequest {
 	body, _ := json.Marshal(map[string]interface{}{"model": model, "messages": []interface{}{}})
+
 	payload := platform.TunnelRequest{
 		Operation: operation,
 		Body:      body,
@@ -153,5 +169,6 @@ func geminiTestPayload(baseURL string, operation platform.ProviderOperation, mod
 			},
 		}}
 	}
+
 	return payload
 }

@@ -16,6 +16,7 @@ type credentialProbeRoundTripper struct {
 
 func (t *credentialProbeRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	t.request = request
+
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     make(http.Header),

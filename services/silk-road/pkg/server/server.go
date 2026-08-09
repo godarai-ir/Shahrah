@@ -62,6 +62,7 @@ func NewHandler(client *http.Client) http.Handler {
 		}
 
 		r.Body = http.MaxBytesReader(w, r.Body, maxJSONTunnelEnvelopeBytes)
+
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			var maxBytesError *http.MaxBytesError
@@ -72,6 +73,7 @@ func NewHandler(client *http.Client) http.Handler {
 			}
 
 			http.Error(w, err.Error(), http.StatusBadRequest)
+
 			return
 		}
 
@@ -91,7 +93,14 @@ func NewHandler(client *http.Client) http.Handler {
 
 			copyHeaders(w.Header(), probeResp.Headers)
 			w.WriteHeader(probeResp.StatusCode)
-			relayBody(w, probeResp.Body, false)
+
+			relayBodyOrAbort(
+				w,
+				probeResp.Body,
+				false,
+				payload.RequestID,
+				payload.TraceID,
+			)
 
 			return
 		}
@@ -181,7 +190,9 @@ func NewHandler(client *http.Client) http.Handler {
 
 				return
 			}
+
 			http.Error(w, "raw provider operation failed", http.StatusBadGateway)
+
 			return
 		}
 

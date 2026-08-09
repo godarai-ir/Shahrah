@@ -17,8 +17,10 @@ func deploymentAPIKey(deployment platform.Deployment) string {
 		default:
 			return ""
 		}
+
 		return deployment.ProviderAuth.APIKey
 	}
+
 	return deployment.APIKey
 }
 
@@ -26,6 +28,7 @@ func applyDocumentedProviderHeaders(req *http.Request, deployment platform.Deplo
 	if req == nil || len(deployment.ProviderHeaders) == 0 {
 		return
 	}
+
 	switch normalizeProvider(deployment.Provider) {
 	case "openai":
 		copyHeader(req, deployment, "OpenAI-Organization")

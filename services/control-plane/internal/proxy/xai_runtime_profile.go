@@ -67,16 +67,6 @@ func validateXAIChatRuntimeProfile(
 		return fmt.Errorf("max_tokens exceeds model limit %d", profile.Limits.MaxOutputTokens)
 	}
 
-	for parameter, present := range map[string]bool{
-		"temperature": req.Temperature != nil,
-		"top_p":       req.TopP != nil,
-		"top_k":       req.TopK != nil,
-	} {
-		if present && !profile.AllowsSamplingParameter(parameter) {
-			return fmt.Errorf("model does not support %s", parameter)
-		}
-	}
-
 	if effort := strings.ToLower(strings.TrimSpace(req.ReasoningEffort)); effort != "" && !profile.AllowsEffort(effort) {
 		return fmt.Errorf("model does not support reasoning_effort=%s", effort)
 	}
@@ -94,8 +84,8 @@ func validateXAIChatRuntimeProfile(
 	}
 
 	for _, parameter := range profile.UnsupportedParameters {
-		if parameter == "stop" && req.Stop != nil {
-			return fmt.Errorf("model does not support stop")
+		if contractsopenai.IsModelDecodingPassThroughParameter(parameter) {
+			continue
 		}
 
 		if _, present := req.AdditionalFields[parameter]; present {

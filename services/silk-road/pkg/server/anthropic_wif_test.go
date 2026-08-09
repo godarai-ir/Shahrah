@@ -18,14 +18,17 @@ import (
 
 func TestAnthropicWIFExchangesOnceAndUsesBearerToken(t *testing.T) {
 	t.Parallel()
+
 	assertionPath := filepath.Join(t.TempDir(), "assertion.jwt")
 	if err := os.WriteFile(assertionPath, []byte("signed-assertion"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	var mu sync.Mutex
+
 	exchanges := 0
 	messages := 0
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(
 		w http.ResponseWriter,
 		r *http.Request,
@@ -35,10 +38,12 @@ func TestAnthropicWIFExchangesOnceAndUsesBearerToken(t *testing.T) {
 			if err := r.ParseForm(); err != nil {
 				t.Error(err)
 			}
+
 			if r.Form.Get("assertion") != "signed-assertion" ||
 				r.Form.Get("federation_rule_id") != "rule-1" {
 				t.Errorf("unexpected token exchange form")
 			}
+
 			mu.Lock()
 			exchanges++
 			mu.Unlock()
@@ -48,9 +53,11 @@ func TestAnthropicWIFExchangesOnceAndUsesBearerToken(t *testing.T) {
 			if r.Header.Get("Authorization") != "Bearer access-secret" {
 				t.Errorf("unexpected authorization header")
 			}
+
 			if r.Header.Get("x-api-key") != "" {
 				t.Errorf("virtual or provider API key must not be sent in WIF mode")
 			}
+
 			mu.Lock()
 			messages++
 			mu.Unlock()
@@ -103,26 +110,31 @@ func TestAnthropicWIFExchangesOnceAndUsesBearerToken(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if response.Headers.Get("X-GodarAI-Anthropic-WIF-Scopes") !=
 			"workspace:developer workspace:inference" {
 			t.Fatalf("unexpected sanitized WIF scopes %q",
 				response.Headers.Get("X-GodarAI-Anthropic-WIF-Scopes"))
 		}
+
 		if response.Headers.Get("X-GodarAI-Anthropic-WIF-Expires-At") == "" ||
 			response.Headers.Get("X-GodarAI-Anthropic-WIF-Refreshed-At") == "" {
 			t.Fatal("WIF expiry and refresh timestamps must be propagated")
 		}
+
 		if strings.Contains(
 			fmt.Sprint(response.Headers),
 			"access-secret",
 		) {
 			t.Fatal("WIF access token must not be exposed in response headers")
 		}
+
 		_ = response.Body.Close()
 	}
 
 	mu.Lock()
 	defer mu.Unlock()
+
 	if exchanges != 1 || messages != 2 {
 		t.Fatalf("exchanges=%d messages=%d", exchanges, messages)
 	}

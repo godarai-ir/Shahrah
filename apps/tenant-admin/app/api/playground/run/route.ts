@@ -24,9 +24,17 @@ const CHAT_REQUEST_FIELDS = new Set([
   "stream_options",
   "temperature",
   "top_p",
+  "top_k",
+  "presence_penalty",
+  "frequency_penalty",
+  "seed",
+  "random_seed",
   "max_tokens",
   "max_output_tokens",
   "stop",
+  "logit_bias",
+  "logprobs",
+  "top_logprobs",
   "reasoning_effort",
   "thinking",
   "response_format",
@@ -255,15 +263,12 @@ function validateRequestParameters(request: Record<string, unknown>): string | n
     if (unsupported.length) return `Unsupported stream_options fields: ${unsupported.join(", ")}`;
     if (request.stream_options.include_usage !== undefined && typeof request.stream_options.include_usage !== "boolean") return "stream_options.include_usage must be a boolean.";
   }
-  if (!optionalFiniteNumber(request.temperature, 0, 2)) return "temperature must be between 0 and 2.";
-  if (!optionalFiniteNumber(request.top_p, 0, 1)) return "top_p must be between 0 and 1.";
   for (const name of ["max_tokens", "max_output_tokens"] as const) {
     const value = request[name];
     if (value !== undefined && (typeof value !== "number" || !Number.isInteger(value) || value < 1)) return `${name} must be a positive integer.`;
   }
   if (request.parallel_tool_calls !== undefined && typeof request.parallel_tool_calls !== "boolean") return "parallel_tool_calls must be a boolean.";
   if (request.reasoning_effort !== undefined && (typeof request.reasoning_effort !== "string" || request.reasoning_effort.length > 32)) return "reasoning_effort is invalid.";
-  if (request.stop !== undefined && ((typeof request.stop === "string" && request.stop.length > 1_000) || (typeof request.stop !== "string" && (!Array.isArray(request.stop) || request.stop.length > 20 || request.stop.some((item) => typeof item !== "string" || item.length > 1_000))))) return "stop must be a string or a bounded string array.";
   if (request.response_format !== undefined && !isRecord(request.response_format)) return "response_format must be an object.";
   if (request.thinking !== undefined && !isRecord(request.thinking)) return "thinking must be an object.";
   if (request.tool_choice !== undefined && typeof request.tool_choice !== "string" && !isRecord(request.tool_choice)) return "tool_choice is invalid.";

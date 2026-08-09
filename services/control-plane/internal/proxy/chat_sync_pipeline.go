@@ -79,7 +79,7 @@ func (h *ChatCompletionHandler) executeChatProvider(
 		tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "provider.call", "client", providerStart, response.StatusCode, providerAttrs)
 		logProviderFailureRequest(h.logger, h.logs, c, authInfo, tunnelRequest, request.Model, "/v1/chat/completions", "chat_completions", response.StatusCode, response.Body, startedAt, requestLog)
 
-		return chatProviderResult{handled: true}, transformProviderError(c, response.StatusCode, response.Body, response.Headers)
+		return chatProviderResult{handled: true}, writeOpenAIProviderError(c, response.StatusCode, response.Body, response.Headers)
 	}
 
 	if strings.EqualFold(strings.TrimSpace(tunnelRequest.Deployment.Provider), "xai") && chatRequestDeferred(request) {

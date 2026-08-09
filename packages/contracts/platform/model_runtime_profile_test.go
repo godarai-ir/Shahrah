@@ -35,6 +35,7 @@ func TestTunnelRequestPreservesModelRuntimeProfileBinding(t *testing.T) {
 	if err := json.Unmarshal(payload, &decoded); err != nil {
 		t.Fatalf("unmarshal tunnel request: %v", err)
 	}
+
 	if len(decoded.ModelRuntimeProfiles) != 1 {
 		t.Fatalf(
 			"expected one runtime profile, got %d",
@@ -46,6 +47,7 @@ func TestTunnelRequestPreservesModelRuntimeProfileBinding(t *testing.T) {
 	if got.CatalogRevision != "catalog-revision-1" {
 		t.Fatalf("unexpected catalog revision %q", got.CatalogRevision)
 	}
+
 	if !got.MatchesModel("anthropic/claude-test") {
 		t.Fatal("expected decoded profile to match model slug")
 	}
@@ -74,12 +76,14 @@ func TestModelRuntimeProfileResolvesEffectiveSpeedAndBetaOutputLimit(
 	if got := profile.EffectiveSpeed("fast"); got != "standard" {
 		t.Fatalf("expected standard effective speed, got %q", got)
 	}
+
 	if got := profile.MaxOutputTokensFor(
 		"message_batches",
 		[]string{"output-300k-2026-03-24"},
 	); got != 300000 {
 		t.Fatalf("expected 300k beta output limit, got %d", got)
 	}
+
 	if got := profile.MaxOutputTokensFor(
 		"messages",
 		[]string{"output-300k-2026-03-24"},
@@ -97,13 +101,16 @@ func TestModelRuntimeProfileValidatesAlwaysOnAndDisabledEffort(t *testing.T) {
 	}
 
 	profile.Thinking.AlwaysEnabled = false
+
 	profile.Thinking.DisabledMaxEffort = "high"
 	if err := profile.Validate(); err != nil {
 		t.Fatalf("expected disabled effort ceiling to be valid, got %v", err)
 	}
+
 	if !profile.AllowsDisabledEffort("high") {
 		t.Fatal("expected high effort to be allowed while thinking is disabled")
 	}
+
 	if profile.AllowsDisabledEffort("xhigh") {
 		t.Fatal("expected xhigh effort to exceed disabled thinking ceiling")
 	}
@@ -145,6 +152,7 @@ func TestGeminiRuntimeProfileAllowsNativeAndCompatibleEndpoints(t *testing.T) {
 	if err := binding.Validate(); err != nil {
 		t.Fatalf("expected valid Gemini runtime binding, got %v", err)
 	}
+
 	if !binding.MatchesModel("google-gemini/gemini-3.1-flash-lite") {
 		t.Fatal("expected provider-prefixed Gemini model to match")
 	}

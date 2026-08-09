@@ -17,6 +17,10 @@ func validateMistralParameters(binding *platform.ModelRuntimeProfileBinding, end
 	}
 
 	for parameter := range parameters {
+		if endpoint == "chat_completions" && contractsopenai.IsModelDecodingPassThroughParameter(parameter) {
+			continue
+		}
+
 		canonical := strings.ToLower(strings.TrimSpace(parameter))
 		switch canonical {
 		case "seed":
@@ -119,18 +123,6 @@ func validateMistralChatRuntimeProfile(req contractsopenai.ChatCompletionRequest
 	profile := binding.Profile
 	if req.MaxTokens != nil && profile.Limits.MaxOutputTokens > 0 && *req.MaxTokens > profile.Limits.MaxOutputTokens {
 		return fmt.Errorf("max_tokens exceeds model limit %d", profile.Limits.MaxOutputTokens)
-	}
-
-	if req.Temperature != nil && !profile.AllowsSamplingParameter("temperature") {
-		return fmt.Errorf("model does not support temperature")
-	}
-
-	if req.TopP != nil && !profile.AllowsSamplingParameter("top_p") {
-		return fmt.Errorf("model does not support top_p")
-	}
-
-	if req.TopK != nil && !profile.AllowsSamplingParameter("top_k") {
-		return fmt.Errorf("model does not support top_k")
 	}
 
 	if chatRequestHasImage(req) && !profile.AllowsInputModality("image") {

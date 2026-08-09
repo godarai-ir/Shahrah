@@ -37,7 +37,7 @@ func TestDeepSeekRuntimeProfileAcceptsDocumentedModes(t *testing.T) {
 	require.NoError(t, validateDeepSeekChatRuntimeProfile(req, &binding))
 }
 
-func TestDeepSeekRuntimeProfileRejectsMisleadingOrDeferredParameters(t *testing.T) {
+func TestDeepSeekRuntimeProfilePassesSamplingAndRejectsGatewayManagedParameters(t *testing.T) {
 	binding := deepSeekProxyRuntimeProfile("deepseek-v4-pro")
 	temperature := 0.7
 	req := contractsopenai.ChatCompletionRequest{
@@ -49,11 +49,14 @@ func TestDeepSeekRuntimeProfileRejectsMisleadingOrDeferredParameters(t *testing.
 		},
 	}
 
-	require.ErrorContains(t, validateDeepSeekChatRuntimeProfile(req, &binding), "ineffective")
-	req.Temperature = nil
 	require.ErrorContains(t, validateDeepSeekChatRuntimeProfile(req, &binding), "json_object")
+	req.Temperature = nil
 	req.ResponseFormat = nil
 	require.ErrorContains(t, validateDeepSeekChatRuntimeProfile(req, &binding), "reserved")
+
+	delete(req.AdditionalFields, "user_id")
+	req.Temperature = &temperature
+	require.NoError(t, validateDeepSeekChatRuntimeProfile(req, &binding))
 }
 
 func TestDeepSeekRuntimeProfileRejectsUnsupportedRolesModalitiesLimitsAndTools(t *testing.T) {
@@ -154,7 +157,6 @@ func TestDeepSeekResponsesRuntimeProfileRejectsStateAndMisleadingControls(t *tes
 		{name: "identity", body: `{"model":"deepseek-v4-flash","input":"hello","user":"email@example.com"}`, message: "user"},
 		{name: "image", body: `{"model":"deepseek-v4-flash","input":[{"type":"message","role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,secret"}]}]}`, message: "input_image"},
 		{name: "hosted tool", body: `{"model":"deepseek-v4-flash","input":"hello","tools":[{"type":"web_search"}]}`, message: "web_search"},
-		{name: "sampling with thinking", body: `{"model":"deepseek-v4-flash","input":"hello","temperature":0.5}`, message: "ineffective"},
 		{name: "reasoning summary", body: `{"model":"deepseek-v4-flash","input":"hello","reasoning":{"effort":"high","summary":"auto"}}`, message: "summary"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

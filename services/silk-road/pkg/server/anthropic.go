@@ -26,23 +26,44 @@ type anthropicAdapter struct {
 }
 
 type anthropicRequest struct {
-	Model        string                          `json:"model"`
-	Messages     []anthropicMessage              `json:"messages"`
-	MaxTokens    int                             `json:"max_tokens,omitempty"`
-	Temperature  *float64                        `json:"temperature,omitempty"`
-	TopP         *float64                        `json:"top_p,omitempty"`
-	TopK         *int                            `json:"top_k,omitempty"`
-	Stop         []string                        `json:"stop_sequences,omitempty"`
-	Stream       bool                            `json:"stream,omitempty"`
-	System       []anthropicContentBlock         `json:"system,omitempty"`
-	Thinking     *contractsopenai.ThinkingConfig `json:"thinking,omitempty"`
-	Tools        []anthropicTool                 `json:"tools,omitempty"`
-	ToolChoice   *anthropicToolChoice            `json:"tool_choice,omitempty"`
-	Metadata     *anthropicMetadata              `json:"metadata,omitempty"`
-	Output       *anthropicOutputConfig          `json:"output_config,omitempty"`
-	ServiceTier  string                          `json:"service_tier,omitempty"`
-	Speed        string                          `json:"speed,omitempty"`
-	InferenceGeo string                          `json:"inference_geo,omitempty"`
+	Model            string                          `json:"model"`
+	Messages         []anthropicMessage              `json:"messages"`
+	MaxTokens        int                             `json:"max_tokens,omitempty"`
+	Temperature      *float64                        `json:"temperature,omitempty"`
+	TopP             *float64                        `json:"top_p,omitempty"`
+	TopK             *int                            `json:"top_k,omitempty"`
+	Stop             []string                        `json:"stop_sequences,omitempty"`
+	Stream           bool                            `json:"stream,omitempty"`
+	System           []anthropicContentBlock         `json:"system,omitempty"`
+	Thinking         *contractsopenai.ThinkingConfig `json:"thinking,omitempty"`
+	Tools            []anthropicTool                 `json:"tools,omitempty"`
+	ToolChoice       *anthropicToolChoice            `json:"tool_choice,omitempty"`
+	Metadata         *anthropicMetadata              `json:"metadata,omitempty"`
+	Output           *anthropicOutputConfig          `json:"output_config,omitempty"`
+	ServiceTier      string                          `json:"service_tier,omitempty"`
+	Speed            string                          `json:"speed,omitempty"`
+	InferenceGeo     string                          `json:"inference_geo,omitempty"`
+	AdditionalFields map[string]json.RawMessage      `json:"-"`
+}
+
+func (r anthropicRequest) MarshalJSON() ([]byte, error) {
+	type requestAlias anthropicRequest
+
+	knownJSON, err := json.Marshal(requestAlias(r))
+	if err != nil {
+		return nil, err
+	}
+
+	var merged map[string]json.RawMessage
+	if err := json.Unmarshal(knownJSON, &merged); err != nil {
+		return nil, err
+	}
+
+	for key, value := range r.AdditionalFields {
+		merged[key] = append(json.RawMessage(nil), value...)
+	}
+
+	return json.Marshal(merged)
 }
 
 type anthropicMessage struct {
@@ -159,10 +180,12 @@ type anthropicStreamDelta struct {
 
 func (block *anthropicContentBlock) UnmarshalJSON(data []byte) error {
 	type alias anthropicContentBlock
+
 	var decoded alias
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
+
 	*block = anthropicContentBlock(decoded)
 	if isAnthropicServerContentBlock(decoded.Type) {
 		var raw map[string]interface{}
@@ -178,10 +201,12 @@ func (block *anthropicContentBlock) UnmarshalJSON(data []byte) error {
 
 func (delta *anthropicStreamDelta) UnmarshalJSON(data []byte) error {
 	type alias anthropicStreamDelta
+
 	var decoded alias
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
+
 	*delta = anthropicStreamDelta(decoded)
 	if anthropicDeltaCarriesProviderData(decoded.Type) {
 		var raw map[string]interface{}
@@ -214,13 +239,14 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 	if err != nil {
 		return nil, err
 	}
+
 	if payload.Operation != "" && payload.Operation != platform.ProviderOperationChatCompletions {
 		return a.dispatchNative(ctx, client, target, payload)
 	}
 
 	var openAIReq contractsopenai.ChatCompletionRequest
-	if err := json.Unmarshal(payload.Body, &openAIReq); err != nil {
-		return nil, fmt.Errorf("decode openai request: %w", err)
+	if decodeErr := json.Unmarshal(payload.Body, &openAIReq); decodeErr != nil {
+		return nil, fmt.Errorf("decode openai request: %w", decodeErr)
 	}
 
 	runtimeProfile, err := anthropicRuntimeProfileForModel(
@@ -231,12 +257,14 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 	if err != nil {
 		return nil, err
 	}
+
 	if len(payload.Body) > runtimeProfile.Profile.Limits.MessagesBytes {
 		return nil, fmt.Errorf(
 			"anthropic operation payload exceeds %d bytes",
 			runtimeProfile.Profile.Limits.MessagesBytes,
 		)
 	}
+
 	anthropicReq, err := convertToAnthropicRequest(
 		openAIReq,
 		runtimeProfile.Profile,
@@ -244,6 +272,7 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 	if err != nil {
 		return nil, fmt.Errorf("convert anthropic request: %w", err)
 	}
+
 	body, err := json.Marshal(anthropicReq)
 	if err != nil {
 		return nil, fmt.Errorf("encode anthropic request: %w", err)
@@ -253,12 +282,16 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 	if err != nil {
 		return nil, err
 	}
+
 	req.Header.Set("Content-Type", "application/json")
-	if err := a.applyAuth(ctx, client, target, payload.Deployment, req); err != nil {
-		return nil, err
+
+	if authErr := a.applyAuth(ctx, client, target, payload.Deployment, req); authErr != nil {
+		return nil, authErr
 	}
+
 	req.Header.Set("anthropic-version", anthropicVersion(payload.Deployment.APIVersion))
 	applyAnthropicBetaHeaders(req, payload)
+
 	if payload.Stream {
 		req.Header.Set("Accept", "text/event-stream")
 	}
@@ -267,6 +300,7 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 	if err != nil {
 		return nil, err
 	}
+
 	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
 
 	if resp.StatusCode >= http.StatusBadRequest {
@@ -280,6 +314,7 @@ func (a *anthropicAdapter) Dispatch(ctx context.Context, client *http.Client, pa
 	if payload.Stream {
 		return adaptAnthropicStreamResponse(resp, openAIReq.Model), nil
 	}
+
 	return adaptAnthropicSyncResponse(resp, openAIReq.Model)
 }
 
@@ -289,6 +324,7 @@ func (a *anthropicAdapter) applyAuth(ctx context.Context, client *http.Client, t
 		if a.wifErr != nil {
 			return errAnthropicWIFUnavailable
 		}
+
 		token, tokenErr := a.wif.token(
 			ctx,
 			client,
@@ -299,10 +335,12 @@ func (a *anthropicAdapter) applyAuth(ctx context.Context, client *http.Client, t
 		if tokenErr != nil {
 			return tokenErr
 		}
+
 		req.Header.Set("Authorization", "Bearer "+token.accessToken)
 	} else {
 		req.Header.Set("x-api-key", deploymentAPIKey(deployment))
 	}
+
 	return nil
 }
 
@@ -310,48 +348,60 @@ func anthropicWIFConnectionKey(deployment platform.Deployment) string {
 	if strings.TrimSpace(deployment.ConnectionID) != "" {
 		return strings.TrimSpace(deployment.ConnectionID)
 	}
+
 	return strings.TrimSpace(deployment.ProviderAccountID)
 }
 
 func (a *anthropicAdapter) dispatchNative(ctx context.Context, client *http.Client, target string, payload platform.TunnelRequest) (*adapterResponse, error) {
 	var err error
+
 	payload, err = prepareAnthropicCapabilityBetaHeaders(payload)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateAnthropicNativeRuntimeProfiles(payload); err != nil {
-		return nil, err
+
+	if profileErr := validateAnthropicNativeRuntimeProfiles(payload); profileErr != nil {
+		return nil, profileErr
 	}
+
 	method, path, maxBytes, err := anthropicOperationTarget(payload.Operation, payload.OperationInput)
 	if err != nil {
 		return nil, err
 	}
+
 	maxBytes = anthropicRuntimeProfilePayloadLimit(payload, maxBytes)
 	if maxBytes > 0 && int64(len(payload.Body)) > maxBytes {
 		return nil, fmt.Errorf("anthropic operation payload exceeds %d bytes", maxBytes)
 	}
+
 	var body io.Reader = http.NoBody
 	if len(payload.Body) > 0 {
 		body = bytes.NewReader(payload.Body)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), body)
 	if err != nil {
 		return nil, err
 	}
+
 	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	} else if len(payload.Body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	req.Header.Set("anthropic-version", anthropicVersion(payload.Deployment.APIVersion))
 	applyAnthropicBetaHeaders(req, payload)
+
 	if payload.Stream {
 		req.Header.Set("Accept", "text/event-stream")
 	}
-	if err := a.applyAuth(ctx, client, target, payload.Deployment, req); err != nil {
-		return nil, err
+
+	if authErr := a.applyAuth(ctx, client, target, payload.Deployment, req); authErr != nil {
+		return nil, authErr
 	}
-	resp, err := doAnthropicRequest(
+
+	resp, err := doAnthropicRequest( //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 		ctx,
 		client,
 		req,
@@ -360,6 +410,7 @@ func (a *anthropicAdapter) dispatchNative(ctx context.Context, client *http.Clie
 	if err != nil {
 		return nil, err
 	}
+
 	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
 
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
@@ -371,6 +422,7 @@ func prepareAnthropicCapabilityBetaHeaders(
 	if payload.Operation != platform.ProviderOperationAnthropicBatchesCreate {
 		return payload, nil
 	}
+
 	var batch struct {
 		Requests []struct {
 			Params struct {
@@ -382,9 +434,11 @@ func prepareAnthropicCapabilityBetaHeaders(
 	if err := json.Unmarshal(payload.Body, &batch); err != nil {
 		return payload, fmt.Errorf("invalid Anthropic batch request")
 	}
+
 	requested := commaSeparatedSet(
 		headerValue(payload.Headers, "anthropic-beta"),
 	)
+
 	accountAllowed := commaSeparatedSet(
 		payload.Deployment.ProviderHeaders["Anthropic-Beta-Allowlist"] + "," +
 			payload.Deployment.ProviderHeaders["anthropic-beta-allowlist"],
@@ -396,10 +450,11 @@ func prepareAnthropicCapabilityBetaHeaders(
 		)
 		if !ok {
 			return payload, fmt.Errorf(
-				"Anthropic model runtime profile is missing for %s",
+				"anthropic model runtime profile is missing for %s",
 				item.Params.Model,
 			)
 		}
+
 		required := binding.Profile.RequiredBetaHeaderForOutput(
 			"message_batches",
 			item.Params.MaxTokens,
@@ -407,26 +462,34 @@ func prepareAnthropicCapabilityBetaHeaders(
 		if required == "" {
 			continue
 		}
+
 		if _, ok := accountAllowed[required]; !ok {
 			return payload, fmt.Errorf(
-				"Anthropic beta capability %s is not enabled for provider account",
+				"anthropic beta capability %s is not enabled for provider account",
 				required,
 			)
 		}
+
 		requested[required] = struct{}{}
 	}
+
 	if len(requested) == 0 {
 		return payload, nil
 	}
+
 	values := make([]string, 0, len(requested))
 	for value := range requested {
 		values = append(values, value)
 	}
+
 	sort.Strings(values)
+
 	if payload.Headers == nil {
 		payload.Headers = make(map[string]string)
 	}
+
 	payload.Headers["anthropic-beta"] = strings.Join(values, ",")
+
 	return payload, nil
 }
 
@@ -438,42 +501,54 @@ func (a *anthropicAdapter) DispatchRaw(ctx context.Context, client *http.Client,
 	default:
 		return nil, fmt.Errorf("operation %q does not support raw tunneling", payload.Operation)
 	}
+
 	target, err := resolveBaseURL(payload.Deployment.APIBase, "https://api.anthropic.com")
 	if err != nil {
 		return nil, err
 	}
+
 	method, path, maxBytes, err := anthropicOperationTarget(payload.Operation, payload.OperationInput)
 	if err != nil {
 		return nil, err
 	}
+
 	if contentLength > maxBytes && maxBytes > 0 {
 		return nil, fmt.Errorf("anthropic operation payload exceeds %d bytes", maxBytes)
 	}
+
 	if body == nil {
 		body = http.NoBody
 	}
+
 	if maxBytes > 0 && contentLength < 0 {
 		body = &hardLimitReader{reader: body, remaining: maxBytes}
 	}
+
 	req, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), body)
 	if err != nil {
 		return nil, err
 	}
+
 	if contentLength >= 0 {
 		req.ContentLength = contentLength
 	}
+
 	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+
 	req.Header.Set("anthropic-version", anthropicVersion(payload.Deployment.APIVersion))
 	applyAnthropicBetaHeaders(req, payload)
-	if err := a.applyAuth(ctx, client, target, payload.Deployment, req); err != nil {
-		return nil, err
+
+	if authErr := a.applyAuth(ctx, client, target, payload.Deployment, req); authErr != nil {
+		return nil, authErr
 	}
-	resp, err := client.Do(req)
+
+	resp, err := client.Do(req) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
+
 	a.addWIFStatusHeaders(payload.Deployment, resp.Header)
 
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
@@ -488,6 +563,7 @@ func (a *anthropicAdapter) addWIFStatusHeaders(
 		deployment.ProviderAuth.AnthropicWIF == nil {
 		return
 	}
+
 	token, ok := a.wif.status(
 		anthropicWIFConnectionKey(deployment),
 		deployment.ProviderAuth.AnthropicWIF,
@@ -495,6 +571,7 @@ func (a *anthropicAdapter) addWIFStatusHeaders(
 	if !ok {
 		return
 	}
+
 	headers.Set(
 		"X-GodarAI-Anthropic-WIF-Expires-At",
 		token.expiresAt.UTC().Format(time.RFC3339),
@@ -503,6 +580,7 @@ func (a *anthropicAdapter) addWIFStatusHeaders(
 		"X-GodarAI-Anthropic-WIF-Refreshed-At",
 		token.refreshedAt.UTC().Format(time.RFC3339),
 	)
+
 	if scopes := sanitizedAnthropicWIFScopes(token.scopes); len(scopes) > 0 {
 		headers.Set(
 			"X-GodarAI-Anthropic-WIF-Scopes",
@@ -518,9 +596,12 @@ func sanitizedAnthropicWIFScopes(scopes []string) []string {
 		if scope == "" || strings.ContainsAny(scope, "\r\n,") {
 			continue
 		}
+
 		result = append(result, scope)
 	}
+
 	sort.Strings(result)
+
 	return result
 }
 
@@ -534,15 +615,19 @@ func (r *hardLimitReader) Read(buffer []byte) (int, error) {
 	if r.exhausted {
 		return 0, fmt.Errorf("provider payload exceeds configured limit")
 	}
+
 	if int64(len(buffer)) > r.remaining+1 {
 		buffer = buffer[:r.remaining+1]
 	}
+
 	n, err := r.reader.Read(buffer)
 	if int64(n) > r.remaining {
 		r.exhausted = true
 		return 0, fmt.Errorf("provider payload exceeds configured limit")
 	}
+
 	r.remaining -= int64(n)
+
 	return n, err
 }
 
@@ -552,11 +637,13 @@ func anthropicOperationTarget(operation platform.ProviderOperation, input platfo
 		batchLimit   = int64(256 * 1024 * 1024)
 		fileLimit    = int64(500 * 1024 * 1024)
 	)
+
 	id := strings.TrimSpace(input.ResourceID)
 	resourcePath := func(prefix, suffix string) (string, error) {
 		if id == "" {
 			return "", fmt.Errorf("provider operation requires resource_id")
 		}
+
 		return prefix + url.PathEscape(id) + suffix, nil
 	}
 	listPath := func(base string) string {
@@ -564,17 +651,22 @@ func anthropicOperationTarget(operation platform.ProviderOperation, input platfo
 		if input.BeforeID != "" {
 			query.Set("before_id", input.BeforeID)
 		}
+
 		if input.AfterID != "" {
 			query.Set("after_id", input.AfterID)
 		}
+
 		if input.Limit > 0 {
 			query.Set("limit", fmt.Sprintf("%d", input.Limit))
 		}
+
 		if len(query) == 0 {
 			return base
 		}
+
 		return base + "?" + query.Encode()
 	}
+
 	switch operation {
 	case platform.ProviderOperationAnthropicMessages:
 		return http.MethodPost, "/v1/messages", messageLimit, nil
@@ -622,6 +714,7 @@ func headerValue(headers map[string]string, name string) string {
 			return value
 		}
 	}
+
 	return ""
 }
 
@@ -629,14 +722,17 @@ func applyAnthropicBetaHeaders(req *http.Request, payload platform.TunnelRequest
 	if req == nil {
 		return
 	}
+
 	allowed := commaSeparatedSet(
 		payload.Deployment.ProviderHeaders["Anthropic-Beta-Allowlist"] + "," +
 			payload.Deployment.ProviderHeaders["anthropic-beta-allowlist"],
 	)
+
 	requested := commaSeparatedSet(headerValue(payload.Headers, "anthropic-beta"))
 	if operationNeedsFilesBeta(payload.Operation) {
 		requested["files-api-2025-04-14"] = struct{}{}
 	}
+
 	enabled := make([]string, 0, len(requested))
 	for value := range requested {
 		if _, ok := allowed[value]; ok {
@@ -646,9 +742,11 @@ func applyAnthropicBetaHeaders(req *http.Request, payload platform.TunnelRequest
 			) {
 				continue
 			}
+
 			enabled = append(enabled, value)
 		}
 	}
+
 	if len(enabled) > 0 {
 		sort.Strings(enabled)
 		req.Header.Set("anthropic-beta", strings.Join(enabled, ","))
@@ -662,22 +760,26 @@ func anthropicRuntimeProfilesAllowBeta(
 	if len(profiles) == 0 {
 		return true
 	}
+
 	for _, binding := range profiles {
 		if !binding.Profile.AllowsBetaHeader(header) {
 			return false
 		}
 	}
+
 	return true
 }
 
 func commaSeparatedSet(input string) map[string]struct{} {
 	out := map[string]struct{}{}
+
 	for _, value := range strings.Split(input, ",") {
 		value = strings.TrimSpace(value)
 		if value != "" {
 			out[value] = struct{}{}
 		}
 	}
+
 	return out
 }
 
@@ -695,13 +797,15 @@ func operationNeedsFilesBeta(operation platform.ProviderOperation) bool {
 }
 
 func adaptAnthropicSyncResponse(resp *http.Response, model string) (*adapterResponse, error) {
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
 
 	var anthResp anthropicResponse
 	if err := json.NewDecoder(resp.Body).Decode(&anthResp); err != nil {
 		return nil, fmt.Errorf("decode anthropic response: %w", err)
 	}
+
 	openAIResp := convertToOpenAIResponse(anthResp, model)
+
 	body, err := json.Marshal(openAIResp)
 	if err != nil {
 		return nil, fmt.Errorf("encode openai response: %w", err)
@@ -710,6 +814,7 @@ func adaptAnthropicSyncResponse(resp *http.Response, model string) (*adapterResp
 	headers := resp.Header
 	headers.Set("Content-Type", "application/json")
 	headers.Set("Content-Length", fmt.Sprintf("%d", len(body)))
+
 	return &adapterResponse{
 		StatusCode: resp.StatusCode,
 		Headers:    headers,
@@ -723,9 +828,10 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 	headers.Del("Content-Length")
 
 	pipeReader, pipeWriter := io.Pipe()
+
 	go func() {
-		defer resp.Body.Close()
-		defer pipeWriter.Close()
+		defer closeBody(resp.Body)
+		defer closeBody(pipeWriter)
 
 		reader := bufio.NewReaderSize(resp.Body, relayBufferSize)
 
@@ -736,9 +842,11 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 			currentEvent string
 			overflow     []byte
 		)
+
 		streamID := ""
 		streamModel := model
 		completed := false
+
 		var latestUsage anthropicUsage
 
 		created := time.Now().Unix()
@@ -746,17 +854,24 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 		for {
 			line, nextOverflow, err := readAnthropicSSELine(reader, overflow)
 			overflow = nextOverflow
+
 			if err != nil {
 				if err == io.EOF {
 					if completed {
-						_, _ = pipeWriter.Write([]byte("data: [DONE]\n\n"))
+						if _, writeErr := pipeWriter.Write([]byte("data: [DONE]\n\n")); writeErr != nil {
+							closeBody(pipeWriter)
+						}
 					} else {
 						anthropicStreamErrors.Add(1)
+
 						_ = pipeWriter.CloseWithError(io.ErrUnexpectedEOF)
 					}
+
 					return
 				}
+
 				_ = pipeWriter.CloseWithError(err)
+
 				return
 			}
 
@@ -771,20 +886,25 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 				if len(data) == 0 || bytes.Equal(data, []byte("[DONE]")) {
 					continue
 				}
+
 				var evt anthropicStreamEvent
 				if err := json.Unmarshal(data, &evt); err != nil {
 					_ = pipeWriter.CloseWithError(fmt.Errorf("decode anthropic SSE event: %w", err))
 					return
 				}
+
 				if evt.Message.ID != "" {
 					streamID = evt.Message.ID
 				}
+
 				if evt.Message.Model != "" {
 					streamModel = evt.Message.Model
 				}
+
 				switch eventType(currentEvent, evt.Type) {
 				case "message_start":
 					latestUsage = evt.Message.Usage
+
 					chunk := contractsopenai.StreamChunk{
 						ID: streamID, Object: "chat.completion.chunk", Created: created, Model: streamModel,
 						Choices: []contractsopenai.Choice{{Index: 0, Delta: &contractsopenai.ChatMessage{Role: "assistant"}}},
@@ -813,13 +933,23 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 								return
 							}
 						}
+
 						continue
 					}
+
 					index := evt.Index
-					arguments, _ := json.Marshal(evt.ContentBlock.Input)
+
+					arguments, marshalErr := json.Marshal(evt.ContentBlock.Input)
+					if marshalErr != nil {
+						_ = pipeWriter.CloseWithError(fmt.Errorf("encode anthropic tool input: %w", marshalErr))
+
+						return
+					}
+
 					if string(arguments) == "null" || string(arguments) == "{}" {
 						arguments = nil
 					}
+
 					chunk := contractsopenai.StreamChunk{
 						ID: streamID, Object: "chat.completion.chunk", Created: created, Model: streamModel,
 						Choices: []contractsopenai.Choice{{
@@ -840,19 +970,23 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 						len(evt.Delta.ProviderData) == 0 {
 						continue
 					}
+
 					delta := &contractsopenai.ChatMessage{}
 					if evt.Delta.Thinking != "" {
 						delta.ReasoningContent = evt.Delta.Thinking
 					}
+
 					if evt.Delta.Signature != "" {
 						delta.ThinkingBlocks = []contractsopenai.ThinkingBlock{{
 							"type":      "thinking",
 							"signature": evt.Delta.Signature,
 						}}
 					}
+
 					if evt.Delta.Text != "" {
 						delta.Content = evt.Delta.Text
 					}
+
 					if evt.Delta.PartialJSON != "" {
 						index := evt.Index
 						delta.ToolCalls = []contractsopenai.ToolCall{{
@@ -860,6 +994,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 							Function: &contractsopenai.FunctionCall{Arguments: evt.Delta.PartialJSON},
 						}}
 					}
+
 					if len(evt.Delta.ProviderData) > 0 &&
 						evt.Delta.Type != "text_delta" &&
 						evt.Delta.Type != "thinking_delta" &&
@@ -869,6 +1004,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 							evt.Delta.ProviderData,
 						}
 					}
+
 					chunk := contractsopenai.StreamChunk{
 						ID:      streamID,
 						Object:  "chat.completion.chunk",
@@ -883,55 +1019,41 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 						return
 					}
 				case "message_delta":
-					if evt.Usage.OutputTokens > 0 {
-						latestUsage.OutputTokens = evt.Usage.OutputTokens
-					}
-					if evt.Usage.CacheCreationInputTokens > 0 {
-						latestUsage.CacheCreationInputTokens = evt.Usage.CacheCreationInputTokens
-					}
-					if evt.Usage.CacheReadInputTokens > 0 {
-						latestUsage.CacheReadInputTokens = evt.Usage.CacheReadInputTokens
-					}
-					if evt.Usage.ServerToolUse != nil {
-						latestUsage.ServerToolUse = evt.Usage.ServerToolUse
-					}
-					if evt.Delta.StopReason == "" {
-						continue
-					}
-					chunk := contractsopenai.StreamChunk{
-						ID:      streamID,
-						Object:  "chat.completion.chunk",
-						Created: created,
-						Model:   streamModel,
-						Choices: []contractsopenai.Choice{{
-							Index:        0,
-							Delta:        &contractsopenai.ChatMessage{},
-							FinishReason: mapAnthropicStopReason(evt.Delta.StopReason),
-						}},
-					}
-					if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
+					if err := writeAnthropicMessageDelta(
+						pipeWriter,
+						frameBuffer,
+						evt,
+						streamID,
+						created,
+						streamModel,
+						&latestUsage,
+					); err != nil {
 						return
 					}
 				case "message_stop":
 					completed = true
-					usage := openAIUsageFromAnthropic(latestUsage)
-					if usage.TotalTokens > 0 {
-						chunk := contractsopenai.StreamChunk{
-							ID: streamID, Object: "chat.completion.chunk", Created: created, Model: streamModel,
-							Choices: []contractsopenai.Choice{}, Usage: usage,
-						}
-						if err := writeSSEChunk(pipeWriter, frameBuffer, chunk); err != nil {
-							return
-						}
+
+					if err := writeAnthropicMessageStop(
+						pipeWriter,
+						frameBuffer,
+						streamID,
+						created,
+						streamModel,
+						latestUsage,
+					); err != nil {
+						return
 					}
 				case "error":
 					anthropicStreamErrors.Add(1)
+
 					message := "Anthropic stream error"
 					errorType := "api_error"
+
 					if evt.Error != nil {
 						if strings.TrimSpace(evt.Error.Message) != "" {
 							message = evt.Error.Message
 						}
+
 						if strings.TrimSpace(evt.Error.Type) != "" {
 							errorType = evt.Error.Type
 						}
@@ -943,6 +1065,7 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 					if writeErr := writeSSEJSON(pipeWriter, frameBuffer, apiError); writeErr != nil {
 						return
 					}
+
 					return
 				}
 			}
@@ -954,6 +1077,75 @@ func adaptAnthropicStreamResponse(resp *http.Response, model string) *adapterRes
 		Headers:    headers,
 		Body:       pipeReader,
 	}
+}
+
+func writeAnthropicMessageDelta(
+	w io.Writer,
+	buffer *bytes.Buffer,
+	evt anthropicStreamEvent,
+	streamID string,
+	created int64,
+	streamModel string,
+	latestUsage *anthropicUsage,
+) error {
+	if evt.Usage.OutputTokens > 0 {
+		latestUsage.OutputTokens = evt.Usage.OutputTokens
+	}
+
+	if evt.Usage.CacheCreationInputTokens > 0 {
+		latestUsage.CacheCreationInputTokens = evt.Usage.CacheCreationInputTokens
+	}
+
+	if evt.Usage.CacheReadInputTokens > 0 {
+		latestUsage.CacheReadInputTokens = evt.Usage.CacheReadInputTokens
+	}
+
+	if evt.Usage.ServerToolUse != nil {
+		latestUsage.ServerToolUse = evt.Usage.ServerToolUse
+	}
+
+	if evt.Delta.StopReason == "" {
+		return nil
+	}
+
+	chunk := contractsopenai.StreamChunk{
+		ID:      streamID,
+		Object:  "chat.completion.chunk",
+		Created: created,
+		Model:   streamModel,
+		Choices: []contractsopenai.Choice{{
+			Index:        0,
+			Delta:        &contractsopenai.ChatMessage{},
+			FinishReason: mapAnthropicStopReason(evt.Delta.StopReason),
+		}},
+	}
+
+	return writeSSEChunk(w, buffer, chunk)
+}
+
+func writeAnthropicMessageStop(
+	w io.Writer,
+	buffer *bytes.Buffer,
+	streamID string,
+	created int64,
+	streamModel string,
+	latestUsage anthropicUsage,
+) error {
+	usage := openAIUsageFromAnthropic(latestUsage)
+	if usage.TotalTokens == 0 {
+		return nil
+	}
+
+	chunk := contractsopenai.StreamChunk{
+		ID:      streamID,
+		Object:  "chat.completion.chunk",
+		Created: created,
+		Model:   streamModel,
+		Choices: []contractsopenai.Choice{},
+		Usage:   usage,
+	}
+
+	return writeSSEChunk(w, buffer, chunk)
 }
 
 const maxRetainedSSEFrameBuffer = 256 * 1024
@@ -1044,6 +1236,7 @@ func eventType(explicit string, fallback string) string {
 	if strings.TrimSpace(explicit) != "" {
 		return strings.TrimSpace(explicit)
 	}
+
 	return strings.TrimSpace(fallback)
 }
 
@@ -1051,6 +1244,7 @@ func anthropicVersion(version string) string {
 	if strings.TrimSpace(version) == "" {
 		return anthropicDefaultVersion
 	}
+
 	return strings.TrimSpace(version)
 }
 
@@ -1058,31 +1252,51 @@ func convertToAnthropicRequest(
 	req contractsopenai.ChatCompletionRequest,
 	runtimeProfile platform.ModelRuntimeProfile,
 ) (anthropicRequest, error) {
-	if err := validateAnthropicRequestWithRuntimeProfile(
+	if validationErr := validateAnthropicRequestWithRuntimeProfile(
 		req,
 		runtimeProfile,
-	); err != nil {
-		return anthropicRequest{}, err
+	); validationErr != nil {
+		return anthropicRequest{}, validationErr
 	}
+
 	anthReq := anthropicRequest{
-		Model:       canonicalAnthropicModel(req.Model),
-		MaxTokens:   4096,
-		Temperature: req.Temperature,
-		TopP:        req.TopP,
-		TopK:        req.TopK,
-		Stream:      req.Stream,
+		Model:            canonicalAnthropicModel(req.Model),
+		MaxTokens:        4096,
+		Temperature:      req.Temperature,
+		TopP:             req.TopP,
+		TopK:             req.TopK,
+		Stream:           req.Stream,
+		AdditionalFields: anthropicPassThroughDecodingFields(req.AdditionalFields),
 	}
+
 	var err error
-	if anthReq.Stop, err = anthropicStopSequences(req.Stop); err != nil {
+
+	rawStop, stopPresent := req.AdditionalFields["stop"]
+	if stopPresent {
+		mappedStop, mapErr := anthropicRawStopSequences(rawStop)
+		if mapErr != nil {
+			return anthropicRequest{}, mapErr
+		}
+
+		if anthReq.AdditionalFields == nil {
+			anthReq.AdditionalFields = make(map[string]json.RawMessage)
+		}
+
+		anthReq.AdditionalFields["stop_sequences"] = mappedStop
+	} else if anthReq.Stop, err = anthropicStopSequences(req.Stop); err != nil {
 		return anthropicRequest{}, err
 	}
+
 	if anthReq.Tools, err = anthropicTools(req.Tools, req.CacheControl); err != nil {
 		return anthropicRequest{}, err
 	}
+
 	if anthReq.ToolChoice, err = anthropicToolChoiceFromOpenAI(req.ToolChoice, req.ParallelToolCalls); err != nil {
 		return anthropicRequest{}, err
 	}
+
 	anthReq.Metadata = anthropicMetadataFromOpenAI(req.Metadata, req.User)
+
 	anthReq.Output, err = anthropicOutputConfigFromOpenAI(
 		runtimeProfile,
 		req.ResponseFormat,
@@ -1092,51 +1306,62 @@ func convertToAnthropicRequest(
 	if err != nil {
 		return anthropicRequest{}, err
 	}
+
 	anthReq.ServiceTier = strings.TrimSpace(req.ServiceTier)
 	anthReq.Speed = strings.TrimSpace(req.Speed)
+
 	anthReq.InferenceGeo = strings.TrimSpace(req.InferenceGeo)
-	if err := validateAnthropicRequestControls(
+	if controlsErr := validateAnthropicRequestControls(
 		runtimeProfile,
 		anthReq.ServiceTier,
 		anthReq.Speed,
 		anthReq.InferenceGeo,
-	); err != nil {
-		return anthropicRequest{}, err
+	); controlsErr != nil {
+		return anthropicRequest{}, controlsErr
 	}
 
 	for _, msg := range req.Messages {
-		blocks, err := anthropicBlocksFromContent(msg.Content)
-		if err != nil {
-			return anthropicRequest{}, err
+		blocks, blocksErr := anthropicBlocksFromContent(msg.Content)
+		if blocksErr != nil {
+			return anthropicRequest{}, blocksErr
 		}
+
 		if strings.EqualFold(strings.TrimSpace(msg.Role), "assistant") && len(msg.ThinkingBlocks) > 0 {
 			thinkingBlocks := anthropicBlocksFromThinkingBlocks(msg.ThinkingBlocks)
 			blocks = append(thinkingBlocks, blocks...)
 		}
+
 		if strings.EqualFold(strings.TrimSpace(msg.Role), "assistant") && len(msg.ToolCalls) > 0 {
 			toolBlocks, toolErr := anthropicBlocksFromToolCalls(msg.ToolCalls)
 			if toolErr != nil {
 				return anthropicRequest{}, toolErr
 			}
+
 			if len(blocks) == 1 && blocks[0].Type == "text" && strings.TrimSpace(blocks[0].Text) == "" {
 				blocks = nil
 			}
+
 			blocks = append(blocks, toolBlocks...)
 		}
+
 		if msg.Role == "system" {
 			for _, block := range blocks {
 				if block.Type != "text" {
 					return anthropicRequest{}, fmt.Errorf("system messages only support text content")
 				}
+
 				anthReq.System = append(anthReq.System, block)
 			}
+
 			continue
 		}
+
 		role := strings.ToLower(strings.TrimSpace(msg.Role))
 		if role == "tool" {
 			if strings.TrimSpace(msg.ToolCallID) == "" {
 				return anthropicRequest{}, fmt.Errorf("tool message requires tool_call_id")
 			}
+
 			role = "user"
 			blocks = []anthropicContentBlock{{
 				Type:      "tool_result",
@@ -1144,9 +1369,11 @@ func convertToAnthropicRequest(
 				Content:   anthropicToolResultContent(msg.Content),
 			}}
 		}
+
 		if role != "user" && role != "assistant" {
 			return anthropicRequest{}, fmt.Errorf("unsupported anthropic message role %q", msg.Role)
 		}
+
 		anthReq.Messages = append(anthReq.Messages, anthropicMessage{
 			Role:    role,
 			Content: blocks,
@@ -1169,6 +1396,43 @@ func convertToAnthropicRequest(
 	return anthReq, nil
 }
 
+func anthropicPassThroughDecodingFields(fields map[string]json.RawMessage) map[string]json.RawMessage {
+	var result map[string]json.RawMessage
+
+	for key, value := range fields {
+		if !contractsopenai.IsModelDecodingPassThroughParameter(key) || key == "stop" {
+			continue
+		}
+
+		if result == nil {
+			result = make(map[string]json.RawMessage)
+		}
+
+		result[key] = append(json.RawMessage(nil), value...)
+	}
+
+	return result
+}
+
+func anthropicRawStopSequences(raw json.RawMessage) (json.RawMessage, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || trimmed[0] != '"' {
+		return append(json.RawMessage(nil), raw...), nil
+	}
+
+	var value string
+	if err := json.Unmarshal(trimmed, &value); err != nil {
+		return nil, fmt.Errorf("decode Anthropic stop sequence: %w", err)
+	}
+
+	mapped, err := json.Marshal([]string{value})
+	if err != nil {
+		return nil, fmt.Errorf("encode Anthropic stop_sequences: %w", err)
+	}
+
+	return mapped, nil
+}
+
 func anthropicStopSequences(value interface{}) ([]string, error) {
 	switch typed := value.(type) {
 	case nil:
@@ -1177,6 +1441,7 @@ func anthropicStopSequences(value interface{}) ([]string, error) {
 		if strings.TrimSpace(typed) == "" {
 			return nil, nil
 		}
+
 		return []string{typed}, nil
 	case []string:
 		return append([]string(nil), typed...), nil
@@ -1187,8 +1452,10 @@ func anthropicStopSequences(value interface{}) ([]string, error) {
 			if !ok {
 				return nil, fmt.Errorf("stop must contain only strings")
 			}
+
 			out = append(out, text)
 		}
+
 		return out, nil
 	default:
 		return nil, fmt.Errorf("stop must be a string or string array")
@@ -1203,16 +1470,19 @@ func anthropicTools(tools []contractsopenai.ToolDefinition, cacheControl map[str
 			if tool.Function == nil {
 				return nil, fmt.Errorf("tool %d requires function", index)
 			}
+
 			name := strings.TrimSpace(tool.Function.Name)
 			if name == "" {
 				return nil, fmt.Errorf("tool %d requires a name", index)
 			}
+
 			schema := tool.Function.Parameters
 			if schema == nil {
 				schema = map[string]interface{}{
 					"type": "object", "properties": map[string]interface{}{},
 				}
 			}
+
 			item := anthropicTool{
 				Name: name, Description: tool.Function.Description,
 				InputSchema: schema, Strict: tool.Function.Strict,
@@ -1220,19 +1490,24 @@ func anthropicTools(tools []contractsopenai.ToolDefinition, cacheControl map[str
 			if index == len(tools)-1 && len(cacheControl) > 0 {
 				item.CacheControl = cloneStringAnyMap(cacheControl)
 			}
+
 			out = append(out, item)
+
 			continue
 		}
+
 		if !isSupportedAnthropicServerToolType(toolType) {
 			return nil, fmt.Errorf(
 				"unsupported Anthropic server tool type %q",
 				tool.Type,
 			)
 		}
+
 		name := strings.TrimSpace(tool.Name)
 		if name == "" {
 			name = anthropicServerToolDefaultName(toolType)
 		}
+
 		item := anthropicTool{
 			Type: toolType, Name: name,
 			AllowedCallers: append([]string(nil), tool.AllowedCallers...),
@@ -1246,8 +1521,10 @@ func anthropicTools(tools []contractsopenai.ToolDefinition, cacheControl map[str
 			len(cacheControl) > 0 {
 			item.CacheControl = cloneStringAnyMap(cacheControl)
 		}
+
 		out = append(out, item)
 	}
+
 	return out, nil
 }
 
@@ -1264,6 +1541,7 @@ func isSupportedAnthropicServerToolType(value string) bool {
 		"code_execution_20260120": {},
 		"code_execution_20250825": {},
 	}[strings.ToLower(strings.TrimSpace(value))]
+
 	return ok
 }
 
@@ -1273,6 +1551,7 @@ func anthropicServerToolDefaultName(toolType string) string {
 			return name
 		}
 	}
+
 	return ""
 }
 
@@ -1282,8 +1561,10 @@ func anthropicToolChoiceFromOpenAI(value interface{}, parallel *bool) (*anthropi
 		if !disableParallel {
 			return nil, nil
 		}
+
 		return &anthropicToolChoice{Type: "auto", DisableParallelToolUse: true}, nil
 	}
+
 	if text, ok := value.(string); ok {
 		switch strings.ToLower(strings.TrimSpace(text)) {
 		case "auto":
@@ -1291,15 +1572,17 @@ func anthropicToolChoiceFromOpenAI(value interface{}, parallel *bool) (*anthropi
 		case "required", "any":
 			return &anthropicToolChoice{Type: "any", DisableParallelToolUse: disableParallel}, nil
 		case "none":
-			return nil, fmt.Errorf("Anthropic does not support tool_choice=none when tools are supplied")
+			return nil, fmt.Errorf("anthropic does not support tool_choice=none when tools are supplied")
 		default:
 			return nil, fmt.Errorf("unsupported tool_choice %q", text)
 		}
 	}
+
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tool_choice")
 	}
+
 	var object struct {
 		Type     string `json:"type"`
 		Function *struct {
@@ -1310,13 +1593,16 @@ func anthropicToolChoiceFromOpenAI(value interface{}, parallel *bool) (*anthropi
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return nil, fmt.Errorf("invalid tool_choice")
 	}
+
 	name := strings.TrimSpace(object.Name)
 	if object.Function != nil {
 		name = strings.TrimSpace(object.Function.Name)
 	}
+
 	if name == "" {
 		return nil, fmt.Errorf("named tool_choice requires function.name")
 	}
+
 	return &anthropicToolChoice{Type: "tool", Name: name, DisableParallelToolUse: disableParallel}, nil
 }
 
@@ -1327,9 +1613,11 @@ func anthropicMetadataFromOpenAI(metadata map[string]interface{}, user string) *
 			userID = strings.TrimSpace(value)
 		}
 	}
+
 	if userID == "" {
 		return nil
 	}
+
 	return &anthropicMetadata{UserID: userID}
 }
 
@@ -1346,11 +1634,13 @@ func anthropicOutputConfigFromOpenAI(
 		runtimeProfile.AllowsEffort(normalized) {
 		config.Effort = normalized
 	}
+
 	if responseFormat != nil {
 		raw, err := json.Marshal(responseFormat)
 		if err != nil {
 			return nil, fmt.Errorf("invalid response_format")
 		}
+
 		var format struct {
 			Type       string          `json:"type"`
 			JSONSchema json.RawMessage `json:"json_schema"`
@@ -1358,39 +1648,47 @@ func anthropicOutputConfigFromOpenAI(
 		if err := json.Unmarshal(raw, &format); err != nil {
 			return nil, fmt.Errorf("invalid response_format")
 		}
+
 		switch format.Type {
 		case "", "text":
 		case "json_schema":
 			if len(format.JSONSchema) == 0 || string(format.JSONSchema) == "null" {
 				return nil, fmt.Errorf("response_format.json_schema is required")
 			}
+
 			var envelope struct {
 				Schema json.RawMessage `json:"schema"`
 			}
 			if err := json.Unmarshal(format.JSONSchema, &envelope); err != nil {
 				return nil, fmt.Errorf("invalid response_format.json_schema")
 			}
+
 			schema := format.JSONSchema
 			if len(envelope.Schema) > 0 && string(envelope.Schema) != "null" {
 				schema = envelope.Schema
 			}
+
 			var preserved interface{}
 			if err := json.Unmarshal(schema, &preserved); err != nil {
 				return nil, fmt.Errorf("invalid response_format.json_schema.schema")
 			}
+
 			config.Format = map[string]interface{}{"type": "json_schema", "schema": preserved}
 		default:
 			return nil, fmt.Errorf("unsupported response_format type %q", format.Type)
 		}
 	}
+
 	if config.Format == nil {
 		if value, ok := output["format"]; ok {
 			config.Format = value
 		}
 	}
+
 	if config.Effort == "" && config.Format == nil {
 		return nil, nil
 	}
+
 	return config, nil
 }
 
@@ -1401,17 +1699,21 @@ func validateAnthropicRequestControls(
 	serviceTier = strings.ToLower(strings.TrimSpace(serviceTier))
 	speed = strings.ToLower(strings.TrimSpace(speed))
 	inferenceGeo = strings.ToLower(strings.TrimSpace(inferenceGeo))
+
 	if serviceTier != "" &&
 		!runtimeProfile.AllowsServiceTier(serviceTier) {
 		return fmt.Errorf("unsupported service_tier %q", serviceTier)
 	}
+
 	if inferenceGeo != "" &&
 		!runtimeProfile.AllowsInferenceGeo(inferenceGeo) {
 		return fmt.Errorf("unsupported inference_geo %q", inferenceGeo)
 	}
+
 	if speed != "" && !runtimeProfile.AllowsSpeed(speed) {
 		return fmt.Errorf("unsupported speed %q", speed)
 	}
+
 	return nil
 }
 
@@ -1438,12 +1740,14 @@ func anthropicBlocksFromToolCalls(calls []contractsopenai.ToolCall) ([]anthropic
 		if call.Function == nil {
 			return nil, fmt.Errorf("anthropic tool call requires a function")
 		}
+
 		var input interface{} = map[string]interface{}{}
 		if strings.TrimSpace(call.Function.Arguments) != "" {
 			if err := json.Unmarshal([]byte(call.Function.Arguments), &input); err != nil {
 				return nil, fmt.Errorf("tool call %q arguments must be valid JSON", call.ID)
 			}
 		}
+
 		out = append(out, anthropicContentBlock{
 			Type:  "tool_use",
 			ID:    call.ID,
@@ -1451,6 +1755,7 @@ func anthropicBlocksFromToolCalls(calls []contractsopenai.ToolCall) ([]anthropic
 			Input: input,
 		})
 	}
+
 	return out, nil
 }
 
@@ -1458,6 +1763,7 @@ func anthropicToolResultContent(content interface{}) interface{} {
 	if text := contractsopenai.ChatContentText(content); text != "" {
 		return text
 	}
+
 	return content
 }
 
@@ -1465,17 +1771,23 @@ func cloneStringAnyMap(input map[string]interface{}) map[string]interface{} {
 	if input == nil {
 		return nil
 	}
+
 	out := make(map[string]interface{}, len(input))
 	for key, value := range input {
 		out[key] = value
 	}
+
 	return out
 }
 
 func anthropicBlocksFromThinkingBlocks(blocks []contractsopenai.ThinkingBlock) []anthropicContentBlock {
 	out := make([]anthropicContentBlock, 0, len(blocks))
 	for _, block := range blocks {
-		blockType, _ := block["type"].(string)
+		blockType, ok := block["type"].(string)
+		if !ok {
+			continue
+		}
+
 		blockType = strings.TrimSpace(blockType)
 		switch blockType {
 		case "thinking":
@@ -1483,18 +1795,22 @@ func anthropicBlocksFromThinkingBlocks(blocks []contractsopenai.ThinkingBlock) [
 			if thinking, ok := block["thinking"].(string); ok {
 				item.Thinking = thinking
 			}
+
 			if signature, ok := block["signature"].(string); ok {
 				item.Signature = signature
 			}
+
 			out = append(out, item)
 		case "redacted_thinking":
 			item := anthropicContentBlock{Type: "redacted_thinking"}
 			if data, ok := block["data"].(string); ok {
 				item.Data = data
 			}
+
 			out = append(out, item)
 		}
 	}
+
 	return out
 }
 
@@ -1503,13 +1819,16 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 	if err != nil {
 		return nil, err
 	}
+
 	if !ok {
 		text := contractsopenai.ChatContentText(content)
 		if text == "" {
 			text = " "
 		}
+
 		return []anthropicContentBlock{{Type: "text", Text: text}}, nil
 	}
+
 	blocks := make([]anthropicContentBlock, 0, len(parts))
 	for _, part := range parts {
 		switch part.Type {
@@ -1517,11 +1836,13 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 			blocks = append(blocks, anthropicContentBlock{Type: "text", Text: part.Text})
 		case "image_url":
 			source := &anthropicSource{}
+
 			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(part.ImageURL.URL)), "data:") {
 				mediaType, data, err := contractsopenai.ParseImageDataURL(part.ImageURL.URL)
 				if err != nil {
 					return nil, err
 				}
+
 				source.Type = "base64"
 				source.MediaType = mediaType
 				source.Data = data
@@ -1529,9 +1850,11 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 				if !isHTTPURL(part.ImageURL.URL) {
 					return nil, fmt.Errorf("image_url must use https or a base64 data URL")
 				}
+
 				source.Type = "url"
 				source.URL = strings.TrimSpace(part.ImageURL.URL)
 			}
+
 			blocks = append(blocks, anthropicContentBlock{
 				Type:   "image",
 				Source: source,
@@ -1545,12 +1868,15 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 						FileID: strings.TrimSpace(part.File.FileID),
 					},
 				})
+
 				continue
 			}
+
 			mediaType, data, err := contractsopenai.ParseFileDataURL(part.File.FileData)
 			if err != nil {
 				return nil, err
 			}
+
 			blocks = append(blocks, anthropicContentBlock{
 				Type: "document",
 				Source: &anthropicSource{
@@ -1561,9 +1887,11 @@ func anthropicBlocksFromContent(content interface{}) ([]anthropicContentBlock, e
 			})
 		}
 	}
+
 	if len(blocks) == 0 {
 		blocks = append(blocks, anthropicContentBlock{Type: "text", Text: " "})
 	}
+
 	return blocks, nil
 }
 
@@ -1577,14 +1905,17 @@ func canonicalAnthropicModel(model string) string {
 	if model == "" {
 		return ""
 	}
+
 	if strings.Count(model, ":") == 2 {
 		parts := strings.SplitN(model, ":", 3)
 		model = strings.TrimSpace(parts[2])
 	}
+
 	const providerPrefix = "anthropic/"
 	if strings.HasPrefix(strings.ToLower(model), providerPrefix) {
 		return strings.TrimSpace(model[len(providerPrefix):])
 	}
+
 	return model
 }
 
@@ -1597,20 +1928,25 @@ func anthropicThinkingConfig(
 		if strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled") {
 			return nil, nil
 		}
+
 		cfg := *req.Thinking
 		if strings.TrimSpace(cfg.Type) == "" {
 			cfg.Type = "enabled"
 		}
+
 		if strings.EqualFold(cfg.Type, "adaptive") {
 			cfg.BudgetTokens = 0
 			return &cfg, nil
 		}
+
 		if !strings.EqualFold(cfg.Type, "enabled") {
 			return nil, fmt.Errorf("unsupported thinking type %q", cfg.Type)
 		}
+
 		if cfg.BudgetTokens <= 0 {
 			cfg.BudgetTokens = defaultAnthropicThinkingBudget(req.ReasoningEffort, maxTokens)
 		}
+
 		return &cfg, nil
 	}
 
@@ -1622,10 +1958,12 @@ func anthropicThinkingConfig(
 		if effort == "none" {
 			return nil, nil
 		}
+
 		return &contractsopenai.ThinkingConfig{Type: "adaptive"}, nil
 	case "disabled":
 		return nil, nil
 	}
+
 	if effort == "" || effort == "none" {
 		return nil, nil
 	}
@@ -1638,6 +1976,7 @@ func anthropicThinkingConfig(
 
 func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
 	budget := 2048
+
 	switch strings.ToLower(strings.TrimSpace(effort)) {
 	case "minimal", "low":
 		budget = 1024
@@ -1648,9 +1987,11 @@ func defaultAnthropicThinkingBudget(effort string, maxTokens int) int {
 	case "xhigh", "max":
 		budget = 8192
 	}
+
 	if maxTokens > 1024 && budget >= maxTokens {
 		return maxTokens - 1
 	}
+
 	return budget
 }
 
@@ -1673,10 +2014,12 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 
 	var reasoningContent strings.Builder
 	reasoningContent.Grow(reasoningSize)
+
 	thinkingBlocks := make([]contractsopenai.ThinkingBlock, 0)
 	toolCalls := make([]contractsopenai.ToolCall, 0)
 	citations := make([]interface{}, 0)
 	providerContent := make([]map[string]interface{}, 0)
+
 	for _, block := range resp.Content {
 		switch block.Type {
 		case "text":
@@ -1687,18 +2030,25 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 				thinkingBlock["thinking"] = block.Thinking
 				reasoningContent.WriteString(block.Thinking)
 			}
+
 			if block.Signature != "" {
 				thinkingBlock["signature"] = block.Signature
 			}
+
 			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
 		case "redacted_thinking":
 			thinkingBlock := contractsopenai.ThinkingBlock{"type": block.Type}
 			if block.Data != "" {
 				thinkingBlock["data"] = block.Data
 			}
+
 			thinkingBlocks = append(thinkingBlocks, thinkingBlock)
 		case "tool_use":
-			arguments, _ := json.Marshal(block.Input)
+			arguments, err := json.Marshal(block.Input)
+			if err != nil {
+				arguments = []byte("{}")
+			}
+
 			toolCalls = append(toolCalls, contractsopenai.ToolCall{
 				ID:   block.ID,
 				Type: "function",
@@ -1715,6 +2065,7 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 		default:
 			content.WriteString(block.Text)
 		}
+
 		citations = append(citations, block.Citations...)
 	}
 
@@ -1725,15 +2076,19 @@ func convertToOpenAIResponse(resp anthropicResponse, model string) *contractsope
 	if reasoningContent.Len() > 0 {
 		message.ReasoningContent = reasoningContent.String()
 	}
+
 	if len(thinkingBlocks) > 0 {
 		message.ThinkingBlocks = thinkingBlocks
 	}
+
 	if len(toolCalls) > 0 {
 		message.ToolCalls = toolCalls
 	}
+
 	if len(citations) > 0 {
 		message.Citations = citations
 	}
+
 	if len(providerContent) > 0 {
 		message.ProviderContent = providerContent
 	}

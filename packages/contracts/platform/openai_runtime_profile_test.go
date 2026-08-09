@@ -26,16 +26,20 @@ func TestOpenAIRuntimeProfileV3JSONParity(t *testing.T) {
 		"zdrEligible":false,
 		"limits":{"contextWindow":1050000,"maxInputTokens":0,"maxInputCharacters":0,"maxInputBytes":0,"maxOutputTokens":128000,"messagesBytes":33554432,"batchBytes":268435456,"fileBytes":524288000}
 	}`
+
 	var profile ModelRuntimeProfile
 	if err := json.Unmarshal([]byte(payload), &profile); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := profile.Validate(); err != nil {
 		t.Fatal(err)
 	}
+
 	if profile.Version != 3 || !profile.AllowsEndpoint("responses") || !profile.AllowsTransport("sse") || !profile.AllowsTool("tool_search") {
 		t.Fatalf("OpenAI runtime profile parity failed: %+v", profile)
 	}
+
 	if len(profile.ReferenceRateLimits) != 1 || profile.ReferenceRateLimits[0].BatchQueueTokens != 1500000 {
 		t.Fatalf("OpenAI rate-limit parity failed: %+v", profile.ReferenceRateLimits)
 	}

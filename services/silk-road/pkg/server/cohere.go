@@ -22,6 +22,7 @@ func (a *cohereAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	if path == audioTranscriptionsPath {
 		return cohereAudioTranscriptionsDispatch(ctx, client, payload)
 	}
+
 	if path != "/v2/rerank" && path != "/rerank" {
 		return nil, fmt.Errorf("cohere adapter only supports rerank and audio transcriptions")
 	}
@@ -35,20 +36,24 @@ func (a *cohereAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	if err != nil {
 		return nil, err
 	}
+
 	if contentType := strings.TrimSpace(payload.Headers["Content-Type"]); contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
+
 	applyDocumentedProviderHeaders(req, payload.Deployment)
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
+
 	return &adapterResponse{
 		StatusCode: resp.StatusCode,
 		Headers:    resp.Header,

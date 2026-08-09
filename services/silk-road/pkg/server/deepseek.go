@@ -254,15 +254,6 @@ func deepSeekOpaqueUserID(tenantID, accountID, secret string) (string, error) {
 	return userID, nil
 }
 
-func deepSeekRequestModel(payload platform.TunnelRequest) string {
-	var body map[string]json.RawMessage
-	if json.Unmarshal(payload.Body, &body) != nil {
-		return strings.ToLower(strings.TrimSpace(payload.Deployment.Model))
-	}
-
-	return deepSeekRequestModelFromDecoded(payload, body)
-}
-
 func deepSeekRequestModelFromDecoded(payload platform.TunnelRequest, body map[string]json.RawMessage) string {
 	model := strings.ToLower(strings.TrimSpace(payload.Deployment.Model))
 

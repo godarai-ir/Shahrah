@@ -55,6 +55,7 @@ func (a *deepgramAudioTranscriptionsAdapter) Dispatch(ctx context.Context, clien
 	if openAICompatiblePath(payload) != audioTranscriptionsPath {
 		return errorAdapterResponse(http.StatusBadRequest, "deepgram adapter only supports audio transcriptions"), nil
 	}
+
 	if payload.Stream {
 		return errorAdapterResponse(http.StatusBadRequest, "streaming audio transcriptions are not supported for provider: deepgram"), nil
 	}
@@ -111,7 +112,9 @@ func dispatchDeepgramAudioTranscription(
 	if err != nil {
 		return nil, err
 	}
+
 	req.Header.Set("Content-Type", audioFileContentType(form))
+
 	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
 		req.Header.Set("Authorization", "Token "+apiKey)
 	}
@@ -120,6 +123,7 @@ func dispatchDeepgramAudioTranscription(
 	if err != nil {
 		return nil, err
 	}
+
 	if resp.StatusCode >= http.StatusBadRequest {
 		return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 	}
@@ -131,6 +135,7 @@ func (a *googleVertexSpeechAdapter) Dispatch(ctx context.Context, client *http.C
 	if openAICompatiblePath(payload) != audioTranscriptionsPath {
 		return errorAdapterResponse(http.StatusBadRequest, "google vertex speech adapter only supports audio transcriptions"), nil
 	}
+
 	if payload.Stream {
 		return errorAdapterResponse(http.StatusBadRequest, "streaming audio transcriptions are not supported for provider: google-vertex"), nil
 	}
@@ -189,7 +194,9 @@ func dispatchGoogleVertexTranscription(
 
 		return nil, err
 	}
+
 	req.Header.Set("Content-Type", "application/json")
+
 	if token := deploymentBearerCredential(payload.Deployment); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -198,6 +205,7 @@ func dispatchGoogleVertexTranscription(
 	if err != nil {
 		return nil, err
 	}
+
 	if resp.StatusCode >= http.StatusBadRequest {
 		return &adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body}, nil
 	}
@@ -260,13 +268,16 @@ func dispatchCohereAudioTranscription(
 
 		return nil, err
 	}
+
 	req.Header.Set("Content-Type", contentType)
+
 	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
+
 	applyDocumentedProviderHeaders(req, payload.Deployment)
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
@@ -276,10 +287,12 @@ func dispatchCohereAudioTranscription(
 
 func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartPayload, error) {
 	contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type"))
+
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		return audioMultipartPayload{}, fmt.Errorf("invalid multipart content type: %w", err)
 	}
+
 	if !strings.EqualFold(mediaType, "multipart/form-data") || strings.TrimSpace(params["boundary"]) == "" {
 		return audioMultipartPayload{}, fmt.Errorf("multipart/form-data content type is required")
 	}
@@ -294,6 +307,7 @@ func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartP
 		if err == io.EOF {
 			break
 		}
+
 		if err != nil {
 			return audioMultipartPayload{}, fmt.Errorf("invalid multipart request body: %w", err)
 		}
@@ -317,6 +331,7 @@ func parseAudioMultipartPayload(payload platform.TunnelRequest) (audioMultipartP
 			out.File = data
 			out.Filename = part.FileName()
 			out.ContentType = strings.TrimSpace(part.Header.Get("Content-Type"))
+
 			continue
 		}
 
@@ -437,13 +452,16 @@ func deepgramListenURL(base string, model string, form audioMultipartPayload) (s
 	if err != nil {
 		return "", err
 	}
+
 	query := endpoint.Query()
 	query.Set("model", model)
+
 	for _, key := range []string{"language"} {
 		if value := strings.TrimSpace(firstAudioFormValue(form.Fields, key)); value != "" {
 			query.Set(key, value)
 		}
 	}
+
 	endpoint.RawQuery = query.Encode()
 
 	return endpoint.String(), nil
@@ -486,12 +504,14 @@ func writeCohereAudioMultipart(
 		if key == "model" || key == "model[]" || strings.HasPrefix(key, "model[") {
 			continue
 		}
+
 		for _, value := range values {
 			if err := writer.WriteField(key, value); err != nil {
 				return err
 			}
 		}
 	}
+
 	if err := writer.WriteField("model", stripProviderModelPrefix(deployment.Model, "cohere")); err != nil {
 		return err
 	}
@@ -511,6 +531,7 @@ func googleVertexRecognizeURL(deployment platform.Deployment) (string, error) {
 	if recognizerID == "" {
 		recognizerID = strings.TrimSpace(deployment.EndpointID)
 	}
+
 	if recognizerID == "" {
 		return "", fmt.Errorf("recognizer_id is required for google-vertex audio transcriptions")
 	}
@@ -525,6 +546,7 @@ func googleVertexRecognizeURL(deployment platform.Deployment) (string, error) {
 		if !strings.HasSuffix(resourcePath, ":recognize") {
 			resourcePath += ":recognize"
 		}
+
 		return joinURL(base, resourcePath), nil
 	}
 
@@ -550,7 +572,7 @@ func googleVertexRecognizeURL(deployment platform.Deployment) (string, error) {
 
 func createAudioFilePart(writer *multipart.Writer, field string, form audioMultipartPayload) (io.Writer, error) {
 	header := make(textproto.MIMEHeader)
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeMultipartQuoted(field), escapeMultipartQuoted(safeAudioFilename(form))))
+	header.Set("Content-Disposition", fmt.Sprintf("form-data; name=%q; filename=%q", escapeMultipartQuoted(field), escapeMultipartQuoted(safeAudioFilename(form))))
 	header.Set("Content-Type", audioFileContentType(form))
 
 	return writer.CreatePart(header)
@@ -565,6 +587,7 @@ func googleVertexRecognizeBody(
 	if model := strings.TrimSpace(stripProviderModelPrefix(deployment.Model, "google-vertex")); model != "" {
 		config["model"] = model
 	}
+
 	if language := strings.TrimSpace(firstAudioFormValue(form.Fields, "language")); language != "" {
 		config["languageCodes"] = []string{language}
 	}
@@ -624,36 +647,42 @@ func writeGoogleVertexRecognizeBody(
 }
 
 func normalizeDeepgramTranscriptionResponse(resp *http.Response) (*adapterResponse, error) {
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	text := deepgramTranscriptText(body)
+
 	out, err := json.Marshal(map[string]interface{}{"text": text})
 	if err != nil {
 		return nil, err
 	}
 
 	headers := normalizeJSONHeaders(resp.Header)
+
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: headers, Body: io.NopCloser(bytes.NewReader(out))}, nil
 }
 
 func normalizeGoogleVertexTranscriptionResponse(resp *http.Response) (*adapterResponse, error) {
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	text := googleVertexTranscriptText(body)
+
 	out, err := json.Marshal(map[string]interface{}{"text": text})
 	if err != nil {
 		return nil, err
 	}
 
 	headers := normalizeJSONHeaders(resp.Header)
+
 	return &adapterResponse{StatusCode: resp.StatusCode, Headers: headers, Body: io.NopCloser(bytes.NewReader(out))}, nil
 }
 
@@ -663,18 +692,35 @@ func deepgramTranscriptText(body []byte) string {
 		return ""
 	}
 
-	results, _ := raw["results"].(map[string]interface{})
-	channels, _ := results["channels"].([]interface{})
-	if len(channels) == 0 {
+	results, ok := raw["results"].(map[string]interface{})
+	if !ok {
 		return ""
 	}
-	channel, _ := channels[0].(map[string]interface{})
-	alternatives, _ := channel["alternatives"].([]interface{})
-	if len(alternatives) == 0 {
+
+	channels, ok := results["channels"].([]interface{})
+	if !ok || len(channels) == 0 {
 		return ""
 	}
-	alternative, _ := alternatives[0].(map[string]interface{})
-	text, _ := alternative["transcript"].(string)
+
+	channel, ok := channels[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	alternatives, ok := channel["alternatives"].([]interface{})
+	if !ok || len(alternatives) == 0 {
+		return ""
+	}
+
+	alternative, ok := alternatives[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	text, ok := alternative["transcript"].(string)
+	if !ok {
+		return ""
+	}
 
 	return text
 }
@@ -685,15 +731,28 @@ func googleVertexTranscriptText(body []byte) string {
 		return ""
 	}
 
-	results, _ := raw["results"].([]interface{})
+	results, ok := raw["results"].([]interface{})
+	if !ok {
+		return ""
+	}
+
 	parts := make([]string, 0, len(results))
 	for _, item := range results {
-		result, _ := item.(map[string]interface{})
-		alternatives, _ := result["alternatives"].([]interface{})
-		if len(alternatives) == 0 {
+		result, ok := item.(map[string]interface{})
+		if !ok {
 			continue
 		}
-		alternative, _ := alternatives[0].(map[string]interface{})
+
+		alternatives, ok := result["alternatives"].([]interface{})
+		if !ok || len(alternatives) == 0 {
+			continue
+		}
+
+		alternative, ok := alternatives[0].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
 		if transcript, ok := alternative["transcript"].(string); ok && strings.TrimSpace(transcript) != "" {
 			parts = append(parts, transcript)
 		}
@@ -703,12 +762,15 @@ func googleVertexTranscriptText(body []byte) string {
 }
 
 func errorAdapterResponse(status int, message string) *adapterResponse {
-	body, _ := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]interface{}{
 		"error": map[string]interface{}{
 			"message": message,
 			"type":    "invalid_request_error",
 		},
 	})
+	if err != nil {
+		body = []byte(`{"error":{"message":"response encoding failed","type":"api_error"}}`)
+	}
 
 	return &adapterResponse{
 		StatusCode: status,
@@ -747,6 +809,7 @@ func deploymentBearerCredential(deployment platform.Deployment) string {
 
 func stripProviderModelPrefix(model string, provider string) string {
 	model = strings.TrimSpace(model)
+
 	prefix := strings.Trim(strings.ToLower(provider), "/") + "/"
 	if strings.HasPrefix(strings.ToLower(model), prefix) {
 		return strings.TrimSpace(model[len(prefix):])

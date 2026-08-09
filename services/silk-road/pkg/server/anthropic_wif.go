@@ -45,6 +45,7 @@ func newAnthropicWIFManagerFromEnv() (*anthropicWIFManager, error) {
 	if !silkRoadFeatureEnabled("ANTHROPIC_WIF_ENABLED", true) {
 		return nil, errAnthropicWIFUnavailable
 	}
+
 	raw := strings.TrimSpace(os.Getenv("ANTHROPIC_WIF_SOURCES_JSON"))
 	if raw == "" {
 		return &anthropicWIFManager{
@@ -59,6 +60,7 @@ func newAnthropicWIFManagerFromEnv() (*anthropicWIFManager, error) {
 	if err := json.Unmarshal([]byte(raw), &sources); err != nil {
 		return nil, fmt.Errorf("%w: invalid source map", errAnthropicWIFUnavailable)
 	}
+
 	for id, path := range sources {
 		if strings.TrimSpace(id) == "" || !filepath.IsAbs(path) {
 			return nil, fmt.Errorf(
@@ -66,8 +68,10 @@ func newAnthropicWIFManagerFromEnv() (*anthropicWIFManager, error) {
 				errAnthropicWIFUnavailable,
 			)
 		}
+
 		sources[id] = filepath.Clean(path)
 	}
+
 	return &anthropicWIFManager{
 		sources:  sources,
 		cache:    map[string]anthropicWIFToken{},
@@ -81,7 +85,9 @@ func silkRoadFeatureEnabled(name string, fallback bool) bool {
 	if raw == "" {
 		return fallback
 	}
+
 	value, err := strconv.ParseBool(raw)
+
 	return err == nil && value
 }
 
@@ -95,20 +101,25 @@ func (m *anthropicWIFManager) token(
 	if m == nil || config == nil {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
+
 	cacheKey := anthropicWIFCacheKey(connectionID, config)
 
 	for {
 		m.mu.Lock()
 		refresh := false
+
 		if cached, ok := m.cache[cacheKey]; ok {
 			if cached.expiresAt.After(m.now().Add(60 * time.Second)) {
 				m.mu.Unlock()
 				return cached, nil
 			}
+
 			refresh = true
 		}
+
 		if wait, ok := m.inflight[cacheKey]; ok {
 			m.mu.Unlock()
+
 			select {
 			case <-ctx.Done():
 				return anthropicWIFToken{}, ctx.Err()
@@ -116,6 +127,7 @@ func (m *anthropicWIFManager) token(
 				continue
 			}
 		}
+
 		wait := make(chan struct{})
 		m.inflight[cacheKey] = wait
 		m.mu.Unlock()
@@ -124,16 +136,20 @@ func (m *anthropicWIFManager) token(
 		m.mu.Lock()
 		if err == nil {
 			m.cache[cacheKey] = token
+
 			anthropicWIFExchangeSuccess.Add(1)
+
 			if refresh {
 				anthropicWIFRefreshTotal.Add(1)
 			}
 		} else {
 			anthropicWIFExchangeFailure.Add(1)
 		}
+
 		close(wait)
 		delete(m.inflight, cacheKey)
 		m.mu.Unlock()
+
 		return token, err
 	}
 }
@@ -148,17 +164,22 @@ func (m *anthropicWIFManager) exchange(
 	if !ok {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
+
 	file, err := os.Open(sourcePath)
 	if err != nil {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
+
 	assertionBytes, readErr := io.ReadAll(io.LimitReader(file, 1024*1024+1))
-	_ = file.Close()
-	if readErr != nil || len(assertionBytes) == 0 || len(assertionBytes) > 1024*1024 {
+	closeErr := file.Close()
+
+	if readErr != nil || closeErr != nil || len(assertionBytes) == 0 || len(assertionBytes) > 1024*1024 {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
+
 	assertion := strings.TrimSpace(string(assertionBytes))
 	clear(assertionBytes)
+
 	if assertion == "" {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
@@ -175,6 +196,7 @@ func (m *anthropicWIFManager) exchange(
 	if config.WorkspaceID != "" {
 		form.Set("workspace_id", config.WorkspaceID)
 	}
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -184,23 +206,30 @@ func (m *anthropicWIFManager) exchange(
 	if err != nil {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := client.Do(req)
 	if err != nil {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
-	defer resp.Body.Close()
+	defer closeBody(resp.Body)
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
+		if _, copyErr := io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024)); copyErr != nil {
+			return anthropicWIFToken{}, errAnthropicWIFUnavailable
+		}
+
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
+
 	var payload anthropicWIFExchangeResponse
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1024*1024)).Decode(&payload); err != nil ||
 		strings.TrimSpace(payload.AccessToken) == "" ||
 		payload.ExpiresIn <= 60 {
 		return anthropicWIFToken{}, errAnthropicWIFUnavailable
 	}
+
 	return anthropicWIFToken{
 		accessToken: payload.AccessToken,
 		expiresAt:   m.now().Add(time.Duration(payload.ExpiresIn) * time.Second),
@@ -216,6 +245,7 @@ func anthropicWIFCacheKey(
 	if config == nil {
 		return ""
 	}
+
 	return strings.Join([]string{
 		connectionID,
 		config.FederationRuleID,
@@ -231,14 +261,19 @@ func (m *anthropicWIFManager) status(
 	if m == nil || config == nil {
 		return anthropicWIFToken{}, false
 	}
+
 	cacheKey := anthropicWIFCacheKey(connectionID, config)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	token, ok := m.cache[cacheKey]
 	if !ok {
 		return anthropicWIFToken{}, false
 	}
+
 	token.accessToken = ""
 	token.scopes = append([]string(nil), token.scopes...)
+
 	return token, true
 }

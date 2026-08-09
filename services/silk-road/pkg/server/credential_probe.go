@@ -26,6 +26,7 @@ func dispatchCredentialProbe(
 	if err != nil {
 		return nil, err
 	}
+
 	if client == nil {
 		client = &http.Client{}
 	}
@@ -39,6 +40,7 @@ func dispatchCredentialProbe(
 	if secret == "" {
 		return nil, fmt.Errorf("credential probe auth material is unavailable")
 	}
+
 	switch spec.auth {
 	case "api-key":
 		req.Header.Set("api-key", secret)
@@ -49,10 +51,11 @@ func dispatchCredentialProbe(
 	default:
 		return nil, fmt.Errorf("credential probe auth mode is unsupported")
 	}
+
 	req.Header.Set("Accept", "application/json")
 	applyDocumentedProviderHeaders(req, payload.Deployment)
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +70,7 @@ func dispatchCredentialProbe(
 func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec, error) {
 	provider := normalizeCredentialProbeProvider(deployment.Provider)
 	base := strings.TrimRight(strings.TrimSpace(deployment.APIBase), "/")
+
 	var spec credentialProbeSpec
 
 	switch provider {
@@ -74,6 +78,7 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 		if base == "" {
 			return credentialProbeSpec{}, fmt.Errorf("provider api_base is required")
 		}
+
 		if strings.Contains(strings.ToLower(base), "/openai/v1") {
 			spec = credentialProbeSpec{url: base + "/models", auth: "api-key"}
 		} else {
@@ -81,6 +86,7 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 			if version == "" {
 				version = "2024-10-21"
 			}
+
 			spec = credentialProbeSpec{
 				url:  base + "/openai/models?api-version=" + url.QueryEscape(version),
 				auth: "api-key",
@@ -92,12 +98,14 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 		if base == "" {
 			base = "https://api.cohere.com"
 		}
+
 		spec = credentialProbeSpec{url: base + "/v1/models", auth: "bearer"}
 	case "databricks":
 		parsed, err := url.Parse(base)
 		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" {
 			return credentialProbeSpec{}, fmt.Errorf("provider api_base is invalid")
 		}
+
 		parsed.Path = "/api/2.0/serving-endpoints"
 		parsed.RawPath, parsed.RawQuery, parsed.Fragment = "", "", ""
 		spec = credentialProbeSpec{url: parsed.String(), auth: "bearer"}
@@ -109,6 +117,7 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com"
 		}
+
 		lower := strings.ToLower(base)
 		for _, suffix := range []string{"/v1beta/openai", "/v1/openai", "/v1beta", "/v1"} {
 			if strings.HasSuffix(lower, suffix) {
@@ -116,6 +125,7 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 				break
 			}
 		}
+
 		spec = credentialProbeSpec{url: base + "/v1beta/models?pageSize=1", auth: "x-goog-api-key"}
 	case "groq":
 		spec = credentialModelsProbe(base, "https://api.groq.com/openai/v1")
@@ -131,6 +141,7 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 		if base == "" {
 			return credentialProbeSpec{}, fmt.Errorf("provider api_base is required")
 		}
+
 		spec = credentialModelsProbe(base, "")
 	case "together-ai":
 		spec = credentialModelsProbe(base, "https://api.together.xyz/v1")

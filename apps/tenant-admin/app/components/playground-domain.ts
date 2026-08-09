@@ -181,7 +181,7 @@ export function createDefaultImageConfig(): PlaygroundImageConfig {
 export function createDefaultConfig(): PlaygroundConfig {
   return {
     stream: true,
-    temperature: "0.2",
+    temperature: "",
     topP: "",
     maxTokens: "",
     stop: "",
@@ -557,8 +557,6 @@ function buildParameters(column: PlaygroundColumnDraft, includeStructured: boole
 
 function validateRawParameters(parameters: Record<string, unknown>): { ok: true } | PlaygroundDomainFailure {
   if (parameters.stream !== undefined && typeof parameters.stream !== "boolean") return failure("validation.jsonParameterType", { name: "stream" });
-  if (parameters.temperature !== undefined && (typeof parameters.temperature !== "number" || !Number.isFinite(parameters.temperature) || parameters.temperature < 0 || parameters.temperature > 2)) return failure("validation.temperatureRange");
-  if (parameters.top_p !== undefined && (typeof parameters.top_p !== "number" || !Number.isFinite(parameters.top_p) || parameters.top_p < 0 || parameters.top_p > 1)) return failure("validation.topPRange");
   if (parameters.max_tokens !== undefined && (typeof parameters.max_tokens !== "number" || !Number.isInteger(parameters.max_tokens) || parameters.max_tokens < 1)) return failure("validation.maxTokensPositive");
   if (parameters.reasoning_effort !== undefined && typeof parameters.reasoning_effort !== "string") return failure("validation.jsonParameterType", { name: "reasoning_effort" });
   if (parameters.parallel_tool_calls !== undefined && typeof parameters.parallel_tool_calls !== "boolean") return failure("validation.jsonParameterType", { name: "parallel_tool_calls" });
@@ -652,8 +650,8 @@ function validateNumericParameters(config: PlaygroundConfig): { ok: true } | Pla
   const temperature = optionalNumber(config.temperature);
   const topP = optionalNumber(config.topP);
   const maxTokens = optionalNumber(config.maxTokens);
-  if (temperature.invalid || (temperature.value !== undefined && (temperature.value < 0 || temperature.value > 2))) return failure("validation.temperatureRange");
-  if (topP.invalid || (topP.value !== undefined && (topP.value < 0 || topP.value > 1))) return failure("validation.topPRange");
+  if (temperature.invalid) return failure("validation.jsonParameterType", { name: "temperature" });
+  if (topP.invalid) return failure("validation.jsonParameterType", { name: "top_p" });
   if (maxTokens.invalid || (maxTokens.value !== undefined && (!Number.isInteger(maxTokens.value) || maxTokens.value < 1))) return failure("validation.maxTokensPositive");
   if (config.cacheEnabled && (!Number.isInteger(Number(config.cacheTTL)) || Number(config.cacheTTL) < 1)) return failure("validation.cacheTTLPositive");
   if (config.cacheEnabled && config.cacheType === "smart" && (Number(config.cacheSimilarity) < 0.8 || Number(config.cacheSimilarity) > 1)) return failure("validation.cacheSimilarityRange");

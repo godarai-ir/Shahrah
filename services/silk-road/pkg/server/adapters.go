@@ -76,10 +76,12 @@ func newProviderRegistry() *providerRegistry {
 
 func (r *providerRegistry) adapterFor(provider string) (providerAdapter, error) {
 	normalized := normalizeProvider(provider)
+
 	adapter, ok := r.adapters[normalized]
 	if !ok {
 		return nil, fmt.Errorf("unsupported provider %q", provider)
 	}
+
 	return adapter, nil
 }
 

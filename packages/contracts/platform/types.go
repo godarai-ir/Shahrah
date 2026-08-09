@@ -459,6 +459,7 @@ func (p *CreateKeyParams) Normalize() {
 	if p.OrgUnitID == "" {
 		p.OrgUnitID = p.OrgID
 	}
+
 	if p.OrgID == "" {
 		p.OrgID = p.OrgUnitID
 	}
@@ -466,6 +467,7 @@ func (p *CreateKeyParams) Normalize() {
 	if len(p.AllowedModels) == 0 && len(p.Models) > 0 {
 		p.AllowedModels = append([]string(nil), p.Models...)
 	}
+
 	if len(p.Models) == 0 && len(p.AllowedModels) > 0 {
 		p.Models = append([]string(nil), p.AllowedModels...)
 	}
@@ -478,6 +480,7 @@ func (p *CreateKeyParams) Normalize() {
 			p.KeyType = KeyTypePAT
 		}
 	}
+
 	if p.Role == "" {
 		switch p.KeyType {
 		case KeyTypeVAT:

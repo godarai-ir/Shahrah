@@ -3,7 +3,6 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"strings"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
@@ -66,7 +65,7 @@ func validateMoonshotChatRuntimeProfile(
 		return err
 	}
 
-	if err := validateMoonshotSamplingRequest(req, model); err != nil {
+	if err := validateMoonshotFixedAdditionalFields(req.AdditionalFields); err != nil {
 		return err
 	}
 
@@ -140,52 +139,11 @@ func validateMoonshotThinkingRequest(
 	return nil
 }
 
-func validateMoonshotSamplingRequest(
-	req contractsopenai.ChatCompletionRequest,
-	model string,
-) error {
-	if model == "kimi-k3" {
-		if req.Temperature != nil {
-			return fmt.Errorf("kimi-k3 does not accept temperature")
-		}
-
-		if req.TopP != nil {
-			return fmt.Errorf("kimi-k3 does not accept top_p")
-		}
-
-		return validateMoonshotFixedAdditionalFields(req.AdditionalFields)
-	}
-
-	expectedTemperature := 1.0
-	if model == "kimi-k2.6" && req.Thinking != nil && strings.EqualFold(req.Thinking.Type, "disabled") {
-		expectedTemperature = 0.6
-	}
-
-	if req.Temperature != nil && math.Abs(*req.Temperature-expectedTemperature) > 1e-9 {
-		return fmt.Errorf("temperature must equal %g for the selected Moonshot mode", expectedTemperature)
-	}
-
-	if req.TopP != nil && math.Abs(*req.TopP-0.95) > 1e-9 {
-		return fmt.Errorf("top_p must equal 0.95 for the selected Moonshot model")
-	}
-
-	return validateMoonshotFixedAdditionalFields(req.AdditionalFields)
-}
-
 func validateMoonshotFixedAdditionalFields(fields map[string]json.RawMessage) error {
 	if raw := fields["n"]; len(raw) > 0 {
 		var value int
 		if json.Unmarshal(raw, &value) != nil || value != 1 {
 			return fmt.Errorf("n must equal 1 for Moonshot models")
-		}
-	}
-
-	for _, parameter := range []string{"presence_penalty", "frequency_penalty"} {
-		if raw := fields[parameter]; len(raw) > 0 {
-			var value float64
-			if json.Unmarshal(raw, &value) != nil || value != 0 {
-				return fmt.Errorf("%s must equal 0 for Moonshot models", parameter)
-			}
 		}
 	}
 

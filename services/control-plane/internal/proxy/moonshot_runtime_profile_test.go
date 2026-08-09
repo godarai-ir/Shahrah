@@ -36,17 +36,17 @@ func TestMoonshotRuntimeProfileEnforcesPerModelThinking(t *testing.T) {
 	), "always has thinking enabled")
 }
 
-func TestMoonshotRuntimeProfileEnforcesSamplingAndToolChoice(t *testing.T) {
+func TestMoonshotRuntimeProfilePassesSamplingAndEnforcesToolChoice(t *testing.T) {
 	binding := moonshotProxyRuntimeProfile("kimi-k2.6")
 	wrongTemperature := 1.0
-	require.ErrorContains(t, validateMoonshotChatRuntimeProfile(
+	require.NoError(t, validateMoonshotChatRuntimeProfile(
 		contractsopenai.ChatCompletionRequest{
 			Messages:    []contractsopenai.ChatMessage{{Role: "user", Content: "hello"}},
 			Thinking:    &contractsopenai.ThinkingConfig{Type: "disabled"},
 			Temperature: &wrongTemperature,
 		},
 		&binding,
-	), "temperature must equal 0.6")
+	))
 
 	require.ErrorContains(t, validateMoonshotChatRuntimeProfile(
 		contractsopenai.ChatCompletionRequest{

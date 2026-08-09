@@ -17,6 +17,7 @@ func TestXAIRegistryUsesDedicatedAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if _, ok := adapter.(*xaiAdapter); !ok {
 		t.Fatalf("expected dedicated xAI adapter, got %T", adapter)
 	}
@@ -24,19 +25,37 @@ func TestXAIRegistryUsesDedicatedAdapter(t *testing.T) {
 
 func TestXAIDispatchForwardsAllowlistedConversationHeader(t *testing.T) {
 	var gotAuth, gotConversationID string
+
+	var gotBody []byte
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/chat/completions" {
 			t.Errorf("unexpected path %s", r.URL.Path)
 			return
 		}
+
 		gotAuth = r.Header.Get("Authorization")
 		gotConversationID = r.Header.Get("x-grok-conv-id")
+
+		var readErr error
+
+		gotBody, readErr = io.ReadAll(r.Body)
+		if readErr != nil {
+			t.Errorf("read request: %v", readErr)
+		}
+
 		w.Header().Set("x-request-id", "xai-request-1")
 		_, _ = io.WriteString(w, `{"id":"chatcmpl_xai","usage":{"cost_in_usd_ticks":125000}}`)
 	}))
 	defer server.Close()
 
-	payload := xaiTestPayload("grok-4.5", platform.ProviderOperationChatCompletions, `{"model":"grok-4.5-latest","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"low"}`)
+	payload := xaiTestPayload("grok-4.5", platform.ProviderOperationChatCompletions, `{
+		"model":"grok-4.5-latest","messages":[{"role":"user","content":"hi"}],
+		"reasoning_effort":"low","temperature":7.25,"top_p":-0.5,"top_k":"native",
+		"presence_penalty":3,"frequency_penalty":-4,"seed":"stable","random_seed":42,
+		"stop":{"provider":"native"},"logit_bias":{"42":100},
+		"logprobs":"provider-default","top_logprobs":99
+	}`)
 	payload.Deployment.APIBase = server.URL
 	payload.Deployment.APIKey = "xai-secret"
 	payload.Headers = map[string]string{
@@ -48,18 +67,31 @@ func TestXAIDispatchForwardsAllowlistedConversationHeader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			t.Errorf("close response: %v", closeErr)
+		}
+	}()
+
 	if gotAuth != "Bearer xai-secret" || gotConversationID != "conversation-123" {
 		t.Fatalf("unexpected forwarded headers auth=%q conversation=%q", gotAuth, gotConversationID)
 	}
+
 	if response.Headers.Get("x-request-id") != "xai-request-1" {
 		t.Fatalf("expected xAI request id to be preserved")
+	}
+
+	for _, name := range []string{"temperature", "top_p", "top_k", "presence_penalty", "frequency_penalty", "seed", "random_seed", "stop", "logit_bias", "logprobs", "top_logprobs"} {
+		if !strings.Contains(string(gotBody), `"`+name+`"`) {
+			t.Fatalf("%s was not relayed: %s", name, gotBody)
+		}
 	}
 }
 
 func TestXAIDispatchFailsClosedWithoutRuntimeProfile(t *testing.T) {
 	payload := xaiTestPayload("grok-4.5", platform.ProviderOperationChatCompletions, `{"model":"grok-4.5","messages":[]}`)
 	payload.ModelRuntimeProfiles = nil
+
 	_, err := newXAIAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 	if err == nil || !strings.Contains(err.Error(), "xai_runtime_profile_missing") {
 		t.Fatalf("expected missing profile error, got %v", err)
@@ -151,14 +183,6 @@ func TestXAIChatRejectsModelSpecificUnsupportedParameters(t *testing.T) {
 			body: `{"model":"grok-4.5","messages":[],"reasoning_effort":"none"}`,
 			want: "xai_unsupported_reasoning_effort",
 		},
-		"logprobs are rejected": {
-			body: `{"model":"grok-4.5","messages":[],"logprobs":true}`,
-			want: "xai_unsupported_parameter: logprobs",
-		},
-		"presence penalty is rejected": {
-			body: `{"model":"grok-4.5","messages":[],"presence_penalty":0.2}`,
-			want: "xai_unsupported_parameter: presence_penalty",
-		},
 		"developer role is probe gated": {
 			body: `{"model":"grok-4.5","messages":[{"role":"developer","content":"policy"}]}`,
 			want: "xai_unsupported_message_role: developer",
@@ -174,6 +198,7 @@ func TestXAIChatRejectsModelSpecificUnsupportedParameters(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			payload := xaiTestPayload("grok-4.5", platform.ProviderOperationChatCompletions, test.body)
+
 			_, err := newXAIAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected %q, got %v", test.want, err)
@@ -185,12 +210,14 @@ func TestXAIChatRejectsModelSpecificUnsupportedParameters(t *testing.T) {
 func TestXAIImageEditsRequireJSONAndVariationsAreRejected(t *testing.T) {
 	payload := xaiTestPayload("grok-imagine-image-quality", platform.ProviderOperationOpenAIImagesEdits, `{"model":"grok-imagine-image-quality","prompt":"edit"}`)
 	payload.Headers = map[string]string{"Content-Type": "multipart/form-data; boundary=test"}
+
 	_, err := newXAIAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 	if err == nil || !strings.Contains(err.Error(), "xai_image_edits_require_json") {
 		t.Fatalf("expected JSON-only edit error, got %v", err)
 	}
 
 	payload.Operation = platform.ProviderOperationOpenAIImagesVariations
+
 	_, err = newXAIAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 	if err == nil || !strings.Contains(err.Error(), "xai_unsupported_operation") {
 		t.Fatalf("expected variations rejection, got %v", err)
@@ -209,11 +236,6 @@ func TestXAIResponsesEnforcesModelSpecificRolesAndParameters(t *testing.T) {
 			want: "xai_unsupported_message_role: developer",
 		},
 		{
-			name: "4.5 presence penalty is rejected",
-			body: `{"model":"grok-4.5","input":"hello","presence_penalty":0.2}`,
-			want: "xai_unsupported_parameter: presence_penalty",
-		},
-		{
 			name: "unknown server tool is rejected",
 			body: `{"model":"grok-4.5","input":"hello","tools":[{"type":"unknown_search"}]}`,
 			want: "xai_unsupported_tool: unknown_search",
@@ -222,6 +244,7 @@ func TestXAIResponsesEnforcesModelSpecificRolesAndParameters(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			payload := xaiTestPayload("grok-4.5", platform.ProviderOperationOpenAIResponsesCreate, test.body)
+
 			_, err := newXAIAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected %q, got %v", test.want, err)
@@ -241,13 +264,28 @@ func TestXAIImageAdapterEnforcesControls(t *testing.T) {
 		{name: "invalid count", operation: platform.ProviderOperationOpenAIImagesGenerations, body: `{"model":"grok-imagine-image-quality","prompt":"hi","n":0}`, want: "xai_invalid_image_count"},
 		{name: "streaming rejected", operation: platform.ProviderOperationOpenAIImagesGenerations, body: `{"model":"grok-imagine-image-quality","prompt":"hi","stream":true}`, want: "xai_image_streaming_unsupported"},
 		{name: "edit reference required", operation: platform.ProviderOperationOpenAIImagesEdits, body: `{"model":"grok-imagine-image-quality","prompt":"hi"}`, want: "xai_image_reference_required"},
-		{name: "too many references", operation: platform.ProviderOperationOpenAIImagesEdits, body: `{"model":"grok-imagine-image-quality","prompt":"hi","images":[{"url":"https://example.test/1.png"},{"url":"https://example.test/2.png"},{"url":"https://example.test/3.png"},{"url":"https://example.test/4.png"}]}`, want: "xai_too_many_image_references"},
+		{
+			name:      "too many references",
+			operation: platform.ProviderOperationOpenAIImagesEdits,
+			body: `{
+				"model":"grok-imagine-image-quality",
+				"prompt":"hi",
+				"images":[
+					{"url":"https://example.test/1.png"},
+					{"url":"https://example.test/2.png"},
+					{"url":"https://example.test/3.png"},
+					{"url":"https://example.test/4.png"}
+				]
+			}`,
+			want: "xai_too_many_image_references",
+		},
 		{name: "unknown parameter", operation: platform.ProviderOperationOpenAIImagesGenerations, body: `{"model":"grok-imagine-image-quality","prompt":"hi","quality":"hd"}`, want: "xai_unsupported_image_parameter: quality"},
 		{name: "ambiguous reference", operation: platform.ProviderOperationOpenAIImagesEdits, body: `{"model":"grok-imagine-image-quality","prompt":"hi","image":{"url":"https://example.test/a.png","file_id":"file_a"}}`, want: "xai_invalid_image_reference"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			payload := xaiTestPayload("grok-imagine-image-quality", test.operation, test.body)
+
 			_, err := newXAIAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected %q, got %v", test.want, err)
@@ -285,6 +323,7 @@ func TestXAIImageStorageOptionsEnforceProviderContract(t *testing.T) {
 			}
 		})
 	}
+
 	for _, body := range []string{
 		`{"filename":"image.png"}`,
 		`{"filename":"image.png","public_url":true}`,
@@ -298,6 +337,7 @@ func TestXAIImageStorageOptionsEnforceProviderContract(t *testing.T) {
 
 func TestXAIRejectsArbitraryCompatibleOperations(t *testing.T) {
 	payload := xaiTestPayload("grok-4.5", platform.ProviderOperationOpenAICompletions, `{"model":"grok-4.5"}`)
+
 	_, err := newXAIAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 	if err == nil || !strings.Contains(err.Error(), "xai_unsupported_operation") {
 		t.Fatalf("expected fixed operation rejection, got %v", err)
@@ -306,9 +346,11 @@ func TestXAIRejectsArbitraryCompatibleOperations(t *testing.T) {
 
 func TestXAIRawFileUploadAndPublicURLUseFixedPaths(t *testing.T) {
 	requests := make(chan string, 2)
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		requests <- r.Method + " " + r.URL.Path + " " + string(body)
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{}`)
 	}))
@@ -320,10 +362,12 @@ func TestXAIRawFileUploadAndPublicURLUseFixedPaths(t *testing.T) {
 		Deployment: platform.Deployment{Provider: "xai", APIBase: server.URL, APIKey: "secret"},
 		Headers:    map[string]string{"Content-Type": "multipart/form-data; boundary=test"},
 	}
+
 	response, err := adapter.DispatchRaw(context.Background(), server.Client(), upload, strings.NewReader("raw-file"), int64(len("raw-file")))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	response.Body.Close()
 
 	publicURL := platform.TunnelRequest{
@@ -333,15 +377,18 @@ func TestXAIRawFileUploadAndPublicURLUseFixedPaths(t *testing.T) {
 		Headers:        map[string]string{"Content-Type": "application/json"},
 		Body:           []byte(`{"expires_after":3600}`),
 	}
+
 	response, err = adapter.Dispatch(context.Background(), server.Client(), publicURL)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	response.Body.Close()
 
 	if got := <-requests; got != "POST /files raw-file" {
 		t.Fatalf("unexpected upload request %q", got)
 	}
+
 	if got := <-requests; got != `POST /files/file_xai/public-url {"expires_after":3600}` {
 		t.Fatalf("unexpected public URL request %q", got)
 	}
@@ -349,8 +396,10 @@ func TestXAIRawFileUploadAndPublicURLUseFixedPaths(t *testing.T) {
 
 func TestXAIBatchOperationsUseNativeRequestAndCancelPaths(t *testing.T) {
 	requests := make(chan string, 2)
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r.Method + " " + r.URL.RequestURI()
+
 		_, _ = io.WriteString(w, `{}`)
 	}))
 	defer server.Close()
@@ -358,10 +407,12 @@ func TestXAIBatchOperationsUseNativeRequestAndCancelPaths(t *testing.T) {
 	add := xaiTestPayload("grok-4.3", platform.ProviderOperationXAIBatchRequestsAdd, `{"batch_requests":[{"batch_request_id":"one","batch_request":{"chat_get_completion":{"model":"grok-4.3","messages":[]}}}]}`)
 	add.Deployment.APIBase = server.URL
 	add.OperationInput.ResourceID = "batch_1"
+
 	response, err := newXAIAdapter().Dispatch(context.Background(), server.Client(), add)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	response.Body.Close()
 
 	cancel := platform.TunnelRequest{
@@ -369,15 +420,18 @@ func TestXAIBatchOperationsUseNativeRequestAndCancelPaths(t *testing.T) {
 		OperationInput: platform.ProviderOperationInput{ResourceID: "batch_1"},
 		Deployment:     platform.Deployment{Provider: "xai", APIBase: server.URL},
 	}
+
 	response, err = newXAIAdapter().Dispatch(context.Background(), server.Client(), cancel)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	response.Body.Close()
 
 	if got := <-requests; got != "POST /batches/batch_1/requests" {
 		t.Fatalf("unexpected add request path %q", got)
 	}
+
 	if got := <-requests; got != "POST /batches/batch_1:cancel" {
 		t.Fatalf("unexpected cancel path %q", got)
 	}
@@ -385,13 +439,16 @@ func TestXAIBatchOperationsUseNativeRequestAndCancelPaths(t *testing.T) {
 
 func TestXAIRetriesOnlyIdempotentGETOperations(t *testing.T) {
 	attempts := 0
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
 		if attempts == 1 {
 			w.Header().Set("Retry-After", "0")
 			w.WriteHeader(http.StatusTooManyRequests)
+
 			return
 		}
+
 		_, _ = io.WriteString(w, `{}`)
 	}))
 	defer server.Close()
@@ -401,11 +458,14 @@ func TestXAIRetriesOnlyIdempotentGETOperations(t *testing.T) {
 		OperationInput: platform.ProviderOperationInput{ResourceID: "file_1"},
 		Deployment:     platform.Deployment{Provider: "xai", APIBase: server.URL},
 	}
+
 	response, err := newXAIAdapter().Dispatch(context.Background(), server.Client(), payload)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	response.Body.Close()
+
 	if attempts != 2 {
 		t.Fatalf("expected one safe retry, got %d attempts", attempts)
 	}
@@ -413,11 +473,14 @@ func TestXAIRetriesOnlyIdempotentGETOperations(t *testing.T) {
 	attempts = 0
 	payload.Operation = platform.ProviderOperationXAIFilePublicURLCreate
 	payload.Body = []byte(`{}`)
+
 	response, err = newXAIAdapter().Dispatch(context.Background(), server.Client(), payload)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	response.Body.Close()
+
 	if attempts != 1 || response.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("POST must not be retried: attempts=%d status=%d", attempts, response.StatusCode)
 	}
@@ -425,6 +488,7 @@ func TestXAIRetriesOnlyIdempotentGETOperations(t *testing.T) {
 
 func xaiTestPayload(model string, operation platform.ProviderOperation, body string) platform.TunnelRequest {
 	binding := xaiTestRuntimeProfile(model)
+
 	return platform.TunnelRequest{
 		Operation: operation,
 		Deployment: platform.Deployment{
@@ -448,6 +512,7 @@ func xaiTestRuntimeProfile(model string) platform.ModelRuntimeProfileBinding {
 	thinking := platform.ModelRuntimeThinkingProfile{DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, EffortValues: efforts, AlwaysEnabled: true}
 	imageControls := platform.ModelRuntimeImageControls{}
 	batchEndpoints := []string{"chat_completions", "responses"}
+
 	if isImage {
 		endpoints = []string{"models", "image_generation_models", "image_generations", "image_edits", "files", "file_public_urls", "batches", "batch_requests", "batch_results"}
 		transports = []string{"http"}
@@ -466,9 +531,11 @@ func xaiTestRuntimeProfile(model string) platform.ModelRuntimeProfileBinding {
 		}
 		batchEndpoints = []string{"image_generations", "image_edits"}
 	}
+
 	if model == "grok-4.5" {
 		aliases = []string{"grok-4.5-latest", "grok-build-latest"}
 	}
+
 	profile := platform.ModelRuntimeProfile{
 		Version:         3,
 		Aliases:         aliases,
@@ -495,6 +562,7 @@ func xaiTestRuntimeProfile(model string) platform.ModelRuntimeProfileBinding {
 		UnsupportedParameters: []string{"logprobs", "top_logprobs", "presence_penalty", "frequency_penalty", "stop"},
 		Limits:                platform.ModelRuntimeLimits{MessagesBytes: 32 * 1024 * 1024, BatchBytes: 25 * 1024 * 1024, FileBytes: 50_000_000},
 	}
+
 	return platform.ModelRuntimeProfileBinding{
 		Provider:        "xai",
 		CatalogRevision: "xai-test-revision",

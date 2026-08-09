@@ -21,7 +21,7 @@ func TestHealth(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(nil)
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -29,6 +29,7 @@ func TestHealth(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
+
 	if !strings.Contains(rec.Body.String(), `"service":"silk-road"`) {
 		t.Fatalf("unexpected health response body: %q", rec.Body.String())
 	}
@@ -38,8 +39,9 @@ func TestLiveAndReady(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(nil)
+
 	for _, path := range []string{"/live", "/ready"} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req := httptest.NewRequest(http.MethodGet, path, http.NoBody)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
@@ -53,14 +55,15 @@ func TestMetricsEndpointReportsRequests(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(nil)
-	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/live", nil))
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/live", http.NoBody))
 
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
+
 	body := rec.Body.String()
 	if !strings.Contains(body, "shahrah_transport_http_requests_total") ||
 		!strings.Contains(body, `service="silk-road"`) ||
@@ -72,21 +75,26 @@ func TestMetricsEndpointReportsRequests(t *testing.T) {
 func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 	t.Parallel()
 
-	var gotAuth string
-	var gotAccept string
-	var gotBody string
-	var gotPath string
+	var (
+		gotAuth   string
+		gotAccept string
+		gotBody   string
+		gotPath   string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		gotAccept = r.Header.Get("Accept")
+
 		gotPath = r.URL.Path
 		defer r.Body.Close()
+
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read body: %v", err)
 			return
 		}
+
 		gotBody = string(bodyBytes)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -105,6 +113,7 @@ func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 		},
 		Body: []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -112,21 +121,26 @@ func TestDispatchForwardsToDeploymentAPIBase(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
+
 	if gotPath != "/chat/completions" {
 		t.Fatalf("expected path /chat/completions, got %q", gotPath)
 	}
+
 	if gotAuth != "Bearer provider-secret" {
 		t.Fatalf("unexpected Authorization header: %q", gotAuth)
 	}
+
 	if gotAccept != "text/event-stream" {
 		t.Fatalf("unexpected Accept header: %q", gotAccept)
 	}
+
 	if !strings.Contains(gotBody, `"model":"gpt-4o-mini"`) {
 		t.Fatalf("unexpected forwarded body: %q", gotBody)
 	}
@@ -139,11 +153,13 @@ func TestDispatchForwardsOpenAICompatibleToolsPayload(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read body: %v", err)
 			return
 		}
+
 		gotBody = string(bodyBytes)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -166,8 +182,19 @@ func TestDispatchForwardsOpenAICompatibleToolsPayload(t *testing.T) {
 			APIBase:  upstream.URL,
 			APIKey:   "provider-secret",
 		},
-		Body: []byte(`{"model":"gpt-4o-mini","parallel_tool_calls":false,"messages":[{"role":"user","content":"status?"},{"role":"tool","tool_call_id":"call_prev","content":"{\"status\":\"delivered\"}"}],"response_format":{"type":"json_schema","json_schema":{"name":"order_status","strict":true,"schema":{"type":"object","properties":{"status":{"type":"string"}},"required":["status"],"additionalProperties":false}}},"tools":[{"type":"function","function":{"name":"get_order_status","strict":true,"parameters":{"type":"object"}}}],"tool_choice":{"type":"function","function":{"name":"get_order_status"}}}`),
+		Body: []byte(`{
+			"model":"gpt-4o-mini",
+			"parallel_tool_calls":false,
+			"messages":[
+				{"role":"user","content":"status?"},
+				{"role":"tool","tool_call_id":"call_prev","content":"{\"status\":\"delivered\"}"}
+			],
+			"response_format":{"type":"json_schema","json_schema":{"name":"order_status","strict":true,"schema":{"type":"object","properties":{"status":{"type":"string"}},"required":["status"],"additionalProperties":false}}},
+			"tools":[{"type":"function","function":{"name":"get_order_status","strict":true,"parameters":{"type":"object"}}}],
+			"tool_choice":{"type":"function","function":{"name":"get_order_status"}}
+		}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -175,17 +202,20 @@ func TestDispatchForwardsOpenAICompatibleToolsPayload(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	for _, want := range []string{`"tools"`, `"tool_choice"`, `"tool_call_id":"call_prev"`, `"parallel_tool_calls":false`, `"response_format"`, `"type":"json_schema"`, `"strict":true`} {
 		if !strings.Contains(gotBody, want) {
 			t.Fatalf("forwarded body missing %s: %s", want, gotBody)
 		}
 	}
+
 	if !strings.Contains(rec.Body.String(), `"tool_calls"`) || !strings.Contains(rec.Body.String(), `"finish_reason":"tool_calls"`) {
 		t.Fatalf("unexpected response: %s", rec.Body.String())
 	}
@@ -194,8 +224,10 @@ func TestDispatchForwardsOpenAICompatibleToolsPayload(t *testing.T) {
 func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 	t.Parallel()
 
-	var gotPath string
-	var gotClientRequestID string
+	var (
+		gotPath            string
+		gotClientRequestID string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
@@ -221,6 +253,7 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 		},
 		Body: []byte(`{"model":"gpt-4o","input":"hi"}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -228,15 +261,18 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
+
 	if gotPath != "/responses" {
 		t.Fatalf("expected path /responses, got %q", gotPath)
 	}
+
 	if gotClientRequestID != "client_req_1" {
 		t.Fatalf("expected X-Client-Request-Id to be forwarded, got %q", gotClientRequestID)
 	}
@@ -245,21 +281,26 @@ func TestDispatchUsesOpenAIEndpointOverride(t *testing.T) {
 func TestDispatchUsesCohereRerankAdapter(t *testing.T) {
 	t.Parallel()
 
-	var gotAuth string
-	var gotContentType string
-	var gotPath string
-	var gotBody string
+	var (
+		gotAuth        string
+		gotContentType string
+		gotPath        string
+		gotBody        string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		gotContentType = r.Header.Get("Content-Type")
+
 		gotPath = r.URL.Path
 		defer r.Body.Close()
+
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read body: %v", err)
 			return
 		}
+
 		gotBody = string(bodyBytes)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -281,6 +322,7 @@ func TestDispatchUsesCohereRerankAdapter(t *testing.T) {
 		},
 		Body: []byte(`{"model":"rerank-multilingual-v3.0","query":"q","documents":["a","b"],"top_n":1}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -288,26 +330,32 @@ func TestDispatchUsesCohereRerankAdapter(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/v2/rerank" {
 		t.Fatalf("expected Cohere rerank path, got %q", gotPath)
 	}
+
 	if gotAuth != "Bearer cohere-key" {
 		t.Fatalf("unexpected Authorization header: %q", gotAuth)
 	}
+
 	if gotContentType != "application/json" {
 		t.Fatalf("unexpected content type: %q", gotContentType)
 	}
+
 	for _, want := range []string{`"model":"rerank-multilingual-v3.0"`, `"query":"q"`, `"documents":["a","b"]`, `"top_n":1`} {
 		if !strings.Contains(gotBody, want) {
 			t.Fatalf("forwarded body missing %s: %s", want, gotBody)
 		}
 	}
+
 	if !strings.Contains(rec.Body.String(), `"results"`) || !strings.Contains(rec.Body.String(), `"relevance_score":0.99`) {
 		t.Fatalf("unexpected response: %s", rec.Body.String())
 	}
@@ -321,6 +369,7 @@ func TestDispatchMockProviderDisabledByDefault(t *testing.T) {
 		Deployment: platform.Deployment{Provider: "mock", Model: "mock-model"},
 		Body:       []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -328,6 +377,7 @@ func TestDispatchMockProviderDisabledByDefault(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -354,6 +404,7 @@ func TestDispatchMockProviderEnabled(t *testing.T) {
 		Deployment: platform.Deployment{ID: "deployment-loadtest", Provider: "mock", Model: "mock-model"},
 		Body:       []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -361,18 +412,22 @@ func TestDispatchMockProviderEnabled(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if got := rec.Header().Get("X-Shahrah-Mock-Provider"); got != "true" {
 		t.Fatalf("expected mock header, got %q", got)
 	}
+
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
 		t.Fatalf("unexpected mock response: %q", rec.Body.String())
 	}
+
 	if upstreamCalls != 0 {
 		t.Fatalf("expected no upstream requests, got %d", upstreamCalls)
 	}
@@ -407,6 +462,7 @@ func TestDispatchMockProviderFailsClosedOutsideAllowlist(t *testing.T) {
 				},
 				Body: []byte(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`),
 			}
+
 			body, err := json.Marshal(payload)
 			if err != nil {
 				t.Fatalf("marshal payload: %v", err)
@@ -414,12 +470,14 @@ func TestDispatchMockProviderFailsClosedOutsideAllowlist(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 			req.Header.Set("Content-Type", "application/json")
+
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusForbidden {
 				t.Fatalf("expected status %d, got %d with body %q", http.StatusForbidden, rec.Code, rec.Body.String())
 			}
+
 			if !strings.Contains(rec.Body.String(), `"code":"mock_provider_access_denied"`) {
 				t.Fatalf("unexpected mock denial: %q", rec.Body.String())
 			}
@@ -442,6 +500,7 @@ func TestDispatchMockProviderRerank(t *testing.T) {
 		},
 		Body: []byte(`{"model":"mock-rerank","query":"q","documents":["a","b"],"top_n":1}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -449,15 +508,18 @@ func TestDispatchMockProviderRerank(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if got := rec.Header().Get("X-Shahrah-Mock-Provider"); got != "true" {
 		t.Fatalf("expected mock header, got %q", got)
 	}
+
 	if !strings.Contains(rec.Body.String(), `"id":"rerank_mock"`) || !strings.Contains(rec.Body.String(), `"results"`) {
 		t.Fatalf("unexpected mock rerank response: %q", rec.Body.String())
 	}
@@ -478,6 +540,7 @@ func TestDispatchMockProviderEmbeddings(t *testing.T) {
 		},
 		Body: []byte(`{"model":"text-embedding-3-small","input":["one","two"]}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -485,15 +548,18 @@ func TestDispatchMockProviderEmbeddings(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d with body %q", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if !strings.Contains(rec.Body.String(), `"object":"list"`) {
 		t.Fatalf("unexpected mock response: %q", rec.Body.String())
 	}
+
 	if !strings.Contains(rec.Body.String(), `"index":1`) {
 		t.Fatalf("expected two embeddings, got %q", rec.Body.String())
 	}
@@ -502,11 +568,15 @@ func TestDispatchMockProviderEmbeddings(t *testing.T) {
 func TestDispatchOpenAICompatiblePreservesJSONContentTypeForImages(t *testing.T) {
 	t.Parallel()
 
-	var gotContentType string
-	var gotPath string
+	var (
+		gotContentType string
+		gotPath        string
+	)
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotContentType = r.Header.Get("Content-Type")
 		gotPath = r.URL.Path
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"created":1,"data":[]}`))
@@ -521,21 +591,26 @@ func TestDispatchOpenAICompatiblePreservesJSONContentTypeForImages(t *testing.T)
 		Headers:              map[string]string{"Content-Type": "application/json"},
 		Body:                 []byte(`{"model":"grok-imagine-image","prompt":"hi"}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
+
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/images/generations" {
 		t.Fatalf("expected image path, got %q", gotPath)
 	}
+
 	if gotContentType != "application/json" {
 		t.Fatalf("unexpected content type: %q", gotContentType)
 	}
@@ -551,11 +626,16 @@ func TestDispatchOpenAICompatiblePreservesMultipartContentTypeForImages(t *testi
 	t.Parallel()
 
 	const multipartType = "multipart/form-data; boundary=shahrah-test-boundary"
-	var gotContentType string
-	var gotPath string
+
+	var (
+		gotContentType string
+		gotPath        string
+	)
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotContentType = r.Header.Get("Content-Type")
 		gotPath = r.URL.Path
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"created":1,"data":[]}`))
@@ -571,21 +651,26 @@ func TestDispatchOpenAICompatiblePreservesMultipartContentTypeForImages(t *testi
 		},
 		Body: []byte("--shahrah-test-boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ngpt-image-1\r\n--shahrah-test-boundary--\r\n"),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
+
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/images/edits" {
 		t.Fatalf("expected image path, got %q", gotPath)
 	}
+
 	if gotContentType != multipartType {
 		t.Fatalf("unexpected content type: %q", gotContentType)
 	}
@@ -595,21 +680,27 @@ func TestDispatchOpenAICompatibleForwardsAudioTranscriptionsMultipart(t *testing
 	t.Parallel()
 
 	const multipartType = "multipart/form-data; boundary=shahrah-audio-boundary"
-	var gotAuth string
-	var gotContentType string
-	var gotPath string
-	var gotBody string
+
+	var (
+		gotAuth        string
+		gotContentType string
+		gotPath        string
+		gotBody        string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		gotContentType = r.Header.Get("Content-Type")
+
 		gotPath = r.URL.Path
 		defer r.Body.Close()
+
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read body: %v", err)
 			return
 		}
+
 		gotBody = string(bodyBytes)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -639,27 +730,34 @@ func TestDispatchOpenAICompatibleForwardsAudioTranscriptionsMultipart(t *testing
 			"",
 		}, "\r\n")),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
+
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/audio/transcriptions" {
 		t.Fatalf("expected audio transcription path, got %q", gotPath)
 	}
+
 	if gotContentType != multipartType {
 		t.Fatalf("unexpected content type: %q", gotContentType)
 	}
+
 	if gotAuth != "Bearer provider-secret" {
 		t.Fatalf("unexpected Authorization header: %q", gotAuth)
 	}
+
 	for _, want := range []string{`name="model"`, "whisper-large-v3", `name="file"; filename="sample.wav"`, "fake-audio"} {
 		if !strings.Contains(gotBody, want) {
 			t.Fatalf("forwarded body missing %s: %s", want, gotBody)
@@ -670,28 +768,33 @@ func TestDispatchOpenAICompatibleForwardsAudioTranscriptionsMultipart(t *testing
 func TestDispatchDeepgramAudioTranscriptionsAdapter(t *testing.T) {
 	t.Parallel()
 
-	var gotAuth string
-	var gotContentType string
-	var gotPath string
-	var gotModel string
-	var gotBody string
+	var (
+		gotAuth        string
+		gotContentType string
+		gotPath        string
+		gotModel       string
+		gotBody        string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		gotContentType = r.Header.Get("Content-Type")
 		gotPath = r.URL.Path
+
 		gotModel = r.URL.Query().Get("model")
 		defer r.Body.Close()
+
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read body: %v", err)
 			return
 		}
+
 		gotBody = string(bodyBytes)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"results":{"channels":[{"alternatives":[{"transcript":"سلام از دیپ‌گرام"}]}]}}`))
+		_, _ = w.Write([]byte("{\"results\":{\"channels\":[{\"alternatives\":[{\"transcript\":\"سلام از دیپ\u200cگرام\"}]}]}}"))
 	}))
 	defer upstream.Close()
 
@@ -711,22 +814,28 @@ func TestDispatchDeepgramAudioTranscriptionsAdapter(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/v1/listen" {
 		t.Fatalf("expected Deepgram listen path, got %q", gotPath)
 	}
+
 	if gotModel != "nova-3-general" {
 		t.Fatalf("expected stripped Deepgram model, got %q", gotModel)
 	}
+
 	if gotAuth != "Token deepgram-secret" {
 		t.Fatalf("unexpected Authorization header: %q", gotAuth)
 	}
+
 	if gotContentType != "audio/wav" {
 		t.Fatalf("unexpected content type: %q", gotContentType)
 	}
+
 	if gotBody != "fake-audio" {
 		t.Fatalf("unexpected body: %q", gotBody)
 	}
-	if !strings.Contains(rec.Body.String(), `"text":"سلام از دیپ‌گرام"`) {
+
+	if !strings.Contains(rec.Body.String(), "\"text\":\"سلام از دیپ\u200cگرام\"") {
 		t.Fatalf("expected normalized transcript response, got %s", rec.Body.String())
 	}
 }
@@ -799,34 +908,43 @@ func TestRawDispatchFallsBackForAdapterWithoutStreamingInterface(t *testing.T) {
 func TestDispatchCohereAudioTranscriptionsAdapter(t *testing.T) {
 	t.Parallel()
 
-	var gotAuth string
-	var gotPath string
-	var gotModel string
-	var gotLanguage string
-	var gotFile string
-	var gotFileContentType string
+	var (
+		gotAuth            string
+		gotPath            string
+		gotModel           string
+		gotLanguage        string
+		gotFile            string
+		gotFileContentType string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
+
 		gotPath = r.URL.Path
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
 			t.Errorf("parse multipart: %v", err)
 			return
 		}
+
 		gotModel = r.FormValue("model")
 		gotLanguage = r.FormValue("language")
+
 		file, header, err := r.FormFile("file")
 		if err != nil {
 			t.Errorf("read file: %v", err)
 			return
 		}
+
 		gotFileContentType = header.Header.Get("Content-Type")
+
 		defer file.Close()
+
 		bodyBytes, err := io.ReadAll(file)
 		if err != nil {
 			t.Errorf("read file body: %v", err)
 			return
 		}
+
 		gotFile = string(bodyBytes)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -851,24 +969,31 @@ func TestDispatchCohereAudioTranscriptionsAdapter(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/v2/audio/transcriptions" {
 		t.Fatalf("expected Cohere transcription path, got %q", gotPath)
 	}
+
 	if gotAuth != "Bearer cohere-secret" {
 		t.Fatalf("unexpected Authorization header: %q", gotAuth)
 	}
+
 	if gotModel != "cohere-transcribe-03-2026" {
 		t.Fatalf("expected stripped Cohere model, got %q", gotModel)
 	}
+
 	if gotLanguage != "fa" {
 		t.Fatalf("expected language fa, got %q", gotLanguage)
 	}
+
 	if gotFile != "fake-audio" {
 		t.Fatalf("unexpected file body: %q", gotFile)
 	}
+
 	if gotFileContentType != "audio/wav" {
 		t.Fatalf("unexpected file content type: %q", gotFileContentType)
 	}
+
 	if !strings.Contains(rec.Body.String(), `"text":"cohere ok"`) {
 		t.Fatalf("expected Cohere body passthrough, got %s", rec.Body.String())
 	}
@@ -877,21 +1002,26 @@ func TestDispatchCohereAudioTranscriptionsAdapter(t *testing.T) {
 func TestDispatchGoogleVertexAudioTranscriptionsAdapter(t *testing.T) {
 	t.Parallel()
 
-	var gotAuth string
-	var gotPath string
-	var gotModel string
-	var gotLanguage []interface{}
-	var gotContent string
+	var (
+		gotAuth     string
+		gotPath     string
+		gotModel    string
+		gotLanguage []interface{}
+		gotContent  string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
+
 		gotPath = r.URL.Path
 		defer r.Body.Close()
+
 		var body map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode body: %v", err)
 			return
 		}
+
 		config, _ := body["config"].(map[string]interface{})
 		gotModel, _ = config["model"].(string)
 		gotLanguage, _ = config["languageCodes"].([]interface{})
@@ -927,21 +1057,27 @@ func TestDispatchGoogleVertexAudioTranscriptionsAdapter(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/projects/project-1/locations/global/recognizers/recognizer-1:recognize" {
 		t.Fatalf("expected Google recognize path, got %q", gotPath)
 	}
+
 	if gotAuth != "Bearer google-token" {
 		t.Fatalf("unexpected Authorization header: %q", gotAuth)
 	}
+
 	if gotModel != "google/chirp-3" {
 		t.Fatalf("expected Google model, got %q", gotModel)
 	}
+
 	if len(gotLanguage) != 1 || gotLanguage[0] != "fa-IR" {
 		t.Fatalf("expected languageCodes [fa-IR], got %#v", gotLanguage)
 	}
+
 	if gotContent != base64.StdEncoding.EncodeToString([]byte("fake-audio")) {
 		t.Fatalf("unexpected base64 content: %q", gotContent)
 	}
+
 	if !strings.Contains(rec.Body.String(), `"text":"سلام\nدنیا"`) {
 		t.Fatalf("expected normalized Google transcript response, got %s", rec.Body.String())
 	}
@@ -954,6 +1090,7 @@ func TestDispatchGoogleVertexAudioTranscriptionsAdapterAcceptsRecognizerResource
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results":[{"alternatives":[{"transcript":"ok"}]}]}`))
@@ -982,6 +1119,7 @@ func TestDispatchGoogleVertexAudioTranscriptionsAdapterAcceptsRecognizerResource
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/projects/project-1/locations/global/recognizers/recognizer-1:recognize" {
 		t.Fatalf("expected Google recognize path, got %q", gotPath)
 	}
@@ -1006,6 +1144,7 @@ func TestDispatchCohereAudioTranscriptionsRequiresLanguage(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusBadRequest, rec.Code, rec.Body.String())
 	}
+
 	if !strings.Contains(rec.Body.String(), "language is required") {
 		t.Fatalf("expected language validation error, got %s", rec.Body.String())
 	}
@@ -1014,21 +1153,26 @@ func TestDispatchCohereAudioTranscriptionsRequiresLanguage(t *testing.T) {
 func TestDispatchOpenAICompatibleForwardsAudioSpeechJSON(t *testing.T) {
 	t.Parallel()
 
-	var gotAuth string
-	var gotContentType string
-	var gotPath string
-	var gotBody string
+	var (
+		gotAuth        string
+		gotContentType string
+		gotPath        string
+		gotBody        string
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		gotContentType = r.Header.Get("Content-Type")
+
 		gotPath = r.URL.Path
 		defer r.Body.Close()
+
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read body: %v", err)
 			return
 		}
+
 		gotBody = string(bodyBytes)
 
 		w.Header().Set("Content-Type", "audio/mpeg")
@@ -1046,27 +1190,34 @@ func TestDispatchOpenAICompatibleForwardsAudioSpeechJSON(t *testing.T) {
 		},
 		Body: []byte(`{"model":"gpt-4o-mini-tts","input":"hello","voice":"alloy"}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
+
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/audio/speech" {
 		t.Fatalf("expected audio speech path, got %q", gotPath)
 	}
+
 	if gotContentType != "application/json" {
 		t.Fatalf("unexpected content type: %q", gotContentType)
 	}
+
 	if gotAuth != "Bearer provider-secret" {
 		t.Fatalf("unexpected Authorization header: %q", gotAuth)
 	}
+
 	if !strings.Contains(gotBody, `"model":"gpt-4o-mini-tts"`) || !strings.Contains(gotBody, `"voice":"alloy"`) {
 		t.Fatalf("unexpected forwarded body: %s", gotBody)
 	}
@@ -1075,16 +1226,20 @@ func TestDispatchOpenAICompatibleForwardsAudioSpeechJSON(t *testing.T) {
 func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	t.Parallel()
 
-	var gotPath string
-	var gotAPIKey string
-	var gotVersion string
-	var body map[string]any
+	var (
+		gotPath    string
+		gotAPIKey  string
+		gotVersion string
+		body       map[string]any
+	)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotAPIKey = r.Header.Get("x-api-key")
+
 		gotVersion = r.Header.Get("anthropic-version")
 		defer r.Body.Close()
+
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
 			return
@@ -1116,6 +1271,7 @@ func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"system","content":"be brief"},{"role":"user","content":"hi"}]}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1123,21 +1279,26 @@ func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/v1/messages" {
 		t.Fatalf("expected anthropic path /v1/messages, got %q", gotPath)
 	}
+
 	if gotAPIKey != "sk-ant-test" {
 		t.Fatalf("unexpected x-api-key header: %q", gotAPIKey)
 	}
+
 	if gotVersion != anthropicDefaultVersion {
 		t.Fatalf("unexpected anthropic-version: %q", gotVersion)
 	}
+
 	if body["model"] != "claude-3-haiku-20240307" {
 		t.Fatalf("unexpected upstream model: %#v", body["model"])
 	}
@@ -1146,6 +1307,7 @@ func TestDispatchUsesAnthropicAdapterForSync(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
+
 	if out["object"] != "chat.completion" {
 		t.Fatalf("unexpected response object: %#v", out["object"])
 	}
@@ -1155,8 +1317,10 @@ func TestDispatchAnthropicAdapterMapsExtendedThinking(t *testing.T) {
 	t.Parallel()
 
 	var body map[string]any
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
 			return
@@ -1201,6 +1365,7 @@ func TestDispatchAnthropicAdapterMapsExtendedThinking(t *testing.T) {
 			]
 		}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1208,18 +1373,22 @@ func TestDispatchAnthropicAdapterMapsExtendedThinking(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	thinking := body["thinking"].(map[string]any)
 	if thinking["type"] != "enabled" || thinking["budget_tokens"].(float64) != 3200 {
 		t.Fatalf("unexpected anthropic thinking config: %#v", thinking)
 	}
+
 	messages := body["messages"].([]any)
 	assistantContent := messages[1].(map[string]any)["content"].([]any)
+
 	replayedThinking := assistantContent[0].(map[string]any)
 	if replayedThinking["type"] != "thinking" || replayedThinking["signature"] != "sig_prev" {
 		t.Fatalf("thinking block was not replayed for anthropic: %#v", replayedThinking)
@@ -1237,12 +1406,15 @@ func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
 	t.Parallel()
 
 	var body map[string]any
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -1269,6 +1441,7 @@ func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
 		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}]}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1276,15 +1449,18 @@ func TestDispatchAnthropicAdapterConvertsImageDataURL(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	messages := body["messages"].([]any)
 	content := messages[0].(map[string]any)["content"].([]any)
 	image := content[1].(map[string]any)
+
 	source := image["source"].(map[string]any)
 	if image["type"] != "image" || source["type"] != "base64" || source["media_type"] != "image/png" || source["data"] != "AAAA" {
 		t.Fatalf("unexpected anthropic image block: %#v", image)
@@ -1295,12 +1471,15 @@ func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
 	t.Parallel()
 
 	var body map[string]any
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -1327,6 +1506,7 @@ func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
 		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":[{"type":"text","text":"summarize"},{"type":"file","file":{"filename":"guide.pdf","file_data":"data:application/pdf;base64,JVBERi0x"}}]}]}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1334,15 +1514,18 @@ func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	messages := body["messages"].([]any)
 	content := messages[0].(map[string]any)["content"].([]any)
 	document := content[1].(map[string]any)
+
 	source := document["source"].(map[string]any)
 	if document["type"] != "document" || source["type"] != "base64" || source["media_type"] != "application/pdf" || source["data"] != "JVBERi0x" {
 		t.Fatalf("unexpected anthropic document block: %#v", document)
@@ -1352,19 +1535,25 @@ func TestDispatchAnthropicAdapterConvertsPDFFileDataURL(t *testing.T) {
 func TestDispatchGeminiAdapterUsesOfficialOpenAICompatibility(t *testing.T) {
 	t.Parallel()
 
-	var gotPath string
-	var gotAuthorization string
-	var gotQueryKey string
-	var body map[string]any
+	var (
+		gotPath          string
+		gotAuthorization string
+		gotQueryKey      string
+		body             map[string]any
+	)
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotAuthorization = r.Header.Get("Authorization")
+
 		gotQueryKey = r.URL.Query().Get("key")
 		defer r.Body.Close()
+
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"id":"chatcmpl-google","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"small icon"},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":2,"total_tokens":14}}`))
@@ -1380,6 +1569,7 @@ func TestDispatchGeminiAdapterUsesOfficialOpenAICompatibility(t *testing.T) {
 		},
 		Body: []byte(`{"model":"gemini/gemini-1.5-flash","messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}]}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1387,24 +1577,30 @@ func TestDispatchGeminiAdapterUsesOfficialOpenAICompatibility(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/v1beta/openai/chat/completions" {
 		t.Fatalf("unexpected gemini path: %q", gotPath)
 	}
+
 	if gotAuthorization != "Bearer gemini-key" || gotQueryKey != "" {
 		t.Fatalf("Gemini OpenAI compatibility must use bearer auth only; header=%q query=%q", gotAuthorization, gotQueryKey)
 	}
+
 	messages := body["messages"].([]any)
 	parts := messages[0].(map[string]any)["content"].([]any)
+
 	imageURL := parts[1].(map[string]any)["image_url"].(map[string]any)
 	if imageURL["url"] != "data:image/png;base64,AAAA" {
 		t.Fatalf("unexpected OpenAI-compatible Gemini image: %#v", imageURL)
 	}
+
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
 		t.Fatalf("unexpected response: %s", rec.Body.String())
 	}
@@ -1413,15 +1609,20 @@ func TestDispatchGeminiAdapterUsesOfficialOpenAICompatibility(t *testing.T) {
 func TestDispatchGeminiAdapterPreservesDocumentedAudioPayload(t *testing.T) {
 	t.Parallel()
 
-	var gotPath string
-	var body map[string]any
+	var (
+		gotPath string
+		body    map[string]any
+	)
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		defer r.Body.Close()
+
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"id":"chatcmpl-google","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"short guide"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":3,"total_tokens":23}}`))
@@ -1437,6 +1638,7 @@ func TestDispatchGeminiAdapterPreservesDocumentedAudioPayload(t *testing.T) {
 		},
 		Body: []byte(`{"model":"gemini/gemini-3.1-flash-lite","messages":[{"role":"user","content":[{"type":"text","text":"transcribe"},{"type":"input_audio","input_audio":{"data":"UklGRg==","format":"wav"}}]}]}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1444,21 +1646,26 @@ func TestDispatchGeminiAdapterPreservesDocumentedAudioPayload(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if gotPath != "/v1beta/openai/chat/completions" {
 		t.Fatalf("unexpected gemini path: %q", gotPath)
 	}
+
 	messages := body["messages"].([]any)
 	parts := messages[0].(map[string]any)["content"].([]any)
+
 	inputAudio := parts[1].(map[string]any)["input_audio"].(map[string]any)
 	if inputAudio["data"] != "UklGRg==" || inputAudio["format"] != "wav" {
 		t.Fatalf("unexpected OpenAI-compatible Gemini audio: %#v", inputAudio)
 	}
+
 	if !strings.Contains(rec.Body.String(), `"object":"chat.completion"`) {
 		t.Fatalf("unexpected response: %s", rec.Body.String())
 	}
@@ -1506,6 +1713,7 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 		},
 		Body: []byte(`{"model":"claude-3-haiku-20240307","messages":[{"role":"user","content":"hi"}],"stream":true}`),
 	}
+
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1513,12 +1721,14 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(raw)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if ct := rec.Header().Get("Content-Type"); ct != "text/event-stream" {
 		t.Fatalf("unexpected content type: %q", ct)
 	}
@@ -1527,30 +1737,37 @@ func TestDispatchUsesAnthropicAdapterForStream(t *testing.T) {
 	if !strings.Contains(streamText, `"object":"chat.completion.chunk"`) {
 		t.Fatalf("expected openai stream chunk, got %q", streamText)
 	}
+
 	if !strings.Contains(streamText, `"content":"Salam"`) {
 		t.Fatalf("expected text delta in stream, got %q", streamText)
 	}
+
 	if !strings.Contains(streamText, `"reasoning_content":"Reasoning"`) {
 		t.Fatalf("expected reasoning delta in stream, got %q", streamText)
 	}
+
 	if !strings.Contains(streamText, `"signature":"sig_stream"`) {
 		t.Fatalf("expected signature delta in stream, got %q", streamText)
 	}
+
 	if !strings.Contains(streamText, "data: [DONE]") {
 		t.Fatalf("expected stream terminator, got %q", streamText)
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(streamText))
 	found := false
+
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), `"finish_reason":"stop"`) {
 			found = true
 			break
 		}
 	}
+
 	if err := scanner.Err(); err != nil {
 		t.Fatalf("scan stream: %v", err)
 	}
+
 	if !found {
 		t.Fatalf("expected finish reason in stream, got %q", streamText)
 	}
@@ -1561,13 +1778,16 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
+
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			t.Error("response writer does not support flushing")
 			return
 		}
+
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("data: hello\n\n"))
+
 		flusher.Flush()
 	}))
 	defer upstream.Close()
@@ -1585,6 +1805,7 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 		},
 		Body: []byte(`{"model":"gpt-4o-mini","input":"hello","stream":true}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1592,18 +1813,22 @@ func TestDispatchStreamingFlushesSSE(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	if !rec.Flushed {
 		t.Fatal("expected streaming response to flush SSE data")
 	}
+
 	if ct := rec.Header().Get("Content-Type"); ct != "text/event-stream" {
 		t.Fatalf("unexpected content type: %q", ct)
 	}
+
 	if !strings.Contains(rec.Body.String(), "data: hello") {
 		t.Fatalf("expected stream body to be relayed, got %q", rec.Body.String())
 	}
@@ -1653,23 +1878,29 @@ func TestDispatchOpenAIResponsesStreamingRelaysMultipleEventsAndDone(t *testing.
 			t.Errorf("expected /responses path, got %q", got)
 			return
 		}
+
 		if got := r.Header.Get("Accept"); got != "text/event-stream" {
 			t.Errorf("unexpected Accept header: %q", got)
 			return
 		}
+
 		w.Header().Set("Content-Type", "text/event-stream")
+
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			t.Error("response writer does not support flushing")
 			return
 		}
+
 		w.WriteHeader(http.StatusOK)
+
 		for _, frame := range []string{
 			"event: response.created\n",
 			"data: {\"type\":\"response.created\"}\n\n",
 			"data: [DONE]\n\n",
 		} {
 			_, _ = w.Write([]byte(frame))
+
 			flusher.Flush()
 		}
 	}))
@@ -1688,6 +1919,7 @@ func TestDispatchOpenAIResponsesStreamingRelaysMultipleEventsAndDone(t *testing.
 		},
 		Body: []byte(`{"model":"gpt-4o-mini","input":"hello","stream":true}`),
 	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
@@ -1695,16 +1927,19 @@ func TestDispatchOpenAIResponsesStreamingRelaysMultipleEventsAndDone(t *testing.
 
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
+
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d body=%s", http.StatusOK, rec.Code, rec.Body.String())
 	}
+
 	bodyText := rec.Body.String()
 	if !strings.Contains(bodyText, "event: response.created") || !strings.Contains(bodyText, "data: [DONE]") {
 		t.Fatalf("expected complete SSE relay, got %q", bodyText)
 	}
+
 	if !rec.Flushed {
 		t.Fatal("expected streaming response to flush SSE data")
 	}
@@ -1734,6 +1969,7 @@ func dispatchRequest(t *testing.T, payload platform.TunnelRequest) *http.Request
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}
+
 	req := httptest.NewRequest(http.MethodPost, "/dispatch", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -1745,14 +1981,15 @@ func audioMultipartPayloadBody(boundary string, fields map[string]string, filena
 	for key, value := range fields {
 		lines = append(lines,
 			"--"+boundary,
-			fmt.Sprintf(`Content-Disposition: form-data; name="%s"`, key),
+			fmt.Sprintf("Content-Disposition: form-data; name=%q", key),
 			"",
 			value,
 		)
 	}
+
 	lines = append(lines,
 		"--"+boundary,
-		fmt.Sprintf(`Content-Disposition: form-data; name="file"; filename="%s"`, filename),
+		fmt.Sprintf("Content-Disposition: form-data; name=\"file\"; filename=%q", filename),
 		"Content-Type: "+contentType,
 		"",
 		fileBody,

@@ -23,7 +23,7 @@ type geminiAdapter struct {
 }
 
 func newGeminiAdapter() providerAdapter {
-	return &geminiAdapter{compat: newOpenAICompatibleAdapter(geminiOpenAIBaseURL).(*openAICompatibleAdapter)}
+	return &geminiAdapter{compat: newOpenAICompatibleAdapter(geminiOpenAIBaseURL)}
 }
 
 func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
@@ -31,9 +31,11 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	if model != "" && !isSupportedGeminiModel(model) {
 		return nil, fmt.Errorf("google_gemini_model_not_allowlisted: %s", model)
 	}
+
 	if err := validateGeminiRuntimeProfile(payload, model); err != nil {
 		return nil, err
 	}
+
 	if isGeminiCompatibleOperation(payload.Operation) {
 		if payload.Operation == platform.ProviderOperationOpenAIModelsGet {
 			requestedModel := strings.TrimPrefix(strings.TrimSpace(payload.OperationInput.ResourceID), "models/")
@@ -41,10 +43,13 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 				return nil, fmt.Errorf("google_gemini_model_not_allowlisted: %s", requestedModel)
 			}
 		}
+
 		if err := validateGeminiCompatibleModelOperation(model, payload.Operation); err != nil {
 			return nil, err
 		}
+
 		compatPayload := payload
+
 		compatPayload.Deployment.APIBase = normalizeGeminiOpenAIBaseURL(payload.Deployment.APIBase)
 		if auth := payload.Deployment.ProviderAuth; auth != nil && auth.OAuthAccessToken != "" {
 			resolved := *auth
@@ -52,43 +57,55 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 			resolved.APIKey = auth.OAuthAccessToken
 			compatPayload.Deployment.ProviderAuth = &resolved
 		}
+
 		response, err := a.compat.Dispatch(ctx, client, compatPayload)
 		if err != nil {
 			return nil, err
 		}
+
 		if payload.Operation == platform.ProviderOperationOpenAIModelsList && response.StatusCode < http.StatusBadRequest {
 			return filterGeminiOpenAIModelListResponse(response)
 		}
+
 		return response, nil
 	}
+
 	if !isGeminiNativeOperation(payload.Operation) {
 		return nil, fmt.Errorf("google_gemini_unsupported_operation: %s", payload.Operation)
 	}
+
 	if err := validateGeminiNativeModelOperation(model, payload.Operation); err != nil {
 		return nil, err
 	}
+
 	method, path, err := geminiOperationTarget(payload.Operation, payload.OperationInput, model)
 	if err != nil {
 		return nil, err
 	}
+
 	target, err := resolveBaseURL(normalizeGeminiNativeBaseURL(payload.Deployment.APIBase), geminiNativeBaseURL)
 	if err != nil {
 		return nil, err
 	}
+
 	request, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), bytes.NewReader(payload.Body))
 	if err != nil {
 		return nil, err
 	}
+
 	if len(payload.Body) > 0 {
 		request.Header.Set("Content-Type", "application/json")
 	}
+
 	if payload.Stream || payload.Operation == platform.ProviderOperationGeminiStreamGenerateContent {
 		request.Header.Set("Accept", "text/event-stream")
 	}
-	if err := applyGeminiAuth(request, payload.Deployment, false); err != nil {
-		return nil, err
+
+	if authErr := applyGeminiAuth(request, payload.Deployment, false); authErr != nil {
+		return nil, authErr
 	}
-	response, err := client.Do(request)
+
+	response, err := client.Do(request) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +114,7 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	if payload.Operation == platform.ProviderOperationGeminiModelsList && response.StatusCode < http.StatusBadRequest {
 		return filterGeminiModelListResponse(result)
 	}
+
 	return result, nil
 }
 
@@ -104,22 +122,27 @@ func (a *geminiAdapter) DispatchRaw(ctx context.Context, client *http.Client, pa
 	if payload.Operation != platform.ProviderOperationGeminiFilesCreate {
 		return nil, fmt.Errorf("google_gemini_unsupported_raw_operation: %s", payload.Operation)
 	}
+
 	target, err := resolveBaseURL(normalizeGeminiNativeBaseURL(payload.Deployment.APIBase), geminiNativeBaseURL)
 	if err != nil {
 		return nil, err
 	}
+
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(target, "/upload/v1beta/files"), body)
 	if err != nil {
 		return nil, err
 	}
+
 	request.ContentLength = contentLength
 	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
 		request.Header.Set("Content-Type", contentType)
 	}
-	if err := applyGeminiAuth(request, payload.Deployment, false); err != nil {
-		return nil, err
+
+	if authErr := applyGeminiAuth(request, payload.Deployment, false); authErr != nil {
+		return nil, authErr
 	}
-	response, err := client.Do(request)
+
+	response, err := client.Do(request) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
@@ -136,23 +159,29 @@ func validateGeminiRuntimeProfile(payload platform.TunnelRequest, model string) 
 	if endpoint == "" || model == "" {
 		return nil
 	}
+
 	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
 	if !ok {
 		return fmt.Errorf("google_gemini_runtime_profile_missing: %s", model)
 	}
+
 	if !strings.EqualFold(binding.Provider, "google-gemini") && !strings.EqualFold(binding.Provider, "gemini") {
 		return fmt.Errorf("google_gemini_runtime_profile_provider_mismatch")
 	}
+
 	if !binding.Profile.AllowsEndpoint(endpoint) {
 		return fmt.Errorf("google_gemini_unsupported_model_operation: %s does not allow %s", model, endpoint)
 	}
+
 	transport := "http"
 	if payload.Stream || payload.Operation == platform.ProviderOperationGeminiStreamGenerateContent {
 		transport = "sse"
 	}
+
 	if !binding.Profile.AllowsTransport(transport) {
 		return fmt.Errorf("google_gemini_unsupported_transport: %s", transport)
 	}
+
 	return nil
 }
 
@@ -204,12 +233,15 @@ func validateGeminiCompatibleModelOperation(model string, operation platform.Pro
 		(model == "gemini-embedding-2" || strings.Contains(model, "-image") || strings.Contains(model, "-tts-")) {
 		return fmt.Errorf("google_gemini_unsupported_model_operation: %s does not support chat completions", model)
 	}
+
 	if operation == platform.ProviderOperationOpenAIEmbeddings && model != "gemini-embedding-2" {
 		return fmt.Errorf("google_gemini_unsupported_model_operation: %s does not support embeddings", model)
 	}
+
 	if operation == platform.ProviderOperationOpenAIImagesGenerations && model != "gemini-3-pro-image" && model != "gemini-3.1-flash-image" && model != "gemini-3.1-flash-lite-image" {
 		return fmt.Errorf("google_gemini_unsupported_model_operation: %s does not support image generation", model)
 	}
+
 	return nil
 }
 
@@ -217,8 +249,10 @@ func validateGeminiNativeModelOperation(model string, operation platform.Provide
 	if model == "" {
 		return nil
 	}
+
 	textModel := model == "gemini-3.1-pro-preview" || model == "gemini-3.5-flash" || model == "gemini-3.5-flash-lite" || model == "gemini-3.6-flash"
 	interactionModel := textModel || model == "gemini-3-pro-image" || model == "gemini-3.1-flash-image" || model == "gemini-3.1-flash-tts-preview"
+
 	switch operation {
 	case platform.ProviderOperationGeminiGenerateContent, platform.ProviderOperationGeminiStreamGenerateContent,
 		platform.ProviderOperationGeminiCountTokens, platform.ProviderOperationGeminiBatchesCreate:
@@ -241,6 +275,7 @@ func validateGeminiNativeModelOperation(model string, operation platform.Provide
 			return fmt.Errorf("google_gemini_unsupported_model_operation: %s does not support explicit context caching", model)
 		}
 	}
+
 	return nil
 }
 
@@ -269,6 +304,7 @@ func geminiOperationTarget(operation platform.ProviderOperation, input platform.
 		if model == "" || !isSupportedGeminiModel(model) {
 			return "", fmt.Errorf("google_gemini_model_required_or_not_allowlisted")
 		}
+
 		return "/v1beta/models/" + url.PathEscape(model) + ":" + action, nil
 	}
 	resourcePath := func(prefix, suffix string) (string, error) {
@@ -276,9 +312,12 @@ func geminiOperationTarget(operation platform.ProviderOperation, input platform.
 		if id == "" {
 			return "", fmt.Errorf("google_gemini_resource_id_required")
 		}
+
 		id = strings.TrimPrefix(id, prefix)
+
 		return "/v1beta/" + prefix + url.PathEscape(id) + suffix, nil
 	}
+
 	switch operation {
 	case platform.ProviderOperationGeminiGenerateContent:
 		path, err := modelPath("generateContent")
@@ -293,13 +332,17 @@ func geminiOperationTarget(operation platform.ProviderOperation, input platform.
 		if model != "gemini-embedding-2" {
 			return "", "", fmt.Errorf("google_gemini_unsupported_model_operation: embedContent")
 		}
+
 		path, err := modelPath("embedContent")
+
 		return http.MethodPost, path, err
 	case platform.ProviderOperationGeminiBatchEmbedContents:
 		if model != "gemini-embedding-2" {
 			return "", "", fmt.Errorf("google_gemini_unsupported_model_operation: batchEmbedContents")
 		}
+
 		path, err := modelPath("batchEmbedContents")
+
 		return http.MethodPost, path, err
 	case platform.ProviderOperationGeminiInteractionsCreate:
 		return http.MethodPost, "/v1beta/interactions", nil
@@ -319,6 +362,7 @@ func geminiOperationTarget(operation platform.ProviderOperation, input platform.
 		if !isSupportedGeminiModel(id) {
 			return "", "", fmt.Errorf("google_gemini_model_not_allowlisted: %s", id)
 		}
+
 		return http.MethodGet, "/v1beta/models/" + url.PathEscape(id), nil
 	case platform.ProviderOperationGeminiFilesCreate:
 		return http.MethodPost, "/upload/v1beta/files", nil
@@ -364,26 +408,31 @@ func applyGeminiAuth(request *http.Request, deployment platform.Deployment, comp
 		request.Header.Set("Authorization", "Bearer "+deployment.ProviderAuth.OAuthAccessToken)
 		return nil
 	}
+
 	apiKey := deploymentAPIKey(deployment)
 	if apiKey == "" {
 		return fmt.Errorf("google_gemini_credentials_missing")
 	}
+
 	if compatible {
 		request.Header.Set("Authorization", "Bearer "+apiKey)
 	} else {
 		request.Header.Set("x-goog-api-key", apiKey)
 	}
+
 	return nil
 }
 
 func normalizeGeminiNativeBaseURL(value string) string {
 	base := strings.TrimRight(strings.TrimSpace(value), "/")
+
 	lower := strings.ToLower(base)
 	for _, suffix := range []string{"/v1beta/openai", "/v1/openai", "/v1beta", "/v1"} {
 		if strings.HasSuffix(lower, suffix) {
 			return base[:len(base)-len(suffix)]
 		}
 	}
+
 	return base
 }
 
@@ -392,29 +441,35 @@ func normalizeGeminiOpenAIBaseURL(value string) string {
 	if base == "" {
 		return geminiOpenAIBaseURL
 	}
+
 	lower := strings.ToLower(base)
 	if strings.HasSuffix(lower, "/openai") {
 		return base
 	}
+
 	if strings.HasSuffix(lower, "/v1") || strings.HasSuffix(lower, "/v1beta") {
 		return base + "/openai"
 	}
+
 	return base + "/v1beta/openai"
 }
 
 func filterGeminiModelListResponse(response *adapterResponse) (*adapterResponse, error) {
 	body, err := io.ReadAll(response.Body)
-	response.Body.Close()
+	closeBody(response.Body)
+
 	if err != nil {
 		return nil, err
 	}
+
 	var envelope struct {
 		Models        []json.RawMessage `json:"models"`
 		NextPageToken string            `json:"nextPageToken,omitempty"`
 	}
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, fmt.Errorf("decode Gemini models response: %w", err)
+	if decodeErr := json.Unmarshal(body, &envelope); decodeErr != nil {
+		return nil, fmt.Errorf("decode Gemini models response: %w", decodeErr)
 	}
+
 	filtered := make([]json.RawMessage, 0, len(envelope.Models))
 	for _, item := range envelope.Models {
 		var model struct {
@@ -424,6 +479,7 @@ func filterGeminiModelListResponse(response *adapterResponse) (*adapterResponse,
 			filtered = append(filtered, item)
 		}
 	}
+
 	result, err := json.Marshal(struct {
 		Models        []json.RawMessage `json:"models"`
 		NextPageToken string            `json:"nextPageToken,omitempty"`
@@ -431,24 +487,29 @@ func filterGeminiModelListResponse(response *adapterResponse) (*adapterResponse,
 	if err != nil {
 		return nil, err
 	}
+
 	response.Headers.Del("Content-Length")
 	response.Body = io.NopCloser(bytes.NewReader(result))
+
 	return response, nil
 }
 
 func filterGeminiOpenAIModelListResponse(response *adapterResponse) (*adapterResponse, error) {
 	body, err := io.ReadAll(response.Body)
-	response.Body.Close()
+	closeBody(response.Body)
+
 	if err != nil {
 		return nil, err
 	}
+
 	var envelope struct {
 		Object string            `json:"object,omitempty"`
 		Data   []json.RawMessage `json:"data"`
 	}
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, fmt.Errorf("decode Gemini OpenAI models response: %w", err)
+	if decodeErr := json.Unmarshal(body, &envelope); decodeErr != nil {
+		return nil, fmt.Errorf("decode Gemini OpenAI models response: %w", decodeErr)
 	}
+
 	filtered := make([]json.RawMessage, 0, len(envelope.Data))
 	for _, item := range envelope.Data {
 		var model struct {
@@ -458,6 +519,7 @@ func filterGeminiOpenAIModelListResponse(response *adapterResponse) (*adapterRes
 			filtered = append(filtered, item)
 		}
 	}
+
 	result, err := json.Marshal(struct {
 		Object string            `json:"object,omitempty"`
 		Data   []json.RawMessage `json:"data"`
@@ -465,7 +527,9 @@ func filterGeminiOpenAIModelListResponse(response *adapterResponse) (*adapterRes
 	if err != nil {
 		return nil, err
 	}
+
 	response.Headers.Del("Content-Length")
 	response.Body = io.NopCloser(bytes.NewReader(result))
+
 	return response, nil
 }

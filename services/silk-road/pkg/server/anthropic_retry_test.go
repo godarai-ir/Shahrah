@@ -12,18 +12,25 @@ import (
 )
 
 func TestAnthropicRetryHonorsRetryAfterForIdempotentRequest(t *testing.T) {
-	var attempts atomic.Int32
-	var bodies []string
+	var (
+		attempts atomic.Int32
+		bodies   []string
+	)
+
 	upstream := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, request *http.Request) {
 			attempts.Add(1)
+
 			body, _ := io.ReadAll(request.Body)
 			bodies = append(bodies, string(body))
+
 			if attempts.Load() == 1 {
 				w.Header().Set("retry-after", "0")
 				w.WriteHeader(http.StatusTooManyRequests)
+
 				return
 			}
+
 			_, _ = io.WriteString(w, `{"ok":true}`)
 		},
 	))
@@ -38,6 +45,7 @@ func TestAnthropicRetryHonorsRetryAfterForIdempotentRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	response, err := doAnthropicRequest(
 		t.Context(),
 		upstream.Client(),
@@ -48,9 +56,11 @@ func TestAnthropicRetryHonorsRetryAfterForIdempotentRequest(t *testing.T) {
 		t.Fatalf("doAnthropicRequest: %v", err)
 	}
 	defer response.Body.Close()
+
 	if attempts.Load() != 2 {
 		t.Fatalf("expected two attempts, got %d", attempts.Load())
 	}
+
 	if len(bodies) != 2 || bodies[0] != bodies[1] {
 		t.Fatalf("request body was not replayed: %#v", bodies)
 	}
@@ -58,6 +68,7 @@ func TestAnthropicRetryHonorsRetryAfterForIdempotentRequest(t *testing.T) {
 
 func TestAnthropicMessagesAreNeverRetried(t *testing.T) {
 	var attempts atomic.Int32
+
 	upstream := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, _ *http.Request) {
 			attempts.Add(1)
@@ -67,6 +78,7 @@ func TestAnthropicMessagesAreNeverRetried(t *testing.T) {
 	defer upstream.Close()
 
 	binding := anthropicTestRuntimeProfile("claude-opus-4-7")
+
 	response, err := (&anthropicAdapter{}).Dispatch(
 		t.Context(),
 		upstream.Client(),
@@ -89,6 +101,7 @@ func TestAnthropicMessagesAreNeverRetried(t *testing.T) {
 		t.Fatalf("Dispatch: %v", err)
 	}
 	defer response.Body.Close()
+
 	if attempts.Load() != 1 {
 		t.Fatalf("messages request retried %d times", attempts.Load())
 	}
@@ -100,6 +113,7 @@ func TestAnthropicRetryOperationAllowlist(t *testing.T) {
 	) {
 		t.Fatal("count_tokens must be retryable")
 	}
+
 	for _, operation := range []platform.ProviderOperation{
 		platform.ProviderOperationAnthropicMessages,
 		platform.ProviderOperationAnthropicFilesCreate,

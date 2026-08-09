@@ -233,7 +233,7 @@ export function createEmptyBuilder(defaultSystemPrompt: string): BuilderState {
     commitMessage: "",
     variableValues: {},
     stream: true,
-    temperature: "0.2",
+    temperature: "",
     topP: "",
     maxTokens: "",
     cacheEnabled: false,
@@ -292,12 +292,6 @@ export function buildManifest(
   const temperature = parseOptionalNumber(builder.temperature);
   const topP = parseOptionalNumber(builder.topP);
   const maxTokens = parseOptionalInteger(builder.maxTokens);
-  if (temperature !== undefined && (temperature < 0 || temperature > 2)) {
-    return { ok: false, message: t("validation.temperatureRange") };
-  }
-  if (topP !== undefined && (topP < 0 || topP > 1)) {
-    return { ok: false, message: t("validation.topPRange") };
-  }
   if (maxTokens !== undefined && maxTokens < 1) {
     return { ok: false, message: t("validation.maxTokensMin") };
   }

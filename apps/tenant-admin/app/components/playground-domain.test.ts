@@ -26,7 +26,7 @@ describe("playground domain", () => {
     if (!parsed.ok) return;
     expect(parsed.column.messages.map((message) => message.role)).toEqual(["system", "user"]);
     expect(parsed.column.tools[0].name).toBe("lookup");
-    expect(parsed.column.config.temperature).toBe("0.2");
+    expect(parsed.column.config.temperature).toBe("");
   });
 
   it("preserves invalid JSON and reports its error", () => {
@@ -99,8 +99,25 @@ describe("playground domain", () => {
       { role: "user", content: "Hello Ada" },
     ]);
     expect(built.payload.request.stream_options).toEqual({ include_usage: true });
+    expect(built.payload.request).not.toHaveProperty("temperature");
+    expect(built.payload.request).not.toHaveProperty("top_p");
     expect(built.payload.request).not.toHaveProperty("metadata");
     expect(built.payload.godarai.observability).toEqual({ tags: { experiment: "a" } });
+  });
+
+  it("does not apply provider-specific ranges to configured sampling controls", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "openai:gpt-test";
+    column.messages[1].content = "Hello";
+    column.config.temperature = "7.25";
+    column.config.topP = "-0.5";
+
+    const built = validateAndBuildRunPayload(column, "comparison_1");
+
+    expect(built.ok).toBe(true);
+    if (!built.ok || built.payload.mode !== "chat") return;
+    expect(built.payload.request.temperature).toBe(7.25);
+    expect(built.payload.request.top_p).toBe(-0.5);
   });
 
   it("keeps immutable clone identifiers and stores tools in the manifest parameters", () => {

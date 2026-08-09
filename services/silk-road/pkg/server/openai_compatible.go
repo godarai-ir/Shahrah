@@ -21,12 +21,11 @@ type openAICompatibleAdapter struct {
 	allowedRequestHeaders  []string
 }
 
-func newOpenAICompatibleAdapter(defaultBaseURL string) providerAdapter {
+func newOpenAICompatibleAdapter(defaultBaseURL string) *openAICompatibleAdapter {
 	return newOpenAICompatibleAdapterWithAuth(defaultBaseURL, "Authorization", false)
-
 }
 
-func newOpenAICompatibleAdapterWithAuth(defaultBaseURL, authHeader string, apiVersionQuery bool) providerAdapter {
+func newOpenAICompatibleAdapterWithAuth(defaultBaseURL, authHeader string, apiVersionQuery bool) *openAICompatibleAdapter {
 	return &openAICompatibleAdapter{defaultBaseURL: strings.TrimSpace(defaultBaseURL), authHeader: authHeader, apiVersionQuery: apiVersionQuery}
 }
 
@@ -39,6 +38,7 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 	if err != nil {
 		return nil, err
 	}
+
 	if a.baseURLNormalizer != nil {
 		target = a.baseURLNormalizer(target)
 	}
@@ -48,41 +48,52 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 		if deployment == "" {
 			return nil, fmt.Errorf("azure openai deployment model is required")
 		}
+
 		target = joinURL(target, "/openai/deployments/"+url.PathEscape(deployment))
 	}
+
 	method, operationPath, err := resolveOpenAIOperation(payload)
 	if err != nil {
 		return nil, err
 	}
+
 	endpoint := joinURL(target, operationPath)
+
 	apiVersion := strings.TrimSpace(payload.Deployment.APIVersion)
 	if a.azureDeploymentRouting && !strings.Contains(strings.ToLower(target), "/openai/v1") && apiVersion == "" {
 		apiVersion = "2024-10-21"
 	}
+
 	if a.apiVersionQuery && !strings.Contains(strings.ToLower(target), "/openai/v1") && apiVersion != "" {
 		separator := "?"
 		if strings.Contains(endpoint, "?") {
 			separator = "&"
 		}
+
 		endpoint += separator + "api-version=" + url.QueryEscape(apiVersion)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(payload.Body))
 	if err != nil {
 		return nil, err
 	}
+
 	if contentType := strings.TrimSpace(payload.Headers["Content-Type"]); contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 	}
+
 	if clientRequestID := strings.TrimSpace(payload.Headers["X-Client-Request-Id"]); clientRequestID != "" {
 		req.Header.Set("X-Client-Request-Id", clientRequestID)
 	}
+
 	for _, name := range a.allowedRequestHeaders {
 		if value := strings.TrimSpace(headerValue(payload.Headers, name)); value != "" {
 			req.Header.Set(name, value)
 		}
 	}
+
 	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
 		if strings.EqualFold(a.authHeader, "api-key") {
 			req.Header.Set("api-key", apiKey)
@@ -90,15 +101,18 @@ func (a *openAICompatibleAdapter) Dispatch(ctx context.Context, client *http.Cli
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
 	}
+
 	applyDocumentedProviderHeaders(req, payload.Deployment)
+
 	if payload.Stream {
 		req.Header.Set("Accept", "text/event-stream")
 	}
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
+
 	return &adapterResponse{
 		StatusCode: resp.StatusCode,
 		Headers:    resp.Header,
@@ -111,26 +125,33 @@ func (a *openAICompatibleAdapter) DispatchRaw(ctx context.Context, client *http.
 	if err != nil {
 		return nil, err
 	}
+
 	if a.baseURLNormalizer != nil {
 		target = a.baseURLNormalizer(target)
 	}
+
 	method, operationPath, err := resolveOpenAIOperation(payload)
 	if err != nil {
 		return nil, err
 	}
+
 	req, err := http.NewRequestWithContext(ctx, method, joinURL(target, operationPath), body)
 	if err != nil {
 		return nil, err
 	}
+
 	if contentLength >= 0 {
 		req.ContentLength = contentLength
 	}
+
 	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+
 	if clientRequestID := strings.TrimSpace(headerValue(payload.Headers, "x-client-request-id")); clientRequestID != "" {
 		req.Header.Set("X-Client-Request-Id", clientRequestID)
 	}
+
 	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
 		if strings.EqualFold(a.authHeader, "api-key") {
 			req.Header.Set("api-key", apiKey)
@@ -138,8 +159,10 @@ func (a *openAICompatibleAdapter) DispatchRaw(ctx context.Context, client *http.
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
 	}
+
 	applyDocumentedProviderHeaders(req, payload.Deployment)
-	resp, err := client.Do(req)
+
+	resp, err := client.Do(req) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
 	if err != nil {
 		return nil, err
 	}
@@ -151,9 +174,11 @@ func resolveBaseURL(explicit string, fallback string) (string, error) {
 	if target := strings.TrimSpace(explicit); target != "" {
 		return strings.TrimRight(target, "/"), nil
 	}
+
 	if target := strings.TrimSpace(fallback); target != "" {
 		return strings.TrimRight(target, "/"), nil
 	}
+
 	return "", fmt.Errorf("provider api_base is required")
 }
 
@@ -165,6 +190,7 @@ func openAICompatiblePath(payload platform.TunnelRequest) string {
 	if err != nil {
 		return "/invalid-provider-operation"
 	}
+
 	return path
 }
 
