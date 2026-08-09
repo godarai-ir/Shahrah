@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import Link from "next/link";
-import { CalendarPlus, Clock3, Download, File, Flag, Headphones, LifeBuoy, LockKeyhole, MessagesSquare, Send, Star, Tag, UserRound } from "lucide-react";
+import { CalendarPlus, Clock3, Download, File, Headphones, LifeBuoy, LockKeyhole, MessagesSquare, Send, Star, UserRound } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { AppTextareaField } from "@/components/app-ui/AppTextField";
@@ -89,12 +89,22 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
             status={<TicketStatusBadge status={ticket.status} label={t(`statuses.${ticket.status}`)} />}
             leading={<span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary"><LifeBuoy aria-hidden="true" className="size-5" /></span>}
             copy={{ copyLabel: t("actions.copy"), copyingLabel: t("actions.copying"), copiedLabel: t("actions.copied") }}
+            actions={(
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">{t("fields.category")}</span>
+                  <Badge variant="info">{t(`categories.${ticket.category}`)}</Badge>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">{t("fields.priority")}</span>
+                  <Badge variant={priorityBadgeVariant(ticket.priority)}>{t(`priorities.${ticket.priority}`)}</Badge>
+                </div>
+              </>
+            )}
           />
         </CardHeader>
-        <CardContent className="border-t border-card-border pt-6">
+        <CardContent className="border-t border-card-border p-4 md:p-5">
           <DefinitionList columns={2}>
-            <DefinitionListItem icon={Tag} label={t("fields.category")} value={<Badge variant="info">{t(`categories.${ticket.category}`)}</Badge>} />
-            <DefinitionListItem icon={Flag} label={t("fields.priority")} value={<Badge variant={priorityBadgeVariant(ticket.priority)}>{t(`priorities.${ticket.priority}`)}</Badge>} />
             <DefinitionListItem icon={CalendarPlus} label={t("fields.createdAt")} value={<DateTimeValue value={ticket.created_at} locale={locale} fallback={t("values.notAvailable")} format={{ dateStyle: "medium", timeStyle: "short" }} />} />
             <DefinitionListItem icon={Clock3} label={t("fields.lastActivity")} value={<DateTimeValue value={ticket.last_message_at} locale={locale} fallback={t("values.notAvailable")} format={{ dateStyle: "medium", timeStyle: "short" }} />} />
             {ticket.resolved_at ? <DefinitionListItem icon={Clock3} label={t("fields.resolvedAt")} value={<DateTimeValue value={ticket.resolved_at} locale={locale} format={{ dateStyle: "medium", timeStyle: "short" }} />} /> : null}
@@ -109,7 +119,6 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
             <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><MessagesSquare aria-hidden="true" className="size-4" /></span>
             <h2 id="conversation-title" className="text-lg font-semibold">{t("conversation.title")}</h2>
           </div>
-          <Badge variant="secondary" className="tabular-nums">{detail.messages.length}</Badge>
         </div>
         {detail.messages.map((message) => <MessageCard key={message.id} message={message} currentUserID={currentUserID} formatDate={formatDate} />)}
       </section>
@@ -118,8 +127,7 @@ export function TicketDetailPage({ ticketID, currentUserID }: { ticketID: string
 
       {canReply ? (
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Send aria-hidden="true" className="size-5 text-primary" />{ticket.status === "resolved" ? t("reply.reopenTitle") : t("reply.title")}</CardTitle></CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <form onSubmit={reply} className="flex flex-col gap-4">
               <AppTextareaField label={t("fields.message")} value={body} onChange={(event) => setBody(event.target.value)} maxLength={10000} rows={6} disabled={submitting} />
               <Input type="file" multiple disabled={submitting} accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.log,.json" aria-label={t("attachments.add")} onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 5))} />
@@ -137,7 +145,7 @@ function MessageCard({ message, currentUserID, formatDate }: { message: TicketMe
   const support = message.author_type === "support_agent";
   const author = support ? t("conversation.support") : message.author_id === currentUserID ? t("conversation.you") : t("conversation.organization");
   return (
-    <Message align={support ? "start" : "end"} role="article">
+    <Message align={support ? "end" : "start"} role="article">
       <MessageContent className="max-w-3xl group-data-[align=end]/message:ms-auto">
         <MessageHeader className="flex-wrap justify-between gap-2 px-1">
           <strong className="flex items-center gap-1.5 text-foreground">{support ? <Headphones aria-hidden="true" className="size-4 text-info-soft-foreground" /> : <UserRound aria-hidden="true" className="size-4 text-primary" />}{author}</strong>

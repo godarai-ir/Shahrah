@@ -376,7 +376,7 @@ function actionForStep(
     case "connect_provider":
       return {
         type: "link",
-        href: resources.providerAccountCount > 0 ? "/provider-accounts" : "/provider-accounts/new",
+        href: "/provider-accounts/new",
       };
     case "create_pat":
       return {

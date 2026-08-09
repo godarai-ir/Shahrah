@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
-import { ExternalLink, FlaskConical, ScrollText, Settings2, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 
 import {
   buildBashCurlGuideCommand,
@@ -13,14 +12,12 @@ import {
   getTenantApiBaseURL,
   resolveCurlGuideMode,
 } from "@/features/provider-accounts/utils";
-import { buildPlaygroundHref } from "@/lib/playground-mode";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { DefinitionList, DefinitionListItem } from "@/components/app-ui/DefinitionList";
 import { ModalityFlow } from "@/components/app-ui/ModalityFlow";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { TabbedCodePanel } from "@/components/app-ui/TabbedCodePanel";
-import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -129,10 +126,6 @@ export function ModelProfile({
 
   if (!selectedAvailability) return null;
 
-  const playgroundHref = code ? buildPlaygroundHref(selectedAvailability.fqn, code.mode) : null;
-  const logsHref = `/logs?${new URLSearchParams({ model: selectedAvailability.fqn, provider: model.provider }).toString()}`;
-  const manageHref = `/provider-accounts?${new URLSearchParams({ account: selectedAvailability.account_id, section: "models" }).toString()}`;
-
   return (
     <div className={cn("flex min-w-0 flex-col gap-6", className)}>
       {showAccountSelector && onAccountChange && model.availability.length > 1 ? (
@@ -163,7 +156,26 @@ export function ModelProfile({
       ) : null}
 
       <DefinitionList columns={4}>
-        <DefinitionListItem label={t("columns.context")} value={formatContext(model.context_window, t("values.na"))} valueDir="ltr" surface />
+        <DefinitionListItem
+          label={t("columns.context")}
+          value={formatContext(model.context_window, t("values.na"))}
+          valueDir="ltr"
+          valueClassName="text-lg font-semibold leading-6 tabular-nums"
+          surface
+        />
+        <DefinitionListItem
+          label={t("drawer.publicPrice")}
+          value={(
+            <PricePair
+              inputLabel={t("drawer.inputPrice")}
+              inputValue={formatPrice(model.public_pricing?.input_usd_per_1m, t("values.na"))}
+              outputLabel={t("drawer.outputPrice")}
+              outputValue={formatPrice(model.public_pricing?.output_usd_per_1m, t("values.na"))}
+            />
+          )}
+          wrap
+          surface
+        />
         <DefinitionListItem
           label={t("columns.modalities")}
           value={(
@@ -183,19 +195,26 @@ export function ModelProfile({
         />
         <DefinitionListItem label={t("drawer.capabilities")} value={formatCapabilityList(selectedAvailability.effective_capabilities, t)} valueDir="auto" surface />
         <DefinitionListItem label={t("drawer.credentialSource")} value={t(`credential.${credentialKey(selectedAvailability.credential_source)}`)} surface />
-        <DefinitionListItem label={t("drawer.publicInputPrice")} value={formatPrice(model.public_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-        <DefinitionListItem label={t("drawer.publicOutputPrice")} value={formatPrice(model.public_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
         {hasDifferentPrice(
           selectedAvailability.effective_pricing?.input_usd_per_1m,
           model.public_pricing?.input_usd_per_1m,
-        ) ? (
-          <DefinitionListItem label={t("drawer.effectiveInputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.input_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
-        ) : null}
-        {hasDifferentPrice(
+        ) || hasDifferentPrice(
           selectedAvailability.effective_pricing?.output_usd_per_1m,
           model.public_pricing?.output_usd_per_1m,
         ) ? (
-          <DefinitionListItem label={t("drawer.effectiveOutputPrice")} value={formatPrice(selectedAvailability.effective_pricing?.output_usd_per_1m, t("values.na"))} valueDir="ltr" surface />
+          <DefinitionListItem
+            label={t("drawer.effectivePrice")}
+            value={(
+              <PricePair
+                inputLabel={t("drawer.inputPrice")}
+                inputValue={formatPrice(selectedAvailability.effective_pricing?.input_usd_per_1m, t("values.na"))}
+                outputLabel={t("drawer.outputPrice")}
+                outputValue={formatPrice(selectedAvailability.effective_pricing?.output_usd_per_1m, t("values.na"))}
+              />
+            )}
+            wrap
+            surface
+          />
         ) : null}
       </DefinitionList>
 
@@ -207,21 +226,42 @@ export function ModelProfile({
           title={t("drawer.codeExample")}
           titleHidden
           tabsLabel={t("drawer.codeExampleTabs")}
+          tabsListVariant="line"
           tabs={[
-            { value: "bash", label: t("drawer.bash"), language: "bash", code: code.bash },
-            { value: "powershell", label: t("drawer.powershell"), language: "powershell", code: code.powershell },
+            { value: "bash", label: t("drawer.bash"), language: "bash", code: code.bash, className: "rounded-none border-0" },
+            { value: "powershell", label: t("drawer.powershell"), language: "powershell", code: code.powershell, className: "rounded-none border-0" },
           ]}
-          copy={{ copyLabel: t("actions.copyCode"), copyingLabel: t("actions.copying"), copiedLabel: t("actions.copied") }}
+          copy={{ copyLabel: t("actions.copyCode"), copyingLabel: t("actions.copying"), copiedLabel: t("actions.copied"), showLabel: false }}
+          headerClassName="p-2 md:p-2"
+          contentClassName="p-0 md:p-0"
         />
       ) : null}
-
-      <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-        {playgroundHref ? <Button asChild><Link href={playgroundHref}><FlaskConical data-icon="inline-start" aria-hidden="true" />{t("actions.openPlayground")}</Link></Button> : null}
-        <Button asChild variant="outline"><Link href={logsHref}><ScrollText data-icon="inline-start" aria-hidden="true" />{t("actions.viewLogs")}</Link></Button>
-        <Button asChild variant="outline"><Link href={manageHref}><Settings2 data-icon="inline-start" aria-hidden="true" />{t("actions.manageModel")}</Link></Button>
-        <Button asChild variant="ghost"><a href="/docs/guides/tenant-team-account-model" target="_blank" rel="noreferrer"><ExternalLink data-icon="inline-end" aria-hidden="true" />{t("actions.docs")}</a></Button>
-      </div>
     </div>
+  );
+}
+
+function PricePair({
+  inputLabel,
+  inputValue,
+  outputLabel,
+  outputValue,
+}: {
+  inputLabel: string;
+  inputValue: string;
+  outputLabel: string;
+  outputValue: string;
+}) {
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+      <span className="flex items-baseline gap-1 whitespace-nowrap">
+        <span className="text-xs font-normal text-muted-foreground">{inputLabel}</span>
+        <bdi className="font-semibold" dir="auto">{inputValue}</bdi>
+      </span>
+      <span className="flex items-baseline gap-1 whitespace-nowrap">
+        <span className="text-xs font-normal text-muted-foreground">{outputLabel}</span>
+        <bdi className="font-semibold" dir="auto">{outputValue}</bdi>
+      </span>
+    </span>
   );
 }
 

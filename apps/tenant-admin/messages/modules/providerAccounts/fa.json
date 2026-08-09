@@ -486,7 +486,7 @@
       "providerDescriptionFallback": "این ارائه‌دهنده را وصل کنید تا درخواست‌های فضای کاری از مسیر گدارAI و با اعتبارنامه، مدل و دسترسی مدیریت‌شده ارسال شوند.",
       "wizard": {
         "integrationDetails": "تنظیمات پایه اتصال",
-        "modelProvisioning": "انتخاب مدل‌های AI",
+        "modelProvisioning": "انتخاب مدل‌ها",
         "accessPermissions": "مجوزهای دسترسی",
         "reviewConfirm": "مرور و تأیید",
         "detailsTitle": "تنظیمات پایه اتصال",

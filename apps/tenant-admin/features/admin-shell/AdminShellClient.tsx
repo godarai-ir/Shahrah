@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpen, Building2, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
+import { BookOpen, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggleMenuItem } from "@/components/theme-toggle";
 import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick, type AdminNavItem } from "@/features/admin-shell/navigation";
 import { logout } from "@/features/admin-shell/api";
 import { PageHeaderInShellProvider } from "@/components/app-ui/PageHeader";
@@ -75,6 +75,7 @@ type AdminShellClientProps = {
 };
 
 const moneyFormatter = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
+const ROOT_NAV_ITEM_KEYS: AdminNavItem["key"][] = ["dashboard", "quickStart"];
 
 const SIDEBAR_NAV_GROUPS: Array<{
   labelKey: string;
@@ -82,14 +83,14 @@ const SIDEBAR_NAV_GROUPS: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   {
-    labelKey: "navGroups.workspace",
-    itemKeys: ["dashboard", "quickStart", "supportTickets"],
-    icon: Building2,
+    labelKey: "navGroups.models",
+    itemKeys: ["providerAccounts", "virtualModels"],
+    icon: Plug,
   },
   {
-    labelKey: "navGroups.runtime",
-    itemKeys: ["providerAccounts", "virtualModels", "playground", "prompts"],
-    icon: Plug,
+    labelKey: "navGroups.prompts",
+    itemKeys: ["prompts", "playground"],
+    icon: BookOpen,
   },
   {
     labelKey: "navGroups.observability",
@@ -148,6 +149,7 @@ function AdminShellClientContent({
   }, [navItems, permissions]);
 
   const currentPageLabel = visibleNavItems.find((item) => item.isActive)?.title ?? t("nav.dashboard");
+  const supportNavItem = visibleNavItems.find((item) => item.key === "supportTickets");
 
   return (
     <PermissionsProvider permissions={permissions}>
@@ -172,8 +174,8 @@ function AdminShellClientContent({
           tabIndex={-1}
           className="theme-canvas min-w-0 rounded-none bg-background"
         >
-          <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-2.5 md:px-6">
-            <div className="flex min-w-0 items-center gap-3">
+          <header className="sticky top-0 z-10 h-16 border-b border-border bg-background px-4 md:px-6">
+            <div className="flex h-full min-w-0 items-center gap-3">
               <SidebarTrigger
                 className="border border-border bg-card shadow-xs"
                 aria-label={t("menu.open")}
@@ -190,7 +192,7 @@ function AdminShellClientContent({
               <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
                 <WalletBalanceLink summary={walletSummary} />
                 <UserProfileMenu userIdentity={userIdentity} currentUser={currentUser} />
-                <ThemeToggle />
+                {supportNavItem ? <SupportLink item={supportNavItem} /> : null}
                 <div className="hidden sm:block">
                   <DocsLink href={pageHeader?.helpHref ?? docsHref} />
                 </div>
@@ -299,6 +301,7 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
               <span>{t("profile.account")}</span>
             </Link>
           </DropdownMenuItem>
+          <ThemeToggleMenuItem />
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -356,6 +359,11 @@ function AdminSidebar({
         .filter((item): item is AdminNavItem => Boolean(item)),
     })).filter((group) => group.items.length > 0);
   }, [navItemsByKey]);
+  const rootNavItems = useMemo(() => {
+    return ROOT_NAV_ITEM_KEYS
+      .map((key) => navItemsByKey.get(key))
+      .filter((item): item is AdminNavItem => Boolean(item));
+  }, [navItemsByKey]);
 
   return (
     <Sidebar
@@ -366,7 +374,7 @@ function AdminSidebar({
       mobileDescription={t("menu.description")}
       mobileCloseLabel={t("menu.close")}
     >
-      <SidebarHeader className="gap-3 border-b border-sidebar-border! p-3">
+      <SidebarHeader className="h-16 flex-none justify-center gap-0 border-b border-sidebar-border! px-3 py-0">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -399,6 +407,24 @@ function AdminSidebar({
         role="navigation"
         aria-label={t("nav.title")}
       >
+        {rootNavItems.length > 0 ? (
+          <SidebarGroup className="py-1">
+            <SidebarGroupContent>
+              <SidebarMenu aria-label={t("nav.title")} className="gap-0.5">
+                {rootNavItems.map((item) => (
+                  <AdminSidebarNavItem
+                    key={item.href}
+                    item={item}
+                    tooltipSide={tooltipSide}
+                    onCloseMobile={() => setOpenMobile(false)}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
+
         {showCompactNavigation
           ? navGroups.map((group) => (
               <SidebarGroup key={group.labelKey} className="py-1">
@@ -547,6 +573,25 @@ function DocsLink({ href }: { href: string }) {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function SupportLink({ item }: { item: AdminNavItem }) {
+  const Icon = item.icon;
+
+  return (
+    <TooltipProvider delayDuration={120}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button type="button" variant="outline" size="icon" className="shrink-0" asChild>
+            <Link href={item.href} aria-label={item.title}>
+              <Icon data-icon="inline-start" aria-hidden="true" />
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{item.title}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

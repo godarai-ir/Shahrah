@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpen, Boxes, Building2, CircleGauge, Layers3, Network, Settings2, Trash2 } from "lucide-react";
+import { BookOpen, Boxes, Building2, CircleGauge, ExternalLink, FlaskConical, Layers3, Network, Plus, ScrollText, Settings2, Trash2 } from "lucide-react";
 
 import { ProviderLogo } from "@/components/app-ui/ProviderLogo";
 import type {
@@ -10,7 +11,9 @@ import type {
   TenantProviderAccount,
   TenantProviderAccountSummary,
 } from "@/features/provider-accounts/types";
-import { buildModelDiscoveryProviderHref, formatProviderDisplayName } from "@/features/provider-accounts/utils";
+import { buildModelDiscoveryProviderHref, formatProviderDisplayName, resolveCurlGuideMode } from "@/features/provider-accounts/utils";
+import { buildModelDiscoveryDetailsHref } from "@/features/provider-accounts/model-editor-utils";
+import { buildPlaygroundHref } from "@/lib/playground-mode";
 import { CopyAction } from "@/components/app-ui/CopyAction";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
@@ -18,7 +21,7 @@ import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
 import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,9 +39,11 @@ type ModelCatalogExplorerProps = {
   providerBySlug: Map<string, ProviderCatalogProvider>;
   selectedProvider: string;
   selectedAccountID: string;
+  modelAccountID: string;
   selectedModel: CatalogModel | null;
   loadingAccounts: boolean;
   loadingModels: boolean;
+  refreshingModels: boolean;
   modelLoadError: string | null;
   onSelectProvider: (provider: string) => void;
   onSelectAccount: (accountID: string) => void;
@@ -57,9 +62,11 @@ export function ModelCatalogExplorer({
   providerBySlug,
   selectedProvider,
   selectedAccountID,
+  modelAccountID,
   selectedModel,
   loadingAccounts,
   loadingModels,
+  refreshingModels,
   modelLoadError,
   onSelectProvider,
   onSelectAccount,
@@ -86,11 +93,30 @@ export function ModelCatalogExplorer({
     [accounts, selectedProvider],
   );
   const selectedAvailability = useMemo(
-    () => selectedModel?.availability.find((availability) => availability.account_id === selectedAccountID)
+    () => selectedModel?.availability.find((availability) => availability.account_id === modelAccountID)
       ?? selectedModel?.availability[0]
       ?? null,
-    [selectedAccountID, selectedModel],
+    [modelAccountID, selectedModel],
   );
+  const profileLinks = useMemo(() => {
+    if (!selectedModel || !selectedAvailability) return null;
+    const mode = resolveCurlGuideMode({
+      provider: selectedModel.provider,
+      model: selectedModel.model,
+      display_name: selectedModel.display_name,
+      mode: selectedModel.mode,
+      types: selectedModel.types,
+      capabilities: selectedModel.capabilities,
+      features: selectedModel.features,
+      input_modalities: selectedModel.input_modalities,
+      output_modalities: selectedModel.output_modalities,
+    });
+
+    return {
+      playground: buildPlaygroundHref(selectedAvailability.fqn, mode),
+      logs: `/logs?${new URLSearchParams({ model: selectedAvailability.fqn, provider: selectedModel.provider }).toString()}`,
+    };
+  }, [selectedAvailability, selectedModel]);
   const modelPageCount = Math.max(1, Math.ceil(models.length / MODEL_PAGE_SIZE));
   const effectiveModelPage = modelPagination.accountID === selectedAccountID
     ? Math.min(modelPagination.page, modelPageCount - 1)
@@ -115,7 +141,22 @@ export function ModelCatalogExplorer({
       </TabsList>
 
       <TabsContent value="providers" forceMount className="mt-0 hidden min-w-0 data-[state=active]:block md:block">
-        <ExplorerColumn title={t("explorer.providers")} count={formatCount(providers.length)} loading={loadingAccounts}>
+        <ExplorerColumn
+          title={t("explorer.providers")}
+          count={formatCount(providers.length)}
+          loading={loadingAccounts}
+          action={(
+            <Button asChild size="icon-sm">
+              <Link
+                href="/provider-accounts/new"
+                aria-label={t("actions.addProvider")}
+                title={t("actions.addProvider")}
+              >
+                <Plus aria-hidden="true" />
+              </Link>
+            </Button>
+          )}
+        >
         {providers.length > 0 ? providers.map(({ provider, count }) => {
           const metadata = providerBySlug.get(provider);
           const displayName = formatProviderDisplayName(provider, metadata?.display_name);
@@ -186,7 +227,22 @@ export function ModelCatalogExplorer({
       </TabsContent>
 
       <TabsContent value="accounts" forceMount className="mt-0 hidden min-w-0 data-[state=active]:block md:block">
-        <ExplorerColumn title={t("explorer.accounts")} count={formatCount(providerAccounts.length)} loading={loadingAccounts}>
+        <ExplorerColumn
+          title={t("explorer.accounts")}
+          count={formatCount(providerAccounts.length)}
+          loading={loadingAccounts}
+          action={(
+            <Button asChild size="icon-sm">
+              <Link
+                href={`/provider-accounts/new?${new URLSearchParams({ provider: selectedProvider }).toString()}`}
+                aria-label={t("actions.addProvider")}
+                title={t("actions.addProvider")}
+              >
+                <Plus aria-hidden="true" />
+              </Link>
+            </Button>
+          )}
+        >
         {selectedProvider && providerAccounts.length > 0 ? providerAccounts.map((account) => {
           const summary = summaries[account.id];
           const selected = account.id === selectedAccountID;
@@ -240,7 +296,12 @@ export function ModelCatalogExplorer({
       </TabsContent>
 
       <TabsContent value="models" forceMount className="mt-0 hidden min-w-0 data-[state=active]:block md:block">
-        <ExplorerColumn title={t("explorer.models")} count={formatCount(models.length)} loading={loadingModels}>
+        <ExplorerColumn
+          title={t("explorer.models")}
+          count={formatCount(models.length)}
+          loading={loadingModels}
+          refreshing={refreshingModels}
+        >
         {modelLoadError ? (
           <OperationNotice
             notice={{ kind: "error", message: modelLoadError }}
@@ -251,14 +312,14 @@ export function ModelCatalogExplorer({
           const metadata = providerBySlug.get(model.provider);
           const displayName = formatProviderDisplayName(model.provider, metadata?.display_name);
           const modelName = formatCatalogModelDisplayName(model.model, model.display_name);
-          const availability = model.availability.find((item) => item.account_id === selectedAccountID) ?? model.availability[0];
+          const availability = model.availability.find((item) => item.account_id === modelAccountID) ?? model.availability[0];
           const selected = selectedModel?.provider === model.provider && selectedModel.model === model.model;
           return (
-            <div key={`${model.provider}:${model.model}`} className={cn("flex min-w-0 items-center rounded-lg", selected && "bg-secondary text-secondary-foreground")}>
+            <div key={`${model.provider}:${model.model}`} className={cn("flex min-w-0 items-center rounded-lg px-2", selected && "bg-secondary text-secondary-foreground")}>
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto min-w-0 flex-1 justify-start px-3 py-3 text-start"
+                className="h-auto min-w-0 flex-1 justify-start px-1 py-3 text-start"
                 aria-pressed={selected}
                 onClick={() => {
                   onSelectModel(model);
@@ -325,10 +386,16 @@ export function ModelCatalogExplorer({
       </TabsContent>
 
       <TabsContent value="profile" forceMount className="mt-0 hidden min-w-0 data-[state=active]:block md:col-span-3 md:block">
-      <Card className="flex min-h-96 min-w-0 flex-col shadow-none md:max-h-screen">
+      <Card
+        className={cn(
+          "flex min-h-96 min-w-0 flex-col shadow-none transition-opacity md:max-h-screen",
+          refreshingModels && "pointer-events-none opacity-60",
+        )}
+        aria-busy={loadingModels || refreshingModels}
+      >
         <CardHeader className="border-b border-border p-4">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-1">
               {selectedModel ? (
                 <div className="flex min-w-0 items-center gap-1">
                   <h2 className="truncate text-lg font-semibold tracking-tight" dir="ltr" title={formatCatalogModelDisplayName(selectedModel.model, selectedModel.display_name)}>
@@ -342,15 +409,46 @@ export function ModelCatalogExplorer({
                       copiedLabel={t("actions.copied")}
                     />
                   ) : null}
+                  <Button asChild variant="ghost" size="icon-sm">
+                    <a
+                      href={buildModelDiscoveryDetailsHref(selectedModel)}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={t("actions.docs")}
+                      title={t("actions.docs")}
+                    >
+                      <ExternalLink aria-hidden="true" />
+                    </a>
+                  </Button>
                 </div>
               ) : null}
             </div>
-            {selectedModel?.is_deprecated ? <StatusBadge status="warning">{t("status.deprecated")}</StatusBadge> : null}
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {profileLinks ? (
+                <>
+                  {profileLinks.playground ? (
+                    <Button asChild>
+                      <Link href={profileLinks.playground}>
+                        <FlaskConical data-icon="inline-start" aria-hidden="true" />
+                        {t("actions.openPlayground")}
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button asChild variant="outline">
+                    <Link href={profileLinks.logs}>
+                      <ScrollText data-icon="inline-start" aria-hidden="true" />
+                      {t("actions.viewLogs")}
+                    </Link>
+                  </Button>
+                </>
+              ) : null}
+              {selectedModel?.is_deprecated ? <StatusBadge status="warning">{t("status.deprecated")}</StatusBadge> : null}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-y-auto p-4 pt-4 md:p-4 md:pt-4">
           {loadingModels ? <ColumnSkeleton rowCount={5} /> : selectedModel ? (
-            <ModelProfile model={selectedModel} accountID={selectedAccountID} showAccountSelector={false} />
+            <ModelProfile model={selectedModel} accountID={modelAccountID} showAccountSelector={false} />
           ) : (
             <EmptyState variant="inline" density="compact" icon={Layers3} title={t("explorer.selectModel")} description={t("explorer.selectModelDescription")} />
           )}
@@ -365,24 +463,34 @@ function ExplorerColumn({
   title,
   count,
   loading,
+  refreshing = false,
+  action,
   children,
 }: {
   title: string;
   count: ReactNode;
   loading: boolean;
+  refreshing?: boolean;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <Card className="flex min-h-96 min-w-0 flex-col shadow-none md:max-h-screen">
       <CardHeader className="border-b border-border p-4">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-sm">{title}</CardTitle>
-          <Badge variant="secondary">{count}</Badge>
+          <h2 className="text-sm font-semibold leading-6 tracking-tight">{title}</h2>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{count}</Badge>
+            {action}
+          </div>
         </div>
       </CardHeader>
       <CardContent
-        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-4 pt-4 md:p-4 md:pt-4"
-        aria-busy={loading}
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-4 pt-4 transition-opacity md:p-4 md:pt-4",
+          refreshing && "pointer-events-none opacity-60",
+        )}
+        aria-busy={loading || refreshing}
       >
         {loading ? <ColumnSkeleton /> : children}
       </CardContent>

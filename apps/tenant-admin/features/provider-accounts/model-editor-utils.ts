@@ -195,7 +195,9 @@ export function buildProviderAccountModelFqn(input: {
   return `${provider}:${accountName}:${officialModel}`;
 }
 
-export function buildModelDiscoveryDetailsHref(model: ProviderCatalogModel): string {
+export function buildModelDiscoveryDetailsHref(
+  model: Pick<ProviderCatalogModel, "provider" | "model">,
+): string {
   const base = process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL
     ? normalizeModelDiscoveryCatalogBaseURL(process.env.NEXT_PUBLIC_MODEL_DISCOVERY_APP_URL)
     : getModelDiscoveryCatalogBaseURL();

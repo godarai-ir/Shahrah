@@ -55,7 +55,6 @@ import {
   filterAndSortProviderModels,
   getActiveModelFilterChips,
   getModelFamily,
-  getRecommendedModel,
   hasInvalidModelPriceRange,
   normalizeProviderScopedModelName,
   type ModelFilterState,
@@ -176,7 +175,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       copyId: "FQN",
       copied: ux("models.card.copied"),
       lowerCost: ux("models.card.lowerCost"),
-      recommended: ux("models.card.recommended"),
       popular: ux("models.card.popular"),
       tradeOffs: ux("models.card.tradeOffs"),
       cachedInput: ux("models.card.cachedInput"),
@@ -251,8 +249,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     () => Array.from(new Set(providerModels.map(getModelFamily))).sort((a, b) => a.localeCompare(b)),
     [providerModels],
   );
-  const recommendedModel = useMemo(() => getRecommendedModel(providerModels), [providerModels]);
-
   const visibleModels = useMemo(
     () =>
       filterAndSortProviderModels({
@@ -516,7 +512,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       description: `${ux("models.columns.modalities")}: ${inputModalities.join(", ") || ux("models.na")} / ${outputModalities.join(", ") || ux("models.na")}`,
       category: categories,
       status: "stable",
-      recommended: recommendedModel?.model === model.model,
       contextWindow: model.context_window,
       maxOutputTokens: undefined,
       pricing: {
@@ -536,7 +531,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         mode: modes.join(", ") || undefined,
       },
     };
-  }, [buildModelFqn, recommendedModel?.model, ux]);
+  }, [buildModelFqn, ux]);
 
   const getSelectableOptions = useCallback((model: ProviderCatalogModel) => {
     const modes = getModelModes(model);
@@ -717,13 +712,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
       <>
         <div className="shrink-0 bg-card px-4 py-3 shadow-sm sm:px-5">
           <div className="flex flex-col gap-2.5">
-            {recommendedModel ? (
-              <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm">
-                <span className="font-medium">{ux("models.recommendation.title")}: </span>
-                <bdi dir="ltr">{recommendedModel.display_name || recommendedModel.model}</bdi>
-                <span className="text-muted-foreground"> — {ux("models.recommendation.reason")}</span>
-              </div>
-            ) : null}
             <div className="grid gap-2 sm:grid-cols-3">
               <AppSelectField
                 ariaLabel={ux("models.filters.allFamilies")}
@@ -852,7 +840,9 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                       </colgroup>
                       <thead className="bg-muted/35 text-xs text-muted-foreground">
                         <tr>
-                          <th className="px-2 py-2 text-center font-medium">{ux("common.enabled")}</th>
+                          <th className="px-2 py-2 text-center font-medium">
+                            <span className="sr-only">{ux("common.enabled")}</span>
+                          </th>
                           <th className="w-px whitespace-nowrap px-3 py-2 text-start font-medium">{ux("models.card.modelId")}</th>
                           <th className="px-3 py-2 text-center font-medium">{ux("models.card.context")}</th>
                           <th className="px-3 py-2 text-start font-medium">{ux("models.labels.input")}</th>
@@ -873,7 +863,6 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
                             displayScale={displayScale}
                             usdToIrr={usdToIrr}
                             ux={ux}
-                            recommended={recommendedModel?.model === model.model}
                           />
                         ))}
                       </tbody>

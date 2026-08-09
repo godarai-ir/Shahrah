@@ -6,6 +6,7 @@ import {
   Braces,
   CircleHelp,
   Code2,
+  Database,
   ImageIcon,
   Text,
   Video,
@@ -118,6 +119,7 @@ function modalityIcon(modality: string): ReactNode {
   if (normalized.includes("pdf")) return <PdfIcon className="size-4" aria-hidden="true" />;
   if (normalized.includes("json")) return <Braces className="size-4" aria-hidden="true" />;
   if (normalized.includes("code")) return <Code2 className="size-4" aria-hidden="true" />;
+  if (normalized.includes("embedding") || normalized.includes("vector")) return <Database className="size-4" aria-hidden="true" />;
   if (normalized.includes("text")) return <Text className="size-4" aria-hidden="true" />;
 
   return <CircleHelp className="size-4" aria-hidden="true" />;

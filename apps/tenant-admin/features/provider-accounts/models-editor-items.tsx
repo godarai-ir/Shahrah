@@ -5,7 +5,6 @@ import { memo, useMemo } from "react";
 import { Code2, SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { CopyAction } from "@/components/app-ui/CopyAction";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -15,10 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatTokenCount, ModelCard, type ModelCardData } from "@/components/app-ui/ModelCard";
 import { cn } from "@/lib/utils";
 
-import {
-  buildModelDiscoveryDetailsHref,
-  normalizeProviderScopedModelName,
-} from "./model-editor-utils";
+import { buildModelDiscoveryDetailsHref } from "./model-editor-utils";
 import type { ModelDraft, ProviderCatalogModel, TenantProviderAccount } from "./types";
 import {
   formatDisplayPrice,
@@ -154,7 +150,6 @@ type CompactTableRowProps = {
   displayScale: "PER_MILLION_TOKENS" | "PER_TOKEN";
   usdToIrr: number;
   ux: ReturnType<typeof useTranslations>;
-  recommended: boolean;
 };
 
 export const CompactTableRow = memo(function CompactTableRow(props: CompactTableRowProps) {
@@ -168,7 +163,6 @@ export const CompactTableRow = memo(function CompactTableRow(props: CompactTable
     displayScale,
     usdToIrr,
     ux,
-    recommended,
   } = props;
   const draft = useMemo(
     () => draftProp ?? buildFallbackDraft(model, selectableOptions),
@@ -196,7 +190,6 @@ export const CompactTableRow = memo(function CompactTableRow(props: CompactTable
       }),
     [displayCurrency, displayScale, model.public_pricing?.output_usd_per_1m, usdToIrr, ux],
   );
-  const modelIdentifier = normalizeProviderScopedModelName(model.provider, model.model);
   const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
     if (!canManage || (event.target as HTMLElement).closest("button, a, input, [role='checkbox']")) return;
 
@@ -222,22 +215,10 @@ export const CompactTableRow = memo(function CompactTableRow(props: CompactTable
         />
       </td>
       <td className="w-px whitespace-nowrap px-3 py-3">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0">
           <p className="whitespace-nowrap text-sm font-semibold text-foreground" dir="ltr" title={model.display_name || model.model}>
             {model.display_name || model.model}
           </p>
-          {recommended ? <Badge className="mt-1" variant="secondary">{ux("models.card.recommended")}</Badge> : null}
-          <div className="flex items-center gap-1" dir="ltr">
-            <p className="whitespace-nowrap text-xs text-muted-foreground" title={model.model}>
-              {modelIdentifier}
-            </p>
-            <CopyAction
-              value={modelIdentifier}
-              copyLabel={ux("models.card.copyId")}
-              copiedLabel={ux("models.card.copied")}
-              className="shrink-0"
-            />
-          </div>
         </div>
       </td>
       <td className="px-3 py-3 text-center">
@@ -283,8 +264,7 @@ export const CompactTableRow = memo(function CompactTableRow(props: CompactTable
     prev.displayCurrency === next.displayCurrency &&
     prev.displayScale === next.displayScale &&
     prev.usdToIrr === next.usdToIrr &&
-    prev.ux === next.ux &&
-    prev.recommended === next.recommended
+    prev.ux === next.ux
   );
 });
 

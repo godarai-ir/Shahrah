@@ -217,7 +217,6 @@ export function ProviderAccountCreateView(props: ProviderAccountCreateViewProps)
               <Progress
                 value={(catalogActiveStepNumber / catalogStepCount) * 100}
                 className="mt-3 h-1.5"
-                dir="ltr"
                 aria-label={catalogStepProgressLabel}
               />
             </div>
@@ -250,7 +249,7 @@ export function ProviderAccountCreateView(props: ProviderAccountCreateViewProps)
           </nav>
 
           <div className="min-w-0">
-            <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-2">
+            <div className="flex w-full min-w-0 flex-col gap-6 pb-2">
                 {!provider ? (
                   <ProviderPicker
                     providers={visibleProviders}

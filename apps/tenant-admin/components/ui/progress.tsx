@@ -1,18 +1,22 @@
 "use client"
 
 import * as React from "react"
-import { Progress as ProgressPrimitive } from "radix-ui"
+import { Direction, Progress as ProgressPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
 function Progress({
   className,
+  dir,
   value,
   ...props
 }: React.ComponentProps<typeof ProgressPrimitive.Root>) {
+  const direction = Direction.useDirection(dir)
+
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
+      dir={direction}
       className={cn(
         "relative h-2 w-full overflow-hidden rounded-full bg-primary/20",
         className
@@ -22,7 +26,10 @@ function Progress({
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
         className="h-full w-full flex-1 bg-primary transition-all"
-        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+        style={{
+          transform: `scaleX(${(value || 0) / 100})`,
+          transformOrigin: direction === "rtl" ? "right" : "left",
+        }}
       />
     </ProgressPrimitive.Root>
   )

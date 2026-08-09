@@ -14,13 +14,14 @@ export type CodePanelProps = CodeBlockProps & {
   actions?: React.ReactNode;
   copy?: Omit<CopyActionProps, "value">;
   cardClassName?: string;
+  headerClassName?: string;
   contentClassName?: string;
 };
 
-export function CodePanel({ title, titleHidden = false, description, displayLanguage, actions, copy, cardClassName, contentClassName, ...codeBlockProps }: CodePanelProps) {
+export function CodePanel({ title, titleHidden = false, description, displayLanguage, actions, copy, cardClassName, headerClassName, contentClassName, ...codeBlockProps }: CodePanelProps) {
   return (
     <Card className={cn("shadow-none", cardClassName)}>
-      <CardHeader className="border-b">
+      <CardHeader className={cn("border-b", headerClassName)}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className={cn("flex min-w-0 flex-col gap-1", titleHidden && !description && !displayLanguage && "sr-only")}>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -29,7 +30,7 @@ export function CodePanel({ title, titleHidden = false, description, displayLang
             </div>
             {description ? <CardDescription>{description}</CardDescription> : null}
           </div>
-          {copy || actions ? <div className="flex flex-wrap items-center gap-2">{copy ? <CopyAction value={codeBlockProps.code} showLabel {...copy} /> : null}{actions}</div> : null}
+          {copy || actions ? <div className="ms-auto flex flex-wrap items-center gap-2">{copy ? <CopyAction value={codeBlockProps.code} showLabel {...copy} /> : null}{actions}</div> : null}
         </div>
       </CardHeader>
       <CardContent className={cn("p-4", contentClassName)}>

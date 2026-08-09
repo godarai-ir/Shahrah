@@ -16,6 +16,7 @@ export type DefinitionListItemProps = {
   valueDir?: "rtl" | "ltr" | "auto";
   title?: string;
   className?: string;
+  valueClassName?: string;
 };
 
 const columnClasses = {
@@ -30,7 +31,7 @@ export function DefinitionList({ columns = 1, className, ...props }: DefinitionL
 }
 
 export function DefinitionListItem({
-  label, value, icon: Icon, mono, wrap, emphasis, surface, valueDir, title, className,
+  label, value, icon: Icon, mono, wrap, emphasis, surface, valueDir, title, className, valueClassName,
 }: DefinitionListItemProps) {
   const shouldWrap = Boolean(wrap);
   const resolvedTitle = title ?? (!shouldWrap && typeof value === "string" ? value : undefined);
@@ -45,7 +46,7 @@ export function DefinitionListItem({
         <dd
           dir={valueDir}
           title={resolvedTitle}
-          className={cn("text-sm font-medium", mono && "font-mono text-xs", emphasis && "font-semibold", shouldWrap ? "break-all" : "truncate")}
+          className={cn("text-sm font-medium", mono && "font-mono text-xs", emphasis && "font-semibold", shouldWrap ? "break-all" : "truncate", valueClassName)}
         >
           {value}
         </dd>

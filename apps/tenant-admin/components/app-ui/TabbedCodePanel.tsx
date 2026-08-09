@@ -20,12 +20,14 @@ export type TabbedCodePanelProps = Omit<
 > & {
   tabs: readonly CodePanelTab[];
   tabsLabel: string;
+  tabsListVariant?: React.ComponentProps<typeof TabsList>["variant"];
   defaultValue?: string;
 };
 
 export function TabbedCodePanel({
   tabs,
   tabsLabel,
+  tabsListVariant = "default",
   defaultValue,
   actions,
   ...panelProps
@@ -44,7 +46,7 @@ export function TabbedCodePanel({
         className={activeTab.className}
         actions={
           <>
-            <TabsList aria-label={tabsLabel}>
+            <TabsList variant={tabsListVariant} aria-label={tabsLabel}>
               {tabs.map((tab) => (
                 <TabsTrigger key={tab.value} value={tab.value}>
                   {tab.label}

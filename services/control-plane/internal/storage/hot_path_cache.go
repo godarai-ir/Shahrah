@@ -306,7 +306,7 @@ func cloneDeployments(in []platform.Deployment) []platform.Deployment {
 }
 
 func cloneVirtualModels(in []platform.VirtualModel) []platform.VirtualModel {
-	if len(in) == 0 {
+	if in == nil {
 		return nil
 	}
 
