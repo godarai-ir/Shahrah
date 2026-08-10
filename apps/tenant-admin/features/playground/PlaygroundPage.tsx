@@ -3,7 +3,7 @@
 import { AlertTriangle, Boxes, CheckCircle2, Columns3, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, ServerCog, Square, Waypoints } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { usePermissions } from "@/components/permissions-context";
 import {
@@ -726,7 +726,7 @@ function pinSelectedModel(models: GatewayModel[], selectedModel: string): Gatewa
   });
 }
 
-function focusAdjacentModel(event: KeyboardEvent<HTMLButtonElement>) {
+function focusAdjacentModel(event: ReactKeyboardEvent<HTMLButtonElement>) {
   if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
   const list = event.currentTarget.closest("[data-model-picker-list]");
   const options = list ? [...list.querySelectorAll<HTMLButtonElement>("[data-model-picker-option]")] : [];
