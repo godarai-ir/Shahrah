@@ -34,7 +34,7 @@ sources:
   - https://platform.kimi.ai/docs/api/chat
   - https://www.kimi.com/en/resources/kimi-k2-6-pricing
 runtimeProfile:
-  version: 1
+  version: 2
   aliases: []
   endpoints: [models, chat_completions]
   transports: [http, sse]
