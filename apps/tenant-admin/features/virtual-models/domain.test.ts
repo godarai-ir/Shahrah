@@ -4,8 +4,11 @@ import {
   buildModeSummary,
   canonicalModelFQN,
   createCopyAlias,
+  makeDefaultForm,
+  MAX_TARGETS,
   normalizeTargets,
   rebalanceTargetsForWeighted,
+  validateForm,
 } from "./domain";
 
 describe("virtual model domain", () => {
@@ -35,6 +38,17 @@ describe("virtual model domain", () => {
     const weighted = rebalanceTargetsForWeighted([...targets, { ...targets[0], order: 2 }, { ...targets[0], order: 3 }]);
 
     expect(weighted.reduce((sum, target) => sum + (target.weight ?? 0), 0)).toBe(100);
+  });
+
+  it("rejects forms with more than three targets", () => {
+    const form = makeDefaultForm("Everyone");
+    form.alias = "router";
+    form.targets = Array.from({ length: MAX_TARGETS + 1 }, (_, index) => ({
+      ...form.targets[0],
+      order: index + 1,
+    }));
+
+    expect(validateForm(form, (key) => key)).toBe("messages.targetsLimit");
   });
 
   it("separates common and partial endpoint modes", () => {

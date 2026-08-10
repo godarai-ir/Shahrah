@@ -1,5 +1,5 @@
 {
-  "title": "Budget Limiting Rules",
+  "title": "Request Cost Control Rules",
   "description": "Define budget guardrails for gateway requests across subjects, models, and metadata.",
   "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
   "empty": "No budget limiting rules have been created yet.",

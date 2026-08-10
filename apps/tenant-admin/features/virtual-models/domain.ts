@@ -9,6 +9,7 @@ import type {
 } from "./api";
 
 export const LIST_PAGE_SIZE = 50;
+export const MAX_TARGETS = 3;
 
 export type VirtualModelFormState = {
   id?: string;
@@ -155,6 +156,7 @@ type ValidationMessageKey =
   | "messages.aliasRequired"
   | "messages.aliasPattern"
   | "messages.targetsRequired"
+  | "messages.targetsLimit"
   | "messages.providerRequired"
   | "messages.modelRequired"
   | "messages.duplicateOrder"
@@ -171,6 +173,7 @@ export function validateForm(
   if (!form.alias.trim()) return translate("messages.aliasRequired");
   if (!/^[a-zA-Z0-9_-]+$/.test(form.alias.trim())) return translate("messages.aliasPattern");
   if (form.targets.length === 0) return translate("messages.targetsRequired");
+  if (form.targets.length > MAX_TARGETS) return translate("messages.targetsLimit");
 
   const seenOrders = new Set<number>();
   for (const target of form.targets) {

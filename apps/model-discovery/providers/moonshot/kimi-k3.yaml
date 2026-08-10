@@ -6,7 +6,6 @@ modalities:
   output: [text]
 features:
   - function_calling
-  - parallel_function_calling
   - tool_choice
   - system_messages
   - prompt_caching
@@ -53,7 +52,7 @@ runtimeProfile:
   tools:
     custom: true
     server: false
-    parallel: true
+    parallel: false
     structuredOutput: true
     supported: [function_calling]
   modalities:

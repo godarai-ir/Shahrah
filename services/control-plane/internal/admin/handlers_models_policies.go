@@ -246,6 +246,7 @@ func (h *Handlers) ListVirtualModels(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
 	if items == nil {
 		items = make([]platform.VirtualModel, 0)
 	}

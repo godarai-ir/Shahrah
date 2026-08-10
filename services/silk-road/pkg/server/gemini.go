@@ -27,6 +27,27 @@ func newGeminiAdapter() providerAdapter {
 }
 
 func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
+	return a.dispatch(ctx, client, payload, bytes.NewReader(payload.Body), int64(len(payload.Body)), false)
+}
+
+func (a *geminiAdapter) DispatchRaw(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	body io.Reader,
+	contentLength int64,
+) (*adapterResponse, error) {
+	return a.dispatch(ctx, client, payload, body, contentLength, true)
+}
+
+func (a *geminiAdapter) dispatch(
+	ctx context.Context,
+	client *http.Client,
+	payload platform.TunnelRequest,
+	body io.Reader,
+	contentLength int64,
+	raw bool,
+) (*adapterResponse, error) {
 	model := strings.TrimPrefix(strings.TrimSpace(payload.Deployment.Model), "models/")
 	if model != "" && !isSupportedGeminiModel(model) {
 		return nil, fmt.Errorf("google_gemini_model_not_allowlisted: %s", model)
@@ -58,7 +79,17 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 			compatPayload.Deployment.ProviderAuth = &resolved
 		}
 
-		response, err := a.compat.Dispatch(ctx, client, compatPayload)
+		var (
+			response *adapterResponse
+			err      error
+		)
+
+		if raw {
+			response, err = a.compat.DispatchRaw(ctx, client, compatPayload, body, contentLength)
+		} else {
+			response, err = a.compat.Dispatch(ctx, client, compatPayload)
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -88,12 +119,22 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 		return nil, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), bytes.NewReader(payload.Body))
+	request, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), body)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(payload.Body) > 0 {
+	if contentLength >= 0 {
+		request.ContentLength = contentLength
+	}
+
+	if raw {
+		if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
+			request.Header.Set("Content-Type", contentType)
+		} else if contentLength != 0 && payload.Operation != platform.ProviderOperationGeminiFilesCreate {
+			request.Header.Set("Content-Type", "application/json")
+		}
+	} else if contentLength != 0 {
 		request.Header.Set("Content-Type", "application/json")
 	}
 
@@ -116,38 +157,6 @@ func (a *geminiAdapter) Dispatch(ctx context.Context, client *http.Client, paylo
 	}
 
 	return result, nil
-}
-
-func (a *geminiAdapter) DispatchRaw(ctx context.Context, client *http.Client, payload platform.TunnelRequest, body io.Reader, contentLength int64) (*adapterResponse, error) {
-	if payload.Operation != platform.ProviderOperationGeminiFilesCreate {
-		return nil, fmt.Errorf("google_gemini_unsupported_raw_operation: %s", payload.Operation)
-	}
-
-	target, err := resolveBaseURL(normalizeGeminiNativeBaseURL(payload.Deployment.APIBase), geminiNativeBaseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(target, "/upload/v1beta/files"), body)
-	if err != nil {
-		return nil, err
-	}
-
-	request.ContentLength = contentLength
-	if contentType := strings.TrimSpace(headerValue(payload.Headers, "content-type")); contentType != "" {
-		request.Header.Set("Content-Type", contentType)
-	}
-
-	if authErr := applyGeminiAuth(request, payload.Deployment, false); authErr != nil {
-		return nil, authErr
-	}
-
-	response, err := client.Do(request) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
-	if err != nil {
-		return nil, err
-	}
-
-	return &adapterResponse{StatusCode: response.StatusCode, Headers: response.Header, Body: response.Body}, nil
 }
 
 func isSupportedGeminiModel(model string) bool {

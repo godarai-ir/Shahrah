@@ -85,7 +85,16 @@
     "retryDelay": "Retry delay (ms)",
     "timeout": "Timeout (sec)",
     "retryCodes": "Retry status codes",
-    "fallbackCodes": "Fallback status codes"
+    "fallbackCodes": "Fallback status codes",
+    "statusCodePrecedenceHelp": "When a code appears in both lists, the same target is retried first; after all attempts are exhausted, the request falls back to the next target."
+  },
+  "modelPicker": {
+    "title": "Select destination model",
+    "searchPlaceholder": "Search model, provider, account, or technical identifier...",
+    "groupCount": "{count, plural, one {# model} other {# models}}",
+    "selected": "Selected",
+    "emptyTitle": "No models found",
+    "emptyDescription": "Try another model, provider, account, or technical identifier."
   },
   "access": {
     "title": "Access Control",
@@ -108,6 +117,9 @@
     "title": "Effective routing preview",
     "description": "Requests use this order until a target succeeds.",
     "weightedDescription": "Requests start with a weighted target, then fall back in order if needed.",
+    "copyFQN": "Copy target FQN",
+    "copyingFQN": "Copying target FQN",
+    "copiedFQN": "Target FQN copied",
     "providerPlaceholder": "provider",
     "modelPlaceholder": "model"
   },
@@ -125,6 +137,7 @@
     "aliasRequired": "Alias is required.",
     "aliasPattern": "Alias must contain only letters, numbers, dash, or underscore.",
     "targetsRequired": "At least one target is required.",
+    "targetsLimit": "You can define up to 3 targets.",
     "providerRequired": "Each target must include a provider.",
     "modelRequired": "Each target must include a model.",
     "duplicateOrder": "Target order values must be unique.",

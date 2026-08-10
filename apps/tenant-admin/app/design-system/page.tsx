@@ -31,6 +31,7 @@ import { DebouncedTextFilter, RangeFilterField } from "@/components/app-ui/Filte
 import { FormDialog } from "@/components/app-ui/FormDialog";
 import { FormSection } from "@/components/app-ui/FormSection";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
 import { HelpLink } from "@/components/app-ui/HelpLink";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
@@ -390,7 +391,18 @@ export default function DesignSystemPage() {
         </AppCard>
         <AppCard title="Form sheet" description="Standard shell for create and edit workflows.">
           <Button type="button" onClick={() => setFormSheetOpen(true)}>Open form sheet</Button>
-          <FormSheet open={formSheetOpen} onOpenChange={setFormSheetOpen} title="Create resource" description="Enter the resource details.">
+          <FormSheet
+            open={formSheetOpen}
+            onOpenChange={setFormSheetOpen}
+            title="Create resource"
+            description="Enter the resource details."
+            footer={(
+              <FormSheetActions
+                secondary={<Button type="button" variant="outline" onClick={() => setFormSheetOpen(false)}>Cancel</Button>}
+                primary={<Button type="button" onClick={() => setFormSheetOpen(false)}>Save</Button>}
+              />
+            )}
+          >
             <FormSection title="General information"><Input placeholder="Resource name" /></FormSection>
           </FormSheet>
           <Button type="button" variant="outline" onClick={() => setFormDialogOpen(true)}>Open form dialog</Button>

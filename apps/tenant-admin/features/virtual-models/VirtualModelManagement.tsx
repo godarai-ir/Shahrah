@@ -8,9 +8,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { ChipInput } from "@/components/app-ui/ChipInput";
 import { ConfirmDialog } from "@/components/app-ui/ConfirmDialog";
+import { CopyAction } from "@/components/app-ui/CopyAction";
 import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { ModelNameValue } from "@/components/app-ui/ModelNameValue";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
@@ -31,11 +33,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ModelEntitySelect, type ModelSelection } from "@/components/app-ui/ModelEntitySelect";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PrincipalPicker } from "@/components/app-ui/PrincipalPicker";
+import { ProviderLogo } from "@/components/app-ui/ProviderLogo";
 import { type PrincipalSearchKind } from "@/components/app-ui/PrincipalEntitySelect";
 import { buildPrincipalSelectorLabels } from "@/components/app-ui/buildPrincipalSelectorLabels";
 import { cn } from "@/lib/utils";
+import { getProviderCatalog } from "@/features/provider-accounts/api";
 import {
   deleteVirtualModel,
   getProviderAccountDetails,
@@ -52,6 +56,7 @@ import {
 import {
   DEFAULT_TARGET,
   LIST_PAGE_SIZE,
+  MAX_TARGETS,
   MODE_ENDPOINTS,
   buildModeSummary,
   canonicalModelFQN,
@@ -69,10 +74,26 @@ import {
   validateForm,
   type VirtualModelFormState,
 } from "@/features/virtual-models/domain";
+import { ProviderModelPicker, type ProviderModelOption } from "@/features/virtual-models/ProviderModelPicker";
 
 type FormState = VirtualModelFormState;
 
 type Notice = { kind: "success" | "error"; message: string } | null;
+
+function buildTargetPreview(target: VirtualModelTarget, option?: ProviderModelOption) {
+  const fqnParts = target.model.trim().split(":");
+  const hasFQNParts = fqnParts.length === 3;
+  const provider = option?.provider || target.provider || (hasFQNParts ? fqnParts[0].trim() : "");
+  const accountName = option?.accountName || (hasFQNParts ? fqnParts[1].trim() : "");
+  let modelName = option?.model || (hasFQNParts ? fqnParts[2].trim() : target.model.trim());
+  const providerPrefix = `${provider}/`;
+
+  if (modelName.toLocaleLowerCase().startsWith(providerPrefix.toLocaleLowerCase())) {
+    modelName = modelName.slice(providerPrefix.length);
+  }
+
+  return { provider, accountName, modelName };
+}
 
 export default function VirtualModelManagement({ docsHref }: { docsHref: string }) {
   const t = useTranslations("virtualModels");
@@ -94,7 +115,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
 
   const [items, setItems] = useState<VirtualModel[]>([]);
   const [userLabelByID, setUserLabelByID] = useState<Record<string, string>>({});
-  const [providerAllowedModels, setProviderAllowedModels] = useState<ModelSelection[]>([]);
+  const [providerAllowedModels, setProviderAllowedModels] = useState<ProviderModelOption[]>([]);
   const [providerModelModes, setProviderModelModes] = useState<Record<string, string[]>>({});
   const [selectedID, setSelectedID] = useState<string>("");
   const [form, setForm] = useState<FormState>(() => makeDefaultForm(defaultEveryoneLabel));
@@ -198,7 +219,13 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
 
   async function loadProviderAllowedModels() {
     try {
-      const accounts = await listProviderAccounts();
+      const [accounts, providerCatalog] = await Promise.all([
+        listProviderAccounts(),
+        getProviderCatalog().catch(() => []),
+      ]);
+      const providerMetadataBySlug = new Map(
+        providerCatalog.map((provider) => [provider.provider.trim().toLocaleLowerCase(), provider]),
+      );
       const accountDetails = await mapWithConcurrency(
         accounts,
         4,
@@ -215,12 +242,21 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
       const allSelections = availableAccountDetails.map(({ account, models }) =>
         models
             .filter((item) => item.enabled)
-            .map<ModelSelection>((item) => ({
-              id: `${account.id}:${item.model}`,
-              name: `${account.provider}:${account.name}:${item.model}`,
-              kind: "provider_allowed",
-              secondary: `${account.provider}/${account.name}`,
-            })),
+            .map<ProviderModelOption>((item) => {
+              const providerMetadata = providerMetadataBySlug.get(account.provider.trim().toLocaleLowerCase());
+
+              return {
+                id: `${account.id}:${item.model}`,
+                accountID: account.id,
+                accountName: account.name,
+                provider: account.provider,
+                providerDisplayName: providerMetadata?.display_name ?? account.provider,
+                logoURL: providerMetadata?.logo_url,
+                model: item.model,
+                fqn: `${account.provider}:${account.name}:${item.model}`,
+                modes: modesForProviderModel(item),
+              };
+            }),
       );
       setProviderAllowedModels(allSelections.flat());
       const modeEntries = availableAccountDetails.map(({ account, models }) =>
@@ -315,6 +351,8 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
 
   function addTarget() {
     setForm((prev) => {
+      if (prev.targets.length >= MAX_TARGETS) return prev;
+
       const nextTargets = [
         ...prev.targets,
         {
@@ -560,7 +598,11 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                       className={cn(selectedID === item.id && "bg-muted/60")}
                     >
                       <TableCell>
-                        <ModelNameValue value={item.alias} onCopyError={() => showFeedbackToast({ kind: "error", title: t("alerts.error"), description: t("messages.copyAliasError") })} />
+                        <ModelNameValue
+                          value={item.alias}
+                          className="w-full flex-row-reverse"
+                          onCopyError={() => showFeedbackToast({ kind: "error", title: t("alerts.error"), description: t("messages.copyAliasError") })}
+                        />
                       </TableCell>
                       <TableCell className="hidden @sm:table-cell">{formatStrategyLabel(item.routing_strategy, t)}</TableCell>
                       <TableCell className="hidden @md:table-cell">{item.targets?.length ?? 0}</TableCell>
@@ -654,28 +696,26 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
         pending={isSaving || isDeleting}
         bodyClassName="flex flex-col gap-4"
         footer={(
-          <div className="flex w-full flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" onClick={closeEditor} disabled={isSaving || isDeleting}>
+              {tc("cancel")}
+            </Button>}
+            primary={<Button type="button" onClick={() => void submitForm()} disabled={isSaving || isDeleting}>
                 {isSaving ? <Spinner /> : <Save />}
                 {isCreate ? t("actions.create") : tc("save")}
-              </Button>
-              <Button type="button" variant="outline" onClick={closeEditor} disabled={isSaving || isDeleting}>
-                {tc("cancel")}
-              </Button>
-              {!isCreate ? (
-                <Button type="button" variant="outline" onClick={() => selectedID && void loadDetail(selectedID, { skipDirtyConfirm: true })}>
+            </Button>}
+            auxiliary={!isCreate ? (
+              <Button type="button" variant="outline" onClick={() => selectedID && void loadDetail(selectedID, { skipDirtyConfirm: true })}>
                   {t("actions.reset")}
-                </Button>
-              ) : null}
-            </div>
-            {!isCreate ? (
+              </Button>
+            ) : undefined}
+            destructive={!isCreate ? (
               <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)} disabled={isSaving || isDeleting}>
                 {isDeleting ? <Spinner /> : <Trash2 />}
                 {t("actions.delete")}
               </Button>
-            ) : null}
-          </div>
+            ) : undefined}
+          />
         )}
       >
               {notice ? (
@@ -686,8 +726,28 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                 </Alert>
               ) : null}
 
-              <div className="grid gap-3 lg:grid-cols-2">
-                <IdentifierField id="vm-alias" label={t("form.alias")} value={form.alias} onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))} placeholder={t("form.aliasPlaceholder")} />
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                  <div className="w-full min-w-0 flex-1">
+                    <IdentifierField
+                      id="vm-alias"
+                      label={t("form.alias")}
+                      value={form.alias}
+                      onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))}
+                      placeholder={t("form.aliasPlaceholder")}
+                    />
+                  </div>
+                  <Field orientation="horizontal" className="w-auto self-center">
+                    <FieldLabel htmlFor="vm-enabled">
+                      {form.enabled ? t("status.enabled") : t("status.disabled")}
+                    </FieldLabel>
+                    <Switch
+                      id="vm-enabled"
+                      checked={form.enabled}
+                      onCheckedChange={(checked) => setForm((prev) => ({ ...prev, enabled: checked }))}
+                    />
+                  </Field>
+                </div>
                 <FieldSet className="gap-2">
                   <FieldLegend variant="label">{t("form.strategy")}</FieldLegend>
                   <RadioGroup
@@ -719,32 +779,21 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                 </FieldSet>
               </div>
 
-              <div className="flex items-center justify-between rounded-2xl bg-muted/35 px-4 py-3">
-                <div>
-                  <Label htmlFor="vm-enabled" className="text-sm font-medium">
-                    {t("form.enabledLabel")}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">{t("form.enabledHelp")}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{form.enabled ? t("status.enabled") : t("status.disabled")}</span>
-                  <Switch
-                    id="vm-enabled"
-                    checked={form.enabled}
-                    onCheckedChange={(checked) => setForm((prev) => ({ ...prev, enabled: checked }))}
-                    aria-label={t("form.enabledLabel")}
-                  />
-                </div>
-              </div>
-
               <div className="flex flex-col gap-4 rounded-2xl bg-muted/20 px-4 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">{t("targets.title")}</p>
                     <p className="text-xs text-muted-foreground">{t("targets.description")}</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={addTarget}>
-                    <Plus className="h-4 w-4" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addTarget}
+                    disabled={form.targets.length >= MAX_TARGETS}
+                    title={form.targets.length >= MAX_TARGETS ? t("messages.targetsLimit") : undefined}
+                  >
+                    <Plus data-icon="inline-start" />
                     {t("targets.add")}
                   </Button>
                 </div>
@@ -791,35 +840,28 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                       />
                     ) : null}
 
-                    <div className="grid gap-3 lg:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label>{t("targets.provider")}</Label>
-                        <ModelEntitySelect
-                          id={`vm-target-${index}-provider-model`}
-                          selected={
-                            providerAllowedModels.find(
-                              (item) => sameModelFQN(item.name, target.model) && item.secondary?.startsWith(`${target.provider}/`),
-                            ) ?? null
-                          }
-                          onSelectedChange={(value) => {
-                            if (!value) return;
-                            const provider = value.secondary?.split("/")[0] ?? "";
-                            updateTarget(index, { provider, model: value.name });
-                          }}
-                          providerAllowedModels={providerAllowedModels}
-                          virtualModels={[]}
-                          showVirtualModels={false}
-                          labels={{
-                            triggerPlaceholder: t("targets.model"),
-                            searchPlaceholder: t("searchPlaceholder"),
-                            providerAllowed: t("targets.provider"),
-                            virtualModels: t("title"),
-                            loading: "",
-                            empty: t("empty.description"),
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <Field>
+                      <FieldLabel htmlFor={`vm-target-${index}-provider-model`}>{t("targets.model")}</FieldLabel>
+                      <ProviderModelPicker
+                        id={`vm-target-${index}-provider-model`}
+                        selected={
+                          providerAllowedModels.find(
+                            (item) => sameModelFQN(item.fqn, target.model) && item.provider === target.provider,
+                          ) ?? null
+                        }
+                        onSelectedChange={(value) => updateTarget(index, { provider: value.provider, model: value.fqn })}
+                        options={providerAllowedModels}
+                        labels={{
+                          title: t("modelPicker.title"),
+                          placeholder: t("targets.model"),
+                          searchPlaceholder: t("modelPicker.searchPlaceholder"),
+                          groupCount: (count) => t("modelPicker.groupCount", { count }),
+                          selected: t("modelPicker.selected"),
+                          emptyTitle: t("modelPicker.emptyTitle"),
+                          emptyDescription: t("modelPicker.emptyDescription"),
+                        }}
+                      />
+                    </Field>
 
                     <div className="grid gap-3 md:grid-cols-3">
                       <AppNumberField
@@ -921,6 +963,9 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                           placeholder="429, 500, 502, 503, 504"
                         />
                       </div>
+                      <FieldDescription className="md:col-span-2">
+                        {t("targets.statusCodePrecedenceHelp")}
+                      </FieldDescription>
                     </div>
                   </div>
                 ))}
@@ -931,9 +976,10 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                   <p className="text-sm font-medium">{t("access.title")}</p>
                   <p className="text-xs text-muted-foreground">{t("access.description")}</p>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-2">
+                <div className="flex flex-col gap-3">
                   <PrincipalPicker
                     id="vm-managers"
+                    className="min-h-0"
                     title={t("access.managers")}
                     selected={form.access.managers}
                     setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, managers: value } }))}
@@ -945,6 +991,7 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                   />
                   <PrincipalPicker
                     id="vm-users"
+                    className="min-h-0"
                     title={t("access.users")}
                     selected={form.access.users}
                     setSelected={(value) => setForm((prev) => ({ ...prev, access: { ...prev.access, users: value } }))}
@@ -972,30 +1019,69 @@ export default function VirtualModelManagement({ docsHref }: { docsHref: string 
                   ) : null}
                 </div>
                 <div className="mt-3 flex flex-col gap-2">
-                  {form.targets.map((target) => (
-                    <div
-                      key={`${target.order}-${target.provider}-${target.model}`}
-                      className="flex items-center justify-between gap-3 rounded-xl bg-background/90 px-3 py-2 ring-1 ring-border/30"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Badge variant="outline" className="shrink-0 rounded-full px-2">
-                          {target.order}
-                        </Badge>
-                        <span className="truncate text-sm">
-                          {target.provider || t("preview.providerPlaceholder")} / {target.model || t("preview.modelPlaceholder")}
-                        </span>
+                  {form.targets.map((target) => {
+                    const selectedOption = providerAllowedModels.find(
+                      (option) => option.provider === target.provider && sameModelFQN(option.fqn, target.model),
+                    );
+                    const preview = buildTargetPreview(target, selectedOption);
+                    const providerLabel = preview.provider || t("preview.providerPlaceholder");
+                    const modelLabel = preview.modelName || t("preview.modelPlaceholder");
+
+                    return (
+                      <div
+                        key={`${target.order}-${target.provider}-${target.model}`}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-background/90 px-3 py-2 ring-1 ring-border/30"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <Badge variant="outline" className="shrink-0 rounded-full px-2">
+                            {target.order}
+                          </Badge>
+                          <ProviderLogo
+                            key={`${preview.provider}:${selectedOption?.logoURL ?? ""}`}
+                            provider={preview.provider}
+                            displayName={selectedOption?.providerDisplayName ?? providerLabel}
+                            logoURL={selectedOption?.logoURL}
+                            size={28}
+                            decorative
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="block truncate text-end font-mono text-sm font-semibold" dir="ltr" title={modelLabel}>
+                              {modelLabel}
+                            </span>
+                            <p className="truncate text-end text-xs text-muted-foreground" dir="ltr">
+                              {providerLabel}{preview.accountName ? ` · ${preview.accountName}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 self-center">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <CopyAction
+                                  value={target.model}
+                                  copyLabel={t("preview.copyFQN")}
+                                  copyingLabel={t("preview.copyingFQN")}
+                                  copiedLabel={t("preview.copiedFQN")}
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-sm break-all font-mono" dir="ltr">
+                                {target.model}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          {form.routing_strategy === "weighted" ? (
+                            <Badge variant="secondary" className="shrink-0 rounded-full px-2">
+                              {target.weight ?? 0}%
+                            </Badge>
+                          ) : null}
+                        </div>
                       </div>
-                      {form.routing_strategy === "weighted" ? (
-                        <Badge variant="secondary" className="shrink-0 rounded-full px-2">
-                          {target.weight ?? 0}%
-                        </Badge>
-                      ) : null}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              <Alert className="rounded-2xl border-info/30 bg-info/8">
+              <Alert variant="info" className="rounded-2xl">
                 <AlertTitle>{t("modes.title")}</AlertTitle>
                 <AlertDescription className="flex flex-col gap-3">
                   <span>{t("modes.description")}</span>

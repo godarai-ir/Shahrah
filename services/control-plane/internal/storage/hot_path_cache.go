@@ -320,28 +320,39 @@ func cloneVirtualModels(in []platform.VirtualModel) []platform.VirtualModel {
 
 func cloneVirtualModelValue(in platform.VirtualModel) platform.VirtualModel {
 	out := in
-	out.ExposedModes = append([]string(nil), in.ExposedModes...)
+	out.ExposedModes = cloneSlice(in.ExposedModes)
 	out.Targets = cloneVirtualModelTargets(in.Targets)
 	out.Access = platform.TenantProviderAccountAccessControl{
-		Managers: append([]platform.AccessPrincipal(nil), in.Access.Managers...),
-		Users:    append([]platform.AccessPrincipal(nil), in.Access.Users...),
-		Rules:    append([]platform.TenantProviderAccountAccessRule(nil), in.Access.Rules...),
+		Managers: cloneSlice(in.Access.Managers),
+		Users:    cloneSlice(in.Access.Users),
+		Rules:    cloneSlice(in.Access.Rules),
 	}
 
 	return out
 }
 
 func cloneVirtualModelTargets(in []platform.VirtualModelTarget) []platform.VirtualModelTarget {
-	if len(in) == 0 {
+	if in == nil {
 		return nil
 	}
 
 	out := make([]platform.VirtualModelTarget, len(in))
 	for i, target := range in {
 		out[i] = target
-		out[i].Policy.Retry.StatusCodes = append([]int(nil), target.Policy.Retry.StatusCodes...)
-		out[i].Policy.Fallback.StatusCodes = append([]int(nil), target.Policy.Fallback.StatusCodes...)
+		out[i].Policy.Retry.StatusCodes = cloneSlice(target.Policy.Retry.StatusCodes)
+		out[i].Policy.Fallback.StatusCodes = cloneSlice(target.Policy.Fallback.StatusCodes)
 	}
+
+	return out
+}
+
+func cloneSlice[T any](in []T) []T {
+	if in == nil {
+		return nil
+	}
+
+	out := make([]T, len(in))
+	copy(out, in)
 
 	return out
 }

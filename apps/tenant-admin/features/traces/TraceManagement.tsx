@@ -14,6 +14,7 @@ import { CatalogFilterCombobox } from "@/components/app-ui/CatalogFilterCombobox
 import { CompactValue } from "@/components/app-ui/CompactValue";
 import { DateTimeRangeField } from "@/components/app-ui/DateTimeRangeField";
 import { FilterField } from "@/components/app-ui/FilterField";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { MetricCard } from "@/components/app-ui/MetricCard";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { Badge } from "@/components/ui/badge";
@@ -672,15 +673,17 @@ export default function TraceManagement(props: TraceManagementProps) {
                       {advancedFiltersFields}
                     </div>
                   </ScrollArea>
-                  <SheetFooter>
-                    <Button type="button" onClick={() => { applyFilters(); setAdvancedSheetOpen(false); }} disabled={loading}>
+                  <SheetFooter className="border-t border-border px-6 py-4">
+                    <FormSheetActions
+                      secondary={<Button type="button" variant="outline" onClick={clearFilters} disabled={loading}>
+                        <RotateCcw data-icon="inline-start" aria-hidden="true" />
+                        {t("actions.clear")}
+                      </Button>}
+                      primary={<Button type="button" onClick={() => { applyFilters(); setAdvancedSheetOpen(false); }} disabled={loading}>
                       <Filter data-icon="inline-start" aria-hidden="true" />
                       {t("actions.apply")}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={clearFilters} disabled={loading}>
-                      <RotateCcw data-icon="inline-start" aria-hidden="true" />
-                      {t("actions.clear")}
-                    </Button>
+                      </Button>}
+                    />
                   </SheetFooter>
                 </SheetContent>
               </Sheet>

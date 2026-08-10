@@ -238,9 +238,9 @@ export function BudgetLimitRulesPage() {
               <TableBody>
                 {items.map((rule) => (
                   <TableRow key={rule.id}>
-                    <TableCell className={`${BUDGET_RULE_COLUMN_CLASS.ruleId} min-w-0 font-mono font-medium`} dir="ltr">
-                      <div className="flex min-w-0 items-center gap-1">
-                        <span className="block min-w-0 flex-1 truncate" title={rule.rule_id}>{rule.rule_id}</span>
+                    <TableCell className={`${BUDGET_RULE_COLUMN_CLASS.ruleId} min-w-0 text-right font-mono font-medium`}>
+                      <div className="flex min-w-0 items-center gap-1" dir="rtl">
+                        <span className="block min-w-0 flex-1 truncate text-right" dir="ltr" title={rule.rule_id}>{rule.rule_id}</span>
                         <CopyAction
                           className="shrink-0"
                           value={rule.rule_id}

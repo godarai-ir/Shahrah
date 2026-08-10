@@ -1,9 +1,9 @@
 "use client";
 
-import { AlertTriangle, Boxes, CheckCircle2, Columns3, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, ServerCog, Sparkles, Square, Waypoints } from "lucide-react";
+import { AlertTriangle, Boxes, CheckCircle2, Columns3, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, ServerCog, Square, Waypoints } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { usePermissions } from "@/components/permissions-context";
 import {
@@ -633,33 +633,84 @@ export default function PlaygroundPage() {
   );
 }
 
+type ModelPickerFilter = "all" | "virtual" | "provider";
+
 function ModelPickerDialog(props: { open: boolean; onOpenChange: (open: boolean) => void; search: string; onSearchChange: (value: string) => void; models: GatewayModel[]; mode: PlaygroundMode; selectedModel: string; onSelect: (model: GatewayModel) => void; t: PlaygroundTranslation }) {
+  const [filter, setFilter] = useState<ModelPickerFilter>("all");
   const q = props.search.trim().toLowerCase();
-  const models = props.models.filter((model) => `${model.id} ${model.provider ?? ""} ${(model.aliases ?? []).join(" ")}`.toLowerCase().includes(q));
-  const virtualModels = models.filter((model) => model.provider === "virtual");
-  const providerModels = models.filter((model) => model.provider !== "virtual");
+  const matchingModels = props.models.filter((model) => `${model.id} ${model.provider ?? ""} ${model.owned_by} ${(model.aliases ?? []).join(" ")}`.toLowerCase().includes(q));
+  const models = matchingModels.filter((model) => filter === "all" || (filter === "virtual" ? model.provider === "virtual" : model.provider !== "virtual"));
+  const virtualModels = pinSelectedModel(models.filter((model) => model.provider === "virtual"), props.selectedModel);
+  const providerModels = pinSelectedModel(models.filter((model) => model.provider !== "virtual"), props.selectedModel);
+  const selectedModel = props.models.find((model) => model.id === props.selectedModel);
+  const selectedIsVirtual = !selectedModel || selectedModel.provider === "virtual";
+  const groups = selectedIsVirtual
+    ? [
+        { key: "virtual", title: props.t("model.virtualGroup"), models: virtualModels, virtual: true },
+        { key: "provider", title: props.t("model.providerGroup"), models: providerModels, virtual: false },
+      ]
+    : [
+        { key: "provider", title: props.t("model.providerGroup"), models: providerModels, virtual: false },
+        { key: "virtual", title: props.t("model.virtualGroup"), models: virtualModels, virtual: true },
+      ];
   const modeLabel = props.mode === "image_generation" ? props.t("mode.imageGeneration") : props.t("mode.chat");
+
+  function changeOpen(open: boolean) {
+    props.onOpenChange(open);
+    if (!open) {
+      props.onSearchChange("");
+      setFilter("all");
+    }
+  }
+
+  function selectModel(model: GatewayModel) {
+    props.onSearchChange("");
+    setFilter("all");
+    props.onSelect(model);
+  }
+
   return (
     <SearchPickerDialog
       open={props.open}
-      onOpenChange={props.onOpenChange}
+      onOpenChange={changeOpen}
       title={<span className="flex items-center gap-2"><span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Boxes aria-hidden="true" className="size-4" /></span>{props.t("model.select")}</span>}
       description={props.t("model.pickerDescription", { mode: modeLabel })}
       searchValue={props.search}
       onSearchValueChange={props.onSearchChange}
       searchPlaceholder={props.t("model.search")}
+      contentClassName="overflow-hidden"
+      bodyClassName="min-h-0"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-info-soft-border bg-info-soft p-3 text-info-soft-foreground">
-        <span className="flex items-center gap-2 text-sm font-medium"><Sparkles aria-hidden="true" className="size-4" />{props.t("model.compatibleCount", { count: models.length })}</span>
-        <Badge variant="outline" className="border-info-soft-border bg-background/70 text-info-soft-foreground">
-          {props.mode === "image_generation" ? <ImageIcon aria-hidden="true" /> : <MessageSquare aria-hidden="true" />}
-          {modeLabel}
-        </Badge>
-      </div>
-      <ScrollArea className="max-h-96 pe-2">
-        <div className="flex flex-col gap-4">
-          <ModelPickerGroup title={props.t("model.virtualGroup")} models={virtualModels} selectedModel={props.selectedModel} mode={props.mode} onSelect={props.onSelect} t={props.t} virtual />
-          <ModelPickerGroup title={props.t("model.providerGroup")} models={providerModels} selectedModel={props.selectedModel} mode={props.mode} onSelect={props.onSelect} t={props.t} />
+      <ToggleGroup
+        type="single"
+        value={filter}
+        onValueChange={(value) => value && setFilter(value as ModelPickerFilter)}
+        aria-label={props.t("model.filterLabel")}
+        className="w-full gap-1 rounded-lg border border-border bg-muted/30 p-1"
+      >
+        <ToggleGroupItem value="all" className="h-8 flex-1 px-3 data-[state=on]:bg-background data-[state=on]:shadow-xs">
+          {props.t("model.filterAll")}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="virtual" className="h-8 flex-1 px-3 data-[state=on]:bg-background data-[state=on]:shadow-xs">
+          {props.t("model.filterVirtual")}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="provider" className="h-8 flex-1 px-3 data-[state=on]:bg-background data-[state=on]:shadow-xs">
+          {props.t("model.filterProvider")}
+        </ToggleGroupItem>
+      </ToggleGroup>
+      <ScrollArea className="h-80 pe-2">
+        <div data-model-picker-list className="flex flex-col gap-4">
+          {groups.map((group) => (
+            <ModelPickerGroup
+              key={group.key}
+              title={group.title}
+              models={group.models}
+              selectedModel={props.selectedModel}
+              onSelect={selectModel}
+              t={props.t}
+              virtual={group.virtual}
+            />
+          ))}
           {models.length === 0 ? <EmptyState variant="inline" density="compact" icon={Boxes} title={props.t("model.empty")} /> : null}
         </div>
       </ScrollArea>
@@ -667,7 +718,31 @@ function ModelPickerDialog(props: { open: boolean; onOpenChange: (open: boolean)
   );
 }
 
-function ModelPickerGroup(props: { title: string; models: GatewayModel[]; selectedModel: string; mode: PlaygroundMode; onSelect: (model: GatewayModel) => void; t: PlaygroundTranslation; virtual?: boolean }) {
+function pinSelectedModel(models: GatewayModel[], selectedModel: string): GatewayModel[] {
+  return [...models].sort((first, second) => {
+    if (first.id === selectedModel) return -1;
+    if (second.id === selectedModel) return 1;
+    return first.id.localeCompare(second.id);
+  });
+}
+
+function focusAdjacentModel(event: KeyboardEvent<HTMLButtonElement>) {
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const list = event.currentTarget.closest("[data-model-picker-list]");
+  const options = list ? [...list.querySelectorAll<HTMLButtonElement>("[data-model-picker-option]")] : [];
+  const currentIndex = options.indexOf(event.currentTarget);
+  if (currentIndex < 0 || options.length === 0) return;
+
+  event.preventDefault();
+  const nextIndex = event.key === "Home"
+    ? 0
+    : event.key === "End"
+      ? options.length - 1
+      : (currentIndex + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+  options[nextIndex]?.focus();
+}
+
+function ModelPickerGroup(props: { title: string; models: GatewayModel[]; selectedModel: string; onSelect: (model: GatewayModel) => void; t: PlaygroundTranslation; virtual?: boolean }) {
   if (props.models.length === 0) return null;
   const GroupIcon = props.virtual ? Waypoints : ServerCog;
   return (
@@ -676,44 +751,57 @@ function ModelPickerGroup(props: { title: string; models: GatewayModel[]; select
         <h3 className="flex items-center gap-2 text-sm font-semibold"><GroupIcon aria-hidden="true" className={cn("size-4", props.virtual ? "text-info-soft-foreground" : "text-primary")} />{props.title}</h3>
         <Badge variant="secondary" className="tabular-nums">{props.models.length}</Badge>
       </div>
-      <div className="flex flex-col gap-2">
-        {props.models.map((model) => <ModelPickerOption key={model.id} model={model} selected={model.id === props.selectedModel} mode={props.mode} onSelect={props.onSelect} t={props.t} />)}
+      <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
+        {props.models.map((model) => <ModelPickerOption key={model.id} model={model} selected={model.id === props.selectedModel} onSelect={props.onSelect} t={props.t} />)}
       </div>
     </section>
   );
 }
 
-function ModelPickerOption(props: { model: GatewayModel; selected: boolean; mode: PlaygroundMode; onSelect: (model: GatewayModel) => void; t: PlaygroundTranslation }) {
+function ModelPickerOption(props: { model: GatewayModel; selected: boolean; onSelect: (model: GatewayModel) => void; t: PlaygroundTranslation }) {
   const virtual = props.model.provider === "virtual";
   const TypeIcon = virtual ? Waypoints : ServerCog;
-  const provider = props.model.provider || props.model.owned_by;
+  const identity = modelPickerIdentity(props.model);
   return (
     <button
       type="button"
       aria-pressed={props.selected}
+      data-model-picker-option
       className={cn(
-        "group flex w-full items-start gap-3 rounded-lg border border-border bg-card p-3 text-start transition-colors hover:border-primary/40 hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
-        props.selected && "border-primary bg-primary/5 shadow-xs",
+        "group flex w-full items-center gap-3 px-3 py-2.5 text-start transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none",
+        props.selected && "bg-primary-soft",
       )}
       onClick={() => props.onSelect(props.model)}
+      onKeyDown={focusAdjacentModel}
     >
-      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg border", virtual ? "border-info-soft-border bg-info-soft text-info-soft-foreground" : "border-primary/20 bg-primary/10 text-primary")}>
+      <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg border", virtual ? "border-info-soft-border bg-info-soft text-info-soft-foreground" : "border-primary/20 bg-primary/10 text-primary")}>
         <TypeIcon aria-hidden="true" className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <code className="block truncate font-mono text-sm font-medium text-foreground" dir="ltr" title={props.model.id}>{props.model.id}</code>
-        <span className="mt-2 flex flex-wrap items-center gap-2">
-          <Badge variant={virtual ? "info" : "outline"}><TypeIcon aria-hidden="true" />{virtual ? props.t("model.virtual") : props.t("model.provider")}</Badge>
-          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"><ServerCog aria-hidden="true" className="size-3.5 shrink-0" /><span className="truncate" dir="auto">{provider}</span></span>
-          <Badge variant="secondary">
-            {props.mode === "image_generation" ? <ImageIcon aria-hidden="true" /> : <MessageSquare aria-hidden="true" />}
-            {props.mode === "image_generation" ? props.t("mode.imageGeneration") : props.t("mode.chat")}
-          </Badge>
-        </span>
+        <code className="block truncate text-end font-mono text-sm font-semibold text-foreground" dir="ltr" title={props.model.id}>{identity.modelName}</code>
+        {identity.metadata ? <span className="mt-1 block truncate text-end text-xs text-muted-foreground" dir="ltr">{identity.metadata}</span> : null}
       </span>
-      {props.selected ? <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary"><CheckCircle2 aria-hidden="true" className="size-5" /><span className="sr-only">{props.t("model.selected")}</span></span> : null}
+      {props.selected ? <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary"><CheckCircle2 aria-hidden="true" className="size-4" />{props.t("model.selected")}</span> : null}
     </button>
   );
+}
+
+function modelPickerIdentity(model: GatewayModel): { modelName: string; metadata: string } {
+  if (model.provider === "virtual") {
+    const alias = model.aliases?.find((item) => item && item !== model.id) ?? "";
+    return { modelName: model.id, metadata: alias };
+  }
+
+  const parts = model.id.split(":");
+  const provider = model.provider || (parts.length === 3 ? parts[0] : model.owned_by);
+  const account = parts.length === 3 ? parts[1] : "";
+  let modelName = parts.length === 3 ? parts[2] : model.id;
+  const providerPrefix = `${provider}/`;
+  if (modelName.toLocaleLowerCase().startsWith(providerPrefix.toLocaleLowerCase())) {
+    modelName = modelName.slice(providerPrefix.length);
+  }
+
+  return { modelName, metadata: [provider, account].filter(Boolean).join(" · ") };
 }
 
 function VariablesSheet(props: { open: boolean; onOpenChange: (open: boolean) => void; variables: string[]; columns: PlaygroundColumnDraft[]; readOnly: boolean; side: "left" | "right"; onChange: (name: string, value: string) => void; t: PlaygroundTranslation }) {

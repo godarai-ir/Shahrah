@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, Play, Plus, Save, Settings2, Square, Trash2 } from "lucide-react";
+import { Braces, CopyPlus, Download, ExternalLink, FileUp, Image as ImageIcon, MessageSquareText, Play, Plus, Save, Settings2, Square, Trash2 } from "lucide-react";
 
 import { CopyAction } from "@/components/app-ui/CopyAction";
 import { EmptyState } from "@/components/app-ui/EmptyState";
@@ -112,7 +112,7 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
             aria-label={column.label}
             readOnly={props.readOnly}
           />
-        ) : <h2 className="text-sm font-semibold">{props.t("editor")}</h2>}
+        ) : <h2 className="text-sm font-semibold">{props.t("targetModel")}</h2>}
         <Button type="button" size="sm" variant="outline" className="min-w-0 max-w-full" disabled={props.readOnly} onClick={props.onOpenModel}>
           <span className={column.selectedModel ? "truncate font-mono" : "truncate"} dir={column.selectedModel ? "ltr" : undefined}>{column.selectedModel || props.t("model.select")}</span>
           {column.selectedProvider === "virtual" ? <Badge variant="secondary">{props.t("model.virtual")}</Badge> : null}
@@ -145,9 +145,9 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
         </ScrollArea>
       ) : <Tabs value={column.editorMode} onValueChange={switchMode} className="min-h-0 flex-1 gap-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <TabsList>
-            <TabsTrigger value="visual">{props.t("visual")}</TabsTrigger>
-            <TabsTrigger value="json"><Braces />{props.t("json")}</TabsTrigger>
+          <TabsList className="bg-muted">
+            <TabsTrigger value="visual" className="h-8 gap-2 px-3 data-[state=active]:border-transparent data-[state=active]:bg-background data-[state=active]:shadow-sm"><MessageSquareText />{props.t("visual")}</TabsTrigger>
+            <TabsTrigger value="json" className="h-8 gap-2 px-3 data-[state=active]:border-transparent data-[state=active]:bg-background data-[state=active]:shadow-sm"><Braces />{props.t("json")}</TabsTrigger>
           </TabsList>
           {column.editorMode === "visual" ? (
             <Button
@@ -219,6 +219,7 @@ export function PlaygroundEditorPanel(props: PlaygroundColumnProps) {
         <TabsContent value="json" className="min-h-0 overflow-auto p-3">
           <JsonEditorField
             label={props.t("json")}
+            hideLabel
             variables={props.variables ?? []}
             value={column.jsonDraft}
             error={column.jsonError || undefined}

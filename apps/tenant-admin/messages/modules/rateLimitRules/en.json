@@ -1,5 +1,5 @@
 {
-  "title": "Rate Limiting Rules",
+  "title": "Request Count Limit Rules",
   "description": "Define rule-based limits for gateway requests across subjects, models, and metadata.",
   "searchPlaceholder": "Search by rule id, model, subject, or metadata key",
   "empty": "No rate limiting rules have been created yet.",
@@ -31,7 +31,7 @@
     "close": "Close"
   },
   "table": {
-    "ruleId": "Rule ID",
+    "ruleId": "Technical identifier",
     "limit": "Limit Value",
     "window": "Window",
     "status": "Status",
@@ -107,7 +107,7 @@
       "limit": "Choose the allowed capacity and the evaluation window for this rule.",
       "windowSeconds": "When custom mode is selected, the value is interpreted in seconds.",
       "advanced": "Control how this rule behaves when it overlaps with other rate limit rules.",
-      "priority": "Lower or higher values determine how the rule is evaluated during conflicts."
+      "priority": "Rules with lower numbers are evaluated first. The value must be zero or greater."
     },
     "placeholders": {
       "name": "Example: public users limit",
@@ -137,8 +137,38 @@
       }
     },
     "advanced": {
-      "toggleOpen": "Show advanced settings",
-      "toggleClose": "Hide advanced settings"
+      "toggleOpen": "Show details",
+      "toggleClose": "Hide details",
+      "summaryLabel": "Advanced settings summary",
+      "summary": {
+        "priority": "Priority {value, number}",
+        "soft": "Soft mode",
+        "hard": "Hard mode",
+        "enabled": "enabled",
+        "disabled": "disabled"
+      },
+      "conflict": {
+        "title": "Conflict resolution",
+        "description": "Choose the outcome when a request matches more than one rule.",
+        "options": {
+          "first_match": {
+            "badge": "Ordered",
+            "description": "Apply the first rule in priority order."
+          },
+          "most_restrictive": {
+            "badge": "Conservative",
+            "description": "Choose the strictest limit among matching rules."
+          },
+          "apply_all": {
+            "badge": "All",
+            "description": "Enforce every matching rule independently."
+          }
+        }
+      },
+      "response": {
+        "title": "Response behavior",
+        "description": "Choose how the gateway responds when traffic exceeds the configured limit."
+      }
     },
     "switches": {
       "enabled": {

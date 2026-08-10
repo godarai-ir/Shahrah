@@ -10,6 +10,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { FormSection } from "@/components/app-ui/FormSection";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -26,6 +27,7 @@ import {
   type PrincipalEntitySelectLabels,
 } from "@/components/app-ui/PrincipalEntitySelect";
 import { ModelEntitySelect, type ModelEntitySelectLabels, type ModelSelection } from "@/components/app-ui/ModelEntitySelect";
+import { GatewayPolicyRuleSheetFooter } from "@/features/gateway-policies/components";
 
 import { createBudgetLimitRule, updateBudgetLimitRule } from "./ruleApi";
 import type { BudgetLimitCondition, BudgetLimitRule } from "./ruleTypes";
@@ -202,7 +204,7 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
           </Alert>
         ) : null}
 
-        <form className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+        <form id="budget-limit-rule-form" className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
           <FormSection
             title={t("form.sections.ruleIdentity")}
             description={t("form.descriptions.ruleIdentity")}
@@ -543,16 +545,25 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
             </div>
           </FormSection>
 
-          <div className="sticky bottom-0 rounded-xl border border-border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/90">
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.push("/gateway-policies/budget-limiting-rules")}>
+          {embedded ? (
+            <GatewayPolicyRuleSheetFooter>
+              <FormSheetActions
+                secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => onCancel ? onCancel() : router.push("/gateway-policies/budget-limiting-rules")}>
                 {t("actions.cancel")}
-              </Button>
-              <Button type="submit" disabled={!form.formState.isValid || isSaving}>
+                </Button>}
+                primary={<Button type="submit" form="budget-limit-rule-form" disabled={!form.formState.isValid || isSaving}>
                 {isSaving ? t("actions.saving") : t("actions.save")}
-              </Button>
+                </Button>}
+              />
+            </GatewayPolicyRuleSheetFooter>
+          ) : (
+            <div className="sticky bottom-0 border-t border-border bg-background px-6 py-4">
+              <FormSheetActions
+                secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => router.push("/gateway-policies/budget-limiting-rules")}>{t("actions.cancel")}</Button>}
+                primary={<Button type="submit" form="budget-limit-rule-form" disabled={!form.formState.isValid || isSaving}>{isSaving ? t("actions.saving") : t("actions.save")}</Button>}
+              />
             </div>
-          </div>
+          )}
         </form>
     </PageContainer>
   );

@@ -65,12 +65,20 @@ func validateMoonshotChatRuntimeProfile(
 		return err
 	}
 
-	if err := validateMoonshotFixedAdditionalFields(req.AdditionalFields); err != nil {
+	if err := validateMoonshotFixedAdditionalFields(req.AdditionalFields, model); err != nil {
 		return err
 	}
 
-	if choice, ok := req.ToolChoice.(string); ok && strings.EqualFold(strings.TrimSpace(choice), "required") && model != "kimi-k3" {
-		return fmt.Errorf("model does not support tool_choice=required")
+	if err := validateMoonshotDecodingAdditionalFields(req.AdditionalFields, model); err != nil {
+		return err
+	}
+
+	if moonshotModelUsesFixedControls(model) && req.ParallelToolCalls != nil {
+		return fmt.Errorf("model does not support parallel_tool_calls")
+	}
+
+	if err := validateMoonshotToolChoiceRequest(req, model); err != nil {
+		return err
 	}
 
 	if req.ParallelToolCalls != nil && *req.ParallelToolCalls && !profile.Tools.Parallel {
@@ -101,11 +109,22 @@ func validateMoonshotThinkingRequest(
 	}
 
 	if model == "kimi-k3" {
-		if req.Thinking != nil {
-			return fmt.Errorf("kimi-k3 does not accept the thinking parameter")
+		if req.Thinking == nil {
+			return nil
 		}
 
-		return nil
+		if req.Thinking.BudgetTokens != 0 || strings.TrimSpace(req.Thinking.Display) != "" {
+			return fmt.Errorf("kimi-k3 does not accept thinking budget or display controls")
+		}
+
+		switch strings.ToLower(strings.TrimSpace(req.Thinking.Type)) {
+		case "enabled", "adaptive":
+			return nil
+		case "disabled":
+			return fmt.Errorf("kimi-k3 does not support disabling thinking")
+		default:
+			return fmt.Errorf("unsupported thinking.type %q", req.Thinking.Type)
+		}
 	}
 
 	if req.Thinking == nil {
@@ -118,7 +137,7 @@ func validateMoonshotThinkingRequest(
 
 	thinkingType := strings.ToLower(strings.TrimSpace(req.Thinking.Type))
 	if model == "kimi-k2.7-code" || model == "kimi-k2.7-code-highspeed" {
-		if thinkingType != "enabled" {
+		if thinkingType != "enabled" && thinkingType != "adaptive" {
 			return fmt.Errorf("%s always has thinking enabled", model)
 		}
 
@@ -128,7 +147,7 @@ func validateMoonshotThinkingRequest(
 	mode := "adaptive"
 	if thinkingType == "disabled" {
 		mode = "disabled"
-	} else if thinkingType != "enabled" {
+	} else if thinkingType != "enabled" && thinkingType != "adaptive" {
 		return fmt.Errorf("unsupported thinking.type %q", req.Thinking.Type)
 	}
 
@@ -139,13 +158,183 @@ func validateMoonshotThinkingRequest(
 	return nil
 }
 
-func validateMoonshotFixedAdditionalFields(fields map[string]json.RawMessage) error {
+func validateMoonshotFixedAdditionalFields(fields map[string]json.RawMessage, model string) error {
+	if !moonshotModelUsesFixedControls(model) {
+		return nil
+	}
+
 	if raw := fields["n"]; len(raw) > 0 {
-		var value int
-		if json.Unmarshal(raw, &value) != nil || value != 1 {
-			return fmt.Errorf("n must equal 1 for Moonshot models")
+		if !moonshotJSONNull(raw) {
+			var value int
+			if json.Unmarshal(raw, &value) != nil || value != 1 {
+				return fmt.Errorf("n must equal 1 for Moonshot models")
+			}
+		}
+	}
+
+	for _, parameter := range []string{"presence_penalty", "frequency_penalty"} {
+		raw := fields[parameter]
+		if len(raw) == 0 || moonshotJSONNull(raw) {
+			continue
+		}
+
+		var value float64
+		if json.Unmarshal(raw, &value) != nil || value != 0 {
+			return fmt.Errorf("%s must equal 0 for Moonshot models", parameter)
 		}
 	}
 
 	return nil
+}
+
+func validateMoonshotDecodingAdditionalFields(fields map[string]json.RawMessage, model string) error {
+	if !moonshotModelUsesFixedControls(model) {
+		return nil
+	}
+
+	for _, parameter := range []string{
+		"top_k", "seed", "random_seed", "logit_bias", "parallel_tool_calls",
+	} {
+		if raw, present := fields[parameter]; present && !moonshotJSONNull(raw) {
+			return fmt.Errorf("model does not support %s", parameter)
+		}
+	}
+
+	logprobsEnabled := false
+	if raw, present := fields["logprobs"]; present && !moonshotJSONNull(raw) {
+		if json.Unmarshal(raw, &logprobsEnabled) != nil {
+			return fmt.Errorf("logprobs must be a boolean")
+		}
+	}
+
+	if raw, present := fields["top_logprobs"]; present && !moonshotJSONNull(raw) {
+		var value int
+		if json.Unmarshal(raw, &value) != nil || value < 0 || value > 20 {
+			return fmt.Errorf("top_logprobs must be an integer between 0 and 20")
+		}
+
+		if !logprobsEnabled {
+			return fmt.Errorf("top_logprobs requires logprobs=true")
+		}
+	}
+
+	if raw, present := fields["stop"]; present && !moonshotJSONNull(raw) {
+		if err := validateMoonshotStopRequest(raw); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateMoonshotStopRequest(raw json.RawMessage) error {
+	var single string
+	if json.Unmarshal(raw, &single) == nil {
+		if len([]byte(single)) > 32 {
+			return fmt.Errorf("stop strings must not exceed 32 bytes")
+		}
+
+		return nil
+	}
+
+	var multiple []string
+	if json.Unmarshal(raw, &multiple) != nil || len(multiple) > 5 {
+		return fmt.Errorf("stop must be a string or an array of at most 5 strings")
+	}
+
+	for _, value := range multiple {
+		if len([]byte(value)) > 32 {
+			return fmt.Errorf("stop strings must not exceed 32 bytes")
+		}
+	}
+
+	return nil
+}
+
+func validateMoonshotToolChoiceRequest(req contractsopenai.ChatCompletionRequest, model string) error {
+	if !moonshotModelUsesFixedControls(model) || req.ToolChoice == nil {
+		return nil
+	}
+
+	raw := req.AdditionalFields["tool_choice"]
+	if len(raw) == 0 {
+		encoded, err := json.Marshal(req.ToolChoice)
+		if err != nil {
+			return fmt.Errorf("invalid tool_choice")
+		}
+
+		raw = encoded
+	}
+
+	if moonshotJSONNull(raw) {
+		return nil
+	}
+
+	var choice string
+	if json.Unmarshal(raw, &choice) == nil {
+		switch strings.ToLower(strings.TrimSpace(choice)) {
+		case "auto", "none":
+			return nil
+		case "required":
+			if moonshotModelDisallowsRequiredToolChoice(model) {
+				return fmt.Errorf("model does not support tool_choice=required")
+			}
+
+			return nil
+		default:
+			return fmt.Errorf("invalid tool_choice")
+		}
+	}
+
+	var specified struct {
+		Type     string `json:"type"`
+		Function struct {
+			Name string `json:"name"`
+		} `json:"function"`
+	}
+	if json.Unmarshal(raw, &specified) != nil ||
+		!strings.EqualFold(strings.TrimSpace(specified.Type), "function") ||
+		strings.TrimSpace(specified.Function.Name) == "" {
+		return fmt.Errorf("invalid tool_choice")
+	}
+
+	thinkingDisabled := req.Thinking != nil &&
+		strings.EqualFold(strings.TrimSpace(req.Thinking.Type), "disabled")
+	if moonshotModelAlwaysThinks(model) ||
+		(strings.EqualFold(strings.TrimSpace(model), "kimi-k2.6") && !thinkingDisabled) {
+		return fmt.Errorf("specific tool_choice is incompatible with thinking enabled")
+	}
+
+	return nil
+}
+
+func moonshotModelDisallowsRequiredToolChoice(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6":
+		return true
+	default:
+		return false
+	}
+}
+
+func moonshotModelAlwaysThinks(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "kimi-k3", "kimi-k2.7-code", "kimi-k2.7-code-highspeed":
+		return true
+	default:
+		return false
+	}
+}
+
+func moonshotModelUsesFixedControls(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "kimi-k3", "kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6":
+		return true
+	default:
+		return false
+	}
+}
+
+func moonshotJSONNull(raw json.RawMessage) bool {
+	return strings.EqualFold(strings.TrimSpace(string(raw)), "null")
 }

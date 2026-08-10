@@ -1,5 +1,6 @@
 export {
   GatewayPolicyRulesList,
+  GatewayPolicyRuleSheetFooter,
   type GatewayPolicyDeleteDialog,
   type GatewayPolicyNotice,
   type GatewayPolicyRuleSheet,

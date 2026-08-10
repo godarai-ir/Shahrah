@@ -26,12 +26,12 @@ import { RateLimitRuleForm } from "./RateLimitRuleForm";
 
 const FEATURE_RATE_LIMIT_RULES_ENABLED = "rate_limit_rules.enabled";
 const RATE_RULE_COLUMN_CLASS = {
-  ruleId: "w-[42%] px-1.5 lg:px-2",
-  limit: "w-[30%] px-1.5 lg:px-2",
-  window: "hidden w-28 px-1.5 @md:table-cell lg:px-2",
-  status: "w-[18%] px-1.5 lg:px-2",
-  updatedAt: "hidden w-40 px-1.5 @lg:table-cell lg:px-2",
-  actions: "w-12 px-1.5 text-end lg:px-2",
+  ruleId: "w-[42%]",
+  limit: "w-[30%]",
+  window: "hidden w-28 @md:table-cell",
+  status: "w-[18%]",
+  updatedAt: "hidden w-40 @lg:table-cell",
+  actions: "w-14 text-end",
 } as const;
 
 type EffectiveEntitlements = {
@@ -200,13 +200,13 @@ export function RateLimitRulesPage() {
                   <TableHead className={RATE_RULE_COLUMN_CLASS.window}>{t("table.window")}</TableHead>
                   <TableHead className={RATE_RULE_COLUMN_CLASS.status}>{t("table.status")}</TableHead>
                   <TableHead className={RATE_RULE_COLUMN_CLASS.updatedAt}>{t("table.updatedAt")}</TableHead>
-                  <TableHead className={RATE_RULE_COLUMN_CLASS.actions}>{t("table.actions")}</TableHead>
+                  <TableHead className={RATE_RULE_COLUMN_CLASS.actions}><span className="sr-only">{t("table.actions")}</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((rule) => (
-                  <TableRow key={rule.id}>
-                    <TableCell className={`${RATE_RULE_COLUMN_CLASS.ruleId} min-w-0 font-mono font-medium`} dir="ltr">
+                  <TableRow key={rule.id} className="[&>td]:p-3">
+                    <TableCell className={`${RATE_RULE_COLUMN_CLASS.ruleId} min-w-0 text-right font-mono font-medium`} dir="ltr">
                       <span className="block truncate" title={rule.rule_id}>{rule.rule_id}</span>
                     </TableCell>
                     <TableCell className={RATE_RULE_COLUMN_CLASS.limit}>

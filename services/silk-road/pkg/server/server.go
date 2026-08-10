@@ -191,6 +191,15 @@ func NewHandler(client *http.Client) http.Handler {
 				return
 			}
 
+			log.Printf(
+				"raw provider operation failed provider=%q operation=%q request_id=%q trace_id=%q: %v",
+				payload.Deployment.Provider,
+				payload.Operation,
+				payload.RequestID,
+				payload.TraceID,
+				dispatchErr,
+			)
+
 			http.Error(w, "raw provider operation failed", http.StatusBadGateway)
 
 			return

@@ -26,6 +26,12 @@ describe("DisplayNameField", () => {
     expect(input).toHaveAttribute("dir", "rtl");
   });
 
+  it("uses the placeholder direction while the input is empty", () => {
+    render(<DisplayNameField label="نام نمایشی" placeholder="مثال: محدودیت کاربران عمومی" />);
+
+    expect(screen.getByRole("textbox", { name: "نام نمایشی" })).toHaveAttribute("dir", "rtl");
+  });
+
   it("uses the direction of a controlled value", () => {
     const { rerender } = render(<DisplayNameField label="Display name" value="English name" readOnly />);
     expect(screen.getByRole("textbox", { name: "Display name" })).toHaveAttribute("dir", "ltr");

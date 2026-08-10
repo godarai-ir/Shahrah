@@ -31,9 +31,8 @@
   "form": {
     "addTitle": "New guardrail",
     "editTitle": "Edit guardrail",
-    "description": "Read the practical guide for using this guardrail here.",
     "name": "Name",
-    "identifier": "Identifier",
+    "identifier": "Technical identifier",
     "notes": "Description",
     "type": "Type",
     "operation": "Action",

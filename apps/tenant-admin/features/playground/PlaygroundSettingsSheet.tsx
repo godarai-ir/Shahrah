@@ -9,6 +9,7 @@ import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
 import { AppTextField } from "@/components/app-ui/AppTextField";
 import { EmptyState } from "@/components/app-ui/EmptyState";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { HelpLink } from "@/components/app-ui/HelpLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -195,7 +196,9 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
             </TabsContent>
           </ScrollArea>
         </Tabs>}
-        <SheetFooter className="border-t border-border p-4"><Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>{props.t("actions.close")}</Button></SheetFooter>
+        <SheetFooter className="border-t border-border px-6 py-4">
+          <FormSheetActions primary={<Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>{props.t("actions.close")}</Button>} />
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

@@ -15,8 +15,10 @@ export type SearchPickerDialogProps = {
   children: React.ReactNode;
   size?: FormDialogSize;
   footer?: React.ReactNode;
+  contentClassName?: string;
+  bodyClassName?: string;
 };
 
-export function SearchPickerDialog({ open, onOpenChange, title, description, searchValue, onSearchValueChange, searchPlaceholder, children, size = "lg", footer }: SearchPickerDialogProps) {
-  return <FormDialog open={open} onOpenChange={onOpenChange} title={title} description={description} size={size} footer={footer}><SearchField value={searchValue} onChange={(event) => onSearchValueChange(event.target.value)} placeholder={searchPlaceholder} />{children}</FormDialog>;
+export function SearchPickerDialog({ open, onOpenChange, title, description, searchValue, onSearchValueChange, searchPlaceholder, children, size = "lg", footer, contentClassName, bodyClassName }: SearchPickerDialogProps) {
+  return <FormDialog open={open} onOpenChange={onOpenChange} title={title} description={description} size={size} footer={footer} contentClassName={contentClassName} bodyClassName={bodyClassName}><SearchField value={searchValue} onChange={(event) => onSearchValueChange(event.target.value)} placeholder={searchPlaceholder} />{children}</FormDialog>;
 }

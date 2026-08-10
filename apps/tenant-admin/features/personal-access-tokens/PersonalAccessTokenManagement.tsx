@@ -10,6 +10,7 @@ import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { ExpirationDurationField } from "@/components/app-ui/ExpirationDurationField";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { OneTimeSecretDialog } from "@/components/app-ui/OneTimeSecretDialog";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -161,15 +162,28 @@ export default function PersonalAccessTokenManagement(props: {
         description={t("create.description")}
       />
 
-      <FormSheet open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateNotice(null); }} title={t("create.title")} description={t("create.description")} size="sm" pending={isCreating} closeLabel={t("oneTime.close")}>
+      <FormSheet
+        open={createOpen}
+        onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateNotice(null); }}
+        title={t("create.title")}
+        description={t("create.description")}
+        size="sm"
+        pending={isCreating}
+        closeLabel={t("oneTime.close")}
+        footer={(
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" disabled={isCreating} onClick={() => { setCreateOpen(false); setCreateNotice(null); }}>{t("actions.cancel")}</Button>}
+            primary={<Button type="submit" form="create-pat-form" disabled={isCreating}>{isCreating ? t("actions.creating") : t("actions.create")}</Button>}
+          />
+        )}
+      >
         <OperationNotice notice={createNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
-        <form className="flex flex-col gap-4" onSubmit={createPAT}>
+        <form id="create-pat-form" className="flex flex-col gap-4" onSubmit={createPAT}>
           <div className="grid gap-2">
             <label className="text-sm font-medium">{t("fields.name")}</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("fields.namePlaceholder")} />
           </div>
           <ExpirationDurationField value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder={t("fields.expiresInPlaceholder")} />
-          <Button type="submit" className="w-full" disabled={isCreating}>{isCreating ? t("actions.creating") : t("actions.create")}</Button>
         </form>
       </FormSheet>
 

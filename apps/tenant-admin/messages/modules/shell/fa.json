@@ -45,9 +45,9 @@
     "workspace": "فضای کاری",
     "models": "مدل‌ها و ارائه‌دهندگان",
     "prompts": "پرامپت‌ها",
-    "observability": "مشاهده و پایش",
+    "observability": "رصد و مشاهده رخدادها",
     "governance": "کنترل و سیاست‌ها",
-    "policies": "سیاست‌های زمان اجرا",
+    "policies": "قوانین زمان‌اجرا",
     "access": "مجوزها و دسترسی‌ها",
     "billing": "مدیریت مالی"
   },
@@ -82,9 +82,9 @@
     "traces": "ردیابی درخواست‌ها",
     "metrics": "سنجه‌های عملکرد",
     "gatewayPolicies": "سیاست‌های گیت‌وی",
-    "rateLimitPolicies": "قوانین کنترل مصرف",
-    "budgetLimitPolicies": "قوانین کنترل هزینه",
-    "guardrails": "قوانین حفاظتی (گاردریل)"
+    "rateLimitPolicies": "کنترل تعداد درخواست‌ها",
+    "budgetLimitPolicies": "کنترل هزینه درخواست‌ها",
+    "guardrails": "گاردریل‌ها"
   },
   "logoAlt": "لوگوی گدارAI"
 }

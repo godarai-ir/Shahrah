@@ -10,7 +10,7 @@ export type FormSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: React.ReactNode;
-  description: React.ReactNode;
+  description?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: FormSheetSize;
@@ -29,7 +29,7 @@ export function FormSheet({ open, onOpenChange, title, description, children, fo
       <SheetContent side={side} closeLabel={closeLabel} aria-busy={pending} className={cn("flex w-full flex-col overflow-hidden p-0", sizeClasses[size], contentClassName)}>
         <SheetHeader className="shrink-0 border-b border-border px-6 py-5 text-start">
           <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>{description}</SheetDescription>
+          {description ? <SheetDescription>{description}</SheetDescription> : null}
         </SheetHeader>
         <div className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-5", bodyClassName)}>{children}</div>
         {footer ? <SheetFooter className="shrink-0 border-t border-border px-6 py-4">{footer}</SheetFooter> : null}

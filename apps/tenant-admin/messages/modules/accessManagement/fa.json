@@ -62,6 +62,7 @@
     "changeRole": "تغییر نقش",
     "activate": "فعال‌سازی",
     "deactivate": "غیرفعال‌سازی",
+    "cancel": "انصراف",
     "close": "بستن"
   },
   "roleForm": {

@@ -271,6 +271,8 @@ Keep the triggering action visible while entitlements load, but disable it until
 
 Use `FormSheet` for create/edit forms presented in a side sheet. It standardizes accessible title/description, responsive widths, scroll ownership, header/footer borders, and pending dismissal behavior. Keep form state and submission in the owning feature.
 
+Compose `FormSheetActions` inside the `footer` slot for Drawer actions. Pass the cancel or back action as `secondary` and the commit action as `primary`; this produces two equal-width actions with stable RTL ordering. Use `auxiliary` for neutral actions such as reset and `destructive` for delete. Form submit buttons may target a form in the scrollable body through the native `form` attribute. Do not place submit buttons inside the scrolling body or recreate sticky action cards.
+
 Use `FormDialog` for focused configuration forms that belong in a modal. It standardizes accessible heading structure, responsive sizes, scroll containment, optional footer actions, and pending-state dismissal protection. Keep field state and submission in the feature.
 
 Use to group related fields with a title, description, content, and optional footer actions.

@@ -2,11 +2,10 @@ model: kimi-k2.7-code
 status: active
 supportedModes: [chat]
 modalities:
-  input: [text]
+  input: [text, image, video]
   output: [text]
 features:
   - function_calling
-  - parallel_function_calling
   - tool_choice
   - system_messages
   - prompt_caching
@@ -53,11 +52,11 @@ runtimeProfile:
   tools:
     custom: true
     server: false
-    parallel: true
+    parallel: false
     structuredOutput: true
     supported: [function_calling]
   modalities:
-    input: [text]
+    input: [text, image, video]
     output: [text]
   unsupportedParameters: [reasoning_effort]
   minimumRetentionDays: 0

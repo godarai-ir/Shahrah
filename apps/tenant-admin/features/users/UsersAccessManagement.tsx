@@ -9,6 +9,7 @@ import { AppEmailField } from "@/components/app-ui/AppEmailField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { CommercialPlanUpgradeDialog } from "@/components/app-ui/CommercialPlanUpgradeDialog";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { RowActionsMenu } from "@/components/app-ui/RowActionsMenu";
 import { SearchField } from "@/components/app-ui/SearchField";
@@ -436,8 +437,22 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         />
       </AppCard>
 
-      <FormSheet open={inviteOpen} onOpenChange={handleInviteOpenChange} title={t("inviteTitle")} description={t("inviteDescription")} size="sm" pending={isInviting} closeLabel={t("actions.close")}>
-          <form className="flex flex-col gap-4" onSubmit={handleInvite}>
+      <FormSheet
+        open={inviteOpen}
+        onOpenChange={handleInviteOpenChange}
+        title={t("inviteTitle")}
+        description={t("inviteDescription")}
+        size="sm"
+        pending={isInviting}
+        closeLabel={t("actions.close")}
+        footer={(
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" disabled={isInviting} onClick={() => handleInviteOpenChange(false)}>{t("actions.cancel")}</Button>}
+            primary={<Button type="submit" form="invite-user-form" disabled={isInviting || !inviteRole || availableRoles.length === 0}>{isInviting ? t("button.inviting") : t("button.createInvite")}</Button>}
+          />
+        )}
+      >
+          <form id="invite-user-form" className="flex flex-col gap-4" onSubmit={handleInvite}>
             {inviteError ? (
               <Alert variant="destructive">
                 <AlertTitle>{t("alerts.error")}</AlertTitle>
@@ -466,9 +481,6 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
               }))}
               disabled={availableRoles.length === 0}
             />
-            <Button type="submit" disabled={isInviting || !inviteRole || availableRoles.length === 0} className="w-full">
-              {isInviting ? t("button.inviting") : t("button.createInvite")}
-            </Button>
           </form>
       </FormSheet>
 
@@ -481,9 +493,23 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
         actionLabel={t("usersPage.upgradeDialog.action")}
       />
 
-      <FormSheet open={roleFormOpen} onOpenChange={(open) => { setRoleFormOpen(open); if (!open) setRoleError(null); }} title={t("roleForm.title")} description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""} size="md" pending={isAssigningRoleUserID === selectedUserForRole?.id} closeLabel={t("actions.close")}>
+      <FormSheet
+        open={roleFormOpen}
+        onOpenChange={(open) => { setRoleFormOpen(open); if (!open) setRoleError(null); }}
+        title={t("roleForm.title")}
+        description={selectedUserForRole?.email ?? (mobileAuthUIEnabled ? selectedUserForRole?.mobile : undefined) ?? selectedUserForRole?.id ?? ""}
+        size="md"
+        pending={isAssigningRoleUserID === selectedUserForRole?.id}
+        closeLabel={t("actions.close")}
+        footer={(
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" disabled={isAssigningRoleUserID === selectedUserForRole?.id} onClick={() => { setRoleFormOpen(false); setRoleError(null); }}>{t("actions.cancel")}</Button>}
+            primary={<Button type="submit" form="assign-user-role-form" disabled={!props.canManageUsers || !selectedUserForRole || !selectedRoleName || isAssigningRoleUserID === selectedUserForRole?.id}>{isAssigningRoleUserID === selectedUserForRole?.id ? t("roleForm.submitting") : t("roleForm.submit")}</Button>}
+          />
+        )}
+      >
           <OperationNotice notice={roleError ? { kind: "error", message: roleError } : null} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />
-          <form className="flex flex-col gap-4" onSubmit={submitRoleForm}>
+          <form id="assign-user-role-form" className="flex flex-col gap-4" onSubmit={submitRoleForm}>
             <RadioGroup value={selectedRoleName} onValueChange={setSelectedRoleName} className="flex max-h-96 flex-col gap-3 overflow-auto pe-1">
               {availableRoles.map((role) => (
                 <Label key={role.id} htmlFor={`user-role-${role.id}`} className="block cursor-pointer rounded-md border p-3 font-normal">
@@ -500,13 +526,6 @@ export default function UsersAccessManagement(props: UsersAccessManagementProps)
                 </Label>
               ))}
             </RadioGroup>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={!props.canManageUsers || !selectedUserForRole || !selectedRoleName || isAssigningRoleUserID === selectedUserForRole?.id}
-            >
-              {isAssigningRoleUserID === selectedUserForRole?.id ? t("roleForm.submitting") : t("roleForm.submit")}
-            </Button>
           </form>
       </FormSheet>
     </div>

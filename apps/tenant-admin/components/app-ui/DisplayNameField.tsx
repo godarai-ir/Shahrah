@@ -30,7 +30,9 @@ export function DisplayNameField({
 }: DisplayNameFieldProps) {
   const [internalValue, setInternalValue] = React.useState(() => String(defaultValue ?? ""));
   const currentValue = value === undefined ? internalValue : String(value ?? "");
-  const direction = resolveDisplayNameDirection(currentValue) ?? "auto";
+  const direction = resolveDisplayNameDirection(currentValue)
+    ?? resolveDisplayNameDirection(String(props.placeholder ?? ""))
+    ?? "auto";
 
   return (
     <AppTextField

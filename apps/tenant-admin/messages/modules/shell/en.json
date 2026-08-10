@@ -46,9 +46,9 @@
     "billing": "Billing Dashboard",
     "models": "Models & Providers",
     "prompts": "Prompts",
-    "observability": "Observability",
+    "observability": "Event Monitoring",
     "governance": "Governance",
-    "policies": "Policies",
+    "policies": "Runtime Rules",
     "access": "Access"
   },
   "nav": {
@@ -80,9 +80,9 @@
     "traces": "Request Trace",
     "metrics": "Model Metrics",
     "gatewayPolicies": "Gateway Policies",
-    "rateLimitPolicies": "Usage Control Rules",
-    "budgetLimitPolicies": "Cost Control Rules",
-    "guardrails": "Protective Rules (Guardrails)",
+    "rateLimitPolicies": "Request Rate Control",
+    "budgetLimitPolicies": "Request Cost Control",
+    "guardrails": "Guardrails",
     "orgUnits": "Org Units",
     "teams": "Teams"
   },

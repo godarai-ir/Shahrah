@@ -13,6 +13,7 @@
     "createUser": "Create virtual user",
     "editUser": "Edit",
     "deleteUser": "Delete",
+    "cancel": "Cancel",
     "saveUser": "Save changes",
     "createToken": "Create VAT",
     "rotate": "Rotate",

@@ -146,7 +146,7 @@ export function PrincipalPicker<TItem extends PrincipalPickerItem = PrincipalPic
             size="icon-sm"
             onClick={addSelectedCandidate}
             disabled={props.disabled || !candidate || candidate.type === "external_identity"}
-            className="shrink-0"
+            className="size-11 shrink-0"
             aria-label={props.addLabel}
             title={props.addLabel}
           >

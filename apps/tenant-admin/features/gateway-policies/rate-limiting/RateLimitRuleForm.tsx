@@ -3,23 +3,43 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Layers3,
+  ListOrdered,
+  Plus,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 
+import { AppNumberField } from "@/components/app-ui/AppNumberField";
 import { AppSelectField } from "@/components/app-ui/AppSelectField";
 import { AppSwitchField } from "@/components/app-ui/AppSwitchField";
 import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { FormSection } from "@/components/app-ui/FormSection";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { PageContainer } from "@/components/app-ui/PageContainer";
 import { PageHeader } from "@/components/app-ui/PageHeader";
 import { RemovableChipList } from "@/components/app-ui/RemovableChipList";
+import { StatusOptionGroup } from "@/components/app-ui/StatusOptionGroup";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError as FormFieldError, FieldLabel } from "@/components/ui/field";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Field,
+  FieldDescription,
+  FieldError as FormFieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -28,6 +48,7 @@ import {
   type PrincipalEntitySelectLabels,
 } from "@/components/app-ui/PrincipalEntitySelect";
 import { ModelEntitySelect, type ModelEntitySelectLabels, type ModelSelection } from "@/components/app-ui/ModelEntitySelect";
+import { GatewayPolicyRuleSheetFooter } from "@/features/gateway-policies/components";
 
 import { createRateLimitRule, updateRateLimitRule } from "./ruleApi";
 import type { RateLimitCondition, RateLimitRule } from "./ruleTypes";
@@ -62,6 +83,7 @@ type RateLimitRuleFormProps = {
 
 export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onSaved }: RateLimitRuleFormProps) {
   const t = useTranslations("rateLimitRules");
+  const locale = useLocale();
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -101,6 +123,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
   const selectedWindowUnit = useWatch({ control: form.control, name: "limit.window.unit" });
   const enabled = useWatch({ control: form.control, name: "enabled" });
   const limitDimension = useWatch({ control: form.control, name: "limit.dimension" });
+  const priority = useWatch({ control: form.control, name: "priority" });
   const conflictBehavior = useWatch({ control: form.control, name: "conflict_behavior" });
   const softLimit = useWatch({ control: form.control, name: "soft_limit" });
   const retryAfterHeader = useWatch({ control: form.control, name: "retry_after_header" });
@@ -228,7 +251,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
         </Alert>
       ) : null}
 
-      <form className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+      <form id="rate-limit-rule-form" className="flex flex-col gap-6" onSubmit={form.handleSubmit(onSubmit)}>
         <FormSection>
           <div className="grid gap-4 lg:grid-cols-2">
             <IdentifierField id="rule_id" label={t("form.fields.ruleId")} error={form.formState.errors.rule_id?.message} {...form.register("rule_id")} />
@@ -551,49 +574,93 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
           </div>
         </FormSection>
 
-        <FormSection
-          title={t("form.sections.advanced")}
-          description={t("form.descriptions.advanced")}
-          className={embedded ? "md:grid-cols-1" : undefined}
-        >
-          <div className="flex flex-col gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-between md:w-fit"
-              onClick={() => setAdvancedOpen((prev) => !prev)}
-            >
-              <span>{advancedOpen ? t("form.advanced.toggleClose") : t("form.advanced.toggleOpen")}</span>
-              {advancedOpen ? <ChevronUp data-icon="inline-end" /> : <ChevronDown data-icon="inline-end" />}
-            </Button>
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+          <FormSection
+            title={t("form.sections.advanced")}
+            description={t("form.descriptions.advanced")}
+            className={embedded ? "md:grid-cols-1" : undefined}
+            actions={(
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="ghost" size="sm">
+                  <span>{advancedOpen ? t("form.advanced.toggleClose") : t("form.advanced.toggleOpen")}</span>
+                  {advancedOpen ? <ChevronUp data-icon="inline-end" /> : <ChevronDown data-icon="inline-end" />}
+                </Button>
+              </CollapsibleTrigger>
+            )}
+          >
+            <div className="flex flex-wrap gap-2" aria-label={t("form.advanced.summaryLabel")}>
+              <Badge variant="outline">{t("form.advanced.summary.priority", { value: priority ?? 100 })}</Badge>
+              <Badge variant="outline">{t(`form.options.conflictBehavior.${conflictBehavior ?? "most_restrictive"}`)}</Badge>
+              <Badge variant={softLimit ? "secondary" : "outline"}>
+                {softLimit ? t("form.advanced.summary.soft") : t("form.advanced.summary.hard")}
+              </Badge>
+              <Badge variant={retryAfterHeader ? "secondary" : "outline"}>
+                <span dir="ltr">Retry-After</span>
+                <span aria-hidden="true">:</span>
+                {retryAfterHeader ? t("form.advanced.summary.enabled") : t("form.advanced.summary.disabled")}
+              </Badge>
+            </div>
 
-            {advancedOpen ? (
-              <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/20 p-4">
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <FormField label={t("form.fields.priority")} htmlFor="priority" description={t("form.descriptions.priority")}>
-                    <Input id="priority" type="number" min={0} {...form.register("priority", { valueAsNumber: true })} />
-                  </FormField>
+            <CollapsibleContent className="flex flex-col gap-6 border-t border-border pt-4">
+              <FieldSet>
+                <FieldLegend>{t("form.advanced.conflict.title")}</FieldLegend>
+                <FieldDescription>{t("form.advanced.conflict.description")}</FieldDescription>
+                <FieldGroup>
+                  <AppNumberField
+                    id="priority"
+                    label={t("form.fields.priority")}
+                    description={t("form.descriptions.priority")}
+                    min={0}
+                    step={1}
+                    error={form.formState.errors.priority?.message}
+                    {...form.register("priority", { valueAsNumber: true })}
+                  />
 
-                  <FormField label={t("form.fields.conflictBehavior")}>
-                    <InlineSelect
-                      value={conflictBehavior ?? "most_restrictive"}
-                      ariaLabel={t("aria.conflictBehavior")}
-                      onValueChange={(value) =>
-                        form.setValue("conflict_behavior", value as "first_match" | "most_restrictive" | "apply_all", {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        })
-                      }
-                      options={[
-                        { value: "first_match", label: t("form.options.conflictBehavior.first_match") },
-                        { value: "most_restrictive", label: t("form.options.conflictBehavior.most_restrictive") },
-                        { value: "apply_all", label: t("form.options.conflictBehavior.apply_all") },
-                      ]}
-                    />
-                  </FormField>
-                </div>
+                  <StatusOptionGroup
+                    label={t("form.fields.conflictBehavior")}
+                    value={conflictBehavior ?? "most_restrictive"}
+                    columns={3}
+                    dir={locale === "fa" ? "rtl" : "ltr"}
+                    onValueChange={(value) =>
+                      form.setValue("conflict_behavior", value, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                    options={[
+                      {
+                        value: "first_match",
+                        title: t("form.options.conflictBehavior.first_match"),
+                        description: t("form.advanced.conflict.options.first_match.description"),
+                        badge: t("form.advanced.conflict.options.first_match.badge"),
+                        icon: ListOrdered,
+                        tone: "info",
+                      },
+                      {
+                        value: "most_restrictive",
+                        title: t("form.options.conflictBehavior.most_restrictive"),
+                        description: t("form.advanced.conflict.options.most_restrictive.description"),
+                        badge: t("form.advanced.conflict.options.most_restrictive.badge"),
+                        icon: ShieldCheck,
+                        tone: "success",
+                      },
+                      {
+                        value: "apply_all",
+                        title: t("form.options.conflictBehavior.apply_all"),
+                        description: t("form.advanced.conflict.options.apply_all.description"),
+                        badge: t("form.advanced.conflict.options.apply_all.badge"),
+                        icon: Layers3,
+                        tone: "neutral",
+                      },
+                    ]}
+                  />
+                </FieldGroup>
+              </FieldSet>
 
-                <div className="grid gap-4 lg:grid-cols-2">
+              <FieldSet>
+                <FieldLegend>{t("form.advanced.response.title")}</FieldLegend>
+                <FieldDescription>{t("form.advanced.response.description")}</FieldDescription>
+                <FieldGroup className="grid gap-4 lg:grid-cols-2">
                   <AppSwitchField
                     id="soft-limit"
                     label={t("form.switches.softLimit.title")}
@@ -609,22 +676,31 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                     checked={Boolean(retryAfterHeader)}
                     onCheckedChange={(checked) => form.setValue("retry_after_header", checked, { shouldValidate: true, shouldDirty: true })}
                   />
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </FormSection>
+                </FieldGroup>
+              </FieldSet>
+            </CollapsibleContent>
+          </FormSection>
+        </Collapsible>
 
-        <div className="sticky bottom-0 z-10 rounded-xl border border-border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/90">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.push("/gateway-policies/rate-limiting-rules")}>
+        {embedded ? (
+          <GatewayPolicyRuleSheetFooter>
+            <FormSheetActions
+              secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => onCancel ? onCancel() : router.push("/gateway-policies/rate-limiting-rules")}>
               {t("actions.cancel")}
-            </Button>
-            <Button type="submit" disabled={!form.formState.isValid || isSaving}>
+              </Button>}
+              primary={<Button type="submit" form="rate-limit-rule-form" disabled={!form.formState.isValid || isSaving}>
               {isSaving ? t("actions.saving") : t("actions.save")}
-            </Button>
+              </Button>}
+            />
+          </GatewayPolicyRuleSheetFooter>
+        ) : (
+          <div className="sticky bottom-0 border-t border-border bg-background px-6 py-4">
+            <FormSheetActions
+              secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => router.push("/gateway-policies/rate-limiting-rules")}>{t("actions.cancel")}</Button>}
+              primary={<Button type="submit" form="rate-limit-rule-form" disabled={!form.formState.isValid || isSaving}>{isSaving ? t("actions.saving") : t("actions.save")}</Button>}
+            />
           </div>
-        </div>
+        )}
       </form>
     </PageContainer>
   );

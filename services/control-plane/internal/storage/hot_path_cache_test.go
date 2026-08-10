@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -107,6 +109,33 @@ func TestListVirtualModelsReturnsCachedDefensiveCopy(t *testing.T) {
 
 	if second[0].Access.Users[0].Type != platform.PrincipalTypeEveryone {
 		t.Fatalf("expected cached access to be preserved, got %#v", second[0].Access.Users)
+	}
+}
+
+func TestCloneVirtualModelValuePreservesEmptySliceJSONContract(t *testing.T) {
+	model := platform.VirtualModel{
+		ExposedModes: make([]string, 0),
+		Targets:      make([]platform.VirtualModelTarget, 0),
+		Access: platform.TenantProviderAccountAccessControl{
+			Managers: make([]platform.AccessPrincipal, 0),
+			Users:    make([]platform.AccessPrincipal, 0),
+		},
+	}
+
+	payload, err := json.Marshal(cloneVirtualModelValue(model))
+	if err != nil {
+		t.Fatalf("marshal cloned virtual model: %v", err)
+	}
+
+	for _, field := range []string{
+		`"exposed_modes":[]`,
+		`"targets":[]`,
+		`"managers":[]`,
+		`"users":[]`,
+	} {
+		if !strings.Contains(string(payload), field) {
+			t.Fatalf("expected cloned virtual model JSON to contain %s, got %s", field, payload)
+		}
 	}
 }
 

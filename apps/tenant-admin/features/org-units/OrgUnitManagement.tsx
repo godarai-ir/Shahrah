@@ -27,6 +27,7 @@ import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -527,9 +528,18 @@ export default function OrgUnitManagement({
         description={t("subtitle")}
       />
 
-      <FormSheet open={createOpen} onOpenChange={(open) => { setCreateOpen(open); setOverlayNotice(null); }} title={t("create.title")} description={t("create.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet
+        open={createOpen}
+        onOpenChange={(open) => { setCreateOpen(open); setOverlayNotice(null); }}
+        title={t("create.title")}
+        description={t("create.description")}
+        size="md"
+        pending={isSaving}
+        closeLabel={t("actions.cancel")}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setCreateOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="create-org-unit-form" disabled={isSaving}>{isSaving ? t("actions.saving") : t("create.submit")}</Button>} />}
+      >
         <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
-        <OrgUnitForm form={form} setForm={setForm} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
+        <OrgUnitForm formID="create-org-unit-form" form={form} setForm={setForm} onSubmit={handleCreate} />
       </FormSheet>
 
       <OperationNotice notice={banner} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
@@ -798,14 +808,32 @@ export default function OrgUnitManagement({
         </aside>
       </section>
 
-      <FormSheet open={editOpen} onOpenChange={(open) => { setEditOpen(open); setOverlayNotice(null); }} title={t("edit.title")} description={t("edit.description")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet
+        open={editOpen}
+        onOpenChange={(open) => { setEditOpen(open); setOverlayNotice(null); }}
+        title={t("edit.title")}
+        description={t("edit.description")}
+        size="md"
+        pending={isSaving}
+        closeLabel={t("actions.cancel")}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setEditOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="edit-org-unit-form" disabled={isSaving}>{isSaving ? t("actions.saving") : t("edit.submit")}</Button>} />}
+      >
           <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
-          <OrgUnitForm form={form} setForm={setForm} onSubmit={handleUpdate} isSaving={isSaving} submitLabel={t("edit.submit")} />
+          <OrgUnitForm formID="edit-org-unit-form" form={form} setForm={setForm} onSubmit={handleUpdate} />
       </FormSheet>
 
-      <FormSheet open={memberOpen} onOpenChange={(open) => { setMemberOpen(open); setOverlayNotice(null); }} title={t("members.manageTitle")} description={t("members.manageDescription")} size="md" pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet
+        open={memberOpen}
+        onOpenChange={(open) => { setMemberOpen(open); setOverlayNotice(null); }}
+        title={t("members.manageTitle")}
+        description={t("members.manageDescription")}
+        size="md"
+        pending={isSaving}
+        closeLabel={t("actions.cancel")}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setMemberOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="add-org-unit-member-form" disabled={isSaving || !canManage}>{t("members.add")}</Button>} />}
+      >
           <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
-          <form className="flex flex-col gap-4" onSubmit={handleAddMember}>
+          <form id="add-org-unit-member-form" className="flex flex-col gap-4" onSubmit={handleAddMember}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="member-user">{t("members.user")}</Label>
               <FilterCombobox
@@ -830,9 +858,6 @@ export default function OrgUnitManagement({
                 ]}
               />
             </div>
-            <Button type="submit" disabled={isSaving || !canManage} className="w-full">
-              {t("members.add")}
-            </Button>
           </form>
 
           <div className="mt-6 flex flex-col gap-3">
@@ -898,17 +923,15 @@ export default function OrgUnitManagement({
 }
 
 function OrgUnitForm({
+  formID,
   form,
   setForm,
   onSubmit,
-  isSaving,
-  submitLabel,
 }: {
+  formID: string;
   form: FormState;
   setForm: (next: FormState) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  isSaving: boolean;
-  submitLabel: string;
 }) {
   const t = useTranslations("orgUnits");
 
@@ -917,7 +940,7 @@ function OrgUnitForm({
   }
 
   return (
-    <form className="mt-6 flex flex-col gap-5" onSubmit={onSubmit}>
+    <form id={formID} className="flex flex-col gap-5" onSubmit={onSubmit}>
       <IdentifierField id="org-alias" label={t("form.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} placeholder={t("form.aliasPlaceholder")} required />
       <DisplayNameField
         id="org-display-name"
@@ -934,9 +957,6 @@ function OrgUnitForm({
         placeholder={t("form.descriptionPlaceholder")}
       />
 
-      <Button type="submit" disabled={isSaving} className="w-full">
-        {isSaving ? t("actions.saving") : submitLabel}
-      </Button>
     </form>
   );
 }

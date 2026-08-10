@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -44,6 +46,185 @@ func TestGeminiCompatibilityUsesOpenAIPathAndBearerAPIKey(t *testing.T) {
 	assertNoError(t, err)
 
 	_ = response.Body.Close()
+}
+
+func TestGeminiRawTunnelSupportsChatCompletions(t *testing.T) {
+	t.Parallel()
+
+	requestBody := []byte(`{"model":"gemini-3.5-flash-lite","messages":[{"role":"user","content":"hello"}],"stream":true}`)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer closeBody(r.Body)
+
+		assertEqual(t, "/v1beta/openai/chat/completions", r.URL.Path)
+		assertEqual(t, "Bearer compat-secret", r.Header.Get("Authorization"))
+		assertEqual(t, "application/json", r.Header.Get("Content-Type"))
+
+		body, err := io.ReadAll(r.Body)
+		assertNoError(t, err)
+		assertEqual(t, string(requestBody), string(body))
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[]}\n\n"))
+	}))
+	defer upstream.Close()
+
+	payload := geminiTestPayload(upstream.URL, platform.ProviderOperationChatCompletions, "gemini-3.5-flash-lite")
+	payload.Body = nil
+	payload.Stream = true
+	payload.Headers = map[string]string{"Content-Type": "application/json"}
+	payload.Deployment.ProviderAuth.APIKey = "compat-secret"
+
+	metadata, err := json.Marshal(payload)
+	assertNoError(t, err)
+
+	var prefix [4]byte
+	binary.BigEndian.PutUint32(prefix[:], uint32(len(metadata)))
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/dispatch/raw",
+		io.MultiReader(bytes.NewReader(prefix[:]), bytes.NewReader(metadata), bytes.NewReader(requestBody)),
+	)
+	request.ContentLength = int64(len(prefix) + len(metadata) + len(requestBody))
+
+	recorder := httptest.NewRecorder()
+	NewHandler(upstream.Client()).ServeHTTP(recorder, request)
+
+	assertEqual(t, http.StatusOK, recorder.Code)
+	assertEqual(t, "data: {\"choices\":[]}\n\n", recorder.Body.String())
+}
+
+func TestGeminiRawSupportsCompatibleAndNativeOperations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		operation     platform.ProviderOperation
+		model         string
+		resourceID    string
+		requestBody   string
+		contentType   string
+		wantPath      string
+		wantAuthName  string
+		wantAuthValue string
+		responseBody  string
+	}{
+		{
+			name:          "chat completions",
+			operation:     platform.ProviderOperationChatCompletions,
+			model:         "gemini-3.5-flash-lite",
+			requestBody:   `{"model":"gemini-3.5-flash-lite","messages":[{"role":"user","content":"hello"}]}`,
+			contentType:   "application/json",
+			wantPath:      "/v1beta/openai/chat/completions",
+			wantAuthName:  "Authorization",
+			wantAuthValue: "Bearer native-secret",
+			responseBody:  `{}`,
+		},
+		{
+			name:          "embeddings",
+			operation:     platform.ProviderOperationOpenAIEmbeddings,
+			model:         "gemini-embedding-2",
+			requestBody:   `{"model":"gemini-embedding-2","input":"hello"}`,
+			contentType:   "application/json",
+			wantPath:      "/v1beta/openai/embeddings",
+			wantAuthName:  "Authorization",
+			wantAuthValue: "Bearer native-secret",
+			responseBody:  `{}`,
+		},
+		{
+			name:          "image generation",
+			operation:     platform.ProviderOperationOpenAIImagesGenerations,
+			model:         "gemini-3.1-flash-image",
+			requestBody:   `{"model":"gemini-3.1-flash-image","prompt":"hello"}`,
+			contentType:   "application/json",
+			wantPath:      "/v1beta/openai/images/generations",
+			wantAuthName:  "Authorization",
+			wantAuthValue: "Bearer native-secret",
+			responseBody:  `{}`,
+		},
+		{
+			name:          "model list",
+			operation:     platform.ProviderOperationOpenAIModelsList,
+			wantPath:      "/v1beta/openai/models",
+			wantAuthName:  "Authorization",
+			wantAuthValue: "Bearer native-secret",
+			responseBody:  `{"object":"list","data":[]}`,
+		},
+		{
+			name:          "model get",
+			operation:     platform.ProviderOperationOpenAIModelsGet,
+			resourceID:    "gemini-3.6-flash",
+			wantPath:      "/v1beta/openai/models/gemini-3.6-flash",
+			wantAuthName:  "Authorization",
+			wantAuthValue: "Bearer native-secret",
+			responseBody:  `{}`,
+		},
+		{
+			name:          "native generate content",
+			operation:     platform.ProviderOperationGeminiGenerateContent,
+			model:         "gemini-3.6-flash",
+			requestBody:   `{"contents":[{"parts":[{"text":"hello"}]}]}`,
+			contentType:   "application/json",
+			wantPath:      "/v1beta/models/gemini-3.6-flash:generateContent",
+			wantAuthName:  "x-goog-api-key",
+			wantAuthValue: "native-secret",
+			responseBody:  `{}`,
+		},
+		{
+			name:          "native file upload",
+			operation:     platform.ProviderOperationGeminiFilesCreate,
+			requestBody:   "raw-file",
+			contentType:   "application/octet-stream",
+			wantPath:      "/upload/v1beta/files",
+			wantAuthName:  "x-goog-api-key",
+			wantAuthValue: "native-secret",
+			responseBody:  `{}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer closeBody(r.Body)
+
+				assertEqual(t, test.wantPath, r.URL.Path)
+				assertEqual(t, test.wantAuthValue, r.Header.Get(test.wantAuthName))
+				assertEqual(t, test.contentType, r.Header.Get("Content-Type"))
+
+				body, err := io.ReadAll(r.Body)
+				assertNoError(t, err)
+				assertEqual(t, test.requestBody, string(body))
+
+				_, _ = w.Write([]byte(test.responseBody))
+			}))
+			defer upstream.Close()
+
+			payload := geminiTestPayload(upstream.URL, test.operation, test.model)
+			payload.OperationInput.ResourceID = test.resourceID
+			payload.Headers = map[string]string{"Content-Type": test.contentType}
+
+			adapter, ok := newGeminiAdapter().(rawProviderAdapter)
+			if !ok {
+				t.Fatal("Gemini adapter does not implement raw dispatch")
+			}
+
+			response, err := adapter.DispatchRaw(
+				context.Background(),
+				upstream.Client(),
+				payload,
+				strings.NewReader(test.requestBody),
+				int64(len(test.requestBody)),
+			)
+			assertNoError(t, err)
+
+			_, err = io.ReadAll(response.Body)
+			assertNoError(t, err)
+			assertNoError(t, response.Body.Close())
+		})
+	}
 }
 
 func TestGeminiOAuthUsesBearerForNativeAndCompatibility(t *testing.T) {

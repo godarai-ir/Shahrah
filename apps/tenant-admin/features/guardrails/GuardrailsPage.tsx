@@ -15,6 +15,7 @@ import { DateTimeValue } from "@/components/app-ui/DateTimeValue";
 import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { HelpLink } from "@/components/app-ui/HelpLink";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
@@ -491,20 +492,19 @@ export function GuardrailsPage({ docsHref }: { docsHref: string }) {
         open={formOpen}
         onOpenChange={(open) => { setFormOpen(open); if (!open) setFormNotice(null); }}
         title={editing ? t("form.editTitle") : t("form.addTitle")}
-        description={t("form.description")}
         size="lg"
         pending={isSaving}
         closeLabel={t("actions.close")}
         bodyClassName="flex flex-col gap-4"
         footer={(
-          <div className="grid w-full grid-cols-2 gap-2">
-            <Button type="button" variant="outline" disabled={isSaving} onClick={() => setFormOpen(false)}>
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setFormOpen(false); setFormNotice(null); }}>
               {t("actions.cancel")}
-            </Button>
-            <Button type="button" disabled={isSaving} onClick={() => void submitForm()}>
+            </Button>}
+            primary={<Button type="button" disabled={isSaving} onClick={() => void submitForm()}>
               {isSaving ? t("actions.saving") : t("actions.save")}
-            </Button>
-          </div>
+            </Button>}
+          />
         )}
       >
             <OperationNotice notice={formNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.error"), info: t("alerts.success") }} />

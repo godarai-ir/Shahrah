@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 
 import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { PermissionEditor } from "@/components/app-ui/PermissionEditor";
 import { PermissionSummary } from "@/components/app-ui/PermissionSummary";
@@ -110,15 +111,15 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
       pending={isSubmitting}
       closeLabel={t("rolesPage.actions.cancel")}
       footer={
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+        <FormSheetActions
+          secondary={<Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             {t("rolesPage.actions.cancel")}
-          </Button>
-          <Button type="submit" form="create-role-form" disabled={isSubmitting}>
+          </Button>}
+          primary={<Button type="submit" form="create-role-form" disabled={isSubmitting}>
             <Plus data-icon="inline-start" aria-hidden="true" />
             {isSubmitting ? t("rolesPage.form.creating") : t("rolesPage.form.create")}
-          </Button>
-        </div>
+          </Button>}
+        />
       }
     >
       <form id="create-role-form" className="flex flex-col gap-5" onSubmit={onSubmit}>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import { Plus } from "lucide-react";
 
@@ -12,7 +13,14 @@ import { PageContainer } from "@/components/app-ui/PageContainer";
 import { SearchField } from "@/components/app-ui/SearchField";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+
+const GatewayPolicyRuleSheetFooterContext = React.createContext<HTMLElement | null>(null);
+
+export function GatewayPolicyRuleSheetFooter({ children }: { children: React.ReactNode }) {
+  const host = React.useContext(GatewayPolicyRuleSheetFooterContext);
+  return host ? createPortal(children, host) : null;
+}
 
 export type GatewayPolicyNotice = {
   kind: "success" | "error";
@@ -97,6 +105,7 @@ export function GatewayPolicyRulesList({
   upgradeDialog,
   className,
 }: GatewayPolicyRulesListProps) {
+  const [ruleSheetFooterHost, setRuleSheetFooterHost] = React.useState<HTMLDivElement | null>(null);
   const createAction = (
     <Button type="button" className="w-full sm:w-auto" onClick={onCreate} disabled={createDisabled}>
       <Plus data-icon="inline-start" />
@@ -146,14 +155,21 @@ export function GatewayPolicyRulesList({
         <SheetContent
           side="left"
           closeLabel={ruleSheet.closeLabel}
-          className="w-full overflow-y-auto p-0 sm:max-w-3xl"
+          className="flex w-full flex-col overflow-hidden p-0 sm:max-w-3xl"
           dir={ruleSheet.dir}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{ruleSheet.title}</SheetTitle>
             <SheetDescription>{ruleSheet.description}</SheetDescription>
           </SheetHeader>
-          <React.Fragment key={ruleSheet.contentKey}>{ruleSheet.content}</React.Fragment>
+          <GatewayPolicyRuleSheetFooterContext.Provider value={ruleSheetFooterHost}>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <React.Fragment key={ruleSheet.contentKey}>{ruleSheet.content}</React.Fragment>
+            </div>
+          </GatewayPolicyRuleSheetFooterContext.Provider>
+          <SheetFooter className="shrink-0 border-t border-border px-6 py-4">
+            <div ref={setRuleSheetFooterHost} className="w-full" />
+          </SheetFooter>
         </SheetContent>
       </Sheet>
 

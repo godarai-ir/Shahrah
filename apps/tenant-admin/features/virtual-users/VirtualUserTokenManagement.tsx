@@ -24,6 +24,7 @@ import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { ExpirationDurationField } from "@/components/app-ui/ExpirationDurationField";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { ModelNameValue } from "@/components/app-ui/ModelNameValue";
 import { OneTimeSecretDialog } from "@/components/app-ui/OneTimeSecretDialog";
@@ -710,7 +711,20 @@ export default function VirtualUserTokenManagement({
         </div>
       </section>
 
-      <FormSheet open={createUserOpen} onOpenChange={(open) => { setCreateUserOpen(open); if (!open) setOverlayNotice(null); }} title={t("createUser.title")} description={t("createUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
+      <FormSheet
+        open={createUserOpen}
+        onOpenChange={(open) => { setCreateUserOpen(open); if (!open) setOverlayNotice(null); }}
+        title={t("createUser.title")}
+        description={t("createUser.description")}
+        pending={isSaving}
+        closeLabel={t("oneTime.close")}
+        footer={(
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setCreateUserOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>}
+            primary={<Button type="submit" form="virtual-user-create-form" disabled={isSaving}>{isSaving ? t("actions.saving") : t("actions.createUser")}</Button>}
+          />
+        )}
+      >
           <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
           <VirtualUserFormView
             t={t}
@@ -719,12 +733,24 @@ export default function VirtualUserTokenManagement({
             teams={teams}
             orgUnits={orgUnits}
             onSubmit={createVirtualUser}
-            isSaving={isSaving}
             mode="create"
           />
       </FormSheet>
 
-      <FormSheet open={editUserOpen} onOpenChange={(open) => { setEditUserOpen(open); if (!open) setOverlayNotice(null); }} title={t("editUser.title")} description={t("editUser.description")} pending={isSaving} closeLabel={t("oneTime.close")}>
+      <FormSheet
+        open={editUserOpen}
+        onOpenChange={(open) => { setEditUserOpen(open); if (!open) setOverlayNotice(null); }}
+        title={t("editUser.title")}
+        description={t("editUser.description")}
+        pending={isSaving}
+        closeLabel={t("oneTime.close")}
+        footer={(
+          <FormSheetActions
+            secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setEditUserOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>}
+            primary={<Button type="submit" form="virtual-user-edit-form" disabled={isSaving}>{isSaving ? t("actions.saving") : t("actions.saveUser")}</Button>}
+          />
+        )}
+      >
           <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
           <VirtualUserFormView
             t={t}
@@ -733,7 +759,6 @@ export default function VirtualUserTokenManagement({
             teams={teams}
             orgUnits={orgUnits}
             onSubmit={updateVirtualUser}
-            isSaving={isSaving}
             mode="edit"
           />
       </FormSheet>
@@ -815,7 +840,6 @@ function VirtualUserFormView({
   teams,
   orgUnits,
   onSubmit,
-  isSaving,
   mode,
 }: {
   t: ReturnType<typeof useTranslations>;
@@ -824,12 +848,11 @@ function VirtualUserFormView({
   teams: Team[];
   orgUnits: OrgUnit[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  isSaving: boolean;
   mode: "create" | "edit";
 }) {
   const update = <K extends keyof VirtualUserForm>(key: K, value: VirtualUserForm[K]) => setForm({ ...form, [key]: value });
   return (
-    <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
+    <form id={`virtual-user-${mode}-form`} className="flex flex-col gap-4" onSubmit={onSubmit}>
       <IdentifierField id="vu-alias" label={t("fields.alias")} value={form.alias} onChange={(event) => update("alias", event.target.value)} required />
       <DisplayNameField id="vu-display" label={t("fields.displayName")} value={form.displayName} onChange={(event) => update("displayName", event.target.value)} />
       <AppSelectField
@@ -858,9 +881,6 @@ function VirtualUserFormView({
           <span>{t("fields.active")}</span>
         </label>
       ) : null}
-      <Button type="submit" disabled={isSaving}>
-        {isSaving ? t("actions.saving") : mode === "create" ? t("actions.createUser") : t("actions.saveUser")}
-      </Button>
     </form>
   );
 }

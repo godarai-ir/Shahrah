@@ -76,7 +76,16 @@
     "retryDelay": "وقفه (ms)",
     "timeout": "حداکثر مهلت (s)",
     "retryCodes": "کدهای تکرار",
-    "fallbackCodes": "کدهای فال‌بک"
+    "fallbackCodes": "کدهای فال‌بک",
+    "statusCodePrecedenceHelp": "اگر یک کد در هر دو فهرست باشد، ابتدا تلاش مجدد روی همان مقصد انجام می‌شود و پس از پایان تعداد تلاش‌ها، درخواست به مقصد بعدی منتقل می‌شود."
+  },
+  "modelPicker": {
+    "title": "انتخاب مدل مقصد",
+    "searchPlaceholder": "جست‌وجوی نام مدل، ارائه‌دهنده، حساب یا شناسه فنی...",
+    "groupCount": "{count, number} مدل",
+    "selected": "انتخاب‌شده",
+    "emptyTitle": "مدلی پیدا نشد",
+    "emptyDescription": "نام مدل، ارائه‌دهنده، حساب یا شناسه فنی دیگری را جست‌وجو کنید."
   },
   "access": {
     "title": "کنترل دسترسی",
@@ -99,6 +108,9 @@
     "title": "پیش‌نمایش مسیریابی مؤثر",
     "description": "درخواست تا زمان موفقیت با این ترتیب ارسال می‌شود.",
     "weightedDescription": "درخواست ابتدا با وزن انتخاب می‌شود و در صورت نیاز به‌ترتیب fallback می‌کند.",
+    "copyFQN": "کپی FQN مقصد",
+    "copyingFQN": "در حال کپی FQN مقصد",
+    "copiedFQN": "FQN مقصد کپی شد",
     "providerPlaceholder": "provider",
     "modelPlaceholder": "model"
   },
@@ -114,6 +126,7 @@
     "aliasRequired": "شناسه فنی الزامی است.",
     "aliasPattern": "شناسه فنی فقط می‌تواند شامل حروف، عدد، خط تیره یا آندرلاین باشد.",
     "targetsRequired": "حداقل یک مقصد الزامی است.",
+    "targetsLimit": "حداکثر ۳ مقصد می‌توان تعریف کرد.",
     "providerRequired": "برای هر مقصد ارائه‌دهنده الزامی است.",
     "modelRequired": "برای هر مقصد مدل الزامی است.",
     "duplicateOrder": "اولویت مقصد‌ها باید یکتا باشد.",

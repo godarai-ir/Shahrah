@@ -20,6 +20,7 @@ import { DisplayNameField } from "@/components/app-ui/DisplayNameField";
 import { EmptyState } from "@/components/app-ui/EmptyState";
 import { FilterCombobox } from "@/components/app-ui/FilterCombobox";
 import { FormSheet } from "@/components/app-ui/FormSheet";
+import { FormSheetActions } from "@/components/app-ui/FormSheetActions";
 import { IdentifierField } from "@/components/app-ui/IdentifierField";
 import { OperationNotice } from "@/components/app-ui/OperationNotice";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -38,7 +39,6 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { hideMobileIdentity, mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
@@ -539,19 +539,43 @@ export default function TeamManagement({
         </div>
       </section>
 
-      <FormSheet open={createOpen} onOpenChange={(open) => { setCreateOpen(open); setOverlayNotice(null); }} title={t("create.title")} description={t("create.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet
+        open={createOpen}
+        onOpenChange={(open) => { setCreateOpen(open); setOverlayNotice(null); }}
+        title={t("create.title")}
+        description={t("create.description")}
+        pending={isSaving}
+        closeLabel={t("actions.cancel")}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setCreateOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="create-team-form" disabled={isSaving}>{isSaving ? t("actions.saving") : t("create.submit")}</Button>} />}
+      >
         <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
-        <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} isSaving={isSaving} submitLabel={t("create.submit")} />
+        <TeamForm formID="create-team-form" t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleCreate} />
       </FormSheet>
 
-      <FormSheet open={editOpen} onOpenChange={(open) => { setEditOpen(open); setOverlayNotice(null); }} title={t("edit.title")} description={t("edit.description")} pending={isSaving} closeLabel={t("actions.cancel")}>
+      <FormSheet
+        open={editOpen}
+        onOpenChange={(open) => { setEditOpen(open); setOverlayNotice(null); }}
+        title={t("edit.title")}
+        description={t("edit.description")}
+        pending={isSaving}
+        closeLabel={t("actions.cancel")}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setEditOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="edit-team-form" disabled={isSaving}>{isSaving ? t("actions.saving") : t("edit.submit")}</Button>} />}
+      >
         <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
-        <TeamForm t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} isSaving={isSaving} submitLabel={t("edit.submit")} />
+        <TeamForm formID="edit-team-form" t={t} form={form} setForm={setForm} orgUnits={orgUnits} onSubmit={handleEdit} />
       </FormSheet>
 
-      <Sheet open={membersOpen} onOpenChange={(open) => { setMembersOpen(open); setOverlayNotice(null); }}><SheetContent side="left" closeLabel={t("actions.cancel")} className="w-full max-w-xl overflow-y-auto sm:w-3/4"><SheetHeader><SheetTitle>{t("members.title")}</SheetTitle><SheetDescription>{t("members.description")}</SheetDescription></SheetHeader>
-        <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} className="mt-6" />
-        <form onSubmit={addMember} className="mt-6 flex flex-col gap-3">
+      <FormSheet
+        open={membersOpen}
+        onOpenChange={(open) => { setMembersOpen(open); setOverlayNotice(null); }}
+        title={t("members.title")}
+        description={t("members.description")}
+        pending={isSaving}
+        closeLabel={t("actions.cancel")}
+        footer={<FormSheetActions secondary={<Button type="button" variant="outline" disabled={isSaving} onClick={() => { setMembersOpen(false); setOverlayNotice(null); }}>{t("actions.cancel")}</Button>} primary={<Button type="submit" form="add-team-member-form" disabled={!canManage || isSaving}>{t("members.add")}</Button>} />}
+      >
+        <OperationNotice notice={overlayNotice} labels={{ success: t("alerts.success"), error: t("alerts.error"), warning: t("alerts.warning"), info: t("alerts.warning") }} />
+        <form id="add-team-member-form" onSubmit={addMember} className="flex flex-col gap-3">
           <FieldGroup className="gap-3">
             <Field>
               <FieldLabel htmlFor="team-member-user">{t("members.user")}</FieldLabel>
@@ -561,10 +585,9 @@ export default function TeamManagement({
             <AppSelectField label={t("members.role")} value={memberRole} onValueChange={setMemberRole} triggerClassName="h-10" options={[{ value: "team_member", label: t("members.teamMember") }, { value: "team_admin", label: t("members.teamAdmin") }]} />
           </FieldGroup>
           {memberRole === "team_member" ? <div className="flex flex-col gap-3"><div className="flex justify-end"><Button type="button" variant="ghost" size="sm" onClick={() => setMemberPerms(DEFAULT_PERMISSIONS)}>{t("members.resetPermissions")}</Button></div><CheckboxOptionList label={t("members.permissions")} description={t("members.permissionsHelp")} value={memberPerms} onValueChange={setMemberPerms} emptyText={t("members.permissions")} options={PERMISSIONS.map((perm) => ({ value: perm, label: t(`members.permissionOptions.${permissionTranslationKey(perm)}.label`), description: t(`members.permissionOptions.${permissionTranslationKey(perm)}.description`) }))} /></div> : <Alert><AlertTitle>{t("members.teamAdminAccessTitle")}</AlertTitle><AlertDescription>{t("members.teamAdminAccessDescription")}</AlertDescription></Alert>}
-          <Button type="submit" className="w-full" disabled={!canManage || isSaving}>{t("members.add")}</Button>
         </form>
         <div className="mt-6 flex flex-col gap-2">{members.map((member) => <div key={member.user_id} className="rounded-md border border-border p-3"><div className="flex items-center justify-between gap-2"><span className="truncate text-sm" dir="auto">{getMemberDisplayLabel(member, memberLabelByUserID, t("members.unknownUser"))}</span><Badge variant={member.role === "team_admin" ? "default" : "secondary"}>{member.role}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void updateMember(member, member.role === "team_admin" ? "team_member" : "team_admin", member.team_member_permissions ?? DEFAULT_PERMISSIONS)} disabled={!canManage || isSaving}>{member.role === "team_admin" ? t("members.makeTeamMember") : t("members.makeTeamAdmin")}</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void removeMember(member.user_id)} disabled={!canManage || isSaving}>{t("members.remove")}</Button></div></div>)}</div>
-      </SheetContent></Sheet>
+      </FormSheet>
 
       {selectedTeam ? (
         <TypedConfirmDialog
@@ -596,10 +619,10 @@ export default function TeamManagement({
   );
 }
 
-function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel }: { t: ReturnType<typeof useTranslations>; form: TeamForm; setForm: (value: TeamForm) => void; orgUnits: OrgUnit[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; isSaving: boolean; submitLabel: string; }) {
+function TeamForm({ formID, t, form, setForm, orgUnits, onSubmit }: { formID: string; t: ReturnType<typeof useTranslations>; form: TeamForm; setForm: (value: TeamForm) => void; orgUnits: OrgUnit[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; }) {
   const update = <K extends keyof TeamForm>(key: K, value: TeamForm[K]) => setForm({ ...form, [key]: value });
   return (
-    <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit}>
+    <form id={formID} className="flex flex-col gap-4" onSubmit={onSubmit}>
       <FieldGroup>
         <DisplayNameField id="team-display" label={t("form.displayName")} value={form.displayName} onChange={(e) => update("displayName", e.target.value)} />
         <IdentifierField id="team-alias" label={t("form.alias")} value={form.alias} onChange={(e) => update("alias", e.target.value)} required />
@@ -607,7 +630,6 @@ function TeamForm({ t, form, setForm, orgUnits, onSubmit, isSaving, submitLabel 
         <AppSelectField label={t("form.workspaceType")} value={form.workspaceType} onValueChange={(value) => update("workspaceType", value)} triggerClassName="h-10" options={WORKSPACE_TYPES.map((type) => ({ value: type, label: t(`workspace.${type}`) }))} />
         <Field><FieldLabel htmlFor="team-description">{t("form.description")}</FieldLabel><Input id="team-description" value={form.description} onChange={(e) => update("description", e.target.value)} /></Field>
       </FieldGroup>
-      <Button type="submit" className="w-full" disabled={isSaving}>{isSaving ? t("actions.saving") : submitLabel}</Button>
     </form>
   );
 }

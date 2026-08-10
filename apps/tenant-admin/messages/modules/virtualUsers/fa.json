@@ -13,6 +13,7 @@
     "createUser": "ایجاد کاربر مجازی",
     "editUser": "ویرایش",
     "deleteUser": "حذف",
+    "cancel": "انصراف",
     "saveUser": "ذخیره تغییرات",
     "createToken": "ایجاد VAT",
     "rotate": "چرخش",
