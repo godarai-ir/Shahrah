@@ -11,7 +11,9 @@ function Progress({
   value,
   ...props
 }: React.ComponentProps<typeof ProgressPrimitive.Root>) {
-  const direction = Direction.useDirection(dir)
+  const direction = Direction.useDirection(
+    dir === "ltr" || dir === "rtl" ? dir : undefined
+  )
 
   return (
     <ProgressPrimitive.Root
