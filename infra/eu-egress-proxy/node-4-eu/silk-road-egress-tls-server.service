@@ -1,0 +1,28 @@
+[Unit]
+Description=Silk Road mTLS egress proxy server
+Wants=network-online.target
+After=network-online.target squid.service
+Requires=squid.service
+
+[Service]
+Type=simple
+User=stunnel4
+Group=stunnel4
+ExecStart=/usr/bin/stunnel /etc/stunnel/silk-road-egress-tls-server.conf
+Restart=on-failure
+RestartSec=2
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
