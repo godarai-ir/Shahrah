@@ -1,0 +1,95 @@
+{
+  "brand": "GodarAI",
+  "version": "1.0",
+  "visual_system": "Layered Watercolor Aperture",
+  "definition": "A calm premium visual system built around one irregular layered watercolor aperture with a clearly preserved empty center, placed beside extensive negative space.",
+  "brand_mood": [
+    "intelligent",
+    "contemplative",
+    "human",
+    "experimental",
+    "precise",
+    "premium",
+    "calm"
+  ],
+  "signature_motif": {
+    "shape": "one irregular organic aperture; never a perfect circle or polygon",
+    "empty_center": "mandatory and always reveals the background paper",
+    "layers": {
+      "count": "6-9",
+      "behavior": "translucent related watercolor washes with 3-10 percent organic variation",
+      "density": "one or two concentrated deep-blue areas; at least one pale breathable layer"
+    },
+    "echoes": {
+      "count": "0-3",
+      "appearance": "enlarged, very faint repetitions behind the main motif"
+    },
+    "crop": "0-35 percent of the main form may extend beyond the frame"
+  },
+  "palette": {
+    "warm_paper": "#F5F1E8",
+    "mist_blue": "#D9E9F2",
+    "water_blue": "#83C7E8",
+    "cobalt": "#2F83D1",
+    "persian_blue": "#1659B7",
+    "deep_ultramarine": "#103A8C",
+    "ink_navy": "#10233F"
+  },
+  "surface": {
+    "background": "warm off-white handmade watercolor paper",
+    "texture": "subtle fibers and gentle tooth",
+    "edges": "natural capillary edges, pigment blooms, subtle pooling",
+    "depth": "transparent overlap and pigment density, never digital gradients"
+  },
+  "composition": {
+    "primary_position": "right side",
+    "negative_space": "45-55 percent",
+    "text_safety_gap": "minimum 6 percent of canvas width",
+    "persian_copy": "RTL and right-aligned inside the negative-space area",
+    "main_forms_per_frame": 1
+  },
+  "aspect_ratio_rules": {
+    "16:9": "main motif on right third; 45-55 percent copy space on left and center-left",
+    "9:16": "main motif in lower half or lower-right; upper half reserved for copy",
+    "1:1": "main motif in lower-right third or slightly right of center; at least 35 percent copy space"
+  },
+  "typography": {
+    "direction": "RTL for Persian",
+    "alignment": "right",
+    "primary_headline": "Peyda or Estedad, weight 600-800",
+    "body_and_technical": "Vazirmatn, weight 400-500",
+    "campaign_accent": "Dirooz for short artistic headlines only",
+    "text_color": "#10233F",
+    "headline_max_lines": 3
+  },
+  "applications": {
+    "event": "large high-contrast aperture, 50 percent copy space, inviting editorial mood",
+    "article": "smaller quieter aperture, lighter outer washes, more copy space",
+    "feature": "compact aperture, one concentrated deep-blue region, restrained cyan accent",
+    "product_news": "larger scale and bolder crop while preserving ample white space"
+  },
+  "avoid": [
+    "sine waves",
+    "line patterns",
+    "grids",
+    "stone texture",
+    "lithography",
+    "engraving",
+    "Persian ornamental motifs",
+    "geometric symbols",
+    "robots",
+    "brains",
+    "circuits",
+    "network diagrams",
+    "neon",
+    "glassmorphism",
+    "3D objects",
+    "people",
+    "stock imagery",
+    "busy composition",
+    "more than one main motif",
+    "filled aperture center",
+    "digital gradients"
+  ],
+  "master_prompt": "Create a premium contemporary visual for GodarAI, an Iranian AI infrastructure brand. Use one irregular layered watercolor aperture with a clearly preserved empty center. Build it from 6-9 translucent organic watercolor washes in deep ultramarine, Persian blue, cobalt, water blue and very pale blue. Keep natural capillary edges, pigment blooms, subtle pooling and visible transparent overlaps. Add no more than 2-3 very faint enlarged echoes for quiet depth. Use warm off-white handmade watercolor paper with subtle fibers. Place the main form toward the right side and reserve 45-55 percent calm negative space for copy. For Persian content, keep the text RTL and right-aligned with a clear safety gap. Mood: intelligent, contemplative, human, experimental, precise, premium and calm. Obtain depth through transparent overlap, never digital gradients. No icons, sine waves, grids, stone texture, lithography, engraving, Persian ornaments, geometric diagrams, robots, brains, circuits, neon, glassmorphism, 3D objects, people or stock imagery. Never fill the empty center and never make the composition busy."
+}
