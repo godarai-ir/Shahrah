@@ -7,6 +7,7 @@ export default function AdminHome() {
     ['/admin/providers', 'Providers'],
     ['/admin/tenants', 'Tenants'],
     ['/admin/tickets', 'Support Tickets'],
+    ['/admin/inbound-email', 'Inbound Email'],
     ['/admin/models', 'Models'],
     ['/admin/model-series', 'Model Series'],
     ['/admin/pricing', 'Pricing'],

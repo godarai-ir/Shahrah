@@ -145,7 +145,7 @@ export async function sendContactEmail(input: {
 </div>`;
 
   await sendEmail({
-    to: "support@godarai.ir",
+    to: "support@toliortri.resend.app",
     subject: `[Website contact] ${input.subject}`,
     text,
     html,

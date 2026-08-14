@@ -72,7 +72,7 @@ RESEND_REPLY_TO=support@godarai.ir
 subdomain. Missing values and legacy root-domain senders fall back to
 `auth@notifications.godarai.ir`.
 
-The website contact form sends submissions to `support@godarai.ir` through this
+The website contact form sends submissions to `support@toliortri.resend.app` through this
 server-side email configuration. The Resend API key is never exposed to the browser.
 
 For local email capture, run Mailpit:

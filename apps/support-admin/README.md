@@ -32,6 +32,7 @@ Environment variables:
 - `CONTROL_PLANE_SERVICE_TOKEN`: scoped credential for platform and tenant support APIs
 - `SHAHRAH_CONTROL_PLANE_URL`: internal control-plane origin
 - `SUPPORT_ADMIN_ORIGIN`: exact externally visible origin used for CSRF validation
+- `RESEND_RECEIVING_API_KEY`: optional dedicated full-access Resend API key for reading inbound email; falls back to `RESEND_API_KEY`
 - `SUPPORT_ADMIN_COOKIE_PATH`: optional cookie path override; default `/`
 
 The former `NEXT_PUBLIC_MODEL_CATALOG_API_BASE` setting is obsolete and should be removed from local and deployment secrets.
@@ -65,6 +66,7 @@ Support-admin must not connect directly to tenant databases. Tenant source-of-tr
 - `/admin/import`
 - `/admin/indexing`
 - `/admin/audit-log`
+- `/admin/inbound-email`
 - `/admin/settings/display`
 
 Privileged model-discovery requests pass through authenticated Next route handlers using `MODEL_DISCOVERY_SERVICE_TOKEN`. Provider assets are also proxied through an authenticated support-admin route so the internal service origin is not exposed to the browser.

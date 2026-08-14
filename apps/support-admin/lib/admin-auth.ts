@@ -32,7 +32,8 @@ export type AdminPermission =
   | 'support_ticket:reply'
   | 'support_ticket:triage'
   | 'support_ticket:status_write'
-  | 'support_ticket:rating_read';
+  | 'support_ticket:rating_read'
+  | 'inbound_email:read';
 
 export type AdminSession = {
   sessionId: string;
@@ -51,7 +52,7 @@ const ROLE_PERMISSIONS: Record<string, readonly AdminPermission[]> = {
     'tenant:status:write', 'subscription:read', 'subscription:write', 'usage:read',
     'wallet:read', 'wallet:adjust', 'billing:read', 'audit:read',
     'support_ticket:read', 'support_ticket:reply', 'support_ticket:triage',
-    'support_ticket:status_write', 'support_ticket:rating_read',
+    'support_ticket:status_write', 'support_ticket:rating_read', 'inbound_email:read',
   ],
   catalog_admin: [
     'catalog:read', 'catalog:write', 'provider:write', 'import:execute',
@@ -65,7 +66,7 @@ const ROLE_PERMISSIONS: Record<string, readonly AdminPermission[]> = {
     'catalog:read', 'platform_credentials:read_metadata', 'tenant:read', 'subscription:read',
     'usage:read', 'wallet:read', 'billing:read', 'audit:read', 'support_ticket:read',
     'support_ticket:reply', 'support_ticket:triage', 'support_ticket:status_write',
-    'support_ticket:rating_read',
+    'support_ticket:rating_read', 'inbound_email:read',
   ],
 };
 

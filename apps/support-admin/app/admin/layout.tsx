@@ -5,6 +5,7 @@ const links = [
   ['/admin', 'Overview'],
   ['/admin/tenants', 'Tenants'],
   ['/admin/tickets', 'Tickets'],
+  ['/admin/inbound-email', 'Inbound Email'],
   ['/admin/providers', 'Providers'],
   ['/admin/provider-connections', 'Provider Credentials'],
   ['/admin/models', 'Models'],
