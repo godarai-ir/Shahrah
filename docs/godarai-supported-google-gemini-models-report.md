@@ -1,12 +1,12 @@
 # GodarAI Google Gemini support evidence
 
-- Verified (UTC): 2026-08-02
+- Verified (UTC): 2026-08-15
 - Provider: Gemini Developer API (`google-gemini`)
 - Policy: Google-owned Gemini Developer API documentation is authoritative. Vertex AI and third-party registries are not used to infer Developer API behavior.
 
 ## Current support summary
 
-GodarAI has a fixed allowlist of nine Gemini Developer API models. All nine model IDs were returned by a live Google model-list request on 2026-08-02. The gateway exposes both the native Gemini `v1beta` surface and a limited OpenAI-compatible surface. Requests for a model/endpoint combination that is not present in the model runtime profile fail closed before upstream dispatch.
+GodarAI has a fixed allowlist of ten Gemini Developer API models. Nine model IDs were returned by a live Google model-list request on 2026-08-02. `gemini-3.7-flash` was added from Google's GA model page and latest-model guide on 2026-08-15; it is contract verified but has not yet been exercised with the live credential. The gateway exposes both the native Gemini `v1beta` surface and a limited OpenAI-compatible surface. Requests for a model/endpoint combination that is not present in the model runtime profile fail closed before upstream dispatch.
 
 The production data plane does **not** currently import or use `google.golang.org/genai`. It constructs native Gemini and OpenAI-compatible requests with Go `net/http`. The official SDK was installed only in a temporary external probe at version `v1.66.0`; the probe files and dependency graph were removed after verification.
 
@@ -27,6 +27,7 @@ This matrix describes the current GodarAI runtime contract, not every action ret
 | `gemini-3.5-flash` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | `countTokens` and SDK `generateContent` succeeded; generated text was `OK` |
 | `gemini-3.5-flash-lite` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | `countTokens`, SDK generation, SDK streaming, raw native REST, and raw OpenAI-compatible chat succeeded; outputs included `OK`, `STREAM_OK`, and `OPENAI_OK` |
 | `gemini-3.6-flash` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | `countTokens`, generation, and streaming returned successful upstream responses; the deliberately small output cap was partly consumed by thinking tokens |
+| `gemini-3.7-flash` | `POST /v1/chat/completions` | `generateContent`, `streamGenerateContent`, `countTokens`, `batchGenerateContent` | models, Interactions, Files, cached contents, batches | contract verified from the GA model page and latest-model guide; live upstream request not yet executed |
 | `gemini-3-pro-image` | `POST /v1/images/generations` | `generateContent`, `streamGenerateContent`, `batchGenerateContent` | models, Interactions, Files, batches | model presence and advertised Google actions verified; image generation was not executed |
 | `gemini-3.1-flash-image` | `POST /v1/images/generations` | `generateContent`, `streamGenerateContent`, `batchGenerateContent` | models, Interactions, Files, batches | model presence and advertised Google actions verified; image generation was not executed |
 | `gemini-3.1-flash-lite-image` | `POST /v1/images/generations` | `generateContent`, `streamGenerateContent`, `batchGenerateContent` | models, Files, batches | model presence and advertised Google actions verified; image generation was not executed; Interactions is intentionally not enabled |
@@ -37,22 +38,22 @@ This matrix describes the current GodarAI runtime contract, not every action ret
 
 | Surface | Method and path | Allowed models | Verification state |
 | --- | --- | --- | --- |
-| OpenAI-compatible chat | `POST /v1/chat/completions` | four text models | implemented and contract verified; direct Google compatibility request verified with `gemini-3.5-flash-lite` |
+| OpenAI-compatible chat | `POST /v1/chat/completions` | five text models | implemented and contract verified; direct Google compatibility request verified with `gemini-3.5-flash-lite` |
 | OpenAI-compatible embeddings | `POST /v1/embeddings` | `gemini-embedding-2` | implemented and contract verified; native SDK embedding verified, compatible endpoint not live-tested |
 | OpenAI-compatible image generation | `POST /v1/images/generations` | three image models | implemented and contract verified; not live-tested |
 | GodarAI model catalog | `GET /v1/models` | configured deployments and virtual models visible to the tenant | implemented; this is a local GodarAI catalog response, not a pass-through Google model-list request |
-| Native model list | `GET /v1beta/models` | response filtered to the nine-model allowlist | implemented and contract verified; direct Google model list verified |
-| Native model lookup | `GET /v1beta/models/{model}` | all nine allowlisted models | implemented and contract verified |
+| Native model list | `GET /v1beta/models` | response filtered to the ten-model allowlist | implemented and contract verified; direct Google model list verified for the previous nine-model boundary |
+| Native model lookup | `GET /v1beta/models/{model}` | all ten allowlisted models | implemented and contract verified |
 | Native generation | `POST /v1beta/models/{model}:generateContent` | all models except `gemini-embedding-2` | implemented and contract verified; live text generation verified |
 | Native streaming generation | `POST /v1beta/models/{model}:streamGenerateContent` | all models except `gemini-embedding-2` | implemented over SSE and contract verified; live text streaming verified |
-| Native token count | `POST /v1beta/models/{model}:countTokens` | four text models only | implemented and contract verified; live token counting verified for all four text models |
+| Native token count | `POST /v1beta/models/{model}:countTokens` | five text models only | implemented and contract verified; live token counting verified for the four models that preceded `gemini-3.7-flash` |
 | Native embedding | `POST /v1beta/models/gemini-embedding-2:embedContent` | `gemini-embedding-2` | implemented and contract verified; live SDK embedding verified |
 | Native synchronous batch embedding | `POST /v1beta/models/gemini-embedding-2:batchEmbedContents` | `gemini-embedding-2` | implemented and contract verified; not live-tested |
 | Interactions create | `POST /v1beta/interactions` | text models, `gemini-3-pro-image`, `gemini-3.1-flash-image`, and TTS | implemented and contract verified; not live-tested |
 | Interactions lifecycle | `GET` or `DELETE /v1beta/interactions/{id}`; `POST /v1beta/interactions/{id}:cancel` | same Interactions-capable models; account selected by `x-godarai-provider-account` when required | implemented and contract verified; not live-tested |
 | File upload | `POST /upload/v1beta/files` | provider-account resource; uploaded files are usable as model input only where the model profile includes Files | implemented as a length-preserving raw upload and contract verified; not live-tested |
 | Files lifecycle | `GET /v1beta/files`, `GET` or `DELETE /v1beta/files/{id}` | provider-account resource; text, image, and embedding profiles advertise Files input | implemented and contract verified; not live-tested |
-| Explicit context cache | `POST` or `GET /v1beta/cachedContents`; `GET`, `PATCH`, or `DELETE /v1beta/cachedContents/{id}` | four text models | implemented and contract verified; not live-tested |
+| Explicit context cache | `POST` or `GET /v1beta/cachedContents`; `GET`, `PATCH`, or `DELETE /v1beta/cachedContents/{id}` | five text models | implemented and contract verified; not live-tested |
 | Batch submission | `POST /v1beta/models/{model}:batchGenerateContent` | generative text, image, and TTS models | implemented and contract verified; not live-tested |
 | Batch lifecycle | `GET /v1beta/batches`, `GET /v1beta/batches/{id}`, `POST /v1beta/batches/{id}:cancel` | operations belonging to the selected Gemini provider account | implemented and contract verified; not live-tested |
 
@@ -60,19 +61,20 @@ This matrix describes the current GodarAI runtime contract, not every action ret
 
 - `gemini-embedding-2` cannot use chat, content generation, streaming generation, image generation, TTS, Interactions, or explicit context caching.
 - Image and TTS models cannot use `/v1/chat/completions`; image models use `/v1/images/generations`, while TTS uses native `generateContent` or `streamGenerateContent`.
-- Only the four text models can use `countTokens` and explicit context caching in the current GodarAI runtime profiles, even if Google advertises additional actions for another model.
+- Only the five text models can use `countTokens` and explicit context caching in the current GodarAI runtime profiles, even if Google advertises additional actions for another model.
 - `gemini-3.1-flash-lite-image` cannot use Interactions.
 - OpenAI-compatible `/v1/audio/speech`, Responses API, legacy Completions, image edits/variations, Realtime/Live WebSocket, Imagen, and Veo are not part of the Gemini adapter surface.
-- Model aliases, `*-latest`, Gemma, agents, preview predecessors, and models outside the nine-ID allowlist are not routed.
+- Model aliases, `*-latest`, Gemma, agents, preview predecessors, and models outside the ten-ID allowlist are not routed.
 
 ## Live verification record
 
 The temporary probe produced these non-secret results:
 
-- Google SDK model list: 58 models returned; all nine GodarAI IDs were present.
+- Google SDK model list: 58 models returned; all nine GodarAI IDs configured at the time were present. `gemini-3.7-flash` was released later and is not covered by this probe.
 - `gemini-3.5-flash-lite`: six input tokens counted; normal generation, streaming generation, raw REST token counting, and OpenAI-compatible chat succeeded.
 - `gemini-3.5-flash`: token counting and generation succeeded.
 - `gemini-3.6-flash`: token counting, generation, and streaming requests succeeded.
+- `gemini-3.7-flash`: no live probe has been run; official specification and repository contracts were verified on 2026-08-15.
 - `gemini-3.1-pro-preview`: token counting succeeded; generation could not be exercised with the Free Tier credential because Google reported quota limit `0` for the Pro model.
 - `gemini-embedding-2`: embedding succeeded with 3,072 output dimensions.
 
@@ -95,11 +97,12 @@ The active catalog and runtime allowlist contains exactly these model IDs:
 2. `gemini-3.5-flash`
 3. `gemini-3.5-flash-lite`
 4. `gemini-3.6-flash`
-5. `gemini-3-pro-image`
-6. `gemini-3.1-flash-image`
-7. `gemini-3.1-flash-lite-image`
-8. `gemini-3.1-flash-tts-preview`
-9. `gemini-embedding-2`
+5. `gemini-3.7-flash`
+6. `gemini-3-pro-image`
+7. `gemini-3.1-flash-image`
+8. `gemini-3.1-flash-lite-image`
+9. `gemini-3.1-flash-tts-preview`
+10. `gemini-embedding-2`
 
 Aliases, agents, Gemma, Imagen, Veo, Live models, preview predecessors, `*-latest`, and `gemini-3.1-pro-preview-customtools` are outside the boundary and must not be advertised or routed.
 
@@ -113,6 +116,7 @@ Legend: **G** = documented by Google, **N** = native Gemini API surface, **O** =
 | `gemini-3.5-flash` | GA; released 2026-05-19; no shutdown announced | text, image, video, audio, PDF → text | 1,048,576 input; 65,536 output | N: Interactions, generate/stream content, count tokens, models, files/cache, Batch. O: chat completions and documented Batch compatibility | low, medium, high; default medium | caching, code execution, Computer Use (preview), File Search, function calling, Search, Maps, structured output, URL context | Free availability plus Standard, Batch, Flex, Priority |
 | `gemini-3.5-flash-lite` | GA; released 2026-07-21; no shutdown announced | text, image, video, audio, PDF → text | 1,048,576 input; 65,536 output | same text-model native/compatible surfaces as above | minimal and high are the documented tuning choices; default minimal | full built-in tool suite including Computer Use; function calling and structured output | Free availability plus Standard, Batch, Flex, Priority |
 | `gemini-3.6-flash` | GA; released 2026-07-21; no shutdown announced | text, image, video, audio, PDF → text | 1,048,576 input; 65,536 output | same text-model native/compatible surfaces as above | medium and high; default medium | full built-in tool suite including Computer Use; function calling and structured output | Free availability plus Standard, Batch, Flex, Priority |
+| `gemini-3.7-flash` | GA; released 2026-08-13; no shutdown announced | text, image, video, audio, PDF → text | 1,048,576 input; 65,536 output | same text-model native/compatible surfaces as above | low, medium, high; default medium; `minimal` is rejected | same built-in tool suite as 3.6 Flash, including Computer Use; function calling and structured output | Free availability plus Standard, Batch, Flex, Priority |
 | `gemini-3-pro-image` | GA; released 2026-05-28; no shutdown announced | text, image → text, image | 65,536 input; 32,768 output | N: Interactions, generate content/image editing, models, Batch. O: image generation only where the compatibility guide accepts the stable ID | thinking is supported | image generation/editing and Search grounding; no caching, code execution, function calling, Maps, structured output, URL context, or Live | Standard, Batch, Flex, Priority |
 | `gemini-3.1-flash-image` | GA; released 2026-05-28; no shutdown announced | text, image/PDF and model-specific video context → text, image | 131,072 input; 32,768 output | N: Interactions, generate content/image editing, models, Batch. O: image generation only where documented for the stable ID | supported; Search works with thinking on or off | image generation/editing, Web and Image Search grounding; no caching, code execution, function calling, Maps, structured output, URL context, or Live | Standard and Batch; no Flex/Priority |
 | `gemini-3.1-flash-lite-image` | GA; latest update 2026-06; no shutdown announced | text, image → text, image | 65,536 input; 4,096 output | N: generate content/image editing and Batch; Interactions support is not listed in the current Interactions supported-model table and is therefore not advertised without live official confirmation | minimal and high | function calling, image generation/editing; no Search/Maps grounding, caching, code execution, File Search, structured output, URL context, or Live | Standard and Batch |
@@ -121,7 +125,7 @@ Legend: **G** = documented by Google, **N** = native Gemini API surface, **O** =
 
 ## Parameter decisions
 
-- `gemini-3.6-flash` and `gemini-3.5-flash-lite` deprecate and ignore `temperature`, `top_p`, and `top_k`; the current latest-model guide says to remove them. They also reject a request whose last non-empty turn is a model/assistant prefill.
+- `gemini-3.7-flash`, `gemini-3.6-flash`, and `gemini-3.5-flash-lite` deprecate and ignore `temperature`, `top_p`, and `top_k`; the current latest-model guide says to remove them. They also reject a request whose last non-empty turn is a model/assistant prefill.
 - Thinking is represented as `thinking_level`, with model-specific values. OpenAI-compatible `reasoning_effort` is only mapped where Google documents the mapping.
 - Image-only response controls (resolution, aspect ratio, MIME type, reference images) are not modeled as text sampling controls.
 - Embedding `output_dimensionality` is independent of generative max-output tokens.
@@ -148,7 +152,8 @@ The image guide currently enumerates ten ratios (`1:1`, `3:2`, `2:3`, `3:4`, `4:
 
 | Model/tier | Input | Output | Cache read | Cache storage | Other |
 | --- | ---: | ---: | ---: | ---: | --- |
-| 3.6 Flash Standard / Batch / Flex / Priority | 1.50 / 0.75 / 0.75 / 2.70 | 7.50 / 3.75 / 3.75 / 13.50 | 0.15 / 0.075 / 0.075 / 0.27 | 1.00 per 1M token-hour | Free availability on Standard/Priority as documented |
+| 3.7 and 3.6 Flash promotional Standard / Batch / Flex / Priority, through 2026-12-31 | 0.75 / 0.375 / 0.375 / 1.35 | 3.75 / 1.875 / 1.875 / 6.75 | 0.075 / 0.0375 / 0.0375 / 0.135 | 0.50 per 1M token-hour | Free availability on Standard/Priority as documented |
+| 3.7 and 3.6 Flash Standard / Batch / Flex / Priority, from 2027-01-01 | 1.50 / 0.75 / 0.75 / 2.70 | 7.50 / 3.75 / 3.75 / 13.50 | 0.15 / 0.075 / 0.075 / 0.27 | 1.00 per 1M token-hour | scheduled standard pricing |
 | 3.5 Flash Standard / Batch / Flex / Priority | 1.50 / 0.75 / 0.75 / 2.70 | 9.00 / 4.50 / 4.50 / 16.20 | 0.15 / 0.075 / 0.08 / 0.27 | 1.00 per 1M token-hour | Free availability on Standard/Priority as documented |
 | 3.5 Flash-Lite Standard / Batch / Flex / Priority | 0.30 / 0.15 / 0.15 / 0.54 | 2.50 / 1.25 / 1.25 / 4.50 | 0.03 / 0.02 / 0.02 / 0.05 | 1.00 per 1M token-hour | Same token rate for text/image/video/audio input |
 | 3.1 Pro Preview Standard | 2.00 ≤200k; 4.00 >200k | 12.00 ≤200k; 18.00 >200k | 0.20 ≤200k; 0.40 >200k | 4.50 per 1M token-hour | no Free tier |
@@ -197,7 +202,7 @@ GodarAI keeps the native Gemini and OpenAI-compatible surfaces explicit:
 
 ## Operational and rollback notes
 
-- Apply migration `202607310001_google_gemini_connection_schemas`, then run `pnpm --filter model-discovery import:provider:google-gemini -- --clear-missing`. The import is deterministic and the post-import invariant requires exactly nine models.
+- Apply migration `202607310001_google_gemini_connection_schemas`, then run `pnpm --filter model-discovery import:provider:google-gemini -- --clear-missing`. The import is deterministic and the post-import invariant requires exactly ten models.
 - Rollback requires restoring removed model profiles and importing them again; connection-schema changes should be superseded by a new forward migration rather than rewriting an applied migration.
 - The `google_service_account` schema is intentionally `runtimeReady=false`: Google's OAuth guide supports access tokens, but a production token-source/refresh contract must be configured before this durable mode is advertised. The implemented runtime accepts only an ephemeral already-refreshed token over mTLS. This is an explicit credential-lifecycle limitation, not an API-key limitation.
 

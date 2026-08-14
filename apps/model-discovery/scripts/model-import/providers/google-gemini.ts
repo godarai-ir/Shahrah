@@ -11,6 +11,7 @@ export const GOOGLE_GEMINI_SUPPORTED_MODEL_IDS = [
   'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
   'gemini-3.6-flash',
+  'gemini-3.7-flash',
   'gemini-3-pro-image',
   'gemini-3.1-flash-image',
   'gemini-3.1-flash-lite-image',

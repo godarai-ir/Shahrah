@@ -16,7 +16,7 @@ import (
 
 func TestGeminiNativeUsesNativePathAndAPIKeyHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assertEqual(t, "/v1beta/models/gemini-3.6-flash:generateContent", r.URL.Path)
+		assertEqual(t, "/v1beta/models/gemini-3.7-flash:generateContent", r.URL.Path)
 		assertEqual(t, "native-secret", r.Header.Get("x-goog-api-key"))
 		assertEqual(t, "", r.Header.Get("Authorization"))
 
@@ -24,7 +24,7 @@ func TestGeminiNativeUsesNativePathAndAPIKeyHeader(t *testing.T) {
 	}))
 	defer server.Close()
 
-	response, err := newGeminiAdapter().Dispatch(context.Background(), server.Client(), geminiTestPayload(server.URL, platform.ProviderOperationGeminiGenerateContent, "gemini-3.6-flash"))
+	response, err := newGeminiAdapter().Dispatch(context.Background(), server.Client(), geminiTestPayload(server.URL, platform.ProviderOperationGeminiGenerateContent, "gemini-3.7-flash"))
 	assertNoError(t, err)
 	assertEqual(t, http.StatusOK, response.StatusCode)
 	_ = response.Body.Close()

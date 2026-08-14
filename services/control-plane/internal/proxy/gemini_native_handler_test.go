@@ -126,7 +126,7 @@ func TestGeminiOperationFromRequestRejectsWrongMethodForModelAction(t *testing.T
 }
 
 func TestGoogleGeminiAllowlistIsExact(t *testing.T) {
-	if len(platform.SupportedGoogleGeminiModelIDs) != 9 {
+	if len(platform.SupportedGoogleGeminiModelIDs) != 10 {
 		t.Fatalf("allowlist has %d models", len(platform.SupportedGoogleGeminiModelIDs))
 	}
 

@@ -259,7 +259,7 @@ func validateGeminiNativeModelOperation(model string, operation platform.Provide
 		return nil
 	}
 
-	textModel := model == "gemini-3.1-pro-preview" || model == "gemini-3.5-flash" || model == "gemini-3.5-flash-lite" || model == "gemini-3.6-flash"
+	textModel := isGeminiTextModel(model)
 	interactionModel := textModel || model == "gemini-3-pro-image" || model == "gemini-3.1-flash-image" || model == "gemini-3.1-flash-tts-preview"
 
 	switch operation {
@@ -286,6 +286,16 @@ func validateGeminiNativeModelOperation(model string, operation platform.Provide
 	}
 
 	return nil
+}
+
+func isGeminiTextModel(model string) bool {
+	switch model {
+	case "gemini-3.1-pro-preview", "gemini-3.5-flash", "gemini-3.5-flash-lite",
+		"gemini-3.6-flash", "gemini-3.7-flash":
+		return true
+	default:
+		return false
+	}
 }
 
 func isGeminiNativeOperation(operation platform.ProviderOperation) bool {

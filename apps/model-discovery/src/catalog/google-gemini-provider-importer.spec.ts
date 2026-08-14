@@ -41,7 +41,11 @@ describe('Google Gemini provider importer', () => {
     expect(flashImage.modalities?.input).toContain('video');
     expect(flashImage.endpoints).not.toContain('live');
 
-    for (const model of ['gemini-3.6-flash', 'gemini-3.5-flash-lite']) {
+    for (const model of [
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash-lite',
+    ]) {
       const profile = parse(
         await readFile(join(providerDir, `${model}.yaml`), 'utf8'),
       ) as GeminiProfileFixture;
@@ -60,6 +64,49 @@ describe('Google Gemini provider importer', () => {
         profile.rateLimits?.every((limit) => limit.scope === 'project'),
       ).toBe(true);
     }
+  });
+
+  it('imports the Gemini 3.7 Flash contract and scheduled pricing', async () => {
+    const document = parse(
+      await readFile(
+        join(
+          __dirname,
+          '..',
+          '..',
+          'providers',
+          'google-gemini',
+          'gemini-3.7-flash.yaml',
+        ),
+        'utf8',
+      ),
+    ) as GeminiProfileFixture;
+
+    expect(document.status).toBe('active');
+    expect(document.limits).toMatchObject({
+      context_window: 1048576,
+      max_input_tokens: 1048576,
+      max_output_tokens: 65536,
+    });
+    expect(document.thinkingProfile?.effortValues).toEqual([
+      'low',
+      'medium',
+      'high',
+    ]);
+    expect(document.removeParams).toEqual(['temperature', 'top_p', 'top_k']);
+    expect(document.costs).toHaveLength(2);
+    expect(document.costs?.[0]).toMatchObject({
+      effective_from: '2026-08-13T00:00:00Z',
+      effective_to: '2027-01-01T00:00:00Z',
+      input_cost_per_token: 0.00000075,
+      output_cost_per_token: 0.00000375,
+      cache_read_input_token_cost: 0.000000075,
+    });
+    expect(document.costs?.[1]).toMatchObject({
+      effective_from: '2027-01-01T00:00:00Z',
+      input_cost_per_token: 0.0000015,
+      output_cost_per_token: 0.0000075,
+      cache_read_input_token_cost: 0.00000015,
+    });
   });
 
   it('requires an explicit versioned runtime profile matching every YAML contract', async () => {
@@ -223,5 +270,7 @@ type GeminiProfileFixture = {
   removeParams?: string[];
   serviceTiers?: string[];
   rateLimits?: Array<{ dynamic?: boolean; scope?: string }>;
+  thinkingProfile?: { effortValues?: string[] };
+  costs?: Array<Record<string, unknown>>;
   runtimeProfile?: unknown;
 };
