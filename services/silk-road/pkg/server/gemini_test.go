@@ -261,9 +261,27 @@ func TestGeminiFailsClosedForUnknownModelAndUnsupportedCombination(t *testing.T)
 	assertErrorContains(t, err, "does not support embeddings")
 }
 
+func TestGeminiStable25ModelsSupportTextOperations(t *testing.T) {
+	for _, model := range []string{"gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"} {
+		if err := validateGeminiCompatibleModelOperation(model, platform.ProviderOperationChatCompletions); err != nil {
+			t.Fatalf("%s chat completions: %v", model, err)
+		}
+
+		for _, operation := range []platform.ProviderOperation{
+			platform.ProviderOperationGeminiGenerateContent,
+			platform.ProviderOperationGeminiInteractionsCreate,
+			platform.ProviderOperationGeminiCachesCreate,
+		} {
+			if err := validateGeminiNativeModelOperation(model, operation); err != nil {
+				t.Fatalf("%s %s: %v", model, operation, err)
+			}
+		}
+	}
+}
+
 func TestGeminiModelListFiltersNonAllowlistedModels(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"models":[{"name":"models/gemini-3.6-flash"},{"name":"models/gemini-2.5-pro"}],"nextPageToken":"next"}`))
+		_, _ = w.Write([]byte(`{"models":[{"name":"models/gemini-3.6-flash"},{"name":"models/gemini-2.5-pro"},{"name":"models/gemini-latest"}],"nextPageToken":"next"}`))
 	}))
 	defer server.Close()
 
@@ -272,14 +290,14 @@ func TestGeminiModelListFiltersNonAllowlistedModels(t *testing.T) {
 	body, err := io.ReadAll(response.Body)
 	assertNoError(t, err)
 
-	if !strings.Contains(string(body), "gemini-3.6-flash") || !strings.Contains(string(body), "nextPageToken") || strings.Contains(string(body), "gemini-2.5-pro") {
+	if !strings.Contains(string(body), "gemini-3.6-flash") || !strings.Contains(string(body), "gemini-2.5-pro") || !strings.Contains(string(body), "nextPageToken") || strings.Contains(string(body), "gemini-latest") {
 		t.Fatalf("unexpected filtered response: %s", body)
 	}
 }
 
 func TestGeminiOpenAIModelListFiltersNonAllowlistedModels(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"gemini-3.6-flash"},{"id":"gemini-2.5-pro"}]}`))
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"gemini-3.6-flash"},{"id":"gemini-2.5-pro"},{"id":"gemini-latest"}]}`))
 	}))
 	defer server.Close()
 
@@ -288,14 +306,14 @@ func TestGeminiOpenAIModelListFiltersNonAllowlistedModels(t *testing.T) {
 	body, err := io.ReadAll(response.Body)
 	assertNoError(t, err)
 
-	if !strings.Contains(string(body), "gemini-3.6-flash") || strings.Contains(string(body), "gemini-2.5-pro") {
+	if !strings.Contains(string(body), "gemini-3.6-flash") || !strings.Contains(string(body), "gemini-2.5-pro") || strings.Contains(string(body), "gemini-latest") {
 		t.Fatalf("unexpected filtered response: %s", body)
 	}
 }
 
 func TestGeminiOpenAIModelGetRejectsNonAllowlistedModel(t *testing.T) {
 	payload := geminiTestPayload("https://example.test", platform.ProviderOperationOpenAIModelsGet, "")
-	payload.OperationInput.ResourceID = "gemini-2.5-pro"
+	payload.OperationInput.ResourceID = "gemini-latest"
 	_, err := newGeminiAdapter().Dispatch(context.Background(), http.DefaultClient, payload)
 	assertErrorContains(t, err, "google_gemini_model_not_allowlisted")
 }

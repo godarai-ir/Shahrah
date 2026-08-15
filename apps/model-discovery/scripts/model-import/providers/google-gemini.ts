@@ -7,6 +7,9 @@ import type { ProviderRateMapping } from '../types';
 export const GOOGLE_GEMINI_PROVIDER_SLUG = 'google-gemini';
 
 export const GOOGLE_GEMINI_SUPPORTED_MODEL_IDS = [
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
   'gemini-3.1-pro-preview',
   'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
@@ -185,6 +188,12 @@ type GoogleGeminiRateMappingEntry = readonly [
 
 const GOOGLE_GEMINI_RATE_MAPPING_ENTRIES = [
   [
+    'cache_read_input_audio_token_cost',
+    'audio_cache_read_tokens',
+    'token',
+    'standard',
+  ],
+  [
     'cache_storage_cost_per_token_per_hour_batches',
     'batch_cache_storage_token_hours',
     'token_hour',
@@ -194,6 +203,18 @@ const GOOGLE_GEMINI_RATE_MAPPING_ENTRIES = [
     'cache_storage_cost_per_token_per_hour_flex',
     'flex_cache_storage_token_hours',
     'token_hour',
+    'flex',
+  ],
+  [
+    'input_cost_per_audio_token_flex',
+    'flex_audio_input_tokens',
+    'token',
+    'flex',
+  ],
+  [
+    'cache_read_input_audio_token_cost_flex',
+    'flex_audio_cache_read_tokens',
+    'token',
     'flex',
   ],
   [
@@ -218,6 +239,18 @@ const GOOGLE_GEMINI_RATE_MAPPING_ENTRIES = [
     'cache_storage_cost_per_token_per_hour_priority',
     'priority_cache_storage_token_hours',
     'token_hour',
+    'priority',
+  ],
+  [
+    'input_cost_per_audio_token_priority',
+    'priority_audio_input_tokens',
+    'token',
+    'priority',
+  ],
+  [
+    'cache_read_input_audio_token_cost_priority',
+    'priority_audio_cache_read_tokens',
+    'token',
     'priority',
   ],
   [
@@ -294,6 +327,12 @@ const GOOGLE_GEMINI_RATE_MAPPING_ENTRIES = [
   [
     'input_cost_per_audio_token_batches',
     'batch_audio_input_tokens',
+    'token',
+    'batch',
+  ],
+  [
+    'cache_read_input_audio_token_cost_batches',
+    'batch_audio_cache_read_tokens',
     'token',
     'batch',
   ],

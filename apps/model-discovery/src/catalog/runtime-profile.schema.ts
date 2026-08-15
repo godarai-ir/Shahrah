@@ -355,7 +355,7 @@ export const modelRuntimeProfileSchema = z
       });
     }
     if (
-      profile.thinking.defaultMode === 'disabled' &&
+      profile.thinking.allowedModes.every((mode) => mode === 'disabled') &&
       profile.thinking.effortValues.length > 0
     ) {
       context.addIssue({

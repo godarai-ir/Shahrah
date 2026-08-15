@@ -146,6 +146,35 @@ describe('modelRuntimeProfileSchema', () => {
     expect(parsed.thinking.effortValues).toContain('minimal');
   });
 
+  it('accepts optional thinking efforts when thinking is disabled by default', () => {
+    const parsed = modelRuntimeProfileSchema.parse({
+      ...validProfile,
+      thinking: {
+        defaultMode: 'disabled',
+        allowedModes: ['disabled', 'adaptive', 'manual'],
+        manualDeprecated: false,
+        effortValues: ['low', 'medium', 'high'],
+      },
+    });
+
+    expect(parsed.thinking.defaultMode).toBe('disabled');
+    expect(parsed.thinking.effortValues).toEqual(['low', 'medium', 'high']);
+  });
+
+  it('rejects thinking efforts when every allowed mode is disabled', () => {
+    expect(() =>
+      modelRuntimeProfileSchema.parse({
+        ...validProfile,
+        thinking: {
+          defaultMode: 'disabled',
+          allowedModes: ['disabled'],
+          manualDeprecated: false,
+          effortValues: ['low'],
+        },
+      }),
+    ).toThrow('effortValues require an enabled thinking mode');
+  });
+
   it('accepts OpenAI Responses tools and the Fast service tier', () => {
     const parsed = modelRuntimeProfileSchema.parse({
       ...validProfile,

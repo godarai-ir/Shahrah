@@ -18,6 +18,8 @@ func googleGeminiServiceTier(value string) (string, error) {
 		return "flex", nil
 	case "priority":
 		return "priority", nil
+	case "batch":
+		return "batch", nil
 	default:
 		return "", fmt.Errorf(
 			"%w: unsupported Gemini service tier %q",
@@ -83,7 +85,10 @@ func googleGeminiUsageCostBreakdown(
 		prefix = tier + "_"
 	}
 
-	if usage.PromptTokens > 200000 {
+	longContextInputDimension := prefix + "long_context_input_tokens"
+
+	_, hasLongContextRate := price.Rates[longContextInputDimension]
+	if usage.PromptTokens > 200000 && hasLongContextRate {
 		prefix += "long_context_"
 	}
 

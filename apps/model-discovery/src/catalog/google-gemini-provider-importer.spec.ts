@@ -5,6 +5,7 @@ import { parse } from 'yaml';
 import { modelRuntimeProfileSchema } from './runtime-profile.schema';
 import {
   GOOGLE_GEMINI_SUPPORTED_MODEL_IDS,
+  googleGeminiProviderImporter,
   parseGoogleGeminiImportArgs,
   validateGoogleGeminiProviderDirectory,
 } from '../../scripts/model-import/providers/google-gemini';
@@ -107,6 +108,99 @@ describe('Google Gemini provider importer', () => {
       output_cost_per_token: 0.0000075,
       cache_read_input_token_cost: 0.00000015,
     });
+  });
+
+  it('imports the stable Gemini 2.5 contracts from official Google sources', async () => {
+    const providerDir = join(
+      __dirname,
+      '..',
+      '..',
+      'providers',
+      'google-gemini',
+    );
+    const profiles = await Promise.all(
+      ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'].map(
+        async (model) =>
+          parse(
+            await readFile(join(providerDir, `${model}.yaml`), 'utf8'),
+          ) as GeminiProfileFixture,
+      ),
+    );
+
+    for (const profile of profiles) {
+      expect(profile.status).toBe('active');
+      expect(profile.limits).toMatchObject({
+        context_window: 1048576,
+        max_input_tokens: 1048576,
+        max_output_tokens: 65536,
+      });
+      expect(profile.endpoints).toEqual(
+        expect.arrayContaining(['interactions', 'generate_content', 'batches']),
+      );
+      expect(profile.serviceTiers).toEqual([
+        'standard',
+        'batch',
+        'flex',
+        'priority',
+      ]);
+      expect(profile.sources?.length).toBeGreaterThan(0);
+      expect(
+        profile.sources?.every((source) =>
+          source.startsWith('https://ai.google.dev/'),
+        ),
+      ).toBe(true);
+    }
+
+    expect(profiles[0].thinkingProfile).toMatchObject({
+      defaultMode: 'disabled',
+      allowedModes: ['disabled', 'adaptive', 'manual'],
+      effortValues: ['low', 'medium', 'high'],
+    });
+    expect(profiles[1].thinkingProfile).toMatchObject({
+      defaultMode: 'adaptive',
+      allowedModes: ['disabled', 'adaptive', 'manual'],
+    });
+    expect(profiles[2].thinkingProfile).toMatchObject({
+      defaultMode: 'adaptive',
+      allowedModes: ['adaptive', 'manual'],
+    });
+    expect(profiles[0].costs?.[0]).toMatchObject({
+      input_cost_per_token: 0.0000001,
+      input_cost_per_audio_token: 0.0000003,
+      output_cost_per_token: 0.0000004,
+    });
+    expect(profiles[1].costs?.[0]).toMatchObject({
+      input_cost_per_token: 0.0000003,
+      input_cost_per_audio_token: 0.000001,
+      output_cost_per_token: 0.0000025,
+    });
+    expect(profiles[2].costs?.[0]).toMatchObject({
+      input_cost_per_token: 0.00000125,
+      output_cost_per_token: 0.00001,
+    });
+  });
+
+  it('maps Gemini modality-specific audio rates for every consumption tier', () => {
+    expect(googleGeminiProviderImporter.rateMappings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'cache_read_input_audio_token_cost',
+          dimension: 'audio_cache_read_tokens',
+        }),
+        expect.objectContaining({
+          key: 'input_cost_per_audio_token_batches',
+          dimension: 'batch_audio_input_tokens',
+        }),
+        expect.objectContaining({
+          key: 'input_cost_per_audio_token_flex',
+          dimension: 'flex_audio_input_tokens',
+        }),
+        expect.objectContaining({
+          key: 'input_cost_per_audio_token_priority',
+          dimension: 'priority_audio_input_tokens',
+        }),
+      ]),
+    );
   });
 
   it('requires an explicit versioned runtime profile matching every YAML contract', async () => {
@@ -270,7 +364,12 @@ type GeminiProfileFixture = {
   removeParams?: string[];
   serviceTiers?: string[];
   rateLimits?: Array<{ dynamic?: boolean; scope?: string }>;
-  thinkingProfile?: { effortValues?: string[] };
+  thinkingProfile?: {
+    defaultMode?: string;
+    allowedModes?: string[];
+    effortValues?: string[];
+  };
   costs?: Array<Record<string, unknown>>;
+  sources?: string[];
   runtimeProfile?: unknown;
 };
