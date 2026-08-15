@@ -58,6 +58,17 @@ describe('DeepSeek provider importer', () => {
         countInputTokens: false,
       });
       expect(document.costs[0].effective_to).toBe('2026-08-16T16:00:00Z');
+      expect(document.costs[1].effective_from).toBe('2026-08-16T16:00:00Z');
+      expect(document.costs[1]).toEqual(
+        expect.objectContaining({
+          input_cost_per_token: expect.any(Number),
+          cache_read_input_token_cost: expect.any(Number),
+          output_cost_per_token: expect.any(Number),
+          off_peak_input_cost_per_token: expect.any(Number),
+          off_peak_cache_read_input_token_cost: expect.any(Number),
+          off_peak_output_cost_per_token: expect.any(Number),
+        }),
+      );
     }
 
     expect(pro.status).toBe('active');

@@ -80,8 +80,7 @@ export class RuntimeSnapshotDto {
   provider!: string;
 
   @ApiProperty({
-    description:
-      'SHA-256 revision of the ordered runtime and pricing payload.',
+    description: 'SHA-256 revision of the ordered runtime and pricing payload.',
   })
   revision!: string;
 

@@ -34,6 +34,7 @@ import {
 } from './model-import/providers/moonshot';
 import {
   DEEPSEEK_PROVIDER_SLUG,
+  deepSeekProviderImporter,
   validateDeepSeekProviderDirectory,
 } from './model-import/providers/deepseek';
 import type {
@@ -531,7 +532,9 @@ async function parseProviderDir(
           ? xaiProviderImporter
           : providerSlug === mistralAIProviderImporter.slug
             ? mistralAIProviderImporter
-            : undefined;
+            : providerSlug === deepSeekProviderImporter.slug
+              ? deepSeekProviderImporter
+              : undefined;
   if (providerSlug === xaiProviderImporter.slug) {
     await validateXAIProviderDirectory(dirname(providerDir));
   }

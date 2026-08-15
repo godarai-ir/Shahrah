@@ -31,6 +31,14 @@ costs:
     input_cost_per_token: 0.000000435
     cache_read_input_token_cost: 0.000000003625
     output_cost_per_token: 0.00000087
+  - region: '*'
+    effective_from: 2026-08-16T16:00:00Z
+    input_cost_per_token: 0.00000132
+    cache_read_input_token_cost: 0.000000044
+    output_cost_per_token: 0.00000396
+    off_peak_input_cost_per_token: 0.00000066
+    off_peak_cache_read_input_token_cost: 0.000000022
+    off_peak_output_cost_per_token: 0.00000198
 limits:
   context_window: 1048576
   max_input_tokens: 1048576

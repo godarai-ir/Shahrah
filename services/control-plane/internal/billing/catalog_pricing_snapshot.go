@@ -195,7 +195,7 @@ func normalizeCatalogPricingSnapshot(
 				return nil, ErrPricingUnavailable
 			}
 
-			if _, duplicate := rates[input.Dimension]; duplicate && provider != "openai" && provider != "xai" && provider != "mistral-ai" {
+			if _, duplicate := rates[input.Dimension]; duplicate && !catalogProviderAllowsConditionalRates(provider) {
 				return nil, fmt.Errorf(
 					"%w: duplicate %s rate dimension %s",
 					ErrPricingUnavailable,
@@ -277,6 +277,15 @@ func deepSeekPricingDimensionsComplete(rates map[string]normalizedPricingRate) b
 	}
 
 	return true
+}
+
+func catalogProviderAllowsConditionalRates(provider string) bool {
+	switch provider {
+	case "openai", "xai", "mistral-ai", "deepseek":
+		return true
+	default:
+		return false
+	}
 }
 
 func mistralPricingDimensionsComplete(profile platform.ModelRuntimeProfile, rates map[string]normalizedPricingRate) bool {

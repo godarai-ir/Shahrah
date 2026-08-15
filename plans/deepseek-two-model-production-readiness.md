@@ -59,12 +59,11 @@ retrieval, deletion, cancellation, compaction, input-token counting and
 FIM, prefix completion, hosted tools, Files, Batch, embeddings and all non-text
 modalities require independent runtime, security, billing and release scopes.
 
-The current catalog rates remain valid through 2026-08-16 16:00 UTC. DeepSeek
-has announced peak/off-peak pricing from that instant, with peak windows at
-01:00-04:00 and 06:00-10:00 UTC and off-peak prices at half the peak rates.
-Time-window billing remains gated until those conditions can be selected and
-snapshotted without ambiguity; the provider gate must stay disabled after the
-effective instant until that billing control is deployed.
+The current catalog rates remain valid through 2026-08-16 16:00 UTC. From that
+instant the catalog contains peak/off-peak pricing, with peak windows at
+01:00-04:00 and 06:00-10:00 UTC and off-peak prices at half the peak rates. The
+selected UTC pricing period is pinned in the request-time billing snapshot so a
+request crossing a window boundary retains its reserved rate.
 
 ## Live evidence required before release
 
@@ -93,5 +92,5 @@ approve a new canary.
 
 - CI does not execute billable DeepSeek calls.
 - Live Pro GA canaries and current effort mappings still require account-specific evidence.
-- Peak/off-peak price selection must be implemented before 2026-08-16 16:00 UTC; the announced future rows are not active yet.
+- Peak/off-peak selection is implemented, but production billing reconciliation across both UTC windows still requires evidence.
 - Production dashboards, alerts, canary reports, provider invoices and formal sign-offs are external release artifacts and are not attached yet.

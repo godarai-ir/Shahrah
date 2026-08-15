@@ -146,6 +146,41 @@ func TestDeepSeekResponsesRuntimeProfileSupportsBothCurrentModels(t *testing.T) 
 	}
 }
 
+func TestDeepSeekResponsesRuntimeProfileEnforcesOfficialReasoningEfforts(t *testing.T) {
+	binding := deepSeekProxyRuntimeProfile("deepseek-v4-pro")
+
+	for _, effort := range []string{"none", "low", "high", "max"} {
+		body := []byte(`{"model":"deepseek-v4-pro","input":"hello","reasoning":{"effort":"` + effort + `"}}`)
+		require.NoError(t, validateDeepSeekResponsesRuntimeProfile(body, &binding))
+	}
+
+	for _, effort := range []string{"minimal", "medium", "xhigh"} {
+		body := []byte(`{"model":"deepseek-v4-pro","input":"hello","reasoning":{"effort":"` + effort + `"}}`)
+		require.ErrorContains(
+			t,
+			validateDeepSeekResponsesRuntimeProfile(body, &binding),
+			"reasoning effort",
+		)
+	}
+}
+
+func TestDeepSeekResponsesRuntimeProfileRejectsSamplingWhileThinking(t *testing.T) {
+	binding := deepSeekProxyRuntimeProfile("deepseek-v4-pro")
+
+	require.ErrorContains(
+		t,
+		validateDeepSeekResponsesRuntimeProfile(
+			[]byte(`{"model":"deepseek-v4-pro","input":"hello","temperature":0.7}`),
+			&binding,
+		),
+		"sampling parameters",
+	)
+	require.NoError(t, validateDeepSeekResponsesRuntimeProfile(
+		[]byte(`{"model":"deepseek-v4-pro","input":"hello","reasoning":{"effort":"none"},"temperature":0.7}`),
+		&binding,
+	))
+}
+
 func TestDeepSeekResponsesRuntimeProfileRejectsStateAndMisleadingControls(t *testing.T) {
 	binding := deepSeekProxyRuntimeProfile("deepseek-v4-flash")
 

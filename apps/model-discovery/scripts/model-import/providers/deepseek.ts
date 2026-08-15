@@ -2,6 +2,7 @@ import { existsSync, promises as fs } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { parse } from 'yaml';
 import { modelRuntimeProfileSchema } from '../../../src/catalog/runtime-profile.schema';
+import type { ProviderRateMapping } from '../types';
 
 export const DEEPSEEK_PROVIDER_SLUG = 'deepseek';
 export const DEEPSEEK_SUPPORTED_MODEL_IDS = [
@@ -14,6 +15,28 @@ const DEEPSEEK_DOCUMENTED_MODEL_VERSIONS: Readonly<Record<string, string>> = {
   'deepseek-v4-pro': 'DeepSeek-V4-Pro-0813',
 };
 const DEEPSEEK_CURRENT_PRICING_END = '2026-08-16T16:00:00Z';
+const DEEPSEEK_TIME_PRICING_START = DEEPSEEK_CURRENT_PRICING_END;
+
+const DEEPSEEK_RATE_MAPPINGS: ProviderRateMapping[] = [
+  {
+    key: 'off_peak_input_cost_per_token',
+    dimension: 'input_tokens',
+    unit: 'token',
+    conditionJson: { pricing_period: 'off_peak' },
+  },
+  {
+    key: 'off_peak_cache_read_input_token_cost',
+    dimension: 'cache_read_tokens',
+    unit: 'token',
+    conditionJson: { pricing_period: 'off_peak' },
+  },
+  {
+    key: 'off_peak_output_cost_per_token',
+    dimension: 'output_tokens',
+    unit: 'token',
+    conditionJson: { pricing_period: 'off_peak' },
+  },
+];
 
 type StringRecord = Record<string, unknown>;
 
@@ -126,9 +149,14 @@ export async function validateDeepSeekProviderDirectory(
     }
 
     const costs = Array.isArray(document.costs) ? document.costs : [];
-    const cost = asObject(costs[0]);
-    if (cost?.effective_to !== DEEPSEEK_CURRENT_PRICING_END) {
+    const currentCost = asObject(costs[0]);
+    const timePricedCost = asObject(costs[1]);
+    if (currentCost?.effective_to !== DEEPSEEK_CURRENT_PRICING_END) {
       invalid.push(`${relativeFile}(pricing_window)`);
+    }
+
+    if (timePricedCost?.effective_from !== DEEPSEEK_TIME_PRICING_START) {
+      invalid.push(`${relativeFile}(time_pricing_window)`);
     }
 
     for (const key of [
@@ -137,14 +165,37 @@ export async function validateDeepSeekProviderDirectory(
       'output_cost_per_token',
     ]) {
       if (
-        typeof cost?.[key] !== 'number' ||
-        !Number.isFinite(cost[key]) ||
-        cost[key] <= 0
+        typeof currentCost?.[key] !== 'number' ||
+        !Number.isFinite(currentCost[key]) ||
+        currentCost[key] <= 0
       ) {
         invalid.push(`${relativeFile}(pricing:${key})`);
       }
+
+      if (
+        typeof timePricedCost?.[key] !== 'number' ||
+        !Number.isFinite(timePricedCost[key]) ||
+        timePricedCost[key] <= 0
+      ) {
+        invalid.push(`${relativeFile}(time_pricing:${key})`);
+      }
     }
-    if (costs.length !== 1) invalid.push(`${relativeFile}(pricing_rows)`);
+
+    for (const key of [
+      'off_peak_input_cost_per_token',
+      'off_peak_cache_read_input_token_cost',
+      'off_peak_output_cost_per_token',
+    ]) {
+      if (
+        typeof timePricedCost?.[key] !== 'number' ||
+        !Number.isFinite(timePricedCost[key]) ||
+        timePricedCost[key] <= 0
+      ) {
+        invalid.push(`${relativeFile}(time_pricing:${key})`);
+      }
+    }
+
+    if (costs.length !== 2) invalid.push(`${relativeFile}(pricing_rows)`);
   }
 
   const expected = new Set<string>(DEEPSEEK_SUPPORTED_MODEL_IDS);
@@ -175,3 +226,11 @@ export async function validateDeepSeekProviderDirectory(
 
   return { providerDir, modelIds: [...actual].sort(), modelFiles: files };
 }
+
+export const deepSeekProviderImporter = {
+  slug: DEEPSEEK_PROVIDER_SLUG,
+  batchPricingCondition: undefined,
+  rateMappings: DEEPSEEK_RATE_MAPPINGS,
+  appendDerivedCostPricingRates: undefined,
+  appendToolPricingRates: undefined,
+};

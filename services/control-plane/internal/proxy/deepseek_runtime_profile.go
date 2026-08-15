@@ -116,11 +116,21 @@ func validateDeepSeekResponseNumericControls(
 }
 
 func validateDeepSeekResponseReasoning(req contractsopenai.ResponseRequest) error {
+	effort := "high"
+
 	if req.Reasoning != nil {
-		effort := strings.ToLower(strings.TrimSpace(req.Reasoning.Effort))
-		if effort != "" && !isSupportedDeepSeekResponseEffort(effort) {
+		requestedEffort := strings.ToLower(strings.TrimSpace(req.Reasoning.Effort))
+		if requestedEffort != "" {
+			effort = requestedEffort
+		}
+
+		if requestedEffort != "" && !isSupportedDeepSeekResponseEffort(requestedEffort) {
 			return fmt.Errorf("unsupported deepseek Responses reasoning effort %q", req.Reasoning.Effort)
 		}
+	}
+
+	if effort != "none" && (req.Temperature != nil || req.TopP != nil) {
+		return fmt.Errorf("deepseek Responses sampling parameters are unsupported with thinking enabled")
 	}
 
 	return nil
@@ -128,7 +138,7 @@ func validateDeepSeekResponseReasoning(req contractsopenai.ResponseRequest) erro
 
 func isSupportedDeepSeekResponseEffort(effort string) bool {
 	switch effort {
-	case "none", "minimal", "low", "medium", "high", "xhigh", "max":
+	case "none", "low", "high", "max":
 		return true
 	default:
 		return false

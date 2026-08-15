@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -83,6 +84,7 @@ func deepSeekUsageCostBreakdown(
 	usage *openai.Usage,
 	price priceInfo,
 	exchangeRate float64,
+	conditions map[string]string,
 ) (platform.UsageCostBreakdown, error) {
 	if usage == nil {
 		return platform.UsageCostBreakdown{}, fmt.Errorf("%w: DeepSeek usage is missing", ErrPricingUnavailable)
@@ -110,8 +112,14 @@ func deepSeekUsageCostBreakdown(
 			continue
 		}
 
-		rate, ok := price.Rates[dimension]
-		if !ok || len(rate.Condition) != 0 {
+		rate, err := selectOpenAIRate(
+			price.RateList,
+			dimension,
+			usage.PromptTokens,
+			"",
+			conditions,
+		)
+		if err != nil {
 			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing DeepSeek rate for %s", ErrPricingUnavailable, dimension)
 		}
 
@@ -141,7 +149,36 @@ func deepSeekUsageCostBreakdown(
 		ExchangeRate: exchangeRate, TotalCostIRR: totalUSD * exchangeRate,
 		PricingRevision: price.Revision, ModelRuntimeProfile: price.RuntimeProfile,
 		PricingSnapshot: usagePricingSnapshot(price), Components: components,
+		PricingConditions: clonePricingConditions(conditions),
 	}, nil
+}
+
+func deepSeekPricingConditionsAt(
+	at time.Time,
+	rates []normalizedPricingRate,
+) map[string]string {
+	hasTimePricing := false
+
+	for _, rate := range rates {
+		if _, ok := rate.Condition["pricing_period"]; ok {
+			hasTimePricing = true
+
+			break
+		}
+	}
+
+	if !hasTimePricing {
+		return nil
+	}
+
+	hour := at.UTC().Hour()
+
+	period := "off_peak"
+	if hour >= 1 && hour < 4 || hour >= 6 && hour < 10 {
+		period = "peak"
+	}
+
+	return map[string]string{"pricing_period": period}
 }
 
 func mistralUsageCostBreakdown(model string, usage *openai.Usage, price priceInfo, exchangeRate float64, conditions map[string]string) (platform.UsageCostBreakdown, error) {

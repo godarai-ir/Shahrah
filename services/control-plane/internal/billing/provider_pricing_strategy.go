@@ -3,6 +3,7 @@ package billing
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
 	"github.com/Delpak/shahrah/packages/contracts/platform"
@@ -353,8 +354,32 @@ type deepSeekPricingStrategy struct {
 	standardPricingStrategy
 }
 
+func (deepSeekPricingStrategy) Estimate(input pricingEstimateInput) (platform.UsageCostBreakdown, error) {
+	usage := &contractsopenai.Usage{
+		PromptTokens:          input.promptTokens,
+		CompletionTokens:      input.outputTokens,
+		TotalTokens:           input.promptTokens + input.outputTokens,
+		PromptCacheMissTokens: input.promptTokens,
+	}
+	conditions := deepSeekPricingConditionsAt(time.Now().UTC(), input.price.RateList)
+
+	return deepSeekUsageCostBreakdown(
+		input.request.Model,
+		usage,
+		input.price,
+		input.exchangeRate,
+		conditions,
+	)
+}
+
 func (deepSeekPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
-	return deepSeekUsageCostBreakdown(input.model, input.usage, input.price, input.exchangeRate)
+	return deepSeekUsageCostBreakdown(
+		input.model,
+		input.usage,
+		input.price,
+		input.exchangeRate,
+		input.conditions,
+	)
 }
 
 type moonshotPricingStrategy struct {
