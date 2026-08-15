@@ -1,9 +1,12 @@
 model: deepseek-v4-pro
-status: preview
-verified_at: 2026-08-05
+displayName: DeepSeek-V4-Pro-0813
+model_version: DeepSeek-V4-Pro-0813
+releaseDate: 2026-08-13
+status: active
+verified_at: 2026-08-15
 api_format: openai
-lifecycle_note: API-accessible preview; official release evidence pending
-supportedModes: [chat]
+lifecycle_note: GA release rolled out to the API on 2026-08-13
+supportedModes: [chat, responses]
 modalities:
   input: [text]
   output: [text]
@@ -18,12 +21,13 @@ tools: [function_calling]
 params:
   - key: reasoning_effort
     defaultValue: high
-    supportedValues: [low, high, xhigh, max]
+    supportedValues: [low, medium, high, xhigh, max]
   - key: max_tokens
     maxValue: 393216
 costs:
   - region: '*'
     effective_from: 2026-08-05
+    effective_to: 2026-08-16T16:00:00Z
     input_cost_per_token: 0.000000435
     cache_read_input_token_cost: 0.000000003625
     output_cost_per_token: 0.00000087
@@ -35,22 +39,25 @@ sources:
   - https://api-docs.deepseek.com/quick_start/pricing
   - https://api-docs.deepseek.com/api/list-models
   - https://api-docs.deepseek.com/api/create-chat-completion
+  - https://api-docs.deepseek.com/api/create-response
+  - https://api-docs.deepseek.com/guides/responses_api
   - https://api-docs.deepseek.com/guides/thinking_mode
   - https://api-docs.deepseek.com/guides/tool_calls
   - https://api-docs.deepseek.com/guides/json_mode
   - https://api-docs.deepseek.com/guides/kv_cache
+  - https://api-docs.deepseek.com/news/news260813
   - https://api-docs.deepseek.com/updates
 runtimeProfile:
-  version: 1
+  version: 2
   aliases: []
-  endpoints: [models, chat_completions]
+  endpoints: [models, chat_completions, responses]
   transports: [http, sse]
-  lifecycle: preview
+  lifecycle: active
   thinking:
     defaultMode: adaptive
     allowedModes: [adaptive, disabled]
     manualDeprecated: false
-    effortValues: [low, high, xhigh, max]
+    effortValues: [low, medium, high, xhigh, max]
   assistantPrefill: false
   sampling:
     parameters: [temperature, top_p]
@@ -64,6 +71,25 @@ runtimeProfile:
   modalities:
     input: [text]
     output: [text]
+  parameters:
+    responses:
+      - input
+      - instructions
+      - max_output_tokens
+      - reasoning
+      - stream
+      - temperature
+      - top_p
+      - top_logprobs
+      - text
+      - tools
+      - tool_choice
+  responseResources:
+    store: false
+    retrieve: false
+    delete: false
+    compact: false
+    countInputTokens: false
   unsupportedParameters:
     - max_completion_tokens
     - parallel_tool_calls

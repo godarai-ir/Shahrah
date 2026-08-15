@@ -1,0 +1,16 @@
+email,outcome,first_attempt_at_utc,last_attempt_at_utc,request_count,verified_requests,expired_requests,canceled_requests,pending_requests,failed_otp_entries,account_rows,tenant_slugs
+emailtord@gmail.com,successful,2026-06-10T16:53:10.143Z,2026-07-01T06:55:19.029Z,2,2,0,0,0,0,2,delpak|demo
+izareh@gmail.com,successful,2026-06-13T07:51:13.322Z,2026-06-29T10:37:32.969Z,4,3,1,0,0,0,4,narvan|narvan2|narvan3
+izareh+5@gmail.com,successful,2026-06-29T15:49:13.586Z,2026-06-29T15:49:13.586Z,1,1,0,0,0,0,1,narvan5
+sohil_ww@ymail.com,successful,2026-07-26T20:44:11.603Z,2026-07-26T20:44:11.603Z,1,1,0,0,0,0,1,soheil
+hadi.jahangiri2015@gmail.com,successful,2026-07-27T09:28:12.200Z,2026-07-27T09:28:12.200Z,1,1,0,0,0,0,1,my-company
+elmi.taha@gmail.com,successful,2026-07-27T14:37:51.459Z,2026-07-27T14:37:51.459Z,1,1,0,0,0,0,1,punez
+emad.bamdad@gmail.com,not_completed,2026-07-29T10:45:57.968Z,2026-08-01T13:18:32.796Z,2,0,2,0,0,0,0,developer|emad
+masoud.vb@gmail.com,successful,2026-07-31T12:14:35.697Z,2026-08-07T09:30:26.243Z,3,1,2,0,0,0,1,segoon
+sh.ansari2014@gmail.com,not_completed,2026-07-31T14:00:27.527Z,2026-07-31T14:00:27.527Z,1,0,1,0,0,0,0,shah
+smartarca@gmail.com,not_completed,2026-08-01T04:46:08.338Z,2026-08-01T04:46:08.338Z,1,0,1,0,0,0,0,psp
+delpak@outlook.com,successful,2026-08-01T13:46:10.976Z,2026-08-01T13:46:10.976Z,1,1,0,0,0,0,1,developer
+abbas.layeghie@gmail.com,successful,2026-08-08T07:51:00.776Z,2026-08-08T07:51:00.776Z,1,1,0,0,0,0,1,abbaslayeghie
+majazishahin@gmail.com,successful,2026-08-10T07:07:40.688Z,2026-08-10T07:07:40.688Z,1,1,0,0,0,0,1,workspace
+depidi2711@primetor.com,not_completed,2026-08-10T08:52:52.323Z,2026-08-10T09:00:57.907Z,2,0,2,0,0,0,0,depidi2711primetorcom
+ysalriawe4@bltiwd.com,not_completed,2026-08-10T09:04:23.414Z,2026-08-10T09:04:23.414Z,1,0,1,0,0,0,0,ysalriawe4bltiwdcom

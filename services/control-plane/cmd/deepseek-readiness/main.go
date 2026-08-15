@@ -85,10 +85,12 @@ func run(args []string, output io.Writer) error {
 	report.Checks = append(report.Checks, modelsCheck)
 	if modelsCheck.Passed {
 		for _, model := range deepSeekReadinessModels {
-			report.Checks = append(report.Checks, checkChat(ctx, client, config, model))
+			report.Checks = append(
+				report.Checks,
+				checkChat(ctx, client, config, model),
+				checkResponses(ctx, client, config, model),
+			)
 		}
-
-		report.Checks = append(report.Checks, checkResponses(ctx, client, config))
 	}
 
 	reportBytes, err := json.MarshalIndent(report, "", "  ")
@@ -310,9 +312,8 @@ func checkResponses(
 	ctx context.Context,
 	client *http.Client,
 	config readinessConfig,
+	model string,
 ) readinessCheck {
-	const model = "deepseek-v4-flash"
-
 	check := readinessCheck{Name: "responses_" + model}
 	body := map[string]interface{}{
 		"model":             model,

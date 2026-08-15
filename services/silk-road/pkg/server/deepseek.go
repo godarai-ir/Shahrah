@@ -119,7 +119,8 @@ func validateDeepSeekDispatchBody(payload platform.TunnelRequest) (map[string]js
 	}
 
 	model := deepSeekRequestModelFromDecoded(payload, body)
-	if payload.Operation == platform.ProviderOperationOpenAIResponsesCreate && model != deepSeekFlashModelID {
+	if payload.Operation == platform.ProviderOperationOpenAIResponsesCreate &&
+		model != deepSeekFlashModelID && model != deepSeekProModelID {
 		return nil, fmt.Errorf("deepseek_unsupported_responses_model: %s", model)
 	}
 

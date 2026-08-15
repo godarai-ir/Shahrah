@@ -1,6 +1,9 @@
 model: deepseek-v4-flash
+displayName: DeepSeek-V4-Flash-0731
+model_version: DeepSeek-V4-Flash-0731
+releaseDate: 2026-07-31
 status: preview
-verified_at: 2026-08-05
+verified_at: 2026-08-15
 api_format: openai
 lifecycle_note: public beta in the 2026-07-31 official changelog
 supportedModes: [chat, responses]
@@ -18,12 +21,13 @@ tools: [function_calling]
 params:
   - key: reasoning_effort
     defaultValue: high
-    supportedValues: [low, high, xhigh, max]
+    supportedValues: [low, medium, high, xhigh, max]
   - key: max_tokens
     maxValue: 393216
 costs:
   - region: '*'
     effective_from: 2026-07-31
+    effective_to: 2026-08-16T16:00:00Z
     input_cost_per_token: 0.00000014
     cache_read_input_token_cost: 0.0000000028
     output_cost_per_token: 0.00000028
@@ -43,7 +47,7 @@ sources:
   - https://api-docs.deepseek.com/guides/kv_cache
   - https://api-docs.deepseek.com/updates
 runtimeProfile:
-  version: 2
+  version: 3
   aliases: []
   endpoints: [models, chat_completions, responses]
   transports: [http, sse]
@@ -52,7 +56,7 @@ runtimeProfile:
     defaultMode: adaptive
     allowedModes: [adaptive, disabled]
     manualDeprecated: false
-    effortValues: [low, high, xhigh, max]
+    effortValues: [low, medium, high, xhigh, max]
   assistantPrefill: false
   sampling:
     parameters: [temperature, top_p]

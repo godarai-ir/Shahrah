@@ -124,7 +124,7 @@ func (b *deepSeekResponsesBudgeter) EstimateCost(ctx context.Context, req contra
 		return estimated, err
 	}
 
-	binding := deepSeekProxyRuntimeProfile("deepseek-v4-flash")
+	binding := deepSeekProxyRuntimeProfile(req.Model)
 	estimated.ModelRuntimeProfile = &binding
 	estimated.PricingRevision = binding.CatalogRevision
 
@@ -239,14 +239,26 @@ func newResponsesTestAppWithCache(
 		billing = &deepSeekResponsesBudgeter{}
 	}
 
-	rt, err := router.NewRouter([]config.ModelDeployment{{
+	deployments := []config.ModelDeployment{{
 		ModelName: modelName,
 		ProviderEndpoint: config.ProviderEndpointConfig{
 			Provider: provider,
 			Model:    modelName,
 			APIKey:   "test-key",
 		},
-	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	}}
+	if strings.EqualFold(provider, "deepseek") {
+		deployments = append(deployments, config.ModelDeployment{
+			ModelName: "deepseek-v4-pro",
+			ProviderEndpoint: config.ProviderEndpointConfig{
+				Provider: provider,
+				Model:    "deepseek-v4-pro",
+				APIKey:   "test-key",
+			},
+		})
+	}
+
+	rt, err := router.NewRouter(deployments, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	logs := &testLogs{}
@@ -1383,68 +1395,53 @@ func TestResponsesHandlerSupportsXAIWithPinnedProfileAndProviderFields(t *testin
 	assert.Contains(t, string(received), `"num_server_side_tools_used":1`)
 }
 
-func TestResponsesHandlerSupportsDeepSeekFlashCreateAndRedactsLogs(t *testing.T) {
-	upstreamBody := []byte(
-		`{"id":"resp_ds","object":"response","model":"deepseek-v4-flash","status":"completed",` +
-			`"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"private answer"}]}],` +
-			`"usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":4},"output_tokens":3,` +
-			`"output_tokens_details":{"reasoning_tokens":2},"total_tokens":13},"store":false,"previous_response_id":null}`,
-	)
-	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
-		StatusCode: fiber.StatusOK,
-		Headers:    map[string]string{"content-type": "application/json"},
-		Body:       upstreamBody,
-	}}
-	logs := &testLogs{}
-	app, queue := newResponsesTestApp(t, "deepseek", tunnel, logs)
+func TestResponsesHandlerSupportsCurrentDeepSeekModelsAndRedactsLogs(t *testing.T) {
+	for _, model := range []string{"deepseek-v4-flash", "deepseek-v4-pro"} {
+		t.Run(model, func(t *testing.T) {
+			upstreamBody := []byte(
+				`{"id":"resp_ds","object":"response","model":"` + model + `","status":"completed",` +
+					`"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"private answer"}]}],` +
+					`"usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":4},"output_tokens":3,` +
+					`"output_tokens_details":{"reasoning_tokens":2},"total_tokens":13},"store":false,"previous_response_id":null}`,
+			)
+			tunnel := &captureTunnel{resp: &platform.TunnelResponse{
+				StatusCode: fiber.StatusOK,
+				Headers:    map[string]string{"content-type": "application/json"},
+				Body:       upstreamBody,
+			}}
+			logs := &testLogs{}
+			app, queue := newResponsesTestApp(t, "deepseek", tunnel, logs)
 
-	request := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"deepseek-v4-flash","input":"private prompt","reasoning":{"effort":"high"}}`))
-	request.Header.Set("Content-Type", "application/json")
+			request := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"`+model+`","input":"private prompt","reasoning":{"effort":"high"}}`))
+			request.Header.Set("Content-Type", "application/json")
 
-	response, err := app.Test(request)
-	defer closeResponseBody(t, response)
+			response, err := app.Test(request)
+			defer closeResponseBody(t, response)
 
-	require.NoError(t, err)
-	require.Equal(t, fiber.StatusOK, response.StatusCode)
-	require.Len(t, tunnel.lastReq.ModelRuntimeProfiles, 1)
-	assert.Equal(t, platform.ProviderOperationOpenAIResponsesCreate, tunnel.lastReq.Operation)
-	assert.Equal(t, "deepseek-v4-flash", tunnel.lastReq.ModelRuntimeProfiles[0].Slug)
-	assert.Contains(t, string(tunnel.lastReq.Body), `"input":"private prompt"`)
+			require.NoError(t, err)
+			require.Equal(t, fiber.StatusOK, response.StatusCode)
+			require.Len(t, tunnel.lastReq.ModelRuntimeProfiles, 1)
+			assert.Equal(t, platform.ProviderOperationOpenAIResponsesCreate, tunnel.lastReq.Operation)
+			assert.Equal(t, model, tunnel.lastReq.ModelRuntimeProfiles[0].Slug)
+			assert.Contains(t, string(tunnel.lastReq.Body), `"input":"private prompt"`)
 
-	require.Len(t, logs.loggedEntries, 1)
-	requestLog, err := json.Marshal(logs.loggedEntries[0].RequestBody)
-	require.NoError(t, err)
-	responseLog, err := json.Marshal(logs.loggedEntries[0].ResponseBody)
-	require.NoError(t, err)
-	assert.NotContains(t, string(requestLog), "private prompt")
-	assert.NotContains(t, string(responseLog), "private answer")
-	assert.Contains(t, string(requestLog), `"redacted":true`)
+			require.Len(t, logs.loggedEntries, 1)
+			requestLog, err := json.Marshal(logs.loggedEntries[0].RequestBody)
+			require.NoError(t, err)
+			responseLog, err := json.Marshal(logs.loggedEntries[0].ResponseBody)
+			require.NoError(t, err)
+			assert.NotContains(t, string(requestLog), "private prompt")
+			assert.NotContains(t, string(responseLog), "private answer")
+			assert.Contains(t, string(requestLog), `"redacted":true`)
 
-	for _, event := range queue.DequeueBatch(20) {
-		encoded, marshalErr := json.Marshal(event.Attributes)
-		require.NoError(t, marshalErr)
-		assert.NotContains(t, string(encoded), "private prompt")
-		assert.NotContains(t, string(encoded), "private answer")
+			for _, event := range queue.DequeueBatch(20) {
+				encoded, marshalErr := json.Marshal(event.Attributes)
+				require.NoError(t, marshalErr)
+				assert.NotContains(t, string(encoded), "private prompt")
+				assert.NotContains(t, string(encoded), "private answer")
+			}
+		})
 	}
-}
-
-func TestResponsesHandlerRejectsDeepSeekProBeforeDispatch(t *testing.T) {
-	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
-		StatusCode: fiber.StatusOK,
-		Headers:    map[string]string{"content-type": "application/json"},
-		Body:       []byte(`{}`),
-	}}
-	app, _ := newResponsesTestApp(t, "deepseek", tunnel)
-
-	request := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"deepseek-v4-pro","input":"hello"}`))
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := app.Test(request)
-	defer closeResponseBody(t, response)
-
-	require.NoError(t, err)
-	assert.NotEqual(t, fiber.StatusOK, response.StatusCode)
-	assert.Empty(t, tunnel.lastReq.Operation)
 }
 
 func TestResponsesHandlerCanonicalizesProviderPrefixedDeploymentModel(t *testing.T) {

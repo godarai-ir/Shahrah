@@ -29,8 +29,8 @@ func validateDeepSeekResponsesRuntimeProfile(
 	}
 
 	model := strings.ToLower(strings.TrimSpace(binding.Slug))
-	if model != deepSeekFlashModelID {
-		return fmt.Errorf("DeepSeek Responses API is supported only by %s", deepSeekFlashModelID)
+	if !isSupportedDeepSeekChatModel(model) {
+		return fmt.Errorf("unsupported deepseek Responses model %q", binding.Slug)
 	}
 
 	profile := binding.Profile

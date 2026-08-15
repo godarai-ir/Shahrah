@@ -9,6 +9,12 @@ export const DEEPSEEK_SUPPORTED_MODEL_IDS = [
   'deepseek-v4-pro',
 ] as const;
 
+const DEEPSEEK_DOCUMENTED_MODEL_VERSIONS: Readonly<Record<string, string>> = {
+  'deepseek-v4-flash': 'DeepSeek-V4-Flash-0731',
+  'deepseek-v4-pro': 'DeepSeek-V4-Pro-0813',
+};
+const DEEPSEEK_CURRENT_PRICING_END = '2026-08-16T16:00:00Z';
+
 type StringRecord = Record<string, unknown>;
 
 function asObject(value: unknown): StringRecord | undefined {
@@ -83,6 +89,13 @@ export async function validateDeepSeekProviderDirectory(
     }
 
     modelIds.push(model);
+    if (
+      document.model_version !== DEEPSEEK_DOCUMENTED_MODEL_VERSIONS[model] ||
+      document.displayName !== DEEPSEEK_DOCUMENTED_MODEL_VERSIONS[model]
+    ) {
+      invalid.push(`${relativeFile}(model_version)`);
+    }
+
     const sources = asStrings(document.sources);
     if (
       sources.length === 0 ||
@@ -107,18 +120,17 @@ export async function validateDeepSeekProviderDirectory(
         !profile.data.responseResources.compact &&
         !profile.data.responseResources.countInputTokens;
 
-      if (
-        (model === 'deepseek-v4-flash' && !responsesEnabled) ||
-        (model === 'deepseek-v4-pro' &&
-          (modes.includes('responses') ||
-            profile.data.endpoints.includes('responses')))
-      ) {
+      if (!responsesEnabled) {
         invalid.push(`${relativeFile}(responses_scope)`);
       }
     }
 
     const costs = Array.isArray(document.costs) ? document.costs : [];
     const cost = asObject(costs[0]);
+    if (cost?.effective_to !== DEEPSEEK_CURRENT_PRICING_END) {
+      invalid.push(`${relativeFile}(pricing_window)`);
+    }
+
     for (const key of [
       'input_cost_per_token',
       'cache_read_input_token_cost',

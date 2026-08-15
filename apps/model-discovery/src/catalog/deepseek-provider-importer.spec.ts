@@ -28,7 +28,7 @@ describe('DeepSeek provider importer', () => {
     expect(result.modelFiles).toHaveLength(2);
   });
 
-  it('enables Responses create only for Flash', async () => {
+  it('pins the documented model versions and enables stateless Responses create', async () => {
     const flash = parse(
       await readFile(
         join(providersRoot, 'deepseek', 'deepseek-v4-flash.yaml'),
@@ -42,17 +42,26 @@ describe('DeepSeek provider importer', () => {
       ),
     );
 
-    expect(flash.supportedModes).toContain('responses');
-    expect(flash.runtimeProfile.endpoints).toContain('responses');
-    expect(flash.runtimeProfile.responseResources).toEqual({
-      store: false,
-      retrieve: false,
-      delete: false,
-      compact: false,
-      countInputTokens: false,
-    });
-    expect(pro.supportedModes).not.toContain('responses');
-    expect(pro.runtimeProfile.endpoints).not.toContain('responses');
+    for (const [document, version] of [
+      [flash, 'DeepSeek-V4-Flash-0731'],
+      [pro, 'DeepSeek-V4-Pro-0813'],
+    ] as const) {
+      expect(document.model_version).toBe(version);
+      expect(document.displayName).toBe(version);
+      expect(document.supportedModes).toContain('responses');
+      expect(document.runtimeProfile.endpoints).toContain('responses');
+      expect(document.runtimeProfile.responseResources).toEqual({
+        store: false,
+        retrieve: false,
+        delete: false,
+        compact: false,
+        countInputTokens: false,
+      });
+      expect(document.costs[0].effective_to).toBe('2026-08-16T16:00:00Z');
+    }
+
+    expect(pro.status).toBe('active');
+    expect(pro.runtimeProfile.lifecycle).toBe('active');
   });
 
   it('rejects missing models, zero pricing, and unofficial sources', async () => {

@@ -96,11 +96,6 @@ func TestDeepSeekIsolationSeparatesTenantsAndFailsClosed(t *testing.T) {
 func TestDeepSeekAdapterRejectsUnsupportedOperationsAndHosts(t *testing.T) {
 	payload := deepSeekTestPayload("tenant-a", "deepseek-v4-pro")
 
-	payload.Operation = platform.ProviderOperationOpenAIResponsesCreate
-	if err := validateDeepSeekDispatch(payload); err == nil || !strings.Contains(err.Error(), "unsupported_responses_model") {
-		t.Fatalf("Responses on Pro must be rejected: %v", err)
-	}
-
 	payload.Operation = platform.ProviderOperationOpenAIResponsesGet
 	if err := validateDeepSeekDispatch(payload); err == nil || !strings.Contains(err.Error(), "unsupported_operation") {
 		t.Fatalf("Responses resources must be rejected: %v", err)
@@ -120,10 +115,10 @@ func TestDeepSeekAdapterRejectsUnsupportedOperationsAndHosts(t *testing.T) {
 	}
 }
 
-func TestDeepSeekAdapterSupportsFlashResponsesSSEWithoutDoneSentinel(t *testing.T) {
+func TestDeepSeekAdapterSupportsResponsesSSEWithoutDoneSentinel(t *testing.T) {
 	t.Setenv("DEEPSEEK_USER_ID_HMAC_SECRET", "test-only-isolation-secret")
 
-	const upstreamBody = "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"model\":\"deepseek-v4-flash\",\"status\":\"completed\"}}\n\n"
+	const upstreamBody = "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"model\":\"deepseek-v4-pro\",\"status\":\"completed\"}}\n\n"
 
 	var gotPath, gotBody string
 
@@ -147,9 +142,9 @@ func TestDeepSeekAdapterSupportsFlashResponsesSSEWithoutDoneSentinel(t *testing.
 	}))
 	defer server.Close()
 
-	payload := deepSeekTestPayload("tenant-a", "deepseek-v4-flash")
+	payload := deepSeekTestPayload("tenant-a", "deepseek-v4-pro")
 	payload.Operation = platform.ProviderOperationOpenAIResponsesCreate
-	payload.Body = []byte(`{"model":"deepseek-v4-flash","input":"hello","stream":true}`)
+	payload.Body = []byte(`{"model":"deepseek-v4-pro","input":"hello","stream":true}`)
 	adapter := &deepSeekAdapter{compat: &openAICompatibleAdapter{
 		defaultBaseURL: server.URL,
 		authHeader:     "Authorization",
@@ -360,8 +355,11 @@ func deepSeekTestPayload(tenantID, model string) platform.TunnelRequest {
 	endpoints := []string{"models", "chat_completions"}
 	parameters := map[string][]string(nil)
 
-	if model == "deepseek-v4-flash" {
-		profileVersion = 2
+	if model == "deepseek-v4-flash" || model == "deepseek-v4-pro" {
+		profileVersion = map[string]int{
+			"deepseek-v4-flash": 3,
+			"deepseek-v4-pro":   2,
+		}[model]
 
 		endpoints = append(endpoints, "responses")
 		parameters = map[string][]string{
@@ -383,8 +381,11 @@ func deepSeekTestPayload(tenantID, model string) platform.TunnelRequest {
 			Slug: model, ProfileVersion: profileVersion, EffectiveFrom: time.Now().UTC(),
 			Profile: platform.ModelRuntimeProfile{
 				Version: profileVersion, Endpoints: endpoints, Transports: []string{"http", "sse"},
-				Lifecycle:  "preview",
-				Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"}, EffortValues: []string{"low", "high", "xhigh", "max"}},
+				Lifecycle: map[string]string{
+					"deepseek-v4-flash": "preview",
+					"deepseek-v4-pro":   "active",
+				}[model],
+				Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"}, EffortValues: []string{"low", "medium", "high", "xhigh", "max"}},
 				Sampling:   platform.ModelRuntimeSamplingProfile{Parameters: []string{"temperature", "top_p"}, DisallowedWithThinking: []string{"temperature", "top_p"}},
 				Tools:      platform.ModelRuntimeToolsProfile{Custom: true, Supported: []string{"function_calling"}, StructuredOutput: true},
 				Modalities: platform.ModelRuntimeModalities{Input: []string{"text"}, Output: []string{"text"}},

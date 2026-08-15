@@ -1175,6 +1175,7 @@ async function parseProviderDir(
 
     const deprecatedAt = deprecationDate;
     const releaseDate =
+      toDate(doc['releaseDate']) ??
       inferDateFromName(modelId) ??
       inferDateFromName(basename(filePath, '.yaml'));
 
@@ -1196,7 +1197,11 @@ async function parseProviderDir(
     models.push({
       canonicalId: `${providerSlug}/${modelId}`,
       slug: modelId,
-      displayName: titleCaseFromSlug(modelId),
+      displayName:
+        typeof doc['displayName'] === 'string' &&
+        doc['displayName'].trim() !== ''
+          ? doc['displayName'].trim()
+          : titleCaseFromSlug(modelId),
       status,
       lifecycleStatus,
       mode,

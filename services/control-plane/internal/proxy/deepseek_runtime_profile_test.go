@@ -135,14 +135,15 @@ func TestDeepSeekRuntimeProfileEnforcesCatalogThinkingModes(t *testing.T) {
 	require.ErrorContains(t, validateDeepSeekChatRuntimeProfile(req, &binding), "thinking mode")
 }
 
-func TestDeepSeekResponsesRuntimeProfileSupportsFlashOnly(t *testing.T) {
-	flash := deepSeekProxyRuntimeProfile("deepseek-v4-flash")
-	body := []byte(`{"model":"deepseek-v4-flash","input":[{"role":"user","content":[{"type":"input_text","text":"hello"}]}],"reasoning":{"effort":"high"},"tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}],"tool_choice":"auto","stream":true}`)
+func TestDeepSeekResponsesRuntimeProfileSupportsBothCurrentModels(t *testing.T) {
+	for _, model := range []string{"deepseek-v4-flash", "deepseek-v4-pro"} {
+		t.Run(model, func(t *testing.T) {
+			binding := deepSeekProxyRuntimeProfile(model)
+			body := []byte(`{"model":"` + model + `","input":[{"role":"user","content":[{"type":"input_text","text":"hello"}]}],"reasoning":{"effort":"high"},"tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}],"tool_choice":"auto","stream":true}`)
 
-	require.NoError(t, validateDeepSeekResponsesRuntimeProfile(body, &flash))
-
-	pro := deepSeekProxyRuntimeProfile("deepseek-v4-pro")
-	require.ErrorContains(t, validateDeepSeekResponsesRuntimeProfile(body, &pro), "only by deepseek-v4-flash")
+			require.NoError(t, validateDeepSeekResponsesRuntimeProfile(body, &binding))
+		})
+	}
 }
 
 func TestDeepSeekResponsesRuntimeProfileRejectsStateAndMisleadingControls(t *testing.T) {
@@ -170,8 +171,11 @@ func deepSeekProxyRuntimeProfile(model string) platform.ModelRuntimeProfileBindi
 	endpoints := []string{"models", "chat_completions"}
 	parameters := map[string][]string(nil)
 
-	if model == "deepseek-v4-flash" {
-		profileVersion = 2
+	if model == "deepseek-v4-flash" || model == "deepseek-v4-pro" {
+		profileVersion = map[string]int{
+			"deepseek-v4-flash": 3,
+			"deepseek-v4-pro":   2,
+		}[model]
 
 		endpoints = append(endpoints, "responses")
 		parameters = map[string][]string{
@@ -185,10 +189,13 @@ func deepSeekProxyRuntimeProfile(model string) platform.ModelRuntimeProfileBindi
 		EffectiveFrom: time.Now().UTC(),
 		Profile: platform.ModelRuntimeProfile{
 			Version: profileVersion, Endpoints: endpoints,
-			Transports: []string{"http", "sse"}, Lifecycle: "preview",
+			Transports: []string{"http", "sse"}, Lifecycle: map[string]string{
+				"deepseek-v4-flash": "preview",
+				"deepseek-v4-pro":   "active",
+			}[model],
 			Thinking: platform.ModelRuntimeThinkingProfile{
 				DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
-				EffortValues: []string{"low", "high", "xhigh", "max"},
+				EffortValues: []string{"low", "medium", "high", "xhigh", "max"},
 			},
 			Sampling: platform.ModelRuntimeSamplingProfile{
 				Parameters:             []string{"temperature", "top_p"},
