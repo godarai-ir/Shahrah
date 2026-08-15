@@ -1,6 +1,6 @@
 FROM public.ecr.aws/docker/library/golang:1.26.3-alpine AS builder
 
-ARG GOPROXY=https://goproxy.io,direct
+ARG GOPROXY=https://proxy.golang.org,direct
 ENV GOPROXY=${GOPROXY}
 
 WORKDIR /src
