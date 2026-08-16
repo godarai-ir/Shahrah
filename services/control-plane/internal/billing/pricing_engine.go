@@ -324,7 +324,7 @@ func (s *PricingEngine) modelPrice(
 			return priceInfo{}, ErrPricingUnavailable
 		}
 
-		item, snapshot, err := s.anthropicPricing.price(model)
+		item, snapshot, err := s.anthropicPricing.price(ctx, model)
 		if err != nil {
 			return priceInfo{}, err
 		}
@@ -348,7 +348,7 @@ func (s *PricingEngine) modelPrice(
 			return priceInfo{}, ErrPricingUnavailable
 		}
 
-		item, snapshot, err := s.catalogPricing[provider.Slug].price(model)
+		item, snapshot, err := s.catalogPricing[provider.Slug].price(ctx, model)
 		if err != nil {
 			return priceInfo{}, err
 		}

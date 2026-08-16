@@ -17,6 +17,7 @@ import { UpsertProviderConnectionSchemaDto } from './providers/dto/upsert-provid
 import { UpsertProviderDto } from './providers/dto/upsert-provider.dto';
 import { UpsertModelDto } from './catalog/dto/upsert-model.dto';
 import { UpsertModelSeriesDto } from './catalog/dto/upsert-model-series.dto';
+import { RuntimeSnapshotDto } from './catalog/dto/runtime-snapshot.dto';
 
 class BooleanToggleDto {
   @ApiProperty()
@@ -761,6 +762,7 @@ class OpenAPIProvidersController {
   })
   @ApiOkResponse({ type: ProviderModelsListResponse })
   listModels(@Param('slug') _slug: string) {
+    void _slug;
     return undefined;
   }
 
@@ -770,6 +772,7 @@ class OpenAPIProvidersController {
   })
   @ApiOkResponse({ type: ProviderDetailResponse })
   detail(@Param('slug') _slug: string) {
+    void _slug;
     return undefined;
   }
 
@@ -822,6 +825,7 @@ class OpenAPIProvidersController {
   @ApiOperation({ summary: 'Return value-free provider connection schemas.' })
   @ApiOkResponse({ type: [ProviderConnectionSchemaResponse] })
   listConnectionSchemas(@Param('slug') _slug: string) {
+    void _slug;
     return undefined;
   }
 
@@ -832,6 +836,7 @@ class OpenAPIProvidersController {
   @ApiBody({ type: UploadFileDto })
   @ApiOkResponse({ type: ProviderCatalogEntry })
   uploadProviderLogo(@Param('slug') _slug: string) {
+    void _slug;
     return undefined;
   }
 
@@ -845,6 +850,8 @@ class OpenAPIProvidersController {
     @Param('bucket') _bucket: string,
     @Param('fileName') _fileName: string,
   ) {
+    void _bucket;
+    void _fileName;
     return undefined;
   }
 }
@@ -872,6 +879,7 @@ class OpenAPICatalogController {
     schema: { minimum: 1, maximum: 100 },
   })
   list(@Query() _query: ModelsQueryDto) {
+    void _query;
     return undefined;
   }
 
@@ -885,6 +893,7 @@ class OpenAPICatalogController {
   })
   @ApiOkResponse({ type: [CatalogModelDetailResponse] })
   compare(@Query('ids') _ids: string) {
+    void _ids;
     return undefined;
   }
 
@@ -909,10 +918,21 @@ class OpenAPICatalogController {
     return undefined;
   }
 
+  @Get('runtime-snapshot/:providerSlug')
+  @ApiOperation({
+    summary: 'Return the active runtime and pricing snapshot for one provider.',
+  })
+  @ApiOkResponse({ type: RuntimeSnapshotDto })
+  runtimeSnapshot(@Param('providerSlug') _providerSlug: string) {
+    void _providerSlug;
+    return undefined;
+  }
+
   @Get(':canonicalId')
   @ApiOperation({ summary: 'Return one enabled model by canonical id.' })
   @ApiOkResponse({ type: CatalogModelDetailResponse })
   getOne(@Param('canonicalId') _canonicalId: string) {
+    void _canonicalId;
     return undefined;
   }
 }
@@ -950,6 +970,7 @@ class OpenAPICatalogAdminController {
   @ApiBody({ type: BooleanToggleDto })
   @ApiOkResponse({ type: AdminModelRecord })
   setModelEnabled(@Param('canonicalId') _canonicalId: string) {
+    void _canonicalId;
     return undefined;
   }
 
@@ -974,6 +995,7 @@ class OpenAPICatalogAdminController {
   @ApiBody({ type: UploadFileDto })
   @ApiOkResponse({ type: ModelSeriesRecord })
   uploadSeriesLogo(@Param('slug') _slug: string) {
+    void _slug;
     return undefined;
   }
 }

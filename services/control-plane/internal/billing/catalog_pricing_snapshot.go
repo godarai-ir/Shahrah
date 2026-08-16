@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 	"github.com/shopspring/decimal"
 )
+
+const catalogPricingMaxAge = 10 * time.Minute
 
 // CatalogPricingSnapshotManager loads an atomic, provider-scoped runtime and
 // pricing snapshot from Model Discovery. It is provider-neutral; specialized
@@ -23,6 +26,7 @@ type CatalogPricingSnapshotManager struct {
 	endpoint string
 	client   *http.Client
 	now      func() time.Time
+	reloadMu sync.Mutex
 	state    atomic.Pointer[anthropicPricingSnapshot]
 }
 
@@ -59,9 +63,19 @@ func NewCatalogPricingSnapshotManager(
 	}, nil
 }
 
-//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (m *CatalogPricingSnapshotManager) Reload(ctx context.Context) error {
 	if m == nil {
+		return ErrPricingUnavailable
+	}
+
+	m.reloadMu.Lock()
+	defer m.reloadMu.Unlock()
+
+	return m.reloadLocked(ctx)
+}
+
+func (m *CatalogPricingSnapshotManager) reloadLocked(ctx context.Context) error {
+	if m.client == nil || strings.TrimSpace(m.endpoint) == "" {
 		return ErrPricingUnavailable
 	}
 
@@ -82,7 +96,7 @@ func (m *CatalogPricingSnapshotManager) Reload(ctx context.Context) error {
 	}
 
 	var payload discoveryRuntimeSnapshot
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 8*1024*1024)).Decode(&payload); err != nil {
+	if decodeErr := json.NewDecoder(io.LimitReader(resp.Body, 8*1024*1024)).Decode(&payload); decodeErr != nil {
 		return fmt.Errorf("%w: %s snapshot payload is invalid", ErrPricingUnavailable, m.provider)
 	}
 
@@ -115,14 +129,19 @@ func (m *CatalogPricingSnapshotManager) Run(ctx context.Context, interval time.D
 }
 
 func (m *CatalogPricingSnapshotManager) price(
+	ctx context.Context,
 	model string,
 ) (anthropicPricingModel, *anthropicPricingSnapshot, error) {
 	if m == nil {
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
 
+	if err := m.ensureFresh(ctx); err != nil {
+		return anthropicPricingModel{}, nil, err
+	}
+
 	snapshot := m.state.Load()
-	if snapshot == nil || m.now().Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge {
+	if snapshot == nil || !catalogPricingSnapshotCurrent(snapshot, m.now()) {
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
 
@@ -146,7 +165,37 @@ func (m *CatalogPricingSnapshotManager) Ready() bool {
 
 	snapshot := m.state.Load()
 
-	return snapshot != nil && m.now().Sub(snapshot.GeneratedAt) <= anthropicPricingMaxAge
+	return snapshot != nil && catalogPricingSnapshotCurrent(snapshot, m.now())
+}
+
+func (m *CatalogPricingSnapshotManager) ensureFresh(ctx context.Context) error {
+	snapshot := m.state.Load()
+	if snapshot != nil && catalogPricingSnapshotCurrent(snapshot, m.now()) {
+		return nil
+	}
+
+	m.reloadMu.Lock()
+	defer m.reloadMu.Unlock()
+
+	snapshot = m.state.Load()
+	if snapshot != nil && catalogPricingSnapshotCurrent(snapshot, m.now()) {
+		return nil
+	}
+
+	return m.reloadLocked(ctx)
+}
+
+func catalogPricingSnapshotCurrent(
+	snapshot *anthropicPricingSnapshot,
+	now time.Time,
+) bool {
+	if snapshot == nil || now.Sub(snapshot.GeneratedAt) > catalogPricingMaxAge {
+		return false
+	}
+
+	transition := snapshot.NextPricingTransitionAt
+
+	return transition == nil || now.Before(*transition)
 }
 
 func normalizeCatalogPricingSnapshot(
@@ -157,6 +206,11 @@ func normalizeCatalogPricingSnapshot(
 		strings.TrimSpace(payload.Revision) == "" ||
 		payload.GeneratedAt.IsZero() ||
 		len(payload.Models) == 0 {
+		return nil, ErrPricingUnavailable
+	}
+
+	if payload.NextPricingTransitionAt != nil &&
+		!payload.NextPricingTransitionAt.After(payload.GeneratedAt) {
 		return nil, ErrPricingUnavailable
 	}
 
@@ -181,6 +235,7 @@ func normalizeCatalogPricingSnapshot(
 		}
 
 		rates := make(map[string]normalizedPricingRate, len(item.PricingRates))
+		signatures := make(map[string]struct{}, len(item.PricingRates))
 
 		rateList := make([]normalizedPricingRate, 0, len(item.PricingRates))
 		for _, input := range item.PricingRates {
@@ -203,6 +258,22 @@ func normalizeCatalogPricingSnapshot(
 					input.Dimension,
 				)
 			}
+
+			signature := pricingComponentSignature(
+				input.Dimension,
+				input.Unit,
+				input.Condition,
+			)
+			if _, duplicate := signatures[signature]; duplicate {
+				return nil, fmt.Errorf(
+					"%w: duplicate %s pricing signature %s",
+					ErrPricingUnavailable,
+					provider,
+					signature,
+				)
+			}
+
+			signatures[signature] = struct{}{}
 
 			normalized := normalizedPricingRate{
 				Dimension:     input.Dimension,
@@ -234,6 +305,10 @@ func normalizeCatalogPricingSnapshot(
 			return nil, fmt.Errorf("%w: incomplete DeepSeek pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
 
+		if provider == "google-gemini" && !googleGeminiPricingDimensionsComplete(runtimeBinding.Profile, rates) {
+			return nil, fmt.Errorf("%w: incomplete Google Gemini pricing for %s", ErrPricingUnavailable, item.CanonicalID)
+		}
+
 		model := anthropicPricingModel{
 			CanonicalID:    item.CanonicalID,
 			Slug:           item.Slug,
@@ -251,9 +326,10 @@ func normalizeCatalogPricingSnapshot(
 	}
 
 	return &anthropicPricingSnapshot{
-		Revision:    payload.Revision,
-		GeneratedAt: payload.GeneratedAt,
-		Models:      models,
+		Revision:                payload.Revision,
+		GeneratedAt:             payload.GeneratedAt,
+		NextPricingTransitionAt: payload.NextPricingTransitionAt,
+		Models:                  models,
 	}, nil
 }
 
@@ -272,6 +348,36 @@ func deepSeekPricingDimensionsComplete(rates map[string]normalizedPricingRate) b
 	for _, dimension := range []string{"input_tokens", "cache_read_tokens", "output_tokens"} {
 		rate, ok := rates[dimension]
 		if !ok || !rate.UnitPriceUSD.IsPositive() || len(rate.Condition) != 0 || strings.TrimSpace(rate.SourceURL) == "" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func googleGeminiPricingDimensionsComplete(
+	profile platform.ModelRuntimeProfile,
+	rates map[string]normalizedPricingRate,
+) bool {
+	input, ok := rates["input_tokens"]
+	if !ok || input.UnitPriceUSD.IsNegative() || len(input.Condition) != 0 {
+		return false
+	}
+
+	for _, modality := range profile.Modalities.Output {
+		var dimension string
+
+		switch modality {
+		case "text":
+			dimension = "output_tokens"
+		case "audio":
+			dimension = "audio_output_tokens"
+		default:
+			continue
+		}
+
+		rate, exists := rates[dimension]
+		if !exists || rate.UnitPriceUSD.IsNegative() || len(rate.Condition) != 0 {
 			return false
 		}
 	}

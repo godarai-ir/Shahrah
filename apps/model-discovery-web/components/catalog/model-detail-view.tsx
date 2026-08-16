@@ -426,6 +426,7 @@ export function ModelDetailView({ model, requestedCanonicalId, fetchError }: { m
                     [t("output"), <DisplayPrice key="output-price" value={price.outputPricePerMillionTokens} />],
                     [t("cachedInput"), <DisplayPrice key="cached-input-price" value={price.cachedInputPricePerMillionTokens} />],
                     [t("effectiveFrom"), formatDate(price.effectiveFrom)],
+                    [t("effectiveTo"), formatDate(price.effectiveTo)],
                   ];
 
                   return (

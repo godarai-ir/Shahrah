@@ -106,6 +106,16 @@ describe('ProvidersService', () => {
         },
       }),
     );
+    const pricingWhere = prisma.model.findMany.mock.calls[0][0].include.pricing
+      .where as {
+      AND: Array<{ OR: Array<Record<string, unknown>> }>;
+    };
+    const effectiveFrom = (
+      pricingWhere.AND[0].OR[1].effectiveFrom as { lte: Date }
+    ).lte;
+    const effectiveTo = (pricingWhere.AND[1].OR[1].effectiveTo as { gt: Date })
+      .gt;
+    expect(effectiveFrom).toBe(effectiveTo);
   });
 
   it('resizes and stores provider logos as database-backed PNG assets', async () => {

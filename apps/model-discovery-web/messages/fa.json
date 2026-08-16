@@ -475,7 +475,8 @@
     "noPricing": "اطلاعات قیمت‌گذاری ثبت نشده است.",
     "region": "منطقه",
     "cachedInput": "ورودی ذخیره‌شده در حافظه نهان",
-    "effectiveFrom": "آخرین به‌روزرسانی",
+    "effectiveFrom": "معتبر از",
+    "effectiveTo": "معتبر تا",
     "source": "منبع",
     "noSources": "منبعی ثبت نشده است.",
     "onThisPage": "در این صفحه"

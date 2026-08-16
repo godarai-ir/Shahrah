@@ -2,6 +2,10 @@ package billing
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,6 +14,159 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCatalogPricingSnapshotRefreshesAtBoundaryAndPinsUsage(t *testing.T) {
+	transition := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := transition.Add(-time.Second)
+	profile := completeDiscoveryRuntimeProfile(
+		now.Add(-time.Hour),
+		"manual",
+		[]string{"manual"},
+	)
+	profile.Profile.Endpoints = []string{"models", "chat_completions"}
+	profile.Profile.RequestControls = platform.ModelRuntimeRequestControls{
+		ServiceTierValues:  []string{"standard", "batch"},
+		InferenceGeoValues: []string{"global"},
+	}
+	sourceURL := "https://ai.google.dev/gemini-api/docs/pricing"
+	payload := func(revision, input, output string, generatedAt time.Time) discoveryRuntimeSnapshot {
+		return discoveryRuntimeSnapshot{
+			Provider: "google-gemini", Revision: revision, GeneratedAt: generatedAt,
+			Models: []discoveryRuntimeModel{{
+				CanonicalID: "google-gemini/gemini-3.7-flash", Slug: "gemini-3.7-flash",
+				Status: "active", RuntimeProfile: profile,
+				PricingRates: []discoveryPricingRate{
+					{Dimension: "input_tokens", Unit: "token", UnitPriceUSD: input, Currency: "USD", Region: "global", SourceURL: sourceURL, EffectiveFrom: generatedAt},
+					{Dimension: "output_tokens", Unit: "token", UnitPriceUSD: output, Currency: "USD", Region: "global", SourceURL: sourceURL, EffectiveFrom: generatedAt},
+					{Dimension: "batch_input_tokens", Unit: "token", UnitPriceUSD: input, Currency: "USD", Region: "global", Condition: map[string]interface{}{"service_tier": "batch"}, SourceURL: sourceURL, EffectiveFrom: generatedAt},
+					{Dimension: "batch_output_tokens", Unit: "token", UnitPriceUSD: output, Currency: "USD", Region: "global", Condition: map[string]interface{}{"service_tier": "batch"}, SourceURL: sourceURL, EffectiveFrom: generatedAt},
+				},
+			}},
+		}
+	}
+
+	oldPayload := payload("gemini-old", "0.00000075", "0.00000375", now)
+	oldPayload.NextPricingTransitionAt = &transition
+	oldSnapshot, err := normalizeCatalogPricingSnapshot(oldPayload, "google-gemini")
+	require.NoError(t, err)
+
+	var calls atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+
+		if encodeErr := json.NewEncoder(w).Encode(
+			payload("gemini-new", "0.0000015", "0.0000075", transition),
+		); encodeErr != nil {
+			t.Errorf("encode pricing snapshot: %v", encodeErr)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	manager, err := NewCatalogPricingSnapshotManager(
+		"google-gemini",
+		server.URL,
+		server.Client(),
+	)
+	require.NoError(t, err)
+
+	manager.now = func() time.Time { return now }
+	manager.state.Store(oldSnapshot)
+	service := &Service{PricingEngine: &PricingEngine{
+		defaultRate: platform.ExchangeRate{USDtoIRR: 1},
+		catalogPricing: map[string]*CatalogPricingSnapshotManager{
+			"google-gemini": manager,
+		},
+	}}
+
+	now = transition
+	estimated, err := service.EstimateCost(
+		context.Background(),
+		contractsopenai.ChatCompletionRequest{
+			Model: "google-gemini/gemini-3.7-flash",
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), calls.Load())
+	require.Equal(t, "gemini-new", estimated.PricingRevision)
+	require.Equal(
+		t,
+		"0.0000015",
+		estimated.PricingSnapshot.Rates["input_tokens"].UnitPriceUSD,
+	)
+
+	now = transition.Add(20 * time.Minute)
+	finalized, err := service.FinalizeFromUsage(
+		context.Background(),
+		"google-gemini/gemini-3.7-flash",
+		&contractsopenai.Usage{PromptTokens: 2, CompletionTokens: 1, TotalTokens: 3},
+		estimated,
+	)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), calls.Load(), "finalization must use the pinned rate")
+	require.Equal(t, "0.0000015", finalized.Components[0].UnitPriceUSD)
+
+	batch, err := service.FinalizeBatchFromUsage(
+		context.Background(),
+		"google-gemini/gemini-3.7-flash",
+		&contractsopenai.Usage{PromptTokens: 2, CompletionTokens: 1, TotalTokens: 3},
+		estimated,
+	)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), calls.Load(), "batch finalization must use the pinned rate")
+	require.Equal(t, "batch_input_tokens", batch.Components[0].Dimension)
+}
+
+func TestCatalogPricingSnapshotFailsClosedWhenBoundaryRefreshFails(t *testing.T) {
+	transition := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+
+	manager, err := NewCatalogPricingSnapshotManager(
+		"google-gemini",
+		server.URL,
+		server.Client(),
+	)
+	require.NoError(t, err)
+
+	manager.now = func() time.Time { return transition }
+	manager.state.Store(&anthropicPricingSnapshot{
+		Revision: "expired", GeneratedAt: transition.Add(-time.Minute),
+		NextPricingTransitionAt: &transition,
+		Models:                  map[string]anthropicPricingModel{},
+	})
+
+	_, _, err = manager.price(context.Background(), "gemini-3.7-flash")
+	require.ErrorIs(t, err, ErrPricingUnavailable)
+}
+
+func TestCatalogPricingSnapshotRejectsGeminiPricingGap(t *testing.T) {
+	now := time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC)
+	profile := completeDiscoveryRuntimeProfile(
+		now.Add(-time.Hour),
+		"manual",
+		[]string{"manual"},
+	)
+	profile.Profile.Endpoints = []string{"models", "chat_completions"}
+	profile.Profile.Modalities.Output = []string{"text"}
+	profile.Profile.RequestControls.InferenceGeoValues = []string{"global"}
+
+	_, err := normalizeCatalogPricingSnapshot(
+		discoveryRuntimeSnapshot{
+			Provider: "google-gemini", Revision: "gap", GeneratedAt: now,
+			Models: []discoveryRuntimeModel{{
+				CanonicalID: "google-gemini/gemini-3.7-flash",
+				Slug:        "gemini-3.7-flash",
+				Status:      "active", RuntimeProfile: profile,
+			}},
+		},
+		"google-gemini",
+	)
+	require.ErrorIs(t, err, ErrPricingUnavailable)
+}
 
 func TestCatalogPricingSnapshotSupportsGoogleGeminiWithoutStaticRegistry(t *testing.T) {
 	now := time.Date(2026, 7, 29, 0, 0, 0, 0, time.UTC)

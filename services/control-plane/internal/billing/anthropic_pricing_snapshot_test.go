@@ -102,7 +102,7 @@ func TestAnthropicPricingSnapshotFailsClosedForMissingOrStaleRates(
 		GeneratedAt: time.Now().Add(-anthropicPricingMaxAge - time.Second),
 		Models:      map[string]anthropicPricingModel{},
 	})
-	_, _, err = manager.price("claude-sonnet-4-6")
+	_, _, err = manager.price(context.Background(), "claude-sonnet-4-6")
 	require.ErrorIs(t, err, ErrPricingUnavailable)
 }
 

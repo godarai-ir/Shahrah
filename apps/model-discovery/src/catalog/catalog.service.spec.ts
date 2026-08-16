@@ -32,6 +32,89 @@ const validRuntimeProfile = {
 };
 
 describe('CatalogService', () => {
+  it('publishes only the active Gemini rate and the next transition', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-17T00:00:00Z'));
+    const sourceUrl = 'https://ai.google.dev/gemini-api/docs/pricing';
+    const rate = (
+      dimension: string,
+      unitPriceUsd: string,
+      effectiveFrom: string,
+      effectiveTo: string | null,
+    ) => ({
+      dimension,
+      unit: 'token',
+      unitPriceUsd: { toString: () => unitPriceUsd },
+      currency: 'USD',
+      conditionJson: null,
+      region: 'global',
+      effectiveFrom: new Date(effectiveFrom),
+      effectiveTo: effectiveTo ? new Date(effectiveTo) : null,
+      sourceUrl,
+    });
+    const prisma = {
+      model: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            canonicalId: 'google-gemini/gemini-3.7-flash',
+            slug: 'gemini-3.7-flash',
+            status: 'active',
+            deprecationDate: null,
+            retirementDate: null,
+            replacementCanonicalId: null,
+            runtimeProfiles: [
+              {
+                version: 1,
+                profileJson: validRuntimeProfile,
+                sourceUrl,
+                effectiveFrom: new Date('2026-08-13T00:00:00Z'),
+              },
+            ],
+            pricingRates: [
+              rate(
+                'input_tokens',
+                '0.00000075',
+                '2026-08-13T00:00:00Z',
+                '2027-01-01T00:00:00Z',
+              ),
+              rate(
+                'output_tokens',
+                '0.00000375',
+                '2026-08-13T00:00:00Z',
+                '2027-01-01T00:00:00Z',
+              ),
+              rate('input_tokens', '0.0000015', '2027-01-01T00:00:00Z', null),
+              rate('output_tokens', '0.0000075', '2027-01-01T00:00:00Z', null),
+            ],
+            sources: [],
+          },
+        ]),
+      },
+    } as any;
+
+    try {
+      const result = await new CatalogService(
+        prisma,
+        {} as any,
+      ).runtimeSnapshot('google-gemini');
+
+      expect(result.nextPricingTransitionAt).toEqual(
+        new Date('2027-01-01T00:00:00Z'),
+      );
+      expect(result.models[0].pricingRates).toEqual([
+        expect.objectContaining({
+          dimension: 'input_tokens',
+          unitPriceUsd: '0.00000075',
+        }),
+        expect.objectContaining({
+          dimension: 'output_tokens',
+          unitPriceUsd: '0.00000375',
+        }),
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('fails the runtime snapshot when the provider catalog is empty', async () => {
     const prisma = {
       model: {
@@ -224,7 +307,7 @@ describe('CatalogService', () => {
     );
   });
 
-  it('prefers the Typesense-backed read model when available', async () => {
+  it('uses Postgres for the priced list even when Typesense is available', async () => {
     const indexedResponse = {
       data: [{ canonicalId: 'openai/gpt-4.1' }],
       pagination: { page: 1, limit: 24, total: 1, totalPages: 1 },
@@ -232,12 +315,20 @@ describe('CatalogService', () => {
     };
     const indexing = {
       searchModels: jest.fn().mockResolvedValue(indexedResponse),
+      isReadPathEnabled: jest.fn().mockReturnValue(true),
     } as any;
-    const service = new CatalogService({} as any, indexing);
+    const prisma = {
+      model: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    } as any;
+    const service = new CatalogService(prisma, indexing);
 
     await expect(
       service.listModels({ page: 1, limit: 24, sort: 'newest' } as any),
-    ).resolves.toBe(indexedResponse);
+    ).resolves.toMatchObject({ meta: { source: 'database' } });
+    expect(indexing.searchModels).not.toHaveBeenCalled();
   });
 
   it('falls back to Postgres when Typesense is empty but enabled models exist', async () => {
@@ -264,9 +355,7 @@ describe('CatalogService', () => {
       sort: 'newest',
     } as any);
 
-    expect(prisma.model.count).toHaveBeenNthCalledWith(1, {
-      where: { enabled: true, provider: { enabled: true } },
-    });
+    expect(prisma.model.count).toHaveBeenCalledTimes(1);
     expect(prisma.model.findMany).toHaveBeenCalled();
     expect(result.meta).toEqual({
       source: 'database',

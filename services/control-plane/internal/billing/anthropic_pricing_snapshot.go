@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -16,13 +17,14 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const anthropicPricingMaxAge = 24 * time.Hour
+const anthropicPricingMaxAge = 10 * time.Minute
 
 type discoveryRuntimeSnapshot struct {
-	Provider    string                  `json:"provider"`
-	Revision    string                  `json:"revision"`
-	GeneratedAt time.Time               `json:"generatedAt"`
-	Models      []discoveryRuntimeModel `json:"models"`
+	Provider                string                  `json:"provider"`
+	Revision                string                  `json:"revision"`
+	GeneratedAt             time.Time               `json:"generatedAt"`
+	NextPricingTransitionAt *time.Time              `json:"nextPricingTransitionAt"`
+	Models                  []discoveryRuntimeModel `json:"models"`
 }
 
 type discoveryRuntimeModel struct {
@@ -73,15 +75,17 @@ type anthropicPricingModel struct {
 }
 
 type anthropicPricingSnapshot struct {
-	Revision    string
-	GeneratedAt time.Time
-	Models      map[string]anthropicPricingModel
+	Revision                string
+	GeneratedAt             time.Time
+	NextPricingTransitionAt *time.Time
+	Models                  map[string]anthropicPricingModel
 }
 
 type AnthropicPricingSnapshotManager struct {
 	endpoint string
 	client   *http.Client
 	now      func() time.Time
+	reloadMu sync.Mutex
 	state    atomic.Pointer[anthropicPricingSnapshot]
 }
 
@@ -112,9 +116,19 @@ func NewAnthropicPricingSnapshotManager(
 	}, nil
 }
 
-//nolint:govet // Short-lived branch errors are checked immediately and intentionally scoped with short declarations.
 func (m *AnthropicPricingSnapshotManager) Reload(ctx context.Context) error {
 	if m == nil {
+		return ErrPricingUnavailable
+	}
+
+	m.reloadMu.Lock()
+	defer m.reloadMu.Unlock()
+
+	return m.reloadLocked(ctx)
+}
+
+func (m *AnthropicPricingSnapshotManager) reloadLocked(ctx context.Context) error {
+	if m.client == nil || strings.TrimSpace(m.endpoint) == "" {
 		return ErrPricingUnavailable
 	}
 
@@ -141,7 +155,7 @@ func (m *AnthropicPricingSnapshotManager) Reload(ctx context.Context) error {
 	var payload discoveryRuntimeSnapshot
 
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 8*1024*1024))
-	if err := decoder.Decode(&payload); err != nil {
+	if decodeErr := decoder.Decode(&payload); decodeErr != nil {
 		prommetrics.RecordAnthropicPricingFailure("decode")
 		return fmt.Errorf("%w: snapshot payload is invalid", ErrPricingUnavailable)
 	}
@@ -179,16 +193,23 @@ func (m *AnthropicPricingSnapshotManager) Run(
 }
 
 func (m *AnthropicPricingSnapshotManager) price(
+	ctx context.Context,
 	model string,
 ) (anthropicPricingModel, *anthropicPricingSnapshot, error) {
 	if m == nil {
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
 
-	snapshot := m.state.Load()
-	if snapshot == nil ||
-		m.now().Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge {
+	if err := m.ensureFresh(ctx); err != nil {
 		prommetrics.RecordAnthropicPricingFailure("stale")
+
+		return anthropicPricingModel{}, nil, err
+	}
+
+	snapshot := m.state.Load()
+	if snapshot == nil || !anthropicPricingSnapshotCurrent(snapshot, m.now()) {
+		prommetrics.RecordAnthropicPricingFailure("stale")
+
 		return anthropicPricingModel{}, nil, ErrPricingUnavailable
 	}
 
@@ -212,8 +233,37 @@ func (m *AnthropicPricingSnapshotManager) Ready() bool {
 
 	snapshot := m.state.Load()
 
-	return snapshot != nil &&
-		m.now().Sub(snapshot.GeneratedAt) <= anthropicPricingMaxAge
+	return snapshot != nil && anthropicPricingSnapshotCurrent(snapshot, m.now())
+}
+
+func (m *AnthropicPricingSnapshotManager) ensureFresh(ctx context.Context) error {
+	snapshot := m.state.Load()
+	if snapshot != nil && anthropicPricingSnapshotCurrent(snapshot, m.now()) {
+		return nil
+	}
+
+	m.reloadMu.Lock()
+	defer m.reloadMu.Unlock()
+
+	snapshot = m.state.Load()
+	if snapshot != nil && anthropicPricingSnapshotCurrent(snapshot, m.now()) {
+		return nil
+	}
+
+	return m.reloadLocked(ctx)
+}
+
+func anthropicPricingSnapshotCurrent(
+	snapshot *anthropicPricingSnapshot,
+	now time.Time,
+) bool {
+	if snapshot == nil || now.Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge {
+		return false
+	}
+
+	transition := snapshot.NextPricingTransitionAt
+
+	return transition == nil || now.Before(*transition)
 }
 
 func (m *AnthropicPricingSnapshotManager) ResolveModelRuntimeProfiles(
@@ -226,7 +276,7 @@ func (m *AnthropicPricingSnapshotManager) ResolveModelRuntimeProfiles(
 
 	snapshot := m.state.Load()
 	if snapshot == nil ||
-		m.now().Sub(snapshot.GeneratedAt) > anthropicPricingMaxAge ||
+		!anthropicPricingSnapshotCurrent(snapshot, m.now()) ||
 		(expectedRevision != "" && snapshot.Revision != expectedRevision) {
 		return nil, ErrPricingUnavailable
 	}
@@ -269,6 +319,11 @@ func normalizeAnthropicPricingSnapshot(
 		strings.TrimSpace(payload.Revision) == "" ||
 		payload.GeneratedAt.IsZero() ||
 		len(payload.Models) == 0 {
+		return nil, ErrPricingUnavailable
+	}
+
+	if payload.NextPricingTransitionAt != nil &&
+		!payload.NextPricingTransitionAt.After(payload.GeneratedAt) {
 		return nil, ErrPricingUnavailable
 	}
 
@@ -335,9 +390,10 @@ func normalizeAnthropicPricingSnapshot(
 	}
 
 	return &anthropicPricingSnapshot{
-		Revision:    payload.Revision,
-		GeneratedAt: payload.GeneratedAt,
-		Models:      models,
+		Revision:                payload.Revision,
+		GeneratedAt:             payload.GeneratedAt,
+		NextPricingTransitionAt: payload.NextPricingTransitionAt,
+		Models:                  models,
 	}, nil
 }
 

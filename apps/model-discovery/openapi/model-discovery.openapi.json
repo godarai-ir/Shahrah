@@ -692,6 +692,37 @@
         ]
       }
     },
+    "/api/v1/models/runtime-snapshot/{providerSlug}": {
+      "get": {
+        "operationId": "OpenAPICatalogController_runtimeSnapshot_v1",
+        "parameters": [
+          {
+            "name": "providerSlug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSnapshotDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Return the active runtime and pricing snapshot for one provider.",
+        "tags": [
+          "models"
+        ]
+      }
+    },
     "/api/v1/models/{canonicalId}": {
       "get": {
         "operationId": "OpenAPICatalogController_getOne_v1",
@@ -2131,6 +2162,154 @@
           "benchmarks",
           "openSource",
           "free"
+        ]
+      },
+      "RuntimeProfileRevisionDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          },
+          "profile": {
+            "type": "object"
+          },
+          "sourceUrl": {
+            "type": "object"
+          },
+          "effectiveFrom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "profile",
+          "effectiveFrom"
+        ]
+      },
+      "RuntimePricingRateDto": {
+        "type": "object",
+        "properties": {
+          "dimension": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "unitPriceUsd": {
+            "type": "string",
+            "description": "Exact decimal USD price serialized as a string.",
+            "example": "0.000003"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "object"
+          },
+          "region": {
+            "type": "string"
+          },
+          "effectiveFrom": {
+            "type": "string"
+          },
+          "effectiveTo": {
+            "type": "object"
+          },
+          "sourceUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dimension",
+          "unit",
+          "unitPriceUsd",
+          "currency",
+          "region",
+          "effectiveFrom",
+          "sourceUrl"
+        ]
+      },
+      "RuntimeSnapshotModelDto": {
+        "type": "object",
+        "properties": {
+          "canonicalId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "preview",
+              "deprecated",
+              "unavailable"
+            ]
+          },
+          "deprecationDate": {
+            "type": "object"
+          },
+          "retirementDate": {
+            "type": "object"
+          },
+          "replacementCanonicalId": {
+            "type": "object"
+          },
+          "runtimeProfile": {
+            "$ref": "#/components/schemas/RuntimeProfileRevisionDto"
+          },
+          "pricingRates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimePricingRateDto"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "canonicalId",
+          "slug",
+          "status",
+          "runtimeProfile",
+          "pricingRates",
+          "sources"
+        ]
+      },
+      "RuntimeSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "description": "SHA-256 revision of the ordered runtime and pricing payload."
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "nextPricingTransitionAt": {
+            "type": "object",
+            "description": "Earliest known future pricing start or end boundary for this provider."
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeSnapshotModelDto"
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "revision",
+          "generatedAt",
+          "models"
         ]
       },
       "UpsertModelPricingDto": {

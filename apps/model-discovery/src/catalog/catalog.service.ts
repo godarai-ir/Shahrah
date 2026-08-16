@@ -4,6 +4,13 @@ import { IndexingService } from '../indexing/indexing.service';
 import { ModelsQueryDto } from './dto/models-query.dto';
 import { createHash } from 'node:crypto';
 import { modelRuntimeProfileSchema } from './runtime-profile.schema';
+import {
+  activeModelPricingWhere,
+  activePricingRateWhere,
+  isPricingWindowActive,
+  nextPricingTransition,
+  sortModelsByActivePrice,
+} from './pricing-window';
 
 type OpenAIRuntimePricingModel = {
   canonicalId: string;
@@ -75,11 +82,11 @@ export class CatalogService {
       },
       include: {
         pricingRates: {
-          where: {
-            effectiveFrom: { lte: generatedAt },
-            OR: [{ effectiveTo: null }, { effectiveTo: { gt: generatedAt } }],
-          },
-          orderBy: [{ dimension: 'asc' }, { region: 'asc' }],
+          orderBy: [
+            { dimension: 'asc' },
+            { region: 'asc' },
+            { effectiveFrom: 'asc' },
+          ],
         },
         runtimeProfiles: {
           where: {
@@ -101,6 +108,10 @@ export class CatalogService {
       });
     }
 
+    const nextPricingTransitionAt = nextPricingTransition(
+      rows.flatMap((row) => row.pricingRates),
+      generatedAt,
+    );
     const models = rows.map((row) => {
       const storedRuntimeProfile = row.runtimeProfiles[0];
       const runtimeProfile = modelRuntimeProfileSchema.parse(
@@ -131,17 +142,19 @@ export class CatalogService {
           sourceUrl: storedRuntimeProfile.sourceUrl,
           effectiveFrom: storedRuntimeProfile.effectiveFrom,
         },
-        pricingRates: row.pricingRates.map((rate) => ({
-          dimension: rate.dimension,
-          unit: rate.unit,
-          unitPriceUsd: rate.unitPriceUsd.toString(),
-          currency: rate.currency,
-          condition: rate.conditionJson,
-          region: rate.region,
-          effectiveFrom: rate.effectiveFrom,
-          effectiveTo: rate.effectiveTo,
-          sourceUrl: rate.sourceUrl,
-        })),
+        pricingRates: row.pricingRates
+          .filter((rate) => isPricingWindowActive(rate, generatedAt))
+          .map((rate) => ({
+            dimension: rate.dimension,
+            unit: rate.unit,
+            unitPriceUsd: rate.unitPriceUsd.toString(),
+            currency: rate.currency,
+            condition: rate.conditionJson,
+            region: rate.region,
+            effectiveFrom: rate.effectiveFrom,
+            effectiveTo: rate.effectiveTo,
+            sourceUrl: rate.sourceUrl,
+          })),
         sources: row.sources.map((source) => source.url),
       };
     });
@@ -188,37 +201,24 @@ export class CatalogService {
       }
     }
     const revision = createHash('sha256')
-      .update(JSON.stringify(models))
+      .update(JSON.stringify({ nextPricingTransitionAt, models }))
       .digest('hex');
 
     return {
       provider: providerSlug,
       revision,
       generatedAt,
+      nextPricingTransitionAt,
       models,
     };
   }
 
   async listModels(query: ModelsQueryDto) {
-    // OpenAI account setup consumes the condition-aware rate card. Typesense
-    // currently stores only the legacy token projection, so this provider must
-    // use the authoritative database read path.
-    const indexed =
-      query.provider === 'openai' || query.provider === 'xai'
-        ? null
-        : await this.indexing.searchModels(query);
-    if (indexed) {
-      if (indexed.pagination.total > 0) {
-        return indexed;
-      }
-
-      const databaseHasEnabledModels = await this.prisma.model.count({
-        where: { enabled: true, provider: { enabled: true } },
-      });
-      if (databaseHasEnabledModels === 0) {
-        return indexed;
-      }
-    }
+    // Pricing is temporal, while the Typesense document contains a scalar
+    // projection. Keep the public priced list on the authoritative database
+    // path so a scheduled boundary never depends on a reindex completing.
+    const asOf = new Date();
+    const activePricing = activeModelPricingWhere(asOf);
 
     const where: any = {
       enabled: true,
@@ -266,9 +266,12 @@ export class CatalogService {
         ? { some: { region: { slug: query.region } } }
         : undefined,
       pricing:
-        query.min_input_price || query.max_input_price || query.max_output_price
+        query.min_input_price !== undefined ||
+        query.max_input_price !== undefined ||
+        query.max_output_price !== undefined
           ? {
               some: {
+                ...activePricing,
                 inputPricePerMillionTokens:
                   query.min_input_price !== undefined ||
                   query.max_input_price !== undefined
@@ -277,15 +280,18 @@ export class CatalogService {
                         lte: query.max_input_price,
                       }
                     : undefined,
-                outputPricePerMillionTokens: query.max_output_price
-                  ? { lte: query.max_output_price }
-                  : undefined,
+                outputPricePerMillionTokens:
+                  query.max_output_price !== undefined
+                    ? { lte: query.max_output_price }
+                    : undefined,
               },
             }
           : undefined,
     };
 
-    const [total, rows] = await Promise.all([
+    const priceSort =
+      query.sort === 'cheapest_input' || query.sort === 'cheapest_output';
+    const [total, queriedRows] = await Promise.all([
       this.prisma.model.count({ where }),
       this.prisma.model.findMany({
         where,
@@ -293,12 +299,13 @@ export class CatalogService {
           provider: true,
           modelSeries: true,
           category: true,
-          pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+          pricing: {
+            where: activePricing,
+            take: 1,
+            orderBy: { effectiveFrom: 'desc' },
+          },
           pricingRates: {
-            where: {
-              effectiveFrom: { lte: new Date() },
-              OR: [{ effectiveTo: null }, { effectiveTo: { gt: new Date() } }],
-            },
+            where: activePricingRateWhere(asOf),
             orderBy: [
               { dimension: 'asc' },
               { region: 'asc' },
@@ -307,8 +314,8 @@ export class CatalogService {
           },
           runtimeProfiles: {
             where: {
-              effectiveFrom: { lte: new Date() },
-              OR: [{ effectiveTo: null }, { effectiveTo: { gt: new Date() } }],
+              effectiveFrom: { lte: asOf },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: asOf } }],
             },
             orderBy: { version: 'desc' },
             take: 1,
@@ -321,10 +328,18 @@ export class CatalogService {
           benchmarks: true,
         },
         orderBy: this.orderBy(query.sort),
-        skip: (query.page - 1) * query.limit,
-        take: query.limit,
+        skip: priceSort ? undefined : (query.page - 1) * query.limit,
+        take: priceSort ? undefined : query.limit,
       }),
     ]);
+    const rows = priceSort
+      ? sortModelsByActivePrice(
+          queriedRows,
+          query.sort === 'cheapest_input'
+            ? 'inputPricePerMillionTokens'
+            : 'outputPricePerMillionTokens',
+        ).slice((query.page - 1) * query.limit, query.page * query.limit)
+      : queriedRows;
 
     const data = rows.map((row) => {
       const runtimeProfile = row.runtimeProfiles?.[0]
@@ -412,6 +427,8 @@ export class CatalogService {
   }
 
   async getModelByCanonicalId(canonicalId: string) {
+    const asOf = new Date();
+
     return this.prisma.model.findFirst({
       where: { canonicalId, enabled: true, provider: { enabled: true } },
       include: {
@@ -419,6 +436,7 @@ export class CatalogService {
         modelSeries: true,
         category: true,
         pricing: {
+          where: activeModelPricingWhere(asOf),
           include: { region: true },
           orderBy: { effectiveFrom: 'desc' },
         },
@@ -435,6 +453,8 @@ export class CatalogService {
   }
 
   compare(ids: string[]) {
+    const asOf = new Date();
+
     return this.prisma.model.findMany({
       where: {
         canonicalId: { in: ids },
@@ -443,7 +463,11 @@ export class CatalogService {
       },
       include: {
         provider: true,
-        pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+        pricing: {
+          where: activeModelPricingWhere(asOf),
+          take: 1,
+          orderBy: { effectiveFrom: 'desc' },
+        },
         capabilities: { include: { capability: true } },
         inputModalities: { include: { modality: true } },
         outputModalities: { include: { modality: true } },
@@ -464,9 +488,14 @@ export class CatalogService {
   }
 
   freeModels() {
+    const asOf = new Date();
+
     return this.prisma.model.findMany({
       where: { free: true, enabled: true, provider: { enabled: true } },
-      include: { provider: true, pricing: true },
+      include: {
+        provider: true,
+        pricing: { where: activeModelPricingWhere(asOf) },
+      },
     });
   }
 

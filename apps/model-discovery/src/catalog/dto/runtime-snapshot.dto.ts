@@ -87,6 +87,12 @@ export class RuntimeSnapshotDto {
   @ApiProperty()
   generatedAt!: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Earliest known future pricing start or end boundary for this provider.',
+  })
+  nextPricingTransitionAt?: string | null;
+
   @ApiProperty({ type: [RuntimeSnapshotModelDto] })
   models!: RuntimeSnapshotModelDto[];
 }

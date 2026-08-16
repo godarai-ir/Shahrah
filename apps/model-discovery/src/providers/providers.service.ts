@@ -10,6 +10,7 @@ import { UpsertProviderDto } from './dto/upsert-provider.dto';
 import { validateConnectionSchemaFields } from './connection-schema-validation';
 import { UpsertProviderConnectionSchemaDto } from './dto/upsert-provider-connection-schema.dto';
 import { processProviderLogoImage } from './provider-logo-image';
+import { activeModelPricingWhere } from '../catalog/pricing-window';
 
 type ProviderLogoAssetResult = {
   body: Buffer;
@@ -61,13 +62,19 @@ export class ProvidersService {
   }
 
   detail(slug: string) {
+    const asOf = new Date();
+
     return this.prisma.provider.findFirst({
       where: { slug, enabled: true },
       include: {
         models: {
           where: { enabled: true },
           include: {
-            pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+            pricing: {
+              where: activeModelPricingWhere(asOf),
+              take: 1,
+              orderBy: { effectiveFrom: 'desc' },
+            },
             capabilities: { include: { capability: true } },
           },
           orderBy: { releaseDate: 'desc' },
@@ -77,10 +84,15 @@ export class ProvidersService {
   }
 
   async listModels(slug: string) {
+    const asOf = new Date();
     const rows = await this.prisma.model.findMany({
       where: { enabled: true, provider: { slug, enabled: true } },
       include: {
-        pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+        pricing: {
+          where: activeModelPricingWhere(asOf),
+          take: 1,
+          orderBy: { effectiveFrom: 'desc' },
+        },
         inputModalities: { include: { modality: true } },
         outputModalities: { include: { modality: true } },
         supportedParams: { include: { supportedParameter: true } },

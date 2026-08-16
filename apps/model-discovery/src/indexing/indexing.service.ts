@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import Typesense from 'typesense';
 import { PrismaService } from '../database/prisma.service';
 import { ModelsQueryDto } from '../catalog/dto/models-query.dto';
+import { activeModelPricingWhere } from '../catalog/pricing-window';
 
 export const INDEXING_QUEUE = 'catalog-indexing';
 
@@ -384,13 +385,18 @@ export class IndexingService {
   }
 
   async indexOneModel(modelId: string) {
+    const asOf = new Date();
     const model = await this.prisma.model.findUnique({
       where: { id: modelId },
       include: {
         provider: true,
         modelSeries: true,
         category: true,
-        pricing: { take: 1, orderBy: { effectiveFrom: 'desc' } },
+        pricing: {
+          where: activeModelPricingWhere(asOf),
+          take: 1,
+          orderBy: { effectiveFrom: 'desc' },
+        },
         inputModalities: { include: { modality: true } },
         outputModalities: { include: { modality: true } },
         supportedParams: { include: { supportedParameter: true } },
