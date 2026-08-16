@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains the foundational documentation for **Shahrah** (شاهراه), a unified LLM gateway framework designed for the Iranian market. GodarAI is inspired by LiteLLM's architecture while introducing unique features for the Iranian market including Rial wallet payments, controlled European provider egress, and multi-tenant subdomain isolation.
+This directory contains the foundational documentation for **Shahrah** (شاهراه), a unified LLM gateway framework designed for the Iranian market. GodarAI includes Rial wallet payments, controlled European provider egress, and multi-tenant subdomain isolation.
 
 ## Document Index
 
@@ -15,7 +15,7 @@ This directory contains the foundational documentation for **Shahrah** (شاهر
 | 6 | Docusaurus Documentation System | [`06_docusaurus_documentation.md`](06_docusaurus_documentation.md) | ✅ Complete |
 | 7 | Blog Service (Future) | [`07_blog_service.md`](07_blog_service.md) | ✅ Complete |
 | 8 | SDK Development Strategy | [`08_sdk_development_strategy.md`](08_sdk_development_strategy.md) | ✅ Complete |
-| 9 | GodarAI Features (LiteLLM-Inspired) | [`09_shahrah_features.md`](09_shahrah_features.md) | ✅ Complete |
+| 9 | GodarAI Feature Set | [`09_GodarAI_features.md`](09_GodarAI_features.md) | ✅ Complete |
 | 10 | Performance & Availability Architecture | [`10_performance_availability.md`](10_performance_availability.md) | ✅ Complete |
 
 | 11 | Observability Platform Implementation Plan | [`observability-platform-implementation-plan.md`](observability-platform-implementation-plan.md) | âœ… Complete |
@@ -116,15 +116,3 @@ graph TB
 
 - [xAI four-model full-support execution plan](xai-four-model-production-readiness.md): production-readiness work for `grok-4.3`, `grok-4.5`, `grok-imagine-image`, and `grok-imagine-image-quality`.
 - [Moonshot four-model production-readiness plan](moonshot-four-model-production-readiness.md): guarded delivery and release gates for `kimi-k3`, `kimi-k2.7-code`, `kimi-k2.7-code-highspeed`, and `kimi-k2.6`.
-
-## LiteLLM Inspiration
-
-GodarAI draws heavily from LiteLLM's proven architecture:
-- OpenAI-compatible API interface
-- Provider transformation patterns
-- Router/load balancing strategies
-- Caching system design
-- Callback/observability framework
-- Guardrail/content moderation system
-
-See [`09_shahrah_features.md`](09_shahrah_features.md) for detailed feature mapping.

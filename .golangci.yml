@@ -115,9 +115,6 @@ formatters:
   settings:
     gofmt:
       simplify: true
-    goimports:
-      local-prefixes:
-        - github.com/BerriAI/go-llm-proxy
 
 output:
   formats:

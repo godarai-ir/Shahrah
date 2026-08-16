@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration via YAML file with environment variable resolution
 - Health and readiness endpoints
 - Docker Compose for local development (PostgreSQL + Redis)
-- Database migration scripts (schema based on LiteLLM)
+- Database migration scripts for organization, team, key, and budget management
 - Unit test suite for auth and router components
 - Cross-compilation support in Makefile
 - GitHub Actions CI/CD pipeline

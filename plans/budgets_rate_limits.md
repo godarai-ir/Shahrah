@@ -855,7 +855,7 @@ This does NOT apply if a key has a `team_id` (team budgets apply then).
 ```yaml
 model_list:
   - model_name: "gpt-3.5-turbo"
-    litellm_params:
+    provider_params:
       model: gpt-3.5-turbo
       api_key: os.environ/OPENAI_API_KEY
 
@@ -932,7 +932,7 @@ Difference between doing this with `/key/generate` vs. `/user/new`? If you do it
 ```yaml
 model_list:
   - model_name: text-embedding-ada-002
-    litellm_params:
+    provider_params:
       model: azure/azure-embedding-model
       api_base: "os.environ/AZURE_API_BASE"
       api_key: "os.environ/AZURE_API_KEY"

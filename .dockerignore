@@ -37,7 +37,6 @@ plans/
 .gomodcache/
 .portkey-docs/
 .truefoundry-docs/
-.llmLite_docs/
 
 # Build artifacts
 **/*.exe

@@ -1,15 +1,15 @@
-# GodarAI Features - LiteLLM-Inspired Feature Set
+# GodarAI Feature Set
 
 ## Overview
 
-This document maps LiteLLM's comprehensive feature set to GodarAI's planned features, highlighting adaptations made for the Iranian market and multi-tenant architecture.
+This document defines GodarAI's planned features for the Iranian market and its multi-tenant architecture.
 
-## 1. Feature Mapping from LiteLLM to GodarAI
+## 1. GodarAI Capability Map
 
 ### 1.1 Core LLM Gateway Features
 
-| LiteLLM Feature | GodarAI Equivalent | Notes |
-|-----------------|-------------------|-------|
+| Capability | GodarAI Implementation | Notes |
+|------------|------------------------|-------|
 | OpenAI-compatible interface | ✅ Direct mapping | Same API contract |
 | 100+ LLM provider support | ✅ Core feature | Via Silk Road provider egress |
 | Provider-specific transformations | ✅ Core feature | In Iran Control Plane |
@@ -23,8 +23,8 @@ This document maps LiteLLM's comprehensive feature set to GodarAI's planned feat
 
 ### 1.2 Proxy/Gateway Features
 
-| LiteLLM Feature | GodarAI Equivalent | Notes |
-|-----------------|-------------------|-------|
+| Capability | GodarAI Implementation | Notes |
+|------------|------------------------|-------|
 | API Key Management | ✅ Enhanced | Tenant-scoped keys |
 | Rate Limiting (TPM/RPM) | ✅ Enhanced | Per-tenant + per-key |
 | Budget Management | ✅ Enhanced | IRR wallet + USD tracking |
@@ -38,8 +38,8 @@ This document maps LiteLLM's comprehensive feature set to GodarAI's planned feat
 
 ### 1.3 Admin & Management Features
 
-| LiteLLM Feature | GodarAI Equivalent | Notes |
-|-----------------|-------------------|-------|
+| Capability | GodarAI Implementation | Notes |
+|------------|------------------------|-------|
 | Admin UI (built-in) | ✅ Enhanced | Separate tenant admin |
 | Internal user management | ✅ Mapped | Support team access |
 | Team management | ✅ Mapped | Tenant = Team |
@@ -136,7 +136,7 @@ GET    /ready                     # Readiness check
 
 ### 3.1 Request/Response Transformation
 
-Similar to LiteLLM's provider transformations, GodarAI transforms requests:
+GodarAI normalizes provider requests and responses:
 
 ```mermaid
 graph LR
@@ -182,7 +182,7 @@ type FallbackRule struct {
 	Providers []string
 }
 
-// RouterConfig is a LiteLLM-inspired router configuration with GodarAI enhancements.
+// RouterConfig defines GodarAI's routing behavior.
 type RouterConfig struct {
 	// Routing strategy
 	Strategy RoutingStrategy
@@ -233,7 +233,7 @@ type CacheParams struct {
 	MaxTokens   int     `json:"max_tokens"`
 }
 
-// GodarAICache is a multi-level caching system inspired by LiteLLM.
+// GodarAICache is GodarAI's multi-level caching system.
 type GodarAICache struct {
 	inMemory *cache.Cache
 	redis    *redis.Client
@@ -595,7 +595,7 @@ func (m *GodarAIBudgetManager) CheckBudget(ctx context.Context, tenantID, apiKey
 
 ### 4.1 MCP Server Integration
 
-Similar to LiteLLM's MCP support:
+GodarAI's MCP support provides:
 
 ```prisma
 model GodarAIMCPServer {
@@ -715,65 +715,65 @@ model GodarAIAgent {
 
 ## 6. Feature Comparison Matrix
 
-### 6.1 LiteLLM vs GodarAI Feature Parity
+### 6.1 GodarAI Feature Status
 
-| Feature Category | LiteLLM | GodarAI | Notes |
-|-----------------|---------|---------|-------|
-| **Core LLM** |
-| Chat Completions | ✅ | ✅ | Same API |
-| Completions | ✅ | ✅ | Same API |
-| Embeddings | ✅ | ✅ | Same API |
-| Image Generation | ✅ | ✅ | Same API |
-| Audio | ✅ | ✅ | Same API |
-| **Providers** |
-| OpenAI | ✅ | ✅ | Direct |
-| Anthropic | ✅ | ✅ | Via Silk Road |
-| Azure OpenAI | ✅ | ✅ | Via Silk Road |
-| Google Vertex | ✅ | ✅ | Via Silk Road |
-| AWS Bedrock | ✅ | ✅ | Via Silk Road |
-| Ollama | ✅ | ⏸️ | Future |
-| 100+ Others | ✅ | ✅ | Via Silk Road |
-| **Gateway Features** |
-| API Key Auth | ✅ | ✅ | Enhanced |
-| Rate Limiting | ✅ | ✅ | Enhanced |
-| Budget Control | ✅ | ✅ | IRR wallet |
-| Load Balancing | ✅ | ✅ | Same |
-| Caching | ✅ | ✅ | Same |
-| Retry/Fallback | ✅ | ✅ | Same |
-| JWT Auth | ✅ | ✅ | Same |
-| SSO | ✅ | ✅ | Same |
-| Guardrails | ✅ | ✅ | Same |
-| **Observability** |
-| Langfuse | ✅ | ✅ | Same |
-| LangSmith | ✅ | ✅ | Same |
-| Prometheus | ✅ | ✅ | Same |
-| Datadog | ✅ | ✅ | Same |
-| Custom Webhooks | ✅ | ✅ | Same |
-| **Admin** |
-| Admin UI | ✅ | ✅ | Separate |
-| Key Management | ✅ | ✅ | Tenant-scoped |
-| Model Management | ✅ | ✅ | Tenant-scoped |
-| Spend Tracking | ✅ | ✅ | Dual currency |
-| Budget Alerts | ✅ | ✅ | Enhanced |
+| Feature Category | GodarAI Status | Notes |
+|------------------|----------------|-------|
+| **Core LLM** | | |
+| Chat Completions | ✅ | OpenAI-compatible API |
+| Completions | ✅ | OpenAI-compatible API |
+| Embeddings | ✅ | OpenAI-compatible API |
+| Image Generation | ✅ | OpenAI-compatible API |
+| Audio | ✅ | OpenAI-compatible API |
+| **Providers** | | |
+| OpenAI | ✅ | Direct |
+| Anthropic | ✅ | Via Silk Road |
+| Azure OpenAI | ✅ | Via Silk Road |
+| Google Vertex | ✅ | Via Silk Road |
+| AWS Bedrock | ✅ | Via Silk Road |
+| Ollama | ⏸️ | Future |
+| Additional providers | ✅ | Via Silk Road |
+| **Gateway Features** | | |
+| API Key Auth | ✅ | Tenant-aware |
+| Rate Limiting | ✅ | Tenant-aware |
+| Budget Control | ✅ | IRR wallet |
+| Load Balancing | ✅ | Provider routing |
+| Caching | ✅ | Shared cache layer |
+| Retry/Fallback | ✅ | Provider failover |
+| JWT Auth | ✅ | Supported |
+| SSO | ✅ | Supported |
+| Guardrails | ✅ | Supported |
+| **Observability** | | |
+| Langfuse | ✅ | Integration available |
+| LangSmith | ✅ | Integration available |
+| Prometheus | ✅ | Integration available |
+| Datadog | ✅ | Integration available |
+| Custom Webhooks | ✅ | Integration available |
+| **Admin** | | |
+| Admin UI | ✅ | Separate tenant admin |
+| Key Management | ✅ | Tenant-scoped |
+| Model Management | ✅ | Tenant-scoped |
+| Spend Tracking | ✅ | Dual currency |
+| Budget Alerts | ✅ | Supported |
 
 ## 7. GodarAI-Unique Features
 
 ### 7.1 Controlled European Provider Egress
 
-- **Not in LiteLLM**: Unique to GodarAI
+- **GodarAI-specific**: controlled provider egress for the Iranian market
 - Enables access to sanctioned LLM providers
 - Direct Control Plane dispatch to stateless Silk Road adapters
 - Explicit European HTTP proxy for provider-bound traffic
 
 ### 7.2 Rial Wallet & Iranian Payment
 
-- **Not in LiteLLM**: Unique to GodarAI
+- **GodarAI-specific**: Iranian wallet and payment integration
 - Iranian payment gateway integration
 - Dual currency tracking (IRR/USD)
 - Real-time exchange rate conversion
 
 ### 7.3 Subdomain Multi-Tenancy
 
-- **Enhanced**: LiteLLM has org/teams, but GodarAI has subdomain isolation
+- **GodarAI-specific**: tenant isolation through dedicated subdomains
 - Each tenant gets unique URLs
 - Clean separation of tenant resources

@@ -29,9 +29,8 @@ The delivery is not production-ready merely because a generic OpenAI-compatible 
    - `C:/Users/Delpak/.codex/skills/deepseek-api/references/official-source-map.md`
 4. Run the skill's official-source discovery helper:
    - `python C:/Users/Delpak/.codex/skills/deepseek-api/scripts/discover_official_docs.py`
-5. Re-open the live official DeepSeek documentation listed below. Provider facts must come only from official DeepSeek sources. Do not use LiteLLM, OpenRouter, DeepInfra, model directories, or memory as API authority.
+5. Re-open the live official DeepSeek documentation listed below. Provider facts must come only from official DeepSeek sources. Do not use aggregators, model directories, or memory as API authority.
 6. Read Shahrah product and implementation context:
-   - `.llmLite_docs/providers/deepseek.md` only as LiteLLM product inspiration, never as current DeepSeek truth;
    - `plans/README.md`;
    - `plans/model-catalog-experience-prd.md`;
    - `plans/platform-managed-provider-credentials-provider-matrix.md`;
@@ -135,7 +134,7 @@ Exit evidence:
 
 - every provider fact in the plan has an official URL and observation date;
 - scope contains exactly two models;
-- no stale LiteLLM alias is treated as current DeepSeek truth.
+- no stale third-party alias is treated as current DeepSeek truth.
 
 ### Phase 1 — provider catalog and import pipeline
 
@@ -400,8 +399,4 @@ Shahrah-specific constraints came from:
 - `plans/moonshot-four-model-production-readiness.md`;
 - current model-discovery, Control Plane, Silk Road, billing, and readiness implementations.
 
-LiteLLM documentation inspected:
-
-- `.llmLite_docs/providers/deepseek.md`.
-
-No LiteLLM source code was inspected because the current official DeepSeek contract and Shahrah's existing provider patterns were sufficient.
+No third-party gateway source code was inspected because the current official DeepSeek contract and Shahrah's existing provider patterns were sufficient.

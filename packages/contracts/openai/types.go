@@ -946,7 +946,7 @@ type ModerationResult struct {
 }
 
 // RerankRequest mirrors the Cohere-compatible rerank request format used by
-// gateway providers such as Cohere and LiteLLM-compatible rerank backends.
+// gateway providers such as Cohere and other OpenAI-compatible rerank backends.
 type RerankRequest struct {
 	Model           string   `json:"model"`
 	Query           string   `json:"query"`

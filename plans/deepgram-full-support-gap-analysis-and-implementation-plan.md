@@ -50,8 +50,7 @@ All seven are zero bytes as of the analysis date. The three Aura files are modif
 ### Sources reviewed
 
 - Current GodarAI model discovery, control-plane, Silk Road provider egress, billing, contracts, tests, Postman collections, documentation, and related plans.
-- Repository LiteLLM notes in [`.llmLite_docs/providers/deepgram.md`](../.llmLite_docs/providers/deepgram.md), [audio transcription](../.llmLite_docs/audio_transcription.md), [text to speech](../.llmLite_docs/text_to_speech.md), [model discovery](../.llmLite_docs/proxy/model_discovery.md), and [credential UI](../.llmLite_docs/proxy/ui_credentials.md). These are comparative evidence only: the local LiteLLM material covers Deepgram prerecorded transcription but does not provide full Flux or Aura support.
-- Existing GodarAI architecture and credential plans, especially [the repository plan index](README.md), [provider support](phase2-liteLLM-provider-support.md), [platform-managed credentials](platform-managed-provider-credentials-product-analysis.md), and [provider credential matrix](platform-managed-provider-credentials-provider-matrix.md).
+- Existing GodarAI architecture and credential plans, especially [the repository plan index](README.md), [provider support](phase2-provider-support.md), [platform-managed credentials](platform-managed-provider-credentials-product-analysis.md), and [provider credential matrix](platform-managed-provider-credentials-provider-matrix.md).
 - Official Deepgram documentation and pricing, verified 2026-08-01. Direct links appear beside the facts they support.
 
 ### Evidence convention

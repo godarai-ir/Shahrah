@@ -486,24 +486,24 @@ curl --location 'http://0.0.0.0:4000/team/update' \
 
 ## Implementation Guide
 
-This section provides guidance for implementing the access control system in GodarAI based on the patterns from LiteLLM.
+This section provides guidance for implementing the access control system in GodarAI.
 
 ### Key Implementation Files
 
-Based on the LiteLLM codebase structure, the following files and patterns should be adapted for Shahrah:
+The implementation should use the following Shahrah-owned packages and patterns:
 
-1. **Types and Enums** (`proxy/_types.py`)
+1. **Types and Enums** (`services/control-plane/internal/authz/types.go`)
    - Define `UserRoles` enum with: `ADMIN`, `VIEWER`, `USER`, `ORG_ADMIN`, `TEAM_ADMIN`
    - Define `TeamMemberRoles` enum with: `TEAM_ADMIN`, `TEAM_MEMBER`
    - Define request/response types for organization, team, and user management
 
-2. **Auth Checks** (`proxy/auth/auth_checks.py`)
+2. **Auth Checks** (`services/control-plane/internal/authz/service.go`)
    - Implement `_get_user_role()` function to retrieve user role
    - Implement `_is_user_admin()` helper function
    - Implement route access checks based on user role
    - Implement team membership validation
 
-3. **Organization Endpoints** (`proxy/management_endpoints/organization_endpoints.py`)
+3. **Organization Endpoints** (`services/control-plane/internal/httpapi/organization_handlers.go`)
    - `/organization/new` - Create new organization
    - `/organization/update` - Update organization settings
    - `/organization/delete` - Delete organization
@@ -513,7 +513,7 @@ Based on the LiteLLM codebase structure, the following files and patterns should
    - `/organization/info` - Get organization information
    - `/organization/list` - List organizations
 
-4. **Team Endpoints** (`proxy/management_endpoints/team_endpoints.py`)
+4. **Team Endpoints** (`services/control-plane/internal/httpapi/team_handlers.go`)
    - `/team/new` - Create new team
    - `/team/update` - Update team settings
    - `/team/delete` - Delete team
@@ -524,7 +524,7 @@ Based on the LiteLLM codebase structure, the following files and patterns should
    - `/team/permissions_list` - List team member permissions
    - `/team/unblock` - Unblock a team
 
-5. **User Endpoints** (`proxy/management_endpoints/internal_user_endpoints.py`)
+5. **User Endpoints** (`services/control-plane/internal/httpapi/user_handlers.go`)
    - `/user/new` - Create new user
    - `/user/update` - Update user settings
    - `/user/delete` - Delete user
@@ -533,16 +533,16 @@ Based on the LiteLLM codebase structure, the following files and patterns should
 
 ### Database Schema
 
-The database schema should include the following tables (based on LiteLLM Prisma schema):
+The database schema should include the following Shahrah-owned tables:
 
-- `LiteLLM_OrganizationTable` - Organizations
-- `LiteLLM_TeamTable` - Teams
-- `LiteLLM_UserTable` - Users
-- `LiteLLM_OrganizationMembership` - Organization memberships (links users to organizations with roles)
-- `LiteLLM_TeamMembership` - Team memberships (links users to teams with roles and budgets)
-- `LiteLLM_VerificationToken` - API keys (linked to users and/or teams)
-- `LiteLLM_BudgetTable` - Budgets for organizations, teams, and users
-- `LiteLLM_ObjectPermissionTable` - Object permissions for resources like vector stores and MCP servers
+- `organizations` - Organizations
+- `teams` - Teams
+- `internal_users` - Users
+- `organization_memberships` - User-to-organization memberships and roles
+- `team_memberships` - User-to-team memberships, roles, and budgets
+- `virtual_keys` - API keys linked to users, teams, or organizations
+- `budgets` - Budgets for organizations, teams, users, and keys
+- `object_permissions` - Permissions for resources such as vector stores and MCP servers
 
 ### Access Verification Pattern
 

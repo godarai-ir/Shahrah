@@ -1,4 +1,0 @@
-interface:
-  display_name: "LiteLLM Expert"
-  short_description: "Turn LiteLLM research into Shahrah plans."
-  default_prompt: "Use $litellm-expert to translate LiteLLM documentation into a focused Shahrah MVP plan."

@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-This guide provides specifications for implementing Shahrah's Role-Based Access Control (RBAC) system. The implementation is inspired by LiteLLM's patterns but branded and adapted specifically forGodarAI.
+This guide provides specifications for implementing Shahrah's Role-Based Access Control (RBAC) system for GodarAI.
 
 ---
 
@@ -60,24 +60,24 @@ tests/
 
 ### 4.1 Deprecated Features (DO NOT Implement)
 
-The following features from LiteLLM are **deprecated** and should NOT be implemented:
+The following features are **deprecated or out of scope** and should NOT be implemented:
 
 | Feature | Reason |
 |---------|--------|
 | `internal_user_viewer` role | Deprecated in favor of team/org specific roles |
 | Enterprise premium features (JWT team/org admin claims) | Mark as premium/enterprise-only with clear error messages |
 
-### 4.2 GodarAI vs LiteLLM Branding
+### 4.2 GodarAI Naming
 
-All references to "LiteLLM" should be replaced with "Shahrah":
+Use Shahrah-owned names consistently across contracts and storage:
 
-| LiteLLM | GodarAI |
-|---------|---------|
-| `LitellmUserRoles` | `ShahrahUserRole` |
-| `LiteLLM_TeamTable` | `Team` |
-| `LiteLLM_UserTable` | `InternalUser` |
-| `LiteLLM_VerificationToken` | `VirtualKey` |
-| `x-litellm-*` headers | `x-shahrah-*` headers |
+| Concept | GodarAI Name |
+|---------|--------------|
+| User roles | `ShahrahUserRole` |
+| Team entity | `Team` |
+| Internal user entity | `InternalUser` |
+| Virtual API key entity | `VirtualKey` |
+| Product headers | `x-shahrah-*` |
 
 ### 4.3 Type Safety
 
@@ -150,18 +150,14 @@ Defines:
 
 ### 6.1 Where to Place the GodarAI Module
 
-The `shahrah/` directory should be created at the project root level:
+RBAC code should live within the existing Control Plane module:
 
 ```
-d:/source/litellm/
-├── shahrah/                    # NEW - GodarAI RBAC module
-│   ├── types/
-│   ├── auth/
-│   └── middleware/
-├── litellm/                    # Existing LiteLLM code
-├── tests/
-│   └── shahrah/                # NEW - GodarAI tests
-└── ...
+D:/source/Shahrah/
+└── services/control-plane/
+    ├── internal/authz/         # GodarAI RBAC types and policy checks
+    ├── internal/httpapi/       # Management API handlers and middleware
+    └── internal/storage/       # Membership and role persistence
 ```
 
 ### 6.2 How to Use in FastAPI App
@@ -205,7 +201,6 @@ The following features are planned for future iterations:
 
 ## 8. References
 
-- Original LiteLLM auth patterns: `litellm/proxy/auth/`
-- Budget management: `litellm/proxy/common_utils/reset_budget_job.py`
-- Timezone handling: `litellm/proxy/common_utils/timezone_utils.py`
-- Duration parsing: `litellm/litellm_core_utils/duration_parser.py`
+- Access-control behavior: `plans/access_control.md`
+- Organization, team, and key model: `plans/organization-team-virtualkey-design.md`
+- Budget and rate-limit behavior: `plans/budgets_rate_limits.md`

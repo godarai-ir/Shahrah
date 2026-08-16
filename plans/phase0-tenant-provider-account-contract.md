@@ -19,15 +19,6 @@ This phase intentionally avoids DB/runtime cutover and focuses on stable contrac
 - `apps/tenant-admin` existing model/key dashboard and auth flow
 - `services/control-plane/internal/admin/handlers.go` current management API surface
 - `db/main/migrations/*.sql` + `packages/database/schema.prisma` shared DB shape
-- LiteLLM references:
-  - `.llmLite_docs/proxy/model_management.md`
-  - `.llmLite_docs/proxy/model_discovery.md`
-  - `.llmLite_docs/proxy/model_access.md`
-  - `.llmLite_docs/proxy/model_access_groups.md`
-  - `.llmLite_docs/proxy/access_control.md`
-  - `.llmLite_docs/proxy/credential_routing.md`
-  - `.llmLite_docs/provider_registration/add_model_pricing.md`
-  - `.llmLite_docs/completion/model_alias.md`
 
 ## Phase 0 Deliverables
 
@@ -88,7 +79,7 @@ This phase intentionally avoids DB/runtime cutover and focuses on stable contrac
 
 ### Exclude in this track
 
-- Full LiteLLM endpoint parity across org/team/user management APIs
+- Full endpoint parity across org/team/user management APIs outside this contract
 
 ## Exit Criteria
 

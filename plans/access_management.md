@@ -486,7 +486,7 @@ Define model access groups in `config.yaml`:
 ```yaml
 model_list:
   - model_name: gpt-4
-    litellm_params:
+    provider_params:
       model: gpt-4
       api_key: os.environ/OPENAI_API_KEY
     model_info:

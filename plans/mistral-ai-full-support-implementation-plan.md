@@ -102,7 +102,7 @@
 
 - registry ثابت فعلی فقط چند مدل قدیمی Mistral را می‌شناسد و canonical provider می‌تواند به قیمت صفر سقوط کند.
 - billing برای token، cached token، batch token، audio duration، character، OCR page و annotated page به ابعاد مستقل نیاز دارد.
-- فراخوانی native pass-through بدون استخراج usage می‌تواند billing را دور بزند. مستندات LiteLLM نیز برای passthrough خام Mistral، cost tracking کامل تضمین نمی‌کند؛ گدارAI نباید این محدودیت را تکرار کند.
+- فراخوانی native pass-through بدون استخراج usage می‌تواند billing را دور بزند؛ گدارAI باید cost tracking کامل را برای این مسیر تضمین کند.
 - عملیات async مانند Batch نیازمند reservation و settlement چندمرحله‌ای و idempotent است.
 
 ## ۶. معماری هدف
@@ -446,11 +446,11 @@ rollback با feature flag endpoint، بازگردانی catalog snapshot و ت�
 
 - اضافه‌کردن خانواده‌های دیگر Mistral که در پوشه‌ی مشخص‌شده نیستند؛
 - reverse proxy عمومی و بدون allowlist برای همه‌ی endpointهای Mistral؛
-- حدس‌زدن capability، alias یا قیمت از LiteLLM یا منابع غیررسمی؛
+- حدس‌زدن capability، alias یا قیمت از منابع غیررسمی؛
 - حذف فیزیکی فوری رکوردهای قدیمی دیتابیس؛
 - پشتیبانی از self-hosted/open-weight deploymentهای غیر Mistral API؛ این موضوع به provider profile جدا نیاز دارد.
 
-LiteLLM در این پلن صرفاً مرجع الگوی محصول برای credential reuse، spend attribution و route organization است؛ هیچ داده‌ی مدل، قیمت یا قرارداد Mistral از LiteLLM به‌عنوان منبع حقیقت وارد نمی‌شود.
+هیچ داده‌ی مدل، قیمت یا قرارداد Mistral از منابع غیررسمی به‌عنوان منبع حقیقت وارد نمی‌شود.
 
 ## ۱۴. Definition of Done نهایی
 

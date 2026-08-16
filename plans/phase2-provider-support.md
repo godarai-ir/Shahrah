@@ -1,4 +1,4 @@
-# Phase 2: LiteLLM Provider Support - Implementation Plan
+# Phase 2: Provider Support - Implementation Plan
 
 > **Status:** Superseded
 > **Created:** 2026-04-26
@@ -15,7 +15,7 @@
 
 ## Executive Summary
 
-This plan implements multi-provider LLM support for Shahrah, enabling routing to 10 LiteLLM-supported providers while maintaining the OpenAI-compatible public API. The implementation builds on the existing provider interface in [`services/control-plane/internal/providers/provider.go`](../services/control-plane/internal/providers/provider.go:1) and extends it with a registry-based adapter selection mechanism.
+This plan implements multi-provider LLM support for Shahrah, enabling routing to 10 target providers while maintaining the OpenAI-compatible public API. The implementation builds on the existing provider interface in [`services/control-plane/internal/providers/provider.go`](../services/control-plane/internal/providers/provider.go:1) and extends it with a registry-based adapter selection mechanism.
 
 ### Target Providers (Priority Order)
 
@@ -338,7 +338,7 @@ type Client struct {
 **Response Transform:**
 - Convert Bedrock response to OpenAI format
 
-**Reference:** `.llmLite_docs/providers/bedrock.md`
+**Reference:** Official AWS Bedrock API documentation.
 
 #### 6.3 Google Vertex AI Adapter
 
@@ -378,7 +378,7 @@ type Client struct {
 }
 ```
 
-**Reference:** `.llmLite_docs/providers/gemini.md`
+**Reference:** Official Google Gemini API documentation.
 
 ### Step 7: Implement Provider Adapters (Wave 3)
 
@@ -406,7 +406,7 @@ const defaultAPIBase = "https://api.cohere.ai/v1"
 
 **Map provider errors to OpenAI envelope:**
 ```go
-// Error types matching LiteLLM exception_mapping.md
+// Error types normalized across provider adapters.
 const (
     ErrBadRequest          = 400
     ErrAuthentication     = 401
@@ -477,7 +477,7 @@ usage.CompletionTokens = bedrockResp.Usage.OutputTokens
 ```
 
 **Fallback for missing usage:**
-- Use token estimation (see LiteLLM token counting docs)
+- Use the repository's provider-aware token estimation contract
 - Log warning when estimation used
 
 ### Step 10: Pricing Registry
@@ -523,7 +523,7 @@ func GetPricing(provider, model string) (ModelPricing, bool) {
 }
 ```
 
-**Reference:** `.llmLite_docs/providers/` for model-specific pricing
+**Reference:** Official provider pricing documentation for model-specific pricing.
 
 ### Step 11: Unit Tests
 
@@ -699,10 +699,9 @@ flowchart TD
 
 ## Dependencies
 
-- **LiteLLM reference:** `.llmLite_docs/providers/*.md`
-- **Exception mapping:** `.llmLite_docs/exception_mapping.md`
-- **Token counting:** `.llmLite_docs/anthropic_count_tokens.md`
-- **Cost tracking:** `.llmLite_docs/a2a_cost_tracking.md`
+- Official provider API and pricing documentation
+- Shahrah's OpenAI-compatible error envelope contract
+- Provider-aware token accounting and billing contracts
 
 ---
 

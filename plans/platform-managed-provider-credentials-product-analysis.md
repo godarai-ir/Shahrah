@@ -279,7 +279,7 @@ Envelope encryption در application:
 
 ### فاز بعد
 
-پشتیبانی از HashiCorp Vault یا secret manager ابری پشت interface واحد. UI و runtime نباید به backend ذخیره‌سازی وابسته باشند. LiteLLM نیز separation مشابهی میان credential UI، رمزنگاری DB و secret-manager integration نشان می‌دهد، اما گدارAI باید implementation کوچک و Go-native خود را داشته باشد.
+پشتیبانی از HashiCorp Vault یا secret manager ابری پشت interface واحد. UI و runtime نباید به backend ذخیره‌سازی وابسته باشند و گدارAI باید implementation کوچک و Go-native خود را داشته باشد.
 
 ## API داخلی پیشنهادی
 
@@ -431,14 +431,6 @@ runtime به جای دریافت map آزاد، یک `ResolvedProviderAuth` type
 - adapterهای Azure Entra و AWS SigV4 در چه فازی production-ready می‌شوند؟
 
 ## شواهد بررسی‌شده
-
-### مستندات LiteLLM
-
-- `.llmLite_docs/proxy/ui_credentials.md`
-- `.llmLite_docs/proxy/config_management.md`
-- `.llmLite_docs/secret_managers/overview.md`
-- `.llmLite_docs/providers/azure/azure.md`
-- `.llmLite_docs/providers/bedrock.md`
 
 ### اسناد گدارAI
 

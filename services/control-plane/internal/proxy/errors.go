@@ -16,7 +16,7 @@ import (
 	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
-// Error codes matching LiteLLM exception_mapping.md.
+// Error codes normalized across provider adapters.
 const (
 	ErrBadRequest         = 400
 	ErrAuthentication     = 401

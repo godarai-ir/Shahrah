@@ -428,7 +428,7 @@ func (e *BillingEngine) ApplySubscriptionFee(ctx context.Context, tenantID strin
 
 ### 4.2 Cost Calculation
 
-Token costs are stored in USD (similar to LiteLLM's `model_prices_and_context_window.json`):
+Token costs are stored in USD in the model pricing registry:
 
 ```json
 {
