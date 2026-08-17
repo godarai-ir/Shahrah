@@ -133,6 +133,8 @@ func TestResolveCredentialProbeRejectsUnsafeCustomURL(t *testing.T) {
 		{name: "SambaNova IP", provider: "sambanova", apiBase: "https://127.0.0.1/openai/v1"},
 		{name: "Moonshot lookalike", provider: "moonshot", apiBase: "https://api.moonshot.ai.evil.example/v1"},
 		{name: "DeepSeek lookalike", provider: "deepseek", apiBase: "https://api.deepseek.com.evil.example"},
+		{name: "Z.ai lookalike", provider: "zai", apiBase: "https://api.z.ai.evil.example/api/paas/v4"},
+		{name: "Z.ai wrong path", provider: "zai", apiBase: "https://api.z.ai/coding/paas/v4"},
 		{name: "unknown provider", provider: "unknown", apiBase: "https://api.example.com/v1"},
 	}
 
@@ -148,5 +150,45 @@ func TestResolveCredentialProbeRejectsUnsafeCustomURL(t *testing.T) {
 				t.Fatal("expected unsafe or unsupported credential probe to be rejected")
 			}
 		})
+	}
+}
+
+func TestZAICredentialProbeIsExplicitBillablePOST(t *testing.T) {
+	transport := &credentialProbeRoundTripper{}
+
+	response, err := dispatchCredentialProbe(
+		context.Background(),
+		&http.Client{Transport: transport},
+		platform.TunnelRequest{Deployment: platform.Deployment{
+			Provider: "zai",
+			ProviderAuth: &platform.ResolvedProviderAuth{
+				Mode: string(platform.ProviderAuthModeAPIKey), APIKey: "test-zai-key",
+			},
+		}},
+	)
+	if err != nil {
+		t.Fatalf("dispatch Z.ai credential probe: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			t.Errorf("close response body: %v", closeErr)
+		}
+	})
+
+	if transport.request.Method != http.MethodPost ||
+		transport.request.URL.String() != "https://api.z.ai/api/paas/v4/chat/completions" {
+		t.Fatalf("unexpected Z.ai probe target: %s %s", transport.request.Method, transport.request.URL)
+	}
+
+	body, readErr := io.ReadAll(transport.request.Body)
+	if readErr != nil {
+		t.Fatalf("read Z.ai probe body: %v", readErr)
+	}
+
+	for _, expected := range []string{`"model":"glm-4.7-flashx"`, `"max_tokens":1`, `"do_sample":false`} {
+		if !strings.Contains(string(body), expected) {
+			t.Fatalf("probe body does not contain %s: %s", expected, body)
+		}
 	}
 }

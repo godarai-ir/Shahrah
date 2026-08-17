@@ -497,6 +497,7 @@ type ProviderOperation string
 const (
 	ProviderOperationCredentialProbe                    ProviderOperation = "credential_probe"
 	ProviderOperationChatCompletions                    ProviderOperation = "chat_completions"
+	ProviderOperationZAILayoutParsing                   ProviderOperation = "zai_layout_parsing"
 	ProviderOperationXAIDeferredChatGet                 ProviderOperation = "xai_deferred_chat_get"
 	ProviderOperationXAIFilesInitialize                 ProviderOperation = "xai_files_initialize"
 	ProviderOperationXAIFilesUploadChunks               ProviderOperation = "xai_files_upload_chunks"

@@ -1,0 +1,71 @@
+model: glm-ocr
+displayName: GLM-OCR
+status: active
+verified_at: 2026-08-17
+api_format: zai
+mode: ocr
+supportedModes: [ocr]
+modalities:
+  input: [image, pdf]
+  output: [text, document]
+features: [bbox_extraction, annotations]
+costs:
+  - region: '*'
+    effective_from: 2026-08-17
+    input_cost_per_token: 0.00000003
+    output_cost_per_token: 0.00000003
+sources:
+  - https://docs.z.ai/guides/vlm/glm-ocr
+  - https://docs.z.ai/api-reference/tools/layout-parsing
+  - https://docs.z.ai/guides/overview/pricing
+  - https://docs.z.ai/openapi.json
+runtimeProfile:
+  version: 1
+  aliases: []
+  endpoints: [layout_parsing]
+  transports: [http]
+  lifecycle: active
+  thinking:
+    defaultMode: disabled
+    allowedModes: [disabled]
+  assistantPrefill: false
+  sampling:
+    parameters: []
+  tools:
+    custom: false
+    parallel: false
+    structuredOutput: true
+  modalities:
+    input: [image, pdf]
+    output: [text, document]
+  parameters:
+    layout_parsing:
+      [
+        model,
+        file,
+        return_crop_images,
+        need_layout_visualization,
+        start_page_id,
+        end_page_id,
+        request_id,
+        user_id,
+      ]
+  unsupportedParameters:
+    [
+      stream,
+      thinking,
+      reasoning_effort,
+      temperature,
+      top_p,
+      max_tokens,
+      tools,
+      tool_choice,
+      response_format,
+    ]
+  minimumRetentionDays: 0
+  zdrEligible: false
+  limits:
+    contextWindow: 0
+    maxInputTokens: 0
+    maxOutputTokens: 0
+    fileBytes: 52428800

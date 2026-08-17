@@ -48,6 +48,11 @@ func providerModelID(model string) string {
 	return model
 }
 
+// ProviderModelIDForRouting extracts the provider-facing ID for route selection.
+func ProviderModelIDForRouting(model string) string {
+	return providerModelID(model)
+}
+
 // billingEstimateModel preserves provider-qualified identifiers for catalog
 // pricing providers. Their pricing snapshots are selected by provider prefix,
 // while the provider-facing request still uses providerModelID.
@@ -86,4 +91,8 @@ func isMistralModelIdentifier(model string) bool {
 
 func isGoogleGeminiProvider(provider string) bool {
 	return providerregistry.Matches(provider, "google-gemini")
+}
+
+func isZAIProvider(provider string) bool {
+	return providerregistry.Matches(provider, "zai")
 }

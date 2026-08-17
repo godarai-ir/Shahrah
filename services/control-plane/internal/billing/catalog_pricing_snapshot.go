@@ -305,6 +305,10 @@ func normalizeCatalogPricingSnapshot(
 			return nil, fmt.Errorf("%w: incomplete DeepSeek pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
 
+		if provider == "zai" && !zaiPricingDimensionsComplete(runtimeBinding.Profile, rates) {
+			return nil, fmt.Errorf("%w: incomplete Z.ai pricing for %s", ErrPricingUnavailable, item.CanonicalID)
+		}
+
 		if provider == "google-gemini" && !googleGeminiPricingDimensionsComplete(runtimeBinding.Profile, rates) {
 			return nil, fmt.Errorf("%w: incomplete Google Gemini pricing for %s", ErrPricingUnavailable, item.CanonicalID)
 		}
@@ -337,6 +341,26 @@ func moonshotPricingDimensionsComplete(rates map[string]normalizedPricingRate) b
 	for _, dimension := range []string{"input_tokens", "cache_read_tokens", "output_tokens"} {
 		rate, ok := rates[dimension]
 		if !ok || rate.UnitPriceUSD.IsNegative() || len(rate.Condition) != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func zaiPricingDimensionsComplete(
+	profile platform.ModelRuntimeProfile,
+	rates map[string]normalizedPricingRate,
+) bool {
+	required := []string{"input_tokens", "output_tokens"}
+	if profile.AllowsEndpoint("chat_completions") {
+		required = append(required, "cache_read_tokens")
+	}
+
+	for _, dimension := range required {
+		rate, ok := rates[dimension]
+		if !ok || !rate.UnitPriceUSD.IsPositive() || len(rate.Condition) != 0 ||
+			strings.TrimSpace(rate.SourceURL) == "" {
 			return false
 		}
 	}

@@ -19,6 +19,8 @@ type ProviderFeatureSettings struct {
 	AnthropicFilesEnabled        bool
 	AnthropicBatchesEnabled      bool
 	AnthropicAccountIDs          []string
+	ZAIEnabled                   bool
+	ZAILayoutParsingEnabled      bool
 }
 
 // LoadProviderFeatureSettings reads provider rollout flags at the configuration edge.
@@ -50,6 +52,8 @@ func LoadProviderFeatureSettings() ProviderFeatureSettings {
 		AnthropicFilesEnabled:        strictBooleanEnv("ANTHROPIC_FILES_API_ENABLED", true),
 		AnthropicBatchesEnabled:      strictBooleanEnv("ANTHROPIC_BATCH_API_ENABLED", true),
 		AnthropicAccountIDs:          csvEnv("ANTHROPIC_NATIVE_ACCOUNT_ALLOWLIST"),
+		ZAIEnabled:                   strictBooleanEnv("SHAHRAH_ZAI_ENABLED", true),
+		ZAILayoutParsingEnabled:      strictBooleanEnv("SHAHRAH_ZAI_LAYOUT_PARSING_ENABLED", true),
 	}
 }
 

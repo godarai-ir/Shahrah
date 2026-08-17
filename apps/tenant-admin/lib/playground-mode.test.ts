@@ -11,6 +11,7 @@ describe("playground mode helpers", () => {
     expect(normalizePlaygroundMode("chat_completions")).toBe("chat");
     expect(normalizePlaygroundMode("image")).toBe("image_generation");
     expect(normalizePlaygroundMode("text-to-image")).toBe("image_generation");
+    expect(normalizePlaygroundMode("ocr")).toBe("layout_parsing");
   });
 
   it("does not map unsupported endpoint modes to chat", () => {
@@ -26,11 +27,15 @@ describe("playground mode helpers", () => {
     expect(buildPlaygroundHref("openai:account:gpt-image-2", "image")).toBe(
       "/playground?model=openai%3Aaccount%3Agpt-image-2&mode=image_generation",
     );
+    expect(buildPlaygroundHref("zai:account:glm-ocr", "ocr")).toBe(
+      "/playground?model=zai%3Aaccount%3Aglm-ocr&mode=layout_parsing",
+    );
     expect(buildPlaygroundHref("openai:account:gpt-transcribe", "audio_transcription")).toBeNull();
   });
 
   it("matches model mode aliases without treating unrelated modes as chat", () => {
     expect(modelModesSupportPlaygroundMode(["image"], "image_generation")).toBe(true);
+    expect(modelModesSupportPlaygroundMode(["ocr"], "layout_parsing")).toBe(true);
     expect(modelModesSupportPlaygroundMode(["audio_transcription"], "chat")).toBe(false);
     expect(modelModesSupportPlaygroundMode([], "chat")).toBe(true);
   });

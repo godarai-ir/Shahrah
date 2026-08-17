@@ -50,6 +50,7 @@ var providerPricingStrategies = map[providerregistry.PricingStrategyKind]provide
 	providerregistry.PricingStrategyAnthropic:    anthropicPricingStrategy{},
 	providerregistry.PricingStrategyXAI:          xAIPricingStrategy{},
 	providerregistry.PricingStrategyDeepSeek:     deepSeekPricingStrategy{},
+	providerregistry.PricingStrategyZAI:          zaiPricingStrategy{},
 	providerregistry.PricingStrategyMoonshot:     moonshotPricingStrategy{},
 	providerregistry.PricingStrategyGoogleGemini: googleGeminiPricingStrategy{},
 	providerregistry.PricingStrategyMistral:      mistralPricingStrategy{},
@@ -384,6 +385,14 @@ func (deepSeekPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.
 
 type moonshotPricingStrategy struct {
 	standardPricingStrategy
+}
+
+type zaiPricingStrategy struct {
+	standardPricingStrategy
+}
+
+func (zaiPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
+	return moonshotUsageCostBreakdown(input.model, input.usage, input.price, input.exchangeRate)
 }
 
 func (moonshotPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {

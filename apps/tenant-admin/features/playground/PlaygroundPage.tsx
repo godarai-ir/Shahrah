@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Boxes, CheckCircle2, Columns3, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, ServerCog, Square, Waypoints } from "lucide-react";
+import { AlertTriangle, Boxes, CheckCircle2, Columns3, FileScan, FlaskConical, FolderOpen, Image as ImageIcon, MessageSquare, Play, Save, ServerCog, Square, Waypoints } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -378,6 +378,12 @@ export default function PlaygroundPage() {
           responseID = typeof payload.id === "string" ? payload.id : undefined;
           responseModel = typeof payload.model === "string" ? payload.model : undefined;
           if (generatedImages.length === 0) throw new Error(t("image.noUsableImage"));
+        } else if (mode === "layout_parsing") {
+          responseText = extractPlaygroundText(payload.md_results);
+          usage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : undefined;
+          responseID = typeof payload.id === "string" ? payload.id : undefined;
+          responseModel = typeof payload.model === "string" ? payload.model : undefined;
+          rawResponse = payload;
         } else {
           const choice = Array.isArray(payload.choices) ? payload.choices[0] as Record<string, unknown> | undefined : undefined;
           const message = choice?.message && typeof choice.message === "object" ? choice.message as Record<string, unknown> : undefined;
@@ -519,12 +525,13 @@ export default function PlaygroundPage() {
           dir={locale === "fa" ? "rtl" : "ltr"}
           value={mode}
           disabled={anyRunning}
-          onValueChange={(value) => { if (value === "chat" || value === "image_generation") requestModeChange(value); }}
+          onValueChange={(value) => { if (value === "chat" || value === "image_generation" || value === "layout_parsing") requestModeChange(value); }}
           aria-label={t("mode.label")}
           className="rounded-md border border-border bg-muted p-1"
         >
           <ToggleGroupItem value="chat" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><MessageSquare />{t("mode.chat")}</ToggleGroupItem>
           <ToggleGroupItem value="image_generation" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><ImageIcon />{t("mode.imageGeneration")}</ToggleGroupItem>
+          <ToggleGroupItem value="layout_parsing" className="h-8 gap-2 px-3 data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"><FileScan />{t("mode.ocr")}</ToggleGroupItem>
         </ToggleGroup>
         {columns.length > 1 ? (
           <Tabs value={activeColumnID} onValueChange={setActiveColumnID} className="min-w-0 md:hidden">
@@ -547,7 +554,7 @@ export default function PlaygroundPage() {
       ) : modelError ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-destructive" /><div><h2 className="font-semibold">{t("errors.loadModels")}</h2><p className="mt-1 text-sm text-muted-foreground">{modelError}</p></div><Button type="button" onClick={() => void loadModels()}>{t("actions.retry")}</Button></div>
       ) : modeModels.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{mode === "image_generation" ? t("model.noImageModelTitle") : t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "image_generation" ? t("model.noImageModelDescription") : t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts">{t("model.connect")}</a></Button></div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center"><AlertTriangle className="size-8 text-warning" /><div><h2 className="font-semibold">{mode === "image_generation" ? t("model.noImageModelTitle") : mode === "layout_parsing" ? t("model.noOCRModelTitle") : t("model.unavailableTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{mode === "image_generation" ? t("model.noImageModelDescription") : mode === "layout_parsing" ? t("model.noOCRModelDescription") : t("model.unavailableDescription")}</p></div><Button asChild><a href="/provider-accounts">{t("model.connect")}</a></Button></div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden p-3">
           {columns.length === 1 ? (
@@ -653,7 +660,7 @@ function ModelPickerDialog(props: { open: boolean; onOpenChange: (open: boolean)
         { key: "provider", title: props.t("model.providerGroup"), models: providerModels, virtual: false },
         { key: "virtual", title: props.t("model.virtualGroup"), models: virtualModels, virtual: true },
       ];
-  const modeLabel = props.mode === "image_generation" ? props.t("mode.imageGeneration") : props.t("mode.chat");
+  const modeLabel = props.mode === "image_generation" ? props.t("mode.imageGeneration") : props.mode === "layout_parsing" ? props.t("mode.ocr") : props.t("mode.chat");
 
   function changeOpen(open: boolean) {
     props.onOpenChange(open);
@@ -966,7 +973,7 @@ function collectPlaygroundVariables(columns: PlaygroundColumnDraft[], mode: Play
   const pattern = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 
   for (const column of columns) {
-    const sources = mode === "image_generation" ? [column.imagePrompt] : column.messages.map((message) => message.content);
+    const sources = mode === "image_generation" ? [column.imagePrompt] : mode === "layout_parsing" ? [] : column.messages.map((message) => message.content);
     for (const source of sources) {
       for (const match of source.matchAll(pattern)) {
         const name = match[1]?.trim();

@@ -1,0 +1,35 @@
+documentation:
+  - https://docs.z.ai/llms.txt
+  - https://docs.z.ai/openapi.json
+  - https://docs.z.ai/guides/overview/overview
+  - https://docs.z.ai/guides/overview/pricing
+  - https://docs.z.ai/guides/develop/http/introduction
+  - https://docs.z.ai/api-reference/llm/chat-completion
+  - https://docs.z.ai/api-reference/tools/layout-parsing
+name: Z.ai
+website: https://z.ai/
+source_manifest:
+  observed_at: 2026-08-17
+  openapi_sha256: 76f83c8525f993e33c79c5483e4cdde7db0924b5c5e5d7480b9b574ce909f4da
+  llms_sha256: 60b34406d17fe6804b7c719e96886a8ad30082ada8b2187f85dcbc739cc7c25b
+messages:
+  options: [system, user, assistant, tool]
+params:
+  - key: do_sample
+    type: boolean
+  - key: stream
+    type: boolean
+  - key: thinking
+  - key: temperature
+    minValue: 0
+    maxValue: 1
+  - key: top_p
+    minValue: 0.01
+    maxValue: 1
+  - key: max_tokens
+    minValue: 1
+  - key: stop
+    type: array-of-strings
+  - key: response_format
+  - key: request_id
+  - key: user_id

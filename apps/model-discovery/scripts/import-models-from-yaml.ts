@@ -37,6 +37,11 @@ import {
   deepSeekProviderImporter,
   validateDeepSeekProviderDirectory,
 } from './model-import/providers/deepseek';
+import {
+  ZAI_PROVIDER_SLUG,
+  validateZAIProviderDirectory,
+  zaiProviderImporter,
+} from './model-import/providers/zai';
 import type {
   ProviderPricingRate,
   ProviderRateMapping,
@@ -173,6 +178,7 @@ const supportedOutputModalities = new Set([
   'image',
   'text',
   'video',
+  'document',
 ]);
 
 const supportedCapabilities = new Set([
@@ -534,7 +540,9 @@ async function parseProviderDir(
             ? mistralAIProviderImporter
             : providerSlug === deepSeekProviderImporter.slug
               ? deepSeekProviderImporter
-              : undefined;
+              : providerSlug === zaiProviderImporter.slug
+                ? zaiProviderImporter
+                : undefined;
   if (providerSlug === xaiProviderImporter.slug) {
     await validateXAIProviderDirectory(dirname(providerDir));
   }
@@ -543,6 +551,9 @@ async function parseProviderDir(
   }
   if (providerSlug === DEEPSEEK_PROVIDER_SLUG) {
     await validateDeepSeekProviderDirectory(dirname(providerDir));
+  }
+  if (providerSlug === ZAI_PROVIDER_SLUG) {
+    await validateZAIProviderDirectory(dirname(providerDir));
   }
   const defaultPath = join(providerDir, 'default.yaml');
   let defaultDoc: StringRecord | undefined;
@@ -553,8 +564,15 @@ async function parseProviderDir(
 
   const yamlFiles = await collectYamlFiles(providerDir);
 
-  const providerName = titleCaseFromSlug(providerSlug);
+  const providerName =
+    typeof defaultDoc?.['name'] === 'string' && defaultDoc['name'].trim() !== ''
+      ? defaultDoc['name'].trim()
+      : titleCaseFromSlug(providerSlug);
   const docsUrl = asStringArray(defaultDoc?.['documentation'])[0];
+  const websiteUrl =
+    typeof defaultDoc?.['website'] === 'string'
+      ? defaultDoc['website'].trim()
+      : undefined;
   const providerSources = asStringArray(defaultDoc?.['documentation']);
   const defaultToolPricing = asObject(defaultDoc?.['tool_pricing']);
 
@@ -1155,7 +1173,8 @@ async function parseProviderDir(
       (providerSlug === 'google-gemini' ||
         providerSlug === 'openai' ||
         providerSlug === 'xai' ||
-        providerSlug === 'mistral-ai') &&
+        providerSlug === 'mistral-ai' ||
+        providerSlug === ZAI_PROVIDER_SLUG) &&
       !explicitRuntimeProfile
     ) {
       throw new Error(`${modelId}: explicit runtimeProfile is required`);
@@ -1239,6 +1258,7 @@ async function parseProviderDir(
     slug: providerSlug,
     name: providerName,
     docsUrl,
+    websiteUrl,
     models,
   };
 }
@@ -1316,7 +1336,8 @@ async function importProviderBatch(
       supportsByok: true,
       supportsRegionalRouting:
         batch.slug !== MOONSHOT_PROVIDER_SLUG &&
-        batch.slug !== DEEPSEEK_PROVIDER_SLUG,
+        batch.slug !== DEEPSEEK_PROVIDER_SLUG &&
+        batch.slug !== ZAI_PROVIDER_SLUG,
       docsUrl: batch.docsUrl,
       websiteUrl: batch.websiteUrl,
     },
@@ -1328,7 +1349,8 @@ async function importProviderBatch(
       supportsByok: true,
       supportsRegionalRouting:
         batch.slug !== MOONSHOT_PROVIDER_SLUG &&
-        batch.slug !== DEEPSEEK_PROVIDER_SLUG,
+        batch.slug !== DEEPSEEK_PROVIDER_SLUG &&
+        batch.slug !== ZAI_PROVIDER_SLUG,
     },
   });
 

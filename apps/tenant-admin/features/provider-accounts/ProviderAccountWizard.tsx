@@ -2097,6 +2097,12 @@ export default function ProviderAccountWizard(props?: {
                                       documentationLabel={ux("integrations.wizard.providerDocumentation")}
                                     />
                                   ) : null}
+                                  {account.provider.trim().toLowerCase() === "zai" ? (
+                                    <Alert variant="warning">
+                                      <AlertTitle>{ux("connectionTest.warningTitle")}</AlertTitle>
+                                      <AlertDescription>{ux("connectionTest.zaiBillableWarning")}</AlertDescription>
+                                    </Alert>
+                                  ) : null}
                                   <div className="flex flex-wrap items-center justify-between gap-3">
                                     <p className="text-sm leading-6 text-muted-foreground">
                                       {ux("integrations.wizard.testConnectionDescription")}
