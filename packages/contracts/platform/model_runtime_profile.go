@@ -276,6 +276,7 @@ func (profile ModelRuntimeProfile) validateIdentityAndEndpoints() error {
 				"fim_completions",
 				"chat_moderations",
 				"ocr",
+				"layout_parsing",
 				"agents",
 			},
 			endpoint,

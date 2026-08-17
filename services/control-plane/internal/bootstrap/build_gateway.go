@@ -77,6 +77,8 @@ func (b *builder) buildGateway() error {
 			AnthropicFilesEnabled:        b.cfg.ProviderFeatures.AnthropicFilesEnabled,
 			AnthropicBatchesEnabled:      b.cfg.ProviderFeatures.AnthropicBatchesEnabled,
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
+			ZAIEnabled:                   b.cfg.ProviderFeatures.ZAIEnabled,
+			ZAILayoutParsingEnabled:      b.cfg.ProviderFeatures.ZAILayoutParsingEnabled,
 		},
 	}
 	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {
@@ -105,6 +107,7 @@ func (b *builder) buildGateway() error {
 	audioTranscriptionsHandler := proxy.NewAudioTranscriptionsHandlerWithDependencies(baseDependencies)
 	audioSpeechHandler := proxy.NewAudioSpeechHandlerWithDependencies(baseDependencies)
 	mistralOCRHandler := proxy.NewMistralOCRHandlerWithDependencies(baseDependencies)
+	zaiLayoutParsingHandler := proxy.NewZAILayoutParsingHandlerWithDependencies(baseDependencies)
 	mistralNativeHandler := proxy.NewMistralNativeHandler(baseDependencies, nativeResources)
 	modelsHandler := proxy.NewModelsHandler(b.runtimeDeploymentStore)
 	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseDependencies, nativeResources)
@@ -139,6 +142,7 @@ func (b *builder) buildGateway() error {
 		AudioTranscriptionsHandler: audioTranscriptionsHandler,
 		AudioSpeechHandler:         audioSpeechHandler,
 		MistralOCRHandler:          mistralOCRHandler,
+		ZAILayoutParsingHandler:    zaiLayoutParsingHandler,
 		MistralNativeHandler:       mistralNativeHandler,
 		ModelsHandler:              modelsHandler,
 		AnthropicNativeHandler:     anthropicNativeHandler,

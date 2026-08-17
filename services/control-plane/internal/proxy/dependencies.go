@@ -146,6 +146,8 @@ type ProviderFeatureConfig struct {
 	AnthropicFilesEnabled        bool
 	AnthropicBatchesEnabled      bool
 	AnthropicAccountIDs          []string
+	ZAIEnabled                   bool
+	ZAILayoutParsingEnabled      bool
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.

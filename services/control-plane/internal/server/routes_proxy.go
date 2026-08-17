@@ -1,8 +1,10 @@
 package server
 
 import (
+	"encoding/json"
 	"strings"
 
+	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -27,6 +29,7 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 	if deps.ProxyHandler != nil {
 		v1.Post("/chat/completions", deps.ProxyHandler.Handle)
+		app.Post("/api/paas/v4/chat/completions", deps.ProxyHandler.Handle)
 		v1.Get("/chat/deferred-completion/:request_id", deps.ProxyHandler.HandleXAIDeferredGet)
 	}
 
@@ -80,8 +83,28 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/audio/speech", deps.AudioSpeechHandler.Handle)
 	}
 
-	if deps.MistralOCRHandler != nil {
-		v1.Post("/ocr", deps.MistralOCRHandler.Handle)
+	if deps.ZAILayoutParsingHandler != nil {
+		v1.Post("/layout_parsing", deps.ZAILayoutParsingHandler.Handle)
+		app.Post("/api/paas/v4/layout_parsing", deps.ZAILayoutParsingHandler.Handle)
+	}
+
+	if deps.MistralOCRHandler != nil || deps.ZAILayoutParsingHandler != nil {
+		v1.Post("/ocr", func(c *fiber.Ctx) error {
+			var request struct {
+				Model string `json:"model"`
+			}
+			if json.Unmarshal(c.Body(), &request) == nil &&
+				strings.EqualFold(proxy.ProviderModelIDForRouting(request.Model), "glm-ocr") &&
+				deps.ZAILayoutParsingHandler != nil {
+				return deps.ZAILayoutParsingHandler.Handle(c)
+			}
+
+			if deps.MistralOCRHandler == nil {
+				return fiber.ErrNotFound
+			}
+
+			return deps.MistralOCRHandler.Handle(c)
+		})
 	}
 
 	if deps.MistralNativeHandler != nil {

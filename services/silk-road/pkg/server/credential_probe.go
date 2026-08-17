@@ -13,8 +13,11 @@ import (
 )
 
 type credentialProbeSpec struct {
-	url  string
-	auth string
+	url         string
+	auth        string
+	method      string
+	contentType string
+	body        []byte
 }
 
 func dispatchCredentialProbe(
@@ -31,7 +34,12 @@ func dispatchCredentialProbe(
 		client = &http.Client{}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.url, bytes.NewReader(nil))
+	method := spec.method
+	if method == "" {
+		method = http.MethodGet
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, spec.url, bytes.NewReader(spec.body))
 	if err != nil {
 		return nil, fmt.Errorf("build credential probe: %w", err)
 	}
@@ -53,6 +61,11 @@ func dispatchCredentialProbe(
 	}
 
 	req.Header.Set("Accept", "application/json")
+
+	if spec.contentType != "" {
+		req.Header.Set("Content-Type", spec.contentType)
+	}
+
 	applyDocumentedProviderHeaders(req, payload.Deployment)
 
 	resp, err := client.Do(req) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
@@ -113,6 +126,22 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 		spec = credentialModelsProbe(base, "https://api.deepinfra.com/v1/openai")
 	case "deepseek":
 		spec = credentialModelsProbe(base, "https://api.deepseek.com")
+	case "zai":
+		if base == "" {
+			base = "https://api.z.ai/api/paas/v4"
+		}
+
+		if err := validateZAIBaseURL(base); err != nil {
+			return credentialProbeSpec{}, err
+		}
+
+		spec = credentialProbeSpec{
+			url:         strings.TrimRight(base, "/") + "/chat/completions",
+			auth:        "bearer",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        []byte(`{"model":"glm-4.7-flashx","messages":[{"role":"user","content":"ping"}],"thinking":{"type":"disabled"},"do_sample":false,"max_tokens":1}`),
+		}
 	case "google-gemini":
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com"
@@ -206,6 +235,7 @@ func safeCredentialProbeURL(provider, raw string) bool {
 	exact := map[string]string{
 		"cerebras": "api.cerebras.ai", "cohere": "api.cohere.com",
 		"deepinfra": "api.deepinfra.com", "deepseek": "api.deepseek.com",
+		"zai":           "api.z.ai",
 		"google-gemini": "generativelanguage.googleapis.com", "groq": "api.groq.com",
 		"mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
 		"openrouter": "openrouter.ai", "together-ai": "api.together.xyz", "xai": "api.x.ai",

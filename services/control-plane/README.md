@@ -100,6 +100,8 @@ add post-construction setters to storage.
 - `ANTHROPIC_FILES_API_ENABLED`: optional independent rollback switch for native Files routes; default `true`
 - `ANTHROPIC_BATCH_API_ENABLED`: optional independent rollback switch for native Message Batches routes and reconciliation worker; default `true`
 - `ANTHROPIC_NATIVE_ACCOUNT_ALLOWLIST`: optional comma-separated provider-account IDs used for staged native API rollout; an empty value permits every authorized account
+- `SHAHRAH_ZAI_ENABLED`: optional rollback switch for Z.ai chat and multimodal routes; default `true`
+- `SHAHRAH_ZAI_LAYOUT_PARSING_ENABLED`: optional independent rollback switch for Z.ai GLM-OCR layout parsing routes; default `true`
 - `TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION`: active tenant credential KEK version
 - `TENANT_PROVIDER_CREDENTIAL_KEKS_JSON`: required version-to-base64-KEK map for tenant credential envelope encryption
 - `TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY`: required independent base64 key (at least 32 bytes after decoding) for tenant credential fingerprints
@@ -173,6 +175,23 @@ curl -s http://localhost:4000/v1/chat/completions \
 ```
 
 Successful inference should create a wallet debit plus request and spend log records for the issuing tenant.
+
+### Z.ai readiness probe
+
+The Z.ai readiness command is deliberately disabled unless live, billable requests are explicitly authorized. Provide a test credential, HTTPS fixture URLs, and a positive USD spend ceiling before running it:
+
+```bash
+GODARAI_ZAI_ALLOW_LIVE=true \
+GODARAI_ZAI_API_KEY=replace-with-test-key \
+GODARAI_ZAI_SPEND_CEILING_USD=0.10 \
+GODARAI_ZAI_IMAGE_URL=https://example.test/image.png \
+GODARAI_ZAI_VIDEO_URL=https://example.test/video.mp4 \
+GODARAI_ZAI_DOCUMENT_URL=https://example.test/document.pdf \
+GODARAI_ZAI_OCR_FILE_URL=https://example.test/ocr.pdf \
+go run ./cmd/zai-readiness
+```
+
+Use non-sensitive fixtures only. A successful probe reports evidence for release review; it does not enable the provider or change the production-readiness decision automatically.
 
 ## Gateway Response Caching
 

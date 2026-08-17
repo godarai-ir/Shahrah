@@ -199,9 +199,10 @@ type ChatMessage struct {
 // callers typically use reasoning_effort; Anthropic-native routing maps either
 // reasoning_effort or this object to the Anthropic thinking request field.
 type ThinkingConfig struct {
-	Type         string `json:"type,omitempty"`
-	BudgetTokens int    `json:"budget_tokens,omitempty"`
-	Display      string `json:"display,omitempty"`
+	Type          string `json:"type,omitempty"`
+	BudgetTokens  int    `json:"budget_tokens,omitempty"`
+	Display       string `json:"display,omitempty"`
+	ClearThinking *bool  `json:"clear_thinking,omitempty"`
 }
 
 // ThinkingBlock preserves provider reasoning blocks, including Anthropic
@@ -215,6 +216,7 @@ type ChatContentPart struct {
 	ImageURL   *ChatImageURL   `json:"image_url,omitempty"`
 	VideoURL   *ChatVideoURL   `json:"video_url,omitempty"`
 	File       *ChatFile       `json:"file,omitempty"`
+	FileURL    *ChatFileURL    `json:"file_url,omitempty"`
 	InputAudio *ChatInputAudio `json:"input_audio,omitempty"`
 }
 
@@ -234,6 +236,11 @@ type ChatFile struct {
 	Filename string `json:"filename,omitempty"`
 	FileData string `json:"file_data,omitempty"`
 	FileID   string `json:"file_id,omitempty"`
+}
+
+// ChatFileURL contains a provider-retrievable document URL or data URL.
+type ChatFileURL struct {
+	URL string `json:"url"`
 }
 
 // ChatInputAudio contains base64 audio and its documented OpenAI-compatible
@@ -338,7 +345,7 @@ func ChatContentFileCount(content interface{}) int {
 	count := 0
 
 	for _, part := range parts {
-		if part.Type == "file" {
+		if part.Type == "file" || part.Type == "file_url" {
 			count++
 		}
 	}
@@ -426,6 +433,10 @@ func validateChatContentParts(parts []ChatContentPart) ([]ChatContentPart, bool,
 			hasFileID := strings.TrimSpace(part.File.FileID) != ""
 			if !hasFileData && !hasFileID {
 				return nil, true, fmt.Errorf("content part[%d].file.file_data or file.file_id is required", i)
+			}
+		case "file_url":
+			if part.FileURL == nil || strings.TrimSpace(part.FileURL.URL) == "" {
+				return nil, true, fmt.Errorf("content part[%d].file_url.url is required", i)
 			}
 		case "input_audio":
 			if part.InputAudio == nil || strings.TrimSpace(part.InputAudio.Data) == "" {
@@ -516,6 +527,24 @@ func chatContentPartFromValue(raw interface{}) (ChatContentPart, error) {
 		if fileID, ok := file["file_id"].(string); ok {
 			part.File.FileID = fileID
 		}
+	case "file_url":
+		fileValue, ok := m["file_url"]
+		if !ok {
+			return ChatContentPart{}, fmt.Errorf("file_url is required")
+		}
+
+		part.FileURL = &ChatFileURL{}
+
+		switch fileURL := fileValue.(type) {
+		case string:
+			part.FileURL.URL = fileURL
+		case map[string]interface{}:
+			if rawURL, ok := fileURL["url"].(string); ok {
+				part.FileURL.URL = rawURL
+			}
+		default:
+			return ChatContentPart{}, fmt.Errorf("file_url must be a string or object")
+		}
 	case "input_audio":
 		inputAudio, ok := m["input_audio"].(map[string]interface{})
 		if !ok {
@@ -584,6 +613,12 @@ func redactChatContentParts(parts []ChatContentPart) []map[string]interface{} {
 			}
 
 			item["file"] = file
+		}
+
+		if part.Type == "file_url" && part.FileURL != nil {
+			item["file_url"] = map[string]interface{}{
+				"url": RedactDataURL(part.FileURL.URL),
+			}
 		}
 
 		if part.Type == "input_audio" && part.InputAudio != nil {

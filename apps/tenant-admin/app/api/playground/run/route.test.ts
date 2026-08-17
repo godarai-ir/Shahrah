@@ -35,6 +35,7 @@ describe("playground run route", () => {
       payload: { data: [
         { id: "gpt-image-1", supported_modes: ["image"] },
         { id: "dall-e-3", supported_modes: ["image_generation"] },
+        { id: "zai:default:glm-ocr", supported_modes: ["ocr"] },
       ] },
       responseHeaders: {},
     });
@@ -167,6 +168,65 @@ describe("playground run route", () => {
       n: 1,
       output_format: "png",
     });
+  });
+
+  it("routes bounded OCR requests through layout parsing", async () => {
+    const response = await POST(requestFor({
+      mode: "layout_parsing",
+      request: {
+        model: "zai:default:glm-ocr",
+        file: "https://example.test/document.pdf",
+        start_page_id: 1,
+        end_page_id: 30,
+        return_crop_images: true,
+        need_layout_visualization: true,
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(proxyToControlPlaneMock).toHaveBeenCalledOnce();
+    expect(proxyToControlPlaneMock.mock.calls[0][0]).toMatchObject({
+      path: "/v1/layout_parsing",
+      body: { model: "zai:default:glm-ocr", start_page_id: 1, end_page_id: 30 },
+    });
+  });
+
+  it("accepts bounded multimodal chat parts", async () => {
+    const response = await POST(requestFor({
+      request: {
+        model: "zai:default:glm-5v-turbo",
+        messages: [{ role: "user", content: [
+          { type: "text", text: "Describe" },
+          { type: "image_url", image_url: { url: "https://example.test/image.png" } },
+        ] }],
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(proxyToControlPlaneMock).toHaveBeenCalledOnce();
+  });
+
+  it("rejects unsupported Z.ai chat controls before proxying", async () => {
+    const response = await POST(requestFor({
+      request: {
+        model: "zai:default:glm-5.2",
+        messages: [{ role: "user", content: "hi" }],
+        stream: true,
+        stream_options: { include_usage: true },
+      },
+    }));
+
+    expect(response.status).toBe(400);
+    expect(proxyToControlPlaneMock).not.toHaveBeenCalled();
+
+    const vision = await POST(requestFor({
+      request: {
+        model: "zai:default:glm-5v-turbo",
+        messages: [{ role: "user", content: "hi" }],
+        response_format: { type: "json_object" },
+      },
+    }));
+    expect(vision.status).toBe(400);
   });
 
   it("forwards an explicitly selected response format for compatible image models", async () => {

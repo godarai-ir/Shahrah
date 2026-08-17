@@ -14,6 +14,7 @@
     "label": "حالت محیط آزمایش",
     "chat": "گفت‌وگو",
     "imageGeneration": "تولید تصویر",
+    "ocr": "OCR",
     "changeTitle": "حالت محیط آزمایش تغییر کند؟",
     "changeDescription": "ورودی و نتیجه گفت‌وگو با تولید تصویر سازگار نیست. با تغییر حالت، همه ستون‌های مقایسه بازنشانی می‌شوند.",
     "changeConfirm": "تغییر حالت و بازنشانی"
@@ -52,8 +53,17 @@
     "keepEditing": "ادامه ویرایش",
     "retry": "تلاش دوباره"
   },
-  "roles": { "system": "راهنما", "user": "کاربر", "assistant": "دستیار", "tool": "ابزار" },
-  "message": { "role": "نقش پیام", "content": "محتوای پیام", "toolCallId": "شناسه فراخوانی ابزار" },
+  "roles": {
+    "system": "راهنما",
+    "user": "کاربر",
+    "assistant": "دستیار",
+    "tool": "ابزار"
+  },
+  "message": {
+    "role": "نقش پیام",
+    "content": "محتوای پیام",
+    "toolCallId": "شناسه فراخوانی ابزار"
+  },
   "model": {
     "label": "مدل",
     "select": "انتخاب مدل",
@@ -73,8 +83,34 @@
     "unavailableDescription": "برای اجرای نخست، یک ارائه‌دهنده مدل متصل کنید.",
     "noImageModelTitle": "مدل تولید تصویر در دسترس نیست",
     "noImageModelDescription": "در یک حساب ارائه‌دهنده یا مدل مجازی، مدلی با قابلیت image_generation فعال کنید.",
+    "noOCRModelTitle": "مدل OCR در دسترس نیست",
+    "noOCRModelDescription": "در یک حساب ارائه‌دهنده یا مدل مجازی، مدلی با قابلیت OCR یا layout_parsing فعال کنید.",
     "connect": "اتصال ارائه‌دهنده مدل",
     "virtual": "مدل مجازی"
+  },
+  "media": {
+    "title": "ورودی چندرسانه‌ای",
+    "help": "تصویر می‌تواند نشانی HTTPS، داده base64 از نوع PNG/JPEG یا فایل محلی باشد. برای ویدئو و سند باید نشانی HTTPS وارد کنید.",
+    "add": "افزودن رسانه",
+    "type": "نوع رسانه",
+    "value": "منبع",
+    "placeholder": "نشانی HTTPS یا داده تصویری پشتیبانی‌شده",
+    "image": "تصویر",
+    "video": "ویدئو",
+    "document": "سند",
+    "upload": "انتخاب تصویر محلی"
+  },
+  "ocr": {
+    "help": "یک PDF یا تصویر را برای GLM-OCR بفرستید. هر درخواست حداکثر ۳۰ صفحهٔ مرتب را می‌پذیرد.",
+    "file": "نشانی فایل یا داده base64",
+    "fileHelp": "از نشانی HTTPS استفاده کنید یا یک PDF، PNG یا JPEG محلی را در ادامه انتخاب کنید.",
+    "upload": "انتخاب فایل محلی",
+    "startPage": "صفحه آغاز",
+    "endPage": "صفحه پایان",
+    "cropImages": "برگرداندن تصویرهای برش‌خورده",
+    "layoutVisualization": "برگرداندن نمایش دیداری چیدمان",
+    "emptyTitle": "هنوز سندی پردازش نشده است",
+    "emptyDescription": "مدل OCR را انتخاب کنید، PDF یا تصویر را وارد کنید و درخواست را اجرا کنید."
   },
   "image": {
     "prompt": "پرامپت تصویر",
@@ -110,19 +146,43 @@
     "title": "هنوز پرامپتی اجرا نشده است.",
     "description": "پیام کاربر و مدل را مشخص کنید، سپس اجرا را بزنید."
   },
-  "status": { "idle": "آماده", "running": "در حال اجرا", "success": "کامل", "stopped": "متوقف", "error": "ناموفق", "previous": "پاسخ قبلی", "cacheHit": "پاسخ کش‌شده" },
+  "status": {
+    "idle": "آماده",
+    "running": "در حال اجرا",
+    "success": "کامل",
+    "stopped": "متوقف",
+    "error": "ناموفق",
+    "previous": "پاسخ قبلی",
+    "cacheHit": "پاسخ کش‌شده"
+  },
   "billable": "هر ستون یک درخواست جدا و قابل‌صورتحساب است.",
   "shortcutHint": "میانبر اجرا: Ctrl/Cmd + Enter",
   "stopCost": "توقف رابط الزاماً هزینه مصرف‌شده ارائه‌دهنده را صفر نمی‌کند.",
   "readOnly": "شما دسترسی مشاهده دارید؛ اجرای هزینه‌زا و ذخیره برای این نقش غیرفعال است.",
-  "streamAnnouncement": { "started": "دریافت پاسخ آغاز شد.", "completed": "دریافت پاسخ کامل شد.", "failed": "اجرای مدل ناموفق بود.", "stopped": "اجرا متوقف شد." },
-  "variables": { "title": "متغیرهای مشترک", "description": "مقدار هر متغیر در همه ستون‌های مقایسه یکسان است.", "emptyTitle": "هنوز متغیری پیدا نشده است.", "emptyBefore": "برای افزودن متغیر، الگویی مانند", "emptyAfter": "را در متن پیام بنویسید.", "value": "مقدار {name}" },
+  "streamAnnouncement": {
+    "started": "دریافت پاسخ آغاز شد.",
+    "completed": "دریافت پاسخ کامل شد.",
+    "failed": "اجرای مدل ناموفق بود.",
+    "stopped": "اجرا متوقف شد."
+  },
+  "variables": {
+    "title": "متغیرهای مشترک",
+    "description": "مقدار هر متغیر در همه ستون‌های مقایسه یکسان است.",
+    "emptyTitle": "هنوز متغیری پیدا نشده است.",
+    "emptyBefore": "برای افزودن متغیر، الگویی مانند",
+    "emptyAfter": "را در متن پیام بنویسید.",
+    "value": "مقدار {name}"
+  },
   "settings": {
     "title": "پارامترها و تنظیمات پیشرفته",
     "description": "تنظیمات فقط روی همین ستون اعمال می‌شوند.",
     "model": "پارامترهای مدل",
     "godarai": "حافظه نهان",
     "stream": "پاسخ جریانی",
+    "doSample": "فعال‌کردن نمونه‌برداری",
+    "thinkingEnabled": "فعال‌کردن تفکر",
+    "clearThinking": "پاک‌کردن تفکر قبلی میان نوبت‌ها",
+    "zaiVisionContract": "قرارداد فعلی endpoint مدل GLM-5V-Turbo در Z.ai ابزارها و response_format را ارائه نمی‌کند؛ بنابراین این کنترل‌ها غیرفعال‌اند.",
     "temperature": "Temperature",
     "topP": "Top P",
     "maxTokens": "حداکثر توکن خروجی",
@@ -134,6 +194,7 @@
     "reasoningNone": "پیش‌فرض مدل",
     "toolChoice": "انتخاب ابزار",
     "parallelTools": "فراخوانی موازی ابزارها",
+    "toolStream": "دریافت جریانی فراخوانی ابزار",
     "tools": "ابزارها",
     "toolSafety": "گدارAI فقط درخواست ابزار مدل را نمایش می‌دهد؛ هیچ تابعی اجرا نمی‌شود.",
     "toolName": "نام تابع",
@@ -174,9 +235,23 @@
     "noGuardrails": "گاردریلی برای انتخاب در دسترس نیست."
   },
   "telemetry": {
-    "inputTokens": "توکن ورودی", "outputTokens": "توکن خروجی", "totalTokens": "مجموع توکن",
-    "duration": "زمان کل", "ttft": "اولین توکن", "costUSD": "هزینه دلار", "costIRR": "هزینه ریال",
-    "model": "مدل مؤثر", "cache": "کش", "cacheSimilarity": "شباهت کش", "finishReason": "علت پایان", "imageCount": "تعداد تصویر", "imageSize": "اندازه درخواستی", "imageQuality": "کیفیت درخواستی", "imageMimeType": "نوع MIME تصویر", "trace": "شناسه رد", "unavailable": "—"
+    "inputTokens": "توکن ورودی",
+    "outputTokens": "توکن خروجی",
+    "totalTokens": "مجموع توکن",
+    "duration": "زمان کل",
+    "ttft": "اولین توکن",
+    "costUSD": "هزینه دلار",
+    "costIRR": "هزینه ریال",
+    "model": "مدل مؤثر",
+    "cache": "کش",
+    "cacheSimilarity": "شباهت کش",
+    "finishReason": "علت پایان",
+    "imageCount": "تعداد تصویر",
+    "imageSize": "اندازه درخواستی",
+    "imageQuality": "کیفیت درخواستی",
+    "imageMimeType": "نوع MIME تصویر",
+    "trace": "شناسه رد",
+    "unavailable": "—"
   },
   "save": {
     "titleNew": "ذخیره در مخزن پرامپت",
@@ -195,10 +270,33 @@
     "saving": "در حال ذخیره...",
     "success": "پرامپت و نسخه تغییرناپذیر ذخیره شدند."
   },
-  "load": { "title": "بارگذاری از مخزن", "description": "یک پرامپت و نسخه را برای ستون فعال انتخاب کنید.", "search": "جست‌وجوی پرامپت", "empty": "پرامپتی پیدا نشد.", "versions": "نسخه‌ها", "noVersions": "نسخه‌ای برای این پرامپت پیدا نشد.", "loading": "در حال بارگذاری..." },
-  "dirty": { "title": "تغییرهای ذخیره‌نشده", "description": "با ادامه این کار، تغییرهای ذخیره‌نشده ستون فعال از بین می‌روند." },
-  "notice": { "success": "عملیات موفق", "error": "خطا", "warning": "هشدار", "info": "اطلاعات" },
-  "errors": { "loadModels": "فهرست مدل‌ها بارگذاری نشد.", "run": "اجرای مدل ناموفق بود.", "streamDisconnected": "ارتباط هنگام دریافت پاسخ قطع شد.", "save": "ذخیره پرامپت انجام نشد.", "load": "بارگذاری پرامپت انجام نشد.", "invalidJson": "JSON درخواست معتبر نیست." },
+  "load": {
+    "title": "بارگذاری از مخزن",
+    "description": "یک پرامپت و نسخه را برای ستون فعال انتخاب کنید.",
+    "search": "جست‌وجوی پرامپت",
+    "empty": "پرامپتی پیدا نشد.",
+    "versions": "نسخه‌ها",
+    "noVersions": "نسخه‌ای برای این پرامپت پیدا نشد.",
+    "loading": "در حال بارگذاری..."
+  },
+  "dirty": {
+    "title": "تغییرهای ذخیره‌نشده",
+    "description": "با ادامه این کار، تغییرهای ذخیره‌نشده ستون فعال از بین می‌روند."
+  },
+  "notice": {
+    "success": "عملیات موفق",
+    "error": "خطا",
+    "warning": "هشدار",
+    "info": "اطلاعات"
+  },
+  "errors": {
+    "loadModels": "فهرست مدل‌ها بارگذاری نشد.",
+    "run": "اجرای مدل ناموفق بود.",
+    "streamDisconnected": "ارتباط هنگام دریافت پاسخ قطع شد.",
+    "save": "ذخیره پرامپت انجام نشد.",
+    "load": "بارگذاری پرامپت انجام نشد.",
+    "invalidJson": "JSON درخواست معتبر نیست."
+  },
   "validation": {
     "jsonInvalid": "JSON معتبر نیست: {details}",
     "jsonRootObject": "ریشه JSON باید یک شیء باشد.",
@@ -222,6 +320,29 @@
     "imagePromptRequired": "پرامپت تصویر را وارد کنید.",
     "imagePromptTooLong": "پرامپت تصویر بیش از حد طولانی است.",
     "imageCompressionRange": "فشرده‌سازی خروجی باید عدد صحیحی بین ۰ و ۱۰۰ باشد.",
+    "mediaRequiresUserMessage": "ورودی چندرسانه‌ای به یک پیام کاربر نیاز دارد.",
+    "mediaCountLimit": "هر درخواست حداکثر ۱۵۰ تصویر، ۲ ویدئو یا ۵۰ سند را می‌پذیرد.",
+    "mediaFileConflict": "در یک درخواست GLM-5V نمی‌توان ورودی سند را با تصویر یا ویدئو ترکیب کرد.",
+    "zaiImageSource": "تصویر Z.ai باید نشانی HTTPS یا داده base64 از نوع PNG/JPEG باشد.",
+    "zaiRemoteMediaOnly": "ورودی {type} در Z.ai باید نشانی HTTPS باشد.",
+    "zaiTemperatureRange": "Temperature در Z.ai باید بین ۰ و ۱ باشد.",
+    "zaiStopLimit": "Z.ai در حال حاضر در هر درخواست فقط یک عبارت توقف می‌پذیرد.",
+    "zaiToolStreamRequiresStreaming": "دریافت جریانی ابزار در Z.ai به پاسخ جریانی و دست‌کم یک ابزار نیاز دارد.",
+    "zaiParallelToolsUnsupported": "قرارداد فعلی Z.ai فراخوانی موازی ابزارها را پشتیبانی نمی‌کند.",
+    "zaiToolChoiceAuto": "Z.ai در حال حاضر فقط انتخاب خودکار ابزار را می‌پذیرد.",
+    "zaiVisionToolsUnsupported": "تا زمانی که قرارداد endpoint آن را مستند نکند، ابزارها برای GLM-5V-Turbo فعال نیستند.",
+    "zaiVisionStructuredUnsupported": "قرارداد فعلی GLM-5V-Turbo پارامتر response_format را پشتیبانی نمی‌کند.",
+    "zaiJSONSchemaUnsupported": "مدل‌های متنی Z.ai از JSON Object پشتیبانی می‌کنند، نه JSON Schema.",
+    "zaiReasoningModel": "در این کاتالوگ Z.ai، پارامتر reasoning_effort فقط برای GLM-5.2 در دسترس است.",
+    "zaiToolDescription": "توضیح ابزار {index} در Z.ai الزامی است.",
+    "zaiLocalImageLimit": "یک تصویر PNG یا JPEG با حجم حداکثر ۵ مگابایت انتخاب کنید.",
+    "ocrFileType": "OCR فقط فایل‌های PDF، PNG یا JPEG را می‌پذیرد.",
+    "ocrPDFSize": "حجم PDF برای OCR نباید بیشتر از ۵۰ مگابایت باشد.",
+    "ocrImageSize": "حجم تصویر برای OCR نباید بیشتر از ۱۰ مگابایت باشد.",
+    "ocrFileRequired": "نشانی فایل را وارد کنید یا یک PDF یا تصویر بارگذاری کنید.",
+    "ocrPagePositive": "شماره صفحه‌های OCR باید عدد صحیح مثبت باشد.",
+    "ocrPageOrder": "صفحه پایان OCR باید بزرگ‌تر یا مساوی صفحه آغاز باشد.",
+    "ocrPageLimit": "هر درخواست OCR حداکثر می‌تواند ۳۰ صفحه داشته باشد.",
     "messagesRequired": "حداقل یک پیام غیرخالی لازم است.",
     "messageEmpty": "محتوای پیام {index} خالی است.",
     "messageToolCallId": "شناسه فراخوانی ابزار برای پیام {index} الزامی است.",

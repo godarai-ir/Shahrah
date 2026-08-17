@@ -17,14 +17,23 @@ describe("playground domain", () => {
   it("round-trips supported visual fields through JSON", () => {
     const column = createPlaygroundColumn("Option 1", "System {{tone}}");
     column.messages[1].content = "Hello {{name}}";
-    column.tools = [{ ...createPlaygroundTool(), name: "lookup", description: "Look up a record" }];
+    column.tools = [
+      {
+        ...createPlaygroundTool(),
+        name: "lookup",
+        description: "Look up a record",
+      },
+    ];
     column.jsonDraft = serializeColumnJSON(column);
 
     const parsed = applyColumnJSON(column);
 
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.column.messages.map((message) => message.role)).toEqual(["system", "user"]);
+    expect(parsed.column.messages.map((message) => message.role)).toEqual([
+      "system",
+      "user",
+    ]);
     expect(parsed.column.tools[0].name).toBe("lookup");
     expect(parsed.column.config.temperature).toBe("");
   });
@@ -38,7 +47,10 @@ describe("playground domain", () => {
 
   it("rejects unsupported raw fields before they can be silently dropped", () => {
     const column = createPlaygroundColumn("Option 1", "System");
-    column.jsonDraft = JSON.stringify({ messages: [], authorization: "secret" });
+    column.jsonDraft = JSON.stringify({
+      messages: [],
+      authorization: "secret",
+    });
     expect(applyColumnJSON(column)).toEqual({
       ok: false,
       errorKey: "validation.jsonUnsupportedFields",
@@ -53,7 +65,9 @@ describe("playground domain", () => {
     column.config.structuredName = "answer";
     column.jsonDraft = serializeColumnJSON(column);
 
-    expect(JSON.parse(column.jsonDraft).parameters.response_format).toMatchObject({
+    expect(
+      JSON.parse(column.jsonDraft).parameters.response_format,
+    ).toMatchObject({
       type: "json_schema",
       json_schema: { name: "answer" },
     });
@@ -73,7 +87,9 @@ describe("playground domain", () => {
 
   it("rejects unsupported nested message fields", () => {
     const column = createPlaygroundColumn("Option 1", "System");
-    column.jsonDraft = JSON.stringify({ messages: [{ role: "user", content: "hi", name: "attacker" }] });
+    column.jsonDraft = JSON.stringify({
+      messages: [{ role: "user", content: "hi", name: "attacker" }],
+    });
     expect(applyColumnJSON(column)).toEqual({
       ok: false,
       errorKey: "validation.jsonMessageUnsupportedFields",
@@ -86,7 +102,9 @@ describe("playground domain", () => {
     column.selectedModel = "openai:gpt-test";
     column.messages[1].content = "Hello {{name}}";
     column.variableValues = { tone: "brief", name: "Ada" };
-    column.config.metadata = [{ id: "metadata-1", key: "experiment", value: "a" }];
+    column.config.metadata = [
+      { id: "metadata-1", key: "experiment", value: "a" },
+    ];
 
     expect(getColumnVariables(column)).toEqual(["name", "tone"]);
     const built = validateAndBuildRunPayload(column, "comparison_1");
@@ -98,11 +116,15 @@ describe("playground domain", () => {
       { role: "system", content: "Use brief" },
       { role: "user", content: "Hello Ada" },
     ]);
-    expect(built.payload.request.stream_options).toEqual({ include_usage: true });
+    expect(built.payload.request.stream_options).toEqual({
+      include_usage: true,
+    });
     expect(built.payload.request).not.toHaveProperty("temperature");
     expect(built.payload.request).not.toHaveProperty("top_p");
     expect(built.payload.request).not.toHaveProperty("metadata");
-    expect(built.payload.godarai.observability).toEqual({ tags: { experiment: "a" } });
+    expect(built.payload.godarai.observability).toEqual({
+      tags: { experiment: "a" },
+    });
   });
 
   it("does not apply provider-specific ranges to configured sampling controls", () => {
@@ -126,7 +148,11 @@ describe("playground domain", () => {
     column.messages[1].content = "Hello";
     column.tools = [{ ...createPlaygroundTool(), name: "lookup" }];
     const clone = clonePlaygroundColumn(column, "Option 2");
-    const manifest = buildPlaygroundManifest(clone, "support_prompt", "Support");
+    const manifest = buildPlaygroundManifest(
+      clone,
+      "support_prompt",
+      "Support",
+    );
 
     expect(clone.id).not.toBe(column.id);
     expect(clone.messages[0].id).not.toBe(column.messages[0].id);
@@ -134,15 +160,18 @@ describe("playground domain", () => {
   });
 
   it("keeps prompt identity fields needed to save another immutable version", () => {
-    const hydrated = hydratePlaygroundColumn({
-      id: "version-2",
-      prompt_id: "prompt-1",
-      version: 2,
-      fqn: "chat_prompt:acme/support_prompt:2",
-      name: "support_prompt",
-      description: "Support prompt",
-      messages: [{ role: "user", content: "Hello" }],
-    }, "Option 1");
+    const hydrated = hydratePlaygroundColumn(
+      {
+        id: "version-2",
+        prompt_id: "prompt-1",
+        version: 2,
+        fqn: "chat_prompt:acme/support_prompt:2",
+        name: "support_prompt",
+        description: "Support prompt",
+        messages: [{ role: "user", content: "Hello" }],
+      },
+      "Option 1",
+    );
 
     expect(hydrated.sourcePromptName).toBe("support_prompt");
     expect(hydrated.sourcePromptDescription).toBe("Support prompt");
@@ -152,7 +181,9 @@ describe("playground domain", () => {
     const column = createPlaygroundColumn("Option 1", "System");
     column.selectedModel = "gpt-test";
     column.messages[1].content = "Hello";
-    column.tools = [{ ...createPlaygroundTool(), name: "lookup", schema: "not-json" }];
+    column.tools = [
+      { ...createPlaygroundTool(), name: "lookup", schema: "not-json" },
+    ];
 
     expect(validateAndBuildRunPayload(column, "comparison-1")).toEqual({
       ok: false,
@@ -173,7 +204,11 @@ describe("playground domain", () => {
       outputCompression: "80",
     };
 
-    const built = validateAndBuildRunPayload(column, "comparison-1", "image_generation");
+    const built = validateAndBuildRunPayload(
+      column,
+      "comparison-1",
+      "image_generation",
+    );
 
     expect(built.ok).toBe(true);
     if (!built.ok) return;
@@ -192,13 +227,153 @@ describe("playground domain", () => {
     expect(built.payload).not.toHaveProperty("godarai");
   });
 
+  it("builds visual multimodal chat content without manual JSON", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "zai:default:glm-5v-turbo";
+    column.messages[1].content = "Describe these inputs";
+    column.media = [
+      {
+        id: "media-1",
+        type: "image_url",
+        value: "https://example.test/image.png",
+      },
+      {
+        id: "media-2",
+        type: "video_url",
+        value: "https://example.test/video.mp4",
+      },
+    ];
+
+    const built = validateAndBuildRunPayload(column, "comparison-1");
+
+    expect(built.ok).toBe(true);
+    if (!built.ok || built.payload.mode !== "chat") return;
+    const messages = built.payload.request.messages as Array<{
+      content: unknown;
+    }>;
+    expect(messages[1].content).toEqual([
+      { type: "text", text: "Describe these inputs" },
+      {
+        type: "image_url",
+        image_url: { url: "https://example.test/image.png" },
+      },
+      {
+        type: "video_url",
+        video_url: { url: "https://example.test/video.mp4" },
+      },
+    ]);
+  });
+
+  it("rejects GLM-5V document and media mixing before dispatch", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "zai:default:glm-5v-turbo";
+    column.messages[1].content = "Describe";
+    column.media = [
+      {
+        id: "media-1",
+        type: "image_url",
+        value: "https://example.test/image.png",
+      },
+      {
+        id: "media-2",
+        type: "file_url",
+        value: "https://example.test/document.pdf",
+      },
+    ];
+
+    expect(validateAndBuildRunPayload(column, "comparison-1")).toEqual({
+      ok: false,
+      errorKey: "validation.mediaFileConflict",
+    });
+  });
+
+  it("builds a bounded GLM-OCR layout parsing request", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedModel = "zai:default:glm-ocr";
+    column.ocrConfig = {
+      file: "https://example.test/document.pdf",
+      returnCropImages: true,
+      needLayoutVisualization: true,
+      startPageID: "2",
+      endPageID: "30",
+    };
+
+    const built = validateAndBuildRunPayload(
+      column,
+      "comparison-1",
+      "layout_parsing",
+    );
+
+    expect(built).toMatchObject({
+      ok: true,
+      payload: {
+        mode: "layout_parsing",
+        request: {
+          model: "zai:default:glm-ocr",
+          file: "https://example.test/document.pdf",
+          start_page_id: 2,
+          end_page_id: 30,
+          return_crop_images: true,
+          need_layout_visualization: true,
+        },
+      },
+    });
+  });
+
+  it("uses only Z.ai-supported streaming and structured-output controls", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedProvider = "zai";
+    column.selectedModel = "zai:default:glm-5.2";
+    column.messages[1].content = "Return JSON";
+    column.config.structuredEnabled = true;
+    column.config.structuredFormat = "json_object";
+
+    const built = validateAndBuildRunPayload(column, "comparison-1");
+
+    expect(built.ok).toBe(true);
+    if (!built.ok || built.payload.mode !== "chat") return;
+    expect(built.payload.request).not.toHaveProperty("stream_options");
+    expect(built.payload.request).toMatchObject({
+      do_sample: true,
+      thinking: { type: "enabled", clear_thinking: true },
+      response_format: { type: "json_object" },
+    });
+  });
+
+  it("rejects JSON Schema and local video data for Z.ai", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedProvider = "zai";
+    column.selectedModel = "zai:default:glm-5.2";
+    column.messages[1].content = "Return JSON";
+    column.config.structuredEnabled = true;
+
+    expect(validateAndBuildRunPayload(column, "comparison-1")).toEqual({
+      ok: false,
+      errorKey: "validation.zaiJSONSchemaUnsupported",
+    });
+
+    column.config.structuredEnabled = false;
+    column.selectedModel = "zai:default:glm-5v-turbo";
+    column.media = [
+      { id: "media-1", type: "video_url", value: "data:video/mp4;base64,AAAA" },
+    ];
+    expect(validateAndBuildRunPayload(column, "comparison-1")).toMatchObject({
+      ok: false,
+      errorKey: "validation.zaiRemoteMediaOnly",
+    });
+  });
+
   it("sends an explicitly selected response format for compatible image models", () => {
     const column = createPlaygroundColumn("Option 1", "System");
     column.selectedModel = "openai:images:dall-e-3";
     column.imagePrompt = "A quiet mountain lake";
     column.imageConfig.responseFormat = "b64_json";
 
-    const built = validateAndBuildRunPayload(column, "comparison-1", "image_generation");
+    const built = validateAndBuildRunPayload(
+      column,
+      "comparison-1",
+      "image_generation",
+    );
 
     expect(built.ok).toBe(true);
     if (!built.ok) return;
@@ -209,17 +384,29 @@ describe("playground domain", () => {
   });
 
   it("normalizes safe image results and redacts base64 from the raw response", () => {
-    const normalized = normalizeImageGenerationResponse({
-      data: [
-        { b64_json: "YWJj", revised_prompt: "A revised prompt" },
-        { url: "javascript:alert(1)" },
-        { url: "https://cdn.example.test/image.png" },
-      ],
-    }, "png");
+    const normalized = normalizeImageGenerationResponse(
+      {
+        data: [
+          { b64_json: "YWJj", revised_prompt: "A revised prompt" },
+          { url: "javascript:alert(1)" },
+          { url: "https://cdn.example.test/image.png" },
+        ],
+      },
+      "png",
+    );
 
     expect(normalized.images).toEqual([
-      { index: 0, b64Json: "YWJj", revisedPrompt: "A revised prompt", mimeType: "image/png" },
-      { index: 2, url: "https://cdn.example.test/image.png", mimeType: "image/png" },
+      {
+        index: 0,
+        b64Json: "YWJj",
+        revisedPrompt: "A revised prompt",
+        mimeType: "image/png",
+      },
+      {
+        index: 2,
+        url: "https://cdn.example.test/image.png",
+        mimeType: "image/png",
+      },
     ]);
     expect(JSON.stringify(normalized.rawResponse)).not.toContain("YWJj");
     expect(JSON.stringify(normalized.rawResponse)).toContain("base64 omitted");

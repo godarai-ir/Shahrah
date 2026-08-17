@@ -57,6 +57,7 @@ type Dependencies struct {
 	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
 	AudioSpeechHandler         *proxy.AudioSpeechHandler
 	MistralOCRHandler          *proxy.MistralOCRHandler
+	ZAILayoutParsingHandler    *proxy.ZAILayoutParsingHandler
 	MistralNativeHandler       *proxy.MistralNativeHandler
 	ModelsHandler              *proxy.ModelsHandler
 	AnthropicNativeHandler     *proxy.AnthropicNativeHandler

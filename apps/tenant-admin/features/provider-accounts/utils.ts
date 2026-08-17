@@ -517,6 +517,7 @@ export function formatProviderDisplayName(provider: string, displayName?: string
     azure: "Azure OpenAI",
     ai21: "AI21",
     xai: "xAI",
+    zai: "Z.ai",
     "aws-bedrock": "AWS Bedrock",
     bedrock: "AWS Bedrock",
     "google-vertex-ai": "Google Vertex AI",

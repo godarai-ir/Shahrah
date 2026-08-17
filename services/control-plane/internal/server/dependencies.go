@@ -37,6 +37,7 @@ func (d Dependencies) ValidateRequired() error {
 	require("audio transcriptions handler", d.AudioTranscriptionsHandler != nil)
 	require("audio speech handler", d.AudioSpeechHandler != nil)
 	require("Mistral OCR handler", d.MistralOCRHandler != nil)
+	require("Z.ai layout parsing handler", d.ZAILayoutParsingHandler != nil)
 	require("Mistral native handler", d.MistralNativeHandler != nil)
 	require("models handler", d.ModelsHandler != nil)
 	require("Anthropic native handler", d.AnthropicNativeHandler != nil)

@@ -39,6 +39,7 @@ const sidebars: SidebarsConfig = {
         'provider-models-compare',
         'providers/deepseek',
         'providers/moonshot',
+        'providers/zai',
       ],
     },
     {

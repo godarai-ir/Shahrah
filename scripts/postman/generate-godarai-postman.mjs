@@ -27,6 +27,7 @@ const fallbackProviders = [
   { slug: 'sambanova', name: 'Sambanova', status: 'active', enabled: true, modelCount: 13 },
   { slug: 'together-ai', name: 'Together Ai', status: 'active', enabled: true, modelCount: 238 },
   { slug: 'xai', name: 'Xai', status: 'active', enabled: true, modelCount: 72 },
+  { slug: 'zai', name: 'Z.ai', status: 'active', enabled: true, modelCount: 4 },
 ];
 
 const endpoints = [
@@ -42,6 +43,7 @@ const endpoints = [
   { key: 'images_variations', method: 'POST', path: '/v1/images/variations', implemented: true },
   { key: 'audio_transcriptions', method: 'POST', path: '/v1/audio/transcriptions', implemented: true },
   { key: 'audio_speech', method: 'POST', path: '/v1/audio/speech', implemented: true },
+  { key: 'layout_parsing', method: 'POST', path: '/v1/layout_parsing', implemented: true },
   { key: 'batch', method: 'POST', path: '/v1/batches', implemented: false },
   { key: 'files', method: 'POST', path: '/v1/files', implemented: false },
   { key: 'video', method: 'POST', path: '/v1/videos', implemented: false },
@@ -421,12 +423,16 @@ function placeholderCollection(provider) {
     ['model_fqn_embeddings', `${modelPrefix}:{{provider_account_name}}:{{provider_embedding_model_slug}}`],
     ['model_fqn_images', `${modelPrefix}:{{provider_account_name}}:{{provider_image_model_slug}}`],
     ['model_fqn_video', `${modelPrefix}:{{provider_account_name}}:{{provider_video_model_slug}}`],
+    ['model_fqn_ocr', `${modelPrefix}:{{provider_account_name}}:{{provider_ocr_model_slug}}`],
+    ['provider_ocr_model_slug', provider.slug === 'zai' ? 'glm-ocr' : ''],
+    ['ocr_file_url', 'https://example.com/document.pdf'],
     ['supports_chat', 'false'],
     ['supports_completion', 'false'],
     ['supports_responses', 'false'],
     ['supports_embeddings', 'false'],
     ['supports_images', 'false'],
     ['supports_video', 'false'],
+    ['supports_ocr', provider.slug === 'zai' ? 'true' : 'false'],
     ['supports_batch', 'false'],
   ].map(([key, value]) => ({ key, value, type: 'string' }));
 
@@ -485,6 +491,18 @@ function placeholderCollection(provider) {
             prompt: `API diagnostic image for ${provider.name}`,
             n: 1,
           }, imageTests, placeholderSkip),
+          ...(provider.slug === 'zai' ? [rawJsonRequest('GLM-OCR Layout Parsing', 'POST', '/v1/layout_parsing', {
+            model: '{{model_fqn_ocr}}',
+            file: '{{ocr_file_url}}',
+            start_page_id: 1,
+            end_page_id: 1,
+            return_crop_images: false,
+            need_layout_visualization: false,
+          }, [
+            ...basicJsonTests([200]),
+            "const body = pm.response.json();",
+            "pm.test('layout parsing shape', () => { pm.expect(body.md_results || body.layout_details).to.exist; });",
+          ], placeholderSkip)] : []),
           rawJsonRequest('Batch Placeholder - Route Not Registered', 'POST', '/v1/batches', {
             input_file_id: '{{batch_input_file_id}}',
             endpoint: '/v1/chat/completions',

@@ -28,6 +28,7 @@ const (
 	PricingStrategyAnthropic    PricingStrategyKind = "anthropic"
 	PricingStrategyXAI          PricingStrategyKind = "xai"
 	PricingStrategyDeepSeek     PricingStrategyKind = "deepseek"
+	PricingStrategyZAI          PricingStrategyKind = "zai"
 	PricingStrategyMoonshot     PricingStrategyKind = "moonshot"
 	PricingStrategyGoogleGemini PricingStrategyKind = "google-gemini"
 	PricingStrategyMistral      PricingStrategyKind = "mistral"
@@ -113,8 +114,11 @@ var definitions = []Definition{
 			CapabilityFiles,
 			CapabilityModels,
 		},
-		OperationNamespaces:            []string{"anthropic_"},
-		Operations:                     []platform.ProviderOperation{platform.ProviderOperationCredentialProbe, platform.ProviderOperationChatCompletions},
+		OperationNamespaces: []string{"anthropic_"},
+		Operations: []platform.ProviderOperation{
+			platform.ProviderOperationCredentialProbe,
+			platform.ProviderOperationChatCompletions,
+		},
 		DispatchRuntimeProfileRequired: true,
 		LegacyModelPrefixes:            []string{"claude-"},
 	},
@@ -159,6 +163,20 @@ var definitions = []Definition{
 		PricingStrategy:                PricingStrategyDeepSeek,
 		Capabilities:                   []Capability{CapabilityChatCompletions},
 		Operations:                     []platform.ProviderOperation{platform.ProviderOperationCredentialProbe, platform.ProviderOperationChatCompletions},
+		DispatchRuntimeProfileRequired: true,
+	},
+	{
+		Slug:                "zai",
+		DisplayName:         "Z.ai",
+		PricingSnapshot:     PricingSnapshotCatalog,
+		PricingStrategy:     PricingStrategyZAI,
+		Capabilities:        []Capability{CapabilityChatCompletions, CapabilityOCR},
+		OperationNamespaces: []string{"zai_"},
+		Operations: []platform.ProviderOperation{
+			platform.ProviderOperationCredentialProbe,
+			platform.ProviderOperationChatCompletions,
+			platform.ProviderOperationZAILayoutParsing,
+		},
 		DispatchRuntimeProfileRequired: true,
 	},
 	{
@@ -511,6 +529,7 @@ func validPricingStrategy(kind PricingStrategyKind) bool {
 		PricingStrategyAnthropic,
 		PricingStrategyXAI,
 		PricingStrategyDeepSeek,
+		PricingStrategyZAI,
 		PricingStrategyMoonshot,
 		PricingStrategyGoogleGemini,
 		PricingStrategyMistral:
