@@ -10,4 +10,5 @@ export const PROVIDER_DOCS_URLS: Record<string, string> = {
   "perplexity-ai": "https://docs.perplexity.ai/",
   vertex: "https://cloud.google.com/vertex-ai/generative-ai/docs",
   xai: "https://docs.x.ai/",
+  zai: "https://docs.z.ai/",
 };

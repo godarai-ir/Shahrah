@@ -284,6 +284,31 @@ func TestChatMessageContentUnmarshalVideoPart(t *testing.T) {
 	}
 }
 
+func TestChatMessageContentUnmarshalFileURLPart(t *testing.T) {
+	var req ChatCompletionRequest
+
+	err := json.Unmarshal([]byte(`{
+		"model":"glm-5v-turbo",
+		"messages":[{"role":"user","content":[
+			{"type":"text","text":"Read this."},
+			{"type":"file_url","file_url":{"url":"https://example.com/document.pdf"}}
+		]}]
+	}`), &req)
+	if err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	parts, ok, err := ChatContentParts(req.Messages[0].Content)
+	if err != nil || !ok || parts[1].FileURL == nil ||
+		parts[1].FileURL.URL != "https://example.com/document.pdf" {
+		t.Fatalf("file_url was not preserved: parts=%#v ok=%t err=%v", parts, ok, err)
+	}
+
+	if !ChatContentHasFile(req.Messages[0].Content) {
+		t.Fatal("file_url was not recognized as document input")
+	}
+}
+
 func TestChatMessageContentRejectsFilePartWithoutDataOrID(t *testing.T) {
 	content := []interface{}{
 		map[string]interface{}{"type": "file", "file": map[string]interface{}{"filename": "guide.pdf"}},

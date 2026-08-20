@@ -249,6 +249,7 @@
       "warningTitle": "Connection warning",
       "infoTitle": "Connection test",
       "credentialHint": "Stored credential",
+      "zaiBillableWarning": "Z.ai has no non-billable credential endpoint. This explicit test sends a one-token request to glm-4.7-flashx and may create a small upstream charge.",
       "wifStatus": "Anthropic workload identity status",
       "wifScopes": "Effective WIF scopes",
       "wifExpiresAt": "Access token expires at",

@@ -1,4 +1,4 @@
-export type PlaygroundMode = "chat" | "image_generation";
+export type PlaygroundMode = "chat" | "image_generation" | "layout_parsing";
 
 export function normalizePlaygroundMode(value: unknown): PlaygroundMode | null {
   if (typeof value !== "string") return null;
@@ -15,6 +15,10 @@ export function normalizePlaygroundMode(value: unknown): PlaygroundMode | null {
     case "text_to_image":
     case "image_edit":
       return "image_generation";
+    case "ocr":
+    case "layout":
+    case "layout_parsing":
+      return "layout_parsing";
     default:
       return null;
   }

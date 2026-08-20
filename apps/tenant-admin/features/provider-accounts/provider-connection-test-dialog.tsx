@@ -81,6 +81,17 @@ export function ProviderConnectionTestDialog(props: {
       }
     >
       <form id="provider-connection-test-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        {props.account.provider.trim().toLowerCase() === "zai" ? (
+          <OperationNotice
+            notice={{ kind: "warning", message: ux("connectionTest.zaiBillableWarning") }}
+            labels={{
+              success: ux("connectionTest.successTitle"),
+              error: ux("connectionTest.errorTitle"),
+              warning: ux("connectionTest.warningTitle"),
+              info: ux("connectionTest.infoTitle"),
+            }}
+          />
+        ) : null}
         <DefinitionList columns={2}>
           <DefinitionListItem surface label={t("fields.provider")} value={props.account.provider} valueDir="ltr" />
           <DefinitionListItem surface label={t("fields.accountName")} value={props.account.name} valueDir="ltr" mono />

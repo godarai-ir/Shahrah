@@ -13,6 +13,7 @@ func TestDefinitionsCoverFirstClassProviders(t *testing.T) {
 		"anthropic":     true,
 		"xai":           true,
 		"deepseek":      true,
+		"zai":           true,
 		"moonshot":      true,
 		"google-gemini": true,
 		"mistral-ai":    true,
@@ -135,6 +136,17 @@ func TestDefinitionsSatisfyProviderContracts(t *testing.T) {
 			operations: []platform.ProviderOperation{
 				platform.ProviderOperationCredentialProbe,
 				platform.ProviderOperationChatCompletions,
+			},
+		},
+		"zai": {
+			pricingSnapshot:     PricingSnapshotCatalog,
+			pricingStrategy:     PricingStrategyZAI,
+			operationNamespaces: []string{"zai_"},
+			capabilities:        []Capability{CapabilityChatCompletions, CapabilityOCR},
+			operations: []platform.ProviderOperation{
+				platform.ProviderOperationCredentialProbe,
+				platform.ProviderOperationChatCompletions,
+				platform.ProviderOperationZAILayoutParsing,
 			},
 		},
 		"moonshot": {

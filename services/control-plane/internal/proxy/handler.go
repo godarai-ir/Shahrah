@@ -384,6 +384,10 @@ func (h *ChatCompletionHandler) chatDeploymentRequestValidationError(
 		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("mistral AI chat completions are disabled")
 	}
 
+	if isZAIProvider(provider) && h.providerFeatures.Configured && !h.providerFeatures.ZAIEnabled {
+		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("z.ai chat completions are disabled")
+	}
+
 	if chatRequestHasImage(req) && !supportsChatImageProvider(provider) {
 		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support image input through GodarAI chat completions", provider)
 	}
@@ -477,6 +481,10 @@ func chatRuntimeProfileValidationError(
 
 	if isMistralProvider(provider) {
 		return validateMistralChatRuntimeProfile(req, runtimeProfile)
+	}
+
+	if isZAIProvider(provider) {
+		return validateZAIChatRuntimeProfile(req, runtimeProfile)
 	}
 
 	return nil
@@ -2260,7 +2268,7 @@ func thinkingConfigEnabled(value *contractsopenai.ThinkingConfig) bool {
 
 func supportsChatImageProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
+	case "", "openai", "azure", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "anthropic", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2268,12 +2276,14 @@ func supportsChatImageProvider(provider string) bool {
 }
 
 func supportsChatVideoProvider(provider string) bool {
-	return strings.EqualFold(strings.TrimSpace(provider), "moonshot")
+	provider = strings.ToLower(strings.TrimSpace(provider))
+
+	return provider == "moonshot" || provider == "zai"
 }
 
 func supportsChatToolsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
+	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2282,7 +2292,7 @@ func supportsChatToolsProvider(provider string) bool {
 
 func supportsChatResponseFormatProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "gemini", "google-gemini":
+	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2291,7 +2301,7 @@ func supportsChatResponseFormatProvider(provider string) bool {
 
 func supportsChatExtendedThinkingProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "anthropic", "gemini", "google-gemini":
+	case "", "openai", "azure", "deepseek", "groq", "mistral", "mistral-ai", "moonshot", "openrouter", "perplexity", "perplexityai", "sambanova", "togetherai", "together-ai", "xai", "zai", "anthropic", "gemini", "google-gemini":
 		return true
 	default:
 		return false
@@ -2300,7 +2310,7 @@ func supportsChatExtendedThinkingProvider(provider string) bool {
 
 func supportsChatFileProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "", "openai", "azure", "openrouter", "anthropic", "xai":
+	case "", "openai", "azure", "openrouter", "anthropic", "xai", "zai":
 		return true
 	default:
 		return false
@@ -2371,7 +2381,7 @@ func validateChatResponseFormat(value interface{}) error {
 	}
 
 	switch formatType {
-	case "json_object":
+	case "text", "json_object":
 		return nil
 	case "json_schema":
 		rawSchema, ok := format["json_schema"].(map[string]interface{})
