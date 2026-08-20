@@ -52,7 +52,7 @@ concurrency:
 env:
   REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
   REGISTRY_REPOSITORY: delpak/godar-ai
-  GITOPS_REPO: Delpak/shahrah-gitops
+  GITOPS_REPO: godarai-ir/shahrah-gitops
   RELEASE_SHA: ${{ inputs.head_sha || github.sha }}
 
 jobs:
