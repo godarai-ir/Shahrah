@@ -10,6 +10,7 @@ import (
 	"github.com/Delpak/shahrah/services/control-plane/internal/cache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/guardrails"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
+	"github.com/Delpak/shahrah/services/control-plane/internal/ragproxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/responsecache"
 	"github.com/Delpak/shahrah/services/control-plane/internal/runtimeprofile"
 	"github.com/Delpak/shahrah/services/control-plane/internal/server"
@@ -79,8 +80,10 @@ func (b *builder) buildGateway() error {
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
 		},
 	}
-	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {
-		return fmt.Errorf("validate gateway billing capabilities: %w", err)
+
+	validationErr := baseDependencies.BillingCapabilities.Validate()
+	if validationErr != nil {
+		return fmt.Errorf("validate gateway billing capabilities: %w", validationErr)
 	}
 
 	chatHandler := proxy.NewChatCompletionHandlerWithDependencies(proxy.ChatCompletionDependencies{
@@ -110,6 +113,11 @@ func (b *builder) buildGateway() error {
 	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseDependencies, nativeResources)
 	geminiNativeHandler := proxy.NewGeminiNativeHandler(baseDependencies, nativeResources)
 
+	ragHandler, err := ragproxy.New(b.cfg.RAG.URL, b.cfg.RAG.Token, b.cfg.RAG.Timeout)
+	if err != nil {
+		return fmt.Errorf("initialize managed RAG proxy: %w", err)
+	}
+
 	if err := b.lifecycle.AddLoop("Anthropic batch reconciler", func(ctx context.Context) {
 		anthropicNativeHandler.RunBatchWorker(ctx, 15*time.Second)
 	}); err != nil {
@@ -135,6 +143,7 @@ func (b *builder) buildGateway() error {
 		EmbeddingsHandler:          embeddingsHandler,
 		ModerationsHandler:         moderationsHandler,
 		RerankHandler:              rerankHandler,
+		RAGHandler:                 ragHandler,
 		ImagesHandler:              imagesHandler,
 		AudioTranscriptionsHandler: audioTranscriptionsHandler,
 		AudioSpeechHandler:         audioSpeechHandler,

@@ -3,6 +3,7 @@ import path from "node:path";
 
 const root = path.resolve(process.cwd(), "messages");
 const modulesRoot = path.join(root, "modules");
+const requestConfigPath = path.resolve(process.cwd(), "i18n", "request.ts");
 const locales = ["fa", "en"];
 
 function fail(message) {
@@ -22,6 +23,28 @@ const namespaces = fs
 
 if (namespaces.length === 0) {
   fail("no namespaces found in messages/modules");
+}
+
+if (!fs.existsSync(requestConfigPath)) {
+  fail(`request config not found at ${requestConfigPath}`);
+}
+
+const requestConfig = fs.readFileSync(requestConfigPath, "utf8");
+const manifestMatch = requestConfig.match(/const MESSAGE_NAMESPACES = \[([\s\S]*?)\] as const;/);
+if (!manifestMatch) {
+  fail(`MESSAGE_NAMESPACES manifest not found in ${requestConfigPath}`);
+}
+
+const registeredNamespaces = [...manifestMatch[1].matchAll(/["']([^"']+)["']/g)]
+  .map((match) => match[1])
+  .sort();
+const missingRegistrations = namespaces.filter((namespace) => !registeredNamespaces.includes(namespace));
+const missingDirectories = registeredNamespaces.filter((namespace) => !namespaces.includes(namespace));
+if (missingRegistrations.length > 0 || missingDirectories.length > 0) {
+  fail(
+    `namespace registry mismatch. Missing registrations: ${missingRegistrations.join(", ") || "none"}; ` +
+      `missing directories: ${missingDirectories.join(", ") || "none"}`,
+  );
 }
 
 for (const locale of locales) {

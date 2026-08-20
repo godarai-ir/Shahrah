@@ -30,6 +30,7 @@ type Config struct {
 	Credentials      CredentialSettings      `mapstructure:"-"`
 	SupportFiles     SupportFileSettings     `mapstructure:"-"`
 	ProviderFeatures ProviderFeatureSettings `mapstructure:"-"`
+	RAG              RAGSettings             `mapstructure:"-"`
 }
 
 // ProfilingSettings controls opt-in runtime profiling endpoints and sampling.
@@ -251,6 +252,7 @@ func LoadConfig(logger *zap.Logger) (*Config, error) {
 	cfg.Credentials = LoadCredentialSettings()
 	cfg.SupportFiles = LoadSupportFileSettings()
 	cfg.ProviderFeatures = LoadProviderFeatureSettings()
+	cfg.RAG = LoadRAGSettings()
 	cfg.Observability = LoadObservabilitySettings()
 	cfg.Admin = LoadAdminSettings()
 

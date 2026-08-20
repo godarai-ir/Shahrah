@@ -28,6 +28,7 @@
   },
   "actions": {
     "refresh": "بازآوری",
+    "cancel": "انصراف",
     "create": "ایجاد توکن",
     "creating": "در حال ایجاد...",
     "revoke": "ابطال",

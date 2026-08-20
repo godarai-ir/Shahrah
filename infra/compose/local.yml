@@ -48,12 +48,14 @@ services:
       PRIVATE_FILES_S3_SECRET_KEY: ${PRIVATE_FILES_S3_SECRET_KEY:-godarai-local-secret}
       PRIVATE_FILES_S3_FORCE_PATH_STYLE: "true"
       SUPPORT_CLAMAV_ADDRESS: clamav:3310
+      RAG_SERVICE_URL: http://rag-api:8090
+      RAG_INTERNAL_TOKEN: ${RAG_INTERNAL_TOKEN:-local-rag-internal-token-32-bytes}
       BALE_OTP_ENABLED: ${BALE_OTP_ENABLED:-false}
       BALE_SAFIR_API_ACCESS_KEY: ${BALE_SAFIR_API_ACCESS_KEY:-}
       BALE_SAFIR_BOT_ID: ${BALE_SAFIR_BOT_ID:-}
       RESPONSE_CACHE_ENABLED: "true"
-      SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL: "${SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL:-https://arvancloudai.ir/gateway/models/Bge-m3/p805iFnyY2GwffdnMtgV3d0hdR4C-nSy41D61Y7C0TKUVxGYVmQ6YbYK9kAKibIaBNyKUXfBK1OBsLmRQZCSuPQaAtLKHXC3hAZNURaqqZ6Z4_vcvmpAioKQwgi57GiubEVMzFTMMCLD36C7q-XXz_ufyGgdmFRZ9Q-Eo--VtRiMfIvtXrOgfhuhosjg6xTqENVo1pIUsOwoPKed1crX8isrXULdccVWQ8Zgvlw0Aoar4w/v1}"
-      SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY: "${SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY:-a7579f98-6348-5d37-93ed-3715845cacfa}"
+      SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL: "${SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL:?Set SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL in infra/compose/.env}"
+      SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY: "${SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY:?Set SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY in infra/compose/.env}"
       TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION: ${TENANT_PROVIDER_CREDENTIAL_ACTIVE_KEK_VERSION}
       TENANT_PROVIDER_CREDENTIAL_KEKS_JSON: ${TENANT_PROVIDER_CREDENTIAL_KEKS_JSON}
       TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY: ${TENANT_PROVIDER_CREDENTIAL_FINGERPRINT_KEY}
@@ -322,7 +324,9 @@ services:
       - >
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
         mc mb --ignore-existing local/godarai-support &&
-        mc anonymous set none local/godarai-support
+        mc mb --ignore-existing local/godarai-rag &&
+        mc anonymous set none local/godarai-support &&
+        mc anonymous set none local/godarai-rag
     environment:
       MINIO_ROOT_USER: ${PRIVATE_FILES_S3_ACCESS_KEY:-godarai-local}
       MINIO_ROOT_PASSWORD: ${PRIVATE_FILES_S3_SECRET_KEY:-godarai-local-secret}
@@ -338,6 +342,108 @@ services:
       timeout: 5s
       retries: 20
       start_period: 60s
+    restart: unless-stopped
+
+  rag-vector:
+    logging: *default-logging
+    image: pgvector/pgvector:${PGVECTOR_VERSION:-pg18}
+    ports:
+      - "${RAG_VECTOR_POSTGRES_HOST_PORT:-5434}:5432"
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${RAG_VECTOR_DATABASE_PASSWORD:-rag-local-password}
+      POSTGRES_DB: rag_vectors
+    volumes:
+      - ragvectordata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag_vectors"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  rag-vector-migrate:
+    build:
+      context: ../../
+      dockerfile: infra/compose/images/goose.Dockerfile
+    volumes:
+      - ../../db/rag/migrations:/migrations
+    working_dir: /migrations
+    command: ["postgres", "postgresql://rag:${RAG_VECTOR_DATABASE_PASSWORD:-rag-local-password}@rag-vector:5432/rag_vectors?sslmode=disable", "up"]
+    depends_on:
+      rag-vector:
+        condition: service_healthy
+
+  tika:
+    logging: *default-logging
+    image: apache/tika:${TIKA_VERSION:-3.2.3.0-full}
+    ports:
+      - "${TIKA_HOST_PORT:-9998}:9998"
+    restart: unless-stopped
+
+  rag-api:
+    logging: *default-logging
+    build:
+      context: ../../
+      dockerfile: services/rag/Dockerfile
+      args:
+        GOPROXY: ${RAG_GOPROXY:-https://goproxy.io,direct}
+    ports:
+      - "${RAG_API_HOST_PORT:-8090}:8090"
+    environment: &rag-environment
+      RAG_MODE: api
+      RAG_ADDRESS: :8090
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sharah_db?sslmode=disable
+      RAG_VECTOR_DATABASE_URL: postgresql://rag:${RAG_VECTOR_DATABASE_PASSWORD:-rag-local-password}@rag-vector:5432/rag_vectors?sslmode=disable
+      RAG_REDIS_URL: ${RAG_REDIS_URL:-redis://:s4M6gOMp77ss@redis:6379/3}
+      RAG_GATEWAY_URL: http://control-plane:4000
+      RAG_GATEWAY_API_KEY: ${RAG_GATEWAY_API_KEY:-sk-dev-master-key-12345}
+      RAG_GATEWAY_RERANK_MODEL: ${RAG_GATEWAY_RERANK_MODEL:?Set RAG_GATEWAY_RERANK_MODEL in infra/compose/.env}
+      SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL: "${SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL:?Set SHAHRAH_SMART_CACHE_EMBEDDING_BASE_URL in infra/compose/.env}"
+      SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY: "${SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY:?Set SHAHRAH_SMART_CACHE_EMBEDDING_API_KEY in infra/compose/.env}"
+      SHAHRAH_SMART_CACHE_EMBEDDING_MODEL: ${SHAHRAH_SMART_CACHE_EMBEDDING_MODEL:-Bge-m3}
+      SHAHRAH_SMART_CACHE_EMBEDDING_REVISION: ${SHAHRAH_SMART_CACHE_EMBEDDING_REVISION:-v1}
+      SHAHRAH_SMART_CACHE_EMBEDDING_DIMENSIONS: ${SHAHRAH_SMART_CACHE_EMBEDDING_DIMENSIONS:-1024}
+      RAG_INTERNAL_TOKEN: ${RAG_INTERNAL_TOKEN:-local-rag-internal-token-32-bytes}
+      RAG_SESSION_SECRET: ${RAG_SESSION_SECRET:-MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
+      RAG_CONVERSATION_SECRET: ${RAG_CONVERSATION_SECRET:-YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXphYmNkZWY=}
+      RAG_TIKA_URL: http://tika:9998
+      RAG_S3_ENDPOINT: http://minio:9000
+      RAG_S3_BUCKET: godarai-rag
+      RAG_S3_ACCESS_KEY: ${PRIVATE_FILES_S3_ACCESS_KEY:-godarai-local}
+      RAG_S3_SECRET_KEY: ${PRIVATE_FILES_S3_SECRET_KEY:-godarai-local-secret}
+      RAG_S3_REGION: us-east-1
+      RAG_S3_FORCE_PATH_STYLE: "true"
+      RAG_CLAMAV_ADDRESS: clamav:3310
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rag-vector-migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  rag-worker:
+    logging: *default-logging
+    build:
+      context: ../../
+      dockerfile: services/rag/Dockerfile
+      args:
+        GOPROXY: ${RAG_GOPROXY:-https://goproxy.io,direct}
+    environment:
+      <<: *rag-environment
+      RAG_MODE: worker
+      RAG_WORKER_ID: local-rag-worker
+    depends_on:
+      rag-api:
+        condition: service_started
+      tika:
+        condition: service_started
     restart: unless-stopped
 
   pgadmin:
@@ -361,4 +467,5 @@ volumes:
   clickhousedata:
   typesensedata:
   miniodata:
+  ragvectordata:
   pgadmin_data:

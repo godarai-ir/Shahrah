@@ -21,6 +21,8 @@ import {
   UserCircle2,
   Users,
   LifeBuoy,
+  Bot,
+  Library,
 } from "lucide-react";
 
 import { canAnyPermission } from "../../lib/authz";
@@ -39,6 +41,8 @@ export type AdminNavKey =
   | "providerAccounts"
   | "virtualModels"
   | "prompts"
+  | "knowledgeBases"
+  | "chatbots"
   | "playground"
   | "virtualUsers"
   | "accountSettings"
@@ -184,6 +188,22 @@ export function buildAdminNavItems(pathname: string, t: (key: string) => string)
       icon: FileText,
       isActive: pathname.startsWith("/prompts"),
       requiredPermissions: ["policy:list", "policy:manage"],
+    },
+    {
+      key: "knowledgeBases",
+      href: "/knowledge-bases",
+      title: t("nav.knowledgeBases"),
+      icon: Library,
+      isActive: pathname.startsWith("/knowledge-bases"),
+      requiredPermissions: ["knowledge_base:list", "knowledge_base:manage"],
+    },
+    {
+      key: "chatbots",
+      href: "/chatbots",
+      title: t("nav.chatbots"),
+      icon: Bot,
+      isActive: pathname.startsWith("/chatbots"),
+      requiredPermissions: ["chatbot:list", "chatbot:manage"],
     },
     {
       key: "playground",

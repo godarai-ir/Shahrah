@@ -13,6 +13,15 @@ const (
 	FeatureVATEnabled              = "auth.vat.enabled"
 	FeatureRBACEnabled             = "rbac.enabled"
 	FeatureOrgUnitsEnabled         = "org_units.enabled"
+	FeatureRAGEnabled              = "rag.enabled"
+	FeatureRAGKnowledgeBasesMax    = "rag.knowledge_bases.max"
+	FeatureRAGDocumentsMax         = "rag.documents.max"
+	FeatureRAGStorageGiB           = "rag.storage_gib"
+	FeatureRAGQueriesMonthly       = "rag.queries.monthly"
+	FeatureRAGChatbotsMax          = "rag.chatbots.max"
+	FeatureRAGMaxKBsPerBot         = "rag.max_kbs_per_bot"
+	FeatureRAGPublicBotsEnabled    = "rag.public_bots.enabled"
+	FeatureRAGWidgetEnabled        = "rag.widget.enabled"
 )
 
 type CommercialPlan struct {

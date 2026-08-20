@@ -56,6 +56,13 @@ var permissionCatalog = map[string]permissionMeta{
 	"support_ticket:read_all": {Group: "support", Description: "Allows viewing all support tickets in the tenant"},
 	"support_ticket:reply":    {Group: "support", Description: "Allows replying to visible support tickets"},
 	"support_ticket:rate":     {Group: "support", Description: "Allows rating resolved support tickets created by the current user"},
+	"knowledge_base:list":     {Group: "managed_rag", Description: "Allows listing and viewing managed knowledge bases"},
+	"knowledge_base:manage":   {Group: "managed_rag", Description: "Allows creating, updating, and deleting managed knowledge bases and documents"},
+	"knowledge_base:query":    {Group: "managed_rag", Description: "Allows querying managed knowledge bases"},
+	"chatbot:list":            {Group: "managed_rag", Description: "Allows listing and viewing managed chatbots"},
+	"chatbot:manage":          {Group: "managed_rag", Description: "Allows creating, updating, and deleting managed chatbots"},
+	"chatbot:publish":         {Group: "managed_rag", Description: "Allows publishing and unpublishing managed chatbots"},
+	"chatbot:analytics":       {Group: "managed_rag", Description: "Allows viewing managed chatbot analytics"},
 }
 
 // IsValidPermission reports whether a permission is present and documented.

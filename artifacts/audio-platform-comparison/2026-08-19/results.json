@@ -1,0 +1,407 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-18T23:34:07.914384+00:00",
+  "method": {
+    "tts_voice": "alloy",
+    "tts_speed": 1.0,
+    "stt_language": "fa",
+    "test_cases": [
+      {
+        "name": "formal",
+        "text": "گدار ای‌آی یک درگاه یکپارچه برای دسترسی، پایش و مدیریت مدل‌های هوش مصنوعی است."
+      },
+      {
+        "name": "numbers",
+        "text": "سفارش شماره ۱۴۰۵، ساعت ۸ و ۴۵ دقیقه ثبت شد و مبلغ آن ۲ میلیون و ۳۵۰ هزار تومان بود."
+      },
+      {
+        "name": "technical",
+        "text": "در این آزمایش، دقت تبدیل گفتار به متن و تأخیر تولید گفتار از متن را برای API بررسی می‌کنیم."
+      }
+    ],
+    "platforms": [
+      {
+        "name": "godarai",
+        "base_url": "https://delpak.godarai.ir/v1",
+        "tts_model": "openai:openai-calm-oasis:tts-1",
+        "stt_model": "openai:openai-calm-oasis:gpt-4o-mini-transcribe"
+      },
+      {
+        "name": "avalai",
+        "base_url": "https://api.avalai.ir/v1",
+        "tts_model": "tts-1",
+        "stt_model": "gpt-4o-mini-transcribe"
+      }
+    ]
+  },
+  "summary": {
+    "tts": {
+      "avalai": {
+        "requests": 3,
+        "successes": 3,
+        "success_rate": 1.0,
+        "median_latency_ms": 3116.36,
+        "median_realtime_factor": 0.411
+      },
+      "godarai": {
+        "requests": 3,
+        "successes": 3,
+        "success_rate": 1.0,
+        "median_latency_ms": 3787.83,
+        "median_realtime_factor": 0.503
+      }
+    },
+    "stt": {
+      "avalai": {
+        "requests": 6,
+        "successes": 0,
+        "success_rate": 0.0
+      },
+      "godarai": {
+        "requests": 6,
+        "successes": 6,
+        "success_rate": 1.0,
+        "median_latency_ms": 4978.01,
+        "mean_wer": 0.2521,
+        "mean_cer": 0.1186
+      }
+    }
+  },
+  "records": [
+    {
+      "platform": "godarai",
+      "case": "formal",
+      "model": "openai:openai-calm-oasis:tts-1",
+      "status": 200,
+      "latency_ms": 4364.81,
+      "headers": {
+        "content-type": "audio/mpeg",
+        "content-length": "113280",
+        "x-ratelimit-remaining-requests": "499",
+        "x-ratelimit-reset-requests": "120ms",
+        "x-ratelimit-limit-requests": "500",
+        "x-request-id": "req_fd82d0f32e0f479d90e047c06ce0e843"
+      },
+      "bytes": 113280,
+      "sha256": "acef34c51de9b26d233fd1280ca64dd943b02964248260867d75d1fbdd4ad1d5",
+      "audio_duration_seconds": 7.08,
+      "realtime_factor": 0.616,
+      "artifact": "tts-godarai-formal.mp3",
+      "operation": "tts"
+    },
+    {
+      "platform": "godarai",
+      "case": "numbers",
+      "model": "openai:openai-calm-oasis:tts-1",
+      "status": 200,
+      "latency_ms": 3787.83,
+      "headers": {
+        "content-type": "audio/mpeg",
+        "content-length": "120576",
+        "x-ratelimit-reset-requests": "120ms",
+        "x-ratelimit-remaining-requests": "499",
+        "x-request-id": "req_17751f2069da47cd98d867478e7e2934",
+        "x-ratelimit-limit-requests": "500"
+      },
+      "bytes": 120576,
+      "sha256": "b45e20d7526a2caa0f0ace03c3f27ed1840c53ecad6b998245a3ba0754ef2c73",
+      "audio_duration_seconds": 7.536,
+      "realtime_factor": 0.503,
+      "artifact": "tts-godarai-numbers.mp3",
+      "operation": "tts"
+    },
+    {
+      "platform": "godarai",
+      "case": "technical",
+      "model": "openai:openai-calm-oasis:tts-1",
+      "status": 200,
+      "latency_ms": 1378.06,
+      "headers": {
+        "content-type": "audio/mpeg",
+        "x-ratelimit-remaining-requests": "499",
+        "x-ratelimit-reset-requests": "120ms",
+        "x-request-id": "req_5bf024cb401e4382ac22b0da71e9bf4b",
+        "x-ratelimit-limit-requests": "500"
+      },
+      "bytes": 128640,
+      "sha256": "484d0512fe2c3c51e096aadaf36c3b59ebac0e93a2dd449d12b49215346bae76",
+      "audio_duration_seconds": 8.04,
+      "realtime_factor": 0.171,
+      "artifact": "tts-godarai-technical.mp3",
+      "operation": "tts"
+    },
+    {
+      "platform": "avalai",
+      "case": "formal",
+      "model": "tts-1",
+      "status": 200,
+      "latency_ms": 3421.24,
+      "headers": {
+        "content-type": "audio/mpeg",
+        "content-length": "163433",
+        "x-ratelimit-limit-requests": "2500",
+        "x-ratelimit-remaining-requests": "2499",
+        "x-ratelimit-reset-requests": "42s",
+        "x-request-id": "6f3fe3aa1238c07fe8ff530c895139c4"
+      },
+      "bytes": 163433,
+      "sha256": "a0ca832e8dbecda4b5e45f1513b6c427c5c11a92087d1ce1c7d0b8000087a136",
+      "audio_duration_seconds": 7.152,
+      "realtime_factor": 0.478,
+      "artifact": "tts-avalai-formal.mp3",
+      "operation": "tts"
+    },
+    {
+      "platform": "avalai",
+      "case": "numbers",
+      "model": "tts-1",
+      "status": 200,
+      "latency_ms": 3116.36,
+      "headers": {
+        "content-type": "audio/mpeg",
+        "content-length": "172073",
+        "x-ratelimit-limit-requests": "2500",
+        "x-ratelimit-remaining-requests": "2499",
+        "x-ratelimit-reset-requests": "39s",
+        "x-request-id": "9b90884d06a618bc7d85a99a3d8329be"
+      },
+      "bytes": 172073,
+      "sha256": "7bc0756713ef57d92c06b1a2a6e17fb6e28f22e847ca6c50a43f0746d64feb2e",
+      "audio_duration_seconds": 7.584,
+      "realtime_factor": 0.411,
+      "artifact": "tts-avalai-numbers.mp3",
+      "operation": "tts"
+    },
+    {
+      "platform": "avalai",
+      "case": "technical",
+      "model": "tts-1",
+      "status": 200,
+      "latency_ms": 3102.71,
+      "headers": {
+        "content-type": "audio/mpeg",
+        "content-length": "182633",
+        "x-ratelimit-limit-requests": "2500",
+        "x-ratelimit-remaining-requests": "2497",
+        "x-ratelimit-reset-requests": "36s",
+        "x-request-id": "86512e6aa878cf60096a1e77daf78230"
+      },
+      "bytes": 182633,
+      "sha256": "668ed94a30aac0ba473b1c55fa326671ef765b1472e7dd6713fa212d9d5d5f27",
+      "audio_duration_seconds": 8.112,
+      "realtime_factor": 0.382,
+      "artifact": "tts-avalai-technical.mp3",
+      "operation": "tts"
+    },
+    {
+      "platform": "godarai",
+      "source_platform": "godarai",
+      "case": "formal",
+      "model": "openai:openai-calm-oasis:gpt-4o-mini-transcribe",
+      "status": 200,
+      "latency_ms": 3253.04,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "286",
+        "x-request-id": "req_9f609346414843279debfd3bf4852511",
+        "x-ratelimit-limit-requests": "10000",
+        "x-ratelimit-remaining-requests": "9999",
+        "x-ratelimit-reset-requests": "8.64s"
+      },
+      "transcript": "گدار ایی یک درگاه یکپارچه برای دسترسی، پایش و مدیریت مدلهای هوش مصنوعی است.",
+      "wer": 0.25,
+      "cer": 0.01639344262295082,
+      "operation": "stt"
+    },
+    {
+      "platform": "godarai",
+      "source_platform": "godarai",
+      "case": "numbers",
+      "model": "openai:openai-calm-oasis:gpt-4o-mini-transcribe",
+      "status": 200,
+      "latency_ms": 4034.33,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "310",
+        "x-ratelimit-limit-requests": "10000",
+        "x-request-id": "req_f3ff3ebb54524addb40f8ee98d68a3cd",
+        "x-ratelimit-remaining-requests": "9998",
+        "x-ratelimit-reset-requests": "13.316s"
+      },
+      "transcript": "سپارش شماره بازار ساعت هتصعد دقیقه ثبت شد و مبلغ آن شش میلیون و تا صد و ده هزار تومان بود.",
+      "wer": 0.5,
+      "cer": 0.3225806451612903,
+      "operation": "stt"
+    },
+    {
+      "platform": "godarai",
+      "source_platform": "godarai",
+      "case": "technical",
+      "model": "openai:openai-calm-oasis:gpt-4o-mini-transcribe",
+      "status": 200,
+      "latency_ms": 4479.4,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "308",
+        "x-request-id": "req_5033a30f00c5466c8cb6ed7986f4985c",
+        "x-ratelimit-remaining-requests": "9997",
+        "x-ratelimit-limit-requests": "10000",
+        "x-ratelimit-reset-requests": "17.565s"
+      },
+      "transcript": "در این آزمایش دقت تبدیل گفتار به متن و تاخیر تولید گفتار از متن را برای API بررسی می کنیم.",
+      "wer": 0.05,
+      "cer": 0.014285714285714285,
+      "operation": "stt"
+    },
+    {
+      "platform": "godarai",
+      "source_platform": "avalai",
+      "case": "formal",
+      "model": "openai:openai-calm-oasis:gpt-4o-mini-transcribe",
+      "status": 200,
+      "latency_ms": 5476.62,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "287",
+        "x-ratelimit-limit-requests": "10000",
+        "x-request-id": "req_769a5192ccf746b08b14d32223de1d48",
+        "x-ratelimit-remaining-requests": "9997",
+        "x-ratelimit-reset-requests": "20.745s"
+      },
+      "transcript": "گدار ایی یک ترگاه یکپارچه برای دسترسی، پایش و مدیریت مدلهای هوش مصنوعی است.",
+      "wer": 0.3125,
+      "cer": 0.03278688524590164,
+      "operation": "stt"
+    },
+    {
+      "platform": "godarai",
+      "source_platform": "avalai",
+      "case": "numbers",
+      "model": "openai:openai-calm-oasis:gpt-4o-mini-transcribe",
+      "status": 200,
+      "latency_ms": 7334.26,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "293",
+        "x-ratelimit-remaining-requests": "9997",
+        "x-ratelimit-reset-requests": "22.111s",
+        "x-ratelimit-limit-requests": "10000",
+        "x-request-id": "req_7b4e3f51dbf64215b67e405e26890bf9"
+      },
+      "transcript": "سفارش شماره ده هزار ساعت و تای دقیقه ثبت شد و مبلغ آن میلیون و ده هزار تومان بود.",
+      "wer": 0.3,
+      "cer": 0.22580645161290322,
+      "operation": "stt"
+    },
+    {
+      "platform": "godarai",
+      "source_platform": "avalai",
+      "case": "technical",
+      "model": "openai:openai-calm-oasis:gpt-4o-mini-transcribe",
+      "status": 200,
+      "latency_ms": 5539.4,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "316",
+        "x-ratelimit-reset-requests": "25.104s",
+        "x-ratelimit-limit-requests": "10000",
+        "x-ratelimit-remaining-requests": "9997",
+        "x-request-id": "req_2805b0ed39ba459ab1cb8c44b53b296c"
+      },
+      "transcript": "در این آزمایش، تغییر تبدیل گفتار به متن و تغییر تولید گفتار از متن را برای API بررسی می‌کنیم.",
+      "wer": 0.1,
+      "cer": 0.1,
+      "operation": "stt"
+    },
+    {
+      "platform": "avalai",
+      "source_platform": "godarai",
+      "case": "formal",
+      "model": "gpt-4o-mini-transcribe",
+      "status": 429,
+      "latency_ms": 1951.27,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "460",
+        "x-request-id": "026e3d306c2d5a575f9ae7fa5515e590"
+      },
+      "error": "You have insufficient credit to complete this request. Your remaining balance of 0.01311226 UNIT(s) does not cover the estimated cost.",
+      "operation": "stt"
+    },
+    {
+      "platform": "avalai",
+      "source_platform": "godarai",
+      "case": "numbers",
+      "model": "gpt-4o-mini-transcribe",
+      "status": 429,
+      "latency_ms": 1230.62,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "460",
+        "x-request-id": "1486882e0fceb838cc5d674994dddbdf"
+      },
+      "error": "You have insufficient credit to complete this request. Your remaining balance of 0.01311226 UNIT(s) does not cover the estimated cost.",
+      "operation": "stt"
+    },
+    {
+      "platform": "avalai",
+      "source_platform": "godarai",
+      "case": "technical",
+      "model": "gpt-4o-mini-transcribe",
+      "status": 429,
+      "latency_ms": 1783.35,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "460",
+        "x-request-id": "03e37441b49a3ab5bf39302299d56075"
+      },
+      "error": "You have insufficient credit to complete this request. Your remaining balance of 0.01311226 UNIT(s) does not cover the estimated cost.",
+      "operation": "stt"
+    },
+    {
+      "platform": "avalai",
+      "source_platform": "avalai",
+      "case": "formal",
+      "model": "gpt-4o-mini-transcribe",
+      "status": 429,
+      "latency_ms": 2089.95,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "460",
+        "x-request-id": "d5ab6307d271eb3e4a123d6a82e1a539"
+      },
+      "error": "You have insufficient credit to complete this request. Your remaining balance of 0.01311226 UNIT(s) does not cover the estimated cost.",
+      "operation": "stt"
+    },
+    {
+      "platform": "avalai",
+      "source_platform": "avalai",
+      "case": "numbers",
+      "model": "gpt-4o-mini-transcribe",
+      "status": 429,
+      "latency_ms": 2098.28,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "460",
+        "x-request-id": "8bffc5f3e148e2998c925b5e9c78da79"
+      },
+      "error": "You have insufficient credit to complete this request. Your remaining balance of 0.01311226 UNIT(s) does not cover the estimated cost.",
+      "operation": "stt"
+    },
+    {
+      "platform": "avalai",
+      "source_platform": "avalai",
+      "case": "technical",
+      "model": "gpt-4o-mini-transcribe",
+      "status": 429,
+      "latency_ms": 2692.23,
+      "headers": {
+        "content-type": "application/json",
+        "content-length": "460",
+        "x-request-id": "7a10720edf3e17c7699d2cfab35f3d10"
+      },
+      "error": "You have insufficient credit to complete this request. Your remaining balance of 0.01311226 UNIT(s) does not cover the estimated cost.",
+      "operation": "stt"
+    }
+  ]
+}

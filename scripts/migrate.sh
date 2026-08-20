@@ -9,12 +9,13 @@
 
 set -e
 
-DB_HOST="${DB_HOST:-localhost}"
+DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-sharah_db}"
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-postgres}"
 DB_SSLMODE="${DB_SSLMODE:-disable}"
+GOOSE_TIMEOUT="${GOOSE_TIMEOUT:-2m}"
 
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-$(dirname "$0")/../db/main/migrations}"
 ACTION="${1:-up}"
@@ -34,18 +35,18 @@ cd "$MIGRATIONS_DIR"
 
 case "$ACTION" in
     up)
-        goose postgres "$DBSTRING" up
+        goose -timeout "$GOOSE_TIMEOUT" postgres "$DBSTRING" up
         echo "All migrations applied successfully."
         ;;
     down)
-        goose postgres "$DBSTRING" down
+        goose -timeout "$GOOSE_TIMEOUT" postgres "$DBSTRING" down
         echo "Rolled back last migration."
         ;;
     status)
-        goose postgres "$DBSTRING" status
+        goose -timeout "$GOOSE_TIMEOUT" postgres "$DBSTRING" status
         ;;
     version)
-        goose postgres "$DBSTRING" version
+        goose -timeout "$GOOSE_TIMEOUT" postgres "$DBSTRING" version
         ;;
     force)
         VERSION="$2"
@@ -53,11 +54,11 @@ case "$ACTION" in
             echo "Error: force requires a version number"
             exit 1
         fi
-        goose postgres "$DBSTRING" up-to "$VERSION"
+        goose -timeout "$GOOSE_TIMEOUT" postgres "$DBSTRING" up-to "$VERSION"
         echo "Forced version to $VERSION"
         ;;
     reset)
-        goose postgres "$DBSTRING" reset
+        goose -timeout "$GOOSE_TIMEOUT" postgres "$DBSTRING" reset
         echo "All migrations rolled back."
         ;;
     *)

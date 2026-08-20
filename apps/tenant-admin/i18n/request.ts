@@ -30,6 +30,7 @@ const MESSAGE_NAMESPACES = [
   "prompts",
   "playground",
   "support",
+  "managedRag",
 ] as const;
 
 async function loadMessages(locale: "fa" | "en") {

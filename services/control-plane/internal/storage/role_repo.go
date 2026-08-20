@@ -39,6 +39,8 @@ var systemRolePermissions = map[string][]string{
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
 		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
+		"knowledge_base:list", "knowledge_base:manage", "knowledge_base:query",
+		"chatbot:list", "chatbot:manage", "chatbot:publish", "chatbot:analytics",
 	},
 	"tenant_admin": {
 		"policy:list", "policy:manage",
@@ -52,6 +54,8 @@ var systemRolePermissions = map[string][]string{
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",
 		"logs:read_metadata", "logs:read_content", "logs:export", "logs:manage_views", "logs:replay",
 		"support_ticket:create", "support_ticket:read_own", "support_ticket:read_all", "support_ticket:reply", "support_ticket:rate",
+		"knowledge_base:list", "knowledge_base:manage", "knowledge_base:query",
+		"chatbot:list", "chatbot:manage", "chatbot:publish", "chatbot:analytics",
 	},
 	"billing_manager": {
 		"billing:read", "billing:manage", "billing:profile_manage", "billing:documents_read", "billing:codes_redeem",

@@ -15,6 +15,7 @@ import (
 	prommetrics "github.com/Delpak/shahrah/services/control-plane/internal/observability/prometheus"
 	"github.com/Delpak/shahrah/services/control-plane/internal/observability/tracing"
 	"github.com/Delpak/shahrah/services/control-plane/internal/proxy"
+	"github.com/Delpak/shahrah/services/control-plane/internal/ragproxy"
 	"github.com/Delpak/shahrah/services/control-plane/internal/tenant"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -53,6 +54,7 @@ type Dependencies struct {
 	EmbeddingsHandler          *proxy.EmbeddingsHandler
 	ModerationsHandler         *proxy.ModerationsHandler
 	RerankHandler              *proxy.RerankHandler
+	RAGHandler                 *ragproxy.Handler
 	ImagesHandler              *proxy.ImagesHandler
 	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
 	AudioSpeechHandler         *proxy.AudioSpeechHandler

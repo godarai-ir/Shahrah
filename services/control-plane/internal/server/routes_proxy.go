@@ -66,6 +66,10 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/rerank", deps.RerankHandler.Handle)
 	}
 
+	if deps.RAGHandler != nil {
+		v1.Post("/retrieval", deps.RAGHandler.ForwardRetrieval)
+	}
+
 	if deps.ImagesHandler != nil {
 		v1.Post("/images/generations", deps.ImagesHandler.HandleGenerations)
 		v1.Post("/images/edits", deps.ImagesHandler.HandleEdits)

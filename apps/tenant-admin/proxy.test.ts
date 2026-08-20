@@ -196,6 +196,53 @@ describe("tenant-admin proxy CSRF protection", () => {
     expect(response.status).toBe(200);
   });
 
+  it("allows same-origin multipart document uploads for managed RAG", () => {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File(["docx-content"], "راهنما.docx", {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }),
+    );
+    const request = new NextRequest(
+      "https://acme.shahrah.ir/api/managed-rag/knowledge-bases/kb-123/documents",
+      {
+        method: "POST",
+        headers: {
+          host: "acme.shahrah.ir",
+          origin: "https://acme.shahrah.ir",
+          "sec-fetch-site": "same-origin",
+        },
+        body: formData,
+      },
+    );
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects multipart requests on managed RAG routes that do not accept files", () => {
+    const formData = new FormData();
+    formData.set("file", new File(["content"], "file.docx"));
+    const request = new NextRequest(
+      "https://acme.shahrah.ir/api/managed-rag/knowledge-bases/kb-123",
+      {
+        method: "PATCH",
+        headers: {
+          host: "acme.shahrah.ir",
+          origin: "https://acme.shahrah.ir",
+          "sec-fetch-site": "same-origin",
+        },
+        body: formData,
+      },
+    );
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(415);
+  });
+
   it("rejects multipart requests on support routes that do not accept uploads", () => {
     const formData = new FormData();
     formData.set("payload", "{}");

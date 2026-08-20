@@ -127,7 +127,10 @@ function isSupportedMultipartPath(pathname: string): boolean {
     return true;
   }
 
-  return /^\/api\/support\/tickets\/[^/]+\/messages$/.test(pathname);
+  return (
+    /^\/api\/support\/tickets\/[^/]+\/messages$/.test(pathname) ||
+    /^\/api\/managed-rag\/knowledge-bases\/[^/]+\/documents$/.test(pathname)
+  );
 }
 
 function csrfError() {

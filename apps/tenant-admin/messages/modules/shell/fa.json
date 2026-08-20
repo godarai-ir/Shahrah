@@ -49,7 +49,8 @@
     "governance": "کنترل و سیاست‌ها",
     "policies": "قوانین زمان‌اجرا",
     "access": "مجوزها و دسترسی‌ها",
-    "billing": "مدیریت مالی"
+    "billing": "مدیریت مالی",
+    "knowledge": "دانش و چت‌بات"
   },
   "nav": {
     "title": "مسیریابی اصلی",
@@ -84,7 +85,9 @@
     "gatewayPolicies": "سیاست‌های گیت‌وی",
     "rateLimitPolicies": "کنترل تعداد درخواست‌ها",
     "budgetLimitPolicies": "کنترل هزینه درخواست‌ها",
-    "guardrails": "گاردریل‌ها"
+    "guardrails": "گاردریل‌ها",
+    "knowledgeBases": "پایگاه‌های دانش",
+    "chatbots": "چت‌بات‌ها"
   },
   "logoAlt": "لوگوی گدارAI"
 }

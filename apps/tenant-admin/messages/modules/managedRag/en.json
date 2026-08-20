@@ -1,0 +1,74 @@
+{
+  "notice": { "success": "Operation completed", "error": "Operation failed", "warning": "Attention required", "info": "Information" },
+  "actions": { "title": "Actions", "refresh": "Refresh", "refreshing": "Refreshing", "create": "Create", "cancel": "Cancel" },
+  "copy": { "copy": "Copy", "copying": "Copying", "copied": "Copied" },
+  "fields": {
+    "name": "Name", "title": "Title", "description": "Description", "text": "Text", "file": "File",
+    "type": "Type", "status": "Status", "language": "Document language", "access": "Access", "publicID": "Public ID",
+    "answerModel": "Answer model", "instruction": "System instruction", "retention": "Conversation retention", "origins": "Allowed origins",
+    "defaultLocale": "Default locale", "answerLanguage": "Answer language"
+  },
+  "knowledgeBases": {
+    "title": "Knowledge Bases", "description": "Managed documents for retrieval, reranking, and validated citations.",
+    "create": "Create knowledge base", "createDescription": "Chunking and retrieval use Godar's versioned profile.",
+    "created": "Knowledge base created.", "documents": "Documents", "ready": "Ready documents", "profile": "RAG profile",
+    "empty": { "title": "No knowledge bases yet", "description": "Create a knowledge base and add a valid file or manual text." }
+  },
+  "documents": {
+    "title": "Documents in {name}", "description": "Only versions in the ready state are available to retrieval.",
+    "add": "Add document", "addDescription": "Complete either the manual text fields or choose one file.", "submit": "Queue ingestion", "view": "View documents",
+    "queued": "Document queued for ingestion.", "chunks": "Chunks", "textHint": "For manual text, provide both title and text.",
+    "fileHint": "PDF, DOCX, TXT, or HTML up to 25 MB. Persian-capable OCR runs automatically for scanned PDFs.",
+    "empty": { "title": "No documents in this knowledge base", "description": "Add a supported file or manual text." },
+    "source": { "file": "File", "text": "Manual text" },
+    "status": {
+      "queued": "Queued", "scanning": "Security scan", "parsing": "Extracting text", "chunking": "Chunking",
+      "embedding": "Embedding", "indexing": "Indexing", "ready": "Ready", "failed": "Failed", "deleting": "Deleting"
+    },
+    "live": {
+      "live": "Live updates active", "refreshing": "Fetching latest status", "paused": "Live updates paused",
+      "error": "Live connection interrupted", "lastUpdated": "Last update:", "refresh": "Refresh status now", "refreshingAction": "Refreshing status"
+    }
+  },
+  "chatbots": {
+    "title": "Chatbot Builder", "description": "Publish grounded chatbots with retrieval, mandatory reranking, and validated citations.",
+    "create": "Create chatbot", "createDescription": "Bots default to private and every publication creates an immutable snapshot.", "selectModel": "Select an available chat model.",
+    "created": "Chatbot draft created.", "published": "Chatbot published.", "unpublished": "Chatbot unpublished.",
+    "publish": "Publish", "unpublish": "Unpublish", "knowledgeBases": "Knowledge bases", "selectKB": "Select at least one ready knowledge base.",
+    "kbHint": "Up to five knowledge bases; a base without ready documents cannot be published.", "kbReady": "{ready} ready documents",
+    "modelHint": "The exact allowed tenant model or virtual model revision is pinned.", "noModels": "No chat-capable models are available",
+    "instructionHint": "Document content remains untrusted data and cannot override this instruction.",
+    "originsHint": "For a public widget, enter one allowed origin per line.",
+    "empty": { "title": "No chatbots yet", "description": "Once a knowledge base is ready, create a private or public chatbot." },
+    "access": { "private": "Private", "public": "Public" },
+    "locales": { "fa-IR": "Persian, Iran (fa-IR)", "en-US": "English, US (en-US)" },
+    "answerLanguages": { "query": "Match the query", "fa": "Always Persian", "en": "Always English" },
+    "retention": { "30": "30 days", "7": "7 days", "0": "No storage" },
+    "status": { "published": "Published", "draft": "Draft" }
+  },
+  "chat": {
+    "title": "Test chatbot", "pageDescription": "Test grounded answers, citations, and refusal behavior for a published chatbot.",
+    "action": "Test chat", "loading": "Loading chatbot",
+    "reset": "New conversation", "send": "Send", "stop": "Stop", "placeholder": "Ask a question about the connected knowledge base…",
+    "inputLabel": "Chat message", "inputHint": "Enter to send; Shift+Enter for a new line", "messagesLabel": "Conversation messages",
+    "assistant": "Chatbot", "you": "You", "citations": "{count} sources", "page": "Page {page}",
+    "empty": { "title": "Start the conversation", "description": "Ask a question related to the documents connected to this chatbot." },
+    "unpublished": { "title": "Chatbot is not published", "description": "Publish the chatbot from the builder before testing its runtime." },
+    "stage": { "retrieving": "Retrieving evidence…", "reranking": "Reranking evidence…" },
+    "openWebUI": {
+      "title": "Open WebUI connection", "description": "This base URL implements OpenAI Chat Completions compatibility.",
+      "baseURL": "OpenAI-compatible base URL", "model": "Model identifier",
+      "privateHint": "For this private bot, use a short-lived session token as the API key.",
+      "publicHint": "For a public bot, enter any placeholder such as public in the API key field.",
+      "issueToken": "Create one-hour API key", "issuingToken": "Creating key…",
+      "tokenTitle": "Temporary Open WebUI API key", "tokenDescription": "This key is valid until {expiresAt}.",
+      "tokenWarning": "This value is shown only once. Enter it as the API key in Open WebUI.",
+      "tokenValue": "Temporary API key", "closeToken": "Close", "tokenError": "Unable to create the temporary API key."
+    }
+  },
+  "analytics": {
+    "action": "Analytics", "title": "Analytics for {name}", "description": "Content-free aggregate quality and usage metrics.", "close": "Close",
+    "queries": "Queries", "refusals": "Refusals", "citationFailures": "Citation failures", "latency": "Average latency", "cost": "Provider cost (USD)", "platformCost": "Platform fee (IRR)", "milliseconds": "{value} ms"
+  },
+  "errors": { "load": "Unable to load managed RAG data.", "documents": "Unable to load documents.", "create": "Unable to create the item.", "upload": "Unable to queue the document.", "publish": "Unable to change publication status.", "analytics": "Unable to load chatbot analytics.", "chat": "The chatbot could not answer right now. Check the RAG provider configuration and try again." }
+}

@@ -46,19 +46,20 @@ docker compose -f infra/compose/local.yml run --rm migrate
 
 ```bash
 cd db/main/migrations
-goose postgres "postgres://postgres:postgres@localhost:5432/sharah_db?sslmode=disable" up
+goose -timeout 2m postgres "postgres://postgres:postgres@127.0.0.1:5432/sharah_db?sslmode=disable" up
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_HOST` | `localhost` | Database hostname |
+| `DB_HOST` | `127.0.0.1` | Database hostname; the IPv4 default avoids Docker Desktop IPv6 connection stalls on Windows. |
 | `DB_PORT` | `5432` | Database port |
 | `DB_NAME` | `sharah_db` | Database name |
 | `DB_USER` | `postgres` | Database username |
 | `DB_PASSWORD` | `postgres` | Database password |
 | `DB_SSLMODE` | `disable` | SSL mode (`disable`, `require`, `verify-full`) |
+| `GOOSE_TIMEOUT` | `2m` | Maximum duration allowed for migration queries. |
 
 ### Creating New Migrations
 

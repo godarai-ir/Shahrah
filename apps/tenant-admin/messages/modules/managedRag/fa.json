@@ -1,0 +1,74 @@
+{
+  "notice": { "success": "عملیات انجام شد", "error": "عملیات ناموفق بود", "warning": "نیازمند توجه", "info": "اطلاع" },
+  "actions": { "title": "عملیات", "refresh": "به‌روزرسانی", "refreshing": "در حال به‌روزرسانی", "create": "ایجاد", "cancel": "انصراف" },
+  "copy": { "copy": "کپی", "copying": "در حال کپی", "copied": "کپی شد" },
+  "fields": {
+    "name": "نام", "title": "عنوان", "description": "توضیحات", "text": "متن", "file": "فایل",
+    "type": "نوع", "status": "وضعیت", "language": "زبان سند", "access": "دسترسی", "publicID": "شناسه عمومی",
+    "answerModel": "مدل پاسخ", "instruction": "دستور سیستمی", "retention": "نگهداری مکالمه", "origins": "Originهای مجاز",
+    "defaultLocale": "فرهنگ پیش‌فرض", "answerLanguage": "زبان پاسخ"
+  },
+  "knowledgeBases": {
+    "title": "پایگاه‌های دانش", "description": "اسناد مدیریت‌شده برای Retrieval، Rerank و Citation معتبر.",
+    "create": "ساخت پایگاه دانش", "createDescription": "Chunking و Retrieval با پروفایل نسخه‌دار گدار تنظیم می‌شوند.",
+    "created": "پایگاه دانش ساخته شد.", "documents": "تعداد سند", "ready": "سند آماده", "profile": "پروفایل RAG",
+    "empty": { "title": "هنوز پایگاه دانشی ندارید", "description": "یک پایگاه بسازید و فایل یا متن معتبر به آن اضافه کنید." }
+  },
+  "documents": {
+    "title": "اسناد {name}", "description": "فقط نسخه‌هایی که به وضعیت آماده رسیده‌اند وارد Retrieval می‌شوند.",
+    "add": "افزودن سند", "addDescription": "یکی از دو روش متن دستی یا فایل را تکمیل کنید.", "submit": "ارسال برای پردازش", "view": "مشاهده اسناد",
+    "queued": "سند برای پردازش در صف قرار گرفت.", "chunks": "Chunk", "textHint": "برای متن دستی، عنوان و متن را تکمیل کنید.",
+    "fileHint": "PDF، DOCX، TXT یا HTML تا ۲۵ مگابایت. برای PDF اسکن‌شده، OCR فارسی به‌صورت خودکار اجرا می‌شود.",
+    "empty": { "title": "سندی در این پایگاه نیست", "description": "یک فایل معتبر یا متن دستی اضافه کنید." },
+    "source": { "file": "فایل", "text": "متن دستی" },
+    "status": {
+      "queued": "در صف", "scanning": "اسکن امنیتی", "parsing": "استخراج متن", "chunking": "قطعه‌بندی",
+      "embedding": "بردارسازی", "indexing": "نمایه‌سازی", "ready": "آماده", "failed": "ناموفق", "deleting": "در حال حذف"
+    },
+    "live": {
+      "live": "نمایش زنده فعال است", "refreshing": "دریافت آخرین وضعیت", "paused": "نمایش زنده موقتاً متوقف است",
+      "error": "ارتباط زنده قطع شده", "lastUpdated": "آخرین دریافت:", "refresh": "دریافت وضعیت اکنون", "refreshingAction": "در حال دریافت وضعیت"
+    }
+  },
+  "chatbots": {
+    "title": "سازنده چت‌بات", "description": "چت‌بات grounded با Retrieval، Rerank اجباری و Citation کنترل‌شده منتشر کنید.",
+    "create": "ساخت چت‌بات", "createDescription": "نسخه اول خصوصی است و هر انتشار یک Snapshot تغییرناپذیر می‌سازد.", "selectModel": "یک مدل چت در دسترس انتخاب کنید.",
+    "created": "پیش‌نویس چت‌بات ساخته شد.", "published": "چت‌بات منتشر شد.", "unpublished": "انتشار چت‌بات متوقف شد.",
+    "publish": "انتشار", "unpublish": "توقف انتشار", "knowledgeBases": "پایگاه‌های دانش", "selectKB": "حداقل یک پایگاه دانش آماده انتخاب کنید.",
+    "kbHint": "حداکثر ۵ پایگاه دانش؛ پایگاه بدون سند آماده قابل انتشار نیست.", "kbReady": "{ready} سند آماده",
+    "modelHint": "شناسه دقیق مدل یا مدل مجازی مجاز Tenant ثبت می‌شود.", "noModels": "مدل سازگار با چت در دسترس نیست",
+    "instructionHint": "محتوای سند همیشه داده غیرقابل‌اعتماد است و بر این دستور اولویت ندارد.",
+    "originsHint": "برای Widget عمومی، هر Origin را در یک خط وارد کنید.",
+    "empty": { "title": "چت‌باتی ساخته نشده است", "description": "پس از آماده‌شدن پایگاه دانش، یک چت‌بات خصوصی یا عمومی بسازید." },
+    "access": { "private": "خصوصی", "public": "عمومی" },
+    "locales": { "fa-IR": "فارسی ایران (fa-IR)", "en-US": "انگلیسی آمریکا (en-US)" },
+    "answerLanguages": { "query": "هم‌زبان با پرسش", "fa": "همیشه فارسی", "en": "همیشه انگلیسی" },
+    "retention": { "30": "۳۰ روز", "7": "۷ روز", "0": "بدون ذخیره" },
+    "status": { "published": "منتشرشده", "draft": "پیش‌نویس" }
+  },
+  "chat": {
+    "title": "تست چت‌بات", "pageDescription": "پاسخ grounded، ارجاع‌ها و رفتار امتناع چت‌بات منتشرشده را آزمایش کنید.",
+    "action": "تست چت", "loading": "در حال دریافت چت‌بات",
+    "reset": "گفت‌وگوی جدید", "send": "ارسال", "stop": "توقف", "placeholder": "پرسش خود را از محتوای پایگاه دانش بنویسید…",
+    "inputLabel": "پیام چت", "inputHint": "Enter برای ارسال؛ Shift+Enter برای خط جدید", "messagesLabel": "پیام‌های گفت‌وگو",
+    "assistant": "چت‌بات", "you": "شما", "citations": "{count} منبع", "page": "صفحه {page}",
+    "empty": { "title": "گفت‌وگو را شروع کنید", "description": "یک پرسش مرتبط با اسناد متصل به این چت‌بات بنویسید." },
+    "unpublished": { "title": "چت‌بات منتشر نشده است", "description": "برای آزمایش Runtime ابتدا چت‌بات را از صفحه سازنده منتشر کنید." },
+    "stage": { "retrieving": "در حال بازیابی شواهد…", "reranking": "در حال رتبه‌بندی شواهد…" },
+    "openWebUI": {
+      "title": "اتصال Open WebUI", "description": "این Base URL با OpenAI Chat Completions سازگار است.",
+      "baseURL": "OpenAI-compatible Base URL", "model": "شناسه Model",
+      "privateHint": "برای اتصال این Bot خصوصی، یک Session Token کوتاه‌عمر را به‌عنوان API Key وارد کنید.",
+      "publicHint": "برای Bot عمومی می‌توانید مقدار دلخواهی مانند public را در فیلد API Key وارد کنید.",
+      "issueToken": "ساخت API Key یک‌ساعته", "issuingToken": "در حال ساخت کلید…",
+      "tokenTitle": "API Key موقت Open WebUI", "tokenDescription": "این کلید تا {expiresAt} معتبر است.",
+      "tokenWarning": "این مقدار فقط همین یک‌بار نمایش داده می‌شود. آن را به‌عنوان API Key در Open WebUI وارد کنید.",
+      "tokenValue": "API Key موقت", "closeToken": "بستن", "tokenError": "ساخت API Key موقت ممکن نشد."
+    }
+  },
+  "analytics": {
+    "action": "تحلیل", "title": "تحلیل {name}", "description": "سنجه‌های تجمیعی بدون ذخیره متن پرسش یا پاسخ.", "close": "بستن",
+    "queries": "پرس‌وجو", "refusals": "امتناع", "citationFailures": "خطای ارجاع", "latency": "میانگین تأخیر", "cost": "هزینه ارائه‌دهنده (USD)", "platformCost": "کارمزد پلتفرم (ریال)", "milliseconds": "{value} میلی‌ثانیه"
+  },
+  "errors": { "load": "دریافت اطلاعات RAG ممکن نشد.", "documents": "دریافت اسناد ممکن نشد.", "create": "ایجاد مورد ممکن نشد.", "upload": "ارسال سند ممکن نشد.", "publish": "تغییر وضعیت انتشار ممکن نشد.", "analytics": "دریافت تحلیل چت‌بات ممکن نشد.", "chat": "چت‌بات فعلاً نتوانست پاسخ دهد. تنظیمات ارائه‌دهنده RAG را بررسی و دوباره تلاش کنید." }
+}

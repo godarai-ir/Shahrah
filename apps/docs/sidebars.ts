@@ -56,6 +56,7 @@ const sidebars: SidebarsConfig = {
         'supported-apis/messages',
         'supported-apis/embeddings',
         'supported-apis/rerank',
+        'supported-apis/managed-rag',
         'supported-apis/moderation',
         'supported-apis/batch-api',
       ],

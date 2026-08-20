@@ -130,7 +130,57 @@ func checkAPIV1RouteAuthorization(method, route string, authInfo *platform.AuthC
 		return true, err
 	}
 
+	if handled, err := checkAPIV1RAGRouteAuthorization(method, route, authInfo); handled {
+		return true, err
+	}
+
 	return false, nil
+}
+
+func checkAPIV1RAGRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {
+	if !strings.HasPrefix(route, "/api/v1/knowledge-bases") && !strings.HasPrefix(route, "/api/v1/chatbots") {
+		return false, nil
+	}
+
+	if IsTenantAdminOrHigher(authInfo) {
+		return true, nil
+	}
+
+	readOnly := method == "GET" || method == "HEAD" || method == "OPTIONS"
+	if strings.HasPrefix(route, "/api/v1/knowledge-bases") {
+		if readOnly && hasAnyPermission(authInfo, "knowledge_base:list", "knowledge_base:manage") {
+			return true, nil
+		}
+
+		if method == "POST" && strings.HasSuffix(route, "/retry") && hasPermission(authInfo, "knowledge_base:manage") {
+			return true, nil
+		}
+
+		if !readOnly && hasPermission(authInfo, "knowledge_base:manage") {
+			return true, nil
+		}
+
+		return true, fmt.Errorf("knowledge base permission required")
+	}
+
+	if strings.HasSuffix(route, "/analytics") && readOnly && hasPermission(authInfo, "chatbot:analytics") {
+		return true, nil
+	}
+
+	if (strings.HasSuffix(route, "/publish") || strings.HasSuffix(route, "/unpublish")) &&
+		method == "POST" && hasPermission(authInfo, "chatbot:publish") {
+		return true, nil
+	}
+
+	if readOnly && hasAnyPermission(authInfo, "chatbot:list", "chatbot:manage") {
+		return true, nil
+	}
+
+	if !readOnly && hasPermission(authInfo, "chatbot:manage") {
+		return true, nil
+	}
+
+	return true, fmt.Errorf("chatbot permission required")
 }
 
 func checkAPIV1PublicRouteAuthorization(method, route string, authInfo *platform.AuthContext) (bool, error) {

@@ -12,6 +12,13 @@ func registerPublicRoutes(app *fiber.App, cfg *config.Config, deps Dependencies,
 	registerObservabilityRoutes(app, cfg, deps, httpMetrics)
 	registerPublicAdminRoutes(app, deps)
 	registerPlatformAdminRoutes(app, cfg, deps)
+
+	if deps.RAGHandler != nil {
+		app.Post("/v1/chatbots/:publicID/responses", deps.RAGHandler.ForwardRuntime)
+		app.Delete("/v1/chatbots/:publicID/sessions/:sessionID", deps.RAGHandler.ForwardRuntime)
+		app.Get("/v1/chatbots/:publicID/openai/models", deps.RAGHandler.ForwardRuntime)
+		app.Post("/v1/chatbots/:publicID/openai/chat/completions", deps.RAGHandler.ForwardRuntime)
+	}
 }
 
 func registerObservabilityRoutes(app *fiber.App, cfg *config.Config, deps Dependencies, httpMetrics *prommetrics.HTTPMetrics) {

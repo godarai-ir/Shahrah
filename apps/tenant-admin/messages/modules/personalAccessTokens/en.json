@@ -28,6 +28,7 @@
   },
   "actions": {
     "refresh": "Refresh",
+    "cancel": "Cancel",
     "create": "Create token",
     "creating": "Creating...",
     "revoke": "Revoke",

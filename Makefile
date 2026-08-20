@@ -1,5 +1,5 @@
 .PHONY: help setup setup-full setup-local build run test-unit test-modules test-contracts test-silk-road test-integration test-integration-db test fmt vet lint check docker-up docker-up-mailpit docker-up-pgadmin docker-down docker-migrate docker-logs docker-clean \
-	migrate-install migrate-up migrate-down migrate-reset migrate-status migrate-create docker-migrate-up docker-model-discovery-migrate
+	migrate-install migrate-up migrate-down migrate-reset migrate-status migrate-create docker-migrate-up docker-rag-vector-migrate-up docker-model-discovery-migrate
 
 CONTROL_PLANE_DIR := services/control-plane
 COMPOSE_FILE := infra/compose/local.yml
@@ -16,12 +16,13 @@ GO_TEST_FLAGS := -race -shuffle=on
 endif
 
 # Migration configuration (goose)
-DB_HOST ?= localhost
+DB_HOST ?= 127.0.0.1
 DB_PORT ?= 5432
 DB_NAME ?= sharah_db
 DB_USER ?= postgres
 DB_PASSWORD ?= postgres
 DB_SSLMODE ?= disable
+GOOSE_TIMEOUT ?= 2m
 MIGRATIONS_DIR := db/main/migrations
 DBSTRING := "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)"
 
@@ -88,8 +89,8 @@ lint: ## Run golangci-lint for control-plane
 
 check: fmt vet lint test ## Run the default checks
 
-docker-up: docker-migrate-up docker-model-discovery-migrate ## Start the local backend stack (including Mailpit and pgAdmin)
-	$(DOCKER_COMPOSE) up -d postgres redis clickhouse mailpit pgadmin silk-road control-plane model-discovery support-admin
+docker-up: docker-migrate-up docker-model-discovery-migrate ## Start the full local backend stack, including Managed RAG
+	$(DOCKER_COMPOSE) up -d postgres redis clickhouse mailpit pgadmin silk-road control-plane model-discovery support-admin rag-api rag-worker tika
 
 
 docker-up-mailpit: ## Start only Mailpit for local email testing
@@ -118,19 +119,19 @@ migrate-install: ## Install goose CLI if missing
 
 # Apply all pending migrations
 migrate-up: migrate-install ## Apply all pending goose migrations
-	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) up
+	@cd $(MIGRATIONS_DIR) && goose -timeout $(GOOSE_TIMEOUT) postgres $(DBSTRING) up
 
 # Rollback last migration
 migrate-down: migrate-install ## Roll back last goose migration
-	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) down
+	@cd $(MIGRATIONS_DIR) && goose -timeout $(GOOSE_TIMEOUT) postgres $(DBSTRING) down
 
 # Rollback all migrations
 migrate-reset: migrate-install ## Roll back all goose migrations
-	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) reset
+	@cd $(MIGRATIONS_DIR) && goose -timeout $(GOOSE_TIMEOUT) postgres $(DBSTRING) reset
 
 # Show current migration version and status
 migrate-status: migrate-install ## Show goose migration status
-	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) status
+	@cd $(MIGRATIONS_DIR) && goose -timeout $(GOOSE_TIMEOUT) postgres $(DBSTRING) status
 
 # Create a new migration file
 # Usage: make migrate-create name=my_new_feature
@@ -139,5 +140,9 @@ migrate-create: migrate-install ## Create a new goose SQL migration (name=...)
 	@cd $(MIGRATIONS_DIR) && goose postgres $(DBSTRING) create $(name) sql
 
 # Docker-based migration (run migrations in docker-compose environment)
-docker-migrate-up: ## Run migrations in docker compose migrate service
+docker-migrate-up: ## Run main and RAG vector migrations in Docker Compose
 	docker compose -f infra/compose/local.yml run --rm migrate
+	docker compose -f infra/compose/local.yml run --rm rag-vector-migrate
+
+docker-rag-vector-migrate-up: ## Run only RAG vector migrations in Docker Compose
+	docker compose -f infra/compose/local.yml run --rm rag-vector-migrate

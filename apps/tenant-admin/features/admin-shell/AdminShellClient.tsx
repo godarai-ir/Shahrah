@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { BookOpen, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
+import { BookOpen, Bot, ChevronDown, Eye, LogOut, Plug, ShieldCheck, User, Users, WalletCards } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +91,11 @@ const SIDEBAR_NAV_GROUPS: Array<{
     labelKey: "navGroups.prompts",
     itemKeys: ["prompts", "playground"],
     icon: BookOpen,
+  },
+  {
+    labelKey: "navGroups.knowledge",
+    itemKeys: ["knowledgeBases", "chatbots"],
+    icon: Bot,
   },
   {
     labelKey: "navGroups.observability",
