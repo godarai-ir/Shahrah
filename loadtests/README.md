@@ -90,9 +90,9 @@ Keep the VAT local to that terminal and do not paste it into logs, Git, or chat:
 
 ```powershell
 $env:PRODUCTION_LOADTEST="true"
-$env:BASE_URL="https://<tenant-slug>.godarai.ir"
-$env:API_KEY="<dedicated-load-test-vat>"
-$env:TENANT="<tenant-slug>"
+$env:BASE_URL="https://delpak.godarai.ir"
+$env:API_KEY="sk-862fb8c4020c41e9afdaadd39fede894"
+$env:TENANT="delpak"
 $env:MODEL="mock:loadtest:chat"
 $env:EMBEDDING_MODEL="mock:loadtest:chat"
 $env:EXPECT_MOCK_PROVIDER="true"
