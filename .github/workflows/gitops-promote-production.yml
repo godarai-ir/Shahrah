@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GITOPS_REPO: Delpak/shahrah-gitops
+  GITOPS_REPO: godarai-ir/shahrah-gitops
 
 jobs:
   promote:
