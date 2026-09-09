@@ -13,7 +13,7 @@ services:
       args:
         GOPROXY: ${GOPROXY:-https://goproxy.io,direct}
     ports:
-      - "4000:4000"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:4000:4000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sharah_db?sslmode=disable
       CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://sharah_user:5r74Fq90EyWA@clickhouse:9000/sharah_db?dial_timeout=5s&read_timeout=10s}
@@ -80,7 +80,7 @@ services:
       context: ../../
       dockerfile: apps/model-discovery/Dockerfile
     ports:
-      - "3002:3002"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:3002:3002"
     environment:
       PORT: 3002
       DATABASE_URL: ${MODEL_DISCOVERY_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public}
@@ -129,7 +129,7 @@ services:
       [
         "sh",
         "-c",
-        "pnpm exec prisma migrate deploy && pnpm run import:providers:yaml -- --providers anthropic,google-gemini,openai",
+        "pnpm exec prisma migrate deploy && pnpm run import:providers:yaml",
       ]
     environment:
       DATABASE_URL: ${MODEL_DISCOVERY_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/model_discovery?schema=public}
@@ -146,7 +146,7 @@ services:
       - path: ../../apps/support-admin/.env
         required: false
     ports:
-      - "${SUPPORT_ADMIN_HOST_PORT:-3001}:3000"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${SUPPORT_ADMIN_HOST_PORT:-3001}:3000"
     environment:
       MODEL_DISCOVERY_API_BASE_INTERNAL: ${MODEL_DISCOVERY_API_BASE_INTERNAL:-http://model-discovery:3002/api/v1}
       DATABASE_URL: ${SUPPORT_ADMIN_DATABASE_URL:-postgresql://support_admin:local-support-admin-only@postgres:5432/support_admin?schema=public}
@@ -165,7 +165,7 @@ services:
       context: ../../
       dockerfile: apps/model-discovery-web/Dockerfile
     ports:
-      - "${MODEL_DISCOVERY_WEB_HOST_PORT:-3003}:3000"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${MODEL_DISCOVERY_WEB_HOST_PORT:-3003}:3000"
     environment:
       MODEL_DISCOVERY_API_BASE_INTERNAL: ${MODEL_DISCOVERY_API_BASE_INTERNAL:-http://model-discovery:3002/api/v1}
       SHAHRAH_CONTROL_PLANE_URL: ${SHAHRAH_CONTROL_PLANE_URL:-http://control-plane:4000}
@@ -194,7 +194,7 @@ services:
       context: ../../
       dockerfile: services/silk-road/Dockerfile
     ports:
-      - "8083:8083"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:8083:8083"
     environment:
       SILK_ROAD_ADDR: :8083
       SILK_ROAD_EGRESS_PROXY_URL: ${SILK_ROAD_EGRESS_PROXY_URL:-}
@@ -207,7 +207,7 @@ services:
     logging: *default-logging
     image: postgres:${POSTGRES_VERSION:-18}
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -239,7 +239,7 @@ services:
     logging: *default-logging
     image: redis:${REDIS_VERSION:-8-alpine}
     ports:
-      - "6379:6379"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:6379:6379"
     command: sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"; else exec redis-server --appendonly yes; fi'
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-s4M6gOMp77ss}
@@ -255,8 +255,8 @@ services:
     logging: *default-logging
     image: clickhouse/clickhouse-server:${CLICKHOUSE_VERSION:-26.3}
     ports:
-      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
-      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
     environment:
       CLICKHOUSE_DB: sharah_db
       CLICKHOUSE_USER: sharah_user
@@ -274,7 +274,7 @@ services:
     logging: *default-logging
     image: typesense/typesense:${TYPESENSE_VERSION:-29.1}
     ports:
-      - "${TYPESENSE_HOST_PORT:-8108}:8108"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${TYPESENSE_HOST_PORT:-8108}:8108"
     environment:
       TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-xyz}
       TYPESENSE_DATA_DIR: /data
@@ -288,8 +288,8 @@ services:
     logging: *default-logging
     image: axllent/mailpit:latest
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:1025:1025"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:8025:8025"
     restart: unless-stopped
 
   minio:
@@ -297,8 +297,8 @@ services:
     image: minio/minio:latest
     command: ["server", "/data", "--console-address", ":9001"]
     ports:
-      - "${MINIO_API_HOST_PORT:-9002}:9000"
-      - "${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${MINIO_API_HOST_PORT:-9002}:9000"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
     environment:
       MINIO_ROOT_USER: ${PRIVATE_FILES_S3_ACCESS_KEY:-godarai-local}
       MINIO_ROOT_PASSWORD: ${PRIVATE_FILES_S3_SECRET_KEY:-godarai-local-secret}
@@ -331,7 +331,7 @@ services:
     logging: *default-logging
     image: clamav/clamav:stable
     ports:
-      - "${CLAMAV_HOST_PORT:-3310}:3310"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${CLAMAV_HOST_PORT:-3310}:3310"
     healthcheck:
       test: ["CMD-SHELL", "printf 'PING\\n' | nc 127.0.0.1 3310 | grep PONG"]
       interval: 15s
@@ -344,7 +344,7 @@ services:
     logging: *default-logging
     image: dpage/pgadmin4:latest
     ports:
-      - "${PGADMIN_HOST_PORT:-5050}:80"
+      - "${LOCAL_BIND_ADDR:-127.0.0.1}:${PGADMIN_HOST_PORT:-5050}:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
