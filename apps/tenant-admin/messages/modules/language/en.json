@@ -1,0 +1,10 @@
+{
+  "label": "Language",
+  "switch": "Change language",
+  "current": "Current language",
+  "names": {
+    "fa": "فارسی",
+    "en": "English"
+  },
+  "changing": "Applying the new language..."
+}

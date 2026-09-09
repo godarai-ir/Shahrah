@@ -17,6 +17,7 @@ const translations: Record<string, string> = {
 };
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "fa",
   useTranslations: () => (key: string, values?: Record<string, string | number>) => {
     const template = translations[key] ?? key;
     if (!values) return template;
@@ -53,9 +54,9 @@ describe("RateLimitRuleForm", () => {
     render(<RateLimitRuleForm />);
     const toggle = screen.getByText("Show advanced settings");
     fireEvent.click(toggle);
-    expect(screen.getByText("Conflict behavior")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Conflict behavior" })).toBeInTheDocument();
     fireEvent.click(screen.getByText("Hide advanced settings"));
-    expect(screen.queryByText("Conflict behavior")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Conflict behavior" })).toBeNull();
   });
 
   it("switches expose accessible names", () => {

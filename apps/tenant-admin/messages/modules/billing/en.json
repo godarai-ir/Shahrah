@@ -1,0 +1,236 @@
+{
+  "units": {
+    "irr": "IRR",
+    "toman": "toman"
+  },
+  "errorTitle": "Error",
+  "unknownError": "An unexpected error occurred.",
+  "status": {
+    "successful": "Successful",
+    "completed": "Completed",
+    "approved": "Approved",
+    "paid": "Paid",
+    "used": "Used",
+    "active": "Active",
+    "issued": "Issued",
+    "pending": "Pending",
+    "pending_review": "Pending review",
+    "draft": "Draft",
+    "failed": "Failed",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled",
+    "expired": "Expired",
+    "refunded": "Refunded"
+  },
+  "transactionType": {
+    "consumption": "Consumption",
+    "topup": "Top-up",
+    "refund": "Refund",
+    "adjustment": "Adjustment"
+  },
+  "discountType": {
+    "fixed": "Fixed amount",
+    "percentage": "Percentage",
+    "gift_credit": "Gift credit"
+  },
+  "filters": {
+    "all": "All"
+  },
+  "profileType": {
+    "label": "Type",
+    "individual": "Individual",
+    "legal": "Company"
+  },
+  "jalaliDate": {
+    "today": "Today",
+    "hint": "Enter the date in the Jalali format `YYYY-MM-DD`."
+  },
+  "pagination": {
+    "range": "Showing {from} to {to} of {total} rows",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pageCount}"
+  },
+  "overview": {
+    "title": "Billing",
+    "description": "Operational view of the workspace wallet, period usage, discounts, and financial documents.",
+    "eyebrow": "Billing",
+    "topUp": "Top up wallet",
+    "bankTransfer": "Bank transfer",
+    "balance": "Balance",
+    "currentMonthUsage": "Usage this month",
+    "cacheSavings": "Cache savings",
+    "quickActions": "Quick actions",
+    "quickTopUp": "Pay online",
+    "quickBankTransfer": "Submit a bank transfer",
+    "quickReports": "Usage report",
+    "quickProfile": "Billing profile",
+    "quickDocuments": "Financial documents",
+    "topProviders": "Top providers by cost",
+    "topProvidersDescription": "Based on final cost for the current period",
+    "unknownProvider": "Unknown",
+    "requestCount": "{count} requests",
+    "noUsage": "No usage data for this period."
+  },
+  "bankTransfer": {
+    "title": "Bank transfer",
+    "description": "Submit your transfer receipt; the wallet is credited once it is approved.",
+    "loadError": "Could not load bank transfers.",
+    "columns": {
+      "trackingNumber": "Tracking number",
+      "amount": "Amount",
+      "transferDate": "Transfer date",
+      "status": "Status",
+      "createdAt": "Submitted"
+    },
+    "errors": {
+      "amountAndTracking": "Enter both the amount and the tracking number.",
+      "jalaliDate": "Enter the transfer date in the Jalali format YYYY-MM-DD.",
+      "receiptRequired": "Upload the receipt image.",
+      "receiptType": "Only common image files such as JPG, PNG, WEBP, and GIF are allowed.",
+      "receiptSize": "The receipt image must be 2 MB or smaller."
+    },
+    "form": {
+      "amount": "Amount (toman)",
+      "trackingNumber": "Tracking number",
+      "transferDate": "Transfer date (Jalali)",
+      "receipt": "Receipt image",
+      "receiptReady": "ready to submit",
+      "removeReceipt": "Remove {name}",
+      "pickReceipt": "Choose a receipt image",
+      "receiptHint": "One image in JPG, PNG, WEBP, or GIF format, 2 MB at most.",
+      "submitting": "Submitting...",
+      "submit": "Submit for review"
+    },
+    "list": {
+      "title": "Submitted transfers",
+      "description": "Your most recent bank transfer requests",
+      "empty": "No request has been submitted yet."
+    },
+    "account": {
+      "title": "Account details for bank transfers",
+      "description": "Transfer the amount to the account below, then upload the receipt for review.",
+      "bankName": "Saman Bank",
+      "ibanLabel": "IBAN",
+      "cardLabel": "Card number",
+      "cardValueAriaLabel": "Bank card number",
+      "copy": "Copy",
+      "copying": "Copying",
+      "copied": "Copied"
+    }
+  },
+  "reports": {
+    "title": "Financial reports",
+    "description": "Review usage, cost, discounts, and cache savings per provider.",
+    "summaryError": "Could not load the summary report.",
+    "monthlyError": "Could not load the monthly report.",
+    "invalidMonth": "The report month must be a valid Jalali month.",
+    "columns": {
+      "provider": "Provider",
+      "requests": "Requests",
+      "inputTokens": "Input tokens",
+      "outputTokens": "Output tokens",
+      "rawCost": "Raw cost",
+      "discount": "Discount",
+      "cacheSavings": "Cache savings",
+      "finalCost": "Final cost"
+    },
+    "metrics": {
+      "periodUsage": "Period usage",
+      "discount": "Discount",
+      "cacheSavings": "Cache savings",
+      "giftCredit": "Gift credit"
+    },
+    "filter": {
+      "title": "Report filter",
+      "description": "View usage over a preset range or broken down by month.",
+      "range": "Range",
+      "monthly": "Monthly filter",
+      "refreshing": "Loading...",
+      "refresh": "Refresh"
+    },
+    "presets": {
+      "current_month": "This month",
+      "current_quarter": "This quarter",
+      "current_year": "This year",
+      "last_3_months": "Last 3 months",
+      "last_6_months": "Last 6 months",
+      "last_12_months": "Last 12 months"
+    },
+    "monthlyDetail": {
+      "title": "Monthly detail",
+      "description": "Usage, tokens, and final cost per provider for {month}",
+      "empty": "No data for this month."
+    },
+    "providerShare": {
+      "title": "Provider share",
+      "description": "Based on final cost"
+    }
+  },
+  "profile": {
+    "title": "Billing profile",
+    "description": "Individual or company details used on the workspace invoices and financial documents.",
+    "loadError": "Could not load the billing profile.",
+    "errors": {
+      "displayNameAndID": "Display name and national ID are required.",
+      "nationalID": "The national ID must be exactly 10 digits.",
+      "legalID": "The company ID must be exactly 11 digits.",
+      "economicCodeRequired": "An economic code is required for a company profile.",
+      "economicCode": "The economic code must be exactly 12 digits.",
+      "postalCode": "The postal code must be exactly 10 digits.",
+      "email": "Enter a valid email address."
+    },
+    "identity": {
+      "title": "Identity",
+      "description": "Profile type and financial identifier",
+      "displayName": "Display name",
+      "nationalID": "National ID",
+      "legalID": "Company ID",
+      "economicCode": "Economic code"
+    },
+    "contact": {
+      "title": "Contact and address",
+      "description": "Shown on financial documents",
+      "postalCode": "Postal code",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email"
+    },
+    "saving": "Saving...",
+    "save": "Save profile"
+  },
+  "documents": {
+    "title": "Financial documents",
+    "description": "Invoices, wallet transactions, and workspace discounts.",
+    "exportCSV": "Export CSV",
+    "tabs": {
+      "invoices": "Invoices",
+      "transactions": "Transactions",
+      "discounts": "Discounts"
+    },
+    "invoices": {
+      "number": "Number",
+      "status": "Status",
+      "periodEnd": "Period end",
+      "finalAmount": "Final amount (IRR)",
+      "netAdjustment": "Adjustment (IRR)",
+      "empty": "No invoice has been issued yet."
+    },
+    "transactions": {
+      "type": "Type",
+      "status": "Status",
+      "amount": "Amount (IRR)",
+      "balanceAfter": "Balance after (IRR)",
+      "createdAt": "Time",
+      "empty": "No transaction has been recorded yet."
+    },
+    "discounts": {
+      "code": "Code",
+      "type": "Type",
+      "status": "Status",
+      "usedAmount": "Used (IRR)",
+      "createdAt": "Submitted",
+      "empty": "No discount has been used yet."
+    }
+  }
+}

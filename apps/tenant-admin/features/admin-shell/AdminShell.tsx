@@ -5,7 +5,7 @@ import { AdminShellPageBridge } from "@/features/admin-shell/page-context";
 import type { ShellPageMetadata } from "@/components/app-ui/ShellPageHeading";
 import { pickMessages } from "@/lib/pick-messages";
 
-const SHELL_MESSAGE_NAMESPACES = ["common", "theme", "shell"] as const;
+const SHELL_MESSAGE_NAMESPACES = ["common", "theme", "language", "shell"] as const;
 
 type AdminShellProps = {
   children: React.ReactNode;

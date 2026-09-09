@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { ComponentType } from "react";
 import { BarChart3, CreditCard, FileText, Landmark, LineChart, WalletCards } from "lucide-react";
 
@@ -11,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { requirePermissionOr403 } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { fetchControlPlaneJSON } from "@/lib/control-plane";
-import { buildControlPlaneBillingSummaryPath, formatIRR } from "@/features/billing/domain";
+import { buildControlPlaneBillingSummaryPath, formatIRRAmount } from "@/features/billing/domain";
 import { parseBillingSummary, parseWallet } from "@/features/billing/api";
+import { resolveLocale } from "@/lib/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,11 @@ export default async function BillingDashboardPage() {
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneBillingSummaryPath("current_month"), userID: auth.user.id }),
   ]);
 
+  const t = await getTranslations("billing");
+  const locale = resolveLocale(await getLocale());
+  const irrUnit = t("units.irr");
+  const formatIRR = (value: number | undefined | null) => `${formatIRRAmount(value, locale)} ${irrUnit}`;
+
   const wallet = walletResponse.ok ? parseWallet(walletResponse.payload) : null;
   const summary = summaryResponse.ok ? parseBillingSummary(summaryResponse.payload) : null;
   const availableBalance = Number(wallet?.available_balance_irr ?? wallet?.balance_irr ?? 0);
@@ -41,51 +48,51 @@ export default async function BillingDashboardPage() {
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={currentUser}
-      pageHeader={{ title: "مدیریت مالی", description: "نمای عملیاتی کیف پول، مصرف دوره، تخفیف‌ها و اسناد مالی فضای کاری." }}
+      pageHeader={{ title: t("overview.title"), description: t("overview.description") }}
     >
       <div className="flex flex-col gap-6">
         <PageHeader
-          eyebrow="Billing"
-          title="مدیریت مالی"
-          description="نمای عملیاتی کیف پول، مصرف دوره، تخفیف‌ها و اسناد مالی فضای کاری."
+          eyebrow={t("overview.eyebrow")}
+          title={t("overview.title")}
+          description={t("overview.description")}
           actions={
             <>
-              <Button asChild><Link href="/billing/topup"><CreditCard className="me-2 size-4" />شارژ کیف پول</Link></Button>
-              <Button asChild variant="outline"><Link href="/billing/bank-transfer"><Landmark className="me-2 size-4" />واریز بانکی</Link></Button>
+              <Button asChild><Link href="/billing/topup"><CreditCard className="me-2 size-4" />{t("overview.topUp")}</Link></Button>
+              <Button asChild variant="outline"><Link href="/billing/bank-transfer"><Landmark className="me-2 size-4" />{t("overview.bankTransfer")}</Link></Button>
             </>
           }
         />
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
           <MetricCard
             icon={WalletCards}
-            label="اعتبار"
+            label={t("overview.balance")}
             value={formatIRR(availableBalance)}
           />
-          <MetricCard icon={LineChart} label="مصرف ماه جاری" value={formatIRR(summary?.total_usage_irr)} />
-          <MetricCard icon={BarChart3} label="صرفه‌جویی ناشی از کش" value={formatIRR(summary?.cache_savings_irr)} />
+          <MetricCard icon={LineChart} label={t("overview.currentMonthUsage")} value={formatIRR(summary?.total_usage_irr)} />
+          <MetricCard icon={BarChart3} label={t("overview.cacheSavings")} value={formatIRR(summary?.cache_savings_irr)} />
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
-          <AppCard title="اقدام‌های سریع" className="lg:col-span-1">
+          <AppCard title={t("overview.quickActions")} className="lg:col-span-1">
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-              <QuickAction href="/billing/topup" icon={CreditCard} label="شارژ از درگاه" />
-              <QuickAction href="/billing/bank-transfer" icon={Landmark} label="ثبت واریز بانکی" />
-              <QuickAction href="/billing/reports" icon={LineChart} label="گزارش مصرف" />
-              <QuickAction href="/billing/profile" icon={WalletCards} label="پروفایل مالی" />
-              <QuickAction href="/billing/documents" icon={FileText} label="اسناد مالی" />
+              <QuickAction href="/billing/topup" icon={CreditCard} label={t("overview.quickTopUp")} />
+              <QuickAction href="/billing/bank-transfer" icon={Landmark} label={t("overview.quickBankTransfer")} />
+              <QuickAction href="/billing/reports" icon={LineChart} label={t("overview.quickReports")} />
+              <QuickAction href="/billing/profile" icon={WalletCards} label={t("overview.quickProfile")} />
+              <QuickAction href="/billing/documents" icon={FileText} label={t("overview.quickDocuments")} />
             </div>
           </AppCard>
-          <AppCard title="ارائه‌دهندگان پر مصرف" description="براساس هزینه نهایی دوره جاری">
+          <AppCard title={t("overview.topProviders")} description={t("overview.topProvidersDescription")}>
             <div className="divide-y divide-border">
               {(summary?.providers ?? []).slice(0, 5).map((provider) => (
                 <div key={provider.provider_name} className="flex items-center justify-between gap-4 py-3">
                   <div className="min-w-0">
-                    <p className="font-medium text-foreground">{provider.provider_name || "unknown"}</p>
-                    <p className="text-xs text-muted-foreground">{provider.request_count} requests</p>
+                    <p className="font-medium text-foreground">{provider.provider_name || t("overview.unknownProvider")}</p>
+                    <p className="text-xs text-muted-foreground">{t("overview.requestCount", { count: provider.request_count })}</p>
                   </div>
                   <StatusBadge status="neutral">{formatIRR(provider.final_cost_irr)}</StatusBadge>
                 </div>
               ))}
-              {(summary?.providers ?? []).length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">داده مصرفی برای این دوره وجود ندارد.</p> : null}
+              {(summary?.providers ?? []).length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{t("overview.noUsage")}</p> : null}
             </div>
           </AppCard>
         </div>

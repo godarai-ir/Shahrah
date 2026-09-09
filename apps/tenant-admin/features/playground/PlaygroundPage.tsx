@@ -77,7 +77,7 @@ export default function PlaygroundPage() {
   const consumeStream = usePlaygroundStream();
   const [mode, setMode] = useState<PlaygroundMode>(() => normalizePlaygroundMode(searchParams.get("mode")) ?? "chat");
 
-  const [columns, setColumns] = useState<PlaygroundColumnDraft[]>(() => [createPlaygroundColumn(t("option", { count: 1 }), locale === "fa" ? "شما یک دستیار دقیق و مفید هستید." : "You are a precise and helpful assistant.")]);
+  const [columns, setColumns] = useState<PlaygroundColumnDraft[]>(() => [createPlaygroundColumn(t("option", { count: 1 }), t("defaultSystemPrompt"))]);
   const [results, setResults] = useState<Record<string, PlaygroundRunResult>>(() => ({ [columns[0].id]: emptyRunResult() }));
   const [activeColumnID, setActiveColumnID] = useState(columns[0].id);
   const [models, setModels] = useState<GatewayModel[]>([]);
@@ -234,7 +234,7 @@ export default function PlaygroundPage() {
   function applyMode(nextMode: PlaygroundMode) {
     abortControllers.current.forEach((controller) => controller.abort());
     abortControllers.current.clear();
-    const nextColumn = createPlaygroundColumn(t("option", { count: 1 }), locale === "fa" ? "شما یک دستیار دقیق و مفید هستید." : "You are a precise and helpful assistant.");
+    const nextColumn = createPlaygroundColumn(t("option", { count: 1 }), t("defaultSystemPrompt"));
     const availableModels = models.filter((model) => modelSupportsPlaygroundMode(model, nextMode));
     if (availableModels.length === 1) {
       nextColumn.selectedModel = availableModels[0].id;

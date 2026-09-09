@@ -70,7 +70,12 @@
     "add": "افزودن",
     "addEveryone": "اعطای دسترسی به همه کاربران",
     "remove": "حذف",
-    "everyone": "همه کاربران"
+    "everyone": "همه کاربران",
+    "users": "کاربران",
+    "teams": "تیم‌ها",
+    "orgUnits": "واحدهای سازمانی",
+    "virtualAccounts": "اکانت‌های مجازی",
+    "externalIdentities": "هویت‌های خارجی"
   },
   "messages": {
     "initialLoadFailed": "کاتالوگ ارائه‌دهنده‌ها بارگیری نشد. پس از در دسترس شدن سرویس model-discovery دوباره تلاش کنید.",
@@ -544,7 +549,8 @@
         "autoEnableDescription": "اگر این گزینه فعال باشد، مدل‌های جدید این ارائه‌دهنده به‌صورت پیش‌فرض روی این اتصال در دسترس می‌شوند و بعداً می‌توانید آن‌ها را غیرفعال کنید.",
         "createIntegration": "ایجاد اتصال"
       }
-    }
+    },
+    "listSeparator": "، "
   },
   "integrations": {
     "pageTitle": "اتصال به ارائه‌دهندگان مدل‌های هوش مصنوعی",
@@ -610,5 +616,14 @@
       "disconnectFailed": "قطع اتصال ناموفق بود.",
       "connectionCreated": "اتصال «{name}» با موفقیت فعال شد."
     }
-  }
+  },
+  "curlGuideSamples": {
+    "textPrompt": "سلام، یک پاسخ کوتاه بده",
+    "embeddingInput": "سلام، این متن را برای جستجو برداری کن",
+    "moderationInput": "I want to check this text for policy violations.",
+    "imagePrompt": "A cinematic photo of Tehran at sunrise",
+    "speechInput": "سلام، به گدارAI خوش آمدید.",
+    "transcriptionText": "سلام، این یک نمونه تبدیل گفتار به متن است."
+  },
+  "listSeparator": "، "
 }

@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import AdminShell from "@/features/admin-shell/AdminShell";
 import { BillingProfilePanel } from "@/features/billing/BillingFinancePanels";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -13,18 +15,19 @@ export default async function BillingProfilePage() {
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["billing:profile_manage", "billing:manage", "settings:manage"]);
 
+  const t = await getTranslations("billing");
   const response = await fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/billing/profile", userID: auth.user.id });
   const initialProfile = response.ok ? parseBillingProfile(response.payload) : null;
-  const initialError = response.ok || response.status === 404 ? null : response.errorMessage ?? "پروفایل مالی دریافت نشد.";
+  const initialError = response.ok || response.status === 404 ? null : response.errorMessage ?? t("profile.loadError");
 
   return (
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
-      pageHeader={{ title: "پروفایل مالی", description: "اطلاعات حقیقی یا حقوقی فضای کاری برای فاکتور و اسناد مالی." }}
+      pageHeader={{ title: t("profile.title"), description: t("profile.description") }}
     >
       <div className="flex flex-col gap-6">
-        <PageHeader title="پروفایل مالی" description="اطلاعات حقیقی یا حقوقی فضای کاری برای فاکتور و اسناد مالی." />
+        <PageHeader title={t("profile.title")} description={t("profile.description")} />
         <BillingProfilePanel initialProfile={initialProfile} initialError={initialError} />
       </div>
     </AdminShell>

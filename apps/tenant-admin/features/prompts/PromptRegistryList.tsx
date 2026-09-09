@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 
 import { formatNumber, type Prompt, type PromptTranslationFn } from "@/lib/prompt-builder";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 type PromptRegistryListProps = {
   isLoading: boolean;
@@ -134,7 +135,7 @@ export function PromptRegistryList(props: PromptRegistryListProps) {
                   <TableCell className="text-end">
                     <RowActionsMenu
                       label={props.t("actions.openMenu")}
-                      dir={props.locale === "fa" ? "rtl" : "ltr"}
+                      dir={getLocaleDirection(props.locale)}
                       stopPropagation
                       actions={[
                         {

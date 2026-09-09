@@ -84,6 +84,7 @@ import {
   resolveCurlGuideMode,
   toNumberOrUndefined,
 } from "./utils";
+import { useCurlGuideSamples } from "@/features/provider-accounts/use-curl-guide-samples";
 
 
 export const ModelsEditor = memo(function ModelsEditor(props: {
@@ -102,6 +103,7 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
   variant?: "default" | "compact";
 }) {
   const ux = useTranslations("providerAccounts.ux");
+  const curlGuideSamples = useCurlGuideSamples();
   const locale = useLocale();
   const {
     account,
@@ -212,13 +214,14 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
     const bashCommand = buildBashCurlGuideCommand({
       baseUrl: tenantBaseUrl,
       endpoint,
-      payload: buildCurlGuidePayload(guideMode, modelFqn),
+      payload: buildCurlGuidePayload(guideMode, modelFqn, curlGuideSamples),
     });
     const powershellCommand = buildPowerShellCurlGuideCommand({
       baseUrl: tenantBaseUrl,
       endpoint,
       mode: guideMode,
       modelFqn,
+      samples: curlGuideSamples,
     });
     setCurlGuideShell("powershell");
     setCurlGuide({
@@ -229,9 +232,9 @@ export const ModelsEditor = memo(function ModelsEditor(props: {
         powershell: powershellCommand,
         bash: bashCommand,
       },
-      sampleResponse: buildCurlGuideSampleResponse(guideMode, officialModel),
+      sampleResponse: buildCurlGuideSampleResponse(guideMode, officialModel, curlGuideSamples),
     });
-  }, [buildModelFqn, tenantBaseUrl]);
+  }, [buildModelFqn, curlGuideSamples, tenantBaseUrl]);
 
   const allInputModalities = useMemo(
     () => Array.from(new Set(providerModels.flatMap((model) => model.input_modalities ?? []))),

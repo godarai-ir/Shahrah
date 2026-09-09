@@ -109,7 +109,7 @@
     "systemRole": "سیستمی",
     "customRole": "سفارشی",
     "form": {
-        "name": "شناسه فنی",
+      "name": "شناسه فنی",
       "displayName": "نام نمایشی",
       "description": "توضیحات",
       "create": "ایجاد نقش",
@@ -151,6 +151,74 @@
       "description": "ایجاد نقش سفارشی در پلن تجاری فعلی شما ارائه نمی‌شود. برای استفاده از این قابلیت، پلن خود را ارتقا دهید.",
       "cancel": "فعلاً نه",
       "action": "ارتقا یا خرید پلن"
-    }
-  }
+    },
+    "editTitle": "ویرایش نقش",
+    "editDescription": "مشخصات نقش و سطح دسترسی آن را به‌روزرسانی کنید.",
+    "createDescription": "اطلاعات نقش و مجوزهای آن را وارد کنید.",
+    "detailsTitle": "مشخصات نقش",
+    "detailsDescription": "نام نمایشی و توضیحات قابل مشاهده برای مدیران را ویرایش کنید.",
+    "technicalIdentifier": "شناسه فنی",
+    "permissionsTitle": "مجوزهای نقش",
+    "permissionsDescription": "مجوزها را جست‌وجو کنید و دسترسی‌های این نقش را در سطح گروه یا مورد تغییر دهید.",
+    "summaryTitle": "خلاصه نقش",
+    "selectionSummaryTitle": "خلاصه انتخاب‌ها",
+    "permissionRequired": "حداقل یک مجوز انتخاب کنید.",
+    "displayNamePlaceholder": "مدیر مالی فضای کاری"
+  },
+  "permissionEditor": {
+    "selectedTab": "انتخاب‌شده‌ها",
+    "allTab": "همه مجوزها",
+    "searchPlaceholder": "جست‌وجوی مجوز یا توضیح",
+    "searchAriaLabel": "جست‌وجوی مجوزها",
+    "emptyTitle": "نتیجه‌ای پیدا نشد.",
+    "selectGroup": "انتخاب کل گروه",
+    "clearGroup": "حذف انتخاب گروه"
+  },
+  "permissionSummary": {
+    "selectedPermissions": "مجوزهای انتخاب‌شده",
+    "coveredGroups": "گروه‌های پوشش‌داده‌شده",
+    "clearAll": "پاک‌کردن همه مجوزها",
+    "empty": "هنوز مجوزی برای این نقش انتخاب نشده است."
+  },
+  "permissionGroups": {
+    "policies": "سیاست‌ها",
+    "roles": "نقش‌ها",
+    "users": "کاربران",
+    "teams": "تیم‌ها",
+    "organization_units": "واحدهای سازمانی",
+    "virtual_accounts": "حساب‌های مجازی",
+    "provider_accounts": "حساب‌های ارائه‌دهنده",
+    "settings": "تنظیمات",
+    "logs": "گزارش‌های درخواست",
+    "billing": "مالی و صورتحساب",
+    "other": "سایر"
+  },
+  "permissionResources": {
+    "policy": "سیاست",
+    "role": "نقش",
+    "user": "کاربر",
+    "team": "تیم",
+    "org_unit": "واحد سازمانی",
+    "virtual_account": "حساب مجازی",
+    "provider_account": "حساب ارائه‌دهنده",
+    "settings": "تنظیمات",
+    "logs": "گزارش درخواست",
+    "billing": "صورتحساب"
+  },
+  "permissionActions": {
+    "list": "مشاهده فهرست",
+    "read": "مشاهده جزئیات",
+    "create": "ایجاد",
+    "manage": "مدیریت",
+    "delete": "حذف",
+    "export": "خروجی گرفتن از",
+    "manage_views": "مدیریت نماهای ذخیره‌شده‌ی",
+    "read_content": "مشاهده محتوای",
+    "read_metadata": "مشاهده فراداده‌ی",
+    "replay": "بازپخش",
+    "codes_redeem": "استفاده از کدهای تخفیف در",
+    "documents_read": "مشاهده اسناد",
+    "profile_manage": "مدیریت پروفایل"
+  },
+  "permissionDescription": "اجازه {action} {resource}"
 }

@@ -26,6 +26,7 @@ import {
 } from "./permissions";
 import { createRole } from "./api";
 import type { PermissionItem } from "./contracts";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 type Banner = {
   kind: "success" | "error";
@@ -64,13 +65,13 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
     [initialPermissionCatalog],
   );
   const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const editorLabels = useMemo(() => getPermissionEditorLabels(locale), [locale]);
-  const summaryLabels = useMemo(() => getPermissionSummaryLabels(locale), [locale]);
+  const editorLabels = useMemo(() => getPermissionEditorLabels(t), [t]);
+  const summaryLabels = useMemo(() => getPermissionSummaryLabels(t), [t]);
 
   function validate(next: RoleFormState): string | null {
     if (!next.name.trim()) return t("rolesPage.form.name");
     if (!next.display_name.trim()) return t("rolesPage.form.displayName");
-    if (next.permissions.length === 0) return locale.startsWith("fa") ? "حداقل یک مجوز انتخاب کنید." : "Select at least one permission.";
+    if (next.permissions.length === 0) return t("rolesPage.permissionRequired");
     return null;
   }
 
@@ -105,7 +106,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
       open={open}
       onOpenChange={onOpenChange}
       title={t("rolesPage.createTitle")}
-      description={locale.startsWith("fa") ? "اطلاعات نقش و مجوزهای آن را وارد کنید." : "Enter the role details and permissions."}
+      description={t("rolesPage.createDescription")}
       size="lg"
       side="left"
       pending={isSubmitting}
@@ -133,7 +134,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
               <section className="flex flex-col gap-3">
                 <FieldGroup className="grid gap-3 md:grid-cols-2">
                   <IdentifierField id="role-name" label={t("rolesPage.form.name")} value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="tenant_finance_admin" />
-                  <DisplayNameField id="role-display-name" label={t("rolesPage.form.displayName")} value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={locale.startsWith("fa") ? "مدیر مالی فضای کاری" : "Tenant Finance Admin"} />
+                  <DisplayNameField id="role-display-name" label={t("rolesPage.form.displayName")} value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} placeholder={t("rolesPage.displayNamePlaceholder")} />
                   <Field className="md:col-span-2">
                     <FieldLabel htmlFor="role-description">{t("rolesPage.form.description")}</FieldLabel>
                     <Textarea id="role-description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="min-h-24" />
@@ -153,9 +154,9 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
                   mode={viewMode}
                   onModeChange={setViewMode}
                   labels={editorLabels}
-                  dir={locale.startsWith("fa") ? "rtl" : "ltr"}
-                  formatGroupLabel={(group) => translatePermissionGroup(group, locale)}
-                  formatPermissionDescription={(permission) => translatePermissionDescription(permission, locale)}
+                  dir={getLocaleDirection(locale)}
+                  formatGroupLabel={(group) => translatePermissionGroup(group, t)}
+                  formatPermissionDescription={(permission) => translatePermissionDescription(permission, t)}
                   formatNumber={(value) => numberFormatter.format(value)}
                 />
               </section>
@@ -165,7 +166,7 @@ export default function RoleCreateManagement({ initialPermissionCatalog, open, o
         <PermissionSummary
           permissions={filteredPermissionCatalog}
           value={form.permissions}
-          title={locale.startsWith("fa") ? "خلاصه انتخاب‌ها" : "Selection summary"}
+          title={t("rolesPage.selectionSummaryTitle")}
           labels={summaryLabels}
           onClear={() => setForm((prev) => ({ ...prev, permissions: [] }))}
           formatNumber={(value) => numberFormatter.format(value)}

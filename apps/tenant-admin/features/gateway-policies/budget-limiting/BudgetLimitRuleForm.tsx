@@ -33,6 +33,7 @@ import { createBudgetLimitRule, updateBudgetLimitRule } from "./ruleApi";
 import type { BudgetLimitCondition, BudgetLimitRule } from "./ruleTypes";
 import { budgetLimitRuleSchema, type BudgetLimitRuleFormInput } from "./ruleValidation";
 import { loadPolicyModelOptions, searchPolicyPrincipals as searchPrincipals } from "../lookups";
+import { resolveRuleErrorMessage } from "@/features/gateway-policies/rule-error-message";
 
 const fieldOptions = ["subject", "model", "metadata"] as const;
 const metadataOperatorOptions = ["exists", "not_exists", "equals", "not_equals", "contains", "starts_with", "ends_with", "gt", "gte", "lt", "lte"] as const;
@@ -182,7 +183,7 @@ export function BudgetLimitRuleForm({ initialRule, embedded = false, onCancel, o
       router.push("/gateway-policies/budget-limiting-rules");
       router.refresh();
     } catch (error) {
-      setNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.saveError") });
+      setNotice({ kind: "error", message: resolveRuleErrorMessage(error, (code) => t(`apiErrors.${code}`), t("messages.saveError")) });
     } finally {
       setIsSaving(false);
     }

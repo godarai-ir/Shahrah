@@ -196,7 +196,6 @@ export function ProviderModelPicker({ id, options, selected, onSelectedChange, l
                         <button
                           key={option.id}
                           type="button"
-                          dir="rtl"
                           className={cn(
                             "flex w-full items-start gap-3 px-3 py-3 text-start transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none",
                             isSelected && "bg-primary-soft",

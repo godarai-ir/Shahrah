@@ -364,5 +364,6 @@
     "metadataTooMany": "You can send at most 20 metadata entries.",
     "metadataDuplicate": "Metadata key {key} is duplicated."
   },
-  "separator": "Resize prompt template and response"
+  "separator": "Resize prompt template and response",
+  "defaultSystemPrompt": "You are a precise and helpful assistant."
 }

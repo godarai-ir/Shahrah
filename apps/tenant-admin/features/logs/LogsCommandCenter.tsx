@@ -783,9 +783,8 @@ const LogsFilters = memo(function LogsFilters({
     () => principalsFromFilters(filters, principalNamesByKey),
     [filters, principalNamesByKey],
   );
-  const isPersian = t("filters.range") !== "Range";
-  const showAdvancedLabel = isPersian ? "فیلترهای پیشرفته‌تر" : "Advanced filters";
-  const hideAdvancedLabel = isPersian ? "پنهان کردن فیلترهای پیشرفته" : "Hide advanced filters";
+  const showAdvancedLabel = t("filters.showAdvanced");
+  const hideAdvancedLabel = t("filters.hideAdvanced");
   const setRange = useCallback((value: string) => {
     onSetFilter("range", value);
     if (value === "custom") {

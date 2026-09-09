@@ -6,13 +6,12 @@ export function buildPrincipalSelectorLabels(
   t: ReturnType<typeof useTranslations>,
   ux: ReturnType<typeof useTranslations>,
 ): PrincipalEntitySelectLabels {
-  const isEnglish = t("principal.user").trim().toLowerCase() === "user";
   return {
-    users: isEnglish ? "Users" : "کاربران",
-    teams: isEnglish ? "Teams" : "تیم‌ها",
-    orgUnits: isEnglish ? "Org units" : "واحدهای سازمانی",
-    virtualAccounts: isEnglish ? "Virtual accounts" : "اکانت‌های مجازی",
-    externalIdentities: isEnglish ? "External identities" : "هویت‌های خارجی",
+    users: t("principal.users"),
+    teams: t("principal.teams"),
+    orgUnits: t("principal.orgUnits"),
+    virtualAccounts: t("principal.virtualAccounts"),
+    externalIdentities: t("principal.externalIdentities"),
     everyone: t("principal.everyone"),
     searchPlaceholder: t("principal.searchPlaceholder"),
     triggerPlaceholder: t("principal.searchPlaceholder"),

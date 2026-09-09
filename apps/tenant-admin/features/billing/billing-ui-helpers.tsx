@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownLeft, ReceiptText, TicketPercent, WalletCards } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,9 @@ import { cn } from "@/lib/utils";
 
 export type BillingProfileType = "individual" | "legal";
 
+/** Translator bound to the `billing` namespace. */
+export type BillingTranslator = (key: string, values?: Record<string, string | number>) => string;
+
 export function ProfileTypeField({
   value,
   onValueChange,
@@ -19,14 +23,15 @@ export function ProfileTypeField({
   value: BillingProfileType;
   onValueChange: (value: BillingProfileType) => void;
 }) {
+  const t = useTranslations("billing");
   const options = [
-    { value: "individual" as const, label: "حقیقی" },
-    { value: "legal" as const, label: "حقوقی" },
+    { value: "individual" as const, label: t("profileType.individual") },
+    { value: "legal" as const, label: t("profileType.legal") },
   ];
 
   return (
     <div className="flex flex-col gap-2">
-      <Label>نوع</Label>
+      <Label>{t("profileType.label")}</Label>
       <RadioGroup
         value={value}
         onValueChange={(nextValue) => onValueChange(nextValue as BillingProfileType)}
@@ -64,41 +69,49 @@ export function matchDiscountFilters(item: DiscountRedemption, status: string, t
   return type === "all" || item.discount_type === type;
 }
 
-export function buildFilterOptions(values: string[], labeler: (value: string) => string) {
+export function buildFilterOptions(
+  values: string[],
+  labeler: (value: string) => string,
+  allLabel: string,
+) {
   const uniqueValues = Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
   return [
-    { value: "all", label: "همه" },
+    { value: "all", label: allLabel },
     ...uniqueValues.map((value) => ({ value, label: labeler(value) })),
   ];
 }
 
-export function mapDocumentStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    successful: "موفق",
-    completed: "تکمیل‌شده",
-    approved: "تاییدشده",
-    paid: "پرداخت‌شده",
-    used: "استفاده‌شده",
-    active: "فعال",
-    issued: "صادرشده",
-    pending: "در انتظار",
-    pending_review: "در انتظار بررسی",
-    draft: "پیش‌نویس",
-    failed: "ناموفق",
-    rejected: "ردشده",
-    cancelled: "لغوشده",
-    expired: "منقضی",
-    refunded: "برگشت‌خورده",
-  };
-  return labels[status] ?? (status || "-");
+const DOCUMENT_STATUSES = new Set([
+  "successful",
+  "completed",
+  "approved",
+  "paid",
+  "used",
+  "active",
+  "issued",
+  "pending",
+  "pending_review",
+  "draft",
+  "failed",
+  "rejected",
+  "cancelled",
+  "expired",
+  "refunded",
+]);
+const TRANSACTION_TYPES = new Set(["consumption", "topup", "refund", "adjustment"]);
+const DISCOUNT_TYPES = new Set(["fixed", "percentage", "gift_credit"]);
+
+/** Falls back to the raw control-plane value when the code is not yet mapped. */
+export function mapDocumentStatusLabel(status: string, t: BillingTranslator) {
+  return DOCUMENT_STATUSES.has(status) ? t(`status.${status}`) : status || "-";
 }
 
-export function mapTransactionTypeLabel(type: string) {
-  return { consumption: "مصرف", topup: "شارژ", refund: "بازگشت", adjustment: "اصلاح" }[type] ?? (type || "-");
+export function mapTransactionTypeLabel(type: string, t: BillingTranslator) {
+  return TRANSACTION_TYPES.has(type) ? t(`transactionType.${type}`) : type || "-";
 }
 
-export function mapDiscountTypeLabel(type: string) {
-  return { fixed: "مبلغ ثابت", percentage: "درصدی", gift_credit: "اعتبار هدیه" }[type] ?? (type || "-");
+export function mapDiscountTypeLabel(type: string, t: BillingTranslator) {
+  return DISCOUNT_TYPES.has(type) ? t(`discountType.${type}`) : type || "-";
 }
 
 export function transactionTypeIcon(type: string) {
@@ -114,14 +127,6 @@ export function transactionTypeIcon(type: string) {
     default:
       return <ReceiptText className="size-4 text-muted-foreground" aria-hidden="true" />;
   }
-}
-
-export function formatAmountValue(value: number | undefined | null) {
-  return new Intl.NumberFormat("fa-IR").format(Math.round(Number(value ?? 0)));
-}
-
-export function toPersianNumber(value: number) {
-  return new Intl.NumberFormat("fa-IR").format(value);
 }
 
 export function downloadCSV(headers: string[], rows: string[][], filename: string) {
@@ -164,6 +169,8 @@ export function JalaliDateField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("billing");
+
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
@@ -177,10 +184,10 @@ export function JalaliDateField({
           placeholder="1405-04-17"
         />
         <Button type="button" variant="outline" onClick={() => onChange(getCurrentJalaliDateValue())}>
-          امروز
+          {t("jalaliDate.today")}
         </Button>
       </div>
-      <p className="text-xs leading-5 text-muted-foreground">تاریخ را با فرمت شمسی `YYYY-MM-DD` وارد کنید.</p>
+      <p className="text-xs leading-5 text-muted-foreground">{t("jalaliDate.hint")}</p>
     </div>
   );
 }

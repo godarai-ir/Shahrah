@@ -16,6 +16,7 @@ import {
 
 import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
 
+import { LocaleToggle } from "@/components/locale-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -168,7 +169,10 @@ export default function LoginForm({ initialCaptcha, redirectTo, initialIdentifie
               <p className="truncate text-xs text-muted-foreground">{t("eyebrow")}</p>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex shrink-0 items-center gap-2">
+            <LocaleToggle />
+            <ThemeToggle />
+          </div>
         </header>
 
         <div className="flex flex-1 items-center justify-center py-4">

@@ -18,7 +18,7 @@ const themeBootstrapScript = createThemeBootstrapScript({
   legacyStorageKeys: ["shahrah-theme", "vite-ui-theme"],
 });
 
-const ROOT_MESSAGE_NAMESPACES = ["common", "theme", "login", "invite"] as const;
+const ROOT_MESSAGE_NAMESPACES = ["common", "theme", "language", "login", "invite"] as const;
 
 const estedad = localFont({
   src: "./fonts/Estedad-Variable.woff2",
@@ -48,14 +48,16 @@ export async function generateMetadata(): Promise<Metadata> {
     "https://godarai.ir";
   const origin = resolveRequestOriginFromHeaders(requestHeaders, fallbackOrigin);
   const socialImage = new URL("/brand/social/og-image-dark-1200x630.png", origin).toString();
-  const title = "گدارAI | پنل مدیریت فضای کار";
-  const description = "پنل فارسی مدیریت فضای کار برای کلیدها، مدل‌ها، کیف پول و تنظیمات حساب.";
+  const common = await getTranslations("common");
+  const title = common("appMetadata.title");
+  const description = common("appMetadata.description");
+  const applicationName = common("appMetadata.brand");
 
   return {
     metadataBase: new URL(origin),
     title,
     description,
-    applicationName: "گدارAI",
+    applicationName,
     manifest: "/brand/web/site.webmanifest",
     icons: {
       icon: [
@@ -70,10 +72,10 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      siteName: "گدارAI",
-      locale: "fa_IR",
+      siteName: applicationName,
+      locale: common("appMetadata.openGraphLocale"),
       type: "website",
-      images: [{ url: socialImage, width: 1200, height: 630, type: "image/png", alt: "لوگوی گدارAI" }],
+      images: [{ url: socialImage, width: 1200, height: 630, type: "image/png", alt: common("appMetadata.logoAlt") }],
     },
     twitter: {
       card: "summary_large_image",

@@ -73,6 +73,7 @@ import {
   type OrgUnitMember,
   type TeamSummary,
 } from "./api";
+import { getCalendarLocale, getIntlLocale } from "@/lib/locale";
 
 type Banner = {
   kind: "success" | "error" | "warning";
@@ -776,7 +777,7 @@ export default function OrgUnitManagement({
                       <div key={member.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{userNameByID.get(member.user_id) || t("members.user")}</p>
-                          <p className="text-xs text-muted-foreground">{t("members.added", { date: formatDate(member.created_at) })}</p>
+                          <p className="text-xs text-muted-foreground">{t("members.added", { date: formatDate(member.created_at, locale) })}</p>
                         </div>
                         <Badge variant={member.role === "org_admin" ? "default" : "secondary"}>{member.role}</Badge>
                       </div>
@@ -794,8 +795,8 @@ export default function OrgUnitManagement({
                 contentClassName="flex flex-col gap-3 text-sm"
               >
                   <DefinitionList columns={2}>
-                    <DefinitionListItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at)} />
-                    <DefinitionListItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at)} />
+                    <DefinitionListItem label={t("audit.created")} value={formatDateTime(selectedOrgUnit.created_at, locale)} />
+                    <DefinitionListItem label={t("audit.updated")} value={formatDateTime(selectedOrgUnit.updated_at, locale)} />
                   </DefinitionList>
                   <pre dir="ltr" className="max-h-40 overflow-auto rounded-lg bg-muted p-3 text-start text-xs text-muted-foreground">
                     {JSON.stringify(selectedOrgUnit.metadata ?? {}, null, 2)}
@@ -866,7 +867,7 @@ export default function OrgUnitManagement({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{userNameByID.get(member.user_id) || t("members.user")}</p>
-                    <p className="text-xs text-muted-foreground">{formatDateTime(member.updated_at)}</p>
+                    <p className="text-xs text-muted-foreground">{formatDateTime(member.updated_at, locale)}</p>
                   </div>
                   <Badge variant={member.role === "org_admin" ? "default" : "secondary"}>{member.role}</Badge>
                 </div>
@@ -971,6 +972,7 @@ function MetadataTeams({
   teams: TeamSummary[];
 }) {
   const t = useTranslations("orgUnits");
+  const locale = useLocale();
   const metadataTeams = getMetadataArray(orgUnit.metadata, "teams");
 
   if (orgTeams.length > 0) {
@@ -979,9 +981,9 @@ function MetadataTeams({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>نام تیم</TableHead>
-              <TableHead>نوع ورک‌اسپیس</TableHead>
-              <TableHead>تعداد اعضا</TableHead>
+              <TableHead>{t("teams.table.name")}</TableHead>
+              <TableHead>{t("teams.table.workspaceType")}</TableHead>
+              <TableHead>{t("teams.table.memberCount")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1017,10 +1019,10 @@ function MetadataTeams({
                 <p className="truncate text-sm font-medium">{toText(record.display_name) || toText(record.alias) || t("teams.fallbackName", { index: index + 1 })}</p>
                 <p className="text-xs text-muted-foreground">{toText(record.workspace_type) || "general"}</p>
               </div>
-              <Badge variant="secondary">{formatMoney(toNumber(record.spend))}</Badge>
+              <Badge variant="secondary">{formatMoney(toNumber(record.spend), locale)}</Badge>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-              <span>{t("teams.budget", { amount: formatMoney(toNumber(record.max_budget)) })}</span>
+              <span>{t("teams.budget", { amount: formatMoney(toNumber(record.max_budget), locale) })}</span>
               <span>{t("teams.models", { models: toText(record.models) || t("common.inherited") })}</span>
             </div>
           </div>
@@ -1122,30 +1124,30 @@ function toText(value: unknown) {
   return "";
 }
 
-function formatMoney(value: number) {
+function formatMoney(value: number, locale: string) {
   if (value <= 0) return "-";
-  return new Intl.NumberFormat("fa-IR", {
+  return new Intl.NumberFormat(getIntlLocale(locale), {
     style: "currency",
     currency: "IRR",
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-function formatDate(value: string) {
+function formatDate(value: string, locale: string) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+  return new Intl.DateTimeFormat(getCalendarLocale(locale), {
     month: "short",
     day: "numeric",
   }).format(date);
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, locale: string) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+  return new Intl.DateTimeFormat(getCalendarLocale(locale), {
     year: "numeric",
     month: "short",
     day: "numeric",

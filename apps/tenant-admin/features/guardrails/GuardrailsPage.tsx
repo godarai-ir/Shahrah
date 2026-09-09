@@ -28,6 +28,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { createGuardrail, deleteGuardrail, GuardrailAPIError, listGuardrails, updateGuardrail } from "./api";
 import type { GuardrailFormInput, GuardrailPayload, GuardrailType, TenantGuardrail } from "./types";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 const emptyForm: GuardrailFormInput = {
   slug: "",
@@ -310,7 +311,7 @@ function localizedError(error: unknown, fallback: string, t: ReturnType<typeof u
 export function GuardrailsPage({ docsHref }: { docsHref: string }) {
   const t = useTranslations("guardrails");
   const locale = useLocale();
-  const direction = locale === "fa" ? "rtl" : "ltr";
+  const direction = getLocaleDirection(locale);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<TenantGuardrail[]>([]);
   const [isLoading, setIsLoading] = useState(false);

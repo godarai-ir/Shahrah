@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import AdminShell from "@/features/admin-shell/AdminShell";
 import { BillingDocumentsPanel } from "@/features/billing/BillingFinancePanels";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -13,6 +15,8 @@ export default async function BillingDocumentsPage() {
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["billing:documents_read", "billing:read", "settings:list"]);
 
+  const t = await getTranslations("billing");
+
   const [invoicesResponse, transactionsResponse, discountsResponse] = await Promise.all([
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/billing/documents/invoices", userID: auth.user.id }),
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: "/api/v1/billing/documents/transactions", userID: auth.user.id }),
@@ -23,10 +27,10 @@ export default async function BillingDocumentsPage() {
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
-      pageHeader={{ title: "اسناد مالی", description: "فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری." }}
+      pageHeader={{ title: t("documents.title"), description: t("documents.description") }}
     >
       <div className="space-y-6">
-        <PageHeader title="اسناد مالی" description="فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری." />
+        <PageHeader title={t("documents.title")} description={t("documents.description")} />
         <BillingDocumentsPanel
           invoices={invoicesResponse.ok ? parseInvoices(invoicesResponse.payload) : []}
           transactions={transactionsResponse.ok ? parseWalletTransactions(transactionsResponse.payload) : []}
