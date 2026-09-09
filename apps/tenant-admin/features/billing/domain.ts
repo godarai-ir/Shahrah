@@ -1,5 +1,7 @@
 import { format as formatJalali, newDate as newJalaliDate, subMonths as subJalaliMonths } from "date-fns-jalali";
 
+import { DEFAULT_LOCALE, getIntlLocale, resolveLocale, type AppLocale } from "@/lib/locale";
+
 export { getCurrentJalaliMonthRange } from "@/lib/date/jalali-month";
 
 export const FINANCIAL_CALENDAR = "jalali";
@@ -135,26 +137,63 @@ type JalaliTodayParts = JalaliMonthSelection & {
   day: number;
 };
 
-const faNumber = new Intl.NumberFormat("fa-IR");
-const financialDateTimeFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-  timeZone: FINANCIAL_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const financialDateFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-  timeZone: FINANCIAL_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-const financialMonthFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
-  timeZone: FINANCIAL_TIME_ZONE,
-  year: "numeric",
-  month: "long",
-});
+/**
+ * Billing periods are legally anchored to the Jalali calendar, so both locales
+ * keep that calendar and only the script and month names change.
+ */
+function financialCalendarLocale(locale: string) {
+  return resolveLocale(locale) === "fa" ? "fa-IR-u-ca-persian" : "en-US-u-ca-persian";
+}
+
+const numberFormatters = new Map<string, Intl.NumberFormat>();
+const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+const monthFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function cached<T>(cache: Map<string, T>, key: string, create: () => T): T {
+  const existing = cache.get(key);
+  if (existing) return existing;
+  const created = create();
+  cache.set(key, created);
+  return created;
+}
+
+function financialNumberFormatter(locale: string) {
+  const intlLocale = getIntlLocale(locale);
+  return cached(numberFormatters, intlLocale, () => new Intl.NumberFormat(intlLocale));
+}
+
+function financialDateTimeFormatter(locale: string) {
+  const calendarLocale = financialCalendarLocale(locale);
+  return cached(dateTimeFormatters, calendarLocale, () => new Intl.DateTimeFormat(calendarLocale, {
+    timeZone: FINANCIAL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }));
+}
+
+function financialDateFormatter(locale: string) {
+  const calendarLocale = financialCalendarLocale(locale);
+  return cached(dateFormatters, calendarLocale, () => new Intl.DateTimeFormat(calendarLocale, {
+    timeZone: FINANCIAL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }));
+}
+
+function financialMonthFormatter(locale: string) {
+  const calendarLocale = financialCalendarLocale(locale);
+  return cached(monthFormatters, calendarLocale, () => new Intl.DateTimeFormat(calendarLocale, {
+    timeZone: FINANCIAL_TIME_ZONE,
+    year: "numeric",
+    month: "long",
+  }));
+}
+
 const persianTodayPartsFormatter = new Intl.DateTimeFormat("en-US-u-ca-persian", {
   timeZone: FINANCIAL_TIME_ZONE,
   year: "numeric",
@@ -162,22 +201,24 @@ const persianTodayPartsFormatter = new Intl.DateTimeFormat("en-US-u-ca-persian",
   day: "2-digit",
 });
 
-export function formatIRR(value: number | undefined | null) {
-  return `${faNumber.format(Math.round(Number(value ?? 0)))} ریال`;
+/** Rounded rial amount without a unit; callers append the localized unit. */
+export function formatIRRAmount(value: number | undefined | null, locale: AppLocale = DEFAULT_LOCALE) {
+  return financialNumberFormatter(locale).format(Math.round(Number(value ?? 0)));
 }
 
-export function formatToman(valueIRR: number | undefined | null) {
-  return `${faNumber.format(Math.round(Number(valueIRR ?? 0) / 10))} تومان`;
+/** Rounded toman amount without a unit; callers append the localized unit. */
+export function formatTomanAmount(valueIRR: number | undefined | null, locale: AppLocale = DEFAULT_LOCALE) {
+  return financialNumberFormatter(locale).format(Math.round(Number(valueIRR ?? 0) / 10));
 }
 
-export function formatDate(value: string | undefined | null) {
+export function formatDate(value: string | undefined | null, locale: AppLocale = DEFAULT_LOCALE) {
   if (!value) return "-";
-  return financialDateTimeFormatter.format(new Date(value));
+  return financialDateTimeFormatter(locale).format(new Date(value));
 }
 
-export function formatDateOnly(value: string | undefined | null) {
+export function formatDateOnly(value: string | undefined | null, locale: AppLocale = DEFAULT_LOCALE) {
   if (!value) return "-";
-  return financialDateFormatter.format(new Date(value));
+  return financialDateFormatter(locale).format(new Date(value));
 }
 
 export function getCurrentJalaliMonthSelection(reference = new Date()): JalaliMonthSelection {
@@ -208,7 +249,11 @@ export function parseJalaliMonthKey(value: string): JalaliMonthSelection | null 
   return { year, month };
 }
 
-export function buildRecentJalaliMonthOptions(count = 12, reference = new Date()) {
+export function buildRecentJalaliMonthOptions(
+  count = 12,
+  reference = new Date(),
+  locale: AppLocale = DEFAULT_LOCALE,
+) {
   const current = getCurrentJalaliMonthSelection(reference);
   const currentMonthDate = newJalaliDate(current.year, current.month - 1, 1);
 
@@ -217,7 +262,7 @@ export function buildRecentJalaliMonthOptions(count = 12, reference = new Date()
     const key = formatJalali(monthDate, "yyyy-MM");
     return {
       value: key,
-      label: formatJalaliMonthLabel(monthDate),
+      label: formatJalaliMonthLabel(monthDate, locale),
     };
   });
 }
@@ -270,10 +315,10 @@ export function normalizeJalaliDateInput(value: string) {
   return `${year.padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
-export function formatSelectedJalaliMonth(value: string) {
+export function formatSelectedJalaliMonth(value: string, locale: AppLocale = DEFAULT_LOCALE) {
   const selection = parseJalaliMonthKey(value);
   if (!selection) return value;
-  return formatJalaliMonthLabel(newJalaliDate(selection.year, selection.month - 1, 1));
+  return formatJalaliMonthLabel(newJalaliDate(selection.year, selection.month - 1, 1), locale);
 }
 
 export function statusTone(status: string): "success" | "warning" | "error" | "pending" | "neutral" {
@@ -293,8 +338,8 @@ function getCurrentJalaliDateParts(reference: Date): JalaliTodayParts {
   return { year, month, day };
 }
 
-function formatJalaliMonthLabel(value: Date) {
-  const parts = financialMonthFormatter.formatToParts(value);
+function formatJalaliMonthLabel(value: Date, locale: AppLocale) {
+  const parts = financialMonthFormatter(locale).formatToParts(value);
   const month = parts.find((part) => part.type === "month")?.value ?? "";
   const year = parts.find((part) => part.type === "year")?.value ?? "";
   return `${month} ${year}`.trim();

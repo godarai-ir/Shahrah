@@ -125,7 +125,12 @@
     "apiHint": "پس از آماده شدن API تیم‌ها، این خلاصه با فهرست کامل تیم‌ها جایگزین می‌شود.",
     "fallbackName": "تیم {index}",
     "budget": "بودجه: {amount}",
-    "models": "مدل‌ها: {models}"
+    "models": "مدل‌ها: {models}",
+    "table": {
+      "name": "نام تیم",
+      "workspaceType": "نوع ورک‌اسپیس",
+      "memberCount": "تعداد اعضا"
+    }
   },
   "members": {
     "title": "اعضا",

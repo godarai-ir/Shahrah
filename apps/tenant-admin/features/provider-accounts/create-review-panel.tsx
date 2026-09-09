@@ -110,8 +110,8 @@ export function CreateReviewPanel({
         </ReviewSection>
         <ReviewSection title={ux("review.accessTitle")} editLabel={ux("actions.edit")} onEdit={() => setActiveCreateSection("access")}>
           <DefinitionList columns={2}>
-            <DefinitionListItem label={ux("review.managers")} value={managers.map(principalLabel).join("، ")} wrap surface />
-            <DefinitionListItem label={ux("review.users")} value={users.length > 0 ? users.map(principalLabel).join("، ") : ux("review.noUsers")} wrap surface />
+            <DefinitionListItem label={ux("review.managers")} value={managers.map(principalLabel).join(ux("listSeparator"))} wrap surface />
+            <DefinitionListItem label={ux("review.users")} value={users.length > 0 ? users.map(principalLabel).join(ux("listSeparator")) : ux("review.noUsers")} wrap surface />
           </DefinitionList>
         </ReviewSection>
         <Alert>

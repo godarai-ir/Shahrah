@@ -12,6 +12,7 @@ import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
+import { useAppLocale } from "@/hooks/use-locale-format";
 import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
 import {
@@ -23,6 +24,7 @@ import {
 } from "./ruleApi";
 import type { RateLimitRule } from "./ruleTypes";
 import { RateLimitRuleForm } from "./RateLimitRuleForm";
+import { resolveRuleErrorMessage } from "@/features/gateway-policies/rule-error-message";
 
 const FEATURE_RATE_LIMIT_RULES_ENABLED = "rate_limit_rules.enabled";
 const RATE_RULE_COLUMN_CLASS = {
@@ -38,10 +40,10 @@ type EffectiveEntitlements = {
   features?: Record<string, unknown>;
 } | null;
 
-function formatJalaliDateTime(value: string) {
+function formatRuleTimestamp(value: string, locale: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return formatSharedDateTime(date, { locale: "fa", format: { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" } });
+  return formatSharedDateTime(date, { locale, format: { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" } });
 }
 
 function readBooleanFeature(value: unknown, fallback: boolean): boolean {
@@ -55,6 +57,7 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
 
 export function RateLimitRulesPage() {
   const t = useTranslations("rateLimitRules");
+  const locale = useAppLocale();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +78,7 @@ export function RateLimitRulesPage() {
       setItems(response.data);
       setNotice(null);
     } catch (error) {
-      setNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.loadError") });
+      setNotice({ kind: "error", message: resolveRuleErrorMessage(error, (code) => t(`apiErrors.${code}`), t("messages.loadError")) });
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +128,7 @@ export function RateLimitRulesPage() {
       setPendingDeleteRule(null);
       await load();
     } catch (error) {
-      setDeleteNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.deleteError") });
+      setDeleteNotice({ kind: "error", message: resolveRuleErrorMessage(error, (code) => t(`apiErrors.${code}`), t("messages.deleteError")) });
       throw error;
     } finally {
       setIsDeleting(false);
@@ -206,7 +209,7 @@ export function RateLimitRulesPage() {
               <TableBody>
                 {items.map((rule) => (
                   <TableRow key={rule.id} className="[&>td]:p-3">
-                    <TableCell className={`${RATE_RULE_COLUMN_CLASS.ruleId} min-w-0 text-right font-mono font-medium`} dir="ltr">
+                    <TableCell className={`${RATE_RULE_COLUMN_CLASS.ruleId} min-w-0 text-start font-mono font-medium`} dir="ltr">
                       <span className="block truncate" title={rule.rule_id}>{rule.rule_id}</span>
                     </TableCell>
                     <TableCell className={RATE_RULE_COLUMN_CLASS.limit}>
@@ -219,7 +222,7 @@ export function RateLimitRulesPage() {
                     <TableCell className={RATE_RULE_COLUMN_CLASS.status}>
                       <StatusBadge status={rule.enabled ? "active" : "inactive"}>{rule.enabled ? t("status.enabled") : t("status.disabled")}</StatusBadge>
                     </TableCell>
-                    <TableCell className={RATE_RULE_COLUMN_CLASS.updatedAt}>{formatJalaliDateTime(rule.updated_at)}</TableCell>
+                    <TableCell className={RATE_RULE_COLUMN_CLASS.updatedAt}>{formatRuleTimestamp(rule.updated_at, locale)}</TableCell>
                     <TableCell className={RATE_RULE_COLUMN_CLASS.actions}>
                       <RowActionsMenu label={t("table.rowActions", { ruleId: rule.rule_id })} actions={[
                         { label: t("actions.edit"), icon: <Pencil />, onSelect: () => router.push(`/gateway-policies/rate-limiting-rules/${encodeURIComponent(rule.rule_id)}`) },

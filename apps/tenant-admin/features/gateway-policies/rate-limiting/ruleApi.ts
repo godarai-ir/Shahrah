@@ -19,21 +19,38 @@ const successResponseSchema = z.union([
   z.object({}).strict().transform(() => ({ success: true as const })),
 ]);
 
-function mapAPIErrorToFa(message: string, status?: number): string {
-  const m = message.toLowerCase();
-  if (m.includes("no rows in result set")) {
-    return "ذخیره قانون انجام نشد. لطفا فیلترها و مقادیر واردشده را بررسی کرده و دوباره تلاش کنید.";
+/**
+ * Stable identifiers for the failures this feature can explain to the user.
+ * The display copy lives in the `gatewayPolicyErrors` message namespace.
+ */
+export type RuleErrorCode =
+  | "saveRejected"
+  | "invalidBody"
+  | "duplicateRuleId"
+  | "internal"
+  | "unauthenticated"
+  | "forbidden"
+  | "notFound"
+  | "unknown";
+
+/** Error whose display copy is resolved at the UI boundary. */
+export class RuleAPIError extends Error {
+  readonly code: RuleErrorCode;
+
+  constructor(code: RuleErrorCode, message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "RuleAPIError";
+    this.code = code;
   }
-  if (m.includes("invalid request body")) {
-    return "داده‌های فرم معتبر نیست. لطفا فیلدها را بررسی کنید.";
-  }
-  if (m.includes("already exists") || status === 409) {
-    return "شناسه قانون تکراری است. یک شناسه یکتا وارد کنید.";
-  }
-  if (m.includes("internal server error") || status === 500) {
-    return "خطای داخلی در ذخیره قانون رخ داد. لطفا دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.";
-  }
-  return message;
+}
+
+function classifyAPIError(message: string, status?: number): RuleErrorCode | null {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("no rows in result set")) return "saveRejected";
+  if (normalized.includes("invalid request body")) return "invalidBody";
+  if (normalized.includes("already exists") || status === 409) return "duplicateRuleId";
+  if (normalized.includes("internal server error") || status === 500) return "internal";
+  return null;
 }
 
 function looksLikeHTMLDocument(value: string): boolean {
@@ -41,19 +58,27 @@ function looksLikeHTMLDocument(value: string): boolean {
   return normalized.startsWith("<!doctype") || normalized.startsWith("<html") || normalized.startsWith("<body");
 }
 
-function sanitizeServerMessage(message: string | undefined, status?: number): string {
+function statusErrorCode(status?: number): RuleErrorCode {
+  if (status === 401) return "unauthenticated";
+  if (status === 403) return "forbidden";
+  if (status === 404) return "notFound";
+  if (status === 500) return "internal";
+  return "unknown";
+}
+
+/**
+ * Upstream messages are shown verbatim, except HTML error pages and empty
+ * bodies, which carry no useful copy and are replaced by a coded error.
+ */
+function toRuleAPIError(message: string | undefined, status: number | undefined, cause: unknown): RuleAPIError {
   const normalized = message?.trim();
-  if (!normalized) {
-    return `Request failed (${status ?? "unknown"})`;
+  if (!normalized || looksLikeHTMLDocument(normalized)) {
+    const code = statusErrorCode(status);
+    return new RuleAPIError(code, `Request failed (${status ?? "unknown"})`, { cause });
   }
-  if (looksLikeHTMLDocument(normalized)) {
-    if (status === 401) return "برای ادامه باید وارد حساب کاربری شوید.";
-    if (status === 403) return "دسترسی شما به این بخش محدود است.";
-    if (status === 404) return "منبع درخواستی پیدا نشد.";
-    if (status === 500) return "خطای داخلی در پردازش درخواست رخ داد. لطفا دوباره تلاش کنید.";
-    return "در پردازش درخواست خطایی رخ داد. لطفا دوباره تلاش کنید.";
-  }
-  return normalized;
+
+  const code = classifyAPIError(normalized, status);
+  return new RuleAPIError(code ?? "unknown", normalized, { cause });
 }
 
 async function requestRateLimitJSON<T>(schema: z.ZodType<T>, path: string, options?: RequestInit): Promise<T> {
@@ -61,8 +86,7 @@ async function requestRateLimitJSON<T>(schema: z.ZodType<T>, path: string, optio
     return await requestParsedJSON(schema, path, options);
   } catch (error) {
     if (!(error instanceof APIClientError)) throw error;
-    const message = sanitizeServerMessage(error.message, error.status);
-    throw new Error(mapAPIErrorToFa(message, error.status), { cause: error });
+    throw toRuleAPIError(error.message, error.status, error);
   }
 }
 

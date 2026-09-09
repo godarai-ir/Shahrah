@@ -125,7 +125,12 @@
     "apiHint": "Team list endpoints can replace this summary when the team workspace API is available.",
     "fallbackName": "Team {index}",
     "budget": "Budget: {amount}",
-    "models": "Models: {models}"
+    "models": "Models: {models}",
+    "table": {
+      "name": "Team name",
+      "workspaceType": "Workspace type",
+      "memberCount": "Members"
+    }
   },
   "members": {
     "title": "Members",

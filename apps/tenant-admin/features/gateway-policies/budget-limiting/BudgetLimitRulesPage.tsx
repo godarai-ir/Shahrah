@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/app-ui/StatusBadge";
 import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { GatewayPolicyRulesList } from "@/features/gateway-policies/components";
+import { useAppLocale, useNumberFormatter } from "@/hooks/use-locale-format";
 import { formatDateTime as formatSharedDateTime } from "@/lib/date-time";
 
 import {
@@ -22,9 +23,10 @@ import {
 } from "./ruleApi";
 import type { BudgetLimitRule } from "./ruleTypes";
 import { BudgetLimitRuleForm } from "./BudgetLimitRuleForm";
+import { resolveRuleErrorMessage } from "@/features/gateway-policies/rule-error-message";
 
 const FEATURE_BUDGET_LIMIT_RULES_ENABLED = "budget_limit_rules.enabled";
-const IRR_NUMBER_FORMAT = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
+const WHOLE_NUMBER_FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 0 };
 const BUDGET_RULE_COLUMN_CLASS = {
   ruleId: "w-56",
   limit: "w-36",
@@ -38,20 +40,16 @@ type EffectiveEntitlements = {
   features?: Record<string, unknown>;
 } | null;
 
-function formatJalaliDateTime(value: string) {
+function formatRuleTimestamp(value: string, locale: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return formatSharedDateTime(date, { locale: "fa", format: { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" } });
+  return formatSharedDateTime(date, { locale, format: { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" } });
 }
 
 function unitKey(unit: BudgetLimitRule["unit"]) {
   if (unit === "cost_per_day") return "cost_per_day";
   if (unit === "cost_per_week") return "cost_per_week";
   return "cost_per_month";
-}
-
-function formatIRR(value: number) {
-  return `${IRR_NUMBER_FORMAT.format(value)} ریال`;
 }
 
 function readBooleanFeature(value: unknown, fallback: boolean): boolean {
@@ -65,6 +63,9 @@ function readBooleanFeature(value: unknown, fallback: boolean): boolean {
 
 export function BudgetLimitRulesPage() {
   const t = useTranslations("budgetLimitRules");
+  const locale = useAppLocale();
+  const irrFormatter = useNumberFormatter(WHOLE_NUMBER_FORMAT);
+  const formatIRR = (value: number) => `${irrFormatter.format(value)} ${t("units.irr")}`;
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -85,7 +86,7 @@ export function BudgetLimitRulesPage() {
       setItems(response.data);
       setNotice(null);
     } catch (error) {
-      setNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.loadError") });
+      setNotice({ kind: "error", message: resolveRuleErrorMessage(error, (code) => t(`apiErrors.${code}`), t("messages.loadError")) });
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +136,7 @@ export function BudgetLimitRulesPage() {
       setPendingDeleteRule(null);
       await load();
     } catch (error) {
-      setDeleteNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.deleteError") });
+      setDeleteNotice({ kind: "error", message: resolveRuleErrorMessage(error, (code) => t(`apiErrors.${code}`), t("messages.deleteError")) });
       throw error;
     } finally {
       setIsDeleting(false);
@@ -238,9 +239,9 @@ export function BudgetLimitRulesPage() {
               <TableBody>
                 {items.map((rule) => (
                   <TableRow key={rule.id}>
-                    <TableCell className={`${BUDGET_RULE_COLUMN_CLASS.ruleId} min-w-0 text-right font-mono font-medium`}>
-                      <div className="flex min-w-0 items-center gap-1" dir="rtl">
-                        <span className="block min-w-0 flex-1 truncate text-right" dir="ltr" title={rule.rule_id}>{rule.rule_id}</span>
+                    <TableCell className={`${BUDGET_RULE_COLUMN_CLASS.ruleId} min-w-0 text-start font-mono font-medium`}>
+                      <div className="flex min-w-0 items-center gap-1">
+                        <span className="block min-w-0 flex-1 truncate text-start" dir="ltr" title={rule.rule_id}>{rule.rule_id}</span>
                         <CopyAction
                           className="shrink-0"
                           value={rule.rule_id}
@@ -258,7 +259,7 @@ export function BudgetLimitRulesPage() {
                         {rule.enabled ? t("status.enabled") : t("status.disabled")}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell className={BUDGET_RULE_COLUMN_CLASS.updatedAt}>{formatJalaliDateTime(rule.updated_at)}</TableCell>
+                    <TableCell className={BUDGET_RULE_COLUMN_CLASS.updatedAt}>{formatRuleTimestamp(rule.updated_at, locale)}</TableCell>
                     <TableCell className={BUDGET_RULE_COLUMN_CLASS.actions}>
                       <RowActionsMenu
                         label={t("table.rowActions", { ruleId: rule.rule_id })}

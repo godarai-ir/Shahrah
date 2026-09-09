@@ -29,6 +29,7 @@ import {
 } from "./permissions";
 import { updateRole } from "./api";
 import type { PermissionItem, RoleDefinition } from "./contracts";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 type RoleEditManagementProps = {
   initialRole: RoleDefinition;
@@ -59,8 +60,8 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
   );
   const selectionStats = useMemo(() => getPermissionSelectionSummary(form.permissions, filteredPermissionCatalog), [form.permissions, filteredPermissionCatalog]);
   const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const editorLabels = useMemo(() => getPermissionEditorLabels(locale), [locale]);
-  const summaryLabels = useMemo(() => getPermissionSummaryLabels(locale), [locale]);
+  const editorLabels = useMemo(() => getPermissionEditorLabels(t), [t]);
+  const summaryLabels = useMemo(() => getPermissionSummaryLabels(t), [t]);
 
   async function submitEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,7 +70,7 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
       return;
     }
     if (form.permissions.length === 0) {
-      setError(locale.startsWith("fa") ? "حداقل یک مجوز انتخاب کنید." : "Select at least one permission.");
+      setError(t("rolesPage.permissionRequired"));
       return;
     }
 
@@ -91,8 +92,8 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
     <PageContainer padding="none">
       <PageHeader
         eyebrow={t("title")}
-        title={isRtl ? "ویرایش نقش" : "Edit role"}
-        description={isRtl ? "مشخصات نقش و سطح دسترسی آن را به‌روزرسانی کنید." : "Update the role details and its access level."}
+        title={t("rolesPage.editTitle")}
+        description={t("rolesPage.editDescription")}
         titleAddon={
           <Badge variant={initialRole.is_system ? "secondary" : "outline"}>
             {initialRole.is_system ? t("rolesPage.systemRole") : t("rolesPage.customRole")}
@@ -124,11 +125,11 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <form id="role-edit-form" className="flex min-w-0 flex-col gap-6" onSubmit={submitEdit}>
           <FormSection
-            title={isRtl ? "مشخصات نقش" : "Role details"}
-            description={isRtl ? "نام نمایشی و توضیحات قابل مشاهده برای مدیران را ویرایش کنید." : "Edit the display name and administrator-facing description."}
+            title={t("rolesPage.detailsTitle")}
+            description={t("rolesPage.detailsDescription")}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <IdentifierField id="role-slug" label={isRtl ? "شناسه فنی" : "Technical identifier"} value={initialRole.name} readOnly description={null} />
+              <IdentifierField id="role-slug" label={t("rolesPage.technicalIdentifier")} value={initialRole.name} readOnly description={null} />
               <DisplayNameField
                 id="role-display-name"
                 label={t("rolesPage.form.displayName")}
@@ -150,8 +151,8 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
           </FormSection>
 
           <FormSection
-            title={isRtl ? "مجوزهای نقش" : "Role permissions"}
-            description={isRtl ? "مجوزها را جست‌وجو کنید و دسترسی‌های این نقش را در سطح گروه یا مورد تغییر دهید." : "Search permissions and adjust this role at group or item level."}
+            title={t("rolesPage.permissionsTitle")}
+            description={t("rolesPage.permissionsDescription")}
             actions={<Badge variant="secondary">{numberFormatter.format(selectionStats.count)}</Badge>}
           >
             <PermissionEditor
@@ -163,9 +164,9 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
               mode={viewMode}
               onModeChange={setViewMode}
               labels={editorLabels}
-              dir={isRtl ? "rtl" : "ltr"}
-              formatGroupLabel={(group) => translatePermissionGroup(group, locale)}
-              formatPermissionDescription={(permission) => translatePermissionDescription(permission, locale)}
+              dir={getLocaleDirection(locale)}
+              formatGroupLabel={(group) => translatePermissionGroup(group, t)}
+              formatPermissionDescription={(permission) => translatePermissionDescription(permission, t)}
               formatNumber={(value) => numberFormatter.format(value)}
             />
           </FormSection>
@@ -175,7 +176,7 @@ export default function RoleEditManagement({ initialRole, initialPermissionCatal
           <PermissionSummary
             permissions={filteredPermissionCatalog}
             value={form.permissions}
-            title={isRtl ? "خلاصه نقش" : "Role summary"}
+            title={t("rolesPage.summaryTitle")}
             description={<span dir="ltr" className="font-mono">{initialRole.name}</span>}
             labels={summaryLabels}
             onClear={() => setForm((prev) => ({ ...prev, permissions: [] }))}

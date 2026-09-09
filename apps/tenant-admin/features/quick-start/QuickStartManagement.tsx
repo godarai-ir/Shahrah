@@ -68,6 +68,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useNumberFormatter } from "@/hooks/use-locale-format";
 
 type Banner = {
   kind: "success" | "error";
@@ -93,13 +94,14 @@ type SampleRunResult = {
   tokenType: TokenType;
 };
 
-const samplePrompt = "برای من سه مزیت اصلی استفاده از gateway را بنویس.";
 const featuredProviderOrder = ["openai", "anthropic", "google", "azure", "mistral", "groq"] as const;
 type FeaturedProvider = (typeof featuredProviderOrder)[number];
 
 export default function QuickStartManagement(props: QuickStartManagementProps) {
   const t = useTranslations("quickStart");
   const common = useTranslations("common");
+  const numberFormatter = useNumberFormatter();
+  const samplePrompt = t("samplePrompt");
   const [resources, setResources] = useState(props.initialResources);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [patDialogNotice, setPatDialogNotice] = useState<Banner | null>(null);
@@ -372,7 +374,7 @@ export default function QuickStartManagement(props: QuickStartManagementProps) {
                               : "border-border bg-muted/40 text-muted-foreground",
                       )}
                     >
-                      {step.status === "done" ? <CheckCircle2 className="size-5" /> : formatCount(index + 1)}
+                      {step.status === "done" ? <CheckCircle2 className="size-5" /> : numberFormatter.format(index + 1)}
                     </span>
                     <div className="bg-card py-1 sm:p-4">
                       <div className="flex flex-col gap-3">
@@ -909,10 +911,6 @@ function statusBadgeForStepStatus(status: QuickStartStepStatus): "success" | "pe
   if (status === "active") return "pending";
   if (status === "unavailable") return "error";
   return "neutral";
-}
-
-function formatCount(value: number) {
-  return new Intl.NumberFormat("fa-IR").format(value);
 }
 
 function extractSampleContent(payload: unknown): string | null {

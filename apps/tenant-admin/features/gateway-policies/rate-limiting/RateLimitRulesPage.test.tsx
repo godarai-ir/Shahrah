@@ -27,6 +27,7 @@ const translations: Record<string, string> = {
 };
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "fa",
   useTranslations: () => (key: string, values?: Record<string, string | number>) => {
     const template = translations[key] ?? key;
     if (!values) return template;

@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
 import { IdentifierField, isValidIdentifier } from "./IdentifierField";
 
 describe("IdentifierField", () => {
@@ -18,7 +22,7 @@ describe("IdentifierField", () => {
     expect(input).toHaveAttribute("dir", "ltr");
     expect(input).toHaveAttribute("pattern", "[A-Za-z0-9_-]+");
     expect(input).toHaveAttribute("aria-describedby");
-    expect(screen.getByText(/بدون فاصله/)).toBeInTheDocument();
+    expect(screen.getByText("identifierField.description")).toBeInTheDocument();
     fireEvent.change(input, { target: { value: "team_two" } });
     expect(onChange).toHaveBeenCalled();
   });

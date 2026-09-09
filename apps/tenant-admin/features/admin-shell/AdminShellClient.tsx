@@ -37,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { LocaleToggleMenuItem } from "@/components/locale-toggle";
 import { ThemeToggleMenuItem } from "@/components/theme-toggle";
 import { ACCESS_NAV_ITEM_KEYS, buildAdminNavItems, filterVisibleNavItems, shouldHandleActiveNavClick, type AdminNavItem } from "@/features/admin-shell/navigation";
 import { logout } from "@/features/admin-shell/api";
@@ -45,6 +46,8 @@ import { ShellPageHeading } from "@/components/app-ui/ShellPageHeading";
 import { GodarAILogo } from "@/components/app-ui/GodarAILogo";
 import { PermissionsProvider } from "@/components/permissions-context";
 import { AdminShellPageProvider, useAdminShellPage } from "@/features/admin-shell/page-context";
+import { useNumberFormatter } from "@/hooks/use-locale-format";
+import { getLocaleDirection } from "@/lib/locale-direction";
 import { mobileAuthUIEnabled } from "@/lib/auth/mobile-auth-ui";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +77,7 @@ type AdminShellClientProps = {
   appVersion: string;
 };
 
-const moneyFormatter = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
+const WHOLE_NUMBER_FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 0 };
 const ROOT_NAV_ITEM_KEYS: AdminNavItem["key"][] = ["dashboard", "quickStart"];
 
 const SIDEBAR_NAV_GROUPS: Array<{
@@ -302,6 +305,7 @@ function UserProfileMenu({ userIdentity, currentUser }: UserProfileMenuProps) {
             </Link>
           </DropdownMenuItem>
           <ThemeToggleMenuItem />
+          <LocaleToggleMenuItem />
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -341,9 +345,11 @@ function AdminSidebar({
   onNavigate,
 }: SidebarContentProps) {
   const t = useTranslations("shell");
+  const common = useTranslations("common");
   const locale = useLocale();
   const { isMobile, setOpenMobile, state } = useSidebar();
-  const direction = locale === "fa" ? "rtl" : "ltr";
+  const brandName = common("appMetadata.brand");
+  const direction = getLocaleDirection(locale);
   const sidebarSide = direction === "rtl" ? "right" : "left";
   const tooltipSide = direction === "rtl" ? "left" : "right";
   const showCompactNavigation = !isMobile && state === "collapsed";
@@ -379,7 +385,7 @@ function AdminSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip={{ children: `گدارAI · ${tenantSlug}`, side: tooltipSide }}
+              tooltip={{ children: `${brandName} · ${tenantSlug}`, side: tooltipSide }}
               className="items-center gap-3 after:hidden hover:bg-sidebar-accent/70"
               asChild
             >
@@ -393,7 +399,7 @@ function AdminSidebar({
                   />
                 </span>
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-base font-semibold text-sidebar-foreground">گدارAI</span>
+                  <span className="truncate text-base font-semibold text-sidebar-foreground">{brandName}</span>
                   <span className="truncate text-xs text-sidebar-foreground/55">{t("title")}</span>
                 </span>
               </Link>
@@ -533,6 +539,7 @@ function WalletBalanceLink({
   };
 }) {
   const t = useTranslations("shell");
+  const moneyFormatter = useNumberFormatter(WHOLE_NUMBER_FORMAT);
   const balanceLabel =
     summary.availableBalanceIRR === null
       ? t("wallet.unknown")
@@ -599,7 +606,7 @@ function SupportLink({ item }: { item: AdminNavItem }) {
 
 function getUserInitials(value: string): string {
   const trimmed = value.trim();
-  if (!trimmed) return "؟";
+  if (!trimmed) return "?";
 
   const [localPart] = trimmed.split("@");
   const source = localPart || trimmed;
@@ -629,12 +636,13 @@ function SidebarPlanSummary({
   onNavigate: () => void;
 }) {
   const t = useTranslations("shell");
+  const numberFormatter = useNumberFormatter(WHOLE_NUMBER_FORMAT);
   const planName = t("plan.label", { name: summary.planName ?? t("plan.unknown") });
   const isExpired = ["expired", "canceled"].includes(summary.status?.trim().toLowerCase() ?? "");
   const periodLabel = isExpired
     ? t("plan.expired")
     : summary.periodEnd
-      ? formatDaysRemaining(summary.periodEnd, t)
+      ? formatDaysRemaining(summary.periodEnd, t, numberFormatter)
       : t("plan.noEndDate");
 
   return (
@@ -657,9 +665,13 @@ function SidebarPlanSummary({
   );
 }
 
-function formatDaysRemaining(value: string, t: (key: string, values?: Record<string, string | number>) => string): string {
+function formatDaysRemaining(
+  value: string,
+  t: (key: string, values?: Record<string, string | number>) => string,
+  numberFormatter: Intl.NumberFormat,
+): string {
   const timestamp = Date.parse(value);
   if (Number.isNaN(timestamp)) return value;
   const days = Math.max(0, Math.ceil((timestamp - Date.now()) / (24 * 60 * 60 * 1000)));
-  return t("plan.daysRemaining", { days: moneyFormatter.format(days) });
+  return t("plan.daysRemaining", { days: numberFormatter.format(days) });
 }

@@ -25,5 +25,15 @@
     "copy": "Copy model name",
     "copying": "Copying model name",
     "copied": "Model name copied"
+  },
+  "appMetadata": {
+    "brand": "GodarAI",
+    "title": "GodarAI | Workspace admin console",
+    "description": "Workspace admin console for keys, models, wallet, and account settings.",
+    "logoAlt": "GodarAI logo",
+    "openGraphLocale": "en_US"
+  },
+  "identifierField": {
+    "description": "Use letters, digits, hyphens, or underscores, with no spaces."
   }
 }

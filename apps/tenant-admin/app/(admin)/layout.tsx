@@ -8,7 +8,7 @@ import { buildDocsHref } from "@/features/admin-shell/AdminShell";
 import { requireAuth } from "@/lib/auth/session";
 import { pickMessages } from "@/lib/pick-messages";
 
-const SHELL_MESSAGE_NAMESPACES = ["common", "theme", "shell"] as const;
+const SHELL_MESSAGE_NAMESPACES = ["common", "theme", "language", "shell"] as const;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const auth = await requireAuth("/login");

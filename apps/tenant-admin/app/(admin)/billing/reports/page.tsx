@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import AdminShell from "@/features/admin-shell/AdminShell";
 import { ReportsPanel } from "@/features/billing/BillingFinancePanels";
 import { PageHeader } from "@/components/app-ui/PageHeader";
@@ -18,6 +20,7 @@ export default async function BillingReportsPage() {
   const tenantSlug = auth.tenantSlug;
   await requirePermissionOr403(tenantSlug, auth.user.id, ["billing:read", "settings:list"]);
 
+  const t = await getTranslations("billing");
   const currentMonth = getCurrentJalaliMonthSelection();
   const [summaryResponse, monthlyResponse] = await Promise.all([
     fetchControlPlaneJSON({ tenantSlug, method: "GET", path: buildControlPlaneBillingSummaryPath("current_month"), userID: auth.user.id }),
@@ -25,19 +28,19 @@ export default async function BillingReportsPage() {
   ]);
 
   const initialError = !summaryResponse.ok
-    ? summaryResponse.errorMessage ?? "گزارش خلاصه دریافت نشد."
+    ? summaryResponse.errorMessage ?? t("reports.summaryError")
     : !monthlyResponse.ok
-      ? monthlyResponse.errorMessage ?? "گزارش ماهانه دریافت نشد."
+      ? monthlyResponse.errorMessage ?? t("reports.monthlyError")
       : null;
 
   return (
     <AdminShell
       tenantSlug={tenantSlug}
       currentUser={{ id: auth.user.id, email: auth.user.email, mobile: auth.user.mobile, role: auth.user.role }}
-      pageHeader={{ title: "گزارش‌های مالی", description: "مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید." }}
+      pageHeader={{ title: t("reports.title"), description: t("reports.description") }}
     >
       <div className="space-y-6">
-        <PageHeader title="گزارش‌های مالی" description="مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید." />
+        <PageHeader title={t("reports.title")} description={t("reports.description")} />
         <ReportsPanel
           initialSummary={summaryResponse.ok ? parseBillingSummary(summaryResponse.payload) : null}
           initialMonthly={monthlyResponse.ok ? parseMonthlyUsage(monthlyResponse.payload) : null}

@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { formatCompactNumber } from "@/lib/compact-number";
 import { getDashboardEntitlements, getDashboardSubscription } from "./api";
 import type { EffectiveEntitlements, TenantSubscription } from "./contracts";
+import { useNumberFormatter } from "@/hooks/use-locale-format";
 
 const DynamicDashboardAnalytics = dynamic(
   () => import("./DashboardAnalytics").then((module) => module.DashboardAnalytics),
@@ -51,11 +52,11 @@ type TenantAdminDashboardProps = {
   initialError: string | null;
 };
 
-const numberFormatter = new Intl.NumberFormat("fa-IR");
 const REQUESTS_FEATURE_KEY = "gateway.requests.monthly";
 
 export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
   const t = useTranslations("dashboard");
+  const numberFormatter = useNumberFormatter();
   const common = useTranslations("common");
 
   const [subscription, setSubscription] = useState<TenantSubscription | null>(
@@ -180,7 +181,7 @@ export default function TenantAdminDashboard(props: TenantAdminDashboardProps) {
           used={requestUsageValue}
           limit={totalPlanRequestLimit}
           subtitle={t("plan.requestLimitHint", {
-            monthly: formatUsagePart(requestsPerMonthLimit),
+            monthly: formatUsagePart(requestsPerMonthLimit, numberFormatter),
             months: numberFormatter.format(planMonths),
           })}
           tone={requestUsageRatio !== null && requestUsageRatio >= 0.85 ? "warning" : "success"}
@@ -345,7 +346,7 @@ function coerceNumericEntitlement(value: unknown): number | null {
   return null;
 }
 
-function formatUsagePart(value: number | null): string {
+function formatUsagePart(value: number | null, numberFormatter: Intl.NumberFormat): string {
   return value === null ? "-" : numberFormatter.format(Math.round(value));
 }
 

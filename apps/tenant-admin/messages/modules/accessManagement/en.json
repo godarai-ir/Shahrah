@@ -109,7 +109,7 @@
     "systemRole": "System",
     "customRole": "Custom",
     "form": {
-        "name": "Technical identifier",
+      "name": "Technical identifier",
       "displayName": "Display name",
       "description": "Description",
       "create": "Create Role",
@@ -151,6 +151,74 @@
       "description": "Creating custom roles is not included in your current commercial plan. Upgrade your plan to use this feature.",
       "cancel": "Not now",
       "action": "Upgrade or buy a plan"
-    }
-  }
+    },
+    "editTitle": "Edit role",
+    "editDescription": "Update the role details and its access level.",
+    "createDescription": "Enter the role details and permissions.",
+    "detailsTitle": "Role details",
+    "detailsDescription": "Edit the display name and administrator-facing description.",
+    "technicalIdentifier": "Technical identifier",
+    "permissionsTitle": "Role permissions",
+    "permissionsDescription": "Search permissions and adjust this role at group or item level.",
+    "summaryTitle": "Role summary",
+    "selectionSummaryTitle": "Selection summary",
+    "permissionRequired": "Select at least one permission.",
+    "displayNamePlaceholder": "Tenant Finance Admin"
+  },
+  "permissionEditor": {
+    "selectedTab": "Selected",
+    "allTab": "All permissions",
+    "searchPlaceholder": "Search permission key or description",
+    "searchAriaLabel": "Search permissions",
+    "emptyTitle": "No matching permissions found.",
+    "selectGroup": "Select group",
+    "clearGroup": "Clear group"
+  },
+  "permissionSummary": {
+    "selectedPermissions": "Selected permissions",
+    "coveredGroups": "Groups covered",
+    "clearAll": "Clear all permissions",
+    "empty": "No permissions are selected for this role yet."
+  },
+  "permissionGroups": {
+    "policies": "Policies",
+    "roles": "Roles",
+    "users": "Users",
+    "teams": "Teams",
+    "organization_units": "Organization units",
+    "virtual_accounts": "Virtual accounts",
+    "provider_accounts": "Provider accounts",
+    "settings": "Settings",
+    "logs": "Request logs",
+    "billing": "Billing",
+    "other": "Other"
+  },
+  "permissionResources": {
+    "policy": "policies",
+    "role": "roles",
+    "user": "users",
+    "team": "teams",
+    "org_unit": "organization units",
+    "virtual_account": "virtual accounts",
+    "provider_account": "provider accounts",
+    "settings": "settings",
+    "logs": "request logs",
+    "billing": "billing"
+  },
+  "permissionActions": {
+    "list": "List",
+    "read": "View details of",
+    "create": "Create",
+    "manage": "Manage",
+    "delete": "Delete",
+    "export": "Export",
+    "manage_views": "Manage saved views of",
+    "read_content": "View the content of",
+    "read_metadata": "View the metadata of",
+    "replay": "Replay",
+    "codes_redeem": "Redeem discount codes in",
+    "documents_read": "View documents in",
+    "profile_manage": "Manage the profile in"
+  },
+  "permissionDescription": "{action} {resource}"
 }

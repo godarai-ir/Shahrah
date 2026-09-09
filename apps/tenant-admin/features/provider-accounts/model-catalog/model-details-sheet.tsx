@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 
 import type { CatalogModel } from "./types";
 import { formatCatalogModelDisplayName } from "./formatters";
+import { useCurlGuideSamples } from "@/features/provider-accounts/use-curl-guide-samples";
 
 type ModelDetailsSheetProps = {
   model: CatalogModel | null;
@@ -97,6 +98,7 @@ export function ModelProfile({
   className,
 }: ModelProfileProps) {
   const t = useTranslations("modelCatalog");
+  const curlGuideSamples = useCurlGuideSamples();
   const selectedAvailability = useMemo(
     () => model.availability.find((item) => item.account_id === accountID) ?? model.availability[0] ?? null,
     [accountID, model],
@@ -116,13 +118,13 @@ export function ModelProfile({
     });
     const endpoint = getCurlGuideEndpoint(mode);
     const baseUrl = getTenantApiBaseURL();
-    const payload = buildCurlGuidePayload(mode, selectedAvailability.fqn);
+    const payload = buildCurlGuidePayload(mode, selectedAvailability.fqn, curlGuideSamples);
     return {
       mode,
       bash: buildBashCurlGuideCommand({ baseUrl, endpoint, payload }),
-      powershell: buildPowerShellCurlGuideCommand({ baseUrl, endpoint, mode, modelFqn: selectedAvailability.fqn }),
+      powershell: buildPowerShellCurlGuideCommand({ baseUrl, endpoint, mode, modelFqn: selectedAvailability.fqn, samples: curlGuideSamples }),
     };
-  }, [model, selectedAvailability]);
+  }, [curlGuideSamples, model, selectedAvailability]);
 
   if (!selectedAvailability) return null;
 
@@ -444,7 +446,7 @@ function formatCapabilityList(
       default:
         return value;
     }
-  }).join("، ");
+  }).join(t("listSeparator"));
 }
 
 function credentialKey(value: string): "managed" | "byok" {

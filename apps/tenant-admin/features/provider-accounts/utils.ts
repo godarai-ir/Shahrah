@@ -130,33 +130,57 @@ export function getCurlGuideEndpoint(mode: SupportedCurlGuideMode): string {
   }
 }
 
-export function buildCurlGuidePayload(mode: SupportedCurlGuideMode, modelFqn: string): Record<string, unknown> {
+/** Sample request bodies shown in the copy-ready API guides. */
+export type CurlGuideSamples = {
+  textPrompt: string;
+  embeddingInput: string;
+  moderationInput: string;
+  imagePrompt: string;
+  speechInput: string;
+  transcriptionText: string;
+};
+
+/** Persian defaults, kept so callers without a locale still render sensibly. */
+export const DEFAULT_CURL_GUIDE_SAMPLES: CurlGuideSamples = {
+  textPrompt: "سلام، یک پاسخ کوتاه بده",
+  embeddingInput: "سلام، این متن را برای جستجو برداری کن",
+  moderationInput: "I want to check this text for policy violations.",
+  imagePrompt: "A cinematic photo of Tehran at sunrise",
+  speechInput: "سلام، به گدارAI خوش آمدید.",
+  transcriptionText: "سلام، این یک نمونه تبدیل گفتار به متن است.",
+};
+
+export function buildCurlGuidePayload(
+  mode: SupportedCurlGuideMode,
+  modelFqn: string,
+  samples: CurlGuideSamples = DEFAULT_CURL_GUIDE_SAMPLES,
+): Record<string, unknown> {
   switch (mode) {
     case "completion":
       return {
         model: modelFqn,
-        prompt: "سلام، یک پاسخ کوتاه بده",
+        prompt: samples.textPrompt,
         max_tokens: 64,
       };
     case "embedding":
       return {
         model: modelFqn,
-        input: "سلام، این متن را برای جستجو برداری کن",
+        input: samples.embeddingInput,
       };
     case "responses":
       return {
         model: modelFqn,
-        input: "سلام، یک پاسخ کوتاه بده",
+        input: samples.textPrompt,
       };
     case "moderation":
       return {
         model: modelFqn,
-        input: "I want to check this text for policy violations.",
+        input: samples.moderationInput,
       };
     case "image_generation":
       return {
         model: modelFqn,
-        prompt: "A cinematic photo of Tehran at sunrise",
+        prompt: samples.imagePrompt,
         n: 1,
         size: "1024x1024",
         quality: "standard",
@@ -171,7 +195,7 @@ export function buildCurlGuidePayload(mode: SupportedCurlGuideMode, modelFqn: st
     case "text_to_speech":
       return {
         model: modelFqn,
-        input: "سلام، به گدارAI خوش آمدید.",
+        input: samples.speechInput,
         voice: "alloy",
         response_format: "mp3",
       };
@@ -182,7 +206,7 @@ export function buildCurlGuidePayload(mode: SupportedCurlGuideMode, modelFqn: st
         messages: [
           {
             role: "user",
-            content: "سلام، یک پاسخ کوتاه بده",
+            content: samples.textPrompt,
           },
         ],
       };
@@ -194,13 +218,11 @@ export function buildPowerShellCurlGuideCommand(input: {
   endpoint: string;
   mode: SupportedCurlGuideMode;
   modelFqn: string;
+  samples?: CurlGuideSamples;
 }): string {
   const modelFqn = input.modelFqn.replaceAll('"', '`"');
-  const textPrompt = "سلام، یک پاسخ کوتاه بده";
-  const embeddingInput = "سلام، این متن را برای جستجو برداری کن";
-  const moderationInput = "I want to check this text for policy violations.";
-  const imagePrompt = "A cinematic photo of Tehran at sunrise";
-  const speechInput = "سلام، به گدارAI خوش آمدید.";
+  const { textPrompt, embeddingInput, moderationInput, imagePrompt, speechInput } =
+    input.samples ?? DEFAULT_CURL_GUIDE_SAMPLES;
   const bodyLines = (() => {
     switch (input.mode) {
       case "completion":
@@ -301,11 +323,15 @@ export function buildPowerShellCurlGuideCommand(input: {
   return [...requestLines, "  -Body $body"].join("\n");
 }
 
-export function buildCurlGuideSampleResponse(mode: SupportedCurlGuideMode, modelName: string): string | undefined {
+export function buildCurlGuideSampleResponse(
+  mode: SupportedCurlGuideMode,
+  modelName: string,
+  samples: CurlGuideSamples = DEFAULT_CURL_GUIDE_SAMPLES,
+): string | undefined {
   if (mode === "audio_transcription") {
     return JSON.stringify(
       {
-        text: "سلام، این یک نمونه تبدیل گفتار به متن است.",
+        text: samples.transcriptionText,
       },
       null,
       2,

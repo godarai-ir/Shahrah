@@ -14,6 +14,7 @@ import { showFeedbackToast } from "@/components/app-ui/feedback-toast";
 import { PromptRegistryList } from "./PromptRegistryList";
 import type { Notice, Prompt } from "@/lib/prompt-builder";
 import { usePromptRegistryList } from "./usePromptRegistryList";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 export default function PromptRegistryListPage() {
   const t = useTranslations("prompts");
@@ -36,7 +37,7 @@ export default function PromptRegistryListPage() {
     userLabelByID,
   } = usePromptRegistryList(t);
 
-  const pageDir = locale === "fa" ? "rtl" : "ltr";
+  const pageDir = getLocaleDirection(locale);
 
   return (
     <PageContainer padding="none" spacing="compact" dir={pageDir}>

@@ -239,5 +239,6 @@
         "description": "Check your tenant's plan and the features and limits it actually includes."
       }
     }
-  }
+  },
+  "samplePrompt": "Write three key benefits of using an LLM gateway."
 }

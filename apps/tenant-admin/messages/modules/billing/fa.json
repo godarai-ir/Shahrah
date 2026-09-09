@@ -1,0 +1,236 @@
+{
+  "units": {
+    "irr": "ریال",
+    "toman": "تومان"
+  },
+  "errorTitle": "خطا",
+  "unknownError": "خطای ناشناخته رخ داد.",
+  "status": {
+    "successful": "موفق",
+    "completed": "تکمیل‌شده",
+    "approved": "تاییدشده",
+    "paid": "پرداخت‌شده",
+    "used": "استفاده‌شده",
+    "active": "فعال",
+    "issued": "صادرشده",
+    "pending": "در انتظار",
+    "pending_review": "در انتظار بررسی",
+    "draft": "پیش‌نویس",
+    "failed": "ناموفق",
+    "rejected": "ردشده",
+    "cancelled": "لغوشده",
+    "expired": "منقضی",
+    "refunded": "برگشت‌خورده"
+  },
+  "transactionType": {
+    "consumption": "مصرف",
+    "topup": "شارژ",
+    "refund": "بازگشت",
+    "adjustment": "اصلاح"
+  },
+  "discountType": {
+    "fixed": "مبلغ ثابت",
+    "percentage": "درصدی",
+    "gift_credit": "اعتبار هدیه"
+  },
+  "filters": {
+    "all": "همه"
+  },
+  "profileType": {
+    "label": "نوع",
+    "individual": "حقیقی",
+    "legal": "حقوقی"
+  },
+  "jalaliDate": {
+    "today": "امروز",
+    "hint": "تاریخ را با فرمت شمسی `YYYY-MM-DD` وارد کنید."
+  },
+  "pagination": {
+    "range": "نمایش {from} تا {to} از {total} ردیف",
+    "previous": "قبلی",
+    "next": "بعدی",
+    "page": "صفحه {page} از {pageCount}"
+  },
+  "overview": {
+    "title": "مدیریت مالی",
+    "description": "نمای عملیاتی کیف پول، مصرف دوره، تخفیف‌ها و اسناد مالی فضای کاری.",
+    "eyebrow": "Billing",
+    "topUp": "شارژ کیف پول",
+    "bankTransfer": "واریز بانکی",
+    "balance": "اعتبار",
+    "currentMonthUsage": "مصرف ماه جاری",
+    "cacheSavings": "صرفه‌جویی ناشی از کش",
+    "quickActions": "اقدام‌های سریع",
+    "quickTopUp": "شارژ از درگاه",
+    "quickBankTransfer": "ثبت واریز بانکی",
+    "quickReports": "گزارش مصرف",
+    "quickProfile": "پروفایل مالی",
+    "quickDocuments": "اسناد مالی",
+    "topProviders": "ارائه‌دهندگان پر مصرف",
+    "topProvidersDescription": "براساس هزینه نهایی دوره جاری",
+    "unknownProvider": "نامشخص",
+    "requestCount": "{count} درخواست",
+    "noUsage": "داده مصرفی برای این دوره وجود ندارد."
+  },
+  "bankTransfer": {
+    "title": "واریز بانکی",
+    "description": "رسید واریز را ثبت کنید تا پس از تایید، اعتبار کیف پول اضافه شود.",
+    "loadError": "واریزهای بانکی دریافت نشد.",
+    "columns": {
+      "trackingNumber": "شماره پیگیری",
+      "amount": "مبلغ",
+      "transferDate": "تاریخ واریز",
+      "status": "وضعیت",
+      "createdAt": "ثبت"
+    },
+    "errors": {
+      "amountAndTracking": "مبلغ و شماره پیگیری را کامل وارد کنید.",
+      "jalaliDate": "تاریخ واریز را با فرمت شمسی YYYY-MM-DD وارد کنید.",
+      "receiptRequired": "تصویر رسید را بارگذاری کنید.",
+      "receiptType": "فقط فایل‌های تصویری رایج مانند JPG، PNG، WEBP و GIF مجاز هستند.",
+      "receiptSize": "حجم تصویر رسید باید حداکثر ۲ مگابایت باشد."
+    },
+    "form": {
+      "amount": "مبلغ (تومان)",
+      "trackingNumber": "شماره پیگیری",
+      "transferDate": "تاریخ واریز (شمسی)",
+      "receipt": "تصویر رسید",
+      "receiptReady": "آماده برای ارسال",
+      "removeReceipt": "حذف {name}",
+      "pickReceipt": "یک تصویر رسید انتخاب کنید",
+      "receiptHint": "فقط یک تصویر با فرمت‌های JPG، PNG، WEBP یا GIF و حداکثر حجم ۲ مگابایت.",
+      "submitting": "در حال ثبت...",
+      "submit": "ثبت و ارسال برای بررسی"
+    },
+    "list": {
+      "title": "واریزهای ثبت‌شده",
+      "description": "آخرین درخواست‌های واریز بانکی",
+      "empty": "درخواستی ثبت نشده است."
+    },
+    "account": {
+      "title": "اطلاعات حساب برای واریز بانکی",
+      "description": "مبلغ را به حساب زیر واریز کنید و سپس رسید را برای بررسی بارگذاری کنید.",
+      "bankName": "بانک سامان",
+      "ibanLabel": "شماره شبا حساب بانکی",
+      "cardLabel": "شماره کارت",
+      "cardValueAriaLabel": "شماره کارت بانکی",
+      "copy": "کپی",
+      "copying": "در حال کپی",
+      "copied": "کپی شد"
+    }
+  },
+  "reports": {
+    "title": "گزارش‌های مالی",
+    "description": "مصرف، هزینه، تخفیف و صرفه‌جویی کش را به تفکیک ارائه‌دهنده ببینید.",
+    "summaryError": "گزارش خلاصه دریافت نشد.",
+    "monthlyError": "گزارش ماهانه دریافت نشد.",
+    "invalidMonth": "ماه گزارش باید یک ماه شمسی معتبر باشد.",
+    "columns": {
+      "provider": "ارائه‌دهنده",
+      "requests": "درخواست‌ها",
+      "inputTokens": "توکن ورودی",
+      "outputTokens": "توکن خروجی",
+      "rawCost": "هزینه خام",
+      "discount": "تخفیف",
+      "cacheSavings": "صرفه‌جویی کش",
+      "finalCost": "هزینه نهایی"
+    },
+    "metrics": {
+      "periodUsage": "مصرف دوره",
+      "discount": "تخفیف",
+      "cacheSavings": "صرفه‌جویی کش",
+      "giftCredit": "اعتبار هدیه"
+    },
+    "filter": {
+      "title": "فیلتر گزارش",
+      "description": "گزارش مصرف را در بازه زمانی دلخواه یا به تفکیک ماه مشاهده کنید.",
+      "range": "بازه",
+      "monthly": "فیلتر ماهانه",
+      "refreshing": "در حال دریافت...",
+      "refresh": "به‌روزرسانی"
+    },
+    "presets": {
+      "current_month": "ماه جاری",
+      "current_quarter": "فصل جاری",
+      "current_year": "سال جاری",
+      "last_3_months": "سه ماه اخیر",
+      "last_6_months": "شش ماه اخیر",
+      "last_12_months": "دوازده ماه اخیر"
+    },
+    "monthlyDetail": {
+      "title": "جزئیات ماهانه",
+      "description": "تجمیع مصرف، توکن و هزینه نهایی به تفکیک ارائه‌دهنده برای {month}",
+      "empty": "داده‌ای برای این ماه وجود ندارد."
+    },
+    "providerShare": {
+      "title": "سهم ارائه‌دهنده‌ها",
+      "description": "بر اساس هزینه نهایی"
+    }
+  },
+  "profile": {
+    "title": "پروفایل مالی",
+    "description": "اطلاعات حقیقی یا حقوقی فضای کاری برای فاکتور و اسناد مالی.",
+    "loadError": "پروفایل مالی دریافت نشد.",
+    "errors": {
+      "displayNameAndID": "نام نمایشی و شناسه ملی/کد ملی الزامی است.",
+      "nationalID": "کد ملی باید دقیقاً ۱۰ رقم باشد.",
+      "legalID": "شناسه ملی باید دقیقاً ۱۱ رقم باشد.",
+      "economicCodeRequired": "برای پروفایل حقوقی، کد اقتصادی الزامی است.",
+      "economicCode": "کد اقتصادی باید دقیقاً ۱۲ رقم باشد.",
+      "postalCode": "کد پستی باید دقیقاً ۱۰ رقم باشد.",
+      "email": "ایمیل را با قالب معتبر وارد کنید."
+    },
+    "identity": {
+      "title": "مشخصات",
+      "description": "نوع پروفایل و شناسه مالی",
+      "displayName": "نام نمایشی",
+      "nationalID": "کد ملی",
+      "legalID": "شناسه ملی",
+      "economicCode": "کد اقتصادی"
+    },
+    "contact": {
+      "title": "تماس و نشانی",
+      "description": "برای نمایش در سندهای مالی",
+      "postalCode": "کد پستی",
+      "address": "نشانی",
+      "phone": "تلفن",
+      "email": "ایمیل"
+    },
+    "saving": "در حال ذخیره...",
+    "save": "ذخیره پروفایل"
+  },
+  "documents": {
+    "title": "اسناد مالی",
+    "description": "فاکتورها، تراکنش‌های کیف پول و تخفیف‌های فضای کاری.",
+    "exportCSV": "خروجی CSV",
+    "tabs": {
+      "invoices": "فاکتورها",
+      "transactions": "تراکنش‌ها",
+      "discounts": "تخفیف‌ها"
+    },
+    "invoices": {
+      "number": "شماره",
+      "status": "وضعیت",
+      "periodEnd": "پایان دوره",
+      "finalAmount": "مبلغ نهایی (ریال)",
+      "netAdjustment": "اصلاحیه (ریال)",
+      "empty": "فاکتوری صادر نشده است."
+    },
+    "transactions": {
+      "type": "نوع",
+      "status": "وضعیت",
+      "amount": "مبلغ (ریال)",
+      "balanceAfter": "مانده بعد (ریال)",
+      "createdAt": "زمان",
+      "empty": "تراکنشی ثبت نشده است."
+    },
+    "discounts": {
+      "code": "کد",
+      "type": "نوع",
+      "status": "وضعیت",
+      "usedAmount": "مصرف‌شده (ریال)",
+      "createdAt": "ثبت",
+      "empty": "تخفیفی استفاده نشده است."
+    }
+  }
+}

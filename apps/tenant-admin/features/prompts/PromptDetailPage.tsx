@@ -68,6 +68,7 @@ import {
   type PromptTranslationFn,
   type PromptVersion,
 } from "@/lib/prompt-builder";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 type PromptDetailPageProps = {
   promptID: string;
@@ -77,7 +78,7 @@ export default function PromptDetailPage(props: PromptDetailPageProps) {
   const t = useTranslations("prompts");
   const locale = useLocale();
   const router = useRouter();
-  const pageDir = locale === "fa" ? "rtl" : "ltr";
+  const pageDir = getLocaleDirection(locale);
 
   const [activeTab, setActiveTab] = useState<PromptDetailTab>("prompt");
   const [compareBaseVersionID, setCompareBaseVersionID] = useState("");

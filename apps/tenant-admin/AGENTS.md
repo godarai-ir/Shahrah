@@ -27,6 +27,26 @@ Read `ARCHITECTURE.md` before changing application structure, feature ownership,
 2. Source of truth is `messages/modules/<namespace>/<locale>.json`.
 3. Keep `fa` and `en` structurally aligned per namespace.
 4. Add both locales in the same change whenever a key changes.
+5. A new namespace must also be listed in `MESSAGE_NAMESPACES` in `i18n/request.ts`
+   and in the namespace list of every layout that needs it.
+
+## Language Switching and Direction
+
+1. The active locale is resolved per request from the `NEXT_LOCALE` cookie, then
+   from `Accept-Language`, then from the `fa` default. `lib/locale.ts` owns the
+   supported list and the narrowing helpers.
+2. `components/locale-toggle.tsx` writes the cookie and refreshes the route.
+   `LocaleToggle` is the standalone control used on `/login`; `LocaleToggleMenuItem`
+   is the row in the admin profile menu.
+3. Direction follows the locale: `fa` is RTL and `en` is LTR. Derive it with
+   `getLocaleDirection` and never hardcode `dir="rtl"` or physical utilities such
+   as `text-left`, `text-right`, `ml-*`, or `pr-*`. The design system guardrail
+   test enforces this.
+4. Format numbers and dates through `hooks/use-locale-format.ts`, or through the
+   `getIntlLocale` and `getCalendarLocale` helpers on the server. Do not construct
+   an `Intl` formatter with a hardcoded locale tag.
+5. Billing keeps the Jalali calendar in both locales because billing periods are
+   anchored to it; only the script and month names change.
 
 ## Current UI Flows
 

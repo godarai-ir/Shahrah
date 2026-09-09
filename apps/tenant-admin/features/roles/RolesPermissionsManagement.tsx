@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getRoleEntitlements } from "./api";
 import type { EffectiveEntitlements, PermissionItem, RoleDefinition } from "./contracts";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 type RolesPermissionsManagementProps = {
   initialRoles: RoleDefinition[];
@@ -52,7 +53,7 @@ export default function RolesPermissionsManagement(props: RolesPermissionsManage
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const direction = locale.startsWith("fa") ? "rtl" : "ltr";
+  const direction = getLocaleDirection(locale);
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const filteredRoles = useMemo(() => {
     return roles.filter((role) => {

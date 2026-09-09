@@ -48,7 +48,7 @@ describe("RoleEditManagement", () => {
     render(<RoleEditManagement initialRole={role} initialPermissionCatalog={permissionCatalog} />);
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    const roleSlug = screen.getByRole("textbox", { name: "شناسه فنی" });
+    const roleSlug = screen.getByRole("textbox", { name: "rolesPage.technicalIdentifier" });
     const displayName = screen.getByRole("textbox", { name: "rolesPage.form.displayName" });
     expect(roleSlug).toHaveValue("org_admin");
     expect(roleSlug).toHaveAttribute("dir", "ltr");
@@ -61,10 +61,10 @@ describe("RoleEditManagement", () => {
   it("shows the selected permission and exposes both permission views", () => {
     render(<RoleEditManagement initialRole={role} initialPermissionCatalog={permissionCatalog} />);
 
-    expect(screen.getByRole("tab", { name: "انتخاب‌شده‌ها" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "همه مجوزها" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "permissionEditor.selectedTab" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "permissionEditor.allTab" })).toBeInTheDocument();
 
-    const rolePermission = screen.getByRole("checkbox", { name: /اجازه مشاهده فهرست نقش/ });
+    const rolePermission = screen.getByRole("checkbox", { name: /permissionDescription/ });
     expect(rolePermission).toBeChecked();
   });
 

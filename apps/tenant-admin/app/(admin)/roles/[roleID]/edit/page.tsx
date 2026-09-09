@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 
 import AdminShell from "@/features/admin-shell/AdminShell";
 import RoleEditManagement from "@/features/roles/RolesEditManagement";
@@ -18,7 +18,7 @@ type PageProps = {
 export const dynamic = "force-dynamic";
 
 export default async function EditRolePage({ params }: PageProps) {
-  const locale = await getLocale();
+  const t = await getTranslations("accessManagement");
   const { roleID } = await params;
   const auth = await requireAuth(`/login?next=/roles/${encodeURIComponent(roleID)}/edit`);
   const tenantSlug = auth.tenantSlug;
@@ -60,10 +60,8 @@ export default async function EditRolePage({ params }: PageProps) {
       tenantSlug={tenantSlug}
       currentUser={currentUser}
       pageHeader={{
-        title: locale.startsWith("fa") ? "ویرایش نقش" : "Edit role",
-        description: locale.startsWith("fa")
-          ? "مشخصات نقش و سطح دسترسی آن را به‌روزرسانی کنید."
-          : "Update the role details and its access level.",
+        title: t("rolesPage.editTitle"),
+        description: t("rolesPage.editDescription"),
       }}
     >
       <RoleEditManagement initialRole={role} initialPermissionCatalog={initialPermissionCatalog} />

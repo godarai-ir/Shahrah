@@ -14,6 +14,7 @@
   "creating": "Creating account...",
   "createProviderAccount": "Create new account",
   "saving": "Saving...",
+  "save": "Save",
   "saveAccessControl": "Save access policy",
   "step1": {
     "title": "Step 1: Choose provider",
@@ -69,7 +70,12 @@
     "add": "Add",
     "addEveryone": "Grant access to all users",
     "remove": "Remove",
-    "everyone": "All users"
+    "everyone": "All users",
+    "users": "Users",
+    "teams": "Teams",
+    "orgUnits": "Org units",
+    "virtualAccounts": "Virtual accounts",
+    "externalIdentities": "External identities"
   },
   "messages": {
     "initialLoadFailed": "Failed to load provider catalog. Retry after model-discovery is available.",
@@ -543,7 +549,8 @@
         "autoEnableDescription": "If you enable this option, new models from this provider will be available on this integration by default. You can disable them later.",
         "createIntegration": "Create Integration"
       }
-    }
+    },
+    "listSeparator": ", "
   },
   "integrations": {
     "pageTitle": "Connect AI Service Providers",
@@ -609,5 +616,14 @@
       "disconnectFailed": "Failed to disconnect integration.",
       "connectionCreated": "Connection \"{name}\" was activated successfully."
     }
-  }
+  },
+  "curlGuideSamples": {
+    "textPrompt": "Hello, give me a short answer.",
+    "embeddingInput": "Hello, turn this text into a search vector.",
+    "moderationInput": "I want to check this text for policy violations.",
+    "imagePrompt": "A cinematic photo of Tehran at sunrise",
+    "speechInput": "Hello, and welcome to GodarAI.",
+    "transcriptionText": "Hello, this is a sample speech-to-text result."
+  },
+  "listSeparator": ", "
 }

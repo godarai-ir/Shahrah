@@ -54,6 +54,8 @@ import { createRateLimitRule, updateRateLimitRule } from "./ruleApi";
 import type { RateLimitCondition, RateLimitRule } from "./ruleTypes";
 import { rateLimitRuleSchema, type RateLimitRuleFormInput } from "./ruleValidation";
 import { loadPolicyModelOptions, searchPolicyPrincipals as searchPrincipals } from "../lookups";
+import { resolveRuleErrorMessage } from "@/features/gateway-policies/rule-error-message";
+import { getLocaleDirection } from "@/lib/locale-direction";
 
 const fieldOptions = ["subject", "model", "metadata"] as const;
 
@@ -227,7 +229,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
       router.push("/gateway-policies/rate-limiting-rules");
       router.refresh();
     } catch (error) {
-      setNotice({ kind: "error", message: error instanceof Error ? error.message : t("messages.saveError") });
+      setNotice({ kind: "error", message: resolveRuleErrorMessage(error, (code) => t(`apiErrors.${code}`), t("messages.saveError")) });
     } finally {
       setIsSaving(false);
     }
@@ -620,7 +622,7 @@ export function RateLimitRuleForm({ initialRule, embedded = false, onCancel, onS
                     label={t("form.fields.conflictBehavior")}
                     value={conflictBehavior ?? "most_restrictive"}
                     columns={3}
-                    dir={locale === "fa" ? "rtl" : "ltr"}
+                    dir={getLocaleDirection(locale)}
                     onValueChange={(value) =>
                       form.setValue("conflict_behavior", value, {
                         shouldValidate: true,

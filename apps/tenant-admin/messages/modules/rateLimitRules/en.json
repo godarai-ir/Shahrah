@@ -238,5 +238,15 @@
     "description": "Creating rate limit rules is not included in your current commercial plan. Upgrade your plan to use this feature.",
     "cancel": "Close",
     "action": "Upgrade / buy plan"
+  },
+  "apiErrors": {
+    "saveRejected": "The rule was not saved. Review the filters and values, then try again.",
+    "invalidBody": "The form data is not valid. Check the fields and try again.",
+    "duplicateRuleId": "That rule identifier is already in use. Enter a unique identifier.",
+    "internal": "An internal error occurred while processing the request. Please try again.",
+    "unauthenticated": "Sign in to continue.",
+    "forbidden": "You do not have access to this area.",
+    "notFound": "The requested resource was not found.",
+    "unknown": "Something went wrong while processing the request. Please try again."
   }
 }
