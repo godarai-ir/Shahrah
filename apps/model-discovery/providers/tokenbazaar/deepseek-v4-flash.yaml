@@ -1,0 +1,117 @@
+model: deepseek-v4-flash
+displayName: DeepSeek-V4-Flash-0731
+model_version: DeepSeek-V4-Flash-0731
+releaseDate: 2026-07-31
+status: preview
+verified_at: 2026-08-15
+api_format: openai
+lifecycle_note: public beta in the 2026-07-31 official changelog
+supportedModes: [chat, responses]
+modalities:
+  input: [text]
+  output: [text]
+features:
+  - function_calling
+  - tool_choice
+  - system_messages
+  - prompt_caching
+  - structured_output
+  - json_output
+tools: [function_calling]
+params:
+  - key: reasoning_effort
+    defaultValue: high
+    supportedValues: [low, medium, high, xhigh, max]
+  - key: max_tokens
+    minValue: 1
+    maxValue: 393216
+  - key: stream
+    type: boolean
+  - key: stream_options
+  - key: thinking
+  - key: response_format
+  - key: tools
+  - key: tool_choice
+  - key: temperature
+  - key: top_p
+  - key: presence_penalty
+  - key: frequency_penalty
+costs:
+  - region: '*'
+    input_cost_per_token: 0.000000098
+    output_cost_per_token: 0.000000196
+    cache_read_input_token_cost: 0.00000000196
+limits:
+  context_window: 1048576
+  max_input_tokens: 1048576
+  max_output_tokens: 393216
+sources:
+  - https://api-docs.deepseek.com/quick_start/pricing
+  - https://api-docs.deepseek.com/api/list-models
+  - https://api-docs.deepseek.com/api/create-chat-completion
+  - https://api-docs.deepseek.com/api/create-response
+  - https://api-docs.deepseek.com/guides/responses_api
+  - https://api-docs.deepseek.com/guides/thinking_mode
+  - https://api-docs.deepseek.com/guides/tool_calls
+  - https://api-docs.deepseek.com/guides/json_mode
+  - https://api-docs.deepseek.com/guides/kv_cache
+  - https://api-docs.deepseek.com/updates
+  - https://tokenbazaar.ai/shelf?model=deepseek-v4-flash
+runtimeProfile:
+  version: 3
+  aliases: []
+  endpoints: [models, chat_completions, responses]
+  transports: [http, sse]
+  lifecycle: preview
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive, disabled]
+    manualDeprecated: false
+    effortValues: [low, medium, high, xhigh, max]
+  assistantPrefill: false
+  sampling:
+    parameters: [temperature, top_p]
+    disallowedWithThinking: [temperature, top_p]
+  tools:
+    custom: true
+    server: false
+    parallel: false
+    structuredOutput: true
+    supported: [function_calling]
+  modalities:
+    input: [text]
+    output: [text]
+  parameters:
+    responses:
+      - input
+      - instructions
+      - max_output_tokens
+      - reasoning
+      - stream
+      - temperature
+      - top_p
+      - top_logprobs
+      - text
+      - tools
+      - tool_choice
+  responseResources:
+    store: false
+    retrieve: false
+    delete: false
+    compact: false
+    countInputTokens: false
+  unsupportedParameters:
+    - max_completion_tokens
+    - parallel_tool_calls
+    - top_k
+    - service_tier
+    - speed
+    - inference_geo
+    - strict
+    - prefix
+  minimumRetentionDays: 0
+  zdrEligible: false
+  limits:
+    contextWindow: 1048576
+    maxInputTokens: 1048576
+    maxOutputTokens: 393216

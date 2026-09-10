@@ -1,0 +1,150 @@
+costs:
+    - region: "*"
+      output_cost_per_image: 0.0371
+features:
+    - prompt_caching
+modalities:
+    input:
+        - text
+        - image
+    output:
+        - image
+mode: image
+model: gpt-image-2
+params:
+    - defaultValue: 128
+      key: max_tokens
+      maxValue: 4096
+      minValue: 1
+    - defaultValue: 0.8
+      key: temperature
+      maxValue: 2
+      minValue: 0
+    - defaultValue: null
+      key: stop
+      type: array-of-strings
+    - defaultValue: 0.1
+      key: top_p
+      maxValue: 1
+      minValue: 0
+    - defaultValue: 1
+      key: "n"
+      maxValue: 10
+      minValue: 1
+provisioning: serverless
+removeParams:
+    - stream
+    - tool_choice
+    - parallel_tool_calls
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/models/gpt-image-2
+    - https://developers.openai.com/api/docs/guides/image-generation
+    - https://developers.openai.com/api/docs/pricing
+    - https://tokenbazaar.ai/shelf?model=gpt-image-2
+snapshots:
+    - gpt-image-2-2026-04-21
+rateLimits:
+    - tier: 1
+      tokensPerMinute: 100000
+      imagesPerMinute: 5
+    - tier: 2
+      tokensPerMinute: 250000
+      imagesPerMinute: 20
+    - tier: 3
+      tokensPerMinute: 800000
+      imagesPerMinute: 50
+    - tier: 4
+      tokensPerMinute: 3000000
+      imagesPerMinute: 150
+    - tier: 5
+      tokensPerMinute: 8000000
+      imagesPerMinute: 250
+status: active
+supportedModes:
+    - image
+runtimeProfile:
+    version: 3
+    endpoints:
+        - models
+        - image_generations
+        - image_edits
+        - batches
+    transports:
+        - http
+    lifecycle: active
+    thinking:
+        defaultMode: disabled
+        allowedModes:
+            - disabled
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters:
+            - temperature
+            - top_p
+        disallowedWithThinking: []
+    tools:
+        custom: false
+        server: false
+        parallel: false
+        structuredOutput: false
+        supported: []
+        preferredVersions: {}
+    modalities:
+        input:
+            - text
+            - image
+        output:
+            - image
+    requestControls:
+        serviceTierValues: []
+        inferenceGeoValues:
+            - global
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits:
+        - tier: 1
+          scope: project
+          dynamic: false
+          tokensPerMinute: 100000
+          imagesPerMinute: 5
+        - tier: 2
+          scope: project
+          dynamic: false
+          tokensPerMinute: 250000
+          imagesPerMinute: 20
+        - tier: 3
+          scope: project
+          dynamic: false
+          tokensPerMinute: 800000
+          imagesPerMinute: 50
+        - tier: 4
+          scope: project
+          dynamic: false
+          tokensPerMinute: 3000000
+          imagesPerMinute: 150
+        - tier: 5
+          scope: project
+          dynamic: false
+          tokensPerMinute: 8000000
+          imagesPerMinute: 250
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 0
+        maxInputTokens: 0
+        maxInputCharacters: 0
+        maxInputBytes: 0
+        maxOutputTokens: 0
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

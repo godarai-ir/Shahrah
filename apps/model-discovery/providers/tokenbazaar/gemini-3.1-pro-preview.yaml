@@ -1,0 +1,97 @@
+model: gemini-3.1-pro-preview
+status: preview
+mode: chat
+supportedModes: [chat, responses]
+provisioning: serverless
+modalities:
+    input: [text, image, audio, video, pdf]
+    output: [text]
+limits: { context_window: 1048576, max_input_tokens: 1048576, max_output_tokens: 65536, max_tokens: 65536 }
+features: [function_calling, parallel_function_calling, system_messages, tool_choice, prompt_caching, structured_output, code_execution, json_output]
+tools: [function_calling, google_search, google_maps, url_context, code_execution]
+endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]
+transports: [http, sse]
+serviceTiers: [standard, batch, flex, priority]
+thinkingProfile:
+    defaultMode: manual
+    allowedModes: [manual]
+    manualDeprecated: false
+    effortValues: [low, medium, high]
+    reasoningModes: []
+    contextValues: []
+    alwaysEnabled: false
+params:
+    - { key: max_tokens, minValue: 1, maxValue: 65536 }
+    - { key: temperature, minValue: 0, maxValue: 2 }
+    - { key: top_p, minValue: 0, maxValue: 1 }
+    - { key: top_k, minValue: 0 }
+    - { key: stop, type: array-of-strings }
+    - { key: stream, type: boolean }
+    - { key: tool_choice }
+    - { key: reasoning_effort, defaultValue: high, supportedValues: [low, medium, high], type: string }
+rateLimits: &geminiRateLimits
+    - { usageTier: free, scope: project, dynamic: true, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, batchQueueTokens: 5000000, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+    - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+costs:
+    - region: "*"
+      input_cost_per_token: 0.0000017526153846
+      output_cost_per_token: 0.0000105156923077
+      cache_read_input_token_cost: 0.0000001752615385
+      tiered_pricing:
+          pricing_mode: cumulative
+          input: [{ from: 200000, cost_per_token: 0.0000035052307692 }]
+          output: [{ from: 200000, cost_per_token: 0.0000157735384615 }]
+          cache_read: [{ from: 200000, cost_per_token: 0.0000003505230769 }]
+sources:
+    - https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview
+    - https://ai.google.dev/gemini-api/docs/pricing
+    - https://ai.google.dev/gemini-api/docs/rate-limits
+    - https://tokenbazaar.ai/shelf?model=gemini-3.1-pro-preview
+runtimeProfile:
+    version: 2
+    endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]
+    transports: [http, sse]
+    lifecycle: preview
+    thinking:
+        defaultMode: manual
+        allowedModes: [manual]
+        manualDeprecated: false
+        effortValues: [low, medium, high]
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: [temperature, top_p, top_k]
+        disallowedWithThinking: []
+    tools:
+        custom: true
+        server: true
+        parallel: true
+        structuredOutput: true
+        supported: [function_calling, google_search, google_maps, url_context, code_execution]
+        preferredVersions: {}
+    modalities:
+        input: [text, image, audio, video, pdf]
+        output: [text]
+    requestControls:
+        serviceTierValues: [standard, batch, flex, priority]
+        inferenceGeoValues: [global]
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits: *geminiRateLimits
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 1048576
+        maxInputTokens: 1048576
+        maxOutputTokens: 65536
+        messagesBytes: 33554432
+        batchBytes: 2000000000
+        fileBytes: 2000000000

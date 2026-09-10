@@ -1,0 +1,153 @@
+costs:
+    - input_cost_per_token: 0.0000001461538462
+      output_cost_per_token: 0
+      region: "*"
+limits:
+    max_input_tokens: 8192
+    output_vector_size: 3072
+params:
+    - key: dimensions
+      minValue: 1
+      maxValue: 3072
+    - key: encoding_format
+      supportedValues:
+          - float
+          - base64
+      type: string
+    - key: user
+      type: string
+modalities:
+    input:
+        - text
+    output:
+        - embedding
+mode: embedding
+model: text-embedding-3-large
+provisioning: serverless
+removeParams:
+    - max_tokens
+    - temperature
+    - stop
+    - top_p
+    - "n"
+    - stream
+    - tool_choice
+    - parallel_tool_calls
+    - reasoning_effort
+sources:
+    - https://developers.openai.com/api/docs/models/text-embedding-3-large
+    - https://developers.openai.com/api/docs/guides/embeddings
+    - https://developers.openai.com/api/docs/pricing
+    - https://tokenbazaar.ai/shelf?model=text-embedding-3-large
+snapshots:
+    - text-embedding-3-large
+rateLimits:
+    - tier: 1
+      requestsPerMinute: 3000
+      tokensPerMinute: 1000000
+      batchQueueTokens: 3000000
+    - tier: 2
+      requestsPerMinute: 5000
+      tokensPerMinute: 1000000
+      batchQueueTokens: 20000000
+    - tier: 3
+      requestsPerMinute: 5000
+      tokensPerMinute: 5000000
+      batchQueueTokens: 100000000
+    - tier: 4
+      requestsPerMinute: 10000
+      tokensPerMinute: 5000000
+      batchQueueTokens: 500000000
+    - tier: 5
+      requestsPerMinute: 10000
+      tokensPerMinute: 10000000
+      batchQueueTokens: 4000000000
+status: active
+supportedModes:
+    - embedding
+runtimeProfile:
+    version: 3
+    endpoints:
+        - models
+        - embeddings
+        - batches
+    transports:
+        - http
+    lifecycle: active
+    thinking:
+        defaultMode: disabled
+        allowedModes:
+            - disabled
+        manualDeprecated: false
+        effortValues: []
+        reasoningModes: []
+        contextValues: []
+        alwaysEnabled: false
+    assistantPrefill: false
+    fineTuning: false
+    predictedOutputs: false
+    sampling:
+        parameters: []
+        disallowedWithThinking: []
+    tools:
+        custom: false
+        server: false
+        parallel: false
+        structuredOutput: false
+        supported: []
+        preferredVersions: {}
+    modalities:
+        input:
+            - text
+        output:
+            - embedding
+    requestControls:
+        serviceTierValues: []
+        inferenceGeoValues:
+            - global
+        speedValues: []
+        effectiveSpeed: {}
+    betaHeaders: []
+    betaCapabilities: []
+    referenceRateLimits:
+        - tier: 1
+          scope: project
+          dynamic: false
+          requestsPerMinute: 3000
+          tokensPerMinute: 1000000
+          batchQueueTokens: 3000000
+        - tier: 2
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 1000000
+          batchQueueTokens: 20000000
+        - tier: 3
+          scope: project
+          dynamic: false
+          requestsPerMinute: 5000
+          tokensPerMinute: 5000000
+          batchQueueTokens: 100000000
+        - tier: 4
+          scope: project
+          dynamic: false
+          requestsPerMinute: 10000
+          tokensPerMinute: 5000000
+          batchQueueTokens: 500000000
+        - tier: 5
+          scope: project
+          dynamic: false
+          requestsPerMinute: 10000
+          tokensPerMinute: 10000000
+          batchQueueTokens: 4000000000
+    minimumRetentionDays: 0
+    zdrEligible: false
+    limits:
+        contextWindow: 0
+        maxInputTokens: 8192
+        maxInputCharacters: 0
+        maxInputBytes: 0
+        maxOutputTokens: 0
+        messagesBytes: 33554432
+        batchBytes: 268435456
+        fileBytes: 524288000

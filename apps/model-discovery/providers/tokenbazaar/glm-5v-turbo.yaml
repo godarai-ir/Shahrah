@@ -1,0 +1,97 @@
+model: glm-5v-turbo
+displayName: GLM-5V-Turbo
+status: active
+verified_at: 2026-08-17
+api_format: zai
+supportedModes: [chat]
+modalities:
+  input: [text, image, video, document]
+  output: [text]
+features: [system_messages, prompt_caching, document_qna]
+params:
+  - key: do_sample
+    type: boolean
+  - key: stream
+    type: boolean
+  - key: thinking
+  - key: temperature
+    minValue: 0
+    maxValue: 1
+  - key: top_p
+    minValue: 0.01
+    maxValue: 1
+  - key: max_tokens
+    minValue: 1
+  - key: stop
+    type: array-of-strings
+  - key: response_format
+  - key: request_id
+  - key: user_id
+costs:
+  - region: '*'
+    input_cost_per_token: 0.0000010769230769
+    output_cost_per_token: 0.000004
+    cache_read_input_token_cost: 0.0000002769230769
+limits:
+  context_window: 200000
+  max_input_tokens: 200000
+  max_output_tokens: 128000
+sources:
+  - https://docs.z.ai/guides/vlm/glm-5v-turbo
+  - https://docs.z.ai/guides/overview/pricing
+  - https://docs.z.ai/api-reference/llm/chat-completion
+  - https://docs.z.ai/openapi.json
+  - https://tokenbazaar.ai/shelf?model=glm-5v-turbo
+runtimeProfile:
+  version: 1
+  aliases: []
+  endpoints: [chat_completions]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive, disabled]
+  assistantPrefill: false
+  sampling:
+    parameters: [temperature, top_p]
+  tools:
+    custom: false
+    parallel: false
+    structuredOutput: false
+  modalities:
+    input: [text, image, video, document]
+    output: [text]
+  parameters:
+    chat_completions:
+      [
+        model,
+        messages,
+        do_sample,
+        stream,
+        thinking,
+        temperature,
+        top_p,
+        max_tokens,
+        stop,
+        request_id,
+        user_id,
+      ]
+  unsupportedParameters:
+    [
+      reasoning_effort,
+      tools,
+      tool_choice,
+      tool_stream,
+      parallel_tool_calls,
+      response_format,
+      service_tier,
+      presence_penalty,
+      frequency_penalty,
+      logprobs,
+      top_logprobs,
+    ]
+  limits:
+    contextWindow: 200000
+    maxInputTokens: 200000
+    maxOutputTokens: 128000
+    fileBytes: 209715200
