@@ -116,8 +116,6 @@ func normalizeProviderSlug(value string) string {
 	switch normalized {
 	case "perplexity":
 		return "perplexity-ai"
-	case "zai":
-		return "xai"
 	default:
 		return normalized
 	}

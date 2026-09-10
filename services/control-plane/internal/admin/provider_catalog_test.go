@@ -403,6 +403,26 @@ func TestDiscoveryProviderModels_FallbackQueryUsesPaginationLimit100(t *testing.
 	assert.Equal(t, "azure-ai-foundry/model-a", items[0].Model)
 }
 
+func TestNormalizeProviderSlug_KeepsZAIDistinctFromXAI(t *testing.T) {
+	assert.Equal(t, "zai", normalizeProviderSlug("zai"))
+	assert.Equal(t, "zai", normalizeProviderSlug("  ZAI  "))
+	assert.Equal(t, "xai", normalizeProviderSlug("xai"))
+	assert.Equal(t, "perplexity-ai", normalizeProviderSlug("perplexity"))
+}
+
+func TestMapDiscoveryProviders_KeepsZAIAndXAISeparate(t *testing.T) {
+	items := mapDiscoveryProviders([]discoveryProvider{
+		{Slug: "xai", Name: "xAI", Enabled: true},
+		{Slug: "zai", Name: "Z.ai", Enabled: true},
+	})
+
+	require.Len(t, items, 2)
+	assert.Equal(t, "xai", items[0].Provider)
+	assert.Equal(t, "xAI", items[0].DisplayName)
+	assert.Equal(t, "zai", items[1].Provider)
+	assert.Equal(t, "Z.ai", items[1].DisplayName)
+}
+
 func discoveryConfigFromTestEnv() DiscoveryConfig {
 	baseURL := strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL"))
 	if baseURL == "" {
