@@ -108,10 +108,41 @@ rateLimits: &geminiRateLimits
       inputFileBytes: 2000000000,
       fileStorageBytes: 20000000000,
     }
+# Pricing pinned to the official Google Gemini rate (not TokenBazaar's live
+# resale price) per explicit product decision on 2026-09-10 — see
+# "Pricing anomalies" in plans/tokenbazaar-production-readiness.md.
 costs:
   - region: '*'
-    input_cost_per_token: 0.0000013461538462
-    output_cost_per_token: 0.0000107692307692
+    input_cost_per_token: 0.00000125
+    output_cost_per_token: 0.00001
+    cache_read_input_token_cost: 0.000000125
+    cache_storage_cost_per_token_per_hour: 0.0000045
+    input_cost_per_token_batches: 0.000000625
+    output_cost_per_token_batches: 0.000005
+    cache_read_input_token_cost_batches: 0.000000125
+    cache_storage_cost_per_token_per_hour_batches: 0.0000045
+    input_cost_per_token_flex: 0.000000625
+    output_cost_per_token_flex: 0.000005
+    cache_read_input_token_cost_flex: 0.000000125
+    cache_storage_cost_per_token_per_hour_flex: 0.0000045
+    input_cost_per_token_priority: 0.00000225
+    output_cost_per_token_priority: 0.000018
+    cache_read_input_token_cost_priority: 0.000000225
+    cache_storage_cost_per_token_per_hour_priority: 0.0000081
+    input_cost_per_token_batches_above_200k_tokens: 0.00000125
+    output_cost_per_token_batches_above_200k_tokens: 0.0000075
+    cache_read_input_token_cost_batches_above_200k_tokens: 0.00000025
+    input_cost_per_token_flex_above_200k_tokens: 0.00000125
+    output_cost_per_token_flex_above_200k_tokens: 0.0000075
+    cache_read_input_token_cost_flex_above_200k_tokens: 0.00000025
+    input_cost_per_token_priority_above_200k_tokens: 0.0000045
+    output_cost_per_token_priority_above_200k_tokens: 0.000027
+    cache_read_input_token_cost_priority_above_200k_tokens: 0.00000045
+    tiered_pricing:
+      pricing_mode: cumulative
+      input: [{ from: 200000, cost_per_token: 0.0000025 }]
+      output: [{ from: 200000, cost_per_token: 0.000015 }]
+      cache_read: [{ from: 200000, cost_per_token: 0.00000025 }]
 sources:
   - https://ai.google.dev/gemini-api/docs/models/gemini-2.5-pro
   - https://ai.google.dev/gemini-api/docs/pricing
@@ -119,7 +150,6 @@ sources:
   - https://ai.google.dev/gemini-api/docs/generate-content/thinking
   - https://ai.google.dev/gemini-api/docs/interactions-overview
   - https://ai.google.dev/gemini-api/docs/deprecations
-  - https://tokenbazaar.ai/shelf?model=gemini-2.5-pro
 runtimeProfile:
   version: 2
   endpoints:

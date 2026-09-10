@@ -108,10 +108,35 @@ rateLimits: &geminiRateLimits
       inputFileBytes: 2000000000,
       fileStorageBytes: 20000000000,
     }
+# Pricing pinned to the official Google Gemini rate (not TokenBazaar's live
+# resale price) per explicit product decision on 2026-09-10 — see
+# "Pricing anomalies" in plans/tokenbazaar-production-readiness.md.
 costs:
   - region: '*'
-    input_cost_per_token: 0.0000002584615385
-    output_cost_per_token: 0.0000021538461538
+    input_cost_per_token: 0.0000003
+    input_cost_per_audio_token: 0.000001
+    output_cost_per_token: 0.0000025
+    cache_read_input_token_cost: 0.00000003
+    cache_read_input_audio_token_cost: 0.0000001
+    cache_storage_cost_per_token_per_hour: 0.000001
+    input_cost_per_token_batches: 0.00000015
+    input_cost_per_audio_token_batches: 0.0000005
+    output_cost_per_token_batches: 0.00000125
+    cache_read_input_token_cost_batches: 0.00000003
+    cache_read_input_audio_token_cost_batches: 0.0000001
+    cache_storage_cost_per_token_per_hour_batches: 0.000001
+    input_cost_per_token_flex: 0.00000015
+    input_cost_per_audio_token_flex: 0.0000005
+    output_cost_per_token_flex: 0.00000125
+    cache_read_input_token_cost_flex: 0.00000003
+    cache_read_input_audio_token_cost_flex: 0.0000001
+    cache_storage_cost_per_token_per_hour_flex: 0.000001
+    input_cost_per_token_priority: 0.00000054
+    input_cost_per_audio_token_priority: 0.0000018
+    output_cost_per_token_priority: 0.0000045
+    cache_read_input_token_cost_priority: 0.000000054
+    cache_read_input_audio_token_cost_priority: 0.00000018
+    cache_storage_cost_per_token_per_hour_priority: 0.0000018
 sources:
   - https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash
   - https://ai.google.dev/gemini-api/docs/pricing
@@ -119,7 +144,6 @@ sources:
   - https://ai.google.dev/gemini-api/docs/generate-content/thinking
   - https://ai.google.dev/gemini-api/docs/interactions-overview
   - https://ai.google.dev/gemini-api/docs/deprecations
-  - https://tokenbazaar.ai/shelf?model=gemini-2.5-flash
 runtimeProfile:
   version: 2
   endpoints:

@@ -217,6 +217,19 @@ func (h *EmbeddingsHandler) Handle(c *fiber.Ctx) error {
 		return writeAPIError(c, fiber.StatusServiceUnavailable, "Mistral AI embeddings are disabled", "provider_disabled")
 	}
 
+	// TokenBazaar embeddings dispatch has its own kill switch
+	// (SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED), independent of both its chat
+	// flag (SHAHRAH_TOKENBAZAAR_ENABLED) and its images flag
+	// (SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED), per the "one model's readiness
+	// never unlocks another" rule in
+	// plans/tokenbazaar-production-readiness.md. Like those flags' own
+	// checks, this is intentionally NOT gated behind
+	// h.providerFeatures.Configured: an unconfigured/zero-value feature
+	// snapshot must still fail closed to "disabled".
+	if isTokenBazaarProvider(dep.Provider) && !h.providerFeatures.TokenBazaarEmbeddingsEnabled {
+		return writeAPIError(c, fiber.StatusServiceUnavailable, "tokenbazaar embeddings dispatch is disabled", "provider_disabled")
+	}
+
 	if isGoogleGeminiProvider(dep.Provider) {
 		if endpointErr := validateGoogleGeminiRuntimeEndpoint(
 			estimated.ModelRuntimeProfile,
@@ -585,7 +598,7 @@ func apiFieldError(message string, param string, code string) error {
 
 func supportsEmbeddingsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "azure", "groq", "mistral", "mistral-ai", "togetherai", "openrouter", "gemini", "google-gemini", "mock":
+	case "openai", "azure", "groq", "mistral", "mistral-ai", "togetherai", "openrouter", "gemini", "google-gemini", "mock", "tokenbazaar":
 		return true
 	default:
 		return false

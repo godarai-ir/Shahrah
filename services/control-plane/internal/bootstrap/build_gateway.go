@@ -79,6 +79,10 @@ func (b *builder) buildGateway() error {
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
 			ZAIEnabled:                   b.cfg.ProviderFeatures.ZAIEnabled,
 			ZAILayoutParsingEnabled:      b.cfg.ProviderFeatures.ZAILayoutParsingEnabled,
+			TokenBazaarEnabled:           b.cfg.ProviderFeatures.TokenBazaarEnabled,
+			TokenBazaarImagesEnabled:     b.cfg.ProviderFeatures.TokenBazaarImagesEnabled,
+			TokenBazaarEmbeddingsEnabled: b.cfg.ProviderFeatures.TokenBazaarEmbeddingsEnabled,
+			TokenBazaarResponsesEnabled:  b.cfg.ProviderFeatures.TokenBazaarResponsesEnabled,
 		},
 	}
 	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {

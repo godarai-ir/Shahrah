@@ -1,9 +1,48 @@
+# Pricing pinned to the official OpenAI rate (not TokenBazaar's live resale
+# price) per explicit product decision on 2026-09-10 — see "Pricing
+# anomalies" in plans/tokenbazaar-production-readiness.md. This corrects the
+# +42.5% output-price premium TokenBazaar was charging on this model.
 costs:
-    - region: "*"
-      input_cost_per_token: 0.00000475
-      output_cost_per_token: 0.00004275
-      cache_read_input_token_cost: 0.000000475
-      cache_creation_input_token_cost: 0.0000059375
+    - cache_creation_input_token_cost: 6.25e-6
+      cache_read_input_token_cost: 5e-7
+      input_cost_per_token: 0.000005
+      input_cost_per_token_batches: 2.5e-6
+      cache_creation_input_token_cost_batches: 3.125e-6
+      cache_read_input_token_cost_batches: 2.5e-7
+      input_cost_per_token_flex: 2.5e-6
+      output_cost_per_token_flex: 0.000015
+      cache_creation_input_token_cost_flex: 3.125e-6
+      cache_read_input_token_cost_flex: 2.5e-7
+      output_cost_per_token: 0.00003
+      output_cost_per_token_batches: 0.000015
+      input_cost_per_token_batches_above_272k_tokens: 0.000005
+      output_cost_per_token_batches_above_272k_tokens: 0.0000225
+      cache_creation_input_token_cost_batches_above_272k_tokens: 0.00000625
+      cache_read_input_token_cost_batches_above_272k_tokens: 5e-7
+      input_cost_per_token_flex_above_272k_tokens: 0.000005
+      output_cost_per_token_flex_above_272k_tokens: 0.0000225
+      cache_creation_input_token_cost_flex_above_272k_tokens: 0.00000625
+      cache_read_input_token_cost_flex_above_272k_tokens: 5e-7
+      priority_pricing:
+          cache_creation_input_token_cost: 0.0000125
+          cache_read_input_token_cost: 0.000001
+          input_cost_per_token: 0.00001
+          output_cost_per_token: 0.00006
+      region: "*"
+      tiered_pricing:
+          cache_read:
+              - cost_per_token: 0.000001
+                from: 272000
+          cache_write:
+              - cost_per_token: 0.0000125
+                from: 272000
+          input:
+              - cost_per_token: 0.00001
+                from: 272000
+          output:
+              - cost_per_token: 0.000045
+                from: 272000
+          pricing_mode: cumulative
 features:
     - function_calling
     - structured_output
@@ -83,7 +122,6 @@ removeParams:
 sources:
     - https://developers.openai.com/api/docs/models/gpt-5.6-sol
     - https://developers.openai.com/api/docs/pricing
-    - https://tokenbazaar.ai/shelf?model=gpt-5.6-sol
 status: active
 supportedModes:
     - chat

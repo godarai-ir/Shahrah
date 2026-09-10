@@ -544,6 +544,7 @@ export function formatProviderDisplayName(provider: string, displayName?: string
     ai21: "AI21",
     xai: "xAI",
     zai: "Z.ai",
+    tokenbazaar: "Token Bazaar",
     "aws-bedrock": "AWS Bedrock",
     bedrock: "AWS Bedrock",
     "google-vertex-ai": "Google Vertex AI",

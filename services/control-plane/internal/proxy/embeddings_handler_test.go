@@ -71,6 +71,151 @@ func newEmbeddingsTestApp(t *testing.T, modelName string, provider string, deplo
 	return app, q
 }
 
+// newEmbeddingsTestAppWithFeatures mirrors newEmbeddingsTestApp but builds
+// the handler through NewEmbeddingsHandlerWithDependencies so a specific
+// ProviderFeatureConfig (e.g. TokenBazaar's embeddings kill switch) can be
+// injected, independent of the default zero-value (all-disabled) config
+// newEmbeddingsTestApp uses.
+func newEmbeddingsTestAppWithFeatures(t *testing.T, modelName, provider, deploymentModel string, tunnel *captureTunnel, features ProviderFeatureConfig) (*fiber.App, *tracing.Queue) {
+	t.Helper()
+
+	mem, err := testcache.New(t, zap.NewNop())
+	require.NoError(t, err)
+	rt, err := router.NewRouter([]config.ModelDeployment{{
+		ModelName: modelName,
+		ProviderEndpoint: config.ProviderEndpointConfig{
+			Provider: provider,
+			Model:    deploymentModel,
+			APIKey:   "test-key",
+		},
+	}}, config.RouterSettings{CooldownTime: 60, NumRetries: 1}, mem, nil, zap.NewNop())
+	require.NoError(t, err)
+
+	logs := &testLogs{}
+
+	h := NewEmbeddingsHandlerWithDependencies(BaseHandlerDependencies{
+		Router:              rt,
+		Tunnel:              tunnel,
+		Billing:             &testBudgeter{},
+		BillingCapabilities: compatibilityBillingCapabilities(),
+		Wallets:             &testWallets{},
+		RequestLogger:       logs,
+		SpendLogger:         logs,
+		Logger:              zap.NewNop(),
+		ProviderFeatures:    features,
+	})
+
+	q := tracing.NewQueue(64)
+	s := tracing.NewSampler(1.0, 1500)
+
+	app := fiber.New()
+	app.Use(tracing.Middleware(q, s, 1500))
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(auth.AuthContextKey{}, &platform.AuthContext{
+			TenantID:  "tenant_a",
+			KeyID:     "key_1",
+			KeyType:   "pat",
+			Role:      "team_admin",
+			TokenHash: "hash_1",
+			AllowedModelTypes: map[string][]string{
+				modelName: {"embedding"},
+			},
+		})
+		c.Locals(tenant.ContextKey{}, &platform.Tenant{ID: "tenant_a", Slug: "a", Status: "active"})
+
+		return c.Next()
+	})
+	app.Post("/v1/embeddings", h.Handle)
+
+	return app, q
+}
+
+// TestEmbeddingsHandlerTokenBazaarEmbeddingsDisabledByDefault confirms
+// TokenBazaar embeddings dispatch fails closed (503 provider_disabled) when
+// TokenBazaarEmbeddingsEnabled is not explicitly set — the zero-value
+// ProviderFeatureConfig used by every other test helper in this file — and
+// that the tunnel is never reached while the flag is off.
+func TestEmbeddingsHandlerTokenBazaarEmbeddingsDisabledByDefault(t *testing.T) {
+	tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
+	app, _ := newEmbeddingsTestAppWithFeatures(t, "tokenbazaar:acct:text-embedding-3-large", "tokenbazaar", "text-embedding-3-large", tunnel, ProviderFeatureConfig{})
+
+	req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"tokenbazaar:acct:text-embedding-3-large","input":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	defer closeResponseBody(t, resp)
+
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
+	assert.Empty(t, tunnel.lastReq.RequestID, "the tunnel must never be dispatched to while the embeddings flag is off")
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "provider_disabled")
+}
+
+// TestEmbeddingsHandlerTokenBazaarEmbeddingsFlagIsolatedFromChatAndImagesFlags
+// confirms SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED is evaluated independently
+// of both SHAHRAH_TOKENBAZAAR_ENABLED (chat) and
+// SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED (images): enabling only the embeddings
+// flag (chat and images left off) must let an embeddings request past the
+// embeddings gate entirely, and enabling chat/images without embeddings must
+// still fail closed for embeddings.
+func TestEmbeddingsHandlerTokenBazaarEmbeddingsFlagIsolatedFromChatAndImagesFlags(t *testing.T) {
+	t.Run("embeddings on, chat and images off: passes the embeddings gate", func(t *testing.T) {
+		successBody := `{"object":"list","data":[{"object":"embedding","embedding":[0.1,0.2],"index":0}],` +
+			`"model":"text-embedding-3-large","usage":{"prompt_tokens":1,"total_tokens":1}}`
+		tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(successBody)}}
+		app, _ := newEmbeddingsTestAppWithFeatures(t, "tokenbazaar:acct:text-embedding-3-large", "tokenbazaar", "text-embedding-3-large", tunnel, ProviderFeatureConfig{
+			Configured:                   true,
+			TokenBazaarEnabled:           false,
+			TokenBazaarImagesEnabled:     false,
+			TokenBazaarEmbeddingsEnabled: true,
+		})
+
+		req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"tokenbazaar:acct:text-embedding-3-large","input":"hello"}`))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		defer closeResponseBody(t, resp)
+
+		require.NoError(t, err)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		// The request may still fail later for an unrelated reason (e.g.
+		// this test fixture has no runtime-profile catalog entry for the
+		// model), but it must never be rejected specifically because
+		// embeddings dispatch is disabled — that is the one thing this test
+		// isolates (mirrors TestImagesHandlerTokenBazaarImagesFlagIsolatedFromChatFlag).
+		assert.NotContains(t, string(body), "tokenbazaar embeddings dispatch is disabled")
+	})
+
+	t.Run("chat and images on, embeddings off: still fails closed", func(t *testing.T) {
+		tunnel := &captureTunnel{resp: &platform.TunnelResponse{StatusCode: fiber.StatusOK, Headers: map[string]string{"content-type": "application/json"}, Body: []byte(`{}`)}}
+		app, _ := newEmbeddingsTestAppWithFeatures(t, "tokenbazaar:acct:text-embedding-3-large", "tokenbazaar", "text-embedding-3-large", tunnel, ProviderFeatureConfig{
+			Configured:                   true,
+			TokenBazaarEnabled:           true,
+			TokenBazaarImagesEnabled:     true,
+			TokenBazaarEmbeddingsEnabled: false,
+		})
+
+		req := httptest.NewRequest("POST", "/v1/embeddings", bytes.NewBufferString(`{"model":"tokenbazaar:acct:text-embedding-3-large","input":"hello"}`))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		defer closeResponseBody(t, resp)
+
+		require.NoError(t, err)
+		assert.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
+		assert.Empty(t, tunnel.lastReq.RequestID, "the tunnel must never be dispatched to while the embeddings flag is off, even with chat/images on")
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Contains(t, string(body), "provider_disabled")
+	})
+}
+
 func TestEmbeddingsHandlerSingleStringInput(t *testing.T) {
 	payload := contractsopenai.EmbeddingResponse{
 		Object: "list",

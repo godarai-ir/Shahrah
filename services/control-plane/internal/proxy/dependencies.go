@@ -148,6 +148,28 @@ type ProviderFeatureConfig struct {
 	AnthropicAccountIDs          []string
 	ZAIEnabled                   bool
 	ZAILayoutParsingEnabled      bool
+	// TokenBazaarEnabled is a kill switch, independent of every other
+	// provider's flag, and defaults to false: TokenBazaar dispatch stays
+	// disabled until explicitly turned on (see
+	// plans/tokenbazaar-production-readiness.md release gates).
+	TokenBazaarEnabled bool
+	// TokenBazaarImagesEnabled is TokenBazaar's own image-dispatch kill
+	// switch, independent of TokenBazaarEnabled (chat), so the two
+	// capabilities can be canaried/rolled back independently. Defaults to
+	// false (see plans/tokenbazaar-production-readiness.md release gates).
+	TokenBazaarImagesEnabled bool
+	// TokenBazaarEmbeddingsEnabled is TokenBazaar's own embeddings-dispatch
+	// kill switch, independent of both TokenBazaarEnabled (chat) and
+	// TokenBazaarImagesEnabled (images). Defaults to false; the embeddings
+	// contract itself is inferred, not first-party-confirmed (see
+	// plans/tokenbazaar-production-readiness.md release gates).
+	TokenBazaarEmbeddingsEnabled bool
+	// TokenBazaarResponsesEnabled is TokenBazaar's own Responses-API-dispatch
+	// kill switch, independent of TokenBazaarEnabled (chat),
+	// TokenBazaarImagesEnabled (images), and TokenBazaarEmbeddingsEnabled
+	// (embeddings). Defaults to false (see
+	// plans/tokenbazaar-production-readiness.md release gates).
+	TokenBazaarResponsesEnabled bool
 }
 
 // ChatCompletionDependencies extends the base wiring for chat completion routing.

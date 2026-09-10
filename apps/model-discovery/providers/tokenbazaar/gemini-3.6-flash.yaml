@@ -51,18 +51,72 @@ rateLimits: &geminiRateLimits
     - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, batchQueueTokens: 3000000, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
     - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
     - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+# Pricing pinned to the official Google Gemini rate (not TokenBazaar's live
+# resale price) per explicit product decision on 2026-09-10 — see
+# "Pricing anomalies" in plans/tokenbazaar-production-readiness.md.
 costs:
     - region: "*"
-      input_cost_per_token: 0.000001425
-      output_cost_per_token: 0.000007125
-      cache_read_input_token_cost: 0.0000001425
+      effective_from: '2026-07-21T00:00:00Z'
+      effective_to: '2026-08-13T00:00:00Z'
+      input_cost_per_token: 0.0000015
+      output_cost_per_token: 0.0000075
+      cache_read_input_token_cost: 0.00000015
+      cache_storage_cost_per_token_per_hour: 0.000001
+      input_cost_per_token_batches: 0.00000075
+      output_cost_per_token_batches: 0.00000375
+      cache_read_input_token_cost_batches: 0.000000075
+      cache_storage_cost_per_token_per_hour_batches: 0.000001
+      input_cost_per_token_flex: 0.00000075
+      output_cost_per_token_flex: 0.00000375
+      cache_read_input_token_cost_flex: 0.000000075
+      cache_storage_cost_per_token_per_hour_flex: 0.000001
+      input_cost_per_token_priority: 0.0000027
+      output_cost_per_token_priority: 0.0000135
+      cache_read_input_token_cost_priority: 0.00000027
+      cache_storage_cost_per_token_per_hour_priority: 0.000001
+    - region: "*"
+      effective_from: '2026-08-13T00:00:00Z'
+      effective_to: '2027-01-01T00:00:00Z'
+      input_cost_per_token: 0.00000075
+      output_cost_per_token: 0.00000375
+      cache_read_input_token_cost: 0.000000075
+      cache_storage_cost_per_token_per_hour: 0.0000005
+      input_cost_per_token_batches: 0.000000375
+      output_cost_per_token_batches: 0.000001875
+      cache_read_input_token_cost_batches: 0.0000000375
+      cache_storage_cost_per_token_per_hour_batches: 0.0000005
+      input_cost_per_token_flex: 0.000000375
+      output_cost_per_token_flex: 0.000001875
+      cache_read_input_token_cost_flex: 0.0000000375
+      cache_storage_cost_per_token_per_hour_flex: 0.0000005
+      input_cost_per_token_priority: 0.00000135
+      output_cost_per_token_priority: 0.00000675
+      cache_read_input_token_cost_priority: 0.000000135
+      cache_storage_cost_per_token_per_hour_priority: 0.0000005
+    - region: "*"
+      effective_from: '2027-01-01T00:00:00Z'
+      input_cost_per_token: 0.0000015
+      output_cost_per_token: 0.0000075
+      cache_read_input_token_cost: 0.00000015
+      cache_storage_cost_per_token_per_hour: 0.000001
+      input_cost_per_token_batches: 0.00000075
+      output_cost_per_token_batches: 0.00000375
+      cache_read_input_token_cost_batches: 0.000000075
+      cache_storage_cost_per_token_per_hour_batches: 0.000001
+      input_cost_per_token_flex: 0.00000075
+      output_cost_per_token_flex: 0.00000375
+      cache_read_input_token_cost_flex: 0.000000075
+      cache_storage_cost_per_token_per_hour_flex: 0.000001
+      input_cost_per_token_priority: 0.0000027
+      output_cost_per_token_priority: 0.0000135
+      cache_read_input_token_cost_priority: 0.00000027
+      cache_storage_cost_per_token_per_hour_priority: 0.000001
 sources:
     - https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash
     - https://ai.google.dev/gemini-api/docs/latest-model
     - https://ai.google.dev/gemini-api/docs/pricing
     - https://ai.google.dev/gemini-api/docs/rate-limits
     - https://ai.google.dev/gemini-api/docs/interactions-overview
-    - https://tokenbazaar.ai/shelf?model=gemini-3.6-flash
 runtimeProfile:
     version: 2
     endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]

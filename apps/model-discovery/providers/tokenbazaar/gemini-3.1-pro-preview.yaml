@@ -34,21 +34,45 @@ rateLimits: &geminiRateLimits
     - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, batchQueueTokens: 5000000, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
     - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
     - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+# Pricing pinned to the official Google Gemini rate (not TokenBazaar's live
+# resale price) per explicit product decision on 2026-09-10 — see
+# "Pricing anomalies" in plans/tokenbazaar-production-readiness.md.
 costs:
     - region: "*"
-      input_cost_per_token: 0.0000017526153846
-      output_cost_per_token: 0.0000105156923077
-      cache_read_input_token_cost: 0.0000001752615385
+      input_cost_per_token: 0.000002
+      output_cost_per_token: 0.000012
+      cache_read_input_token_cost: 0.0000002
+      cache_storage_cost_per_token_per_hour: 0.0000045
+      input_cost_per_token_batches: 0.000001
+      output_cost_per_token_batches: 0.000006
+      cache_read_input_token_cost_batches: 0.0000002
+      cache_storage_cost_per_token_per_hour_batches: 0.0000045
+      input_cost_per_token_flex: 0.000001
+      output_cost_per_token_flex: 0.000006
+      cache_read_input_token_cost_flex: 0.0000002
+      cache_storage_cost_per_token_per_hour_flex: 0.0000045
+      input_cost_per_token_priority: 0.0000036
+      output_cost_per_token_priority: 0.0000216
+      cache_read_input_token_cost_priority: 0.00000036
+      cache_storage_cost_per_token_per_hour_priority: 0.0000081
+      input_cost_per_token_batches_above_200k_tokens: 0.000002
+      output_cost_per_token_batches_above_200k_tokens: 0.000009
+      cache_read_input_token_cost_batches_above_200k_tokens: 0.0000004
+      input_cost_per_token_flex_above_200k_tokens: 0.000002
+      output_cost_per_token_flex_above_200k_tokens: 0.000009
+      cache_read_input_token_cost_flex_above_200k_tokens: 0.0000004
+      input_cost_per_token_priority_above_200k_tokens: 0.0000072
+      output_cost_per_token_priority_above_200k_tokens: 0.0000324
+      cache_read_input_token_cost_priority_above_200k_tokens: 0.00000072
       tiered_pricing:
           pricing_mode: cumulative
-          input: [{ from: 200000, cost_per_token: 0.0000035052307692 }]
-          output: [{ from: 200000, cost_per_token: 0.0000157735384615 }]
-          cache_read: [{ from: 200000, cost_per_token: 0.0000003505230769 }]
+          input: [{ from: 200000, cost_per_token: 0.000004 }]
+          output: [{ from: 200000, cost_per_token: 0.000018 }]
+          cache_read: [{ from: 200000, cost_per_token: 0.0000004 }]
 sources:
     - https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview
     - https://ai.google.dev/gemini-api/docs/pricing
     - https://ai.google.dev/gemini-api/docs/rate-limits
-    - https://tokenbazaar.ai/shelf?model=gemini-3.1-pro-preview
 runtimeProfile:
     version: 2
     endpoints: [models, interactions, generate_content, stream_generate_content, count_tokens, batches, batch_generate_content, files, cached_contents, chat_completions]

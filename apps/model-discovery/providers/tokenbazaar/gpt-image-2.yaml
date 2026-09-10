@@ -1,6 +1,23 @@
+# Pricing pinned to the official OpenAI rate (not TokenBazaar's live resale
+# price) per explicit product decision on 2026-09-10 — see "Pricing
+# anomalies" in plans/tokenbazaar-production-readiness.md. Note: OpenAI
+# prices gpt-image-2 per input/output token (including per-image-token
+# rates), not a flat per-image rate — this replaces the previous per-image
+# approximation with the exact official token-based cost structure.
 costs:
-    - region: "*"
-      output_cost_per_image: 0.0371
+    - cache_read_input_token_cost: 0.00000125
+      cache_read_input_token_cost_batches: 6.25e-7
+      cache_read_input_image_token_cost: 0.000002
+      cache_read_input_image_token_cost_batches: 0.000001
+      input_cost_per_image_token: 0.000008
+      input_cost_per_image_token_batches: 0.000004
+      input_cost_per_token: 0.000005
+      input_cost_per_token_batches: 0.0000025
+      output_cost_per_image_token: 0.00003
+      output_cost_per_image_token_batches: 0.000015
+      output_cost_per_token: 0.00003
+      output_cost_per_token_batches: 0.000015
+      region: "*"
 features:
     - prompt_caching
 modalities:
@@ -41,7 +58,6 @@ sources:
     - https://developers.openai.com/api/docs/models/gpt-image-2
     - https://developers.openai.com/api/docs/guides/image-generation
     - https://developers.openai.com/api/docs/pricing
-    - https://tokenbazaar.ai/shelf?model=gpt-image-2
 snapshots:
     - gpt-image-2-2026-04-21
 rateLimits:

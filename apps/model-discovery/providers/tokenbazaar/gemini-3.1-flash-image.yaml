@@ -33,14 +33,29 @@ rateLimits: &geminiRateLimits
     - { usageTier: tier_1, scope: project, dynamic: true, spendUsdPerTenMinutes: 10, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
     - { usageTier: tier_2, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
     - { usageTier: tier_3, scope: project, dynamic: true, spendUsdPerTenMinutes: 200, concurrentBatchRequests: 100, inputFileBytes: 2000000000, fileStorageBytes: 20000000000 }
+# Pricing pinned to the official Google Gemini rate (not TokenBazaar's live
+# resale price) per explicit product decision on 2026-09-10 — see
+# "Pricing anomalies" in plans/tokenbazaar-production-readiness.md.
 costs:
     - region: "*"
-      output_cost_per_image: 0.0469
+      input_cost_per_token: 0.0000005
+      output_cost_per_token: 0.000003
+      output_cost_per_image_token: 0.00006
+      output_cost_per_image_0_5k: 0.045
+      output_cost_per_image_1k: 0.067
+      output_cost_per_image_2k: 0.101
+      output_cost_per_image_4k: 0.151
+      input_cost_per_token_batches: 0.00000025
+      output_cost_per_token_batches: 0.0000015
+      output_cost_per_image_token_batches: 0.00003
+      output_cost_per_image_0_5k_batches: 0.022
+      output_cost_per_image_1k_batches: 0.034
+      output_cost_per_image_2k_batches: 0.05
+      output_cost_per_image_4k_batches: 0.076
 sources:
     - https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-image
     - https://ai.google.dev/gemini-api/docs/image-generation
     - https://ai.google.dev/gemini-api/docs/pricing
-    - https://tokenbazaar.ai/shelf?model=gemini-3.1-flash-image
 runtimeProfile:
     version: 2
     endpoints: [models, interactions, generate_content, stream_generate_content, batches, batch_generate_content, files, image_generations]

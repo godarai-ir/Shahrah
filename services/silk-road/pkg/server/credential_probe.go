@@ -142,6 +142,24 @@ func resolveCredentialProbe(deployment platform.Deployment) (credentialProbeSpec
 			contentType: "application/json",
 			body:        []byte(`{"model":"glm-4.7-flashx","messages":[{"role":"user","content":"ping"}],"thinking":{"type":"disabled"},"do_sample":false,"max_tokens":1}`),
 		}
+	case "tokenbazaar":
+		if base == "" {
+			base = tokenBazaarBaseURL
+		}
+
+		if err := validateTokenBazaarBaseURL(base); err != nil {
+			return credentialProbeSpec{}, err
+		}
+
+		spec = credentialProbeSpec{
+			url:         strings.TrimRight(base, "/") + "/v1/chat/completions",
+			auth:        "bearer",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body: []byte(
+				`{"model":"` + tokenBazaarCredentialProbeModel + `","messages":[{"role":"user","content":"ping"}],"max_tokens":1}`,
+			),
+		}
 	case "google-gemini":
 		if base == "" {
 			base = "https://generativelanguage.googleapis.com"
@@ -236,6 +254,7 @@ func safeCredentialProbeURL(provider, raw string) bool {
 		"cerebras": "api.cerebras.ai", "cohere": "api.cohere.com",
 		"deepinfra": "api.deepinfra.com", "deepseek": "api.deepseek.com",
 		"zai":           "api.z.ai",
+		"tokenbazaar":   tokenBazaarHost,
 		"google-gemini": "generativelanguage.googleapis.com", "groq": "api.groq.com",
 		"mistral-ai": "api.mistral.ai", "moonshot": "api.moonshot.ai", "openai": "api.openai.com",
 		"openrouter": "openrouter.ai", "together-ai": "api.together.xyz", "xai": "api.x.ai",

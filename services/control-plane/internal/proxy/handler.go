@@ -388,6 +388,13 @@ func (h *ChatCompletionHandler) chatDeploymentRequestValidationError(
 		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("z.ai chat completions are disabled")
 	}
 
+	// TokenBazaar defaults OFF (unlike ZAI's default-on flag above), so this
+	// check is intentionally NOT gated behind h.providerFeatures.Configured:
+	// an unconfigured/zero-value feature snapshot must still fail closed.
+	if isTokenBazaarProvider(provider) && !h.providerFeatures.TokenBazaarEnabled {
+		return fiber.StatusServiceUnavailable, "provider_disabled", errors.New("tokenbazaar chat completions are disabled")
+	}
+
 	if chatRequestHasImage(req) && !supportsChatImageProvider(provider) {
 		return fiber.StatusBadRequest, "invalid_request_error", fmt.Errorf("provider %s does not support image input through GodarAI chat completions", provider)
 	}

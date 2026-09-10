@@ -96,3 +96,7 @@ func isGoogleGeminiProvider(provider string) bool {
 func isZAIProvider(provider string) bool {
 	return providerregistry.Matches(provider, "zai")
 }
+
+func isTokenBazaarProvider(provider string) bool {
+	return providerregistry.Matches(provider, "tokenbazaar")
+}

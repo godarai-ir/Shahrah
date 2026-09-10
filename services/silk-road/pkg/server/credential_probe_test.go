@@ -122,6 +122,50 @@ func TestDispatchCredentialProbeBuildsProviderRequest(t *testing.T) {
 	}
 }
 
+func TestTokenBazaarCredentialProbeIsExplicitBillablePOST(t *testing.T) {
+	transport := &credentialProbeRoundTripper{}
+
+	response, err := dispatchCredentialProbe(
+		context.Background(),
+		&http.Client{Transport: transport},
+		platform.TunnelRequest{Deployment: platform.Deployment{
+			Provider: "tokenbazaar",
+			ProviderAuth: &platform.ResolvedProviderAuth{
+				Mode: string(platform.ProviderAuthModeAPIKey), APIKey: "test-tokenbazaar-key",
+			},
+		}},
+	)
+	if err != nil {
+		t.Fatalf("dispatch TokenBazaar credential probe: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			t.Errorf("close response body: %v", closeErr)
+		}
+	})
+
+	if transport.request.Method != http.MethodPost ||
+		transport.request.URL.String() != "https://zx1.deepwl.net/v1/chat/completions" {
+		t.Fatalf("unexpected TokenBazaar probe target: %s %s", transport.request.Method, transport.request.URL)
+	}
+
+	if got := transport.request.Header.Get("Authorization"); got != "Bearer test-tokenbazaar-key" {
+		t.Fatalf("Authorization = %q", got)
+	}
+
+	body, readErr := io.ReadAll(transport.request.Body)
+	if readErr != nil {
+		t.Fatalf("read TokenBazaar probe body: %v", readErr)
+	}
+
+	for _, expected := range []string{`"model":"deepseek-v4-flash"`, `"max_tokens":1`} {
+		if !strings.Contains(string(body), expected) {
+			t.Fatalf("probe body does not contain %s: %s", expected, body)
+		}
+	}
+}
+
 func TestResolveCredentialProbeRejectsUnsafeCustomURL(t *testing.T) {
 	t.Parallel()
 
@@ -135,6 +179,8 @@ func TestResolveCredentialProbeRejectsUnsafeCustomURL(t *testing.T) {
 		{name: "DeepSeek lookalike", provider: "deepseek", apiBase: "https://api.deepseek.com.evil.example"},
 		{name: "Z.ai lookalike", provider: "zai", apiBase: "https://api.z.ai.evil.example/api/paas/v4"},
 		{name: "Z.ai wrong path", provider: "zai", apiBase: "https://api.z.ai/coding/paas/v4"},
+		{name: "TokenBazaar lookalike", provider: "tokenbazaar", apiBase: "https://zx1.deepwl.net.evil.example"},
+		{name: "TokenBazaar unconfirmed alias", provider: "tokenbazaar", apiBase: "https://api.tokenbazaar.ai"},
 		{name: "unknown provider", provider: "unknown", apiBase: "https://api.example.com/v1"},
 	}
 

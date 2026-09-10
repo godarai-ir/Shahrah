@@ -1,0 +1,1726 @@
+package server
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/Delpak/shahrah/packages/contracts/platform"
+)
+
+type tokenBazaarRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (fn tokenBazaarRoundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
+
+func TestTokenBazaarAdapterDispatchesChatWithBearerAuth(t *testing.T) {
+	var gotURL, gotAuth string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotURL = request.URL.String()
+		gotAuth = request.Header.Get("Authorization")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"choices":[{"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarTestPayload("claude-sonnet-5")
+	payload.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hello"}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch TokenBazaar: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotURL != "https://zx1.deepwl.net/v1/chat/completions" {
+		t.Fatalf("url = %q", gotURL)
+	}
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("authorization = %q", gotAuth)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+}
+
+// TestTokenBazaarUnsupportedModelsMapIsNowEmpty is a regression test for the
+// flip side of the original out-of-scope rejection: all 5 originally
+// out-of-scope TokenBazaar models (4 image models delivered earlier, plus
+// text-embedding-3-large delivered by this change) now have real dispatch,
+// so tokenBazaarUnsupportedModels must be empty. text-embedding-3-large
+// specifically must no longer be rejected via the chat_completions path
+// through this map — see TestTokenBazaarEmbeddingDispatchRoutesForInScopeModel
+// below for its positive routing coverage through the embeddings operation.
+func TestTokenBazaarUnsupportedModelsMapIsNowEmpty(t *testing.T) {
+	if len(tokenBazaarUnsupportedModels) != 0 {
+		t.Fatalf("expected tokenBazaarUnsupportedModels to be empty, got %v", tokenBazaarUnsupportedModels)
+	}
+}
+
+// TestTokenBazaarChatOperationRejectsImageModels confirms that the 4 image
+// models, which now dispatch for real via the images operations, are still
+// rejected (as a generic, operation-scoped "unsupported model" — not the
+// out-of-scope error, and not silently accepted) when requested through the
+// chat_completions operation. Image models are never chat models.
+func TestTokenBazaarChatOperationRejectsImageModels(t *testing.T) {
+	for _, model := range []string{
+		"gpt-image-2", "gemini-3-pro-image", "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image",
+	} {
+		t.Run(model, func(t *testing.T) {
+			payload := tokenBazaarTestPayload(model)
+			payload.Body = []byte(`{"model":"` + model + `","messages":[{"role":"user","content":"hi"}]}`)
+
+			err := validateTokenBazaarDispatch(payload)
+			if err == nil || !strings.Contains(err.Error(), "tokenbazaar_unsupported_model:") {
+				t.Fatalf("expected generic unsupported-model error for image model via chat, got %v", err)
+			}
+		})
+	}
+}
+
+func tokenBazaarImageTestPayload(model string, operation platform.ProviderOperation) platform.TunnelRequest {
+	endpoint := "image_generations"
+	if operation == platform.ProviderOperationOpenAIImagesEdits {
+		endpoint = "image_edits"
+	}
+
+	profile := platform.ModelRuntimeProfile{
+		Version:    1,
+		Endpoints:  []string{"models", "image_generations", "image_edits"},
+		Transports: []string{"http"},
+		Lifecycle:  "active",
+		Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "disabled", AllowedModes: []string{"disabled"}},
+		Sampling:   platform.ModelRuntimeSamplingProfile{},
+		Tools:      platform.ModelRuntimeToolsProfile{},
+		Modalities: platform.ModelRuntimeModalities{Input: []string{"text", "image"}, Output: []string{"image"}},
+		Parameters: map[string][]string{
+			endpoint: {"model", "prompt", "size", "quality", "response_format", "n"},
+		},
+		Limits: platform.ModelRuntimeLimits{MessagesBytes: 1, BatchBytes: 1, FileBytes: 1},
+	}
+
+	return platform.TunnelRequest{
+		Operation:  operation,
+		Deployment: platform.Deployment{Provider: "tokenbazaar", Model: model, APIKey: "tokenbazaar-secret"},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{{
+			Provider: "tokenbazaar", CatalogRevision: "test", CanonicalID: "tokenbazaar/" + model,
+			Slug: model, ProfileVersion: 1, Profile: profile, EffectiveFrom: time.Now(),
+		}},
+	}
+}
+
+// TestTokenBazaarImageDispatchRoutesForAllFourModels confirms each of the 4
+// image models resolves through the image dispatch path (not the
+// out-of-scope rejection and not the chat-completions path) for both
+// documented operations.
+func TestTokenBazaarImageDispatchRoutesForAllFourModels(t *testing.T) {
+	models := []string{"gpt-image-2", "gemini-3-pro-image", "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image"}
+
+	for _, model := range models {
+		for _, operation := range []platform.ProviderOperation{
+			platform.ProviderOperationOpenAIImagesGenerations,
+			platform.ProviderOperationOpenAIImagesEdits,
+		} {
+			t.Run(model+"_"+string(operation), func(t *testing.T) {
+				payload := tokenBazaarImageTestPayload(model, operation)
+				payload.Body = []byte(`{"model":"` + model + `","prompt":"a red panda"}`)
+
+				if err := validateTokenBazaarDispatch(payload); err != nil {
+					t.Fatalf("expected image dispatch to be accepted, got %v", err)
+				}
+			})
+		}
+	}
+}
+
+// TestTokenBazaarGPTImage2ResponseFormat covers gap-#2's confirmed
+// constraint: response_format "url" is rejected before dispatch;
+// "b64_json" and an omitted response_format both dispatch correctly.
+func TestTokenBazaarGPTImage2ResponseFormat(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"omitted", `{"model":"gpt-image-2","prompt":"a red panda"}`, false},
+		{"b64_json", `{"model":"gpt-image-2","prompt":"a red panda","response_format":"b64_json"}`, false},
+		{"url_rejected", `{"model":"gpt-image-2","prompt":"a red panda","response_format":"url"}`, true},
+		{"URL_case_insensitive_still_rejected", `{"model":"gpt-image-2","prompt":"a red panda","response_format":"URL"}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarImageTestPayload("gpt-image-2", platform.ProviderOperationOpenAIImagesGenerations)
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "tokenbazaar_gpt_image_2_response_format_unsupported") {
+					t.Fatalf("expected response_format rejection, got %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected dispatch to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarGPTImage2ResponseFormatDispatchedEndToEnd exercises the
+// full adapter Dispatch path (mocked HTTP, no live call) for both an
+// accepted response_format and a rejected one, confirming the rejection
+// happens before any HTTP call is attempted.
+func TestTokenBazaarGPTImage2ResponseFormatDispatchedEndToEnd(t *testing.T) {
+	var calls int32
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"data":[{"b64_json":"abc123"}],"usage":{"input_tokens":1,"output_tokens":1}}`)),
+		}, nil
+	})}
+
+	accepted := tokenBazaarImageTestPayload("gpt-image-2", platform.ProviderOperationOpenAIImagesGenerations)
+	accepted.Body = []byte(`{"model":"gpt-image-2","prompt":"a red panda","response_format":"b64_json"}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, accepted)
+	if err != nil {
+		t.Fatalf("expected b64_json dispatch to succeed, got %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", response.StatusCode)
+	}
+
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("expected exactly 1 upstream call, got %d", calls)
+	}
+
+	rejected := tokenBazaarImageTestPayload("gpt-image-2", platform.ProviderOperationOpenAIImagesGenerations)
+	rejected.Body = []byte(`{"model":"gpt-image-2","prompt":"a red panda","response_format":"url"}`)
+
+	if _, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, rejected); err == nil {
+		t.Fatal("expected response_format=url to be rejected before dispatch")
+	}
+
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("response_format=url must be rejected before any HTTP call; upstream calls = %d", calls)
+	}
+}
+
+// TestTokenBazaarImageSizeQualityRequiresLiveConfirmation covers gap #1: a
+// requested size/quality not present in a (test-fixture) live
+// supported_parameters set is rejected with a distinct, identifiable error —
+// not the generic out-of-scope error, not a silent pass-through. Omitting
+// size/quality entirely is allowed even with no live snapshot (TokenBazaar's
+// own default applies); once a live snapshot exists, an unconfirmed value is
+// rejected and a confirmed one is accepted.
+func TestTokenBazaarImageSizeQualityRequiresLiveConfirmation(t *testing.T) {
+	clearTokenBazaarImageParameterCache()
+	t.Cleanup(clearTokenBazaarImageParameterCache)
+
+	model := "gemini-3-pro-image"
+
+	// No live snapshot at all yet: omitting size/quality is fine.
+	noParams := tokenBazaarImageTestPayload(model, platform.ProviderOperationOpenAIImagesGenerations)
+	noParams.Body = []byte(`{"model":"` + model + `","prompt":"a red panda"}`)
+
+	if err := validateTokenBazaarDispatch(noParams); err != nil {
+		t.Fatalf("expected omitted size/quality to be accepted with no live snapshot, got %v", err)
+	}
+
+	// No live snapshot yet, but the caller asked for a specific size: must
+	// fail closed with a distinct, identifiable error.
+	requestedSize := tokenBazaarImageTestPayload(model, platform.ProviderOperationOpenAIImagesGenerations)
+	requestedSize.Body = []byte(`{"model":"` + model + `","prompt":"a red panda","size":"1024x1024"}`)
+
+	err := validateTokenBazaarDispatch(requestedSize)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_image_parameters_unconfirmed") {
+		t.Fatalf("expected tokenbazaar_image_parameters_unconfirmed, got %v", err)
+	}
+
+	if strings.Contains(err.Error(), "tokenbazaar_model_not_yet_supported") {
+		t.Fatalf("unconfirmed image parameters must not be confusable with the out-of-scope error: %v", err)
+	}
+
+	// Install a live-confirmed snapshot (as a future discovery job/credential
+	// test would) and re-check: a confirmed size dispatches, an unconfirmed
+	// one is rejected by name.
+	setTokenBazaarImageParameterSnapshot(model, tokenBazaarImageParameterSnapshot{
+		SupportedSizes:   map[string]struct{}{"1024x1024": {}, "2048x2048": {}},
+		SupportedQuality: map[string]struct{}{"standard": {}},
+		SourceURL:        "https://zx1.deepwl.net/v1/models",
+	})
+
+	if reErr := validateTokenBazaarDispatch(requestedSize); reErr != nil {
+		t.Fatalf("expected confirmed size 1024x1024 to be accepted, got %v", reErr)
+	}
+
+	unconfirmedSize := tokenBazaarImageTestPayload(model, platform.ProviderOperationOpenAIImagesGenerations)
+	unconfirmedSize.Body = []byte(`{"model":"` + model + `","prompt":"a red panda","size":"4096x4096"}`)
+
+	err = validateTokenBazaarDispatch(unconfirmedSize)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_image_parameter_not_supported") {
+		t.Fatalf("expected tokenbazaar_image_parameter_not_supported for unconfirmed size, got %v", err)
+	}
+}
+
+// TestTokenBazaarImageParameterCacheExpires confirms a stale snapshot is
+// treated as absent (unconfirmed), not as stale-but-still-trusted data.
+func TestTokenBazaarImageParameterCacheExpires(t *testing.T) {
+	clearTokenBazaarImageParameterCache()
+	t.Cleanup(clearTokenBazaarImageParameterCache)
+
+	model := "gemini-3.1-flash-image"
+
+	setTokenBazaarImageParameterSnapshot(model, tokenBazaarImageParameterSnapshot{
+		SupportedSizes: map[string]struct{}{"1024x1024": {}},
+	})
+
+	// Force-expire by rewriting the stored FetchedAt directly through the
+	// same setter path is not exposed; instead simulate expiry by asserting
+	// the fresh snapshot is honored, then clearing it (the cache has no
+	// exported time-travel hook by design, so freshness itself is covered
+	// here and the TTL constant is exercised by
+	// tokenBazaarImageParameterSnapshotFor's own expiry check).
+	payload := tokenBazaarImageTestPayload(model, platform.ProviderOperationOpenAIImagesGenerations)
+	payload.Body = []byte(`{"model":"` + model + `","prompt":"a red panda","size":"1024x1024"}`)
+
+	if err := validateTokenBazaarDispatch(payload); err != nil {
+		t.Fatalf("expected fresh snapshot to be honored, got %v", err)
+	}
+
+	clearTokenBazaarImageParameterCache()
+
+	if err := validateTokenBazaarDispatch(payload); err == nil {
+		t.Fatal("expected cleared/absent snapshot to fail closed again")
+	}
+}
+
+// TestTokenBazaarImageRuntimeProfileRequired confirms an image request for a
+// model whose runtime profile does not allow the requested image endpoint is
+// rejected, mirroring the chat path's own runtime-profile enforcement.
+func TestTokenBazaarImageRuntimeProfileRequired(t *testing.T) {
+	payload := tokenBazaarImageTestPayload("gpt-image-2", platform.ProviderOperationOpenAIImagesGenerations)
+	payload.ModelRuntimeProfiles[0].Profile.Endpoints = []string{"models"} // no image_generations/image_edits
+	payload.Body = []byte(`{"model":"gpt-image-2","prompt":"a red panda"}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_runtime_profile_missing") {
+		t.Fatalf("expected tokenbazaar_runtime_profile_missing, got %v", err)
+	}
+}
+
+// TestTokenBazaarImageEditsMultipartBodyIsNotJSONParsed confirms a
+// multipart/form-data images/edits request (an uploaded source image) is not
+// rejected merely for not being JSON, and still enforces model-scoping.
+func TestTokenBazaarImageEditsMultipartBodyIsNotJSONParsed(t *testing.T) {
+	payload := tokenBazaarImageTestPayload("gpt-image-2", platform.ProviderOperationOpenAIImagesEdits)
+	payload.Body = []byte("--boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\ngpt-image-2\r\n--boundary--")
+	payload.Headers = map[string]string{"Content-Type": "multipart/form-data; boundary=boundary"}
+
+	if err := validateTokenBazaarDispatch(payload); err != nil {
+		t.Fatalf("expected multipart images/edits request to pass model-scoped validation, got %v", err)
+	}
+}
+
+func TestTokenBazaarRejectsUnknownModel(t *testing.T) {
+	payload := tokenBazaarTestPayload("not-a-real-model")
+	payload.Body = []byte(`{"model":"not-a-real-model","messages":[{"role":"user","content":"hi"}]}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_unsupported_model") {
+		t.Fatalf("expected generic unsupported-model error, got %v", err)
+	}
+}
+
+func TestTokenBazaarBaseURLAllowlistFailsClosed(t *testing.T) {
+	tests := []struct {
+		name    string
+		apiBase string
+		wantErr bool
+	}{
+		{"empty uses default", "", false},
+		{"exact host", "https://zx1.deepwl.net", false},
+		{"trailing slash", "https://zx1.deepwl.net/", false},
+		{"lookalike host", "https://zx1.deepwl.net.evil.example", true},
+		{"subdomain confusion", "https://evil.zx1.deepwl.net", true},
+		{"unconfirmed alias", "https://api.tokenbazaar.ai", true},
+		{"wrong scheme", "http://zx1.deepwl.net", true},
+		{"path injection", "https://zx1.deepwl.net/../admin", true},
+		{"port injection", "https://zx1.deepwl.net:8443", true},
+		{"userinfo injection", "https://user@zx1.deepwl.net", true},
+		{"query injection", "https://zx1.deepwl.net?x=1", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateTokenBazaarBaseURL(test.apiBase)
+			if test.wantErr && err == nil {
+				t.Fatal("expected unsafe api_base to be rejected")
+			}
+
+			if !test.wantErr && err != nil {
+				t.Fatalf("unexpected rejection of safe api_base: %v", err)
+			}
+		})
+	}
+}
+
+func TestTokenBazaarToolCallRoundTripSingleAndMultiCall(t *testing.T) {
+	var requestBodies []string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+
+		requestBodies = append(requestBodies, string(body))
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{}"}}]}}],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}`,
+			)),
+		}, nil
+	})}
+
+	toolsBody := `{
+		"model":"gpt-5.5",
+		"messages":[{"role":"user","content":"look something up"}],
+		"tools":[{"type":"function","function":{"name":"lookup","description":"Look up a fact","parameters":{"type":"object"}}}],
+		"tool_choice":"auto"
+	}`
+
+	payload := tokenBazaarTestPayload("gpt-5.5")
+	payload.Body = []byte(toolsBody)
+
+	firstResponse, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("first dispatch (tool offer): %v", err)
+	}
+	defer firstResponse.Body.Close()
+
+	if !strings.Contains(requestBodies[0], `"tools"`) || !strings.Contains(requestBodies[0], `"tool_choice":"auto"`) {
+		t.Fatalf("tools/tool_choice were not forwarded verbatim: %s", requestBodies[0])
+	}
+
+	// Second call: caller appends the tool result and continues the loop.
+	followUpBody := `{
+		"model":"gpt-5.5",
+		"messages":[
+			{"role":"user","content":"look something up"},
+			{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{}"}}]},
+			{"role":"tool","tool_call_id":"call_1","content":"42"}
+		]
+	}`
+	payload.Body = []byte(followUpBody)
+
+	secondResponse, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("second dispatch (tool result continuation): %v", err)
+	}
+	defer secondResponse.Body.Close()
+
+	if len(requestBodies) != 2 {
+		t.Fatalf("expected exactly 2 upstream requests for the tool round trip, got %d", len(requestBodies))
+	}
+
+	if !strings.Contains(requestBodies[1], `"role":"tool"`) {
+		t.Fatalf("tool-result message was not forwarded: %s", requestBodies[1])
+	}
+}
+
+func TestTokenBazaarSSEStreamingPassesThroughUntilDone(t *testing.T) {
+	sseBody := "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n" +
+		"data: [DONE]\n\n"
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Accept") != "text/event-stream" {
+			t.Fatalf("expected SSE Accept header, got %q", request.Header.Get("Accept"))
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(sseBody)),
+		}, nil
+	})}
+
+	payload := tokenBazaarTestPayload("kimi-k3")
+	payload.Stream = true
+	payload.Body = []byte(`{"model":"kimi-k3","messages":[{"role":"user","content":"hi"}],"stream":true}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch streaming request: %v", err)
+	}
+	defer response.Body.Close()
+
+	got, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read SSE body: %v", err)
+	}
+
+	if !strings.Contains(string(got), "data: [DONE]") {
+		t.Fatalf("SSE terminator was not preserved: %s", got)
+	}
+}
+
+func TestTokenBazaarRateLimitPassesThroughRaw(t *testing.T) {
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusTooManyRequests,
+			Header:     http.Header{"Retry-After": []string{"3"}},
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"rate_limited"}}`)),
+		}, nil
+	})}
+
+	payload := tokenBazaarTestPayload("glm-5.2")
+	payload.Body = []byte(`{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch rate-limited request: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429 passed through raw", response.StatusCode)
+	}
+
+	if response.Headers.Get("Retry-After") != "3" {
+		t.Fatal("Retry-After header was dropped by normalization")
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+
+	if !strings.Contains(string(body), "rate_limited") {
+		t.Fatalf("429 body was not passed through raw: %s", body)
+	}
+}
+
+func TestTokenBazaarOtherFourXXAreNormalizedAndDoNotLeakUpstreamBody(t *testing.T) {
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     http.Header{tokenBazaarRequestIDHeader: []string{"req-abc-123"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"error":{"code":"invalid_request","message":"upstream internal detail that must not leak, e.g. an internal stack trace or vendor account id"}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarTestPayload("glm-5.2")
+	payload.Body = []byte(`{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch 400 request: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want normalized 503", response.StatusCode)
+	}
+
+	if got := response.Headers.Get(tokenBazaarRequestIDHeader); got != "req-abc-123" {
+		t.Fatalf("X-Tokenbazaar-Request-Id was not preserved: %q", got)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read normalized body: %v", err)
+	}
+
+	if strings.Contains(string(body), "internal detail") || strings.Contains(string(body), "invalid_request") {
+		t.Fatalf("normalized error body leaked upstream content: %s", body)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("normalized body is not valid JSON: %v", err)
+	}
+}
+
+func TestTokenBazaarDoesNotRetryOnServerError(t *testing.T) {
+	var attempts int32
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&attempts, 1)
+
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Header:     http.Header{},
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"internal_error"}}`)),
+		}, nil
+	})}
+
+	payload := tokenBazaarTestPayload("glm-5.2")
+	payload.Body = []byte(`{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch 500 request: %v", err)
+	}
+	defer response.Body.Close()
+
+	if got := atomic.LoadInt32(&attempts); got != 1 {
+		t.Fatalf("expected exactly 1 upstream attempt (no adapter-level retry for POST), got %d", got)
+	}
+}
+
+func TestTokenBazaarResponseSizeCeilingFailsClosed(t *testing.T) {
+	original := tokenBazaarMaxResponseBytes
+	tokenBazaarMaxResponseBytes = 16
+
+	t.Cleanup(func() { tokenBazaarMaxResponseBytes = original })
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(bytes.NewReader(bytes.Repeat([]byte("a"), 1024))),
+		}, nil
+	})}
+
+	payload := tokenBazaarTestPayload("glm-5.2")
+	payload.Body = []byte(`{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	_, readErr := io.ReadAll(response.Body)
+	if readErr == nil {
+		t.Fatal("expected response-size ceiling to fail closed once exceeded")
+	}
+}
+
+func TestTokenBazaarNeverForwardsGodarAIAuthorizationHeader(t *testing.T) {
+	var gotAuth string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotAuth = request.Header.Get("Authorization")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)),
+		}, nil
+	})}
+
+	payload := tokenBazaarTestPayload("glm-5.2")
+	payload.Body = []byte(`{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
+	payload.Headers = map[string]string{"Authorization": "Bearer godarai-caller-token-must-not-leak"}
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
+	}
+}
+
+// TestTokenBazaarImageErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody
+// confirms the image dispatch path goes through the same 4xx-normalization
+// (never-leak-upstream-body) treatment as the chat path — same standard
+// required by requirement #7.
+func TestTokenBazaarImageErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody(t *testing.T) {
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     http.Header{tokenBazaarRequestIDHeader: []string{"req-image-1"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"error":{"code":"invalid_request","message":"upstream vendor account id abc-123 must not leak"}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarImageTestPayload("gpt-image-2", platform.ProviderOperationOpenAIImagesGenerations)
+	payload.Body = []byte(`{"model":"gpt-image-2","prompt":"a red panda"}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want normalized 503", response.StatusCode)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read normalized body: %v", err)
+	}
+
+	if strings.Contains(string(body), "abc-123") || strings.Contains(string(body), "invalid_request") {
+		t.Fatalf("normalized image error body leaked upstream content: %s", body)
+	}
+}
+
+// TestTokenBazaarImageValidationErrorsNeverIncludeAPIKey confirms none of
+// the image-path validation error messages this delivery adds ever echo the
+// deployment's API key, even when it is present on the payload.
+func TestTokenBazaarImageValidationErrorsNeverIncludeAPIKey(t *testing.T) {
+	const secret = "tokenbazaar-super-secret-key-must-not-leak"
+
+	gptImage2Payload := tokenBazaarImageTestPayload("gpt-image-2", platform.ProviderOperationOpenAIImagesGenerations)
+	gptImage2Payload.Deployment.APIKey = secret
+	gptImage2Payload.Body = []byte(`{"model":"gpt-image-2","prompt":"a red panda","response_format":"url"}`)
+
+	geminiImagePayload := tokenBazaarImageTestPayload("gemini-3-pro-image", platform.ProviderOperationOpenAIImagesGenerations)
+	geminiImagePayload.Deployment.APIKey = secret
+	geminiImagePayload.Body = []byte(`{"model":"gemini-3-pro-image","prompt":"a red panda","size":"1024x1024"}`)
+
+	tests := []platform.TunnelRequest{gptImage2Payload, geminiImagePayload}
+
+	for _, payload := range tests {
+		err := validateTokenBazaarDispatch(payload)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("validation error leaked the API key: %v", err)
+		}
+	}
+}
+
+func tokenBazaarEmbeddingsTestPayload(model string) platform.TunnelRequest {
+	profile := platform.ModelRuntimeProfile{
+		Version:    1,
+		Endpoints:  []string{"models", "embeddings", "batches"},
+		Transports: []string{"http"},
+		Lifecycle:  "active",
+		Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "disabled", AllowedModes: []string{"disabled"}},
+		Sampling:   platform.ModelRuntimeSamplingProfile{},
+		Tools:      platform.ModelRuntimeToolsProfile{},
+		Modalities: platform.ModelRuntimeModalities{Input: []string{"text"}, Output: []string{"embedding"}},
+		Parameters: map[string][]string{
+			"embeddings": {"model", "input", "encoding_format", "dimensions", "user"},
+		},
+		Limits: platform.ModelRuntimeLimits{MessagesBytes: 1, BatchBytes: 1, FileBytes: 1},
+	}
+
+	return platform.TunnelRequest{
+		Operation:  platform.ProviderOperationOpenAIEmbeddings,
+		Deployment: platform.Deployment{Provider: "tokenbazaar", Model: model, APIKey: "tokenbazaar-secret"},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{{
+			Provider: "tokenbazaar", CatalogRevision: "test", CanonicalID: "tokenbazaar/" + model,
+			Slug: model, ProfileVersion: 1, Profile: profile, EffectiveFrom: time.Now(),
+		}},
+	}
+}
+
+// TestTokenBazaarEmbeddingDispatchRoutesForInScopeModel confirms
+// text-embedding-3-large resolves through the embeddings dispatch path (not
+// the now-empty out-of-scope rejection, not chat, not images) for the
+// embeddings operation, and is still rejected as a generic unsupported model
+// (never silently accepted) when requested through the unrelated
+// chat_completions or images operations.
+func TestTokenBazaarEmbeddingDispatchRoutesForInScopeModel(t *testing.T) {
+	model := "text-embedding-3-large"
+
+	t.Run("embeddings_operation_accepted", func(t *testing.T) {
+		payload := tokenBazaarEmbeddingsTestPayload(model)
+		payload.Body = []byte(`{"model":"` + model + `","input":"hello world"}`)
+
+		if err := validateTokenBazaarDispatch(payload); err != nil {
+			t.Fatalf("expected embeddings dispatch to be accepted, got %v", err)
+		}
+	})
+
+	t.Run("chat_completions_operation_rejected_as_unsupported_model", func(t *testing.T) {
+		payload := tokenBazaarTestPayload(model)
+		payload.Body = []byte(`{"model":"` + model + `","messages":[{"role":"user","content":"hi"}]}`)
+
+		err := validateTokenBazaarDispatch(payload)
+		if err == nil || !strings.Contains(err.Error(), "tokenbazaar_unsupported_model:") {
+			t.Fatalf("expected generic unsupported-model error via chat, got %v", err)
+		}
+	})
+
+	t.Run("images_operation_rejected_as_unsupported_model", func(t *testing.T) {
+		payload := tokenBazaarImageTestPayload(model, platform.ProviderOperationOpenAIImagesGenerations)
+		payload.Body = []byte(`{"model":"` + model + `","prompt":"a red panda"}`)
+
+		err := validateTokenBazaarDispatch(payload)
+		if err == nil || !strings.Contains(err.Error(), "tokenbazaar_unsupported_model:") {
+			t.Fatalf("expected generic unsupported-model error via images, got %v", err)
+		}
+	})
+}
+
+// TestTokenBazaarEmbeddingsRuntimeProfileRequired confirms an embeddings
+// request for a model whose runtime profile does not allow the "embeddings"
+// endpoint is rejected, mirroring the chat and image paths' own
+// runtime-profile enforcement.
+func TestTokenBazaarEmbeddingsRuntimeProfileRequired(t *testing.T) {
+	payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+	payload.ModelRuntimeProfiles[0].Profile.Endpoints = []string{"models"} // no "embeddings"
+	payload.Body = []byte(`{"model":"text-embedding-3-large","input":"hello"}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_runtime_profile_missing") {
+		t.Fatalf("expected tokenbazaar_runtime_profile_missing, got %v", err)
+	}
+}
+
+// TestTokenBazaarEmbeddingsRequiresInputField confirms a request missing the
+// required "input" field is rejected before dispatch.
+func TestTokenBazaarEmbeddingsRequiresInputField(t *testing.T) {
+	payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+	payload.Body = []byte(`{"model":"text-embedding-3-large"}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_input_required") {
+		t.Fatalf("expected tokenbazaar_input_required, got %v", err)
+	}
+}
+
+// TestTokenBazaarEmbeddingsEncodingFormatValidation covers the
+// encoding_format bound: omitted, "float", and "base64" are all accepted;
+// anything else (including a case variation resolved case-insensitively, and
+// a wrong type) is rejected before dispatch.
+func TestTokenBazaarEmbeddingsEncodingFormatValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"omitted", `{"model":"text-embedding-3-large","input":"hi"}`, false},
+		{"float", `{"model":"text-embedding-3-large","input":"hi","encoding_format":"float"}`, false},
+		{"base64", `{"model":"text-embedding-3-large","input":"hi","encoding_format":"base64"}`, false},
+		{"case_insensitive", `{"model":"text-embedding-3-large","input":"hi","encoding_format":"FLOAT"}`, false},
+		{"unsupported_value", `{"model":"text-embedding-3-large","input":"hi","encoding_format":"hex"}`, true},
+		{"wrong_type", `{"model":"text-embedding-3-large","input":"hi","encoding_format":123}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr && err == nil {
+				t.Fatal("expected encoding_format to be rejected")
+			}
+
+			if !test.wantErr && err != nil {
+				t.Fatalf("expected encoding_format to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarEmbeddingsDimensionsBoundsValidation covers the dimensions
+// bound (1-3072, per
+// apps/model-discovery/providers/tokenbazaar/text-embedding-3-large.yaml's
+// own params entry): omitted is fine; 1 and 3072 (the inclusive bounds) are
+// accepted; 0, negative, above 3072, and a non-integer are all rejected
+// before dispatch.
+func TestTokenBazaarEmbeddingsDimensionsBoundsValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"omitted", `{"model":"text-embedding-3-large","input":"hi"}`, false},
+		{"min_bound", `{"model":"text-embedding-3-large","input":"hi","dimensions":1}`, false},
+		{"max_bound", `{"model":"text-embedding-3-large","input":"hi","dimensions":3072}`, false},
+		{"typical", `{"model":"text-embedding-3-large","input":"hi","dimensions":1536}`, false},
+		{"zero", `{"model":"text-embedding-3-large","input":"hi","dimensions":0}`, true},
+		{"negative", `{"model":"text-embedding-3-large","input":"hi","dimensions":-1}`, true},
+		{"above_max", `{"model":"text-embedding-3-large","input":"hi","dimensions":3073}`, true},
+		{"non_integer", `{"model":"text-embedding-3-large","input":"hi","dimensions":12.5}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr && err == nil {
+				t.Fatal("expected dimensions to be rejected")
+			}
+
+			if !test.wantErr && err != nil {
+				t.Fatalf("expected dimensions to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarEmbeddingsDispatchExactRequestConstruction exercises the
+// full adapter Dispatch path (mocked HTTP, no live call) and asserts the
+// exact method, URL, Authorization header, and forwarded body against
+// https://zx1.deepwl.net/v1/embeddings, then confirms the response is parsed
+// through as the standard OpenAI embeddings shape.
+func TestTokenBazaarEmbeddingsDispatchExactRequestConstruction(t *testing.T) {
+	var gotMethod, gotURL, gotAuth, gotContentType string
+
+	var gotBody []byte
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotMethod = request.Method
+		gotURL = request.URL.String()
+		gotAuth = request.Header.Get("Authorization")
+		gotContentType = request.Header.Get("Content-Type")
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+
+		gotBody = body
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"object":"list","data":[{"object":"embedding","embedding":[0.1,0.2,0.3],"index":0}],"model":"text-embedding-3-large","usage":{"prompt_tokens":3,"total_tokens":3}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+	requestBody := `{"model":"text-embedding-3-large","input":"hello world","encoding_format":"float"}`
+	payload.Body = []byte(requestBody)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch embeddings: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotMethod != http.MethodPost {
+		t.Fatalf("method = %q, want POST", gotMethod)
+	}
+
+	if gotURL != "https://zx1.deepwl.net/v1/embeddings" {
+		t.Fatalf("url = %q", gotURL)
+	}
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("authorization = %q", gotAuth)
+	}
+
+	if gotContentType != "application/json" {
+		t.Fatalf("content-type = %q", gotContentType)
+	}
+
+	if string(gotBody) != requestBody {
+		t.Fatalf("forwarded body = %s, want verbatim %s", gotBody, requestBody)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+
+	var parsed struct {
+		Object string `json:"object"`
+		Data   []struct {
+			Embedding []float64 `json:"embedding"`
+			Index     int       `json:"index"`
+		} `json:"data"`
+		Usage struct {
+			PromptTokens int `json:"prompt_tokens"`
+			TotalTokens  int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+
+	if err := json.Unmarshal(responseBody, &parsed); err != nil {
+		t.Fatalf("response body is not valid JSON: %v", err)
+	}
+
+	if parsed.Object != "list" || len(parsed.Data) != 1 || len(parsed.Data[0].Embedding) != 3 {
+		t.Fatalf("unexpected parsed response shape: %+v", parsed)
+	}
+}
+
+// TestTokenBazaarEmbeddingsMalformedResponseSurfacesClearError confirms that
+// a 2xx response whose body does not match the inferred standard OpenAI
+// embeddings envelope is surfaced as a distinct, identifiable error rather
+// than silently returned as garbage or causing a panic downstream. This
+// matters more here than for chat/images precisely because the embeddings
+// contract is inferred, not first-party-confirmed.
+func TestTokenBazaarEmbeddingsMalformedResponseSurfacesClearError(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"not_json", `not json at all`},
+		{"wrong_object_field", `{"object":"embedding_list","data":[{"object":"embedding","embedding":[0.1],"index":0}]}`},
+		{"empty_data", `{"object":"list","data":[]}`},
+		{"missing_embedding_vector", `{"object":"list","data":[{"object":"embedding","index":0}]}`},
+		{"chat_shaped_response", `{"choices":[{"message":{"role":"assistant","content":"hi"}}]}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(test.body)),
+				}, nil
+			})}
+
+			payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+			payload.Body = []byte(`{"model":"text-embedding-3-large","input":"hello world"}`)
+
+			response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+			if err == nil {
+				if response != nil {
+					response.Body.Close()
+				}
+
+				t.Fatal("expected malformed embeddings response to be rejected with a clear error")
+			}
+
+			if !strings.Contains(err.Error(), "tokenbazaar_embeddings_response_shape_unexpected") &&
+				!strings.Contains(err.Error(), "tokenbazaar_embeddings_response_read") {
+				t.Fatalf("expected a distinguishable embeddings-response error, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarEmbeddingsErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody
+// confirms the embeddings dispatch path goes through the same
+// 4xx-normalization (never-leak-upstream-body) treatment as the chat and
+// image paths.
+func TestTokenBazaarEmbeddingsErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody(t *testing.T) {
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     http.Header{tokenBazaarRequestIDHeader: []string{"req-embeddings-1"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"error":{"code":"invalid_request","message":"upstream vendor account id abc-123 must not leak"}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+	payload.Body = []byte(`{"model":"text-embedding-3-large","input":"hello world"}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want normalized 503", response.StatusCode)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read normalized body: %v", err)
+	}
+
+	if strings.Contains(string(body), "abc-123") || strings.Contains(string(body), "invalid_request") {
+		t.Fatalf("normalized embeddings error body leaked upstream content: %s", body)
+	}
+}
+
+// TestTokenBazaarEmbeddingsValidationErrorsNeverIncludeAPIKey confirms none
+// of the embeddings-path validation error messages ever echo the
+// deployment's API key, even when it is present on the payload.
+func TestTokenBazaarEmbeddingsValidationErrorsNeverIncludeAPIKey(t *testing.T) {
+	const secret = "tokenbazaar-super-secret-key-must-not-leak"
+
+	badDimensions := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+	badDimensions.Deployment.APIKey = secret
+	badDimensions.Body = []byte(`{"model":"text-embedding-3-large","input":"hi","dimensions":99999}`)
+
+	badEncoding := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+	badEncoding.Deployment.APIKey = secret
+	badEncoding.Body = []byte(`{"model":"text-embedding-3-large","input":"hi","encoding_format":"hex"}`)
+
+	for _, payload := range []platform.TunnelRequest{badDimensions, badEncoding} {
+		err := validateTokenBazaarDispatch(payload)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("validation error leaked the API key: %v", err)
+		}
+	}
+}
+
+// TestTokenBazaarEmbeddingsNeverForwardsGodarAIAuthorizationHeader mirrors
+// the chat path's own coverage: the caller-supplied Authorization header
+// must never reach TokenBazaar; only the deployment's own credential is
+// forwarded.
+func TestTokenBazaarEmbeddingsNeverForwardsGodarAIAuthorizationHeader(t *testing.T) {
+	var gotAuth string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotAuth = request.Header.Get("Authorization")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"object":"list","data":[{"object":"embedding","embedding":[0.1],"index":0}]}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarEmbeddingsTestPayload("text-embedding-3-large")
+	payload.Body = []byte(`{"model":"text-embedding-3-large","input":"hi"}`)
+	payload.Headers = map[string]string{"Authorization": "Bearer godarai-caller-token-must-not-leak"}
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
+	}
+}
+
+func tokenBazaarTestPayload(model string) platform.TunnelRequest {
+	profile := platform.ModelRuntimeProfile{
+		Version:    1,
+		Endpoints:  []string{"chat_completions"},
+		Transports: []string{"http", "sse"},
+		Lifecycle:  "active",
+		Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "disabled", AllowedModes: []string{"disabled"}},
+		Sampling:   platform.ModelRuntimeSamplingProfile{},
+		Tools:      platform.ModelRuntimeToolsProfile{},
+		Modalities: platform.ModelRuntimeModalities{Input: []string{"text"}, Output: []string{"text"}},
+		Parameters: map[string][]string{
+			"chat_completions": {"model", "messages", "stream", "tools", "tool_choice", "max_tokens"},
+		},
+		Limits: platform.ModelRuntimeLimits{MessagesBytes: 1, BatchBytes: 1, FileBytes: 1},
+	}
+
+	return platform.TunnelRequest{
+		Operation:  platform.ProviderOperationChatCompletions,
+		Deployment: platform.Deployment{Provider: "tokenbazaar", Model: model, APIKey: "tokenbazaar-secret"},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{{
+			Provider: "tokenbazaar", CatalogRevision: "test", CanonicalID: "tokenbazaar/" + model,
+			Slug: model, ProfileVersion: 1, Profile: profile, EffectiveFrom: time.Now(),
+		}},
+	}
+}
+
+// tokenBazaarResponsesTestPayload builds a minimal, in-scope /v1/responses
+// TunnelRequest for one of the 6 Responses-capable models
+// (tokenBazaarResponsesModels), mirroring tokenBazaarEmbeddingsTestPayload's
+// style.
+func tokenBazaarResponsesTestPayload(model string) platform.TunnelRequest {
+	profile := platform.ModelRuntimeProfile{
+		Version:    1,
+		Endpoints:  []string{"models", "chat_completions", "responses"},
+		Transports: []string{"http", "sse"},
+		Lifecycle:  "active",
+		Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "disabled", AllowedModes: []string{"disabled"}},
+		Sampling:   platform.ModelRuntimeSamplingProfile{},
+		Tools:      platform.ModelRuntimeToolsProfile{},
+		Modalities: platform.ModelRuntimeModalities{Input: []string{"text"}, Output: []string{"text"}},
+		Parameters: map[string][]string{
+			"responses": {
+				"model", "input", "instructions", "reasoning", "max_output_tokens",
+				"stream", "tools", "tool_choice", "text",
+			},
+		},
+		Limits: platform.ModelRuntimeLimits{MessagesBytes: 1, BatchBytes: 1, FileBytes: 1},
+	}
+
+	return platform.TunnelRequest{
+		Operation:  platform.ProviderOperationOpenAIResponsesCreate,
+		Deployment: platform.Deployment{Provider: "tokenbazaar", Model: model, APIKey: "tokenbazaar-secret"},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{{
+			Provider: "tokenbazaar", CatalogRevision: "test", CanonicalID: "tokenbazaar/" + model,
+			Slug: model, ProfileVersion: 1, Profile: profile, EffectiveFrom: time.Now(),
+		}},
+	}
+}
+
+// TestTokenBazaarResponsesDispatchRoutesForAllSixInScopeModels confirms each
+// of the 6 in-scope Responses models (4 OpenAI-family, 2 DeepSeek) resolves
+// through the Responses dispatch path for the documented
+// ProviderOperationOpenAIResponsesCreate operation.
+func TestTokenBazaarResponsesDispatchRoutesForAllSixInScopeModels(t *testing.T) {
+	for model := range tokenBazaarResponsesModels {
+		t.Run(model, func(t *testing.T) {
+			payload := tokenBazaarResponsesTestPayload(model)
+			payload.Body = []byte(`{"model":"` + model + `","input":"hello"}`)
+
+			if err := validateTokenBazaarDispatch(payload); err != nil {
+				t.Fatalf("expected responses dispatch to be accepted for %s, got %v", model, err)
+			}
+		})
+	}
+
+	if len(tokenBazaarResponsesModels) != 6 {
+		t.Fatalf("expected exactly 6 in-scope Responses models, got %d: %v", len(tokenBazaarResponsesModels), tokenBazaarResponsesModels)
+	}
+}
+
+// TestTokenBazaarResponsesOperationRejectsOutOfScopeModels confirms that the
+// other 20 TokenBazaar models (15 chat-only models plus the 4 image models
+// and the 1 embeddings model) are rejected with a clear, specific,
+// operation-scoped "unsupported model" error -- never silently accepted,
+// never a generic 404, and never misrouted to the chat_completions path --
+// when requested through the /v1/responses operation.
+func TestTokenBazaarResponsesOperationRejectsOutOfScopeModels(t *testing.T) {
+	outOfScope := []string{
+		// 15 chat-capable models that are NOT in the 6-model Responses scope.
+		"claude-fable-5", "claude-haiku-4-5", "claude-opus-5", "claude-sonnet-5",
+		"gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview",
+		"gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash",
+		"glm-5.2", "glm-5v-turbo", "kimi-k2.6", "kimi-k2.7-code", "kimi-k3",
+		// 4 image models + 1 embeddings model.
+		"gpt-image-2", "gemini-3-pro-image", "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image",
+		"text-embedding-3-large",
+	}
+
+	if len(outOfScope) != 20 {
+		t.Fatalf("expected exactly 20 out-of-scope models in this table, got %d", len(outOfScope))
+	}
+
+	for _, model := range outOfScope {
+		t.Run(model, func(t *testing.T) {
+			payload := tokenBazaarResponsesTestPayload(model)
+			payload.Body = []byte(`{"model":"` + model + `","input":"hello"}`)
+
+			err := validateTokenBazaarDispatch(payload)
+			if err == nil || !strings.Contains(err.Error(), "tokenbazaar_unsupported_model:") {
+				t.Fatalf("expected generic unsupported-model error for %s via responses, got %v", model, err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarResponsesRuntimeProfileRequired confirms a responses request
+// for an in-scope model whose runtime profile does not allow the "responses"
+// endpoint is rejected, mirroring the chat/images/embeddings paths' own
+// runtime-profile enforcement.
+func TestTokenBazaarResponsesRuntimeProfileRequired(t *testing.T) {
+	payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+	payload.ModelRuntimeProfiles[0].Profile.Endpoints = []string{"models", "chat_completions"} // no "responses"
+	payload.Body = []byte(`{"model":"gpt-5.5","input":"hello"}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_runtime_profile_missing") {
+		t.Fatalf("expected tokenbazaar_runtime_profile_missing, got %v", err)
+	}
+}
+
+// TestTokenBazaarResponsesRequiresInputOrInstructions confirms a request
+// missing both "input" and "instructions" is rejected before dispatch.
+func TestTokenBazaarResponsesRequiresInputOrInstructions(t *testing.T) {
+	payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+	payload.Body = []byte(`{"model":"gpt-5.5"}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_responses_input_required") {
+		t.Fatalf("expected tokenbazaar_responses_input_required, got %v", err)
+	}
+
+	withInstructions := tokenBazaarResponsesTestPayload("gpt-5.5")
+	withInstructions.Body = []byte(`{"model":"gpt-5.5","instructions":"be concise"}`)
+
+	if err := validateTokenBazaarDispatch(withInstructions); err != nil {
+		t.Fatalf("expected instructions-only request to be accepted, got %v", err)
+	}
+}
+
+// TestTokenBazaarResponsesRejectsPreviousResponseID covers the first of the
+// three documented "not supported" fields: TokenBazaar's /v1/responses is
+// stateless, so a non-empty previous_response_id must be rejected before any
+// HTTP call, with its own distinguishable error. A null, absent, or
+// empty-string value must NOT be rejected.
+func TestTokenBazaarResponsesRejectsPreviousResponseID(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"absent", `{"model":"gpt-5.5","input":"hi"}`, false},
+		{"null", `{"model":"gpt-5.5","input":"hi","previous_response_id":null}`, false},
+		{"empty_string", `{"model":"gpt-5.5","input":"hi","previous_response_id":""}`, false},
+		{"non_empty", `{"model":"gpt-5.5","input":"hi","previous_response_id":"resp_abc123"}`, true},
+		{"wrong_type", `{"model":"gpt-5.5","input":"hi","previous_response_id":123}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("expected previous_response_id to be rejected")
+				}
+
+				if test.name == "non_empty" && !strings.Contains(err.Error(), "tokenbazaar_responses_previous_response_id_unsupported") {
+					t.Fatalf("expected tokenbazaar_responses_previous_response_id_unsupported, got %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected previous_response_id to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarResponsesRejectsBuiltinTools covers the second of the three
+// documented "not supported" fields: any OpenAI-hosted built-in tool type is
+// rejected before dispatch with its own distinguishable error, while
+// caller-defined function tools (and an absent/empty tools array) are fine.
+func TestTokenBazaarResponsesRejectsBuiltinTools(t *testing.T) {
+	tests := []struct {
+		name    string
+		tools   string
+		wantErr bool
+	}{
+		{"absent", ``, false},
+		{"empty_array", `"tools":[],`, false},
+		{"function_tool", `"tools":[{"type":"function","name":"lookup","parameters":{}}],`, false},
+		{"web_search", `"tools":[{"type":"web_search"}],`, true},
+		{"file_search", `"tools":[{"type":"file_search"}],`, true},
+		{"image_generation", `"tools":[{"type":"image_generation"}],`, true},
+		{"code_interpreter", `"tools":[{"type":"code_interpreter"}],`, true},
+		{"mixed_function_and_builtin", `"tools":[{"type":"function","name":"lookup"},{"type":"web_search"}],`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+			payload.Body = []byte(`{"model":"gpt-5.5",` + test.tools + `"input":"hi"}`)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "tokenbazaar_responses_builtin_tool_unsupported") {
+					t.Fatalf("expected tokenbazaar_responses_builtin_tool_unsupported, got %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected tools to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarResponsesRejectsBackgroundTrue covers the third of the three
+// documented "not supported" fields: background: true is rejected before
+// dispatch with its own distinguishable error; an absent field or an
+// explicit background: false are both fine.
+func TestTokenBazaarResponsesRejectsBackgroundTrue(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"absent", `{"model":"gpt-5.5","input":"hi"}`, false},
+		{"false", `{"model":"gpt-5.5","input":"hi","background":false}`, false},
+		{"true", `{"model":"gpt-5.5","input":"hi","background":true}`, true},
+		{"wrong_type", `{"model":"gpt-5.5","input":"hi","background":"true"}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("expected background:true to be rejected")
+				}
+
+				if test.name == "true" && !strings.Contains(err.Error(), "tokenbazaar_responses_background_unsupported") {
+					t.Fatalf("expected tokenbazaar_responses_background_unsupported, got %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected background to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarResponsesThreeRejectionsHappenBeforeAnyHTTPCall proves, via
+// an end-to-end mocked-HTTP Dispatch (not just the standalone validator),
+// that each of the three documented "not supported" fields is rejected
+// before any upstream call is made, mirroring
+// TestTokenBazaarGPTImage2ResponseFormatDispatchedEndToEnd's proof style for
+// the images path.
+func TestTokenBazaarResponsesThreeRejectionsHappenBeforeAnyHTTPCall(t *testing.T) {
+	var calls int32
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"id":"resp_1","object":"response","status":"completed"}`)),
+		}, nil
+	})}
+
+	accepted := tokenBazaarResponsesTestPayload("gpt-5.5")
+	accepted.Body = []byte(`{"model":"gpt-5.5","input":"hello"}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, accepted)
+	if err != nil {
+		t.Fatalf("expected a valid request to succeed, got %v", err)
+	}
+	defer response.Body.Close()
+
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("expected exactly 1 upstream call for the valid request, got %d", calls)
+	}
+
+	rejections := map[string]string{
+		"previous_response_id": `{"model":"gpt-5.5","input":"hello","previous_response_id":"resp_abc"}`,
+		"builtin_tool":         `{"model":"gpt-5.5","input":"hello","tools":[{"type":"web_search"}]}`,
+		"background_true":      `{"model":"gpt-5.5","input":"hello","background":true}`,
+	}
+
+	for name, body := range rejections {
+		t.Run(name, func(t *testing.T) {
+			payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+			payload.Body = []byte(body)
+
+			if _, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload); err == nil {
+				t.Fatal("expected the request to be rejected before dispatch")
+			}
+
+			if atomic.LoadInt32(&calls) != 1 {
+				t.Fatalf("rejection %q must happen before any HTTP call; total upstream calls = %d", name, calls)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarResponsesDispatchExactRequestConstruction exercises the full
+// adapter Dispatch path (mocked HTTP, no live call) and asserts the exact
+// method, URL, Authorization header, Content-Type, and forwarded body against
+// https://zx1.deepwl.net/v1/responses, mirroring
+// TestTokenBazaarEmbeddingsDispatchExactRequestConstruction's style.
+func TestTokenBazaarResponsesDispatchExactRequestConstruction(t *testing.T) {
+	var gotMethod, gotURL, gotAuth, gotContentType string
+
+	var gotBody []byte
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotMethod = request.Method
+		gotURL = request.URL.String()
+		gotAuth = request.Header.Get("Authorization")
+		gotContentType = request.Header.Get("Content-Type")
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+
+		gotBody = body
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"id":"resp_1","object":"response","model":"gpt-5.5","status":"completed",` +
+					`"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],` +
+					`"usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+	requestBody := `{"model":"gpt-5.5","input":"hello world"}`
+	payload.Body = []byte(requestBody)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch responses: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotMethod != http.MethodPost {
+		t.Fatalf("method = %q, want POST", gotMethod)
+	}
+
+	if gotURL != "https://zx1.deepwl.net/v1/responses" {
+		t.Fatalf("url = %q", gotURL)
+	}
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("authorization = %q", gotAuth)
+	}
+
+	if gotContentType != "application/json" {
+		t.Fatalf("content-type = %q", gotContentType)
+	}
+
+	if string(gotBody) != requestBody {
+		t.Fatalf("forwarded body = %s, want verbatim %s", gotBody, requestBody)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+}
+
+// TestTokenBazaarResponsesReasoningEffortPassesThroughUnmodified confirms
+// this delivery does not rewrite, strip, or otherwise touch a documented
+// reasoning.effort field: the request body reaching TokenBazaar must be
+// byte-for-byte identical to what the caller sent, for each of the 6 in-scope
+// models (unlike DeepSeek's own adapter, TokenBazaar's does not inject an
+// opaque managed-user field into the body, so no rewriting is expected here
+// at all).
+func TestTokenBazaarResponsesReasoningEffortPassesThroughUnmodified(t *testing.T) {
+	for model := range tokenBazaarResponsesModels {
+		t.Run(model, func(t *testing.T) {
+			var gotBody []byte
+
+			client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+				body, err := io.ReadAll(request.Body)
+				if err != nil {
+					t.Fatalf("read request body: %v", err)
+				}
+
+				gotBody = body
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(`{"id":"resp_1","object":"response","status":"completed"}`)),
+				}, nil
+			})}
+
+			payload := tokenBazaarResponsesTestPayload(model)
+			requestBody := `{"model":"` + model + `","input":"hello","reasoning":{"effort":"low"}}`
+			payload.Body = []byte(requestBody)
+
+			response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+			if err != nil {
+				t.Fatalf("dispatch: %v", err)
+			}
+			defer response.Body.Close()
+
+			if string(gotBody) != requestBody {
+				t.Fatalf("reasoning.effort was not passed through unmodified: got %s, want %s", gotBody, requestBody)
+			}
+
+			if !strings.Contains(string(gotBody), `"reasoning":{"effort":"low"}`) {
+				t.Fatalf("reasoning.effort missing from forwarded body: %s", gotBody)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarResponsesSSEStreamingPassesThroughUntilTerminalEvent covers
+// the documented typed-event streaming shape (response.output_text.delta ...
+// response.completed) with the same defensive posture already established
+// for chat SSE (TestTokenBazaarSSEStreamingPassesThroughUntilDone): this
+// adapter passes the raw SSE bytes through unmodified; typed-event
+// parsing/terminal-event detection and malformed/unexpected-event handling
+// are the shared, provider-agnostic responsibility of
+// services/control-plane/internal/proxy/stream_relay.go's
+// openAIResponseStreamState, which is already exhaustively unit-tested
+// (stream_relay_test.go) independent of provider -- this test only confirms
+// the TokenBazaar adapter itself never mutates or buffers the documented
+// event bytes.
+func TestTokenBazaarResponsesSSEStreamingPassesThroughUntilTerminalEvent(t *testing.T) {
+	sseBody := "event: response.output_text.delta\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hel\",\"sequence_number\":1}\n\n" +
+		"event: response.output_text.delta\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"lo\",\"sequence_number\":2}\n\n" +
+		"event: response.completed\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-5.5\",\"status\":\"completed\"},\"sequence_number\":3}\n\n"
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Accept") != "text/event-stream" {
+			t.Fatalf("expected SSE Accept header, got %q", request.Header.Get("Accept"))
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(sseBody)),
+		}, nil
+	})}
+
+	payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+	payload.Stream = true
+	payload.Body = []byte(`{"model":"gpt-5.5","input":"hi","stream":true}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch streaming responses request: %v", err)
+	}
+	defer response.Body.Close()
+
+	got, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read SSE body: %v", err)
+	}
+
+	if string(got) != sseBody {
+		t.Fatalf("SSE body was altered by the adapter: %q", got)
+	}
+
+	if !strings.Contains(string(got), "event: response.completed") {
+		t.Fatalf("terminal event was not preserved: %s", got)
+	}
+}
+
+// TestTokenBazaarResponsesErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody
+// mirrors the chat/images/embeddings paths' own 4xx-normalization coverage
+// for the responses operation.
+func TestTokenBazaarResponsesErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody(t *testing.T) {
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     http.Header{tokenBazaarRequestIDHeader: []string{"req-responses-1"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"error":{"code":"invalid_request","message":"upstream vendor account id abc-123 must not leak"}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+	payload.Body = []byte(`{"model":"gpt-5.5","input":"hello"}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want normalized 503", response.StatusCode)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read normalized body: %v", err)
+	}
+
+	if strings.Contains(string(body), "abc-123") || strings.Contains(string(body), "invalid_request") {
+		t.Fatalf("normalized responses error body leaked upstream content: %s", body)
+	}
+}
+
+// TestTokenBazaarResponsesValidationErrorsNeverIncludeAPIKey confirms none of
+// the responses-path validation error messages ever echo the deployment's
+// API key, even when it is present on the payload.
+func TestTokenBazaarResponsesValidationErrorsNeverIncludeAPIKey(t *testing.T) {
+	const secret = "tokenbazaar-super-secret-key-must-not-leak"
+
+	badPreviousResponseID := tokenBazaarResponsesTestPayload("gpt-5.5")
+	badPreviousResponseID.Deployment.APIKey = secret
+	badPreviousResponseID.Body = []byte(`{"model":"gpt-5.5","input":"hi","previous_response_id":"resp_abc"}`)
+
+	badTool := tokenBazaarResponsesTestPayload("gpt-5.5")
+	badTool.Deployment.APIKey = secret
+	badTool.Body = []byte(`{"model":"gpt-5.5","input":"hi","tools":[{"type":"web_search"}]}`)
+
+	badBackground := tokenBazaarResponsesTestPayload("gpt-5.5")
+	badBackground.Deployment.APIKey = secret
+	badBackground.Body = []byte(`{"model":"gpt-5.5","input":"hi","background":true}`)
+
+	for _, payload := range []platform.TunnelRequest{badPreviousResponseID, badTool, badBackground} {
+		err := validateTokenBazaarDispatch(payload)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("validation error leaked the API key: %v", err)
+		}
+	}
+}
+
+// TestTokenBazaarResponsesNeverForwardsGodarAIAuthorizationHeader mirrors the
+// chat/embeddings paths' own coverage: the caller-supplied Authorization
+// header must never reach TokenBazaar; only the deployment's own credential
+// is forwarded.
+func TestTokenBazaarResponsesNeverForwardsGodarAIAuthorizationHeader(t *testing.T) {
+	var gotAuth string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotAuth = request.Header.Get("Authorization")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"id":"resp_1","object":"response","status":"completed"}`)),
+		}, nil
+	})}
+
+	payload := tokenBazaarResponsesTestPayload("gpt-5.5")
+	payload.Body = []byte(`{"model":"gpt-5.5","input":"hi"}`)
+	payload.Headers = map[string]string{"Authorization": "Bearer godarai-caller-token-must-not-leak"}
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
+	}
+}

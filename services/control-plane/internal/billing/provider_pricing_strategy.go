@@ -54,6 +54,7 @@ var providerPricingStrategies = map[providerregistry.PricingStrategyKind]provide
 	providerregistry.PricingStrategyMoonshot:     moonshotPricingStrategy{},
 	providerregistry.PricingStrategyGoogleGemini: googleGeminiPricingStrategy{},
 	providerregistry.PricingStrategyMistral:      mistralPricingStrategy{},
+	providerregistry.PricingStrategyTokenBazaar:  tokenBazaarPricingStrategy{},
 }
 
 func pricingStrategy(provider string) providerPricingStrategy {
@@ -393,6 +394,99 @@ type zaiPricingStrategy struct {
 
 func (zaiPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
 	return moonshotUsageCostBreakdown(input.model, input.usage, input.price, input.exchangeRate)
+}
+
+// tokenBazaarPricingStrategy uses the plain, no-conditions decimal cost
+// calculator: TokenBazaar's confirmed contract reports standard OpenAI
+// usage.prompt_tokens/completion_tokens/total_tokens with no documented
+// cache/conditional-rate dimensions (unlike DeepSeek/Moonshot/Z.ai), so the
+// embedded standardPricingStrategy's exact-decimal costBreakdown is used
+// unmodified for both Estimate and FinalizeUsage.
+//
+// This unmodified FinalizeUsage path also covers the embeddings cost
+// dimension for text-embedding-3-large: its response usage
+// (prompt_tokens/total_tokens, completion_tokens always 0) is billed via the
+// same generic costBreakdown using the already-pinned official OpenAI rate
+// from apps/model-discovery/providers/tokenbazaar/text-embedding-3-large.yaml
+// (input_cost_per_token=1.3e-7, output_cost_per_token=0), so output cost is
+// always exactly 0 for this model -- see
+// TestTokenBazaarPricingStrategyFinalizesEmbeddingsUsageWithExactDecimalCost
+// and TestTokenBazaarPricingStrategyEmbeddingsOutputCostIsAlwaysZero in
+// tokenbazaar_embeddings_pricing_test.go. No FinalizeUsage override was
+// needed or added for embeddings, unlike the FinalizeImage override below.
+//
+// FinalizeImage is overridden below: TokenBazaar's 4 image models' catalog
+// `costs` blocks were pinned verbatim from the corresponding direct
+// provider's official per-token/per-image-size-tier cost structure (see
+// plans/tokenbazaar-production-readiness.md, "Confirmed wire contract" and
+// the comment atop each apps/model-discovery/providers/tokenbazaar/*.yaml
+// image file) — gpt-image-2 uses OpenAI's per-token/per-image-token
+// dimensions, and the 3 Gemini image models use Google Gemini's
+// per-token/per-image-size-tier dimensions. This reuses the same exact
+// -decimal breakdown functions already used for the direct providers rather
+// than re-deriving pricing logic.
+type tokenBazaarPricingStrategy struct {
+	standardPricingStrategy
+}
+
+// tokenBazaarImageModelFamily identifies which direct provider's image cost
+// dimensions a TokenBazaar image model's pinned catalog costs follow. This
+// mirrors tokenBazaarImageModels in
+// services/silk-road/pkg/server/tokenbazaar.go (kept in sync manually since
+// the two packages do not share a dependency edge); if a 5th TokenBazaar
+// image model is ever added, it must be classified here too.
+func tokenBazaarImageModelFamily(model string) string {
+	model = strings.ToLower(strings.TrimSpace(model))
+
+	switch model {
+	case "gpt-image-2":
+		return "openai"
+	case "gemini-3-pro-image", "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image":
+		return "google-gemini"
+	default:
+		return ""
+	}
+}
+
+func (tokenBazaarPricingStrategy) FinalizeImage(input pricingImageInput) (platform.UsageCostBreakdown, error) {
+	switch tokenBazaarImageModelFamily(input.model) {
+	case "openai":
+		breakdown, err := openAIImageCostBreakdown(
+			input.model,
+			input.usage,
+			input.inputTokens,
+			input.outputTokens,
+			input.totalTokens,
+			input.price,
+			input.exchangeRate,
+			input.metadata,
+			"standard",
+		)
+		if err != nil {
+			return platform.UsageCostBreakdown{}, err
+		}
+
+		return applyReportedProviderCost(breakdown, input.providerCostUSDTicks, input.exchangeRate, input.metadata), nil
+	case "google-gemini":
+		breakdown, err := googleGeminiImageCostBreakdown(
+			input.model,
+			input.inputTokens,
+			input.outputTokens,
+			input.totalTokens,
+			input.price,
+			input.exchangeRate,
+			input.metadata,
+		)
+		if err != nil {
+			return platform.UsageCostBreakdown{}, err
+		}
+
+		return applyReportedProviderCost(breakdown, input.providerCostUSDTicks, input.exchangeRate, input.metadata), nil
+	default:
+		// Not one of the 4 in-scope image models: fall back to the plain
+		// token-based breakdown rather than guessing a dimension shape.
+		return standardPricingStrategy{}.FinalizeImage(input)
+	}
 }
 
 func (moonshotPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
