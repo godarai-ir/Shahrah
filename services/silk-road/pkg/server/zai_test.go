@@ -92,6 +92,61 @@ func TestZAIAdapterRoutesGLM53FlashToChatCompletions(t *testing.T) {
 	}
 }
 
+func TestZAIAdapterRejectsDisabledThinkingForAlwaysEnabledModels(t *testing.T) {
+	payload := zaiTestPayload("glm-5.3-flash", "chat_completions")
+	payload.ModelRuntimeProfiles[0].Profile.Thinking = platform.ModelRuntimeThinkingProfile{
+		DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+	}
+	payload.ModelRuntimeProfiles[0].Profile.Parameters["chat_completions"] = append(
+		payload.ModelRuntimeProfiles[0].Profile.Parameters["chat_completions"], "thinking",
+	)
+	payload.Body = []byte(`{"model":"glm-5.3-flash","messages":[{"role":"user","content":"hello"}],"thinking":{"type":"disabled"}}`)
+
+	if _, _, err := validateZAIDispatch(payload); err == nil || !strings.Contains(err.Error(), "zai_thinking_disabled_unsupported") {
+		t.Fatalf("expected disabled-thinking rejection at the adapter layer, got %v", err)
+	}
+
+	payload.Body = []byte(`{"model":"glm-5.3-flash","messages":[{"role":"user","content":"hello"}],"thinking":{"type":"enabled"}}`)
+	if _, _, err := validateZAIDispatch(payload); err != nil {
+		t.Fatalf("enabled thinking rejected for an always-enabled-thinking model: %v", err)
+	}
+}
+
+func TestZAIThinkingValueRespectsAlwaysEnabledModels(t *testing.T) {
+	toggleable := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
+		},
+	}
+	alwaysEnabled := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+		},
+	}
+
+	if err := validateZAIThinkingValue(toggleable, map[string]json.RawMessage{
+		"thinking": json.RawMessage(`{"type":"disabled"}`),
+	}); err != nil {
+		t.Fatalf("thinking.type=disabled rejected for a toggleable Z.ai model: %v", err)
+	}
+
+	if err := validateZAIThinkingValue(alwaysEnabled, map[string]json.RawMessage{
+		"thinking": json.RawMessage(`{"type":"enabled"}`),
+	}); err != nil {
+		t.Fatalf("thinking.type=enabled rejected for an always-enabled-thinking Z.ai model: %v", err)
+	}
+
+	if err := validateZAIThinkingValue(alwaysEnabled, map[string]json.RawMessage{
+		"thinking": json.RawMessage(`{"type":"disabled"}`),
+	}); err == nil {
+		t.Fatal("thinking.type=disabled was accepted for an always-enabled-thinking Z.ai model")
+	}
+
+	if err := validateZAIThinkingValue(alwaysEnabled, map[string]json.RawMessage{}); err != nil {
+		t.Fatalf("omitted thinking was rejected for an always-enabled-thinking Z.ai model: %v", err)
+	}
+}
+
 func TestZAIAdapterAllowsBYOKGatewayHosts(t *testing.T) {
 	for _, raw := range []string{
 		"https://api.z.ai/api/paas/v4",
@@ -105,22 +160,28 @@ func TestZAIAdapterAllowsBYOKGatewayHosts(t *testing.T) {
 }
 
 func TestZAIReasoningEffortCompatibilityMapping(t *testing.T) {
+	toggleable := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
+		},
+	}
+
 	body := map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"minimal"`)}
-	normalizeZAIReasoningEffort("glm-5.2", body)
+	normalizeZAIReasoningEffort(toggleable, body)
 
 	if _, exists := body["reasoning_effort"]; exists || string(body["thinking"]) != `{"type":"disabled"}` {
 		t.Fatalf("minimal effort mapping = %s", body)
 	}
 
 	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"medium"`)}
-	normalizeZAIReasoningEffort("glm-5.2", body)
+	normalizeZAIReasoningEffort(toggleable, body)
 
 	if string(body["reasoning_effort"]) != `"high"` {
 		t.Fatalf("medium effort mapping = %s", body["reasoning_effort"])
 	}
 
 	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"xhigh"`)}
-	normalizeZAIReasoningEffort("glm-5.2", body)
+	normalizeZAIReasoningEffort(toggleable, body)
 
 	if string(body["reasoning_effort"]) != `"max"` {
 		t.Fatalf("xhigh effort mapping = %s", body["reasoning_effort"])
@@ -128,15 +189,21 @@ func TestZAIReasoningEffortCompatibilityMapping(t *testing.T) {
 }
 
 func TestZAIReasoningEffortNeverDisablesAlwaysThinkingModels(t *testing.T) {
+	alwaysEnabled := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+		},
+	}
+
 	body := map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"minimal"`)}
-	normalizeZAIReasoningEffort("glm-5.3-flash", body)
+	normalizeZAIReasoningEffort(alwaysEnabled, body)
 
 	if _, exists := body["thinking"]; exists {
-		t.Fatalf("glm-5.3-flash effort mapping injected a disabled thinking control: %s", body)
+		t.Fatalf("glm-5.3-flash-style effort mapping injected a disabled thinking control: %s", body)
 	}
 
 	if _, exists := body["reasoning_effort"]; exists {
-		t.Fatalf("glm-5.3-flash unsupported low-effort alias was kept: %s", body)
+		t.Fatalf("glm-5.3-flash-style unsupported low-effort alias was kept: %s", body)
 	}
 }
 
