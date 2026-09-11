@@ -132,9 +132,10 @@ func TestResolveCredentialProbeRejectsUnsafeCustomURL(t *testing.T) {
 	}{
 		{name: "SambaNova IP", provider: "sambanova", apiBase: "https://127.0.0.1/openai/v1"},
 		{name: "Moonshot lookalike", provider: "moonshot", apiBase: "https://api.moonshot.ai.evil.example/v1"},
-		{name: "DeepSeek lookalike", provider: "deepseek", apiBase: "https://api.deepseek.com.evil.example"},
-		{name: "Z.ai lookalike", provider: "zai", apiBase: "https://api.z.ai.evil.example/api/paas/v4"},
-		{name: "Z.ai wrong path", provider: "zai", apiBase: "https://api.z.ai/coding/paas/v4"},
+		{name: "DeepSeek IP", provider: "deepseek", apiBase: "https://127.0.0.1/v1"},
+		{name: "DeepSeek localhost", provider: "deepseek", apiBase: "https://localhost/v1"},
+		{name: "Z.ai IP", provider: "zai", apiBase: "https://127.0.0.1/api/paas/v4"},
+		{name: "Z.ai localhost", provider: "zai", apiBase: "https://localhost/api/paas/v4"},
 		{name: "unknown provider", provider: "unknown", apiBase: "https://api.example.com/v1"},
 	}
 
@@ -148,6 +149,35 @@ func TestResolveCredentialProbeRejectsUnsafeCustomURL(t *testing.T) {
 			})
 			if err == nil {
 				t.Fatal("expected unsafe or unsupported credential probe to be rejected")
+			}
+		})
+	}
+}
+
+func TestResolveCredentialProbeAllowsBYOKGatewayHosts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		provider string
+		apiBase  string
+	}{
+		{name: "DeepSeek lookalike", provider: "deepseek", apiBase: "https://api.deepseek.com.evil.example"},
+		{name: "DeepSeek gateway", provider: "deepseek", apiBase: "https://my-gateway.example.com/deepseek/v1"},
+		{name: "Z.ai lookalike", provider: "zai", apiBase: "https://api.z.ai.evil.example/api/paas/v4"},
+		{name: "Z.ai wrong path", provider: "zai", apiBase: "https://api.z.ai/coding/paas/v4"},
+		{name: "Z.ai gateway", provider: "zai", apiBase: "https://my-gateway.example.com/zai/v4"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := resolveCredentialProbe(platform.Deployment{
+				Provider: test.provider,
+				APIBase:  test.apiBase,
+			}); err != nil {
+				t.Fatalf("expected BYOK gateway host to be accepted: %v", err)
 			}
 		})
 	}

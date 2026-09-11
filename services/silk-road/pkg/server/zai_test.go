@@ -65,9 +65,28 @@ func TestZAIAdapterFailsClosedForUnsafeAndDisputedContracts(t *testing.T) {
 		t.Fatalf("expected page limit error, got %v", err)
 	}
 
-	payload.Deployment.APIBase = "https://api.z.ai.evil.example/api/paas/v4"
+	payload.Body = []byte(`{"model":"glm-ocr","file":"https://example.com/a.pdf","start_page_id":1,"end_page_id":2}`)
+
+	payload.Deployment.APIBase = "https://127.0.0.1/api/paas/v4"
 	if _, _, err := validateZAIDispatch(payload); err == nil || !strings.Contains(err.Error(), "invalid_api_base") {
 		t.Fatalf("expected unsafe base error, got %v", err)
+	}
+
+	payload.Deployment.APIBase = "https://localhost/api/paas/v4"
+	if _, _, err := validateZAIDispatch(payload); err == nil || !strings.Contains(err.Error(), "invalid_api_base") {
+		t.Fatalf("expected unsafe base error, got %v", err)
+	}
+}
+
+func TestZAIAdapterAllowsBYOKGatewayHosts(t *testing.T) {
+	for _, raw := range []string{
+		"https://api.z.ai/api/paas/v4",
+		"https://my-gateway.example.com/zai/v4",
+		"https://api.z.ai.evil.example/api/paas/v4",
+	} {
+		if err := validateZAIBaseURL(raw); err != nil {
+			t.Fatalf("BYOK API base rejected: %s: %v", raw, err)
+		}
 	}
 }
 

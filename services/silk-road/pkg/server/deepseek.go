@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -152,16 +151,12 @@ func validateDeepSeekDispatchBody(payload platform.TunnelRequest) (map[string]js
 	return body, nil
 }
 
+// validateDeepSeekBaseURL allows a BYOK tenant to point DeepSeek traffic at
+// a compatible gateway instead of the official host. It only enforces the
+// general BYOK api_base safety rules (see validateBYOKAPIBase); it does not
+// pin the host to the canonical api.deepseek.com or forbid a port/path.
 func validateDeepSeekBaseURL(raw string) error {
-	value := strings.TrimSpace(raw)
-	if value == "" {
-		return nil
-	}
-
-	parsed, err := url.Parse(value)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "api.deepseek.com" ||
-		parsed.Port() != "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" ||
-		(parsed.EscapedPath() != "" && parsed.EscapedPath() != "/") {
+	if err := validateBYOKAPIBase(raw); err != nil {
 		return fmt.Errorf("deepseek_invalid_api_base")
 	}
 

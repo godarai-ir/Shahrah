@@ -51,13 +51,12 @@ func ValidateProviderAPIBase(provider string, raw string) (string, error) {
 		return "", fmt.Errorf("%w: host must be an approved provider domain", ErrInvalidProviderAPIBase)
 	}
 
-	if !providerAPIBaseHostAllowed(provider, hostname) {
-		return "", fmt.Errorf("%w: host is not allowed for provider %q", ErrInvalidProviderAPIBase, strings.TrimSpace(provider))
+	if hostname == "localhost" {
+		return "", fmt.Errorf("%w: host must be an approved provider domain", ErrInvalidProviderAPIBase)
 	}
 
-	if normalizeProviderAPIBaseProvider(provider) == "deepseek" &&
-		(parsed.Port() != "" || parsed.EscapedPath() != "" && parsed.EscapedPath() != "/") {
-		return "", fmt.Errorf("%w: DeepSeek requires its canonical host without a port or path", ErrInvalidProviderAPIBase)
+	if !providerAllowsAnyAPIBaseHost(provider) && !providerAPIBaseHostAllowed(provider, hostname) {
+		return "", fmt.Errorf("%w: host is not allowed for provider %q", ErrInvalidProviderAPIBase, strings.TrimSpace(provider))
 	}
 
 	parsed.Scheme = "https"
@@ -170,6 +169,20 @@ func hostMatchesAllowed(hostname string, allowed string) bool {
 	}
 
 	return hostname == allowed
+}
+
+// providerAllowsAnyAPIBaseHost reports whether provider is a BYOK-style
+// provider whose api_base is not tied to a single vendor domain (e.g. an
+// OpenAI-compatible gateway or self-hosted deployment). These providers only
+// need to satisfy the general URL safety checks above (HTTPS, no userinfo,
+// no query/fragment, no IP literal or localhost).
+func providerAllowsAnyAPIBaseHost(provider string) bool {
+	switch normalizeProviderAPIBaseProvider(provider) {
+	case "zai", "deepseek":
+		return true
+	default:
+		return false
+	}
 }
 
 func allowedProviderAPIBaseHosts(provider string) []string {

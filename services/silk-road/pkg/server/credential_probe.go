@@ -220,6 +220,36 @@ func normalizeCredentialProbeProvider(provider string) string {
 	}
 }
 
+// validateBYOKAPIBase enforces the general safety rules for a self-hosted or
+// gateway api_base supplied by a BYOK tenant (HTTPS, no credentials embedded
+// in the URL, no query/fragment, not an IP literal or a local/internal
+// hostname) without pinning the host to a single vendor domain. Empty values
+// are accepted; callers substitute their provider's default host.
+func validateBYOKAPIBase(raw string) error {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme != "https" || parsed.User != nil ||
+		parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("api_base must be an absolute HTTPS URL")
+	}
+
+	host := strings.ToLower(parsed.Hostname())
+	if host == "" {
+		return fmt.Errorf("api_base host is required")
+	}
+
+	if net.ParseIP(host) != nil || host == "localhost" ||
+		strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".internal") {
+		return fmt.Errorf("api_base host must not be a local or internal address")
+	}
+
+	return nil
+}
+
 func safeCredentialProbeURL(provider, raw string) bool {
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
@@ -250,7 +280,10 @@ func safeCredentialProbeURL(provider, raw string) bool {
 	case "databricks":
 		return strings.HasSuffix(host, ".cloud.databricks.com") ||
 			strings.HasSuffix(host, ".azuredatabricks.net") || strings.HasSuffix(host, ".gcp.databricks.com")
-	case "sambanova":
+	case "sambanova", "zai", "deepseek":
+		// BYOK providers: the general HTTPS/IP-literal/local-hostname checks
+		// above already apply; the host itself is not pinned to a vendor
+		// domain so tenants can point at a compatible gateway.
 		return true
 	default:
 		return false

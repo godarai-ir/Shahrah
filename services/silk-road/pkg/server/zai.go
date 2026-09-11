@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 
@@ -195,16 +194,12 @@ func normalizeZAIUserID(
 	body["user_id"] = json.RawMessage(fmt.Sprintf("%q", "gdr_"+fmt.Sprintf("%x", mac.Sum(nil))[:60]))
 }
 
+// validateZAIBaseURL allows a BYOK tenant to point z.ai traffic at a
+// compatible gateway instead of the official host. It only enforces the
+// general BYOK api_base safety rules (see validateBYOKAPIBase); it does not
+// pin the host or path to the canonical https://api.z.ai/api/paas/v4.
 func validateZAIBaseURL(raw string) error {
-	value := strings.TrimRight(strings.TrimSpace(raw), "/")
-	if value == "" {
-		return nil
-	}
-
-	parsed, err := url.Parse(value)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "api.z.ai" ||
-		parsed.Port() != "" || parsed.User != nil || parsed.RawQuery != "" ||
-		parsed.Fragment != "" || parsed.EscapedPath() != "/api/paas/v4" {
+	if err := validateBYOKAPIBase(raw); err != nil {
 		return fmt.Errorf("zai_invalid_api_base")
 	}
 
