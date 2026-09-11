@@ -85,6 +85,11 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
     isZAI && column.selectedModel.toLowerCase().endsWith("glm-5v-turbo");
   const isZAI52 =
     isZAI && column.selectedModel.toLowerCase().endsWith("glm-5.2");
+  const isZAI53 =
+    isZAI && column.selectedModel.toLowerCase().endsWith("glm-5.3");
+  const isZAI53Flash =
+    isZAI && column.selectedModel.toLowerCase().endsWith("glm-5.3-flash");
+  const supportsReasoningEffort = isZAI52 || isZAI53 || isZAI53Flash;
   const cacheLimits = resolveCacheLimits(props.cacheEntitlements);
   const cacheUnavailable =
     !cacheLimits.simpleEnabled && !cacheLimits.semanticEnabled;
@@ -251,7 +256,9 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
                       changeConfig({ maxTokens: event.target.value })
                     }
                   />
-                  {!isZAI || isZAI52 || Boolean(config.reasoningEffort) ? (
+                  {!isZAI ||
+                  supportsReasoningEffort ||
+                  Boolean(config.reasoningEffort) ? (
                     <AppSelectField
                       label={props.t("settings.reasoning")}
                       value={config.reasoningEffort || "default"}
@@ -261,19 +268,31 @@ export function PlaygroundSettingsSheet(props: PlaygroundSettingsSheetProps) {
                           reasoningEffort: value === "default" ? "" : value,
                         })
                       }
-                      options={[
-                        {
-                          value: "default",
-                          label: props.t("settings.reasoningNone"),
-                        },
-                        { value: "none", label: "none" },
-                        { value: "minimal", label: "minimal" },
-                        { value: "low", label: "low" },
-                        { value: "medium", label: "medium" },
-                        { value: "high", label: "high" },
-                        { value: "xhigh", label: "xhigh" },
-                        { value: "max", label: "max" },
-                      ]}
+                      options={
+                        isZAI53
+                          ? [
+                              {
+                                value: "default",
+                                label: props.t("settings.reasoningNone"),
+                              },
+                              { value: "low", label: "low" },
+                              { value: "high", label: "high" },
+                              { value: "max", label: "max" },
+                            ]
+                          : [
+                              {
+                                value: "default",
+                                label: props.t("settings.reasoningNone"),
+                              },
+                              { value: "none", label: "none" },
+                              { value: "minimal", label: "minimal" },
+                              { value: "low", label: "low" },
+                              { value: "medium", label: "medium" },
+                              { value: "high", label: "high" },
+                              { value: "xhigh", label: "xhigh" },
+                              { value: "max", label: "max" },
+                            ]
+                      }
                       optionTextDir="ltr"
                     />
                   ) : null}

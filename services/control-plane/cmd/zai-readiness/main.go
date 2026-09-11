@@ -81,6 +81,14 @@ func run(args []string, output io.Writer) error {
 			"messages": []map[string]interface{}{{"role": "user", "content": "Reply with OK."}},
 			"thinking": map[string]string{"type": "disabled"}, "do_sample": false, "max_tokens": 8,
 		}),
+		postCheck(ctx, client, config, "chat_glm_5_3_flash", "glm-5.3-flash", "/v1/chat/completions", map[string]interface{}{
+			"messages": []map[string]interface{}{{"role": "user", "content": "Reply with OK."}},
+			"thinking": map[string]string{"type": "enabled"}, "max_tokens": 8,
+		}),
+		postCheck(ctx, client, config, "chat_glm_5_3", "glm-5.3", "/v1/chat/completions", map[string]interface{}{
+			"messages": []map[string]interface{}{{"role": "user", "content": "Reply with OK."}},
+			"thinking": map[string]string{"type": "enabled"}, "reasoning_effort": "low", "max_tokens": 8,
+		}),
 		postCheck(ctx, client, config, "tools_glm_5_2", "glm-5.2", "/v1/chat/completions", map[string]interface{}{
 			"messages": []map[string]interface{}{{"role": "user", "content": "Call the ping function."}},
 			"thinking": map[string]string{"type": "disabled"}, "max_tokens": 32,

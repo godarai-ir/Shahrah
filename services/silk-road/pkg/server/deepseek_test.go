@@ -93,25 +93,39 @@ func TestDeepSeekIsolationSeparatesTenantsAndFailsClosed(t *testing.T) {
 	}
 }
 
-func TestDeepSeekAdapterRejectsUnsupportedOperationsAndHosts(t *testing.T) {
+func TestDeepSeekAdapterRejectsUnsupportedOperations(t *testing.T) {
 	payload := deepSeekTestPayload("tenant-a", "deepseek-v4-pro")
 
 	payload.Operation = platform.ProviderOperationOpenAIResponsesGet
 	if err := validateDeepSeekDispatch(payload); err == nil || !strings.Contains(err.Error(), "unsupported_operation") {
 		t.Fatalf("Responses resources must be rejected: %v", err)
 	}
+}
 
+func TestDeepSeekAdapterAcceptsBYOKGatewayHosts(t *testing.T) {
 	for _, raw := range []string{
-		"https://api.deepseek.com.evil.example",
+		"https://api.deepseek.com",
 		"https://api.deepseek.com/v1",
+		"https://api.deepseek.com.evil.example",
+		"https://my-gateway.example.com/deepseek/v1",
+	} {
+		if err := validateDeepSeekBaseURL(raw); err != nil {
+			t.Fatalf("BYOK API base rejected: %s: %v", raw, err)
+		}
+	}
+}
+
+func TestDeepSeekAdapterRejectsUnsafeHosts(t *testing.T) {
+	for _, raw := range []string{
+		"https://127.0.0.1/v1",
+		"https://localhost/v1",
+		"http://api.deepseek.com",
+		"https://user:pass@api.deepseek.com",
+		"https://api.deepseek.com/v1?foo=bar",
 	} {
 		if err := validateDeepSeekBaseURL(raw); err == nil {
 			t.Fatalf("unsafe API base accepted: %s", raw)
 		}
-	}
-
-	if err := validateDeepSeekBaseURL("https://api.deepseek.com"); err != nil {
-		t.Fatalf("canonical API base rejected: %v", err)
 	}
 }
 

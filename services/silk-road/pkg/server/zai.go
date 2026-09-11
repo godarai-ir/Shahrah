@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 
@@ -24,6 +23,8 @@ var zaiModels = map[string]string{
 	"glm-5.2":        "chat_completions",
 	"glm-4.7-flashx": "chat_completions",
 	"glm-5v-turbo":   "chat_completions",
+	"glm-5.3-flash":  "chat_completions",
+	"glm-5.3":        "chat_completions",
 	"glm-ocr":        "layout_parsing",
 }
 
@@ -147,12 +148,12 @@ func validateZAIDispatch(payload platform.TunnelRequest) (string, []byte, error)
 		}
 	}
 
-	if err := validateZAIRequestValues(model, endpoint, body); err != nil {
+	if err := validateZAIRequestValues(model, endpoint, body, binding.Profile); err != nil {
 		return "", nil, err
 	}
 
 	if endpoint == "chat_completions" {
-		normalizeZAIReasoningEffort(body)
+		normalizeZAIReasoningEffort(binding.Profile, body)
 	}
 
 	normalizeZAIUserID(payload, body, binding.Profile.AllowsParameter(endpoint, "user_id"))
@@ -195,16 +196,12 @@ func normalizeZAIUserID(
 	body["user_id"] = json.RawMessage(fmt.Sprintf("%q", "gdr_"+fmt.Sprintf("%x", mac.Sum(nil))[:60]))
 }
 
+// validateZAIBaseURL allows a BYOK tenant to point z.ai traffic at a
+// compatible gateway instead of the official host. It only enforces the
+// general BYOK api_base safety rules (see validateBYOKAPIBase); it does not
+// pin the host or path to the canonical https://api.z.ai/api/paas/v4.
 func validateZAIBaseURL(raw string) error {
-	value := strings.TrimRight(strings.TrimSpace(raw), "/")
-	if value == "" {
-		return nil
-	}
-
-	parsed, err := url.Parse(value)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "api.z.ai" ||
-		parsed.Port() != "" || parsed.User != nil || parsed.RawQuery != "" ||
-		parsed.Fragment != "" || parsed.EscapedPath() != "/api/paas/v4" {
+	if err := validateBYOKAPIBase(raw); err != nil {
 		return fmt.Errorf("zai_invalid_api_base")
 	}
 
@@ -215,6 +212,7 @@ func validateZAIRequestValues(
 	model string,
 	endpoint string,
 	body map[string]json.RawMessage,
+	profile platform.ModelRuntimeProfile,
 ) error {
 	if err := validateZAIIdentifierFields(body); err != nil {
 		return err
@@ -240,6 +238,10 @@ func validateZAIRequestValues(
 
 	if _, ok := body["messages"]; !ok {
 		return fmt.Errorf("zai_messages_required")
+	}
+
+	if err := validateZAIThinkingValue(profile, body); err != nil {
+		return err
 	}
 
 	for field, bounds := range map[string][2]float64{
@@ -286,6 +288,43 @@ func validateZAIRequestValues(
 		if _, ok := body["tools"]; ok {
 			return fmt.Errorf("zai_vision_tools_not_verified")
 		}
+	}
+
+	return nil
+}
+
+// validateZAIThinkingValue enforces the model's runtime-profile thinking
+// contract at the adapter layer, independently of the control-plane request
+// validator. Most Z.ai chat models allow toggling thinking.type between
+// "enabled" and "disabled", but some (for example glm-5.3-flash) always run
+// with thinking enabled and must reject an explicit "disabled" request
+// before it can reach the upstream provider.
+func validateZAIThinkingValue(profile platform.ModelRuntimeProfile, body map[string]json.RawMessage) error {
+	raw, ok := body["thinking"]
+	if !ok {
+		return nil
+	}
+
+	var thinking struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal(raw, &thinking) != nil {
+		return fmt.Errorf("zai_thinking_invalid")
+	}
+
+	switch strings.ToLower(strings.TrimSpace(thinking.Type)) {
+	case "":
+		// No explicit directive; nothing to enforce here.
+	case "enabled":
+		if !profile.AllowsThinkingMode("adaptive") {
+			return fmt.Errorf("zai_thinking_enabled_unsupported")
+		}
+	case "disabled":
+		if !profile.AllowsThinkingMode("disabled") {
+			return fmt.Errorf("zai_thinking_disabled_unsupported")
+		}
+	default:
+		return fmt.Errorf("zai_thinking_invalid")
 	}
 
 	return nil
@@ -393,7 +432,7 @@ func validateZAITools(body map[string]json.RawMessage) error {
 	return nil
 }
 
-func normalizeZAIReasoningEffort(body map[string]json.RawMessage) {
+func normalizeZAIReasoningEffort(profile platform.ModelRuntimeProfile, body map[string]json.RawMessage) {
 	raw, exists := body["reasoning_effort"]
 	if !exists {
 		return
@@ -406,9 +445,26 @@ func normalizeZAIReasoningEffort(body map[string]json.RawMessage) {
 
 	switch strings.ToLower(strings.TrimSpace(effort)) {
 	case "none", "minimal":
+		if !profile.AllowsThinkingMode("disabled") {
+			// This model's thinking can never be disabled; leave any
+			// explicit thinking control untouched and drop only the
+			// unsupported low-effort alias.
+			delete(body, "reasoning_effort")
+
+			return
+		}
+
 		body["thinking"] = json.RawMessage(`{"type":"disabled"}`)
 		delete(body, "reasoning_effort")
-	case "low", "medium":
+	case "low":
+		// A model whose declared reasoning_effort enum omits "medium" (for
+		// example glm-5.3's documented low/high/max) treats "low" as a
+		// genuinely distinct, natively supported tier rather than a
+		// client-compatibility alias that needs collapsing toward "high".
+		if profile.AllowsEffort("medium") {
+			body["reasoning_effort"] = json.RawMessage(`"high"`)
+		}
+	case "medium":
 		body["reasoning_effort"] = json.RawMessage(`"high"`)
 	case "xhigh":
 		body["reasoning_effort"] = json.RawMessage(`"max"`)

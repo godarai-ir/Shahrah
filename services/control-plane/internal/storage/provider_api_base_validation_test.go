@@ -56,13 +56,48 @@ func TestValidateProviderAPIBaseRejectsSSRFTargets(t *testing.T) {
 	}
 }
 
-func TestValidateProviderAPIBaseRejectsNonCanonicalDeepSeekURLs(t *testing.T) {
-	for _, raw := range []string{
-		"https://api.deepseek.com:8443",
-		"https://api.deepseek.com/v1",
-		"https://api.deepseek.com.evil.example",
-	} {
-		_, err := ValidateProviderAPIBase("deepseek", raw)
-		require.ErrorIs(t, err, ErrInvalidProviderAPIBase)
+func TestValidateProviderAPIBaseAllowsAnyHostForBYOKProviders(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		raw      string
+		want     string
+	}{
+		{name: "zai custom gateway", provider: "zai", raw: "https://my-gateway.example.com/zai/v4/", want: "https://my-gateway.example.com/zai/v4"},
+		{name: "zai canonical host", provider: "zai", raw: "https://api.z.ai/api/paas/v4", want: "https://api.z.ai/api/paas/v4"},
+		{name: "deepseek custom gateway", provider: "deepseek", raw: "https://my-gateway.example.com/v1/", want: "https://my-gateway.example.com/v1"},
+		{name: "deepseek with port and path", provider: "deepseek", raw: "https://api.deepseek.com:8443/v1", want: "https://api.deepseek.com:8443/v1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ValidateProviderAPIBase(tt.provider, tt.raw)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestValidateProviderAPIBaseRejectsSSRFTargetsForBYOKProviders(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		raw      string
+	}{
+		{name: "zai loopback", provider: "zai", raw: "https://127.0.0.1:8080/v1"},
+		{name: "zai localhost", provider: "zai", raw: "https://localhost:8080/v1"},
+		{name: "zai metadata service", provider: "zai", raw: "http://169.254.169.254/latest/meta-data"},
+		{name: "deepseek loopback", provider: "deepseek", raw: "https://127.0.0.1:8080/v1"},
+		{name: "deepseek localhost", provider: "deepseek", raw: "https://localhost:8080/v1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ValidateProviderAPIBase(tt.provider, tt.raw)
+
+			require.Error(t, err)
+			assert.ErrorIs(t, err, ErrInvalidProviderAPIBase)
+		})
 	}
 }

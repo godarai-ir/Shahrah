@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	contractsopenai "github.com/Delpak/shahrah/packages/contracts/openai"
+	"github.com/Delpak/shahrah/packages/contracts/platform"
 )
 
 func TestZAILayoutParsingValidatesOfficialContract(t *testing.T) {
@@ -45,6 +46,68 @@ func TestZAIOCRUsageRequiresProviderTokenCounts(t *testing.T) {
 
 	if _, err := zaiOCRUsage([]byte(`{"id":"missing_usage"}`)); err == nil {
 		t.Fatal("missing GLM-OCR usage was accepted")
+	}
+}
+
+func TestZAIThinkingRequestRespectsAlwaysEnabledModels(t *testing.T) {
+	toggleable := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
+		},
+	}
+	alwaysEnabled := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+		},
+	}
+
+	disabled := &contractsopenai.ThinkingConfig{Type: "disabled"}
+	enabled := &contractsopenai.ThinkingConfig{Type: "enabled"}
+
+	if err := validateZAIThinkingRequest(contractsopenai.ChatCompletionRequest{Thinking: disabled}, toggleable); err != nil {
+		t.Fatalf("thinking.type=disabled rejected for a toggleable Z.ai model: %v", err)
+	}
+
+	if err := validateZAIThinkingRequest(contractsopenai.ChatCompletionRequest{Thinking: enabled}, alwaysEnabled); err != nil {
+		t.Fatalf("thinking.type=enabled rejected for glm-5.3-flash-style always-enabled model: %v", err)
+	}
+
+	if err := validateZAIThinkingRequest(contractsopenai.ChatCompletionRequest{Thinking: disabled}, alwaysEnabled); err == nil {
+		t.Fatal("thinking.type=disabled was accepted for an always-enabled-thinking Z.ai model")
+	}
+
+	if err := validateZAIThinkingRequest(contractsopenai.ChatCompletionRequest{}, alwaysEnabled); err != nil {
+		t.Fatalf("omitted thinking was rejected for an always-enabled-thinking Z.ai model: %v", err)
+	}
+}
+
+// TestZAIEffortValuesRespectPerModelEnum proves glm-5.3's narrower
+// low/high/max reasoning_effort enum rejects values the wider 7-value set
+// used by glm-5.2 and the other zai chat models still accepts.
+func TestZAIEffortValuesRespectPerModelEnum(t *testing.T) {
+	glm53 := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+			EffortValues: []string{"low", "high", "max"},
+		},
+	}
+	glm52 := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
+			EffortValues: []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"},
+		},
+	}
+
+	if glm53.AllowsEffort("medium") {
+		t.Fatal("glm-5.3 accepted an unsupported reasoning_effort value")
+	}
+
+	if !glm53.AllowsEffort("low") || !glm53.AllowsEffort("high") || !glm53.AllowsEffort("max") {
+		t.Fatal("glm-5.3 rejected one of its own documented reasoning_effort values")
+	}
+
+	if !glm52.AllowsEffort("medium") {
+		t.Fatal("glm-5.2's wider reasoning_effort enum regressed")
 	}
 }
 
