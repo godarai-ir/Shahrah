@@ -397,13 +397,21 @@ func (zaiPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.Usage
 }
 
 // tokenBazaarPricingStrategy uses the plain, no-conditions decimal cost
-// calculator: TokenBazaar's confirmed contract reports standard OpenAI
-// usage.prompt_tokens/completion_tokens/total_tokens with no documented
-// cache/conditional-rate dimensions (unlike DeepSeek/Moonshot/Z.ai), so the
+// calculator for Estimate: TokenBazaar's chat-completions contract reports
+// standard OpenAI usage.prompt_tokens/completion_tokens/total_tokens, so the
 // embedded standardPricingStrategy's exact-decimal costBreakdown is used
-// unmodified for both Estimate and FinalizeUsage.
+// unmodified there.
 //
-// This unmodified FinalizeUsage path also covers the embeddings cost
+// FinalizeUsage is overridden: the Anthropic Messages capability added for the
+// four Claude models reports cache_read_input_tokens and
+// cache_creation_input_tokens separately from input_tokens, and the catalog
+// pins a cache_read_input_token_cost for those models, so the flat
+// standardPricingStrategy.FinalizeUsage would bill every cached token at zero.
+// See tokenBazaarUsageCostBreakdown in pricing_strategy_tokenbazaar.go for how
+// the two cached-token conventions (Anthropic-additive vs OpenAI/Gemini-
+// inclusive) are reconciled.
+//
+// The standard breakdown still covers the embeddings cost
 // dimension for text-embedding-3-large: its response usage
 // (prompt_tokens/total_tokens, completion_tokens always 0) is billed via the
 // same generic costBreakdown using the already-pinned official OpenAI rate
@@ -412,8 +420,9 @@ func (zaiPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.Usage
 // always exactly 0 for this model -- see
 // TestTokenBazaarPricingStrategyFinalizesEmbeddingsUsageWithExactDecimalCost
 // and TestTokenBazaarPricingStrategyEmbeddingsOutputCostIsAlwaysZero in
-// tokenbazaar_embeddings_pricing_test.go. No FinalizeUsage override was
-// needed or added for embeddings, unlike the FinalizeImage override below.
+// tokenbazaar_embeddings_pricing_test.go. An embeddings response never
+// reports cached tokens, so FinalizeUsage's override below delegates straight
+// back to the inherited standard path for it.
 //
 // FinalizeImage is overridden below: TokenBazaar's 4 image models' catalog
 // `costs` blocks were pinned verbatim from the corresponding direct
@@ -429,14 +438,40 @@ type tokenBazaarPricingStrategy struct {
 	standardPricingStrategy
 }
 
+// FinalizeUsage prices cached input tokens, which the inherited flat
+// breakdown ignores. Usage without any cached dimension -- every embeddings
+// response, and every uncached completion -- delegates to the inherited path
+// unchanged, so this override only ever adds billing that was previously
+// dropped.
+func (s tokenBazaarPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
+	if !tokenBazaarUsageHasCachedTokens(input.usage) {
+		return s.standardPricingStrategy.FinalizeUsage(input)
+	}
+
+	return tokenBazaarUsageCostBreakdown(input.model, input.usage, input.price, input.exchangeRate)
+}
+
 // tokenBazaarImageModelFamily identifies which direct provider's image cost
 // dimensions a TokenBazaar image model's pinned catalog costs follow. This
 // mirrors tokenBazaarImageModels in
 // services/silk-road/pkg/server/tokenbazaar.go (kept in sync manually since
 // the two packages do not share a dependency edge); if a 5th TokenBazaar
 // image model is ever added, it must be classified here too.
+//
+// The model id is normalized to its bare, provider-facing form first. The
+// production caller reaches FinalizeImage through
+// billingModelForDeployment (services/control-plane/internal/proxy/handler.go),
+// which returns a provider-qualified "tokenbazaar/<model-id>", so matching the
+// bare id alone would silently drop every request into the default branch and
+// bill it with the generic token breakdown instead of the pinned per-image
+// dimensions. Bare ids stay accepted so the classification does not depend on
+// which spelling a caller happens to hold.
 func tokenBazaarImageModelFamily(model string) string {
 	model = strings.ToLower(strings.TrimSpace(model))
+
+	if _, officialModel, ok := providerregistry.SplitQualifiedModel(model); ok {
+		model = officialModel
+	}
 
 	switch model {
 	case "gpt-image-2":

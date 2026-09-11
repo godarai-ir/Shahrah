@@ -141,6 +141,18 @@ func TestTokenBazaarImageModelFamilyClassifiesAllFourInScopeModels(t *testing.T)
 		"gemini-3.1-flash-lite-image": "google-gemini",
 		"claude-sonnet-5":             "",
 		"text-embedding-3-large":      "",
+
+		// The spelling production actually supplies: FinalizeImage is reached
+		// from ImagesHandler via billingModelForDeployment
+		// (services/control-plane/internal/proxy/handler.go), which returns
+		// "<provider>/<model-id>". Matching only the bare ids above dropped
+		// every real request into the default branch and billed it with the
+		// generic token breakdown instead of the pinned per-image dimensions.
+		"tokenbazaar/gpt-image-2":                 "openai",
+		"tokenbazaar/gemini-3-pro-image":          "google-gemini",
+		"tokenbazaar/gemini-3.1-flash-image":      "google-gemini",
+		"tokenbazaar/gemini-3.1-flash-lite-image": "google-gemini",
+		"tokenbazaar/claude-sonnet-5":             "",
 	}
 
 	for model, want := range tests {
@@ -148,6 +160,72 @@ func TestTokenBazaarImageModelFamilyClassifiesAllFourInScopeModels(t *testing.T)
 			t.Errorf("tokenBazaarImageModelFamily(%q) = %q, want %q", model, got, want)
 		}
 	}
+}
+
+// TestTokenBazaarPricingStrategyPricesProviderQualifiedImageModelIdentically
+// asserts FinalizeImage produces the same pinned per-image breakdown for the
+// provider-qualified model id production sends as it does for the bare id,
+// rather than silently falling back to the flat token breakdown.
+func TestTokenBazaarPricingStrategyPricesProviderQualifiedImageModelIdentically(t *testing.T) {
+	price := priceInfo{
+		Provider: "tokenbazaar",
+		Rates: map[string]normalizedPricingRate{
+			"input_tokens":            tokenBazaarImageRate("input_tokens", "0.000005"),
+			"image_input_tokens":      tokenBazaarImageRate("image_input_tokens", "0.000008"),
+			"cache_read_tokens":       tokenBazaarImageRate("cache_read_tokens", "0.00000125"),
+			"image_cache_read_tokens": tokenBazaarImageRate("image_cache_read_tokens", "0.000002"),
+			"image_output_tokens":     tokenBazaarImageRate("image_output_tokens", "0.00003"),
+		},
+	}
+
+	usage := &contractsopenai.Usage{
+		PromptTokens:     330,
+		CompletionTokens: 300,
+		TotalTokens:      630,
+		PromptTokensDetails: &contractsopenai.UsageTokenDetails{
+			TextTokens:        110,
+			ImageTokens:       220,
+			CachedTextTokens:  10,
+			CachedImageTokens: 20,
+		},
+	}
+
+	finalize := func(model string) float64 {
+		got, err := pricingStrategy("tokenbazaar").FinalizeImage(pricingImageInput{
+			pricingUsageInput: pricingUsageInput{
+				model:        model,
+				usage:        usage,
+				price:        price,
+				exchangeRate: 1,
+				metadata:     typedmetadata.Wrap(nil),
+			},
+			inputTokens:  usage.PromptTokens,
+			outputTokens: usage.CompletionTokens,
+			totalTokens:  usage.TotalTokens,
+		})
+		require.NoError(t, err)
+
+		return got.TotalCostUSD
+	}
+
+	require.InDelta(t, finalize("gpt-image-2"), finalize("tokenbazaar/gpt-image-2"), 1e-12)
+
+	// And the pinned breakdown must differ from the flat fallback, so the
+	// assertion above cannot pass by both paths collapsing to the same number.
+	flat, err := standardPricingStrategy{}.FinalizeImage(pricingImageInput{
+		pricingUsageInput: pricingUsageInput{
+			model:        "tokenbazaar/gpt-image-2",
+			usage:        usage,
+			price:        price,
+			exchangeRate: 1,
+			metadata:     typedmetadata.Wrap(nil),
+		},
+		inputTokens:  usage.PromptTokens,
+		outputTokens: usage.CompletionTokens,
+		totalTokens:  usage.TotalTokens,
+	})
+	require.NoError(t, err)
+	require.Greater(t, finalize("tokenbazaar/gpt-image-2"), flat.TotalCostUSD)
 }
 
 // TestTokenBazaarPricingStrategyIsRegisteredForTokenBazaarProvider is a
