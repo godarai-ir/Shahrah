@@ -88,14 +88,20 @@ func tokenBazaarUsageHasCachedTokens(usage *openai.Usage) bool {
 // same posture mistralUsageCostBreakdown and anthropicUsageCostBreakdown take,
 // so a pricing gap refuses the request rather than silently mis-billing.
 //
-// Cache writes have no canonical catalog dimension: "cache_write_5m_tokens" /
-// "cache_write_1h_tokens" are produced by the Anthropic snapshot pipeline, not
-// by the generic catalog one, and TokenBazaar has no dimensions-complete gate
-// asserting they exist. They are therefore billed at whichever of those two
-// rates is present, and otherwise folded into the plain input dimension --
-// cache-write tokens are input tokens that were also persisted, so the input
-// rate is a conservative floor rather than a guess at a dimension name that
-// may not exist.
+// Cache writes are billed against "cache_write_5m_tokens" /
+// "cache_write_1h_tokens". apps/model-discovery/scripts/import-models-from-yaml.ts
+// maps the catalog's cache_creation_input_token_cost to cache_write_5m_tokens
+// for every provider slug except "openai", and
+// cache_creation_input_token_cost_per_hour to cache_write_1h_tokens, so those
+// dimensions do exist for TokenBazaar's Claude models (their YAMLs pin
+// cache_creation_input_token_cost).
+//
+// Unlike cache reads this degrades instead of failing closed: TokenBazaar has
+// no dimensions-complete gate (contrast moonshotPricingDimensionsComplete)
+// asserting a cache-write rate is present, so a model that reports cache
+// creation without pinning a rate folds those tokens into the plain input
+// dimension rather than refusing the request. Cache-write tokens are input
+// tokens that were also persisted, so the input rate is a conservative floor.
 func tokenBazaarUsageCostBreakdown(
 	model string,
 	usage *openai.Usage,

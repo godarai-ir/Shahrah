@@ -86,6 +86,76 @@ func TestTokenBazaarPricingStrategyBillsAnthropicStyleCacheReadTokens(t *testing
 	require.Greater(t, got.TotalCostUSD, flat.TotalCostUSD)
 }
 
+// TestTokenBazaarPricingStrategyBillsCacheWriteTokens pins the dimension
+// cache-creation tokens are billed under.
+// apps/model-discovery/scripts/import-models-from-yaml.ts maps the catalog's
+// cache_creation_input_token_cost to "cache_write_5m_tokens" for every
+// provider slug except "openai", and TokenBazaar's Claude YAMLs pin that cost
+// (claude-sonnet-5.yaml: cache_creation_input_token_cost=0.0000035625), so a
+// cache-creation turn must bill against that rate rather than the input rate.
+func TestTokenBazaarPricingStrategyBillsCacheWriteTokens(t *testing.T) {
+	price := tokenBazaarClaudePrice()
+	price.Rates["cache_write_5m_tokens"] = normalizedPricingRate{
+		Dimension:    "cache_write_5m_tokens",
+		Unit:         "token",
+		UnitPriceUSD: decimal.RequireFromString("0.0000035625"),
+	}
+
+	usage := &contractsopenai.Usage{
+		PromptTokens:             50,
+		CompletionTokens:         100,
+		CacheCreationInputTokens: 20000,
+	}
+
+	got, err := pricingStrategy("tokenbazaar").FinalizeUsage(pricingUsageInput{
+		model:        "claude-sonnet-5",
+		usage:        usage,
+		price:        price,
+		exchangeRate: 1,
+	})
+	require.NoError(t, err)
+
+	//   input_tokens          =    50 @ 0.00000285   = 0.0001425
+	//   output_tokens         =   100 @ 0.00001425   = 0.001425
+	//   cache_write_5m_tokens = 20000 @ 0.0000035625 = 0.07125
+	expected := decimal.RequireFromString("0.0001425").
+		Add(decimal.RequireFromString("0.001425")).
+		Add(decimal.RequireFromString("0.07125"))
+
+	expectedFloat, _ := expected.Float64()
+	require.InDelta(t, expectedFloat, got.TotalCostUSD, 1e-12)
+}
+
+// TestTokenBazaarPricingStrategyFoldsCacheWriteIntoInputWhenRateMissing covers
+// the deliberate degrade: a model reporting cache creation without a pinned
+// cache-write rate bills those tokens at the input rate rather than refusing
+// the request or, as before, dropping them entirely.
+func TestTokenBazaarPricingStrategyFoldsCacheWriteIntoInputWhenRateMissing(t *testing.T) {
+	price := tokenBazaarClaudePrice()
+
+	usage := &contractsopenai.Usage{
+		PromptTokens:             50,
+		CompletionTokens:         100,
+		CacheCreationInputTokens: 20000,
+	}
+
+	got, err := pricingStrategy("tokenbazaar").FinalizeUsage(pricingUsageInput{
+		model:        "claude-sonnet-5",
+		usage:        usage,
+		price:        price,
+		exchangeRate: 1,
+	})
+	require.NoError(t, err)
+
+	//   input_tokens  = 50 + 20000 = 20050 @ 0.00000285 = 0.0571425
+	//   output_tokens =         100        @ 0.00001425 = 0.001425
+	expected := decimal.RequireFromString("0.0571425").
+		Add(decimal.RequireFromString("0.001425"))
+
+	expectedFloat, _ := expected.Float64()
+	require.InDelta(t, expectedFloat, got.TotalCostUSD, 1e-12)
+}
+
 // TestTokenBazaarPricingStrategyDoesNotDoubleCountOpenAIStyleCachedTokens
 // covers the other convention: the OpenAI and Gemini envelopes report cached
 // tokens INSIDE prompt_tokens, so the cached portion must be subtracted from
