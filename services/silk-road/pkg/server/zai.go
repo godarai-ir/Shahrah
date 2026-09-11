@@ -23,7 +23,15 @@ var zaiModels = map[string]string{
 	"glm-5.2":        "chat_completions",
 	"glm-4.7-flashx": "chat_completions",
 	"glm-5v-turbo":   "chat_completions",
+	"glm-5.3-flash":  "chat_completions",
 	"glm-ocr":        "layout_parsing",
+}
+
+// zaiModelsAlwaysThinking lists Z.ai chat models whose thinking cannot be
+// disabled per the official model guide (for example glm-5.3-flash only
+// documents thinking.type=enabled).
+var zaiModelsAlwaysThinking = map[string]bool{
+	"glm-5.3-flash": true,
 }
 
 var zaiFunctionNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -151,7 +159,7 @@ func validateZAIDispatch(payload platform.TunnelRequest) (string, []byte, error)
 	}
 
 	if endpoint == "chat_completions" {
-		normalizeZAIReasoningEffort(body)
+		normalizeZAIReasoningEffort(model, body)
 	}
 
 	normalizeZAIUserID(payload, body, binding.Profile.AllowsParameter(endpoint, "user_id"))
@@ -388,7 +396,7 @@ func validateZAITools(body map[string]json.RawMessage) error {
 	return nil
 }
 
-func normalizeZAIReasoningEffort(body map[string]json.RawMessage) {
+func normalizeZAIReasoningEffort(model string, body map[string]json.RawMessage) {
 	raw, exists := body["reasoning_effort"]
 	if !exists {
 		return
@@ -401,6 +409,15 @@ func normalizeZAIReasoningEffort(body map[string]json.RawMessage) {
 
 	switch strings.ToLower(strings.TrimSpace(effort)) {
 	case "none", "minimal":
+		if zaiModelsAlwaysThinking[model] {
+			// This model's thinking can never be disabled; leave any
+			// explicit thinking control untouched and drop only the
+			// unsupported low-effort alias.
+			delete(body, "reasoning_effort")
+
+			return
+		}
+
 		body["thinking"] = json.RawMessage(`{"type":"disabled"}`)
 		delete(body, "reasoning_effort")
 	case "low", "medium":

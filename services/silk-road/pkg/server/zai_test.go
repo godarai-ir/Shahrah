@@ -78,6 +78,20 @@ func TestZAIAdapterFailsClosedForUnsafeAndDisputedContracts(t *testing.T) {
 	}
 }
 
+func TestZAIAdapterRoutesGLM53FlashToChatCompletions(t *testing.T) {
+	payload := zaiTestPayload("glm-5.3-flash", "chat_completions")
+	payload.Body = []byte(`{"model":"glm-5.3-flash","messages":[{"role":"user","content":"hello"}]}`)
+
+	endpoint, _, err := validateZAIDispatch(payload)
+	if err != nil {
+		t.Fatalf("validate glm-5.3-flash dispatch: %v", err)
+	}
+
+	if endpoint != "chat_completions" {
+		t.Fatalf("endpoint = %q", endpoint)
+	}
+}
+
 func TestZAIAdapterAllowsBYOKGatewayHosts(t *testing.T) {
 	for _, raw := range []string{
 		"https://api.z.ai/api/paas/v4",
@@ -92,24 +106,37 @@ func TestZAIAdapterAllowsBYOKGatewayHosts(t *testing.T) {
 
 func TestZAIReasoningEffortCompatibilityMapping(t *testing.T) {
 	body := map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"minimal"`)}
-	normalizeZAIReasoningEffort(body)
+	normalizeZAIReasoningEffort("glm-5.2", body)
 
 	if _, exists := body["reasoning_effort"]; exists || string(body["thinking"]) != `{"type":"disabled"}` {
 		t.Fatalf("minimal effort mapping = %s", body)
 	}
 
 	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"medium"`)}
-	normalizeZAIReasoningEffort(body)
+	normalizeZAIReasoningEffort("glm-5.2", body)
 
 	if string(body["reasoning_effort"]) != `"high"` {
 		t.Fatalf("medium effort mapping = %s", body["reasoning_effort"])
 	}
 
 	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"xhigh"`)}
-	normalizeZAIReasoningEffort(body)
+	normalizeZAIReasoningEffort("glm-5.2", body)
 
 	if string(body["reasoning_effort"]) != `"max"` {
 		t.Fatalf("xhigh effort mapping = %s", body["reasoning_effort"])
+	}
+}
+
+func TestZAIReasoningEffortNeverDisablesAlwaysThinkingModels(t *testing.T) {
+	body := map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"minimal"`)}
+	normalizeZAIReasoningEffort("glm-5.3-flash", body)
+
+	if _, exists := body["thinking"]; exists {
+		t.Fatalf("glm-5.3-flash effort mapping injected a disabled thinking control: %s", body)
+	}
+
+	if _, exists := body["reasoning_effort"]; exists {
+		t.Fatalf("glm-5.3-flash unsupported low-effort alias was kept: %s", body)
 	}
 }
 

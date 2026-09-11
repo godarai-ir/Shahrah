@@ -1,13 +1,13 @@
 ---
 title: مدل‌های Z.ai و GLM
-description: ساخت اتصال مستقیم Z.ai در گدارAI و استفاده از GLM-5.2، GLM-4.7-FlashX، GLM-5V-Turbo و GLM-OCR.
+description: ساخت اتصال مستقیم Z.ai در گدارAI و استفاده از GLM-5.2، GLM-4.7-FlashX، GLM-5V-Turbo، GLM-5.3-Flash و GLM-OCR.
 ---
 
 # مدل‌های Z.ai و GLM
 
-گدارAI چهار مدل Z.ai را از API عمومی و مستقیم این ارائه‌دهنده پشتیبانی می‌کند. برنامه شما با توکن گدارAI درخواست می‌فرستد و کلید خام Z.ai فقط به‌صورت write-only در حساب ارائه‌دهنده نگه‌داری می‌شود.
+گدارAI پنج مدل Z.ai را از API عمومی و مستقیم این ارائه‌دهنده پشتیبانی می‌کند. برنامه شما با توکن گدارAI درخواست می‌فرستد و کلید خام Z.ai فقط به‌صورت write-only در حساب ارائه‌دهنده نگه‌داری می‌شود.
 
-این راهنما در ۲۶ مرداد ۱۴۰۵ با [OpenAPI رسمی](https://docs.z.ai/openapi.json)، [راهنمای API](https://docs.z.ai/guides/develop/http/introduction)، [فهرست مدل‌ها](https://docs.z.ai/guides/overview/overview) و [قیمت رسمی](https://docs.z.ai/guides/overview/pricing) تطبیق داده شده است.
+این راهنما در ۲۰ شهریور ۱۴۰۵ با [OpenAPI رسمی](https://docs.z.ai/openapi.json)، [راهنمای API](https://docs.z.ai/guides/develop/http/introduction)، [فهرست مدل‌ها](https://docs.z.ai/guides/overview/overview) و [قیمت رسمی](https://docs.z.ai/guides/overview/pricing) تطبیق داده شده است.
 
 ## مدل‌ها و مسیرها
 
@@ -16,7 +16,10 @@ description: ساخت اتصال مستقیم Z.ai در گدارAI و استفا
 | `glm-5.2`        | متن                     | متن                    | `POST /v1/chat/completions`                 | ۱٬۰۰۰٬۰۰۰ / ۱۲۸٬۰۰۰ توکن     |
 | `glm-4.7-flashx` | متن                     | متن                    | `POST /v1/chat/completions`                 | ۲۰۰٬۰۰۰ / ۱۲۸٬۰۰۰ توکن       |
 | `glm-5v-turbo`   | متن، تصویر، ویدئو و سند | متن                    | `POST /v1/chat/completions`                 | ۲۰۰٬۰۰۰ / ۱۲۸٬۰۰۰ توکن       |
+| `glm-5.3-flash`  | متن، تصویر، ویدئو و سند | متن                    | `POST /v1/chat/completions`                 | ۱٬۰۰۰٬۰۰۰ / ۱۲۸٬۰۰۰ توکن     |
 | `glm-ocr`        | تصویر یا PDF            | Markdown و داده چیدمان | `POST /v1/layout_parsing` یا `POST /v1/ocr` | حداکثر ۳۰ صفحه در یک درخواست |
+
+مدل `glm-5.3-flash` برخلاف بقیهٔ مدل‌های متنی/چندوجهی Z.ai، تفکر (`thinking`) همیشه فعال دارد و `thinking.type: "disabled"` را نمی‌پذیرد؛ گدارAI این درخواست را پیش از ارسال رد می‌کند. مودالیتی‌های ورودی و رفتار فراخوانی تابع این مدل تا انجام آزمون زندهٔ رسمی «تأییدنشده» علامت‌گذاری شده‌اند.
 
 نام کامل مدل شامل ارائه‌دهنده و حساب است؛ برای مثال `zai:production:glm-5.2`. شناسه `zai` را با `xai` جایگزین نکنید؛ این دو ارائه‌دهنده مستقل‌اند.
 
@@ -102,6 +105,7 @@ curl "$GODARAI_BASE_URL/v1/layout_parsing" \
 | `glm-5.2`        |  ۱٫۴۰ |         ۰٫۲۶ |  ۴٫۴۰ |
 | `glm-4.7-flashx` |  ۰٫۰۷ |         ۰٫۰۱ |  ۰٫۴۰ |
 | `glm-5v-turbo`   |  ۱٫۲۰ |         ۰٫۲۴ |  ۴٫۰۰ |
+| `glm-5.3-flash`  |  ۰٫۱۵ |         ۰٫۰۳ |  ۰٫۵۰ |
 | `glm-ocr`        |  ۰٫۰۳ |            — |  ۰٫۰۳ |
 
 در صورت نبود قیمت کامل یا usage معتبر، گدارAI پیش از ارسال یا هنگام نهایی‌سازی صورتحساب fail-closed می‌شود. نرخ‌ها مؤثر از تاریخ ثبت‌شده در کاتالوگ‌اند و تغییر بعدی با ردیف قیمت تازه اعمال می‌شود، نه بازنویسی مصرف گذشته.
