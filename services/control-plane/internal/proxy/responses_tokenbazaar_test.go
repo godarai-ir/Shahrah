@@ -3,7 +3,6 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"io"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -76,13 +75,10 @@ func (b *tokenBazaarResponsesBudgeter) EstimateCost(ctx context.Context, req con
 }
 
 // newTokenBazaarResponsesTestApp builds a Responses test app routed to a
-// single "tokenbazaar" deployment for "gpt-5.5", with an injectable
-// ProviderFeatureConfig so tests can exercise
-// SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED both on and off.
+// single "tokenbazaar" deployment for "gpt-5.5".
 func newTokenBazaarResponsesTestApp(
 	t *testing.T,
 	tunnel *captureTunnel,
-	features ProviderFeatureConfig,
 ) (*fiber.App, *testLogs) {
 	t.Helper()
 
@@ -111,7 +107,6 @@ func newTokenBazaarResponsesTestApp(
 		RequestLogger:       logs,
 		SpendLogger:         logs,
 		Logger:              zap.NewNop(),
-		ProviderFeatures:    features,
 	})
 
 	app := fiber.New()
@@ -144,110 +139,14 @@ func TestTokenBazaarResponsesCapabilityIsCreateOnly(t *testing.T) {
 	assert.True(t, supportsResponseResourcesProvider("xai"))
 }
 
-// TestResponsesHandlerTokenBazaarResponsesDisabledByDefault confirms
-// TokenBazaar Responses dispatch fails closed (503 provider_disabled) when
-// TokenBazaarResponsesEnabled is not explicitly set -- the zero-value
-// ProviderFeatureConfig -- and that the tunnel is never reached while the
-// flag is off.
-func TestResponsesHandlerTokenBazaarResponsesDisabledByDefault(t *testing.T) {
-	tunnel := &captureTunnel{resp: &platform.TunnelResponse{
-		StatusCode: fiber.StatusOK,
-		Headers:    map[string]string{"content-type": "application/json"},
-		Body:       []byte(`{"id":"resp_1","object":"response","status":"completed"}`),
-	}}
-	app, _ := newTokenBazaarResponsesTestApp(t, tunnel, ProviderFeatureConfig{})
-
-	req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-5.5","input":"hello"}`))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-	defer closeResponseBody(t, resp)
-
-	require.NoError(t, err)
-	assert.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
-	assert.Empty(t, tunnel.lastReq.RequestID, "the tunnel must never be dispatched to while the responses flag is off")
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Contains(t, string(body), "provider_disabled")
-	assert.Contains(t, string(body), "tokenbazaar responses dispatch is disabled")
-}
-
-// TestResponsesHandlerTokenBazaarResponsesFlagIsolatedFromOtherThreeFlags
-// confirms SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED is evaluated independently
-// of SHAHRAH_TOKENBAZAAR_ENABLED (chat), SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED
-// (images), and SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED (embeddings) in both
-// directions, mirroring
-// TestEmbeddingsHandlerTokenBazaarEmbeddingsFlagIsolatedFromChatAndImagesFlags.
-func TestResponsesHandlerTokenBazaarResponsesFlagIsolatedFromOtherThreeFlags(t *testing.T) {
-	t.Run("responses on, chat/images/embeddings off: passes the responses gate", func(t *testing.T) {
-		tunnel := &captureTunnel{resp: &platform.TunnelResponse{
-			StatusCode: fiber.StatusOK,
-			Headers:    map[string]string{"content-type": "application/json"},
-			Body:       []byte(`{"id":"resp_1","object":"response","status":"completed","model":"gpt-5.5","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`),
-		}}
-		app, _ := newTokenBazaarResponsesTestApp(t, tunnel, ProviderFeatureConfig{
-			Configured:                   true,
-			TokenBazaarEnabled:           false,
-			TokenBazaarImagesEnabled:     false,
-			TokenBazaarEmbeddingsEnabled: false,
-			TokenBazaarResponsesEnabled:  true,
-		})
-
-		req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-5.5","input":"hello"}`))
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := app.Test(req)
-		defer closeResponseBody(t, resp)
-
-		require.NoError(t, err)
-
-		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-		// The request may still fail later for an unrelated reason, but it
-		// must never be rejected specifically because responses dispatch is
-		// disabled -- that is the one thing this subtest isolates.
-		assert.NotContains(t, string(body), "tokenbazaar responses dispatch is disabled")
-	})
-
-	t.Run("chat/images/embeddings on, responses off: still fails closed", func(t *testing.T) {
-		tunnel := &captureTunnel{resp: &platform.TunnelResponse{
-			StatusCode: fiber.StatusOK,
-			Headers:    map[string]string{"content-type": "application/json"},
-			Body:       []byte(`{"id":"resp_1","object":"response","status":"completed"}`),
-		}}
-		app, _ := newTokenBazaarResponsesTestApp(t, tunnel, ProviderFeatureConfig{
-			Configured:                   true,
-			TokenBazaarEnabled:           true,
-			TokenBazaarImagesEnabled:     true,
-			TokenBazaarEmbeddingsEnabled: true,
-			TokenBazaarResponsesEnabled:  false,
-		})
-
-		req := httptest.NewRequest("POST", "/v1/responses", bytes.NewBufferString(`{"model":"gpt-5.5","input":"hello"}`))
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := app.Test(req)
-		defer closeResponseBody(t, resp)
-
-		require.NoError(t, err)
-		assert.Equal(t, fiber.StatusServiceUnavailable, resp.StatusCode)
-		assert.Empty(t, tunnel.lastReq.RequestID, "the tunnel must never be dispatched to while the responses flag is off, even with chat/images/embeddings on")
-
-		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-		assert.Contains(t, string(body), "provider_disabled")
-	})
-}
-
 // TestResponsesHandlerSupportsTokenBazaarWithReasoningEffortPassthrough
-// confirms, once the flag is enabled, that reasoning.effort -- documented
-// only on /v1/responses, never on chat completions -- reaches the tunnel
-// request body unmodified for a TokenBazaar deployment, mirroring
+// confirms reasoning.effort -- documented only on /v1/responses, never on
+// chat completions -- reaches the tunnel request body unmodified for a
+// TokenBazaar deployment, mirroring
 // TestResponsesHandlerSupportsXAIWithPinnedProfileAndProviderFields. The
 // generic request/response translation in this file has no TokenBazaar- or
 // even OpenAI-specific branch that would strip or rewrite this field; it
-// passes through purely because TokenBazaar is now in the
+// passes through purely because TokenBazaar is in the
 // supportsResponsesCreateProvider allowlist.
 func TestResponsesHandlerSupportsTokenBazaarWithReasoningEffortPassthrough(t *testing.T) {
 	upstreamBody := []byte(
@@ -260,10 +159,7 @@ func TestResponsesHandlerSupportsTokenBazaarWithReasoningEffortPassthrough(t *te
 		Headers:    map[string]string{"content-type": "application/json"},
 		Body:       upstreamBody,
 	}}
-	app, _ := newTokenBazaarResponsesTestApp(t, tunnel, ProviderFeatureConfig{
-		Configured:                  true,
-		TokenBazaarResponsesEnabled: true,
-	})
+	app, _ := newTokenBazaarResponsesTestApp(t, tunnel)
 
 	req := httptest.NewRequest(
 		"POST",

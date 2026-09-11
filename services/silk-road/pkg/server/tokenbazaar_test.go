@@ -1724,3 +1724,647 @@ func TestTokenBazaarResponsesNeverForwardsGodarAIAuthorizationHeader(t *testing.
 		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Messages endpoint delivery (POST /v1/messages)
+// ---------------------------------------------------------------------------
+
+// tokenBazaarMessagesTestPayload builds a minimal, in-scope /v1/messages
+// TunnelRequest for one of the 4 Messages-capable models
+// (tokenBazaarMessagesModels), mirroring tokenBazaarResponsesTestPayload's
+// style. The request body is Anthropic-native JSON (model, messages,
+// max_tokens, ...), not an OpenAI-compatible shape.
+func tokenBazaarMessagesTestPayload(model string) platform.TunnelRequest {
+	profile := platform.ModelRuntimeProfile{
+		Version:    1,
+		Endpoints:  []string{"models", "chat_completions", "messages"},
+		Transports: []string{"http", "sse"},
+		Lifecycle:  "active",
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
+		},
+		Sampling: platform.ModelRuntimeSamplingProfile{},
+		Tools:    platform.ModelRuntimeToolsProfile{},
+		Modalities: platform.ModelRuntimeModalities{
+			Input: []string{"text"}, Output: []string{"text"},
+		},
+		Parameters: map[string][]string{
+			"messages": {"model", "messages", "max_tokens", "system", "stream", "thinking"},
+		},
+		Limits: platform.ModelRuntimeLimits{MessagesBytes: 32 * 1024 * 1024, BatchBytes: 1, FileBytes: 1},
+	}
+
+	return platform.TunnelRequest{
+		Operation:  platform.ProviderOperationAnthropicMessages,
+		Deployment: platform.Deployment{Provider: "tokenbazaar", Model: model, APIKey: "tokenbazaar-secret"},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{{
+			Provider: "tokenbazaar", CatalogRevision: "test", CanonicalID: "tokenbazaar/" + model,
+			Slug: model, ProfileVersion: 1, Profile: profile, EffectiveFrom: time.Now(),
+		}},
+	}
+}
+
+// TestTokenBazaarMessagesDispatchRoutesForAllFourInScopeModels confirms each
+// of the 4 in-scope Messages models (claude-fable-5, claude-haiku-4-5,
+// claude-opus-5, claude-sonnet-5) resolves through the Messages dispatch path
+// for the documented platform.ProviderOperationAnthropicMessages operation.
+func TestTokenBazaarMessagesDispatchRoutesForAllFourInScopeModels(t *testing.T) {
+	for model := range tokenBazaarMessagesModels {
+		t.Run(model, func(t *testing.T) {
+			payload := tokenBazaarMessagesTestPayload(model)
+			payload.Body = []byte(`{"model":"` + model + `","messages":[{"role":"user","content":"hi"}],"max_tokens":16}`)
+
+			if err := validateTokenBazaarDispatch(payload); err != nil {
+				t.Fatalf("expected messages dispatch to be accepted for %s, got %v", model, err)
+			}
+		})
+	}
+
+	if len(tokenBazaarMessagesModels) != 4 {
+		t.Fatalf("expected exactly 4 in-scope Messages models, got %d: %v", len(tokenBazaarMessagesModels), tokenBazaarMessagesModels)
+	}
+}
+
+// TestTokenBazaarMessagesOperationRejectsOutOfScopeModels confirms that the
+// other 22 TokenBazaar models are rejected with a clear, specific,
+// operation-scoped "unsupported model" error when requested through the
+// /v1/messages operation -- never silently accepted, never a generic 404,
+// and never misrouted to the chat_completions path.
+func TestTokenBazaarMessagesOperationRejectsOutOfScopeModels(t *testing.T) {
+	outOfScope := []string{
+		// 17 chat-capable models that are NOT in the 4-model Messages scope.
+		"deepseek-v4-flash", "deepseek-v4-pro",
+		"gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview",
+		"gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash",
+		"glm-5.2", "glm-5v-turbo", "kimi-k2.6", "kimi-k2.7-code", "kimi-k3",
+		"gpt-5.5", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra",
+		// 4 image models + 1 embeddings model.
+		"gpt-image-2", "gemini-3-pro-image", "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image",
+		"text-embedding-3-large",
+	}
+
+	if len(outOfScope) != 22 {
+		t.Fatalf("expected exactly 22 out-of-scope models in this table, got %d", len(outOfScope))
+	}
+
+	for _, model := range outOfScope {
+		t.Run(model, func(t *testing.T) {
+			payload := tokenBazaarMessagesTestPayload(model)
+			payload.Body = []byte(`{"model":"` + model + `","messages":[{"role":"user","content":"hi"}],"max_tokens":16}`)
+
+			err := validateTokenBazaarDispatch(payload)
+			if err == nil || !strings.Contains(err.Error(), "tokenbazaar_unsupported_model:") {
+				t.Fatalf("expected generic unsupported-model error for %s via messages, got %v", model, err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarMessagesRuntimeProfileRequired confirms a messages request
+// for an in-scope model whose runtime profile does not allow the "messages"
+// endpoint is rejected, mirroring the chat/images/embeddings/responses
+// paths' own runtime-profile enforcement.
+func TestTokenBazaarMessagesRuntimeProfileRequired(t *testing.T) {
+	payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	payload.ModelRuntimeProfiles[0].Profile.Endpoints = []string{"models", "chat_completions"} // no "messages"
+	payload.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_runtime_profile_missing") {
+		t.Fatalf("expected tokenbazaar_runtime_profile_missing, got %v", err)
+	}
+}
+
+// TestTokenBazaarMessagesRequiresMaxTokens confirms max_tokens must be
+// present and a positive integer before dispatch -- TokenBazaar's own docs
+// mark it required (matching Claude's own requirement), and this delivery
+// does not rely on upstream to reject its absence.
+func TestTokenBazaarMessagesRequiresMaxTokens(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"absent", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}]}`, true},
+		{"null", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":null}`, true},
+		{"zero", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":0}`, true},
+		{"negative", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":-1}`, true},
+		{"non_integer", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":1.5}`, true},
+		{"wrong_type", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":"16"}`, true},
+		{"valid", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":1024}`, false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "tokenbazaar_messages_max_tokens_required") &&
+					!strings.Contains(err.Error(), "tokenbazaar_invalid_json") {
+					t.Fatalf("expected max_tokens rejection, got %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected valid max_tokens to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarMessagesRequiresMessagesField confirms a request missing
+// "messages" entirely is rejected before dispatch.
+func TestTokenBazaarMessagesRequiresMessagesField(t *testing.T) {
+	payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	payload.Body = []byte(`{"model":"claude-sonnet-5","max_tokens":16}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_messages_required") {
+		t.Fatalf("expected tokenbazaar_messages_required, got %v", err)
+	}
+}
+
+// TestTokenBazaarMessagesRejectsToolUse covers this delivery's fail-closed
+// decision on tool-use: TokenBazaar's documented /v1/messages example does
+// not show a "tools" parameter (unlike /v1/chat/completions, which documents
+// it explicitly), so any non-empty tools array is rejected before dispatch.
+// An absent or empty tools array must NOT be rejected.
+func TestTokenBazaarMessagesRejectsToolUse(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"absent", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16}`, false},
+		{"null", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16,"tools":null}`, false},
+		{"empty_array", `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16,"tools":[]}`, false},
+		{
+			"one_tool",
+			`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16,` +
+				`"tools":[{"name":"lookup","input_schema":{}}]}`,
+			true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "tokenbazaar_messages_tools_unsupported") {
+					t.Fatalf("expected tokenbazaar_messages_tools_unsupported, got %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected request to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarMessagesRejectsPromptCaching covers this delivery's
+// fail-closed decision on prompt caching: a cache_control block on a system
+// block or a message content block is rejected before dispatch, since
+// TokenBazaar's documented /v1/messages example does not show this field.
+// (The Anthropic schema's third cache_control location, a tool definition, is
+// not covered here as a distinct case: any non-empty "tools" array is already
+// rejected outright by TestTokenBazaarMessagesRejectsToolUse, so a
+// cache_control-on-a-tool request is already covered by that rejection.)
+func TestTokenBazaarMessagesRejectsPromptCaching(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			"system_block",
+			`{"model":"claude-sonnet-5","max_tokens":16,` +
+				`"system":[{"type":"text","text":"be helpful","cache_control":{"type":"ephemeral"}}],` +
+				`"messages":[{"role":"user","content":"hi"}]}`,
+		},
+		{
+			"message_content_block",
+			`{"model":"claude-sonnet-5","max_tokens":16,"messages":[{"role":"user","content":` +
+				`[{"type":"text","text":"hi","cache_control":{"type":"ephemeral"}}]}]}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if err == nil || !strings.Contains(err.Error(), "tokenbazaar_messages_prompt_caching_unsupported") {
+				t.Fatalf("expected tokenbazaar_messages_prompt_caching_unsupported, got %v", err)
+			}
+		})
+	}
+
+	t.Run("no_cache_control_is_accepted", func(t *testing.T) {
+		payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+		payload.Body = []byte(
+			`{"model":"claude-sonnet-5","max_tokens":16,"system":"be helpful",` +
+				`"messages":[{"role":"user","content":"hi"}]}`,
+		)
+
+		if err := validateTokenBazaarDispatch(payload); err != nil {
+			t.Fatalf("expected request without cache_control to be accepted, got %v", err)
+		}
+	})
+}
+
+// TestTokenBazaarMessagesThreeRejectionsHappenBeforeAnyHTTPCall proves
+// max_tokens absence, tool-use, and prompt-caching are all rejected before
+// any upstream call, via an end-to-end mocked-HTTP Dispatch call (not just
+// the standalone validator).
+func TestTokenBazaarMessagesThreeRejectionsHappenBeforeAnyHTTPCall(t *testing.T) {
+	var calls int32
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-5",` +
+					`"content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`,
+			)),
+		}, nil
+	})}
+
+	accepted := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	accepted.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, accepted)
+	if err != nil {
+		t.Fatalf("expected a valid request to succeed, got %v", err)
+	}
+	defer response.Body.Close()
+
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("expected exactly 1 upstream call for the valid request, got %d", calls)
+	}
+
+	rejections := map[string]string{
+		"max_tokens_absent": `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}]}`,
+		"tool_use": `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16,` +
+			`"tools":[{"name":"lookup","input_schema":{}}]}`,
+		"prompt_caching": `{"model":"claude-sonnet-5","messages":[{"role":"user","content":` +
+			`[{"type":"text","text":"hi","cache_control":{"type":"ephemeral"}}]}],"max_tokens":16}`,
+	}
+
+	for name, body := range rejections {
+		t.Run(name, func(t *testing.T) {
+			payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+			payload.Body = []byte(body)
+
+			if _, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload); err == nil {
+				t.Fatal("expected the request to be rejected before dispatch")
+			}
+
+			if atomic.LoadInt32(&calls) != 1 {
+				t.Fatalf("rejection %q must happen before any HTTP call; total upstream calls = %d", name, calls)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarMessagesDispatchExactRequestConstruction exercises the full
+// adapter Dispatch path (mocked HTTP, no live call) and asserts the exact
+// method, URL, Authorization header, Content-Type, and forwarded body against
+// https://zx1.deepwl.net/v1/messages.
+func TestTokenBazaarMessagesDispatchExactRequestConstruction(t *testing.T) {
+	var gotMethod, gotURL, gotAuth, gotContentType string
+
+	var gotBody []byte
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotMethod = request.Method
+		gotURL = request.URL.String()
+		gotAuth = request.Header.Get("Authorization")
+		gotContentType = request.Header.Get("Content-Type")
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+
+		gotBody = body
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-5",` +
+					`"content":[{"type":"text","text":"hi there"}],"stop_reason":"end_turn",` +
+					`"usage":{"input_tokens":3,"output_tokens":2}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	requestBody := `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hello world"}],"max_tokens":16}`
+	payload.Body = []byte(requestBody)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch messages: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotMethod != http.MethodPost {
+		t.Fatalf("method = %q, want POST", gotMethod)
+	}
+
+	if gotURL != "https://zx1.deepwl.net/v1/messages" {
+		t.Fatalf("url = %q", gotURL)
+	}
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("authorization = %q", gotAuth)
+	}
+
+	if gotContentType != "application/json" {
+		t.Fatalf("content-type = %q", gotContentType)
+	}
+
+	if string(gotBody) != requestBody {
+		t.Fatalf("forwarded body = %s, want verbatim %s", gotBody, requestBody)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+}
+
+// TestTokenBazaarMessagesThinkingPassesThroughUnmodified confirms this
+// delivery does not rewrite, strip, or otherwise touch a documented
+// thinking.budget_tokens field: the request body reaching TokenBazaar must be
+// byte-for-byte identical to what the caller sent, for each of the 4
+// in-scope models.
+func TestTokenBazaarMessagesThinkingPassesThroughUnmodified(t *testing.T) {
+	for model := range tokenBazaarMessagesModels {
+		t.Run(model, func(t *testing.T) {
+			var gotBody []byte
+
+			client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+				body, err := io.ReadAll(request.Body)
+				if err != nil {
+					t.Fatalf("read request body: %v", err)
+				}
+
+				gotBody = body
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body: io.NopCloser(strings.NewReader(
+						`{"id":"msg_1","type":"message","role":"assistant","model":"` + model + `",` +
+							`"content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn",` +
+							`"usage":{"input_tokens":1,"output_tokens":1}}`,
+					)),
+				}, nil
+			})}
+
+			payload := tokenBazaarMessagesTestPayload(model)
+			requestBody := `{"model":"` + model + `","messages":[{"role":"user","content":"hi"}],` +
+				`"max_tokens":1024,"thinking":{"type":"enabled","budget_tokens":512}}`
+			payload.Body = []byte(requestBody)
+
+			response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+			if err != nil {
+				t.Fatalf("dispatch: %v", err)
+			}
+			defer response.Body.Close()
+
+			if string(gotBody) != requestBody {
+				t.Fatalf("thinking was not passed through unmodified: got %s, want %s", gotBody, requestBody)
+			}
+
+			if !strings.Contains(string(gotBody), `"thinking":{"type":"enabled","budget_tokens":512}`) {
+				t.Fatalf("thinking missing from forwarded body: %s", gotBody)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarMessagesSSEStreamingPassesThroughUntilTerminalEvent covers
+// the documented content_block_delta/message_stop SSE shape with the same
+// defensive posture already established for chat and Responses SSE: this
+// adapter passes the raw SSE bytes through unmodified; the control plane's
+// own generic streaming plumbing (TokenBazaarMessagesHandler.handleStream,
+// reusing parseAnthropicSSEUsage/anthropicSSEIsError from
+// anthropic_native_handler.go, already exercised against malformed/
+// unexpected events in
+// services/control-plane/internal/proxy/tokenbazaar_messages_handler_test.go)
+// is responsible for usage/error extraction -- this test only confirms the
+// TokenBazaar adapter itself never mutates or buffers the documented event
+// bytes.
+func TestTokenBazaarMessagesSSEStreamingPassesThroughUntilTerminalEvent(t *testing.T) {
+	sseBody := "event: message_start\n" +
+		"data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"model\":\"claude-sonnet-5\",\"usage\":{\"input_tokens\":5,\"output_tokens\":0}}}\n\n" +
+		"event: content_block_start\n" +
+		"data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hel\"}}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"lo\"}}\n\n" +
+		"event: content_block_stop\n" +
+		"data: {\"type\":\"content_block_stop\",\"index\":0}\n\n" +
+		"event: message_delta\n" +
+		"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\n" +
+		"event: message_stop\n" +
+		"data: {\"type\":\"message_stop\"}\n\n"
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Accept") != "text/event-stream" {
+			t.Fatalf("expected SSE Accept header, got %q", request.Header.Get("Accept"))
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(sseBody)),
+		}, nil
+	})}
+
+	payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	payload.Stream = true
+	payload.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16,"stream":true}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch streaming messages request: %v", err)
+	}
+	defer response.Body.Close()
+
+	got, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read SSE body: %v", err)
+	}
+
+	if string(got) != sseBody {
+		t.Fatalf("SSE body was altered by the adapter: %q", got)
+	}
+
+	if !strings.Contains(string(got), "event: message_stop") {
+		t.Fatalf("terminal event was not preserved: %s", got)
+	}
+}
+
+// TestTokenBazaarMessagesMalformedSSEChunkPassesThroughWithoutError confirms
+// a malformed or unexpected SSE chunk (not valid JSON, or an event type not
+// in the documented set) is still forwarded raw and does not cause the
+// adapter itself to error or drop bytes -- malformed/unexpected-event
+// *handling* (deciding what to do about it) is the control plane's
+// responsibility (see the parseAnthropicSSEUsage/anthropicSSEIsError
+// coverage in tokenbazaar_messages_handler_test.go), not this adapter's.
+func TestTokenBazaarMessagesMalformedSSEChunkPassesThroughWithoutError(t *testing.T) {
+	sseBody := "event: ping\n" +
+		"data: {\"type\":\"ping\"}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {not valid json\n\n" +
+		"event: message_stop\n" +
+		"data: {\"type\":\"message_stop\"}\n\n"
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(sseBody)),
+		}, nil
+	})}
+
+	payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	payload.Stream = true
+	payload.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16,"stream":true}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch streaming messages request with malformed chunk: %v", err)
+	}
+	defer response.Body.Close()
+
+	got, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read SSE body: %v", err)
+	}
+
+	if string(got) != sseBody {
+		t.Fatalf("malformed SSE body was altered by the adapter: %q", got)
+	}
+}
+
+// TestTokenBazaarMessagesErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody
+// mirrors the chat/images/embeddings/responses paths' own 4xx-normalization
+// coverage for the messages operation.
+func TestTokenBazaarMessagesErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody(t *testing.T) {
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     http.Header{tokenBazaarRequestIDHeader: []string{"req-messages-1"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"type":"error","error":{"type":"invalid_request_error","message":"upstream vendor account id abc-123 must not leak"}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	payload.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want normalized 503", response.StatusCode)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read normalized body: %v", err)
+	}
+
+	if strings.Contains(string(body), "abc-123") || strings.Contains(string(body), "invalid_request_error") {
+		t.Fatalf("normalized messages error body leaked upstream content: %s", body)
+	}
+}
+
+// TestTokenBazaarMessagesValidationErrorsNeverIncludeAPIKey confirms none of
+// the messages-path validation error messages ever echo the deployment's API
+// key, even when it is present on the payload.
+func TestTokenBazaarMessagesValidationErrorsNeverIncludeAPIKey(t *testing.T) {
+	const secret = "tokenbazaar-super-secret-key-must-not-leak"
+
+	missingMaxTokens := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	missingMaxTokens.Deployment.APIKey = secret
+	missingMaxTokens.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}]}`)
+
+	badTool := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	badTool.Deployment.APIKey = secret
+	badTool.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16,` +
+		`"tools":[{"name":"lookup","input_schema":{}}]}`)
+
+	badCacheControl := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	badCacheControl.Deployment.APIKey = secret
+	badCacheControl.Body = []byte(`{"model":"claude-sonnet-5","max_tokens":16,"messages":[{"role":"user","content":` +
+		`[{"type":"text","text":"hi","cache_control":{"type":"ephemeral"}}]}]}`)
+
+	for _, payload := range []platform.TunnelRequest{missingMaxTokens, badTool, badCacheControl} {
+		err := validateTokenBazaarDispatch(payload)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("validation error leaked the API key: %v", err)
+		}
+	}
+}
+
+// TestTokenBazaarMessagesNeverForwardsGodarAIAuthorizationHeader mirrors the
+// chat/embeddings/responses paths' own coverage: the caller-supplied
+// Authorization header must never reach TokenBazaar; only the deployment's
+// own credential is forwarded.
+func TestTokenBazaarMessagesNeverForwardsGodarAIAuthorizationHeader(t *testing.T) {
+	var gotAuth string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotAuth = request.Header.Get("Authorization")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-5",` +
+					`"content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarMessagesTestPayload("claude-sonnet-5")
+	payload.Body = []byte(`{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}],"max_tokens":16}`)
+	payload.Headers = map[string]string{"Authorization": "Bearer godarai-caller-token-must-not-leak"}
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
+	}
+}

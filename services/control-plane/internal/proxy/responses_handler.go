@@ -39,12 +39,6 @@ type ResponsesHandler struct {
 	vmEngine      virtualmodels.RoutingEngine
 	vmExec        virtualmodels.FallbackExecutor
 	responseCache *responsecache.Service
-	// providerFeatures carries per-provider Responses-dispatch kill switches
-	// (currently only TokenBazaar's). It was not previously stored on this
-	// handler because no other provider routed through this file needed a
-	// dispatch-time flag check here -- see the TokenBazaar Responses-endpoint
-	// delivery in plans/tokenbazaar-production-readiness.md.
-	providerFeatures ProviderFeatureConfig
 }
 
 // NewResponsesHandlerWithDependencies creates a responses handler from explicit dependencies.
@@ -56,20 +50,19 @@ func NewResponsesHandlerWithDependencies(deps BaseHandlerDependencies) *Response
 	)
 
 	return &ResponsesHandler{
-		llmRouter:        deps.Router,
-		pipeline:         deps.requestPipeline(),
-		billing:          deps.Billing,
-		resources:        deps.ProviderResources,
-		deployments:      deps.Deployments,
-		providerAuth:     deps.ResponseProviderAuth,
-		logs:             deps.logger(),
-		logger:           deps.Logger,
-		emitMetric:       deps.metricEmitter(),
-		vmResolver:       resolver,
-		vmEngine:         engine,
-		vmExec:           executor,
-		responseCache:    deps.ResponseCache,
-		providerFeatures: deps.ProviderFeatures,
+		llmRouter:     deps.Router,
+		pipeline:      deps.requestPipeline(),
+		billing:       deps.Billing,
+		resources:     deps.ProviderResources,
+		deployments:   deps.Deployments,
+		providerAuth:  deps.ResponseProviderAuth,
+		logs:          deps.logger(),
+		logger:        deps.Logger,
+		emitMetric:    deps.metricEmitter(),
+		vmResolver:    resolver,
+		vmEngine:      engine,
+		vmExec:        executor,
+		responseCache: deps.ResponseCache,
 	}
 }
 
@@ -427,23 +420,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 }
 
 // rejectDisabledDirectResponsesProvider gates a non-virtual Responses request
-// on (1) the provider being in the Responses-capable allowlist at all, and
-// (2) TokenBazaar's own independent Responses kill switch
-// (SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED), separate from its chat/images/
-// embeddings flags so each capability can be canaried/rolled back
-// independently -- see plans/tokenbazaar-production-readiness.md. Like the
-// chat flag's own check in handler.go and the images/embeddings flags'
-// checks in images_handler.go/embeddings_handler.go, the TokenBazaar check is
-// intentionally NOT gated behind h.providerFeatures.Configured: an
-// unconfigured/zero-value feature snapshot must still fail closed to
-// "disabled".
+// on the provider being in the Responses-capable allowlist at all.
 func (h *ResponsesHandler) rejectDisabledDirectResponsesProvider(c *fiber.Ctx, provider string) (bool, error) {
 	if !supportsResponsesCreateProvider(provider) {
 		return true, writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", provider), "invalid_request_error")
-	}
-
-	if isTokenBazaarProvider(provider) && !h.providerFeatures.TokenBazaarResponsesEnabled {
-		return true, writeAPIError(c, fiber.StatusServiceUnavailable, "tokenbazaar responses dispatch is disabled", "provider_disabled")
 	}
 
 	return false, nil
@@ -690,10 +670,6 @@ func (h *ResponsesHandler) estimateVirtualResponseTarget(
 
 	if !supportsResponsesCreateProvider(deployment.Provider) {
 		return platform.UsageCostBreakdown{}, nil, fmt.Errorf("responses API is not enabled for provider: %s", deployment.Provider)
-	}
-
-	if isTokenBazaarProvider(deployment.Provider) && !h.providerFeatures.TokenBazaarResponsesEnabled {
-		return platform.UsageCostBreakdown{}, nil, fmt.Errorf("tokenbazaar responses dispatch is disabled")
 	}
 
 	targetBody, err := buildVirtualResponseTargetPayload(request, body, deployment)

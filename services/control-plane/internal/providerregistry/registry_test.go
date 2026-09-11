@@ -162,7 +162,7 @@ func TestDefinitionsSatisfyProviderContracts(t *testing.T) {
 		"tokenbazaar": {
 			pricingSnapshot: PricingSnapshotCatalog,
 			pricingStrategy: PricingStrategyTokenBazaar,
-			capabilities:    []Capability{CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings, CapabilityResponses},
+			capabilities:    []Capability{CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings, CapabilityResponses, CapabilityMessages},
 			operations: []platform.ProviderOperation{
 				platform.ProviderOperationCredentialProbe,
 				platform.ProviderOperationChatCompletions,
@@ -170,6 +170,7 @@ func TestDefinitionsSatisfyProviderContracts(t *testing.T) {
 				platform.ProviderOperationOpenAIImagesEdits,
 				platform.ProviderOperationOpenAIEmbeddings,
 				platform.ProviderOperationOpenAIResponsesCreate,
+				platform.ProviderOperationAnthropicMessages,
 			},
 		},
 		"google-gemini": {
@@ -558,6 +559,76 @@ func TestTokenBazaarResponsesModelsNeverCollideWithDirectProviders(t *testing.T)
 	for _, model := range []string{
 		"gpt-5.5", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra",
 		"deepseek-v4-flash", "deepseek-v4-pro",
+	} {
+		t.Run(model, func(t *testing.T) {
+			if bare, ok := FromModelIdentifier(model); ok && bare.Slug == "tokenbazaar" {
+				t.Fatalf("bare model id %q resolved to tokenbazaar; must only be reachable via an explicit FQN", model)
+			}
+
+			qualified, ok := FromModelIdentifier("tokenbazaar:primary:" + model)
+			if !ok || qualified.Slug != "tokenbazaar" {
+				t.Fatalf("FromModelIdentifier(%q) = %q, %t; want tokenbazaar", "tokenbazaar:primary:"+model, qualified.Slug, ok)
+			}
+		})
+	}
+}
+
+func TestTokenBazaarSupportsMessagesCapability(t *testing.T) {
+	definition, ok := Lookup("tokenbazaar")
+	if !ok {
+		t.Fatalf("tokenbazaar is not registered as a first-class provider")
+	}
+
+	if !definition.Supports(CapabilityMessages) {
+		t.Fatal("tokenbazaar does not declare CapabilityMessages")
+	}
+
+	if !definition.Supports(CapabilityChatCompletions) {
+		t.Fatal("tokenbazaar lost CapabilityChatCompletions while gaining CapabilityMessages")
+	}
+
+	if !definition.Supports(CapabilityResponses) {
+		t.Fatal("tokenbazaar lost CapabilityResponses while gaining CapabilityMessages")
+	}
+
+	if !definition.SupportsOperation(platform.ProviderOperationAnthropicMessages) {
+		t.Fatalf("tokenbazaar does not support operation %q", platform.ProviderOperationAnthropicMessages)
+	}
+
+	// This delivery is deliberately "create only": TokenBazaar's own docs
+	// show a single stateless request/response shape for /v1/messages, with
+	// no count_tokens, message_batches, or files surface. None of those must
+	// ever be registered here as a side effect of adding Messages create.
+	for _, unsupported := range []platform.ProviderOperation{
+		platform.ProviderOperationAnthropicCountTokens,
+		platform.ProviderOperationAnthropicBatchesCreate,
+		platform.ProviderOperationAnthropicBatchesList,
+		platform.ProviderOperationAnthropicBatchesGet,
+		platform.ProviderOperationAnthropicBatchesCancel,
+		platform.ProviderOperationAnthropicBatchesResults,
+		platform.ProviderOperationAnthropicFilesCreate,
+		platform.ProviderOperationAnthropicFilesList,
+		platform.ProviderOperationAnthropicFilesGet,
+		platform.ProviderOperationAnthropicFilesDelete,
+		platform.ProviderOperationAnthropicFilesContent,
+		platform.ProviderOperationAnthropicModelsList,
+		platform.ProviderOperationAnthropicModelsGet,
+	} {
+		if definition.SupportsOperation(unsupported) {
+			t.Fatalf("tokenbazaar must not support Anthropic operation %q (Messages-create-only delivery)", unsupported)
+		}
+	}
+}
+
+// TestTokenBazaarMessagesModelsNeverCollideWithDirectProviders asserts that
+// the 4 in-scope Messages model IDs, even though they are string-identical to
+// the direct "anthropic" provider's own model IDs, only ever route to
+// "tokenbazaar" via the explicit "tokenbazaar:<account>:<model-id>" FQN -- a
+// bare model id must keep resolving to the direct "anthropic" provider (or
+// fail to resolve), never to "tokenbazaar".
+func TestTokenBazaarMessagesModelsNeverCollideWithDirectProviders(t *testing.T) {
+	for _, model := range []string{
+		"claude-fable-5", "claude-haiku-4-5", "claude-opus-5", "claude-sonnet-5",
 	} {
 		t.Run(model, func(t *testing.T) {
 			if bare, ok := FromModelIdentifier(model); ok && bare.Slug == "tokenbazaar" {

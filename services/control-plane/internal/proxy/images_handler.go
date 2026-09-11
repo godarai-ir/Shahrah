@@ -178,18 +178,6 @@ func (h *ImagesHandler) handle(c *fiber.Ctx, op imageOperation) error {
 		return writeAPIErrorDetail(c, fiber.StatusBadRequest, validationErr.Error(), "invalid_request_error", "model", "unsupported_model")
 	}
 
-	// TokenBazaar image dispatch has its own kill switch
-	// (SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED), independent of its chat flag
-	// (SHAHRAH_TOKENBAZAAR_ENABLED), so the two capabilities can be
-	// canaried/rolled back independently — see
-	// plans/tokenbazaar-production-readiness.md. Like the chat flag's own
-	// check in handler.go, this is intentionally NOT gated behind
-	// h.providerFeatures.Configured: an unconfigured/zero-value feature
-	// snapshot must still fail closed to "disabled".
-	if isTokenBazaarProvider(dep.Provider) && !h.providerFeatures.TokenBazaarImagesEnabled {
-		return writeAPIError(c, fiber.StatusServiceUnavailable, "tokenbazaar image dispatch is disabled", "provider_disabled")
-	}
-
 	tracing.RecordStepSpan(c, tracing.QueueFromContext(c), "", "router.select_model", "internal", routeStart, fiber.StatusOK, map[string]interface{}{"provider": dep.Provider, "deployment_id": dep.ID})
 
 	contractDeployment := toContractDeployment(dep)

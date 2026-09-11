@@ -60,6 +60,19 @@ const (
 	CapabilityOCR             Capability = "ocr"
 	CapabilityAgents          Capability = "agents"
 	CapabilityConversations   Capability = "conversations"
+	// CapabilityMessages identifies the Anthropic Messages-shaped
+	// POST /v1/messages surface (platform.ProviderOperationAnthropicMessages).
+	// No prior registry entry declares this: the direct "anthropic" provider
+	// serves it exclusively through AnthropicNativeHandler, which bypasses
+	// this registry's FQN-based capability/operation model entirely (it
+	// resolves deployments via its own account-allowlisted
+	// anthropicDeploymentLister, not providerregistry.Lookup). This constant
+	// was added for TokenBazaar's Messages delivery, following the same
+	// pattern CapabilityResponses/CapabilityEmbeddings established when no
+	// prior capability constant existed for those operations either -- see
+	// plans/tokenbazaar-production-readiness.md, "Anthropic Messages endpoint
+	// delivery".
+	CapabilityMessages Capability = "messages"
 )
 
 // Definition describes one first-class provider and its control-plane behavior.
@@ -187,24 +200,30 @@ var definitions = []Definition{
 		// POST /v1/chat/completions envelope; its 4 image models
 		// (gpt-image-2, gemini-3-pro-image, gemini-3.1-flash-image,
 		// gemini-3.1-flash-lite-image) are dispatched through the documented
-		// POST /v1/images/generations and POST /v1/images/edits envelopes,
-		// gated by their own SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED flag (default
-		// false, independent of the chat flag); its 1 embeddings model
-		// (text-embedding-3-large) is dispatched through POST /v1/embeddings,
-		// gated by its own SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED flag
-		// (default false, independent of both the chat and images flags) --
-		// see plans/tokenbazaar-production-readiness.md, "Embeddings endpoint
+		// POST /v1/images/generations and POST /v1/images/edits envelopes;
+		// its 1 embeddings model (text-embedding-3-large) is dispatched
+		// through POST /v1/embeddings -- see
+		// plans/tokenbazaar-production-readiness.md, "Embeddings endpoint
 		// delivery", for that contract's inferred-not-confirmed evidence
 		// tier. Exactly 6 of the 21 chat-capable models (gpt-5.5,
 		// gpt-5.6-luna, gpt-5.6-sol, gpt-5.6-terra, deepseek-v4-flash,
 		// deepseek-v4-pro) additionally dispatch through the documented,
 		// first-party-confirmed POST /v1/responses envelope (create-only --
 		// TokenBazaar's own docs state previous_response_id, built-in tools,
-		// and background: true are not supported), gated by its own
-		// SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED flag (default false,
-		// independent of the chat/images/embeddings flags); the remaining 15
+		// and background: true are not supported); the remaining 15
 		// chat-capable models (Claude/Gemini/GLM/Kimi) do not gain this
-		// operation. This registry entry carries no OperationNamespaces /
+		// operation. Exactly 4 models (claude-fable-5, claude-haiku-4-5,
+		// claude-opus-5, claude-sonnet-5) additionally dispatch through the
+		// documented, first-party-confirmed POST /v1/messages envelope
+		// (create-only -- TokenBazaar's docs show a single stateless
+		// request/response shape), served by proxy.TokenBazaarMessagesHandler
+		// rather than AnthropicNativeHandler (which remains exclusively the
+		// direct "anthropic" provider's handler) -- see
+		// plans/tokenbazaar-production-readiness.md, "Anthropic Messages
+		// endpoint delivery". None of TokenBazaar's five capabilities carry
+		// an independent code-level kill switch -- see
+		// plans/tokenbazaar-production-readiness.md for the accepted-risk
+		// rationale. This registry entry carries no OperationNamespaces /
 		// LegacyModelPrefixes because TokenBazaar model IDs (e.g.
 		// "claude-sonnet-5", "gemini-3-pro-image", "text-embedding-3-large")
 		// are intentionally shared with direct providers and MUST only ever
@@ -218,7 +237,7 @@ var definitions = []Definition{
 		DisplayName:     "TokenBazaar",
 		PricingSnapshot: PricingSnapshotCatalog,
 		PricingStrategy: PricingStrategyTokenBazaar,
-		Capabilities:    []Capability{CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings, CapabilityResponses},
+		Capabilities:    []Capability{CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings, CapabilityResponses, CapabilityMessages},
 		Operations: []platform.ProviderOperation{
 			platform.ProviderOperationCredentialProbe,
 			platform.ProviderOperationChatCompletions,
@@ -226,6 +245,7 @@ var definitions = []Definition{
 			platform.ProviderOperationOpenAIImagesEdits,
 			platform.ProviderOperationOpenAIEmbeddings,
 			platform.ProviderOperationOpenAIResponsesCreate,
+			platform.ProviderOperationAnthropicMessages,
 		},
 		DispatchRuntimeProfileRequired: true,
 	},
@@ -612,7 +632,8 @@ func validCapability(capability Capability) bool {
 		CapabilityContextCaching,
 		CapabilityOCR,
 		CapabilityAgents,
-		CapabilityConversations:
+		CapabilityConversations,
+		CapabilityMessages:
 		return true
 	default:
 		return false

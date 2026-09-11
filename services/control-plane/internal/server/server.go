@@ -61,6 +61,7 @@ type Dependencies struct {
 	MistralNativeHandler       *proxy.MistralNativeHandler
 	ModelsHandler              *proxy.ModelsHandler
 	AnthropicNativeHandler     *proxy.AnthropicNativeHandler
+	TokenBazaarMessagesHandler *proxy.TokenBazaarMessagesHandler
 	GeminiNativeHandler        *proxy.GeminiNativeHandler
 	PoolStats                  prommetrics.PoolStatsProvider
 	HTTPMetrics                *prommetrics.HTTPMetrics

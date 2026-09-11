@@ -21,36 +21,6 @@ type ProviderFeatureSettings struct {
 	AnthropicAccountIDs          []string
 	ZAIEnabled                   bool
 	ZAILayoutParsingEnabled      bool
-	// TokenBazaarEnabled is a kill switch, independent of every other
-	// provider's flag, and defaults to false (not production-ready; see
-	// plans/tokenbazaar-production-readiness.md).
-	TokenBazaarEnabled bool
-	// TokenBazaarImagesEnabled is TokenBazaar's own image-dispatch kill
-	// switch (POST /v1/images/generations, POST /v1/images/edits),
-	// independent of TokenBazaarEnabled (chat) so the two capabilities can be
-	// canaried and rolled back independently, per the "one model's readiness
-	// never unlocks another" rule in
-	// plans/tokenbazaar-production-readiness.md. Defaults to false.
-	TokenBazaarImagesEnabled bool
-	// TokenBazaarEmbeddingsEnabled is TokenBazaar's own embeddings-dispatch
-	// kill switch (POST /v1/embeddings), independent of both
-	// TokenBazaarEnabled (chat) and TokenBazaarImagesEnabled (images), per
-	// the same "one model's readiness never unlocks another" rule. Defaults
-	// to false; the embeddings contract itself is inferred, not
-	// first-party-confirmed, so this must stay off until a live probe
-	// confirms it (see plans/tokenbazaar-production-readiness.md release
-	// gates).
-	TokenBazaarEmbeddingsEnabled bool
-	// TokenBazaarResponsesEnabled is TokenBazaar's own Responses-API-dispatch
-	// kill switch (POST /v1/responses, create-only -- TokenBazaar's own docs
-	// state previous_response_id, built-in tools, and background: true are
-	// not supported), independent of TokenBazaarEnabled (chat),
-	// TokenBazaarImagesEnabled (images), and TokenBazaarEmbeddingsEnabled
-	// (embeddings), per the same "one model's readiness never unlocks
-	// another" rule. Defaults to false; streaming for this route is a lower
-	// evidence tier than chat_completions (see
-	// plans/tokenbazaar-production-readiness.md release gates).
-	TokenBazaarResponsesEnabled bool
 }
 
 // LoadProviderFeatureSettings reads provider rollout flags at the configuration edge.
@@ -84,10 +54,6 @@ func LoadProviderFeatureSettings() ProviderFeatureSettings {
 		AnthropicAccountIDs:          csvEnv("ANTHROPIC_NATIVE_ACCOUNT_ALLOWLIST"),
 		ZAIEnabled:                   strictBooleanEnv("SHAHRAH_ZAI_ENABLED", true),
 		ZAILayoutParsingEnabled:      strictBooleanEnv("SHAHRAH_ZAI_LAYOUT_PARSING_ENABLED", true),
-		TokenBazaarEnabled:           strictBooleanEnv("SHAHRAH_TOKENBAZAAR_ENABLED", false),
-		TokenBazaarImagesEnabled:     strictBooleanEnv("SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED", false),
-		TokenBazaarEmbeddingsEnabled: strictBooleanEnv("SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED", false),
-		TokenBazaarResponsesEnabled:  strictBooleanEnv("SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED", false),
 	}
 }
 

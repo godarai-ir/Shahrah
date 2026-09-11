@@ -79,10 +79,6 @@ func (b *builder) buildGateway() error {
 			AnthropicAccountIDs:          b.cfg.ProviderFeatures.AnthropicAccountIDs,
 			ZAIEnabled:                   b.cfg.ProviderFeatures.ZAIEnabled,
 			ZAILayoutParsingEnabled:      b.cfg.ProviderFeatures.ZAILayoutParsingEnabled,
-			TokenBazaarEnabled:           b.cfg.ProviderFeatures.TokenBazaarEnabled,
-			TokenBazaarImagesEnabled:     b.cfg.ProviderFeatures.TokenBazaarImagesEnabled,
-			TokenBazaarEmbeddingsEnabled: b.cfg.ProviderFeatures.TokenBazaarEmbeddingsEnabled,
-			TokenBazaarResponsesEnabled:  b.cfg.ProviderFeatures.TokenBazaarResponsesEnabled,
 		},
 	}
 	if err := baseDependencies.BillingCapabilities.Validate(); err != nil {
@@ -115,6 +111,7 @@ func (b *builder) buildGateway() error {
 	mistralNativeHandler := proxy.NewMistralNativeHandler(baseDependencies, nativeResources)
 	modelsHandler := proxy.NewModelsHandler(b.runtimeDeploymentStore)
 	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseDependencies, nativeResources)
+	tokenBazaarMessagesHandler := proxy.NewTokenBazaarMessagesHandlerWithDependencies(baseDependencies)
 	geminiNativeHandler := proxy.NewGeminiNativeHandler(baseDependencies, nativeResources)
 
 	if err := b.lifecycle.AddLoop("Anthropic batch reconciler", func(ctx context.Context) {
@@ -150,6 +147,7 @@ func (b *builder) buildGateway() error {
 		MistralNativeHandler:       mistralNativeHandler,
 		ModelsHandler:              modelsHandler,
 		AnthropicNativeHandler:     anthropicNativeHandler,
+		TokenBazaarMessagesHandler: tokenBazaarMessagesHandler,
 		GeminiNativeHandler:        geminiNativeHandler,
 		PoolStats:                  b.store.DatabaseHealthRepository,
 		HTTPMetrics:                b.httpMetrics,

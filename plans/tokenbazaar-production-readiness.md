@@ -1,7 +1,393 @@
 # TokenBazaar provider production-readiness plan
 
 Status: **not production-ready**
-Last verified against reachable sources: 2026-09-11 (this session, Responses Endpoint delivery)
+Last verified against reachable sources: 2026-09-11 (this session, Anthropic Messages endpoint delivery)
+
+## Feature-flag removal (2026-09-11, this delivery) -- read this before anything below
+
+**Decision, dated and deliberate:** all five TokenBazaar kill-switch
+environment variables described throughout this document --
+`SHAHRAH_TOKENBAZAAR_ENABLED` (chat), `SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED`,
+`SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED`, `SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED`,
+and `SHAHRAH_TOKENBAZAAR_MESSAGES_ENABLED` -- were **removed entirely** from
+the codebase in this delivery, along with their `ProviderFeatureSettings`/
+`ProviderFeatureConfig` struct fields, their dispatch-time gate checks, and
+every test that existed solely to prove one of these flags defaults to
+`false` or is isolated from the others. This was an explicit product
+decision, not a bug fix or an oversight correction, for these reasons:
+
+- GodarAI's admin-driven provider/model enable-disable mechanism
+  (support-admin -> model-discovery catalog's `enabled` flag) is the intended
+  control surface for turning providers and models on and off going forward
+  -- not a per-provider, per-capability environment variable baked into
+  control-plane at build/deploy time. Five independent env-var flags for one
+  reseller provider, added across five separate delivery sessions, was not a
+  pattern worth propagating to every future provider or capability.
+- **Known, accepted trade-off, stated plainly so it is never silently
+  "fixed" by a future delivery inventing a substitute gate:** the
+  model-discovery catalog's `enabled` flag today only affects catalog
+  visibility/selection in the admin UI and tenant-facing model picker -- it
+  does **not** affect control-plane's actual dispatch decision.
+  `providerregistry` (`services/control-plane/internal/providerregistry/registry.go`)
+  is a static, compile-time Go registry with no runtime database read; it has
+  no connection today to whatever an operator sets in the catalog UI. This is
+  an architectural gap that predates this delivery and applies to every
+  provider registered there, not just TokenBazaar.
+- Removing these five flags means **TokenBazaar's five capabilities (chat,
+  images, embeddings, responses, messages) now have no independent
+  code-level kill switch at all**, until the catalog-to-dispatch connection
+  above is designed and built as its own, general (all-providers) piece of
+  work. That gap is accepted, explicitly, as a known and recorded risk in
+  this decision -- not resolved by this delivery, and not to be quietly
+  reintroduced as a new ad hoc flag "just in case."
+- The trade-off is judged acceptable **right now** for one concrete,
+  time-bound reason: **no tenant has a live TokenBazaar provider
+  account/credential yet.** Every dispatch path below is fully wired and
+  reachable via its explicit `tokenbazaar:<account>:<model-id>` FQN, but
+  reaching it in practice still requires a tenant to hold a TokenBazaar
+  provider account in the first place -- which today, nobody does. The
+  moment that changes, the catalog-to-dispatch connection above stops being
+  optional and becomes the actual blocking prerequisite for exposing
+  TokenBazaar to real traffic.
+
+**What this means for every flag-related claim below:** every mention in this
+document, in sessions dated before 2026-09-11, of `SHAHRAH_TOKENBAZAAR_ENABLED`,
+`SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED`, `SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED`,
+`SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED`, `SHAHRAH_TOKENBAZAAR_MESSAGES_ENABLED`,
+their "default false" state, or a flag being "independent" of another, is a
+**historical description of code that existed at the time that session was
+written and no longer exists today.** None of it should be read as a
+current safety property. TokenBazaar's actual current safety posture is:
+all five capabilities are wired and reachable via explicit FQN with **no
+independent code-level kill switch**, gated in practice only by (a) no
+tenant holding a real TokenBazaar provider account/credential yet, and (b)
+the release gates further down this document (live-probe confirmation of
+each wire contract, the pricing-anomaly product/finance sign-off) --
+which remain the actual, unresolved reasons `production_ready` stays
+`false` for every TokenBazaar capability. The "Release gates" section and
+the `production_ready` summary later in this document have been updated to
+drop the now-nonexistent flags and state this directly; treat those, not the
+older per-delivery narrative above them, as the current status.
+
+## Anthropic Messages endpoint delivery (this session, 2026-09-11)
+
+This delivery adds real, tested dispatch for `POST /v1/messages`
+(`platform.ProviderOperationAnthropicMessages`) for exactly the 4 Claude
+models TokenBazaar carries: `claude-fable-5`, `claude-haiku-4-5`,
+`claude-opus-5`, `claude-sonnet-5`. Create-only, mirroring the Responses
+delivery's own scope discipline: `count_tokens`, `message_batches`, and
+`files` are not implemented for TokenBazaar (nothing in TokenBazaar's docs
+suggests it offers them). `SHAHRAH_TOKENBAZAAR_MESSAGES_ENABLED` (default
+`false`) is a new kill switch, independent of the four existing TokenBazaar
+flags (chat/images/embeddings/responses, all still `false`).
+`production_ready` for the messages capability stays explicitly `false` --
+see the release-gate additions at the bottom of this document.
+
+### Routing architecture -- the central decision of this delivery
+
+Before writing any dispatch code, this delivery investigated whether
+`AnthropicNativeHandler` (`services/control-plane/internal/proxy/
+anthropic_native_handler.go`) is the sole entry point for `POST /v1/messages`,
+or whether a more generic tunnel/proxy path (the one `chat_completions`/
+`responses`/images/embeddings already use for TokenBazaar) could carry this
+operation instead. The answer is unambiguous:
+`services/control-plane/internal/server/routes_proxy.go` wires
+`v1.Post("/messages", native)` where `native := deps.AnthropicNativeHandler.Handle`
+-- there is no other handler registered for this path, and no generic
+`ChatCompletionHandler`/`ResponsesHandler`/`EmbeddingsHandler`/`ImagesHandler`-
+style handler exists for `platform.ProviderOperationAnthropicMessages`. Two
+more findings confirmed the "single-provider-locked" characterization in this
+delivery's own executable prompt:
+
+1. `AnthropicNativeHandler` resolves deployments via its own
+   `anthropicDeploymentLister`, filtering `strings.EqualFold(deployment.Provider,
+   "anthropic")` and applying an `accountAllowlist` scoped to
+   `AnthropicAccountIDs` -- a routing model with no FQN concept at all (the
+   direct Anthropic provider is never reached via a
+   `"anthropic:<account>:<model>"` string the way TokenBazaar's other four
+   capabilities require an explicit `"tokenbazaar:<account>:<model>"` FQN).
+   It also bundles WIF credential issuance, native file/batch resource
+   mappings, and `filesEnabled`/`batchesEnabled` flags that have no
+   TokenBazaar equivalent.
+2. `services/control-plane/internal/providerregistry/registry.go`'s
+   `anthropic` entry does not declare `platform.ProviderOperationAnthropicMessages`
+   at all -- only `CapabilityChatCompletions`/`platform.ProviderOperationChatCompletions`.
+   This means the executable prompt's own instruction to add
+   `CapabilityMessages`/`platform.ProviderOperationAnthropicMessages` to
+   TokenBazaar's registry entry "mirroring exactly how anthropic's own
+   registry entry declares it" could not be followed literally: there is no
+   existing precedent to mirror, because the direct Anthropic provider
+   bypasses this registry's FQN-based capability system entirely for its
+   native Messages/Batches/Files surface. `CapabilityMessages` was added as a
+   **new** capability constant, following the same pattern
+   `CapabilityResponses`/`CapabilityEmbeddings` established in the Responses/
+   Embeddings deliveries when no prior constant existed for those operations
+   either -- not a mirror of an anthropic precedent that turned out not to
+   exist.
+
+**Decision: a new, narrow, TokenBazaar-scoped sibling handler
+(`proxy.TokenBazaarMessagesHandler`), not an extension of
+`AnthropicNativeHandler`'s provider filter.** This handler reuses the
+standard FQN -> deployment (`router.Router`) -> providerregistry capability ->
+Silk Road adapter flow already used for TokenBazaar's other four
+capabilities (mirroring `EmbeddingsHandler`'s non-virtual-model routing
+style, the simplest existing precedent for a first delivery of a new
+capability), rather than the account-allowlisted, WIF-laden
+`anthropicDeploymentLister` path. A thin routing shim,
+`proxy.NewAnthropicMessagesRouter(tokenBazaar, native)`, is wired in
+`routes_proxy.go` in place of the bare `native` handler for
+`v1.Post("/messages", ...)`: it inspects the request body's `"model"` field
+(the only signal, matching every other TokenBazaar capability's "explicit FQN
+only" rule) and dispatches a `"tokenbazaar:<account>:<model-id>"`-FQN'd
+request to `TokenBazaarMessagesHandler`; every other request (including every
+direct-Anthropic request, FQN'd or not) falls through to `native`
+unconditionally, unchanged.
+
+**`AnthropicNativeHandler`'s dispatch/routing logic, account allowlist, and
+WIF/files/batches machinery are completely untouched by this delivery.** The
+one exception, made for lint hygiene rather than behavior: once a second,
+structurally-identical Anthropic SSE streaming relay existed
+(`TokenBazaarMessagesHandler.handleStream`), this repository's `dupl`
+linter flagged the duplication against `AnthropicNativeHandler.proxyStream`.
+Per this project's own reuse discipline, the shared streaming-relay logic
+(dispatch the tunnel stream, forward `content_block_delta`/`message_stop`
+chunks raw, track usage via `parseAnthropicSSEUsage`, detect error frames via
+`anthropicSSEIsError`, finalize billing on close) was extracted into one new
+package-level function, `streamAnthropicShapedResponse`
+(`anthropic_native_handler.go`), which both handlers now call.
+`AnthropicNativeHandler.proxyStream` is now a one-line wrapper around this
+function with byte-for-byte identical behavior to before the refactor
+(confirmed by the full pre-existing `anthropic_native_handler_test.go` suite
+passing unchanged) -- this is a pure extract-method refactor, not a change to
+`AnthropicNativeHandler`'s account allowlist, WIF, files/batches gating, or
+any dispatch decision.
+
+This satisfies the executable prompt's own preference ordering: a parallel
+path was feasible (unlike, say, widening `AnthropicNativeHandler`'s account
+allowlist itself would have required to serve TokenBazaar's non-Anthropic-
+account deployments), so this delivery did not need to fall back to
+"surgically extending `AnthropicNativeHandler`'s provider check."
+
+### Reuse-vs-new-code accounting
+
+- **Reused unmodified:**
+  - `services/silk-road/pkg/server/openai_compatible.go`'s
+    `openAICompatibleAdapter.Dispatch` -- already generic raw-byte-forwarding
+    HTTP construction (method/URL/auth-header/Content-Type/Accept-for-streaming),
+    not actually OpenAI-shape-specific despite its name. TokenBazaar's
+    `/v1/messages` request body is already Anthropic-native JSON by the time
+    it reaches this adapter (built and forwarded unchanged by
+    `TokenBazaarMessagesHandler`, mirroring how `AnthropicNativeHandler`
+    forwards a direct Anthropic dispatch unchanged) -- so no OpenAI<->Anthropic
+    conversion was ever needed here, and this adapter required **zero**
+    changes.
+  - `services/silk-road/pkg/server/tokenbazaar.go`'s `tokenBazaarAdapter.Dispatch`,
+    `validateTokenBazaarBaseURL` (host allowlist), and `normalizeTokenBazaarResponse`
+    (429-passthrough/4xx-normalization, response-size ceiling) -- reused
+    exactly as-is, same as every prior TokenBazaar capability.
+  - `services/control-plane/internal/proxy/anthropic_native_request.go`'s
+    `anthropicMaximumOutputTokens` (billing-estimate max-tokens extraction) and
+    `anthropic_native_handler.go`'s `parseAnthropicNativeUsage`,
+    `parseAnthropicSSEUsage`, `anthropicSSEIsError`, `writeAnthropicError`,
+    `writeAnthropicBillingError`, `closeStreamBestEffort`,
+    `writeTunnelStreamHTTPError` -- all already provider-agnostic,
+    package-level functions; none needed a TokenBazaar-specific branch.
+  - `services/control-plane/internal/proxy/handler.go`'s
+    `runtimeProfilesFromEstimate`, `rewriteOpenAIJSONModel`,
+    `toContractDeployment`, `applyDeploymentPricingOverride`,
+    `deploymentBillingMode`, `providerModelID`, `billingEstimateModel` --
+    the same generic routing/billing helpers `EmbeddingsHandler`/
+    `ImagesHandler`/`ResponsesHandler` already use.
+  - `services/control-plane/internal/billing/provider_pricing_strategy.go`'s
+    `tokenBazaarPricingStrategy` -- its embedded `standardPricingStrategy`
+    already bills any usage (`InputTokens`/`OutputTokens`/`TotalTokens`, the
+    same `contractsopenai.Usage` shape `parseAnthropicNativeUsage` already
+    maps Anthropic's `input_tokens`/`output_tokens` into) via the generic
+    exact-decimal `costBreakdown`, keyed by model + token counts, not
+    operation type. **No `FinalizeUsage` override was needed or added.** The
+    4 in-scope models' catalog YAMLs
+    (`apps/model-discovery/providers/tokenbazaar/{claude-fable-5,
+    claude-haiku-4-5,claude-opus-5,claude-sonnet-5}.yaml`) already declared
+    `runtimeProfile.endpoints` including `messages` **before this delivery**
+    (they were pre-scaffolded with the full Anthropic profile) -- confirmed
+    by inspection, no YAML change was needed for any of the 4 models.
+- **New code written:**
+  - `services/control-plane/internal/proxy/tokenbazaar_messages_handler.go`
+    (new): `TokenBazaarMessagesHandler` (mirroring `EmbeddingsHandler`'s
+    non-virtual-model routing/billing/logging structure), its
+    `Handle`/`handleSync`/`handleStream` methods, `requestTargetsTokenBazaarMessages`
+    and `NewAnthropicMessagesRouter` (the routing shim), and
+    `supportsAnthropicMessagesProvider` (a fail-closed defense-in-depth check
+    that only "tokenbazaar" may reach this generic path -- the direct
+    "anthropic" provider is structurally never routed here in the first
+    place, since it is never reached via a bare-model FQN).
+  - `services/control-plane/internal/proxy/anthropic_native_handler.go`: the
+    `streamAnthropicShapedResponse` extraction described above (behavior-
+    preserving refactor, not new logic).
+  - `services/silk-road/pkg/server/tokenbazaar.go`: `tokenBazaarMessagesModels`
+    (the 4-model allowlist), a new `case platform.ProviderOperationAnthropicMessages`
+    in `validateTokenBazaarDispatch`'s switch, and
+    `validateTokenBazaarMessagesDispatch` plus its helpers
+    (`validateTokenBazaarMessagesMaxTokens`, `validateTokenBazaarMessagesToolsUnsupported`,
+    `validateTokenBazaarMessagesPromptCachingUnsupported`,
+    `tokenBazaarBlocksContainCacheControl`, `tokenBazaarPromptCachingUnsupportedError`)
+    -- these implement the fail-closed field-level validation described below.
+  - `services/silk-road/pkg/server/openai_operations.go`: one new `case
+    platform.ProviderOperationAnthropicMessages: return http.MethodPost,
+    "/messages", nil` in `resolveCoreOpenAIOperation` -- a pure method/path
+    mapping, exactly like every other case in this function; no request-body
+    transformation happens here (the body is already Anthropic-native JSON
+    by construction). Only TokenBazaar's adapter is ever dispatched this
+    operation via this shared path today.
+  - `services/control-plane/internal/config/provider_features.go` +
+    `internal/proxy/dependencies.go` + `internal/bootstrap/build_gateway.go`:
+    added `TokenBazaarMessagesEnabled` / `SHAHRAH_TOKENBAZAAR_MESSAGES_ENABLED`,
+    wired end to end exactly like the four existing TokenBazaar flags.
+  - `services/control-plane/internal/server/server.go` +
+    `internal/server/routes_proxy.go`: added `Dependencies.TokenBazaarMessagesHandler`
+    and wired `NewAnthropicMessagesRouter` in place of the bare `native`
+    handler for `POST /v1/messages` (the only line-level change to how this
+    route is registered; every other `/v1/messages*` sub-route -- count_tokens,
+    batches -- is untouched, still routed straight to `native`, since Messages
+    create-only is this delivery's explicit scope).
+  - `services/control-plane/internal/providerregistry/registry.go`: added
+    `CapabilityMessages` (new constant, added to `validCapability`'s
+    allowlist switch too) and `platform.ProviderOperationAnthropicMessages`
+    to TokenBazaar's registered capabilities/operations.
+    `TestTokenBazaarSupportsMessagesCapability` and
+    `TestTokenBazaarMessagesModelsNeverCollideWithDirectProviders` added
+    (mirroring the existing responses/images/embeddings collision tests);
+    `TestDefinitionsSatisfyProviderContracts`'s hardcoded tokenbazaar contract
+    updated.
+  - `packages/contracts/platform/tenant_provider_account.go`: added
+    `ModelTypeMessages` -- a new `platform.ModelType` constant, mirroring how
+    `ModelTypeResponses` already exists as its own capability-scoped access
+    type distinct from `ModelTypeChat`, even though the underlying models are
+    shared with chat. `TokenBazaarMessagesHandler` checks
+    `modelAccessForType(authInfo, requestedModel, platform.ModelTypeMessages)`,
+    matching `ResponsesHandler`'s own use of `platform.ModelTypeResponses`
+    rather than `platform.ModelTypeChat`. `services/control-plane/internal/admin/provider_catalog.go`'s
+    `mapModeToModelType` (the tenant-admin-configured "mode" string -> `ModelType`
+    mapping) gained a `"messages"` case, mirroring its existing `"responses"`
+    case, so operators can actually grant this access type through the
+    existing admin configuration surface.
+
+### Tool-use and prompt-caching decision
+
+TokenBazaar's documented `/v1/messages` example does not show a `tools`
+parameter (unlike its `/v1/chat/completions` section, which explicitly
+documents `tools`) and does not show `cache_control` prompt-caching fields.
+Per this delivery's own fail-closed discipline (and the executable prompt's
+explicit preference), **both are rejected before dispatch, each with its own
+distinguishable error, rather than silently passed through:**
+
+- Any non-empty `tools` array ->
+  `tokenbazaar_messages_tools_unsupported`. An absent, `null`, or empty
+  `tools` array is allowed through unchanged.
+- A `cache_control` block on a system block or a message content block ->
+  `tokenbazaar_messages_prompt_caching_unsupported`. (The Anthropic schema's
+  third `cache_control` location, a tool definition, is not checked as a
+  separate case: since any non-empty `tools` array is already rejected
+  outright by the tools check above, a request with `cache_control` on a
+  tool definition is already rejected by that check before this one ever
+  runs -- scanning tools for `cache_control` here would be unreachable dead
+  code, and was deliberately not written.)
+
+`thinking: {type: "enabled", budget_tokens: N}` is documented as supported on
+this exact route and is **not** validated or stripped anywhere in this
+delivery: since the request body is forwarded to TokenBazaar byte-for-byte
+(aside from the model-id rewrite), it passes through unmodified by
+construction -- confirmed by
+`TestTokenBazaarMessagesThinkingPassesThroughUnmodified` (Silk Road, all 4
+models, fixture-based) and
+`TestTokenBazaarMessagesHandlerThinkingPassesThroughUnmodified` (control
+plane, end-to-end through the handler).
+
+Multimodal image input (`{"type":"image","source":{"type":"base64",...}}`) is
+documented on this route but is **not explicitly gated or validated by this
+delivery** -- it is neither accepted-and-tested nor explicitly rejected; it
+simply passes through as part of the forwarded message content, the same as
+any other content-block shape this delivery does not specifically inspect.
+This is a deliberate, narrower scope than a "supported and tested" claim
+would require: **`FOLLOW-UP`** -- a future delivery should either add
+fixture-based coverage confirming image content blocks dispatch and bill
+correctly, or add an explicit gate if a reason to block them is found.
+
+### Streaming evidence-tier caveat (same discipline as the Responses delivery)
+
+TokenBazaar's `/v1/messages` streaming (`content_block_delta`, `message_stop`,
+etc.) is documented (the "Confirmed wire contract" section above already
+states TokenBazaar mirrors Anthropic's own `content_block_delta`/
+`message_stop` SSE shape) but has **never been independently live-verified
+end to end** by this or any prior session -- the same evidence tier as
+`/v1/chat/completions` and `/v1/responses` streaming. This delivery
+implements against the documented shape only:
+
+- The Silk Road adapter passes the raw SSE bytes through unmodified for
+  `/v1/messages`, exactly as it already does for `/v1/chat/completions` and
+  `/v1/responses` -- confirmed by
+  `TestTokenBazaarMessagesSSEStreamingPassesThroughUntilTerminalEvent` and
+  `TestTokenBazaarMessagesMalformedSSEChunkPassesThroughWithoutError`.
+- Typed-event parsing (usage extraction via `parseAnthropicSSEUsage`, error-frame
+  detection via `anthropicSSEIsError`) is the shared, provider-agnostic
+  responsibility of `streamAnthropicShapedResponse` (see above) -- exercised
+  against malformed/unexpected events by the new
+  `TestParseAnthropicSSEUsageHandlesMalformedAndUnexpectedEvents` (control
+  plane), which is itself a **new** test filling a gap: no prior delivery had
+  added unit coverage for `parseAnthropicSSEUsage`/`anthropicSSEIsError`
+  against malformed input at the control-plane layer, even though
+  `AnthropicNativeHandler` has relied on them since the direct Anthropic
+  delivery. This is now closed for both the direct Anthropic and TokenBazaar
+  Messages paths, since they share the exact same function.
+- `SHAHRAH_TOKENBAZAAR_MESSAGES_ENABLED` defaults `false` and stays off until
+  the release gates below are met.
+
+### Fail-closed validation summary (before any HTTP call)
+
+- `max_tokens` absent, `null`, non-integer, zero, or negative ->
+  `tokenbazaar_messages_max_tokens_required` (or `tokenbazaar_invalid_json`
+  for a wrong JSON type) -- TokenBazaar's own docs mark it required, matching
+  Claude's own requirement; this delivery does not rely on upstream to reject
+  its absence.
+- `messages` absent -> `tokenbazaar_messages_required`.
+- Non-empty `tools` -> `tokenbazaar_messages_tools_unsupported`.
+- `cache_control` on a system block or message content block ->
+  `tokenbazaar_messages_prompt_caching_unsupported`.
+- Model not one of the 4 in-scope models -> generic
+  `tokenbazaar_unsupported_model` (the other 22 TokenBazaar models).
+- Runtime profile missing the `messages` endpoint/transport ->
+  `tokenbazaar_runtime_profile_missing` / `tokenbazaar_unsupported_transport`.
+
+`TestTokenBazaarMessagesThreeRejectionsHappenBeforeAnyHTTPCall` proves the
+max_tokens/tools/prompt-caching rejections all happen before any upstream
+call via an end-to-end mocked-HTTP `Dispatch`, asserting the upstream call
+counter stays at exactly 1 (the one valid control request) after all three
+rejected variants are attempted.
+
+### Pricing
+
+Reuses the existing chat-completions billing path unmodified, as described
+above -- no second pricing computation path was introduced. The 4 in-scope
+models' catalog costs were already pinned (shared with the chat capability's
+21-model catalog); no pricing anomaly investigation was needed since these 4
+Claude models were not among the 3 previously-flagged anomalies (DeepSeek,
+Gemini 3.6/3.7 Flash, GPT-5.6 family).
+
+Per this delivery's own mandatory pre-implementation gate, base-URL
+reachability was re-checked once more from this session's own execution
+environment before any code was written:
+
+| Probe | Result |
+|---|---|
+| `curl -sS -m 8 https://zx1.deepwl.net/v1/models` | `curl: (28) Resolving timed out after 8015 milliseconds` |
+| `nslookup zx1.deepwl.net` | `DNS request timed out` (`Server: UnKnown`) |
+
+Same DNS-timeout failure signature as every prior session's attempt -- no new
+evidence the host is wrong, and no third host was invented. `https://zx1.deepwl.net`
+remains the authoritative value baked into `validateTokenBazaarBaseURL`,
+which the Messages dispatch path reuses unmodified (it targets
+`https://zx1.deepwl.net/v1/messages`, confirmed by
+`TestTokenBazaarMessagesDispatchExactRequestConstruction`).
 
 ## Responses endpoint delivery (this session, 2026-09-11)
 
@@ -460,7 +846,7 @@ Endpoint-type cross-check (from the same catalog payload and the docs' `/v1/mode
 | 8 | DeepSeek V4 Flash/Pro pricing anomaly | **Confirmed, quantified** (see "Pricing anomalies" below) | Not an implementation blocker; requires product/finance sign-off before enabling live traffic on these two models. |
 | 9 | Gemini 3.6/3.7 Flash pricing anomaly | **Partially confirmed** — see caveat below; needs a full re-check against the *current* effective-dated direct-provider price row, not the one captured in this session's abbreviated read. | Same as above — surfaced, not resolved, not blocking cataloging. |
 | 10 | GPT-5.6 family output-price premium anomaly | **Confirmed, quantified precisely** (see below) | Same as above. |
-| 11 | `text-embedding-3-large` embeddings request/response shape | **Mechanism implemented and unit-tested against an *inferred*, not first-party-confirmed, contract (Embeddings Endpoint delivery, 2026-09-11).** A full re-read of the rendered `/docs` page (including nav sidebar) confirmed no "Embeddings" section and no worked request/response example exist there; no OpenAPI/schema document was found either. The contract is inferred from the docs' own product description ("...text, image, video, and embedding capabilities...") and the authenticated `GET /v1/models` catalog listing this model with `supported_endpoint_types: embeddings`, combined with every other confirmed TokenBazaar capability following an exact OpenAI/Anthropic-compatible shape with no deviation. | `POST /v1/embeddings` dispatch exists (`services/silk-road/pkg/server/tokenbazaar.go`: `tokenBazaarEmbeddingModels`, `validateTokenBazaarEmbeddingsDispatch`), gated behind its own `SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED` flag (default `false`, independent of chat/images). A successful response is shape-checked (`validateTokenBazaarEmbeddingsResponseShape`) before being returned; a mismatch is rejected with a distinct `tokenbazaar_embeddings_response_shape_unexpected` error rather than forwarded blind. **Still open**: a live, approved-credential probe against `https://zx1.deepwl.net/v1/embeddings` to confirm the exact path and response envelope — not just that *some* response comes back. Until that probe succeeds, `production_ready` for embeddings stays `false` regardless of how well the code/tests behave. |
+| 11 | `text-embedding-3-large` embeddings request/response shape | **Mechanism implemented and unit-tested against an *inferred*, not first-party-confirmed, contract (Embeddings Endpoint delivery, 2026-09-11).** A full re-read of the rendered `/docs` page (including nav sidebar) confirmed no "Embeddings" section and no worked request/response example exist there; no OpenAPI/schema document was found either. The contract is inferred from the docs' own product description ("...text, image, video, and embedding capabilities...") and the authenticated `GET /v1/models` catalog listing this model with `supported_endpoint_types: embeddings`, combined with every other confirmed TokenBazaar capability following an exact OpenAI/Anthropic-compatible shape with no deviation. | `POST /v1/embeddings` dispatch exists (`services/silk-road/pkg/server/tokenbazaar.go`: `tokenBazaarEmbeddingModels`, `validateTokenBazaarEmbeddingsDispatch`) and is fully reachable via explicit FQN (no code-level kill switch since 2026-09-11 -- see "Feature-flag removal" at the top of this document). A successful response is shape-checked (`validateTokenBazaarEmbeddingsResponseShape`) before being returned; a mismatch is rejected with a distinct `tokenbazaar_embeddings_response_shape_unexpected` error rather than forwarded blind. **Still open**: a live, approved-credential probe against `https://zx1.deepwl.net/v1/embeddings` to confirm the exact path and response envelope — not just that *some* response comes back. Until that probe succeeds, `production_ready` for embeddings stays `false` regardless of how well the code/tests behave. |
 | 12 | Per-model image size/quality parameter sets for the 4 image models | **Mechanism implemented and tested; live population still open.** `/v1/images/generations` and `/v1/images/edits` dispatch now exists (`services/silk-road/pkg/server/tokenbazaar.go`), with an in-memory, TTL-expiring cache (`tokenBazaarImageParameterCache`, 6h TTL) keyed by model, carrying `SourceURL` provenance, and a decode/install path (`services/silk-road/pkg/server/tokenbazaar_image_discovery.go`: `parseTokenBazaarImageParameterSnapshots` / `refreshTokenBazaarImageParameterCache`) that parses TokenBazaar's documented authenticated `GET /v1/models` `supported_parameters` shape. **No code path calls that endpoint live yet** — there is no platform-managed TokenBazaar credential to call it with (same gap as the base-URL reachability item), so the cache stays empty in production today. No size/quality enum is hardcoded anywhere in Go or YAML. | A caller-requested `size`/`quality` is rejected with a distinct `tokenbazaar_image_parameters_unconfirmed` error unless a live snapshot exists for that exact model (never silently passed through, never confused with the generic `tokenbazaar_model_not_yet_supported`/`tokenbazaar_unsupported_model` errors). A request that omits `size`/`quality` entirely is allowed to proceed even with no snapshot, letting TokenBazaar apply its own model default rather than GodarAI guessing one — this is a deliberate, documented scoping of "validate the caller's requested size/quality," not a loophole: GodarAI never asserts a specific value is supported without live confirmation. **Follow-up before this can be closed**: wire `refreshTokenBazaarImageParameterCache` to an actual call against a live, user-approved TokenBazaar credential (at credential-test time and/or on a periodic discovery job), per Phase 1's existing source-drift pattern. |
 
 ## Pricing anomalies — status
@@ -868,21 +1254,151 @@ reuse-vs-new-code accounting, the two assumptions found in
   suites, plus the full `services/control-plane` and `services/silk-road`
   module test suites, were re-run and pass with no regressions.
 
+### Implemented and tested in the Anthropic Messages endpoint delivery (this session, 2026-09-11)
+
+See the top-of-document "Anthropic Messages endpoint delivery" section for
+the full routing-architecture decision, reuse-vs-new-code accounting, the
+tool-use/prompt-caching decision, and the streaming evidence-tier caveat.
+Summary:
+
+- **Routing**: a new, narrow sibling handler
+  (`proxy.TokenBazaarMessagesHandler`) reuses the standard FQN -> deployment
+  -> providerregistry capability -> Silk Road adapter flow, wired via a thin
+  shim (`proxy.NewAnthropicMessagesRouter`) in `routes_proxy.go` in place of
+  the bare `AnthropicNativeHandler.Handle` registration for
+  `POST /v1/messages`. `AnthropicNativeHandler`'s own dispatch/routing/
+  account-allowlist/WIF/files/batches logic is completely untouched; the only
+  change to that file is a behavior-preserving extract-method refactor
+  (`streamAnthropicShapedResponse`) needed to satisfy this repo's `dupl`
+  lint rule once a second, structurally-identical Anthropic SSE relay
+  existed.
+- **Registry**: `services/control-plane/internal/providerregistry/registry.go`
+  adds a new `CapabilityMessages` constant (no prior "anthropic" registry
+  precedent existed to mirror — see the routing-architecture section above)
+  and `platform.ProviderOperationAnthropicMessages` to TokenBazaar's
+  registered capabilities/operations. `TestTokenBazaarSupportsMessagesCapability`
+  and `TestTokenBazaarMessagesModelsNeverCollideWithDirectProviders` confirm
+  the 4 in-scope models route to the Messages dispatch path and never
+  collide with the direct `anthropic` provider's own dispatch (a bare,
+  unqualified model id never resolves to `tokenbazaar`; only the explicit
+  `tokenbazaar:<account>:<model-id>` FQN does).
+- **Adapter dispatch**: `services/silk-road/pkg/server/tokenbazaar.go` adds
+  `tokenBazaarMessagesModels` (the 4-model allowlist) and
+  `validateTokenBazaarMessagesDispatch`, mirroring the structure of
+  `validateTokenBazaarChatDispatch`/`validateTokenBazaarResponsesDispatch`:
+  model-scoping, runtime-profile (`messages` endpoint, `http`/`sse`
+  transport) enforcement, a required `max_tokens` (positive integer) field,
+  a required `messages` field, and the two fail-closed rejections
+  (`validateTokenBazaarMessagesToolsUnsupported`,
+  `validateTokenBazaarMessagesPromptCachingUnsupported`). Dispatch targets
+  `POST /v1/messages` via the existing generic `openAICompatibleAdapter` and
+  `platform.ProviderOperationAnthropicMessages` — the only new
+  path-resolution code needed was one `case` in
+  `services/silk-road/pkg/server/openai_operations.go`'s
+  `resolveCoreOpenAIOperation` (a pure method/path mapping, since the
+  request body is already Anthropic-native JSON by construction).
+- **Feature flag**: `SHAHRAH_TOKENBAZAAR_MESSAGES_ENABLED` (default `false`)
+  added to `config/provider_features.go`, `proxy/dependencies.go`,
+  `bootstrap/build_gateway.go`, independent of
+  `SHAHRAH_TOKENBAZAAR_ENABLED`/`SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED`/
+  `SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED`/`SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED`
+  in all directions — confirmed by
+  `TestTokenBazaarMessagesHandlerDisabledByDefault` and
+  `TestTokenBazaarMessagesHandlerFlagIsolatedFromOtherFourFlags`.
+- **Model access**: a new `platform.ModelTypeMessages` constant
+  (`packages/contracts/platform/tenant_provider_account.go`) gates access to
+  this route independently of `ModelTypeChat`, mirroring how
+  `ModelTypeResponses` already gates the Responses route independently —
+  wired into `admin/provider_catalog.go`'s `mapModeToModelType` so operators
+  can grant it through the existing tenant-admin configuration surface.
+- **Billing**: no `FinalizeUsage` override was needed or added — see the
+  top-of-document reuse accounting.
+- **Tests**:
+  - `services/silk-road/pkg/server/tokenbazaar_test.go` adds routing
+    coverage for all 4 in-scope models and a negative table for the other 22
+    models (`TestTokenBazaarMessagesDispatchRoutesForAllFourInScopeModels`,
+    `TestTokenBazaarMessagesOperationRejectsOutOfScopeModels`), runtime-profile
+    enforcement, `max_tokens` bound validation (absent/null/zero/negative/
+    non-integer/wrong-type), the required-`messages` check, dedicated
+    table-driven tests for both fail-closed rejections
+    (`TestTokenBazaarMessagesRejectsToolUse`,
+    `TestTokenBazaarMessagesRejectsPromptCaching`) plus an end-to-end
+    mocked-HTTP proof both happen before any upstream call
+    (`TestTokenBazaarMessagesThreeRejectionsHappenBeforeAnyHTTPCall`), an
+    exact method/URL/header/body construction test against
+    `https://zx1.deepwl.net/v1/messages`
+    (`TestTokenBazaarMessagesDispatchExactRequestConstruction`), a
+    fixture-based `thinking.budget_tokens` passthrough test across all 4
+    models (`TestTokenBazaarMessagesThinkingPassesThroughUnmodified`), an SSE
+    content_block_delta/message_stop passthrough test
+    (`TestTokenBazaarMessagesSSEStreamingPassesThroughUntilTerminalEvent`)
+    plus a malformed-SSE-chunk passthrough test
+    (`TestTokenBazaarMessagesMalformedSSEChunkPassesThroughWithoutError`),
+    4xx normalization/no-upstream-body-leak parity, no API-key leakage in
+    validation errors, and no forwarding of the caller's own Authorization
+    header.
+  - `services/control-plane/internal/providerregistry/registry_test.go`
+    adds the control-plane-side capability/collision coverage;
+    `services/control-plane/internal/proxy/tokenbazaar_messages_handler_test.go`
+    (new) adds routing-shim coverage
+    (`TestRequestTargetsTokenBazaarMessages`,
+    `TestAnthropicMessagesRouterFallsBackToNativeForNonTokenBazaarModels`),
+    flag-isolation coverage
+    (`TestTokenBazaarMessagesHandlerDisabledByDefault`,
+    `TestTokenBazaarMessagesHandlerFlagIsolatedFromOtherFourFlags`),
+    end-to-end dispatch/billing coverage
+    (`TestTokenBazaarMessagesHandlerDispatchesSuccessfully`,
+    `TestTokenBazaarMessagesHandlerThinkingPassesThroughUnmodified`,
+    `TestTokenBazaarMessagesHandlerNeverForwardsGodarAIAuthorizationHeader`),
+    and new malformed/unexpected-SSE-event coverage for the shared
+    `parseAnthropicSSEUsage`/`anthropicSSEIsError` helpers
+    (`TestParseAnthropicSSEUsageHandlesMalformedAndUnexpectedEvents` — a gap
+    that existed even for the direct Anthropic path before this delivery,
+    now closed for both).
+  - No live or billable TokenBazaar call is made anywhere in this test suite.
+- **Regression**: the full existing `tokenbazaar_test.go` and
+  `tokenbazaar_image_discovery_test.go` suites (chat, image, embeddings, and
+  responses dispatch for the other 22 models) were re-run unchanged and
+  still pass; no existing test was renamed or had its assertions changed.
+  The full existing `anthropic_native_handler_test.go` suite (the direct
+  `anthropic` provider's account allowlist, code-execution pricing policy,
+  and feature-flag independence) was re-run unchanged and still passes,
+  confirming the `streamAnthropicShapedResponse` extraction preserved
+  `AnthropicNativeHandler`'s behavior exactly. The full
+  `services/control-plane/internal/proxy`, `internal/config`,
+  `internal/providerregistry`, `internal/billing`, `internal/admin`, and
+  `internal/bootstrap` suites, plus the full `services/control-plane`,
+  `services/silk-road`, and `packages/contracts/platform` module test
+  suites, were re-run and pass with no regressions.
+
 ### Explicitly gated (still not implemented) — and why
 
-- **`/v1/responses` for the other 15 chat-capable models, and `/v1/messages`
-  entirely**: not wired into dispatch. The 6-model Responses scope (4 OpenAI
-  family + 2 DeepSeek) is this delivery's own deliberate boundary, not an
-  evidence-based exclusion of the other 15 models — TokenBazaar's own docs
-  claim `/v1/responses` works identically for all 21 chat-capable models.
-  `/v1/messages` remains fully gated per conflict-register item #4
-  (streaming/reasoning not independently verified end to end for that
-  envelope, and it was never in this delivery's scope either).
+- **`/v1/responses` for the other 15 chat-capable models**: not wired into
+  dispatch. The 6-model Responses scope (4 OpenAI family + 2 DeepSeek) is
+  that delivery's own deliberate boundary, not an evidence-based exclusion of
+  the other 15 models — TokenBazaar's own docs claim `/v1/responses` works
+  identically for all 21 chat-capable models.
+- **`/v1/messages` for models other than the 4 Claude models**: no other
+  TokenBazaar model gains this operation (Anthropic Messages is a Claude-
+  native envelope; TokenBazaar's own docs describe the three text envelopes —
+  chat/responses/messages — as normalizing to the same underlying model, so
+  a non-Claude model speaking `/v1/messages` is plausible in principle, but
+  this delivery's own executable prompt scoped it to exactly the 4 Claude
+  models TokenBazaar carries, mirroring the Responses delivery's own
+  narrower-than-full-surface scoping). Requesting `/v1/messages` for any
+  other TokenBazaar model still rejects with the generic
+  `tokenbazaar_unsupported_model` error. See "Anthropic Messages endpoint
+  delivery" above for the full accounting — dispatch for the 4 Claude models
+  is implemented and unit-tested and fully reachable (no code-level kill
+  switch since 2026-09-11, see "Feature-flag removal" at the top of this
+  document); a live probe confirming streaming/thinking end to end is still
+  the open release gate.
 - **`text-embedding-3-large`**: no longer gated as out-of-scope — see the
   "Embeddings endpoint delivery" section above and conflict-register item #11.
-  Dispatch is implemented and unit-tested against an *inferred* contract, but
-  gated behind `SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED` (default `false`)
-  until a live probe confirms the actual path/response envelope. `FOLLOW-UP`.
+  Dispatch is implemented and unit-tested against an *inferred* contract and
+  is fully reachable (no code-level kill switch since 2026-09-11); a live
+  probe confirming the actual path/response envelope is still the open
+  release gate. `FOLLOW-UP`.
 - **The 4 image models' live per-model parameter discovery** (conflict #12):
   mechanism built and unit-tested; not yet wired to an automatic live trigger.
   A caller-requested size/quality that cannot be live-confirmed is rejected,
@@ -898,31 +1414,39 @@ reuse-vs-new-code accounting, the two assumptions found in
   not created (tenant-admin i18n strings for the credential UI were added, which
   is a distinct, narrower thing). `FOLLOW-UP`.
 - **Phase 9 (readiness CLI, canary/kill-switch operational wiring)**:
-  `services/control-plane/cmd/tokenbazaar-readiness` not created; the kill switch
-  that exists (`SHAHRAH_TOKENBAZAAR_ENABLED`, default false) is a build-time/
-  config-time flag, not the fuller canary/rollback operational tooling the Z.ai
-  reference has. `FOLLOW-UP`.
-- **`production_ready`**: **stays false, for chat, images, embeddings, and
-  responses.** The provider is now registered and fully wired end to end in
-  code for all four capabilities, with all four feature flags defaulting
-  off — but no live TokenBazaar account has ever exercised any path (no live
-  call was made in Phase 0, the Phases 2–5 delivery, the Image Endpoints
-  delivery, the Embeddings Endpoint delivery, the Responses Endpoint
-  delivery, or any prior session), the three chat pricing anomalies remain
-  undecided by product/finance, the image per-model parameter
-  live-discovery cache (conflict #12) has never been populated from a real
-  account, the embeddings contract itself is inferred rather than
-  first-party-confirmed (conflict #11), the Responses streaming contract has
-  never been independently live-verified end to end (same evidence tier as
-  chat_completions streaming — see "Responses endpoint delivery" above), and
-  `SHAHRAH_TOKENBAZAAR_ENABLED`, `SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED`,
-  `SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED`, and
-  `SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED` must all stay `false` until the
-  release gates below are actually met. Implemented-and-tested is not the
-  same claim as production-ready — this is truer for embeddings (unconfirmed
-  contract) and responses (unconfirmed streaming) than for chat or images.
+  `services/control-plane/cmd/tokenbazaar-readiness` not created. As of
+  2026-09-11 (see "Feature-flag removal" above), there is no code-level kill
+  switch at all for any TokenBazaar capability — the build-time/config-time
+  flags that previously existed here were removed by explicit product
+  decision, and the fuller canary/rollback operational tooling the Z.ai
+  reference has was never built either. `FOLLOW-UP`.
+- **`production_ready`**: **stays false, for chat, images, embeddings,
+  responses, and messages.** The provider is registered and fully wired end
+  to end in code for all five capabilities, reachable via explicit
+  `tokenbazaar:<account>:<model-id>` FQN with **no independent code-level
+  kill switch** (see "Feature-flag removal" at the top of this document for
+  why, and the accepted trade-off that decision carries) — but no live
+  TokenBazaar account has ever exercised any path (no live call was made in
+  Phase 0, the Phases 2–5 delivery, the Image Endpoints delivery, the
+  Embeddings Endpoint delivery, the Responses Endpoint delivery, the
+  Anthropic Messages endpoint delivery, or any prior session), the three
+  chat pricing anomalies remain undecided by product/finance, the image
+  per-model parameter live-discovery cache (conflict #12) has never been
+  populated from a real account, the embeddings contract itself is inferred
+  rather than first-party-confirmed (conflict #11), and the Responses and
+  Messages streaming contracts have never been independently live-verified
+  end to end (same evidence tier as chat_completions streaming — see
+  "Responses endpoint delivery" and "Anthropic Messages endpoint delivery"
+  above). In practice, the only things standing between TokenBazaar and live
+  traffic today are (a) no tenant holding a real TokenBazaar provider
+  account/credential yet, and (b) the release gates below (live-probe
+  confirmation of each wire contract, the pricing-anomaly sign-off) — those
+  remain the actual reasons `production_ready` stays `false`, not a flag.
+  Implemented-and-tested is not the same claim as production-ready — this is
+  truer for embeddings (unconfirmed contract), responses (unconfirmed
+  streaming), and messages (unconfirmed streaming) than for chat or images.
 
-## Release gates (unchanged from the task's own bar, extended for images, embeddings, and responses)
+## Release gates (unchanged from the task's own bar, extended for images, embeddings, responses, and messages)
 
 Do not mark TokenBazaar, or any individual model on it, production-ready until:
 1. The chat/completions wire contract is additionally confirmed by a live, approved TokenBazaar account (this session's evidence is first-party documentation, not a live call).
@@ -934,52 +1458,46 @@ Do not mark TokenBazaar, or any individual model on it, production-ready until:
    and tested in the Phases 2–5 delivery" above. Phases 6–9 (full wallet
    settlement beyond cost computation, Playground UX, Persian docs, readiness
    CLI, canary/kill-switch operational wiring) remain unimplemented.
-6. Dashboards, kill switches (the code-level `SHAHRAH_TOKENBAZAAR_ENABLED` flag
-   exists and defaults off, but the fuller canary order and rollback drill do
-   not), and a rollback drill are in place.
-7. `SHAHRAH_TOKENBAZAAR_ENABLED` is deliberately flipped on by an operator after
-   the above are satisfied — this document does not do that, and no delivery
-   should flip it as a side effect of landing code.
-8. **(Images, all 4 models)** The live per-model image-parameter discovery
+6. Dashboards, a rollback drill, and (per "Feature-flag removal" above) the
+   model-discovery catalog's `enabled` flag actually being wired to
+   control-plane's dispatch decision -- today it only affects catalog
+   visibility/selection, not dispatch, so it cannot yet serve as the
+   operational kill switch this gate originally described. Until that
+   connection is built (a separate, general, all-providers piece of work,
+   not scoped to this delivery), TokenBazaar's five capabilities have no
+   code-level kill switch at all; this gate is not met until either that
+   connection exists or another explicit operational safeguard is put in
+   its place.
+7. **(Images, all 4 models)** The live per-model image-parameter discovery
    cache (conflict #12) is actually populated from a real, user-approved
    TokenBazaar credential at least once — `refreshTokenBazaarImageParameterCache`
    is implemented and unit-tested but not yet wired to any live trigger. Until
    then, any real caller-requested `size`/`quality` fails closed as
    unconfirmed, by design.
-9. **(Images, `gpt-image-2` only)** A live, approved TokenBazaar account
+8. **(Images, `gpt-image-2` only)** A live, approved TokenBazaar account
    confirms `POST /v1/images/generations`/`edits` actually dispatch correctly
    for `gpt-image-2` end to end (base64 response shape, usage/cost fields) —
    this session's evidence is first-party documentation-table listing, not a
    live call.
-10. **(Images, the 3 Gemini models only — independent of gate 9)** A live,
-    approved TokenBazaar account confirms `gemini-3-pro-image`,
-    `gemini-3.1-flash-image`, and `gemini-3.1-flash-lite-image` actually work
-    on these endpoints at all — per conflict #12, TokenBazaar's own
-    documentation table never named these 3 models under "Supported Image
-    Models," unlike `gpt-image-2`. `gpt-image-2` satisfying gate 9 does not
-    satisfy this gate for the 3 Gemini models, and vice versa — each of the 3
-    needs its own live confirmation.
-11. `SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED` is deliberately flipped on by an
-    operator after gates 8–10 are satisfied, independent of whether/when
-    `SHAHRAH_TOKENBAZAAR_ENABLED` (chat) is flipped on — this document does
-    not do that, and no delivery should flip it as a side effect of landing
-    code.
-12. **(Embeddings, `text-embedding-3-large` only)** A live, approved
+9. **(Images, the 3 Gemini models only — independent of gate 8)** A live,
+   approved TokenBazaar account confirms `gemini-3-pro-image`,
+   `gemini-3.1-flash-image`, and `gemini-3.1-flash-lite-image` actually work
+   on these endpoints at all — per conflict #12, TokenBazaar's own
+   documentation table never named these 3 models under "Supported Image
+   Models," unlike `gpt-image-2`. `gpt-image-2` satisfying gate 8 does not
+   satisfy this gate for the 3 Gemini models, and vice versa — each of the 3
+   needs its own live confirmation.
+10. **(Embeddings, `text-embedding-3-large` only)** A live, approved
     TokenBazaar credential probe against `https://zx1.deepwl.net/v1/embeddings`
     confirms: (a) the path itself is correct (not some other path this
     delivery's inference got wrong); (b) the response envelope matches
     `{object:"list", data:[{object:"embedding", embedding:[...], index}],
     model, usage:{prompt_tokens, total_tokens}}`, not merely that *some*
     response comes back; and (c) `encoding_format`/`dimensions` behave as this
-    delivery assumed. This gate is categorically different from gates 9–10
+    delivery assumed. This gate is categorically different from gates 8–9
     (images): those confirm a *documented* contract actually works live; this
     one confirms the *contract itself* — see conflict-register item #11.
-13. `SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED` is deliberately flipped on by an
-    operator after gate 12 is satisfied, independent of whether/when
-    `SHAHRAH_TOKENBAZAAR_ENABLED` (chat) or `SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED`
-    (images) are flipped on — this document does not do that, and no delivery
-    should flip it as a side effect of landing code.
-14. **(Responses, all 6 in-scope models: gpt-5.5, gpt-5.6-luna, gpt-5.6-sol,
+11. **(Responses, all 6 in-scope models: gpt-5.5, gpt-5.6-luna, gpt-5.6-sol,
     gpt-5.6-terra, deepseek-v4-flash, deepseek-v4-pro)** A live, approved
     TokenBazaar credential probe against `https://zx1.deepwl.net/v1/responses`
     confirms, end to end: (a) the SSE typed-event shape (`response.created`,
@@ -996,11 +1514,40 @@ Do not mark TokenBazaar, or any individual model on it, production-ready until:
     categorically similar to gate 2 above (streaming/reasoning contracts) but
     scoped specifically to the 6 models this delivery actually wired, not the
     full 21-model chat-capable surface gate 2 was originally written against.
-15. `SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED` is deliberately flipped on by an
-    operator after gate 14 is satisfied, independent of whether/when
-    `SHAHRAH_TOKENBAZAAR_ENABLED` (chat), `SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED`
-    (images), or `SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED` (embeddings) are
-    flipped on — this document does not do that, and no delivery should flip
-    it as a side effect of landing code.
+12. **(Messages, all 4 in-scope models: claude-fable-5, claude-haiku-4-5,
+    claude-opus-5, claude-sonnet-5)** A live, approved TokenBazaar credential
+    probe against `https://zx1.deepwl.net/v1/messages` confirms, end to end:
+    (a) the SSE event shape (`message_start`, `content_block_delta`,
+    `message_delta`, `message_stop`, etc.) actually matches what
+    `streamAnthropicShapedResponse`'s `parseAnthropicSSEUsage`/
+    `anthropicSSEIsError` expect — not merely that *some* stream comes back;
+    (b) `thinking.budget_tokens` actually changes model behavior (not just
+    that the field passes through the request unmodified, which this
+    delivery already confirmed by test); (c) `max_tokens` is genuinely
+    required by TokenBazaar's own gateway (i.e. that this delivery's
+    pre-dispatch rejection of its absence is not just defensive but
+    necessary); and (d) the tool-use and prompt-caching rejections in this
+    delivery are not needlessly conservative — i.e. that TokenBazaar's
+    `/v1/messages` does NOT actually support `tools`/`cache_control` today
+    (if a live probe instead shows they work, this document's "unsupported"
+    stance should be revisited and upgraded with that new evidence, per this
+    delivery's own instruction, rather than left stale). This gate is
+    categorically similar to gates 2 and 11 above (streaming/reasoning
+    contracts) but scoped specifically to the 4 Claude models this delivery
+    actually wired.
+13. Since 2026-09-11 (see "Feature-flag removal" at the top of this
+    document), none of the five capabilities has an independent code-level
+    kill switch to "flip on" after the above gates are met — the prior
+    version of this section had one such gate per capability
+    (`SHAHRAH_TOKENBAZAAR_ENABLED`/`_IMAGES_ENABLED`/`_EMBEDDINGS_ENABLED`/
+    `_RESPONSES_ENABLED`/`_MESSAGES_ENABLED`, each "deliberately flipped on
+    by an operator"); those flags no longer exist. Until the
+    model-discovery-catalog-to-dispatch connection described in that section
+    is built, the actual operational safeguard for each capability going
+    live is: no tenant is granted a TokenBazaar provider account/credential
+    until every applicable gate above is met for that capability. Treat
+    granting the first real TokenBazaar credential to a tenant as the
+    equivalent go-live action this document previously described as
+    "flipping the flag."
 
 One model's readiness never unlocks another.

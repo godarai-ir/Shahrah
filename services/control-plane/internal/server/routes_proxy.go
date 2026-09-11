@@ -159,7 +159,16 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 
 	if deps.AnthropicNativeHandler != nil {
 		native := deps.AnthropicNativeHandler.Handle
-		v1.Post("/messages", native)
+		// POST /v1/messages is routed through a thin shim
+		// (proxy.NewAnthropicMessagesRouter): a request whose body "model" is
+		// an explicit "tokenbazaar:<account>:<model-id>" FQN is dispatched to
+		// TokenBazaarMessagesHandler (the narrow, non-account-allowlisted,
+		// FQN-routed path added for TokenBazaar's Messages capability); every
+		// other request falls back to native (AnthropicNativeHandler.Handle,
+		// completely unmodified by that delivery) exactly as before. See
+		// plans/tokenbazaar-production-readiness.md, "Anthropic Messages
+		// endpoint delivery", for the full reasoning.
+		v1.Post("/messages", proxy.NewAnthropicMessagesRouter(deps.TokenBazaarMessagesHandler, native))
 		v1.Post("/messages/count_tokens", native)
 		v1.Post("/messages/batches", native)
 		v1.Get("/messages/batches", native)

@@ -97,14 +97,13 @@ var tokenBazaarChatModels = map[string]struct{}{
 // TokenBazaar models. All 5 now have real dispatch (the 4 image models via
 // tokenBazaarImageModels/validateTokenBazaarImageDispatch, and the last
 // remaining one, the embeddings model text-embedding-3-large, via
-// tokenBazaarEmbeddingModels/validateTokenBazaarEmbeddingsDispatch below),
-// each gated instead by its own independent feature flag checked at the
-// control plane (SHAHRAH_TOKENBAZAAR_IMAGES_ENABLED,
-// SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED) and, for images, by the live
-// per-model parameter confirmation cache. This map is kept (now empty)
-// rather than deleted so any future out-of-scope TokenBazaar model can be
-// gated the same explicit, actionable way instead of falling through to a
-// generic 404/misroute.
+// tokenBazaarEmbeddingModels/validateTokenBazaarEmbeddingsDispatch below).
+// Images are additionally gated by the live per-model parameter confirmation
+// cache. Neither capability carries an independent code-level kill switch --
+// see plans/tokenbazaar-production-readiness.md for the accepted-risk
+// rationale. This map is kept (now empty) rather than deleted so any future
+// out-of-scope TokenBazaar model can be gated the same explicit, actionable
+// way instead of falling through to a generic 404/misroute.
 var tokenBazaarUnsupportedModels = map[string]string{}
 
 // tokenBazaarImageModels is the exhaustive set of TokenBazaar model IDs this
@@ -125,9 +124,7 @@ var tokenBazaarImageModels = map[string]struct{}{
 }
 
 // tokenBazaarEmbeddingModels is the exhaustive set of TokenBazaar model IDs
-// this delivery dispatches through POST /v1/embeddings, gated by its own
-// SHAHRAH_TOKENBAZAAR_EMBEDDINGS_ENABLED flag (checked at the control plane,
-// independent of the chat and images flags).
+// this delivery dispatches through POST /v1/embeddings.
 //
 // Evidence-tier caveat (see plans/tokenbazaar-production-readiness.md,
 // "Embeddings endpoint delivery"): unlike chat and images, TokenBazaar's own
@@ -170,9 +167,7 @@ var tokenBazaarEmbeddingsEncodingFormats = map[string]struct{}{
 
 // tokenBazaarResponsesModels is the exhaustive set of TokenBazaar model IDs
 // this delivery dispatches through the documented POST /v1/responses
-// envelope, gated by its own SHAHRAH_TOKENBAZAAR_RESPONSES_ENABLED flag
-// (checked at the control plane, independent of the chat/images/embeddings
-// flags). Per plans/tokenbazaar-production-readiness.md's "Confirmed wire
+// envelope. Per plans/tokenbazaar-production-readiness.md's "Confirmed wire
 // contract", all 21 chat-capable models in scope can in principle speak
 // /v1/responses (TokenBazaar normalizes to whichever of the three text
 // envelopes the caller selects), but this delivery is deliberately scoped to
@@ -189,6 +184,19 @@ var tokenBazaarResponsesModels = map[string]struct{}{
 	"gpt-5.6-terra":     {},
 	"deepseek-v4-flash": {},
 	"deepseek-v4-pro":   {},
+}
+
+// tokenBazaarMessagesModels is the exhaustive set of TokenBazaar model IDs
+// this delivery dispatches through the documented POST /v1/messages
+// (Anthropic Messages-compatible) envelope. Per this
+// delivery's own executable prompt, this is scoped to exactly the 4 Claude
+// models TokenBazaar carries -- create-only, mirroring how the Responses
+// delivery was scoped to "create only" for its own 6 models.
+var tokenBazaarMessagesModels = map[string]struct{}{
+	"claude-fable-5":   {},
+	"claude-haiku-4-5": {},
+	"claude-opus-5":    {},
+	"claude-sonnet-5":  {},
 }
 
 // tokenBazaarImageParameterSnapshot records a per-model image size/quality
@@ -343,6 +351,8 @@ func validateTokenBazaarDispatch(payload platform.TunnelRequest) error {
 		return validateTokenBazaarEmbeddingsDispatch(payload, model, body, isJSON)
 	case platform.ProviderOperationOpenAIResponsesCreate:
 		return validateTokenBazaarResponsesDispatch(payload, model, body, isJSON)
+	case platform.ProviderOperationAnthropicMessages:
+		return validateTokenBazaarMessagesDispatch(payload, model, body, isJSON)
 	default:
 		return fmt.Errorf("tokenbazaar_unsupported_operation: %s", payload.Operation)
 	}
@@ -782,6 +792,198 @@ func validateTokenBazaarResponsesInputPresence(body map[string]json.RawMessage) 
 // tokenBazaarJSONIsNull reports whether a raw JSON value is the literal null.
 func tokenBazaarJSONIsNull(raw json.RawMessage) bool {
 	return strings.EqualFold(strings.TrimSpace(string(raw)), "null")
+}
+
+// validateTokenBazaarMessagesDispatch validates a POST /v1/messages request
+// against TokenBazaar's own documented contract (see
+// plans/tokenbazaar-production-readiness.md, "Confirmed wire contract" and
+// "Anthropic Messages endpoint delivery") before any HTTP call is attempted.
+// Unlike chat/responses/embeddings, this route's request body is already
+// Anthropic-native JSON (model, messages, max_tokens, system, stream,
+// thinking) -- not an OpenAI-compatible shape -- so this function validates
+// that native shape directly rather than an OpenAI-compatible one.
+func validateTokenBazaarMessagesDispatch(payload platform.TunnelRequest, model string, body map[string]json.RawMessage, isJSON bool) error {
+	if _, supported := tokenBazaarMessagesModels[model]; !supported {
+		return fmt.Errorf("tokenbazaar_unsupported_model: %s", model)
+	}
+
+	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
+	if !ok || binding.Validate() != nil ||
+		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
+		!binding.Profile.AllowsEndpoint("messages") {
+		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
+	}
+
+	transport := "http"
+	if payload.Stream {
+		transport = "sse"
+	}
+
+	if !binding.Profile.AllowsTransport(transport) {
+		return fmt.Errorf("tokenbazaar_unsupported_transport: %s", transport)
+	}
+
+	// TokenBazaar's own documented /v1/messages contract is always a JSON
+	// object (never multipart/form-data).
+	if !isJSON {
+		return fmt.Errorf("tokenbazaar_invalid_json")
+	}
+
+	if err := validateTokenBazaarMessagesMaxTokens(body); err != nil {
+		return err
+	}
+
+	if _, ok := body["messages"]; !ok {
+		return fmt.Errorf("tokenbazaar_messages_required")
+	}
+
+	if err := validateTokenBazaarMessagesToolsUnsupported(body); err != nil {
+		return err
+	}
+
+	// "thinking" (extended-thinking / budget_tokens) is deliberately NOT
+	// validated or stripped anywhere in this function: TokenBazaar's own docs
+	// document thinking: {type: "enabled", budget_tokens: N} as a supported
+	// field on this exact route, and the request body is forwarded to
+	// TokenBazaar byte-for-byte (aside from the model-id rewrite already
+	// applied by proxy.TokenBazaarMessagesHandler before this adapter ever
+	// sees the body), so "thinking" passes through unmodified by
+	// construction -- see
+	// TestTokenBazaarMessagesThinkingPassesThroughUnmodified.
+	return validateTokenBazaarMessagesPromptCachingUnsupported(body)
+}
+
+// validateTokenBazaarMessagesMaxTokens requires max_tokens to be present and
+// a positive integer before dispatch, per TokenBazaar's own documented
+// contract ("requires max_tokens", matching Claude's own requirement) and
+// this delivery's own instruction not to rely on upstream to reject its
+// absence.
+func validateTokenBazaarMessagesMaxTokens(body map[string]json.RawMessage) error {
+	raw, ok := body["max_tokens"]
+	if !ok || tokenBazaarJSONIsNull(raw) {
+		return fmt.Errorf("tokenbazaar_messages_max_tokens_required: max_tokens is required for TokenBazaar's /v1/messages")
+	}
+
+	var value float64
+	if err := json.Unmarshal(raw, &value); err != nil || value != float64(int64(value)) {
+		return fmt.Errorf("tokenbazaar_invalid_json: max_tokens must be an integer")
+	}
+
+	if value <= 0 {
+		return fmt.Errorf("tokenbazaar_messages_max_tokens_required: max_tokens must be a positive integer")
+	}
+
+	return nil
+}
+
+// validateTokenBazaarMessagesToolsUnsupported rejects any request carrying a
+// non-empty "tools" array before dispatch. TokenBazaar's documented
+// /v1/messages example (unlike its /v1/chat/completions section, which
+// explicitly documents "tools") does not show a tools parameter for this
+// specific route -- per this delivery's own fail-closed discipline, an
+// unconfirmed field is rejected with a specific, actionable error rather than
+// silently forwarded and left to fail (or silently succeed in some
+// unconfirmed, unreviewed way) upstream.
+func validateTokenBazaarMessagesToolsUnsupported(body map[string]json.RawMessage) error {
+	raw, ok := body["tools"]
+	if !ok || tokenBazaarJSONIsNull(raw) {
+		return nil
+	}
+
+	var tools []json.RawMessage
+	if err := json.Unmarshal(raw, &tools); err != nil {
+		return fmt.Errorf("tokenbazaar_invalid_json: tools must be an array")
+	}
+
+	if len(tools) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"tokenbazaar_messages_tools_unsupported: TokenBazaar's documented /v1/messages contract does not confirm " +
+			"tool-use support on this route (unlike /v1/chat/completions, which documents \"tools\" explicitly); " +
+			"omit tools until this is confirmed, or use /v1/chat/completions if tool-use is required",
+	)
+}
+
+// validateTokenBazaarMessagesPromptCachingUnsupported rejects any
+// "cache_control" block before dispatch, wherever the Anthropic Messages
+// schema allows one to appear on a request that could otherwise reach
+// dispatch: a system block or a message content block. (A tool definition is
+// the schema's third location for cache_control, but
+// validateTokenBazaarMessagesToolsUnsupported above already rejects any
+// non-empty "tools" array outright -- since tool-use itself is unconfirmed on
+// this route -- so a cache_control-on-a-tool request can never reach this
+// function with a non-empty tools array; scanning tools here would be
+// unreachable dead code.) Prompt caching is not shown in TokenBazaar's
+// documented /v1/messages example, so -- per the same fail-closed discipline
+// as tools -- this delivery rejects it rather than silently forwarding an
+// unconfirmed field and letting a cache_control block be silently ignored (or
+// worse, billed unexpectedly) by TokenBazaar's own gateway.
+func validateTokenBazaarMessagesPromptCachingUnsupported(body map[string]json.RawMessage) error {
+	if tokenBazaarBlocksContainCacheControl(body["system"]) {
+		return tokenBazaarPromptCachingUnsupportedError("system")
+	}
+
+	raw, ok := body["messages"]
+	if !ok || tokenBazaarJSONIsNull(raw) {
+		return nil
+	}
+
+	var messages []struct {
+		Content json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &messages); err != nil {
+		// Not an array of objects with a "content" field (e.g. malformed).
+		// This function's only job is the cache_control fail-closed check;
+		// deep "messages" shape validation is not otherwise performed by any
+		// TokenBazaar dispatch path in this file (the required-field check
+		// above only confirms "messages" is present, not its inner shape), so
+		// a malformed "messages" value is deliberately left for the upstream
+		// response to surface as its own error rather than guessed at here.
+		return nil //nolint:nilerr // Intentional: see comment above.
+	}
+
+	for _, message := range messages {
+		if tokenBazaarBlocksContainCacheControl(message.Content) {
+			return tokenBazaarPromptCachingUnsupportedError("messages[].content")
+		}
+	}
+
+	return nil
+}
+
+// tokenBazaarBlocksContainCacheControl reports whether a raw JSON value that
+// may be an array of Anthropic content blocks contains a "cache_control" key
+// on any block. A non-array value (e.g. a plain string system prompt, which
+// the Anthropic schema also allows) never carries cache_control and returns
+// false.
+func tokenBazaarBlocksContainCacheControl(raw json.RawMessage) bool {
+	if len(raw) == 0 || tokenBazaarJSONIsNull(raw) {
+		return false
+	}
+
+	var blocks []map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		return false
+	}
+
+	for _, block := range blocks {
+		if _, ok := block["cache_control"]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func tokenBazaarPromptCachingUnsupportedError(location string) error {
+	return fmt.Errorf(
+		"tokenbazaar_messages_prompt_caching_unsupported: a cache_control block was found in %s, but TokenBazaar's "+
+			"documented /v1/messages contract does not confirm prompt-caching support on this route; omit "+
+			"cache_control until this is confirmed",
+		location,
+	)
 }
 
 // tokenBazaarEmbeddingsResponseEnvelope is the minimal shape this delivery

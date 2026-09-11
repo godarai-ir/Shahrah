@@ -19,9 +19,15 @@ const (
 type ModelType string
 
 const (
-	ModelTypeChat               ModelType = "chat"
-	ModelTypeCompletion         ModelType = "completion"
-	ModelTypeResponses          ModelType = "responses"
+	ModelTypeChat       ModelType = "chat"
+	ModelTypeCompletion ModelType = "completion"
+	ModelTypeResponses  ModelType = "responses"
+	// ModelTypeMessages gates access to the Anthropic Messages-shaped
+	// POST /v1/messages surface, mirroring ModelTypeResponses's own
+	// capability-scoped (not chat-scoped) access model: a tenant's chat
+	// access to a model does not implicitly grant Messages access to it,
+	// and vice versa.
+	ModelTypeMessages           ModelType = "messages"
 	ModelTypeEmbedding          ModelType = "embedding"
 	ModelTypeRealtime           ModelType = "realtime"
 	ModelTypeTextToSpeech       ModelType = "text_to_speech"
