@@ -1,0 +1,145 @@
+costs:
+  - region: '*'
+    input_cost_per_token: 0.00000285
+    output_cost_per_token: 0.0000142500000006
+    cache_read_input_token_cost: 0.000000285
+    cache_creation_input_token_cost: 0.0000035625
+features:
+  - function_calling
+  - parallel_function_calling
+  - tool_choice
+  - system_messages
+  - prompt_caching
+  - cache_control
+  - structured_output
+  - json_output
+  - code_execution
+limits:
+  context_window: 1000000
+  max_input_tokens: 1000000
+  max_output_tokens: 128000
+  max_tokens: 128000
+  tool_use_system_prompt_tokens: 354
+modalities:
+  input:
+    - text
+    - image
+    - pdf
+  output:
+    - text
+mode: chat
+model: claude-sonnet-5
+params:
+  - defaultValue: 256
+    key: max_tokens
+    maxValue: 4096
+    minValue: 1
+  - defaultValue: null
+    key: stop
+    type: array-of-strings
+  - defaultValue: true
+    key: stream
+    type: boolean
+  - defaultValue: null
+    key: tool_choice
+  - defaultValue: high
+    key: reasoning_effort
+    supportedValues:
+      - low
+      - medium
+      - high
+      - xhigh
+      - max
+    type: string
+provisioning: serverless
+removeParams:
+  - temperature
+  - top_p
+  - top_k
+status: active
+supportedModes:
+  - chat
+thinking: true
+sources:
+  - https://platform.claude.com/docs/en/about-claude/models/overview
+  - https://platform.claude.com/docs/en/about-claude/pricing
+  - https://platform.claude.com/docs/en/about-claude/models/whats-new-sonnet-5
+  - https://tokenbazaar.ai/shelf?model=claude-sonnet-5
+runtimeProfile:
+  version: 2
+  endpoints:
+    [messages, count_tokens, message_batches, files, models, chat_completions]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: adaptive
+    allowedModes: [adaptive, disabled]
+    manualDeprecated: true
+    effortValues: [low, medium, high, xhigh, max]
+  assistantPrefill: false
+  sampling:
+    parameters: []
+    disallowedWithThinking: [temperature, top_p, top_k]
+  tools:
+    custom: true
+    server: true
+    parallel: true
+    structuredOutput: true
+    supported:
+      [
+        function_calling,
+        web_search,
+        web_fetch,
+        code_execution,
+        programmatic_tool_calling,
+        memory,
+        advisor,
+        mcp,
+        bash,
+        text_editor,
+        computer_use,
+        skills,
+      ]
+    preferredVersions:
+      web_search: web_search_20260318
+      web_fetch: web_fetch_20260318
+      code_execution: code_execution_20260521
+      memory: memory_20250818
+      advisor: advisor_20260301
+      mcp: mcp_toolset
+      bash: bash_20250124
+      text_editor: text_editor_20250728
+      computer_use: computer_20251124
+      skills: skills-2025-10-02
+  modalities:
+    input: [text, image, pdf]
+    output: [text]
+  requestControls:
+    serviceTierValues: [auto, standard_only]
+    inferenceGeoValues: [global, us]
+    speedValues: [standard]
+    effectiveSpeed: { standard: standard }
+  betaHeaders:
+    [
+      files-api-2025-04-14,
+      mcp-client-2025-11-20,
+      computer-use-2025-11-24,
+      skills-2025-10-02,
+      output-300k-2026-03-24,
+      compact-2026-01-12,
+      context-management-2025-06-27,
+      advisor-tool-2026-03-01,
+    ]
+  betaCapabilities:
+    - header: output-300k-2026-03-24
+      endpoints: [message_batches]
+      maxOutputTokens: 300000
+  minimumRetentionDays: 0
+  zdrEligible: true
+  limits:
+    contextWindow: 1000000
+    maxInputTokens: 1000000
+    maxOutputTokens: 128000
+    messagesBytes: 33554432
+    batchBytes: 268435456
+    fileBytes: 524288000

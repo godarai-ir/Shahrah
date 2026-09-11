@@ -831,6 +831,10 @@ func mapModeToModelType(mode string) platform.ModelType {
 		return platform.ModelTypeCompletion
 	case "responses":
 		return platform.ModelTypeResponses
+	case "messages":
+		return platform.ModelTypeMessages
+	case "generate_content":
+		return platform.ModelTypeGenerateContent
 	case "embedding":
 		return platform.ModelTypeEmbedding
 	case "realtime":

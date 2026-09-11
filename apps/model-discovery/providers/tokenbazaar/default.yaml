@@ -1,0 +1,19 @@
+documentation:
+  - https://docs.deepwl.cn/zx1/en
+name: TokenBazaar
+website: https://docs.deepwl.cn/zx1/en
+source_manifest:
+  observed_at: 2026-09-10
+  note: >-
+    TokenBazaar is a model gateway/aggregator. It re-lists third-party models
+    (Anthropic, DeepSeek, Google, OpenAI, Moonshot, Z.ai, ...) under its own
+    provider slug with its own live token/image/second pricing. All non-price
+    profile fields for each model file under this provider were copied
+    verbatim from the model's own upstream provider definition inside this
+    same repository; only the `costs` block and the added TokenBazaar
+    `sources` entry are specific to this provider. No shared `params` are
+    declared here on purpose - each model file below is self-contained and
+    lists its own fully resolved `params`/`removeParams` so behavior does not
+    depend on this file.
+messages:
+  options: [system, user, assistant, tool, developer]

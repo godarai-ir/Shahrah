@@ -32,6 +32,7 @@ const (
 	PricingStrategyMoonshot     PricingStrategyKind = "moonshot"
 	PricingStrategyGoogleGemini PricingStrategyKind = "google-gemini"
 	PricingStrategyMistral      PricingStrategyKind = "mistral"
+	PricingStrategyTokenBazaar  PricingStrategyKind = "tokenbazaar"
 )
 
 // Capability identifies a provider surface exposed by the control plane.
@@ -59,6 +60,40 @@ const (
 	CapabilityOCR             Capability = "ocr"
 	CapabilityAgents          Capability = "agents"
 	CapabilityConversations   Capability = "conversations"
+	// CapabilityMessages identifies the Anthropic Messages-shaped
+	// POST /v1/messages surface (platform.ProviderOperationAnthropicMessages).
+	// No prior registry entry declares this: the direct "anthropic" provider
+	// serves it exclusively through AnthropicNativeHandler, which bypasses
+	// this registry's FQN-based capability/operation model entirely (it
+	// resolves deployments via its own account-allowlisted
+	// anthropicDeploymentLister, not providerregistry.Lookup). This constant
+	// was added for TokenBazaar's Messages delivery, following the same
+	// pattern CapabilityResponses/CapabilityEmbeddings established when no
+	// prior capability constant existed for those operations either -- see
+	// plans/tokenbazaar-production-readiness.md, "Anthropic Messages endpoint
+	// delivery".
+	CapabilityMessages Capability = "messages"
+	// CapabilityGenerateContent identifies the Gemini-native
+	// generateContent/streamGenerateContent-shaped
+	// POST /v1beta/models/{model}:generateContent surface
+	// (platform.ProviderOperationGeminiGenerateContent /
+	// platform.ProviderOperationGeminiStreamGenerateContent). No prior
+	// registry entry declares this either: the direct "google-gemini"
+	// provider's own entry below only lists
+	// platform.ProviderOperationChatCompletions in its Operations, because
+	// GeminiNativeHandler (services/control-plane/internal/proxy/
+	// gemini_native_handler.go) serves the full native Gemini surface
+	// (generateContent, caching, interactions, files, batches, ...) through
+	// its own account-allowlisted anthropicDeploymentLister-based routing,
+	// bypassing this registry's FQN-based capability/operation model
+	// entirely -- exactly the same situation the Messages delivery found for
+	// the direct "anthropic" provider and AnthropicNativeHandler. This
+	// constant was added for TokenBazaar's native Gemini generateContent
+	// delivery, following the same CapabilityMessages/CapabilityResponses
+	// pattern established when no prior capability constant existed for an
+	// operation either -- see plans/tokenbazaar-production-readiness.md,
+	// "Native Gemini generateContent/streamGenerateContent delivery".
+	CapabilityGenerateContent Capability = "generate_content"
 )
 
 // Definition describes one first-class provider and its control-plane behavior.
@@ -176,6 +211,85 @@ var definitions = []Definition{
 			platform.ProviderOperationCredentialProbe,
 			platform.ProviderOperationChatCompletions,
 			platform.ProviderOperationZAILayoutParsing,
+		},
+		DispatchRuntimeProfileRequired: true,
+	},
+	{
+		// TokenBazaar is a third-party model aggregator/reseller, not a
+		// direct upstream vendor. Its 21 chat-capable in-scope models are
+		// dispatched through the documented OpenAI-compatible
+		// POST /v1/chat/completions envelope; its 4 image models
+		// (gpt-image-2, gemini-3-pro-image, gemini-3.1-flash-image,
+		// gemini-3.1-flash-lite-image) are dispatched through the documented
+		// POST /v1/images/generations and POST /v1/images/edits envelopes;
+		// its 1 embeddings model (text-embedding-3-large) is dispatched
+		// through POST /v1/embeddings -- see
+		// plans/tokenbazaar-production-readiness.md, "Embeddings endpoint
+		// delivery", for that contract's inferred-not-confirmed evidence
+		// tier. Exactly 6 of the 21 chat-capable models (gpt-5.5,
+		// gpt-5.6-luna, gpt-5.6-sol, gpt-5.6-terra, deepseek-v4-flash,
+		// deepseek-v4-pro) additionally dispatch through the documented,
+		// first-party-confirmed POST /v1/responses envelope (create-only --
+		// TokenBazaar's own docs state previous_response_id, built-in tools,
+		// and background: true are not supported); the remaining 15
+		// chat-capable models (Claude/Gemini/GLM/Kimi) do not gain this
+		// operation. Exactly 4 models (claude-fable-5, claude-haiku-4-5,
+		// claude-opus-5, claude-sonnet-5) additionally dispatch through the
+		// documented, first-party-confirmed POST /v1/messages envelope
+		// (create-only -- TokenBazaar's docs show a single stateless
+		// request/response shape), served by proxy.TokenBazaarMessagesHandler
+		// rather than AnthropicNativeHandler (which remains exclusively the
+		// direct "anthropic" provider's handler) -- see
+		// plans/tokenbazaar-production-readiness.md, "Anthropic Messages
+		// endpoint delivery". Exactly 6 of the 21 chat-capable models
+		// (gemini-2.5-flash, gemini-2.5-pro, gemini-3.1-pro-preview,
+		// gemini-3.5-flash, gemini-3.6-flash, gemini-3.7-flash) additionally
+		// dispatch through the Gemini-native
+		// POST /v1beta/models/{model}:generateContent and
+		// .../{model}:streamGenerateContent envelopes, served by
+		// proxy.TokenBazaarGenerateContentHandler rather than
+		// GeminiNativeHandler (which remains exclusively the direct
+		// "google-gemini" provider's handler) -- this capability's evidence
+		// tier is weaker than every other TokenBazaar capability (catalog
+		// metadata only, no worked example or prose mention in TokenBazaar's
+		// own docs) -- see plans/tokenbazaar-production-readiness.md, "Native
+		// Gemini generateContent/streamGenerateContent delivery". The 3
+		// Gemini image models are deliberately NOT included in this
+		// operation: they are served by the OpenAI-compatible images
+		// envelope (CapabilityImages) already, and native Gemini
+		// generateContent for image generation is a materially different,
+		// unimplemented contract -- see the same section for this explicit
+		// follow-up gap. None of TokenBazaar's six capabilities carry an
+		// independent code-level kill switch -- see
+		// plans/tokenbazaar-production-readiness.md for the accepted-risk
+		// rationale. This registry entry carries no OperationNamespaces /
+		// LegacyModelPrefixes because TokenBazaar model IDs (e.g.
+		// "claude-sonnet-5", "gemini-3-pro-image", "text-embedding-3-large")
+		// are intentionally shared with direct providers and MUST only ever
+		// be reached via the "tokenbazaar:<account>:<model-id>" FQN, never a
+		// bare model-id heuristic that could misroute a direct-provider
+		// request here (or vice versa) -- see
+		// TestTokenBazaarNeverCollidesWithDirectProviders,
+		// TestTokenBazaarImageModelsNeverCollideWithDirectProviders, and
+		// TestTokenBazaarEmbeddingsModelNeverCollidesWithDirectProviders.
+		Slug:            "tokenbazaar",
+		DisplayName:     "TokenBazaar",
+		PricingSnapshot: PricingSnapshotCatalog,
+		PricingStrategy: PricingStrategyTokenBazaar,
+		Capabilities: []Capability{
+			CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings,
+			CapabilityResponses, CapabilityMessages, CapabilityGenerateContent,
+		},
+		Operations: []platform.ProviderOperation{
+			platform.ProviderOperationCredentialProbe,
+			platform.ProviderOperationChatCompletions,
+			platform.ProviderOperationOpenAIImagesGenerations,
+			platform.ProviderOperationOpenAIImagesEdits,
+			platform.ProviderOperationOpenAIEmbeddings,
+			platform.ProviderOperationOpenAIResponsesCreate,
+			platform.ProviderOperationAnthropicMessages,
+			platform.ProviderOperationGeminiGenerateContent,
+			platform.ProviderOperationGeminiStreamGenerateContent,
 		},
 		DispatchRuntimeProfileRequired: true,
 	},
@@ -532,7 +646,8 @@ func validPricingStrategy(kind PricingStrategyKind) bool {
 		PricingStrategyZAI,
 		PricingStrategyMoonshot,
 		PricingStrategyGoogleGemini,
-		PricingStrategyMistral:
+		PricingStrategyMistral,
+		PricingStrategyTokenBazaar:
 		return true
 	default:
 		return false
@@ -561,7 +676,9 @@ func validCapability(capability Capability) bool {
 		CapabilityContextCaching,
 		CapabilityOCR,
 		CapabilityAgents,
-		CapabilityConversations:
+		CapabilityConversations,
+		CapabilityMessages,
+		CapabilityGenerateContent:
 		return true
 	default:
 		return false

@@ -73,6 +73,21 @@ func resolveCoreOpenAIOperation(
 		return http.MethodPost, "/completions", nil
 	case platform.ProviderOperationOpenAIResponsesCreate:
 		return http.MethodPost, "/responses", nil
+	case platform.ProviderOperationAnthropicMessages:
+		// TokenBazaar's /v1/messages is the Anthropic Messages envelope
+		// verbatim (not an OpenAI-compatible shape), but the request body is
+		// already Anthropic-native JSON by the time it reaches this adapter
+		// (built and forwarded unchanged by
+		// proxy.TokenBazaarMessagesHandler, mirroring how
+		// AnthropicNativeHandler forwards a direct Anthropic dispatch) -- so
+		// this path-compiler entry is a pure method/path mapping, exactly
+		// like every other case here; no body transformation happens in this
+		// package for this operation. Only TokenBazaar's adapter
+		// (tokenBazaarAdapter, which wraps openAICompatibleAdapter) is ever
+		// dispatched this operation today -- the direct "anthropic" provider
+		// continues to use anthropicAdapter.dispatchNative, which resolves
+		// its own path via anthropicOperationTarget in anthropic.go.
+		return http.MethodPost, "/messages", nil
 	case platform.ProviderOperationOpenAIResponsesGet,
 		platform.ProviderOperationOpenAIResponsesDelete,
 		platform.ProviderOperationOpenAIResponsesCancel,

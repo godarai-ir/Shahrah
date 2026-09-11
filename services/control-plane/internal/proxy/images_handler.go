@@ -29,13 +29,14 @@ import (
 
 // ImagesHandler serves image generation and edit requests.
 type ImagesHandler struct {
-	llmRouter  *router.Router
-	pipeline   *RequestPipeline
-	billing    budgeter
-	logs       usageLogger
-	resources  providerNativeResourceStore
-	logger     *zap.Logger
-	emitMetric func(input metricsobs.BuildInput)
+	llmRouter        *router.Router
+	pipeline         *RequestPipeline
+	billing          budgeter
+	logs             usageLogger
+	resources        providerNativeResourceStore
+	logger           *zap.Logger
+	emitMetric       func(input metricsobs.BuildInput)
+	providerFeatures ProviderFeatureConfig
 }
 
 type imageOperation struct {
@@ -67,13 +68,14 @@ func NewImagesHandler(llmRouter *router.Router, tunnel platform.TunnelTransport,
 // NewImagesHandlerWithDependencies creates an images handler from explicit dependencies.
 func NewImagesHandlerWithDependencies(deps BaseHandlerDependencies) *ImagesHandler {
 	return &ImagesHandler{
-		llmRouter:  deps.Router,
-		pipeline:   deps.requestPipeline(),
-		billing:    deps.Billing,
-		logs:       deps.logger(),
-		resources:  deps.ProviderResources,
-		logger:     deps.Logger,
-		emitMetric: deps.metricEmitter(),
+		llmRouter:        deps.Router,
+		pipeline:         deps.requestPipeline(),
+		billing:          deps.Billing,
+		logs:             deps.logger(),
+		resources:        deps.ProviderResources,
+		logger:           deps.Logger,
+		emitMetric:       deps.metricEmitter(),
+		providerFeatures: deps.ProviderFeatures,
 	}
 }
 

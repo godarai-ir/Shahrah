@@ -41,33 +41,35 @@ const (
 
 // Dependencies contains the concrete services required by the control-plane server.
 type Dependencies struct {
-	AuthMiddleware             *auth.AuthMiddleware
-	TenantResolver             *tenant.Middleware
-	TracingMiddleware          fiber.Handler
-	TraceHealth                TraceHealthReporter
-	ClickHouseHealth           ClickHouseHealthReporter
-	ManagementRoutes           *management.Routes
-	ProxyHandler               *proxy.ChatCompletionHandler
-	CompletionsHandler         *proxy.CompletionsHandler
-	ResponsesHandler           *proxy.ResponsesHandler
-	EmbeddingsHandler          *proxy.EmbeddingsHandler
-	ModerationsHandler         *proxy.ModerationsHandler
-	RerankHandler              *proxy.RerankHandler
-	ImagesHandler              *proxy.ImagesHandler
-	AudioTranscriptionsHandler *proxy.AudioTranscriptionsHandler
-	AudioSpeechHandler         *proxy.AudioSpeechHandler
-	MistralOCRHandler          *proxy.MistralOCRHandler
-	ZAILayoutParsingHandler    *proxy.ZAILayoutParsingHandler
-	MistralNativeHandler       *proxy.MistralNativeHandler
-	ModelsHandler              *proxy.ModelsHandler
-	AnthropicNativeHandler     *proxy.AnthropicNativeHandler
-	GeminiNativeHandler        *proxy.GeminiNativeHandler
-	PoolStats                  prommetrics.PoolStatsProvider
-	HTTPMetrics                *prommetrics.HTTPMetrics
-	Logger                     *zap.Logger
-	PlatformServiceAccounts    auth.PlatformServiceAccountStore
-	ExchangeRates              ExchangeRateReader
-	GatewayMaxInFlight         *int
+	AuthMiddleware                    *auth.AuthMiddleware
+	TenantResolver                    *tenant.Middleware
+	TracingMiddleware                 fiber.Handler
+	TraceHealth                       TraceHealthReporter
+	ClickHouseHealth                  ClickHouseHealthReporter
+	ManagementRoutes                  *management.Routes
+	ProxyHandler                      *proxy.ChatCompletionHandler
+	CompletionsHandler                *proxy.CompletionsHandler
+	ResponsesHandler                  *proxy.ResponsesHandler
+	EmbeddingsHandler                 *proxy.EmbeddingsHandler
+	ModerationsHandler                *proxy.ModerationsHandler
+	RerankHandler                     *proxy.RerankHandler
+	ImagesHandler                     *proxy.ImagesHandler
+	AudioTranscriptionsHandler        *proxy.AudioTranscriptionsHandler
+	AudioSpeechHandler                *proxy.AudioSpeechHandler
+	MistralOCRHandler                 *proxy.MistralOCRHandler
+	ZAILayoutParsingHandler           *proxy.ZAILayoutParsingHandler
+	MistralNativeHandler              *proxy.MistralNativeHandler
+	ModelsHandler                     *proxy.ModelsHandler
+	AnthropicNativeHandler            *proxy.AnthropicNativeHandler
+	TokenBazaarMessagesHandler        *proxy.TokenBazaarMessagesHandler
+	TokenBazaarGenerateContentHandler *proxy.TokenBazaarGenerateContentHandler
+	GeminiNativeHandler               *proxy.GeminiNativeHandler
+	PoolStats                         prommetrics.PoolStatsProvider
+	HTTPMetrics                       *prommetrics.HTTPMetrics
+	Logger                            *zap.Logger
+	PlatformServiceAccounts           auth.PlatformServiceAccountStore
+	ExchangeRates                     ExchangeRateReader
+	GatewayMaxInFlight                *int
 }
 
 // ExchangeRateReader exposes the persisted control-plane exchange-rate snapshot

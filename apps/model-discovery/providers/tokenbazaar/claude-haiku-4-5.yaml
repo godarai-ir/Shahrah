@@ -1,0 +1,132 @@
+costs:
+  - region: '*'
+    input_cost_per_token: 0.0000010953846154
+    output_cost_per_token: 0.0000054769230769
+    cache_read_input_token_cost: 0.0000001095384615
+    cache_creation_input_token_cost: 0.0000021907692308
+features:
+  - function_calling
+  - parallel_function_calling
+  - tool_choice
+  - prompt_caching
+  - cache_control
+  - structured_output
+  - assistant_prefill
+  - system_messages
+limits:
+  context_window: 200000
+  max_input_tokens: 200000
+  max_output_tokens: 64000
+  max_tokens: 64000
+  tool_use_system_prompt_tokens: 496
+modalities:
+  input:
+    - text
+    - image
+    - pdf
+  output:
+    - text
+mode: chat
+model: claude-haiku-4-5
+params:
+  - defaultValue: 256
+    key: max_tokens
+    maxValue: 64000
+    minValue: 1
+  - defaultValue: 0.7
+    key: temperature
+    maxValue: 1
+    minValue: 0
+  - defaultValue: 1
+    key: top_p
+    maxValue: 1
+    minValue: 0
+  - defaultValue: 0
+    key: top_k
+    maxValue: 100
+    minValue: 0
+  - defaultValue: null
+    key: stop
+    type: array-of-strings
+  - defaultValue: true
+    key: stream
+    type: boolean
+  - defaultValue: null
+    key: tool_choice
+provisioning: serverless
+removeParams:
+  - reasoning_effort
+retirementDate: '2026-10-15'
+status: active
+supportedModes:
+  - chat
+thinking: true
+runtimeProfile:
+  version: 2
+  endpoints:
+    [messages, count_tokens, message_batches, files, models, chat_completions]
+  transports: [http, sse]
+  lifecycle: active
+  thinking:
+    defaultMode: manual
+    allowedModes: [manual, disabled]
+    manualDeprecated: false
+    effortValues: []
+  assistantPrefill: true
+  sampling:
+    parameters: [temperature, top_p, top_k]
+    disallowedWithThinking: [temperature, top_p, top_k]
+  tools:
+    custom: true
+    server: true
+    parallel: true
+    structuredOutput: true
+    supported:
+      [
+        function_calling,
+        web_search,
+        tool_search,
+        memory,
+        advisor,
+        mcp,
+        bash,
+        text_editor,
+        computer_use,
+      ]
+    preferredVersions:
+      web_search: web_search_20250305
+      tool_search: tool_search_tool_regex_20251119
+      memory: memory_20250818
+      advisor: advisor_20260301
+      mcp: mcp_toolset
+      bash: bash_20250124
+      text_editor: text_editor_20250728
+      computer_use: computer_20251124
+  modalities:
+    input: [text, image, pdf]
+    output: [text]
+  requestControls:
+    serviceTierValues: [auto, standard_only]
+    inferenceGeoValues: [global, us]
+    speedValues: [standard]
+    effectiveSpeed: { standard: standard }
+  betaHeaders:
+    [
+      files-api-2025-04-14,
+      advisor-tool-2026-03-01,
+      mcp-client-2025-11-20,
+      computer-use-2025-11-24,
+    ]
+  minimumRetentionDays: 0
+  zdrEligible: true
+  limits:
+    contextWindow: 200000
+    maxOutputTokens: 64000
+    messagesBytes: 33554432
+    batchBytes: 268435456
+    fileBytes: 524288000
+sources:
+  - https://platform.claude.com/docs/en/about-claude/models/overview
+  - https://platform.claude.com/docs/en/about-claude/pricing
+  - https://platform.claude.com/docs/en/about-claude/model-deprecations
+  - https://tokenbazaar.ai/shelf?model=claude-haiku-4-5

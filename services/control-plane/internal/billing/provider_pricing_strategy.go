@@ -54,6 +54,7 @@ var providerPricingStrategies = map[providerregistry.PricingStrategyKind]provide
 	providerregistry.PricingStrategyMoonshot:     moonshotPricingStrategy{},
 	providerregistry.PricingStrategyGoogleGemini: googleGeminiPricingStrategy{},
 	providerregistry.PricingStrategyMistral:      mistralPricingStrategy{},
+	providerregistry.PricingStrategyTokenBazaar:  tokenBazaarPricingStrategy{},
 }
 
 func pricingStrategy(provider string) providerPricingStrategy {
@@ -393,6 +394,128 @@ type zaiPricingStrategy struct {
 
 func (zaiPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
 	return moonshotUsageCostBreakdown(input.model, input.usage, input.price, input.exchangeRate)
+}
+
+// tokenBazaarPricingStrategy uses the plain, no-conditions decimal cost
+// calculator for Estimate: TokenBazaar's chat-completions contract reports
+// standard OpenAI usage.prompt_tokens/completion_tokens/total_tokens, so the
+// embedded standardPricingStrategy's exact-decimal costBreakdown is used
+// unmodified there.
+//
+// FinalizeUsage is overridden: the Anthropic Messages capability added for the
+// four Claude models reports cache_read_input_tokens and
+// cache_creation_input_tokens separately from input_tokens, and the catalog
+// pins a cache_read_input_token_cost for those models, so the flat
+// standardPricingStrategy.FinalizeUsage would bill every cached token at zero.
+// See tokenBazaarUsageCostBreakdown in pricing_strategy_tokenbazaar.go for how
+// the two cached-token conventions (Anthropic-additive vs OpenAI/Gemini-
+// inclusive) are reconciled.
+//
+// The standard breakdown still covers the embeddings cost
+// dimension for text-embedding-3-large: its response usage
+// (prompt_tokens/total_tokens, completion_tokens always 0) is billed via the
+// same generic costBreakdown using the already-pinned official OpenAI rate
+// from apps/model-discovery/providers/tokenbazaar/text-embedding-3-large.yaml
+// (input_cost_per_token=1.3e-7, output_cost_per_token=0), so output cost is
+// always exactly 0 for this model -- see
+// TestTokenBazaarPricingStrategyFinalizesEmbeddingsUsageWithExactDecimalCost
+// and TestTokenBazaarPricingStrategyEmbeddingsOutputCostIsAlwaysZero in
+// tokenbazaar_embeddings_pricing_test.go. An embeddings response never
+// reports cached tokens, so FinalizeUsage's override below delegates straight
+// back to the inherited standard path for it.
+//
+// FinalizeImage is overridden below: TokenBazaar's 4 image models' catalog
+// `costs` blocks were pinned verbatim from the corresponding direct
+// provider's official per-token/per-image-size-tier cost structure (see
+// plans/tokenbazaar-production-readiness.md, "Confirmed wire contract" and
+// the comment atop each apps/model-discovery/providers/tokenbazaar/*.yaml
+// image file) — gpt-image-2 uses OpenAI's per-token/per-image-token
+// dimensions, and the 3 Gemini image models use Google Gemini's
+// per-token/per-image-size-tier dimensions. This reuses the same exact
+// -decimal breakdown functions already used for the direct providers rather
+// than re-deriving pricing logic.
+type tokenBazaarPricingStrategy struct {
+	standardPricingStrategy
+}
+
+// FinalizeUsage prices cached input tokens, which the inherited flat
+// breakdown ignores. Usage without any cached dimension -- every embeddings
+// response, and every uncached completion -- delegates to the inherited path
+// unchanged, so this override only ever adds billing that was previously
+// dropped.
+func (s tokenBazaarPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {
+	if !tokenBazaarUsageHasCachedTokens(input.usage) {
+		return s.standardPricingStrategy.FinalizeUsage(input)
+	}
+
+	return tokenBazaarUsageCostBreakdown(input.model, input.usage, input.price, input.exchangeRate)
+}
+
+// tokenBazaarImageModelFamily identifies which direct provider's image cost
+// dimensions a TokenBazaar image model's pinned catalog costs follow. The
+// model -> family mapping itself lives in
+// packages/contracts/platform.TokenBazaarImageModelFamilies, the single
+// source of truth also used by services/silk-road's tokenbazaar adapter for
+// dispatch gating; if a 5th TokenBazaar image model is ever added, it only
+// needs to be classified there.
+//
+// The model id is normalized to its bare, provider-facing form first. The
+// production caller reaches FinalizeImage through
+// billingModelForDeployment (services/control-plane/internal/proxy/handler.go),
+// which returns a provider-qualified "tokenbazaar/<model-id>", so matching the
+// bare id alone would silently drop every request into the default branch and
+// bill it with the generic token breakdown instead of the pinned per-image
+// dimensions. Bare ids stay accepted so the classification does not depend on
+// which spelling a caller happens to hold.
+func tokenBazaarImageModelFamily(model string) string {
+	model = strings.ToLower(strings.TrimSpace(model))
+
+	if _, officialModel, ok := providerregistry.SplitQualifiedModel(model); ok {
+		model = officialModel
+	}
+
+	return platform.TokenBazaarImageModelFamily(model)
+}
+
+func (tokenBazaarPricingStrategy) FinalizeImage(input pricingImageInput) (platform.UsageCostBreakdown, error) {
+	switch tokenBazaarImageModelFamily(input.model) {
+	case "openai":
+		breakdown, err := openAIImageCostBreakdown(
+			input.model,
+			input.usage,
+			input.inputTokens,
+			input.outputTokens,
+			input.totalTokens,
+			input.price,
+			input.exchangeRate,
+			input.metadata,
+			"standard",
+		)
+		if err != nil {
+			return platform.UsageCostBreakdown{}, err
+		}
+
+		return applyReportedProviderCost(breakdown, input.providerCostUSDTicks, input.exchangeRate, input.metadata), nil
+	case "google-gemini":
+		breakdown, err := googleGeminiImageCostBreakdown(
+			input.model,
+			input.inputTokens,
+			input.outputTokens,
+			input.totalTokens,
+			input.price,
+			input.exchangeRate,
+			input.metadata,
+		)
+		if err != nil {
+			return platform.UsageCostBreakdown{}, err
+		}
+
+		return applyReportedProviderCost(breakdown, input.providerCostUSDTicks, input.exchangeRate, input.metadata), nil
+	default:
+		// Not one of the 4 in-scope image models: fall back to the plain
+		// token-based breakdown rather than guessing a dimension shape.
+		return standardPricingStrategy{}.FinalizeImage(input)
+	}
 }
 
 func (moonshotPricingStrategy) FinalizeUsage(input pricingUsageInput) (platform.UsageCostBreakdown, error) {

@@ -23,6 +23,7 @@ describe("provider account curl guide helpers", () => {
     expect(formatProviderDisplayName("azure-ai-foundry")).toBe("Azure AI Foundry");
     expect(formatProviderDisplayName("mistral-ai")).toBe("Mistral AI");
     expect(formatProviderDisplayName("zai")).toBe("Z.ai");
+    expect(formatProviderDisplayName("tokenbazaar")).toBe("TokenBazaar");
     expect(formatProviderDisplayName("custom_provider")).toBe("custom_provider");
   });
 

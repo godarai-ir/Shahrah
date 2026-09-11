@@ -230,6 +230,19 @@ func (h *GeminiNativeHandler) estimateCost(ctx context.Context, operation platfo
 		return h.billing.EstimateEmbeddingCost(ctx, contractsopenai.EmbeddingRequest{Model: model, Input: string(body)})
 	}
 
+	return h.billing.EstimateCost(ctx, geminiGenerateContentEstimateRequest(model, body))
+}
+
+// geminiGenerateContentEstimateRequest builds the billing-estimate request
+// for a Gemini generateContent/streamGenerateContent-shaped body: the raw
+// request body stands in for message content (this is an estimate only, not
+// a translation of the Gemini schema into OpenAI's), and
+// generationConfig.maxOutputTokens (if present and positive) is carried over
+// as the estimate's max-tokens bound. This is a pure, provider-agnostic
+// function shared by GeminiNativeHandler (the direct google-gemini provider)
+// and TokenBazaarGenerateContentHandler (TokenBazaar's own generateContent
+// delivery), which forwards the exact same Gemini-native request shape.
+func geminiGenerateContentEstimateRequest(model string, body []byte) contractsopenai.ChatCompletionRequest {
 	request := contractsopenai.ChatCompletionRequest{
 		Model:    model,
 		Messages: []contractsopenai.ChatMessage{{Role: "user", Content: string(body)}},
@@ -244,7 +257,7 @@ func (h *GeminiNativeHandler) estimateCost(ctx context.Context, operation platfo
 		request.MaxTokens = &payload.GenerationConfig.MaxOutputTokens
 	}
 
-	return h.billing.EstimateCost(ctx, request)
+	return request
 }
 
 func (h *GeminiNativeHandler) proxyRawFileUpload(c *fiber.Ctx, request platform.TunnelRequest) error {
@@ -278,22 +291,53 @@ func (h *GeminiNativeHandler) proxyRawFileUpload(c *fiber.Ctx, request platform.
 	return c.Status(response.StatusCode).Send(result)
 }
 
+// proxyStream delegates to the shared streamGeminiShapedResponse (below),
+// which also serves TokenBazaar's own generateContent streaming dispatch
+// (TokenBazaarGenerateContentHandler.handleStream) -- see that function's doc
+// comment. This mirrors the extract-method refactor the Anthropic Messages
+// delivery applied to AnthropicNativeHandler.proxyStream /
+// streamAnthropicShapedResponse for the same `dupl`-lint reason: once a
+// second, structurally-identical Gemini SSE streaming relay existed, the
+// shared logic was extracted into one place instead of two near-identical
+// copies. This method is now a one-line wrapper with identical behavior to
+// before the refactor.
 func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelRequest, reservation *platform.BudgetReservation, estimated platform.UsageCostBreakdown, authInfo *platform.AuthContext, model string) error {
-	stream, err := h.pipeline.DispatchStream(c.Context(), request)
+	return streamGeminiShapedResponse(c, h.pipeline, h.billing, h.logger, request, reservation, estimated, authInfo, model)
+}
+
+// streamGeminiShapedResponse relays a Gemini-native (generateContent-family)
+// SSE tunnel stream to the caller, tracking usage via parseGeminiSSEUsage and
+// error frames via geminiSSEIsError, and finalizing billing on stream close.
+// It is shared by GeminiNativeHandler (the direct google-gemini provider) and
+// TokenBazaarGenerateContentHandler (TokenBazaar's own
+// streamGenerateContent delivery), which dispatch the exact same tunnel
+// stream shape.
+func streamGeminiShapedResponse(
+	c *fiber.Ctx,
+	pipeline *RequestPipeline,
+	billing budgeter,
+	logger *zap.Logger,
+	request platform.TunnelRequest,
+	reservation *platform.BudgetReservation,
+	estimated platform.UsageCostBreakdown,
+	authInfo *platform.AuthContext,
+	model string,
+) error {
+	stream, err := pipeline.DispatchStream(c.Context(), request)
 	if err != nil {
-		h.pipeline.Release(c.Context(), reservation, "stream_open_failed")
+		pipeline.Release(c.Context(), reservation, "stream_open_failed")
 		return writeGeminiError(c, fiber.StatusBadGateway, "UPSTREAM_UNAVAILABLE", "Gemini stream failed")
 	}
 
 	if stream.StatusCode() >= fiber.StatusBadRequest {
-		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
-		return writeTunnelStreamHTTPError(c, h.logger, stream, nil)
+		pipeline.Release(c.Context(), reservation, "provider_http_error")
+		return writeTunnelStreamHTTPError(c, logger, stream, nil)
 	}
 
 	forwardProviderHeaders(c, stream.Headers())
 	c.Set(fiber.HeaderContentType, "text/event-stream")
 	c.Context().SetBodyStreamWriter(func(writer *bufio.Writer) {
-		defer closeStreamBestEffort(h.logger, stream)
+		defer closeStreamBestEffort(logger, stream)
 		defer writer.Flush() //nolint:errcheck // A downstream disconnect is handled by terminating the stream.
 
 		var usage *contractsopenai.Usage
@@ -305,12 +349,12 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
 					if reservation != nil {
-						detachedContext, cancel := h.pipeline.DetachedContext()
+						detachedContext, cancel := pipeline.DetachedContext()
 
 						if failed || usage == nil {
-							h.pipeline.Release(detachedContext, reservation, "stream_incomplete")
-						} else if finalized, finalizeErr := h.billing.FinalizeFromUsage(detachedContext, model, usage, estimated); finalizeErr != nil {
-							h.pipeline.Release(detachedContext, reservation, "usage_finalize_error")
+							pipeline.Release(detachedContext, reservation, "stream_incomplete")
+						} else if finalized, finalizeErr := billing.FinalizeFromUsage(detachedContext, model, usage, estimated); finalizeErr != nil {
+							pipeline.Release(detachedContext, reservation, "usage_finalize_error")
 						} else {
 							settlement := SettlementRequest{
 								Reservation: reservation,
@@ -319,7 +363,7 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 								RequestID:   request.RequestID,
 								BillingMode: request.Deployment.BillingMode,
 							}
-							_ = h.pipeline.Settle(detachedContext, settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+							_ = pipeline.Settle(detachedContext, settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
 						}
 
 						cancel()
@@ -342,7 +386,7 @@ func (h *GeminiNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelR
 				}
 			case streamErr, ok := <-stream.Errors():
 				if ok && streamErr != nil {
-					h.pipeline.ReleaseDetached(reservation, "stream_error")
+					pipeline.ReleaseDetached(reservation, "stream_error")
 				}
 
 				return

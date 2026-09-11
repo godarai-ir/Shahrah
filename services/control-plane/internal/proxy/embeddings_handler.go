@@ -585,7 +585,7 @@ func apiFieldError(message string, param string, code string) error {
 
 func supportsEmbeddingsProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "azure", "groq", "mistral", "mistral-ai", "togetherai", "openrouter", "gemini", "google-gemini", "mock":
+	case "openai", "azure", "groq", "mistral", "mistral-ai", "togetherai", "openrouter", "gemini", "google-gemini", "mock", "tokenbazaar":
 		return true
 	default:
 		return false

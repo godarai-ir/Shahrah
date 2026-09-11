@@ -11,4 +11,5 @@ export const PROVIDER_DOCS_URLS: Record<string, string> = {
   vertex: "https://cloud.google.com/vertex-ai/generative-ai/docs",
   xai: "https://docs.x.ai/",
   zai: "https://docs.z.ai/",
+  tokenbazaar: "https://docs.deepwl.cn/zx1/en",
 };

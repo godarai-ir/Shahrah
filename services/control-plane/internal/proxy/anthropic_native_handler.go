@@ -472,22 +472,48 @@ func uniqueAnthropicAccounts(deployments []platform.Deployment) map[string]struc
 }
 
 func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.TunnelRequest, reservation *platform.BudgetReservation, estimated platform.UsageCostBreakdown, authInfo *platform.AuthContext, model string) error {
-	stream, err := h.pipeline.DispatchStream(c.Context(), request)
+	return streamAnthropicShapedResponse(c, h.pipeline, h.billing, h.logger, request, reservation, estimated, authInfo, model)
+}
+
+// streamAnthropicShapedResponse relays an Anthropic Messages-shaped SSE
+// stream (content_block_delta/message_stop events) from the tunnel to the
+// caller unmodified, tracking usage via parseAnthropicSSEUsage and error
+// frames via anthropicSSEIsError, and finalizing billing once the stream
+// closes. It is shared, provider-agnostic streaming plumbing: both
+// AnthropicNativeHandler (the direct "anthropic" provider) and
+// TokenBazarMessagesHandler (TokenBazaar's /v1/messages dispatch) call this
+// exact function rather than each maintaining their own copy -- see
+// plans/tokenbazaar-production-readiness.md, "Anthropic Messages endpoint
+// delivery", for why these two handlers exist as separate, narrow siblings
+// rather than one widened handler, while still sharing this pure streaming
+// logic.
+func streamAnthropicShapedResponse(
+	c *fiber.Ctx,
+	pipeline *RequestPipeline,
+	billing budgeter,
+	logger *zap.Logger,
+	request platform.TunnelRequest,
+	reservation *platform.BudgetReservation,
+	estimated platform.UsageCostBreakdown,
+	authInfo *platform.AuthContext,
+	model string,
+) error {
+	stream, err := pipeline.DispatchStream(c.Context(), request)
 	if err != nil {
-		h.pipeline.Release(c.Context(), reservation, "stream_open_failed")
+		pipeline.Release(c.Context(), reservation, "stream_open_failed")
 		return writeAnthropicError(c, fiber.StatusBadGateway, "api_error", "Tunnel stream failed")
 	}
 
 	if stream.StatusCode() >= fiber.StatusBadRequest {
-		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
-		return writeTunnelStreamHTTPError(c, h.logger, stream, nil)
+		pipeline.Release(c.Context(), reservation, "provider_http_error")
+		return writeTunnelStreamHTTPError(c, logger, stream, nil)
 	}
 
 	c.Set(fiber.HeaderContentType, "text/event-stream")
 	forwardProviderHeaders(c, stream.Headers())
 	requestContext := c.Context()
 	requestContext.SetBodyStreamWriter(func(writer *bufio.Writer) {
-		defer closeStreamBestEffort(h.logger, stream)
+		defer closeStreamBestEffort(logger, stream)
 		defer writer.Flush() //nolint:errcheck // A downstream disconnect is handled by terminating the stream.
 
 		var usage *contractsopenai.Usage
@@ -499,15 +525,15 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 			case chunk, ok := <-stream.Chunks():
 				if !ok {
 					if failed || usage == nil {
-						h.pipeline.ReleaseDetached(reservation, "stream_incomplete")
+						pipeline.ReleaseDetached(reservation, "stream_incomplete")
 						return
 					}
 
-					detachedContext, cancel := h.pipeline.DetachedContext()
+					detachedContext, cancel := pipeline.DetachedContext()
 
-					finalized, finalizeErr := h.billing.FinalizeFromUsage(detachedContext, model, usage, estimated)
+					finalized, finalizeErr := billing.FinalizeFromUsage(detachedContext, model, usage, estimated)
 					if finalizeErr != nil {
-						h.pipeline.Release(detachedContext, reservation, "usage_finalize_error")
+						pipeline.Release(detachedContext, reservation, "usage_finalize_error")
 						cancel()
 
 						return
@@ -520,7 +546,7 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 						RequestID:   request.RequestID,
 						BillingMode: request.Deployment.BillingMode,
 					}
-					_ = h.pipeline.Settle(detachedContext, settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
+					_ = pipeline.Settle(detachedContext, settlement) //nolint:errcheck // Disconnect-time settlement is reconciled from reservation state.
 
 					cancel()
 
@@ -541,7 +567,7 @@ func (h *AnthropicNativeHandler) proxyStream(c *fiber.Ctx, request platform.Tunn
 				}
 			case streamErr, ok := <-stream.Errors():
 				if ok && streamErr != nil {
-					h.pipeline.ReleaseDetached(reservation, "stream_error")
+					pipeline.ReleaseDetached(reservation, "stream_error")
 				}
 
 				return

@@ -307,8 +307,10 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 		tunnelDeployment = toContractDeployment(dep)
 	}
 
-	if !isVirtual && !supportsResponsesCreateProvider(tunnelDeployment.Provider) {
-		return writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", tunnelDeployment.Provider), "invalid_request_error")
+	if !isVirtual {
+		if handled, rejectErr := h.rejectDisabledDirectResponsesProvider(c, tunnelDeployment.Provider); handled {
+			return rejectErr
+		}
 	}
 
 	routedEstimate := estimated
@@ -415,6 +417,16 @@ func (h *ResponsesHandler) Handle(c *fiber.Ctx) error {
 	}
 
 	return err
+}
+
+// rejectDisabledDirectResponsesProvider gates a non-virtual Responses request
+// on the provider being in the Responses-capable allowlist at all.
+func (h *ResponsesHandler) rejectDisabledDirectResponsesProvider(c *fiber.Ctx, provider string) (bool, error) {
+	if !supportsResponsesCreateProvider(provider) {
+		return true, writeAPIError(c, fiber.StatusNotImplemented, fmt.Sprintf("Responses API is not enabled for provider: %s", provider), "invalid_request_error")
+	}
+
+	return false, nil
 }
 
 func (h *ResponsesHandler) authorizeResponsesModel(
@@ -1429,7 +1441,7 @@ func (h *ResponsesHandler) emitModelMetric(input metricsobs.BuildInput) {
 
 func supportsResponsesCreateProvider(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai", "xai", "deepseek", "mock":
+	case "openai", "xai", "deepseek", "tokenbazaar", "mock":
 		return true
 	default:
 		return false

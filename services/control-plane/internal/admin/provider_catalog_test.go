@@ -423,6 +423,76 @@ func TestMapDiscoveryProviders_KeepsZAIAndXAISeparate(t *testing.T) {
 	assert.Equal(t, "Z.ai", items[1].DisplayName)
 }
 
+func TestNormalizeProviderSlug_KeepsTokenBazaarDistinct(t *testing.T) {
+	assert.Equal(t, "tokenbazaar", normalizeProviderSlug("tokenbazaar"))
+	assert.Equal(t, "tokenbazaar", normalizeProviderSlug("  TokenBazaar  "))
+	assert.Equal(t, "anthropic", normalizeProviderSlug("anthropic"))
+}
+
+// TestMapDiscoveryProviders_KeepsTokenBazaarSeparateFromDirectProviders
+// asserts the platform-managed reseller "tokenbazaar" slug never collides
+// with any direct-provider slug (here anthropic), which matters because many
+// TokenBazaar model IDs (e.g. "claude-sonnet-5") intentionally reuse a
+// direct provider's model-id string.
+func TestMapDiscoveryProviders_KeepsTokenBazaarSeparateFromDirectProviders(t *testing.T) {
+	items := mapDiscoveryProviders([]discoveryProvider{
+		{Slug: "anthropic", Name: "Anthropic", Enabled: true},
+		{Slug: "tokenbazaar", Name: "TokenBazaar", Enabled: true},
+	})
+
+	require.Len(t, items, 2)
+	assert.Equal(t, "anthropic", items[0].Provider)
+	assert.Equal(t, "tokenbazaar", items[1].Provider)
+	assert.Equal(t, "TokenBazaar", items[1].DisplayName)
+	assert.NotEqual(t, items[0].Provider, items[1].Provider)
+}
+
+// TestDiscoveryProviderModels_TokenBazaarSharedModelIDStaysProviderIsolated
+// asserts that even though TokenBazaar intentionally reuses a direct
+// provider's bare model-id string ("claude-sonnet-5"), each fetch is scoped
+// to its own provider's discovery endpoint and comes back tagged with the
+// correct, distinct Provider field — the actual isolation boundary the
+// control plane routes on (see FQN resolution in
+// services/control-plane/internal/providerregistry).
+func TestDiscoveryProviderModels_TokenBazaarSharedModelIDStaysProviderIsolated(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch r.URL.Path {
+		case "/providers/anthropic/models":
+			_, _ = w.Write([]byte(
+				`{"data":[{"canonicalId":"claude-sonnet-5","name":"Claude Sonnet 5","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`,
+			))
+		case "/providers/tokenbazaar/models":
+			_, _ = w.Write([]byte(
+				`{"data":[{"canonicalId":"claude-sonnet-5","name":"Claude Sonnet 5 (via TokenBazaar)","mode":["chat"],"capabilities":["chat"],"inputModalities":["text"],"outputModalities":["text"]}]}`,
+			))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("SHAHRAH_MODEL_DISCOVERY_URL", server.URL)
+	invalidateDiscoveryCache()
+
+	anthropicModels, err := discoveryProviderModels(context.Background(), "anthropic", discoveryConfigFromTestEnv())
+	require.NoError(t, err)
+	require.Len(t, anthropicModels, 1)
+	assert.Equal(t, "anthropic", anthropicModels[0].Provider)
+	assert.Equal(t, "claude-sonnet-5", anthropicModels[0].Model)
+	assert.Equal(t, "Claude Sonnet 5", anthropicModels[0].DisplayName)
+
+	tokenBazaarModels, err := discoveryProviderModels(context.Background(), "tokenbazaar", discoveryConfigFromTestEnv())
+	require.NoError(t, err)
+	require.Len(t, tokenBazaarModels, 1)
+	assert.Equal(t, "tokenbazaar", tokenBazaarModels[0].Provider)
+	assert.Equal(t, "claude-sonnet-5", tokenBazaarModels[0].Model)
+	assert.Equal(t, "Claude Sonnet 5 (via TokenBazaar)", tokenBazaarModels[0].DisplayName)
+
+	assert.NotEqual(t, anthropicModels[0].Provider, tokenBazaarModels[0].Provider)
+}
+
 func discoveryConfigFromTestEnv() DiscoveryConfig {
 	baseURL := strings.TrimSpace(os.Getenv("SHAHRAH_MODEL_DISCOVERY_URL"))
 	if baseURL == "" {

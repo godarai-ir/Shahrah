@@ -2,7 +2,6 @@ package billing
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/Delpak/shahrah/packages/contracts/openai"
@@ -75,58 +74,37 @@ func anthropicUsageCostBreakdown(
 		quantities[tool] = int64(quantity)
 	}
 
-	totalExact := decimal.Zero
-	inputExact := decimal.Zero
-	outputExact := decimal.Zero
-	components := make([]platform.UsageCostComponent, 0, len(quantities))
+	totalExact, inputExact, outputExact, components, err := accumulateUsageCostDimensions(
+		quantities,
+		func(dimension string) bool { return dimension == outputDimension },
+		func(dimension string, quantity int64) (normalizedPricingRate, error) {
+			rate, ok := price.Rates[dimension]
+			if dimension == "code_execution_requests" {
+				rate, ok = anthropicCodeExecutionUsageRate(price, conditions)
+				if !ok {
+					return normalizedPricingRate{}, fmt.Errorf(
+						"%w: billable code execution requires "+
+							"provider cost reconciliation",
+						ErrPricingUnavailable,
+					)
+				}
+			}
 
-	dimensions := make([]string, 0, len(quantities))
-	for dimension := range quantities {
-		dimensions = append(dimensions, dimension)
-	}
-
-	sort.Strings(dimensions)
-
-	for _, dimension := range dimensions {
-		quantity := quantities[dimension]
-		if quantity == 0 {
-			continue
-		}
-
-		rate, ok := price.Rates[dimension]
-		if dimension == "code_execution_requests" {
-			rate, ok = anthropicCodeExecutionUsageRate(price, conditions)
 			if !ok {
-				return platform.UsageCostBreakdown{}, fmt.Errorf(
-					"%w: billable code execution requires "+
-						"provider cost reconciliation",
+				return normalizedPricingRate{}, fmt.Errorf(
+					"%w: missing rate for %s",
 					ErrPricingUnavailable,
+					dimension,
 				)
 			}
-		}
 
-		if !ok {
-			return platform.UsageCostBreakdown{}, fmt.Errorf(
-				"%w: missing rate for %s",
-				ErrPricingUnavailable,
-				dimension,
-			)
-		}
+			prommetrics.RecordAnthropicUsageDimension(dimension, quantity)
 
-		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
-
-		totalExact = totalExact.Add(cost)
-		if dimension == outputDimension {
-			outputExact = outputExact.Add(cost)
-		} else {
-			inputExact = inputExact.Add(cost)
-		}
-
-		components = append(
-			components,
-			usageCostComponent(dimension, quantity, rate),
-		)
-		prommetrics.RecordAnthropicUsageDimension(dimension, quantity)
+			return rate, nil
+		},
+	)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
 	}
 
 	inputUSD, _ := inputExact.Float64()

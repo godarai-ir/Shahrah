@@ -53,6 +53,7 @@ func newProviderRegistry() *providerRegistry {
 			"deepinfra":        newOpenAICompatibleAdapter("https://api.deepinfra.com/v1/openai"),
 			"deepseek":         newDeepSeekAdapter(),
 			"zai":              newZAIAdapter(),
+			"tokenbazaar":      newTokenBazaarAdapter(),
 			"fireworks":        newOpenAICompatibleAdapter(""),
 			"togetherai":       newOpenAICompatibleAdapter("https://api.together.xyz/v1"),
 			"together-ai":      newOpenAICompatibleAdapter("https://api.together.xyz/v1"),
