@@ -2368,3 +2368,513 @@ func TestTokenBazaarMessagesNeverForwardsGodarAIAuthorizationHeader(t *testing.T
 		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
 	}
 }
+
+// tokenBazaarGenerateContentTestPayload builds a platform.TunnelRequest for
+// the given model/operation carrying a runtime profile that declares the
+// "generate_content"/"stream_generate_content" endpoints and "http"/"sse"
+// transports -- mirroring the shape already scaffolded into
+// apps/model-discovery/providers/tokenbazaar/gemini-*.yaml for all 6 in-scope
+// models (confirmed by inspection before this delivery; see
+// plans/tokenbazaar-production-readiness.md).
+func tokenBazaarGenerateContentTestPayload(model string, operation platform.ProviderOperation) platform.TunnelRequest {
+	profile := platform.ModelRuntimeProfile{
+		Version:    1,
+		Endpoints:  []string{"models", "chat_completions", "generate_content", "stream_generate_content"},
+		Transports: []string{"http", "sse"},
+		Lifecycle:  "active",
+		Thinking:   platform.ModelRuntimeThinkingProfile{DefaultMode: "disabled", AllowedModes: []string{"disabled"}},
+		Sampling:   platform.ModelRuntimeSamplingProfile{},
+		Tools:      platform.ModelRuntimeToolsProfile{},
+		Modalities: platform.ModelRuntimeModalities{Input: []string{"text", "image"}, Output: []string{"text"}},
+		Parameters: map[string][]string{
+			"generate_content": {"contents", "generationConfig", "systemInstruction", "safetySettings", "tools"},
+		},
+		Limits: platform.ModelRuntimeLimits{MessagesBytes: 1, BatchBytes: 1, FileBytes: 1},
+	}
+
+	return platform.TunnelRequest{
+		Operation:  operation,
+		Deployment: platform.Deployment{Provider: "tokenbazaar", Model: model, APIKey: "tokenbazaar-secret"},
+		ModelRuntimeProfiles: []platform.ModelRuntimeProfileBinding{{
+			Provider: "tokenbazaar", CatalogRevision: "test", CanonicalID: "tokenbazaar/" + model,
+			Slug: model, ProfileVersion: 1, Profile: profile, EffectiveFrom: time.Now(),
+		}},
+	}
+}
+
+// TestTokenBazaarGenerateContentDispatchRoutesForAllSixInScopeModels confirms
+// each of the 6 in-scope Gemini text models resolves through the
+// generateContent dispatch path for both
+// platform.ProviderOperationGeminiGenerateContent and
+// platform.ProviderOperationGeminiStreamGenerateContent.
+func TestTokenBazaarGenerateContentDispatchRoutesForAllSixInScopeModels(t *testing.T) {
+	for model := range tokenBazaarGenerateContentModels {
+		for _, operation := range []platform.ProviderOperation{
+			platform.ProviderOperationGeminiGenerateContent,
+			platform.ProviderOperationGeminiStreamGenerateContent,
+		} {
+			t.Run(model+"_"+string(operation), func(t *testing.T) {
+				payload := tokenBazaarGenerateContentTestPayload(model, operation)
+				if operation == platform.ProviderOperationGeminiStreamGenerateContent {
+					payload.Stream = true
+				}
+
+				payload.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+
+				if err := validateTokenBazaarDispatch(payload); err != nil {
+					t.Fatalf("expected generateContent dispatch to be accepted for %s/%s, got %v", model, operation, err)
+				}
+			})
+		}
+	}
+}
+
+// TestTokenBazaarGenerateContentRejectsUnsupportedModels confirms models
+// outside the 6-model generateContent allowlist (both a plain chat model and
+// one of the 3 Gemini image models deliberately excluded from this
+// delivery -- see tokenBazaarGenerateContentModels's own doc comment) are
+// rejected with the generic tokenbazaar_unsupported_model error.
+func TestTokenBazaarGenerateContentRejectsUnsupportedModels(t *testing.T) {
+	for _, model := range []string{"glm-5.2", "gemini-3-pro-image", "gpt-5.5"} {
+		t.Run(model, func(t *testing.T) {
+			payload := tokenBazaarGenerateContentTestPayload(model, platform.ProviderOperationGeminiGenerateContent)
+			payload.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+
+			err := validateTokenBazaarDispatch(payload)
+			if err == nil || !strings.Contains(err.Error(), "tokenbazaar_unsupported_model") {
+				t.Fatalf("expected tokenbazaar_unsupported_model for %s, got %v", model, err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarGenerateContentRequiresContents confirms a request missing
+// the required "contents" field is rejected before dispatch.
+func TestTokenBazaarGenerateContentRequiresContents(t *testing.T) {
+	payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+	payload.Body = []byte(`{"generationConfig":{"maxOutputTokens":16}}`)
+
+	err := validateTokenBazaarDispatch(payload)
+	if err == nil || !strings.Contains(err.Error(), "tokenbazaar_generate_content_contents_required") {
+		t.Fatalf("expected tokenbazaar_generate_content_contents_required, got %v", err)
+	}
+}
+
+// TestTokenBazaarGenerateContentRejectsCachedContent covers this delivery's
+// fail-closed decision on Gemini's context-caching feature: a non-empty
+// "cachedContent" reference is rejected before dispatch, since TokenBazaar's
+// docs do not mention Gemini context caching anywhere (no nav section, no
+// worked example) -- see validateTokenBazaarGenerateContentCachedContentUnsupported.
+func TestTokenBazaarGenerateContentRejectsCachedContent(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{"absent", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`, false},
+		{"null", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"cachedContent":null}`, false},
+		{"empty_string", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"cachedContent":""}`, false},
+		{"referenced", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"cachedContent":"cachedContents/abc123"}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+			payload.Body = []byte(test.body)
+
+			err := validateTokenBazaarDispatch(payload)
+			if test.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "tokenbazaar_generate_content_cached_content_unsupported") {
+					t.Fatalf("expected tokenbazaar_generate_content_cached_content_unsupported, got %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected request to be accepted, got %v", err)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarGenerateContentRejectionsHappenBeforeAnyHTTPCall proves the
+// unsupported-model, missing-contents, and cachedContent rejections all
+// happen before any upstream call, via an end-to-end mocked-HTTP Dispatch
+// call (not just the standalone validator) -- mirroring
+// TestTokenBazaarMessagesThreeRejectionsHappenBeforeAnyHTTPCall.
+func TestTokenBazaarGenerateContentRejectionsHappenBeforeAnyHTTPCall(t *testing.T) {
+	var calls int32
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}]}`,
+			)),
+		}, nil
+	})}
+
+	accepted := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+	accepted.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, accepted)
+	if err != nil {
+		t.Fatalf("expected a valid request to succeed, got %v", err)
+	}
+	defer response.Body.Close()
+
+	if atomic.LoadInt32(&calls) != 1 {
+		t.Fatalf("expected exactly 1 upstream call for the valid request, got %d", calls)
+	}
+
+	rejections := map[string]string{
+		"missing_contents": `{"generationConfig":{"maxOutputTokens":16}}`,
+		"cached_content":   `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"cachedContent":"cachedContents/abc123"}`,
+	}
+
+	for name, body := range rejections {
+		t.Run(name, func(t *testing.T) {
+			payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+			payload.Body = []byte(body)
+
+			if _, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload); err == nil {
+				t.Fatal("expected the request to be rejected before dispatch")
+			}
+
+			if atomic.LoadInt32(&calls) != 1 {
+				t.Fatalf("rejection %q must happen before any HTTP call; total upstream calls = %d", name, calls)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarGenerateContentDispatchExactRequestConstruction exercises
+// the full adapter Dispatch path (mocked HTTP, no live call) and asserts the
+// exact method, URL (no "/v1" prefix -- Gemini-style paths are NOT nested
+// under the OpenAI-compatible "/v1" the way chat/responses/messages/images/
+// embeddings are), Authorization header, Content-Type, and forwarded body
+// against https://zx1.deepwl.net/v1beta/models/gemini-2.5-flash:generateContent.
+func TestTokenBazaarGenerateContentDispatchExactRequestConstruction(t *testing.T) {
+	var gotMethod, gotURL, gotAuth, gotContentType string
+
+	var gotBody []byte
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotMethod = request.Method
+		gotURL = request.URL.String()
+		gotAuth = request.Header.Get("Authorization")
+		gotContentType = request.Header.Get("Content-Type")
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+
+		gotBody = body
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"candidates":[{"content":{"role":"model","parts":[{"text":"hi there"}]},"finishReason":"STOP"}],` +
+					`"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2,"totalTokenCount":5}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+	requestBody := `{"contents":[{"role":"user","parts":[{"text":"hello world"}]}]}`
+	payload.Body = []byte(requestBody)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch generateContent: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotMethod != http.MethodPost {
+		t.Fatalf("method = %q, want POST", gotMethod)
+	}
+
+	if gotURL != "https://zx1.deepwl.net/v1beta/models/gemini-2.5-flash:generateContent" {
+		t.Fatalf("url = %q", gotURL)
+	}
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("authorization = %q", gotAuth)
+	}
+
+	if gotContentType != "application/json" {
+		t.Fatalf("content-type = %q", gotContentType)
+	}
+
+	if string(gotBody) != requestBody {
+		t.Fatalf("forwarded body = %s, want verbatim %s", gotBody, requestBody)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+}
+
+// TestTokenBazaarStreamGenerateContentDispatchExactRequestConstruction
+// mirrors the above for streamGenerateContent: the URL must carry the
+// documented "?alt=sse" query (Gemini's own SSE-mode convention, reused
+// verbatim via geminiOperationTarget) and the Accept header must request
+// text/event-stream.
+func TestTokenBazaarStreamGenerateContentDispatchExactRequestConstruction(t *testing.T) {
+	var gotURL, gotAccept string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotURL = request.URL.String()
+		gotAccept = request.Header.Get("Accept")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader("data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"hi\"}]}}]}\n\n")),
+		}, nil
+	})}
+
+	payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiStreamGenerateContent)
+	payload.Stream = true
+	payload.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch streamGenerateContent: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotURL != "https://zx1.deepwl.net/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse" {
+		t.Fatalf("url = %q", gotURL)
+	}
+
+	if gotAccept != "text/event-stream" {
+		t.Fatalf("accept = %q, want text/event-stream", gotAccept)
+	}
+}
+
+// TestTokenBazaarGenerateContentResponseShapeValidated confirms the
+// defensive response-shape check: a successful response missing "candidates"
+// is rejected with tokenbazaar_generate_content_response_shape_unexpected
+// rather than forwarded blind, while a response matching the documented
+// shape passes through unchanged. Mirrors the embeddings response-shape
+// test's own pattern.
+func TestTokenBazaarGenerateContentResponseShapeValidated(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       string
+		wantErr    bool
+		wantErrMsg string
+	}{
+		{
+			"missing_candidates",
+			`{"usageMetadata":{"promptTokenCount":1}}`,
+			true,
+			"tokenbazaar_generate_content_response_shape_unexpected",
+		},
+		{
+			"empty_candidates",
+			`{"candidates":[]}`,
+			true,
+			"tokenbazaar_generate_content_response_shape_unexpected",
+		},
+		{
+			"not_json",
+			`not json at all`,
+			true,
+			"tokenbazaar_generate_content_response_shape_unexpected",
+		},
+		{
+			"valid_shape",
+			`{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}]}`,
+			false,
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(test.body)),
+				}, nil
+			})}
+
+			payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+			payload.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+
+			response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+			if test.wantErr {
+				if err == nil || !strings.Contains(err.Error(), test.wantErrMsg) {
+					t.Fatalf("expected %s, got %v", test.wantErrMsg, err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected a valid response to pass through, got %v", err)
+			}
+
+			defer response.Body.Close()
+
+			got, readErr := io.ReadAll(response.Body)
+			if readErr != nil {
+				t.Fatalf("read response body: %v", readErr)
+			}
+
+			if string(got) != test.body {
+				t.Fatalf("valid response body was altered: got %s, want %s", got, test.body)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarStreamGenerateContentSSEStreamingPassesThroughUnmodified
+// confirms the adapter passes raw SSE bytes through unmodified for
+// streamGenerateContent (the response-shape check above deliberately does
+// NOT apply to streaming, since it would require buffering the whole SSE
+// stream) -- mirroring
+// TestTokenBazaarMessagesSSEStreamingPassesThroughUntilTerminalEvent's own
+// discipline.
+func TestTokenBazaarStreamGenerateContentSSEStreamingPassesThroughUnmodified(t *testing.T) {
+	sseBody := "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Hel\"}]}}]}\n\n" +
+		"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"lo\"}]},\"finishReason\":\"STOP\"}]," +
+		"\"usageMetadata\":{\"promptTokenCount\":3,\"candidatesTokenCount\":2,\"totalTokenCount\":5}}\n\n"
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Accept") != "text/event-stream" {
+			t.Fatalf("expected SSE Accept header, got %q", request.Header.Get("Accept"))
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       io.NopCloser(strings.NewReader(sseBody)),
+		}, nil
+	})}
+
+	payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiStreamGenerateContent)
+	payload.Stream = true
+	payload.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch streaming generateContent request: %v", err)
+	}
+	defer response.Body.Close()
+
+	got, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read SSE body: %v", err)
+	}
+
+	if string(got) != sseBody {
+		t.Fatalf("SSE body was altered by the adapter: %q", got)
+	}
+}
+
+// TestTokenBazaarGenerateContentErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody
+// mirrors the chat/images/embeddings/responses/messages paths' own
+// 4xx-normalization coverage for the generateContent operation.
+func TestTokenBazaarGenerateContentErrorResponseIsNormalizedAndDoesNotLeakUpstreamBody(t *testing.T) {
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     http.Header{tokenBazaarRequestIDHeader: []string{"req-generate-content-1"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"error":{"code":400,"message":"upstream vendor account id abc-123 must not leak","status":"INVALID_ARGUMENT"}}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+	payload.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want normalized 503", response.StatusCode)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read normalized body: %v", err)
+	}
+
+	if strings.Contains(string(body), "abc-123") || strings.Contains(string(body), "INVALID_ARGUMENT") {
+		t.Fatalf("normalized generateContent error body leaked upstream content: %s", body)
+	}
+}
+
+// TestTokenBazaarGenerateContentValidationErrorsNeverIncludeAPIKey confirms
+// none of the generateContent-path validation error messages ever echo the
+// deployment's API key, even when it is present on the payload.
+func TestTokenBazaarGenerateContentValidationErrorsNeverIncludeAPIKey(t *testing.T) {
+	const secret = "tokenbazaar-super-secret-key-must-not-leak"
+
+	missingContents := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+	missingContents.Deployment.APIKey = secret
+	missingContents.Body = []byte(`{"generationConfig":{"maxOutputTokens":16}}`)
+
+	badCachedContent := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+	badCachedContent.Deployment.APIKey = secret
+	badCachedContent.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"cachedContent":"cachedContents/abc123"}`)
+
+	for _, payload := range []platform.TunnelRequest{missingContents, badCachedContent} {
+		err := validateTokenBazaarDispatch(payload)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("validation error leaked the API key: %v", err)
+		}
+	}
+}
+
+// TestTokenBazaarGenerateContentNeverForwardsGodarAIAuthorizationHeader
+// mirrors the chat/embeddings/responses/messages paths' own coverage: the
+// caller-supplied Authorization header must never reach TokenBazaar; only
+// the deployment's own credential is forwarded.
+func TestTokenBazaarGenerateContentNeverForwardsGodarAIAuthorizationHeader(t *testing.T) {
+	var gotAuth string
+
+	client := &http.Client{Transport: tokenBazaarRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		gotAuth = request.Header.Get("Authorization")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(
+				`{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}]}`,
+			)),
+		}, nil
+	})}
+
+	payload := tokenBazaarGenerateContentTestPayload("gemini-2.5-flash", platform.ProviderOperationGeminiGenerateContent)
+	payload.Body = []byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+	payload.Headers = map[string]string{"Authorization": "Bearer godarai-caller-token-must-not-leak"}
+
+	response, err := newTokenBazaarAdapter().Dispatch(context.Background(), client, payload)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	defer response.Body.Close()
+
+	if gotAuth != "Bearer tokenbazaar-secret" {
+		t.Fatalf("upstream Authorization = %q, want only the TokenBazaar credential", gotAuth)
+	}
+}

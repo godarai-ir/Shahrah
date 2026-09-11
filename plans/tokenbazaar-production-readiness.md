@@ -1,7 +1,7 @@
 # TokenBazaar provider production-readiness plan
 
 Status: **not production-ready**
-Last verified against reachable sources: 2026-09-11 (this session, Anthropic Messages endpoint delivery)
+Last verified against reachable sources: 2026-09-11 (this session, native Gemini generateContent/streamGenerateContent delivery)
 
 ## Feature-flag removal (2026-09-11, this delivery) -- read this before anything below
 
@@ -58,8 +58,11 @@ their "default false" state, or a flag being "independent" of another, is a
 **historical description of code that existed at the time that session was
 written and no longer exists today.** None of it should be read as a
 current safety property. TokenBazaar's actual current safety posture is:
-all five capabilities are wired and reachable via explicit FQN with **no
-independent code-level kill switch**, gated in practice only by (a) no
+all six capabilities (chat, images, embeddings, responses, messages, and --
+added 2026-09-11, later in this engagement -- native Gemini
+generateContent/streamGenerateContent) are wired and reachable via explicit
+FQN with **no independent code-level kill switch**, gated in practice only
+by (a) no
 tenant holding a real TokenBazaar provider account/credential yet, and (b)
 the release gates further down this document (live-probe confirmation of
 each wire contract, the pricing-anomaly product/finance sign-off) --
@@ -68,6 +71,461 @@ which remain the actual, unresolved reasons `production_ready` stays
 the `production_ready` summary later in this document have been updated to
 drop the now-nonexistent flags and state this directly; treat those, not the
 older per-delivery narrative above them, as the current status.
+
+## Native Gemini generateContent/streamGenerateContent delivery (this session, 2026-09-11)
+
+This delivery adds real, tested dispatch for the Gemini-native
+`POST /v1beta/models/{model}:generateContent`
+(`platform.ProviderOperationGeminiGenerateContent`) and
+`POST /v1beta/models/{model}:streamGenerateContent`
+(`platform.ProviderOperationGeminiStreamGenerateContent`) operations for
+exactly the 6 Gemini **text** models TokenBazaar carries: `gemini-2.5-flash`,
+`gemini-2.5-pro`, `gemini-3.1-pro-preview`, `gemini-3.5-flash`,
+`gemini-3.6-flash`, `gemini-3.7-flash`. The 3 Gemini **image** models
+(`gemini-3-pro-image`, `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`)
+are explicitly **out of scope** for this delivery -- see "Scoping decision:
+text models only" below. `production_ready` for this capability stays
+explicitly `false` -- see the release-gate addition at the bottom of this
+document. Per the 2026-09-11 flag-removal decision (top of this document),
+**no new env-var kill switch was added for this capability either** -- it is
+fully wired and reachable via explicit FQN, gated in practice only by no
+tenant holding a real TokenBazaar credential yet and by the release gates.
+
+### Evidence tier -- the weakest of any TokenBazaar capability, including embeddings
+
+Before writing any dispatch code, this delivery re-read TokenBazaar's
+rendered `/docs` page in full again -- not just the "Text Generation (LLM)"
+section, every section, including "API Reference" -- specifically looking
+for anything resembling a Gemini-native or `:generateContent`-style path, the
+same way the embeddings delivery's own fuller re-read found a stronger
+capability claim than an earlier, narrower read had. **This re-read found
+nothing new.** The docs' nav sidebar is exactly the same finite list already
+recorded in this document's "Confirmed wire contract" section (Quick Start,
+Create an API Key, Make Your First Request, Authentication, Model Names,
+Optional Parameters, Text Generation (LLM), Image Generation, Video
+Generation, SDK Examples, Response Format, Error Codes, Billing, Limits, API
+Reference) -- there is no "Gemini", "Native", or "generateContent" section or
+mention anywhere on the page, and "Text Generation (LLM)" explicitly still
+names exactly three API styles (Chat Completions, Responses, Anthropic
+Messages), not four. No worked request/response example, no path pattern,
+and no auth note specific to this operation exist anywhere on the page.
+
+This makes the evidence tier for this delivery **weaker than embeddings**,
+not merely "as weak": the embeddings delivery at least had the docs' own
+product-description sentence ("...text, image, video, and embedding
+capabilities...") explicitly claiming the capability exists, in addition to
+the catalog metadata. For native Gemini generateContent, **the only evidence
+this operation exists at all is the authenticated `GET /v1/models` catalog's
+`supported_endpoint_types` column listing `generateContent` for the Gemini
+models** (recorded in this document's model-list reconciliation:
+"21 chat-capable (`chat/completions`, `generateContent`, `messages`,
+`responses`)") -- there is no prose claim anywhere, worked or otherwise, that
+GodarAI should be able to speak Gemini's own native wire format to
+TokenBazaar at all.
+
+Per this delivery's own executable prompt, the response to this evidence
+tier mirrors the embeddings delivery's own precedent rather than declining to
+implement:
+- Dispatch is implemented against the standard Gemini-native shape
+  `services/silk-road/pkg/server/gemini.go` already builds for the direct
+  `google-gemini` provider (the same request/response envelope, the same
+  `/v1beta/models/{model}:action` path template, reused via
+  `geminiOperationTarget`) -- since TokenBazaar's own docs state, for every
+  other confirmed capability, that it exposes an exact vendor-compatible
+  shape with no deviation, and Gemini's own native shape is TokenBazaar's own
+  compatibility-alias auth section (`x-goog-api-key` "only honored on
+  Gemini-style endpoints (`/v1beta/...`, `/v1/models/...`)") already implies
+  a `/v1beta/...` path family exists on this host for *something*.
+- A defensive response-shape check
+  (`validateTokenBazaarGenerateContentResponseShape`) is applied to every
+  successful, non-streaming response before it is returned to the caller,
+  mirroring `validateTokenBazaarEmbeddingsResponseShape` exactly -- a
+  response that does not match Gemini's own documented
+  `{"candidates":[{"content":{...}}]}` envelope is rejected with a distinct
+  `tokenbazaar_generate_content_response_shape_unexpected` error rather than
+  forwarded blind.
+- `production_ready` is gated at a lower confidence tier than every other
+  TokenBazaar capability, embeddings included -- see the release gate below.
+
+### Scoping decision: text models only, not the 3 Gemini image models
+
+TokenBazaar's `/v1/models` catalog lists `generateContent` as a supported
+endpoint type for all 9 Gemini models in scope, including the 3 image models
+(`gemini-3-pro-image`, `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`).
+This delivery deliberately does **not** extend dispatch to those 3 models,
+for two independent reasons:
+1. They are already served, end to end, via the OpenAI-compatible images
+   envelope from the prior Images delivery (`tokenBazaarImageModels`,
+   `POST /v1/images/generations`/`edits`) -- a second code path for the same
+   capability would be redundant, not additive.
+2. Native Gemini `generateContent` for image *generation* has a materially
+   different request/response shape than the 6 text models' shape this
+   delivery implements: the request carries
+   `generationConfig.responseModalities: ["IMAGE"]` (or similar,
+   model-dependent) and the response's `candidates[].content.parts` carry
+   `inlineData` (base64 image bytes) rather than the plain `text` parts this
+   delivery's response-shape check and billing-usage extraction
+   (`parseGeminiNativeUsage`) are built against. Treating "same operation
+   name" (`generateContent`) as "same shape" here would be exactly the wrong
+   kind of assumption this delivery's own executable prompt warned against --
+   image *input* to a text model (already unremarkable, passes through as an
+   ordinary content part) is not the same thing as image *generation* as the
+   operation's entire purpose.
+
+**`FOLLOW-UP`**: a future delivery should either add its own,
+separately-evidenced and tested contract for native Gemini `generateContent`
+image generation via TokenBazaar (distinct validation, distinct response
+parsing, its own evidence-tier writeup), or explicitly decide the existing
+OpenAI-compatible images path is sufficient and this gap should stay closed
+permanently. Do not guess the image-generation contract by analogy to the
+text contract implemented here.
+
+### Routing architecture -- investigated, not assumed to mirror the Messages delivery
+
+Before writing any dispatch code, this delivery investigated
+`services/control-plane/internal/proxy/gemini_native_handler.go`
+(`GeminiNativeHandler`) in full: its WIF/credential handling (none found in
+this file itself -- credential resolution happens generically in the tunnel
+transport layer, the same as every other provider; there is no
+Gemini-specific WIF machinery comparable to Anthropic's), its caching support
+(`platform.ProviderOperationGeminiCachesCreate`/`List`/`Get`/`Update`/`Delete`,
+reachable at `/v1beta/cachedContents`), usage normalization
+(`parseGeminiNativeUsage` hardcodes
+`billingusage.NormalizeUsageFromJSON("google-gemini", ...)`), and its
+provider-routing gate (`resolveDeployment`, line ~183:
+`if provider != "google-gemini" && provider != "gemini" { continue }`, inside
+a loop over `h.deployments.ListDeployments(...)` with no FQN concept at all).
+
+**This one `if` check turned out to be simpler in form than Anthropic's own
+account-allowlisted `anthropicDeploymentLister` filtering, but widening it
+was investigated and found to be genuinely unsafe here, not "simple and
+risk-free" as the executable prompt allowed for as a possibility:**
+1. `isAllowlistedGoogleGeminiModel` (called immediately after the provider
+   check, in `Handle`) matches on the same bare Google model-name strings
+   TokenBazaar also carries (e.g. `"gemini-2.5-flash"`). Widening the
+   provider filter to also accept `"tokenbazaar"` would not narrowly open
+   *only* generateContent/streamGenerateContent for a TokenBazaar deployment
+   with one of these model names -- it would silently also open every other
+   Gemini-native operation this handler serves for that model: context
+   caching, interactions, files, batches, `countTokens`, `embedContent` --
+   none of which have been evidenced, validated, or tested for TokenBazaar in
+   this or any prior delivery.
+2. `parseGeminiNativeUsage` hardcodes the billing-normalization provider slug
+   as `"google-gemini"`. A TokenBazaar-routed response reaching this function
+   (which it would, unconditionally, if the provider filter were widened)
+   would have its usage normalized under the wrong provider's rules -- a real
+   correctness risk, not a hypothetical one, independent of whether the
+   normalization rules happen to produce the same numbers today.
+
+Both of these are concrete, structural risks discovered by reading the code,
+not assumptions -- so unlike the Messages delivery's own finding (where
+widening `AnthropicNativeHandler`'s account allowlist was avoidable but not
+independently shown to be unsafe on its own), this delivery's investigation
+affirmatively rules out widening `GeminiNativeHandler`'s provider check as an
+option, on its own merits.
+
+**Decision: a new, narrow, TokenBazaar-scoped sibling handler
+(`proxy.TokenBazaarGenerateContentHandler`), following the exact same pattern
+`proxy.TokenBazaarMessagesHandler` established for the direct Anthropic
+provider.** This handler reuses the standard FQN -> deployment
+(`router.Router`) -> providerregistry capability -> Silk Road adapter flow
+already used for TokenBazaar's other five capabilities, rather than
+`GeminiNativeHandler`'s account-filterless-but-still-single-provider-locked
+`resolveDeployment` path. A thin routing shim
+(`proxy.NewGeminiGenerateContentRouter(tokenBazaar, native)`) is wired in
+`routes_proxy.go` in place of the bare `native` handler for
+`v1beta.All("/models/*", ...)`: unlike the Messages delivery's shim (which
+reads the request body's `"model"` field), this shim must parse the **URL
+path**, since Gemini's native `generateContent`/`streamGenerateContent`
+operations carry the model in the path
+(`/v1beta/models/{model}:generateContent`), not the body. A new helper,
+`parseGeminiModelActionPath`, splits this path on the **last** colon rather
+than the first (unlike `geminiOperationFromRequest`'s own first-colon split,
+which is correct only for a direct Google model id that never itself
+contains a colon) -- a `tokenbazaar:<account>:<model-id>` FQN itself contains
+two colons, so the trailing `:generateContent`/`:streamGenerateContent`
+action suffix must be recovered from the end of the string. A tokenbazaar-FQN'd
+generateContent/streamGenerateContent request is dispatched to
+`TokenBazaarGenerateContentHandler`; every other request -- every direct
+`google-gemini` request (FQN'd or not), and every other Gemini-native model
+operation reachable at this same wildcard mount (`countTokens`,
+`embedContent`, `batchGenerateContent`, a plain model `GET`) -- falls through
+to `native` (`GeminiNativeHandler.Handle`) unconditionally, unchanged.
+
+**`GeminiNativeHandler`'s dispatch/routing logic, its provider filter, and
+its caching/interactions/files/batches machinery are completely untouched by
+this delivery.** As with the Messages delivery, one exception was made for
+lint hygiene: once a second, structurally-identical Gemini SSE streaming
+relay existed (`TokenBazaarGenerateContentHandler.handleStream`), the shared
+streaming-relay logic (dispatch the tunnel stream, forward chunks raw, track
+usage via `parseGeminiSSEUsage`, detect error frames via `geminiSSEIsError`,
+finalize billing on close) was extracted into one new package-level function,
+`streamGeminiShapedResponse` (`gemini_native_handler.go`), which both
+handlers now call; `GeminiNativeHandler.proxyStream` is now a one-line
+wrapper around this function with byte-for-byte identical behavior to before
+the refactor (confirmed by the full pre-existing
+`gemini_native_handler_test.go` suite passing unchanged). Likewise,
+`GeminiNativeHandler.estimateCost`'s chat-style billing-estimate construction
+was extracted into the shared, pure `geminiGenerateContentEstimateRequest`
+function, reused by both handlers -- another pure, behavior-preserving
+extraction, not new logic.
+
+### Reuse-vs-new-code accounting
+
+- **Reused unmodified:**
+  - `services/silk-road/pkg/server/gemini.go`'s `geminiOperationTarget` --
+    the exact same `/v1beta/models/{model}:action` path-template function the
+    direct `google-gemini` adapter uses for `generateContent`
+    (`POST .../{model}:generateContent`) and `streamGenerateContent`
+    (`POST .../{model}:streamGenerateContent?alt=sse`) -- called directly
+    from the new `tokenBazaarAdapter.dispatchGenerateContent`, since the two
+    providers speak byte-identical wire shapes here. This is provider-agnostic,
+    pure path-building logic; it needed zero changes.
+  - `services/silk-road/pkg/server/provider_auth.go`'s `deploymentAPIKey` and
+    `services/silk-road/pkg/server/openai_compatible.go`'s `resolveBaseURL`/
+    `joinURL` -- reused exactly as-is for building the raw HTTP request (see
+    "Architecture" below for why `openAICompatibleAdapter.Dispatch` itself
+    could not be reused for this specific operation).
+  - `services/control-plane/internal/proxy/model_fqn.go`'s `splitModelFQN`/
+    `isTokenBazaarProvider` -- the same FQN-parsing helpers every other
+    TokenBazaar capability's routing shim uses.
+  - The 6 in-scope models' catalog YAMLs
+    (`apps/model-discovery/providers/tokenbazaar/{gemini-2.5-flash,
+    gemini-2.5-pro,gemini-3.1-pro-preview,gemini-3.5-flash,gemini-3.6-flash,
+    gemini-3.7-flash}.yaml`) already declared `runtimeProfile.endpoints`
+    including both `generate_content` and `stream_generate_content` (and,
+    notably, `cached_contents`, discussed under "cachedContent" below) **and**
+    `transports: [http, sse]` **before this delivery** (confirmed by
+    inspection) -- no YAML change was needed for any of the 6 models.
+  - `services/control-plane/internal/billing/provider_pricing_strategy.go`'s
+    `tokenBazaarPricingStrategy` -- its embedded `standardPricingStrategy`
+    already bills any usage the shared `contractsopenai.Usage` shape carries
+    (which `parseGeminiNativeUsage` already maps Gemini's own
+    `usageMetadata.promptTokenCount`/`candidatesTokenCount`/`totalTokenCount`
+    into via `billingusage.NormalizeUsageFromJSON("google-gemini", ...)`) via
+    the generic exact-decimal `costBreakdown`, keyed by model + token counts,
+    not operation type. **No `FinalizeUsage` override was needed or added.**
+    Per the 2026-09-10 pricing-override decision, these 6 models' `costs`
+    blocks are already pinned to the official direct `google-gemini` rate
+    (not TokenBazaar's own resale rate) -- this delivery reuses that pinning
+    unmodified; it does not reopen or re-litigate that decision.
+- **New code written:**
+  - `services/silk-road/pkg/server/tokenbazaar.go`:
+    `tokenBazaarGenerateContentModels` (the 6-model allowlist), a new `case
+    platform.ProviderOperationGeminiGenerateContent,
+    platform.ProviderOperationGeminiStreamGenerateContent` in
+    `validateTokenBazaarDispatch`'s switch,
+    `validateTokenBazaarGenerateContentDispatch` and its helper
+    `validateTokenBazaarGenerateContentCachedContentUnsupported`, the
+    defensive `tokenBazaarGenerateContentResponseEnvelope`/
+    `validateTokenBazaarGenerateContentResponseShape` pair (mirroring
+    embeddings' own response-shape-check pattern), and
+    `tokenBazaarAdapter.dispatchGenerateContent` -- a new, separate dispatch
+    path (not routed through `openAICompatibleAdapter.Dispatch`) because that
+    adapter's `baseURLNormalizer` unconditionally appends `/v1` to the base
+    URL (correct for `/v1/chat/completions` et al., but would wrongly produce
+    `.../v1/v1beta/models/...` here) and `resolveOpenAIOperation` has no case
+    that embeds a model id into a path. `dispatchGenerateContent` builds and
+    sends the request directly, reusing `geminiOperationTarget` for the path
+    and `deploymentAPIKey`/`resolveBaseURL`/`joinURL` for the rest -- only the
+    HTTP-construction glue is new, not the shape logic itself.
+  - `services/control-plane/internal/proxy/tokenbazaar_generate_content_handler.go`
+    (new): `TokenBazaarGenerateContentHandler` (mirroring
+    `TokenBazaarMessagesHandler`'s structure), its `Handle`/`handleSync`/
+    `handleStream` methods, `parseGeminiModelActionPath`,
+    `requestTargetsTokenBazaarGenerateContent`,
+    `NewGeminiGenerateContentRouter` (the routing shim), and
+    `supportsGeminiGenerateContentProvider` (a fail-closed defense-in-depth
+    check that only `"tokenbazaar"` may reach this generic path -- the direct
+    `"google-gemini"` provider is structurally never routed here in the first
+    place, since it is never reached via a bare-model FQN).
+  - `services/control-plane/internal/proxy/gemini_native_handler.go`: the
+    `streamGeminiShapedResponse` and `geminiGenerateContentEstimateRequest`
+    extractions described above (behavior-preserving refactors, not new
+    logic).
+  - `services/control-plane/internal/server/server.go` +
+    `internal/server/routes_proxy.go` +
+    `internal/bootstrap/build_gateway.go`: added
+    `Dependencies.TokenBazaarGenerateContentHandler` and wired
+    `NewGeminiGenerateContentRouter` in place of the bare `gemini` handler for
+    `v1beta.All("/models/*", ...)` (the only line-level change to how this
+    route is registered; `v1beta.All("/models", gemini)` and every other
+    `/v1beta/*` sub-route -- interactions, files, cached contents, batches --
+    is untouched, still routed straight to `gemini`, since generateContent/
+    streamGenerateContent-only is this delivery's explicit scope).
+  - `services/control-plane/internal/providerregistry/registry.go`: added
+    `CapabilityGenerateContent` (new constant, added to `validCapability`'s
+    allowlist switch too, following the same pattern `CapabilityMessages`
+    established when no prior google-gemini registry precedent existed --
+    the direct `google-gemini` entry's own `Operations` list only declares
+    `platform.ProviderOperationChatCompletions`, the same situation the
+    Messages delivery found for `anthropic`) and
+    `platform.ProviderOperationGeminiGenerateContent`/
+    `...GeminiStreamGenerateContent` to TokenBazaar's registered
+    capabilities/operations. `registry_test.go` extended with
+    `TestTokenBazaarSupportsGenerateContentCapability` and
+    `TestTokenBazaarGenerateContentModelsNeverCollideWithDirectProviders`
+    (mirroring the existing messages/responses/images/embeddings collision
+    tests); `TestDefinitionsSatisfyProviderContracts`'s hardcoded tokenbazaar
+    contract updated.
+  - `packages/contracts/platform/tenant_provider_account.go`: added
+    `ModelTypeGenerateContent` -- a new `platform.ModelType` constant,
+    mirroring how `ModelTypeMessages`/`ModelTypeResponses` already exist as
+    their own capability-scoped access types distinct from `ModelTypeChat`.
+    `TokenBazaarGenerateContentHandler` checks
+    `modelAccessForType(authInfo, requestedModel,
+    platform.ModelTypeGenerateContent)`.
+    `services/control-plane/internal/admin/provider_catalog.go`'s
+    `mapModeToModelType` gained a `"generate_content"` case, mirroring its
+    existing `"messages"`/`"responses"` cases.
+
+### `cachedContent` decision -- rejected, not documented, not silently passed through
+
+Gemini's own context-caching feature lets a `generateContent` request
+reference a previously-created cache via a `cachedContent` field (a
+`cachedContents/{id}` resource name). Per this delivery's own instruction to
+determine whether this is claimed anywhere for TokenBazaar: **it is not.**
+The docs' nav sidebar has no caching section at all (confirmed by the same
+full re-read described above), and this delivery's own evidence-gathering
+found no mention of `generateContent` itself beyond catalog metadata, let
+alone one of its optional sub-features.
+
+Note the one wrinkle worth recording explicitly, so it is never mistaken for
+evidence either way: the 6 in-scope models' catalog YAMLs already list
+`cached_contents` in their `runtimeProfile.endpoints` (alongside
+`generate_content`, `interactions`, `files`, `batches`, etc.) -- but this is
+the generic Gemini runtime-profile template shared with the direct
+`google-gemini` provider's own scaffolded profiles, not TokenBazaar-specific
+proof of wire support. This delivery does **not** treat that YAML field as
+evidence either way; it rejects `cachedContent` fail-closed regardless of
+what the shared profile scaffold happens to list, via a dedicated check
+(`validateTokenBazaarGenerateContentCachedContentUnsupported`) independent of
+the `AllowsEndpoint("generate_content")` gate:
+- Any non-empty `cachedContent` string ->
+  `tokenbazaar_generate_content_cached_content_unsupported`. An absent,
+  `null`, or empty-string `cachedContent` is allowed through unchanged.
+
+### Auth decision -- Bearer only, `x-goog-api-key` not adopted
+
+Per the readiness doc's own "Auth (compatibility aliases)" bullet,
+`x-goog-api-key` (header or `?key=` query) is documented as honored only on
+Gemini-style endpoints. Consistent with how the Anthropic Messages delivery
+declined to adopt `x-api-key` as a generic TokenBazaar auth path despite it
+being documented for Anthropic-style endpoints, this delivery **requires only
+the universally-documented `Authorization: Bearer <key>` scheme** for
+generateContent/streamGenerateContent dispatch (`dispatchGenerateContent`
+sets only this header) and does not implement the `x-goog-api-key`
+alias -- no explicit reason to support it was found, and the standing
+instruction is to err toward the universal scheme absent one.
+
+### Fail-closed validation summary (before any HTTP call)
+
+- Model not one of the 6 in-scope text models -> generic
+  `tokenbazaar_unsupported_model` (every other TokenBazaar model, including
+  the 3 Gemini image models -- see "Scoping decision" above).
+- Runtime profile missing the `generate_content`/`stream_generate_content`
+  endpoint or the `http`/`sse` transport ->
+  `tokenbazaar_runtime_profile_missing` / `tokenbazaar_unsupported_transport`.
+- `contents` absent -> `tokenbazaar_generate_content_contents_required`
+  (Gemini's own schema requires this field; this delivery does not rely on
+  upstream to reject its absence, matching every other TokenBazaar
+  capability's own required-field discipline).
+- Non-empty `cachedContent` -> `tokenbazaar_generate_content_cached_content_unsupported`.
+
+`TestTokenBazaarGenerateContentRejectionsHappenBeforeAnyHTTPCall` proves the
+missing-`contents` and `cachedContent` rejections both happen before any
+upstream call via an end-to-end mocked-HTTP `Dispatch`, asserting the
+upstream call counter stays at exactly 1 (the one valid control request)
+after both rejected variants are attempted.
+
+This delivery deliberately does **not** validate `tools`,
+`systemInstruction`, or `generationConfig` shapes beyond the `contents`
+presence check: `gemini.go`'s own direct-dispatch path does not validate
+those fields either (the direct `google-gemini` provider forwards the body
+as-is beyond model/operation-level access control), and there is no stronger
+evidence here to justify TokenBazaar going further than the direct provider
+does. This is a narrower validation surface than chat/responses/messages
+carry, and is a deliberate scoping decision given the evidence tier, not an
+oversight.
+
+### Streaming evidence-tier caveat (weaker than every other TokenBazaar streaming path)
+
+`streamGenerateContent`'s SSE shape (raw `data: {...}` JSON chunks, no
+`[DONE]` terminator -- the stream simply ends) is documented for the direct
+Gemini API, and this delivery assumes TokenBazaar mirrors it exactly (the
+same "TokenBazaar re-exposes whichever exact vendor shape it says it
+supports" pattern every other confirmed capability follows) -- but this has
+**never been independently live-verified end to end**, and unlike
+`/v1/chat/completions`/`/v1/responses`/`/v1/messages` streaming (each of
+which at least has TokenBazaar's own worked documentation example or prose
+confirmation for the *operation itself*, even where the SSE shape isn't
+live-verified), this operation has **no TokenBazaar-specific documentation
+at all** to anchor even that assumption -- it rests entirely on "TokenBazaar
+normalizes to the exact vendor shape for confirmed capabilities" extended, by
+analogy, to an unconfirmed one. This is the single weakest link in this
+delivery's evidence chain and the primary reason live-probe confirmation
+(release gate below) is non-negotiable before `production_ready` can ever
+become `true` for this capability.
+
+- The Silk Road adapter (`dispatchGenerateContent`) passes the raw SSE bytes
+  through unmodified for `streamGenerateContent`, exactly as every other
+  TokenBazaar streaming path does -- confirmed by
+  `TestTokenBazaarStreamGenerateContentSSEStreamingPassesThroughUnmodified`.
+  The response-shape check (`validateTokenBazaarGenerateContentResponseShape`)
+  deliberately does **not** apply to streaming responses (it would require
+  buffering the entire SSE stream into memory, defeating the point of
+  streaming, and is unnecessary since the control plane's own typed
+  parsing -- `parseGeminiSSEUsage`/`geminiSSEIsError` inside
+  `streamGeminiShapedResponse` -- already handles malformed/unexpected chunks
+  defensively without needing the whole-body shape check).
+- Typed-event parsing (usage extraction via `parseGeminiSSEUsage`, error-frame
+  detection via `geminiSSEIsError`) is the shared, pre-existing,
+  provider-agnostic responsibility of `streamGeminiShapedResponse` -- already
+  exercised by `gemini_native_handler_test.go`'s own coverage for the direct
+  `google-gemini` provider; this delivery adds no new per-chunk parsing logic
+  for TokenBazaar specifically, since it reuses the exact same function.
+- No independent code-level kill switch exists for this capability (per the
+  2026-09-11 flag-removal decision) -- reachability is gated only by no
+  tenant holding a live TokenBazaar credential and by the release gate below.
+
+### Pricing
+
+Reuses the existing chat-completions billing path's token-counting
+unmodified, as described above -- no second pricing computation path was
+introduced. The 6 in-scope models' catalog costs are already pinned to the
+official direct `google-gemini` rate per the 2026-09-10 pricing-override
+decision (these 6 models are exactly `gemini-2.5-flash`, `gemini-2.5-pro`,
+`gemini-3.1-pro-preview`, `gemini-3.5-flash`, `gemini-3.6-flash`,
+`gemini-3.7-flash` -- the last two of which are two of the three previously
+quantified pricing anomalies, "Gemini 3.6/3.7 Flash," already resolved by
+that interim mitigation); this delivery does not reintroduce TokenBazaar's
+own resale price for any of them and does not reopen that decision.
+
+Per this delivery's own mandatory pre-implementation gate, base-URL
+reachability was re-checked once more from this session's own execution
+environment before any code was written:
+
+| Probe | Result |
+|---|---|
+| `curl -sS -m 8 https://zx1.deepwl.net/v1/models` | `curl: (28) Resolving timed out after 8008 milliseconds` (re-attempted once more: `curl: (28) Resolving timed out after 8005 milliseconds`) |
+| `nslookup zx1.deepwl.net` | **Resolved this time** -- 10 A records returned (`185.38.109.200`-`185.38.109.209`), unlike every prior session's `DNS request timed out` for this exact host. This is a new, different observation from every prior session's probe of this host. |
+
+**This is a genuinely new finding, recorded honestly rather than smoothed
+over:** `nslookup` resolving the host while `curl` still fails at its own
+resolving step (twice, consistently) is not evidence the host is reachable
+end-to-end -- `curl`'s own resolver failing to complete despite an OS-level
+`nslookup` succeeding is consistent with a sandbox-level network-egress
+restriction on this session's own HTTP client path specifically (the same
+class of sandbox artifact prior sessions attributed the DNS timeouts to),
+not with TokenBazaar's host becoming reachable. **No independent HTTP
+reachability confirmation exists from this session's own tools** -- the
+fail-closed conclusion from every prior session stands unchanged:
+`https://zx1.deepwl.net` remains the authoritative value baked into
+`validateTokenBazaarBaseURL`, which the generateContent dispatch path reuses
+unmodified (it targets
+`https://zx1.deepwl.net/v1beta/models/{model}:generateContent`, confirmed by
+`TestTokenBazaarGenerateContentDispatchExactRequestConstruction` and
+`TestTokenBazaarStreamGenerateContentDispatchExactRequestConstruction`).
 
 ## Anthropic Messages endpoint delivery (this session, 2026-09-11)
 
@@ -1421,32 +1879,42 @@ Summary:
   decision, and the fuller canary/rollback operational tooling the Z.ai
   reference has was never built either. `FOLLOW-UP`.
 - **`production_ready`**: **stays false, for chat, images, embeddings,
-  responses, and messages.** The provider is registered and fully wired end
-  to end in code for all five capabilities, reachable via explicit
-  `tokenbazaar:<account>:<model-id>` FQN with **no independent code-level
-  kill switch** (see "Feature-flag removal" at the top of this document for
-  why, and the accepted trade-off that decision carries) — but no live
-  TokenBazaar account has ever exercised any path (no live call was made in
-  Phase 0, the Phases 2–5 delivery, the Image Endpoints delivery, the
-  Embeddings Endpoint delivery, the Responses Endpoint delivery, the
-  Anthropic Messages endpoint delivery, or any prior session), the three
-  chat pricing anomalies remain undecided by product/finance, the image
-  per-model parameter live-discovery cache (conflict #12) has never been
-  populated from a real account, the embeddings contract itself is inferred
-  rather than first-party-confirmed (conflict #11), and the Responses and
-  Messages streaming contracts have never been independently live-verified
-  end to end (same evidence tier as chat_completions streaming — see
-  "Responses endpoint delivery" and "Anthropic Messages endpoint delivery"
-  above). In practice, the only things standing between TokenBazaar and live
-  traffic today are (a) no tenant holding a real TokenBazaar provider
+  responses, messages, and native Gemini generateContent.** The provider is
+  registered and fully wired end to end in code for all six capabilities,
+  reachable via explicit `tokenbazaar:<account>:<model-id>` FQN with **no
+  independent code-level kill switch** (see "Feature-flag removal" at the top
+  of this document for why, and the accepted trade-off that decision
+  carries) — but no live TokenBazaar account has ever exercised any path (no
+  live call was made in Phase 0, the Phases 2–5 delivery, the Image
+  Endpoints delivery, the Embeddings Endpoint delivery, the Responses
+  Endpoint delivery, the Anthropic Messages endpoint delivery, the native
+  Gemini generateContent delivery, or any prior session), the three chat
+  pricing anomalies remain undecided by product/finance, the image per-model
+  parameter live-discovery cache (conflict #12) has never been populated
+  from a real account, the embeddings contract itself is inferred rather
+  than first-party-confirmed (conflict #11), the native Gemini generateContent
+  contract is inferred purely from catalog metadata — an even weaker evidence
+  tier than embeddings, which at least had a product-description sentence
+  claiming the capability (see "Native Gemini generateContent/
+  streamGenerateContent delivery" above) — and the Responses, Messages, and
+  generateContent streaming contracts have never been independently
+  live-verified end to end (same evidence tier as chat_completions
+  streaming, generateContent's own tier weaker still since it lacks even a
+  TokenBazaar-specific documentation anchor for the operation itself — see
+  "Responses endpoint delivery," "Anthropic Messages endpoint delivery," and
+  "Native Gemini generateContent/streamGenerateContent delivery" above). In
+  practice, the only things standing between TokenBazaar and live traffic
+  today are (a) no tenant holding a real TokenBazaar provider
   account/credential yet, and (b) the release gates below (live-probe
   confirmation of each wire contract, the pricing-anomaly sign-off) — those
   remain the actual reasons `production_ready` stays `false`, not a flag.
   Implemented-and-tested is not the same claim as production-ready — this is
   truer for embeddings (unconfirmed contract), responses (unconfirmed
-  streaming), and messages (unconfirmed streaming) than for chat or images.
+  streaming), messages (unconfirmed streaming), and truer still for native
+  Gemini generateContent (unconfirmed contract AND unconfirmed streaming,
+  with no first-party documentation anchor at all) than for chat or images.
 
-## Release gates (unchanged from the task's own bar, extended for images, embeddings, responses, and messages)
+## Release gates (unchanged from the task's own bar, extended for images, embeddings, responses, messages, and native Gemini generateContent)
 
 Do not mark TokenBazaar, or any individual model on it, production-ready until:
 1. The chat/completions wire contract is additionally confirmed by a live, approved TokenBazaar account (this session's evidence is first-party documentation, not a live call).
@@ -1536,12 +2004,13 @@ Do not mark TokenBazaar, or any individual model on it, production-ready until:
     contracts) but scoped specifically to the 4 Claude models this delivery
     actually wired.
 13. Since 2026-09-11 (see "Feature-flag removal" at the top of this
-    document), none of the five capabilities has an independent code-level
+    document), none of the six capabilities has an independent code-level
     kill switch to "flip on" after the above gates are met — the prior
     version of this section had one such gate per capability
     (`SHAHRAH_TOKENBAZAAR_ENABLED`/`_IMAGES_ENABLED`/`_EMBEDDINGS_ENABLED`/
     `_RESPONSES_ENABLED`/`_MESSAGES_ENABLED`, each "deliberately flipped on
-    by an operator"); those flags no longer exist. Until the
+    by an operator"); those flags no longer exist, and no new flag was added
+    for native Gemini generateContent either. Until the
     model-discovery-catalog-to-dispatch connection described in that section
     is built, the actual operational safeguard for each capability going
     live is: no tenant is granted a TokenBazaar provider account/credential
@@ -1549,5 +2018,35 @@ Do not mark TokenBazaar, or any individual model on it, production-ready until:
     granting the first real TokenBazaar credential to a tenant as the
     equivalent go-live action this document previously described as
     "flipping the flag."
+14. **(Native Gemini generateContent, all 6 in-scope text models:
+    gemini-2.5-flash, gemini-2.5-pro, gemini-3.1-pro-preview,
+    gemini-3.5-flash, gemini-3.6-flash, gemini-3.7-flash)** A live, approved
+    TokenBazaar credential probe against
+    `https://zx1.deepwl.net/v1beta/models/{model}:generateContent` and
+    `.../{model}:streamGenerateContent` confirms, end to end: (a) the path
+    itself is correct at all (unlike gates 10–12, this delivery has **no**
+    TokenBazaar-specific documentation evidence for the operation's
+    existence beyond catalog metadata — the path and even the presence of a
+    `/v1beta/...` route family on this host is inferred entirely by analogy
+    to the direct Gemini API and TokenBazaar's own Gemini-style auth-alias
+    documentation, not confirmed); (b) the response envelope matches
+    Gemini's own documented `{"candidates":[{"content":{...}}],
+    "usageMetadata":{...}}` shape, not merely that *some* response comes
+    back; (c) the streaming shape (`data: {...}` chunks, no `[DONE]`
+    terminator) actually matches what `parseGeminiSSEUsage`/
+    `geminiSSEIsError` expect; and (d) the `cachedContent` rejection is not
+    needlessly conservative — i.e. that TokenBazaar's generateContent route
+    does NOT actually support Gemini context caching today (if a live probe
+    instead shows it works, this document's "unsupported" stance should be
+    revisited and upgraded with that new evidence, per this delivery's own
+    instruction, rather than left stale). This gate is categorically similar
+    to gates 2, 11, and 12 above (streaming/reasoning contracts) but is the
+    **strictest** of the four: gates 11–12 confirm a *documented* contract
+    actually works live, while this one — like gate 10 (embeddings) but one
+    tier weaker still — confirms whether the *contract itself*, including
+    its very existence as a real TokenBazaar route, is correct at all. Do
+    not mark this capability `production_ready` on the strength of this
+    delivery's tests alone; they confirm the code behaves as designed
+    against an assumed contract, not that the assumed contract is real.
 
 One model's readiness never unlocks another.

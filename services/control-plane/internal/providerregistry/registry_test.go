@@ -162,7 +162,10 @@ func TestDefinitionsSatisfyProviderContracts(t *testing.T) {
 		"tokenbazaar": {
 			pricingSnapshot: PricingSnapshotCatalog,
 			pricingStrategy: PricingStrategyTokenBazaar,
-			capabilities:    []Capability{CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings, CapabilityResponses, CapabilityMessages},
+			capabilities: []Capability{
+				CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings,
+				CapabilityResponses, CapabilityMessages, CapabilityGenerateContent,
+			},
 			operations: []platform.ProviderOperation{
 				platform.ProviderOperationCredentialProbe,
 				platform.ProviderOperationChatCompletions,
@@ -171,6 +174,8 @@ func TestDefinitionsSatisfyProviderContracts(t *testing.T) {
 				platform.ProviderOperationOpenAIEmbeddings,
 				platform.ProviderOperationOpenAIResponsesCreate,
 				platform.ProviderOperationAnthropicMessages,
+				platform.ProviderOperationGeminiGenerateContent,
+				platform.ProviderOperationGeminiStreamGenerateContent,
 			},
 		},
 		"google-gemini": {
@@ -629,6 +634,87 @@ func TestTokenBazaarSupportsMessagesCapability(t *testing.T) {
 func TestTokenBazaarMessagesModelsNeverCollideWithDirectProviders(t *testing.T) {
 	for _, model := range []string{
 		"claude-fable-5", "claude-haiku-4-5", "claude-opus-5", "claude-sonnet-5",
+	} {
+		t.Run(model, func(t *testing.T) {
+			if bare, ok := FromModelIdentifier(model); ok && bare.Slug == "tokenbazaar" {
+				t.Fatalf("bare model id %q resolved to tokenbazaar; must only be reachable via an explicit FQN", model)
+			}
+
+			qualified, ok := FromModelIdentifier("tokenbazaar:primary:" + model)
+			if !ok || qualified.Slug != "tokenbazaar" {
+				t.Fatalf("FromModelIdentifier(%q) = %q, %t; want tokenbazaar", "tokenbazaar:primary:"+model, qualified.Slug, ok)
+			}
+		})
+	}
+}
+
+// TestTokenBazaarSupportsGenerateContentCapability asserts the 6 in-scope
+// Gemini text models' Gemini-native operations
+// (POST /v1beta/models/{model}:generateContent and
+// .../{model}:streamGenerateContent) are registered as first-class
+// TokenBazaar operations/capabilities, per
+// plans/tokenbazaar-production-readiness.md's native Gemini generateContent
+// delivery.
+func TestTokenBazaarSupportsGenerateContentCapability(t *testing.T) {
+	definition, ok := Lookup("tokenbazaar")
+	if !ok {
+		t.Fatalf("tokenbazaar is not registered as a first-class provider")
+	}
+
+	if !definition.Supports(CapabilityGenerateContent) {
+		t.Fatal("tokenbazaar does not declare CapabilityGenerateContent")
+	}
+
+	if !definition.Supports(CapabilityChatCompletions) {
+		t.Fatal("tokenbazaar lost CapabilityChatCompletions while gaining CapabilityGenerateContent")
+	}
+
+	if !definition.Supports(CapabilityMessages) {
+		t.Fatal("tokenbazaar lost CapabilityMessages while gaining CapabilityGenerateContent")
+	}
+
+	for _, operation := range []platform.ProviderOperation{
+		platform.ProviderOperationGeminiGenerateContent,
+		platform.ProviderOperationGeminiStreamGenerateContent,
+	} {
+		if !definition.SupportsOperation(operation) {
+			t.Fatalf("tokenbazaar does not support operation %q", operation)
+		}
+	}
+
+	// This delivery is scoped to exactly generateContent/streamGenerateContent
+	// (create-only, text models only). None of Gemini's other native
+	// operations (caching, interactions, files, batches, countTokens,
+	// embedContent) must be registered here as a side effect.
+	for _, unsupported := range []platform.ProviderOperation{
+		platform.ProviderOperationGeminiCountTokens,
+		platform.ProviderOperationGeminiEmbedContent,
+		platform.ProviderOperationGeminiBatchEmbedContents,
+		platform.ProviderOperationGeminiInteractionsCreate,
+		platform.ProviderOperationGeminiCachesCreate,
+		platform.ProviderOperationGeminiCachesList,
+		platform.ProviderOperationGeminiCachesGet,
+		platform.ProviderOperationGeminiCachesUpdate,
+		platform.ProviderOperationGeminiCachesDelete,
+		platform.ProviderOperationGeminiBatchesCreate,
+		platform.ProviderOperationGeminiFilesCreate,
+		platform.ProviderOperationGeminiModelsList,
+	} {
+		if definition.SupportsOperation(unsupported) {
+			t.Fatalf("tokenbazaar must not support Gemini operation %q (generateContent-only delivery)", unsupported)
+		}
+	}
+}
+
+// TestTokenBazaarGenerateContentModelsNeverCollideWithDirectProviders asserts
+// that the 6 in-scope generateContent model IDs, even though they are
+// string-identical to the direct "google-gemini" provider's own model IDs,
+// only ever route to "tokenbazaar" via the explicit
+// "tokenbazaar:<account>:<model-id>" FQN.
+func TestTokenBazaarGenerateContentModelsNeverCollideWithDirectProviders(t *testing.T) {
+	for _, model := range []string{
+		"gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.1-pro-preview",
+		"gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash",
 	} {
 		t.Run(model, func(t *testing.T) {
 			if bare, ok := FromModelIdentifier(model); ok && bare.Slug == "tokenbazaar" {

@@ -15,7 +15,21 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		gemini := deps.GeminiNativeHandler.Handle
 		v1beta := app.Group("/v1beta")
 		v1beta.All("/models", gemini)
-		v1beta.All("/models/*", gemini)
+		// "/v1beta/models/*" is routed through a thin shim
+		// (proxy.NewGeminiGenerateContentRouter): a
+		// generateContent/streamGenerateContent request whose {model} path
+		// segment is an explicit "tokenbazaar:<account>:<model-id>" FQN is
+		// dispatched to TokenBazaarGenerateContentHandler (the narrow,
+		// FQN-routed path added for TokenBazaar's native Gemini
+		// generateContent capability); every other request -- every direct
+		// google-gemini request, and every other Gemini-native model
+		// operation (countTokens, embedContent, batchGenerateContent, model
+		// get) -- falls back to gemini (GeminiNativeHandler.Handle,
+		// completely unmodified by that delivery) exactly as before. See
+		// plans/tokenbazaar-production-readiness.md, "Native Gemini
+		// generateContent/streamGenerateContent delivery", for the full
+		// reasoning.
+		v1beta.All("/models/*", proxy.NewGeminiGenerateContentRouter(deps.TokenBazaarGenerateContentHandler, gemini))
 		v1beta.All("/interactions", gemini)
 		v1beta.All("/interactions/*", gemini)
 		v1beta.All("/files", gemini)

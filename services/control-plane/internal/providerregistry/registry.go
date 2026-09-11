@@ -73,6 +73,27 @@ const (
 	// plans/tokenbazaar-production-readiness.md, "Anthropic Messages endpoint
 	// delivery".
 	CapabilityMessages Capability = "messages"
+	// CapabilityGenerateContent identifies the Gemini-native
+	// generateContent/streamGenerateContent-shaped
+	// POST /v1beta/models/{model}:generateContent surface
+	// (platform.ProviderOperationGeminiGenerateContent /
+	// platform.ProviderOperationGeminiStreamGenerateContent). No prior
+	// registry entry declares this either: the direct "google-gemini"
+	// provider's own entry below only lists
+	// platform.ProviderOperationChatCompletions in its Operations, because
+	// GeminiNativeHandler (services/control-plane/internal/proxy/
+	// gemini_native_handler.go) serves the full native Gemini surface
+	// (generateContent, caching, interactions, files, batches, ...) through
+	// its own account-allowlisted anthropicDeploymentLister-based routing,
+	// bypassing this registry's FQN-based capability/operation model
+	// entirely -- exactly the same situation the Messages delivery found for
+	// the direct "anthropic" provider and AnthropicNativeHandler. This
+	// constant was added for TokenBazaar's native Gemini generateContent
+	// delivery, following the same CapabilityMessages/CapabilityResponses
+	// pattern established when no prior capability constant existed for an
+	// operation either -- see plans/tokenbazaar-production-readiness.md,
+	// "Native Gemini generateContent/streamGenerateContent delivery".
+	CapabilityGenerateContent Capability = "generate_content"
 )
 
 // Definition describes one first-class provider and its control-plane behavior.
@@ -220,8 +241,26 @@ var definitions = []Definition{
 		// rather than AnthropicNativeHandler (which remains exclusively the
 		// direct "anthropic" provider's handler) -- see
 		// plans/tokenbazaar-production-readiness.md, "Anthropic Messages
-		// endpoint delivery". None of TokenBazaar's five capabilities carry
-		// an independent code-level kill switch -- see
+		// endpoint delivery". Exactly 6 of the 21 chat-capable models
+		// (gemini-2.5-flash, gemini-2.5-pro, gemini-3.1-pro-preview,
+		// gemini-3.5-flash, gemini-3.6-flash, gemini-3.7-flash) additionally
+		// dispatch through the Gemini-native
+		// POST /v1beta/models/{model}:generateContent and
+		// .../{model}:streamGenerateContent envelopes, served by
+		// proxy.TokenBazaarGenerateContentHandler rather than
+		// GeminiNativeHandler (which remains exclusively the direct
+		// "google-gemini" provider's handler) -- this capability's evidence
+		// tier is weaker than every other TokenBazaar capability (catalog
+		// metadata only, no worked example or prose mention in TokenBazaar's
+		// own docs) -- see plans/tokenbazaar-production-readiness.md, "Native
+		// Gemini generateContent/streamGenerateContent delivery". The 3
+		// Gemini image models are deliberately NOT included in this
+		// operation: they are served by the OpenAI-compatible images
+		// envelope (CapabilityImages) already, and native Gemini
+		// generateContent for image generation is a materially different,
+		// unimplemented contract -- see the same section for this explicit
+		// follow-up gap. None of TokenBazaar's six capabilities carry an
+		// independent code-level kill switch -- see
 		// plans/tokenbazaar-production-readiness.md for the accepted-risk
 		// rationale. This registry entry carries no OperationNamespaces /
 		// LegacyModelPrefixes because TokenBazaar model IDs (e.g.
@@ -237,7 +276,10 @@ var definitions = []Definition{
 		DisplayName:     "TokenBazaar",
 		PricingSnapshot: PricingSnapshotCatalog,
 		PricingStrategy: PricingStrategyTokenBazaar,
-		Capabilities:    []Capability{CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings, CapabilityResponses, CapabilityMessages},
+		Capabilities: []Capability{
+			CapabilityChatCompletions, CapabilityImages, CapabilityEmbeddings,
+			CapabilityResponses, CapabilityMessages, CapabilityGenerateContent,
+		},
 		Operations: []platform.ProviderOperation{
 			platform.ProviderOperationCredentialProbe,
 			platform.ProviderOperationChatCompletions,
@@ -246,6 +288,8 @@ var definitions = []Definition{
 			platform.ProviderOperationOpenAIEmbeddings,
 			platform.ProviderOperationOpenAIResponsesCreate,
 			platform.ProviderOperationAnthropicMessages,
+			platform.ProviderOperationGeminiGenerateContent,
+			platform.ProviderOperationGeminiStreamGenerateContent,
 		},
 		DispatchRuntimeProfileRequired: true,
 	},
@@ -633,7 +677,8 @@ func validCapability(capability Capability) bool {
 		CapabilityOCR,
 		CapabilityAgents,
 		CapabilityConversations,
-		CapabilityMessages:
+		CapabilityMessages,
+		CapabilityGenerateContent:
 		return true
 	default:
 		return false

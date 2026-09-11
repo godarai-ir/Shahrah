@@ -112,6 +112,7 @@ func (b *builder) buildGateway() error {
 	modelsHandler := proxy.NewModelsHandler(b.runtimeDeploymentStore)
 	anthropicNativeHandler := proxy.NewAnthropicNativeHandler(baseDependencies, nativeResources)
 	tokenBazaarMessagesHandler := proxy.NewTokenBazaarMessagesHandlerWithDependencies(baseDependencies)
+	tokenBazaarGenerateContentHandler := proxy.NewTokenBazaarGenerateContentHandlerWithDependencies(baseDependencies)
 	geminiNativeHandler := proxy.NewGeminiNativeHandler(baseDependencies, nativeResources)
 
 	if err := b.lifecycle.AddLoop("Anthropic batch reconciler", func(ctx context.Context) {
@@ -127,34 +128,35 @@ func (b *builder) buildGateway() error {
 	}
 
 	b.serverDependencies = server.Dependencies{
-		AuthMiddleware:             b.authMiddleware,
-		TenantResolver:             b.tenantMiddleware,
-		TracingMiddleware:          b.tracingMiddleware,
-		TraceHealth:                b.traceHealth,
-		ClickHouseHealth:           b.store.ObservabilityHealthRepository,
-		ManagementRoutes:           b.managementRoutes,
-		ProxyHandler:               chatHandler,
-		CompletionsHandler:         completionsHandler,
-		ResponsesHandler:           responsesHandler,
-		EmbeddingsHandler:          embeddingsHandler,
-		ModerationsHandler:         moderationsHandler,
-		RerankHandler:              rerankHandler,
-		ImagesHandler:              imagesHandler,
-		AudioTranscriptionsHandler: audioTranscriptionsHandler,
-		AudioSpeechHandler:         audioSpeechHandler,
-		MistralOCRHandler:          mistralOCRHandler,
-		ZAILayoutParsingHandler:    zaiLayoutParsingHandler,
-		MistralNativeHandler:       mistralNativeHandler,
-		ModelsHandler:              modelsHandler,
-		AnthropicNativeHandler:     anthropicNativeHandler,
-		TokenBazaarMessagesHandler: tokenBazaarMessagesHandler,
-		GeminiNativeHandler:        geminiNativeHandler,
-		PoolStats:                  b.store.DatabaseHealthRepository,
-		HTTPMetrics:                b.httpMetrics,
-		Logger:                     b.logger,
-		PlatformServiceAccounts:    b.store.PlatformServiceAccountRepository,
-		ExchangeRates:              b.store.ExchangeRateRepository,
-		GatewayMaxInFlight:         &b.cfg.Runtime.GatewayMaxInFlight,
+		AuthMiddleware:                    b.authMiddleware,
+		TenantResolver:                    b.tenantMiddleware,
+		TracingMiddleware:                 b.tracingMiddleware,
+		TraceHealth:                       b.traceHealth,
+		ClickHouseHealth:                  b.store.ObservabilityHealthRepository,
+		ManagementRoutes:                  b.managementRoutes,
+		ProxyHandler:                      chatHandler,
+		CompletionsHandler:                completionsHandler,
+		ResponsesHandler:                  responsesHandler,
+		EmbeddingsHandler:                 embeddingsHandler,
+		ModerationsHandler:                moderationsHandler,
+		RerankHandler:                     rerankHandler,
+		ImagesHandler:                     imagesHandler,
+		AudioTranscriptionsHandler:        audioTranscriptionsHandler,
+		AudioSpeechHandler:                audioSpeechHandler,
+		MistralOCRHandler:                 mistralOCRHandler,
+		ZAILayoutParsingHandler:           zaiLayoutParsingHandler,
+		MistralNativeHandler:              mistralNativeHandler,
+		ModelsHandler:                     modelsHandler,
+		AnthropicNativeHandler:            anthropicNativeHandler,
+		TokenBazaarMessagesHandler:        tokenBazaarMessagesHandler,
+		TokenBazaarGenerateContentHandler: tokenBazaarGenerateContentHandler,
+		GeminiNativeHandler:               geminiNativeHandler,
+		PoolStats:                         b.store.DatabaseHealthRepository,
+		HTTPMetrics:                       b.httpMetrics,
+		Logger:                            b.logger,
+		PlatformServiceAccounts:           b.store.PlatformServiceAccountRepository,
+		ExchangeRates:                     b.store.ExchangeRateRepository,
+		GatewayMaxInFlight:                &b.cfg.Runtime.GatewayMaxInFlight,
 	}
 
 	return nil

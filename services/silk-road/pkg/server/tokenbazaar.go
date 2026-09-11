@@ -199,6 +199,50 @@ var tokenBazaarMessagesModels = map[string]struct{}{
 	"claude-sonnet-5":  {},
 }
 
+// tokenBazaarGenerateContentModels is the exhaustive set of TokenBazaar model
+// IDs this delivery dispatches through the Gemini-native
+// POST /v1beta/models/{model}:generateContent and
+// POST /v1beta/models/{model}:streamGenerateContent envelopes.
+//
+// Evidence-tier caveat (see plans/tokenbazaar-production-readiness.md,
+// "Native Gemini generateContent/streamGenerateContent delivery"): this is a
+// WEAKER evidence tier than any prior TokenBazaar capability except
+// embeddings -- unlike chat/images/responses/messages, TokenBazaar's own
+// rendered docs page never mentions a Gemini-native API style anywhere in
+// its "Text Generation (LLM)" prose (which explicitly names exactly three
+// styles: Chat Completions, Responses, Anthropic Messages), and unlike
+// embeddings, there is not even a product-description sentence claiming the
+// capability -- the ONLY evidence this operation exists at all is the
+// authenticated GET /v1/models catalog's supported_endpoint_types column
+// listing "generateContent" for these models. This delivery implements
+// against the standard Gemini-native shape gemini.go already builds for the
+// direct google-gemini provider (reusing geminiOperationTarget for the exact
+// same /v1beta/models/{model}:action path template) and adds a defensive
+// response-shape check (validateTokenBazaarGenerateContentResponseShape)
+// before returning success, mirroring the embeddings delivery's own
+// discipline for an inferred contract.
+//
+// This is deliberately scoped to the 6 text models only. The 3 Gemini image
+// models (gemini-3-pro-image, gemini-3.1-flash-image,
+// gemini-3.1-flash-lite-image) are NOT included here: they are already
+// served via the OpenAI-compatible images envelope
+// (tokenBazaarImageModels/validateTokenBazaarImageDispatch), and native
+// Gemini generateContent for image *generation* (inlineData response parts,
+// generationConfig.responseModalities, etc.) is a materially different
+// request/response shape than the text models' shape this delivery
+// implements -- extending this delivery to the 3 image models would require
+// its own, separately evidenced and tested contract, not an assumption that
+// "same operation name" means "same shape." See the readiness doc's release
+// gates for this explicit follow-up gap.
+var tokenBazaarGenerateContentModels = map[string]struct{}{
+	"gemini-2.5-flash":       {},
+	"gemini-2.5-pro":         {},
+	"gemini-3.1-pro-preview": {},
+	"gemini-3.5-flash":       {},
+	"gemini-3.6-flash":       {},
+	"gemini-3.7-flash":       {},
+}
+
 // tokenBazaarImageParameterSnapshot records a per-model image size/quality
 // support set confirmed live from an authenticated GET /v1/models response
 // (TokenBazaar's documented "supported_parameters" field — see conflict #12
@@ -297,6 +341,22 @@ func (a *tokenBazaarAdapter) Dispatch(
 		return nil, err
 	}
 
+	// generateContent/streamGenerateContent speak Gemini's own native wire
+	// shape (POST /v1beta/models/{model}:action), not the OpenAI-compatible
+	// shape every other TokenBazaar operation uses. a.compat.Dispatch cannot
+	// produce this: its baseURLNormalizer unconditionally appends "/v1" to
+	// the base URL (correct for /v1/chat/completions et al., but it would
+	// wrongly produce .../v1/v1beta/models/... here), and
+	// resolveOpenAIOperation has no case that embeds a model id into a
+	// path. dispatchGenerateContent below builds and sends this request
+	// directly instead, reusing gemini.go's own geminiOperationTarget path
+	// template (the exact same one the direct google-gemini provider uses)
+	// since the two providers speak byte-identical wire shapes here.
+	if payload.Operation == platform.ProviderOperationGeminiGenerateContent ||
+		payload.Operation == platform.ProviderOperationGeminiStreamGenerateContent {
+		return a.dispatchGenerateContent(ctx, client, payload)
+	}
+
 	// Single attempt, no adapter-level retry: this is a POST to a
 	// non-idempotent completions endpoint, and there is no way for this
 	// adapter to prove from a client.Do error alone that the upstream never
@@ -320,6 +380,77 @@ func (a *tokenBazaarAdapter) Dispatch(
 		// contract is inferred, not first-party-confirmed, so a successful
 		// response is shape-checked here rather than forwarded blind.
 		return validateTokenBazaarEmbeddingsResponseShape(response)
+	}
+
+	return response, nil
+}
+
+// dispatchGenerateContent builds and sends the Gemini-native
+// generateContent/streamGenerateContent request directly, bypassing
+// a.compat.Dispatch's "/v1"-suffixed base-URL normalization and
+// OpenAI-compatible resolveOpenAIOperation path resolution -- neither
+// produces the documented /v1beta/models/{model}:action shape TokenBazaar's
+// Gemini-style endpoints use (see the readiness doc's "Auth (compatibility
+// aliases)" bullet, which already documents /v1beta/... as a sibling path
+// family to /v1/..., not something nested under it). It reuses gemini.go's
+// geminiOperationTarget -- the exact same path-template logic the direct
+// google-gemini adapter uses for this operation -- since the two providers
+// speak byte-identical wire shapes here; only the base URL, host allowlist,
+// and error-normalization differ, and those are TokenBazaar's own (already
+// validated by validateTokenBazaarDispatch/validateTokenBazaarBaseURL above).
+func (a *tokenBazaarAdapter) dispatchGenerateContent(ctx context.Context, client *http.Client, payload platform.TunnelRequest) (*adapterResponse, error) {
+	model := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(payload.Deployment.Model)), "models/")
+
+	method, path, err := geminiOperationTarget(payload.Operation, payload.OperationInput, model)
+	if err != nil {
+		return nil, err
+	}
+
+	target, err := resolveBaseURL(payload.Deployment.APIBase, tokenBazaarBaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, method, joinURL(target, path), bytes.NewReader(payload.Body))
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+
+	if payload.Operation == platform.ProviderOperationGeminiStreamGenerateContent {
+		request.Header.Set("Accept", "text/event-stream")
+	}
+
+	// Only the universally-documented Authorization: Bearer scheme is used
+	// here -- per the readiness doc's own guidance, the endpoint-scoped
+	// x-goog-api-key compatibility alias is deliberately NOT adopted as a
+	// generic TokenBazaar auth path, consistent with how the Messages
+	// delivery declined to adopt the x-api-key alias for the same reason.
+	if apiKey := deploymentAPIKey(payload.Deployment); apiKey != "" {
+		request.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	resp, err := client.Do(request) //nolint:bodyclose // The server handler owns and closes the body transferred through adapterResponse.
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := normalizeTokenBazaarResponse(&adapterResponse{StatusCode: resp.StatusCode, Headers: resp.Header, Body: resp.Body})
+	if err != nil {
+		return nil, err
+	}
+
+	if payload.Operation == platform.ProviderOperationGeminiGenerateContent {
+		// See the evidence-tier caveat on tokenBazaarGenerateContentModels:
+		// this contract is inferred from catalog metadata alone, so a
+		// successful, non-streaming response is shape-checked here rather
+		// than forwarded blind. streamGenerateContent is deliberately
+		// excluded from this check: its body is an SSE stream consumed
+		// chunk-by-chunk by the control plane's own relay
+		// (streamGeminiShapedResponse), not a single JSON document this
+		// function could safely buffer and re-wrap.
+		return validateTokenBazaarGenerateContentResponseShape(response)
 	}
 
 	return response, nil
@@ -353,6 +484,8 @@ func validateTokenBazaarDispatch(payload platform.TunnelRequest) error {
 		return validateTokenBazaarResponsesDispatch(payload, model, body, isJSON)
 	case platform.ProviderOperationAnthropicMessages:
 		return validateTokenBazaarMessagesDispatch(payload, model, body, isJSON)
+	case platform.ProviderOperationGeminiGenerateContent, platform.ProviderOperationGeminiStreamGenerateContent:
+		return validateTokenBazaarGenerateContentDispatch(payload, model, body, isJSON)
 	default:
 		return fmt.Errorf("tokenbazaar_unsupported_operation: %s", payload.Operation)
 	}
@@ -1057,12 +1190,162 @@ func validateTokenBazaarEmbeddingsResponseShape(response *adapterResponse) (*ada
 	return response, nil
 }
 
+// validateTokenBazaarGenerateContentDispatch validates a
+// POST /v1beta/models/{model}:generateContent or
+// .../{model}:streamGenerateContent request against the standard Gemini
+// generateContent contract (see the evidence-tier caveat on
+// tokenBazaarGenerateContentModels) before any HTTP call is attempted. This
+// is deliberately conservative given the weak evidence tier: it requires the
+// one field Gemini's own schema requires ("contents"), rejects the one
+// undocumented feature explicitly called out for this delivery
+// (cachedContent), and otherwise defers to the runtime-profile/transport
+// gating every other TokenBazaar operation already goes through -- it does
+// not attempt to validate "tools"/"systemInstruction"/generationConfig
+// shapes, since gemini.go's own direct-dispatch path does not validate those
+// either (the direct provider forwards the body as-is beyond
+// model/operation-level access control), and there is no stronger evidence
+// here to justify TokenBazaar going further than the direct provider does.
+func validateTokenBazaarGenerateContentDispatch(payload platform.TunnelRequest, model string, body map[string]json.RawMessage, isJSON bool) error {
+	if _, supported := tokenBazaarGenerateContentModels[model]; !supported {
+		return fmt.Errorf("tokenbazaar_unsupported_model: %s", model)
+	}
+
+	endpoint := "generate_content"
+	if payload.Operation == platform.ProviderOperationGeminiStreamGenerateContent {
+		endpoint = "stream_generate_content"
+	}
+
+	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
+	if !ok || binding.Validate() != nil ||
+		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
+		!binding.Profile.AllowsEndpoint(endpoint) {
+		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
+	}
+
+	transport := "http"
+	if payload.Stream || payload.Operation == platform.ProviderOperationGeminiStreamGenerateContent {
+		transport = "sse"
+	}
+
+	if !binding.Profile.AllowsTransport(transport) {
+		return fmt.Errorf("tokenbazaar_unsupported_transport: %s", transport)
+	}
+
+	// Gemini's own generateContent contract is always a JSON object (never
+	// multipart/form-data).
+	if !isJSON {
+		return fmt.Errorf("tokenbazaar_invalid_json")
+	}
+
+	if _, ok := body["contents"]; !ok {
+		return fmt.Errorf("tokenbazaar_generate_content_contents_required")
+	}
+
+	return validateTokenBazaarGenerateContentCachedContentUnsupported(body)
+}
+
+// validateTokenBazaarGenerateContentCachedContentUnsupported rejects a
+// non-empty "cachedContent" field before dispatch. Gemini's own
+// context-caching feature (a reference to a cachedContents/{id} resource
+// created via the separate CachesCreate operation) is not claimed anywhere
+// in TokenBazaar's documentation -- the rendered docs page's nav sidebar has
+// no caching section at all, and this delivery's own evidence-gathering
+// found no mention of generateContent itself beyond catalog metadata, let
+// alone one of its optional sub-features. Per this delivery's own
+// instruction and the fail-closed precedent set by
+// validateTokenBazaarMessagesToolsUnsupported/
+// validateTokenBazaarMessagesPromptCachingUnsupported above, an unconfirmed
+// field is rejected with a specific, actionable error rather than silently
+// forwarded (where TokenBazaar might silently ignore it, reject it with an
+// opaque upstream error, or -- worse -- bill for context caching GodarAI
+// never confirmed it actually performs).
+func validateTokenBazaarGenerateContentCachedContentUnsupported(body map[string]json.RawMessage) error {
+	raw, ok := body["cachedContent"]
+	if !ok || tokenBazaarJSONIsNull(raw) {
+		return nil
+	}
+
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return fmt.Errorf("tokenbazaar_invalid_json: cachedContent must be a string")
+	}
+
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"tokenbazaar_generate_content_cached_content_unsupported: TokenBazaar does not document support for Gemini's " +
+			"context-caching feature (cachedContent); omit this field until support is confirmed",
+	)
+}
+
+// tokenBazaarGenerateContentResponseEnvelope is the minimal shape this
+// delivery requires of a successful, non-streaming TokenBazaar
+// generateContent response, per the evidence-tier caveat on
+// tokenBazaarGenerateContentModels: Gemini's own documented
+// {"candidates":[{"content":{...}, ...}], "usageMetadata":{...}} envelope.
+// Only the field needed to confirm the shape is modeled.
+type tokenBazaarGenerateContentResponseEnvelope struct {
+	Candidates []struct {
+		Content json.RawMessage `json:"content"`
+	} `json:"candidates"`
+}
+
+// validateTokenBazaarGenerateContentResponseShape reads a successful (< 400)
+// non-streaming generateContent response body in full and confirms it at
+// least matches the inferred {"candidates":[{"content":{...}}]} envelope
+// before handing it back to the caller. This matters more here than for the
+// chat/image paths precisely because this contract is inferred purely from
+// catalog metadata, not first-party-confirmed: a response that fails this
+// shape check is rejected with a distinct, identifiable error instead of
+// being forwarded as-is (which could otherwise be silently mis-parsed or
+// mis-billed further up the stack, e.g. by parseGeminiNativeUsage) or
+// causing a panic in a downstream json.Unmarshal into a fixed struct. The
+// read respects whatever size ceiling normalizeTokenBazaarResponse already
+// applied to the body. Mirrors validateTokenBazaarEmbeddingsResponseShape's
+// pattern exactly.
+func validateTokenBazaarGenerateContentResponseShape(response *adapterResponse) (*adapterResponse, error) {
+	if response == nil || response.StatusCode >= 400 {
+		return response, nil
+	}
+
+	raw, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+
+	if readErr != nil {
+		return nil, fmt.Errorf("tokenbazaar_generate_content_response_read: %w (close: %v)", readErr, closeErr)
+	}
+
+	if closeErr != nil {
+		return nil, fmt.Errorf("tokenbazaar_generate_content_response_close: %w", closeErr)
+	}
+
+	var envelope tokenBazaarGenerateContentResponseEnvelope
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil, fmt.Errorf("tokenbazaar_generate_content_response_shape_unexpected: response body is not valid JSON: %w", err)
+	}
+
+	if len(envelope.Candidates) == 0 {
+		return nil, fmt.Errorf(
+			"tokenbazaar_generate_content_response_shape_unexpected: expected {\"candidates\":[...]}, got %d candidates; "+
+				"this delivery's generateContent contract is inferred from catalog metadata only, not first-party-confirmed "+
+				"(see plans/tokenbazaar-production-readiness.md), and this response does not match the expected shape",
+			len(envelope.Candidates),
+		)
+	}
+
+	response.Body = io.NopCloser(bytes.NewReader(raw))
+
+	return response, nil
+}
+
 func tokenBazaarRequestModel(payload platform.TunnelRequest, body map[string]json.RawMessage) string {
-	model := strings.ToLower(strings.TrimSpace(payload.Deployment.Model))
+	model := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(payload.Deployment.Model)), "models/")
 
 	var requestedModel string
 	if json.Unmarshal(body["model"], &requestedModel) == nil && strings.TrimSpace(requestedModel) != "" {
-		model = strings.ToLower(strings.TrimSpace(requestedModel))
+		model = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(requestedModel)), "models/")
 	}
 
 	return model
