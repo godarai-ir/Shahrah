@@ -22,6 +22,7 @@ func NewTunnelCredentialProber(tunnel platform.TunnelTransport) *TunnelCredentia
 	registry := NewCredentialProberRegistry(generic)
 	registry.Register("anthropic", &anthropicTunnelCredentialProber{tunnel: tunnel})
 	registry.Register("xai", &xaiTunnelCredentialProber{tunnel: tunnel})
+	registry.Register("zai", &zaiTunnelCredentialProber{tunnel: tunnel})
 
 	return &TunnelCredentialProber{registry: registry}
 }
@@ -113,6 +114,40 @@ func (p *xaiTunnelCredentialProber) Probe(
 	}
 
 	return classifyXAIAPIKeyProbe(response.StatusCode, response.Body, record.ModelHint)
+}
+
+// zaiTunnelCredentialProber validates Z.ai credentials through Silk Road. Z.ai
+// exposes no non-billable validation endpoint, so this prober deliberately
+// bypasses the documentedProbe allowlist and dispatches Silk Road's explicit
+// one-token chat completion probe, which may create a small upstream charge.
+type zaiTunnelCredentialProber struct {
+	tunnel platform.TunnelTransport
+}
+
+func (p *zaiTunnelCredentialProber) Probe(
+	ctx context.Context,
+	record EncryptedCredential,
+	secrets map[string]string,
+) ProbeResult {
+	if p == nil || p.tunnel == nil {
+		return ProbeResult{Category: "network", Summary: "Z.ai validation could not reach Silk Road."}
+	}
+
+	deployment, ok := credentialProbeDeployment(record, secrets)
+	if !ok {
+		return unsupportedProbeResult()
+	}
+
+	response, err := p.tunnel.Proxy(ctx, platform.TunnelRequest{
+		Operation:  platform.ProviderOperationCredentialProbe,
+		Deployment: deployment,
+		Headers:    map[string]string{"Accept": "application/json"},
+	})
+	if err != nil {
+		return ProbeResult{Category: "network", Summary: "Z.ai validation could not reach Silk Road."}
+	}
+
+	return genericProbeResult(response.StatusCode)
 }
 
 type anthropicTunnelCredentialProber struct {

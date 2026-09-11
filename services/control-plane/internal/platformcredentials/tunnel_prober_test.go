@@ -188,3 +188,48 @@ func TestTunnelCredentialProberUsesDedicatedXAIKeyStatusProbe(t *testing.T) {
 		t.Fatalf("operation = %q", tunnel.request.Operation)
 	}
 }
+
+func TestTunnelCredentialProberRoutesZAIBillableProbeThroughSilkRoad(t *testing.T) {
+	t.Parallel()
+
+	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{StatusCode: http.StatusOK}}
+	prober := NewTunnelCredentialProber(tunnel)
+
+	result := prober.Probe(context.Background(), EncryptedCredential{
+		Binding: Binding{
+			ProviderSlug:        "zai",
+			AuthMode:            "api_key",
+			ConnectionID:        "connection-1",
+			CredentialVersionID: "credential-version-1",
+		},
+	}, map[string]string{"api_key": "zai-secret"})
+
+	if !result.Ready || result.Category != "ok" {
+		t.Fatalf("probe failed: ready=%v category=%q summary=%q", result.Ready, result.Category, result.Summary)
+	}
+
+	if tunnel.request.Operation != platform.ProviderOperationCredentialProbe {
+		t.Fatalf("operation = %q", tunnel.request.Operation)
+	}
+
+	if tunnel.request.Deployment.Provider != "zai" ||
+		tunnel.request.Deployment.ProviderAuth == nil ||
+		tunnel.request.Deployment.ProviderAuth.APIKey != "zai-secret" {
+		t.Fatalf("unexpected deployment: %#v", tunnel.request.Deployment)
+	}
+}
+
+func TestTunnelCredentialProberClassifiesZAIRejectedCredential(t *testing.T) {
+	t.Parallel()
+
+	tunnel := &recordingProbeTunnel{response: platform.TunnelResponse{StatusCode: http.StatusUnauthorized}}
+	prober := NewTunnelCredentialProber(tunnel)
+
+	result := prober.Probe(context.Background(), EncryptedCredential{
+		Binding: Binding{ProviderSlug: "zai", AuthMode: "api_key"},
+	}, map[string]string{"api_key": "zai-secret"})
+
+	if result.Ready || result.Authenticated || result.Category != "invalid_credential" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
