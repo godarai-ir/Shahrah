@@ -24,6 +24,7 @@ var zaiModels = map[string]string{
 	"glm-4.7-flashx": "chat_completions",
 	"glm-5v-turbo":   "chat_completions",
 	"glm-5.3-flash":  "chat_completions",
+	"glm-5.3":        "chat_completions",
 	"glm-ocr":        "layout_parsing",
 }
 
@@ -455,7 +456,15 @@ func normalizeZAIReasoningEffort(profile platform.ModelRuntimeProfile, body map[
 
 		body["thinking"] = json.RawMessage(`{"type":"disabled"}`)
 		delete(body, "reasoning_effort")
-	case "low", "medium":
+	case "low":
+		// A model whose declared reasoning_effort enum omits "medium" (for
+		// example glm-5.3's documented low/high/max) treats "low" as a
+		// genuinely distinct, natively supported tier rather than a
+		// client-compatibility alias that needs collapsing toward "high".
+		if profile.AllowsEffort("medium") {
+			body["reasoning_effort"] = json.RawMessage(`"high"`)
+		}
+	case "medium":
 		body["reasoning_effort"] = json.RawMessage(`"high"`)
 	case "xhigh":
 		body["reasoning_effort"] = json.RawMessage(`"max"`)

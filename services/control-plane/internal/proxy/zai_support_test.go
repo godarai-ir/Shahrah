@@ -81,6 +81,36 @@ func TestZAIThinkingRequestRespectsAlwaysEnabledModels(t *testing.T) {
 	}
 }
 
+// TestZAIEffortValuesRespectPerModelEnum proves glm-5.3's narrower
+// low/high/max reasoning_effort enum rejects values the wider 7-value set
+// used by glm-5.2 and the other zai chat models still accepts.
+func TestZAIEffortValuesRespectPerModelEnum(t *testing.T) {
+	glm53 := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+			EffortValues: []string{"low", "high", "max"},
+		},
+	}
+	glm52 := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive", "disabled"},
+			EffortValues: []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"},
+		},
+	}
+
+	if glm53.AllowsEffort("medium") {
+		t.Fatal("glm-5.3 accepted an unsupported reasoning_effort value")
+	}
+
+	if !glm53.AllowsEffort("low") || !glm53.AllowsEffort("high") || !glm53.AllowsEffort("max") {
+		t.Fatal("glm-5.3 rejected one of its own documented reasoning_effort values")
+	}
+
+	if !glm52.AllowsEffort("medium") {
+		t.Fatal("glm-5.2's wider reasoning_effort enum regressed")
+	}
+}
+
 func TestZAIStopGateFailsClosed(t *testing.T) {
 	if count := zaiStopSequenceCount([]string{"one", "two"}); count != 2 {
 		t.Fatalf("stop count = %d", count)

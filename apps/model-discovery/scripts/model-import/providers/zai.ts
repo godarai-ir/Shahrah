@@ -10,6 +10,7 @@ export const ZAI_SUPPORTED_MODEL_IDS = [
   'glm-5v-turbo',
   'glm-ocr',
   'glm-5.3-flash',
+  'glm-5.3',
 ] as const;
 
 const ZAI_MODEL_EXPECTATIONS: Readonly<
@@ -66,6 +67,15 @@ const ZAI_MODEL_EXPECTATIONS: Readonly<
     input: 0.00000015,
     cached: 0.00000003,
     output: 0.0000005,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    verifiedAt: '2026-09-11',
+  },
+  'glm-5.3': {
+    endpoint: 'chat_completions',
+    input: 0.0000014,
+    cached: 0.00000026,
+    output: 0.0000044,
     contextWindow: 1_000_000,
     maxOutputTokens: 128_000,
     verifiedAt: '2026-09-11',
