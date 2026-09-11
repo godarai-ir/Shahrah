@@ -112,6 +112,36 @@ func TestZAIAdapterRejectsDisabledThinkingForAlwaysEnabledModels(t *testing.T) {
 	}
 }
 
+func TestZAIAdapterRoutesGLM53ToChatCompletions(t *testing.T) {
+	payload := zaiTestPayload("glm-5.3", "chat_completions")
+	payload.ModelRuntimeProfiles[0].Profile.Thinking = platform.ModelRuntimeThinkingProfile{
+		DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+		EffortValues: []string{"low", "high", "max"},
+	}
+	payload.ModelRuntimeProfiles[0].Profile.Parameters["chat_completions"] = append(
+		payload.ModelRuntimeProfiles[0].Profile.Parameters["chat_completions"], "thinking", "reasoning_effort",
+	)
+	payload.Body = []byte(`{"model":"glm-5.3","messages":[{"role":"user","content":"hello"}],"thinking":{"type":"enabled"},"reasoning_effort":"low"}`)
+
+	endpoint, encoded, err := validateZAIDispatch(payload)
+	if err != nil {
+		t.Fatalf("validate glm-5.3 dispatch: %v", err)
+	}
+
+	if endpoint != "chat_completions" {
+		t.Fatalf("endpoint = %q", endpoint)
+	}
+
+	if !strings.Contains(string(encoded), `"reasoning_effort":"low"`) {
+		t.Fatalf("glm-5.3 low reasoning_effort was not preserved: %s", encoded)
+	}
+
+	payload.Body = []byte(`{"model":"glm-5.3","messages":[{"role":"user","content":"hello"}],"thinking":{"type":"disabled"}}`)
+	if _, _, err := validateZAIDispatch(payload); err == nil || !strings.Contains(err.Error(), "zai_thinking_disabled_unsupported") {
+		t.Fatalf("expected disabled-thinking rejection for glm-5.3, got %v", err)
+	}
+}
+
 func TestZAIThinkingValueRespectsAlwaysEnabledModels(t *testing.T) {
 	toggleable := platform.ModelRuntimeProfile{
 		Thinking: platform.ModelRuntimeThinkingProfile{
@@ -167,24 +197,58 @@ func TestZAIReasoningEffortCompatibilityMapping(t *testing.T) {
 	}
 
 	body := map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"minimal"`)}
-	normalizeZAIReasoningEffort(toggleable, body)
+	normalizeZAIReasoningEffort("glm-5.2", toggleable, body)
 
 	if _, exists := body["reasoning_effort"]; exists || string(body["thinking"]) != `{"type":"disabled"}` {
 		t.Fatalf("minimal effort mapping = %s", body)
 	}
 
+	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"low"`)}
+	normalizeZAIReasoningEffort("glm-5.2", toggleable, body)
+
+	if string(body["reasoning_effort"]) != `"high"` {
+		t.Fatalf("low effort mapping for glm-5.2 = %s", body["reasoning_effort"])
+	}
+
 	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"medium"`)}
-	normalizeZAIReasoningEffort(toggleable, body)
+	normalizeZAIReasoningEffort("glm-5.2", toggleable, body)
 
 	if string(body["reasoning_effort"]) != `"high"` {
 		t.Fatalf("medium effort mapping = %s", body["reasoning_effort"])
 	}
 
 	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"xhigh"`)}
-	normalizeZAIReasoningEffort(toggleable, body)
+	normalizeZAIReasoningEffort("glm-5.2", toggleable, body)
 
 	if string(body["reasoning_effort"]) != `"max"` {
 		t.Fatalf("xhigh effort mapping = %s", body["reasoning_effort"])
+	}
+}
+
+// TestZAIReasoningEffortPreservesLowForGLM53 proves that glm-5.3's
+// documented low/high/max reasoning_effort enum is not silently collapsed
+// the way the other zai chat models' wider effort vocabulary is: "low" is a
+// genuinely distinct, natively supported tier for this model alone.
+func TestZAIReasoningEffortPreservesLowForGLM53(t *testing.T) {
+	alwaysEnabled := platform.ModelRuntimeProfile{
+		Thinking: platform.ModelRuntimeThinkingProfile{
+			DefaultMode: "adaptive", AllowedModes: []string{"adaptive"}, AlwaysEnabled: true,
+			EffortValues: []string{"low", "high", "max"},
+		},
+	}
+
+	body := map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"low"`)}
+	normalizeZAIReasoningEffort("glm-5.3", alwaysEnabled, body)
+
+	if string(body["reasoning_effort"]) != `"low"` {
+		t.Fatalf("glm-5.3 low effort was rewritten: %s", body["reasoning_effort"])
+	}
+
+	body = map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"high"`)}
+	normalizeZAIReasoningEffort("glm-5.3", alwaysEnabled, body)
+
+	if string(body["reasoning_effort"]) != `"high"` {
+		t.Fatalf("glm-5.3 high effort was rewritten: %s", body["reasoning_effort"])
 	}
 }
 
@@ -196,7 +260,7 @@ func TestZAIReasoningEffortNeverDisablesAlwaysThinkingModels(t *testing.T) {
 	}
 
 	body := map[string]json.RawMessage{"reasoning_effort": json.RawMessage(`"minimal"`)}
-	normalizeZAIReasoningEffort(alwaysEnabled, body)
+	normalizeZAIReasoningEffort("glm-5.3-flash", alwaysEnabled, body)
 
 	if _, exists := body["thinking"]; exists {
 		t.Fatalf("glm-5.3-flash-style effort mapping injected a disabled thinking control: %s", body)

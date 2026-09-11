@@ -1309,10 +1309,14 @@ function validateZAIColumnContract(
   if (
     column.config.reasoningEffort &&
     !model.endsWith("glm-5.2") &&
-    !model.endsWith("glm-5.3-flash")
+    !model.endsWith("glm-5.3-flash") &&
+    !model.endsWith("glm-5.3")
   )
     return failure("validation.zaiReasoningModel");
-  if (model.endsWith("glm-5.3-flash") && !column.config.thinkingEnabled)
+  if (
+    (model.endsWith("glm-5.3-flash") || model.endsWith("glm-5.3")) &&
+    !column.config.thinkingEnabled
+  )
     return failure("validation.zaiThinkingAlwaysEnabled");
   for (let index = 0; index < column.tools.length; index += 1) {
     if (!column.tools[index].description.trim())

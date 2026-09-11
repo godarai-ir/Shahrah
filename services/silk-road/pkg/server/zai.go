@@ -24,6 +24,7 @@ var zaiModels = map[string]string{
 	"glm-4.7-flashx": "chat_completions",
 	"glm-5v-turbo":   "chat_completions",
 	"glm-5.3-flash":  "chat_completions",
+	"glm-5.3":        "chat_completions",
 	"glm-ocr":        "layout_parsing",
 }
 
@@ -152,7 +153,7 @@ func validateZAIDispatch(payload platform.TunnelRequest) (string, []byte, error)
 	}
 
 	if endpoint == "chat_completions" {
-		normalizeZAIReasoningEffort(binding.Profile, body)
+		normalizeZAIReasoningEffort(model, binding.Profile, body)
 	}
 
 	normalizeZAIUserID(payload, body, binding.Profile.AllowsParameter(endpoint, "user_id"))
@@ -431,7 +432,7 @@ func validateZAITools(body map[string]json.RawMessage) error {
 	return nil
 }
 
-func normalizeZAIReasoningEffort(profile platform.ModelRuntimeProfile, body map[string]json.RawMessage) {
+func normalizeZAIReasoningEffort(model string, profile platform.ModelRuntimeProfile, body map[string]json.RawMessage) {
 	raw, exists := body["reasoning_effort"]
 	if !exists {
 		return
@@ -455,7 +456,14 @@ func normalizeZAIReasoningEffort(profile platform.ModelRuntimeProfile, body map[
 
 		body["thinking"] = json.RawMessage(`{"type":"disabled"}`)
 		delete(body, "reasoning_effort")
-	case "low", "medium":
+	case "low":
+		// glm-5.3's documented reasoning_effort enum is low/high/max, with
+		// "low" a genuinely distinct, natively supported tier. Every other
+		// zai chat model collapses "low" into "high" instead.
+		if model != "glm-5.3" {
+			body["reasoning_effort"] = json.RawMessage(`"high"`)
+		}
+	case "medium":
 		body["reasoning_effort"] = json.RawMessage(`"high"`)
 	case "xhigh":
 		body["reasoning_effort"] = json.RawMessage(`"max"`)

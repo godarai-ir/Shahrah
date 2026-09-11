@@ -19,10 +19,10 @@ describe('Z.ai provider importer', () => {
     );
   });
 
-  it('validates exactly the five curated Z.ai models and their prices', async () => {
+  it('validates exactly the six curated Z.ai models and their prices', async () => {
     const result = await validateZAIProviderDirectory(providersRoot);
     expect(result.modelIds).toEqual([...ZAI_SUPPORTED_MODEL_IDS].sort());
-    expect(result.modelFiles).toHaveLength(5);
+    expect(result.modelFiles).toHaveLength(6);
 
     const ocr = parse(
       await readFile(join(providersRoot, 'zai', 'glm-ocr.yaml'), 'utf8'),
@@ -38,10 +38,7 @@ describe('Z.ai provider importer', () => {
 
   it('gives glm-5.3-flash always-enabled thinking and its confirmed pricing', async () => {
     const flash = parse(
-      await readFile(
-        join(providersRoot, 'zai', 'glm-5.3-flash.yaml'),
-        'utf8',
-      ),
+      await readFile(join(providersRoot, 'zai', 'glm-5.3-flash.yaml'), 'utf8'),
     );
     expect(flash.runtimeProfile.thinking.allowedModes).toEqual(['adaptive']);
     expect(flash.runtimeProfile.thinking.alwaysEnabled).toBe(true);
@@ -50,6 +47,27 @@ describe('Z.ai provider importer', () => {
         input_cost_per_token: 0.00000015,
         cache_read_input_token_cost: 0.00000003,
         output_cost_per_token: 0.0000005,
+      }),
+    );
+  });
+
+  it('gives glm-5.3 always-enabled thinking and its narrower reasoning-effort enum', async () => {
+    const standard = parse(
+      await readFile(join(providersRoot, 'zai', 'glm-5.3.yaml'), 'utf8'),
+    );
+    expect(standard.runtimeProfile.thinking.allowedModes).toEqual(['adaptive']);
+    expect(standard.runtimeProfile.thinking.alwaysEnabled).toBe(true);
+    expect(standard.runtimeProfile.thinking.effortValues).toEqual([
+      'low',
+      'high',
+      'max',
+    ]);
+    expect(standard.runtimeProfile.modalities.input).toEqual(['text']);
+    expect(standard.costs[0]).toEqual(
+      expect.objectContaining({
+        input_cost_per_token: 0.0000014,
+        cache_read_input_token_cost: 0.00000026,
+        output_cost_per_token: 0.0000044,
       }),
     );
   });
