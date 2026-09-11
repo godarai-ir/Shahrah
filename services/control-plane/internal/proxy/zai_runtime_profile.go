@@ -49,10 +49,8 @@ func validateZAIChatRuntimeProfile(
 		return fmt.Errorf("top_p must be between 0.01 and 1 for Z.ai")
 	}
 
-	if req.Thinking != nil && req.Thinking.Type != "" &&
-		!strings.EqualFold(req.Thinking.Type, "enabled") &&
-		!strings.EqualFold(req.Thinking.Type, "disabled") {
-		return fmt.Errorf("thinking.type must be enabled or disabled for Z.ai")
+	if err := validateZAIThinkingRequest(req, profile); err != nil {
+		return err
 	}
 
 	if strings.TrimSpace(req.ReasoningEffort) != "" && !profile.AllowsEffort(req.ReasoningEffort) {
@@ -114,6 +112,34 @@ func validateZAIChatRuntimeProfile(
 		if !profile.AllowsParameter("chat_completions", parameter) {
 			return fmt.Errorf("parameter %q is not supported by this Z.ai model", parameter)
 		}
+	}
+
+	return nil
+}
+
+// validateZAIThinkingRequest enforces the model's runtime-profile thinking
+// contract. Most Z.ai chat models allow toggling thinking.type between
+// "enabled" and "disabled", but some (for example glm-5.3-flash) always run
+// with thinking enabled and reject an explicit "disabled" request.
+func validateZAIThinkingRequest(
+	req contractsopenai.ChatCompletionRequest,
+	profile platform.ModelRuntimeProfile,
+) error {
+	if req.Thinking == nil || strings.TrimSpace(req.Thinking.Type) == "" {
+		return nil
+	}
+
+	switch strings.ToLower(strings.TrimSpace(req.Thinking.Type)) {
+	case "enabled":
+		if !profile.AllowsThinkingMode("adaptive") {
+			return fmt.Errorf("this Z.ai model does not support thinking.type=enabled")
+		}
+	case "disabled":
+		if !profile.AllowsThinkingMode("disabled") {
+			return fmt.Errorf("this Z.ai model does not support disabling thinking")
+		}
+	default:
+		return fmt.Errorf("thinking.type must be enabled or disabled for Z.ai")
 	}
 
 	return nil

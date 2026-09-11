@@ -9,6 +9,7 @@ export const ZAI_SUPPORTED_MODEL_IDS = [
   'glm-4.7-flashx',
   'glm-5v-turbo',
   'glm-ocr',
+  'glm-5.3-flash',
 ] as const;
 
 const ZAI_MODEL_EXPECTATIONS: Readonly<
@@ -21,6 +22,7 @@ const ZAI_MODEL_EXPECTATIONS: Readonly<
       output: number;
       contextWindow: number;
       maxOutputTokens: number;
+      verifiedAt: string;
     }
   >
 > = {
@@ -31,6 +33,7 @@ const ZAI_MODEL_EXPECTATIONS: Readonly<
     output: 0.0000044,
     contextWindow: 1_000_000,
     maxOutputTokens: 128_000,
+    verifiedAt: '2026-08-17',
   },
   'glm-4.7-flashx': {
     endpoint: 'chat_completions',
@@ -39,6 +42,7 @@ const ZAI_MODEL_EXPECTATIONS: Readonly<
     output: 0.0000004,
     contextWindow: 200_000,
     maxOutputTokens: 128_000,
+    verifiedAt: '2026-08-17',
   },
   'glm-5v-turbo': {
     endpoint: 'chat_completions',
@@ -47,6 +51,7 @@ const ZAI_MODEL_EXPECTATIONS: Readonly<
     output: 0.000004,
     contextWindow: 200_000,
     maxOutputTokens: 128_000,
+    verifiedAt: '2026-08-17',
   },
   'glm-ocr': {
     endpoint: 'layout_parsing',
@@ -54,6 +59,16 @@ const ZAI_MODEL_EXPECTATIONS: Readonly<
     output: 0.00000003,
     contextWindow: 0,
     maxOutputTokens: 0,
+    verifiedAt: '2026-08-17',
+  },
+  'glm-5.3-flash': {
+    endpoint: 'chat_completions',
+    input: 0.00000015,
+    cached: 0.00000003,
+    output: 0.0000005,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    verifiedAt: '2026-09-11',
   },
 };
 
@@ -139,7 +154,7 @@ export async function validateZAIProviderDirectory(
 
     modelIds.push(model);
     const expectation = ZAI_MODEL_EXPECTATIONS[model];
-    if (document.verified_at !== '2026-08-17') {
+    if (!expectation || document.verified_at !== expectation.verifiedAt) {
       invalid.push(`${relativeFile}(verified_at)`);
     }
 

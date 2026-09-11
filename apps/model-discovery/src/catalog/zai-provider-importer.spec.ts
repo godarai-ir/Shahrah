@@ -19,10 +19,10 @@ describe('Z.ai provider importer', () => {
     );
   });
 
-  it('validates exactly the four curated Z.ai models and their prices', async () => {
+  it('validates exactly the five curated Z.ai models and their prices', async () => {
     const result = await validateZAIProviderDirectory(providersRoot);
     expect(result.modelIds).toEqual([...ZAI_SUPPORTED_MODEL_IDS].sort());
-    expect(result.modelFiles).toHaveLength(4);
+    expect(result.modelFiles).toHaveLength(5);
 
     const ocr = parse(
       await readFile(join(providersRoot, 'zai', 'glm-ocr.yaml'), 'utf8'),
@@ -32,6 +32,24 @@ describe('Z.ai provider importer', () => {
       expect.objectContaining({
         input_cost_per_token: 0.00000003,
         output_cost_per_token: 0.00000003,
+      }),
+    );
+  });
+
+  it('gives glm-5.3-flash always-enabled thinking and its confirmed pricing', async () => {
+    const flash = parse(
+      await readFile(
+        join(providersRoot, 'zai', 'glm-5.3-flash.yaml'),
+        'utf8',
+      ),
+    );
+    expect(flash.runtimeProfile.thinking.allowedModes).toEqual(['adaptive']);
+    expect(flash.runtimeProfile.thinking.alwaysEnabled).toBe(true);
+    expect(flash.costs[0]).toEqual(
+      expect.objectContaining({
+        input_cost_per_token: 0.00000015,
+        cache_read_input_token_cost: 0.00000003,
+        output_cost_per_token: 0.0000005,
       }),
     );
   });

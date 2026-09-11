@@ -23,6 +23,7 @@ var zaiModels = map[string]string{
 	"glm-5.2":        "chat_completions",
 	"glm-4.7-flashx": "chat_completions",
 	"glm-5v-turbo":   "chat_completions",
+	"glm-5.3-flash":  "chat_completions",
 	"glm-ocr":        "layout_parsing",
 }
 
@@ -146,12 +147,12 @@ func validateZAIDispatch(payload platform.TunnelRequest) (string, []byte, error)
 		}
 	}
 
-	if err := validateZAIRequestValues(model, endpoint, body); err != nil {
+	if err := validateZAIRequestValues(model, endpoint, body, binding.Profile); err != nil {
 		return "", nil, err
 	}
 
 	if endpoint == "chat_completions" {
-		normalizeZAIReasoningEffort(body)
+		normalizeZAIReasoningEffort(binding.Profile, body)
 	}
 
 	normalizeZAIUserID(payload, body, binding.Profile.AllowsParameter(endpoint, "user_id"))
@@ -210,6 +211,7 @@ func validateZAIRequestValues(
 	model string,
 	endpoint string,
 	body map[string]json.RawMessage,
+	profile platform.ModelRuntimeProfile,
 ) error {
 	if err := validateZAIIdentifierFields(body); err != nil {
 		return err
@@ -235,6 +237,10 @@ func validateZAIRequestValues(
 
 	if _, ok := body["messages"]; !ok {
 		return fmt.Errorf("zai_messages_required")
+	}
+
+	if err := validateZAIThinkingValue(profile, body); err != nil {
+		return err
 	}
 
 	for field, bounds := range map[string][2]float64{
@@ -281,6 +287,43 @@ func validateZAIRequestValues(
 		if _, ok := body["tools"]; ok {
 			return fmt.Errorf("zai_vision_tools_not_verified")
 		}
+	}
+
+	return nil
+}
+
+// validateZAIThinkingValue enforces the model's runtime-profile thinking
+// contract at the adapter layer, independently of the control-plane request
+// validator. Most Z.ai chat models allow toggling thinking.type between
+// "enabled" and "disabled", but some (for example glm-5.3-flash) always run
+// with thinking enabled and must reject an explicit "disabled" request
+// before it can reach the upstream provider.
+func validateZAIThinkingValue(profile platform.ModelRuntimeProfile, body map[string]json.RawMessage) error {
+	raw, ok := body["thinking"]
+	if !ok {
+		return nil
+	}
+
+	var thinking struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal(raw, &thinking) != nil {
+		return fmt.Errorf("zai_thinking_invalid")
+	}
+
+	switch strings.ToLower(strings.TrimSpace(thinking.Type)) {
+	case "":
+		// No explicit directive; nothing to enforce here.
+	case "enabled":
+		if !profile.AllowsThinkingMode("adaptive") {
+			return fmt.Errorf("zai_thinking_enabled_unsupported")
+		}
+	case "disabled":
+		if !profile.AllowsThinkingMode("disabled") {
+			return fmt.Errorf("zai_thinking_disabled_unsupported")
+		}
+	default:
+		return fmt.Errorf("zai_thinking_invalid")
 	}
 
 	return nil
@@ -388,7 +431,7 @@ func validateZAITools(body map[string]json.RawMessage) error {
 	return nil
 }
 
-func normalizeZAIReasoningEffort(body map[string]json.RawMessage) {
+func normalizeZAIReasoningEffort(profile platform.ModelRuntimeProfile, body map[string]json.RawMessage) {
 	raw, exists := body["reasoning_effort"]
 	if !exists {
 		return
@@ -401,6 +444,15 @@ func normalizeZAIReasoningEffort(body map[string]json.RawMessage) {
 
 	switch strings.ToLower(strings.TrimSpace(effort)) {
 	case "none", "minimal":
+		if !profile.AllowsThinkingMode("disabled") {
+			// This model's thinking can never be disabled; leave any
+			// explicit thinking control untouched and drop only the
+			// unsupported low-effort alias.
+			delete(body, "reasoning_effort")
+
+			return
+		}
+
 		body["thinking"] = json.RawMessage(`{"type":"disabled"}`)
 		delete(body, "reasoning_effort")
 	case "low", "medium":

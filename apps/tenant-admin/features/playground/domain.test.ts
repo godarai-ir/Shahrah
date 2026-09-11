@@ -340,6 +340,29 @@ describe("playground domain", () => {
     });
   });
 
+  it("rejects disabling thinking for glm-5.3-flash", () => {
+    const column = createPlaygroundColumn("Option 1", "System");
+    column.selectedProvider = "zai";
+    column.selectedModel = "zai:default:glm-5.3-flash";
+    column.messages[1].content = "Reply with OK";
+    column.config.thinkingEnabled = false;
+
+    expect(validateAndBuildRunPayload(column, "comparison-1")).toEqual({
+      ok: false,
+      errorKey: "validation.zaiThinkingAlwaysEnabled",
+    });
+
+    column.config.thinkingEnabled = true;
+    column.config.reasoningEffort = "max";
+    const built = validateAndBuildRunPayload(column, "comparison-1");
+    expect(built.ok).toBe(true);
+    if (!built.ok || built.payload.mode !== "chat") return;
+    expect(built.payload.request).toMatchObject({
+      reasoning_effort: "max",
+      thinking: { type: "enabled", clear_thinking: true },
+    });
+  });
+
   it("rejects JSON Schema and local video data for Z.ai", () => {
     const column = createPlaygroundColumn("Option 1", "System");
     column.selectedProvider = "zai";
