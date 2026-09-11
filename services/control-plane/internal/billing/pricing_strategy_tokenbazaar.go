@@ -73,6 +73,54 @@ func tokenBazaarUsageHasCachedTokens(usage *openai.Usage) bool {
 		usage.CacheCreation1hInputTokens != 0
 }
 
+// accumulateUsageCostDimensions sums per-dimension usage against catalog
+// rates in stable (sorted-dimension) order, splitting the running total into
+// input vs. output cost. anthropicUsageCostBreakdown, mistralUsageCostBreakdown,
+// and tokenBazaarUsageCostBreakdown share this exact accumulation shape; only
+// how a dimension's rate is resolved (and any per-dimension side effect) and
+// which dimensions count as "output" vary by provider, so those are supplied
+// as callbacks rather than duplicated here a fourth/fifth time.
+func accumulateUsageCostDimensions(
+	quantities map[string]int64,
+	isOutputDimension func(dimension string) bool,
+	resolveRate func(dimension string, quantity int64) (normalizedPricingRate, error),
+) (totalExact, inputExact, outputExact decimal.Decimal, components []platform.UsageCostComponent, err error) {
+	dimensions := make([]string, 0, len(quantities))
+	for dimension := range quantities {
+		dimensions = append(dimensions, dimension)
+	}
+
+	sort.Strings(dimensions)
+
+	totalExact, inputExact, outputExact = decimal.Zero, decimal.Zero, decimal.Zero
+	components = make([]platform.UsageCostComponent, 0, len(dimensions))
+
+	for _, dimension := range dimensions {
+		quantity := quantities[dimension]
+		if quantity == 0 {
+			continue
+		}
+
+		rate, rateErr := resolveRate(dimension, quantity)
+		if rateErr != nil {
+			return decimal.Decimal{}, decimal.Decimal{}, decimal.Decimal{}, nil, rateErr
+		}
+
+		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
+
+		totalExact = totalExact.Add(cost)
+		if isOutputDimension(dimension) {
+			outputExact = outputExact.Add(cost)
+		} else {
+			inputExact = inputExact.Add(cost)
+		}
+
+		components = append(components, usageCostComponent(dimension, quantity, rate))
+	}
+
+	return totalExact, inputExact, outputExact, components, nil
+}
+
 // tokenBazaarUsageCostBreakdown prices a TokenBazaar completion that reported
 // cached input tokens.
 //
@@ -150,42 +198,24 @@ func tokenBazaarUsageCostBreakdown(
 		}
 	}
 
-	dimensions := make([]string, 0, len(quantities))
-	for dimension := range quantities {
-		dimensions = append(dimensions, dimension)
-	}
+	totalExact, inputExact, outputExact, components, err := accumulateUsageCostDimensions(
+		quantities,
+		func(dimension string) bool { return dimension == outputDimension },
+		func(dimension string, _ int64) (normalizedPricingRate, error) {
+			rate, ok := price.Rates[dimension]
+			if !ok {
+				return normalizedPricingRate{}, fmt.Errorf(
+					"%w: missing TokenBazaar rate for %s",
+					ErrPricingUnavailable,
+					dimension,
+				)
+			}
 
-	sort.Strings(dimensions)
-
-	totalExact, inputExact, outputExact := decimal.Zero, decimal.Zero, decimal.Zero
-
-	components := make([]platform.UsageCostComponent, 0, len(dimensions))
-
-	for _, dimension := range dimensions {
-		quantity := quantities[dimension]
-		if quantity == 0 {
-			continue
-		}
-
-		rate, ok := price.Rates[dimension]
-		if !ok {
-			return platform.UsageCostBreakdown{}, fmt.Errorf(
-				"%w: missing TokenBazaar rate for %s",
-				ErrPricingUnavailable,
-				dimension,
-			)
-		}
-
-		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
-
-		totalExact = totalExact.Add(cost)
-		if dimension == outputDimension {
-			outputExact = outputExact.Add(cost)
-		} else {
-			inputExact = inputExact.Add(cost)
-		}
-
-		components = append(components, usageCostComponent(dimension, quantity, rate))
+			return rate, nil
+		},
+	)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
 	}
 
 	inputUSD, _ := inputExact.Float64()

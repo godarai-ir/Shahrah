@@ -11,25 +11,39 @@ import (
 func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 	v1 := app.Group("/v1")
 
+	// "/v1beta/models/*" is routed through a thin shim
+	// (proxy.NewGeminiGenerateContentRouter): a
+	// generateContent/streamGenerateContent request whose {model} path
+	// segment is an explicit "tokenbazaar:<account>:<model-id>" FQN is
+	// dispatched to TokenBazaarGenerateContentHandler (the narrow,
+	// FQN-routed path added for TokenBazaar's native Gemini generateContent
+	// capability); every other request -- every direct google-gemini
+	// request, and every other Gemini-native model operation (countTokens,
+	// embedContent, batchGenerateContent, model get) -- falls back to
+	// GeminiNativeHandler.Handle, completely unmodified by that delivery,
+	// exactly as before. See
+	// plans/tokenbazaar-production-readiness.md, "Native Gemini
+	// generateContent/streamGenerateContent delivery", for the full
+	// reasoning.
+	//
+	// This route is registered independently of the direct google-gemini
+	// block below (rather than nested inside its GeminiNativeHandler nil
+	// guard) so that TokenBazaar's generateContent capability, which does
+	// not depend on GeminiNativeHandler at all, stays reachable even in a
+	// deployment that omits the direct Gemini provider.
+	if deps.GeminiNativeHandler != nil || deps.TokenBazaarGenerateContentHandler != nil {
+		var gemini fiber.Handler
+		if deps.GeminiNativeHandler != nil {
+			gemini = deps.GeminiNativeHandler.Handle
+		}
+
+		app.Group("/v1beta").All("/models/*", proxy.NewGeminiGenerateContentRouter(deps.TokenBazaarGenerateContentHandler, gemini))
+	}
+
 	if deps.GeminiNativeHandler != nil {
 		gemini := deps.GeminiNativeHandler.Handle
 		v1beta := app.Group("/v1beta")
 		v1beta.All("/models", gemini)
-		// "/v1beta/models/*" is routed through a thin shim
-		// (proxy.NewGeminiGenerateContentRouter): a
-		// generateContent/streamGenerateContent request whose {model} path
-		// segment is an explicit "tokenbazaar:<account>:<model-id>" FQN is
-		// dispatched to TokenBazaarGenerateContentHandler (the narrow,
-		// FQN-routed path added for TokenBazaar's native Gemini
-		// generateContent capability); every other request -- every direct
-		// google-gemini request, and every other Gemini-native model
-		// operation (countTokens, embedContent, batchGenerateContent, model
-		// get) -- falls back to gemini (GeminiNativeHandler.Handle,
-		// completely unmodified by that delivery) exactly as before. See
-		// plans/tokenbazaar-production-readiness.md, "Native Gemini
-		// generateContent/streamGenerateContent delivery", for the full
-		// reasoning.
-		v1beta.All("/models/*", proxy.NewGeminiGenerateContentRouter(deps.TokenBazaarGenerateContentHandler, gemini))
 		v1beta.All("/interactions", gemini)
 		v1beta.All("/interactions/*", gemini)
 		v1beta.All("/files", gemini)
@@ -171,18 +185,32 @@ func registerProxyRoutes(app *fiber.App, deps Dependencies) {
 		v1.Post("/files\\:uploadChunks", deps.ResponsesHandler.HandleXAIFileUploadChunks)
 	}
 
+	// POST /v1/messages is routed through a thin shim
+	// (proxy.NewAnthropicMessagesRouter): a request whose body "model" is an
+	// explicit "tokenbazaar:<account>:<model-id>" FQN is dispatched to
+	// TokenBazaarMessagesHandler (the narrow, non-account-allowlisted,
+	// FQN-routed path added for TokenBazaar's Messages capability); every
+	// other request falls back to AnthropicNativeHandler.Handle, completely
+	// unmodified by that delivery, exactly as before. See
+	// plans/tokenbazaar-production-readiness.md, "Anthropic Messages
+	// endpoint delivery", for the full reasoning.
+	//
+	// This route is registered independently of the direct anthropic block
+	// below (rather than nested inside its AnthropicNativeHandler nil guard)
+	// so that TokenBazaar's Messages capability, which does not depend on
+	// AnthropicNativeHandler at all, stays reachable even in a deployment
+	// that omits the direct Anthropic provider.
+	if deps.AnthropicNativeHandler != nil || deps.TokenBazaarMessagesHandler != nil {
+		var native fiber.Handler
+		if deps.AnthropicNativeHandler != nil {
+			native = deps.AnthropicNativeHandler.Handle
+		}
+
+		v1.Post("/messages", proxy.NewAnthropicMessagesRouter(deps.TokenBazaarMessagesHandler, native))
+	}
+
 	if deps.AnthropicNativeHandler != nil {
 		native := deps.AnthropicNativeHandler.Handle
-		// POST /v1/messages is routed through a thin shim
-		// (proxy.NewAnthropicMessagesRouter): a request whose body "model" is
-		// an explicit "tokenbazaar:<account>:<model-id>" FQN is dispatched to
-		// TokenBazaarMessagesHandler (the narrow, non-account-allowlisted,
-		// FQN-routed path added for TokenBazaar's Messages capability); every
-		// other request falls back to native (AnthropicNativeHandler.Handle,
-		// completely unmodified by that delivery) exactly as before. See
-		// plans/tokenbazaar-production-readiness.md, "Anthropic Messages
-		// endpoint delivery", for the full reasoning.
-		v1.Post("/messages", proxy.NewAnthropicMessagesRouter(deps.TokenBazaarMessagesHandler, native))
 		v1.Post("/messages/count_tokens", native)
 		v1.Post("/messages/batches", native)
 		v1.Get("/messages/batches", native)

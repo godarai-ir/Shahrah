@@ -116,11 +116,20 @@ var tokenBazaarUnsupportedModels = map[string]string{}
 // "gpt-image-2" carries first-party documentation-table evidence. The other
 // 3 need their own live probe before being considered equally confirmed —
 // see the evidence-tier table in the readiness plan.
-var tokenBazaarImageModels = map[string]struct{}{
-	"gpt-image-2":                 {},
-	"gemini-3-pro-image":          {},
-	"gemini-3.1-flash-image":      {},
-	"gemini-3.1-flash-lite-image": {},
+//
+// Derived from platform.TokenBazaarImageModelFamilies, the single source of
+// truth for TokenBazaar's in-scope image models also used by
+// services/control-plane's billing package (tokenBazaarImageModelFamily) --
+// so the two stay in sync without either copying the other's list.
+var tokenBazaarImageModels = tokenBazaarImageModelSet()
+
+func tokenBazaarImageModelSet() map[string]struct{} {
+	set := make(map[string]struct{}, len(platform.TokenBazaarImageModelFamilies))
+	for model := range platform.TokenBazaarImageModelFamilies {
+		set[model] = struct{}{}
+	}
+
+	return set
 }
 
 // tokenBazaarEmbeddingModels is the exhaustive set of TokenBazaar model IDs
@@ -506,16 +515,30 @@ func tokenBazaarParseJSONBody(payload platform.TunnelRequest) (map[string]json.R
 	return body, true
 }
 
-func validateTokenBazaarChatDispatch(payload platform.TunnelRequest, model string, body map[string]json.RawMessage) error {
-	if _, supported := tokenBazaarChatModels[model]; !supported {
-		return fmt.Errorf("tokenbazaar_unsupported_model: %s", model)
-	}
-
+// tokenBazaarRequireRuntimeProfile enforces the runtime-profile and
+// transport gating shared by every TokenBazaar dispatch validator: model
+// must resolve to a validated, TokenBazaar-owned runtime profile that allows
+// the given endpoint, and that profile must allow the given transport.
+func tokenBazaarRequireRuntimeProfile(
+	payload platform.TunnelRequest, model, endpoint, transport string,
+) (*platform.ModelRuntimeProfileBinding, error) {
 	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
 	if !ok || binding.Validate() != nil ||
 		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
-		!binding.Profile.AllowsEndpoint("chat_completions") {
-		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
+		!binding.Profile.AllowsEndpoint(endpoint) {
+		return nil, fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
+	}
+
+	if !binding.Profile.AllowsTransport(transport) {
+		return nil, fmt.Errorf("tokenbazaar_unsupported_transport: %s", transport)
+	}
+
+	return binding, nil
+}
+
+func validateTokenBazaarChatDispatch(payload platform.TunnelRequest, model string, body map[string]json.RawMessage) error {
+	if _, supported := tokenBazaarChatModels[model]; !supported {
+		return fmt.Errorf("tokenbazaar_unsupported_model: %s", model)
 	}
 
 	transport := "http"
@@ -523,8 +546,8 @@ func validateTokenBazaarChatDispatch(payload platform.TunnelRequest, model strin
 		transport = "sse"
 	}
 
-	if !binding.Profile.AllowsTransport(transport) {
-		return fmt.Errorf("tokenbazaar_unsupported_transport: %s", transport)
+	if _, err := tokenBazaarRequireRuntimeProfile(payload, model, "chat_completions", transport); err != nil {
+		return err
 	}
 
 	if _, ok := body["messages"]; !ok {
@@ -555,15 +578,8 @@ func validateTokenBazaarImageDispatch(payload platform.TunnelRequest, model stri
 		endpoint = "image_edits"
 	}
 
-	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
-	if !ok || binding.Validate() != nil ||
-		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
-		!binding.Profile.AllowsEndpoint(endpoint) {
-		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
-	}
-
-	if !binding.Profile.AllowsTransport("http") {
-		return fmt.Errorf("tokenbazaar_unsupported_transport: http")
+	if _, err := tokenBazaarRequireRuntimeProfile(payload, model, endpoint, "http"); err != nil {
+		return err
 	}
 
 	if !isJSON {
@@ -690,15 +706,8 @@ func validateTokenBazaarEmbeddingsDispatch(payload platform.TunnelRequest, model
 		return fmt.Errorf("tokenbazaar_unsupported_model: %s", model)
 	}
 
-	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
-	if !ok || binding.Validate() != nil ||
-		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
-		!binding.Profile.AllowsEndpoint("embeddings") {
-		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
-	}
-
-	if !binding.Profile.AllowsTransport("http") {
-		return fmt.Errorf("tokenbazaar_unsupported_transport: http")
+	if _, err := tokenBazaarRequireRuntimeProfile(payload, model, "embeddings", "http"); err != nil {
+		return err
 	}
 
 	// The standard OpenAI-compatible embeddings contract is always a JSON
@@ -791,20 +800,13 @@ func validateTokenBazaarResponsesDispatch(payload platform.TunnelRequest, model 
 		return fmt.Errorf("tokenbazaar_unsupported_model: %s", model)
 	}
 
-	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
-	if !ok || binding.Validate() != nil ||
-		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
-		!binding.Profile.AllowsEndpoint("responses") {
-		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
-	}
-
 	transport := "http"
 	if payload.Stream {
 		transport = "sse"
 	}
 
-	if !binding.Profile.AllowsTransport(transport) {
-		return fmt.Errorf("tokenbazaar_unsupported_transport: %s", transport)
+	if _, err := tokenBazaarRequireRuntimeProfile(payload, model, "responses", transport); err != nil {
+		return err
 	}
 
 	// The documented /v1/responses contract is always a JSON object (never
@@ -940,20 +942,13 @@ func validateTokenBazaarMessagesDispatch(payload platform.TunnelRequest, model s
 		return fmt.Errorf("tokenbazaar_unsupported_model: %s", model)
 	}
 
-	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
-	if !ok || binding.Validate() != nil ||
-		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
-		!binding.Profile.AllowsEndpoint("messages") {
-		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
-	}
-
 	transport := "http"
 	if payload.Stream {
 		transport = "sse"
 	}
 
-	if !binding.Profile.AllowsTransport(transport) {
-		return fmt.Errorf("tokenbazaar_unsupported_transport: %s", transport)
+	if _, err := tokenBazaarRequireRuntimeProfile(payload, model, "messages", transport); err != nil {
+		return err
 	}
 
 	// TokenBazaar's own documented /v1/messages contract is always a JSON
@@ -1215,20 +1210,13 @@ func validateTokenBazaarGenerateContentDispatch(payload platform.TunnelRequest, 
 		endpoint = "stream_generate_content"
 	}
 
-	binding, ok := platform.FindModelRuntimeProfile(payload.ModelRuntimeProfiles, model)
-	if !ok || binding.Validate() != nil ||
-		!strings.EqualFold(binding.Provider, tokenBazaarProviderName) ||
-		!binding.Profile.AllowsEndpoint(endpoint) {
-		return fmt.Errorf("tokenbazaar_runtime_profile_missing: %s", model)
-	}
-
 	transport := "http"
 	if payload.Stream || payload.Operation == platform.ProviderOperationGeminiStreamGenerateContent {
 		transport = "sse"
 	}
 
-	if !binding.Profile.AllowsTransport(transport) {
-		return fmt.Errorf("tokenbazaar_unsupported_transport: %s", transport)
+	if _, err := tokenBazaarRequireRuntimeProfile(payload, model, endpoint, transport); err != nil {
+		return err
 	}
 
 	// Gemini's own generateContent contract is always a JSON object (never
@@ -1434,23 +1422,35 @@ func normalizeTokenBazaarResponse(response *adapterResponse) (*adapterResponse, 
 type tokenBazaarSizeCappedBody struct {
 	io.ReadCloser
 	remaining int64
+	exceeded  bool
 }
 
 func newTokenBazaarSizeCappedBody(body io.ReadCloser, ceiling int64) io.ReadCloser {
 	return &tokenBazaarSizeCappedBody{ReadCloser: body, remaining: ceiling}
 }
 
+// Read allows exactly one byte past the ceiling through to the underlying
+// reader so a body that lands precisely at the ceiling (remaining reaches 0
+// with the stream legitimately exhausted) can still surface its trailing
+// io.EOF instead of being mistaken for an oversized body; only a stream that
+// actually produces that extra byte is treated as exceeding the ceiling.
 func (b *tokenBazaarSizeCappedBody) Read(p []byte) (int, error) {
-	if b.remaining <= 0 {
+	if b.exceeded {
 		return 0, fmt.Errorf("tokenbazaar_response_size_ceiling_exceeded")
 	}
 
-	if int64(len(p)) > b.remaining {
-		p = p[:b.remaining]
+	limit := b.remaining + 1
+	if int64(len(p)) > limit {
+		p = p[:limit]
 	}
 
 	n, err := b.ReadCloser.Read(p)
 	b.remaining -= int64(n)
+
+	if b.remaining < 0 {
+		b.exceeded = true
+		return 0, fmt.Errorf("tokenbazaar_response_size_ceiling_exceeded")
+	}
 
 	return n, err
 }

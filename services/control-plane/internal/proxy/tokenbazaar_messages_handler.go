@@ -293,6 +293,21 @@ func parseTokenBazaarMessagesRequest(body []byte) (tokenBazaarMessagesRequestFie
 	return fields, nil
 }
 
+// tokenBazaarMessagesSyncConfig is the messages-specific half of
+// tokenBazaarSyncConfig; the shared dispatch/settle/log/metric tail lives in
+// tokenBazaarHandleSync (tokenbazaar_sync.go).
+var tokenBazaarMessagesSyncConfig = tokenBazaarSyncConfig{
+	parseUsage:              parseAnthropicNativeUsage,
+	writeError:              writeAnthropicError,
+	tunnelErrorCode:         "api_error",
+	tunnelErrorMessage:      "Tunnel request failed",
+	writeUsageFinalizeError: writeAnthropicBillingError,
+	settleErrorCode:         "billing_error",
+	logPath:                 "/v1/messages",
+	requestType:             "messages",
+	metricEndpoint:          "/v1/messages",
+}
+
 func (h *TokenBazaarMessagesHandler) handleSync(
 	c *fiber.Ctx,
 	requestedModel string,
@@ -305,108 +320,10 @@ func (h *TokenBazaarMessagesHandler) handleSync(
 	tenantSlug string,
 	requestLog *requestLogLifecycle,
 ) error {
-	response, err := h.pipeline.Dispatch(c.Context(), tunnelReq)
-	if err != nil {
-		h.pipeline.Release(c.Context(), reservation, "tunnel_error")
-
-		return writeAnthropicError(c, fiber.StatusBadGateway, "api_error", "Tunnel request failed")
-	}
-
-	if response.StatusCode >= fiber.StatusBadRequest {
-		h.pipeline.Release(c.Context(), reservation, "provider_http_error")
-		forwardProviderHeaders(c, response.Headers)
-
-		return c.Status(response.StatusCode).Send(response.Body)
-	}
-
-	usage := parseAnthropicNativeUsage(response.Body)
-
-	finalized, finalizeErr := h.billing.FinalizeFromUsage(c.Context(), requestedModel, usage, estimated)
-	if finalizeErr != nil {
-		h.pipeline.Release(c.Context(), reservation, "usage_finalize_error")
-
-		return writeAnthropicBillingError(c, finalizeErr)
-	}
-
-	if err := h.pipeline.Settle(c.Context(), SettlementRequest{
-		Reservation: reservation,
-		TenantID:    authInfo.TenantID,
-		Actual:      finalized,
-		RequestID:   tunnelReq.RequestID,
-		BillingMode: tunnelReq.Deployment.BillingMode,
-	}); err != nil {
-		return writeAnthropicError(c, fiber.StatusPaymentRequired, "billing_error", err.Error())
-	}
-
-	responseTimeMS := int(time.Since(start).Milliseconds())
-	logEntry := buildRequestLogEntry(c, authInfo, tunnelReq.Deployment, requestedModel, "/v1/messages", "messages", "success", response.StatusCode, start, responseTimeMS)
-	logEntry.RequestID = tunnelReq.RequestID
-	logEntry.TraceID = tunnelReq.TraceID
-	logEntry.CostUSD = finalized.TotalCostUSD
-	logEntry.CostIRR = finalized.TotalCostIRR
-	logEntry.InputTokens = finalized.InputTokens
-	logEntry.OutputTokens = finalized.OutputTokens
-	logEntry.TotalTokens = finalized.TotalTokens
-	logEntry.RequestBody = buildJSONRequestLogPayload(originalBody, nil)
-	logEntry.ResponseBody = buildJSONResponseLogPayload(response.Body, nil)
-	requestLog.FinalizeEntry(c.Context(), logEntry)
-
-	logSpendBestEffort(h.logger, h.logs, c.Context(), platform.SpendLog{
-		RequestID:      tunnelReq.RequestID,
-		TokenHash:      authInfo.TokenHash,
-		TenantID:       authInfo.TenantID,
-		OrganizationID: authInfo.OrganizationID,
-		TeamID:         authInfo.TeamID,
-		Model:          requestedModel,
-		InputTokens:    finalized.InputTokens,
-		OutputTokens:   finalized.OutputTokens,
-		TotalTokens:    finalized.TotalTokens,
-		CostUSD:        finalized.TotalCostUSD,
-		CostIRR:        finalized.TotalCostIRR,
-		ResponseTimeMS: responseTimeMS,
-		Status:         "success",
-		RequestMetadata: enrichPricingMetadata(tunnelReq.RequestMetadata, authInfo,
-			requestedModel),
-		CompletionStart: start,
-		CompletionEnd:   time.Now(),
-	})
-
-	h.emitModelMetric(metricsobs.BuildInput{
-		TS:                 time.Now().UTC(),
-		TenantID:           authInfo.TenantID,
-		RequestID:          tunnelReq.RequestID,
-		ModelName:          requestedModel,
-		ProviderName:       tunnelReq.Deployment.Provider,
-		ProviderModelName:  tunnelReq.Deployment.Model,
-		RequestType:        "messages",
-		UserID:             authInfo.UserID,
-		VirtualAccountID:   authInfo.KeyID,
-		VirtualAccountName: authInfo.KeyAlias,
-		TeamIDs:            nonEmptySlice([]string{authInfo.TeamID}),
-		StatusCode:         response.StatusCode,
-		LatencyMS:          responseTimeMS,
-		InputTokens:        finalized.InputTokens,
-		OutputTokens:       finalized.OutputTokens,
-		CostUSD:            finalized.TotalCostUSD,
-		Metadata: enrichMetricMetadataForDeployment(map[string]interface{}{
-			"endpoint":    "/v1/messages",
-			"key_type":    authInfo.KeyType,
-			"team_id":     authInfo.TeamID,
-			"org_unit_id": authInfo.OrgUnitID,
-			"tenant_slug": tenantSlug,
-		}, tunnelReq.Deployment),
-	})
-
-	forwardProviderHeaders(c, response.Headers)
-	setCostHeaders(c, finalized)
-
-	if contentType := response.Headers["Content-Type"]; contentType != "" {
-		c.Set(fiber.HeaderContentType, contentType)
-	} else {
-		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-	}
-
-	return c.Status(response.StatusCode).Send(response.Body)
+	return tokenBazaarHandleSync(
+		c, h.pipeline, h.billing, h.logs, h.logger, h.emitModelMetric, tokenBazaarMessagesSyncConfig,
+		requestedModel, originalBody, authInfo, estimated, tunnelReq, reservation, start, tenantSlug, requestLog,
+	)
 }
 
 // handleStream delegates to the shared streamAnthropicShapedResponse

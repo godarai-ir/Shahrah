@@ -452,11 +452,12 @@ func (s tokenBazaarPricingStrategy) FinalizeUsage(input pricingUsageInput) (plat
 }
 
 // tokenBazaarImageModelFamily identifies which direct provider's image cost
-// dimensions a TokenBazaar image model's pinned catalog costs follow. This
-// mirrors tokenBazaarImageModels in
-// services/silk-road/pkg/server/tokenbazaar.go (kept in sync manually since
-// the two packages do not share a dependency edge); if a 5th TokenBazaar
-// image model is ever added, it must be classified here too.
+// dimensions a TokenBazaar image model's pinned catalog costs follow. The
+// model -> family mapping itself lives in
+// packages/contracts/platform.TokenBazaarImageModelFamilies, the single
+// source of truth also used by services/silk-road's tokenbazaar adapter for
+// dispatch gating; if a 5th TokenBazaar image model is ever added, it only
+// needs to be classified there.
 //
 // The model id is normalized to its bare, provider-facing form first. The
 // production caller reaches FinalizeImage through
@@ -473,14 +474,7 @@ func tokenBazaarImageModelFamily(model string) string {
 		model = officialModel
 	}
 
-	switch model {
-	case "gpt-image-2":
-		return "openai"
-	case "gemini-3-pro-image", "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image":
-		return "google-gemini"
-	default:
-		return ""
-	}
+	return platform.TokenBazaarImageModelFamily(model)
 }
 
 func (tokenBazaarPricingStrategy) FinalizeImage(input pricingImageInput) (platform.UsageCostBreakdown, error) {

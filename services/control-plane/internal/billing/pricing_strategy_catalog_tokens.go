@@ -2,7 +2,6 @@ package billing
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -223,37 +222,20 @@ func mistralUsageCostBreakdown(model string, usage *openai.Usage, price priceInf
 		}
 	}
 
-	dimensions := make([]string, 0, len(quantities))
-	for dimension := range quantities {
-		dimensions = append(dimensions, dimension)
-	}
+	totalExact, inputExact, outputExact, components, err := accumulateUsageCostDimensions(
+		quantities,
+		func(dimension string) bool { return dimension == outputDimension || strings.Contains(dimension, "output") },
+		func(dimension string, _ int64) (normalizedPricingRate, error) {
+			rate, rateErr := selectOpenAIRate(price.RateList, dimension, usage.PromptTokens, "", conditions)
+			if rateErr != nil {
+				return normalizedPricingRate{}, fmt.Errorf("%w: missing or ambiguous Mistral rate for %s", ErrPricingUnavailable, dimension)
+			}
 
-	sort.Strings(dimensions)
-
-	totalExact, inputExact, outputExact := decimal.Zero, decimal.Zero, decimal.Zero
-
-	components := make([]platform.UsageCostComponent, 0, len(dimensions))
-	for _, dimension := range dimensions {
-		quantity := quantities[dimension]
-		if quantity == 0 {
-			continue
-		}
-
-		rate, rateErr := selectOpenAIRate(price.RateList, dimension, usage.PromptTokens, "", conditions)
-		if rateErr != nil {
-			return platform.UsageCostBreakdown{}, fmt.Errorf("%w: missing or ambiguous Mistral rate for %s", ErrPricingUnavailable, dimension)
-		}
-
-		cost := rate.UnitPriceUSD.Mul(decimal.NewFromInt(quantity))
-
-		totalExact = totalExact.Add(cost)
-		if dimension == outputDimension || strings.Contains(dimension, "output") {
-			outputExact = outputExact.Add(cost)
-		} else {
-			inputExact = inputExact.Add(cost)
-		}
-
-		components = append(components, usageCostComponent(dimension, quantity, rate))
+			return rate, nil
+		},
+	)
+	if err != nil {
+		return platform.UsageCostBreakdown{}, err
 	}
 
 	inputUSD, _ := inputExact.Float64()
